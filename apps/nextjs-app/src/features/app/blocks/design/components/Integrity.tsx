@@ -37,7 +37,7 @@ const LegacyIntegrityButton = ({ baseId, tableId }: { baseId: string; tableId: s
         {isLoading ? (
           <div className="flex items-center justify-center py-2">
             <Loader2 className="size-6 animate-spin" />
-            <span className="ml-2">{t('table:table.integrity.loading')}</span>
+            <span className="ms-2">{t('table:table.integrity.loading')}</span>
           </div>
         ) : (
           <div className="py-2">
@@ -49,7 +49,7 @@ const LegacyIntegrityButton = ({ baseId, tableId }: { baseId: string; tableId: s
 
                 <div className="max-h-96 max-w-md overflow-y-auto">
                   {data.linkFieldIssues?.map((issues, index) => (
-                    <div key={index} className="mb-2 ml-4 text-sm">
+                    <div key={index} className="mb-2 ms-4 text-sm">
                       {issues.issues.map((issue) => (
                         <div key={issue.type}>
                           <div>
@@ -74,7 +74,7 @@ const LegacyIntegrityButton = ({ baseId, tableId }: { baseId: string; tableId: s
             ) : (
               <div className="flex items-center justify-center py-2">
                 <Check className="size-6 text-green-500" />
-                <span className="ml-2 text-green-500">{t('table:table.integrity.allGood')}</span>
+                <span className="ms-2 text-green-500">{t('table:table.integrity.allGood')}</span>
               </div>
             )}
           </div>
@@ -102,7 +102,7 @@ export const IntegrityButton = () => {
   if (isLoading) {
     return (
       <Button size="xs" variant="outline" disabled>
-        <Loader2 className="mr-2 size-4 animate-spin" />
+        <Loader2 className="me-2 size-4 animate-spin" />
         {t('table:table.integrity.check')}
       </Button>
     );

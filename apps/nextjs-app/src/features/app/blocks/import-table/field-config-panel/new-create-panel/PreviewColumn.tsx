@@ -52,7 +52,7 @@ export const PreviewColumn = (props: IPreviewColumnProps) => {
         <TableRow>
           <TableHead className="w-56">{t('table:field.fieldName')}</TableHead>
           <TableHead>{t('table:field.fieldType')}</TableHead>
-          <TableHead className="text-right"></TableHead>
+          <TableHead className="text-end"></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -84,14 +84,14 @@ export const PreviewColumn = (props: IPreviewColumnProps) => {
                 optionRender={(option) => {
                   return (
                     <div className="flex items-center truncate">
-                      <span className="mr-1 shrink-0">{option.icon}</span>
+                      <span className="me-1 shrink-0">{option.icon}</span>
                       <span>{option.label}</span>
                     </div>
                   );
                 }}
               ></BaseSingleSelect>
             </TableCell>
-            <TableCell className="text-right">
+            <TableCell className="text-end">
               <Button
                 variant="ghost"
                 size="xs"

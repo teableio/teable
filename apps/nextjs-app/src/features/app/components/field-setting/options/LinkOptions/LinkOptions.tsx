@@ -150,7 +150,7 @@ export const LinkOptions = (props: {
       )}
       {foreignTableId && (
         <div className="flex flex-col gap-2 border-t pt-4">
-          <div className="flex h-8 items-center space-x-2">
+          <div className="flex h-8 items-center space-x-2 rtl:space-x-reverse">
             <Switch
               id="field-options-one-way-link"
               checked={!isOneWay}
@@ -163,7 +163,7 @@ export const LinkOptions = (props: {
               {t('table:field.editor.createSymmetricLink')}
             </Label>
           </div>
-          <div className="flex h-8 items-center space-x-2">
+          <div className="flex h-8 items-center space-x-2 rtl:space-x-reverse">
             <Switch
               id="field-options-self-multi"
               checked={isLeftMulti(relationship)}
@@ -175,7 +175,7 @@ export const LinkOptions = (props: {
               {t('table:field.editor.allowLinkMultipleRecords')}
             </Label>
           </div>
-          <div className="flex h-8 items-center space-x-2">
+          <div className="flex h-8 items-center space-x-2 rtl:space-x-reverse">
             <Switch
               id="field-options-sym-multi"
               checked={isRightMulti(relationship)}

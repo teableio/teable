@@ -1450,6 +1450,95 @@ describe('v2 computed field updates (e2e)', () => {
       });
 
       /**
+       * Scenario: Boolean rollup over a checkbox lookup that includes an
+       * unchecked row. v1 reference: rollup.e2e-spec.ts:880 — unchecked
+       * checkboxes are stored as null (T6520), so {values} only contains true
+       * and and({values}) must stay true.
+       */
+      it('evaluates and/or/xor over unchecked checkboxes as if they were absent', async () => {
+        const foreignPrimaryId = createFieldId();
+        const foreignFlagId = createFieldId();
+        const foreign = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: 'RollupBoolForeign',
+          fields: [
+            { type: 'singleLineText', id: foreignPrimaryId, name: 'Label', isPrimary: true },
+            { type: 'checkbox', id: foreignFlagId, name: 'Flag' },
+          ],
+          views: [{ type: 'grid' }],
+        });
+        const alpha = await ctx.createRecord(foreign.id, {
+          [foreignPrimaryId]: 'Alpha',
+          [foreignFlagId]: true,
+        });
+        const beta = await ctx.createRecord(foreign.id, {
+          [foreignPrimaryId]: 'Beta',
+          [foreignFlagId]: false,
+        });
+
+        const hostPrimaryId = createFieldId();
+        const hostLinkId = createFieldId();
+        const host = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: 'RollupBoolHost',
+          fields: [
+            { type: 'singleLineText', id: hostPrimaryId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: hostLinkId,
+              name: 'Rows',
+              options: {
+                relationship: 'manyMany',
+                foreignTableId: foreign.id,
+                lookupFieldId: foreignPrimaryId,
+                isOneWay: true,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const rollups = [
+          { expression: 'and({values})', expected: true },
+          { expression: 'or({values})', expected: true },
+          { expression: 'xor({values})', expected: true },
+        ];
+        const rollupFieldIds: string[] = [];
+        for (const rollup of rollups) {
+          const rollupFieldId = createFieldId();
+          rollupFieldIds.push(rollupFieldId);
+          await ctx.createField({
+            baseId: ctx.baseId,
+            tableId: host.id,
+            field: {
+              type: 'rollup',
+              id: rollupFieldId,
+              name: `Rollup ${rollup.expression}`,
+              options: { expression: rollup.expression },
+              config: {
+                linkFieldId: hostLinkId,
+                foreignTableId: foreign.id,
+                lookupFieldId: foreignFlagId,
+              },
+            },
+          });
+        }
+
+        const hostRecord = await ctx.createRecord(host.id, {
+          [hostPrimaryId]: 'Holder',
+          [hostLinkId]: [{ id: alpha.id }, { id: beta.id }],
+        });
+        await ctx.testContainer.processOutbox();
+
+        const records = await listRecords(host.id);
+        const holder = records.find((r) => r.id === hostRecord.id);
+        expect(holder).toBeDefined();
+        rollups.forEach((rollup, index) => {
+          expect(holder?.fields[rollupFieldIds[index]], rollup.expression).toBe(rollup.expected);
+        });
+      });
+
+      /**
        * Scenario: Rollup updates when link relation changes.
        */
       it('updates rollup when link relation changes', async () => {
@@ -1819,18 +1908,19 @@ describe('v2 computed field updates (e2e)', () => {
       // Verify computed update steps - should cascade A -> B -> C
       const plan = ctx.testContainer.getLastComputedPlan();
       expect(plan).toBeDefined();
-      // Cross-table chain: LookupA in B, then LookupB in C
-      expect(plan!.steps.length).toBe(1);
+      // Explicit-seed linkTraversal updates probe the full chain in one abort-mode
+      // stage (LookupA in B, then LookupB in C) instead of one level per task.
+      expect(plan!.steps.length).toBe(2);
       const nameMaps = buildMultiTableNameMaps([
         { id: tableA.id, name: 'ChainA', fields: [{ id: aValueFieldId, name: 'Value' }] },
         { id: tableB.id, name: 'ChainB', fields: [{ id: bLookupFieldId, name: 'LookupA' }] },
         { id: tableC.id, name: 'ChainC', fields: [{ id: cLookupFieldId, name: 'LookupB' }] },
       ]);
-      // Note: The exact steps depend on outbox processing; may show partial chain
       expect(printComputedSteps(plan!, nameMaps)).toMatchInlineSnapshot(`
-        "[Computed Steps: 1]
-          L0: ChainC -> [LookupB]
-        [Edges: 1]"
+        "[Computed Steps: 2]
+          L0: ChainB -> [LookupA]
+          L1: ChainC -> [LookupB]
+        [Edges: 2]"
       `);
     });
 
@@ -2605,6 +2695,354 @@ describe('v2 computed field updates (e2e)', () => {
 
       // The scientific-notation string is ignored (coerces to NULL -> 0), valid numbers are summed.
       expect(total).toBe(9250);
+    });
+
+    /**
+     * Scenario: Pure lookup chain across four tables.
+     * v1 reference: computed-orchestrator.e2e-spec.ts (propagates multi-level lookup chain across four tables)
+     *
+     * T1.A -> T2.L2 = lookup(T1.A) -> T3.L3 = lookup(T2.L2) -> T4.L4 = lookup(T3.L3)
+     * Updating T1.A must cascade through all three lookup levels.
+     */
+    it('propagates multi-level lookup chain across four tables', async () => {
+      const asNumberArray = (value: unknown): unknown => {
+        if (typeof value === 'string') {
+          const parsed = parseJsonArrayCell(value);
+          if (parsed) return parsed;
+        }
+        return value;
+      };
+
+      // T1: base number
+      const t1NameFieldId = createFieldId();
+      const t1ValueFieldId = createFieldId();
+      const t1 = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Chain4_T1_${getRandomString(6)}`,
+        fields: [
+          { type: 'singleLineText', id: t1NameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: t1ValueFieldId, name: 'A' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const t1Record = await ctx.createRecord(t1.id, {
+        [t1NameFieldId]: 'T1-1',
+        [t1ValueFieldId]: 2,
+      });
+
+      // T2: manyMany link -> T1, L2 = lookup(T1.A)
+      const t2NameFieldId = createFieldId();
+      const t2LinkFieldId = createFieldId();
+      const t2LookupFieldId = createFieldId();
+      const t2 = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Chain4_T2_${getRandomString(6)}`,
+        fields: [
+          { type: 'singleLineText', id: t2NameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: t2LinkFieldId,
+            name: 'L_T1',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: t1.id,
+              lookupFieldId: t1NameFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: t2.id,
+        field: {
+          type: 'lookup',
+          id: t2LookupFieldId,
+          name: 'L2',
+          options: {
+            linkFieldId: t2LinkFieldId,
+            foreignTableId: t1.id,
+            lookupFieldId: t1ValueFieldId,
+          },
+        },
+      });
+      const t2Record = await ctx.createRecord(t2.id, {
+        [t2NameFieldId]: 'T2-1',
+        [t2LinkFieldId]: [{ id: t1Record.id }],
+      });
+
+      // T3: manyMany link -> T2, L3 = lookup(T2.L2)
+      const t3NameFieldId = createFieldId();
+      const t3LinkFieldId = createFieldId();
+      const t3LookupFieldId = createFieldId();
+      const t3 = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Chain4_T3_${getRandomString(6)}`,
+        fields: [
+          { type: 'singleLineText', id: t3NameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: t3LinkFieldId,
+            name: 'L_T2',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: t2.id,
+              lookupFieldId: t2NameFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: t3.id,
+        field: {
+          type: 'lookup',
+          id: t3LookupFieldId,
+          name: 'L3',
+          options: {
+            linkFieldId: t3LinkFieldId,
+            foreignTableId: t2.id,
+            lookupFieldId: t2LookupFieldId,
+          },
+        },
+      });
+      const t3Record = await ctx.createRecord(t3.id, {
+        [t3NameFieldId]: 'T3-1',
+        [t3LinkFieldId]: [{ id: t2Record.id }],
+      });
+
+      // T4: manyMany link -> T3, L4 = lookup(T3.L3)
+      const t4NameFieldId = createFieldId();
+      const t4LinkFieldId = createFieldId();
+      const t4LookupFieldId = createFieldId();
+      const t4 = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Chain4_T4_${getRandomString(6)}`,
+        fields: [
+          { type: 'singleLineText', id: t4NameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: t4LinkFieldId,
+            name: 'L_T3',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: t3.id,
+              lookupFieldId: t3NameFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: t4.id,
+        field: {
+          type: 'lookup',
+          id: t4LookupFieldId,
+          name: 'L4',
+          options: {
+            linkFieldId: t4LinkFieldId,
+            foreignTableId: t3.id,
+            lookupFieldId: t3LookupFieldId,
+          },
+        },
+      });
+      const t4Record = await ctx.createRecord(t4.id, {
+        [t4NameFieldId]: 'T4-1',
+        [t4LinkFieldId]: [{ id: t3Record.id }],
+      });
+
+      // Settle initial propagation across all levels
+      let t4Records = await listRecords(t4.id);
+      expect(
+        asNumberArray(t4Records.find((r) => r.id === t4Record.id)?.fields[t4LookupFieldId])
+      ).toEqual([2]);
+
+      // Update the root value; all three lookup levels must recompute
+      await ctx.updateRecord(t1.id, t1Record.id, { [t1ValueFieldId]: 9 });
+
+      const t2Records = await listRecords(t2.id);
+      const t3Records = await listRecords(t3.id);
+      t4Records = await listRecords(t4.id);
+      expect(
+        asNumberArray(t2Records.find((r) => r.id === t2Record.id)?.fields[t2LookupFieldId])
+      ).toEqual([9]);
+      expect(
+        asNumberArray(t3Records.find((r) => r.id === t3Record.id)?.fields[t3LookupFieldId])
+      ).toEqual([9]);
+      expect(
+        asNumberArray(t4Records.find((r) => r.id === t4Record.id)?.fields[t4LookupFieldId])
+      ).toEqual([9]);
+    });
+
+    /**
+     * Scenario: Interleaved lookup dependencies across tables (table-level cycle
+     * without a field-level cycle).
+     * v1 reference: computed-orchestrator.e2e-spec.ts (handles interleaved lookup dependencies across tables)
+     *
+     * T2 looks up T1.A and T3.CBase; T3 looks up T2.LKP_A.
+     * Updating T1.A must propagate to T2.LKP_A and then T3.LKP_T2_A while
+     * T2.LKP_C remains untouched.
+     */
+    it('handles interleaved lookup dependencies across tables', async () => {
+      const asNumberArray = (value: unknown): unknown => {
+        if (typeof value === 'string') {
+          const parsed = parseJsonArrayCell(value);
+          if (parsed) return parsed;
+        }
+        return value;
+      };
+
+      // T1: base number
+      const t1NameFieldId = createFieldId();
+      const t1ValueFieldId = createFieldId();
+      const t1 = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Interleave_T1_${getRandomString(6)}`,
+        fields: [
+          { type: 'singleLineText', id: t1NameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: t1ValueFieldId, name: 'A' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const t1Record = await ctx.createRecord(t1.id, {
+        [t1NameFieldId]: 'T1-1',
+        [t1ValueFieldId]: 1,
+      });
+
+      // T3: base number consumed by T2 (creates the table-level cycle later)
+      const t3NameFieldId = createFieldId();
+      const t3BaseFieldId = createFieldId();
+      const t3 = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Interleave_T3_${getRandomString(6)}`,
+        fields: [
+          { type: 'singleLineText', id: t3NameFieldId, name: 'Name', isPrimary: true },
+          { type: 'number', id: t3BaseFieldId, name: 'CBase' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const t3Record = await ctx.createRecord(t3.id, {
+        [t3NameFieldId]: 'T3-1',
+        [t3BaseFieldId]: 5,
+      });
+
+      // T2: lookup T1.A via link to T1; lookup T3.CBase via link to T3
+      const t2NameFieldId = createFieldId();
+      const t2LinkT1FieldId = createFieldId();
+      const t2LookupAFieldId = createFieldId();
+      const t2LinkT3FieldId = createFieldId();
+      const t2LookupCFieldId = createFieldId();
+      const t2 = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Interleave_T2_${getRandomString(6)}`,
+        fields: [
+          { type: 'singleLineText', id: t2NameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: t2LinkT1FieldId,
+            name: 'L_T1',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: t1.id,
+              lookupFieldId: t1NameFieldId,
+            },
+          },
+          {
+            type: 'link',
+            id: t2LinkT3FieldId,
+            name: 'L_T3',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: t3.id,
+              lookupFieldId: t3NameFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: t2.id,
+        field: {
+          type: 'lookup',
+          id: t2LookupAFieldId,
+          name: 'LKP_A',
+          options: {
+            linkFieldId: t2LinkT1FieldId,
+            foreignTableId: t1.id,
+            lookupFieldId: t1ValueFieldId,
+          },
+        },
+      });
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: t2.id,
+        field: {
+          type: 'lookup',
+          id: t2LookupCFieldId,
+          name: 'LKP_C',
+          options: {
+            linkFieldId: t2LinkT3FieldId,
+            foreignTableId: t3.id,
+            lookupFieldId: t3BaseFieldId,
+          },
+        },
+      });
+      const t2Record = await ctx.createRecord(t2.id, {
+        [t2NameFieldId]: 'T2-1',
+        [t2LinkT1FieldId]: [{ id: t1Record.id }],
+        [t2LinkT3FieldId]: [{ id: t3Record.id }],
+      });
+
+      // T3 also looks up T2.LKP_A (T2 depends on T3 and T3 depends on T2 at
+      // the table level, but there is no field-level cycle)
+      const t3LinkT2FieldId = createFieldId();
+      const t3LookupFromT2FieldId = createFieldId();
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: t3.id,
+        field: {
+          type: 'link',
+          id: t3LinkT2FieldId,
+          name: 'L_T2',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: t2.id,
+            lookupFieldId: t2NameFieldId,
+          },
+        },
+      });
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: t3.id,
+        field: {
+          type: 'lookup',
+          id: t3LookupFromT2FieldId,
+          name: 'LKP_T2_A',
+          options: {
+            linkFieldId: t3LinkT2FieldId,
+            foreignTableId: t2.id,
+            lookupFieldId: t2LookupAFieldId,
+          },
+        },
+      });
+      await ctx.updateRecord(t3.id, t3Record.id, {
+        [t3LinkT2FieldId]: [{ id: t2Record.id }],
+      });
+      await drainOutbox();
+
+      // Update the root value and verify interleaved propagation
+      await ctx.updateRecord(t1.id, t1Record.id, { [t1ValueFieldId]: 7 });
+
+      const t2Records = await listRecords(t2.id);
+      const t3Records = await listRecords(t3.id);
+      const t2Row = t2Records.find((r) => r.id === t2Record.id);
+      const t3Row = t3Records.find((r) => r.id === t3Record.id);
+      expect(asNumberArray(t2Row?.fields[t2LookupAFieldId])).toEqual([7]);
+      expect(asNumberArray(t2Row?.fields[t2LookupCFieldId])).toEqual([5]);
+      expect(asNumberArray(t3Row?.fields[t3LookupFromT2FieldId])).toEqual([7]);
     });
   });
 
@@ -3551,22 +3989,22 @@ describe('v2 computed field updates (e2e)', () => {
         await ctx.testContainer.processOutbox();
         await ctx.testContainer.processOutbox();
 
-        // Verify computed plan includes the lookup field update
-        const plan = ctx.testContainer.getLastComputedPlan();
-        if (plan) {
-          // Should have at least 2 steps:
-          // 1. Child.Parent (manyOne link) - level 0
-          // 2. Child.ParentName (lookup) - level 1
-          // Note: Parent.Children (oneMany) is correctly skipped (FK not in Parent table)
-          expect(plan.steps.length).toBeGreaterThanOrEqual(2);
-
-          // Verify lookup field is in the steps
-          const lookupStep = plan.steps.find((s) =>
-            s.fieldIds.some((f) => f.toString() === childLookupFieldId)
-          );
-          expect(lookupStep).toBeDefined();
-          expect(lookupStep!.level).toBe(1); // Lookup depends on symmetric link, so level 1
-        }
+        // Verify computed plans include the lookup field update. Stage budgets
+        // execute one dependency level per transaction, so the steps spread
+        // across several staged plans — aggregate them.
+        const stagedPlans = ctx.testContainer.getComputedPlans();
+        expect(stagedPlans.length).toBeGreaterThanOrEqual(1);
+        const allSteps = stagedPlans.flatMap((p) => p.steps);
+        // Across the run:
+        // 1. Child.Parent (manyOne link) - level 0
+        // 2. Child.ParentName (lookup) - level 1
+        // Note: Parent.Children (oneMany) is correctly skipped (FK not in Parent table)
+        expect(allSteps.length).toBeGreaterThanOrEqual(2);
+        const lookupStep = allSteps.find((s) =>
+          s.fieldIds.some((f) => f.toString() === childLookupFieldId)
+        );
+        expect(lookupStep).toBeDefined();
+        expect(lookupStep!.level).toBe(1); // Lookup depends on symmetric link, so level 1
 
         // Verify Child record now has the correct ParentName lookup value
         const childRecordsAfter = await listRecords(tableChild.id);
@@ -5709,6 +6147,76 @@ describe('v2 computed field updates (e2e)', () => {
             -------------------------------------------"
           `);
       });
+
+      /**
+       * Scenario: The updateRecord HTTP response itself carries the recomputed
+       * same-record formula value (inline computed update), not just the
+       * written base fields.
+       * v1 reference: formula-inline-computed-update.e2e-spec.ts
+       *   (returns the updated same-record formula value in the PATCH response)
+       */
+      it('returns the updated same-record formula value in the update response', async () => {
+        const validFieldId = createFieldId();
+        const priceFieldId = createFieldId();
+        const orderTypeFieldId = createFieldId();
+        const commissionFieldId = createFieldId();
+
+        const table = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: `InlineFormulaUpdate_${getRandomString(6)}`,
+          fields: [
+            {
+              type: 'singleSelect',
+              id: validFieldId,
+              name: 'Commission Valid',
+              isPrimary: true,
+              options: {
+                choices: [
+                  { name: 'Yes', color: 'green' },
+                  { name: 'No', color: 'red' },
+                ],
+              },
+            },
+            { type: 'number', id: priceFieldId, name: 'Price' },
+            {
+              type: 'singleSelect',
+              id: orderTypeFieldId,
+              name: 'Order Type',
+              options: {
+                choices: [
+                  { name: 'New', color: 'blue' },
+                  { name: 'Renewal', color: 'yellow' },
+                ],
+              },
+            },
+            {
+              type: 'formula',
+              id: commissionFieldId,
+              name: 'Commission',
+              options: {
+                expression: `IF({${validFieldId}} = "No", 0, IF({${priceFieldId}} > 0, ROUND(IF({${orderTypeFieldId}} = "New", {${priceFieldId}} * 0.15, {${priceFieldId}} * 0.10), 2), 0))`,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const record = await ctx.createRecord(table.id, {
+          [validFieldId]: 'Yes',
+          [priceFieldId]: 480,
+          [orderTypeFieldId]: 'New',
+        });
+
+        const initialRecords = await listRecords(table.id);
+        expect(initialRecords.find((r) => r.id === record.id)?.fields[commissionFieldId]).toBe(72);
+
+        // The PATCH response record must include the recomputed formula inline
+        const responseRecord = await ctx.updateRecord(table.id, record.id, {
+          [validFieldId]: 'No',
+        });
+        expect(responseRecord.fields[validFieldId]).toBe('No');
+        expect(responseRecord.fields[commissionFieldId]).toBe(0);
+      });
     });
 
     describe('delete record', () => {
@@ -6774,6 +7282,72 @@ describe('v2 computed field updates (e2e)', () => {
   // ===========================================================================
 
   describe('conditionalRollup field updates', () => {
+    /**
+     * Scenario: conditionalRollup with a dynamic "today" date filter.
+     * v1 reference: conditional-rollup.e2e-spec today-filter case (T6520 list).
+     */
+    it('only counts foreign rows whose date is today with a dynamic today filter', async () => {
+      const foreignPrimaryId = createFieldId();
+      const foreignDateId = createFieldId();
+      const foreign = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'CondRollupTodayForeign',
+        fields: [
+          { type: 'singleLineText', id: foreignPrimaryId, name: 'Name', isPrimary: true },
+          { type: 'date', id: foreignDateId, name: 'When' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      await ctx.createRecord(foreign.id, {
+        [foreignPrimaryId]: 'today-row',
+        [foreignDateId]: new Date().toISOString(),
+      });
+      await ctx.createRecord(foreign.id, {
+        [foreignPrimaryId]: 'old-row',
+        [foreignDateId]: '2020-01-01T00:00:00.000Z',
+      });
+
+      const hostPrimaryId = createFieldId();
+      const rollupId = createFieldId();
+      const host = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'CondRollupTodayHost',
+        fields: [
+          { type: 'singleLineText', id: hostPrimaryId, name: 'Name', isPrimary: true },
+          {
+            type: 'conditionalRollup',
+            id: rollupId,
+            name: 'Today Count',
+            options: { expression: 'countall({values})' },
+            config: {
+              foreignTableId: foreign.id,
+              lookupFieldId: foreignPrimaryId,
+              condition: {
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignDateId,
+                      operator: 'is',
+                      value: { mode: 'today', timeZone: 'UTC' },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const holder = await ctx.createRecord(host.id, { [hostPrimaryId]: 'Holder' });
+      await ctx.testContainer.processOutbox();
+
+      const records = await listRecords(host.id);
+      const row = records.find((r) => r.id === holder.id);
+      expect(row?.fields[rollupId]).toBe(1);
+    });
+
     /**
      * Scenario: ConditionalRollup with simple filter condition.
      * Foreign table has records with different values, filter by value > threshold.
@@ -9070,15 +9644,16 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.testContainer.processOutbox();
 
       const records = await listRecordsWithoutDrain(hostTable.id);
-      expectCellDisplay(records, 0, fieldIds[fieldIds.length - 1], '[true, false]');
+      // v1 contract: unchecked checkboxes are stored as null, so only true survives the lookup
+      expectCellDisplay(records, 0, fieldIds[fieldIds.length - 1], '[true]');
       expect(printTableSnapshot(hostTable.name, fieldNames, records, fieldIds))
         .toMatchInlineSnapshot(`
           "[ConditionalLookup Boolean Host]
-          --------------------------
+          -------------------------
           #  | Name  | Active Flags
-          --------------------------
-          R0 | Host1 | [true, false]
-          --------------------------"
+          -------------------------
+          R0 | Host1 | [true]
+          -------------------------"
         `);
     });
 
@@ -10233,11 +10808,11 @@ describe('v2 computed field updates (e2e)', () => {
       expect(printTableSnapshot(hostTable.name, fieldNames, afterRecords, fieldIds))
         .toMatchInlineSnapshot(`
           "[CL_IF_Host]
-          ------------------------------------------
-          #  | Name  | Flag  | ActiveAmounts | Delta
-          ------------------------------------------
-          R0 | Host1 | false | [5]           | 1
-          ------------------------------------------"
+          -----------------------------------------
+          #  | Name  | Flag | ActiveAmounts | Delta
+          -----------------------------------------
+          R0 | Host1 | -    | [5]           | 1
+          -----------------------------------------"
         `);
     });
   });
@@ -10831,12 +11406,89 @@ describe('v2 computed field updates (e2e)', () => {
      * Scenario: Formula string concatenation over multi-value fields (e.g., multi-select) does not hit CASE type mismatches.
      * v1 reference: computed-orchestrator.e2e-spec.ts (computes string formula referencing multi-value field without CASE type mismatch)
      *
-     * NOTE: Implement after v2 "update columns" (computed persistence / SQL expression casting) is implemented,
-     * since this regression historically surfaced during computed persistence in Postgres.
+     * Historically Postgres errored with "CASE types text and jsonb cannot be
+     * matched" when a string formula concatenated a multi-value column inside
+     * IF branches during computed persistence.
      */
-    test.todo(
-      'String formula over multi-value fields: Implement after update-columns to ensure no CASE type mismatches in persisted computed SQL'
-    );
+    it('computes string formula referencing multi-value field without CASE type mismatch', async () => {
+      const brandFieldId = createFieldId();
+      const codeFieldId = createFieldId();
+      const nameFieldId = createFieldId();
+
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Formula_String_MultiValue_${getRandomString(6)}`,
+        fields: [
+          { type: 'singleLineText', id: codeFieldId, name: 'Code', isPrimary: true },
+          {
+            type: 'multipleSelect',
+            id: brandFieldId,
+            name: 'Brand List',
+            options: {
+              choices: [
+                { name: 'Alpha', color: 'blue' },
+                { name: 'Beta', color: 'red' },
+              ],
+            },
+          },
+          { type: 'singleLineText', id: nameFieldId, name: 'Display Name' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const codeValue = 'BP-001';
+      const nameValue = 'Sample Product';
+      const record = await ctx.createRecord(table.id, {
+        [codeFieldId]: codeValue,
+        [brandFieldId]: ['Alpha', 'Beta'],
+        [nameFieldId]: nameValue,
+      });
+
+      const expression = `
+IF(
+  OR(
+    LEN({${brandFieldId}} & "") = 0,
+    LEN({${codeFieldId}} & "") = 0,
+    LEN({${nameFieldId}} & "") = 0
+  ),
+  "",
+  "B:/版权品/" &
+  IF(
+    FIND(",", {${brandFieldId}} & "") > 0,
+    LEFT({${brandFieldId}} & "", FIND(",", {${brandFieldId}} & "") - 1),
+    {${brandFieldId}}
+  ) &
+  "/" & {${codeFieldId}} & " " & {${nameFieldId}}
+)`.trim();
+
+      const formulaFieldId = createFieldId();
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: table.id,
+        field: {
+          type: 'formula',
+          id: formulaFieldId,
+          name: 'Computed Path',
+          options: { expression },
+        },
+      });
+
+      let records = await listRecords(table.id);
+      const firstValue = records.find((r) => r.id === record.id)?.fields[formulaFieldId];
+      expect(typeof firstValue).toBe('string');
+      expect(String(firstValue).startsWith('B:/版权品/')).toBe(true);
+      expect(String(firstValue)).toContain('Alpha');
+      expect(String(firstValue)).toContain(`${codeValue} ${nameValue}`);
+
+      await ctx.updateRecord(table.id, record.id, { [brandFieldId]: ['Beta'] });
+
+      records = await listRecords(table.id);
+      const secondValue = records.find((r) => r.id === record.id)?.fields[formulaFieldId];
+      expect(typeof secondValue).toBe('string');
+      expect(String(secondValue).startsWith('B:/版权品/')).toBe(true);
+      expect(String(secondValue)).toContain('Beta');
+      expect(String(secondValue)).toContain(`${codeValue} ${nameValue}`);
+    });
 
     /**
      * Scenario: Single-value date lookups used directly by date formulas.
@@ -11035,12 +11687,59 @@ describe('v2 computed field updates (e2e)', () => {
     /**
      * Scenario: Divide/modulo by zero does not crash computed persistence.
      * v1 reference: computed-orchestrator.e2e-spec.ts (handles divide and modulo by zero during computed persistence)
-     *
-     * NOTE: Implement after v2 "update columns" is implemented, to validate persistence/update stability.
      */
-    test.todo(
-      'Divide/modulo by zero in formula persistence: Implement after update-columns to ensure computed updates remain stable'
-    );
+    it('handles divide and modulo by zero during computed persistence', async () => {
+      const numeratorFieldId = createFieldId();
+      const denominatorFieldId = createFieldId();
+      const ratioFieldId = createFieldId();
+      const remainderFieldId = createFieldId();
+
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Formula_Divide_Zero_${getRandomString(6)}`,
+        fields: [
+          { type: 'number', id: numeratorFieldId, name: 'Numerator', isPrimary: true },
+          { type: 'number', id: denominatorFieldId, name: 'Denominator' },
+          {
+            type: 'formula',
+            id: ratioFieldId,
+            name: 'Ratio',
+            options: { expression: `{${numeratorFieldId}} / {${denominatorFieldId}}` },
+          },
+          {
+            type: 'formula',
+            id: remainderFieldId,
+            name: 'Remainder',
+            options: { expression: `{${numeratorFieldId}} % {${denominatorFieldId}}` },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const record = await ctx.createRecord(table.id, {
+        [numeratorFieldId]: 10,
+        [denominatorFieldId]: 0,
+      });
+
+      const records = await listRecords(table.id);
+      const row = records.find((r) => r.id === record.id);
+      expect(row?.fields[ratioFieldId] ?? null).toBeNull();
+      expect(row?.fields[remainderFieldId] ?? null).toBeNull();
+
+      // Subsequent updates through the zero denominator stay stable as well
+      await ctx.updateRecord(table.id, record.id, { [numeratorFieldId]: 25 });
+      const updatedRows = await listRecords(table.id);
+      const updated = updatedRows.find((r) => r.id === record.id);
+      expect(updated?.fields[ratioFieldId] ?? null).toBeNull();
+      expect(updated?.fields[remainderFieldId] ?? null).toBeNull();
+
+      // Restoring a non-zero denominator computes real values again
+      await ctx.updateRecord(table.id, record.id, { [denominatorFieldId]: 4 });
+      const finalRows = await listRecords(table.id);
+      const final = finalRows.find((r) => r.id === record.id);
+      expect(final?.fields[ratioFieldId]).toBe(6.25);
+      expect(final?.fields[remainderFieldId]).toBe(1);
+    });
   });
 
   // =============================================================================
@@ -11237,11 +11936,15 @@ describe('v2 computed field updates (e2e)', () => {
       await ctx.updateRecord(tableA.id, aRecords[0].id, { [aValueFieldId]: 999 });
       await ctx.testContainer.processOutbox();
 
-      // Verify computed plan - seed should be A0
+      // Verify computed plan - seed should be A0. Staged execution may migrate
+      // the explicit seed into the stage-ledger frontier queue at floor entry.
       const plan = ctx.testContainer.getLastComputedPlan();
       expect(plan).toBeDefined();
-      expect(plan!.seedRecordIds.length).toBe(1);
-      expect(plan!.seedRecordIds[0]).toBe(aRecords[0].id);
+      const effectiveSeedIds = [
+        ...plan!.seedRecordIds,
+        ...ctx.testContainer.spyLogger.getMigratedSeedGroups().flatMap((group) => group.recordIds),
+      ];
+      expect(effectiveSeedIds).toEqual([aRecords[0].id]);
 
       // Verify only B records linked to A0 (B0, B5) have updated lookup values
       const afterBRecords = await listRecords(tableB.id);

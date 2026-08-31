@@ -1,8 +1,10 @@
 import {
   domainError,
   SearchDocumentFieldContributionVisitor,
+  searchFieldTextProjectionKey,
   type DomainError,
   type SearchDocumentFieldContribution,
+  type SearchFieldTextProjection,
   type Table,
 } from '@teable/v2-core';
 import { err, ok } from 'neverthrow';
@@ -11,7 +13,7 @@ import type { Result } from 'neverthrow';
 export type TableSearchDocumentFieldDefinition = SearchDocumentFieldContribution & {
   readonly included: true;
   readonly fieldDbName: string;
-  readonly textProjection: 'text_cast';
+  readonly textProjection: SearchFieldTextProjection;
 };
 
 export type TableSearchAccessPathDefinition = {
@@ -35,12 +37,20 @@ export type BuildTableSearchAccessPathDefinitionOptions = {
   readonly fieldIds?: readonly string[];
 };
 
+/** All-field generated documents are refused at or above these sizes. */
+export const WIDE_TABLE_ALL_FIELD_DOCUMENT_MIN_FIELD_COUNT = 30;
+export const WIDE_TABLE_ALL_FIELD_DOCUMENT_MIN_SEARCHABLE_COUNT = 20;
 const languageConfigPattern = /^[\w.]+$/;
 
-export const buildTableSearchAccessPathDefinition = (
-  table: Table,
-  options: BuildTableSearchAccessPathDefinitionOptions = {}
-): Result<TableSearchAccessPathDefinition, DomainError> => {
+type ResolvedDefinitionOptions = {
+  readonly semantics: 'substring' | 'lexical';
+  readonly provider: 'pg_trgm' | 'pg_bigm' | 'tsvector';
+  readonly languageConfig: string;
+};
+
+const resolveDefinitionOptions = (
+  options: BuildTableSearchAccessPathDefinitionOptions
+): Result<ResolvedDefinitionOptions, DomainError> => {
   const semantics = options.semantics ?? 'substring';
   const provider = options.provider ?? (semantics === 'lexical' ? 'tsvector' : 'pg_trgm');
   if (semantics === 'substring' && provider === 'tsvector') {
@@ -55,15 +65,32 @@ export const buildTableSearchAccessPathDefinition = (
   if (!languageConfigPattern.test(languageConfig)) {
     return err(domainError.validation({ message: 'Invalid search vector language config' }));
   }
+  return ok({ semantics, provider, languageConfig });
+};
 
-  const selectedIds = options.fieldIds?.length ? new Set(options.fieldIds) : undefined;
+type CollectedDocumentFields = {
+  readonly fields: readonly TableSearchDocumentFieldDefinition[];
+  readonly skippedFields: readonly SearchDocumentFieldContribution[];
+};
+
+const skippedContribution = (
+  contribution: SearchDocumentFieldContribution
+): SearchDocumentFieldContribution => ({
+  ...contribution,
+  included: false,
+  skippedReason: 'unsupported_search_field_type',
+});
+
+const collectSearchDocumentFields = (
+  table: Table,
+  selectedIds: ReadonlySet<string> | undefined
+): Result<CollectedDocumentFields, DomainError> => {
   const visitor = new SearchDocumentFieldContributionVisitor();
   const fields: TableSearchDocumentFieldDefinition[] = [];
   const skippedFields: SearchDocumentFieldContribution[] = [];
 
   for (const field of table.getFields()) {
-    const fieldId = field.id().toString();
-    if (selectedIds && !selectedIds.has(fieldId)) continue;
+    if (selectedIds && !selectedIds.has(field.id().toString())) continue;
 
     const contribution = field.accept(visitor);
     if (contribution.isErr()) return err(contribution.error);
@@ -73,12 +100,9 @@ export const buildTableSearchAccessPathDefinition = (
     }
 
     const dbFieldName = field.dbFieldName().andThen((name) => name.value());
-    if (dbFieldName.isErr()) {
-      skippedFields.push({
-        ...contribution.value,
-        included: false,
-        skippedReason: 'unsupported_search_field_type',
-      });
+    const textProjection = contribution.value.textProjection;
+    if (dbFieldName.isErr() || !textProjection) {
+      skippedFields.push(skippedContribution(contribution.value));
       continue;
     }
 
@@ -86,15 +110,72 @@ export const buildTableSearchAccessPathDefinition = (
       ...contribution.value,
       included: true,
       fieldDbName: dbFieldName.value,
-      textProjection: 'text_cast',
+      textProjection,
     });
   }
 
-  const tableId = table.id().toString();
-  const definitionKey = `${tableId}:${semantics}:${provider}:${
-    semantics === 'lexical' ? languageConfig : 'none'
-  }:${fields.map((field) => `${field.fieldId}=${field.fieldDbName}`).join(',')}`;
+  return ok({ fields, skippedFields });
+};
 
+const refuseWideTableAllFieldDocument = (
+  collected: CollectedDocumentFields
+): CollectedDocumentFields => ({
+  fields: [],
+  skippedFields: [
+    ...collected.skippedFields,
+    ...collected.fields.map((field) => ({
+      fieldId: field.fieldId,
+      fieldType: field.fieldType,
+      ...(field.valueType ? { valueType: field.valueType } : {}),
+      included: false as const,
+      skippedReason: 'wide_table_all_field_document' as const,
+    })),
+  ],
+});
+
+const buildDefinitionKey = (
+  tableId: string,
+  resolved: ResolvedDefinitionOptions,
+  fields: readonly TableSearchDocumentFieldDefinition[]
+): string =>
+  `${tableId}:${resolved.semantics}:${resolved.provider}:${
+    resolved.semantics === 'lexical' ? resolved.languageConfig : 'none'
+  }:${fields
+    .map(
+      (field) =>
+        `${field.fieldId}=${field.fieldDbName}:${searchFieldTextProjectionKey(field.textProjection)}`
+    )
+    .join(',')}`;
+
+const resolveIndexKind = (
+  provider: ResolvedDefinitionOptions['provider'],
+  hasFields: boolean
+): TableSearchAccessPathDefinition['indexKind'] => {
+  if (!hasFields) return 'none';
+  if (provider === 'pg_bigm') return 'gin_bigm';
+  return provider === 'pg_trgm' ? 'gin_trgm' : 'gin_tsvector';
+};
+
+export const buildTableSearchAccessPathDefinition = (
+  table: Table,
+  options: BuildTableSearchAccessPathDefinitionOptions = {}
+): Result<TableSearchAccessPathDefinition, DomainError> => {
+  const resolvedOptions = resolveDefinitionOptions(options);
+  if (resolvedOptions.isErr()) return err(resolvedOptions.error);
+  const { semantics, provider, languageConfig } = resolvedOptions.value;
+
+  const selectedIds = options.fieldIds?.length ? new Set(options.fieldIds) : undefined;
+  const collected = collectSearchDocumentFields(table, selectedIds);
+  if (collected.isErr()) return err(collected.error);
+  const wideTableAllFieldDocument =
+    !selectedIds &&
+    (table.getFields().length >= WIDE_TABLE_ALL_FIELD_DOCUMENT_MIN_FIELD_COUNT ||
+      collected.value.fields.length >= WIDE_TABLE_ALL_FIELD_DOCUMENT_MIN_SEARCHABLE_COUNT);
+  const { fields, skippedFields } = wideTableAllFieldDocument
+    ? refuseWideTableAllFieldDocument(collected.value)
+    : collected.value;
+
+  const tableId = table.id().toString();
   return ok({
     tableId,
     baseId: table.baseId().toString(),
@@ -108,15 +189,8 @@ export const buildTableSearchAccessPathDefinition = (
           ? 'generated_text'
           : 'generated_tsvector'
         : 'none',
-    indexKind:
-      fields.length > 0
-        ? provider === 'pg_bigm'
-          ? 'gin_bigm'
-          : provider === 'pg_trgm'
-            ? 'gin_trgm'
-            : 'gin_tsvector'
-        : 'none',
-    definitionKey,
+    indexKind: resolveIndexKind(provider, fields.length > 0),
+    definitionKey: buildDefinitionKey(tableId, resolvedOptions.value, fields),
     fields,
     skippedFields,
   });

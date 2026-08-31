@@ -9,6 +9,7 @@ import { useTranslation } from '../../context/app/i18n';
 import type { IButtonClickStatusHook } from '../../hooks';
 import {
   useBaseId,
+  useCommentPermission,
   useRecordOperations,
   useTableId,
   useTablePermission,
@@ -76,14 +77,16 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   } = props;
   const { t } = useTranslation();
   const tables = useTables();
+  const baseId = useBaseId();
   const currentTableId = useTableId();
   const { onHighlightTable, navigateToTable } = useExpandRecordNavigation();
   const permission = useTablePermission();
   const { duplicateRecord } = useRecordOperations();
   // Record history is intentionally hidden inside a share view: it would leak
   // collaborator identities and prior values to external link visitors. The
-  // record|comment / record|create gates (for comment/duplicate) are handled
-  // by ExpandRecordHeader via useTablePermission and don't need a context check.
+  // record|create gate (duplicate) is handled by ExpandRecordHeader via
+  // useTablePermission and doesn't need a context check; the comment gates live
+  // in useCommentPermission, which carries the same share-view exclusion.
   const { shareId } = useContext(ShareViewContext);
   const isShareContext = Boolean(shareId);
 
@@ -116,8 +119,8 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
     }
   }, [isForeignTable, tableId, recordId, onHighlightTable]);
   const editable = Boolean(permission['record|update']);
-  const canRead = Boolean(permission['record|read']);
   const canDelete = Boolean(permission['record|delete']);
+  const { commentReadable } = useCommentPermission();
   const [recordHistoryVisible, setRecordHistoryVisible] = useState<boolean>(Boolean(showHistory));
 
   const [commentVisible, setCommentVisible] = useLocalStorage<boolean>(
@@ -172,8 +175,26 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   };
 
   const onCopyUrl = () => {
-    const url = window.location.href;
-    syncCopy(url);
+    // A record of another table (a linked record opened from a link cell) can't be
+    // addressed by this page's url — copying the address bar would hand out a link to
+    // whatever THIS page is showing. Build the record's own url instead, the same shape
+    // the card context menu uses; it lands on the foreign table's default view.
+    if (isForeignTable) {
+      syncCopy(`${window.location.origin}/base/${baseId}/table/${tableId}?recordId=${recordId}`);
+      toast.success(t('expandRecord.copy'));
+      return;
+    }
+    const url = new URL(window.location.href);
+    // The address bar is the link, but not every view puts the expanded record in it:
+    // kanban / gallery / calendar expand through component state, so their url stops at
+    // the view and the copied link would not open the record (teableio/teable#3626).
+    // Only rewrite when it is actually pointing somewhere else — setting any param
+    // re-serializes the whole query (a `%20` comes back as `+`), while an untouched URL
+    // round-trips through toString() byte-for-byte.
+    if (url.searchParams.get('recordId') !== recordId) {
+      url.searchParams.set('recordId', recordId);
+    }
+    syncCopy(url.toString());
     toast.success(t('expandRecord.copy'));
   };
 
@@ -198,7 +219,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
           commentId={commentId}
           serverData={serverData?.id === recordId ? serverData : undefined}
           recordHistoryVisible={!isShareContext && editable && recordHistoryVisible}
-          commentVisible={canRead && commentVisible}
+          commentVisible={commentReadable && commentVisible}
           foreignTableName={foreignTableName}
           onForeignTableClick={
             isForeignTable && tableId !== currentTableId
@@ -208,7 +229,9 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
           onClose={onClose}
           onPrev={updateCurrentRecordId}
           onNext={updateCurrentRecordId}
-          onCopyUrl={onCopyUrl}
+          // inside a share view there is no baseId, so no url can address a foreign
+          // record — hide the copy button rather than copy a wrong link
+          onCopyUrl={isForeignTable && !baseId ? undefined : onCopyUrl}
           onDuplicate={viewId ? onDuplicate : undefined}
           onRecordHistoryToggle={isShareContext ? undefined : onRecordHistoryToggle}
           onCommentToggle={onCommentToggle}

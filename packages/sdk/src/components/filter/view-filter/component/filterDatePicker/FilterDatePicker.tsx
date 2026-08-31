@@ -6,6 +6,7 @@ import type {
 } from '@teable/core';
 import {
   dateRange,
+  defaultDatetimeFormatting,
   exactDate,
   FieldType,
   getValidFilterSubOperators,
@@ -15,6 +16,7 @@ import { Input, cn } from '@teable/ui-lib';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '../../../../../context/app/i18n';
 import type { DateField } from '../../../../../model';
+import { useInDrawer } from '../../../../adaptive-panel';
 import { DateEditor } from '../../../../editor';
 import { useDateI18nMap } from '../../hooks';
 import { BaseSingleSelect } from '../base';
@@ -63,12 +65,16 @@ interface IDatePickerInputProps {
   innerValue: IDateFilter | null;
   datePickerSelect: (val: string | null | undefined, mode?: ISubOperator) => void;
   fieldOptions: DateField['options'];
+  modal?: boolean;
+  className?: string;
 }
 
 const DatePickerInput = memo(function DatePickerInput({
   innerValue,
   datePickerSelect,
   fieldOptions,
+  modal,
+  className,
 }: IDatePickerInputProps) {
   const handleChange = useCallback(
     (value: string | null | undefined) => datePickerSelect(value, innerValue?.mode),
@@ -81,7 +87,8 @@ const DatePickerInput = memo(function DatePickerInput({
       onChange={handleChange}
       options={fieldOptions}
       disableTimePicker={true}
-      className="h-8 w-40 text-xs"
+      modal={modal}
+      className={cn('h-8 w-40 text-xs', className)}
     />
   );
 });
@@ -92,12 +99,16 @@ interface IDateRangeInputProps {
     val: { exactDate?: string; exactDateEnd?: string; timeZone: ITimeZoneString } | null
   ) => void;
   fieldOptions: DateField['options'];
+  modal?: boolean;
+  className?: string;
 }
 
 const DateRangeInput = memo(function DateRangeInput({
   innerValue,
   dateRangeSelect,
   fieldOptions,
+  modal,
+  className,
 }: IDateRangeInputProps) {
   const rangeValue = useMemo(
     () =>
@@ -116,7 +127,8 @@ const DateRangeInput = memo(function DateRangeInput({
       value={rangeValue}
       onChange={dateRangeSelect}
       options={fieldOptions}
-      className="text-xs"
+      modal={modal}
+      className={cn('text-xs', className)}
     />
   );
 });
@@ -124,9 +136,14 @@ const DateRangeInput = memo(function DateRangeInput({
 interface INumberInputProps {
   innerValue: IDateFilter | null;
   onSelect: (value: IDateFilter | null) => void;
+  className?: string;
 }
 
-const NumberInput = memo(function NumberInput({ innerValue, onSelect }: INumberInputProps) {
+const NumberInput = memo(function NumberInput({
+  innerValue,
+  onSelect,
+  className,
+}: INumberInputProps) {
   const { t } = useTranslation();
 
   const handleInput = useCallback((e: React.FormEvent<HTMLInputElement>) => {
@@ -147,23 +164,35 @@ const NumberInput = memo(function NumberInput({ innerValue, onSelect }: INumberI
     <Input
       placeholder={t('filter.default.placeholder')}
       defaultValue={innerValue?.numberOfDays ?? ''}
-      className="w-24 placeholder:text-xs"
+      className={cn('w-24 placeholder:text-xs', className)}
       onInput={handleInput}
       onChange={handleChange}
     />
   );
 });
 
+function getFieldDatetimeFormatting(field: DateField) {
+  const getter = (
+    field as DateField & {
+      getDatetimeFormatting?: () => { timeZone?: string } | undefined;
+    }
+  ).getDatetimeFormatting;
+  if (typeof getter === 'function') {
+    return getter.call(field) ?? defaultDatetimeFormatting;
+  }
+  return field.options?.formatting ?? defaultDatetimeFormatting;
+}
+
 function FilterDatePicker(props: IFilerDatePickerProps) {
   const { value: initValue, operator, onSelect, field, modal, className, onModeChange } = props;
+  const { t } = useTranslation();
+  const inDrawer = useInDrawer();
   const defaultConfig = operator === isWithIn.value ? withInDefaultValue : defaultValue;
   const [innerValue, setInnerValue] = useState<IDateFilter | null>(
     () => initValue ?? defaultConfig
   );
   const dateMap = useDateI18nMap();
-  const fieldTimeZone =
-    field.options.formatting.timeZone ??
-    (Intl.DateTimeFormat().resolvedOptions().timeZone as ITimeZoneString);
+  const fieldTimeZone = getFieldDatetimeFormatting(field).timeZone;
 
   const previousInitRef = useRef<IDateFilter | null>(initValue ?? null);
   const previousOperatorRef = useRef<string>(operator);
@@ -358,6 +387,11 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
           innerValue={innerValue}
           datePickerSelect={datePickerSelect}
           fieldOptions={field.options}
+          // Drawer only: forwarding this on desktop would flip the
+          // field-setting calendar popover from non-modal to modal, a change
+          // on a surface this PR does not otherwise touch.
+          modal={inDrawer ? modal : undefined}
+          className={inDrawer ? 'min-w-[120px] flex-1' : undefined}
         />
       );
     }
@@ -368,26 +402,41 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
           innerValue={innerValue}
           dateRangeSelect={dateRangeSelect}
           fieldOptions={field.options}
+          modal={inDrawer ? modal : undefined}
+          className={inDrawer ? 'min-w-[120px] flex-1' : undefined}
         />
       );
     }
 
     if (INPUTOPTIONS.includes(mode)) {
-      return <NumberInput innerValue={innerValue} onSelect={onSelect} />;
+      return (
+        <NumberInput
+          innerValue={innerValue}
+          onSelect={onSelect}
+          className={inDrawer ? 'min-w-[120px] flex-1' : undefined}
+        />
+      );
     }
 
     return null;
   };
 
   return (
-    <div className={cn('flex items-center gap-2', className)}>
+    <div
+      className={cn(
+        'flex items-center gap-2',
+        inDrawer && 'w-full min-w-0 items-stretch',
+        className
+      )}
+    >
       <BaseSingleSelect
         options={selectOptions}
         onSelect={mergedOnSelect}
         value={innerValue?.mode || null}
         defaultLabel={currentValueLabel}
-        className={cn('h-8 min-w-[8rem] flex-1', className)}
+        className={cn('h-8 min-w-[8rem] flex-1', inDrawer && 'w-auto min-w-[120px]', className)}
         popoverClassName="w-max"
+        drawerTitle={t('filter.selectDateMode')}
         modal={modal}
       />
       {renderInputComponent()}

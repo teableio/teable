@@ -5,6 +5,10 @@
     "password": "Пароль",
     "passwordTooShort": "Пароль должен содержать не менее 3 символов"
   },
+  "form": {
+    "requireLoginTip": "Для отправки этой формы необходимо войти в систему",
+    "login": "Войти"
+  },
   "toolbar": {
     "filterLinkSelectPlaceholder": "Выберите..."
   },

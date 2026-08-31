@@ -2,6 +2,7 @@
 import KeyvRedis from '@keyv/redis';
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { Redis } from 'ioredis';
 import Keyv from 'keyv';
 import { floor } from 'lodash';
 import type { RedlockAbortSignal } from 'redlock';
@@ -9,10 +10,21 @@ import Redlock, { ExecutionError, ResourceLockedError } from 'redlock';
 import { CacheMetricsService } from './cache-metrics/metrics.service';
 import type { ICacheOptions, ICacheStats, IPerformanceCacheStore } from './types';
 
+type ICachedValue<V> = { data: V; gen?: number };
+
+/** Internal plumbing between wrap()/set(): the generation captured before loading. */
+type ICacheSetOptions = ICacheOptions & { generation?: number };
+
+// Invariant: must outlive the longest value TTL (currently 24h). If a
+// generation key expired while its value was still alive, the generation
+// would read as 0 again and a stale gen-0 blob could be served.
+const GENERATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerformanceCacheStore> {
   private readonly logger = new Logger(PerformanceCacheService.name);
   private keyv!: Keyv;
+  private redis?: Redis;
   private redlock?: Redlock;
   private enabled = false;
   private typeStats: Partial<Record<string, { hits: number; misses: number }>> = {};
@@ -46,6 +58,7 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
       // Initialize Keyv for caching
       const store = new KeyvRedis(redisUri, { useRedisSets: false });
       this.keyv = new Keyv({ namespace: 'teable_perf', store });
+      this.redis = store.redis;
 
       this.keyv.on('error', (error) => {
         this.logger.error(
@@ -115,8 +128,39 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
     return this.enabled && this.redlock != null;
   }
 
-  private setValueToKeyv(key: string, value: T[keyof T], ttlMs: number | undefined) {
-    return this.keyv.set(key as string, { data: value }, ttlMs);
+  private generationKey(key: string): string {
+    // Raw redis key outside the keyv namespace so it can be INCRed atomically.
+    return `perf:gen:${key}`;
+  }
+
+  private async readGeneration(key: string): Promise<number> {
+    if (!this.redis) {
+      return 0;
+    }
+    const parsed = Number(await this.redis.get(this.generationKey(key)));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  private async bumpGeneration(key: string): Promise<void> {
+    if (!this.redis) {
+      return;
+    }
+    // Atomic INCR keeps concurrent del() bumps from collapsing into one.
+    await this.redis
+      .multi()
+      .incr(this.generationKey(key))
+      .pexpire(this.generationKey(key), GENERATION_TTL_MS)
+      .exec();
+  }
+
+  private setValueToKeyv(
+    key: string,
+    value: T[keyof T],
+    ttlMs: number | undefined,
+    generation?: number
+  ) {
+    const payload: ICachedValue<T[keyof T]> = { data: value, gen: generation ?? 0 };
+    return this.keyv.set(key as string, payload, ttlMs);
   }
 
   /**
@@ -126,25 +170,58 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
     if (!this.isAvailable() || options.skipGet) {
       return null;
     }
+    return (await this.getWithGeneration(key, options)).cached;
+  }
+
+  /**
+   * Get the cached value and the current generation together, so wrap() can
+   * reuse the generation for the reload instead of reading it again.
+   * With skipGet only the value read is skipped: the reload still needs a
+   * generation captured before loading.
+   */
+  private async getWithGeneration<TKey extends keyof T>(
+    key: TKey,
+    options: ICacheOptions = {}
+  ): Promise<{ cached: ICachedValue<T[TKey]> | null; generation: number }> {
     try {
       const startTime = Date.now();
-      const value = await this.keyv.get(key as string);
+      // Two commands issued in parallel: latency is max, not sum.
+      const [value, currentGen] = await Promise.all([
+        options.skipGet ? undefined : this.keyv.get(key as string),
+        this.readGeneration(key as string),
+      ]);
       const endTime = Date.now();
       const durationMs = endTime - startTime;
-      options.statsType && this.cacheMetricsService?.recordGetTime(options.statsType, durationMs);
+      if (!options.skipGet && options.statsType) {
+        this.cacheMetricsService?.recordGetTime(options.statsType, durationMs);
+      }
       if (value == undefined) {
+        if (!options.skipGet) {
+          this.stats.misses++;
+          this.recordTypeStats('misses', options.statsType);
+        }
+        return { cached: null, generation: currentGen };
+      }
+
+      const cached = value as ICachedValue<T[TKey]>;
+      if ((cached.gen ?? 0) !== currentGen) {
+        // No delete here: a slow reader could race a concurrent set() and
+        // remove the fresh value. The stale blob stays invisible to readers
+        // and is overwritten by the next set() or expires by TTL.
         this.stats.misses++;
         this.recordTypeStats('misses', options.statsType);
-        return null;
+        return { cached: null, generation: currentGen };
       }
 
       this.stats.hits++;
       this.recordTypeStats('hits', options.statsType);
-      return value as { data: T[TKey] };
+      return { cached, generation: currentGen };
     } catch (error) {
       this.logger.error('Error getting cache value:', error);
       this.stats.errors++;
-      return null;
+      // Generation 0 on error can only under-stamp the reload: the written
+      // value becomes invisible, never stale.
+      return { cached: null, generation: 0 };
     }
   }
 
@@ -154,7 +231,7 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
   async set<TKey extends keyof T>(
     key: TKey,
     value: T[TKey],
-    options: ICacheOptions = {}
+    options: ICacheSetOptions = {}
   ): Promise<void> {
     if (!this.isAvailable() || options.skipSet) {
       return;
@@ -166,8 +243,9 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
 
     try {
       const ttlMs = options.ttl ? options.ttl * 1000 : undefined;
+      const generation = options.generation ?? (await this.readGeneration(key as string));
 
-      await this.setValueToKeyv(key as string, value, ttlMs);
+      await this.setValueToKeyv(key as string, value, ttlMs, generation);
       this.stats.sets++;
     } catch (error) {
       this.logger.error(
@@ -187,7 +265,7 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
     }
 
     try {
-      await this.keyv.delete(key as string);
+      await Promise.all([this.keyv.delete(key as string), this.bumpGeneration(key as string)]);
       this.stats.deletes++;
     } catch (error) {
       this.logger.error('Error deleting cache value:', error);
@@ -197,6 +275,9 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
 
   /**
    * Batch get cache values
+   *
+   * Skips the generation check: do not use on keys invalidated via del()
+   * without wiring generations in first.
    */
   async mget<TKey extends keyof T>(
     keys: TKey[],
@@ -216,7 +297,7 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
         }
         this.stats.hits++;
         this.recordTypeStats('hits', options.statsType);
-        return value as T[TKey];
+        return (value as ICachedValue<T[TKey]>).data;
       });
     } catch (error) {
       this.logger.error(
@@ -229,6 +310,9 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
 
   /**
    * Batch set cache values
+   *
+   * Stamps generation 0: after any del() of the same key these values are
+   * invisible to get()/wrap(); wire generations in before mixing with del().
    */
   async mset(
     keyValuePairs: Array<{ key: keyof T; value: T[keyof T] }>,
@@ -317,15 +401,16 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
       return fn();
     }
 
-    // Try to get from cache first
-    const cached = await this.get(key, options);
+    // Try to get from cache first; the same round trip captures the
+    // generation to stamp onto a reload.
+    const { cached, generation } = await this.getWithGeneration(key, options);
     if (cached !== null) {
-      return cached?.data as TResult;
+      return cached.data as TResult;
     }
 
     // If concurrent prevention is disabled or redlock unavailable, execute directly
     if (!finalOptions.preventConcurrent || !this.isRedlockAvailable()) {
-      return this.executeAndCache(key, fn, options);
+      return this.executeAndCache(key, fn, { ...options, generation });
     }
 
     // Use redlock for distributed locking
@@ -342,31 +427,37 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
             throw signal.error;
           }
 
-          // Check cache again in case another instance already populated it
-          const cachedAfterLock = await this.get(key, options);
+          // Check cache again in case another instance already populated it.
+          // The generation is re-captured inside the lock so a del() during
+          // the wait is not stamped onto a value loaded after invalidation.
+          const { cached: cachedAfterLock, generation: lockedGeneration } =
+            await this.getWithGeneration(key, options);
           if (cachedAfterLock !== null) {
             this.logger.debug(`Cache populated by another instance: ${cacheKeyStr}`);
-            return cachedAfterLock?.data as TResult;
+            return cachedAfterLock.data as TResult;
           }
 
           // Check again before executing (in case of long operations)
           if (signal.aborted) {
             throw signal.error;
           }
-          // Execute and cache the result
           this.logger.debug(`Executing with distributed lock: ${cacheKeyStr}`);
-          return await this.executeAndCache(key, fn, options);
+          return await this.executeAndCache(key, fn, {
+            ...options,
+            generation: lockedGeneration,
+          });
         }
       );
     } catch (error: unknown) {
       if (error instanceof ResourceLockedError || error instanceof ExecutionError) {
         this.logger.error(`Redlock error for ${cacheKeyStr}: ${error}`);
         await new Promise((resolve) => setTimeout(resolve, 50));
-        const cachedAfterLock = await this.get(key, options);
+        const { cached: cachedAfterLock, generation: retryGeneration } =
+          await this.getWithGeneration(key, options);
         if (cachedAfterLock !== null) {
-          return cachedAfterLock?.data as TResult;
+          return cachedAfterLock.data as TResult;
         }
-        return this.executeAndCache(key, fn, options);
+        return this.executeAndCache(key, fn, { ...options, generation: retryGeneration });
       }
       this.stats.errors++;
       // Fallback to direct execution
@@ -380,7 +471,7 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
   private async executeAndCache<TResult>(
     key: keyof T,
     fn: () => Promise<TResult>,
-    options: ICacheOptions = {}
+    options: ICacheSetOptions = {}
   ): Promise<TResult> {
     // Execute the function
     const result = await fn();

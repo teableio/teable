@@ -6,10 +6,12 @@ import {
   CreateFieldCommand,
   CreateRecordCommand,
   CreateTableCommand,
+  Table,
   type CreateFieldResult,
   type CreateRecordResult,
   type CreateTableResult,
   type ICommandBus,
+  type ITableRepository,
   v2CoreTokens,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -314,5 +316,48 @@ describe('CreateRecordHandler (db)', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().message.toLowerCase()).toContain('not found');
+  });
+
+  it('rehydrates the table aggregate once per createRecord request T6815', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const { table } = await createTestTable(commandBus, baseId.toString(), 'Rehydrate Cache Table');
+    const titleField = table.getFields().find((field) => field.name().toString() === 'Title');
+    expect(titleField).toBeDefined();
+    if (!titleField) return;
+
+    const repository = container.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+    let findOneCount = 0;
+    let rehydrateCount = 0;
+    const originalFindOne = repository.findOne.bind(repository);
+    repository.findOne = (async (...args: Parameters<ITableRepository['findOne']>) => {
+      findOneCount += 1;
+      return originalFindOne(...args);
+    }) as ITableRepository['findOne'];
+    const originalRehydrate = Table.rehydrate.bind(Table);
+    Table.rehydrate = ((props) => {
+      rehydrateCount += 1;
+      return originalRehydrate(props);
+    }) as typeof Table.rehydrate;
+
+    try {
+      const createRecordCommand = CreateRecordCommand.create({
+        tableId: table.id().toString(),
+        fields: {
+          [titleField.id().toString()]: 'Cached table',
+        },
+      })._unsafeUnwrap();
+
+      const result = await commandBus.execute<CreateRecordCommand, CreateRecordResult>(
+        createContext(),
+        createRecordCommand
+      );
+      expect(result.isOk()).toBe(true);
+
+      expect(findOneCount).toBe(1);
+      expect(rehydrateCount).toBe(2);
+    } finally {
+      Table.rehydrate = originalRehydrate;
+    }
   });
 });

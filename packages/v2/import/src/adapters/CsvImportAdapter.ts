@@ -26,19 +26,21 @@ export class CsvImportAdapter implements IImportSourceAdapter {
     source: IImportSource,
     options?: IImportOptions
   ): Promise<Result<IImportParseResult, DomainError>> {
-    // URL source: return async iterator
+    if (source.stream) {
+      return this.parseData(await collectAsyncText(source.stream), options);
+    }
+
     if (source.url) {
       return this.parseUrl(source.url, options);
     }
 
-    // Data source: return sync iterator
     if (source.data !== undefined) {
       return this.parseData(source.data, options);
     }
 
     return err(
       domainError.validation({
-        message: 'CSV source must have url or data',
+        message: 'CSV source must have url, data, or stream',
         code: 'import.csv.invalid_source',
       })
     );
@@ -112,46 +114,6 @@ export class CsvImportAdapter implements IImportSourceAdapter {
     }
   }
 
-  /** Create async row iterator */
-  private async *createAsyncRowIterator(
-    reader: ReadableStreamDefaultReader<Uint8Array>,
-    initialBuffer: string,
-    decoder: TextDecoder,
-    options?: IImportOptions
-  ): AsyncIterable<ReadonlyArray<unknown>> {
-    let buffer = initialBuffer;
-
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      // Process by line
-      const lines = buffer.split('\n');
-      buffer = lines.pop() ?? ''; // Keep incomplete line
-
-      for (const rawLine of lines) {
-        const line = rawLine.replace(/\r$/, '');
-        if (line.trim()) {
-          const result = Papa.parse(line, { delimiter: options?.delimiter });
-          if (result.data[0]) {
-            yield result.data[0] as unknown[];
-          }
-        }
-      }
-    }
-
-    // Process last line
-    const lastLine = buffer.replace(/\r$/, '');
-    if (lastLine.trim()) {
-      const result = Papa.parse(lastLine, { delimiter: options?.delimiter });
-      if (result.data[0]) {
-        yield result.data[0] as unknown[];
-      }
-    }
-  }
-
   /** Parse data - return sync iterator */
   private async parseData(
     data: string | Uint8Array,
@@ -171,7 +133,7 @@ export class CsvImportAdapter implements IImportSourceAdapter {
       // Use generator for memory efficiency
       const rows = this.createRowsIterable(dataRows);
 
-      return ok({ headers, rows });
+      return ok({ headers, rows, rowCount: dataRows.length });
     } catch (error) {
       return err(
         domainError.infrastructure({
@@ -187,16 +149,14 @@ export class CsvImportAdapter implements IImportSourceAdapter {
       yield row;
     }
   }
-
-  private async *prependHeaderRow(
-    headerRow: string[] | null,
-    rowsAsync: AsyncIterable<ReadonlyArray<unknown>>
-  ): AsyncIterable<ReadonlyArray<unknown>> {
-    if (headerRow) {
-      yield headerRow;
-    }
-    for await (const row of rowsAsync) {
-      yield row;
-    }
-  }
 }
+
+const collectAsyncText = async (stream: AsyncIterable<Uint8Array | string>): Promise<string> => {
+  const decoder = new TextDecoder();
+  let text = '';
+  for await (const chunk of stream) {
+    text += typeof chunk === 'string' ? chunk : decoder.decode(chunk, { stream: true });
+  }
+  text += decoder.decode();
+  return text;
+};

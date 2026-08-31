@@ -6,8 +6,7 @@ import type {
   RealtimeChange,
   RealtimeDocId,
 } from '@teable/v2-core';
-import { domainError } from '@teable/v2-core';
-import { RealtimeDocId as RealtimeDocIdValue } from '@teable/v2-core';
+import { domainError, RealtimeDocId as RealtimeDocIdValue } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -96,10 +95,15 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
     switch (change.type) {
       case 'set': {
         // json0 object replace: { p: path, od: oldValue, oi: newValue }
-        if (Object.prototype.hasOwnProperty.call(change, 'oldValue')) {
-          return [{ p: path, oi: change.value, od: change.oldValue }];
+        // `undefined` is not expressible in json0: it vanishes during JSON
+        // serialization, leaving an instruction-less `{ p }` component that
+        // crashes ot-json0 ("invalid / missing instruction in op") on every
+        // client applying the op. Normalize absent values to `null` instead.
+        const value = change.value === undefined ? null : change.value;
+        if (change.oldValue !== undefined) {
+          return [{ p: path, oi: value, od: change.oldValue }];
         }
-        return [{ p: path, oi: change.value }];
+        return [{ p: path, oi: value }];
       }
       case 'insert': {
         // json0 list insert: { p: path.concat(index), li: value }
@@ -119,7 +123,8 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
 
   async delete(
     context: IExecutionContext,
-    docId: RealtimeDocId
+    docId: RealtimeDocId,
+    options?: RealtimeApplyChangeOptions
   ): Promise<Result<void, DomainError>> {
     const docIdResult = RealtimeDocIdValue.parse(docId);
     if (docIdResult.isErr()) return err(docIdResult.error);
@@ -131,7 +136,7 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
       op: undefined,
       src: this.toProjectionSource(context.requestId),
       seq: 1,
-      v: 1,
+      v: options?.version ?? 1,
       m: {
         ts: Date.now(),
       },
@@ -141,6 +146,26 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
 
     const channels = [collection, `${collection}.${documentId}`];
     return this.publisher.publish(channels, op);
+  }
+
+  async invalidateCollection(
+    context: IExecutionContext,
+    collection: string,
+    change: RealtimeChange
+  ): Promise<Result<void, DomainError>> {
+    const op: ShareDbOp = {
+      create: undefined,
+      del: undefined,
+      op: this.toJson0Op(change),
+      src: this.toProjectionSource(context.requestId),
+      seq: 1,
+      v: 0,
+      m: {
+        ts: Date.now(),
+      },
+      c: collection,
+    };
+    return this.publisher.publish([collection], op);
   }
 
   private toProjectionSource(requestId: string | undefined): string {

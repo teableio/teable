@@ -19,7 +19,9 @@ export enum JwtAuthInternalType {
 }
 
 const workflowContextSchema = z.object({
-  actionId: z.string().optional(),
+  actionId: z.string(),
+  workflowId: z.string(),
+  workflowName: z.string().optional(),
 });
 
 export type IWorkflowContext = z.infer<typeof workflowContextSchema>;

@@ -29,4 +29,12 @@ export class NoopRealtimeEngine implements IRealtimeEngine {
   ): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
+
+  async invalidateCollection(
+    _context: IExecutionContext,
+    _collection: string,
+    _change: RealtimeChange
+  ): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
 }

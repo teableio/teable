@@ -108,6 +108,20 @@ describe('RecordFilterDto', () => {
     expect(nullable.success).toBe(true);
   });
 
+  it('accepts ISO date values without millisecond precision', () => {
+    const result = recordFilterConditionSchema.safeParse({
+      fieldId: 'fld123',
+      operator: 'is',
+      value: {
+        mode: 'exactDate',
+        exactDate: '2026-07-01T00:00:00Z',
+        timeZone: 'UTC',
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it('detects node shapes', () => {
     const condition: RecordFilterCondition = { fieldId: 'fld123', operator: 'is', value: 'a' };
     const group: RecordFilterGroup = { conjunction: 'and', items: [condition] };

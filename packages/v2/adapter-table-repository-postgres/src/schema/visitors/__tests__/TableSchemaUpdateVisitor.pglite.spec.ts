@@ -5,8 +5,19 @@
  * against a real PostgreSQL-compatible database using PGlite.
  */
 import { PGlite } from '@electric-sql/pglite';
-import { DbFieldName, FieldId, LinkFieldConfig, UpdateLinkRelationshipSpec } from '@teable/v2-core';
+import {
+  BaseId,
+  DbFieldName,
+  FieldId,
+  FieldName,
+  LinkFieldConfig,
+  Table,
+  TableId,
+  TableName,
+  UpdateLinkRelationshipSpec,
+} from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
+import type { CompiledQuery } from 'kysely';
 import { Kysely, sql } from 'kysely';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
@@ -1021,5 +1032,103 @@ describe('Link relationship conversion (PGlite)', () => {
         { self_key: 'rec3', foreign_key: 'fRec3' },
       ]);
     });
+  });
+});
+
+describe('Managed search vector column drop (PGlite)', () => {
+  const SCHEMA = 'test_search_vector_schema';
+
+  let pglite: PGlite;
+  let db: Kysely<V1TeableDatabase>;
+
+  beforeAll(async () => {
+    pglite = new PGlite();
+    await pglite.waitReady;
+    db = new Kysely<V1TeableDatabase>({ dialect: new PGliteDialect(pglite) });
+    await sql`CREATE SCHEMA IF NOT EXISTS ${sql.id(SCHEMA)}`.execute(db);
+  });
+
+  afterAll(async () => {
+    await sql`DROP SCHEMA IF EXISTS ${sql.id(SCHEMA)} CASCADE`.execute(db);
+    await db.destroy();
+  });
+
+  const buildVisitor = (tableName: string): TableSchemaUpdateVisitor => {
+    const fieldId = FieldId.create(`fld${'d'.repeat(16)}`)._unsafeUnwrap();
+    const builder = Table.builder()
+      .withId(TableId.create(`tbl${'d'.repeat(16)}`)._unsafeUnwrap())
+      .withBaseId(BaseId.create(`bse${'d'.repeat(16)}`)._unsafeUnwrap())
+      .withName(TableName.create('Search Vector Drop')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(fieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+    return new TableSchemaUpdateVisitor({
+      db,
+      schema: SCHEMA,
+      tableName,
+      tableId: table.id().toString(),
+      table,
+    });
+  };
+
+  const compileDropStatement = (visitor: TableSchemaUpdateVisitor): CompiledQuery =>
+    (
+      visitor as unknown as {
+        dropManagedSearchVectorColumnsStatement(): {
+          compile(executorProvider: Kysely<V1TeableDatabase>): CompiledQuery;
+        };
+      }
+    )
+      .dropManagedSearchVectorColumnsStatement()
+      .compile(db);
+
+  it('is a no-op on tables without managed search columns', async () => {
+    // Regression: the string_agg form always returns one row, and format()
+    // renders a NULL %s as '', so testing the fully-formatted statement for
+    // NULL executed a bare "ALTER TABLE schema.table " (42601) on every
+    // table without managed columns — breaking field delete outright.
+    await sql`CREATE TABLE ${sql.id(SCHEMA)}."tbl_plain" ("__id" text PRIMARY KEY, "name" text)`.execute(
+      db
+    );
+
+    await expect(
+      db.executeQuery(compileDropStatement(buildVisitor('tbl_plain')))
+    ).resolves.toBeDefined();
+
+    const columns = await sql<{ column_name: string }>`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_schema = ${SCHEMA} AND table_name = 'tbl_plain'
+    `.execute(db);
+    expect(columns.rows.map((row) => row.column_name).sort()).toEqual(['__id', 'name']);
+  });
+
+  it('drops every managed generated search column and keeps user columns', async () => {
+    await sql`
+      CREATE TABLE ${sql.id(SCHEMA)}."tbl_managed" (
+        "__id" text PRIMARY KEY,
+        "name" text,
+        "__tqops_tsv_doc1" tsvector GENERATED ALWAYS AS (to_tsvector('simple', coalesce("name", ''))) STORED,
+        "__tqops_search_doc2" text GENERATED ALWAYS AS (coalesce("name", '')) STORED,
+        "user_generated" text GENERATED ALWAYS AS (upper("name")) STORED
+      )
+    `.execute(db);
+
+    await db.executeQuery(compileDropStatement(buildVisitor('tbl_managed')));
+
+    const columns = await sql<{ column_name: string }>`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_schema = ${SCHEMA} AND table_name = 'tbl_managed'
+    `.execute(db);
+    expect(columns.rows.map((row) => row.column_name).sort()).toEqual([
+      '__id',
+      'name',
+      'user_generated',
+    ]);
   });
 });

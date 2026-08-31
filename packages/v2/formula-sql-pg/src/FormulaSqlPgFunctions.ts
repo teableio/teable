@@ -748,8 +748,9 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       return this.vectorizeUnaryNumericArray(textExpr, (valueSql: string) => valueSql, 'value');
     }
     const numeric = this.coerceToNumber(textExpr, 'value');
+    // v1 parity: VALUE(null|''|non-numeric) is null, never 0 (T6520)
     return makeExpr(
-      `COALESCE(${numeric.valueSql}, 0)`,
+      numeric.valueSql,
       'number',
       false,
       numeric.errorConditionSql,
@@ -1083,7 +1084,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (!textExpr) return makeExpr('NULL', 'string', false);
     const text = this.coerceToString(textExpr);
     return makeExpr(
-      guardValueSql(`TRIM(${text.valueSql})`, text.errorConditionSql),
+      guardValueSql(`TRIM((${text.valueSql})::text)`, text.errorConditionSql),
       'string',
       false,
       text.errorConditionSql,
@@ -1330,7 +1331,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     }
 
     const startDayText = this.coerceToString(startDayOfWeek);
-    const normalizedStartDay = `LOWER(BTRIM(${startDayText.valueSql}))`;
+    const normalizedStartDay = `LOWER(BTRIM((${startDayText.valueSql})::text))`;
     return `(CASE WHEN ${normalizedStartDay} = 'monday' THEN ${mondayWeekdaySql} ELSE ${weekdaySql} END)`;
   }
 
@@ -2388,7 +2389,8 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
   }
 
   private arrayUnique(params: SqlExpr[]): SqlExpr {
-    if (params.length === 0) return makeExpr('[]', 'string', true);
+    if (params.length === 0)
+      return makeExpr('[]', 'string', true, undefined, undefined, undefined, 'json');
     const errorCondition = combineErrorConditions(params);
     const errorMessage = buildErrorMessageSql(
       params,
@@ -2414,12 +2416,15 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       'string',
       true,
       errorCondition,
-      errorMessage
+      errorMessage,
+      undefined,
+      'json'
     );
   }
 
   private arrayFlatten(params: SqlExpr[]): SqlExpr {
-    if (params.length === 0) return makeExpr('[]', 'string', true);
+    if (params.length === 0)
+      return makeExpr('[]', 'string', true, undefined, undefined, undefined, 'json');
     const errorCondition = combineErrorConditions(params);
     const errorMessage = buildErrorMessageSql(
       params,
@@ -2445,12 +2450,15 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       'string',
       true,
       errorCondition,
-      errorMessage
+      errorMessage,
+      undefined,
+      'json'
     );
   }
 
   private arrayCompact(params: SqlExpr[]): SqlExpr {
-    if (params.length === 0) return makeExpr('[]', 'string', true);
+    if (params.length === 0)
+      return makeExpr('[]', 'string', true, undefined, undefined, undefined, 'json');
     const errorCondition = combineErrorConditions(params);
     const errorMessage = buildErrorMessageSql(
       params,
@@ -2477,7 +2485,9 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       'string',
       true,
       errorCondition,
-      errorMessage
+      errorMessage,
+      undefined,
+      'json'
     );
   }
 

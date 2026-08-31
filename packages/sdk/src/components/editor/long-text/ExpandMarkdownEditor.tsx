@@ -521,7 +521,7 @@ export const ExpandMarkdownEditor = ({
           <DraggableHandle className="size-4 shrink-0 opacity-50" />
           <LongText className="size-4 shrink-0" />
           <span className="truncate">{title}</span>
-          <span className="ml-auto" />
+          <span className="ms-auto" />
           {!readonly && field && (
             <div
               className="flex cursor-default items-center gap-1.5"
@@ -547,7 +547,7 @@ export const ExpandMarkdownEditor = ({
         {renderEditor()}
         {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
         <div
-          className="group/resize absolute bottom-0 right-0 z-10 flex size-5 cursor-se-resize items-center justify-center"
+          className="group/resize absolute bottom-0 end-0 z-10 flex size-5 cursor-se-resize items-center justify-center"
           onPointerDown={onResizePointerDown}
         >
           <svg

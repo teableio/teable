@@ -162,9 +162,9 @@ export function SearchInput({
   return (
     <div
       className={cn(
-        'left-6 top-60 flex grow h-8 shrink-0 items-center gap-1 overflow-hidden rounded-xl bg-background pr-2 text-sm border outline-muted-foreground',
+        'start-6 top-60 flex grow h-8 shrink-0 items-center gap-1 overflow-hidden rounded-xl bg-background pe-2 text-sm border outline-muted-foreground',
         {
-          'pl-2': globalOnly,
+          'ps-2': globalOnly,
         },
         {
           outline: isFocused,
@@ -180,7 +180,7 @@ export function SearchInput({
                 <Button
                   variant="ghost"
                   size="xs"
-                  className="flex h-full max-w-[160px] shrink-0 items-center gap-1 rounded-none border-r px-2 text-sm font-normal"
+                  className="flex h-full max-w-[160px] shrink-0 items-center gap-1 rounded-none border-e px-2 text-sm font-normal"
                 >
                   <TooltipTrigger asChild>
                     <div className="flex items-center gap-1">
@@ -247,9 +247,9 @@ export function SearchInput({
                                         selectedFieldIds.length === 1
                                       }
                                     />
-                                    <Icon className="ml-2 size-4 shrink-0" />
+                                    <Icon className="ms-2 size-4 shrink-0" />
                                     <span
-                                      className="h-full flex-1 cursor-pointer truncate pl-1 text-sm"
+                                      className="h-full flex-1 cursor-pointer truncate ps-1 text-sm"
                                       title={name}
                                     >
                                       {name}

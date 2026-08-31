@@ -216,6 +216,76 @@ describe('ShareDb', () => {
     ]);
   });
 
+  it('replays later compute activity generations as creates from version zero', async () => {
+    const cls = {
+      get: vi.fn(() => undefined),
+      runWith: vi.fn((_store, fn) => fn()),
+    };
+    const fieldService = {
+      authorizeComputedActivityRead: vi.fn().mockResolvedValue(undefined),
+      getSnapshotBulk: vi.fn().mockResolvedValue([]),
+    };
+    const adapter = new ShareDbAdapter(
+      cls as never,
+      {} as never,
+      {} as never,
+      fieldService as never,
+      {} as never,
+      {} as never
+    );
+    const data = { status: 'idle', generation: 3 };
+    adapter.setComputedActivitySnapshotLoader(async () => ({
+      fldFormula: { version: 3, data },
+    }));
+    type ReplayOp = {
+      v: number;
+      create?: { type: string; data: unknown };
+      op?: unknown[];
+    };
+
+    const singleOps = await new Promise<ReplayOp[]>((resolve, reject) => {
+      adapter.getOps(
+        'cmp_tblTest',
+        'fldFormula',
+        0,
+        null,
+        { cookie: 'teable-session=test' },
+        (error, result) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve(result as ReplayOp[]);
+        }
+      );
+    });
+    const bulkOps = await new Promise<Record<string, ReplayOp[]>>((resolve, reject) => {
+      adapter.getOpsBulk(
+        'cmp_tblTest',
+        { fldFormula: 0 },
+        undefined,
+        { cookie: 'teable-session=test' },
+        (error, result) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve(result as Record<string, ReplayOp[]>);
+        }
+      );
+    });
+
+    for (const ops of [singleOps, bulkOps.fldFormula]) {
+      expect(ops).toHaveLength(3);
+      expect(ops[0]).toMatchObject({
+        v: 0,
+        create: { type: 'json0', data },
+      });
+      expect(ops.slice(1).map(({ v }) => v)).toEqual([1, 2]);
+      expect(ops.slice(1).every((op) => !('create' in op) && !('op' in op))).toBe(true);
+    }
+  });
+
   // it('create simple document', (done) => {
   //   const randomTitle = `B:${Math.floor(Math.random() * 1000)}`;
   //   const doc = provider.connect().get('books', randomTitle);

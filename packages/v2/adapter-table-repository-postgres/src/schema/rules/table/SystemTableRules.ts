@@ -385,7 +385,9 @@ class SystemColumnExistsRule implements ISchemaRule {
 
   down(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return ok([
-      dropColumnStatement({ schema: ctx.schema, tableName: ctx.tableName }, this.columnName),
+      dropColumnStatement({ schema: ctx.schema, tableName: ctx.tableName }, this.columnName, {
+        allowSystemColumn: true,
+      }),
     ]);
   }
 }

@@ -182,8 +182,102 @@ interface LinkFieldSqlsResult {
  * });
  * ```
  */
+type InsertPlanField = ReturnType<Table['getFields']>[number];
+
+interface IInsertFieldPlanEntry {
+  readonly field: InsertPlanField;
+  readonly fieldIdStr: string;
+  readonly dbFieldName: string;
+  readonly isComputed: boolean;
+  readonly isCreatedTime: boolean;
+  readonly isLastModifiedTime: boolean;
+  readonly isCreatedBy: boolean;
+  readonly isLastModifiedBy: boolean;
+  readonly isJsonField: boolean;
+  readonly isLink: boolean;
+  readonly isAttachment: boolean;
+}
+
 export class RecordInsertBuilder {
+  // buildInsertData runs once per record in bulk inserts; everything derived
+  // only from the field definitions (type flags, dbFieldName, generated-column
+  // probe, json-ness) is invariant per table aggregate, so plan it once.
+  private readonly insertFieldPlanCache = new WeakMap<
+    object,
+    Result<ReadonlyArray<IInsertFieldPlanEntry>, DomainError>
+  >();
+
   constructor(private readonly db: Kysely<DynamicDB>) {}
+
+  private getInsertFieldPlan(
+    table: Table
+  ): Result<ReadonlyArray<IInsertFieldPlanEntry>, DomainError> {
+    const cached = this.insertFieldPlanCache.get(table);
+    if (cached) {
+      return cached;
+    }
+    const plan = safeTry<ReadonlyArray<IInsertFieldPlanEntry>, DomainError>(function* () {
+      const entries: IInsertFieldPlanEntry[] = [];
+      for (const field of table.getFields()) {
+        const isCreatedTime = field.type().equals(FieldType.createdTime());
+        const isLastModifiedTime = field.type().equals(FieldType.lastModifiedTime());
+        const isCreatedBy = field.type().equals(FieldType.createdBy());
+        const isLastModifiedBy = field.type().equals(FieldType.lastModifiedBy());
+        const isAutoNumber = field.type().equals(FieldType.autoNumber());
+        const isSystemComputedField =
+          isCreatedTime || isLastModifiedTime || isCreatedBy || isLastModifiedBy || isAutoNumber;
+        const isComputed = field.computed().toBoolean();
+
+        if (isComputed && !isSystemComputedField) {
+          continue;
+        }
+        if (isComputed) {
+          // PostgreSQL rejects explicit values for GENERATED ALWAYS columns
+          // (legacy tables may still use generated storage).
+          const persistedAsGenerated = yield* isPersistedAsGeneratedColumn(field);
+          if (persistedAsGenerated) {
+            continue;
+          }
+        }
+
+        const dbFieldNameResult = field.dbFieldName();
+        if (dbFieldNameResult.isErr()) {
+          continue;
+        }
+        const dbFieldNameValueResult = dbFieldNameResult.value.value();
+        if (dbFieldNameValueResult.isErr()) {
+          continue;
+        }
+        const dbFieldName = dbFieldNameValueResult.value;
+
+        let isJsonField = false;
+        const dbFieldTypeResult = field.dbFieldType();
+        if (dbFieldTypeResult.isOk()) {
+          const dbFieldTypeValueResult = dbFieldTypeResult.value.value();
+          if (dbFieldTypeValueResult.isOk()) {
+            isJsonField = dbFieldTypeValueResult.value.toLowerCase().includes('json');
+          }
+        }
+
+        entries.push({
+          field,
+          fieldIdStr: field.id().toString(),
+          dbFieldName,
+          isComputed,
+          isCreatedTime,
+          isLastModifiedTime,
+          isCreatedBy,
+          isLastModifiedBy,
+          isJsonField,
+          isLink: field.type().equals(FieldType.link()),
+          isAttachment: field.type().equals(FieldType.attachment()),
+        });
+      }
+      return ok(entries);
+    });
+    this.insertFieldPlanCache.set(table, plan);
+    return plan;
+  }
 
   /**
    * Build INSERT data for a record (raw values for batch operations).
@@ -225,115 +319,48 @@ export class RecordInsertBuilder {
       >();
       const userFieldColumns: UserFieldColumn[] = [];
 
-      // Map field values to database columns
-      const fields = table.getFields();
+      // Map field values to database columns (field-invariant work is planned
+      // once per table aggregate — see getInsertFieldPlan).
+      const planEntries = yield* builder.getInsertFieldPlan(table);
 
-      for (const field of fields) {
-        const fieldIdStr = field.id().toString();
+      for (const entry of planEntries) {
+        const { field, fieldIdStr, dbFieldName } = entry;
         const rawValue = fieldValues.get(fieldIdStr) ?? null;
 
-        const isCreatedTime = field.type().equals(FieldType.createdTime());
-        const isLastModifiedTime = field.type().equals(FieldType.lastModifiedTime());
-        const isCreatedBy = field.type().equals(FieldType.createdBy());
-        const isLastModifiedBy = field.type().equals(FieldType.lastModifiedBy());
-        const isAutoNumber = field.type().equals(FieldType.autoNumber());
-        const isSystemComputedField =
-          isCreatedTime || isLastModifiedTime || isCreatedBy || isLastModifiedBy || isAutoNumber;
-
-        if (field.computed().toBoolean()) {
-          if (!isSystemComputedField) {
-            continue;
-          }
-
+        if (entry.isComputed) {
           // CreatedBy and LastModifiedBy fields store user snapshot JSON.
           // Build it once from execution context to avoid per-row user subqueries in batch INSERT.
-          // Skip when the field is persisted as a GENERATED ALWAYS column — PostgreSQL rejects
-          // explicit values for those columns (legacy tables may still use generated storage).
-          if (isCreatedBy || isLastModifiedBy) {
-            const persistedAsGenerated = yield* isPersistedAsGeneratedColumn(field);
-            if (persistedAsGenerated) {
-              continue;
-            }
-
-            const dbFieldNameResult = field.dbFieldName();
-            if (dbFieldNameResult.isErr()) {
-              continue;
-            }
-            const dbFieldNameValueResult = dbFieldNameResult.value.value();
-            if (dbFieldNameValueResult.isErr()) {
-              continue;
-            }
-            const dbFieldName = dbFieldNameValueResult.value;
-            const systemColumn = isCreatedBy ? CREATED_BY_COLUMN : LAST_MODIFIED_BY_COLUMN;
+          if (entry.isCreatedBy || entry.isLastModifiedBy) {
+            const systemColumn = entry.isCreatedBy ? CREATED_BY_COLUMN : LAST_MODIFIED_BY_COLUMN;
             userFieldColumns.push({ dbFieldName, systemColumn });
-            const userId = isCreatedBy ? createdBy : lastModifiedBy;
+            const userId = entry.isCreatedBy ? createdBy : lastModifiedBy;
             values[dbFieldName] =
               userId == null
                 ? null
                 : buildUserFieldJsonValue({
                     userId,
-                    userName: isCreatedBy
+                    userName: entry.isCreatedBy
                       ? context.createdByName ?? context.actorName ?? createdBy
                       : context.lastModifiedByName ?? context.actorName ?? userId,
-                    userEmail: isCreatedBy
+                    userEmail: entry.isCreatedBy
                       ? context.createdByEmail ?? context.actorEmail
                       : context.lastModifiedByEmail ?? context.actorEmail,
                   });
             continue;
           }
 
-          const persistedAsGenerated = yield* isPersistedAsGeneratedColumn(field);
-          if (persistedAsGenerated) {
-            continue;
-          }
-
-          const dbFieldNameResult = field.dbFieldName();
-          if (dbFieldNameResult.isErr()) {
-            continue;
-          }
-          const dbFieldNameValueResult = dbFieldNameResult.value.value();
-          if (dbFieldNameValueResult.isErr()) {
-            continue;
-          }
-          const dbFieldName = dbFieldNameValueResult.value;
-
-          const fallbackValue = isCreatedTime
+          const fallbackValue = entry.isCreatedTime
             ? createdTime
-            : isLastModifiedTime
+            : entry.isLastModifiedTime
               ? lastModifiedTime
-              : isCreatedBy
-                ? createdBy
-                : isLastModifiedBy
-                  ? lastModifiedBy
-                  : null;
+              : null;
           const resolvedValue = rawValue ?? fallbackValue;
-          const dbFieldTypeResult = field.dbFieldType();
-          let dbFieldTypeValue: string | null = null;
-          if (dbFieldTypeResult.isOk()) {
-            const dbFieldTypeValueResult = dbFieldTypeResult.value.value();
-            if (dbFieldTypeValueResult.isOk()) {
-              dbFieldTypeValue = dbFieldTypeValueResult.value;
-            }
-          }
-          const isJsonField = dbFieldTypeValue
-            ? dbFieldTypeValue.toLowerCase().includes('json')
-            : false;
           values[dbFieldName] =
-            isJsonField && resolvedValue !== null && resolvedValue !== undefined
+            entry.isJsonField && resolvedValue !== null && resolvedValue !== undefined
               ? JSON.stringify(resolvedValue)
               : resolvedValue;
           continue;
         }
-
-        const dbFieldNameResult = field.dbFieldName();
-        if (dbFieldNameResult.isErr()) {
-          continue;
-        }
-        const dbFieldNameValueResult = dbFieldNameResult.value.value();
-        if (dbFieldNameValueResult.isErr()) {
-          continue;
-        }
-        const dbFieldName = dbFieldNameValueResult.value;
 
         // Use visitor to get column values
         const insertVisitor = FieldInsertValueVisitor.create(rawValue, {
@@ -347,11 +374,7 @@ export class RecordInsertBuilder {
           Object.assign(values, columnValues);
 
           // For link fields, generate additional SQLs for junction tables / FK updates
-          if (
-            field.type().equals(FieldType.link()) &&
-            rawValue !== null &&
-            rawValue !== undefined
-          ) {
+          if (entry.isLink && rawValue !== null && rawValue !== undefined) {
             const linkField = field as LinkField;
             const linkResult = yield* builder.buildLinkFieldSqls(
               linkField,
@@ -394,7 +417,7 @@ export class RecordInsertBuilder {
             }
           }
 
-          if (field.type().equals(FieldType.attachment())) {
+          if (entry.isAttachment) {
             const insertQuery = buildAttachmentTableInsertQuery(builder.db, {
               actorId: context.actorId,
               tableId: table.id().toString(),

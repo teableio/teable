@@ -3,7 +3,7 @@ import { Role } from '@teable/core';
 import { Bell, Key, Link, Lock, Settings, Toolbox, User } from '@teable/icons';
 import { getSpaceById } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBase, useSession } from '@teable/sdk/hooks';
+import { useBase, useSession, useContentDir } from '@teable/sdk/hooks';
 import { Tabs, TabsContent, TabsList, TabsTrigger, cn } from '@teable/ui-lib/shadcn';
 import { uniq } from 'lodash';
 import { Settings2, Users } from 'lucide-react';
@@ -86,6 +86,7 @@ export const UnifiedSettingDialogContent = ({
   extraSpaceTabs,
   renderTabTrigger,
 }: IUnifiedSettingDialogContentProps) => {
+  const contentDir = useContentDir();
   const { t } = useTranslation(
     uniq([...settingConfig.i18nNamespaces, ...spaceConfig.i18nNamespaces])
   );
@@ -203,7 +204,10 @@ export const UnifiedSettingDialogContent = ({
                 avatar={space.avatar}
                 className="size-8 rounded-sm border"
               />
-              <span className="hidden truncate text-sm font-medium text-foreground sm:block">
+              <span
+                dir={contentDir}
+                className="hidden truncate text-sm font-medium text-foreground sm:block"
+              >
                 {space.name}
               </span>
             </div>
@@ -260,11 +264,11 @@ export const UnifiedSettingDialogContent = ({
       className="flex h-full gap-0 overflow-hidden"
     >
       {showSidebar && (
-        <TabsList className="flex h-full w-14 shrink-0 flex-col items-stretch justify-start gap-5 overflow-y-auto rounded-none border-r bg-muted p-2 shadow-none sm:w-60 sm:gap-8 sm:p-4">
+        <TabsList className="flex h-full w-12 shrink-0 flex-col items-stretch justify-start gap-5 overflow-y-auto rounded-none border-e bg-muted p-2 shadow-none sm:w-60 sm:gap-8 sm:p-4">
           {orderedGroups.map((group) => (
             <div key={group.key} className="flex flex-col gap-2">
               <div className="space-y-2 sm:space-y-3">
-                <p className="hidden pl-2 text-sm font-semibold text-muted-foreground sm:block">
+                <p className="hidden ps-2 text-sm font-semibold text-muted-foreground sm:block">
                   {group.title}
                 </p>
                 {group.entity}

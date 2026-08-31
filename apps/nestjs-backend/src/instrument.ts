@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
+import { enrichSentryEventWithDomainError } from './sentry-domain-error';
 import { resolveBuildVersion } from './utils/build-version';
 
 if (process.env.BACKEND_SENTRY_DSN) {
@@ -28,6 +29,9 @@ if (process.env.BACKEND_SENTRY_DSN) {
       Sentry.linkedErrorsIntegration(),
       Sentry.dataloaderIntegration(),
     ],
+    beforeSend(event, hint) {
+      return enrichSentryEventWithDomainError(event, hint);
+    },
   });
   Logger.log(`Sentry initialized, tracesSampleRate: ${traceRate}`);
 }

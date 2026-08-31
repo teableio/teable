@@ -123,7 +123,7 @@ const OthersList = ({
       {!foldButton && <div className="mx-1 h-4 w-px shrink-0 bg-border" />}
       <PersonalViewSwitch
         textClassName={textClassName}
-        buttonClassName={cn(buttonClassName, { 'w-full justify-start pl-2': foldButton })}
+        buttonClassName={cn(buttonClassName, { 'w-full justify-start ps-2': foldButton })}
       />
     </div>
   );
@@ -159,9 +159,14 @@ export const Others: React.FC = () => {
   return (
     <div
       className={cn(
-        'flex shrink-0 items-center justify-end pl-6 md:gap-0',
+        'flex shrink-0 items-center justify-end ps-6 md:gap-0',
+        // The fade covers the toolbar scrolling in from the logical start, so the
+        // gradient has to start on that same side — 90deg points the wrong way
+        // once the padding moves.
         'bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,hsl(var(--background))_5%)]',
-        'dark:bg-[linear-gradient(90deg,rgba(0,0,0,0)_0%,hsl(var(--background))_5%)]'
+        'rtl:bg-[linear-gradient(270deg,rgba(255,255,255,0)_0%,hsl(var(--background))_5%)]',
+        'dark:bg-[linear-gradient(90deg,rgba(0,0,0,0)_0%,hsl(var(--background))_5%)]',
+        'dark:rtl:bg-[linear-gradient(270deg,rgba(0,0,0,0)_0%,hsl(var(--background))_5%)]'
       )}
     >
       <SearchButton className="size-7 shrink-0" />

@@ -59,7 +59,7 @@ export const PluginPanelSelector = ({
           className={cn('justify-between overflow-hidden', className)}
         >
           <span className="truncate">{activePluginPanel?.name}</span>
-          <ChevronsUpDown className="ml-auto size-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="ms-auto size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[200px] rounded-lg bg-background p-1 shadow-lg ring-1 ring-background/5">
@@ -82,7 +82,7 @@ export const PluginPanelSelector = ({
                   {name}
                   <Check
                     className={cn(
-                      'ml-auto h-4 w-4',
+                      'ms-auto h-4 w-4',
                       activePluginPanelId === id ? 'opacity-100' : 'opacity-0'
                     )}
                   />
@@ -105,7 +105,7 @@ export const PluginPanelSelector = ({
                         createPluginPanelDialogRef.current?.open();
                       }}
                     >
-                      <PlusCircle className="mr-2 size-5" />
+                      <PlusCircle className="me-2 size-5" />
                       {t('table:pluginPanel.createPluginPanel.button')}
                     </CommandItem>
                   </CreatePluginPanelDialog>

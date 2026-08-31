@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { generateRecordTrashId } from '@teable/core';
 import { ResourceType } from '@teable/openapi';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { Events } from '../../../event-emitter/events';
@@ -8,6 +7,7 @@ import { DataDbClientManager } from '../../../global/data-db-client-manager.serv
 import { IDeleteFieldsPayload } from '../../undo-redo/operations/delete-fields.operation';
 import { IDeleteRecordsPayload } from '../../undo-redo/operations/delete-records.operation';
 import { IDeleteViewPayload } from '../../undo-redo/operations/delete-view.operation';
+import { buildRecordTrashRows } from '../record-trash-row';
 
 type ITableTrashDataPrisma = {
   tableTrash: {
@@ -67,9 +67,11 @@ export class TableTrashListener {
 
   @OnEvent(Events.OPERATION_RECORDS_DELETE)
   async recordDeleteListener(payload: IDeleteRecordsPayload) {
-    const { operationId, userId, tableId, records } = payload;
+    const { operationId, userId, tableId, records, removalReason } = payload;
 
     if (!operationId) return;
+    // Archive removals persist their own snapshot (with reason='archived') before deleting.
+    if (removalReason === 'archived') return;
 
     const recordIds = records.map((record) => record.id);
     const createdTime = new Date();
@@ -92,14 +94,7 @@ export class TableTrashListener {
         for (let i = 0; i < records.length; i += batchSize) {
           const batch = records.slice(i, i + batchSize);
           await prisma.recordTrash.createMany({
-            data: batch.map((record) => ({
-              id: generateRecordTrashId(),
-              tableId,
-              recordId: record.id,
-              snapshot: JSON.stringify(record),
-              createdBy: userId,
-              createdTime,
-            })),
+            data: buildRecordTrashRows(batch, { tableId, userId, createdTime, operationId }),
           });
         }
       },

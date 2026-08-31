@@ -25,16 +25,14 @@ import {
 } from '../domain/table/OnTeableFieldDeleted';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { TableUpdateViewColumnMetaSpec } from '../domain/table/specs/TableUpdateViewColumnMetaSpec';
+import { TableUpdateViewOptionsSpec } from '../domain/table/specs/TableUpdateViewOptionsSpec';
 import { TableUpdateViewQueryDefaultsSpec } from '../domain/table/specs/TableUpdateViewQueryDefaultsSpec';
 import { Table as TableAggregate } from '../domain/table/Table';
 import type { Table } from '../domain/table/Table';
-import { TableUpdateResult } from '../domain/table/TableMutator';
 import { implementsOnTeableViewFieldDeleted } from '../domain/table/views/OnTeableViewFieldDeleted';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
-import type {
-  IFieldDeleteSnapshotSink,
-  IFieldDeleteSnapshotSinkCompletion,
-} from '../ports/FieldDeleteSnapshotSink';
+import { IFieldDeleteSnapshotSink } from '../ports/FieldDeleteSnapshotSink';
+import type { IFieldDeleteSnapshotSinkCompletion } from '../ports/FieldDeleteSnapshotSink';
 import { FieldOperationKind, FieldOperationTargetKind } from '../ports/FieldOperationPlugin';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
@@ -112,7 +110,19 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
       const table = tableResult.value;
       const fieldSpec = yield* Field.specs().withFieldId(command.fieldId).build();
       const targetField = table.getFields(fieldSpec)[0];
-      if (!targetField) return err(domainError.notFound({ message: 'Field not found' }));
+      if (!targetField) {
+        if (ExecutionContextPort.isUndoRedoReplay(context)) {
+          return ok(
+            DeleteFieldResult.create(
+              table,
+              [],
+              createUndoRedoCommand('Batch', []),
+              createUndoRedoCommand('Batch', [])
+            )
+          );
+        }
+        return err(domainError.notFound({ message: 'Field not found' }));
+      }
       const snapshot = command.skipTargetSnapshot()
         ? undefined
         : yield* await handler.fieldUndoRedoSnapshotService.capture(
@@ -348,11 +358,7 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
         const updateResult = yield* await handler.tableUpdateFlow.execute(
           context,
           { table: candidateTable },
-          (table) => {
-            const updated = cleanupSpec.mutate(table);
-            if (updated.isErr()) return err(updated.error);
-            return ok(TableUpdateResult.create(updated.value, cleanupSpec));
-          },
+          (table) => table.update((mutator) => mutator.applySpecs([cleanupSpec])),
           { publishEvents: false }
         );
         if (candidateTable.id().equals(latestSourceTable.id())) {
@@ -446,15 +452,33 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
               viewId: result.value.viewId,
               fieldId: result.value.fieldId,
               columnMeta: result.value.columnMeta,
+              ...(result.value.options
+                ? {
+                    previousOptions: result.value.options.previousOptions,
+                    nextOptions: result.value.options.nextOptions,
+                    optionsChanged: true,
+                  }
+                : {}),
             },
           ])
         );
+      } else if (result.value?.options) {
+        specs.push(
+          TableUpdateViewOptionsSpec.create({
+            viewId: result.value.viewId,
+            previousOptions: result.value.options.previousOptions,
+            nextOptions: result.value.options.nextOptions,
+          })
+        );
       }
       if (result.value?.queryDefaults) {
+        const previousQueryDefaultsResult = view.queryDefaults();
+        if (previousQueryDefaultsResult.isErr()) return err(previousQueryDefaultsResult.error);
         specs.push(
           TableUpdateViewQueryDefaultsSpec.create([
             {
               viewId: result.value.viewId,
+              previousQueryDefaults: previousQueryDefaultsResult.value,
               queryDefaults: result.value.queryDefaults,
             },
           ])

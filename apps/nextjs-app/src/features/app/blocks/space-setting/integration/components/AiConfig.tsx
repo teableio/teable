@@ -11,8 +11,10 @@ import type {
 import { Form, toast } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import type { AIActions } from '../../../admin/setting/components/ai-config/AIControlCard';
 import { AIControlCard } from '../../../admin/setting/components/ai-config/AIControlCard';
 import { AIProviderCard } from '../../../admin/setting/components/ai-config/AIProviderCard';
 import { BatchTestModels } from '../../../admin/setting/components/ai-config/BatchTestModels';
@@ -27,12 +29,14 @@ interface IAIConfigProps {
   onChange: (value: IAIIntegrationConfig) => Promise<unknown> | void;
   spaceId?: string;
   disabled?: boolean;
+  /** Edition-specific rows rendered right after an AI capability's own row */
+  renderAfterAction?: (action: AIActions, ctx: { enabled: boolean }) => ReactNode;
 }
 
 const emptyArray: never[] = [];
 
 export const AIConfig = (props: IAIConfigProps) => {
-  const { config, onChange, spaceId: spaceIdProp } = props;
+  const { config, onChange, spaceId: spaceIdProp, renderAfterAction } = props;
   const router = useRouter();
   const spaceId = (spaceIdProp ?? router.query.spaceId) as string;
 
@@ -189,6 +193,7 @@ export const AIConfig = (props: IAIConfigProps) => {
             return onSubmit(form.getValues());
           }}
           disabled={props.disabled}
+          renderAfterAction={renderAfterAction}
         />
         <AIProviderCard
           control={form.control}

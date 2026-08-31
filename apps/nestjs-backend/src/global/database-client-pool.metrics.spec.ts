@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import type { Meter, ObservableCallback, ObservableGauge } from '@opentelemetry/api';
 import { metrics } from '@opentelemetry/api';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -21,11 +22,13 @@ describe('DatabaseClientPoolMetrics', () => {
     const registry = {
       snapshot: vi.fn().mockReturnValue([
         {
+          applicationName: 'teable-table-query-observation',
           database: 'teable',
           host: 'db.example.com',
           idle: 3,
           max: 12,
           port: 5432,
+          poolName: 'table-query-observation',
           references: 4,
           total: 8,
           waiting: 2,
@@ -42,7 +45,12 @@ describe('DatabaseClientPoolMetrics', () => {
 
     expect(observe).toHaveBeenCalledWith(
       8,
-      expect.objectContaining({ 'db.namespace': 'teable', state: 'total' })
+      expect.objectContaining({
+        'db.client.application.name': 'teable-table-query-observation',
+        'db.namespace': 'teable',
+        'teable.database.pool.name': 'table-query-observation',
+        state: 'total',
+      })
     );
     expect(observe).toHaveBeenCalledWith(3, expect.objectContaining({ state: 'idle' }));
     expect(observe).toHaveBeenCalledWith(5, expect.objectContaining({ state: 'active' }));

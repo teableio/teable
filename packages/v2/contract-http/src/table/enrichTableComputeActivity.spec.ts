@@ -61,12 +61,19 @@ describe('enrichTableDtoWithComputeActivity', () => {
       ],
       diagnostics: {
         computeMode: 'server',
+        executionState: 'running',
         activeFieldCount: 1,
         queuedFieldCount: 0,
         calculatingFieldCount: 1,
         failedFieldCount: 0,
         highComplexityFieldCount: 0,
         anomalies: [],
+        pause: {
+          effective: false,
+          blockers: [],
+          queuedTaskCount: 0,
+          oldestQueuedAt: null,
+        },
       },
     });
 

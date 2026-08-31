@@ -3,6 +3,7 @@ import type { IFieldRo } from '@teable/core';
 import { FieldType, getRandomString, HttpErrorCode, TimeFormatting } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
+  BaseNodeResourceType,
   CreateRecordAction,
   type IAnalyzeRo,
   type IImportOptionRo,
@@ -17,6 +18,7 @@ import { CustomHttpException } from '../../../custom.exception';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import type { IClsStore } from '../../../types/cls';
 import { AuditScope } from '../../audit/audit-scope';
+import { BaseNodeService } from '../../base-node/base-node.service';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
@@ -64,6 +66,7 @@ export class ImportOpenApiService {
     private readonly fieldOpenApiService: FieldOpenApiService,
     private readonly cacheService: CacheService,
     private readonly audit: AuditScope,
+    private readonly baseNodeService: BaseNodeService,
     @Optional()
     private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService,
     @Optional() private readonly importMetrics?: ImportMetricsService
@@ -121,7 +124,11 @@ export class ImportOpenApiService {
 
     const userId = this.cls.get('user.id');
     const origin = this.cls.get('origin');
-    const { worksheets, notification = false, tz, fileType, attachmentUrl } = importRo;
+    const { worksheets, notification = false, tz, fileType, attachmentUrl, folderId } = importRo;
+
+    const folderNodeId = folderId
+      ? await this.baseNodeService.resolveFolderNodeId(baseId, folderId)
+      : undefined;
 
     this.importMetrics?.recordImportQueued({ fileType, operationType: 'create_table' });
 
@@ -174,6 +181,23 @@ export class ImportOpenApiService {
           }
           tableResult.push(created);
 
+          if (folderNodeId) {
+            // best-effort: on failure the table stays at root via node reconciliation
+            await this.baseNodeService
+              .attachResourceToParent({
+                baseId,
+                parentId: folderNodeId,
+                resourceType: BaseNodeResourceType.Table,
+                resourceId: created.id,
+              })
+              .catch((e) => {
+                this.logger.warn(
+                  `Failed to attach imported table ${created.id} to folder ${folderNodeId}`,
+                  e
+                );
+              });
+          }
+
           const jobId = `${ImportTableCsvChunkQueueProcessor.JOB_ID_PREFIX}:${created.id}:${getRandomString(6)}`;
 
           if (importData && columns.length) {
@@ -213,6 +237,7 @@ export class ImportOpenApiService {
       );
       void table;
     }
+
     return tableResult;
   }
 

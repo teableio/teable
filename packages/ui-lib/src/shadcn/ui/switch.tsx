@@ -19,14 +19,18 @@ const switchVariants = cva(
   }
 );
 
+// `translate-x` is physical and Tailwind has no logical counterpart, so each
+// travel distance is mirrored explicitly: under RTL the thumb starts at the
+// right edge of the track and has to move the other way.
 const switchThumbVariants = cva(
   'pointer-events-none block rounded-full bg-background shadow-lg ring-0 transition-transform',
   {
     variants: {
       size: {
-        default: 'h-4 w-4 data-[state=checked]:translate-x-4',
-        sm: 'h-3 w-3 data-[state=checked]:translate-x-[10px]',
-        lg: 'h-[18px] w-[18px] translate-x-[3px] data-[state=checked]:translate-x-[21px]',
+        default:
+          'h-4 w-4 data-[state=checked]:translate-x-4 rtl:data-[state=checked]:-translate-x-4',
+        sm: 'h-3 w-3 data-[state=checked]:translate-x-[10px] rtl:data-[state=checked]:-translate-x-[10px]',
+        lg: 'h-[18px] w-[18px] translate-x-[3px] rtl:-translate-x-[3px] data-[state=checked]:translate-x-[21px] rtl:data-[state=checked]:-translate-x-[21px]',
       },
     },
     defaultVariants: {

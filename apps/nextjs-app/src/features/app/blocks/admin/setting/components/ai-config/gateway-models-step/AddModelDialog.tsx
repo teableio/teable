@@ -155,7 +155,7 @@ export function AddModelDialog({
             {t('actions.cancel')}
           </Button>
           <Button onClick={onAddModel} disabled={!newModel.id || !newModel.label}>
-            <Plus className="mr-1 size-4" />
+            <Plus className="me-1 size-4" />
             {t('admin.setting.ai.addModel')}
           </Button>
         </DialogFooter>

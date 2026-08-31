@@ -1,14 +1,12 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { ConfigType } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { AUTOMATION_ROBOT_USER, APP_ROBOT_USER } from '@teable/core';
 import type { Request } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import type { authConfig } from '../../../configs/auth.config';
-import { AuthConfig } from '../../../configs/auth.config';
 import type { IClsStore } from '../../../types/cls';
 import { UserService } from '../../user/user.service';
+import { TeableJwtService } from '../jwt/teable-jwt.service';
 import { pickUserMe } from '../utils';
 import { JWT_TOKEN_STRATEGY_NAME } from './constant';
 import type { IJwtAuthInternalInfo, IJwtAuthInfo } from './types';
@@ -17,14 +15,17 @@ import { JwtAuthInternalType } from './types';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, JWT_TOKEN_STRATEGY_NAME) {
   constructor(
-    @AuthConfig() readonly config: ConfigType<typeof authConfig>,
+    teableJwtService: TeableJwtService,
     private readonly userService: UserService,
     private readonly cls: ClsService<IClsStore>
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: config.jwt.secret,
+      // Array semantics (current secret signs, current + _OLD verify) so
+      // long-lived internal JWTs — e.g. App.accessToken — survive a planned
+      // BACKEND_JWT_SECRET rotation like every other verify site.
+      secretOrKeyProvider: teableJwtService.passportSecretProvider(),
       passReqToCallback: true,
     });
   }

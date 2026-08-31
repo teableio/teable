@@ -246,7 +246,7 @@ export const FieldEditor = (props: {
         {/* should place after the name input to make sure tab index correct */}
         <SystemInfo field={field as IFieldVo} updateFieldProps={updateFieldProps} />
         {!showDescription && (
-          <div className="text-left text-xs">
+          <div className="text-start text-xs">
             <Button
               type="button"
               variant="outline"
@@ -288,7 +288,7 @@ export const FieldEditor = (props: {
           }
           onChange={updateFieldTypeWithLookup}
         />
-        <p className="text-left text-xs font-normal text-muted-foreground">
+        <p className="text-start text-xs font-normal text-muted-foreground">
           {field.isLookup
             ? field.isConditionalLookup
               ? t('table:field.subTitle.conditionalLookup')

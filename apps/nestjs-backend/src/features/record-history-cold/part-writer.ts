@@ -129,6 +129,9 @@ export class PartWriter {
     const seq = this.seq++;
     const key = buildPartKey(rootDir, tableId, bucket, seq, firstRow.recordId, this.runToken);
     const input = new PassThrough();
+    // destroy(error) below emits 'error' here; unheard it becomes an uncaught
+    // exception — the real failure surfaces via uploadPromise
+    input.on('error', () => undefined);
     const compressor = createPartCompressor();
     const compressedBytes = { value: 0 };
     const counter = new Transform({

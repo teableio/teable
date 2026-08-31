@@ -3,7 +3,8 @@ import {
   DndContext,
   closestCenter,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
@@ -49,7 +50,13 @@ export const UploadAttachmentView = forwardRef<UploadAttachmentViewRef, UploadAt
     const fileInput = useRef<HTMLInputElement>(null);
     const isMobile = useIsMobile();
     const sensors = useSensors(
-      useSensor(PointerSensor, {
+      useSensor(TouchSensor, {
+        activationConstraint: {
+          delay: 250,
+          tolerance: 5,
+        },
+      }),
+      useSensor(MouseSensor, {
         activationConstraint: { distance: 5 },
       }),
       useSensor(KeyboardSensor, {
@@ -167,7 +174,7 @@ export const UploadAttachmentView = forwardRef<UploadAttachmentViewRef, UploadAt
     return (
       <div className={cn('flex h-full flex-col overflow-hidden p-4', className)}>
         {attachments.length > 0 && showDownloadAll && (
-          <div className="absolute bottom-0 right-0 z-10">
+          <div className="absolute bottom-0 end-0 z-10">
             <Button
               className="font-normal opacity-50"
               variant="link"
@@ -210,7 +217,7 @@ export const UploadAttachmentView = forwardRef<UploadAttachmentViewRef, UploadAt
             />
             {totalCount > 0 && (
               <ScrollArea className="h-full flex-1" ref={listRef}>
-                <ul className="-right-2 flex size-full flex-wrap gap-1 gap-y-2 overflow-hidden">
+                <ul className="-end-2 flex size-full flex-wrap gap-1 gap-y-2 overflow-hidden">
                   <FilePreviewProvider i18nMap={i18nMap}>
                     <DndContext
                       sensors={sensors}

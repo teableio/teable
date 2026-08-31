@@ -35,6 +35,7 @@ export enum Events {
 
   OPERATION_RECORDS_CREATE = 'operation.records.create',
   OPERATION_RECORDS_DELETE = 'operation.records.delete',
+  OPERATION_RECORDS_ARCHIVE = 'operation.records.archive',
   OPERATION_RECORDS_UPDATE = 'operation.records.update',
   OPERATION_RECORDS_ORDER_UPDATE = 'operation.records.order.update',
   OPERATION_FIELDS_CREATE = 'operation.fields.create',
@@ -144,6 +145,10 @@ export enum Events {
   // Access token lifecycle
   ACCESS_TOKEN_CREATE = 'access-token.create',
   ACCESS_TOKEN_DELETE = 'access-token.delete',
+  // User granted an OAuth client access (consent decision or silent re-grant
+  // within the authorized window). Fired from the single oAuthAppAuthorized
+  // upsert choke point, so both the consent-screen and trusted-client paths emit.
+  OAUTH_APP_AUTHORIZE = 'oauth-app.authorize',
 
   // Table export
   TABLE_EXPORT = 'table.export',

@@ -10,6 +10,7 @@ import type {
   IDeleteSelectionStreamProgressEvent,
 } from './delete-stream';
 import { selectionIdsRoSchema, type ISelectionIdsRo } from './id';
+import { createSelectionStreamError } from './stream-error';
 
 export const DELETE_BY_ID_STREAM_URL = '/table/{tableId}/selection/delete-by-id-stream';
 
@@ -87,7 +88,7 @@ export const deleteSelectionByIdStream = async (
 
   if (!finalResult || !doneEvent) {
     const lastError = errors.at(-1);
-    if (lastError) throw new Error(lastError.message);
+    if (lastError) throw createSelectionStreamError(lastError);
     throw new Error('Delete selection by id stream ended without result');
   }
 

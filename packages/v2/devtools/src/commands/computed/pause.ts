@@ -22,8 +22,7 @@ const reasonOption = Options.text('reason').pipe(
 );
 
 const resumeAtOption = Options.text('resume-at').pipe(
-  Options.withDescription('Optional ISO-8601 time to auto-expire the pause'),
-  Options.optional
+  Options.withDescription('Required ISO-8601 time to auto-expire the pause (maximum 2 hours)')
 );
 
 const actorOption = Options.text('actor').pipe(
@@ -76,7 +75,7 @@ const handler = (args: {
   readonly baseId: Option.Option<string>;
   readonly tableId: Option.Option<string>;
   readonly reason: Option.Option<string>;
-  readonly resumeAt: Option.Option<string>;
+  readonly resumeAt: string;
   readonly actor: string;
 }) =>
   Effect.gen(function* () {
@@ -88,7 +87,7 @@ const handler = (args: {
       baseId: optionToUndefined(args.baseId),
       tableId: optionToUndefined(args.tableId),
       reason: optionToUndefined(args.reason),
-      resumeAt: optionToUndefined(args.resumeAt),
+      resumeAt: args.resumeAt,
       actor: args.actor,
     };
 
@@ -113,7 +112,7 @@ const handler = (args: {
           baseId: optionToUndefined(args.baseId),
           tableId: optionToUndefined(args.tableId),
           reason: optionToUndefined(args.reason),
-          resumeAt: optionToUndefined(args.resumeAt),
+          resumeAt: args.resumeAt,
           actor: args.actor,
         };
         yield* output.error('computed.pause', rawInput, error);
@@ -136,6 +135,6 @@ export const computedPause = Command.make(
   handler
 ).pipe(
   Command.withDescription(
-    'Pause computed task claims for a space, base, or table scope until resumed or until --resume-at'
+    'Pause computed task claims for a bounded period; --resume-at is required and limited to 2 hours'
   )
 );

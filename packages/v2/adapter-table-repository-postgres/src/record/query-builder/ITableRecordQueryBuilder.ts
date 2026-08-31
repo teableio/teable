@@ -8,9 +8,12 @@ import type {
   Table,
   TableRecord,
 } from '@teable/v2-core';
-import type { SelectQueryBuilder } from 'kysely';
+import type { Expression, SelectQueryBuilder, SqlBool } from 'kysely';
 import type { Result } from 'neverthrow';
 import type { QueryMode } from './TableRecordQueryBuilderManager';
+
+/** Per-field visibility predicate compiled for the current table alias. */
+export type FieldMaskSqlMap = ReadonlyMap<string, Expression<SqlBool>>;
 
 /**
  * System column names that can be used for ordering.
@@ -88,6 +91,28 @@ export interface ITableRecordQueryBuilder {
   select(projection: ReadonlyArray<FieldId>): this;
 
   /**
+   * Select only the record id column. Filter/search/order/pagination
+   * semantics are unchanged; field and system columns are omitted, and a
+   * paginated ordered read returns the narrow page subquery directly instead
+   * of joining back for the row payload. For id-resolution reads.
+   */
+  idsOnly?(): this;
+
+  /**
+   * Select `__id` plus projected field columns. Omits system columns used
+   * by list/undo row reconstruction. For field-value snapshot reads.
+   */
+  valuesOnly?(): this;
+  /**
+   * Provide per-field visibility-mask SQL predicates (T6997). When a field
+   * has a mask, ORDER BY evaluates `CASE WHEN <mask> THEN <value> ELSE NULL
+   * END` instead of the raw column, so restricted cells sort as NULL without
+   * rejecting the query. Optional: builders that cannot compile masks simply
+   * omit it (callers must tolerate unmasked ordering there).
+   */
+  fieldMaskSql?(maskSqlMap: FieldMaskSqlMap | undefined): this;
+
+  /**
    * Limit the number of records returned.
    * @param n - Maximum number of records
    */
@@ -103,14 +128,30 @@ export interface ITableRecordQueryBuilder {
    * Set ordering for the query.
    * @param column - The column to order by (FieldId or system column like '__auto_number')
    * @param direction - Sort direction ('asc' or 'desc')
+   * @param options - groupIdentityCollation: collate a user field the way its
+   * group buckets collate ({id, title} identity) so grouped record pages and
+   * offset-addressed range reads line up with the group row blocks; without
+   * it plain sorts keep the v1 raw-cell collation
    */
-  orderBy(column: OrderByColumn, direction: 'asc' | 'desc'): this;
+  orderBy(
+    column: OrderByColumn,
+    direction: 'asc' | 'desc',
+    options?: { readonly groupIdentityCollation?: boolean }
+  ): this;
 
   /**
    * Apply a record condition specification.
    * @param spec - Specification to filter records by
    */
   where(spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>): this;
+
+  /**
+   * Apply a raw SQL boolean expression as an additional AND condition.
+   * Used for conditions that are not record condition specs (e.g. search).
+   * Must be called before build() so paginated queries can place the
+   * condition inside the row-selection subquery.
+   */
+  whereExpression(expression: Expression<SqlBool>): this;
 
   /**
    * Prepare the query builder by loading any required data.

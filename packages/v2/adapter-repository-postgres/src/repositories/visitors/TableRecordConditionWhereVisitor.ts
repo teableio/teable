@@ -40,16 +40,28 @@ export interface TableRecordConditionWhereVisitorOptions {
   tableAlias?: string;
 }
 
-class DateUtil {
+export class DateUtil {
   constructor(private readonly timeZone: string) {}
 
   date(value?: dayjs.ConfigType): Dayjs {
-    return dayjs(value).utc().tz(this.timeZone);
+    const zoned = dayjs(value).utc().tz(this.timeZone);
+    // dayjs's timezone plugin stores the zone offset in a field that later code
+    // checks for truthiness, so instances whose current offset is exactly 0
+    // (UTC, Etc/GMT, London in winter) fall back to the host-local calendar in
+    // startOf/endOf and produce host-timezone-dependent ranges. Pure utc-mode
+    // instances share the same day boundaries and are immune.
+    if (zoned.utcOffset() === 0) {
+      return dayjs(value).utc();
+    }
+    return zoned;
   }
 
   offset(dateField: ManipulateType, offset: number, value = this.date()): Dayjs {
     if (offset === 0) return value;
-    return value[offset > 0 ? 'add' : 'subtract'](Math.abs(offset), dateField);
+    const shifted = value[offset > 0 ? 'add' : 'subtract'](Math.abs(offset), dateField);
+    // Keep the source wall-clock time while recalculating the target date's
+    // IANA offset. The outer date() retains the zero-offset dayjs workaround.
+    return this.date(shifted.tz(this.timeZone, true));
   }
 
   offsetDay(offset: number, value = this.date()): Dayjs {
@@ -184,6 +196,7 @@ const resolveDateRange = (
     const mode = value.mode();
     const numberOfDays = value.numberOfDays();
     const exactDate = value.exactDate();
+    const exactDateEnd = value.exactDateEnd();
     const dateUtil = new DateUtil(value.timeZone().toString());
 
     const requireExactDate = (): Result<string, DomainError> => {
@@ -223,6 +236,23 @@ const resolveDateRange = (
       return requireExactDate().map((raw) => {
         const parsed = dateUtil.date(raw);
         return [parsed.startOf('day'), parsed.endOf('day')];
+      });
+    };
+
+    const determineDateRangeSpan = (): Result<[Dayjs, Dayjs], DomainError> => {
+      return requireExactDate().andThen((rawStart) => {
+        if (!exactDateEnd) {
+          return err(
+            core.domainError.unexpected({ message: 'Date condition requires exactDateEnd' })
+          );
+        }
+        const hasTimeFormat = formatting != null && formatting.time() !== core.TimeFormatting.None;
+        const start = dateUtil.date(rawStart);
+        const end = dateUtil.date(exactDateEnd);
+        return ok<[Dayjs, Dayjs]>([
+          hasTimeFormat ? start : start.startOf('day'),
+          hasTimeFormat ? end : end.endOf('day'),
+        ]);
       });
     };
 
@@ -276,8 +306,8 @@ const resolveDateRange = (
         weekStart: 1,
       });
       const cursorDate = match(relativeMode)
-        .with('next', () => dateUtil.date().add(1, unit))
-        .with('last', () => dateUtil.date().subtract(1, unit))
+        .with('next', () => dateUtil.offset(unit, 1))
+        .with('last', () => dateUtil.offset(unit, -1))
         .with('current', () => dateUtil.date())
         .exhaustive();
       return [cursorDate.startOf(unit).startOf('day'), cursorDate.endOf(unit).endOf('day')];
@@ -304,6 +334,7 @@ const resolveDateRange = (
         .with('daysAgo', () => calculateDateRangeForOffsetDays(true))
         .with('daysFromNow', () => calculateDateRangeForOffsetDays(false))
         .with('exactDate', () => determineExactDateRange())
+        .with('dateRange', () => determineDateRangeSpan())
         .with('exactDateTime', () => determineExactDateTimeRange())
         .with('exactFormatDate', () => determineExactFormatDateRange())
         .with('currentWeek', () => ok(generateRelativeDateFromCurrentDateRange('current', 'week')))
@@ -413,6 +444,10 @@ const buildIsCondition = (
     const columnRef = sql.ref(column);
     if (core.isRecordConditionDateValue(value)) {
       const range = yield* resolveDateRange(value, resolveDateFormatting(field));
+      // v1 parity: an inverted dateRange (start > end) is skipped, not an error
+      if (value.mode() === 'dateRange' && Date.parse(range.start) > Date.parse(range.end)) {
+        return ok(sql`true`);
+      }
       return ok(sql`${columnRef} between ${range.start} and ${range.end}`);
     }
     const operand = yield* resolvePrimitiveOperand(value, tableAlias);
@@ -432,6 +467,10 @@ const buildIsNotCondition = (
     const column = yield* resolveColumn(field, tableAlias);
     const columnRef = sql.ref(column);
     if (core.isRecordConditionDateValue(value)) {
+      // v1 parity: dateRange only supports is/isWithIn — with isNot the condition is skipped
+      if (value.mode() === 'dateRange') {
+        return ok(sql`true`);
+      }
       const range = yield* resolveDateRange(value, resolveDateFormatting(field));
       return ok(
         sql`(${columnRef} not between ${range.start} and ${range.end} or ${columnRef} is null)`
@@ -539,6 +578,10 @@ const buildIsWithinCondition = (
     const column = yield* resolveColumn(field, tableAlias);
     const dateValue = yield* resolveDateValue(value);
     const range = yield* resolveDateRange(dateValue, resolveDateFormatting(field));
+    // v1 parity: an inverted dateRange (start > end) is skipped, not an error
+    if (dateValue.mode() === 'dateRange' && Date.parse(range.start) > Date.parse(range.end)) {
+      return ok(sql`true`);
+    }
     const columnRef = sql.ref(column);
     return ok(sql`${columnRef} between ${range.start} and ${range.end}`);
   });

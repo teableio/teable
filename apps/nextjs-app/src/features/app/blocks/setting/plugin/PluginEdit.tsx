@@ -100,7 +100,7 @@ export const PluginEdit = (props: { secret?: string }) => {
       onCancel={() => router.push({ pathname: router.pathname })}
     >
       {initFormValue?.status && (
-        <div className="absolute right-10 flex items-center gap-2 bg-background">
+        <div className="absolute end-10 flex items-center gap-2 bg-background">
           <StatusBadge status={initFormValue.status} />
           {initFormValue.status === PluginStatus.Developing && (
             <Button
@@ -139,7 +139,7 @@ export const PluginEdit = (props: { secret?: string }) => {
             {t('plugin:secret')}
             {!initFormValue?.isSystem && (
               <Button
-                className="ml-2 h-auto p-1.5"
+                className="ms-2 h-auto p-1.5"
                 title={t('plugin:regenerateSecret')}
                 size={'xs'}
                 variant={'outline'}

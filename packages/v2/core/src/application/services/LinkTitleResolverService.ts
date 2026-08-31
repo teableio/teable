@@ -19,6 +19,7 @@ import type {
   ICellValueSpecVisitor,
 } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { SetAttachmentValueSpec } from '../../domain/table/records/specs/values/SetAttachmentValueSpec';
+import type { SetButtonValueSpec } from '../../domain/table/records/specs/values/SetButtonValueSpec';
 import type { SetCheckboxValueSpec } from '../../domain/table/records/specs/values/SetCheckboxValueSpec';
 import type { SetDateValueSpec } from '../../domain/table/records/specs/values/SetDateValueSpec';
 import { SetLinkValueByTitleSpec } from '../../domain/table/records/specs/values/SetLinkValueByTitleSpec';
@@ -97,6 +98,9 @@ class LinkTitleCollectorVisitor implements ICellValueSpecVisitor {
   }
 
   visitSetAttachmentValue(_spec: SetAttachmentValueSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+  visitSetButtonValue(_spec: SetButtonValueSpec): Result<void, DomainError> {
     return ok(undefined);
   }
 
@@ -359,6 +363,7 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
 
   async resolveSpecs(
     context: IExecutionContext,
+    _tableId: TableId,
     specs: ReadonlyArray<SetLinkValueByTitleSpec>
   ): Promise<Result<ReadonlyArray<ICellValueSpec>, DomainError>> {
     const service = this;
@@ -401,17 +406,7 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
       for (let i = 0; i < specs.length; i++) {
         const spec = specs[i]!;
         const resolved = resolvedBySpecIndex[i];
-        if (!resolved || resolved.resolvedIds.length === 0) {
-          replacements.push(
-            new SetLinkValueSpec(spec.fieldId, CellValue.fromValidated<LinkItem[]>(null))
-          );
-          continue;
-        }
-        const linkItems: LinkItem[] = resolved.resolvedIds.map((entry) => ({
-          id: entry.id,
-          title: entry.title,
-        }));
-        replacements.push(new SetLinkValueSpec(spec.fieldId, CellValue.fromValidated(linkItems)));
+        replacements.push(toResolvedLinkValueSpec(spec, resolved));
       }
 
       return ok(replacements);
@@ -476,18 +471,26 @@ function replaceSpecs(
   }
 
   if (spec instanceof SetLinkValueByTitleSpec) {
-    const resolved = resolvedMap.get(spec);
-
-    if (!resolved || resolved.resolvedIds.length === 0) {
-      return new SetLinkValueSpec(spec.fieldId, CellValue.fromValidated<LinkItem[]>(null));
-    }
-
-    const linkItems: LinkItem[] = resolved.resolvedIds.map((entry) => ({
-      id: entry.id,
-      title: entry.title,
-    }));
-    return new SetLinkValueSpec(spec.fieldId, CellValue.fromValidated(linkItems));
+    return toResolvedLinkValueSpec(spec, resolvedMap.get(spec));
   }
 
   return spec;
+}
+
+function toResolvedLinkValueSpec(
+  spec: SetLinkValueByTitleSpec,
+  resolved: LinkTitleResolveResult | undefined
+): SetLinkValueSpec {
+  if (!resolved || resolved.resolvedIds.length === 0) {
+    return new SetLinkValueSpec(spec.fieldId, CellValue.fromValidated<LinkItem[]>(null));
+  }
+
+  const linkItems: LinkItem[] = resolved.resolvedIds.map((entry) => ({
+    id: entry.id,
+    title: entry.title,
+  }));
+  return new SetLinkValueSpec(
+    spec.fieldId,
+    CellValue.fromValidated(spec.isMultiple ? linkItems : linkItems[0])
+  );
 }

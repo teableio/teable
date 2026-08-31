@@ -3,6 +3,7 @@ import { CSS } from '@dnd-kit/utilities';
 import type { IAttachmentItem } from '@teable/core';
 import { Download, X } from '@teable/icons';
 import { Button, cn, FilePreviewItem, isImage } from '@teable/ui-lib';
+import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { EllipsisFileName } from '../../../upload/EllipsisFileName';
 import { FileCover } from '../../../upload/FileCover';
@@ -27,9 +28,16 @@ function AttachmentItem(props: IUploadAttachment) {
     disabled: readonly || isEditing,
   });
 
-  const style = {
+  const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
+    ...(!readonly &&
+      !isEditing && {
+        WebkitTouchCallout: 'none',
+        WebkitUserSelect: 'none',
+        userSelect: 'none',
+        touchAction: 'manipulation',
+      }),
   };
 
   const handleStartEdit = useCallback(() => {
@@ -89,7 +97,12 @@ function AttachmentItem(props: IUploadAttachment) {
             size={attachment.size}
           >
             {shouldRenderPreviewImage ? (
-              <img className="size-full object-cover" src={previewUrl} alt={attachment.name} />
+              <img
+                className="size-full object-cover"
+                src={previewUrl}
+                alt={attachment.name}
+                draggable={false}
+              />
             ) : (
               <FileCover
                 className="size-full object-cover"
@@ -101,7 +114,7 @@ function AttachmentItem(props: IUploadAttachment) {
           </FilePreviewItem>
           <div className="absolute inset-x-0 top-0 z-10 hidden items-center gap-1 rounded-t-lg bg-black/60 px-1.5 py-1 text-white group-hover:flex">
             <span
-              className="mr-auto min-w-0 truncate text-xs"
+              className="me-auto min-w-0 truncate text-xs"
               title={formatFileSize(attachment.size)}
             >
               {formatFileSize(attachment.size)}

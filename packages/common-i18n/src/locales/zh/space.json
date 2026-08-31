@@ -88,7 +88,6 @@
     "description": "所有邀请我加入的数据库",
     "empty": "暂无分享给我的数据库"
   },
-  "integration": {},
   "aiSetting": {
     "title": "AI 配置",
     "description": "管理空间 AI 配置",
@@ -366,6 +365,40 @@
       "disableReminder": "完成——现在可以回 Airtable 关闭刚才的共享链接了。"
     }
   },
+  "googleSheetImport": {
+    "title": "从 Google Sheets 导入",
+    "close": "关闭",
+    "pickSpreadsheet": "选择要导入的表格",
+    "openPicker": "从 Google Drive 选择表格",
+    "changeSpreadsheet": "更换",
+    "analyzing": "正在读取表格…",
+    "pickTabs": "选择要导入的工作表",
+    "gridSize": "{{rows}} 行 × {{columns}} 列",
+    "optionRecords": "导入记录数据",
+    "import": "开始导入",
+    "done": "导入完成",
+    "failed": "导入失败",
+    "openBase": "打开 base",
+    "issuesSummary": "导入过程中有 {{count}} 项做了调整：",
+    "issuesMore": "还有 {{count}} 项…",
+    "recordsImported": "{{tableName}}：已导入 {{count}} 条记录",
+    "partialImported": "出错前已完整导入 {{count}} 个数据表，并已保留",
+    "issue": {
+      "valuesDropped": "{{sheetName}} / {{fieldName}}：丢弃了 {{count}} 个值（{{reason}}）",
+      "sheetSkipped": "工作表「{{sheetName}}」已跳过：{{reason}}",
+      "columnsTruncated": "{{sheetName}}：超出列数上限的 {{count}} 列未导入"
+    },
+    "phase": {
+      "fetchingSchema": "正在读取表格结构",
+      "creatingBase": "正在创建 base：{{detail}}",
+      "creatingTable": "正在创建表：{{tableName}}（{{tableIndex}}/{{totalTables}}）"
+    },
+    "detecting": "正在检查 Google 连接…",
+    "connectWithGoogle": "连接 Google 账号",
+    "waitingOAuth": "请在弹窗中完成授权…",
+    "connectedAs": "已连接：{{account}}",
+    "integrationRequired": "此实例未配置 Google Sheets 集成，请联系管理员进行设置。"
+  },
   "createBaseDialog": {
     "title": "你想如何开始？"
   },
@@ -373,6 +406,7 @@
     "title": "导入数据库",
     "fromFile": "从文件导入",
     "fromFileDesc": "上传 .tea 数据库文件",
-    "fromAirtableDesc": "连接 Airtable 账号导入 base"
+    "fromAirtableDesc": "连接 Airtable 账号导入 base",
+    "fromGoogleSheetDesc": "从 Google Drive 选择表格导入"
   }
 }

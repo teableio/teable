@@ -51,6 +51,13 @@ export interface SchemaRuleContext {
   readonly optimizeForEmptyTables?: boolean;
 
   /**
+   * True when another live field maps to the same physical column (db field
+   * name collision). Rules must keep the column on delete — dropping it would
+   * destroy the surviving field's data.
+   */
+  readonly preserveSharedColumn?: boolean;
+
+  /**
    * Optional per checker/repairer session cache for expensive cross-table lookups
    * (e.g. active link storage refs). Shared across tables in one base integrity run.
    */
@@ -71,6 +78,7 @@ export const createSchemaRuleContext = (params: {
   table?: Table;
   mode?: 'delete' | 'update';
   optimizeForEmptyTables?: boolean;
+  preserveSharedColumn?: boolean;
   sessionCache?: Map<string, unknown>;
 }): SchemaRuleContext => ({
   db: params.db,
@@ -83,5 +91,6 @@ export const createSchemaRuleContext = (params: {
   table: params.table,
   mode: params.mode,
   optimizeForEmptyTables: params.optimizeForEmptyTables,
+  preserveSharedColumn: params.preserveSharedColumn,
   sessionCache: params.sessionCache,
 });

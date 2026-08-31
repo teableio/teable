@@ -1,0 +1,412 @@
+{
+  "crossSpace": {
+    "duplicateBaseTitle": "تنبيه",
+    "duplicateBaseDescription": "المراجع بين المساحات غير مدعومة. سيُحوَّل الحقل المكرر إلى حقل نص سطر واحد.",
+    "affectedTableSuffix": "({{count}} حقل)",
+    "convertAndDuplicate": "التحويل والتكرار"
+  },
+  "initialSpaceName": "مساحة {{name}}",
+  "action": {
+    "createBase": "إنشاء قاعدة بيانات",
+    "createSpace": "إنشاء مساحة",
+    "invite": "دعوة",
+    "startFromScratch": "البدء من الصفر"
+  },
+  "allSpaces": "جميع المساحات",
+  "emptySpaceTitle": "لا توجد قواعد بيانات في هذه المساحة",
+  "spaceIsEmpty": "أنشئ قاعدة بياناتك الأولى للبدء",
+  "baseModal": {
+    "copy": "نسخ",
+    "duplicate": "تكرار \"{{baseName}}\"",
+    "createBaseFromTemplate": "إنشاء قاعدة بيانات من قالب",
+    "duplicateRecords": "تكرار السجلات",
+    "duplicateRecordsTip": "لن يُنسخ سجل المراجعات ولا المتعاونون.",
+    "toSpace": "إلى المساحة",
+    "copyToSpace": "نسخ إلى مساحة",
+    "duplicateBase": "تكرار قاعدة البيانات",
+    "missTargetTip": "يُرجى اختيار مساحة لتكرار قاعدة البيانات فيها.",
+    "copying": "جارٍ تكرار قاعدة البيانات، قد يستغرق ذلك بعض الوقت...",
+    "howToCreate": "كيف تريد أن تبدأ؟",
+    "fromScratch": "من الصفر",
+    "fromTemplate": "من قالب",
+    "moveBaseToAnotherSpace": "نقل {{baseName}} إلى مساحة أخرى",
+    "chooseSpace": "اختر مساحة",
+    "duplicateBaseSucceedAndJump": "تم بنجاح، انقر للانتقال"
+  },
+  "spaceSetting": {
+    "title": "الإعدادات",
+    "general": "عام",
+    "collaborators": "المتعاونون",
+    "generalDescription": "غيّر إعدادات مساحتك الحالية من هنا",
+    "spaceName": "اسم المساحة",
+    "spaceId": "معرّف المساحة",
+    "importBase": "استيراد"
+  },
+  "collaborators": "المتعاونون",
+  "more": "المزيد",
+  "pin": {
+    "add": "تثبيت",
+    "remove": "إلغاء التثبيت",
+    "pin": "المثبّتة",
+    "empty": "ستظهر هنا قواعد بياناتك ومساحاتك المثبّتة"
+  },
+  "tooltip": {
+    "noPermissionToCreateBase": "ليست لديك صلاحية إنشاء قاعدة بيانات"
+  },
+  "tip": {
+    "delete": "هل أنت متأكد من حذف <0/>؟",
+    "exportTips2": "يمكنك استيراد ملف ‎.tea من: المساحة ← المزيد ← استيراد",
+    "exportTips3": "ستُحوَّل حقول العلاقات بين قواعد البيانات إلى نص سطر واحد.",
+    "exportIncludeDataLabel": "تضمين السجلات",
+    "exportIncludeDataDescription": "عند الإيقاف، يُصدَّر الهيكل والإعدادات فقط",
+    "exportTitle": "تصدير",
+    "exportDescription": "صدّر قاعدة البيانات الحالية إلى ملف ‎.tea، وقد يستغرق ذلك بعض الوقت.",
+    "exportStartButton": "بدء التصدير",
+    "exportSlowTip": "حجم البيانات كبير. قد يستغرق التصدير بعض الوقت، ويمكنك المغادرة مؤقتًا.",
+    "exportReadyDescription": "يُرجى تنزيل ملف ‎.tea، {{importHint}}",
+    "moveBaseSuccessTitle": "تم نقل قاعدة البيانات بنجاح",
+    "moveBaseSuccessDescription": "تم نقل {{baseName}} إلى {{spaceName}}",
+    "moveBaseCrossSpaceTitle": "تنبيه",
+    "moveBaseCrossSpaceDataLossWarning": "المراجع بين المساحات غير مدعومة. ستُحوَّل الحقول المرتبطة إلى حقول نصية. ولا يمكن التراجع عن هذا الإجراء.",
+    "moveBaseCrossDataDbTitle": "نقل بين قاعدتَي بيانات مختلفتين",
+    "moveBaseCrossDataDbWarning": "تستخدم المساحة المصدر والمساحة الهدف قاعدتَي بيانات مختلفتين. سينسخ هذا النقل بيانات قاعدة البيانات إلى القاعدة الهدف وقد يستغرق بعض الوقت. وتتوقف عمليات الكتابة على هذه القاعدة أثناء النقل.",
+    "moveBaseProgressTitle": "جارٍ نقل قاعدة البيانات…",
+    "moveBaseProgressPhase": "المرحلة: {{phase}}",
+    "moveBaseProgressPercent": "{{percent}}٪",
+    "moveBaseFailedTitle": "فشل النقل",
+    "moveBaseFailedDescription": "المرحلة {{phase}}: {{error}}",
+    "moveBaseRetry": "إعادة المحاولة",
+    "moveBaseCancel": "إلغاء"
+  },
+  "deleteSpaceModal": {
+    "title": "حذف المساحة",
+    "blockedTitle": "تعذّر حذف هذه المساحة",
+    "blockedDesc": "لهذه المساحة اشتراك نشط. يُرجى إلغاء الاشتراك قبل حذف المساحة."
+  },
+  "sharedBase": {
+    "title": "تمت مشاركتها معي",
+    "description": "جميع قواعد البيانات التي دُعيت للانضمام إليها",
+    "empty": "لم تتم مشاركة أي قاعدة بيانات معك بعد"
+  },
+  "aiSetting": {
+    "title": "إعدادات الذكاء الاصطناعي",
+    "description": "أدِر إعدادات الذكاء الاصطناعي لمساحتك",
+    "enable": "تهيئة إعدادات الذكاء الاصطناعي"
+  },
+  "import": {
+    "importing": "جارٍ الاستيراد",
+    "baseImportTips": "انقر أو اسحب ملف ‎.tea وأفلته في هذه المنطقة للرفع",
+    "confirm": "تأكيد ومتابعة",
+    "phase": {
+      "importingV2": "جارٍ الاستيراد",
+      "parsingStructure": "جارٍ تحليل البنية",
+      "creatingBase": "جارٍ إنشاء قاعدة البيانات: {{detail}}",
+      "creatingTable": "جارٍ إنشاء الجدول: {{detail}}",
+      "tableStructureStarted": "جارٍ تجهيز بنية الجدول: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableStructureValidating": "جارٍ التحقق من علاقات الجداول",
+      "tableStructureCommitting": "جارٍ حفظ بنية الجدول",
+      "tableStructureDone": "تم حفظ بنية الجدول: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableStructureData": "بنية الجدول",
+      "tableStructureTablesProgress": "تم تجهيز {{count}}/{{total}} جدول",
+      "tableStructureTablesDone": "تم حفظ {{count}}/{{total}} جدول",
+      "creatingCommonFields": "جارٍ إنشاء الحقول الأساسية لـ {{table}}: {{fields}}",
+      "creatingButtonFields": "جارٍ إنشاء حقول الأزرار لـ {{table}}: {{fields}}",
+      "creatingFormulaFields": "جارٍ إنشاء حقول الصيغ لـ {{table}}: {{fields}}",
+      "creatingLinkFields": "جارٍ إنشاء حقول الربط لـ {{table}}: {{fields}}",
+      "creatingLookupFields": "جارٍ إنشاء حقول البحث لـ {{table}}: {{fields}}",
+      "creatingTableViews": "جارٍ إنشاء طرق العرض لـ {{table}}: {{fields}}",
+      "creatingPlugins": "جارٍ إنشاء المكوّنات الإضافية",
+      "creatingFolders": "جارٍ إنشاء المجلدات",
+      "creatingWorkflows": "جارٍ إنشاء سير العمل",
+      "creatingApps": "جارٍ إنشاء التطبيقات",
+      "creatingAuthorityMatrix": "جارٍ إنشاء مصفوفة الصلاحيات",
+      "restoringBaseNodes": "جارٍ استعادة تسلسل المجلدات",
+      "queuingAttachments": "جارٍ إدراج رفع المرفقات في قائمة الانتظار",
+      "uploadingAppFiles": "جارٍ رفع ملفات التطبيق",
+      "queuingDataImport": "جارٍ إدراج استيراد البيانات في قائمة الانتظار",
+      "importingTableData": "جارٍ استيراد بيانات الجداول",
+      "restoringLinkRelations": "جارٍ استعادة بيانات السجلات المرتبطة",
+      "tableDataStarted": "جارٍ استيراد السجلات: {{tableName}}",
+      "tableDataProgress": "جارٍ استيراد السجلات: {{tableName}}",
+      "tableDataDone": "اكتمل استيراد السجلات: {{tableName}}",
+      "linkFieldsData": "بيانات السجلات المرتبطة",
+      "linkFieldsProgress": "جارٍ استعادة بيانات السجلات المرتبطة",
+      "linkFieldsDone": "تمت استعادة بيانات السجلات المرتبطة",
+      "tableDataRowsProgress": "تم استيراد {{count}} صف",
+      "tableDataRowsDone": "تم استيراد {{count}} صف",
+      "tableDataRowsTotalProgress": "تمت معالجة {{count}}/{{total}} صف",
+      "tableDataRowsTotalDone": "تمت معالجة {{count}}/{{total}} صف",
+      "tableDataBatch": "الدفعة {{batch}}",
+      "tableDataBatchRows": "{{count}} صف في هذه الدفعة",
+      "tableDataEmpty": "لا توجد بيانات جداول للاستيراد",
+      "done": "اكتمل الاستيراد",
+      "clickToView": "انقر للعرض"
+    }
+  },
+  "export": {
+    "phase": {
+      "preparing": "جارٍ تجهيز التصدير",
+      "exportingArchive": "جارٍ إنشاء ملف التصدير",
+      "exportingStructure": "جارٍ تصدير البنية",
+      "exportingAttachments": "جارٍ تصدير المرفقات",
+      "exportingAttachmentMetadata": "جارٍ تصدير بيانات المرفقات الوصفية",
+      "exportingTableData": "جارٍ تصدير السجلات",
+      "tableDataStarted": "جارٍ تصدير السجلات: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableDataProgress": "جارٍ تصدير السجلات: {{tableName}}",
+      "tableDataDone": "اكتمل تصدير السجلات: {{tableName}}",
+      "exportingExtraFiles": "جارٍ تصدير الملفات الإضافية",
+      "exportingAppFiles": "جارٍ تصدير ملفات التطبيق",
+      "uploadingArchive": "جارٍ رفع ملف التصدير",
+      "generatingDownloadUrl": "جارٍ إنشاء رابط التنزيل",
+      "rowsProgress": "تم تصدير {{count}} صف",
+      "done": "اكتمل التصدير"
+    }
+  },
+  "template": {
+    "title": "قالب",
+    "description": "أنشئ قاعدة بيانات جديدة من قالب بسرعة",
+    "noTemplatesAvailable": "لا توجد قوالب متاحة",
+    "noTemplatesDescription": "لا يوجد شيء هنا حاليًا"
+  },
+  "recentlyBase": {
+    "title": "زيارات حديثة"
+  },
+  "noBases": {
+    "title": "مرحبًا {{userName}}!",
+    "description": "لنبدأ بإدارة عملك عبر قاعدة بياناتك الأولى."
+  },
+  "noSpaces": {
+    "title": "مرحبًا {{userName}}!",
+    "description": "أنشئ مساحتك الأولى لتبدأ رحلة التعاون على البيانات."
+  },
+  "baseList": {
+    "allBases": "جميع قواعد البيانات",
+    "creator": "المُنشِئ",
+    "createdTime": "تاريخ الإنشاء",
+    "lastOpened": "آخر فتح",
+    "enter": "دخول",
+    "noTables": "لا توجد جداول",
+    "empty": "لا توجد قواعد بيانات بعد",
+    "recent": "الأحدث",
+    "manual": "ترتيب يدوي"
+  },
+  "publishBase": {
+    "title": "النشر في مركز القوالب",
+    "description": "انشر قاعدة بياناتك في مركز القوالب بنقرة واحدة! دع المزيد من الأشخاص يرون إبداعك ويستخدمونه ويعيدون تشكيله، ولنبنِ معًا أعمالًا أقوى",
+    "infoTitle": "المعلومات الأساسية",
+    "form": {
+      "title": "عنوان العمل",
+      "description": "الوصف",
+      "security": "الأمان",
+      "advanced": "متقدم",
+      "publishNode": "العُقد المنشورة",
+      "includeData": "تضمين البيانات",
+      "defaultActiveNode": "العقدة النشطة الافتراضية",
+      "descriptionPlaceholder": "صف فكرتك باختصار...",
+      "titlePlaceholder": "سمِّ عملك..."
+    },
+    "publishToCommunity": "النشر في مركز القوالب",
+    "publish": "نشر",
+    "publishSuccess": "تم النشر بنجاح!",
+    "previewTips": "دع العالم يرى عملك",
+    "update": "تحديث",
+    "unPublish": "إلغاء النشر",
+    "unPublishSuccess": "تم إلغاء نشر قاعدة البيانات بنجاح!",
+    "unPublishConfirmTitle": "تأكيد إلغاء النشر",
+    "unPublishConfirmDescription": "هل أنت متأكد من إلغاء نشر قاعدة البيانات هذه؟ لن تعود ظاهرة في مركز القوالب.",
+    "uploadCover": "انقر لرفع صورة الغلاف",
+    "changeCover": "انقر لتغيير الغلاف",
+    "uploading": "جارٍ رفع الصورة...",
+    "uploadSuccess": "تم رفع الصورة بنجاح",
+    "uploadFailed": "فشل الرفع",
+    "invalidImageType": "يُرجى اختيار ملف صورة",
+    "tips": {
+      "publishValidation": "العنوان والوصف مطلوبان",
+      "atLeastOneNode": "اختر عقدة واحدة على الأقل للنشر"
+    },
+    "urlCopied": "تم نسخ الرابط إلى الحافظة!",
+    "urlCopiedForDiscord": "تم نسخ الرابط إلى الحافظة! يمكنك لصقه في Discord.",
+    "featuredLabel": "مميّز",
+    "unfeaturedLabel": "غير مميّز",
+    "featuredTip": "مميّز رسميًا. سيحصل قالبك على مزيد من الظهور.",
+    "unfeaturedTip": "غير مميّز بعد. واصل التحسين لتحظى بفرصة الإبراز، ودع المزيد من الأشخاص يرون عملك.",
+    "publishSuccessDescription": "شارك عملك مع العالم",
+    "shareWith": "المشاركة عبر",
+    "unpublishedApps": {
+      "title": "تم اكتشاف تطبيقات غير منشورة",
+      "description": "قد تسبب التطبيقات غير المنشورة فشل معاينة القالب. انشرها الآن أو تابع على أي حال.",
+      "publishAll": "نشر الكل",
+      "publish": "نشر",
+      "published": "منشور",
+      "publishing": "جارٍ النشر",
+      "notPublished": "غير منشور",
+      "publishFailed": "فشل النشر",
+      "publishFailedTip1": "تحقق مما إذا كان التطبيق المصدر يمكن نشره بنجاح",
+      "publishFailedTip2": "جرّب إعادة نشر هذا القالب",
+      "ignoreAndContinue": "تجاهل ومتابعة",
+      "goToFix": "الانتقال للإصلاح",
+      "redeploy": "إعادة النشر",
+      "unnamedApp": "تطبيق بلا اسم"
+    }
+  },
+  "dataDb": {
+    "create": {
+      "title": "قاعدة بيانات التخزين",
+      "description": "اختر المكان الذي تخزّن فيه هذه المساحة مخططات قواعد البيانات والسجلات.",
+      "defaultHint": "موصى به لمعظم المساحات.",
+      "byodbOption": "استخدام قاعدة بيانات PostgreSQL الخاصة بي",
+      "byodbHint": "يهيّئ هذه المساحة في مخطط Teable داخلي ضمن قاعدة البيانات التي تديرها بنفسك.",
+      "urlLabel": "رابط اتصال PostgreSQL",
+      "sslHint": "استخدم معاملات SSL نفسها التي يتطلبها خادم PostgreSQL لديك. لا تُعرض كلمة المرور بعد الاختبار.",
+      "testConnection": "اختبار الاتصال",
+      "testing": "جارٍ الاختبار...",
+      "retestRequired": "أعد الاختبار بعد تغيير الرابط.",
+      "databaseLabel": "قاعدة البيانات",
+      "databasePlaceholder": "اختر قاعدة بيانات",
+      "databaseHint": "اختر قاعدة بيانات PostgreSQL لهذه المساحة، ثم أعد اختبار الاتصال.",
+      "preflightPassed": "اجتازت فحوص الاتصال",
+      "preflightFailed": "فشلت فحوص الاتصال",
+      "missingCapabilities": "صلاحيات ناقصة",
+      "testFailed": "فشل اختبار الاتصال بقاعدة البيانات.",
+      "errors": {
+        "INVALID_DATABASE_URL": {
+          "message": "رابط اتصال PostgreSQL غير صالح."
+        },
+        "PRIVATE_NETWORK_BLOCKED": {
+          "message": "تُحظر مضيفات قواعد البيانات في الشبكات الخاصة افتراضيًا.",
+          "remediation": "اضبط TEABLE_SSRF_PROTECTION_DISABLED=true فقط في عمليات النشر الذاتية الموثوقة."
+        },
+        "CONNECTION_FAILED": {
+          "message": "فشل الاتصال بقاعدة البيانات.",
+          "remediation": "تحقق من المضيف والمنفذ واسم قاعدة البيانات واسم المستخدم وكلمة المرور ومعاملات SSL."
+        },
+        "IPV6_NETWORK_UNREACHABLE": {
+          "message": "تمت ترجمة مضيف قاعدة البيانات إلى عنوان IPv6، لكن نشر Teable هذا لا يستطيع الوصول إلى شبكات IPv6.",
+          "remediation": "استخدم نقطة نهاية لقاعدة البيانات أو مجمّع اتصالات يمكن الوصول إليه عبر IPv4، أو فعّل الاتصال الصادر عبر IPv6 لنشر Teable هذا."
+        },
+        "PRIVILEGE_CHECK_FAILED": {
+          "message": "فشلت فحوص صلاحيات قاعدة البيانات."
+        },
+        "DDL_PRIVILEGE_CHECK_FAILED": {
+          "message": "يفتقر الحساب إلى صلاحيات DDL اللازمة لتهيئة قاعدة بيانات Teable.",
+          "remediation": "امنح صلاحيات إنشاء المخططات والجداول والدوال والمُشغِّلات."
+        },
+        "NON_EMPTY_UNKNOWN_DATABASE": {
+          "message": "يحتوي مخطط Teable الداخلي بالفعل على كائنات لا يديرها Teable.",
+          "remediation": "استخدم قاعدة بيانات بلا مخطط داخلي متعارض، أو أزل الكائنات غير المعروفة من ذلك المخطط."
+        },
+        "INCOMPATIBLE_TEABLE_DATABASE": {
+          "message": "تحتوي قاعدة البيانات هذه على كائنات بيانات Teable ناقصة أو غير متوافقة.",
+          "remediation": "استخدم قاعدة بيانات فارغة أو مسار ترحيل/تبنّي متوافقًا لقاعدة بيانات Teable."
+        }
+      }
+    },
+    "fields": {
+      "host": "المضيف",
+      "database": "قاعدة البيانات",
+      "internalSchema": "المخطط الداخلي",
+      "version": "الإصدار",
+      "classification": "التصنيف"
+    },
+    "badge": {
+      "label": "مخصصة",
+      "tooltip": "تُستضاف هذه المساحة على قاعدة بيانات مخصصة، معزولة عن المساحات الأخرى"
+    }
+  },
+  "airtableImport": {
+    "title": "الاستيراد من Airtable",
+    "close": "إغلاق",
+    "pickBase": "اختر قاعدة بيانات لاستيرادها",
+    "noBases": "لم يتم العثور على قواعد بيانات يمكن الوصول إليها بهذا الرمز.",
+    "optionRecords": "استيراد السجلات",
+    "optionAttachments": "تنزيل المرفقات واستيرادها",
+    "import": "بدء الاستيراد",
+    "done": "اكتمل الاستيراد",
+    "failed": "فشل الاستيراد",
+    "openBase": "فتح قاعدة البيانات",
+    "issuesSummary": "تم تعديل {{count}} عنصر أثناء الاستيراد:",
+    "issuesMore": "و{{count}} أخرى",
+    "issue": {
+      "fieldDegraded": "{{tableName}} / {{fieldName}}: {{fromType}} → {{toType}}",
+      "fieldSkipped": "تم تخطي {{tableName}} / {{fieldName}} ({{fromType}}): {{reason}}",
+      "viewSkipped": "تم تخطي {{tableName}} / طريقة العرض \"{{viewName}}\" ({{fromType}})",
+      "valuesDropped": "{{tableName}} / {{fieldName}}: تم إسقاط {{count}} قيمة ({{reason}})",
+      "viewConfigDegraded": "{{tableName}} / طريقة العرض \"{{viewName}}\": {{reason}}"
+    },
+    "phase": {
+      "fetchingSchema": "جارٍ قراءة مخطط قاعدة Airtable",
+      "creatingBase": "جارٍ إنشاء قاعدة البيانات: {{detail}}",
+      "creatingTable": "جارٍ إنشاء الجدول: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "creatingLinks": "جارٍ إنشاء حقول الربط",
+      "fillingLinks": "{{tableName}} (الروابط)",
+      "applyingViewConfig": "جارٍ استيراد إعدادات طرق العرض"
+    },
+    "searchBases": "البحث في قواعد البيانات",
+    "noSearchResults": "لا توجد قواعد بيانات مطابقة لبحثك.",
+    "detecting": "جارٍ التحقق من الاتصال بـ Airtable…",
+    "connectWithAirtable": "ربط حساب Airtable",
+    "waitingOAuth": "أكمل التفويض في النافذة المنبثقة…",
+    "connectedAs": "متصل: {{account}}",
+    "permission": {
+      "create": "مُنشئ",
+      "edit": "محرر",
+      "comment": "معلّق",
+      "read": "قراءة فقط"
+    },
+    "integrationRequired": "لم يتم إعداد تكامل Airtable في هذه النسخة. اطلب من المسؤول إعداده.",
+    "optionViewConfig": "استيراد عوامل التصفية والترتيب والتجميع لطرق العرض",
+    "viewConfig": {
+      "help": "لا تتيح واجهة Airtable API إعدادات طرق العرض، لذا يلزم رابط مشاركة للقاعدة للقراءة فقط.",
+      "helpStep1": "في Airtable، افتح قائمة المشاركة الخاصة بالقاعدة",
+      "helpStep2": "اختر \"Share to web\" وفعّل الوصول إلى القاعدة بالكامل",
+      "helpStep3": "انسخ رابط القراءة فقط والصقه في الحقل أعلاه",
+      "linkPlaceholder": "الصق رابط المشاركة هنا",
+      "mismatch": "يشير رابط المشاركة هذا إلى قاعدة بيانات مختلفة عن المحددة.",
+      "disableReminder": "تم — يمكنك الآن إيقاف رابط مشاركة القاعدة في Airtable."
+    }
+  },
+  "createBaseDialog": {
+    "title": "كيف تريد أن تبدأ؟"
+  },
+  "importBaseDialog": {
+    "title": "استيراد قاعدة بيانات",
+    "fromFile": "الاستيراد من ملف",
+    "fromFileDesc": "ارفع ملف قاعدة بيانات ‎.tea",
+    "fromAirtableDesc": "اربط حسابك في Airtable",
+    "fromGoogleSheetDesc": "اختر جدول بيانات من Google Drive الخاص بك"
+  },
+  "googleSheetImport": {
+    "title": "الاستيراد من Google Sheets",
+    "close": "إغلاق",
+    "pickSpreadsheet": "اختر جدول بيانات للاستيراد",
+    "openPicker": "اختر جدول بيانات من Google Drive",
+    "changeSpreadsheet": "تغيير",
+    "analyzing": "جارٍ قراءة جدول البيانات…",
+    "pickTabs": "اختر الأوراق المراد استيرادها",
+    "gridSize": "{{rows}} صف × {{columns}} عمود",
+    "optionRecords": "استيراد السجلات",
+    "import": "بدء الاستيراد",
+    "done": "اكتمل الاستيراد",
+    "failed": "فشل الاستيراد",
+    "openBase": "فتح قاعدة البيانات",
+    "issuesSummary": "تم تعديل {{count}} عنصر أثناء الاستيراد:",
+    "issuesMore": "+{{count}} أخرى",
+    "recordsImported": "{{tableName}}: تم استيراد {{count}} سجل",
+    "partialImported": "تم استيراد {{count}} جدول بالكامل قبل حدوث الفشل وتم الاحتفاظ بها",
+    "issue": {
+      "valuesDropped": "{{sheetName}} / {{fieldName}}: تم إسقاط {{count}} قيمة ({{reason}})",
+      "sheetSkipped": "تم تخطي الورقة \"{{sheetName}}\": {{reason}}",
+      "columnsTruncated": "{{sheetName}}: لم يتم استيراد {{count}} عمود تتجاوز الحد الأقصى للأعمدة"
+    },
+    "phase": {
+      "fetchingSchema": "قراءة بنية جدول البيانات",
+      "creatingBase": "إنشاء قاعدة البيانات: {{detail}}",
+      "creatingTable": "إنشاء الجدول: {{tableName}} ({{tableIndex}}/{{totalTables}})"
+    },
+    "detecting": "جارٍ التحقق من الاتصال بـ Google…",
+    "connectWithGoogle": "ربط حساب Google",
+    "waitingOAuth": "أكمِل التفويض في النافذة المنبثقة…",
+    "connectedAs": "متصل: {{account}}",
+    "integrationRequired": "تكامل Google Sheets غير مُعدّ على هذا الخادم. اطلب من المسؤول إعداده."
+  }
+}

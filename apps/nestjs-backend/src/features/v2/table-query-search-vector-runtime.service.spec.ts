@@ -1,10 +1,11 @@
+import { v2TableOpsTokens } from '@teable/v2-table-query-ops';
+import { ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
   TableQuerySearchVectorRuntimeService,
   hasSearchValueForSearchVectorRuntime,
   resolveTableQuerySearchVectorRuntimeMode,
-  toRecordSearchAccessPathFromConfig,
 } from './table-query-search-vector-runtime.service';
 
 describe('TableQuerySearchVectorRuntimeService', () => {
@@ -21,71 +22,6 @@ describe('TableQuerySearchVectorRuntimeService', () => {
     expect(resolveTableQuerySearchVectorRuntimeMode(input)).toBe(expected);
   });
 
-  it('converts a ready config row into a generated tsvector access path', () => {
-    const fieldId = `fld${'a'.repeat(16)}`;
-
-    const accessPath = toRecordSearchAccessPathFromConfig({
-      generatedColumnName: '__tqops_search_vector',
-      languageConfig: 'simple',
-      fieldIds: JSON.stringify([fieldId]),
-      searchScope: 'all_fields',
-      status: 'ready',
-    });
-
-    expect(accessPath).toMatchObject({
-      kind: 'generated_tsvector',
-      generatedColumnName: '__tqops_search_vector',
-      languageConfig: 'simple',
-      searchScope: 'all_fields',
-    });
-    expect(accessPath?.coveredFieldIds.map((id) => id.toString())).toEqual([fieldId]);
-  });
-
-  it('converts a ready substring config into a generated text access path', () => {
-    const fieldId = `fld${'b'.repeat(16)}`;
-    const accessPath = toRecordSearchAccessPathFromConfig({
-      generatedColumnName: '__tqops_search_document',
-      semantics: 'substring',
-      accessPath: 'generated_text',
-      provider: 'pg_bigm',
-      fieldIds: [fieldId],
-      searchScope: 'all_fields',
-      status: 'ready',
-    });
-
-    expect(accessPath).toMatchObject({
-      kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_bigm',
-      searchScope: 'all_fields',
-    });
-    expect(accessPath?.coveredFieldIds.map((id) => id.toString())).toEqual([fieldId]);
-  });
-
-  it('does not create an access path when covered fields are missing or invalid', () => {
-    expect(
-      toRecordSearchAccessPathFromConfig({
-        generatedColumnName: '__tqops_search_vector',
-        languageConfig: 'simple',
-        fieldIds: JSON.stringify(['not-a-field']),
-        searchScope: 'all_fields',
-        status: 'ready',
-      })
-    ).toBeUndefined();
-  });
-
-  it('does not reactivate an older ready path when the latest config is pending', () => {
-    expect(
-      toRecordSearchAccessPathFromConfig({
-        generatedColumnName: '__tqops_search_vector',
-        languageConfig: 'simple',
-        fieldIds: JSON.stringify([`fld${'a'.repeat(16)}`]),
-        searchScope: 'all_fields',
-        status: 'rebuild_pending',
-      })
-    ).toBeUndefined();
-  });
-
   it.each([
     [undefined, false],
     [[], false],
@@ -96,7 +32,7 @@ describe('TableQuerySearchVectorRuntimeService', () => {
     expect(hasSearchValueForSearchVectorRuntime(search)).toBe(expected);
   });
 
-  it('does not read meta config when the global runtime gate is off', async () => {
+  it('does not consult the resolver when the global runtime gate is off', async () => {
     const service = new TableQuerySearchVectorRuntimeService({
       get: vi.fn().mockReturnValue('off'),
     } as never);
@@ -112,5 +48,52 @@ describe('TableQuerySearchVectorRuntimeService', () => {
       })
     ).resolves.toBeUndefined();
     expect(container.isRegistered).not.toHaveBeenCalled();
+  });
+
+  it('delegates to the registered search access path resolver port', async () => {
+    const accessPath = {
+      kind: 'generated_text' as const,
+      generatedColumnName: '__tqops_search_document',
+      provider: 'pg_trgm' as const,
+      searchScope: 'all_fields' as const,
+      coveredFieldIds: [],
+    };
+    const resolve = vi.fn().mockResolvedValue(ok(accessPath));
+    const container = {
+      isRegistered: vi.fn().mockReturnValue(true),
+      resolve: vi.fn().mockReturnValue({ resolve }),
+    };
+    const service = new TableQuerySearchVectorRuntimeService({
+      get: vi.fn().mockReturnValue('auto'),
+    } as never);
+
+    await expect(
+      service.resolveForRecordSearch({
+        container: container as never,
+        tableId: `tbl${'a'.repeat(16)}`,
+        search: ['order 123'],
+      })
+    ).resolves.toBe(accessPath);
+    expect(container.isRegistered).toHaveBeenCalledWith(v2TableOpsTokens.searchAccessPathResolver);
+    expect(resolve).toHaveBeenCalledWith(expect.anything(), `tbl${'a'.repeat(16)}`);
+  });
+
+  it('returns undefined when the resolver port is not registered', async () => {
+    const container = {
+      isRegistered: vi.fn().mockReturnValue(false),
+      resolve: vi.fn(),
+    };
+    const service = new TableQuerySearchVectorRuntimeService({
+      get: vi.fn().mockReturnValue('auto'),
+    } as never);
+
+    await expect(
+      service.resolveForRecordSearch({
+        container: container as never,
+        tableId: `tbl${'a'.repeat(16)}`,
+        search: ['order 123'],
+      })
+    ).resolves.toBeUndefined();
+    expect(container.resolve).not.toHaveBeenCalled();
   });
 });

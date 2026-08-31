@@ -168,4 +168,76 @@ describe('undo-redo/updateField complex cases (e2e)', () => {
       )
     ).toEqual([42, 7, 100]);
   });
+
+  // Value-preserving conversion: the snapshot carries no record values, so
+  // undo/redo must restore field meta (type + choices) while every stored
+  // cell keeps its text verbatim.
+  it('undoes and redoes a singleSelect to text conversion without record snapshots', async () => {
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'Undo E2E UpdateField Select To Text',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        {
+          type: 'singleSelect',
+          name: 'Status',
+          options: {
+            choices: [
+              { id: 'opt-todo', name: 'Todo', color: 'blueBright' },
+              { id: 'opt-done', name: 'Done', color: 'greenBright' },
+            ],
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const titleFieldId = table.fields.find((field) => field.isPrimary)?.id ?? '';
+    const statusFieldId = table.fields.find((field) => field.name === 'Status')?.id ?? '';
+
+    const records = await Promise.all([
+      ctx.createRecord(table.id, { [titleFieldId]: 'R1', [statusFieldId]: 'Todo' }),
+      ctx.createRecord(table.id, { [titleFieldId]: 'R2', [statusFieldId]: 'Done' }),
+      ctx.createRecord(table.id, { [titleFieldId]: 'R3' }),
+    ]);
+    const expectStatusValues = async (expected: ReadonlyArray<string | null>) => {
+      const listedRecords = await ctx.listRecords(table.id);
+      expect(
+        records.map(
+          (record) =>
+            listedRecords.find((item) => item.id === record.id)?.fields[statusFieldId] ?? null
+        )
+      ).toEqual(expected);
+    };
+
+    await ctx.updateField({
+      baseId: ctx.baseId,
+      tableId: table.id,
+      fieldId: statusFieldId,
+      field: { type: 'singleLineText' },
+    });
+
+    let updatedTable = await ctx.getTableById(table.id);
+    expect(updatedTable.fields.find((field) => field.id === statusFieldId)?.type).toBe(
+      'singleLineText'
+    );
+    await expectStatusValues(['Todo', 'Done', null]);
+
+    await executeUndo(ctx, table.id);
+    updatedTable = await ctx.getTableById(table.id);
+    const undoneField = updatedTable.fields.find((field) => field.id === statusFieldId);
+    expect(undoneField?.type).toBe('singleSelect');
+    expect(
+      ((undoneField?.options as { choices?: Array<{ name: string }> })?.choices ?? []).map(
+        (choice) => choice.name
+      )
+    ).toEqual(expect.arrayContaining(['Todo', 'Done']));
+    await expectStatusValues(['Todo', 'Done', null]);
+
+    await executeRedo(ctx, table.id);
+    updatedTable = await ctx.getTableById(table.id);
+    expect(updatedTable.fields.find((field) => field.id === statusFieldId)?.type).toBe(
+      'singleLineText'
+    );
+    await expectStatusValues(['Todo', 'Done', null]);
+  });
 });

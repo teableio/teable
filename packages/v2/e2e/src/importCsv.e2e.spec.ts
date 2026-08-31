@@ -2,6 +2,7 @@
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createV2HttpClient } from '@teable/v2-contract-http-client';
+import { sql } from 'kysely';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
@@ -342,5 +343,41 @@ Jane,,555-1234
 
     expect(body.data.table.views.length).toBeGreaterThan(0);
     expect(body.data.table.views[0].type).toBe('grid');
+  });
+
+  it('T6720 T6711 closes cleaned-up CSV import schema operations as dead instead of leaving them pending', async () => {
+    const tableName = 'T6720 Csv Import Cleanup';
+    await expect(
+      ctx.importCsv({
+        baseId: ctx.baseId,
+        csvData: 'Name,Age\nAlice,25\nBob,30',
+        tableName,
+        maxRowCount: 1,
+      })
+    ).rejects.toThrow(/Failed to import csv/);
+
+    const tables = await ctx.listTables({ q: tableName });
+    expect(tables.some((table) => table.name === tableName)).toBe(false);
+
+    const operations = await sql<{
+      status: string;
+      last_error: string | null;
+      payload: { source?: string } | null;
+    }>`
+      SELECT status, last_error, payload
+      FROM schema_operation
+      WHERE base_id = ${ctx.baseId}
+        AND type = 'table.import'
+        AND last_error LIKE 'Exceed max row limit:%'
+      ORDER BY created_time DESC
+      LIMIT 5
+    `.execute(ctx.testContainer.db);
+
+    expect(operations.rows.length).toBeGreaterThan(0);
+    expect(operations.rows.every((row) => row.status === 'dead')).toBe(true);
+    expect(operations.rows.every((row) => row.payload?.source === 'csv')).toBe(true);
+    expect(operations.rows.every((row) => row.status !== 'pending' && row.status !== 'error')).toBe(
+      true
+    );
   });
 });

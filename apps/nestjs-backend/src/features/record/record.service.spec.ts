@@ -288,7 +288,7 @@ describe('RecordService', () => {
     await dataKnex.destroy();
   });
 
-  it('writes SQL-only created record history into the routed data DB internal schema', async () => {
+  it('does not write record history for SQL-only imported records', async () => {
     const dataKnex = Knex({ client: 'pg' });
     const executedSql: string[] = [];
     const service = Object.create(RecordService.prototype) as {
@@ -344,10 +344,8 @@ describe('RecordService', () => {
     );
 
     expect(executedSql[0]).toContain('"bse_data"."tbl_imported"');
-    expect(executedSql.some((sql) => sql.includes('"teable_internal"."record_history"'))).toBe(
-      true
-    );
-    expect(executedSql.some((sql) => sql.includes('insert into "record_history"'))).toBe(false);
+    expect(executedSql).toHaveLength(1);
+    expect(executedSql.some((sql) => sql.includes('record_history'))).toBe(false);
 
     await dataKnex.destroy();
   });

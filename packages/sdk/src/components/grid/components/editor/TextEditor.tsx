@@ -3,6 +3,7 @@ import type { ChangeEvent, ForwardRefRenderFunction, KeyboardEvent, RefObject } 
 import { useState, useRef, useImperativeHandle, forwardRef, useMemo } from 'react';
 import AutoSizeTextarea from 'react-textarea-autosize';
 import { Key } from 'ts-keycode-enum';
+import { useContentDir } from '../../../../hooks/use-content-dir';
 import { GRID_DEFAULT } from '../../configs';
 import type { ILinkCell, INumberCell, ITextCell } from '../../renderers';
 import { CellType } from '../../renderers';
@@ -21,6 +22,7 @@ const TextEditorBase: ForwardRefRenderFunction<
   const needWrap = (cell as ITextCell)?.isWrap;
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const [value, setValueInner] = useState(displayData);
+  const contentDir = useContentDir();
 
   useImperativeHandle(ref, () => ({
     focus: () => inputRef.current?.focus(),
@@ -59,7 +61,7 @@ const TextEditorBase: ForwardRefRenderFunction<
       height: needWrap ? 'auto' : height + 4,
       marginLeft: -2,
       marginTop: -2,
-      textAlign: type === CellType.Number ? 'right' : 'left',
+      textAlign: type === CellType.Number ? 'right' : 'start',
     };
     if (height > defaultRowHeight) {
       style.paddingBottom = height - defaultRowHeight;
@@ -81,6 +83,7 @@ const TextEditorBase: ForwardRefRenderFunction<
         >
           <AutoSizeTextarea
             ref={inputRef as RefObject<HTMLTextAreaElement>}
+            dir={contentDir}
             className="w-full resize-none rounded border-none bg-background px-2 pt-1 text-[13px] leading-[1.4rem] focus-visible:outline-none"
             value={value}
             minRows={2}
@@ -89,13 +92,14 @@ const TextEditorBase: ForwardRefRenderFunction<
             onKeyDown={onKeyDown}
             onChange={onChangeInner}
           />
-          <div className="absolute bottom-[2px] left-0 w-full rounded-b-md bg-background pb-[2px] pr-1 text-right text-xs text-slate-400 dark:text-slate-600">
+          <div className="absolute bottom-[2px] start-0 w-full rounded-b-md bg-background pb-[2px] pe-1 text-end text-xs text-slate-400 dark:text-slate-600">
             Shift + Enter
           </div>
         </div>
       ) : (
         <Input
           ref={inputRef as RefObject<HTMLInputElement>}
+          dir={contentDir}
           style={{
             border: `2px solid ${cellLineColorActived}`,
             ...style,

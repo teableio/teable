@@ -1,7 +1,7 @@
 import { Readable } from 'stream';
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import type { IAttachmentCellValue, IFieldVo } from '@teable/core';
-import { FieldType, HttpErrorCode, ViewType } from '@teable/core';
+import { FieldKeyType, FieldType, HttpErrorCode, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { IExportCsvRo } from '@teable/openapi';
 import { Response } from 'express';
@@ -15,6 +15,8 @@ import { AuditScope } from '../../audit/audit-scope';
 import { Audit } from '../../audit/audit.decorator';
 import { FieldService } from '../../field/field.service';
 import { createFieldInstanceByVo } from '../../field/model/factory';
+import { FieldOpenApiV2Service } from '../../field/open-api/field-open-api-v2.service';
+import { RecordOpenApiV2Service } from '../../record/open-api/record-open-api-v2.service';
 import { RecordService } from '../../record/record.service';
 import { ExportMetricsService } from '../metrics/export-metrics.service';
 import { ExportTracingService } from '../metrics/export-tracing.service';
@@ -28,6 +30,8 @@ export class ExportOpenApiService {
     private readonly prismaService: PrismaService,
     private readonly audit: AuditScope,
     private readonly cls: ClsService<IClsStore>,
+    private readonly recordOpenApiV2Service: RecordOpenApiV2Service,
+    private readonly fieldOpenApiV2Service: FieldOpenApiV2Service,
     @Optional() private readonly exportMetrics?: ExportMetricsService,
     @Optional() private readonly exportTracing?: ExportTracingService
   ) {}
@@ -117,10 +121,16 @@ export class ExportOpenApiService {
 
     // set headers as first row
     const viewIdForQuery = ignoreViewQuery ? undefined : viewRaw?.id;
-    let allFields = await this.fieldService.getFieldsByQuery(tableId, {
-      viewId: viewIdForQuery,
-      filterHidden: Boolean(viewIdForQuery),
-    });
+    const useV2 = Boolean(this.cls.get('useV2'));
+    let allFields = useV2
+      ? await this.fieldOpenApiV2Service.getFields(tableId, {
+          viewId: viewIdForQuery,
+          filterHidden: Boolean(viewIdForQuery),
+        })
+      : await this.fieldService.getFieldsByQuery(tableId, {
+          viewId: viewIdForQuery,
+          filterHidden: Boolean(viewIdForQuery),
+        });
 
     // Sort fields based on:
     // 1. If ignoreViewQuery is true and queryColumnMeta is provided, sort by queryColumnMeta order
@@ -154,20 +164,32 @@ export class ExportOpenApiService {
 
     try {
       while (!isOver) {
-        const { records } = await this.recordService.getRecords(
-          tableId,
-          {
-            take: 1000,
-            skip: count,
-            viewId: viewIdForQuery,
-            filter: queryFilter,
-            orderBy: queryOrderBy,
-            groupBy: queryGroupBy,
-            ignoreViewQuery,
-            projection: projectionNames,
-          },
-          true
-        );
+        const { records } = useV2
+          ? await this.recordOpenApiV2Service.getRecords(tableId, {
+              take: 1000,
+              skip: count,
+              viewId: viewIdForQuery,
+              filter: queryFilter,
+              orderBy: queryOrderBy,
+              groupBy: queryGroupBy,
+              ignoreViewQuery,
+              fieldKeyType: FieldKeyType.Name,
+              projection: projectionNames,
+            })
+          : await this.recordService.getRecords(
+              tableId,
+              {
+                take: 1000,
+                skip: count,
+                viewId: viewIdForQuery,
+                filter: queryFilter,
+                orderBy: queryOrderBy,
+                groupBy: queryGroupBy,
+                ignoreViewQuery,
+                projection: projectionNames,
+              },
+              true
+            );
 
         if (records.length === 0) {
           isOver = true;

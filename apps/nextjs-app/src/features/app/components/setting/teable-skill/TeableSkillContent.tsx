@@ -115,7 +115,7 @@ const StepSection = ({
           <StepNumber>{step}</StepNumber>
           <h2 className="text-sm font-semibold leading-5">{title}</h2>
         </div>
-        <p className="pl-7 text-xs text-muted-foreground">{description}</p>
+        <p className="ps-7 text-xs text-muted-foreground">{description}</p>
       </div>
       {children && <div>{children}</div>}
     </section>
@@ -164,7 +164,7 @@ export const TeableSkillContent = () => {
           <p className="max-w-4xl text-sm leading-6 text-muted-foreground">{copy.intro}</p>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted px-4 py-2 text-sm text-muted-foreground dark:bg-surface">
-          <span className="mr-1">{copy.worksWith}</span>
+          <span className="me-1">{copy.worksWith}</span>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             {worksWith.map(({ name, iconLight, iconDark }) => (
               <AgentBadge key={name} iconDark={iconDark} iconLight={iconLight} name={name} />

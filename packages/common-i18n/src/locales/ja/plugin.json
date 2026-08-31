@@ -1,0 +1,72 @@
+{
+  "add": "新しいプラグイン",
+  "title": {
+    "add": "新しいプラグイン",
+    "edit": "プラグインを編集"
+  },
+  "pluginUser": {
+    "name": "プラグインユーザー",
+    "description": "システムによって自動生成されたプラグイン用ユーザーです"
+  },
+  "secret": "シークレット",
+  "regenerateSecret": "シークレットを再生成",
+  "form": {
+    "name": {
+      "label": "名前",
+      "description": "プラグインの名前"
+    },
+    "description": {
+      "label": "説明",
+      "description": "プラグインの説明"
+    },
+    "detailDesc": {
+      "label": "詳細な説明",
+      "description": "プラグインの詳細な説明"
+    },
+    "logo": {
+      "label": "ロゴ",
+      "description": "プラグインのロゴです。画像をアップロードするか URL を指定できます",
+      "upload": "アップロード",
+      "clear": "クリア",
+      "placeholder": "ロゴをここにドラッグ＆ドロップするか、クリックしてアップロード",
+      "lengthError": "ファイルは1つだけです。",
+      "typeError": "画像ファイルのみ使用できます。"
+    },
+    "helpUrl": {
+      "label": "ヘルプ URL",
+      "description": "プラグインのヘルプドキュメントの URL"
+    },
+    "positions": {
+      "label": "配置位置",
+      "description": "プラグインの配置位置"
+    },
+    "i18n": {
+      "label": "多言語対応",
+      "description": "プラグインの多言語対応（名前、説明、詳細な説明を含む）"
+    },
+    "url": {
+      "label": "URL",
+      "description": "プラグインの URL"
+    },
+    "autoCreateMember": {
+      "label": "メンバーを自動作成",
+      "description": "プラグイン用のメンバーを自動作成します"
+    },
+    "config": {
+      "label": "設定",
+      "description": "プラグインの設定"
+    }
+  },
+  "markdown": {
+    "write": "編集",
+    "preview": "プレビュー"
+  },
+  "status": {
+    "reviewing": "審査中",
+    "published": "公開済み",
+    "developing": "開発中"
+  },
+  "button": {
+    "submitApproved": "承認を申請"
+  }
+}

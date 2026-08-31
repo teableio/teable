@@ -24,7 +24,7 @@ export const ErrorIndicator = (props: IErrorIndicatorProps) => {
 
   return (
     <TooltipProvider delayDuration={100}>
-      <div className="pointer-events-none absolute left-0 top-0">
+      <div className="pointer-events-none absolute start-0 top-0">
         {cellErrors.map(({ cellItem, errorMsg, onRetry, onDismiss }) => {
           const [columnIndex, realRowIndex] = cellItem;
           if (realRowIndex >= coordInstance.pureRowCount) return null;
@@ -60,7 +60,7 @@ export const ErrorIndicator = (props: IErrorIndicatorProps) => {
             >
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="pointer-events-auto absolute right-1 top-1 cursor-pointer">
+                  <div className="pointer-events-auto absolute end-1 top-1 cursor-pointer">
                     <div className="relative flex size-6 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
                       <AlertCircle className="size-4 text-red-500" />
                     </div>
@@ -85,7 +85,7 @@ export const ErrorIndicator = (props: IErrorIndicatorProps) => {
                             onRetry();
                           }}
                         >
-                          <RefreshCcw className="mr-1 size-3" />
+                          <RefreshCcw className="me-1 size-3" />
                           {t('aiError.retry')}
                         </Button>
                       )}
@@ -99,7 +99,7 @@ export const ErrorIndicator = (props: IErrorIndicatorProps) => {
                             onDismiss();
                           }}
                         >
-                          <X className="mr-1 size-3" />
+                          <X className="me-1 size-3" />
                           {t('aiError.dismiss')}
                         </Button>
                       )}

@@ -126,7 +126,7 @@ const WaitlistPageInner = () => {
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 rtl:space-x-reverse">
                     <div className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
                     <span>{t('waitlist.joining')}</span>
                   </div>
@@ -157,7 +157,7 @@ export const WaitlistPage = () => {
 
   return (
     <div className=" h-screen w-screen">
-      <div className="fixed left-5 top-5 flex flex-none items-center gap-2">
+      <div className="fixed start-5 top-5 flex flex-none items-center gap-2">
         <TeableLogo className="size-8" />
         {brandName}
       </div>

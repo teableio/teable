@@ -7,6 +7,7 @@
     "waiting": "Ожидание",
     "failed": "Ошибка",
     "calculationFailed": "Ошибка вычисления",
+    "cellValueTooLarge": "Вычисленное значение слишком большое ({{attempted}} / {{max}} байт). Сократите исходные данные или измените формулу.",
     "calculatingSummary": "Вычисление ({{count}})",
     "failedSummary": "Ошибка ({{count}})",
     "fieldsCalculating_one": "Вычисляется {{count}} поле",
@@ -46,6 +47,7 @@
       "share": {
         "label": "Поделиться",
         "statusLabel": "Поделиться видом в интернете",
+        "noPermission": "Нет прав на предоставление доступа к представлению",
         "genLink": "Создать новую ссылку",
         "allowCopy": "Разрешить зрителям копировать данные из этого вида",
         "allowEdit": "Разрешить авторизованным пользователям редактировать видимые данные",
@@ -56,11 +58,13 @@
         "passwordTips": "Ограничения по паролю для доступа к общим видам",
         "embed": "Встроить",
         "embedPreview": "Предпросмотр встраивания",
+        "copyCode": "Копировать код",
         "hideToolbar": "Скрыть панель инструментов",
         "URLSetting": "Настройка параметров URL",
         "URLSettingDescription": "Изменение следующих настроек не повлияет на уже созданные ссылки. Вам нужно скопировать ссылку с новыми параметрами, чтобы они вступили в силу",
         "cancel": "Отмена",
-        "save": "Сохранить"
+        "save": "Сохранить",
+        "requireLogin": "Требовать вход для отправки"
       },
       "api": {
         "title": "Доступ к API",
@@ -109,17 +113,6 @@
     "description": "Нажмите кнопку «+» в боковой панели, чтобы добавить ресурсы и начать эффективно управлять своими данными",
     "help": "Посетите <HelpCenter /> для получения дополнительной информации.",
     "helpCenter": "Центр помощи"
-  },
-  "validation": {
-    "link": {
-      "batch_duplicate": "Невозможно связать запись: в этом же пакете она уже связана другой записью. В отношениях один-ко-многим каждая дочерняя запись может принадлежать только одной родительской записи.",
-      "one_many_duplicate": "Невозможно связать запись: она уже связана с другой записью. В отношениях один-ко-многим каждая дочерняя запись может принадлежать только одной родительской записи.",
-      "one_one_duplicate": "Невозможно связать запись: целевая запись уже связана другой записью в отношении один-к-одному."
-    },
-    "field": {
-      "maxColumnLimit": "Таблица \"{{tableName}}\" может содержать не более {{maxFieldCount}} полей.",
-      "requiredExistingValues": "Нельзя сделать поле \"{{fieldName}}\" обязательным, поскольку существующие записи содержат пустые значения."
-    }
   },
   "field": {
     "advancedProps": "Расширенные свойства",
@@ -268,8 +261,11 @@
       "editField": "Редактировать поле",
       "insertField": "Вставить поле",
       "graph": "График",
+      "defaultValue": "Значение по умолчанию",
+      "reset": "Сбросить",
       "fieldUpdated": "Поле обновлено",
       "fieldCreated": "Поле создано",
+      "fieldUnavailable": "Это поле недоступно. Обновите таблицу и повторите попытку.",
       "confirmFieldChange": "Confirm Field Change",
       "areYouSurePerformIt": "Вы уверены, что хотите выполнить это?",
       "addDescription": "Добавить описание",
@@ -301,6 +297,8 @@
       "manyToMany": "многие-ко-многим",
       "self": "Сам",
       "selectTable": "Выберите таблицу...",
+      "selectBase": "Выберите базу...",
+      "linkFromAnotherBase": "Связать из другой базы",
       "inSelfLink": "в самосвязи",
       "betweenTwoTables": "между двумя таблицами",
       "tips": "Подсказка",
@@ -317,7 +315,24 @@
       "lookupToTable": "Поле из <bold>{{tableName}}</bold>, которое вы хотите искать",
       "rollupToTable": "Поле из <bold>{{tableName}}</bold>, которое вы хотите искать",
       "selectField": "Выберите поле...",
+      "lastModifiedScope": "Поля",
+      "lastModifiedAll": "Все редактируемые поля",
+      "lastModifiedSpecific": "Определённые поля",
+      "lastModifiedSelect": "Отслеживаемые поля",
+      "noEditableFields": "Нет доступных редактируемых полей",
+      "conditionalLookup": {
+        "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
+        "sortLabel": "Sort results",
+        "limitLabel": "Maximum records to include",
+        "limitPlaceholder": "Leave blank to include all matches",
+        "limitHint": "We only keep up to {{limit}} matching records.",
+        "sortMissingWarningTitle": "Sorting field unavailable",
+        "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
+      },
       "linkTable": "Связать таблицу",
+      "linkBase": "Связанная база",
+      "tableNoPermission": "Таблица без доступа",
+      "baseNoPermission": "База без доступа",
       "noLinkTip": "Нет связанных записей для поиска. Добавьте поле Ссылка на другую запись, затем попробуйте настроить поиск снова.",
       "fieldValidationRules": "Правила проверки значения поля",
       "enableValidateFieldUnique": "Только уникальные значения",
@@ -342,17 +357,8 @@
         "affectedItems": "Затронутые элементы",
         "type": "Тип",
         "source": "Источник",
-        "sourceTable": "Исходная таблица",
-        "typeField": "Поле"
-      },
-      "conditionalLookup": {
-        "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
-        "sortLabel": "Sort results",
-        "limitLabel": "Maximum records to include",
-        "limitPlaceholder": "Leave blank to include all matches",
-        "limitHint": "We only keep up to {{limit}} matching records.",
-        "sortMissingWarningTitle": "Sorting field unavailable",
-        "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
+        "loginEmailFieldWarning": "Это поле используется как идентификатор эл. почты для входа. Его удаление нарушит вход в следующих приложениях:",
+        "loginEmailFieldConvertWarning": "Это поле используется как поле эл. почты для входа в приложения. Изменение его типа нарушит вход в следующих приложениях:"
       }
     },
     "subTitle": {
@@ -369,6 +375,7 @@
       "rating": "Добавьте оценку по предопределенной шкале.",
       "formula": "Вычислите значения на основе полей.",
       "rollup": "Суммируйте данные из связанных записей.",
+      "conditionalRollup": "Сводит значения из связанной таблицы с условными фильтрами.",
       "conditionalLookup": "Показывает связанные значения, соответствующие заданным фильтрам.",
       "createdTime": "Посмотрите дату и время создания каждой записи.",
       "lastModifiedTime": "Посмотрите дату и время последнего редактирования некоторых или всех полей в записи.",
@@ -406,7 +413,10 @@
         "sourceFieldForAttachment": "Исходное поле для вложения",
         "imageSize": "Размер изображения",
         "imageQuality": "Качество изображения",
-        "imageCount": "Количество изображений"
+        "imageCount": "Количество изображений",
+        "aspectRatio": "Соотношение сторон",
+        "resolution": "Разрешение",
+        "advancedSettings": "Расширенные настройки"
       },
       "placeholder": {
         "summarize": "Сводка содержимого",
@@ -421,6 +431,8 @@
         "targetLanguage": "Английский, китайский, французский...",
         "imageSize": "Пожалуйста, введите размер изображения",
         "imageQuality": "Пожалуйста, введите качество изображения",
+        "aspectRatio": "Выберите соотношение сторон",
+        "resolution": "Выберите разрешение",
         "attachPromptForImageGeneration": "Изображение должно быть ярким и естественным",
         "attachPromptForRating": "Оцените качество изображения"
       },
@@ -429,8 +441,19 @@
         "medium": "Среднее",
         "high": "Высокое"
       },
+      "hint": {
+        "imageInputSupported": "💡 Эта модель поддерживает ввод изображений. Выберите поле вложений, чтобы использовать изображения как образец для генерации.",
+        "attachmentNotSupported": "💡 Эта модель не поддерживает ввод вложений. Генерацию «изображение в изображение» поддерживают только модели Gemini.",
+        "singleImageOnly": "Эта модель может создавать только одно изображение за раз"
+      },
       "tip": {
         "gptImageResolution": "Из-за ограничения на общее число пикселей режим 4K для некоторых соотношений сторон использует максимально допустимый размер."
+      },
+      "auto": "Авто",
+      "resolution": {
+        "1K": "1K (стандарт)",
+        "2K": "2K (HD)",
+        "4K": "4K (Ultra HD)"
       },
       "autoFill": {
         "title": "Автоматическое обновление",
@@ -443,8 +466,18 @@
       "autoFillConfirm": {
         "title": "Сгенерировать весь столбец?",
         "description": "Генерация всего столбца обновит {{rowCount}} строк. Эта операция может потреблять большое количество ресурсов ИИ.",
+        "emptyOnlyMode": "Заполнять только пустые ячейки",
+        "emptyOnlyModeDesc": "Генерировать только для пустых ячеек, существующее содержимое не перезаписывается",
+        "allMode": "Сгенерировать весь столбец",
+        "allModeDesc": "Генерировать для всех строк, существующее содержимое будет перезаписано",
+        "saveOnlyMode": "Сохранить только конфигурацию",
+        "saveOnlyModeDesc": "Сохранить только конфигурацию поля, ячейки не будут изменены",
         "saveConfigOnly": "Сохранить только конфигурацию",
-        "generateFailed": "Не удалось выполнить генерацию"
+        "fillEmptyCells": "Заполнить пустые ячейки",
+        "generateAll": "Сгенерировать всё",
+        "recommended": "Рекомендуется",
+        "generateFailed": "Не удалось выполнить генерацию",
+        "limitWarning": "Из-за ограничения в 1000 строк на задачу будут обработаны только первые 1000 строк. Запустите задачу снова, чтобы обработать остальные."
       }
     }
   },
@@ -456,12 +489,14 @@
     "dbTableName": "Имя таблицы в физической базе данных",
     "schemaName": "Имя схемы в физической базе данных",
     "baseInfo": "Базовая информация",
-    "typeOfDatabase": "Тип базы данных",
-    "descriptionForTable": "Описание этой таблицы",
     "loginUserTable": "Вход в приложение",
     "linkedApps": "Связанные приложения",
+    "typeOfDatabase": "Тип базы данных",
+    "descriptionForTable": "Описание этой таблицы",
     "nameForTable": "Название этой таблицы",
-    "deleteTip1": "Связанные поля в других таблицах, связанные с этой таблицей, будут удалены.",
+    "deleteTip1": "Связанные поля в других таблицах, связанные с этой таблицей, будут преобразованы в текст.",
+    "deleteWithDependencies": "Удаление таблицы <b>{{tableName}}</b> затронет следующие поля:",
+    "loginDeleteWarning": "Эта таблица используется как таблица пользователей следующими приложениями. Её удаление нарушит их вход.",
     "operator": {
       "createBlank": "Новая таблица"
     },
@@ -474,13 +509,36 @@
       "pasting": "Вставка...",
       "pasteSuccessful": "Вставка успешна",
       "pasteFailed": "Вставка не удалась",
+      "pasteNoEditableFields": "Выбранные поля доступны только для чтения, вставка невозможна.",
       "filling": "Заполнение...",
       "fillSuccessful": "Заполнение успешно",
       "fillFailed": "Заполнение не удалось",
       "clearing": "Очистка...",
       "clearSuccessful": "Очистка успешна",
+      "clearFailed": "Не удалось очистить",
+      "clearConfirmTitle": "Очистить данные",
+      "clearConfirmDescription": "Это действие очистит {{cellCount}} ячеек в {{rowCount}} записях. Продолжить?",
+      "archiveRecordConfirmTitle": "Архивировать записи",
+      "archiveRecordConfirmDescription": "Это действие архивирует {{recordCount}} записей. Архивированные записи можно просматривать и восстанавливать из архива таблицы.",
+      "archiveRecord": "Архивировать",
+      "archiving": "Архивирование...",
+      "archiveSuccessful": "Архивирование выполнено",
+      "deleteRecordConfirmTitle": "Удалить записи",
+      "deleteRecordConfirmDescription": "Это действие удалит {{recordCount}} записей. Продолжить?",
+      "duplicateRecordsConfirmTitle": "Дублировать записи",
+      "duplicateRecordsConfirmDescription": "Это действие продублирует {{recordCount}} записей. Продолжить?",
+      "pasteConfirmTitle": "Выполнить вставку",
+      "pasteConfirmDescription": "Вы собираетесь выполнить вставку, которая перезапишет {{recordCount}} записей. Продолжить?",
+      "paste": "Вставить",
+      "deleteRecord": "Удалить",
+      "clear": "Очистить",
       "deleting": "Удаление...",
+      "duplicating": "Дублирование...",
+      "deleteFailed": "Не удалось удалить",
       "deleteSuccessful": "Удаление успешно",
+      "duplicateFailed": "Не удалось дублировать",
+      "duplicateSuccessful": "Дублирование выполнено",
+      "duplicateRecords": "Дублировать",
       "deleteStream": {
         "preparing": "Preparing selection",
         "deleting": "Deleting records",
@@ -499,9 +557,87 @@
           "finalizing": "Finalizing"
         }
       },
+      "duplicateStream": {
+        "preparing": "Подготовка выделения",
+        "duplicating": "Дублирование записей",
+        "descriptionWithIssues": "Некоторые блоки дублирования не выполнены. Подробности ниже.",
+        "completedWithIssues": "Дублирование завершено с проблемами",
+        "issuesBadge": "Проблем: {{count}}",
+        "chunkFailureTitle": "Подробности сбоя блока",
+        "chunkFailureSummary": "Блоков с ошибкой: {{count}} — при этом поток продолжал работать.",
+        "chunkLabel": "Блок {{index}}",
+        "rowsLabel": "Строк: {{count}}",
+        "phaseLabel": {
+          "preparing": "Подготовка",
+          "guarding": "Проверка",
+          "processing": "Дублирование",
+          "publishing": "Публикация",
+          "finalizing": "Завершение"
+        }
+      },
+      "pasteStream": {
+        "preparing": "Подготовка выделения",
+        "pasting": "Вставка записей",
+        "descriptionWithIssues": "Некоторые блоки вставки не выполнены. Подробности ниже.",
+        "completedWithIssues": "Вставка завершена с проблемами",
+        "issuesBadge": "Проблем: {{count}}",
+        "chunkFailureTitle": "Подробности сбоя блока",
+        "chunkFailureSummary": "Блоков с ошибкой: {{count}} — при этом поток продолжал работать.",
+        "chunkLabel": "Блок {{index}}",
+        "rowsLabel": "Строк: {{count}}",
+        "phaseLabel": {
+          "preparing": "Подготовка",
+          "guarding": "Проверка",
+          "processing": "Вставка",
+          "publishing": "Публикация",
+          "finalizing": "Завершение"
+        }
+      },
+      "clearStream": {
+        "confirmDescription": "Это действие очистит значения в {{recordCount}} записях. Продолжить?",
+        "preparing": "Подготовка выделения",
+        "clearing": "Очистка записей",
+        "descriptionWithIssues": "Некоторые блоки очистки не выполнены. Подробности ниже.",
+        "completedWithIssues": "Очистка завершена с проблемами",
+        "issuesBadge": "Проблем: {{count}}",
+        "chunkFailureTitle": "Подробности сбоя блока",
+        "chunkFailureSummary": "Блоков с ошибкой: {{count}} — при этом поток продолжал работать.",
+        "chunkLabel": "Блок {{index}}",
+        "rowsLabel": "Строк: {{count}}",
+        "phaseLabel": {
+          "preparing": "Подготовка",
+          "guarding": "Проверка",
+          "processing": "Очистка",
+          "publishing": "Публикация",
+          "finalizing": "Завершение"
+        }
+      },
+      "restoreFieldStream": {
+        "confirmTitle": "Восстановить поля",
+        "confirmDescription": "Это действие восстановит удалённые поля и значения их записей.",
+        "preparing": "Подготовка восстановления полей",
+        "restoring": "Восстановление полей...",
+        "restoringRecords": "Восстановление значений записей",
+        "restoreFailed": "Не удалось восстановить",
+        "descriptionWithIssues": "Некоторые блоки восстановления не выполнены. Подробности ниже.",
+        "completedWithIssues": "Восстановление завершено с проблемами",
+        "issuesBadge": "Проблем: {{count}}",
+        "chunkFailureTitle": "Подробности сбоя блока",
+        "chunkFailureSummary": "Блоков с ошибкой: {{count}} — при этом поток продолжал работать.",
+        "chunkLabel": "Блок {{index}}",
+        "rowsLabel": "Строк: {{count}}",
+        "phaseLabel": {
+          "preparing": "Подготовка",
+          "guarding": "Проверка",
+          "processing": "Восстановление",
+          "publishing": "Публикация",
+          "finalizing": "Завершение"
+        }
+      },
       "pasteFileFailed": "Файлы можно вставлять только в поле вложений",
       "copyError": {
-        "noFocus": "Пожалуйста, не меняйте окно"
+        "noFocus": "Пожалуйста, не меняйте окно",
+        "noPermission": "У вас нет прав на копирование записей"
       },
       "crossBaseCopyTitle": "Скопировать как обычный текст?",
       "crossBaseCopyDescription": "Выделение содержит поле-ссылку между базами. Чтобы данные оставались в своей исходной базе, поле будет скопировано как обычный текст и потеряет связи.",
@@ -519,6 +655,8 @@
       "loading": "Проверка целостности...",
       "allGood": "Все хорошо!",
       "fixIssues": "Исправить проблемы",
+      "type": "Тип",
+      "message": "Сообщение об ошибке",
       "v2": {
         "dialogTitle": "Целостность схемы",
         "dialogDescription": "Запустите проверку и восстановление схемы v2 для {{tableName}}.",
@@ -538,6 +676,20 @@
         "manualRepairDialogReason": "Почему требуется ручное исправление",
         "manualRepairDialogHint": "Сейчас это окно только показывает параметры исправления, которые требует правило. Позже на основе этого контракта можно добавить фактическое выполнение.",
         "manualRepairDialogClose": "Закрыть",
+        "repairPreviewTitle": "Подтвердите детали восстановления",
+        "repairPreviewDescription": "Эти сведения получены из пробного запуска восстановления. Восстановление выполнится только после подтверждения.",
+        "repairPreviewTooltip": "Открывает план восстановления из пробного запуска. В диалоге отобразится возвращённый SQL или явно указано, что SQL нет.",
+        "repairPreviewMissingTable": "Этот результат проверки не содержит таблицы, поэтому цель пробного восстановления определить нельзя.",
+        "repairPreviewUnavailableStatus": "Этот статус не требует восстановления, поэтому план пробного восстановления не создаётся.",
+        "repairPreviewWhat": "Что будет восстановлено",
+        "repairPreviewTarget": "Правило «{{ruleName}}» для поля «{{fieldName}}»",
+        "repairPreviewPrinciple": "Как работает восстановление",
+        "repairPreviewNoPrinciple": "Это правило не вернуло дополнительных указаний по восстановлению.",
+        "repairPreviewSql": "SQL для выполнения",
+        "repairPreviewNoSql": "Пробный запуск не вернул исполняемый SQL, поэтому автоматическое восстановление нельзя запустить напрямую.",
+        "repairPreviewCannotConfirm": "Пробный запуск вернул SQL, но это правило сейчас нельзя подтвердить для автоматического восстановления. План восстановления всё же можно просмотреть.",
+        "repairPreviewParameters": "Параметры",
+        "repairPreviewConfirm": "Запустить восстановление",
         "checking": "Проверка схемы...",
         "repairing": "Исправление схемы...",
         "streamError": "Ошибка потока целостности схемы.",
@@ -566,7 +718,9 @@
           "checkCompleted": "Schema integrity check completed",
           "baseCheckCompleted": "Base schema integrity check completed",
           "repairCompleted": "Schema integrity repair completed",
-          "baseRepairCompleted": "Base schema integrity repair completed"
+          "baseRepairCompleted": "Base schema integrity repair completed",
+          "skippedStatusNotSelected": "Пропущено, так как этот уровень статуса не был выбран для восстановления",
+          "skippedRepairUnavailable": "Пропущено, так как автоматическое восстановление недоступно в текущем состоянии"
         },
         "rule": {
           "column": "Physical column",
@@ -601,6 +755,14 @@
           "systemColumnUnique": "System column \"{{columnName}}\" should have a UNIQUE index",
           "systemColumnPrimaryKey": "System column \"{{columnName}}\" should be PRIMARY KEY",
           "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression",
+          "columnUniqueMissing": "Поле «{{fieldName}}» должно быть уникальным",
+          "columnUniqueMissingDescription": "Добавьте ограничение UNIQUE к «{{fieldName}}», чтобы нельзя было записать дубликаты.",
+          "columnUniqueIndexMismatch": "У поля «{{fieldName}}» отсутствует ожидаемый уникальный индекс",
+          "columnUniqueIndexMismatchDescription": "Пересоздайте индекс для «{{fieldName}}» как уникальный, чтобы чтение и запись соблюдали правило уникальности поля.",
+          "foreignKeyMissing": "У поля «{{fieldName}}» отсутствует ограничение внешнего ключа",
+          "foreignKeyMissingDescription": "Восстановите внешний ключ из «{{fieldName}}» в «{{targetTableName}}», чтобы связанные записи оставались согласованными.",
+          "foreignKeyTargetTableMissing": "Связанная таблица для «{{fieldName}}» не найдена",
+          "foreignKeyTargetTableMissingDescription": "Автоматическое восстановление не может восстановить внешний ключ для «{{fieldName}}», так как целевая таблица «{{targetPhysicalTableName}}» не существует.",
           "foreignKeyOrphanRows": "Field \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
           "foreignKeyOrphanRowsDescription": "Automatic repair cannot restore the foreign key for \"{{fieldName}}\" until the {{count}} invalid references to \"{{targetTableName}}\" are cleaned up.",
           "junctionForeignKeyMissing": "The junction table for \"{{fieldName}}\" is missing one of its foreign keys",
@@ -608,7 +770,90 @@
           "junctionForeignKeyTargetTableMissing": "The linked table for the junction of \"{{fieldName}}\" cannot be found",
           "junctionForeignKeyTargetTableMissingDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" because the target table \"{{targetPhysicalTableName}}\" does not exist.",
           "junctionForeignKeyOrphanRows": "The junction table for \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
-          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up."
+          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up.",
+          "referenceMissing": "У поля «{{fieldName}}» отсутствует сопоставление ссылок",
+          "referenceMissingDescription": "Восстановите метаданные ссылок между «{{fieldName}}» и полем-зависимостью, чтобы обновления lookup и связей распространялись корректно.",
+          "symmetricFieldTargetMissing": "Парное поле связи для «{{fieldName}}» не найдено",
+          "symmetricFieldWrongType": "Парное поле для «{{fieldName}}» не является полем связи",
+          "symmetricFieldInvalidOptions": "У парного поля для «{{fieldName}}» недопустимая конфигурация связи",
+          "symmetricFieldMissingBackReference": "Парное поле для «{{fieldName}}» не ссылается обратно на текущее поле",
+          "symmetricFieldWrongBackReference": "Парное поле для «{{fieldName}}» ссылается на другое поле, а не на текущее",
+          "symmetricFieldDuplicateUsage": "Симметричная цель связи «{{symmetricFieldId}}» также используется полем «{{conflictFieldName}}»",
+          "symmetricFieldDuplicateUsageDescription": "Каждой паре двусторонней связи нужно уникальное симметричное поле. Перед восстановлением выберите, какое поле сохранит эту связь."
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "This rule is already valid",
+            "manualRule": "This rule requires a manual decision",
+            "statementGenerationFailed": "The system could not generate a safe repair statement",
+            "noStatements": "This rule has no automatic repair statement",
+            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
+            "symmetricFieldMissing": "Парное поле связи отсутствует и требует подтверждения перед восстановлением",
+            "symmetricFieldBroken": "Парное поле связи повреждено и требует подтверждения перед восстановлением",
+            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
+            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
+            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
+            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
+          },
+          "description": {
+            "autoRule": "Восстановление выполнит инструкции схемы, созданные этим правилом, а затем перепроверит правило, чтобы убедиться в корректности схемы.",
+            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
+            "symmetricFieldMissing": "Преобразуйте текущую связь в одностороннюю и повторите восстановление, чтобы при необходимости пересоздать зависимые правила связующей таблицы.",
+            "symmetricFieldBroken": "Преобразуйте текущую связь в одностороннюю и повторите восстановление, чтобы заново проверить зависимые правила схемы связей.",
+            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
+            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
+          },
+          "manual": {
+            "apply": "Apply manual repair",
+            "symmetricField": {
+              "title": "Resolve symmetric link conflict",
+              "description": "Pick how this duplicate symmetric link should be repaired.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
+              "option": {
+                "keepCurrent": "Keep the current field as the two-way link",
+                "convertDuplicate": "Convert the duplicate field to a one-way link"
+              }
+            },
+            "symmetricFieldMissing": {
+              "title": "Устранить отсутствующее парное поле связи",
+              "description": "Парное поле связи удалено. Перед восстановлением подтвердите преобразование этого поля в одностороннюю связь.",
+              "resolutionLabel": "Стратегия восстановления",
+              "resolutionDescription": "Преобразуйте текущую связь в одностороннюю, чтобы существующие данные отношений продолжали использовать сохранённую структуру связи.",
+              "option": {
+                "convertCurrent": "Преобразовать текущую связь в одностороннюю"
+              }
+            },
+            "symmetricFieldBroken": {
+              "title": "Устранить повреждённое парное поле связи",
+              "description": "Парное поле связи существует, но не является корректной двусторонней парой. Перед восстановлением подтвердите преобразование этого поля в одностороннюю связь.",
+              "resolutionLabel": "Стратегия восстановления",
+              "resolutionDescription": "Преобразуйте текущую связь в одностороннюю, чтобы она больше не зависела от повреждённой пары.",
+              "option": {
+                "convertCurrent": "Преобразовать текущую связь в одностороннюю"
+              }
+            },
+            "foreignKeyOrphanRows": {
+              "title": "Очистить недопустимые связанные значения",
+              "description": "Очистите значения внешнего ключа, указывающие на отсутствующие записи, затем восстановите ограничение внешнего ключа.",
+              "resolutionLabel": "Стратегия восстановления",
+              "resolutionDescription": "Недопустимые связанные значения указывают на записи, которых больше нет. Подтвердите их очистку перед восстановлением внешнего ключа.",
+              "option": {
+                "clearOrphanValues": "Очистить недопустимые связанные значения"
+              }
+            },
+            "junctionForeignKeyOrphanRows": {
+              "title": "Очистить недопустимые строки связующей таблицы",
+              "description": "Удалите строки связующей таблицы, указывающие на отсутствующие записи, затем восстановите ограничение внешнего ключа.",
+              "resolutionLabel": "Стратегия восстановления",
+              "resolutionDescription": "Недопустимые строки связующей таблицы указывают на записи, которых больше нет. Подтвердите их удаление перед восстановлением внешнего ключа.",
+              "option": {
+                "deleteOrphanRows": "Удалить недопустимые строки связей"
+              }
+            }
+          }
         },
         "phase": {
           "check": "Результаты проверки",
@@ -637,42 +882,20 @@
           "unchanged": "Без изменений",
           "manual": "Вручную",
           "skipped": "Пропущено"
-        },
-        "repairMeta": {
-          "reason": {
-            "alreadyValid": "This rule is already valid",
-            "manualRule": "This rule requires a manual decision",
-            "statementGenerationFailed": "The system could not generate a safe repair statement",
-            "noStatements": "This rule has no automatic repair statement",
-            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
-            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
-            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
-            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
-            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
-          },
-          "description": {
-            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
-            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
-            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
-            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
-            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
-          },
-          "manual": {
-            "apply": "Apply manual repair",
-            "symmetricField": {
-              "title": "Resolve symmetric link conflict",
-              "description": "Pick how this duplicate symmetric link should be repaired.",
-              "resolutionLabel": "Repair strategy",
-              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
-              "option": {
-                "keepCurrent": "Keep the current field as the two-way link",
-                "convertDuplicate": "Convert the duplicate field to a one-way link"
-              }
-            }
-          }
         }
       },
       "errorType": {
+        "ForeignTableNotFound": "ForeignTableNotFound",
+        "ForeignKeyNotFound": "ForeignKeyNotFound",
+        "SelfKeyNotFound": "SelfKeyNotFound",
+        "SymmetricFieldNotFound": "SymmetricFieldNotFound",
+        "MissingRecordReference": "MissingRecordReference",
+        "InvalidLinkReference": "InvalidLinkReference",
+        "ForeignKeyHostTableNotFound": "ForeignKeyHostTableNotFound",
+        "ReferenceFieldNotFound": "ReferenceFieldNotFound",
+        "UniqueIndexNotFound": "UniqueIndexNotFound",
+        "EmptyString": "EmptyString",
+        "InvalidFilterOperator": "InvalidFilterOperator",
         "InvalidPrimaryLookup": "Основное поле неправильно настроено как Lookup",
         "InvalidPrimaryType": "Основное поле имеет неподдерживаемый тип",
         "MissingPrimary": "В таблице отсутствует основное поле"
@@ -691,6 +914,14 @@
       "enableIndex": "Включить",
       "keepAsIs": "Оставить как есть",
       "ignoreIndexError": "временно игнорировать"
+    },
+    "searchTips": {
+      "maxFieldTips_limited": "Превышен максимум в {{count}} полей, лишние поля будут проигнорированы"
+    },
+    "deletedRecovered": {
+      "title": "Таблица, которую вы пытались открыть, была удалена",
+      "description": "Выполнен переход к таблице «{{tableName}}»",
+      "descriptionEmpty": "Выполнен возврат на страницу Base"
     }
   },
   "import": {
@@ -713,6 +944,7 @@
       "addFromOtherSource": "Добавить из других источников",
       "excelFile": "Microsoft Excel",
       "airtable": "Airtable",
+      "googleSheet": "Google Sheets",
       "csvFile": "Csv файл",
       "importCsvData": "Импортировать данные CSV",
       "importExcelData": "Импортировать данные Microsoft Excel",
@@ -723,7 +955,6 @@
       "duplicating": "Дублирование...",
       "duplicateSuccess": "Успешно дублировано",
       "duplicateFailed": "Не удалось дублировать",
-      "importing": "Импорт",
       "includeRecords": "Включить записи"
     },
     "tips": {
@@ -731,6 +962,17 @@
       "fileExceedSizeTip": "Размер файла этого типа превышает лимит в",
       "analyzing": "анализ",
       "importing": "Импорт",
+      "importingRows": "Importing {{processed}} of {{total}} rows",
+      "importingRowsUnknown": "Imported {{processed}} rows",
+      "importingSheet": "Sheet {{current}} of {{total}}: {{name}}",
+      "preparingImport": "Preparing import...",
+      "importFinished": "Import finished",
+      "importFinishedPartial": "Import finished with row limits",
+      "importSheetImported": "{{rowCount}} rows",
+      "importSheetTruncated": "Imported {{rowCount}} rows (row limit reached, remaining rows skipped)",
+      "importSheetFailed": "Failed ({{error}})",
+      "importSummaryHint": "Review each table before closing.",
+      "importDone": "Done",
       "notSupportFieldType": "Тип поля не поддерживается",
       "resultEmpty": "Результаты не найдены.",
       "searchPlaceholder": "Поиск...",
@@ -757,6 +999,29 @@
       "option": {
         "doNotImport": "Не импортировать"
       }
+    }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "Скачать все вложения",
+      "rowsWithAttachments": "Строки с влож.",
+      "totalAttachments": "Вложения",
+      "totalSize": "Общий размер",
+      "cancel": "Отмена",
+      "downloading": "Загрузка...",
+      "completed": "Загрузка завершена",
+      "cancelled": "Загрузка отменена",
+      "noAttachments": "Нет вложений для скачивания",
+      "error": "Ошибка загрузки",
+      "errorPartial": "{{failedCount}} файлов не удалось загрузить",
+      "requireHttps": "Пакетная загрузка требует HTTPS. Пожалуйста, используйте HTTPS или localhost.",
+      "advancedOptions": "Дополнительные параметры",
+      "namingFieldLabel": "Префикс имени вложения",
+      "selectField": "По умолчанию: индекс вложения",
+      "noPrefixOption": "Без префикса",
+      "noPrefixOptionDesc": "Сохранить исходное имя файла",
+      "groupByRow": "Архивировать в папки",
+      "groupByRowTip": "Когда в строке несколько вложений, они будут помещены в одну папку; строки с одним вложением не создадут папку."
     }
   },
   "grid": {
@@ -835,7 +1100,11 @@
     "insertRecordBelow": "Вставить запись ниже",
     "deleteRecord": "Удалить запись",
     "deleteAllSelectedRecords": "Удалить все выбранные записи",
+    "archiveRecord": "Архивировать запись",
+    "archiveAllSelectedRecords": "Архивировать все выбранные записи",
+    "duplicateRecords": "Дублировать выбранные записи",
     "editField": "Редактировать поле",
+    "duplicateField": "Дублировать поле",
     "insertFieldLeft": "Вставить слева",
     "insertFieldRight": "Вставить справа",
     "freezeUpField": "Закрепить до этого поля",
@@ -843,6 +1112,10 @@
     "hideField": "Скрыть поле",
     "deleteField": "Удалить поле",
     "deleteAllSelectedFields": "Удалить все выбранные поля",
+    "filterField": "Фильтровать по этому полю",
+    "sortField": "Сортировать по этому полю",
+    "groupField": "Группировать по этому полю",
+    "downloadAllAttachments": "Скачать все файлы",
     "autoFill": "Обновить все записи",
     "groupMenuTitle": "Меню группы",
     "expandGroup": "Развернуть эту группу и ее подгруппы",
@@ -883,18 +1156,95 @@
       "title": "Сбой!",
       "description": "Этот вид сломан. Если обновление все еще не помогает, пожалуйста, свяжитесь с нами. support@teable.ai"
     },
+    "addPluginView": "Добавить представление плагина",
+    "search": {
+      "field_one": "{{name}}",
+      "field_few": "поля ({{length}})",
+      "field_many": "полей ({{length}})",
+      "field_other": "поля ({{length}})"
+    },
     "locked": {
       "tip": "Этот вид заблокирован. Вы можете включить персональный режим для редактирования параметров вида, и изменения будут действовать только для вас."
     },
-    "noView": "Нет видов"
+    "noView": "Нет видов",
+    "deletedRecovered": {
+      "title": "Вид, который вы пытались открыть, был удалён",
+      "description": "Выполнен переход к виду «{{viewName}}»"
+    }
   },
   "lastModifiedTime": "Время последнего изменения",
   "lastModify": "Последнее изменение: ",
+  "pasteNewRecords": {
+    "title": "Добавить несколько записей?",
+    "description": "В таблицу будет добавлено записей: {{count}}."
+  },
+  "tableArchive": {
+    "title": "Архив таблицы",
+    "menuTitle": "Архив",
+    "archivedTime": "Время архивирования",
+    "archivedBy": "Кем архивировано",
+    "recordDetail": "Детали записи",
+    "empty": "Нет архивированных записей",
+    "allCreators": "Все создатели",
+    "filterArchivedTime": "Время архивирования",
+    "searchPlaceholder": "Поиск архивированных записей",
+    "clearFilter": "Сбросить фильтры",
+    "export": "Экспорт CSV",
+    "exporting": "Экспорт… {{count}} строк",
+    "exportSucceed": "Экспорт завершён, начинается загрузка",
+    "restoreSelected": "Восстановить ({{count}})",
+    "permanentDeleteSelected": "Удалить навсегда ({{count}})",
+    "permanentDeleteConfirm": "Удалить навсегда {{count}} архивированных записей? Это действие нельзя отменить.",
+    "permanentDeleteSucceed": "Удалено навсегда",
+    "resetArchive": "Очистить архив",
+    "resetArchiveConfirm": "Очистить все архивированные записи этой таблицы? Это действие нельзя отменить.",
+    "resetSucceed": "Архив очищен",
+    "orderBy": {
+      "archivedTime": "Сортировать по времени архивирования",
+      "recordCreatedTime": "Сортировать по времени создания",
+      "recordLastModifiedTime": "Сортировать по последнему изменению"
+    }
+  },
   "tableTrash": {
     "title": "Корзина",
     "resourceType": "Тип",
     "deletedResource": "Ресурс",
-    "moreResources": "и ещё {{count}}"
+    "moreResources": "и ещё {{count}}",
+    "deletedTime": "Время удаления",
+    "deletedBy": "Удалил",
+    "filterAllTypes": "Все типы",
+    "filterAllUsers": "Все пользователи",
+    "filterDeletedTime": "Время удаления",
+    "clearFilter": "Сбросить фильтры",
+    "recordsDialogTitle": "Удалённые записи ({{count}})",
+    "recordDetail": "Детали записи",
+    "filterAllCreators": "Все создатели",
+    "filterCreatedTime": "Время создания",
+    "searchPlaceholder": "Поиск записей"
+  },
+  "pluginPanel": {
+    "empty": {
+      "description": "Панели плагинов ещё не добавлены."
+    },
+    "createPluginPanel": {
+      "button": "Создать панель плагинов",
+      "title": "Создать панель плагинов"
+    },
+    "namePlaceholder": "Введите название панели плагинов"
+  },
+  "addPlugin": "Добавить плагин",
+  "pluginContextMenu": {
+    "mangeButton": "Управление плагинами",
+    "manage": "Управляйте плагинами контекстного меню",
+    "noPlugin": "Плагинов контекстного меню нет",
+    "delete": "Удалить",
+    "deleteDescription": "Удалить этот плагин?"
+  },
+  "permission": {
+    "cell": {
+      "deniedRead": "У вас нет прав на просмотр этой ячейки",
+      "deniedUpdate": "У вас нет прав на изменение этой ячейки"
+    }
   },
   "baseShare": {
     "shareTitle": "Поделиться",
@@ -924,7 +1274,10 @@
     "linkScopeDialogTitle": "Link field scope",
     "linkHolderCanCopyAndSave": "Может сохранить как копию",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
-    "editRequiresLogin": "Users must log in to edit records",
+    "copyToMySpace": "Copy to my space",
+    "saveToMySpace": "Save to my space",
+    "supportSaveCopy": "Сохраните копию в своем пространстве",
+    "editRequiresLogin": "Войдите, чтобы редактировать записи",
     "enterPassword": "Введите пароль",
     "allowCopyData": "Разрешить зрителям копировать данные",
     "sharedNode": "Общий узел",
@@ -956,16 +1309,67 @@
         "failed": "Ошибка"
       }
     },
+    "googleSheetPick": {
+      "title": "Выберите таблицы Google",
+      "defaultReason": "Выберите таблицы в средстве выбора файлов Google, чтобы их можно было прочитать.",
+      "pick": "Выбрать таблицы",
+      "opening": "Открытие окна выбора…",
+      "failed": "Не удалось открыть окно выбора файлов Google",
+      "gateExpired": "Срок действия запроса истёк, но доступ к выбранным файлам сохранён — отправьте агенту новое сообщение, чтобы продолжить.",
+      "status": {
+        "picked": "Разрешено таблиц: {{count}}",
+        "cancelled": "Пропущено",
+        "failed": "Ошибка"
+      }
+    },
     "agent": {
       "askUserQuestion": {
-        "otherPlaceholder": "Или введите ответ…"
+        "otherPlaceholder": "Или введите ответ…",
+        "asked": "Задан",
+        "skipped": "Пропущен",
+        "pendingAnswer": "Ожидание ответа",
+        "notSelected": "Не выбрано",
+        "timedOut": "Время истекло",
+        "timedOutWithDuration": "Время истекло ({{duration}})",
+        "cancelled": "Отменено",
+        "previousQuestion": "Предыдущий вопрос",
+        "nextQuestion": "Следующий вопрос"
+      },
+      "completion": {
+        "noDetails": "Подробности недоступны",
+        "model": "Модель",
+        "contextWindow": "Контекстное окно",
+        "contextTooltip": "Использование рабочей памяти агента. При приближении к лимиту агент автоматически суммирует более ранний разговор, чтобы освободить место.",
+        "contextTipNewChat": "Начинайте новый чат для других тем — это значительно снижает расход кредитов.",
+        "contextTipMemory": "Скажите «запомни», чтобы сохранить в долговременную память, доступную во всех чатах."
       },
       "messageActions": {
+        "helpful": "Полезно",
+        "notHelpful": "Не полезно",
+        "commentTitle": "Как можно улучшить этот ответ? (необязательно)",
+        "commentPlaceholder": "например: не по сути, неточно, не тот инструмент…",
+        "saveFailed": "Не удалось сохранить отзыв",
         "copy": "Копировать",
         "copyToInput": "Копировать в поле ввода"
+      },
+      "contextCompaction": {
+        "auto": "Контекст был автоматически сжат",
+        "manual": "Контекст сжат",
+        "compacting": "Сжатие контекста…",
+        "failed": "Не удалось сжать контекст"
+      },
+      "taskProgress": {
+        "title": "Ход выполнения задачи"
+      },
+      "tool": {
+        "copy": "Копировать",
+        "copied": "Скопировано!",
+        "collapse": "Свернуть",
+        "linesHidden": "Скрыто строк: {{count}} — нажмите, чтобы развернуть"
       }
     },
     "tool": {
+      "retrying": "Повтор ({{attempt}}/{{maxRetries}})...",
       "showLess": "Показать меньше",
       "generateApp": {
         "creatingApp": "Создание приложения",
@@ -977,14 +1381,14 @@
         "code": "Код",
         "download": "Скачать",
         "downloadHtml": "HTML",
-        "downloadImage": "Изображение (PNG)",
         "copy": "Копировать",
         "copied": "Скопировано!",
         "fullscreen": "Полный экран",
         "exitFullscreen": "Выйти из полноэкранного режима",
         "downloadSuccess": "Изображение успешно загружено",
         "downloadFailed": "Не удалось захватить изображение",
-        "iframeFailed": "Не удалось захватить: iframe недоступен"
+        "iframeFailed": "Не удалось захватить: iframe недоступен",
+        "iframeTitle": "Предпросмотр HTML"
       }
     },
     "action": {
@@ -996,9 +1400,38 @@
       "submit": "Отправить"
     },
     "newChat": "Новый чат",
+    "clearChat": "Очистить чат",
     "expand": "Развернуть",
     "history": "История",
     "close": "Свернуть",
+    "clearChatConfirmTitle": "Подтвердите очистку чата",
+    "clearChatConfirmDesc": "Текущее содержимое чата не будет сохранено. Точно очистить?",
+    "dontShowAgain": "Больше не показывать",
+    "modelSwitchTitle": "Сменить модель",
+    "modelSwitchHint": "Сейчас работает на {{previous}}. При следующей отправке управление перейдёт к новой модели, которая увидит только последние 3 реплики.",
+    "effort": {
+      "title": "Интеллект",
+      "low": "Низкий",
+      "medium": "Средний",
+      "high": "Высокий",
+      "xhigh": "Очень высокий"
+    },
+    "sandboxExpiry": {
+      "expiresIn": "Компьютер агента истекает через {{time}}",
+      "reset": "Продлить",
+      "resetTitle": "Продлить компьютер агента",
+      "runningTasks_one": "Выполняется {{count}} задача. Продление прервёт её.",
+      "runningTasks_few": "Выполняются {{count}} задачи. Продление прервёт их.",
+      "runningTasks_many": "Выполняется {{count}} задач. Продление прервёт их.",
+      "runningTasks_other": "Выполняется {{count}} задачи. Продление прервёт их.",
+      "noRunningTasks": "Сейчас нет выполняющихся задач.",
+      "newSandboxHint": "После продления вы сможете продолжить работу как обычно.",
+      "cancel": "Отмена",
+      "confirmReset": "Продлить",
+      "confirmResetWithTasks": "Всё равно продлить",
+      "expiresSoon": "Срок действия компьютера агента скоро истечёт",
+      "resetFailed": "Не удалось продлить компьютер агента"
+    },
     "addAttachment": "Добавить вложение",
     "noHistory": "Нет истории чата",
     "noFoundHistory": "Нет истории чата, пожалуйста, начните новую беседу",
@@ -1021,7 +1454,8 @@
       "tables": "Таблицы",
       "apps": "Приложения",
       "workflows": "Автоматизации",
-      "folders": "Папки"
+      "folders": "Папки",
+      "envs": "Секреты"
     },
     "slashCommand": {
       "skills": "Skills",
@@ -1043,8 +1477,7 @@
     "attachment": {
       "pastedTextFileName": "Вставленный текст",
       "imageNotSupported": "Изображение не поддерживается",
-      "tooManyFiles": "Вы можете прикрепить не более {{count}} файлов к одному сообщению",
-      "storageFull": "Хранилище песочницы заполнено. Удалите несколько файлов и повторите попытку."
+      "tooManyFiles": "Вы можете прикрепить не более {{count}} файлов к одному сообщению"
     },
     "suggestions": {
       "title": "Чем могу помочь?",
@@ -1069,30 +1502,127 @@
       "writeCodeHint": "Напишите код, чтобы увидеть предварительный просмотр блок-схемы.",
       "noPreview": "Предварительный просмотр блок-схемы недоступен.",
       "codeChanged": "Код изменился с момента генерации этого предварительного просмотра."
+    },
+    "artifact": {
+      "view": "Открыть",
+      "restore": "Восстановить эту версию",
+      "download": "Скачать",
+      "openInNewPage": "Открыть на новой странице",
+      "fullscreen": "Во весь экран",
+      "exitFullscreen": "Выйти из полноэкранного режима",
+      "delete": "Удалить",
+      "deleteConfirm": "Удалить этот артефакт? Карточки в чате станут заглушкой удалённого.",
+      "deleted": "Этот артефакт был удалён",
+      "runtimeError": "Ошибка артефакта",
+      "loadFailed": "Не удалось загрузить артефакт",
+      "failed": "Не удалось создать артефакт",
+      "currentVersion": "Текущая",
+      "share": "Поделиться",
+      "enableShare": "Включить доступ",
+      "copyLink": "Скопировать ссылку",
+      "rotateLink": "Сбросить ссылку",
+      "scope": "Кто может просматривать",
+      "scopePublic": "Все, у кого есть ссылка",
+      "scopeSpace": "Участники пространства",
+      "passwordProtect": "Защита паролем",
+      "passwordApply": "Задать",
+      "passwordRequired": "Этот артефакт защищён паролем",
+      "passwordPlaceholder": "Введите пароль",
+      "passwordIncorrect": "Неверный пароль",
+      "passwordSubmit": "Подтвердить",
+      "shareNotFound": "Этот общий артефакт недоступен",
+      "gallery": "Мои артефакты",
+      "galleryEmpty": "Пока нет артефактов — попросите ИИ создать его в чате.",
+      "searchPlaceholder": "Поиск артефактов",
+      "fixWithAi": "Исправить с ИИ",
+      "noPermission": "У вас нет доступа к этому артефакту"
+    },
+    "queue": {
+      "nQueued": "В очереди: {{count}}",
+      "edit": "Изменить",
+      "steerNow": "Направить разговор, не прерывая его",
+      "steerFailed": "Не удалось направить разговор. Сообщение осталось в очереди.",
+      "conversationInputMarker": "Разговор направлен",
+      "removeFromQueue": "Убрать"
+    },
+    "partTool": {
+      "bash": "Выполнить команду",
+      "read": "Прочитать файл",
+      "write": "Создать файл",
+      "edit": "Изменить файл",
+      "glob": "Найти файлы",
+      "find": "Найти файлы",
+      "grep": "Искать в файлах",
+      "ls": "Список каталога",
+      "webSearch": "Поиск в интернете",
+      "skill": "Загрузка навыка",
+      "foundFiles": "Найдено файлов: {{count}}",
+      "listedEntries": "Записей: {{count}}",
+      "moreTools": "+{{count}} инструментов",
+      "moreItems": "+{{count}} ещё",
+      "fallbackName": "Инструмент",
+      "questionCount_one": "{{count}} вопрос",
+      "questionCount_few": "{{count}} вопроса",
+      "questionCount_many": "{{count}} вопросов",
+      "questionCount_other": "{{count}} вопроса",
+      "presentFiles": "Представленные файлы",
+      "download": "Скачать",
+      "downloadAll": "Скачать все",
+      "downloadAllSkipped_one": "{{count}} файл был очищен и не вошёл в zip",
+      "downloadAllSkipped_few": "{{count}} файла были очищены и не вошли в zip",
+      "downloadAllSkipped_many": "{{count}} файлов были очищены и не вошли в zip",
+      "downloadAllSkipped_other": "{{count}} файла были очищены и не вошли в zip",
+      "downloadAllEmpty": "Эти файлы были очищены и больше недоступны для скачивания",
+      "installSkill": "Установить",
+      "installSkillTitle": "Установить навык",
+      "installSkillDescription": "Выберите, куда установить этот навык",
+      "skillInstalled": "Установлен",
+      "installSkillFailed": "Не удалось установить навык",
+      "installSkillReplaceWarning": "Если в этой области уже есть навык с таким же именем, он будет заменён."
+    },
+    "retry": {
+      "interrupted": "Ответ прерван",
+      "button": "Повторить",
+      "offline": "Вы офлайн. Повторим попытку, как только связь восстановится.",
+      "pausedHidden": "Повтор приостановлен — откройте эту вкладку для переподключения.",
+      "maxAttemptsReached": "Не удалось переподключиться автоматически. Обновите страницу вручную."
+    },
+    "initChatFailed": "Не удалось инициализировать чат",
+    "app": {
+      "loadingChatHistory": "Загрузка истории чата...",
+      "generatorTitle": "ИИ-генератор приложений",
+      "generatorDesc": "Опишите, что вы хотите создать"
+    },
+    "voice": {
+      "start": "Начать голосовой ввод",
+      "stop": "Остановить голосовой ввод",
+      "accept": "Завершить голосовой ввод",
+      "cancel": "Отменить голосовой ввод",
+      "permissionTip": "Разрешите доступ к микрофону.",
+      "recording": "Запись...",
+      "transcribing": "Расшифровка...",
+      "error": {
+        "microphoneDenied": "Доступ к микрофону заблокирован.",
+        "microphoneUnavailable": "Микрофон не найден.",
+        "unsupportedBrowser": "Запись звука не поддерживается.",
+        "recordingFailed": "Не удалось выполнить запись.",
+        "missingServerKey": "Голосовой ввод не настроен.",
+        "unauthenticated": "Войдите снова.",
+        "rateLimited": "Слишком много попыток. Подождите немного.",
+        "upstreamAuthFailed": "Ключ API транскрипции недействителен.",
+        "upstreamBadRequest": "Голосовой эндпоинт недействителен.",
+        "upstreamUnavailable": "Голосовая функция недоступна."
+      }
     }
   },
-  "download": {
-    "allAttachments": {
-      "title": "Скачать все вложения",
-      "rowsWithAttachments": "Строки с влож.",
-      "totalAttachments": "Вложения",
-      "totalSize": "Общий размер",
-      "cancel": "Отмена",
-      "downloading": "Загрузка...",
-      "completed": "Загрузка завершена",
-      "cancelled": "Загрузка отменена",
-      "noAttachments": "Нет вложений для скачивания",
-      "error": "Ошибка загрузки",
-      "errorPartial": "{{failedCount}} файлов не удалось загрузить",
-      "requireHttps": "Пакетная загрузка требует HTTPS. Пожалуйста, используйте HTTPS или localhost.",
-      "advancedOptions": "Дополнительные параметры",
-      "namingFieldLabel": "Префикс имени вложения",
-      "selectField": "По умолчанию: индекс вложения",
-      "noPrefixOption": "Без префикса",
-      "noPrefixOptionDesc": "Сохранить исходное имя файла",
-      "groupByRow": "Архивировать в папки",
-      "groupByRowTip": "Когда в строке несколько вложений, они будут помещены в одну папку; строки с одним вложением не создадут папку."
-    }
+  "upload": {
+    "panelUploading": "Загрузка файлов: {{count}}",
+    "panelFailed": "Не удалось загрузить файлов: {{count}}",
+    "panelCompleted": "Завершено файлов: {{count}}",
+    "statusFailed": "Не удалось",
+    "statusCompleted": "Завершено",
+    "statusCancel": "Отменить загрузку",
+    "statusRetry": "Повторить загрузку"
   },
   "baseNode": {
     "info": {
@@ -1104,7 +1634,16 @@
       "folderId": "ID папки",
       "tableId": "ID таблицы",
       "automationId": "ID автоматизации",
-      "appId": "ID приложения"
+      "appId": "ID приложения",
+      "searchVector": "Полнотекстовый поиск",
+      "searchVectorFields": "поля",
+      "searchVectorStatus": {
+        "ready": "Включено",
+        "configured": "Настроено",
+        "rebuildPending": "Ожидается обслуживание",
+        "stale": "Требуется перестроение",
+        "unknown": "Неизвестно"
+      }
     }
   }
 }

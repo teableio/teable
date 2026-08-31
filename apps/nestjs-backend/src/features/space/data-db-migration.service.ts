@@ -4,6 +4,7 @@ import { join } from 'path';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import type { OnApplicationBootstrap } from '@nestjs/common';
 import { PrismaService, type DataDbConnection } from '@teable/db-main-prisma';
+import { DataDbHealthService } from './data-db-health.service';
 import { quoteDataDbIdentifier, resolveDataDbInternalSchema } from './data-db-internal-schema';
 import {
   DATA_DB_PREFLIGHT_CLIENT_FACTORY,
@@ -74,7 +75,9 @@ export class DataDbMigrationService implements OnApplicationBootstrap {
     @Inject(DATA_DB_PREFLIGHT_CLIENT_FACTORY)
     clientFactory?: IDataDbPreflightClientFactory,
     @Optional()
-    private readonly prismaService?: PrismaService
+    private readonly prismaService?: PrismaService,
+    @Optional()
+    private readonly dataDbHealthService?: DataDbHealthService
   ) {
     this.clientFactory = clientFactory ?? dataDbKnexClientFactory;
   }
@@ -241,6 +244,8 @@ export class DataDbMigrationService implements OnApplicationBootstrap {
         where: { dataDbConnectionId: input.connectionId, mode: 'byodb' },
         data: { state: 'ready' },
       });
+      // Schema migration is a real DDL write — succeeding proves writability.
+      void this.dataDbHealthService?.reportConnectionRecovered(input.connectionId);
       return applied;
     } catch (error) {
       const message = formatMigrationError(error);
@@ -254,6 +259,10 @@ export class DataDbMigrationService implements OnApplicationBootstrap {
       await this.prismaService?.spaceDataDbBinding.updateMany({
         where: { dataDbConnectionId: input.connectionId, mode: 'byodb' },
         data: { state: 'error' },
+      });
+      void this.dataDbHealthService?.reportConnectionFailure({
+        connectionId: input.connectionId,
+        message,
       });
       throw error;
     }

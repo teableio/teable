@@ -33,10 +33,18 @@ const hideNotMatchRowOption = Options.boolean('hide-not-match-row').pipe(
 
 const searchAccessPathOption = Options.choice('search-access-path', [
   'default',
+  'generated_text',
   'generated_tsvector',
 ]).pipe(
   Options.withDefault('default' as const),
-  Options.withDescription('Search access path: default keeps ILIKE, generated_tsvector uses FTS')
+  Options.withDescription(
+    'Search access path: default keeps ILIKE, generated_text uses the substring document + GIN prefilter, generated_tsvector uses FTS'
+  )
+);
+
+const searchProviderOption = Options.choice('search-provider', ['pg_bigm', 'pg_trgm']).pipe(
+  Options.withDefault('pg_trgm' as const),
+  Options.withDescription('Substring provider for --search-access-path generated_text')
 );
 
 const searchVectorColumnOption = Options.text('search-vector-column').pipe(
@@ -63,7 +71,8 @@ const handler = (args: {
   readonly search: Option.Option<string>;
   readonly searchFields: Option.Option<string>;
   readonly hideNotMatchRow: boolean;
-  readonly searchAccessPath: 'default' | 'generated_tsvector';
+  readonly searchAccessPath: 'default' | 'generated_text' | 'generated_tsvector';
+  readonly searchProvider: 'pg_bigm' | 'pg_trgm';
   readonly searchVectorColumn: Option.Option<string>;
   readonly searchVectorLanguageConfig: string;
   readonly searchVectorFieldIds: Option.Option<string>;
@@ -75,31 +84,30 @@ const handler = (args: {
     const searchFields = optionToUndefined(args.searchFields);
     const searchVectorColumn = optionToUndefined(args.searchVectorColumn);
     const searchVectorFieldIds = parseCsv(optionToUndefined(args.searchVectorFieldIds));
+    const usesGeneratedAccessPath = args.searchAccessPath !== 'default';
 
-    if (args.searchAccessPath === 'generated_tsvector' && !search) {
+    if (usesGeneratedAccessPath && !search) {
       return yield* Effect.fail(
         new ValidationError({
-          message: '--search is required when --search-access-path generated_tsvector is used',
+          message: `--search is required when --search-access-path ${args.searchAccessPath} is used`,
           field: 'search',
         })
       );
     }
 
-    if (args.searchAccessPath === 'generated_tsvector' && !searchVectorColumn) {
+    if (usesGeneratedAccessPath && !searchVectorColumn) {
       return yield* Effect.fail(
         new ValidationError({
-          message:
-            '--search-vector-column is required when --search-access-path generated_tsvector is used',
+          message: `--search-vector-column is required when --search-access-path ${args.searchAccessPath} is used`,
           field: 'search-vector-column',
         })
       );
     }
 
-    if (args.searchAccessPath === 'generated_tsvector' && searchVectorFieldIds.length === 0) {
+    if (usesGeneratedAccessPath && searchVectorFieldIds.length === 0) {
       return yield* Effect.fail(
         new ValidationError({
-          message:
-            '--search-vector-field-ids is required when --search-access-path generated_tsvector is used',
+          message: `--search-vector-field-ids is required when --search-access-path ${args.searchAccessPath} is used`,
           field: 'search-vector-field-ids',
         })
       );
@@ -136,7 +144,15 @@ const handler = (args: {
                 searchScope: 'all_fields',
                 coveredFieldIds: searchVectorFieldIds,
               }
-            : { kind: 'default' },
+            : args.searchAccessPath === 'generated_text'
+              ? {
+                  kind: 'generated_text',
+                  generatedColumnName: searchVectorColumn as string,
+                  provider: args.searchProvider,
+                  searchScope: 'all_fields',
+                  coveredFieldIds: searchVectorFieldIds,
+                }
+              : { kind: 'default' },
       })
       .pipe(
         Effect.catchAll((error) =>
@@ -171,6 +187,7 @@ export const recordsList = Command.make(
     searchFields: searchFieldsOption,
     hideNotMatchRow: hideNotMatchRowOption,
     searchAccessPath: searchAccessPathOption,
+    searchProvider: searchProviderOption,
     searchVectorColumn: searchVectorColumnOption,
     searchVectorLanguageConfig: searchVectorLanguageConfigOption,
     searchVectorFieldIds: searchVectorFieldIdsOption,

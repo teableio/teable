@@ -173,6 +173,39 @@ describe('TableSpecBuilder', () => {
     expect(specResult._unsafeUnwrap().isSatisfiedBy(otherTable)).toBe(false);
   });
 
+  it('supports selecting a Table by a child View id', () => {
+    const baseId = BaseId.create(`bse${'k'.repeat(16)}`)._unsafeUnwrap();
+    const table = buildTable(baseId, TableName.create('Views')._unsafeUnwrap());
+    const otherTable = buildTable(baseId, TableName.create('Other views')._unsafeUnwrap());
+
+    const spec = table.specs().withViewId(table.views()[0].id()).build()._unsafeUnwrap();
+
+    expect(spec.isSatisfiedBy(table)).toBe(true);
+    expect(spec.isSatisfiedBy(otherTable)).toBe(false);
+  });
+
+  it('supports narrowing hydrated View children without changing the Table match', () => {
+    const baseId = BaseId.create(`bse${'l'.repeat(16)}`)._unsafeUnwrap();
+    const table = buildTable(baseId, TableName.create('Views')._unsafeUnwrap());
+    const otherTable = buildTable(baseId, TableName.create('Other views')._unsafeUnwrap());
+
+    const spec = table.specs().withViewIds([table.views()[0].id()]).build()._unsafeUnwrap();
+
+    expect(spec.isSatisfiedBy(table)).toBe(true);
+    expect(spec.isSatisfiedBy(otherTable)).toBe(true);
+  });
+
+  it('supports narrowing hydrated Fields to the primary Field', () => {
+    const baseId = BaseId.create(`bse${'p'.repeat(16)}`)._unsafeUnwrap();
+    const table = buildTable(baseId, TableName.create('Views')._unsafeUnwrap());
+    const otherTable = buildTable(baseId, TableName.create('Other views')._unsafeUnwrap());
+
+    const spec = table.specs().withPrimaryField().build()._unsafeUnwrap();
+
+    expect(spec.isSatisfiedBy(table)).toBe(true);
+    expect(spec.isSatisfiedBy(otherTable)).toBe(true);
+  });
+
   it('supports incoming-reference specs across bases', () => {
     const foreignBaseId = BaseId.create(`bse${'i'.repeat(16)}`)._unsafeUnwrap();
     const hostBaseId = BaseId.create(`bse${'j'.repeat(16)}`)._unsafeUnwrap();

@@ -1,4 +1,5 @@
-import { ANONYMOUS_USER_ID } from '@teable/core';
+import { ANONYMOUS_USER_ID, MARKETING_CONSENT_COOKIE_NAME } from '@teable/core';
+import { useRouter } from 'next/router';
 import Script from 'next/script';
 import { useEffect, useRef, useState } from 'react';
 import { syncMarketingAttributionFromUrl } from '@/lib/marketing-attribution';
@@ -82,6 +83,7 @@ declare global {
     posthog?: IPostHog;
     /** Clarity queue/API — defined synchronously by the init snippet. */
     clarity?: (command: string, ...args: string[]) => void;
+    fbq?: (...args: unknown[]) => void;
     /**
      * Hook invoked by the posthog init snippet's `loaded` callback with the
      * real SDK instance, before the event dispatch and the initial $pageview.
@@ -193,12 +195,10 @@ export const Umami = ({
 
 export const GoogleAnalytics = ({
   gaId,
-  googleAdsId,
   marketingGaId,
   user,
 }: {
   gaId?: string;
-  googleAdsId?: string;
   marketingGaId?: string;
   user?: {
     id?: string;
@@ -206,7 +206,7 @@ export const GoogleAnalytics = ({
     email?: string;
   };
 }) => {
-  const scriptId = gaId ?? googleAdsId ?? marketingGaId;
+  const scriptId = gaId ?? marketingGaId;
   const userId = user?.id;
   const userEmail = user?.email;
   const [isGtagReady, setIsGtagReady] = useState(false);
@@ -252,14 +252,10 @@ export const GoogleAnalytics = ({
       window.gtag('config', gaId, identity);
     }
 
-    if (googleAdsId) {
-      window.gtag('config', googleAdsId, { linker });
-    }
-
     if (marketingGaId) {
       window.gtag('config', marketingGaId, { linker });
     }
-  }, [gaId, googleAdsId, isGtagReady, marketingGaId, userId]);
+  }, [gaId, isGtagReady, marketingGaId, userId]);
 
   useEffect(() => {
     // Gate on the id, not just the email: ANONYMOUS_USER carries a non-empty
@@ -305,17 +301,28 @@ export const GoogleAnalytics = ({
 export const PostHog = ({
   posthogKey,
   posthogHost,
+  posthogWebHost,
+  posthogUiHost,
   user,
 }: {
   posthogKey?: string;
   posthogHost?: string;
+  posthogWebHost?: string;
+  posthogUiHost?: string;
   user?: {
     id?: string;
     name?: string;
     email?: string;
   };
 }) => {
-  const apiHost = posthogHost || POSTHOG_DEFAULT_HOST;
+  // POSTHOG_WEB_HOST is the browser-only reverse proxy (ad-blocker evasion);
+  // server-side ingest keeps reading POSTHOG_HOST and never follows it.
+  const apiHost = posthogWebHost || posthogHost || POSTHOG_DEFAULT_HOST;
+  // On a reverse-proxy api_host the SDK can't infer the PostHog web-app
+  // origin (toolbar, links back into the app) — proxied deployments must set
+  // POSTHOG_UI_HOST explicitly. null keeps the SDK default (infer/api_host),
+  // which is correct for direct cloud and self-hosted PostHog alike.
+  const uiHost = posthogUiHost || null;
   const userId = user?.id;
   const userEmail = user?.email;
   const userName = user?.name;
@@ -430,6 +437,7 @@ export const PostHog = ({
           !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug getPageViewId captureTraceFeedback captureTraceMetric".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
           posthog.init(${JSON.stringify(posthogKey)}, {
             api_host: ${JSON.stringify(apiHost)},
+            ui_host: ${JSON.stringify(uiHost)},
             capture_pageview: 'history_change',
             capture_pageleave: 'if_capture_pageview',
             // web_vitals off: fires several $web_vitals events per page load and
@@ -455,6 +463,88 @@ export const PostHog = ({
           // PostHog project's replay settings, which link recording to the
           // 'new-user-session-replay' feature flag (signup_at within last 7 days).
           // Anonymous visitors never match the flag, so nothing records for them.
+        `,
+      }}
+    />
+  );
+};
+
+interface IMetaPixelProps {
+  metaPixelId?: string;
+}
+
+// Whether the init snippet's own PageView already covered an auth view this
+// page load — module scope: it must survive the component unmount/remount of
+// an auth → product → auth SPA round trip, exactly like the script itself.
+let initialAuthViewTracked = false;
+
+/**
+ * Pre-auth (/auth/*) only: plants _fbp for direct-to-app ad landings;
+ * conversions go server-side (CAPI). Product pages never FIRE it — a script
+ * loaded on /auth/* survives SPA navigation (unloading a <script> tag cannot
+ * unload the runtime), but nothing is sent outside /auth/*.
+ * Consent: teable_consent ad_storage — denied blocks; absent loads (EEA
+ * campaigns land on the marketing site, which carries the banner).
+ */
+export const MetaPixel = ({ metaPixelId }: IMetaPixelProps) => {
+  const router = useRouter();
+  const isPreAuth = router.pathname.startsWith('/auth/');
+  const [blocked, setBlocked] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!isPreAuth || !metaPixelId) {
+      return;
+    }
+    const raw = document.cookie
+      .split('; ')
+      .find((item) => item.startsWith(`${MARKETING_CONSENT_COOKIE_NAME}=`))
+      ?.slice(MARKETING_CONSENT_COOKIE_NAME.length + 1);
+    let denied = false;
+    if (raw) {
+      try {
+        denied = JSON.parse(decodeURIComponent(raw))?.ad_storage === 'denied';
+      } catch {
+        // Malformed cookie — treat as absent.
+      }
+    }
+    setBlocked(denied);
+  }, [isPreAuth, metaPixelId]);
+
+  // One PageView per auth-page view. The init snippet covers only the very
+  // first (script injection is once per full page load), so every later auth
+  // view — path change or SPA re-entry after leaving — fires from here.
+  const trackedPathRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (blocked !== false || !isPreAuth) {
+      trackedPathRef.current = null;
+      return;
+    }
+    if (!initialAuthViewTracked) {
+      initialAuthViewTracked = true;
+    } else if (trackedPathRef.current !== router.pathname) {
+      window.fbq?.('track', 'PageView');
+    }
+    trackedPathRef.current = router.pathname;
+  }, [blocked, isPreAuth, router.pathname]);
+
+  if (!metaPixelId || !isPreAuth || blocked !== false) {
+    return null;
+  }
+
+  return (
+    <Script
+      id="meta-pixel-init"
+      strategy="afterInteractive"
+      dangerouslySetInnerHTML={{
+        __html: `
+          !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){
+          n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+          if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];
+          t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];
+          s.parentNode.insertBefore(t,s)}(window,document,'script',
+          'https://connect.facebook.net/en_US/fbevents.js');
+          fbq('init', ${JSON.stringify(metaPixelId)});
+          fbq('track', 'PageView');
         `,
       }}
     />

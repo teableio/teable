@@ -118,6 +118,130 @@ describe('UpdateRecordHandler (db)', () => {
     expect(row['__version']).toBe(2);
   });
 
+  it('accepts crossed single/multi link cell shapes without typecast', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const db = container.resolve<Kysely<DynamicDb>>(v2PostgresDbTokens.db);
+
+    const foreignNameFieldId = `fld${'s'.repeat(16)}`;
+    const foreignTableResult = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      createContext(),
+      CreateTableCommand.create({
+        baseId: baseId.toString(),
+        name: 'Link Shape Foreign',
+        fields: [{ type: 'singleLineText', id: foreignNameFieldId, name: 'Name', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      })._unsafeUnwrap()
+    );
+    const foreignTable = foreignTableResult._unsafeUnwrap().table;
+
+    const hostNameFieldId = `fld${'t'.repeat(16)}`;
+    const singleLinkFieldId = `fld${'u'.repeat(16)}`;
+    const multiLinkFieldId = `fld${'v'.repeat(16)}`;
+    const hostTableResult = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      createContext(),
+      CreateTableCommand.create({
+        baseId: baseId.toString(),
+        name: 'Link Shape Host',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: singleLinkFieldId,
+            name: 'Single Link',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: foreignTable.id().toString(),
+              lookupFieldId: foreignNameFieldId,
+              isOneWay: true,
+            },
+          },
+          {
+            type: 'link',
+            id: multiLinkFieldId,
+            name: 'Multi Link',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: foreignTable.id().toString(),
+              lookupFieldId: foreignNameFieldId,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      })._unsafeUnwrap()
+    );
+    const hostTable = hostTableResult._unsafeUnwrap().table;
+
+    const foreignRecordResult = await commandBus.execute<CreateRecordCommand, CreateRecordResult>(
+      createContext(),
+      CreateRecordCommand.create({
+        tableId: foreignTable.id().toString(),
+        fields: {
+          [foreignNameFieldId]: 'Linked Target',
+        },
+      })._unsafeUnwrap()
+    );
+    const foreignRecordId = foreignRecordResult._unsafeUnwrap().record.id().toString();
+    const linkedItem = { id: foreignRecordId, title: 'Linked Target' };
+
+    const hostRecordResult = await commandBus.execute<CreateRecordCommand, CreateRecordResult>(
+      createContext(),
+      CreateRecordCommand.create({
+        tableId: hostTable.id().toString(),
+        fields: {
+          [hostNameFieldId]: 'Host',
+        },
+      })._unsafeUnwrap()
+    );
+    const hostRecordId = hostRecordResult._unsafeUnwrap().record.id().toString();
+
+    const updateResult = await commandBus.execute<UpdateRecordCommand, UpdateRecordResult>(
+      createContext(),
+      UpdateRecordCommand.create({
+        tableId: hostTable.id().toString(),
+        recordId: hostRecordId,
+        typecast: false,
+        fields: {
+          // V1 compatibility: single-value link accepts array, multi-value accepts object
+          [singleLinkFieldId]: [linkedItem],
+          [multiLinkFieldId]: linkedItem,
+        },
+      })._unsafeUnwrap()
+    );
+    updateResult._unsafeUnwrap();
+
+    const hostDbTableName = hostTable.dbTableName()._unsafeUnwrap().value()._unsafeUnwrap();
+    const singleLinkDbField = hostTable
+      .getFields()
+      .find((field) => field.id().toString() === singleLinkFieldId)
+      ?.dbFieldName()
+      ._unsafeUnwrap()
+      .value()
+      ._unsafeUnwrap();
+    const multiLinkDbField = hostTable
+      .getFields()
+      .find((field) => field.id().toString() === multiLinkFieldId)
+      ?.dbFieldName()
+      ._unsafeUnwrap()
+      .value()
+      ._unsafeUnwrap();
+
+    expect(singleLinkDbField).toBeDefined();
+    expect(multiLinkDbField).toBeDefined();
+    if (!singleLinkDbField || !multiLinkDbField) return;
+
+    const rows = await (db as unknown as Kysely<Record<string, Record<string, unknown>>>)
+      .selectFrom(hostDbTableName)
+      .select([singleLinkDbField, multiLinkDbField])
+      .where('__id', '=', hostRecordId)
+      .execute();
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.[singleLinkDbField]).toEqual(linkedItem);
+    expect(rows[0]?.[multiLinkDbField]).toEqual([linkedItem]);
+  });
+
   it('normalizes checkbox false to null for name keys', async () => {
     const { container, baseId } = getV2NodeTestContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
@@ -329,5 +453,141 @@ describe('UpdateRecordHandler (db)', () => {
       .execute();
 
     expect(rows[0]?.[formulaDbField]).toBe('20250701-Other-Education Service');
+  });
+
+  it('rejects calendar-invalid date writes in strict mode and nulls them with typecast', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const db = container.resolve<Kysely<DynamicDb>>(v2PostgresDbTokens.db);
+
+    const createTableResult = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      createContext(),
+      CreateTableCommand.create({
+        baseId: baseId.toString(),
+        name: 'Invalid Calendar Date',
+        fields: [
+          { type: 'singleLineText', name: 'Title', isPrimary: true },
+          {
+            type: 'date',
+            name: 'Due',
+            options: {
+              formatting: {
+                date: 'YYYY-MM-DD',
+                time: 'None',
+                timeZone: 'utc',
+              },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      })._unsafeUnwrap()
+    );
+    const { table } = createTableResult._unsafeUnwrap();
+    const tableId = table.id().toString();
+    const titleField = table.getFields().find((field) => field.name().toString() === 'Title');
+    const dateField = table.getFields().find((field) => field.name().toString() === 'Due');
+    expect(titleField).toBeDefined();
+    expect(dateField).toBeDefined();
+    if (!titleField || !dateField) return;
+
+    const createRecordResult = await commandBus.execute<CreateRecordCommand, CreateRecordResult>(
+      createContext(),
+      CreateRecordCommand.create({
+        tableId,
+        fields: {
+          [titleField.id().toString()]: 'Seed',
+          [dateField.id().toString()]: '2026-03-01T00:00:00.000Z',
+        },
+      })._unsafeUnwrap()
+    );
+    const { record } = createRecordResult._unsafeUnwrap();
+
+    const invalidInputs = [
+      '2026-02-30',
+      '2026-02-29',
+      '2026-01-32',
+      '2026-00-10',
+      '2026-13-01',
+      '2026-03-01 25:00',
+      '2026-03-01 10:61',
+      '2026-03-01 10:30:61',
+      '2026-02-30T00:00:00Z',
+    ];
+
+    for (const input of invalidInputs) {
+      const strictResult = await commandBus.execute<UpdateRecordCommand, UpdateRecordResult>(
+        createContext(),
+        UpdateRecordCommand.create({
+          tableId,
+          recordId: record.id().toString(),
+          fieldKeyType: FieldKeyType.Name,
+          fields: {
+            Due: input,
+          },
+        })._unsafeUnwrap()
+      );
+      expect(strictResult.isErr()).toBe(true);
+    }
+
+    const typecastResult = await commandBus.execute<UpdateRecordCommand, UpdateRecordResult>(
+      createContext(),
+      UpdateRecordCommand.create({
+        tableId,
+        recordId: record.id().toString(),
+        typecast: true,
+        fieldKeyType: FieldKeyType.Name,
+        fields: {
+          Due: '2026-02-30',
+        },
+      })._unsafeUnwrap()
+    );
+    expect(typecastResult.isOk()).toBe(true);
+
+    const validBoundaryResult = await commandBus.execute<UpdateRecordCommand, UpdateRecordResult>(
+      createContext(),
+      UpdateRecordCommand.create({
+        tableId,
+        recordId: record.id().toString(),
+        fieldKeyType: FieldKeyType.Name,
+        fields: {
+          Due: '2024-02-29',
+        },
+      })._unsafeUnwrap()
+    );
+    expect(validBoundaryResult.isOk()).toBe(true);
+
+    const dbTableName = table.dbTableName()._unsafeUnwrap().value()._unsafeUnwrap();
+    const dateDbField = dateField.dbFieldName()._unsafeUnwrap().value()._unsafeUnwrap();
+    const rows = await (db as unknown as Kysely<Record<string, Record<string, unknown>>>)
+      .selectFrom(dbTableName)
+      .selectAll()
+      .where('__id', '=', record.id().toString())
+      .execute();
+
+    expect(rows).toHaveLength(1);
+    // typecast null write lands first, then the valid leap-day boundary overwrites it.
+    // Assert the final persisted value from a separate read, not the command response.
+    expect(rows[0]?.[dateDbField]).toEqual(new Date('2024-02-29T00:00:00.000Z'));
+
+    const typecastOnlyResult = await commandBus.execute<UpdateRecordCommand, UpdateRecordResult>(
+      createContext(),
+      UpdateRecordCommand.create({
+        tableId,
+        recordId: record.id().toString(),
+        typecast: true,
+        fieldKeyType: FieldKeyType.Name,
+        fields: {
+          Due: '2026-13-01',
+        },
+      })._unsafeUnwrap()
+    );
+    expect(typecastOnlyResult.isOk()).toBe(true);
+
+    const typecastRows = await (db as unknown as Kysely<Record<string, Record<string, unknown>>>)
+      .selectFrom(dbTableName)
+      .selectAll()
+      .where('__id', '=', record.id().toString())
+      .execute();
+    expect(typecastRows[0]?.[dateDbField]).toBeNull();
   });
 });

@@ -4,17 +4,15 @@ import { useMemo } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 
 export const useSortNode = (value?: ISort | null) => {
-  const { t } = useTranslation();
+  const { t, tPlural } = useTranslation();
   return useMemo(() => {
     const count = value?.sortObjs?.length;
     const text =
-      !value?.manualSort && count
-        ? t(`sort.displayLabel_${count > 1 ? 'other' : 'one'}`, { count })
-        : t('sort.label');
+      !value?.manualSort && count ? tPlural('sort.displayLabel', count) : t('sort.label');
     return {
       text,
       isActive: text !== t('sort.label'),
       Icon: ArrowUpDown,
     };
-  }, [t, value?.manualSort, value?.sortObjs?.length]);
+  }, [t, tPlural, value?.manualSort, value?.sortObjs?.length]);
 };

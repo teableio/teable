@@ -165,4 +165,49 @@ describe('v2 auto-number continuity (e2e)', () => {
       expect(updateRaw.error?.code).toMatch(/validation\.field\.(not_null|invalid_value)/);
     });
   });
+
+  describe('auto-number continuity across failed creates (v1 auto-number.e2e-spec:45)', () => {
+    // Regression (T6520): missing notNull fields are rejected before any SQL
+    // runs, so a failed create no longer consumes the auto-number sequence.
+    it('does not consume auto numbers on validation-failed creates', async () => {
+      const titleId = 'fld' + 'pt'.repeat(8);
+      const requiredId = 'fld' + 'pr'.repeat(8);
+      const autoId = 'fld' + 'pa'.repeat(8);
+      const table = await createTable({
+        baseId: ctx.baseId,
+        name: uniqueTableName('auto-number-continuity'),
+        fields: [
+          { type: 'singleLineText', id: titleId, name: 'Title', isPrimary: true },
+          { type: 'singleLineText', id: requiredId, name: 'Required', notNull: true },
+          { type: 'autoNumber', id: autoId, name: 'No.' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const first = await ctx.createRecord(table.id, {
+        [titleId]: 'First',
+        [requiredId]: 'ok',
+      });
+
+      // Failing create: notNull "Required" omitted → validation error, no row inserted
+      const failedResponse = await fetch(`${ctx.baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ tableId: table.id, fields: { [titleId]: 'Failing' } }),
+      });
+      expect(failedResponse.status).toBeGreaterThanOrEqual(400);
+
+      const second = await ctx.createRecord(table.id, {
+        [titleId]: 'Second',
+        [requiredId]: 'ok',
+      });
+
+      const records = await ctx.listRecords(table.id);
+      const firstAuto = records.find((r) => r.id === first.id)?.fields[autoId] as number;
+      const secondAuto = records.find((r) => r.id === second.id)?.fields[autoId] as number;
+      expect(typeof firstAuto).toBe('number');
+      // v1 contract: the failed attempt must not leave a gap
+      expect(secondAuto).toBe(firstAuto + 1);
+    });
+  });
 });

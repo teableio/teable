@@ -28,7 +28,7 @@ const OAUTH_POPUP_PATHS: RegExp[] = [
   // configured headers after this middleware and overwrites COOP, so the
   // authoritative page-side fix lives in both next.config.js headers() blocks;
   // these entries only cover responses served before Next takes over.
-  /^\/auth\/login\/?$/,
+  /^\/auth\/(login|signup)\/?$/,
   /^\/oauth\/decision\/?$/,
 ];
 

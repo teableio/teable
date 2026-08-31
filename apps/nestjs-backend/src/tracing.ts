@@ -33,6 +33,8 @@
  * - Smart export always sends errors and HTTP 5xx responses (regardless of ratio) and promotes
  *   their whole trace so it arrives complete; everything else follows the trace-level
  *   OTEL_EXPORT_RATIO (see tracing-span-export.ts)
+ * - Any single trace is truncated past TRACE_EXPORT_SPAN_CAP detail spans, so a leaked
+ *   context cannot funnel a pod's whole lifetime into one unbounded trace
  */
 import { Logger } from '@nestjs/common';
 import { metrics, SpanKind } from '@opentelemetry/api';
@@ -43,7 +45,6 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { ExpressInstrumentation, ExpressLayerType } from '@opentelemetry/instrumentation-express';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { IORedisInstrumentation } from '@opentelemetry/instrumentation-ioredis';
-import { NestInstrumentation } from '@opentelemetry/instrumentation-nestjs-core';
 import { PgInstrumentation } from '@opentelemetry/instrumentation-pg';
 import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino';
 import { RuntimeNodeInstrumentation } from '@opentelemetry/instrumentation-runtime-node';
@@ -246,7 +247,9 @@ const httpClientActiveRequestsProcessor: SpanProcessor = {
 const teableDbSpanAttributeProcessor: SpanProcessor = {
   onStart(span): void {
     const attributes = (span as unknown as { attributes?: Record<string, unknown> }).attributes;
-    const dbSystem = attributes?.['db.system'];
+    // instrumentation-pg >=0.73 emits stable semconv (db.system.name); older
+    // pods in a rolling deploy still emit db.system, so accept both.
+    const dbSystem = attributes?.['db.system.name'] ?? attributes?.['db.system'];
     if (dbSystem !== 'postgresql' && dbSystem !== 'postgres') {
       return;
     }
@@ -333,16 +336,20 @@ const metricViews: opentelemetry.metrics.ViewOptions[] = [
   // Reduce high-cardinality auto-instrumented histograms from 16 → 6 series per label set.
   // Boundaries are in seconds: 1ms=cached, 5ms=indexed, 25ms=scan, 100ms=slow, 1s=very-slow.
   // Keep only operation name + system; drop db.namespace, server.address/port, error.type.
+  // db.system (old semconv) kept alongside db.system.name so mixed fleets during
+  // a rolling deploy don't lose the dimension.
   {
     instrumentName: 'db.client.operation.duration',
     aggregation: buckets([0.001, 0.005, 0.025, 0.1, 1]),
-    attributesProcessors: [createAllowListAttributesProcessor(['db.operation.name', 'db.system'])],
+    attributesProcessors: [
+      createAllowListAttributesProcessor(['db.operation.name', 'db.system', 'db.system.name']),
+    ],
   },
 ];
 
 const otelSDK = new opentelemetry.NodeSDK({
   spanProcessors,
-  logRecordProcessors: logExporter ? [new BatchLogRecordProcessor(logExporter)] : [],
+  logRecordProcessors: logExporter ? [new BatchLogRecordProcessor({ exporter: logExporter })] : [],
   sampler: new AlwaysOnSampler(),
   contextManager: SentryContextManager ? new SentryContextManager() : undefined,
   textMapPropagator: undefined,
@@ -360,7 +367,14 @@ const otelSDK = new opentelemetry.NodeSDK({
     new ExpressInstrumentation({
       ignoreLayersType: [ExpressLayerType.MIDDLEWARE, ExpressLayerType.REQUEST_HANDLER],
     }),
-    new NestInstrumentation(),
+    // NestInstrumentation is deliberately absent. Its controller-handler span wrapped
+    // the same work as the HTTP SERVER span (2ms apart) and RouteTracingInterceptor
+    // renamed it to the route, so every request shipped two near-identical spans that
+    // both bypassed sampling — a quarter of all exported spans. Its `Create Nest App`
+    // span was also the bootstrap context that long-lived listeners leaked into.
+    // What it uniquely provided is replaced: the route/controller/handler attributes by
+    // RouteTracingInterceptor, the exception recording by GlobalExceptionFilter.
+    // new NestInstrumentation(),
     new PrismaInstrumentation(),
     new PgInstrumentation({
       enhancedDatabaseReporting: true, // Records SQL; ensure sensitive data is scrubbed.

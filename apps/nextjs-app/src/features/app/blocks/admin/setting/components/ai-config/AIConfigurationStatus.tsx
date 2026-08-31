@@ -163,7 +163,7 @@ export const AIConfigurationStatus = ({ aiConfig, onNavigate }: IAIConfiguration
             type="button"
             onClick={item.onClick}
             className={cn(
-              'flex w-full items-center gap-3 rounded-md p-2 text-left transition-colors',
+              'flex w-full items-center gap-3 rounded-md p-2 text-start transition-colors',
               item.onClick && 'hover:bg-muted/50 cursor-pointer'
             )}
           >

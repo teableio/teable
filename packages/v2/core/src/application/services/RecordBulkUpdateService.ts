@@ -31,6 +31,7 @@ import { RecordByIdsSpec } from '../../domain/table/records/specs/RecordByIdsSpe
 import type { ICellValueSpec } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
 import { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
+import type { TableId } from '../../domain/table/TableId';
 import type { TableUpdateResult } from '../../domain/table/TableMutator';
 import { IEventBus } from '../../ports/EventBus';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
@@ -621,6 +622,7 @@ export class RecordBulkUpdateService {
               if (needsResolution) {
                 mutateSpec = yield* await service.recordMutationSpecResolver.resolveAndReplace(
                   transactionContext,
+                  preparedWrite.tableForWrite.id(),
                   mutateSpec
                 );
                 updatedRecord = yield* mutateSpec.mutate(updatedRecord);
@@ -967,7 +969,12 @@ export class RecordBulkUpdateService {
                     transactionContext,
                     'resolveUpdateBatch',
                     batchTraceAttributes,
-                    () => service.resolveUpdateBatch(transactionContext, batchResult.value)
+                    () =>
+                      service.resolveUpdateBatch(
+                        transactionContext,
+                        preparedWrite.tableForWrite.id(),
+                        batchResult.value
+                      )
                   );
 
                   for (const updateResult of batchResult.value) {
@@ -1448,10 +1455,12 @@ export class RecordBulkUpdateService {
 
   private async resolveUpdateBatch(
     context: IExecutionContext,
+    tableId: TableId,
     batch: ReadonlyArray<RecordUpdateResult>
   ): Promise<Result<ReadonlyArray<RecordUpdateResult>, DomainError>> {
     const resolveManyResult = await this.recordMutationSpecResolver.resolveAndReplaceMany(
       context,
+      tableId,
       batch.map((updateResult) => updateResult.mutateSpec)
     );
     if (resolveManyResult.isErr()) {

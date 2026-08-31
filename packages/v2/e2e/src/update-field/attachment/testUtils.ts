@@ -29,10 +29,12 @@ export const ensureAttachmentTables = async (ctx: SharedTestContext) => {
   `.execute(ctx.testContainer.db);
 };
 
-export const seedAttachment = async (ctx: SharedTestContext): Promise<SeededAttachment> => {
+export const seedAttachment = async (
+  ctx: SharedTestContext,
+  size = 128
+): Promise<SeededAttachment> => {
   const token = `tok_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const path = `table/${Math.random().toString(36).slice(2, 12)}`;
-  const size = 128;
   const mimetype = 'text/plain';
 
   await sql`

@@ -16,10 +16,12 @@ interface IPinItemProps {
   className?: string;
   right?: React.ReactNode;
   pin: IGetPinListVo[number];
+  /** full entry pathname from usePinEntryMap — navigate straight there when present */
+  entryUrl?: string;
 }
 
 export const PinItem = (props: IPinItemProps) => {
-  const { className, pin, right } = props;
+  const { className, pin, right, entryUrl } = props;
   const router = useRouter();
   const { enterBase, enterBaseOverlay } = useEnterBase();
 
@@ -64,18 +66,20 @@ export const PinItem = (props: IPinItemProps) => {
           <ItemButton className={className}>
             <Link
               className="gap-1"
-              href={{
-                pathname: '/base/[baseId]',
-                query: {
-                  baseId: pin.id,
-                },
-              }}
+              href={
+                entryUrl ?? {
+                  pathname: '/base/[baseId]',
+                  query: {
+                    baseId: pin.id,
+                  },
+                }
+              }
               title={pin.name}
               onClick={(e) =>
                 interceptEnter(
                   e,
                   { id: pin.id, name: pin.name, icon: pin.icon },
-                  { pathname: '/base/[baseId]', query: { baseId: pin.id } }
+                  entryUrl ?? { pathname: '/base/[baseId]', query: { baseId: pin.id } }
                 )
               }
             >
@@ -99,13 +103,13 @@ export const PinItem = (props: IPinItemProps) => {
           {enterBaseOverlay}
           <ItemButton className={className}>
             <Link
-              href={`/base/${pin.parentBaseId}/table/${pin.id}`}
+              href={entryUrl ?? `/base/${pin.parentBaseId}/table/${pin.id}`}
               title={pin.name}
               onClick={(e) =>
                 interceptEnter(
                   e,
                   { id: pin.parentBaseId! },
-                  `/base/${pin.parentBaseId}/table/${pin.id}`
+                  entryUrl ?? `/base/${pin.parentBaseId}/table/${pin.id}`
                 )
               }
             >
@@ -146,7 +150,7 @@ export const PinItem = (props: IPinItemProps) => {
             >
               {pin.viewMeta?.type === ViewType.Plugin && pin.viewMeta?.pluginLogo ? (
                 <img
-                  className="mr-1 size-4 shrink-0"
+                  className="me-1 size-4 shrink-0"
                   src={pin.viewMeta?.pluginLogo}
                   alt={pin.name}
                 />

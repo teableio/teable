@@ -6,10 +6,13 @@ import {
   ShareDbWebSocketServer,
   registerV2ShareDbRealtime,
 } from '@teable/v2-adapter-realtime-sharedb';
+import type { IShareDbOpPublisher, ShareDbOp } from '@teable/v2-adapter-realtime-sharedb';
 import {
   createFieldOkResponseSchema,
   createTableOkResponseSchema,
+  createViewOkResponseSchema,
   deleteFieldOkResponseSchema,
+  getViewOkResponseSchema,
   updateFieldOkResponseSchema,
   pasteOkResponseSchema,
 } from '@teable/v2-contract-http';
@@ -305,10 +308,11 @@ describe('v2 realtime sharedb (e2e)', () => {
     return `fld${suffix}`;
   };
 
+  let publisher: ShareDbBackendPublisher | undefined;
+
   const registerRealtime = (container: DependencyContainer, runtime: ShareDbRuntime): void => {
-    registerV2ShareDbRealtime(container, {
-      publisher: new ShareDbBackendPublisher(runtime.backend, logger),
-    });
+    publisher = new ShareDbBackendPublisher(runtime.backend, logger);
+    registerV2ShareDbRealtime(container, { publisher });
   };
 
   beforeAll(async () => {
@@ -551,6 +555,425 @@ describe('v2 realtime sharedb (e2e)', () => {
 
       expect(doc.data?.columnMeta?.[newFieldId]?.hidden).toBe(true);
       expect(doc.data?.columnMeta?.[notesFieldId]?.hidden).toBe(false);
+    } finally {
+      doc.destroy();
+      connection.close();
+      socket.close();
+    }
+  });
+
+  it('keeps subscribed view docs stable when a filter is cleared on a fresh view', async () => {
+    if (!testContainer || !publisher) {
+      throw new Error('Missing test container');
+    }
+
+    const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        name: 'Realtime View Filter Clear',
+        fields: [{ type: 'singleLineText', name: 'Name' }],
+      } satisfies ICreateTableCommandInput),
+    });
+
+    expect(createTableResponse.status).toBe(201);
+    const createTableRaw = await createTableResponse.json();
+    const createTableParsed = createTableOkResponseSchema.safeParse(createTableRaw);
+    expect(createTableParsed.success).toBe(true);
+    if (!createTableParsed.success || !createTableParsed.data.ok) return;
+
+    const table = createTableParsed.data.data.table;
+    const view = table.views[0];
+    expect(view).toBeTruthy();
+    if (!view) return;
+
+    // Record every op exactly as it crosses the wire to subscribed clients
+    // (production publishes through ShareDbPubSubPublisher, which JSON
+    // serializes ops before clients apply them with ot-json0).
+    const wireOps: ShareDbOp[] = [];
+    const basePublisher = publisher;
+    const recordingPublisher: IShareDbOpPublisher = {
+      publish: (channels, op) => {
+        wireOps.push(JSON.parse(JSON.stringify(op)) as ShareDbOp);
+        return basePublisher.publish(channels, op);
+      },
+    };
+    registerV2ShareDbRealtime(testContainer.container, { publisher: recordingPublisher });
+
+    const socket = new WebSocket(shareDbUrl);
+    const connection = new Connection(socket as Socket);
+    const socketErrors: Error[] = [];
+    connection.on('error', (error: unknown) => {
+      socketErrors.push(error instanceof Error ? error : new Error(String(error)));
+    });
+    const doc = connection.get(`viw_${table.id}`, view.id) as Doc<
+      ITablePersistenceDTO['views'][number]
+    >;
+    doc.on('error', (error: unknown) => {
+      socketErrors.push(error instanceof Error ? error : new Error(String(error)));
+    });
+
+    const updateFilter = async (filter: unknown) => {
+      const response = await fetch(`${baseUrl}/tables/updateViewFilter`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ tableId: table.id, viewId: view.id, filter }),
+      });
+      expect(response.status).toBe(200);
+    };
+
+    try {
+      const subscribeError = await new Promise<Error | undefined>((resolve) => {
+        const timeout = setTimeout(() => {
+          resolve(new Error('ShareDB view doc subscribe timed out'));
+        }, 5000);
+
+        doc.subscribe((error) => {
+          clearTimeout(timeout);
+          if (error) {
+            resolve(new Error(error.message));
+            return;
+          }
+          resolve(undefined);
+        });
+      });
+
+      expect(subscribeError).toBeUndefined();
+      if (subscribeError) return;
+
+      // Clearing a filter that was never set must not emit an instruction-less
+      // json0 op (`{ p: [...] }` only), which crashes ot-json0 with
+      // "invalid / missing instruction in op" for every subscribed client.
+      await updateFilter(null);
+
+      const filter = {
+        conjunction: 'and' as const,
+        filterSet: [
+          {
+            fieldId: table.fields[0]!.id,
+            operator: 'is' as const,
+            value: 'alpha',
+          },
+        ],
+      };
+      await updateFilter(filter);
+
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('ShareDB view doc did not receive the filter update'));
+        }, 5000);
+
+        const interval = setInterval(() => {
+          if (doc.data?.filter != null) {
+            clearInterval(interval);
+            clearTimeout(timeout);
+            resolve();
+          }
+        }, 50);
+      });
+
+      // Clearing a previously set filter must stay stable as well.
+      await updateFilter(null);
+
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('ShareDB view doc did not receive the filter clear'));
+        }, 5000);
+
+        const interval = setInterval(() => {
+          if (doc.data && doc.data.filter == null) {
+            clearInterval(interval);
+            clearTimeout(timeout);
+            resolve();
+          }
+        }, 50);
+      });
+
+      expect(socketErrors).toEqual([]);
+      expect(doc.data?.filter).toBeNull();
+
+      const json0InstructionKeys = ['oi', 'od', 'li', 'ld', 'lm', 'na', 't', 'si', 'sd'];
+      const instructionlessComponents: unknown[] = [];
+      for (const wireOp of wireOps) {
+        for (const component of wireOp.op ?? []) {
+          const entry = component as Record<string, unknown>;
+          if (!json0InstructionKeys.some((key) => entry[key] !== undefined)) {
+            instructionlessComponents.push(component);
+          }
+        }
+      }
+      expect(instructionlessComponents).toEqual([]);
+    } finally {
+      registerV2ShareDbRealtime(testContainer.container, { publisher: basePublisher });
+      doc.destroy();
+      connection.close();
+      socket.close();
+    }
+  });
+
+  it('publishes View sort and group properties to subscribed legacy clients', async () => {
+    const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        name: 'Realtime View Query Compatibility',
+        fields: [{ type: 'singleLineText', name: 'Name' }],
+      } satisfies ICreateTableCommandInput),
+    });
+
+    expect(createTableResponse.status).toBe(201);
+    const createTableRaw = await createTableResponse.json();
+    const createTableParsed = createTableOkResponseSchema.safeParse(createTableRaw);
+    expect(createTableParsed.success).toBe(true);
+    if (!createTableParsed.success || !createTableParsed.data.ok) return;
+
+    const table = createTableParsed.data.data.table;
+    const view = table.views[0];
+    const primaryField = table.fields[0];
+    expect(view).toBeTruthy();
+    expect(primaryField).toBeTruthy();
+    if (!view || !primaryField) return;
+
+    type LegacyViewSnapshot = ITablePersistenceDTO['views'][number] & {
+      sort?: unknown;
+      group?: unknown;
+    };
+
+    const socket = new WebSocket(shareDbUrl);
+    const connection = new Connection(socket as Socket);
+    const socketErrors: Error[] = [];
+    connection.on('error', (error: unknown) => {
+      socketErrors.push(error instanceof Error ? error : new Error(String(error)));
+    });
+    const doc = connection.get(`viw_${table.id}`, view.id) as Doc<LegacyViewSnapshot>;
+    doc.on('error', (error: unknown) => {
+      socketErrors.push(error instanceof Error ? error : new Error(String(error)));
+    });
+
+    const waitForViewProperty = async (predicate: (snapshot: LegacyViewSnapshot) => boolean) => {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('ShareDB view doc did not receive the query property update'));
+        }, 5000);
+        const interval = setInterval(() => {
+          if (doc.data && predicate(doc.data)) {
+            clearInterval(interval);
+            clearTimeout(timeout);
+            resolve();
+          }
+        }, 50);
+      });
+    };
+
+    const updateViewProperty = async (property: 'Sort' | 'Group', value: unknown) => {
+      const key = property.toLowerCase();
+      const response = await fetch(`${baseUrl}/tables/updateView${property}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ tableId: table.id, viewId: view.id, [key]: value }),
+      });
+      expect(response.status).toBe(200);
+    };
+
+    try {
+      const subscribeError = await new Promise<Error | undefined>((resolve) => {
+        const timeout = setTimeout(() => {
+          resolve(new Error('ShareDB view doc subscribe timed out'));
+        }, 5000);
+        doc.subscribe((error) => {
+          clearTimeout(timeout);
+          resolve(error ? new Error(error.message) : undefined);
+        });
+      });
+      expect(subscribeError).toBeUndefined();
+      if (subscribeError) return;
+
+      const sort = { sortObjs: [{ fieldId: primaryField.id, order: 'desc' as const }] };
+      const group = [{ fieldId: primaryField.id, order: 'asc' as const }];
+      await updateViewProperty('Sort', sort);
+      await waitForViewProperty(
+        (snapshot) => JSON.stringify(snapshot.sort) === JSON.stringify(sort)
+      );
+      await updateViewProperty('Group', group);
+      await waitForViewProperty(
+        (snapshot) => JSON.stringify(snapshot.group) === JSON.stringify(group)
+      );
+
+      const finalSort = {
+        sortObjs: [{ fieldId: primaryField.id, order: 'asc' as const }],
+      };
+      await updateViewProperty('Sort', null);
+      await updateViewProperty('Sort', sort);
+      await updateViewProperty('Sort', finalSort);
+      await waitForViewProperty(
+        (snapshot) => JSON.stringify(snapshot.sort) === JSON.stringify(finalSort)
+      );
+
+      await updateViewProperty('Sort', null);
+      await updateViewProperty('Group', null);
+      await waitForViewProperty((snapshot) => snapshot.sort == null && snapshot.group == null);
+
+      expect(socketErrors).toEqual([]);
+      expect(doc.data?.sort).toBeNull();
+      expect(doc.data?.group).toBeNull();
+    } finally {
+      doc.destroy();
+      connection.close();
+      socket.close();
+    }
+  });
+
+  it('keeps configured View creation, compound cleanup, audit, and deletion in sync', async () => {
+    const removableFieldId = createFieldId();
+    const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        name: 'Realtime View Lifecycle Consistency',
+        fields: [
+          { type: 'singleLineText', name: 'Name' },
+          { type: 'singleLineText', id: removableFieldId, name: 'Status' },
+        ],
+      } satisfies ICreateTableCommandInput),
+    });
+    expect(createTableResponse.status).toBe(201);
+    const createTableParsed = createTableOkResponseSchema.safeParse(
+      await createTableResponse.json()
+    );
+    expect(createTableParsed.success).toBe(true);
+    if (!createTableParsed.success || !createTableParsed.data.ok) return;
+    const table = createTableParsed.data.data.table;
+
+    const filter = {
+      conjunction: 'and' as const,
+      filterSet: [
+        {
+          fieldId: removableFieldId,
+          operator: 'is' as const,
+          value: 'active',
+        },
+      ],
+    };
+    const sortItems = [{ fieldId: removableFieldId, order: 'desc' as const }];
+    const sort = { sortObjs: sortItems, manualSort: false };
+    const group = [{ fieldId: removableFieldId, order: 'asc' as const }];
+    const createViewResponse = await fetch(`${baseUrl}/tables/createView`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tableId: table.id,
+        view: {
+          type: 'grid',
+          name: 'Configured View',
+          sourceFilter: filter,
+          sort: sortItems,
+          manualSort: false,
+          group,
+        },
+      }),
+    });
+    expect(createViewResponse.status).toBe(200);
+    const createViewParsed = createViewOkResponseSchema.safeParse(await createViewResponse.json());
+    expect(createViewParsed.success).toBe(true);
+    if (!createViewParsed.success || !createViewParsed.data.ok) return;
+    const viewId = createViewParsed.data.data.viewId;
+
+    type RealtimeViewSnapshot = ITablePersistenceDTO['views'][number] & {
+      filter?: unknown;
+      sort?: unknown;
+      group?: unknown;
+    };
+    const socket = new WebSocket(shareDbUrl);
+    const connection = new Connection(socket as Socket);
+    const socketErrors: Error[] = [];
+    connection.on('error', (error: unknown) => {
+      socketErrors.push(error instanceof Error ? error : new Error(String(error)));
+    });
+    const doc = connection.get(`viw_${table.id}`, viewId) as Doc<RealtimeViewSnapshot>;
+    doc.on('error', (error: unknown) => {
+      socketErrors.push(error instanceof Error ? error : new Error(String(error)));
+    });
+
+    const waitForSnapshot = async (predicate: (snapshot: RealtimeViewSnapshot) => boolean) => {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          clearInterval(interval);
+          reject(
+            new Error(
+              `ShareDB View lifecycle snapshot timed out at v${doc.version}: ${JSON.stringify(doc.data)}`
+            )
+          );
+        }, 5000);
+        const interval = setInterval(() => {
+          if (doc.data && predicate(doc.data)) {
+            clearInterval(interval);
+            clearTimeout(timeout);
+            resolve();
+          }
+        }, 50);
+      });
+    };
+
+    try {
+      const subscribeError = await new Promise<Error | undefined>((resolve) => {
+        const timeout = setTimeout(() => {
+          resolve(new Error('ShareDB configured View subscribe timed out'));
+        }, 5000);
+        doc.subscribe((error) => {
+          clearTimeout(timeout);
+          resolve(error ? new Error(error.message) : undefined);
+        });
+      });
+      expect(subscribeError).toBeUndefined();
+      if (subscribeError) return;
+
+      expect(doc.data).toMatchObject({ filter, sort, group });
+
+      const deleteFieldResponse = await fetch(`${baseUrl}/tables/deleteField`, {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ baseId, tableId: table.id, fieldId: removableFieldId }),
+      });
+      expect(deleteFieldResponse.status).toBe(200);
+      const deleteFieldParsed = deleteFieldOkResponseSchema.safeParse(
+        await deleteFieldResponse.json()
+      );
+      expect(deleteFieldParsed.success).toBe(true);
+      if (!deleteFieldParsed.success || !deleteFieldParsed.data.ok) return;
+      expect(deleteFieldParsed.data.data.events.map((event) => event.name)).toEqual(
+        expect.arrayContaining(['ViewFilterUpdated', 'ViewGroupUpdated', 'ViewSortUpdated'])
+      );
+
+      await waitForSnapshot(
+        (snapshot) => snapshot.filter == null && snapshot.sort == null && snapshot.group == null
+      );
+
+      const getViewResponse = await fetch(
+        `${baseUrl}/tables/getView?${new URLSearchParams({ tableId: table.id, viewId })}`
+      );
+      expect(getViewResponse.status).toBe(200);
+      const getViewParsed = getViewOkResponseSchema.safeParse(await getViewResponse.json());
+      expect(getViewParsed.success).toBe(true);
+      if (!getViewParsed.success || !getViewParsed.data.ok) return;
+      expect(doc.data?.lastModifiedBy).toBe(getViewParsed.data.data.view.lastModifiedBy);
+      expect(doc.data?.lastModifiedTime).toBe(getViewParsed.data.data.view.lastModifiedTime);
+
+      const deleted = waitShareDbDocDeleted({
+        url: shareDbUrl,
+        collection: `viw_${table.id}`,
+        docId: viewId,
+      });
+      const deleteViewResponse = await fetch(`${baseUrl}/tables/deleteView`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ tableId: table.id, viewId }),
+      });
+      expect(deleteViewResponse.status).toBe(200);
+      await deleted;
+      expect(socketErrors).toEqual([]);
     } finally {
       doc.destroy();
       connection.close();

@@ -2,6 +2,9 @@
 import { Inject } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { registerAs } from '@nestjs/config';
+import { resolveCipherEntries } from './secrets/resolve-cipher-entries';
+import { resolveSecret } from './secrets/resolve-secret';
+import { SECRET_SPECS } from './secrets/secret-specs';
 
 const getCookieSecure = (value: string | undefined) => {
   if (!value) {
@@ -13,17 +16,23 @@ const getCookieSecure = (value: string | undefined) => {
   return value === 'true';
 };
 
+// Secret resolution and policy live in ./secrets (secret-specs.ts is the
+// single source of truth; secrets-policy.ts enforces production policy).
 export const authConfig = registerAs('auth', () => ({
   jwt: {
-    secret:
-      process.env.BACKEND_JWT_SECRET ?? process.env.SECRET_KEY ?? '533Cr3tK3yF0rH4sh1nGJ4W773k3n$',
+    secret: resolveSecret(SECRET_SPECS.jwtSecret),
+    // Verify-only fallback for PLANNED rotations of BACKEND_JWT_SECRET:
+    // TeableJwtService signs with `secret` and verifies against both. A leaked
+    // secret must be hard-cut (never listed here) — see features/auth/jwt.
+    oldSecret: process.env.BACKEND_JWT_SECRET_OLD,
     expiresIn: process.env.BACKEND_JWT_EXPIRES_IN ?? '20d',
   },
   session: {
-    secret:
-      process.env.BACKEND_SESSION_SECRET ??
-      process.env.SECRET_KEY ??
-      'dafea6be69af1c1c3b8caf2b609342f6eb4540b554e19539f7643b75b480c932',
+    secret: resolveSecret(SECRET_SPECS.sessionSecret),
+    // Verify-only fallback accepted while rotating BACKEND_SESSION_SECRET.
+    // express-session validates a signed cookie against every secret in the
+    // array (first entry signs new cookies), so existing sessions survive.
+    oldSecret: process.env.BACKEND_SESSION_SECRET_OLD,
     expiresIn: process.env.BACKEND_SESSION_EXPIRES_IN ?? '7d',
     cookie: {
       secure: getCookieSecure(process.env.BACKEND_SESSION_COOKIE_SECURE),
@@ -32,9 +41,14 @@ export const authConfig = registerAs('auth', () => ({
   accessToken: {
     prefix: 'teable',
     encryption: {
-      algorithm: process.env.BACKEND_ACCESS_TOKEN_ENCRYPTION_ALGORITHM ?? 'aes-128-cbc',
-      key: process.env.BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY ?? 'ie21hOKjlXUiGDx9',
-      iv: process.env.BACKEND_ACCESS_TOKEN_ENCRYPTION_IV ?? 'i0vKGXBWkzyAoGf4',
+      // Tokens are in users' hands and can never be re-encrypted: after a
+      // rotation the previous pair stays pinned in *_OLD until every token
+      // issued under it is expired or revoked.
+      entries: resolveCipherEntries({
+        algorithm: process.env.BACKEND_ACCESS_TOKEN_ENCRYPTION_ALGORITHM ?? 'aes-128-cbc',
+        keySpec: SECRET_SPECS.accessTokenEncryptionKey,
+        ivSpec: SECRET_SPECS.accessTokenEncryptionIv,
+      }),
     },
   },
   resetPasswordEmailExpiresIn:

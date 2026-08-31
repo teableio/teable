@@ -4,5 +4,6 @@ export * from './PostgresRecordMutationSnapshotCaptureService';
 export * from './PostgresRecordOrderCalculator';
 export * from './PostgresAttachmentLookupService';
 export * from './PostgresUserLookupService';
+export * from './PostgresCollaboratorDirectoryService';
 export * from './OffsetStreamPaginationStrategy';
 export * from './CursorStreamPaginationStrategy';

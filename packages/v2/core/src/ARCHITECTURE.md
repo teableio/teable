@@ -24,6 +24,14 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - Repository-specific post-persist work (for example schema refresh, backfill replay, or
   repository-originated action-trigger collection) stays inside the repository `create/update/delete`
   method. Application flows may only consume the returned aggregate and its domain events.
+- v2-core is the Table bounded context (table, field, view, record, formula). Host navigation such
+  as folder / base-node (`folderId`, `parentId`, sidebar order) does not belong on commands or ports,
+  even as an opaque id with a Noop adapter. Nest attaches after the command returns, e.g.
+  `ImportOpenApiV2Service` calling `BaseNodeService.attachResourceToParent` once the table is ready.
+  Example of the wrong seam: `community/apps/nestjs-backend/src/features/import/open-api/import-open-api-v2.service.ts`
+  (host) vs a v2-core `ITableFolderRegistry` port (do not add).
+  `IButtonClickWorkflowService` and `IViewPluginRepository` are Table-owned optional adapters
+  (Button field / Plugin view), not a template for host Noop ports.
 
 ## Files
 

@@ -1,0 +1,20 @@
+{
+  "auth": {
+    "title": "יש להזין סיסמה כדי לצפות בדף זה",
+    "submit": "שליחה",
+    "password": "סיסמה",
+    "passwordTooShort": "הסיסמה חייבת להכיל 3 תווים לפחות"
+  },
+  "form": {
+    "requireLoginTip": "טופס זה מחייב כניסה לחשבון לפני השליחה",
+    "login": "כניסה"
+  },
+  "toolbar": {
+    "filterLinkSelectPlaceholder": "בחירה..."
+  },
+  "view": {
+    "signInToEdit": "<a>כניסה</a> לעריכה"
+  },
+  "openOnNewPage": "פתיחה בדף חדש",
+  "errorTips": "מקור השיתוף הפעיל מטריצת הרשאות, הצפייה אינה מותרת"
+}

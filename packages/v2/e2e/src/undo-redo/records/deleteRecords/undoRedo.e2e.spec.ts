@@ -1,3 +1,4 @@
+import { sql } from 'kysely';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { getSharedTestContext, type SharedTestContext } from '../../../shared/globalTestContext';
@@ -25,6 +26,17 @@ describe('undo-redo/deleteRecords (e2e)', () => {
     ]);
 
     await ctx.deleteRecords(table.id, [records[0]!.id]);
+    const trashIndex = await sql<{ snapshot: string | string[] }>`
+      SELECT snapshot
+      FROM table_trash
+      WHERE table_id = ${table.id}
+        AND resource_type = 'record'
+    `.execute(ctx.testContainer.dataDb);
+    expect(
+      trashIndex.rows.flatMap((row) =>
+        typeof row.snapshot === 'string' ? (JSON.parse(row.snapshot) as string[]) : row.snapshot
+      )
+    ).toContain(records[0]!.id);
     expect(
       (await ctx.listRecords(table.id)).find((item) => item.id === records[0]!.id)
     ).toBeUndefined();

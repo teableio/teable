@@ -1,0 +1,1699 @@
+{
+  "actions": {
+    "title": "الإجراءات",
+    "add": "إضافة",
+    "save": "حفظ",
+    "doNotSave": "عدم الحفظ",
+    "submit": "إرسال",
+    "confirm": "تأكيد",
+    "continue": "متابعة",
+    "close": "إغلاق",
+    "edit": "تعديل",
+    "fill": "تعبئة",
+    "update": "تحديث",
+    "create": "إنشاء",
+    "delete": "حذف",
+    "clear": "مسح",
+    "cancel": "إلغاء",
+    "zoomIn": "تكبير",
+    "zoomOut": "تصغير",
+    "back": "رجوع",
+    "download": "تنزيل",
+    "remove": "إزالة",
+    "removeConfig": "إزالة الإعداد",
+    "retry": "إعادة المحاولة",
+    "saveSucceed": "تم الحفظ بنجاح!",
+    "submitSucceed": "تم الإرسال بنجاح!",
+    "editSucceed": "تم التعديل بنجاح!",
+    "updateSucceed": "تم التحديث بنجاح!",
+    "deleteSucceed": "تم الحذف بنجاح!",
+    "resetSucceed": "تم إفراغ سلة المحذوفات بنجاح!",
+    "restoreSucceed": "تمت الاستعادة بنجاح!",
+    "loading": "جارٍ التحميل...",
+    "refreshPage": "تحديث الصفحة",
+    "yesDelete": "نعم، احذف",
+    "rename": "إعادة تسمية",
+    "duplicate": "تكرار",
+    "export": "تصدير",
+    "import": "استيراد",
+    "change": "تغيير",
+    "upgrade": "ترقية",
+    "upgradeToLevel": "الترقية إلى {{level}}",
+    "search": "بحث",
+    "loadMore": "تحميل المزيد",
+    "collapseSidebar": "طي الشريط الجانبي",
+    "restore": "استعادة",
+    "permanentDelete": "حذف نهائي",
+    "globalSearch": "بحث شامل",
+    "fieldSearch": "البحث في الحقل",
+    "tableIndex": "الفهرس",
+    "showAllRow": "عرض جميع الصفوف",
+    "hideNotMatchRow": "إخفاء الصفوف غير المطابقة",
+    "more": "المزيد",
+    "expand": "توسيع",
+    "view": "عرض",
+    "preview": "معاينة",
+    "viewAndEdit": "عرض وتعديل",
+    "deleteTip": "هل أنت متأكد من حذف \"{{name}}\"؟",
+    "move": "نقل إلى",
+    "turnOn": "تشغيل",
+    "exit": "خروج",
+    "next": "التالي",
+    "previous": "السابق",
+    "select": "اختيار",
+    "refresh": "تحديث",
+    "login": "تسجيل الدخول",
+    "useTemplate": "استخدام القالب",
+    "copyLink": "نسخ الرابط",
+    "openLink": "فتح الرابط",
+    "backToSpace": "العودة إلى المساحة",
+    "switchBase": "تبديل قاعدة البيانات",
+    "collapse": "طيّ",
+    "viewDetails": "عرض التفاصيل",
+    "getMore": "الحصول على المزيد",
+    "copySuccess": "تم النسخ بنجاح",
+    "share": "مشاركة"
+  },
+  "quickAction": {
+    "title": "إجراءات سريعة",
+    "placeHolder": "اكتب أمرًا أو ابحث..."
+  },
+  "password": {
+    "setInvalid": "كلمة المرور غير صالحة؛ يجب أن تتكون من 8 أحرف على الأقل وأن تتضمن حرفًا واحدًا ورقمًا واحدًا على الأقل."
+  },
+  "template": {
+    "non": {
+      "share": "مشاركة",
+      "copy": "تم النسخ"
+    },
+    "aiTitle": "لنبنِ معًا",
+    "aiGreeting": "كيف يمكنني مساعدتك يا {{name}}",
+    "aiSubTitle": "أول منصة ذكاء اصطناعي تتعاون فيها الفرق على البيانات وتُنشئ تطبيقات جاهزة للإنتاج",
+    "guideTitle": "ابدأ من السيناريو الخاص بك",
+    "watchVideo": "مشاهدة الفيديو",
+    "title": "قالب",
+    "description": "إنشاء قاعدة جديدة من قالب",
+    "browseAll": "تصفح الكل",
+    "templateTitle": "ابدأ بقالب",
+    "loadMore": "تحميل المزيد",
+    "allTemplatesLoaded": "تم تحميل كل القوالب",
+    "createTemplate": "إنشاء قالب",
+    "promptBox": {
+      "start": "ابدأ"
+    },
+    "useTemplateDialog": {
+      "title": "اختيار مساحة",
+      "description": "يرجى اختيار مساحة لتطبيق القالب",
+      "noSpaceDescription": "ليس لديك أي مساحات بعد. أنشئ واحدة للمتابعة.",
+      "newSpacePlaceholder": "اسم المساحة",
+      "createSpace": "إنشاء"
+    }
+  },
+  "baseShare": {
+    "shareTitle": "مشاركة",
+    "shareToWeb": "المشاركة على الويب",
+    "noPermissionTip": "ليس لديك صلاحية لإدارة إعدادات المشاركة",
+    "linkHolderLabel": "من يحصل على الرابط",
+    "linkHolderCanView": "يمكنه العرض",
+    "linkHolderCanViewDesc": "يمكن لأي شخص لديه الرابط عرض البيانات",
+    "linkHolderCanEdit": "يمكنه التعديل",
+    "linkHolderCanEditDesc": "يمكن للمستخدمين المسجَّلين تعديل السجلات في الجدول",
+    "linkHolderCanCopyAndSave": "يمكنه الحفظ كنسخة",
+    "linkHolderCanCopyAndSaveDesc": "يمكن لأي شخص لديه الرابط حفظ نسخة في مساحته",
+    "refreshLink": "إعادة توليد الرابط",
+    "advanced": "متقدم",
+    "allowCopyData": "السماح للمشاهدين بنسخ البيانات",
+    "restrictByPassword": "التقييد بكلمة مرور",
+    "embedConfig": "إعدادات التضمين",
+    "embedPreview": "معاينة",
+    "copyCode": "نسخ الكود",
+    "enterPassword": "أدخل كلمة المرور",
+    "passwordTitle": "تعيين كلمة مرور",
+    "deleteConfirmTitle": "حذف رابط المشاركة",
+    "deleteConfirmDescription": "لا يمكن التراجع عن هذا الإجراء. ولن يتمكن من لديهم هذا الرابط من الوصول إلى القاعدة المشتركة بعد الآن.",
+    "createSuccess": "تم إنشاء رابط المشاركة",
+    "createFailed": "فشل إنشاء رابط المشاركة",
+    "updateFailed": "فشل تحديث إعدادات المشاركة",
+    "deleteSuccess": "تم حذف رابط المشاركة",
+    "deleteFailed": "فشل حذف رابط المشاركة",
+    "refreshSuccess": "تمت إعادة توليد رابط المشاركة",
+    "refreshFailed": "فشلت إعادة توليد رابط المشاركة"
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "النسخ إلى مساحة",
+      "description": "يرجى اختيار مساحة لنسخ هذه القاعدة إليها",
+      "baseName": "اسم القاعدة",
+      "baseNamePlaceholder": "أدخل اسم القاعدة",
+      "selectSpace": "اختيار مساحة",
+      "noSpaceDescription": "لا توجد مساحات يمكنك إدارتها. أنشئ مساحة جديدة للمتابعة.",
+      "newSpacePlaceholder": "اسم المساحة",
+      "createSpace": "إنشاء",
+      "copyTarget": "النسخ إلى",
+      "createNewBase": "قاعدة جديدة",
+      "copyToExistingBase": "قاعدة موجودة",
+      "selectBase": "اختيار قاعدة",
+      "selectBasePlaceholder": "اختر قاعدة",
+      "noBaseInSpace": "لا توجد قواعد يمكنك إدارتها في هذه المساحة. يرجى اختيار \"قاعدة جديدة\"."
+    }
+  },
+  "settings": {
+    "title": "إعدادات النسخة",
+    "allSetting": "إعدادات المساحة والإعدادات الشخصية",
+    "personal": {
+      "title": "شخصي"
+    },
+    "templateAdmin": {
+      "title": "إدارة القوالب",
+      "noData": "لا توجد بيانات",
+      "importing": "جارٍ الاستيراد...",
+      "usageCount": "عدد مرات الاستخدام: {{count}}",
+      "useTemplate": "استخدام هذا القالب",
+      "createdBy": "بواسطة {{user}}",
+      "backToTemplateList": "العودة إلى قائمة القوالب",
+      "tips": {
+        "errorCategoryName": "التصنيف غير موجود أو تم حذفه",
+        "needSnapshot": "يرجى إنشاء لقطة قبل النشر، ولا يمكن ترك اسم القالب أو وصفه فارغًا",
+        "needPublish": "يرجى نشر القالب قبل تعيينه كمميّز",
+        "needBaseSource": "يرجى اختيار قاعدة مصدر قبل إنشاء لقطة",
+        "forbiddenUpdateSystemTemplate": "لا يمكن تعديل قوالب النظام",
+        "addCategoryTips": "يرجى إدخال اسم التصنيف في حقل البحث أولًا.",
+        "categoryNamePlaceholder": "أدخل اسم الفئة",
+        "duplicateCategoryName": "اسم الفئة موجود بالفعل"
+      },
+      "category": {
+        "menu": {
+          "getStarted": "البدء",
+          "recommended": "موصى به",
+          "all": "الكل",
+          "browseByCategory": "التصفح حسب التصنيف"
+        }
+      },
+      "header": {
+        "cover": "الغلاف",
+        "name": "الاسم",
+        "description": "الوصف",
+        "markdownDescription": "وصف Markdown",
+        "category": "التصنيف",
+        "isSystem": "النظام",
+        "source": "المصدر",
+        "status": "منشور",
+        "publishSnapshot": "نشر اللقطة",
+        "snapshotTime": "وقت اللقطة",
+        "actions": "الإجراءات",
+        "featured": "مميّز",
+        "createdBy": "أنشأه",
+        "userNonExistent": "المستخدم غير موجود",
+        "preview": "معاينة",
+        "usage": "الاستخدام",
+        "visit": "زيارة"
+      },
+      "actions": {
+        "title": "الإجراءات",
+        "publish": "نشر",
+        "delete": "حذف",
+        "duplicate": "تكرار",
+        "preview": "معاينة",
+        "use": "استخدام",
+        "pinTop": "التثبيت في الأعلى",
+        "addCategory": "إضافة تصنيف",
+        "selectCategory": "اختيار تصنيف",
+        "viewTemplate": "عرض القالب",
+        "manageCategory": "إدارة التصنيفات"
+      },
+      "relatedTemplates": "قوالب ذات صلة",
+      "noImage": "لا توجد صورة",
+      "baseSelectPanel": {
+        "title": "اختيار مصدر القالب",
+        "description": "اختر قاعدة لتكون القالب",
+        "confirm": "تأكيد",
+        "search": "بحث...",
+        "cancel": "إلغاء",
+        "selectBase": "اختيار قاعدة",
+        "createTemplate": "إنشاء قالب",
+        "abnormalBase": "القاعدة غير موجودة أو تم حذفها"
+      }
+    },
+    "back": "العودة إلى الصفحة الرئيسية",
+    "account": {
+      "title": "الملف الشخصي",
+      "tab": "الملف الشخصي",
+      "updatePhoto": "تحديث الصورة",
+      "updateNameDesc": "لقب أو اسم أول، أيًّا كان ما تحب أن تُنادى به في Teable",
+      "securityTitle": "أمان الحساب",
+      "email": "البريد الإلكتروني",
+      "password": "كلمة المرور",
+      "passwordDesc": "عيّن كلمة مرور دائمة لتسجيل الدخول إلى حسابك.",
+      "changePassword": {
+        "title": "تغيير كلمة المرور",
+        "desc": "يرجى إدخال كلمة المرور الحالية وتعيين كلمة مرور جديدة",
+        "current": "كلمة المرور الحالية",
+        "new": "كلمة المرور الجديدة",
+        "confirm": "تأكيد كلمة المرور الجديدة"
+      },
+      "changePasswordError": {
+        "disMatch": "كلمة المرور الجديدة غير متطابقة.",
+        "equal": "يجب أن تختلف كلمة المرور الجديدة عن كلمة المرور الحالية.",
+        "invalid": "كلمة المرور الحالية غير صحيحة."
+      },
+      "changePasswordSuccess": {
+        "title": "🎉 تم تغيير كلمة المرور بنجاح.",
+        "desc": "ستتم إعادة توجيهك إلى صفحة تسجيل الدخول خلال ثانيتين."
+      },
+      "manageToken": "رمز الوصول",
+      "addPassword": {
+        "title": "إضافة كلمة مرور",
+        "desc": "عيّن كلمة مرور دائمة لتسجيل الدخول إلى حسابك.",
+        "password": "أدخل كلمة المرور",
+        "confirm": "أكّد كلمة المرور"
+      },
+      "addPasswordError": {
+        "disMatch": "كلمة المرور غير متطابقة."
+      },
+      "addPasswordSuccess": {
+        "title": "🎉 تمت إضافة كلمة المرور بنجاح."
+      },
+      "changeEmail": {
+        "title": "تغيير عنوان البريد الإلكتروني",
+        "desc": "يرجى التحقق من كلمة المرور وتأكيد عنوان بريدك الإلكتروني الجديد",
+        "current": "كلمة المرور الحالية",
+        "new": "البريد الإلكتروني الجديد",
+        "code": "رمز التحقق",
+        "getCode": "إرسال الرمز",
+        "error": {
+          "invalidCode": "رمز التحقق غير صالح.",
+          "invalidPassword": "كلمة المرور غير صحيحة.",
+          "invalidConflict": "البريد الإلكتروني الجديد مسجَّل بالفعل.",
+          "invalidSameEmail": "البريد الإلكتروني الجديد مطابق للبريد الحالي.",
+          "sendMailRateLimit": "يرجى الانتظار {{seconds}} ثانية قبل إرسال رسالة جديدة"
+        },
+        "success": {
+          "title": "🎉 تم تغيير البريد الإلكتروني بنجاح.",
+          "desc": "ستتم إعادة توجيهك إلى صفحة تسجيل الدخول خلال ثانيتين.",
+          "sendSuccess": "تم إرسال رمز التحقق بنجاح."
+        }
+      },
+      "deleteAccount": {
+        "title": "حذف الحساب",
+        "desc": "هذا الإجراء غير قابل للتراجع. وسيحذف حسابك وكل البيانات المرتبطة به نهائيًا.",
+        "error": {
+          "title": "تعذّر حذف الحساب",
+          "desc": "عليك معالجة التبعيات التالية أولًا:",
+          "spacesError": "قبل حذف حسابك، عليك مغادرة مساحاتك (أو حذفها ثم الانتقال إلى سلة المحذوفات) أولًا."
+        },
+        "confirm": {
+          "title": "يرجى إدخال <code>DELETE</code> للتأكيد",
+          "placeholder": "DELETE"
+        },
+        "loading": "جارٍ الحذف..."
+      }
+    },
+    "notify": {
+      "title": "الإشعارات",
+      "label": "النشاط في مساحتك",
+      "desc": "تلقَّ رسائل بريد إلكتروني عند ورود تعليقات أو إشارات أو دعوات صفحات أو تذكيرات أو طلبات وصول أو تغييرات في الخصائص."
+    },
+    "setting": {
+      "title": "التفضيلات",
+      "theme": "سمة الواجهة",
+      "themeDesc": "اختر نظام ألوان الواجهة",
+      "dark": "داكن",
+      "light": "فاتح",
+      "system": "النظام",
+      "version": "إصدار التطبيق",
+      "infraVersion": "إصدار البنية التحتية",
+      "language": "اللغة",
+      "interactionMode": "نمط التفاعل",
+      "mouseMode": "نمط المؤشر",
+      "touchMode": "نمط اللمس",
+      "systemMode": "اتّباع النظام",
+      "buySelfHostedLicense": "شراء ترخيص الاستضافة الذاتية",
+      "teableSkill": "مهارة Teable"
+    },
+    "teableSkill": {
+      "intro": "اربط وكيل الذكاء الاصطناعي لديك بقاعدتك لاستعلام البيانات وإدارة الجداول والحقول والعروض واستيراد السجلات أو تحديثها وإنشاء الأتمتة والتطبيقات.",
+      "worksWith": "يعمل مع كل الوكلاء الرئيسيين",
+      "more": "+ المزيد",
+      "copy": "نسخ",
+      "installPromptLabel": "مطالبة تثبيت المهارة",
+      "installCommandLabel": "أمر تثبيت المهارة",
+      "installPrompt": "يرجى قراءة https://github.com/teableio/agent-skills واتّباع الدليل لمساعدتي في تثبيت مهارة وكيل Teable وإتمام مصادقة Teable CLI.",
+      "step1Title": "تثبيت المهارة",
+      "step1Description": "انسخ هذه المطالبة إلى وكيل الذكاء الاصطناعي لديك. سيثبّت مهارة Teable ويفتح المتصفح لإتمام مصادقة Teable CLI.",
+      "step3Title": "جرّب استخدام مهارة Teable",
+      "step3Description": "بعد تثبيت المهارة، جرّب هذه المطالبات.",
+      "tryPrompts": {
+        "schema": {
+          "prompt": "أنشئ جدول CRM بسيطًا في هذه القاعدة.",
+          "note": "مطالبات بسيطة للبدء"
+        },
+        "template": {
+          "prompt": "ارفع كل الفواتير الموجودة في هذا المجلد المحلي إلى <Receipt Table> {paste table URL} واستخرج الحقول الأساسية.",
+          "note": "الملفات المحلية ← Teable"
+        },
+        "validate": {
+          "prompt": "استورد مشكلات GitHub الجديدة إلى <Bug Tracker> {paste table URL}.",
+          "note": "بيانات عبر المنصات ← Teable"
+        },
+        "trace": {
+          "prompt": "افحص <Task Table> {paste table URL} وحدّد المهام المتأخرة.",
+          "note": "تنظيف بيانات Teable أو تنظيمها"
+        }
+      }
+    },
+    "nav": {
+      "settings": "الإعدادات",
+      "logout": "تسجيل الخروج",
+      "contactSupport": "التواصل مع الدعم"
+    },
+    "integration": {
+      "title": "التكاملات",
+      "thirdPartyIntegrations": {
+        "title": "تكاملات الطرف الثالث",
+        "description": "لقد منحت {{count}} تطبيقًا حق الوصول إلى حسابك.",
+        "lastUsed": "آخر استخدام في {{date}}",
+        "revoke": "إلغاء التفويض",
+        "owner": "المالك {{user}}",
+        "revokeTitle": "هل أنت متأكد من إلغاء التفويض؟",
+        "revokeDesc": "لن يتمكن {{name}} من الوصول إلى واجهة Teable API بعد الآن. ولا يمكن التراجع عن هذا الإجراء.",
+        "scopeTitle": "الصلاحيات",
+        "scopeDesc": "سيتمكن هذا التطبيق من الحصول على النطاقات التالية:"
+      },
+      "userIntegration": {
+        "title": "الحسابات المتصلة",
+        "description": "اربط حسابات خارجية للسماح لـ Teable بالوصول إلى مواردك ومزامنتها.",
+        "emptyDescription": "لا توجد حسابات متصلة",
+        "actions": {
+          "reconnect": "إعادة الاتصال"
+        },
+        "slack": {
+          "user": "مستخدم Slack",
+          "workspace": "مساحة عمل Slack"
+        },
+        "email": {
+          "user": "المستخدم",
+          "email": "البريد الإلكتروني"
+        },
+        "deleteTitle": "إزالة الحساب المتصل",
+        "deleteDesc": "هل أنت متأكد من إزالة {{name}}؟",
+        "create": "ربط حساب جديد",
+        "manage": "إدارة الحسابات المتصلة",
+        "searchPlaceholder": "البحث في الحسابات المتصلة",
+        "defaultName": "تكامل {{name}}",
+        "callback": {
+          "error": "فشل التفويض",
+          "title": "تم التفويض بنجاح",
+          "desc": "يمكنك إغلاق هذه النافذة الآن."
+        }
+      }
+    }
+  },
+  "noun": {
+    "table": "جدول",
+    "view": "عرض",
+    "space": "مساحة",
+    "base": "قاعدة",
+    "field": "حقل",
+    "record": "سجل",
+    "dashboard": "لوحة معلومات",
+    "automation": "أتمتة",
+    "authorityMatrix": "مصفوفة الصلاحيات",
+    "design": "التصميم",
+    "adminPanel": "إدارة النظام",
+    "license": "ترخيص الاستضافة الذاتية",
+    "instanceId": "معرّف النسخة",
+    "beta": "إصدار تجريبي",
+    "trash": "سلة المحذوفات",
+    "global": "عام",
+    "organizationPanel": "إعدادات المؤسسة",
+    "unknownError": "خطأ غير معروف",
+    "pluginPanel": "لوحة",
+    "pluginContextMenu": "قائمة السياق",
+    "plugin": "الإضافات",
+    "copy": "نسخ",
+    "credits": "الأرصدة",
+    "aiChat": "محادثة الذكاء الاصطناعي",
+    "app": "تطبيق",
+    "webSearch": "البحث في الويب",
+    "folder": "مجلد",
+    "newAutomation": "أتمتة جديدة",
+    "newApp": "تطبيق جديد",
+    "newFolder": "مجلد جديد",
+    "template": "قالب"
+  },
+  "level": {
+    "free": "مجاني",
+    "plus": "Plus",
+    "pro": "Pro",
+    "business": "Business",
+    "enterprise": "Enterprise"
+  },
+  "noResult": "لا توجد نتائج.",
+  "allNodes": "كل العُقد",
+  "noDescription": "لا يوجد وصف",
+  "untitled": "بلا عنوان",
+  "name": "الاسم",
+  "description": "الوصف",
+  "required": "مطلوب",
+  "characters": "حرفًا",
+  "atLeastOne": "يجب الإبقاء على {{noun}} واحد على الأقل",
+  "guide": {
+    "prev": "السابق",
+    "next": "التالي",
+    "done": "تم",
+    "skip": "تخطي",
+    "createSpaceTooltipTitle": "إنشاء مساحة",
+    "createSpaceTooltipContent": "أنشئ مساحة للتعاون مع فريقك.",
+    "createBaseTooltipTitle": "إنشاء قاعدة",
+    "createBaseTooltipContent": "تخزّن القاعدة بياناتك وتتيح الوصول إلى الأتمتة ولوحة معلومات التطبيقات.",
+    "createTableTooltipTitle": "إنشاء جدول",
+    "createTableTooltipContent": "أنشئ جدولًا جديدًا أو استورد جدولًا موجودًا هنا.",
+    "createViewTooltipTitle": "إنشاء عرض",
+    "createViewTooltipContent": "أنشئ عروض الشبكة والمعرض واللوحة والنموذج. وعروض التقويم قادمة قريبًا. <br></br>اختر العرض الأنسب لاحتياجات إدارة بياناتك.",
+    "viewFilteringTooltipTitle": "تصفية السجلات",
+    "viewFilteringTooltipContent": "صفِّ السجلات بضبط شروط. وتُخفى السجلات المصفّاة ولا تُحذف. <br></br>ولا يؤثر ذلك إلا في العرض الحالي دون بياناتك الفعلية.",
+    "viewSortingTooltipTitle": "فرز السجلات",
+    "viewSortingTooltipContent": "افرز السجلات حسب قيم الحقول لترتيبها بالشكل الذي تفضّله. <br></br>ولا يؤثر الفرز إلا في العرض الحالي دون العروض الأخرى للجدول نفسه.",
+    "viewGroupingTooltipTitle": "تجميع السجلات",
+    "viewGroupingTooltipContent": "جمِّع السجلات وفق شروط لتصنيف مجموعة بياناتك وتنظيمها داخل العرض.",
+    "apiButtonTooltipTitle": "واجهة API",
+    "apiButtonTooltipContent": "استخدم واجهة Teable القوية بكل ميزات المنتج تقريبًا عبر <a>رمز</a>."
+  },
+  "token": "رمز",
+  "poweredBy": "مدعوم من <0></0>",
+  "invite": {
+    "dialog": {
+      "title": "مشاركة مساحة {{spaceName}}",
+      "desc_zero": "تضم هذه المساحة <b>{{count}} متعاون</b>. وإضافة متعاون إلى المساحة تمنحه الوصول إلى جميع قواعد البيانات داخلها.",
+      "desc_one": "تضم هذه المساحة <b>متعاونًا واحدًا</b>. وإضافة متعاون إلى المساحة تمنحه الوصول إلى جميع قواعد البيانات داخلها.",
+      "desc_two": "تضم هذه المساحة <b>متعاونَين</b>. وإضافة متعاون إلى المساحة تمنحه الوصول إلى جميع قواعد البيانات داخلها.",
+      "desc_few": "تضم هذه المساحة <b>{{count}} متعاونين</b>. وإضافة متعاون إلى المساحة تمنحه الوصول إلى جميع قواعد البيانات داخلها.",
+      "desc_many": "تضم هذه المساحة <b>{{count}} متعاونًا</b>. وإضافة متعاون إلى المساحة تمنحه الوصول إلى جميع قواعد البيانات داخلها.",
+      "desc_other": "تضم هذه المساحة <b>{{count}} متعاون</b>. وإضافة متعاون إلى المساحة تمنحه الوصول إلى جميع قواعد البيانات داخلها.",
+      "tabEmail": "الدعوة عبر البريد الإلكتروني",
+      "emailPlaceholder": "أدخل عناوين البريد الإلكتروني مفصولة بمفتاح 'Enter'",
+      "tabLink": "الدعوة عبر رابط",
+      "linkPlaceholder": "أنشئ رابط دعوة يمنح صلاحية <0/> لكل من يفتحه.",
+      "emailSend": "إرسال الدعوة",
+      "directAccessDescription": "يمكن للمتعاونين المدعوين استخدام الرابط أدناه للوصول إلى هذا المورد مباشرةً وبدء التعاون",
+      "linkSend": "إنشاء رابط",
+      "spaceTitle": "متعاونو المساحة",
+      "spaceTitleWithCount": "متعاونو المساحة ({{count}})",
+      "baseTitle": "متعاونو قاعدة البيانات",
+      "allCollaboratorsTitle": "جميع المتعاونين (المساحة وقاعدة البيانات)",
+      "baseOnly": "قاعدة البيانات فقط",
+      "collaboratorSearchPlaceholder": "ابحث عن متعاون في المساحة بالاسم أو البريد الإلكتروني",
+      "collaboratorJoin": "انضم في {{joinTime}}",
+      "collaboratorRemove": "إزالة المتعاون",
+      "basePermissionRemove": "إزالة الوصول إلى القاعدة",
+      "goToBase": "الانتقال إلى القاعدة",
+      "linkTitle": "روابط الدعوة",
+      "linkCreatedTime": "أُنشئ في {{createdTime}}",
+      "linkCopySuccess": "تم نسخ الرابط",
+      "linkRemove": "إزالة الرابط",
+      "noInviteLinks": "لا توجد روابط دعوة",
+      "linkDescription": "أنشئ رابط دعوة وعيّن الصلاحيات",
+      "haveAccess": "لديهم وصول"
+    },
+    "base": {
+      "title": "مشاركة {{baseName}}",
+      "desc_zero": "هذه القاعدة غير مشتركة مع أي متعاون.",
+      "desc_one": "تتم مشاركة هذه القاعدة مع متعاون واحد.",
+      "desc_two": "تتم مشاركة هذه القاعدة مع متعاونَيْن.",
+      "desc_few": "تتم مشاركة هذه القاعدة مع {{count}} متعاونين.",
+      "desc_many": "تتم مشاركة هذه القاعدة مع {{count}} متعاونًا.",
+      "desc_other": "تتم مشاركة هذه القاعدة مع {{count}} متعاون.",
+      "baseTitle": "متعاونو القاعدة",
+      "collaboratorSearchPlaceholder": "ابحث عن متعاون في القاعدة بالاسم أو البريد الإلكتروني",
+      "baseTitleWithCount": "متعاونو قاعدة البيانات ({{count}})"
+    },
+    "addOrgCollaborator": {
+      "title": "إضافة متعاون من المؤسسة",
+      "button": "إضافة من المؤسسة",
+      "placeholder": "اختر عضوًا أو قسمًا من المؤسسة"
+    },
+    "sendInvitationSuccess": "تم إرسال الدعوة",
+    "table": {
+      "collaborator": "المتعاون",
+      "accessPermission": "صلاحية الوصول",
+      "joinAt": "تاريخ الانضمام",
+      "lastLogin": "آخر تسجيل دخول",
+      "expandPermissions": "توسيع صلاحيات {{name}}",
+      "collapsePermissions": "طي صلاحيات {{name}}",
+      "basePermissionsOnly": "لديه وصول إلى القواعد المحددة فقط",
+      "basePermissionCount": "صلاحيات القواعد: {{count}}"
+    },
+    "authority": {
+      "title": "مصفوفة الصلاحيات مفعّلة",
+      "description": "تتأثر صلاحيات الوصول الفعلية للمتعاونين بالأدوار المسنَدة إليهم، ويستخدم المستخدمون غير المسنَد إليهم أدوار الدور الافتراضي",
+      "viewDetail": "عرض التفاصيل"
+    },
+    "app": {
+      "previewAppError": "خطأ في التطبيق"
+    }
+  },
+  "help": {
+    "title": "المساعدة",
+    "appLink": "https://app.teable.ai",
+    "mainLink": "https://help.teable.ai/en",
+    "apiLink": "https://help.teable.ai/en/api-doc/token"
+  },
+  "pagePermissionChangeTip": "تم تحديث صلاحيات الصفحة. يلزم التحديث.",
+  "listEmptyTips": "القائمة فارغة",
+  "billing": {
+    "overLimits": "تجاوز الحدود",
+    "overLimitsDescription": "تجاوز اشتراكك الحالي حدّ الاستخدام. يرجى ترقية خطتك لمواصلة استخدام هذه الميزة دون انقطاع.",
+    "userLimitExceededDescription": "بلغت هذه النسخة الحد الأقصى لعدد المستخدمين المسموح به في ترخيصك. يرجى إلغاء تنشيط بعض المستخدمين أو ترقية الترخيص.",
+    "unavailableInPlanTips": "خطة الاشتراك الحالية لا تدعم هذه الميزة",
+    "unavailableConnectionTips": "ستُزال ميزة الاتصال بقاعدة البيانات ولن تتوفر إلا في خطة Enterprise والإصدارات المستضافة ذاتيًا.",
+    "levelTips": "هذه المساحة على خطة {{level}} حاليًا",
+    "enterpriseFeature": "ميزة للمؤسسات",
+    "automationRequiresUpgrade": "قم بالترقية إلى إصدار المؤسسات (EE) لتفعيل الأتمتة",
+    "authorityMatrixRequiresUpgrade": "قم بالترقية إلى إصدار المؤسسات (EE) لتفعيل مصفوفة الصلاحيات",
+    "viewPricing": "عرض الأسعار",
+    "billable": "قابل للفوترة",
+    "billableByAuthorityMatrix": "فوترة ناتجة عن مصفوفة الصلاحيات",
+    "seatConfirm": {
+      "title": "ستؤدي هذه الدعوة إلى زيادة فاتورتك",
+      "roleChangeTitle": "سيؤدي تغيير الدور هذا إلى زيادة فاتورتك",
+      "matrixTitle": "ستؤدي إضافة أعضاء إلى زيادة فاتورتك",
+      "inviteDesc_zero": "لم تختر أي عضو للدعوة، فلن تتغير فاتورتك.",
+      "inviteDesc_one": "سينضم العضو الذي تدعوه بدور {{role}} ويشغل مقعد اشتراك واحدًا، وسترتفع تكلفتك تبعًا لذلك. وإن كان يحتاج إلى العرض أو التعليق فقط، فاختر دور المشاهد أو المعلّق المجاني.",
+      "inviteDesc_two": "سينضم العضوان اللذان تدعوهما بدور {{role}} ويشغلان مقعدَي اشتراك، وسترتفع تكلفتك تبعًا لذلك. وإن كانا يحتاجان إلى العرض أو التعليق فقط، فاختر دور المشاهد أو المعلّق المجاني.",
+      "inviteDesc_few": "سينضم الأعضاء الـ {{count}} الذين تدعوهم بدور {{role}} ويشغلون {{count}} مقاعد اشتراك، وسترتفع تكلفتك تبعًا لذلك. وإن كانوا يحتاجون إلى العرض أو التعليق فقط، فاختر دور المشاهد أو المعلّق المجاني.",
+      "inviteDesc_many": "سينضم الأعضاء الـ {{count}} الذين تدعوهم بدور {{role}} ويشغلون {{count}} مقعدًا من مقاعد الاشتراك، وسترتفع تكلفتك تبعًا لذلك. وإن كانوا يحتاجون إلى العرض أو التعليق فقط، فاختر دور المشاهد أو المعلّق المجاني.",
+      "inviteDesc_other": "سينضم الأعضاء الـ {{count}} الذين تدعوهم بدور {{role}} ويشغلون {{count}} مقعد اشتراك، وسترتفع تكلفتك تبعًا لذلك. وإن كانوا يحتاجون إلى العرض أو التعليق فقط، فاختر دور المشاهد أو المعلّق المجاني.",
+      "linkDesc": "سيحصل من ينضم عبر هذا الرابط على دور {{role}}، ويشغل كلٌّ منهم مقعد اشتراك، وستنمو تكلفتك مع انضمام الأشخاص. وإن كانوا يحتاجون إلى العرض أو التعليق فقط، فاختر دور المشاهد أو المعلّق المجاني.",
+      "roleChangeDesc": "بعد التغيير إلى {{role}}، سيشغل هذا العضو مقعد اشتراك وسترتفع تكلفتك تبعًا لذلك.",
+      "matrixDesc": "هذا العضو على دور مجاني حاليًا (مشاهد/معلّق). وستؤدي إضافته إلى مصفوفة الصلاحيات إلى شغل مقعد اشتراك واحد، وسترتفع تكلفتك تبعًا لذلك.",
+      "seatLimitTitle": "مقاعد الترخيص غير كافية",
+      "seatLimitDesc": "تستخدم هذه النسخة {{seats}} من أصل {{seatLimit}} مقعدًا مرخّصًا، ولم يتبقَّ ما يكفي لهذا الإجراء. يرجى التواصل مع المسؤول لشراء مقاعد إضافية. وإن كانوا يحتاجون إلى العرض أو التعليق فقط، فيمكنك استخدام دور المشاهد أو المعلّق المجاني بدلًا من ذلك.",
+      "seatLimitConfirm": "فهمت",
+      "confirmInvite": "تأكيد والدعوة"
+    },
+    "licenseExpiredGracePeriod": "انتهت صلاحية ترخيص الاستضافة الذاتية وسيُخفَّض إلى الخطة المجانية في {{expiredTime}}. يرجى تحديث الترخيص سريعًا للحفاظ على الميزات المدفوعة.",
+    "licenseAutoFetchFailed": "فشل التجديد التلقائي للترخيص. تبقّى {{days}} يوم في مهلة السماح قبل التخفيض.",
+    "licenseAutoFetchRetryFailed": "ما زال التجديد التلقائي متعثّرًا. يرجى التحقق من الاتصال بخادم Teable أو تحديث الترخيص يدويًا.",
+    "licenseExpiredGracePeriodDays": "انتهت صلاحية الترخيص. تبقّى {{days}} يوم في مهلة السماح قبل التخفيض.",
+    "spaceSubscriptionModal": {
+      "title": "ترقية خطة اشتراك المساحة",
+      "description": "يمكنك ترقية المساحات التي تملكها فقط"
+    },
+    "contactAdminToUpgrade": "يُرجى التواصل مع مالك المساحة لترقية خطة الاشتراك.",
+    "status": {
+      "active": "نشط",
+      "canceled": "ملغى",
+      "incomplete": "غير مكتمل",
+      "incompleteExpired": "غير مكتمل ومنتهي",
+      "trialing": "فترة تجريبية",
+      "pastDue": "متأخر السداد",
+      "unpaid": "غير مدفوع",
+      "paused": "متوقف مؤقتًا",
+      "seatLimitExceeded": "تجاوز حد المقاعد"
+    }
+  },
+  "admin": {
+    "setting": {
+      "instanceTitle": "إعدادات النسخة",
+      "description": "غيّر إعدادات النسخة الحالية",
+      "allowSignUp": "السماح بإنشاء حسابات جديدة",
+      "allowSignUpDescription": "تعطيل هذا الخيار يمنع تسجيل مستخدمين جدد، ولن يظهر زر التسجيل في صفحة تسجيل الدخول.",
+      "bannedEmailDomains": "نطاقات البريد المحظورة",
+      "bannedEmailDomainsDescription": "لا يمكن لعناوين البريد من هذه النطاقات التسجيل، ولن تُرسَل أي رسائل دعوة تخصّها. اكتب نطاقًا واضغط Enter لإضافته.",
+      "bannedEmailDomainsInvalid": "أدخل نطاقًا صالحًا، مثل example.com",
+      "allowSpaceInvitation": "السماح بإرسال دعوات المساحات",
+      "allowSpaceInvitationDescription": "تعطيل هذا الخيار يمنع غير المسؤولين من دعوة آخرين للانضمام إلى المساحات. وعند تفعيله، يمكن للمستخدمين الجدد المدعوين عبر البريد إتمام التسجيل بالنقر على رابط الدعوة في الرسالة، لكن روابط الدعوة المشتركة لن تعمل.",
+      "allowSpaceCreation": "السماح للجميع بإنشاء مساحات جديدة",
+      "allowSpaceCreationDescription": "تعطيل هذا الخيار يمنع غير المسؤولين من إنشاء مساحات جديدة.",
+      "enableEmailVerification": "تفعيل التحقق من البريد الإلكتروني",
+      "enableEmailVerificationDescription": "تفعيل هذا الخيار يُلزم المستخدمين بالتحقق من عنوان بريدهم الإلكتروني عند إنشاء حساب جديد.",
+      "enableWaitlist": "تفعيل قائمة الانتظار",
+      "enableWaitlistDescription": "تفعيل هذا الخيار يسمح بالتسجيل برمز دعوة فقط.",
+      "generalSettings": "الإعدادات العامة",
+      "aiSettings": "إعدادات الذكاء الاصطناعي",
+      "brandingSettings": {
+        "title": "إعدادات الهوية البصرية",
+        "description": "متاح في إصدار Enterprise فقط",
+        "brandName": "اسم العلامة التجارية",
+        "logo": "الشعار",
+        "logoUpload": "رفع الشعار",
+        "logoUploadDescription": "ارفع صورة الشعار بصيغة PNG أو JPEG، والمقاس الموصى به 100×100 بكسل. والحد الأقصى لحجم الرفع 500 كيلوبايت."
+      },
+      "ai": {
+        "name": "الاسم",
+        "nameDescription": "قابل للتخصيص، ويُستخدم للتمييز بين المزوّدين في الواجهة",
+        "customModel": "نموذج مخصص",
+        "customModelDescription": "يمكن استخدام النماذج المخصصة في حقول الذكاء الاصطناعي وأتمتته وواجهة محادثته. أما نماذج توليد الصور فيجب تحديدها للاختبار",
+        "updateLLMProvider": "تحديث مزوّد نماذج اللغة",
+        "addProvider": "إضافة مزوّد نماذج لغة",
+        "addProviderDescription": "أضف مزوّد نماذج لغة جديدًا إلى القائمة",
+        "providerType": "نوع المزوّد",
+        "baseUrl": "عنوان URL الأساسي",
+        "apiKey": "مفتاح API",
+        "baseUrlDescription": "عنوان URL الأساسي لمزوّد نماذج اللغة",
+        "apiKeyDescription": "مفتاح API الخاص بمزوّد نماذج اللغة",
+        "models": "النماذج",
+        "modelsDescription": "النماذج التي يدعمها مزوّد نماذج اللغة",
+        "modelsSelectedCount": "تم تحديد {{count}} نموذج",
+        "clearAllModels": "مسح جميع النماذج",
+        "customModelPlaceholder": "أدخل اسم نموذج مخصص",
+        "addModelFill": "إضافة",
+        "modelIdReservedAt": "لا يمكن أن تحتوي معرّفات النماذج على '@'",
+        "baseUrlRequired": "عنوان URL الأساسي مطلوب",
+        "fetchModelListError": "فشل جلب قائمة النماذج",
+        "provider": "مزوّد نماذج اللغة",
+        "aiAbilitySettings": "إعدادات قدرات الذكاء الاصطناعي",
+        "aiAbilitySettingsDescription": "أعدّ قدرات الذكاء الاصطناعي",
+        "modelPreferences": "تفضيلات النماذج",
+        "modelPreferencesDescription": "تفضيلات النماذج الخاصة بمزوّد نماذج اللغة",
+        "embeddingModel": "نموذج التضمين",
+        "embeddingModelDescription": "اختياري. لأسئلة المستندات وأجوبتها. وغالبًا ما يتضمن معرّف النموذج كلمة \"embedding\".",
+        "translationModel": "نموذج الترجمة",
+        "translationModelDescription": "نموذج الترجمة المراد استخدامه",
+        "chatModel": "نموذج المحادثة",
+        "chatModelDescription": "نموذج المحادثة المراد استخدامه. ملاحظة: استدعاء الأدوات مطلوب لميزات الذكاء الاصطناعي في Teable",
+        "chatModels": {
+          "lg": "نموذج محادثة متقدم",
+          "lgDescription": "للتخطيط والبرمجة وغيرها من المهام المعقدة. الموصى به: claude-sonnet-4.5",
+          "md": "نموذج المهام المتوسطة",
+          "mdDescription": "للمحادثات اليومية والمهام العامة",
+          "sm": "نموذج المهام الخفيفة",
+          "smDescription": "للاستعلامات البسيطة والردود السريعة",
+          "inheritHint": "مثل النموذج الرئيسي الافتراضي ({{model}})",
+          "modelTiers": "مستويات النماذج",
+          "modelTiersDescription": "خصّص نماذج مختلفة للمهام المتوسطة والخفيفة؛ وتستخدم المستويات غير المضبوطة النموذج الرئيسي الافتراضي أعلاه.",
+          "allInheriting": "تستخدم جميع المستويات النموذج الرئيسي الافتراضي",
+          "customized": "تم تخصيص {{count}}"
+        },
+        "actions": {
+          "title": "قدرات الذكاء الاصطناعي",
+          "aiField": {
+            "title": "حقل الذكاء الاصطناعي",
+            "description": "قدرات حقل الذكاء الاصطناعي، بما فيها التعبئة التلقائية وإعداد الذكاء الاصطناعي في إعدادات الحقل"
+          },
+          "aiChat": {
+            "title": "محادثة الذكاء الاصطناعي",
+            "description": "الشريط الجانبي لمحادثة الذكاء الاصطناعي وكل قدرات الوكيل",
+            "sandboxWarning": "يجب إعداد بيئة تشغيل محادثة الذكاء الاصطناعي أدناه قبل الاستخدام"
+          },
+          "modelSelection": {
+            "title": "السماح باختيار النموذج",
+            "description": "السماح للمستخدمين باختيار نموذج في محادثة الذكاء الاصطناعي ومنشئ التطبيقات"
+          }
+        },
+        "chatModelTest": {
+          "text": "اختبار النموذج",
+          "description": "اختبر قدرة النموذج على التعامل مع الصور وملفات PDF.",
+          "notConfigLgModel": "يرجى إعداد نموذج المحادثة المتقدم أولًا",
+          "confirmTitle": "اختبار قدرة النموذج",
+          "confirmDescription": "هل تريد اختبار قدرات نموذج المحادثة المتقدم؟",
+          "confirm": "اختبار النموذج",
+          "cancel": "إلغاء",
+          "missingCapabilitiesWarning": "لا يدعم هذا النموذج معالجة الصور أو ملفات PDF، ما قد يجعل بعض الميزات غير متاحة.",
+          "modelNotSuitable": "قد لا يكون هذا النموذج مناسبًا لميزات الذكاء الاصطناعي المتقدمة:",
+          "enableAITitle": "تفعيل النموذج المخصص",
+          "enableAIDescription": "اكتمل اختبار النموذج. النموذج المخصص غير مفعّل حاليًا. هل تريد تفعيله للاستفادة من قدرات هذا النموذج؟",
+          "enableAI": "تفعيل النموذج المخصص",
+          "skipTest": "تخطي"
+        },
+        "chatModelAbility": {
+          "image": "صورة",
+          "pdf": "PDF",
+          "webSearch": "بحث الويب",
+          "toolCall": "استدعاء الأدوات",
+          "reasoning": "الاستدلال",
+          "imageGeneration": "توليد الصور",
+          "disabledWebSearch": "بحث الويب معطّل",
+          "lgModelAbility": "قدرات النموذج",
+          "missingVision": "لا يدعم معالجة الصور أو ملفات PDF",
+          "missingToolCall": "لا يدعم استدعاء الأدوات أو الدوال",
+          "notTested": "لم تُختبر قدرات النموذج بعد. يُرجى اختبار النموذج في إعدادات المزوّد أولًا",
+          "supportedFormats": "الصيغ المدعومة"
+        },
+        "imageModelAbility": {
+          "generation": "من نص إلى صورة",
+          "imageToImage": "من صورة إلى صورة"
+        },
+        "configUpdated": "تم تحديث إعداد الذكاء الاصطناعي",
+        "noModelFound": "لم يُعثر على أي نموذج.",
+        "searchModel": "ابحث عن نموذج...",
+        "selectModel": "اختر نموذجًا...",
+        "defaultModel": "{{name}} (افتراضي)",
+        "moreModels": "المزيد من النماذج",
+        "agentModelWarningConfirm": "فهمت",
+        "recommendedModelNudge": {
+          "title": "جرّب {{model}}",
+          "description": "احصل على نتائج ذكاء اصطناعي أفضل باستهلاك أرصدة أقل بكثير.",
+          "use": "استخدام {{model}}",
+          "later": "لاحقًا"
+        },
+        "noModelsAvailable": "لا توجد نماذج متاحة",
+        "input": "الإدخال {{ratio}}",
+        "output": "الإخراج {{ratio}}",
+        "inputOrOutputTip": "تمثّل النسبة سعر الصرف بين الأرصدة والرموز، فمثلًا \"1:1000\" تعني أن رصيدًا واحدًا ≈ 1000 رمز.<br></br>ملاحظة: يُخصم رصيد واحد على الأقل في كل استخدام؛ وحتى إن كان الاستهلاك الفعلي أقل من رصيد واحد، فسيُحتسب رصيدًا كاملًا.",
+        "imageOutput": "لكل صورة {{credits}}",
+        "imageOutputTip": "يتطلب توليد الصور أرصدة، وتستهلك كل صورة {{credits}} رصيدًا",
+        "supportImageOutputTip": "يدعم هذا النموذج توليد الصور",
+        "supportVisionTip": "يدعم هذا النموذج إدخال الصور",
+        "supportAudioTip": "يدعم هذا النموذج إدخال الصوت",
+        "supportVideoTip": "يدعم هذا النموذج إدخال الفيديو",
+        "supportDeepThinkTip": "يدعم هذا النموذج التفكير العميق",
+        "testConnection": "اختبار",
+        "testing": "جارٍ الاختبار...",
+        "testSuccess": "نجح الاختبار",
+        "testCompleteWithCount": "اكتمل الاختبار: نجح {{success}} من {{total}} نموذج",
+        "allTestsFailed": "فشلت جميع اختبارات النماذج",
+        "testFailed": "فشل الاختبار",
+        "batchTest": "اختبار قدرات النموذج",
+        "test": "اختبار",
+        "testProvider": "اختبار",
+        "testProviderTooltip": "اختبار جميع النماذج البالغ عددها {{count}} لدى هذا المزوّد",
+        "batchTesting": "جارٍ اختبار جميع النماذج...",
+        "batchTestComplete": "اكتمل الاختبار الجماعي",
+        "batchTestResults": "نتائج الاختبار الجماعي",
+        "batchTestResultsSummary": "تم اختبار {{tested}} من {{total}} نموذج: نجح {{success}} وفشل {{failed}}",
+        "batchTestNoModels": "لا توجد نماذج معدّة للاختبار",
+        "modelStatus": "حالة النموذج",
+        "imageSupport": "دعم الصور",
+        "basicGeneration": "التوليد الأساسي",
+        "supported": "مدعوم",
+        "notSupported": "غير مدعوم",
+        "partialSupport": "دعم جزئي",
+        "urlSupport": "رابط",
+        "base64Support": "Base64",
+        "closeResults": "إغلاق",
+        "retryFailed": "إعادة محاولة الفاشلة",
+        "stopTest": "إيقاف",
+        "pending": "قيد الانتظار",
+        "configuredModels": "النماذج المُعدّة",
+        "fillRequiredFields": "يرجى تعبئة كل الحقول المطلوبة",
+        "modelsRequired": "يرجى إدخال نموذج واحد على الأقل",
+        "noValidModel": "لم يُعثر على نموذج صالح",
+        "addCustomModel": "إضافة نموذج مخصص",
+        "isOpenRouter": "OpenRouter",
+        "modelRates": "تسعير النماذج",
+        "modelSettings": "إعدادات النموذج",
+        "model": "النموذج",
+        "inputRate": "المدخلات دولار/رمز",
+        "outputRate": "المخرجات دولار/رمز",
+        "inputRateTip": "سعر المدخلات المُولَّد للمزوّد المخصص بالدولار لكل رمز",
+        "outputRateTip": "سعر المخرجات المُولَّد للمزوّد المخصص بالدولار لكل رمز",
+        "rateExplanationTitle": "إعداد تسعير المزوّد المخصص",
+        "rateExplanationFormula": "أدخل المُضاعِف نسبةً إلى مرجع AI Gateway. فمثلًا، تعني القيمة 0.1 أن تسعير المزوّد المخصص يساوي 10٪ من السعر المرجعي.",
+        "rateExplanationExample": "تُولَّد أسعار المدخلات والمخرجات والتخزين المؤقت والاستدلال والصور والبحث في الويب من مرجع AI Gateway بالمُضاعِف نفسه. وتحوّل الفوترة الدولار إلى أرصدة بمعدل 1 دولار = 100 رصيد.",
+        "ratesDescription": "تُحفظ القيم المُولَّدة في modelConfigs[model].pricing وتُستخدم في فوترة المزوّدين المخصصين على مستوى النسخة. ولا يزال عمود النسبة يعرض مستوى التكلفة الحالي حيث Claude Opus 4.6 = 1x.",
+        "advancedRates": "التسعير المتقدم المُولَّد",
+        "advancedRatesDescription": "تُولَّد هذه الأسعار المتقدمة من مرجع AI Gateway بالمُضاعِف المُعدّ. وتُعرض للمراجعة وتُحفظ مع تسعير النموذج.",
+        "cacheRead": "التخزين المؤقت↓",
+        "cacheWrite": "التخزين المؤقت↑",
+        "reasoning": "الاستدلال",
+        "perImage": "صورة",
+        "cacheReadRateTip": "الدولار لكل رمز إدخال مخزَّن مؤقتًا إذا كان هذا المزوّد يحتسب الإدخال المخزَّن مؤقتًا بشكل منفصل",
+        "cacheWriteRateTip": "الدولار لكل رمز كتابة في التخزين المؤقت إذا كان هذا المزوّد يحتسب الكتابة في التخزين المؤقت بشكل منفصل",
+        "reasoningRateTip": "الدولار لكل رمز استدلال إذا كان هذا المزوّد يحتسب رموز الاستدلال بشكل منفصل",
+        "imageRateTip": "الدولار لكل صورة مُولَّدة إذا كان هذا المزوّد يحتسب التكلفة لكل صورة",
+        "imageModel": "نموذج الصور",
+        "imageGeneration": "توليد الصور",
+        "imageToImage": "من صورة إلى صورة",
+        "clickToToggleImageModel": "💡 انقر لوضع علامة كنموذج لتوليد الصور",
+        "markAsImageModel": "وضع علامة كنموذج لتوليد الصور",
+        "imageGenerationModel": "نموذج توليد الصور",
+        "markedAsImageModel": "تم وضع علامة كنموذج لتوليد الصور. وسيتم اختبار قدرتَي التحويل من نص إلى صورة ومن صورة إلى صورة.",
+        "markedAsTextModel": "تم وضع علامة كنموذج نصي. وسيتم اختبار قدرة الرؤية (إدخال الصور).",
+        "fetchPricingError": "فشل جلب التسعير",
+        "openRouterId": "معرّف نموذج البوابة",
+        "notFound": "غير موجود",
+        "applyPricing": "تطبيق ({{count}})",
+        "pricingApplied": "تم تطبيق التسعير",
+        "pricingAppliedCount": "تم تحديث تسعير {{count}} نموذج",
+        "relativeRatio": "النسبة",
+        "webSearch": "الويب",
+        "referencePricingTip": "السعر المرجعي المستمد من كتالوج نماذج AI Gateway",
+        "applyReferencePricingTip": "توليد تسعير المزوّد المخصص من هذا السعر المرجعي في AI Gateway",
+        "optionalPricing": "اختياري",
+        "gatewayRatio": "مُضاعِف البوابة",
+        "gatewayRatioTip": "المُضاعِف نسبةً إلى مرجع AI Gateway. وتعني القيمة 0.1 ما يساوي 10٪ من السعر المرجعي.",
+        "generatedPricing": "التسعير المُولَّد",
+        "generatedPricingTip": "سعر المدخلات/المخرجات المُولَّد للمزوّد المخصص، ويُحفظ في modelConfigs[model].pricing",
+        "rateExplanationManual": "لا يوجد مرجع مطابق تلقائيًا؟ اختر نموذجًا مرجعيًا يدويًا من مربع حوار تعديل النموذج.",
+        "referenceModelLabel": "النموذج المرجعي",
+        "contextWindowCap": "السياق",
+        "contextWindowCapTip": "الحد الأقصى لرموز الإدخال التي يقبلها النموذج؛ وهو ما يحدد ضغط السياق. اتركه فارغًا لاستخدام حدود السجل أو الحدود الافتراضية.",
+        "maxOutputTokensCap": "أقصى مخرجات",
+        "maxOutputTokensCapTip": "الحد الأقصى للرموز التي يمكن للنموذج توليدها في كل رد. اتركه فارغًا لاستخدام حدود السجل أو الحدود الافتراضية.",
+        "rateExplanationCaps": "يأخذ السياق والحد الأقصى للمخرجات قيم النموذج المرجعي افتراضيًا ويظلان قابلين للتعديل؛ أما القيم الفارغة فتعود إلى السجل أو القيم الافتراضية.",
+        "relativeRatioTip": "مستوى التكلفة نسبةً إلى Claude Opus 4.6 = 1x، باستخدام الخوارزمية الموزونة الحالية",
+        "hint": {
+          "title": "اقتراحات",
+          "missingV1Suffix": "قد يفتقر الرابط الأساسي إلى اللاحقة \"/v1\". فمعظم واجهات API المتوافقة مع OpenAI تتطلب روابط تنتهي بـ \"/v1\" (مثل https://api.openai.com/v1)",
+          "removeTrailingSlash": "جرّب إزالة الشرطة المائلة من نهاية الرابط الأساسي",
+          "checkApiKey": "يُرجى التأكد من صحة مفتاح API وأن صلاحيته لم تنتهِ",
+          "azureDeployment": "بالنسبة إلى Azure، تأكد من إعداد اسم المورد والنشر الصحيحين في الرابط الأساسي",
+          "checkQuotaOrPermission": "قد لا يملك مفتاح API صلاحيات كافية أو نفدت الحصة. يُرجى التحقق من حالة حسابك",
+          "checkModelName": "قد يكون اسم النموذج غير صحيح. تحقق من مطابقته لما يدعمه مزوّدك",
+          "checkConnection": "تعذّر الاتصال بالخادم. تحقق من صحة الرابط الأساسي ومن إمكانية الوصول إلى الخادم",
+          "ollamaRunning": "تأكد من تشغيل Ollama محليًا. يمكنك بدؤه بالأمر 'ollama serve'",
+          "sslCertificate": "توجد مشكلة في شهادة SSL. وإذا كنت تستخدم شهادة موقّعة ذاتيًا، فقد تحتاج إلى إعدادات إضافية",
+          "checkConfiguration": "يُرجى التحقق من إعداداتك. تأكد من صحة الرابط الأساسي ومفتاح API واسم النموذج"
+        },
+        "recommended": "موصى به",
+        "enabled": "مفعّل",
+        "gatewayModels": "نماذج AI Gateway",
+        "gatewayModelsDescription": "أعدّ النماذج الموصى بها عبر Vercel AI Gateway للحصول على أفضل دعم لحزمة AI SDK",
+        "gatewayDescription": "استخدم AI Gateway للحصول على أفضل توافق وموثوقية. وأعدّ مفتاح API في قسم App أدناه.",
+        "providerDescription": "متقدم: أعدّ مزوّدي ذكاء اصطناعي مخصصين لحالات استخدام محددة أو لنماذج مستضافة ذاتيًا.",
+        "noGatewayModels": "لا توجد نماذج بوابة مُعدّة. أضف نماذج للبدء.",
+        "addModel": "إضافة نموذج",
+        "addGatewayModel": "إضافة نموذج بوابة",
+        "popularModels": "النماذج الشائعة",
+        "modelId": "معرّف النموذج",
+        "modelIdHint": "معرّف النموذج الذي تستخدمه AI Gateway (مثل anthropic/claude-sonnet-4)",
+        "searchModelPlaceholder": "اكتب للبحث عن النماذج...",
+        "noMatchingModels": "لم يتم العثور على نماذج مطابقة",
+        "typeToSearch": "اكتب كلمات مفتاحية للبحث في النماذج المتاحة",
+        "modelNotFound": "لم يتم العثور على معرّف النموذج هذا في قائمة المتاح، يُرجى التحقق من الإملاء",
+        "testModel": "اختبار النموذج",
+        "testModelSuccess": "نجح اختبار النموذج! استجابت واجهة API بشكل صحيح",
+        "testModelImageSuccess": "تم تأكيد وجود نموذج الصور في واجهة API",
+        "testModelNotFound": "لم يتم العثور على النموذج في قائمة واجهة API",
+        "displayLabel": "التسمية المعروضة",
+        "isImageModel": "هذا نموذج لتوليد الصور",
+        "capabilities": "القدرات",
+        "setAsDefault": "التعيين كنموذج المحادثة الافتراضي",
+        "quickAdd": "إضافة سريعة للنماذج الشائعة:",
+        "guide": {
+          "configStatus": "حالة الإعدادات",
+          "ready": "جاهز",
+          "needsAttention": "يحتاج إلى انتباه",
+          "incomplete": "غير مكتمل",
+          "aiEnabled": "الذكاء الاصطناعي مفعّل",
+          "aiEnabledDesc": "النماذج المخصصة مفعّلة لهذه النسخة",
+          "aiDisabledDesc": "فعّله لاستخدام نماذج ذكاء اصطناعي مخصصة",
+          "gatewayKey": "مفتاح API للبوابة",
+          "gatewayKeyConfigured": "تم إعداد مفتاح AI Gateway",
+          "gatewayKeyMissing": "أعدّ مفتاح API الخاص بـ AI Gateway للحصول على الإعداد الموصى به",
+          "gatewayKeyRequired": "يُرجى إعداد مفتاح API الخاص بـ AI Gateway أولًا في قسم App أدناه",
+          "gatewayModels": "نماذج البوابة",
+          "gatewayModelsConfigured": "تم تفعيل {{count}} نموذج",
+          "gatewayModelsEmpty": "أضف نماذج بوابة ليختار منها المستخدمون",
+          "providers": "المزوّدون المخصصون",
+          "providersConfigured": "تم إعداد {{count}} مزوّد",
+          "providersEmpty": "لم يتم إعداد أي مزوّد مخصص",
+          "chatModel": "نموذج المحادثة الافتراضي",
+          "chatModelGateway": "يُستخدم نموذج البوابة",
+          "chatModelProvider": "يُستخدم نموذج مزوّد مخصص",
+          "chatModelMissing": "اختر نموذج محادثة افتراضيًا"
+        },
+        "enableCard": {
+          "title": "خدمات الذكاء الاصطناعي",
+          "ready": "تم الإعداد وجاهز للاستخدام",
+          "needsConfig": "مفعّل، لكنه يحتاج إلى إعداد أدناه",
+          "disabled": "ميزات الذكاء الاصطناعي معطّلة حاليًا",
+          "missingConfig": "إعدادات ناقصة:",
+          "allConfigured": "اكتملت جميع الإعدادات"
+        },
+        "wizard": {
+          "setupProgress": "تقدّم الإعداد",
+          "checklist": "قائمة التحقق",
+          "allComplete": "اكتملت جميع الإعدادات المطلوبة! الذكاء الاصطناعي جاهز للاستخدام.",
+          "nextStep": "التالي: {{step}}",
+          "configureAI": "أكمل الخطوات التالية لتفعيل الذكاء الاصطناعي",
+          "optional": "اختياري",
+          "gatewayHelp": "‏AI Gateway: مفتاح API واحد لمئات النماذج؛ ويتطلب الاستخدام الأول إضافة بطاقة ائتمان في Vercel؛",
+          "gatewayByok": "مدعوم (أحضِر مفاتيح مزوّديك)",
+          "getApiKey": "الحصول على مفتاح API",
+          "keyInvalid": "مفتاح API غير صالح، يُرجى التحقق والمحاولة مرة أخرى",
+          "gatewayErrorUnauthorized": "مفتاح API غير صالح. تحقق مما إذا كان قد نُسخ بشكل صحيح",
+          "gatewayErrorNeedCreditCard": "يلزم وجود بطاقة ائتمان لاستخدام AI Gateway. يُرجى إضافتها في لوحة تحكم Vercel",
+          "gatewayErrorInsufficientQuota": "رصيد الحساب غير كافٍ. يُرجى شحنه والمحاولة مرة أخرى",
+          "gatewayErrorForbidden": "الوصول ممنوع. يُرجى التحقق من حالة حسابك في لوحة تحكم Vercel",
+          "gatewayErrorNetwork": "خطأ في الشبكة. يُرجى التحقق من الاتصال أو إعدادات الوكيل",
+          "pleaseTest": "يُرجى النقر على \"اختبار\" للتحقق من مفتاح API",
+          "test": "اختبار",
+          "testing": "جارٍ الاختبار...",
+          "attachmentTest": {
+            "title": "وضع نقل المرفقات",
+            "urlMode": "وضع الرابط",
+            "base64Mode": "وضع Base64",
+            "accessible": "متاح",
+            "inaccessible": "غير متاح",
+            "urlNotAccessibleWarning": "لا تستطيع خدمة الذكاء الاصطناعي الوصول إلى روابط المرفقات. وهذا شائع في عمليات النشر داخل الشبكات الداخلية. وقد تم تفعيل وضع Base64 تلقائيًا.",
+            "useBase64Mode": "استخدام وضع Base64",
+            "base64ModeDescription": "تحويل المرفقات إلى Base64 قبل الإرسال (يتعذّر الوصول إلى Teable من الشبكة العامة)",
+            "originChanged": "تغيّر PUBLIC_ORIGIN",
+            "originChangedDesc": "تغيّر عنوان الخادم منذ آخر اختبار. يُرجى إعادة الاختبار للتحقق من إمكانية الوصول إلى المرفقات."
+          },
+          "saveAndContinue": "حفظ ومتابعة",
+          "completeStep1First": "يُرجى إكمال الخطوة 1 أولًا: إعداد واجهة API لنموذج اللغة",
+          "completeStep2First": "يُرجى إكمال الخطوة 2 أولًا: أضف نموذجًا واحدًا على الأقل",
+          "addCustom": "مخصص...",
+          "enabledModels": "النماذج المفعّلة",
+          "chatDefault": "افتراضي المحادثة",
+          "noModelsAvailable": "لا توجد نماذج متاحة، يُرجى إضافة نماذج في الخطوة 2 أولًا",
+          "quickSetup": "إعداد سريع",
+          "useRecommended": "استخدام الموصى به",
+          "useRecommendedDesc": "عيّن {{model}} كنموذج افتراضي لجميع سيناريوهات المحادثة بنقرة واحدة",
+          "chatModels": "النموذج الرئيسي الافتراضي",
+          "chatModelTip": "النموذج الرئيسي الافتراضي لمحادثة الذكاء الاصطناعي في الشريط الجانبي؛ يحدده المسؤول ولا يمكن للمستخدمين تغييره، كما تستخدمه مستويات المهام التي لا نموذج خاصًا لها",
+          "selectChatModel": "اختر نموذج المحادثة...",
+          "lgDesc": "المهام المعقّدة والتحليل العميق",
+          "mdDesc": "المحادثات اليومية والمهام العامة",
+          "smDesc": "الاستعلامات البسيطة والردود السريعة",
+          "readyToUse": "تم إعداد الذكاء الاصطناعي وهو جاهز للاستخدام!",
+          "customProviderHelp": "أضف مزوّدي ذكاء اصطناعي خاصين بك (OpenAI وAnthropic وAzure وغيرها)، وأعدّ مفاتيح API والنماذج.",
+          "testModelCapabilities": "اختبار قدرات النموذج",
+          "customModelsAutoImported": "تم استيراد نماذج مزوّدك تلقائيًا إلى مجموعة النماذج.",
+          "modelsCount": "{{count}} نموذج متاح",
+          "customModelsHint": "لتعديل إعدادات النماذج، ارجع إلى الخطوة 1 وغيّر إعدادات المزوّد.",
+          "gatewayOption": {
+            "title": "‏AI Gateway (موصى به)",
+            "desc": "الوصول إلى مئات النماذج عبر Vercel AI Gateway بأفضل توافق وموثوقية"
+          },
+          "customOption": {
+            "title": "مزوّد مخصص",
+            "desc": "الاتصال بنماذج مستضافة ذاتيًا أو خاصة، مع دعم عدة مزوّدين"
+          },
+          "step": {
+            "llmApi": "إعداد واجهة API لنموذج اللغة",
+            "llmApiDesc": "اختر AI Gateway أو أعدّ مزوّدين مخصصين",
+            "modelPool": "إعداد النماذج الموصى بها",
+            "modelPoolDesc": "النماذج الموصى بها ليختار منها المستخدمون في حقول الذكاء الاصطناعي والأتمتة",
+            "chatModel": "تعيين نموذج المحادثة",
+            "chatModelDesc": "نموذج محادثة الذكاء الاصطناعي في الشريط الجانبي (اختر من النماذج الموصى بها)",
+            "providers": "إعداد المزوّدين",
+            "providersDesc": "إضافة مزوّدي الذكاء الاصطناعي وإدارتهم"
+          }
+        }
+      },
+      "app": {
+        "domain": "النطاق",
+        "customDomain": "نطاق مخصص (اختياري)",
+        "customDomainDescription": "عيّن نطاقك المخصص لنشر التطبيق، وانتقل إلى <a>نطاقات Vercel</a> للحصول على نطاق مخصص",
+        "vercelToken": "رمز Vercel API",
+        "vercelTokenDescription": "انتقل إلى <a>إعدادات Vercel</a> للحصول على رمز API",
+        "aiGateway": "Vercel AI Gateway",
+        "aiGatewayDescription": "أعدّ Vercel AI Gateway للوصول إلى مئات النماذج عبر نقطة نهاية واحدة. افتح <a>إعدادات AI Gateway</a> للحصول على مفتاح API",
+        "aiGatewayApiKey": "مفتاح API الخاص بـ AI Gateway",
+        "aiGatewayKeyConfigured": "تم إعداد مفتاح API",
+        "aiGatewayBaseUrl": "رابط بوابة مخصص"
+      }
+    },
+    "action": {
+      "enterApiKey": "أدخل مفتاح API",
+      "goToConfiguration": "الانتقال إلى الإعداد"
+    },
+    "tips": {
+      "thankYouForUsingTeable": "شكرًا لاستخدامك Teable",
+      "pleaseGoToConfiguration": "يرجى الانتقال إلى صفحة الإعدادات لإكمال بعض التهيئات الأولية للتمتع بكامل وظائف Teable وبتجربة استخدام أفضل",
+      "pleaseContactAdmin": "يرجى التواصل مع المسؤول"
+    },
+    "configuration": {
+      "title": "إعدادات معلّقة",
+      "description": "أكمل هذه الإعدادات للحصول على كل الميزات",
+      "progressTitle": "تقدّم الإعداد",
+      "allComplete": "اكتملت جميع الإعدادات",
+      "incomplete": "بعض الإعدادات غير مكتملة",
+      "optional": "اختياري",
+      "completed": "مكتمل",
+      "group": {
+        "system": "الأساسيات",
+        "ai": "خدمات الذكاء الاصطناعي",
+        "appBuilder": "منشئ التطبيقات"
+      },
+      "copyInstance": "نسخ المعرّف",
+      "list": {
+        "publicOrigin": {
+          "title": "متغير البيئة PUBLIC_ORIGIN",
+          "description": "لا يتطابق إعداد متغير البيئة <strong>{{envPublicOrigin}}</strong> مع عنوان الوصول الحالي <underline>{{currentPublicOrigin}}</underline>، وقد لا تعمل وظائف استيراد xlsx و csv وحقول المرفقات بشكل صحيح، ويُنصح بضبطه على <underline>{{envPublicOrigin}}</underline>"
+        },
+        "https": {
+          "title": "تفعيل HTTPS",
+          "description": "لم تفعّل HTTPS، لذا لن تتوفر ميزة النسخ واسع النطاق (300 سطر فأكثر)، ويُنصح بتفعيله."
+        },
+        "llmApi": {
+          "title": "واجهة نماذج اللغة",
+          "description": "لم تُعدّ واجهة نماذج اللغة، لذا لن تتمكن من استخدام محادثة الذكاء الاصطناعي أو الأتمتة الذكية، <anchor>انتقل إلى الإعدادات</anchor>",
+          "errorTips": "لم تُعدّ واجهة نماذج اللغة، لذا لن تتمكن من استخدام محادثة الذكاء الاصطناعي أو الأتمتة الذكية"
+        },
+        "aiEnable": {
+          "title": "خدمات الذكاء الاصطناعي (المحادثة / حقل الذكاء الاصطناعي)",
+          "description": "فعّله لاستخدام محادثة الذكاء الاصطناعي وحقوله والأتمتة، <anchor>الانتقال إلى الإعداد</anchor>"
+        },
+        "aiLlmApi": {
+          "title": "الذكاء الاصطناعي: إعداد واجهة API لنموذج اللغة",
+          "description": "اختر AI Gateway أو أعدّ مزوّدين مخصصين، <anchor>الانتقال إلى الإعداد</anchor>"
+        },
+        "aiModelPool": {
+          "title": "الذكاء الاصطناعي: إعداد النماذج المتاحة",
+          "description": "فعّل نموذجًا واحدًا على الأقل لحقول الذكاء الاصطناعي والأتمتة، <anchor>الانتقال إلى الإعداد</anchor>"
+        },
+        "aiChatModel": {
+          "title": "الذكاء الاصطناعي: تعيين نموذج المحادثة",
+          "description": "اختر نموذجًا افتراضيًا لمحادثة الذكاء الاصطناعي في الشريط الجانبي، <anchor>الانتقال إلى الإعداد</anchor>"
+        },
+        "appBuilderEngine": {
+          "title": "منشئ التطبيقات: محرك النشر",
+          "description": "أعدّ محرك النشر (Vercel أو Teable Infra) لنشر التطبيقات، <anchor>الانتقال إلى الإعداد</anchor>"
+        },
+        "appBuilderDomain": {
+          "title": "منشئ التطبيقات: نطاق مخصص",
+          "description": "إذا أردت نشر التطبيقات على نطاقك المخصص، فأعدّ النطاق ورمز Vercel، <anchor>الانتقال إلى الإعداد</anchor>"
+        },
+        "email": {
+          "title": "البريد الإلكتروني",
+          "description": "لم يُعَدّ البريد الإلكتروني، لذا لن تتوفر استعادة كلمة المرور ذاتيًا ولا وظيفة إشعارات البريد، <anchor>انتقل إلى الإعدادات</anchor>",
+          "errorTips": "لم يُعَدّ البريد الإلكتروني، لذا لن تتوفر استعادة كلمة المرور ذاتيًا ولا وظيفة التحقق أو الإشعارات عبر البريد"
+        },
+        "sandboxOpenSandbox": {
+          "title": "بيئة تشغيل محادثة الذكاء الاصطناعي",
+          "description": "أعدّ بيئة تشغيل OpenSandbox لمحادثة الذكاء الاصطناعي، <anchor>الانتقال إلى الإعداد</anchor>"
+        }
+      }
+    },
+    "canary": {
+      "title": "إصدار تجريبي مبكر",
+      "enable": "تفعيل الإصدار التجريبي المبكر",
+      "enableDescription": "عند التفعيل، سيتم تنشيط الميزات التجريبية المبكرة في المساحات المحددة",
+      "spaces": "مساحات الإصدار التجريبي المبكر",
+      "spacesDescription": "تم إعداد {{count}} مساحة",
+      "configure": "إعداد",
+      "spaceIds": "معرّفات المساحات",
+      "spaceIdsDescription": "أدخل معرّفات المساحات، معرّفًا في كل سطر أو مفصولة بفواصل أو مسافات",
+      "spaceIdsPlaceholder": "spcXXXXXXXXXXX\nspcYYYYYYYYYYY",
+      "preview": "معاينة ({{count}} معرّف)",
+      "noSpaceIds": "لم تُدخل أي معرّفات مساحات"
+    }
+  },
+  "notification": {
+    "title": "الإشعارات",
+    "unread": "غير مقروء",
+    "read": "مقروء",
+    "markAs": "تعليم هذا الإشعار كـ {{status}}",
+    "markAllAsRead": "تعليم الكل كمقروء",
+    "noUnread": "لا توجد إشعارات {{status}}",
+    "noAttention": "لا توجد إشعارات تتطلب انتباهك",
+    "noSeverity": "لا توجد إشعارات من نوع {{severity}}",
+    "changeSetting": "تغيير إعدادات إشعارات الصفحة",
+    "new": "{{count}} جديد",
+    "showMore": "عرض المزيد",
+    "sections": {
+      "needsAction": "مهم",
+      "all": "الكل"
+    },
+    "severity": {
+      "critical": "مهم",
+      "warning": "تحذير",
+      "info": "عادي"
+    },
+    "exportBase": {
+      "successText": "بيانات التصدير جاهزة",
+      "failedText": "فشل التصدير، يرجى إعادة المحاولة"
+    },
+    "importantNotice": {
+      "title": "إشعار مهم",
+      "acknowledge": "فهمت"
+    }
+  },
+  "role": {
+    "title": {
+      "owner": "مالك",
+      "creator": "منشئ",
+      "editor": "محرّر",
+      "commenter": "معلّق",
+      "viewer": "مشاهد"
+    },
+    "description": {
+      "owner": "يمكنه إعداد القواعد والتطبيقات والأتمتة ومصفوفات الصلاحيات بالكامل، وإدارة إعدادات المساحة والفوترة",
+      "creator": "يمكنه إعداد القواعد والتطبيقات والأتمتة ومصفوفات الصلاحيات بالكامل",
+      "editor": "يمكنه تعديل السجلات والعروض، لكن لا يمكنه إعداد الجداول أو الحقول",
+      "commenter": "يمكنه التعليق على السجلات",
+      "viewer": "لا يمكنه التعديل أو التعليق"
+    }
+  },
+  "trash": {
+    "spaceTrash": "سلة محذوفات المساحة",
+    "type": "النوع",
+    "resetTrash": "إفراغ سلة المحذوفات",
+    "deletedBy": "بواسطة",
+    "deletedTime": "الوقت",
+    "fromSpace": "من مساحة \"{{name}}\"",
+    "permanentDeleteTips": "هل أنت متأكد من حذف {{resource}} \"{{name}}\" نهائيًا؟",
+    "resetTrashConfirm": "هل أنت متأكد من إفراغ سلة المحذوفات؟",
+    "addToTrash": "النقل إلى سلة المحذوفات",
+    "description": "لا تزال البيانات الموجودة في سلة المحذوفات تُحتسب ضمن استهلاك السجلات والمرفقات.",
+    "spaceDescription": "استعادة المساحات المحذوفة خلال الـ {{retentionDays}} يومًا الماضية",
+    "spaceInnerDescription": "استعادة القواعد المحذوفة من هذه المساحة خلال الـ {{retentionDays}} يومًا الماضية",
+    "baseDescription": "استعادة الموارد المحذوفة من هذه القاعدة خلال الـ {{retentionDays}} يومًا الماضية"
+  },
+  "pluginCenter": {
+    "pluginUrlEmpty": "لم يتم تعيين رابط المكوّن الإضافي",
+    "install": "تثبيت",
+    "publisher": "الناشر",
+    "lastUpdated": "آخر تحديث",
+    "pluginNotFound": "المكوّن الإضافي غير موجود",
+    "pluginEmpty": {
+      "title": "لا توجد مكوّنات إضافية بعد"
+    }
+  },
+  "automation": {
+    "turnOnTip": "هل تريد تشغيل الأتمتة الحالية؟"
+  },
+  "email": {
+    "title": "البريد الإلكتروني",
+    "send": "إرسال",
+    "config": "إعداد البريد الإلكتروني",
+    "customConfig": "خادم بريد مخصص",
+    "notify": "بريد الإشعارات",
+    "automation": "بريد الأتمتة",
+    "customNotifyConfig": "إعداد مخصص لبريد الإشعارات",
+    "customAutomationConfig": "إعداد مخصص لبريد الأتمتة",
+    "addConfig": "إضافة إعداد",
+    "editConfig": "تعديل الإعداد",
+    "resetConfig": "إعادة تعيين",
+    "testEmail": "بريد اختباري",
+    "testEmailPlaceholder": "يرجى إدخال البريد الاختباري",
+    "testEmailError": "يرجى إدخال عنوان بريد اختباري صالح",
+    "testEmailSend": "تم إرسال البريد الاختباري بنجاح، يرجى مراجعة بريدك",
+    "configError": "يرجى إدخال إعداد بريد صالح",
+    "host": "عنوان الخادم",
+    "hostDescription": "يرجى إدخال عنوان خادم بريد SMTP، مثال: smtp.example.com",
+    "port": "المنفذ",
+    "secure": "SSL/TLS",
+    "auth": "المصادقة",
+    "username": "اسم المستخدم",
+    "password": "كلمة المرور",
+    "sender": "المُرسِل",
+    "senderName": "اسم المُرسِل",
+    "subscribe": "اشتراك",
+    "unsubscribe": "إلغاء الاشتراك",
+    "unsubscribeList": "قائمة إلغاء الاشتراك",
+    "unsubscribeTime": "وقت إلغاء الاشتراك",
+    "source": "المصدر",
+    "sourceAutomationDeleted": "حُذفت الأتمتة أو العقدة",
+    "sourceApiSend": "إرسال بريد عبر API",
+    "processing": "جارٍ المعالجة...",
+    "unsubscribeH1": "تأكيد إلغاء الاشتراك؟",
+    "unsubscribeH2": "أنت على وشك إلغاء اشتراكك في عروض Teable وتحديثات المنتج المستقبلية. هل أنت متأكد من إلغاء الاشتراك؟",
+    "subscribeH1": "تأكيد الاشتراك؟",
+    "subscribeH2": "أنت على وشك الاشتراك في عروض Teable وتحديثات المنتج المستقبلية. هل أنت متأكد من الاشتراك؟",
+    "unsubscribeListTip": "ألغى المستخدمون التالون في القاعدة الحالية اشتراكهم، ولن تتمكن من مراسلتهم بعد الآن. وعند استيراد عناوين البريد، يرجى وضعها في العمود الأول وتسمية رأس العمود \"email\".",
+    "templates": {
+      "resetPassword": {
+        "subject": "إعادة تعيين كلمة المرور - {{brandName}}",
+        "title": "إعادة تعيين كلمة المرور",
+        "message": "إن لم تطلب هذا التغيير، فتجاهل هذه الرسالة. وإلا فانقر على الزر أدناه لإعادة تعيين كلمة المرور.",
+        "buttonText": "إعادة تعيين كلمة المرور"
+      },
+      "emailVerifyCode": {
+        "signupVerification": {
+          "subject": "التحقق من التسجيل - {{brandName}}",
+          "title": "التحقق من التسجيل",
+          "message": "رمز التحقق الخاص بك هو {{code}}، يرجى استخدامه خلال {{expiresIn}} دقيقة."
+        },
+        "domainVerification": {
+          "subject": "التحقق من النطاق - {{brandName}}",
+          "title": "التحقق من النطاق",
+          "message": "رمز التحقق الخاص بك هو {{code}}، يرجى استخدامه خلال {{expiresIn}} دقيقة."
+        },
+        "changeEmailVerification": {
+          "subject": "التحقق من تغيير البريد الإلكتروني - {{brandName}}",
+          "title": "التحقق من تغيير البريد الإلكتروني",
+          "message": "رمز التحقق الخاص بك هو {{code}}، يرجى استخدامه خلال {{expiresIn}} دقيقة."
+        }
+      },
+      "collaboratorCellTag": {
+        "subject": "أضافك {{fromUserName}} إلى حقل {{fieldName}} في سجل ضمن {{tableName}}",
+        "title": "أضافك <strong>{{fromUserName}}</strong> إلى حقل <strong>{{fieldName}}</strong> في سجل ضمن <strong>{{tableName}}</strong>",
+        "buttonText": "عرض السجل"
+      },
+      "collaboratorMultiRowTag": {
+        "subject": "أضافك {{fromUserName}} إلى {{refLength}} سجلًا في {{tableName}}",
+        "title": "أضافك <strong>{{fromUserName}}</strong> إلى <strong>{{refLength}}</strong> سجلًا في <strong>{{tableName}}</strong>",
+        "buttonText": "عرض السجلات"
+      },
+      "invite": {
+        "subject": "دعاك {{name}} ({{email}}) إلى {{resourceAlias}} {{resourceName}} - {{brandName}}",
+        "title": "دعوة للتعاون",
+        "message": "دعاك <strong>{{name}}</strong> ({{email}}) إلى {{resourceAlias}} <strong>{{resourceName}}</strong>.",
+        "buttonText": "قبول الدعوة"
+      },
+      "waitlistInvite": {
+        "subject": "أهلًا بك - {{brandName}}",
+        "title": "أهلًا بك",
+        "message": "انضممت بنجاح إلى قائمة انتظار {{brandName}}، يرجى استخدام رمز الدعوة التالي للتسجيل: {{code}}، ويمكن استخدامه {{times}} مرة.",
+        "buttonText": "التسجيل"
+      },
+      "test": {
+        "subject": "رسالة اختبارية - {{brandName}}",
+        "title": "رسالة اختبارية",
+        "message": "هذه رسالة اختبارية، يرجى تجاهلها."
+      },
+      "notify": {
+        "subject": "إشعار - {{brandName}}",
+        "title": "إشعار",
+        "buttonText": "عرض",
+        "import": {
+          "title": "إشعار نتيجة الاستيراد",
+          "table": {
+            "aborted": {
+              "message": "❌ أُوقف استيراد {{tableName}}: {{errorMessage}} نطاق الصفوف الفاشلة: [{{range}}]. يرجى مراجعة بيانات هذا النطاق وإعادة المحاولة."
+            },
+            "failed": {
+              "message": "❌ فشل استيراد {{tableName}}: {{errorMessage}}"
+            },
+            "planLimitExceeded": {
+              "message": "❌ فشل استيراد {{tableName}}: بلغت حد الصفوف، يرجى ترقية خطتك لاستيراد المزيد من السجلات"
+            },
+            "noRecordsProcessed": {
+              "message": "❌ فشل استيراد {{tableName}}: لم تُعالَج أي سجلات"
+            },
+            "success": {
+              "message": "🎉 تم استيراد {{tableName}} بنجاح.",
+              "inplace": "🎉 تم الاستيراد في مكانه إلى {{tableName}} بنجاح."
+            },
+            "partialSuccess": {
+              "message": "⚠️ استُورد {{tableName}} جزئيًا: نجح {{successCount}} صفًا وفشل {{failedCount}} صفًا. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 تنزيل تقرير الأخطاء</a>",
+              "messageNoReport": "⚠️ استُورد {{tableName}} جزئيًا: نجح {{successCount}} صفًا وفشل {{failedCount}} صفًا."
+            },
+            "allFailed": {
+              "message": "❌ فشل استيراد {{tableName}}: فشلت كل الصفوف البالغة {{failedCount}}. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 تنزيل تقرير الأخطاء</a>",
+              "messageNoReport": "❌ فشل استيراد {{tableName}}: فشلت كل الصفوف البالغة {{failedCount}}."
+            }
+          }
+        },
+        "recordComment": {
+          "title": "إشعار تعليق على سجل",
+          "message": "علّق {{fromUserName}} على {{recordName}} في {{tableName}} ضمن {{baseName}}"
+        },
+        "collaboratorInvite": {
+          "space": "دعاك {{fromUserName}} للانضمام إلى مساحة {{resourceName}}",
+          "base": "دعاك {{fromUserName}} للانضمام إلى قاعدة {{resourceName}}"
+        },
+        "automation": {
+          "title": "إشعار الأتمتة",
+          "failed": {
+            "title": "فشل تشغيل الأتمتة {{name}}",
+            "message": "واجهت الأتمتة {{name}} خطأً أثناء التنفيذ. افتح سجل التشغيل لعرض التفاصيل."
+          },
+          "insufficientCredit": {
+            "title": "فشل تشغيل الأتمتة {{name}} لعدم كفاية أرصدة الذكاء الاصطناعي",
+            "message": "فشلت الأتمتة {{name}} لعدم كفاية أرصدة الذكاء الاصطناعي. يرجى إضافة أرصدة أو ترقية خطتك."
+          },
+          "runQuotaExceeded": {
+            "title": "فشل تشغيل الأتمتة {{name}} لبلوغ حد عدد مرات التشغيل",
+            "message": "بلغت الأتمتة {{name}} حصة التشغيل الشهرية للأتمتة. يرجى ترقية خطتك أو شراء مرات تشغيل إضافية."
+          },
+          "failedSummary": {
+            "title": "فشلت الأتمتة {{name}} {{failCount}} مرة",
+            "message": "تراكم لدى الأتمتة {{name}} {{failCount}} إخفاقًا متتاليًا. افتح سجل التشغيل لعرض التفاصيل."
+          }
+        },
+        "billing": {
+          "title": "إشعار الفوترة",
+          "credit": {
+            "warning80": {
+              "title": "استُهلك 80% من أرصدة الذكاء الاصطناعي في مساحة {{spaceName}}",
+              "message": "استهلكت مساحة {{spaceName}} 80% من أرصدة الذكاء الاصطناعي. فكّر في الترقية أو شراء أرصدة إضافية."
+            },
+            "warning90": {
+              "title": "استُهلك 90% من أرصدة الذكاء الاصطناعي في مساحة {{spaceName}}",
+              "message": "استهلكت مساحة {{spaceName}} 90% من أرصدة الذكاء الاصطناعي. رقِّ خطتك قريبًا لتفادي الانقطاع."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "رُصد ارتفاع غير معتاد في أرصدة الذكاء الاصطناعي بمساحة {{spaceName}}",
+                "message": "مساحة {{spaceName}}: استهلاك أرصدة الذكاء الاصطناعي اليوم ({{todayValue}}) يبلغ {{multiplier}} أضعاف المتوسط اليومي الأخير ({{ewma}}). وقد يشير ذلك إلى نشاط غير متوقع. يرجى مراجعة استخدامك. أبرز المساهمين: {{topContributors}}"
+              },
+              "burst": {
+                "title": "رُصدت دفقة استهلاك لأرصدة الذكاء الاصطناعي بمساحة {{spaceName}}",
+                "message": "استهلكت مساحة {{spaceName}} {{recentValue}} من أرصدة الذكاء الاصطناعي خلال آخر {{windowMinutes}} دقيقة، أي {{multiplier}} أضعاف المئين 95 الساعي التاريخي ({{hourlyP95}}). وقد يشير ذلك إلى نشاط غير متوقع. أبرز المساهمين: {{topContributors}}"
+              }
+            }
+          },
+          "automationRun": {
+            "warning80": {
+              "title": "استُهلك 80% من حصة تشغيل الأتمتة في مساحة {{spaceName}}",
+              "message": "استهلكت مساحة {{spaceName}} {{usedRuns}} من أصل {{totalLimit}} مرة تشغيل للأتمتة (80%). فكّر في ترقية خطتك."
+            },
+            "warning90": {
+              "title": "استُهلك 90% من حصة تشغيل الأتمتة في مساحة {{spaceName}}",
+              "message": "استهلكت مساحة {{spaceName}} {{usedRuns}} من أصل {{totalLimit}} مرة تشغيل للأتمتة (90%). رقِّ خطتك قريبًا لتفادي الانقطاع."
+            },
+            "gracePeriod": {
+              "title": "تجاوزت مساحة {{spaceName}} حصة تشغيل الأتمتة — مهلة السماح سارية",
+              "message": "تجاوزت مساحة {{spaceName}} حصة تشغيل الأتمتة. وستتوقف عمليات الأتمتة عن العمل وتُغلق بعد {{remainingHours}} ساعة إضافية. يرجى ترقية خطتك."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "ارتفاع غير معتاد في تشغيل الأتمتة بمساحة {{spaceName}}",
+                "message": "مساحة {{spaceName}}: عمليات تشغيل الأتمتة اليوم ({{todayValue}}) تبلغ {{multiplier}} أضعاف المتوسط اليومي الأخير ({{ewma}}). وقد يشير ذلك إلى أتمتة خارجة عن السيطرة. يرجى مراجعة سير عملك. أبرز المساهمين: {{topContributors}}"
+              },
+              "burst": {
+                "title": "رُصدت دفقة تشغيل للأتمتة بمساحة {{spaceName}}",
+                "message": "رُصدت {{recentValue}} عملية تشغيل للأتمتة في مساحة {{spaceName}} خلال آخر {{windowMinutes}} دقيقة، أي {{multiplier}} أضعاف المئين 95 الساعي التاريخي ({{hourlyP95}}). وقد يشير ذلك إلى حلقة تكرار أو خطأ في الإعداد. أبرز المساهمين: {{topContributors}}"
+              }
+            }
+          }
+        },
+        "exportBase": {
+          "title": "إشعار نتيجة تصدير القاعدة",
+          "success": {
+            "message": "تم تصدير {{baseName}} بنجاح: <a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
+          },
+          "failed": {
+            "message": "❌ فشل تصدير {{baseName}}: {{errorMessage}}"
+          }
+        },
+        "task": {
+          "ai": {
+            "failed": {
+              "title": "فشلت مهمة الذكاء الاصطناعي في جدول {{tableName}}",
+              "message": "فشلت مهمة الذكاء الاصطناعي للحقل \"{{fieldName}}\" في الجدول \"{{tableName}}\": {{errorMsg}}"
+            },
+            "cancelled": {
+              "title": "أُلغيت مهمة الذكاء الاصطناعي",
+              "rateLimit": "أُلغيت مهمة الذكاء الاصطناعي للجدول \"{{tableName}}\" بسبب تقييد المعدل (429). يرجى المحاولة لاحقًا.",
+              "creditExhausted": "أُلغيت مهمة الذكاء الاصطناعي للجدول \"{{tableName}}\" لنفاد الأرصدة. يرجى ترقية اشتراكك أو انتظار تجديد الأرصدة.",
+              "authFailed": "أُلغيت مهمة الذكاء الاصطناعي للجدول \"{{tableName}}\" بسبب فشل المصادقة. يرجى التحقق من إعداد مفتاح API.",
+              "serviceUnavailable": "أُلغيت مهمة الذكاء الاصطناعي للجدول \"{{tableName}}\" لأن خدمة الذكاء الاصطناعي غير متاحة مؤقتًا. يرجى المحاولة لاحقًا.",
+              "unknown": "أُلغيت مهمة الذكاء الاصطناعي للجدول \"{{tableName}}\". الخطأ: {{errorMessage}}"
+            }
+          }
+        },
+        "rewardRejected": {
+          "title": "رُفضت مطالبة المكافأة",
+          "message": "رُفضت مطالبة مكافأة <a href=\"{{spaceUrl}}\">{{spaceName}}</a> للأسباب التالية: {{errorMessages}}، يرجى المراجعة وإعادة الإرسال.",
+          "buttonText": "عرض المساحة"
+        },
+        "rewardApproved": {
+          "title": "تمت الموافقة على مطالبة المكافأة",
+          "message": "تهانينا! تمت الموافقة على مطالبة مكافأة <a href=\"{{spaceUrl}}\">{{spaceName}}</a>. وأُضيف {{amount}} رصيدًا صالحة لمدة {{expiredDays}} يومًا.",
+          "buttonText": "عرض المساحة"
+        }
+      }
+    }
+  },
+  "waitlist": {
+    "title": "قائمة الانتظار",
+    "email": "البريد الإلكتروني",
+    "joinTitle": "نحن نتوسع بسرعة لتلبية الطلب.",
+    "joinDesc": "انضم إلى قائمة الانتظار — وسننبّهك فور جاهزيتنا.",
+    "emailPlaceholder": "أدخل بريدك الإلكتروني...",
+    "youAreOnTheList": "أنت الآن على القائمة!",
+    "thanksForJoining": "شكرًا لانضمامك إلى قائمة الانتظار. سنُعلمك فور توفر أي مستجدات.",
+    "back": "رجوع",
+    "inviteCodePlaceholder": "أدخل رمز الدعوة",
+    "join": "الانضمام إلى قائمة الانتظار",
+    "joining": "جارٍ الانضمام...",
+    "invite": "دعوة",
+    "inviteTime": "وقت الدعوة",
+    "createdTime": "وقت الانضمام",
+    "yes": "نعم",
+    "no": "لا",
+    "generateCode": "توليد رمز دعوة",
+    "count": "العدد",
+    "times": "المرات",
+    "generate": "توليد",
+    "code": "رمز الدعوة",
+    "inviteSuccess": "تمت الدعوة بنجاح"
+  },
+  "noPermissionToCreateBase": "ليست لديك صلاحية إنشاء قاعدة بيانات في أي مساحة",
+  "base": {
+    "deleteTip": "هل أنت متأكد من حذف قاعدة \"{{name}}\"؟",
+    "createResource": "إنشاء",
+    "noPermissionToCreateResource": "ليس لديك صلاحية الإنشاء، يرجى التواصل مع المالك"
+  },
+  "credit": {
+    "title": "الرصيد",
+    "leftAmount": "الأرصدة المتبقية",
+    "winFreeCredits": "شارك تجربتك",
+    "getCredits": "احصل على 1000 رصيد مجاني",
+    "winCredit": {
+      "title": "شارك تقييمًا إيجابيًا واربح",
+      "freeCredits": "1000 رصيد مجاني",
+      "guidelinesTitle": "قائمة تحقق للمشاركة",
+      "tagTeableio": "أشِر إلى <bold>@teableio</bold>",
+      "minCharacters": "اكتب تقييمًا من <bold>80+</bold> حرفًا",
+      "minFollowers": "أن يكون لديك <bold>10+</bold> متابعين",
+      "limitPerWeek": "500 رصيد لكل منشور، وحتى منشورين أسبوعيًا (X + LinkedIn)",
+      "postOnX": "انشر على X",
+      "postOnLinkedIn": "انشر على LinkedIn",
+      "preFilledDraft": "🌟 مسودة جاهزة مُعبّأة مسبقًا لك!",
+      "claimTitle": "الصق رابط المنشور للمطالبة بأرصدتك",
+      "userEmail": "بريد المستخدم",
+      "postUrlLabel": "رابط المنشور (X أو LinkedIn)",
+      "postUrlPlaceholder": "الصق رابط منشورك هنا",
+      "invalidUrl": "يرجى إدخال رابط منشور صالح من X أو LinkedIn",
+      "claiming": "جارٍ المطالبة...",
+      "claimCredits": "المطالبة بالأرصدة",
+      "congratulations": "تهانينا!",
+      "claimSuccess": "لقد طالبت بـ 500 رصيد!",
+      "verifying": "جارٍ التحقق من منشورك...",
+      "verifyingDescription": "نتحقق من محتوى منشورك، ويستغرق ذلك عادةً بضع ثوانٍ",
+      "verifyFailed": "فشل التحقق",
+      "tryAgain": "إعادة المحاولة"
+    },
+    "error": {
+      "verificationFailed": "فشل التحقق"
+    }
+  },
+  "reward": {
+    "title": "المكافأة",
+    "rewardCredits": "أرصدة المكافأة",
+    "minCharCount": "يجب أن يحتوي المنشور على {{count}} حرفًا على الأقل",
+    "minFollowerCount": "يجب أن يكون للحساب {{count}} متابعًا على الأقل",
+    "mustMention": "يجب أن يشير المنشور إلى {{mention}}",
+    "fetchSnapshotFailed": "فشل جلب لقطة المنشور",
+    "alreadyClaimedThisWeek": "سبق أن طالبت بمكافأة لهذا الحساب هذا الأسبوع",
+    "maxClaimsReached": "بلغت الحد الأقصى لعدد المكافآت (2) لهذا الأسبوع",
+    "postTooOld": "يجب أن يكون المنشور قد نُشر خلال آخر {{hours}} ساعة",
+    "manage": {
+      "title": "إدارة المكافآت",
+      "description": "اعرض سجلات المكافآت في كل المساحات وأدرها",
+      "overview": "نظرة عامة",
+      "records": "السجلات",
+      "searchSpace": "ابحث عن مساحة...",
+      "searchRecords": "ابحث برابط المنشور / معرّف المستخدم...",
+      "dateRange": "اختيار نطاق زمني",
+      "from": "من",
+      "to": "إلى",
+      "totalSpaces": "الإجمالي: {{count}} مساحة",
+      "totalRecords": "الإجمالي: {{count}} سجل",
+      "space": "المساحة",
+      "allSpaces": "كل المساحات",
+      "user": "المستخدم",
+      "creator": "المنشئ",
+      "sourceType": "نوع المصدر",
+      "platform": "المنصة",
+      "allStatuses": "كل الحالات",
+      "allSourceTypes": "كل أنواع المصادر",
+      "allPlatforms": "كل المنصات",
+      "pendingCount": "عدد المعلّقة",
+      "approvedCount": "عدد المقبولة",
+      "rejectedCount": "عدد المرفوضة",
+      "approvedAmount": "المبلغ المقبول",
+      "consumedAmount": "المبلغ المستهلك",
+      "availableAmount": "المبلغ المتاح",
+      "expiringSoonAmount": "المبلغ الذي ينتهي قريبًا (7 أيام)",
+      "amount": "المبلغ",
+      "remainingAmount": "المبلغ المتبقي",
+      "createdTime": "وقت الإنشاء",
+      "rewardTime": "وقت المكافأة",
+      "expiredTime": "وقت الانتهاء",
+      "lastModified": "آخر تعديل",
+      "viewDetails": "عرض التفاصيل",
+      "details": "تفاصيل المكافأة",
+      "basicInfo": "معلومات أساسية",
+      "amountInfo": "معلومات المبلغ",
+      "timeInfo": "معلومات التوقيت",
+      "socialInfo": "معلومات التواصل الاجتماعي",
+      "verifyResult": "نتيجة التحقق",
+      "uniqueKey": "المفتاح الفريد",
+      "verify": "تحقّق",
+      "valid": "صالح",
+      "invalid": "غير صالح",
+      "errors": "الأخطاء",
+      "copied": "تم نسخ {{label}}",
+      "openPost": "فتح المنشور",
+      "noData": "لا توجد بيانات",
+      "page": "الصفحة {{current}} من {{total}}",
+      "status": {
+        "label": "الحالة",
+        "pending": "معلّقة",
+        "approved": "مقبولة",
+        "rejected": "مرفوضة"
+      }
+    }
+  },
+  "chat": {
+    "responseInterrupted": "تمت مقاطعة الرد",
+    "serverError": "حدث خطأ في الخادم",
+    "serverErrorHint": "يُرجى بدء محادثة جديدة والمحاولة مرة أخرى.",
+    "modelNotSupported": "النموذج المحدد غير مدعوم في وضع الوكيل. بدّل إلى Claude Opus 4.6 للحصول على أفضل تجربة.",
+    "byokModelNotSupported": "نموذجك المخصص غير متوافق مع وضع الوكيل. بدّل إلى Claude Opus 4.6 للحصول على أفضل تجربة.",
+    "modelServiceUnavailable": "خدمة النموذج غير متاحة مؤقتًا. يُرجى المحاولة لاحقًا.",
+    "modelServiceError": "حدث خطأ في خدمة النموذج. يُرجى المحاولة مرة أخرى أو التبديل إلى نموذج آخر.",
+    "imageProcessingFailed": "فشلت معالجة الصورة",
+    "imageProcessingFailedDescription": "تعذّر على نموذج الذكاء الاصطناعي معالجة الصورة. جرّب إعادة إرسالها أو تابع بدونها.",
+    "sandboxActiveRunBusy": "لا يزال Cuppy يعمل. يُرجى الانتظار قبل الإرسال مجددًا.",
+    "sandboxCapacityFull": "تم بلوغ حد المحادثات المتزامنة ({{max}}). يُرجى انتظار انتهاء إحداها.",
+    "sandboxTransient": "يجري تجهيز Cuppy. يُرجى المحاولة بعد قليل.",
+    "sandboxSnapshotNotFound": "لم يتم إعداد بيئة Cuppy بعد. اطلب من المسؤول إنشاء لقطة للبيئة المعزولة.",
+    "sandboxProviderError": "خطأ في بيئة تشغيل البيئة المعزولة",
+    "sandboxProviderErrorDescription": "فشل استدعاء بيئة تشغيل البيئة المعزولة. يُرجى إعادة المحاولة أو الطلب من المسؤول فحص بيئة التشغيل.",
+    "agentStartFailed": "تعذّر بدء محرك الذكاء الاصطناعي. يُرجى المحاولة مرة أخرى أو بدء جلسة جديدة.",
+    "idleTimeout": "تجاوز تنفيذ الأمر الحد الزمني ({{seconds}} ثانية). يُرجى إعادة المحاولة.",
+    "danglingToolUse": "تمت مقاطعة الجلسة السابقة وأُصلحت تلقائيًا. يُرجى إعادة إرسال رسالتك.",
+    "contextImportFailed": "تعذّرت استعادة بيانات الجلسة السابقة. يُرجى إعادة المحاولة للمتابعة دون السياق السابق.",
+    "collapsedStatus": {
+      "open": "فتح دردشة الذكاء الاصطناعي",
+      "working": "الذكاء الاصطناعي يعمل",
+      "completed": "اكتملت مهمة الذكاء الاصطناعي",
+      "failed": "فشلت مهمة الذكاء الاصطناعي"
+    }
+  },
+  "system": {
+    "notFound": {
+      "title": "الصفحة غير موجودة",
+      "description": "قد يكون الرابط الذي اتّبعته معطّلًا، أو نُقلت الصفحة."
+    },
+    "links": {
+      "backToHome": "العودة إلى الصفحة الرئيسية"
+    },
+    "forbidden": {
+      "title": "الوصول مقيّد",
+      "description": "تحتاج إلى إذن للوصول إلى هذا المورد.\nيرجى التواصل مع المسؤول."
+    },
+    "paymentRequired": {
+      "title": "افتح الميزة المدفوعة",
+      "description": "تتوفر هذه الميزة في الخطط المتقدمة.\nرقِّ خطتك لتوسيع إمكاناتك."
+    },
+    "error": {
+      "title": "حدث خطأ ما",
+      "description": "حدثت مشكلة غير متوقعة. يرجى المحاولة لاحقًا."
+    }
+  },
+  "import": {
+    "error": {
+      "dateOutOfRange": "{{fieldHint}}فشل تحليل التاريخ، القيمة \"{{value}}\" خارج النطاق الصالح",
+      "planRowLimit": "بلغت حد الصفوف، يرجى ترقية خطتك لاستيراد المزيد من السجلات",
+      "notNullValidation": "{{fieldHint}}لا يمكن ترك الحقول المطلوبة فارغة",
+      "uniqueValidation": "{{fieldHint}}قيم مكررة في حقول فريدة",
+      "requestTimeout": "انتهت مهلة الطلب",
+      "chunkProcessingFailed": "فشلت المعالجة الدفعية: {{reason}}",
+      "unknown": "{{fieldHint}}{{message}}"
+    }
+  },
+  "skills": {
+    "title": "المهارات",
+    "tabs": {
+      "mySkills": "مهاراتي"
+    },
+    "actions": {
+      "import": "استيراد مهارة",
+      "sync": "مزامنة",
+      "delete": "حذف",
+      "enable": "تفعيل",
+      "disable": "تعطيل",
+      "edit": "تعديل",
+      "tryInChat": "التجربة في المحادثة",
+      "replace": "استبدال",
+      "download": "تنزيل",
+      "uninstall": "إلغاء التثبيت",
+      "copyToBase": "النسخ إلى القاعدة",
+      "copyToSpace": "النسخ إلى المساحة",
+      "copyToPersonal": "النسخ إلى الشخصي",
+      "copyToApp": "النسخ إلى التطبيق"
+    },
+    "import": {
+      "title": "استيراد مهارة",
+      "description": "استورد مهارة من مستودع GitHub أو من ملف ZIP",
+      "githubTab": "رابط GitHub",
+      "fileTab": "ملف ZIP / Skill",
+      "githubTitle": "استيراد مهارة من GitHub",
+      "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
+      "fileHint": "ارفع ملف ‎.zip أو ‎.skill يحتوي على SKILL.md",
+      "or": "أو",
+      "selectFile": "اختر ملفًا",
+      "replaceWarning": "إن كانت هناك مهارة بالاسم نفسه في هذا النطاق، فسيؤدي الاستيراد إلى استبدالها.",
+      "importing": "جارٍ الاستيراد...",
+      "submit": "استيراد",
+      "success": "تم استيراد المهارة بنجاح",
+      "error": "فشل استيراد المهارة"
+    },
+    "detail": {
+      "slug": "المعرّف النصي",
+      "type": "النوع",
+      "description": "الوصف",
+      "source": "المصدر",
+      "addedBy": "أضافها",
+      "skillLabel": "المهارة",
+      "syncStatus": "حالة المزامنة",
+      "preview": "معاينة SKILL.md"
+    },
+    "scope": {
+      "label": "النطاق",
+      "system": "النظام",
+      "builtin": "مدمجة",
+      "base": "القاعدة الحالية",
+      "user": "شخصي",
+      "userDescription": "متاح لك وحدك",
+      "baseDescription": "مشترك مع المتعاونين في هذه القاعدة",
+      "space": "المساحة",
+      "spaceDescription": "مشترك مع الجميع في هذه المساحة",
+      "app": "التطبيق",
+      "appDescription": "متاح لهذا التطبيق فقط",
+      "cuppyclaw": "الروبوت",
+      "cuppyclawDescription": "متاح لهذا الروبوت فقط"
+    },
+    "source": {
+      "github": "GitHub",
+      "file": "رفع ملف",
+      "manual": "يدوي"
+    },
+    "status": {
+      "enabled": "مفعّلة",
+      "disabled": "معطّلة",
+      "synced": "متزامنة",
+      "failed": "فشلت المزامنة"
+    },
+    "confirm": {
+      "deleteTitle": "حذف المهارة",
+      "deleteDescription": "هل أنت متأكد من حذف هذه المهارة؟ لا يمكن التراجع عن هذا الإجراء.",
+      "copyTitle": "نسخ المهارة",
+      "copyDescription": "ستُنسخ ملفات المهارة إلى النطاق الهدف، وتبقى المهارة الأصلية دون تغيير.",
+      "copyOverwriteWarning": "إذا كانت هناك مهارة بالاسم نفسه في النطاق الهدف، فسيتم استبدالها."
+    },
+    "toast": {
+      "syncing": "جارٍ مزامنة المهارة...",
+      "syncSuccess": "تمت مزامنة المهارة بنجاح",
+      "syncError": "فشلت مزامنة المهارة",
+      "deleting": "جارٍ حذف المهارة...",
+      "deleteSuccess": "تم حذف المهارة بنجاح",
+      "deleteError": "فشل حذف المهارة",
+      "updateSuccess": "تم تحديث المهارة بنجاح",
+      "copying": "جارٍ النسخ...",
+      "copySuccess": "تم النسخ",
+      "copyError": "فشل النسخ"
+    }
+  },
+  "resourceDescription": {
+    "addDescription": "إضافة وصف",
+    "nodeDescription": "وصف العقدة",
+    "descriptionSaving": "جارٍ الحفظ...",
+    "descriptionSaveFailed": "فشل حفظ الوصف، يرجى إعادة المحاولة",
+    "descriptionPlaceholder": "أضف وصفًا لهذه العقدة"
+  },
+  "announcement": {
+    "viewDetail": "عرض التفاصيل",
+    "close": "إخفاء الإعلان",
+    "acknowledge": "فهمت",
+    "collapse": "عرض أقل",
+    "more_zero": "لا توجد إعلانات أخرى",
+    "more_one": "إعلان واحد إضافي",
+    "more_two": "إعلانان إضافيان",
+    "more_few": "{{count}} إعلانات إضافية",
+    "more_many": "{{count}} إعلانًا إضافيًا",
+    "more_other": "{{count}} إعلان إضافي"
+  }
+}

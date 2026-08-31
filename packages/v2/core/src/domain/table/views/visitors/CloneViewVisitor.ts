@@ -1,4 +1,4 @@
-import type { Result } from 'neverthrow';
+import { ok, type Result } from 'neverthrow';
 
 import type { DomainError } from '../../../shared/DomainError';
 import type { CalendarView } from '../types/CalendarView';
@@ -16,11 +16,22 @@ import {
   createKanbanView,
   createPluginView,
 } from '../ViewFactory';
-import type { ViewId } from '../ViewId';
+import type { ViewFactoryParams } from '../ViewFactory';
 import type { ViewName } from '../ViewName';
+import type { ViewOrder } from '../ViewOrder';
+import type { ViewProperties } from '../ViewProperties';
 import type { IViewVisitor } from './IViewVisitor';
 
+export type CloneViewOverrides = {
+  readonly name?: ViewName;
+  readonly properties?: ViewProperties;
+  readonly order?: ViewOrder;
+  readonly options?: unknown;
+};
+
 export class CloneViewVisitor implements IViewVisitor<View> {
+  constructor(private readonly overrides: CloneViewOverrides = {}) {}
+
   visitGridView(view: GridView): Result<View, DomainError> {
     return this.cloneView(view, createGridView);
   }
@@ -47,10 +58,34 @@ export class CloneViewVisitor implements IViewVisitor<View> {
 
   private cloneView(
     view: View,
-    factory: (params: { id: ViewId; name: ViewName }) => Result<View, DomainError>
+    factory: (params: ViewFactoryParams) => Result<View, DomainError>
   ): Result<View, DomainError> {
-    return factory({ id: view.id(), name: view.name() }).andThen((clone) =>
-      clone.setOptions(view.options()).map(() => clone)
+    return factory({
+      id: view.id(),
+      name: this.overrides.name ?? view.name(),
+      properties: this.overrides.properties ?? view.properties(),
+    }).andThen((clone) =>
+      clone
+        .setOptions(
+          Object.prototype.hasOwnProperty.call(this.overrides, 'options')
+            ? this.overrides.options
+            : view.options()
+        )
+        .andThen(() => {
+          const orderResult = this.overrides.order ? ok(this.overrides.order) : view.order();
+          return orderResult.isOk() ? clone.setOrder(orderResult.value) : ok(undefined);
+        })
+        .andThen(() => {
+          const auditMetadataResult = view.auditMetadata();
+          return auditMetadataResult.isOk()
+            ? clone.setAuditMetadata(auditMetadataResult.value)
+            : ok(undefined);
+        })
+        .andThen(() => {
+          const versionResult = view.version();
+          return versionResult.isOk() ? clone.setVersion(versionResult.value) : ok(undefined);
+        })
+        .map(() => clone)
     );
   }
 }

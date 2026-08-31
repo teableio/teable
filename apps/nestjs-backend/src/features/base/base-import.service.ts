@@ -16,6 +16,7 @@ import {
   generateShareId,
   generateViewId,
   getUniqName,
+  HttpErrorCode,
   pluginViewOptionSchema,
   ViewType,
 } from '@teable/core';
@@ -67,6 +68,7 @@ import streamJson from 'stream-json';
 import streamValues from 'stream-json/streamers/StreamValues';
 import * as unzipper from 'unzipper';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
@@ -449,8 +451,15 @@ export class BaseImportService {
   })
   async importBaseV2(
     importBaseRo: ImportBaseRo,
-    onProgress?: BaseImportProgressCallback
+    onProgress?: BaseImportProgressCallback,
+    maxRowCount?: number
   ): Promise<IImportBaseVo> {
+    // Cross-table budget of plan rows this import may still create; tables are
+    // truncated (imported rows kept) once it runs out, then reported below.
+    const rowBudget =
+      maxRowCount === undefined
+        ? undefined
+        : { remaining: maxRowCount, truncatedTables: [] as string[] };
     const {
       spaceId,
       notify: { path },
@@ -531,7 +540,8 @@ export class BaseImportService {
       commandBus,
       queryBus,
       context,
-      onProgress
+      onProgress,
+      rowBudget
     );
     await this.importTableLinkFieldsV2(
       path,
@@ -544,6 +554,28 @@ export class BaseImportService {
       context,
       onProgress
     );
+
+    if (rowBudget?.truncatedTables.length) {
+      // Keep the imported base and rows (truncate-and-keep), but surface the
+      // plan limit so the caller can run the upgrade flow; details name the
+      // truncated tables so the report is explicit, not a silent partial.
+      throw new CustomHttpException(
+        `Exceed max row limit: ${maxRowCount ?? 0}. Imported data was truncated (tables: ${rowBudget.truncatedTables.join(', ')})`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          domainCode: 'validation.limit.rows_per_table_max',
+          details: {
+            max: maxRowCount,
+            truncatedTables: rowBudget.truncatedTables,
+            baseId: base.id,
+          },
+          localization: {
+            i18nKey: 'httpErrors.billing.exceedMaxRowLimit',
+            context: { maxRowCount: maxRowCount ?? 0 },
+          },
+        }
+      );
+    }
 
     return {
       base,
@@ -572,7 +604,8 @@ export class BaseImportService {
       viewIdMap: Record<string, string>;
     },
     duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal,
-    onProgress?: BaseImportProgressCallback
+    onProgress?: BaseImportProgressCallback,
+    copyToExistingBase: boolean = false
   ): Promise<{ appIdMap: Record<string, string>; workflowIdMap: Record<string, string> }> {
     const { tableIdMap, fieldIdMap, viewIdMap } = idMaps;
     let dashboardIdMap: Record<string, string> = {};
@@ -609,7 +642,12 @@ export class BaseImportService {
     if (hasFolders) {
       onProgress?.('creating_folders');
     }
-    const { folderIdMap } = await this.createFoldersV2(db, baseId, structure.folders);
+    const { folderIdMap } = await this.createFoldersV2(
+      db,
+      baseId,
+      structure.folders,
+      copyToExistingBase
+    );
 
     if (hasNodes) {
       onProgress?.('restoring_base_nodes');
@@ -624,7 +662,7 @@ export class BaseImportService {
           workflowIdMap,
           appIdMap,
         },
-        { updateExistingNodes: true }
+        { updateExistingNodes: true, copyToExistingBase }
       );
     }
 
@@ -655,7 +693,8 @@ export class BaseImportService {
   private async createFoldersV2(
     db: Kysely<unknown>,
     baseId: string,
-    folders: IBaseJson['folders']
+    folders: IBaseJson['folders'],
+    copyToExistingBase: boolean = false
   ) {
     const folderIdMap: Record<string, string> = {};
     if (!Array.isArray(folders) || folders.length === 0) {
@@ -663,12 +702,28 @@ export class BaseImportService {
     }
 
     const userId = this.cls.get('user.id');
+
+    // The target base may already own folders with the same names (e.g. saving a shared
+    // base into the same base twice), which would violate the (base_id, name) unique index.
+    const existingNames: string[] = [];
+    if (copyToExistingBase) {
+      const existingFolders = await sql<{ name: string }>`
+        select "name" from "base_node_folder" where "base_id" = ${baseId}
+      `.execute(db);
+      existingNames.push(...existingFolders.rows.map((row) => row.name));
+    }
+
     for (const folder of folders) {
       const { id, name } = folder;
+      const uniqueName = copyToExistingBase ? getUniqName(name, existingNames) : name;
+      if (copyToExistingBase) {
+        existingNames.push(uniqueName);
+      }
+
       const newFolderId = generateBaseNodeFolderId();
       await sql`
         insert into "base_node_folder" ("id", "name", "base_id", "created_by")
-        values (${newFolderId}, ${name}, ${baseId}, ${userId})
+        values (${newFolderId}, ${uniqueName}, ${baseId}, ${userId})
       `.execute(db);
       folderIdMap[id] = newFolderId;
     }
@@ -676,6 +731,7 @@ export class BaseImportService {
     return { folderIdMap };
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private async createBaseNodesV2(
     db: Kysely<unknown>,
     baseId: string,
@@ -689,6 +745,7 @@ export class BaseImportService {
     },
     options?: {
       updateExistingNodes?: boolean;
+      copyToExistingBase?: boolean;
     }
   ) {
     if (!Array.isArray(nodes) || nodes.length === 0) {
@@ -721,6 +778,10 @@ export class BaseImportService {
     const sortedNodes = this.sortBaseNodesByParent(nodes);
     const createdResourceKeys = new Set<string>();
 
+    const rootOrderOffset = options?.copyToExistingBase
+      ? await this.getRootOrderOffsetV2(db, baseId)
+      : 0;
+
     for (const node of sortedNodes) {
       const { id, parentId, resourceId, resourceType, order } = node;
       const newId = allNodeIdMap[id];
@@ -741,6 +802,8 @@ export class BaseImportService {
         continue;
       }
 
+      const effectiveOrder = newParentId ? order : order + rootOrderOffset;
+
       const existingNode = await sql<{ id: string }>`
         select "id"
         from "base_node"
@@ -755,7 +818,7 @@ export class BaseImportService {
         await sql`
           update "base_node"
           set "parent_id" = ${newParentId},
-              "order" = ${order},
+              "order" = ${effectiveOrder},
               "last_modified_by" = ${userId},
               "last_modified_time" = now()
           where "id" = ${existingNodeId}
@@ -790,13 +853,23 @@ export class BaseImportService {
           ${resourceType},
           ${baseId},
           ${userId},
-          ${order}
+          ${effectiveOrder}
         )
       `.execute(db);
       createdResourceKeys.add(resourceKey);
     }
 
     return allNodeIdMap;
+  }
+
+  // Keep copied root nodes after the target base's existing ones instead of
+  // interleaving with them by reusing the source orders.
+  private async getRootOrderOffsetV2(db: Kysely<unknown>, baseId: string): Promise<number> {
+    const maxOrderResult = await sql<{ max: number | null }>`
+      select max("order") as max from "base_node"
+      where "base_id" = ${baseId} and "parent_id" is null
+    `.execute(db);
+    return Number(maxOrderResult.rows[0]?.max ?? 0) + 1;
   }
 
   private buildBaseNodeResourceIdMap(params: {
@@ -1431,7 +1504,8 @@ export class BaseImportService {
     commandBus: ICommandBus,
     queryBus: IQueryBus,
     context: IExecutionContext,
-    onProgress?: BaseImportProgressCallback
+    onProgress?: BaseImportProgressCallback,
+    rowBudget?: { remaining: number; truncatedTables: string[] }
   ) {
     const tablesById = new Map(structure.tables.map((table) => [table.id, table]));
     let importedTables = 0;
@@ -1452,7 +1526,8 @@ export class BaseImportService {
           commandBus,
           queryBus,
           context,
-          onProgress
+          onProgress,
+          rowBudget
         );
       }
     );
@@ -1471,7 +1546,8 @@ export class BaseImportService {
     commandBus: ICommandBus,
     queryBus: IQueryBus,
     context: IExecutionContext,
-    onProgress?: BaseImportProgressCallback
+    onProgress?: BaseImportProgressCallback,
+    rowBudget?: { remaining: number; truncatedTables: string[] }
   ) {
     const tableId = targetTableId;
     const tableName = table.name;
@@ -1479,7 +1555,11 @@ export class BaseImportService {
 
     const commandResult = RestoreRecordsStreamCommand.create({
       tableId,
-      records: this.createTableRestoreRecordStream(entry, config, viewIdMap),
+      records: this.applyRowBudget(
+        this.createTableRestoreRecordStream(entry, config, viewIdMap),
+        rowBudget,
+        table.name
+      ),
       batchSize: tableDataImportBatchSize,
       deferComputedUpdates: true,
       enqueueDeferredComputedUpdates: true,
@@ -1756,6 +1836,32 @@ export class BaseImportService {
       }
 
       onLinkBatchUpdated(result.value.totalUpdated);
+    }
+  }
+
+  /**
+   * Caps a record stream at the shared cross-table plan-row budget: once the
+   * budget is exhausted the source stream is closed and the table is recorded
+   * as truncated (already-yielded rows are kept — truncate-and-keep).
+   */
+  private async *applyRowBudget(
+    source: AsyncGenerator<RestoreRecordInput>,
+    rowBudget: { remaining: number; truncatedTables: string[] } | undefined,
+    tableName: string
+  ): AsyncGenerator<RestoreRecordInput> {
+    if (!rowBudget) {
+      yield* source;
+      return;
+    }
+    for await (const record of source) {
+      if (rowBudget.remaining <= 0) {
+        if (!rowBudget.truncatedTables.includes(tableName)) {
+          rowBudget.truncatedTables.push(tableName);
+        }
+        return;
+      }
+      rowBudget.remaining -= 1;
+      yield record;
     }
   }
 

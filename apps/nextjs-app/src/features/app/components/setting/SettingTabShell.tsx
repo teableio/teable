@@ -71,7 +71,7 @@ export const SettingTabShell = ({
       {header && (
         <div
           className={cn(
-            'teable-setting-tab-shell__header flex items-start justify-between gap-3 px-4 pb-4 pt-4 pr-16 sm:px-6 sm:pb-6 sm:pt-6 sm:pr-12',
+            'teable-setting-tab-shell__header flex items-start justify-between gap-3 px-4 pb-4 pt-4 pe-16 sm:px-6 sm:pb-6 sm:pt-6 sm:pe-12',
             headerClassName
           )}
         >

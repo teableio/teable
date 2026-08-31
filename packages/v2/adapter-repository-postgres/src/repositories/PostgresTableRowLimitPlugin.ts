@@ -108,19 +108,25 @@ export class PostgresTableRowLimitPlugin
     context: core.RecordWritePluginContext,
     preparedState: PreparedRowLimitState | undefined
   ): Promise<Result<void, core.DomainError>> {
-    return this.checkRowLimit(context, preparedState);
+    // Truncation is only meaningful here: guard runs before the caller
+    // materializes domain records from the payload arrays it shares with us.
+    return this.checkRowLimit(context, preparedState, { allowTruncate: true });
   }
 
   async beforePersist(
     context: core.RecordWritePluginContext,
     preparedState: PreparedRowLimitState | undefined
   ): Promise<Result<void, core.DomainError>> {
-    return this.checkRowLimit(context, preparedState);
+    // By now the records to insert are already built from the payload, so
+    // truncating the payload would silently change nothing — this in-transaction
+    // backstop must fail closed when a concurrent writer consumed the capacity.
+    return this.checkRowLimit(context, preparedState, { allowTruncate: false });
   }
 
   private async checkRowLimit(
     context: core.RecordWritePluginContext,
-    preparedState: PreparedRowLimitState | undefined
+    preparedState: PreparedRowLimitState | undefined,
+    options: { allowTruncate: boolean }
   ): Promise<Result<void, core.DomainError>> {
     const recordCount = this.getCreateCount(context);
     if (!preparedState || recordCount <= 0) {
@@ -134,22 +140,30 @@ export class PostgresTableRowLimitPlugin
       `.execute(db);
 
       const rowCount = Number(countResult.rows[0]?.count ?? 0);
-      if (rowCount + recordCount > preparedState.maxRowCount) {
-        return err(
-          core.domainError.validation({
-            code: 'validation.limit.rows_per_table_max',
-            message: `Exceed max row limit: ${preparedState.maxRowCount}, please contact us to increase the limit`,
-            details: {
-              max: preparedState.maxRowCount,
-              maxRowCount: preparedState.maxRowCount,
-              rowCount,
-              recordCount,
-            },
-          })
-        );
+      const remaining = preparedState.maxRowCount - rowCount;
+      if (recordCount <= remaining) {
+        return ok(undefined);
+      }
+      if (options.allowTruncate && remaining > 0 && truncateCreatePayload(context, remaining)) {
+        return ok(undefined);
       }
 
-      return ok(undefined);
+      return err(
+        core.domainError.validation({
+          code: core.tableDataSafetyLimitErrors.rowsPerTableMax.code,
+          message: `Exceed max row limit: ${preparedState.maxRowCount}, please contact us to increase the limit`,
+          details: {
+            max: preparedState.maxRowCount,
+            maxRowCount: preparedState.maxRowCount,
+            rowCount,
+            recordCount,
+          },
+          localization: {
+            i18nKey: core.tableDataSafetyLimitErrors.rowsPerTableMax.i18nKey,
+            context: { max: preparedState.maxRowCount },
+          },
+        })
+      );
     } catch (error) {
       return err(
         core.domainError.infrastructure({
@@ -177,6 +191,30 @@ export class PostgresTableRowLimitPlugin
     }
   }
 }
+
+const truncateCreatePayload = (
+  context: core.RecordWritePluginContext,
+  allowed: number
+): boolean => {
+  if (context.kind !== core.RecordWriteOperationKind.createMany) {
+    return false;
+  }
+  if (!context.payload.isolateRowOverflow) {
+    return false;
+  }
+  // Deliberate in-place mutation through the readonly payload contract: the
+  // caller keeps building records from this same array, so truncation must
+  // shorten it in place rather than replace it.
+  const payload = context.payload as {
+    -readonly [K in keyof typeof context.payload]: (typeof context.payload)[K];
+  } & { recordsFieldValues: core.RecordWriteFieldValues[] };
+  if (!Array.isArray(payload.recordsFieldValues)) {
+    return false;
+  }
+  payload.recordsFieldValues.length = allowed;
+  payload.recordCount = allowed;
+  return true;
+};
 
 const describeError = (error: unknown): string => {
   if (error instanceof Error) return error.message;

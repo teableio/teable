@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { Action } from '@teable/core';
 import { Role } from '@teable/core';
 import type {
   CreateAccessTokenRo,
@@ -216,6 +215,34 @@ describe('OpenAPI AccessTokenController (e2e)', () => {
         },
       });
       expect(res.status).toEqual(200);
+    });
+
+    it('get compute activity has table|read permission', async () => {
+      const res = await axios.get('/v2/tables/getComputeActivity', {
+        params: { baseId, tableId: table.id },
+        headers: {
+          Authorization: `Bearer ${tableReadToken}`,
+        },
+      });
+
+      expect(res.status).toEqual(200);
+      expect(res.data).toMatchObject({
+        ok: true,
+        data: { baseId, tableId: table.id },
+      });
+    });
+
+    it('get compute activity rejects a token without table|read permission', async () => {
+      const error = await getError(() =>
+        axios.get('/v2/tables/getComputeActivity', {
+          params: { baseId, tableId: table.id },
+          headers: {
+            Authorization: `Bearer ${recordReadToken}`,
+          },
+        })
+      );
+
+      expect(error?.status).toEqual(403);
     });
 
     it('get table list has not table|read permission', async () => {

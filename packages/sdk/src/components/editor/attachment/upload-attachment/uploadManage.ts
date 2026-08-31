@@ -2,6 +2,7 @@ import type { INotifyVo, UploadType } from '@teable/openapi';
 import { getSignature, notify } from '@teable/openapi';
 import axios, { CanceledError } from 'axios';
 import { noop } from 'lodash';
+import { openUsageLimitModalFromError } from '../../../billing/store/usage-limit-modal';
 
 interface IUploadTask {
   file: IFile;
@@ -145,6 +146,10 @@ export class AttachmentManager {
       if (error instanceof CanceledError || error?.name === 'AbortError') {
         return;
       }
+      // The signature/notify calls bypass react-query, so its global onError
+      // never sees plan-limit failures — surface the usage-limit modal here.
+      // The error callback still runs so the per-file UI shows the failure.
+      openUsageLimitModalFromError(error);
       uploadTask.errorCallback(uploadTask.file, error?.message, error?.status);
     } finally {
       this.removeFromUploadingQueue(uploadTask);

@@ -14,6 +14,10 @@ interface DomainErrorData {
   domainCode?: string;
   domainTags?: string[];
   details?: Record<string, unknown>;
+  localization?: {
+    i18nKey: string;
+    context?: Record<string, unknown>;
+  };
 }
 
 const getDomainErrorData = (error: unknown): DomainErrorData | undefined => {
@@ -47,6 +51,11 @@ const getErrorDetails = (error: unknown): Record<string, unknown> | undefined =>
   return domainData?.details;
 };
 
+const getErrorLocalization = (error: unknown): DomainErrorData['localization'] => {
+  const domainData = getDomainErrorData(error);
+  return domainData?.localization;
+};
+
 const encodeErrorResponse = (error: unknown) => ({
   ok: false as const,
   error: {
@@ -54,6 +63,7 @@ const encodeErrorResponse = (error: unknown) => ({
     message: getErrorMessage(error),
     tags: getErrorTags(error),
     details: getErrorDetails(error),
+    localization: getErrorLocalization(error),
   },
 });
 

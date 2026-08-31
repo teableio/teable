@@ -165,6 +165,7 @@ describe('FieldDependencyGraph PGlite integration', () => {
       .addColumn('is_computed', 'boolean')
       .addColumn('is_lookup', 'boolean')
       .addColumn('is_conditional_lookup', 'boolean')
+      .addColumn('is_pending', 'boolean')
       .addColumn('options', 'text')
       .addColumn('lookup_options', 'text')
       .addColumn('lookup_linked_field_id', 'varchar')
@@ -529,6 +530,33 @@ describe('FieldDependencyGraph PGlite integration', () => {
     console.log('  Boolean(row.is_conditional_lookup):', Boolean(row.is_conditional_lookup));
     console.log('  Would parse row.options:', !!row.options);
     console.log('  options.filter exists:', !!options.filter);
+  });
+
+  it('excludes legacy pending fields from incremental dependency graphs', async () => {
+    await pglite.query(`SET search_path TO ${TEST_SCHEMA}`);
+    const graph = new FieldDependencyGraph(db as any, logger as any);
+
+    await db
+      .updateTable(`${TEST_SCHEMA}.field` as any)
+      .set({ is_pending: true })
+      .where('id', '=', reportLookupFieldId.toString())
+      .execute();
+
+    try {
+      const result = await graph.load(baseId, undefined, {
+        requiredFieldIds: [reportLookupFieldId],
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) throw result.error;
+      expect(result.value.fieldsById.has(reportLookupFieldId.toString())).toBe(false);
+    } finally {
+      await db
+        .updateTable(`${TEST_SCHEMA}.field` as any)
+        .set({ is_pending: null })
+        .where('id', '=', reportLookupFieldId.toString())
+        .execute();
+    }
   });
 
   it('finds lookup dependents from seed link fields via lookup_linked_field_id with JSON fallback', async () => {

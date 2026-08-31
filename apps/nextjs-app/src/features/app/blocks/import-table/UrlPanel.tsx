@@ -49,7 +49,7 @@ const UrlPanel = (props: IUrlPanel) => {
         <Input
           type="url"
           placeholder={importTypeMap[fileType].exampleUrl}
-          className="mr-2"
+          className="me-2"
           value={linkUrl}
           onChange={(e) => {
             const { value } = e.target;
@@ -74,7 +74,7 @@ const UrlPanel = (props: IUrlPanel) => {
             });
           }}
         >
-          {isFinished && <Spin className="mr-1 size-4" />}
+          {isFinished && <Spin className="me-1 size-4" />}
           {t('table:import.title.upload')}
         </Button>
       </div>

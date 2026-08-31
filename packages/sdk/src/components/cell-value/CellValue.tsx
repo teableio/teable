@@ -35,6 +35,8 @@ interface ICellValueContainer extends ICellValue<unknown> {
   itemClassName?: string;
   readonly?: boolean;
   plainLongText?: boolean;
+  // link only: ids whose referenced record has been deleted (e.g. record history)
+  deletedRecordIds?: string[];
 }
 
 interface RenderContext {
@@ -48,6 +50,7 @@ interface RenderContext {
   readonly?: boolean;
   plainLongText?: boolean;
   theme?: string;
+  deletedRecordIds?: string[];
 }
 
 type RenderFn = (ctx: RenderContext) => JSX.Element;
@@ -217,12 +220,13 @@ const renderFormulaLike: RenderFn = ({ value, className, ellipsis, options, fiel
   );
 };
 
-const renderLink: RenderFn = ({ value, className, itemClassName, ellipsis }) => (
+const renderLink: RenderFn = ({ value, className, itemClassName, ellipsis, deletedRecordIds }) => (
   <CellLink
     value={value as ILinkCellValue | ILinkCellValue[]}
     className={className}
     itemClassName={itemClassName}
     ellipsis={ellipsis}
+    deletedRecordIds={deletedRecordIds}
   />
 );
 
@@ -260,6 +264,7 @@ export const CellValue = (props: ICellValueContainer) => {
     formatImageUrl,
     readonly,
     plainLongText,
+    deletedRecordIds,
   } = props;
   const options = (field.options ?? {}) as Record<string, unknown>;
   const renderer = typeRenderers[field.type];
@@ -279,5 +284,6 @@ export const CellValue = (props: ICellValueContainer) => {
     readonly,
     plainLongText,
     theme: resolvedTheme,
+    deletedRecordIds,
   });
 };

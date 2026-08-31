@@ -5,7 +5,13 @@ import {
   FieldOptionsAddedRealtimeProjection,
   ComputedActivityRealtimeProjection,
   TableCreatedRealtimeProjection,
+  TableDeletedRealtimeProjection,
   ViewColumnMetaUpdatedRealtimeProjection,
+  ViewDeletedRealtimeProjection,
+  ViewRenamedRealtimeProjection,
+  ViewDescriptionUpdatedRealtimeProjection,
+  ViewLockedUpdatedRealtimeProjection,
+  ViewOrderUpdatedRealtimeProjection,
   RecordCreatedRealtimeProjection,
   RecordUpdatedRealtimeProjection,
   RecordReorderedRealtimeProjection,
@@ -45,6 +51,9 @@ export const registerV2ShareDbRealtime = (
   c.register(TableCreatedRealtimeProjection, TableCreatedRealtimeProjection, {
     lifecycle: Lifecycle.Singleton,
   });
+  c.register(TableDeletedRealtimeProjection, TableDeletedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
   c.register(FieldCreatedRealtimeProjection, FieldCreatedRealtimeProjection, {
     lifecycle: Lifecycle.Singleton,
   });
@@ -58,6 +67,21 @@ export const registerV2ShareDbRealtime = (
     lifecycle: Lifecycle.Singleton,
   });
   c.register(ViewColumnMetaUpdatedRealtimeProjection, ViewColumnMetaUpdatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(ViewDeletedRealtimeProjection, ViewDeletedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(ViewRenamedRealtimeProjection, ViewRenamedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(ViewDescriptionUpdatedRealtimeProjection, ViewDescriptionUpdatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(ViewLockedUpdatedRealtimeProjection, ViewLockedUpdatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(ViewOrderUpdatedRealtimeProjection, ViewOrderUpdatedRealtimeProjection, {
     lifecycle: Lifecycle.Singleton,
   });
   c.register(FieldOptionsAddedRealtimeProjection, FieldOptionsAddedRealtimeProjection, {

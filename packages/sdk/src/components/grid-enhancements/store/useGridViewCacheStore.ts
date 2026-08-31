@@ -1,6 +1,7 @@
 import type { IRecord } from '@teable/core';
 import type { IGroupHeaderRef, IGroupPointsVo } from '@teable/openapi';
 import { create } from 'zustand';
+import type { IGroupRowCountMap } from '../../../utils/collapsed-group';
 
 const MAX_CACHE_ENTRIES = 10;
 export const MAX_SNAPSHOT_ROWS = 100;
@@ -10,12 +11,13 @@ export const MAX_SNAPSHOT_BYTES = 512 * 1024;
 // grouping by a high-cardinality field can produce one point per record;
 // caching such a structure buys little (the flat->grouped reflow it prevents
 // is proportionally tiny) and costs the most memory, so treat it as uncacheable
-const MAX_POINTS_PER_ENTRY = 5000;
+export const MAX_POINTS_PER_ENTRY = 5000;
 
 interface IGridViewCacheEntry {
   groupPoints?: IGroupPointsVo;
   groupHeaderRefs?: IGroupHeaderRef[];
   rows?: IRecord[];
+  groupRowCounts?: IGroupRowCountMap;
 }
 
 interface IGridViewCacheState {
@@ -40,6 +42,14 @@ interface IGridViewCacheState {
   // empty rows CLEAR the facet: the caller only passes [] when the view has
   // settled empty, meaning the previous snapshot is known to be obsolete
   setRows: (key: string, rows: IRecord[]) => void;
+  // fresh counts MERGE over the previous map: currently collapsed groups are
+  // absent from fresh group points and keep their last known value — the
+  // value the expand patch needs to restore the group's row block in place
+  mergeGroupRowCounts: (key: string, counts: IGroupRowCountMap) => void;
+  // filter/sort/search changes redefine what "visible rows" means; counts
+  // collected under the previous result set must not place rows under the new
+  // one, so the caller clears the facet on same-view scope changes
+  clearGroupRowCounts: (key: string) => void;
 }
 
 type ICacheMap = Record<string, IGridViewCacheEntry>;
@@ -100,5 +110,19 @@ export const useGridViewCacheStore = create<IGridViewCacheState>()((set) => ({
         return next ? { cacheMap: next } : state;
       }
       return { cacheMap: upsert(state.cacheMap, key, { rows: rows.slice(0, MAX_SNAPSHOT_ROWS) }) };
+    }),
+  mergeGroupRowCounts: (key, counts) =>
+    set((state) => {
+      if (!Object.keys(counts).length) return state;
+      const merged = { ...state.cacheMap[key]?.groupRowCounts, ...counts };
+      // degenerate cardinality: keep only the fresh counts instead of
+      // accumulating an unbounded map of long-gone group ids
+      const groupRowCounts = Object.keys(merged).length > MAX_POINTS_PER_ENTRY ? counts : merged;
+      return { cacheMap: upsert(state.cacheMap, key, { groupRowCounts }) };
+    }),
+  clearGroupRowCounts: (key) =>
+    set((state) => {
+      const next = dropFacets(state.cacheMap, key, ['groupRowCounts']);
+      return next ? { cacheMap: next } : state;
     }),
 }));

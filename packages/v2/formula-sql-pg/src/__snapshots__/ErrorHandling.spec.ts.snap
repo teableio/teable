@@ -36,8 +36,8 @@ exports[`error handling > 'AndTypeError': 'And with non-convertible type' 1`] = 
   "result": "false",
   "sql": "((CASE
       WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
-      WHEN BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) = '' THEN FALSE
-      WHEN LOWER(BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('false','0','no','off','null') THEN FALSE
+      WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) AND COALESCE(TRUE, FALSE))",
 }
@@ -155,8 +155,8 @@ exports[`error handling > 'IfTypeError': 'If with non-convertible type' 1`] = `
   "result": "no",
   "sql": "(CASE WHEN (CASE
       WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
-      WHEN BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) = '' THEN FALSE
-      WHEN LOWER(BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('false','0','no','off','null') THEN FALSE
+      WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) THEN 'yes' ELSE 'no' END)",
 }
@@ -342,8 +342,8 @@ exports[`error handling > 'NotTypeError': 'Not with non-convertible type' 1`] = 
   "result": "true",
   "sql": "(NOT (CASE
       WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
-      WHEN BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) = '' THEN FALSE
-      WHEN LOWER(BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('false','0','no','off','null') THEN FALSE
+      WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END))",
 }
@@ -366,8 +366,8 @@ exports[`error handling > 'OrTypeError': 'Or with non-convertible type' 1`] = `
   "result": "false",
   "sql": "((CASE
       WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
-      WHEN BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) = '' THEN FALSE
-      WHEN LOWER(BTRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('false','0','no','off','null') THEN FALSE
+      WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
     END) OR COALESCE(FALSE, FALSE))",
 }
@@ -521,7 +521,7 @@ exports[`error handling > 'ValueTypeError': 'Value with non-convertible type' 1`
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_number",
-  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE (COALESCE(NULL::double precision, 0))::text END",
+  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE (NULL::double precision)::text END",
 }
 `;
 

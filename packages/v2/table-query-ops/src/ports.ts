@@ -1,6 +1,13 @@
-import type { DomainError, IExecutionContext, Table, TableId } from '@teable/v2-core';
+import type {
+  DomainError,
+  IExecutionContext,
+  IRecordSearchAccessPath,
+  Table,
+  TableId,
+} from '@teable/v2-core';
 import { ok, type Result } from 'neverthrow';
 
+import type { TableQueryDecisionLogEntry } from './decisionPolicy';
 import type {
   ExecutablePhase1RemediationKind,
   TablePhysicalStats,
@@ -12,12 +19,49 @@ import type {
   TableQueryShape,
 } from './domain';
 
+export interface TableQueryObservationPublisher {
+  publish(context: IExecutionContext, observation: TableQueryObservationWindow): void;
+}
+
+export interface TableQueryObservationBatchSink {
+  recordBatch(
+    context: IExecutionContext,
+    input: {
+      readonly writerId: string;
+      readonly observations: ReadonlyArray<TableQueryObservationWindow>;
+    }
+  ): Promise<Result<void, DomainError>>;
+}
+
+export class NoopTableQueryObservationPublisher implements TableQueryObservationPublisher {
+  publish(context: IExecutionContext, observation: TableQueryObservationWindow): void {
+    void context;
+    void observation;
+  }
+}
+
 export interface TableQueryObservationSink {
   record(
     context: IExecutionContext,
     observation: TableQueryObservationWindow
   ): Promise<Result<void, DomainError>>;
 }
+
+export type TableQuerySearchHeatByTable = {
+  readonly spaceId?: string;
+  readonly baseId: string;
+  readonly tableId: string;
+  readonly requestCount: number;
+  readonly slowCount: number;
+  readonly timeoutCount: number;
+  readonly dbErrorCount: number;
+  readonly totalDurationMs: number;
+  readonly maxDurationMs: number;
+  readonly windowStart: Date;
+  readonly windowSizeSeconds: number;
+  readonly fieldCount: number;
+  readonly allFields: boolean;
+};
 
 export interface TableQueryObservationReader {
   findRecent(
@@ -28,6 +72,15 @@ export interface TableQueryObservationReader {
       readonly tableId?: string;
     }
   ): Promise<Result<ReadonlyArray<TableQueryObservationWindow>, DomainError>>;
+  findSearchHeatByTable(
+    context: IExecutionContext,
+    input: {
+      readonly since: Date;
+      readonly minSlowCount: number;
+      readonly limit: number;
+      readonly wideSearchFields: number;
+    }
+  ): Promise<Result<ReadonlyArray<TableQuerySearchHeatByTable>, DomainError>>;
 }
 
 export interface TablePhysicalStatsReader {
@@ -74,6 +127,109 @@ export interface TableQueryRecommendationRepository {
   ): Promise<Result<TableQueryRecommendation, DomainError>>;
 }
 
+export interface TableQueryDecisionLogRepository {
+  save(
+    context: IExecutionContext,
+    entry: TableQueryDecisionLogEntry
+  ): Promise<Result<TableQueryDecisionLogEntry, DomainError>>;
+
+  findRecentByScope(
+    context: IExecutionContext,
+    input: {
+      readonly tableId: string;
+      readonly scopeKey: string;
+      readonly limit: number;
+    }
+  ): Promise<Result<ReadonlyArray<TableQueryDecisionLogEntry>, DomainError>>;
+
+  findLatestByRecommendation(
+    context: IExecutionContext,
+    input: {
+      readonly recommendationId: string;
+    }
+  ): Promise<Result<TableQueryDecisionLogEntry | undefined, DomainError>>;
+}
+
+export class NoopTableQueryDecisionLogRepository implements TableQueryDecisionLogRepository {
+  async save(
+    _context: IExecutionContext,
+    entry: TableQueryDecisionLogEntry
+  ): Promise<Result<TableQueryDecisionLogEntry, DomainError>> {
+    return ok(entry);
+  }
+
+  async findRecentByScope(): Promise<
+    Result<ReadonlyArray<TableQueryDecisionLogEntry>, DomainError>
+  > {
+    return ok([]);
+  }
+
+  async findLatestByRecommendation(): Promise<
+    Result<TableQueryDecisionLogEntry | undefined, DomainError>
+  > {
+    return ok(undefined);
+  }
+}
+
+type TableSearchAccessPathReclaimCandidateBase = {
+  readonly tableId: string;
+  readonly baseId: string;
+  /** Candidate key of the access-path config; used as the decision scope. */
+  readonly scopeKey: string;
+  /** Optimistic concurrency token for the config row observed by the sweep. */
+  readonly configVersion: string;
+  readonly accessPathReadyAt: Date;
+  readonly lastSearchActivityAt?: Date;
+  /** idx_scan delta over the idle window; undefined = unknown (never reclaimed on). */
+  readonly indexScanDelta?: number;
+};
+
+export type TableSearchAccessPathReclaimCandidate =
+  | (TableSearchAccessPathReclaimCandidateBase & { readonly phase: 'active' })
+  | (TableSearchAccessPathReclaimCandidateBase & {
+      readonly phase: 'drop_due';
+      readonly dropAfter: Date;
+    });
+
+export interface TableSearchAccessPathReclaimSource {
+  listCandidates(
+    context: IExecutionContext,
+    input: {
+      readonly now: Date;
+      readonly minHoldMs: number;
+      readonly idleMs: number;
+    }
+  ): Promise<Result<ReadonlyArray<TableSearchAccessPathReclaimCandidate>, DomainError>>;
+
+  beginGrace(
+    context: IExecutionContext,
+    input: {
+      readonly tableId: string;
+      readonly scopeKey: string;
+      readonly expectedVersion: string;
+      readonly disabledAt: Date;
+      readonly dropAfter: Date;
+    }
+  ): Promise<Result<boolean, DomainError>>;
+
+  claimDueDrop(
+    context: IExecutionContext,
+    input: {
+      readonly tableId: string;
+      readonly scopeKey: string;
+      readonly now: Date;
+    }
+  ): Promise<Result<boolean, DomainError>>;
+
+  releaseDueDrop(
+    context: IExecutionContext,
+    input: {
+      readonly tableId: string;
+      readonly scopeKey: string;
+    }
+  ): Promise<Result<void, DomainError>>;
+}
+
 export interface TableQueryRemediationTaskRepository {
   findById(
     context: IExecutionContext,
@@ -85,12 +241,19 @@ export interface TableQueryRemediationTaskRepository {
     task: TableQueryRemediationTask
   ): Promise<Result<TableQueryRemediationTask, DomainError>>;
 
+  saveIfAbsent(
+    context: IExecutionContext,
+    task: TableQueryRemediationTask
+  ): Promise<Result<boolean, DomainError>>;
+
   claimNextAccepted(
     context: IExecutionContext,
     input: {
       readonly workerId: string;
       readonly now: Date;
       readonly allowedKinds: ReadonlyArray<ExecutablePhase1RemediationKind>;
+      readonly allowManualIndexExecution: boolean;
+      readonly allowPolicyIndexExecution: boolean;
     }
   ): Promise<Result<TableQueryRemediationTask | undefined, DomainError>>;
 }
@@ -107,7 +270,9 @@ export interface TableQueryRemediationExecutor {
 
 export type ReconcileTableSearchAccessPathInput = {
   readonly table: Table;
-  readonly mode: 'create' | 'rebuild';
+  // 'drop' removes the managed generated column + index and disables the
+  // table's config — the table-level kill switch for the indexed search path.
+  readonly mode: 'create' | 'rebuild' | 'drop';
   readonly expectedDefinitionKey?: string;
   readonly semantics?: 'substring' | 'lexical';
   readonly provider?: 'pg_trgm' | 'pg_bigm' | 'tsvector';
@@ -119,7 +284,7 @@ export type ReconcileTableSearchAccessPathInput = {
 };
 
 export type ReconcileTableSearchAccessPathResult = {
-  readonly action: 'created' | 'rebuilt' | 'verified';
+  readonly action: 'created' | 'rebuilt' | 'verified' | 'dropped';
   readonly tableId: string;
   readonly definitionKey: string;
   readonly generatedColumnName: string;
@@ -128,7 +293,7 @@ export type ReconcileTableSearchAccessPathResult = {
   readonly semantics?: 'substring' | 'lexical';
   readonly provider?: 'pg_trgm' | 'pg_bigm' | 'tsvector';
   readonly fieldIds: readonly string[];
-  readonly status: 'ready';
+  readonly status: 'ready' | 'disabled';
   readonly planEvidence?: unknown;
 };
 
@@ -171,6 +336,18 @@ export interface TableSearchVectorStatusReader {
     context: IExecutionContext,
     tableId: string
   ): Promise<Result<TableSearchVectorStatus, DomainError>>;
+}
+
+/**
+ * Resolves the ready-to-use record search access path for a table, or
+ * undefined when none is configured/ready. This is the read-path port the app
+ * layer uses instead of querying the config storage directly.
+ */
+export interface TableSearchAccessPathResolver {
+  resolve(
+    context: IExecutionContext,
+    tableId: string
+  ): Promise<Result<IRecordSearchAccessPath | undefined, DomainError>>;
 }
 
 export type TableSearchAccessPathProvider = 'pg_trgm' | 'pg_bigm';
@@ -266,6 +443,7 @@ export interface TableQueryOpsTaskWorkerConfig {
   readonly intervalMs: number;
   readonly workerId: string;
   readonly allowManualIndexExecution: boolean;
+  readonly allowPolicyIndexExecution: boolean;
   readonly allowedKinds: ReadonlyArray<ExecutablePhase1RemediationKind>;
 }
 

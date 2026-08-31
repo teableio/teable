@@ -3,6 +3,7 @@
     "empty": "空",
     "noRecords": "没有可用记录",
     "unnamedRecord": "未命名记录",
+    "recordDeleted": "记录已删除",
     "untitled": "无标题",
     "cancel": "取消",
     "confirm": "确认",
@@ -32,7 +33,9 @@
     "resetSuccess": "重置成功",
     "click": "点击",
     "clickedCount": "{{label}}: 已点击 {{text}} 次",
-    "atLeastOne": "至少保留一个{{noun}}"
+    "atLeastOne": "至少保留一个{{noun}}",
+    "close": "关闭",
+    "selectField": "选择字段"
   },
   "notification": {
     "title": "通知"
@@ -42,26 +45,11 @@
     "retry": "重试",
     "dismiss": "忽略"
   },
-  "noun": {
-    "table": "表格",
-    "view": "视图",
-    "space": "空间",
-    "base": "数据库",
-    "field": "字段",
-    "record": "记录",
-    "automation": "自动化",
-    "app": "应用",
-    "user": "用户",
-    "recordHistory": "记录历史",
-    "you": "你",
-    "instance": "实例",
-    "enterprise": "企业",
-    "history": "历史",
-    "global": "全局"
-  },
   "preview": {
     "previewFileLimit": "预览暂不支持{{size}}MB以上的附件, 请下载后预览",
-    "loadFileError": "加载文件失败"
+    "loadFileError": "加载文件失败",
+    "previousAttachment": "上一项",
+    "nextAttachment": "下一项"
   },
   "undoRedo": {
     "undo": "撤销",
@@ -178,7 +166,6 @@
     "nestedLimitTip": "条件组最多支持{{depth}}层嵌套",
     "linkInputPlaceholder": "输入值",
     "currentUser": "我（当前用户）",
-    "tips": {},
     "invalidateSelected": "已删除选项",
     "invalidateSelectedTips": "该选项已被删除，请重新选择",
     "invalidConditionTip": "此筛选条件无效，将被忽略。请调整后重试。",
@@ -261,7 +248,11 @@
         "pastNumberOfDays": "过去几天",
         "nextNumberOfDays": "接下来几天"
       }
-    }
+    },
+    "selectOperator": "选择运算符",
+    "selectConjunction": "选择连接词",
+    "selectDateMode": "选择日期方式",
+    "selectValue": "选择值"
   },
   "color": {
     "label": "颜色"
@@ -277,8 +268,6 @@
     "title": "字段名行数",
     "displayLines": "{{count}} 行"
   },
-  "share": {},
-  "extensions": {},
   "hidden": {
     "label": "字段配置",
     "configLabel_other": "字段配置({{count}} 隐藏)",
@@ -290,6 +279,8 @@
   },
   "expandRecord": {
     "copy": "复制到剪贴板",
+    "previousRecord": "上一条",
+    "nextRecord": "下一条",
     "duplicateRecord": "复制记录",
     "copyRecordUrl": "复制记录链接",
     "deleteRecord": "删除记录",
@@ -317,20 +308,20 @@
   },
   "sort": {
     "label": "排序",
-    "displayLabel_one": "排序({{count}})",
     "displayLabel_other": "排序({{count}})",
     "setTips": "设置排序条件",
     "addButton": "添加另一个排序",
     "autoSort": "自动排序",
     "selectASCLabel": "选项顺序",
-    "selectDESCLabel": "选项倒序"
+    "selectDESCLabel": "选项倒序",
+    "orderTitle": "选择排序顺序"
   },
   "group": {
     "label": "分组",
-    "displayLabel_one": "分组({{count}})",
     "displayLabel_other": "分组({{count}})",
     "setTips": "分组方式",
-    "addButton": "添加另一个分组"
+    "addButton": "添加另一个分组",
+    "maxLimitTip": "最多可按 {{count}} 个字段分组"
   },
   "field": {
     "title": {
@@ -368,7 +359,7 @@
       "date": "记录特定日期或时间。",
       "createdTime": "显示记录的创建时间。",
       "lastModifiedTime": "显示记录最近的更新时间。",
-      "attachment": "上传文件或 AI 生成图片，支持 🍌 Nano banana pro 等模型",
+      "attachment": "上传文件或 AI 生成图片，支持 GPT Image 2 等模型",
       "checkbox": "用开关标记是否完成。",
       "rollup": "对关联记录进行汇总计算。",
       "conditionalRollup": "根据条件汇总数据。",
@@ -419,6 +410,8 @@
       "tableTrashRead": "查看表格回收站",
       "tableTrashUpdate": "更新表格回收站",
       "tableTrashReset": "清空表格回收站",
+      "tableArchiveRead": "查看表格归档区",
+      "tableArchiveManage": "管理表格归档区",
       "viewCreate": "创建视图",
       "viewDelete": "删除视图",
       "viewRead": "查看视图",
@@ -433,7 +426,8 @@
       "recordDelete": "删除记录",
       "recordRead": "查看记录",
       "recordUpdate": "更新记录",
-      "recordCopy": "复制记录",
+      "recordCopy": "复制记录到剪贴板",
+      "recordArchive": "归档记录",
       "automationCreate": "创建自动化",
       "automationDelete": "删除自动化",
       "automationRead": "读取自动化",
@@ -451,6 +445,23 @@
       "enterpriseRead": "查看企业配置",
       "enterpriseUpdate": "更新企业配置"
     }
+  },
+  "noun": {
+    "table": "表格",
+    "view": "视图",
+    "space": "空间",
+    "base": "数据库",
+    "field": "字段",
+    "record": "记录",
+    "automation": "自动化",
+    "app": "应用",
+    "user": "用户",
+    "recordHistory": "记录历史",
+    "you": "你",
+    "instance": "实例",
+    "enterprise": "企业",
+    "history": "历史",
+    "global": "全局"
   },
   "formula": {
     "SUM": {
@@ -564,6 +575,14 @@
     "SUBSTITUTE": {
       "summary": "替换 old_text 的出现为 new_text。\n你可以选择指定一个索引号（从 1 开始）来仅替换特定出现的 old_text。如果未指定索引号，则将替换所有出现的 old_text。",
       "example": "SUBSTITUTE(\"Hello Table\", \"Table\", \"Teable\") => \"Hello Teable\""
+    },
+    "TEXTBEFORE": {
+      "summary": "返回分隔符之前的文本。",
+      "example": "TEXTBEFORE(\"20, 04, 79\", \",\") => \"20\""
+    },
+    "TEXTSPLIT": {
+      "summary": "按分隔符拆分文本，返回多个文本值。",
+      "example": "TEXTSPLIT(\"20, 04, 79\", \",\") => [\"20\", \" 04\", \" 79\"]"
     },
     "LOWER": {
       "summary": "将字符串转换为小写。",
@@ -902,10 +921,12 @@
     "creditLimitExceeded": "算力额度已超限",
     "restrictedResource": "此资源受限",
     "notFound": "请求的资源不存在或未共享",
+    "viewNotFound": "视图不存在",
     "conflict": "请求因与当前资源状态冲突而无法完成",
     "unprocessableEntity": "请求体与预期参数不匹配",
     "userLimitExceeded": "已达到在当前实例中创建用户的限制",
     "tooManyRequests": "已超出当前实例的请求限制",
+    "payloadTooLarge": "请求体过大",
     "internalServerError": "发生意外错误",
     "databaseConnectionUnavailable": "数据库当前不可用",
     "gatewayTimeout": "服务器未及时收到上游服务器的响应",
@@ -942,15 +963,21 @@
       "nameMaxLength": "名称过长，最多允许 {{max}} 个字符。",
       "descriptionMaxLength": "描述过长，最多允许 {{max}} 个字符。"
     },
-    "validation": {
-      "field": {
-        "unique": "字段必须为唯一值"
-      }
-    },
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许空值，请填写完整再提交",
       "fieldValueDuplicate": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许重复值，请填写唯一值再提交",
+      "recordFieldValueNotNull": "\"{{fieldName}}\" 字段不允许空值，请填写完整再提交",
+      "recordFieldValueDuplicate": "\"{{fieldName}}\" 字段不允许重复值，请填写唯一值再提交",
+      "recordDeleteBlockedByRequiredLink": "无法删除：删除后 \"{{tableName}}\" 表的必填关联字段 \"{{fieldName}}\" 将为空",
+      "recordDeleteBlockedByRequiredLinkGeneric": "无法删除：该记录仍被其他表的关联字段引用",
+      "recordDeleteBlockedByLink": "无法删除：\"{{tableName}}\" 表的关联字段 \"{{fieldName}}\" 仍引用该记录",
       "linkFieldValueDuplicate": "\"{{fieldName}}\" 字段不允许重复关联同一条记录",
+      "linkBatchDuplicate": "无法建立关联：同一批次中已有其他记录关联了该记录。在一对多关系中，每条子记录只能属于一个父记录。",
+      "linkOneManyDuplicate": "无法建立关联：该记录已关联到其他记录。在一对多关系中，每条子记录只能属于一个父记录。",
+      "linkOneOneDuplicate": "无法建立关联：目标记录已在一对一关系中被其他记录关联。",
+      "fieldMaxColumnLimit": "表“{{tableName}}”最多只能有 {{maxFieldCount}} 个字段。",
+      "fieldRequiredExistingValues": "字段“{{fieldName}}”中已有记录为空，无法设置为必填。",
+      "fieldUniqueExistingValues": "字段“{{fieldName}}”中已有重复值，无法设置为唯一。",
       "requestTimeout": "当前操作范围过大，请缩小范围重新尝试",
       "searchTimeOut": "搜索超时，请尝试减少搜索范围重试",
       "dependencyNodeRequire": "依赖节点未测试，请检查前置节点是否通过测试",
@@ -1028,8 +1055,12 @@
       "onlyFailedRunsCanRerun": "仅失败的运行记录可以重跑",
       "workflowMustBeActiveToRerun": "自动化必须处于启用状态才能重跑",
       "snapshotChangedOnlyFullRerun": "自动化在此次运行后已被修改，仅支持完整重跑。",
+      "runPayloadColdTruncated": "该运行的部分数据在冷归档时被截断，无法从该运行重跑",
+      "runListOffsetTooDeep": "该页在运行历史中的偏移过深，请使用上一页返回的游标继续翻页。",
       "controlStepsMissingOnlyFullRerun": "此次运行缺少控制节点数据，仅支持完整重跑。",
       "triggerNodeAlreadyExists": "此自动化已存在触发器节点",
+      "scheduledIntervalTooShort": "定时自动化的执行间隔不能小于 {{min}} 分钟",
+      "emailPollIntervalTooShort": "邮件触发器检查新邮件的间隔不能小于 {{min}} 分钟",
       "unSupportLogicType": "不支持的逻辑类型",
       "generateLogicError": "生成逻辑节点错误",
       "logicNotFound": "自动化逻辑节点未找到",
@@ -1297,7 +1328,10 @@
     },
     "billing": {
       "insufficientCredit": "算力不足",
+      "upgradeRequired": "当前套餐不支持此功能，请升级套餐后使用",
       "exceedMaxRowLimit": "已超过最大行数限制 {{maxRowCount}}",
+      "exceedMaxAttachmentSizeLimit": "附件容量已达当前套餐上限，请升级套餐或清理附件",
+      "exceedMaxSystemEmailLimit": "本月邮件发送量已达当前套餐上限，请升级套餐",
       "exceedMaxAutomationRunLimit": "已触及自动化每月最大运行次数",
       "manualSubscriptionNotSupported": "此空间不支持自助订阅操作，如需升级、降级或其他订阅变更，请联系官方支持。",
       "appSumoSubscriptionNotSupported": "AppSumo 订阅无法通过此界面修改，请前往 AppSumo 管理您的订阅。",
@@ -1328,6 +1362,7 @@
       "imageNotSupported": "此模型{{model}}不支持图像输入",
       "modelNotSet": "AI 模型未设置",
       "unsupportedFileType": "不支持的文件类型 {{mimetype}}",
+      "attachmentDownloadFailed": "附件下载失败：{{reason}}",
       "unsupportedModelType": "不支持的模型类型",
       "embeddingModelNotSet": "嵌入模型未设置",
       "validateActionFailed": "验证字段AI操作失败",
@@ -1516,7 +1551,11 @@
       "zipFileTooLarge": "ZIP 文件大小超过 5MB 限制",
       "invalidZip": "无效的 ZIP 文件",
       "domainAlreadyInUse": "该域名已被其他应用绑定",
-      "domainReserved": "子域名已被保留"
+      "domainReserved": "子域名已被保留",
+      "siteInfoBeforeGeneration": "请先生成应用，再自定义站点信息",
+      "generationEditingConflict": "AI 正在编辑这个应用，请等它完成后再试",
+      "siteInfoLayoutNotEditable": "这个应用的代码结构暂不支持在这里编辑站点信息，请在聊天中让 AI 帮你修改站点标题、描述或图标",
+      "siteInfoManagedInCode": "这个应用的站点标题和描述由代码管理，请在聊天中让 AI 帮你修改"
     },
     "reward": {
       "notFound": "奖励记录不存在",
@@ -1526,6 +1565,7 @@
       "alreadyClaimedThisWeek": "您本周已为此账户领取过奖励",
       "invalidPostUrl": "帖子链接格式无效",
       "postAlreadyUsed": "此帖子已被用于领取奖励",
+      "tooManyFailedAttempts": "本周验证失败次数过多",
       "unsupportedPlatformUrl": "不支持的社交平台链接",
       "unsupportedPlatform": "不支持的平台：{{platform}}",
       "minCharCount": "帖子内容至少需要 {{count}} 个字符",
@@ -1539,6 +1579,25 @@
       "linkedInPostNotFound": "未找到 LinkedIn 帖子：{{postId}}",
       "linkedInAuthorNotFound": "未找到 LinkedIn 作者：{{postId}}",
       "fetchLinkedInUserFailed": "获取 LinkedIn 用户失败：{{error}}"
+    }
+  },
+  "usageLimitBanner": {
+    "viewDetail": "查看明细",
+    "rows": {
+      "title": "此空间已使用 {{current}} 行，超出当前套餐上限 {{limit}} 行",
+      "titleIncrement": "本次操作需新增 {{increment}} 行，将超出当前套餐上限 {{limit}} 行",
+      "titleBatch": "本次操作的行数超出当前套餐上限（{{limit}} 行）",
+      "description": "无法继续添加记录。升级套餐立即解除限制，或清理数据后继续。",
+      "unit": "行"
+    },
+    "credit": {
+      "unit": "算力"
+    },
+    "attachments": {
+      "unit": "附件"
+    },
+    "generic": {
+      "description": "升级套餐以解除此限制。"
     }
   }
 }

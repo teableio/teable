@@ -28,6 +28,9 @@ class UnitOfWorkAbort extends Error {
   constructor(readonly error: DomainError) {
     super(error.message);
     this.name = 'UnitOfWorkAbort';
+    if (error.stack) {
+      this.stack = error.stack;
+    }
   }
 }
 
@@ -67,6 +70,10 @@ export class PostgresUnitOfWorkTransaction<DB> implements IUnitOfWorkTransaction
     readonly db: Transaction<DB>,
     readonly scope: UnitOfWorkScope
   ) {}
+
+  get pending(): boolean {
+    return this.state === 'pending';
+  }
 
   get committed(): boolean {
     return this.state === 'committed';
@@ -153,12 +160,29 @@ const isPostgresUnitOfWorkTransaction = <DB>(
   );
 };
 
+/**
+ * A transaction is only reusable while pending. Once commit or rollback starts,
+ * kysely has already released the underlying connection back to the pool, so
+ * reusing the handle would write through a connection another request may own.
+ */
+const isReusablePostgresTransaction = <DB>(
+  transaction: IUnitOfWorkTransaction | undefined
+): transaction is PostgresUnitOfWorkTransaction<DB> | PostgresUnitOfWorkTransactionLike<DB> => {
+  if (!isPostgresUnitOfWorkTransaction<DB>(transaction)) {
+    return false;
+  }
+  if (transaction.pending !== undefined) {
+    return transaction.pending;
+  }
+  return !transaction.committed && !transaction.rolledBack;
+};
+
 export const getPostgresTransaction = <DB>(
   context?: IExecutionContext,
   scope: UnitOfWorkScope = 'data'
 ): Transaction<DB> | null => {
   const transaction = getUnitOfWorkTransaction(context, scope);
-  if (isPostgresUnitOfWorkTransaction<DB>(transaction)) {
+  if (isReusablePostgresTransaction<DB>(transaction)) {
     return transaction.db as Transaction<DB>;
   }
 
@@ -166,7 +190,7 @@ export const getPostgresTransaction = <DB>(
   if (
     activeTransaction !== transaction &&
     (!activeTransaction?.scope || activeTransaction.scope === scope) &&
-    isPostgresUnitOfWorkTransaction<DB>(activeTransaction)
+    isReusablePostgresTransaction<DB>(activeTransaction)
   ) {
     return activeTransaction.db as Transaction<DB>;
   }
@@ -255,7 +279,7 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
 
     const siblingScope: UnitOfWorkScope = scope === 'meta' ? 'data' : 'meta';
     const siblingTransaction = getUnitOfWorkTransaction(context, siblingScope);
-    if (!siblingTransaction) {
+    if (!isReusablePostgresTransaction<DB>(siblingTransaction)) {
       return null;
     }
 
@@ -281,6 +305,12 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
       return Promise.resolve(
         err(domainError.validation({ message: 'Unsupported transaction context' }))
       );
+    }
+    if (!isReusablePostgresTransaction<DB>(existingTransaction)) {
+      // The bound transaction is already committing/committed/rolled back and its
+      // connection was released to the pool. Fall through to a fresh transaction
+      // instead of silently writing through the dead handle.
+      return null;
     }
     return work(activateUnitOfWorkScope(context, scope));
   }

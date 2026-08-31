@@ -1,7 +1,39 @@
 import type { INestApplication } from '@nestjs/common';
-import { FieldKeyType, FieldType, isEmpty, type IFieldVo, type IFilterRo } from '@teable/core';
-import { updateViewFilter as apiSetViewFilter, getRecords as apiGetRecords } from '@teable/openapi';
-import { initApp, getView, createTable, permanentDeleteTable, createField } from './utils/init-app';
+import {
+  Colors,
+  FieldKeyType,
+  FieldType,
+  getValidFilterOperators,
+  hasAnyOf,
+  isAnyOf,
+  isEmpty,
+  isNoneOf,
+  isNotEmpty,
+  Relationship,
+  SortFunc,
+  type IFieldVo,
+  type IFilterRo,
+} from '@teable/core';
+import {
+  createRecords,
+  getRecords as apiGetRecords,
+  updateViewFilter as apiSetViewFilter,
+  updateViewGroup,
+  updateViewSort,
+} from '@teable/openapi';
+import {
+  X_TEABLE_V2_FEATURE_HEADER,
+  X_TEABLE_V2_HEADER,
+  X_TEABLE_V2_REASON_HEADER,
+} from '../src/features/canary/interceptors/v2-indicator.interceptor';
+import {
+  initApp,
+  getView,
+  createTable,
+  permanentDeleteTable,
+  createField,
+  getFields,
+} from './utils/init-app';
 
 let app: INestApplication;
 const baseId = globalThis.testConfig.baseId;
@@ -157,6 +189,233 @@ describe('View filter with is/isNot null value (e2e)', () => {
       expect(records.length).toBe(3);
       const names = records.map((r) => r.fields.Name).sort();
       expect(names).toEqual(['row2', 'row3', 'row5']);
+    });
+  });
+});
+
+describe('Sanitized customer-shaped scalar lookup view filter (e2e)', () => {
+  it('loads a grouped saved view with isNotEmpty and isNoneOf on a scalar lookup', async () => {
+    await withForceV2All(async () => {
+      // Sanitized, structure-equivalent fixture for T6571:
+      // reference single-select -> many-one link -> scalar lookup stored as TEXT -> saved view filter.
+      const referenceTable = await createTable(baseId, {
+        name: 'Reference Catalog',
+        fields: [
+          { name: 'Reference', type: FieldType.SingleLineText },
+          {
+            name: 'Category',
+            type: FieldType.SingleSelect,
+            options: {
+              choices: [
+                { id: 'category-allowed', name: 'Allowed', color: Colors.Green },
+                { id: 'category-excluded-a', name: 'Excluded A', color: Colors.Red },
+                { id: 'category-excluded-b', name: 'Excluded B', color: Colors.Yellow },
+              ],
+            },
+          },
+        ],
+        records: [
+          { fields: { Reference: 'Reference A', Category: 'Allowed' } },
+          { fields: { Reference: 'Reference B', Category: 'Excluded A' } },
+          { fields: { Reference: 'Reference C', Category: 'Excluded B' } },
+        ],
+      });
+      const taskTable = await createTable(baseId, {
+        name: 'Work Items',
+        fields: [
+          { name: 'Task', type: FieldType.SingleLineText },
+          {
+            name: 'Stage',
+            type: FieldType.SingleSelect,
+            options: {
+              choices: [
+                { id: 'stage-active', name: 'Active', color: Colors.Blue },
+                { id: 'stage-planned', name: 'Planned', color: Colors.Gray },
+              ],
+            },
+          },
+        ],
+        records: [],
+      });
+
+      try {
+        const linkField = await createField(taskTable.id, {
+          name: 'Reference',
+          type: FieldType.Link,
+          options: {
+            foreignTableId: referenceTable.id,
+            relationship: Relationship.ManyOne,
+          },
+        });
+        const categoryField = referenceTable.fields.find((field) => field.name === 'Category')!;
+        const lookupField = await createField(taskTable.id, {
+          name: 'Reference Category',
+          type: FieldType.SingleSelect,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: referenceTable.id,
+            lookupFieldId: categoryField.id,
+            linkFieldId: linkField.id,
+          },
+        });
+
+        await createRecords(taskTable.id, {
+          fieldKeyType: FieldKeyType.Name,
+          records: [
+            {
+              fields: {
+                Task: 'Allowed task',
+                Stage: 'Active',
+                Reference: { id: referenceTable.records[0].id },
+              },
+            },
+            {
+              fields: {
+                Task: 'Excluded task A',
+                Stage: 'Active',
+                Reference: { id: referenceTable.records[1].id },
+              },
+            },
+            {
+              fields: {
+                Task: 'Excluded task B',
+                Stage: 'Planned',
+                Reference: { id: referenceTable.records[2].id },
+              },
+            },
+            { fields: { Task: 'Unlinked task', Stage: 'Planned' } },
+          ],
+        });
+
+        const viewId = taskTable.defaultViewId!;
+        const taskField = taskTable.fields.find((field) => field.name === 'Task')!;
+        const stageField = taskTable.fields.find((field) => field.name === 'Stage')!;
+        await apiSetViewFilter(taskTable.id, viewId, {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              { fieldId: lookupField.id, operator: isNotEmpty.value, value: null },
+              {
+                fieldId: lookupField.id,
+                operator: isNoneOf.value,
+                value: ['Excluded A', 'Excluded B'],
+              },
+            ],
+          },
+        });
+        await updateViewSort(taskTable.id, viewId, {
+          sort: {
+            sortObjs: [
+              { fieldId: lookupField.id, order: SortFunc.Asc },
+              { fieldId: taskField.id, order: SortFunc.Asc },
+            ],
+            manualSort: false,
+          },
+        });
+        await updateViewGroup(taskTable.id, viewId, {
+          group: [
+            { fieldId: lookupField.id, order: SortFunc.Asc },
+            { fieldId: stageField.id, order: SortFunc.Asc },
+          ],
+        });
+
+        const response = await apiGetRecords(taskTable.id, {
+          viewId,
+          fieldKeyType: FieldKeyType.Name,
+        });
+
+        expect(response.headers[X_TEABLE_V2_HEADER]).toBe('true');
+        expect(response.headers[X_TEABLE_V2_FEATURE_HEADER]).toBe('getRecords');
+        expect(response.headers[X_TEABLE_V2_REASON_HEADER]).toBe('env_force_v2_all');
+        expect(response.data.records.map((record) => record.fields.Task)).toEqual(['Allowed task']);
+      } finally {
+        await permanentDeleteTable(baseId, taskTable.id);
+        await permanentDeleteTable(baseId, referenceTable.id);
+      }
+    });
+  });
+});
+
+describe('Sanitized oneMany lookup of single-value user view filter (e2e)', () => {
+  it('emits isMultipleCellValue and accepts hasAnyOf on a oneMany user lookup', async () => {
+    await withForceV2All(async () => {
+      // Sanitized, structure-equivalent fixture for T6943:
+      // table B single-value user -> table A oneMany link + lookup of that user.
+      const ownerTable = await createTable(baseId, {
+        name: 'Owner Catalog',
+        fields: [
+          { name: 'Owner Name', type: FieldType.SingleLineText },
+          {
+            name: 'Owner',
+            type: FieldType.User,
+            options: { isMultiple: false, shouldNotify: false },
+          },
+        ],
+        records: [],
+      });
+      const workTable = await createTable(baseId, {
+        name: 'Work Items',
+        fields: [{ name: 'Task', type: FieldType.SingleLineText }],
+        records: [],
+      });
+
+      try {
+        const ownerField = ownerTable.fields.find((field) => field.name === 'Owner')!;
+        const linkField = await createField(workTable.id, {
+          name: 'Owners',
+          type: FieldType.Link,
+          options: {
+            foreignTableId: ownerTable.id,
+            relationship: Relationship.OneMany,
+          },
+        });
+        const lookupField = await createField(workTable.id, {
+          name: 'Owner Lookup',
+          type: FieldType.User,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: ownerTable.id,
+            lookupFieldId: ownerField.id,
+            linkFieldId: linkField.id,
+          },
+        });
+
+        const fields = await getFields(workTable.id);
+        const lookupVo = fields.find((field) => field.id === lookupField.id);
+        expect(lookupVo?.isMultipleCellValue).toBe(true);
+
+        const operators = getValidFilterOperators(lookupVo!);
+        expect(operators).toContain(hasAnyOf.value);
+        expect(operators).not.toContain(isAnyOf.value);
+
+        await apiSetViewFilter(workTable.id, workTable.defaultViewId!, {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: lookupField.id,
+                operator: hasAnyOf.value,
+                value: [globalThis.testConfig.userId],
+              },
+            ],
+          },
+        });
+
+        const updatedView = await getView(workTable.id, workTable.defaultViewId!);
+        expect(updatedView.filter).toEqual({
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: lookupField.id,
+              operator: hasAnyOf.value,
+              value: [globalThis.testConfig.userId],
+            },
+          ],
+        });
+      } finally {
+        await permanentDeleteTable(baseId, workTable.id);
+        await permanentDeleteTable(baseId, ownerTable.id);
+      }
     });
   });
 });

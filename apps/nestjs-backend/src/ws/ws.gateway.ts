@@ -6,8 +6,10 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import type { Request } from 'express';
 import sockjs from 'sockjs';
+import { recordCompressionNegotiation } from '../share-db/metrics/compression-metrics';
 import { RealtimeMetricsService } from '../share-db/metrics/realtime-metrics.service';
 import { ShareDbService } from '../share-db/share-db.service';
+import { createSockjsServerOptions } from './sockjs-options';
 
 @Injectable()
 export class WsGateway implements OnModuleInit, OnModuleDestroy {
@@ -32,14 +34,8 @@ export class WsGateway implements OnModuleInit, OnModuleDestroy {
   onModuleInit() {
     const httpServer = this.httpAdapterHost.httpAdapter.getHttpServer() as http.Server;
 
-    // SockJS server configuration for collaborative data sync (similar to Airtable)
-    // - transports: Only websocket and xhr-streaming (xhr-polling excluded for performance)
-    // - response_limit: 1MB to handle large batch operations (table sync, bulk row updates)
-    this.sockjsServer = sockjs.createServer({
-      prefix: '/socket',
-      transports: ['websocket', 'xhr-streaming'],
-      response_limit: 2 * 1024 * 1024, // 2MB for large collaborative payloads
-      log: (severity: string, message: string) => {
+    this.sockjsServer = sockjs.createServer(
+      createSockjsServerOptions((severity: string, message: string) => {
         if (severity === 'error') {
           this.logger.error(message);
         } else if (severity === 'info') {
@@ -47,9 +43,8 @@ export class WsGateway implements OnModuleInit, OnModuleDestroy {
         } else {
           this.logger.debug(message);
         }
-      },
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-    } as sockjs.ServerOptions & { transports: string[]; response_limit: number });
+      })
+    );
 
     this.sockjsServer.on('connection', this.handleConnection);
     this.sockjsServer.installHandlers(httpServer);
@@ -81,6 +76,20 @@ export class WsGateway implements OnModuleInit, OnModuleDestroy {
 
       // Extract request with headers (including cookies for auth)
       const request = this.getRequestFromConnection(conn);
+
+      // Records whether Sec-WebSocket-Extensions survived whatever sits in front
+      // of this pod; `offer_missing` on a websocket connection means compression
+      // is silently off for that client.
+      const negotiation = recordCompressionNegotiation(
+        conn.protocol,
+        request.headers?.['sec-websocket-extensions'] as string | undefined
+      );
+      if (negotiation === 'offer_missing') {
+        this.logger.debug(
+          `sockjs:on:connection no permessage-deflate offer reached the pod ` +
+            `(transport: ${conn.protocol}) — check for a proxy stripping Sec-WebSocket-Extensions`
+        );
+      }
 
       this.shareDb.listen(stream, request);
 

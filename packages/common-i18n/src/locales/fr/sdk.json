@@ -3,6 +3,7 @@
     "empty": "Vide",
     "noRecords": "Aucun enregistrement disponible",
     "unnamedRecord": "Enregistrement sans nom",
+    "recordDeleted": "Enregistrement supprimé",
     "untitled": "Sans titre",
     "cancel": "Annuler",
     "confirm": "Confirmer",
@@ -32,14 +33,23 @@
     "resetSuccess": "Réinitialisation réussie",
     "click": "Cliquer",
     "clickedCount": "{{label}}: Cliquer {{text}} fois",
-    "atLeastOne": "Conservez au moins un {{noun}}"
+    "atLeastOne": "Conservez au moins un {{noun}}",
+    "close": "Fermer",
+    "selectField": "Sélectionner un champ"
   },
   "notification": {
     "title": "Notification"
   },
+  "aiError": {
+    "title": "Échec de la génération par IA",
+    "retry": "Réessayer",
+    "dismiss": "Ignorer"
+  },
   "preview": {
     "previewFileLimit": "Limite de taille du fichier en aperçu : {{size}} Mo, veuillez télécharger pour le visualiser.",
-    "loadFileError": "Échec du chargement du fichier"
+    "loadFileError": "Échec du chargement du fichier",
+    "previousAttachment": "Précédent",
+    "nextAttachment": "Suivant"
   },
   "undoRedo": {
     "undo": "Undo",
@@ -59,11 +69,21 @@
       "uploadBaseTextPrefix": "Click to upload ",
       "uploadBaseText": "or paste or drag and drop here",
       "uploadDragDefault": "Collez ou faites glisser pour télécharger ici",
-      "upload": "télécharger"
+      "upload": "télécharger",
+      "downloadAll": "Tout télécharger",
+      "downloadSuccess": "Téléchargement terminé",
+      "downloadFailed": "Échec du téléchargement",
+      "downloadCancelled": "Téléchargement annulé",
+      "requireHttps": "Le téléchargement groupé nécessite HTTPS. Accédez au site via HTTPS ou localhost"
     },
     "date": {
       "placeholder": "Choisir une date",
-      "today": "Aujourd'hui"
+      "today": "Aujourd'hui",
+      "rangePlaceholder": "Choisir une plage de dates",
+      "rangeSelected": "Sélectionné",
+      "invalidTimeRange": "L’heure de fin doit être postérieure à l’heure de début",
+      "from": "Du",
+      "to": "Au"
     },
     "formula": {
       "title": "Éditeur de formule",
@@ -140,13 +160,14 @@
   "filter": {
     "label": "Filtrer",
     "displayLabel": "Filtrer par ",
+    "displayLabel_one": "Filtrer par {{fieldName}} et {{count}} autres champs",
+    "displayLabel_many": "Filtrer par {{fieldName}} et {{count}} autres champs",
     "displayLabel_other": "Filtrer par {{fieldName}} et {{count}} autres champs",
     "addCondition": "Ajouter une condition",
     "addConditionGroup": "Ajouter un groupe de conditions",
     "nestedLimitTip": "Les conditions de filtrage ne peuvent être imbriquées que jusqu'à 3 niveaux",
     "linkInputPlaceholder": "Entrez une valeur",
     "currentUser": "Moi (utilisateur actuel)",
-    "tips": {},
     "invalidateSelected": "Invalid value",
     "invalidateSelectedTips": "The selected value has been deleted, please select again",
     "invalidConditionTip": "Cette condition de filtre est invalide et sera ignorée. Veuillez ajuster la valeur.",
@@ -210,6 +231,7 @@
         "exactDate": "date exacte",
         "exactDateTime": "horodatage exact",
         "exactFormatDate": "date exacte (formatée)",
+        "dateRange": "plage personnalisée",
         "currentWeek": "current week",
         "currentMonth": "current month",
         "currentYear": "current year",
@@ -228,7 +250,11 @@
         "pastNumberOfDays": "nombre de jours passés",
         "nextNumberOfDays": "nombre de jours à venir"
       }
-    }
+    },
+    "selectOperator": "Sélectionner un opérateur",
+    "selectConjunction": "Sélectionner une conjonction",
+    "selectDateMode": "Sélectionner une option de date",
+    "selectValue": "Sélectionner une valeur"
   },
   "color": {
     "label": "couleur"
@@ -244,10 +270,10 @@
     "title": "du nom de champ",
     "displayLines": "{{count}} lignes"
   },
-  "share": {},
-  "extensions": {},
   "hidden": {
     "label": "Champs cachés",
+    "configLabel_one": "{{count}} champs cachés",
+    "configLabel_many": "{{count}} champs cachés",
     "configLabel_other": "{{count}} champs cachés",
     "configLabel_other_visible": "{{count}} champs visibles",
     "showAll": "Tout afficher",
@@ -257,6 +283,8 @@
   },
   "expandRecord": {
     "copy": "Copier dans le presse-papiers",
+    "previousRecord": "Précédent",
+    "nextRecord": "Suivant",
     "duplicateRecord": "Duplicate record",
     "copyRecordUrl": "Copier l'URL de l'enregistrement",
     "deleteRecord": "Supprimer l'enregistrement",
@@ -285,19 +313,23 @@
   "sort": {
     "label": "Trier",
     "displayLabel_one": "Trier par {{count}} champ",
+    "displayLabel_many": "Trier par {{count}} champs",
     "displayLabel_other": "Trier par {{count}} champs",
     "setTips": "Trier par",
     "addButton": "Ajouter un autre tri",
     "autoSort": "Trier automatiquement les enregistrements",
     "selectASCLabel": "Ordre d'options",
-    "selectDESCLabel": "Options dans l'ordre inverse"
+    "selectDESCLabel": "Options dans l'ordre inverse",
+    "orderTitle": "Sélectionner l’ordre de tri"
   },
   "group": {
     "label": "Grouper",
     "displayLabel_one": "Grouper par {{count}} champ",
+    "displayLabel_many": "Grouper par {{count}} champs",
     "displayLabel_other": "Grouper par {{count}} champs",
     "setTips": "Grouper par",
-    "addButton": "Ajouter un sous-groupe"
+    "addButton": "Ajouter un sous-groupe",
+    "maxLimitTip": "Vous pouvez grouper par {{count}} champs au maximum"
   },
   "field": {
     "title": {
@@ -335,7 +367,7 @@
       "date": "Enregistrez des dates ou des heures.",
       "createdTime": "Affiche quand l'enregistrement a été créé.",
       "lastModifiedTime": "Affiche la dernière mise à jour.",
-      "attachment": "Téléverser des fichiers ou générer des images par IA, prend en charge des modèles comme 🍌 Nano banana pro",
+      "attachment": "Téléverser des fichiers ou générer des images par IA, prend en charge des modèles comme GPT Image 2",
       "checkbox": "Basculez un simple oui ou non.",
       "rollup": "Résumez les enregistrements liés avec des formules.",
       "conditionalRollup": "Résumez les données selon des conditions.",
@@ -386,6 +418,8 @@
       "tableTrashRead": "Lire la corbeille de la table",
       "tableTrashUpdate": "Mettre à jour la corbeille de la table",
       "tableTrashReset": "Réinitialiser la corbeille de la table",
+      "tableArchiveRead": "Lire l'archive de la table",
+      "tableArchiveManage": "Gérer l'archive de la table",
       "viewCreate": "Créer une vue",
       "viewDelete": "Supprimer une vue",
       "viewRead": "Lire une vue",
@@ -401,6 +435,7 @@
       "recordRead": "Lire un enregistrement",
       "recordUpdate": "Mettre à jour un enregistrement",
       "recordCopy": "Copy record",
+      "recordArchive": "Archiver l'enregistrement",
       "automationCreate": "Créer une automatisation",
       "automationDelete": "Supprimer une automatisation",
       "automationRead": "Lire une automatisation",
@@ -548,6 +583,14 @@
     "SUBSTITUTE": {
       "summary": "Remplace les occurrences de old_text par new_text.\nVous pouvez optionnellement spécifier un numéro d'index (commençant à 1) pour remplacer juste une occurrence spécifique de old_text. Si aucun numéro d'index n'est spécifié, toutes les occurrences de old_text seront remplacées.",
       "example": "SUBSTITUTE(\"Hello Table\", \"Table\", \"Teable\") => \"Hello Teable\""
+    },
+    "TEXTBEFORE": {
+      "summary": "Renvoie le texte situé avant un délimiteur.",
+      "example": "TEXTBEFORE(\"20, 04, 79\", \",\") => \"20\""
+    },
+    "TEXTSPLIT": {
+      "summary": "Divise le texte selon un délimiteur et renvoie plusieurs valeurs textuelles.",
+      "example": "TEXTSPLIT(\"20, 04, 79\", \",\") => [\"20\", \" 04\", \" 79\"]"
     },
     "LOWER": {
       "summary": "Met une chaîne en minuscules.",
@@ -886,10 +929,12 @@
     "creditLimitExceeded": "Limite de crédits dépassée",
     "restrictedResource": "Ressource restreinte",
     "notFound": "Non trouvé",
+    "viewNotFound": "Vue introuvable",
     "conflict": "Conflit",
     "unprocessableEntity": "Entité non traitable",
     "userLimitExceeded": "Limite de l'utilisateur dépassée",
     "tooManyRequests": "Trop de requêtes",
+    "payloadTooLarge": "Charge utile trop volumineuse",
     "internalServerError": "Erreur interne du serveur",
     "databaseConnectionUnavailable": "Connexion à la base de données non disponible",
     "gatewayTimeout": "Temps d'attente de la passerelle",
@@ -926,15 +971,21 @@
       "nameMaxLength": "Le nom est trop long. Le maximum est de {{max}} caractères.",
       "descriptionMaxLength": "La description est trop longue. Le maximum est de {{max}} caractères."
     },
-    "validation": {
-      "field": {
-        "unique": "Le champ doit avoir une valeur unique"
-      }
-    },
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" champ \"{{fieldName}}\" ne permet pas les valeurs vides, veuillez les remplir complètement avant de soumettre.",
       "fieldValueDuplicate": "\"{{tableName}}\" champ \"{{fieldName}}\" ne permet pas les valeurs dupliquées, veuillez remplir une valeur unique avant de soumettre.",
+      "recordFieldValueNotNull": "Le champ \"{{fieldName}}\" ne permet pas les valeurs vides, veuillez le remplir complètement avant de soumettre.",
+      "recordFieldValueDuplicate": "Le champ \"{{fieldName}}\" ne permet pas les valeurs dupliquées, veuillez remplir une valeur unique avant de soumettre.",
+      "recordDeleteBlockedByRequiredLink": "Suppression impossible : le champ de lien obligatoire \"{{fieldName}}\" de la table \"{{tableName}}\" deviendrait vide.",
+      "recordDeleteBlockedByRequiredLinkGeneric": "Suppression impossible : cet enregistrement est encore référencé par un champ de lien dans une autre table.",
+      "recordDeleteBlockedByLink": "Suppression impossible : le champ de lien \"{{fieldName}}\" de la table \"{{tableName}}\" référence encore cet enregistrement.",
       "linkFieldValueDuplicate": "\"{{fieldName}}\" champ ne permet pas les associations dupliquées avec le même enregistrement",
+      "linkBatchDuplicate": "Impossible de lier l'enregistrement : dans ce même lot, il est déjà lié par un autre enregistrement. Dans une relation un-à-plusieurs, chaque enregistrement enfant ne peut appartenir qu'à un seul enregistrement parent.",
+      "linkOneManyDuplicate": "Impossible de lier l'enregistrement : il est déjà lié à un autre enregistrement. Dans une relation un-à-plusieurs, chaque enregistrement enfant ne peut appartenir qu'à un seul enregistrement parent.",
+      "linkOneOneDuplicate": "Impossible de lier l'enregistrement : l'enregistrement cible est déjà lié par un autre enregistrement dans une relation un-à-un.",
+      "fieldMaxColumnLimit": "La table \"{{tableName}}\" peut contenir au maximum {{maxFieldCount}} champs.",
+      "fieldRequiredExistingValues": "Impossible de rendre le champ \"{{fieldName}}\" obligatoire, car des enregistrements existants contiennent des valeurs vides.",
+      "fieldUniqueExistingValues": "Impossible de rendre le champ \"{{fieldName}}\" unique, car des enregistrements existants contiennent des valeurs dupliquées.",
       "requestTimeout": "L'action actuelle est trop grande, veuillez réessayer avec un étendue plus petite.",
       "searchTimeOut": "La recherche a expiré, veuillez réduire l'ambito de la recherche et réessayer.",
       "dependencyNodeRequire": "Nœud de dépendance non testé, veuillez vérifier si tous les nœuds précédents ont été testés",
@@ -1012,15 +1063,19 @@
       "onlyFailedRunsCanRerun": "Seules les exécutions échouées peuvent être relancées",
       "workflowMustBeActiveToRerun": "Le workflow doit être actif pour être relancé",
       "snapshotChangedOnlyFullRerun": "Le workflow a été modifié depuis cette exécution. Seule une réexécution complète est autorisée.",
+      "runPayloadColdTruncated": "Certaines données de cette exécution ont été tronquées lors de l'archivage à froid ; la réexécution est indisponible",
+      "runListOffsetTooDeep": "Cette page est trop loin dans l'historique des exécutions pour la pagination par décalage ; continuez avec le curseur renvoyé par la page précédente.",
       "controlStepsMissingOnlyFullRerun": "Les données du nœud de contrôle sont manquantes pour cette exécution. Seule une réexécution complète est prise en charge.",
       "triggerNodeAlreadyExists": "Cette automatisation a déjà un nœud déclencheur",
+      "scheduledIntervalTooShort": "Les automatisations planifiées doivent être espacées d'au moins {{min}} minutes",
+      "emailPollIntervalTooShort": "Les déclencheurs e-mail ne peuvent pas vérifier les nouveaux messages plus souvent que toutes les {{min}} minutes",
+      "unSupportLogicType": "Type de logique non supporté",
       "generateLogicError": "Erreur lors de la génération du nœud de logique",
       "logicNotFound": "Nœud de logique d'automatisation non trouvé",
-      "actionNotFound": "Nœud d'action d'automatisation non trouvé",
-      "unSupportDuplicateWorkflowNodeType": "Duplication de ce type de nœud d'automatisation non supportée",
-      "unSupportLogicType": "Type de logique non supporté",
       "groupEndNotFound": "GroupEnd non trouvé pour la logique",
       "insertNodeError": "Erreur d'insertion de nœud",
+      "actionNotFound": "Nœud d'action d'automatisation non trouvé",
+      "unSupportDuplicateWorkflowNodeType": "Duplication de ce type de nœud d'automatisation non supportée",
       "controlNodeNotBeTested": "Le nœud de contrôle ne doit pas être testé",
       "invalidNodeType": "Type de nœud invalide",
       "unsupportedCategory": "Catégorie non supportée",
@@ -1154,6 +1209,7 @@
       "whiteListCheckError": "Une erreur s'est produite lors de la vérification de l'accès à la table : {{message}}",
       "databaseConnectionFailed": "La connexion à la base de données a échoué : {{message}}",
       "executeQuerySqlFailed": "L'exécution de la requête SQL a échoué : {{message}}",
+      "readOnlyCheckFailed": "Échec de la vérification en lecture seule : {{message}}",
       "sqlSyntaxError": "Erreur de syntaxe SQL, veuillez vérifier votre requête"
     },
     "permission": {
@@ -1175,7 +1231,8 @@
       "deniedByEnabledAuthorityMatrix": "Permission refusée par la matrice d'autorité activée",
       "invalidRequestPath": "Le chemin de la requête n'est pas valide",
       "notAllowedOperation": "Vous n'avez pas la permission d'effectuer cette opération",
-      "notAllowedDepartment": "Vous n'êtes pas autorisé à accéder à ce département"
+      "notAllowedDepartment": "Vous n'êtes pas autorisé à accéder à ce département",
+      "templateHeaderInvalid": "L’en-tête de modèle n’est pas valide"
     },
     "authorityMatrix": {
       "defaultRoleNotFound": "Rôle par défaut introuvable",
@@ -1225,6 +1282,7 @@
       "lookupFieldIdInvalid": "Champ de recherche {{lookupFieldId}} invalide",
       "formulaExpressionParseError": "Erreur d'analyse de l'expression de formule",
       "formulaReferenceNotFound": "Champ de référence de formule {{fieldIds}} introuvable",
+      "formulaReferenceNotFieldId": "Les références de formule {{fieldIds}} sont introuvables. Les formules doivent utiliser des ID de champ (format fldXXXXXXXXXXXXXXXX), pas des noms de champ.",
       "rollupExpressionParseError": "Erreur d'analyse de l'expression de cumul",
       "choiceNameAlreadyExists": "Le nom de choix {{name}} existe déjà",
       "symmetricFieldIdRequired": "L'ID de champ symétrique est requis",
@@ -1233,12 +1291,12 @@
       "lookupFieldTypeNotEqual": "Le type de champ actuel {{fieldType}} n'est pas égal au type de champ de recherche {{lookupFieldType}}",
       "recordNotFound": "Enregistrement {{recordId}} introuvable dans {{tableId}}",
       "linkCellRecordIdAlreadyExists": "Impossible de définir un recordId en double: {{recordId}} dans la même cellule",
+      "linkConsistencyError": "Erreur de cohérence, recordId {{recordId}} n'existe pas",
       "oneOneLinkCellValueCannotBeArray": "Les valeurs de champ de lien un-à-un ne peuvent pas être un tableau",
       "manyOneLinkCellValueCannotBeArray": "Les valeurs de champ de lien plusieurs-à-un ne peuvent pas être un tableau",
-      "foreignKeyDuplicate": "Clé étrangère en double",
-      "linkConsistencyError": "Erreur de cohérence, recordId {{recordId}} n'existe pas",
       "oneManyLinkCellValueShouldBeArray": "Les valeurs de champ de lien un-à-plusieurs doivent être un tableau",
       "manyManyLinkCellValueShouldBeArray": "Les valeurs de champ de lien plusieurs-à-plusieurs doivent être un tableau",
+      "foreignKeyDuplicate": "Clé étrangère en double",
       "onlyLinkFieldCanBeFiltered": "Seuls les champs de lien peuvent être utilisés pour le filtrage",
       "notLinkedToCurrentTable": "Le champ n'est pas lié à la table actuelle",
       "notAttachment": "Le champ n'est pas un champ de pièce jointe",
@@ -1261,10 +1319,13 @@
     },
     "view": {
       "notFound": "Vue introuvable",
+      "cannotDeleteLastView": "Impossible de supprimer la dernière vue d’une table. Une table doit comporter au moins une vue.",
       "defaultViewNotFound": "Vue par défaut introuvable",
       "propertyParseError": "Échec de l'analyse de la propriété de la vue",
       "primaryFieldCannotBeHidden": "Le champ primaire ne peut pas être masqué",
       "filterUnsupportedFieldType": "Type de champ non pris en charge par le filtre",
+      "filterInvalidOperator": "Le filtre utilise un opérateur non valide pour ce type de champ",
+      "filterInvalidOperatorMode": "Le filtre utilise une combinaison opérateur/mode non valide",
       "sortUnsupportedFieldType": "Type de champ non pris en charge par le tri",
       "groupUnsupportedFieldType": "Type de champ non pris en charge par le regroupement",
       "anchorNotFound": "Vue d'ancrage introuvable",
@@ -1275,7 +1336,10 @@
     },
     "billing": {
       "insufficientCredit": "Crédit insuffisant",
+      "upgradeRequired": "Cette fonctionnalité n’est pas disponible dans votre offre actuelle. Veuillez passer à une offre supérieure pour l’utiliser.",
       "exceedMaxRowLimit": "Limite maximale de lignes {{maxRowCount}} dépassée",
+      "exceedMaxAttachmentSizeLimit": "Le stockage des pièces jointes a atteint la limite de votre offre. Passez à une offre supérieure ou supprimez des pièces jointes.",
+      "exceedMaxSystemEmailLimit": "Les envois d’e-mails mensuels ont atteint la limite de votre offre. Veuillez passer à une offre supérieure.",
       "exceedMaxAutomationRunLimit": "Le nombre maximal mensuel d'exécutions d'automatisation est atteint",
       "manualSubscriptionNotSupported": "L'abonnement en libre-service n'est pas disponible pour cet espace. Pour les mises à niveau, les rétrogradations ou d'autres modifications d'abonnement, veuillez contacter le support Teable.",
       "appSumoSubscriptionNotSupported": "Les abonnements AppSumo ne peuvent pas être modifiés via cette interface. Veuillez gérer votre abonnement sur AppSumo.",
@@ -1300,16 +1364,19 @@
       "configurationNotSet": "La configuration IA n'est pas définie",
       "unsupportedProvider": "Fournisseur IA non pris en charge {{type}}",
       "providerConfigurationNotSet": "La configuration du fournisseur IA n'est pas définie",
+      "gatewayApiKeyNotSet": "La clé d’API d’AI Gateway n’est pas configurée",
       "testLLMFailed": "Le test de connexion LLM a échoué",
       "audioNotSupported": "L'entrée audio n'est pas prise en charge par ce modèle {{model}}",
       "imageNotSupported": "L'entrée d'image n'est pas prise en charge par ce modèle {{model}}",
       "modelNotSet": "Le modèle IA n'est pas défini",
       "unsupportedFileType": "Type de fichier non pris en charge {{mimetype}}",
+      "attachmentDownloadFailed": "Échec du téléchargement de la pièce jointe : {{reason}}",
       "unsupportedModelType": "Type de modèle non pris en charge",
       "embeddingModelNotSet": "Le modèle d'incorporation n'est pas défini",
       "validateActionFailed": "Échec de la validation de l'action IA du champ",
       "generateFailed": "Échec de la génération IA",
-      "unsupportedActionType": "Type d'action IA non pris en charge"
+      "unsupportedActionType": "Type d'action IA non pris en charge",
+      "geminiImageNotSupportedViaGateway": "La génération d’images Gemini n’est pas prise en charge via AI Gateway. Veuillez configurer un fournisseur Google direct."
     },
     "skill": {
       "notFound": "Compétence introuvable",
@@ -1330,7 +1397,8 @@
       "totalSizeExceedsLimit": "La taille totale des ressources dépasse la limite de {{maxSizeMB}} Mo",
       "invalidGithubUrl": "URL GitHub invalide. Attendu : https://github.com/owner/repo/tree/<branch>/path/to/skill",
       "directoryTooDeep": "Le répertoire de la compétence dépasse la profondeur maximale de {{maxDepth}} niveaux. Répertoires imbriqués : {{dirs}}",
-      "importFailed": "Échec de l'importation : {{errorCode}}"
+      "importFailed": "Échec de l'importation : {{errorCode}}",
+      "alreadyInScope": "La compétence est déjà dans la portée cible"
     },
     "sandbox": {
       "fileNotFound": "Fichier introuvable dans le sandbox",
@@ -1409,12 +1477,21 @@
       "expired": "La licence a expiré",
       "userLimitExceeded": "Le nombre d'utilisateurs dans l'instance actuelle dépasse la limite de sièges de la licence. Veuillez désactiver certains utilisateurs ou mettre à niveau la licence"
     },
+    "domainVerification": {
+      "notFound": "Aucun code de vérification de domaine trouvé",
+      "invalidCode": "Code de vérification invalide",
+      "resendCooldown": "Veuillez attendre 1 minute avant de demander un nouveau code",
+      "alreadyVerified": "Le domaine est déjà vérifié"
+    },
     "organization": {
       "notFound": "Organisation non trouvée",
-      "emailNotSpaceUser": "L'email n'est pas un utilisateur de l'espace",
       "authenticationNotFound": "Authentification non trouvée",
       "spaceShouldExist": "L'espace de l'organisation devrait exister",
-      "emailsNotInOrgDomain": "Ces e-mails {{emails}} ne sont pas dans le domaine de l'organisation"
+      "emailsNotInOrgDomain": "Ces e-mails {{emails}} ne sont pas dans le domaine de l'organisation",
+      "emailNotSpaceUser": "L'email n'est pas un utilisateur de l'espace"
+    },
+    "mail": {
+      "failedToSendEmail": "Échec de l'envoi de l'e-mail"
     },
     "user": {
       "disallowSignUp": "L'instance actuelle n'autorise pas l'inscription par l'administrateur",
@@ -1460,14 +1537,6 @@
       "takeCountTooLarge": "Le nombre de modèles demandés dépasse la limite maximale",
       "categoryLimitReached": "Limite de catégories de modèles atteinte (maximum {{maxCount}})"
     },
-    "domainVerification": {
-      "notFound": "Aucun code de vérification de domaine trouvé",
-      "invalidCode": "Code de vérification invalide",
-      "resendCooldown": "Veuillez attendre 1 minute avant de demander un nouveau code"
-    },
-    "mail": {
-      "failedToSendEmail": "Échec de l'envoi de l'e-mail"
-    },
     "department": {
       "parentNotFound": "Département parent non trouvé",
       "notFound": "Département non trouvé",
@@ -1485,7 +1554,16 @@
       "apiKeyNotSet": "La clé API du constructeur d'applications n'est pas définie",
       "cannotDeployAppBeforeInitialization": "Impossible de déployer l'application avant l'initialisation",
       "noProjectOrVersionFound": "Aucun projet ou version trouvé",
-      "noDeploymentUrlAvailable": "Aucune URL de déploiement disponible"
+      "noDeploymentUrlAvailable": "Aucune URL de déploiement disponible",
+      "noFilesInZip": "Aucun fichier trouvé dans le ZIP",
+      "zipFileTooLarge": "La taille du fichier ZIP dépasse la limite de 5 Mo",
+      "invalidZip": "Fichier ZIP non valide",
+      "domainAlreadyInUse": "Ce domaine est déjà lié à une autre application",
+      "domainReserved": "Ce sous-domaine est réservé",
+      "siteInfoBeforeGeneration": "Générez l’application avant de personnaliser les informations de son site",
+      "generationEditingConflict": "Une génération par IA modifie actuellement cette application. Réessayez la mise à jour du fichier une fois terminée.",
+      "siteInfoLayoutNotEditable": "Le code de cette application ne permet pas de modifier ici les informations du site. Demandez plutôt à l’IA, par message, de changer le titre, la description ou l’icône du site.",
+      "siteInfoManagedInCode": "Cette application gère le titre et la description du site dans le code. Demandez plutôt à l’IA, par message, de les modifier."
     },
     "reward": {
       "notFound": "Récompense non trouvée",
@@ -1495,6 +1573,7 @@
       "alreadyClaimedThisWeek": "Vous avez déjà réclamé une récompense pour ce compte cette semaine",
       "invalidPostUrl": "Format d'URL de publication invalide",
       "postAlreadyUsed": "Cette publication a déjà été utilisée pour réclamer une récompense",
+      "tooManyFailedAttempts": "Trop de tentatives de vérification échouées cette semaine",
       "unsupportedPlatformUrl": "URL de plateforme sociale non prise en charge",
       "unsupportedPlatform": "Plateforme non prise en charge : {{platform}}",
       "minCharCount": "La publication doit contenir au moins {{count}} caractères",
@@ -1507,9 +1586,26 @@
       "fetchLinkedInPostFailed": "Échec de la récupération de la publication LinkedIn : {{error}}",
       "linkedInPostNotFound": "Publication LinkedIn non trouvée : {{postId}}",
       "linkedInAuthorNotFound": "Auteur LinkedIn non trouvé : {{postId}}",
-      "fetchLinkedInUserFailed": "Échec de la récupération de l'utilisateur LinkedIn : {{error}}",
-      "domainAlreadyInUse": "Ce domaine est déjà lié à une autre application",
-      "domainReserved": "Sous-domaine réservé"
+      "fetchLinkedInUserFailed": "Échec de la récupération de l'utilisateur LinkedIn : {{error}}"
+    }
+  },
+  "usageLimitBanner": {
+    "viewDetail": "Voir les détails",
+    "rows": {
+      "title": "Cet espace utilise {{current}} lignes, ce qui dépasse la limite de {{limit}} de votre forfait",
+      "titleIncrement": "Cette action ajoute {{increment}} lignes et dépasse la limite de {{limit}} de votre forfait",
+      "titleBatch": "Cette opération dépasserait la limite de {{limit}} lignes de votre forfait",
+      "description": "Vous ne pouvez plus ajouter d'enregistrements. Passez à un forfait supérieur pour lever la limite immédiatement, ou libérez de l'espace en supprimant des enregistrements.",
+      "unit": "lignes"
+    },
+    "credit": {
+      "unit": "crédits"
+    },
+    "attachments": {
+      "unit": "Pièces jointes"
+    },
+    "generic": {
+      "description": "Passez à un forfait supérieur pour lever cette limite."
     }
   }
 }

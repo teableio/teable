@@ -1,4 +1,16 @@
-import { domainError, type IExecutionContext, type Table } from '@teable/v2-core';
+import {
+  LEGACY_MANAGED_SEARCH_DOCUMENT_COLUMN_PREFIX,
+  LEGACY_MANAGED_SEARCH_INDEX_PREFIX,
+  MANAGED_SCOPED_SEARCH_INDEX_PREFIX,
+  MANAGED_SEARCH_DOCUMENT_COLUMN_PREFIX,
+  MANAGED_SEARCH_INDEX_PREFIX,
+} from '@teable/v2-adapter-db-postgres-shared';
+import {
+  domainError,
+  type IExecutionContext,
+  type SearchFieldTextProjection,
+  type Table,
+} from '@teable/v2-core';
 import {
   buildTableSearchVectorDefinition,
   SearchScopeHeatPolicy,
@@ -16,21 +28,27 @@ import { err, ok } from 'neverthrow';
 
 import { getTablePhysicalName, makePhysicalTableSql, quoteIdentifier } from './helpers';
 import { readPostgresSearchAccessPathCapabilities } from './searchAccessPathCapability';
+import {
+  renderSearchTextProjectionSql,
+  sanitizeSearchTextProjection,
+  searchTextProjectionKey,
+} from './searchDocumentProjection';
 import type { UnknownPostgresDatabase } from './types';
 
 const DEFAULT_LANGUAGE_CONFIG = 'simple';
 const LARGE_TABLE_REWRITE_ESTIMATED_ROWS = 50_000;
 const MIN_RECOMMENDED_COST_IMPROVEMENT_PCT = 20;
 
-// All generated columns and indexes this advisor manages carry these prefixes.
-// The executor refuses to ADD/DROP anything that does not, so a hand-built or
-// mistyped payload can never rewrite/drop a real user column or index.
-const GENERATED_COLUMN_PREFIX = '__tqops_search_';
-const INDEX_NAME_PREFIX = 'idx_tqops_search_';
-const SCOPED_EXPRESSION_INDEX_PREFIX = 'idx_tqops_search_scope_';
-const LEGACY_GENERATED_COLUMN_PREFIX = '__tqops_tsv_';
-const LEGACY_INDEX_NAME_PREFIX = 'idx_tqops_tsv_';
-const SEARCH_DOCUMENT_DEFINITION_VERSION = 'v1';
+// All generated columns and indexes this advisor manages carry the shared
+// prefixes from @teable/v2-table-query-ops. The executor refuses to ADD/DROP
+// anything that does not, so a hand-built or mistyped payload can never
+// rewrite/drop a real user column or index.
+const GENERATED_COLUMN_PREFIX = MANAGED_SEARCH_DOCUMENT_COLUMN_PREFIX;
+const INDEX_NAME_PREFIX = MANAGED_SEARCH_INDEX_PREFIX;
+const SCOPED_EXPRESSION_INDEX_PREFIX = MANAGED_SCOPED_SEARCH_INDEX_PREFIX;
+const LEGACY_GENERATED_COLUMN_PREFIX = LEGACY_MANAGED_SEARCH_DOCUMENT_COLUMN_PREFIX;
+const LEGACY_INDEX_NAME_PREFIX = LEGACY_MANAGED_SEARCH_INDEX_PREFIX;
+const SEARCH_DOCUMENT_DEFINITION_VERSION = 'v2';
 const SEARCH_SEMANTICS_SAMPLE_LIMIT = 3;
 const SEARCH_SEMANTICS_FIELD_PREVIEW_LIMIT = 4;
 const SEARCH_SEMANTICS_TOKEN_LIMIT = 16;
@@ -61,6 +79,7 @@ export type TableQuerySearchVectorFieldSummary = {
   readonly fieldType: string;
   readonly valueType?: string;
   readonly included: boolean;
+  readonly textProjection?: SearchFieldTextProjection;
   readonly skippedReason?: string;
 };
 
@@ -304,6 +323,7 @@ export type ExecuteTableSearchVectorInput = {
       readonly fieldId: string;
       readonly fieldDbName: string;
       readonly fieldType?: string;
+      readonly textProjection?: SearchFieldTextProjection;
     }[];
     readonly searchScope?: 'all_fields' | 'selected_fields';
     readonly allowLargeTableRewrite?: boolean;
@@ -318,7 +338,17 @@ export type SearchVectorExecutionCandidateInput = {
   readonly fields: readonly {
     readonly fieldId: string;
     readonly fieldDbName: string;
+    readonly textProjection?: SearchFieldTextProjection;
   }[];
+};
+
+export type DropTableSearchVectorResult = {
+  readonly action: 'dropped';
+  readonly tableId: string;
+  readonly hadManagedObjects: boolean;
+  readonly candidateKey?: string;
+  readonly generatedColumnName?: string;
+  readonly indexName?: string;
 };
 
 export type ExecuteTableSearchVectorResult = {
@@ -453,9 +483,13 @@ type SearchAccessPathExecutionField = ExecuteTableSearchVectorInput['payload']['
 const requireExecutionFields = (
   fields: ExecuteTableSearchVectorInput['payload']['fields']
 ): readonly SearchAccessPathExecutionField[] => {
-  const included = fields.filter((field): field is SearchAccessPathExecutionField =>
-    Boolean(field.fieldDbName)
-  );
+  const included = fields
+    .filter((field): field is SearchAccessPathExecutionField => Boolean(field.fieldDbName))
+    .map((field) => ({
+      ...field,
+      // Payloads arrive as JSON; never let an unvalidated projection reach DDL.
+      textProjection: sanitizeSearchTextProjection(field.textProjection),
+    }));
   if (!included.length) {
     throw new Error('Search access-path task payload must include at least one field');
   }
@@ -875,6 +909,100 @@ export class PostgresTableSearchVectorExecutor {
     });
   }
 
+  /**
+   * Table-level kill switch: drop the managed generated column + GIN index and
+   * disable every active config row so the runtime falls back to plain ILIKE.
+   */
+  async drop(
+    tableId: string,
+    expectedDefinitionKey?: string
+  ): Promise<DropTableSearchVectorResult> {
+    return this.metaDb.connection().execute(async (lockedMetaDb) => {
+      await sql`
+        SELECT pg_advisory_lock(
+          hashtext('teable.table_query_ops.search_vector'),
+          hashtext(${tableId})
+        )
+      `.execute(lockedMetaDb);
+      try {
+        const lockedDataDb = this.dataDb === this.metaDb ? lockedMetaDb : this.dataDb;
+        return await new PostgresTableSearchVectorExecutor(lockedMetaDb, lockedDataDb).dropUnlocked(
+          tableId,
+          expectedDefinitionKey
+        );
+      } finally {
+        await sql`
+          SELECT pg_advisory_unlock(
+            hashtext('teable.table_query_ops.search_vector'),
+            hashtext(${tableId})
+          )
+        `.execute(lockedMetaDb);
+      }
+    });
+  }
+
+  private async dropUnlocked(
+    tableId: string,
+    expectedDefinitionKey?: string
+  ): Promise<DropTableSearchVectorResult> {
+    const tableMeta = await this.requireTableMeta(tableId);
+    const physical = splitPhysicalName(tableMeta.db_table_name, tableMeta.base_id);
+    const tableSql = makePhysicalTableSql(physical.schema, physical.tableName);
+    const currentConfig = expectedDefinitionKey
+      ? await this.claimedReclaimConfig(tableId, expectedDefinitionKey)
+      : await this.currentConfig(tableId);
+    if (currentConfig) {
+      assertManagedSearchVectorNames(currentConfig.generated_column_name, currentConfig.index_name);
+      await this.dropManagedIndex(physical.schema, currentConfig.index_name);
+      await this.dropManagedColumn(tableSql, currentConfig.generated_column_name);
+    }
+    if (expectedDefinitionKey) {
+      if (currentConfig) {
+        await sql`
+          UPDATE table_query_search_vector_config
+          SET last_inspection = ${JSON.stringify({
+            state: 'disabled',
+            staleReasons: ['reclaimed_after_grace'],
+          })}::jsonb,
+              reclaim_disabled_at = NULL,
+              reclaim_drop_after = NULL,
+              reclaim_drop_queued_at = NULL,
+              reclaim_idx_scan_baseline = NULL,
+              reclaim_sampled_at = NULL,
+              last_modified_time = now()
+          WHERE table_id = ${tableId}
+            AND candidate_key = ${expectedDefinitionKey}
+            AND status = 'disabled'
+        `.execute(this.metaDb);
+      }
+    } else {
+      await sql`
+        UPDATE table_query_search_vector_config
+        SET status = 'disabled',
+            last_inspection = ${JSON.stringify({
+              state: 'disabled',
+              staleReasons: ['manually_dropped'],
+            })}::jsonb,
+            last_modified_time = now()
+        WHERE table_id = ${tableId}
+          AND status IN ('ready', 'stale', 'rebuild_pending')
+      `.execute(this.metaDb);
+    }
+
+    return {
+      action: 'dropped',
+      tableId,
+      hadManagedObjects: Boolean(currentConfig),
+      ...(currentConfig
+        ? {
+            candidateKey: currentConfig.candidate_key,
+            generatedColumnName: currentConfig.generated_column_name,
+            indexName: currentConfig.index_name,
+          }
+        : {}),
+    };
+  }
+
   private async executeUnlocked(
     input: ExecuteTableSearchVectorInput
   ): Promise<ExecuteTableSearchVectorResult> {
@@ -893,12 +1021,23 @@ export class PostgresTableSearchVectorExecutor {
     const capabilities = await readSubstringSearchCapabilities(this.dataDb);
     const providerCapability = requireUsableExecutionProvider(capabilities, input.payload.provider);
     assertExecutionOperatorClass(input.payload.operatorClass, providerCapability);
-    const { validationMode, searchProbe } = resolveExecutionValidation(input, providerCapability);
+    const executionInput = await withUnattendedProbe(
+      this.dataDb,
+      physical,
+      fields,
+      providerCapability,
+      input
+    );
+    const { validationMode, searchProbe } = resolveExecutionValidation(
+      executionInput,
+      providerCapability
+    );
     const validationFields = fields.map((field) => ({
       fieldId: field.fieldId,
       fieldDbName: field.fieldDbName,
       fieldType: field.fieldType ?? 'unknown',
       included: true,
+      ...(field.textProjection ? { textProjection: field.textProjection } : {}),
     }));
     const realDdlBeforePlan =
       validationMode === 'real_ddl'
@@ -908,7 +1047,7 @@ export class PostgresTableSearchVectorExecutor {
             searchProbe,
           })
         : undefined;
-    const expression = buildSearchDocumentExpression(fields.map((field) => field.fieldDbName));
+    const expression = buildSearchDocumentExpression(fields);
     const tableSql = makePhysicalTableSql(physical.schema, physical.tableName);
 
     const currentConfig = await this.currentConfig(input.tableId);
@@ -1241,6 +1380,24 @@ export class PostgresTableSearchVectorExecutor {
     return result.rows[0];
   }
 
+  private async claimedReclaimConfig(
+    tableId: string,
+    expectedDefinitionKey: string
+  ): Promise<SearchVectorConfigRow | undefined> {
+    const result = await sql<SearchVectorConfigRow>`
+      SELECT candidate_key, semantics, access_path, provider, operator_class,
+             generated_column_name, index_name, language_config, field_ids, search_scope
+      FROM table_query_search_vector_config
+      WHERE table_id = ${tableId}
+        AND candidate_key = ${expectedDefinitionKey}
+        AND status = 'disabled'
+        AND reclaim_drop_after <= now()
+        AND reclaim_drop_queued_at IS NOT NULL
+      LIMIT 1
+    `.execute(this.metaDb);
+    return result.rows[0];
+  }
+
   private async upsertConfig(input: {
     readonly tableId: string;
     readonly baseId: string;
@@ -1323,6 +1480,11 @@ export class PostgresTableSearchVectorExecutor {
         search_scope = EXCLUDED.search_scope,
         status = EXCLUDED.status,
         last_inspection = EXCLUDED.last_inspection,
+        reclaim_disabled_at = NULL,
+        reclaim_drop_after = NULL,
+        reclaim_drop_queued_at = NULL,
+        reclaim_idx_scan_baseline = NULL,
+        reclaim_sampled_at = NULL,
         last_modified_time = now()
     `.execute(this.metaDb);
   }
@@ -1336,6 +1498,24 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
 
   async reconcile(context: IExecutionContext, input: ReconcileTableSearchVectorInput) {
     try {
+      if (input.mode === 'drop') {
+        const executor = new PostgresTableSearchVectorExecutor(this.metaDb, this.dataDb);
+        const dropped = await executor.drop(
+          input.table.id().toString(),
+          input.expectedDefinitionKey
+        );
+        return ok<ReconcileTableSearchVectorResult>({
+          action: 'dropped',
+          tableId: dropped.tableId,
+          definitionKey: dropped.candidateKey ?? '',
+          generatedColumnName: dropped.generatedColumnName ?? '',
+          indexName: dropped.indexName ?? '',
+          languageConfig: DEFAULT_LANGUAGE_CONFIG,
+          fieldIds: [],
+          status: 'disabled',
+        });
+      }
+
       const advisor = new PostgresTableSearchVectorAdvisor(this.dataDb);
       const analysis = await advisor.analyze(context, {
         table: input.table,
@@ -1370,6 +1550,7 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
         fields: recommendation.coveredFields.map((field) => ({
           fieldId: field.fieldId,
           fieldDbName: field.fieldDbName ?? '',
+          ...(field.textProjection ? { textProjection: field.textProjection } : {}),
         })),
       };
       const validationMode = input.validationMode ?? 'real_ddl';
@@ -1395,6 +1576,7 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
             fieldId: field.fieldId,
             fieldDbName: field.fieldDbName ?? '',
             fieldType: field.fieldType,
+            ...(field.textProjection ? { textProjection: field.textProjection } : {}),
           })),
           searchScope: recommendation.searchScope,
           allowLargeTableRewrite: input.allowLargeTableRewrite,
@@ -1466,6 +1648,7 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
             fieldId: field.fieldId,
             fieldDbName: field.fieldDbName ?? '',
             fieldType: field.fieldType,
+            ...(field.textProjection ? { textProjection: field.textProjection } : {}),
           })),
           searchScope: recommendation.searchScope,
           // Schema maintenance must obey the same rewrite guard as an explicit
@@ -1650,11 +1833,18 @@ const lengthBucket = (value: string | undefined): 'none' | 'short' | 'medium' | 
 const buildSearchVectorNames = (
   tableId: string,
   providerCapability: TableQuerySubstringSearchProviderCapability,
-  fields: readonly { readonly fieldId: string; readonly fieldDbName?: string }[]
+  fields: readonly {
+    readonly fieldId: string;
+    readonly fieldDbName?: string;
+    readonly textProjection?: SearchFieldTextProjection;
+  }[]
 ) => {
   const hash = stableHash(
     `${tableId}:substring:${providerCapability.provider}:${providerCapability.operatorClass}:${fields
-      .map((field) => `${field.fieldId}=${field.fieldDbName ?? ''}`)
+      .map(
+        (field) =>
+          `${field.fieldId}=${field.fieldDbName ?? ''}:${searchTextProjectionKey(field.textProjection)}`
+      )
       .join(',')}`
   );
   return {
@@ -1667,11 +1857,18 @@ const buildSearchVectorNames = (
 const buildScopedExpressionIndexNames = (
   tableId: string,
   providerCapability: TableQuerySubstringSearchProviderCapability,
-  fields: readonly { readonly fieldId: string; readonly fieldDbName?: string }[]
+  fields: readonly {
+    readonly fieldId: string;
+    readonly fieldDbName?: string;
+    readonly textProjection?: SearchFieldTextProjection;
+  }[]
 ) => {
   const hash = stableHash(
     `${tableId}:substring:${providerCapability.provider}:${providerCapability.operatorClass}:${fields
-      .map((field) => `${field.fieldId}=${field.fieldDbName ?? ''}`)
+      .map(
+        (field) =>
+          `${field.fieldId}=${field.fieldDbName ?? ''}:${searchTextProjectionKey(field.textProjection)}`
+      )
       .sort()
       .join(',')}`
   );
@@ -1681,9 +1878,67 @@ const buildScopedExpressionIndexNames = (
   };
 };
 
-const buildSearchDocumentExpression = (fieldDbNames: readonly string[]): string => {
-  const document = fieldDbNames
-    .map((fieldDbName) => `coalesce(${quoteIdentifier(fieldDbName)}::text, '')`)
+type SearchDocumentExpressionField = {
+  readonly fieldDbName: string;
+  readonly textProjection?: SearchFieldTextProjection;
+};
+
+/**
+ * Unattended real-DDL runs have no admin-typed probe: sample one from the table's
+ * own data (guaranteed to match a row), or fall back to plan validation on empty
+ * tables where result-compatibility checks are meaningless.
+ */
+const withUnattendedProbe = async (
+  dataDb: Kysely<UnknownPostgresDatabase>,
+  physical: { readonly schema: string; readonly tableName: string },
+  fields: readonly SearchDocumentExpressionField[],
+  capability: TableQuerySubstringSearchProviderCapability,
+  input: ExecuteTableSearchVectorInput
+): Promise<ExecuteTableSearchVectorInput> => {
+  if ((input.payload.validationMode ?? 'plan') !== 'real_ddl') return input;
+  if (input.payload.searchProbe?.trim()) return input;
+  const sampledProbe = await sampleSearchProbeFromData(
+    dataDb,
+    physical,
+    fields,
+    capability.minimumProbeLength
+  );
+  return sampledProbe
+    ? { ...input, payload: { ...input.payload, searchProbe: sampledProbe } }
+    : { ...input, payload: { ...input.payload, validationMode: 'plan' } };
+};
+
+/**
+ * Samples a substring probe from the table's own search document so unattended
+ * real-DDL validation always probes something that matches at least one row. The
+ * caller trims/normalizes; returns undefined when no row carries enough text.
+ */
+const sampleSearchProbeFromData = async (
+  dataDb: Kysely<UnknownPostgresDatabase>,
+  physical: { readonly schema: string; readonly tableName: string },
+  fields: readonly SearchDocumentExpressionField[],
+  minimumProbeLength: number
+): Promise<string | undefined> => {
+  const expression = buildSearchDocumentExpression(fields);
+  const probeLength = Math.max(minimumProbeLength, 3) + 5;
+  const result = await sql<{ probe: string | null }>`
+    SELECT substring(btrim(${sql.raw(expression)}) FROM 1 FOR ${probeLength}) AS probe
+    FROM ${sql.raw(makePhysicalTableSql(physical.schema, physical.tableName))}
+    WHERE char_length(btrim(${sql.raw(expression)})) >= ${minimumProbeLength}
+    LIMIT 1
+  `.execute(dataDb);
+  const probe = result.rows[0]?.probe?.trim();
+  return probe && Array.from(probe).length >= minimumProbeLength ? probe : undefined;
+};
+
+const buildSearchDocumentExpression = (
+  fields: readonly SearchDocumentExpressionField[]
+): string => {
+  const document = fields
+    .map(
+      (field) =>
+        `coalesce(${renderSearchTextProjectionSql(quoteIdentifier(field.fieldDbName), field.textProjection)}, '')`
+    )
     .join(` || E'\\n' || `);
   return `lower(${document || quoteLiteral('')})`;
 };
@@ -1695,7 +1950,10 @@ const buildSearchDocumentExpressionWithAlias = (
   const document = fields
     .map(
       (field) =>
-        `coalesce(${quoteIdentifier(alias)}.${quoteIdentifier(field.fieldDbName)}::text, '')`
+        `coalesce(${renderSearchTextProjectionSql(
+          `${quoteIdentifier(alias)}.${quoteIdentifier(field.fieldDbName)}`,
+          field.textProjection
+        )}, '')`
     )
     .join(` || E'\\n' || `);
   return `lower(${document || quoteLiteral('')})`;
@@ -2080,14 +2338,22 @@ const sampleSearchMatches = async (
   }));
 };
 
+// The exact per-field predicate over the same canonical projections the
+// generated document is built from. Using one projection on both sides is what
+// keeps the document prefilter a superset of this baseline.
+const buildFieldProjectionSql = (field: IncludedSearchVectorField, alias: string): string =>
+  renderSearchTextProjectionSql(
+    `${quoteIdentifier(alias)}.${quoteIdentifier(field.fieldDbName)}`,
+    field.textProjection
+  );
+
 const buildIlikeWhere = (
   fields: readonly IncludedSearchVectorField[],
   searchProbe: string
 ): ReturnType<typeof sql> => {
   const pattern = `%${escapeLikeWildcards(searchProbe)}%`;
   const conditions = fields.map(
-    (field) =>
-      sql`(${sql.raw(`${quoteIdentifier('t')}.${quoteIdentifier(field.fieldDbName)}`)})::text ILIKE ${pattern} ESCAPE '\\'`
+    (field) => sql`${sql.raw(buildFieldProjectionSql(field, 't'))} ILIKE ${pattern} ESCAPE '\\'`
   );
   return conditions.reduce((acc, condition) => sql`${acc} OR ${condition}`, sql`false`);
 };
@@ -2121,7 +2387,10 @@ const inspectSearchVectorInventory = async (
     readonly generatedColumnName: string;
     readonly indexName: string;
   },
-  fields: readonly { readonly fieldDbName?: string }[],
+  fields: readonly {
+    readonly fieldDbName?: string;
+    readonly textProjection?: SearchFieldTextProjection;
+  }[],
   providerCapability: TableQuerySubstringSearchProviderCapability
 ): Promise<TableQuerySearchVectorInventory> => {
   const columnRows = await sql<{
@@ -2181,9 +2450,7 @@ const inspectSearchVectorInventory = async (
   const column = columnRows.rows[0];
   const index = indexRows.rows[0];
   const expectedExpression = buildSearchDocumentExpression(
-    fields
-      .map((field) => field.fieldDbName)
-      .filter((fieldDbName): fieldDbName is string => Boolean(fieldDbName))
+    fields.filter((field): field is SearchDocumentExpressionField => Boolean(field.fieldDbName))
   );
   const staleReasons = collectSearchVectorStaleReasons(
     column,
@@ -2484,12 +2751,7 @@ const explainSearchBefore = async (
     readonly searchProbe?: string;
   }
 ): Promise<ExplainPlan> => {
-  const pattern = `%${escapeLikeWildcards(input.searchProbe ?? '')}%`;
-  const conditions = input.fields.map(
-    (field) =>
-      sql`(${sql.raw(`${quoteIdentifier('t')}.${quoteIdentifier(field.fieldDbName)}`)})::text ILIKE ${pattern} ESCAPE '\\'`
-  );
-  const where = conditions.reduce((acc, condition) => sql`${acc} OR ${condition}`, sql`false`);
+  const where = buildIlikeWhere(input.fields, input.searchProbe ?? '');
   const rows = await sql<ExplainRow>`
     EXPLAIN (FORMAT JSON)
     SELECT 1
@@ -2560,7 +2822,7 @@ const buildBeforeSearchSql = (input: {
   const conditions = input.fields
     .map(
       (field) =>
-        `(${quoteIdentifier('t')}.${quoteIdentifier(field.fieldDbName)})::text ILIKE :search_probe_like_pattern ESCAPE '\\\\'`
+        `${buildFieldProjectionSql(field, 't')} ILIKE :search_probe_like_pattern ESCAPE '\\\\'`
     )
     .join(' OR ');
   return [
@@ -2638,7 +2900,7 @@ const buildBeforeSearchConditionsSql = (fields: readonly IncludedSearchVectorFie
   fields
     .map(
       (field) =>
-        `(${quoteIdentifier('t')}.${quoteIdentifier(field.fieldDbName)})::text ILIKE :search_probe_like_pattern ESCAPE '\\\\'`
+        `${buildFieldProjectionSql(field, 't')} ILIKE :search_probe_like_pattern ESCAPE '\\\\'`
     )
     .join(' OR ') || 'false';
 
@@ -2758,7 +3020,7 @@ const buildHypotheticalSearchVectorIndexStatement = (input: {
   readonly providerCapability: TableQuerySubstringSearchProviderCapability;
   readonly fields: readonly IncludedSearchVectorField[];
 }): string => {
-  const expression = buildSearchDocumentExpression(input.fields.map((field) => field.fieldDbName));
+  const expression = buildSearchDocumentExpression(input.fields);
   return `CREATE INDEX ON ${makePhysicalTableSql(
     input.physical.schema,
     input.physical.tableName

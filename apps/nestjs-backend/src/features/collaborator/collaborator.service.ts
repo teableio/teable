@@ -16,6 +16,8 @@ import type {
   CollaboratorItem,
   IItemBaseCollaboratorUser,
   IListBaseCollaboratorUserRo,
+  ListSpaceUniqueCollaboratorVo,
+  UniqueCollaboratorItem,
 } from '@teable/openapi';
 import { CollaboratorType, PrincipalType } from '@teable/openapi';
 import { Knex } from 'knex';
@@ -39,6 +41,20 @@ import { getMaxLevelRole } from '../../utils/get-max-level-role';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
+
+export type IUniqueCollaboratorRow = {
+  principal_type: PrincipalType;
+  principal_id: string;
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  user_avatar: string | null;
+  user_is_system: boolean | null;
+  last_sign_time: Date | null;
+  space_role: string | null;
+  base_count: number | bigint;
+  created_time: Date;
+};
 
 @Injectable()
 export class CollaboratorService {
@@ -320,12 +336,13 @@ export class CollaboratorService {
       search?: string;
       includeBase?: boolean;
       type?: PrincipalType;
+      principalId?: string;
     }
   ): Promise<{
     builder: Knex.QueryBuilder;
     baseMap: Record<string, { name: string; id: string }>;
   }> {
-    const { includeSystem, search, type, includeBase } = options ?? {};
+    const { includeSystem, search, type, includeBase, principalId } = options ?? {};
 
     let baseIds: string[] = [];
     let baseMap: Record<string, { name: string; id: string }> = {};
@@ -366,6 +383,9 @@ export class CollaboratorService {
     if (type) {
       builder.where('collaborator.principal_type', type);
     }
+    if (principalId) {
+      builder.where('collaborator.principal_id', principalId);
+    }
     return { builder, baseMap };
   }
 
@@ -376,6 +396,7 @@ export class CollaboratorService {
       includeBase?: boolean;
       search?: string;
       type?: PrincipalType;
+      principalId?: string;
     }
   ) {
     const builder = this.knex.queryBuilder();
@@ -395,19 +416,28 @@ export class CollaboratorService {
       includeBase?: boolean;
       search?: string;
       type?: PrincipalType;
+      principalId?: string;
     }
   ) {
-    // Get total count (existing logic)
-    const builder = this.knex.queryBuilder();
-    await this.getSpaceCollaboratorBuilder(builder, spaceId, options);
-    const res = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<
-        { count: number }[]
-      >(builder.select(this.knex.raw('COUNT(*) as count')).toQuery());
-    const total = Number(res[0].count);
+    const [total, uniqTotal] = await Promise.all([
+      this.getTotalSpace(spaceId, options),
+      this.getUniqSpaceCollaboratorCount(spaceId, options),
+    ]);
+    return {
+      total,
+      uniqTotal,
+    };
+  }
 
-    // Get unique total - distinct users across space and base collaborators
+  // Unique principals across space and base collaborators
+  protected async getUniqSpaceCollaboratorCount(
+    spaceId: string,
+    options?: {
+      includeSystem?: boolean;
+      search?: string;
+      type?: PrincipalType;
+    }
+  ) {
     const uniqBuilder = this.knex.queryBuilder();
     await this.getSpaceCollaboratorBuilder(uniqBuilder, spaceId, { ...options, includeBase: true });
     const uniqRes = await this.prismaService
@@ -415,12 +445,105 @@ export class CollaboratorService {
       .$queryRawUnsafe<
         { count: number }[]
       >(uniqBuilder.select(this.knex.raw('COUNT(DISTINCT users.id) as count')).toQuery());
-    const uniqTotal = Number(uniqRes[0].count);
+    return Number(uniqRes[0].count);
+  }
 
+  // Select per-principal columns on the row-level builder and return their
+  // aliases so the grouping query can group by them. EE adds department and
+  // billable columns here.
+  protected decorateUniqueListInnerBuilder(builder: Knex.QueryBuilder, _spaceId: string): string[] {
+    builder.select({
+      user_id: 'users.id',
+      user_name: 'users.name',
+      user_email: 'users.email',
+      user_avatar: 'users.avatar',
+      user_is_system: 'users.is_system',
+      last_sign_time: 'users.last_sign_time',
+    });
+    return [
+      'user_id',
+      'user_name',
+      'user_email',
+      'user_avatar',
+      'user_is_system',
+      'last_sign_time',
+    ];
+  }
+
+  // Keep the list consistent with getUniqSpaceCollaboratorCount, which only
+  // counts resolvable users: rows whose principal no longer resolves must not
+  // form ghost groups. EE relaxes this to also admit departments.
+  protected excludeDanglingUniquePrincipals(builder: Knex.QueryBuilder) {
+    builder.whereNotNull('users.id');
+  }
+
+  protected mapUniqueCollaborator(row: IUniqueCollaboratorRow): UniqueCollaboratorItem {
     return {
-      total,
-      uniqTotal,
+      type: PrincipalType.User,
+      userId: row.user_id,
+      userName: row.user_name,
+      email: row.user_email,
+      avatar: row.user_avatar ? getPublicFullStorageUrl(row.user_avatar) : null,
+      isSystem: row.user_is_system || undefined,
+      lastSignTime: row.last_sign_time?.toISOString() ?? null,
+      spaceRole: (row.space_role as IRole) ?? null,
+      baseCount: Number(row.base_count),
+      createdTime: row.created_time.toISOString(),
     };
+  }
+
+  async getUniqueListBySpace(
+    spaceId: string,
+    options?: {
+      includeSystem?: boolean;
+      skip?: number;
+      take?: number;
+      search?: string;
+      type?: PrincipalType;
+      orderBy?: 'desc' | 'asc';
+    }
+  ): Promise<ListSpaceUniqueCollaboratorVo> {
+    const { skip = 0, take = 50, orderBy = 'desc' } = options ?? {};
+    const inner = this.knex.queryBuilder();
+    await this.getSpaceCollaboratorBuilder(inner, spaceId, { ...options, includeBase: true });
+    this.excludeDanglingUniquePrincipals(inner);
+    inner.select({
+      principal_type: 'collaborator.principal_type',
+      principal_id: 'collaborator.principal_id',
+      resource_type: 'collaborator.resource_type',
+      role_name: 'collaborator.role_name',
+      created_time: 'collaborator.created_time',
+    });
+    const principalColumns = this.decorateUniqueListInnerBuilder(inner, spaceId);
+
+    const groupColumns = ['principal_type', 'principal_id', ...principalColumns];
+    const builder = this.knex
+      .from(inner.as('space_collaborator'))
+      .groupBy(groupColumns)
+      .select(groupColumns)
+      .select(
+        this.knex.raw('MAX(CASE WHEN resource_type = ? THEN role_name END) as space_role', [
+          CollaboratorType.Space,
+        ]),
+        this.knex.raw('SUM(CASE WHEN resource_type = ? THEN 1 ELSE 0 END) as base_count', [
+          CollaboratorType.Base,
+        ]),
+        this.knex.raw('MIN(created_time) as created_time')
+      )
+      // principal_id keeps pagination stable across equal created_time values
+      .orderBy([
+        { column: 'created_time', order: orderBy },
+        { column: 'principal_id', order: 'asc' },
+      ])
+      .offset(skip)
+      .limit(take);
+
+    const [rows, total] = await Promise.all([
+      this.prismaService.txClient().$queryRawUnsafe<IUniqueCollaboratorRow[]>(builder.toQuery()),
+      this.getUniqSpaceCollaboratorCount(spaceId, options),
+    ]);
+    const collaborators = rows.map((row) => this.mapUniqueCollaborator(row));
+    return { collaborators, total };
   }
 
   // eslint-disable-next-line sonarjs/no-identical-functions
@@ -464,6 +587,7 @@ export class CollaboratorService {
       search?: string;
       type?: PrincipalType;
       orderBy?: 'desc' | 'asc';
+      principalId?: string;
     }
   ): Promise<CollaboratorItem[]> {
     const builder = this.knex.queryBuilder();
@@ -559,6 +683,42 @@ export class CollaboratorService {
       );
     }
     return { currentColl, targetColl };
+  }
+
+  // Remove every base-level collaborator row of one principal within a space,
+  // reusing deleteCollaborator per row so role checks and events apply.
+  async deleteBaseCollaboratorsBySpace({
+    spaceId,
+    principalId,
+    principalType,
+  }: {
+    spaceId: string;
+    principalId: string;
+    principalType: PrincipalType;
+  }) {
+    const bases = await this.prismaService.txClient().base.findMany({
+      where: { spaceId, deletedTime: null },
+      select: { id: true },
+    });
+    const rows = await this.prismaService.txClient().collaborator.findMany({
+      where: {
+        principalId,
+        principalType,
+        resourceType: CollaboratorType.Base,
+        resourceId: { in: bases.map((base) => base.id) },
+      },
+      select: { resourceId: true },
+    });
+    await this.prismaService.$tx(async () => {
+      for (const row of rows) {
+        await this.deleteCollaborator({
+          resourceId: row.resourceId,
+          resourceType: CollaboratorType.Base,
+          principalId,
+          principalType,
+        });
+      }
+    });
   }
 
   async isUniqueOwnerUser(spaceId: string, userId: string) {

@@ -31,6 +31,18 @@ interface IChatPanelState {
   toggleExpanded: () => void;
 }
 
+/**
+ * Shrink an 'expanded' (page-covering) panel back to the normal side panel;
+ * 'open' and 'close' are left untouched. For click handlers that navigate to
+ * content the expanded panel would otherwise keep hidden.
+ */
+export const collapseChatPanelIfExpanded = () => {
+  const { status, open } = useChatPanelStore.getState();
+  if (status === 'expanded') {
+    open();
+  }
+};
+
 export const useChatPanelStore = create<IChatPanelState>()(
   persist(
     (set) => ({

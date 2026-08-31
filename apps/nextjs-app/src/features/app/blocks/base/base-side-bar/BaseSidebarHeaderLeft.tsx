@@ -10,7 +10,7 @@ import {
   updateBase,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBase } from '@teable/sdk/hooks';
+import { useBase, useContentDir } from '@teable/sdk/hooks';
 import { useIsReadOnlyPreview } from '@teable/sdk/hooks/use-is-readonly-preview';
 import {
   Badge,
@@ -73,6 +73,7 @@ const BaseDropdownMenu = ({
   disabled?: boolean;
 }) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const contentDir = useContentDir();
   const isCloud = useIsCloud();
   const [open, setOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -116,7 +117,7 @@ const BaseDropdownMenu = ({
           sideOffset={4}
           onClick={(e) => e.stopPropagation()}
         >
-          <span className="absolute right-3 top-2.5 z-10 inline-flex h-5 items-center gap-1">
+          <span className="absolute end-3 top-2.5 z-10 inline-flex h-5 items-center gap-1">
             <DataDbBadge
               dataDb={space?.dataDb}
               className="h-5 rounded-sm px-1.5 text-[10px] leading-none"
@@ -138,7 +139,7 @@ const BaseDropdownMenu = ({
             </TooltipProvider>
           </span>
           <DropdownMenuItem onClick={backSpace}>
-            <div className="flex w-full cursor-pointer items-center gap-2 pr-10">
+            <div className="flex w-full cursor-pointer items-center gap-2 pe-10">
               <ArrowLeft className="size-4" />
               {t('common:actions.backToSpace')}
             </div>
@@ -174,7 +175,7 @@ const BaseDropdownMenu = ({
                         <Database className="size-4" />
                       )}
                     </span>
-                    <span className="truncate" title={base.name}>
+                    <span dir={contentDir} className="truncate" title={base.name}>
                       {base.name}
                     </span>
                   </Link>
@@ -242,6 +243,7 @@ const BaseDropdownMenu = ({
 
 export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.ReactNode }) => {
   const base = useBase();
+  const contentDir = useContentDir();
   const router = useRouter();
   const [renaming, setRenaming] = useState<boolean>();
   const [baseName, setBaseName] = useState<string>(base.name);
@@ -273,7 +275,7 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
     setTimeout(() => inputRef.current?.focus(), 200);
   };
 
-  const hasUpdatePermission = hasPermission(base.role, 'base|update');
+  const hasUpdatePermission = !base.restrictedAuthority && hasPermission(base.role, 'base|update');
 
   const backSpace = () => {
     if (isReadOnlyPreview) {
@@ -294,7 +296,7 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
   return (
     <div className="flex min-w-0 shrink grow items-center">
       <div
-        className="relative mr-1 size-6 shrink-0 cursor-pointer"
+        className="relative me-1 size-6 shrink-0 cursor-pointer"
         onClick={backSpace}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -365,7 +367,7 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
                 }
               )}
             >
-              <span className="min-w-0 shrink truncate text-sm" title={base.name}>
+              <span dir={contentDir} className="min-w-0 shrink truncate text-sm" title={base.name}>
                 {base.name}
               </span>
               {isBaseShared && <Share2 className="size-3.5 shrink-0 text-muted-foreground" />}

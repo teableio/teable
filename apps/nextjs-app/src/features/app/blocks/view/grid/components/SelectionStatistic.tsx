@@ -528,7 +528,7 @@ const SelectionStatisticInner = (props: ISelectionStatisticProps) => {
   return (
     <div
       className={cn(
-        'absolute bottom-16 right-8 z-40 flex items-center gap-2',
+        'absolute bottom-16 end-8 z-40 flex items-center gap-2',
         'whitespace-nowrap rounded-full border bg-background px-3 py-1.5 text-xs shadow-md'
       )}
     >

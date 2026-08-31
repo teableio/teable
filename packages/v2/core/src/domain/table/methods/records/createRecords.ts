@@ -1,6 +1,7 @@
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import type { DomainError } from '../../../shared/DomainError';
+import type { RecordCreateSource } from '../../events/RecordFieldValuesDTO';
 import type { FieldKeyMapping } from '../../records/RecordCreateResult';
 import type { RecordId } from '../../records/RecordId';
 import type { ICellValueSpec } from '../../records/specs/values/ICellValueSpecVisitor';
@@ -23,6 +24,7 @@ export function createRecords(
     typecast?: boolean;
     valuesAreValidated?: boolean;
     emitRecordCreatedEvents?: boolean;
+    source?: RecordCreateSource;
   }
 ): Result<CreateRecordsMethodResult, DomainError> {
   const table = this;
@@ -30,6 +32,7 @@ export function createRecords(
     typecast = false,
     valuesAreValidated = false,
     emitRecordCreatedEvents = true,
+    source,
   } = options ?? {};
   return safeTry<CreateRecordsMethodResult, DomainError>(function* () {
     const buildContext = createRecordBuildContext(table);
@@ -54,6 +57,7 @@ export function createRecords(
         buildContext,
         valuesAreValidated,
         emitRecordCreatedEvent: emitRecordCreatedEvents,
+        source,
       });
       records.push(result.record);
       mutateSpecs.push(result.mutateSpec);

@@ -160,12 +160,12 @@ function Calendar({
   });
   const _buttonNextClassName = cn(
     buttonNavClassName,
-    !isDropdownLayout && 'right-0',
+    !isDropdownLayout && 'end-0',
     props.buttonNextClassName
   );
   const _buttonPreviousClassName = cn(
     buttonNavClassName,
-    !isDropdownLayout && 'left-0',
+    !isDropdownLayout && 'start-0',
     props.buttonPreviousClassName
   );
   const _navClassName = cn(
@@ -184,11 +184,11 @@ function Calendar({
       ? 'relative w-full rounded-md h-full p-0 text-center group/day aspect-square select-none'
       : 'flex size-8 flex-1 items-center justify-center p-0 text-sm',
     isDropdownLayout && props.showWeekNumber
-      ? '[&:nth-child(2)[data-selected=true]_button]:rounded-l-md'
+      ? '[&:nth-child(2)[data-selected=true]_button]:rounded-s-md'
       : isDropdownLayout
-        ? '[&:first-child[data-selected=true]_button]:rounded-l-md'
+        ? '[&:first-child[data-selected=true]_button]:rounded-s-md'
         : '',
-    isDropdownLayout && '[&:last-child[data-selected=true]_button]:rounded-r-md',
+    isDropdownLayout && '[&:last-child[data-selected=true]_button]:rounded-e-md',
     props.dayClassName
   );
   const _dayButtonClassName = cn(
@@ -200,13 +200,13 @@ function Calendar({
     'bg-accent [&>button]:bg-primary [&>button]:text-primary-foreground [&>button]:hover:bg-primary [&>button]:hover:text-primary-foreground';
   const _rangeStartClassName = cn(
     isDropdownLayout
-      ? 'rounded-l-md bg-muted relative after:bg-muted after:absolute after:inset-y-0 after:w-4 after:right-0 -z-0 isolate'
+      ? 'rounded-s-md bg-muted relative after:bg-muted after:absolute after:inset-y-0 after:w-4 after:end-0 -z-0 isolate'
       : buttonRangeClassName + ' day-range-start rounded-s-md',
     props.rangeStartClassName
   );
   const _rangeEndClassName = cn(
     isDropdownLayout
-      ? 'rounded-r-md bg-muted relative after:bg-muted after:absolute after:inset-y-0 after:w-4 after:left-0 -z-0 isolate'
+      ? 'rounded-e-md bg-muted relative after:bg-muted after:absolute after:inset-y-0 after:w-4 after:start-0 -z-0 isolate'
       : buttonRangeClassName + ' day-range-end rounded-e-md',
     props.rangeEndClassName
   );

@@ -100,9 +100,11 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     const {
       HybridWithOutboxStrategy,
       ComputedFieldBackfillService,
+      defaultComputedUpdateRuntimeConfig,
       defaultFieldBackfillConfig,
       defaultHybridWithOutboxStrategyConfig,
     } = await import('../record/computed');
+    const { PostgresBaseDataBulkCopier } = await import('../duplicate');
 
     const container = createContainer();
     const db = createDb();
@@ -125,6 +127,9 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     expect(
       getInstance(container, v2RecordRepositoryPostgresTokens.computedUpdateHybridConfig)
     ).toEqual(defaultHybridWithOutboxStrategyConfig);
+    expect(
+      getInstance(container, v2RecordRepositoryPostgresTokens.computedUpdateRuntimeConfig)
+    ).toEqual(defaultComputedUpdateRuntimeConfig);
     expect(getInstance(container, v2RecordRepositoryPostgresTokens.fieldBackfillConfig)).toEqual(
       defaultFieldBackfillConfig
     );
@@ -157,6 +162,11 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     expect(getRegistration(container, v2CoreTokens.computedFieldBackfillService)).toEqual({
       token: v2CoreTokens.computedFieldBackfillService,
       implementation: ComputedFieldBackfillService,
+      options: { lifecycle: Lifecycle.Singleton },
+    });
+    expect(getRegistration(container, v2CoreTokens.baseDataBulkCopier)).toEqual({
+      token: v2CoreTokens.baseDataBulkCopier,
+      implementation: PostgresBaseDataBulkCopier,
       options: { lifecycle: Lifecycle.Singleton },
     });
   });
@@ -192,6 +202,9 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
         lockConfig: {
           enabled: false,
         },
+        runtimeConfig: {
+          inlineStatementTimeoutMs: 12_345,
+        },
         fieldBackfillConfig: {
           mode: 'hybrid',
         },
@@ -217,6 +230,9 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
       maxRecordLocks: 50,
       batchShardCount: 64,
     });
+    expect(
+      getInstance(container, v2RecordRepositoryPostgresTokens.computedUpdateRuntimeConfig)
+    ).toEqual({ inlineStatementTimeoutMs: 12_345 });
     expect(
       getInstance(container, v2RecordRepositoryPostgresTokens.fieldBackfillConfig)
     ).toMatchObject({

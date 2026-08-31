@@ -92,7 +92,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
   );
   const [lsHideNotMatch, setLsHideNotMatchRow] = useLocalStorage<boolean>(
     LocalStorageKeys.SearchHideNotMatchRow,
-    false
+    true
   );
   const [searchFieldMapCache, setSearchFieldMap] = useLocalStorage<Record<string, string[]>>(
     LocalStorageKeys.TableSearchFieldsCache,
@@ -289,11 +289,13 @@ export const SearchButton = (props: ISearchButtonProps) => {
     }
     const fieldIds = fieldId?.split(',') || [];
     const fieldName = fields.find((f) => f.id === fieldIds[0])?.name;
+    // A single field shows its bare name in every language; zh/ja carry no `_one`
+    // plural form, so an explicit `field_one` lookup would fall back to English.
     if (fieldIds.length === 1) {
-      return t('table:view.search.field_one', { name: fieldName });
+      return fieldName;
     }
     if (fieldIds.length > 1) {
-      return t('table:view.search.field_other', { name: fieldName, length: fieldIds?.length });
+      return t('table:view.search.field', { count: fieldIds.length, length: fieldIds.length });
     }
   }, [fieldId, fields, t]);
 
@@ -308,7 +310,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
   return active ? (
     <div
       className={cn(
-        'left-6 top-60 flex h-7 shrink-0 items-center gap-1 overflow-hidden rounded-xl bg-background p-0 pr-[7px] text-xs border outline-muted-foreground w-80',
+        'start-6 top-60 flex h-7 shrink-0 items-center gap-1 overflow-hidden rounded-xl bg-background p-0 pe-[7px] text-xs border outline-muted-foreground w-80',
         {
           outline: isFocused,
         }
@@ -321,7 +323,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
               <Button
                 variant="ghost"
                 size={'xs'}
-                className="flex shrink-0 items-center justify-center overflow-hidden truncate rounded-none border-r px-2"
+                className="flex shrink-0 items-center justify-center overflow-hidden truncate rounded-none border-e px-2"
                 ref={commandTrigger}
               >
                 <TooltipTrigger>
@@ -456,7 +458,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
             />
             <label
               htmlFor="noTips"
-              className="pl-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              className="ps-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
             >
               {t('table:import.tips.noTips')}
             </label>

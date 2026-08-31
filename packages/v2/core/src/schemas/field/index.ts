@@ -47,6 +47,19 @@ export {
   userOptionsSchema,
 } from './tableField.schema';
 
+// Field aiConfig schemas
+export {
+  attachmentFieldAiConfigSchema,
+  dateFieldAiConfigSchema,
+  getFieldAiConfigSchema,
+  multipleSelectFieldAiConfigSchema,
+  ratingFieldAiConfigSchema,
+  singleSelectFieldAiConfigSchema,
+  textFieldAiConfigSchema,
+  validateFieldAiConfig,
+} from './fieldAiConfig.schema';
+export type { IFieldAiConfigValidationResult } from './fieldAiConfig.schema';
+
 // Main table field schema
 export { tableFieldInputSchema } from './tableField.schema';
 export type { ITableFieldInput, ResolvedTableFieldInput } from './tableField.schema';

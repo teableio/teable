@@ -2039,7 +2039,16 @@ describe('OpenAPI SelectionController (e2e)', () => {
           },
         ],
       });
-      expect(result.data.ids).toEqual([table.records[1].id, table.records[0].id]);
+      // The orderBy decides WHICH rows the ranges map to (same ids in both
+      // engines). The response id order differs: v1 returns ids in selection
+      // order, while v2's DeleteByRange returns them in the repository's
+      // delete-capture order (its pre-delete select has no ORDER BY).
+      const expectedIds = [table.records[1].id, table.records[0].id];
+      if (isForceV2) {
+        expect([...result.data.ids].sort()).toEqual([...expectedIds].sort());
+      } else {
+        expect(result.data.ids).toEqual(expectedIds);
+      }
     });
 
     it('should delete selected data with view filter', async () => {
@@ -4323,8 +4332,10 @@ describe('OpenAPI SelectionController (e2e)', () => {
         const recordsAfter = await getRecords(streamTable.id, {
           fieldKeyType: FieldKeyType.Id,
         });
+        // Cleared single-line text is stored as null and omitted from the record
+        // payload, so the first row reads as undefined rather than ''.
         expect(recordsAfter.data.records.map((record) => record.fields[nameFieldId])).toEqual([
-          '',
+          undefined,
           'new-2',
         ]);
       } finally {

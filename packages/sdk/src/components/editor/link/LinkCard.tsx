@@ -2,6 +2,7 @@ import { X } from '@teable/icons';
 import { Button, cn } from '@teable/ui-lib';
 import { noop } from 'lodash';
 import { useTranslation } from '../../../context/app/i18n';
+import { useContentDir } from '../../../hooks/use-content-dir';
 
 interface ILinkCardProps {
   title?: string;
@@ -15,6 +16,7 @@ interface ILinkCardProps {
 export const LinkCard = (props: ILinkCardProps) => {
   const { title, readonly, className, wrapClassName, onClick, onDelete } = props;
   const { t } = useTranslation();
+  const contentDir = useContentDir();
   return (
     <div
       tabIndex={-1}
@@ -27,6 +29,7 @@ export const LinkCard = (props: ILinkCardProps) => {
       onKeyDown={noop}
     >
       <div
+        dir={contentDir}
         className={cn('w-full font-mono text-sm', className)}
         title={title || t('common.unnamedRecord')}
       >
@@ -34,7 +37,7 @@ export const LinkCard = (props: ILinkCardProps) => {
       </div>
       {!readonly && (
         <Button
-          className="absolute right-0 top-0 size-4 -translate-y-1/2 translate-x-1/2 rounded-full md:opacity-0 md:group-hover:opacity-100"
+          className="absolute end-0 top-0 size-4 -translate-y-1/2 translate-x-1/2 rounded-full md:opacity-0 md:group-hover:opacity-100 rtl:-translate-x-1/2"
           size={'icon'}
           tabIndex={-1}
           onClick={(e) => {

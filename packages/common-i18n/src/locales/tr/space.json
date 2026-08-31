@@ -30,7 +30,8 @@
     "fromScratch": "Sıfırdan",
     "fromTemplate": "Şablondan",
     "moveBaseToAnotherSpace": "{{baseName}}'i başka bir alana taşı",
-    "chooseSpace": "Alan seç"
+    "chooseSpace": "Alan seç",
+    "duplicateBaseSucceedAndJump": "Başarılı, gitmek için tıklayın"
   },
   "spaceSetting": {
     "title": "Alan ayarları",
@@ -38,8 +39,11 @@
     "collaborators": "İşbirlikçiler",
     "generalDescription": "Mevcut alanınızın ayarlarını buradan değiştirin",
     "spaceName": "Alan Adı",
-    "spaceId": "Alan Kimliği"
+    "spaceId": "Alan Kimliği",
+    "importBase": "İçe aktar"
   },
+  "collaborators": "İş birlikçiler",
+  "more": "Daha fazla",
   "pin": {
     "add": "Sabitlemelere ekle",
     "remove": "Sabitlemeleri kaldır",
@@ -63,7 +67,16 @@
     "moveBaseSuccessTitle": "Taşıma başarılı",
     "moveBaseSuccessDescription": "{{baseName}} başarıyla {{spaceName}} alanına taşındı",
     "moveBaseCrossSpaceTitle": "Bildirim",
-    "moveBaseCrossSpaceDataLossWarning": "Alanlar arası referanslar desteklenmiyor. İlgili alanlar metin alanlarına dönüştürülecek. Bu işlem geri alınamaz."
+    "moveBaseCrossSpaceDataLossWarning": "Alanlar arası referanslar desteklenmiyor. İlgili alanlar metin alanlarına dönüştürülecek. Bu işlem geri alınamaz.",
+    "moveBaseCrossDataDbTitle": "Veri tabanları arası taşıma",
+    "moveBaseCrossDataDbWarning": "Kaynak ve hedef alanlar farklı veri tabanları kullanıyor. Bu taşıma, taban verilerini hedef veri tabanına kopyalar ve biraz zaman alabilir. Aktarım sırasında bu tabana yazma işlemleri duraklatılır.",
+    "moveBaseProgressTitle": "Taban taşınıyor…",
+    "moveBaseProgressPhase": "Aşama: {{phase}}",
+    "moveBaseProgressPercent": "%{{percent}}",
+    "moveBaseFailedTitle": "Taşıma başarısız",
+    "moveBaseFailedDescription": "Aşama {{phase}}: {{error}}",
+    "moveBaseRetry": "Yeniden dene",
+    "moveBaseCancel": "İptal"
   },
   "deleteSpaceModal": {
     "title": "Alanı Sil",
@@ -75,7 +88,6 @@
     "description": "Katılmaya davet edildiğim tüm veritabanları",
     "empty": "Henüz paylaşılan veritabanı yok"
   },
-  "integration": {},
   "aiSetting": {
     "title": "AI ayarları",
     "description": "Alanınızın AI ayarlarını yönetin",
@@ -86,9 +98,17 @@
     "baseImportTips": "Yüklemek için .tea dosyasını bu alana tıklayın veya sürükleyip bırakın",
     "confirm": "Onayla ve devam et",
     "phase": {
+      "importingV2": "İçe aktarılıyor",
       "parsingStructure": "Parsing structure",
       "creatingBase": "Creating base: {{detail}}",
       "creatingTable": "Creating table: {{detail}}",
+      "tableStructureStarted": "Tablo yapısı hazırlanıyor: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableStructureValidating": "Tablo ilişkileri doğrulanıyor",
+      "tableStructureCommitting": "Tablo yapısı kaydediliyor",
+      "tableStructureDone": "Tablo yapısı kaydedildi: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableStructureData": "Tablo yapısı",
+      "tableStructureTablesProgress": "{{count}}/{{total}} tablo hazırlandı",
+      "tableStructureTablesDone": "{{count}}/{{total}} tablo kaydedildi",
       "creatingCommonFields": "Creating basic fields for {{table}}: {{fields}}",
       "creatingButtonFields": "Creating button fields for {{table}}: {{fields}}",
       "creatingFormulaFields": "Creating formula fields for {{table}}: {{fields}}",
@@ -100,11 +120,46 @@
       "creatingWorkflows": "Creating workflows",
       "creatingApps": "Creating apps",
       "creatingAuthorityMatrix": "Creating authority matrix",
+      "restoringBaseNodes": "Klasör hiyerarşisi geri yükleniyor",
       "queuingAttachments": "Queuing attachment uploads",
       "uploadingAppFiles": "Uploading app files",
       "queuingDataImport": "Queuing data import",
+      "importingTableData": "Tablo verileri içe aktarılıyor",
+      "restoringLinkRelations": "Bağlı kayıt verileri geri yükleniyor",
+      "tableDataStarted": "Kayıtlar içe aktarılıyor: {{tableName}}",
+      "tableDataProgress": "Kayıtlar içe aktarılıyor: {{tableName}}",
+      "tableDataDone": "Kayıt içe aktarma tamamlandı: {{tableName}}",
+      "linkFieldsData": "Bağlı kayıt verileri",
+      "linkFieldsProgress": "Bağlı kayıt verileri geri yükleniyor",
+      "linkFieldsDone": "Bağlı kayıt verileri geri yüklendi",
+      "tableDataRowsProgress": "{{count}} satır içe aktarıldı",
+      "tableDataRowsDone": "{{count}} satır içe aktarıldı",
+      "tableDataRowsTotalProgress": "{{count}}/{{total}} satır işlendi",
+      "tableDataRowsTotalDone": "{{count}}/{{total}} satır işlendi",
+      "tableDataBatch": "toplu iş {{batch}}",
+      "tableDataBatchRows": "Bu toplu işte {{count}} satır",
+      "tableDataEmpty": "İçe aktarılacak tablo verisi yok",
       "done": "Import completed",
       "clickToView": "Görüntülemek için tıklayın"
+    }
+  },
+  "export": {
+    "phase": {
+      "preparing": "Dışa aktarma hazırlanıyor",
+      "exportingArchive": "Dışa aktarma dosyası oluşturuluyor",
+      "exportingStructure": "Yapı dışa aktarılıyor",
+      "exportingAttachments": "Ekler dışa aktarılıyor",
+      "exportingAttachmentMetadata": "Ek meta verileri dışa aktarılıyor",
+      "exportingTableData": "Kayıtlar dışa aktarılıyor",
+      "tableDataStarted": "Kayıtlar dışa aktarılıyor: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableDataProgress": "Kayıtlar dışa aktarılıyor: {{tableName}}",
+      "tableDataDone": "Kayıt dışa aktarma tamamlandı: {{tableName}}",
+      "exportingExtraFiles": "Ek dosyalar dışa aktarılıyor",
+      "exportingAppFiles": "Uygulama dosyaları dışa aktarılıyor",
+      "uploadingArchive": "Dışa aktarma dosyası yükleniyor",
+      "generatingDownloadUrl": "İndirme bağlantısı oluşturuluyor",
+      "rowsProgress": "{{count}} satır dışa aktarıldı",
+      "done": "Dışa aktarma tamamlandı"
     }
   },
   "template": {
@@ -131,7 +186,9 @@
     "lastOpened": "Son açılan",
     "enter": "Giriş",
     "noTables": "Tablo yok",
-    "empty": "Henüz üs yok"
+    "empty": "Henüz üs yok",
+    "recent": "Son kullanılanlar",
+    "manual": "Elle sıralama"
   },
   "publishBase": {
     "title": "Şablon Merkezinde Yayınla",
@@ -182,14 +239,78 @@
       "publish": "Yayınla",
       "published": "Yayınlandı",
       "publishing": "Yayınlanıyor...",
+      "notPublished": "Yayınlanmadı",
       "publishFailed": "Yayınlama başarısız",
       "publishFailedTip1": "Kaynak uygulamanın başarıyla yayınlanıp yayınlanamayacağını kontrol edin",
       "publishFailedTip2": "Bu şablonu yeniden yayınlamayı deneyin",
-      "notPublished": "Yayınlanmadı",
       "ignoreAndContinue": "Yoksay ve Devam Et",
       "goToFix": "Düzeltmeye Git",
       "redeploy": "Yeniden Dağıt",
       "unnamedApp": "Adsız Uygulama"
+    }
+  },
+  "dataDb": {
+    "create": {
+      "title": "Veri veritabanı",
+      "description": "Bu alanın taban şemalarını ve kayıtlarını nerede depolayacağını seçin.",
+      "defaultHint": "Çoğu alan için önerilir.",
+      "byodbOption": "Kendi PostgreSQL veritabanımı kullan",
+      "byodbHint": "Bu alanı, müşteri tarafından yönetilen veritabanınızdaki bir Teable dahili şemasında başlatır.",
+      "urlLabel": "PostgreSQL bağlantı URL’si",
+      "sslHint": "PostgreSQL sunucunuzun gerektirdiği SSL parametrelerinin aynısını kullanın. Parola test sonrasında bir daha gösterilmez.",
+      "testConnection": "Bağlantıyı test et",
+      "testing": "Test ediliyor...",
+      "retestRequired": "URL’yi değiştirdikten sonra tekrar test edin.",
+      "databaseLabel": "Veritabanı",
+      "databasePlaceholder": "Bir veritabanı seçin",
+      "databaseHint": "Bu alan için PostgreSQL veritabanını seçin, ardından bağlantıyı yeniden test edin.",
+      "preflightPassed": "Bağlantı kontrolleri başarılı",
+      "preflightFailed": "Bağlantı kontrolleri başarısız",
+      "missingCapabilities": "Eksik ayrıcalıklar",
+      "testFailed": "Veritabanı bağlantısı test edilemedi.",
+      "errors": {
+        "INVALID_DATABASE_URL": {
+          "message": "PostgreSQL bağlantı URL’si geçersiz."
+        },
+        "PRIVATE_NETWORK_BLOCKED": {
+          "message": "Özel ağdaki veritabanı ana bilgisayarları varsayılan olarak engellenir.",
+          "remediation": "TEABLE_SSRF_PROTECTION_DISABLED=true değerini yalnızca güvenilir kendi barındırdığınız kurulumlarda ayarlayın."
+        },
+        "CONNECTION_FAILED": {
+          "message": "Veritabanına bağlanılamadı.",
+          "remediation": "Ana bilgisayarı, bağlantı noktasını, veritabanı adını, kullanıcı adını, parolayı ve SSL parametrelerini kontrol edin."
+        },
+        "IPV6_NETWORK_UNREACHABLE": {
+          "message": "Veritabanı ana bilgisayarı bir IPv6 adresine çözümlendi, ancak bu Teable kurulumu IPv6 ağlarına erişemiyor.",
+          "remediation": "IPv4 ile erişilebilen bir veritabanı uç noktası ya da bağlantı havuzu kullanın veya bu Teable kurulumu için giden IPv6 ağını etkinleştirin."
+        },
+        "PRIVILEGE_CHECK_FAILED": {
+          "message": "Veritabanı ayrıcalık kontrolleri başarısız oldu."
+        },
+        "DDL_PRIVILEGE_CHECK_FAILED": {
+          "message": "Hesapta bir Teable veri veritabanını başlatmak için gereken DDL ayrıcalıkları yok.",
+          "remediation": "Şema, tablo, fonksiyon ve tetikleyici oluşturma ayrıcalıkları verin."
+        },
+        "NON_EMPTY_UNKNOWN_DATABASE": {
+          "message": "Teable’ın dahili şeması, Teable tarafından yönetilmeyen nesneler içeriyor.",
+          "remediation": "Çakışan dahili şeması olmayan bir veritabanı kullanın veya bilinmeyen nesneleri o şemadan kaldırın."
+        },
+        "INCOMPATIBLE_TEABLE_DATABASE": {
+          "message": "Bu veritabanı eksik veya uyumsuz Teable veri nesneleri içeriyor.",
+          "remediation": "Boş bir veritabanı ya da uyumlu bir Teable veri veritabanı geçiş/devralma akışı kullanın."
+        }
+      }
+    },
+    "fields": {
+      "host": "Ana bilgisayar",
+      "database": "Veritabanı",
+      "internalSchema": "Dahili şema",
+      "version": "Sürüm",
+      "classification": "Sınıflandırma"
+    },
+    "badge": {
+      "label": "Özel",
+      "tooltip": "Bu alan, diğer alanlardan yalıtılmış özel bir veritabanında barındırılıyor"
     }
   },
   "airtableImport": {
@@ -244,6 +365,40 @@
       "disableReminder": "Tamamlandı — artık Airtable’daki paylaşım bağlantısını kapatabilirsiniz."
     }
   },
+  "googleSheetImport": {
+    "title": "Google Sheets'ten içe aktar",
+    "close": "Kapat",
+    "pickSpreadsheet": "İçe aktarılacak e-tabloyu seçin",
+    "openPicker": "Google Drive'dan e-tablo seçin",
+    "changeSpreadsheet": "Değiştir",
+    "analyzing": "E-tablo okunuyor…",
+    "pickTabs": "İçe aktarılacak sayfaları seçin",
+    "gridSize": "{{rows}} satır × {{columns}} sütun",
+    "optionRecords": "Kayıtları içe aktar",
+    "import": "İçe aktarmayı başlat",
+    "done": "İçe aktarma tamamlandı",
+    "failed": "İçe aktarma başarısız",
+    "openBase": "Base'i aç",
+    "issuesSummary": "İçe aktarma sırasında {{count}} öğe uyarlandı:",
+    "issuesMore": "+{{count}} öğe daha",
+    "recordsImported": "{{tableName}}: {{count}} kayıt içe aktarıldı",
+    "partialImported": "Hatadan önce {{count}} tablo tamamen içe aktarıldı ve korundu",
+    "issue": {
+      "valuesDropped": "{{sheetName}} / {{fieldName}}: {{count}} değer atıldı ({{reason}})",
+      "sheetSkipped": "\"{{sheetName}}\" sayfası atlandı: {{reason}}",
+      "columnsTruncated": "{{sheetName}}: Sütun sınırını aşan {{count}} sütun içe aktarılmadı"
+    },
+    "phase": {
+      "fetchingSchema": "E-tablo yapısı okunuyor",
+      "creatingBase": "Base oluşturuluyor: {{detail}}",
+      "creatingTable": "Tablo oluşturuluyor: {{tableName}} ({{tableIndex}}/{{totalTables}})"
+    },
+    "detecting": "Google bağlantısı denetleniyor…",
+    "connectWithGoogle": "Google hesabını bağla",
+    "waitingOAuth": "Yetkilendirmeyi açılır pencerede tamamlayın…",
+    "connectedAs": "Bağlandı: {{account}}",
+    "integrationRequired": "Bu örnekte Google Sheets entegrasyonu yapılandırılmamış. Kurulum için bir yöneticiye başvurun."
+  },
   "createBaseDialog": {
     "title": "Nasıl başlamak istersiniz?"
   },
@@ -251,6 +406,7 @@
     "title": "Veritabanını içe aktar",
     "fromFile": "Dosyadan içe aktar",
     "fromFileDesc": ".tea veritabanı dosyası yükleyin",
-    "fromAirtableDesc": "Airtable hesabınızı bağlayın"
+    "fromAirtableDesc": "Airtable hesabınızı bağlayın",
+    "fromGoogleSheetDesc": "Google Drive'ınızdan bir e-tablo seçin"
   }
 }

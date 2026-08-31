@@ -8,16 +8,31 @@ import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import { ViewColumnMetaUpdated } from '../../domain/table/events/ViewColumnMetaUpdated';
+import { ViewDescriptionUpdated } from '../../domain/table/events/ViewDescriptionUpdated';
+import { ViewFilterUpdated } from '../../domain/table/events/ViewFilterUpdated';
+import { ViewGroupUpdated } from '../../domain/table/events/ViewGroupUpdated';
+import { ViewLockedUpdated } from '../../domain/table/events/ViewLockedUpdated';
+import { ViewOptionsUpdated } from '../../domain/table/events/ViewOptionsUpdated';
+import { ViewRenamed } from '../../domain/table/events/ViewRenamed';
+import { ViewShareDisabled } from '../../domain/table/events/ViewShareDisabled';
+import { ViewShareEnabled } from '../../domain/table/events/ViewShareEnabled';
+import { ViewShareIdRefreshed } from '../../domain/table/events/ViewShareIdRefreshed';
+import { ViewShareMetaUpdated } from '../../domain/table/events/ViewShareMetaUpdated';
+import { ViewSortUpdated } from '../../domain/table/events/ViewSortUpdated';
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
 import { SingleLineTextField } from '../../domain/table/fields/types/SingleLineTextField';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import { TableUpdateViewColumnMetaSpec } from '../../domain/table/specs/TableUpdateViewColumnMetaSpec';
+import { TableUpdateViewOptionsSpec } from '../../domain/table/specs/TableUpdateViewOptionsSpec';
+import { TableUpdateViewQueryDefaultsSpec } from '../../domain/table/specs/TableUpdateViewQueryDefaultsSpec';
 import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
 import type { TableSortKey } from '../../domain/table/TableSortKey';
 import { ViewColumnMeta } from '../../domain/table/views/ViewColumnMeta';
+import { ViewName } from '../../domain/table/views/ViewName';
+import { ViewQueryDefaults } from '../../domain/table/views/ViewQueryDefaults';
 import type { IEventBus } from '../../ports/EventBus';
 import type {
   IExecutionContext,
@@ -364,6 +379,467 @@ describe('TableUpdateFlow', () => {
     expect(viewEvent?.oldVersion).toBe(3);
     expect(viewEvent?.newVersion).toBe(4);
     expect(eventBus.published.some((event) => event instanceof ViewColumnMetaUpdated)).toBe(true);
+  });
+
+  it('attaches persisted view versions to ViewRenamed events', async () => {
+    const table = buildTable();
+    const eventBus = new FakeEventBus();
+    const repository = new FakeTableRepository();
+    const view = table.views()[0]!;
+    repository.updateOne = async () =>
+      ok({
+        viewVersionChanges: [
+          {
+            viewId: view.id().toString(),
+            oldVersion: 7,
+            newVersion: 8,
+          },
+        ],
+      });
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      eventBus,
+      new FakeUnitOfWork()
+    );
+
+    const result = await flow.execute(createContext(), { table }, (tableToUpdate) =>
+      tableToUpdate
+        .renameView(view.id(), ViewName.create('Renamed')._unsafeUnwrap())
+        .map(({ updateResult }) => updateResult)
+    );
+
+    const viewEvent = result
+      ._unsafeUnwrap()
+      .events.find((event): event is ViewRenamed => event instanceof ViewRenamed);
+    expect(viewEvent).toMatchObject({
+      oldVersion: 7,
+      newVersion: 8,
+      previousName: view.name(),
+      nextName: ViewName.create('Renamed')._unsafeUnwrap(),
+    });
+    expect(eventBus.published.some((event) => event instanceof ViewRenamed)).toBe(true);
+  });
+
+  it('attaches persisted view versions to ViewDescriptionUpdated events', async () => {
+    const table = buildTable();
+    const eventBus = new FakeEventBus();
+    const repository = new FakeTableRepository();
+    const view = table.views()[0]!;
+    repository.updateOne = async () =>
+      ok({
+        viewVersionChanges: [
+          {
+            viewId: view.id().toString(),
+            oldVersion: 8,
+            newVersion: 9,
+          },
+        ],
+      });
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      eventBus,
+      new FakeUnitOfWork()
+    );
+
+    const result = await flow.execute(createContext(), { table }, (tableToUpdate) =>
+      tableToUpdate
+        .updateViewDescription(view.id(), 'Updated')
+        .map(({ updateResult }) => updateResult)
+    );
+
+    const viewEvent = result
+      ._unsafeUnwrap()
+      .events.find(
+        (event): event is ViewDescriptionUpdated => event instanceof ViewDescriptionUpdated
+      );
+    expect(viewEvent).toMatchObject({
+      oldVersion: 8,
+      newVersion: 9,
+      previousDescription: undefined,
+      nextDescription: 'Updated',
+    });
+    expect(eventBus.published.some((event) => event instanceof ViewDescriptionUpdated)).toBe(true);
+  });
+
+  it('attaches persisted view versions to ViewLockedUpdated events', async () => {
+    const table = buildTable();
+    const eventBus = new FakeEventBus();
+    const repository = new FakeTableRepository();
+    const view = table.views()[0]!;
+    repository.updateOne = async () =>
+      ok({
+        viewVersionChanges: [
+          {
+            viewId: view.id().toString(),
+            oldVersion: 9,
+            newVersion: 10,
+          },
+        ],
+      });
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      eventBus,
+      new FakeUnitOfWork()
+    );
+
+    const result = await flow.execute(createContext(), { table }, (tableToUpdate) =>
+      tableToUpdate.updateViewLocked(view.id(), true).map(({ updateResult }) => updateResult)
+    );
+
+    const viewEvent = result
+      ._unsafeUnwrap()
+      .events.find((event): event is ViewLockedUpdated => event instanceof ViewLockedUpdated);
+    expect(viewEvent).toMatchObject({
+      oldVersion: 9,
+      newVersion: 10,
+      previousIsLocked: undefined,
+      nextIsLocked: true,
+    });
+    expect(eventBus.published.some((event) => event instanceof ViewLockedUpdated)).toBe(true);
+  });
+
+  it('attaches persisted view versions to ViewSortUpdated events', async () => {
+    const table = buildTable();
+    const eventBus = new FakeEventBus();
+    const repository = new FakeTableRepository();
+    const view = table.views()[0]!;
+    repository.updateOne = async () =>
+      ok({
+        viewVersionChanges: [
+          {
+            viewId: view.id().toString(),
+            oldVersion: 10,
+            newVersion: 11,
+          },
+        ],
+      });
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      eventBus,
+      new FakeUnitOfWork()
+    );
+    const sort = {
+      sortObjs: [{ fieldId: table.primaryFieldId().toString(), order: 'desc' as const }],
+      manualSort: false,
+    };
+
+    const result = await flow.execute(createContext(), { table }, (tableToUpdate) =>
+      tableToUpdate.updateViewSort(view.id(), sort).map(({ updateResult }) => updateResult!)
+    );
+
+    const viewEvent = result
+      ._unsafeUnwrap()
+      .events.find((event): event is ViewSortUpdated => event instanceof ViewSortUpdated);
+    expect(viewEvent).toMatchObject({
+      oldVersion: 10,
+      newVersion: 11,
+      previousSort: null,
+      nextSort: sort,
+    });
+    expect(eventBus.published.some((event) => event instanceof ViewSortUpdated)).toBe(true);
+  });
+
+  it('attaches persisted view versions to ViewGroupUpdated events', async () => {
+    const table = buildTable();
+    const eventBus = new FakeEventBus();
+    const repository = new FakeTableRepository();
+    const view = table.views()[0]!;
+    repository.updateOne = async () =>
+      ok({
+        viewVersionChanges: [
+          {
+            viewId: view.id().toString(),
+            oldVersion: 11,
+            newVersion: 12,
+          },
+        ],
+      });
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      eventBus,
+      new FakeUnitOfWork()
+    );
+    const group = [{ fieldId: table.primaryFieldId().toString(), order: 'asc' as const }];
+
+    const result = await flow.execute(createContext(), { table }, (tableToUpdate) =>
+      tableToUpdate.updateViewGroup(view.id(), group).map(({ updateResult }) => updateResult!)
+    );
+
+    const viewEvent = result
+      ._unsafeUnwrap()
+      .events.find((event): event is ViewGroupUpdated => event instanceof ViewGroupUpdated);
+    expect(viewEvent).toMatchObject({
+      oldVersion: 11,
+      newVersion: 12,
+      previousGroup: null,
+      nextGroup: group,
+    });
+    expect(eventBus.published.some((event) => event instanceof ViewGroupUpdated)).toBe(true);
+  });
+
+  it('shares one persisted version across compound View query-default events', async () => {
+    const table = buildTable();
+    const eventBus = new FakeEventBus();
+    const repository = new FakeTableRepository();
+    const view = table.views()[0]!;
+    const fieldId = table.primaryFieldId().toString();
+    repository.updateOne = async () =>
+      ok({
+        viewVersionChanges: [
+          {
+            viewId: view.id().toString(),
+            oldVersion: 12,
+            newVersion: 13,
+          },
+          {
+            viewId: view.id().toString(),
+            oldVersion: 13,
+            newVersion: 14,
+          },
+        ],
+      });
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      eventBus,
+      new FakeUnitOfWork()
+    );
+    const previousQueryDefaults = view.queryDefaults()._unsafeUnwrap();
+    const sourceFilter = {
+      conjunction: 'and',
+      filterSet: [{ fieldId, operator: 'is', value: 'ready' }],
+    };
+    const nextQueryDefaults = ViewQueryDefaults.create(
+      {
+        filter: { fieldId, operator: 'is', value: 'ready' },
+        sort: [{ fieldId, order: 'desc' }],
+        group: [{ fieldId, order: 'asc' }],
+      },
+      { sourceFilter }
+    )._unsafeUnwrap();
+
+    const result = await flow.execute(createContext(), { table }, (tableToUpdate) =>
+      tableToUpdate.update((mutator) =>
+        mutator.applySpecs([
+          TableUpdateViewQueryDefaultsSpec.create([
+            {
+              viewId: view.id(),
+              previousQueryDefaults,
+              queryDefaults: nextQueryDefaults,
+            },
+          ]),
+          TableUpdateViewOptionsSpec.create({
+            viewId: view.id(),
+            previousOptions: undefined,
+            nextOptions: { rowHeight: 'short' },
+          }),
+        ])
+      )
+    );
+
+    const queryEvents = result
+      ._unsafeUnwrap()
+      .events.filter(
+        (event) =>
+          event instanceof ViewFilterUpdated ||
+          event instanceof ViewGroupUpdated ||
+          event instanceof ViewSortUpdated
+      );
+    expect(queryEvents).toHaveLength(3);
+    expect(queryEvents).toEqual([
+      expect.objectContaining({ oldVersion: 12, newVersion: 13 }),
+      expect.objectContaining({ oldVersion: 12, newVersion: 13 }),
+      expect.objectContaining({ oldVersion: 12, newVersion: 13 }),
+    ]);
+    const optionsEvent = result
+      ._unsafeUnwrap()
+      .events.find((event): event is ViewOptionsUpdated => event instanceof ViewOptionsUpdated);
+    expect(optionsEvent).toMatchObject({ oldVersion: 13, newVersion: 14 });
+  });
+
+  it('attaches persisted view versions to ViewOptionsUpdated events', async () => {
+    const table = buildTable();
+    const eventBus = new FakeEventBus();
+    const repository = new FakeTableRepository();
+    const view = table.views()[0]!;
+    repository.updateOne = async () =>
+      ok({
+        viewVersionChanges: [
+          {
+            viewId: view.id().toString(),
+            oldVersion: 12,
+            newVersion: 13,
+          },
+        ],
+      });
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      eventBus,
+      new FakeUnitOfWork()
+    );
+    const options = { rowHeight: 'tall' };
+
+    const result = await flow.execute(createContext(), { table }, (tableToUpdate) =>
+      tableToUpdate.updateViewOptions(view.id(), options).map(({ updateResult }) => updateResult!)
+    );
+
+    const viewEvent = result
+      ._unsafeUnwrap()
+      .events.find((event): event is ViewOptionsUpdated => event instanceof ViewOptionsUpdated);
+    expect(viewEvent).toMatchObject({
+      oldVersion: 12,
+      newVersion: 13,
+      previousOptions: undefined,
+      nextOptions: options,
+    });
+    expect(eventBus.published.some((event) => event instanceof ViewOptionsUpdated)).toBe(true);
+  });
+
+  it('attaches persisted view versions to ViewShareMetaUpdated events', async () => {
+    const table = buildTable();
+    const eventBus = new FakeEventBus();
+    const repository = new FakeTableRepository();
+    const view = table.views()[0]!;
+    repository.updateOne = async () =>
+      ok({
+        viewVersionChanges: [
+          {
+            viewId: view.id().toString(),
+            oldVersion: 13,
+            newVersion: 14,
+          },
+        ],
+      });
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      eventBus,
+      new FakeUnitOfWork()
+    );
+    const shareMeta = { allowCopy: true };
+
+    const result = await flow.execute(createContext(), { table }, (tableToUpdate) =>
+      tableToUpdate
+        .updateViewShareMeta(view.id(), shareMeta)
+        .map(({ updateResult }) => updateResult!)
+    );
+
+    const viewEvent = result
+      ._unsafeUnwrap()
+      .events.find((event): event is ViewShareMetaUpdated => event instanceof ViewShareMetaUpdated);
+    expect(viewEvent).toMatchObject({
+      oldVersion: 13,
+      newVersion: 14,
+      previousShareMeta: undefined,
+      nextShareMeta: shareMeta,
+    });
+    expect(eventBus.published.some((event) => event instanceof ViewShareMetaUpdated)).toBe(true);
+  });
+
+  it('attaches persisted view versions to ViewShareIdRefreshed events', async () => {
+    const source = buildTable();
+    const created = source
+      .createView({
+        type: 'grid',
+        name: 'Public View',
+        enableShare: true,
+        shareId: `shr${'a'.repeat(16)}`,
+      })
+      ._unsafeUnwrap();
+    const table = created.updateResult.table;
+    table.pullDomainEvents();
+    const view = created.view;
+    const eventBus = new FakeEventBus();
+    const repository = new FakeTableRepository();
+    repository.updateOne = async () =>
+      ok({
+        viewVersionChanges: [
+          {
+            viewId: view.id().toString(),
+            oldVersion: 14,
+            newVersion: 15,
+          },
+        ],
+      });
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      eventBus,
+      new FakeUnitOfWork()
+    );
+
+    const result = await flow.execute(createContext(), { table }, (tableToUpdate) =>
+      tableToUpdate.refreshViewShareId(view.id()).map(({ updateResult }) => updateResult)
+    );
+
+    const viewEvent = result
+      ._unsafeUnwrap()
+      .events.find((event): event is ViewShareIdRefreshed => event instanceof ViewShareIdRefreshed);
+    expect(viewEvent).toMatchObject({
+      oldVersion: 14,
+      newVersion: 15,
+      previousShareId: `shr${'a'.repeat(16)}`,
+      nextShareId: expect.stringMatching(/^shr[0-9a-zA-Z]{16}$/),
+    });
+    expect(eventBus.published.some((event) => event instanceof ViewShareIdRefreshed)).toBe(true);
+  });
+
+  it('attaches persisted view versions to View share lifecycle events', async () => {
+    const table = buildTable();
+    const view = table.views()[0]!;
+    const eventBus = new FakeEventBus();
+    const repository = new FakeTableRepository();
+    repository.updateOne = async () =>
+      ok({
+        viewVersionChanges: [
+          {
+            viewId: view.id().toString(),
+            oldVersion: 20,
+            newVersion: 21,
+          },
+        ],
+      });
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      eventBus,
+      new FakeUnitOfWork()
+    );
+
+    const enabledResult = await flow.execute(createContext(), { table }, (tableToUpdate) =>
+      tableToUpdate.enableViewShare(view.id()).map(({ updateResult }) => updateResult)
+    );
+    const enabledTable = enabledResult._unsafeUnwrap().table;
+    const enabledEvent = enabledResult
+      ._unsafeUnwrap()
+      .events.find((event): event is ViewShareEnabled => event instanceof ViewShareEnabled);
+    expect(enabledEvent).toMatchObject({ oldVersion: 20, newVersion: 21 });
+
+    repository.updateOne = async () =>
+      ok({
+        viewVersionChanges: [
+          {
+            viewId: view.id().toString(),
+            oldVersion: 21,
+            newVersion: 22,
+          },
+        ],
+      });
+    const disabledResult = await flow.execute(createContext(), { table: enabledTable }, (next) =>
+      next.disableViewShare(view.id()).map(({ updateResult }) => updateResult)
+    );
+    const disabledEvent = disabledResult
+      ._unsafeUnwrap()
+      .events.find((event): event is ViewShareDisabled => event instanceof ViewShareDisabled);
+    expect(disabledEvent).toMatchObject({ oldVersion: 21, newVersion: 22 });
+    expect(eventBus.published.some((event) => event instanceof ViewShareEnabled)).toBe(true);
+    expect(eventBus.published.some((event) => event instanceof ViewShareDisabled)).toBe(true);
   });
 
   it('lets deferred tasks observe the latest table state in the transaction scope', async () => {

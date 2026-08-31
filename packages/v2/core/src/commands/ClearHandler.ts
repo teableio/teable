@@ -12,7 +12,11 @@ import {
   toUndoRedoStackAppendContext,
   UndoRedoStackService,
 } from '../application/services/UndoRedoStackService';
-import { domainError, type DomainError } from '../domain/shared/DomainError';
+import {
+  domainError,
+  type DomainError,
+  type IDomainErrorLocalization,
+} from '../domain/shared/DomainError';
 import { generateUuid } from '../domain/shared/IdGenerator';
 import { OffsetPagination } from '../domain/shared/pagination/OffsetPagination';
 import { PageLimit } from '../domain/shared/pagination/PageLimit';
@@ -171,6 +175,7 @@ export interface ClearStreamErrorEvent {
   recordIds: string[];
   message: string;
   code?: string;
+  localization?: IDomainErrorLocalization;
 }
 
 export type ClearStreamEvent =
@@ -1356,6 +1361,7 @@ export class ClearStreamApplicationService extends ClearHandler {
       recordIds: [...details.recordIds],
       message: error.message,
       code: error.code,
+      ...(error.localization && { localization: error.localization }),
     };
   }
 }

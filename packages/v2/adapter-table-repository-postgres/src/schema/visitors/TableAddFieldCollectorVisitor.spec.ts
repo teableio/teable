@@ -34,6 +34,7 @@ describe('TableAddFieldCollectorVisitor', () => {
     const noOpMethods = [
       'visit',
       'visitTableRename',
+      'visitTableAddView',
       'visitTableAddSelectOptions',
       'visitTableDuplicateField',
       'visitTableRemoveField',
@@ -41,6 +42,9 @@ describe('TableAddFieldCollectorVisitor', () => {
       'visitTableUpdateViewQueryDefaults',
       'visitTableByBaseId',
       'visitTableById',
+      'visitTableByViewId',
+      'visitTableWithViewIds',
+      'visitTableWithPrimaryField',
       'visitTableByIncomingReferenceToTable',
       'visitTableByIds',
       'visitTableByName',

@@ -209,7 +209,7 @@ export function MentionInputElement(props: PlateElementProps<TMentionInputElemen
                 value={item.name}
               >
                 <UserAvatar avatar={item.avatar} name={item.name} />
-                <span className="pl-1">{item.name}</span>
+                <span className="ps-1">{item.name}</span>
               </InlineComboboxItem>
             ))}
           </InlineComboboxGroup>

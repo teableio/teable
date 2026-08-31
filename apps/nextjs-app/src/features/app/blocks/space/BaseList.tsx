@@ -32,6 +32,7 @@ import { useTranslation } from 'next-i18next';
 import { useState, useMemo, useCallback } from 'react';
 import { useLocalStorage } from 'react-use';
 import { spaceConfig } from '@/features/i18n/space.config';
+import { useBaseEntryMap } from '../../hooks/useBaseEntryMap';
 import { BaseNodeProvider } from '../base/base-node/BaseNodeProvider';
 import { getNodeUrl } from '../base/base-node/hooks';
 import { BaseNodeTree } from '../base/base-side-bar/BaseNodeTree';
@@ -79,6 +80,9 @@ export const BaseList = (props: IBaseListProps) => {
   );
 
   const allBaseList = useBaseList();
+  // warm the entry-URL map for this space's bases so clicking a card
+  // navigates straight to the final table/view URL (consumed in useEnterBase)
+  useBaseEntryMap(spaceId);
   const { map: lastVisitBaseMap = {} } = useLastVisitBase();
 
   const { data: space } = useQuery({
@@ -339,7 +343,7 @@ export const BaseList = (props: IBaseListProps) => {
 
       {/* Header */}
       <div className="flex h-8 items-center border-b text-xs font-medium text-muted-foreground">
-        <div className="flex-1 truncate pl-6 pr-2">{t('space:baseList.allBases')}</div>
+        <div className="flex-1 truncate pe-2 ps-6">{t('space:baseList.allBases')}</div>
         <div className="hidden w-[88px] shrink-0 px-2 sm:block xl:w-40 2xl:w-48">
           {t('space:baseList.creator')}
         </div>

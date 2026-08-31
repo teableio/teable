@@ -32,6 +32,7 @@ import type { ISchemaRule } from '../core/ISchemaRule';
 import type { TableIdentifier } from '../helpers/StatementBuilders';
 import { ColumnExistsRule } from './ColumnExistsRule';
 import { ColumnUniqueConstraintRule } from './ColumnUniqueConstraintRule';
+import { ConditionalMatchIndexRule } from './ConditionalMatchIndexRule';
 import { FieldMetaRule } from './FieldMetaRule';
 import { FkColumnRule } from './FkColumnRule';
 import { ForeignKeyRule } from './ForeignKeyRule';
@@ -295,52 +296,68 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
           relationship === 'oneMany'
             ? yield* field.selfKeyNameString()
             : yield* field.foreignKeyNameString();
-        const hasOrderColumn = field.hasOrderColumn();
-        const referencedTable = relationship === 'oneMany' ? currentTable : resolvedForeignTable;
-        const referencedTableName = relationship === 'oneMany' ? ctx.tableName : foreignTableId;
 
-        const fkColumnRule = FkColumnRule.forField(
-          field,
-          keyName,
-          referencedTableName,
-          fkHostTable
-        );
-        rules.push(fkColumnRule);
+        // The non-hosting side of a two-way OneOne link has keyName `__id`:
+        // it references the record id column and owns no physical FK column.
+        // The FK column, its unique index, the FK constraint, and the order
+        // column on fkHostTable are all managed by the hosting counterpart's
+        // rules. Emitting them for this side too would create a bogus self-FK
+        // (`fk___id`: __id REFERENCES __id) and unique index at creation, and
+        // DROP the `__id` column itself when this side is deleted.
+        if (keyName !== '__id') {
+          const hasOrderColumn = field.hasOrderColumn();
+          const referencedTable = relationship === 'oneMany' ? currentTable : resolvedForeignTable;
+          const referencedTableName = relationship === 'oneMany' ? ctx.tableName : foreignTableId;
 
-        const indexRule =
-          relationship === 'oneOne'
-            ? UniqueIndexRule.forFkColumn(field, keyName, fkColumnRule, 'one-to-one', fkHostTable)
-            : IndexRule.forFkColumn(field, keyName, fkColumnRule, fkHostTable);
-        rules.push(indexRule);
-
-        const onDelete = 'SET NULL';
-
-        // FK constraint
-        rules.push(
-          ForeignKeyRule.forField(
+          const fkColumnRule = FkColumnRule.forField(
             field,
             keyName,
-            referencedTable,
-            fkColumnRule,
             referencedTableName,
-            onDelete,
-            fkHostTable,
-            relationship === 'oneMany' ? undefined : resolvedForeignTableMetaId
-          )
-        );
-
-        if (hasOrderColumn) {
-          const orderColumnName = yield* field.orderColumnName();
-          const orderRule = OrderColumnRule.forField(
-            field,
-            orderColumnName,
-            fkHostTable,
-            fkColumnRule
+            fkHostTable
           );
-          rules.push(orderRule);
+          rules.push(fkColumnRule);
 
-          // Field meta (depends on order column)
-          rules.push(FieldMetaRule.forOrderColumn(field, { dependsOnRuleId: orderRule.id }));
+          const indexRule =
+            relationship === 'oneOne'
+              ? UniqueIndexRule.forFkColumn(field, keyName, fkColumnRule, 'one-to-one', fkHostTable)
+              : IndexRule.forFkColumn(field, keyName, fkColumnRule, fkHostTable);
+          rules.push(indexRule);
+
+          // Only the side whose own FK column stores the link value may derive the
+          // action from its notNull: RESTRICT protects deleting the referenced row,
+          // which is meaningless for the oneMany side (deleting the link holder).
+          // That side shares the physical constraint with a hosting counterpart and
+          // must not flip it.
+          const onDelete: 'RESTRICT' | 'SET NULL' =
+            relationship !== 'oneMany' && field.notNull().toBoolean() ? 'RESTRICT' : 'SET NULL';
+
+          // FK constraint
+          rules.push(
+            ForeignKeyRule.forField(
+              field,
+              keyName,
+              referencedTable,
+              fkColumnRule,
+              referencedTableName,
+              onDelete,
+              fkHostTable,
+              relationship === 'oneMany' ? undefined : resolvedForeignTableMetaId
+            )
+          );
+
+          if (hasOrderColumn) {
+            const orderColumnName = yield* field.orderColumnName();
+            const orderRule = OrderColumnRule.forField(
+              field,
+              orderColumnName,
+              fkHostTable,
+              fkColumnRule
+            );
+            rules.push(orderRule);
+
+            // Field meta (depends on order column)
+            rules.push(FieldMetaRule.forOrderColumn(field, { dependsOnRuleId: orderRule.id }));
+          }
         }
       }
 
@@ -391,6 +408,7 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
         fieldType: 'conditionalRollup',
         required: false,
       }),
+      ...this.createConditionalMatchIndexRules(field, field.foreignTableId().toString(), condition),
     ]);
   }
 
@@ -414,7 +432,32 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
         fieldType: 'conditionalLookup',
         required: false,
       }),
+      ...this.createConditionalMatchIndexRules(field, field.foreignTableId().toString(), condition),
     ]);
+  }
+
+  /**
+   * Field-reference equality items in a conditional field's filter act as
+   * per-host-row join keys against the foreign table; index those foreign
+   * match columns so condition evaluation does not seq-scan the foreign
+   * table once per dirty host row (T6826).
+   */
+  private createConditionalMatchIndexRules(
+    field: ConditionalLookupField | ConditionalRollupField,
+    foreignTableId: string,
+    condition: { fieldReferenceMatchFieldIds(): ReadonlyArray<{ toString(): string }> }
+  ): ReadonlyArray<ISchemaRule> {
+    const resolvedForeignTable = this.ctx.tableLocationsById?.get(foreignTableId);
+    return condition
+      .fieldReferenceMatchFieldIds()
+      .map((matchFieldId) =>
+        ConditionalMatchIndexRule.forMatchColumn(
+          field,
+          matchFieldId.toString(),
+          foreignTableId,
+          resolvedForeignTable
+        )
+      );
   }
 }
 

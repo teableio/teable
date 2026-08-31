@@ -73,7 +73,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
                 >
                   {name}
                 </div>
-                {values?.includes(name) && <Check className={'ml-2 size-4'} />}
+                {values?.includes(name) && <Check className={'ms-2 size-4'} />}
               </CommandItem>
             ))}
         </CommandGroup>

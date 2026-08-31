@@ -289,7 +289,7 @@ export const DownloadContent = ({
                 <>
                   {totalSizeValue}
                   {totalSizeUnit && (
-                    <span className="ml-1 text-sm font-normal text-foreground">
+                    <span className="ms-1 text-sm font-normal text-foreground">
                       {totalSizeUnit}
                     </span>
                   )}
@@ -297,7 +297,7 @@ export const DownloadContent = ({
               ),
             },
           ].map(({ label, value }, index) => (
-            <div key={label} className={cn('min-w-0 px-4 py-3', index > 0 && 'border-l')}>
+            <div key={label} className={cn('min-w-0 px-4 py-3', index > 0 && 'border-s')}>
               <div className="truncate text-xs font-medium text-muted-foreground">{label}</div>
               <div className="mt-1 truncate text-base font-semibold text-foreground">{value}</div>
             </div>
@@ -386,7 +386,7 @@ export const DownloadContent = ({
                           </div>
                           <Check
                             className={cn(
-                              'ml-2 size-4 shrink-0',
+                              'ms-2 size-4 shrink-0',
                               noPrefix ? 'opacity-100' : 'opacity-0'
                             )}
                           />
@@ -408,11 +408,11 @@ export const DownloadContent = ({
                               keywords={[field.name]}
                               onSelect={() => handleFieldSelect(field.id)}
                             >
-                              <Icon className="mr-2 size-4" />
+                              <Icon className="me-2 size-4" />
                               <span className="truncate">{field.name}</span>
                               <Check
                                 className={cn(
-                                  'ml-auto size-4',
+                                  'ms-auto size-4',
                                   namingFieldId === field.id ? 'opacity-100' : 'opacity-0'
                                 )}
                               />

@@ -22,6 +22,7 @@ import { isArray } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { PerformanceCacheService } from '../../performance-cache';
 import type { IClsStore } from '../../types/cls';
+import { decryptAiConfigSecrets, encryptAiConfigSecrets } from '../../utils/ai-config-encryption';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { parseSettingContent, SettingModel } from '../model/setting';
 
@@ -66,6 +67,15 @@ export class SettingService {
             ? setting.createdTime.toISOString()
             : setting.createdTime;
       }
+    }
+
+    // Secrets are stored (and cached in the Redis setting blob) encrypted;
+    // decrypting after the cache keeps only ciphertext in Redis.
+    if (res[SettingKey.AI_CONFIG]) {
+      res[SettingKey.AI_CONFIG] = decryptAiConfigSecrets(
+        res[SettingKey.AI_CONFIG],
+        'setting.aiConfig'
+      );
     }
 
     // spaceIds are stripped from the Redis setting blob; hydrate only when canary is requested.
@@ -113,15 +123,19 @@ export class SettingService {
 
   async updateSetting(updateSettingRo: Partial<ISettingVo>): Promise<ISettingVo> {
     const userId = this.cls.get('user.id');
-    const updates = Object.entries(updateSettingRo).map(([name, value]) => ({
-      where: { name },
-      update: { content: JSON.stringify(value ?? null), lastModifiedBy: userId },
-      create: {
-        name,
-        content: JSON.stringify(value ?? null),
-        createdBy: userId,
-      },
-    }));
+    const updates = Object.entries(updateSettingRo).map(([name, value]) => {
+      const stored = name === SettingKey.AI_CONFIG ? encryptAiConfigSecrets(value) : value;
+      const content = JSON.stringify(stored ?? null);
+      return {
+        where: { name },
+        update: { content, lastModifiedBy: userId },
+        create: {
+          name,
+          content,
+          createdBy: userId,
+        },
+      };
+    });
 
     const results = await Promise.all(
       updates.map((update) => this.prismaService.txClient().setting.upsert(update))
@@ -129,7 +143,11 @@ export class SettingService {
 
     const res: Record<string, unknown> = {};
     for (const setting of results) {
-      res[setting.name] = parseSettingContent(setting.content);
+      const parsed = parseSettingContent(setting.content);
+      res[setting.name] =
+        setting.name === SettingKey.AI_CONFIG
+          ? decryptAiConfigSecrets(parsed, 'setting.aiConfig')
+          : parsed;
     }
 
     return res as ISettingVo;

@@ -1,13 +1,21 @@
 import {
+  BaseId,
   ButtonConfirm,
   ButtonWorkflow,
+  createLinkField,
   DbFieldName,
   FieldId,
+  FieldName,
   FieldNotNull,
   FieldUnique,
+  LinkFieldConfig,
   LookupOptions,
   RatingMax,
   SelectOption,
+  Table,
+  TableId,
+  TableName,
+  TableRemoveFieldSpec,
   TableUpdateFieldConstraintsSpec,
   TableUpdateFieldDbFieldNameSpec,
   UpdateMultipleSelectOptionsSpec,
@@ -18,7 +26,7 @@ import {
   UpdateButtonWorkflowSpec,
   UserMultiplicity,
 } from '@teable/v2-core';
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -37,7 +45,11 @@ const mkFieldId = (seed: string) => FieldId.create(createValidFieldId(seed))._un
 const mkDbFieldName = (name: string) => DbFieldName.rehydrate(name)._unsafeUnwrap();
 const normalizeSql = (sql: string) => sql.replace(/\s+/g, ' ').trim();
 
-const createVisitor = (table: unknown = {}) =>
+const tableStub = {
+  getField: () => err(new Error('field not found')),
+};
+
+const createVisitor = (table: unknown = tableStub) =>
   new TableSchemaUpdateVisitor({
     db,
     schema: SCHEMA,
@@ -102,6 +114,32 @@ describe('TableSchemaUpdateVisitor coverage', () => {
     }
   });
 
+  it('drops the physical column when removing a field that owns it exclusively', () => {
+    const removed = createTextField('removedSolo', 'Solo', 'Solo_Col')._unsafeUnwrap();
+    const other = createTextField('otherField', 'Other', 'Other_Col')._unsafeUnwrap();
+    const spec = TableRemoveFieldSpec.create(removed);
+
+    const result = createVisitor({ getFields: () => [removed, other] }).visitTableRemoveField(spec);
+
+    expect(result.isOk()).toBe(true);
+    const sqls = result._unsafeUnwrap().map((statement) => normalizeSql(statement.compile(db).sql));
+    expect(sqls.some((query) => query.includes('drop column if exists "Solo_Col"'))).toBe(true);
+  });
+
+  it('keeps the physical column when another live field shares the db field name', () => {
+    const removed = createTextField('removedTwin', 'Twin', 'Shared_Col')._unsafeUnwrap();
+    const survivor = createTextField('survivorTwin', 'Twin 2', 'Shared_Col')._unsafeUnwrap();
+    const spec = TableRemoveFieldSpec.create(removed);
+
+    const result = createVisitor({ getFields: () => [removed, survivor] }).visitTableRemoveField(
+      spec
+    );
+
+    expect(result.isOk()).toBe(true);
+    const sqls = result._unsafeUnwrap().map((statement) => normalizeSql(statement.compile(db).sql));
+    expect(sqls.some((query) => query.includes('drop column if exists "Shared_Col"'))).toBe(false);
+  });
+
   it('skips lookup column conversion when the lookup target is unchanged', () => {
     const fieldId = mkFieldId('lookupSame');
     const lookupOptions = LookupOptions.create({
@@ -119,6 +157,9 @@ describe('TableSchemaUpdateVisitor coverage', () => {
     const errorMethods = [
       'visitTableByBaseId',
       'visitTableById',
+      'visitTableByViewId',
+      'visitTableWithViewIds',
+      'visitTableWithPrimaryField',
       'visitTableByIncomingReferenceToTable',
       'visitTableByIds',
       'visitTableByNameLike',
@@ -186,6 +227,74 @@ describe('TableSchemaUpdateVisitor coverage', () => {
     expect(uniqueDisabledSqls[1]).toContain(
       'DROP INDEX IF EXISTS "bseTableSchemaTest"."tblVisitorCoverage_constraint_col_unique"'
     );
+  });
+
+  it('rebuilds a required manyOne FK as RESTRICT while keeping display NOT NULL', () => {
+    const hostTableId = TableId.create(`tbl${'h'.repeat(16)}`)._unsafeUnwrap();
+    const foreignTableId = TableId.create(`tbl${'f'.repeat(16)}`)._unsafeUnwrap();
+    const lookupFieldId = mkFieldId('profileid');
+    const foreignTable = Table.builder()
+      .withId(foreignTableId)
+      .withBaseId(BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap())
+      .withName(TableName.create('Profiles')._unsafeUnwrap());
+    foreignTable
+      .field()
+      .singleLineText()
+      .withId(lookupFieldId)
+      .withName(FieldName.create('profile_id')._unsafeUnwrap())
+      .done();
+    foreignTable.view().defaultGrid().done();
+    const builtForeignTable = foreignTable.build()._unsafeUnwrap();
+    const linkField = createLinkField({
+      id: mkFieldId('statuslink'),
+      name: FieldName.create('Status')._unsafeUnwrap(),
+      config: LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupFieldId.toString(),
+        isOneWay: true,
+        fkHostTableName: `${SCHEMA}.${hostTableId.toString()}`,
+        selfKeyName: '__id',
+        foreignKeyName: '__fk_status',
+      })._unsafeUnwrap(),
+      notNull: FieldNotNull.required(),
+    })._unsafeUnwrap();
+    linkField.setDbFieldName(mkDbFieldName('Status'))._unsafeUnwrap();
+
+    const hostBuilder = Table.builder()
+      .withId(hostTableId)
+      .withBaseId(BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap())
+      .withName(TableName.create('Tasks')._unsafeUnwrap());
+    hostBuilder.field().singleLineText().withName(FieldName.create('Name')._unsafeUnwrap()).done();
+    hostBuilder.view().defaultGrid().done();
+    const tableResult = hostBuilder
+      .build()
+      .andThen((hostTable) =>
+        hostTable.addField(linkField, { foreignTables: [builtForeignTable] })
+      );
+    if (tableResult.isErr()) {
+      throw new Error(tableResult.error.message);
+    }
+    const table = tableResult.value;
+
+    const spec = TableUpdateFieldConstraintsSpec.create({
+      fieldId: linkField.id(),
+      dbFieldName: mkDbFieldName('Status'),
+      previousNotNull: FieldNotNull.optional(),
+      nextNotNull: FieldNotNull.required(),
+      previousUnique: FieldUnique.disabled(),
+      nextUnique: FieldUnique.disabled(),
+    });
+    const result = createVisitor(table).visitTableUpdateFieldConstraints(spec);
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+    const sqls = result.value.map((statement) =>
+      normalizeSql(statement.compile(db).sql).toUpperCase()
+    );
+    expect(sqls[0]).toContain('ALTER COLUMN "STATUS" SET NOT NULL');
+    expect(sqls.some((sqlText) => sqlText.includes('DROP CONSTRAINT IF EXISTS'))).toBe(true);
+    expect(sqls.some((sqlText) => sqlText.includes('ON DELETE RESTRICT'))).toBe(true);
+    expect(sqls.some((sqlText) => sqlText.includes('ON DELETE SET NULL'))).toBe(false);
   });
 
   it('renames db columns and the related trigram index', () => {

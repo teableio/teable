@@ -160,7 +160,7 @@ export const AiAutoFillDialog = (props: IAiAutoFillDialogProps) => {
         >
           {/* Empty Only Mode - Recommended (hidden for new fields) */}
           {!hideEmptyOnly && (
-            <div className="flex items-start space-x-3">
+            <div className="flex items-start space-x-3 rtl:space-x-reverse">
               <RadioGroupItem
                 value="emptyOnly"
                 id="emptyOnly"
@@ -194,7 +194,7 @@ export const AiAutoFillDialog = (props: IAiAutoFillDialogProps) => {
           )}
 
           {/* All Mode */}
-          <div className="flex items-start space-x-3">
+          <div className="flex items-start space-x-3 rtl:space-x-reverse">
             <RadioGroupItem value="all" id="all" className="mt-1" />
             <div className="flex flex-1 flex-col gap-0.5">
               <Label htmlFor="all" className="flex cursor-pointer items-center gap-2">
@@ -218,7 +218,7 @@ export const AiAutoFillDialog = (props: IAiAutoFillDialogProps) => {
 
           {/* Save Only Mode - hidden when hideSaveOnly is true */}
           {!hideSaveOnly && (
-            <div className="flex items-start space-x-3">
+            <div className="flex items-start space-x-3 rtl:space-x-reverse">
               <RadioGroupItem value="saveOnly" id="saveOnly" className="mt-1" />
               <div className="flex flex-1 flex-col gap-0.5">
                 <Label htmlFor="saveOnly" className="cursor-pointer">

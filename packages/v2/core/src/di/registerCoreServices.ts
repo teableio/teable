@@ -21,6 +21,7 @@ import { RecordBulkUpdateService } from '../application/services/RecordBulkUpdat
 import { NullRecordChangedValueDecoratorService } from '../application/services/RecordChangedValueDecoratorService';
 import { RecordCreationService } from '../application/services/RecordCreationService';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
+import { RecordQueryPluginRunner } from '../application/services/RecordQueryPluginRunner';
 import { RecordReorderService } from '../application/services/RecordReorderService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
@@ -35,34 +36,45 @@ import {
   StaticTableDataSafetyLimitPlugin,
   TableDataSafetyLimitComposer,
 } from '../application/services/TableDataSafetyLimitComposer';
-import { TableDeletionSideEffectService } from '../application/services/TableDeletionSideEffectService';
-import { TableFieldLimitFieldOperationPlugin } from '../application/services/TableFieldLimitFieldOperationPlugin';
 import { TableDataSafetyLimitFieldOperationPlugin } from '../application/services/TableDataSafetyLimitFieldOperationPlugin';
 import { TableDataSafetyLimitRecordWritePlugin } from '../application/services/TableDataSafetyLimitRecordWritePlugin';
 import { TableDataSafetyLimitTableOperationPlugin } from '../application/services/TableDataSafetyLimitTableOperationPlugin';
 import { TableDataSafetyLimitViewOperationPlugin } from '../application/services/TableDataSafetyLimitViewOperationPlugin';
+import { TableDeletionSideEffectService } from '../application/services/TableDeletionSideEffectService';
+import { TableFieldLimitFieldOperationPlugin } from '../application/services/TableFieldLimitFieldOperationPlugin';
 import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableSchemaOperationRepairHandler } from '../application/services/TableSchemaOperationRepairHandler';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import { UndoRedoStackService } from '../application/services/UndoRedoStackService';
+import {
+  defaultUndoRedoReplayConfig,
+  UndoRedoStackService,
+} from '../application/services/UndoRedoStackService';
 import { UserValueResolverService } from '../application/services/UserValueResolverService';
+import { ViewManualSortService } from '../application/services/ViewManualSortService';
 import { ViewOperationPluginRunner } from '../application/services/ViewOperationPluginRunner';
+import { ViewPluginCreationService } from '../application/services/ViewPluginCreationService';
+import { ViewUndoRedoService } from '../application/services/ViewUndoRedoService';
 import { PasteStreamApplicationService } from '../commands/PasteHandler';
 import { RestoreFieldStreamApplicationService } from '../commands/RestoreFieldStreamHandler';
 import { NoopAttachmentUrlSignerService } from '../ports/defaults/NoopAttachmentUrlSignerService';
+import { NoopBaseDataBulkCopier } from '../ports/defaults/NoopBaseDataBulkCopier';
+import { NoopButtonClickWorkflowService } from '../ports/defaults/NoopButtonClickWorkflowService';
 import { NoopComputedFieldBackfillService } from '../ports/defaults/NoopComputedFieldBackfillService';
+import { NoopComputedOutboxAdmin } from '../ports/defaults/NoopComputedOutboxAdmin';
 import { NoopFieldDeleteSnapshotSink } from '../ports/defaults/NoopFieldDeleteSnapshotSink';
 import { NoopFieldTrashRepository } from '../ports/defaults/NoopFieldTrashRepository';
 import { NoopRecordOrderCalculator } from '../ports/defaults/NoopRecordOrderCalculator';
 import { NoopTableQueryObservability } from '../ports/defaults/NoopTableQueryObservability';
 import { NoopUndoRedoStore } from '../ports/defaults/NoopUndoRedoStore';
+import { NoopViewPluginRepository } from '../ports/defaults/NoopViewPluginRepository';
 import type { IFieldOperationPlugin } from '../ports/FieldOperationPlugin';
+import type { IRecordQueryPlugin } from '../ports/RecordQueryPlugin';
 import type { IRecordWritePlugin } from '../ports/RecordWritePlugin';
 import type { ITableDataSafetyLimitPlugin } from '../ports/TableDataSafetyLimitPlugin';
 import type { ITableOperationPlugin } from '../ports/TableOperationPlugin';
-import type { IViewOperationPlugin } from '../ports/ViewOperationPlugin';
 import { v2CoreTokens } from '../ports/tokens';
+import type { IViewOperationPlugin } from '../ports/ViewOperationPlugin';
 import { registerFieldOperationPlugin } from './registerFieldOperationPlugin';
 import { registerRecordWritePlugin } from './registerRecordWritePlugin';
 import { registerTableDataSafetyLimitPlugin } from './registerTableDataSafetyLimitPlugin';
@@ -101,6 +113,7 @@ import { registerViewOperationPlugin } from './registerViewOperationPlugin';
  * | recordWritePluginRunner          | RecordWritePluginRunner        | Run typed record-write plugins               |
  * | recordWriteSideEffectService     | RecordWriteSideEffectService   | Collect table side effects on record writes  |
  * | recordCreationService            | RecordCreationService          | Shared single-record creation workflow        |
+ * | viewPluginCreationService        | ViewPluginCreationService      | Prepare external Plugin View integrations     |
  * | schemaOperationRunnerService     | SchemaOperationRunnerService   | Run repair handlers for schema operations     |
  *
  * ## Usage
@@ -222,6 +235,14 @@ export const registerV2CoreServices = (
     });
   }
 
+  if (!container.isRegistered(v2CoreTokens.viewUndoRedoService)) {
+    container.register(v2CoreTokens.viewUndoRedoService, ViewUndoRedoService, { lifecycle });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.viewManualSortService)) {
+    container.register(v2CoreTokens.viewManualSortService, ViewManualSortService, { lifecycle });
+  }
+
   // FieldCrossTableUpdateSideEffectService - cross-table update side effects for field updates
   if (!container.isRegistered(v2CoreTokens.fieldCrossTableUpdateSideEffectService)) {
     container.register(
@@ -299,6 +320,18 @@ export const registerV2CoreServices = (
     );
   }
 
+  if (!container.isRegistered(v2CoreTokens.baseDataBulkCopier)) {
+    container.register(v2CoreTokens.baseDataBulkCopier, NoopBaseDataBulkCopier, {
+      lifecycle,
+    });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.computedOutboxAdmin)) {
+    container.register(v2CoreTokens.computedOutboxAdmin, NoopComputedOutboxAdmin, {
+      lifecycle,
+    });
+  }
+
   // AttachmentValueResolverService - resolve attachment values
   if (!container.isRegistered(v2CoreTokens.attachmentValueResolverService)) {
     container.register(
@@ -339,6 +372,13 @@ export const registerV2CoreServices = (
   // UserValueResolverService - resolve user values
   if (!container.isRegistered(v2CoreTokens.userValueResolverService)) {
     container.register(v2CoreTokens.userValueResolverService, UserValueResolverService, {
+      lifecycle,
+    });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.buttonClickWorkflowService)) {
+    // Table-owned Button field optional workflow. Not a template for host side-effects.
+    container.register(v2CoreTokens.buttonClickWorkflowService, NoopButtonClickWorkflowService, {
       lifecycle,
     });
   }
@@ -387,6 +427,16 @@ export const registerV2CoreServices = (
 
   if (!container.isRegistered(v2CoreTokens.recordWritePluginRunner)) {
     container.register(v2CoreTokens.recordWritePluginRunner, RecordWritePluginRunner, {
+      lifecycle,
+    });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.recordQueryPlugins)) {
+    container.registerInstance(v2CoreTokens.recordQueryPlugins, [] as IRecordQueryPlugin[]);
+  }
+
+  if (!container.isRegistered(v2CoreTokens.recordQueryPluginRunner)) {
+    container.register(v2CoreTokens.recordQueryPluginRunner, RecordQueryPluginRunner, {
       lifecycle,
     });
   }
@@ -453,6 +503,19 @@ export const registerV2CoreServices = (
 
   if (!container.isRegistered(v2CoreTokens.viewOperationPluginRunner)) {
     container.register(v2CoreTokens.viewOperationPluginRunner, ViewOperationPluginRunner, {
+      lifecycle,
+    });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.viewPluginRepository)) {
+    // Table-owned plugin-view persistence. Not a template for host side-effects.
+    container.register(v2CoreTokens.viewPluginRepository, NoopViewPluginRepository, {
+      lifecycle,
+    });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.viewPluginCreationService)) {
+    container.register(v2CoreTokens.viewPluginCreationService, ViewPluginCreationService, {
       lifecycle,
     });
   }
@@ -560,6 +623,12 @@ export const registerV2CoreServices = (
   // UndoRedoStore - default no-op store
   if (!container.isRegistered(v2CoreTokens.undoRedoStore)) {
     container.registerInstance(v2CoreTokens.undoRedoStore, new NoopUndoRedoStore());
+  }
+
+  // Replay config default: the restore purge guard stays off unless the app
+  // layer that writes the record_trash rows opts in (see IUndoRedoReplayConfig).
+  if (!container.isRegistered(v2CoreTokens.undoRedoReplayConfig)) {
+    container.registerInstance(v2CoreTokens.undoRedoReplayConfig, defaultUndoRedoReplayConfig);
   }
 
   // UndoRedoStackService - per-window undo/redo stack append/replay

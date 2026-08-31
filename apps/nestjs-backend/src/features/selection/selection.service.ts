@@ -67,8 +67,8 @@ import { FieldSupplementService } from '../field/field-calculate/field-supplemen
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
-import { convertLinkPasteCellValue } from '../record/paste-link-cell-value';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
+import { convertLinkPasteCellValue } from '../record/paste-link-cell-value';
 import { RecordService } from '../record/record.service';
 import { IUpdateRecordsInternalRo } from '../record/type';
 
@@ -77,6 +77,12 @@ const exceedMaxPasteCellsI18nKey = 'httpErrors.selection.exceedMaxPasteCells';
 type IPasteByIdMutationSnapshot = {
   choiceIdsByFieldId: Record<string, string[]>;
 };
+
+export type SelectionRecordLoader = (
+  tableId: string,
+  recordIds: string[],
+  fieldIds: string[]
+) => Promise<Array<{ id: string; fields: IRecord['fields'] }>>;
 
 @Injectable()
 export class SelectionService {
@@ -446,13 +452,15 @@ export class SelectionService {
   async buildClearByIdUpdatePayload(
     tableId: string,
     clearRo: IClearByIdRo,
-    options: { recordIds?: string[] } = {}
+    options: { recordIds?: string[]; recordLoader?: SelectionRecordLoader } = {}
   ) {
     const recordIds =
       options.recordIds ?? (await this.resolveRecordIdsBySelection(tableId, clearRo));
     const fields = await this.resolveFieldsBySelection(tableId, clearRo);
     const fieldIds = fields.map((field) => field.id);
-    const records = await this.getRecordsByIdsForFields(tableId, recordIds, fieldIds);
+    const records = options.recordLoader
+      ? await options.recordLoader(tableId, recordIds, fieldIds)
+      : await this.getRecordsByIdsForFields(tableId, recordIds, fieldIds);
     const fieldInstances = fields.map(createFieldInstanceByVo);
     const updateRecords = this.tableDataToRecords({
       tableData: Array.from({ length: records.length }, () => []),
@@ -473,7 +481,7 @@ export class SelectionService {
   async buildPasteByIdPayload(
     tableId: string,
     pasteRo: IPasteByIdRo,
-    options: { recordIds?: string[] } = {}
+    options: { recordIds?: string[]; recordLoader?: SelectionRecordLoader } = {}
   ) {
     const { content, header } = pasteRo;
     const recordIds =
@@ -502,7 +510,9 @@ export class SelectionService {
         ? await this.expandColumns({ tableId, header, numColsToExpand })
         : [];
     fields = [...fields, ...newFields];
-    const fieldIds = fields.map((field) => field.id);
+    // Keep pending fields in `fields` so clipboard columns stay positionally aligned,
+    // but do not ask record reads or writes for columns that are not provisioned yet.
+    const fieldIds = fields.filter((field) => !field.isPending).map((field) => field.id);
 
     const tableData = this.expandPasteContent(pasteContent, [
       [0, 0],
@@ -523,7 +533,9 @@ export class SelectionService {
           fields: fieldInstances,
         });
 
-    const existingRecords = await this.getRecordsByIdsForFields(tableId, recordIds, fieldIds);
+    const existingRecords = options.recordLoader
+      ? await options.recordLoader(tableId, recordIds, fieldIds)
+      : await this.getRecordsByIdsForFields(tableId, recordIds, fieldIds);
     const updateRecordsRo = this.fillCells(
       existingRecords,
       recordsFromClipboard.slice(0, existingRecords.length)

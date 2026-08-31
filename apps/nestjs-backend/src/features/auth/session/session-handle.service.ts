@@ -13,9 +13,12 @@ export class SessionHandleService {
     private readonly sessionStoreService: SessionStoreService,
     @AuthConfig() private readonly authConfig: IAuthConfig
   ) {
+    const { secret, oldSecret } = this.authConfig.session;
     this.sessionMiddleware = session({
       name: AUTH_SESSION_COOKIE_NAME,
-      secret: this.authConfig.session.secret,
+      // Array form: the first secret signs new cookies, every secret validates
+      // existing ones — so rotating BACKEND_SESSION_SECRET keeps live sessions.
+      secret: oldSecret ? [secret, oldSecret] : secret,
       resave: false,
       saveUninitialized: false,
       cookie: {

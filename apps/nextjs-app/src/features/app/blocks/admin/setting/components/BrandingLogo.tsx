@@ -65,7 +65,7 @@ export const BrandingLogo = (props: { value?: string }) => {
               {isLoading ? <Spin /> : <Plus className="size-8 text-foreground" />}
             </div>
           )}
-          <div className="absolute left-0 top-0 size-full rounded-md bg-transparent group-hover:bg-muted-foreground/20" />
+          <div className="absolute start-0 top-0 size-full rounded-md bg-transparent group-hover:bg-muted-foreground/20" />
         </div>
       </div>
     </div>

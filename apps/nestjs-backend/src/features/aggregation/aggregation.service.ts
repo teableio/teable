@@ -710,6 +710,17 @@ export class AggregationService implements IAggregationService {
     );
   }
 
+  private async mergeViewFilter(
+    tableId: string,
+    queryRo: Pick<ISearchCountRo, 'viewId' | 'ignoreViewQuery' | 'filter'>
+  ): Promise<IFilter | undefined> {
+    if (queryRo.ignoreViewQuery) {
+      return queryRo.filter;
+    }
+    const viewRaw = await this.findView(tableId, { viewId: queryRo.viewId });
+    return mergeWithDefaultFilter(viewRaw?.filter, queryRo.filter);
+  }
+
   private filterFieldInstances(
     fieldInstances: IFieldInstance[],
     withView?: IWithView,
@@ -881,6 +892,7 @@ export class AggregationService implements IAggregationService {
     }
     const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
     const queryBuilder = this.knex(dbFieldName);
+    const mergedFilter = await this.mergeViewFilter(tableId, queryRo);
 
     const selectionMap = new Map(
       Object.values(fieldInstanceMap).map((f) => [f.id, `"${f.dbFieldName}"`])
@@ -892,7 +904,7 @@ export class AggregationService implements IAggregationService {
       .filterQuery(
         queryBuilder,
         fieldInstanceMap,
-        queryRo?.filter,
+        mergedFilter,
         {
           withUserId: this.cls.get('user.id'),
         },
@@ -919,7 +931,6 @@ export class AggregationService implements IAggregationService {
       take,
       skip,
       orderBy,
-      filter,
       groupBy,
       viewId,
       ignoreViewQuery,
@@ -927,6 +938,8 @@ export class AggregationService implements IAggregationService {
     } = queryRo;
     const dbTableName = await this.getDbTableName(this.prisma, tableId);
     const { fieldInstanceMap } = await this.getFieldsData(tableId, undefined, false);
+    const mergedFilter = await this.mergeViewFilter(tableId, queryRo);
+    const searchIndexRo = { ...queryRo, filter: mergedFilter };
 
     if (take > 1000) {
       throw new CustomHttpException(
@@ -980,7 +993,7 @@ export class AggregationService implements IAggregationService {
         .filterQuery(
           qb,
           fieldInstanceMap,
-          filter,
+          mergedFilter,
           {
             withUserId: this.cls.get('user.id'),
           },
@@ -1012,7 +1025,7 @@ export class AggregationService implements IAggregationService {
       builder,
       viewCte || dbTableName,
       searchFields,
-      queryRo,
+      searchIndexRo,
       tableIndex,
       { selectionMap },
       basicSortIndex,

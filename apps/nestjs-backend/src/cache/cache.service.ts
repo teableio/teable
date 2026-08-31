@@ -32,11 +32,37 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
   }
 
   /**
-   * Atomic set-if-not-exists operation (Redis SETNX with EX)
-   * Returns true if the key was set, false if it already existed
-   * @param key - The key to set
-   * @param value - The value to set
-   * @param ttlSeconds - TTL in seconds
+   * Physical Redis key for `key`, exactly as the keyv stack lays it out: the
+   * keyv namespace prefix, then the store's own key naming (KeyvRedis with
+   * `useRedisSets: false` adds `sets:namespace:<ns>:` on top). Asking the
+   * store for its name instead of hand-building the layout is what keeps raw
+   * commands and the keyv read path pointed at the same bytes — a hand-built
+   * `namespace:key` silently diverged from the real layout, so keys written
+   * by raw commands were invisible to get()/del().
+   */
+  private getRedisKey(key: string): string {
+    const prefixed = `${this.cacheManager.opts.namespace}:${key}`;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const store = this.cacheManager.opts?.store as any;
+    return typeof store?._getKeyName === 'function' ? store._getKeyName(prefixed) : prefixed;
+  }
+
+  /**
+   * The envelope keyv wraps every value in (`{value, expires}`), produced with
+   * the instance's own serializer — this is what makes a raw-written key
+   * readable back through get().
+   */
+  private serializeEnvelope(value: unknown, ttlSeconds: number): string {
+    const serialize = this.cacheManager.opts.serialize ?? JSON.stringify;
+    return serialize({ value, expires: Date.now() + ttlSeconds * 1000 }) as string;
+  }
+
+  /**
+   * Atomic set-if-not-exists operation (Redis SET NX EX).
+   * Returns true if the key was set, false if it already existed.
+   *
+   * Fully interoperable with get()/del(): the write lands on the same
+   * physical key, in the same envelope, as a set() would.
    */
   async setnx<TKey extends keyof T>(
     key: TKey,
@@ -54,18 +80,23 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
       return true;
     }
 
-    // Use Redis SET with NX and EX for atomic operation
-    const fullKey = `${this.cacheManager.opts.namespace}:${key as string}`;
-    const serializedValue = JSON.stringify(value);
-    const result = await redis.set(fullKey, serializedValue, 'EX', ttlSeconds, 'NX');
+    const result = await redis.set(
+      this.getRedisKey(key as string),
+      this.serializeEnvelope(value, ttlSeconds),
+      'EX',
+      ttlSeconds,
+      'NX'
+    );
     return result === 'OK';
   }
 
   /**
-   * Atomic increment operation (Redis INCR with optional EX)
-   * Returns the new value after increment
-   * @param key - The key to increment
-   * @param ttlSeconds - Optional TTL in seconds (only set on first increment)
+   * Atomic increment operation (Redis INCR with optional EX).
+   * Returns the new value after increment.
+   *
+   * The counter is NOT readable via get(): atomic INCR requires a bare
+   * integer on the wire, which the keyv envelope cannot carry. Read the
+   * count only from this method's return value. del() does work on it.
    */
   async incr<TKey extends keyof T>(key: TKey, ttlSeconds?: number): Promise<number> {
     const redis = this.getRedisClient();
@@ -77,7 +108,7 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
       return newValue;
     }
 
-    const fullKey = `${this.cacheManager.opts.namespace}:${key as string}`;
+    const fullKey = this.getRedisKey(key as string);
     const newValue = await redis.incr(fullKey);
 
     // Set TTL only if provided and this is the first increment (value is 1)
@@ -139,8 +170,13 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
   }
 
   /**
-   * Update the TTL of an existing key without reading/writing data
-   * Returns true if the key exists and TTL was updated
+   * Update the TTL of an existing key without reading/writing data.
+   * Returns true if the key exists and TTL was updated.
+   *
+   * Only safe for SHORTENING the life of set()/setnx()-written values: their
+   * keyv envelope embeds an absolute `expires` that get() honors regardless of
+   * the Redis TTL, so an extension keeps the key alive but not readable.
+   * incr() counters carry no envelope and can go either way.
    */
   async expire<TKey extends keyof T>(key: TKey, ttl: number | string): Promise<boolean> {
     const ttlSeconds = typeof ttl === 'string' ? second(ttl) : ttl;
@@ -155,8 +191,7 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
       return false;
     }
 
-    const fullKey = `${this.cacheManager.opts.namespace}:${key as string}`;
-    const result = await redis.expire(fullKey, ttlSeconds);
+    const result = await redis.expire(this.getRedisKey(key as string), ttlSeconds);
     return result === 1;
   }
 }

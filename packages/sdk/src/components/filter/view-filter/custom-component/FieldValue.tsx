@@ -1,5 +1,8 @@
 import type { IFilterItem } from '@teable/core';
+import { CellValueType } from '@teable/core';
+import { cn } from '@teable/ui-lib';
 import { useMemo } from 'react';
+import { useInDrawer } from '../../../adaptive-panel';
 import { useCrud } from '../../hooks';
 import type { IFilterComponents } from '../../index';
 import type { IBaseFilterCustomComponentProps, IConditionItemProperty } from '../../types';
@@ -20,6 +23,7 @@ export const FieldValue = <T extends IConditionItemProperty = IViewFilterConditi
   props: IFieldValue<T>
 ) => {
   const ctxModal = useFilterModal();
+  const inDrawer = useInDrawer();
   const { path, components, value, item, modal = ctxModal, referenceSource } = props;
   const fields = useFields();
   const { onChange } = useCrud();
@@ -43,7 +47,7 @@ export const FieldValue = <T extends IConditionItemProperty = IViewFilterConditi
     };
   }, [field?.tableId, referenceSource]);
 
-  return (
+  const editor = (
     <BaseFieldValue
       value={value}
       field={field}
@@ -60,5 +64,21 @@ export const FieldValue = <T extends IConditionItemProperty = IViewFilterConditi
       linkContext={linkContext}
       referenceSource={defaultReferenceSource}
     />
+  );
+
+  if (!inDrawer) return editor;
+
+  // Fill the remaining row width without shrinking below the editor minimum.
+  // Date values wrap as one unit so their mode and input stay side by side.
+  // `empty:hidden` collapses valueless operators such as "is empty".
+  return (
+    <div
+      className={cn(
+        'min-w-[120px] flex-1 empty:hidden',
+        field?.cellValueType === CellValueType.DateTime && 'w-full flex-none'
+      )}
+    >
+      {editor}
+    </div>
   );
 };

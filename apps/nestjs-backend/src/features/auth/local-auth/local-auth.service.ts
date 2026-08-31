@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { generateUserId, getRandomString, HttpErrorCode, RandomType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { EmailVerifyCodeType, MailTransporterType, MailType } from '@teable/openapi';
@@ -23,6 +22,7 @@ import { second } from '../../../utils/second';
 import { MailSenderService } from '../../mail-sender/mail-sender.service';
 import { SettingService } from '../../setting/setting.service';
 import { UserService } from '../../user/user.service';
+import { TeableJwtService } from '../jwt/teable-jwt.service';
 import { SessionStoreService } from '../session/session-store.service';
 import { TurnstileService } from '../turnstile/turnstile.service';
 
@@ -42,7 +42,7 @@ export class LocalAuthService {
     @MailConfig() private readonly mailConfig: IMailConfig,
     @BaseConfig() private readonly baseConfig: IBaseConfig,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
-    private readonly jwtService: JwtService,
+    private readonly jwtService: TeableJwtService,
     private readonly settingService: SettingService,
     private readonly turnstileService: TurnstileService
   ) {}
@@ -265,7 +265,12 @@ export class LocalAuthService {
             salt,
             password: hashPassword,
             lastSignTime: new Date().toISOString(),
-            refMeta: refMeta ? JSON.stringify(refMeta) : undefined,
+            // Same first-touch attribution merge as fresh creation: this
+            // branch CLAIMS a user pre-created by an email invitation, and
+            // it is that person's real signup moment.
+            refMeta: this.userService.applySignupAttribution(
+              refMeta ? JSON.stringify(refMeta) : undefined
+            ),
           },
         });
       }

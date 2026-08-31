@@ -1,9 +1,11 @@
+import { localizationSchema } from '@teable/core';
 import { axios, ensureUndoRedoWindowIdHeader } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { streamSSE } from '../utils/sse';
 import { z } from '../zod';
 import type { IPasteRo, IPasteVo } from './paste';
 import { pasteRoSchema, pasteVoSchema, PASTE_URL } from './paste';
+import { createSelectionStreamError } from './stream-error';
 
 export const PASTE_STREAM_URL = `${PASTE_URL}-stream`;
 
@@ -57,6 +59,7 @@ export const pasteSelectionStreamErrorEventSchema = z.object({
   recordIds: z.array(z.string()),
   message: z.string(),
   code: z.string().optional(),
+  localization: localizationSchema.optional(),
 });
 
 export const pasteSelectionStreamEventSchema = z.union([
@@ -155,7 +158,7 @@ export const pasteSelectionStream = async (
   if (!doneEvent) {
     const lastError = errors.at(-1);
     if (lastError) {
-      throw new Error(lastError.message);
+      throw createSelectionStreamError(lastError);
     }
     throw new Error('Paste selection stream ended without result');
   }

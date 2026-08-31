@@ -257,6 +257,116 @@ describe('PostgresTableRowLimitPlugin', () => {
     });
   });
 
+  it('rejects creation with a localized rows-per-table error when the cap is exceeded', async () => {
+    const executor = {
+      transformQuery: (node: unknown) => node,
+      compileQuery: () => ({ sql: '', parameters: [], query: { kind: 'RawNode' } }),
+      executeQuery: vi.fn().mockResolvedValue({ rows: [{ count: '10' }] }),
+    };
+    const db = { getExecutor: () => executor } as unknown as Kysely<V1TeableDatabase>;
+
+    const plugin = new PostgresTableRowLimitPlugin(db, new StaticTableRowLimitPolicy(10));
+    const context = createContext();
+    const prepared = (await plugin.prepare(context))._unsafeUnwrap();
+    const result = await plugin.guard(context, prepared);
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'validation.limit.rows_per_table_max',
+      localization: {
+        i18nKey: 'httpErrors.limit.rowsPerTableMax',
+        context: { max: 10 },
+      },
+    });
+  });
+
+  it('truncates createMany to the remaining row capacity', async () => {
+    const executor = {
+      transformQuery: (node: unknown) => node,
+      compileQuery: () => ({ sql: '', parameters: [], query: { kind: 'RawNode' } }),
+      executeQuery: vi.fn().mockResolvedValue({ rows: [{ count: '8' }] }),
+    };
+    const db = { getExecutor: () => executor } as unknown as Kysely<V1TeableDatabase>;
+    const recordsFieldValues = [new Map(), new Map(), new Map()];
+    const plugin = new PostgresTableRowLimitPlugin(db, new StaticTableRowLimitPolicy(10));
+    const context = createContext({
+      payload: {
+        recordsFieldValues,
+        fieldKeyType: FieldKeyType.Name,
+        typecast: false,
+        recordCount: 3,
+        isolateRowOverflow: true,
+      },
+    });
+    const prepared = (await plugin.prepare(context))._unsafeUnwrap();
+    const result = await plugin.guard(context, prepared);
+
+    expect(result.isOk()).toBe(true);
+    expect(recordsFieldValues).toHaveLength(2);
+    expect(context.kind).toBe(RecordWriteOperationKind.createMany);
+    if (context.kind === RecordWriteOperationKind.createMany) {
+      expect(context.payload.recordCount).toBe(2);
+    }
+  });
+
+  it('fails closed in beforePersist instead of truncating an already-consumed payload', async () => {
+    const executor = {
+      transformQuery: (node: unknown) => node,
+      compileQuery: () => ({ sql: '', parameters: [], query: { kind: 'RawNode' } }),
+      executeQuery: vi.fn().mockResolvedValue({ rows: [{ count: '9' }] }),
+    };
+    const db = { getExecutor: () => executor } as unknown as Kysely<V1TeableDatabase>;
+    const recordsFieldValues = [new Map(), new Map()];
+    const plugin = new PostgresTableRowLimitPlugin(db, new StaticTableRowLimitPolicy(10));
+    const context = createContext({
+      payload: {
+        recordsFieldValues,
+        fieldKeyType: FieldKeyType.Name,
+        typecast: false,
+        recordCount: 2,
+        isolateRowOverflow: true,
+      },
+    });
+    const prepared = (await plugin.prepare(context))._unsafeUnwrap();
+    // By beforePersist the caller has already built its records from the
+    // payload, so truncation would silently change nothing — a concurrent
+    // writer consuming capacity must roll the transaction back instead.
+    const result = await plugin.beforePersist(context, prepared);
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'validation.limit.rows_per_table_max',
+    });
+    expect(recordsFieldValues).toHaveLength(2);
+  });
+
+  it('rejects createMany that exceeds remaining capacity when isolation is disabled', async () => {
+    const executor = {
+      transformQuery: (node: unknown) => node,
+      compileQuery: () => ({ sql: '', parameters: [], query: { kind: 'RawNode' } }),
+      executeQuery: vi.fn().mockResolvedValue({ rows: [{ count: '8' }] }),
+    };
+    const db = { getExecutor: () => executor } as unknown as Kysely<V1TeableDatabase>;
+    const recordsFieldValues = [new Map(), new Map(), new Map()];
+    const plugin = new PostgresTableRowLimitPlugin(db, new StaticTableRowLimitPolicy(10));
+    const context = createContext({
+      payload: {
+        recordsFieldValues,
+        fieldKeyType: FieldKeyType.Name,
+        typecast: false,
+        recordCount: 3,
+      },
+    });
+    const prepared = (await plugin.prepare(context))._unsafeUnwrap();
+    const result = await plugin.guard(context, prepared);
+
+    expect(result.isErr()).toBe(true);
+    expect(recordsFieldValues).toHaveLength(3);
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'validation.limit.rows_per_table_max',
+    });
+  });
+
   it('short-circuits guard and beforePersist when there is nothing to enforce', async () => {
     const plugin = new PostgresTableRowLimitPlugin(
       createDb().db,

@@ -5,6 +5,10 @@
     "password": "パスワード",
     "passwordTooShort": "パスワードは3文字以上で入力してください"
   },
+  "form": {
+    "requireLoginTip": "このフォームを送信するにはログインが必要です",
+    "login": "ログイン"
+  },
   "toolbar": {
     "filterLinkSelectPlaceholder": "選択..."
   },

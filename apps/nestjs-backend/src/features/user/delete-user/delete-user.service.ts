@@ -32,6 +32,8 @@ export class DeleteUserService {
       {
         // eslint-disable-next-line @typescript-eslint/naming-convention
         'Content-Type': mimetype,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        'Cache-Control': StorageAdapter.getCacheControl(UploadType.Avatar),
       }
     );
     await this.prismaService.txClient().attachments.update({
@@ -42,6 +44,16 @@ export class DeleteUserService {
         token: userId,
         deletedTime: null,
       },
+    });
+    // Bump the version query so urls cached with the real photo stop being
+    // referenced; without this, browsers/CDN keep serving the old bytes for
+    // the full max-age window after deletion. The user row is already
+    // soft-deleted at this point, so no deletedTime filter here.
+    await this.prismaService.txClient().user.update({
+      data: {
+        avatar: `${path}?v=${Date.now()}`,
+      },
+      where: { id: userId },
     });
   }
 

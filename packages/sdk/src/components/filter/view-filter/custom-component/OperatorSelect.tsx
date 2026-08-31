@@ -1,6 +1,8 @@
 import type { IFilterOperator, IFilterItem } from '@teable/core';
 import { cn } from '@teable/ui-lib';
 import { useCallback, useMemo } from 'react';
+import { useTranslation } from '../../../../context/app/i18n';
+import { useInDrawer } from '../../../adaptive-panel';
 import { useCrud } from '../../hooks';
 import type { IBaseFilterCustomComponentProps, IConditionItemProperty } from '../../types';
 import { DefaultErrorLabel } from '../component';
@@ -25,6 +27,8 @@ interface IBaseOperatorSelectProps<T extends IConditionItemProperty = IViewFilte
 export const OperatorSelect = <T extends IConditionItemProperty = IViewFilterConditionItem>(
   props: IBaseOperatorSelectProps<T>
 ) => {
+  const { t } = useTranslation();
+  const inDrawer = useInDrawer();
   const ctxModal = useFilterModal();
   const { value, item, path, disabledOperators, modal = ctxModal } = props;
   const { field: fieldId } = item;
@@ -48,7 +52,11 @@ export const OperatorSelect = <T extends IConditionItemProperty = IViewFilterCon
 
   const onSelectHandler = useCallback(
     (value: IFilterItem['operator'] | null) => {
-      const resetFieldValue = shouldResetFieldValue(item.operator as string, value as string);
+      const resetFieldValue = shouldResetFieldValue(
+        item.operator as string,
+        value as string,
+        field
+      );
       if (resetFieldValue || !operators.includes(value as IFilterOperator)) {
         const newPath = path.slice(0, -1);
         onChange(newPath, {
@@ -60,7 +68,7 @@ export const OperatorSelect = <T extends IConditionItemProperty = IViewFilterCon
         onChange(path, value);
       }
     },
-    [item.field, item.operator, onChange, operators, path]
+    [field, item.field, item.operator, onChange, operators, path]
   );
 
   return (
@@ -68,7 +76,8 @@ export const OperatorSelect = <T extends IConditionItemProperty = IViewFilterCon
       value={value}
       options={operatorOption}
       popoverClassName="w-48"
-      className={cn('shrink-0 justify-between w-[88px] gap-0 pr-1.5 h-8')}
+      drawerTitle={t('filter.selectOperator')}
+      className={cn('h-8 w-[88px] shrink-0 justify-between gap-0 pe-1.5', inDrawer && 'w-[120px]')}
       onSelect={onSelectHandler}
       disabled={shouldDisabled}
       defaultLabel={<DefaultErrorLabel />}

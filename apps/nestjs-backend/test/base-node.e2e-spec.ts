@@ -19,6 +19,7 @@ import {
   duplicateBaseNode,
   BaseNodeResourceType,
   createBase,
+  enableShareView,
   emailBaseInvitation,
   createSpace as apiCreateSpace,
   permanentDeleteSpace as apiPermanentDeleteSpace,
@@ -35,7 +36,7 @@ import {
 import type { AxiosInstance } from 'axios';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
-import { getFields, initApp, permanentDeleteBase } from './utils/init-app';
+import { getFields, getViews, initApp, permanentDeleteBase } from './utils/init-app';
 
 // Constants for reused strings
 const nonExistentId = 'non-existent-node-id';
@@ -1122,6 +1123,50 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
 
       nodesToCleanup.push(response.data.id);
       expect(response.data.resourceMeta?.name).toBe('Duplicated Table Via Node Route');
+    });
+
+    it('should duplicate a table with a shared view without carrying the share over', async () => {
+      const original = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Shared View Source Table',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Shared Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(original.data.id);
+
+      const sourceTableId = original.data.resourceId!;
+      const [sourceView] = await getViews(sourceTableId);
+      const sourceShare = await enableShareView({
+        tableId: sourceTableId,
+        viewId: sourceView.id,
+      });
+
+      const response = await axios.post(
+        urlBuilder(DUPLICATE_BASE_NODE, { baseId, nodeId: original.data.id }),
+        {
+          name: 'Shared View Duplicated Table',
+          includeRecords: false,
+        },
+        {
+          headers: {
+            [windowIdHeader]: 'win-base-node-duplicate-shared-view',
+          },
+        }
+      );
+      nodesToCleanup.push(response.data.id);
+
+      expect(response.status).toBe(201);
+      expect(response.headers['x-teable-v2']).toBe('true');
+
+      const [duplicatedView] = await getViews(response.data.resourceId);
+      expect(duplicatedView.enableShare).toBeFalsy();
+      expect(duplicatedView.shareId).toBeFalsy();
+      expect(duplicatedView.shareMeta).toBeFalsy();
+
+      // The source keeps its own public link untouched.
+      const [sourceViewAfterDuplicate] = await getViews(sourceTableId);
+      expect(sourceViewAfterDuplicate.enableShare).toBe(true);
+      expect(sourceViewAfterDuplicate.shareId).toBe(sourceShare.data.shareId);
     });
 
     it('should duplicate dashboard successfully', async () => {

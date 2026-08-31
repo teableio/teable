@@ -6,6 +6,7 @@ import type { IDomainContext } from '../../domain/shared/DomainContext';
 import type { DomainError } from '../../domain/shared/DomainError';
 import {
   ensureWithinTableDataSafetyLimit,
+  tableDataSafetyLimitErrors,
   measureJsonBytes,
   resolveTableDataSafetyLimits,
   type ResolvedTableDataSafetyLimitConfig,
@@ -19,10 +20,8 @@ import {
   type FieldOperationPluginContext,
   type IFieldOperationPlugin,
 } from '../../ports/FieldOperationPlugin';
-import {
-  createDefaultTableDataSafetyLimitComposer,
-  TableDataSafetyLimitComposer,
-} from './TableDataSafetyLimitComposer';
+import type { TableDataSafetyLimitComposer } from './TableDataSafetyLimitComposer';
+import { createDefaultTableDataSafetyLimitComposer } from './TableDataSafetyLimitComposer';
 
 type PreparedTableDataSafetyFieldLimitState = {
   readonly domainContext: IDomainContext | undefined;
@@ -112,7 +111,7 @@ const ensureDisplayText = (
   limits: ResolvedTableDataSafetyLimitConfig
 ): Result<void, DomainError> => {
   const nameResult = ensureWithinTableDataSafetyLimit(
-    'validation.limit.name_max_length',
+    tableDataSafetyLimitErrors.nameMaxLength,
     field.name().toString().length,
     limits.displayText.maxNameLength,
     {
@@ -125,7 +124,7 @@ const ensureDisplayText = (
   const description = fieldDescription(field);
   if (description == null) return ok(undefined);
   return ensureWithinTableDataSafetyLimit(
-    'validation.limit.description_max_length',
+    tableDataSafetyLimitErrors.descriptionMaxLength,
     description.length,
     limits.displayText.maxDescriptionLength,
     {
@@ -141,7 +140,7 @@ const ensureSelectFieldLimits = (
 ): Result<void, DomainError> => {
   const options = selectOptions(field);
   const optionsBytesResult = ensureWithinTableDataSafetyLimit(
-    'validation.limit.field_options_max_bytes',
+    tableDataSafetyLimitErrors.fieldOptionsMaxBytes,
     measureJsonBytes(options),
     limits.fieldOptions.maxBytes,
     {
@@ -152,7 +151,7 @@ const ensureSelectFieldLimits = (
   if (optionsBytesResult.isErr()) return optionsBytesResult;
 
   const choiceCountResult = ensureWithinTableDataSafetyLimit(
-    'validation.limit.select_choices_max',
+    tableDataSafetyLimitErrors.selectChoicesMax,
     options.length,
     limits.fieldOptions.maxSelectChoices,
     {
@@ -164,7 +163,7 @@ const ensureSelectFieldLimits = (
 
   for (const option of options) {
     const nameResult = ensureWithinTableDataSafetyLimit(
-      'validation.limit.select_choice_name_max_length',
+      tableDataSafetyLimitErrors.selectChoiceNameMaxLength,
       option.name.length,
       limits.fieldOptions.maxSelectChoiceNameLength,
       {
@@ -177,7 +176,7 @@ const ensureSelectFieldLimits = (
   }
 
   return ensureWithinTableDataSafetyLimit(
-    'validation.limit.select_default_values_max',
+    tableDataSafetyLimitErrors.selectDefaultValuesMax,
     selectDefaultValues(field).length,
     limits.fieldOptions.maxSelectDefaultValues,
     {
@@ -192,7 +191,7 @@ const ensureFormulaLength = (
   limits: ResolvedTableDataSafetyLimitConfig
 ): Result<void, DomainError> => {
   return ensureWithinTableDataSafetyLimit(
-    'validation.limit.formula_max_length',
+    tableDataSafetyLimitErrors.formulaMaxLength,
     formulaExpression(field).length,
     limits.computed.maxFormulaLength,
     {
@@ -225,7 +224,7 @@ const ensureRawUpdateLimits = (
 ): Result<void, DomainError> => {
   if (fieldUpdate.name != null) {
     const nameResult = ensureWithinTableDataSafetyLimit(
-      'validation.limit.name_max_length',
+      tableDataSafetyLimitErrors.nameMaxLength,
       fieldUpdate.name.length,
       limits.displayText.maxNameLength,
       { target: 'field.name' }
@@ -234,7 +233,7 @@ const ensureRawUpdateLimits = (
   }
   if (fieldUpdate.description != null) {
     const descriptionResult = ensureWithinTableDataSafetyLimit(
-      'validation.limit.description_max_length',
+      tableDataSafetyLimitErrors.descriptionMaxLength,
       fieldUpdate.description.length,
       limits.displayText.maxDescriptionLength,
       { target: 'field.description' }
@@ -243,7 +242,7 @@ const ensureRawUpdateLimits = (
   }
   if (fieldUpdate.options != null) {
     const optionsBytesResult = ensureWithinTableDataSafetyLimit(
-      'validation.limit.field_options_max_bytes',
+      tableDataSafetyLimitErrors.fieldOptionsMaxBytes,
       measureJsonBytes(fieldUpdate.options),
       limits.fieldOptions.maxBytes,
       { target: 'field.options' }
@@ -252,7 +251,7 @@ const ensureRawUpdateLimits = (
 
     for (const name of rawSelectOptionNames(fieldUpdate.options)) {
       const nameResult = ensureWithinTableDataSafetyLimit(
-        'validation.limit.select_choice_name_max_length',
+        tableDataSafetyLimitErrors.selectChoiceNameMaxLength,
         name.length,
         limits.fieldOptions.maxSelectChoiceNameLength,
         { target: 'field.options.choices.name' }
@@ -262,7 +261,7 @@ const ensureRawUpdateLimits = (
 
     if (mayContainSelectDefaultValues(fieldUpdate)) {
       const defaultValuesResult = ensureWithinTableDataSafetyLimit(
-        'validation.limit.select_default_values_max',
+        tableDataSafetyLimitErrors.selectDefaultValuesMax,
         rawDefaultValueCount(fieldUpdate.options),
         limits.fieldOptions.maxSelectDefaultValues,
         { target: 'field.options.defaultValue' }
@@ -274,7 +273,7 @@ const ensureRawUpdateLimits = (
   const expression = rawFormulaExpression(fieldUpdate);
   if (expression != null) {
     return ensureWithinTableDataSafetyLimit(
-      'validation.limit.formula_max_length',
+      tableDataSafetyLimitErrors.formulaMaxLength,
       expression.length,
       limits.computed.maxFormulaLength,
       { target: 'field.options.expression' }

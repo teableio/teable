@@ -1,4 +1,4 @@
-import type { DomainError } from '@teable/v2-core';
+import type { DomainError, IDomainErrorLocalization } from '@teable/v2-core';
 import {
   domainErrorTagValues,
   isConflictError,
@@ -16,6 +16,10 @@ export interface IHttpErrorDto {
   message: string;
   tags: ReadonlyArray<(typeof domainErrorTagValues)[number]>;
   details?: Readonly<Record<string, unknown>>;
+  localization?: IDomainErrorLocalization;
+  /** Diagnostic only — non-enumerable, never serialized into HTTP bodies. */
+  stack?: string;
+  cause?: unknown;
 }
 
 export interface IApiErrorResponseDto {
@@ -44,15 +48,43 @@ export const apiErrorResponseDtoSchema = z.object({
     message: z.string(),
     tags: z.array(z.enum(domainErrorTagValues)),
     details: z.record(z.string(), z.unknown()).optional(),
+    localization: z
+      .object({
+        i18nKey: z.string(),
+        context: z.record(z.string(), z.unknown()).optional(),
+      })
+      .optional(),
   }),
 });
 
-export const mapDomainErrorToHttpError = (error: DomainError): IHttpErrorDto => ({
-  code: error.code,
-  message: error.message,
-  tags: error.tags,
-  details: error.details,
-});
+export const mapDomainErrorToHttpError = (error: DomainError): IHttpErrorDto => {
+  const dto: IHttpErrorDto = {
+    code: error.code,
+    message: error.message,
+    tags: error.tags,
+    details: error.details,
+    localization: error.localization,
+  };
+  // Keep creation-site diagnostics available for throwV2Error/Sentry without
+  // leaking them into JSON response bodies (non-enumerable).
+  if (error.stack) {
+    Object.defineProperty(dto, 'stack', {
+      value: error.stack,
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    });
+  }
+  if (error.cause !== undefined) {
+    Object.defineProperty(dto, 'cause', {
+      value: error.cause,
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    });
+  }
+  return dto;
+};
 
 export const mapDomainErrorToHttpStatus = (error: DomainError): HttpErrorStatus => {
   if (isNotFoundError(error)) return 404;

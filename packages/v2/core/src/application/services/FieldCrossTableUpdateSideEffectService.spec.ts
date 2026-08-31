@@ -92,6 +92,22 @@ class FakeUnitOfWork implements IUnitOfWork {
   }
 }
 
+class TrackingTableRepository extends MemoryTableRepository {
+  readonly findResults: string[][] = [];
+
+  override async find(
+    context: IExecutionContext,
+    spec: ISpecification<Table, ITableSpecVisitor>,
+    options?: Parameters<MemoryTableRepository['find']>[2]
+  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
+    const result = await super.find(context, spec, options);
+    if (result.isOk()) {
+      this.findResults.push(result.value.map((table) => table.id().toString()));
+    }
+    return result;
+  }
+}
+
 const buildTable = (params: {
   baseId: BaseId;
   tableId: TableId;
@@ -241,6 +257,167 @@ describe('FieldCrossTableUpdateSideEffectService', () => {
       updateSpecs: [],
     });
     expect(result._unsafeUnwrap()).toEqual([]);
+  });
+
+  it('does not hydrate unrelated tables when converting a field with no inbound references', async () => {
+    const context = createContext();
+    const baseId = BaseId.create(`bse${'p'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'q'.repeat(16)}`)._unsafeUnwrap();
+    const primaryFieldId = FieldId.create(`fld${'r'.repeat(16)}`)._unsafeUnwrap();
+    const statusFieldId = FieldId.create(`fld${'s'.repeat(16)}`)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Source')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(primaryFieldId)
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .singleSelect()
+      .withId(statusFieldId)
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .withOptions([SelectOption.create({ name: 'x', color: 'blue' })._unsafeUnwrap()])
+      .done();
+    builder.view().defaultGrid().done();
+    const sourceTable = builder.build()._unsafeUnwrap();
+
+    const oldField = sourceTable
+      .getField((field) => field.id().equals(statusFieldId))
+      ._unsafeUnwrap();
+    const convertedField = NumberField.create({
+      id: oldField.id(),
+      name: oldField.name(),
+    })._unsafeUnwrap();
+    const typeSpec = TableUpdateFieldTypeSpec.create(oldField, convertedField);
+    const convertedSource = typeSpec.mutate(sourceTable)._unsafeUnwrap();
+    const updatedField = convertedSource
+      .getField((field) => field.id().equals(statusFieldId))
+      ._unsafeUnwrap();
+
+    const repo = new TrackingTableRepository();
+    await repo.insert(context, convertedSource);
+    for (let index = 0; index < 8; index += 1) {
+      const extra = buildTable({
+        baseId,
+        tableId: TableId.create(`tbl${String(index).padStart(16, 'n')}`)._unsafeUnwrap(),
+        tableName: `Extra ${index}`,
+        primaryFieldId: FieldId.create(`fld${String(index).padStart(16, 'n')}`)._unsafeUnwrap(),
+        primaryFieldName: `Name ${index}`,
+      });
+      await repo.insert(context, extra);
+    }
+
+    const service = new FieldCrossTableUpdateSideEffectService(repo, buildFlow(repo));
+    const result = await service.execute(context, {
+      table: convertedSource,
+      updatedField,
+      updateSpecs: [typeSpec],
+    });
+    expect(result.isOk()).toBe(true);
+    expect(repo.findResults).toEqual([[]]);
+  });
+
+  it('loads only tables that reference the converted table', async () => {
+    const context = createContext();
+    const baseId = BaseId.create(`bse${'t'.repeat(16)}`)._unsafeUnwrap();
+
+    const hostTableId = TableId.create(`tbl${'u'.repeat(16)}`)._unsafeUnwrap();
+    const foreignTableId = TableId.create(`tbl${'v'.repeat(16)}`)._unsafeUnwrap();
+    const hostPrimaryId = FieldId.create(`fld${'w'.repeat(16)}`)._unsafeUnwrap();
+    const foreignPrimaryId = FieldId.create(`fld${'x'.repeat(16)}`)._unsafeUnwrap();
+    const filterFieldId = FieldId.create(`fld${'y'.repeat(16)}`)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(`fld${'z'.repeat(16)}`)._unsafeUnwrap();
+
+    const hostTable = buildTable({
+      baseId,
+      tableId: hostTableId,
+      tableName: 'Host',
+      primaryFieldId: hostPrimaryId,
+      primaryFieldName: 'Host Name',
+    });
+
+    const foreignBuilder = Table.builder()
+      .withId(foreignTableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Foreign')._unsafeUnwrap());
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withId(foreignPrimaryId)
+      .withName(FieldName.create('Foreign Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignBuilder
+      .field()
+      .singleSelect()
+      .withId(filterFieldId)
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .withOptions([SelectOption.create({ name: 'x', color: 'blue' })._unsafeUnwrap()])
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+    const linkConfig = LinkFieldConfig.create({
+      relationship: 'manyOne',
+      foreignTableId: foreignTable.id().toString(),
+      lookupFieldId: foreignTable.primaryFieldId().toString(),
+      filter: {
+        conjunction: 'and',
+        filterSet: [{ fieldId: filterFieldId.toString(), operator: 'is', value: 'x' }],
+      },
+    })._unsafeUnwrap();
+    const linkField = createNewLinkField({
+      id: linkFieldId,
+      name: FieldName.create('Link')._unsafeUnwrap(),
+      config: linkConfig,
+      baseId,
+      hostTableId: hostTable.id(),
+    })._unsafeUnwrap() as LinkField;
+
+    const hostWithLink = hostTable
+      .update((mutator) => mutator.addField(linkField, { foreignTables: [foreignTable] }))
+      ._unsafeUnwrap().table;
+
+    const oldField = foreignTable
+      .getField((field) => field.id().equals(filterFieldId))
+      ._unsafeUnwrap();
+    const convertedField = NumberField.create({
+      id: oldField.id(),
+      name: oldField.name(),
+    })._unsafeUnwrap();
+    const typeSpec = TableUpdateFieldTypeSpec.create(oldField, convertedField);
+    const convertedForeign = typeSpec.mutate(foreignTable)._unsafeUnwrap();
+    const updatedField = convertedForeign
+      .getField((field) => field.id().equals(filterFieldId))
+      ._unsafeUnwrap();
+
+    const extra = buildTable({
+      baseId,
+      tableId: TableId.create(`tbl${'0'.repeat(16)}`)._unsafeUnwrap(),
+      tableName: 'Unrelated',
+      primaryFieldId: FieldId.create(`fld${'0'.repeat(16)}`)._unsafeUnwrap(),
+      primaryFieldName: 'Unrelated Name',
+    });
+
+    const repo = new TrackingTableRepository();
+    await repo.insert(context, hostWithLink);
+    await repo.insert(context, convertedForeign);
+    await repo.insert(context, extra);
+
+    const service = new FieldCrossTableUpdateSideEffectService(repo, buildFlow(repo));
+    const result = await service.execute(context, {
+      table: convertedForeign,
+      updatedField,
+      updateSpecs: [typeSpec],
+    });
+    expect(result.isOk()).toBe(true);
+    expect(repo.findResults).toEqual([[hostWithLink.id().toString()]]);
   });
 
   it('syncs linked filter values when select options are renamed in a foreign table', async () => {

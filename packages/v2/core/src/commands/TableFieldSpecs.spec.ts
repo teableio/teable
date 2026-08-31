@@ -1,14 +1,14 @@
+import { tableI18nKeys } from '@teable/i18n-keys';
 import { describe, expect, it } from 'vitest';
 
-import { tableI18nKeys } from '@teable/i18n-keys';
-import { ActorId } from '../domain/shared/ActorId';
 import { BaseId } from '../domain/base/BaseId';
+import { ActorId } from '../domain/shared/ActorId';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import { ConditionalLookupField } from '../domain/table/fields/types/ConditionalLookupField';
 import { Table } from '../domain/table/Table';
-import { TableName } from '../domain/table/TableName';
 import { TableId } from '../domain/table/TableId';
+import { TableName } from '../domain/table/TableName';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import {
   collectForeignTableReferences,
@@ -425,5 +425,63 @@ describe('TableFieldSpecs', () => {
       ._unsafeUnwrap();
 
     expect(field.aiConfig()).toEqual(aiConfig);
+  });
+
+  it('rejects aiConfig on field types that do not support it', () => {
+    const specResult = parseSpec({
+      type: 'checkbox',
+      name: 'Done',
+      aiConfig: {
+        type: 'summary',
+        modelKey: 'openai@gpt-4o@gpt',
+        sourceFieldId: `fld${'z'.repeat(16)}`,
+      },
+    });
+
+    expect(specResult.isErr()).toBe(true);
+    expect(specResult._unsafeUnwrapErr().message).toMatch(/aiConfig/);
+  });
+
+  it('rejects aiConfig whose action type does not match the field type', () => {
+    const specResult = parseSpec({
+      type: 'attachment',
+      name: 'Images',
+      aiConfig: {
+        type: 'summary',
+        modelKey: 'openai@gpt-4o@gpt',
+        sourceFieldId: `fld${'z'.repeat(16)}`,
+      },
+    });
+
+    expect(specResult.isErr()).toBe(true);
+    expect(specResult._unsafeUnwrapErr().message).toMatch(/aiConfig/i);
+  });
+
+  it('rehydrates legacy aiConfig only through the explicit trusted mode', () => {
+    const input = {
+      type: 'checkbox' as const,
+      name: 'Legacy AI Drift',
+      aiConfig: {
+        type: 'summary',
+        modelKey: 'openai@gpt-4o@gpt',
+        sourceFieldId: `fld${'z'.repeat(16)}`,
+      },
+    };
+    const resolved = resolveTableFieldInputs([input], [])._unsafeUnwrap()[0]!;
+
+    expect(parseTableFieldSpec(resolved, { isPrimary: false }).isErr()).toBe(true);
+
+    const trustedSpec = parseTableFieldSpec(resolved, {
+      isPrimary: false,
+      aiConfigMode: 'trustedRehydrate',
+    })._unsafeUnwrap();
+    const field = trustedSpec
+      .createField({
+        baseId: BaseId.create(`bse${'e'.repeat(16)}`)._unsafeUnwrap(),
+        tableId: TableId.create(`tbl${'f'.repeat(16)}`)._unsafeUnwrap(),
+      })
+      ._unsafeUnwrap();
+
+    expect(field.aiConfig()).toEqual(input.aiConfig);
   });
 });

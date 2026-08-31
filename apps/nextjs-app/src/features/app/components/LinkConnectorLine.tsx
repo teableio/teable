@@ -42,13 +42,21 @@ const computePoints = (sourceEl: HTMLElement, targetEl: HTMLElement): ILinePoint
   const dialogRect = dialogEl?.getBoundingClientRect();
   if (!dialogRect) return null;
 
+  // The line runs from the sidebar entry to the nearest edge of the dialog, and
+  // which edge that is depends on the reading direction: under an RTL interface
+  // the sidebar sits on the right and the dialog opens to its left. Read from
+  // the source element's own computed direction so a subtree that pins itself
+  // the other way (the grid does) still gets the right answer.
+  const isRtl = getComputedStyle(sourceEl).direction === 'rtl';
   const sourceMidX = sourceRect.left + sourceRect.width / 2;
-  if (dialogRect.left < sourceMidX) return null;
+  // Bail out when the dialog is on the wrong side of the source to draw to.
+  if (isRtl ? dialogRect.right > sourceMidX : dialogRect.left < sourceMidX) return null;
 
   const targetRect = targetEl.getBoundingClientRect();
   const headerMidY = targetRect.top + targetRect.height / 2;
-  const target = { x: dialogRect.left - 1.5, y: headerMidY };
-  const gap = dialogRect.left - sourceRect.right;
+  const dialogEdge = isRtl ? dialogRect.right + 1.5 : dialogRect.left - 1.5;
+  const target = { x: dialogEdge, y: headerMidY };
+  const gap = isRtl ? sourceRect.left - dialogRect.right : dialogRect.left - sourceRect.right;
 
   if (gap < 60) {
     return {
@@ -58,7 +66,10 @@ const computePoints = (sourceEl: HTMLElement, targetEl: HTMLElement): ILinePoint
     };
   }
   return {
-    source: { x: sourceRect.right, y: sourceRect.top + sourceRect.height / 2 },
+    source: {
+      x: isRtl ? sourceRect.left : sourceRect.right,
+      y: sourceRect.top + sourceRect.height / 2,
+    },
     target,
     mode: 'side',
   };
@@ -147,12 +158,15 @@ export const LinkConnectorLine = () => {
 
   let path: string;
   if (mode === 'top') {
-    // Overlapping: curve exits upward from source, arrives from left at target
+    // Overlapping: curve exits upward from source and arrives at the target from
+    // whichever side the target actually lies on — taken from the sign rather
+    // than assumed, so the same curve reads correctly in both directions.
     const dy = Math.abs(source.y - target.y);
     const dx = Math.abs(target.x - source.x);
-    const c1x = source.x + dx * 0.55;
+    const towardsTarget = Math.sign(target.x - source.x) || 1;
+    const c1x = source.x + towardsTarget * dx * 0.55;
     const c1y = source.y - dy * 0.1;
-    const c2x = target.x - dx * 0.5;
+    const c2x = target.x - towardsTarget * dx * 0.5;
     const c2y = target.y;
     path = `M ${source.x} ${source.y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${target.x} ${target.y}`;
   } else {

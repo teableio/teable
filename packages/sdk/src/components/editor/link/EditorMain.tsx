@@ -7,7 +7,7 @@ import { getRecordIndex } from '@teable/openapi';
 import { Button, Tabs, TabsList, TabsTrigger } from '@teable/ui-lib';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import type { ForwardRefRenderFunction } from 'react';
-import { RowCountProvider, LinkViewProvider } from '../../../context';
+import { RowCountProvider, LinkViewProvider, TablePermissionProvider } from '../../../context';
 import { useTranslation } from '../../../context/app/i18n';
 import { LinkFilterProvider } from '../../../context/query/LinkFilterProvider';
 import {
@@ -19,6 +19,7 @@ import {
   useTables,
   useViewId,
 } from '../../../hooks';
+import { useContentDir } from '../../../hooks/use-content-dir';
 import { CreateRecordModal } from '../../create-record';
 import { SearchInput } from '../../search';
 import { LinkListType } from './interface';
@@ -71,6 +72,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
   }));
 
   const { t } = useTranslation();
+  const contentDir = useContentDir();
 
   const listRef = useRef<ILinkListRef>(null);
 
@@ -89,6 +91,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
     filterLinkCellCandidate,
     setListType,
     setLinkCellSelected,
+    setLinkCellCandidate,
   } = useLinkFilter();
 
   const recordQuery = useMemo((): IGetRecordsRo => {
@@ -131,6 +134,10 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
     setListType(type);
     if (type === LinkListType.Selected) {
       setLinkCellSelected([fieldId, recordId].filter(Boolean));
+    } else {
+      // Restore the candidate filter: switching to the selected list clears it,
+      // and without it the "All" list shows records that cannot be linked (T6679).
+      setLinkCellCandidate([fieldId, recordId].filter(Boolean));
     }
   };
 
@@ -203,6 +210,15 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
     };
   }, [currentRecordTitle, options.relationship, options.symmetricFieldId, recordId]);
 
+  const createRecordModal = (
+    <CreateRecordModal callback={onRecordCreated} initialFields={initialFields}>
+      <Button variant="outline">
+        <Plus className="size-4" />
+        {t('editor.link.create')}
+      </Button>
+    </CreateRecordModal>
+  );
+
   const onNavigate = () => {
     if (!baseId) return;
 
@@ -219,9 +235,9 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
 
   return (
     <>
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-4 rtl:space-x-reverse">
         <span className="text-base">{t('editor.link.placeholder')}</span>
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center space-x-1 rtl:space-x-reverse">
           <span className="text-xs">{t('editor.link.linkedTo')}</span>
           <Button
             size="xs"
@@ -229,14 +245,14 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
             className="h-auto gap-0.5 px-1 py-0.5 text-xs font-normal text-muted-foreground"
             onClick={onNavigate}
           >
-            {foreignTableName}
+            <span dir={contentDir}>{foreignTableName}</span>
             <ArrowUpRight className="size-3.5" />
           </Button>
         </div>
       </div>
       <div className="flex items-center justify-between">
         <SearchInput container={props.container} />
-        <div className="ml-4">
+        <div className="ms-4">
           <Tabs
             value={listType === LinkListType.Selected ? 'selected' : 'all'}
             orientation="horizontal"
@@ -274,12 +290,11 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
         />
       </div>
       <div className="flex justify-between">
-        <CreateRecordModal callback={onRecordCreated} initialFields={initialFields}>
-          <Button variant="outline">
-            <Plus className="size-4" />
-            {t('editor.link.create')}
-          </Button>
-        </CreateRecordModal>
+        {baseId ? (
+          <TablePermissionProvider baseId={baseId}>{createRecordModal}</TablePermissionProvider>
+        ) : (
+          createRecordModal
+        )}
       </div>
     </>
   );

@@ -2,8 +2,8 @@
  * E2E tests for converting LongText field to Rating.
  *
  * Conversion behavior (TextFieldConversionVisitor):
- * - Numeric strings are parsed, floored, and clamped to [0, max]: "3.7" -> 3
- * - Non-numeric strings become null: "abc" -> null
+ * - Numeric strings are rounded and clamped to [1, max]
+ * - Values below 1 and non-numeric strings become null
  * - Null values remain null
  */
 /* eslint-disable @typescript-eslint/naming-convention */

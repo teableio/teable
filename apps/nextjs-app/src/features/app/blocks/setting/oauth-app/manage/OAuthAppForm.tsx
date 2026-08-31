@@ -8,7 +8,7 @@ import {
   type OAuthUpdateRo,
 } from '@teable/openapi';
 import { FileZone } from '@teable/sdk/components/FileZone';
-import { Button, Input, Separator, Textarea } from '@teable/ui-lib/shadcn';
+import { Button, Input, Separator, Switch, Textarea } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
@@ -218,6 +218,15 @@ export const OAuthAppForm = forwardRef<IOAuthAppFormRef, IOAuthAppFormProps>((pr
             <CallbackEditor
               value={form.redirectUris}
               onChange={(value) => updateForm('redirectUris', value ?? [])}
+            />
+          </FormItem>
+          <FormItem
+            title={t('oauth:form.deviceFlow.label')}
+            description={t('oauth:form.deviceFlow.description')}
+          >
+            <Switch
+              checked={Boolean(form.allowDeviceFlow)}
+              onCheckedChange={(checked) => updateForm('allowDeviceFlow', checked)}
             />
           </FormItem>
         </div>

@@ -42,4 +42,12 @@ export class BroadcastChannelRealtimeEngine implements IRealtimeEngine {
   ): Promise<Result<void, DomainError>> {
     return this.hub.remove(docId);
   }
+
+  async invalidateCollection(
+    _context: IExecutionContext,
+    collection: string,
+    _change: RealtimeChange
+  ): Promise<Result<void, DomainError>> {
+    return this.hub.invalidateCollection(collection);
+  }
 }

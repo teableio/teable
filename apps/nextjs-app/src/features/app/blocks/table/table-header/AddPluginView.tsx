@@ -54,7 +54,7 @@ export const AddPluginView = (props: IAddPluginViewProps) => {
       }}
     >
       <Button variant={'ghost'} size={'xs'} className="w-full justify-start font-normal">
-        <PluginViewIcon className="pr-1 text-lg" />
+        <PluginViewIcon className="pe-1 text-lg" />
         {t('table:view.addPluginView')}
       </Button>
     </PluginCenterDialog>

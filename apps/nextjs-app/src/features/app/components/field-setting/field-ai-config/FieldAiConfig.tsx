@@ -225,7 +225,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
               <div className="flex h-8 items-center">
                 <Switch
                   id="autoFill"
-                  className="mr-2"
+                  className="me-2"
                   checked={Boolean(aiConfig?.isAutoFill)}
                   onCheckedChange={(checked) => {
                     onConfigChange('isAutoFill', checked);
@@ -237,7 +237,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="ml-2 cursor-pointer text-muted-foreground">
+                      <div className="ms-2 cursor-pointer text-muted-foreground">
                         <HelpCircle className="size-4" />
                       </div>
                     </TooltipTrigger>

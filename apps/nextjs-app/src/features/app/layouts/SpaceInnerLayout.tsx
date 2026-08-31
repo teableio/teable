@@ -15,6 +15,7 @@ import { SpaceQuickSearch } from '../blocks/space/space-side-bar/SpaceQuickSearc
 import { SpaceSwitcher } from '../blocks/space/space-side-bar/SpaceSwitcher';
 import { Sidebar } from '../components/sidebar/Sidebar';
 import { SideBarFooter } from '../components/SideBarFooter';
+import { usePrefetchBaseEntry } from '../hooks/usePrefetchBaseEntry';
 import { useSdkLocale } from '../hooks/useSdkLocale';
 import { SpacePageTitle } from './SpacePageTitle';
 
@@ -26,6 +27,8 @@ export const SpaceInnerLayout: React.FC<{
   const sdkLocale = useSdkLocale();
   const { i18n } = useTranslation();
   const { spaceId } = useParams<{ spaceId: string }>();
+
+  usePrefetchBaseEntry();
 
   useEffect(() => {
     if (!spaceId || !isString(spaceId)) {
@@ -53,6 +56,7 @@ export const SpaceInnerLayout: React.FC<{
               <Sidebar
                 headerLeft={<SpaceSwitcher />}
                 headerRight={<SpaceQuickSearch spaceId={spaceId} />}
+                mobileTriggerTopOffset="3rem"
               >
                 <Fragment>
                   <div className="flex flex-1 flex-col gap-1 divide-y divide-solid overflow-hidden">

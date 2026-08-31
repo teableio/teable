@@ -10,7 +10,7 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib';
 import { useTranslation } from '../../../../context/app/i18n';
-import { useSession, useTableId } from '../../../../hooks';
+import { useCommentPermission, useSession, useTableId } from '../../../../hooks';
 import { useRecordId } from '../../hooks';
 
 interface ICommentReactionProps {
@@ -23,6 +23,7 @@ export const Reaction = (props: ICommentReactionProps) => {
   const tableId = useTableId();
   const recordId = useRecordId();
   const { user: sessionUser } = useSession();
+  const { commentWritable } = useCommentPermission();
   const { t } = useTranslation();
   const { mutateAsync: createCommentReactionFn } = useMutation({
     mutationFn: ({
@@ -53,7 +54,9 @@ export const Reaction = (props: ICommentReactionProps) => {
 
   const reactionHandler = async (emoji: string) => {
     const users = value?.find((item) => item.reaction === emoji)?.user || [];
-    if (!tableId || !recordId) {
+    // the chips stay visible and hoverable for read-only viewers — only
+    // toggling your own reaction is a write
+    if (!commentWritable || !tableId || !recordId) {
       return;
     }
     if (users.some((item) => item.id === sessionUser.id)) {
@@ -96,7 +99,8 @@ export const Reaction = (props: ICommentReactionProps) => {
                 variant={'outline'}
                 size={'xs'}
                 className={cn(
-                  'flex cursor-pointer items-center gap-2 rounded-full border px-1.5 py-0.5 text-xs min-w-12 max-w-16',
+                  'flex items-center gap-2 rounded-full border px-1.5 py-0.5 text-xs min-w-12 max-w-16',
+                  commentWritable ? 'cursor-pointer' : 'cursor-default',
                   {
                     'bg-blue-100/20 border-blue-200':
                       user.findIndex((item) => item?.id === sessionUser?.id) > -1,

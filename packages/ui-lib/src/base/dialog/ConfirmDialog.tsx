@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Button,
+  type ButtonProps,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -23,6 +24,7 @@ interface IConfirmDialogProps {
   confirmText?: string;
   confirmLoading?: boolean;
   confirmDisabled?: boolean;
+  confirmButtonVariant?: ButtonProps['variant'];
   onConfirm?: () => void | Promise<void>;
   onCancel?: () => void | Promise<void>;
   onOpenChange?: (open: boolean) => void;
@@ -41,6 +43,7 @@ export const ConfirmDialog = (props: IConfirmDialogProps) => {
     confirmText,
     confirmLoading,
     confirmDisabled,
+    confirmButtonVariant,
     onConfirm,
     onCancel,
   } = props;
@@ -71,7 +74,12 @@ export const ConfirmDialog = (props: IConfirmDialogProps) => {
               </Button>
             )}
             {confirmText && (
-              <Button size={'sm'} onClick={onConfirm} disabled={confirmDisabled}>
+              <Button
+                size={'sm'}
+                variant={confirmButtonVariant}
+                onClick={onConfirm}
+                disabled={confirmDisabled}
+              >
                 {confirmLoading && <Spin />}
                 {confirmText}
               </Button>

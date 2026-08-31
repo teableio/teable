@@ -65,18 +65,23 @@ export class RecordReadonlyServiceAdapter
     const url = useShareViewEndpoint
       ? `/share/${shareId}/socket/record/snapshot-bulk`
       : `/table/${tableId}/record/socket/snapshot-bulk`;
+    // Use POST body: hundreds of record ids plus a wide projection in GET
+    // query params can exceed the HTTP header size limit (431)
     return this.axios
-      .get(url, {
-        headers: {
-          cookie: this.cls.get('cookie'),
-          [IS_TEMPLATE_HEADER]: templateHeader,
-          [BASE_SHARE_ID_HEADER]: baseShareId,
-        },
-        params: {
+      .post(
+        url,
+        {
           ids: recordIds,
           projection,
         },
-      })
+        {
+          headers: {
+            cookie: this.cls.get('cookie'),
+            [IS_TEMPLATE_HEADER]: templateHeader,
+            [BASE_SHARE_ID_HEADER]: baseShareId,
+          },
+        }
+      )
       .then((res) => res.data);
   }
 

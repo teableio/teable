@@ -110,13 +110,16 @@ const BASELINE_TABLES = [
   'computed_update_outbox',
   'computed_update_outbox_seed',
   'computed_update_dead_letter',
+  'computed_update_run_history',
   'computed_update_pause_scope',
+  'computed_update_stage_ledger',
   'computed_field_activity',
   'computed_table_activity',
   'computed_task_field_ref',
   'record_history',
   'table_trash',
   'record_trash',
+  'record_removal_tombstone',
   '__undo_log',
   'attachments',
   'attachments_table',
@@ -840,5 +843,56 @@ describe('DataDbPreflightService', () => {
         ],
       },
     });
+  });
+});
+
+// GHSA-p7jc-ccj3-j23x: the private-network guard used a hand-rolled denylist
+// that only matched the single literal 127.0.0.1, so 127.0.0.2, any other
+// 127.0.0.0/8 host and 0.0.0.0 bypassed it. These tests pin the vetted
+// `isBlockedAddress` behaviour and use literal IP hosts so the guard runs
+// without any real DNS lookup. Protection stays enabled (env var unset).
+describe('DataDbPreflightService private-network guard', () => {
+  beforeEach(() => {
+    delete process.env.TEABLE_SSRF_PROTECTION_DISABLED;
+  });
+
+  const preflightHost = (host: string) =>
+    createService({ schemas: ['public'], tables: [] }).preflight({
+      url: `postgresql://teable:secret@${host}:5432/teable_data`,
+      targetMode: 'initialize-empty',
+    });
+
+  const expectBlocked = async (host: string) => {
+    const result = await preflightHost(host);
+    expect(result.ok).toBe(false);
+    expect(result.errors.map((error) => error.code)).toContain('PRIVATE_NETWORK_BLOCKED');
+  };
+
+  it.each([
+    '127.0.0.1',
+    '127.0.0.2',
+    '127.1.2.3',
+    '0.0.0.0',
+    '10.1.2.3',
+    '192.168.1.1',
+    '172.16.0.1',
+    '169.254.169.254',
+  ])('blocks the internal host %s', async (host) => {
+    await expectBlocked(host);
+  });
+
+  it('allows a public IP host', async () => {
+    const result = await preflightHost('8.8.8.8');
+
+    expect(result.errors.map((error) => error.code)).not.toContain('PRIVATE_NETWORK_BLOCKED');
+    expect(result.ok).toBe(true);
+  });
+
+  it('is bypassed when SSRF protection is explicitly disabled', async () => {
+    process.env.TEABLE_SSRF_PROTECTION_DISABLED = 'true';
+
+    const result = await preflightHost('127.0.0.2');
+
+    expect(result.errors.map((error) => error.code)).not.toContain('PRIVATE_NETWORK_BLOCKED');
   });
 });

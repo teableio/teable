@@ -4,6 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import { isDomainError, toError } from '@teable/v2-core';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import isPortReachable from 'is-port-reachable';
@@ -84,9 +85,13 @@ export async function bootstrap() {
   logger.log(`> System Time Zone: ${timeZone}`);
   logger.log(`> Current System Time: ${now.toString()}`);
 
-  process.on('unhandledRejection', (reason: string, promise: Promise<unknown>) => {
-    logger.error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
-    throw reason;
+  process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
+    // DomainError is intentionally a POJO (Result-based, not thrown). If one
+    // still escapes as an unhandled rejection, wrap it so Sentry gets a real
+    // stack-bearing Error instead of collapsing into activeSpanWrapper.
+    const normalized = isDomainError(reason) ? toError(reason) : reason;
+    logger.error(`Unhandled Rejection at: ${promise}, reason: ${normalized}`);
+    throw normalized;
   });
 
   process.on('uncaughtException', (error) => {

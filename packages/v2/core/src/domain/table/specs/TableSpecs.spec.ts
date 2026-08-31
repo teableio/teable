@@ -7,6 +7,7 @@ import { FieldName } from '../fields/FieldName';
 import { LinkFieldConfig } from '../fields/types/LinkFieldConfig';
 import { Table } from '../Table';
 import { TableName } from '../TableName';
+import { ViewId } from '../views/ViewId';
 import type {
   UpdateButtonColorSpec,
   UpdateButtonLabelSpec,
@@ -53,15 +54,20 @@ import type { ITableSpecVisitor } from './ITableSpecVisitor';
 import type { TableAddFieldSpec } from './TableAddFieldSpec';
 import type { TableAddFieldsSpec } from './TableAddFieldsSpec';
 import type { TableAddSelectOptionsSpec } from './TableAddSelectOptionsSpec';
+import type { TableAddViewSpec } from './TableAddViewSpec';
 import { TableByBaseIdSpec } from './TableByBaseIdSpec';
 import { TableByIdSpec } from './TableByIdSpec';
 import { TableByIdsSpec } from './TableByIdsSpec';
 import { TableByIncomingReferenceToTableSpec } from './TableByIncomingReferenceToTableSpec';
 import { TableByNameLikeSpec } from './TableByNameLikeSpec';
 import { TableByNameSpec } from './TableByNameSpec';
+import { TableByViewIdSpec } from './TableByViewIdSpec';
 import type { TableDuplicateFieldSpec } from './TableDuplicateFieldSpec';
+import type { TableEnsureViewRowOrderSpec } from './TableEnsureViewRowOrderSpec';
 import type { TableRemoveFieldSpec } from './TableRemoveFieldSpec';
+import type { TableRemoveViewSpec } from './TableRemoveViewSpec';
 import type { TableRenameSpec } from './TableRenameSpec';
+import type { TableRenameViewSpec } from './TableRenameViewSpec';
 import type { TableUpdateFieldAiConfigSpec } from './TableUpdateFieldAiConfigSpec';
 import type { TableUpdateFieldConstraintsSpec } from './TableUpdateFieldConstraintsSpec';
 import type { TableUpdateFieldDbFieldNameSpec } from './TableUpdateFieldDbFieldNameSpec';
@@ -69,8 +75,18 @@ import type { TableUpdateFieldDescriptionSpec } from './TableUpdateFieldDescript
 import type { TableUpdateFieldHasErrorSpec } from './TableUpdateFieldHasErrorSpec';
 import type { TableUpdateFieldNameSpec } from './TableUpdateFieldNameSpec';
 import type { TableUpdateFieldTypeSpec } from './TableUpdateFieldTypeSpec';
+import type { TableUpdatePropertiesSpec } from './TableUpdatePropertiesSpec';
 import type { TableUpdateViewColumnMetaSpec } from './TableUpdateViewColumnMetaSpec';
+import type { TableUpdateViewDescriptionSpec } from './TableUpdateViewDescriptionSpec';
+import type { TableUpdateViewLockedSpec } from './TableUpdateViewLockedSpec';
+import type { TableUpdateViewOptionsSpec } from './TableUpdateViewOptionsSpec';
+import type { TableUpdateViewOrderSpec } from './TableUpdateViewOrderSpec';
 import type { TableUpdateViewQueryDefaultsSpec } from './TableUpdateViewQueryDefaultsSpec';
+import type { TableUpdateViewShareIdSpec } from './TableUpdateViewShareIdSpec';
+import type { TableUpdateViewShareMetaSpec } from './TableUpdateViewShareMetaSpec';
+import type { TableUpdateViewShareStateSpec } from './TableUpdateViewShareStateSpec';
+import { TableWithViewIdsSpec } from './TableWithViewIdsSpec';
+import { TableWithPrimaryFieldSpec } from './TableWithPrimaryFieldSpec';
 
 class SpyVisitor implements ITableSpecVisitor {
   readonly calls: string[] = [];
@@ -86,6 +102,53 @@ class SpyVisitor implements ITableSpecVisitor {
 
   visitTableAddFields(_: TableAddFieldsSpec): ReturnType<ITableSpecVisitor['visitTableAddFields']> {
     this.calls.push('TableAddFieldsSpec');
+    return ok(undefined);
+  }
+
+  visitTableAddView(_: TableAddViewSpec): ReturnType<ITableSpecVisitor['visitTableAddView']> {
+    this.calls.push('TableAddViewSpec');
+    return ok(undefined);
+  }
+
+  visitTableEnsureViewRowOrder(
+    _: TableEnsureViewRowOrderSpec
+  ): ReturnType<ITableSpecVisitor['visitTableEnsureViewRowOrder']> {
+    this.calls.push('TableEnsureViewRowOrderSpec');
+    return ok(undefined);
+  }
+
+  visitTableRemoveView(
+    _: TableRemoveViewSpec
+  ): ReturnType<ITableSpecVisitor['visitTableRemoveView']> {
+    this.calls.push('TableRemoveViewSpec');
+    return ok(undefined);
+  }
+
+  visitTableRenameView(
+    _: TableRenameViewSpec
+  ): ReturnType<ITableSpecVisitor['visitTableRenameView']> {
+    this.calls.push('TableRenameViewSpec');
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewDescription(
+    _: TableUpdateViewDescriptionSpec
+  ): ReturnType<ITableSpecVisitor['visitTableUpdateViewDescription']> {
+    this.calls.push('TableUpdateViewDescriptionSpec');
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewLocked(
+    _: TableUpdateViewLockedSpec
+  ): ReturnType<ITableSpecVisitor['visitTableUpdateViewLocked']> {
+    this.calls.push('TableUpdateViewLockedSpec');
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewOrder(
+    _: TableUpdateViewOrderSpec
+  ): ReturnType<ITableSpecVisitor['visitTableUpdateViewOrder']> {
+    this.calls.push('TableUpdateViewOrderSpec');
     return ok(undefined);
   }
 
@@ -117,6 +180,34 @@ class SpyVisitor implements ITableSpecVisitor {
     return ok(undefined);
   }
 
+  visitTableUpdateViewOptions(
+    _: TableUpdateViewOptionsSpec
+  ): ReturnType<ITableSpecVisitor['visitTableUpdateViewOptions']> {
+    this.calls.push('TableUpdateViewOptionsSpec');
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewShareMeta(
+    _: TableUpdateViewShareMetaSpec
+  ): ReturnType<ITableSpecVisitor['visitTableUpdateViewShareMeta']> {
+    this.calls.push('TableUpdateViewShareMetaSpec');
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewShareId(
+    _: TableUpdateViewShareIdSpec
+  ): ReturnType<ITableSpecVisitor['visitTableUpdateViewShareId']> {
+    this.calls.push('TableUpdateViewShareIdSpec');
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewShareState(
+    _: TableUpdateViewShareStateSpec
+  ): ReturnType<ITableSpecVisitor['visitTableUpdateViewShareState']> {
+    this.calls.push('TableUpdateViewShareStateSpec');
+    return ok(undefined);
+  }
+
   visitTableUpdateViewQueryDefaults(
     _: TableUpdateViewQueryDefaultsSpec
   ): ReturnType<ITableSpecVisitor['visitTableUpdateViewQueryDefaults']> {
@@ -131,6 +222,25 @@ class SpyVisitor implements ITableSpecVisitor {
 
   visitTableById(_: TableByIdSpec): ReturnType<ITableSpecVisitor['visitTableById']> {
     this.calls.push('TableByIdSpec');
+    return ok(undefined);
+  }
+
+  visitTableByViewId(_: TableByViewIdSpec): ReturnType<ITableSpecVisitor['visitTableByViewId']> {
+    this.calls.push('TableByViewIdSpec');
+    return ok(undefined);
+  }
+
+  visitTableWithViewIds(
+    _: TableWithViewIdsSpec
+  ): ReturnType<ITableSpecVisitor['visitTableWithViewIds']> {
+    this.calls.push('TableWithViewIdsSpec');
+    return ok(undefined);
+  }
+
+  visitTableWithPrimaryField(
+    _: TableWithPrimaryFieldSpec
+  ): ReturnType<ITableSpecVisitor['visitTableWithPrimaryField']> {
+    this.calls.push('TableWithPrimaryFieldSpec');
     return ok(undefined);
   }
 
@@ -160,6 +270,13 @@ class SpyVisitor implements ITableSpecVisitor {
 
   visitTableRename(_: TableRenameSpec): ReturnType<ITableSpecVisitor['visitTableRename']> {
     this.calls.push('TableRenameSpec');
+    return ok(undefined);
+  }
+
+  visitTableUpdateProperties(
+    _: TableUpdatePropertiesSpec
+  ): ReturnType<ITableSpecVisitor['visitTableUpdateProperties']> {
+    this.calls.push('TableUpdatePropertiesSpec');
     return ok(undefined);
   }
 
@@ -603,6 +720,57 @@ describe('Table specs', () => {
     expect(visitor.calls).toContain('TableByIdSpec');
     expect(visitor.calls).toContain('TableByIdsSpec');
     expect(visitor.calls).toContain('TableByNameSpec');
+  });
+
+  it('selects a Table by a child View without changing aggregate ownership', () => {
+    const table = buildTable(
+      BaseId.create(`bse${'d'.repeat(16)}`)._unsafeUnwrap(),
+      TableName.create('Views')._unsafeUnwrap()
+    );
+    const view = table.views()[0];
+    const spec = TableByViewIdSpec.create(view.id());
+    const missingSpec = TableByViewIdSpec.create(
+      ViewId.create(`viw${'z'.repeat(16)}`)._unsafeUnwrap()
+    );
+
+    expect(spec.isSatisfiedBy(table)).toBe(true);
+    expect(missingSpec.isSatisfiedBy(table)).toBe(false);
+    expect(spec.mutate(table)._unsafeUnwrap()).toBe(table);
+
+    const visitor = new SpyVisitor();
+    spec.accept(visitor)._unsafeUnwrap();
+    expect(visitor.calls).toContain('TableByViewIdSpec');
+  });
+
+  it('selects a View hydration subset without changing aggregate identity', () => {
+    const table = buildTable(
+      BaseId.create(`bse${'v'.repeat(16)}`)._unsafeUnwrap(),
+      TableName.create('Projected views')._unsafeUnwrap()
+    );
+    const spec = TableWithViewIdsSpec.create([table.views()[0].id()]);
+
+    expect(spec.viewIds()).toEqual([table.views()[0].id()]);
+    expect(spec.isSatisfiedBy(table)).toBe(true);
+    expect(spec.mutate(table)._unsafeUnwrap()).toBe(table);
+
+    const visitor = new SpyVisitor();
+    spec.accept(visitor)._unsafeUnwrap();
+    expect(visitor.calls).toContain('TableWithViewIdsSpec');
+  });
+
+  it('narrows Field hydration to the primary Field without changing the Table match', () => {
+    const table = buildTable(
+      BaseId.create(`bse${'p'.repeat(16)}`)._unsafeUnwrap(),
+      TableName.create('Primary projection')._unsafeUnwrap()
+    );
+    const spec = TableWithPrimaryFieldSpec.create();
+
+    expect(spec.isSatisfiedBy(table)).toBe(true);
+    expect(spec.mutate(table)._unsafeUnwrap()).toBe(table);
+
+    const visitor = new SpyVisitor();
+    spec.accept(visitor)._unsafeUnwrap();
+    expect(visitor.calls).toContain('TableWithPrimaryFieldSpec');
   });
 
   it('evaluates name like specs', () => {

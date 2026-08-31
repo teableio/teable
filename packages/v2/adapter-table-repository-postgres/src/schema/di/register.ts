@@ -33,6 +33,12 @@ class NoopComputedFieldCascadeService {
   }
 }
 
+class NoopComputedUpdateOutbox {
+  async discardBySeedTable() {
+    return ok({ discardedTaskIds: [], discardedDeadLetterTaskIds: [] });
+  }
+}
+
 export const registerV2PostgresDdlAdapter = async (
   c: DependencyContainer = container,
   rawConfig: Partial<IV2PostgresDdlAdapterConfig> = {}
@@ -69,6 +75,13 @@ export const registerV2PostgresDdlAdapter = async (
     c.registerInstance(
       v2RecordRepositoryPostgresTokens.computedFieldCascadeService,
       new NoopComputedFieldCascadeService()
+    );
+  }
+
+  if (!c.isRegistered(v2RecordRepositoryPostgresTokens.computedUpdateOutbox)) {
+    c.registerInstance(
+      v2RecordRepositoryPostgresTokens.computedUpdateOutbox,
+      new NoopComputedUpdateOutbox()
     );
   }
 

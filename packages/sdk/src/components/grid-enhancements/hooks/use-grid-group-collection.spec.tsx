@@ -35,6 +35,14 @@ const createDateField = (id: string, isMultipleCellValue: boolean) =>
     getDatetimeFormatting: () => formatting,
   }) as unknown as IFieldInstance;
 
+const createSelectField = (id: string, name: string, canReadFieldRecord: boolean) =>
+  ({
+    id,
+    name,
+    type: FieldType.SingleSelect,
+    canReadFieldRecord,
+  }) as unknown as IFieldInstance;
+
 const setup = (field: IFieldInstance) => {
   mockedUseView.mockReturnValue({
     group: [{ fieldId: field.id }],
@@ -70,5 +78,22 @@ describe('useGridGroupCollection getGroupCell', () => {
     const cell = getGroupCell(null, 0) as { displayData: string };
 
     expect(cell.displayData).toBe('(Empty)');
+  });
+});
+
+describe('useGridGroupCollection group columns (T6993)', () => {
+  it('uses the readable status field for depth zero when category is unreadable', () => {
+    const category = createSelectField('fldCategory', 'Category', false);
+    const status = createSelectField('fldStatus', 'Status', true);
+    mockedUseView.mockReturnValue({
+      group: [{ fieldId: category.id }, { fieldId: status.id }],
+    } as unknown as ReturnType<typeof useView>);
+    mockedUseFields.mockReturnValue([category, status]);
+
+    const { result } = renderHook(() => useGridGroupCollection());
+
+    expect(result.current.groupColumns.map(({ id, name }) => ({ id, name }))).toEqual([
+      { id: status.id, name: status.name },
+    ]);
   });
 });

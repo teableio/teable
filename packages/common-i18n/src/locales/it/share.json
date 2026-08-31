@@ -5,6 +5,10 @@
     "password": "Password",
     "passwordTooShort": "La password deve contenere almeno 3 caratteri"
   },
+  "form": {
+    "requireLoginTip": "Questo modulo richiede di accedere prima dell’invio",
+    "login": "Accedi"
+  },
   "toolbar": {
     "filterLinkSelectPlaceholder": "Seleziona..."
   },

@@ -4,6 +4,7 @@ import { AttachmentsModule } from '../attachments/attachments.module';
 import { StorageModule } from '../attachments/plugins/storage.module';
 import { PermissionModule } from '../auth/permission.module';
 import { BaseModule } from '../base/base.module';
+import { BaseNodeModule } from '../base-node/base-node.module';
 import { FieldOpenApiModule } from '../field/open-api/field-open-api.module';
 import { RecordOpenApiModule } from '../record/open-api/record-open-api.module';
 import { TableOpenApiModule } from '../table/open-api/table-open-api.module';
@@ -22,6 +23,7 @@ import { AirtableImportService } from './airtable-import.service';
     StorageModule,
     AiModule,
     PermissionModule,
+    BaseNodeModule,
   ],
   controllers: [AirtableImportController],
   providers: [AirtableImportService],

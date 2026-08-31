@@ -18,7 +18,7 @@ export const FormPageLayout = (props: IFormPageLayoutProps) => {
     <div className="mx-auto max-w-3xl space-y-10 px-0.5">
       {children}
       <Separator />
-      <div className="space-x-3 text-right">
+      <div className="space-x-3 text-end rtl:space-x-reverse">
         <Button size={'sm'} variant={'ghost'} onClick={onCancel}>
           {t('actions.cancel')}
         </Button>

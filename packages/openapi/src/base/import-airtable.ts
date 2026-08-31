@@ -1,6 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
+import { toSSERequestError } from '../utils/sse';
 import { z } from '../zod';
 import { createBaseVoSchema } from './create';
 
@@ -94,6 +95,24 @@ export const importAirtableAnalyzeVoSchema = z.object({
           name: z.string(),
           fieldCount: z.number(),
           viewCount: z.number(),
+          /** Whatever the base's author wrote about this table, if anything. */
+          description: z.string().optional(),
+          /**
+           * Schema only — names, Airtable types and the author's own field
+           * notes, never a single cell of record data. Cheap to produce (the
+           * base schema is already fetched to count the fields) and enough to
+           * describe the base to a model without shipping anyone's rows to it.
+           * The descriptions carry the semantics names alone can't: "Status"
+           * says nothing, "Status — set by the weekly sync, blocks invoicing"
+           * says everything.
+           */
+          fields: z.array(
+            z.object({
+              name: z.string(),
+              type: z.string(),
+              description: z.string().optional(),
+            })
+          ),
         })
       ),
       issues: z.array(importAirtableIssueSchema),
@@ -121,6 +140,10 @@ export const importAirtableRoSchema = z
           'Import into this existing base (add its tables) instead of creating a new one. ' +
           'When omitted, a new base named baseName is created in spaceId.',
       }),
+    folderId: z.string().optional().meta({
+      description:
+        'Target folder (node id or folder id); requires baseId, tables land at root when omitted.',
+    }),
     ...airtableCredentialsShape,
     airtableBaseId: z.string().min(1),
     baseName: z.string().min(1).optional().meta({
@@ -165,6 +188,13 @@ export const importAirtableRoSchema = z
         code: 'custom',
         path: ['spaceId'],
         message: 'spaceId is required when baseId is not provided.',
+      });
+    }
+    if (value.folderId && !value.baseId) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['folderId'],
+        message: 'folderId is only supported when importing into an existing base (baseId).',
       });
     }
   });
@@ -319,7 +349,7 @@ export const importAirtableStream = async (
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Import from Airtable failed: ${response.status} ${errorText}`);
+    throw toSSERequestError(errorText, response.status, 'Import from Airtable failed');
   }
 
   const reader = response.body?.getReader();

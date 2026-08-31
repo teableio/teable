@@ -248,6 +248,7 @@ export class UpdateRecordHandler
         if (needsResolution) {
           mutateSpec = yield* await handler.recordMutationSpecResolver.resolveAndReplace(
             context,
+            table.id(),
             mutateSpec
           );
           updatedRecord = yield* mutateSpec.mutate(updatedRecord);

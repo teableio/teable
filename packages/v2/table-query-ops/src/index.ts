@@ -1,4 +1,6 @@
 export * from './application';
+export * from './bufferedTableQueryObservationPublisher';
+export * from './decisionPolicy';
 export * from './di';
 export * from './domain';
 export * from './indexSetPlanner';

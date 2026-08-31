@@ -153,14 +153,15 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
       return ok(new SetRatingValueSpec(field.id(), CellValue.null()));
     }
 
-    let numValue: number | null = null;
     const max = field.ratingMax().toNumber();
+    let rawNumber: number | null = null;
 
     if (typeof this.value === 'number') {
-      numValue = this.value;
+      rawNumber = this.value;
     } else if (this.typecast) {
-      const parsed = parseInt(String(this.value), 10);
-      numValue = isNaN(parsed) ? null : parsed;
+      // Share the same numeric path as number inputs so "2.7" and 2.7 converge.
+      const parsed = parseFloat(String(this.value));
+      rawNumber = Number.isFinite(parsed) ? parsed : null;
     } else {
       return err(
         domainError.validation({
@@ -176,26 +177,45 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
       );
     }
 
-    // Range check and clamp
-    if (numValue !== null) {
-      if (numValue < 1 || numValue > max) {
-        if (this.typecast) {
-          // Clamp to valid range
-          numValue = Math.min(Math.max(1, Math.round(numValue)), max);
-        } else {
+    // Typecast output must stay inside the strict rating domain: {null} ∪ {1..max}.
+    // Always round first; only then clamp / null out-of-range values.
+    let numValue: number | null = null;
+    if (rawNumber !== null) {
+      if (!Number.isFinite(rawNumber)) {
+        if (!this.typecast) {
           return err(
             domainError.validation({
               code: 'validation.field.out_of_range',
-              message: `Rating must be between 1 and ${max}, got ${numValue}`,
+              message: `Rating must be between 1 and ${max}, got ${rawNumber}`,
               details: {
                 fieldId: field.id().toString(),
                 min: 1,
                 max,
-                actualValue: numValue,
+                actualValue: rawNumber,
               },
             })
           );
         }
+        numValue = null;
+      } else if (this.typecast) {
+        const rounded = Math.round(rawNumber);
+        // Teable ratings are null-empty; 0/negatives are not valid stars.
+        numValue = rounded < 1 ? null : Math.min(rounded, max);
+      } else if (!Number.isInteger(rawNumber) || rawNumber < 1 || rawNumber > max) {
+        return err(
+          domainError.validation({
+            code: 'validation.field.out_of_range',
+            message: `Rating must be between 1 and ${max}, got ${rawNumber}`,
+            details: {
+              fieldId: field.id().toString(),
+              min: 1,
+              max,
+              actualValue: rawNumber,
+            },
+          })
+        );
+      } else {
+        numValue = rawNumber;
       }
     }
 
@@ -210,23 +230,32 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
     }
 
     if (typeof this.value === 'boolean') {
-      return ok(new SetCheckboxValueSpec(field.id(), CellValue.fromValidated(this.value)));
+      // v1 contract: a checkbox is either true or null — false is stored as null
+      return ok(
+        new SetCheckboxValueSpec(
+          field.id(),
+          this.value ? CellValue.fromValidated(true) : CellValue.null()
+        )
+      );
     }
 
     if (this.typecast) {
-      // String "true"/"false" conversion
+      // String "true"/"false" conversion; falsy inputs clear the cell (v1 repair semantics)
       if (typeof this.value === 'string') {
         const lower = this.value.toLowerCase();
         if (lower === 'true' || lower === '1') {
           return ok(new SetCheckboxValueSpec(field.id(), CellValue.fromValidated(true)));
         }
         if (lower === 'false' || lower === '0' || lower === '') {
-          return ok(new SetCheckboxValueSpec(field.id(), CellValue.fromValidated(false)));
+          return ok(new SetCheckboxValueSpec(field.id(), CellValue.null()));
         }
       }
-      // truthy → true, falsy → false
-      const finalValue = this.value ? true : false;
-      return ok(new SetCheckboxValueSpec(field.id(), CellValue.fromValidated(finalValue)));
+      return ok(
+        new SetCheckboxValueSpec(
+          field.id(),
+          this.value ? CellValue.fromValidated(true) : CellValue.null()
+        )
+      );
     }
 
     return err(
@@ -395,14 +424,19 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
     }
 
     const parsed = this.parseLinkValue(this.value);
+    const isMultiple = field.relationship().isMultipleValue();
 
     if (parsed.type === 'ids') {
       // Standard format: [{ id: 'recXxx', title?: string }]
       // Pass foreignTableId so the resolver can look up missing titles
+      // An empty list clears the cell (stored as null, matching v1)
+      const items = parsed.value as LinkItem[];
       return ok(
         new SetLinkValueSpec(
           field.id(),
-          CellValue.fromValidated(parsed.value as LinkItem[]),
+          items.length === 0
+            ? CellValue.null()
+            : CellValue.fromValidated(isMultiple ? items : items[0]),
           field.foreignTableId()
         )
       );
@@ -411,7 +445,12 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
     if (parsed.type === 'titles' && this.typecast) {
       // Title format: ['Title1', 'Title2'] → need Repository to do SQL lookup
       return ok(
-        SetLinkValueByTitleSpec.create(field.id(), field.foreignTableId(), parsed.value as string[])
+        SetLinkValueByTitleSpec.create(
+          field.id(),
+          field.foreignTableId(),
+          parsed.value as string[],
+          isMultiple
+        )
       );
     }
 
@@ -442,8 +481,11 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
 
     const parsed = this.parseUserItems(this.value);
     if (parsed.valid) {
+      // An empty list clears the cell (stored as null, matching v1)
       const normalizedValue = field.multiplicity().toBoolean()
-        ? parsed.items
+        ? parsed.items.length === 0
+          ? null
+          : parsed.items
         : parsed.items[0] ?? null;
       return ok(
         new SetUserValueSpec(
@@ -489,7 +531,14 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
 
     const parsed = this.parseAttachmentValue(this.value);
     if (parsed.valid) {
-      return ok(new SetAttachmentValueSpec(field.id(), CellValue.fromValidated(parsed.value)));
+      // An empty list clears the cell (stored as null, matching v1)
+      const items = parsed.value;
+      return ok(
+        new SetAttachmentValueSpec(
+          field.id(),
+          items == null || items.length === 0 ? CellValue.null() : CellValue.fromValidated(items)
+        )
+      );
     }
 
     if (this.typecast) {
@@ -600,7 +649,9 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
 
   private repairToString(value: unknown): string | null {
     if (value == null) return null;
-    return String(value);
+    // v1 stores cleared text cells as null, never as ""
+    const str = String(value);
+    return str === '' ? null : str;
   }
 
   private valueToStringArray(value: unknown): string[] | null {
@@ -691,7 +742,8 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
     // Standard format: [{ id?, name?, token?, size?, mimetype?, ... }]
     if (Array.isArray(value)) {
       if (value.length === 0) {
-        return { valid: true, value: [] };
+        // Align with v1: empty attachment arrays are stored as null.
+        return { valid: true, value: null };
       }
 
       if (this.typecast && value.every((v) => typeof v === 'string')) {

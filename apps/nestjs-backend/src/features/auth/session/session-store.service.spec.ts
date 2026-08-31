@@ -143,21 +143,43 @@ describe('SessionStoreService', () => {
       expect(result).toBeNull();
     });
 
-    it('should return undefined and delete session if user session is not found', async () => {
-      // Mock the necessary cacheService methods
+    it('repairs the user-session map when the entry was lost without a clear', async () => {
+      // expire flag, session store, user map (entry lost), no clear tombstone
       cacheService.get.mockResolvedValueOnce(undefined);
       cacheService.get.mockResolvedValueOnce(sessionData);
       cacheService.get.mockResolvedValueOnce(undefined);
+      cacheService.get.mockResolvedValueOnce(undefined);
+
+      const result = await sessionStoreService['getCache'](sid);
+
+      expect(cacheService.get).toHaveBeenCalledWith(`auth:session-user-cleared:user-id`);
+      // A concurrent signin/touch clobbered the map entry — the session must be
+      // re-registered, not destroyed.
+      expect(cacheService.set).toHaveBeenCalledWith(
+        `auth:session-user:user-id`,
+        expect.objectContaining({ [sid]: expect.any(Number) }),
+        expect.any(Number)
+      );
+      expect(cacheService.del).not.toHaveBeenCalled();
+      expect(result).toBe(sessionData);
+    });
+
+    it('deletes the session on a lost map entry when the user sessions were cleared', async () => {
+      // expire flag, session store, user map (entry lost), clear tombstone in
+      // the future relative to the session's renewal time
+      cacheService.get.mockResolvedValueOnce(undefined);
+      cacheService.get.mockResolvedValueOnce(sessionData);
+      cacheService.get.mockResolvedValueOnce(undefined);
+      cacheService.get.mockResolvedValueOnce(Math.floor(Date.now() / 1000) + 60);
       cacheService.del.mockResolvedValueOnce(true);
 
       const result = await sessionStoreService['getCache'](sid);
 
-      // Verify that cacheService.get and cacheService.del were called with the expected parameters
       expect(cacheService.get).toHaveBeenCalledWith(`auth:session-expire:${sid}`);
       expect(cacheService.get).toHaveBeenCalledWith(`auth:session-store:${sid}`);
       expect(cacheService.get).toHaveBeenCalledWith(`auth:session-user:user-id`);
+      expect(cacheService.get).toHaveBeenCalledWith(`auth:session-user-cleared:user-id`);
       expect(cacheService.del).toHaveBeenCalledWith(`auth:session-store:${sid}`);
-      // Verify that the result is null and session is deleted when user session is not found
       expect(result).toBeNull();
     });
 

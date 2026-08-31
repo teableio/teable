@@ -115,14 +115,14 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
         !preventAutoNewOptions && (
           <CommandItem className="items-center justify-center" onSelect={onOptionAddInner}>
             <Plus className="size-4 shrink-0" />
-            <span className="ml-2 truncate text-[13px]">
+            <span className="ms-2 truncate text-[13px]">
               {t('editor.select.addOption', { option: searchValue })}
             </span>
           </CommandItem>
         )}
       {preventAutoNewOptions && filteredOptions.length === 0 && (
         <CommandItem className="items-center justify-center">
-          <span className="ml-2 truncate text-[13px]">{t('common.empty')}</span>
+          <span className="ms-2 truncate text-[13px]">{t('common.empty')}</span>
         </CommandItem>
       )}
     </Command>

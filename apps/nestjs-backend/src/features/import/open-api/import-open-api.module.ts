@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ShareDbModule } from '../../../share-db/share-db.module';
+import { BaseNodeModule } from '../../base-node/base-node.module';
 import { CanaryModule } from '../../canary/canary.module';
 import { FieldOpenApiModule } from '../../field/open-api/field-open-api.module';
 import { NotificationModule } from '../../notification/notification.module';
@@ -25,6 +26,7 @@ import { ImportOpenApiService } from './import-open-api.service';
     CanaryModule,
     ImportMetricsModule,
     SpaceModule,
+    BaseNodeModule,
   ],
   controllers: [ImportController],
   providers: [ImportOpenApiService, ImportOpenApiV2Service],

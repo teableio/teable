@@ -109,6 +109,8 @@ export class OfficialPluginInitService implements OnModuleInit {
     const { hash } = await this.storageAdapter.uploadFileWidthPath(bucket, path, filePath, {
       // eslint-disable-next-line @typescript-eslint/naming-convention
       'Content-Type': mimetype,
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      'Cache-Control': StorageAdapter.getCacheControl(type),
     });
 
     return { id, path, url: `/${path}`, size, width, height, hash, mimetype };

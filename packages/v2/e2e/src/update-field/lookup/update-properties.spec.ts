@@ -303,6 +303,112 @@ describe('update-field: lookup property updates', () => {
     );
   });
 
+  test('T6901 rematerializes manyMany lookup type from singleSelect to number', async () => {
+    const foreignWithSelect = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: foreignTableId,
+      field: {
+        type: 'singleSelect',
+        name: 'T6901 Status',
+        options: { choices: [{ name: 'todo', color: 'orangeDark1' }] },
+      },
+    });
+    const selectField = foreignWithSelect.fields.find((field) => field.name === 'T6901 Status');
+    if (!selectField) throw new Error('T6901 status field not found');
+
+    const foreignWithNumber = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: foreignTableId,
+      field: {
+        type: 'number',
+        name: 'T6901 Amount',
+        options: { formatting: { type: 'decimal', precision: 0 } },
+      },
+    });
+    const numberField = foreignWithNumber.fields.find((field) => field.name === 'T6901 Amount');
+    if (!numberField) throw new Error('T6901 amount field not found');
+
+    const sourceWithLink = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: sourceTableId,
+      field: {
+        type: 'link',
+        name: 'T6901 Link',
+        options: {
+          foreignTableId,
+          relationship: 'manyMany',
+          lookupFieldId: foreignPrimaryFieldId,
+          isOneWay: true,
+        },
+      },
+    });
+    const linkField = sourceWithLink.fields.find((field) => field.name === 'T6901 Link');
+    if (!linkField) throw new Error('T6901 link field not found');
+
+    const sourceWithLookup = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: sourceTableId,
+      field: {
+        type: 'lookup',
+        name: 'T6901 Lookup',
+        options: {
+          linkFieldId: linkField.id,
+          foreignTableId,
+          lookupFieldId: selectField.id,
+        },
+      },
+    });
+    const lookupField = sourceWithLookup.fields.find((field) => field.name === 'T6901 Lookup');
+    if (!lookupField) throw new Error('T6901 lookup field not found');
+    expect(lookupField.type).toBe('singleSelect');
+
+    const foreignRecord = await ctx.createRecord(foreignTableId, {
+      [foreignPrimaryFieldId]: 'T6901 Foreign',
+      [selectField.id]: 'todo',
+      [numberField.id]: 222,
+    });
+    const sourceRecord = await ctx.createRecord(sourceTableId, {
+      [linkField.id]: [{ id: foreignRecord.id }],
+    });
+
+    const updatedTable = await ctx.updateField({
+      tableId: sourceTableId,
+      fieldId: lookupField.id,
+      field: {
+        type: 'lookup',
+        updateMode: 'full',
+        options: {
+          linkFieldId: linkField.id,
+          foreignTableId,
+          lookupFieldId: numberField.id,
+        },
+        innerOptions: { formatting: { type: 'decimal', precision: 0 } },
+      },
+    });
+    await ctx.drainOutbox();
+
+    const updatedField = updatedTable.fields.find((field) => field.id === lookupField.id);
+    expect(updatedField?.lookupOptions?.lookupFieldId).toBe(numberField.id);
+    expect(updatedField?.type).toBe('number');
+
+    const persisted = await sql<{ type: string; cell_value_type: string }>`
+      SELECT "type", "cell_value_type"
+      FROM "field"
+      WHERE "id" = ${lookupField.id}
+    `.execute(ctx.testContainer.db);
+    expect(persisted.rows[0]).toEqual({ type: 'number', cell_value_type: 'number' });
+
+    const records = await ctx.listRecords(sourceTableId);
+    expect(records.find((record) => record.id === sourceRecord.id)?.fields[lookupField.id]).toEqual(
+      [222]
+    );
+
+    await ctx.deleteField({ tableId: sourceTableId, fieldId: lookupField.id });
+    await ctx.deleteField({ tableId: sourceTableId, fieldId: linkField.id });
+    await ctx.deleteField({ tableId: foreignTableId, fieldId: selectField.id });
+    await ctx.deleteField({ tableId: foreignTableId, fieldId: numberField.id });
+  });
+
   test('should update linkFieldId', async () => {
     // Setup:
     // - Create two link fields to same foreign table
@@ -913,7 +1019,7 @@ describe('update-field: lookup property updates', () => {
     await ctx.deleteField({ tableId: sourceTableId, fieldId: linkField.id });
   });
 
-  test('should keep lookup long text showAs cleared when API attempts to set markdown', async () => {
+  test('should expose lookup long text source markdown and keep it cleared after explicit null', async () => {
     const foreignTableAfterLongText = await ctx.createField({
       baseId: ctx.baseId,
       tableId: foreignTableId,
@@ -962,7 +1068,7 @@ describe('update-field: lookup property updates', () => {
     });
     const lookupField = sourceWithLookup.fields.find((f) => f.name === 'Lookup Long Text');
     if (!lookupField) throw new Error('Lookup field not found');
-    expect(lookupField.options?.showAs).toBeFalsy();
+    expect(lookupField.options?.showAs).toEqual({ type: 'markdown' });
 
     await ctx.updateField({
       tableId: sourceTableId,
@@ -989,7 +1095,6 @@ describe('update-field: lookup property updates', () => {
       .getTableById(sourceTableId)
       .then((table) => table.fields.find((f) => f.id === lookupField.id));
     expect(persistedField?.options?.showAs).toBeFalsy();
-
     await ctx.deleteField({ tableId: sourceTableId, fieldId: lookupField.id });
     await ctx.deleteField({ tableId: sourceTableId, fieldId: linkField.id });
     await ctx.deleteField({ tableId: foreignTableId, fieldId: foreignLongTextField.id });

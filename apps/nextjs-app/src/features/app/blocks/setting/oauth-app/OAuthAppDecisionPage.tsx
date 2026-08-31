@@ -12,6 +12,7 @@ import { TeableLogo } from '@/components/TeableLogo';
 import { OAuthScope } from '@/features/app/components/oauth/OAuthScope';
 import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 import { usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
+import { isSafeWebUrl } from '@/features/app/utils/is-safe-web-url';
 import { oauthAppConfig } from '@/features/i18n/oauth-app.config';
 import { BrandFooter } from '../../view/form/components/BrandFooter';
 
@@ -74,7 +75,7 @@ export const OAuthAppDecisionPage = () => {
       })}
     >
       <Card className="mx-auto my-8 min-w-72 max-w-xl space-y-4">
-        <TeableLogo className="ml-8 mt-3 size-8" />
+        <TeableLogo className="ms-8 mt-3 size-8" />
         <div className="relative mx-auto size-28 overflow-hidden">
           {decisionInfo.logo ? (
             <img
@@ -115,11 +116,17 @@ export const OAuthAppDecisionPage = () => {
           </form>
           <div className="text-center">
             <p className="text-sm">{t('oauth:decision.redirectDescription')}</p>
-            <Button variant={'link'}>
-              <Link target="_blank" href={decisionInfo.homepage}>
-                {decisionInfo.homepage}
-              </Link>
-            </Button>
+            {/* Only http(s) gets to be a link; a javascript:/data: homepage
+                renders as inert text. */}
+            {isSafeWebUrl(decisionInfo.homepage) ? (
+              <Button variant={'link'}>
+                <Link target="_blank" href={decisionInfo.homepage}>
+                  {decisionInfo.homepage}
+                </Link>
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground">{decisionInfo.homepage}</p>
+            )}
           </div>
         </div>
       </Card>

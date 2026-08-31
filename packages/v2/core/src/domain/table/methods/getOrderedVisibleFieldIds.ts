@@ -8,21 +8,60 @@ import type { ViewColumnMetaEntry } from '../views/ViewColumnMeta';
 /**
  * Check if a field is visible in the given view type based on its columnMeta entry.
  *
- * - Grid view uses `hidden` property (default visible)
- * - Form, Kanban, Gallery, Calendar, Plugin views use `visible` property
+ * - Grid and Plugin views use `hidden` (default visible)
+ * - Form requires `visible: true`
+ * - Kanban, Gallery, and Calendar default to visible and keep option-bound fields visible
  */
-function isFieldVisible(meta: ViewColumnMetaEntry | undefined, viewType: string): boolean {
-  // Form, Kanban, Gallery, Calendar, Plugin views use visible property
-  if (['form', 'kanban', 'gallery', 'calendar', 'plugin'].includes(viewType)) {
+const asOptions = (value: unknown): Record<string, unknown> =>
+  value != null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+
+function isFieldVisible(
+  fieldId: string,
+  meta: ViewColumnMetaEntry | undefined,
+  viewType: string,
+  rawOptions: unknown
+): boolean {
+  const options = asOptions(rawOptions);
+
+  if (viewType === 'form') {
     return meta?.visible === true;
   }
-  // Grid view uses hidden property (default visible)
+
+  if (viewType === 'kanban') {
+    return (
+      fieldId === options.stackFieldId ||
+      fieldId === options.coverFieldId ||
+      meta?.visible !== false
+    );
+  }
+
+  if (viewType === 'gallery') {
+    return fieldId === options.coverFieldId || meta?.visible !== false;
+  }
+
+  if (viewType === 'calendar') {
+    const colorConfig = asOptions(options.colorConfig);
+    const isColorField = colorConfig.type === 'field' && colorConfig.fieldId === fieldId;
+    return (
+      isColorField ||
+      fieldId === options.startDateFieldId ||
+      fieldId === options.endDateFieldId ||
+      fieldId === options.titleFieldId ||
+      meta?.visible !== false
+    );
+  }
+
+  // Grid and Plugin views use hidden property (default visible).
   return meta?.hidden !== true;
 }
 
 export interface GetOrderedVisibleFieldIdsOptions {
   /** Custom field order. If provided, ignores view's columnMeta visibility. */
   projection?: ReadonlyArray<string>;
+  /** Preserve View ordering while including fields hidden by its column metadata. */
+  includeHiddenFields?: boolean;
 }
 
 /**
@@ -79,7 +118,10 @@ export function getOrderedVisibleFieldIds(
     .filter((field) => {
       const fieldIdStr = field.id().toString();
       const meta = columnMeta[fieldIdStr];
-      return isFieldVisible(meta, viewType);
+      return (
+        options?.includeHiddenFields === true ||
+        isFieldVisible(fieldIdStr, meta, viewType, view.options())
+      );
     })
     .map((field) => {
       const fieldId = field.id();

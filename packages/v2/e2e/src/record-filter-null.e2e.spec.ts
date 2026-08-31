@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { RecordFilter } from '@teable/v2-core';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
 /**
@@ -259,6 +259,92 @@ describe('record filter NULL handling (e2e)', () => {
       // Checked records should NOT be updated
       expect(checked1?.fields[nameFieldId]).toBe('Checked1');
       expect(checked2?.fields[nameFieldId]).toBe('Checked2');
+    });
+  });
+
+  describe('masked-filter SQL three-valued parity matrix', () => {
+    it.each([
+      {
+        label: 'NOT(array hasAnyOf) includes NULL normalized to an empty array',
+        buildFilter: (tagsFieldId: string): RecordFilter => ({
+          not: {
+            fieldId: tagsFieldId,
+            operator: 'hasAnyOf',
+            value: ['A'],
+          },
+        }),
+      },
+      {
+        label: 'NOT(array hasAnyOf AND checkbox is true) preserves FALSE AND UNKNOWN',
+        buildFilter: (tagsFieldId: string, doneFieldId: string): RecordFilter => ({
+          not: {
+            conjunction: 'and',
+            items: [
+              {
+                fieldId: tagsFieldId,
+                operator: 'hasAnyOf',
+                value: ['A'],
+              },
+              {
+                fieldId: doneFieldId,
+                operator: 'is',
+                value: true,
+              },
+            ],
+          },
+        }),
+      },
+    ])('$label', async ({ buildFilter }) => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'Masked Filter SQL Parity',
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Tags', type: 'multipleSelect', options: ['A', 'B'] },
+          { name: 'Done', type: 'checkbox' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const viewId = table.views[0].id;
+      const nameFieldId = table.fields.find((field) => field.isPrimary)?.id ?? '';
+      const tagsFieldId = table.fields.find((field) => field.name === 'Tags')?.id ?? '';
+      const doneFieldId = table.fields.find((field) => field.name === 'Done')?.id ?? '';
+      await ctx.createRecord(table.id, {
+        [nameFieldId]: 'Null row',
+      });
+      await ctx.createRecord(table.id, {
+        [nameFieldId]: 'Both true',
+        [tagsFieldId]: ['A'],
+        [doneFieldId]: true,
+      });
+      await ctx.createRecord(table.id, {
+        [nameFieldId]: 'Tag only',
+        [tagsFieldId]: ['A'],
+      });
+
+      const result = await ctx.paste({
+        tableId: table.id,
+        viewId,
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        content: [['Matched NULL row']],
+        filter: buildFilter(tagsFieldId, doneFieldId),
+      });
+
+      expect(result.updatedCount).toBe(1);
+      const records = await ctx.listRecords(table.id);
+      expect(records.find((record) => record.fields[nameFieldId] === 'Matched NULL row')).toEqual(
+        expect.objectContaining({
+          fields: expect.objectContaining({
+            [tagsFieldId]: null,
+            [doneFieldId]: null,
+          }),
+        })
+      );
+      expect(records.find((record) => record.fields[nameFieldId] === 'Both true')).toBeDefined();
+      expect(records.find((record) => record.fields[nameFieldId] === 'Tag only')).toBeDefined();
     });
   });
 });

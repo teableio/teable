@@ -1,0 +1,34 @@
+{
+  "apiQueryBuilder": "בונה שאילתות API",
+  "subTitle": "אפשר לבנות במהירות בקשות שאילתה דרך ממשק אינטראקטיבי ולהעתיק קוד מוכן להרצה",
+  "apiList": "רשימת ה-API המלאה",
+  "cellFormat": "פורמט תוצאת התא",
+  "fieldKeyType": "סוג מפתח השדה",
+  "chooseSource": "בחירת מקור נתונים",
+  "action": {
+    "selectBase": "בחירת בסיס...",
+    "selectTable": "בחירת טבלה..."
+  },
+  "pickParams": "בחירה והגדרה של הפרמטרים",
+  "buildResult": "תוצאת הבנייה",
+  "buildResultEmpty": "יש לבחור תחילה טבלה",
+  "previewReturnValue": "תצוגה מקדימה של ערך ההחזרה",
+  "replaceToken": "החלפת אסימון",
+  "createNewToken": "יצירת אסימון חדש",
+  "showPagination": "פרמטרי העימוד מוצגים במצב JSON",
+  "addSort": "הוספת מיון",
+  "tabs": {
+    "apiBuilder": "בונה API",
+    "aiContext": "הקשר AI"
+  },
+  "aiContext": {
+    "title": "הקשר טבלה ידידותי ל-AI",
+    "description": "אפשר להעתיק את ההקשר הזה לעוזר ה-AI (ChatGPT, Claude וכדומה) כדי לעזור לו להבין איך לעבוד עם נתוני הטבלה.",
+    "selectTableFirst": "יש לבחור טבלה כדי להפיק הקשר AI",
+    "fullContext": "הקשר מלא",
+    "compactContext": "מקוצר",
+    "copyToClipboard": "העתקה ללוח",
+    "copied": "הועתק!",
+    "compactDescription": "גרסה קצרה יותר, שמתאימה לשיתוף מהיר של הקשר כשיש מגבלת טוקנים."
+  }
+}

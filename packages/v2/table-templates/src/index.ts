@@ -28,6 +28,8 @@ export {
 // Template field creators
 export {
   createAllBaseFields,
+  createDefaultTableFields,
+  createDefaultTableRecords,
   createAllFieldTypesFields,
   createContentCalendarFields,
   createPersonalFinanceFields,
@@ -43,6 +45,7 @@ export {
   bugTriageTemplate,
   contentCalendarTemplate,
   crmTemplate,
+  defaultTableTemplate,
   hrManagementTemplate,
   personalFinanceTemplate,
   projectTrackerTemplate,
@@ -57,6 +60,7 @@ import {
   bugTriageTemplate,
   contentCalendarTemplate,
   crmTemplate,
+  defaultTableTemplate,
   hrManagementTemplate,
   personalFinanceTemplate,
   projectTrackerTemplate,
@@ -66,6 +70,7 @@ import {
 import type { TableTemplateDefinition } from './types';
 
 export const tableTemplates = [
+  defaultTableTemplate,
   simpleTableTemplate,
   allBaseFieldsTemplate,
   todoTemplate,

@@ -48,7 +48,9 @@ export {
   type IComputeActivityState,
 } from './use-compute-activity';
 export * from './use-undo-redo';
+export * from './use-collaborator-filter-users';
 export * from './use-comment-count-map';
+export * from './use-comment-permission';
 export * from './use-organization';
 export * from './use-personal-view';
 export * from './use-field-operations';
@@ -60,3 +62,4 @@ export * from './use-share-id';
 export * from './use-is-readonly-preview';
 export * from './use-template';
 export * from './use-track';
+export * from './use-content-dir';

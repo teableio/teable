@@ -1,0 +1,1626 @@
+{
+  "common": {
+    "empty": "فارغ",
+    "noRecords": "لا توجد سجلات متاحة",
+    "unnamedRecord": "سجل بلا اسم",
+    "recordDeleted": "تم حذف السجل",
+    "untitled": "بلا عنوان",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "clear": "مسح",
+    "back": "رجوع",
+    "done": "تم",
+    "create": "إنشاء",
+    "search": {
+      "placeholder": "بحث...",
+      "empty": "لم يتم العثور على نتائج"
+    },
+    "readOnlyTip": "طريقة العرض هذه مقفلة. يمكنك تفعيل<button>الوضع الشخصي</button>لتعديل خيارات العرض، وستسري التغييرات عليك وحدك.",
+    "selectPlaceHolder": "اختر...",
+    "loading": "جارٍ التحميل...",
+    "loadMore": "تحميل المزيد",
+    "uploadFailed": "فشل الرفع",
+    "rowCount": "{{count}} سجل",
+    "summary": "الملخص",
+    "summaryTip": "مرّر المؤشر لاختيار الملخص",
+    "actions": "الإجراءات",
+    "remove": "إزالة",
+    "runStatus": {
+      "success": "نجح {{name}}",
+      "failed": "فشل {{name}}",
+      "running": "{{name}} قيد التشغيل"
+    },
+    "resetSuccess": "تمت إعادة التعيين بنجاح",
+    "click": "نقر",
+    "clickedCount": "{{label}}: تم النقر {{text}} مرة",
+    "atLeastOne": "أبقِ على {{noun}} واحد على الأقل",
+    "close": "إغلاق",
+    "selectField": "اختر حقلًا"
+  },
+  "notification": {
+    "title": "إشعار"
+  },
+  "aiError": {
+    "title": "فشل التوليد بالذكاء الاصطناعي",
+    "retry": "إعادة المحاولة",
+    "dismiss": "إغلاق"
+  },
+  "preview": {
+    "previewFileLimit": "حد حجم ملف المعاينة: {{size}} ميغابايت، يُرجى تنزيله للاطلاع عليه.",
+    "loadFileError": "فشل تحميل الملف",
+    "previousAttachment": "السابق",
+    "nextAttachment": "التالي"
+  },
+  "undoRedo": {
+    "undo": "تراجع",
+    "redo": "إعادة",
+    "undoFailed": "فشل التراجع",
+    "redoFailed": "فشلت الإعادة",
+    "nothingToUndo": "لا يوجد ما يمكن التراجع عنه",
+    "nothingToRedo": "لا يوجد ما يمكن إعادته",
+    "undoSucceed": "تم التراجع بنجاح",
+    "redoSucceed": "تمت الإعادة بنجاح",
+    "undoing": "جارٍ التراجع...",
+    "redoing": "جارٍ الإعادة..."
+  },
+  "editor": {
+    "attachment": {
+      "uploadDragOver": "أفلت الملف هنا للرفع",
+      "uploadBaseTextPrefix": "انقر للرفع ",
+      "uploadBaseText": " أو الصق أو اسحب وأفلت هنا",
+      "uploadDragDefault": "الصق أو اسحب وأفلت للرفع هنا",
+      "upload": "رفع ملف",
+      "downloadAll": "تنزيل الكل",
+      "downloadSuccess": "اكتمل التنزيل",
+      "downloadFailed": "فشل التنزيل",
+      "downloadCancelled": "تم إلغاء التنزيل",
+      "requireHttps": "يتطلب التنزيل الجماعي بروتوكول HTTPS. يُرجى الدخول عبر HTTPS أو localhost"
+    },
+    "date": {
+      "placeholder": "اختر تاريخًا",
+      "today": "اليوم",
+      "rangePlaceholder": "اختر نطاقًا زمنيًا",
+      "rangeSelected": "محدد",
+      "invalidTimeRange": "يجب أن يكون وقت الانتهاء بعد وقت البدء",
+      "from": "من",
+      "to": "إلى"
+    },
+    "formula": {
+      "title": "محرر الصيغ",
+      "guideSyntax": "الصياغة",
+      "guideExample": "مثال",
+      "helperExample": "مثال: ",
+      "fieldValue": "تُرجع القيمة إلى خلايا الحقل {{fieldName}}.",
+      "placeholder": "أدخل تعبيرًا",
+      "placeholderForAIPrompt": "صف الصيغة التي تريد إنشاءها",
+      "editExpression": "تعديل الصيغة",
+      "generateExpressionByAI": "إنشاء صيغة بالذكاء الاصطناعي",
+      "inputPrompt": "أدخل التعليمات",
+      "generateExpression": "الصيغة المُنشأة",
+      "generatingByAI": "جارٍ إنشاء الصيغة بالذكاء الاصطناعي...",
+      "generatedExpressionTips": "بعد الإنشاء، انقر على تطبيق لإدراج الصيغة بسرعة",
+      "action": {
+        "generating": "جارٍ الإنشاء...",
+        "generate": "إنشاء",
+        "apply": "تطبيق"
+      },
+      "expressionRequired": "التعبير مطلوب"
+    },
+    "link": {
+      "placeholder": "اختر سجلات لربطها",
+      "searchPlaceholder": "البحث في السجلات",
+      "globalSearch": "بحث شامل",
+      "fieldSearch": "البحث في الحقل",
+      "maxFieldTips": "تم تجاوز الحد الأقصى وهو {{count}} حقل، وستُتجاهل الحقول الزائدة",
+      "create": "إضافة سجل",
+      "selectRecord": "اختر سجلًا",
+      "all": "الكل",
+      "selected": "المحدد",
+      "alreadyOpen": "هذا السجل مفتوح بالفعل.",
+      "linkedTo": "مرتبط بـ",
+      "foreignTableIdRequired": "الجدول الخارجي مطلوب",
+      "linkFieldIdRequired": "حقل الربط مطلوب",
+      "selectTooManyRecords": "يجب ألا تتجاوز السجلات المحددة {{maxCount}}",
+      "rangeSelectFailed": "فشل تحديد السجلات ضمن النطاق"
+    },
+    "user": {
+      "searchPlaceholder": "ابحث عن المستخدمين بالاسم",
+      "notify": "إشعار المستخدمين بمجرد تحديدهم"
+    },
+    "select": {
+      "addOption": "إضافة الخيار '{{option}}'",
+      "choicesNameRequired": "اسم الخيار لا يمكن أن يكون فارغًا"
+    },
+    "lookup": {
+      "lookupFieldIdRequired": "حقل البحث مطلوب",
+      "lookupOptionsNotAllowed": "لا يُسمح بخيارات البحث عندما تكون الخاصية isLookup مفعّلة أو يكون نوع الحقل تجميعًا.",
+      "lookupOptionsRequired": "خيارات البحث مطلوبة"
+    },
+    "rollup": {
+      "expressionRequired": "التعبير مطلوب"
+    },
+    "conditionalRollup": {
+      "filterRequired": "يجب أن يحتوي عامل التصفية على شرط واحد على الأقل"
+    },
+    "conditionalLookup": {
+      "filterRequired": "يتطلب البحث الشرطي شرط تصفية واحدًا على الأقل"
+    },
+    "aiConfig": {
+      "modelKeyRequired": "النموذج مطلوب",
+      "typeNotSupported": "نوع ذكاء اصطناعي غير مدعوم",
+      "sourceFieldIdRequired": "الحقل المصدر مطلوب",
+      "targetLanguageRequired": "اللغة الهدف مطلوبة",
+      "promptRequired": "الموجّه مطلوب"
+    },
+    "error": {
+      "refineOptionsError": "خطأ في تحليل خيارات الحقل {{message}}",
+      "optionsRequired": "خيارات الحقل مطلوبة"
+    }
+  },
+  "filter": {
+    "label": "تصفية",
+    "displayLabel": "تصفية حسب ",
+    "displayLabel_zero": "تصفية حسب {{fieldName}} و{{count}} حقل آخر",
+    "displayLabel_one": "تصفية حسب {{fieldName}} وحقل آخر",
+    "displayLabel_two": "تصفية حسب {{fieldName}} وحقلين آخرين",
+    "displayLabel_few": "تصفية حسب {{fieldName}} و{{count}} حقول أخرى",
+    "displayLabel_many": "تصفية حسب {{fieldName}} و{{count}} حقلًا آخر",
+    "displayLabel_other": "تصفية حسب {{fieldName}} و{{count}} حقل آخر",
+    "addCondition": "إضافة شرط",
+    "addConditionGroup": "إضافة مجموعة شروط",
+    "nestedLimitTip": "لا يمكن تداخل شروط التصفية إلا حتى {{depth}} مستويات",
+    "linkInputPlaceholder": "أدخل قيمة",
+    "currentUser": "أنا (المستخدم الحالي)",
+    "tips": {},
+    "invalidateSelected": "قيمة غير صالحة",
+    "invalidateSelectedTips": "تم حذف القيمة المحددة، يُرجى الاختيار مرة أخرى",
+    "invalidConditionTip": "شرط التصفية هذا غير صالح وسيتم تجاهله. يُرجى تعديل القيمة.",
+    "default": {
+      "empty": "لم يتم تطبيق أي شروط تصفية",
+      "placeholder": "أدخل قيمة"
+    },
+    "conjunction": {
+      "and": "و",
+      "or": "أو",
+      "where": "حيث",
+      "meetingAll": "مطابقة جميع الشروط",
+      "meetingAny": "مطابقة أي شرط"
+    },
+    "operator": {
+      "is": "يساوي",
+      "isNot": "لا يساوي",
+      "contains": "يحتوي على",
+      "doesNotContain": "لا يحتوي على",
+      "isEmpty": "فارغ",
+      "isNotEmpty": "غير فارغ",
+      "isGreater": "أكبر من",
+      "isGreaterEqual": "أكبر من أو يساوي",
+      "isLess": "أصغر من",
+      "isLessEqual": "أصغر من أو يساوي",
+      "isAnyOf": "أحد",
+      "isNoneOf": "ليس أيًا من",
+      "hasAnyOf": "يتضمن أيًا من",
+      "hasAllOf": "يتضمن كل",
+      "hasNoneOf": "لا يتضمن أيًا من",
+      "isExactly": "يطابق تمامًا",
+      "isWithIn": "ضمن",
+      "isBefore": "قبل",
+      "isAfter": "بعد",
+      "isOnOrBefore": "في أو قبل",
+      "isOnOrAfter": "في أو بعد",
+      "number": {
+        "is": "=",
+        "isNot": "≠",
+        "isGreater": ">",
+        "isGreaterEqual": "≥",
+        "isLess": "<",
+        "isLessEqual": "≤"
+      }
+    },
+    "conditionalRollup": {
+      "switchToField": "استخدام قيمة حقل",
+      "switchToValue": "استخدام قيمة يدوية"
+    },
+    "component": {
+      "date": {
+        "today": "اليوم",
+        "tomorrow": "غدًا",
+        "yesterday": "أمس",
+        "oneWeekAgo": "قبل أسبوع",
+        "oneWeekFromNow": "بعد أسبوع من الآن",
+        "oneMonthAgo": "قبل شهر",
+        "oneMonthFromNow": "بعد شهر من الآن",
+        "daysAgo": "أيام مضت",
+        "daysFromNow": "أيام من الآن",
+        "exactDate": "تاريخ محدد",
+        "exactDateTime": "طابع زمني محدد",
+        "exactFormatDate": "تاريخ محدد (منسّق)",
+        "dateRange": "نطاق مخصص",
+        "currentWeek": "الأسبوع الحالي",
+        "currentMonth": "الشهر الحالي",
+        "currentYear": "السنة الحالية",
+        "lastWeek": "الأسبوع الماضي",
+        "lastMonth": "الشهر الماضي",
+        "lastYear": "السنة الماضية",
+        "nextWeekPeriod": "الأسبوع القادم",
+        "nextMonthPeriod": "الشهر القادم",
+        "nextYearPeriod": "السنة القادمة",
+        "pastWeek": "الأسبوع المنصرم",
+        "pastMonth": "الشهر المنصرم",
+        "pastYear": "السنة المنصرمة",
+        "nextWeek": "الأسبوع القادم",
+        "nextMonth": "الشهر القادم",
+        "nextYear": "السنة القادمة",
+        "pastNumberOfDays": "خلال عدد الأيام الماضية",
+        "nextNumberOfDays": "خلال عدد الأيام القادمة"
+      }
+    },
+    "selectOperator": "اختر عاملًا",
+    "selectConjunction": "اختر أداة الربط",
+    "selectDateMode": "اختر خيار التاريخ",
+    "selectValue": "اختر قيمة"
+  },
+  "color": {
+    "label": "اللون"
+  },
+  "rowHeight": {
+    "short": "قصير",
+    "medium": "متوسط",
+    "tall": "مرتفع",
+    "extraTall": "مرتفع جدًا",
+    "title": "ارتفاع الصف"
+  },
+  "fieldNameConfig": {
+    "title": "اسم الحقل",
+    "displayLines": "{{count}} سطر"
+  },
+  "share": {},
+  "extensions": {},
+  "hidden": {
+    "label": "الحقول المخفية",
+    "configLabel_zero": "{{count}} حقل مخفي",
+    "configLabel_one": "حقل مخفي واحد",
+    "configLabel_two": "حقلان مخفيان",
+    "configLabel_few": "{{count}} حقول مخفية",
+    "configLabel_many": "{{count}} حقلًا مخفيًا",
+    "configLabel_other": "{{count}} حقل مخفي",
+    "configLabel_other_visible": "{{count}} حقل ظاهر",
+    "showAll": "إظهار الكل",
+    "hideAll": "إخفاء الكل",
+    "primaryKey": "الحقل الأساسي: يحدد هوية السجلات\nلا يمكن إخفاؤه أو حذفه، وهو ظاهر في السجلات المرتبطة.",
+    "notInCurrentView": "الحقل \"{{fieldName}}\" غير ظاهر في طريقة العرض الحالية ولا يمكن الانتقال إليه"
+  },
+  "expandRecord": {
+    "copy": "نسخ إلى الحافظة",
+    "previousRecord": "السابق",
+    "nextRecord": "التالي",
+    "duplicateRecord": "تكرار السجل",
+    "copyRecordUrl": "نسخ رابط السجل",
+    "deleteRecord": "حذف السجل",
+    "addRecordComment": "إضافة تعليق",
+    "viewRecordHistory": "عرض سجل التغييرات",
+    "recordHistory": {
+      "hiddenRecordHistory": "إخفاء سجل التغييرات",
+      "showRecordHistory": "إظهار سجل التغييرات",
+      "createdTime": "وقت التعديل",
+      "createdBy": "عُدّل بواسطة",
+      "before": "قبل",
+      "after": "بعد",
+      "buttonClicked": "تم النقر على الزر",
+      "filterTime": "النطاق الزمني",
+      "allFields": "جميع الحقول",
+      "allUsers": "جميع المستخدمين",
+      "clearFilter": "مسح عوامل التصفية",
+      "viewRecord": "عرض السجل"
+    },
+    "showHiddenFields": "إظهار {{count}} حقل مخفي",
+    "hideHiddenFields": "إخفاء {{count}} حقل مخفي",
+    "showMore": "عرض المزيد",
+    "showLess": "عرض أقل",
+    "recordFrom": "السجل من"
+  },
+  "sort": {
+    "label": "ترتيب",
+    "displayLabel_zero": "ترتيب حسب {{count}} حقل",
+    "displayLabel_one": "ترتيب حسب حقل واحد",
+    "displayLabel_two": "ترتيب حسب حقلين",
+    "displayLabel_few": "ترتيب حسب {{count}} حقول",
+    "displayLabel_many": "ترتيب حسب {{count}} حقلًا",
+    "displayLabel_other": "ترتيب حسب {{count}} حقل",
+    "setTips": "ترتيب حسب",
+    "addButton": "إضافة ترتيب آخر",
+    "autoSort": "ترتيب السجلات تلقائيًا",
+    "selectASCLabel": "من الأول إلى الأخير",
+    "selectDESCLabel": "من الأخير إلى الأول",
+    "orderTitle": "اختر ترتيب الفرز"
+  },
+  "group": {
+    "label": "تجميع",
+    "displayLabel_zero": "تجميع حسب {{count}} حقل",
+    "displayLabel_one": "تجميع حسب حقل واحد",
+    "displayLabel_two": "تجميع حسب حقلين",
+    "displayLabel_few": "تجميع حسب {{count}} حقول",
+    "displayLabel_many": "تجميع حسب {{count}} حقلًا",
+    "displayLabel_other": "تجميع حسب {{count}} حقل",
+    "setTips": "تجميع حسب",
+    "addButton": "إضافة مجموعة فرعية",
+    "maxLimitTip": "يمكنك التجميع حسب {{count}} حقول كحد أقصى"
+  },
+  "field": {
+    "title": {
+      "singleLineText": "نص سطر واحد",
+      "longText": "نص طويل",
+      "singleSelect": "اختيار مفرد",
+      "number": "رقم",
+      "multipleSelect": "اختيار متعدد",
+      "link": "ربط بسجل",
+      "formula": "صيغة",
+      "date": "تاريخ",
+      "createdTime": "وقت الإنشاء",
+      "lastModifiedTime": "وقت آخر تعديل",
+      "attachment": "مرفق",
+      "checkbox": "مربع اختيار",
+      "rollup": "تجميع",
+      "conditionalRollup": "تجميع شرطي",
+      "user": "مستخدم",
+      "rating": "تقييم",
+      "autoNumber": "ترقيم تلقائي",
+      "lookup": "بحث",
+      "conditionalLookup": "بحث شرطي",
+      "button": "زر",
+      "createdBy": "أُنشئ بواسطة",
+      "lastModifiedBy": "آخر تعديل بواسطة"
+    },
+    "description": {
+      "singleLineText": "لتخزين نص قصير مثل الأسماء أو العناوين.",
+      "longText": "لتدوين ملاحظات وأوصاف أطول.",
+      "singleSelect": "اختر خيارًا واحدًا من قائمة.",
+      "number": "لتتبع القيم الرقمية مع التنسيق.",
+      "multipleSelect": "وسم السجلات بخيارات متعددة.",
+      "link": "اربط هذا السجل بجدول آخر.",
+      "formula": "احسب القيم من حقول أخرى.",
+      "date": "سجّل التواريخ أو الأوقات.",
+      "createdTime": "يعرض وقت إنشاء السجل.",
+      "lastModifiedTime": "يعرض وقت آخر تحديث.",
+      "attachment": "ارفع ملفات أو ولّد صورًا بالذكاء الاصطناعي، مع دعم نماذج مثل GPT Image 2",
+      "checkbox": "بديل بسيط بين نعم ولا.",
+      "rollup": "لخّص السجلات المرتبطة باستخدام الصيغ.",
+      "conditionalRollup": "لخّص البيانات وفق شروط.",
+      "user": "أسنِد السجلات إلى أعضاء مساحة العمل.",
+      "rating": "قيّم العناصر بأيقونات قابلة للتخصيص.",
+      "autoNumber": "امنح كل سجل رقمًا تسلسليًا فريدًا.",
+      "lookup": "اعرض القيم من السجلات المرتبطة.",
+      "conditionalLookup": "اعرض القيم المرتبطة المطابقة لعوامل التصفية التي تحددها.",
+      "button": "نفّذ إجراءات عبر زر قابل للنقر.",
+      "createdBy": "يعرض من أنشأ السجل.",
+      "lastModifiedBy": "يعرض من عدّل السجل آخر مرة."
+    },
+    "link": {
+      "oneWay": "اتجاه واحد",
+      "twoWay": "اتجاهان"
+    },
+    "button": {
+      "confirm": {
+        "title": "تأكيد العملية",
+        "description": "هل أنت متأكد من تنفيذ عملية هذا الزر؟"
+      }
+    }
+  },
+  "permission": {
+    "actionDescription": {
+      "spaceCreate": "إنشاء مساحة",
+      "spaceDelete": "حذف مساحة",
+      "spaceRead": "قراءة المساحة",
+      "spaceUpdate": "تحديث المساحة",
+      "spaceInviteEmail": "الدعوة عبر البريد الإلكتروني في المساحة",
+      "spaceInviteLink": "الدعوة عبر رابط في المساحة",
+      "spaceGrantRole": "منح دور في المساحة",
+      "baseCreate": "إنشاء قاعدة بيانات",
+      "baseDelete": "حذف قاعدة بيانات",
+      "baseRead": "قراءة قاعدة البيانات",
+      "baseReadAll": "قراءة جميع قواعد البيانات",
+      "baseUpdate": "تحديث قاعدة البيانات",
+      "baseInviteEmail": "الدعوة عبر البريد الإلكتروني في قاعدة البيانات",
+      "baseInviteLink": "الدعوة عبر رابط في قاعدة البيانات",
+      "baseAuthorityMatrixConfig": "إعداد مصفوفة الصلاحيات",
+      "baseDbConnect": "الاتصال بقاعدة البيانات",
+      "tableCreate": "إنشاء جدول",
+      "tableRead": "قراءة الجدول",
+      "tableDelete": "حذف الجدول",
+      "tableUpdate": "تحديث الجدول",
+      "tableImport": "استيراد بيانات إلى الجدول",
+      "tableExport": "تصدير بيانات الجدول",
+      "tableTrashRead": "قراءة سلة مهملات الجدول",
+      "tableTrashUpdate": "تحديث سلة مهملات الجدول",
+      "tableTrashReset": "إعادة تعيين سلة مهملات الجدول",
+      "tableArchiveRead": "قراءة أرشيف الجدول",
+      "tableArchiveManage": "إدارة أرشيف الجدول",
+      "viewCreate": "إنشاء طريقة عرض",
+      "viewDelete": "حذف طريقة عرض",
+      "viewRead": "قراءة طريقة العرض",
+      "viewUpdate": "تحديث طريقة العرض",
+      "viewShare": "مشاركة طريقة العرض",
+      "fieldCreate": "إنشاء حقل",
+      "fieldDelete": "حذف حقل",
+      "fieldRead": "قراءة الحقل",
+      "fieldUpdate": "تحديث الحقل",
+      "recordCreate": "إنشاء سجل",
+      "recordComment": "التعليق على السجل",
+      "recordDelete": "حذف سجل",
+      "recordRead": "قراءة السجل",
+      "recordUpdate": "تحديث السجل",
+      "recordCopy": "نسخ السجل",
+      "recordArchive": "أرشفة السجل",
+      "automationCreate": "إنشاء أتمتة",
+      "automationDelete": "حذف أتمتة",
+      "automationRead": "قراءة الأتمتة",
+      "automationUpdate": "تحديث الأتمتة",
+      "appCreate": "إنشاء تطبيق",
+      "appDelete": "حذف تطبيق",
+      "appRead": "قراءة التطبيق",
+      "appUpdate": "تحديث التطبيق",
+      "userEmailRead": "قراءة البريد الإلكتروني للمستخدم الحالي",
+      "userIntegrations": "إدارة تكاملات المستخدم",
+      "recordHistoryRead": "قراءة سجل تغييرات السجل",
+      "baseQuery": "الاستعلام في قاعدة البيانات",
+      "instanceRead": "قراءة النسخة",
+      "instanceUpdate": "تحديث النسخة",
+      "enterpriseRead": "قراءة إعدادات المؤسسة",
+      "enterpriseUpdate": "تحديث إعدادات المؤسسة"
+    }
+  },
+  "noun": {
+    "table": "جدول",
+    "view": "طريقة عرض",
+    "space": "مساحة",
+    "base": "قاعدة بيانات",
+    "field": "حقل",
+    "record": "سجل",
+    "automation": "أتمتة",
+    "app": "تطبيق",
+    "user": "مستخدم",
+    "recordHistory": "سجل تغييرات السجل",
+    "you": "أنت",
+    "instance": "النسخة",
+    "enterprise": "المؤسسة",
+    "history": "السجل",
+    "global": "عام"
+  },
+  "formula": {
+    "SUM": {
+      "summary": "تجمع الأرقام معًا. تكافئ number1 + number2 + ...",
+      "example": "SUM(100, 200, 300) => 600"
+    },
+    "AVERAGE": {
+      "summary": "تُرجع متوسط الأرقام.",
+      "example": "AVERAGE(100, 200, 300) => 200"
+    },
+    "MAX": {
+      "summary": "تُرجع أكبر الأرقام المعطاة.",
+      "example": "MAX(100, 200, 300) => 300"
+    },
+    "MIN": {
+      "summary": "تُرجع أصغر الأرقام المعطاة.",
+      "example": "MIN(100, 200, 300) => 100"
+    },
+    "ROUND": {
+      "summary": "تقرّب القيمة إلى عدد المنازل العشرية المحدد بـ \"precision\" (تحديدًا، تقرّب ROUND إلى أقرب عدد صحيح عند الدقة المحددة، وتُحسم الحالات المتساوية بالتقريب لأعلى نحو ما لا نهاية الموجب).",
+      "example": "ROUND(1.99, 0) => 2\nROUND(16.8, -1) => 20"
+    },
+    "ROUNDUP": {
+      "summary": "تقرّب القيمة إلى عدد المنازل العشرية المحدد بـ \"precision\" مع التقريب دائمًا لأعلى، أي بعيدًا عن الصفر. (يجب تحديد قيمة للدقة وإلا لن تعمل الدالة.)",
+      "example": "ROUNDUP(1.1, 0) => 2\nROUNDUP(-1.1, 0) => -2"
+    },
+    "ROUNDDOWN": {
+      "summary": "تقرّب القيمة إلى عدد المنازل العشرية المحدد بـ \"precision\" مع التقريب دائمًا لأسفل، أي نحو الصفر. (يجب تحديد قيمة للدقة وإلا لن تعمل الدالة.)",
+      "example": "ROUNDDOWN(1.9, 0) => 1\nROUNDDOWN(-1.9, 0) => -1"
+    },
+    "CEILING": {
+      "summary": "تُرجع أقرب مضاعف صحيح لمقدار الدقة يكون أكبر من القيمة أو يساويها. وإذا لم تُحدَّد الدقة فتُفترض 1.",
+      "example": "CEILING(2.49) => 3\nCEILING(2.49, 1) => 2.5\nCEILING(2.49, -1) => 10"
+    },
+    "FLOOR": {
+      "summary": "تُرجع أقرب مضاعف صحيح لمقدار الدقة يكون أصغر من القيمة أو يساويها. وإذا لم تُحدَّد الدقة فتُفترض 1.",
+      "example": "FLOOR(2.49) => 2\nFLOOR(2.49, 1) => 2.4\nFLOOR(2.49, -1) => 0"
+    },
+    "EVEN": {
+      "summary": "تُرجع أصغر عدد صحيح زوجي أكبر من القيمة المحددة أو يساويها.",
+      "example": "EVEN(0.1) => 2\nEVEN(-0.1) => -2"
+    },
+    "ODD": {
+      "summary": "تقرّب القيمة الموجبة لأعلى إلى أقرب عدد فردي، والقيمة السالبة لأسفل إلى أقرب عدد فردي.",
+      "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
+    },
+    "INT": {
+      "summary": "تُرجع الجزء الصحيح من الرقم بالتقريب لأسفل نحو ما لا نهاية السالب.",
+      "example": "INT(1.9) => 1\nINT(-1.9) => -2"
+    },
+    "ABS": {
+      "summary": "تُرجع القيمة المطلقة.",
+      "example": "ABS(-1) => 1"
+    },
+    "SQRT": {
+      "summary": "تُرجع الجذر التربيعي لعدد غير سالب.",
+      "example": "SQRT(4) => 2"
+    },
+    "POWER": {
+      "summary": "تحسب الأساس المحدد مرفوعًا إلى الأس المحدد.",
+      "example": "POWER(2) => 4"
+    },
+    "EXP": {
+      "summary": "تحسب عدد أويلر (e) مرفوعًا إلى الأس المحدد.",
+      "example": "EXP(0) => 1\nEXP(1) => 2.718"
+    },
+    "LOG": {
+      "summary": "تحسب لوغاريتم القيمة بالأساس المحدد. والأساس الافتراضي هو 10 إذا لم يُحدَّد.",
+      "example": "LOG(100) => 2\nLOG(1024, 2) => 10"
+    },
+    "MOD": {
+      "summary": "تُرجع باقي قسمة المعامل الأول على الثاني.",
+      "example": "MOD(9, 2) => 1\nMOD(9, 3) => 0"
+    },
+    "VALUE": {
+      "summary": "تحوّل السلسلة النصية إلى رقم.",
+      "example": "VALUE(\"$1,000,000\") => 1000000"
+    },
+    "CONCATENATE": {
+      "summary": "تدمج معاملات من أنواع قيم مختلفة في قيمة نصية واحدة.",
+      "example": "CONCATENATE(\"Hello \", \"Teable\") => Hello Teable"
+    },
+    "FIND": {
+      "summary": "تبحث عن أول ظهور لـ stringToFind داخل النص whereToSearch بدءًا من موضع اختياري startFromPosition (وقيمته 0 افتراضيًا). وإذا لم يُعثر على stringToFind فستكون النتيجة 0.",
+      "example": "FIND(\"Teable\", \"Hello Teable\") => 7\nFIND(\"Teable\", \"Hello Teable\", 5) => 7\nFIND(\"Teable\", \"Hello Teable\", 10) => 0"
+    },
+    "SEARCH": {
+      "summary": "تبحث عن ظهور stringToFind داخل النص whereToSearch بدءًا من موضع اختياري startFromPosition (وقيمته 0 افتراضيًا). وإذا لم يُعثر على stringToFind فستكون النتيجة فارغة.\nتشبه FIND()‎، غير أن FIND()‎ تُرجع 0 بدلًا من قيمة فارغة عند عدم العثور على stringToFind.",
+      "example": "SEARCH(\"Teable\", \"Hello Teable\") => 7\nSEARCH(\"Teable\", \"Hello Teable\", 5) => 7\nSEARCH(\"Teable\", \"Hello Teable\", 10) => \"\""
+    },
+    "MID": {
+      "summary": "تستخرج نصًا فرعيًا بطول count حرفًا بدءًا من الموضع whereToStart.",
+      "example": "MID(\"Hello Teable\", 6, 6) => \"Teable\""
+    },
+    "LEFT": {
+      "summary": "تستخرج howMany حرفًا من بداية النص.",
+      "example": "LEFT(\"2023-09-06\", 4) => \"2023\""
+    },
+    "RIGHT": {
+      "summary": "تستخرج howMany حرفًا من نهاية النص.",
+      "example": "RIGHT(\"2023-09-06\", 5) => \"09-06\""
+    },
+    "REPLACE": {
+      "summary": "تستبدل عددًا من الأحرف بدءًا من حرف البداية بالنص البديل.\n(إذا كنت تبحث عن طريقة لاستبدال كل ظهور لـ old_text بـ new_text، فراجع SUBSTITUTE()‎.)",
+      "example": "REPLACE(\"Hello Table\", 7, 5, \"Teable\") => \"Hello Teable\""
+    },
+    "REGEXP_REPLACE": {
+      "summary": "تستبدل جميع النصوص الفرعية المطابقة للتعبير النمطي بالنص البديل.",
+      "example": "REGEXP_REPLACE(\"Hello Table\", \"H.* \", \"\") => \"Teable\""
+    },
+    "SUBSTITUTE": {
+      "summary": "تستبدل مواضع ظهور old_text بـ new_text.\nويمكنك اختياريًا تحديد رقم فهرس (يبدأ من 1) لاستبدال ظهور محدد فقط لـ old_text. وإذا لم يُحدَّد رقم الفهرس فسيُستبدل كل ظهور لـ old_text.",
+      "example": "SUBSTITUTE(\"Hello Table\", \"Table\", \"Teable\") => \"Hello Teable\""
+    },
+    "TEXTBEFORE": {
+      "summary": "تُرجع النص الذي يسبق فاصلًا محددًا.",
+      "example": "TEXTBEFORE(\"20, 04, 79\", \",\") => \"20\""
+    },
+    "TEXTSPLIT": {
+      "summary": "تقسم النص وفق فاصل محدد وتُرجع عدة قيم نصية.",
+      "example": "TEXTSPLIT(\"20, 04, 79\", \",\") => [\"20\", \" 04\", \" 79\"]"
+    },
+    "LOWER": {
+      "summary": "تحوّل النص إلى أحرف صغيرة.",
+      "example": "LOWER(\"Hello Teable\") => \"hello teable\""
+    },
+    "UPPER": {
+      "summary": "تحوّل النص إلى أحرف كبيرة.",
+      "example": "UPPER(\"Hello Teable\") => \"HELLO TEABLE\""
+    },
+    "REPT": {
+      "summary": "تكرر النص بعدد المرات المحدد.",
+      "example": "REPT(\"Hello!\") => \"Hello!Hello!Hello!\""
+    },
+    "TRIM": {
+      "summary": "تزيل المسافات من بداية النص ونهايته.",
+      "example": "TRIM(\" Hello \") => \"Hello\""
+    },
+    "LEN": {
+      "summary": "تُرجع عدد أحرف النص.",
+      "example": "LEN(\"Hello\") => 5"
+    },
+    "T": {
+      "summary": "تُرجع المعامل إذا كان نصًا، وتُرجع قيمة فارغة فيما عدا ذلك.",
+      "example": "T(\"Hello\") => \"Hello\"\nT(100) => null"
+    },
+    "ENCODE_URL_COMPONENT": {
+      "summary": "تستبدل أحرفًا معينة بمكافئاتها المُرمَّزة لاستخدامها في بناء الروابط أو معرّفات URI. ولا ترمّز الأحرف التالية: - _ . ~",
+      "example": "ENCODE_URL_COMPONENT(\"Hello Teable\") => \"Hello%20Teable\""
+    },
+    "IF": {
+      "summary": "تُرجع value1 إذا كان الشرط المنطقي صحيحًا، وإلا تُرجع value2. ويمكن استخدامها أيضًا لبناء عبارات IF متداخلة.\nكما يمكن استخدامها للتحقق مما إذا كانت الخلية فارغة.",
+      "example": "IF(2 > 1, \"A\", \"B\") => \"A\"\nIF(2 > 1, TRUE, FALSE) => TRUE"
+    },
+    "SWITCH": {
+      "summary": "تأخذ تعبيرًا وقائمة بالقيم المحتملة له، ولكل قيمة نتيجة يجب أن يأخذها التعبير في تلك الحالة. ويمكنها أيضًا أخذ قيمة افتراضية إذا لم يطابق التعبير أيًا من الأنماط المحددة. وفي كثير من الحالات يمكن استخدام SWITCH()‎ بدلًا من عبارات IF()‎ المتداخلة.",
+      "example": "SWITCH(\"B\", \"A\", \"Value A\", \"B\", \"Value B\", \"Default Value\") => \"Value B\""
+    },
+    "AND": {
+      "summary": "تُرجع true إذا كانت جميع المعاملات صحيحة، وإلا تُرجع false.",
+      "example": "AND(1 < 2, 5 > 3) => true\nAND(1 < 2, 5 < 3) => false"
+    },
+    "OR": {
+      "summary": "تُرجع true إذا كان أي من المعاملات صحيحًا.",
+      "example": "OR(1 < 2, 5 < 3) => true\nOR(1 > 2, 5 < 3) => false"
+    },
+    "XOR": {
+      "summary": "تُرجع true إذا كان عدد المعاملات الصحيحة فرديًا.",
+      "example": "XOR(1 < 2, 5 < 3, 8 < 10) => false\nXOR(1 > 2, 5 < 3, 8 < 10) => true"
+    },
+    "NOT": {
+      "summary": "تعكس القيمة المنطقية للمعامل.",
+      "example": "NOT(1 < 2) => false\nNOT(1 > 2) => true"
+    },
+    "BLANK": {
+      "summary": "تُرجع قيمة فارغة.",
+      "example": "BLANK() => null\nIF(2 > 3, \"Yes\", BLANK()) => null"
+    },
+    "ERROR": {
+      "summary": "تُرجع قيمة الخطأ.",
+      "example": "IF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
+    },
+    "IS_ERROR": {
+      "summary": "تُرجع true إذا تسبب التعبير في خطأ.",
+      "example": "IS_ERROR(ERROR()) => true"
+    },
+    "TODAY": {
+      "summary": "تُرجع التاريخ الحالي.",
+      "example": "TODAY() => \"2023-09-08 00:00\""
+    },
+    "NOW": {
+      "summary": "تُرجع التاريخ والوقت الحاليين.",
+      "example": "NOW() => \"2023-09-08 16:50\""
+    },
+    "YEAR": {
+      "summary": "تُرجع السنة المكوّنة من أربعة أرقام لتاريخ ووقت.",
+      "example": "YEAR(\"2023-09-08\") => 2023"
+    },
+    "MONTH": {
+      "summary": "تُرجع شهر التاريخ كرقم بين 1 (يناير) و12 (ديسمبر).",
+      "example": "MONTH(\"2023-09-08\") => 9"
+    },
+    "WEEKNUM": {
+      "summary": "تُرجع رقم الأسبوع في السنة.",
+      "example": "WEEKNUM(\"2023-09-08\") => 36"
+    },
+    "WEEKDAY": {
+      "summary": "تُرجع يوم الأسبوع كعدد صحيح بين 0 و6 شاملًا الطرفين. ويمكنك اختياريًا تمرير معامل ثانٍ (\"Sunday\" أو \"Monday\") لبدء الأسبوع من ذلك اليوم. وإذا أُغفل، يبدأ الأسبوع يوم الأحد افتراضيًا. مثال:\nWEEKDAY(TODAY(), \"Monday\")",
+      "example": "WEEKDAY(\"2023-09-08\") => 5"
+    },
+    "DAY": {
+      "summary": "تُرجع يوم الشهر لتاريخ ما كرقم بين 1 و31.",
+      "example": "DAY(\"2023-09-08\") => 8"
+    },
+    "HOUR": {
+      "summary": "تُرجع ساعة التاريخ والوقت كرقم بين 0 (12:00 صباحًا) و23 (11:00 مساءً).",
+      "example": "HOUR(\"2023-09-08 16:50\") => 16"
+    },
+    "MINUTE": {
+      "summary": "تُرجع دقيقة التاريخ والوقت كعدد صحيح بين 0 و59.",
+      "example": "MINUTE(\"2023-09-08 16:50\") => 50"
+    },
+    "SECOND": {
+      "summary": "تُرجع ثانية التاريخ والوقت كعدد صحيح بين 0 و59.",
+      "example": "SECOND(\"2023-09-08 16:50:30\") => 30"
+    },
+    "FROMNOW": {
+      "summary": "تحسب عدد الأيام بين التاريخ الحالي وتاريخ آخر.",
+      "example": "FROMNOW({Date}, \"day\") => 25"
+    },
+    "TONOW": {
+      "summary": "تحسب عدد الأيام بين التاريخ الحالي وتاريخ آخر.",
+      "example": "TONOW({Date}, \"day\") => 25"
+    },
+    "DATETIME_DIFF": {
+      "summary": "تُرجع الفرق بين تاريخين بالوحدات المحددة. والوحدة الافتراضية هي \"second\".\nالوحدات المدعومة: \"millisecond\" (ms) و\"second\" (s) و\"minute\" (m) و\"hour\" (h) و\"day\" (d) و\"week\" (w) و\"month\" (M) و\"year\" (y).\nتطرح DATETIME_DIFF دائمًا المعامل الثاني من الأول (`date1 - date2`). وإذا أردت الوقت المنقضي من تاريخ بداية إلى تاريخ نهاية لاحق، فاستخدم `DATETIME_DIFF(endDate, startDate, unit)`.",
+      "example": "DATETIME_DIFF(\"2026-03-13\", \"2026-03-09\") => 345600\nDATETIME_DIFF(\"2026-03-13\", \"2026-03-09\", \"day\") => 4"
+    },
+    "WORKDAY": {
+      "summary": "تُرجع يوم العمل بعد تاريخ البداية، مع استثناء العطلات المحددة",
+      "example": "WORKDAY(\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\nWORKDAY(\"2023-09-08\", 200, \"2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25\") => \"2024-06-20 00:00:00\""
+    },
+    "WORKDAY_DIFF": {
+      "summary": "تُرجع عدد أيام العمل بعد [startDate] حتى [endDate] وشاملة له. وهذا عدّ لأيام العمل لا فرق أيام تقويمية، لذا تُستثنى عطلات نهاية الأسبوع وقائمة عطلات اختيارية. وللحصول على الوقت المنقضي بالأيام التقويمية استخدم `DATETIME_DIFF(endDate, startDate, \"day\")`. وتكون النتيجة سالبة عندما يسبق [endDate] التاريخ [startDate]، كما تُرجع WORKDAY_DIFF(startDate, WORKDAY(startDate, n)) القيمة n.",
+      "example": "WORKDAY_DIFF(\"2026-03-09\", \"2026-03-13\") => 4\nWORKDAY_DIFF(\"2026-03-09\", WORKDAY(\"2026-03-09\", 5)) => 5"
+    },
+    "IS_SAME": {
+      "summary": "تقارن تاريخين حتى وحدة محددة وتحدد ما إذا كانا متطابقين. تُرجع true إذا كانا كذلك، وfalse إن لم يكونا.",
+      "example": "IS_SAME(\"2023-09-08\", \"2023-09-10\") => false\nIS_SAME(\"2023-09-08\", \"2023-09-10\", \"month\") => true"
+    },
+    "IS_AFTER": {
+      "summary": "تحدد ما إذا كان date1 بعد date2. تُرجع true إذا كان كذلك، وfalse إن لم يكن.",
+      "example": "IS_AFTER(\"2023-09-10\", \"2023-09-08\") => true\nIS_AFTER(\"2023-09-10\", \"2023-09-08\", \"month\") => false"
+    },
+    "IS_BEFORE": {
+      "summary": "تحدد ما إذا كان date1 قبل date2. تُرجع true إذا كان كذلك، وfalse إن لم يكن.",
+      "example": "IS_BEFORE(\"2023-09-08\", \"2023-09-10\") => true\nIS_BEFORE(\"2023-09-08\", \"2023-09-10\", \"month\") => false"
+    },
+    "DATE_ADD": {
+      "summary": "تضيف عدد \"count\" من الوحدات المحددة إلى تاريخ ووقت.",
+      "example": "DATE_ADD(\"2023-09-08 18:00:00\", 10, \"day\") => \"2023-09-18 18:00:00\""
+    },
+    "DATESTR": {
+      "summary": "تنسّق التاريخ والوقت إلى نص بالصيغة (YYYY-MM-DD).",
+      "example": "DATESTR(\"2023/09/08\") => \"2023-09-08\""
+    },
+    "TIMESTR": {
+      "summary": "تنسّق التاريخ والوقت إلى نص للوقت فقط بالصيغة (HH:mm:ss).",
+      "example": "DATESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
+    },
+    "DATETIME_FORMAT": {
+      "summary": "تنسّق التاريخ والوقت إلى نص محدد. الرموز المدعومة: YY وYYYY وM وMM وMMM وMMMM وD وDD وd وdd وddd وdddd وH وHH وh وhh وm وmm وs وss وSSS وZ وZZ وA وa وLT وLTS وL وLL وLLL وLLLL وl وll وlll وllll.",
+      "example": "DATETIME_FORMAT(\"2023-09-08\", \"DD-MM-YYYY\") => \"08-09-2023\""
+    },
+    "DATETIME_PARSE": {
+      "summary": "تفسّر سلسلة نصية كتاريخ منظَّم، مع معاملات اختيارية لصيغة الإدخال واللغة. وتكون صيغة الإخراج دائمًا \"M/D/YYYY h:mm a\".",
+      "example": "DATETIME_PARSE(\"8 Sep 2023 18:00\", \"D MMM YYYY HH:mm\") => \"2023-09-08 18:00:00\""
+    },
+    "CREATED_TIME": {
+      "summary": "تُرجع وقت إنشاء السجل الحالي.",
+      "example": "CREATED_TIME() => \"2023-09-08 18:00:00\""
+    },
+    "LAST_MODIFIED_TIME": {
+      "summary": "تُرجع تاريخ ووقت آخر تعديل أجراه مستخدم على حقل غير محسوب في الجدول. ويمكنك اختياريًا تمرير حقل لتتبع التحديثات في ذلك العمود فقط.",
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\"; LAST_MODIFIED_TIME({Due Date}) => \"2023-09-09 12:00:00\""
+    },
+    "COUNTALL": {
+      "summary": "تُرجع عدد جميع العناصر بما في ذلك النصوص والقيم الفارغة.",
+      "example": "COUNTALL(100, 200, \"\", \"Teable\", TRUE()) => 5"
+    },
+    "COUNTA": {
+      "summary": "تُرجع عدد القيم غير الفارغة. وتحسب هذه الدالة القيم الرقمية والنصية معًا.",
+      "example": "COUNTA(100, 200, 300, \"\", \"Teable\", TRUE) => 4"
+    },
+    "COUNT": {
+      "summary": "تُرجع عدد العناصر الرقمية.",
+      "example": "COUNT(100, 200, 300, \"\", \"Teable\", TRUE) => 3"
+    },
+    "ARRAY_JOIN": {
+      "summary": "تدمج مصفوفة عناصر التجميع في نص واحد مفصول بفاصل.",
+      "example": "ARRAY_JOIN([\"Tom\", \"Jerry\", \"Mike\"], \"; \") => \"Tom; Jerry; Mike\""
+    },
+    "ARRAY_UNIQUE": {
+      "summary": "تُرجع العناصر الفريدة فقط في المصفوفة.",
+      "example": "ARRAY_UNIQUE([1, 2, 3, 2, 1]) => [1, 2, 3]"
+    },
+    "ARRAY_FLATTEN": {
+      "summary": "تسطّح المصفوفة بإزالة أي تداخل، فتصبح كل العناصر ضمن مصفوفة واحدة.",
+      "example": "ARRAY_FLATTEN([1, 2, \" \", 3, true], [\"ABC\"]) => [1, 2, 3, \" \", true, \"ABC\"]"
+    },
+    "ARRAY_COMPACT": {
+      "summary": "تزيل النصوص الفارغة والقيم الخالية من المصفوفة، مع الإبقاء على \"false\" وعلى النصوص التي تحتوي على مسافة أو أكثر.",
+      "example": "ARRAY_COMPACT([1, 2, 3, \"\", null, \"ABC\"]) => [1, 2, 3, \"ABC\"]"
+    },
+    "TEXT_ALL": {
+      "summary": "تُرجع جميع القيم النصية",
+      "example": "TEXT_ALL(\"t\") => t"
+    },
+    "RECORD_ID": {
+      "summary": "تُرجع معرّف السجل الحالي.",
+      "example": "RECORD_ID() => \"recxxxxxx\""
+    },
+    "AUTO_NUMBER": {
+      "summary": "تُرجع أرقامًا فريدة ومتزايدة لكل سجل.",
+      "example": "AUTO_NUMBER() => 1"
+    },
+    "FORMULA": {
+      "summary": "أدخل المتغيرات والمعاملات والدوال لتكوين صيغ للحسابات.",
+      "example": "الإشارة إلى العمود: {Field name}\n\nاستخدام معامل: 100 * 2 + 300\n\nاستخدام دالة: SUM({Number Field 1}, 100)\n\nاستخدام عبارة IF: \nIF(logical condition, \"value 1\", \"value 2\")"
+    }
+  },
+  "functionType": {
+    "fields": "الحقول",
+    "numeric": "رقمية",
+    "text": "نصية",
+    "logical": "منطقية",
+    "date": "التاريخ",
+    "array": "المصفوفات",
+    "system": "النظام"
+  },
+  "statisticFunc": {
+    "none": "بلا",
+    "count": "العدد",
+    "empty": "الفارغة",
+    "filled": "المعبّأة",
+    "unique": "الفريدة",
+    "max": "الأكبر",
+    "min": "الأصغر",
+    "sum": "المجموع",
+    "average": "المتوسط",
+    "checked": "المحددة",
+    "unChecked": "غير المحددة",
+    "percentEmpty": "نسبة الفارغة",
+    "percentFilled": "نسبة المعبّأة",
+    "percentUnique": "نسبة الفريدة",
+    "percentChecked": "نسبة المحددة",
+    "percentUnChecked": "نسبة غير المحددة",
+    "earliestDate": "أقدم تاريخ",
+    "latestDate": "أحدث تاريخ",
+    "dateRangeOfDays": "المدى الزمني (بالأيام)",
+    "dateRangeOfMonths": "المدى الزمني (بالأشهر)",
+    "totalAttachmentSize": "إجمالي حجم المرفقات"
+  },
+  "selectionStatistic": {
+    "tip": "تُجمَّع الحقول من النوع الرقمي فقط.",
+    "copyTip": "انقر للنسخ",
+    "copied": "تم النسخ"
+  },
+  "baseQuery": {
+    "add": "إضافة",
+    "error": {
+      "invalidCol": "عمود غير صالح، يُرجى إعادة الاختيار",
+      "invalidCols": "أعمدة غير صالحة: {{colNames}}",
+      "invalidTable": "جدول غير صالح، يُرجى إعادة الاختيار",
+      "requiredSelect": "يجب اختيار واحد"
+    },
+    "from": {
+      "title": "من",
+      "fromTable": "اختر جدولًا",
+      "fromQuery": "من استعلام"
+    },
+    "select": {
+      "title": "تحديد"
+    },
+    "where": {
+      "title": "حيث"
+    },
+    "groupBy": {
+      "title": "تجميع حسب"
+    },
+    "orderBy": {
+      "title": "ترتيب حسب",
+      "asc": "تصاعدي",
+      "desc": "تنازلي"
+    },
+    "limit": {
+      "title": "الحد"
+    },
+    "offset": {
+      "title": "الإزاحة"
+    },
+    "join": {
+      "title": "الضم",
+      "joinType": "نوع الضم",
+      "leftJoin": "ضم أيسر",
+      "rightJoin": "ضم أيمن",
+      "innerJoin": "ضم داخلي",
+      "fullJoin": "ضم كامل",
+      "data": "من"
+    },
+    "aggregation": {
+      "title": "التجميع"
+    }
+  },
+  "comment": {
+    "title": "تعليق",
+    "placeholder": "اترك تعليقًا...",
+    "emptyComment": "ابدأ محادثة",
+    "deletedComment": "تعليق محذوف",
+    "tip": {
+      "editing": "جارٍ التعديل...",
+      "edited": "(مُعدَّل)",
+      "notifyAll": "إشعار بجميع التعليقات",
+      "notifyRelatedToMe": "إشعار بالتعليقات المتعلقة بي",
+      "all": "الكل",
+      "relatedToMe": "المتعلقة بي",
+      "reactionUserSuffix": "تفاعل بالرمز {{emoji}}",
+      "me": "أنت",
+      "connection": "و"
+    },
+    "toolbar": {
+      "link": "رابط",
+      "image": "صورة",
+      "mention": "إشارة"
+    },
+    "floatToolbar": {
+      "editLink": "تعديل الرابط",
+      "linkText": "نص الرابط",
+      "enterUrl": "أدخل الرابط"
+    }
+  },
+  "memberSelector": {
+    "title": "اختر الأعضاء",
+    "memberSelectorSearchPlaceholder": "البحث عن أعضاء...",
+    "departmentSelectorSearchPlaceholder": "البحث عن أقسام...",
+    "selected": "المحدد",
+    "empty": "لا يوجد أعضاء",
+    "emptyDepartment": "لا توجد أقسام"
+  },
+  "httpErrors": {
+    "validationError": "خطأ في التحقق",
+    "invalidCaptcha": "رمز تحقق غير صالح",
+    "invalidCredentials": "بيانات اعتماد غير صالحة",
+    "unauthorized": "غير مصرّح",
+    "unauthorizedShare": "مشاركة غير مصرّح بها",
+    "paymentRequired": "الدفع مطلوب",
+    "creditLimitExceeded": "تم تجاوز حد الأرصدة",
+    "restrictedResource": "مورد مقيّد",
+    "notFound": "غير موجود",
+    "viewNotFound": "العرض غير موجود",
+    "conflict": "تعارض",
+    "unprocessableEntity": "كيان غير قابل للمعالجة",
+    "userLimitExceeded": "تم تجاوز حد المستخدمين",
+    "tooManyRequests": "طلبات كثيرة جدًا",
+    "payloadTooLarge": "حجم الحمولة كبير جدًا",
+    "internalServerError": "خطأ داخلي في الخادم",
+    "databaseConnectionUnavailable": "الاتصال بقاعدة البيانات غير متاح",
+    "gatewayTimeout": "انتهت مهلة البوابة",
+    "unknownErrorCode": "رمز خطأ غير معروف",
+    "networkError": "مشكلة في اتصال الشبكة",
+    "requestTimeout": "انتهت مهلة الطلب",
+    "failedDependency": "فشل في تبعية",
+    "automationNodeParseError": "خطأ في تحليل عقدة الأتمتة",
+    "automationNodeNeedTest": "عقدة الأتمتة بحاجة إلى اختبار",
+    "automationNodeTestOutdated": "اختبار عقدة الأتمتة قديم",
+    "invalidToken": "رمز غير صالح",
+    "limit": {
+      "fieldOptionsMaxBytes": "خيارات الحقل كبيرة جدًا. الحد الأقصى {{max}} بايت.",
+      "selectChoicesMax": "يحتوي حقل الاختيار هذا على خيارات كثيرة جدًا. الحد الأقصى {{max}} خيار.",
+      "selectChoiceNameMaxLength": "أسماء خيارات الاختيار طويلة جدًا. الحد الأقصى {{max}} حرف.",
+      "selectDefaultValuesMax": "يحتوي حقل الاختيار هذا على قيم افتراضية كثيرة جدًا. الحد الأقصى {{max}} قيمة.",
+      "cellValueMaxBytes": "قيمة الخلية كبيرة جدًا. الحد الأقصى {{max}} بايت.",
+      "recordFieldsMaxBytes": "حمولة السجل كبيرة جدًا. الحد الأقصى {{max}} بايت.",
+      "recordsPerMutationMax": "تُغيّر هذه العملية سجلات كثيرة جدًا. الحد الأقصى {{max}} سجل في المرة الواحدة.",
+      "computedCellValueMaxBytes": "قيمة الخلية المحسوبة كبيرة جدًا. الحد الأقصى {{max}} بايت.",
+      "formulaMaxLength": "الصيغة طويلة جدًا. الحد الأقصى {{max}} حرف.",
+      "tablesPerBaseMax": "بلغت قاعدة البيانات هذه حد عدد الجداول. الحد الأقصى {{max}} جدول.",
+      "fieldsPerTableMax": "يحتوي هذا الجدول على حقول كثيرة جدًا. الحد الأقصى {{max}} حقل.",
+      "rowsPerTableMax": "يحتوي هذا الجدول على سجلات كثيرة جدًا. الحد الأقصى {{max}} سجل.",
+      "viewsPerTableMax": "بلغ هذا الجدول حد عدد طرق العرض. الحد الأقصى {{max}} طريقة عرض.",
+      "createTableFieldsMax": "يحتوي الجدول الجديد على حقول كثيرة جدًا. الحد الأقصى {{max}} حقل.",
+      "createTableViewsMax": "يحتوي الجدول الجديد على طرق عرض كثيرة جدًا. الحد الأقصى {{max}} طريقة عرض.",
+      "createTableRecordsMax": "يحتوي الجدول الجديد على سجلات كثيرة جدًا. الحد الأقصى {{max}} سجل.",
+      "viewFilterItemsMax": "تحتوي طريقة العرض هذه على شروط تصفية كثيرة جدًا. الحد الأقصى {{max}} شرط.",
+      "viewFilterDepthMax": "تصفية طريقة العرض هذه متداخلة أكثر من اللازم. أقصى عمق هو {{max}}.",
+      "viewSortItemsMax": "تحتوي طريقة العرض هذه على قواعد ترتيب كثيرة جدًا. الحد الأقصى {{max}} قاعدة.",
+      "viewGroupItemsMax": "تحتوي طريقة العرض هذه على قواعد تجميع كثيرة جدًا. الحد الأقصى {{max}} قاعدة.",
+      "viewOptionsMaxBytes": "خيارات طريقة العرض كبيرة جدًا. الحد الأقصى {{max}} بايت.",
+      "nameMaxLength": "الاسم طويل جدًا. الحد الأقصى {{max}} حرف.",
+      "descriptionMaxLength": "الوصف طويل جدًا. الحد الأقصى {{max}} حرف."
+    },
+    "custom": {
+      "fieldValueNotNull": "الحقل \"{{fieldName}}\" في \"{{tableName}}\" لا يقبل القيم الفارغة، يُرجى استكمال التعبئة قبل الإرسال.",
+      "fieldValueDuplicate": "الحقل \"{{fieldName}}\" في \"{{tableName}}\" لا يقبل القيم المكررة، يُرجى إدخال قيمة فريدة قبل الإرسال.",
+      "recordFieldValueNotNull": "الحقل \"{{fieldName}}\" لا يقبل القيم الفارغة، يُرجى تعبئته قبل الإرسال.",
+      "recordFieldValueDuplicate": "الحقل \"{{fieldName}}\" لا يقبل القيم المكررة، يُرجى إدخال قيمة فريدة قبل الإرسال.",
+      "recordDeleteBlockedByRequiredLink": "تعذّر الحذف: سيصبح حقل الربط المطلوب \"{{fieldName}}\" في الجدول \"{{tableName}}\" فارغًا.",
+      "recordDeleteBlockedByRequiredLinkGeneric": "تعذّر الحذف: لا يزال هذا السجل مشارًا إليه من حقل ربط مطلوب في جدول آخر.",
+      "recordDeleteBlockedByLink": "تعذّر الحذف: لا يزال حقل الربط \"{{fieldName}}\" في الجدول \"{{tableName}}\" يشير إلى هذا السجل.",
+      "linkFieldValueDuplicate": "لا يسمح الحقل \"{{fieldName}}\" بارتباطات مكررة بالسجل نفسه",
+      "linkBatchDuplicate": "تعذّر ربط السجلات: تم ربطها بالفعل بسجل آخر في الدفعة نفسها. ففي علاقات واحد-إلى-متعدد لا يمكن أن ينتمي كل سجل إلا إلى أب واحد.",
+      "linkOneManyDuplicate": "تعذّر ربط السجلات: مرتبطة بالفعل بسجل آخر. ففي علاقات واحد-إلى-متعدد لا يمكن أن ينتمي كل سجل إلا إلى أب واحد.",
+      "linkOneOneDuplicate": "تعذّر ربط السجلات: السجل الهدف مرتبط بالفعل بسجل آخر ضمن علاقة واحد-إلى-واحد.",
+      "fieldMaxColumnLimit": "لا يمكن أن يحتوي الجدول \"{{tableName}}\" على أكثر من {{maxFieldCount}} حقل.",
+      "fieldRequiredExistingValues": "تعذّر تعيين الحقل \"{{fieldName}}\" كمطلوب لأن سجلات موجودة تحتوي على قيم فارغة.",
+      "fieldUniqueExistingValues": "تعذّر تعيين الحقل \"{{fieldName}}\" كفريد لأن سجلات موجودة تحتوي على قيم مكررة.",
+      "requestTimeout": "هذا الإجراء كبير جدًا، يُرجى المحاولة بنطاق أصغر.",
+      "searchTimeOut": "انتهت مهلة البحث، يُرجى تضييق نطاق البحث والمحاولة مرة أخرى",
+      "dependencyNodeRequire": "لم تُختبر العقدة التابعة، يُرجى التحقق من اختبار جميع العقد السابقة",
+      "invalidOperation": "تم اكتشاف عملية غير صالحة، يُرجى التحقق من معاملات العملية"
+    },
+    "comment": {
+      "listCountExceeded": "عدد التعليقات المطلوبة يتجاوز الحد الأقصى وهو 1000",
+      "invalidContentType": "نوع محتوى تعليق غير صالح"
+    },
+    "attachment": {
+      "tokenExpireInTooLong": "يجب أن تكون مدة صلاحية الرمز أقل من 7 أيام",
+      "s3RegionRequired": "منطقة S3 مطلوبة",
+      "s3EndpointRequired": "نقطة نهاية S3 مطلوبة",
+      "s3AccessKeyRequired": "مفتاح وصول S3 مطلوب",
+      "s3SecretKeyRequired": "مفتاح S3 السرّي مطلوب",
+      "s3UploadMethodMustBePut": "يجب أن تكون طريقة الرفع إلى S3 هي PUT",
+      "presignedError": "فشل إنشاء رابط موقّع مسبقًا",
+      "invalidObjectMeta": "بيانات وصفية للكائن غير صالحة",
+      "invalidImageStream": "تدفق صورة غير صالح",
+      "calculateImageSizeFailed": "فشل حساب حجم الصورة",
+      "uploadFailed": "فشل الرفع",
+      "invalidImage": "صورة غير صالحة",
+      "cantGetImageStream": "تعذّر الحصول على تدفق الصورة",
+      "invalidProvider": "مزوّد تخزين غير صالح",
+      "failedToDeleteDirectory": "فشل حذف المجلد",
+      "invalidToken": "رمز غير صالح",
+      "tokenExpired": "انتهت صلاحية الرمز",
+      "sizeMismatch": "حجم الملف غير مطابق",
+      "notAllowUploadFileType": "نوع الملف {{mimetype}} غير مسموح برفعه",
+      "notFound": "المرفق غير موجود",
+      "invalidPath": "مسار مرفق غير صالح",
+      "fileSizeExceedsMaximumLimit": "يتجاوز حجم الملف الحد الأقصى {{maxSize}}",
+      "invalidUploadType": "نوع رفع غير صالح",
+      "urlReject": "الرابط مرفوض أو يتعذّر الوصول إليه"
+    },
+    "email": {
+      "testEmailError": "خطأ في إعدادات البريد {{message}}"
+    },
+    "auth": {
+      "invalidConfirm": "إدخال تأكيد غير صالح",
+      "emailNotRegistered": "هذا البريد الإلكتروني غير مُسجَّل",
+      "passwordNotSet": "لم يتم تعيين كلمة مرور لهذا الحساب",
+      "systemUser": "هذا حساب مستخدم نظام",
+      "alreadyRegistered": "هذا البريد الإلكتروني مُسجَّل بالفعل",
+      "passwordIncorrect": "كلمة المرور غير صحيحة",
+      "tokenInvalid": "الرمز غير صالح أو انتهت صلاحيته",
+      "passwordAlreadyExists": "تم تعيين كلمة مرور لهذا الحساب بالفعل",
+      "verificationCodeInvalid": "رمز التحقق غير صالح أو انتهت صلاحيته",
+      "newEmailSameAsCurrentEmail": "البريد الإلكتروني الجديد مطابق للحالي",
+      "emailAlreadyRegistered": "عنوان البريد الإلكتروني هذا مُسجَّل بالفعل",
+      "waitlistNotEnabled": "ميزة قائمة الانتظار غير مفعّلة",
+      "emailOrPasswordIncorrect": "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+      "accountDeactivated": "تم إلغاء تنشيط هذا الحساب من قبل المسؤول",
+      "accountLockedOut": "تم قفل حسابك بسبب كثرة محاولات تسجيل الدخول الفاشلة. يُرجى المحاولة لاحقًا.",
+      "passwordLoginDisabled": "تسجيل الدخول بكلمة المرور معطّل"
+    },
+    "automation": {
+      "buttonClickTriggerDuplicated": "حقل الزر هذا مرتبط بالفعل بعملية الأتمتة {{name}}[{{id}}]، يُرجى اختيار حقل زر آخر",
+      "triggerNotFound": "يجب أن تحتوي الأتمتة على عقدة مُشغِّل",
+      "nodeNotFound": "العقدة {{nodeId}} غير موجودة",
+      "triggerTestFailed": "فشل اختبار المُشغِّل، يُرجى التحقق من إعدادات المُشغِّل",
+      "testFailed": "فشل اختبار الأتمتة، يُرجى التحقق من إعدادات الأتمتة",
+      "runFailed": "فشل تشغيل الأتمتة",
+      "nodeParseError": "إعدادات العقدة {{name}} ناقصة أو بها أخطاء، يُرجى التحقق من إعدادات العقدة",
+      "nodeNeedTest": "العقدة {{name}} بحاجة إلى اختبار",
+      "nodeTestOutdated": "اختبار العقدة {{name}} قديم",
+      "notFound": "الأتمتة غير موجودة",
+      "currentSnapshotEmpty": "اللقطة الحالية للأتمتة فارغة",
+      "runNotFound": "عملية تشغيل الأتمتة غير موجودة",
+      "anchorNotFound": "أتمتة المرساة غير موجودة",
+      "validationError": "خطأ في التحقق من إعدادات الأتمتة",
+      "tableNotInBase": "لا يمكنك الاشتراك إلا في جدول داخل قاعدة بياناتك",
+      "alreadyActiveAndNotDraft": "الأتمتة مفعّلة بالفعل وليست مسودة",
+      "noActiveSnapshot": "لا توجد لقطة نشطة للأتمتة",
+      "onlyFailedRunsCanRerun": "لا يمكن إعادة تشغيل سوى عمليات التشغيل الفاشلة",
+      "workflowMustBeActiveToRerun": "يجب أن يكون سير العمل مفعّلًا لإعادة التشغيل",
+      "snapshotChangedOnlyFullRerun": "تم تعديل سير العمل منذ هذا التشغيل. ولا يُسمح إلا بإعادة التشغيل الكاملة.",
+      "runPayloadColdTruncated": "اقتُطعت أجزاء من هذا التشغيل أثناء الأرشفة الباردة، ولا تتوفر إعادة التشغيل منه",
+      "runListOffsetTooDeep": "هذه الصفحة بعيدة جدًا في سجل التشغيل بالنسبة للترقيم بالإزاحة؛ تابع باستخدام المؤشر المُرجَع من الصفحة السابقة.",
+      "controlStepsMissingOnlyFullRerun": "بيانات عقدة التحكم مفقودة لهذا التشغيل. ولا تُدعم سوى إعادة التشغيل الكاملة.",
+      "triggerNodeAlreadyExists": "تحتوي هذه الأتمتة على عقدة مُشغِّل بالفعل",
+      "scheduledIntervalTooShort": "يجب أن تفصل بين عمليات تشغيل الأتمتة المجدولة {{min}} دقيقة على الأقل",
+      "emailPollIntervalTooShort": "يجب ألا تتحقق مُشغِّلات البريد من الرسائل الجديدة بوتيرة أعلى من كل {{min}} دقيقة",
+      "unSupportLogicType": "نوع منطق غير مدعوم",
+      "generateLogicError": "خطأ في إنشاء عقدة المنطق",
+      "logicNotFound": "عقدة منطق الأتمتة غير موجودة",
+      "groupEndNotFound": "لم يتم العثور على GroupEnd للمنطق",
+      "insertNodeError": "خطأ في إدراج العقدة",
+      "actionNotFound": "عقدة إجراء الأتمتة غير موجودة",
+      "unSupportDuplicateWorkflowNodeType": "نوع عقدة الأتمتة غير مدعوم للتكرار",
+      "controlNodeNotBeTested": "لا ينبغي اختبار عقدة التحكم",
+      "invalidNodeType": "نوع عقدة غير صالح",
+      "unsupportedCategory": "فئة غير مدعومة",
+      "unknownConnectionType": "نوع اتصال بريد غير معروف",
+      "imapPasswordNotConfigured": "لم يتم إعداد كلمة مرور IMAP",
+      "integrationNotFound": "التكامل غير موجود أو لا يحتوي على بيانات اعتماد",
+      "webhookTriggerNotFound": "مُشغِّل Webhook غير موجود",
+      "emailReceivedTriggerNotFound": "مُشغِّل استقبال البريد غير موجود",
+      "emailConnectorNotAvailable": "خدمة موصّل البريد غير متاحة",
+      "listMailboxesFailed": "فشل سرد صناديق البريد: {{detail}}"
+    },
+    "scrape": {
+      "unknownDataset": "مجموعة بيانات غير معروفة: {{datasetId}}",
+      "apiKeyNotConfigured": "لم يتم إعداد خدمة استخراج البيانات",
+      "triggerFailed": "فشل تشغيل الاستخراج: {{detail}}",
+      "snapshotError": "خطأ في لقطة الاستخراج: {{detail}}",
+      "timeout": "انتهت مهلة الاستخراج بعد {{seconds}} ثانية"
+    },
+    "integration": {
+      "oauthCodeExchangeFailed": "فشل تبادل رمز OAuth: {{detail}}",
+      "oauthTokenRefreshFailed": "فشل تحديث رمز OAuth: {{detail}}",
+      "userInfoFetchFailed": "فشل الحصول على معلومات المستخدم: {{detail}}"
+    },
+    "space": {
+      "notFound": "المساحة غير موجودة",
+      "noPermission": "ليست لديك صلاحية الوصول إلى هذه المساحة",
+      "disallowSpaceCreation": "عطّل المسؤول إنشاء المساحات",
+      "cannotChangeOnlyOwnerRole": "لا يمكن تغيير دور المالك الوحيد للمساحة",
+      "cannotDeleteOnlyOwner": "لا يمكن حذف المالك الوحيد للمساحة",
+      "deleted": "تم حذف المساحة",
+      "cannotOperate": "تعذّر تنفيذ العملية على المساحة، يُرجى التأكد من وجود أعضاء من المؤسسة في المساحة وأنهم مالكون",
+      "notBelongToOrg": "هذه المساحة لا تنتمي إلى المؤسسة",
+      "invalidSpaceIds": "معرّفات المساحات غير صالحة: {{spaceIds}}",
+      "freeOwnedSpaceLimitExceeded": "بلغت الحد الأقصى لعدد المساحات المجانية التي يمكنك امتلاكها ({{max}}). يُرجى ترقية مساحة قائمة أو حذف إحداها لإنشاء مساحة مجانية جديدة.",
+      "freeOwnedSpaceLimitExceededOther": "بلغ {{name}} الحد الأقصى لعدد المساحات المجانية التي يمكنه امتلاكها ({{max}})."
+    },
+    "base": {
+      "notFound": "قاعدة البيانات غير موجودة",
+      "cannotAccess": "ليست لديك صلاحية الوصول إلى قاعدة البيانات {{baseId}}",
+      "anchorNotFound": "قاعدة بيانات المرساة {{anchorId}} غير موجودة",
+      "baseAndSpaceMismatch": "عدم تطابق بين قاعدة البيانات {{baseId}} والمساحة {{spaceId}}",
+      "templateNotFound": "القالب {{templateId}} غير موجود"
+    },
+    "baseNode": {
+      "baseIdIsRequired": "معرّف قاعدة البيانات مطلوب",
+      "nodeIdIsRequired": "معرّف العقدة مطلوب",
+      "invalidResourceType": "نوع مورد غير صالح",
+      "notFound": "عقدة قاعدة البيانات غير موجودة",
+      "parentMustBeFolder": "يجب أن يكون العنصر الأب مجلدًا",
+      "cannotDuplicateFolder": "لا يمكن تكرار المجلد",
+      "cannotDeleteEmptyFolder": "تعذّر حذف المجلد لأنه ليس فارغًا",
+      "onlyOneOfParentIdOrAnchorIdRequired": "يجب تحديد parentId أو anchorId فقط لا كليهما",
+      "cannotMoveToItself": "لا يمكن نقل العقدة إلى نفسها",
+      "cannotMoveToCircularReference": "لا يمكن نقل العقدة إلى عقدة فرعية منها (مرجع دائري)",
+      "anchorIdOrParentIdRequired": "يجب تحديد parentId أو anchorId على الأقل",
+      "parentNotFound": "العقدة الأب غير موجودة",
+      "parentIsNotFolder": "العنصر الأب ليس مجلدًا",
+      "circularReference": "تم اكتشاف مرجع دائري",
+      "folderDepthLimitExceeded": "تم تجاوز حد عمق المجلدات",
+      "folderNotFound": "المجلد غير موجود",
+      "anchorNotFound": "عقدة المرساة غير موجودة",
+      "nameAlreadyExists": "الاسم موجود بالفعل"
+    },
+    "dashboard": {
+      "notFound": "لوحة المعلومات غير موجودة"
+    },
+    "plugin": {
+      "notFound": "المكوّن الإضافي غير موجود",
+      "notSupportInstallInView": "لا يدعم المكوّن الإضافي التثبيت داخل طريقة العرض",
+      "userNotFound": "مستخدم المكوّن الإضافي غير موجود",
+      "invalidSecret": "سرّ غير صالح",
+      "invalidRefreshToken": "رمز تحديث غير صالح",
+      "anomalousToken": "رمز غير طبيعي"
+    },
+    "pluginPanel": {
+      "notFound": "لوحة المكوّن الإضافي غير موجودة"
+    },
+    "pluginInstall": {
+      "notFound": "المكوّن الإضافي غير مثبَّت"
+    },
+    "share": {
+      "incorrectPassword": "كلمة مرور غير صحيحة",
+      "notAllowedToSubmit": "إرسال النموذج غير مسموح به",
+      "notAllowedToEdit": "التعديل غير مسموح به في هذه المشاركة",
+      "viewRequired": "طريقة العرض مطلوبة لهذه العملية",
+      "hiddenFieldsSubmissionNotAllowed": "إرسال النموذج غير مسموح به عند تضمين حقول مخفية",
+      "submitRecordsError": "فشل إرسال السجلات",
+      "notAllowedToCopy": "عملية النسخ غير مسموح بها",
+      "fieldHiddenNotAllowed": "الحقل مخفي ولا يمكن الوصول إليه",
+      "fieldTypeNotLinkField": "الحقل ليس حقل ربط",
+      "fieldIdRequired": "معرّف الحقل مطلوب",
+      "fieldNotUserRelatedField": "الحقل ليس حقلًا مرتبطًا بالمستخدم",
+      "viewTypeNotAllowed": "نوع طريقة العرض هذا غير مسموح به لهذه العملية"
+    },
+    "shareAuth": {
+      "passwordRestrictionNotEnabled": "قيد كلمة المرور غير مفعّل لهذه المشاركة",
+      "shareViewNotFound": "طريقة العرض المشتركة غير موجودة أو المشاركة معطّلة",
+      "linkFieldNotFound": "حقل الربط غير موجود",
+      "loginRequired": "سجّل الدخول لتعديل طريقة العرض المشتركة هذه"
+    },
+    "baseShare": {
+      "notFound": "مشاركة قاعدة البيانات غير موجودة أو المشاركة معطّلة",
+      "alreadyExists": "توجد مشاركة لهذه العقدة بالفعل",
+      "copyNotAllowed": "لا تسمح هذه المشاركة بالنسخ"
+    },
+    "shareSocket": {
+      "viewPermissionNotAllowed": "ليست لديك صلاحية الوصول إلى طريقة العرض هذه",
+      "fieldPermissionNotAllowed": "ليست لديك صلاحية الوصول إلى هذه الحقول",
+      "recordPermissionNotAllowed": "ليست لديك صلاحية الوصول إلى هذه السجلات"
+    },
+    "pluginContextMenu": {
+      "notFound": "قائمة سياق المكوّن الإضافي غير موجودة",
+      "anchorNotFound": "مرساة قائمة سياق المكوّن الإضافي غير موجودة"
+    },
+    "pluginChart": {
+      "queryNotFound": "استعلام مخطط المكوّن الإضافي غير موجود"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "مشغّل قاعدة بيانات غير مدعوم: {{driver}}",
+      "onlyOwnerCanRemove": "لا يمكن إلا لمالك قاعدة البيانات إزالة اتصال قاعدة البيانات لـ {{baseId}}",
+      "onlyOwnerCanCreate": "لا يمكن إلا لمالك قاعدة البيانات إنشاء اتصال قاعدة البيانات لـ {{baseId}}",
+      "roleNotExist": "دور قاعدة البيانات {{role}} غير موجود"
+    },
+    "baseQuery": {
+      "queryFailed": "فشل الاستعلام: {{message}}",
+      "invalidJoinType": "نوع ضم غير صالح: {{joinType}}",
+      "tableNotFound": "الجدول {{tableId}} غير موجود في قاعدة البيانات {{baseId}}"
+    },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "غير مسموح بتنفيذ SQL يتضمن الكلمة المفتاحية {{keyword}}",
+      "whiteListCheckError": "حدث خطأ أثناء التحقق من صلاحية الوصول إلى الجدول: {{message}}",
+      "databaseConnectionFailed": "فشل الاتصال بقاعدة البيانات: {{message}}",
+      "executeQuerySqlFailed": "فشل تنفيذ استعلام SQL: {{message}}",
+      "readOnlyCheckFailed": "فشل فحص وضع القراءة فقط: {{message}}",
+      "sqlSyntaxError": "خطأ في صياغة SQL، يُرجى التحقق من استعلامك"
+    },
+    "permission": {
+      "createRecordWithDeniedFields": "ليست لديك صلاحية إنشاء سجل يتضمن الحقول ({{fields}})",
+      "deleteRecords": "ليست لديك صلاحية حذف السجلات ({{recordIds}})",
+      "readRecordWithDeniedFields": "ليست لديك صلاحية قراءة الحقول ({{fields}}) في السجل ({{recordId}})",
+      "updateRecordWithDeniedFields": "ليست لديك صلاحية تحديث الحقول ({{fields}}) في السجل ({{recordId}})",
+      "checkIdNotExist": "معرّف فحص الصلاحية غير موجود",
+      "userNotAdmin": "المستخدم ليس مسؤولًا",
+      "accessTokenNoPermission": "رمز الوصول لا يملك الصلاحية المطلوبة",
+      "invalidResource": "المورد غير صالح",
+      "notAllowedSpace": "ليست لديك صلاحية الوصول إلى هذه المساحة",
+      "notAllowedBase": "ليست لديك صلاحية الوصول إلى قاعدة البيانات هذه",
+      "notAllowedTables": "ليست لديك صلاحية الوصول إلى الجداول ({{tableIds}})",
+      "notAllowedOperationTable": "ليست لديك صلاحية العمل على هذا الجدول",
+      "notAllowedOperationRecord": "ليست لديك صلاحية العمل على هذا السجل",
+      "notAllowedRecordUpdate": "ليست لديك صلاحية تحديث هذا السجل",
+      "notAllowedOperationView": "ليست لديك صلاحية العمل على طريقة العرض هذه",
+      "deniedByEnabledAuthorityMatrix": "تم رفض الإذن بواسطة مصفوفة الصلاحيات المفعّلة",
+      "invalidRequestPath": "مسار الطلب غير صالح",
+      "notAllowedOperation": "ليست لديك صلاحية تنفيذ هذه العملية",
+      "notAllowedDepartment": "غير مسموح لك بالوصول إلى هذا القسم",
+      "templateHeaderInvalid": "ترويسة القالب غير صالحة"
+    },
+    "authorityMatrix": {
+      "defaultRoleNotFound": "الدور الافتراضي غير موجود",
+      "alreadyDisabled": "مصفوفة الصلاحيات معطّلة بالفعل",
+      "alreadyEnabled": "مصفوفة الصلاحيات مفعّلة بالفعل",
+      "notFound": "مصفوفة الصلاحيات غير موجودة",
+      "primaryFieldCannotBeDisabledForRead": "لا يمكن تعطيل صلاحية قراءة الحقل الأساسي",
+      "fieldDuplicated": "الحقل مكرر في إعدادات الصلاحيات",
+      "cannotSetRecordPermissionGroup": "لا يمكن تعيين هذه التركيبة من صلاحيات السجلات ({{actions}})",
+      "notFoundBaseAndTable": "لم يتم العثور على معرّف قاعدة البيانات ومعرّف الجدول",
+      "roleTablesShouldNotBeEmpty": "يجب ألا تكون جداول دور مصفوفة الصلاحيات فارغة"
+    },
+    "selection": {
+      "invalidReturnType": "نوع إرجاع غير صالح",
+      "exceedMaxReadRows": "تم تجاوز الحد الأقصى لعدد الصفوف المقروءة",
+      "invalidCellValueType": "نوع قيمة خلية غير صالح",
+      "exceedMaxCopyCells": "تم تجاوز الحد الأقصى لعدد الخلايا المنسوخة",
+      "exceedMaxPasteCells": "تم تجاوز الحد الأقصى لعدد الخلايا الملصوقة"
+    },
+    "field": {
+      "unsupportedFieldType": "نوع حقل غير مدعوم {{type}}",
+      "unsupportedPrimaryFieldType": "نوع الحقل {{type}} غير مدعوم كحقل أساسي",
+      "primaryFieldNotSupported": "نوع الحقل غير مدعوم كحقل أساسي",
+      "calculateRecordNotFound": "لم يتم العثور على السجل لـ: {{value}}، معرّف الحقل: {{fieldId}}، عند حساب {{recordId}}",
+      "toRecordIdsOrFromRecordIdsRequired": "‏toRecordIds أو fromRecordIds مطلوب للحقول المحسوبة العادية",
+      "recordFieldsRequired": "حقول السجل غير معرَّفة",
+      "uniqueUnsupportedType": "الحقل {{name}}[{{fieldId}}] لا يدعم التحقق من تفرد قيمة الحقل",
+      "notNullValidationWhenCreateField": "الحقل {{name}}[{{fieldId}}] لا يدعم التحقق من عدم القيمة الفارغة عند إنشاء حقل جديد",
+      "dbFieldNameAlreadyExists": "اسم حقل قاعدة البيانات {{dbFieldName}} موجود بالفعل",
+      "fieldValidationError": "خطأ في التحقق من الحقل {{name}}[{{fieldId}}]",
+      "fieldNameAlreadyExists": "اسم الحقل {{name}} موجود بالفعل",
+      "notFound": "الحقل غير موجود",
+      "fieldKeyTypeNotFound": "الحقل \"{{fieldKeyType}}: {{missedFields}}\" غير موجود",
+      "notFoundInTable": "الحقل {{fieldId}} غير موجود في الجدول {{tableId}}",
+      "deleteFieldsNotFound": "الحقول المراد حذفها {{fieldIds}} غير موجودة في الجدول {{tableId}}",
+      "lookupValuesShouldBeArray": "يجب أن تكون lookupValues مصفوفة عندما يكون حقل الربط متعدد القيم",
+      "linkCellValuesShouldBeArray": "يجب أن تكون linkCellValues مصفوفة عندما يكون حقل الربط متعدد القيم",
+      "lookupAndLinkLengthMatch": "يجب أن يتطابق طول lookupValues مع طول linkCellValues",
+      "cycleDetected": "تم اكتشاف دورة",
+      "cycleDetectedCreateField": "تم اكتشاف دورة، ولا يمكن إنشاء الحقل {{name}}[{{id}}]",
+      "recordMapNotFound": "لم يتم العثور على السجل في الجدول {{tableName}} للحقل {{fieldName}}",
+      "forbidDeletePrimaryField": "يُمنع حذف الحقل الأساسي",
+      "foreignTableIdInvalid": "الجدول الخارجي {{foreignTableId}} غير صالح",
+      "crossSpaceLinkForbidden": "المراجع بين المساحات غير مدعومة. يُرجى اختيار جدول في المساحة نفسها (الجدول الهدف {{foreignTableId}} في مساحة مختلفة).",
+      "relationshipInvalid": "العلاقة {{relationship}} غير صالحة",
+      "linkFieldIdInvalid": "حقل الربط {{linkFieldId}} غير صالح",
+      "lookupFieldIdInvalid": "حقل البحث {{lookupFieldId}} غير صالح",
+      "formulaExpressionParseError": "خطأ في تحليل تعبير الصيغة",
+      "formulaReferenceNotFound": "حقل مرجع الصيغة {{fieldIds}} غير موجود",
+      "formulaReferenceNotFieldId": "لم يتم العثور على مراجع الصيغة {{fieldIds}}. يجب أن تستخدم الصيغ معرّفات الحقول (بصيغة fldXXXXXXXXXXXXXXXX) لا أسماءها.",
+      "rollupExpressionParseError": "خطأ في تحليل تعبير التجميع",
+      "choiceNameAlreadyExists": "اسم الخيار {{name}} موجود بالفعل",
+      "symmetricFieldIdRequired": "معرّف الحقل المتناظر مطلوب",
+      "foreignKeyNameCannotUseId": "لا يمكن استخدام __id كاسم للمفتاح الخارجي",
+      "createForeignKeyError": "خطأ في إنشاء المفتاح الخارجي",
+      "lookupFieldTypeNotEqual": "نوع الحقل الحالي {{fieldType}} لا يساوي نوع حقل البحث {{lookupFieldType}}",
+      "recordNotFound": "السجل {{recordId}} غير موجود في {{tableId}}",
+      "linkCellRecordIdAlreadyExists": "لا يمكن تعيين معرّف سجل مكرر: {{recordId}} في الخلية نفسها",
+      "linkConsistencyError": "خطأ في الاتساق، معرّف السجل {{recordId}} غير موجود",
+      "oneOneLinkCellValueCannotBeArray": "لا يمكن أن تكون قيم حقل الربط واحد-إلى-واحد مصفوفة",
+      "manyOneLinkCellValueCannotBeArray": "لا يمكن أن تكون قيم حقل الربط متعدد-إلى-واحد مصفوفة",
+      "oneManyLinkCellValueShouldBeArray": "يجب أن تكون قيم حقل الربط واحد-إلى-متعدد مصفوفة",
+      "manyManyLinkCellValueShouldBeArray": "يجب أن تكون قيم حقل الربط متعدد-إلى-متعدد مصفوفة",
+      "foreignKeyDuplicate": "المفتاح الخارجي مكرر",
+      "onlyLinkFieldCanBeFiltered": "لا يمكن استخدام سوى حقول الربط للتصفية",
+      "notLinkedToCurrentTable": "الحقل غير مرتبط بالجدول الحالي",
+      "notAttachment": "الحقل ليس حقل مرفقات",
+      "isComputed": "الحقل محسوب ولا يمكن تعديله",
+      "notFoundAICofig": "لا يحتوي الحقل على إعدادات للذكاء الاصطناعي",
+      "foreignTableIdRequired": "الجدول الخارجي مطلوب",
+      "lookupFieldIdRequired": "حقل البحث مطلوب",
+      "lookupFieldNotExist": "حقل البحث {{lookupFieldId}} غير موجود",
+      "lookupFieldNotBelongToTable": "حقل البحث {{lookupFieldId}} لا ينتمي إلى الجدول {{foreignTableId}}",
+      "lookupFieldTypeNotMatch": "نوع الحقل الحالي {{fieldType}} لا يطابق نوع حقل البحث {{lookupFieldType}}",
+      "conditionalRollupOptionsRequired": "خيارات حقل التجميع الشرطي مطلوبة",
+      "conditionalRollupParseError": "خطأ في تحليل التجميع الشرطي: {{message}}",
+      "conditionalLookupOptionsRequired": "خيارات حقل البحث الشرطي مطلوبة",
+      "button": {
+        "clickCountReachedMaxCount": "بلغ عدد نقرات الزر الحد الأقصى",
+        "notSupportReset": "حقل الزر لا يدعم إعادة التعيين"
+      },
+      "primaryCannotBeLookup": "لا يمكن تهيئة الحقل الأساسي كحقل بحث",
+      "primaryFieldAlreadyExists": "يحتوي الجدول على حقل أساسي بالفعل"
+    },
+    "view": {
+      "notFound": "طريقة العرض غير موجودة",
+      "cannotDeleteLastView": "لا يمكن حذف آخر طريقة عرض في الجدول. يجب أن يحتوي الجدول على طريقة عرض واحدة على الأقل.",
+      "defaultViewNotFound": "طريقة العرض الافتراضية غير موجودة",
+      "propertyParseError": "فشل تحليل خاصية طريقة العرض",
+      "primaryFieldCannotBeHidden": "لا يمكن إخفاء الحقل الأساسي",
+      "filterUnsupportedFieldType": "نوع الحقل غير مدعوم في التصفية",
+      "filterInvalidOperator": "يستخدم عامل التصفية مُشغِّلًا غير صالح لهذا النوع من الحقول",
+      "filterInvalidOperatorMode": "يستخدم عامل التصفية تركيبة غير صالحة من المُشغِّل والوضع",
+      "sortUnsupportedFieldType": "نوع الحقل غير مدعوم في الترتيب",
+      "groupUnsupportedFieldType": "نوع الحقل غير مدعوم في التجميع",
+      "anchorNotFound": "طريقة عرض المرساة غير موجودة",
+      "notEnoughGapToShuffleRow": "لا توجد فجوة كافية لإعادة ترتيب الصف",
+      "shareNotEnabled": "مشاركة طريقة العرض غير مفعّلة",
+      "shareAlreadyEnabled": "مشاركة طريقة العرض مفعّلة بالفعل",
+      "shareAlreadyDisabled": "مشاركة طريقة العرض معطّلة بالفعل"
+    },
+    "billing": {
+      "insufficientCredit": "الرصيد غير كافٍ",
+      "upgradeRequired": "هذه الميزة غير متاحة في خطتك الحالية. يُرجى ترقية خطتك لاستخدامها.",
+      "exceedMaxRowLimit": "تم تجاوز الحد الأقصى للصفوف {{maxRowCount}}",
+      "exceedMaxAttachmentSizeLimit": "بلغت مساحة تخزين المرفقات حد خطتك. يُرجى ترقية خطتك أو إزالة بعض المرفقات.",
+      "exceedMaxSystemEmailLimit": "بلغ عدد رسائل البريد الشهرية حد خطتك. يُرجى ترقية خطتك.",
+      "exceedMaxAutomationRunLimit": "تم تجاوز الحد الأقصى لعمليات تشغيل الأتمتة",
+      "manualSubscriptionNotSupported": "الاشتراك الذاتي غير متاح لهذه المساحة. للترقية أو التخفيض أو أي تغييرات أخرى في الاشتراك، يُرجى التواصل مع دعم Teable.",
+      "appSumoSubscriptionNotSupported": "لا يمكن تعديل اشتراكات AppSumo من هذه الواجهة. يُرجى إدارة اشتراكك على AppSumo.",
+      "customerNotFound": "لم يتم العثور على سجل عميل للفوترة لهذه المساحة."
+    },
+    "aggregation": {
+      "searchQueryRequired": "استعلام البحث مطلوب",
+      "maxSearchIndexResult": "الحد الأقصى لنتيجة فهرس البحث هو 1000",
+      "queryCollectionMustBeTableId": "يجب أن تكون مجموعة الاستعلام معرّف جدول",
+      "searchTimeOut": "انتهت مهلة البحث، يُرجى تضييق نطاق البحث والمحاولة مرة أخرى",
+      "indexNotFound": "الفهرس غير موجود",
+      "invalidStartDateFieldId": "معرّف حقل تاريخ البدء غير صالح",
+      "invalidEndDateFieldId": "معرّف حقل تاريخ الانتهاء غير صالح",
+      "fieldMapRequired": "خريطة الحقول مطلوبة عند تعيين البحث",
+      "filterLinkCellQueryConflict": "لا يمكن تعيين filterLinkCellSelected و‏filterLinkCellCandidate في الوقت نفسه"
+    },
+    "ai": {
+      "chatModelLgNotSet": "لم يتم تعيين نموذج المحادثة الكبير (lg)",
+      "chatModelLgProviderNotSet": "لم يتم تعيين مزوّد نموذج المحادثة الكبير (lg)",
+      "chatModelSmNotSet": "لم يتم تعيين نموذج المحادثة الصغير (sm)",
+      "chatModelMdNotSet": "لم يتم تعيين نموذج المحادثة المتوسط (md)",
+      "configurationNotSet": "لم يتم تعيين إعدادات الذكاء الاصطناعي",
+      "unsupportedProvider": "مزوّد ذكاء اصطناعي غير مدعوم {{type}}",
+      "providerConfigurationNotSet": "لم يتم تعيين إعدادات مزوّد الذكاء الاصطناعي",
+      "gatewayApiKeyNotSet": "لم يتم إعداد مفتاح API الخاص بـ AI Gateway",
+      "testLLMFailed": "فشل اختبار الاتصال بنموذج اللغة",
+      "audioNotSupported": "لا يدعم هذا النموذج {{model}} إدخال الصوت",
+      "imageNotSupported": "لا يدعم هذا النموذج {{model}} إدخال الصور",
+      "modelNotSet": "لم يتم تعيين نموذج الذكاء الاصطناعي",
+      "unsupportedFileType": "نوع ملف غير مدعوم {{mimetype}}",
+      "attachmentDownloadFailed": "فشل تنزيل المرفق: {{reason}}",
+      "unsupportedModelType": "نوع نموذج غير مدعوم",
+      "embeddingModelNotSet": "لم يتم تعيين نموذج التضمين",
+      "validateActionFailed": "فشل التحقق من إجراء الذكاء الاصطناعي للحقل",
+      "generateFailed": "فشل التوليد بالذكاء الاصطناعي",
+      "unsupportedActionType": "نوع إجراء ذكاء اصطناعي غير مدعوم",
+      "geminiImageNotSupportedViaGateway": "توليد صور Gemini غير مدعوم عبر AI Gateway. يُرجى إعداد مزوّد Google مباشر بدلًا من ذلك."
+    },
+    "skill": {
+      "notFound": "المهارة غير موجودة",
+      "onlyGithubCanSync": "لا يمكن مزامنة سوى المهارات المصدرها GitHub",
+      "syncFailed": "فشلت المزامنة: {{errorCode}}",
+      "skillMdNotFoundAtSource": "لم يتم العثور على SKILL.md في موقع المصدر",
+      "slugChangedUpstream": "تغيّر معرّف المهارة في المصدر من \"{{oldSlug}}\" إلى \"{{newSlug}}\". احذفها وأعد استيرادها لاعتماد المعرّف الجديد.",
+      "skillMdNotFoundAtPath": "لم يتم العثور على SKILL.md في {{path}}/SKILL.md",
+      "invalidSkillFile": "ملف مهارة غير صالح. المتوقع أرشيف ‎.skill أو ‎.zip",
+      "tooManyResourceFiles": "تحتوي المهارة على ملفات كثيرة جدًا (الحد الأقصى {{max}})",
+      "noSkillMdInPackage": "لم يتم العثور على SKILL.md في حزمة المهارة",
+      "multipleSkillMdInPackage": "تم العثور على {{count}} ملف SKILL.md في المستوى نفسه. يجب أن تحتوي الحزمة على مهارة واحدة فقط.",
+      "invalidResourcePaths": "مسارات موارد غير صالحة: {{paths}}",
+      "nameFieldRequired": "يجب أن يحتوي SKILL.md على حقل \"name\" في الترويسة",
+      "invalidSlugFormat": "يجب أن يتكون معرّف المهارة من أحرف إنجليزية صغيرة وأرقام وشرطات",
+      "filesExceedSizeLimit": "تتجاوز الملفات حد {{maxSizeKB}} كيلوبايت: {{files}}",
+      "binaryFilesNotAllowed": "الملفات الثنائية غير مسموح بها: {{files}}",
+      "totalSizeExceedsLimit": "إجمالي حجم الموارد يتجاوز حد {{maxSizeMB}} ميغابايت",
+      "invalidGithubUrl": "رابط GitHub غير صالح. المتوقع: https://github.com/owner/repo/tree/<branch>/path/to/skill",
+      "directoryTooDeep": "يتجاوز مجلد المهارة أقصى عمق وهو {{maxDepth}} مستويات. المجلدات المتداخلة: {{dirs}}",
+      "importFailed": "فشل الاستيراد: {{errorCode}}",
+      "alreadyInScope": "المهارة موجودة بالفعل في النطاق الهدف"
+    },
+    "sandbox": {
+      "fileNotFound": "الملف غير موجود في البيئة المعزولة",
+      "onlyRegularFiles": "لا يمكن تنزيل سوى الملفات العادية",
+      "fileTooLarge": "حجم الملف أكبر من أن يُنزَّل (الحد الأقصى {{max}} بايت)",
+      "cannotDeleteRoot": "لا يمكن حذف مجلد uploads/outputs الجذر",
+      "deleteFailed": "فشل حذف الملفات",
+      "uploadFailed": "فشل رفع الملف إلى البيئة المعزولة",
+      "fileEndpointUnavailable": "لا توفّر البيئة المعزولة نقطة نهاية ملفات يمكن الوصول إليها",
+      "invalidPath": "مسار ملف غير صالح: يجب أن يكون داخل مجلد uploads أو outputs في البيئة المعزولة",
+      "tooManyDownloads": "طلبات تنزيل كثيرة جدًا",
+      "dailyLimitExceeded": "تم تجاوز الحد اليومي لحجم التنزيل",
+      "storageFull": "تخزين البيئة المعزولة ممتلئ",
+      "tooManyFiles": "يُسمح بـ {{max}} ملف كحد أقصى لكل رسالة",
+      "noActiveSandbox": "لم يتم العثور على بيئة معزولة نشطة"
+    },
+    "role": {
+      "notFound": "الدور غير موجود"
+    },
+    "collaborator": {
+      "alreadyExisted": "المتعاون موجود بالفعل",
+      "notFound": "المتعاون غير موجود",
+      "userNotFoundInCollaborator": "المستخدم غير موجود ضمن المتعاونين",
+      "noPermissionToDelete": "ليست لديك صلاحية حذف هذا المتعاون",
+      "noPermissionToUpdate": "ليست لديك صلاحية تحديث هذا المتعاون",
+      "noPermissionToOperateRole": "ليست لديك صلاحية التعامل مع هذا الدور",
+      "alreadyExistedInBase": "المتعاون موجود بالفعل في قاعدة البيانات",
+      "userNotFound": "المستخدم غير موجود: {{userIds}}",
+      "baseNotFound": "قاعدة البيانات غير موجودة",
+      "noPermissionToAddRole": "ليست لديك صلاحية إضافة متعاون بهذا الدور",
+      "departmentNotFound": "القسم غير موجود"
+    },
+    "table": {
+      "notFound": "الجدول غير موجود",
+      "dbTableNameAlreadyExists": "اسم جدول قاعدة البيانات موجود بالفعل",
+      "anchorNotFound": "جدول المرساة غير موجود",
+      "notInTrash": "الجدول ليس في سلة المهملات",
+      "notSupportTableIndex": "نوع فهرس الجدول غير مدعوم",
+      "createTableIndexError": "فشل إنشاء فهرس الجدول",
+      "dropTableIndexError": "فشل حذف فهرس الجدول",
+      "notFoundPrimaryField": "لم يتم العثور على الحقل الأساسي في الجدول"
+    },
+    "export": {
+      "notSupportViewType": "نوع طريقة العرض {{viewType}} غير مدعوم للتصدير"
+    },
+    "import": {
+      "notSupportedFileFormat": "صيغة الملف غير مدعومة، الصيغ المدعومة هي {{supportType}} فقط، ونوع محتوى ملفك هو {{fileFormat}}",
+      "notSupportedFileType": "نوع ملف الاستيراد غير مدعوم",
+      "exceedMaxFieldsLength": "لا يمكن أن يتجاوز عدد الحقول في الجدول {{maxFieldsLength}}، والعدد الحالي {{length}}",
+      "tooManyConcurrentImports": "عدد مهام الاستيراد الجارية كبير جدًا ({{current}}/{{max}}). يُرجى المحاولة لاحقًا."
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "عطّل المسؤول دعوات المساحة في هذه النسخة",
+      "invalidCode": "رمز دعوة غير صالح",
+      "linkNotFound": "رابط الدعوة غير موجود",
+      "linkExpired": "انتهت صلاحية رابط الدعوة",
+      "limitExceeded": "بلغت الحد الأقصى لعدد الدعوات في الساعة"
+    },
+    "pin": {
+      "alreadyExists": "التثبيت موجود بالفعل",
+      "notFound": "التثبيت غير موجود",
+      "anchorNotFound": "مرساة التثبيت غير موجودة"
+    },
+    "trash": {
+      "invalidResourceType": "نوع مورد غير صالح",
+      "notFound": "عنصر سلة المهملات غير موجود",
+      "parentSpaceTrashed": "تعذّر استعادة قاعدة البيانات هذه لأن المساحة الأم موجودة أيضًا في سلة المهملات",
+      "parentBaseOrSpaceTrashed": "تعذّر استعادة هذا الجدول لأن قاعدة البيانات أو المساحة الأم موجودة أيضًا في سلة المهملات",
+      "parentBaseTrashed": "تعذّر استعادة هذا العنصر لأن قاعدة البيانات الأم موجودة أيضًا في سلة المهملات",
+      "parentNotFound": "المورد الأب غير موجود",
+      "tableNotFound": "عنصر سلة مهملات الجدول غير موجود"
+    },
+    "license": {
+      "invalid": "الترخيص غير صالح",
+      "instanceIdMismatch": "معرّف النسخة الوارد لا يطابق معرّف النسخة الحالية",
+      "expired": "انتهت صلاحية الترخيص",
+      "userLimitExceeded": "عدد المستخدمين في هذه النسخة يتجاوز حد المقاعد في الترخيص. يُرجى إلغاء تنشيط بعض المستخدمين أو ترقية الترخيص"
+    },
+    "domainVerification": {
+      "notFound": "لم يتم العثور على رمز التحقق من النطاق",
+      "invalidCode": "رمز تحقق غير صالح",
+      "resendCooldown": "يُرجى الانتظار دقيقة واحدة قبل طلب رمز جديد",
+      "alreadyVerified": "تم التحقق من النطاق بالفعل"
+    },
+    "organization": {
+      "notFound": "المؤسسة غير موجودة",
+      "authenticationNotFound": "المصادقة غير موجودة",
+      "spaceShouldExist": "يجب أن تكون مساحة المؤسسة موجودة",
+      "emailsNotInOrgDomain": "عناوين البريد {{emails}} ليست ضمن نطاق المؤسسة",
+      "emailNotSpaceUser": "البريد الإلكتروني ليس لمستخدم في المساحة"
+    },
+    "mail": {
+      "failedToSendEmail": "فشل إرسال البريد الإلكتروني"
+    },
+    "user": {
+      "disallowSignUp": "عطّل المسؤول التسجيل في هذه النسخة",
+      "emailDomainBanned": "تم حظر نطاق البريد الإلكتروني هذا بسبب مخالفات للسياسة",
+      "waitlistInviteCodeRequired": "قائمة الانتظار مفعّلة، ورمز الدعوة مطلوب",
+      "waitlistInviteCodeInvalid": "قائمة الانتظار مفعّلة، ورمز الدعوة غير صالح",
+      "systemUser": "المستخدم هو مستخدم نظام",
+      "collaboratorsInSpaces": "للمستخدم متعاونون في مساحات (أو مساحات محذوفة في سلة المهملات)",
+      "notFound": "المستخدم غير موجود",
+      "cannotDeleteAdmin": "لا يمكن حذف مستخدم مسؤول",
+      "cannotDeactivateAdmin": "لا يمكن إلغاء تنشيط مستخدم مسؤول",
+      "cannotRemoveLastAdmin": "لا يمكن إزالة صلاحية المسؤول من آخر مسؤول نشط",
+      "permanentDeleted": "تم حذف المستخدم نهائيًا",
+      "cannotDeleteSelf": "لا يمكنك حذف نفسك",
+      "alreadyInDepartment": "المستخدم {{userId}} موجود بالفعل في القسم الهدف",
+      "emailsNotFound": "عناوين البريد {{emails}} غير موجودة",
+      "deleted": "تم حذف المستخدم {{userId}}",
+      "alreadyInOrg": "المستخدم {{userId}} موجود بالفعل في المؤسسة",
+      "notInOrg": "المستخدم {{userId}} ليس في المؤسسة"
+    },
+    "record": {
+      "notFound": "السجل غير موجود",
+      "deletedIdsNotFound": "تعذّر العثور على بعض السجلات المراد حذفها",
+      "updateFailed": "فشل تحديث السجل",
+      "noFileOrUrlProvided": "لم يتم توفير ملف أو رابط",
+      "createRecordsEmpty": "لا يمكن أن تكون السجلات المراد إنشاؤها فارغة",
+      "duplicateFailed": "فشل تكرار السجل"
+    },
+    "typecast": {
+      "cellValueValidationFailed": "فشل التحقق من قيمة الخلية"
+    },
+    "workflow": {
+      "notActive": "سير العمل غير مفعّل"
+    },
+    "lastVisit": {
+      "invalidResourceType": "نوع مورد غير صالح"
+    },
+    "template": {
+      "categoryNotFound": "فئة القالب غير موجودة",
+      "snapshotRequired": "تعذّر نشر هذا القالب بسبب غياب اللقطة",
+      "sourceTemplateNotFound": "القالب المصدر غير موجود",
+      "noMinOrderFound": "لم يتم العثور على الحد الأدنى للترتيب",
+      "takeCountTooLarge": "عدد القوالب المطلوبة يتجاوز الحد الأقصى",
+      "categoryLimitReached": "تم بلوغ حد فئات القوالب (الحد الأقصى {{maxCount}})"
+    },
+    "department": {
+      "parentNotFound": "القسم الأب غير موجود",
+      "notFound": "القسم غير موجود",
+      "cannotMoveToItself": "لا يمكن نقل القسم إلى نفسه",
+      "cannotMoveToSub": "لا يمكن نقل القسم إلى قسم فرعي منه"
+    },
+    "app": {
+      "notFound": "التطبيق غير موجود",
+      "noFilesToUpdate": "لا توجد ملفات لتحديثها",
+      "noChatIdFound": "لم يتم العثور على معرّف محادثة لهذا التطبيق",
+      "noChatFound": "لم يتم العثور على محادثة لهذا التطبيق",
+      "versionNotFound": "الإصدار غير موجود",
+      "cannotRollbackToLatestVersion": "لا يمكن الرجوع إلى أحدث إصدار",
+      "noChatOrProjectTokenFound": "لم يتم العثور على رمز محادثة أو مشروع",
+      "apiKeyNotSet": "لم يتم تعيين مفتاح API الخاص بمنشئ التطبيقات",
+      "cannotDeployAppBeforeInitialization": "لا يمكن نشر التطبيق قبل التهيئة",
+      "noProjectOrVersionFound": "لم يتم العثور على مشروع أو إصدار",
+      "noDeploymentUrlAvailable": "لا يتوفر رابط نشر",
+      "noFilesInZip": "لم يتم العثور على ملفات في ملف ZIP",
+      "zipFileTooLarge": "يتجاوز حجم ملف ZIP الحد المسموح 5 ميغابايت",
+      "invalidZip": "ملف ZIP غير صالح",
+      "domainAlreadyInUse": "هذا النطاق مرتبط بالفعل بتطبيق آخر",
+      "domainReserved": "النطاق الفرعي محجوز",
+      "siteInfoBeforeGeneration": "أنشئ التطبيق قبل تخصيص معلومات موقعه",
+      "generationEditingConflict": "تجري عملية توليد بالذكاء الاصطناعي تعديل هذا التطبيق حاليًا. يُرجى إعادة محاولة تحديث الملف بعد انتهائها.",
+      "siteInfoLayoutNotEditable": "كود هذا التطبيق غير مهيأ لقبول تعديلات معلومات الموقع من هنا. اطلب من الذكاء الاصطناعي عبر المحادثة تغيير عنوان الموقع أو وصفه أو أيقونته بدلًا من ذلك.",
+      "siteInfoManagedInCode": "يدير هذا التطبيق عنوان الموقع ووصفه داخل الكود. اطلب من الذكاء الاصطناعي عبر المحادثة تغييرهما بدلًا من ذلك."
+    },
+    "reward": {
+      "notFound": "المكافأة غير موجودة",
+      "unsupportedSourceType": "نوع مصدر مكافأة غير مدعوم",
+      "maxClaimsReached": "بلغت الحد الأقصى لعدد المكافآت (2) لهذا الأسبوع",
+      "verificationFailed": "فشل التحقق: {{errors}}",
+      "alreadyClaimedThisWeek": "لقد حصلت بالفعل على مكافأة لهذا الحساب هذا الأسبوع",
+      "invalidPostUrl": "صيغة رابط المنشور غير صالحة",
+      "postAlreadyUsed": "سبق استخدام هذا المنشور للحصول على مكافأة",
+      "tooManyFailedAttempts": "عدد كبير جدًا من محاولات التحقق الفاشلة هذا الأسبوع",
+      "unsupportedPlatformUrl": "رابط منصة تواصل اجتماعي غير مدعوم",
+      "unsupportedPlatform": "منصة غير مدعومة: {{platform}}",
+      "minCharCount": "يجب أن يحتوي المنشور على {{count}} حرف على الأقل",
+      "minFollowerCount": "يجب أن يكون للحساب {{count}} متابع على الأقل",
+      "mustMention": "يجب أن يذكر المنشور {{mention}}",
+      "fetchTweetFailed": "فشل جلب منشور X: {{error}}",
+      "tweetNotFound": "منشور X غير موجود: {{postId}}",
+      "fetchUserFailed": "فشل جلب مستخدم X: {{error}}",
+      "xUserNotFound": "مستخدم X غير موجود: {{username}}",
+      "fetchLinkedInPostFailed": "فشل جلب منشور LinkedIn: {{error}}",
+      "linkedInPostNotFound": "منشور LinkedIn غير موجود: {{postId}}",
+      "linkedInAuthorNotFound": "كاتب منشور LinkedIn غير موجود: {{postId}}",
+      "fetchLinkedInUserFailed": "فشل جلب مستخدم LinkedIn: {{error}}"
+    }
+  },
+  "usageLimitBanner": {
+    "viewDetail": "عرض التفاصيل",
+    "rows": {
+      "title": "تستخدم هذه المساحة {{current}} صف، متجاوزةً حد خطتك البالغ {{limit}}",
+      "titleIncrement": "يضيف هذا الإجراء {{increment}} صف، متجاوزًا حد خطتك البالغ {{limit}}",
+      "titleBatch": "ستتجاوز هذه العملية حد خطتك البالغ {{limit}} صف",
+      "description": "لا يمكنك إضافة المزيد من السجلات. رقِّ خطتك لرفع الحد فورًا، أو حرّر مساحة بحذف بعض السجلات.",
+      "unit": "صف"
+    },
+    "credit": {
+      "unit": "رصيد"
+    },
+    "attachments": {
+      "unit": "المرفقات"
+    },
+    "generic": {
+      "description": "رقِّ خطتك لرفع هذا الحد."
+    }
+  }
+}

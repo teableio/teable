@@ -36,8 +36,9 @@ import { useBaseResource } from '../../hooks/useBaseResource';
 import { useBrand } from '../../hooks/useBrand';
 import { View } from '../view/View';
 import { FailAlert } from './FailAlert';
+import { useTableErrorHandler, useStaleTableRecovery } from './hooks/use-table-error-handler';
 import { useTableSeed } from './hooks/use-table-seed';
-import { useViewErrorHandler } from './hooks/use-view-error-handler';
+import { StaleViewRecovery, useViewErrorHandler } from './hooks/use-view-error-handler';
 import { TableHeader } from './table-header/TableHeader';
 
 export interface ITableProps {
@@ -165,6 +166,12 @@ export const Table: React.FC<ITableProps> = ({
   }, [tableId, viewId, baseId, queryClient, isReadOnlyPreview]);
 
   useViewErrorHandler(baseId, tableId, viewId);
+  // A collaborator left on a table someone else deleted must be taken to a
+  // surviving table instead of watching every request fail — the subscribed
+  // table list losing the anchor is the realtime signal, the socket error
+  // stream the fallback when that op never arrives.
+  useStaleTableRecovery(baseId, tableId);
+  useTableErrorHandler(baseId, tableId);
   useHotkeys(`mod+z`, () => undo(), {
     preventDefault: true,
   });
@@ -185,6 +192,11 @@ export const Table: React.FC<ITableProps> = ({
       </Head>
       <TablePermissionProvider baseId={baseId}>
         <ViewProvider serverData={effectiveViewData}>
+          {/* A deleted view can still be the URL anchor (stale last-visit
+              link, history entry, realtime op missed) — without this the page
+              renders ViewSkeleton forever. Above PersonalViewProxy on purpose,
+              see the component's doc comment. */}
+          <StaleViewRecovery />
           <PersonalViewProxy serverData={effectiveViewData}>
             <FieldProvider serverSideData={effectiveFieldData}>
               <PersonalViewProvider>

@@ -32,12 +32,16 @@ const SORT_LIMIT_ENABLED_EXPRESSIONS: RollupFunction[] = [
 interface IConditionalRollupOptionsProps {
   fieldId?: string;
   options?: Partial<IConditionalRollupFieldOptions>;
+  cellValueType?: CellValueType;
+  isMultipleCellValue?: boolean;
   onChange?: (options: Partial<IConditionalRollupFieldOptions>) => void;
 }
 
 export const ConditionalRollupOptions = ({
   fieldId,
   options = {},
+  cellValueType,
+  isMultipleCellValue,
   onChange,
 }: IConditionalRollupOptionsProps) => {
   const baseId = useBaseId();
@@ -106,6 +110,8 @@ export const ConditionalRollupOptions = ({
           <ConditionalRollupForeignSection
             fieldId={fieldId}
             options={options}
+            fieldCellValueType={cellValueType}
+            fieldIsMultipleCellValue={isMultipleCellValue}
             onOptionsChange={handlePartialChange}
             onLookupFieldChange={handleLookupField}
             rollupOptions={rollupOptions}
@@ -120,6 +126,8 @@ export const ConditionalRollupOptions = ({
 interface IConditionalRollupForeignSectionProps {
   fieldId?: string;
   options: Partial<IConditionalRollupFieldOptions>;
+  fieldCellValueType?: CellValueType;
+  fieldIsMultipleCellValue?: boolean;
   onOptionsChange: (options: Partial<IConditionalRollupFieldOptions>) => void;
   onLookupFieldChange: (field: IFieldInstance) => void;
   rollupOptions: Partial<IRollupFieldOptions>;
@@ -127,8 +135,16 @@ interface IConditionalRollupForeignSectionProps {
 }
 
 const ConditionalRollupForeignSection = (props: IConditionalRollupForeignSectionProps) => {
-  const { fieldId, options, onOptionsChange, onLookupFieldChange, rollupOptions, sourceTableId } =
-    props;
+  const {
+    fieldId,
+    options,
+    fieldCellValueType,
+    fieldIsMultipleCellValue,
+    onOptionsChange,
+    onLookupFieldChange,
+    rollupOptions,
+    sourceTableId,
+  } = props;
   const foreignFields = useFields({ withHidden: true, withDenied: true });
   const table = useTable();
 
@@ -137,8 +153,13 @@ const ConditionalRollupForeignSection = (props: IConditionalRollupForeignSection
     return foreignFields.find((field) => field.id === options.lookupFieldId);
   }, [foreignFields, options.lookupFieldId]);
 
-  const cellValueType = lookupField?.cellValueType ?? CellValueType.String;
-  const isMultipleCellValue = lookupField?.isMultipleCellValue ?? false;
+  // While the foreign table fields are still loading, fall back to the edited
+  // field's own persisted cell value type (same fallback as plain rollup in
+  // FieldOptions) instead of degrading to String, which can flip the inferred
+  // result type (e.g. min/max over dateTime) and mismatch the persisted
+  // formatting shape.
+  const cellValueType = lookupField?.cellValueType ?? fieldCellValueType ?? CellValueType.String;
+  const isMultipleCellValue = lookupField?.isMultipleCellValue ?? fieldIsMultipleCellValue ?? false;
   const expression = options.expression as RollupFunction | undefined;
   const supportsSortLimit =
     expression != null && SORT_LIMIT_ENABLED_EXPRESSIONS.includes(expression);

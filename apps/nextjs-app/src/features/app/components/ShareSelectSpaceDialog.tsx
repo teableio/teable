@@ -173,7 +173,7 @@ const BasePickerSection: React.FC<{
               >
                 <Check
                   className={[
-                    'mr-2 size-4 shrink-0',
+                    'me-2 size-4 shrink-0',
                     selectedBaseId === b.id ? 'opacity-100' : 'opacity-0',
                   ].join(' ')}
                 />

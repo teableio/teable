@@ -3,7 +3,13 @@ import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { HttpErrorCode, nullsToUndefined, type ViewType } from '@teable/core';
 import { Prisma, PrismaService } from '@teable/db-main-prisma';
-import type { IGetPinListVo, AddPinRo, DeletePinRo, UpdatePinOrderRo } from '@teable/openapi';
+import type {
+  IGetPinListVo,
+  IPinEntryMapVo,
+  AddPinRo,
+  DeletePinRo,
+  UpdatePinOrderRo,
+} from '@teable/openapi';
 import { PinType } from '@teable/openapi';
 import { Knex } from 'knex';
 import { keyBy } from 'lodash';
@@ -23,13 +29,15 @@ import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { updateOrder } from '../../utils/update-order';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
+import { LastVisitService } from '../user/last-visit/last-visit.service';
 
 @Injectable()
 export class PinService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    private readonly lastVisitService: LastVisitService
   ) {}
 
   private async getMaxOrder(where: Prisma.PinResourceWhereInput) {
@@ -151,6 +159,39 @@ export class PinService {
         };
       })
       .filter(Boolean) as IGetPinListVo;
+  }
+
+  /**
+   * Entry URL per pinned base (its last visited table/view, keyed by baseId)
+   * and pinned table (its last visited view, keyed by tableId), resolved
+   * purely from the user's own visit history — independent of getList so the
+   * pin list itself is never coupled to entry resolution.
+   */
+  async getEntryMap(): Promise<IPinEntryMapVo> {
+    const userId = this.cls.get('user.id');
+    const pins = await this.prismaService.pinResource.findMany({
+      where: {
+        createdBy: userId,
+        type: { in: [PinType.Base, PinType.Table] },
+      },
+      select: { resourceId: true, type: true },
+    });
+    const baseIds = pins.filter((pin) => pin.type === PinType.Base).map((pin) => pin.resourceId);
+    const tableIds = pins.filter((pin) => pin.type === PinType.Table).map((pin) => pin.resourceId);
+    const tables = tableIds.length
+      ? await this.prismaService.tableMeta.findMany({
+          where: { id: { in: tableIds }, deletedTime: null },
+          select: { id: true, baseId: true },
+        })
+      : [];
+    const [baseEntryMap, tableEntryMap] = await Promise.all([
+      this.lastVisitService.getBaseEntryMap(userId, baseIds),
+      this.lastVisitService.getTableEntryUrls(
+        userId,
+        tables.map((table) => ({ tableId: table.id, baseId: table.baseId }))
+      ),
+    ]);
+    return { ...baseEntryMap, ...tableEntryMap };
   }
 
   private async fetchBases(ids?: string[]) {

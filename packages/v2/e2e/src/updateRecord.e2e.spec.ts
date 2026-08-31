@@ -250,6 +250,80 @@ describe('v2 http updateRecord (e2e)', () => {
     expect(updated?.fields[numberFieldId]).toBe(99);
   });
 
+  it.each([false, true] as const)(
+    'normalizes empty cell writes to null (typecast=%s)',
+    async (typecast) => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Empty Normalize ${typecast ? 'typecast' : 'strict'}`,
+        fields: [
+          { type: 'singleLineText', name: 'Title', isPrimary: true },
+          { type: 'singleLineText', name: 'Text' },
+          { type: 'longText', name: 'Notes' },
+          { type: 'checkbox', name: 'Done' },
+          {
+            type: 'multipleSelect',
+            name: 'Tags',
+            options: ['Red', 'Yellow'],
+          },
+          { type: 'attachment', name: 'Files' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const titleFieldId = table.fields.find((f) => f.name === 'Title')?.id ?? '';
+      const textEmptyFieldId = table.fields.find((f) => f.name === 'Text')?.id ?? '';
+      const notesFieldId = table.fields.find((f) => f.name === 'Notes')?.id ?? '';
+      const checkboxFieldId = table.fields.find((f) => f.name === 'Done')?.id ?? '';
+      const tagsFieldId = table.fields.find((f) => f.name === 'Tags')?.id ?? '';
+      const filesFieldId = table.fields.find((f) => f.name === 'Files')?.id ?? '';
+      const tagNames =
+        (
+          table.fields.find((f) => f.name === 'Tags')?.options as {
+            choices?: Array<{ name: string }>;
+          }
+        )?.choices?.map((choice) => choice.name) ?? [];
+
+      const record = await ctx.createRecord(table.id, {
+        [titleFieldId]: 'baseline',
+        [textEmptyFieldId]: 'has text',
+        [notesFieldId]: 'has notes',
+        [checkboxFieldId]: true,
+        [tagsFieldId]: tagNames,
+      });
+
+      const response = await fetch(`${ctx.baseUrl}/tables/updateRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          recordId: record.id,
+          typecast,
+          fields: {
+            [textEmptyFieldId]: '',
+            [notesFieldId]: '',
+            [checkboxFieldId]: false,
+            [tagsFieldId]: [],
+            [filesFieldId]: [],
+          },
+        }),
+      });
+      expect(response.status).toBe(200);
+
+      // Assert via a separate read path, not the update response echo.
+      const records = await ctx.listRecords(table.id);
+      const updated = records.find((r) => r.id === record.id);
+      expect(updated).toBeDefined();
+      if (!updated) return;
+
+      expect(updated.fields[textEmptyFieldId] ?? null).toBeNull();
+      expect(updated.fields[notesFieldId] ?? null).toBeNull();
+      expect(updated.fields[checkboxFieldId] ?? null).toBeNull();
+      expect(updated.fields[tagsFieldId] ?? null).toBeNull();
+      expect(updated.fields[filesFieldId] ?? null).toBeNull();
+    }
+  );
+
   it.each(typecastCases)('updates a record with typecast $name', async (testCase) => {
     const fieldId = testCase.fieldId();
     const record = await ctx.createRecord(typecastTableId, {
@@ -451,6 +525,130 @@ describe('v2 http updateRecord (e2e)', () => {
     expect(Array.isArray(linkValue)).toBe(true);
     const linkArray = linkValue as Array<{ id: string; title?: string }>;
     expect(linkArray.some((link) => link.id === foreignRecord.id)).toBe(true);
+  });
+
+  /**
+   * v1 reference: link-api.e2e-spec typecast link writes (T6520 list) —
+   * unmatched titles are dropped instead of erroring or creating records.
+   */
+  it('drops unmatched titles when updating link fields with typecast', async () => {
+    const foreignTable = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'Typecast Link Unmatched Foreign',
+      fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      views: [{ type: 'grid' }],
+    });
+    const foreignTitleFieldId = foreignTable.fields.find((f) => f.isPrimary)?.id ?? '';
+    const known = await ctx.createRecord(foreignTable.id, {
+      [foreignTitleFieldId]: 'Known Row',
+    });
+    const foreignCountBefore = (await ctx.listRecords(foreignTable.id)).length;
+
+    const linkFieldId = createFieldId();
+    const mainTable = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'Typecast Link Unmatched Main',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        {
+          type: 'link',
+          id: linkFieldId,
+          name: 'Related',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignTitleFieldId,
+            isOneWay: true,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const mainTitleFieldId = mainTable.fields.find((f) => f.isPrimary)?.id ?? '';
+    const record = await ctx.createRecord(mainTable.id, { [mainTitleFieldId]: 'Main Row' });
+
+    const response = await fetch(`${ctx.baseUrl}/tables/updateRecord`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tableId: mainTable.id,
+        recordId: record.id,
+        typecast: true,
+        fields: {
+          [linkFieldId]: ['Known Row', 'No Such Row'],
+        },
+      }),
+    });
+    expect(response.status).toBe(200);
+
+    await processOutbox();
+
+    const records = await ctx.listRecords(mainTable.id);
+    const updated = records.find((r) => r.id === record.id);
+    const linkValue = (updated?.fields[linkFieldId] ?? []) as Array<{ id: string }>;
+    expect(linkValue.map((link) => link.id)).toEqual([known.id]);
+
+    // v1 contract: unmatched titles never create foreign records
+    const foreignCountAfter = (await ctx.listRecords(foreignTable.id)).length;
+    expect(foreignCountAfter).toBe(foreignCountBefore);
+  });
+
+  /**
+   * v1 reference: link-api.e2e-spec "should not insert illegal value in link cel" —
+   * without typecast, a plain string in a link cell must be rejected with 4xx.
+   */
+  it('rejects illegal string values written to a link cell without typecast', async () => {
+    const foreignTable = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'Illegal Link Value Foreign',
+      fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      views: [{ type: 'grid' }],
+    });
+    const foreignTitleFieldId = foreignTable.fields.find((f) => f.isPrimary)?.id ?? '';
+    await ctx.createRecord(foreignTable.id, { [foreignTitleFieldId]: 'Real Target' });
+
+    const linkFieldId = createFieldId();
+    const mainTable = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'Illegal Link Value Main',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        {
+          type: 'link',
+          id: linkFieldId,
+          name: 'Related',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignTitleFieldId,
+            isOneWay: true,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const mainTitleFieldId = mainTable.fields.find((f) => f.isPrimary)?.id ?? '';
+    const record = await ctx.createRecord(mainTable.id, { [mainTitleFieldId]: 'Main Row' });
+
+    const response = await fetch(`${ctx.baseUrl}/tables/updateRecord`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tableId: mainTable.id,
+        recordId: record.id,
+        fields: {
+          [linkFieldId]: ['NO'],
+        },
+      }),
+    });
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(response.status).toBeLessThan(500);
+
+    // The link cell stays empty (null/absent), never partially written
+    await processOutbox();
+    const records = await ctx.listRecords(mainTable.id);
+    const stored = records.find((r) => r.id === record.id);
+    expect(stored?.fields[linkFieldId] ?? undefined).toBeUndefined();
   });
 
   it('updates formula chains in a real-world table', async () => {

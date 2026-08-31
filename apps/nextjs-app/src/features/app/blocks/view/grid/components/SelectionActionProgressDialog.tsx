@@ -562,7 +562,7 @@ const SelectionActionChunkErrorDetails = ({
 
   return (
     <Collapsible className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3">
-      <CollapsibleTrigger className="group flex w-full items-center justify-between gap-4 text-left text-sm text-foreground">
+      <CollapsibleTrigger className="group flex w-full items-center justify-between gap-4 text-start text-sm text-foreground">
         <div>
           <div className="font-medium">{t(`${config.streamKeyPrefix}.chunkFailureTitle`)}</div>
           <div className="mt-1 text-xs text-muted-foreground">
@@ -824,7 +824,7 @@ export const SelectionActionProgressDialog = ({
         onInteractOutside={preventDialogDismiss}
       >
         <DialogHeader
-          className={mode === 'confirm' ? 'p-4 pr-12 text-left' : 'border-b p-4 pr-12 text-left'}
+          className={mode === 'confirm' ? 'p-4 pe-12 text-start' : 'border-b p-4 pe-12 text-start'}
         >
           <DialogTitle className="flex items-center gap-2 text-lg font-semibold leading-7 text-foreground">
             {mode === 'progress' ? <SelectionActionStatusIcon status={resolvedStatus} /> : null}

@@ -3,6 +3,7 @@ import { Database } from '@teable/icons';
 import type { IGetBaseVo, IGetSpaceVo } from '@teable/openapi';
 import { updateTemplate } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { useContentDir } from '@teable/sdk/hooks';
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,7 @@ interface IBaseSelectPanelProps {
 export const BaseSelectPanel = (props: IBaseSelectPanelProps) => {
   const { baseId, baseList, templateId, spaceList, disabled } = props;
   const { t } = useTranslation('common');
+  const contentDir = useContentDir();
   const [open, setOpen] = useState(false);
 
   const queryClient = useQueryClient();
@@ -130,7 +132,7 @@ export const BaseSelectPanel = (props: IBaseSelectPanelProps) => {
                       onClick={() => updateTemplateFn(base.id)}
                     >
                       <span className="shrink-0">{base.icon ?? <Database />}</span>
-                      <span className="truncate" title={base.name}>
+                      <span dir={contentDir} className="truncate" title={base.name}>
                         {base.name}
                       </span>
                     </Button>

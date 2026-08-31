@@ -492,7 +492,12 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   ): Promise<Result<UpdateManyStreamResult, DomainError>> {
     this.updateCalls += 1;
     if (this.updateManyStreamErrorAtCall === this.updateCalls) {
-      return err(domainError.infrastructure({ message: 'connection exhausted' }));
+      return err(
+        domainError.infrastructure({
+          message: 'connection exhausted',
+          localization: { i18nKey: 'httpErrors.custom.linkOneManyDuplicate' },
+        })
+      );
     }
     this.updateStreamContexts.push(context);
     this.updateStreamOptions.push(options ?? {});
@@ -702,6 +707,7 @@ class FakeRecordMutationSpecResolverService {
 
   async resolveAndReplace(
     _: IExecutionContext,
+    _tableId: TableId,
     spec: ICellValueSpec
   ): Promise<Result<ICellValueSpec, DomainError>> {
     return ok(spec);
@@ -709,6 +715,7 @@ class FakeRecordMutationSpecResolverService {
 
   async resolveAndReplaceMany(
     _: IExecutionContext,
+    _tableId: TableId,
     specs: ReadonlyArray<ICellValueSpec | null>
   ): Promise<Result<ReadonlyArray<ICellValueSpec | null>, DomainError>> {
     return ok(specs);
@@ -726,6 +733,7 @@ class CountingRecordMutationSpecResolverService extends FakeRecordMutationSpecRe
 
   override async resolveAndReplace(
     _: IExecutionContext,
+    _tableId: TableId,
     spec: ICellValueSpec
   ): Promise<Result<ICellValueSpec, DomainError>> {
     this.resolveAndReplaceCalls += 1;
@@ -734,6 +742,7 @@ class CountingRecordMutationSpecResolverService extends FakeRecordMutationSpecRe
 
   override async resolveAndReplaceMany(
     _: IExecutionContext,
+    _tableId: TableId,
     specs: ReadonlyArray<ICellValueSpec | null>
   ): Promise<Result<ReadonlyArray<ICellValueSpec | null>, DomainError>> {
     this.resolveAndReplaceManyCalls += 1;
@@ -2709,6 +2718,7 @@ describe('PasteHandler', () => {
         processedCount: 1,
         updatedCount: 1,
         message: 'connection exhausted',
+        localization: { i18nKey: 'httpErrors.custom.linkOneManyDuplicate' },
       });
       expect(recordRepository.updateCalls).toBe(2);
     });

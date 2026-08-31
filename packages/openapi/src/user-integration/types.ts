@@ -5,6 +5,7 @@ export enum UserIntegrationProvider {
   Gmail = 'gmail',
   Outlook = 'outlook',
   Airtable = 'airtable',
+  GoogleSheet = 'googleSheet',
   // Future: Discord = 'discord',
   // Future: Telegram = 'telegram',
   // Future: Teams = 'teams',
@@ -40,6 +41,11 @@ export type IUserIntegrationGmailMetadata = IUserIntegrationEmailMetadata;
 export const userIntegrationOutlookMetadataSchema = userIntegrationEmailMetadataSchema;
 
 export type IUserIntegrationOutlookMetadata = IUserIntegrationEmailMetadata;
+
+// Google Sheets uses the same Google OAuth account shape as Gmail.
+export const userIntegrationGoogleSheetMetadataSchema = userIntegrationEmailMetadataSchema;
+
+export type IUserIntegrationGoogleSheetMetadata = IUserIntegrationEmailMetadata;
 
 export const userIntegrationAirtableMetadataSchema = z.object({
   userInfo: z.object({

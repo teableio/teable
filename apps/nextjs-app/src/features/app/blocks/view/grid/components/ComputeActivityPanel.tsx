@@ -6,6 +6,26 @@ import { CircleAlert, Clock3, Loader2 } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import type { ComponentType, SVGProps } from 'react';
 
+const COMPUTED_CELL_VALUE_MAX_BYTES_CODE = 'validation.limit.computed_cell_value_max_bytes';
+
+const FieldActivityErrorText = ({
+  lastError,
+}: {
+  lastError: ComputeActivityFieldClient['lastError'];
+}) => {
+  const { t } = useTranslation('table');
+  if (!lastError) {
+    return t('computeActivity.calculationFailed');
+  }
+  if (lastError.code === COMPUTED_CELL_VALUE_MAX_BYTES_CODE) {
+    return t('computeActivity.cellValueTooLarge', {
+      attempted: lastError.context?.attempted,
+      max: lastError.context?.max,
+    });
+  }
+  return lastError.message;
+};
+
 type ActivityItem = { field: IFieldInstance; meta: ComputeActivityFieldClient };
 
 const formatCount = (value: number, locale: string) => new Intl.NumberFormat(locale).format(value);
@@ -16,7 +36,8 @@ const FieldActivityStatus = ({ status }: { status: ComputeActivityFieldClient['s
   if (status === 'running') {
     return (
       <span className="flex shrink-0 items-center gap-1 text-xs text-blue-600 dark:text-blue-500">
-        <Loader2 className="size-3 animate-spin" /> {t('computeActivity.calculating')}
+        <Loader2 className="size-3 animate-spin" />
+        {t('computeActivity.calculating')}
       </span>
     );
   }
@@ -46,19 +67,14 @@ const FieldActivityRow = ({
 }) => {
   const { t, i18n } = useTranslation('table');
   const { field, meta } = item;
-  const processingCount = meta.processingTaskCount ?? (meta.status === 'running' ? 1 : 0);
-  const queuedCount = Math.max(0, (meta.activeTaskCount ?? 0) - processingCount);
-  const progress = meta.batchProgress;
-  const progressPercent = progress?.total
-    ? Math.round((progress.completed / progress.total) * 100)
-    : 0;
-  const batchStates = [
-    processingCount > 0 ? t('computeActivity.batchesRunning', { count: processingCount }) : null,
-    queuedCount > 0 ? t('computeActivity.batchesQueued', { count: queuedCount }) : null,
-  ].filter(Boolean);
+  const progress = meta.status === 'running' ? meta.batchProgress : undefined;
+  const progressPercent =
+    progress && progress.total > 1
+      ? Math.round((progress.completed / progress.total) * 100)
+      : undefined;
 
   return (
-    <div className="flex gap-3 p-3">
+    <div className="flex items-center gap-3 p-3">
       <div className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-card text-muted-foreground">
         <Icon className="size-4" />
       </div>
@@ -70,54 +86,24 @@ const FieldActivityRow = ({
 
         {meta.status === 'failed' ? (
           <p className="line-clamp-2 text-xs text-red-600 dark:text-red-500">
-            {meta.lastError?.message ?? t('computeActivity.calculationFailed')}
+            <FieldActivityErrorText lastError={meta.lastError} />
           </p>
-        ) : (
-          <>
-            <div className="flex flex-wrap justify-between gap-x-2 text-xs text-muted-foreground">
-              {meta.estimatedDirtyRecords ? (
-                <span>
-                  {t('computeActivity.records', {
-                    count: meta.estimatedDirtyRecords,
-                    formattedCount: formatCount(
-                      meta.estimatedDirtyRecords,
-                      i18n.resolvedLanguage ?? i18n.language
-                    ),
-                  })}
-                </span>
-              ) : null}
-              {batchStates.length ? <span>{batchStates.join(' · ')}</span> : null}
-            </div>
-            {progress && progress.total > 1 ? (
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>
-                    {t('computeActivity.batchesComplete', {
-                      completed: progress.completed,
-                      total: progress.total,
-                    })}
-                  </span>
-                  <span>{progressPercent}%</span>
-                </div>
-                <div
-                  role="progressbar"
-                  aria-label={t('computeActivity.progressAriaLabel', {
-                    fieldName: field.name,
-                  })}
-                  aria-valuemin={0}
-                  aria-valuemax={progress.total}
-                  aria-valuenow={progress.completed}
-                  className="h-1.5 overflow-hidden rounded-full bg-surface"
-                >
-                  <div
-                    className="h-full rounded-full bg-muted-foreground/70 transition-[width]"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-              </div>
+        ) : meta.estimatedDirtyRecords || progressPercent != null ? (
+          <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+            {meta.estimatedDirtyRecords
+              ? t('computeActivity.records', {
+                  count: meta.estimatedDirtyRecords,
+                  formattedCount: formatCount(
+                    meta.estimatedDirtyRecords,
+                    i18n.resolvedLanguage ?? i18n.language
+                  ),
+                })
+              : null}
+            {progressPercent != null ? (
+              <span className="ms-auto shrink-0 text-muted-foreground">{progressPercent}%</span>
             ) : null}
-          </>
-        )}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -194,26 +180,37 @@ export const ComputeActivityPanel = () => {
             <span className="hidden @xl/toolbar:inline">{summary}</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="end" className="max-h-[min(32rem,70vh)] w-96 overflow-y-auto p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <div className="font-medium text-foreground">
-              {t('computeActivity.currentCalculations')}
+        <PopoverContent
+          align="end"
+          className="flex max-h-[min(32rem,70vh)] w-96 flex-col overflow-hidden p-0"
+        >
+          <div className="shrink-0 px-4 pt-4">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="font-medium text-foreground">
+                {t('computeActivity.currentCalculations')}
+              </div>
+              <Badge
+                variant="secondary"
+                className="h-5 shrink-0 px-1.5 py-0 font-normal text-muted-foreground"
+              >
+                {t('computeActivity.thisTableOnly')}
+              </Badge>
             </div>
-            <Badge
-              variant="secondary"
-              className="h-5 shrink-0 px-1.5 py-0 font-normal text-muted-foreground"
-            >
-              {t('computeActivity.thisTableOnly')}
-            </Badge>
           </div>
-          <div className="space-y-4">
-            <ActivityGroup
-              label={t('computeActivity.calculatingNow')}
-              items={running}
-              getIcon={getIcon}
-            />
-            <ActivityGroup label={t('computeActivity.waiting')} items={queued} getIcon={getIcon} />
-            <ActivityGroup label={t('computeActivity.failed')} items={failed} getIcon={getIcon} />
+          <div className="min-h-0 overflow-y-auto px-4 pb-4">
+            <div className="space-y-4">
+              <ActivityGroup
+                label={t('computeActivity.calculatingNow')}
+                items={running}
+                getIcon={getIcon}
+              />
+              <ActivityGroup
+                label={t('computeActivity.waiting')}
+                items={queued}
+                getIcon={getIcon}
+              />
+              <ActivityGroup label={t('computeActivity.failed')} items={failed} getIcon={getIcon} />
+            </div>
           </div>
         </PopoverContent>
       </Popover>

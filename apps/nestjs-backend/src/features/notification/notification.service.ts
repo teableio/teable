@@ -118,7 +118,7 @@ export class NotificationService {
       recordIds: string[];
       recordTitles: { id: string; title: string }[];
     };
-  }): Promise<void> {
+  }): Promise<boolean> {
     const { fromUserId, toUserId, refRecord } = params;
     const [fromUser, toUser] = await Promise.all([
       this.userService.getUserById(fromUserId),
@@ -126,7 +126,7 @@ export class NotificationService {
     ]);
 
     if (!fromUser || !toUser || fromUserId === toUserId) {
-      return;
+      return false;
     }
 
     const notifyId = generateNotificationId();
@@ -218,6 +218,7 @@ export class NotificationService {
         }
       );
     }
+    return true;
   }
 
   async sendHtmlContentNotify(

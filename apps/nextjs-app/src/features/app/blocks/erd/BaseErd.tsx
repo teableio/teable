@@ -211,7 +211,7 @@ export const BaseErd = (props: { baseId: string }) => {
           duration: 500,
         }}
       />
-      <div className="absolute right-10 top-10 z-10 flex ">
+      <div className="absolute end-10 top-10 z-10 flex ">
         {allEdgeTypes.length > 0 && (
           <Popover modal>
             <PopoverTrigger asChild>

@@ -121,20 +121,53 @@ export class UserService {
    * via `throwIfEmailDeniedByRiskControl` instead.
    */
   /**
-   * Merges the affiliate token (teable_affiliate_via cookie via CLS — see
-   * apps/nextjs-app/src/lib/affiliate-cookie.ts) into refMeta. Lives at the
-   * self-signup choke point so password and OAuth/SSO paths store one shape.
+   * Merges signup-time attribution into refMeta at the self-signup choke
+   * point so password and OAuth/SSO paths store one shape:
+   * - `attribution.via` — affiliate token (teable_affiliate_via cookie via CLS,
+   *   see apps/nextjs-app/src/lib/affiliate-cookie.ts)
+   * - `attribution.params` — first-touch utm/click-id params (teable_attribution
+   *   cookie via CLS, contract in @teable/core attribution.ts)
+   * - `attribution.fbp` / `fbc` — Meta pixel cookies as of signup
+   *
+   * Public because signup has TWO write paths: creation here, and the
+   * password flow CLAIMING a user pre-created by an email invitation
+   * (local-auth's existing-user update branch) — both must merge, or
+   * invitees lose their first-touch attribution.
    */
-  private withAffiliateVia(
+  applySignupAttribution(
     refMeta: Prisma.UserCreateInput['refMeta']
   ): Prisma.UserCreateInput['refMeta'] {
     const via = this.cls.get('affiliateVia');
-    if (!via) {
+    // Banner ad_storage choice + signup IP: both feed the analytics event so
+    // ad-platform forwarding can be scoped by consent and by (PostHog-derived)
+    // geo — neither is readable at event time, hence the refMeta snapshot.
+    const adConsent = this.cls.get('marketingAdConsent');
+    const origin = this.cls.get('origin');
+    const attribution = {
+      ...(via ? { via } : {}),
+      ...(this.cls.get('signupAttribution') ?? {}),
+      ...(adConsent ? { adConsent } : {}),
+      ...(origin?.ip ? { ip: origin.ip } : {}),
+      // UA of the signup request — forwarded to ad platforms as a match key.
+      ...(origin?.userAgent ? { ua: origin.userAgent.slice(0, 500) } : {}),
+    };
+    const hasAttribution = Object.keys(attribution).length > 0;
+    // OAuth signups have no signup-page query snapshot; the oauth state's
+    // redirectUri is the equivalent signal, stored in the same `query` shape.
+    const oauthRedirect = this.cls.get('oauthRedirectUri');
+    if (!hasAttribution && !oauthRedirect) {
       return refMeta;
     }
     try {
-      const parsed = refMeta ? JSON.parse(refMeta) : {};
-      return JSON.stringify({ ...parsed, attribution: { via } });
+      // `?? {}`: the column could hold the literal JSON "null".
+      const parsed = refMeta ? JSON.parse(refMeta) ?? {} : {};
+      return JSON.stringify({
+        ...parsed,
+        ...(oauthRedirect && typeof parsed.query !== 'string'
+          ? { query: `?redirect=${encodeURIComponent(oauthRedirect)}` }
+          : {}),
+        ...(hasAttribution ? { attribution } : {}),
+      });
     } catch {
       // Attribution must never break account creation — keep refMeta as-is.
       return refMeta;
@@ -148,7 +181,7 @@ export class UserService {
     inviteCode?: string,
     autoSpaceCreation: boolean = true
   ) {
-    user = { ...user, refMeta: this.withAffiliateVia(user.refMeta) };
+    user = { ...user, refMeta: this.applySignupAttribution(user.refMeta) };
     const setting = await this.settingService.getSetting();
     if (setting?.disallowSignUp) {
       throw new CustomHttpException(
@@ -323,6 +356,8 @@ export class UserService {
     const { hash } = await this.storageAdapter.uploadFile(bucket, storagePath, croppedImageBuffer, {
       // eslint-disable-next-line @typescript-eslint/naming-convention
       'Content-Type': AVATAR_OUTPUT_MIMETYPE,
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      'Cache-Control': StorageAdapter.getCacheControl(UploadType.Avatar),
     });
 
     await this.mountAttachment(id, {
@@ -517,9 +552,19 @@ export class UserService {
       avatarUrl?: string;
     },
     autoSpaceCreation: boolean = true,
-    onCreateNewUser?: () => void
+    onCreateNewUser?: () => void,
+    /**
+     * A caller wrapping this method in its own transaction (space-bound SSO)
+     * must not emit USER_SIGNUP in here — listeners are awaited and read
+     * non-transactionally. It gets the id and fires recordSignup post-commit.
+     */
+    deferSignupEvent?: (userId: string) => void
   ) {
     let isNewUser = false;
+    // "Claim": the provider login that first activates a row PRE-CREATED by an
+    // email invitation / provisioning. Distinct from account-linking on an
+    // already-active user — see the existUser branch below.
+    let isClaimedSignup = false;
     // Risk control first, before the transaction — a slow risk service must
     // never hold a database connection.
     await this.throwIfEmailDeniedByRiskControl('signup', user.email);
@@ -563,13 +608,34 @@ export class UserService {
         );
       }
 
+      // No password AND no linked provider = this row could never have
+      // authenticated before — it was pre-created (email invitation /
+      // provisioning) and THIS login is the person's real signup moment.
+      // Fire the same signup side effects the password-claim path gets
+      // (USER_SIGNUP event + audit row + first-touch attribution). A plain
+      // account-link on an already-active user (has a password or another
+      // provider) must NOT re-fire signup.
+      if (!existUser.password && existUser.accounts.length === 0) {
+        isClaimedSignup = true;
+        const mergedRefMeta = this.applySignupAttribution(existUser.refMeta);
+        if (mergedRefMeta !== existUser.refMeta) {
+          await this.prismaService.txClient().user.update({
+            where: { id: existUser.id },
+            data: { refMeta: mergedRefMeta },
+          });
+        }
+      }
       await this.prismaService.txClient().account.create({
         data: { id: generateAccountId(), provider, providerId, type, userId: existUser.id },
       });
       return existUser;
     });
-    if (res && isNewUser) {
-      await this.recordSignup(res.id);
+    if (res && (isNewUser || isClaimedSignup)) {
+      if (deferSignupEvent) {
+        deferSignupEvent(res.id);
+      } else {
+        await this.recordSignup(res.id);
+      }
     }
     return res;
   }
@@ -588,7 +654,15 @@ export class UserService {
     emit: true,
   })
   async recordSignup(userId: string) {
-    await this.eventEmitterService.emitAsync(Events.USER_SIGNUP, new UserSignUpEvent(userId));
+    // Listener failures must neither fail an already-committed signup nor
+    // suppress the audit (@Audit emits only after this method resolves).
+    try {
+      await this.eventEmitterService.emitAsync(Events.USER_SIGNUP, new UserSignUpEvent(userId));
+    } catch (err) {
+      this.logger.error(
+        `USER_SIGNUP listener failed for ${userId}: ${(err as Error)?.message ?? err}`
+      );
+    }
   }
 
   @Audit({

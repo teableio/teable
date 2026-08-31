@@ -1,4 +1,9 @@
 // Single-table templates
+export {
+  defaultTableTemplate,
+  createDefaultTableFields,
+  createDefaultTableRecords,
+} from './default';
 export { simpleTableTemplate, createSimpleFields } from './simple';
 export { allBaseFieldsTemplate, createAllBaseFields } from './all-base-fields';
 export { todoTemplate, createTodoFields } from './todo';

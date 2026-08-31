@@ -22,7 +22,27 @@ export const useConfirm = () => {
     [openModal]
   );
 
-  return { confirm };
+  // single-button acknowledgement dialog; resolves when dismissed
+  const alert = useCallback(
+    (
+      options: Omit<IConfirmModalOptions, 'onConfirm' | 'onCancel' | 'cancelText'>
+    ): Promise<void> => {
+      return new Promise((resolve) => {
+        openModal({
+          ...options,
+          onConfirm: () => {
+            resolve();
+          },
+          onCancel: () => {
+            resolve();
+          },
+        });
+      });
+    },
+    [openModal]
+  );
+
+  return { confirm, alert };
 };
 
 export const useConfirmWithCallback = () => {

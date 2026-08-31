@@ -31,6 +31,10 @@
       "description": "The full URL to redirect to after a user authorizing your integration.",
       "add": "Add Callback URL"
     },
+    "deviceFlow": {
+      "label": "Enable device flow",
+      "description": "Allow this app to sign users in with a one-time code typed in a browser (for CLIs and devices without one). Anyone who knows the client ID can start this flow in your app's name, so enable it only if your app needs it."
+    },
     "secret": {
       "label": "Client secrets",
       "add": "Generate a new client secret",
@@ -55,6 +59,23 @@
     "scopes": "This application will be able to get the following scopes:",
     "redirectDescription": "Authorizing will redirect to",
     "authorize": "Authorize"
+  },
+  "device": {
+    "title": "Connect a device",
+    "description": "Enter the 8-character code shown in your terminal to sign that device in to your account.",
+    "submit": "Continue",
+    "invalidCode": "That code is invalid or has expired. Check your terminal and try again.",
+    "codeUsed": "That code has already been used. Run the login command again to get a new code.",
+    "deviceFlowDisabled": "This app does not allow signing in with a device code.",
+    "codeLabel": "Authorization code",
+    "confirmCode": "Make sure it matches the code shown in your terminal.",
+    "securityTitle": "Security warning",
+    "phishingHint": "Device codes are a common phishing target and can be used to sign in to your account. Never share yours, and only continue if you started this sign-in yourself.",
+    "phishingHintStrong": "If you did not mean to open this page, or the link came from someone else, close this tab.",
+    "approvedTitle": "Device connected",
+    "approvedDescription": "You can close this page and go back to your terminal.",
+    "deniedTitle": "Request denied",
+    "deniedDescription": "That device was not granted access. You can close this page."
   },
   "help": {
     "link": "https://help.teable.ai/en/api-doc/oauth",

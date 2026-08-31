@@ -1,5 +1,6 @@
 import { useTheme } from '@teable/next-themes';
 import { useMemo } from 'react';
+import { useTranslation } from '../../../../context/app/i18n';
 import type { MultipleSelectField, SingleSelectField } from '../../../../model';
 import { getSelectColorPairs } from '../../../../utils/select-color';
 import type { IColorOption } from './base';
@@ -17,6 +18,7 @@ interface IMultipleSelect {
 }
 
 const FilterMultipleSelect = (props: IMultipleSelect) => {
+  const { t } = useTranslation();
   const { field, value, onSelect, className, popoverClassName, modal } = props;
   const { resolvedTheme } = useTheme();
   const values = useMemo(() => {
@@ -37,14 +39,14 @@ const FilterMultipleSelect = (props: IMultipleSelect) => {
     return (
       <div
         key={value?.value}
-        className="flex h-5 max-w-full shrink-0 items-center rounded-full px-2 text-xs font-normal"
+        className="flex h-5 w-fit max-w-full shrink-0 items-center overflow-hidden rounded-full px-2 text-xs font-normal"
         style={{
           backgroundColor,
           color,
         }}
         title={value.label}
       >
-        <span className="truncate">{value.label}</span>
+        <span className="min-w-0 flex-1 truncate">{value.label}</span>
       </div>
     );
   };
@@ -53,20 +55,21 @@ const FilterMultipleSelect = (props: IMultipleSelect) => {
     return (
       <div
         key={value?.value}
-        className="flex h-5 max-w-full items-center overflow-hidden rounded-full px-2 text-xs font-normal"
+        className="flex h-5 w-fit max-w-full items-center overflow-hidden rounded-full px-2 text-xs font-normal"
         style={{
           backgroundColor,
           color,
         }}
         title={value.label}
       >
-        <span className="truncate">{value.label}</span>
+        <span className="min-w-0 flex-1 truncate">{value.label}</span>
       </div>
     );
   };
 
   return (
     <BaseMultipleSelect
+      drawerTitle={t('filter.selectValue')}
       options={options}
       onSelect={onSelect}
       value={values}

@@ -45,7 +45,9 @@ function DraggableItem(props: IDraggbleProps & ISortItemProps) {
       </Button>
 
       <div
-        className={cn('pl-2', displayDragHandler ? null : 'hidden')}
+        // `touch-none` stops the drawer body from scrolling under the finger
+        // while a row is being dragged.
+        className={cn('ps-2 touch-none', displayDragHandler ? null : 'hidden')}
         {...attributes}
         {...listeners}
       >

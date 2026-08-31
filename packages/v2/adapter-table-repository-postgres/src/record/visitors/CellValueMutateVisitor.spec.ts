@@ -2,6 +2,7 @@ import {
   CellValue,
   FieldId,
   SetAttachmentValueSpec,
+  SetButtonValueSpec,
   SetLinkValueByTitleSpec,
   SetLinkValueSpec,
   SetUserValueByIdentifierSpec,
@@ -197,6 +198,21 @@ const createForeignTable = (params: {
 });
 
 describe('CellValueMutateVisitor', () => {
+  it('persists aggregate-created Button values as JSONB', () => {
+    const field = createField({
+      fieldId: 'buttonField',
+      type: 'button',
+      dbFieldName: 'button_col',
+    });
+    const visitor = createVisitor(field);
+    const spec = new SetButtonValueSpec(field.id(), CellValue.fromValidated({ count: 3 }));
+
+    expect(visitor.visitSetButtonValue(spec).isOk()).toBe(true);
+    const result = visitor.build()._unsafeUnwrap();
+    expect(result.setClauses.button_col).toBe(JSON.stringify({ count: 3 }));
+    expect(result.changedFieldIds.map(String)).toEqual([field.id().toString()]);
+  });
+
   it('returns an error when user identifiers are not pre-resolved', () => {
     const visitor = createVisitor();
     const spec = SetUserValueByIdentifierSpec.create(mkFieldId('userField'), ['alice'], false);
@@ -395,6 +411,7 @@ describe('CellValueMutateVisitor', () => {
     expect(normalizeSql(built.mainUpdate.sql)).toContain('LEFT JOIN "bseLegacy"."Legacy_Name" ft');
     expect(normalizeSql(built.mainUpdate.sql)).toContain('"ft"."Primary_Field"');
     expect(normalizeSql(built.mainUpdate.sql)).not.toContain(`"${foreignTable.id().toString()}"`);
+    expect(normalizeSql(built.mainUpdate.sql)).toContain('jsonb_strip_nulls');
   });
 
   it('rejects oversized multi-link title fill writes before compiling SQL', () => {

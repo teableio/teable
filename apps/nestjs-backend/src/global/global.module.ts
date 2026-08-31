@@ -22,9 +22,11 @@ import { EventEmitterModule } from '../event-emitter/event-emitter.module';
 import { AuditSourceModule } from '../features/audit/audit.module';
 import { AuthGuard } from '../features/auth/guard/auth.guard';
 import { PermissionGuard } from '../features/auth/guard/permission.guard';
+import { TeableJwtModule } from '../features/auth/jwt/teable-jwt.module';
 import { PermissionModule } from '../features/auth/permission.module';
 import { DataLoaderModule } from '../features/data-loader/data-loader.module';
 import { ModelModule } from '../features/model/model.module';
+import { DataDbHealthService } from '../features/space/data-db-health.service';
 import { DataDbMigrationService } from '../features/space/data-db-migration.service';
 import { SpaceDataDbMigrationGuardService } from '../features/space/space-data-db-migration-guard.service';
 import { RequestInfoMiddleware } from '../middleware/request-info.middleware';
@@ -68,6 +70,7 @@ const globalModules = {
     PermissionModule,
     DataLoaderModule,
     PerformanceCacheModule,
+    TeableJwtModule,
     I18nModule.forRootAsync({
       useFactory: () => {
         const i18nPath = getI18nPath();
@@ -103,6 +106,7 @@ const globalModules = {
     DataDbClientManager,
     DatabaseClientPoolMetrics,
     DataDbMigrationService,
+    DataDbHealthService,
     SpaceDataDbMigrationGuardService,
     DatabaseRouter,
     RequestInfoMiddleware,
@@ -125,6 +129,7 @@ const globalModules = {
     DataDbRuntimeCacheService,
     DataDbClientManager,
     DataDbMigrationService,
+    DataDbHealthService,
     SpaceDataDbMigrationGuardService,
     DatabaseRouter,
     KnexModule,

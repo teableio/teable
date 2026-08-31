@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 import type { DomainError } from '../../domain/shared/DomainError';
 import {
   ensureWithinTableDataSafetyLimit,
+  tableDataSafetyLimitErrors,
   measureJsonBytes,
   resolveTableDataSafetyLimits,
 } from '../../domain/shared/TableDataSafetyLimits';
@@ -13,10 +14,8 @@ import {
   type RecordWriteFieldValues,
   type RecordWritePluginContext,
 } from '../../ports/RecordWritePlugin';
-import {
-  createDefaultTableDataSafetyLimitComposer,
-  TableDataSafetyLimitComposer,
-} from './TableDataSafetyLimitComposer';
+import type { TableDataSafetyLimitComposer } from './TableDataSafetyLimitComposer';
+import { createDefaultTableDataSafetyLimitComposer } from './TableDataSafetyLimitComposer';
 
 type PreparedTableDataSafetyRecordLimitState = {
   readonly limits: ReturnType<typeof resolveTableDataSafetyLimits>;
@@ -102,7 +101,7 @@ export class TableDataSafetyLimitRecordWritePlugin
   ): Result<void, DomainError> {
     const limits = preparedState?.limits ?? resolveTableDataSafetyLimits();
     const recordCountResult = ensureWithinTableDataSafetyLimit(
-      'validation.limit.records_per_mutation_max',
+      tableDataSafetyLimitErrors.recordsPerMutationMax,
       recordCountFromContext(context),
       limits.recordValues.maxRecordsPerMutation,
       {
@@ -113,24 +112,30 @@ export class TableDataSafetyLimitRecordWritePlugin
     if (recordCountResult.isErr()) return recordCountResult;
 
     const records = recordsFromContext(context);
+    // Cell isolation mutates the payload maps in place, so it is only safe for
+    // operations whose payload maps are the exact objects later persisted.
+    // Paste (and any other kind) re-derives persisted values from its own
+    // source data, where deleting from the guard's map would be a silent no-op
+    // — those kinds keep the fail-closed error instead.
+    const canIsolateOversizedCells =
+      context.kind === RecordWriteOperationKind.createMany ||
+      context.kind === RecordWriteOperationKind.updateOne;
+
     for (let recordIndex = 0; recordIndex < records.length; recordIndex++) {
       const record = records[recordIndex]!;
-      const recordBytesResult = ensureWithinTableDataSafetyLimit(
-        'validation.limit.record_fields_max_bytes',
-        measureJsonBytes(Object.fromEntries(record)),
-        limits.recordValues.maxRecordFieldsBytes,
-        {
-          operation: context.kind,
-          tableId: context.table.id().toString(),
-          recordIndex,
-        }
-      );
-      if (recordBytesResult.isErr()) return recordBytesResult;
-
+      const mutableRecord = canIsolateOversizedCells && record instanceof Map ? record : undefined;
+      // Single pass: cell checks also accumulate the exact record JSON size
+      // ({"key":value,...} — undefined cells drop out of stringify), so the
+      // record is not stringified a second time just for its own limit.
+      let recordBytes = 2;
+      let includedEntries = 0;
+      let survivingCells = 0;
+      let oversizedCellError: DomainError | undefined;
       for (const [fieldId, value] of record.entries()) {
+        const cellBytes = measureJsonBytes(value);
         const cellBytesResult = ensureWithinTableDataSafetyLimit(
-          'validation.limit.cell_value_max_bytes',
-          measureJsonBytes(value),
+          tableDataSafetyLimitErrors.cellValueMaxBytes,
+          cellBytes,
           limits.recordValues.maxCellValueBytes,
           {
             operation: context.kind,
@@ -139,8 +144,39 @@ export class TableDataSafetyLimitRecordWritePlugin
             fieldId,
           }
         );
-        if (cellBytesResult.isErr()) return cellBytesResult;
+        if (cellBytesResult.isErr()) {
+          if (!mutableRecord) return cellBytesResult;
+          oversizedCellError = oversizedCellError ?? cellBytesResult.error;
+          mutableRecord.delete(fieldId);
+          continue;
+        }
+        survivingCells += 1;
+        if (value !== undefined) {
+          recordBytes += measureJsonBytes(fieldId) + 1 + cellBytes;
+          includedEntries += 1;
+        }
       }
+      if (includedEntries > 1) {
+        recordBytes += includedEntries - 1;
+      }
+
+      // A record whose every cell was stripped would be persisted empty,
+      // silently discarding the caller's data — fail closed per record instead.
+      if (oversizedCellError && survivingCells === 0) {
+        return err(oversizedCellError);
+      }
+
+      const recordBytesResult = ensureWithinTableDataSafetyLimit(
+        tableDataSafetyLimitErrors.recordFieldsMaxBytes,
+        recordBytes,
+        limits.recordValues.maxRecordFieldsBytes,
+        {
+          operation: context.kind,
+          tableId: context.table.id().toString(),
+          recordIndex,
+        }
+      );
+      if (recordBytesResult.isErr()) return recordBytesResult;
     }
 
     return ok(undefined);

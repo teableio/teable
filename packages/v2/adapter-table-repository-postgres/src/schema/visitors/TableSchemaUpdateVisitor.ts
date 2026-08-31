@@ -1,19 +1,40 @@
 import {
+  managedSearchDocumentColumnPrefixes,
+  managedSearchPrefixLikePattern,
+} from '@teable/v2-adapter-db-postgres-shared';
+import {
   AbstractSpecFilterVisitor,
   DbFieldName,
   domainError,
+  FieldType,
   FieldValueTypeVisitor,
   FormulaField,
   LookupField,
+  resolveSearchFieldTextShape,
+  TableAddViewSpec,
 } from '@teable/v2-core';
 import type {
+  LinkField,
   TableAddFieldSpec,
   TableAddFieldsSpec,
+  TableEnsureViewRowOrderSpec,
+  TableRemoveViewSpec,
+  TableRenameViewSpec,
+  TableUpdateViewDescriptionSpec,
+  TableUpdateViewLockedSpec,
+  TableUpdateViewOrderSpec,
+  TableUpdateViewOptionsSpec,
+  TableUpdateViewShareIdSpec,
+  TableUpdateViewShareMetaSpec,
+  TableUpdateViewShareStateSpec,
   TableAddSelectOptionsSpec,
   TableDuplicateFieldSpec,
   TableRemoveFieldSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
+  TableByViewIdSpec,
+  TableWithViewIdsSpec,
+  TableWithPrimaryFieldSpec,
   TableByIncomingReferenceToTableSpec,
   TableByIdsSpec,
   TableByNameLikeSpec,
@@ -23,6 +44,7 @@ import type {
   ITableSpecVisitor,
   DomainError,
   TableRenameSpec,
+  TableUpdatePropertiesSpec,
   // Common field update specs
   TableUpdateFieldNameSpec,
   TableUpdateFieldDbFieldNameSpec,
@@ -76,7 +98,9 @@ import type {
   Table,
   Field,
   RecordUpdateDTO,
+  SearchFieldTextShape,
 } from '@teable/v2-core';
+import type { IPgTypeValidationStrategy } from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely, QueryExecutorProvider } from 'kysely';
 import { sql } from 'kysely';
@@ -86,6 +110,7 @@ import { PostgresSchemaIntrospector } from '../rules/context/PostgresSchemaIntro
 import { createSchemaRuleContext } from '../rules/context/SchemaRuleContext';
 import type { TableSchemaStatementBuilder } from '../rules/core';
 import { createFieldSchemaRules } from '../rules/field/FieldSchemaRulesFactory';
+import { ForeignKeyRule } from '../rules/field/ForeignKeyRule';
 import { ReferenceRule } from '../rules/field/ReferenceRule';
 import type { TableIdentifier } from '../rules/helpers';
 import {
@@ -107,6 +132,7 @@ type TableSchemaUpdateVisitorParams = {
   recordUpdateCollector?: {
     add(update: RecordUpdateDTO): void;
   };
+  typeValidationStrategy?: IPgTypeValidationStrategy;
 };
 
 type SelectOptionRecordUpdateRow = {
@@ -181,6 +207,39 @@ export class TableSchemaUpdateVisitor
   }
 
   /**
+   * Whether a conversion provably leaves every search artifact valid: the
+   * generated search-document projection and the trigram/btree index
+   * expression both derive from the field's search text shape (plus index
+   * support and multiplicity), so equality on those means the stored document
+   * and index keep matching what query time builds. Errors resolve to
+   * "changed" so uncertainty always triggers maintenance.
+   */
+  private static searchProjectionUnchanged(oldField: Field, newField: Field): boolean {
+    const oldShape = resolveSearchFieldTextShape(oldField);
+    const newShape = resolveSearchFieldTextShape(newField);
+    if (oldShape.isErr() || newShape.isErr()) return false;
+
+    if (
+      TableSchemaUpdateVisitor.fieldSupportsSearchIndex(oldField.type().toString()) !==
+      TableSchemaUpdateVisitor.fieldSupportsSearchIndex(newField.type().toString())
+    ) {
+      return false;
+    }
+
+    const oldMultiple = oldField.isMultipleCellValue();
+    const newMultiple = newField.isMultipleCellValue();
+    if (oldMultiple.isErr() || newMultiple.isErr()) return false;
+    if (oldMultiple.value.toBoolean() !== newMultiple.value.toBoolean()) return false;
+
+    const precisionOf = (shape: SearchFieldTextShape): number | undefined =>
+      'precision' in shape ? shape.precision : undefined;
+    return (
+      oldShape.value.kind === newShape.value.kind &&
+      precisionOf(oldShape.value) === precisionOf(newShape.value)
+    );
+  }
+
+  /**
    * Build a DROP INDEX IF EXISTS statement for a field's search index.
    */
   private dropSearchIndexStatement(
@@ -198,38 +257,51 @@ export class TableSchemaUpdateVisitor
 
   /**
    * A managed stored search document depends on its source columns, so PostgreSQL
-   * rejects ALTER COLUMN TYPE until the managed column is removed. The
-   * post-schema projection rebuilds it from the latest Table aggregate.
+   * rejects ALTER COLUMN TYPE until the managed column is removed. Drop every
+   * matching generated column in one ALTER TABLE so field-delete / conversion
+   * takes the AccessExclusive lock and relcache invalidation once instead of
+   * once per search document (DROP COLUMN itself is catalog-only; the heap
+   * rewrite happens when the post-schema projection re-adds the stored
+   * generated columns from the latest Table aggregate).
+   *
+   * The column list is aggregated into its own variable first: an aggregate
+   * query always returns one row, and format() renders a NULL %s as the empty
+   * string, so testing the fully-formatted statement for NULL would EXECUTE a
+   * bare "ALTER TABLE" (syntax error) on tables with no managed columns.
    */
   private dropManagedSearchVectorColumnsStatement(): TableSchemaStatementBuilder {
     const { db, schema, tableName } = this.params;
     const pgSchema = schema ?? 'public';
     const statement = `
       DO $teable_search_vector$
-      DECLARE managed_column text;
+      DECLARE drop_actions text;
       BEGIN
-        FOR managed_column IN
-          SELECT a.attname
-          FROM pg_attribute a
-          JOIN pg_class c ON c.oid = a.attrelid
-          JOIN pg_namespace n ON n.oid = c.relnamespace
-          WHERE n.nspname = ${quoteSqlLiteral(pgSchema)}
-            AND c.relname = ${quoteSqlLiteral(tableName)}
-            AND a.attnum > 0
-            AND NOT a.attisdropped
-            AND a.attgenerated = 's'
-            AND (
-              a.attname LIKE '\\_\\_tqops\\_tsv\\_%' ESCAPE '\\'
-              OR a.attname LIKE '\\_\\_tqops\\_search\\_%' ESCAPE '\\'
-            )
-        LOOP
+        SELECT string_agg(format('DROP COLUMN IF EXISTS %I', a.attname), ', ')
+        INTO drop_actions
+        FROM pg_attribute a
+        JOIN pg_class c ON c.oid = a.attrelid
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = ${quoteSqlLiteral(pgSchema)}
+          AND c.relname = ${quoteSqlLiteral(tableName)}
+          AND a.attnum > 0
+          AND NOT a.attisdropped
+          AND a.attgenerated = 's'
+          AND (
+            ${managedSearchDocumentColumnPrefixes
+              .map(
+                (prefix) =>
+                  `a.attname LIKE ${quoteSqlLiteral(managedSearchPrefixLikePattern(prefix))} ESCAPE '\\'`
+              )
+              .join('\n            OR ')}
+          );
+        IF drop_actions IS NOT NULL THEN
           EXECUTE format(
-            'ALTER TABLE %I.%I DROP COLUMN IF EXISTS %I',
+            'ALTER TABLE %I.%I %s',
             ${quoteSqlLiteral(pgSchema)},
             ${quoteSqlLiteral(tableName)},
-            managed_column
+            drop_actions
           );
-        END LOOP;
+        END IF;
       END
       $teable_search_vector$;
     `;
@@ -570,6 +642,7 @@ export class TableSchemaUpdateVisitor
         tableId: this.params.tableId,
         dbFieldName: dbFieldNameResult.value,
         fieldId: field.id().toString(),
+        typeValidationStrategy: this.params.typeValidationStrategy,
       },
       previousFieldResult.value,
       nextFieldResult.value
@@ -634,6 +707,13 @@ export class TableSchemaUpdateVisitor
     return this.addCond(statements).map(() => statements);
   }
 
+  visitTableUpdateProperties(
+    _spec: TableUpdatePropertiesSpec
+  ): Result<readonly TableSchemaStatementBuilder[], DomainError> {
+    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
+    return this.addCond(statements).map(() => statements);
+  }
+
   visitTableAddField(
     spec: TableAddFieldSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
@@ -678,13 +758,108 @@ export class TableSchemaUpdateVisitor
     });
   }
 
+  visitTableAddView(
+    spec: TableAddViewSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    if (spec.view().type().toString() !== 'grid') {
+      const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
+      return this.addCond(statements).map(() => statements);
+    }
+
+    const { db, schema, tableName } = this.params;
+    const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
+    const fullTableName = schema
+      ? `${quoteIdentifier(schema)}.${quoteIdentifier(tableName)}`
+      : quoteIdentifier(tableName);
+    const columnName = spec.view().id().toRowOrderColumnName();
+    const indexName = `idx_${columnName}`;
+    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [
+      {
+        scope: 'data',
+        compile: () =>
+          sql`ALTER TABLE ${sql.raw(fullTableName)} ADD COLUMN IF NOT EXISTS ${sql.ref(columnName)} double precision`.compile(
+            db
+          ),
+      },
+      {
+        scope: 'data',
+        compile: () =>
+          sql`UPDATE ${sql.raw(fullTableName)} SET ${sql.ref(columnName)} = "__auto_number" WHERE ${sql.ref(columnName)} IS NULL`.compile(
+            db
+          ),
+      },
+      {
+        scope: 'data',
+        compile: () =>
+          sql`CREATE INDEX IF NOT EXISTS ${sql.raw(quoteIdentifier(indexName))} ON ${sql.raw(fullTableName)} (${sql.ref(columnName)})`.compile(
+            db
+          ),
+      },
+    ];
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableEnsureViewRowOrder(
+    spec: TableEnsureViewRowOrderSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    return this.visitTableAddView(TableAddViewSpec.create(spec.view()));
+  }
+
+  visitTableRemoveView(
+    _spec: TableRemoveViewSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableRenameView(
+    _spec: TableRenameViewSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableUpdateViewDescription(
+    _spec: TableUpdateViewDescriptionSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableUpdateViewLocked(
+    _spec: TableUpdateViewLockedSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableUpdateViewOrder(
+    _spec: TableUpdateViewOrderSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
+    return this.addCond(statements).map(() => statements);
+  }
+
   visitTableRemoveField(
     spec: TableRemoveFieldSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const visitor = this;
-    const fieldVisitor = PostgresTableSchemaFieldDeleteVisitor.forSchemaUpdate(this.params);
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
+      // Another live field can map to the same physical column when db field
+      // name de-duplication raced; the column must survive this field's removal.
+      const removedDbFieldName = yield* visitor.resolveDbFieldNameText(spec.field());
+      const preserveSharedColumn = visitor.params.table.getFields().some(
+        (candidate) =>
+          !candidate.id().equals(spec.field().id()) &&
+          visitor
+            .resolveDbFieldNameText(candidate)
+            .map((candidateDbFieldName) => candidateDbFieldName === removedDbFieldName)
+            .unwrapOr(false)
+      );
+      const fieldVisitor = PostgresTableSchemaFieldDeleteVisitor.forSchemaUpdate(visitor.params, {
+        preserveSharedColumn,
+      });
       const statements = [
         visitor.markSearchVectorConfigRebuildPendingStatement('source_field_removed'),
         visitor.dropManagedSearchVectorColumnsStatement(),
@@ -697,6 +872,34 @@ export class TableSchemaUpdateVisitor
 
   visitTableUpdateViewColumnMeta(
     _: TableUpdateViewColumnMetaSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableUpdateViewOptions(
+    _: TableUpdateViewOptionsSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableUpdateViewShareMeta(
+    _spec: TableUpdateViewShareMetaSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableUpdateViewShareId(
+    _spec: TableUpdateViewShareIdSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableUpdateViewShareState(
+    _spec: TableUpdateViewShareStateSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
     return this.addCond(statements).map(() => statements);
@@ -775,6 +978,36 @@ export class TableSchemaUpdateVisitor
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return err(
       domainError.validation({ message: 'TableByIdSpec is not supported for table schema updates' })
+    );
+  }
+
+  visitTableByViewId(
+    _: TableByViewIdSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableByViewIdSpec is not supported for table schema updates',
+      })
+    );
+  }
+
+  visitTableWithViewIds(
+    _: TableWithViewIdsSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableWithViewIdsSpec is not supported for table schema updates',
+      })
+    );
+  }
+
+  visitTableWithPrimaryField(
+    _: TableWithPrimaryFieldSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableWithPrimaryFieldSpec is not supported for table schema updates',
+      })
     );
   }
 
@@ -884,6 +1117,42 @@ export class TableSchemaUpdateVisitor
       }
       const dbFieldName = dbFieldNameResult.value;
 
+      // A type conversion rebuilds the field definition, which resets the
+      // unique/notNull flags in the domain model (matching v1's contract:
+      // conversion clears validation constraints). The in-place ALTER TYPE
+      // keeps the underlying constraint/index alive, so drop them explicitly —
+      // otherwise a ghost constraint keeps rejecting writes that the field
+      // metadata says are allowed. Dropping before the conversion also lets
+      // casts that collapse values (e.g. '42'/'042' → 42) succeed like v1.
+      const constraintCleanupStatements: TableSchemaStatementBuilder[] = [];
+      const { schema, tableName } = visitor.params;
+      const fullTableName = schema ? `"${schema}"."${tableName}"` : `"${tableName}"`;
+      if (oldField.unique().toBoolean() && !newField.unique().toBoolean()) {
+        const constraintName = `${tableName}_${dbFieldName}_unique`;
+        const quotedIndexName = schema ? `"${schema}"."${constraintName}"` : `"${constraintName}"`;
+        constraintCleanupStatements.push({
+          scope: 'data',
+          compile: () =>
+            sql`ALTER TABLE ${sql.raw(fullTableName)} DROP CONSTRAINT IF EXISTS ${sql.ref(constraintName)}`.compile(
+              visitor.params.db
+            ),
+        });
+        constraintCleanupStatements.push({
+          scope: 'data',
+          compile: () =>
+            sql`DROP INDEX IF EXISTS ${sql.raw(quotedIndexName)}`.compile(visitor.params.db),
+        });
+      }
+      if (oldField.notNull().toBoolean() && !newField.notNull().toBoolean()) {
+        constraintCleanupStatements.push({
+          scope: 'data',
+          compile: () =>
+            sql`ALTER TABLE ${sql.raw(fullTableName)} ALTER COLUMN ${sql.ref(dbFieldName)} DROP NOT NULL`.compile(
+              visitor.params.db
+            ),
+        });
+      }
+
       // Generate conversion statements
       const conversionParams: FieldConversionParams = {
         db: visitor.params.db,
@@ -894,6 +1163,7 @@ export class TableSchemaUpdateVisitor
         fieldId: newField.id().toString(),
         tableLocationsById: visitor.params.tableLocationsById,
         fieldsById: yield* visitor.buildCurrentTableFieldMetadataById(),
+        typeValidationStrategy: visitor.params.typeValidationStrategy,
       };
 
       const conversionStatements = yield* generateFieldConversionStatements(
@@ -906,19 +1176,35 @@ export class TableSchemaUpdateVisitor
       // field type's dependencies (e.g., ConditionalRollup filter field refs).
       const referenceStatements = yield* visitor.regenerateFieldReferences(oldField, newField);
 
-      // Search index management: drop old index before conversion, create new after
+      // PostgreSQL rejects ALTER COLUMN TYPE while a generated search document
+      // still depends on the source column. Skip that rewrite — and the matching
+      // GIN index drop/create — only when conversion is metadata-only (empty
+      // DDL) AND the search text shape is unchanged, e.g. singleSelect → text
+      // keeps the text column, every cell value, and the plain projection.
+      // Empty DDL alone is not enough: singleLineText → longText emits no DDL
+      // yet flips the projection to multiline, which invalidates both the
+      // stored document and the trigram index expression.
       const fieldId = newField.id().toString();
-      const dropSearchIdx = visitor.dropSearchIndexStatement(fieldId, dbFieldName);
-      const createSearchIdx = visitor.createSearchIndexStatement(newField, dbFieldName);
-
-      const statements = [
-        visitor.markSearchVectorConfigRebuildPendingStatement('source_field_type_changed'),
-        visitor.dropManagedSearchVectorColumnsStatement(),
-        dropSearchIdx,
+      const needsSearchMaintenance =
+        conversionStatements.length > 0 ||
+        !TableSchemaUpdateVisitor.searchProjectionUnchanged(oldField, newField);
+      const statements: TableSchemaStatementBuilder[] = [];
+      if (needsSearchMaintenance) {
+        statements.push(
+          visitor.markSearchVectorConfigRebuildPendingStatement('source_field_type_changed'),
+          visitor.dropManagedSearchVectorColumnsStatement(),
+          visitor.dropSearchIndexStatement(fieldId, dbFieldName)
+        );
+      }
+      statements.push(
+        ...constraintCleanupStatements,
         ...conversionStatements,
-        ...referenceStatements,
-        ...(createSearchIdx ? [createSearchIdx] : []),
-      ];
+        ...referenceStatements
+      );
+      if (needsSearchMaintenance) {
+        const createSearchIdx = visitor.createSearchIndexStatement(newField, dbFieldName);
+        if (createSearchIdx) statements.push(createSearchIdx);
+      }
       yield* addCond(statements);
       return ok(statements);
     });
@@ -967,6 +1253,46 @@ export class TableSchemaUpdateVisitor
                 db
               ),
           });
+        }
+
+        // Toggling required on a link that hosts its own FK column changes the FK's
+        // ON DELETE action (RESTRICT vs SET NULL). Rebuild the constraint through the
+        // same schema rules that created it so host table, target resolution
+        // (including cross-base via table_meta) and naming stay in one place.
+        const fieldResult = visitor.params.table.getField((candidate) =>
+          candidate.id().equals(spec.fieldId())
+        );
+        if (fieldResult.isOk() && fieldResult.value.type().equals(FieldType.link())) {
+          const linkField = fieldResult.value as LinkField;
+          const relationship = linkField.relationship().toString();
+          // Only the FK-hosting side (manyOne, or the oneOne side whose FK column is
+          // its own; the symmetric side reports '__id') owns the constraint action.
+          const hostsFkColumn =
+            (relationship === 'manyOne' || relationship === 'oneOne') &&
+            linkField.foreignKeyNameString().unwrapOr('__id') !== '__id';
+          if (hostsFkColumn) {
+            yield* linkField.setNotNull(spec.nextNotNull());
+            const ruleCtx = createSchemaRuleContext({
+              db: visitor.params.db,
+              metaDb: visitor.params.db.withoutPlugins(),
+              introspector: new PostgresSchemaIntrospector(visitor.params.db),
+              schema: visitor.params.schema,
+              tableName: visitor.params.tableName,
+              tableId: visitor.params.tableId,
+              field: linkField,
+            });
+            const rules = yield* createFieldSchemaRules(linkField, {
+              schema: visitor.params.schema,
+              tableName: visitor.params.tableName,
+              tableId: visitor.params.tableId,
+              tableLocationsById: visitor.params.tableLocationsById,
+            });
+            for (const rule of rules) {
+              if (!(rule instanceof ForeignKeyRule)) continue;
+              statements.push(...(yield* rule.down(ruleCtx)));
+              statements.push(...(yield* rule.up(ruleCtx)));
+            }
+          }
         }
       }
 

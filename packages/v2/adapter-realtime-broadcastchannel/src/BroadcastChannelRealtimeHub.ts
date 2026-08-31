@@ -13,7 +13,12 @@ type SnapshotMessage = {
   snapshot: unknown | null;
 };
 
-type BroadcastMessage = SnapshotMessage;
+type CollectionInvalidatedMessage = {
+  type: 'collectionInvalidated';
+  collection: string;
+};
+
+type BroadcastMessage = SnapshotMessage | CollectionInvalidatedMessage;
 
 type DocListener = (snapshot: unknown | null) => void;
 type CollectionListener = (
@@ -189,6 +194,12 @@ export class BroadcastChannelRealtimeHub {
     return ok(undefined);
   }
 
+  invalidateCollection(collection: string): Result<void, DomainError> {
+    this.broadcast({ type: 'collectionInvalidated', collection });
+    this.notifyCollection(collection);
+    return ok(undefined);
+  }
+
   remove(docId: RealtimeDocId): Result<void, DomainError> {
     const parsed = RealtimeDocIdValue.parse(docId);
     if (parsed.isErr()) {
@@ -267,6 +278,7 @@ export class BroadcastChannelRealtimeHub {
       this.logger.debug('BroadcastChannel realtime broadcast', {
         type: message.type,
         docKey: message.type === 'snapshot' ? message.docKey : undefined,
+        collection: message.collection,
       });
     } catch (error) {
       this.logger.warn('BroadcastChannel realtime broadcast failed', { error });
@@ -274,7 +286,13 @@ export class BroadcastChannelRealtimeHub {
   }
 
   private handleMessage(message: BroadcastMessage): void {
-    if (message.type !== 'snapshot') return;
+    if (message.type === 'collectionInvalidated') {
+      this.logger.debug('BroadcastChannel realtime collection invalidated', {
+        collection: message.collection,
+      });
+      this.notifyCollection(message.collection);
+      return;
+    }
     this.logger.debug('BroadcastChannel realtime message received', {
       docKey: message.docKey,
       collection: message.collection,

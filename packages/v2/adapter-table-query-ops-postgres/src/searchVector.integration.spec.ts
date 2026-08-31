@@ -135,7 +135,7 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
             "provider": "pg_trgm",
             "semantics": "substring",
             "skippedReasons": [
-              "non_text_value",
+              "unsupported_search_field_type",
             ],
           }
         `);
@@ -202,6 +202,7 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
             fieldId: field.fieldId,
             fieldDbName: field.fieldDbName ?? '',
             fieldType: field.fieldType,
+            ...(field.textProjection ? { textProjection: field.textProjection } : {}),
           })),
           allowLargeTableRewrite: true,
         },
@@ -452,6 +453,7 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
               fieldId: field.fieldId,
               fieldDbName: field.fieldDbName ?? '',
               fieldType: field.fieldType,
+              ...(field.textProjection ? { textProjection: field.textProjection } : {}),
             })),
           },
         })

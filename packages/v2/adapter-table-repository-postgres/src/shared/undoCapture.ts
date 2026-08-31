@@ -86,6 +86,26 @@ const normalizeUndoCaptureTableKeys = (tableKeys: ReadonlyArray<string>): Readon
   return [...normalized];
 };
 
+export const matchesUndoCaptureTableName = (
+  rowTableName: string | null | undefined,
+  expectedTableName: string
+): boolean => {
+  if (!rowTableName) {
+    return true;
+  }
+  if (rowTableName === expectedTableName) {
+    return true;
+  }
+
+  const row = splitSchemaQualifiedTableName(rowTableName);
+  const expected = splitSchemaQualifiedTableName(expectedTableName);
+  if (row.plainTableName !== expected.plainTableName) {
+    return false;
+  }
+
+  return !row.schemaName || !expected.schemaName || row.schemaName === expected.schemaName;
+};
+
 const isTransactionDb = <DB>(db: DbOrTx<DB>): db is Transaction<DB> =>
   db instanceof Transaction || (db as { isTransaction?: boolean }).isTransaction === true;
 
@@ -168,6 +188,7 @@ const hasUndoCaptureTrigger = async <DB>(db: DbOrTx<DB>, tableKey: string): Prom
       AND c.relname = ${table}
       AND p.proname = '__teable_capture_undo_row'
       AND p.pronamespace = current_schema()::regnamespace
+      AND t.tgenabled = 'O'
     ) AS "exists"
   `.execute(db);
 

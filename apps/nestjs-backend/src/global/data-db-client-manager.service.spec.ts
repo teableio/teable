@@ -1,8 +1,16 @@
+import { HttpErrorCode } from '@teable/core';
 import { PgPoolRegistry } from '@teable/db-main-prisma';
+import type { Knex } from 'knex';
 import { Pool } from 'pg';
+import { newDb } from 'pg-mem';
 import { describe, expect, it, vi } from 'vitest';
 import { encryptDataDbUrl } from '../features/space/data-db-url-secret';
-import { DataDbClientManager } from './data-db-client-manager.service';
+import {
+  DataDbBindingNotReadyError,
+  DataDbClientManager,
+  restoreComputedOutboxDeadLetterRows,
+  type IComputedOutboxDeadLetterRow,
+} from './data-db-client-manager.service';
 import { DataDbRuntimeCacheService } from './data-db-runtime-cache.service';
 
 const withTxClient = <T extends object>(txClient: T) => ({
@@ -34,6 +42,69 @@ const connectionId = 'dcnxxx';
 const displayHost = 'example.com';
 const displayDatabase = 'teable_data';
 const urlFingerprint = 'fp_xxx';
+
+const createComputedRecoveryDb = async () => {
+  const db = newDb().adapters.createKnex();
+  await db.schema.createTable('computed_update_outbox', (table: Knex.TableBuilder) => {
+    table.text('id').primary();
+    table.text('base_id');
+    table.text('seed_table_id');
+    table.jsonb('seed_record_ids');
+    table.text('change_type');
+    table.jsonb('steps');
+    table.jsonb('edges');
+    table.text('status');
+    table.integer('attempts');
+    table.integer('max_attempts');
+    table.timestamp('next_run_at');
+    table.timestamp('locked_at');
+    table.text('locked_by');
+    table.text('last_error');
+    table.integer('estimated_complexity');
+    table.text('plan_hash').notNullable();
+    table.jsonb('dirty_stats');
+    table.text('run_id');
+    table.specificType('origin_run_ids', 'text[]');
+    table.integer('run_total_steps');
+    table.integer('run_completed_steps_before');
+    table.specificType('affected_table_ids', 'text[]');
+    table.specificType('affected_field_ids', 'text[]');
+    table.integer('sync_max_level');
+    table.timestamp('created_at');
+    table.timestamp('updated_at');
+  });
+  await db.raw(
+    `create unique index computed_update_outbox_pending_unique_idx
+       on computed_update_outbox(base_id, seed_table_id, plan_hash, change_type)
+       where status = 'pending'`
+  );
+  await db.schema.createTable('computed_update_dead_letter', (table: Knex.TableBuilder) =>
+    table.text('id').primary()
+  );
+  return db;
+};
+
+const createDeadLetterRow = (taskId: string): IComputedOutboxDeadLetterRow => ({
+  taskId,
+  baseId: 'bse1',
+  seedTableId: 'tbl1',
+  seedRecordIds: [`rec-${taskId}`],
+  changeType: 'update',
+  steps: [],
+  edges: [],
+  maxAttempts: 8,
+  estimatedComplexity: 1,
+  planHash: 'same-plan',
+  dirtyStats: null,
+  runId: `run-${taskId}`,
+  originRunIds: [],
+  runTotalSteps: 1,
+  runCompletedStepsBefore: 0,
+  affectedTableIds: ['tbl1'],
+  affectedFieldIds: ['fld1'],
+  syncMaxLevel: 0,
+  createdAt: new Date('2026-08-06T12:00:00.000Z'),
+});
 
 describe('DataDbClientManager', () => {
   it('includes BYODB base-to-space routing needed to honor space pauses', async () => {
@@ -91,6 +162,34 @@ describe('DataDbClientManager', () => {
 
     await expect(manager.dataPrismaForSpace('spcxxx')).resolves.toBe(metaFallbackDataPrisma);
     await expect(manager.dataKnexForSpace('spcxxx')).resolves.toBe(metaFallbackDataKnex);
+  });
+
+  it('refuses the meta fallback when the primary shows a binding the transaction read missed', async () => {
+    const txClient = {
+      spaceDataDbBinding: {
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+    };
+    const prismaService = {
+      ...withTxClient(txClient),
+      spaceDataDbBinding: {
+        findUnique: vi.fn().mockResolvedValue({ mode: 'byodb' }),
+      },
+    };
+    const manager = createManager(
+      prismaService as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService()
+    );
+
+    await expect(manager.dataPrismaForSpace('spc_ghost', { useTransaction: true })).rejects.toThrow(
+      /meta fallback while a 'byodb' binding exists/
+    );
+    expect(prismaService.spaceDataDbBinding.findUnique).toHaveBeenCalledWith({
+      where: { spaceId: 'spc_ghost' },
+      select: { mode: true },
+    });
   });
 
   it('resolves base scoped clients through the base space', async () => {
@@ -459,6 +558,104 @@ describe('DataDbClientManager', () => {
       connectionId,
       internalSchema,
       url: dataUrl,
+    });
+  });
+
+  it('restores an entire large same-plan dead-letter group without pending-plan conflicts', async () => {
+    const db = await createComputedRecoveryDb();
+    const taskCount = 2000;
+    const rows = Array.from({ length: taskCount }, (_, index) =>
+      createDeadLetterRow(index === 0 ? 'cuo-live' : `cuo-${index}`)
+    );
+    try {
+      await db('computed_update_outbox').insert({
+        id: 'cuo-live',
+        base_id: 'bse1',
+        seed_table_id: 'tbl1',
+        change_type: 'update',
+        status: 'pending',
+        plan_hash: 'same-plan',
+      });
+      await db('computed_update_dead_letter').insert(rows.map(({ taskId }) => ({ id: taskId })));
+
+      const result = await db.transaction(
+        async (trx: Knex.Transaction) => await restoreComputedOutboxDeadLetterRows(trx, rows)
+      );
+
+      expect(result).toMatchObject({ inserted: taskCount - 1, alreadyPending: 1 });
+      expect(result.tasks).toHaveLength(taskCount);
+      await expect(db('computed_update_outbox').count({ count: '*' })).resolves.toEqual([
+        { count: taskCount },
+      ]);
+      await expect(db('computed_update_dead_letter').count({ count: '*' })).resolves.toEqual([
+        { count: 0 },
+      ]);
+      const replayPlanHashes = await db('computed_update_outbox')
+        .whereNot({ id: 'cuo-live' })
+        .pluck('plan_hash');
+      expect(new Set(replayPlanHashes).size).toBe(taskCount - 1);
+    } finally {
+      await db.destroy();
+    }
+  }, 15_000);
+
+  it('lists BYODB-bound bases even when their connection is not queryable', async () => {
+    const prismaService = withTxClient({
+      base: {
+        findMany: vi.fn().mockResolvedValue([{ id: 'bse_disabled' }, { id: 'bse_ready' }]),
+      },
+    });
+    const manager = createManager(
+      prismaService as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService()
+    );
+
+    await expect(manager.listByodbBoundBaseIds()).resolves.toEqual(['bse_disabled', 'bse_ready']);
+    expect(prismaService.base.findMany).toHaveBeenCalledWith({
+      where: {
+        deletedTime: null,
+        space: {
+          dataDbBinding: {
+            is: { mode: 'byodb' },
+          },
+        },
+      },
+      select: { id: true },
+    });
+  });
+
+  it('refuses to resolve a BYODB space whose connection is disabled', async () => {
+    const prismaService = withTxClient({
+      spaceDataDbBinding: {
+        findUnique: vi.fn().mockResolvedValue({
+          mode: 'byodb',
+          state: 'ready',
+          dataDbConnection: {
+            id: connectionId,
+            status: 'disabled',
+            internalSchema,
+            displayHost,
+            displayDatabase,
+            urlFingerprint,
+            encryptedUrl: encryptDataDbUrl(dataUrl),
+          },
+        }),
+      },
+    });
+    const manager = createManager(
+      prismaService as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService(),
+      { ensureConnectionMigrated: vi.fn() } as never
+    );
+
+    await expect(manager.getDataDatabaseForSpace('spcDisabled')).rejects.toMatchObject({
+      name: DataDbBindingNotReadyError.name,
+      code: HttpErrorCode.DATABASE_CONNECTION_UNAVAILABLE,
+      message: 'Data database binding for space spcDisabled is not ready',
     });
   });
 });

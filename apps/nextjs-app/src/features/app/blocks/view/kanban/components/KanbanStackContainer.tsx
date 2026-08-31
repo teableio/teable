@@ -63,7 +63,7 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
         const { isDragging } = snapshot;
 
         return (
-          <div className="h-full pr-4" ref={provided.innerRef} {...draggableProps}>
+          <div className="h-full pe-4" ref={provided.innerRef} {...draggableProps}>
             {isCollapsed ? (
               <div className="h-full w-14">
                 <div

@@ -1,0 +1,1668 @@
+{
+  "computeActivity": {
+    "currentCalculations": "الحسابات الجارية",
+    "thisTableOnly": "هذا الجدول فقط",
+    "calculatingNow": "يجري الحساب الآن",
+    "calculating": "جارٍ الحساب",
+    "waiting": "في الانتظار",
+    "failed": "فشل",
+    "calculationFailed": "فشل الحساب",
+    "cellValueTooLarge": "قيمة الخلية المحسوبة كبيرة جدًا ({{attempted}} / {{max}} بايت). اختصر البيانات المصدر أو غيّر الصيغة.",
+    "calculatingSummary": "جارٍ الحساب ({{count}})",
+    "failedSummary": "فشل ({{count}})",
+    "fieldsCalculating_zero": "لا توجد حقول قيد الحساب",
+    "fieldsCalculating_one": "حقل واحد قيد الحساب",
+    "fieldsCalculating_two": "حقلان قيد الحساب",
+    "fieldsCalculating_few": "{{count}} حقول قيد الحساب",
+    "fieldsCalculating_many": "{{count}} حقلًا قيد الحساب",
+    "fieldsCalculating_other": "{{count}} حقل قيد الحساب",
+    "fieldCalculationsFailed_zero": "لم تفشل أي عملية حساب حقل",
+    "fieldCalculationsFailed_one": "فشلت عملية حساب حقل واحد",
+    "fieldCalculationsFailed_two": "فشلت عمليتا حساب حقلين",
+    "fieldCalculationsFailed_few": "فشلت {{count}} عمليات حساب حقول",
+    "fieldCalculationsFailed_many": "فشلت {{count}} عملية حساب حقل",
+    "fieldCalculationsFailed_other": "فشلت {{count}} عملية حساب حقل",
+    "batchesRunning_zero": "لا توجد دفعات قيد التشغيل",
+    "batchesRunning_one": "دفعة واحدة قيد التشغيل",
+    "batchesRunning_two": "دفعتان قيد التشغيل",
+    "batchesRunning_few": "{{count}} دفعات قيد التشغيل",
+    "batchesRunning_many": "{{count}} دفعة قيد التشغيل",
+    "batchesRunning_other": "{{count}} دفعة قيد التشغيل",
+    "batchesQueued_zero": "لا توجد دفعات في الانتظار",
+    "batchesQueued_one": "دفعة واحدة في الانتظار",
+    "batchesQueued_two": "دفعتان في الانتظار",
+    "batchesQueued_few": "{{count}} دفعات في الانتظار",
+    "batchesQueued_many": "{{count}} دفعة في الانتظار",
+    "batchesQueued_other": "{{count}} دفعة في الانتظار",
+    "records_zero": "لا توجد سجلات",
+    "records_one": "سجل واحد",
+    "records_two": "سجلان",
+    "records_few": "{{formattedCount}} سجلات",
+    "records_many": "{{formattedCount}} سجلًا",
+    "records_other": "{{formattedCount}} سجل",
+    "batchesComplete": "الدفعات المكتملة {{completed}}/{{total}}",
+    "progressAriaLabel": "تقدّم حساب {{fieldName}}"
+  },
+  "crossSpace": {
+    "duplicateFieldTitle": "تنبيه",
+    "duplicateFieldDescription": "المراجع عبر المساحات غير مدعومة. وسيُحوَّل النسخ إلى حقل نص من سطر واحد.",
+    "duplicateTableTitle": "تنبيه",
+    "duplicateTableDescription": "المراجع عبر المساحات غير مدعومة. وسيُحوَّل النسخ إلى حقل نص من سطر واحد.",
+    "convertAndDuplicate": "التحويل والنسخ"
+  },
+  "toolbar": {
+    "viewFilterInShare": "هذا العرض مستخدَم في رابط مشاركة عرض. وأي تعديل على إعدادات العرض سيغيّر رابط المشاركة أيضًا.",
+    "createFieldButtonText": "إنشاء حقل <0/> جديد",
+    "others": {
+      "share": {
+        "label": "مشاركة",
+        "statusLabel": "مشاركة العرض على الويب",
+        "noPermission": "لا توجد صلاحية لمشاركة طريقة العرض",
+        "genLink": "توليد رابط جديد",
+        "allowCopy": "السماح للمشاهدين بنسخ البيانات من هذا العرض",
+        "allowEdit": "السماح للمشاهدين المسجَّلين بتعديل البيانات الظاهرة",
+        "showAllFields": "عرض كل الحقول في السجلات الموسّعة",
+        "restrict": "التقييد بكلمة مرور",
+        "tips": "يمكن لمن لديهم الرابط رؤية هذا العرض.",
+        "passwordTitle": "أدخل كلمة مرور",
+        "passwordTips": "قيود كلمة المرور للوصول إلى العروض المشتركة",
+        "embed": "تضمين",
+        "embedPreview": "معاينة",
+        "copyCode": "نسخ الكود",
+        "hideToolbar": "إخفاء شريط الأدوات",
+        "URLSetting": "إعداد معاملات الرابط",
+        "URLSettingDescription": "لن تؤثر التعديلات التالية في كود التضمين. عليك نسخ الكود بالمعاملات الجديدة ليسري مفعولها",
+        "cancel": "إلغاء",
+        "save": "حفظ",
+        "requireLogin": "طلب تسجيل الدخول عند الإرسال"
+      },
+      "api": {
+        "title": "الوصول عبر API",
+        "aiContext": "ربط الذكاء الاصطناعي",
+        "advanced": "متقدم",
+        "recommended": "موصى به",
+        "apiDocGroupTitle": "سياق API",
+        "apiDocGroupDescription": "انسخ المستند أدناه إلى الذكاء الاصطناعي ليفهم مخطط الجدول الحالي وحقوله وأمثلة API، ثم يقرأ السجلات أو ينشئها أو يحدّثها أو يحذفها حسب طلبك.",
+        "generatingToken": "جارٍ التوليد...",
+        "generateToken": "توليد رمز",
+        "confirmTitle": "إنشاء رمز API",
+        "confirmDescription": "سيؤدي هذا إلى إنشاء رمز API جديد بالصلاحيات التالية على هذه القاعدة:",
+        "scopeTableRead": "قراءة معلومات الجدول",
+        "scopeFieldRead": "قراءة الحقول",
+        "scopeRead": "قراءة السجلات",
+        "scopeCreate": "إنشاء السجلات",
+        "scopeUpdate": "تحديث السجلات",
+        "scopeDelete": "حذف السجلات",
+        "confirmExpiry": "سيكون الرمز صالحًا لمدة سنة واحدة.",
+        "confirmButton": "تأكيد وإنشاء",
+        "tokenInfo": "انتهاء صلاحية الرمز: {{expiry}}",
+        "copied": "تم النسخ!",
+        "copyAIDoc": "نسخ المستند",
+        "aiDocPreview": "معاينة السياق",
+        "manageToken": "إدارة الرمز",
+        "openInNewTab": "فتح في تبويب جديد",
+        "queryBuilderTitle": "منشئ استعلامات API",
+        "queryBuilderDesc": "اضبط المرشّحات والفرز وبقية المعاملات بصريًا لتوليد كود طلب API جاهز للتشغيل.",
+        "viewApiDocs": "عرض توثيق API الكامل"
+      },
+      "personalView": {
+        "personal": "شخصي",
+        "tip": "بعد التفعيل، لن تسري إعدادات العرض إلا عليك أنت شخصيًا",
+        "dialog": {
+          "title": "الخروج من الوضع الشخصي",
+          "description": "ستُستعاد إعدادات العرض الشخصي إلى حالة التعاون الآني، ويمكنك أيضًا حفظ إعدادات العرض الشخصي ومزامنتها مع الجميع",
+          "cancelText": "الخروج والمزامنة",
+          "confirmText": "تأكيد الخروج"
+        }
+      }
+    }
+  },
+  "welcome": {
+    "title": "أهلًا بك",
+    "emptyTitle": "ابدأ ببناء قاعدتك",
+    "description": "انقر على زر \"+\" في الشريط الجانبي لإضافة موارد",
+    "help": "زر <HelpCenter /> لمزيد من المعلومات",
+    "helpCenter": "مركز المساعدة"
+  },
+  "field": {
+    "advancedProps": "خصائص متقدمة",
+    "hide": "إخفاء",
+    "default": {
+      "singleLineText": {
+        "title": "تسمية"
+      },
+      "longText": {
+        "title": "ملاحظات"
+      },
+      "number": {
+        "title": "رقم",
+        "formatType": "نوع التنسيق",
+        "currencySymbol": "رمز العملة",
+        "defaultSymbol": "$",
+        "precision": "الدقة",
+        "decimalExample": "رقم (123)",
+        "currencyExample": "عملة ($100)",
+        "percentExample": "نسبة مئوية (20%)"
+      },
+      "singleSelect": {
+        "title": "الحالة",
+        "options": {
+          "todo": "للتنفيذ",
+          "inProgress": "قيد التنفيذ",
+          "done": "منجَز"
+        }
+      },
+      "multipleSelect": {
+        "title": "الوسوم"
+      },
+      "attachment": {
+        "title": "المرفقات"
+      },
+      "user": {
+        "title": "متعاون"
+      },
+      "date": {
+        "title": "التاريخ",
+        "dateFormatting": "تنسيق التاريخ",
+        "timeFormatting": "تنسيق الوقت",
+        "timeZone": "المنطقة الزمنية",
+        "yearMonth": "السنة/الشهر",
+        "monthDay": "الشهر/اليوم",
+        "year": "السنة",
+        "month": "الشهر",
+        "day": "اليوم",
+        "local": "محلي",
+        "friendly": "ودّي",
+        "us": "أمريكي",
+        "european": "أوروبي",
+        "asia": "آسيوي",
+        "custom": "مخصص",
+        "12Hour": "12 ساعة",
+        "24Hour": "24 ساعة",
+        "noDisplay": "بدون عرض"
+      },
+      "autoNumber": {
+        "title": "المعرّف"
+      },
+      "createdTime": {
+        "title": "وقت الإنشاء"
+      },
+      "lastModifiedTime": {
+        "title": "وقت آخر تعديل"
+      },
+      "createdBy": {
+        "title": "أنشأه"
+      },
+      "lastModifiedBy": {
+        "title": "آخر من عدّله"
+      },
+      "rating": {
+        "title": "التقييم"
+      },
+      "checkbox": {
+        "title": "منجَز"
+      },
+      "button": {
+        "title": "زر",
+        "label": "نص الزر",
+        "limitCount": "تحديد عدد النقرات",
+        "resetCount": "السماح بإعادة التعيين",
+        "maxCount": "الحد الأقصى للنقرات",
+        "automation": "أتمتة",
+        "customAutomation": "أتمتة مخصصة",
+        "clickConfirm": "التأكيد قبل النقر",
+        "confirmTitle": "العنوان",
+        "confirmDescription": "المحتوى",
+        "confirmButtonText": "نص زر التأكيد"
+      },
+      "formula": {
+        "title": "حساب",
+        "formula": "الصيغة"
+      },
+      "lookup": {
+        "title": "{{lookupFieldName}} (من {{linkFieldName}})"
+      },
+      "conditionalLookup": {
+        "title": "{{lookupFieldName}} (مُصفّى من {{tableName}})"
+      },
+      "rollup": {
+        "title": "تجميع {{lookupFieldName}} (من {{linkFieldName}})",
+        "rollup": "تجميع",
+        "selectAnRollupFunction": "اختر دالة تجميع",
+        "func": {
+          "and": "AND",
+          "arrayCompact": "ARRAYCOMPACT",
+          "arrayJoin": "ARRAYJOIN",
+          "arrayUnique": "ARRAYUNIQUE",
+          "average": "AVERAGE",
+          "concatenate": "CONCATENATE",
+          "count": "COUNT",
+          "countA": "COUNTA",
+          "countAll": "COUNTALL",
+          "max": "MAX",
+          "min": "MIN",
+          "or": "OR",
+          "sum": "SUM",
+          "xor": "XOR"
+        },
+        "funcDesc": {
+          "and": "تُعيد صحيحًا إذا كانت كل القيم صحيحة",
+          "arrayCompact": "تحذف السلاسل الفارغة والقيم الفارغة من المصفوفة. وتُبقي على 'false' وعلى السلاسل التي تحتوي على مسافة أو أكثر.",
+          "arrayJoin": "تدمج كل القيم في سلسلة واحدة مفصولة بفواصل.",
+          "arrayUnique": "تُعيد العناصر الفريدة فقط.",
+          "average": "المتوسط الحسابي للقيم.",
+          "concatenate": "تدمج القيم النصية في قيمة نصية واحدة.",
+          "count": "تعدّ القيم الرقمية غير الفارغة فقط. وإن أردت عدّ كل السجلات، فاستخدم COUNTALL.",
+          "countA": "تعدّ القيم غير الفارغة. وتحتسب هذه الدالة القيم الرقمية والنصية معًا.",
+          "countAll": "تعدّ كل القيم بما فيها السجلات الفارغة.",
+          "max": "تُعيد أكبر الأعداد المعطاة.",
+          "min": "تُعيد أصغر الأعداد المعطاة.",
+          "or": "تُعيد صحيحًا إذا كانت أي قيمة من القيم صحيحة.",
+          "sum": "تجمع القيم معًا.",
+          "xor": "تُعيد صحيحًا إذا وفقط إذا كان عدد القيم الصحيحة فرديًا."
+        }
+      },
+      "conditionalRollup": {
+        "title": "تجميع شرطي لـ {{lookupFieldName}}"
+      }
+    },
+    "editor": {
+      "addField": "إضافة حقل",
+      "editField": "تعديل الحقل",
+      "insertField": "إدراج حقل",
+      "graph": "الرسم البياني",
+      "defaultValue": "القيمة الافتراضية",
+      "reset": "إعادة تعيين",
+      "fieldUpdated": "تم تحديث الحقل",
+      "fieldCreated": "تم إنشاء الحقل",
+      "fieldUnavailable": "هذا الحقل غير متاح. حدّث الجدول وأعد المحاولة.",
+      "confirmFieldChange": "تأكيد تغيير الحقل",
+      "areYouSurePerformIt": "هل أنت متأكد من تنفيذ ذلك؟",
+      "addDescription": "إضافة وصف",
+      "dbFieldName": "اسم الحقل في قاعدة البيانات",
+      "descriptionPlaceholder": "صِف هذا الحقل (اختياري)",
+      "type": "النوع",
+      "showAs": "العرض كـ",
+      "color": "اللون",
+      "number": "رقم",
+      "chartBar": "أعمدة بيانية",
+      "chartLine": "خط بياني",
+      "ring": "حلقة",
+      "bar": "شريط",
+      "text": "نص",
+      "markdown": "Markdown",
+      "url": "رابط",
+      "email": "بريد إلكتروني",
+      "phone": "هاتف",
+      "maxNumber": "الحد الأقصى للرقم",
+      "showNumber": "إظهار الرقم",
+      "autoFillDate": "التعبئة التلقائية بالتاريخ الحالي",
+      "createSymmetricLink": "إنشاء حقل رابط عكسي في الجدول المرتبط",
+      "allowLinkMultipleRecords": "السماح بالاختيار المتعدد",
+      "allowLinkToDuplicateRecords": "السماح باختيار السجلات أكثر من مرة",
+      "allowSymmetricFieldLinkMultipleRecords": "السماح باختيار السجلات أكثر من مرة",
+      "oneToOne": "واحد إلى واحد",
+      "oneToMany": "واحد إلى متعدد",
+      "manyToOne": "متعدد إلى واحد",
+      "manyToMany": "متعدد إلى متعدد",
+      "self": "ذاتي",
+      "selectTable": "اختر جدولًا...",
+      "selectBase": "اختر قاعدة بيانات...",
+      "linkFromAnotherBase": "الربط من قاعدة بيانات أخرى",
+      "inSelfLink": "في رابط ذاتي",
+      "betweenTwoTables": "بين جدولين",
+      "tips": "تلميحات",
+      "linkTipMessage": "يمثّل هذا الإعداد علاقة<br></br> <b>{{relationship}}</b> <span>{{linkType}}</span>",
+      "style": "النمط",
+      "maximum": "الحد الأقصى",
+      "addOption": "إضافة خيار",
+      "allowMultiUsers": "السماح بإضافة عدة مستخدمين",
+      "notifyUsers": "إشعار المستخدمين فور اختيارهم",
+      "searchTable": "ابحث عن جدول...",
+      "calculating": "جارٍ الحساب...",
+      "doSaveChanges": "هل تريد حفظ التغييرات التي أجريتها؟",
+      "linkFieldToLookup": "حقل السجل المرتبط المستخدَم للبحث",
+      "lookupToTable": "الحقل من <bold>{{tableName}}</bold> الذي تريد البحث فيه",
+      "rollupToTable": "الحقل من <bold>{{tableName}}</bold> الذي تريد تجميعه",
+      "selectField": "اختر حقلًا...",
+      "lastModifiedScope": "الحقول",
+      "lastModifiedAll": "جميع الحقول القابلة للتعديل",
+      "lastModifiedSpecific": "حقول محددة",
+      "lastModifiedSelect": "الحقول المتتبَّعة",
+      "noEditableFields": "لا توجد حقول قابلة للتعديل",
+      "conditionalLookup": {
+        "sortLimitToggleLabel": "فرز السجلات المرتبطة وتحديد عدد المطابقات",
+        "sortLabel": "فرز النتائج",
+        "limitLabel": "الحد الأقصى للسجلات المضمَّنة",
+        "limitPlaceholder": "اتركه فارغًا لتضمين كل المطابقات",
+        "limitHint": "لا نُبقي سوى {{limit}} من السجلات المطابقة.",
+        "sortMissingWarningTitle": "حقل الفرز غير متاح",
+        "sortMissingWarningDescription": "حُذف الحقل الذي كان يعتمد عليه هذا الفرز. لذا تتجاهل النتائج الفرز وتلتزم بالحد الأقصى فقط."
+      },
+      "linkTable": "الجدول المرتبط",
+      "linkBase": "قاعدة بيانات الربط",
+      "tableNoPermission": "جدول بلا صلاحية",
+      "baseNoPermission": "قاعدة بيانات بلا صلاحية",
+      "noLinkTip": "لا توجد سجلات مرتبطة للبحث فيها. أضف حقل ربط بسجل آخر، ثم أعد إعداد البحث.",
+      "fieldValidationRules": "قواعد التحقق من قيمة الحقل",
+      "enableValidateFieldUnique": "قيم فريدة فقط",
+      "enableValidateFieldNotNull": "مطلوب",
+      "knowMore": "اعرف المزيد",
+      "linkFieldKnowMoreLink": "https://help.teable.ai/en/basic/field/advanced/link",
+      "showByField": "عرض السجلات حسب الحقل",
+      "filterByView": "تصفية السجلات حسب العرض",
+      "filter": "تصفية السجلات",
+      "hideFields": "إخفاء الحقول",
+      "moreOptions": "خيارات إضافية",
+      "allowNewOptionsWhenEditing": "السماح بخيارات جديدة أثناء التعديل",
+      "deleteField": {
+        "title": "حذف الحقل",
+        "simpleConfirm": "هل أنت متأكد من حذف الحقل <b>{{fieldName}}</b>؟",
+        "withDependencies": "سيؤثر حذف الحقل <b>{{fieldName}}</b> في الحقول التالية:",
+        "deleteCount": "حذف {{count}} حقل",
+        "riskIdentified": "مخاطر مرصودة ({{count}})",
+        "noDependencies": "غير مُشار إليه ({{count}})",
+        "safeToDelete": "آمن للحذف",
+        "safeToDeleteDesc": "لا تشير إليه حقول أخرى، ويمكن حذفه بأمان",
+        "affectedItems": "العناصر المتأثرة",
+        "type": "النوع",
+        "source": "المصدر",
+        "loginEmailFieldWarning": "يُستخدم هذا الحقل كمعرّف البريد الإلكتروني لتسجيل الدخول. وسيؤدي حذفه إلى تعطيل تسجيل الدخول في التطبيقات التالية:",
+        "loginEmailFieldConvertWarning": "يُستخدم هذا الحقل كحقل البريد الإلكتروني لتسجيل الدخول في التطبيقات. وسيؤدي تغيير نوعه إلى تعطيل تسجيل الدخول في التطبيقات التالية:"
+      }
+    },
+    "subTitle": {
+      "link": "الربط بسجلات في الجدول الذي تختاره",
+      "singleLineText": "أدخل نصًا، أو عبِّئ كل خلية جديدة مسبقًا بقيمة افتراضية.",
+      "longText": "أدخل نصًا متعدد الأسطر.",
+      "attachment": "أضف صورًا أو ولّدها بالذكاء الاصطناعي، أو ارفع مستندات وملفات أخرى لعرضها أو تنزيلها.",
+      "checkbox": "حدّد أو ألغِ التحديد للإشارة إلى الحالة.",
+      "multipleSelect": "اختر خيارًا واحدًا أو أكثر من قائمة محددة مسبقًا.",
+      "singleSelect": "اختر خيارًا واحدًا من قائمة محددة مسبقًا، أو عبِّئ كل خلية جديدة مسبقًا بخيار افتراضي.",
+      "user": "أضف مستخدمًا إلى سجل.",
+      "date": "أدخل تاريخًا (مثل 11/12/2023) أو اختره من التقويم.",
+      "number": "أدخل رقمًا، أو عبِّئ كل خلية جديدة مسبقًا بقيمة افتراضية.",
+      "rating": "أضف تقييمًا وفق مقياس محدد مسبقًا.",
+      "formula": "احسب القيم بناءً على الحقول.",
+      "rollup": "لخّص بيانات السجلات المرتبطة.",
+      "conditionalRollup": "تلخّص القيم من جدول مرتبط باستخدام عوامل تصفية شرطية.",
+      "conditionalLookup": "اعرض القيم المرتبطة المستوفية لشروط التصفية.",
+      "createdTime": "اطّلع على تاريخ ووقت إنشاء كل سجل.",
+      "lastModifiedTime": "اطّلع على تاريخ ووقت آخر تعديل على بعض حقول السجل أو كلها.",
+      "createdBy": "اطّلع على المستخدم الذي أنشأ السجل.",
+      "lastModifiedBy": "اطّلع على المستخدم الذي أجرى آخر تعديل على بعض حقول السجل أو كلها.",
+      "autoNumber": "توليد أرقام تسلسلية فريدة تلقائيًا لكل سجل.",
+      "button": "تشغيل إجراء مخصص.",
+      "lookup": "اعرض قيم حقل من سجل مرتبط."
+    },
+    "fieldName": "اسم الحقل",
+    "fieldNameOptional": "اسم الحقل (اختياري)",
+    "fieldType": "نوع الحقل",
+    "aiConfig": {
+      "title": "إعداد الذكاء الاصطناعي",
+      "type": {
+        "summary": "تلخيص",
+        "translation": "ترجمة",
+        "extraction": "استخراج المعلومات",
+        "improvement": "تحسين",
+        "tag": "وسم ذكي",
+        "classification": "تصنيف ذكي",
+        "customization": "تخصيص",
+        "imageGeneration": "توليد الصور",
+        "rating": "تقييم"
+      },
+      "label": {
+        "type": "نوع إجراء الذكاء الاصطناعي",
+        "model": "نموذج الذكاء الاصطناعي",
+        "targetLanguage": "اللغة الهدف",
+        "sourceField": "الحقل المصدر",
+        "sourceFieldForTag": "اختر حقلًا وطابقه مع الوسوم المنشأة",
+        "sourceFieldForClassify": "اختر حقلًا وطابقه مع التصنيفات المنشأة",
+        "attachPrompt": "إرفاق متطلبات",
+        "prompt": "تخصيص المطالبة",
+        "sourceFieldForAttachment": "الحقل المصدر للمرفق",
+        "imageSize": "حجم الصورة",
+        "imageQuality": "جودة الصورة",
+        "imageCount": "عدد الصور",
+        "aspectRatio": "نسبة العرض إلى الارتفاع",
+        "resolution": "الدقة",
+        "advancedSettings": "إعدادات متقدمة"
+      },
+      "placeholder": {
+        "summarize": "ملخّص المحتوى",
+        "translate": "ترجمة موجزة وسهلة الفهم وبأسلوب خفيف",
+        "extractInfo": "استخرج البريد الإلكتروني والهاتف والاسم والعنوان...",
+        "extractDate": "استخرج وقت البدء",
+        "improveText": "رسمي، ودود، طريف...",
+        "attachPromptForTag": "لا يُسمح بتجاوز ثلاثة وسوم",
+        "attachPromptForClassify": "صنّف \"قيد التنفيذ\" على أنه \"بلا مخاطر\"",
+        "prompt": "أدخل الحقل المُشار إليه أو اختره",
+        "type": "اختر إجراء الذكاء الاصطناعي",
+        "targetLanguage": "الإنجليزية، الصينية، الفرنسية...",
+        "imageSize": "يرجى إدخال حجم الصورة",
+        "imageQuality": "يرجى إدخال جودة الصورة",
+        "aspectRatio": "اختر نسبة العرض إلى الارتفاع",
+        "resolution": "اختر الدقة",
+        "attachPromptForImageGeneration": "ينبغي أن تكون الصورة حيّة وطبيعية",
+        "attachPromptForRating": "قيّم جودة الصورة"
+      },
+      "imageQuality": {
+        "low": "منخفضة",
+        "medium": "متوسطة",
+        "high": "عالية"
+      },
+      "hint": {
+        "imageInputSupported": "💡 يدعم هذا النموذج إدخال الصور. يمكنك اختيار حقل مرفقات لاستخدام الصور كمرجع للتوليد.",
+        "attachmentNotSupported": "💡 لا يدعم هذا النموذج إدخال المرفقات. ولا تدعم توليد صورة من صورة سوى نماذج Gemini.",
+        "singleImageOnly": "لا يمكن لهذا النموذج توليد سوى صورة واحدة في المرة"
+      },
+      "tip": {
+        "gptImageResolution": "لا تزال دقة 4K مقيّدة بالحد الأقصى لإجمالي البكسلات، لذا تستخدم بعض نسب الأبعاد أكبر مقاس متوافق بدلًا من ضلع كامل بطول 3840 بكسل."
+      },
+      "auto": "تلقائي",
+      "resolution": {
+        "1K": "‏1K (قياسي)",
+        "2K": "‏2K (عالي الدقة)",
+        "4K": "‏4K (فائق الدقة)"
+      },
+      "autoFill": {
+        "title": "تحديث تلقائي",
+        "tip": "بعد التفعيل، سيُحدَّث الحقل الحالي تزامنًا مع تغيّرات محتوى إعداد الذكاء الاصطناعي"
+      },
+      "autoFillFieldDialog": {
+        "title": "إعادة توليد حقل الذكاء الاصطناعي",
+        "description": "سيجري التوليد لـ {{count}} صف في العرض الحالي. وستعمل المهمة في الخلفية."
+      },
+      "autoFillConfirm": {
+        "title": "تطبيق إعداد حقل الذكاء الاصطناعي",
+        "description": "سيجري التوليد لـ {{count}} صف في العرض الحالي. وستعمل المهمة في الخلفية.",
+        "emptyOnlyMode": "تعبئة الخلايا الفارغة فقط",
+        "emptyOnlyModeDesc": "التوليد للخلايا الفارغة فقط، ولن يُستبدل المحتوى الموجود",
+        "allMode": "توليد العمود بالكامل",
+        "allModeDesc": "التوليد لجميع الصفوف، وسيُستبدل المحتوى الموجود",
+        "saveOnlyMode": "حفظ الإعدادات فقط",
+        "saveOnlyModeDesc": "حفظ إعدادات الحقل فقط، ولن تُكتب أي خلايا",
+        "saveConfigOnly": "حفظ الإعداد فقط",
+        "fillEmptyCells": "تعبئة الخلايا الفارغة",
+        "generateAll": "توليد الكل",
+        "recommended": "موصى به",
+        "generateFailed": "فشل التوليد",
+        "limitWarning": "نظرًا لحد 1000 صف لكل مهمة، ستُعالَج أول 1000 صف فقط. يمكنك تشغيل المهمة مرة أخرى لمعالجة الصفوف المتبقية."
+      }
+    }
+  },
+  "table": {
+    "newTableLabel": "جدول جديد",
+    "rename": "إعادة تسمية",
+    "tableRecordHistory": "سجل التغييرات",
+    "deleteConfirm": "هل أنت متأكد من حذف \"{{tableName}}\"؟",
+    "dbTableName": "اسم الجدول في قاعدة البيانات الفعلية",
+    "schemaName": "اسم المخطط في قاعدة البيانات الفعلية",
+    "baseInfo": "معلومات قاعدة البيانات",
+    "loginUserTable": "تسجيل الدخول إلى التطبيق",
+    "linkedApps": "التطبيقات المرتبطة",
+    "typeOfDatabase": "نوع قاعدة البيانات",
+    "descriptionForTable": "وصف هذا الجدول",
+    "nameForTable": "اسم هذا الجدول",
+    "deleteTip1": "ستُحوَّل حقول الربط المرتبطة بهذا الجدول في الجداول الأخرى إلى نص.",
+    "deleteWithDependencies": "سيؤثر حذف الجدول <b>{{tableName}}</b> في الحقول التالية:",
+    "loginDeleteWarning": "تستخدم التطبيقات التالية هذا الجدول كجدول للمستخدمين. وسيؤدي حذفه إلى تعطيل وظيفة تسجيل الدخول فيها.",
+    "operator": {
+      "createBlank": "جدول جديد"
+    },
+    "actionTips": {
+      "copyAndPasteEnvironment": "لا يعمل النسخ واللصق إلا عبر HTTPS أو على localhost",
+      "copyAndPasteBrowser": "النسخ واللصق غير مدعومين في هذا المتصفح",
+      "copying": "جارٍ النسخ...",
+      "copySuccessful": "تم النسخ بنجاح",
+      "copyFailed": "فشل النسخ",
+      "pasting": "جارٍ اللصق...",
+      "pasteSuccessful": "تم اللصق بنجاح",
+      "pasteFailed": "فشل اللصق",
+      "pasteNoEditableFields": "الحقول المحددة للقراءة فقط ولا يمكن اللصق فيها.",
+      "filling": "جارٍ التعبئة...",
+      "fillSuccessful": "تمت التعبئة بنجاح",
+      "fillFailed": "فشلت التعبئة",
+      "clearing": "جارٍ المسح...",
+      "clearSuccessful": "تم المسح بنجاح",
+      "clearFailed": "فشل المسح",
+      "clearConfirmTitle": "مسح البيانات",
+      "clearConfirmDescription": "سيمسح هذا الإجراء {{cellCount}} خلية في {{rowCount}} سجل. هل تريد المتابعة؟",
+      "archiveRecordConfirmTitle": "أرشفة السجلات",
+      "archiveRecordConfirmDescription": "سيؤدي هذا الإجراء إلى أرشفة {{recordCount}} سجل. ويمكن عرض السجلات المؤرشفة واستعادتها من أرشيف الجدول.",
+      "archiveRecord": "أرشفة",
+      "archiving": "جارٍ الأرشفة...",
+      "archiveSuccessful": "تمت الأرشفة بنجاح",
+      "deleteRecordConfirmTitle": "حذف السجلات",
+      "deleteRecordConfirmDescription": "سيحذف هذا الإجراء {{recordCount}} سجل. هل تريد المتابعة؟",
+      "duplicateRecordsConfirmTitle": "تكرار السجلات",
+      "duplicateRecordsConfirmDescription": "سيكرر هذا الإجراء {{recordCount}} سجل. هل تريد المتابعة؟",
+      "pasteConfirmTitle": "تنفيذ اللصق",
+      "pasteConfirmDescription": "أنت على وشك تنفيذ لصق سيستبدل {{recordCount}} سجل. هل تريد المتابعة؟",
+      "paste": "لصق",
+      "deleteRecord": "حذف",
+      "clear": "مسح",
+      "deleting": "جارٍ الحذف...",
+      "duplicating": "جارٍ التكرار...",
+      "deleteFailed": "فشل الحذف",
+      "deleteSuccessful": "تم الحذف بنجاح",
+      "duplicateFailed": "فشل التكرار",
+      "duplicateSuccessful": "تم التكرار بنجاح",
+      "duplicateRecords": "تكرار",
+      "deleteStream": {
+        "preparing": "تحضير التحديد",
+        "deleting": "جارٍ حذف السجلات",
+        "descriptionWithIssues": "فشلت بعض دفعات الحذف. راجع التفاصيل أدناه.",
+        "completedWithIssues": "اكتمل الحذف مع وجود مشكلات",
+        "issuesBadge": "{{count}} مشكلة",
+        "chunkFailureTitle": "تفاصيل إخفاق الدفعات",
+        "chunkFailureSummary": "أبلغت {{count}} دفعة عن خطأ بينما استمر التدفق في العمل.",
+        "chunkLabel": "الدفعة {{index}}",
+        "rowsLabel": "{{count}} صف",
+        "phaseLabel": {
+          "preparing": "التحضير",
+          "guarding": "الفحص",
+          "deleting": "الحذف",
+          "publishing": "النشر",
+          "finalizing": "الإنهاء"
+        }
+      },
+      "duplicateStream": {
+        "preparing": "جارٍ تجهيز التحديد",
+        "duplicating": "جارٍ تكرار السجلات",
+        "descriptionWithIssues": "فشلت بعض دفعات التكرار. راجع التفاصيل أدناه.",
+        "completedWithIssues": "اكتمل التكرار مع وجود مشكلات",
+        "issuesBadge": "{{count}} مشكلة",
+        "chunkFailureTitle": "تفاصيل فشل الدفعة",
+        "chunkFailureSummary": "أبلغت {{count}} دفعة عن خطأ بينما استمر التدفق في العمل.",
+        "chunkLabel": "الدفعة {{index}}",
+        "rowsLabel": "{{count}} صف",
+        "phaseLabel": {
+          "preparing": "التحضير",
+          "guarding": "التحقق",
+          "processing": "التكرار",
+          "publishing": "النشر",
+          "finalizing": "الإنهاء"
+        }
+      },
+      "pasteStream": {
+        "preparing": "جارٍ تجهيز التحديد",
+        "pasting": "جارٍ لصق السجلات",
+        "descriptionWithIssues": "فشلت بعض دفعات اللصق. راجع التفاصيل أدناه.",
+        "completedWithIssues": "اكتمل اللصق مع وجود مشكلات",
+        "issuesBadge": "{{count}} مشكلة",
+        "chunkFailureTitle": "تفاصيل فشل الدفعة",
+        "chunkFailureSummary": "أبلغت {{count}} دفعة عن خطأ بينما استمر التدفق في العمل.",
+        "chunkLabel": "الدفعة {{index}}",
+        "rowsLabel": "{{count}} صف",
+        "phaseLabel": {
+          "preparing": "التحضير",
+          "guarding": "التحقق",
+          "processing": "اللصق",
+          "publishing": "النشر",
+          "finalizing": "الإنهاء"
+        }
+      },
+      "clearStream": {
+        "confirmDescription": "سيمسح هذا الإجراء القيم في {{recordCount}} سجل. هل تريد المتابعة؟",
+        "preparing": "جارٍ تجهيز التحديد",
+        "clearing": "جارٍ مسح السجلات",
+        "descriptionWithIssues": "فشلت بعض دفعات المسح. راجع التفاصيل أدناه.",
+        "completedWithIssues": "اكتمل المسح مع وجود مشكلات",
+        "issuesBadge": "{{count}} مشكلة",
+        "chunkFailureTitle": "تفاصيل فشل الدفعة",
+        "chunkFailureSummary": "أبلغت {{count}} دفعة عن خطأ بينما استمر التدفق في العمل.",
+        "chunkLabel": "الدفعة {{index}}",
+        "rowsLabel": "{{count}} صف",
+        "phaseLabel": {
+          "preparing": "التحضير",
+          "guarding": "التحقق",
+          "processing": "المسح",
+          "publishing": "النشر",
+          "finalizing": "الإنهاء"
+        }
+      },
+      "restoreFieldStream": {
+        "confirmTitle": "استعادة الحقول",
+        "confirmDescription": "سيستعيد هذا الإجراء الحقول المحذوفة وقيم سجلاتها.",
+        "preparing": "جارٍ تجهيز استعادة الحقول",
+        "restoring": "جارٍ استعادة الحقول...",
+        "restoringRecords": "جارٍ استعادة قيم السجلات",
+        "restoreFailed": "فشلت الاستعادة",
+        "descriptionWithIssues": "فشلت بعض دفعات الاستعادة. راجع التفاصيل أدناه.",
+        "completedWithIssues": "اكتملت الاستعادة مع وجود مشكلات",
+        "issuesBadge": "{{count}} مشكلة",
+        "chunkFailureTitle": "تفاصيل فشل الدفعة",
+        "chunkFailureSummary": "أبلغت {{count}} دفعة عن خطأ بينما استمر التدفق في العمل.",
+        "chunkLabel": "الدفعة {{index}}",
+        "rowsLabel": "{{count}} صف",
+        "phaseLabel": {
+          "preparing": "التحضير",
+          "guarding": "التحقق",
+          "processing": "الاستعادة",
+          "publishing": "النشر",
+          "finalizing": "الإنهاء"
+        }
+      },
+      "pasteFileFailed": "لا يمكن لصق الملفات إلا في حقل مرفقات",
+      "copyError": {
+        "noFocus": "يرجى إبقاء الصفحة نشطة وعدم تبديل النوافذ",
+        "noPermission": "ليست لديك صلاحية نسخ السجلات"
+      },
+      "crossBaseCopyTitle": "النسخ كنص عادي؟",
+      "crossBaseCopyDescription": "يتضمن هذا التحديد حقل ربط عبر القواعد. وللإبقاء على البيانات داخل قاعدتها الأصلية، سيُنسخ الحقل كنص عادي وستُفقد علاقات الربط.",
+      "crossBaseCopyConfirm": "النسخ كنص عادي",
+      "crossBaseCopyLoadFirst": "يرجى التمرير لتحميل كل الصفوف المحددة قبل نسخ الحقول العابرة للقواعد."
+    },
+    "graph": {
+      "effectCells": "قد يؤثر في خلايا",
+      "estimatedTime": "الوقت المقدَّر",
+      "linkFieldCount": "يؤثر في عدد الحقول المرتبطة"
+    },
+    "integrity": {
+      "check": "فحص",
+      "title": "فحص السلامة",
+      "loading": "جارٍ فحص السلامة...",
+      "allGood": "كل شيء على ما يرام!",
+      "fixIssues": "إصلاح المشكلات",
+      "type": "النوع",
+      "message": "رسالة الخطأ",
+      "v2": {
+        "dialogTitle": "سلامة المخطط",
+        "dialogDescription": "شغّل فاحص المخطط v2 ومسار الإصلاح لـ {{tableName}}.",
+        "dialogDescriptionNoTable": "شغّل فاحص المخطط v2 ومسار الإصلاح للقاعدة الحالية.",
+        "runCheck": "تشغيل الفحص",
+        "recheck": "إعادة الفحص",
+        "repair": "إصلاح",
+        "repairWarnings": "إصلاح التحذيرات فقط",
+        "repairWarningsAndErrors": "إصلاح التحذيرات والأخطاء",
+        "repairRule": "قاعدة الإصلاح",
+        "repairUnavailable": "لا يمكن إصلاح هذه القاعدة تلقائيًا",
+        "manual": "يدوي",
+        "manualRepairNotice": "تحتاج هذه المشكلة إلى إصلاح يدوي",
+        "manualRepairNoticeWithCount": "تحتاج {{count}} مشكلة إلى إصلاح يدوي. استخدم إجراء \"يدوي\" على يمين كل قاعدة لفتح مربع حوار الإصلاح.",
+        "manualRepairDialogTitle": "الإصلاح اليدوي مطلوب",
+        "manualRepairDialogDescription": "لا يمكن إصلاح هذه المشكلة تلقائيًا. راجع الإرشادات أدناه واختر طريقة الإصلاح.",
+        "manualRepairDialogReason": "لماذا يلزم الإصلاح اليدوي",
+        "manualRepairDialogHint": "يرشد مربع الحوار هذا المستخدم حاليًا عبر خيارات الإصلاح التي تتطلبها القاعدة. ويمكن إضافة التنفيذ فوق هذا العقد لاحقًا.",
+        "manualRepairDialogClose": "إغلاق",
+        "repairPreviewTitle": "تأكيد تفاصيل الإصلاح",
+        "repairPreviewDescription": "هذه التفاصيل مستمدة من تشغيل تجريبي للإصلاح. ولن يُنفَّذ الإصلاح إلا بعد تأكيدك.",
+        "repairPreviewTooltip": "يفتح خطة الإصلاح من التشغيل التجريبي. وسيعرض مربع الحوار جملة SQL المُرجَعة أو يوضح صراحةً عدم توفرها.",
+        "repairPreviewMissingTable": "لا تتضمن نتيجة الفحص هذه جدولًا، لذا يتعذّر تحديد هدف الإصلاح التجريبي.",
+        "repairPreviewUnavailableStatus": "لا تحتاج هذه الحالة إلى إصلاح، لذا يتعذّر إنشاء خطة إصلاح تجريبية.",
+        "repairPreviewWhat": "ما الذي سيتم إصلاحه",
+        "repairPreviewTarget": "قاعدة \"{{ruleName}}\" للحقل \"{{fieldName}}\"",
+        "repairPreviewPrinciple": "كيف يعمل الإصلاح",
+        "repairPreviewNoPrinciple": "لم تُرجع هذه القاعدة إرشادات إصلاح إضافية.",
+        "repairPreviewSql": "جملة SQL المراد تنفيذها",
+        "repairPreviewNoSql": "لم يُرجع التشغيل التجريبي جملة SQL قابلة للتنفيذ، لذا لا يمكن تشغيل الإصلاح التلقائي مباشرةً.",
+        "repairPreviewCannotConfirm": "أرجع التشغيل التجريبي جملة SQL، لكن لا يمكن تأكيد هذه القاعدة للإصلاح التلقائي حاليًا. ولا يزال بإمكانك مراجعة خطة الإصلاح.",
+        "repairPreviewParameters": "المعاملات",
+        "repairPreviewConfirm": "تشغيل الإصلاح",
+        "checking": "جارٍ فحص المخطط...",
+        "repairing": "جارٍ إصلاح المخطط...",
+        "streamError": "فشل بث نتائج سلامة المخطط.",
+        "noTableSelected": "اختر جدولًا أولًا لتشغيل فاحص المخطط v2.",
+        "noResults": "لا توجد نتائج مخطط بعد.",
+        "noFilteredResults": "لا توجد نتائج مطابقة للمرشّحات الحالية.",
+        "systemColumns": "أعمدة النظام",
+        "general": "عام",
+        "optional": "اختياري",
+        "statementCount": "{{count}} عبارة",
+        "detailsMissing": "ناقص: {{details}}",
+        "detailsExtra": "زائد: {{details}}",
+        "message": {
+          "schemaValid": "المخطط صالح",
+          "schemaValidationFailed": "فشل التحقق من المخطط",
+          "schemaElementMissing": "عنصر مخطط مفقود",
+          "schemaAlreadyValid": "المخطط صالح بالفعل",
+          "schemaRepaired": "تم إصلاح المخطط بنجاح",
+          "manualRepair": "تتطلب القاعدة إصلاحًا يدويًا",
+          "noRepairStatements": "لا تتوفر عبارات إصلاح",
+          "skippedDependencies": "تم التخطي لعدم استيفاء التبعيات",
+          "checkStreamConnected": "اتّصل بث فحص سلامة المخطط",
+          "baseCheckStreamConnected": "اتّصل بث فحص سلامة مخطط القاعدة",
+          "repairStreamConnected": "اتّصل بث إصلاح سلامة المخطط",
+          "baseRepairStreamConnected": "اتّصل بث إصلاح سلامة مخطط القاعدة",
+          "checkCompleted": "اكتمل فحص سلامة المخطط",
+          "baseCheckCompleted": "اكتمل فحص سلامة مخطط القاعدة",
+          "repairCompleted": "اكتمل إصلاح سلامة المخطط",
+          "baseRepairCompleted": "اكتمل إصلاح سلامة مخطط القاعدة",
+          "skippedStatusNotSelected": "تم التخطي لأن مستوى الحالة هذا لم يُحدَّد للإصلاح",
+          "skippedRepairUnavailable": "تم التخطي لأن الإصلاح التلقائي غير متاح في الحالة الراهنة"
+        },
+        "rule": {
+          "column": "عمود فعلي",
+          "columnTyped": "عمود فعلي ({{dataType}})",
+          "notNull": "قيد NOT NULL",
+          "columnUnique": "قيد UNIQUE",
+          "fkColumn": "عمود مفتاح أجنبي",
+          "index": "فهرس",
+          "uniqueIndex": "فهرس فريد",
+          "primaryKey": "PRIMARY KEY",
+          "defaultExpression": "تعبير افتراضي",
+          "foreignKey": "قيد مفتاح أجنبي",
+          "junctionTable": "جدول وصل",
+          "junctionUnique": "قيد فريد لجدول الوصل",
+          "junctionIndex": "فهرس جدول الوصل",
+          "junctionForeignKey": "مفتاح أجنبي لجدول الوصل",
+          "reference": "سجلات المرجع",
+          "generatedColumn": "عمود مُولَّد",
+          "generatedMeta": "حالة العمود المُولَّد",
+          "linkValueColumn": "عمود قيمة الربط",
+          "orderColumn": "عمود الترتيب",
+          "fieldMeta": "بيانات الحقل الوصفية",
+          "symmetricField": "علاقة الحقل المتناظر",
+          "systemColumn": "عمود النظام \"{{columnName}}\"",
+          "connection": "الاتصال",
+          "completion": "الإكمال",
+          "unexpected": "خطأ غير متوقع"
+        },
+        "detail": {
+          "systemColumnMissing": "لم يُعثر على عمود النظام \"{{columnName}}\"",
+          "systemColumnNotNull": "ينبغي أن يكون عمود النظام \"{{columnName}}\" بقيد NOT NULL",
+          "systemColumnUnique": "ينبغي أن يكون لعمود النظام \"{{columnName}}\" فهرس UNIQUE",
+          "systemColumnPrimaryKey": "ينبغي أن يكون عمود النظام \"{{columnName}}\" مفتاحًا رئيسيًا",
+          "systemColumnDefault": "ينبغي أن يكون لعمود النظام \"{{columnName}}\" تعبير افتراضي",
+          "columnUniqueMissing": "يجب أن يكون الحقل \"{{fieldName}}\" فريدًا",
+          "columnUniqueMissingDescription": "أضف قيد UNIQUE إلى \"{{fieldName}}\" حتى لا يمكن كتابة قيم مكررة.",
+          "columnUniqueIndexMismatch": "يفتقر الحقل \"{{fieldName}}\" إلى الفهرس الفريد المتوقع",
+          "columnUniqueIndexMismatchDescription": "أعد بناء فهرس \"{{fieldName}}\" كفهرس فريد حتى تتبع عمليات القراءة والكتابة قاعدة تفرد الحقل.",
+          "foreignKeyMissing": "يفتقر الحقل \"{{fieldName}}\" إلى قيد المفتاح الخارجي",
+          "foreignKeyMissingDescription": "استعِد المفتاح الخارجي من \"{{fieldName}}\" إلى \"{{targetTableName}}\" حتى تظل السجلات المرتبطة متسقة.",
+          "foreignKeyTargetTableMissing": "تعذّر العثور على الجدول المرتبط بالحقل \"{{fieldName}}\"",
+          "foreignKeyTargetTableMissingDescription": "لا يستطيع الإصلاح التلقائي استعادة المفتاح الخارجي للحقل \"{{fieldName}}\" لأن الجدول الهدف \"{{targetPhysicalTableName}}\" غير موجود.",
+          "foreignKeyOrphanRows": "لا يزال الحقل \"{{fieldName}}\" يحتوي على {{count}} صف تشير إلى سجلات مرتبطة مفقودة",
+          "foreignKeyOrphanRowsDescription": "لا يستطيع الإصلاح التلقائي استعادة المفتاح الأجنبي لـ \"{{fieldName}}\" قبل تنظيف الـ {{count}} مرجعًا غير الصالح إلى \"{{targetTableName}}\".",
+          "junctionForeignKeyMissing": "يفتقد جدول الوصل الخاص بـ \"{{fieldName}}\" أحد مفاتيحه الأجنبية",
+          "junctionForeignKeyMissingDescription": "استعد المفتاح الأجنبي لجدول وصل \"{{fieldName}}\" لتبقى صفوف العلاقة مرتبطة بسجلات موجودة في \"{{targetTableName}}\".",
+          "junctionForeignKeyTargetTableMissing": "تعذّر العثور على الجدول المرتبط بجدول وصل \"{{fieldName}}\"",
+          "junctionForeignKeyTargetTableMissingDescription": "لا يستطيع الإصلاح التلقائي استعادة المفتاح الأجنبي لجدول وصل \"{{fieldName}}\" لأن الجدول الهدف \"{{targetPhysicalTableName}}\" غير موجود.",
+          "junctionForeignKeyOrphanRows": "لا يزال جدول وصل \"{{fieldName}}\" يحتوي على {{count}} صف تشير إلى سجلات مرتبطة مفقودة",
+          "junctionForeignKeyOrphanRowsDescription": "لا يستطيع الإصلاح التلقائي استعادة المفتاح الأجنبي لجدول وصل \"{{fieldName}}\" قبل تنظيف الـ {{count}} صف علاقة غير صالح التي تشير إلى \"{{targetTableName}}\".",
+          "referenceMissing": "يفتقر الحقل \"{{fieldName}}\" إلى تعيين مرجعي",
+          "referenceMissingDescription": "استعِد البيانات الوصفية للمراجع بين \"{{fieldName}}\" وحقل التبعية الخاص به حتى تنتشر تحديثات البحث والعلاقات بشكل صحيح.",
+          "symmetricFieldTargetMissing": "تعذّر العثور على حقل الربط المقابل للحقل \"{{fieldName}}\"",
+          "symmetricFieldWrongType": "الحقل المقابل للحقل \"{{fieldName}}\" ليس حقل ربط",
+          "symmetricFieldInvalidOptions": "إعدادات الربط في الحقل المقابل للحقل \"{{fieldName}}\" غير صالحة",
+          "symmetricFieldMissingBackReference": "الحقل المقابل للحقل \"{{fieldName}}\" لا يشير إلى الحقل الحالي",
+          "symmetricFieldWrongBackReference": "يشير الحقل المقابل للحقل \"{{fieldName}}\" إلى حقل آخر بدلًا من الحقل الحالي",
+          "symmetricFieldDuplicateUsage": "هدف الربط المتناظر \"{{symmetricFieldId}}\" مستخدَم أيضًا من قِبل \"{{conflictFieldName}}\"",
+          "symmetricFieldDuplicateUsageDescription": "يجب أن يكون لكل زوج ربط ثنائي الاتجاه حقل متناظر فريد. اختر الحقل الذي سيحتفظ بهذه العلاقة قبل الإصلاح."
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "هذه القاعدة صالحة بالفعل",
+            "manualRule": "تتطلب هذه القاعدة قرارًا يدويًا",
+            "statementGenerationFailed": "تعذّر على النظام توليد عبارة إصلاح آمنة",
+            "noStatements": "ليس لهذه القاعدة عبارة إصلاح تلقائي",
+            "symmetricFieldConflict": "يحتاج تعارض الربط المتناظر هذا إلى اختيار يدوي",
+            "symmetricFieldMissing": "حقل الربط المقابل مفقود ويتطلب تأكيدًا قبل الإصلاح",
+            "symmetricFieldBroken": "حقل الربط المقابل تالف ويتطلب تأكيدًا قبل الإصلاح",
+            "foreignKeyTargetTableMissing": "الإصلاح التلقائي غير متاح لأن الجدول المرتبط مفقود",
+            "foreignKeyOrphanRows": "الإصلاح التلقائي غير متاح لأن صفوفًا مرتبطة غير صالحة ما زالت موجودة",
+            "junctionForeignKeyTargetTableMissing": "الإصلاح التلقائي غير متاح لأن جدول الوصل الهدف مفقود",
+            "junctionForeignKeyOrphanRows": "الإصلاح التلقائي غير متاح لأن صفوف وصل غير صالحة ما زالت موجودة"
+          },
+          "description": {
+            "autoRule": "سينفّذ الإصلاح جمل المخطط التي أنشأتها هذه القاعدة، ثم يعيد فحص القاعدة للتأكد من صحة المخطط.",
+            "symmetricFieldConflict": "يشير أكثر من حقل إلى هدف الربط المتناظر نفسه. اختر أي حقل ينبغي أن يملك العلاقة ثنائية الاتجاه قبل الإصلاح.",
+            "symmetricFieldMissing": "حوّل الرابط الحالي إلى اتجاه واحد، ثم أعد تشغيل الإصلاح ليتسنى إعادة إنشاء قواعد جدول الوصل التابعة عند الحاجة.",
+            "symmetricFieldBroken": "حوّل الرابط الحالي إلى اتجاه واحد، ثم أعد تشغيل الإصلاح ليتسنى إعادة فحص قواعد مخطط الروابط التابعة.",
+            "foreignKeyTargetTableMissing": "تحقّق مما إذا كان الجدول المرتبط {{targetPhysicalTableName}} قد حُذف أو أُعيدت تسميته. أعد إنشاء الجدول، أو حدّث إعداد الربط لـ \"{{fieldName}}\" أو أزله، ثم أعد تشغيل الفحص.",
+            "foreignKeyOrphanRows": "نظّف الصفوف المرتبطة غير الصالحة لـ \"{{fieldName}}\" قبل إعادة إضافة قيد المفتاح الأجنبي.",
+            "junctionForeignKeyTargetTableMissing": "تحقّق مما إذا كان الجدول الهدف {{targetPhysicalTableName}} قد حُذف أو أُعيدت تسميته. أعد إنشاء الجدول، أو حدّث إعداد الربط لـ \"{{fieldName}}\" أو أزله، ثم أعد تشغيل الفحص.",
+            "junctionForeignKeyOrphanRows": "نظّف صفوف الوصل غير الصالحة لـ \"{{fieldName}}\" قبل إعادة إضافة المفتاح الأجنبي."
+          },
+          "manual": {
+            "apply": "تطبيق الإصلاح اليدوي",
+            "symmetricField": {
+              "title": "حلّ تعارض الربط المتناظر",
+              "description": "اختر كيف ينبغي إصلاح هذا الربط المتناظر المكرر.",
+              "resolutionLabel": "استراتيجية الإصلاح",
+              "resolutionDescription": "اختر أي حقل ينبغي أن يحتفظ بسلوك الربط ثنائي الاتجاه.",
+              "option": {
+                "keepCurrent": "الإبقاء على الحقل الحالي كربط ثنائي الاتجاه",
+                "convertDuplicate": "تحويل الحقل المكرر إلى ربط أحادي الاتجاه"
+              }
+            },
+            "symmetricFieldMissing": {
+              "title": "معالجة حقل الربط المقابل المفقود",
+              "description": "تم حذف حقل الربط المقابل. أكّد تحويل هذا الحقل إلى رابط باتجاه واحد قبل الإصلاح.",
+              "resolutionLabel": "استراتيجية الإصلاح",
+              "resolutionDescription": "حوّل الرابط الحالي إلى رابط باتجاه واحد حتى تتمكن بيانات العلاقة الحالية من مواصلة استخدام بنية الربط المخزّنة.",
+              "option": {
+                "convertCurrent": "تحويل الرابط الحالي إلى اتجاه واحد"
+              }
+            },
+            "symmetricFieldBroken": {
+              "title": "معالجة حقل الربط المقابل التالف",
+              "description": "حقل الربط المقابل موجود لكنه ليس نظيرًا ثنائي الاتجاه صالحًا. أكّد تحويل هذا الحقل إلى رابط باتجاه واحد قبل الإصلاح.",
+              "resolutionLabel": "استراتيجية الإصلاح",
+              "resolutionDescription": "حوّل الرابط الحالي إلى رابط باتجاه واحد حتى لا يعود معتمدًا على الزوج التالف.",
+              "option": {
+                "convertCurrent": "تحويل الرابط الحالي إلى اتجاه واحد"
+              }
+            },
+            "foreignKeyOrphanRows": {
+              "title": "مسح القيم المرتبطة غير الصالحة",
+              "description": "امسح قيم المفتاح الخارجي التي تشير إلى سجلات مفقودة، ثم استعِد قيد المفتاح الخارجي.",
+              "resolutionLabel": "استراتيجية الإصلاح",
+              "resolutionDescription": "تشير القيم المرتبطة غير الصالحة إلى سجلات لم تعد موجودة. أكّد مسح هذه القيم قبل استعادة المفتاح الخارجي.",
+              "option": {
+                "clearOrphanValues": "مسح القيم المرتبطة غير الصالحة"
+              }
+            },
+            "junctionForeignKeyOrphanRows": {
+              "title": "تنظيف صفوف الوصل غير الصالحة",
+              "description": "احذف صفوف الوصل التي تشير إلى سجلات مفقودة، ثم استعِد قيد المفتاح الخارجي.",
+              "resolutionLabel": "استراتيجية الإصلاح",
+              "resolutionDescription": "تشير صفوف الوصل غير الصالحة إلى سجلات لم تعد موجودة. أكّد حذف صفوف العلاقات غير الصالحة هذه قبل استعادة المفتاح الخارجي.",
+              "option": {
+                "deleteOrphanRows": "حذف صفوف العلاقات غير الصالحة"
+              }
+            }
+          }
+        },
+        "phase": {
+          "check": "نتائج الفحص",
+          "repair": "نتائج الإصلاح"
+        },
+        "summary": {
+          "checks": "{{count}} فحص",
+          "success": "نجح {{count}}",
+          "warn": "{{count}} تحذير",
+          "error": "{{count}} خطأ",
+          "skipped": "تم تخطي {{count}}",
+          "repaired": "تم إصلاح {{count}}",
+          "manual": "{{count}} يدوي",
+          "problems": "{{count}} مشكلة"
+        },
+        "status": {
+          "success": "نجاح",
+          "error": "خطأ",
+          "warn": "تحذير",
+          "pending": "معلّق",
+          "running": "قيد التشغيل",
+          "skipped": "متخطّى"
+        },
+        "outcome": {
+          "repaired": "تم الإصلاح",
+          "unchanged": "دون تغيير",
+          "manual": "يدوي",
+          "skipped": "متخطّى"
+        }
+      },
+      "errorType": {
+        "ForeignTableNotFound": "ForeignTableNotFound",
+        "ForeignKeyNotFound": "ForeignKeyNotFound",
+        "SelfKeyNotFound": "SelfKeyNotFound",
+        "SymmetricFieldNotFound": "SymmetricFieldNotFound",
+        "MissingRecordReference": "MissingRecordReference",
+        "InvalidLinkReference": "InvalidLinkReference",
+        "ForeignKeyHostTableNotFound": "ForeignKeyHostTableNotFound",
+        "ReferenceFieldNotFound": "ReferenceFieldNotFound",
+        "UniqueIndexNotFound": "UniqueIndexNotFound",
+        "EmptyString": "EmptyString",
+        "InvalidFilterOperator": "InvalidFilterOperator",
+        "InvalidPrimaryLookup": "الحقل الرئيسي مُعَدّ خطأً كحقل بحث",
+        "InvalidPrimaryType": "نوع الحقل الرئيسي غير مدعوم",
+        "MissingPrimary": "لا يحتوي الجدول على حقل رئيسي"
+      }
+    },
+    "index": {
+      "description": "يمكن للفهارس أن تحسّن أداء البحث بشكل كبير، خصوصًا مع كميات البيانات الكبيرة (أكثر من {{rowCount}} صف). أما الجانب السلبي فهو بطء طفيف في عمليات الكتابة. وإذا كنت تبحث كثيرًا أو لديك مجموعات بيانات كبيرة، فننصح بتفعيل الفهارس",
+      "repair": "تحديث الفهرس",
+      "repairTip": "تم اكتشاف حالات شاذة في الفهرس قد تؤدي إلى تدهور أداء البحث. يُنصح بالنقر على زر تحديث الفهرس لتحديثه",
+      "enableIndexTip": "أنت بصدد إنشاء فهرس. ويعتمد الوقت اللازم على حجم الجدول. وقد يتأثر أداء القراءة والكتابة أثناء هذه العملية. يُرجى التحلي بالصبر",
+      "fieldSearchTip_limited": "عند الإيقاف، يعمل البحث التقريبي في جميع الحقول. ولا تُدعم حقول التاريخ ومربع الاختيار والأزرار. ويُدعم ما يصل إلى {{count}} حقل",
+      "fieldSearchTip_infinity": "عند الإيقاف، يعمل البحث التقريبي في جميع الحقول. ولا تُدعم حقول التاريخ ومربع الاختيار والأزرار",
+      "globalSearchFieldTip": "وضع البحث الشامل مفعّل. ويعمل البحث التقريبي في جميع الحقول. ولا تُدعم حقول التاريخ ومربع الاختيار والأزرار",
+      "hideNotMatchRowTip": "عند الإيقاف، تُعرض جميع الصفوف",
+      "autoIndexTip": "تجاوز جدولك {{rowCount}} صف. ننصح بتفعيل الفهارس لتحسين أداء البحث. وقد يقلل تفعيلها سرعة الكتابة قليلًا. وقد يتأثر أداء القراءة والكتابة أثناء إنشاء الفهرس. يُرجى التحلي بالصبر",
+      "enableIndex": "تفعيل",
+      "keepAsIs": "الإبقاء كما هو",
+      "ignoreIndexError": "تجاهل"
+    },
+    "searchTips": {
+      "maxFieldTips_limited": "تم تجاوز الحد الأقصى وهو {{count}} حقل، وستُتجاهل الحقول الزائدة"
+    },
+    "deletedRecovered": {
+      "title": "تم حذف الجدول الذي فتحته",
+      "description": "تم التبديل إلى «{{tableName}}»",
+      "descriptionEmpty": "تمت العودة إلى صفحة Base"
+    }
+  },
+  "import": {
+    "title": {
+      "upload": "رفع",
+      "import": "استيراد",
+      "localFile": "ملفات محلية",
+      "linkUrl": "رابط (URL)",
+      "linkUrlInputTitle": "إضافة ملف من رابط",
+      "importTitle": "إنشاء جدول جديد",
+      "incrementImportTitle": "الاستيراد إلى — ",
+      "optionsTitle": "خيار الاستيراد",
+      "primitiveFields": "الحقول الأصلية",
+      "importFields": "حقل الاستيراد",
+      "primaryField": "الحقل الرئيسي",
+      "tipsTitle": "تلميحات",
+      "confirm": "تأكيد ومتابعة"
+    },
+    "menu": {
+      "addFromOtherSource": "الإضافة من مصادر أخرى",
+      "excelFile": "Microsoft Excel",
+      "airtable": "Airtable",
+      "csvFile": "ملف CSV",
+      "importCsvData": "استيراد بيانات CSV",
+      "importExcelData": "استيراد بيانات Microsoft Excel",
+      "cancel": "إلغاء",
+      "downAsCsv": "تنزيل CSV",
+      "importData": "استيراد البيانات",
+      "duplicate": "تكرار",
+      "duplicating": "جارٍ التكرار...",
+      "duplicateSuccess": "تم التكرار بنجاح",
+      "duplicateFailed": "فشل التكرار",
+      "includeRecords": "تضمين السجلات",
+      "googleSheet": "Google Sheets"
+    },
+    "tips": {
+      "importWayTip": "انقر أو اسحب الملف إلى هذه المنطقة للرفع",
+      "fileExceedSizeTip": "يتجاوز حجم هذا النوع من الملفات الحد البالغ",
+      "analyzing": "جارٍ التحليل",
+      "importing": "جارٍ الاستيراد",
+      "importingRows": "Importing {{processed}} of {{total}} rows",
+      "importingRowsUnknown": "Imported {{processed}} rows",
+      "importingSheet": "Sheet {{current}} of {{total}}: {{name}}",
+      "preparingImport": "Preparing import...",
+      "importFinished": "Import finished",
+      "importFinishedPartial": "Import finished with row limits",
+      "importSheetImported": "{{rowCount}} rows",
+      "importSheetTruncated": "Imported {{rowCount}} rows (row limit reached, remaining rows skipped)",
+      "importSheetFailed": "Failed ({{error}})",
+      "importSummaryHint": "Review each table before closing.",
+      "importDone": "Done",
+      "notSupportFieldType": "نوع الحقل غير مدعوم",
+      "resultEmpty": "لم يُعثر على نتائج.",
+      "searchPlaceholder": "بحث...",
+      "importAlert": "بمجرد بدء الاستيراد لا يمكن إيقافه حتى يكتمل بنجاح أو ينتهي بالفشل. وتظهر حالة الاستيراد في الزاوية العلوية من الجدول، وستُبلَّغ بنتائجه فور اكتماله. ولا ينبغي تحديث الحقل أثناء الاستيراد لأن ذلك قد يسبب أخطاءً.",
+      "noTips": "فهمت، لا تُظهر هذا مجددًا"
+    },
+    "options": {
+      "autoSelectFieldOptionName": "اختيار أنواع الحقول تلقائيًا",
+      "useFirstRowAsHeaderOptionName": "استخدام الصف الأول كرأس",
+      "importDataOptionName": "استيراد البيانات",
+      "sheetKey": "اسم الورقة: ",
+      "excludeFirstRow": "استبعاد الصف الأول من الاستيراد"
+    },
+    "form": {
+      "defaultFieldName": "حقل",
+      "error": {
+        "urlEmptyTip": "لا يجوز ترك الرابط فارغًا!",
+        "errorFileFormat": "تنسيق الملف غير صحيح!",
+        "uniqueFieldName": "يجب أن يكون اسم الحقل فريدًا!",
+        "fieldNameEmpty": "لا يجوز ترك اسم الحقل فارغًا!",
+        "atLeastAImportField": "يرجى تحديد حقل استيراد واحد على الأقل",
+        "urlValidateTip": "تعذّر تحليل الرابط. جرّب رابطًا آخر!"
+      },
+      "option": {
+        "doNotImport": "عدم الاستيراد"
+      }
+    }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "تنزيل كل المرفقات",
+      "rowsWithAttachments": "صفوف بها مرفقات",
+      "totalAttachments": "المرفقات",
+      "totalSize": "الحجم الإجمالي",
+      "cancel": "إلغاء",
+      "downloading": "جارٍ التنزيل...",
+      "completed": "اكتمل التنزيل",
+      "cancelled": "أُلغي التنزيل",
+      "noAttachments": "لا توجد مرفقات للتنزيل",
+      "error": "فشل التنزيل",
+      "errorPartial": "فشل تنزيل {{failedCount}} ملف",
+      "requireHttps": "يتطلب التنزيل الدفعي HTTPS. يرجى الدخول عبر HTTPS أو localhost.",
+      "advancedOptions": "خيارات متقدمة",
+      "namingFieldLabel": "بادئة اسم المرفق",
+      "selectField": "الافتراضي: ترتيب المرفق",
+      "noPrefixOption": "بدون بادئة",
+      "noPrefixOptionDesc": "الإبقاء على اسم الملف الأصلي",
+      "groupByRow": "الأرشفة في مجلدات",
+      "groupByRowTip": "عندما يحتوي الصف على عدة مرفقات، توضع في المجلد نفسه؛ أما الصفوف ذات المرفق الواحد فلا يُنشأ لها مجلد."
+    }
+  },
+  "grid": {
+    "prefillingRowTitle": "إضافة سجل جديد",
+    "prefillingRowTooltip": "يرجى إدخال بيانات السجل الجديد أدناه. وسيُحفظ السجل تلقائيًا بمجرد النقر خارج هذا الصف.",
+    "presortRowTitle": "صُفّي هذا السجل أو نُقل بسبب قواعد الفرز"
+  },
+  "form": {
+    "fieldsManagement": "الحقول",
+    "addAll": "إظهار الكل",
+    "removeAll": "إخفاء الكل",
+    "createField": "إنشاء حقل",
+    "hideFieldTip": "اسحب الحقل هنا لإخفائه من النموذج",
+    "unableAddFieldTip": "تعذّر إضافة حقل من هذا النوع",
+    "removeFromFormTip": "إخفاء من النموذج",
+    "descriptionPlaceholder": "أدخل وصف النموذج",
+    "dragToFormTip": "اسحب الحقل هنا لإظهاره في النموذج",
+    "protectedFieldTip": "عُيّن هذا الحقل كحقل \"مطلوب\"، ولا يمكن إزالته من عرض النموذج. يرجى تعديله في إعدادات الحقل."
+  },
+  "kanban": {
+    "toolbar": {
+      "hideFieldName": "إخفاء اسم الحقل",
+      "customizeCards": "تخصيص البطاقات",
+      "stackedBy": "مجمَّع حسب <0/>",
+      "chooseStackingField": "اختر حقل التجميع",
+      "chooseStackingFieldDescription": "أي حقل تريد استخدامه لعرض اللوحة هذا؟ ستُجمَّع سجلاتك بناءً على هذا الحقل.",
+      "hideEmptyStack": "إخفاء الأعمدة الفارغة",
+      "imageSetting": "إعداد الصورة",
+      "fit": "ملاءمة",
+      "noImage": "بلا صورة",
+      "chooseAttachmentField": "اختر حقل المرفقات"
+    },
+    "stack": {
+      "addStack": "إضافة عمود",
+      "noCards": "لا توجد بطاقات",
+      "uncategorized": "غير مصنّف"
+    },
+    "stackMenu": {
+      "collapseStack": "طي العمود",
+      "renameStack": "إعادة تسمية العمود",
+      "deleteStack": "حذف العمود"
+    },
+    "cardMenu": {
+      "insertCardAbove": "إدراج بطاقة أعلى",
+      "insertCardBelow": "إدراج بطاقة أسفل",
+      "expandCard": "توسيع البطاقة",
+      "deleteCard": "حذف البطاقة",
+      "duplicateCard": "تكرار البطاقة"
+    }
+  },
+  "calendar": {
+    "toolbar": {
+      "config": "إعداد التقويم",
+      "startDateField": "حقل تاريخ البدء",
+      "endDateField": "حقل تاريخ الانتهاء",
+      "titleField": "حقل العنوان",
+      "colorField": "حقل اللون",
+      "colorType": "عرض اللون",
+      "customColor": "تخصيص اللون",
+      "alignWithRecords": "المحاذاة مع السجلات"
+    },
+    "placeholder": {
+      "selectColorField": "اختر حقل لون"
+    },
+    "dialog": {
+      "startDate": "تاريخ البدء",
+      "endDate": "تاريخ الانتهاء",
+      "notAdd": "عدم الإضافة",
+      "addDateField": "إضافة حقول تاريخ",
+      "content": "لإنشاء جدول زمني في عرض التقويم، يحتاج الجدول إلى حقلَي تاريخ: تاريخ البدء وتاريخ الانتهاء"
+    },
+    "moreLinkText": "عرض جميع السجلات البالغ عددها {{count}}"
+  },
+  "menu": {
+    "insertRecordAbove": "إدراج <input /> سجل أعلى",
+    "insertRecordBelow": "إدراج <input /> سجل أسفل",
+    "deleteRecord": "حذف السجل",
+    "deleteAllSelectedRecords": "حذف كل السجلات المحددة",
+    "archiveRecord": "أرشفة السجل",
+    "archiveAllSelectedRecords": "أرشفة كل السجلات المحددة",
+    "duplicateRecords": "تكرار السجلات المحددة",
+    "editField": "تعديل الحقل",
+    "duplicateField": "تكرار الحقل",
+    "insertFieldLeft": "إدراج على اليسار",
+    "insertFieldRight": "إدراج على اليمين",
+    "freezeUpField": "التثبيت حتى هذا الحقل",
+    "freezeFieldWindowTooNarrow": "تعذّر التثبيت حتى هذه المنطقة لأن النافذة الحالية ضيقة جدًا",
+    "hideField": "إخفاء الحقل",
+    "deleteField": "حذف الحقل",
+    "deleteAllSelectedFields": "حذف كل الحقول المحددة",
+    "filterField": "التصفية حسب هذا الحقل",
+    "sortField": "الترتيب حسب هذا الحقل",
+    "groupField": "التجميع حسب هذا الحقل",
+    "downloadAllAttachments": "تنزيل جميع الملفات",
+    "autoFill": "توليد",
+    "groupMenuTitle": "قائمة المجموعة",
+    "expandGroup": "توسيع هذه المجموعة ومجموعاتها الفرعية",
+    "collapseGroup": "طي هذه المجموعة ومجموعاتها الفرعية",
+    "expandAllGroups": "توسيع كل المجموعات",
+    "collapseAllGroups": "طي كل المجموعات",
+    "addToChat": "الإضافة إلى المحادثة"
+  },
+  "connection": {
+    "title": "الاتصال بقاعدة البيانات",
+    "description": "يمكنك الوصول إلى قاعدة البيانات مباشرةً عبر اتصال قاعدة البيانات، بما في ذلك كل الجداول ضمن القاعدة الحالية",
+    "noPermission": "ليس لديك صلاحية الوصول إلى قاعدة البيانات",
+    "connectionCountTip": "الحد الأقصى لعدد اتصالات قاعدة البيانات هو <b>{{max}}</b> وعدد الاتصالات الحالية <b>{{current}}</b>",
+    "createFailed": "يرجى التأكد من ضبط متغير البيئة PUBLIC_DATABASE_PROXY بشكل صحيح",
+    "readonlyUnavailable": "مشاركة قاعدة البيانات للقراءة فقط غير متاحة لقاعدة البيانات هذه. امنح مستخدم قاعدة بيانات Teable صلاحية إنشاء الأدوار والمنح، أو استخدم قاعدة بيانات هدف تدعم أدوار القراءة فقط."
+  },
+  "view": {
+    "addRecord": "إضافة سجل",
+    "searchView": "ابحث في العروض...",
+    "dragToolTip": "الفرز التلقائي مفعّل، والسحب اليدوي غير متاح",
+    "insertToolTip": "الفرز التلقائي مفعّل، والإدراج بترتيب غير متاح",
+    "action": {
+      "rename": "إعادة تسمية",
+      "duplicate": "تكرار",
+      "delete": "حذف",
+      "lock": "قفل طريقة العرض",
+      "unlock": "إلغاء قفل طريقة العرض",
+      "enable": "تفعيل"
+    },
+    "category": {
+      "table": "عرض الشبكة",
+      "form": "عرض النموذج",
+      "kanban": "عرض اللوحة",
+      "gallery": "عرض المعرض",
+      "calendar": "عرض التقويم"
+    },
+    "crash": {
+      "title": "تعطّل!",
+      "description": "هذا العرض معطّل. وإن استمر الفشل بعد التحديث، فيرجى التواصل معنا. support@teable.ai"
+    },
+    "addPluginView": "إضافة طريقة عرض لمكوّن إضافي",
+    "search": {
+      "field_zero": "حقول ({{length}})",
+      "field_one": "{{name}}",
+      "field_two": "حقلان ({{length}})",
+      "field_few": "حقول ({{length}})",
+      "field_many": "حقول ({{length}})",
+      "field_other": "حقول ({{length}})"
+    },
+    "locked": {
+      "tip": "هذا العرض مقفل. يمكنك تفعيل الوضع الشخصي لتعديل خيارات العرض، ولن تسري التغييرات إلا عليك."
+    },
+    "noView": "لا يوجد عرض",
+    "deletedRecovered": {
+      "title": "تم حذف العرض الذي فتحته",
+      "description": "تم التبديل إلى \"{{viewName}}\""
+    }
+  },
+  "lastModifiedTime": "وقت آخر تعديل",
+  "lastModify": "آخر تعديل: ",
+  "pasteNewRecords": {
+    "title": "هل تريد إضافة عدة سجلات؟",
+    "description": "ستُضاف السجلات البالغ عددها {{count}} إلى الجدول."
+  },
+  "tableArchive": {
+    "title": "أرشيف الجدول",
+    "menuTitle": "الأرشيف",
+    "archivedTime": "وقت الأرشفة",
+    "archivedBy": "أرشفه",
+    "recordDetail": "تفاصيل السجل",
+    "empty": "لا توجد سجلات مؤرشفة",
+    "allCreators": "كل المنشئين",
+    "filterArchivedTime": "وقت الأرشفة",
+    "searchPlaceholder": "ابحث في السجلات المؤرشفة",
+    "clearFilter": "مسح التصفية",
+    "export": "تصدير CSV",
+    "exporting": "جارٍ التصدير... {{count}} صف",
+    "exportSucceed": "اكتمل التصدير، جارٍ التنزيل",
+    "restoreSelected": "استعادة ({{count}})",
+    "permanentDeleteSelected": "حذف نهائي ({{count}})",
+    "permanentDeleteConfirm": "حذف {{count}} سجل مؤرشف نهائيًا؟ لا يمكن التراجع عن ذلك.",
+    "permanentDeleteSucceed": "تم الحذف النهائي",
+    "resetArchive": "إفراغ الأرشيف",
+    "resetArchiveConfirm": "إفراغ كل السجلات المؤرشفة في هذا الجدول؟ لا يمكن التراجع عن ذلك.",
+    "resetSucceed": "تم إفراغ الأرشيف",
+    "orderBy": {
+      "archivedTime": "الفرز حسب وقت الأرشفة",
+      "recordCreatedTime": "الفرز حسب وقت الإنشاء",
+      "recordLastModifiedTime": "الفرز حسب وقت آخر تعديل"
+    }
+  },
+  "tableTrash": {
+    "title": "سلة المحذوفات",
+    "resourceType": "النوع",
+    "deletedResource": "المورد",
+    "moreResources": "و{{count}} غيرها",
+    "deletedTime": "وقت الحذف",
+    "deletedBy": "حذفه",
+    "filterAllTypes": "كل الأنواع",
+    "filterAllUsers": "كل المستخدمين",
+    "filterDeletedTime": "وقت الحذف",
+    "clearFilter": "مسح التصفية",
+    "recordsDialogTitle": "السجلات المحذوفة ({{count}})",
+    "recordDetail": "تفاصيل السجل",
+    "filterAllCreators": "كل المنشئين",
+    "filterCreatedTime": "وقت الإنشاء",
+    "searchPlaceholder": "ابحث في السجلات"
+  },
+  "pluginPanel": {
+    "empty": {
+      "description": "لم تتم إضافة أي لوحات مكوّنات إضافية بعد."
+    },
+    "createPluginPanel": {
+      "button": "إنشاء لوحة مكوّنات إضافية",
+      "title": "إنشاء لوحة مكوّنات إضافية"
+    },
+    "namePlaceholder": "أدخل اسم لوحة المكوّنات الإضافية"
+  },
+  "addPlugin": "إضافة مكوّن إضافي",
+  "pluginContextMenu": {
+    "mangeButton": "إدارة المكوّنات الإضافية",
+    "manage": "أدِر مكوّنات قائمة السياق الإضافية",
+    "noPlugin": "لا توجد مكوّنات إضافية لقائمة السياق",
+    "delete": "حذف",
+    "deleteDescription": "هل أنت متأكد من حذف هذا المكوّن الإضافي؟"
+  },
+  "permission": {
+    "cell": {
+      "deniedRead": "ليست لديك صلاحية عرض هذه الخلية",
+      "deniedUpdate": "ليست لديك صلاحية تحديث هذه الخلية"
+    }
+  },
+  "baseShare": {
+    "shareTitle": "مشاركة",
+    "shareToWeb": "المشاركة على الويب",
+    "refreshLink": "إعادة توليد الرابط",
+    "deleteConfirmTitle": "حذف رابط المشاركة",
+    "deleteConfirmDescription": "لا يمكن التراجع عن هذا الإجراء. ولن يتمكن من لديهم هذا الرابط من الوصول إلى القاعدة المشتركة بعد الآن.",
+    "createSuccess": "تم إنشاء رابط المشاركة",
+    "createFailed": "فشل إنشاء رابط المشاركة",
+    "updateFailed": "فشل تحديث إعدادات المشاركة",
+    "deleteSuccess": "تم حذف رابط المشاركة",
+    "deleteFailed": "فشل حذف رابط المشاركة",
+    "refreshSuccess": "تمت إعادة توليد رابط المشاركة",
+    "refreshFailed": "فشلت إعادة توليد رابط المشاركة",
+    "linkHolderLabel": "من يحصل على الرابط",
+    "linkHolderCanView": "يمكنه العرض",
+    "linkHolderCanViewDesc": "يمكن لأي شخص لديه الرابط عرض البيانات",
+    "linkHolderCanEdit": "يمكنه التعديل",
+    "linkHolderCanEditDesc": "يمكن للمستخدمين المسجَّلين تعديل السجلات في الجدول",
+    "viewLinkHolderCanViewDesc": "يمكن لأي شخص لديه الرابط عرض بيانات هذا العرض",
+    "viewLinkHolderCanEditDesc": "يمكن للمستخدمين المسجَّلين تعديل البيانات ضمن نطاق العرض",
+    "linkExposureNoticeOne": "يمكن للزوار رؤية بيانات من \"{{name}}\"",
+    "linkExposureNoticeMany": "يمكن للزوار رؤية بيانات من \"{{name}}\" ومن {{count}} جدول إجمالًا",
+    "linkExposureNoticeGeneric": "يمكن للزوار رؤية بيانات من الجداول المرتبطة",
+    "restrictScope": "تقييد النطاق",
+    "linkScopeDesc": "قيّد السجلات والحقول القابلة للاختيار في حقول الربط بهذا العرض. ويسري الإعداد على الحقل نفسه ويؤثر في كل عرض يستخدمه.",
+    "linkScopeDialogTitle": "نطاق حقل الربط",
+    "linkHolderCanCopyAndSave": "يمكنه الحفظ كنسخة",
+    "linkHolderCanCopyAndSaveDesc": "يمكن لأي شخص لديه الرابط حفظ نسخة في مساحته",
+    "copyToMySpace": "النسخ إلى مساحتي",
+    "saveToMySpace": "الحفظ في مساحتي",
+    "supportSaveCopy": "احفظ نسخة في مساحتك",
+    "editRequiresLogin": "سجّل الدخول لتعديل السجلات",
+    "enterPassword": "أدخل كلمة المرور",
+    "allowCopyData": "السماح للمشاهدين بنسخ البيانات",
+    "sharedNode": "العقدة المشتركة",
+    "restrictByPassword": "التقييد بكلمة مرور",
+    "advanced": "متقدم",
+    "embedConfig": "إعدادات التضمين",
+    "appPublicLink": "الرابط العام للتطبيق",
+    "appNotPublished": "هذا التطبيق غير منشور بعد. يرجى نشره أولًا قبل المشاركة.",
+    "goToPublish": "الانتقال إلى النشر",
+    "publishSuccess": "تم نشر التطبيق بنجاح",
+    "publishFailed": "فشل نشر التطبيق",
+    "openLink": "فتح الرابط",
+    "appPublished": "تم نشر التطبيق",
+    "shareTableTab": "مشاركة الجدول",
+    "shareViewTab": "مشاركة العرض"
+  },
+  "aiChat": {
+    "integrationConnect": {
+      "title": "الاتصال بـ {{provider}}",
+      "reconnectTitle": "إعادة الاتصال بـ {{provider}}",
+      "defaultReason": "يحتاج الوكيل إلى الوصول إلى حسابك في {{provider}} للمتابعة.",
+      "connect": "اتصال",
+      "connecting": "جارٍ الاتصال…",
+      "giveUp": "تراجع",
+      "failed": "فشل الاتصال",
+      "status": {
+        "connected": "متصل",
+        "cancelled": "متخطّى",
+        "failed": "فشل"
+      }
+    },
+    "agent": {
+      "askUserQuestion": {
+        "otherPlaceholder": "أو اكتب إجابتك…",
+        "asked": "تم السؤال",
+        "skipped": "تم التخطي",
+        "pendingAnswer": "في انتظار الإجابة",
+        "notSelected": "غير محدد",
+        "timedOut": "انتهت المهلة",
+        "timedOutWithDuration": "انتهت المهلة ({{duration}})",
+        "cancelled": "تم الإلغاء",
+        "previousQuestion": "السؤال السابق",
+        "nextQuestion": "السؤال التالي"
+      },
+      "completion": {
+        "noDetails": "لا توجد تفاصيل متاحة",
+        "model": "النموذج",
+        "contextWindow": "نافذة السياق",
+        "contextTooltip": "استخدام ذاكرة العمل لدى الوكيل. وعند الاقتراب من الحد، يلخّص الوكيل المحادثة السابقة تلقائيًا لتحرير مساحة.",
+        "contextTipNewChat": "ابدأ محادثة جديدة للمواضيع المختلفة لتقليل استهلاك الأرصدة بشكل كبير.",
+        "contextTipMemory": "قل \"تذكّر شيئًا ما\" لحفظه في الذاكرة طويلة الأمد، وهي متاحة عبر جميع المحادثات."
+      },
+      "messageActions": {
+        "helpful": "مفيد",
+        "notHelpful": "غير مفيد",
+        "commentTitle": "كيف يمكن تحسين هذه الإجابة؟ (اختياري)",
+        "commentPlaceholder": "مثال: خارج الموضوع، غير دقيق، أداة خاطئة…",
+        "saveFailed": "فشل حفظ الملاحظات",
+        "copy": "نسخ",
+        "copyToInput": "النسخ إلى حقل الإدخال"
+      },
+      "contextCompaction": {
+        "auto": "تم ضغط السياق تلقائيًا",
+        "manual": "تم ضغط السياق",
+        "compacting": "جارٍ ضغط السياق…",
+        "failed": "فشل ضغط السياق"
+      },
+      "taskProgress": {
+        "title": "تقدّم المهمة"
+      },
+      "tool": {
+        "copy": "نسخ",
+        "copied": "تم النسخ!",
+        "collapse": "طيّ",
+        "linesHidden": "{{count}} سطر مخفي - انقر للتوسيع"
+      }
+    },
+    "tool": {
+      "retrying": "جارٍ إعادة المحاولة ({{attempt}}/{{maxRetries}})...",
+      "showLess": "عرض أقل",
+      "generateApp": {
+        "creatingApp": "جارٍ إنشاء التطبيق",
+        "updatingApp": "جارٍ تحديث التطبيق",
+        "viewProgress": "عرض التقدّم"
+      },
+      "htmlPreview": {
+        "preview": "معاينة",
+        "code": "الكود",
+        "download": "تنزيل",
+        "downloadHtml": "HTML",
+        "downloadImage": "صورة (PNG)",
+        "copy": "نسخ",
+        "copied": "تم النسخ!",
+        "fullscreen": "ملء الشاشة",
+        "exitFullscreen": "إنهاء ملء الشاشة",
+        "downloadSuccess": "تم تنزيل الصورة بنجاح",
+        "downloadFailed": "فشل التقاط الصورة",
+        "iframeFailed": "فشل الالتقاط: يتعذّر الوصول إلى الإطار المضمّن",
+        "iframeTitle": "معاينة HTML"
+      }
+    },
+    "action": {
+      "locateResource": "تحديد الموقع"
+    },
+    "showUI": {
+      "skip": "تخطي",
+      "next": "التالي",
+      "submit": "إرسال"
+    },
+    "newChat": "محادثة جديدة",
+    "clearChat": "مسح المحادثة",
+    "expand": "توسيع",
+    "history": "السجل",
+    "close": "طيّ",
+    "clearChatConfirmTitle": "تأكيد مسح المحادثة",
+    "clearChatConfirmDesc": "لن يُحفظ محتوى المحادثة الحالي. هل أنت متأكد من مسحه؟",
+    "dontShowAgain": "عدم الإظهار مرة أخرى",
+    "modelSwitchTitle": "تبديل النموذج",
+    "modelSwitchHint": "يعمل حاليًا على {{previous}}. وعند الإرسال التالي سيتولى النموذج الجديد المهمة ولن يرى سوى آخر 3 جولات.",
+    "effort": {
+      "title": "مستوى الذكاء",
+      "low": "منخفض",
+      "medium": "متوسط",
+      "high": "مرتفع",
+      "xhigh": "مرتفع جدًا"
+    },
+    "sandboxExpiry": {
+      "expiresIn": "تنتهي صلاحية حاسوب الوكيل خلال {{time}}",
+      "reset": "تجديد",
+      "resetTitle": "تجديد حاسوب الوكيل",
+      "runningTasks_zero": "لا توجد مهام قيد التشغيل.",
+      "runningTasks_one": "هناك مهمة واحدة قيد التشغيل. سيؤدي التجديد إلى مقاطعتها.",
+      "runningTasks_two": "هناك مهمتان قيد التشغيل. سيؤدي التجديد إلى مقاطعتهما.",
+      "runningTasks_few": "هناك {{count}} مهام قيد التشغيل. سيؤدي التجديد إلى مقاطعتها.",
+      "runningTasks_many": "هناك {{count}} مهمة قيد التشغيل. سيؤدي التجديد إلى مقاطعتها.",
+      "runningTasks_other": "هناك {{count}} مهمة قيد التشغيل. سيؤدي التجديد إلى مقاطعتها.",
+      "noRunningTasks": "لا توجد مهام قيد التشغيل حاليًا.",
+      "newSandboxHint": "يمكنك متابعة استخدامه بشكل طبيعي بعد التجديد.",
+      "cancel": "إلغاء",
+      "confirmReset": "تجديد",
+      "confirmResetWithTasks": "التجديد على أي حال",
+      "expiresSoon": "ستنتهي صلاحية حاسوب الوكيل قريبًا",
+      "resetFailed": "فشل تجديد حاسوب الوكيل"
+    },
+    "addAttachment": "إضافة مرفق",
+    "noHistory": "لا يوجد سجل محادثات",
+    "noFoundHistory": "لم يتم العثور على سجل محادثات، يُرجى بدء محادثة جديدة",
+    "timeGroup": {
+      "today": "اليوم",
+      "oneWeek": "أسبوع واحد",
+      "twoWeek": "أسبوعان",
+      "oneMonth": "شهر واحد",
+      "other": "أخرى"
+    },
+    "context": {
+      "searchEmpty": "لم يتم العثور على سياق مطابق",
+      "selectionRow": "الصف {{row}}",
+      "selectionRows": "الصفوف {{start}}-{{end}}",
+      "selectionColumn": "العمود {{col}}",
+      "selectionColumns": "الأعمدة {{start}}-{{end}}",
+      "selectionColumnsNamed": "{{names}} +{{count}}"
+    },
+    "mention": {
+      "tables": "الجداول",
+      "apps": "التطبيقات",
+      "workflows": "الأتمتة",
+      "folders": "المجلدات",
+      "envs": "الأسرار"
+    },
+    "slashCommand": {
+      "skills": "المهارات",
+      "searchEmpty": "لم يُعثر على نتائج"
+    },
+    "inputPlaceholder": "@ لإضافة عُقد، / لتشغيل المهارات",
+    "inputPlaceholderFiles": "الصق الملفات أو أفلتها هنا",
+    "thought": "جارٍ التفكير",
+    "stage": {
+      "initializing": "التحضير",
+      "working": "قيد العمل",
+      "committing": "جارٍ الاعتماد",
+      "recovering": "جارٍ التعافي"
+    },
+    "meta": {
+      "input": "المدخلات",
+      "output": "المخرجات"
+    },
+    "attachment": {
+      "pastedTextFileName": "نص ملصوق",
+      "imageNotSupported": "الصورة غير مدعومة",
+      "tooManyFiles": "يمكنك إرفاق {{count}} ملف كحد أقصى في كل رسالة"
+    },
+    "suggestions": {
+      "title": "كيف يمكنني المساعدة؟",
+      "whatCanIDo": "ما الذي يمكنني فعله؟",
+      "createOrModifyDatabase": "إنشاء قاعدة بيانات أو تعديلها",
+      "buildAutomations": "بناء أتمتة",
+      "buildApps": "بناء تطبيقات",
+      "buildMeCRM": "ابنِ لي نظام CRM",
+      "addAIField": "أضف حقل ذكاء اصطناعي لتحليل كل عميل",
+      "createDataAnalysis": "أنشئ لي تقرير تحليل بيانات",
+      "emailWhenRecordCreated": "أرسل لي بريدًا إلكترونيًا عند إنشاء سجل",
+      "syncStatusToSlack": "زامِن تحديثات الحالة مع Slack",
+      "buildDashboard": "ابنِ لوحة معلومات من هذا الجدول",
+      "buildLeadCapture": "ابنِ لي صفحة هبوط لجمع العملاء المحتملين"
+    },
+    "buildApp": {
+      "task": {
+        "foundResults": "تم العثور على {{count}} نتيجة"
+      }
+    },
+    "scriptPreview": {
+      "writeCodeHint": "اكتب بعض التعليمات البرمجية لرؤية معاينة المخطط الانسيابي.",
+      "noPreview": "لا تتوفر معاينة للمخطط الانسيابي.",
+      "codeChanged": "تغيّرت التعليمات البرمجية منذ إنشاء هذه المعاينة."
+    },
+    "queue": {
+      "nQueued": "{{count}} في الانتظار",
+      "edit": "تعديل",
+      "steerNow": "توجيه المحادثة دون مقاطعتها",
+      "steerFailed": "تعذّر توجيه المحادثة. وبقيت الرسالة في قائمة الانتظار.",
+      "conversationInputMarker": "تم توجيه المحادثة",
+      "removeFromQueue": "إزالة"
+    },
+    "partTool": {
+      "bash": "تشغيل أمر",
+      "read": "قراءة ملف",
+      "write": "إنشاء ملف",
+      "edit": "تعديل ملف",
+      "glob": "البحث عن ملفات",
+      "find": "البحث عن ملفات",
+      "grep": "البحث داخل الملفات",
+      "ls": "سرد المجلد",
+      "webSearch": "البحث في الويب",
+      "skill": "جارٍ تحميل المهارة",
+      "foundFiles": "تم العثور على {{count}} ملف",
+      "listedEntries": "{{count}} عنصر",
+      "moreTools": "+{{count}} أداة أخرى",
+      "moreItems": "+{{count}} أخرى",
+      "fallbackName": "أداة",
+      "questionCount_zero": "{{count}} سؤال",
+      "questionCount_one": "سؤال واحد",
+      "questionCount_two": "سؤالان",
+      "questionCount_few": "{{count}} أسئلة",
+      "questionCount_many": "{{count}} سؤالًا",
+      "questionCount_other": "{{count}} سؤال",
+      "presentFiles": "الملفات المعروضة",
+      "download": "تنزيل",
+      "downloadAll": "تنزيل الكل",
+      "downloadAllSkipped_zero": "{{count}} ملف تم تنظيفه ولم يُدرج في ملف zip",
+      "downloadAllSkipped_one": "تم تنظيف ملف واحد ولم يُدرج في ملف zip",
+      "downloadAllSkipped_two": "تم تنظيف ملفين ولم يُدرجا في ملف zip",
+      "downloadAllSkipped_few": "تم تنظيف {{count}} ملفات ولم تُدرج في ملف zip",
+      "downloadAllSkipped_many": "تم تنظيف {{count}} ملفًا ولم تُدرج في ملف zip",
+      "downloadAllSkipped_other": "تم تنظيف {{count}} ملف ولم يُدرج في ملف zip",
+      "downloadAllEmpty": "تم تنظيف هذه الملفات ولم يعد بالإمكان تنزيلها",
+      "installSkill": "تثبيت",
+      "installSkillTitle": "تثبيت المهارة",
+      "installSkillDescription": "اختر مكان تثبيت هذه المهارة",
+      "skillInstalled": "تم التثبيت",
+      "installSkillFailed": "فشل تثبيت المهارة",
+      "installSkillReplaceWarning": "إذا كانت هناك مهارة بالاسم نفسه في هذا النطاق، فسيتم استبدالها."
+    },
+    "retry": {
+      "interrupted": "تمت مقاطعة الرد",
+      "button": "إعادة المحاولة",
+      "offline": "أنت غير متصل. سنعيد المحاولة فور عودة الاتصال.",
+      "pausedHidden": "تم إيقاف إعادة المحاولة مؤقتًا — افتح هذه التبويبة لإعادة الاتصال.",
+      "maxAttemptsReached": "تعذّرت إعادة الاتصال تلقائيًا. يُرجى تحديث الصفحة يدويًا."
+    },
+    "initChatFailed": "فشل تهيئة المحادثة",
+    "app": {
+      "loadingChatHistory": "جارٍ تحميل سجل المحادثة...",
+      "generatorTitle": "منشئ التطبيقات بالذكاء الاصطناعي",
+      "generatorDesc": "صِف ما تريد إنشاءه"
+    },
+    "voice": {
+      "start": "بدء الإدخال الصوتي",
+      "stop": "إيقاف الإدخال الصوتي",
+      "accept": "إنهاء الإدخال الصوتي",
+      "cancel": "تجاهل الإدخال الصوتي",
+      "permissionTip": "اسمح بالوصول إلى الميكروفون.",
+      "recording": "جارٍ التسجيل...",
+      "transcribing": "جارٍ التفريغ النصي...",
+      "error": {
+        "microphoneDenied": "الوصول إلى الميكروفون محظور.",
+        "microphoneUnavailable": "لم يتم العثور على ميكروفون.",
+        "unsupportedBrowser": "تسجيل الصوت غير مدعوم.",
+        "recordingFailed": "فشل التسجيل.",
+        "missingServerKey": "لم يتم إعداد الإدخال الصوتي.",
+        "unauthenticated": "سجّل الدخول مرة أخرى.",
+        "rateLimited": "محاولات كثيرة جدًا. انتظر قليلًا.",
+        "upstreamAuthFailed": "مفتاح API الخاص بالتفريغ النصي غير صالح.",
+        "upstreamBadRequest": "نقطة النهاية الصوتية غير صالحة.",
+        "upstreamUnavailable": "ميزة الصوت غير متاحة."
+      }
+    },
+    "googleSheetPick": {
+      "title": "اختيار جداول بيانات Google",
+      "defaultReason": "اختر جداول البيانات من منتقي ملفات Google ليتسنى قراءتها.",
+      "pick": "اختيار جداول البيانات",
+      "opening": "جارٍ فتح المنتقي…",
+      "failed": "تعذّر فتح منتقي ملفات Google",
+      "gateExpired": "انتهت صلاحية هذا الطلب، لكن الملفات التي اخترتها ما زالت مُصرّحة — أرسل رسالة جديدة إلى الوكيل للمتابعة.",
+      "status": {
+        "picked": "تم منح الوصول إلى {{count}} جدول بيانات",
+        "cancelled": "تم التخطي",
+        "failed": "فشل"
+      }
+    },
+    "artifact": {
+      "view": "عرض",
+      "restore": "استعادة هذه النسخة",
+      "download": "تنزيل",
+      "openInNewPage": "فتح في صفحة جديدة",
+      "fullscreen": "ملء الشاشة",
+      "exitFullscreen": "إنهاء ملء الشاشة",
+      "delete": "حذف",
+      "deleteConfirm": "هل تريد حذف هذا الـ Artifact؟ ستتحول بطاقات المحادثة إلى عنصر نائب محذوف.",
+      "deleted": "تم حذف هذا الـ Artifact",
+      "runtimeError": "خطأ في الـ Artifact",
+      "loadFailed": "تعذّر تحميل الـ Artifact",
+      "failed": "فشل إنشاء الـ Artifact",
+      "currentVersion": "الحالية",
+      "share": "مشاركة",
+      "enableShare": "تفعيل المشاركة",
+      "copyLink": "نسخ الرابط",
+      "rotateLink": "إعادة تعيين الرابط",
+      "scope": "من يمكنه العرض",
+      "scopePublic": "أي شخص لديه الرابط",
+      "scopeSpace": "أعضاء المساحة",
+      "passwordProtect": "الحماية بكلمة مرور",
+      "passwordApply": "تعيين",
+      "passwordRequired": "هذا الـ Artifact محمي بكلمة مرور",
+      "passwordPlaceholder": "أدخل كلمة المرور",
+      "passwordIncorrect": "كلمة المرور غير صحيحة",
+      "passwordSubmit": "تأكيد",
+      "shareNotFound": "هذا الـ Artifact المشارك غير متاح",
+      "gallery": "الـ Artifacts الخاصة بي",
+      "galleryEmpty": "لا توجد Artifacts بعد — اطلب من الذكاء الاصطناعي إنشاء واحد في أي محادثة.",
+      "searchPlaceholder": "البحث في الـ Artifacts",
+      "fixWithAi": "الإصلاح بالذكاء الاصطناعي",
+      "noPermission": "ليس لديك حق الوصول إلى هذا الـ Artifact"
+    }
+  },
+  "upload": {
+    "panelUploading": "جارٍ رفع {{count}} ملف",
+    "panelFailed": "فشل {{count}} ملف",
+    "panelCompleted": "اكتمل {{count}} ملف",
+    "statusFailed": "فشل",
+    "statusCompleted": "اكتمل",
+    "statusCancel": "إلغاء الرفع",
+    "statusRetry": "إعادة محاولة الرفع"
+  },
+  "baseNode": {
+    "info": {
+      "menu": "معلومات العقدة",
+      "createdBy": "أنشأه",
+      "createdTime": "وقت الإنشاء",
+      "lastModifiedBy": "عدّله",
+      "lastModifiedTime": "وقت التعديل",
+      "folderId": "معرّف المجلد",
+      "tableId": "معرّف الجدول",
+      "automationId": "معرّف الأتمتة",
+      "appId": "معرّف التطبيق",
+      "searchVector": "البحث في النص الكامل",
+      "searchVectorFields": "حقول",
+      "searchVectorStatus": {
+        "ready": "مفعّل",
+        "configured": "تم الإعداد",
+        "rebuildPending": "الصيانة قيد الانتظار",
+        "stale": "يحتاج إلى إعادة بناء",
+        "unknown": "غير معروف"
+      }
+    }
+  }
+}

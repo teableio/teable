@@ -11,6 +11,7 @@ import { ComputedOutboxTriggerMetrics } from './computed-outbox-trigger.metrics'
 import type { ComputedOutboxWakeupWire } from './computed-outbox-wakeup.wire';
 import {
   COMPUTED_OUTBOX_COMPLETED_RETENTION_COUNT,
+  COMPUTED_OUTBOX_FAILED_RETENTION_COUNT,
   COMPUTED_OUTBOX_WAKEUP_JOB,
   COMPUTED_OUTBOX_WAKEUP_QUEUE,
 } from './constants';
@@ -89,6 +90,8 @@ export class BullMqComputedOutboxWakeupPublisher implements IComputedOutboxWakeu
         availableAt: wakeup.availableAt.toISOString(),
         emittedAt: wakeup.emittedAt.toISOString(),
         cause: wakeup.cause,
+        ...(wakeup.traceparent ? { traceparent: wakeup.traceparent } : {}),
+        ...(wakeup.tracestate ? { tracestate: wakeup.tracestate } : {}),
       },
       {
         jobId: wakeup.wakeupId,
@@ -99,7 +102,7 @@ export class BullMqComputedOutboxWakeupPublisher implements IComputedOutboxWakeu
         removeOnComplete: isDeterministic
           ? true
           : { count: COMPUTED_OUTBOX_COMPLETED_RETENTION_COUNT },
-        removeOnFail: isDeterministic ? true : { count: 5000 },
+        removeOnFail: isDeterministic ? true : { count: COMPUTED_OUTBOX_FAILED_RETENTION_COUNT },
       }
     );
   }

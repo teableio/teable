@@ -9,5 +9,7 @@ export * from './secret-delete';
 export * from './secret-generate';
 
 export * from './decision-info';
+export * from './device-app';
+export * from './device-decision';
 export * from './revoke';
 export * from './authorized-list';

@@ -50,6 +50,13 @@ enum DataDbConnectionStatus {
   disabled
 }
 
+enum DataDbConnectionHealthState {
+  healthy
+  read_only
+  unreachable
+  degraded
+}
+
 enum SpaceDataDbBindingMode {
   default
   byodb
@@ -91,6 +98,11 @@ model DataDbConnection {
   capabilities     Json?
   lastValidatedAt  DateTime?              @map("last_validated_at")
   lastError        String?                @map("last_error")
+  healthState      DataDbConnectionHealthState @default(healthy) @map("health_state")
+  healthReason     String?                @map("health_reason")
+  healthChangedAt  DateTime?              @map("health_changed_at")
+  lastHealthCheckAt DateTime?             @map("last_health_check_at")
+  consecutiveHealthFailures Int           @default(0) @map("consecutive_health_failures")
   createdBy        String                 @map("created_by")
   createdTime      DateTime               @default(now()) @map("created_time")
   lastModifiedTime DateTime?              @updatedAt @map("last_modified_time")
@@ -112,6 +124,7 @@ model SpaceDataDbBinding {
   createdTime        DateTime                @default(now()) @map("created_time")
   lastModifiedTime   DateTime?               @updatedAt @map("last_modified_time")
   lastHistoryFlushedAt DateTime?             @map("last_history_flushed_at")
+  lastRemovalFlushedAt DateTime?             @map("last_removal_flushed_at")
   space              Space                   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   dataDbConnection   DataDbConnection?       @relation(fields: [dataDbConnectionId], references: [id])
 
@@ -253,6 +266,36 @@ model TableMeta {
   @@map("table_meta")
 }
 
+model TableQueryObservationShard {
+  spaceId          String?  @map("space_id")
+  baseId           String   @map("base_id")
+  tableId          String   @map("table_id")
+  queryKind        String   @map("query_kind")
+  shapeHash        String   @map("shape_hash")
+  windowStart      DateTime @map("window_start") @db.Timestamptz(6)
+  writerId         String   @map("writer_id")
+  windowSizeSeconds Int     @map("window_size_seconds")
+  requestCount     Int      @map("request_count")
+  slowCount        Int      @map("slow_count")
+  timeoutCount     Int      @map("timeout_count")
+  dbErrorCount     Int      @map("db_error_count")
+  totalDurationMs  Float    @map("total_duration_ms")
+  maxDurationMs    Float    @map("max_duration_ms")
+  totalDbDurationMs Float?  @map("total_db_duration_ms")
+  maxDbDurationMs  Float?   @map("max_db_duration_ms")
+  shape             Json
+  sqlDiagnostics    Json?   @map("sql_diagnostics")
+  createdTime       DateTime @default(now()) @map("created_time") @db.Timestamptz(6)
+  lastModifiedTime  DateTime? @map("last_modified_time") @db.Timestamptz(6)
+
+  @@id([tableId, queryKind, shapeHash, windowStart, writerId], map: "table_query_observation_shard_pkey")
+  @@index([windowStart], map: "table_query_observation_shard_window_start_idx")
+  @@index([tableId, windowStart], map: "table_query_observation_shard_table_start_idx")
+  @@index([queryKind, tableId, windowStart], map: "table_query_observation_shard_search_activity_idx")
+  @@index([baseId, windowStart], map: "table_query_observation_shard_base_start_idx")
+  @@map("table_query_observation_shard")
+}
+
 model SchemaOperation {
   id               String    @id
   type             String
@@ -347,6 +390,9 @@ model ComputedUpdateOutbox {
   affectedTableIds   String[] @default([]) @map("affected_table_ids")
   affectedFieldIds   String[] @default([]) @map("affected_field_ids")
   syncMaxLevel       Int?     @map("sync_max_level")
+  sourceChangedAt    DateTime? @map("source_changed_at")
+  stageDepth         Int      @default(0) @map("stage_depth")
+  predecessorTaskId  String?  @map("predecessor_task_id")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
@@ -369,6 +415,27 @@ model ComputedUpdateOutboxSeed {
   @@unique([taskId, tableId, recordId])
   @@index([taskId])
   @@map("computed_update_outbox_seed")
+}
+
+/// Durable per-stage state for budget-staged computed updates, keyed by the
+/// continuation chain's root task id (its scope). Rows are written once per
+/// record and never copied between continuation tasks:
+/// - kind 'excluded': processed-target exclusion ledger for partial batches;
+/// - kind 'frontier': seq-ordered queue of sources whose outgoing propagation
+///   is not finished (self-referential generations + migrated explicit seeds);
+/// - kind 'consumed': retired frontier sources preserved for deferred edge
+///   chunks, handed to the continuation as seeds at stage completion.
+/// Cleared when the chain's stage completes or the chain dead-letters.
+model ComputedUpdateStageLedger {
+  scopeId  String @map("scope_id")
+  kind     String
+  tableId  String @map("table_id")
+  recordId String @map("record_id")
+  seq      BigInt @default(0)
+
+  @@id([scopeId, kind, tableId, recordId])
+  @@index([scopeId, kind, seq])
+  @@map("computed_update_stage_ledger")
 }
 
 model ComputedUpdateDeadLetter {
@@ -396,6 +463,9 @@ model ComputedUpdateDeadLetter {
   affectedTableIds   String[] @default([]) @map("affected_table_ids")
   affectedFieldIds   String[] @default([]) @map("affected_field_ids")
   syncMaxLevel       Int?     @map("sync_max_level")
+  sourceChangedAt    DateTime? @map("source_changed_at")
+  stageDepth         Int      @default(0) @map("stage_depth")
+  predecessorTaskId  String?  @map("predecessor_task_id")
   traceData          Json?    @map("trace_data")
   failedAt           DateTime @map("failed_at")
   createdAt          DateTime @map("created_at")
@@ -405,6 +475,49 @@ model ComputedUpdateDeadLetter {
   @@index([planHash])
   @@index([runId])
   @@map("computed_update_dead_letter")
+}
+
+/// Completion ledger for computed-update outbox tasks (lineage / latency
+/// tracing). Successful tasks are hard-deleted from the outbox on markDone,
+/// so this table keeps a retention-bounded trail per completed task: the
+/// run/stage chain (runId, stageDepth, predecessorTaskId) and the timeline
+/// from source mutation to converged write (sourceChangedAt → completedAt).
+/// Observability only — the worker never reads it; rows are pruned after a
+/// retention window.
+model ComputedUpdateRunHistory {
+  taskId              String   @id @map("task_id")
+  baseId              String   @map("base_id")
+  seedTableId         String   @map("seed_table_id")
+  changeType          String   @map("change_type")
+  runId               String   @map("run_id")
+  originRunIds        String[] @default([]) @map("origin_run_ids")
+  steps               Json?
+  edges               Json?
+  affectedTableIds    String[] @default([]) @map("affected_table_ids")
+  affectedFieldIds    String[] @default([]) @map("affected_field_ids")
+  /// Source (changed) field ids; populated for seed tasks, where
+  /// affected_field_ids carries the trigger fields rather than targets.
+  sourceFieldIds      String[] @default([]) @map("source_field_ids")
+  seedRecordCount     Int      @default(0) @map("seed_record_count")
+  stageDepth          Int      @default(0) @map("stage_depth")
+  predecessorTaskId   String?  @map("predecessor_task_id")
+  runTotalSteps       Int      @default(0) @map("run_total_steps")
+  runCompletedStepsBefore Int  @default(0) @map("run_completed_steps_before")
+  syncMaxLevel        Int?     @map("sync_max_level")
+  estimatedComplexity Int      @default(0) @map("estimated_complexity")
+  attempts            Int      @default(0)
+  outcome             String
+  sourceChangedAt     DateTime? @map("source_changed_at")
+  enqueuedAt          DateTime @map("enqueued_at")
+  startedAt           DateTime? @map("started_at")
+  completedAt         DateTime @map("completed_at")
+  durationMs          Int      @default(0) @map("duration_ms")
+
+  @@index([runId])
+  @@index([baseId, completedAt])
+  @@index([completedAt])
+  @@index([originRunIds], type: Gin, map: "computed_update_run_history_origin_run_ids_gin")
+  @@map("computed_update_run_history")
 }
 
 model ComputedUpdatePauseScope {
@@ -723,6 +836,9 @@ model OAuthApp {
   clientId         String    @unique @map("client_id")
   redirectUris     String?   @map("redirect_uris")
   scopes           String?
+  // Opt-in for the RFC 8628 device grant: any client_id can be phished onto
+  // the device approval page, so an app must accept that exposure explicitly.
+  allowDeviceFlow  Boolean   @default(false) @map("allow_device_flow")
   createdTime      DateTime  @default(now()) @map("created_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   createdBy        String    @map("created_by")
@@ -817,15 +933,35 @@ model TableTrash {
 }
 
 model RecordTrash {
-  id          String   @id @default(cuid())
-  tableId     String   @map("table_id")
-  recordId    String   @map("record_id")
-  snapshot    String   @map("snapshot")
-  createdTime DateTime @default(now()) @map("created_time")
-  createdBy   String   @map("created_by")
+  id                     String    @id @default(cuid())
+  tableId                String    @map("table_id")
+  recordId               String    @map("record_id")
+  snapshot               String    @map("snapshot")
+  createdTime            DateTime  @default(now()) @map("created_time")
+  createdBy              String    @map("created_by")
+  reason                 String    @default("deleted") @map("reason")
+  recordCreatedTime      DateTime? @map("record_created_time")
+  recordCreatedBy        String?   @map("record_created_by")
+  recordLastModifiedTime DateTime? @map("record_last_modified_time")
+  recordLastModifiedBy   String?   @map("record_last_modified_by")
+  operationId            String?   @map("operation_id")
 
   @@index([tableId, recordId])
   @@map("record_trash")
+}
+
+// Mirror of the db-data-prisma model: shared (non-BYODB) deployments host the
+// data-plane tables in the main db, so the table must exist here too. BYODB
+// tenant dbs get it from the db-data migration instead.
+model RecordRemovalTombstone {
+  id          String   @id
+  tableId     String   @map("table_id")
+  recordId    String   @map("record_id")
+  type        String
+  createdTime DateTime @default(now()) @map("created_time")
+
+  @@index([tableId, recordId])
+  @@map("record_removal_tombstone")
 }
 
 model Plugin {
@@ -1028,7 +1164,7 @@ model Task {
 model TaskRun {
   id               String    @id @default(cuid())
   taskId           String    @map("task_id")
-  baseId           String?   @map("base_id")
+  baseId           String    @map("base_id")
   status           String    @map("status")
   snapshot         String    @map("snapshot")
   dependsOnRunIds  String[]  @default([]) @map("depends_on_run_ids")

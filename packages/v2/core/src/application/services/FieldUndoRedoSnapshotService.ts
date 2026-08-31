@@ -354,6 +354,7 @@ export class FieldUndoRedoSnapshotService {
       mode: 'stored',
       includeTotal: false,
       projectionFieldIds: [field.id()],
+      valuesOnly: true,
     });
     if (queryResult.isErr()) {
       if (this.isMissingColumnError(queryResult.error)) {
@@ -391,6 +392,7 @@ export class FieldUndoRedoSnapshotService {
       mode: 'stored',
       includeTotal: false,
       projectionFieldIds: storedFields.map((field) => field.id()),
+      valuesOnly: true,
     });
     if (queryResult.isErr()) {
       if (!this.isMissingColumnError(queryResult.error)) {

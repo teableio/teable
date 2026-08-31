@@ -1,9 +1,11 @@
 import {
   BaseId,
   DbFieldName,
+  DbFieldType,
   createCreatedByField,
   createFormulaField,
   createLastModifiedByField,
+  createUserField,
   createNumberField,
   FieldId,
   FieldName,
@@ -188,6 +190,50 @@ const createScalarLookupFormulaTable = () => {
     ._unsafeUnwrap();
 
   return { table, formulaFieldId };
+};
+
+const createNestedUserArrayJoinFormulaTable = () => {
+  const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'u'.repeat(16)}`)._unsafeUnwrap();
+  const tableName = TableName.create('SessionNotes')._unsafeUnwrap();
+  const userFieldIds = Array.from({ length: 7 }, (_, index) =>
+    createFieldId(`fld${String(index + 1).repeat(16)}`)
+  );
+  const formulaFieldId = createFieldId(`fld${'j'.repeat(16)}`);
+
+  const builder = Table.builder().withId(tableId).withName(tableName).withBaseId(baseId);
+  builder.field().singleLineText().withName(createFieldName('Name')).primary().done();
+
+  for (const [index, userFieldId] of userFieldIds.entries()) {
+    builder.addFieldFromResult(
+      createUserField({
+        id: userFieldId,
+        name: createFieldName(`Trainer${index + 1}`),
+      }).andThen((field) =>
+        DbFieldName.rehydrate(`Trainer${index + 1}`).andThen((dbName) =>
+          field.setDbFieldName(dbName).map(() => field)
+        )
+      )
+    );
+  }
+
+  const flattenArgs = userFieldIds.map((id) => `{${id.toString()}}`).join(', ');
+  builder.addFieldFromResult(
+    createFormulaField({
+      id: formulaFieldId,
+      name: createFieldName('JoinedTrainers'),
+      expression: FormulaExpression.create(
+        `ARRAY_JOIN(ARRAY_UNIQUE(ARRAY_COMPACT(ARRAY_FLATTEN(${flattenArgs}))), "、")`
+      )._unsafeUnwrap(),
+    }).andThen((field) =>
+      DbFieldName.rehydrate('JoinedTrainers').andThen((dbName) =>
+        field.setDbFieldName(dbName).map(() => field)
+      )
+    )
+  );
+  builder.view().defaultGrid().done();
+
+  return { table: builder.build()._unsafeUnwrap(), formulaFieldId };
 };
 
 // Create a table with parallel formulas at the same level
@@ -377,6 +423,77 @@ const createLinkFormulaTable = () => {
   table
     .getFields()[2]
     .setDbFieldName(DbFieldName.rehydrate('LinkTitleFormula')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  return { table, formulaFieldId };
+};
+
+const createOneManyLinkValueFormulaTable = () => {
+  const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
+  const mainTableId = TableId.create(`tbl${'l'.repeat(16)}`)._unsafeUnwrap();
+  const foreignTableId = TableId.create(`tbl${'r'.repeat(16)}`)._unsafeUnwrap();
+  const lookupFieldId = createFieldId(`fld${'p'.repeat(16)}`);
+  const linkFieldId = createFieldId(`fld${'q'.repeat(16)}`);
+  const formulaFieldId = createFieldId(`fld${'r'.repeat(16)}`);
+
+  const foreignBuilder = Table.builder()
+    .withId(foreignTableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('ForeignTable')._unsafeUnwrap());
+  foreignBuilder
+    .field()
+    .singleLineText()
+    .withId(lookupFieldId)
+    .withName(createFieldName('Title'))
+    .done();
+  foreignBuilder.view().defaultGrid().done();
+
+  const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+  foreignTable
+    .getFields()[0]
+    .setDbFieldName(DbFieldName.rehydrate('Title')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  const linkConfig = LinkFieldConfig.create({
+    relationship: 'oneMany',
+    foreignTableId: foreignTableId.toString(),
+    lookupFieldId: lookupFieldId.toString(),
+    symmetricFieldId: `fld${'s'.repeat(16)}`,
+  })._unsafeUnwrap();
+
+  const mainBuilder = Table.builder()
+    .withId(mainTableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('MainTable')._unsafeUnwrap());
+  mainBuilder.field().singleLineText().withName(createFieldName('Name')).done();
+  mainBuilder
+    .field()
+    .link()
+    .withId(linkFieldId)
+    .withName(createFieldName('Link'))
+    .withConfig(linkConfig)
+    .done();
+  mainBuilder
+    .field()
+    .formula()
+    .withId(formulaFieldId)
+    .withName(createFieldName('ConversionRate'))
+    .withExpression(FormulaExpression.create(`VALUE({${linkFieldId.toString()}})`)._unsafeUnwrap())
+    .done();
+  mainBuilder.view().defaultGrid().done();
+
+  const table = mainBuilder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
+  table
+    .getFields()[0]
+    .setDbFieldName(DbFieldName.rehydrate('Name')._unsafeUnwrap())
+    ._unsafeUnwrap();
+  table
+    .getFields()[1]
+    .setDbFieldName(DbFieldName.rehydrate('Link')._unsafeUnwrap())
+    ._unsafeUnwrap();
+  table
+    .getFields()[2]
+    .setDbFieldName(DbFieldName.rehydrate('ConversionRate')._unsafeUnwrap())
     ._unsafeUnwrap();
 
   return { table, formulaFieldId };
@@ -730,6 +847,33 @@ describe('SameTableBatchQueryBuilder', () => {
         'FROM "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" AS u, "level_0", "level_1"'
       );
     });
+    it('materializes JSON-backed formula CTE levels', () => {
+      const db = createMockKysely();
+      const builder = new SameTableBatchQueryBuilder(db, typeValidationStrategy);
+      const { table, plusOneId, plusOneDoubleId } = createChainedFormulaTable();
+
+      for (const fieldId of [plusOneId, plusOneDoubleId]) {
+        table
+          .getField((field) => field.id().equals(fieldId))
+          ._unsafeUnwrap()
+          .setDbFieldType(DbFieldType.rehydrate('JSON')._unsafeUnwrap())
+          ._unsafeUnwrap();
+      }
+
+      const result = builder.build({
+        table,
+        fieldLevels: [
+          { level: 0, fieldIds: [plusOneId] },
+          { level: 1, fieldIds: [plusOneDoubleId] },
+        ],
+        dirtyFilter: { tableId: table.id().toString() },
+      });
+
+      expect(result.isOk()).toBe(true);
+      const compiled = result._unsafeUnwrap().selectQuery.compile(db);
+      expect(compiled.sql).toContain('"level_0" AS MATERIALIZED');
+      expect(compiled.sql).toContain('"level_1" AS MATERIALIZED');
+    });
 
     it('builds returning updates from a same-table CTE chain', () => {
       const db = createMockKysely();
@@ -768,8 +912,8 @@ describe('SameTableBatchQueryBuilder', () => {
       expect(sqlText).toContain('WITH "level_0" AS');
       expect(sqlText).toContain('INNER JOIN "tmp_computed_dirty" AS "__dirty"');
       expect(sqlText).toContain('RETURNING "u"."__id", "u"."__version" - 1 as "__old_version"');
-      expect(sqlText).toContain('"__old"."PlusOne" as "__old_PlusOne"');
-      expect(sqlText).toContain('"__old"."PlusOneDouble" as "__old_PlusOneDouble"');
+      expect(sqlText).toContain('"__old"."PlusOne" as "__old_0"');
+      expect(sqlText).toContain('"__old"."PlusOneDouble" as "__old_1"');
       expect(sourceAliasIndex).toBeGreaterThan(-1);
       expect(oldTableIndex).toBeGreaterThan(sourceAliasIndex);
     });
@@ -944,6 +1088,38 @@ describe('SameTableBatchQueryBuilder', () => {
       expect(sqlText).not.toContain(`"t"."Link" as "LinkTitleFormula"`);
     });
 
+    it('does not cast jsonb_agg text to double precision for scalar VALUE() of oneMany links', () => {
+      const db = createMockKysely();
+      const builder = new SameTableBatchQueryBuilder(db, typeValidationStrategy);
+      const { table, formulaFieldId } = createOneManyLinkValueFormulaTable();
+      const formulaField = table
+        .getField((field) => field.id().equals(formulaFieldId))
+        ._unsafeUnwrap();
+
+      expect(formulaField.cellValueType()._unsafeUnwrap().toString()).toBe('number');
+      expect(formulaField.isMultipleCellValue()._unsafeUnwrap().isMultiple()).toBe(false);
+
+      const result = builder.build({
+        table,
+        fieldLevels: [{ level: 0, fieldIds: [formulaFieldId] }],
+      });
+
+      expect(result.isOk()).toBe(true);
+      const updateBuilder = new UpdateFromSelectBuilder(db);
+      const compiled = updateBuilder.build({
+        table,
+        fieldIds: [formulaFieldId],
+        selectQuery: result._unsafeUnwrap().selectQuery,
+      });
+      expect(compiled.isOk()).toBe(true);
+
+      const sqlText = compiled._unsafeUnwrap().sql;
+      expect(sqlText).toContain('::double precision');
+      expect(sqlText).toContain('-> 0');
+      expect(sqlText).toContain('jsonb_typeof(v.elem)');
+      expect(sqlText).not.toMatch(/NULLIF\(BTRIM\(\(\(SELECT jsonb_agg/);
+    });
+
     it('uses scalar lookup columns directly in same-table formula batches', () => {
       const db = createMockKysely();
       const builder = new SameTableBatchQueryBuilder(db, typeValidationStrategy);
@@ -969,6 +1145,33 @@ describe('SameTableBatchQueryBuilder', () => {
       expect(sqlText).not.toContain('pg_input_is_valid');
       expect(sqlText).not.toContain('jsonb_build_array');
       expect(sqlText).not.toContain('jsonb_typeof');
+    });
+
+    it('keeps nested ARRAY_JOIN of flattened user fields off the json-validation path', () => {
+      const db = createMockKysely();
+      const builder = new SameTableBatchQueryBuilder(db, typeValidationStrategy);
+      const { table, formulaFieldId } = createNestedUserArrayJoinFormulaTable();
+
+      const result = builder.build({
+        table,
+        fieldLevels: [{ level: 0, fieldIds: [formulaFieldId] }],
+      });
+
+      expect(result.isOk()).toBe(true);
+      const updateBuilder = new UpdateFromSelectBuilder(db);
+      const compiled = updateBuilder.build({
+        table,
+        fieldIds: [formulaFieldId],
+        selectQuery: result._unsafeUnwrap().selectQuery,
+      });
+      expect(compiled.isOk()).toBe(true);
+
+      const sqlText = compiled._unsafeUnwrap().sql;
+      expect(sqlText).toContain('jsonb_array_elements');
+      expect(sqlText).toContain('string_agg');
+      expect(sqlText).not.toContain('pg_input_is_valid');
+      expect(sqlText).not.toContain('__teable_input_is_valid');
+      expect(sqlText.length).toBeLessThan(16_000);
     });
   });
 

@@ -3,6 +3,7 @@
     "empty": "Empty",
     "noRecords": "No records available",
     "unnamedRecord": "Unnamed record",
+    "recordDeleted": "Record deleted",
     "untitled": "Untitled",
     "cancel": "Cancel",
     "confirm": "Confirm",
@@ -32,7 +33,9 @@
     "resetSuccess": "Reset successfully",
     "click": "Click",
     "clickedCount": "{{label}}: Clicked {{text}} times",
-    "atLeastOne": "At least reserve a {{noun}}"
+    "close": "Close",
+    "atLeastOne": "At least reserve a {{noun}}",
+    "selectField": "Select field"
   },
   "notification": {
     "title": "Notification"
@@ -44,7 +47,9 @@
   },
   "preview": {
     "previewFileLimit": "Preview file size limit: {{size}}MB, please download to view instead.",
-    "loadFileError": "Failed to load file"
+    "loadFileError": "Failed to load file",
+    "previousAttachment": "Previous",
+    "nextAttachment": "Next"
   },
   "undoRedo": {
     "undo": "Undo",
@@ -244,7 +249,11 @@
         "pastNumberOfDays": "past number of days",
         "nextNumberOfDays": "next number of days"
       }
-    }
+    },
+    "selectOperator": "Select operator",
+    "selectConjunction": "Select conjunction",
+    "selectDateMode": "Select date option",
+    "selectValue": "Select value"
   },
   "color": {
     "label": "Color"
@@ -273,6 +282,8 @@
   },
   "expandRecord": {
     "copy": "Copy to clipboard",
+    "previousRecord": "Previous",
+    "nextRecord": "Next",
     "duplicateRecord": "Duplicate record",
     "copyRecordUrl": "Copy record URL",
     "deleteRecord": "Delete record",
@@ -306,14 +317,16 @@
     "addButton": "Add another sort",
     "autoSort": "Automatically sort records",
     "selectASCLabel": "first → last",
-    "selectDESCLabel": "last → first"
+    "selectDESCLabel": "last → first",
+    "orderTitle": "Select sort order"
   },
   "group": {
     "label": "Group",
     "displayLabel_one": "Group by {{count}} fields",
     "displayLabel_other": "Group by {{count}} fields",
     "setTips": "Group by",
-    "addButton": "Add subgroup"
+    "addButton": "Add subgroup",
+    "maxLimitTip": "You can group by up to {{count}} fields"
   },
   "field": {
     "title": {
@@ -351,7 +364,7 @@
       "date": "Record dates or times.",
       "createdTime": "Show when a record was created.",
       "lastModifiedTime": "Show the most recent update time.",
-      "attachment": "Upload files or AI generate images, supports models such as 🍌 Nano banana pro",
+      "attachment": "Upload files or AI generate images, supports models such as GPT Image 2",
       "checkbox": "Toggle a simple yes or no.",
       "rollup": "Summarize linked records with formulas.",
       "conditionalRollup": "Summarize data from conditions.",
@@ -402,6 +415,8 @@
       "tableTrashRead": "Read table trash",
       "tableTrashUpdate": "Update table trash",
       "tableTrashReset": "Reset table trash",
+      "tableArchiveRead": "Read table archive",
+      "tableArchiveManage": "Manage table archive",
       "viewCreate": "Create view",
       "viewDelete": "Delete view",
       "viewRead": "Read view",
@@ -417,6 +432,7 @@
       "recordRead": "Read record",
       "recordUpdate": "Update record",
       "recordCopy": "Copy record",
+      "recordArchive": "Archive record",
       "automationCreate": "Create automation",
       "automationDelete": "Delete automation",
       "automationRead": "Read automation",
@@ -910,10 +926,12 @@
     "creditLimitExceeded": "Credits have exceeded the limit",
     "restrictedResource": "Restricted resource",
     "notFound": "Not found",
+    "viewNotFound": "View not found",
     "conflict": "Conflict",
     "unprocessableEntity": "Unprocessable entity",
     "userLimitExceeded": "User limit exceeded",
     "tooManyRequests": "Too many requests",
+    "payloadTooLarge": "Payload too large",
     "internalServerError": "Internal server error",
     "databaseConnectionUnavailable": "Database connection unavailable",
     "gatewayTimeout": "Gateway timeout",
@@ -950,15 +968,21 @@
       "nameMaxLength": "Name is too long. Maximum is {{max}} characters.",
       "descriptionMaxLength": "Description is too long. Maximum is {{max}} characters."
     },
-    "validation": {
-      "field": {
-        "unique": "Field must have a unique value"
-      }
-    },
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow empty values, please fill in completely before submitting.",
       "fieldValueDuplicate": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow duplicate values, please fill in a unique value before submitting.",
+      "recordFieldValueNotNull": "Field \"{{fieldName}}\" does not allow empty values, please fill it in before submitting.",
+      "recordFieldValueDuplicate": "Field \"{{fieldName}}\" does not allow duplicate values, please fill in a unique value before submitting.",
+      "recordDeleteBlockedByRequiredLink": "Cannot delete: required link field \"{{fieldName}}\" in table \"{{tableName}}\" would become empty.",
+      "recordDeleteBlockedByRequiredLinkGeneric": "Cannot delete: this record is still referenced by a link field in another table.",
+      "recordDeleteBlockedByLink": "Cannot delete: link field \"{{fieldName}}\" in table \"{{tableName}}\" still references this record.",
       "linkFieldValueDuplicate": "\"{{fieldName}}\" field does not allow duplicate associations with the same record",
+      "linkBatchDuplicate": "Cannot link record(s): already linked by another record in the same batch. In one-to-many relationships, each record can only belong to one parent.",
+      "linkOneManyDuplicate": "Cannot link record(s): already linked to another record. In one-to-many relationships, each record can only belong to one parent.",
+      "linkOneOneDuplicate": "Cannot link record(s): the target record is already linked by another record in a one-to-one relationship.",
+      "fieldMaxColumnLimit": "Table \"{{tableName}}\" can have at most {{maxFieldCount}} fields.",
+      "fieldRequiredExistingValues": "Cannot mark field \"{{fieldName}}\" as required because existing records contain empty values.",
+      "fieldUniqueExistingValues": "Cannot mark field \"{{fieldName}}\" as unique because existing records contain duplicate values.",
       "requestTimeout": "This action is too large, please try with a smaller scope.",
       "searchTimeOut": "Search timeout, please decrease the search scope and try again",
       "dependencyNodeRequire": "Dependency node not tested, please check if all previous nodes have been tested",
@@ -1036,8 +1060,12 @@
       "onlyFailedRunsCanRerun": "Only failed runs can be rerun",
       "workflowMustBeActiveToRerun": "Workflow must be active to rerun",
       "snapshotChangedOnlyFullRerun": "Workflow has been modified since this run. Only full rerun is allowed.",
+      "runPayloadColdTruncated": "Parts of this run were truncated during cold archiving; rerun from it is not available",
+      "runListOffsetTooDeep": "This page is too far into the run history for offset paging; continue with the cursor returned by the previous page.",
       "controlStepsMissingOnlyFullRerun": "Control node data is missing for this run. Only full rerun is supported.",
       "triggerNodeAlreadyExists": "This automation already has a trigger node",
+      "scheduledIntervalTooShort": "Scheduled automations must run at least {{min}} minutes apart",
+      "emailPollIntervalTooShort": "Email triggers must check for new mail no more often than every {{min}} minutes",
       "unSupportLogicType": "Unsupported logic type",
       "generateLogicError": "Generate logic node error",
       "logicNotFound": "Automation logic node not found",
@@ -1305,7 +1333,10 @@
     },
     "billing": {
       "insufficientCredit": "Insufficient credit",
+      "upgradeRequired": "This feature is not available on your current plan. Please upgrade your plan to use it.",
       "exceedMaxRowLimit": "Maximum row limit {{maxRowCount}} exceeded",
+      "exceedMaxAttachmentSizeLimit": "Attachment storage has reached your plan limit. Please upgrade your plan or remove some attachments.",
+      "exceedMaxSystemEmailLimit": "Monthly email sends have reached your plan limit. Please upgrade your plan.",
       "exceedMaxAutomationRunLimit": "Maximum automation run limit exceeded",
       "manualSubscriptionNotSupported": "Self-service subscription is not available for this space. For upgrades, downgrades, or other subscription changes, please contact Teable support.",
       "appSumoSubscriptionNotSupported": "AppSumo subscriptions cannot be modified through this interface. Please manage your subscription on AppSumo.",
@@ -1336,6 +1367,7 @@
       "imageNotSupported": "Image input not supported by this model {{model}}",
       "modelNotSet": "AI model is not set",
       "unsupportedFileType": "Unsupported file type {{mimetype}}",
+      "attachmentDownloadFailed": "Failed to download attachment: {{reason}}",
       "unsupportedModelType": "Unsupported model type",
       "embeddingModelNotSet": "Embedding model is not set",
       "validateActionFailed": "Validate field AI action failed",
@@ -1524,7 +1556,11 @@
       "zipFileTooLarge": "ZIP file size exceeds 5MB limit",
       "invalidZip": "Invalid ZIP file",
       "domainAlreadyInUse": "This domain is already bound to another app",
-      "domainReserved": "Subdomain is reserved"
+      "domainReserved": "Subdomain is reserved",
+      "siteInfoBeforeGeneration": "Generate the app before customizing its site info",
+      "generationEditingConflict": "An AI generation is currently editing this app. Please retry the file update after it finishes.",
+      "siteInfoLayoutNotEditable": "This app's code isn't set up to accept site info edits here. Send a chat message asking the AI to change the site title, description or icon instead.",
+      "siteInfoManagedInCode": "This app manages its site title and description in code. Send a chat message asking the AI to change them instead."
     },
     "reward": {
       "notFound": "Reward not found",
@@ -1534,6 +1570,7 @@
       "alreadyClaimedThisWeek": "You have already claimed a reward for this account this week",
       "invalidPostUrl": "Invalid post URL format",
       "postAlreadyUsed": "This post has already been used to claim a reward",
+      "tooManyFailedAttempts": "Too many failed verification attempts this week",
       "unsupportedPlatformUrl": "Unsupported social platform URL",
       "unsupportedPlatform": "Unsupported platform: {{platform}}",
       "minCharCount": "Post must have at least {{count}} characters",
@@ -1547,6 +1584,25 @@
       "linkedInPostNotFound": "LinkedIn post not found: {{postId}}",
       "linkedInAuthorNotFound": "LinkedIn author not found: {{postId}}",
       "fetchLinkedInUserFailed": "Failed to fetch LinkedIn user: {{error}}"
+    }
+  },
+  "usageLimitBanner": {
+    "viewDetail": "View details",
+    "rows": {
+      "title": "This space uses {{current}} rows, exceeding your plan limit of {{limit}}",
+      "titleIncrement": "This action adds {{increment}} rows, exceeding your plan limit of {{limit}}",
+      "titleBatch": "This operation would exceed your plan limit of {{limit}} rows",
+      "description": "You can't add more records. Upgrade to lift the limit instantly, or free up space by deleting records.",
+      "unit": "rows"
+    },
+    "credit": {
+      "unit": "credits"
+    },
+    "attachments": {
+      "unit": "Attachments"
+    },
+    "generic": {
+      "description": "Upgrade your plan to lift this limit."
     }
   }
 }

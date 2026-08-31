@@ -3,12 +3,12 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldDeletionSideEffectService } from '../application/services/FieldDeletionSideEffectService';
-import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
-import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import {
   FieldOperationPluginRunner,
   type FieldOperationPluginExecution,
 } from '../application/services/FieldOperationPluginRunner';
+import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
+import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import {
   toUndoRedoStackAppendContext,
@@ -28,16 +28,14 @@ import {
 } from '../domain/table/OnTeableFieldDeleted';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { TableUpdateViewColumnMetaSpec } from '../domain/table/specs/TableUpdateViewColumnMetaSpec';
+import { TableUpdateViewOptionsSpec } from '../domain/table/specs/TableUpdateViewOptionsSpec';
 import { TableUpdateViewQueryDefaultsSpec } from '../domain/table/specs/TableUpdateViewQueryDefaultsSpec';
 import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
-import { TableUpdateResult } from '../domain/table/TableMutator';
 import { implementsOnTeableViewFieldDeleted } from '../domain/table/views/OnTeableViewFieldDeleted';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
-import type {
-  IFieldDeleteSnapshotSink,
-  IFieldDeleteSnapshotSinkCompletion,
-} from '../ports/FieldDeleteSnapshotSink';
+import { IFieldDeleteSnapshotSink } from '../ports/FieldDeleteSnapshotSink';
+import type { IFieldDeleteSnapshotSinkCompletion } from '../ports/FieldDeleteSnapshotSink';
 import {
   FieldOperationKind,
   FieldOperationTargetKind,
@@ -441,11 +439,7 @@ export class DeleteFieldsHandler
         const updateResult = yield* await handler.tableUpdateFlow.execute(
           context,
           { table: candidateTable },
-          (table) => {
-            const updated = cleanupSpec.mutate(table);
-            if (updated.isErr()) return err(updated.error);
-            return ok(TableUpdateResult.create(updated.value, cleanupSpec));
-          },
+          (table) => table.update((mutator) => mutator.applySpecs([cleanupSpec])),
           { publishEvents: false }
         );
         if (candidateTable.id().equals(latestSourceTable.id())) {
@@ -542,15 +536,33 @@ export class DeleteFieldsHandler
               viewId: result.value.viewId,
               fieldId: result.value.fieldId,
               columnMeta: result.value.columnMeta,
+              ...(result.value.options
+                ? {
+                    previousOptions: result.value.options.previousOptions,
+                    nextOptions: result.value.options.nextOptions,
+                    optionsChanged: true,
+                  }
+                : {}),
             },
           ])
         );
+      } else if (result.value?.options) {
+        specs.push(
+          TableUpdateViewOptionsSpec.create({
+            viewId: result.value.viewId,
+            previousOptions: result.value.options.previousOptions,
+            nextOptions: result.value.options.nextOptions,
+          })
+        );
       }
       if (result.value?.queryDefaults) {
+        const previousQueryDefaultsResult = view.queryDefaults();
+        if (previousQueryDefaultsResult.isErr()) return err(previousQueryDefaultsResult.error);
         specs.push(
           TableUpdateViewQueryDefaultsSpec.create([
             {
               viewId: result.value.viewId,
+              previousQueryDefaults: previousQueryDefaultsResult.value,
               queryDefaults: result.value.queryDefaults,
             },
           ])

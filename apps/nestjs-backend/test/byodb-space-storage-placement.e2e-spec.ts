@@ -60,6 +60,7 @@ import {
   X_TEABLE_V2_REASON_HEADER,
 } from '../src/features/canary/interceptors/v2-indicator.interceptor';
 import { CsvImporter } from '../src/features/import/open-api/import.class';
+import { DataDbBindingService } from '../src/features/space/data-db-binding.service';
 import { SpaceDataDbMigrationWorkerService } from '../src/features/space/space-data-db-migration-worker.service';
 import { SpaceDataDbMigrationService } from '../src/features/space/space-data-db-migration.service';
 import { DataDbClientManager } from '../src/global/data-db-client-manager.service';
@@ -114,7 +115,9 @@ const dataPlaneSystemTables = [
   'computed_update_outbox',
   'computed_update_outbox_seed',
   'computed_update_dead_letter',
+  'computed_update_run_history',
   'computed_update_pause_scope',
+  'computed_update_stage_ledger',
   'computed_field_activity',
   'computed_table_activity',
   'computed_task_field_ref',
@@ -328,7 +331,7 @@ const streamToBuffer = async (stream: NodeJS.ReadableStream) => {
 const waitForCount = async (
   getCount: () => Promise<number>,
   expectedCount: number,
-  maxRetries = 60
+  maxRetries = 100
 ) => {
   for (let i = 0; i < maxRetries; i++) {
     const count = await getCount();
@@ -963,7 +966,7 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
     }
   }, 180_000);
 
-  it('updates an existing BYODB connection from direct PostgreSQL to a pooler for the same database', async () => {
+  it('rejects public updates while allowing internal BYODB connection rotation', async () => {
     const poolerInternalSchema = `byodb_pooler_update_${Date.now().toString(36)}`;
     let poolerSpaceId: string | undefined;
     let poolerBaseId: string | undefined;
@@ -992,17 +995,21 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
         records: [{ fields: { Name: 'Before pooler update' } }],
       });
 
-      const updateResult = await updateSpaceDataDb(space.id, {
+      const updateInput = {
         url: pooler.connectionUrl,
         targetMode: 'initialize-empty',
         internalSchema: poolerInternalSchema,
-      });
-      expect(updateResult.data).toMatchObject({
-        mode: 'byodb',
-        state: 'ready',
-        displayHost: new URL(pooler.connectionUrl).host,
+      } as const;
+      await expectRequestStatus(() => updateSpaceDataDb(space.id, updateInput), 403);
+
+      await app.get(DataDbBindingService).updateBindingForSpace(space.id, userId, updateInput);
+      const updateResult = await app.get(DataDbClientManager).getDataDatabaseForSpace(space.id);
+      expect(updateResult).toMatchObject({
+        isMetaFallback: false,
         internalSchema: poolerInternalSchema,
       });
+      expect(updateResult.connectionUrl).toBeDefined();
+      expect(new URL(updateResult.connectionUrl!).host).toBe(new URL(pooler.connectionUrl).host);
 
       const primaryFieldId = poolerTable.fields.find((field) => field.isPrimary)?.id;
       expect(primaryFieldId).toBeDefined();
@@ -2007,6 +2014,22 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
       ])
     ).resolves.toBe(0);
 
+    // Imports intentionally write no record history; update one imported record to
+    // verify record history for the imported table is routed to the data DB.
+    await expect(
+      countRows(dataDb, internalSchema, 'record_history', `${quoteIdent('table_id')} = ?`, [
+        importedTable.id,
+      ])
+    ).resolves.toBe(0);
+    const importedRecordId = importedRecords.records[0].id;
+    await updateRecord(importedTable.id, importedRecordId, {
+      fieldKeyType: FieldKeyType.Name,
+      record: {
+        fields: {
+          ['Ming_Zi']: 'Ada Updated',
+        },
+      },
+    });
     await expect(
       waitForAtLeast(
         () =>

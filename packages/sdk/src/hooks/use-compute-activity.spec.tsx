@@ -64,22 +64,22 @@ const idleSnapshot: ComputeActivitySnapshotClient = {
 };
 
 const createDoc = (data: Record<string, unknown>) => {
-  const listeners = new Map<string, Set<() => void>>();
+  const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
   return {
     data,
     subscribe: vi.fn((callback: (error?: Error) => void) => callback()),
-    on: vi.fn((event: string, listener: () => void) => {
+    on: vi.fn((event: string, listener: (...args: unknown[]) => void) => {
       const eventListeners = listeners.get(event) ?? new Set();
       eventListeners.add(listener);
       listeners.set(event, eventListeners);
     }),
-    removeListener: vi.fn((event: string, listener: () => void) => {
+    removeListener: vi.fn((event: string, listener: (...args: unknown[]) => void) => {
       listeners.get(event)?.delete(listener);
     }),
     removeAllListeners: vi.fn((event: string) => listeners.get(event)?.clear()),
     destroy: vi.fn(() => listeners.forEach((eventListeners) => eventListeners.clear())),
-    emit(event: string) {
-      listeners.get(event)?.forEach((listener) => listener());
+    emit(event: string, ...args: unknown[]) {
+      listeners.get(event)?.forEach((listener) => listener(...args));
     },
   };
 };
@@ -137,19 +137,7 @@ describe('useComputeActivity', () => {
     expect(field).toEqual({ id: 'fldTest', isPending: false });
 
     const disabledOptions = mockedUseQuery.mock.calls.at(-1)?.[0];
-    const refetchInterval = disabledOptions?.refetchInterval as (query: {
-      state: { data: ComputeActivitySnapshotClient };
-    }) => number | false;
-    expect(
-      refetchInterval({
-        state: {
-          data: {
-            ...idleSnapshot,
-            fields: [{ fieldId: 'fldTest', status: 'running' }],
-          },
-        },
-      })
-    ).toBe(false);
+    expect(disabledOptions?.refetchInterval).toBeUndefined();
 
     unmount();
     expect(connection.get).not.toHaveBeenCalled();
@@ -183,7 +171,7 @@ describe('useComputeActivitySubscription', () => {
     expect(result.current.fieldMetaById).toEqual({});
   });
 
-  it('refreshes diagnostics and polling from merged realtime and HTTP field state', async () => {
+  it('refreshes diagnostics from merged realtime and HTTP field state without polling', async () => {
     const tableDoc = createDoc({ status: 'idle', calculatingFieldCount: 0 });
     const fieldDocs = {
       fldRunning: createDoc({
@@ -229,10 +217,42 @@ describe('useComputeActivitySubscription', () => {
     });
 
     const latestOptions = mockedUseQuery.mock.calls.at(-1)?.[0];
-    const refetchInterval = latestOptions?.refetchInterval as (query: {
-      state: { data: ComputeActivitySnapshotClient };
-    }) => number | false;
-    expect(refetchInterval({ state: { data: idleSnapshot } })).toBe(1500);
+    expect(latestOptions?.refetchInterval).toBeUndefined();
+  });
+
+  it('surfaces execution state and pause blockers from the HTTP diagnostics', async () => {
+    const pause = {
+      effective: true,
+      blockers: [
+        {
+          id: 'cup_lease',
+          scopeType: 'base' as const,
+          scopeId: 'bseTest',
+          pausedAt: '2026-07-16T00:00:00.000Z',
+          pausedBy: 'ops',
+          resumeAt: '2026-07-16T00:30:00.000Z',
+          reason: 'index build window',
+        },
+      ],
+      queuedTaskCount: 12,
+      oldestQueuedAt: '2026-07-16T00:00:00.000Z',
+    };
+    mockedUseConnection.mockReturnValue({ connection: undefined, connected: false } as never);
+    mockedUseQuery.mockReturnValue({
+      data: {
+        ...idleSnapshot,
+        diagnostics: { ...idleSnapshot.diagnostics, executionState: 'paused' as const, pause },
+      },
+      isFetching: false,
+      refetch: vi.fn(),
+    } as never);
+
+    const { result } = renderHook(() => useComputeActivitySubscription(), {
+      wrapper: createWrapper([{ id: 'fldTest' }]),
+    });
+
+    await waitFor(() => expect(result.current.diagnostics?.executionState).toBe('paused'));
+    expect(result.current.diagnostics?.pause).toEqual(pause);
   });
 
   it('does not let stale realtime generations override newer HTTP activity', async () => {
@@ -290,10 +310,7 @@ describe('useComputeActivitySubscription', () => {
     expect(result.current.tableMeta?.status).toBe('idle');
 
     const latestOptions = mockedUseQuery.mock.calls.at(-1)?.[0];
-    const refetchInterval = latestOptions?.refetchInterval as (query: {
-      state: { data: ComputeActivitySnapshotClient };
-    }) => number | false;
-    expect(refetchInterval({ state: { data: httpSnapshot } })).toBe(false);
+    expect(latestOptions?.refetchInterval).toBeUndefined();
   });
 
   it('normalizes nullable activity timestamps before applying them to fields', async () => {
@@ -386,6 +403,45 @@ describe('useComputeActivitySubscription', () => {
     expect(result.current.tableMeta?.status).toBe('calculating');
     expect(result.current.fieldMetaById.fldTest?.status).toBe('running');
   });
+  it('silences uncreated compute-doc errors before subscribing', async () => {
+    const tableDoc = createDoc({ status: 'idle', calculatingFieldCount: 0 });
+    const fieldDoc = createDoc({ status: 'queued' });
+    const connection = {
+      get: vi.fn((_collection: string, id: string) => (id === 'table' ? tableDoc : fieldDoc)),
+      startBulk: vi.fn(),
+      endBulk: vi.fn(),
+      emit: vi.fn(),
+    };
+    mockedUseConnection.mockReturnValue({ connection, connected: true } as never);
+    mockedUseQuery.mockReturnValue({
+      data: idleSnapshot,
+      isFetching: false,
+      refetch: vi.fn(),
+    } as never);
+
+    renderHook(() => useComputeActivitySubscription(), {
+      wrapper: createWrapper([{ id: 'fldTest' }]),
+    });
+    await waitFor(() => expect(fieldDoc.subscribe).toHaveBeenCalled());
+
+    for (const doc of [tableDoc, fieldDoc]) {
+      const errorListenerIndex = doc.on.mock.calls.findIndex(([event]) => event === 'error');
+      expect(errorListenerIndex).toBeGreaterThanOrEqual(0);
+      expect(doc.on.mock.invocationCallOrder[errorListenerIndex]).toBeLessThan(
+        doc.subscribe.mock.invocationCallOrder[0]
+      );
+      doc.emit('error', {
+        code: 'ERR_DOC_DOES_NOT_EXIST',
+        message: 'Cannot apply op to uncreated document',
+      });
+    }
+    expect(connection.emit).not.toHaveBeenCalled();
+
+    const unexpectedError = new Error('unexpected compute-doc error');
+    fieldDoc.emit('error', unexpectedError);
+    expect(connection.emit).toHaveBeenCalledWith('error', unexpectedError);
+  });
+
   it('removes only listeners owned by the hook from shared docs', async () => {
     const tableDoc = createDoc({ status: 'idle', calculatingFieldCount: 0 });
     const fieldDoc = createDoc({ status: 'queued' });
@@ -412,8 +468,8 @@ describe('useComputeActivitySubscription', () => {
 
     unmount();
 
-    expect(tableDoc.removeListener).toHaveBeenCalledTimes(3);
-    expect(fieldDoc.removeListener).toHaveBeenCalledTimes(3);
+    expect(tableDoc.removeListener).toHaveBeenCalledTimes(4);
+    expect(fieldDoc.removeListener).toHaveBeenCalledTimes(4);
     expect(tableDoc.removeAllListeners).not.toHaveBeenCalled();
     expect(fieldDoc.removeAllListeners).not.toHaveBeenCalled();
     tableDoc.emit('op');

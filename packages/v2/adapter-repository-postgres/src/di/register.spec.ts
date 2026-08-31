@@ -99,6 +99,9 @@ describe('registerV2PostgresStateAdapter', () => {
       '../repositories/PostgresSchemaOperationRepository'
     );
     const { PostgresBaseRepository } = await import('../repositories/PostgresBaseRepository');
+    const { PostgresViewPluginRepository } = await import(
+      '../repositories/PostgresViewPluginRepository'
+    );
 
     const container = createContainer();
     const db = {
@@ -139,6 +142,11 @@ describe('registerV2PostgresStateAdapter', () => {
       {
         token: v2CoreTokens.tableRepository,
         implementation: PostgresTableRepository,
+        options: { lifecycle: Lifecycle.Singleton },
+      },
+      {
+        token: v2CoreTokens.viewPluginRepository,
+        implementation: PostgresViewPluginRepository,
         options: { lifecycle: Lifecycle.Singleton },
       },
       {

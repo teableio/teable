@@ -777,7 +777,7 @@ describe('v2 field explain endpoints (e2e)', () => {
               "parameterCount": 0,
               "pgInputIsValidCount": 1,
               "regexpReplaceCount": 0,
-              "sqlLength": 3830,
+              "sqlLength": 3874,
               "stringAggCount": 1,
             },
             "fields": [
@@ -792,7 +792,7 @@ describe('v2 field explain endpoints (e2e)', () => {
               "parameterCount": 1,
               "pgInputIsValidCount": 0,
               "regexpReplaceCount": 0,
-              "sqlLength": 2574,
+              "sqlLength": 2640,
               "stringAggCount": 2,
             },
             "fields": [
@@ -807,7 +807,7 @@ describe('v2 field explain endpoints (e2e)', () => {
               "parameterCount": 1,
               "pgInputIsValidCount": 0,
               "regexpReplaceCount": 0,
-              "sqlLength": 2504,
+              "sqlLength": 2554,
               "stringAggCount": 0,
             },
             "fields": [
@@ -822,7 +822,7 @@ describe('v2 field explain endpoints (e2e)', () => {
               "parameterCount": 1,
               "pgInputIsValidCount": 0,
               "regexpReplaceCount": 0,
-              "sqlLength": 1594,
+              "sqlLength": 1616,
               "stringAggCount": 1,
             },
             "fields": [
@@ -836,7 +836,7 @@ describe('v2 field explain endpoints (e2e)', () => {
               "parameterCount": 1,
               "pgInputIsValidCount": 0,
               "regexpReplaceCount": 0,
-              "sqlLength": 1558,
+              "sqlLength": 1583,
               "stringAggCount": 0,
             },
             "fields": [
@@ -845,7 +845,6 @@ describe('v2 field explain endpoints (e2e)', () => {
           },
         ]
       `);
-
     } finally {
       for (const tableIdToDelete of createdTableIds.reverse()) {
         await ctx.deleteTable(tableIdToDelete).catch(() => undefined);

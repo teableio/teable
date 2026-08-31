@@ -9,6 +9,7 @@ import {
   updateBaseShare,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { useContentDir } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib';
 import { Dialog, DialogContent } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
@@ -51,6 +52,7 @@ const BaseShareDialogContent = ({
   baseName: string;
   isBaseShared?: boolean;
 }) => {
+  const contentDir = useContentDir();
   const { t } = useTranslation(['common']);
   const queryClient = useQueryClient();
 
@@ -169,7 +171,7 @@ const BaseShareDialogContent = ({
       header={
         <div className="flex w-full items-center gap-2">
           <span className="text-base font-medium">{t('baseShare.shareTitle')}</span>
-          <span className="truncate text-base font-medium" title={baseName}>
+          <span dir={contentDir} className="truncate text-base font-medium" title={baseName}>
             {baseName}
           </span>
         </div>

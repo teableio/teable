@@ -19,12 +19,14 @@ import type {
   IImportAirtableRo,
   IImportAirtableVo,
 } from '@teable/openapi';
-import { CollaboratorType, PrincipalType, UploadType } from '@teable/openapi';
+import { BaseNodeResourceType, CollaboratorType, PrincipalType, UploadType } from '@teable/openapi';
+import { mapWithConcurrency } from '../../utils/map-with-concurrency';
 import { AiService } from '../ai/ai.service';
 import { AttachmentsService } from '../attachments/attachments.service';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { BaseService } from '../base/base.service';
+import { BaseNodeService } from '../base-node/base-node.service';
 import { FieldOpenApiV2Service } from '../field/open-api/field-open-api-v2.service';
 import { RecordOpenApiV2Service } from '../record/open-api/record-open-api-v2.service';
 import { TableOpenApiV2Service } from '../table/open-api/table-open-api-v2.service';
@@ -94,26 +96,6 @@ interface IViewConfigTarget {
   viewName: string;
 }
 
-/** Runs tasks with bounded concurrency, preserving the result order. */
-const mapWithConcurrency = async <T, R>(
-  items: T[],
-  limit: number,
-  task: (item: T) => Promise<R>
-): Promise<R[]> => {
-  const results: R[] = new Array(items.length);
-  let next = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      const index = next++;
-      if (index >= items.length) return;
-      results[index] = await task(items[index]);
-    }
-  });
-  await Promise.all(workers);
-  return results;
-};
-
 @Injectable()
 export class AirtableImportService {
   private readonly logger = new Logger(AirtableImportService.name);
@@ -127,6 +109,7 @@ export class AirtableImportService {
     private readonly attachmentsService: AttachmentsService,
     private readonly prismaService: PrismaService,
     private readonly aiService: AiService,
+    private readonly baseNodeService: BaseNodeService,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @Optional()
     @Inject(AIRTABLE_IMPORT_TOKEN_RESOLVER)
@@ -199,6 +182,15 @@ export class AirtableImportService {
           name: table.name,
           fieldCount: table.fields.length,
           viewCount: table.views.length,
+          ...(table.description ? { description: table.description } : {}),
+          // The schema is already in hand to count these — surfacing the names,
+          // types and the author's own notes costs nothing and lets callers
+          // describe the base without importing it (or reading any record).
+          fields: table.fields.map((field) => ({
+            name: field.name,
+            type: field.type,
+            ...(field.description ? { description: field.description } : {}),
+          })),
         })),
         issues: plan.issues,
       },
@@ -279,6 +271,22 @@ export class AirtableImportService {
         records: [],
       });
       tableIdMap[tablePlan.airtableTableId] = table.id;
+      if (ro.folderId && ro.baseId) {
+        // best-effort: on failure the table stays at root via node reconciliation
+        await this.baseNodeService
+          .attachResourceToParent({
+            baseId: base.id,
+            parentId: ro.folderId,
+            resourceType: BaseNodeResourceType.Table,
+            resourceId: table.id,
+          })
+          .catch((e) => {
+            this.logger.warn(
+              `[airtable-import] failed to attach table ${table.id} to folder ${ro.folderId}`,
+              e
+            );
+          });
+      }
       tableViewIds[table.id] = (table.views ?? []).map((view) => view.id);
       tablePlan.viewSources.forEach((source, viewIndex) => {
         const createdView = (table.views ?? [])[viewIndex];

@@ -1380,3 +1380,40 @@ describe('LinkField.validateAutoCreateTarget', () => {
     expect(result).toEqual(ok(undefined));
   });
 });
+
+// T6810: the non-hosting side of a two-way oneOne/manyOne link resolves its FK
+// key to '__id' (the referenced record id); its physical order column is the one
+// accompanying the hosting side's FK column — '__id_order' never exists.
+describe('LinkField order column resolution', () => {
+  const buildOneOneLinkField = (keys: { selfKeyName: string; foreignKeyName: string }) => {
+    const foreignTableId = createTableId('1')._unsafeUnwrap();
+    const lookupFieldId = createFieldId('2')._unsafeUnwrap();
+    const linkFieldId = createFieldId('3')._unsafeUnwrap();
+
+    const config = LinkFieldConfig.create({
+      relationship: 'oneOne',
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: lookupFieldId.toString(),
+      fkHostTableName: 'schema.link_host',
+      selfKeyName: keys.selfKeyName,
+      foreignKeyName: keys.foreignKeyName,
+    })._unsafeUnwrap();
+
+    return LinkField.create({
+      id: linkFieldId,
+      name: FieldName.create('Link')._unsafeUnwrap(),
+      config,
+      meta: LinkFieldMeta.create({ hasOrderColumn: true })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+  };
+
+  it('resolves the hosting oneOne side to its FK order column', () => {
+    const hosting = buildOneOneLinkField({ selfKeyName: '__id', foreignKeyName: '__fk_link' });
+    expect(hosting.orderColumnName()._unsafeUnwrap()).toBe('__fk_link_order');
+  });
+
+  it('resolves the non-hosting oneOne side to the hosting FK order column, never __id_order', () => {
+    const symmetric = buildOneOneLinkField({ selfKeyName: '__fk_link', foreignKeyName: '__id' });
+    expect(symmetric.orderColumnName()._unsafeUnwrap()).toBe('__fk_link_order');
+  });
+});

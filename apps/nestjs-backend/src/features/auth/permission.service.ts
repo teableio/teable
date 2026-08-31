@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import type { IBaseRole, Action, IShareViewMeta } from '@teable/core';
 import {
   HttpErrorCode,
@@ -12,6 +11,11 @@ import {
   isAnonymous,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import {
+  getBaseCached,
+  getSpaceCached,
+  getTableMetaWithBaseCached,
+} from '../../utils/meta-ancestry-cache';
 import { CollaboratorType } from '@teable/openapi';
 import { intersection, union } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -20,6 +24,7 @@ import type { IClsStore } from '../../types/cls';
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
 import { CollaboratorModel } from '../model/collaborator';
 import { TemplateModel } from '../model/template';
+import { TeableJwtService } from './jwt/teable-jwt.service';
 
 interface IBaseNodeCacheItem {
   id: string;
@@ -57,7 +62,7 @@ export class PermissionService {
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorModel: CollaboratorModel,
     private readonly templateModel: TemplateModel,
-    private readonly jwtService: JwtService
+    private readonly jwtService: TeableJwtService
   ) {}
 
   private getDepartmentIds() {
@@ -79,11 +84,7 @@ export class PermissionService {
     const userId = this.cls.get('user.id');
     const departmentIds = this.getDepartmentIds();
     const collaborators = await this.getSpaceCollaborators(spaceId, [...departmentIds, userId]);
-    const space = await this.prismaService.space.findFirst({
-      where: {
-        id: spaceId,
-      },
-    });
+    const space = await getSpaceCached(this.cls, this.prismaService, spaceId);
     if (!space) {
       throw new CustomHttpException(
         `space ${spaceId} is not found`,
@@ -189,15 +190,13 @@ export class PermissionService {
     tableId: string,
     includeInactiveResource?: boolean
   ): Promise<{ spaceId: string; baseId: string }> {
-    const table = await this.prismaService.txClient().tableMeta.findFirst({
-      where: {
-        id: tableId,
-        ...(includeInactiveResource ? {} : { deletedTime: null }),
-      },
-      select: {
-        base: true,
-      },
-    });
+    const cachedTable = await getTableMetaWithBaseCached(
+      this.cls,
+      this.prismaService.txClient(),
+      tableId
+    );
+    const table =
+      cachedTable && (includeInactiveResource || !cachedTable.deletedTime) ? cachedTable : null;
     const baseId = table?.base.id;
     const spaceId = table?.base?.spaceId;
     if (!spaceId || !baseId) {
@@ -215,15 +214,9 @@ export class PermissionService {
     baseId: string,
     includeInactiveResource?: boolean
   ): Promise<{ spaceId: string }> {
-    const base = await this.prismaService.base.findFirst({
-      where: {
-        id: baseId,
-        ...(includeInactiveResource ? {} : { deletedTime: null }),
-      },
-      select: {
-        spaceId: true,
-      },
-    });
+    const cachedBase = await getBaseCached(this.cls, this.prismaService, baseId);
+    const base =
+      cachedBase && (includeInactiveResource || !cachedBase.deletedTime) ? cachedBase : null;
     const spaceId = base?.spaceId;
     if (!spaceId) {
       throw new CustomHttpException('Base not found', HttpErrorCode.NOT_FOUND, {

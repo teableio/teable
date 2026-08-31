@@ -27,7 +27,12 @@ import {
 import { describe, expect, it } from 'vitest';
 
 import { FieldValueChangeCollectorVisitor } from '../FieldValueChangeCollectorVisitor';
-import { createNumField, createTextField, createValidFieldId } from './helpers/fieldFactories';
+import {
+  createNumField,
+  createSingleSelField,
+  createTextField,
+  createValidFieldId,
+} from './helpers/fieldFactories';
 
 const mkFieldId = (seed: string) => FieldId.create(createValidFieldId(seed))._unsafeUnwrap();
 const mkDbFieldName = (name: string) => DbFieldName.rehydrate(name)._unsafeUnwrap();
@@ -60,6 +65,20 @@ describe('FieldValueChangeCollectorVisitor', () => {
         newField.id().toString(),
       ]);
       expect(visitor.selfBackfillFields()).toEqual([]);
+    });
+
+    it('should not collect valueChangedFieldIds for value-preserving singleSelect → text', () => {
+      const oldField = createSingleSelField('selPres', 'Status', 'status_col')._unsafeUnwrap();
+      const newField = createTextField('selPres', 'Status', 'status_col')._unsafeUnwrap();
+      const spec = TableUpdateFieldTypeSpec.create(oldField, newField);
+
+      const visitor = new FieldValueChangeCollectorVisitor();
+      spec.accept(visitor);
+
+      expect(spec.isValuePreservingConversion()).toBe(true);
+      expect(visitor.valueChangedFields()).toEqual([]);
+      expect(visitor.selfBackfillFields()).toEqual([]);
+      expect(visitor.hasDbStorageTypeChange()).toBe(false);
     });
 
     it('should collect both valueChanged and selfBackfill when new field is computed', () => {

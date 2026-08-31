@@ -165,7 +165,7 @@ export const SharePopover: React.FC<{
         <div className="flex items-center justify-between">
           <Label htmlFor="share-switch">{t('table:toolbar.others.share.statusLabel')}</Label>
           <Switch
-            className="ml-auto"
+            className="ms-auto"
             id="share-switch"
             checked={enableShare}
             disabled={enableShareLoading || disableShareLoading || !permission['view|share']}
@@ -349,19 +349,19 @@ export const SharePopover: React.FC<{
                 defaultValue={shareTheme}
                 onValueChange={(e) => setShareTheme(e)}
               >
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 rtl:space-x-reverse">
                   <RadioGroupItem value="system" id="r1" />
                   <Label className="text-xs font-normal" htmlFor="r1">
                     {t('common:settings.setting.system')}
                   </Label>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 rtl:space-x-reverse">
                   <RadioGroupItem value="light" id="r2" />
                   <Label className="text-xs font-normal" htmlFor="r2">
                     {t('common:settings.setting.light')}
                   </Label>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 rtl:space-x-reverse">
                   <RadioGroupItem value="dark" id="r3" />
                   <Label className="text-xs font-normal" htmlFor="r3">
                     {t('common:settings.setting.dark')}

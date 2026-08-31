@@ -145,6 +145,8 @@ export class AccessTokenService {
     userId: (input: { userId?: string }, ctx) => input.userId ?? ctx.cls.get('user.id'),
     // Record the token's settings so the audit row shows what access was granted. NEVER the secret:
     // the token `sign` is generated server-side and is not part of the input, so this is safe.
+    // `clientId` separates user-created PATs (absent) from the short-lived machine tokens
+    // minted for OAuth apps / plugins (present) — analytics listeners rely on it.
     params: (input: CreateAccessTokenRo & { clientId?: string }) => ({
       name: input.name,
       description: input.description,
@@ -153,6 +155,7 @@ export class AccessTokenService {
       baseIds: input.baseIds,
       expiredTime: input.expiredTime,
       hasFullAccess: input.hasFullAccess,
+      clientId: input.clientId,
     }),
     emit: true,
   })

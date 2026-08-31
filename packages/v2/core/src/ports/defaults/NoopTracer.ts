@@ -1,5 +1,11 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
-import type { ISpan, ITracer, SpanAttributeValue, SpanAttributes } from '../Tracer';
+import type {
+  ISpan,
+  ITracer,
+  SpanAttributeValue,
+  SpanAttributes,
+  TracePropagationCarrier,
+} from '../Tracer';
 
 const noopSpan: ISpan = {
   setAttribute(_key: string, _value: SpanAttributeValue) {},
@@ -19,5 +25,16 @@ export class NoopTracer implements ITracer {
 
   getActiveSpan(): ISpan | undefined {
     return undefined;
+  }
+
+  capturePropagationCarrier(): TracePropagationCarrier | undefined {
+    return undefined;
+  }
+
+  async runWithPropagationCarrier<T>(
+    _carrier: TracePropagationCarrier | undefined,
+    callback: () => Promise<T>
+  ): Promise<T> {
+    return callback();
   }
 }

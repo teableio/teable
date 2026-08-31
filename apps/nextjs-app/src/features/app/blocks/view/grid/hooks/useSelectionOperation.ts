@@ -1,7 +1,13 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { UseMutateAsyncFunction } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
-import { FieldType, fieldVoSchema, parseClipboardText, type HttpError } from '@teable/core';
+import {
+  FieldType,
+  fieldVoSchema,
+  HttpErrorCode,
+  parseClipboardText,
+  type HttpError,
+} from '@teable/core';
 import type {
   ICopyVo,
   IClearSelectionStreamDoneEvent,
@@ -28,6 +34,9 @@ import type {
   ITemporaryPasteVo,
 } from '@teable/openapi';
 import {
+  archiveRecords as archiveRecordsApi,
+  archiveRecordsStream,
+  MAX_ARCHIVE_RECORDS_PER_REQUEST,
   clearById,
   clearSelectionByIdStream,
   copy,
@@ -58,6 +67,11 @@ import {
   SelectionRegionType,
   useRowCount,
 } from '@teable/sdk';
+import {
+  extractUsageLimitReason,
+  UsageLimitModalType,
+  useUsageLimitModalStore,
+} from '@teable/sdk/components/billing/store';
 import { useConfirm } from '@teable/ui-lib/base';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import type { AxiosResponse } from 'axios';
@@ -90,6 +104,24 @@ import { useSyncSelectionStore } from './useSelectionStore';
 
 const clearToastId = 'clearToastId';
 const deleteToastId = 'deleteToastId';
+const archiveToastId = 'archiveToastId';
+
+// Mirrors the global axios interceptor (queryClient.tsx): stream/SSE requests bypass it, so
+// usage-limit responses must open the upgrade modal here instead of surfacing raw errors.
+const handleUsageLimitError = (error: unknown): boolean => {
+  const { status, code } = error as HttpError;
+  if (status !== 402) return false;
+  useUsageLimitModalStore.setState({
+    modalType:
+      code === HttpErrorCode.CREDIT_LIMIT_EXCEEDED
+        ? UsageLimitModalType.CreditInsufficient
+        : UsageLimitModalType.Upgrade,
+    modalOpen: true,
+    reason: extractUsageLimitReason(error),
+  });
+  return true;
+};
+
 const getPasteContentColumnCount = (content: IPasteByIdRo['content']) => {
   if (Array.isArray(content)) {
     return content.reduce((max, row) => Math.max(max, row.length), 0);
@@ -1123,6 +1155,23 @@ export const useSelectionOperation = (props?: {
     [handleFilePasteSelection, handleTextPasteSelection]
   );
 
+  const handlePasteRequestError = useCallback(
+    (e: unknown, toastId: string | number | null) => {
+      const error = e as HttpError;
+      if (handleUsageLimitError(error)) {
+        if (toastId) toast.dismiss(toastId);
+        return;
+      }
+      const description = getHttpErrorMessage(error, t, 'sdk');
+      toast.error(t('table:table.actionTips.pasteFailed'), {
+        description,
+        ...(toastId ? { id: toastId } : {}),
+      });
+      console.error('Paste error: ', error);
+    },
+    [t]
+  );
+
   const doPaste = useCallback(
     async (
       e: React.ClipboardEvent,
@@ -1186,23 +1235,26 @@ export const useSelectionOperation = (props?: {
           toast.success(t('table:table.actionTips.pasteSuccessful'), { id: toastId });
         }
       } catch (e) {
-        const error = e as HttpError;
-        const description = getHttpErrorMessage(error, t, 'sdk');
-        toast.error(t('table:table.actionTips.pasteFailed'), {
-          description,
-          ...(toastId ? { id: toastId } : {}),
-        });
-        console.error('Paste error: ', error);
+        handlePasteRequestError(e, toastId);
       }
     },
-    [viewId, tableId, fields, rowCount, t, confirmPasteSelectionIfNeeded, performPasteSelection]
+    [
+      viewId,
+      tableId,
+      fields,
+      rowCount,
+      t,
+      confirmPasteSelectionIfNeeded,
+      performPasteSelection,
+      handlePasteRequestError,
+    ]
   );
 
   const doFill = useCallback(
     async (args: Pick<IPasteByIdStreamRo, 'content' | 'header' | 'selection'>) => {
+      if (!tableId || !viewId) return;
+      const toastId = toast.loading(t('table:table.actionTips.filling'));
       try {
-        if (!tableId || !viewId) return;
-        const toastId = toast.loading(t('table:table.actionTips.filling'));
         await pasteSelectionByIdStream(
           tableId,
           {
@@ -1222,9 +1274,14 @@ export const useSelectionOperation = (props?: {
         toast.success(t('table:table.actionTips.fillSuccessful'), { id: toastId });
       } catch (e) {
         const error = e as HttpError;
+        if (handleUsageLimitError(error)) {
+          toast.dismiss(toastId);
+          return;
+        }
         const description = getHttpErrorMessage(error, t, 'sdk');
         toast.error(t('table:table.actionTips.fillFailed'), {
           description,
+          id: toastId,
         });
         console.error('Fill error: ', error);
       }
@@ -1524,6 +1581,11 @@ export const useSelectionOperation = (props?: {
         return;
       }
     } catch (error) {
+      if (handleUsageLimitError(error)) {
+        setIsDuplicateProgressOpen(false);
+        console.error('Duplicate error: ', error);
+        return;
+      }
       const description =
         getHttpErrorMessage(error as HttpError, t, 'sdk') ||
         (error instanceof Error ? error.message : 'Unknown error');
@@ -1548,6 +1610,11 @@ export const useSelectionOperation = (props?: {
     try {
       await runPasteSelectionStream(pasteRo, totalCount);
     } catch (error) {
+      if (handleUsageLimitError(error)) {
+        setIsPasteProgressOpen(false);
+        console.error('Paste error: ', error);
+        return;
+      }
       const description =
         getHttpErrorMessage(error as HttpError, t, 'sdk') ||
         (error instanceof Error ? error.message : 'Unknown error');
@@ -1585,6 +1652,57 @@ export const useSelectionOperation = (props?: {
     [buildSelectionIdRequest, deleteReq, openDeleteConfirmationDialog, rowCount, tableId, t, viewId]
   );
 
+  const doArchive = useCallback(
+    async (selection: CombinedSelection, recordMap?: IRecordIndexMap) => {
+      if (!viewId || !tableId) return;
+      try {
+        // The archive API takes explicit record ids, so resolve the selection without
+        // query-scope shortcuts (allRecords / exclusions).
+        const archiveRo = (await buildSelectionIdRequest(selection, recordMap ?? {}, {
+          includeFieldSelection: false,
+          allowQueryScope: false,
+        })) as { selection?: { recordIds?: string[] } };
+        const recordIds = archiveRo.selection?.recordIds;
+        if (!recordIds?.length) return;
+
+        const toastId = toast.loading(t('table:table.actionTips.archiving'), {
+          id: archiveToastId,
+        });
+        if (recordIds.length <= MAX_ARCHIVE_RECORDS_PER_REQUEST) {
+          await archiveRecordsApi(tableId, { recordIds });
+        } else {
+          await archiveRecordsStream(
+            tableId,
+            { recordIds },
+            {
+              headers: {
+                'X-Window-Id': ensureUndoRedoWindowIdHeader(),
+              },
+              onProgress: (event) => {
+                toast.loading(
+                  `${t('table:table.actionTips.archiving')} ${event.archivedCount}/${event.totalCount}`,
+                  { id: toastId }
+                );
+              },
+            }
+          );
+        }
+        toast.success(t('table:table.actionTips.archiveSuccessful'), { id: toastId });
+      } catch (error) {
+        if (handleUsageLimitError(error)) {
+          toast.dismiss(archiveToastId);
+          return;
+        }
+        const description =
+          getHttpErrorMessage(error as HttpError, t, 'sdk') ||
+          (error instanceof Error ? error.message : 'Unknown error');
+        toast.error(description, { id: archiveToastId });
+        console.error('Archive error: ', error);
+      }
+    },
+    [buildSelectionIdRequest, tableId, t, viewId]
+  );
+
   const doDuplicate = useCallback(
     async (selection: CombinedSelection) => {
       if (!viewId || !tableId) return;
@@ -1606,6 +1724,11 @@ export const useSelectionOperation = (props?: {
           return;
         }
       } catch (error) {
+        if (handleUsageLimitError(error)) {
+          setIsDuplicateProgressOpen(false);
+          console.error('Duplicate error: ', error);
+          return;
+        }
         const description =
           getHttpErrorMessage(error as HttpError, t, 'sdk') ||
           (error instanceof Error ? error.message : 'Unknown error');
@@ -1677,6 +1800,7 @@ export const useSelectionOperation = (props?: {
     paste: doPaste,
     clear: doClear,
     deleteRecords: doDelete,
+    archiveRecords: doArchive,
     duplicateRecords: doDuplicate,
     clearProgress,
     clearSummary,

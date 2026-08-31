@@ -87,7 +87,7 @@ export const AiPromptContainer: FC<IAiPromptContainerProps> = (props) => {
             ) : generatedExpression ? (
               <div className="flex h-full flex-col gap-y-4">
                 <div className="relative grow rounded-md border bg-slate-100 p-3 font-mono dark:bg-zinc-900">
-                  <div className="absolute right-2 top-2 rounded-md border px-2 py-0.5 font-sans text-xs text-gray-500">
+                  <div className="absolute end-2 top-2 rounded-md border px-2 py-0.5 font-sans text-xs text-gray-500">
                     {t('field.title.formula')}
                   </div>
                   <ScrollArea className="mt-6 h-40">
@@ -102,7 +102,7 @@ export const AiPromptContainer: FC<IAiPromptContainerProps> = (props) => {
                 >
                   <span className="flex items-center">
                     {t('editor.formula.action.apply')}
-                    <ChevronRight className="ml-1 size-4 transition-transform group-hover:translate-x-1" />
+                    <ChevronRight className="ms-1 size-4 transition-transform group-hover:translate-x-1 rtl:group-hover:-translate-x-1" />
                   </span>
                 </Button>
               </div>

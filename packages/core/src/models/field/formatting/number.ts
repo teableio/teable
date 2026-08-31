@@ -52,16 +52,17 @@ export const defaultNumberFormatting: INumberFormatting = {
   precision: 2,
 };
 
-export const formatNumberToString = (value: number | undefined, formatting: INumberFormatting) => {
+export const formatNumberToString = (value: number | undefined, formatting?: INumberFormatting) => {
   if (value == null) {
     return '';
   }
 
   const cellValue = Number(value);
-  const { type, precision } = formatting;
+  const resolvedFormatting = formatting ?? defaultNumberFormatting;
+  const { type, precision } = resolvedFormatting;
 
   if (type === NumberFormattingType.Currency) {
-    const symbol = formatting.symbol ?? '$';
+    const symbol = resolvedFormatting.symbol ?? '$';
     const sign = cellValue < 0 ? '-' : '';
     const options =
       precision != null

@@ -9,6 +9,8 @@ import { useTranslation } from '../../../context/app/i18n';
 import { useSession } from '../../../hooks';
 import type { IBaseQueryParams } from '../types';
 import { CommentItem } from './CommentItem';
+import type { ICommentListCache } from './commentListCache';
+import { removeCommentFromPages } from './commentListCache';
 import { CommentSkeleton } from './CommentSkeleton';
 import { useCommentPatchListener } from './useCommentPatchListener';
 
@@ -124,6 +126,18 @@ export const CommentList = forwardRef<CommentListRefHandle, ICommentListProps>((
     }
   }, [commentList, data?.pages]);
 
+  // A deleted comment has to leave the paged cache as well as the local list —
+  // the merge below unions the two, so a local-only removal is undone at once.
+  const removeComment = useCallback(
+    (deletedId: string) => {
+      queryClient.setQueryData(ReactQueryKeys.commentList(tableId, recordId), (cache) =>
+        removeCommentFromPages(cache as ICommentListCache | undefined, deletedId)
+      );
+      setCommentList((prevList) => prevList.filter((comment) => comment.id !== deletedId));
+    },
+    [queryClient, recordId, tableId]
+  );
+
   const commentListener = useCallback(
     (remoteData: unknown) => {
       const { data, type } = remoteData as ICommentPatchData;
@@ -152,7 +166,7 @@ export const CommentList = forwardRef<CommentListRefHandle, ICommentListProps>((
           break;
         }
         case CommentPatchType.DeleteComment: {
-          setCommentList((prevList) => prevList.filter((comment) => comment.id !== data.id));
+          removeComment(data.id as string);
           break;
         }
 
@@ -171,7 +185,7 @@ export const CommentList = forwardRef<CommentListRefHandle, ICommentListProps>((
         }
       }
     },
-    [scrollDownSlightly, scrollToBottom, self.id]
+    [removeComment, scrollDownSlightly, scrollToBottom, self.id]
   );
 
   useCommentPatchListener(tableId, recordId, commentListener);
@@ -208,6 +222,7 @@ export const CommentList = forwardRef<CommentListRefHandle, ICommentListProps>((
                 recordId={recordId}
                 commentId={commentId}
                 index={index}
+                onDeleted={removeComment}
               />
             ))
           ) : (

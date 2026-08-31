@@ -73,7 +73,7 @@ export const TimePicker = ({
       </Button>
       {open && (
         <div
-          className="absolute bottom-full left-0 z-50 mb-1 flex h-[200px] rounded-lg border bg-popover shadow-md"
+          className="absolute bottom-full start-0 z-50 mb-1 flex h-[200px] rounded-lg border bg-popover shadow-md"
           onWheel={(e) => e.stopPropagation()}
         >
           <div ref={hourRef} className="h-full min-h-0 w-14 overflow-y-auto overscroll-contain p-1">

@@ -5,6 +5,7 @@ import {
   useTableId,
   useView,
   useFields,
+  useCommentPermission,
   useTablePermission,
   useButtonClickStatus,
   useDeepCompareMemoize,
@@ -20,6 +21,7 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
   const { shareId } = useContext(ShareViewContext) ?? {};
   const { sort, filter } = view ?? {};
   const permission = useTablePermission();
+  const { commentReadable, commentWritable } = useCommentPermission();
   const fields = useFields();
   const readableFields = useFields({ withHidden: true });
   const visibleFieldIds = useDeepCompareMemoize(fields.map(({ id }) => id).sort()) as string[];
@@ -76,9 +78,10 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
       cardEditable: Boolean(permission['record|update']),
       cardDeletable: Boolean(permission['record|delete']),
       cardDraggable: Boolean(permission['record|update'] && permission['view|update']),
-      cardCommentCreatable: Boolean(permission['record|comment']),
+      cardCommentReadable: commentReadable,
+      cardCommentCreatable: commentWritable,
     };
-  }, [permission]);
+  }, [permission, commentReadable, commentWritable]);
 
   const { primaryField, displayFields } = useMemo(() => {
     let primaryField: IFieldInstance | null = null;

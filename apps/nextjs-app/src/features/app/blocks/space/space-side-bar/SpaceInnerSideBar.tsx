@@ -15,7 +15,6 @@ import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
-import { ChangelogNotification } from '@/components/changelog';
 import { SpaceInnerTrashModal } from '@/features/app/blocks/trash/SpaceInnerTrashModal';
 import {
   CreateBaseDialog,
@@ -30,8 +29,9 @@ import { PinList } from './PinList';
 export const SpaceInnerSideBar = (props: {
   renderSettingModal?: (children: React.ReactNode) => React.ReactNode;
   renderWinFreeCredit?: (spaceId: string) => React.ReactNode;
+  renderAnnouncementCard?: () => React.ReactNode;
 }) => {
-  const { renderSettingModal, renderWinFreeCredit } = props;
+  const { renderSettingModal, renderWinFreeCredit, renderAnnouncementCard } = props;
   const router = useRouter();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const { spaceId } = useParams<{ spaceId: string }>();
@@ -146,7 +146,7 @@ export const SpaceInnerSideBar = (props: {
         <PinList />
       </div>
       {renderWinFreeCredit && renderWinFreeCredit(spaceId)}
-      <ChangelogNotification />
+      {renderAnnouncementCard && renderAnnouncementCard()}
       {spaceId && (
         <CreateBaseDialog
           spaceId={spaceId}

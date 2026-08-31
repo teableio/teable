@@ -36,7 +36,7 @@
     "@teable/v2-di": "workspace:*",
     "neverthrow": "8.2.0",
     "papaparse": "5.5.3",
-    "xlsx": "0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",

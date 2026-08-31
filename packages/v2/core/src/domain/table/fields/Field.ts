@@ -13,7 +13,7 @@ import type { FieldId } from './FieldId';
 import type { FieldName } from './FieldName';
 import type { FieldType } from './FieldType';
 import { FieldSpecBuilder } from './specs/FieldSpecBuilder';
-import type { CellValueMultiplicity } from './types/CellValueMultiplicity';
+import { CellValueMultiplicity } from './types/CellValueMultiplicity';
 import { FieldComputed } from './types/FieldComputed';
 import { FieldHasError } from './types/FieldHasError';
 import { FieldNotNull } from './types/FieldNotNull';
@@ -144,9 +144,11 @@ export abstract class Field extends Entity<FieldId> {
     const nextValue = dbFieldName.value();
     if (nextValue.isErr()) return err(nextValue.error);
 
-    const currentValue = this.dbFieldNameValue.value();
-    if (currentValue.isOk()) {
-      if (currentValue.value !== nextValue.value)
+    // Probe with isRehydrated() instead of value(): the unset branch is the
+    // common case on rehydration, and value() would allocate a stack-capturing
+    // DomainError per call just to signal "not set".
+    if (this.dbFieldNameValue.isRehydrated()) {
+      if (!this.dbFieldNameValue.equals(dbFieldName))
         return err(domainError.invariant({ message: 'DbFieldName already set' }));
       return ok(undefined);
     }
@@ -174,13 +176,35 @@ export abstract class Field extends Entity<FieldId> {
     return ok(this.dbFieldTypeValue);
   }
 
+  /**
+   * An explicit override always wins. When it is unset (historical NULL
+   * is_multiple_cell_value), an unambiguously scalar persisted dbFieldType
+   * implies single — a multi-value cell could never have been stored there.
+   * JSON storage is ambiguous (single-valued lookups of JSON-object fields
+   * like user/link/attachment also persist JSON), so it keeps the historical
+   * multiple default rather than asserting multiplicity from storage.
+   */
+  protected multiplicityFromOverrideOrPersistedStorage(
+    override: boolean | undefined
+  ): CellValueMultiplicity {
+    if (override !== undefined) {
+      return override ? CellValueMultiplicity.multiple() : CellValueMultiplicity.single();
+    }
+    const persistedType = this.dbFieldType();
+    if (persistedType.isOk() && !persistedType.value.isJson()) {
+      return CellValueMultiplicity.single();
+    }
+    return CellValueMultiplicity.multiple();
+  }
+
   setDbFieldType(dbFieldType: DbFieldType): Result<void, DomainError> {
     const nextValue = dbFieldType.value();
     if (nextValue.isErr()) return err(nextValue.error);
 
-    const currentValue = this.dbFieldTypeValue.value();
-    if (currentValue.isOk()) {
-      if (currentValue.value !== nextValue.value)
+    // Same as setDbFieldName: avoid constructing a throwaway DomainError on
+    // the common unset branch.
+    if (this.dbFieldTypeValue.isRehydrated()) {
+      if (!this.dbFieldTypeValue.equals(dbFieldType))
         return err(domainError.invariant({ message: 'DbFieldType already set' }));
       return ok(undefined);
     }

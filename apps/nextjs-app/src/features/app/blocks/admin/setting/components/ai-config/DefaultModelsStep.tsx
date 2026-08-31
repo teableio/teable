@@ -182,7 +182,7 @@ export function DefaultModelsStep({
               />
               <span>{t('admin.setting.ai.chatModels.modelTiers')}</span>
               {!tiersOpen && (
-                <span className="ml-1 text-xs opacity-60">
+                <span className="ms-1 text-xs opacity-60">
                   {customizedCount > 0
                     ? t('admin.setting.ai.chatModels.customized', { count: customizedCount })
                     : t('admin.setting.ai.chatModels.allInheriting')}

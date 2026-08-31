@@ -15,6 +15,20 @@
   "previewReturnValue": "戻り値のプレビュー",
   "replaceToken": "トークンを置き換える",
   "createNewToken": "新しいトークンを作成する",
-  "only10Records": "最初の10件のレコードのみが表示されます",
-  "addSort": "並べ替えを追加"
+  "showPagination": "ページネーションのパラメータは JSON モードで表示されます",
+  "addSort": "並べ替えを追加",
+  "tabs": {
+    "apiBuilder": "API ビルダー",
+    "aiContext": "AI コンテキスト"
+  },
+  "aiContext": {
+    "title": "AI に適したテーブルコンテキスト",
+    "description": "このコンテキストを AI アシスタント（ChatGPT、Claude など）にコピーすると、テーブルのデータをどう扱えばよいかを理解させられます。",
+    "selectTableFirst": "AI コンテキストを生成するテーブルを選択してください",
+    "fullContext": "完全なコンテキスト",
+    "compactContext": "コンパクト",
+    "copyToClipboard": "クリップボードにコピー",
+    "copied": "コピーしました！",
+    "compactDescription": "トークン制限を考慮して、素早くコンテキストを共有するのに適した短縮版です。"
+  }
 }

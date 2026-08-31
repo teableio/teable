@@ -140,10 +140,12 @@ describe('BaseService', () => {
         shouldUseV2WithReason: vi.fn().mockResolvedValue({ useV2: true, reason: 'space_feature' }),
         isSpaceInCanary: vi.fn().mockResolvedValue(true),
       };
+      // No access token in cls — filterBaseListWithAccessToken must no-op.
+      const cls = { get: vi.fn().mockReturnValue(undefined) };
       const service = new BaseService(
         prismaService as never,
         {} as never,
-        {} as never,
+        cls as never,
         collaboratorService as never,
         {} as never,
         {} as never,
@@ -482,6 +484,90 @@ describe('BaseService', () => {
       const { service } = buildRoutedService(executeRawUnsafe);
 
       await expect(service.dropBase('bse1', ['tbl1'])).rejects.toThrow('connection refused');
+    });
+  });
+
+  describe('purgeComputedOutboxForBase', () => {
+    const buildRoutedService = (
+      executeRawUnsafe: ReturnType<typeof vi.fn>,
+      { isMetaFallback = true } = {}
+    ) => {
+      const routedDataPrisma = {
+        txClient: vi.fn().mockReturnValue({ $executeRawUnsafe: executeRawUnsafe }),
+      };
+      const dataDbClientManager = {
+        dataPrismaForBase: vi.fn().mockResolvedValue(routedDataPrisma),
+        isMetaFallbackForBase: vi.fn().mockResolvedValue(isMetaFallback),
+      };
+      const service = new BaseService(
+        {} as never,
+        dataDbClientManager as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never
+      );
+      return { service, dataDbClientManager };
+    };
+
+    it('purges the whole computed ledger for the base on its routed data database', async () => {
+      const executeRawUnsafe = vi.fn().mockResolvedValue(1);
+      const { service, dataDbClientManager } = buildRoutedService(executeRawUnsafe);
+
+      await service.purgeComputedOutboxForBase('bse1', ['tbl1', 'tbl2']);
+
+      expect(dataDbClientManager.dataPrismaForBase).toHaveBeenCalledWith('bse1', {
+        useTransaction: true,
+      });
+      const statements = executeRawUnsafe.mock.calls.map((call) => String(call[0]));
+      for (const table of [
+        'computed_update_outbox_seed',
+        'computed_update_stage_ledger',
+        'computed_update_outbox',
+        'computed_update_dead_letter',
+        'computed_update_run_history',
+        'computed_task_field_ref',
+        'computed_field_activity',
+        'computed_table_activity',
+        'computed_update_pause_scope',
+      ]) {
+        expect(statements.some((statement) => statement.includes(`"${table}"`))).toBe(true);
+      }
+      expect(executeRawUnsafe.mock.calls.slice(0, -1).every((call) => call[1] === 'bse1')).toBe(
+        true
+      );
+      const pauseCall = executeRawUnsafe.mock.calls.at(-1);
+      expect(pauseCall?.[1]).toBe('bse1');
+      expect(pauseCall?.[2]).toBe(JSON.stringify(['tbl1', 'tbl2']));
+    });
+
+    it('tolerates an unreachable bound (BYODB) data database', async () => {
+      const executeRawUnsafe = vi
+        .fn()
+        .mockRejectedValue(new Error('(ENOTFOUND) tenant/user postgres.abc not found'));
+      const { service } = buildRoutedService(executeRawUnsafe, { isMetaFallback: false });
+
+      await expect(service.purgeComputedOutboxForBase('bse1', ['tbl1'])).resolves.toBeUndefined();
+    });
+
+    it('rethrows platform data DB errors so the purge transaction can retry', async () => {
+      const executeRawUnsafe = vi.fn().mockRejectedValue(new Error('connection refused'));
+      const { service } = buildRoutedService(executeRawUnsafe);
+
+      await expect(service.purgeComputedOutboxForBase('bse1', ['tbl1'])).rejects.toThrow(
+        'connection refused'
+      );
     });
   });
 });

@@ -14,6 +14,7 @@ const service = new AirtableImportService(
   null as never,
   null as never,
   null as never,
+  null as never,
   undefined
 );
 

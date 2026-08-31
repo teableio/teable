@@ -5,6 +5,10 @@
     "password": "Şifre",
     "passwordTooShort": "Şifre en az 3 karakter olmalıdır"
   },
+  "form": {
+    "requireLoginTip": "Bu formu göndermek için önce giriş yapmanız gerekir",
+    "login": "Giriş yap"
+  },
   "toolbar": {
     "filterLinkSelectPlaceholder": "Seç..."
   },

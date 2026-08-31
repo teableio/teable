@@ -117,7 +117,7 @@ export const UnpublishedAppsDialog = (props: IUnpublishedAppsDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[480px]">
-        <DialogHeader className="flex flex-row items-start gap-4 space-y-0 text-left">
+        <DialogHeader className="flex flex-row items-start gap-4 space-y-0 text-start">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
             <AlertTriangle className="size-5 text-amber-600 dark:text-amber-500" />
           </div>
@@ -223,7 +223,7 @@ export const UnpublishedAppsDialog = (props: IUnpublishedAppsDialogProps) => {
             >
               <Rocket className="size-4" />
               {t('publishBase.unpublishedApps.publishAll')}
-              {(somePublishing || isPublishingAll) && <Spin className="ml-1 size-4" />}
+              {(somePublishing || isPublishingAll) && <Spin className="ms-1 size-4" />}
             </Button>
           )}
           <div className="flex flex-1 justify-end gap-2">

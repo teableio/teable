@@ -464,7 +464,7 @@ export function LLMApiConfigStep({
           <div className="space-y-2">
             <Label htmlFor="gateway-url">
               {t('admin.setting.app.aiGatewayBaseUrl')}
-              <span className="ml-1 text-xs text-muted-foreground">
+              <span className="ms-1 text-xs text-muted-foreground">
                 ({t('admin.setting.ai.wizard.optional')})
               </span>
             </Label>
@@ -631,7 +631,7 @@ export function LLMApiConfigStep({
       <div className="flex justify-end gap-2">
         {mode === 'gateway' && Boolean(aiConfig?.aiGatewayApiKey) && (
           <Button type="button" variant="outline" onClick={handleClearGatewayKey}>
-            <RotateCw className="mr-1.5 size-3.5" />
+            <RotateCw className="me-1.5 size-3.5" />
             {t('email.resetConfig')}
           </Button>
         )}

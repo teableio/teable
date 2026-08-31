@@ -45,7 +45,7 @@ export const ComboYAxisDisplayEditor = (props: {
               });
             }}
           />
-          <span className="ml-2 whitespace-nowrap text-muted-foreground">
+          <span className="ms-2 whitespace-nowrap text-muted-foreground">
             {t('form.combo.range.max')}
           </span>
           <Input

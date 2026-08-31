@@ -9,7 +9,7 @@ export const UPDATE_BASE_NODE = '/base/{baseId}/node/{nodeId}';
 
 export const updateBaseNodeRoSchema = z.object({
   name: z.string().trim().min(1).optional(),
-  icon: z.string().trim().optional(),
+  icon: z.string().trim().optional().nullable(),
 });
 
 export type IUpdateBaseNodeRo = z.infer<typeof updateBaseNodeRoSchema>;

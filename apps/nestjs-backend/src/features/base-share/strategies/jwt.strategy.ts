@@ -1,11 +1,9 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { ConfigType } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import cookie from 'cookie';
 import type { Request } from 'express';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import type { authConfig } from '../../../configs/auth.config';
-import { AuthConfig } from '../../../configs/auth.config';
+import { TeableJwtService } from '../../auth/jwt/teable-jwt.service';
 import type { IJwtBaseShareInfo } from '../base-share-auth.service';
 import { BaseShareAuthService } from '../base-share-auth.service';
 import { BASE_SHARE_JWT_STRATEGY } from '../guard/constant';
@@ -13,13 +11,13 @@ import { BASE_SHARE_JWT_STRATEGY } from '../guard/constant';
 @Injectable()
 export class BaseShareJwtStrategy extends PassportStrategy(Strategy, BASE_SHARE_JWT_STRATEGY) {
   constructor(
-    @AuthConfig() readonly config: ConfigType<typeof authConfig>,
+    teableJwtService: TeableJwtService,
     private readonly baseShareAuthService: BaseShareAuthService
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([BaseShareJwtStrategy.fromAuthCookieAsToken]),
       ignoreExpiration: false,
-      secretOrKey: config.jwt.secret,
+      secretOrKeyProvider: teableJwtService.passportSecretProvider(),
     });
   }
 

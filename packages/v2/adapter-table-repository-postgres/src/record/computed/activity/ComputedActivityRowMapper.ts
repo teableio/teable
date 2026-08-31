@@ -26,17 +26,22 @@ const parseJson = (value: unknown): unknown => {
   }
 };
 
-const parseLastError = (value: unknown): { code?: string; message: string } | null => {
+const parseLastError = (
+  value: unknown
+): { code?: string; message: string; context?: Record<string, unknown> } | null => {
   const parsed = parseJson(value);
   if (parsed == null) return null;
   if (typeof parsed === 'string') return { message: parsed };
   if (typeof parsed !== 'object' || !('message' in parsed)) return null;
 
-  const record = parsed as { code?: unknown; message?: unknown };
+  const record = parsed as { code?: unknown; message?: unknown; context?: unknown };
   if (typeof record.message !== 'string') return null;
   return {
     message: record.message,
     ...(typeof record.code === 'string' ? { code: record.code } : {}),
+    ...(record.context && typeof record.context === 'object' && !Array.isArray(record.context)
+      ? { context: record.context as Record<string, unknown> }
+      : {}),
   };
 };
 

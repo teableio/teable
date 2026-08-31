@@ -65,7 +65,7 @@ export const TemplateList = (props: ITemplateListProps) => {
       <div className="flex flex-1 flex-col overflow-y-auto">
         <div
           className={cn(
-            'grid grid-cols-1 gap-5 text-left sm:grid-cols-2 lg:grid-cols-3',
+            'grid grid-cols-1 gap-5 text-start sm:grid-cols-2 lg:grid-cols-3',
             className
           )}
         >
@@ -103,7 +103,7 @@ export const TemplateList = (props: ITemplateListProps) => {
   return (
     <div className="flex flex-1 flex-col overflow-y-auto">
       <div
-        className={cn('grid grid-cols-1 gap-5 text-left sm:grid-cols-2 lg:grid-cols-3', className)}
+        className={cn('grid grid-cols-1 gap-5 text-start sm:grid-cols-2 lg:grid-cols-3', className)}
       >
         {currentTemplateList?.map((template) => (
           <TemplateCard

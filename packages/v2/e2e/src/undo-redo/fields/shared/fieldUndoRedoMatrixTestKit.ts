@@ -131,7 +131,7 @@ export const fieldMatrixCases: FieldMatrixCase[] = [
     buildField: async (_env, sequence) => ({
       ...uniqueField('longText', sequence),
       type: 'longText',
-      options: { defaultValue: 'matrix long text' },
+      options: { showAs: { type: 'markdown' }, defaultValue: 'matrix long text' },
     }),
   },
   {

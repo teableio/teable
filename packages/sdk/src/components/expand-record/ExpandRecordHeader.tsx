@@ -19,7 +19,8 @@ import {
 import { CopyPlus, Trash } from 'lucide-react';
 import { useMeasure } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
-import { useTablePermission } from '../../hooks';
+import { useCommentPermission, useIsMobile, useTablePermission } from '../../hooks';
+import { useContentDir } from '../../hooks/use-content-dir';
 import { useRecordCommentCount } from '../comment/hooks';
 import { TooltipWrap } from './TooltipWrap';
 
@@ -71,15 +72,17 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
 
   const permission = useTablePermission();
   const editable = Boolean(permission['record|update']);
-  const canRead = Boolean(permission['record|read']);
   const canDelete = Boolean(permission['record|delete']);
-  const canComment = Boolean(permission['record|comment']);
+  // Reading comments follows record|read; record|comment only disables the composer.
+  const { commentReadable } = useCommentPermission();
   const canDuplicate = Boolean(permission['record|create']);
   const [ref, { width }] = useMeasure<HTMLDivElement>();
   const { t } = useTranslation();
+  const contentDir = useContentDir();
+  const isMobile = useIsMobile();
   const showTitle = width > MIN_TITLE_WIDTH;
   const showOperator = width > MIN_OPERATOR_WIDTH;
-  const recordCommentCount = useRecordCommentCount(tableId, recordId, canRead);
+  const recordCommentCount = useRecordCommentCount(tableId, recordId, commentReadable);
 
   return (
     <div
@@ -90,36 +93,45 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
         { 'justify-between': !showTitle }
       )}
     >
-      <div>
-        <TooltipWrap description="Previous record" disabled={disabledPrev}>
-          <Button
-            variant={'ghost'}
-            tabIndex={-1}
-            size={'icon-xs'}
-            onClick={onPrev}
-            disabled={disabledPrev}
-          >
-            <ChevronUp className="size-4 shrink-0" />
-          </Button>
-        </TooltipWrap>
-        <TooltipWrap description="Next record" disabled={disabledNext}>
-          <Button
-            variant={'ghost'}
-            size={'icon-xs'}
-            tabIndex={-1}
-            onClick={onNext}
-            disabled={disabledNext}
-          >
-            <ChevronDown className="size-4 shrink-0" />
-          </Button>
-        </TooltipWrap>
-      </div>
+      {!isMobile && (
+        <div>
+          <TooltipWrap description="Previous record" disabled={disabledPrev}>
+            <Button
+              variant={'ghost'}
+              tabIndex={-1}
+              size={'icon-xs'}
+              onClick={onPrev}
+              disabled={disabledPrev}
+            >
+              <ChevronUp className="size-4 shrink-0" />
+            </Button>
+          </TooltipWrap>
+          <TooltipWrap description="Next record" disabled={disabledNext}>
+            <Button
+              variant={'ghost'}
+              size={'icon-xs'}
+              tabIndex={-1}
+              onClick={onNext}
+              disabled={disabledNext}
+            >
+              <ChevronDown className="size-4 shrink-0" />
+            </Button>
+          </TooltipWrap>
+        </div>
+      )}
       {showTitle && (
         <div
           className="min-w-0 flex-1"
           data-link-highlight-target={foreignTableName ? tableId : undefined}
         >
-          <h4 title={title} className="scroll-m-20 truncate text-xl font-semibold tracking-tight">
+          <h4
+            dir={contentDir}
+            title={title}
+            className={cn(
+              'scroll-m-20 truncate font-semibold tracking-tight',
+              isMobile ? 'text-base' : 'text-xl'
+            )}
+          >
             {title || t('common.unnamedRecord')}
           </h4>
           {foreignTableName && (
@@ -127,13 +139,14 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
               {t('expandRecord.recordFrom')}{' '}
               {onForeignTableClick ? (
                 <button
+                  dir={contentDir}
                   className="cursor-pointer text-primary hover:underline"
                   onClick={onForeignTableClick}
                 >
                   {foreignTableName}
                 </button>
               ) : (
-                <span>{foreignTableName}</span>
+                <span dir={contentDir}>{foreignTableName}</span>
               )}
             </p>
           )}
@@ -141,12 +154,14 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
       )}
       {showOperator && (
         <div className="flex items-center gap-1">
-          <TooltipWrap description={t('expandRecord.copyRecordUrl')}>
-            <Button variant={'ghost'} size={'icon-xs'} onClick={onCopyUrl}>
-              <Link className="size-4 shrink-0" />
-            </Button>
-          </TooltipWrap>
-          {editable && onRecordHistoryToggle && (
+          {onCopyUrl && (
+            <TooltipWrap description={t('expandRecord.copyRecordUrl')}>
+              <Button variant={'ghost'} size={'icon-xs'} onClick={onCopyUrl}>
+                <Link className="size-4 shrink-0" />
+              </Button>
+            </TooltipWrap>
+          )}
+          {!isMobile && editable && onRecordHistoryToggle && (
             <TooltipWrap
               description={
                 recordHistoryVisible
@@ -164,7 +179,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
             </TooltipWrap>
           )}
 
-          {canComment && (
+          {commentReadable && (
             <TooltipWrap description={t('comment.title')}>
               <Button
                 size={'icon-xs'}
@@ -174,7 +189,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
               >
                 <MessageSquare className="size-4 shrink-0" />
                 {recordCommentCount ? (
-                  <div className="absolute left-4 top-0.5 flex h-3 min-w-3 max-w-5 items-center justify-center rounded-[2px] bg-orange-500 px-0.5 text-[8px] text-white">
+                  <div className="absolute start-4 top-0.5 flex h-3 min-w-3 max-w-5 items-center justify-center rounded-[2px] bg-orange-500 px-0.5 text-[8px] text-white">
                     {recordCommentCount > 99 ? '99+' : recordCommentCount}
                   </div>
                 ) : null}
@@ -182,12 +197,25 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
             </TooltipWrap>
           )}
 
-          {(canDelete || (canDuplicate && !!onDuplicate)) && (
+          {((isMobile && editable && !!onRecordHistoryToggle) ||
+            canDelete ||
+            (canDuplicate && !!onDuplicate)) && (
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger className="size-7 rounded-md px-1.5 hover:bg-accent hover:text-accent-foreground">
                 <MoreHorizontal className="size-4 shrink-0" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent>
+              <DropdownMenuContent collisionPadding={isMobile ? 16 : undefined}>
+                {isMobile && editable && onRecordHistoryToggle && (
+                  <DropdownMenuItem
+                    className="flex cursor-pointer items-center gap-2 text-sm outline-none"
+                    onClick={onRecordHistoryToggle}
+                  >
+                    <History className="size-4 shrink-0" />
+                    {recordHistoryVisible
+                      ? t('expandRecord.recordHistory.hiddenRecordHistory')
+                      : t('expandRecord.recordHistory.showRecordHistory')}
+                  </DropdownMenuItem>
+                )}
                 {canDuplicate && !!onDuplicate && (
                   <DropdownMenuItem
                     className="flex cursor-pointer items-center gap-2 text-sm outline-none"
@@ -215,7 +243,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
           )}
         </div>
       )}
-      <Separator className="h-6" orientation="vertical" />
+      {!isMobile && <Separator className="h-6" orientation="vertical" />}
       <Button variant={'ghost'} size={'icon-xs'} onClick={onClose}>
         <X className="size-4 shrink-0" />
       </Button>

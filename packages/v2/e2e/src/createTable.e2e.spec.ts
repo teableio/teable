@@ -2,10 +2,19 @@
 import { createTableOkResponseSchema } from '@teable/v2-contract-http';
 import { createV2HttpClient } from '@teable/v2-contract-http-client';
 import type { ICreateTableCommandInput } from '@teable/v2-core';
-import { createAllFieldTypesFields, tableTemplates } from '@teable/v2-table-templates';
+import {
+  createAllFieldTypesFields,
+  defaultTableTemplate,
+  tableTemplates,
+} from '@teable/v2-table-templates';
 import { sql } from 'kysely';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
+import {
+  ensureAttachmentTables,
+  makeAttachmentCell,
+  seedAttachment,
+} from './update-field/attachment/testUtils';
 
 describe('v2 http createTable (e2e)', () => {
   let ctx: SharedTestContext;
@@ -303,6 +312,12 @@ describe('v2 http createTable (e2e)', () => {
       tagField.options && typeof tagField.options === 'object' && 'choices' in tagField.options
         ? (tagField.options as { choices?: Array<{ id?: string; name: string }> }).choices ?? []
         : [];
+    await ensureAttachmentTables(ctx);
+    const attachment = await seedAttachment(ctx);
+
+    // "Files" is notNull and [] normalizes to null (v1 contract), so seed a real attachment
+    await ensureAttachmentTables(ctx);
+    const seededAttachment = await seedAttachment(ctx);
 
     await ctx.createRecord(created.id, {
       Name: 'owner@example.com',
@@ -315,7 +330,7 @@ describe('v2 http createTable (e2e)', () => {
         .map((choice) => choice.id)
         .filter((id): id is string => Boolean(id)),
       Done: true,
-      Files: [],
+      Files: makeAttachmentCell(seededAttachment, 'all-field-types.txt'),
       'Due Date': '2025-02-10T00:00:00.000Z',
       Company: { id: companyRecord.id },
     });
@@ -360,6 +375,132 @@ describe('v2 http createTable (e2e)', () => {
     expect(second.baseId).toBe(ctx.baseId);
   });
 
+  it('[V1 PARITY][table-concurrency.e2e-spec.ts] avoids db name collisions when creating tables concurrently', async () => {
+    const sharedName = `Concurrent Table ${Math.random().toString(36).slice(2, 8)}`;
+
+    const results = await Promise.allSettled(
+      Array.from({ length: 3 }, () =>
+        ctx.createTable({
+          baseId: ctx.baseId,
+          name: sharedName,
+          fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+        })
+      )
+    );
+
+    const rejected = results.filter(
+      (result): result is PromiseRejectedResult => result.status === 'rejected'
+    );
+    expect(rejected.map((result) => result.reason)).toEqual([]);
+
+    const tables = results.flatMap((result) =>
+      result.status === 'fulfilled' ? [result.value] : []
+    );
+    expect(tables).toHaveLength(3);
+
+    // All creates succeed with distinct table ids and distinct physical storage names.
+    expect(new Set(tables.map((table) => table.id)).size).toBe(3);
+    const dbTableNames = tables.map((table) => table.dbTableName);
+    expect(dbTableNames.every((name) => typeof name === 'string' && name.length > 0)).toBe(true);
+    expect(new Set(dbTableNames).size).toBe(3);
+
+    // v2 keeps the requested display name on every table (v1 in V2 mode asserts the same).
+    expect(tables.map((table) => table.name)).toEqual([sharedName, sharedName, sharedName]);
+  });
+
+  it('[V1 PARITY][table.e2e-spec.ts] creates default primary field and grid view for an empty payload', async () => {
+    const created = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'new table',
+    });
+
+    expect(created.name).toBe('new table');
+    expect(created.fields).toHaveLength(1);
+    expect(created.fields[0]?.type).toBe('singleLineText');
+    expect(created.fields[0]?.isPrimary).toBe(true);
+    expect(created.views).toHaveLength(1);
+    expect(created.views[0]?.type).toBe('grid');
+
+    // v1's "3 empty records for an empty payload" default comes from its API
+    // layer (TablePipe fills DEFAULT_FIELDS/VIEWS/RECORD_DATA before the
+    // command runs — the FORCE_V2 bridge inherits it). The native v2 endpoint
+    // stays explicit; the same default table is available as the 'default'
+    // template (@teable/v2-table-templates), covered by the test below.
+    const records = await ctx.listRecords(created.id, { limit: 10 });
+    expect(records).toHaveLength(0);
+  });
+
+  // v1 parity (T6520): Teable's default blank table is the 'default' template —
+  // Name/Count/Status fields, a grid view, and exactly 3 empty records.
+  it('creates the v1 default table from the default template', async () => {
+    const [created] = await ctx.createTables(
+      defaultTableTemplate.createInput(ctx.baseId, { namePrefix: 'default template table' })
+    );
+
+    expect(created!.name).toBe('default template table');
+    expect(created!.fields.map((field) => [field.name, field.type])).toEqual([
+      ['Name', 'singleLineText'],
+      ['Count', 'number'],
+      ['Status', 'singleSelect'],
+    ]);
+    expect(created!.fields[0]?.isPrimary).toBe(true);
+    expect(created!.views).toHaveLength(1);
+    expect(created!.views[0]?.type).toBe('grid');
+
+    const records = await ctx.listRecords(created!.id, { limit: 10 });
+    expect(records).toHaveLength(3);
+    for (const record of records) {
+      expect(Object.values(record.fields).every((value) => value === null)).toBe(true);
+    }
+  });
+
+  it('[V1 PARITY][table.e2e-spec.ts] creates table with ordered fields', async () => {
+    const amountFieldId = createFieldId();
+    const created = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'ordered fields table',
+      fields: [
+        { type: 'singleLineText', name: 'Single line text' },
+        { type: 'formula', id: amountFieldId, name: 'Formula', options: { expression: '1 + 1' } },
+        { type: 'longText', name: 'Long text' },
+      ],
+    });
+
+    expect(created.fields.map((field) => field.type)).toEqual([
+      'singleLineText',
+      'formula',
+      'longText',
+    ]);
+
+    const fetched = await ctx.getTableById(created.id);
+    expect(fetched.fields.map((field) => field.type)).toEqual([
+      'singleLineText',
+      'formula',
+      'longText',
+    ]);
+  });
+
+  // Regression (T6520): the primary field type is restricted at creation just
+  // like on conversion — a checkbox first field is rejected, not promoted.
+  it('[V1 PARITY][table.e2e-spec.ts] rejects createTable when first field has unsupported primary type', async () => {
+    const response = await fetch(`${ctx.baseUrl}/tables/create`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId: ctx.baseId,
+        name: 'bad primary table',
+        fields: [
+          { type: 'checkbox', name: 'Done' },
+          { type: 'singleLineText', name: 'Note' },
+        ],
+      }),
+    });
+
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    const rawBody: unknown = await response.json();
+    expect(JSON.stringify(rawBody)).toMatch(/primary/i);
+  });
+
   it('creates tables for every template with seeded records', async () => {
     let index = 0;
     for (const template of tableTemplates) {
@@ -384,7 +525,8 @@ describe('v2 http createTable (e2e)', () => {
 
         const records = await ctx.listRecords(table.id, { limit: 1000 });
         expect(records).toHaveLength(templateTable.defaultRecordCount);
-        if (templateTable.defaultRecordCount > 0) {
+        // The default template intentionally seeds empty records.
+        if (templateTable.defaultRecordCount > 0 && template.key !== 'default') {
           expect(Object.keys(records[0]!.fields)).not.toHaveLength(0);
         }
 

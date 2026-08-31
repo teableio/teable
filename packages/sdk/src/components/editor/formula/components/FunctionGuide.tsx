@@ -17,7 +17,7 @@ export const FunctionGuide: FC<IFunctionGuideProps> = (props) => {
     <div className="w-full overflow-y-auto">
       <div className="grow px-4 py-2">
         <h2 className="text-lg">{data.name}</h2>
-        <MemoizedContentMarkdownPreview className="px-0 py-0 text-[13px] text-muted-foreground [&_p]:my-0 [&_a]:text-primary [&_a]:underline">
+        <MemoizedContentMarkdownPreview className="p-0 text-[13px] text-muted-foreground [&_a]:text-primary [&_a]:underline [&_p]:my-0">
           {data.summary}
         </MemoizedContentMarkdownPreview>
         {data.definition && (

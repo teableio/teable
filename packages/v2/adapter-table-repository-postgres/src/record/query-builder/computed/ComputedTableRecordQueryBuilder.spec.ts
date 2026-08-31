@@ -274,6 +274,32 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(parameters).toEqual([10, 20]);
     });
 
+    test('orders never-null system columns without an is-null prefix', () => {
+      const db = createTestDb();
+      const table = createTableWithAllFields();
+
+      const qb = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy });
+      const { sql } = compileQuery(db, qb.from(table).orderBy('__auto_number', 'asc'));
+
+      expect(sql).toContain('order by "t"."__auto_number" asc');
+      expect(sql).not.toContain('"t"."__auto_number" is null');
+    });
+
+    test('collapses duplicate system column order keys', () => {
+      const db = createTestDb();
+      const table = createTableWithAllFields();
+
+      const qb = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy });
+      const { sql } = compileQuery(
+        db,
+        qb.from(table).orderBy('__auto_number', 'asc').orderBy('__auto_number', 'asc')
+      );
+
+      expect(sql.match(/order by "t"."__auto_number" asc/g)).toEqual([
+        'order by "t"."__auto_number" asc',
+      ]);
+    });
+
     test('orders createdTime by formatted day when time formatting omits time', () => {
       const db = createTestDb();
       const formatting = DateTimeFormatting.create({
@@ -311,15 +337,60 @@ describe('ComputedTableRecordQueryBuilder', () => {
       );
 
       expect(sql).toMatch(
-        /order by to_char\(timezone\(\$\d+, "t"\."__created_time"\), \$\d+\) is null asc/
+        /order by to_char\(timezone\(\$\d+, "t"\."__created_time"\), \$\d+\) desc nulls last/
       );
-      expect(sql).toMatch(/to_char\(timezone\(\$\d+, "t"\."__created_time"\), \$\d+\) desc/);
-      expect(parameters.slice(-4)).toEqual([
-        'Asia/Singapore',
-        'YYYY-MM-DD',
-        'Asia/Singapore',
-        'YYYY-MM-DD',
-      ]);
+      expect(sql).not.toContain('is null');
+      expect(parameters.slice(-2)).toEqual(['Asia/Singapore', 'YYYY-MM-DD']);
+    });
+
+    test('orders tracked lastModifiedTime by the field column not the system timestamp', () => {
+      const db = createTestDb();
+      const formatting = DateTimeFormatting.create({
+        date: DateFormattingPreset.ISO,
+        time: TimeFormatting.None,
+        timeZone: 'Asia/Shanghai',
+      })._unsafeUnwrap();
+      const trackedFieldId = FieldId.create(`fld${'t'.repeat(16)}`)._unsafeUnwrap();
+
+      const table = Table.builder()
+        .withId(TableId.create(MAIN_TABLE_ID)._unsafeUnwrap())
+        .withBaseId(BaseId.create(BASE_ID)._unsafeUnwrap())
+        .withName(TableName.create('TrackedLastModifiedSortTable')._unsafeUnwrap())
+        .field()
+        .singleLineText()
+        .withId(trackedFieldId)
+        .withName(FieldName.create('Status')._unsafeUnwrap())
+        .done()
+        .field()
+        .lastModifiedTime()
+        .withName(FieldName.create('LastModified')._unsafeUnwrap())
+        .withFormatting(formatting)
+        .withTrackedFieldIds([trackedFieldId])
+        .done()
+        .view()
+        .defaultGrid()
+        .done()
+        .build()
+        ._unsafeUnwrap();
+
+      const [statusField, lastModifiedTimeField] = table.getFields();
+      statusField
+        .setDbFieldName(DbFieldName.rehydrate('col_status')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      lastModifiedTimeField
+        .setDbFieldName(DbFieldName.rehydrate('col_last_modified')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      const qb = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy });
+      const { sql, parameters } = compileQuery(
+        db,
+        qb.from(table).orderBy(lastModifiedTimeField.id(), 'desc')
+      );
+
+      expect(sql).toMatch(
+        /order by to_char\(timezone\(\$\d+, "t"\."col_last_modified"\), \$\d+\) desc nulls last/
+      );
+      expect(sql).not.toContain('"t"."__last_modified_time"');
+      expect(parameters.slice(-2)).toEqual(['Asia/Shanghai', 'YYYY-MM-DD']);
     });
 
     test('orders date fields by formatted year when date formatting collapses precision', () => {
@@ -352,10 +423,10 @@ describe('ComputedTableRecordQueryBuilder', () => {
       const { sql, parameters } = compileQuery(db, qb.from(table).orderBy(dateField.id(), 'asc'));
 
       expect(sql).toMatch(
-        /order by to_char\(timezone\(\$\d+, "t"\."col_date"\), \$\d+\) is null desc/
+        /order by to_char\(timezone\(\$\d+, "t"\."col_date"\), \$\d+\) asc nulls first/
       );
-      expect(sql).toMatch(/to_char\(timezone\(\$\d+, "t"\."col_date"\), \$\d+\) asc/);
-      expect(parameters.slice(-4)).toEqual(['Asia/Singapore', 'YYYY', 'Asia/Singapore', 'YYYY']);
+      expect(sql).not.toContain('is null');
+      expect(parameters.slice(-2)).toEqual(['Asia/Singapore', 'YYYY']);
     });
 
     test('aligns sort semantics with v1 for null and user-like fields', () => {
@@ -375,13 +446,12 @@ describe('ComputedTableRecordQueryBuilder', () => {
           .orderBy(createdByFieldId, 'asc')
       );
 
-      expect(sql).toContain('"t"."col_number" is null desc');
-      expect(sql).toContain('"t"."col_number" asc');
-      expect(sql).toContain('"t"."col_user"::jsonb ->> \'title\' is null desc');
-      expect(sql).toContain('"t"."col_user"::jsonb ->> \'title\' asc');
+      expect(sql).toContain('"t"."col_number" asc nulls first');
+      expect(sql).toContain('"t"."col_user"::jsonb ->> \'title\' asc nulls first');
       expect(sql).toContain(
-        'coalesce(to_jsonb("t"."__created_by") ->> \'title\', to_jsonb("t"."__created_by") ->> \'name\', to_jsonb("t"."__created_by") #>> \'{}\') is null desc'
+        'coalesce(to_jsonb("t"."__created_by") ->> \'title\', to_jsonb("t"."__created_by") ->> \'name\', to_jsonb("t"."__created_by") #>> \'{}\') asc nulls first'
       );
+      expect(sql).not.toMatch(/col_number" is null/);
     });
 
     test('filters by projection', () => {
@@ -1430,6 +1500,101 @@ describe('ComputedTableRecordQueryBuilder', () => {
       );
     });
 
+    test('keeps lookup laterals separate when sort or limit differs', () => {
+      const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+      const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
+      const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+      const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
+      const targetFieldId = FieldId.create(LOOKUP_TARGET_FIELD_ID)._unsafeUnwrap();
+      const lookupFieldIds = ['a', 'b', 'c', 'd'].map((suffix) =>
+        FieldId.create(`fld${suffix.repeat(16)}`)._unsafeUnwrap()
+      );
+
+      const foreignBuilder = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('ForeignTable')._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withId(targetFieldId)
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+      foreignTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_title')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const linkConfig = LinkFieldConfig.create({
+        relationship: 'manyMany',
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: targetFieldId.toString(),
+        symmetricFieldId: SYMMETRIC_FIELD_ID,
+      })._unsafeUnwrap();
+      const conditions = [
+        { sort: { fieldId: targetFieldId.toString(), order: 'asc' as const }, limit: 1 },
+        { sort: { fieldId: targetFieldId.toString(), order: 'desc' as const }, limit: 1 },
+        { sort: { fieldId: targetFieldId.toString(), order: 'desc' as const }, limit: 2 },
+        { limit: 1 },
+      ];
+
+      const mainBuilder = Table.builder()
+        .withId(mainTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('MainTable')._unsafeUnwrap());
+      mainBuilder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .done();
+      mainBuilder
+        .field()
+        .link()
+        .withId(linkFieldId)
+        .withName(FieldName.create('Link')._unsafeUnwrap())
+        .withConfig(linkConfig)
+        .done();
+      lookupFieldIds.forEach((lookupFieldId, index) => {
+        const lookupOptions = LookupOptions.create({
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: targetFieldId.toString(),
+          ...conditions[index],
+        })._unsafeUnwrap();
+        mainBuilder
+          .field()
+          .lookup()
+          .withId(lookupFieldId)
+          .withName(FieldName.create(`Lookup ${index + 1}`)._unsafeUnwrap())
+          .withLookupOptions(lookupOptions)
+          .withInnerField(foreignTable.getFields()[0])
+          .done();
+      });
+      mainBuilder.view().defaultGrid().done();
+
+      const mainTable = mainBuilder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
+      mainTable.getFields().forEach((field, index) => {
+        field.setDbFieldName(DbFieldName.rehydrate(`col_${index}`)._unsafeUnwrap())._unsafeUnwrap();
+      });
+
+      const db = createTestDb();
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .select(lookupFieldIds)
+      );
+
+      expect(sql.match(/inner join lateral/g) || []).toHaveLength(4);
+      expect(sql).toContain('order by "f"."col_title" asc, (SELECT "j"."__id"');
+      expect(sql).toMatch(
+        /order by \(SELECT "j"\."__order"[\s\S]+?\(SELECT "j"\."__id"[\s\S]+?limit \$\d+/
+      );
+    });
+
     test('coerces single-value number lookup json scalar before boolean formula comparison', () => {
       const db = createTestDb();
       const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
@@ -1607,6 +1772,36 @@ describe('ComputedTableRecordQueryBuilder', () => {
 
       expect(sql).toContain('NULL::jsonb as "col_lookup"');
       expect(sql).not.toContain('inner join lateral');
+    });
+
+    test('lookup with a deleted aggregation source degrades to NULL like hasError', () => {
+      const db = createTestDb();
+      const missingFieldId = `fld${'z'.repeat(16)}`;
+      const { mainTable, foreignTable, foreignTableId } = createLookupTable();
+      const lookupField = mainTable.getFields()[2];
+
+      // Simulate a persisted lookup whose source field was deleted from the
+      // foreign table without the lookup ever being marked hasError.
+      (lookupField as unknown as { lookupFieldId: () => FieldId }).lookupFieldId = () =>
+        FieldId.create(missingFieldId)._unsafeUnwrap();
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const builder = new ComputedTableRecordQueryBuilder(db, {
+        foreignTables,
+        typeValidationStrategy,
+      })
+        .from(mainTable)
+        .select([lookupField.id()]);
+      const { sql } = compileQuery(db, builder);
+
+      expect(sql).toContain('NULL::jsonb as "col_lookup"');
+      expect(builder.danglingFieldReferences()).toEqual([
+        {
+          fieldId: missingFieldId,
+          tableId: foreignTableId.toString(),
+          scene: 'lookup aggregation source field',
+        },
+      ]);
     });
 
     test('uses single-level flattening for lookup-of-lookup chains without inner filters', () => {
@@ -2100,6 +2295,52 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toContain('inner join lateral');
     });
 
+    test('groups OR-filtered rollups with the link predicate', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId, rollupFieldIds } = createRollupTable(
+        'sum({values})',
+        {
+          filter: {
+            conjunction: 'or',
+            filterSet: [
+              { fieldId: LOOKUP_TARGET_FIELD_ID, operator: 'is', value: 10 },
+              { fieldId: LOOKUP_TARGET_FIELD_ID, operator: 'is', value: 20 },
+            ],
+          },
+        }
+      );
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .select(rollupFieldIds)
+      );
+
+      expect(sql).toContain(
+        '"f"."__fk_fldssssssssssssssss" = "t"."__id" and (("f"."col_number" = $1) or ("f"."col_number" = $2))'
+      );
+    });
+
+    test('orders limit-only rollup rows before truncating full-row reads', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createRollupTable('sum({values})', {
+        relationship: 'manyMany',
+        limit: 1,
+      });
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
+      );
+
+      expect(sql).toMatch(
+        /order by \(SELECT "j"\."__order"[\s\S]+?\(SELECT "j"\."__id"[\s\S]+?limit \$\d+/
+      );
+    });
+
     test('rollup sum snapshot', () => {
       const db = createTestDb();
       const { mainTable, foreignTable, foreignTableId } = createRollupTable('sum({values})');
@@ -2215,8 +2456,8 @@ describe('ComputedTableRecordQueryBuilder', () => {
         )
       );
 
-      expect(sql).toContain('jsonb_agg(to_jsonb(v.val))');
-      expect(sql).toContain('SELECT DISTINCT val');
+      expect(sql).toContain('jsonb_agg(to_jsonb(v.val) ORDER BY v.outer_ord, v.inner_ord)');
+      expect(sql).toContain('SELECT DISTINCT ON (flattened.val)');
       expect(sql).toContain('jsonb_array_elements(COALESCE(jsonb_agg("f"."col_tags"');
       expect(sql).toContain('FILTER (WHERE "f"."col_tags" IS NOT NULL)');
     });
@@ -2344,7 +2585,9 @@ describe('ComputedTableRecordQueryBuilder', () => {
     const FOREIGN_VALUES_FIELD_ID = `fld${'v'.repeat(16)}`;
     const FOREIGN_FILTER_FIELD_ID = `fld${'g'.repeat(16)}`;
     const FOREIGN_STATUS_FIELD_ID = `fld${'u'.repeat(16)}`;
+    const FOREIGN_CODE_FIELD_ID = `fld${'j'.repeat(16)}`;
     const HOST_FILTER_FIELD_ID = `fld${'h'.repeat(16)}`;
+    const HOST_CODE_FIELD_ID = `fld${'i'.repeat(16)}`;
 
     const createConditionalRollupTable = (
       condition: unknown,
@@ -2473,6 +2716,135 @@ describe('ComputedTableRecordQueryBuilder', () => {
       return { mainTable, foreignTable, foreignTableId };
     };
 
+    const createCompositeKeyConditionalRollupTable = () => {
+      const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+      const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
+      const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+      const conditionalRollupFieldId = FieldId.create(CONDITIONAL_ROLLUP_FIELD_ID)._unsafeUnwrap();
+      const foreignValuesFieldId = FieldId.create(FOREIGN_VALUES_FIELD_ID)._unsafeUnwrap();
+      const foreignFilterFieldId = FieldId.create(FOREIGN_FILTER_FIELD_ID)._unsafeUnwrap();
+      const foreignStatusFieldId = FieldId.create(FOREIGN_STATUS_FIELD_ID)._unsafeUnwrap();
+      const foreignCodeFieldId = FieldId.create(FOREIGN_CODE_FIELD_ID)._unsafeUnwrap();
+      const hostFilterFieldId = FieldId.create(HOST_FILTER_FIELD_ID)._unsafeUnwrap();
+      const hostCodeFieldId = FieldId.create(HOST_CODE_FIELD_ID)._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('ForeignTable')._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .number()
+        .withId(foreignValuesFieldId)
+        .withName(FieldName.create('Amount')._unsafeUnwrap())
+        .done();
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withId(foreignFilterFieldId)
+        .withName(FieldName.create('Category')._unsafeUnwrap())
+        .done();
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withId(foreignStatusFieldId)
+        .withName(FieldName.create('Status')._unsafeUnwrap())
+        .done();
+      foreignBuilder
+        .field()
+        .number()
+        .withId(foreignCodeFieldId)
+        .withName(FieldName.create('Code')._unsafeUnwrap())
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+      foreignTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_number')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      foreignTable
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_category')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      foreignTable
+        .getFields()[2]
+        .setDbFieldName(DbFieldName.rehydrate('col_status')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      foreignTable
+        .getFields()[3]
+        .setDbFieldName(DbFieldName.rehydrate('col_code')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const valuesField = foreignTable
+        .getField((f) => f.id().equals(foreignValuesFieldId))
+        ._unsafeUnwrap();
+      const conditionalConfig = ConditionalRollupConfig.create({
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignValuesFieldId.toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: FOREIGN_FILTER_FIELD_ID,
+                operator: 'is',
+                value: { type: 'field', fieldId: HOST_FILTER_FIELD_ID },
+              },
+              {
+                fieldId: FOREIGN_CODE_FIELD_ID,
+                operator: 'is',
+                value: { type: 'field', fieldId: HOST_CODE_FIELD_ID },
+              },
+            ],
+          },
+        },
+      })._unsafeUnwrap();
+
+      const mainBuilder = Table.builder()
+        .withId(mainTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('MainTable')._unsafeUnwrap());
+      mainBuilder
+        .field()
+        .singleLineText()
+        .withId(hostFilterFieldId)
+        .withName(FieldName.create('CategoryRef')._unsafeUnwrap())
+        .done();
+      mainBuilder
+        .field()
+        .number()
+        .withId(hostCodeFieldId)
+        .withName(FieldName.create('CodeRef')._unsafeUnwrap())
+        .done();
+      mainBuilder
+        .field()
+        .conditionalRollup()
+        .withId(conditionalRollupFieldId)
+        .withName(FieldName.create('ConditionalTotal')._unsafeUnwrap())
+        .withConfig(conditionalConfig)
+        .withExpression(RollupExpression.create('sum({values})')._unsafeUnwrap())
+        .withValuesField(valuesField)
+        .done();
+      mainBuilder.view().defaultGrid().done();
+
+      const mainTable = mainBuilder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
+      mainTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_category_ref')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      mainTable
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_code_ref')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      mainTable
+        .getFields()[2]
+        .setDbFieldName(DbFieldName.rehydrate('col_conditional_rollup')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      return { mainTable, foreignTable, foreignTableId };
+    };
+
     test('conditional rollup snapshot with literal filter', () => {
       const db = createTestDb();
       const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable({
@@ -2500,6 +2872,67 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toMatchInlineSnapshot(
         `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join (select CAST(COALESCE(SUM("f"."col_number") FILTER (WHERE "f"."col_category" = $1), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f") as "cond_fldcccccccccccccccc" on true"`
       );
+    });
+
+    test('conditional rollup with a deleted aggregation source degrades to NULL like hasError', () => {
+      const db = createTestDb();
+      const missingFieldId = `fld${'z'.repeat(16)}`;
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable({
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: FOREIGN_FILTER_FIELD_ID, operator: 'is', value: 'A' }],
+        },
+      });
+
+      // Simulate a persisted conditionalRollup whose aggregation source field
+      // was deleted from the foreign table without hasError being set.
+      const rollupConfig = (
+        mainTable.getFields()[1] as unknown as { config: () => { lookupFieldId: () => FieldId } }
+      ).config();
+      rollupConfig.lookupFieldId = () => FieldId.create(missingFieldId)._unsafeUnwrap();
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const builder = new ComputedTableRecordQueryBuilder(db, {
+        foreignTables,
+        typeValidationStrategy,
+      }).from(mainTable);
+      const { sql } = compileQuery(db, builder);
+
+      expect(sql).toContain('NULL as "col_conditional_rollup"');
+      expect(builder.danglingFieldReferences()).toEqual([
+        {
+          fieldId: missingFieldId,
+          tableId: foreignTableId.toString(),
+          scene: 'rollup aggregation source field',
+        },
+      ]);
+    });
+
+    test('conditional rollup with a deleted sort field falls back to default ordering', () => {
+      const db = createTestDb();
+      const missingSortFieldId = `fld${'y'.repeat(16)}`;
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable({
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: FOREIGN_FILTER_FIELD_ID, operator: 'is', value: 'A' }],
+        },
+        sort: { fieldId: missingSortFieldId, order: 'desc' },
+        limit: 1,
+      });
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const builder = new ComputedTableRecordQueryBuilder(db, {
+        foreignTables,
+        typeValidationStrategy,
+      }).from(mainTable);
+      const buildResult = builder.build();
+
+      expect(buildResult.isOk()).toBe(true);
+      expect(builder.danglingFieldReferences()).toContainEqual({
+        fieldId: missingSortFieldId,
+        tableId: foreignTableId.toString(),
+        scene: 'conditional sort field',
+      });
     });
 
     test('conditional rollups with distinct source-only filters share one source scan', () => {
@@ -2677,6 +3110,67 @@ describe('ComputedTableRecordQueryBuilder', () => {
       }
     });
 
+    test('conditional rollup with a deleted aggregation source executes to NULL end-to-end', async () => {
+      const { pglite, db } = await createPGliteDb();
+      try {
+        const missingFieldId = `fld${'z'.repeat(16)}`;
+        const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable({
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: FOREIGN_FILTER_FIELD_ID, operator: 'is', value: 'A' }],
+          },
+        });
+        const rollupConfig = (
+          mainTable.getFields()[1] as unknown as { config: () => { lookupFieldId: () => FieldId } }
+        ).config();
+        rollupConfig.lookupFieldId = () => FieldId.create(missingFieldId)._unsafeUnwrap();
+
+        await pglite.query(`create schema "${BASE_ID}"`);
+        await pglite.query(`
+          create table "${BASE_ID}"."${MAIN_TABLE_ID}" (
+            "__id" text primary key,
+            "__version" integer not null default 1,
+            "__auto_number" integer not null,
+            "col_category_ref" text,
+            "col_conditional_rollup" double precision
+          )
+        `);
+        await pglite.query(`
+          create table "${BASE_ID}"."${FOREIGN_TABLE_ID}" (
+            "__id" text primary key,
+            "__version" integer not null default 1,
+            "__auto_number" integer not null,
+            "col_number" double precision,
+            "col_category" text,
+            "col_status" text
+          )
+        `);
+        await pglite.query(`
+          insert into "${BASE_ID}"."${MAIN_TABLE_ID}"
+            ("__id", "__auto_number", "col_category_ref")
+          values ('row-1', 1, 'A')
+        `);
+        await pglite.query(`
+          insert into "${BASE_ID}"."${FOREIGN_TABLE_ID}"
+            ("__id", "__auto_number", "col_number", "col_category")
+          values ('f-1', 1, 10, 'A')
+        `);
+
+        const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+        const query = new ComputedTableRecordQueryBuilder(db as unknown as Kysely<DynamicDB>, {
+          foreignTables,
+          typeValidationStrategy,
+        })
+          .from(mainTable)
+          .build()
+          ._unsafeUnwrap();
+
+        expect(await query.execute()).toMatchObject([{ col_conditional_rollup: null }]);
+      } finally {
+        await db.destroy();
+      }
+    });
+
     test('conditional rollups with residual field-ref filters use set-based host joins', () => {
       const db = createTestDb();
       const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable(
@@ -2732,10 +3226,126 @@ describe('ComputedTableRecordQueryBuilder', () => {
       // Different residual predicates become independent set-based host joins.
       expect(sql).not.toContain('inner join lateral');
       expect((sql.match(/left join \(select/g) || []).length).toBe(2);
-      expect(sql).toContain('"f"."col_category" = "h"."col_category_ref"');
+      expect(sql).toContain('to_jsonb("f"."col_category") = to_jsonb("h"."col_category_ref")');
       expect(sql).toContain('"f"."col_status" = $');
       expect(parameters).toEqual(expect.arrayContaining(['active', 'inactive']));
       expect(sql).toContain('group by "h"."col_category_ref"');
+    });
+
+    test('conditional rollup with isNotEmpty residual filter uses set-based host join', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable({
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: FOREIGN_FILTER_FIELD_ID,
+              operator: 'is',
+              value: HOST_FILTER_FIELD_ID,
+              isSymbol: true,
+            },
+            {
+              fieldId: FOREIGN_STATUS_FIELD_ID,
+              operator: 'isNotEmpty',
+              value: null,
+            },
+          ],
+        },
+      });
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
+      );
+
+      expect(sql).not.toContain('inner join lateral');
+      expect(sql).toContain('to_jsonb("f"."col_category") = to_jsonb("h"."col_category_ref")');
+      expect(sql).toContain('("f"."col_status" is not null) and ("f"."col_status" != \'\')');
+      expect(sql).toContain('group by "h"."col_category_ref"');
+    });
+
+    test('executes conditional rollup with isNotEmpty residual on the set-based path', async () => {
+      const { pglite, db } = await createPGliteDb();
+      try {
+        const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable({
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: FOREIGN_FILTER_FIELD_ID,
+                operator: 'is',
+                value: HOST_FILTER_FIELD_ID,
+                isSymbol: true,
+              },
+              {
+                fieldId: FOREIGN_STATUS_FIELD_ID,
+                operator: 'isNotEmpty',
+                value: null,
+              },
+            ],
+          },
+        });
+
+        await pglite.query(`create schema "${BASE_ID}"`);
+        await pglite.query(`
+          create table "${BASE_ID}"."${MAIN_TABLE_ID}" (
+            "__id" text primary key,
+            "__version" integer not null default 1,
+            "__auto_number" integer not null,
+            "col_category_ref" text,
+            "col_conditional_rollup" double precision
+          )
+        `);
+        await pglite.query(`
+          create table "${BASE_ID}"."${FOREIGN_TABLE_ID}" (
+            "__id" text primary key,
+            "__version" integer not null default 1,
+            "__auto_number" integer not null,
+            "col_number" double precision,
+            "col_category" text,
+            "col_status" text
+          )
+        `);
+        await pglite.query(`
+          insert into "${BASE_ID}"."${FOREIGN_TABLE_ID}"
+            ("__id", "__auto_number", "col_number", "col_category", "col_status")
+          values
+            ('f-1', 1, 10, 'G-1', 'active'),
+            ('f-2', 2, 20, 'G-1', ''),
+            ('f-3', 3, 40, 'G-1', null),
+            ('f-4', 4, 5, 'G-2', null)
+        `);
+        await pglite.query(`
+          insert into "${BASE_ID}"."${MAIN_TABLE_ID}"
+            ("__id", "__auto_number", "col_category_ref")
+          values
+            ('h-1', 1, 'G-1'),
+            ('h-2', 2, 'G-2')
+        `);
+
+        const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+        const query = new ComputedTableRecordQueryBuilder(db as unknown as Kysely<DynamicDB>, {
+          foreignTables,
+          typeValidationStrategy,
+        })
+          .from(mainTable)
+          .orderBy('__auto_number', 'asc')
+          .build()
+          ._unsafeUnwrap();
+
+        const compiled = query.compile();
+        expect(compiled.sql).not.toContain('inner join lateral');
+        // Empty and null statuses are filtered out; hosts without matches keep SUM → 0.
+        expect(await query.execute()).toMatchObject([
+          { col_conditional_rollup: 10 },
+          { col_conditional_rollup: 0 },
+        ]);
+      } finally {
+        await db.destroy();
+      }
     });
 
     test('conditional rollup with residual filter and limit uses ranked set-based join', () => {
@@ -2881,11 +3491,102 @@ describe('ComputedTableRecordQueryBuilder', () => {
         'coalesce("cond_fldcccccccccccccccc"."__host_key", \'\'::text) = coalesce("t"."col_category_ref", \'\'::text)'
       );
       expect(sql).toContain('left join "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f"');
-      expect(sql).toContain('"f"."col_category" = "h"."col_category_ref"');
+      expect(sql).toContain('to_jsonb("f"."col_category") = to_jsonb("h"."col_category_ref")');
       expect(sql).toContain('group by "h"."col_category_ref"');
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" left join (select "h"."col_category_ref" as "__host_key", CAST(COALESCE(SUM("f"."col_number"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from (select distinct "h"."col_category_ref" as "col_category_ref" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "h") as "h" left join "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" on "f"."col_category" = "h"."col_category_ref" group by "h"."col_category_ref") as "cond_fldcccccccccccccccc" on ("cond_fldcccccccccccccccc"."__host_key" is null) = ("t"."col_category_ref" is null) and coalesce("cond_fldcccccccccccccccc"."__host_key", ''::text) = coalesce("t"."col_category_ref", ''::text)"`
+        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" left join (select "h"."col_category_ref" as "__host_key", CAST(COALESCE(SUM("f"."col_number"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from (select distinct "h"."col_category_ref" as "col_category_ref" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "h") as "h" left join "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" on to_jsonb("f"."col_category") = to_jsonb("h"."col_category_ref") group by "h"."col_category_ref") as "cond_fldcccccccccccccccc" on ("cond_fldcccccccccccccccc"."__host_key" is null) = ("t"."col_category_ref" is null) and coalesce("cond_fldcccccccccccccccc"."__host_key", ''::text) = coalesce("t"."col_category_ref", ''::text)"`
       );
+    });
+
+    test('conditional rollup uses set-based host join for composite field-reference equality', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } =
+        createCompositeKeyConditionalRollupTable();
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
+      );
+
+      expect(sql).not.toContain('inner join lateral');
+      expect(sql).toContain('left join (select');
+      expect(sql).toContain('to_jsonb("f"."col_category") = to_jsonb("h"."col_category_ref")');
+      expect(sql).toContain('to_jsonb("f"."col_code") = to_jsonb("h"."col_code_ref")');
+      expect(sql).toContain('group by "h"."__id"');
+      expect(sql).toContain('"cond_fldcccccccccccccccc"."__host_id"');
+    });
+
+    test('executes composite field-reference conditional rollup on the set-based path', async () => {
+      const { pglite, db } = await createPGliteDb();
+      try {
+        const { mainTable, foreignTable, foreignTableId } =
+          createCompositeKeyConditionalRollupTable();
+
+        await pglite.query(`create schema "${BASE_ID}"`);
+        await pglite.query(`
+          create table "${BASE_ID}"."${FOREIGN_TABLE_ID}" (
+            "__id" text primary key,
+            "__version" integer not null default 1,
+            "__auto_number" integer not null,
+            "col_number" double precision,
+            "col_category" text,
+            "col_status" text,
+            "col_code" double precision
+          )
+        `);
+        await pglite.query(`
+          create table "${BASE_ID}"."${MAIN_TABLE_ID}" (
+            "__id" text primary key,
+            "__version" integer not null default 1,
+            "__auto_number" integer not null,
+            "col_category_ref" text,
+            "col_code_ref" double precision,
+            "col_conditional_rollup" double precision
+          )
+        `);
+        await pglite.query(`
+          insert into "${BASE_ID}"."${FOREIGN_TABLE_ID}"
+            ("__id", "__auto_number", "col_number", "col_category", "col_code")
+          values
+            ('f-1', 1, 10, 'A', 1),
+            ('f-2', 2, 5, 'A', 1),
+            ('f-3', 3, 40, 'A', 2),
+            ('f-4', 4, 7, 'B', 1),
+            ('f-5', 5, 100, 'B', 2)
+        `);
+        await pglite.query(`
+          insert into "${BASE_ID}"."${MAIN_TABLE_ID}"
+            ("__id", "__auto_number", "col_category_ref", "col_code_ref")
+          values
+            ('h-1', 1, 'A', 1),
+            ('h-2', 2, 'A', 2),
+            ('h-3', 3, 'B', 1)
+        `);
+
+        const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+        const query = new ComputedTableRecordQueryBuilder(db as unknown as Kysely<DynamicDB>, {
+          foreignTables,
+          typeValidationStrategy,
+        })
+          .from(mainTable)
+          .orderBy('__auto_number', 'asc')
+          .build()
+          ._unsafeUnwrap();
+
+        const compiled = query.compile();
+        expect(compiled.sql).not.toContain('inner join lateral');
+        expect(compiled.sql).toContain('group by "h"."__id"');
+        expect(await query.execute()).toMatchObject([
+          { col_conditional_rollup: 15 },
+          { col_conditional_rollup: 40 },
+          { col_conditional_rollup: 7 },
+        ]);
+      } finally {
+        await db.destroy();
+      }
     });
 
     test('conditional rollup uses window ranking for field-reference filter with limit', () => {
@@ -3123,6 +3824,93 @@ describe('ComputedTableRecordQueryBuilder', () => {
         await db.destroy();
       }
     });
+
+    test('degenerate field-reference filter (host field on both sides) falls back to the lateral path instead of failing', async () => {
+      const { pglite, db } = await createPGliteDb();
+      try {
+        // Persisted conditions can name a host-table field on BOTH sides of a
+        // field-reference item (seen in production). The field-reference fast
+        // paths cannot resolve such a filter on the foreign table; the build
+        // must fall back to the generic lateral path (which skips the
+        // unresolvable filter) instead of failing the whole computed run with
+        // "Field not found".
+        const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable({
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: HOST_FILTER_FIELD_ID,
+                operator: 'is',
+                value: { type: 'field', fieldId: HOST_FILTER_FIELD_ID },
+              },
+            ],
+          },
+        });
+        const conditionalRollupFieldId = FieldId.create(
+          CONDITIONAL_ROLLUP_FIELD_ID
+        )._unsafeUnwrap();
+
+        await pglite.query(`create schema "${BASE_ID}"`);
+        await pglite.query(`
+          create table "${BASE_ID}"."${FOREIGN_TABLE_ID}" (
+            "__id" text primary key,
+            "__version" integer not null default 1,
+            "__auto_number" integer not null,
+            "col_number" double precision,
+            "col_category" text,
+            "col_status" text
+          )
+        `);
+        await pglite.query(`
+          create table "${BASE_ID}"."${MAIN_TABLE_ID}" (
+            "__id" text primary key,
+            "__version" integer not null default 1,
+            "__auto_number" integer not null,
+            "col_category_ref" text,
+            "col_conditional_rollup" double precision
+          )
+        `);
+        await pglite.query(`
+          insert into "${BASE_ID}"."${FOREIGN_TABLE_ID}"
+            ("__id", "__auto_number", "col_number", "col_category")
+          values
+            ('f-1', 1, 10, 'G-1'),
+            ('f-2', 2, 20, 'G-1'),
+            ('f-3', 3, 5, 'G-2')
+        `);
+        await pglite.query(`
+          insert into "${BASE_ID}"."${MAIN_TABLE_ID}"
+            ("__id", "__auto_number", "col_category_ref")
+          values
+            ('h-1', 1, 'G-1'),
+            ('h-2', 2, 'G-2')
+        `);
+
+        const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+        const queryResult = new ComputedTableRecordQueryBuilder(
+          db as unknown as Kysely<DynamicDB>,
+          {
+            foreignTables,
+            typeValidationStrategy,
+          }
+        )
+          .from(mainTable)
+          .select([conditionalRollupFieldId])
+          .orderBy('__auto_number', 'asc')
+          .build();
+
+        expect(queryResult.isOk()).toBe(true);
+        const rows = await queryResult._unsafeUnwrap().execute();
+        // The unresolvable filter is skipped, matching the generic lateral
+        // path's existing stale-condition behavior: aggregate all foreign rows.
+        expect(rows).toMatchObject([
+          { col_conditional_rollup: 35 },
+          { col_conditional_rollup: 35 },
+        ]);
+      } finally {
+        await db.destroy();
+      }
+    });
   });
 
   describe('conditional lookup field', () => {
@@ -3131,7 +3919,10 @@ describe('ComputedTableRecordQueryBuilder', () => {
     const FOREIGN_OWNER_FIELD_ID = `fld${'o'.repeat(16)}`;
     const HOST_ASSIGNEES_FIELD_ID = `fld${'a'.repeat(16)}`;
 
-    const createConditionalLookupTable = (operator: 'is' | 'isNot') => {
+    const createConditionalLookupTable = (
+      operator: 'is' | 'isNot',
+      options?: { extraFilterItems?: unknown[] }
+    ) => {
       const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
       const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
       const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
@@ -3184,6 +3975,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
                 value: hostAssigneesFieldId.toString(),
                 isSymbol: true,
               },
+              ...(options?.extraFilterItems ?? []),
             ],
           },
         },
@@ -3243,6 +4035,29 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toContain('jsonb_exists_any');
       expect(sql).toContain('to_jsonb("f"."col_owner")');
       expect(sql).toContain('to_jsonb("h"."col_assignees")');
+      expect(parameters).toEqual([5000]);
+    });
+
+    test('conditional lookup with isNotEmpty residual filter keeps the ranked set-based join', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalLookupTable('is', {
+        extraFilterItems: [
+          { fieldId: FOREIGN_TITLE_FIELD_ID, operator: 'isNotEmpty', value: null },
+        ],
+      });
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+
+      const { sql, parameters } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
+      );
+
+      expect(sql).not.toContain('inner join lateral');
+      expect(sql).toContain('left join (select');
+      expect(sql).toContain('row_number() over');
+      expect(sql).toContain('("f"."col_task" is not null) and ("f"."col_task" != \'\')');
       expect(parameters).toEqual([5000]);
     });
 
@@ -3493,6 +4308,150 @@ describe('ComputedTableRecordQueryBuilder', () => {
           { matched_a_value: ['A-Value-1'] },
           { matched_a_value: null },
           { matched_a_value: null },
+        ]);
+      } finally {
+        await db.destroy();
+      }
+    });
+
+    test('self-table field-reference lookup uses the swapped host-key column', async () => {
+      const { pglite, db } = await createPGliteDb();
+      try {
+        const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+        const tableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
+        const nameFieldId = FieldId.create(`fld${'n'.repeat(16)}`)._unsafeUnwrap();
+        const nameMirrorFieldId = FieldId.create(`fld${'w'.repeat(16)}`)._unsafeUnwrap();
+        const title2FieldId = FieldId.create(`fld${'t'.repeat(16)}`)._unsafeUnwrap();
+        const conditionalLookupFieldId = FieldId.create(
+          CONDITIONAL_LOOKUP_FIELD_ID
+        )._unsafeUnwrap();
+
+        const title2Field = createSingleLineTextField({
+          id: title2FieldId,
+          name: FieldName.create('Title2')._unsafeUnwrap(),
+        })._unsafeUnwrap();
+
+        const options = ConditionalLookupOptions.create({
+          foreignTableId: tableId.toString(),
+          lookupFieldId: title2FieldId.toString(),
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: nameMirrorFieldId.toString(),
+                  operator: 'is',
+                  value: {
+                    type: 'field',
+                    fieldId: nameFieldId.toString(),
+                    tableId: tableId.toString(),
+                  },
+                },
+              ],
+            },
+          },
+        })._unsafeUnwrap();
+
+        const builder = Table.builder()
+          .withId(tableId)
+          .withBaseId(baseId)
+          .withName(TableName.create('SelfLookup')._unsafeUnwrap());
+        builder
+          .field()
+          .singleLineText()
+          .withId(nameFieldId)
+          .withName(FieldName.create('Name')._unsafeUnwrap())
+          .primary()
+          .done();
+        builder
+          .field()
+          .singleLineText()
+          .withId(nameMirrorFieldId)
+          .withName(FieldName.create('NameMirror')._unsafeUnwrap())
+          .done();
+        builder
+          .field()
+          .singleLineText()
+          .withId(title2FieldId)
+          .withName(FieldName.create('Title2')._unsafeUnwrap())
+          .done();
+        builder
+          .field()
+          .conditionalLookup()
+          .withId(conditionalLookupFieldId)
+          .withName(FieldName.create('Matching Title2')._unsafeUnwrap())
+          .withConditionalLookupOptions(options)
+          .withInnerField(title2Field)
+          .done();
+        builder.view().defaultGrid().done();
+        const table = builder.build({ includeSelf: true })._unsafeUnwrap();
+        table
+          .getField((field) => field.id().equals(nameFieldId))
+          ._unsafeUnwrap()
+          .setDbFieldName(DbFieldName.rehydrate('name')._unsafeUnwrap())
+          ._unsafeUnwrap();
+        table
+          .getField((field) => field.id().equals(nameMirrorFieldId))
+          ._unsafeUnwrap()
+          .setDbFieldName(DbFieldName.rehydrate('name_mirror')._unsafeUnwrap())
+          ._unsafeUnwrap();
+        table
+          .getField((field) => field.id().equals(title2FieldId))
+          ._unsafeUnwrap()
+          .setDbFieldName(DbFieldName.rehydrate('title2')._unsafeUnwrap())
+          ._unsafeUnwrap();
+        table
+          .getField((field) => field.id().equals(conditionalLookupFieldId))
+          ._unsafeUnwrap()
+          .setDbFieldName(DbFieldName.rehydrate('matched_title2')._unsafeUnwrap())
+          ._unsafeUnwrap();
+
+        await pglite.query(`create schema "${BASE_ID}"`);
+        await pglite.query(`
+          create table "${BASE_ID}"."${MAIN_TABLE_ID}" (
+            "__id" text primary key,
+            "__version" integer not null default 1,
+            "__auto_number" integer not null,
+            "name" text,
+            "name_mirror" text,
+            "title2" text,
+            "matched_title2" jsonb
+          )
+        `);
+        await pglite.query(`
+          insert into "${BASE_ID}"."${MAIN_TABLE_ID}"
+            ("__id", "__auto_number", "name", "name_mirror", "title2")
+          values
+            ('alice', 1, 'Alice', 'Alice', 'T1-alt'),
+            ('bob', 2, 'Bob', 'Alice', 'T2-alt'),
+            ('charlie', 3, 'Charlie', 'Charlie', 'T3-alt'),
+            ('dave', 4, 'Dave', null, 'T4-alt')
+        `);
+
+        const foreignTables = new Map([[tableId.toString(), table]]);
+        const result = new ComputedTableRecordQueryBuilder(db as unknown as Kysely<DynamicDB>, {
+          foreignTables,
+          typeValidationStrategy,
+        })
+          .from(table)
+          .select([conditionalLookupFieldId])
+          .orderBy('__auto_number', 'asc')
+          .build();
+        expect(result.isOk()).toBe(true);
+        const query = result._unsafeUnwrap();
+        const compiled = query.compile();
+        expect(compiled.sql).toContain('select distinct "h"."name_mirror"');
+        expect(compiled.sql).not.toContain('select distinct "h"."name"');
+        expect(compiled.sql).toContain(
+          'coalesce("cond_fldqqqqqqqqqqqqqqqq"."__host_key", \'\'::text) = coalesce("t"."name_mirror", \'\'::text)'
+        );
+
+        const rows = await query.execute();
+        expect(rows).toMatchObject([
+          { matched_title2: ['T1-alt'] },
+          { matched_title2: ['T1-alt'] },
+          { matched_title2: ['T3-alt'] },
+          { matched_title2: null },
         ]);
       } finally {
         await db.destroy();

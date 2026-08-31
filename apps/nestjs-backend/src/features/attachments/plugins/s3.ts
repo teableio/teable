@@ -237,7 +237,7 @@ export class S3Storage implements StorageAdapter {
   async presigned(bucket: string, dir: string, params: IPresignParams): Promise<IPresignRes> {
     try {
       const { tokenExpireIn, uploadMethod } = this.config;
-      const { expiresIn, contentLength, contentType, hash, internal } = params;
+      const { expiresIn, contentLength, contentType, hash, internal, cacheControl } = params;
 
       const token = getRandomString(12);
       const filename = hash ?? token;
@@ -248,6 +248,7 @@ export class S3Storage implements StorageAdapter {
         Key: path,
         ContentType: contentType,
         ContentLength: contentLength,
+        CacheControl: cacheControl,
       });
 
       const url = await getSignedUrl(
@@ -258,9 +259,14 @@ export class S3Storage implements StorageAdapter {
         }
       );
 
+      // Cache-Control is NOT signature-enforced (SigV4 treats it as
+      // unsignable), so storing it relies on the client echoing
+      // requestHeaders on PUT — both first-party upload clients do. A client
+      // that omits or alters it only affects its own object's metadata.
       const requestHeaders = {
         'Content-Type': contentType,
         'Content-Length': contentLength,
+        ...(cacheControl ? { 'Cache-Control': cacheControl } : {}),
       };
 
       return {
@@ -358,6 +364,13 @@ export class S3Storage implements StorageAdapter {
       Bucket: this.replaceBucketEndpoint(bucket),
       Key: path,
       ResponseContentDisposition: respHeaders?.['Content-Disposition'],
+      // Objects uploaded via browser presigned PUT may carry an empty
+      // Content-Type; without an explicit override Safari content-sniffs the
+      // download and auto-extracts archive-like files (e.g. zip-based formats).
+      ResponseContentType: respHeaders?.['Content-Type'] || undefined,
+      ResponseCacheControl: StorageAdapter.isPublicBucket(bucket)
+        ? undefined
+        : StorageAdapter.PRIVATE_PREVIEW_CACHE_CONTROL,
     });
 
     return getSignedUrl(this.s3ClientPreSigner, command, {
@@ -381,6 +394,7 @@ export class S3Storage implements StorageAdapter {
       ContentEncoding: metadata['Content-Encoding'] as string,
       ContentLanguage: metadata['Content-Language'] as string,
       ContentMD5: metadata['Content-MD5'] as string,
+      CacheControl: metadata['Cache-Control'] as string,
     });
     return this.s3ClientPrivateNetwork
       .send(command)
@@ -421,6 +435,7 @@ export class S3Storage implements StorageAdapter {
         ContentEncoding: metadata?.['Content-Encoding'] as string,
         ContentLanguage: metadata?.['Content-Language'] as string,
         ContentMD5: metadata?.['Content-MD5'] as string,
+        CacheControl: metadata?.['Cache-Control'] as string,
       },
     });
 

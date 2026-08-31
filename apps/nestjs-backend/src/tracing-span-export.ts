@@ -10,6 +10,12 @@
  * - other traces export only priority spans (SERVER/route/handler, keeps APM
  *   stats accurate); the rest are buffered and discarded once the trace's
  *   live-span refcount drops to zero without a promotion
+ * - a trace that has already shipped maxExportedSpansPerTrace detail spans is
+ *   truncated: further detail spans are dropped, priority and error spans
+ *   still go out. A context leak (a long-lived listener that keeps the
+ *   bootstrap context, or a span that is never ended) otherwise funnels a
+ *   pod's whole lifetime into one trace, which no sampling ratio can bound.
+ *   Full-export mode (ratio >= 1.0) keeps no per-trace state and is uncapped.
  *
  * Refcounting (onStart/onEnd) instead of watching for a parentless root span
  * handles remote-parent entry spans and post-response async work uniformly.
@@ -17,6 +23,7 @@
  * shapes and memory bounds. Priority spans batch on a short delay; shutdown
  * drains undecided buffers (they belong to interrupted requests).
  */
+import { Logger } from '@nestjs/common';
 import { SpanKind, SpanStatusCode } from '@opentelemetry/api';
 import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import type { ReadableSpan, SpanExporter, SpanProcessor } from '@opentelemetry/sdk-trace-base';
@@ -29,7 +36,10 @@ export const LIVE_TTL_MS = 30 * 60 * 1000;
 export const EXPORTED_TTL_MS = 10 * 60 * 1000;
 export const SETTLED_LINGER_MS = 10_000;
 export const TOMBSTONE_CAP = 10_000;
+export const TRACE_EXPORT_SPAN_CAP = 10_000;
 const CLEANUP_INTERVAL_MS = 30_000;
+
+const truncationLogger = new Logger('SmartSpanExport');
 
 export const hashTraceId = (traceId: string): number => {
   // FNV-1a hash for better distribution
@@ -56,16 +66,13 @@ const PRISMA_SPINE_SPANS = new Set([
 export const isDroppedPrismaSpan = (span: ReadableSpan): boolean =>
   span.name.startsWith('prisma:') && !PRISMA_SPINE_SPANS.has(span.name);
 
-export const isPriorityTraceSpan = (span: ReadableSpan): boolean => {
-  const attributes = span.attributes;
-  return (
-    span.kind === SpanKind.SERVER ||
-    typeof attributes['teable.route.full'] === 'string' ||
-    typeof attributes['http.route'] === 'string' ||
-    (typeof attributes['nest.controller'] === 'string' &&
-      typeof attributes['nest.handler'] === 'string')
-  );
-};
+// `http.route` and `nest.*` are deliberately not triggers. NestInstrumentation set
+// `http.route` on its controller-handler span, which mirrored the request's SERVER span,
+// so honouring it exported both copies of every request. That instrumentation is disabled
+// now (see tracing.ts); keeping the predicate narrow means re-enabling it cannot quietly
+// double the export volume again.
+export const isPriorityTraceSpan = (span: ReadableSpan): boolean =>
+  span.kind === SpanKind.SERVER || typeof span.attributes['teable.route.full'] === 'string';
 
 export const isErrorSpan = (span: ReadableSpan): boolean => {
   if (span.status.code === SpanStatusCode.ERROR) return true;
@@ -82,6 +89,8 @@ export interface ISmartSpanProcessorOptions {
   /** Short delay for priority spans; APM stats lag by at most this much. */
   priorityScheduledDelayMillis: number;
   exportTimeoutMillis: number;
+  /** Detail spans one trace may export before it is truncated as runaway. */
+  maxExportedSpansPerTrace?: number;
 }
 
 interface ITraceState {
@@ -90,6 +99,8 @@ interface ITraceState {
   promotedUntilMs: number;
   settledAtMs: number;
   lastTouchedMs: number;
+  exportedSpans: number;
+  truncationLogged: boolean;
 }
 
 /**
@@ -104,6 +115,9 @@ interface ITraceState {
  *   PENDING_TTL_MS
  * - tombstone (promoted and settled): kept until promotedUntilMs so late
  *   spans keep exporting; capped at TOMBSTONE_CAP
+ * - counting (has exported detail spans): kept for EXPORTED_TTL_MS past its
+ *   last export so the per-trace export cap survives the gaps between spans;
+ *   also capped at TOMBSTONE_CAP
  *
  * Buffers are capped per trace (PER_TRACE_CAP) and globally (GLOBAL_CAP).
  * `bufferHolders`/`settledHolders` are insertion-ordered views used only to
@@ -119,10 +133,28 @@ class TraceStore {
   getOrCreate(traceId: string, nowMs: number): ITraceState {
     let trace = this.traces.get(traceId);
     if (!trace) {
-      trace = { liveSpans: 0, spans: [], promotedUntilMs: 0, settledAtMs: 0, lastTouchedMs: nowMs };
+      trace = {
+        liveSpans: 0,
+        spans: [],
+        promotedUntilMs: 0,
+        settledAtMs: 0,
+        lastTouchedMs: nowMs,
+        exportedSpans: 0,
+        truncationLogged: false,
+      };
       this.traces.set(traceId, trace);
     }
     return trace;
+  }
+
+  /** A trace keeps its export tally alive between spans, so the cap is not reset. */
+  isCounting(trace: ITraceState, nowMs: number): boolean {
+    return trace.exportedSpans > 0 && nowMs - trace.lastTouchedMs <= EXPORTED_TTL_MS;
+  }
+
+  countExport(trace: ITraceState, nowMs: number): void {
+    trace.exportedSpans++;
+    trace.lastTouchedMs = nowMs;
   }
 
   /** Empties a trace's buffer and returns the spans. The only index-removal point. */
@@ -136,7 +168,12 @@ class TraceStore {
   }
 
   removeIfInert(traceId: string, trace: ITraceState, nowMs: number): void {
-    if (trace.liveSpans === 0 && trace.spans.length === 0 && trace.promotedUntilMs <= nowMs) {
+    if (
+      trace.liveSpans === 0 &&
+      trace.spans.length === 0 &&
+      trace.promotedUntilMs <= nowMs &&
+      !this.isCounting(trace, nowMs)
+    ) {
       this.traces.delete(traceId);
     }
   }
@@ -235,19 +272,22 @@ class TraceStore {
       }
       return false;
     }
-    if (trace.promotedUntilMs <= nowMs) {
-      this.traces.delete(traceId);
-      return false;
-    }
-    return true;
+    if (trace.promotedUntilMs > nowMs || this.isCounting(trace, nowMs)) return true;
+    this.traces.delete(traceId);
+    return false;
   }
 
   // Evict oldest surplus tombstones; their late spans just fall back to
-  // the hash decision instead of following the promotion.
+  // the hash decision instead of following the promotion, and a truncated
+  // trace gets a fresh export tally.
   private evictTombstones(excess: number, nowMs: number): void {
     for (const [traceId, trace] of this.traces) {
       if (excess === 0) break;
-      if (trace.liveSpans === 0 && trace.spans.length === 0 && trace.promotedUntilMs > nowMs) {
+      if (
+        trace.liveSpans === 0 &&
+        trace.spans.length === 0 &&
+        (trace.promotedUntilMs > nowMs || this.isCounting(trace, nowMs))
+      ) {
         this.traces.delete(traceId);
         excess--;
       }
@@ -274,6 +314,10 @@ export const createSmartSpanProcessor = (
   options: ISmartSpanProcessorOptions
 ): SpanProcessor => {
   const { exportRatio } = options;
+  const maxExportedSpansPerTrace = Math.max(
+    1,
+    options.maxExportedSpansPerTrace ?? TRACE_EXPORT_SPAN_CAP
+  );
   const batchProcessor = new BatchSpanProcessor(batchExporter, {
     maxQueueSize: options.maxQueueSize,
     maxExportBatchSize: options.maxExportBatchSize,
@@ -338,30 +382,58 @@ export const createSmartSpanProcessor = (
   const cleanupTimer = setInterval(() => cleanup(Date.now()), CLEANUP_INTERVAL_MS);
   cleanupTimer.unref?.();
 
+  // Priority spans are the APM baseline and error spans are the scarcest
+  // detail, so neither is truncated; only ordinary detail spans are counted
+  // against the cap that bounds a runaway trace.
+  const routeCounted = (
+    span: ReadableSpan,
+    trace: ITraceState,
+    traceId: string,
+    nowMs: number
+  ): void => {
+    if (isPriorityTraceSpan(span)) {
+      priorityProcessor.onEnd(span);
+      return;
+    }
+    if (!isErrorSpan(span) && trace.exportedSpans >= maxExportedSpansPerTrace) {
+      if (!trace.truncationLogged) {
+        trace.truncationLogged = true;
+        truncationLogger.warn(
+          `Truncating trace ${traceId}: over ${maxExportedSpansPerTrace} exported spans ` +
+            `(latest "${span.name}"). A long-lived listener is holding the bootstrap ` +
+            `context, or a span parenting this work was never ended.`
+        );
+      }
+      return;
+    }
+    store.countExport(trace, nowMs);
+    batchProcessor.onEnd(span);
+  };
+
   const promote = (traceId: string, trace: ITraceState, nowMs: number): void => {
     trace.promotedUntilMs = nowMs + EXPORTED_TTL_MS;
     for (const buffered of store.drainBuffer(traceId, trace)) {
-      batchProcessor.onEnd(buffered);
+      routeCounted(buffered, trace, traceId, nowMs);
     }
   };
 
   const decide = (span: ReadableSpan, trace: ITraceState, traceId: string, nowMs: number): void => {
     if (isErrorSpan(span)) {
       promote(traceId, trace, nowMs);
-      route(span);
+      routeCounted(span, trace, traceId, nowMs);
       return;
     }
 
     if (isDroppedPrismaSpan(span)) return;
 
     if (trace.promotedUntilMs > nowMs) {
-      route(span);
+      routeCounted(span, trace, traceId, nowMs);
       return;
     }
 
     // Deterministic per traceId, so picked traces need no stored state.
     if (getTraceDecision(traceId, exportRatio)) {
-      route(span);
+      routeCounted(span, trace, traceId, nowMs);
       return;
     }
 

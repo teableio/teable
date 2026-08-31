@@ -12,6 +12,23 @@ export type ComputeActivityAnomaly = {
   estimatedComplexity?: number;
 };
 
+export type ComputeActivityPauseBlocker = {
+  id: string;
+  scopeType: 'space' | 'base' | 'table';
+  scopeId: string;
+  pausedAt: string;
+  pausedBy: string | null;
+  resumeAt: string | null;
+  reason: string | null;
+};
+
+export type ComputeActivityPauseDiagnostics = {
+  effective: boolean;
+  blockers: ComputeActivityPauseBlocker[];
+  queuedTaskCount: number;
+  oldestQueuedAt: string | null;
+};
+
 export type TableComputeActivitySnapshot = {
   tableId: string;
   baseId: string;
@@ -19,12 +36,14 @@ export type TableComputeActivitySnapshot = {
   fields: FieldComputeMetaDto[];
   diagnostics: {
     computeMode: 'server';
+    executionState: 'running' | 'paused';
     activeFieldCount: number;
     queuedFieldCount: number;
     calculatingFieldCount: number;
     failedFieldCount: number;
     highComplexityFieldCount: number;
     anomalies: ComputeActivityAnomaly[];
+    pause: ComputeActivityPauseDiagnostics;
   };
 };
 
@@ -34,7 +53,8 @@ export type TableComputeActivitySnapshot = {
 export interface IComputedActivityReader {
   getByTableId(
     context: IExecutionContext | undefined,
-    tableId: string
+    tableId: string,
+    baseId?: string
   ): Promise<Result<TableComputeActivitySnapshot, DomainError>>;
 }
 

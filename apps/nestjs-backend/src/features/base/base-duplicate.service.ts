@@ -13,6 +13,7 @@ import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   DuplicateBaseCommand,
   v2CoreTokens,
+  type BulkCopySourceLinkField,
   type DuplicateBaseRecordReadOptions,
   type DotTeaFieldInput,
   type DuplicateBaseResult,
@@ -24,13 +25,14 @@ import {
 import { normalizeFields } from '@teable/v2-dottea';
 import { Knex } from 'knex';
 import type { Kysely } from 'kysely';
-import type { PoolClient } from 'pg';
 import { groupBy, omit } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import type { PoolClient } from 'pg';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { toPostgresFkDeleteAction } from '../../db-provider/postgres-fk-delete-action';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IClsStore } from '../../types/cls';
@@ -290,6 +292,7 @@ export class BaseDuplicateService {
       const sourceTableIdMap = Object.fromEntries(
         structure.tables.flatMap((table) => (table.id ? ([[table.id, table.id]] as const) : []))
       );
+      const sourceTableIds = Object.keys(sourceTableIdMap);
       // Cross-space links can't survive duplication (per-space data-DB sharding),
       // so their cell values are always downgraded to text — even when
       // allowCrossBase=true keeps same-space cross-base links intact. Mirrors
@@ -321,10 +324,6 @@ export class BaseDuplicateService {
         baseId,
         duplicateMode !== BaseDuplicateMode.CopyShareBase
       );
-      // Same-DB bulk SQL (INSERT…SELECT + junction) for records whenever possible,
-      // including stream/progress mode. Row-stream hydrate remains for cross-DB only.
-      const useBulkRecordCopy =
-        Boolean(withRecords) && (await this.isSameDataDatabaseForRecordCopy(fromBaseId, base.id));
       if (withRecords) {
         await prisma.base.update({
           where: { id: base.id },
@@ -336,18 +335,33 @@ export class BaseDuplicateService {
       }
 
       const normalizedStructure = this.normalizeDuplicateStructureForV2(structure);
+      // Physical plan inputs for the v2 bulk copier: source table physical
+      // names, link value columns to downgrade, and junction-carrying source
+      // link fields (filtered exactly like the legacy copier).
+      const sourceLinkFields = withRecords
+        ? await this.getV2BulkCopySourceLinkFields({
+            fromBaseId,
+            sourceTableIds,
+            allowCrossBase,
+            nodes,
+            skipParentNodes,
+          })
+        : [];
       const source = this.createDuplicateBaseSource(
         fromBaseId,
         normalizedStructure,
         mergedLinkFieldTableMap,
         sourceDbTableNameByTableId,
-        internalLinkRelationTableMap
+        internalLinkRelationTableMap,
+        sourceLinkFields
       );
+      // Structure and row copy both run inside the command: the v2 handler uses
+      // the same-database physical bulk copier when the source schema is
+      // reachable and falls back to row streaming for cross-database copies.
       const commandResult = DuplicateBaseCommand.createFromSource({
         baseId: base.id,
         source,
-        // Structure always via command; row copy uses bulk SQL when same-DB.
-        withRecords: Boolean(withRecords) && !useBulkRecordCopy,
+        withRecords: Boolean(withRecords),
         batchSize: v2DuplicateCopyBatchSize,
       });
       if (commandResult.isErr()) {
@@ -365,6 +379,7 @@ export class BaseDuplicateService {
       let fieldIdMap: Record<string, string> = {};
       let viewIdMap: Record<string, string> = {};
       let recordsLength = 0;
+      let recordCopyMode: 'bulk' | 'stream' | 'none' = 'none';
       for await (const event of result.value) {
         if (event.id === 'error') {
           throw new Error(event.message);
@@ -379,6 +394,7 @@ export class BaseDuplicateService {
         fieldIdMap = event.fieldIdMap;
         viewIdMap = event.viewIdMap;
         recordsLength = event.recordsLength;
+        recordCopyMode = event.recordCopyMode ?? 'none';
       }
 
       onProgress?.({ phase: 'structure_created', detail: base.id });
@@ -388,40 +404,15 @@ export class BaseDuplicateService {
         structure,
         { tableIdMap, fieldIdMap, viewIdMap },
         duplicateMode,
-        onProgress
+        onProgress,
+        !!baseId && duplicateMode === BaseDuplicateMode.CopyShareBase
       );
       if (withRecords) {
-        if (useBulkRecordCopy) {
-          onProgress?.({
-            phase: 'table_data_start',
-            processedRows: 0,
-          });
-          recordsLength = await this.duplicateTableData(
-            base.id,
-            tableIdMap,
-            fieldIdMap,
-            viewIdMap,
-            mergedLinkFieldTableMap
-          );
-          const disconnectedLinkFieldIds = await this.getDisconnectedLinkFieldIds(
-            tableIdMap,
-            fromBaseId,
-            nodes,
-            skipParentNodes
-          );
-          await this.duplicateLinkJunction(
-            base.id,
-            tableIdMap,
-            fieldIdMap,
-            allowCrossBase,
-            disconnectedLinkFieldIds
-          );
+        if (recordCopyMode === 'bulk') {
+          // The bulk copy cloned rows verbatim but excluded persisted computed
+          // columns from the INSERT; recompute them here, mirroring what the
+          // computed pipeline does during regular record writes.
           await this.persistedComputedBackfillService.recomputeForTables(Object.values(tableIdMap));
-          onProgress?.({
-            phase: 'table_data_done',
-            processedRows: recordsLength,
-            totalRows: recordsLength,
-          });
         }
         onProgress?.({
           phase: 'attachments_copying',
@@ -587,7 +578,8 @@ export class BaseDuplicateService {
     structure: DuplicateV2StructureConfig,
     disconnectedLinkFieldTableMap: ILinkFieldTableMap,
     sourceDbTableNameByTableId: Record<string, string> = {},
-    internalLinkRelationTableMap: Record<string, V2InternalLinkFieldTableInfo[]> = {}
+    internalLinkRelationTableMap: Record<string, V2InternalLinkFieldTableInfo[]> = {},
+    sourceLinkFields: BulkCopySourceLinkField[] = []
   ): DuplicateBaseSource {
     const tableById = new Map(structure.tables.map((table) => [table.id, table]));
     const readRows = (
@@ -606,6 +598,9 @@ export class BaseDuplicateService {
 
     return {
       structure,
+      sourceDbTableNameByTableId,
+      linkValueColumnsByTableId: disconnectedLinkFieldTableMap,
+      sourceLinkFields,
       async *records(tableId: string, options?: DuplicateBaseRecordReadOptions) {
         const table = tableById.get(tableId);
         const sourceDbTableName = sourceDbTableNameByTableId[tableId] ?? table?.dbTableName;
@@ -1244,6 +1239,69 @@ export class BaseDuplicateService {
     return this.buildLinkFieldTableMap(tableIdMap, fields);
   }
 
+  /**
+   * Physical storage info of the source (non-lookup) link fields for the v2
+   * bulk copier, filtered exactly like the legacy junction copier: cross-base
+   * links are dropped when cross-base references are not allowed, and links
+   * disconnected by a partial (nodes) duplication are dropped as well.
+   */
+  private async getV2BulkCopySourceLinkFields(params: {
+    fromBaseId: string;
+    sourceTableIds: string[];
+    allowCrossBase: boolean;
+    nodes?: string[];
+    skipParentNodes: boolean;
+  }): Promise<BulkCopySourceLinkField[]> {
+    const { fromBaseId, sourceTableIds, allowCrossBase, nodes, skipParentNodes } = params;
+    if (!sourceTableIds.length) {
+      return [];
+    }
+    const { excludedTableIds } = nodes?.length
+      ? await this.collectNodesAndResourceIds(fromBaseId, nodes, skipParentNodes)
+      : { excludedTableIds: undefined };
+
+    const prisma = this.prismaService.txClient();
+    const linkFieldRaws = await prisma.field.findMany({
+      where: {
+        tableId: { in: sourceTableIds },
+        type: FieldType.Link,
+        deletedTime: null,
+      },
+      select: { id: true, tableId: true, isLookup: true, options: true },
+    });
+
+    return linkFieldRaws
+      .filter((field) => !field.isLookup)
+      .map((field) => ({
+        tableId: field.tableId,
+        fieldId: field.id,
+        options: this.parseLinkFieldOptions(field.options),
+      }))
+      .filter(
+        (field): field is typeof field & { options: ILinkFieldOptions } =>
+          field.options !== undefined
+      )
+      .filter((field) => allowCrossBase || !field.options.baseId)
+      .filter(
+        (field) =>
+          !excludedTableIds?.length ||
+          !excludedTableIds.includes(field.options.foreignTableId ?? '')
+      )
+      .filter(
+        (field) =>
+          !!field.options.fkHostTableName &&
+          !!field.options.selfKeyName &&
+          !!field.options.foreignKeyName
+      )
+      .map((field) => ({
+        tableId: field.tableId,
+        fieldId: field.fieldId,
+        fkHostTableName: field.options.fkHostTableName!,
+        selfKeyName: field.options.selfKeyName!,
+        foreignKeyName: field.options.foreignKeyName!,
+      }));
+  }
+
   async previewCrossSpaceAffectedFields(
     fromBaseId: string,
     destSpaceId: string
@@ -1460,6 +1518,7 @@ export class BaseDuplicateService {
       referenced_table_schema: string;
       referenced_table_name: string;
       referenced_column_name: string;
+      delete_rule: string;
       dbTableName: string;
     }[];
 
@@ -1473,6 +1532,7 @@ export class BaseDuplicateService {
           referenced_table_schema: string;
           referenced_table_name: string;
           referenced_column_name: string;
+          delete_rule: string;
         }[]
       >(foreignKeysInfoSql);
       const newForeignKeyInfos = foreignKeysInfo.map((info) => ({
@@ -1514,6 +1574,7 @@ export class BaseDuplicateService {
       referenced_table_schema: referencedTableSchema,
       referenced_table_name: referencedTableName,
       referenced_column_name: referencedColumnName,
+      delete_rule: deleteRule,
       dbTableName,
     } of allForeignKeyInfos) {
       const addForeignKeyQuerySql = this.knex.schema
@@ -1521,7 +1582,8 @@ export class BaseDuplicateService {
           table
             .foreign(columnName, constraintName)
             .references(referencedColumnName)
-            .inTable(`${referencedTableSchema}.${referencedTableName}`);
+            .inTable(`${referencedTableSchema}.${referencedTableName}`)
+            .onDelete(toPostgresFkDeleteAction(deleteRule));
         })
         .toQuery();
 

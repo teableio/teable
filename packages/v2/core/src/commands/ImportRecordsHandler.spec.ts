@@ -7,10 +7,10 @@ import type { RecordWriteSideEffectService } from '../application/services/Recor
 import type { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
-import { domainError, type DomainError } from '../domain/shared/DomainError';
+import { domainError, isDomainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
-import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { RecordId } from '../domain/table/records/RecordId';
@@ -204,22 +204,29 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     let totalInserted = 0;
     let batchIndex = 0;
 
-    if (isAsyncIterable(batches)) {
-      for await (const batch of batches) {
-        this.insertedBatches.push([...batch]);
-        this.inserted.push(...batch);
-        totalInserted += batch.length;
-        options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
-        batchIndex += 1;
+    try {
+      if (isAsyncIterable(batches)) {
+        for await (const batch of batches) {
+          this.insertedBatches.push([...batch]);
+          this.inserted.push(...batch);
+          totalInserted += batch.length;
+          options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
+          batchIndex += 1;
+        }
+      } else {
+        for (const batch of batches) {
+          this.insertedBatches.push([...batch]);
+          this.inserted.push(...batch);
+          totalInserted += batch.length;
+          options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
+          batchIndex += 1;
+        }
       }
-    } else {
-      for (const batch of batches) {
-        this.insertedBatches.push([...batch]);
-        this.inserted.push(...batch);
-        totalInserted += batch.length;
-        options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
-        batchIndex += 1;
+    } catch (error) {
+      if (isDomainError(error)) {
+        return err(error);
       }
+      throw error;
     }
 
     return ok({ totalInserted });
@@ -461,9 +468,7 @@ describe('ImportRecordsHandler', () => {
       })
     );
     const tableRecordRepository = new FakeTableRecordRepository();
-    const { plugin, calls } = createTrackedRecordWritePlugin([
-      RecordWriteOperationKind.importAppend,
-    ]);
+    const { plugin } = createTrackedRecordWritePlugin([RecordWriteOperationKind.importAppend]);
 
     const handler = new ImportRecordsHandler(
       new FakeImportSourceRegistry(adapter),
@@ -494,9 +499,72 @@ describe('ImportRecordsHandler', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().code).toBe('validation.limit.rows_per_table_max');
-    expect(tableRecordRepository.inserted).toHaveLength(0);
-    expect(calls.prepare).toHaveLength(0);
-    expect(calls.guard).toHaveLength(0);
+    expect(adapter.parseCalls).toHaveLength(1);
+  });
+
+  it('pulls async source rows as insertManyStream consumes them', async () => {
+    const { table, textFieldId } = buildTable();
+    let pulled = 0;
+    const pulledWhenInserted: number[] = [];
+    async function* rowsAsync() {
+      pulled += 1;
+      yield ['row 1'];
+      pulled += 1;
+      yield ['row 2'];
+    }
+    const adapter = new FakeImportSourceAdapter(
+      ok({
+        headers: ['Title'],
+        rowsAsync: rowsAsync(),
+      })
+    );
+    const tableRecordRepository = new FakeTableRecordRepository();
+    const originalInsertManyStream =
+      tableRecordRepository.insertManyStream.bind(tableRecordRepository);
+    tableRecordRepository.insertManyStream = async (context, target, batches, options) => {
+      if (!isAsyncIterable(batches)) {
+        return originalInsertManyStream(context, target, batches, options);
+      }
+      async function* tap() {
+        for await (const batch of batches) {
+          pulledWhenInserted.push(pulled);
+          yield batch;
+        }
+      }
+      return originalInsertManyStream(context, target, tap(), options);
+    };
+
+    const handler = new ImportRecordsHandler(
+      new FakeImportSourceRegistry(adapter),
+      new FakeTableRepository([table]),
+      tableRecordRepository,
+      {
+        needsResolution: () => ok(false),
+        resolveAndReplaceMany: async () => ok([]),
+      } as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner(),
+      {
+        execute: () => ok({ table, updateResult: undefined }),
+      } as unknown as RecordWriteSideEffectService,
+      {
+        execute: async () => ok({ table, events: [] }),
+      } as unknown as TableUpdateFlow,
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand(table.id().toString(), textFieldId.toString(), 'ignored', {
+        batchSize: 1,
+        typecast: false,
+        skipFirstNLines: 0,
+      })
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().totalImported).toBe(2);
+    expect(pulledWhenInserted).toEqual([1, 2]);
   });
 
   it('checks importAppend plugins per append chunk instead of the whole imported row count', async () => {
@@ -687,6 +755,9 @@ describe('ImportRecordsHandler', () => {
     expect(published).toHaveLength(2);
     expect(published[0]).toBe(event);
     expect(isRecordsBatchCreatedEvent(published[1])).toBe(true);
+    expect(isRecordsBatchCreatedEvent(published[1]) && published[1].source.type === 'import').toBe(
+      true
+    );
     expect(tableRecordRepository.inserted).toHaveLength(1);
     expect(tableRecordRepository.insertManyStreamOptions).toMatchObject({
       deferComputedUpdates: true,

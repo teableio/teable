@@ -176,7 +176,7 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
               enabledAuthority: base.enabledAuthority,
             }}
           >
-            <Button variant="default" className="mr-1 px-2 @md/view-header:px-3" size="sm">
+            <Button variant="default" className="me-1 px-2 @md/view-header:px-3" size="sm">
               <UserPlus className="size-4" />
               <span className="hidden @md/view-header:inline">{t('space:action.invite')}</span>
             </Button>
@@ -224,7 +224,7 @@ export const TableHeader: React.FC = () => {
     <Fragment>
       <div
         className={cn(
-          'flex h-12 shrink-0 flex-row items-center gap-2 pl-4 pr-2 @container/view-header',
+          'flex h-12 shrink-0 flex-row items-center gap-2 ps-4 pe-2 @container/view-header',
           tipVisible && 'border-b'
         )}
       >

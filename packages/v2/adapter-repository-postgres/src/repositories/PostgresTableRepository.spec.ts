@@ -12,6 +12,7 @@ import type {
   FormulaField,
   IFieldVisitor,
   ITableRepository,
+  IUnitOfWorkTransaction,
   LastModifiedByField,
   LastModifiedTimeField,
   LinkField,
@@ -53,10 +54,14 @@ import {
   Table,
   TableName,
   TableByNameSpec,
+  TableByIdSpec,
+  TableId,
   TableUpdateFieldNameSpec,
   TableUpdateViewColumnMetaSpec,
   TableSortKey,
   ViewColumnMeta,
+  ViewId,
+  ViewName,
   createSingleSelectField,
   v2CoreTokens,
   domainError,
@@ -64,7 +69,7 @@ import {
 import { container } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
-import { Kysely, PostgresDialect } from 'kysely';
+import { Kysely, PostgresDialect, sql } from 'kysely';
 import { err, ok } from 'neverthrow';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -453,6 +458,49 @@ describe('PostgresTableRepository (pg)', () => {
         { name: 'Kanban', type: 'kanban' },
       ]);
 
+      const primaryOnly = (
+        await repo.findOne(
+          context,
+          table.specs().byId(table.id()).withPrimaryField().build()._unsafeUnwrap()
+        )
+      )._unsafeUnwrap();
+      expect(primaryOnly.getFields()).toHaveLength(1);
+      expect(primaryOnly.getFields()[0]!.id().equals(table.primaryFieldId())).toBe(true);
+      expect(primaryOnly.views()).toHaveLength(table.views().length);
+
+      const targetView = table.views()[1];
+      const selectiveSpec = table
+        .specs()
+        .byId(table.id())
+        .withViewId(targetView.id())
+        .build()
+        ._unsafeUnwrap();
+      const selectivelyLoaded = (await repo.findOne(context, selectiveSpec))._unsafeUnwrap();
+
+      expect(selectivelyLoaded.id().equals(table.id())).toBe(true);
+      expect(selectivelyLoaded.getFields()).toHaveLength(table.getFields().length);
+      expect(selectivelyLoaded.views()).toHaveLength(1);
+      expect(selectivelyLoaded.views()[0].id().equals(targetView.id())).toBe(true);
+      expect(selectivelyLoaded.views()[0].type().toString()).toBe('kanban');
+      expect(selectivelyLoaded.views()[0].version()._unsafeUnwrap().toNumber()).toBe(1);
+      expect(selectivelyLoaded.views()[0].auditMetadata()._unsafeUnwrap().toDto()).toMatchObject({
+        createdBy: actorId.toString(),
+        createdTime: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+      });
+
+      const projectedViewIdsSpec = table
+        .specs()
+        .byId(table.id())
+        .withViewIds([targetView.id(), ViewId.create(`viw${'z'.repeat(16)}`)._unsafeUnwrap()])
+        .build()
+        ._unsafeUnwrap();
+      const projectedViews = (await repo.findOne(context, projectedViewIdsSpec))._unsafeUnwrap();
+
+      expect(projectedViews.id().equals(table.id())).toBe(true);
+      expect(projectedViews.views().map((view) => view.id().toString())).toEqual([
+        targetView.id().toString(),
+      ]);
+
       const snapshotVisitor: IFieldVisitor<IFieldSnapshot> = new FieldToSnapshotVisitor();
       const fieldSnapshots = loaded.getFields().map((f) => f.accept(snapshotVisitor));
       fieldSnapshots.forEach((r) => r._unsafeUnwrap());
@@ -578,6 +626,354 @@ describe('PostgresTableRepository (pg)', () => {
     }
   });
 
+  it('writes a trash row in the same transaction as a soft delete', async () => {
+    const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, {
+      db,
+      ensureSchema: true,
+    });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseId = BaseId.create(`bse${getRandomString(16)}`)._unsafeUnwrap();
+      const spaceId = `spc${getRandomString(16)}`;
+      const actorId = ActorId.create('system')._unsafeUnwrap();
+      const context = { actorId };
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Trash Space', created_by: actorId.toString() })
+        .execute();
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Trash Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const builder = Table.builder()
+        .withBaseId(baseId)
+        .withName(TableName.create('Trash Table')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder.view().defaultGrid().done();
+      const table = (await repo.insert(context, builder.build()._unsafeUnwrap()))._unsafeUnwrap();
+
+      (await repo.delete(context, table))._unsafeUnwrap();
+
+      const trashRows = await sql<{
+        resource_id: string;
+        resource_type: string;
+        parent_id: string;
+        deleted_by: string;
+      }>`
+        SELECT resource_id, resource_type, parent_id, deleted_by
+        FROM trash
+        WHERE resource_id = ${table.id().toString()}
+      `.execute(db);
+
+      expect(trashRows.rows).toEqual([
+        {
+          resource_id: table.id().toString(),
+          resource_type: 'table',
+          parent_id: baseId.toString(),
+          deleted_by: actorId.toString(),
+        },
+      ]);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('waits for a pending table to become ready instead of reporting not found', async () => {
+    const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, {
+      db,
+      ensureSchema: true,
+    });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    const previousWait = process.env.V2_TABLE_PROVISION_READY_WAIT_MS;
+    const previousPoll = process.env.V2_TABLE_PROVISION_READY_POLL_MS;
+    process.env.V2_TABLE_PROVISION_READY_WAIT_MS = '2000';
+    process.env.V2_TABLE_PROVISION_READY_POLL_MS = '25';
+
+    try {
+      const baseId = BaseId.create(`bse${getRandomString(16)}`)._unsafeUnwrap();
+      const spaceId = `spc${getRandomString(16)}`;
+      const actorId = ActorId.create('system')._unsafeUnwrap();
+      const context = { actorId, requestId: 'req-provision-wait-test' };
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Provision Wait Space', created_by: actorId.toString() })
+        .execute();
+
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Provision Wait Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const builder = Table.builder()
+        .withBaseId(baseId)
+        .withName(TableName.create('Provision Wait Table')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
+      const persistedTable = (await repo.insert(context, table))._unsafeUnwrap();
+      const tableId = persistedTable.id().toString();
+
+      const setProvisionState = async (state: 'pending' | 'ready') => {
+        await db
+          .updateTable('table_meta')
+          .set({ provision_state: state })
+          .where('id', '=', tableId)
+          .execute();
+      };
+
+      // A read landing inside a concurrent schema update's pending window must
+      // wait for the ready flip instead of failing with table.not_found.
+      await setProvisionState('pending');
+      const flipToReady = setTimeout(() => {
+        void setProvisionState('ready');
+      }, 150);
+      const foundResult = await repo.findOne(context, TableByIdSpec.create(persistedTable.id()));
+      clearTimeout(flipToReady);
+      expect(foundResult.isOk()).toBe(true);
+      expect(foundResult._unsafeUnwrap().id().toString()).toBe(tableId);
+
+      // A table that never becomes ready still reports not found, but only
+      // after the bounded wait — it is indistinguishable from a slow schema
+      // update until the budget expires.
+      await setProvisionState('pending');
+      const startedAt = Date.now();
+      const stuckResult = await repo.findOne(context, TableByIdSpec.create(persistedTable.id()));
+      expect(stuckResult.isErr()).toBe(true);
+      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(1000);
+      // A stuck table must be distinguishable from a genuinely missing one in
+      // logs: the not-found error carries the exhausted provisioning wait.
+      expect(stuckResult._unsafeUnwrapErr().message).toContain('provision_state=pending after');
+      await setProvisionState('ready');
+    } finally {
+      if (previousWait == null) {
+        delete process.env.V2_TABLE_PROVISION_READY_WAIT_MS;
+      } else {
+        process.env.V2_TABLE_PROVISION_READY_WAIT_MS = previousWait;
+      }
+      if (previousPoll == null) {
+        delete process.env.V2_TABLE_PROVISION_READY_POLL_MS;
+      } else {
+        process.env.V2_TABLE_PROVISION_READY_POLL_MS = previousPoll;
+      }
+      await db.destroy();
+    }
+  });
+
+  it('fails fast on a pending table inside an active transaction instead of sleeping', async () => {
+    const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, {
+      db,
+      ensureSchema: true,
+    });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    const previousWait = process.env.V2_TABLE_PROVISION_READY_WAIT_MS;
+    process.env.V2_TABLE_PROVISION_READY_WAIT_MS = '5000';
+
+    try {
+      const baseId = BaseId.create(`bse${getRandomString(16)}`)._unsafeUnwrap();
+      const spaceId = `spc${getRandomString(16)}`;
+      const actorId = ActorId.create('system')._unsafeUnwrap();
+      const context = { actorId, requestId: 'req-provision-tx-test' };
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Provision Tx Space', created_by: actorId.toString() })
+        .execute();
+
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Provision Tx Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const builder = Table.builder()
+        .withBaseId(baseId)
+        .withName(TableName.create('Provision Tx Table')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
+      const persistedTable = (await repo.insert(context, table))._unsafeUnwrap();
+      const tableId = persistedTable.id().toString();
+
+      await db
+        .updateTable('table_meta')
+        .set({ provision_state: 'pending' })
+        .where('id', '=', tableId)
+        .execute();
+
+      // Waiting inside a transaction would park its connection (and any locks
+      // it holds) for the whole budget; transactional callers must keep the
+      // original fail-fast not-found behavior.
+      await db.transaction().execute(async (trx) => {
+        const transaction = {
+          kind: 'unitOfWorkTransaction',
+          scope: 'meta',
+          pending: true,
+          db: trx,
+        } as IUnitOfWorkTransaction;
+        const txContext = { actorId, requestId: 'req-provision-tx-test', transaction };
+        const startedAt = Date.now();
+        const txResult = await repo.findOne(txContext, TableByIdSpec.create(persistedTable.id()));
+        expect(txResult.isErr()).toBe(true);
+        expect(txResult._unsafeUnwrapErr().code).toBe('table.provision_pending');
+        expect(txResult._unsafeUnwrapErr().message).toContain('provision_state=pending');
+        expect(Date.now() - startedAt).toBeLessThan(1000);
+      });
+
+      await db
+        .updateTable('table_meta')
+        .set({ provision_state: 'ready' })
+        .where('id', '=', tableId)
+        .execute();
+    } finally {
+      if (previousWait == null) {
+        delete process.env.V2_TABLE_PROVISION_READY_WAIT_MS;
+      } else {
+        process.env.V2_TABLE_PROVISION_READY_WAIT_MS = previousWait;
+      }
+      await db.destroy();
+    }
+  });
+
+  it('reloads once when the table turns ready between the missed read and the probe', async () => {
+    const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, {
+      db,
+      ensureSchema: true,
+    });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseId = BaseId.create(`bse${getRandomString(16)}`)._unsafeUnwrap();
+      const spaceId = `spc${getRandomString(16)}`;
+      const actorId = ActorId.create('system')._unsafeUnwrap();
+      const context = { actorId, requestId: 'req-provision-ready-race-test' };
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Provision Race Space', created_by: actorId.toString() })
+        .execute();
+
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Provision Race Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const builder = Table.builder()
+        .withBaseId(baseId)
+        .withName(TableName.create('Provision Race Table')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
+      const persistedTable = (await repo.insert(context, table))._unsafeUnwrap();
+      const tableId = persistedTable.id().toString();
+
+      // White-box: drive loadActiveTableRow with a loader that misses once
+      // while the row is already 'ready' in table_meta. That models the ready
+      // flip landing between the missed load and the provision-state probe —
+      // the loader must be retried once instead of reporting not-found.
+      type LoadActiveTableRow = (
+        context: { actorId: ActorId; requestId?: string },
+        spec: unknown,
+        options: undefined,
+        loadRow: () => Promise<{ id: string } | undefined>,
+        effectiveState: 'active'
+      ) => Promise<{ row: { id: string } | undefined; pendingWaitExpiredMs?: number }>;
+      const loadActiveTableRow = (
+        repo as unknown as { loadActiveTableRow: LoadActiveTableRow }
+      ).loadActiveTableRow.bind(repo);
+
+      let loads = 0;
+      const raceResult = await loadActiveTableRow(
+        context,
+        TableByIdSpec.create(persistedTable.id()),
+        undefined,
+        async () => {
+          loads += 1;
+          return loads === 1 ? undefined : { id: tableId };
+        },
+        'active'
+      );
+      expect(raceResult.row).toEqual({ id: tableId });
+      expect(loads).toBe(2);
+
+      // A genuinely missing table still fails on the first miss: the probe
+      // finds no ready/pending row, so the loader is not retried.
+      loads = 0;
+      const missingId = TableId.create(`tbl${getRandomString(16)}`)._unsafeUnwrap();
+      const missingResult = await loadActiveTableRow(
+        context,
+        TableByIdSpec.create(missingId),
+        undefined,
+        async () => {
+          loads += 1;
+          return undefined;
+        },
+        'active'
+      );
+      expect(missingResult.row).toBeUndefined();
+      expect(missingResult.pendingWaitExpiredMs).toBeUndefined();
+      expect(loads).toBe(1);
+    } finally {
+      await db.destroy();
+    }
+  });
+
   it('hydrates fields in the same fallback visible order as the field list API', async () => {
     const c = container.createChildContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
@@ -664,6 +1060,19 @@ describe('PostgresTableRepository (pg)', () => {
         statusFieldId as string,
         assigneeFieldId as string,
       ]);
+
+      await db
+        .updateTable('field')
+        .set({ is_pending: true })
+        .where('id', '=', assigneeFieldId as string)
+        .execute();
+
+      const loadedWithPendingField = await repo
+        .findOne(context, table.specs().byId(table.id()).build()._unsafeUnwrap())
+        .then((result) => result._unsafeUnwrap());
+      expect(
+        loadedWithPendingField.getFields().map((field) => field.id().toString())
+      ).not.toContain(assigneeFieldId);
     } finally {
       await db.destroy();
       c.dispose();
@@ -825,6 +1234,10 @@ describe('PostgresTableRepository (pg)', () => {
 
       const viewDefaults = fetched.views()[0]?.queryDefaults()._unsafeUnwrap();
       expect(viewDefaults?.filter()).toBeNull();
+      expect(viewDefaults?.sourceFilter()).toEqual({
+        conjunction: 'and',
+        filterSet: [{ fieldId: categoryId, operator: 'isNoneOf', value: null }],
+      });
     } finally {
       await db.destroy();
     }
@@ -2330,6 +2743,107 @@ describe('PostgresTableRepository (pg)', () => {
 
       expect(row?.version).toBe(2);
       expect(row?.column_meta).toContain('"width":320');
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('rejects an update made from a stale Table aggregate View version', async () => {
+    const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, {
+      db,
+      ensureSchema: true,
+    });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseId = BaseId.generate()._unsafeUnwrap();
+      const actorId = ActorId.create('system')._unsafeUnwrap();
+      const context = { actorId };
+      const spaceId = `spc${getRandomString(16)}`;
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Stale View Space', created_by: actorId.toString() })
+        .execute();
+
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Stale View Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const builder = Table.builder()
+        .withBaseId(baseId)
+        .withName(TableName.create('Stale View Table')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder.view().defaultGrid().done();
+      const inserted = (
+        await repo.insert(context, builder.build()._unsafeUnwrap())
+      )._unsafeUnwrap();
+      const querySpec = inserted.specs().byId(inserted.id()).build()._unsafeUnwrap();
+      const firstAggregate = (await repo.findOne(context, querySpec))._unsafeUnwrap();
+      const staleAggregate = (await repo.findOne(context, querySpec))._unsafeUnwrap();
+      const viewId = firstAggregate.views()[0]!.id();
+
+      const firstRename = firstAggregate
+        .renameView(viewId, ViewName.create('First writer')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      const firstPersist = (
+        await repo.updateOne(
+          context,
+          firstRename.updateResult.table,
+          firstRename.updateResult.mutateSpec
+        )
+      )._unsafeUnwrap();
+
+      expect(firstPersist).toEqual({
+        viewVersionChanges: [
+          {
+            viewId: viewId.toString(),
+            oldVersion: 1,
+            newVersion: 2,
+          },
+        ],
+      });
+
+      const staleRename = staleAggregate
+        .renameView(viewId, ViewName.create('Stale writer')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      const stalePersist = await repo.updateOne(
+        context,
+        staleRename.updateResult.table,
+        staleRename.updateResult.mutateSpec
+      );
+
+      expect(stalePersist._unsafeUnwrapErr()).toMatchObject({
+        code: 'view.version_conflict',
+        tags: ['conflict'],
+        details: {
+          tableId: inserted.id().toString(),
+          viewId: viewId.toString(),
+          expectedVersion: 1,
+          actualVersion: 2,
+        },
+      });
+
+      const row = await db
+        .selectFrom('view')
+        .select(['name', 'version'])
+        .where('id', '=', viewId.toString())
+        .executeTakeFirstOrThrow();
+      expect(row).toMatchObject({ name: 'First writer', version: 2 });
     } finally {
       await db.destroy();
     }

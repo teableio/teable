@@ -39,7 +39,7 @@ export const SideBarFooter: React.FC = () => {
                 className="flex items-center text-sm text-black dark:text-white"
               >
                 <TeableLogo className="text-xl" />
-                <span className="ml-1 font-semibold">{brandName}</span>
+                <span className="ms-1 font-semibold">{brandName}</span>
               </Link>,
             ]}
           />
@@ -55,7 +55,7 @@ export const SideBarFooter: React.FC = () => {
           <Button
             variant="ghost"
             size={'sm'}
-            className="min-w-0 flex-1 justify-start overflow-hidden py-1.5 pl-2 text-sm font-normal"
+            className="min-w-0 flex-1 justify-start overflow-hidden py-1.5 ps-2 text-sm font-normal"
           >
             <UserAvatar className="border" user={user} />
             <p className="truncate" title={user.name}>

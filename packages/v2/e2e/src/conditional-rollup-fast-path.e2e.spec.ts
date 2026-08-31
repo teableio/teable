@@ -502,27 +502,27 @@ describe('conditional rollup simple-filter fast path (e2e)', () => {
       });
       await ctx.drainOutbox();
 
-      const targetStep = ctx
-        .getLastComputedPlan()
-        ?.steps.find((step) => step.tableId === targetTable.id);
-      const plan = ctx.getLastComputedPlan() as
-        | {
-            edges?: Array<{
-              to?: string;
-              propagationMode?: string;
-            }>;
-          }
-        | undefined;
-      const targetEdges = plan?.edges?.filter((edge) =>
-        rollupFieldIds.some((fieldId) => edge.to?.endsWith(`.${fieldId}`))
-      );
-      expect(targetEdges).toHaveLength(rollupFieldIds.length);
+      // Stage budgets may split the 27-edge plan across several bounded stages;
+      // aggregate the logged stage plans to assert full coverage.
+      const plans = ctx.testContainer.getComputedPlans() as Array<{
+        steps?: Array<{ tableId?: string; fieldIds?: string[] }>;
+        edges?: Array<{ to?: string; propagationMode?: string }>;
+      }>;
+      const targetEdges = plans
+        .flatMap((plan) => plan.edges ?? [])
+        .filter((edge) => rollupFieldIds.some((fieldId) => edge.to?.endsWith(`.${fieldId}`)));
+      const coveredEdgeTargets = new Set(targetEdges.map((edge) => edge.to));
+      expect(coveredEdgeTargets.size).toBe(rollupFieldIds.length);
       expect(
-        targetEdges?.every((edge) =>
+        targetEdges.every((edge) =>
           ['allTargetRecords', 'conditionalFiltered'].includes(edge.propagationMode ?? '')
         )
       ).toBe(true);
-      expect(targetStep?.fieldIds).toHaveLength(rollupFieldIds.length);
+      const targetStageSteps = plans
+        .flatMap((plan) => plan.steps ?? [])
+        .filter((step) => step.tableId === targetTable.id);
+      const coveredStepFieldIds = new Set(targetStageSteps.flatMap((step) => step.fieldIds ?? []));
+      expect(coveredStepFieldIds.size).toBe(rollupFieldIds.length);
 
       const sqlEntries = ctx.testContainer.spyLogger
         .getEntriesByMessage(/computed:update:/)
@@ -532,8 +532,17 @@ describe('conditional rollup simple-filter fast path (e2e)', () => {
         (total, message) => total + message.split(sourceTableToken).length - 1,
         0
       );
-      const expectedFieldChunks = Math.ceil(rollupFieldIds.length / 16);
-      expect(sourceScanCount).toBe(expectedFieldChunks);
+      // Scans are shared across all rollups within a stage: at most one scan per
+      // 16-field chunk per logged stage plan (plans that only planned, e.g. the
+      // hybrid sync phase, may not execute the target update at all), and never
+      // one scan per rollup field.
+      const maxExpectedFieldChunks = targetStageSteps.reduce(
+        (total, step) => total + Math.ceil((step.fieldIds?.length ?? 0) / 16),
+        0
+      );
+      expect(sourceScanCount).toBeGreaterThan(0);
+      expect(sourceScanCount).toBeLessThanOrEqual(maxExpectedFieldChunks);
+      expect(sourceScanCount).toBeLessThan(rollupFieldIds.length);
 
       expect(await listRecordVersions(ctx, targetTable.id)).toEqual(previousTargetVersions);
       expect(getComputedSummaryEvents(ctx, targetTable.id, beforeEventCount)).toHaveLength(0);
@@ -548,4 +557,173 @@ describe('conditional rollup simple-filter fast path (e2e)', () => {
       await deleteTableSafe(ctx, sourceTableId);
     }
   }, 180_000);
+
+  /**
+   * Sanitized structure-equivalent of the private-deploy dual-key timeout:
+   * - host and source both have Name (text) and Code (number)
+   * - two order-insensitive sums filter on Name is {host.Name} AND Code is {host.Code}
+   * - overlapping names with distinct codes must not share aggregates
+   * - computed SQL must use a set-based host join, not per-row LATERAL
+   */
+  test('uses set-based host join for composite field-reference equality filters', async () => {
+    const sourceName = createTableName('composite_source');
+    const hostName = createTableName('composite_host');
+    const sourceNameFieldId = createFieldId();
+    const sourceCodeFieldId = createFieldId();
+    const sourceDebitFieldId = createFieldId();
+    const sourceCreditFieldId = createFieldId();
+    const hostNameFieldId = createFieldId();
+    const hostCodeFieldId = createFieldId();
+    const debitRollupFieldId = createFieldId();
+    const creditRollupFieldId = createFieldId();
+    let sourceTableId: string | undefined;
+    let hostTableId: string | undefined;
+
+    const compositeFilter = {
+      conjunction: 'and' as const,
+      filterSet: [
+        {
+          fieldId: sourceNameFieldId,
+          operator: 'is',
+          value: { type: 'field', fieldId: hostNameFieldId },
+        },
+        {
+          fieldId: sourceCodeFieldId,
+          operator: 'is',
+          value: { type: 'field', fieldId: hostCodeFieldId },
+        },
+      ],
+    };
+
+    try {
+      const sourceTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: sourceName,
+        fields: [
+          {
+            type: 'singleLineText',
+            id: sourceNameFieldId,
+            name: 'ProjectName',
+            isPrimary: true,
+          },
+          { type: 'number', id: sourceCodeFieldId, name: 'ProjectCode' },
+          { type: 'number', id: sourceDebitFieldId, name: 'DebitAmount' },
+          { type: 'number', id: sourceCreditFieldId, name: 'CreditAmount' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      sourceTableId = sourceTable.id;
+
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: hostName,
+        fields: [
+          {
+            type: 'singleLineText',
+            id: hostNameFieldId,
+            name: 'ProjectName',
+            isPrimary: true,
+          },
+          { type: 'number', id: hostCodeFieldId, name: 'ProjectCode' },
+          {
+            type: 'conditionalRollup',
+            id: debitRollupFieldId,
+            name: 'DebitTotal',
+            options: { expression: 'sum({values})' },
+            config: {
+              foreignTableId: sourceTable.id,
+              lookupFieldId: sourceDebitFieldId,
+              condition: { filter: compositeFilter },
+            },
+          },
+          {
+            type: 'conditionalRollup',
+            id: creditRollupFieldId,
+            name: 'CreditTotal',
+            options: { expression: 'sum({values})' },
+            config: {
+              foreignTableId: sourceTable.id,
+              lookupFieldId: sourceCreditFieldId,
+              condition: { filter: compositeFilter },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      hostTableId = hostTable.id;
+
+      await ctx.createRecords(sourceTable.id, [
+        {
+          fields: {
+            [sourceNameFieldId]: 'alpha',
+            [sourceCodeFieldId]: 1,
+            [sourceDebitFieldId]: 10,
+            [sourceCreditFieldId]: 1,
+          },
+        },
+        {
+          fields: {
+            [sourceNameFieldId]: 'alpha',
+            [sourceCodeFieldId]: 1,
+            [sourceDebitFieldId]: 5,
+            [sourceCreditFieldId]: 2,
+          },
+        },
+        {
+          fields: {
+            [sourceNameFieldId]: 'alpha',
+            [sourceCodeFieldId]: 2,
+            [sourceDebitFieldId]: 40,
+            [sourceCreditFieldId]: 4,
+          },
+        },
+        {
+          fields: {
+            [sourceNameFieldId]: 'beta',
+            [sourceCodeFieldId]: 1,
+            [sourceDebitFieldId]: 7,
+            [sourceCreditFieldId]: 3,
+          },
+        },
+      ]);
+      const hostRecords = await ctx.createRecords(hostTable.id, [
+        { fields: { [hostNameFieldId]: 'alpha', [hostCodeFieldId]: 1 } },
+        { fields: { [hostNameFieldId]: 'alpha', [hostCodeFieldId]: 2 } },
+        { fields: { [hostNameFieldId]: 'beta', [hostCodeFieldId]: 1 } },
+      ]);
+      await ctx.drainOutbox();
+
+      const listed = await ctx.listRecords(hostTable.id);
+      const byId = new Map(listed.map((record) => [record.id, record]));
+      expect(Number(byId.get(hostRecords[0]!.id)?.fields[debitRollupFieldId] ?? 0)).toBe(15);
+      expect(Number(byId.get(hostRecords[0]!.id)?.fields[creditRollupFieldId] ?? 0)).toBe(3);
+      expect(Number(byId.get(hostRecords[1]!.id)?.fields[debitRollupFieldId] ?? 0)).toBe(40);
+      expect(Number(byId.get(hostRecords[1]!.id)?.fields[creditRollupFieldId] ?? 0)).toBe(4);
+      expect(Number(byId.get(hostRecords[2]!.id)?.fields[debitRollupFieldId] ?? 0)).toBe(7);
+      expect(Number(byId.get(hostRecords[2]!.id)?.fields[creditRollupFieldId] ?? 0)).toBe(3);
+
+      ctx.clearLogs();
+      await ctx.updateRecord(sourceTable.id, (await ctx.listRecords(sourceTable.id))[0]!.id, {
+        [sourceDebitFieldId]: 11,
+      });
+      await ctx.drainOutbox();
+
+      const sqlEntries = ctx.testContainer.spyLogger
+        .getEntriesByMessage(/computed:update:/)
+        .map((entry) => entry.message)
+        .join('\n');
+      expect(sqlEntries).toContain(`"${hostTable.id}"`);
+      expect(sqlEntries.toLowerCase()).not.toContain('inner join lateral');
+      expect(sqlEntries).toContain('left join');
+
+      const afterUpdate = await ctx.listRecords(hostTable.id);
+      const afterById = new Map(afterUpdate.map((record) => [record.id, record]));
+      expect(Number(afterById.get(hostRecords[0]!.id)?.fields[debitRollupFieldId] ?? 0)).toBe(16);
+      expect(Number(afterById.get(hostRecords[1]!.id)?.fields[debitRollupFieldId] ?? 0)).toBe(40);
+      expect(Number(afterById.get(hostRecords[2]!.id)?.fields[debitRollupFieldId] ?? 0)).toBe(7);
+    } finally {
+      await deleteTableSafe(ctx, hostTableId);
+      await deleteTableSafe(ctx, sourceTableId);
+    }
+  });
 });

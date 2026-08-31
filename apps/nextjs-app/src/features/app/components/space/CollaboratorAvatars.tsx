@@ -36,7 +36,7 @@ export const CollaboratorAvatars: React.FC<CollaboratorAvatarsProps> = ({
 
   return (
     <div className={cn('flex items-center', className)}>
-      <div className="flex items-center space-x-1">
+      <div className="flex items-center space-x-1 rtl:space-x-reverse">
         <span className="text-sm text-muted-foreground">{t('collaborators')}:</span>
         <div className="flex -space-x-1">
           {displayedCollaborators.map((collaborator, index) => {

@@ -7,6 +7,7 @@ import { GalleryView } from './types/GalleryView';
 import { GridView } from './types/GridView';
 import { KanbanView } from './types/KanbanView';
 import { PluginView } from './types/PluginView';
+import { ViewAuditMetadata } from './ViewAuditMetadata';
 import {
   createCalendarView,
   createFormView,
@@ -17,6 +18,8 @@ import {
 } from './ViewFactory';
 import { ViewId } from './ViewId';
 import { ViewName } from './ViewName';
+import { ViewVersion } from './ViewVersion';
+import { CloneViewVisitor } from './visitors/CloneViewVisitor';
 import type { IViewVisitor } from './visitors/IViewVisitor';
 import { NoopViewVisitor } from './visitors/NoopViewVisitor';
 
@@ -45,8 +48,9 @@ class RecordingViewVisitor implements IViewVisitor<string> {
 
 describe('ViewName', () => {
   it('validates view names', () => {
-    ViewName.create('Grid')._unsafeUnwrap();
-    ViewName.create('')._unsafeUnwrapErr();
+    expect(ViewName.create('Grid')._unsafeUnwrap().toString()).toBe('Grid');
+    expect(ViewName.create('')._unsafeUnwrap().toString()).toBe('');
+    expect(ViewName.create('  Grid  ')._unsafeUnwrap().toString()).toBe('  Grid  ');
   });
 
   it('compares view names by value', () => {
@@ -138,5 +142,32 @@ describe('View types and visitors', () => {
       createPluginView(params),
     ];
     results.forEach((r) => r._unsafeUnwrap());
+  });
+
+  it('preserves persistence metadata when an existing View is cloned for a Table mutation', () => {
+    const view = createGridView({
+      id: createViewId('c')._unsafeUnwrap(),
+      name: ViewName.create('Versioned View')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    const auditMetadata = ViewAuditMetadata.rehydrate({
+      createdBy: 'usrCreator',
+      createdTime: '2026-07-30T00:00:00.000Z',
+      lastModifiedBy: 'usrEditor',
+      lastModifiedTime: '2026-07-30T01:00:00.000Z',
+    })._unsafeUnwrap();
+    const version = ViewVersion.rehydrate(7)._unsafeUnwrap();
+    view.setAuditMetadata(auditMetadata)._unsafeUnwrap();
+    view.setVersion(version)._unsafeUnwrap();
+
+    const clone = view
+      .accept(
+        new CloneViewVisitor({
+          name: ViewName.create('Versioned View renamed')._unsafeUnwrap(),
+        })
+      )
+      ._unsafeUnwrap();
+
+    expect(clone.auditMetadata()._unsafeUnwrap().equals(auditMetadata)).toBe(true);
+    expect(clone.version()._unsafeUnwrap().toNumber()).toBe(7);
   });
 });

@@ -36,6 +36,11 @@ export interface IImportParseResult {
   readonly sheets?: ReadonlyArray<{ name: string; index: number }>;
   /** Currently selected sheet */
   readonly currentSheet?: string;
+  /**
+   * Number of rows in `rows` / `rowsAsync` when known up front.
+   * Includes a header row when the adapter yields it as the first row.
+   */
+  readonly rowCount?: number;
 }
 
 /**
@@ -45,6 +50,8 @@ export interface IImportProgress {
   phase: 'parsing' | 'inserting' | 'completed' | 'failed';
   processedRows: number;
   currentBatch: number;
+  /** Total data rows for this table/sheet when known. */
+  totalRows?: number;
   error?: string;
 }
 

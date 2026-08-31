@@ -38,12 +38,29 @@ const snapshot: TableComputeActivitySnapshot = {
   ],
   diagnostics: {
     computeMode: 'server',
+    executionState: 'paused',
     activeFieldCount: 1,
     queuedFieldCount: 0,
     calculatingFieldCount: 1,
     failedFieldCount: 0,
     highComplexityFieldCount: 0,
     anomalies: [],
+    pause: {
+      effective: true,
+      blockers: [
+        {
+          id: 'cupPause123456789',
+          scopeType: 'base',
+          scopeId: 'bseTestBase1234567',
+          pausedAt: '2026-07-19T16:26:52.088Z',
+          pausedBy: 'ops',
+          resumeAt: '2026-08-02T12:00:00.000Z',
+          reason: 'maintenance',
+        },
+      ],
+      queuedTaskCount: 96,
+      oldestQueuedAt: '2026-07-19T16:26:52.088Z',
+    },
   },
 };
 
@@ -60,6 +77,25 @@ describe('mapComputeActivitySnapshotToDto', () => {
     expect(result.table).toMatchObject({
       generation: 4,
       updatedAt: '2026-07-17T00:00:00.000Z',
+    });
+    expect(result.diagnostics).toMatchObject({
+      executionState: 'paused',
+      pause: {
+        effective: true,
+        queuedTaskCount: 96,
+        oldestQueuedAt: '2026-07-19T16:26:52.088Z',
+        blockers: [
+          {
+            id: 'cupPause123456789',
+            scopeType: 'base',
+            scopeId: 'bseTestBase1234567',
+            pausedAt: '2026-07-19T16:26:52.088Z',
+            pausedBy: 'ops',
+            resumeAt: '2026-08-02T12:00:00.000Z',
+            reason: 'maintenance',
+          },
+        ],
+      },
     });
   });
 });

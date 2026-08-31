@@ -5,6 +5,7 @@ import { ValidationError } from '../../errors/CliError';
 import { Output } from '../../services/Output';
 import { TableQueryOps } from '../../services/TableQueryOps';
 import { connectionOption, optionToUndefined, parseCsv, tableIdOption } from '../shared';
+import { redactSearchVectorOutput } from './redact-search-vector-output';
 
 const searchProbeLengthBucket = (search: string): 'none' | 'short' | 'medium' | 'long' => {
   const length = search.trim().length;
@@ -132,7 +133,11 @@ const handler = (args: {
       )
     );
 
-    yield* output.success('table-query-ops.validate-search-vector-temp-table', outputInput, result);
+    yield* output.success(
+      'table-query-ops.validate-search-vector-temp-table',
+      outputInput,
+      redactSearchVectorOutput(result)
+    );
   });
 
 export const tableQueryOpsValidateSearchVectorTempTable = Command.make(

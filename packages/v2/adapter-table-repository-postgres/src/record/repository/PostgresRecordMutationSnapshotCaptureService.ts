@@ -22,6 +22,7 @@ import {
   ensureUndoCaptureInfrastructure,
   getUndoCaptureBatchId,
   loadAndClearUndoLogRows,
+  matchesUndoCaptureTableName,
   restoreUndoCaptureBatchId,
   setUndoCaptureBatchId,
   type UndoCaptureInfrastructureStatus,
@@ -139,7 +140,9 @@ class PostgresRecordMutationSnapshotCaptureSession
 
         try {
           const rows = await loadAndClearUndoLogRows(this.db, this.batchId);
-          return ok(rows.filter((row) => !row.table_name || row.table_name === this.tableName));
+          return ok(
+            rows.filter((row) => matchesUndoCaptureTableName(row.table_name, this.tableName))
+          );
         } catch (error) {
           this.logger.warn('undo:capture:read_failed', {
             batchId: this.batchId,

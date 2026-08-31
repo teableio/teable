@@ -346,7 +346,7 @@ export const FieldDeleteConfirmDialog = (props: FieldDeleteConfirmDialogProps) =
             }}
             disabled={isDeleting || !canDelete}
           >
-            {isDeleting && <Spin className="mr-1" />}
+            {isDeleting && <Spin className="me-1" />}
             {isMultiField
               ? t('table:field.editor.deleteField.deleteCount', { count: deleteCount })
               : t('common:actions.delete')}

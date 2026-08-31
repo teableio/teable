@@ -36,6 +36,25 @@ export const computedOutboxTriggerConfig = registerAs('computedOutboxTrigger', (
       process.env.V2_COMPUTED_OUTBOX_MONITOR_INTERVAL_MS,
       30_000
     ),
+    // Caps how many wakeups one redrive scan publishes per target. A resumed
+    // pause or long outage can leave weeks of backlog; draining it in a single
+    // sweep floods the claim path and the data-db pool. The remainder is
+    // picked up by the following reconcile cycles.
+    redriveMaxPublishPerTarget: readPositiveInteger(
+      process.env.V2_COMPUTED_OUTBOX_REDRIVE_MAX_PUBLISH_PER_TARGET,
+      1000
+    ),
+    // Cluster-wide outbox claim caps (active `processing` tasks per base / per
+    // base+seed-table before further claims defer). BYODB data pools are sized
+    // against these at deploy time — raise them deliberately.
+    claimConcurrencyPerBase: readPositiveInteger(
+      process.env.V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_BASE,
+      2
+    ),
+    claimConcurrencyPerSeedTable: readPositiveInteger(
+      process.env.V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_SEED_TABLE,
+      2
+    ),
   };
 });
 

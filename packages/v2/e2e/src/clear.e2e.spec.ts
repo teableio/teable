@@ -1264,6 +1264,301 @@ describe('v2 http clear (e2e)', () => {
     });
   });
 
+  describe('clear with computed dependents (v1 parity)', () => {
+    it('should refresh formula and lookup dependents after clearing a column', async () => {
+      const companyTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Clear Companies ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'City', type: 'singleLineText' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const companyNameFieldId = companyTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      const companyCityFieldId = companyTable.fields.find((f) => f.name === 'City')?.id ?? '';
+
+      const companyTableWithFormula = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: companyTable.id,
+        field: {
+          name: 'Name Tag',
+          type: 'formula',
+          options: {
+            expression: `IF({${companyNameFieldId}}, {${companyNameFieldId}}, "empty")`,
+          },
+        },
+      });
+      const nameFormulaFieldId =
+        companyTableWithFormula.fields.find((field) => field.name === 'Name Tag')?.id ?? '';
+
+      const contactTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Clear Contacts ${Date.now()}`,
+        fields: [{ name: 'Person', type: 'singleLineText', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+      const personFieldId = contactTable.fields.find((f) => f.isPrimary)?.id ?? '';
+
+      const contactTableWithLink = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: contactTable.id,
+        field: {
+          name: 'Company',
+          type: 'link',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: companyTable.id,
+            lookupFieldId: companyNameFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+      const linkFieldId =
+        contactTableWithLink.fields.find((field) => field.name === 'Company')?.id ?? '';
+
+      const contactTableWithLookup = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: contactTable.id,
+        field: {
+          name: 'Company Name',
+          type: 'lookup',
+          options: {
+            linkFieldId,
+            foreignTableId: companyTable.id,
+            lookupFieldId: companyNameFieldId,
+          },
+        },
+      });
+      const companyLookupFieldId =
+        contactTableWithLookup.fields.find((field) => field.name === 'Company Name')?.id ?? '';
+
+      const alpha = await ctx.createRecord(companyTable.id, {
+        [companyNameFieldId]: 'Alpha',
+        [companyCityFieldId]: 'Paris',
+      });
+      const beta = await ctx.createRecord(companyTable.id, {
+        [companyNameFieldId]: 'Beta',
+        [companyCityFieldId]: 'Berlin',
+      });
+
+      await ctx.createRecord(contactTable.id, {
+        [personFieldId]: 'Alice',
+        [linkFieldId]: { id: alpha.id },
+      });
+      await ctx.createRecord(contactTable.id, {
+        [personFieldId]: 'Bob',
+        [linkFieldId]: { id: beta.id },
+      });
+      await ctx.drainOutbox();
+
+      const result = await ctx.clear({
+        tableId: companyTable.id,
+        viewId: companyTable.views[0].id,
+        ranges: [[0, 0]],
+        type: 'columns',
+      });
+
+      expect(result.updatedCount).toBe(2);
+      await ctx.drainOutbox();
+
+      const companyRecords = await ctx.listRecords(companyTable.id);
+      expect(companyRecords.map((record) => record.fields[companyNameFieldId])).toEqual([
+        null,
+        null,
+      ]);
+      expect(companyRecords.map((record) => record.fields[nameFormulaFieldId])).toEqual([
+        'empty',
+        'empty',
+      ]);
+      expect(companyRecords.map((record) => record.fields[companyCityFieldId])).toEqual([
+        'Paris',
+        'Berlin',
+      ]);
+
+      const contactRecords = await ctx.listRecords(contactTable.id);
+      expect(contactRecords.map((record) => record.fields[companyLookupFieldId] ?? null)).toEqual([
+        null,
+        null,
+      ]);
+      expect(contactRecords.map((record) => record.fields[personFieldId])).toEqual([
+        'Alice',
+        'Bob',
+      ]);
+    });
+
+    it('should no-op when clearing a range that only covers a computed column', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Clear Computed NoOp ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Score', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const nameFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+      const scoreFieldId = table.fields.find((f) => f.name === 'Score')?.id ?? '';
+
+      const tableWithFormula = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: table.id,
+        field: {
+          name: 'Doubled',
+          type: 'formula',
+          options: { expression: `{${scoreFieldId}} * 2` },
+        },
+      });
+      const formulaFieldId =
+        tableWithFormula.fields.find((field) => field.name === 'Doubled')?.id ?? '';
+      const formulaFieldIndex = tableWithFormula.fields.findIndex(
+        (field) => field.id === formulaFieldId
+      );
+
+      await ctx.createRecord(table.id, {
+        [nameFieldId]: 'Row 1',
+        [scoreFieldId]: 10,
+      });
+      await ctx.drainOutbox();
+
+      const result = await ctx.clear({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        ranges: [
+          [formulaFieldIndex, 0],
+          [formulaFieldIndex, 0],
+        ],
+      });
+
+      expect(result.updatedCount).toBe(0);
+
+      const records = await ctx.listRecords(table.id);
+      expect(records[0].fields[nameFieldId]).toBe('Row 1');
+      expect(records[0].fields[scoreFieldId]).toBe(10);
+      expect(records[0].fields[formulaFieldId]).toBe(20);
+    });
+
+    it('should skip computed columns but clear editable ones inside the same range', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Clear Mixed Computed ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Score', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const nameFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+      const scoreFieldId = table.fields.find((f) => f.name === 'Score')?.id ?? '';
+
+      const tableWithFormula = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: table.id,
+        field: {
+          name: 'Name Copy',
+          type: 'formula',
+          options: { expression: `IF({${nameFieldId}}, {${nameFieldId}}, "empty")` },
+        },
+      });
+      const formulaFieldId =
+        tableWithFormula.fields.find((field) => field.name === 'Name Copy')?.id ?? '';
+
+      await ctx.createRecord(table.id, {
+        [nameFieldId]: 'Row 1',
+        [scoreFieldId]: 10,
+      });
+      await ctx.drainOutbox();
+
+      // Range covers all three columns including the trailing computed one.
+      const result = await ctx.clear({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        ranges: [
+          [0, 0],
+          [2, 0],
+        ],
+      });
+
+      expect(result.updatedCount).toBe(1);
+      await ctx.drainOutbox();
+
+      const records = await ctx.listRecords(table.id);
+      expect(records[0].fields[nameFieldId]).toBeNull();
+      expect(records[0].fields[scoreFieldId]).toBeNull();
+      // Computed value refreshed from the cleared dependency, not cleared directly.
+      expect(records[0].fields[formulaFieldId]).toBe('empty');
+    });
+  });
+
+  describe('clear across field types (v1 parity)', () => {
+    it('should store null for every field type when clearing a whole row', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Clear Field Types ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Notes', type: 'longText' },
+          { name: 'Count', type: 'number' },
+          { name: 'Done', type: 'checkbox' },
+          {
+            name: 'Due',
+            type: 'date',
+            options: {
+              formatting: { date: 'YYYY-MM-DD', time: 'None', timeZone: 'utc' },
+            },
+          },
+          { name: 'Status', type: 'singleSelect', options: ['A', 'B'] },
+          { name: 'Tags', type: 'multipleSelect', options: ['X', 'Y'] },
+          {
+            name: 'Stars',
+            type: 'rating',
+            options: { max: 5, icon: 'star', color: 'yellowBright' },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const fieldByName = new Map(table.fields.map((field) => [field.name, field.id]));
+
+      await ctx.createRecord(table.id, {
+        [fieldByName.get('Name') ?? '']: 'Row 1',
+        [fieldByName.get('Notes') ?? '']: 'long note',
+        [fieldByName.get('Count') ?? '']: 42,
+        [fieldByName.get('Done') ?? '']: true,
+        [fieldByName.get('Due') ?? '']: '2026-01-01T00:00:00.000Z',
+        [fieldByName.get('Status') ?? '']: 'A',
+        [fieldByName.get('Tags') ?? '']: ['X', 'Y'],
+        [fieldByName.get('Stars') ?? '']: 3,
+      });
+
+      const result = await ctx.clear({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        ranges: [[0, 0]],
+        type: 'rows',
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const records = await ctx.listRecords(table.id);
+      for (const fieldName of [
+        'Name',
+        'Notes',
+        'Count',
+        'Done',
+        'Due',
+        'Status',
+        'Tags',
+        'Stars',
+      ]) {
+        expect(records[0].fields[fieldByName.get(fieldName) ?? '']).toBeNull();
+      }
+    });
+  });
+
   describe('clear with search', () => {
     const notesFieldName = 'Notes';
     const categoryFieldName = 'Category';

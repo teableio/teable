@@ -11,9 +11,11 @@ import {
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 
+import { PostgresBaseDataBulkCopier } from '../duplicate';
 import type {
   ComputedUpdateLockConfig,
   ComputedUpdateOutboxConfig,
+  ComputedUpdateRuntimeConfig,
   FieldBackfillConfig,
   HybridWithOutboxStrategyConfig,
   IComputedOutboxWakeupPublisher,
@@ -25,6 +27,7 @@ import {
   ComputedFieldBackfillService,
   ComputedFieldUpdater,
   ComputedUpdateDrainService,
+  defaultComputedUpdateRuntimeConfig,
   defaultComputedUpdateLockConfig,
   ComputedUpdateOutbox,
   ComputedUpdatePauseRegistry,
@@ -50,6 +53,7 @@ import {
   PostgresTableRecordRepository,
   PostgresRecordOrderCalculator,
   PostgresAttachmentLookupService,
+  PostgresCollaboratorDirectoryService,
   PostgresUserLookupService,
 } from '../record/repository';
 import {
@@ -82,6 +86,7 @@ export interface IV2TableRepositoryPostgresConfig {
     mode?: 'sync' | 'hybrid' | 'async';
     hybridConfig?: Partial<HybridWithOutboxStrategyConfig>;
     outboxConfig?: Partial<ComputedUpdateOutboxConfig>;
+    runtimeConfig?: Partial<ComputedUpdateRuntimeConfig>;
     lockConfig?: Partial<ComputedUpdateLockConfig>;
     wakeupPublisher?: IComputedOutboxWakeupPublisher;
     /**
@@ -142,6 +147,10 @@ export const registerV2TableRepositoryPostgresAdapter = (
   c.registerInstance(v2RecordRepositoryPostgresTokens.db, config.db);
   c.registerInstance(v2RecordRepositoryPostgresTokens.metaDb, config.metaDb ?? config.db);
 
+  c.register(v2CoreTokens.baseDataBulkCopier, PostgresBaseDataBulkCopier, {
+    lifecycle: Lifecycle.Singleton,
+  });
+
   c.register(
     v2RecordRepositoryPostgresTokens.recordMutationSnapshotCaptureService,
     PostgresRecordMutationSnapshotCaptureService,
@@ -154,6 +163,9 @@ export const registerV2TableRepositoryPostgresAdapter = (
     { lifecycle: Lifecycle.Singleton }
   );
   c.register(v2CoreTokens.userLookupService, PostgresUserLookupService, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.collaboratorDirectoryService, PostgresCollaboratorDirectoryService, {
     lifecycle: Lifecycle.Singleton,
   });
 
@@ -214,10 +226,15 @@ export const registerV2TableRepositoryPostgresAdapter = (
     ...defaultComputedUpdateLockConfig,
     ...config.computedUpdate?.lockConfig,
   };
+  const runtimeConfig: ComputedUpdateRuntimeConfig = {
+    ...defaultComputedUpdateRuntimeConfig,
+    ...config.computedUpdate?.runtimeConfig,
+  };
 
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateHybridConfig, hybridConfig);
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig, outboxConfig);
   c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateLockConfig, lockConfig);
+  c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdateRuntimeConfig, runtimeConfig);
 
   const fieldBackfillConfig: FieldBackfillConfig = {
     ...defaultFieldBackfillConfig,

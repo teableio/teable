@@ -26,7 +26,7 @@ export const getServerSideProps: GetServerSideProps<IShareViewPageProps> =
         if (!user) {
           return {
             redirect: {
-              destination: `/auth/login?redirect=${encodeURIComponent(req?.url || '')}`,
+              destination: `/auth/signup?redirect=${encodeURIComponent(req?.url || '')}`,
               permanent: false,
             },
           };

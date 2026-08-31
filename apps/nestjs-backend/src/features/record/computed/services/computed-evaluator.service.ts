@@ -107,6 +107,7 @@ export class ComputedEvaluatorService {
           rawProjection: true,
           preferRawFieldReferences: true,
           preferStoredLookupFields: this.shouldPreferStoredLookupFields(fieldInstances),
+          unsupportedFieldReferenceBehavior: 'match-all',
           projectionByTable,
           restrictRecordIds: builderRestrictRecordIds,
           tables: tablesOverride,

@@ -11,6 +11,7 @@ type CteLevelSqlPlanParams = {
   level: number;
   previousCteName?: string;
   fragments: ReadonlyArray<FormulaFieldSqlFragment>;
+  materialized: boolean;
 };
 
 const normalizeExpressionKey = (sqlText: string): string => sqlText.replace(/\s+/g, ' ').trim();
@@ -62,6 +63,7 @@ export class CteLevelSqlPlan {
   readonly level: number;
   readonly previousCteName?: string;
   readonly fragments: ReadonlyArray<FormulaFieldSqlFragment>;
+  readonly materialized: boolean;
   readonly cseBindings: ReadonlyArray<FormulaCseBinding>;
   private readonly cseBindingsByKey: ReadonlyMap<string, FormulaCseBinding>;
 
@@ -73,6 +75,7 @@ export class CteLevelSqlPlan {
     this.level = params.level;
     this.previousCteName = params.previousCteName;
     this.fragments = params.fragments;
+    this.materialized = params.materialized;
     this.cseBindings = cseBindings;
     this.cseBindingsByKey = new Map(cseBindings.map((binding) => [binding.normalizedKey, binding]));
   }
@@ -138,6 +141,7 @@ export class CteLevelSqlPlan {
   buildCteSql(fromClause: string): string {
     const selectColumns = this.buildSelectColumnsSql();
     const cseJoin = this.buildCseJoinSql();
-    return `${quoteIdentifier(this.name)} AS (SELECT ${quoteRef('t', '__id')}, ${selectColumns} ${fromClause}${cseJoin})`;
+    const materialized = this.materialized ? ' MATERIALIZED' : '';
+    return `${quoteIdentifier(this.name)} AS${materialized} (SELECT ${quoteRef('t', '__id')}, ${selectColumns} ${fromClause}${cseJoin})`;
   }
 }

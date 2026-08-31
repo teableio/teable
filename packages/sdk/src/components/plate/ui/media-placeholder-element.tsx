@@ -1,7 +1,7 @@
 'use client';
 
 import { CommentNodeType } from '@teable/openapi';
-import { cn } from '@teable/ui-lib';
+import { cn, sonner } from '@teable/ui-lib';
 import type { PlateElementProps } from '@udecode/plate/react';
 import { PlateElement, useEditorPlugin, withHOC } from '@udecode/plate/react';
 import type { TPlaceholderElement } from '@udecode/plate-media';
@@ -18,6 +18,7 @@ import { AudioLines, FileUp, Film, ImageIcon, Loader2Icon } from 'lucide-react';
 import * as React from 'react';
 
 import { useFilePicker } from 'use-file-picker';
+import { useTranslation } from '../../../context/app/i18n';
 import { useUploadFile } from './hooks/useUploadFile';
 
 const CONTENT: Record<
@@ -54,6 +55,7 @@ const MediaPlaceholderElement = withHOC(
   PlaceholderProvider,
   function MediaPlaceholderElement(props: PlateElementProps<TPlaceholderElement>) {
     const { editor, element } = props;
+    const { t } = useTranslation();
 
     const { api } = useEditorPlugin(PlaceholderPlugin);
 
@@ -84,10 +86,18 @@ const MediaPlaceholderElement = withHOC(
 
     const replaceCurrentPlaceholder = React.useCallback(
       (file: File) => {
-        void uploadFile(file);
         api.placeholder.addUploadingFile(element.id as string, file);
+        // a rejected upload used to be an unhandled rejection that left the
+        // placeholder — and the plugin's uploading entry — in the document
+        // forever, which now also means the composer could never send again
+        uploadFile(file).catch(() => {
+          sonner.toast.error(t('common.uploadFailed'));
+          api.placeholder.removeUploadingFile(element.id as string);
+          const path = editor.api.findPath(element);
+          path && editor.tf.withoutSaving(() => editor.tf.removeNodes({ at: path }));
+        });
       },
-      [api.placeholder, element.id, uploadFile]
+      [api.placeholder, editor, element, t, uploadFile]
     );
 
     React.useEffect(() => {
@@ -151,7 +161,7 @@ const MediaPlaceholderElement = withHOC(
         {(!loading || !isImage) && (
           <div
             className={cn(
-              'flex cursor-pointer items-center rounded-sm bg-muted p-3 pr-9 select-none hover:bg-primary/10'
+              'flex cursor-pointer items-center rounded-sm bg-muted p-3 pe-9 select-none hover:bg-primary/10'
             )}
             onClick={() => !loading && openFilePicker()}
             contentEditable={false}
@@ -163,7 +173,7 @@ const MediaPlaceholderElement = withHOC(
             role="button"
             tabIndex={0}
           >
-            <div className="relative mr-3 flex text-muted-foreground/80 [&_svg]:size-6">
+            <div className="relative me-3 flex text-muted-foreground/80 [&_svg]:size-6">
               {currentContent.icon}
             </div>
             <div className="whitespace-nowrap text-sm text-muted-foreground">
@@ -174,7 +184,7 @@ const MediaPlaceholderElement = withHOC(
                   <div>{formatBytes(uploadingFile?.size ?? 0)}</div>
                   <div>–</div>
                   <div className="flex items-center">
-                    <Loader2Icon className="mr-1 size-3.5 animate-spin text-muted-foreground" />
+                    <Loader2Icon className="me-1 size-3.5 animate-spin text-muted-foreground" />
                     {progress ?? 0}%
                   </div>
                 </div>
@@ -221,20 +231,34 @@ export function ImageProgress({
     return null;
   }
 
+  const uploading = progress < 100;
+
   return (
     <div className={cn('relative', className)} contentEditable={false}>
       <img
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ref={imageRef as any}
-        className="h-auto w-full rounded-sm object-cover"
+        className={cn('h-auto w-full rounded-sm object-cover', uploading && 'opacity-40')}
         alt={file.name}
         src={objectUrl}
       />
-      {progress < 100 && (
-        <div className="absolute bottom-1 right-1 flex items-center space-x-2 rounded-full bg-black/50 px-1 py-0.5">
-          <Loader2Icon className="size-3.5 animate-spin text-muted-foreground" />
-          <span className="text-xs font-medium text-white">{Math.round(progress)}%</span>
-        </div>
+      {uploading && (
+        <>
+          {/* the old bottom-corner chip was easy to miss on a busy image: dim the
+              preview, put the progress in the middle, and track it along the base */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="flex items-center gap-2 rounded-full bg-black/70 px-2.5 py-1 text-white">
+              <Loader2Icon className="size-4 animate-spin" />
+              <span className="text-sm font-medium tabular-nums">{Math.round(progress)}%</span>
+            </div>
+          </div>
+          <div className="absolute inset-x-0 bottom-0 h-1 overflow-hidden rounded-b-sm bg-black/20">
+            <div
+              className="h-full bg-white transition-[width] duration-200"
+              style={{ width: `${Math.max(progress, 2)}%` }}
+            />
+          </div>
+        </>
       )}
     </div>
   );

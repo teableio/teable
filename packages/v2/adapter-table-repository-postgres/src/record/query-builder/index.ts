@@ -1,5 +1,6 @@
 // Interface and types
 export * from './ITableRecordQueryBuilder';
+export * from './systemOrderColumns';
 
 // Shared utilities
 export * from './FieldOutputColumnVisitor';

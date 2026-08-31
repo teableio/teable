@@ -104,12 +104,15 @@ export class CreateRecordsHandler
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
 
       // Resolve field keys to field IDs if using name or dbFieldName
+      const fieldKeyResolutionContext = FieldKeyResolverService.createResolutionContext(
+        table,
+        command.fieldKeyType
+      );
       const resolvedRecordsFieldValues: RecordFieldValues[] = [];
       for (const recordFieldValues of command.recordsFieldValues) {
-        const resolvedFields = yield* FieldKeyResolverService.resolveFieldKeys(
-          table,
-          Object.fromEntries(recordFieldValues),
-          command.fieldKeyType
+        const resolvedFields = yield* FieldKeyResolverService.resolveFieldKeysWithContext(
+          fieldKeyResolutionContext,
+          Object.fromEntries(recordFieldValues)
         );
         resolvedRecordsFieldValues.push(new Map(Object.entries(resolvedFields)));
       }
@@ -123,6 +126,7 @@ export class CreateRecordsHandler
           typecast: command.typecast,
           order: command.order,
           recordCount: resolvedRecordsFieldValues.length,
+          isolateRowOverflow: true,
         },
         isTransactionBound: false,
       });
@@ -151,6 +155,7 @@ export class CreateRecordsHandler
         mutateSpecs,
       } = yield* tableForCreate.createRecords(resolvedRecordsFieldValues, {
         typecast: command.typecast,
+        source: command.source,
       });
 
       // 3. Resolve values that require external lookups (user/link)
@@ -164,6 +169,7 @@ export class CreateRecordsHandler
           if (needsResolution) {
             const resolvedSpec = yield* await handler.recordMutationSpecResolver.resolveAndReplace(
               context,
+              tableForCreate.id(),
               mutateSpec
             );
             // Re-apply the resolved spec to get the correct record values

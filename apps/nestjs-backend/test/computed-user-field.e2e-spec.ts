@@ -1,6 +1,14 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, ILinkFieldOptionsRo, ILookupOptionsRo } from '@teable/core';
-import { FieldKeyType, FieldType, Relationship, Role } from '@teable/core';
+import {
+  DbFieldType,
+  FieldKeyType,
+  FieldType,
+  Relationship,
+  Role,
+  SortFunc,
+  TimeFormatting,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   deleteSpaceCollaborator,
@@ -349,6 +357,99 @@ describe('Computed user field (e2e)', () => {
       });
     });
 
+    it('should sort last modified time by tracked field values not system last modified', async () => {
+      const waitForTimestamp = () => {
+        const { promise, resolve } = Promise.withResolvers<void>();
+        setTimeout(resolve, 1100);
+        return promise;
+      };
+      const trackedField = await createField(table1.id, {
+        name: 'Tracked Status',
+        type: FieldType.SingleLineText,
+      });
+      const otherField = await createField(table1.id, {
+        name: 'Other',
+        type: FieldType.SingleLineText,
+      });
+      const lastModifiedTimeField = await createField(table1.id, {
+        name: 'Last modified',
+        type: FieldType.LastModifiedTime,
+        options: {
+          trackedFieldIds: [trackedField.id],
+          formatting: {
+            date: 'YYYY-MM-DD',
+            time: TimeFormatting.Hour24,
+            timeZone: 'Asia/Shanghai',
+          },
+        },
+      });
+      expect(
+        (lastModifiedTimeField.options as { trackedFieldIds?: string[] }).trackedFieldIds
+      ).toEqual([trackedField.id]);
+
+      const created = await createRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          { fields: { [table1.fields[0].id]: 'oldest-tracked' } },
+          { fields: { [table1.fields[0].id]: 'middle-tracked' } },
+          { fields: { [table1.fields[0].id]: 'newest-tracked' } },
+        ],
+      });
+      const [oldest, middle, newest] = created.records;
+      const targetIds = [oldest.id, middle.id, newest.id];
+
+      await updateRecord(table1.id, oldest.id, {
+        record: { fields: { [trackedField.id]: 's1' } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+      await waitForTimestamp();
+      await updateRecord(table1.id, middle.id, {
+        record: { fields: { [trackedField.id]: 's2' } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+      await waitForTimestamp();
+      await updateRecord(table1.id, newest.id, {
+        record: { fields: { [trackedField.id]: 's3' } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+      await waitForTimestamp();
+      await updateRecord(table1.id, oldest.id, {
+        record: { fields: { [otherField.id]: 'noise' } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+      await processV2Outbox();
+
+      const unsorted = (
+        await getRecords(table1.id, {
+          fieldKeyType: FieldKeyType.Id,
+        })
+      ).data.records.filter((record) => targetIds.includes(record.id));
+      const displayedById = new Map(
+        unsorted.map((record) => [record.id, record.fields[lastModifiedTimeField.id] as string])
+      );
+      expect(displayedById.get(oldest.id)).toBeTruthy();
+      expect(displayedById.get(middle.id)).toBeTruthy();
+      expect(displayedById.get(newest.id)).toBeTruthy();
+      expect(displayedById.get(oldest.id)).not.toEqual(displayedById.get(middle.id));
+      expect(displayedById.get(middle.id)).not.toEqual(displayedById.get(newest.id));
+      expect(displayedById.get(oldest.id)).not.toEqual(
+        unsorted.find((record) => record.id === oldest.id)?.lastModifiedTime
+      );
+
+      const { data } = await getRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+        orderBy: [{ fieldId: lastModifiedTimeField.id, order: SortFunc.Desc }],
+      });
+      const sorted = data.records.filter((record) => targetIds.includes(record.id));
+      const expectedIds = [...targetIds].sort((left, right) => {
+        const leftTime = displayedById.get(left) ?? '';
+        const rightTime = displayedById.get(right) ?? '';
+        return leftTime < rightTime ? 1 : leftTime > rightTime ? -1 : 0;
+      });
+
+      expect(sorted.map((record) => record.id)).toEqual(expectedIds);
+    }, 30_000);
+
     it('should fall back to track all when tracked fields are removed', async () => {
       const textField = await createField(table1.id, {
         name: 'text-field',
@@ -547,134 +648,246 @@ describe('Computed user field (e2e)', () => {
       }
     });
 
-    it('should emit a legacy host lookup update event when linked multi-user source changes', async () => {
-      const v1Base = await createBase({ name: 'lookup-user-v1-base', spaceId });
-      await prisma.base.update({ where: { id: v1Base.id }, data: { v2Enabled: false } });
-      const sourceTable = await createTable(v1Base.id, { name: 'lookup-user-source-v1' });
-      const hostTable = await createTable(v1Base.id, { name: 'lookup-user-host-v1' });
-      const secondaryUserEmail = `lookup-refresh-v1-user-${Date.now()}@example.com`;
-      const secondaryUserRequest = await createNewUserAxios({
-        email: secondaryUserEmail,
-        password: '12345678',
-      });
-      const secondaryUser = (await secondaryUserRequest.get<IUserMeVo>(USER_ME)).data;
-      await emailBaseInvitation({
-        baseId: v1Base.id,
-        emailBaseInvitationRo: { role: Role.Creator, emails: [secondaryUserEmail] },
-      });
+    it('keeps oneMany lookup of a single user after refresh T6941', async () => {
+      const sourceTable = await createTable(baseId, { name: 't6941-opportunity' });
+      const hostTable = await createTable(baseId, { name: 't6941-customer' });
 
       try {
-        const sourceUserField = await createField(sourceTable.id, {
-          name: 'Members',
+        const ownerField = await createField(sourceTable.id, {
+          name: 'Owner',
           type: FieldType.User,
           options: {
-            isMultiple: true,
+            isMultiple: false,
             shouldNotify: false,
           },
         });
 
         const linkField = await createField(hostTable.id, {
-          name: 'Source',
+          name: 'Opportunities',
           type: FieldType.Link,
           options: {
-            relationship: Relationship.ManyOne,
+            relationship: Relationship.OneMany,
             foreignTableId: sourceTable.id,
             lookupFieldId: sourceTable.fields[0].id,
           } as ILinkFieldOptionsRo,
         });
 
         const lookupField = await createField(hostTable.id, {
-          name: 'Lookup Members',
+          name: 'Owners',
           type: FieldType.User,
           isLookup: true,
           lookupOptions: {
             linkFieldId: linkField.id,
             foreignTableId: sourceTable.id,
-            lookupFieldId: sourceUserField.id,
+            lookupFieldId: ownerField.id,
           } as ILookupOptionsRo,
         });
 
-        const sourceRecordId = sourceTable.records[0].id;
-        const hostRecordId = hostTable.records[0].id;
+        const fieldVo = await getField(hostTable.id, lookupField.id);
+        expect(fieldVo.isMultipleCellValue).toBe(true);
+        expect(fieldVo.dbFieldType).toBe(DbFieldType.Json);
 
-        await updateRecord(sourceTable.id, sourceRecordId, {
+        await updateRecord(sourceTable.id, sourceTable.records[0].id, {
           record: {
             fields: {
-              [sourceUserField.id]: [globalThis.testConfig.userId],
+              [ownerField.id]: globalThis.testConfig.userId,
             },
           },
           fieldKeyType: FieldKeyType.Id,
           typecast: true,
         });
-        await updateRecord(hostTable.id, hostRecordId, {
+        await updateRecord(hostTable.id, hostTable.records[0].id, {
           record: {
             fields: {
-              [linkField.id]: { id: sourceRecordId },
+              [linkField.id]: [{ id: sourceTable.records[0].id }],
             },
           },
           fieldKeyType: FieldKeyType.Id,
         });
+        await processV2Outbox();
 
-        const events: unknown[] = [];
-        const handler = (event: unknown) => events.push(event);
-        eventEmitterService.eventEmitter.on(Events.TABLE_RECORD_UPDATE, handler);
+        const firstRead = await getRecord(hostTable.id, hostTable.records[0].id, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(firstRead.data.fields[lookupField.id]).toEqual([
+          expect.objectContaining({
+            id: globalThis.testConfig.userId,
+            title: globalThis.testConfig.userName,
+          }),
+        ]);
+
+        const refreshed = await getRecord(hostTable.id, hostTable.records[0].id, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(refreshed.data.fields[lookupField.id]).toEqual([
+          expect.objectContaining({
+            id: globalThis.testConfig.userId,
+            title: globalThis.testConfig.userName,
+          }),
+        ]);
+
+        const filtered = await getRecords(hostTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: lookupField.id,
+                operator: 'hasAnyOf',
+                value: ['Me'],
+              },
+            ],
+          },
+        });
+        expect(filtered.data.records.map((record) => record.id)).toContain(hostTable.records[0].id);
+      } finally {
+        await deleteTable(baseId, hostTable.id);
+        await deleteTable(baseId, sourceTable.id);
+      }
+    });
+
+    it('should emit a legacy host lookup update event when linked multi-user source changes', async () => {
+      // This test asserts the v1-only legacy TABLE_RECORD_UPDATE event for host lookups.
+      // The base is pinned to v1 (v2Enabled: false), but FORCE_V2_ALL would override that
+      // pin, so force v1 routing for the duration of this test.
+      const previousForceV2All = process.env.FORCE_V2_ALL;
+      process.env.FORCE_V2_ALL = 'false';
+      try {
+        const v1Base = await createBase({ name: 'lookup-user-v1-base', spaceId });
+        await prisma.base.update({ where: { id: v1Base.id }, data: { v2Enabled: false } });
+        const sourceTable = await createTable(v1Base.id, { name: 'lookup-user-source-v1' });
+        const hostTable = await createTable(v1Base.id, { name: 'lookup-user-host-v1' });
+        const secondaryUserEmail = `lookup-refresh-v1-user-${Date.now()}@example.com`;
+        const secondaryUserRequest = await createNewUserAxios({
+          email: secondaryUserEmail,
+          password: '12345678',
+        });
+        const secondaryUser = (await secondaryUserRequest.get<IUserMeVo>(USER_ME)).data;
+        await emailBaseInvitation({
+          baseId: v1Base.id,
+          emailBaseInvitationRo: { role: Role.Creator, emails: [secondaryUserEmail] },
+        });
+
         try {
+          const sourceUserField = await createField(sourceTable.id, {
+            name: 'Members',
+            type: FieldType.User,
+            options: {
+              isMultiple: true,
+              shouldNotify: false,
+            },
+          });
+
+          const linkField = await createField(hostTable.id, {
+            name: 'Source',
+            type: FieldType.Link,
+            options: {
+              relationship: Relationship.ManyOne,
+              foreignTableId: sourceTable.id,
+              lookupFieldId: sourceTable.fields[0].id,
+            } as ILinkFieldOptionsRo,
+          });
+
+          const lookupField = await createField(hostTable.id, {
+            name: 'Lookup Members',
+            type: FieldType.User,
+            isLookup: true,
+            lookupOptions: {
+              linkFieldId: linkField.id,
+              foreignTableId: sourceTable.id,
+              lookupFieldId: sourceUserField.id,
+            } as ILookupOptionsRo,
+          });
+
+          const sourceRecordId = sourceTable.records[0].id;
+          const hostRecordId = hostTable.records[0].id;
+
           await updateRecord(sourceTable.id, sourceRecordId, {
             record: {
               fields: {
-                [sourceUserField.id]: [globalThis.testConfig.userId, secondaryUser.id],
+                [sourceUserField.id]: [globalThis.testConfig.userId],
               },
             },
             fieldKeyType: FieldKeyType.Id,
             typecast: true,
           });
+          await updateRecord(hostTable.id, hostRecordId, {
+            record: {
+              fields: {
+                [linkField.id]: { id: sourceRecordId },
+              },
+            },
+            fieldKeyType: FieldKeyType.Id,
+          });
 
-          const deadline = Date.now() + 2000;
-          while (
-            Date.now() < deadline &&
-            !events.some(
-              (event) =>
-                (event as { payload?: { tableId?: string } }).payload?.tableId === hostTable.id
-            )
-          ) {
-            await new Promise((resolve) => setTimeout(resolve, 25));
+          const events: unknown[] = [];
+          const handler = (event: unknown) => events.push(event);
+          eventEmitterService.eventEmitter.on(Events.TABLE_RECORD_UPDATE, handler);
+          try {
+            await updateRecord(sourceTable.id, sourceRecordId, {
+              record: {
+                fields: {
+                  [sourceUserField.id]: [globalThis.testConfig.userId, secondaryUser.id],
+                },
+              },
+              fieldKeyType: FieldKeyType.Id,
+              typecast: true,
+            });
+
+            const deadline = Date.now() + 2000;
+            while (
+              Date.now() < deadline &&
+              !events.some(
+                (event) =>
+                  (event as { payload?: { tableId?: string } }).payload?.tableId === hostTable.id
+              )
+            ) {
+              await new Promise((resolve) => setTimeout(resolve, 25));
+            }
+          } finally {
+            eventEmitterService.eventEmitter.off(Events.TABLE_RECORD_UPDATE, handler);
           }
+
+          const refreshedHostRecord = await getRecord(hostTable.id, hostRecordId, {
+            fieldKeyType: FieldKeyType.Id,
+          });
+          expect(refreshedHostRecord.data.fields[lookupField.id]).toEqual([
+            expect.objectContaining({
+              id: globalThis.testConfig.userId,
+              title: globalThis.testConfig.userName,
+            }),
+            expect.objectContaining({ id: secondaryUser.id, title: secondaryUser.name }),
+          ]);
+
+          const hostEvent = events.find(
+            (event) =>
+              (event as { payload?: { tableId?: string } }).payload?.tableId === hostTable.id
+          ) as { payload?: { record?: { fields?: Record<string, { newValue?: unknown }> } } };
+          expect(hostEvent?.payload?.record?.fields?.[lookupField.id]?.newValue).toEqual([
+            expect.objectContaining({
+              id: globalThis.testConfig.userId,
+              title: globalThis.testConfig.userName,
+            }),
+            expect.objectContaining({ id: secondaryUser.id, title: secondaryUser.name }),
+          ]);
         } finally {
-          eventEmitterService.eventEmitter.off(Events.TABLE_RECORD_UPDATE, handler);
+          await deleteTable(v1Base.id, hostTable.id);
+          await deleteTable(v1Base.id, sourceTable.id);
+          await deleteBaseCollaborator({
+            baseId: v1Base.id,
+            deleteBaseCollaboratorRo: {
+              principalId: secondaryUser.id,
+              principalType: PrincipalType.User,
+            },
+          });
+          await deleteBase(v1Base.id);
         }
-
-        const refreshedHostRecord = await getRecord(hostTable.id, hostRecordId, {
-          fieldKeyType: FieldKeyType.Id,
-        });
-        expect(refreshedHostRecord.data.fields[lookupField.id]).toEqual([
-          expect.objectContaining({
-            id: globalThis.testConfig.userId,
-            title: globalThis.testConfig.userName,
-          }),
-          expect.objectContaining({ id: secondaryUser.id, title: secondaryUser.name }),
-        ]);
-
-        const hostEvent = events.find(
-          (event) => (event as { payload?: { tableId?: string } }).payload?.tableId === hostTable.id
-        ) as { payload?: { record?: { fields?: Record<string, { newValue?: unknown }> } } };
-        expect(hostEvent?.payload?.record?.fields?.[lookupField.id]?.newValue).toEqual([
-          expect.objectContaining({
-            id: globalThis.testConfig.userId,
-            title: globalThis.testConfig.userName,
-          }),
-          expect.objectContaining({ id: secondaryUser.id, title: secondaryUser.name }),
-        ]);
       } finally {
-        await deleteTable(v1Base.id, hostTable.id);
-        await deleteTable(v1Base.id, sourceTable.id);
-        await deleteBaseCollaborator({
-          baseId: v1Base.id,
-          deleteBaseCollaboratorRo: {
-            principalId: secondaryUser.id,
-            principalType: PrincipalType.User,
-          },
-        });
-        await deleteBase(v1Base.id);
+        if (previousForceV2All == null) {
+          delete process.env.FORCE_V2_ALL;
+        } else {
+          process.env.FORCE_V2_ALL = previousForceV2All;
+        }
       }
     });
 

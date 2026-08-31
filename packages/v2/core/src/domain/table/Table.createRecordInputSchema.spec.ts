@@ -713,9 +713,9 @@ describe('Table.createRecordInputSchema', () => {
       expect(schema.safeParse({ [fieldId]: validLink }).success).toBe(true);
       expect(schema.safeParse({ [fieldId]: linkWithoutTitle }).success).toBe(true);
       expect(schema.safeParse({ [fieldId]: null }).success).toBe(true);
-
-      // Invalid values
-      expect(schema.safeParse({ [fieldId]: [validLink] }).success).toBe(false); // array not allowed
+      // V1 compatibility: array input is accepted and normalized to the first item
+      expect(schema.safeParse({ [fieldId]: [validLink] }).success).toBe(true);
+      expect(schema.safeParse({ [fieldId]: [validLink] }).data?.[fieldId]).toEqual(validLink);
       expect(schema.safeParse({ [fieldId]: { title: 'No ID' } }).success).toBe(false);
     });
 
@@ -746,9 +746,9 @@ describe('Table.createRecordInputSchema', () => {
       expect(schema.safeParse({ [fieldId]: [validLink] }).success).toBe(true);
       expect(schema.safeParse({ [fieldId]: [validLink, linkWithoutTitle] }).success).toBe(true);
       expect(schema.safeParse({ [fieldId]: null }).success).toBe(true);
-
-      // Invalid values
-      expect(schema.safeParse({ [fieldId]: validLink }).success).toBe(false); // not array
+      // V1 compatibility: single object input is accepted and wrapped as an array
+      expect(schema.safeParse({ [fieldId]: validLink }).success).toBe(true);
+      expect(schema.safeParse({ [fieldId]: validLink }).data?.[fieldId]).toEqual([validLink]);
     });
 
     it('generates schema for required link field', () => {

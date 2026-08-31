@@ -5,6 +5,12 @@ import {
   explainOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { createV2HttpClient } from '@teable/v2-contract-http-client';
+import {
+  ActorId,
+  v2CoreTokens,
+  type IExecutionContext,
+  type SchemaOperationRunnerService,
+} from '@teable/v2-core';
 import { sql } from 'kysely';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
@@ -135,6 +141,24 @@ const physicalTableExists = async (ctx: SharedTestContext, tableId: string) => {
   `.execute(ctx.testContainer.db);
 
   return result.rows.at(0)?.exists === true;
+};
+
+const dropPhysicalColumn = async (ctx: SharedTestContext, tableId: string, columnName: string) => {
+  await sql`
+    ALTER TABLE ${sql.table(`${ctx.baseId}.${tableId}`)}
+    DROP COLUMN IF EXISTS ${sql.ref(columnName)}
+  `.execute(ctx.testContainer.db);
+};
+
+const countDeadSchemaOperations = async (ctx: SharedTestContext, tableId: string) => {
+  const result = await sql<{ count: number }>`
+    SELECT COUNT(*)::int as "count"
+    FROM "schema_operation"
+    WHERE "table_id" = ${tableId}
+      AND "status" = 'dead'
+  `.execute(ctx.testContainer.db);
+
+  return result.rows.at(0)?.count ?? 0;
 };
 
 const listPhysicalTableIndexes = async (ctx: SharedTestContext, tableId: string) => {
@@ -458,6 +482,135 @@ describe('v2 http deleteTable (e2e)', () => {
     expect(await physicalTableExists(ctx, permanentTable.id)).toBe(false);
   });
 
+  it('repairs link cleanup rolled back by a failed permanent delete', async () => {
+    let targetTableId: string | undefined;
+    let hostTableId: string | undefined;
+    let dependentViewName: string | undefined;
+
+    try {
+      const targetTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('Rollback Target'),
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      });
+      targetTableId = targetTable.id;
+      const targetPrimaryFieldId = targetTable.fields.find((field) => field.isPrimary)?.id;
+      if (!targetPrimaryFieldId) {
+        throw new Error('Missing rollback target primary field');
+      }
+
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('Rollback Host'),
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            name: 'Related',
+            options: {
+              relationship: 'oneMany',
+              foreignTableId: targetTable.id,
+              lookupFieldId: targetPrimaryFieldId,
+              isOneWay: false,
+            },
+          },
+        ],
+      });
+      hostTableId = hostTable.id;
+      dependentViewName = `${targetTable.id}_dependent_view`;
+
+      await sql`
+        CREATE VIEW ${sql.table(`${ctx.baseId}.${dependentViewName}`)} AS
+        SELECT "__id" FROM ${sql.table(`${ctx.baseId}.${targetTable.id}`)}
+      `.execute(ctx.testContainer.db);
+
+      await expect(ctx.deleteTable(targetTable.id, { mode: 'permanent' })).rejects.toThrow(
+        'Failed to delete table'
+      );
+
+      const operationRows = await sql<{
+        id: string;
+        status: string;
+        phase: string;
+        payload: unknown;
+        result: unknown;
+        last_error: string | null;
+      }>`
+        SELECT "id", "status", "phase", "payload", "result", "last_error"
+        FROM "schema_operation"
+        WHERE "table_id" = ${hostTable.id}
+          AND "type" = 'table.update'
+        ORDER BY "created_time" DESC
+        LIMIT 1
+      `.execute(ctx.testContainer.db);
+      const rolledBackOperation = operationRows.rows.at(0);
+      expect(rolledBackOperation).toMatchObject({
+        status: 'error',
+        phase: 'error',
+        last_error: 'Parent transaction rolled back',
+      });
+      expect(rolledBackOperation?.payload).toBeNull();
+      expect(rolledBackOperation?.result).toMatchObject({
+        tableUpdateFailure: { code: 'transaction.parent_rolled_back' },
+      });
+
+      const runner = ctx.testContainer.container.resolve<SchemaOperationRunnerService>(
+        v2CoreTokens.schemaOperationRunnerService
+      );
+      const runnerContext: IExecutionContext = {
+        actorId: ActorId.create('system')._unsafeUnwrap(),
+        requestId: 'e2e-parent-rollback-repair',
+      };
+      const claimNow = new Date(Date.now() + 3_600_000);
+      let settledOperation = rolledBackOperation;
+      for (let run = 0; run < 20; run += 1) {
+        if (settledOperation?.status === 'ready' || settledOperation?.status === 'dead') {
+          break;
+        }
+        await runner.runNext(runnerContext, {
+          workerId: 'e2e-parent-rollback-repair',
+          now: claimNow,
+          staleRunningBefore: new Date(Date.now() - 60_000),
+        });
+        const rows = await sql<{
+          id: string;
+          status: string;
+          phase: string;
+          payload: unknown;
+          result: unknown;
+          last_error: string | null;
+        }>`
+          SELECT "id", "status", "phase", "payload", "result", "last_error"
+          FROM "schema_operation"
+          WHERE "id" = ${rolledBackOperation!.id}
+        `.execute(ctx.testContainer.db);
+        settledOperation = rows.rows.at(0);
+      }
+
+      expect(settledOperation).toMatchObject({
+        status: 'ready',
+        phase: 'ready',
+        last_error: null,
+      });
+      expect(settledOperation?.result).toMatchObject({
+        repaired: 'transaction_rollback',
+        tableIds: [hostTable.id],
+      });
+      expect(await countDeadSchemaOperations(ctx, hostTable.id)).toBe(0);
+      await expect(physicalTableExists(ctx, targetTable.id)).resolves.toBe(true);
+      const restoredHost = await ctx.getTableById(hostTable.id);
+      expect(restoredHost.fields.find((field) => field.name === 'Related')?.type).toBe('link');
+    } finally {
+      if (dependentViewName) {
+        await sql`DROP VIEW IF EXISTS ${sql.table(`${ctx.baseId}.${dependentViewName}`)}`
+          .execute(ctx.testContainer.db)
+          .catch(() => undefined);
+      }
+      await safeDeleteTable(hostTableId);
+      await safeDeleteTable(targetTableId);
+    }
+  });
+
   it('cleans up cross-base incoming references when deleting a foreign table', async () => {
     let foreignBaseId: string | undefined;
     let foreignTableId: string | undefined;
@@ -577,7 +730,7 @@ describe('v2 http deleteTable (e2e)', () => {
     }
   });
 
-  it('restores cross-base incoming link and lookup fields when restoring a foreign table', async () => {
+  it('converts cross-base incoming link fields to text when the foreign table is trashed', async () => {
     let foreignBaseId: string | undefined;
     let foreignTableId: string | undefined;
     let hostTableId: string | undefined;
@@ -672,20 +825,16 @@ describe('v2 http deleteTable (e2e)', () => {
       await ctx.drainOutbox();
 
       await deleteTableWithBaseId(foreignBaseId, foreignTable.id, { mode: 'soft' });
+      await ctx.drainOutbox();
       await restoreTableWithBaseId(foreignBaseId, foreignTable.id);
       await ctx.drainOutbox();
 
       const restoredHost = await ctx.getTableById(hostTable.id);
-      const restoredRecords = await ctx.listRecords(hostTable.id);
-      const restoredRecord = restoredRecords.find((record) => record.id === hostRecord.id);
 
-      expect(restoredHost.fields.find((field) => field.id === linkFieldId)?.type).toBe('link');
-      expect(restoredHost.fields.find((field) => field.id === lookupFieldId)?.type).toBe(
+      expect(restoredHost.fields.find((field) => field.id === linkFieldId)?.type).toBe(
         'singleLineText'
       );
-      expect(restoredHost.fields.find((field) => field.id === lookupFieldId)?.isLookup).toBe(true);
-      expect(restoredHost.fields.find((field) => field.id === lookupFieldId)?.hasError).toBeFalsy();
-      expect(restoredRecord?.fields[lookupFieldId]).toEqual(['alpha']);
+      expect(restoredHost.fields.find((field) => field.id === lookupFieldId)?.hasError).toBe(true);
     } finally {
       await ctx.drainOutbox().catch(() => undefined);
       await safeDeleteTable(hostTableId);
@@ -694,6 +843,191 @@ describe('v2 http deleteTable (e2e)', () => {
           () => undefined
         );
       }
+    }
+  });
+
+  it('[V1 PARITY][trash.e2e-spec.ts] soft delete converts inbound links to text and restore does not relink them', async () => {
+    let foreignTableId: string | undefined;
+    let hostTableId: string | undefined;
+
+    try {
+      const foreignTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('Restore Same Base Foreign'),
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleLineText', name: 'Value' },
+        ],
+        records: [{ fields: { Name: 'Foreign-A', Value: 'alpha' } }],
+      });
+      foreignTableId = foreignTable.id;
+
+      const foreignPrimaryFieldId = foreignTable.fields.find((field) => field.isPrimary)?.id;
+      const foreignValueFieldId = foreignTable.fields.find((field) => field.name === 'Value')?.id;
+      if (!foreignPrimaryFieldId || !foreignValueFieldId) {
+        throw new Error('Missing same-base foreign field ids');
+      }
+
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('Restore Same Base Host'),
+        fields: [{ type: 'singleLineText', name: 'Host Name', isPrimary: true }],
+      });
+      hostTableId = hostTable.id;
+
+      const hostPrimaryFieldId = hostTable.fields.find((field) => field.isPrimary)?.id;
+      if (!hostPrimaryFieldId) {
+        throw new Error('Missing same-base host primary field');
+      }
+
+      const tableWithLink = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hostTable.id,
+        field: {
+          type: 'link',
+          name: 'Same Base Link',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignPrimaryFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+      const linkFieldId = tableWithLink.fields.find((field) => field.name === 'Same Base Link')?.id;
+      if (!linkFieldId) {
+        throw new Error('Missing same-base link field');
+      }
+
+      const tableWithLookup = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hostTable.id,
+        field: {
+          type: 'lookup',
+          name: 'Same Base Lookup',
+          options: {
+            linkFieldId,
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignValueFieldId,
+          },
+        },
+      });
+      const lookupFieldId = tableWithLookup.fields.find(
+        (field) => field.name === 'Same Base Lookup'
+      )?.id;
+      if (!lookupFieldId) {
+        throw new Error('Missing same-base lookup field');
+      }
+
+      const foreignRecord = (await ctx.listRecords(foreignTable.id)).at(0);
+      if (!foreignRecord) {
+        throw new Error('Missing same-base foreign record');
+      }
+
+      const hostRecord = await ctx.createRecord(hostTable.id, {
+        [hostPrimaryFieldId]: 'Host Same Base',
+      });
+      await ctx.updateRecord(hostTable.id, hostRecord.id, {
+        [linkFieldId]: { id: foreignRecord.id },
+      });
+      await ctx.testContainer.processOutbox();
+
+      // v1 parity: trash converts inbound host links to text immediately.
+      // Restore brings the foreign table back, but does not reconstruct those
+      // converted host fields.
+      await ctx.deleteTable(foreignTable.id, { mode: 'soft' });
+      await ctx.drainOutbox();
+      await expect(ctx.getTableById(foreignTable.id)).rejects.toThrow();
+
+      const hostAfterTrash = await ctx.getTableById(hostTable.id);
+      expect(hostAfterTrash.fields.find((field) => field.id === linkFieldId)?.type).toBe(
+        'singleLineText'
+      );
+      expect(hostAfterTrash.fields.find((field) => field.id === lookupFieldId)?.hasError).toBe(
+        true
+      );
+
+      const restored = await ctx.restoreTable(foreignTable.id);
+      expect(restored.id).toBe(foreignTable.id);
+      await ctx.testContainer.processOutbox();
+
+      const restoredForeign = await ctx.getTableById(foreignTable.id);
+      expect(restoredForeign.fields.map((field) => field.id)).toEqual(
+        expect.arrayContaining([foreignPrimaryFieldId, foreignValueFieldId])
+      );
+      const restoredForeignRecords = await ctx.listRecords(foreignTable.id);
+      expect(restoredForeignRecords).toHaveLength(1);
+      expect(restoredForeignRecords[0]?.fields[foreignPrimaryFieldId]).toBe('Foreign-A');
+
+      const restoredHost = await ctx.getTableById(hostTable.id);
+      expect(restoredHost.fields.find((field) => field.id === linkFieldId)?.type).toBe(
+        'singleLineText'
+      );
+      expect(restoredHost.fields.find((field) => field.id === lookupFieldId)?.hasError).toBe(true);
+    } finally {
+      await ctx.drainOutbox().catch(() => undefined);
+      await safeDeleteTable(hostTableId);
+      await safeDeleteTable(foreignTableId);
+    }
+  });
+
+  it('converts inbound oneMany links to text when the host display column is missing', async () => {
+    let childTableId: string | undefined;
+    let hostTableId: string | undefined;
+
+    try {
+      const childTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('Missing Display Child'),
+        fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+      });
+      childTableId = childTable.id;
+
+      const childPrimaryFieldId = childTable.fields.find((field) => field.isPrimary)?.id;
+      if (!childPrimaryFieldId) {
+        throw new Error('Missing child primary field id');
+      }
+
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('Missing Display Host'),
+        fields: [
+          { type: 'singleLineText', name: 'Title', isPrimary: true },
+          {
+            type: 'link',
+            name: 'Related',
+            options: {
+              relationship: 'oneMany',
+              foreignTableId: childTable.id,
+              lookupFieldId: childPrimaryFieldId,
+              isOneWay: false,
+            },
+          },
+        ],
+      });
+      hostTableId = hostTable.id;
+
+      const relatedField = hostTable.fields.find((field) => field.name === 'Related');
+      if (!relatedField) {
+        throw new Error('Missing host related field');
+      }
+
+      const relatedDbFieldName = await getDbFieldName(ctx, relatedField.id);
+      await dropPhysicalColumn(ctx, hostTable.id, relatedDbFieldName);
+
+      await ctx.deleteTable(childTable.id, { mode: 'soft' });
+      await ctx.drainOutbox();
+      await expect(ctx.getTableById(childTable.id)).rejects.toThrow();
+
+      const hostAfterDelete = await ctx.getTableById(hostTable.id);
+      expect(hostAfterDelete.fields.find((field) => field.id === relatedField.id)?.type).toBe(
+        'singleLineText'
+      );
+      expect(await countDeadSchemaOperations(ctx, hostTable.id)).toBe(0);
+    } finally {
+      await ctx.drainOutbox().catch(() => undefined);
+      await safeDeleteTable(hostTableId);
+      await safeDeleteTable(childTableId);
     }
   });
 

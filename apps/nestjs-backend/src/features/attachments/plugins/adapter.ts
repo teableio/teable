@@ -1,6 +1,5 @@
 import type { Readable as ReadableStream } from 'node:stream';
 import { resolve } from 'path';
-import { BadRequestException } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import { UploadType } from '@teable/openapi';
 import { storageConfig } from '../../../configs/storage';
@@ -26,6 +25,10 @@ export default abstract class StorageAdapter {
       case UploadType.ChatFile:
       case UploadType.Automation:
       case UploadType.RecordHistory:
+      case UploadType.RecordRemoval:
+      case UploadType.Artifact:
+      case UploadType.WorkflowRunCold:
+      case UploadType.AuditLogCold:
         return storageConfig().privateBucket;
       case UploadType.Avatar:
       case UploadType.OAuth:
@@ -79,6 +82,14 @@ export default abstract class StorageAdapter {
         return 'record-history';
       case UploadType.SpaceAvatar:
         return 'space-avatar';
+      case UploadType.RecordRemoval:
+        return 'record-removal';
+      case UploadType.WorkflowRunCold:
+        return 'workflow-run';
+      case UploadType.AuditLogCold:
+        return 'audit-log';
+      case UploadType.Artifact:
+        return 'artifact';
       default:
         throw new CustomHttpException('Invalid upload type', HttpErrorCode.VALIDATION_ERROR, {
           localization: {
@@ -90,6 +101,44 @@ export default abstract class StorageAdapter {
 
   static readonly isPublicBucket = (bucket: string) => {
     return bucket === storageConfig().publicBucket;
+  };
+
+  /**
+   * Cache-Control injected into presigned GET urls of private-bucket objects
+   * at sign time (covers legacy and new objects alike). private = browser
+   * cache only; max-age stays below the presigned url reuse window
+   * (urlExpireIn * 0.5), after which the url — and thus the cache key —
+   * rotates anyway, and it also bounds how long a revoked user can still see
+   * a locally cached copy.
+   */
+  static readonly PRIVATE_PREVIEW_CACHE_CONTROL = 'private, max-age=86400';
+
+  /**
+   * Cache-Control stored as object metadata at upload time. Public-bucket types
+   * only: private-bucket objects are served through presigned GET urls whose
+   * caching is controlled at sign time, not on the object.
+   */
+  static readonly getCacheControl = (type: UploadType): string | undefined => {
+    switch (type) {
+      // presigned uploads keyed by content hash / random token, never overwritten
+      case UploadType.Template:
+      case UploadType.Form:
+      case UploadType.OAuth:
+      case UploadType.ChatDataVisualizationCode:
+        return 'public, max-age=31536000, immutable';
+      // fixed keys overwritten in place. Avatar urls carry a ?v= version
+      // query where stored, but table cell values (user/createdBy/
+      // lastModifiedBy) rebuild the url without it, and logo/plugin have no
+      // busting at all — staleness after an overwrite is bounded by this
+      // max-age, so keep it short.
+      case UploadType.Avatar:
+      case UploadType.SpaceAvatar:
+      case UploadType.Logo:
+      case UploadType.Plugin:
+        return 'public, max-age=3600';
+      default:
+        return undefined;
+    }
   };
 
   /**

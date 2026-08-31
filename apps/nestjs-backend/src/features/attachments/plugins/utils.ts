@@ -4,6 +4,7 @@ import { getPublicFullStorageUrl as getPublicFullStorageUrlOpenApi } from '@teab
 import type { IAttachmentPreviewCache } from '../../../cache/types';
 import { baseConfig } from '../../../configs/base.config';
 import { storageConfig } from '../../../configs/storage';
+import StorageAdapter from './adapter';
 import type { ThumbnailSize } from './types';
 
 const OCTET_STREAM = 'application/octet-stream';
@@ -83,6 +84,7 @@ export const getPreviewUrlConfigSig = () => {
     minio.useSSL,
     minio.accessKey,
     digest(minio.secretKey),
+    StorageAdapter.PRIVATE_PREVIEW_CACHE_CONTROL,
   ]);
   if (previewUrlConfigSigCache?.input !== input) {
     previewUrlConfigSigCache = {

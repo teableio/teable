@@ -30,6 +30,7 @@ import {
 } from '../../../hooks';
 import type { IFieldInstance, NumberField, Record as IRecordModel } from '../../../model';
 import type { GridView } from '../../../model/view';
+import { normalizeCellValueForDisplay } from '../../../utils/normalize-cell-value';
 import { getDisplayChoiceMap } from '../../../utils/select-color';
 import { isMarkdownShowAs, stripMarkdown } from '../../editor/long-text/utils';
 import { getFilterFieldIds } from '../../filter/view-filter/utils';
@@ -264,9 +265,11 @@ export const useCreateCellValue2GridDisplay = (
           cellValueType,
         } = field;
 
-        let cellValue = record.getCellValue(fieldId);
-        const validateCellValue = field.validateCellValue(cellValue);
-        cellValue = validateCellValue.success ? validateCellValue.data : undefined;
+        // Normalize against the display field instance (not record.fieldMap): after
+        // singleSelect ↔ multipleSelect converts, docs may still hold the previous
+        // shape while columns already use the new type. Strict validate-only would
+        // blank the cell even though copy/paste still works (T6459).
+        const cellValue = normalizeCellValueForDisplay(field, record.fields[fieldId]);
         const recordReadOnly = !recordEditable && !isPrefilling;
         const fieldLocked = record.isLocked(fieldId) && !isPrefilling;
         const readonly = isComputed || recordReadOnly || fieldLocked;

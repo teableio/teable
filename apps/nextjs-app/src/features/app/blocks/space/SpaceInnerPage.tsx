@@ -202,12 +202,12 @@ export const SpaceInnerPage: React.FC = () => {
       <div ref={ref} className={cn('flex h-full min-w-0 flex-1 flex-col py-6 sm:min-w-[760px]')}>
         <div
           className={cn(
-            'flex shrink-0 px-8 items-start sm:items-center justify-between gap-4  sm:pb-4'
+            'flex shrink-0 px-5 sm:px-8 items-start sm:items-center justify-between gap-4  sm:pb-4'
           )}
         >
           {isMobile ? (
             <div className="flex min-w-0 flex-col items-start justify-start gap-2">
-              <div className="flex items-center justify-start gap-2 text-left">
+              <div className="flex w-full items-center justify-start gap-2 text-start">
                 <SpaceRenaming
                   spaceName={spaceName!}
                   isRenaming={renaming}
@@ -287,8 +287,11 @@ export const SpaceInnerPage: React.FC = () => {
           </div>
 
           <div className="hidden w-[200px] min-w-[200px] flex-col sm:flex">
-            <ScrollArea className="flex-1 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0">
-              <div className="text-left">
+            <ScrollArea
+              key={spaceId}
+              className="flex-1 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0"
+            >
+              <div className="text-start">
                 <Collaborators spaceId={spaceId} space={space} />
               </div>
             </ScrollArea>

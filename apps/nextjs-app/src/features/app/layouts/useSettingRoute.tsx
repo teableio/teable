@@ -33,7 +33,7 @@ export const useSettingRoute = (): ISidebarContentRoute[] => {
         label: (
           <>
             {t('setting:oauthApps')}
-            <span className="ml-1 h-5 rounded-sm border border-warning p-0.5 text-[11px] font-normal text-warning">
+            <span className="ms-1 h-5 rounded-sm border border-warning p-0.5 text-[11px] font-normal text-warning">
               {t('common:noun.beta')}
             </span>
           </>

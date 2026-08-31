@@ -13,6 +13,7 @@ import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertO
 import type { ICellValueSpec } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
+import type { TableId } from '../../domain/table/TableId';
 import type { IBatchMutationOrchestration } from '../../ports/BatchMutationOrchestration';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../../ports/RecordWritePlugin';
@@ -99,6 +100,7 @@ export class RecordBatchCreationService {
           typecast: input.typecast,
           order: input.order,
           recordCount: resolvedRecordsFieldValues.length,
+          isolateRowOverflow: true,
         },
         isTransactionBound: input.isTransactionBound,
       });
@@ -128,6 +130,7 @@ export class RecordBatchCreationService {
       });
       const records = yield* await service.resolveCreatedRecords(
         context,
+        tableForCreate.id(),
         createdRecords,
         mutateSpecs,
         input.typecast
@@ -239,6 +242,7 @@ export class RecordBatchCreationService {
 
   private async resolveCreatedRecords(
     context: IExecutionContext,
+    tableId: TableId,
     records: ReadonlyArray<TableRecord>,
     mutateSpecs: ReadonlyArray<ICellValueSpec | null>,
     typecast: boolean
@@ -249,6 +253,7 @@ export class RecordBatchCreationService {
 
     const resolveManyResult = await this.recordMutationSpecResolver.resolveAndReplaceMany(
       context,
+      tableId,
       mutateSpecs
     );
     if (resolveManyResult.isErr()) {

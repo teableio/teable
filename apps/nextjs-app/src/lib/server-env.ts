@@ -11,10 +11,12 @@ export interface IServerEnv {
   microsoftClarityId?: string;
   umamiWebSiteId?: string;
   gaId?: string;
-  googleAdsConversionId?: string;
   marketingGaId?: string;
   posthogKey?: string;
   posthogHost?: string;
+  posthogWebHost?: string;
+  posthogUiHost?: string;
+  metaPixelId?: string;
   umamiUrl?: string;
   sentryDsn?: string;
   socialAuthProviders?: string[];
@@ -44,6 +46,12 @@ export interface IServerEnv {
   resetPasswordSendMailCodeRate?: number;
   signupVerificationSendMailCodeRate?: number;
   enableCanaryFeature?: boolean;
+  /**
+   * Set only when ENABLE_RTL_UI=false takes RTL interface mirroring back out.
+   * Phrased as the exception rather than the rule so the normal case stays
+   * `undefined` and never reaches the client payload at all.
+   */
+  rtlUiDisabled?: boolean;
   forceV2All?: boolean;
   allowCrossSpaceReference?: boolean;
   task?: {

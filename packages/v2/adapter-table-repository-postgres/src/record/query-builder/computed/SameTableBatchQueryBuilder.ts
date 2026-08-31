@@ -11,6 +11,7 @@ import type {
   Table,
 } from '@teable/v2-core';
 import {
+  extractFirstJsonScalarTextWithStrategy,
   extractJsonScalarText,
   FormulaSqlPgTranslator,
   guardValueSql,
@@ -144,7 +145,17 @@ export class SameTableBatchQueryBuilder {
       for (const level of fieldLevels) {
         const fields: Field[] = [];
         for (const fieldId of level.fieldIds) {
-          const field = yield* table.getField((f) => f.id().equals(fieldId));
+          const field = yield* table
+            .getField((f) => f.id().equals(fieldId))
+            .mapErr(() =>
+              domainError.notFound({
+                code: 'record.computed.field_not_found',
+                message: `Field not found: ${fieldId.toString()} on table ${table
+                  .id()
+                  .toString()} (collecting same-table batch fields)`,
+                details: { fieldId: fieldId.toString(), tableId: table.id().toString() },
+              })
+            );
           fields.push(field);
         }
         result.set(level.level, fields);
@@ -338,10 +349,12 @@ export class SameTableBatchQueryBuilder {
             columnName: string;
             errorColumnName?: string;
           }> = [];
+          let materialized = false;
 
           // Build select expressions for each field in this level
           for (const field of fields) {
             const columnName = yield* this.getColumnName(field);
+            materialized ||= this.isJsonBackedField(field);
             const expr = yield* this.buildFieldExpression(table, field, previousCteColumns);
 
             computedFragments.push(
@@ -366,6 +379,7 @@ export class SameTableBatchQueryBuilder {
               level,
               fragments: [...carryForwardFragments, ...computedFragments],
               previousCteName: ctes.length > 0 ? ctes[ctes.length - 1].name : undefined,
+              materialized,
             })
           );
 
@@ -451,7 +465,7 @@ export class SameTableBatchQueryBuilder {
       .unwrapOr(false);
 
     if (expr.storageKind === 'json' && this.shouldExtractJsonDisplay(expr)) {
-      if (formulaIsMultiple || expr.isArray) {
+      if (formulaIsMultiple) {
         const normalized = normalizeToJsonArrayWithStrategy(
           expr.valueSql,
           this.typeValidationStrategy
@@ -460,9 +474,13 @@ export class SameTableBatchQueryBuilder {
         SELECT jsonb_agg(to_jsonb(${extractJsonScalarText('elem')}) ORDER BY ord)
         FROM jsonb_array_elements(${normalized}) WITH ORDINALITY AS _jae(elem, ord)
       )`;
+      } else if (expr.isArray) {
+        valueSql = this.unwrapFormulaArrayToScalar(expr.valueSql, expr.valueType);
       } else {
         valueSql = extractJsonScalarText(`(${expr.valueSql})::jsonb`);
       }
+    } else if (expr.isArray && !formulaIsMultiple) {
+      valueSql = this.unwrapFormulaArrayToScalar(expr.valueSql, expr.valueType);
     }
 
     const fieldValueTypeResult = formulaField.accept(new FieldValueTypeVisitor());
@@ -475,6 +493,25 @@ export class SameTableBatchQueryBuilder {
     }
 
     return valueSql;
+  }
+
+  private unwrapFormulaArrayToScalar(valueSql: string, valueType: SqlValueType): string {
+    const firstElemText = extractFirstJsonScalarTextWithStrategy(
+      valueSql,
+      this.typeValidationStrategy
+    );
+
+    switch (valueType) {
+      case 'number':
+        return `NULLIF(${firstElemText}, '')::double precision`;
+      case 'boolean':
+        return `(${firstElemText})::boolean`;
+      case 'datetime':
+        return `(${firstElemText})::timestamptz`;
+      case 'string':
+      default:
+        return firstElemText;
+    }
   }
 
   private shouldExtractJsonDisplay(expr: SqlExpr): boolean {
@@ -636,6 +673,13 @@ export class SameTableBatchQueryBuilder {
     return 'scalar';
   }
 
+  private isJsonBackedField(field: Field): boolean {
+    return field
+      .dbFieldType()
+      .map((type) => type.isJson())
+      .unwrapOr(false);
+  }
+
   private isJsonStorageFieldType(fieldType: FieldType): boolean {
     const typeString = fieldType.toString();
     return (
@@ -784,7 +828,17 @@ export class SameTableBatchQueryBuilder {
 
         for (const level of fieldLevels) {
           for (const fieldId of level.fieldIds) {
-            const field = yield* table.getField((f) => f.id().equals(fieldId));
+            const field = yield* table
+              .getField((f) => f.id().equals(fieldId))
+              .mapErr(() =>
+                domainError.notFound({
+                  code: 'record.computed.field_not_found',
+                  message: `Field not found: ${fieldId.toString()} on table ${table
+                    .id()
+                    .toString()} (collecting same-table batch columns)`,
+                  details: { fieldId: fieldId.toString(), tableId: table.id().toString() },
+                })
+              );
             const columnName = yield* this.getColumnName(field);
             columnNames.add(columnName);
           }

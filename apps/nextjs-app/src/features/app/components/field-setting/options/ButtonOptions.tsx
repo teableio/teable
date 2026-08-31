@@ -194,7 +194,7 @@ const WorkflowAction = (props: { options?: Partial<IButtonFieldOptions>; onSave?
           }}
         >
           {workflow?.id ? <PencilIcon className="size-4" /> : <PlusIcon className="size-4" />}
-          <span className="flex-1 text-left">
+          <span className="flex-1 text-start">
             {workflow?.name || t('table:field.default.button.customAutomation')}
           </span>
         </Button>
@@ -202,7 +202,7 @@ const WorkflowAction = (props: { options?: Partial<IButtonFieldOptions>; onSave?
         <UnavailableInPlanTips>
           <Button className="flex items-center " variant="outline">
             <PlusIcon className="size-4" />
-            <span className="flex-1 text-left">
+            <span className="flex-1 text-start">
               {workflow?.name || t('table:field.default.button.customAutomation')}
             </span>
           </Button>

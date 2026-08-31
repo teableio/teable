@@ -25,6 +25,7 @@ export * from './export';
 export * from './publish';
 export * from './import';
 export * from './import-airtable';
+export * from './import-google-sheet';
 export * from './move';
 export * from './move-check';
 export * from './move-data-db';

@@ -209,7 +209,7 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
         </div>
       </div>
       <Separator />
-      <div className="space-x-3 text-right">
+      <div className="space-x-3 text-end rtl:space-x-reverse">
         {id && <RefreshToken accessTokenId={id} onRefresh={onRefresh} />}
         <Button size={'sm'} variant={'ghost'} onClick={onCancel}>
           {t('common:actions.cancel')}

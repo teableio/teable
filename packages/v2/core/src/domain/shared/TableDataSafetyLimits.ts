@@ -1,3 +1,4 @@
+import { sdkErrorI18nKeys, type SdkErrorI18nKey } from '@teable/i18n-keys';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -127,13 +128,128 @@ export const mergeTableDataSafetyLimitConfig = (
   };
 };
 
+// Hot path: called per record AND per cell on bulk writes. Byte counting via a
+// shared encoder (no per-call allocation); Node's Buffer.byteLength counts
+// without materializing the encoded copy at all.
+const sharedJsonEncoder = new TextEncoder();
+const measureUtf8Bytes: (json: string) => number =
+  typeof Buffer !== 'undefined' && typeof Buffer.byteLength === 'function'
+    ? (json) => Buffer.byteLength(json, 'utf8')
+    : (json) => sharedJsonEncoder.encode(json).byteLength;
+
 export const measureJsonBytes = (value: unknown): number => {
   const json = JSON.stringify(value);
-  return new TextEncoder().encode(json === undefined ? 'undefined' : json).byteLength;
+  return measureUtf8Bytes(json === undefined ? 'undefined' : json);
 };
 
+export interface ITableDataSafetyLimitError {
+  readonly code: string;
+  readonly i18nKey: SdkErrorI18nKey;
+}
+
+/**
+ * The vocabulary of table data safety limit errors. Each entry pairs the
+ * machine-readable domain code with the user-facing message key, so throw
+ * sites reference one entry and the two can never drift apart. Every message
+ * interpolates exactly `{{max}}`.
+ */
+export const tableDataSafetyLimitErrors = {
+  fieldOptionsMaxBytes: {
+    code: 'validation.limit.field_options_max_bytes',
+    i18nKey: sdkErrorI18nKeys.limit.fieldOptionsMaxBytes,
+  },
+  selectChoicesMax: {
+    code: 'validation.limit.select_choices_max',
+    i18nKey: sdkErrorI18nKeys.limit.selectChoicesMax,
+  },
+  selectChoiceNameMaxLength: {
+    code: 'validation.limit.select_choice_name_max_length',
+    i18nKey: sdkErrorI18nKeys.limit.selectChoiceNameMaxLength,
+  },
+  selectDefaultValuesMax: {
+    code: 'validation.limit.select_default_values_max',
+    i18nKey: sdkErrorI18nKeys.limit.selectDefaultValuesMax,
+  },
+  cellValueMaxBytes: {
+    code: 'validation.limit.cell_value_max_bytes',
+    i18nKey: sdkErrorI18nKeys.limit.cellValueMaxBytes,
+  },
+  recordFieldsMaxBytes: {
+    code: 'validation.limit.record_fields_max_bytes',
+    i18nKey: sdkErrorI18nKeys.limit.recordFieldsMaxBytes,
+  },
+  recordsPerMutationMax: {
+    code: 'validation.limit.records_per_mutation_max',
+    i18nKey: sdkErrorI18nKeys.limit.recordsPerMutationMax,
+  },
+  computedCellValueMaxBytes: {
+    code: 'validation.limit.computed_cell_value_max_bytes',
+    i18nKey: sdkErrorI18nKeys.limit.computedCellValueMaxBytes,
+  },
+  formulaMaxLength: {
+    code: 'validation.limit.formula_max_length',
+    i18nKey: sdkErrorI18nKeys.limit.formulaMaxLength,
+  },
+  tablesPerBaseMax: {
+    code: 'validation.limit.tables_per_base_max',
+    i18nKey: sdkErrorI18nKeys.limit.tablesPerBaseMax,
+  },
+  fieldsPerTableMax: {
+    code: 'validation.limit.fields_per_table_max',
+    i18nKey: sdkErrorI18nKeys.limit.fieldsPerTableMax,
+  },
+  rowsPerTableMax: {
+    code: 'validation.limit.rows_per_table_max',
+    i18nKey: sdkErrorI18nKeys.limit.rowsPerTableMax,
+  },
+  viewsPerTableMax: {
+    code: 'validation.limit.views_per_table_max',
+    i18nKey: sdkErrorI18nKeys.limit.viewsPerTableMax,
+  },
+  createTableFieldsMax: {
+    code: 'validation.limit.create_table_fields_max',
+    i18nKey: sdkErrorI18nKeys.limit.createTableFieldsMax,
+  },
+  createTableViewsMax: {
+    code: 'validation.limit.create_table_views_max',
+    i18nKey: sdkErrorI18nKeys.limit.createTableViewsMax,
+  },
+  createTableRecordsMax: {
+    code: 'validation.limit.create_table_records_max',
+    i18nKey: sdkErrorI18nKeys.limit.createTableRecordsMax,
+  },
+  viewFilterItemsMax: {
+    code: 'validation.limit.view_filter_items_max',
+    i18nKey: sdkErrorI18nKeys.limit.viewFilterItemsMax,
+  },
+  viewFilterDepthMax: {
+    code: 'validation.limit.view_filter_depth_max',
+    i18nKey: sdkErrorI18nKeys.limit.viewFilterDepthMax,
+  },
+  viewSortItemsMax: {
+    code: 'validation.limit.view_sort_items_max',
+    i18nKey: sdkErrorI18nKeys.limit.viewSortItemsMax,
+  },
+  viewGroupItemsMax: {
+    code: 'validation.limit.view_group_items_max',
+    i18nKey: sdkErrorI18nKeys.limit.viewGroupItemsMax,
+  },
+  viewOptionsMaxBytes: {
+    code: 'validation.limit.view_options_max_bytes',
+    i18nKey: sdkErrorI18nKeys.limit.viewOptionsMaxBytes,
+  },
+  nameMaxLength: {
+    code: 'validation.limit.name_max_length',
+    i18nKey: sdkErrorI18nKeys.limit.nameMaxLength,
+  },
+  descriptionMaxLength: {
+    code: 'validation.limit.description_max_length',
+    i18nKey: sdkErrorI18nKeys.limit.descriptionMaxLength,
+  },
+} as const satisfies Record<string, ITableDataSafetyLimitError>;
+
 export const ensureWithinTableDataSafetyLimit = (
-  code: string,
+  limit: ITableDataSafetyLimitError,
   attempted: number,
   max: number | undefined,
   details: Readonly<Record<string, unknown>> = {}
@@ -144,13 +260,14 @@ export const ensureWithinTableDataSafetyLimit = (
 
   return err(
     domainError.validation({
-      code,
-      message: `Table data safety limit exceeded: ${code}`,
+      code: limit.code,
+      message: `Table data safety limit exceeded: ${limit.code}`,
       details: {
         ...details,
         attempted,
         max,
       },
+      localization: { i18nKey: limit.i18nKey, context: { max } },
     })
   );
 };

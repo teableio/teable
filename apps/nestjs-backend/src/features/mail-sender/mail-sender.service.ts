@@ -26,6 +26,7 @@ import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import type { I18nTranslations } from '../../types/i18n.generated';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
+import { toMailDeliveryException } from './mail-delivery-error';
 import { buildEmailFrom, truncateMailName, type ISendMailOptions } from './mail-helpers';
 
 interface IPooledTransporter {
@@ -292,7 +293,11 @@ export class MailSenderService implements OnModuleDestroy {
     let sender: Promise<boolean>;
     if (transportConfig) {
       // Explicit transport config provided - sendMailByConfig will validate it
-      sender = this.sendMailByConfig(mailOptions, transportConfig).then(() => true);
+      sender = this.sendMailByConfig(mailOptions, transportConfig)
+        .then(() => true)
+        .catch((reason) => {
+          throw toMailDeliveryException(reason, transportConfig) ?? reason;
+        });
     } else if (transporterName) {
       // Named transporter - may have config from backend settings, sendMailByTransporterName will validate
       sender = this.sendMailByTransporterName(mailOptions, transporterName, type).then(() => true);

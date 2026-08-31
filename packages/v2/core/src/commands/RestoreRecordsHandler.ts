@@ -63,11 +63,52 @@ export class RestoreRecordsHandler
     }
 
     const table = tableResult.value;
+
+    // Replay guard: an undo entry carries full snapshots, so a replay after the
+    // trash rows disappeared (purged by the user, or restored through another
+    // path) would resurrect them — restore only the survivors. An empty survivor
+    // set is a successful no-op. Without the optional port method the check is
+    // skipped and the replay behaves as before.
+    let records = command.records;
+    if (command.requireTrashRowReason && this.tableRecordRepository.listTrashedRecordIds) {
+      const surviving = await this.tableRecordRepository.listTrashedRecordIds(
+        context,
+        table,
+        records.map((record) => record.recordId),
+        command.requireTrashRowReason
+      );
+      if (surviving.isErr()) {
+        return err(surviving.error);
+      }
+      records = records.filter((record) => surviving.value.has(record.recordId));
+      if (records.length === 0) {
+        return ok(RestoreRecordsResult.create(0, []));
+      }
+    }
+
+    if (
+      ExecutionContextPort.isUndoRedoReplay(context) &&
+      this.tableRecordRepository.listExistingRecordIds
+    ) {
+      const existing = await this.tableRecordRepository.listExistingRecordIds(
+        context,
+        table,
+        records.map((record) => record.recordId)
+      );
+      if (existing.isErr()) {
+        return err(existing.error);
+      }
+      records = records.filter((record) => !existing.value.has(record.recordId));
+      if (records.length === 0) {
+        return ok(RestoreRecordsResult.create(0, []));
+      }
+    }
+
     let restoredCount = 0;
     const events: IDomainEvent[] = [];
-    const batchSize = resolveRestoreRecordsBatchSize(command.records.length);
+    const batchSize = resolveRestoreRecordsBatchSize(records.length);
 
-    for (const batch of this.restoreRecordBatches(command.records, batchSize)) {
+    for (const batch of this.restoreRecordBatches(records, batchSize)) {
       const records = this.buildTableRecords(table, batch);
       if (records.isErr()) {
         return err(records.error);
@@ -86,6 +127,9 @@ export class RestoreRecordsHandler
               {
                 restoreRecordsById,
                 cleanupTrashRecordIds: batch.map((record) => record.recordId),
+                ...(command.cleanupAttachmentRefs
+                  ? { cleanupAttachmentRefRecordIds: batch.map((record) => record.recordId) }
+                  : {}),
               }
             );
             return ok(undefined);
@@ -198,6 +242,7 @@ export class RestoreRecordsHandler
         tableId: table.id(),
         baseId: table.baseId(),
         records: eventRecords,
+        source: { type: 'restore' },
       }),
     ];
   }

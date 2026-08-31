@@ -191,7 +191,7 @@ export const SpaceQuickSearch: FC<Props> = ({ spaceId }) => {
                     </div>
                     <span className="truncate">{item.name}</span>
                   </div>
-                  <div className="flex w-full items-center gap-2 pl-6 text-xs text-muted-foreground">
+                  <div className="flex w-full items-center gap-2 ps-6 text-xs text-muted-foreground">
                     {item.createdUser && (
                       <div className="flex shrink-0 items-center gap-1">
                         <span>{t('space:baseList.creator')}:</span>
@@ -220,7 +220,7 @@ export const SpaceQuickSearch: FC<Props> = ({ spaceId }) => {
                 disabled={isFetchingNextPage}
               >
                 {t('common:actions.loadMore')}
-                {isFetchingNextPage && <Spin className="ml-2 size-4" />}
+                {isFetchingNextPage && <Spin className="ms-2 size-4" />}
               </Button>
             </div>
           )}

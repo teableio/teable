@@ -40,7 +40,7 @@ export const FieldValidation = (props: IFieldValidationProps) => {
         </span>
 
         {isUniqueEnabled && (
-          <div className="flex h-8 items-center space-x-2">
+          <div className="flex h-8 items-center space-x-2 rtl:space-x-reverse">
             <Switch
               id={VALIDATION_UNIQUE}
               checked={Boolean(unique)}
@@ -55,7 +55,7 @@ export const FieldValidation = (props: IFieldValidationProps) => {
         )}
 
         {isNotNullEnabled && (
-          <div className="flex h-8 items-center space-x-2">
+          <div className="flex h-8 items-center space-x-2 rtl:space-x-reverse">
             <Switch
               id={VALIDATION_NOT_NULL}
               checked={Boolean(notNull)}

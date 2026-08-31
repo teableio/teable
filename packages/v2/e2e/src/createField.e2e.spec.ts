@@ -341,7 +341,7 @@ describe('v2 http createField (e2e)', () => {
       const parsed = createFieldErrorResponseSchema.safeParse(rawBody);
       expect(parsed.success).toBe(true);
       if (!parsed.success || parsed.data.ok) return;
-      expect(parsed.data.error.code).toBe('validation.field.not_null');
+      expect(parsed.data.error.code).toBe('validation.field.required_existing_values');
     } finally {
       await ctx.deleteTable(table.id).catch(() => undefined);
     }
@@ -2600,5 +2600,453 @@ describe('v2 http createField (e2e)', () => {
     expect(created).toBeTruthy();
     if (!created || created.type !== 'rollup') return;
     expect(created.config.lookupFieldId).toBe(table1NumberFieldId);
+  });
+
+  describe('[V1 PARITY] field.e2e-spec.ts create/read coverage', () => {
+    const createFieldAndGet = async (
+      targetTableId: string,
+      field: Record<string, unknown>
+    ): Promise<{ id: string; name: string; options?: unknown; type: string; unique?: boolean }> => {
+      const fieldId = createFieldId();
+      const response = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: targetTableId,
+          field: { id: fieldId, ...field },
+        }),
+      });
+      const raw = await response.json();
+      if (response.status !== 200) {
+        throw new Error(`CreateField failed for ${JSON.stringify(field)}: ${JSON.stringify(raw)}`);
+      }
+      const parsed = createFieldOkResponseSchema.safeParse(raw);
+      expect(parsed.success).toBe(true);
+      if (!parsed.success || !parsed.data.ok) {
+        throw new Error(`CreateField response invalid: ${JSON.stringify(raw)}`);
+      }
+      const created = parsed.data.data.table.fields.find((entry) => entry.id === fieldId);
+      if (!created) {
+        throw new Error(`Created field ${fieldId} missing from response`);
+      }
+      return created;
+    };
+
+    // v1 reference: field.e2e-spec.ts
+    //   "should generate default name and options for field" > "basic field" / "formula field"
+    it('generates default names for fields created without a name', async () => {
+      const table = await createTable({
+        baseId: ctx.baseId,
+        name: `Default Names ${Date.now()}`,
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      });
+
+      try {
+        const textField = await createFieldAndGet(table.id, { type: 'singleLineText' });
+        expect(textField.name).toBe('Label');
+        expect(textField.options).toEqual({});
+
+        const numberField = await createFieldAndGet(table.id, { type: 'number' });
+        expect(numberField.name).toBe('Number');
+
+        const selectField = await createFieldAndGet(table.id, { type: 'singleSelect' });
+        expect(selectField.name).toBe('Select');
+
+        const dateField = await createFieldAndGet(table.id, { type: 'date' });
+        expect(dateField.name).toBe('Date');
+
+        const checkboxField = await createFieldAndGet(table.id, { type: 'checkbox' });
+        expect(checkboxField.name).toBe('Done');
+        expect(checkboxField.options).toEqual({});
+
+        const attachmentField = await createFieldAndGet(table.id, { type: 'attachment' });
+        expect(attachmentField.name).toBe('Attachments');
+        expect(attachmentField.options).toEqual({});
+
+        const buttonField = await createFieldAndGet(table.id, { type: 'button' });
+        expect(buttonField.name).toBe('Button');
+
+        const autoNumberField = await createFieldAndGet(table.id, { type: 'autoNumber' });
+        expect(autoNumberField.name).toBe('ID');
+        expect(autoNumberField.options).toEqual({ expression: 'AUTO_NUMBER()' });
+
+        const formulaField = await createFieldAndGet(table.id, {
+          type: 'formula',
+          options: { expression: '"A"' },
+        });
+        expect(formulaField.name).toBe('Calculation');
+        expect(formulaField.options).toMatchObject({ expression: '"A"' });
+      } finally {
+        await ctx.deleteTable(table.id).catch(() => undefined);
+      }
+    });
+
+    // v1 behavior (implicit in field create flow): duplicate names are made
+    // unique with a numeric suffix instead of failing.
+    it('uniquifies duplicated field names with a numeric suffix', async () => {
+      const table = await createTable({
+        baseId: ctx.baseId,
+        name: `Duplicate Names ${Date.now()}`,
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      });
+
+      try {
+        const first = await createFieldAndGet(table.id, {
+          type: 'singleLineText',
+          name: 'Same Name',
+        });
+        expect(first.name).toBe('Same Name');
+
+        const second = await createFieldAndGet(table.id, {
+          type: 'singleLineText',
+          name: 'Same Name',
+        });
+        expect(second.name).toBe('Same Name 2');
+
+        const third = await createFieldAndGet(table.id, {
+          type: 'singleLineText',
+          name: 'Same Name',
+        });
+        expect(third.name).toBe('Same Name 3');
+      } finally {
+        await ctx.deleteTable(table.id).catch(() => undefined);
+      }
+    });
+
+    // v1 reference: field.e2e-spec.ts "relational field" >
+    // "should generate semantic field name for link and lookup and rollup field"
+    it('generates semantic default names for link, lookup and rollup fields', async () => {
+      const suffix = Date.now();
+      const foreignTable = await createTable({
+        baseId: ctx.baseId,
+        name: `Semantic Foreign ${suffix}`,
+        fields: [{ type: 'singleLineText', name: 'Foreign Title', isPrimary: true }],
+      });
+      const hostTable = await createTable({
+        baseId: ctx.baseId,
+        name: `Semantic Host ${suffix}`,
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      });
+
+      try {
+        const foreignPrimary = foreignTable.fields.find((field) => field.isPrimary);
+        expect(foreignPrimary).toBeTruthy();
+        if (!foreignPrimary) return;
+
+        const linkField = await createFieldAndGet(hostTable.id, {
+          type: 'link',
+          options: {
+            relationship: 'oneMany',
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignPrimary.id,
+          },
+        });
+        expect(linkField.name).toBe(foreignTable.name);
+
+        const foreignTableAfterLink = await getTableById(foreignTable.id);
+        const symmetricField = foreignTableAfterLink.fields.find(
+          (field) => field.type === 'link' && field.options.symmetricFieldId === linkField.id
+        );
+        expect(symmetricField?.name).toBe(hostTable.name);
+
+        const lookupField = await createFieldAndGet(hostTable.id, {
+          type: 'lookup',
+          options: {
+            linkFieldId: linkField.id,
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignPrimary.id,
+          },
+        });
+        expect(lookupField.name).toBe(`${foreignPrimary.name} (from ${foreignTable.name})`);
+
+        const rollupField = await createFieldAndGet(hostTable.id, {
+          type: 'rollup',
+          options: { expression: 'sum({values})' },
+          config: {
+            linkFieldId: linkField.id,
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignPrimary.id,
+          },
+        });
+        expect(rollupField.name).toBe(`${foreignPrimary.name} Rollup (from ${foreignTable.name})`);
+      } finally {
+        await ctx.deleteTable(hostTable.id).catch(() => undefined);
+        await ctx.deleteTable(foreignTable.id).catch(() => undefined);
+      }
+    });
+
+    // v1 reference: field.e2e-spec.ts
+    //   "creates Date field with custom formatting and timezone without cast errors"
+    it('creates Date field with custom formatting and timezone on a table with records', async () => {
+      const table = await createTable({
+        baseId: ctx.baseId,
+        name: `Date Formatting ${Date.now()}`,
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      });
+
+      try {
+        await ctx.createRecords(table.id, [{ fields: {} }, { fields: {} }, { fields: {} }]);
+
+        const dateField = await createFieldAndGet(table.id, {
+          type: 'date',
+          name: '日期',
+          options: {
+            formatting: {
+              date: 'YYYY-MM-DD',
+              time: 'None',
+              timeZone: 'Asia/Shanghai',
+            },
+          },
+        });
+        expect(dateField.type).toBe('date');
+        expect(dateField.options).toEqual({
+          formatting: {
+            date: 'YYYY-MM-DD',
+            time: 'None',
+            timeZone: 'Asia/Shanghai',
+          },
+        });
+
+        await ctx.drainOutbox();
+        const records = await ctx.listRecordsWithoutDrain(table.id);
+        expect(records).toHaveLength(3);
+        for (const record of records) {
+          expect(record.fields[dateField.id] ?? null).toBeNull();
+        }
+      } finally {
+        await ctx.deleteTable(table.id).catch(() => undefined);
+      }
+    });
+
+    it.each(['singleLineText', 'longText', 'number', 'date'] as const)(
+      '[V1 PARITY] accepts unique for %s fields',
+      async (type) => {
+        const created = await createFieldAndGet(tableId, {
+          type,
+          name: `Unique ${type} ${Date.now()}`,
+          unique: true,
+        });
+        expect(created.unique).toBe(true);
+      }
+    );
+
+    it('[V1 PARITY] rejects unique for unsupported field types', async () => {
+      const hostTable = await createTable({
+        baseId: ctx.baseId,
+        name: `Unique Matrix ${Date.now()}`,
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      });
+
+      try {
+        const link = await createFieldAndGet(hostTable.id, {
+          type: 'link',
+          name: 'Rollup Source',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId,
+            lookupFieldId: foreignPrimaryFieldId,
+          },
+        });
+        const fields: Array<Record<string, unknown>> = [
+          { type: 'attachment' },
+          { type: 'user' },
+          { type: 'checkbox' },
+          { type: 'singleSelect' },
+          { type: 'multipleSelect' },
+          { type: 'rating' },
+          { type: 'formula', options: { expression: '1' } },
+          {
+            type: 'link',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId,
+              lookupFieldId: foreignPrimaryFieldId,
+            },
+          },
+          {
+            type: 'lookup',
+            options: {
+              linkFieldId: link.id,
+              foreignTableId,
+              lookupFieldId: foreignPrimaryFieldId,
+            },
+          },
+          {
+            type: 'rollup',
+            options: { expression: 'counta({values})' },
+            config: {
+              linkFieldId: link.id,
+              foreignTableId,
+              lookupFieldId: foreignPrimaryFieldId,
+            },
+          },
+          { type: 'createdTime' },
+          { type: 'lastModifiedTime' },
+          { type: 'autoNumber' },
+        ];
+
+        for (const field of fields) {
+          const response = await fetch(`${ctx.baseUrl}/tables/createField`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              baseId: ctx.baseId,
+              tableId: hostTable.id,
+              field: { id: createFieldId(), name: `Unique ${field.type}`, unique: true, ...field },
+            }),
+          });
+          expect(response.status, `field type ${field.type as string}`).toBe(400);
+        }
+      } finally {
+        await ctx.deleteTable(hostTable.id).catch(() => undefined);
+      }
+    });
+
+    it('[V1 PARITY] rejects notNull for field types that v1 and v2 both disallow', async () => {
+      const link = await createFieldAndGet(tableId, {
+        type: 'link',
+        name: `Required Matrix Source ${Date.now()}`,
+        options: {
+          relationship: 'manyOne',
+          foreignTableId,
+          lookupFieldId: foreignPrimaryFieldId,
+        },
+      });
+
+      for (const field of [
+        { type: 'checkbox' },
+        { type: 'formula', options: { expression: '1' } },
+        {
+          type: 'rollup',
+          options: { expression: 'counta({values})' },
+          config: {
+            linkFieldId: link.id,
+            foreignTableId,
+            lookupFieldId: foreignPrimaryFieldId,
+          },
+        },
+        { type: 'createdTime' },
+        { type: 'lastModifiedTime' },
+        { type: 'autoNumber' },
+      ]) {
+        const response = await fetch(`${ctx.baseUrl}/tables/createField`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            baseId: ctx.baseId,
+            tableId,
+            field: { id: createFieldId(), name: `Required ${field.type}`, notNull: true, ...field },
+          }),
+        });
+        expect(response.status, `field type ${field.type}`).toBe(400);
+      }
+    });
+
+    it('[V2 CONTRACT] accepts notNull for every supported field type on an empty table', async () => {
+      const emptyTable = await createTable({
+        baseId: ctx.baseId,
+        name: `Required Empty Table ${Date.now()}`,
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+
+      try {
+        const fields = [
+          { id: createFieldId(), type: 'singleLineText', name: 'Required Text', notNull: true },
+          { id: createFieldId(), type: 'longText', name: 'Required Notes', notNull: true },
+          { id: createFieldId(), type: 'number', name: 'Required Number', notNull: true },
+          {
+            id: createFieldId(),
+            type: 'singleSelect',
+            name: 'Required Status',
+            notNull: true,
+            options: { choices: [{ id: 'choRequired', name: 'Required', color: 'blue' }] },
+          },
+          {
+            id: createFieldId(),
+            type: 'multipleSelect',
+            name: 'Required Tags',
+            notNull: true,
+            options: { choices: [{ id: 'choRequiredTag', name: 'Required', color: 'green' }] },
+          },
+          {
+            id: createFieldId(),
+            type: 'user',
+            name: 'Required Owner',
+            notNull: true,
+            options: { isMultiple: false, shouldNotify: false },
+          },
+          { id: createFieldId(), type: 'date', name: 'Required Date', notNull: true },
+          {
+            id: createFieldId(),
+            type: 'rating',
+            name: 'Required Rating',
+            notNull: true,
+            options: { max: 5, icon: 'star', color: 'yellowBright' },
+          },
+          { id: createFieldId(), type: 'attachment', name: 'Required Files', notNull: true },
+          {
+            id: createFieldId(),
+            type: 'link',
+            name: 'Required Link',
+            notNull: true,
+            options: {
+              relationship: 'manyOne',
+              foreignTableId,
+              lookupFieldId: foreignPrimaryFieldId,
+            },
+          },
+        ] satisfies ITableFieldInput[];
+
+        for (const field of fields) {
+          const response = await fetch(`${ctx.baseUrl}/tables/createField`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ baseId: ctx.baseId, tableId: emptyTable.id, field }),
+          });
+          const rawBody = await response.json();
+
+          expect(response.status, `${field.type}: ${JSON.stringify(rawBody)}`).toBe(200);
+          const parsed = createFieldOkResponseSchema.safeParse(rawBody);
+          expect(parsed.success, `${field.type}: ${JSON.stringify(rawBody)}`).toBe(true);
+          if (!parsed.success || !parsed.data.ok) continue;
+
+          const created = parsed.data.data.table.fields.find((item) => item.id === field.id);
+          expect(created?.notNull, field.type).toBe(true);
+        }
+      } finally {
+        await ctx.deleteTable(emptyTable.id).catch(() => undefined);
+      }
+    });
+
+    // Regression (T6520): aiConfig is validated against the field type just
+    // like in v1 — an attachment field carrying a text-style aiConfig is
+    // rejected instead of being stored as an opaque value.
+    it('[V1 PARITY] rejects aiConfig on field types that do not support it', async () => {
+      const response = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId,
+          field: {
+            id: createFieldId(),
+            type: 'attachment',
+            aiConfig: {
+              type: 'summary',
+              modelKey: 'openai@gpt-4o@gpt',
+              sourceFieldId: tablePrimaryFieldId,
+            },
+          },
+        }),
+      });
+      expect(response.status).toBe(400);
+    });
+
+    // v1 reference: field.e2e-spec.ts "/api/table/{tableId}/field (GET)" and
+    // "(GET) with projection" are not portable: the v2 HTTP contract has no
+    // standalone field listing endpoint; fields are read through /tables/get,
+    // which is covered by getTableById.e2e.spec.ts.
   });
 });

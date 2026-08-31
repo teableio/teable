@@ -1,3 +1,7 @@
+import {
+  isManagedSearchIndexName,
+  MANAGED_SCOPED_SEARCH_INDEX_PREFIX,
+} from '@teable/v2-adapter-db-postgres-shared';
 import { type DomainError, type IExecutionContext, type Table } from '@teable/v2-core';
 import {
   TableQueryIndexInspection,
@@ -58,17 +62,23 @@ export class PostgresTableQueryIndexInspector {
             : 'ready';
       return TableQueryIndexInspection.create({
         state,
-        usefulIndexes: expected
-          .filter((candidate) => hasMatchingIndex(existingIndexes, candidate))
-          .map((candidate) => ({
-            fieldId: candidate.fieldId,
-            fieldDbName: candidate.fieldDbName,
-            fields: candidate.fields,
-            kind: candidate.kind,
-            accessPath: candidate.accessPath,
-            valid: true,
-            name: existingIndexes.find((index) => hasMatchingIndex([index], candidate))?.name,
-          })),
+        usefulIndexes: [
+          ...expected
+            .filter((candidate) => hasMatchingIndex(existingIndexes, candidate))
+            .map((candidate) => ({
+              fieldId: candidate.fieldId,
+              fieldDbName: candidate.fieldDbName,
+              fields: candidate.fields,
+              kind: candidate.kind,
+              accessPath: candidate.accessPath,
+              valid: true,
+              name: existingIndexes.find((index) => hasMatchingIndex([index], candidate))?.name,
+            })),
+          ...collectGeneratedTextIndexes(
+            existingIndexes,
+            new Set(abnormalIndexes.map((index) => index.name))
+          ),
+        ],
         missingIndexCandidates,
         abnormalIndexes,
       });
@@ -83,7 +93,7 @@ type ExpectedIndexCandidate = {
   readonly fieldDbName?: string;
   readonly fields: ReadonlyArray<ExpectedIndexField>;
   readonly kind: TableQueryIndexKind;
-  readonly accessPath: 'single_field' | 'composite' | 'expression';
+  readonly accessPath: 'single_field' | 'composite' | 'expression' | 'generated_text';
   readonly reason: string;
 };
 
@@ -415,24 +425,24 @@ const addSearchIndexCandidates = (
   snapshot: ReturnType<TableQueryShape['snapshot']>,
   resolveField: FieldResolver
 ): void => {
-  if (snapshot.searchShape) {
-    const searchFields = snapshot.searchShape.allFields
-      ? table.getFields()
-      : table
-          .getFields()
-          .filter((field) =>
-            snapshot.whereShape?.fields.some(
-              (whereField) => whereField.fieldId === field.id().toString()
-            )
-          );
-    for (const field of searchFields) {
-      addExpectedIndexCandidate(
-        candidates,
-        [resolveField(field.id().toString(), { role: 'search' })],
-        'gin_trgm',
-        'Search field can use trigram index'
-      );
-    }
+  if (!snapshot.searchShape) return;
+  if (snapshot.queryKind === 'search' && snapshot.searchShape.allFields) return;
+  const selectedFieldIds = new Set(
+    [
+      ...(snapshot.whereShape?.fields.map((field) => field.fieldId) ?? []),
+      ...(snapshot.searchShape.searchedFieldIds ?? []),
+    ].filter((fieldId): fieldId is string => Boolean(fieldId))
+  );
+  const searchFields = snapshot.searchShape.allFields
+    ? table.getFields()
+    : table.getFields().filter((field) => selectedFieldIds.has(field.id().toString()));
+  for (const field of searchFields) {
+    addExpectedIndexCandidate(
+      candidates,
+      [resolveField(field.id().toString(), { role: 'search' })],
+      'gin_trgm',
+      'Search field can use trigram index'
+    );
   }
 };
 
@@ -524,3 +534,34 @@ const containsColumnReference = (
 };
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const collectGeneratedTextIndexes = (
+  existingIndexes: ReadonlyArray<{ readonly name: string; readonly definition: string }>,
+  invalidNames: ReadonlySet<string>
+): ReadonlyArray<{
+  readonly kind: TableQueryIndexKind;
+  readonly accessPath: 'generated_text';
+  readonly valid: boolean;
+  readonly name: string;
+}> =>
+  existingIndexes
+    .filter((index) => isGeneratedTextSearchIndex(index))
+    .map((index) => ({
+      kind: index.definition.toLowerCase().includes('gin_bigm_ops') ? 'gin_bigm' : 'gin_trgm',
+      accessPath: 'generated_text' as const,
+      valid: !invalidNames.has(index.name),
+      name: index.name,
+    }));
+
+const isGeneratedTextSearchIndex = (index: {
+  readonly name: string;
+  readonly definition: string;
+}): boolean => {
+  const definition = index.definition.toLowerCase();
+  return (
+    isManagedSearchIndexName(index.name) &&
+    !index.name.startsWith(MANAGED_SCOPED_SEARCH_INDEX_PREFIX) &&
+    definition.includes(' using gin ') &&
+    (definition.includes('gin_trgm_ops') || definition.includes('gin_bigm_ops'))
+  );
+};

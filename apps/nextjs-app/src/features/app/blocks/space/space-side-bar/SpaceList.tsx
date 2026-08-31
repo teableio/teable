@@ -3,6 +3,7 @@ import { getUniqName, hasPermission } from '@teable/core';
 import { Plus, Database, Component } from '@teable/icons';
 import { createSpace, createBase, getSpaceList, SPACE_NAME_MAX_LENGTH } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { useContentDir } from '@teable/sdk/hooks';
 import { Spin, ConfirmDialog } from '@teable/ui-lib/base';
 import {
   Button,
@@ -36,6 +37,7 @@ import { SpaceItem } from './SpaceItem';
 
 export const SpaceList: FC = () => {
   const router = useRouter();
+  const contentDir = useContentDir();
   const { disallowSpaceCreation } = useSetting();
   const { t } = useTranslation('common');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -141,7 +143,7 @@ export const SpaceList: FC = () => {
             <DropdownMenuContent align="start" className="w-48">
               {spacesWithBaseCreatePermission.length > 0 ? (
                 <DropdownMenuItem onClick={handleOpenCreateBaseDialog}>
-                  <Database className="mr-2 size-4" />
+                  <Database className="me-2 size-4" />
                   {t('actions.create')} {t('noun.base')}
                 </DropdownMenuItem>
               ) : (
@@ -150,7 +152,7 @@ export const SpaceList: FC = () => {
                     <TooltipTrigger asChild>
                       <div>
                         <DropdownMenuItem disabled className="cursor-not-allowed">
-                          <Database className="mr-2 size-4" />
+                          <Database className="me-2 size-4" />
                           {t('actions.create')} {t('noun.base')}
                         </DropdownMenuItem>
                       </div>
@@ -163,7 +165,7 @@ export const SpaceList: FC = () => {
               )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleOpenCreateDialog}>
-                <Component className="mr-2 size-4" />
+                <Component className="me-2 size-4" />
                 {t('actions.create')} {t('noun.space')}
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -235,7 +237,7 @@ export const SpaceList: FC = () => {
                 <SelectContent>
                   {spacesWithBaseCreatePermission.map((space) => (
                     <SelectItem key={space.id} value={space.id}>
-                      {space.name}
+                      <span dir={contentDir}>{space.name}</span>
                     </SelectItem>
                   ))}
                 </SelectContent>

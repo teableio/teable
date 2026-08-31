@@ -58,27 +58,10 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 describe('OpenAPI AggregationController (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
-  const isForceV2 = process.env.FORCE_V2_ALL === 'true';
-  const textFieldCases = isForceV2
-    ? TEXT_FIELD_CASES.map((testCase) => {
-        switch (testCase.aggFunc) {
-          case StatisticsFunc.Empty:
-            return { ...testCase, expectValue: 0 };
-          case StatisticsFunc.Filled:
-            return { ...testCase, expectValue: 23 };
-          case StatisticsFunc.Unique:
-            return { ...testCase, expectValue: 22 };
-          case StatisticsFunc.PercentEmpty:
-            return { ...testCase, expectValue: 0 };
-          case StatisticsFunc.PercentFilled:
-            return { ...testCase, expectValue: 100 };
-          case StatisticsFunc.PercentUnique:
-            return { ...testCase, expectValue: 95.65217391304348 };
-          default:
-            return testCase;
-        }
-      })
-    : TEXT_FIELD_CASES;
+  // NOTE: v1 and v2 agree here — the shared core `validateCellValue` for
+  // single-line text transforms '' to null, so the x_20 empty-string record is
+  // counted as empty on both write paths (empty=1, filled=22, unique=21).
+  const textFieldCases = TEXT_FIELD_CASES;
 
   beforeAll(async () => {
     const appCtx = await initApp();

@@ -1330,7 +1330,9 @@ describe('v2 http formula (e2e)', () => {
       expect(assignedRecord).toBeDefined();
       if (!unassignedRecord || !assignedRecord) return;
 
-      expect(unassignedRecord.fields[formulaFieldId]).toBe(null);
+      // Regression (T6520): records created without field values now compute
+      // referenced formulas, so the empty user branch materializes.
+      expect(unassignedRecord.fields[formulaFieldId]).toBe('unassigned');
       expect(assignedRecord.fields[formulaFieldId]).toBe('assigned');
     });
 
@@ -1930,11 +1932,11 @@ describe('v2 http formula (e2e)', () => {
     });
 
     /**
-     * Scenario: boolean and number arithmetic
+     * Scenario: empty checkbox and number arithmetic
      * Formula:{checkboxField} + 1
-     * Expect: true coerces to 1, false to 0
+     * Expect: true remains true; false is normalized to null before evaluation
      */
-    it('should coerce boolean to number - {checkboxField} + 1', async () => {
+    it('should treat an unchecked checkbox as empty - {checkboxField} + 1', async () => {
       const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -2028,7 +2030,8 @@ describe('v2 http formula (e2e)', () => {
       if (!trueRecordResult || !falseRecordResult) return;
 
       expect(trueRecordResult.fields[formulaFieldId]).toBe('true1');
-      expect(falseRecordResult.fields[formulaFieldId]).toBe('false1');
+      // v1 stores unchecked as null, and null + 1 evaluates to '1' (never 'false1')
+      expect(falseRecordResult.fields[formulaFieldId]).toBe('1');
     });
 
     /**
@@ -17564,6 +17567,816 @@ describe('v2 http formula (e2e)', () => {
       const stored = records.find((r) => r.id === requestId);
       expect(stored).toBeDefined();
       expect(stored?.fields[formulaFieldId]).toEqual(['Alpha', 'Beta']);
+    });
+  });
+
+  // ============================================================================
+  // V1 parity ports (T6520): cases from v1 formula.e2e-spec.ts /
+  // formula-field.e2e-spec.ts that previously had no semantic v2 equivalent.
+  // ============================================================================
+  describe('v1 parity ports (T6520)', () => {
+    type CreateTableFields = Parameters<SharedTestContext['createTable']>[0]['fields'];
+
+    const parityTable = async (name: string, fields: CreateTableFields) =>
+      ctx.createTable({
+        baseId: ctx.baseId,
+        name: uniqueName(name),
+        fields,
+        views: [{ type: 'grid' }],
+      });
+
+    const parityFormula = async (
+      tableIdParam: string,
+      name: string,
+      expression: string,
+      timeZone?: 'utc' | 'Asia/Shanghai'
+    ) => {
+      const updatedTable = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: tableIdParam,
+        field: {
+          type: 'formula',
+          name,
+          options: timeZone ? { expression, timeZone } : { expression },
+        },
+      });
+      const fieldId = updatedTable.fields.find((f) => f.name === name)?.id ?? '';
+      expect(fieldId).not.toBe('');
+      return fieldId;
+    };
+
+    const parityFields = async (tableIdParam: string, recordId: string) => {
+      const records = await ctx.listRecords(tableIdParam);
+      const record = records.find((r) => r.id === recordId);
+      expect(record).toBeDefined();
+      if (!record) throw new Error(`record ${recordId} not found`);
+      return record.fields;
+    };
+
+    describe('binary comparison coercion (v1 operatorCases)', () => {
+      it('should evaluate text equals numeric literal - {textField} = 0', async () => {
+        const table = await parityTable('Parity Text Eq Zero', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleLineText', name: 'Txt' },
+        ]);
+        const txtId = table.fields.find((f) => f.name === 'Txt')?.id ?? '';
+        const formulaId = await parityFormula(table.id, 'Eq Zero', `{${txtId}} = 0`);
+
+        const record = await ctx.createRecord(table.id, { [txtId]: '0' });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(true);
+
+        await ctx.updateRecord(table.id, record.id, { [txtId]: '5' });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(false);
+      });
+
+      it('should evaluate text greater than numeric literal - {textField} > 2', async () => {
+        const table = await parityTable('Parity Text Gt Two', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleLineText', name: 'Txt' },
+        ]);
+        const txtId = table.fields.find((f) => f.name === 'Txt')?.id ?? '';
+        const formulaId = await parityFormula(table.id, 'Gt Two', `{${txtId}} > 2`);
+
+        const record = await ctx.createRecord(table.id, { [txtId]: '10' });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(true);
+
+        await ctx.updateRecord(table.id, record.id, { [txtId]: '1' });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(false);
+      });
+
+      it('should evaluate number less than string literal - {numberField} < "10"', async () => {
+        const table = await parityTable('Parity Num Lt String', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'number', name: 'Num' },
+        ]);
+        const numId = table.fields.find((f) => f.name === 'Num')?.id ?? '';
+        const formulaId = await parityFormula(table.id, 'Lt Ten', `{${numId}} < "10"`);
+
+        const record = await ctx.createRecord(table.id, { [numId]: 3 });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(true);
+
+        await ctx.updateRecord(table.id, record.id, { [numId]: 20 });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(false);
+      });
+
+      it('should evaluate text minus numeric literal - {textField} - 2', async () => {
+        const table = await parityTable('Parity Text Minus', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleLineText', name: 'Txt' },
+        ]);
+        const txtId = table.fields.find((f) => f.name === 'Txt')?.id ?? '';
+        const formulaId = await parityFormula(table.id, 'Minus Two', `{${txtId}} - 2`);
+
+        const record = await ctx.createRecord(table.id, { [txtId]: '5' });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(3);
+
+        await ctx.updateRecord(table.id, record.id, { [txtId]: '1' });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(-1);
+      });
+
+      it('should evaluate text divided by numeric literal - {textField} / 2', async () => {
+        const table = await parityTable('Parity Text Divide', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleLineText', name: 'Txt' },
+        ]);
+        const txtId = table.fields.find((f) => f.name === 'Txt')?.id ?? '';
+        const formulaId = await parityFormula(table.id, 'Div Two', `{${txtId}} / 2`);
+
+        const record = await ctx.createRecord(table.id, { [txtId]: '8' });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(4);
+
+        await ctx.updateRecord(table.id, record.id, { [txtId]: '3' });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBeCloseTo(1.5, 9);
+      });
+
+      it('should evaluate text multiplied by numeric literal - {textField} * 4', async () => {
+        const table = await parityTable('Parity Text Multiply', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleLineText', name: 'Txt' },
+        ]);
+        const txtId = table.fields.find((f) => f.name === 'Txt')?.id ?? '';
+        const formulaId = await parityFormula(table.id, 'Mul Four', `{${txtId}} * 4`);
+
+        const record = await ctx.createRecord(table.id, { [txtId]: '3' });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(12);
+
+        await ctx.updateRecord(table.id, record.id, { [txtId]: '5' });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(20);
+      });
+
+      it('should evaluate multi select equality against text - ARRAY_JOIN({multiSelect}, "") = {textField}', async () => {
+        const table = await parityTable('Parity MultiSelect Eq', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleLineText', name: 'Txt' },
+          { type: 'multipleSelect', name: 'Tags', options: ['Alpha', 'Beta'] },
+        ]);
+        const txtId = table.fields.find((f) => f.name === 'Txt')?.id ?? '';
+        const tagsField = table.fields.find((f) => f.name === 'Tags');
+        const tagsId = tagsField?.id ?? '';
+        const choices =
+          (tagsField?.options as { choices?: Array<{ id: string; name: string }> })?.choices ?? [];
+        const alphaId = choices.find((c) => c.name === 'Alpha')?.id ?? '';
+        const betaId = choices.find((c) => c.name === 'Beta')?.id ?? '';
+
+        const formulaId = await parityFormula(
+          table.id,
+          'Tags Eq Text',
+          `ARRAY_JOIN({${tagsId}}, '') = {${txtId}}`
+        );
+
+        const record = await ctx.createRecord(table.id, {
+          [txtId]: 'Alpha',
+          [tagsId]: [alphaId],
+        });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(true);
+
+        await ctx.updateRecord(table.id, record.id, { [tagsId]: [betaId] });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(false);
+      });
+
+      it('should evaluate user equality against text - TEXT_ALL({userField}) = {textField}', async () => {
+        const table = await parityTable('Parity User Eq', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleLineText', name: 'Txt' },
+          { type: 'user', name: 'Assignee', options: { isMultiple: false, shouldNotify: false } },
+        ]);
+        const txtId = table.fields.find((f) => f.name === 'Txt')?.id ?? '';
+        const userId = table.fields.find((f) => f.name === 'Assignee')?.id ?? '';
+
+        const formulaId = await parityFormula(
+          table.id,
+          'User Eq Text',
+          `TEXT_ALL({${userId}}) = {${txtId}}`
+        );
+
+        const record = await ctx.createRecord(table.id, {
+          [txtId]: 'System',
+          [userId]: { id: 'system', title: 'System' },
+        });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(true);
+
+        await ctx.updateRecord(table.id, record.id, { [txtId]: 'someone else' });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(false);
+      });
+    });
+
+    describe('numeric function additions (v1 numericCases)', () => {
+      it('should evaluate ROUNDUP and ROUNDDOWN', async () => {
+        const table = await parityTable('Parity RoundUpDown', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'number', name: 'Num' },
+        ]);
+        const numId = table.fields.find((f) => f.name === 'Num')?.id ?? '';
+        const roundUpId = await parityFormula(table.id, 'RoundUp', `ROUNDUP({${numId}} / 7, 2)`);
+        const roundDownId = await parityFormula(
+          table.id,
+          'RoundDown',
+          `ROUNDDOWN({${numId}} / 7, 2)`
+        );
+
+        const record = await ctx.createRecord(table.id, { [numId]: 12.345 });
+        await ctx.drainOutbox();
+        const fields = await parityFields(table.id, record.id);
+        expect(fields[roundUpId]).toBeCloseTo(Math.ceil((12.345 / 7) * 100) / 100, 9);
+        expect(fields[roundDownId]).toBeCloseTo(Math.floor((12.345 / 7) * 100) / 100, 9);
+      });
+
+      it('should evaluate SUM with multiple arguments and conditional logic', async () => {
+        const table = await parityTable('Parity Sum If', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'number', name: 'Num' },
+        ]);
+        const numId = table.fields.find((f) => f.name === 'Num')?.id ?? '';
+        const formulaId = await parityFormula(
+          table.id,
+          'Sum If',
+          `SUM(IF({${numId}} > 20, {${numId}} - 20, {${numId}} + 20), {${numId}})`
+        );
+
+        const record = await ctx.createRecord(table.id, { [numId]: 25 });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(30);
+
+        await ctx.updateRecord(table.id, record.id, { [numId]: 10 });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(40);
+      });
+    });
+
+    describe('text function additions (v1 textCases)', () => {
+      it('should evaluate REGEXP_REPLACE on text fields', async () => {
+        const table = await parityTable('Parity Regexp Replace', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleLineText', name: 'Txt' },
+        ]);
+        const txtId = table.fields.find((f) => f.name === 'Txt')?.id ?? '';
+        const vowelsId = await parityFormula(
+          table.id,
+          'Vowels',
+          `REGEXP_REPLACE({${txtId}}, "[aeiou]", "#")`
+        );
+        const emailId = await parityFormula(
+          table.id,
+          'Email Local',
+          `"user name:" & REGEXP_REPLACE({${txtId}}, '@.*', '')`
+        );
+
+        const vowelRecord = await ctx.createRecord(table.id, { [txtId]: 'Teable Rocks' });
+        const emailRecord = await ctx.createRecord(table.id, { [txtId]: 'olivia@example.com' });
+        await ctx.drainOutbox();
+
+        expect((await parityFields(table.id, vowelRecord.id))[vowelsId]).toBe(
+          'Teable Rocks'.replace(/[aeiou]/g, '#')
+        );
+        expect((await parityFields(table.id, emailRecord.id))[emailId]).toBe('user name:olivia');
+      });
+
+      it('should calculate formula containing question mark literal', async () => {
+        const table = await parityTable('Parity Question Mark', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleLineText', name: 'Txt' },
+        ]);
+        const txtId = table.fields.find((f) => f.name === 'Txt')?.id ?? '';
+        const formulaId = await parityFormula(
+          table.id,
+          'Url Formula',
+          `'https://example.com/?id=' & {${txtId}}`
+        );
+
+        const record = await ctx.createRecord(table.id, { [txtId]: 'abc' });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(
+          'https://example.com/?id=abc'
+        );
+      });
+
+      it('should update records referencing spaced curly field identifiers', async () => {
+        const table = await parityTable('Parity Spaced Curly', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'number', name: 'Num' },
+          { type: 'singleLineText', name: 'Txt' },
+        ]);
+        const numId = table.fields.find((f) => f.name === 'Num')?.id ?? '';
+        const txtId = table.fields.find((f) => f.name === 'Txt')?.id ?? '';
+        const formulaId = await parityFormula(
+          table.id,
+          'Spaced Formula',
+          `{ ${numId} } & '-' & {   ${txtId}   }`
+        );
+
+        const record = await ctx.createRecord(table.id, { [numId]: 5, [txtId]: 'old' });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe('5-old');
+
+        await ctx.updateRecord(table.id, record.id, { [numId]: 10, [txtId]: 'fresh' });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe('10-fresh');
+      });
+
+      it('should keep BLANK() comparisons stable with spaced function calls', async () => {
+        const table = await parityTable('Parity Blank Spacing', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'number', name: 'Weight' },
+        ]);
+        const numId = table.fields.find((f) => f.name === 'Weight')?.id ?? '';
+        const compactId = await parityFormula(table.id, 'Blank Compact', `{${numId}} !=BLANK()`);
+        const spacedId = await parityFormula(table.id, 'Blank Spaced', `{${numId}} != BLANK()`);
+
+        const record = await ctx.createRecord(table.id, { [numId]: 70 });
+        await ctx.drainOutbox();
+        const fields = await parityFields(table.id, record.id);
+        expect(fields[compactId]).toBe(true);
+        expect(fields[spacedId]).toBe(true);
+      });
+
+      it('should encode line breaks in long text with ENCODE_URL_COMPONENT', async () => {
+        const multilineInput = [
+          'Been using Teable lately — honestly impressed @teableio',
+          ' ',
+          'Scattered work → AI-native system (for projects, CRM & marketing) in minutes 🚀',
+          'teable.ai',
+        ].join('\n');
+
+        const table = await parityTable('Parity Encode Multiline', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'longText', name: 'Long' },
+        ]);
+        const longId = table.fields.find((f) => f.name === 'Long')?.id ?? '';
+        const formulaId = await parityFormula(
+          table.id,
+          'Encoded',
+          `ENCODE_URL_COMPONENT({${longId}})`
+        );
+
+        const record = await ctx.createRecord(table.id, { [longId]: multilineInput });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(
+          encodeURIComponent(multilineInput)
+        );
+      });
+    });
+
+    describe('logical and system functions (v1 logicalCases)', () => {
+      it('should evaluate RECORD_ID for existing records', async () => {
+        const table = await parityTable('Parity Record Id', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+        ]);
+        // v1 logicalCases order: the record exists before the formula field is
+        // created, so the formula seed pass computes RECORD_ID().
+        const record = await ctx.createRecord(table.id, {});
+        const formulaId = await parityFormula(table.id, 'Rec Id', 'RECORD_ID()');
+
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(record.id);
+      });
+
+      // Regression (T6520): formulas without field references depend only on the
+      // row existing, so insert seeding includes them explicitly.
+      it('should populate RECORD_ID formula for newly created records', async () => {
+        const table = await parityTable('Parity Record Id Create', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+        ]);
+        const formulaId = await parityFormula(table.id, 'Rec Id', 'RECORD_ID()');
+
+        const record = await ctx.createRecord(table.id, {});
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(record.id);
+      });
+
+      it('should evaluate AUTO_NUMBER formula matching the auto number field', async () => {
+        const table = await parityTable('Parity Auto Number Fn', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'autoNumber', name: 'Auto' },
+        ]);
+        const autoId = table.fields.find((f) => f.name === 'Auto')?.id ?? '';
+        const formulaId = await parityFormula(table.id, 'Auto Fn', 'AUTO_NUMBER()');
+        const record = await ctx.createRecord(table.id, {});
+
+        await ctx.drainOutbox();
+        const fields = await parityFields(table.id, record.id);
+        expect(typeof fields[autoId]).toBe('number');
+        expect(fields[formulaId]).toBe(fields[autoId]);
+      });
+
+      it('should evaluate TEXT_ALL passthrough on text fields', async () => {
+        const table = await parityTable('Parity Text All', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleLineText', name: 'Txt' },
+        ]);
+        const txtId = table.fields.find((f) => f.name === 'Txt')?.id ?? '';
+        const formulaId = await parityFormula(table.id, 'Text All', `TEXT_ALL({${txtId}})`);
+
+        const record = await ctx.createRecord(table.id, { [txtId]: 'Teable Rocks' });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe('Teable Rocks');
+      });
+
+      it('should normalize truthiness for non-boolean logical inputs', async () => {
+        const table = await parityTable('Parity Logical Truthiness', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'number', name: 'Num' },
+          { type: 'singleLineText', name: 'Txt' },
+        ]);
+        const numId = table.fields.find((f) => f.name === 'Num')?.id ?? '';
+        const txtId = table.fields.find((f) => f.name === 'Txt')?.id ?? '';
+        const andId = await parityFormula(table.id, 'And', `AND({${numId}}, {${txtId}})`);
+        const orId = await parityFormula(table.id, 'Or', `OR({${numId}}, {${txtId}})`);
+        const notId = await parityFormula(table.id, 'Not', `NOT({${numId}})`);
+
+        const record = await ctx.createRecord(table.id, { [numId]: 5, [txtId]: 'value' });
+        await ctx.drainOutbox();
+        let fields = await parityFields(table.id, record.id);
+        expect(fields[andId]).toBe(true);
+        expect(fields[orId]).toBe(true);
+        expect(fields[notId]).toBe(false);
+
+        // v1 stores empty inputs ('' -> null, T6520); 0 stays 0
+        await ctx.updateRecord(table.id, record.id, { [numId]: 0, [txtId]: '' });
+        await ctx.drainOutbox();
+        fields = await parityFields(table.id, record.id);
+        expect(fields[andId]).toBe(false);
+        expect(fields[orId]).toBe(false);
+        expect(fields[notId]).toBe(true);
+
+        await ctx.updateRecord(table.id, record.id, { [numId]: null, [txtId]: 'fallback' });
+        await ctx.drainOutbox();
+        fields = await parityFields(table.id, record.id);
+        expect(fields[andId]).toBe(false);
+        expect(fields[orId]).toBe(true);
+        expect(fields[notId]).toBe(true);
+      });
+
+      it('should treat null numeric operands as zero for comparison operators', async () => {
+        const table = await parityTable('Parity Null Numeric Cmp', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'number', name: 'Left' },
+          { type: 'number', name: 'Right' },
+        ]);
+        const leftId = table.fields.find((f) => f.name === 'Left')?.id ?? '';
+        const rightId = table.fields.find((f) => f.name === 'Right')?.id ?? '';
+        const gtId = await parityFormula(
+          table.id,
+          'Gt',
+          `IF({${leftId}} > {${rightId}}, 'left', 'right')`
+        );
+        const ltId = await parityFormula(
+          table.id,
+          'Lt',
+          `IF({${leftId}} < {${rightId}}, 'less', 'not-less')`
+        );
+        const eqId = await parityFormula(
+          table.id,
+          'Eq',
+          `IF({${leftId}} = {${rightId}}, 'equal', 'different')`
+        );
+
+        const recordInputs: Array<Record<string, unknown>> = [
+          { [rightId]: -1 }, // null > -1 behaves like 0 > -1
+          { [rightId]: 3 }, // null < 3 behaves like 0 < 3
+          { [rightId]: 0 }, // null = 0 behaves like 0 = 0
+          { [leftId]: 2 }, // 2 > null behaves like 2 > 0
+        ];
+        const created = [] as Array<{ id: string }>;
+        for (const input of recordInputs) {
+          created.push(await ctx.createRecord(table.id, input));
+        }
+        await ctx.drainOutbox();
+
+        const expectations = [
+          { gt: 'left', lt: 'not-less', eq: 'different' },
+          { gt: 'right', lt: 'less', eq: 'different' },
+          { gt: 'right', lt: 'not-less', eq: 'equal' },
+          { gt: 'left', lt: 'not-less', eq: 'different' },
+        ];
+
+        for (let index = 0; index < created.length; index += 1) {
+          const fields = await parityFields(table.id, created[index].id);
+          expect(fields[gtId]).toBe(expectations[index].gt);
+          expect(fields[ltId]).toBe(expectations[index].lt);
+          expect(fields[eqId]).toBe(expectations[index].eq);
+        }
+      });
+
+      it('should treat numeric IF fallbacks with blank branches as nulls', async () => {
+        const table = await parityTable('Parity Numeric If Blank', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'number', name: 'Cond' },
+          { type: 'number', name: 'Sub' },
+          { type: 'number', name: 'BlankCond' },
+          { type: 'number', name: 'Fallback' },
+        ]);
+        const condId = table.fields.find((f) => f.name === 'Cond')?.id ?? '';
+        const subId = table.fields.find((f) => f.name === 'Sub')?.id ?? '';
+        const blankCondId = table.fields.find((f) => f.name === 'BlankCond')?.id ?? '';
+        const fallbackId = table.fields.find((f) => f.name === 'Fallback')?.id ?? '';
+        const formulaId = await parityFormula(
+          table.id,
+          'If Fallback',
+          `IF({${condId}} > 0, {${condId}} - {${subId}}, IF({${blankCondId}} > 0, '', {${fallbackId}}))`
+        );
+
+        const record = await ctx.createRecord(table.id, {
+          [condId]: 10,
+          [subId]: 3,
+          [blankCondId]: 0,
+          [fallbackId]: 5,
+        });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBeCloseTo(7, 9);
+
+        await ctx.updateRecord(table.id, record.id, { [condId]: 0, [blankCondId]: 8 });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId] ?? null).toBeNull();
+
+        await ctx.updateRecord(table.id, record.id, { [blankCondId]: 0, [fallbackId]: -4 });
+        await ctx.drainOutbox();
+        expect(Number((await parityFields(table.id, record.id))[formulaId])).toBe(-4);
+      });
+
+      it('should compare multi select values against literals inside IF branches', async () => {
+        const table = await parityTable('Parity MultiSelect If', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'multipleSelect', name: 'Tags', options: ['Alpha', 'Beta'] },
+        ]);
+        const tagsField = table.fields.find((f) => f.name === 'Tags');
+        const tagsId = tagsField?.id ?? '';
+        const choices =
+          (tagsField?.options as { choices?: Array<{ id: string; name: string }> })?.choices ?? [];
+        const alphaId = choices.find((c) => c.name === 'Alpha')?.id ?? '';
+        const betaId = choices.find((c) => c.name === 'Beta')?.id ?? '';
+        const formulaId = await parityFormula(
+          table.id,
+          'Tags If',
+          `IF({${tagsId}} = "Alpha", 1, 2)`
+        );
+
+        const record = await ctx.createRecord(table.id, { [tagsId]: [alphaId] });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(1);
+
+        await ctx.updateRecord(table.id, record.id, { [tagsId]: [betaId] });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId]).toBe(2);
+      });
+
+      it('should evaluate SWITCH formulas with numeric branches and blank literals', async () => {
+        const table = await parityTable('Parity Switch Blank', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleSelect', name: 'Status', options: ['light', 'medium', 'heavy'] },
+          { type: 'number', name: 'Amount' },
+        ]);
+        const statusField = table.fields.find((f) => f.name === 'Status');
+        const statusId = statusField?.id ?? '';
+        const choices =
+          (statusField?.options as { choices?: Array<{ id: string; name: string }> })?.choices ??
+          [];
+        const lightId = choices.find((c) => c.name === 'light')?.id ?? '';
+        const mediumId = choices.find((c) => c.name === 'medium')?.id ?? '';
+        const heavyId = choices.find((c) => c.name === 'heavy')?.id ?? '';
+        const amountId = table.fields.find((f) => f.name === 'Amount')?.id ?? '';
+        const formulaId = await parityFormula(
+          table.id,
+          'Switch Mixed',
+          `SWITCH({${statusId}}, "heavy", '', "medium", {${amountId}}, 123)`
+        );
+
+        const record = await ctx.createRecord(table.id, {
+          [statusId]: mediumId,
+          [amountId]: 42,
+        });
+        await ctx.drainOutbox();
+        expect(Number((await parityFields(table.id, record.id))[formulaId])).toBe(42);
+
+        await ctx.updateRecord(table.id, record.id, { [statusId]: heavyId });
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId] ?? null).toBeNull();
+
+        await ctx.updateRecord(table.id, record.id, { [statusId]: lightId });
+        await ctx.drainOutbox();
+        expect(Number((await parityFields(table.id, record.id))[formulaId])).toBe(123);
+      });
+
+      it('should reject LAST_MODIFIED_TIME with non-field parameters', async () => {
+        const table = await parityTable('Parity LMT Literal', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+        ]);
+
+        const createFieldResponse = await fetch(`${ctx.baseUrl}/tables/createField`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            baseId: ctx.baseId,
+            tableId: table.id,
+            field: {
+              type: 'formula',
+              name: 'Invalid LMT',
+              options: {
+                expression: 'LAST_MODIFIED_TIME("literal param")',
+              },
+            },
+          }),
+        });
+        expect(createFieldResponse.status).toBe(400);
+      });
+    });
+
+    describe('date comparison boolean semantics (T5496)', () => {
+      it('should preserve boolean semantics for date comparisons nested in AND/OR', async () => {
+        const table = await parityTable('Parity T5496 Date Bool', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'date', name: 'Event' },
+        ]);
+        const eventId = table.fields.find((f) => f.name === 'Event')?.id ?? '';
+
+        // IS_AFTER(Mar 1, Jun 1) = false, IS_BEFORE(Mar 1, Dec 1) = true => AND false
+        const andFalseId = await parityFormula(
+          table.id,
+          'And Date False',
+          `AND(IS_AFTER({${eventId}}, '2024-06-01'), IS_BEFORE({${eventId}}, '2024-12-01'))`
+        );
+        // IS_AFTER false, IS_SAME false => OR false
+        const orFalseId = await parityFormula(
+          table.id,
+          'Or Date False',
+          `OR(IS_AFTER({${eventId}}, '2024-06-01'), IS_SAME({${eventId}}, '2024-06-01', 'day'))`
+        );
+        // IS_AFTER true, IS_BEFORE true => AND true
+        const andTrueId = await parityFormula(
+          table.id,
+          'And Date True',
+          `AND(IS_AFTER({${eventId}}, '2024-01-01'), IS_BEFORE({${eventId}}, '2024-12-01'))`
+        );
+
+        const record = await ctx.createRecord(table.id, {
+          [eventId]: '2024-03-01T00:00:00.000Z',
+        });
+        await ctx.drainOutbox();
+        const fields = await parityFields(table.id, record.id);
+        expect(fields[andFalseId]).toBe(false);
+        expect(fields[orFalseId]).toBe(false);
+        expect(fields[andTrueId]).toBe(true);
+      });
+    });
+
+    describe('datetime additions (v1 datetimeDiffCases / safe calculate)', () => {
+      it('should evaluate DATETIME_DIFF for month/quarter/year spans', async () => {
+        const table = await parityTable('Parity Diff Spans', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+        ]);
+        const spanCases = [
+          {
+            unit: 'month',
+            start: '2024-01-31T00:00:00.000Z',
+            end: '2024-02-29T00:00:00.000Z',
+          },
+          {
+            unit: 'months',
+            start: '2024-01-31T00:00:00.000Z',
+            end: '2024-02-29T00:00:00.000Z',
+          },
+          {
+            unit: 'quarter',
+            start: '2025-01-01T00:00:00.000Z',
+            end: '2025-04-01T00:00:00.000Z',
+          },
+          {
+            unit: 'quarters',
+            start: '2025-01-01T00:00:00.000Z',
+            end: '2025-04-01T00:00:00.000Z',
+          },
+          {
+            unit: 'year',
+            start: '2024-01-01T00:00:00.000Z',
+            end: '2025-01-01T00:00:00.000Z',
+          },
+          {
+            unit: 'years',
+            start: '2024-01-01T00:00:00.000Z',
+            end: '2025-01-01T00:00:00.000Z',
+          },
+        ] as const;
+
+        // The record must exist before the literal-only formula fields are
+        // created: v2 only computes no-field-reference formulas in the seed pass
+        // (see "Known drift (T6520)" note in the logical functions describe).
+        const record = await ctx.createRecord(table.id, {});
+
+        const fieldIds: string[] = [];
+        for (const { unit, start, end } of spanCases) {
+          fieldIds.push(
+            await parityFormula(
+              table.id,
+              `Diff ${unit}`,
+              `DATETIME_DIFF(DATETIME_PARSE("${end}"), DATETIME_PARSE("${start}"), '${unit}')`,
+              'utc'
+            )
+          );
+        }
+
+        await ctx.drainOutbox();
+        const fields = await parityFields(table.id, record.id);
+        for (const fieldId of fieldIds) {
+          expect(Number(fields[fieldId])).toBeCloseTo(1, 6);
+        }
+      });
+
+      it('should calculate formula with timeZone - DAY over offset literals', async () => {
+        const table = await parityTable('Parity Day TimeZone', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+        ]);
+        // Seed-path ordering: see "Known drift (T6520)" note about
+        // no-field-reference formulas and newly created records.
+        const record = await ctx.createRecord(table.id, {});
+
+        const day29Id = await parityFormula(
+          table.id,
+          'Day Feb29',
+          "DAY('2024-02-29T00:00:00+08:00')",
+          'Asia/Shanghai'
+        );
+        const day27Id = await parityFormula(
+          table.id,
+          'Day Feb27',
+          "DAY('2024-02-28T00:00:00+09:00')",
+          'Asia/Shanghai'
+        );
+
+        await ctx.drainOutbox();
+        const fields = await parityFields(table.id, record.id);
+        expect(fields[day29Id]).toBe(29);
+        expect(fields[day27Id]).toBe(27);
+      });
+
+      it('should treat DATETIME_PARSE without format as null when generated string is invalid', async () => {
+        const table = await parityTable('Parity Parse Guard', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'date', name: 'Birthday' },
+        ]);
+        const dateId = table.fields.find((f) => f.name === 'Birthday')?.id ?? '';
+        const formulaId = await parityFormula(
+          table.id,
+          'Anniversary',
+          `DATETIME_PARSE(YEAR(TODAY()) & '-' & MONTH({${dateId}}) & '-' & DAY({${dateId}}))`,
+          'utc'
+        );
+
+        const record = await ctx.createRecord(table.id, {});
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId] ?? null).toBeNull();
+      });
+    });
+
+    describe('safe calculate (v1 parity)', () => {
+      it('should safe calculate error function - text multiplied literal', async () => {
+        const table = await parityTable('Parity Safe Calc', [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+        ]);
+        // Seed-path ordering so the formula is actually evaluated for the record
+        // (see "Known drift (T6520)" note about no-field-reference formulas).
+        const record = await ctx.createRecord(table.id, {});
+
+        const createFieldResponse = await fetch(`${ctx.baseUrl}/tables/createField`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            baseId: ctx.baseId,
+            tableId: table.id,
+            field: {
+              type: 'formula',
+              name: 'Unsafe Product',
+              options: {
+                expression: "'x'*10",
+              },
+            },
+          }),
+        });
+        expect(createFieldResponse.status).toBe(200);
+        const fieldRaw = await createFieldResponse.json();
+        const fieldParsed = createFieldOkResponseSchema.safeParse(fieldRaw);
+        expect(fieldParsed.success).toBe(true);
+        if (!fieldParsed.success || !fieldParsed.data.ok) return;
+        const formulaId =
+          fieldParsed.data.data.table.fields.find((f) => f.name === 'Unsafe Product')?.id ?? '';
+
+        await ctx.drainOutbox();
+        expect((await parityFields(table.id, record.id))[formulaId] ?? null).toBeNull();
+      });
     });
   });
 });

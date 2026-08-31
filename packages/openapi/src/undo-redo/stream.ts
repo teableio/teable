@@ -29,6 +29,7 @@ export const undoRedoStreamErrorEventSchema = z.object({
   mode: z.enum(['undo', 'redo']),
   message: z.string(),
   engine: z.enum(['v1', 'v2']).optional(),
+  code: z.string().optional(),
 });
 
 export const undoRedoStreamEventSchema = z.union([

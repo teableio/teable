@@ -17,6 +17,7 @@ import {
   X_TEABLE_V2_HEADER,
   X_TEABLE_V2_REASON_HEADER,
 } from '../canary/interceptors/v2-indicator.interceptor';
+import type { FieldOpenApiV2Service } from '../field/open-api/field-open-api-v2.service';
 import type { RecordOpenApiV2Service } from '../record/open-api/record-open-api-v2.service';
 import type { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import type { ShareViewScopeService } from '../record/share-view-scope.service';
@@ -40,6 +41,7 @@ describe('SelectionController', () => {
       | 'resolveRecordIdsBySelection'
     >
   >;
+  let fieldOpenApiV2Service: Mocked<Pick<FieldOpenApiV2Service, 'getFields'>>;
   let cls: { get: ReturnType<typeof vi.fn> };
   let shareViewScopeService: Mocked<
     Pick<ShareViewScopeService, 'assertPaste' | 'assertSelectionMutation'>
@@ -103,6 +105,9 @@ describe('SelectionController', () => {
       pasteStream: vi.fn(),
       resolveRecordIdsBySelection: vi.fn(),
     };
+    fieldOpenApiV2Service = {
+      getFields: vi.fn(),
+    };
     cls = {
       get: vi.fn(),
     };
@@ -115,6 +120,7 @@ describe('SelectionController', () => {
       selectionService as unknown as SelectionService,
       recordOpenApiService as unknown as RecordOpenApiService,
       recordOpenApiV2Service as unknown as RecordOpenApiV2Service,
+      fieldOpenApiV2Service as unknown as FieldOpenApiV2Service,
       cls as unknown as ClsService<IClsStore>,
       shareViewScopeService as unknown as ShareViewScopeService
     );

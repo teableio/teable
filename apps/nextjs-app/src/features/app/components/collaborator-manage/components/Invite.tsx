@@ -2,7 +2,7 @@ import { X } from '@teable/icons';
 import { Button, cn } from '@teable/ui-lib';
 import { Trans, useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
-import { z } from 'zod';
+import { isInviteEmailValid, withInviteEmail } from '../utils';
 
 interface IInvite {
   className?: string;
@@ -43,19 +43,22 @@ export const Invite = (props: IInvite) => {
     setEmail('');
   };
 
+  /** See EmailContent: same rules, same reason — this is the other invite entry. */
+  const addEmail = (value: string) => {
+    if (!isInviteEmailValid(value)) {
+      return false;
+    }
+    setInviteEmails((emails) => withInviteEmail(emails, value));
+    return true;
+  };
+
   const emailInputChange = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.code === 'Backspace' && !email?.length) {
       setInviteEmails(inviteEmails.slice(0, inviteEmails.length - 1));
       return;
     }
-    if (
-      ['Space', 'Enter'].includes(e.code) &&
-      email &&
-      z.string().email().safeParse(email).success &&
-      !inviteEmails.includes(email)
-    ) {
+    if (['Space', 'Enter'].includes(e.code) && email && addEmail(email)) {
       setEmail('');
-      setInviteEmails(inviteEmails.concat(email));
       e.preventDefault();
     }
   };
@@ -64,7 +67,7 @@ export const Invite = (props: IInvite) => {
     setInviteEmails((inviteEmails) => inviteEmails.filter((inviteEmail) => email !== inviteEmail));
   };
 
-  const isEmailInputValid = useMemo(() => z.string().email().safeParse(email).success, [email]);
+  const isEmailInputValid = useMemo(() => isInviteEmailValid(email), [email]);
 
   const EmailInvite = (
     <div>
@@ -77,7 +80,7 @@ export const Invite = (props: IInvite) => {
             >
               {email}
               <X
-                className="ml-1 cursor-pointer hover:opacity-70"
+                className="ms-1 cursor-pointer hover:opacity-70"
                 onClick={() => deleteEmail(email)}
               />
             </div>
@@ -89,8 +92,7 @@ export const Invite = (props: IInvite) => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onBlur={() => {
-              if (isEmailInputValid) {
-                setInviteEmails(inviteEmails.concat(email));
+              if (addEmail(email)) {
                 setEmail('');
               }
             }}
@@ -136,7 +138,7 @@ export const Invite = (props: IInvite) => {
     <div className={cn(className, 'rounded bg-muted px-4 py-2')}>
       <div className="pb-2">
         <Button
-          className="mr-6 p-0 data-[state=active]:underline"
+          className="me-6 p-0 data-[state=active]:underline"
           data-state={inviteType === 'email' ? 'active' : 'inactive'}
           variant={'link'}
           onClick={() => changeInviteType('email')}

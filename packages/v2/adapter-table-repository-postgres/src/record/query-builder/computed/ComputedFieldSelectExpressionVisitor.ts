@@ -423,12 +423,13 @@ export class ComputedFieldSelectExpressionVisitor
       let finalValueSql: string;
 
       if (expr.storageKind === 'json' && this.shouldExtractJsonDisplay(expr)) {
-        // When formula directly references a structured JSON field (e.g., link/button),
-        // extract display values (title/name) rather than returning the full object.
-        finalValueSql =
-          formulaIsMultiple || expr.isArray
-            ? this.extractJsonArrayToTextJsonb(expr.valueSql)
-            : extractJsonScalarText(`(${expr.valueSql})::jsonb`);
+        if (formulaIsMultiple) {
+          finalValueSql = this.extractJsonArrayToTextJsonb(expr.valueSql);
+        } else if (expr.isArray) {
+          finalValueSql = this.unwrapFormulaArrayToScalar(expr.valueSql, expr.valueType);
+        } else {
+          finalValueSql = extractJsonScalarText(`(${expr.valueSql})::jsonb`);
+        }
       } else if (expr.isArray && !formulaIsMultiple) {
         finalValueSql = this.unwrapFormulaArrayToScalar(expr.valueSql, expr.valueType);
       } else if (expr.storageKind === 'json' && !formulaIsMultiple) {
@@ -479,7 +480,6 @@ export class ComputedFieldSelectExpressionVisitor
         return firstElemText;
     }
   }
-
   private unwrapFormulaJsonScalar(valueSql: string, valueType: SqlValueType): string {
     const scalarText = extractJsonScalarText(`(${valueSql})::jsonb`);
 

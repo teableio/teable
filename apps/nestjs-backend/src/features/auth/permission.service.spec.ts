@@ -47,7 +47,7 @@ describe('PermissionService', () => {
       const spaceId = 'space-id';
       const roleName = 'space-role';
       prismaServiceMock.collaborator.findMany.mockResolvedValue([{ roleName } as any]);
-      prismaServiceMock.space.findFirst.mockResolvedValue({ deletedTime: null } as any);
+      prismaServiceMock.space.findUnique.mockResolvedValue({ deletedTime: null } as any);
       const result = await service['getRoleBySpaceId'](spaceId);
       expect(result).toBe(roleName);
     });
@@ -55,7 +55,7 @@ describe('PermissionService', () => {
     it('should throw a ForbiddenException if collaborator is not found', async () => {
       const spaceId = 'space-id1';
       prismaServiceMock.collaborator.findMany.mockResolvedValue([]);
-      prismaServiceMock.space.findFirst.mockResolvedValue({ deletedTime: null } as any);
+      prismaServiceMock.space.findUnique.mockResolvedValue({ deletedTime: null } as any);
       const res = await service['getRoleBySpaceId'](spaceId);
       expect(res).toBeNull();
     });
@@ -116,7 +116,7 @@ describe('PermissionService', () => {
       const baseId = 'bsexxxxxxxx';
       const spaceId = 'spcxxxxxxxxx';
 
-      prismaServiceMock.base.findFirst.mockResolvedValueOnce({ spaceId } as any);
+      prismaServiceMock.base.findUnique.mockResolvedValueOnce({ spaceId } as any);
       const result = await service['getUpperIdByBaseId'](baseId);
       expect(result).toEqual({ spaceId });
     });
@@ -124,7 +124,7 @@ describe('PermissionService', () => {
     it('should throw NotFoundException when invalid baseId is provided', async () => {
       const baseId = 'bsexxxxxxxx';
 
-      prismaServiceMock.base.findFirst.mockResolvedValueOnce(null);
+      prismaServiceMock.base.findUnique.mockResolvedValueOnce(null);
 
       const error = await getError(async () => await service['getUpperIdByBaseId'](baseId));
       expect(error).toBeDefined();

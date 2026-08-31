@@ -87,6 +87,10 @@ const secureHeaders = createSecureHeaders({
             'https://*.teable.io',
             'https://*.teable.ai',
             'https://*.teable.cn',
+            // Google Picker loader (apis.google.com/js/api.js) for the Google
+            // Sheets importer; the picker widget itself is an iframe covered by
+            // frameSrc below.
+            'https://apis.google.com',
           ],
           frameSrc: ["'self'", 'blob:', '*'],
           connectSrc: [
@@ -97,6 +101,7 @@ const secureHeaders = createSecureHeaders({
             'https://*.teable.cn',
             'https://*.clarity.ms',
             'https://*.posthog.com',
+            'https://apis.google.com',
           ],
           mediaSrc: ["'self'", 'https:', 'http:', 'data:'],
           imgSrc: ["'self'", 'https:', 'http:', 'data:'],
@@ -260,7 +265,7 @@ const nextConfig = {
         // allow-popups above only protects the opener side. Must come after
         // the all-pages rule so this value wins (later setHeader overwrites).
         // Keep in sync with the backend middleware (utils/oauth-popup-coop.ts).
-        source: '/auth/login',
+        source: '/auth/:path(login|signup)',
         headers: [{ key: 'Cross-Origin-Opener-Policy', value: 'unsafe-none' }],
       },
       {
@@ -350,8 +355,8 @@ if (NEXT_BUILD_ENV_SENTRY_ENABLED === true) {
       silent: NEXT_BUILD_ENV_SENTRY_DEBUG === false,
     });
     console.log(`- ${pc.green('info')} Sentry enabled for this build`);
-  } catch {
-    console.log(`- ${pc.red('error')} Could not enable sentry, import failed`);
+  } catch (e) {
+    console.log(`- ${pc.red('error')} Could not enable sentry, import failed`, e);
   }
 }
 

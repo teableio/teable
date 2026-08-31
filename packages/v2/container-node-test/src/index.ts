@@ -36,11 +36,13 @@ import {
   StaticTableDataSafetyLimitPlugin,
   TableDataSafetyLimitCommandBusMiddleware,
   v2CoreTokens,
-  type IHasher,
-  type ILogger,
-  type ITableRepository,
-  type LogContext,
-  type TableDataSafetyLimitConfig,
+} from '@teable/v2-core';
+import type {
+  IHasher,
+  ILogger,
+  ITableRepository,
+  LogContext,
+  TableDataSafetyLimitConfig,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
@@ -137,6 +139,10 @@ export interface IV2NodeTestContainerOptions {
   computedUpdate?: IV2TableRepositoryPostgresConfig['computedUpdate'];
   logToConsole?: boolean;
   logLevel?: V2NodeTestContainerLogLevel;
+  // Kept for call-site compatibility. Delete now writes id-only record_trash
+  // markers inside the postgres delete transaction, so the event-bus sink is
+  // no longer used.
+  trashSink?: boolean;
 }
 
 export type V2NodeTestContainerLogLevel = 'silent' | 'error' | 'warn' | 'info' | 'debug';
@@ -385,6 +391,9 @@ export const createV2NodeTestContainer = async (
       : []
   );
   const queryBus = new MemoryQueryBus(c);
+  // The bus choice must happen here, before the eager singletons resolved below
+  // (ComputedUpdateWorker/Outbox) capture it by constructor injection — a
+  // replace-after-build at a call site would split events across two buses.
   const eventBus = new MemoryEventBus(c);
 
   c.registerInstance(v2CoreTokens.commandBus, commandBus);
@@ -419,6 +428,23 @@ export const createV2NodeTestContainer = async (
       .addColumn('id', 'varchar(255)', (col) => col.notNull().primaryKey())
       .addColumn('name', 'varchar(255)', (col) => col.notNull())
       .addColumn('email', 'varchar(255)')
+      .addColumn('phone', 'varchar(255)')
+      .addColumn('deleted_time', 'timestamptz')
+      .execute()
+  );
+
+  // Collaborator table backs the v1-parity user typecast lookup (users must be
+  // collaborators of the table's base or space to be resolvable).
+  await time('ensure-collaborator-table', async () =>
+    metaDb.schema
+      .createTable('collaborator')
+      .ifNotExists()
+      .addColumn('id', 'varchar(255)', (col) => col.notNull().primaryKey())
+      .addColumn('resource_type', 'varchar(255)', (col) => col.notNull())
+      .addColumn('resource_id', 'varchar(255)', (col) => col.notNull())
+      .addColumn('principal_id', 'varchar(255)', (col) => col.notNull())
+      .addColumn('principal_type', 'varchar(255)', (col) => col.notNull())
+      .addColumn('created_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
       .execute()
   );
 
@@ -455,6 +481,22 @@ export const createV2NodeTestContainer = async (
           order: 1,
           created_by: actorId,
         })
+        .execute()
+    );
+
+    // User values only resolve to collaborators of the base/space (v1 parity),
+    // so the system user must be a collaborator for tests that write it.
+    await time('seed-system-collaborator', async () =>
+      metaDb
+        .insertInto('collaborator')
+        .values({
+          id: 'colsystem',
+          resource_type: 'space',
+          resource_id: spaceId,
+          principal_id: 'system',
+          principal_type: 'user',
+        })
+        .onConflict((oc) => oc.column('id').doNothing())
         .execute()
     );
   }

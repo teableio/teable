@@ -6,12 +6,14 @@
     "doNotSave": "保存しない",
     "submit": "送信",
     "confirm": "確認",
+    "continue": "続行",
     "close": "閉じる",
     "edit": "編集",
     "fill": "埋める",
     "update": "アップデート",
     "create": "作成",
     "delete": "削除",
+    "clear": "クリア",
     "cancel": "キャンセル",
     "zoomIn": "ズームイン",
     "zoomOut": "ズームアウト",
@@ -19,6 +21,7 @@
     "download": "ダウンロード",
     "remove": "削除",
     "removeConfig": "設定を削除",
+    "retry": "再試行",
     "saveSucceed": "保存成功！",
     "submitSucceed": "送信成功！",
     "editSucceed": "編集成功！",
@@ -31,6 +34,8 @@
     "yesDelete": "はい、削除",
     "rename": "名前変更",
     "duplicate": "複製",
+    "export": "エクスポート",
+    "import": "インポート",
     "change": "変更",
     "upgrade": "アップグレード",
     "upgradeToLevel": "{{level}}にアップグレード",
@@ -46,30 +51,27 @@
     "hideNotMatchRow": "一致しない行を非表示",
     "more": "もっと",
     "expand": "展開",
+    "view": "表示",
+    "preview": "プレビュー",
+    "viewAndEdit": "表示と編集",
+    "deleteTip": "\"{{name}}\"を削除してもよろしいですか？",
     "move": "移動先",
     "turnOn": "有効にする",
     "exit": "ログアウト",
     "next": "次へ",
     "previous": "前へ",
     "select": "選択",
-    "view": "表示",
-    "preview": "プレビュー",
-    "viewAndEdit": "表示と編集",
-    "deleteTip": "\"{{name}}\"を削除してもよろしいですか？",
     "refresh": "更新",
     "login": "ログイン",
     "useTemplate": "テンプレートを使用",
-    "copyToMySpace": "Copy to my space",
-    "saveToMySpace": "Save to my space",
-    "supportSaveCopy": "Support saving a copy",
+    "copyLink": "リンクをコピー",
+    "openLink": "リンクを開く",
     "backToSpace": "スペースに戻る",
     "switchBase": "ベースを切り替え",
-    "continue": "続行",
-    "export": "エクスポート",
-    "import": "インポート",
+    "collapse": "折りたたむ",
+    "viewDetails": "詳細を表示",
     "getMore": "もっと取得",
     "copySuccess": "コピー成功",
-    "openLink": "リンクを開く",
     "share": "共有"
   },
   "quickAction": {
@@ -96,30 +98,21 @@
     "loadMore": "さらに読み込む",
     "allTemplatesLoaded": "すべてのテンプレートが読み込まれました",
     "createTemplate": "テンプレートを作成",
+    "promptBox": {
+      "start": "開始"
+    },
     "useTemplateDialog": {
       "title": "スペースを選択",
       "description": "テンプレート用のスペースを選択してください",
       "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
       "newSpacePlaceholder": "Space name",
       "createSpace": "Create"
-    },
-    "promptBox": {
-      "placeholder": "Teableでビジネスアプリを構築",
-      "start": "開始",
-      "carouselGuides": {
-        "guide1": "レシートを貼り付け → Teableに主要データを自動抽出させる",
-        "guide2": "リードとフォローアップテーブルでAI CRMを構築",
-        "guide3": "顧客フィードバックを貼り付け → Teableにインサイトを見つけてレポートを生成させる",
-        "guide4": "タスクと期限付きのプロジェクトトラッカーを作成",
-        "guide5": "リードスプレッドシートを貼り付け → TeableにスマートなCRMを構築させる",
-        "guide6": "投稿と公開日付を持つコンテンツプランナーを構築",
-        "guide7": "履歴書を貼り付け → Teableに候補者を整理して選別させる"
-      }
     }
   },
   "baseShare": {
     "shareTitle": "共有",
     "shareToWeb": "Webに公開",
+    "noPermissionTip": "共有設定を管理する権限がありません",
     "linkHolderLabel": "リンクを取得した人",
     "linkHolderCanView": "閲覧可能",
     "linkHolderCanViewDesc": "リンクを持つ人はデータを閲覧できます",
@@ -261,8 +254,7 @@
       "changePasswordError": {
         "disMatch": "新しいパスワードが一致しません。",
         "equal": "新しいパスワードは現在のパスワードとは異なる必要があります。",
-        "invalid": "現在のパスワードは無効です。",
-        "invalidNew": "新しいパスワードは無効です。最低8文字以上。"
+        "invalid": "現在のパスワードは無効です。"
       },
       "changePasswordSuccess": {
         "title": "🎉 パスワードの変更に成功しました。",
@@ -276,25 +268,10 @@
         "confirm": "パスワードの再入力"
       },
       "addPasswordError": {
-        "disMatch": "パスワードが一致しません。",
-        "invalid": "パスワードは無効です。最低8文字以上。"
+        "disMatch": "パスワードが一致しません。"
       },
       "addPasswordSuccess": {
         "title": "🎉 パスワードの追加に成功しました。"
-      },
-      "deleteAccount": {
-        "title": "アカウントを削除",
-        "desc": "このアクションは元に戻せません。アカウントとすべての関連データが完全に削除されます。",
-        "error": {
-          "title": "アカウントを削除できません",
-          "desc": "まず以下の依存関係を処理する必要があります：",
-          "spacesError": "アカウントを削除する前に、まずスペースを退出（または削除してゴミ箱に移動）する必要があります。"
-        },
-        "confirm": {
-          "title": "確認するには<code>DELETE</code>と入力してください",
-          "placeholder": "DELETE"
-        },
-        "loading": "削除中..."
       },
       "changeEmail": {
         "title": "メールアドレスの変更",
@@ -315,6 +292,20 @@
           "desc": "2秒後にログインページへリダイレクトされます。",
           "sendSuccess": "認証コードが送信されました。"
         }
+      },
+      "deleteAccount": {
+        "title": "アカウントを削除",
+        "desc": "このアクションは元に戻せません。アカウントとすべての関連データが完全に削除されます。",
+        "error": {
+          "title": "アカウントを削除できません",
+          "desc": "まず以下の依存関係を処理する必要があります：",
+          "spacesError": "アカウントを削除する前に、まずスペースを退出（または削除してゴミ箱に移動）する必要があります。"
+        },
+        "confirm": {
+          "title": "確認するには<code>DELETE</code>と入力してください",
+          "placeholder": "DELETE"
+        },
+        "loading": "削除中..."
       }
     },
     "notify": {
@@ -330,11 +321,13 @@
       "light": "ライト",
       "system": "システム",
       "version": "アプリバージョン",
+      "infraVersion": "インフラのバージョン",
       "language": "言語",
       "interactionMode": "インタラクションモード",
       "mouseMode": "カーソルモード",
       "touchMode": "タッチモード",
       "systemMode": "システム設定に従う",
+      "buySelfHostedLicense": "セルフホスト版ライセンスを購入",
       "teableSkill": "Teable スキル"
     },
     "teableSkill": {
@@ -491,7 +484,6 @@
   "invite": {
     "dialog": {
       "title": "{{spaceName}}スペース共有",
-      "desc_one": "このスペースには <b>{{count}}人の共同作業者</b>がいます。スペースの共同作業者を追加すると、その共同作業者はこのスペース内のすべての基地にアクセスできるようになります。",
       "desc_other": "このスペースには <b>{{count}}人の共同作業者</b>がいます。スペースの共同作業者を追加すると、その共同作業者はこのスペース内のすべての基地にアクセスできるようになります。",
       "tabEmail": "メールで招待",
       "emailPlaceholder": "メールアドレスを入力し、Enterキーで区切ってください",
@@ -501,31 +493,53 @@
       "directAccessDescription": "招待された共同作業者は、以下のリンクから直接アクセスして共同作業に参加できます",
       "linkSend": "リンクの作成",
       "spaceTitle": "スペースの共同作業者",
+      "spaceTitleWithCount": "スペースのコラボレーター（{{count}}）",
+      "baseTitle": "ベースのコラボレーター",
+      "allCollaboratorsTitle": "すべてのコラボレーター（スペースとベース）",
+      "baseOnly": "ベースのみ",
       "collaboratorSearchPlaceholder": "名前またはメールアドレスでスペースの共同作業者を探す",
       "collaboratorJoin": "{{joinTime}}に参加",
       "collaboratorRemove": "共同作業者の削除",
+      "basePermissionRemove": "ベースへのアクセス権を削除",
+      "goToBase": "ベースに移動",
       "linkTitle": "招待リンク",
       "linkCreatedTime": "{{createdTime}}に作成",
       "linkCopySuccess": "リンクをコピーしました",
-      "linkRemove": "リンクの削除"
+      "linkRemove": "リンクの削除",
+      "noInviteLinks": "招待リンクはありません",
+      "linkDescription": "招待リンクを作成して権限を割り当てます",
+      "haveAccess": "アクセス権あり"
     },
     "base": {
       "title": "{{baseName}}共有",
-      "desc_one": "このベースは{{count}}人の共同作業者と共有されています。",
       "desc_other": "このベースは{{count}}人の共同作業者と共有されています。",
       "baseTitle": "ベースの共同作業者",
-      "collaboratorSearchPlaceholder": "名前またはメールアドレスでベースの共同作業者を探す"
+      "collaboratorSearchPlaceholder": "名前またはメールアドレスでベースの共同作業者を探す",
+      "baseTitleWithCount": "ベースのコラボレーター（{{count}}）"
     },
     "addOrgCollaborator": {
       "title": "組織の共同作業者を追加",
       "button": "組織から追加",
       "placeholder": "組織のメンバーまたは部門を選択"
     },
+    "sendInvitationSuccess": "招待を送信しました",
     "table": {
       "collaborator": "コラボレーター",
       "accessPermission": "アクセス権限",
       "joinAt": "参加日",
-      "lastLogin": "最終ログイン"
+      "lastLogin": "最終ログイン",
+      "expandPermissions": "{{name}}の権限を展開",
+      "collapsePermissions": "{{name}}の権限を折りたたむ",
+      "basePermissionsOnly": "選択したベースにのみアクセスできます",
+      "basePermissionCount": "ベース権限:{{count}}件"
+    },
+    "authority": {
+      "title": "権限マトリクスが有効です",
+      "description": "コラボレーターの実効的なアクセス権限は割り当てられたロールによって決まります。未割り当てのユーザーは既定のロールを使用します",
+      "viewDetail": "詳細を表示"
+    },
+    "app": {
+      "previewAppError": "アプリのエラー"
     }
   },
   "help": {
@@ -549,6 +563,19 @@
     "viewPricing": "料金を見る",
     "billable": "課金対象",
     "billableByAuthorityMatrix": "権限マトリックスによって生成された課金",
+    "seatConfirm": {
+      "title": "この招待によりサブスクリプション料金が増加します",
+      "roleChangeTitle": "このロール変更によりサブスクリプション料金が増加します",
+      "matrixTitle": "メンバーの追加によりサブスクリプション料金が増加します",
+      "inviteDesc_other": "招待した {{count}} 人のメンバーは {{role}} ロールで参加し、サブスクリプションの {{count}} 席を使用するため、料金がその分増加します。閲覧やコメントのみでよい場合は、無料の「閲覧者」または「解説者」ロールをお選びください。",
+      "linkDesc": "このリンクから参加したメンバーには {{role}} ロールが付与され、1 人につき 1 席を使用するため、参加人数に応じて料金が増加します。閲覧やコメントのみでよい場合は、無料の「閲覧者」または「解説者」ロールをお選びください。",
+      "roleChangeDesc": "{{role}} に変更すると、このメンバーはサブスクリプションの 1 席を使用し、料金がその分増加します。",
+      "matrixDesc": "このメンバーは現在無料ロール（閲覧者/解説者）です。権限マトリックスに追加するとサブスクリプションの 1 席を使用し、料金がその分増加します。",
+      "seatLimitTitle": "ライセンスシートが不足しています",
+      "seatLimitDesc": "このインスタンスはライセンスシート {{seatLimit}} 席中 {{seats}} 席を使用しており、この操作に必要な残りシートがありません。管理者に連絡して追加シートを購入してください。閲覧やコメントのみでよい場合は、無料の「閲覧者」または「解説者」ロールをご利用ください。",
+      "seatLimitConfirm": "わかりました",
+      "confirmInvite": "確認して招待"
+    },
     "licenseExpiredGracePeriod": "セルフホスト版ライセンスの有効期限が切れました。{{expiredTime}}に無料プランへダウングレードされ、プレミアム機能が利用できなくなります。完全な機能を維持するため、速やかにライセンスを更新してください。",
     "licenseAutoFetchFailed": "ライセンスの自動更新に失敗しました。ダウングレードまでの猶予期間は残り {{days}} 日です。",
     "licenseAutoFetchRetryFailed": "自動更新が再び失敗しました。Teable サーバーへの接続を確認するか、ライセンスを手動で更新してください。",
@@ -557,6 +584,7 @@
       "title": "スペースの契約プランをアップグレード",
       "description": "自分が所有者であるワークスペースのみアップグレードできます"
     },
+    "contactAdminToUpgrade": "サブスクリプションプランをアップグレードするには、スペースのオーナーにご連絡ください。",
     "status": {
       "active": "アクティブ",
       "canceled": "中止",
@@ -587,24 +615,20 @@
       "enableWaitlist": "待機リストを有効にする",
       "enableWaitlistDescription": "このオプションを有効にすると、ユーザーは招待コードを使用して新規アカウントの作成が可能になります。",
       "generalSettings": "一般設定",
-      "aiSettings": {
-        "title": "AI設定",
-        "description": "このインスタンスのAI設定を構成する"
-      },
+      "aiSettings": "AI 設定",
       "brandingSettings": {
         "title": "ブランディング設定",
         "description": "エンタープライズエディションでのみ利用可能",
         "brandName": "ブランド名",
         "logo": "ロゴ",
-        "logoDescription": "ロゴはTeableでのあなたのブランドアイデンティティです。",
         "logoUpload": "ロゴをアップロード",
         "logoUploadDescription": "ロゴ画像をアップロードし、PNG、JPEG形式をサポートし、推奨サイズは100x100pxです。最大アップロードサイズは500KBです。"
       },
       "ai": {
         "name": "名前",
         "nameDescription": "LLMプロバイダーの名前",
-        "enable": "AIを有効にする",
-        "enableDescription": "現在のインスタンスでAIを有効にし、すべてのユーザーがAI機能を使用できるようにする",
+        "customModel": "カスタムモデル",
+        "customModelDescription": "カスタムモデルは AI フィールド、AI 自動化、AI チャット画面で利用できます。画像生成モデルはテストのためにチェックが必要です",
         "updateLLMProvider": "LLMプロバイダーを更新する",
         "addProvider": "LLMプロバイダーを追加する",
         "addProviderDescription": "LLMプロバイダーのリストに新しいプロバイダーを追加する",
@@ -615,10 +639,16 @@
         "apiKeyDescription": "LLMプロバイダーのAPIキー",
         "models": "モデル",
         "modelsDescription": "LLMプロバイダーでサポートされているモデル",
+        "modelsSelectedCount": "{{count}} 件のモデルを選択中",
+        "clearAllModels": "すべてのモデルをクリア",
+        "customModelPlaceholder": "カスタムモデル名を入力",
+        "addModelFill": "追加",
+        "modelIdReservedAt": "モデル ID に '@' は使用できません",
         "baseUrlRequired": "ベースURLは必須です",
         "fetchModelListError": "モデルリストの取得に失敗しました",
         "provider": "LLMプロバイダー",
-        "providerDescription": "使用するLLMプロバイダー",
+        "aiAbilitySettings": "AI 機能の設定",
+        "aiAbilitySettingsDescription": "AI の機能を設定します",
         "modelPreferences": "モデルの設定",
         "modelPreferencesDescription": "LLMプロバイダーのモデルの設定",
         "embeddingModel": "埋め込みモデル",
@@ -629,7 +659,16 @@
         "chatModelDescription": "使用するチャットモデル、ヒント: 中型コーディングモデルはAI数式生成と関連機能にデフォルトで使用されます",
         "chatModels": {
           "lg": "高度なチャットモデル",
-          "lgDescription": "計画、コーディング、その他の複雑なタスクシナリオに使用。推奨: claude-sonnet-4.5"
+          "lgDescription": "計画、コーディング、その他の複雑なタスクシナリオに使用。推奨: claude-sonnet-4.5",
+          "md": "中程度のタスク向けモデル",
+          "mdDescription": "日常的な会話や一般的なタスク向け",
+          "sm": "軽いタスク向けモデル",
+          "smDescription": "簡単な問い合わせや素早い応答向け",
+          "inheritHint": "既定のメインモデル（{{model}}）と同じ",
+          "modelTiers": "モデルの階層",
+          "modelTiersDescription": "中程度のタスクと軽いタスクに別々のモデルを割り当てます。未設定の階層は上記の既定のメインモデルを使用します。",
+          "allInheriting": "すべての階層が既定のメインモデルを使用します",
+          "customized": "{{count}} 件をカスタマイズ済み"
         },
         "actions": {
           "title": "AI機能",
@@ -639,7 +678,12 @@
           },
           "aiChat": {
             "title": "AIチャット",
-            "description": "AIチャットサイドバーとすべてのエージェント機能"
+            "description": "AIチャットサイドバーとすべてのエージェント機能",
+            "sandboxWarning": "利用前に、下で AI チャットのランタイムを設定する必要があります"
+          },
+          "modelSelection": {
+            "title": "モデル選択を許可",
+            "description": "AI チャットとアプリビルダーでユーザーがモデルを選べるようにします"
           }
         },
         "chatModelTest": {
@@ -651,6 +695,7 @@
           "confirm": "モデルをテスト",
           "cancel": "キャンセル",
           "missingCapabilitiesWarning": "このモデルは画像まPDF処理をサポートしておらず、一部の機能が利用できなくなる可能性があります。",
+          "modelNotSuitable": "このモデルは高度な AI 機能には適さない可能性があります：",
           "enableAITitle": "AIを有効にする",
           "enableAIDescription": "モデルテストが完了しました。AIは現在有効になっていません。これらのモデル能力を使用するためにAIを有効にしますか？",
           "enableAI": "AIを有効にする",
@@ -660,8 +705,19 @@
           "image": "画像",
           "pdf": "PDF",
           "webSearch": "ウェブ検索",
+          "toolCall": "ツール呼び出し",
+          "reasoning": "推論",
+          "imageGeneration": "画像生成",
           "disabledWebSearch": "ウェブ検索無効",
-          "lgModelAbility": "大型モデル能力"
+          "lgModelAbility": "大型モデル能力",
+          "missingVision": "画像や PDF の処理に対応していません",
+          "missingToolCall": "ツール／関数呼び出しに対応していません",
+          "notTested": "モデルの機能はまだテストされていません。まずプロバイダー設定でモデルをテストしてください",
+          "supportedFormats": "対応フォーマット"
+        },
+        "imageModelAbility": {
+          "generation": "テキストから画像",
+          "imageToImage": "画像から画像"
         },
         "configUpdated": "AI設定が更新されました",
         "noModelFound": "モデルが見つかりません",
@@ -669,8 +725,6 @@
         "selectModel": "モデルを選択...",
         "defaultModel": "{{name}}（デフォルト）",
         "moreModels": "その他のモデル",
-        "agentModelWarningTitle": "モデルは慎重に選択してください",
-        "agentModelWarningDescription": "上記の推奨モデルは、ツール利用や複数ステップの推論などのエージェントタスク向けに最適化されています。その他のモデルでは機能が制限され、予期しない結果になる場合があります。",
         "agentModelWarningConfirm": "了解",
         "recommendedModelNudge": {
           "title": "{{model}} を試す",
@@ -692,22 +746,241 @@
         "testConnection": "テスト",
         "testing": "テスト中...",
         "testSuccess": "テスト成功",
+        "testCompleteWithCount": "テスト完了：{{success}}/{{total}} 件のモデルが合格",
+        "allTestsFailed": "すべてのモデルテストが失敗しました",
         "testFailed": "テスト失敗",
+        "batchTest": "モデルの機能をテスト",
+        "test": "テスト",
+        "testProvider": "テスト",
+        "testProviderTooltip": "このプロバイダーの {{count}} 件すべてのモデルをテスト",
+        "batchTesting": "すべてのモデルをテスト中...",
+        "batchTestComplete": "一括テストが完了しました",
+        "batchTestResults": "一括テストの結果",
+        "batchTestResultsSummary": "{{total}} 件中 {{tested}} 件のモデルをテスト：{{success}} 件合格、{{failed}} 件失敗",
+        "batchTestNoModels": "テスト対象のモデルが設定されていません",
+        "modelStatus": "モデルの状態",
+        "imageSupport": "画像対応",
+        "basicGeneration": "基本生成",
+        "supported": "対応",
+        "notSupported": "非対応",
+        "partialSupport": "一部対応",
+        "urlSupport": "URL",
+        "base64Support": "Base64",
+        "closeResults": "閉じる",
+        "retryFailed": "失敗分を再試行",
+        "stopTest": "停止",
+        "pending": "保留中",
+        "configuredModels": "設定済みモデル",
         "fillRequiredFields": "すべての必須フィールドを入力してください",
         "modelsRequired": "少なくとも1つのモデルを入力してください",
         "noValidModel": "有効なモデルが見つかりません",
         "addCustomModel": "カスタムモデルを追加する",
-        "isOpenRouter": "OpenRouter"
-      },
-      "webSearch": {
-        "description": "ウェブ検索機能を有効にするためにFirecrawl APIキーを設定し、APIキーを取得するために<a>Firecrawl設定</a>にアクセスしてください"
+        "isOpenRouter": "OpenRouter",
+        "modelRates": "モデルの料金",
+        "modelSettings": "モデルの設定",
+        "model": "モデル",
+        "inputRate": "入力 USD/トークン",
+        "outputRate": "出力 USD/トークン",
+        "inputRateTip": "生成されたカスタムプロバイダーの入力価格（トークンあたり USD）",
+        "outputRateTip": "生成されたカスタムプロバイダーの出力価格（トークンあたり USD）",
+        "rateExplanationTitle": "カスタムプロバイダーの料金を設定",
+        "rateExplanationFormula": "AI Gateway リファレンスに対する倍率を入力します。たとえば 0.1 は、カスタムプロバイダーの料金が参照価格の 10% であることを意味します。",
+        "rateExplanationExample": "入力・出力・キャッシュ・推論・画像・ウェブ検索の料金は、同じ倍率で AI Gateway リファレンスから生成されます。課金では 1 USD = 100 クレジットで換算します。",
+        "ratesDescription": "生成された値は modelConfigs[model].pricing に保存され、インスタンスレベルのカスタムプロバイダー課金に使用されます。比率の列には引き続き Claude Opus 4.6 = 1x の既存コスト水準が表示されます。",
+        "advancedRates": "生成された詳細料金",
+        "advancedRatesDescription": "これらの詳細料金は、設定した倍率で AI Gateway リファレンスから生成されます。確認用に表示され、モデルの料金と共に保存されます。",
+        "cacheRead": "キャッシュ↓",
+        "cacheWrite": "キャッシュ↑",
+        "reasoning": "推論",
+        "perImage": "画像",
+        "cacheReadRateTip": "このプロバイダーがキャッシュ入力を別途課金する場合の、キャッシュ入力トークンあたりの USD",
+        "cacheWriteRateTip": "このプロバイダーがキャッシュ書き込みを別途課金する場合の、キャッシュ書き込みトークンあたりの USD",
+        "reasoningRateTip": "このプロバイダーが推論トークンを別途課金する場合の、推論トークンあたりの USD",
+        "imageRateTip": "このプロバイダーが画像単位で課金する場合の、生成画像 1 枚あたりの USD",
+        "imageModel": "画像モデル",
+        "imageGeneration": "画像生成",
+        "imageToImage": "画像から画像",
+        "clickToToggleImageModel": "💡 クリックして画像生成モデルとしてマーク",
+        "markAsImageModel": "画像生成モデルとしてマーク",
+        "imageGenerationModel": "画像生成モデル",
+        "markedAsImageModel": "画像生成モデルとしてマークされました。テキストから画像、画像から画像の機能をテストします。",
+        "markedAsTextModel": "テキストモデルとしてマークされました。ビジョン（画像入力）機能をテストします。",
+        "fetchPricingError": "料金を取得できませんでした",
+        "openRouterId": "Gateway のモデル ID",
+        "notFound": "見つかりません",
+        "applyPricing": "適用（{{count}}）",
+        "pricingApplied": "料金を適用しました",
+        "pricingAppliedCount": "{{count}} 件のモデルの料金を更新しました",
+        "relativeRatio": "比率",
+        "webSearch": "ウェブ",
+        "referencePricingTip": "AI Gateway のモデルカタログから取得した参照価格",
+        "applyReferencePricingTip": "この AI Gateway 参照価格からカスタムプロバイダーの料金を生成します",
+        "optionalPricing": "任意",
+        "gatewayRatio": "Gateway の倍率",
+        "gatewayRatioTip": "AI Gateway リファレンスに対する倍率。0.1 は参照価格の 10% を意味します。",
+        "generatedPricing": "生成された料金",
+        "generatedPricingTip": "生成されたカスタムプロバイダーの入力／出力価格。modelConfigs[model].pricing に保存されます",
+        "rateExplanationManual": "自動で一致する参照がない場合は、モデルの編集ダイアログで参照モデルを手動で選択してください。",
+        "referenceModelLabel": "参照モデル",
+        "contextWindowCap": "コンテキスト",
+        "contextWindowCapTip": "モデルが受け付ける最大入力トークン数。コンテキスト圧縮の基準になります。空欄の場合はレジストリまたは既定の上限を使用します。",
+        "maxOutputTokensCap": "最大出力",
+        "maxOutputTokensCapTip": "モデルが 1 回の応答で生成できる最大トークン数。空欄の場合はレジストリまたは既定の上限を使用します。",
+        "rateExplanationCaps": "コンテキストと最大出力は既定で参照モデルの値になり、編集も可能です。空欄の場合はレジストリまたは既定値が使われます。",
+        "relativeRatioTip": "既存の加重アルゴリズムを用いた、Claude Opus 4.6 = 1x を基準とするコスト水準",
+        "hint": {
+          "title": "ヒント",
+          "missingV1Suffix": "ベース URL に \"/v1\" が付いていない可能性があります。OpenAI 互換 API の多くは \"/v1\" で終わる URL を必要とします（例：https://api.openai.com/v1）",
+          "removeTrailingSlash": "ベース URL の末尾のスラッシュを削除してみてください",
+          "checkApiKey": "API キーが正しく、有効期限が切れていないか確認してください",
+          "azureDeployment": "Azure の場合は、ベース URL に正しいリソース名とデプロイを設定しているか確認してください",
+          "checkQuotaOrPermission": "API キーの権限が不足しているか、クォータを使い切っている可能性があります。アカウントの状態を確認してください",
+          "checkModelName": "モデル名が正しくない可能性があります。プロバイダーが対応している名称と一致しているか確認してください",
+          "checkConnection": "サーバーに接続できません。ベース URL が正しいか、サーバーにアクセスできるか確認してください",
+          "ollamaRunning": "Ollama がローカルで動作していることを確認してください。'ollama serve' コマンドで起動できます",
+          "sslCertificate": "SSL 証明書に問題があります。自己署名証明書を使用している場合は追加の設定が必要になることがあります",
+          "checkConfiguration": "設定を確認してください。ベース URL、API キー、モデル名がすべて正しいことを確認します"
+        },
+        "recommended": "おすすめ",
+        "enabled": "有効",
+        "gatewayModels": "AI Gateway のモデル",
+        "gatewayModelsDescription": "AI SDK を最適にサポートするため、Vercel AI Gateway 経由で推奨モデルを設定します",
+        "gatewayDescription": "互換性と信頼性を最大限に高めるには AI Gateway を使用してください。API キーは下の「App」セクションで設定します。",
+        "providerDescription": "使用するLLMプロバイダー",
+        "noGatewayModels": "Gateway のモデルが設定されていません。モデルを追加して始めましょう。",
+        "addModel": "モデルを追加",
+        "addGatewayModel": "Gateway のモデルを追加",
+        "popularModels": "人気のモデル",
+        "modelId": "モデル ID",
+        "modelIdHint": "AI Gateway が使用するモデル識別子（例：anthropic/claude-sonnet-4）",
+        "searchModelPlaceholder": "入力してモデルを検索...",
+        "noMatchingModels": "一致するモデルが見つかりません",
+        "typeToSearch": "キーワードを入力して利用可能なモデルを検索します",
+        "modelNotFound": "このモデル ID は利用可能な一覧に見つかりませんでした。綴りを確認してください",
+        "testModel": "モデルをテスト",
+        "testModelSuccess": "モデルのテストに成功しました。API が正しく応答しました",
+        "testModelImageSuccess": "画像モデルが API に存在することを確認しました",
+        "testModelNotFound": "API の一覧にモデルが見つかりません",
+        "displayLabel": "表示ラベル",
+        "isImageModel": "これは画像生成モデルです",
+        "capabilities": "機能",
+        "setAsDefault": "既定のチャットモデルに設定",
+        "quickAdd": "人気のモデルをすばやく追加：",
+        "guide": {
+          "configStatus": "設定の状態",
+          "ready": "準備完了",
+          "needsAttention": "要確認",
+          "incomplete": "未完了",
+          "aiEnabled": "AI 有効",
+          "aiEnabledDesc": "このインスタンスではカスタムモデルが有効です",
+          "aiDisabledDesc": "カスタム AI モデルを使うには有効にしてください",
+          "gatewayKey": "Gateway の API キー",
+          "gatewayKeyConfigured": "AI Gateway のキーが設定されています",
+          "gatewayKeyMissing": "推奨構成のため AI Gateway の API キーを設定してください",
+          "gatewayKeyRequired": "まず下の「App」セクションで AI Gateway の API キーを設定してください",
+          "gatewayModels": "Gateway のモデル",
+          "gatewayModelsConfigured": "{{count}} 件のモデルが有効",
+          "gatewayModelsEmpty": "ユーザーが選択できるよう Gateway のモデルを追加します",
+          "providers": "カスタムプロバイダー",
+          "providersConfigured": "{{count}} 件のプロバイダーを設定済み",
+          "providersEmpty": "カスタムプロバイダーが設定されていません",
+          "chatModel": "既定のチャットモデル",
+          "chatModelGateway": "Gateway のモデルを使用中",
+          "chatModelProvider": "カスタムプロバイダーのモデルを使用中",
+          "chatModelMissing": "既定のチャットモデルを選択してください"
+        },
+        "enableCard": {
+          "title": "AI サービス",
+          "ready": "設定済みで利用可能です",
+          "needsConfig": "有効ですが、下の設定が必要です",
+          "disabled": "現在 AI 機能は無効です",
+          "missingConfig": "不足している設定：",
+          "allConfigured": "すべての設定が完了しました"
+        },
+        "wizard": {
+          "setupProgress": "セットアップの進捗",
+          "checklist": "チェックリスト",
+          "allComplete": "必要な設定がすべて完了しました。AI を利用できます。",
+          "nextStep": "次：{{step}}",
+          "configureAI": "AI を有効にするには次の手順を完了してください",
+          "optional": "任意",
+          "gatewayHelp": "AI Gateway：1 つの API キーで数百のモデルを利用できます。初回利用時は Vercel でクレジットカードの登録が必要です。",
+          "gatewayByok": "対応（自分のプロバイダーキーを利用可能）",
+          "getApiKey": "API キーを取得",
+          "keyInvalid": "API キーが無効です。確認してもう一度お試しください",
+          "gatewayErrorUnauthorized": "API キーが無効です。正しくコピーされているか確認してください",
+          "gatewayErrorNeedCreditCard": "AI Gateway の利用にはクレジットカードが必要です。Vercel のダッシュボードで登録してください",
+          "gatewayErrorInsufficientQuota": "アカウント残高が不足しています。チャージしてからもう一度お試しください",
+          "gatewayErrorForbidden": "アクセスが拒否されました。Vercel のダッシュボードでアカウントの状態を確認してください",
+          "gatewayErrorNetwork": "ネットワークエラーです。接続またはプロキシ設定を確認してください",
+          "pleaseTest": "「テスト」をクリックして API キーを検証してください",
+          "test": "テスト",
+          "testing": "テスト中...",
+          "attachmentTest": {
+            "title": "添付ファイルの転送モード",
+            "urlMode": "URL モード",
+            "base64Mode": "Base64 モード",
+            "accessible": "利用可能",
+            "inaccessible": "利用不可",
+            "urlNotAccessibleWarning": "AI サービスが添付ファイルの URL にアクセスできません。イントラネット環境ではよくあります。Base64 モードを自動的に有効にしました。",
+            "useBase64Mode": "Base64 モードを使用",
+            "base64ModeDescription": "送信前に添付ファイルを Base64 に変換します（Teable にパブリックネットワークからアクセスできない場合）",
+            "originChanged": "PUBLIC_ORIGIN が変更されました",
+            "originChangedDesc": "前回のテスト以降にサーバーアドレスが変更されました。添付ファイルにアクセスできるか再テストしてください。"
+          },
+          "saveAndContinue": "保存して続行",
+          "completeStep1First": "まずステップ 1「LLM API の設定」を完了してください",
+          "completeStep2First": "まずステップ 2「モデルを 1 つ以上追加」を完了してください",
+          "addCustom": "カスタム...",
+          "enabledModels": "有効なモデル",
+          "chatDefault": "チャットの既定",
+          "noModelsAvailable": "利用可能なモデルがありません。まずステップ 2 でモデルを追加してください",
+          "quickSetup": "クイックセットアップ",
+          "useRecommended": "おすすめを使用",
+          "useRecommendedDesc": "ワンクリックで {{model}} をすべてのチャットシナリオの既定に設定します",
+          "chatModels": "既定のメインモデル",
+          "chatModelTip": "サイドバーの AI チャット用の既定のメインモデルです。管理者が設定し、ユーザーは変更できません。独自のモデルを持たないタスク階層もこれを使用します",
+          "selectChatModel": "チャットモデルを選択...",
+          "lgDesc": "複雑なタスク、深い分析",
+          "mdDesc": "日常的な会話、一般的なタスク",
+          "smDesc": "簡単な問い合わせ、素早い応答",
+          "readyToUse": "AI の設定が完了し、利用できます。",
+          "customProviderHelp": "独自の AI プロバイダー（OpenAI、Anthropic、Azure など）を追加し、API キーとモデルを設定します。",
+          "testModelCapabilities": "モデルの機能をテスト",
+          "customModelsAutoImported": "プロバイダーのモデルがモデルプールに自動的にインポートされました。",
+          "modelsCount": "{{count}} 件のモデルが利用可能",
+          "customModelsHint": "モデルの設定を調整するには、ステップ 1 に戻ってプロバイダー設定を変更してください。",
+          "gatewayOption": {
+            "title": "AI Gateway（おすすめ）",
+            "desc": "Vercel AI Gateway 経由で数百のモデルに、最高の互換性と信頼性でアクセスできます"
+          },
+          "customOption": {
+            "title": "カスタムプロバイダー",
+            "desc": "セルフホスト／プライベートモデルに接続します。複数のプロバイダーに対応"
+          },
+          "step": {
+            "llmApi": "LLM API を設定",
+            "llmApiDesc": "AI Gateway を選ぶか、カスタムプロバイダーを設定します",
+            "modelPool": "推奨モデルを設定",
+            "modelPoolDesc": "AI フィールドや自動化でユーザーが選択できる推奨モデル",
+            "chatModel": "チャットモデルを設定",
+            "chatModelDesc": "サイドバーの AI チャット用モデル（推奨モデルから選択）",
+            "providers": "プロバイダーを設定",
+            "providersDesc": "AI プロバイダーを追加・管理します"
+          }
+        }
       },
       "app": {
         "domain": "ドメイン",
         "customDomain": "カスタムドメイン（オプション）",
         "customDomainDescription": "アプリのデプロイ用のカスタムドメインを設定し、<a>Vercelドメイン</a>にアクセスしてカスタムドメインを取得してください",
         "vercelToken": "Vercel APIトークン",
-        "vercelTokenDescription": "APIトークンを取得するために<a>Vercel設定</a>にアクセスしてください"
+        "vercelTokenDescription": "APIトークンを取得するために<a>Vercel設定</a>にアクセスしてください",
+        "aiGateway": "Vercel AI Gateway",
+        "aiGatewayDescription": "単一のエンドポイントから数百のモデルにアクセスするには Vercel AI Gateway を設定します。API キーは<a>AI Gateway の設定</a>から取得してください",
+        "aiGatewayApiKey": "AI Gateway の API キー",
+        "aiGatewayKeyConfigured": "API キーを設定済み",
+        "aiGatewayBaseUrl": "カスタム Gateway URL"
       }
     },
     "action": {
@@ -722,6 +995,16 @@
     "configuration": {
       "title": "設定待ち",
       "description": "完全な機能を取得するためにこれらの設定を完了してください",
+      "progressTitle": "セットアップの進捗",
+      "allComplete": "すべての設定が完了しました",
+      "incomplete": "一部の設定が未完了です",
+      "optional": "任意",
+      "completed": "完了",
+      "group": {
+        "system": "基本",
+        "ai": "AI サービス",
+        "appBuilder": "アプリビルダー"
+      },
       "copyInstance": "IDをコピー",
       "list": {
         "publicOrigin": {
@@ -737,17 +1020,53 @@
           "description": "AI LLM APIをまだ設定していません。AIチャット/AI自動化が使用できません。<anchor>設定に移動</anchor>",
           "errorTips": "AI LLM APIをまだ設定していません。AIチャット/AI自動化が使用できません"
         },
-        "webSearch": {
-          "title": "ウェブ検索",
-          "description": "ウェブ検索APIをまだ設定していません。ウェブ検索機能が利用できません。<anchor>設定に移動</anchor>",
-          "errorTips": "ウェブ検索APIをまだ設定していません。ウェブ検索機能が利用できません"
+        "aiEnable": {
+          "title": "AI サービス（チャット／AI フィールド）",
+          "description": "AI チャット、AI フィールド、自動化を使うには有効にします、<anchor>設定へ移動</anchor>"
+        },
+        "aiLlmApi": {
+          "title": "AI：LLM API を設定",
+          "description": "AI Gateway を選ぶか、カスタムプロバイダーを設定します、<anchor>設定へ移動</anchor>"
+        },
+        "aiModelPool": {
+          "title": "AI：利用可能なモデルを設定",
+          "description": "AI フィールドと自動化のために少なくとも 1 つのモデルを有効にします、<anchor>設定へ移動</anchor>"
+        },
+        "aiChatModel": {
+          "title": "AI：チャットモデルを設定",
+          "description": "サイドバーの AI チャット用の既定モデルを選択します、<anchor>設定へ移動</anchor>"
+        },
+        "appBuilderEngine": {
+          "title": "アプリビルダー：デプロイエンジン",
+          "description": "アプリ公開用のデプロイエンジン（Vercel または Teable Infra）を設定します、<anchor>設定へ移動</anchor>"
+        },
+        "appBuilderDomain": {
+          "title": "アプリビルダー：カスタムドメイン",
+          "description": "独自ドメインでアプリを公開したい場合は、ドメインと Vercel トークンを設定します、<anchor>設定へ移動</anchor>"
         },
         "email": {
           "title": "メール",
           "description": "メールが設定されていません。セルフサービスパスワード復旧とメール通知機能が利用できません。<anchor>設定に移動</anchor>",
           "errorTips": "メールが設定されていません。セルフサービスパスワード復旧、メール検証/通知機能が利用できません"
+        },
+        "sandboxOpenSandbox": {
+          "title": "AI チャットのランタイム",
+          "description": "AI チャット用の OpenSandbox 実行環境を設定します、<anchor>設定へ移動</anchor>"
         }
       }
+    },
+    "canary": {
+      "title": "カナリアリリース",
+      "enable": "カナリアを有効にする",
+      "enableDescription": "有効にすると、選択したスペースでカナリア機能が有効になります",
+      "spaces": "カナリア対象スペース",
+      "spacesDescription": "{{count}} 件のスペースを設定済み",
+      "configure": "設定",
+      "spaceIds": "スペース ID",
+      "spaceIdsDescription": "スペース ID を 1 行に 1 つ、またはカンマ／スペース区切りで入力します",
+      "spaceIdsPlaceholder": "spcXXXXXXXXXXX\nspcYYYYYYYYYYY",
+      "preview": "プレビュー（{{count}} 件の ID）",
+      "noSpaceIds": "スペース ID が入力されていません"
     }
   },
   "notification": {
@@ -757,9 +1076,20 @@
     "markAs": "この通知を{{status}}としてマークする",
     "markAllAsRead": "全て既読にする",
     "noUnread": "{{status}}の通知はありません",
+    "noAttention": "対応が必要な通知はありません",
+    "noSeverity": "{{severity}} の通知はありません",
     "changeSetting": "ページ通知設定を変更する",
     "new": "{{count}}件の新たな通知",
     "showMore": "もっと見る",
+    "sections": {
+      "needsAction": "重要",
+      "all": "すべて"
+    },
+    "severity": {
+      "critical": "重要",
+      "warning": "警告",
+      "info": "通常"
+    },
     "exportBase": {
       "successText": "エクスポートデータの準備ができました",
       "failedText": "エクスポートに失敗しました。再試行してください"
@@ -778,21 +1108,11 @@
       "viewer": "閲覧者"
     },
     "description": {
-      "owner": "ベース、オートメーション、権限マトリックスのすべての設定と編集、スペース設定と課金を管理できます。",
-      "creator": "ベース、オートメーション、権限マトリックスのすべての設定と編集ができます",
+      "owner": "ベース、アプリ、オートメーション、権限マトリックスをすべて設定し、スペース設定と課金を管理できます。",
+      "creator": "ベース、アプリ、オートメーション、権限マトリックスをすべて設定できます",
       "editor": "レコードとビューを編集できますが、テーブルやフィールドを設定することはできません",
       "commenter": "レコードにコメントできます",
       "viewer": "編集もコメントもできません"
-    }
-  },
-  "pluginCenter": {
-    "pluginUrlEmpty": "プラグインにURLがありません",
-    "install": "インストール",
-    "publisher": "発行者",
-    "lastUpdated": "最終更新",
-    "pluginNotFound": "プラグインが見つかりません",
-    "pluginEmpty": {
-      "title": "プラグインがまだありません"
     }
   },
   "trash": {
@@ -810,10 +1130,21 @@
     "spaceInnerDescription": "過去{{retentionDays}}日以内にこのスペースから削除されたベースを復元",
     "baseDescription": "過去{{retentionDays}}日以内にこのベースから削除されたリソースを復元"
   },
+  "pluginCenter": {
+    "pluginUrlEmpty": "プラグインにURLがありません",
+    "install": "インストール",
+    "publisher": "発行者",
+    "lastUpdated": "最終更新",
+    "pluginNotFound": "プラグインが見つかりません",
+    "pluginEmpty": {
+      "title": "プラグインがまだありません"
+    }
+  },
   "automation": {
     "turnOnTip": "現在のオートメーションを有効にしますか？"
   },
   "email": {
+    "title": "メール",
     "send": "送信",
     "config": "メール設定",
     "customConfig": "カスタムメールサーバー",
@@ -1069,12 +1400,9 @@
     "times": "回",
     "generate": "生成",
     "code": "招待コード",
-    "inviteSuccess": "招待成功",
-    "app": {
-      "previewAppError": "アプリケーションエラー",
-      "sendErrorToAI": "エラーを AI に送信"
-    }
+    "inviteSuccess": "招待成功"
   },
+  "noPermissionToCreateBase": "どのスペースにもベースを作成する権限がありません",
   "base": {
     "deleteTip": "「{{name}}」ベースを削除してもよろしいですか？",
     "createResource": "リソースを作成",
@@ -1122,6 +1450,8 @@
     "mustMention": "投稿は{{mention}}をメンションする必要があります",
     "fetchSnapshotFailed": "投稿スナップショットの取得に失敗しました",
     "alreadyClaimedThisWeek": "今週すでにこのアカウントの報酬を請求しています",
+    "maxClaimsReached": "今週のリワード請求上限（2回）に達しました",
+    "postTooOld": "投稿は過去{{hours}}時間以内に公開されたものである必要があります",
     "manage": {
       "title": "報酬管理",
       "description": "すべてのスペースの報酬記録を表示・管理",
@@ -1180,6 +1510,33 @@
       }
     }
   },
+  "chat": {
+    "responseInterrupted": "応答が中断されました",
+    "serverError": "サーバーエラーが発生しました",
+    "serverErrorHint": "新しい会話を開始してもう一度お試しください。",
+    "modelNotSupported": "選択したモデルはエージェントモードに対応していません。最適な体験のために Claude Opus 4.6 に切り替えてください。",
+    "byokModelNotSupported": "カスタムモデルはエージェントモードに対応していません。最適な体験のために Claude Opus 4.6 に切り替えてください。",
+    "modelServiceUnavailable": "モデルサービスが一時的に利用できません。しばらくしてからお試しください。",
+    "modelServiceError": "モデルサービスでエラーが発生しました。もう一度お試しいただくか、別のモデルに切り替えてください。",
+    "imageProcessingFailed": "画像の処理に失敗しました",
+    "imageProcessingFailedDescription": "AI モデルが画像を処理できませんでした。再送信するか、画像なしで続行してください。",
+    "sandboxActiveRunBusy": "Cuppy はまだ処理中です。送信前にお待ちください。",
+    "sandboxCapacityFull": "同時会話数の上限（{{max}}）に達しました。いずれかが終了するまでお待ちください。",
+    "sandboxTransient": "Cuppy を準備中です。少し待ってからお試しください。",
+    "sandboxSnapshotNotFound": "Cuppy の環境がまだ用意されていません。管理者にサンドボックスのスナップショット作成を依頼してください。",
+    "sandboxProviderError": "サンドボックスランタイムのエラー",
+    "sandboxProviderErrorDescription": "サンドボックスランタイムの呼び出しに失敗しました。再試行するか、管理者にランタイムの確認を依頼してください。",
+    "agentStartFailed": "AI エンジンを開始できませんでした。もう一度お試しいただくか、新しいセッションを開始してください。",
+    "idleTimeout": "コマンドの実行が制限時間（{{seconds}} 秒）を超えました。再試行してください。",
+    "danglingToolUse": "前のセッションが中断され、自動的に修復されました。メッセージを再送信してください。",
+    "contextImportFailed": "前のセッションのデータを復元できませんでした。以前のコンテキストなしで続けるには再試行してください。",
+    "collapsedStatus": {
+      "open": "AIチャットを開く",
+      "working": "AIが処理中です",
+      "completed": "AIタスクが完了しました",
+      "failed": "AIタスクに失敗しました"
+    }
+  },
   "system": {
     "notFound": {
       "title": "ページが見つかりません",
@@ -1228,7 +1585,8 @@
       "replace": "置き換え",
       "download": "ダウンロード",
       "uninstall": "アンインストール",
-      "copyToBase": "Base にコピー",
+      "copyToBase": "ベースにコピー",
+      "copyToSpace": "スペースにコピー",
       "copyToPersonal": "個人にコピー",
       "copyToApp": "アプリにコピー"
     },
@@ -1253,6 +1611,7 @@
       "type": "タイプ",
       "description": "説明",
       "source": "ソース",
+      "addedBy": "追加者",
       "skillLabel": "スキル",
       "syncStatus": "同期状態",
       "preview": "SKILL.mdプレビュー"
@@ -1260,10 +1619,13 @@
     "scope": {
       "label": "スコープ",
       "system": "システム",
-      "base": "現在のベース",
+      "builtin": "組み込み",
+      "base": "ベース",
       "user": "個人",
       "userDescription": "自分のみ利用可能",
       "baseDescription": "この Base の共同作業者と共有",
+      "space": "スペース",
+      "spaceDescription": "このスペースの全メンバーと共有",
       "app": "App",
       "appDescription": "このアプリでのみ利用可能",
       "cuppyclaw": "ボット",
@@ -1280,12 +1642,12 @@
       "synced": "同期済み",
       "failed": "同期失敗"
     },
-    "empty": {
-      "mySkills": "個人スキルはまだありません。インポートして始めましょう。"
-    },
     "confirm": {
       "deleteTitle": "スキルを削除",
-      "deleteDescription": "このスキルを削除してもよろしいですか？この操作は元に戻せません。"
+      "deleteDescription": "このスキルを削除してもよろしいですか？この操作は元に戻せません。",
+      "copyTitle": "スキルをコピー",
+      "copyDescription": "スキルのファイルが対象スコープにコピーされます。元のスキルは変更されません。",
+      "copyOverwriteWarning": "対象スコープに同名のスキルが既にある場合は置き換えられます。"
     },
     "toast": {
       "syncing": "スキルを同期中...",
@@ -1294,14 +1656,11 @@
       "deleting": "スキルを削除中...",
       "deleteSuccess": "スキルを削除しました",
       "deleteError": "スキルの削除に失敗しました",
-      "updateSuccess": "スキルを更新しました"
+      "updateSuccess": "スキルを更新しました",
+      "copying": "コピー中...",
+      "copySuccess": "コピーしました",
+      "copyError": "コピーに失敗しました"
     }
-  },
-  "changelog": {
-    "newUpdate": "7月28日アップデート",
-    "title": "AIエージェント向けTeable Skill",
-    "url": "https://help.teable.ai/en/changelog#jul-28-2026",
-    "id": "changelog-2026-07-28-teable-skill-for-ai-agents"
   },
   "resourceDescription": {
     "addDescription": "説明を追加",
@@ -1309,5 +1668,12 @@
     "descriptionSaving": "保存中...",
     "descriptionSaveFailed": "説明の保存に失敗しました。もう一度お試しください",
     "descriptionPlaceholder": "このノードの説明を追加"
+  },
+  "announcement": {
+    "viewDetail": "詳細を見る",
+    "close": "お知らせを閉じる",
+    "acknowledge": "了解しました",
+    "collapse": "折りたたむ",
+    "more_other": "他 {{count}} 件のお知らせ"
   }
 }

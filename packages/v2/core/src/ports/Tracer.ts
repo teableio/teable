@@ -109,6 +109,15 @@ export interface ISpan {
   end(): void;
 }
 
+/**
+ * W3C trace-context carrier used to hand a parent span across async boundaries
+ * (for example BullMQ wake-up jobs for the computed outbox worker).
+ */
+export type TracePropagationCarrier = Readonly<{
+  traceparent?: string;
+  tracestate?: string;
+}>;
+
 export interface ITracer {
   /**
    * Start a new span with the given name and optional attributes.
@@ -129,6 +138,21 @@ export interface ITracer {
    * Returns undefined if no span is active.
    */
   getActiveSpan(): ISpan | undefined;
+
+  /**
+   * Capture the active W3C trace context for async handoff.
+   * Optional: tracers without propagation support may omit this.
+   */
+  capturePropagationCarrier?(): TracePropagationCarrier | undefined;
+
+  /**
+   * Run work with the given W3C carrier as the active parent context.
+   * Optional: tracers without propagation support may omit this.
+   */
+  runWithPropagationCarrier?<T>(
+    carrier: TracePropagationCarrier | undefined,
+    callback: () => Promise<T>
+  ): Promise<T>;
 }
 
 export interface PluginTraceContext {

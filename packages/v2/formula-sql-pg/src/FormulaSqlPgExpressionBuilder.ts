@@ -597,6 +597,13 @@ export class FormulaSqlPgExpressionBuilder {
       return this.normalizeLookupArrayExpr(expr);
     }
 
+    // Nested ARRAY_* results already produce jsonb arrays. Re-running
+    // normalizeToJsonArrayWithStrategy inlines the inner SQL through
+    // pg_typeof / pg_input_is_valid and explodes statement size.
+    if (expr.isArray && expr.storageKind === 'json' && expr.field == null) {
+      return `COALESCE((${expr.valueSql}), '[]'::jsonb)`;
+    }
+
     // For known JSON storage array fields (attachment, user, multipleSelect, etc.),
     // check if this is a direct field reference (simple column access).
     // Direct references can use simplified cast; computed expressions need type validation.
@@ -1101,7 +1108,8 @@ export class FormulaSqlPgExpressionBuilder {
       );
     }
     const textValue = this.coerceToString(base);
-    const trimmed = `BTRIM(${textValue.valueSql})`;
+    const textSql = `(${textValue.valueSql})::text`;
+    const trimmed = `BTRIM(${textSql})`;
     const valueSql = `(CASE
       WHEN ${textValue.valueSql} IS NULL THEN FALSE
       WHEN ${trimmed} = '' THEN FALSE
@@ -2161,7 +2169,65 @@ export class FormulaSqlPgExpressionBuilder {
       this.isBlankStringLiteral(defaultResult) ||
       (defaultResult.valueType === type && defaultResult.isArray === isArray);
 
-    if (results.every((result) => result.valueType === type && result.isArray === isArray)) {
+    // Mirror IF branch normalization (coerceBranches): a scalar branch carrying
+    // JSON storage (single-value lookup refs emit jsonb even for number/date inner
+    // fields) must be normalized to the seed scalar type, otherwise the emitted
+    // CASE mixes jsonb with scalar column types and Postgres rejects it.
+    if (!isArray && hasJsonStorage && nonBlankConsistent && defaultConsistent) {
+      const nullifyBlank = (result: SqlExpr): SqlExpr | undefined =>
+        this.isBlankStringLiteral(result)
+          ? makeExpr('NULL', type, isArray, undefined, undefined)
+          : undefined;
+      const coerceDefault = (coerce: (expr: SqlExpr) => SqlExpr): string | undefined =>
+        defaultResult
+          ? nullifyBlank(defaultResult)?.valueSql ?? coerce(defaultResult).valueSql
+          : undefined;
+      switch (type) {
+        case 'number': {
+          const coerced = results.map(
+            (result) => nullifyBlank(result) ?? this.coerceToNumber(result, 'switch')
+          );
+          return {
+            results: coerced,
+            type,
+            isArray,
+            defaultValueSql: coerceDefault((expr) => this.coerceToNumber(expr, 'switch')),
+          };
+        }
+        case 'boolean': {
+          const coerced = results.map(
+            (result) => nullifyBlank(result) ?? this.coerceToBoolean(result)
+          );
+          return {
+            results: coerced,
+            type,
+            isArray,
+            defaultValueSql: coerceDefault((expr) => this.coerceToBoolean(expr)),
+          };
+        }
+        case 'datetime': {
+          const coerced = results.map(
+            (result) => nullifyBlank(result) ?? this.coerceToDatetime(result)
+          );
+          return {
+            results: coerced,
+            type,
+            isArray,
+            defaultValueSql: coerceDefault((expr) => this.coerceToDatetime(expr)),
+          };
+        }
+        default:
+          break;
+      }
+    }
+
+    // The raw early-return is only safe when the default branch merges into the
+    // same CASE type; a mismatched default (e.g. a multi-value link jsonb column
+    // or a text title under numeric results) must fall through to coercion.
+    if (
+      results.every((result) => result.valueType === type && result.isArray === isArray) &&
+      defaultConsistent
+    ) {
       return { results, type, isArray, defaultValueSql: defaultResult?.valueSql };
     }
 

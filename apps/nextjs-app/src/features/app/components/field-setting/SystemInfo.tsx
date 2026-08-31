@@ -39,7 +39,7 @@ const FieldInfoList: React.FC<{ field: Partial<IFieldVo> }> = ({ field }) => (
       { label: 'isPending', value: field.isPending ? 'true' : 'false' },
     ].map(({ label, value }) => (
       <p key={label} className="h-4 text-xs ">
-        <span className="mr-1 select-none text-muted-foreground">{label}: </span>
+        <span className="me-1 select-none text-muted-foreground">{label}: </span>
         {value}
       </p>
     ))}
@@ -79,7 +79,7 @@ export const SystemInfo: React.FC<{
 
   if (!show) {
     return (
-      <div className="absolute right-0 top-[2px] cursor-pointer">
+      <div className="absolute end-0 top-[2px] cursor-pointer">
         <ToggleButton show={show} setShow={setShow} />
       </div>
     );

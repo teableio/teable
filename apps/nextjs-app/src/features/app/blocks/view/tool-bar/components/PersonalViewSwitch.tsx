@@ -46,7 +46,7 @@ export const PersonalViewSwitch = (props: IPersonalViewSwitchProps) => {
         <Tooltip>
           <TooltipTrigger asChild>
             <div
-              className={`${buttonClassName ?? ''} flex h-7 cursor-pointer items-center gap-2 whitespace-nowrap pl-1 text-xs`}
+              className={`${buttonClassName ?? ''} flex h-7 cursor-pointer items-center gap-2 whitespace-nowrap ps-1 text-xs`}
             >
               <span>{t('table:toolbar.others.personalView.personal')}</span>
               <Switch

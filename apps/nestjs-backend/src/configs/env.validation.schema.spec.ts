@@ -82,6 +82,40 @@ describe('envValidationSchema', () => {
 
     expect(error).toBeUndefined();
     expect(value.V2_COMPUTED_OUTBOX_MONITOR_INTERVAL_MS).toBe(30_000);
+    expect(value.V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS).toBe(60_000);
+    expect(value.V2_COMPUTED_INLINE_STATEMENT_TIMEOUT_MS).toBe(60_000);
+    expect(value.V2_COMPUTED_OUTBOX_FIELD_BACKFILL_BATCH_SIZE).toBe(500);
+  });
+
+  it('accepts computed task timeout and field-backfill batch overrides', () => {
+    const { error, value } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable?schema=public',
+        V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS: '0',
+        V2_COMPUTED_INLINE_STATEMENT_TIMEOUT_MS: '15000',
+        V2_COMPUTED_OUTBOX_FIELD_BACKFILL_BATCH_SIZE: '250',
+      })
+    );
+
+    expect(error).toBeUndefined();
+    expect(value.V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS).toBe(0);
+    expect(value.V2_COMPUTED_INLINE_STATEMENT_TIMEOUT_MS).toBe(15_000);
+    expect(value.V2_COMPUTED_OUTBOX_FIELD_BACKFILL_BATCH_SIZE).toBe(250);
+  });
+
+  // A Joi default on BACKEND_CACHE_PROVIDER is written back into process.env by
+  // ConfigModule.forRoot before the registerAs factories run, which would shadow
+  // the URI-aware provider resolution in cache.config.ts and silently downgrade
+  // Redis deployments to the sqlite cache.
+  it('leaves the cache provider unset so cache.config can derive it', () => {
+    const { error, value } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable?schema=public',
+      })
+    );
+
+    expect(error).toBeUndefined();
+    expect(value.BACKEND_CACHE_PROVIDER).toBeUndefined();
   });
 
   it('rejects disabling both BullMQ roles', () => {

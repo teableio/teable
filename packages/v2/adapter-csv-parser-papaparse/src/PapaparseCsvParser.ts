@@ -77,6 +77,7 @@ export class PapaparseCsvParser implements ICsvParser {
       return ok({
         headers,
         rows: this.createRowsIterable(rows),
+        rowCount: rows.length,
       });
     } catch (error) {
       return err(
@@ -336,23 +337,29 @@ export class PapaparseCsvParser implements ICsvParser {
     stream: AsyncIterable<Uint8Array | string>,
     options?: CsvParseOptions
   ): Promise<Result<CsvParseResult, DomainError>> {
-    const encoding = options?.encoding ?? 'utf-8';
-    const decoder = new TextDecoder(encoding);
+    try {
+      const { headers, rowsAsync } = await this.createStreamingParser(
+        asyncIterableToReadableStream(stream),
+        {
+          delimiter: options?.delimiter,
+          hasHeader: options?.hasHeader ?? true,
+          skipEmptyLines: options?.skipEmptyLines ?? true,
+        }
+      );
 
-    // 将 stream 收集为字符串
-    // TODO: 实现真正的流式解析（需要 papaparse 的 Node.js stream 支持或使用其他库）
-    let csvString = '';
-    for await (const chunk of stream) {
-      if (typeof chunk === 'string') {
-        csvString += chunk;
-      } else {
-        csvString += decoder.decode(chunk, { stream: true });
-      }
+      return ok({
+        headers,
+        rows: [],
+        rowsAsync,
+      });
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `CSV stream parse error: ${error instanceof Error ? error.message : String(error)}`,
+          code: 'csv.stream_parse_error',
+        })
+      );
     }
-    csvString += decoder.decode(); // flush remaining
-
-    // 使用同步解析
-    return this.parse({ type: 'string', data: csvString }, options);
   }
 
   /**
@@ -364,3 +371,23 @@ export class PapaparseCsvParser implements ICsvParser {
     }
   }
 }
+
+const asyncIterableToReadableStream = (
+  stream: AsyncIterable<Uint8Array | string>
+): ReadableStream<Uint8Array> => {
+  const encoder = new TextEncoder();
+  const iterator = stream[Symbol.asyncIterator]();
+  return new ReadableStream({
+    async pull(controller) {
+      const next = await iterator.next();
+      if (next.done) {
+        controller.close();
+        return;
+      }
+      controller.enqueue(typeof next.value === 'string' ? encoder.encode(next.value) : next.value);
+    },
+    async cancel() {
+      await iterator.return?.();
+    },
+  });
+};

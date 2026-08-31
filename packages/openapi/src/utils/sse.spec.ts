@@ -1,8 +1,9 @@
+import { HttpError, HttpErrorCode } from '@teable/core';
 import { AxiosHeaders } from 'axios';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { axios } from '../axios';
-import { buildSSERequestHeaders } from './sse';
+import { buildSSERequestHeaders, streamSSE, toSSERequestError } from './sse';
 
 describe('buildSSERequestHeaders', () => {
   const acceptHeader = 'text/event-stream';
@@ -88,5 +89,67 @@ describe('buildSSERequestHeaders', () => {
       'X-Patch': 'patch',
       'X-Request': 'request',
     });
+  });
+});
+
+describe('toSSERequestError', () => {
+  it('preserves the backend error envelope for JSON bodies', () => {
+    const body = JSON.stringify({
+      message: 'Exceed the maximum number of rows',
+      status: 402,
+      code: HttpErrorCode.PAYMENT_REQUIRED,
+      data: { localization: { i18nKey: 'httpErrors.billing.exceedMaxRowLimit' } },
+    });
+
+    const error = toSSERequestError(body, 402, 'Paste selection by id stream failed');
+
+    expect(error).toBeInstanceOf(HttpError);
+    expect(error.status).toBe(402);
+    expect(error.code).toBe(HttpErrorCode.PAYMENT_REQUIRED);
+    expect(error.message).toBe('Exceed the maximum number of rows');
+    expect(error.data).toEqual({
+      localization: { i18nKey: 'httpErrors.billing.exceedMaxRowLimit' },
+    });
+  });
+
+  it('falls back to a prefixed message for non-JSON bodies', () => {
+    const error = toSSERequestError('Bad Gateway', 502, 'SSE stream failed');
+
+    expect(error).toBeInstanceOf(HttpError);
+    expect(error.status).toBe(502);
+    expect(error.message).toBe('SSE stream failed: 502 Bad Gateway');
+  });
+
+  it('falls back to a prefixed message for JSON bodies without a message', () => {
+    const error = toSSERequestError('{"foo":"bar"}', 500, 'SSE stream failed');
+
+    expect(error.status).toBe(500);
+    expect(error.message).toBe('SSE stream failed: 500 {"foo":"bar"}');
+  });
+});
+
+describe('streamSSE', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('throws an HttpError carrying status and code when the request fails before streaming', async () => {
+    const body = JSON.stringify({
+      message: 'Exceed the maximum number of rows',
+      status: 402,
+      code: HttpErrorCode.PAYMENT_REQUIRED,
+    });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body, { status: 402 })));
+
+    const error: unknown = await streamSSE(
+      '/api/table/tbl/selection/paste-by-id-stream',
+      { method: 'PATCH' },
+      { errorPrefix: 'Paste selection by id stream failed' }
+    ).catch((e) => e);
+
+    expect(error).toBeInstanceOf(HttpError);
+    expect((error as HttpError).status).toBe(402);
+    expect((error as HttpError).code).toBe(HttpErrorCode.PAYMENT_REQUIRED);
+    expect((error as HttpError).message).toBe('Exceed the maximum number of rows');
   });
 });

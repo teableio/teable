@@ -212,7 +212,7 @@ export const CategorySettingDialog = ({ children }: { children?: React.ReactNode
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {children ?? (
-          <Button size="icon-xs" variant="outline" className="ml-1 size-6 p-0 hover:bg-accent">
+          <Button size="icon-xs" variant="outline" className="ms-1 size-6 p-0 hover:bg-accent">
             <Settings className="size-4 shrink-0" />
           </Button>
         )}

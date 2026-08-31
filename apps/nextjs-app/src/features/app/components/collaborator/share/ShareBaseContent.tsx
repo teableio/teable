@@ -21,6 +21,7 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useRouter } from 'next/router';
 import { Trans, useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
+import { useSeatConfirm } from '../../../hooks/useSeatConfirm';
 import { useFilteredRoleStatic } from '../../collaborator-manage/base/useFilteredRoleStatic';
 import { CollaboratorsDialog } from './CollaboratorsDialog';
 import { AuthorityTips } from './common/AuthorityTips';
@@ -59,6 +60,7 @@ export const ShareBaseContent = ({
   const [tabType, setTabType] = useState<
     'email' | 'link' | 'collaborators' | 'organization' | undefined
   >();
+  const confirmSeat = useSeatConfirm({ baseId });
 
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
@@ -197,19 +199,23 @@ export const ShareBaseContent = ({
         isCreateLoading={createInviteLinkLoading}
         isUpdateLoading={updateInviteLinkLoading}
         isDeleteLoading={deleteInviteLinkLoading}
-        onCreate={(role) =>
-          createInviteLinkRequest({
-            baseId,
-            createBaseInvitationLinkRo: { role: role as IBaseRole },
-          })
-        }
-        onUpdate={(invitationId, role) =>
-          updateInviteLink({
-            invitationId,
-            updateBaseInvitationLinkRo: { role: role as IBaseRole },
-            baseId,
-          })
-        }
+        onCreate={async (role) => {
+          if (await confirmSeat({ role, count: 1, action: 'link' })) {
+            createInviteLinkRequest({
+              baseId,
+              createBaseInvitationLinkRo: { role: role as IBaseRole },
+            });
+          }
+        }}
+        onUpdate={async (invitationId, role) => {
+          if (await confirmSeat({ role, count: 1, action: 'link' })) {
+            updateInviteLink({
+              invitationId,
+              updateBaseInvitationLinkRo: { role: role as IBaseRole },
+              baseId,
+            });
+          }
+        }}
         onDelete={(invitationId) => deleteInviteLink({ invitationId, baseId })}
         onBack={onBack}
         filteredRoleStatic={filteredRoleStatic}
@@ -226,7 +232,11 @@ export const ShareBaseContent = ({
         defaultRole={defaultRole}
         isCreateLoading={emailInvitationLoading}
         onCreate={async (ro) => {
+          if (!(await confirmSeat({ role: ro.role, count: ro.emails.length, action: 'invite' }))) {
+            return false;
+          }
           await emailInvitation({ baseId, emailBaseInvitationRo: ro });
+          return true;
         }}
         onBack={onBack}
         filteredRoleStatic={filteredRoleStatic}
@@ -240,9 +250,12 @@ export const ShareBaseContent = ({
       <OrgContent
         defaultRole={defaultRole}
         isCreateLoading={addCollaboratorsLoading}
-        onCreate={(role, members) =>
-          addCollaborators({ role: role as IRole, collaborators: members })
-        }
+        onCreate={async (role, members) => {
+          const userCount = members.filter((m) => m.principalType === PrincipalType.User).length;
+          if (await confirmSeat({ role: role as IRole, count: userCount, action: 'invite' })) {
+            addCollaborators({ role: role as IRole, collaborators: members });
+          }
+        }}
         onBack={onBack}
         filteredRoleStatic={filteredRoleStatic}
       />
@@ -295,11 +308,6 @@ export const ShareBaseContent = ({
             alert={
               enabledAuthority ? <AuthorityTips onViewDetail={toAuthorityManage} /> : undefined
             }
-            list={collaborators || []}
-            total={total}
-            hasNextPage={hasNextPage}
-            fetchNextPage={fetchNextPage}
-            isLoading={false}
             content={
               <div className="flex flex-1 flex-col gap-2 overflow-hidden">
                 <DebounceInput
@@ -308,7 +316,6 @@ export const ShareBaseContent = ({
                   placeholder={t('invite.base.collaboratorSearchPlaceholder')}
                 />
                 <CollaboratorTable
-                  className="flex-1 overflow-y-auto rounded-md border"
                   list={collaborators || []}
                   total={total}
                   hasNextPage={hasNextPage}
@@ -320,7 +327,14 @@ export const ShareBaseContent = ({
                   onUpdateRole={
                     enabledAuthority
                       ? undefined
-                      : (role, item) => {
+                      : async (role, item) => {
+                          const addedSeats =
+                            item.type === PrincipalType.User && !item.billable ? 1 : 0;
+                          if (
+                            !(await confirmSeat({ role, count: addedSeats, action: 'roleChange' }))
+                          ) {
+                            return;
+                          }
                           updateCollaborator({
                             baseId,
                             updateBaseCollaborateRo: {
@@ -347,7 +361,7 @@ export const ShareBaseContent = ({
                     return (
                       item.resourceType === CollaboratorType.Space && (
                         <Badge
-                          className="shrink-0 whitespace-nowrap text-xs px-2 font-normal"
+                          className="shrink-0 whitespace-nowrap px-2 text-xs font-normal"
                           variant={'outline'}
                         >
                           {t('noun.space')}

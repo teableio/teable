@@ -220,7 +220,7 @@ export function GatewayModelPickerDialog({
         <div className="flex w-[600px] max-w-[90vw] flex-col gap-4">
           {/* Search Input */}
           <div className="relative px-1">
-            <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute start-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               placeholder={t('admin.setting.ai.searchModelPlaceholder')}
@@ -231,7 +231,7 @@ export function GatewayModelPickerDialog({
           </div>
 
           {/* Model List */}
-          <ScrollArea ref={scrollAreaRef} className="h-[450px] pr-1">
+          <ScrollArea ref={scrollAreaRef} className="h-[450px] pe-1">
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="size-6 animate-spin text-muted-foreground" />
@@ -258,7 +258,7 @@ export function GatewayModelPickerDialog({
                       onClick={() => !isDisabled && onSelectModel(model)}
                       disabled={isDisabled}
                       className={cn(
-                        'flex w-full flex-col rounded-sm p-2 py-1.5 text-left transition-colors hover:bg-accent focus:bg-accent focus:outline-none',
+                        'flex w-full flex-col rounded-sm p-2 py-1.5 text-start transition-colors hover:bg-accent focus:bg-accent focus:outline-none',
                         isSelected && 'bg-accent',
                         isDisabled && 'cursor-not-allowed opacity-50'
                       )}
@@ -283,7 +283,7 @@ export function GatewayModelPickerDialog({
 
                       {/* Second row: Model ID, Price badge, Capability badges */}
                       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                        <code className="truncate pl-6">{model.id}</code>
+                        <code className="truncate ps-6">{model.id}</code>
                         {/* Price badge */}
                         {renderPriceBadge(model)}
                         {/* Capability badges */}

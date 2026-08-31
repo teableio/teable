@@ -49,11 +49,11 @@ const TextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEditor> 
   };
 
   return (
-    <div className="flex w-full items-center space-x-2">
+    <div className="flex w-full items-center space-x-2 rtl:space-x-reverse">
       <Input
         ref={inputRef}
         style={style}
-        className={cn('h-10 sm:h-8', className)}
+        className={cn('h-8', className)}
         value={text}
         onChange={onChangeInner}
         onBlur={() => saveOnBlur && saveValue()}

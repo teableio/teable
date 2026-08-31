@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { DriverClient, generateAccountId, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -47,6 +46,7 @@ import type { AxiosInstance } from 'axios';
 import axios from 'axios';
 import { vi } from 'vitest';
 import { AUTH_SESSION_COOKIE_NAME } from '../src/const';
+import { TeableJwtService } from '../src/features/auth/jwt/teable-jwt.service';
 import { SettingService } from '../src/features/setting/setting.service';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
@@ -239,7 +239,7 @@ describe('Auth Controller (e2e)', () => {
       const data = error?.data as { token: string; expiresTime: number };
       expect(data.token).not.toBeUndefined();
       expect(data.expiresTime).not.toBeUndefined();
-      const jwtService = app.get(JwtService);
+      const jwtService = app.get(TeableJwtService);
       const decoded = await jwtService.verifyAsync<{ email: string; code: string }>(data.token);
       const res = await signup({
         email: authTestEmail,
@@ -337,7 +337,7 @@ describe('Auth Controller (e2e)', () => {
         password: '12345678a',
       });
       expect(codeRes.data.token).not.toBeUndefined();
-      const jwtService = app.get(JwtService);
+      const jwtService = app.get(TeableJwtService);
       const decoded = await jwtService.verifyAsync<{ email: string; code: string }>(
         codeRes.data.token
       );

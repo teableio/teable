@@ -74,7 +74,7 @@ export const AddView: React.FC = () => {
               className="w-full justify-start font-normal"
               onClick={() => onClick(type, name)}
             >
-              <Icon className="pr-1 text-lg" />
+              <Icon className="pe-1 text-lg" />
               {name}
             </Button>
           );

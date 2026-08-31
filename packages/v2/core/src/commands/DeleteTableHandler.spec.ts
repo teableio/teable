@@ -292,7 +292,7 @@ describe('DeleteTableHandler', () => {
     result._unsafeUnwrap();
 
     expect(schemaRepo.deleted).toHaveLength(0);
-    expect(sideEffectService.calls).toBe(0);
+    expect(sideEffectService.calls).toBe(1);
     expect(schemaRepo.deleteModes).toEqual(['soft']);
     expect(repo.deleted).toHaveLength(1);
     expect(repo.deleteModes).toEqual(['soft']);

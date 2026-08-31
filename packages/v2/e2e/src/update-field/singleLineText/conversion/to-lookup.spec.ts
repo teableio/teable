@@ -216,6 +216,93 @@ describe('update-field: singleLineText → lookup conversion', () => {
     await ctx.deleteRecords(foreignTableId, [foreignRecord.id]);
   });
 
+  test('should convert to one-many lookup with JSON dbFieldType and array value', async () => {
+    const firstForeign = await ctx.createRecord(foreignTableId, {
+      [foreignPrimaryFieldId]: 'x',
+    });
+    const secondForeign = await ctx.createRecord(foreignTableId, {
+      [foreignPrimaryFieldId]: 'y',
+    });
+
+    const withOneManyLink = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: hostTableId,
+      field: {
+        type: 'link',
+        id: createFieldId(),
+        name: 'Company Link OneMany',
+        options: {
+          relationship: 'oneMany',
+          foreignTableId,
+          lookupFieldId: foreignPrimaryFieldId,
+        },
+      },
+    });
+    const oneManyLinkField = withOneManyLink.fields.find((f) => f.name === 'Company Link OneMany');
+    if (!oneManyLinkField) throw new Error('No one-many link field');
+    const oneManyLinkFieldId = oneManyLinkField.id;
+
+    const fieldId = await createSingleLineTextField('Text Field OneMany Lookup');
+    const hostRecord = await ctx.createRecord(hostTableId, {
+      [hostPrimaryFieldId]: 'Host OneMany',
+      [oneManyLinkFieldId]: [{ id: firstForeign.id }, { id: secondForeign.id }],
+      [fieldId]: 'legacy text',
+    });
+    await ctx.drainOutbox();
+
+    const updatedTable = await ctx.updateField({
+      tableId: hostTableId,
+      fieldId,
+      field: {
+        type: 'lookup',
+        options: {
+          linkFieldId: oneManyLinkFieldId,
+          foreignTableId,
+          lookupFieldId: foreignPrimaryFieldId,
+        },
+      },
+    });
+    await ctx.drainOutbox();
+
+    const updatedField = updatedTable.fields.find((f) => f.id === fieldId) as
+      | {
+          isLookup?: boolean;
+          isMultipleCellValue?: boolean;
+          dbFieldType?: string;
+          lookupOptions?: {
+            linkFieldId: string;
+            foreignTableId: string;
+            lookupFieldId: string;
+          };
+        }
+      | undefined;
+
+    const fieldStorageRow = await ctx.testContainer.db
+      .selectFrom('field')
+      .select(['db_field_type', 'is_multiple_cell_value'])
+      .where('id', '=', fieldId)
+      .executeTakeFirstOrThrow();
+
+    expect(updatedField?.isLookup).toBe(true);
+    expect(updatedField?.isMultipleCellValue).toBe(true);
+    expect(updatedField?.dbFieldType).toBe('JSON');
+    expect(fieldStorageRow.db_field_type).toBe('JSON');
+    expect(fieldStorageRow.is_multiple_cell_value).toBe(true);
+    expect(updatedField?.lookupOptions).toMatchObject({
+      linkFieldId: oneManyLinkFieldId,
+      foreignTableId,
+      lookupFieldId: foreignPrimaryFieldId,
+    });
+
+    const records = await ctx.listRecords(hostTableId);
+    expect(records.find((r) => r.id === hostRecord.id)?.fields[fieldId]).toEqual(['x', 'y']);
+
+    await ctx.deleteField({ tableId: hostTableId, fieldId });
+    await ctx.deleteField({ tableId: hostTableId, fieldId: oneManyLinkFieldId });
+    await ctx.deleteRecords(hostTableId, [hostRecord.id]);
+    await ctx.deleteRecords(foreignTableId, [firstForeign.id, secondForeign.id]);
+  });
+
   test('should handle null values', async () => {
     const fieldId = await createSingleLineTextField('Null Text Field');
     const hostRecord = await ctx.createRecord(hostTableId, {

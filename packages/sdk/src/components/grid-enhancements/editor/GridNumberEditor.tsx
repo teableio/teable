@@ -48,7 +48,7 @@ const GridNumberEditorBase: ForwardRefRenderFunction<
   return (
     <NumberEditor
       ref={editorRef}
-      className="rounded-md border-2 text-right shadow-none focus-visible:ring-transparent"
+      className="rounded-md border-2 text-end shadow-none focus-visible:ring-transparent"
       style={{ border: `2px solid ${cellLineColorActived}`, ...style, ...attachStyle }}
       onChange={saveValue}
       saveOnBlur={false}

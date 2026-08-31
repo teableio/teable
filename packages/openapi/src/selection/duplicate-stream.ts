@@ -1,9 +1,11 @@
+import { localizationSchema } from '@teable/core';
 import { axios, ensureUndoRedoWindowIdHeader } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { streamSSE } from '../utils/sse';
 import { z } from '../zod';
 import type { IRangesRo } from './range';
 import { rangesQuerySchema } from './range';
+import { createSelectionStreamError } from './stream-error';
 
 export const DUPLICATE_STREAM_URL = '/table/{tableId}/selection/duplicate-stream';
 
@@ -35,6 +37,7 @@ export const duplicateSelectionStreamErrorEventSchema = z.object({
   recordIds: z.array(z.string()),
   message: z.string(),
   code: z.string().optional(),
+  localization: localizationSchema.optional(),
 });
 
 export const duplicateSelectionStreamEventSchema = z.union([
@@ -136,7 +139,7 @@ export const duplicateSelectionStream = async (
   if (!doneEvent) {
     const lastError = errors.at(-1);
     if (lastError) {
-      throw new Error(lastError.message);
+      throw createSelectionStreamError(lastError);
     }
     throw new Error('Duplicate selection stream ended without result');
   }

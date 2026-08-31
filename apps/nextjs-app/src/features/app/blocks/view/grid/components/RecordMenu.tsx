@@ -1,6 +1,12 @@
 import { History, ArrowUp, ArrowDown, Link, MessageSquare, MessageSquareDot } from '@teable/icons';
 import { useGridViewStore } from '@teable/sdk/components';
-import { useBaseId, useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
+import {
+  useBaseId,
+  useCommentPermission,
+  useTableId,
+  useTablePermission,
+  useView,
+} from '@teable/sdk/hooks';
 import {
   cn,
   Command,
@@ -19,11 +25,12 @@ import {
   PopoverTrigger,
 } from '@teable/ui-lib/shadcn';
 import { noop } from 'lodash';
-import { CopyPlus, Trash } from 'lucide-react';
+import { Archive, CopyPlus, Trash } from 'lucide-react';
 import { useTranslation, Trans } from 'next-i18next';
 import { Fragment, useCallback, useRef, useState } from 'react';
 import { useClickAway } from 'react-use';
 import { useAI } from '@/features/app/hooks/useAI';
+import { useArchiveUpsell } from '@/features/app/hooks/useArchiveUpsell';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
 import { tableConfig } from '@/features/i18n/table.config';
 
@@ -48,6 +55,7 @@ enum MenuItemType {
   Copy = 'Copy',
   CopyLink = 'CopyLink',
   Delete = 'Delete',
+  Archive = 'Archive',
   InsertAbove = 'InsertAbove',
   InsertBelow = 'InsertBelow',
   Duplicate = 'Duplicate',
@@ -56,7 +64,7 @@ enum MenuItemType {
   AddToChat = 'AddToChat',
 }
 
-const iconClassName = 'mr-2 h-4 w-4 shrink-0';
+const iconClassName = 'me-2 h-4 w-4 shrink-0';
 type MenuTranslate = (key: string) => string;
 type RecordMenuState = ReturnType<typeof useGridViewStore.getState>['recordMenu'];
 
@@ -158,7 +166,8 @@ const buildCollaborationMenuItems = ({
   tableId,
   isMultipleSelected,
   canUpdate,
-  canComment,
+  commentReadable,
+  commentWritable,
   chatEnabled,
   recordMenu,
 }: {
@@ -166,7 +175,8 @@ const buildCollaborationMenuItems = ({
   tableId?: string;
   isMultipleSelected: boolean;
   canUpdate: boolean;
-  canComment: boolean;
+  commentReadable: boolean;
+  commentWritable: boolean;
   chatEnabled: boolean;
   recordMenu: RecordMenuState;
 }): IMenuItemProps<MenuItemType>[] => [
@@ -183,9 +193,10 @@ const buildCollaborationMenuItems = ({
   },
   {
     type: MenuItemType.AddComment,
-    name: t('sdk:expandRecord.addRecordComment'),
+    // read-only collaborators still get the thread, just not the composer
+    name: commentWritable ? t('sdk:expandRecord.addRecordComment') : t('sdk:comment.title'),
     icon: <MessageSquare className={iconClassName} />,
-    hidden: isMultipleSelected || !canComment,
+    hidden: isMultipleSelected || !commentReadable,
     onClick: () => {
       if (tableId && recordMenu?.addRecordComment) {
         void recordMenu.addRecordComment();
@@ -202,6 +213,56 @@ const buildCollaborationMenuItems = ({
     },
   },
 ];
+
+const buildArchiveMenuItems = ({
+  t,
+  canArchive,
+  isMultipleSelected,
+  isUndeletable,
+  tableId,
+  recordMenu,
+  needsUpgrade,
+  upgradeBadge,
+  onUpgradeClick,
+}: {
+  t: MenuTranslate;
+  canArchive: boolean;
+  isMultipleSelected: boolean;
+  isUndeletable: boolean;
+  tableId?: string;
+  recordMenu: RecordMenuState;
+  needsUpgrade: boolean;
+  upgradeBadge: React.ReactNode;
+  onUpgradeClick: () => void;
+}): IMenuItemProps<MenuItemType>[] => {
+  const name = isMultipleSelected
+    ? t('table:menu.archiveAllSelectedRecords')
+    : t('table:menu.archiveRecord');
+  return [
+    {
+      type: MenuItemType.Archive,
+      name,
+      icon: <Archive className={iconClassName} />,
+      hidden: !canArchive || isUndeletable || !recordMenu?.archiveRecords,
+      render: needsUpgrade ? (
+        <div className="flex items-center">
+          <Archive className={iconClassName} />
+          {name}
+          <span className="pointer-events-none ms-2 flex items-center">{upgradeBadge}</span>
+        </div>
+      ) : undefined,
+      onClick: () => {
+        if (needsUpgrade) {
+          onUpgradeClick();
+          return;
+        }
+        if (recordMenu && tableId && recordMenu.archiveRecords) {
+          void recordMenu.archiveRecords();
+        }
+      },
+    },
+  ];
+};
 
 const buildDeleteMenuItems = ({
   t,
@@ -296,10 +357,17 @@ export const RecordMenu = () => {
   const view = useView();
   const viewId = view?.id;
   const permission = useTablePermission();
+  const { commentReadable, commentWritable } = useCommentPermission();
   const recordMenuRef = useRef<HTMLDivElement>(null);
   const { enable: aiEnable } = useAI();
   const usage = useBaseUsage({ disabled: !baseId });
   const chatEnabled = Boolean(aiEnable && usage?.limit?.chatAIEnable);
+  const {
+    archiveUnlocked,
+    badge: archiveUpgradeBadge,
+    needsUpgrade: archiveNeedsUpgrade,
+    handleUpgradeClick: onArchiveUpgradeClick,
+  } = useArchiveUpsell(usage);
 
   useClickAway(recordMenuRef, () => {
     closeRecordMenu();
@@ -329,8 +397,8 @@ export const RecordMenu = () => {
   const canCreate = Boolean(permission['record|create']);
   const canRead = Boolean(permission['record|read']);
   const canUpdate = Boolean(permission['record|update']);
-  const canComment = Boolean(permission['record|comment']);
   const canDelete = Boolean(permission['record|delete']);
+  const canArchive = Boolean(permission['record|archive'] && archiveUnlocked);
   const style = position
     ? {
         left: position.x,
@@ -359,11 +427,22 @@ export const RecordMenu = () => {
       tableId,
       isMultipleSelected: Boolean(isMultipleSelected),
       canUpdate,
-      canComment,
+      commentReadable,
+      commentWritable,
       chatEnabled,
       recordMenu,
     }),
-    [],
+    buildArchiveMenuItems({
+      t: t as unknown as MenuTranslate,
+      canArchive,
+      isMultipleSelected: Boolean(isMultipleSelected),
+      isUndeletable: Boolean(record?.undeletable),
+      tableId,
+      recordMenu,
+      needsUpgrade: archiveNeedsUpgrade,
+      upgradeBadge: archiveUpgradeBadge,
+      onUpgradeClick: onArchiveUpgradeClick,
+    }),
     buildDeleteMenuItems({
       t: t as unknown as MenuTranslate,
       canDelete,

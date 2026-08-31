@@ -1,8 +1,8 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CustomHttpException } from '../../custom.exception';
+import { TeableJwtService } from '../auth/jwt/teable-jwt.service';
 
 export interface IBaseShareInfo {
   shareId: string;
@@ -22,7 +22,7 @@ export interface IJwtBaseShareInfo {
 export class BaseShareAuthService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly jwtService: JwtService
+    private readonly jwtService: TeableJwtService
   ) {}
 
   async validateJwtToken(token: string) {
@@ -59,7 +59,8 @@ export class BaseShareAuthService {
   }
 
   async authToken(jwtShareInfo: IJwtBaseShareInfo) {
-    return await this.jwtService.signAsync(jwtShareInfo);
+    // Same lifetime the BaseShareModule JwtModule registration used to apply.
+    return await this.jwtService.signAsync(jwtShareInfo, { expiresIn: '7d' });
   }
 
   async getBaseShareInfo(shareId: string): Promise<IBaseShareInfo> {

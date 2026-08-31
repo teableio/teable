@@ -11,6 +11,7 @@ import {
   checkIfRowOrCellActive,
   checkIfRowOrCellSelected,
   calculateMaxRange,
+  getCommentCountOffsetX,
   getRowControlCheckboxOffsetX,
   getRowControlOffsetX,
   hexToRGBA,
@@ -1229,13 +1230,15 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
   ctx.font = `${10}px ${theme.fontFamily}`;
 
   if (commentCount) {
-    const offsetX = getRowControlOffsetX(width, theme, rowControlPaddingX, rowControls.length, 2);
-    drawCommentCount(ctx, {
-      x: x + offsetX - halfSize,
-      y: y + rowHeadIconPaddingTop,
-      count: commentCount,
-      theme,
-    });
+    const offsetX = getCommentCountOffsetX(width, theme, rowControlPaddingX, rowControls);
+    if (offsetX != null) {
+      drawCommentCount(ctx, {
+        x: x + offsetX - halfSize,
+        y: y + rowHeadIconPaddingTop,
+        count: commentCount,
+        theme,
+      });
+    }
   }
 
   if (isChecked || isHover || !rowIndexVisible) {

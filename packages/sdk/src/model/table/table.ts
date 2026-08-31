@@ -49,7 +49,7 @@ export class Table extends TableCore {
     return requestWrap(updateTableDescription)(this.baseId, this.id, { description });
   }
 
-  async updateIcon(icon: string) {
+  async updateIcon(icon: string | null) {
     return requestWrap(updateTableIcon)(this.baseId, this.id, { icon });
   }
 

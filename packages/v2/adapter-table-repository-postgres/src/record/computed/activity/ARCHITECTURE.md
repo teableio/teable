@@ -31,12 +31,17 @@ Core domain (`@teable/v2-core`):
 ## Lifecycle hooks
 
 `ComputedActivityProjector` is invoked from `ComputedUpdateOutbox` in the same
-transaction as outbox mutations. Claimed seed tasks do not yet know their
-computed targets; the worker registers those targets in a short projection
-transaction after planning and before execution. Per-table advisory locks plus
-locked projection rows serialize read-modify-write snapshots; task-field refs
-make refcounts idempotent and let claim/retry transitions reconcile from
-persisted truth.
+transaction as outbox mutations. By default, lifecycle hooks update only the
+task-field ref ledger in that caller transaction and enqueue event metadata for
+the per-table async flusher. The flusher runs outside caller transactions,
+rebuilds counters from persisted refs, and serializes activity-table updates
+with a per-table advisory lock. Set `COMPUTED_ACTIVITY_ASYNC_PROJECTION=false`
+only as an emergency rollback to the legacy synchronous projection path.
+
+Claimed seed tasks do not yet know their computed targets; the worker registers
+those targets after planning and before execution. Task-field refs make
+refcounts idempotent and let claim/retry transitions reconcile from persisted
+truth.
 
 | Outbox                             | Activity                                              |
 | ---------------------------------- | ----------------------------------------------------- |

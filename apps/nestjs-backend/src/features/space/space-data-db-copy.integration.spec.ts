@@ -172,7 +172,22 @@ const createSharedTables = async (client: Client, schema: string) => {
       "record_id" text,
       "snapshot" jsonb,
       "created_time" timestamp,
-      "created_by" text
+      "created_by" text,
+      "reason" text,
+      "record_created_time" timestamp,
+      "record_created_by" text,
+      "record_last_modified_time" timestamp,
+      "record_last_modified_by" text,
+      "operation_id" text
+    )
+  `);
+  await client.query(`
+    CREATE TABLE "${schema}"."record_removal_tombstone" (
+      "id" text PRIMARY KEY,
+      "table_id" text,
+      "record_id" text,
+      "type" text,
+      "created_time" timestamp
     )
   `);
   await client.query(`
@@ -201,6 +216,9 @@ const createSharedTables = async (client: Client, schema: string) => {
       "affected_table_ids" text,
       "affected_field_ids" text,
       "sync_max_level" text,
+      "source_changed_at" timestamp,
+      "stage_depth" integer,
+      "predecessor_task_id" text,
       "created_at" timestamp,
       "updated_at" timestamp
     )
@@ -231,10 +249,42 @@ const createSharedTables = async (client: Client, schema: string) => {
       "affected_table_ids" text,
       "affected_field_ids" text,
       "sync_max_level" text,
+      "source_changed_at" timestamp,
+      "stage_depth" integer,
+      "predecessor_task_id" text,
       "created_at" timestamp,
       "updated_at" timestamp,
       "trace_data" jsonb,
       "failed_at" timestamp
+    )
+  `);
+  await client.query(`
+    CREATE TABLE "${schema}"."computed_update_run_history" (
+      "task_id" text PRIMARY KEY,
+      "base_id" text,
+      "seed_table_id" text,
+      "change_type" text,
+      "run_id" text,
+      "origin_run_ids" text,
+      "steps" text,
+      "edges" text,
+      "affected_table_ids" text,
+      "affected_field_ids" text,
+      "source_field_ids" text,
+      "seed_record_count" integer,
+      "stage_depth" integer,
+      "predecessor_task_id" text,
+      "run_total_steps" integer,
+      "run_completed_steps_before" integer,
+      "sync_max_level" integer,
+      "estimated_complexity" integer,
+      "attempts" integer,
+      "outcome" text,
+      "source_changed_at" timestamp,
+      "enqueued_at" timestamp,
+      "started_at" timestamp,
+      "completed_at" timestamp,
+      "duration_ms" integer
     )
   `);
   await client.query(`
@@ -360,9 +410,17 @@ const seedSourceData = async (client: Client) => {
     [tableId]
   );
   await client.query(
-    `INSERT INTO "public"."record_trash" VALUES
-      ('rt1', $1, 'rec1', '{}'::jsonb, now(), 'usr'),
-      ('rt2', 'tblother', 'rec9', '{}'::jsonb, now(), 'usr')`,
+    `INSERT INTO "public"."record_trash"
+      ("id", "table_id", "record_id", "snapshot", "created_time", "created_by", "reason", "operation_id")
+     VALUES
+      ('rt1', $1, 'rec1', '{}'::jsonb, now(), 'usr', 'archived', 'opr1'),
+      ('rt2', 'tblother', 'rec9', '{}'::jsonb, now(), 'usr', 'deleted', 'opr2')`,
+    [tableId]
+  );
+  await client.query(
+    `INSERT INTO "public"."record_removal_tombstone" VALUES
+      ('rmt1', $1, 'rec1', 'restored', now()),
+      ('rmt2', 'tblother', 'rec9', 'purged', now())`,
     [tableId]
   );
   await client.query(
@@ -671,10 +729,10 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
           expect.objectContaining({ table: 'record_history', copiedRows: null }),
           expect.objectContaining({ table: 'table_trash', copiedRows: null }),
           expect.objectContaining({ table: 'record_trash', copiedRows: null }),
+          expect.objectContaining({ table: 'record_removal_tombstone', copiedRows: 1 }),
           expect.objectContaining({ table: 'computed_update_outbox', copiedRows: null }),
           expect.objectContaining({ table: 'computed_update_dead_letter', copiedRows: null }),
           expect.objectContaining({ table: 'computed_update_outbox_seed', copiedRows: null }),
-          expect.objectContaining({ table: 'computed_update_pause_scope', copiedRows: null }),
           expect.objectContaining({ table: '__undo_log', copiedRows: null }),
         ])
       );
@@ -808,6 +866,26 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
         await expect(
           queryCount(
             target,
+            `SELECT COUNT(*) AS count FROM "${targetSchema}"."record_trash" WHERE "table_id" = $1 AND "reason" = 'archived' AND "operation_id" = 'opr1'`,
+            [tableId]
+          )
+        ).resolves.toBe(1);
+        await expect(
+          queryCount(
+            target,
+            `SELECT COUNT(*) AS count FROM "${targetSchema}"."record_removal_tombstone" WHERE "table_id" = $1 AND "type" = 'restored'`,
+            [tableId]
+          )
+        ).resolves.toBe(1);
+        await expect(
+          queryCount(
+            target,
+            `SELECT COUNT(*) AS count FROM "${targetSchema}"."record_removal_tombstone" WHERE "table_id" = 'tblother'`
+          )
+        ).resolves.toBe(0);
+        await expect(
+          queryCount(
+            target,
             `SELECT COUNT(*) AS count FROM "${targetSchema}"."computed_update_outbox" WHERE "base_id" = $1`,
             [baseId]
           )
@@ -845,12 +923,13 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
             `SELECT COUNT(*) AS count FROM "${targetSchema}"."computed_update_outbox_seed" WHERE "task_id" = 'cuo2'`
           )
         ).resolves.toBe(0);
+        // Space migration intentionally does not copy source pause scopes.
         await expect(
           queryCount(
             target,
             `SELECT COUNT(*) AS count FROM "${targetSchema}"."computed_update_pause_scope"`
           )
-        ).resolves.toBe(3);
+        ).resolves.toBe(0);
         await expect(
           queryCount(
             target,

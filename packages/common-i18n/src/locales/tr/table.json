@@ -7,6 +7,7 @@
     "waiting": "Beklemede",
     "failed": "Başarısız",
     "calculationFailed": "Hesaplama başarısız oldu",
+    "cellValueTooLarge": "Hesaplanan hücre değeri çok büyük ({{attempted}} / {{max}} bayt). Kaynak veriyi kısaltın veya formülü değiştirin.",
     "calculatingSummary": "Hesaplanıyor ({{count}})",
     "failedSummary": "Başarısız ({{count}})",
     "fieldsCalculating_one": "{{count}} alan hesaplanıyor",
@@ -47,6 +48,7 @@
         "passwordTips": "Paylaşılan görünümlere erişim için şifre kısıtlamaları",
         "embed": "Yerleştir",
         "embedPreview": "Yerleştirme önizlemesi",
+        "copyCode": "Kodu kopyala",
         "hideToolbar": "Araç çubuğunu gizle",
         "URLSetting": "URL parametreleri yapılandırması",
         "URLSettingDescription": "Aşağıdaki ayarları değiştirmek paylaşılan bağlantıları etkilemez. Yeni parametrelerin etkili olması için bağlantıyı yeni parametrelerle kopyalamanız gerekir",
@@ -101,17 +103,6 @@
     "description": "Kaynak eklemek için kenar çubuğundaki \"+\" düğmesine tıklayın",
     "help": "Daha fazla bilgi için <HelpCenter /> adresini ziyaret edin",
     "helpCenter": "Yardım Merkezi"
-  },
-  "validation": {
-    "link": {
-      "batch_duplicate": "Kayıt bağlanamıyor: aynı grupta bu kayıt zaten başka bir kayıt tarafından bağlanmış. Bire-çok ilişkilerde her alt kayıt yalnızca bir üst kayda ait olabilir.",
-      "one_many_duplicate": "Kayıt bağlanamıyor: bu kayıt zaten başka bir kayda bağlı. Bire-çok ilişkilerde her alt kayıt yalnızca bir üst kayda ait olabilir.",
-      "one_one_duplicate": "Kayıt bağlanamıyor: hedef kayıt bire-bir ilişkide zaten başka bir kayıt tarafından bağlanmış."
-    },
-    "field": {
-      "maxColumnLimit": "\"{{tableName}}\" tablosunda en fazla {{maxFieldCount}} alan olabilir.",
-      "requiredExistingValues": "\"{{fieldName}}\" alanı zorunlu olarak işaretlenemez çünkü mevcut kayıtlarda boş değerler var."
-    }
   },
   "field": {
     "advancedProps": "Gelişmiş özellikler",
@@ -264,9 +255,11 @@
       "reset": "Sıfırla",
       "fieldUpdated": "Alan güncellendi",
       "fieldCreated": "Alan oluşturuldu",
+      "fieldUnavailable": "Bu alan kullanılamıyor. Tabloyu yenileyip tekrar deneyin.",
       "confirmFieldChange": "Confirm Field Change",
       "areYouSurePerformIt": "Bunu gerçekleştirmek istediğinizden emin misiniz?",
       "addDescription": "Açıklama Ekle",
+      "dbFieldName": "VT alan adı",
       "descriptionPlaceholder": "Bu alanı açıklayın (isteğe bağlı)",
       "type": "Tür",
       "showAs": "Gösterim Şekli",
@@ -298,6 +291,7 @@
       "linkFromAnotherBase": "Harici veritabanından bağlantı",
       "inSelfLink": "kendi içinde bağlantı",
       "betweenTwoTables": "iki tablo arasında",
+      "tips": "İpuçları",
       "linkTipMessage": "İpucu: bu yapılandırma<br></br> <b>{{relationship}}</b> ilişkisini temsil eder <span>{{linkType}}</span>",
       "style": "Stil",
       "maximum": "Maksimum",
@@ -311,6 +305,20 @@
       "lookupToTable": "Bağlantı veritabanındaki <bold>{{tableName}}</bold> alanı",
       "rollupToTable": "Bağlantı veritabanındaki <bold>{{tableName}}</bold> alanı",
       "selectField": "Bir alan seç...",
+      "lastModifiedScope": "Alanlar",
+      "lastModifiedAll": "Tüm düzenlenebilir alanlar",
+      "lastModifiedSpecific": "Belirli alanlar",
+      "lastModifiedSelect": "İzlenen alanlar",
+      "noEditableFields": "Düzenlenebilir alan yok",
+      "conditionalLookup": {
+        "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
+        "sortLabel": "Sort results",
+        "limitLabel": "Maximum records to include",
+        "limitPlaceholder": "Leave blank to include all matches",
+        "limitHint": "We only keep up to {{limit}} matching records.",
+        "sortMissingWarningTitle": "Sorting field unavailable",
+        "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
+      },
       "linkTable": "Bağlantı tablosu",
       "linkBase": "Bağlantı veritabanı",
       "tableNoPermission": "İzin olmayan tablo",
@@ -339,17 +347,8 @@
         "affectedItems": "Etkilenen öğeler",
         "type": "Tür",
         "source": "Kaynak",
-        "sourceTable": "Kaynak tablo",
-        "typeField": "Alan"
-      },
-      "conditionalLookup": {
-        "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
-        "sortLabel": "Sort results",
-        "limitLabel": "Maximum records to include",
-        "limitPlaceholder": "Leave blank to include all matches",
-        "limitHint": "We only keep up to {{limit}} matching records.",
-        "sortMissingWarningTitle": "Sorting field unavailable",
-        "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
+        "loginEmailFieldWarning": "Bu alan giriş e-postası tanımlayıcısı olarak kullanılıyor. Silmek şu uygulamaların girişini bozar:",
+        "loginEmailFieldConvertWarning": "Bu alan uygulamalar için giriş e-postası alanı olarak kullanılıyor. Türünü değiştirmek şu uygulamaların girişini bozar:"
       }
     },
     "subTitle": {
@@ -366,6 +365,7 @@
       "rating": "Önceden tanımlanmış bir ölçekte değerlendirme ekleyin.",
       "formula": "Alanlara dayalı değerler hesaplayın.",
       "rollup": "Bağlantılı kayıtlardan veri özetleyin.",
+      "conditionalRollup": "Koşullu filtrelerle bağlı bir tablodaki değerleri özetler.",
       "conditionalLookup": "Tanımladığınız filtreleri karşılayan bağlı değerleri gösterir.",
       "createdTime": "Her kaydın oluşturulduğu tarih ve saati görün.",
       "lastModifiedTime": "Bir kayıttaki bazı veya tüm alanlarda yapılan en son düzenlemenin tarih ve saatini görün.",
@@ -403,7 +403,10 @@
         "sourceFieldForAttachment": "Ek alanın kaynak alanı",
         "imageSize": "Görüntü boyutu",
         "imageQuality": "Görüntü kalitesi",
-        "imageCount": "Görüntü sayısı"
+        "imageCount": "Görüntü sayısı",
+        "aspectRatio": "En boy oranı",
+        "resolution": "Çözünürlük",
+        "advancedSettings": "Gelişmiş ayarlar"
       },
       "placeholder": {
         "summarize": "İçerik özetini",
@@ -418,6 +421,8 @@
         "targetLanguage": "İngilizce, Çince, Fransızca...",
         "imageSize": "Lütfen görüntü boyutunu girin",
         "imageQuality": "Lütfen görüntü kalitesini girin",
+        "aspectRatio": "En boy oranını seçin",
+        "resolution": "Çözünürlüğü seçin",
         "attachPromptForImageGeneration": "Görüntünün canlı ve doğal olması gerekiyor",
         "attachPromptForRating": "Görüntü kalitesini değerlendirin"
       },
@@ -426,8 +431,19 @@
         "medium": "Orta",
         "high": "Yüksek"
       },
+      "hint": {
+        "imageInputSupported": "💡 Bu model görsel girdiyi destekler. Görselleri üretimde referans olarak kullanmak için bir ek alanı seçebilirsiniz.",
+        "attachmentNotSupported": "💡 Bu model ek girdisini desteklemiyor. Görselden görsele üretimi yalnızca Gemini modelleri destekler.",
+        "singleImageOnly": "Bu model aynı anda yalnızca bir görsel üretebilir"
+      },
       "tip": {
         "gptImageResolution": "Toplam piksel sınırı nedeniyle 4K modunda bazı en-boy oranları için üretilebilen en büyük uyumlu çıktı boyutu kullanılır."
+      },
+      "auto": "Otomatik",
+      "resolution": {
+        "1K": "1K (Standart)",
+        "2K": "2K (HD)",
+        "4K": "4K (Ultra HD)"
       },
       "autoFill": {
         "title": "Otomatik Güncelle",
@@ -440,8 +456,18 @@
       "autoFillConfirm": {
         "title": "Tüm sütunu oluşturulsun mu?",
         "description": "Tüm sütunu oluşturmak {{rowCount}} satırı güncelleyecektir. Bu işlem çok sayıda yapay zeka kaynağı tüketebilir.",
+        "emptyOnlyMode": "Yalnızca boş hücreleri doldur",
+        "emptyOnlyModeDesc": "Yalnızca boş hücreler için üret; mevcut içerik üzerine yazılmaz",
+        "allMode": "Tüm sütunu üret",
+        "allModeDesc": "Tüm satırlar için üret; mevcut içeriğin üzerine yazılır",
+        "saveOnlyMode": "Yalnızca yapılandırmayı kaydet",
+        "saveOnlyModeDesc": "Yalnızca alan yapılandırmasını kaydet; hiçbir hücre yazılmaz",
         "saveConfigOnly": "Yalnızca yapılandırmayı kaydet",
-        "generateFailed": "Oluşturma başarısız oldu"
+        "fillEmptyCells": "Boş hücreleri doldur",
+        "generateAll": "Tümünü üret",
+        "recommended": "Önerilen",
+        "generateFailed": "Oluşturma başarısız oldu",
+        "limitWarning": "Görev başına 1.000 satır sınırı nedeniyle yalnızca ilk 1.000 satır işlenir. Kalan satırları işlemek için görevi yeniden çalıştırabilirsiniz."
       }
     }
   },
@@ -452,14 +478,15 @@
     "deleteConfirm": "\"{{tableName}}\" tablosunu silmek istediğinizden emin misiniz?",
     "dbTableName": "Fiziksel veritabanındaki tablo adı",
     "schemaName": "Fiziksel veritabanındaki şema adı",
-    "tableInfo": "Tablo Bilgisi",
-    "tableInfoDetail": "Tablo için temel bilgiler",
-    "typeOfDatabase": "Veritabanı türü",
-    "descriptionForTable": "Bu tablo için açıklama",
+    "baseInfo": "Taban bilgisi",
     "loginUserTable": "Uygulama girişi",
     "linkedApps": "Bağlı uygulamalar",
+    "typeOfDatabase": "Veritabanı türü",
+    "descriptionForTable": "Bu tablo için açıklama",
     "nameForTable": "Bu tablo için ad",
-    "deleteTip1": "Diğer tablolardaki bu tabloyla bağlantılı bağlantı alanları silinecek.",
+    "deleteTip1": "Diğer tablolardaki bu tabloyla bağlantılı bağlantı alanları metne dönüştürülecek.",
+    "deleteWithDependencies": "<b>{{tableName}}</b> tablosunu silmek aşağıdaki alanları etkileyecek:",
+    "loginDeleteWarning": "Bu tablo aşağıdaki uygulamalar tarafından kullanıcı tablosu olarak kullanılıyor. Silmek giriş işlevlerini bozar.",
     "operator": {
       "createBlank": "Yeni tablo"
     },
@@ -472,13 +499,36 @@
       "pasting": "Yapıştırılıyor...",
       "pasteSuccessful": "Yapıştırma başarılı",
       "pasteFailed": "Yapıştırma başarısız",
+      "pasteNoEditableFields": "Seçili alanlar salt okunurdur, yapıştırma yapılamaz.",
       "filling": "Doldurma...",
       "fillSuccessful": "Doldurma başarılı",
       "fillFailed": "Doldurma başarısız",
       "clearing": "Temizleniyor...",
       "clearSuccessful": "Temizleme başarılı",
+      "clearFailed": "Temizleme başarısız",
+      "clearConfirmTitle": "Verileri temizle",
+      "clearConfirmDescription": "Bu işlem {{rowCount}} kayıttaki {{cellCount}} hücreyi temizler. Devam etmek istiyor musunuz?",
+      "archiveRecordConfirmTitle": "Kayıtları arşivle",
+      "archiveRecordConfirmDescription": "Bu işlem {{recordCount}} kaydı arşivleyecek. Arşivlenen kayıtlar tablo arşivinden görüntülenebilir ve geri yüklenebilir.",
+      "archiveRecord": "Arşivle",
+      "archiving": "Arşivleniyor...",
+      "archiveSuccessful": "Arşivleme başarılı",
+      "deleteRecordConfirmTitle": "Kayıtları sil",
+      "deleteRecordConfirmDescription": "Bu işlem {{recordCount}} kaydı siler. Devam etmek istiyor musunuz?",
+      "duplicateRecordsConfirmTitle": "Kayıtları çoğalt",
+      "duplicateRecordsConfirmDescription": "Bu işlem {{recordCount}} kaydı çoğaltır. Devam etmek istiyor musunuz?",
+      "pasteConfirmTitle": "Yapıştırmayı gerçekleştir",
+      "pasteConfirmDescription": "{{recordCount}} kaydın üzerine yazacak bir yapıştırma yapmak üzeresiniz. Devam etmek istiyor musunuz?",
+      "paste": "Yapıştır",
+      "deleteRecord": "Sil",
+      "clear": "Temizle",
       "deleting": "Siliniyor...",
+      "duplicating": "Çoğaltılıyor...",
+      "deleteFailed": "Silme başarısız",
       "deleteSuccessful": "Silme başarılı",
+      "duplicateFailed": "Çoğaltma başarısız",
+      "duplicateSuccessful": "Çoğaltma başarılı",
+      "duplicateRecords": "Çoğalt",
       "deleteStream": {
         "preparing": "Preparing selection",
         "deleting": "Deleting records",
@@ -497,9 +547,87 @@
           "finalizing": "Finalizing"
         }
       },
+      "duplicateStream": {
+        "preparing": "Seçim hazırlanıyor",
+        "duplicating": "Kayıtlar çoğaltılıyor",
+        "descriptionWithIssues": "Bazı çoğaltma parçaları başarısız oldu. Ayrıntıları aşağıda inceleyin.",
+        "completedWithIssues": "Çoğaltma sorunlarla tamamlandı",
+        "issuesBadge": "{{count}} sorun",
+        "chunkFailureTitle": "Parça hatası ayrıntıları",
+        "chunkFailureSummary": "Akış çalışmaya devam ederken {{count}} parça hata bildirdi.",
+        "chunkLabel": "Parça {{index}}",
+        "rowsLabel": "{{count}} satır",
+        "phaseLabel": {
+          "preparing": "Hazırlanıyor",
+          "guarding": "Denetleniyor",
+          "processing": "Çoğaltılıyor",
+          "publishing": "Yayımlanıyor",
+          "finalizing": "Tamamlanıyor"
+        }
+      },
+      "pasteStream": {
+        "preparing": "Seçim hazırlanıyor",
+        "pasting": "Kayıtlar yapıştırılıyor",
+        "descriptionWithIssues": "Bazı yapıştırma parçaları başarısız oldu. Ayrıntıları aşağıda inceleyin.",
+        "completedWithIssues": "Yapıştırma sorunlarla tamamlandı",
+        "issuesBadge": "{{count}} sorun",
+        "chunkFailureTitle": "Parça hatası ayrıntıları",
+        "chunkFailureSummary": "Akış çalışmaya devam ederken {{count}} parça hata bildirdi.",
+        "chunkLabel": "Parça {{index}}",
+        "rowsLabel": "{{count}} satır",
+        "phaseLabel": {
+          "preparing": "Hazırlanıyor",
+          "guarding": "Denetleniyor",
+          "processing": "Yapıştırılıyor",
+          "publishing": "Yayımlanıyor",
+          "finalizing": "Tamamlanıyor"
+        }
+      },
+      "clearStream": {
+        "confirmDescription": "Bu işlem {{recordCount}} kayıttaki değerleri temizler. Devam etmek istiyor musunuz?",
+        "preparing": "Seçim hazırlanıyor",
+        "clearing": "Kayıtlar temizleniyor",
+        "descriptionWithIssues": "Bazı temizleme parçaları başarısız oldu. Ayrıntıları aşağıda inceleyin.",
+        "completedWithIssues": "Temizleme sorunlarla tamamlandı",
+        "issuesBadge": "{{count}} sorun",
+        "chunkFailureTitle": "Parça hatası ayrıntıları",
+        "chunkFailureSummary": "Akış çalışmaya devam ederken {{count}} parça hata bildirdi.",
+        "chunkLabel": "Parça {{index}}",
+        "rowsLabel": "{{count}} satır",
+        "phaseLabel": {
+          "preparing": "Hazırlanıyor",
+          "guarding": "Denetleniyor",
+          "processing": "Temizleniyor",
+          "publishing": "Yayımlanıyor",
+          "finalizing": "Tamamlanıyor"
+        }
+      },
+      "restoreFieldStream": {
+        "confirmTitle": "Alanları geri yükle",
+        "confirmDescription": "Bu işlem silinen alanları ve kayıt değerlerini geri yükler.",
+        "preparing": "Alan geri yükleme hazırlanıyor",
+        "restoring": "Alanlar geri yükleniyor...",
+        "restoringRecords": "Kayıt değerleri geri yükleniyor",
+        "restoreFailed": "Geri yükleme başarısız",
+        "descriptionWithIssues": "Bazı geri yükleme parçaları başarısız oldu. Ayrıntıları aşağıda inceleyin.",
+        "completedWithIssues": "Geri yükleme sorunlarla tamamlandı",
+        "issuesBadge": "{{count}} sorun",
+        "chunkFailureTitle": "Parça hatası ayrıntıları",
+        "chunkFailureSummary": "Akış çalışmaya devam ederken {{count}} parça hata bildirdi.",
+        "chunkLabel": "Parça {{index}}",
+        "rowsLabel": "{{count}} satır",
+        "phaseLabel": {
+          "preparing": "Hazırlanıyor",
+          "guarding": "Denetleniyor",
+          "processing": "Geri yükleniyor",
+          "publishing": "Yayımlanıyor",
+          "finalizing": "Tamamlanıyor"
+        }
+      },
       "pasteFileFailed": "Dosyalar yalnızca bir ek alanına yapıştırılabilir",
       "copyError": {
-        "noFocus": "Lütfen pencereyi değiştirmeyin"
+        "noFocus": "Lütfen pencereyi değiştirmeyin",
+        "noPermission": "Kayıtları kopyalama izniniz yok"
       },
       "crossBaseCopyTitle": "Düz metin olarak kopyalansın mı?",
       "crossBaseCopyDescription": "Bu seçim, tabanlar arası bir bağlantı alanı içeriyor. Verileri orijinal tabanı içinde tutmak için alan düz metin olarak kopyalanacak ve bağlantı ilişkilerini kaybedecek.",
@@ -517,6 +645,8 @@
       "loading": "Bütünlük kontrol ediliyor...",
       "allGood": "Her şey yolunda!",
       "fixIssues": "Sorunları düzelt",
+      "type": "Tür",
+      "message": "Hata mesajı",
       "v2": {
         "dialogTitle": "Şema Bütünlüğü",
         "dialogDescription": "{{tableName}} için v2 şema denetimi ve onarım akışını çalıştır.",
@@ -536,6 +666,20 @@
         "manualRepairDialogReason": "Neden manuel onarım gerekiyor",
         "manualRepairDialogHint": "Bu pencere şu anda yalnızca kuralın istediği onarım seçeneklerini gösterir. Gerçek çalıştırma daha sonra bu sözleşmenin üzerine eklenebilir.",
         "manualRepairDialogClose": "Kapat",
+        "repairPreviewTitle": "Onarım ayrıntılarını onaylayın",
+        "repairPreviewDescription": "Bu ayrıntılar onarımın deneme çalıştırmasından gelir. Onarım yalnızca siz onayladıktan sonra çalışır.",
+        "repairPreviewTooltip": "Deneme çalıştırmasının onarım planını açar. İletişim kutusu döndürülen SQL’i gösterir ya da SQL bulunmadığını açıkça belirtir.",
+        "repairPreviewMissingTable": "Bu kontrol sonucu bir tablo içermediğinden deneme onarımının hedefi belirlenemiyor.",
+        "repairPreviewUnavailableStatus": "Bu durum onarım gerektirmediğinden deneme onarım planı oluşturulamaz.",
+        "repairPreviewWhat": "Ne onarılacak",
+        "repairPreviewTarget": "\"{{fieldName}}\" alanı için \"{{ruleName}}\" kuralı",
+        "repairPreviewPrinciple": "Onarım nasıl çalışır",
+        "repairPreviewNoPrinciple": "Bu kural ek onarım rehberliği döndürmedi.",
+        "repairPreviewSql": "Çalıştırılacak SQL",
+        "repairPreviewNoSql": "Deneme çalıştırması çalıştırılabilir SQL döndürmediğinden otomatik onarım doğrudan yürütülemez.",
+        "repairPreviewCannotConfirm": "Deneme çalıştırması SQL döndürdü, ancak bu kural şu anda otomatik onarım için onaylanamıyor. Yine de onarım planını inceleyebilirsiniz.",
+        "repairPreviewParameters": "Parametreler",
+        "repairPreviewConfirm": "Onarımı çalıştır",
         "checking": "Şema kontrol ediliyor...",
         "repairing": "Şema onarılıyor...",
         "streamError": "Şema bütünlüğü sonuçları akış halinde alınamadı.",
@@ -564,7 +708,9 @@
           "checkCompleted": "Schema integrity check completed",
           "baseCheckCompleted": "Base schema integrity check completed",
           "repairCompleted": "Schema integrity repair completed",
-          "baseRepairCompleted": "Base schema integrity repair completed"
+          "baseRepairCompleted": "Base schema integrity repair completed",
+          "skippedStatusNotSelected": "Bu durum düzeyi onarım için seçilmediğinden atlandı",
+          "skippedRepairUnavailable": "Mevcut durumda otomatik onarım kullanılamadığından atlandı"
         },
         "rule": {
           "column": "Physical column",
@@ -599,6 +745,14 @@
           "systemColumnUnique": "System column \"{{columnName}}\" should have a UNIQUE index",
           "systemColumnPrimaryKey": "System column \"{{columnName}}\" should be PRIMARY KEY",
           "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression",
+          "columnUniqueMissing": "\"{{fieldName}}\" alanı benzersiz olmalı",
+          "columnUniqueMissingDescription": "Yinelenen değerlerin yazılamaması için \"{{fieldName}}\" alanına UNIQUE kısıtlaması ekleyin.",
+          "columnUniqueIndexMismatch": "\"{{fieldName}}\" alanında beklenen benzersiz dizin yok",
+          "columnUniqueIndexMismatchDescription": "Okuma ve yazma işlemlerinin alanın benzersizlik kuralına uyması için \"{{fieldName}}\" dizinini benzersiz dizin olarak yeniden oluşturun.",
+          "foreignKeyMissing": "\"{{fieldName}}\" alanında yabancı anahtar kısıtlaması yok",
+          "foreignKeyMissingDescription": "Bağlı kayıtların tutarlı kalması için \"{{fieldName}}\" alanından \"{{targetTableName}}\" tablosuna yabancı anahtarı geri yükleyin.",
+          "foreignKeyTargetTableMissing": "\"{{fieldName}}\" için bağlı tablo bulunamıyor",
+          "foreignKeyTargetTableMissingDescription": "Hedef tablo \"{{targetPhysicalTableName}}\" bulunmadığından otomatik onarım \"{{fieldName}}\" için yabancı anahtarı geri yükleyemez.",
           "foreignKeyOrphanRows": "Field \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
           "foreignKeyOrphanRowsDescription": "Automatic repair cannot restore the foreign key for \"{{fieldName}}\" until the {{count}} invalid references to \"{{targetTableName}}\" are cleaned up.",
           "junctionForeignKeyMissing": "The junction table for \"{{fieldName}}\" is missing one of its foreign keys",
@@ -606,7 +760,90 @@
           "junctionForeignKeyTargetTableMissing": "The linked table for the junction of \"{{fieldName}}\" cannot be found",
           "junctionForeignKeyTargetTableMissingDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" because the target table \"{{targetPhysicalTableName}}\" does not exist.",
           "junctionForeignKeyOrphanRows": "The junction table for \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
-          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up."
+          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up.",
+          "referenceMissing": "\"{{fieldName}}\" alanında referans eşlemesi yok",
+          "referenceMissingDescription": "Arama ve ilişki güncellemelerinin doğru yayılması için \"{{fieldName}}\" ile bağımlı alan arasındaki referans meta verilerini geri yükleyin.",
+          "symmetricFieldTargetMissing": "\"{{fieldName}}\" için eşleşen bağlantı alanı bulunamıyor",
+          "symmetricFieldWrongType": "\"{{fieldName}}\" için eşleşen alan bir bağlantı alanı değil",
+          "symmetricFieldInvalidOptions": "\"{{fieldName}}\" için eşleşen alanın bağlantı yapılandırması geçersiz",
+          "symmetricFieldMissingBackReference": "\"{{fieldName}}\" için eşleşen alan mevcut alana geri işaret etmiyor",
+          "symmetricFieldWrongBackReference": "\"{{fieldName}}\" için eşleşen alan mevcut alan yerine başka bir alana işaret ediyor",
+          "symmetricFieldDuplicateUsage": "Simetrik bağlantı hedefi \"{{symmetricFieldId}}\", \"{{conflictFieldName}}\" tarafından da kullanılıyor",
+          "symmetricFieldDuplicateUsageDescription": "Her iki yönlü bağlantı çiftinin benzersiz bir simetrik alanı olmalıdır. Onarımdan önce bu ilişkiyi hangi alanın koruyacağını seçin."
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "This rule is already valid",
+            "manualRule": "This rule requires a manual decision",
+            "statementGenerationFailed": "The system could not generate a safe repair statement",
+            "noStatements": "This rule has no automatic repair statement",
+            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
+            "symmetricFieldMissing": "Eşleşen bağlantı alanı eksik ve onarımdan önce onay gerekiyor",
+            "symmetricFieldBroken": "Eşleşen bağlantı alanı bozuk ve onarımdan önce onay gerekiyor",
+            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
+            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
+            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
+            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
+          },
+          "description": {
+            "autoRule": "Onarım, bu kuralın ürettiği şema ifadelerini çalıştırır, ardından şemanın geçerli olduğunu doğrulamak için kuralı yeniden denetler.",
+            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
+            "symmetricFieldMissing": "Mevcut bağlantıyı tek yönlüye dönüştürün, ardından bağlı birleşim tablosu kurallarının gerekirse yeniden oluşturulabilmesi için onarımı yeniden çalıştırın.",
+            "symmetricFieldBroken": "Mevcut bağlantıyı tek yönlüye dönüştürün, ardından bağlı bağlantı şeması kurallarının yeniden denetlenebilmesi için onarımı yeniden çalıştırın.",
+            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
+            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
+          },
+          "manual": {
+            "apply": "Apply manual repair",
+            "symmetricField": {
+              "title": "Resolve symmetric link conflict",
+              "description": "Pick how this duplicate symmetric link should be repaired.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
+              "option": {
+                "keepCurrent": "Keep the current field as the two-way link",
+                "convertDuplicate": "Convert the duplicate field to a one-way link"
+              }
+            },
+            "symmetricFieldMissing": {
+              "title": "Eksik eşleşen bağlantı alanını çözün",
+              "description": "Eşleşen bağlantı alanı silinmiş. Onarımdan önce bu alanı tek yönlü bağlantıya dönüştürmeyi onaylayın.",
+              "resolutionLabel": "Onarım stratejisi",
+              "resolutionDescription": "Mevcut ilişki verilerinin kayıtlı bağlantı yapısını kullanmaya devam edebilmesi için mevcut bağlantıyı tek yönlü bağlantıya dönüştürün.",
+              "option": {
+                "convertCurrent": "Mevcut bağlantıyı tek yönlüye dönüştür"
+              }
+            },
+            "symmetricFieldBroken": {
+              "title": "Bozuk eşleşen bağlantı alanını çözün",
+              "description": "Eşleşen bağlantı alanı var ancak geçerli bir iki yönlü karşılık değil. Onarımdan önce bu alanı tek yönlü bağlantıya dönüştürmeyi onaylayın.",
+              "resolutionLabel": "Onarım stratejisi",
+              "resolutionDescription": "Bozuk çifte bağımlı kalmaması için mevcut bağlantıyı tek yönlü bağlantıya dönüştürün.",
+              "option": {
+                "convertCurrent": "Mevcut bağlantıyı tek yönlüye dönüştür"
+              }
+            },
+            "foreignKeyOrphanRows": {
+              "title": "Geçersiz bağlı değerleri temizle",
+              "description": "Eksik kayıtlara işaret eden yabancı anahtar değerlerini temizleyin, ardından yabancı anahtar kısıtlamasını geri yükleyin.",
+              "resolutionLabel": "Onarım stratejisi",
+              "resolutionDescription": "Geçersiz bağlı değerler artık var olmayan kayıtlara işaret ediyor. Yabancı anahtarı geri yüklemeden önce bu değerleri temizlemeyi onaylayın.",
+              "option": {
+                "clearOrphanValues": "Geçersiz bağlı değerleri temizle"
+              }
+            },
+            "junctionForeignKeyOrphanRows": {
+              "title": "Geçersiz birleşim satırlarını temizle",
+              "description": "Eksik kayıtlara işaret eden birleşim satırlarını silin, ardından yabancı anahtar kısıtlamasını geri yükleyin.",
+              "resolutionLabel": "Onarım stratejisi",
+              "resolutionDescription": "Geçersiz birleşim satırları artık var olmayan kayıtlara işaret ediyor. Yabancı anahtarı geri yüklemeden önce bu geçersiz ilişki satırlarını silmeyi onaylayın.",
+              "option": {
+                "deleteOrphanRows": "Geçersiz ilişki satırlarını sil"
+              }
+            }
+          }
         },
         "phase": {
           "check": "Kontrol sonuçları",
@@ -635,46 +872,46 @@
           "unchanged": "Değişmedi",
           "manual": "Manuel",
           "skipped": "Atlandı"
-        },
-        "repairMeta": {
-          "reason": {
-            "alreadyValid": "This rule is already valid",
-            "manualRule": "This rule requires a manual decision",
-            "statementGenerationFailed": "The system could not generate a safe repair statement",
-            "noStatements": "This rule has no automatic repair statement",
-            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
-            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
-            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
-            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
-            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
-          },
-          "description": {
-            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
-            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
-            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
-            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
-            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
-          },
-          "manual": {
-            "apply": "Apply manual repair",
-            "symmetricField": {
-              "title": "Resolve symmetric link conflict",
-              "description": "Pick how this duplicate symmetric link should be repaired.",
-              "resolutionLabel": "Repair strategy",
-              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
-              "option": {
-                "keepCurrent": "Keep the current field as the two-way link",
-                "convertDuplicate": "Convert the duplicate field to a one-way link"
-              }
-            }
-          }
         }
       },
       "errorType": {
+        "ForeignTableNotFound": "ForeignTableNotFound",
+        "ForeignKeyNotFound": "ForeignKeyNotFound",
+        "SelfKeyNotFound": "SelfKeyNotFound",
+        "SymmetricFieldNotFound": "SymmetricFieldNotFound",
+        "MissingRecordReference": "MissingRecordReference",
+        "InvalidLinkReference": "InvalidLinkReference",
+        "ForeignKeyHostTableNotFound": "ForeignKeyHostTableNotFound",
+        "ReferenceFieldNotFound": "ReferenceFieldNotFound",
+        "UniqueIndexNotFound": "UniqueIndexNotFound",
+        "EmptyString": "EmptyString",
+        "InvalidFilterOperator": "InvalidFilterOperator",
         "InvalidPrimaryLookup": "Birincil alan Lookup olarak yanlış yapılandırıldı",
         "InvalidPrimaryType": "Birincil alanın türü desteklenmiyor",
         "MissingPrimary": "Tabloda birincil alan yok"
       }
+    },
+    "index": {
+      "description": "Dizinler, özellikle büyük veri kümelerinde ({{rowCount}} satırın üzerinde) arama performansını belirgin şekilde artırır. Karşılığında yazma işlemleri biraz yavaşlar. Sık arama yapıyorsanız veya büyük veri kümeleriniz varsa dizinleri etkinleştirmenizi öneririz",
+      "repair": "Dizini güncelle",
+      "repairTip": "Dizin anormallikleri algılandı; bu, arama performansını düşürebilir. Dizini güncellemek için güncelleme düğmesine tıklamanız önerilir",
+      "enableIndexTip": "Bir dizin oluşturuyorsunuz. Gereken süre tablo boyutuna bağlıdır. Bu süreçte tablo okuma ve yazma performansı etkilenebilir. Lütfen sabırlı olun",
+      "fieldSearchTip_limited": "Kapalıyken bulanık arama tüm alanlarda çalışır. Tarih, onay kutusu ve düğme alanları desteklenmez. En fazla {{count}} alan desteklenir",
+      "fieldSearchTip_infinity": "Kapalıyken bulanık arama tüm alanlarda çalışır. Tarih, onay kutusu ve düğme alanları desteklenmez",
+      "globalSearchFieldTip": "Genel arama modu etkin. Bulanık arama tüm alanlarda çalışır. Tarih, onay kutusu ve düğme alanları desteklenmez",
+      "hideNotMatchRowTip": "Kapalıyken tüm satırları göster",
+      "autoIndexTip": "Tablonuz {{rowCount}} satırı aştı. Arama performansını artırmak için dizinleri etkinleştirmenizi öneririz. Dizinleri etkinleştirmek yazma hızını biraz düşürebilir. Dizin oluşturma sırasında tablo okuma/yazma performansı etkilenebilir. Lütfen sabırlı olun",
+      "enableIndex": "etkinleştir",
+      "keepAsIs": "olduğu gibi bırak",
+      "ignoreIndexError": "yoksay"
+    },
+    "searchTips": {
+      "maxFieldTips_limited": "En fazla {{count}} alan sınırı aşıldı, fazla alanlar yok sayılacak"
+    },
+    "deletedRecovered": {
+      "title": "Açtığınız tablo silindi",
+      "description": "\"{{tableName}}\" tablosuna geçildi",
+      "descriptionEmpty": "Base sayfasına dönüldü"
     }
   },
   "import": {
@@ -697,6 +934,7 @@
       "addFromOtherSource": "Diğer kaynaklardan ekle",
       "excelFile": "Microsoft Excel",
       "airtable": "Airtable",
+      "googleSheet": "Google Sheets",
       "csvFile": "Csv dosyası",
       "importCsvData": "CSV verilerini içe aktar",
       "importExcelData": "Microsoft Excel verilerini içe aktar",
@@ -707,7 +945,6 @@
       "duplicating": "Çoğaltılıyor...",
       "duplicateSuccess": "Başarıyla çoğaltıldı",
       "duplicateFailed": "Çoğaltılamadı",
-      "importing": "İçe aktarılıyor",
       "includeRecords": "Kayıtları dahil et"
     },
     "tips": {
@@ -715,6 +952,17 @@
       "fileExceedSizeTip": "Bu tür dosya boyutu şu sınırı aşıyor:",
       "analyzing": "analiz ediliyor",
       "importing": "İçe aktarılıyor",
+      "importingRows": "Importing {{processed}} of {{total}} rows",
+      "importingRowsUnknown": "Imported {{processed}} rows",
+      "importingSheet": "Sheet {{current}} of {{total}}: {{name}}",
+      "preparingImport": "Preparing import...",
+      "importFinished": "Import finished",
+      "importFinishedPartial": "Import finished with row limits",
+      "importSheetImported": "{{rowCount}} rows",
+      "importSheetTruncated": "Imported {{rowCount}} rows (row limit reached, remaining rows skipped)",
+      "importSheetFailed": "Failed ({{error}})",
+      "importSummaryHint": "Review each table before closing.",
+      "importDone": "Done",
       "notSupportFieldType": "Alan türü desteklenmiyor",
       "resultEmpty": "Sonuç bulunamadı.",
       "searchPlaceholder": "Ara...",
@@ -741,6 +989,29 @@
       "option": {
         "doNotImport": "İçe aktarma"
       }
+    }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "Tüm ekleri indir",
+      "rowsWithAttachments": "Ekli satırlar",
+      "totalAttachments": "Ekler",
+      "totalSize": "Toplam boyut",
+      "cancel": "İptal",
+      "downloading": "İndiriliyor...",
+      "completed": "İndirme tamamlandı",
+      "cancelled": "İndirme iptal edildi",
+      "noAttachments": "İndirilecek ek yok",
+      "error": "İndirme başarısız",
+      "errorPartial": "{{failedCount}} dosya indirilemedi",
+      "requireHttps": "Toplu indirme HTTPS gerektirir. Lütfen HTTPS veya localhost üzerinden erişin.",
+      "advancedOptions": "Gelişmiş seçenekler",
+      "namingFieldLabel": "Ek adı öneki",
+      "selectField": "Varsayılan: ek dizini",
+      "noPrefixOption": "Önek yok",
+      "noPrefixOptionDesc": "Orijinal dosya adını koru",
+      "groupByRow": "Klasörlere arşivle",
+      "groupByRowTip": "Bir satırda birden fazla ek varsa, aynı klasöre yerleştirilir; yalnızca bir eki olan satırlar klasör oluşturmaz."
     }
   },
   "grid": {
@@ -819,7 +1090,11 @@
     "insertRecordBelow": "Alta <input /> kayıt ekle",
     "deleteRecord": "Kaydı sil",
     "deleteAllSelectedRecords": "Seçili tüm kayıtları sil",
+    "archiveRecord": "Kaydı arşivle",
+    "archiveAllSelectedRecords": "Seçili tüm kayıtları arşivle",
+    "duplicateRecords": "Seçili kayıtları çoğalt",
     "editField": "Alanı düzenle",
+    "duplicateField": "Alanı çoğalt",
     "insertFieldLeft": "Sola ekle",
     "insertFieldRight": "Sağa ekle",
     "freezeUpField": "Bu alana kadar dondur",
@@ -830,6 +1105,7 @@
     "filterField": "Bu alana göre filtrele",
     "sortField": "Bu alana göre sırala",
     "groupField": "Bu alana göre grupla",
+    "downloadAllAttachments": "Tüm dosyaları indir",
     "autoFill": "Tüm kayıtları güncelle",
     "groupMenuTitle": "Grup menüsü",
     "expandGroup": "Bu grup ve alt gruplarını genişlet",
@@ -853,7 +1129,10 @@
     "insertToolTip": "Otomatik sıralama açık, sırayla ekleme kullanılamaz",
     "action": {
       "rename": "Yeniden adlandır",
+      "duplicate": "Çoğalt",
       "delete": "Sil",
+      "lock": "Görünümü kilitle",
+      "unlock": "Görünüm kilidini aç",
       "enable": "Etkinleştir"
     },
     "category": {
@@ -875,7 +1154,11 @@
     "locked": {
       "tip": "Bu görünüm kilitlenmiştir. Kişisel modu etkinleştirerek görünüm seçeneklerini düzenleyebilirsiniz ve değişiklikler sadece kendinize etkili olacaktır."
     },
-    "noView": "Görünüm yok"
+    "noView": "Görünüm yok",
+    "deletedRecovered": {
+      "title": "Açtığınız görünüm silindi",
+      "description": "\"{{viewName}}\" görünümüne geçildi"
+    }
   },
   "lastModifiedTime": "Son değiştirilme zamanı",
   "lastModify": "Son değişiklik: ",
@@ -883,27 +1166,72 @@
     "title": "Birden fazla kayıt eklemek istiyor musunuz?",
     "description": "{{count}} kayıt tabloya eklenecek."
   },
-  "download": {
-    "allAttachments": {
-      "title": "Tüm ekleri indir",
-      "rowsWithAttachments": "Ekli satırlar",
-      "totalAttachments": "Ekler",
-      "totalSize": "Toplam boyut",
-      "cancel": "İptal",
-      "downloading": "İndiriliyor...",
-      "completed": "İndirme tamamlandı",
-      "cancelled": "İndirme iptal edildi",
-      "noAttachments": "İndirilecek ek yok",
-      "error": "İndirme başarısız",
-      "errorPartial": "{{failedCount}} dosya indirilemedi",
-      "requireHttps": "Toplu indirme HTTPS gerektirir. Lütfen HTTPS veya localhost üzerinden erişin.",
-      "advancedOptions": "Gelişmiş seçenekler",
-      "namingFieldLabel": "Ek adı öneki",
-      "selectField": "Varsayılan: ek dizini",
-      "noPrefixOption": "Önek yok",
-      "noPrefixOptionDesc": "Orijinal dosya adını koru",
-      "groupByRow": "Klasörlere arşivle",
-      "groupByRowTip": "Bir satırda birden fazla ek varsa, aynı klasöre yerleştirilir; yalnızca bir eki olan satırlar klasör oluşturmaz."
+  "tableArchive": {
+    "title": "Tablo arşivi",
+    "menuTitle": "Arşiv",
+    "archivedTime": "Arşivlenme zamanı",
+    "archivedBy": "Arşivleyen",
+    "recordDetail": "Kayıt detayı",
+    "empty": "Arşivlenmiş kayıt yok",
+    "allCreators": "Tüm oluşturanlar",
+    "filterArchivedTime": "Arşivlenme zamanı",
+    "searchPlaceholder": "Arşivlenmiş kayıtları ara",
+    "clearFilter": "Filtreyi temizle",
+    "export": "CSV olarak dışa aktar",
+    "exporting": "Dışa aktarılıyor… {{count}} satır",
+    "exportSucceed": "Dışa aktarma tamamlandı, indirme başlıyor",
+    "restoreSelected": "Geri yükle ({{count}})",
+    "permanentDeleteSelected": "Kalıcı olarak sil ({{count}})",
+    "permanentDeleteConfirm": "{{count}} arşivlenmiş kayıt kalıcı olarak silinsin mi? Bu işlem geri alınamaz.",
+    "permanentDeleteSucceed": "Kalıcı olarak silindi",
+    "resetArchive": "Arşivi temizle",
+    "resetArchiveConfirm": "Bu tablonun tüm arşivlenmiş kayıtları temizlensin mi? Bu işlem geri alınamaz.",
+    "resetSucceed": "Arşiv temizlendi",
+    "orderBy": {
+      "archivedTime": "Arşivlenme zamanına göre sırala",
+      "recordCreatedTime": "Oluşturulma zamanına göre sırala",
+      "recordLastModifiedTime": "Son değiştirilme zamanına göre sırala"
+    }
+  },
+  "tableTrash": {
+    "title": "Tablo çöp kutusu",
+    "resourceType": "Tür",
+    "deletedResource": "Kaynak",
+    "moreResources": "ve {{count}} tane daha",
+    "deletedTime": "Silinme zamanı",
+    "deletedBy": "Silen kullanıcı",
+    "filterAllTypes": "Tüm türler",
+    "filterAllUsers": "Tüm kullanıcılar",
+    "filterDeletedTime": "Silinme zamanı",
+    "clearFilter": "Filtreleri temizle",
+    "recordsDialogTitle": "Silinen kayıtlar ({{count}})",
+    "recordDetail": "Kayıt ayrıntıları",
+    "filterAllCreators": "Tüm oluşturanlar",
+    "filterCreatedTime": "Oluşturulma zamanı",
+    "searchPlaceholder": "Kayıtları ara"
+  },
+  "pluginPanel": {
+    "empty": {
+      "description": "Henüz eklenti paneli eklenmedi."
+    },
+    "createPluginPanel": {
+      "button": "Eklenti paneli oluştur",
+      "title": "Eklenti paneli oluştur"
+    },
+    "namePlaceholder": "Eklenti paneli adını girin"
+  },
+  "addPlugin": "Eklenti ekle",
+  "pluginContextMenu": {
+    "mangeButton": "Eklentileri yönet",
+    "manage": "Bağlam menüsü eklentilerinizi yönetin",
+    "noPlugin": "Bağlam menüsü eklentisi yok",
+    "delete": "Sil",
+    "deleteDescription": "Bu eklentiyi silmek istediğinizden emin misiniz?"
+  },
+  "permission": {
+    "cell": {
+      "deniedRead": "Bu hücreyi görüntüleme izniniz yok",
+      "deniedUpdate": "Bu hücreyi güncelleme izniniz yok"
     }
   },
   "baseShare": {
@@ -934,7 +1262,10 @@
     "linkScopeDialogTitle": "Link field scope",
     "linkHolderCanCopyAndSave": "Kopya olarak kaydedebilir",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
-    "editRequiresLogin": "Users must log in to edit records",
+    "copyToMySpace": "Copy to my space",
+    "saveToMySpace": "Save to my space",
+    "supportSaveCopy": "Bir kopyayı alanınıza kaydedin",
+    "editRequiresLogin": "Kayıtları düzenlemek için giriş yapın",
     "enterPassword": "Şifre girin",
     "allowCopyData": "İzleyicilerin veri kopyalamasına izin ver",
     "sharedNode": "Paylaşılan düğüm",
@@ -966,25 +1297,152 @@
         "failed": "Başarısız"
       }
     },
+    "googleSheetPick": {
+      "title": "Google e-tablolarını seç",
+      "defaultReason": "Okunabilmeleri için e-tabloları Google dosya seçicide seçin.",
+      "pick": "E-tablo seç",
+      "opening": "Seçici açılıyor…",
+      "failed": "Google dosya seçici açılamadı",
+      "gateExpired": "Bu isteğin süresi doldu, ancak seçtiğiniz dosyalara erişim izni geçerli — devam etmek için ajana yeni bir mesaj gönderin.",
+      "status": {
+        "picked": "{{count}} e-tabloya izin verildi",
+        "cancelled": "Atlandı",
+        "failed": "Başarısız"
+      }
+    },
     "agent": {
       "askUserQuestion": {
-        "otherPlaceholder": "Veya yanıtınızı yazın…"
+        "otherPlaceholder": "Veya yanıtınızı yazın…",
+        "asked": "Soruldu",
+        "skipped": "Atlandı",
+        "pendingAnswer": "Yanıt bekleniyor",
+        "notSelected": "Seçilmedi",
+        "timedOut": "Zaman aşımı",
+        "timedOutWithDuration": "Zaman aşımı ({{duration}})",
+        "cancelled": "İptal edildi",
+        "previousQuestion": "Önceki soru",
+        "nextQuestion": "Sonraki soru"
+      },
+      "completion": {
+        "noDetails": "Ayrıntı yok",
+        "model": "Model",
+        "contextWindow": "Bağlam penceresi",
+        "contextTooltip": "Aracının çalışma belleği kullanımı. Sınıra yaklaşıldığında aracı, yer açmak için önceki konuşmayı otomatik olarak özetler.",
+        "contextTipNewChat": "Farklı konular için yeni bir sohbet başlatmak kredi kullanımını önemli ölçüde azaltır.",
+        "contextTipMemory": "Uzun süreli belleğe kaydetmek için \"şunu hatırla\" deyin; tüm sohbetlerden erişilebilir."
       },
       "messageActions": {
+        "helpful": "Yararlı",
+        "notHelpful": "Yararlı değil",
+        "commentTitle": "Bu yanıt nasıl daha iyi olabilirdi? (isteğe bağlı)",
+        "commentPlaceholder": "ör. konuyu kaçırdı, yanlış, hatalı araç…",
+        "saveFailed": "Geri bildirim kaydedilemedi",
         "copy": "Kopyala",
         "copyToInput": "Girişe kopyala"
+      },
+      "contextCompaction": {
+        "auto": "Bağlam otomatik olarak sıkıştırıldı",
+        "manual": "Bağlam sıkıştırıldı",
+        "compacting": "Bağlam sıkıştırılıyor…",
+        "failed": "Bağlam sıkıştırma başarısız oldu"
+      },
+      "taskProgress": {
+        "title": "Görev ilerlemesi"
+      },
+      "tool": {
+        "copy": "Kopyala",
+        "copied": "Kopyalandı!",
+        "collapse": "Daralt",
+        "linesHidden": "{{count}} satır gizli - genişletmek için tıklayın"
       }
+    },
+    "tool": {
+      "retrying": "Yeniden deneniyor ({{attempt}}/{{maxRetries}})...",
+      "showLess": "Daha az göster",
+      "generateApp": {
+        "creatingApp": "Uygulama oluşturuluyor",
+        "updatingApp": "Uygulama güncelleniyor",
+        "viewProgress": "İlerlemeyi görüntüle"
+      },
+      "htmlPreview": {
+        "preview": "Önizleme",
+        "code": "Kod",
+        "download": "İndir",
+        "downloadHtml": "HTML",
+        "downloadImage": "Görsel (PNG)",
+        "copy": "Kopyala",
+        "copied": "Kopyalandı!",
+        "fullscreen": "Tam ekran",
+        "exitFullscreen": "Tam ekrandan çık",
+        "downloadSuccess": "Görsel başarıyla indirildi",
+        "downloadFailed": "Görsel yakalanamadı",
+        "iframeFailed": "Yakalanamadı: iframe erişilebilir değil",
+        "iframeTitle": "HTML önizleme"
+      }
+    },
+    "action": {
+      "locateResource": "Konumunu bul"
     },
     "showUI": {
       "skip": "Atla",
       "next": "Sonraki",
       "submit": "Gönder"
     },
+    "newChat": "Yeni sohbet",
+    "clearChat": "Sohbeti temizle",
+    "expand": "Genişlet",
+    "history": "Geçmiş",
+    "close": "Daralt",
+    "clearChatConfirmTitle": "Sohbeti temizlemeyi onayla",
+    "clearChatConfirmDesc": "Mevcut sohbet içeriği kaydedilmeyecek. Temizlemek istediğinizden emin misiniz?",
+    "dontShowAgain": "Bir daha gösterme",
+    "modelSwitchTitle": "Modeli değiştir",
+    "modelSwitchHint": "Şu anda {{previous}} üzerinde çalışıyor. Bir sonraki göndermede yeni model devralır ve yalnızca son 3 turu görür.",
+    "effort": {
+      "title": "Zekâ",
+      "low": "Düşük",
+      "medium": "Orta",
+      "high": "Yüksek",
+      "xhigh": "Çok yüksek"
+    },
+    "sandboxExpiry": {
+      "expiresIn": "Aracı Bilgisayarının süresi {{time}} içinde doluyor",
+      "reset": "Yenile",
+      "resetTitle": "Aracı Bilgisayarını yenile",
+      "runningTasks_one": "{{count}} görev çalışıyor. Yenileme bunu kesintiye uğratır.",
+      "runningTasks_other": "{{count}} görev çalışıyor. Yenileme bunları kesintiye uğratır.",
+      "noRunningTasks": "Şu anda çalışan görev yok.",
+      "newSandboxHint": "Yenilemeden sonra normal şekilde kullanmaya devam edebilirsiniz.",
+      "cancel": "İptal",
+      "confirmReset": "Yenile",
+      "confirmResetWithTasks": "Yine de yenile",
+      "expiresSoon": "Aracı Bilgisayarının süresi yakında doluyor",
+      "resetFailed": "Aracı Bilgisayarı yenilenemedi"
+    },
+    "addAttachment": "Ek ekle",
+    "noHistory": "Sohbet geçmişi yok",
+    "noFoundHistory": "Sohbet geçmişi bulunamadı, lütfen yeni bir konuşma başlatın",
+    "timeGroup": {
+      "today": "Bugün",
+      "oneWeek": "Bir hafta",
+      "twoWeek": "İki hafta",
+      "oneMonth": "Bir ay",
+      "other": "Diğer"
+    },
+    "context": {
+      "searchEmpty": "Eşleşen bağlam bulunamadı",
+      "selectionRow": "Satır {{row}}",
+      "selectionRows": "Satır {{start}}-{{end}}",
+      "selectionColumn": "Sütun {{col}}",
+      "selectionColumns": "Sütun {{start}}-{{end}}",
+      "selectionColumnsNamed": "{{names}} +{{count}}"
+    },
     "mention": {
       "tables": "Tablolar",
       "apps": "Uygulamalar",
       "workflows": "Otomasyonlar",
-      "folders": "Klasörler"
+      "folders": "Klasörler",
+      "envs": "Gizli bilgiler"
     },
     "slashCommand": {
       "skills": "Skills",
@@ -992,12 +1450,162 @@
     },
     "inputPlaceholder": "@ düğüm ekler, / beceri çalıştırır",
     "inputPlaceholderFiles": "Dosyaları buraya yapıştırın veya bırakın",
+    "thought": "Düşünüyor",
+    "stage": {
+      "initializing": "Hazırlanıyor",
+      "working": "Çalışıyor",
+      "committing": "Kaydediliyor",
+      "recovering": "Kurtarılıyor"
+    },
+    "meta": {
+      "input": "Giriş",
+      "output": "Çıkış"
+    },
     "attachment": {
       "pastedTextFileName": "Yapıştırılan metin",
       "imageNotSupported": "Görsel desteklenmiyor",
-      "tooManyFiles": "Mesaj başına en fazla {{count}} dosya ekleyebilirsiniz",
-      "storageFull": "Sandbox depolama alanı dolu. Bazı dosyaları silip tekrar deneyin."
+      "tooManyFiles": "Mesaj başına en fazla {{count}} dosya ekleyebilirsiniz"
+    },
+    "artifact": {
+      "view": "Görüntüle",
+      "restore": "Bu sürümü geri yükle",
+      "download": "İndir",
+      "openInNewPage": "Yeni sayfada aç",
+      "fullscreen": "Tam ekran",
+      "exitFullscreen": "Tam ekrandan çık",
+      "delete": "Sil",
+      "deleteConfirm": "Bu artifact silinsin mi? Sohbetteki kartlar silindi olarak görünecek.",
+      "deleted": "Bu artifact silindi",
+      "runtimeError": "Artifact hatası",
+      "loadFailed": "Artifact yüklenemedi",
+      "failed": "Artifact oluşturulamadı",
+      "currentVersion": "Geçerli",
+      "share": "Paylaş",
+      "enableShare": "Paylaşımı etkinleştir",
+      "copyLink": "Bağlantıyı kopyala",
+      "rotateLink": "Bağlantıyı sıfırla",
+      "scope": "Kimler görebilir",
+      "scopePublic": "Bağlantıya sahip herkes",
+      "scopeSpace": "Alan üyeleri",
+      "passwordProtect": "Parola koruması",
+      "passwordApply": "Ayarla",
+      "passwordRequired": "Bu artifact parola korumalı",
+      "passwordPlaceholder": "Parolayı girin",
+      "passwordIncorrect": "Parola yanlış",
+      "passwordSubmit": "Onayla",
+      "shareNotFound": "Bu paylaşılan artifact kullanılamıyor",
+      "gallery": "Artifactlarım",
+      "galleryEmpty": "Henüz artifact yok — herhangi bir sohbette yapay zekâdan oluşturmasını isteyin.",
+      "searchPlaceholder": "Artifact ara",
+      "fixWithAi": "Yapay zekâ ile düzelt",
+      "noPermission": "Bu artifact'e erişiminiz yok"
+    },
+    "suggestions": {
+      "title": "Nasıl yardımcı olabilirim?",
+      "whatCanIDo": "Neler yapabilirim?",
+      "createOrModifyDatabase": "Veritabanı oluştur veya değiştir",
+      "buildAutomations": "Otomasyon oluştur",
+      "buildApps": "Uygulama oluştur",
+      "buildMeCRM": "Bana bir CRM oluştur",
+      "addAIField": "Her müşteriyi analiz etmek için bir yapay zekâ alanı ekle",
+      "createDataAnalysis": "Bana bir veri analizi raporu oluştur",
+      "emailWhenRecordCreated": "Kayıt oluşturulduğunda bana e-posta gönder",
+      "syncStatusToSlack": "Durum güncellemelerini Slack'e senkronize et",
+      "buildDashboard": "Bu tablodan bir pano oluştur",
+      "buildLeadCapture": "Bana bir müşteri adayı toplama açılış sayfası oluştur"
+    },
+    "buildApp": {
+      "task": {
+        "foundResults": "{{count}} sonuç bulundu"
+      }
+    },
+    "scriptPreview": {
+      "writeCodeHint": "Akış şeması önizlemesini görmek için biraz kod yazın.",
+      "noPreview": "Akış şeması önizlemesi yok.",
+      "codeChanged": "Bu önizleme oluşturulduktan sonra kod değişti."
+    },
+    "queue": {
+      "nQueued": "{{count}} kuyrukta",
+      "edit": "Düzenle",
+      "steerNow": "Kesintiye uğratmadan konuşmayı yönlendir",
+      "steerFailed": "Konuşma yönlendirilemedi. Mesaj kuyrukta kaldı.",
+      "conversationInputMarker": "Konuşma yönlendirildi",
+      "removeFromQueue": "Kaldır"
+    },
+    "partTool": {
+      "bash": "Komut çalıştır",
+      "read": "Dosya oku",
+      "write": "Dosya oluştur",
+      "edit": "Dosya düzenle",
+      "glob": "Dosya bul",
+      "find": "Dosya bul",
+      "grep": "Dosyalarda ara",
+      "ls": "Dizini listele",
+      "webSearch": "Web'de ara",
+      "skill": "Beceri yükleniyor",
+      "foundFiles": "{{count}} dosya bulundu",
+      "listedEntries": "{{count}} girdi",
+      "moreTools": "+{{count}} araç daha",
+      "moreItems": "+{{count}} daha",
+      "fallbackName": "Araç",
+      "questionCount_one": "{{count}} soru",
+      "questionCount_other": "{{count}} soru",
+      "presentFiles": "Sunulan dosyalar",
+      "download": "İndir",
+      "downloadAll": "Tümünü indir",
+      "downloadAllSkipped_one": "{{count}} dosya temizlendi ve zip'e dahil edilmedi",
+      "downloadAllSkipped_other": "{{count}} dosya temizlendi ve zip'e dahil edilmedi",
+      "downloadAllEmpty": "Bu dosyalar temizlendi ve artık indirilemez",
+      "installSkill": "Yükle",
+      "installSkillTitle": "Beceriyi yükle",
+      "installSkillDescription": "Bu beceriyi nereye yükleyeceğinizi seçin",
+      "skillInstalled": "Yüklendi",
+      "installSkillFailed": "Beceri yüklenemedi",
+      "installSkillReplaceWarning": "Bu kapsamda aynı ada sahip bir beceri varsa değiştirilir."
+    },
+    "retry": {
+      "interrupted": "Yanıt kesildi",
+      "button": "Yeniden dene",
+      "offline": "Çevrimdışısınız. Bağlantınız döndüğünde yeniden deneyeceğiz.",
+      "pausedHidden": "Yeniden deneme duraklatıldı — yeniden bağlanmak için bu sekmeyi açın.",
+      "maxAttemptsReached": "Otomatik olarak yeniden bağlanılamadı. Lütfen sayfayı elle yenileyin."
+    },
+    "initChatFailed": "Sohbet başlatılamadı",
+    "app": {
+      "loadingChatHistory": "Sohbet geçmişi yükleniyor...",
+      "generatorTitle": "Yapay Zekâ Uygulama Oluşturucu",
+      "generatorDesc": "Ne oluşturmak istediğinizi anlatın"
+    },
+    "voice": {
+      "start": "Sesli girişi başlat",
+      "stop": "Sesli girişi durdur",
+      "accept": "Sesli girişi bitir",
+      "cancel": "Sesli girişi yoksay",
+      "permissionTip": "Mikrofon erişimine izin verin.",
+      "recording": "Kaydediliyor...",
+      "transcribing": "Yazıya dökülüyor...",
+      "error": {
+        "microphoneDenied": "Mikrofon erişimi engellendi.",
+        "microphoneUnavailable": "Mikrofon bulunamadı.",
+        "unsupportedBrowser": "Ses kaydı desteklenmiyor.",
+        "recordingFailed": "Kayıt başarısız.",
+        "missingServerKey": "Sesli giriş yapılandırılmamış.",
+        "unauthenticated": "Tekrar giriş yapın.",
+        "rateLimited": "Çok fazla deneme. Biraz bekleyin.",
+        "upstreamAuthFailed": "Yazıya dökme API anahtarı geçersiz.",
+        "upstreamBadRequest": "Ses uç noktası geçersiz.",
+        "upstreamUnavailable": "Ses özelliği kullanılamıyor."
+      }
     }
+  },
+  "upload": {
+    "panelUploading": "{{count}} dosya yükleniyor",
+    "panelFailed": "{{count}} dosya başarısız",
+    "panelCompleted": "{{count}} dosya tamamlandı",
+    "statusFailed": "Başarısız",
+    "statusCompleted": "Tamamlandı",
+    "statusCancel": "Yüklemeyi iptal et",
+    "statusRetry": "Yüklemeyi yeniden dene"
   },
   "baseNode": {
     "info": {
@@ -1009,7 +1617,16 @@
       "folderId": "Klasör ID",
       "tableId": "Tablo ID",
       "automationId": "Otomasyon ID",
-      "appId": "Uygulama ID"
+      "appId": "Uygulama ID",
+      "searchVector": "Tam metin arama",
+      "searchVectorFields": "alan",
+      "searchVectorStatus": {
+        "ready": "Etkin",
+        "configured": "Yapılandırıldı",
+        "rebuildPending": "Bakım bekliyor",
+        "stale": "Yeniden oluşturulmalı",
+        "unknown": "Bilinmiyor"
+      }
     }
   }
 }

@@ -55,7 +55,7 @@ export class MinioStorage implements StorageAdapter {
     presignedParams: IPresignParams
   ): Promise<IPresignRes> {
     const { tokenExpireIn, uploadMethod } = this.config;
-    const { expiresIn, contentLength, contentType, hash, internal } = presignedParams;
+    const { expiresIn, contentLength, contentType, hash, internal, cacheControl } = presignedParams;
     const token = getRandomString(12);
     const filename = hash ?? token;
     const path = join(dir, filename);
@@ -63,6 +63,11 @@ export class MinioStorage implements StorageAdapter {
       'Content-Type': contentType,
       'Content-Length': contentLength,
       'response-cache-control': 'max-age=31536000, immutable',
+      // stored as object metadata on PUT. Also baked into the signed url
+      // query, which MinIO itself applies as metadata even when the client
+      // does not echo the header (verified against a live server) — so the
+      // query entry is load-bearing here, do not strip it as dead weight.
+      ...(cacheControl ? { 'Cache-Control': cacheControl } : {}),
     };
     try {
       const client = internal ? this.minioClientPrivateNetwork : this.minioClient;
@@ -143,10 +148,18 @@ export class MinioStorage implements StorageAdapter {
     expiresIn: number = second(this.config.urlExpireIn),
     respHeaders?: IRespHeaders
   ) {
-    const { 'Content-Disposition': contentDisposition, ...headers } = respHeaders ?? {};
+    const {
+      'Content-Disposition': contentDisposition,
+      'Content-Type': contentType,
+      ...headers
+    } = respHeaders ?? {};
     return this.minioClient.presignedGetObject(bucket, path, expiresIn, {
       ...headers,
       'response-content-disposition': contentDisposition,
+      ...(contentType ? { 'response-content-type': contentType } : {}),
+      ...(StorageAdapter.isPublicBucket(bucket)
+        ? {}
+        : { 'response-cache-control': StorageAdapter.PRIVATE_PREVIEW_CACHE_CONTROL }),
     });
   }
 

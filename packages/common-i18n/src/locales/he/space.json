@@ -1,0 +1,412 @@
+{
+  "crossSpace": {
+    "duplicateBaseTitle": "לתשומת לב",
+    "duplicateBaseDescription": "אין תמיכה בהפניות בין מרחבים. השדה המשוכפל יומר לשדה טקסט בשורה אחת.",
+    "affectedTableSuffix": "({{count}} שדות)",
+    "convertAndDuplicate": "המרה ושכפול"
+  },
+  "initialSpaceName": "המרחב של {{name}}",
+  "action": {
+    "createBase": "יצירת בסיס",
+    "createSpace": "יצירת מרחב",
+    "invite": "הזמנה",
+    "startFromScratch": "התחלה מאפס"
+  },
+  "allSpaces": "כל המרחבים",
+  "emptySpaceTitle": "אין בסיסים במרחב הזה",
+  "spaceIsEmpty": "יצירת הבסיס הראשון כדי להתחיל",
+  "baseModal": {
+    "copy": "העתקה",
+    "duplicate": "שכפול \"{{baseName}}\"",
+    "createBaseFromTemplate": "יצירת בסיס מתבנית",
+    "duplicateRecords": "שכפול רשומות",
+    "duplicateRecordsTip": "היסטוריית השינויים ומשתפי הפעולה לא ישוכפלו.",
+    "toSpace": "אל המרחב",
+    "copyToSpace": "העתקה למרחב",
+    "duplicateBase": "שכפול בסיס",
+    "missTargetTip": "יש לבחור מרחב לשכפול הבסיס.",
+    "copying": "הבסיס בשכפול, זה עשוי לקחת זמן...",
+    "howToCreate": "איך להתחיל?",
+    "fromScratch": "מאפס",
+    "fromTemplate": "מתבנית",
+    "moveBaseToAnotherSpace": "העברת {{baseName}} למרחב אחר",
+    "chooseSpace": "בחירת מרחב",
+    "duplicateBaseSucceedAndJump": "השכפול הצליח, לחיצה למעבר"
+  },
+  "spaceSetting": {
+    "title": "הגדרות",
+    "general": "כללי",
+    "collaborators": "משתפי פעולה",
+    "generalDescription": "כאן ניתן לשנות את ההגדרות של המרחב הנוכחי",
+    "spaceName": "שם המרחב",
+    "spaceId": "מזהה המרחב",
+    "importBase": "ייבוא"
+  },
+  "collaborators": "משתפי פעולה",
+  "more": "עוד",
+  "pin": {
+    "add": "הוספה למוצמדים",
+    "remove": "הסרה מהמוצמדים",
+    "pin": "מוצמדים",
+    "empty": "הבסיסים והמרחבים המוצמדים שלך יופיעו כאן"
+  },
+  "tooltip": {
+    "noPermissionToCreateBase": "אין הרשאה ליצירת בסיס"
+  },
+  "tip": {
+    "delete": "האם למחוק את <0/>?",
+    "exportTips2": "ניתן לייבא את קובץ ה-.tea דרך מרחב ← עוד ← ייבוא",
+    "exportTips3": "שדות קישור בין בסיסים יומרו לטקסט בשורה אחת.",
+    "exportIncludeDataLabel": "כולל רשומות",
+    "exportIncludeDataDescription": "בכיבוי האפשרות ייוצאו רק המבנה והתצורה",
+    "exportTitle": "ייצוא",
+    "exportDescription": "ייצוא מסד הנתונים הנוכחי לקובץ .tea, פעולה שעשויה לקחת זמן.",
+    "exportStartButton": "התחלת הייצוא",
+    "exportSlowTip": "נפח הנתונים גדול. הייצוא עשוי להימשך זמן מה. אפשר לצאת בינתיים.",
+    "exportReadyDescription": "יש להוריד את קובץ ה-.tea, {{importHint}}",
+    "moveBaseSuccessTitle": "הבסיס הועבר",
+    "moveBaseSuccessDescription": "{{baseName}} הועבר אל {{spaceName}}",
+    "moveBaseCrossSpaceTitle": "לתשומת לב",
+    "moveBaseCrossSpaceDataLossWarning": "אין תמיכה בהפניות בין מרחבים. שדות הקישור יומרו לשדות טקסט. לא ניתן לבטל פעולה זו.",
+    "moveBaseCrossDataDbTitle": "העברה בין מסדי נתונים",
+    "moveBaseCrossDataDbWarning": "מרחב המקור ומרחב היעד משתמשים במסדי נתונים שונים. ההעברה תעתיק את נתוני הבסיס אל מסד הנתונים ביעד ועשויה להימשך זמן מה. הכתיבה לבסיס הזה מושהית במהלך ההעברה.",
+    "moveBaseProgressTitle": "הבסיס בהעברה…",
+    "moveBaseProgressPhase": "שלב: {{phase}}",
+    "moveBaseProgressPercent": "{{percent}}%",
+    "moveBaseFailedTitle": "ההעברה נכשלה",
+    "moveBaseFailedDescription": "שלב {{phase}}: {{error}}",
+    "moveBaseRetry": "ניסיון חוזר",
+    "moveBaseCancel": "ביטול"
+  },
+  "deleteSpaceModal": {
+    "title": "מחיקת מרחב",
+    "blockedTitle": "לא ניתן למחוק את המרחב הזה",
+    "blockedDesc": "למרחב הזה יש מנוי פעיל. יש לבטל את המנוי לפני מחיקת המרחב."
+  },
+  "sharedBase": {
+    "title": "שיתפו איתי",
+    "description": "כל הבסיסים שהוזמנתי אליהם",
+    "empty": "עדיין לא שיתפו איתי בסיסים"
+  },
+  "aiSetting": {
+    "title": "הגדרות AI",
+    "description": "ניהול הגדרות ה-AI של המרחב",
+    "enable": "אתחול הגדרות AI"
+  },
+  "import": {
+    "importing": "בייבוא",
+    "baseImportTips": "לחיצה או גרירת קובץ .tea לאזור הזה להעלאה",
+    "confirm": "אישור והמשך",
+    "phase": {
+      "importingV2": "בייבוא",
+      "parsingStructure": "בניתוח המבנה",
+      "creatingBase": "ביצירת בסיס: {{detail}}",
+      "creatingTable": "ביצירת טבלה: {{detail}}",
+      "tableStructureStarted": "בהכנת מבנה הטבלה: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableStructureValidating": "באימות קשרי הטבלאות",
+      "tableStructureCommitting": "בשמירת מבנה הטבלה",
+      "tableStructureDone": "מבנה הטבלה נשמר: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableStructureData": "מבנה הטבלה",
+      "tableStructureTablesProgress": "{{count}}/{{total}} טבלאות הוכנו",
+      "tableStructureTablesDone": "{{count}}/{{total}} טבלאות נשמרו",
+      "creatingCommonFields": "ביצירת שדות בסיסיים עבור {{table}}: {{fields}}",
+      "creatingButtonFields": "ביצירת שדות כפתור עבור {{table}}: {{fields}}",
+      "creatingFormulaFields": "ביצירת שדות נוסחה עבור {{table}}: {{fields}}",
+      "creatingLinkFields": "ביצירת שדות קישור עבור {{table}}: {{fields}}",
+      "creatingLookupFields": "ביצירת שדות שליפה עבור {{table}}: {{fields}}",
+      "creatingTableViews": "ביצירת תצוגות עבור {{table}}: {{fields}}",
+      "creatingPlugins": "ביצירת תוספים",
+      "creatingFolders": "ביצירת תיקיות",
+      "creatingWorkflows": "ביצירת אוטומציות",
+      "creatingApps": "ביצירת אפליקציות",
+      "creatingAuthorityMatrix": "ביצירת מטריצת ההרשאות",
+      "restoringBaseNodes": "בשחזור היררכיית התיקיות",
+      "queuingAttachments": "בהכנסת הקבצים המצורפים לתור העלאה",
+      "uploadingAppFiles": "בהעלאת קובצי האפליקציות",
+      "queuingDataImport": "בהכנסת ייבוא הנתונים לתור",
+      "importingTableData": "בייבוא נתוני הטבלאות",
+      "restoringLinkRelations": "בשחזור נתוני הרשומות המקושרות",
+      "tableDataStarted": "בייבוא רשומות: {{tableName}}",
+      "tableDataProgress": "בייבוא רשומות: {{tableName}}",
+      "tableDataDone": "ייבוא הרשומות הושלם: {{tableName}}",
+      "linkFieldsData": "נתוני רשומות מקושרות",
+      "linkFieldsProgress": "בשחזור נתוני הרשומות המקושרות",
+      "linkFieldsDone": "נתוני הרשומות המקושרות שוחזרו",
+      "tableDataRowsProgress": "{{count}} שורות יובאו",
+      "tableDataRowsDone": "{{count}} שורות יובאו",
+      "tableDataRowsTotalProgress": "{{count}}/{{total}} שורות עובדו",
+      "tableDataRowsTotalDone": "{{count}}/{{total}} שורות עובדו",
+      "tableDataBatch": "אצווה {{batch}}",
+      "tableDataBatchRows": "{{count}} שורות באצווה הזו",
+      "tableDataEmpty": "אין נתוני טבלה לייבוא",
+      "done": "הייבוא הושלם",
+      "clickToView": "לחיצה לצפייה"
+    }
+  },
+  "export": {
+    "phase": {
+      "preparing": "בהכנת הייצוא",
+      "exportingArchive": "ביצירת קובץ הייצוא",
+      "exportingStructure": "בייצוא המבנה",
+      "exportingAttachments": "בייצוא הקבצים המצורפים",
+      "exportingAttachmentMetadata": "בייצוא המטא-נתונים של הקבצים המצורפים",
+      "exportingTableData": "בייצוא רשומות",
+      "tableDataStarted": "בייצוא רשומות: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableDataProgress": "בייצוא רשומות: {{tableName}}",
+      "tableDataDone": "ייצוא הרשומות הושלם: {{tableName}}",
+      "exportingExtraFiles": "בייצוא קבצים נוספים",
+      "exportingAppFiles": "בייצוא קובצי האפליקציות",
+      "uploadingArchive": "בהעלאת קובץ הייצוא",
+      "generatingDownloadUrl": "ביצירת קישור ההורדה",
+      "rowsProgress": "{{count}} שורות יוצאו",
+      "done": "הייצוא הושלם"
+    }
+  },
+  "template": {
+    "title": "תבנית",
+    "description": "יצירה מהירה של בסיס חדש מתוך תבנית",
+    "noTemplatesAvailable": "אין תבניות זמינות",
+    "noTemplatesDescription": "אין כאן כלום כרגע"
+  },
+  "recentlyBase": {
+    "title": "נפתחו לאחרונה"
+  },
+  "noBases": {
+    "title": "היי {{userName}}!",
+    "description": "נתחיל לנהל את העבודה שלך עם הבסיס הראשון."
+  },
+  "noSpaces": {
+    "title": "היי {{userName}}!",
+    "description": "כדאי ליצור מרחב ראשון ולהתחיל לשתף פעולה על הנתונים."
+  },
+  "baseList": {
+    "allBases": "כל הבסיסים",
+    "creator": "יוצר",
+    "createdTime": "מועד יצירה",
+    "lastOpened": "נפתח לאחרונה",
+    "enter": "כניסה",
+    "noTables": "אין טבלאות",
+    "empty": "אין עדיין בסיסים",
+    "recent": "אחרונים",
+    "manual": "סדר ידני"
+  },
+  "publishBase": {
+    "title": "פרסום במרכז התבניות",
+    "description": "פרסום הבסיס במרכז התבניות בלחיצה אחת! כך עוד אנשים יוכלו לראות את היצירה שלך, להשתמש בה ולהתאים אותה לעצמם, ויחד נבנה עסק חזק יותר",
+    "infoTitle": "פרטים בסיסיים",
+    "form": {
+      "title": "שם היצירה",
+      "description": "תיאור",
+      "security": "אבטחה",
+      "advanced": "מתקדם",
+      "publishNode": "פריטים לפרסום",
+      "includeData": "כולל נתונים",
+      "defaultActiveNode": "הפריט הפעיל כברירת מחדל",
+      "descriptionPlaceholder": "תיאור קצר של הרעיון...",
+      "titlePlaceholder": "שם ליצירה שלך..."
+    },
+    "publishToCommunity": "פרסום במרכז התבניות",
+    "publish": "פרסום",
+    "publishSuccess": "הפרסום הצליח!",
+    "previewTips": "שהעולם יראה את היצירה שלך",
+    "update": "עדכון",
+    "unPublish": "ביטול פרסום",
+    "unPublishSuccess": "פרסום הבסיס בוטל בהצלחה!",
+    "unPublishConfirmTitle": "אישור ביטול הפרסום",
+    "unPublishConfirmDescription": "האם לבטל את פרסום הבסיס? הוא לא יופיע יותר במרכז התבניות.",
+    "uploadCover": "לחיצה להעלאת תמונת שער",
+    "changeCover": "לחיצה להחלפת תמונת השער",
+    "uploading": "התמונה בהעלאה...",
+    "uploadSuccess": "התמונה הועלתה בהצלחה",
+    "uploadFailed": "ההעלאה נכשלה",
+    "invalidImageType": "יש לבחור קובץ תמונה",
+    "tips": {
+      "publishValidation": "שם ותיאור הם שדות חובה",
+      "atLeastOneNode": "יש לבחור לפחות פריט אחד לפרסום"
+    },
+    "urlCopied": "כתובת ה-URL הועתקה ללוח!",
+    "urlCopiedForDiscord": "כתובת ה-URL הועתקה ללוח! אפשר להדביק אותה ב-Discord.",
+    "featuredLabel": "מובחר",
+    "unfeaturedLabel": "לא מובחר",
+    "featuredTip": "התבנית סומנה כמובחרת באופן רשמי ותקבל חשיפה רבה יותר.",
+    "unfeaturedTip": "התבנית עדיין לא מובחרת. כדאי להמשיך לשפר אותה כדי לזכות בהדגשה. כך עוד אנשים יראו את היצירה שלך.",
+    "publishSuccessDescription": "שיתוף היצירה שלך עם העולם",
+    "shareWith": "שיתוף עם",
+    "unpublishedApps": {
+      "title": "זוהו אפליקציות שלא פורסמו",
+      "description": "אפליקציות שלא פורסמו עלולות לגרום לכשלים בתצוגה המקדימה של התבנית. אפשר לפרסם אותן עכשיו או להמשיך בכל זאת.",
+      "publishAll": "פרסום הכול",
+      "publish": "פרסום",
+      "published": "פורסם",
+      "publishing": "בפרסום",
+      "notPublished": "לא פורסם",
+      "publishFailed": "הפרסום נכשל",
+      "publishFailedTip1": "כדאי לבדוק אם ניתן לפרסם את אפליקציית המקור בהצלחה",
+      "publishFailedTip2": "כדאי לנסות לפרסם את התבנית מחדש",
+      "ignoreAndContinue": "התעלמות והמשך",
+      "goToFix": "מעבר לתיקון",
+      "redeploy": "פריסה מחדש",
+      "unnamedApp": "אפליקציה ללא שם"
+    }
+  },
+  "dataDb": {
+    "create": {
+      "title": "מסד נתונים",
+      "description": "בחירת המקום שבו המרחב הזה יאחסן את סכימות הבסיסים ואת הרשומות.",
+      "defaultHint": "מומלץ לרוב המרחבים.",
+      "byodbOption": "שימוש במסד הנתונים PostgreSQL שלי",
+      "byodbHint": "אתחול המרחב הזה בסכימה פנימית של Teable בתוך מסד הנתונים שבניהולך.",
+      "urlLabel": "כתובת URL לחיבור PostgreSQL",
+      "sslHint": "יש להשתמש באותם פרמטרי SSL שנדרשים בשרת ה-PostgreSQL שלך. הסיסמה אינה מוצגת לאחר הבדיקה.",
+      "testConnection": "בדיקת החיבור",
+      "testing": "בבדיקה...",
+      "retestRequired": "יש לבצע בדיקה נוספת לאחר שינוי כתובת ה-URL.",
+      "databaseLabel": "מסד נתונים",
+      "databasePlaceholder": "בחירת מסד נתונים",
+      "databaseHint": "יש לבחור את מסד הנתונים PostgreSQL עבור המרחב הזה ולבדוק את החיבור שוב.",
+      "preflightPassed": "בדיקות החיבור עברו בהצלחה",
+      "preflightFailed": "בדיקות החיבור נכשלו",
+      "missingCapabilities": "חסרות הרשאות",
+      "testFailed": "בדיקת החיבור למסד הנתונים נכשלה.",
+      "errors": {
+        "INVALID_DATABASE_URL": {
+          "message": "כתובת ה-URL לחיבור PostgreSQL אינה חוקית."
+        },
+        "PRIVATE_NETWORK_BLOCKED": {
+          "message": "מארחי מסדי נתונים ברשת פרטית חסומים כברירת מחדל.",
+          "remediation": "יש להגדיר TEABLE_SSRF_PROTECTION_DISABLED=true רק בפריסות עצמאיות מהימנות."
+        },
+        "CONNECTION_FAILED": {
+          "message": "החיבור למסד הנתונים נכשל.",
+          "remediation": "יש לבדוק את המארח, הפורט, שם מסד הנתונים, שם המשתמש, הסיסמה ופרמטרי ה-SSL."
+        },
+        "IPV6_NETWORK_UNREACHABLE": {
+          "message": "המארח של מסד הנתונים נפתר לכתובת IPv6, אך פריסת Teable הזו אינה יכולה להגיע לרשתות IPv6.",
+          "remediation": "יש להשתמש ב-endpoint או במאגר חיבורים של מסד הנתונים שנגישים ב-IPv4, או להפעיל תעבורת IPv6 יוצאת בפריסת Teable הזו."
+        },
+        "PRIVILEGE_CHECK_FAILED": {
+          "message": "בדיקות ההרשאות במסד הנתונים נכשלו."
+        },
+        "DDL_PRIVILEGE_CHECK_FAILED": {
+          "message": "לחשבון חסרות הרשאות DDL הנדרשות לאתחול מסד נתונים של Teable.",
+          "remediation": "יש להעניק הרשאות ליצירת סכימות, טבלאות, פונקציות וטריגרים."
+        },
+        "NON_EMPTY_UNKNOWN_DATABASE": {
+          "message": "הסכימה הפנימית של Teable כבר מכילה אובייקטים שאינם מנוהלים על ידי Teable.",
+          "remediation": "יש להשתמש במסד נתונים ללא סכימה פנימית מתנגשת, או להסיר מהסכימה את האובייקטים הלא מוכרים."
+        },
+        "INCOMPATIBLE_TEABLE_DATABASE": {
+          "message": "מסד הנתונים הזה מכיל אובייקטים של Teable שאינם שלמים או אינם תואמים.",
+          "remediation": "יש להשתמש במסד נתונים ריק, או בתהליך העברה/אימוץ תואם של מסד נתונים של Teable."
+        }
+      }
+    },
+    "fields": {
+      "host": "מארח",
+      "database": "מסד נתונים",
+      "internalSchema": "סכימה פנימית",
+      "version": "גרסה",
+      "classification": "סיווג"
+    },
+    "badge": {
+      "label": "ייעודי",
+      "tooltip": "המרחב הזה מתארח על מסד נתונים ייעודי, מבודד ממרחבים אחרים"
+    }
+  },
+  "airtableImport": {
+    "title": "ייבוא מ-Airtable",
+    "close": "סגירה",
+    "pickBase": "בחירת בסיס לייבוא",
+    "noBases": "לא נמצאו בסיסים נגישים עבור האסימון הזה.",
+    "optionRecords": "ייבוא רשומות",
+    "optionAttachments": "הורדה וייבוא של קבצים מצורפים",
+    "import": "התחלת הייבוא",
+    "done": "הייבוא הושלם",
+    "failed": "הייבוא נכשל",
+    "openBase": "פתיחת הבסיס",
+    "issuesSummary": "{{count}} פריטים הותאמו במהלך הייבוא:",
+    "issuesMore": "+{{count}} נוספים",
+    "issue": {
+      "fieldDegraded": "{{tableName}} / {{fieldName}}: {{fromType}} → {{toType}}",
+      "fieldSkipped": "{{tableName}} / {{fieldName}} ({{fromType}}) דולג: {{reason}}",
+      "viewSkipped": "{{tableName}} / התצוגה \"{{viewName}}\" ({{fromType}}) דולגה",
+      "valuesDropped": "{{tableName}} / {{fieldName}}: {{count}} ערכים הושמטו ({{reason}})",
+      "viewConfigDegraded": "{{tableName}} / התצוגה \"{{viewName}}\": {{reason}}"
+    },
+    "phase": {
+      "fetchingSchema": "בקריאת סכימת הבסיס ב-Airtable",
+      "creatingBase": "ביצירת בסיס: {{detail}}",
+      "creatingTable": "ביצירת טבלה: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "creatingLinks": "ביצירת שדות קישור",
+      "fillingLinks": "{{tableName}} (קישורים)",
+      "applyingViewConfig": "בייבוא תצורת התצוגות"
+    },
+    "searchBases": "חיפוש בסיסים",
+    "noSearchResults": "אין בסיסים שתואמים לחיפוש.",
+    "detecting": "בבדיקת החיבור ל-Airtable…",
+    "connectWithAirtable": "חיבור חשבון Airtable",
+    "waitingOAuth": "יש להשלים את ההרשאה בחלון הקופץ…",
+    "connectedAs": "מחובר: {{account}}",
+    "permission": {
+      "create": "יוצר",
+      "edit": "עורך",
+      "comment": "מגיב",
+      "read": "לקריאה בלבד"
+    },
+    "integrationRequired": "האינטגרציה עם Airtable אינה מוגדרת במופע הזה. יש לפנות למנהל כדי להגדיר אותה.",
+    "optionViewConfig": "ייבוא מסננים, מיונים וקיבוצים של התצוגות",
+    "viewConfig": {
+      "help": "ה-API של Airtable אינו חושף את הגדרות התצוגה, ולכן נדרש קישור שיתוף לבסיס לקריאה בלבד.",
+      "helpStep1": "ב-Airtable, יש לפתוח את תפריט השיתוף של הבסיס",
+      "helpStep2": "יש לבחור \"Share to web\" ולהפעיל גישה מלאה לבסיס",
+      "helpStep3": "יש להעתיק את הקישור לקריאה בלבד ולהדביק אותו בשדה שלמעלה",
+      "linkPlaceholder": "יש להדביק כאן את קישור השיתוף",
+      "mismatch": "קישור השיתוף הזה מפנה לבסיס אחר מזה שנבחר.",
+      "disableReminder": "זהו — עכשיו אפשר לכבות את קישור השיתוף לבסיס ב-Airtable."
+    }
+  },
+  "googleSheetImport": {
+    "title": "ייבוא מ-Google Sheets",
+    "close": "סגירה",
+    "pickSpreadsheet": "בחירת גיליון לייבוא",
+    "openPicker": "בחירת גיליון מ-Google Drive",
+    "changeSpreadsheet": "שינוי",
+    "analyzing": "בקריאת הגיליון…",
+    "pickTabs": "בחירת הלשוניות לייבוא",
+    "gridSize": "{{rows}} שורות × {{columns}} עמודות",
+    "optionRecords": "ייבוא רשומות",
+    "import": "התחלת הייבוא",
+    "done": "הייבוא הושלם",
+    "failed": "הייבוא נכשל",
+    "openBase": "פתיחת הבסיס",
+    "issuesSummary": "{{count}} פריטים הותאמו במהלך הייבוא:",
+    "issuesMore": "+{{count}} נוספים",
+    "recordsImported": "{{tableName}}: יובאו {{count}} רשומות",
+    "partialImported": "{{count}} טבלאות יובאו במלואן לפני הכשל ונשמרו",
+    "issue": {
+      "valuesDropped": "{{sheetName}} / {{fieldName}}: {{count}} ערכים הושמטו ({{reason}})",
+      "sheetSkipped": "הלשונית \"{{sheetName}}\" דולגה: {{reason}}",
+      "columnsTruncated": "{{sheetName}}: {{count}} עמודות שחרגו ממגבלת העמודות לא יובאו"
+    },
+    "phase": {
+      "fetchingSchema": "בקריאת מבנה הגיליון",
+      "creatingBase": "ביצירת בסיס: {{detail}}",
+      "creatingTable": "ביצירת טבלה: {{tableName}} ({{tableIndex}}/{{totalTables}})"
+    },
+    "detecting": "בבדיקת החיבור ל-Google…",
+    "connectWithGoogle": "חיבור חשבון Google",
+    "waitingOAuth": "יש להשלים את ההרשאה בחלון הקופץ…",
+    "connectedAs": "מחובר: {{account}}",
+    "integrationRequired": "האינטגרציה עם Google Sheets אינה מוגדרת במופע הזה. יש לפנות למנהל כדי להגדיר אותה."
+  },
+  "createBaseDialog": {
+    "title": "איך להתחיל?"
+  },
+  "importBaseDialog": {
+    "title": "ייבוא בסיס",
+    "fromFile": "ייבוא מקובץ",
+    "fromFileDesc": "העלאת קובץ מסד נתונים מסוג .tea",
+    "fromAirtableDesc": "חיבור חשבון ה-Airtable שלך",
+    "fromGoogleSheetDesc": "בחירת גיליון מתוך Google Drive שלך"
+  }
+}

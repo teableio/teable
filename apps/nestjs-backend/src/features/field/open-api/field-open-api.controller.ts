@@ -85,35 +85,28 @@ export class FieldOpenApiController {
   }
 
   @Permissions('field|read')
+  @UseV2Feature('getFields')
   @Get(':fieldId')
   async getField(
     @Param('tableId') tableId: string,
     @Param('fieldId') fieldId: string
   ): Promise<IFieldVo> {
-    const forceV2All = process.env.FORCE_V2_ALL?.toLowerCase() === 'true';
-    if (this.cls.get('useV2') || forceV2All) {
-      const field = await this.fieldOpenApiV2Service.getField(tableId, fieldId);
-      if (field.hasError == null) {
-        try {
-          const legacyField = await this.fieldService.getField(tableId, fieldId);
-          if (legacyField.hasError != null) {
-            field.hasError = legacyField.hasError;
-          }
-        } catch (error) {
-          void error;
-        }
-      }
-      return field;
+    if (this.cls.get('useV2')) {
+      return await this.fieldOpenApiV2Service.getField(tableId, fieldId);
     }
     return await this.fieldService.getField(tableId, fieldId);
   }
 
   @Permissions('field|read')
+  @UseV2Feature('getFields')
   @Get()
   async getFields(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(getFieldsQuerySchema)) query: IGetFieldsQuery
   ): Promise<IFieldVo[]> {
+    if (this.cls.get('useV2')) {
+      return await this.fieldOpenApiV2Service.getFields(tableId, query);
+    }
     return await this.fieldOpenApiService.getFields(tableId, query);
   }
 
@@ -125,7 +118,7 @@ export class FieldOpenApiController {
     @Body(new ZodValidationPipe(createFieldRoSchema)) fieldRo: IFieldRo
   ): Promise<IPlanFieldVo> {
     if (this.cls.get('useV2')) {
-      return this.fieldOpenApiV2Service.planFieldCreate();
+      return await this.fieldOpenApiV2Service.planFieldCreate(tableId, fieldRo);
     }
     return await this.fieldOpenApiService.planFieldCreate(tableId, fieldRo);
   }
@@ -145,12 +138,16 @@ export class FieldOpenApiController {
   }
 
   @Permissions('field|update')
+  @UseV2Feature('convertField')
   @Put(':fieldId/plan')
   async planFieldConvert(
     @Param('tableId') tableId: string,
     @Param('fieldId') fieldId: string,
     @Body(new ZodValidationPipe(convertFieldRoSchema)) updateFieldRo: IConvertFieldRo
   ): Promise<IPlanFieldConvertVo> {
+    if (this.cls.get('useV2')) {
+      return await this.fieldOpenApiV2Service.planFieldConvert(tableId, fieldId, updateFieldRo);
+    }
     return await this.fieldOpenApiService.planFieldConvert(tableId, fieldId, updateFieldRo);
   }
 
@@ -222,26 +219,39 @@ export class FieldOpenApiController {
   }
 
   @Permissions('field|update')
+  @UseV2Feature('getViewFilterLinkRecords')
   @Get('/:fieldId/filter-link-records')
   async getFilterLinkRecords(
     @Param('tableId') tableId: string,
     @Param('fieldId') fieldId: string
   ): Promise<IGetViewFilterLinkRecordsVo> {
+    if (this.cls.get('useV2')) {
+      return this.fieldOpenApiV2Service.getFilterLinkRecords(tableId, fieldId);
+    }
     return this.fieldOpenApiService.getFilterLinkRecords(tableId, fieldId);
   }
 
   @Permissions('field|read')
+  @UseV2Feature('getFields')
   @Get('/socket/snapshot-bulk')
   async getSnapshotBulk(@Param('tableId') tableId: string, @Query('ids') ids: string[]) {
+    if (this.cls.get('useV2')) {
+      return this.fieldOpenApiV2Service.getSnapshotBulk(tableId, ids);
+    }
     return this.fieldService.getSnapshotBulk(tableId, ids);
   }
 
   @Permissions('field|read')
+  @UseV2Feature('getFields')
   @Get('/socket/doc-ids')
   async getDocIds(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(getFieldsQuerySchema)) query: IGetFieldsQuery
   ) {
+    if (this.cls.get('useV2')) {
+      const fields = await this.fieldOpenApiV2Service.getFields(tableId, query);
+      return { ids: fields.map((field) => field.id) };
+    }
     return this.fieldService.getDocIdsByQuery(tableId, query);
   }
 

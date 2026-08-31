@@ -17,7 +17,7 @@ export const MentionUser = (props: IMentionUserProps) => {
       {avatar ? (
         <>
           <UserAvatar avatar={avatar} name={name} className="size-4 self-center" />
-          <span className="inline-flex self-baseline truncate pl-1 leading-5" title={name}>
+          <span className="inline-flex self-baseline truncate ps-1 leading-5" title={name}>
             {name}
           </span>
         </>

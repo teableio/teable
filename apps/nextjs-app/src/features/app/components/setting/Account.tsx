@@ -63,7 +63,7 @@ export const Account: React.FC = () => {
   const avatarComponent = (
     <div className="group relative flex h-fit items-center justify-center">
       <UserAvatar className="size-14 border" user={sessionUser} />
-      <div className="absolute left-0 top-0 size-full rounded-full bg-transparent group-hover:bg-muted-foreground/20">
+      <div className="absolute start-0 top-0 size-full rounded-full bg-transparent group-hover:bg-muted-foreground/20">
         <input
           type="file"
           className="absolute inset-0 size-full opacity-0"
@@ -128,7 +128,7 @@ export const Account: React.FC = () => {
                   <div className="text-xs text-muted-foreground">{sessionUser.email}</div>
                 </div>
                 <ChangeEmailDialog>
-                  <Button className="float-right" size={'sm'} variant={'outline'}>
+                  <Button className="float-end" size={'sm'} variant={'outline'}>
                     {t('settings.account.changeEmail.title')}
                   </Button>
                 </ChangeEmailDialog>
@@ -142,7 +142,7 @@ export const Account: React.FC = () => {
                     </div>
                   </div>
                   <ChangePasswordDialog>
-                    <Button className="float-right" size={'sm'} variant={'outline'}>
+                    <Button className="float-end" size={'sm'} variant={'outline'}>
                       {t('settings.account.changePassword.title')}
                     </Button>
                   </ChangePasswordDialog>

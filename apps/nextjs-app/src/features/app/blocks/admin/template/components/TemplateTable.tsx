@@ -179,7 +179,7 @@ export const TemplateTable = () => {
     return (
       <>
         <TableCell
-          className="sticky left-16 w-[140px] min-w-[140px] bg-background"
+          className="sticky start-16 w-[140px] min-w-[140px] bg-background"
           style={{ zIndex: 2 }}
         >
           <TemplateCover
@@ -190,7 +190,7 @@ export const TemplateTable = () => {
           />
         </TableCell>
         <TableCell
-          className="sticky left-[204px] min-w-48 bg-background after:pointer-events-none after:absolute after:right-0 after:top-0 after:h-full after:w-px after:bg-border after:content-['']"
+          className="sticky start-[204px] min-w-48 bg-background after:pointer-events-none after:absolute after:end-0 after:top-0 after:h-full after:w-px after:bg-border after:content-['']"
           style={{ zIndex: 2 }}
         >
           <TextEditor
@@ -299,7 +299,7 @@ export const TemplateTable = () => {
           )}
         </TableCell>
         <TableCell
-          className="sticky bg-background text-center before:pointer-events-none before:absolute before:left-0 before:top-0 before:h-full before:w-px before:bg-border before:content-['']"
+          className="sticky bg-background text-center before:pointer-events-none before:absolute before:start-0 before:top-0 before:h-full before:w-px before:bg-border before:content-['']"
           style={{ zIndex: 2, right: 144, width: 100, minWidth: 100, maxWidth: 100 }}
         >
           {row.usageCount ?? 0}/{row.visitCount ?? 0}
@@ -376,20 +376,20 @@ export const TemplateTable = () => {
   return (
     <div className="h-full overflow-auto">
       <Table className="relative w-max min-w-full scroll-smooth rounded-sm">
-        <TableHeader className="sticky top-0 z-20 bg-background after:pointer-events-none after:absolute after:bottom-0 after:left-0 after:h-px after:w-full after:bg-border after:content-['']">
+        <TableHeader className="sticky top-0 z-20 bg-background after:pointer-events-none after:absolute after:bottom-0 after:start-0 after:h-px after:w-full after:bg-border after:content-['']">
           <TableRow className="h-16 bg-background" style={{ zIndex: 2 }}>
             <TableHead
-              className="sticky left-0 w-16 min-w-16 bg-background"
+              className="sticky start-0 w-16 min-w-16 bg-background"
               style={{ zIndex: 3 }}
             ></TableHead>
             <TableHead
-              className="sticky left-16 w-[140px] min-w-[140px] bg-background"
+              className="sticky start-16 w-[140px] min-w-[140px] bg-background"
               style={{ zIndex: 3 }}
             >
               {t('settings.templateAdmin.header.cover')}
             </TableHead>
             <TableHead
-              className="sticky left-[204px] min-w-48 shrink-0 bg-background after:pointer-events-none after:absolute after:right-0 after:top-0 after:h-full after:w-px after:bg-border after:content-['']"
+              className="sticky start-[204px] min-w-48 shrink-0 bg-background after:pointer-events-none after:absolute after:end-0 after:top-0 after:h-full after:w-px after:bg-border after:content-['']"
               style={{ zIndex: 3 }}
             >
               {t('settings.templateAdmin.header.name')}
@@ -419,7 +419,7 @@ export const TemplateTable = () => {
               {t('settings.templateAdmin.header.createdBy')}
             </TableHead>
             <TableHead
-              className="sticky bg-background text-center before:pointer-events-none before:absolute before:left-0 before:top-0 before:h-full before:w-px before:bg-border before:content-['']"
+              className="sticky bg-background text-center before:pointer-events-none before:absolute before:start-0 before:top-0 before:h-full before:w-px before:bg-border before:content-['']"
               style={{ zIndex: 3, right: 144, width: 100, minWidth: 100, maxWidth: 100 }}
             >
               {t('settings.templateAdmin.header.usage')}/{t('settings.templateAdmin.header.visit')}
@@ -455,7 +455,7 @@ export const TemplateTable = () => {
                           })}
                         >
                           <TableCell
-                            className="sticky left-0 w-16 min-w-16 cursor-grab bg-background active:cursor-grabbing"
+                            className="sticky start-0 w-16 min-w-16 cursor-grab bg-background active:cursor-grabbing"
                             style={{ zIndex: 2 }}
                             {...draggableProvided.dragHandleProps}
                           >
@@ -483,7 +483,7 @@ export const TemplateTable = () => {
             {innerTemplates?.map((row) => (
               <TableRow key={row.id} className="max-h-24">
                 <TableCell
-                  className="sticky left-0 w-16 min-w-16 bg-background"
+                  className="sticky start-0 w-16 min-w-16 bg-background"
                   style={{ zIndex: 2 }}
                 ></TableCell>
                 {renderTableRow(row)}

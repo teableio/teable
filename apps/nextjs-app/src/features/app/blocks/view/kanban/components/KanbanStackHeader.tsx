@@ -147,14 +147,14 @@ export const KanbanStackHeader = (props: IKanbanStackHeaderProps) => {
           }}
         >
           <DropdownMenuItem className="cursor-pointer" onClick={onStackCollapsed}>
-            <Minimize2 className="mr-2 size-4" />
+            <Minimize2 className="me-2 size-4" />
             {t('table:kanban.stackMenu.collapseStack')}
           </DropdownMenuItem>
           {isSingleSelectField && !isUncategorized && (
             <>
               {stackEditable && (
                 <DropdownMenuItem className="cursor-pointer" onClick={onStackRename}>
-                  <Pencil className="mr-2 size-4" />
+                  <Pencil className="me-2 size-4" />
                   {t('table:kanban.stackMenu.renameStack')}
                 </DropdownMenuItem>
               )}
@@ -165,7 +165,7 @@ export const KanbanStackHeader = (props: IKanbanStackHeaderProps) => {
                     className="cursor-pointer text-destructive focus:text-destructive"
                     onClick={onStackDelete}
                   >
-                    <Trash2 className="mr-2 size-4" />
+                    <Trash2 className="me-2 size-4" />
                     {t('table:kanban.stackMenu.deleteStack')}
                   </DropdownMenuItem>
                 </>

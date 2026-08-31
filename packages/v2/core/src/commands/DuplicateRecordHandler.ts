@@ -182,6 +182,7 @@ export class DuplicateRecordHandler
       // 5. Create the record (validates and applies field values internally)
       const createResult = yield* tableForCreate.createRecord(fieldValues, {
         typecast: false,
+        source: { type: 'recordDuplicate' },
       });
 
       // 6. Resolve values that require external lookups (user/link)
@@ -193,6 +194,7 @@ export class DuplicateRecordHandler
         if (needsResolution) {
           const resolvedSpec = yield* await handler.recordMutationSpecResolver.resolveAndReplace(
             context,
+            tableForCreate.id(),
             createResult.mutateSpec
           );
           record = yield* resolvedSpec.mutate(record);

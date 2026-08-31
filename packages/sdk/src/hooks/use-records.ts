@@ -1,5 +1,10 @@
 import type { IFilter, IRecord, ISort } from '@teable/core';
-import { IdPrefix, mergeWithDefaultFilter, mergeWithDefaultSort } from '@teable/core';
+import {
+  IdPrefix,
+  mergeWithDefaultFilter,
+  mergeWithDefaultSort,
+  stripSortByReadableFieldIds,
+} from '@teable/core';
 import type { IGetRecordsRo } from '@teable/openapi';
 import { keyBy } from 'lodash';
 import { useCallback, useContext, useMemo } from 'react';
@@ -21,6 +26,23 @@ export const useRecords = (query?: IGetRecordsRo, initData?: IRecord[]) => {
   const viewId = useViewId();
 
   const fields = useFields();
+  const allFields = useFields({ withHidden: true, withDenied: true });
+
+  // Fields whose records the current user may return; undefined until fields
+  // load. Saved filters must remain in the subscription because the server
+  // evaluates response-hidden authority fields through masks and skipPoll must
+  // keep every filter dependency. Saved sorts still drop fields unavailable
+  // to the client; explicit query sort/filter remains server-authoritative.
+  // canReadFieldRecord === undefined means no authority-matrix restriction.
+  const readableFieldIds = useMemo(
+    () =>
+      allFields.length
+        ? new Set(
+            allFields.filter((field) => field.canReadFieldRecord !== false).map(({ id }) => id)
+          )
+        : undefined,
+    [allFields]
+  );
 
   const { filteringSearchQuery } = useSearch();
 
@@ -64,6 +86,8 @@ export const useRecords = (query?: IGetRecordsRo, initData?: IRecord[]) => {
     // can tell which fields the subscription depends on. viewId still rides
     // along: the server reads it for the view's manual row order, permission
     // wrapping and hidden-field exclusion, which cannot be inlined
+    const inlinedViewSort = stripSortByReadableFieldIds(viewSort, readableFieldIds);
+    const inlinedShareViewSort = stripSortByReadableFieldIds(shareViewSort, readableFieldIds);
     return {
       ...base,
       ignoreViewQuery: true,
@@ -72,8 +96,11 @@ export const useRecords = (query?: IGetRecordsRo, initData?: IRecord[]) => {
         mergeWithDefaultFilter(viewFilter ? JSON.stringify(viewFilter) : undefined, query?.filter)
       ),
       orderBy: mergeWithDefaultSort(
-        shareViewSort ? JSON.stringify(shareViewSort) : undefined,
-        mergeWithDefaultSort(viewSort ? JSON.stringify(viewSort) : undefined, query?.orderBy)
+        inlinedShareViewSort ? JSON.stringify(inlinedShareViewSort) : undefined,
+        mergeWithDefaultSort(
+          inlinedViewSort ? JSON.stringify(inlinedViewSort) : undefined,
+          query?.orderBy
+        )
       ),
       // search must only hit the fields displayed in this view, the same
       // contract the personal-view query expresses with its own projection
@@ -89,6 +116,7 @@ export const useRecords = (query?: IGetRecordsRo, initData?: IRecord[]) => {
     shareViewFilter,
     shareViewSort,
     visibleFieldIds,
+    readableFieldIds,
   ]);
   const factory = useCallback(
     (record: IRecord, doc?: Doc<IRecord>) => {

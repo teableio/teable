@@ -292,7 +292,11 @@ class FakeEventBus implements IEventBus {
 const createFakeRecordMutationSpecResolverService = () =>
   ({
     needsResolution: () => ok(false),
-    resolveAndReplace: async (_context: IExecutionContext, spec: ICellValueSpec) => ok(spec),
+    resolveAndReplace: async (
+      _context: IExecutionContext,
+      _tableId: TableId,
+      spec: ICellValueSpec
+    ) => ok(spec),
   }) as unknown as RecordMutationSpecResolverService;
 
 class FakeUnitOfWork implements IUnitOfWork {

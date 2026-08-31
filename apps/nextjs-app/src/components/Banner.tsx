@@ -11,7 +11,7 @@ export const Banner: FC<Props> = () => {
         <div className="flex flex-wrap items-center justify-between">
           <div className="flex w-0 flex-1 items-center">
             <span className="flex rounded-lg bg-indigo-800 p-2"></span>
-            <p className="ml-3 truncate font-medium text-white">
+            <p className="ms-3 truncate font-medium text-white">
               <span className="md:hidden">We announced a new product!</span>
               <span className="hidden md:inline">
                 Big news! We're excited to announce a brand new product.
@@ -26,10 +26,10 @@ export const Banner: FC<Props> = () => {
               Learn more
             </a>
           </div>
-          <div className="order-2 shrink-0 sm:order-3 sm:ml-3">
+          <div className="order-2 shrink-0 sm:order-3 sm:ms-3">
             <button
               type="button"
-              className="-mr-1 flex rounded-md p-2 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-white sm:-mr-2"
+              className="-me-1 flex rounded-md p-2 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-white sm:-me-2"
             >
               <span className="sr-only">Dismiss</span>
             </button>

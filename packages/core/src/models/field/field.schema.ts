@@ -119,6 +119,7 @@ export const fieldVoSchema = z.object({
         .object({
           code: z.string().optional(),
           message: z.string(),
+          context: z.record(z.string(), z.unknown()).optional(),
         })
         .nullable()
         .optional(),

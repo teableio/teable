@@ -1,0 +1,92 @@
+{
+  "notBaseId": "معرّف قاعدة البيانات مفقود",
+  "notPositionId": "معرّف الموضع مفقود",
+  "notPluginInstallId": "معرّف تثبيت المكوّن الإضافي مفقود",
+  "initBridge": "جارٍ تهيئة الجسر...",
+  "actions": {
+    "cancel": "إلغاء",
+    "save": "حفظ"
+  },
+  "queryTitle": "إعدادات استعلام البيانات",
+  "notSupport": "غير مدعوم",
+  "chart": {
+    "bar": "أعمدة",
+    "line": "خطي",
+    "pie": "دائري",
+    "area": "مساحي",
+    "table": "جدول"
+  },
+  "form": {
+    "chartType": {
+      "placeholder": "اختر نوع المخطط",
+      "label": "نوع المخطط"
+    },
+    "pie": {
+      "dimension": "البُعد",
+      "measure": "المقياس",
+      "showTotal": "إظهار الإجمالي"
+    },
+    "combo": {
+      "xAxis": {
+        "label": "المحور السيني"
+      },
+      "yAxis": {
+        "label": "المحور الصادي",
+        "position": "موضع المحور الصادي"
+      },
+      "xDisplay": {
+        "label": "عرض المحور السيني"
+      },
+      "yDisplay": {
+        "label": "عرض المحور الصادي"
+      },
+      "addXAxis": "إضافة تقسيم للسلاسل",
+      "addYAxis": "إضافة سلسلة أخرى",
+      "stack": "تكديس",
+      "position": {
+        "auto": "تلقائي",
+        "left": "يسار",
+        "right": "يمين"
+      },
+      "goalLine": {
+        "label": "خط الهدف"
+      },
+      "range": {
+        "label": "النطاق",
+        "min": "الحد الأدنى",
+        "max": "الحد الأقصى"
+      },
+      "lineStyle": {
+        "label": "نمط الخط",
+        "normal": "عادي",
+        "linear": "خطي",
+        "step": "متدرج"
+      },
+      "displayType": "نوع العرض"
+    },
+    "typeError": "النموذج: نوع المخطط غير مدعوم",
+    "updateQuery": "تحديث",
+    "queryError": "خطأ في الاستعلام",
+    "querySuccess": "تم ضبط الاستعلام",
+    "decimal": "المنازل العشرية",
+    "prefix": "البادئة",
+    "suffix": "اللاحقة",
+    "showLabel": "إظهار تسميات القيم على المخطط",
+    "showLegend": "إظهار وسيلة الإيضاح",
+    "value": "القيمة",
+    "label": "التسمية",
+    "padding": {
+      "label": "التباعد الداخلي",
+      "top": "أعلى",
+      "right": "يمين",
+      "bottom": "أسفل",
+      "left": "يسار"
+    },
+    "tableConfig": "إعدادات الجدول",
+    "width": "العرض"
+  },
+  "reloadQuery": "إعادة تحميل الاستعلام",
+  "noStorage": "يُرجى إعداد مكوّن المخططات أولًا",
+  "noPermission": "لا توجد صلاحية للوصول",
+  "goConfig": "الانتقال إلى الإعدادات"
+}

@@ -6,12 +6,14 @@
     "doNotSave": "No guardar",
     "submit": "Enviar",
     "confirm": "Confirmar",
+    "continue": "Continuar",
     "close": "Cerrar",
     "edit": "Editar",
     "fill": "Completar",
     "update": "Actualizar",
     "create": "Crear",
     "delete": "Eliminar",
+    "clear": "Borrar",
     "cancel": "Cancelar",
     "zoomIn": "Acercar",
     "zoomOut": "Alejar",
@@ -19,6 +21,7 @@
     "download": "Descargar",
     "remove": "Eliminar",
     "removeConfig": "Eliminar configuración",
+    "retry": "Reintentar",
     "saveSucceed": "¡Guardado con éxito!",
     "submitSucceed": "¡Enviado con éxito!",
     "editSucceed": "¡Editado con éxito!",
@@ -31,6 +34,8 @@
     "yesDelete": "Sí, eliminar",
     "rename": "Renombrar",
     "duplicate": "Duplicar",
+    "export": "Exportar",
+    "import": "Importar",
     "change": "Cambiar",
     "upgrade": "Actualizar",
     "upgradeToLevel": "Actualizar a {{level}}",
@@ -45,31 +50,28 @@
     "showAllRow": "Mostrar todas las filas",
     "hideNotMatchRow": "Ocultar filas sin coincidencia",
     "more": "Más",
+    "expand": "Expandir",
+    "view": "Ver",
+    "preview": "Vista previa",
+    "viewAndEdit": "Ver y editar",
+    "deleteTip": "¿Está seguro de que desea eliminar \"{{name}}\"?",
     "move": "Mover a",
     "turnOn": "Activar",
     "exit": "Cerrar sesión",
     "next": "Siguiente",
     "previous": "Anterior",
     "select": "Seleccionar",
-    "view": "Ver",
-    "preview": "Vista previa",
-    "viewAndEdit": "Ver y editar",
-    "deleteTip": "¿Está seguro de que desea eliminar \"{{name}}\"?",
     "refresh": "Actualizar",
     "login": "Iniciar sesión",
     "useTemplate": "Usar plantilla",
-    "copyToMySpace": "Copy to my space",
-    "saveToMySpace": "Save to my space",
-    "supportSaveCopy": "Support saving a copy",
+    "copyLink": "Copiar enlace",
+    "openLink": "Abrir enlace",
     "backToSpace": "Volver al Espacio",
     "switchBase": "Cambiar Base",
-    "continue": "Continuar",
-    "export": "Exportar",
-    "import": "Importar",
-    "expand": "Expandir",
+    "collapse": "Contraer",
+    "viewDetails": "Ver detalles",
     "getMore": "Obtener más",
     "copySuccess": "Copia exitosa",
-    "openLink": "Abrir enlace",
     "share": "Compartir"
   },
   "quickAction": {
@@ -96,30 +98,21 @@
     "loadMore": "Cargar Más",
     "allTemplatesLoaded": "Todas las plantillas cargadas",
     "createTemplate": "Crear Plantilla",
+    "promptBox": {
+      "start": "Iniciar"
+    },
     "useTemplateDialog": {
       "title": "Seleccionar espacio",
       "description": "Por favor seleccione un espacio para la plantilla",
       "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
       "newSpacePlaceholder": "Space name",
       "createSpace": "Create"
-    },
-    "promptBox": {
-      "placeholder": "Construye tu aplicación empresarial con Teable",
-      "start": "Iniciar",
-      "carouselGuides": {
-        "guide1": "Pega recibos → Pide a Teable que extraiga automáticamente los datos clave",
-        "guide2": "Construye un CRM de IA con tablas de leads y seguimiento",
-        "guide3": "Pega comentarios de clientes → Pide a Teable que encuentre insights y genere informes",
-        "guide4": "Crea un rastreador de proyectos con tareas y plazos",
-        "guide5": "Pega hoja de leads → Pide a Teable que construya un CRM inteligente",
-        "guide6": "Construye un planificador de contenido con publicaciones y fechas de publicación",
-        "guide7": "Pega currículums → Pide a Teable que organice y preseleccione candidatos"
-      }
     }
   },
   "baseShare": {
     "shareTitle": "Compartir",
     "shareToWeb": "Compartir en la web",
+    "noPermissionTip": "No tienes permiso para administrar la configuración de compartir",
     "linkHolderLabel": "Persona con el enlace",
     "linkHolderCanView": "Puede ver",
     "linkHolderCanViewDesc": "Cualquiera con el enlace puede ver los datos",
@@ -170,6 +163,77 @@
     "personal": {
       "title": "Personal"
     },
+    "templateAdmin": {
+      "title": "Administración de plantillas",
+      "noData": "Sin datos",
+      "importing": "Importando...",
+      "usageCount": "Recuento de uso: {{count}}",
+      "useTemplate": "Usar esta plantilla",
+      "createdBy": "por {{user}}",
+      "backToTemplateList": "Volver a la lista de plantillas",
+      "tips": {
+        "errorCategoryName": "La categoría no existe o fue eliminada",
+        "needSnapshot": "Por favor cree una instantánea antes de publicar, y el nombre y descripción de la plantilla no pueden estar vacíos",
+        "needPublish": "Por favor publique la plantilla antes de destacarla",
+        "needBaseSource": "Por favor seleccione una fuente Base antes de crear la instantánea",
+        "forbiddenUpdateSystemTemplate": "Las plantillas del sistema no se pueden modificar",
+        "addCategoryTips": "Por favor ingrese primero un nombre de categoría en el cuadro de búsqueda.",
+        "categoryNamePlaceholder": "Introduce el nombre de la categoría",
+        "duplicateCategoryName": "El nombre de la categoría ya existe"
+      },
+      "category": {
+        "menu": {
+          "getStarted": "Comenzar",
+          "recommended": "Recomendado",
+          "all": "Todos",
+          "browseByCategory": "Explorar por categoría"
+        }
+      },
+      "header": {
+        "cover": "Portada",
+        "name": "Nombre",
+        "description": "Descripción",
+        "markdownDescription": "Descripción Markdown",
+        "category": "Categoría",
+        "isSystem": "Sistema",
+        "source": "Fuente",
+        "status": "Publicado",
+        "publishSnapshot": "Publicar instantánea",
+        "snapshotTime": "Hora de instantánea",
+        "actions": "Acciones",
+        "featured": "Destacado",
+        "createdBy": "Creado por",
+        "userNonExistent": "Usuario no existe",
+        "preview": "Vista previa",
+        "usage": "Uso",
+        "visit": "Visitas"
+      },
+      "actions": {
+        "title": "Acciones",
+        "publish": "Publicar",
+        "delete": "Eliminar",
+        "duplicate": "Duplicar",
+        "preview": "Vista previa",
+        "use": "Usar",
+        "pinTop": "Fijar arriba",
+        "addCategory": "Agregar categoría",
+        "selectCategory": "Seleccionar categoría",
+        "viewTemplate": "Ver plantilla",
+        "manageCategory": "Gestionar categorías"
+      },
+      "relatedTemplates": "Plantillas relacionadas",
+      "noImage": "Sin imagen",
+      "baseSelectPanel": {
+        "title": "Seleccionar fuente de plantilla",
+        "description": "Seleccione una Base como plantilla",
+        "confirm": "Confirmar",
+        "search": "Buscar...",
+        "cancel": "Cancelar",
+        "selectBase": "Seleccionar Base",
+        "createTemplate": "Crear plantilla",
+        "abnormalBase": "La base no existe o fue eliminada"
+      }
+    },
     "back": "Volver al inicio",
     "account": {
       "title": "Mi perfil",
@@ -209,20 +273,6 @@
       "addPasswordSuccess": {
         "title": "🎉 Agregue la contraseña con éxito."
       },
-      "deleteAccount": {
-        "title": "Eliminar cuenta",
-        "desc": "Esta acción es irreversible. Eliminará permanentemente su cuenta y todos los datos asociados.",
-        "error": {
-          "title": "No se puede eliminar la cuenta",
-          "desc": "Debe manejar las siguientes dependencias primero:",
-          "spacesError": "Antes de eliminar su cuenta, primero debe salir (o eliminar, luego mover a la papelera) de sus Espacios."
-        },
-        "confirm": {
-          "title": "Por favor escriba <code>DELETE</code> para confirmar",
-          "placeholder": "DELETE"
-        },
-        "loading": "Eliminando..."
-      },
       "changeEmail": {
         "title": "Cambiar dirección de correo",
         "desc": "Verifica tu contraseña y confirma tu nueva dirección de correo",
@@ -242,6 +292,20 @@
           "desc": "Serás redirigido a la página de inicio de sesión en 2 segundos.",
           "sendSuccess": "Código de verificación enviado con éxito."
         }
+      },
+      "deleteAccount": {
+        "title": "Eliminar cuenta",
+        "desc": "Esta acción es irreversible. Eliminará permanentemente su cuenta y todos los datos asociados.",
+        "error": {
+          "title": "No se puede eliminar la cuenta",
+          "desc": "Debe manejar las siguientes dependencias primero:",
+          "spacesError": "Antes de eliminar su cuenta, primero debe salir (o eliminar, luego mover a la papelera) de sus Espacios."
+        },
+        "confirm": {
+          "title": "Por favor escriba <code>DELETE</code> para confirmar",
+          "placeholder": "DELETE"
+        },
+        "loading": "Eliminando..."
       }
     },
     "notify": {
@@ -257,11 +321,13 @@
       "light": "Claro",
       "system": "Sistema",
       "version": "Versión de la aplicación",
+      "infraVersion": "Versión de infraestructura",
       "language": "Idioma",
       "interactionMode": "Modo de interacción",
       "mouseMode": "Modo de cursor",
       "touchMode": "Modo táctil",
       "systemMode": "Seguir configuración del sistema",
+      "buySelfHostedLicense": "Comprar licencia autoalojada",
       "teableSkill": "Habilidad de Teable"
     },
     "teableSkill": {
@@ -339,75 +405,6 @@
           "title": "Autorización exitosa",
           "desc": "Puede cerrar esta ventana ahora."
         }
-      }
-    },
-    "templateAdmin": {
-      "title": "Administración de plantillas",
-      "noData": "Sin datos",
-      "importing": "Importando...",
-      "usageCount": "Recuento de uso: {{count}}",
-      "useTemplate": "Usar esta plantilla",
-      "createdBy": "por {{user}}",
-      "backToTemplateList": "Volver a la lista de plantillas",
-      "tips": {
-        "errorCategoryName": "La categoría no existe o fue eliminada",
-        "needSnapshot": "Por favor cree una instantánea antes de publicar, y el nombre y descripción de la plantilla no pueden estar vacíos",
-        "needPublish": "Por favor publique la plantilla antes de destacarla",
-        "needBaseSource": "Por favor seleccione una fuente Base antes de crear la instantánea",
-        "forbiddenUpdateSystemTemplate": "Las plantillas del sistema no se pueden modificar",
-        "addCategoryTips": "Por favor ingrese primero un nombre de categoría en el cuadro de búsqueda."
-      },
-      "category": {
-        "menu": {
-          "getStarted": "Comenzar",
-          "recommended": "Recomendado",
-          "all": "Todos",
-          "browseByCategory": "Explorar por categoría"
-        }
-      },
-      "header": {
-        "cover": "Portada",
-        "name": "Nombre",
-        "description": "Descripción",
-        "markdownDescription": "Descripción Markdown",
-        "category": "Categoría",
-        "isSystem": "Sistema",
-        "source": "Fuente",
-        "status": "Publicado",
-        "publishSnapshot": "Publicar instantánea",
-        "snapshotTime": "Hora de instantánea",
-        "actions": "Acciones",
-        "featured": "Destacado",
-        "createdBy": "Creado por",
-        "userNonExistent": "Usuario no existe",
-        "preview": "Vista previa",
-        "usage": "Uso",
-        "visit": "Visitas"
-      },
-      "actions": {
-        "title": "Acciones",
-        "publish": "Publicar",
-        "delete": "Eliminar",
-        "duplicate": "Duplicar",
-        "preview": "Vista previa",
-        "use": "Usar",
-        "pinTop": "Fijar arriba",
-        "addCategory": "Agregar categoría",
-        "selectCategory": "Seleccionar categoría",
-        "viewTemplate": "Ver plantilla",
-        "manageCategory": "Gestionar categorías"
-      },
-      "relatedTemplates": "Plantillas relacionadas",
-      "noImage": "Sin imagen",
-      "baseSelectPanel": {
-        "title": "Seleccionar fuente de plantilla",
-        "description": "Seleccione una Base como plantilla",
-        "confirm": "Confirmar",
-        "search": "Buscar...",
-        "cancel": "Cancelar",
-        "selectBase": "Seleccionar Base",
-        "createTemplate": "Crear plantilla",
-        "abnormalBase": "La base no existe o fue eliminada"
       }
     }
   },
@@ -488,6 +485,7 @@
     "dialog": {
       "title": "Compartir espacio {{spaceName}}",
       "desc_one": "Este espacio tiene <b>{{count}} colaborador</b>. Agregar un colaborador de espacio le da acceso a todas las Bases en este espacio.",
+      "desc_many": "Este espacio tiene <b>{{count}} colaboradores</b>. Agregar un colaborador de espacio les da acceso a todas las Bases en este espacio.",
       "desc_other": "Este espacio tiene <b>{{count}} colaboradores</b>. Agregar un colaborador de espacio les da acceso a todas las Bases en este espacio.",
       "tabEmail": "Invitar por correo electrónico",
       "emailPlaceholder": "Introduce las direcciones de correo electrónico, separadas por Enter",
@@ -497,31 +495,55 @@
       "directAccessDescription": "Los colaboradores invitados pueden acceder directamente mediante el siguiente enlace y empezar a colaborar",
       "linkSend": "Crear enlace",
       "spaceTitle": "Colaboradores espaciales",
+      "spaceTitleWithCount": "Colaboradores del espacio ({{count}})",
+      "baseTitle": "Colaboradores de la base",
+      "allCollaboratorsTitle": "Todos los colaboradores (espacio y base)",
+      "baseOnly": "Solo la base",
       "collaboratorSearchPlaceholder": "Encuentra un colaborador espacial por nombre o correo electrónico",
       "collaboratorJoin": "se unió {{joinTime}}",
       "collaboratorRemove": "Eliminar el colaborador",
+      "basePermissionRemove": "Eliminar acceso a la base",
+      "goToBase": "Ir a la base",
       "linkTitle": "Enlaces de invitación",
       "linkCreatedTime": "creado {{createdTime}}",
       "linkCopySuccess": "Enlace copiado",
-      "linkRemove": "Eliminar enlace"
+      "linkRemove": "Eliminar enlace",
+      "noInviteLinks": "Sin enlaces de invitación",
+      "linkDescription": "Crea un enlace de invitación y asigna permisos",
+      "haveAccess": "Tienen acceso"
     },
     "base": {
       "title": "Compartir {{baseName}}",
       "desc_one": "Esta Base se comparte con {{count}} colaborador.",
+      "desc_many": "Esta Base se comparte con {{count}} colaboradores.",
       "desc_other": "Esta Base se comparte con {{count}} colaboradores.",
       "baseTitle": "Colaboradores de Base",
-      "collaboratorSearchPlaceholder": "Encuentre un colaborador de Base por nombre o correo electrónico"
+      "collaboratorSearchPlaceholder": "Encuentre un colaborador de Base por nombre o correo electrónico",
+      "baseTitleWithCount": "Colaboradores de la base ({{count}})"
     },
     "addOrgCollaborator": {
       "title": "Agregar colaborador de organización",
       "button": "Agregar desde la organización",
       "placeholder": "Seleccionar miembro o departamento de la organización"
     },
+    "sendInvitationSuccess": "Se ha enviado la invitación",
     "table": {
       "collaborator": "Colaborador",
       "accessPermission": "Permiso de acceso",
       "joinAt": "Fecha de ingreso",
-      "lastLogin": "Último inicio de sesión"
+      "lastLogin": "Último inicio de sesión",
+      "expandPermissions": "Expandir los permisos de {{name}}",
+      "collapsePermissions": "Contraer los permisos de {{name}}",
+      "basePermissionsOnly": "Solo tiene acceso a las bases seleccionadas",
+      "basePermissionCount": "Permisos de bases: {{count}}"
+    },
+    "authority": {
+      "title": "La matriz de permisos está habilitada",
+      "description": "El permiso de acceso efectivo de los colaboradores depende de los roles asignados; los usuarios sin asignación usan el rol predeterminado",
+      "viewDetail": "Ver detalle"
+    },
+    "app": {
+      "previewAppError": "Error de la app"
     }
   },
   "help": {
@@ -545,6 +567,21 @@
     "viewPricing": "Ver precios",
     "billable": "Facturable",
     "billableByAuthorityMatrix": "Facturación generada por la matriz de permisos",
+    "seatConfirm": {
+      "title": "Esta invitación aumentará el costo de tu suscripción",
+      "roleChangeTitle": "Este cambio de rol aumentará el costo de tu suscripción",
+      "matrixTitle": "Añadir miembros aumentará el costo de tu suscripción",
+      "inviteDesc_one": "El miembro que estás invitando se unirá con el rol {{role}} y ocupará 1 asiento de la suscripción; el costo aumentará en consecuencia. Si solo necesita ver o comentar, simplemente elige el rol gratuito Espectador o Comentador.",
+      "inviteDesc_many": "Los {{count}} miembros que estás invitando se unirán con el rol {{role}} y ocuparán {{count}} asientos de la suscripción; el costo aumentará en consecuencia. Si solo necesitan ver o comentar, simplemente elige el rol gratuito Espectador o Comentador.",
+      "inviteDesc_other": "Los {{count}} miembros que estás invitando se unirán con el rol {{role}} y ocuparán {{count}} asientos de la suscripción; el costo aumentará en consecuencia. Si solo necesitan ver o comentar, simplemente elige el rol gratuito Espectador o Comentador.",
+      "linkDesc": "Los miembros que se unan mediante este enlace recibirán el rol {{role}} y cada uno ocupará 1 asiento de la suscripción; el costo crecerá a medida que se unan. Si solo necesitan ver o comentar, simplemente elige el rol gratuito Espectador o Comentador.",
+      "roleChangeDesc": "Tras cambiar a {{role}}, este miembro ocupará 1 asiento de la suscripción y el costo aumentará en consecuencia.",
+      "matrixDesc": "Este miembro tiene actualmente un rol gratuito (Espectador/Comentador). Al añadirlo a la matriz de permisos ocupará 1 asiento de la suscripción y el costo aumentará en consecuencia.",
+      "seatLimitTitle": "Asientos de licencia insuficientes",
+      "seatLimitDesc": "Esta instancia está usando {{seats}} de {{seatLimit}} asientos con licencia y no quedan suficientes para esta acción. Contacta con tu administrador para comprar más asientos. Si solo necesita ver o comentar, puedes usar el rol gratuito Espectador o Comentador.",
+      "seatLimitConfirm": "Entendido",
+      "confirmInvite": "Confirmar e invitar"
+    },
     "licenseExpiredGracePeriod": "Su licencia autohospedada ha caducado y se degradará al plan gratuito el {{expiredTime}}. Actualice su licencia de inmediato para mantener el acceso a las funciones premium.",
     "licenseAutoFetchFailed": "Error en la renovación automática de la licencia. Quedan {{days}} día(s) del período de gracia antes de la degradación.",
     "licenseAutoFetchRetryFailed": "La renovación automática sigue fallando. Comprueba la conexión con el servidor de Teable o actualiza la licencia manualmente.",
@@ -553,6 +590,7 @@
       "title": "Plan de suscripción de actualización de Space",
       "description": "Solo puede actualizar los espacios de trabajo donde es un propietario"
     },
+    "contactAdminToUpgrade": "Ponte en contacto con el propietario del espacio para actualizar el plan de suscripción.",
     "status": {
       "active": "Activo",
       "canceled": "Cancelado",
@@ -583,24 +621,20 @@
       "enableWaitlist": "Habilitar lista de espera",
       "enableWaitlistDescription": "Habilitar esta opción permitirá que los usuarios se registren solo con un código de invitación.",
       "generalSettings": "Configuración general",
-      "aiSettings": {
-        "title": "Configuración de IA",
-        "description": "Configurar los ajustes de IA para esta instancia"
-      },
+      "aiSettings": "Ajustes de IA",
       "brandingSettings": {
         "title": "Configuración de marca",
         "description": "Solo disponible en la Edición Enterprise",
         "brandName": "Nombre de marca",
         "logo": "Logo",
-        "logoDescription": "El logo es su identidad de marca en Teable.",
         "logoUpload": "Subir logo",
         "logoUploadDescription": "Suba una imagen de logo, admite formato PNG, JPEG, tamaño recomendado 100x100px. Tamaño máximo de carga 500KB."
       },
       "ai": {
         "name": "Nombre",
         "nameDescription": "El nombre del proveedor de LLM",
-        "enable": "Habilitar AI",
-        "enableDescription": "Habilitar AI para la instancia actual, todos los usuarios podrán usar funciones de AI",
+        "customModel": "Modelo personalizado",
+        "customModelDescription": "Los modelos personalizados se pueden usar en campos de IA, automatizaciones de IA y la interfaz de chat de IA. Los modelos de generación de imágenes deben marcarse para su prueba",
         "updateLLMProvider": "Actualizar el proveedor de LLM",
         "addProvider": "Agregar proveedor de LLM",
         "addProviderDescription": "Agregue un nuevo proveedor de LLM a la lista",
@@ -611,10 +645,16 @@
         "apiKeyDescription": "La clave API del proveedor de LLM",
         "models": "Modelos",
         "modelsDescription": "Los modelos compatibles con el proveedor de LLM",
+        "modelsSelectedCount": "{{count}} modelos seleccionados",
+        "clearAllModels": "Borrar todos los modelos",
+        "customModelPlaceholder": "Introduce un nombre de modelo personalizado",
+        "addModelFill": "Añadir",
+        "modelIdReservedAt": "Los ID de modelo no pueden contener '@'",
         "baseUrlRequired": "Se requiere URL base",
         "fetchModelListError": "No se pudo obtener la lista de modelos",
         "provider": "Proveedor de LLM",
-        "providerDescription": "El proveedor de LLM para usar",
+        "aiAbilitySettings": "Configuración de capacidades de IA",
+        "aiAbilitySettingsDescription": "Configura las capacidades de IA",
         "modelPreferences": "Preferencias de modelo",
         "modelPreferencesDescription": "Las preferencias del modelo para el proveedor de LLM",
         "embeddingModel": "Modelo de incrustación",
@@ -625,7 +665,16 @@
         "chatModelDescription": "El modelo de chat a usar, Consejo: el modelo de codificación mediano se usa por defecto para generación de fórmulas AI y funciones relacionadas",
         "chatModels": {
           "lg": "Modelo de chat avanzado",
-          "lgDescription": "Para planificación, programación y otros escenarios de tareas complejas. Recomendado: claude-sonnet-4.5"
+          "lgDescription": "Para planificación, programación y otros escenarios de tareas complejas. Recomendado: claude-sonnet-4.5",
+          "md": "Modelo para tareas medianas",
+          "mdDescription": "Para conversaciones diarias y tareas generales",
+          "sm": "Modelo para tareas ligeras",
+          "smDescription": "Para consultas simples y respuestas rápidas",
+          "inheritHint": "Igual que el modelo principal predeterminado ({{model}})",
+          "modelTiers": "Niveles de modelo",
+          "modelTiersDescription": "Asigna modelos distintos a tareas medianas y ligeras; los niveles sin definir usan el modelo principal predeterminado de arriba.",
+          "allInheriting": "Todos los niveles usan el modelo principal predeterminado",
+          "customized": "{{count}} personalizados"
         },
         "actions": {
           "title": "Capacidades de IA",
@@ -635,7 +684,12 @@
           },
           "aiChat": {
             "title": "Chat IA",
-            "description": "Barra lateral de Chat IA y todas las funciones de agente"
+            "description": "Barra lateral de Chat IA y todas las funciones de agente",
+            "sandboxWarning": "El entorno de ejecución del chat de IA debe configurarse abajo antes de usarlo"
+          },
+          "modelSelection": {
+            "title": "Permitir seleccionar modelo",
+            "description": "Permitir que los usuarios elijan un modelo en el chat de IA y en App Builder"
           }
         },
         "chatModelTest": {
@@ -647,6 +701,7 @@
           "confirm": "Probar modelo",
           "cancel": "Cancelar",
           "missingCapabilitiesWarning": "Este modelo no admite procesamiento de imágenes o PDF, lo que puede causar que algunas funciones no estén disponibles.",
+          "modelNotSuitable": "Puede que este modelo no sea adecuado para funciones avanzadas de IA:",
           "enableAITitle": "Habilitar AI",
           "enableAIDescription": "Prueba de modelo completada. AI no está habilitado actualmente. ¿Desea habilitar AI para usar estas capacidades del modelo?",
           "enableAI": "Habilitar AI",
@@ -656,8 +711,19 @@
           "image": "Imagen",
           "pdf": "PDF",
           "webSearch": "Búsqueda web",
+          "toolCall": "Llamada a herramientas",
+          "reasoning": "Razonamiento",
+          "imageGeneration": "Generación de imágenes",
           "disabledWebSearch": "Búsqueda web deshabilitada",
-          "lgModelAbility": "Capacidad de modelo grande"
+          "lgModelAbility": "Capacidad de modelo grande",
+          "missingVision": "No admite el procesamiento de imágenes ni PDF",
+          "missingToolCall": "No admite llamadas a herramientas ni funciones",
+          "notTested": "Aún no se han probado las capacidades del modelo. Prueba el modelo primero en la configuración del proveedor",
+          "supportedFormats": "Formatos admitidos"
+        },
+        "imageModelAbility": {
+          "generation": "Texto a imagen",
+          "imageToImage": "Imagen a imagen"
         },
         "configUpdated": "Configuración de AI actualizada",
         "noModelFound": "No se encuentra ningún modelo.",
@@ -665,8 +731,6 @@
         "selectModel": "Seleccionar modelo ...",
         "defaultModel": "{{name}} (Predeterminado)",
         "moreModels": "Más modelos",
-        "agentModelWarningTitle": "Elige los modelos con cuidado",
-        "agentModelWarningDescription": "Los modelos recomendados arriba están optimizados para tareas de agente como uso de herramientas y razonamiento de varios pasos. Otros modelos pueden tener capacidades limitadas y producir resultados inesperados.",
         "agentModelWarningConfirm": "Entendido",
         "recommendedModelNudge": {
           "title": "Prueba {{model}}",
@@ -688,22 +752,241 @@
         "testConnection": "Test",
         "testing": "Probando...",
         "testSuccess": "Test exitoso",
+        "testCompleteWithCount": "Prueba completada: {{success}}/{{total}} modelos aprobados",
+        "allTestsFailed": "Todas las pruebas de modelos fallaron",
         "testFailed": "Test fallido",
+        "batchTest": "Probar capacidades del modelo",
+        "test": "Probar",
+        "testProvider": "Probar",
+        "testProviderTooltip": "Probar los {{count}} modelos de este proveedor",
+        "batchTesting": "Probando todos los modelos...",
+        "batchTestComplete": "Prueba por lotes completada",
+        "batchTestResults": "Resultados de la prueba por lotes",
+        "batchTestResultsSummary": "Se probaron {{tested}} de {{total}} modelos: {{success}} aprobados, {{failed}} fallidos",
+        "batchTestNoModels": "No hay modelos configurados para probar",
+        "modelStatus": "Estado del modelo",
+        "imageSupport": "Compatibilidad con imágenes",
+        "basicGeneration": "Generación básica",
+        "supported": "Compatible",
+        "notSupported": "No compatible",
+        "partialSupport": "Compatibilidad parcial",
+        "urlSupport": "URL",
+        "base64Support": "Base64",
+        "closeResults": "Cerrar",
+        "retryFailed": "Reintentar fallidos",
+        "stopTest": "Detener",
+        "pending": "Pendiente",
+        "configuredModels": "Modelos configurados",
         "fillRequiredFields": "Por favor, complete todos los campos requeridos",
         "modelsRequired": "Por favor, complete al menos un modelo",
         "noValidModel": "No se encontró ningún modelo válido",
         "addCustomModel": "Agregar modelo personalizado",
-        "isOpenRouter": "OpenRouter"
-      },
-      "webSearch": {
-        "description": "Configure la clave API de Firecrawl para habilitar la función de búsqueda web, acceda a <a>configuración de Firecrawl</a> para obtener la clave API"
+        "isOpenRouter": "OpenRouter",
+        "modelRates": "Precios del modelo",
+        "modelSettings": "Configuración del modelo",
+        "model": "Modelo",
+        "inputRate": "Entrada USD/token",
+        "outputRate": "Salida USD/token",
+        "inputRateTip": "Precio de entrada generado del proveedor personalizado en USD por token",
+        "outputRateTip": "Precio de salida generado del proveedor personalizado en USD por token",
+        "rateExplanationTitle": "Configurar los precios del proveedor personalizado",
+        "rateExplanationFormula": "Indica el multiplicador respecto a la referencia de AI Gateway. Por ejemplo, 0,1 significa que el precio del proveedor personalizado es el 10 % del precio de referencia.",
+        "rateExplanationExample": "Los precios de entrada, salida, caché, razonamiento, imágenes y búsqueda web se generan a partir de la referencia de AI Gateway con el mismo multiplicador. La facturación convierte USD a créditos: 1 USD = 100 créditos.",
+        "ratesDescription": "Los valores generados se guardan en modelConfigs[model].pricing y se usan para la facturación de proveedores personalizados a nivel de instancia. La columna Proporción sigue mostrando el nivel de coste existente con Claude Opus 4.6 = 1x.",
+        "advancedRates": "Precios avanzados generados",
+        "advancedRatesDescription": "Estos precios avanzados se generan a partir de la referencia de AI Gateway con el multiplicador configurado. Se muestran para su revisión y se guardan con los precios del modelo.",
+        "cacheRead": "Caché↓",
+        "cacheWrite": "Caché↑",
+        "reasoning": "Razon.",
+        "perImage": "Imagen",
+        "cacheReadRateTip": "USD por token de entrada en caché si este proveedor cobra por separado la entrada en caché",
+        "cacheWriteRateTip": "USD por token de escritura en caché si este proveedor cobra por separado las escrituras en caché",
+        "reasoningRateTip": "USD por token de razonamiento si este proveedor cobra los tokens de razonamiento por separado",
+        "imageRateTip": "USD por imagen generada si este proveedor cobra por imagen",
+        "imageModel": "Modelo de imagen",
+        "imageGeneration": "Generación de imágenes",
+        "imageToImage": "Imagen a imagen",
+        "clickToToggleImageModel": "💡 Haz clic para marcar como modelo de generación de imágenes",
+        "markAsImageModel": "Marcar como modelo de generación de imágenes",
+        "imageGenerationModel": "Modelo de generación de imágenes",
+        "markedAsImageModel": "Marcado como modelo de generación de imágenes. Se probarán las capacidades de texto a imagen e imagen a imagen.",
+        "markedAsTextModel": "Marcado como modelo de texto. Se probará la capacidad de visión (entrada de imágenes).",
+        "fetchPricingError": "No se pudieron obtener los precios",
+        "openRouterId": "ID de modelo del gateway",
+        "notFound": "No encontrado",
+        "applyPricing": "Aplicar ({{count}})",
+        "pricingApplied": "Precios aplicados",
+        "pricingAppliedCount": "Se actualizaron los precios de {{count}} modelos",
+        "relativeRatio": "Proporción",
+        "webSearch": "Web",
+        "referencePricingTip": "Precio de referencia obtenido del catálogo de modelos de AI Gateway",
+        "applyReferencePricingTip": "Generar precios del proveedor personalizado a partir de este precio de referencia de AI Gateway",
+        "optionalPricing": "opcional",
+        "gatewayRatio": "Multiplicador del gateway",
+        "gatewayRatioTip": "Multiplicador respecto a la referencia de AI Gateway. 0,1 significa el 10 % del precio de referencia.",
+        "generatedPricing": "Precios generados",
+        "generatedPricingTip": "Precio de entrada/salida generado del proveedor personalizado, guardado en modelConfigs[model].pricing",
+        "rateExplanationManual": "¿Sin referencia autodetectada? Elige un modelo de referencia manualmente en el diálogo de edición del modelo.",
+        "referenceModelLabel": "Modelo de referencia",
+        "contextWindowCap": "Contexto",
+        "contextWindowCapTip": "Máximo de tokens de entrada que acepta el modelo; determina la compactación del contexto. Déjalo vacío para usar los límites del registro o predeterminados.",
+        "maxOutputTokensCap": "Salida máx.",
+        "maxOutputTokensCapTip": "Máximo de tokens que el modelo puede generar por respuesta. Déjalo vacío para usar los límites del registro o predeterminados.",
+        "rateExplanationCaps": "Contexto y salida máxima toman por defecto los valores del modelo de referencia y siguen siendo editables; los valores vacíos recurren al registro o a los predeterminados.",
+        "relativeRatioTip": "Nivel de coste relativo a Claude Opus 4.6 = 1x, con el algoritmo ponderado existente",
+        "hint": {
+          "title": "Sugerencias",
+          "missingV1Suffix": "Puede que a la URL base le falte el sufijo \"/v1\". La mayoría de las API compatibles con OpenAI requieren URLs que terminen en \"/v1\" (p. ej., https://api.openai.com/v1)",
+          "removeTrailingSlash": "Prueba a quitar la barra final de la URL base",
+          "checkApiKey": "Comprueba que tu clave de API sea correcta y no haya caducado",
+          "azureDeployment": "En Azure, asegúrate de haber configurado el nombre de recurso y el despliegue correctos en la URL base",
+          "checkQuotaOrPermission": "Puede que tu clave de API no tenga permisos suficientes o que se haya agotado la cuota. Comprueba el estado de tu cuenta",
+          "checkModelName": "El nombre del modelo puede ser incorrecto. Comprueba que coincida con lo que admite tu proveedor",
+          "checkConnection": "No se puede conectar con el servidor. Comprueba que la URL base sea correcta y que el servidor sea accesible",
+          "ollamaRunning": "Asegúrate de que Ollama se esté ejecutando localmente. Puedes iniciarlo con el comando «ollama serve»",
+          "sslCertificate": "Hay un problema con el certificado SSL. Si usas un certificado autofirmado, puede que necesites configuración adicional",
+          "checkConfiguration": "Comprueba tu configuración. Asegúrate de que la URL base, la clave de API y el nombre del modelo sean correctos"
+        },
+        "recommended": "Recomendado",
+        "enabled": "Habilitado",
+        "gatewayModels": "Modelos de AI Gateway",
+        "gatewayModelsDescription": "Configura modelos recomendados a través de Vercel AI Gateway para un soporte óptimo del AI SDK",
+        "gatewayDescription": "Usa AI Gateway para lograr la mejor compatibilidad y fiabilidad. Configura la clave de API en la sección App de abajo.",
+        "providerDescription": "El proveedor de LLM para usar",
+        "noGatewayModels": "No hay modelos de gateway configurados. Añade modelos para empezar.",
+        "addModel": "Añadir modelo",
+        "addGatewayModel": "Añadir modelo de gateway",
+        "popularModels": "Modelos populares",
+        "modelId": "ID del modelo",
+        "modelIdHint": "El identificador del modelo que usa AI Gateway (p. ej., anthropic/claude-sonnet-4)",
+        "searchModelPlaceholder": "Escribe para buscar modelos...",
+        "noMatchingModels": "No se encontraron modelos coincidentes",
+        "typeToSearch": "Escribe palabras clave para buscar los modelos disponibles",
+        "modelNotFound": "Este ID de modelo no se encontró en la lista de disponibles; comprueba la ortografía",
+        "testModel": "Probar modelo",
+        "testModelSuccess": "¡Prueba del modelo correcta! La API respondió correctamente",
+        "testModelImageSuccess": "Se confirmó que el modelo de imagen existe en la API",
+        "testModelNotFound": "El modelo no se encontró en la lista de la API",
+        "displayLabel": "Etiqueta mostrada",
+        "isImageModel": "Este es un modelo de generación de imágenes",
+        "capabilities": "Capacidades",
+        "setAsDefault": "Establecer como modelo de chat predeterminado",
+        "quickAdd": "Añadir rápidamente modelos populares:",
+        "guide": {
+          "configStatus": "Estado de la configuración",
+          "ready": "Listo",
+          "needsAttention": "Requiere atención",
+          "incomplete": "Incompleto",
+          "aiEnabled": "IA habilitada",
+          "aiEnabledDesc": "Los modelos personalizados están habilitados en esta instancia",
+          "aiDisabledDesc": "Habilítalo para usar modelos de IA personalizados",
+          "gatewayKey": "Clave de API del gateway",
+          "gatewayKeyConfigured": "La clave de AI Gateway está configurada",
+          "gatewayKeyMissing": "Configura la clave de API de AI Gateway para la instalación recomendada",
+          "gatewayKeyRequired": "Configura primero la clave de API de AI Gateway en la sección App de abajo",
+          "gatewayModels": "Modelos del gateway",
+          "gatewayModelsConfigured": "{{count}} modelos habilitados",
+          "gatewayModelsEmpty": "Añade modelos del gateway para que los usuarios los elijan",
+          "providers": "Proveedores personalizados",
+          "providersConfigured": "{{count}} proveedores configurados",
+          "providersEmpty": "No hay proveedores personalizados configurados",
+          "chatModel": "Modelo de chat predeterminado",
+          "chatModelGateway": "Usando un modelo del gateway",
+          "chatModelProvider": "Usando un modelo de proveedor personalizado",
+          "chatModelMissing": "Selecciona un modelo de chat predeterminado"
+        },
+        "enableCard": {
+          "title": "Servicios de IA",
+          "ready": "Configurado y listo para usar",
+          "needsConfig": "Habilitado, pero necesita configuración abajo",
+          "disabled": "Las funciones de IA están desactivadas actualmente",
+          "missingConfig": "Falta configuración:",
+          "allConfigured": "Todas las configuraciones completadas"
+        },
+        "wizard": {
+          "setupProgress": "Progreso de la configuración",
+          "checklist": "Lista de comprobación",
+          "allComplete": "¡Todas las opciones necesarias están completas! La IA está lista para usarse.",
+          "nextStep": "Siguiente: {{step}}",
+          "configureAI": "Completa los siguientes pasos para habilitar la IA",
+          "optional": "Opcional",
+          "gatewayHelp": "AI Gateway: una clave de API para cientos de modelos; el primer uso requiere añadir una tarjeta de crédito en Vercel;",
+          "gatewayByok": "compatible (usa tus propias claves de proveedor)",
+          "getApiKey": "Obtener clave de API",
+          "keyInvalid": "Clave de API no válida; compruébala e inténtalo de nuevo",
+          "gatewayErrorUnauthorized": "Clave de API no válida. Comprueba si se copió correctamente",
+          "gatewayErrorNeedCreditCard": "Se requiere una tarjeta de crédito para usar AI Gateway. Añádela en el panel de Vercel",
+          "gatewayErrorInsufficientQuota": "Saldo de la cuenta insuficiente. Recarga e inténtalo de nuevo",
+          "gatewayErrorForbidden": "Acceso denegado. Comprueba el estado de tu cuenta en el panel de Vercel",
+          "gatewayErrorNetwork": "Error de red. Comprueba tu conexión o la configuración del proxy",
+          "pleaseTest": "Haz clic en Probar para verificar la clave de API",
+          "test": "Probar",
+          "testing": "Probando...",
+          "attachmentTest": {
+            "title": "Modo de transferencia de adjuntos",
+            "urlMode": "Modo URL",
+            "base64Mode": "Modo Base64",
+            "accessible": "Disponible",
+            "inaccessible": "No disponible",
+            "urlNotAccessibleWarning": "El servicio de IA no puede acceder a las URL de los adjuntos. Es habitual en despliegues de intranet. Se ha activado automáticamente el modo Base64.",
+            "useBase64Mode": "Usar modo Base64",
+            "base64ModeDescription": "Convertir los adjuntos a Base64 antes de enviarlos (Teable no es accesible desde la red pública)",
+            "originChanged": "PUBLIC_ORIGIN ha cambiado",
+            "originChangedDesc": "La dirección del servidor ha cambiado desde la última prueba. Vuelve a probar para verificar la accesibilidad de los adjuntos."
+          },
+          "saveAndContinue": "Guardar y continuar",
+          "completeStep1First": "Completa primero el paso 1: Configurar la API del LLM",
+          "completeStep2First": "Completa primero el paso 2: Añadir al menos un modelo",
+          "addCustom": "Personalizado...",
+          "enabledModels": "Modelos habilitados",
+          "chatDefault": "Predeterminado de chat",
+          "noModelsAvailable": "No hay modelos disponibles; añade modelos primero en el paso 2",
+          "quickSetup": "Configuración rápida",
+          "useRecommended": "Usar recomendado",
+          "useRecommendedDesc": "Establece {{model}} como predeterminado para todos los escenarios de chat con un clic",
+          "chatModels": "Modelo principal predeterminado",
+          "chatModelTip": "El modelo principal predeterminado para el chat de IA de la barra lateral; lo define el administrador y los usuarios no pueden cambiarlo. Los niveles de tarea sin modelo propio también lo usan",
+          "selectChatModel": "Selecciona un modelo de chat...",
+          "lgDesc": "Tareas complejas, análisis profundo",
+          "mdDesc": "Conversaciones diarias, tareas generales",
+          "smDesc": "Consultas simples, respuestas rápidas",
+          "readyToUse": "¡La IA está configurada y lista para usarse!",
+          "customProviderHelp": "Añade tus propios proveedores de IA (OpenAI, Anthropic, Azure, etc.) y configura claves de API y modelos.",
+          "testModelCapabilities": "Probar capacidades del modelo",
+          "customModelsAutoImported": "Los modelos de tu proveedor se importaron automáticamente al conjunto de modelos.",
+          "modelsCount": "{{count}} modelos disponibles",
+          "customModelsHint": "Para ajustar la configuración de los modelos, vuelve al paso 1 y modifica los ajustes del proveedor.",
+          "gatewayOption": {
+            "title": "AI Gateway (recomendado)",
+            "desc": "Accede a cientos de modelos a través de Vercel AI Gateway con la mejor compatibilidad y fiabilidad"
+          },
+          "customOption": {
+            "title": "Proveedor personalizado",
+            "desc": "Conéctate a modelos autoalojados o privados; admite varios proveedores"
+          },
+          "step": {
+            "llmApi": "Configurar la API del LLM",
+            "llmApiDesc": "Elige AI Gateway o configura proveedores personalizados",
+            "modelPool": "Configurar modelos recomendados",
+            "modelPoolDesc": "Modelos recomendados para que los usuarios los elijan en campos de IA y automatizaciones",
+            "chatModel": "Establecer modelo de chat",
+            "chatModelDesc": "Modelo para el chat de IA de la barra lateral (elige entre los modelos recomendados)",
+            "providers": "Configurar proveedores",
+            "providersDesc": "Añadir y gestionar proveedores de IA"
+          }
+        }
       },
       "app": {
         "domain": "Dominio",
         "customDomain": "Dominio Personalizado (Opcional)",
         "customDomainDescription": "Configura tu dominio personalizado para el despliegue de la aplicación, accede a <a>dominio de Vercel</a> para obtener el dominio personalizado",
         "vercelToken": "Token API de Vercel",
-        "vercelTokenDescription": "Accede a <a>configuración de Vercel</a> para obtener el token API"
+        "vercelTokenDescription": "Accede a <a>configuración de Vercel</a> para obtener el token API",
+        "aiGateway": "Vercel AI Gateway",
+        "aiGatewayDescription": "Configura Vercel AI Gateway para acceder a cientos de modelos desde un único endpoint. Accede a los <a>ajustes de AI Gateway</a> para obtener la clave de API",
+        "aiGatewayApiKey": "Clave de API de AI Gateway",
+        "aiGatewayKeyConfigured": "Clave de API configurada",
+        "aiGatewayBaseUrl": "URL personalizada del gateway"
       }
     },
     "action": {
@@ -718,6 +1001,16 @@
     "configuration": {
       "title": "Configuración pendiente",
       "description": "Complete estas configuraciones para obtener funciones completas",
+      "progressTitle": "Progreso de la configuración",
+      "allComplete": "Todas las configuraciones completadas",
+      "incomplete": "Algunas configuraciones están incompletas",
+      "optional": "Opcional",
+      "completed": "Completado",
+      "group": {
+        "system": "Aspectos básicos",
+        "ai": "Servicios de IA",
+        "appBuilder": "App Builder"
+      },
       "copyInstance": "Copiar ID",
       "list": {
         "publicOrigin": {
@@ -733,17 +1026,53 @@
           "description": "Aún no ha configurado la API LLM de AI, AI Chat/automatización de AI no se podrá usar, <anchor>ir a configuración</anchor>",
           "errorTips": "Aún no ha configurado la API LLM de AI, AI Chat/automatización de AI no se podrá usar"
         },
-        "webSearch": {
-          "title": "Búsqueda web",
-          "description": "Aún no ha configurado la API de búsqueda web, la función de búsqueda web no estará disponible, <anchor>ir a configuración</anchor>",
-          "errorTips": "Aún no ha configurado la API de búsqueda web, la función de búsqueda web no estará disponible"
+        "aiEnable": {
+          "title": "Servicios de IA (chat / campo de IA)",
+          "description": "Habilítalo para usar el chat de IA, los campos de IA y las automatizaciones, <anchor>ir al ajuste</anchor>"
+        },
+        "aiLlmApi": {
+          "title": "IA: Configurar la API del LLM",
+          "description": "Elige AI Gateway o configura proveedores personalizados, <anchor>ir al ajuste</anchor>"
+        },
+        "aiModelPool": {
+          "title": "IA: Configurar los modelos disponibles",
+          "description": "Habilita al menos un modelo para los campos de IA y las automatizaciones, <anchor>ir al ajuste</anchor>"
+        },
+        "aiChatModel": {
+          "title": "IA: Establecer el modelo de chat",
+          "description": "Selecciona un modelo predeterminado para el chat de IA de la barra lateral, <anchor>ir al ajuste</anchor>"
+        },
+        "appBuilderEngine": {
+          "title": "App Builder: Motor de despliegue",
+          "description": "Configura el motor de despliegue (Vercel o Teable Infra) para publicar apps, <anchor>ir al ajuste</anchor>"
+        },
+        "appBuilderDomain": {
+          "title": "App Builder: Dominio personalizado",
+          "description": "Si quieres publicar apps en tu dominio personalizado, configura el dominio y el token de Vercel, <anchor>ir al ajuste</anchor>"
         },
         "email": {
           "title": "Correo electrónico",
           "description": "Correo electrónico no configurado, la recuperación de contraseña de autoservicio y la función de notificación por correo electrónico no estarán disponibles, <anchor>ir a configuración</anchor>",
           "errorTips": "Correo electrónico no configurado, la recuperación de contraseña de autoservicio, verificación de correo electrónico/función de notificación no estarán disponibles"
+        },
+        "sandboxOpenSandbox": {
+          "title": "Entorno de ejecución del chat de IA",
+          "description": "Configura el entorno de ejecución OpenSandbox para el chat de IA, <anchor>ir al ajuste</anchor>"
         }
       }
+    },
+    "canary": {
+      "title": "Versión canary",
+      "enable": "Habilitar canary",
+      "enableDescription": "Cuando está habilitado, las funciones canary se activan en los espacios seleccionados",
+      "spaces": "Espacios canary",
+      "spacesDescription": "{{count}} espacios configurados",
+      "configure": "Configurar",
+      "spaceIds": "ID de espacios",
+      "spaceIdsDescription": "Introduce los ID de espacio, uno por línea o separados por comas/espacios",
+      "spaceIdsPlaceholder": "spcXXXXXXXXXXX\nspcYYYYYYYYYYY",
+      "preview": "Vista previa ({{count}} ID)",
+      "noSpaceIds": "No se han introducido ID de espacio"
     }
   },
   "notification": {
@@ -753,9 +1082,20 @@
     "markAs": "Marcar esta notificación como {{status}}",
     "markAllAsRead": "Marcar todo como leído",
     "noUnread": "No hay notificaciones con estado: {{status}}",
+    "noAttention": "No hay notificaciones que requieran atención",
+    "noSeverity": "No hay notificaciones de tipo {{severity}}",
     "changeSetting": "Cambiar la configuración de notificación de página",
     "new": "{{count}} nueva(s)",
     "showMore": "Mostrar más",
+    "sections": {
+      "needsAction": "Importante",
+      "all": "Todas"
+    },
+    "severity": {
+      "critical": "Importante",
+      "warning": "Advertencia",
+      "info": "Normal"
+    },
     "exportBase": {
       "successText": "Los datos de exportación están listos",
       "failedText": "La exportación falló, por favor reinténtelo"
@@ -774,8 +1114,8 @@
       "viewer": "Espectador"
     },
     "description": {
-      "owner": "Puede configurar y editar completamente las bases, automatización, matrices de autoridad y administrar la configuración y la facturación del espacio",
-      "creator": "Puede configurar y editar completamente las bases, automatizar y habilitar la matriz de autoridad",
+      "owner": "Puede configurar completamente las bases, las aplicaciones, las automatizaciones y las matrices de autoridad, y administrar la configuración y la facturación del espacio",
+      "creator": "Puede configurar completamente las bases, las aplicaciones, las automatizaciones y las matrices de autoridad",
       "editor": "Puede editar registros y vistas, pero no puede configurar tablas o campos",
       "commenter": "Puede comentar los registros",
       "viewer": "No se puede editar o comentar"
@@ -810,6 +1150,7 @@
     "turnOnTip": "¿Desea activar la automatización actual?"
   },
   "email": {
+    "title": "Correo electrónico",
     "send": "Enviar",
     "config": "Configuración de Correo",
     "customConfig": "Servidor de Correo Personalizado",
@@ -1065,12 +1406,9 @@
     "times": "Usos",
     "generate": "Generar",
     "code": "Código de invitación",
-    "inviteSuccess": "Invitación exitosa",
-    "app": {
-      "previewAppError": "Error de aplicación",
-      "sendErrorToAI": "Enviar error a AI"
-    }
+    "inviteSuccess": "Invitación exitosa"
   },
+  "noPermissionToCreateBase": "Sin permiso para crear una base en ningún espacio",
   "base": {
     "deleteTip": "¿Estás seguro de que quieres eliminar \"{{name}}\" base?",
     "createResource": "Crear recurso",
@@ -1118,6 +1456,8 @@
     "mustMention": "La publicación debe mencionar {{mention}}",
     "fetchSnapshotFailed": "Error al obtener la captura de la publicación",
     "alreadyClaimedThisWeek": "Ya has reclamado una recompensa para esta cuenta esta semana",
+    "maxClaimsReached": "Ha alcanzado el máximo de reclamaciones de recompensa (2) para esta semana",
+    "postTooOld": "La publicación debe haberse publicado en las últimas {{hours}} hora(s)",
     "manage": {
       "title": "Gestión de recompensas",
       "description": "Ver y gestionar registros de recompensas en todos los espacios",
@@ -1176,6 +1516,33 @@
       }
     }
   },
+  "chat": {
+    "responseInterrupted": "Respuesta interrumpida",
+    "serverError": "Se produjo un error del servidor",
+    "serverErrorHint": "Inicia una nueva conversación e inténtalo de nuevo.",
+    "modelNotSupported": "El modelo seleccionado no se admite en el modo agente. Cambia a Claude Opus 4.6 para la mejor experiencia.",
+    "byokModelNotSupported": "Tu modelo personalizado no es compatible con el modo agente. Cambia a Claude Opus 4.6 para la mejor experiencia.",
+    "modelServiceUnavailable": "El servicio del modelo no está disponible temporalmente. Inténtalo más tarde.",
+    "modelServiceError": "Se produjo un error con el servicio del modelo. Inténtalo de nuevo o cambia de modelo.",
+    "imageProcessingFailed": "Error al procesar la imagen",
+    "imageProcessingFailedDescription": "El modelo de IA no pudo procesar la imagen. Vuelve a enviarla o continúa sin ella.",
+    "sandboxActiveRunBusy": "Cuppy sigue trabajando. Espera antes de volver a enviar.",
+    "sandboxCapacityFull": "Se alcanzó el límite de conversaciones simultáneas ({{max}}). Espera a que termine alguna.",
+    "sandboxTransient": "Cuppy se está preparando. Inténtalo de nuevo en un momento.",
+    "sandboxSnapshotNotFound": "El entorno de Cuppy aún no está configurado. Pide a tu administrador que cree una instantánea del sandbox.",
+    "sandboxProviderError": "Error del entorno de ejecución del sandbox",
+    "sandboxProviderErrorDescription": "Falló la llamada al entorno de ejecución del sandbox. Reinténtalo o pide a un administrador que lo revise.",
+    "agentStartFailed": "El motor de IA no pudo iniciarse. Inténtalo de nuevo o inicia una sesión nueva.",
+    "idleTimeout": "La ejecución del comando superó el límite de tiempo ({{seconds}} s). Reinténtalo.",
+    "danglingToolUse": "La sesión anterior se interrumpió y se reparó automáticamente. Vuelve a enviar tu mensaje.",
+    "contextImportFailed": "No se pudieron restaurar los datos de la sesión anterior. Reinténtalo para continuar sin el contexto previo.",
+    "collapsedStatus": {
+      "open": "Abrir chat de IA",
+      "working": "La IA está trabajando",
+      "completed": "Tarea de IA completada",
+      "failed": "La tarea de IA falló"
+    }
+  },
   "system": {
     "notFound": {
       "title": "Página no encontrada",
@@ -1225,6 +1592,7 @@
       "download": "Descargar",
       "uninstall": "Desinstalar",
       "copyToBase": "Copiar a Base",
+      "copyToSpace": "Copiar al espacio",
       "copyToPersonal": "Copiar a personal",
       "copyToApp": "Copiar a la aplicación"
     },
@@ -1249,6 +1617,7 @@
       "type": "Tipo",
       "description": "Descripción",
       "source": "Origen",
+      "addedBy": "Añadido por",
       "skillLabel": "Habilidad",
       "syncStatus": "Estado de sincronización",
       "preview": "Vista previa de SKILL.md"
@@ -1256,10 +1625,13 @@
     "scope": {
       "label": "Ámbito",
       "system": "Sistema",
-      "base": "Base actual",
+      "builtin": "Integradas",
+      "base": "Base",
       "user": "Personal",
       "userDescription": "Solo disponible para ti",
       "baseDescription": "Compartida con los colaboradores de esta base",
+      "space": "Espacio",
+      "spaceDescription": "Compartido con todos los miembros de este espacio",
       "app": "App",
       "appDescription": "Solo disponible para esta aplicación",
       "cuppyclaw": "Bot",
@@ -1276,12 +1648,12 @@
       "synced": "Sincronizado",
       "failed": "Sincronización fallida"
     },
-    "empty": {
-      "mySkills": "Aún no tiene habilidades personales. Importe una para comenzar."
-    },
     "confirm": {
       "deleteTitle": "Eliminar habilidad",
-      "deleteDescription": "¿Está seguro de que desea eliminar esta habilidad? Esta acción no se puede deshacer."
+      "deleteDescription": "¿Está seguro de que desea eliminar esta habilidad? Esta acción no se puede deshacer.",
+      "copyTitle": "Copiar habilidad",
+      "copyDescription": "Los archivos de la habilidad se copiarán al ámbito de destino. La habilidad original no cambia.",
+      "copyOverwriteWarning": "Si ya existe una habilidad con el mismo nombre en el ámbito de destino, se reemplazará."
     },
     "toast": {
       "syncing": "Sincronizando habilidad...",
@@ -1290,14 +1662,11 @@
       "deleting": "Eliminando habilidad...",
       "deleteSuccess": "Habilidad eliminada correctamente",
       "deleteError": "Error al eliminar la habilidad",
-      "updateSuccess": "Habilidad actualizada correctamente"
+      "updateSuccess": "Habilidad actualizada correctamente",
+      "copying": "Copiando...",
+      "copySuccess": "Copiada",
+      "copyError": "Error al copiar"
     }
-  },
-  "changelog": {
-    "newUpdate": "ACTUALIZACIÓN DEL 28 DE JULIO",
-    "title": "Teable Skill para agentes de IA",
-    "url": "https://help.teable.ai/en/changelog#jul-28-2026",
-    "id": "changelog-2026-07-28-teable-skill-for-ai-agents"
   },
   "resourceDescription": {
     "addDescription": "Agregar descripción",
@@ -1305,5 +1674,14 @@
     "descriptionSaving": "Guardando...",
     "descriptionSaveFailed": "No se pudo guardar la descripción, inténtalo de nuevo",
     "descriptionPlaceholder": "Agrega una descripción para este nodo"
+  },
+  "announcement": {
+    "viewDetail": "Ver detalles",
+    "close": "Cerrar anuncio",
+    "acknowledge": "Entendido",
+    "collapse": "Mostrar menos",
+    "more_one": "{{count}} anuncio más",
+    "more_many": "{{count}} anuncios más",
+    "more_other": "{{count}} anuncios más"
   }
 }

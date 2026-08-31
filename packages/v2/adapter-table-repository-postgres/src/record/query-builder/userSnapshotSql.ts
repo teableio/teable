@@ -1,6 +1,38 @@
+import { FieldType, type DomainError, type Field } from '@teable/v2-core';
 import { sql, type RawBuilder } from 'kysely';
+import { ok, type Result } from 'neverthrow';
 
 import { buildUserAvatarUrl } from '../../shared/userAvatarUrl';
+
+type InnerFieldHost = Field & {
+  innerField?: () => Result<Field, DomainError>;
+};
+
+const unwrapLookupPresentation = (field: Field): Field => {
+  const fieldType = field.type();
+  if (!fieldType.equals(FieldType.lookup()) && !fieldType.equals(FieldType.conditionalLookup())) {
+    return field;
+  }
+  const inner = (field as InnerFieldHost).innerField?.();
+  return inner?.isOk() ? unwrapLookupPresentation(inner.value) : field;
+};
+
+/**
+ * User-group identity applies to plain user fields and to lookups whose
+ * presentation type is user. Snapshot extras (email/avatar) must not split
+ * one collaborator into multiple group buckets or date-sort runs.
+ * Returns the cell multiplicity of the outer field, or null when the field
+ * is not user-identity grouped.
+ */
+export const resolveUserGroupIdentityMultiplicity = (
+  field: Field
+): Result<boolean | null, DomainError> => {
+  const presentation = unwrapLookupPresentation(field);
+  if (!presentation.type().equals(FieldType.user())) {
+    return ok(null);
+  }
+  return field.isMultipleCellValue().map((multiplicity) => multiplicity.isMultiple());
+};
 
 export interface UserSnapshotActorFallback {
   actorId: string;
@@ -178,4 +210,52 @@ export const buildUserJsonObjectFromSnapshotWithLookupExpr = (
       )
     END
   )`;
+};
+
+// User cells persist the collaborator snapshot taken at write time (email,
+// avatarUrl, ...), so grouping by the raw column splits one collaborator into
+// one bucket per snapshot generation. This expression reduces a cell to its
+// presentation identity (id + title), matching the header walk in
+// record-open-api-v2's buildGroupQueryExtra. Legacy scalar cells that store a
+// bare user id normalize to {id: scalar, title: scalar}, the same convention
+// as buildUserSnapshotObjectExpr. Key names stay literal so the expression
+// compiles identically in SELECT, GROUP BY and ORDER BY.
+export const buildUserGroupIdentityExpr = (
+  columnRef: RawBuilder<unknown>,
+  isMultiple: boolean
+): RawBuilder<unknown> => {
+  const columnJson = sql`${columnRef}::jsonb`;
+  // one user value (object snapshot or legacy scalar id) to its identity
+  const valueIdentity = (valueJson: RawBuilder<unknown>): RawBuilder<unknown> => sql`CASE
+    WHEN jsonb_typeof(${valueJson}) = 'object'
+      THEN jsonb_build_object('id', ${valueJson} ->> 'id', 'title', ${valueJson} ->> 'title')
+    ELSE jsonb_build_object('id', ${valueJson} #>> '{}', 'title', ${valueJson} #>> '{}')
+  END`;
+  if (isMultiple) {
+    // non-array cells (a single object or scalar left behind by a
+    // single->multiple conversion) wrap into a one-element array, the same
+    // normalization the multiple-user ordering path applies
+    return sql`CASE jsonb_typeof(${columnJson})
+      WHEN 'array' THEN (
+        SELECT jsonb_agg(${valueIdentity(sql`u`)})
+        FROM jsonb_array_elements(${columnJson}) AS u
+      )
+      WHEN 'null' THEN NULL::jsonb
+      ELSE CASE
+        WHEN ${columnJson} IS NULL THEN NULL::jsonb
+        ELSE jsonb_build_array(${valueIdentity(columnJson)})
+      END
+    END`;
+  }
+  return sql`CASE jsonb_typeof(${columnJson})
+    WHEN 'object' THEN NULLIF(
+      jsonb_build_object('id', ${columnJson} ->> 'id', 'title', ${columnJson} ->> 'title'),
+      '{"id": null, "title": null}'::jsonb
+    )
+    WHEN 'null' THEN NULL::jsonb
+    ELSE CASE
+      WHEN ${columnJson} IS NULL THEN NULL::jsonb
+      ELSE jsonb_build_object('id', ${columnJson} #>> '{}', 'title', ${columnJson} #>> '{}')
+    END
+  END`;
 };

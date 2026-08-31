@@ -289,7 +289,11 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
         x: rectX + ITEM_PADDING_LEFT + iconSizeSM + ITEM_HORIZONTAL_GAP,
         y: rectY + (ITEM_HEIGHT - fontSizeXS) / 2 + 0.5,
         fill: cellOptionTextColor,
-        maxWidth: maxTextWidth,
+        // The width this text was actually given, not the cell-wide budget it
+        // was truncated against: the chip was sized to `textWidth`, and RTL text
+        // anchors to the far side of whatever width it is handed — passing the
+        // budget here would park an Arabic name outside its own chip.
+        maxWidth: textWidth,
       });
 
       if (editable) {

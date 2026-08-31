@@ -9,6 +9,7 @@ export const OPERATION_UNDO = '/table/{tableId}/undo-redo/undo';
 export const undoVoSchema = z.object({
   status: z.enum(['fulfilled', 'failed', 'empty']),
   errorMessage: z.string().optional(),
+  errorCode: z.string().optional(),
 });
 
 export type IUndoVo = z.infer<typeof undoVoSchema>;

@@ -425,6 +425,7 @@ class FakeRecordMutationSpecResolverService {
 
   async resolveAndReplace(
     _: IExecutionContext,
+    _tableId: TableId,
     spec: ICellValueSpec
   ): Promise<Result<ICellValueSpec, DomainError>> {
     return ok(spec);
@@ -432,6 +433,7 @@ class FakeRecordMutationSpecResolverService {
 
   async resolveAndReplaceMany(
     _: IExecutionContext,
+    _tableId: TableId,
     specs: ReadonlyArray<ICellValueSpec | null>
   ): Promise<Result<ReadonlyArray<ICellValueSpec | null>, DomainError>> {
     return ok(this.resolvedSpecs ?? specs);

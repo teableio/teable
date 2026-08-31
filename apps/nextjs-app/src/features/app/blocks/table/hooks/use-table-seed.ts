@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { FieldKeyType, ViewType } from '@teable/core';
+import type { IFieldVo } from '@teable/core';
+import { FieldKeyType, HttpError, ViewType } from '@teable/core';
 import type { IRecordsVo } from '@teable/openapi';
 import { getFields, getRecords, getViewList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk';
+import { INITIAL_LOAD_PAGE_SIZE } from '@teable/sdk/utils/record-window';
 
 /**
  * Bootstrap data for a client-side table switch.
@@ -27,9 +29,27 @@ export const useTableSeed = (tableId: string, viewId: string, enabled: boolean) 
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     queryFn: async () => {
-      const recordsQuery = { viewId, fieldKeyType: FieldKeyType.Id } as const;
+      // take must equal the grid's first window size — the seeded rows back
+      // that query verbatim, and any gap renders as blank rows
+      const recordsQuery = {
+        viewId,
+        fieldKeyType: FieldKeyType.Id,
+        take: INITIAL_LOAD_PAGE_SIZE,
+      } as const;
       const [fields, views, plainRecords] = await Promise.all([
-        getFields(tableId, { viewId }).then((res) => res.data),
+        // a dead anchor view (deleted while this window was elsewhere) 404s
+        // the field query, but the view list is exactly what stale-view
+        // recovery needs to escape that anchor — tolerate only that case;
+        // transient failures must still fail the seed so react-query retries
+        getFields(tableId, { viewId }).then(
+          (res) => res.data,
+          (error) => {
+            if (error instanceof HttpError && error.status === 404) {
+              return undefined as IFieldVo[] | undefined;
+            }
+            throw error;
+          }
+        ),
         getViewList(tableId).then((res) => res.data),
         // mirror the SSR behavior: a records failure (e.g. corrupted view
         // filter) must not block fields/views from seeding

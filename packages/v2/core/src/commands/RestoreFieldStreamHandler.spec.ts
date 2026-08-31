@@ -53,6 +53,107 @@ describe('toRestoreFieldCreateInput', () => {
     });
   });
 
+  it('normalizes legacy conditional lookup snapshots to conditionalLookup create input', () => {
+    const result = toRestoreFieldCreateInput({
+      id: 'fldCondLookup00000',
+      name: 'IGThumbnail',
+      type: 'singleLineText',
+      isLookup: true,
+      isConditionalLookup: true,
+      lookupOptions: {
+        foreignTableId: 'tblForeign00000000',
+        lookupFieldId: 'fldName0000000000',
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: 'fldFilter000000000',
+              operator: 'is',
+              value: { type: 'field', fieldId: 'fldRef00000000000' },
+            },
+          ],
+        },
+      },
+      options: {},
+      cellValueType: 'string',
+      isMultipleCellValue: false,
+      dbFieldType: 'text',
+      dbFieldName: 'fld_cond_lookup',
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toEqual({
+      id: 'fldCondLookup00000',
+      name: 'IGThumbnail',
+      type: 'conditionalLookup',
+      dbFieldName: 'fld_cond_lookup',
+      options: {
+        foreignTableId: 'tblForeign00000000',
+        lookupFieldId: 'fldName0000000000',
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: 'fldFilter000000000',
+                operator: 'is',
+                value: { type: 'field', fieldId: 'fldRef00000000000' },
+              },
+            ],
+          },
+        },
+      },
+      innerOptions: {},
+      isMultipleCellValue: false,
+    });
+  });
+
+  it('normalizes link-less lookup snapshots without the isConditionalLookup flag', () => {
+    const result = toRestoreFieldCreateInput({
+      id: 'fldCondLookup00001',
+      name: 'conditional lookup',
+      type: 'number',
+      isLookup: true,
+      lookupOptions: {
+        foreignTableId: 'tblForeign00000000',
+        lookupFieldId: 'fldAmount00000000',
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: 'fldStatus00000000', operator: 'is', value: 'done' }],
+        },
+        sort: { fieldId: 'fldAmount00000000', order: 'desc' },
+        limit: 5,
+      },
+      options: {},
+      cellValueType: 'number',
+      isMultipleCellValue: true,
+      dbFieldType: 'json',
+      dbFieldName: 'fld_cond_lookup_1',
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toEqual({
+      id: 'fldCondLookup00001',
+      name: 'conditional lookup',
+      type: 'conditionalLookup',
+      dbFieldName: 'fld_cond_lookup_1',
+      options: {
+        foreignTableId: 'tblForeign00000000',
+        lookupFieldId: 'fldAmount00000000',
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: 'fldStatus00000000', operator: 'is', value: 'done' }],
+          },
+          sort: { fieldId: 'fldAmount00000000', order: 'desc' },
+          limit: 5,
+        },
+      },
+      innerOptions: {},
+      isMultipleCellValue: true,
+    });
+  });
+
   it('normalizes enriched legacy lookup snapshots to lookup create input', () => {
     const result = toRestoreFieldCreateInput({
       id: 'fldLookup000000000',

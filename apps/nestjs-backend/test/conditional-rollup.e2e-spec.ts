@@ -289,6 +289,62 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
     });
   });
 
+  describe('v1 unsupported field references', () => {
+    const itV1 = isForceV2 ? it.skip : it;
+
+    itV1(
+      'keeps record writes available when a conditional rollup contains a field reference',
+      async () => {
+        let foreign: ITableFullVo | undefined;
+        let host: ITableFullVo | undefined;
+
+        try {
+          foreign = await createTable(baseId, {
+            name: 'ConditionalRollup_ContainsReference_Foreign',
+            fields: [{ name: 'Text', type: FieldType.SingleLineText } as IFieldRo],
+            records: [{ fields: { Text: 'alpha' } }, { fields: { Text: 'beta' } }],
+          });
+          const foreignTextId = foreign.fields.find((field) => field.name === 'Text')!.id;
+
+          host = await createTable(baseId, {
+            name: 'ConditionalRollup_ContainsReference_Host',
+            fields: [{ name: 'Needle', type: FieldType.SingleLineText } as IFieldRo],
+            records: [{ fields: { Needle: 'alpha' } }],
+          });
+          const needleId = host.fields.find((field) => field.name === 'Needle')!.id;
+
+          const rollup = await createField(host.id, {
+            name: 'Matching rows',
+            type: FieldType.ConditionalRollup,
+            options: {
+              foreignTableId: foreign.id,
+              lookupFieldId: foreignTextId,
+              expression: 'count({values})',
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: foreignTextId,
+                    operator: 'contains',
+                    value: { type: 'field', fieldId: needleId },
+                  },
+                ],
+              },
+            } as IConditionalRollupFieldOptions,
+          } as IFieldRo);
+
+          await updateRecordByApi(host.id, host.records[0].id, needleId, 'missing');
+
+          const record = await getRecord(host.id, host.records[0].id);
+          expect(record.fields[rollup.id]).toEqual(2);
+        } finally {
+          if (host) await permanentDeleteTable(baseId, host.id);
+          if (foreign) await permanentDeleteTable(baseId, foreign.id);
+        }
+      }
+    );
+  });
+
   describe('limit enforcement', () => {
     const limitCap = Number(process.env.CONDITIONAL_QUERY_MAX_LIMIT ?? '5000');
     const totalActive = limitCap + 3;
@@ -1527,7 +1583,16 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
         } as IFieldRo);
 
         const saved = await getField(host.id, rollupField.id);
-        expect((saved.options as IConditionalRollupFieldOptions).filter).toEqual(filter);
+        // V2 canonicalizes filter timeZone casing on read ('utc' -> 'UTC').
+        const expectedFilter = (
+          isForceV2
+            ? {
+                ...filter,
+                filterSet: [{ ...filter.filterSet[0], value: { mode: 'today', timeZone: 'UTC' } }],
+              }
+            : filter
+        ) as IFilter;
+        expect((saved.options as IConditionalRollupFieldOptions).filter).toEqual(expectedFilter);
 
         record = await getRecord(host.id, host.records[0].id);
         expect(record.fields[rollupField.id]).toEqual(5);

@@ -439,6 +439,39 @@ describe('update-field: computed dependency cascades', () => {
     }
   });
 
+  // T6500: schema cascade backfill must tolerate text-typed SELECT projections
+  // against REAL/double precision lookup columns (IS DISTINCT FROM casts).
+  test('should backfill numeric lookup when source field converts text → number without type error', async () => {
+    let hostTableId: string | undefined;
+    let foreignTableId: string | undefined;
+    try {
+      const setup = await createLinkLookupTable();
+      hostTableId = setup.hostTableId;
+      foreignTableId = setup.foreignTableId;
+
+      // Source starts as text ("100"). Convert to number so dependent lookup
+      // cascade backfill re-runs with DISTINCT comparisons against REAL columns.
+      await ctx.updateField({
+        tableId: setup.foreignTableId,
+        fieldId: setup.foreignSourceFieldId,
+        field: { type: 'number' },
+      });
+      await ctx.drainOutbox();
+
+      const hostRecords = await ctx.listRecordsWithoutDrain(setup.hostTableId);
+      const host = hostRecords[0];
+      if (!host) throw new Error('No host record');
+
+      // Lookup of a number remains scalar-array shaped for manyOne.
+      expect(host.fields[setup.lookupFieldId]).toEqual([100]);
+      // Formula over lookup currently preserves the lookup cell shape.
+      expect(host.fields[setup.formulaFieldId]).toEqual([100]);
+    } finally {
+      await cleanupTable(hostTableId);
+      await cleanupTable(foreignTableId);
+    }
+  });
+
   test('[V1 PARITY] should propagate lookup value changes into dependent formula fields', async () => {
     let hostTableId: string | undefined;
     let foreignTableId: string | undefined;
@@ -461,19 +494,327 @@ describe('update-field: computed dependency cascades', () => {
   });
 
   test('[V1 PARITY] should update lookup values when target select options renamed/deleted', async () => {
-    expect(true).toBe(true);
+    let hostTableId: string | undefined;
+    let foreignTableId: string | undefined;
+    try {
+      const sourceFieldId = createFieldId();
+      const foreign = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: createName('select-rename-foreign'),
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          {
+            type: 'singleSelect',
+            id: sourceFieldId,
+            name: 'Status',
+            options: { choices: [{ name: 'Open' }, { name: 'Done' }] },
+          },
+        ],
+        records: [
+          { fields: { Name: 'A', [sourceFieldId]: 'Open' } },
+          { fields: { Name: 'B', [sourceFieldId]: 'Done' } },
+        ],
+      });
+      foreignTableId = foreign.id;
+      const foreignPrimary = foreign.fields.find((field) => field.isPrimary);
+      if (!foreignPrimary) throw new Error('No foreign primary field');
+
+      const linkFieldId = createFieldId();
+      const lookupFieldId = createFieldId();
+      const host = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: createName('select-rename-host'),
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: linkFieldId,
+            name: 'Items',
+            options: {
+              relationship: 'oneMany',
+              foreignTableId: foreign.id,
+              lookupFieldId: foreignPrimary.id,
+            },
+          },
+          {
+            type: 'lookup',
+            id: lookupFieldId,
+            name: 'Statuses',
+            options: {
+              linkFieldId,
+              foreignTableId: foreign.id,
+              lookupFieldId: sourceFieldId,
+            },
+          },
+        ],
+      });
+      hostTableId = host.id;
+      const foreignRecords = await ctx.listRecords(foreign.id);
+      await ctx.createRecord(host.id, {
+        Name: 'Host',
+        [linkFieldId]: foreignRecords.map((record) => ({ id: record.id })),
+      });
+      await ctx.drainOutbox();
+
+      await ctx.updateField({
+        tableId: foreign.id,
+        fieldId: sourceFieldId,
+        field: {
+          type: 'singleSelect',
+          options: { choices: [{ name: 'Opened' }, { name: 'Done' }] },
+        },
+      });
+      await ctx.drainOutbox();
+
+      const table = await ctx.getTableById(host.id);
+      const lookupField = table.fields.find((field) => field.id === lookupFieldId);
+      expect(lookupField?.isMultipleCellValue).toBe(true);
+      expect(lookupField?.dbFieldType).toBe('JSON');
+
+      const tableAfter = await ctx.getTableById(host.id);
+      const lookupAfter = tableAfter.fields.find((field) => field.id === lookupFieldId);
+      expect(lookupAfter?.isMultipleCellValue).toBe(true);
+      expect(lookupAfter?.dbFieldType).toBe('JSON');
+    } finally {
+      await cleanupTable(hostTableId);
+      await cleanupTable(foreignTableId);
+    }
   });
 
   test('[V1 PARITY] should update lookup when target field converts text → singleSelect (oneMany)', async () => {
-    expect(true).toBe(true);
+    let hostTableId: string | undefined;
+    let foreignTableId: string | undefined;
+    try {
+      const sourceFieldId = createFieldId();
+      const foreign = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: createName('text-to-select-foreign'),
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleLineText', id: sourceFieldId, name: 'Label' },
+        ],
+        records: [
+          { fields: { Name: 'A', [sourceFieldId]: 'text 1' } },
+          { fields: { Name: 'B', [sourceFieldId]: 'text 2' } },
+        ],
+      });
+      foreignTableId = foreign.id;
+      const foreignPrimary = foreign.fields.find((field) => field.isPrimary);
+      if (!foreignPrimary) throw new Error('No foreign primary field');
+
+      const linkFieldId = createFieldId();
+      const lookupFieldId = createFieldId();
+      const host = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: createName('text-to-select-host'),
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: linkFieldId,
+            name: 'Items',
+            options: {
+              relationship: 'oneMany',
+              foreignTableId: foreign.id,
+              lookupFieldId: foreignPrimary.id,
+            },
+          },
+          {
+            type: 'lookup',
+            id: lookupFieldId,
+            name: 'Labels',
+            options: {
+              linkFieldId,
+              foreignTableId: foreign.id,
+              lookupFieldId: sourceFieldId,
+            },
+          },
+        ],
+      });
+      hostTableId = host.id;
+      const foreignRecords = await ctx.listRecords(foreign.id);
+      await ctx.createRecord(host.id, {
+        Name: 'Host',
+        [linkFieldId]: foreignRecords.map((record) => ({ id: record.id })),
+      });
+      await ctx.drainOutbox();
+
+      await ctx.updateField({
+        tableId: foreign.id,
+        fieldId: sourceFieldId,
+        field: { type: 'singleSelect' },
+      });
+      await ctx.drainOutbox();
+
+      const table = await ctx.getTableById(host.id);
+      const lookupField = table.fields.find((field) => field.id === lookupFieldId);
+      expect(lookupField?.type).toBe('singleSelect');
+      expect(lookupField?.isLookup).toBe(true);
+      expect(lookupField?.isMultipleCellValue).toBe(true);
+      expect(lookupField?.dbFieldType).toBe('JSON');
+
+      const records = await ctx.listRecordsWithoutDrain(host.id);
+      expect([...(records[0]?.fields[lookupFieldId] as string[])].sort()).toEqual([
+        'text 1',
+        'text 2',
+      ]);
+    } finally {
+      await cleanupTable(hostTableId);
+      await cleanupTable(foreignTableId);
+    }
   });
 
   test('[V1 PARITY] should update lookup when target field converts text → number (oneMany)', async () => {
-    expect(true).toBe(true);
+    let hostTableId: string | undefined;
+    let foreignTableId: string | undefined;
+    try {
+      const sourceFieldId = createFieldId();
+      const foreign = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: createName('text-to-number-foreign'),
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleLineText', id: sourceFieldId, name: 'Amount' },
+        ],
+        records: [{ fields: { Name: 'A', [sourceFieldId]: '1' } }],
+      });
+      foreignTableId = foreign.id;
+      const foreignPrimary = foreign.fields.find((field) => field.isPrimary);
+      if (!foreignPrimary) throw new Error('No foreign primary field');
+
+      const linkFieldId = createFieldId();
+      const lookupFieldId = createFieldId();
+      const host = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: createName('text-to-number-host'),
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: linkFieldId,
+            name: 'Items',
+            options: {
+              relationship: 'oneMany',
+              foreignTableId: foreign.id,
+              lookupFieldId: foreignPrimary.id,
+            },
+          },
+          {
+            type: 'lookup',
+            id: lookupFieldId,
+            name: 'Amounts',
+            options: {
+              linkFieldId,
+              foreignTableId: foreign.id,
+              lookupFieldId: sourceFieldId,
+            },
+          },
+        ],
+      });
+      hostTableId = host.id;
+      const foreignRecords = await ctx.listRecords(foreign.id);
+      await ctx.createRecord(host.id, {
+        Name: 'Host',
+        [linkFieldId]: [{ id: foreignRecords[0]!.id }],
+      });
+      await ctx.drainOutbox();
+
+      await ctx.updateField({
+        tableId: foreign.id,
+        fieldId: sourceFieldId,
+        field: { type: 'number' },
+      });
+      await ctx.drainOutbox();
+
+      const table = await ctx.getTableById(host.id);
+      const lookupField = table.fields.find((field) => field.id === lookupFieldId);
+      expect(lookupField?.type).toBe('number');
+      expect(lookupField?.isMultipleCellValue).toBe(true);
+      expect(lookupField?.dbFieldType).toBe('JSON');
+
+      const records = await ctx.listRecordsWithoutDrain(host.id);
+      expect(records[0]?.fields[lookupFieldId]).toEqual([1]);
+    } finally {
+      await cleanupTable(hostTableId);
+      await cleanupTable(foreignTableId);
+    }
   });
 
   test('[V1 PARITY] should update lookup when target field converts date → number (oneMany)', async () => {
-    expect(true).toBe(true);
+    let hostTableId: string | undefined;
+    let foreignTableId: string | undefined;
+    try {
+      const sourceFieldId = createFieldId();
+      const now = new Date('2026-01-15T00:00:00.000Z');
+      const foreign = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: createName('date-to-number-foreign'),
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'date', id: sourceFieldId, name: 'When' },
+        ],
+        records: [{ fields: { Name: 'A', [sourceFieldId]: now.toISOString() } }],
+      });
+      foreignTableId = foreign.id;
+      const foreignPrimary = foreign.fields.find((field) => field.isPrimary);
+      if (!foreignPrimary) throw new Error('No foreign primary field');
+
+      const linkFieldId = createFieldId();
+      const lookupFieldId = createFieldId();
+      const host = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: createName('date-to-number-host'),
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: linkFieldId,
+            name: 'Items',
+            options: {
+              relationship: 'oneMany',
+              foreignTableId: foreign.id,
+              lookupFieldId: foreignPrimary.id,
+            },
+          },
+          {
+            type: 'lookup',
+            id: lookupFieldId,
+            name: 'When Lookup',
+            options: {
+              linkFieldId,
+              foreignTableId: foreign.id,
+              lookupFieldId: sourceFieldId,
+            },
+          },
+        ],
+      });
+      hostTableId = host.id;
+      const foreignRecords = await ctx.listRecords(foreign.id);
+      await ctx.createRecord(host.id, {
+        Name: 'Host',
+        [linkFieldId]: [{ id: foreignRecords[0]!.id }],
+      });
+      await ctx.drainOutbox();
+
+      await ctx.updateField({
+        tableId: foreign.id,
+        fieldId: sourceFieldId,
+        field: { type: 'number' },
+      });
+      await ctx.drainOutbox();
+
+      const table = await ctx.getTableById(host.id);
+      const lookupField = table.fields.find((field) => field.id === lookupFieldId);
+      expect(lookupField?.type).toBe('number');
+      expect(lookupField?.isMultipleCellValue).toBe(true);
+      expect(lookupField?.dbFieldType).toBe('JSON');
+
+      const records = await ctx.listRecordsWithoutDrain(host.id);
+      expect(records[0]?.fields[lookupFieldId]).toEqual([now.getTime()]);
+    } finally {
+      await cleanupTable(hostTableId);
+      await cleanupTable(foreignTableId);
+    }
   });
 
   // ============ Rollup dependencies ============

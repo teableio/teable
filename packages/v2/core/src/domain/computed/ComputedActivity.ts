@@ -7,6 +7,7 @@ import type { FieldId } from '../table/fields/FieldId';
 import type { TableId } from '../table/TableId';
 import type {
   FieldComputeBatch,
+  FieldComputeLastError,
   FieldComputeMeta,
   FieldComputeMetaDto,
   FieldComputeTarget,
@@ -147,7 +148,7 @@ export class ComputedActivity {
         processingTaskCount: number;
       }
     >;
-    lastError?: { code?: string; message: string } | null;
+    lastError?: FieldComputeLastError | null;
     now?: Date;
   }): void {
     const now = params.now ?? new Date();
@@ -197,7 +198,7 @@ export class ComputedActivity {
     taskId: string;
     targets: ReadonlyArray<FieldComputeTarget>;
     durationMs?: number;
-    error?: { code?: string; message: string } | null;
+    error?: FieldComputeLastError | null;
     now?: Date;
   }): void {
     const now = params.now ?? new Date();
@@ -227,9 +228,34 @@ export class ComputedActivity {
     }
   }
 
+  /**
+   * Stamp field-level errors that should remain after the current task is
+   * released. Call after noteTaskFinished / before syncFromTaskRefs so
+   * terminalFailurePending survives counter reconciliation.
+   */
+  notePersistentFieldErrors(params: {
+    errors: ReadonlyArray<{ fieldId: string; error: FieldComputeLastError }>;
+    now?: Date;
+  }): void {
+    const now = params.now ?? new Date();
+    const touchedTables = new Map<string, { tableId: TableId; baseId: BaseId }>();
+    for (const { fieldId, error } of params.errors) {
+      const field = this.fields.get(fieldId);
+      if (!field) continue;
+      field.notePersistentFailure({ error, now });
+      touchedTables.set(field.tableId().toString(), {
+        tableId: field.tableId(),
+        baseId: field.baseId(),
+      });
+    }
+    for (const { tableId, baseId } of touchedTables.values()) {
+      this.recomputeTables(baseId, [tableId], now);
+    }
+  }
+
   noteRetryScheduled(params: {
     targets: ReadonlyArray<FieldComputeTarget & { baseId: BaseId }>;
-    error: { code?: string; message: string };
+    error: FieldComputeLastError;
     now?: Date;
   }): void {
     const now = params.now ?? new Date();
@@ -244,7 +270,7 @@ export class ComputedActivity {
     targets: ReadonlyArray<FieldComputeTarget>;
     wasProcessing: boolean;
     durationMs?: number;
-    error?: { code?: string; message: string } | null;
+    error?: FieldComputeLastError | null;
     now?: Date;
   }): void {
     const now = params.now ?? new Date();

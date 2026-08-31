@@ -16,6 +16,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `FieldDeletionSideEffectVisitor.ts` - Role: visitor; Purpose: compute cross-table side effects for field deletion.
 - `FieldDeletionSideEffectVisitor.spec.ts` - Role: tests; Purpose: verify delete side effects for link fields.
 - `FieldFormVisibilityVisitor.ts` - Role: visitor; Purpose: decide form view visibility by field type.
+- `FieldClipboardValueVisitor.ts` - Role: visitor; Purpose: format stored v2 Field values for
+  clipboard output without delegating to legacy Field instances.
 - `FieldValueTypeVisitor.ts` - Role: visitor; Purpose: derive cell value types and multiplicity.
 - `FieldValueTypeVisitor.spec.ts` - Role: tests; Purpose: verify value type visitor behavior.
 - `IFieldVisitor.ts` - Role: visitor interface; Purpose: declare per-field visit methods.

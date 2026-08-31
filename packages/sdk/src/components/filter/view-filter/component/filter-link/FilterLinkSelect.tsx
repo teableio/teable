@@ -50,7 +50,7 @@ export const FilterLinkSelect = (props: FilterLinkSelectProps) => {
             </div>
             <ChevronDown
               className={cn(
-                'ml-2 size-4 shrink-0 text-muted-foreground transition-transform duration-200',
+                'ms-2 size-4 shrink-0 text-muted-foreground transition-transform duration-200',
                 open && 'rotate-180'
               )}
             />

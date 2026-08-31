@@ -201,8 +201,24 @@ export class RecordSearch {
     });
   }
 
-  private resolveField(table: Table, fieldKey: string): Result<Field, DomainError> {
-    const field = table.getFields().find((candidate) => this.matchesFieldKey(candidate, fieldKey));
+  /**
+   * Resolve a search field key against a table field.
+   * Accepts field id, name, or dbFieldName — single source of truth for all
+   * callers (search execution, masked-field reject, etc.).
+   */
+  static matchesFieldKey(field: Field, fieldKey: string): boolean {
+    if (field.id().toString() === fieldKey || field.name().toString() === fieldKey) {
+      return true;
+    }
+
+    const dbFieldNameResult = field.dbFieldName().andThen((dbFieldName) => dbFieldName.value());
+    return dbFieldNameResult.isOk() && dbFieldNameResult.value === fieldKey;
+  }
+
+  static resolveFieldKey(table: Table, fieldKey: string): Result<Field, DomainError> {
+    const field = table
+      .getFields()
+      .find((candidate) => RecordSearch.matchesFieldKey(candidate, fieldKey));
 
     if (!field) {
       return err(
@@ -214,6 +230,10 @@ export class RecordSearch {
     }
 
     return ok(field);
+  }
+
+  private resolveField(table: Table, fieldKey: string): Result<Field, DomainError> {
+    return RecordSearch.resolveFieldKey(table, fieldKey);
   }
 
   private buildFieldCondition(
@@ -253,14 +273,5 @@ export class RecordSearch {
     }
 
     return ok(getValidRecordConditionOperators(field, valueTypeResult.value).includes('contains'));
-  }
-
-  private matchesFieldKey(field: Field, fieldKey: string): boolean {
-    if (field.id().toString() === fieldKey || field.name().toString() === fieldKey) {
-      return true;
-    }
-
-    const dbFieldNameResult = field.dbFieldName().andThen((dbFieldName) => dbFieldName.value());
-    return dbFieldNameResult.isOk() && dbFieldNameResult.value === fieldKey;
   }
 }

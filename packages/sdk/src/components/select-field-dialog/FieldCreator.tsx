@@ -35,7 +35,7 @@ export const FieldCreator = (props: IFieldCreatorProps) => {
         return (
           <div className="space-y-3">
             <Input value={name} onChange={onNameChange} autoFocus />
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 rtl:space-x-reverse">
               <Switch
                 id="user-field-options-should-notify"
                 checked={Boolean((options as IUserFieldOptions)?.shouldNotify)}

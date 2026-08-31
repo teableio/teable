@@ -11,7 +11,7 @@ export const Error: FC<{ message: string }> = (props) => {
       <div>
         <div className="flex w-full">
           <TeableLogo className="text-4xl" />
-          <p className="ml-1 truncate text-4xl font-semibold">{brandName}</p>
+          <p className="ms-1 truncate text-4xl font-semibold">{brandName}</p>
         </div>
         <h1 className="scroll-m-20 text-3xl tracking-tight">{message}</h1>
       </div>

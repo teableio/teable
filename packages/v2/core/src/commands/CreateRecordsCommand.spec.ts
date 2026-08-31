@@ -197,4 +197,27 @@ describe('CreateRecordsCommand', () => {
     const command = commandResult._unsafeUnwrap();
     expect(command.typecast).toBe(false);
   });
+
+  it('defaults source to user', () => {
+    const commandResult = CreateRecordsCommand.create({
+      tableId,
+      records: [{ fields: {} }],
+    });
+
+    const command = commandResult._unsafeUnwrap();
+    expect(command.source).toEqual({ type: 'user' });
+  });
+
+  it('accepts an explicit recordDuplicate source', () => {
+    const commandResult = CreateRecordsCommand.create(
+      {
+        tableId,
+        records: [{ fields: {} }],
+      },
+      { source: { type: 'recordDuplicate' } }
+    );
+
+    const command = commandResult._unsafeUnwrap();
+    expect(command.source).toEqual({ type: 'recordDuplicate' });
+  });
 });

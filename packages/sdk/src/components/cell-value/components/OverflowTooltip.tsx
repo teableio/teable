@@ -7,6 +7,7 @@ import {
   cn,
 } from '@teable/ui-lib';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useContentDir } from '../../../hooks/use-content-dir';
 
 interface IOverflowTooltipProps {
   text?: string;
@@ -19,6 +20,7 @@ interface IOverflowTooltipProps {
 
 export const OverflowTooltip = (props: IOverflowTooltipProps) => {
   const { text = '', ellipsis = false, className, tooltipClassName, onClick } = props;
+  const contentDir = useContentDir();
   const [isOverflow, setOverflow] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -53,6 +55,7 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
   const Content = (
     <div
       ref={contentRef}
+      dir={contentDir}
       className={cn('overflow-hidden whitespace-pre-wrap break-all line-clamp-6', className)}
       onClick={(e) => {
         if (onClick) {
@@ -87,9 +90,10 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
               onClick();
             }
           }}
-          className="w-full text-left"
+          className="w-full text-start"
         >
           <div
+            dir={contentDir}
             className={cn(className, 'overflow-hidden')}
             style={{
               textOverflow: 'ellipsis',
@@ -101,7 +105,7 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
         </TooltipTrigger>
         <TooltipPortal>
           <TooltipContent className={cn('max-w-60 break-all', tooltipClassName)}>
-            <p>{text}</p>
+            <p dir={contentDir}>{text}</p>
           </TooltipContent>
         </TooltipPortal>
       </Tooltip>

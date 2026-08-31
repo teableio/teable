@@ -820,4 +820,26 @@ describe('SpaceDataDbProcessRunnerService', () => {
     expect(sourceProcess.kill).toHaveBeenCalledWith('SIGTERM');
     expect(targetProcess.kill).toHaveBeenCalledWith('SIGTERM');
   });
+
+  it('includes source stderr in pipeline error messages for accurate last_error', async () => {
+    const sourceProcess = new FakeProcess();
+    const targetProcess = new FakeProcess();
+    spawnProcess = vi.fn().mockReturnValueOnce(sourceProcess).mockReturnValueOnce(targetProcess);
+    const service = new SpaceDataDbProcessRunnerService(spawnProcess);
+
+    const promise = service.runPipeline({
+      source: { command: 'psql', args: ['--command', 'COPY bad TO STDOUT', secretUrl] },
+      target: { command: 'psql', args: ['--command', 'COPY good FROM STDIN', secretUrl] },
+      label: sharedTableLabel,
+    });
+
+    sourceProcess.stderr.write('FATAL: Timed-out waiting to acquire database connection');
+    sourceProcess.emit('close', 1, null);
+
+    await expect(promise).rejects.toMatchObject({
+      message: expect.stringContaining(
+        '[source stderr]: FATAL: Timed-out waiting to acquire database connection'
+      ),
+    });
+  });
 });

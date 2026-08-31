@@ -28,6 +28,8 @@ import {
 import { sql, type AliasedRawBuilder } from 'kysely';
 import type { Result } from 'neverthrow';
 
+import { buildStoredFieldValueExpression } from './storedFieldValueExpression';
+
 /**
  * Visitor that generates simple SELECT expressions for stored column values.
  * All fields are selected directly from the table without any computation.
@@ -40,6 +42,19 @@ export class StoredFieldSelectVisitor implements IFieldVisitor<AliasedRawBuilder
       .dbFieldName()
       .andThen((dbFieldName) => dbFieldName.value())
       .map((colName) => sql`${sql.ref(`${this.tableAlias}.${colName}`)}`.as(colName));
+  }
+
+  private selectComputedColumn(
+    field: Field
+  ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
+    return field
+      .dbFieldName()
+      .andThen((dbFieldName) => dbFieldName.value())
+      .andThen((colName) =>
+        buildStoredFieldValueExpression(field, this.tableAlias, colName).map(({ expression }) =>
+          expression.as(colName)
+        )
+      );
   }
 
   visitSingleLineTextField(
@@ -128,9 +143,9 @@ export class StoredFieldSelectVisitor implements IFieldVisitor<AliasedRawBuilder
     return this.selectColumn(field);
   }
 
-  // Computed fields - still select stored column (pre-computed value)
+  // Computed fields use the stored value unless the field is currently errored.
   visitFormulaField(field: FormulaField): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return this.selectColumn(field);
+    return this.selectComputedColumn(field);
   }
 
   visitLinkField(field: LinkField): Result<AliasedRawBuilder<unknown, string>, DomainError> {
@@ -138,22 +153,22 @@ export class StoredFieldSelectVisitor implements IFieldVisitor<AliasedRawBuilder
   }
 
   visitLookupField(field: LookupField): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return this.selectColumn(field);
+    return this.selectComputedColumn(field);
   }
 
   visitRollupField(field: RollupField): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return this.selectColumn(field);
+    return this.selectComputedColumn(field);
   }
 
   visitConditionalRollupField(
     field: ConditionalRollupField
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return this.selectColumn(field);
+    return this.selectComputedColumn(field);
   }
 
   visitConditionalLookupField(
     field: ConditionalLookupField
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return this.selectColumn(field);
+    return this.selectComputedColumn(field);
   }
 }

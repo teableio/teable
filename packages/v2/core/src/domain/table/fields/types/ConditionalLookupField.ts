@@ -43,7 +43,7 @@ import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldU
 import { FieldOptionsDtoVisitor } from '../visitors/FieldOptionsDtoVisitor';
 import { FieldValueTypeVisitor, type FieldValueType } from '../visitors/FieldValueTypeVisitor';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
-import { CellValueMultiplicity } from './CellValueMultiplicity';
+import type { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
 import {
   ConditionalLookupOptions,
@@ -264,18 +264,12 @@ export class ConditionalLookupField
 
   /**
    * Get whether this is a multiple cell value field.
-   * Uses the override value if set (from v1 persistence), otherwise defaults to multiple.
+   * Uses the override value if set (from v1 persistence). When the override is
+   * unset, an unambiguously scalar persisted dbFieldType implies single;
+   * ambiguous JSON storage and absent storage default to multiple.
    */
   isMultipleCellValue(): Result<CellValueMultiplicity, DomainError> {
-    if (this.isMultipleCellValueOverride !== undefined) {
-      return ok(
-        this.isMultipleCellValueOverride
-          ? CellValueMultiplicity.multiple()
-          : CellValueMultiplicity.single()
-      );
-    }
-    // Default to multiple for new conditional lookup fields (v2 behavior)
-    return ok(CellValueMultiplicity.multiple());
+    return ok(this.multiplicityFromOverrideOrPersistedStorage(this.isMultipleCellValueOverride));
   }
 
   /**

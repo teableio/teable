@@ -163,7 +163,7 @@ describe('update-field: user → user conversion (isMultiple toggle)', () => {
     await ctx.deleteRecords(tableId, [r1.id]);
   });
 
-  test('should keep empty array when disabling isMultiple', async () => {
+  test('should keep empty cell when disabling isMultiple', async () => {
     const fieldId = await createUserField('Empty Array User Field', true);
     const r1 = await ctx.createRecord(tableId, {
       [fieldId]: [],
@@ -176,7 +176,8 @@ describe('update-field: user → user conversion (isMultiple toggle)', () => {
     });
 
     const records = await ctx.listRecords(tableId);
-    expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toEqual([]);
+    // v1 contract: [] input is stored as null, so the cell stays empty
+    expect(records.find((r) => r.id === r1.id)?.fields[fieldId] == null).toBe(true);
 
     await ctx.deleteField({ tableId, fieldId });
     await ctx.deleteRecords(tableId, [r1.id]);

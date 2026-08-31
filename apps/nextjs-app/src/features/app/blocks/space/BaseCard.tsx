@@ -6,6 +6,7 @@ import { Database, MoreHorizontal, Share2 } from '@teable/icons';
 import type { IGetBaseVo } from '@teable/openapi';
 import { PinType, deleteBase, permanentDeleteBase, updateBase } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { useContentDir } from '@teable/sdk/hooks';
 import { Button, Card, CardContent, cn, Input } from '@teable/ui-lib/shadcn';
 import { useState, type FC, useRef } from 'react';
 import { Emoji } from '../../components/emoji/Emoji';
@@ -22,6 +23,7 @@ interface IBaseCard {
 }
 
 export const BaseCard: FC<IBaseCard> = (props) => {
+  const contentDir = useContentDir();
   const { base, className, spaceName } = props;
   const queryClient = useQueryClient();
   const [renaming, setRenaming] = useState<boolean>();
@@ -73,7 +75,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
     e.stopPropagation();
   };
 
-  const iconChange = (icon: string) => {
+  const iconChange = (icon: string | null) => {
     updateBaseMutator({
       baseId: base.id,
       updateBaseRo: { icon },
@@ -109,7 +111,12 @@ export const BaseCard: FC<IBaseCard> = (props) => {
       <ColorBg emoji={base.icon || undefined} />
       <CardContent className="relative flex size-full items-center gap-3 px-4 py-0">
         <div onClick={(e) => hasUpdatePermission && clickStopPropagation(e)}>
-          <EmojiPicker disabled={!hasUpdatePermission || renaming} onChange={iconChange}>
+          <EmojiPicker
+            disabled={!hasUpdatePermission || renaming}
+            icon={base.icon}
+            onChange={iconChange}
+            onRemove={() => iconChange(null)}
+          >
             <div className="size-12 rounded-lg bg-background bg-gradient-to-br from-background to-muted p-3 outline outline-1 outline-border transition-all group-hover:outline-border hover:shadow-lg">
               {base.icon ? <Emoji emoji={base.icon} size={24} /> : <Database className="size-6" />}
             </div>
@@ -138,20 +145,24 @@ export const BaseCard: FC<IBaseCard> = (props) => {
             ) : (
               <div className="flex-1">
                 <div className="flex items-center gap-1">
-                  <h3 className="line-clamp-2 text-sm" title={base.name}>
+                  <h3 dir={contentDir} className="line-clamp-2 text-sm" title={base.name}>
                     {base.name}
                   </h3>
                   {base.isShared && <Share2 className="size-3.5 shrink-0 text-muted-foreground" />}
                 </div>
                 {spaceName && (
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground" title={spaceName}>
+                  <p
+                    dir={contentDir}
+                    className="mt-0.5 truncate text-xs text-muted-foreground"
+                    title={spaceName}
+                  >
                     {spaceName}
                   </p>
                 )}
               </div>
             )}
           </div>
-          <div className="absolute right-0 top-1 flex gap-2 px-1 md:opacity-0 md:group-hover:opacity-100">
+          <div className="absolute end-0 top-1 flex gap-2 px-1 md:opacity-0 md:group-hover:opacity-100">
             <StarButton
               className="size-6 rounded-full bg-gray-100/50 p-1 shadow backdrop-blur-sm transition-colors hover:bg-gray-200/80"
               id={base.id}

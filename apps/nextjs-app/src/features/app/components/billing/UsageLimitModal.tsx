@@ -1,4 +1,5 @@
 import { UsageLimitModalType, useUsageLimitModalStore } from '@teable/sdk/components/billing/store';
+import { UsageLimitReasonBlock } from '@teable/sdk/components/billing/UsageLimitReasonBlock';
 import { useBase } from '@teable/sdk/hooks';
 import {
   Dialog,
@@ -53,6 +54,7 @@ export const UsageLimitModal = () => {
       >
         <DialogHeader>
           <DialogTitle>{t('billing.overLimits')}</DialogTitle>
+          {isUpgrade && <UsageLimitReasonBlock />}
           <DialogDescription className="pt-1">{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>

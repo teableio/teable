@@ -220,6 +220,24 @@ export class BaseNodeListener {
     };
   }
 
+  // The share-base copy path writes base_node rows with raw SQL and emits none of the
+  // per-resource events above, so the cached node list of an existing target base would
+  // stay stale and the saved nodes stay invisible until an unrelated change flushes it.
+  @OnEvent(Events.BASE_SHARE_COPY_COMPLETE, { async: true })
+  async onBaseShareCopyComplete(payload: { baseId: string }) {
+    const baseId = payload?.baseId;
+    if (!baseId) {
+      this.logger.error('Invalid base share copy complete event', payload);
+      return;
+    }
+
+    this.presenceHandler(baseId, (presence) => {
+      presence.submit({
+        event: 'flush',
+      });
+    });
+  }
+
   @OnEvent(Events.BASE_DELETE, { async: true })
   @OnEvent(Events.BASE_FOLDER_DELETE, { async: true })
   @OnEvent(Events.TABLE_DELETE, { async: true })

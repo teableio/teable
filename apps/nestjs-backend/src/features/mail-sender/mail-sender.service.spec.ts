@@ -1,5 +1,7 @@
 import type { MailerService } from '@nestjs-modules/mailer';
+import { HttpErrorCode } from '@teable/core';
 import type { IMailTransportConfig } from '@teable/openapi';
+import { MailTransporterType } from '@teable/openapi';
 import { createTransport } from 'nodemailer';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IMailConfig } from '../../configs/mail.config';
@@ -193,5 +195,74 @@ describe('MailSenderService transporter pooling', () => {
 
     await service.sendMailByConfig({ to: 'b@example.com' }, smtpConfig);
     expect(mockedCreateTransport).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('MailSenderService delivery error classification', () => {
+  const smtpRejection = Object.assign(new Error('Message failed: 554 5.7.1 outgoing limits'), {
+    code: 'EMESSAGE',
+    responseCode: 554,
+    response: '554 5.7.1 outgoing limits',
+    command: 'DATA',
+  });
+
+  const createService = (settings: Record<string, unknown> = {}) => {
+    const mailService = {
+      templateAdapter: {},
+      initTemplateAdapter: vi.fn(),
+    } as unknown as MailerService;
+    const mailConfig = {
+      ...smtpConfig,
+      senderName: 'Teable',
+      isConfigured: true,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      dnsTimeout: 5000,
+    } as unknown as IMailConfig;
+    const settingOpenApiService = { getSetting: vi.fn().mockResolvedValue(settings) };
+    const stub = <T>() => ({}) as T;
+    return new MailSenderService(
+      mailService,
+      mailConfig,
+      stub(),
+      settingOpenApiService as never,
+      stub(),
+      stub(),
+      stub()
+    );
+  };
+
+  beforeEach(() => {
+    mockedCreateTransport.mockReset();
+    mockedCreateTransport.mockImplementation(
+      () =>
+        ({
+          sendMail: vi.fn().mockRejectedValue(smtpRejection),
+          close: vi.fn(),
+        }) as never
+    );
+  });
+
+  it('converts a caller-supplied transport failure into a 424', async () => {
+    const service = createService();
+
+    await expect(
+      service.sendMail({ to: 'a@example.com' }, { shouldThrow: true, transportConfig: smtpConfig })
+    ).rejects.toMatchObject({
+      status: 424,
+      code: HttpErrorCode.FAILED_DEPENDENCY,
+      data: { smtp: { responseCode: 554, host: smtpConfig.host } },
+    });
+  });
+
+  it('leaves a system transport failure unclassified so it still reaches Sentry', async () => {
+    const service = createService();
+
+    await expect(
+      service.sendMail(
+        { to: 'a@example.com' },
+        { shouldThrow: true, transporterName: MailTransporterType.Automation }
+      )
+    ).rejects.toBe(smtpRejection);
   });
 });

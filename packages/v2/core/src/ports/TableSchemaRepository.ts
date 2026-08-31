@@ -24,6 +24,14 @@ export type TableSchemaInsertManyOptions = {
 export interface ITableSchemaRepository {
   insert(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>>;
   ensureInserted?(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>>;
+  /**
+   * Create the physical table only when it is missing. Do not replay field
+   * schema on an existing relation — that can recreate unique indexes.
+   */
+  ensurePhysicalTable?(
+    context: IExecutionContext,
+    table: Table
+  ): Promise<Result<void, DomainError>>;
   insertMany(
     context: IExecutionContext,
     tables: ReadonlyArray<Table>,

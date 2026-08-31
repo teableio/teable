@@ -12,10 +12,18 @@ import {
   type IConvertFieldRo,
   type IFieldRo,
   type IFieldVo,
+  type IGetFieldsQuery,
+  type ISnapshotBase,
   type IUpdateFieldRo,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IDuplicateFieldRo, IPlanFieldVo } from '@teable/openapi';
+import type {
+  IDuplicateFieldRo,
+  IGetViewFilterLinkRecordsVo,
+  IPlanFieldConvertVo,
+  IPlanFieldVo,
+} from '@teable/openapi';
+import { getViewFilterLinkRecordsVoSchema } from '@teable/openapi';
 import {
   mapDomainErrorToHttpError,
   mapDomainErrorToHttpStatus,
@@ -26,6 +34,7 @@ import {
   executeDuplicateFieldEndpoint,
   executeUpdateFieldEndpoint,
   executeUpdateRecordEndpoint,
+  executeUpdateRecordsEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
 import {
   CreateFieldCommand,
@@ -34,16 +43,24 @@ import {
   type CreateFieldsResult,
   DeleteFieldsCommand,
   DbTableName,
+  DryRunFieldConversionQuery,
+  type FieldConversionDryRunResult,
   type Field,
   FieldId,
+  GetFieldFilterLinkRecordsQuery,
+  type GetViewFilterLinkRecordsResult,
   type ICommandBus,
   type IExecutionContext,
+  type IQueryBus,
   type ISpan,
-  type ITableMapper,
   type ITracer,
   extractLookupDisplayOptionsPatch,
   LinkFieldConfig,
   LinkRelationship,
+  ListFieldsQuery,
+  type ListFieldsResult,
+  ListTableRecordsQuery,
+  type ListTableRecordsResult,
   stripLookupFormulaExecutableOptions,
   TableId,
   type Table,
@@ -53,24 +70,22 @@ import {
 } from '@teable/v2-core';
 import { instanceToPlain } from 'class-transformer';
 import { ClsService } from 'nestjs-cls';
+import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
+import { isNotHiddenField } from '../../../utils/is-not-hidden-field';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { DataLoaderService } from '../../data-loader/data-loader.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
+import { throwV2Error } from '../../v2/v2-http-error';
 import { FieldSupplementService } from '../field-calculate/field-supplement.service';
-import { FieldOpenApiService } from './field-open-api.service';
 
 const internalServerError = 'Internal server error';
 // eslint-disable-next-line @typescript-eslint/naming-convention
 type ConvertFieldExecutionOptions = {
   suppressWindowId?: boolean;
   undoRedoMode?: 'undo' | 'redo' | 'normal';
-};
-
-type ITableDtoWithFields = {
-  fields: ReadonlyArray<Record<string, unknown>>;
 };
 
 type IPreparedLegacyCreateField = {
@@ -166,10 +181,10 @@ export class FieldOpenApiV2Service {
     private readonly v2ContainerService: V2ContainerService,
     private readonly v2ContextFactory: V2ExecutionContextFactory,
     private readonly dataLoaderService: DataLoaderService,
-    private readonly fieldOpenApiService: FieldOpenApiService,
     private readonly cls: ClsService<IClsStore>,
     private readonly fieldSupplementService: FieldSupplementService,
-    private readonly prismaService: PrismaService
+    private readonly prismaService: PrismaService,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   private async assertCrossSpaceForV2Field(
@@ -219,20 +234,44 @@ export class FieldOpenApiV2Service {
     this.dataLoaderService.field.invalidateTables(ids);
   }
 
-  private throwV2Error(
-    error: {
-      code: string;
-      message: string;
-      tags?: ReadonlyArray<string>;
-      details?: Readonly<Record<string, unknown>>;
-    },
-    status: number
-  ): never {
-    throw new CustomHttpException(error.message, getDefaultCodeByStatus(status), {
-      domainCode: error.code,
-      domainTags: error.tags,
-      details: error.details,
-    });
+  async getFilterLinkRecords(
+    tableId: string,
+    fieldId: string
+  ): Promise<IGetViewFilterLinkRecordsVo> {
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const context = await this.v2ContextFactory.createContext(container);
+    const queryResult = GetFieldFilterLinkRecordsQuery.create({ tableId, fieldId });
+    if (queryResult.isErr()) {
+      throwV2Error(
+        mapDomainErrorToHttpError(queryResult.error),
+        mapDomainErrorToHttpStatus(queryResult.error)
+      );
+    }
+
+    const result = await queryBus.execute<
+      GetFieldFilterLinkRecordsQuery,
+      GetViewFilterLinkRecordsResult
+    >(context, queryResult.value);
+    if (result.isErr()) {
+      throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
+
+    const parsed = getViewFilterLinkRecordsVoSchema.safeParse(result.value.groups);
+    if (!parsed.success) {
+      throwV2Error(
+        {
+          code: 'internal_server_error',
+          message: internalServerError,
+          details: { issues: parsed.error.issues },
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+    return parsed.data;
   }
 
   private normalizeFieldVo(field: unknown): IFieldVo {
@@ -260,6 +299,28 @@ export class FieldOpenApiV2Service {
         raw.options = opts;
         delete raw.config;
       }
+    }
+
+    // Translate the flattened conditional-lookup DTO shape produced by
+    // mapFieldToDto ({ type: innerType, isLookup, conditionalLookupOptions })
+    // to the v1 API format ({ isConditionalLookup, lookupOptions }).
+    if (raw.conditionalLookupOptions && typeof raw.conditionalLookupOptions === 'object') {
+      const conditionalOptions = raw.conditionalLookupOptions as Record<string, unknown>;
+      const condition = conditionalOptions.condition as Record<string, unknown> | undefined;
+      const lookupOptions: Record<string, unknown> = {};
+      if (conditionalOptions.foreignTableId != null)
+        lookupOptions.foreignTableId = conditionalOptions.foreignTableId;
+      if (conditionalOptions.lookupFieldId != null)
+        lookupOptions.lookupFieldId = conditionalOptions.lookupFieldId;
+      if (condition) {
+        if (condition.filter !== undefined) lookupOptions.filter = condition.filter;
+        if (condition.sort !== undefined) lookupOptions.sort = condition.sort;
+        if (condition.limit !== undefined) lookupOptions.limit = condition.limit;
+      }
+      vo.isLookup = true;
+      vo.isConditionalLookup = true;
+      raw.lookupOptions = lookupOptions;
+      delete raw.conditionalLookupOptions;
     }
 
     // Translate v2 conditionalLookup DTO to v1 API format.
@@ -487,37 +548,198 @@ export class FieldOpenApiV2Service {
     );
   }
 
+  private async listDomainFields(
+    tableId: string,
+    viewId?: string,
+    context?: IExecutionContext
+  ): Promise<{ result: ListFieldsResult; context: IExecutionContext }> {
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const queryContext = context ?? (await this.v2ContextFactory.createContext(container));
+    const queryResult = ListFieldsQuery.create({ tableId, viewId });
+    if (queryResult.isErr()) {
+      throwV2Error(
+        mapDomainErrorToHttpError(queryResult.error),
+        mapDomainErrorToHttpStatus(queryResult.error)
+      );
+    }
+
+    const result = await queryBus.execute<ListFieldsQuery, ListFieldsResult>(
+      queryContext,
+      queryResult.value
+    );
+    if (result.isErr()) {
+      throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
+    return { result: result.value, context: queryContext };
+  }
+
+  async getFields(tableId: string, query: IGetFieldsQuery = {}): Promise<IFieldVo[]> {
+    const { result, context } = await this.listDomainFields(tableId, query.viewId);
+    const fieldDtoById = new Map(
+      result.fields.map((field) => {
+        const dto = mapFieldToDto(field, result.primaryFieldId);
+        if (dto.isErr()) {
+          throw new HttpException(dto.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return [field.id().toString(), dto.value as Record<string, unknown>] as const;
+      })
+    );
+    const fields = await Promise.all(
+      result.fields.map(async (field) => {
+        const vo = this.normalizeFieldVo(fieldDtoById.get(field.id().toString()));
+        this.enrichLookupLinkMetadata(vo, (linkFieldId) => fieldDtoById.get(linkFieldId));
+        await this.hydrateLookupFieldVo(vo, context);
+        return vo;
+      })
+    );
+    await this.overlayStoredPendingState(fields);
+
+    if (query.projection) {
+      const fieldById = new Map(fields.map((field) => [field.id, field] as const));
+      return query.projection
+        .map((fieldId) => fieldById.get(fieldId))
+        .filter((field): field is IFieldVo => field != null);
+    }
+
+    const view = result.view;
+    if (!view) return fields;
+    const columnMetaResult = view.columnMeta();
+    if (columnMetaResult.isErr()) {
+      throwV2Error(
+        mapDomainErrorToHttpError(columnMetaResult.error),
+        mapDomainErrorToHttpStatus(columnMetaResult.error)
+      );
+    }
+    const columnMeta = columnMetaResult.value.toDto();
+    const viewProjection = {
+      type: view.type().toString(),
+      options: view.options(),
+      columnMeta,
+    } as Parameters<typeof isNotHiddenField>[1];
+    const visibleFields =
+      query.filterHidden ?? true
+        ? fields.filter((field) => isNotHiddenField(field.id, viewProjection))
+        : fields;
+
+    return [...visibleFields].sort((left, right) => {
+      const leftOrder = columnMeta[left.id]?.order;
+      const rightOrder = columnMeta[right.id]?.order;
+      if (leftOrder == null && rightOrder == null) return 0;
+      if (leftOrder == null) return 1;
+      if (rightOrder == null) return -1;
+      return leftOrder - rightOrder;
+    });
+  }
+
+  async getSnapshotBulk(
+    tableId: string,
+    ids: ReadonlyArray<string> | string | undefined
+  ): Promise<ISnapshotBase<IFieldVo>[]> {
+    const fieldIds = Array.isArray(ids) ? [...ids] : typeof ids === 'string' ? [ids] : [];
+    if (fieldIds.length === 0) {
+      return [];
+    }
+
+    const readVersions = async () => {
+      const storedFields = await this.prismaService.txClient().field.findMany({
+        where: { tableId, id: { in: fieldIds }, deletedTime: null },
+        select: { id: true, version: true },
+      });
+      return new Map(storedFields.map((field) => [field.id, field.version] as const));
+    };
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const versionsBefore = await readVersions();
+      const fields = await this.getFields(tableId, { filterHidden: false });
+      const versionsAfter = await readVersions();
+      const isStable = fieldIds.every(
+        (fieldId) => versionsBefore.get(fieldId) === versionsAfter.get(fieldId)
+      );
+      if (!isStable) {
+        continue;
+      }
+
+      const fieldById = new Map(fields.map((field) => [field.id, field] as const));
+      return fieldIds.flatMap((id) => {
+        const field = fieldById.get(id);
+        const version = versionsAfter.get(id);
+        return field && version != null ? [{ id, v: version, type: 'json0', data: field }] : [];
+      });
+    }
+
+    throw new HttpException(
+      `Fields in table ${tableId} changed while reading their snapshots`,
+      HttpStatus.CONFLICT
+    );
+  }
+
   private async getFieldFromV2(
     tableId: string,
     fieldId: string,
     context?: IExecutionContext
   ): Promise<IFieldVo> {
-    const container = await this.v2ContainerService.getContainerForTable(tableId);
-    const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
-    const tableMapper = container.resolve<ITableMapper>(v2CoreTokens.tableMapper);
-    const tableIdResult = TableId.create(tableId);
-    if (tableIdResult.isErr()) {
-      throw new HttpException('Invalid table id', HttpStatus.BAD_REQUEST);
+    const { result, context: queryContext } = await this.listDomainFields(
+      tableId,
+      undefined,
+      context
+    );
+    const field = result.fields.find((candidate) => candidate.id().toString() === fieldId);
+    if (!field) {
+      throw new HttpException(`Field ${fieldId} not found`, HttpStatus.NOT_FOUND);
+    }
+    const fieldDtoById = new Map<string, Record<string, unknown>>();
+    for (const candidate of result.fields) {
+      const dtoResult = mapFieldToDto(candidate, result.primaryFieldId);
+      if (dtoResult.isErr()) {
+        throw new HttpException(dtoResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+      fieldDtoById.set(candidate.id().toString(), dtoResult.value as Record<string, unknown>);
+    }
+    const fieldDto = fieldDtoById.get(fieldId);
+    if (!fieldDto) {
+      throw new HttpException(`Field ${fieldId} not found`, HttpStatus.NOT_FOUND);
+    }
+    const vo = this.normalizeFieldVo(fieldDto);
+    this.enrichLookupLinkMetadata(vo, (linkFieldId) => fieldDtoById.get(linkFieldId));
+    await this.hydrateLookupFieldVo(vo, queryContext);
+    await this.overlayStoredPendingState([vo]);
+    return vo;
+  }
+
+  /**
+   * Replace the normalize-time isPending fallback with the stored pending state
+   * on read paths. v2 DTOs never carry isPending, so normalizeFieldVo defaults
+   * every computed field to pending — correct for just-created fields, wrong for
+   * reads: the v1 list endpoint reads the is_pending column and the two
+   * endpoints contradict each other (T6581). Read the same column here so both
+   * report the same state (present only while actually pending, like v1).
+   */
+  private async overlayStoredPendingState(vos: ReadonlyArray<IFieldVo>): Promise<void> {
+    const computedIds = vos.filter((vo) => vo.isComputed === true).map((vo) => vo.id);
+    if (!computedIds.length) {
+      return;
     }
 
-    const queryContext = context ?? (await this.v2ContextFactory.createContext(container));
-    const tableResult = await tableQueryService.getById(queryContext, tableIdResult.value);
-    if (tableResult.isErr()) {
-      const errMsg = tableResult.error.message ?? 'Table not found';
-      const isNotFound =
-        tableResult.error.code === 'table.not_found' || errMsg.includes('not found');
-      throw new HttpException(
-        `v2 getFieldFromV2: ${errMsg}`,
-        isNotFound ? HttpStatus.NOT_FOUND : HttpStatus.INTERNAL_SERVER_ERROR
-      );
-    }
+    const rows = await this.prismaService.txClient().field.findMany({
+      where: { id: { in: computedIds } },
+      select: { id: true, isPending: true },
+    });
+    const pendingById = new Map(rows.map((row) => [row.id, row.isPending]));
 
-    const tableDtoResult = tableMapper.toDTO(tableResult.value);
-    if (tableDtoResult.isErr()) {
-      throw new HttpException(tableDtoResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    for (const vo of vos) {
+      if (vo.isComputed !== true) {
+        continue;
+      }
+      if (pendingById.get(vo.id) === true) {
+        vo.isPending = true;
+      } else {
+        delete vo.isPending;
+      }
     }
-
-    return this.extractFieldVoFromTableDto(tableDtoResult.value, fieldId, queryContext);
   }
 
   private mapDomainFieldToDto(table: Table, field: Field): Record<string, unknown> {
@@ -612,7 +834,7 @@ export class FieldOpenApiV2Service {
             } as IFieldVo['options'];
           } else {
             // Non-formula lookup: source structural options win; only formatting/showAs
-            // from the current field may override (T6208/T6332).
+            // and lookup cell multiplicity from the v2 DTO may override (T6208/T6332/T6941).
             const nextOptions: Record<string, unknown> = {
               ...(sourceOptions ?? {}),
             };
@@ -624,6 +846,12 @@ export class FieldOpenApiV2Service {
             }
             if (currentOptions && Object.prototype.hasOwnProperty.call(currentOptions, 'showAs')) {
               nextOptions.showAs = currentOptions.showAs;
+            }
+            if (
+              currentOptions &&
+              Object.prototype.hasOwnProperty.call(currentOptions, 'isMultiple')
+            ) {
+              nextOptions.isMultiple = currentOptions.isMultiple;
             }
             vo.options = nextOptions as IFieldVo['options'];
           }
@@ -641,27 +869,6 @@ export class FieldOpenApiV2Service {
     if (vo.options == null) {
       vo.options = {};
     }
-  }
-
-  private async extractFieldVoFromTableDto(
-    tableDto: ITableDtoWithFields,
-    fieldId: string,
-    queryContext?: IExecutionContext
-  ): Promise<IFieldVo> {
-    const field = tableDto.fields.find((item) => item.id === fieldId);
-    if (!field) {
-      throw new HttpException(`Field ${fieldId} not found`, HttpStatus.NOT_FOUND);
-    }
-
-    const vo = this.normalizeFieldVo(field);
-
-    this.enrichLookupLinkMetadata(vo, (linkFieldId) =>
-      tableDto.fields.find((f) => f.id === linkFieldId)
-    );
-
-    await this.hydrateLookupFieldVo(vo, queryContext);
-
-    return vo;
   }
 
   private async extractFieldVoFromDomainTable(
@@ -845,17 +1052,25 @@ export class FieldOpenApiV2Service {
         [TeableSpanAttributes.FIELD_ID]: fieldId,
       }
     );
-    return options?.forceCompatLookupRead === true || createdFieldFromDomain.isLookup === true
-      ? await withV2Span(
-          context,
-          'getCreatedFieldFromV2Compat',
-          () => this.getFieldFromV2(tableId, fieldId, context),
-          {
-            [TeableSpanAttributes.TABLE_ID]: tableId,
-            [TeableSpanAttributes.FIELD_ID]: fieldId,
-          }
-        )
-      : createdFieldFromDomain;
+    const createdField =
+      options?.forceCompatLookupRead === true || createdFieldFromDomain.isLookup === true
+        ? await withV2Span(
+            context,
+            'getCreatedFieldFromV2Compat',
+            () => this.getFieldFromV2(tableId, fieldId, context),
+            {
+              [TeableSpanAttributes.TABLE_ID]: tableId,
+              [TeableSpanAttributes.FIELD_ID]: fieldId,
+            }
+          )
+        : createdFieldFromDomain;
+    // Create responses keep the v1 contract: a just-created computed field is
+    // pending until its first computation lands. getFieldFromV2 reads the
+    // stored pending state (T6581), which v2 does not populate at create time.
+    if (createdField.isComputed === true && createdField.isPending == null) {
+      createdField.isPending = true;
+    }
+    return createdField;
   }
 
   async getField(tableId: string, fieldId: string): Promise<IFieldVo> {
@@ -947,8 +1162,11 @@ export class FieldOpenApiV2Service {
     const cellValueType = raw.cellValueType;
     const isMultipleCellValue = raw.isMultipleCellValue;
 
+    // The v2 command validates the pair together — always forward both;
+    // a lone cellValueType is rejected with 'requires cellValueType and
+    // isMultipleCellValue'.
     if (typeof cellValueType === 'string' && typeof isMultipleCellValue === 'boolean') {
-      return isMultipleCellValue ? { cellValueType, isMultipleCellValue } : { cellValueType };
+      return { cellValueType, isMultipleCellValue };
     }
     return {};
   }
@@ -1421,7 +1639,7 @@ export class FieldOpenApiV2Service {
     );
 
     if (commandResult.isErr()) {
-      this.throwV2Error(
+      throwV2Error(
         mapDomainErrorToHttpError(commandResult.error),
         mapDomainErrorToHttpStatus(commandResult.error)
       );
@@ -1437,7 +1655,7 @@ export class FieldOpenApiV2Service {
     );
 
     if (result.isErr()) {
-      this.throwV2Error(
+      throwV2Error(
         mapDomainErrorToHttpError(result.error),
         mapDomainErrorToHttpStatus(result.error)
       );
@@ -1472,10 +1690,73 @@ export class FieldOpenApiV2Service {
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
-  planFieldCreate(): IPlanFieldVo {
+  async planFieldCreate(tableId: string, fieldRo: IFieldRo): Promise<IPlanFieldVo> {
+    const v2Field = this.mapLegacyCreateFieldToV2(fieldRo);
+    await this.assertCrossSpaceForV2Field(tableId, v2Field);
+    // v1 create-field plan includes a graph; v2 canary create is a dry header
+    // only (no rewrite until the field exists). Match graph.e2e v2 canary.
     return {
       estimateTime: 0,
       updateCellCount: 0,
+    };
+  }
+
+  /**
+   * v2 convert dry run. Runs the field-conversion dry-run query against the v2
+   * domain (no persistence) and adapts the outcome to the v1 plan contract the
+   * field editor consumes: config-only changes (aiConfig, showAs, formatting,
+   * name, ...) report zero rewritten cells so no confirmation dialog appears.
+   */
+  async planFieldConvert(
+    tableId: string,
+    fieldId: string,
+    updateFieldRo: IConvertFieldRo
+  ): Promise<IPlanFieldConvertVo> {
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const context = await this.v2ContextFactory.createContext(container);
+    const currentField = await this.getFieldFromV2(tableId, fieldId, context);
+
+    const v2Field = {
+      ...this.mapConvertFieldToV2(updateFieldRo, currentField as Record<string, unknown>),
+      updateMode: 'full',
+    };
+    await this.assertCrossSpaceForV2Field(tableId, v2Field as Record<string, unknown>);
+
+    const queryResult = DryRunFieldConversionQuery.create({
+      tableId,
+      fieldId,
+      field: v2Field,
+    });
+    if (queryResult.isErr()) {
+      throwV2Error(
+        mapDomainErrorToHttpError(queryResult.error),
+        mapDomainErrorToHttpStatus(queryResult.error)
+      );
+    }
+
+    const result = await queryBus.execute<DryRunFieldConversionQuery, FieldConversionDryRunResult>(
+      context,
+      queryResult.value
+    );
+    if (result.isErr()) {
+      throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
+
+    const dryRun = result.value;
+    if (dryRun.isNoop || (!dryRun.requiresDataRewrite && dryRun.linkSideEffectCount === 0)) {
+      // Nothing would be rewritten or restructured: no conversion plan to confirm.
+      return { skip: true };
+    }
+    return {
+      updateCellCount: dryRun.affectedCellCount,
+      estimateTime: Math.floor(
+        dryRun.affectedCellCount / this.thresholdConfig.estimateCalcCelPerMs
+      ),
+      linkFieldCount: dryRun.linkSideEffectCount,
     };
   }
 
@@ -1517,7 +1798,7 @@ export class FieldOpenApiV2Service {
     });
 
     if (commandResult.isErr()) {
-      this.throwV2Error(
+      throwV2Error(
         mapDomainErrorToHttpError(commandResult.error),
         mapDomainErrorToHttpStatus(commandResult.error)
       );
@@ -1529,7 +1810,7 @@ export class FieldOpenApiV2Service {
     );
 
     if (result.isErr()) {
-      this.throwV2Error(
+      throwV2Error(
         mapDomainErrorToHttpError(result.error),
         mapDomainErrorToHttpStatus(result.error)
       );
@@ -1574,7 +1855,7 @@ export class FieldOpenApiV2Service {
     tableId: string,
     fieldId: string,
     duplicateFieldRo: IDuplicateFieldRo,
-    windowId?: string
+    _windowId?: string
   ): Promise<IFieldVo> {
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
@@ -1618,14 +1899,12 @@ export class FieldOpenApiV2Service {
         sourceFieldRaw
       );
       if (isCrossSpace) {
-        // Delegate to v1: it creates the new field as single line text and
-        // copies the source link/lookup values across as title text. Keeping
-        // the downgrade in one place avoids drift between v1 and v2.
-        return this.fieldOpenApiService.duplicateField(
+        return this.duplicateCrossSpaceFieldAsText(
           tableId,
           fieldId,
           duplicateFieldRo,
-          windowId
+          context,
+          container
         );
       }
     }
@@ -1645,7 +1924,7 @@ export class FieldOpenApiV2Service {
 
     if (!(duplicateResult.status === 200 && duplicateResult.body.ok)) {
       if (!duplicateResult.body.ok) {
-        this.throwV2Error(duplicateResult.body.error, duplicateResult.status);
+        throwV2Error(duplicateResult.body.error, duplicateResult.status);
       }
       throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -1655,6 +1934,98 @@ export class FieldOpenApiV2Service {
     this.invalidateFieldLoader([tableId]);
 
     return this.getFieldFromV2(tableId, duplicatedFieldId, context);
+  }
+
+  private async duplicateCrossSpaceFieldAsText(
+    tableId: string,
+    sourceFieldId: string,
+    duplicateFieldRo: IDuplicateFieldRo,
+    context: IExecutionContext,
+    container: { resolve<T>(token: unknown): T }
+  ): Promise<IFieldVo> {
+    const created = await this.createField(tableId, {
+      name: duplicateFieldRo.name,
+      type: FieldType.SingleLineText,
+    });
+    await this.copyFieldValuesAsText(tableId, sourceFieldId, created.id, context, container);
+    return created;
+  }
+
+  private async copyFieldValuesAsText(
+    tableId: string,
+    sourceFieldId: string,
+    targetFieldId: string,
+    context: IExecutionContext,
+    container: { resolve<T>(token: unknown): T }
+  ): Promise<void> {
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const pageSize = 1000;
+    let offset = 0;
+
+    for (;;) {
+      const query = ListTableRecordsQuery.create({
+        tableId,
+        projection: [sourceFieldId],
+        fieldKeyType: FieldKeyType.Id,
+        ignoreViewQuery: true,
+        limit: pageSize,
+        offset,
+      });
+      if (query.isErr()) {
+        throwV2Error(
+          mapDomainErrorToHttpError(query.error),
+          mapDomainErrorToHttpStatus(query.error)
+        );
+      }
+      const listed = await queryBus.execute<ListTableRecordsQuery, ListTableRecordsResult>(
+        context,
+        query.value
+      );
+      if (listed.isErr()) {
+        throwV2Error(
+          mapDomainErrorToHttpError(listed.error),
+          mapDomainErrorToHttpStatus(listed.error)
+        );
+      }
+      const records = listed.value.records;
+      if (records.length === 0) {
+        return;
+      }
+      const updates = records.flatMap((record) => {
+        const text = stringifyCrossSpaceCellValue(record.fields[sourceFieldId]);
+        if (text == null) {
+          return [];
+        }
+        return [
+          {
+            id: record.id,
+            fields: { [targetFieldId]: text },
+          },
+        ];
+      });
+      if (updates.length > 0) {
+        const updated = await executeUpdateRecordsEndpoint(
+          context,
+          {
+            tableId,
+            fieldKeyType: FieldKeyType.Id,
+            records: updates,
+          },
+          commandBus
+        );
+        if (!(updated.status === 200 && updated.body.ok)) {
+          if (!updated.body.ok) {
+            throwV2Error(updated.body.error, updated.status);
+          }
+          throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+      }
+      if (records.length < pageSize) {
+        return;
+      }
+      offset += pageSize;
+    }
   }
 
   async deleteField(tableId: string, fieldId: string): Promise<void> {
@@ -1694,7 +2065,7 @@ export class FieldOpenApiV2Service {
     }
 
     if (!result.body.ok) {
-      this.throwV2Error(result.body.error, result.status);
+      throwV2Error(result.body.error, result.status);
     }
 
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -1727,7 +2098,7 @@ export class FieldOpenApiV2Service {
       fieldIds,
     });
     if (commandResult.isErr()) {
-      this.throwV2Error(
+      throwV2Error(
         {
           code: commandResult.error.code,
           message: commandResult.error.message,
@@ -1740,7 +2111,7 @@ export class FieldOpenApiV2Service {
 
     const result = await commandBus.execute(context, commandResult.value);
     if (result.isErr()) {
-      this.throwV2Error(
+      throwV2Error(
         {
           code: result.error.code,
           message: result.error.message,
@@ -1783,7 +2154,7 @@ export class FieldOpenApiV2Service {
     }
 
     if (!result.body.ok) {
-      this.throwV2Error(result.body.error, result.status);
+      throwV2Error(result.body.error, result.status);
     }
 
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -1854,7 +2225,7 @@ export class FieldOpenApiV2Service {
     }
 
     if (!result.body.ok) {
-      this.throwV2Error(result.body.error, result.status);
+      throwV2Error(result.body.error, result.status);
     }
 
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -1903,7 +2274,7 @@ export class FieldOpenApiV2Service {
 
         if (!(result.status === 200 && result.body.ok)) {
           if (!result.body.ok) {
-            this.throwV2Error(result.body.error, result.status);
+            throwV2Error(result.body.error, result.status);
           }
           throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
         }
@@ -2025,7 +2396,13 @@ export class FieldOpenApiV2Service {
           ? { isMultipleCellValue: roRecord.isMultipleCellValue }
           : typeof currentIsMultipleCellValue === 'boolean'
             ? { isMultipleCellValue: currentIsMultipleCellValue }
-            : {}),
+            : typeof roRecord.cellValueType === 'string' ||
+                (currentCellValueType && !shouldSkipFormulaStringFallback)
+              ? // The v1 vo omits isMultipleCellValue when false; the v2 command
+                // validates the result-type pair together, so make the default
+                // explicit whenever a cellValueType is forwarded.
+                { isMultipleCellValue: false }
+              : {}),
         options: {
           ...(lookupOpts && shouldUpdateCondition
             ? {
@@ -2256,4 +2633,27 @@ export class FieldOpenApiV2Service {
       options: passThroughOptions,
     };
   }
+}
+
+function stringifyCrossSpaceCellValue(value: unknown): string | null {
+  if (value == null || value === '') {
+    return null;
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((item) => stringifyCrossSpaceCellValue(item))
+      .filter((item): item is string => item != null && item !== '');
+    return parts.length > 0 ? parts.join(', ') : null;
+  }
+  if (typeof value === 'object' && 'title' in value) {
+    const title = (value as { title?: unknown }).title;
+    return title == null ? null : String(title);
+  }
+  return String(value);
 }

@@ -6,12 +6,14 @@
     "doNotSave": "Kaydetme",
     "submit": "Gönder",
     "confirm": "Onayla",
+    "continue": "Devam Et",
     "close": "Kapat",
     "edit": "Düzenle",
     "fill": "Doldur",
     "update": "Güncelle",
     "create": "Oluştur",
     "delete": "Sil",
+    "clear": "Temizle",
     "cancel": "İptal",
     "zoomIn": "Yakınlaştır",
     "zoomOut": "Uzaklaştır",
@@ -19,6 +21,7 @@
     "download": "İndir",
     "remove": "Kaldır",
     "removeConfig": "Yapılandırmayı sil",
+    "retry": "Yeniden dene",
     "saveSucceed": "Başarıyla Kaydedildi!",
     "submitSucceed": "Başarıyla Gönderildi!",
     "editSucceed": "Başarıyla Düzenlendi!",
@@ -31,6 +34,8 @@
     "yesDelete": "Evet, sil",
     "rename": "Yeniden Adlandır",
     "duplicate": "Çoğalt",
+    "export": "Dışa Aktar",
+    "import": "İçe Aktar",
     "change": "Değiştir",
     "upgrade": "Yükselt",
     "upgradeToLevel": "{{level}}'e yükselt",
@@ -41,35 +46,32 @@
     "permanentDelete": "Kalıcı Olarak Sil",
     "globalSearch": "Genel Arama",
     "fieldSearch": "Alan Ara",
+    "tableIndex": "Dizin",
     "showAllRow": "Tüm satırları göster",
     "hideNotMatchRow": "Eşleşmeyen satırları gizle",
     "more": "Daha Fazla",
     "expand": "Genişlet",
-    "tableIndex": "Dizin",
+    "view": "Görüntüle",
+    "preview": "Önizleme",
+    "viewAndEdit": "Görüntüle ve düzenle",
+    "deleteTip": "\"{{name}}\" öğesini silmek istediğinizden emin misiniz?",
     "move": "Taşı",
     "turnOn": "Aç",
     "exit": "Çıkış",
     "next": "Sonraki",
     "previous": "Önceki",
     "select": "Seç",
-    "view": "Görüntüle",
-    "preview": "Önizleme",
-    "viewAndEdit": "Görüntüle ve düzenle",
-    "deleteTip": "\"{{name}}\" öğesini silmek istediğinizden emin misiniz?",
     "refresh": "Yenile",
     "login": "Giriş Yap",
     "useTemplate": "Şablon Kullan",
-    "copyToMySpace": "Copy to my space",
-    "saveToMySpace": "Save to my space",
-    "supportSaveCopy": "Support saving a copy",
+    "copyLink": "Bağlantıyı kopyala",
+    "openLink": "Bağlantıyı aç",
     "backToSpace": "Alana Dön",
     "switchBase": "Veritabanı Değiştir",
-    "continue": "Devam Et",
-    "export": "Dışa Aktar",
-    "import": "İçe Aktar",
+    "collapse": "Daralt",
+    "viewDetails": "Ayrıntıları görüntüle",
     "getMore": "Daha fazla al",
     "copySuccess": "Kopyalama başarılı",
-    "openLink": "Bağlantıyı aç",
     "share": "Paylaş"
   },
   "quickAction": {
@@ -96,30 +98,21 @@
     "loadMore": "Daha Fazla Yükle",
     "allTemplatesLoaded": "Tüm şablonlar yüklendi",
     "createTemplate": "Şablon Oluştur",
+    "promptBox": {
+      "start": "Başlat"
+    },
     "useTemplateDialog": {
       "title": "Alan Seçin",
       "description": "Şablon için bir alan seçin",
       "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
       "newSpacePlaceholder": "Space name",
       "createSpace": "Create"
-    },
-    "promptBox": {
-      "placeholder": "Teable ile iş uygulamanızı oluşturun",
-      "start": "Başlat",
-      "carouselGuides": {
-        "guide1": "Makbuzları yapıştırın → Teable'dan anahtar verileri otomatik olarak çıkarmasını isteyin",
-        "guide2": "Müşteri adayı ve takip tabloları ile AI CRM oluşturun",
-        "guide3": "Müşteri geri bildirimlerini yapıştırın → Teable'dan içgörüler bulmasını ve raporlar oluşturmasını isteyin",
-        "guide4": "Görevler ve son tarihlerle bir proje takip sistemi oluşturun",
-        "guide5": "Müşteri adayları elektronik tablosunu yapıştırın → Teable'dan akıllı bir CRM oluşturmasını isteyin",
-        "guide6": "Gönderiler ve yayın tarihleri ile bir içerik planlayıcısı oluşturun",
-        "guide7": "Özgeçmişleri yapıştırın → Teable'dan adayları düzenlemesini ve ön elemeyi yapmasını isteyin"
-      }
     }
   },
   "baseShare": {
     "shareTitle": "Paylaş",
     "shareToWeb": "Web'de paylaş",
+    "noPermissionTip": "Paylaşım ayarlarını yönetme izniniz yok",
     "linkHolderLabel": "Bağlantıya sahip kişi",
     "linkHolderCanView": "Görüntüleyebilir",
     "linkHolderCanViewDesc": "Bağlantıya sahip herkes verileri görüntüleyebilir",
@@ -261,8 +254,7 @@
       "changePasswordError": {
         "disMatch": "Yeni şifreleriniz eşleşmiyor.",
         "equal": "Yeni şifreniz mevcut şifrenizden farklı olmalıdır.",
-        "invalid": "Mevcut şifreniz geçersiz.",
-        "invalidNew": "Yeni şifreniz geçersiz, minimum 8 karakter olmalıdır."
+        "invalid": "Mevcut şifreniz geçersiz."
       },
       "changePasswordSuccess": {
         "title": "🎉 Şifre başarıyla değiştirildi.",
@@ -276,25 +268,10 @@
         "confirm": "Şifrenizi onaylayın"
       },
       "addPasswordError": {
-        "disMatch": "Şifreleriniz eşleşmiyor.",
-        "invalid": "Şifreniz geçersiz, minimum 8 karakter olmalıdır."
+        "disMatch": "Şifreleriniz eşleşmiyor."
       },
       "addPasswordSuccess": {
         "title": "🎉 Şifre başarıyla eklendi."
-      },
-      "deleteAccount": {
-        "title": "Hesabı Sil",
-        "desc": "Bu işlem geri alınamaz. Hesabınız ve tüm ilişkili veriler kalıcı olarak silinecektir.",
-        "error": {
-          "title": "Hesap silinemedi",
-          "desc": "Önce aşağıdaki bağımlılıkları çözmeniz gerekiyor:",
-          "spacesError": "Hesabınızı silmeden önce, Alanlarınızdan çıkmanız (veya silip çöp kutusuna taşımanız) gerekiyor."
-        },
-        "confirm": {
-          "title": "Onaylamak için <code>DELETE</code> yazın",
-          "placeholder": "DELETE"
-        },
-        "loading": "Siliniyor..."
       },
       "changeEmail": {
         "title": "E-posta adresini değiştir",
@@ -315,6 +292,20 @@
           "desc": "2 saniye içinde giriş sayfasına yönlendirileceksiniz.",
           "sendSuccess": "Doğrulama kodu başarıyla gönderildi."
         }
+      },
+      "deleteAccount": {
+        "title": "Hesabı Sil",
+        "desc": "Bu işlem geri alınamaz. Hesabınız ve tüm ilişkili veriler kalıcı olarak silinecektir.",
+        "error": {
+          "title": "Hesap silinemedi",
+          "desc": "Önce aşağıdaki bağımlılıkları çözmeniz gerekiyor:",
+          "spacesError": "Hesabınızı silmeden önce, Alanlarınızdan çıkmanız (veya silip çöp kutusuna taşımanız) gerekiyor."
+        },
+        "confirm": {
+          "title": "Onaylamak için <code>DELETE</code> yazın",
+          "placeholder": "DELETE"
+        },
+        "loading": "Siliniyor..."
       }
     },
     "notify": {
@@ -330,11 +321,13 @@
       "light": "Açık",
       "system": "Sistem",
       "version": "Uygulama sürümü",
+      "infraVersion": "Altyapı sürümü",
       "language": "Dil",
       "interactionMode": "Etkileşim Modu",
       "mouseMode": "İmleç Modu",
       "touchMode": "Dokunmatik Mod",
       "systemMode": "Sistemi Takip Et",
+      "buySelfHostedLicense": "Kendi barındırma lisansı satın al",
       "teableSkill": "Teable becerisi"
     },
     "teableSkill": {
@@ -375,14 +368,44 @@
     },
     "integration": {
       "title": "Entegrasyonlar",
-      "description": "{{count}} uygulamaya hesabınıza erişim izni verdiniz.",
-      "lastUsed": "Son kullanım: {{date}}",
-      "revoke": "İptal et",
-      "owner": "Sahibi: {{user}}",
-      "revokeTitle": "Yetkilendirmeyi iptal etmek istediğinizden emin misiniz?",
-      "revokeDesc": "{{name}} artık Teable API'sine erişemeyecek. Bu işlem geri alınamaz.",
-      "scopeTitle": "İzinler",
-      "scopeDesc": "Bu uygulama aşağıdaki kapsamlara erişebilecek:"
+      "thirdPartyIntegrations": {
+        "title": "Üçüncü taraf entegrasyonları",
+        "description": "Hesabınıza {{count}} uygulamaya erişim izni verdiniz.",
+        "lastUsed": "Son kullanım: {{date}}",
+        "revoke": "İptal et",
+        "owner": "Sahibi: {{user}}",
+        "revokeTitle": "Yetkiyi iptal etmek istediğinizden emin misiniz?",
+        "revokeDesc": "{{name}} artık Teable API'sine erişemeyecek. Bu işlemi geri alamazsınız.",
+        "scopeTitle": "İzinler",
+        "scopeDesc": "Bu uygulama şu kapsamları alabilecek:"
+      },
+      "userIntegration": {
+        "title": "Bağlı hesaplar",
+        "description": "Teable'ın kaynaklarınıza erişmesine ve bunları senkronize etmesine izin vermek için dış hesapları bağlayın.",
+        "emptyDescription": "Bağlı hesap yok",
+        "actions": {
+          "reconnect": "Yeniden bağlan"
+        },
+        "slack": {
+          "user": "Slack kullanıcısı",
+          "workspace": "Slack çalışma alanı"
+        },
+        "email": {
+          "user": "Kullanıcı",
+          "email": "E-posta"
+        },
+        "deleteTitle": "Bağlı hesabı kaldır",
+        "deleteDesc": "{{name}} kaldırılsın mı?",
+        "create": "Yeni hesap bağla",
+        "manage": "Bağlı hesapları yönet",
+        "searchPlaceholder": "Bağlı hesaplarda ara",
+        "defaultName": "{{name}} entegrasyonu",
+        "callback": {
+          "error": "Yetkilendirme başarısız",
+          "title": "Yetkilendirme başarılı",
+          "desc": "Bu pencereyi artık kapatabilirsiniz."
+        }
+      }
     }
   },
   "noun": {
@@ -471,26 +494,54 @@
       "directAccessDescription": "Davet edilen ortak çalışanlar aşağıdaki bağlantıdan doğrudan erişerek iş birliğine katılabilir",
       "linkSend": "Bağlantı oluştur",
       "spaceTitle": "Alan işbirlikçileri",
+      "spaceTitleWithCount": "Alan iş birlikçileri ({{count}})",
+      "baseTitle": "Taban iş birlikçileri",
+      "allCollaboratorsTitle": "Tüm iş birlikçiler (Alan ve Taban)",
+      "baseOnly": "Yalnızca taban",
       "collaboratorSearchPlaceholder": "İsim veya e-posta ile alan işbirlikçisi bul",
       "collaboratorJoin": "{{joinTime}} tarihinde katıldı",
       "collaboratorRemove": "İşbirlikçiyi kaldır",
+      "basePermissionRemove": "Veritabanı erişimini kaldır",
+      "goToBase": "Veritabanına git",
       "linkTitle": "Davet bağlantıları",
       "linkCreatedTime": "{{createdTime}} tarihinde oluşturuldu",
       "linkCopySuccess": "Bağlantı kopyalandı",
-      "linkRemove": "Bağlantıyı kaldır"
+      "linkRemove": "Bağlantıyı kaldır",
+      "noInviteLinks": "Davet bağlantısı yok",
+      "linkDescription": "Bir davet bağlantısı oluşturun ve izinleri atayın",
+      "haveAccess": "Erişimi var"
     },
     "base": {
       "title": "{{baseName}} paylaş",
       "desc_one": "Bu veritabanı {{count}} işbirlikçi ile paylaşılıyor.",
       "desc_other": "Bu veritabanı {{count}} işbirlikçi ile paylaşılıyor.",
       "baseTitle": "Veritabanı işbirlikçileri",
-      "collaboratorSearchPlaceholder": "İsim veya e-posta ile veritabanı işbirlikçisi bul"
+      "collaboratorSearchPlaceholder": "İsim veya e-posta ile veritabanı işbirlikçisi bul",
+      "baseTitleWithCount": "Taban iş birlikçileri ({{count}})"
     },
+    "addOrgCollaborator": {
+      "title": "Kuruluş iş birlikçisi ekle",
+      "button": "Kuruluştan ekle",
+      "placeholder": "Kuruluş üyesi veya departman seçin"
+    },
+    "sendInvitationSuccess": "Davet gönderildi",
     "table": {
       "collaborator": "İşbirlikçi",
       "accessPermission": "Erişim izni",
       "joinAt": "Katılma tarihi",
-      "lastLogin": "Son giriş"
+      "lastLogin": "Son giriş",
+      "expandPermissions": "{{name}} izinlerini genişlet",
+      "collapsePermissions": "{{name}} izinlerini daralt",
+      "basePermissionsOnly": "Yalnızca seçili veritabanlarına erişebilir",
+      "basePermissionCount": "Veritabanı izinleri: {{count}}"
+    },
+    "authority": {
+      "title": "Yetki matrisi etkin",
+      "description": "İş birlikçilerin etkin erişim izinleri kendilerine atanan rollere bağlıdır; ataması olmayan kullanıcılar varsayılan rolü kullanır",
+      "viewDetail": "Ayrıntıyı görüntüle"
+    },
+    "app": {
+      "previewAppError": "Uygulama hatası"
     }
   },
   "help": {
@@ -508,8 +559,26 @@
     "unavailableInPlanTips": "Mevcut abonelik planı bu özelliği desteklemiyor",
     "unavailableConnectionTips": "Veritabanı bağlantısı özelliği gelecekte kaldırılacak ve yalnızca Kurumsal Plan ve kendi sunucu sürümleri için kullanılabilir olacak.",
     "levelTips": "Bu alan şu anda {{level}} planında",
+    "enterpriseFeature": "Kurumsal özellik",
+    "automationRequiresUpgrade": "Otomasyonu etkinleştirmek için Kurumsal Sürüme (EE) yükseltin",
+    "authorityMatrixRequiresUpgrade": "Yetki matrisini etkinleştirmek için Kurumsal Sürüme (EE) yükseltin",
+    "viewPricing": "Fiyatlandırmayı görüntüle",
     "billable": "Faturalandırılabilir",
     "billableByAuthorityMatrix": "Yetki matrisi tarafından oluşturulan faturalandırma",
+    "seatConfirm": {
+      "title": "Bu davet abonelik ücretinizi artıracak",
+      "roleChangeTitle": "Bu rol değişikliği abonelik ücretinizi artıracak",
+      "matrixTitle": "Üye eklemek abonelik ücretinizi artıracak",
+      "inviteDesc_one": "Davet ettiğiniz üye {{role}} rolüyle katılacak ve 1 abonelik koltuğu kullanacak; ücretiniz buna göre artacak. Yalnızca görüntüleme veya yorum gerekiyorsa ücretsiz İzleyici veya Yorumcu rolünü seçmeniz yeterli.",
+      "inviteDesc_other": "Davet ettiğiniz {{count}} üye {{role}} rolüyle katılacak ve {{count}} abonelik koltuğu kullanacak; ücretiniz buna göre artacak. Yalnızca görüntüleme veya yorum gerekiyorsa ücretsiz İzleyici veya Yorumcu rolünü seçmeniz yeterli.",
+      "linkDesc": "Bu bağlantıyla katılan üyeler {{role}} rolünü alır ve her biri 1 abonelik koltuğu kullanır; katılan kişi sayısıyla ücretiniz artar. Yalnızca görüntüleme veya yorum için ücretsiz İzleyici veya Yorumcu rolünü seçmeniz yeterli.",
+      "roleChangeDesc": "{{role}} rolüne geçtikten sonra bu üye 1 abonelik koltuğu kullanacak ve ücretiniz buna göre artacak.",
+      "matrixDesc": "Bu üye şu anda ücretsiz bir role sahip (İzleyici/Yorumcu). Yetki matrisine eklendiğinde 1 abonelik koltuğu kullanacak ve ücretiniz buna göre artacak.",
+      "seatLimitTitle": "Lisans koltuğu yetersiz",
+      "seatLimitDesc": "Bu örnek, lisanslı {{seatLimit}} koltuğun {{seats}} tanesini kullanıyor ve kalan koltuklar bu işlem için yeterli değil. Ek koltuk satın almak için lütfen yöneticinizle iletişime geçin. Yalnızca görüntüleme veya yorum gerekiyorsa ücretsiz İzleyici veya Yorumcu rolünü kullanabilirsiniz.",
+      "seatLimitConfirm": "Anladım",
+      "confirmInvite": "Onayla ve davet et"
+    },
     "licenseExpiredGracePeriod": "Kendi sunucunuzda barındırma lisansınızın süresi doldu ve {{expiredTime}} tarihinde ücretsiz plana düşürülecek. Premium özelliklere erişimi korumak için lütfen lisansınızı hemen güncelleyin.",
     "licenseAutoFetchFailed": "Lisansın otomatik yenilenmesi başarısız oldu. Sürüm düşürülmeden önce {{days}} gün ek süre kaldı.",
     "licenseAutoFetchRetryFailed": "Otomatik yenileme yine başarısız oldu. Lütfen Teable sunucusuyla bağlantıyı kontrol edin veya lisansı manuel olarak güncelleyin.",
@@ -518,6 +587,7 @@
       "title": "Alan abonelik planını yükselt",
       "description": "Yalnızca sahibi olduğunuz çalışma alanlarını yükseltebilirsiniz"
     },
+    "contactAdminToUpgrade": "Abonelik planını yükseltmek için lütfen alan sahibiyle iletişime geçin.",
     "status": {
       "active": "Aktif",
       "canceled": "İptal Edildi",
@@ -532,6 +602,7 @@
   },
   "admin": {
     "setting": {
+      "instanceTitle": "Örnek ayarları",
       "description": "Mevcut örneğinizin ayarlarını değiştirin",
       "allowSignUp": "Yeni hesap oluşturmaya izin ver",
       "allowSignUpDescription": "Bu seçeneği devre dışı bırakmak yeni kullanıcı kayıtlarını yasaklar ve kayıt düğmesi artık giriş sayfasında görünmez.",
@@ -551,16 +622,16 @@
       "brandingSettings": {
         "title": "Marka ayarları",
         "description": "Yalnızca Kurumsal Sürümde kullanılabilir",
+        "brandName": "Marka adı",
         "logo": "Logo",
-        "logoDescription": "Logo, Teable'daki marka kimliğinizdir.",
         "logoUpload": "Logo yükle",
         "logoUploadDescription": "Logo resmi yükleyin, PNG, JPEG formatlarını destekler, önerilen boyut 100x100px. Maksimum yükleme boyutu 500KB."
       },
       "ai": {
         "name": "İsim",
         "nameDescription": "İsim özelleştirilebilir, farklı model sağlayıcılarını ayırt etmek için kullanılır",
-        "enable": "AI'ı etkinleştir",
-        "enableDescription": "Mevcut örnek için AI özelliklerini etkinleştirin, tüm kullanıcılar AI özelliklerini kullanabilecek",
+        "customModel": "Özel model",
+        "customModelDescription": "Özel modeller yapay zekâ alanlarında, yapay zekâ otomasyonlarında ve yapay zekâ sohbet arayüzünde kullanılabilir. Görsel üretim modellerinin test için işaretlenmesi gerekir",
         "updateLLMProvider": "Model sağlayıcısını güncelle",
         "addProvider": "Model sağlayıcı ekle",
         "addProviderDescription": "Listeye yeni bir model sağlayıcı ekle",
@@ -571,10 +642,16 @@
         "apiKeyDescription": "Model sağlayıcının API anahtarı",
         "models": "Modeller",
         "modelsDescription": "Model sağlayıcının desteklediği modeller",
+        "modelsSelectedCount": "{{count}} model seçildi",
+        "clearAllModels": "Tüm modelleri temizle",
+        "customModelPlaceholder": "Özel model adı girin",
+        "addModelFill": "Ekle",
+        "modelIdReservedAt": "Model kimlikleri '@' içeremez",
         "baseUrlRequired": "Temel URL gereklidir",
         "fetchModelListError": "Model listesi alınamadı",
         "provider": "Model sağlayıcı",
-        "providerDescription": "Kullanılacak model sağlayıcı",
+        "aiAbilitySettings": "Yapay zekâ yetenek ayarları",
+        "aiAbilitySettingsDescription": "Yapay zekâ yeteneklerini yapılandırın",
         "modelPreferences": "Model tercihleri",
         "modelPreferencesDescription": "Model sağlayıcının model tercihleri",
         "embeddingModel": "Gömme modeli",
@@ -585,7 +662,16 @@
         "chatModelDescription": "Kullanılacak sohbet modeli, İpucu: orta kodlama modeli varsayılan olarak AI formül üretimi ve ilgili özellikler için kullanılır",
         "chatModels": {
           "lg": "Gelişmiş sohbet modeli",
-          "lgDescription": "Planlama, kodlama ve diğer karmaşık görev senaryoları için. Önerilen: claude-sonnet-4.5"
+          "lgDescription": "Planlama, kodlama ve diğer karmaşık görev senaryoları için. Önerilen: claude-sonnet-4.5",
+          "md": "Orta düzey görev modeli",
+          "mdDescription": "Günlük konuşmalar ve genel görevler için",
+          "sm": "Hafif görev modeli",
+          "smDescription": "Basit sorgular ve hızlı yanıtlar için",
+          "inheritHint": "Varsayılan ana modelle aynı ({{model}})",
+          "modelTiers": "Model katmanları",
+          "modelTiersDescription": "Orta ve hafif görevlere farklı modeller atayın; ayarlanmamış katmanlar yukarıdaki varsayılan ana modeli kullanır.",
+          "allInheriting": "Tüm katmanlar varsayılan ana modeli kullanıyor",
+          "customized": "{{count}} özelleştirildi"
         },
         "actions": {
           "title": "AI Yetenekleri",
@@ -595,7 +681,12 @@
           },
           "aiChat": {
             "title": "AI Sohbet",
-            "description": "AI Sohbet kenar çubuğu ve tüm ajan işlevleri"
+            "description": "AI Sohbet kenar çubuğu ve tüm ajan işlevleri",
+            "sandboxWarning": "Kullanmadan önce yapay zekâ sohbeti çalışma zamanı aşağıda yapılandırılmalıdır"
+          },
+          "modelSelection": {
+            "title": "Model seçimine izin ver",
+            "description": "Kullanıcıların yapay zekâ sohbetinde ve Uygulama Oluşturucu'da model seçmesine izin ver"
           }
         },
         "chatModelTest": {
@@ -607,6 +698,7 @@
           "confirm": "Modeli Test Et",
           "cancel": "İptal",
           "missingCapabilitiesWarning": "Bu model resim veya PDF işlemeyi desteklemiyor, bu bazı özelliklerin kullanılamaz olmasına neden olabilir.",
+          "modelNotSuitable": "Bu model gelişmiş yapay zekâ özellikleri için uygun olmayabilir:",
           "enableAITitle": "AI'ı Etkinleştir",
           "enableAIDescription": "Model testi tamamlandı. AI şu anda etkin değil. Bu model kabiliyetlerini kullanmak için AI'ı etkinleştirmek istiyor musunuz?",
           "enableAI": "AI'ı Etkinleştir",
@@ -616,8 +708,19 @@
           "image": "Resim",
           "pdf": "PDF",
           "webSearch": "Web Araması",
+          "toolCall": "Araç çağrısı",
+          "reasoning": "Akıl yürütme",
+          "imageGeneration": "Görsel üretimi",
           "disabledWebSearch": "Web Araması Devre Dışı",
-          "lgModelAbility": "Büyük model kabiliyeti"
+          "lgModelAbility": "Büyük model kabiliyeti",
+          "missingVision": "Görsel veya PDF işlemeyi desteklemiyor",
+          "missingToolCall": "Araç/işlev çağrısını desteklemiyor",
+          "notTested": "Model yetenekleri henüz test edilmedi. Lütfen önce modeli sağlayıcı ayarlarında test edin",
+          "supportedFormats": "Desteklenen biçimler"
+        },
+        "imageModelAbility": {
+          "generation": "Metinden görsele",
+          "imageToImage": "Görselden görsele"
         },
         "configUpdated": "AI yapılandırması güncellendi",
         "noModelFound": "Model bulunamadı",
@@ -625,8 +728,6 @@
         "selectModel": "Model seç...",
         "defaultModel": "{{name}} (Varsayılan)",
         "moreModels": "Daha fazla model",
-        "agentModelWarningTitle": "Modelleri dikkatli seçin",
-        "agentModelWarningDescription": "Yukarıdaki önerilen modeller, araç kullanımı ve çok adımlı akıl yürütme gibi ajan görevleri için optimize edilmiştir. Diğer modellerin yetenekleri sınırlı olabilir ve beklenmeyen sonuçlara yol açabilir.",
         "agentModelWarningConfirm": "Anladım",
         "recommendedModelNudge": {
           "title": "{{model}} modelini deneyin",
@@ -648,22 +749,241 @@
         "testConnection": "Test",
         "testing": "Test ediliyor...",
         "testSuccess": "Test başarılı",
+        "testCompleteWithCount": "Test tamamlandı: {{success}}/{{total}} model başarılı",
+        "allTestsFailed": "Tüm model testleri başarısız oldu",
         "testFailed": "Test başarısız",
+        "batchTest": "Model yeteneklerini test et",
+        "test": "Test et",
+        "testProvider": "Test et",
+        "testProviderTooltip": "Bu sağlayıcının {{count}} modelinin tümünü test et",
+        "batchTesting": "Tüm modeller test ediliyor...",
+        "batchTestComplete": "Toplu test tamamlandı",
+        "batchTestResults": "Toplu test sonuçları",
+        "batchTestResultsSummary": "{{total}} modelin {{tested}} tanesi test edildi: {{success}} başarılı, {{failed}} başarısız",
+        "batchTestNoModels": "Test edilecek yapılandırılmış model yok",
+        "modelStatus": "Model durumu",
+        "imageSupport": "Görsel desteği",
+        "basicGeneration": "Temel üretim",
+        "supported": "Destekleniyor",
+        "notSupported": "Desteklenmiyor",
+        "partialSupport": "Kısmi destek",
+        "urlSupport": "URL",
+        "base64Support": "Base64",
+        "closeResults": "Kapat",
+        "retryFailed": "Başarısızları yeniden dene",
+        "stopTest": "Durdur",
+        "pending": "Beklemede",
+        "configuredModels": "Yapılandırılmış modeller",
         "fillRequiredFields": "Lütfen tüm gerekli alanları doldurun",
         "modelsRequired": "Lütfen en az bir model doldurun",
         "noValidModel": "Geçerli model bulunamadı",
         "addCustomModel": "Özel model ekle",
-        "isOpenRouter": "OpenRouter"
-      },
-      "webSearch": {
-        "description": "Web arama özelliğini etkinleştirmek için Firecrawl API anahtarını yapılandırın, API anahtarını almak için <a>Firecrawl ayarlarına</a> erişin"
+        "isOpenRouter": "OpenRouter",
+        "modelRates": "Model fiyatlandırması",
+        "modelSettings": "Model ayarları",
+        "model": "Model",
+        "inputRate": "Giriş USD/token",
+        "outputRate": "Çıkış USD/token",
+        "inputRateTip": "Özel sağlayıcının token başına USD cinsinden üretilen giriş fiyatı",
+        "outputRateTip": "Özel sağlayıcının token başına USD cinsinden üretilen çıkış fiyatı",
+        "rateExplanationTitle": "Özel sağlayıcı fiyatlandırmasını yapılandır",
+        "rateExplanationFormula": "AI Gateway Referansına göre çarpanı girin. Örneğin 0,1, özel sağlayıcı fiyatının referans fiyatın %10'u olduğu anlamına gelir.",
+        "rateExplanationExample": "Giriş, çıkış, önbellek, akıl yürütme, görsel ve web arama fiyatları aynı çarpanla AI Gateway Referansından üretilir. Faturalandırma USD'yi krediye çevirir: 1 USD = 100 kredi.",
+        "ratesDescription": "Üretilen değerler modelConfigs[model].pricing içine kaydedilir ve örnek düzeyinde özel sağlayıcı faturalandırmasında kullanılır. Oran sütunu hâlâ Claude Opus 4.6 = 1x maliyet düzeyini gösterir.",
+        "advancedRates": "Üretilen gelişmiş fiyatlandırma",
+        "advancedRatesDescription": "Bu gelişmiş fiyatlar, yapılandırılan çarpanla AI Gateway Referansından üretilir. İnceleme için gösterilir ve model fiyatlandırmasıyla birlikte kaydedilir.",
+        "cacheRead": "Önbellek↓",
+        "cacheWrite": "Önbellek↑",
+        "reasoning": "Akıl yür.",
+        "perImage": "Görsel",
+        "cacheReadRateTip": "Bu sağlayıcı önbelleğe alınmış girişi ayrı ücretlendiriyorsa, önbelleğe alınmış giriş token'ı başına USD",
+        "cacheWriteRateTip": "Bu sağlayıcı önbellek yazmalarını ayrı ücretlendiriyorsa, önbellek yazma token'ı başına USD",
+        "reasoningRateTip": "Bu sağlayıcı akıl yürütme token'larını ayrı ücretlendiriyorsa, akıl yürütme token'ı başına USD",
+        "imageRateTip": "Bu sağlayıcı görsel başına ücretlendiriyorsa, üretilen görsel başına USD",
+        "imageModel": "Görsel modeli",
+        "imageGeneration": "Görsel üretimi",
+        "imageToImage": "Görselden görsele",
+        "clickToToggleImageModel": "💡 Görsel üretim modeli olarak işaretlemek için tıklayın",
+        "markAsImageModel": "Görsel üretim modeli olarak işaretle",
+        "imageGenerationModel": "Görsel üretim modeli",
+        "markedAsImageModel": "Görsel üretim modeli olarak işaretlendi. Metinden görsele ve görselden görsele yetenekleri test edilecek.",
+        "markedAsTextModel": "Metin modeli olarak işaretlendi. Görme (görsel girdi) yeteneği test edilecek.",
+        "fetchPricingError": "Fiyatlandırma alınamadı",
+        "openRouterId": "Gateway model kimliği",
+        "notFound": "Bulunamadı",
+        "applyPricing": "Uygula ({{count}})",
+        "pricingApplied": "Fiyatlandırma uygulandı",
+        "pricingAppliedCount": "{{count}} modelin fiyatlandırması güncellendi",
+        "relativeRatio": "Oran",
+        "webSearch": "Web",
+        "referencePricingTip": "AI Gateway model kataloğundan alınan referans fiyat",
+        "applyReferencePricingTip": "Bu AI Gateway referans fiyatından özel sağlayıcı fiyatlandırmasını üret",
+        "optionalPricing": "isteğe bağlı",
+        "gatewayRatio": "Gateway çarpanı",
+        "gatewayRatioTip": "AI Gateway Referansına göre çarpan. 0,1 referans fiyatın %10'u demektir.",
+        "generatedPricing": "Üretilen fiyatlandırma",
+        "generatedPricingTip": "modelConfigs[model].pricing içine kaydedilen, üretilen özel sağlayıcı giriş/çıkış fiyatı",
+        "rateExplanationManual": "Otomatik eşleşen referans yok mu? Modelin düzenleme iletişim kutusunda elle bir referans modeli seçin.",
+        "referenceModelLabel": "Referans modeli",
+        "contextWindowCap": "Bağlam",
+        "contextWindowCapTip": "Modelin kabul ettiği maksimum giriş token'ı; bağlam sıkıştırmasını belirler. Kayıt defteri/varsayılan sınırları kullanmak için boş bırakın.",
+        "maxOutputTokensCap": "Maks. çıkış",
+        "maxOutputTokensCapTip": "Modelin yanıt başına üretebileceği maksimum token. Kayıt defteri/varsayılan sınırları kullanmak için boş bırakın.",
+        "rateExplanationCaps": "Bağlam / maks. çıkış varsayılan olarak referans modelinden alınır ve düzenlenebilir kalır; boş değerler kayıt defterine veya varsayılanlara geri döner.",
+        "relativeRatioTip": "Mevcut ağırlıklı algoritmaya göre Claude Opus 4.6 = 1x'e kıyasla maliyet düzeyi",
+        "hint": {
+          "title": "Öneriler",
+          "missingV1Suffix": "Temel URL'de \"/v1\" son eki eksik olabilir. OpenAI uyumlu API'lerin çoğu \"/v1\" ile biten URL'ler ister (ör. https://api.openai.com/v1)",
+          "removeTrailingSlash": "Temel URL'nin sonundaki eğik çizgiyi kaldırmayı deneyin",
+          "checkApiKey": "API anahtarınızın doğru olduğunu ve süresinin dolmadığını doğrulayın",
+          "azureDeployment": "Azure için, temel URL'de doğru kaynak adını ve dağıtımı yapılandırdığınızdan emin olun",
+          "checkQuotaOrPermission": "API anahtarınızın izinleri yetersiz olabilir veya kota tükenmiş olabilir. Hesap durumunuzu kontrol edin",
+          "checkModelName": "Model adı hatalı olabilir. Sağlayıcınızın desteklediği adla eşleştiğini kontrol edin",
+          "checkConnection": "Sunucuya bağlanılamıyor. Temel URL'nin doğru ve sunucunun erişilebilir olduğunu kontrol edin",
+          "ollamaRunning": "Ollama'nın yerelde çalıştığından emin olun. 'ollama serve' komutuyla başlatabilirsiniz",
+          "sslCertificate": "SSL sertifikası sorunu var. Kendinden imzalı sertifika kullanıyorsanız ek yapılandırma gerekebilir",
+          "checkConfiguration": "Yapılandırmanızı kontrol edin. Temel URL, API anahtarı ve model adının doğru olduğundan emin olun"
+        },
+        "recommended": "Önerilen",
+        "enabled": "Etkin",
+        "gatewayModels": "AI Gateway modelleri",
+        "gatewayModelsDescription": "En iyi AI SDK desteği için önerilen modelleri Vercel AI Gateway üzerinden yapılandırın",
+        "gatewayDescription": "En iyi uyumluluk ve güvenilirlik için AI Gateway'i kullanın. API anahtarını aşağıdaki App bölümünde yapılandırın.",
+        "providerDescription": "Kullanılacak model sağlayıcı",
+        "noGatewayModels": "Yapılandırılmış gateway modeli yok. Başlamak için model ekleyin.",
+        "addModel": "Model ekle",
+        "addGatewayModel": "Gateway modeli ekle",
+        "popularModels": "Popüler modeller",
+        "modelId": "Model kimliği",
+        "modelIdHint": "AI Gateway tarafından kullanılan model tanımlayıcısı (ör. anthropic/claude-sonnet-4)",
+        "searchModelPlaceholder": "Model aramak için yazın...",
+        "noMatchingModels": "Eşleşen model bulunamadı",
+        "typeToSearch": "Kullanılabilir modelleri aramak için anahtar kelime yazın",
+        "modelNotFound": "Bu model kimliği kullanılabilir listede bulunamadı, yazımını doğrulayın",
+        "testModel": "Modeli test et",
+        "testModelSuccess": "Model testi başarılı! API doğru yanıt verdi",
+        "testModelImageSuccess": "Görsel modelinin API'de var olduğu doğrulandı",
+        "testModelNotFound": "Model API listesinde bulunamadı",
+        "displayLabel": "Görünen etiket",
+        "isImageModel": "Bu bir görsel üretim modelidir",
+        "capabilities": "Yetenekler",
+        "setAsDefault": "Varsayılan sohbet modeli olarak ayarla",
+        "quickAdd": "Popüler modelleri hızlıca ekleyin:",
+        "guide": {
+          "configStatus": "Yapılandırma durumu",
+          "ready": "Hazır",
+          "needsAttention": "Dikkat gerekiyor",
+          "incomplete": "Tamamlanmadı",
+          "aiEnabled": "Yapay zekâ etkin",
+          "aiEnabledDesc": "Bu örnek için özel modeller etkin",
+          "aiDisabledDesc": "Özel yapay zekâ modellerini kullanmak için etkinleştirin",
+          "gatewayKey": "Gateway API anahtarı",
+          "gatewayKeyConfigured": "AI Gateway anahtarı yapılandırıldı",
+          "gatewayKeyMissing": "Önerilen kurulum için AI Gateway API anahtarını yapılandırın",
+          "gatewayKeyRequired": "Lütfen önce aşağıdaki App bölümünde AI Gateway API anahtarını yapılandırın",
+          "gatewayModels": "Gateway modelleri",
+          "gatewayModelsConfigured": "{{count}} model etkin",
+          "gatewayModelsEmpty": "Kullanıcıların seçebilmesi için gateway modelleri ekleyin",
+          "providers": "Özel sağlayıcılar",
+          "providersConfigured": "{{count}} sağlayıcı yapılandırıldı",
+          "providersEmpty": "Yapılandırılmış özel sağlayıcı yok",
+          "chatModel": "Varsayılan sohbet modeli",
+          "chatModelGateway": "Gateway modeli kullanılıyor",
+          "chatModelProvider": "Özel sağlayıcı modeli kullanılıyor",
+          "chatModelMissing": "Varsayılan bir sohbet modeli seçin"
+        },
+        "enableCard": {
+          "title": "Yapay zekâ hizmetleri",
+          "ready": "Yapılandırıldı ve kullanıma hazır",
+          "needsConfig": "Etkin, ancak aşağıda yapılandırma gerekiyor",
+          "disabled": "Yapay zekâ özellikleri şu anda devre dışı",
+          "missingConfig": "Eksik yapılandırma:",
+          "allConfigured": "Tüm yapılandırmalar tamamlandı"
+        },
+        "wizard": {
+          "setupProgress": "Kurulum ilerlemesi",
+          "checklist": "Kontrol listesi",
+          "allComplete": "Gerekli tüm ayarlar tamamlandı! Yapay zekâ kullanıma hazır.",
+          "nextStep": "Sıradaki: {{step}}",
+          "configureAI": "Yapay zekâyı etkinleştirmek için aşağıdaki adımları tamamlayın",
+          "optional": "İsteğe bağlı",
+          "gatewayHelp": "AI Gateway: yüzlerce model için tek bir API anahtarı; ilk kullanımda Vercel'de kredi kartı eklemek gerekir;",
+          "gatewayByok": "destekleniyor (kendi sağlayıcı anahtarlarınızı getirin)",
+          "getApiKey": "API anahtarı al",
+          "keyInvalid": "Geçersiz API anahtarı, kontrol edip tekrar deneyin",
+          "gatewayErrorUnauthorized": "Geçersiz API anahtarı. Doğru kopyalandığını kontrol edin",
+          "gatewayErrorNeedCreditCard": "AI Gateway'i kullanmak için kredi kartı gerekir. Lütfen Vercel panosunda ekleyin",
+          "gatewayErrorInsufficientQuota": "Hesap bakiyesi yetersiz. Lütfen yükleyip tekrar deneyin",
+          "gatewayErrorForbidden": "Erişim reddedildi. Vercel panosunda hesap durumunuzu kontrol edin",
+          "gatewayErrorNetwork": "Ağ hatası. Bağlantınızı veya proxy ayarlarınızı kontrol edin",
+          "pleaseTest": "API anahtarını doğrulamak için Test'e tıklayın",
+          "test": "Test et",
+          "testing": "Test ediliyor...",
+          "attachmentTest": {
+            "title": "Ek aktarım modu",
+            "urlMode": "URL modu",
+            "base64Mode": "Base64 modu",
+            "accessible": "Kullanılabilir",
+            "inaccessible": "Kullanılamıyor",
+            "urlNotAccessibleWarning": "Yapay zekâ hizmeti ek URL'lerine erişemiyor. Bu, intranet kurulumlarında yaygındır. Base64 modu otomatik olarak etkinleştirildi.",
+            "useBase64Mode": "Base64 modunu kullan",
+            "base64ModeDescription": "Ekleri göndermeden önce Base64'e dönüştür (Teable genel ağdan erişilebilir değil)",
+            "originChanged": "PUBLIC_ORIGIN değişti",
+            "originChangedDesc": "Son testten bu yana sunucu adresi değişti. Ek erişilebilirliğini doğrulamak için yeniden test edin."
+          },
+          "saveAndContinue": "Kaydet ve devam et",
+          "completeStep1First": "Lütfen önce 1. adımı tamamlayın: LLM API'sini yapılandırın",
+          "completeStep2First": "Lütfen önce 2. adımı tamamlayın: en az bir model ekleyin",
+          "addCustom": "Özel...",
+          "enabledModels": "Etkin modeller",
+          "chatDefault": "Sohbet varsayılanı",
+          "noModelsAvailable": "Kullanılabilir model yok, lütfen önce 2. adımda model ekleyin",
+          "quickSetup": "Hızlı kurulum",
+          "useRecommended": "Öneriyi kullan",
+          "useRecommendedDesc": "Tek tıkla {{model}} modelini tüm sohbet senaryoları için varsayılan yapın",
+          "chatModels": "Varsayılan ana model",
+          "chatModelTip": "Kenar çubuğundaki yapay zekâ sohbeti için varsayılan ana model; yönetici tarafından ayarlanır ve kullanıcılar değiştiremez. Kendi modeli olmayan görev katmanları da bunu kullanır",
+          "selectChatModel": "Sohbet modeli seçin...",
+          "lgDesc": "Karmaşık görevler, derin analiz",
+          "mdDesc": "Günlük konuşmalar, genel görevler",
+          "smDesc": "Basit sorgular, hızlı yanıtlar",
+          "readyToUse": "Yapay zekâ yapılandırıldı ve kullanıma hazır!",
+          "customProviderHelp": "Kendi yapay zekâ sağlayıcılarınızı (OpenAI, Anthropic, Azure vb.) ekleyin, API anahtarlarını ve modelleri yapılandırın.",
+          "testModelCapabilities": "Model yeteneklerini test et",
+          "customModelsAutoImported": "Sağlayıcı modelleriniz otomatik olarak model havuzuna aktarıldı.",
+          "modelsCount": "{{count}} model kullanılabilir",
+          "customModelsHint": "Model yapılandırmalarını değiştirmek için 1. adıma dönüp sağlayıcı ayarlarını düzenleyin.",
+          "gatewayOption": {
+            "title": "AI Gateway (Önerilen)",
+            "desc": "Vercel AI Gateway üzerinden en iyi uyumluluk ve güvenilirlikle yüzlerce modele erişin"
+          },
+          "customOption": {
+            "title": "Özel sağlayıcı",
+            "desc": "Kendi barındırdığınız/özel modellere bağlanın; birden fazla sağlayıcıyı destekler"
+          },
+          "step": {
+            "llmApi": "LLM API'sini yapılandır",
+            "llmApiDesc": "AI Gateway'i seçin veya özel sağlayıcıları yapılandırın",
+            "modelPool": "Önerilen modelleri yapılandır",
+            "modelPoolDesc": "Kullanıcıların yapay zekâ alanlarında ve otomasyonlarda seçebileceği önerilen modeller",
+            "chatModel": "Sohbet modelini ayarla",
+            "chatModelDesc": "Kenar çubuğundaki yapay zekâ sohbeti için model (önerilen modeller arasından seçin)",
+            "providers": "Sağlayıcıları yapılandır",
+            "providersDesc": "Yapay zekâ sağlayıcılarını ekleyin ve yönetin"
+          }
+        }
       },
       "app": {
         "domain": "Alan Adı",
         "customDomain": "Özel Alan Adı (İsteğe Bağlı)",
         "customDomainDescription": "Uygulama dağıtımı için özel alan adınızı ayarlayın, özel alan adı almak için <a>Vercel alan adına</a> erişin",
         "vercelToken": "Vercel API Token",
-        "vercelTokenDescription": "API token almak için <a>Vercel ayarlarına</a> erişin"
+        "vercelTokenDescription": "API token almak için <a>Vercel ayarlarına</a> erişin",
+        "aiGateway": "Vercel AI Gateway",
+        "aiGatewayDescription": "Tek bir uç noktadan yüzlerce modele erişmek için Vercel AI Gateway'i yapılandırın. API anahtarı almak için <a>AI Gateway ayarlarına</a> gidin",
+        "aiGatewayApiKey": "AI Gateway API anahtarı",
+        "aiGatewayKeyConfigured": "API anahtarı yapılandırıldı",
+        "aiGatewayBaseUrl": "Özel gateway URL'si"
       }
     },
     "action": {
@@ -678,6 +998,16 @@
     "configuration": {
       "title": "Yapılandırma bekleyen öğeler",
       "description": "Tam işlevsellik için bu yapılandırmaları tamamlayın",
+      "progressTitle": "Kurulum ilerlemesi",
+      "allComplete": "Tüm yapılandırmalar tamamlandı",
+      "incomplete": "Bazı yapılandırmalar tamamlanmadı",
+      "optional": "İsteğe bağlı",
+      "completed": "Tamamlandı",
+      "group": {
+        "system": "Temeller",
+        "ai": "Yapay zekâ hizmetleri",
+        "appBuilder": "Uygulama Oluşturucu"
+      },
       "copyInstance": "ID'yi kopyala",
       "list": {
         "publicOrigin": {
@@ -693,17 +1023,53 @@
           "description": "AI LLM API'sını henüz yapılandırmadınız, AI Sohbet/AI otomasyon kullanılamayacak, <anchor>ayarlara git</anchor>",
           "errorTips": "AI LLM API'sını henüz yapılandırmadınız, AI Sohbet/AI otomasyon kullanılamayacak"
         },
-        "webSearch": {
-          "title": "Web Araması",
-          "description": "Web arama API'sını henüz yapılandırmadınız, web arama özelliği kullanılamayacak, <anchor>ayarlara git</anchor>",
-          "errorTips": "Web arama API'sını henüz yapılandırmadınız, web arama özelliği kullanılamayacak"
+        "aiEnable": {
+          "title": "Yapay zekâ hizmetleri (Sohbet / Yapay zekâ alanı)",
+          "description": "Yapay zekâ sohbetini, yapay zekâ alanlarını ve otomasyonları kullanmak için etkinleştirin, <anchor>ayara git</anchor>"
+        },
+        "aiLlmApi": {
+          "title": "Yapay zekâ: LLM API'sini yapılandır",
+          "description": "AI Gateway'i seçin veya özel sağlayıcıları yapılandırın, <anchor>ayara git</anchor>"
+        },
+        "aiModelPool": {
+          "title": "Yapay zekâ: Kullanılabilir modelleri yapılandır",
+          "description": "Yapay zekâ alanları ve otomasyonlar için en az bir modeli etkinleştirin, <anchor>ayara git</anchor>"
+        },
+        "aiChatModel": {
+          "title": "Yapay zekâ: Sohbet modelini ayarla",
+          "description": "Kenar çubuğundaki yapay zekâ sohbeti için varsayılan bir model seçin, <anchor>ayara git</anchor>"
+        },
+        "appBuilderEngine": {
+          "title": "Uygulama Oluşturucu: Dağıtım motoru",
+          "description": "Uygulama yayımlamak için dağıtım motorunu (Vercel veya Teable Infra) yapılandırın, <anchor>ayara git</anchor>"
+        },
+        "appBuilderDomain": {
+          "title": "Uygulama Oluşturucu: Özel alan adı",
+          "description": "Uygulamaları özel alan adınız altında yayımlamak istiyorsanız alan adı + Vercel belirtecini yapılandırın, <anchor>ayara git</anchor>"
         },
         "email": {
           "title": "E-posta",
           "description": "E-posta yapılandırılmamış, self-servis şifre kurtarma ve e-posta bildirim işlevi kullanılamayacak, <anchor>ayarlara git</anchor>",
           "errorTips": "E-posta yapılandırılmamış, self-servis şifre kurtarma, e-posta doğrulama/bildirim işlevi kullanılamayacak"
+        },
+        "sandboxOpenSandbox": {
+          "title": "Yapay zekâ sohbeti çalışma zamanı",
+          "description": "Yapay zekâ sohbeti için OpenSandbox çalışma ortamını yapılandırın, <anchor>ayara git</anchor>"
         }
       }
+    },
+    "canary": {
+      "title": "Canary sürüm",
+      "enable": "Canary'yi etkinleştir",
+      "enableDescription": "Etkinleştirildiğinde, seçili alanlarda canary özellikleri etkin olur",
+      "spaces": "Canary alanları",
+      "spacesDescription": "{{count}} alan yapılandırıldı",
+      "configure": "Yapılandır",
+      "spaceIds": "Alan kimlikleri",
+      "spaceIdsDescription": "Alan kimliklerini her satıra bir tane ya da virgül/boşlukla ayırarak girin",
+      "spaceIdsPlaceholder": "spcXXXXXXXXXXX\nspcYYYYYYYYYYY",
+      "preview": "Önizleme ({{count}} kimlik)",
+      "noSpaceIds": "Alan kimliği girilmedi"
     }
   },
   "notification": {
@@ -713,9 +1079,20 @@
     "markAs": "Bu bildirimi {{status}} olarak işaretle",
     "markAllAsRead": "Tümünü okundu olarak işaretle",
     "noUnread": "{{status}} bildirim yok",
+    "noAttention": "Dikkat gerektiren bildirim yok",
+    "noSeverity": "{{severity}} bildirimi yok",
     "changeSetting": "Sayfa bildirim ayarlarını değiştir",
     "new": "yeni {{count}}",
     "showMore": "Daha fazla göster",
+    "sections": {
+      "needsAction": "Önemli",
+      "all": "Tümü"
+    },
+    "severity": {
+      "critical": "Önemli",
+      "warning": "Uyarı",
+      "info": "Normal"
+    },
     "exportBase": {
       "successText": "Dışa aktarma verileri hazır",
       "failedText": "Dışa aktarma başarısız oldu, lütfen tekrar deneyin"
@@ -734,8 +1111,8 @@
       "viewer": "İzleyici"
     },
     "description": {
-      "owner": "Veritabanlarını, otomasyonları, yetki matrislerini tam olarak yapılandırıp düzenleyebilir ve alan ayarlarını ve faturalandırmayı yönetebilir",
-      "creator": "Veritabanlarını, otomasyonları tam olarak yapılandırıp düzenleyebilir ve yetki matrisini etkinleştirebilir",
+      "owner": "Veritabanlarını, uygulamaları, otomasyonları ve yetki matrislerini tamamen yapılandırabilir; alan ayarlarını ve faturalandırmayı yönetebilir",
+      "creator": "Veritabanlarını, uygulamaları, otomasyonları ve yetki matrislerini tamamen yapılandırabilir",
       "editor": "Kayıtları ve görünümleri düzenleyebilir, ancak tabloları veya alanları yapılandıramaz",
       "commenter": "Kayıtlara yorum yapabilir",
       "viewer": "Düzenleyemez veya yorum yapamaz"
@@ -770,6 +1147,7 @@
     "turnOnTip": "Mevcut otomasyonu açmak istediğinizden emin misiniz?"
   },
   "email": {
+    "title": "E-posta",
     "send": "Gönder",
     "config": "E-posta Yapılandırması",
     "customConfig": "Özel E-posta Sunucusu",
@@ -1025,12 +1403,9 @@
     "times": "Kullanım",
     "generate": "Oluştur",
     "code": "Davet kodu",
-    "inviteSuccess": "Davet başarılı",
-    "app": {
-      "previewAppError": "Uygulama hatası",
-      "sendErrorToAI": "Hata AI'ye gönder"
-    }
+    "inviteSuccess": "Davet başarılı"
   },
+  "noPermissionToCreateBase": "Hiçbir alanda taban oluşturma izniniz yok",
   "base": {
     "deleteTip": "\"{{name}}\" veritabanını silmek istediğinizden emin misiniz?",
     "createResource": "Kaynak oluştur",
@@ -1078,6 +1453,8 @@
     "mustMention": "Gönderi {{mention}}'dan bahsetmelidir",
     "fetchSnapshotFailed": "Gönderi anlık görüntüsü alınamadı",
     "alreadyClaimedThisWeek": "Bu hesap için bu hafta zaten bir ödül talep ettiniz",
+    "maxClaimsReached": "Bu hafta için maksimum ödül talebine (2) ulaştınız",
+    "postTooOld": "Gönderi son {{hours}} saat içinde yayınlanmış olmalıdır",
     "manage": {
       "title": "Ödül Yönetimi",
       "description": "Tüm alanlardaki ödül kayıtlarını görüntüle ve yönet",
@@ -1136,37 +1513,33 @@
       }
     }
   },
-  "clickToCopyTooltip": "Panoya kopyalamak için tıklayın",
-  "copiedTooltip": "Kopyalandı!",
-  "hiddenFieldCount_one": "{{count}} gizli alan",
-  "hiddenFieldCount_other": "{{count}} gizli alan",
-  "invalidFieldMapping": "Geçersiz alan eşlemesi",
-  "sourceFieldNotFoundMapping": "Kaynak alan bulunamadı",
-  "targetFieldNotFoundMapping": "Hedef alan bulunamadı",
-  "fieldTypeNotSupportedMapping": "Alan türü desteklenmiyor",
-  "fieldSettingsNotMatchMapping": "Alan ayarları eşleşmiyor",
-  "fieldSettingsLookupNotMatch": "Arama alan ayarları eşleşmiyor",
-  "fieldSettingsLinkTableNotMatch": "Bağlantı tablosu eşleşmiyor",
-  "fieldSettingsLinkViewNotMatch": "Bağlantı görünümü eşleşmiyor",
-  "fieldTypeDifferentMapping": "Alan türleri farklı",
-  "fieldMappingSourceTip": "Kaynak alanları hedef alanlarla eşleyin",
-  "fieldMappingTargetTip": "Alanları hedefle eşleştirme",
-  "reset": "Sıfırla",
-  "checkAll": "Tümünü seç",
-  "uncheckAll": "Seçimi kaldır",
-  "duplicateOptionsMapping": "Yinelenen seçenekler",
-  "lookupFieldInvalidMapping": "Arama alanı geçersiz",
-  "noMatchedOptions": "Eşleşen seçenek yok",
-  "needManualSelectionMapping": "Manuel seçim gerekli",
-  "targetFieldIsComputed": "Hedef alan hesaplanmış",
-  "targetFieldIsComputedTips": "Hedef alan hesaplanmış ve değiştirilemez",
-  "emptyOption": "(boş)",
-  "showEmptyTip": "Boş seçenekleri göster",
-  "hideEmptyTip": "Boş seçenekleri gizle",
-  "hideText": "Metni Gizle",
-  "showText": "Metni Göster",
-  "sourceTable": "Kaynak Tablo",
-  "sourceView": "Kaynak Görünüm",
+  "chat": {
+    "responseInterrupted": "Yanıt kesildi",
+    "serverError": "Sunucu hatası oluştu",
+    "serverErrorHint": "Lütfen yeni bir konuşma başlatıp tekrar deneyin.",
+    "modelNotSupported": "Seçilen model aracı modunda desteklenmiyor. En iyi deneyim için Claude Opus 4.6'ya geçin.",
+    "byokModelNotSupported": "Özel modeliniz aracı moduyla uyumlu değil. En iyi deneyim için Claude Opus 4.6'ya geçin.",
+    "modelServiceUnavailable": "Model hizmeti geçici olarak kullanılamıyor. Lütfen daha sonra tekrar deneyin.",
+    "modelServiceError": "Model hizmetinde bir hata oluştu. Lütfen tekrar deneyin veya farklı bir modele geçin.",
+    "imageProcessingFailed": "Görsel işleme başarısız",
+    "imageProcessingFailedDescription": "Görsel yapay zekâ modeli tarafından işlenemedi. Yeniden göndermeyi deneyin veya onsuz devam edin.",
+    "sandboxActiveRunBusy": "Cuppy hâlâ çalışıyor. Yeniden göndermeden önce bekleyin.",
+    "sandboxCapacityFull": "Eşzamanlı konuşma sınırına ({{max}}) ulaşıldı. Birinin bitmesini bekleyin.",
+    "sandboxTransient": "Cuppy hazırlanıyor. Lütfen birazdan tekrar deneyin.",
+    "sandboxSnapshotNotFound": "Cuppy'nin ortamı henüz kurulmadı. Yöneticinizden bir sanal alan anlık görüntüsü oluşturmasını isteyin.",
+    "sandboxProviderError": "Sanal alan çalışma zamanı hatası",
+    "sandboxProviderErrorDescription": "Sanal alan çalışma zamanı çağrısı başarısız oldu. Yeniden deneyin veya bir yöneticiden çalışma zamanını incelemesini isteyin.",
+    "agentStartFailed": "Yapay zekâ motoru başlatılamadı. Lütfen tekrar deneyin veya yeni bir oturum başlatın.",
+    "idleTimeout": "Komut yürütmesi zaman sınırını ({{seconds}} sn) aştı. Lütfen tekrar deneyin.",
+    "danglingToolUse": "Önceki oturum kesildi ve otomatik olarak onarıldı. Lütfen mesajınızı yeniden gönderin.",
+    "contextImportFailed": "Önceki oturum verileri geri yüklenemedi. Önceki bağlam olmadan devam etmek için tekrar deneyin.",
+    "collapsedStatus": {
+      "open": "AI sohbetini aç",
+      "working": "AI çalışıyor",
+      "completed": "AI görevi tamamlandı",
+      "failed": "AI görevi başarısız oldu"
+    }
+  },
   "system": {
     "notFound": {
       "title": "Sayfa bulunamadı",
@@ -1215,7 +1588,8 @@
       "replace": "Değiştir",
       "download": "İndir",
       "uninstall": "Kaldır",
-      "copyToBase": "Base'e kopyala",
+      "copyToBase": "Veritabanına kopyala",
+      "copyToSpace": "Alana kopyala",
       "copyToPersonal": "Kişisele kopyala",
       "copyToApp": "Uygulamaya kopyala"
     },
@@ -1240,6 +1614,7 @@
       "type": "Tür",
       "description": "Açıklama",
       "source": "Kaynak",
+      "addedBy": "Ekleyen",
       "skillLabel": "Beceri",
       "syncStatus": "Senkronizasyon Durumu",
       "preview": "SKILL.md Önizleme"
@@ -1247,10 +1622,13 @@
     "scope": {
       "label": "Kapsam",
       "system": "Sistem",
-      "base": "Geçerli veritabanı",
+      "builtin": "Yerleşik",
+      "base": "Veritabanı",
       "user": "Kişisel",
       "userDescription": "Yalnızca size açık",
       "baseDescription": "Bu Base'deki işbirlikçilerle paylaşılır",
+      "space": "Alan",
+      "spaceDescription": "Bu alandaki tüm üyelerle paylaşılır",
       "app": "App",
       "appDescription": "Yalnızca bu uygulamada kullanılabilir",
       "cuppyclaw": "Bot",
@@ -1267,12 +1645,12 @@
       "synced": "Senkronize Edildi",
       "failed": "Senkronizasyon Başarısız"
     },
-    "empty": {
-      "mySkills": "Henüz kişisel beceri yok. Başlamak için bir tane içe aktarın."
-    },
     "confirm": {
       "deleteTitle": "Beceriyi Sil",
-      "deleteDescription": "Bu beceriyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz."
+      "deleteDescription": "Bu beceriyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+      "copyTitle": "Beceriyi kopyala",
+      "copyDescription": "Beceri dosyaları hedef kapsama kopyalanır. Orijinal beceri değişmez.",
+      "copyOverwriteWarning": "Hedef kapsamda aynı ada sahip bir beceri varsa değiştirilir."
     },
     "toast": {
       "syncing": "Beceri senkronize ediliyor...",
@@ -1281,14 +1659,11 @@
       "deleting": "Beceri siliniyor...",
       "deleteSuccess": "Beceri başarıyla silindi",
       "deleteError": "Beceri silinemedi",
-      "updateSuccess": "Beceri başarıyla güncellendi"
+      "updateSuccess": "Beceri başarıyla güncellendi",
+      "copying": "Kopyalanıyor...",
+      "copySuccess": "Kopyalandı",
+      "copyError": "Kopyalama başarısız"
     }
-  },
-  "changelog": {
-    "newUpdate": "28 TEMMUZ GÜNCELLEMESİ",
-    "title": "AI Aracıları için Teable Skill",
-    "url": "https://help.teable.ai/en/changelog#jul-28-2026",
-    "id": "changelog-2026-07-28-teable-skill-for-ai-agents"
   },
   "resourceDescription": {
     "addDescription": "Açıklama ekle",
@@ -1296,5 +1671,13 @@
     "descriptionSaving": "Kaydediliyor...",
     "descriptionSaveFailed": "Açıklama kaydedilemedi, lütfen tekrar deneyin",
     "descriptionPlaceholder": "Bu düğüm için bir açıklama ekleyin"
+  },
+  "announcement": {
+    "viewDetail": "Ayrıntıları gör",
+    "close": "Duyuruyu kapat",
+    "acknowledge": "Anladım",
+    "collapse": "Daha az göster",
+    "more_one": "{{count}} duyuru daha",
+    "more_other": "{{count}} duyuru daha"
   }
 }

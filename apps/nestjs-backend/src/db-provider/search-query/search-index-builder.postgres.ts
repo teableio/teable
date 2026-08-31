@@ -14,6 +14,21 @@ interface IPgIndex {
 
 const unSupportCellValueType = [CellValueType.Boolean];
 
+/**
+ * New `idx_trgm_*` indexes only cover singleLineText, longText, and string
+ * formulas. Keep in sync with `isAllowedSubstringSearchIndexProjection` in
+ * v2 SearchFieldTextShape.ts. Lookups reuse the inner `type`.
+ */
+const allowsSubstringTrgmIndex = (field: IFieldInstance): boolean => {
+  if (field.isMultipleCellValue) {
+    return false;
+  }
+  if (field.type === FieldType.Formula) {
+    return field.cellValueType === CellValueType.String && !field.isStructuredCellValue;
+  }
+  return field.type === FieldType.SingleLineText || field.type === FieldType.LongText;
+};
+
 type ISearchIndexSpec =
   | {
       kind: 'btree';
@@ -85,6 +100,10 @@ export class FieldFormatter {
         kind: 'btree',
         expression: `"${field.dbFieldName}"`,
       };
+    }
+
+    if (!allowsSubstringTrgmIndex(field)) {
+      return null;
     }
 
     const expression = this.getSearchableExpression(field, field.isMultipleCellValue);

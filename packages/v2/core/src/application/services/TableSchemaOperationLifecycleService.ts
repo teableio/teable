@@ -164,6 +164,37 @@ export const failTableSchemaOperation = async (
     )
   );
 
+export const abandonTableSchemaOperation = async (
+  unitOfWork: IUnitOfWork,
+  tableRepository: ITableRepository,
+  context: IExecutionContext,
+  table: Table,
+  options: FailTableSchemaOperationOptions
+): Promise<Result<void, DomainError>> =>
+  setTableProvisionState(
+    unitOfWork,
+    tableRepository,
+    context,
+    table,
+    'error',
+    operationOptions(
+      {
+        ...options,
+        status: options.status ?? 'dead',
+      },
+      options.payload === undefined ? undefined : tablePayload(table, options.payload),
+      'error'
+    )
+  );
+
+// Mirrors the runner-side failure path (SchemaOperationRunnerService's
+// retryDelayMs floor of 1s): a request-side recoverable failure left with
+// nextRunAt=now is instantly claimable by the background runner, so a fast
+// poll can flip it to 'running' before the caller has even read the recorded
+// error. A one-second floor keeps the structured failure classification
+// observable for a beat without delaying repair meaningfully.
+const recoverableFailureRetryDelayMs = 1_000;
+
 export const failRecoverableTableSchemaOperation = async (
   unitOfWork: IUnitOfWork,
   tableRepository: ITableRepository,
@@ -181,6 +212,7 @@ export const failRecoverableTableSchemaOperation = async (
       {
         ...options,
         status: options.status ?? 'error',
+        nextRunAt: options.nextRunAt ?? new Date(Date.now() + recoverableFailureRetryDelayMs),
       },
       options.payload === undefined ? undefined : tablePayload(table, options.payload),
       'error'

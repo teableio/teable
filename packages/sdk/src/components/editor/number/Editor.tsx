@@ -58,7 +58,7 @@ export const NumberEditorBase: ForwardRefRenderFunction<
     <Input
       ref={inputRef}
       style={style}
-      className={cn('h-10 sm:h-8', className)}
+      className={cn('h-8', className)}
       value={str || ''}
       onChange={onChangeHandler}
       onBlur={() => saveOnBlur && !saveOnChange && saveValue()}

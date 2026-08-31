@@ -9,7 +9,6 @@ export type I18nTranslations = {
         "page": {
             "signin": string;
             "signup": string;
-            "title": string;
         };
         "title": {
             "signin": string;
@@ -18,6 +17,11 @@ export type I18nTranslations = {
         "content": {
             "title": string;
             "description": string;
+        };
+        "legal": {
+            "tip": string;
+            "termsUrl": string;
+            "privacyUrl": string;
         };
         "button": {
             "signin": string;
@@ -78,17 +82,12 @@ export type I18nTranslations = {
             "description": string;
             "errorRequiredEmail": string;
             "errorInvalidEmail": string;
+            "sendMailRateLimit": string;
             "buttonText": string;
             "success": {
                 "title": string;
                 "description": string;
             };
-            "sendMailRateLimit": string;
-        };
-        "legal": {
-            "tip": string;
-            "termsUrl": string;
-            "privacyUrl": string;
         };
     };
     "chart": {
@@ -198,6 +197,7 @@ export type I18nTranslations = {
             "update": string;
             "create": string;
             "delete": string;
+            "clear": string;
             "cancel": string;
             "zoomIn": string;
             "zoomOut": string;
@@ -205,6 +205,7 @@ export type I18nTranslations = {
             "download": string;
             "remove": string;
             "removeConfig": string;
+            "retry": string;
             "saveSucceed": string;
             "submitSucceed": string;
             "editSucceed": string;
@@ -247,20 +248,15 @@ export type I18nTranslations = {
             "refresh": string;
             "login": string;
             "useTemplate": string;
-            "copyToMySpace": string;
-            "saveToMySpace": string;
-            "supportSaveCopy": string;
+            "copyLink": string;
+            "openLink": string;
             "backToSpace": string;
             "switchBase": string;
-            "getMore": string;
-            "copySuccess": string;
-            "openLink": string;
-            "share": string;
-            "clear": string;
-            "retry": string;
-            "copyLink": string;
             "collapse": string;
             "viewDetails": string;
+            "getMore": string;
+            "copySuccess": string;
+            "share": string;
         };
         "quickAction": {
             "title": string;
@@ -287,17 +283,7 @@ export type I18nTranslations = {
             "allTemplatesLoaded": string;
             "createTemplate": string;
             "promptBox": {
-                "placeholder": string;
                 "start": string;
-                "carouselGuides": {
-                    "guide1": string;
-                    "guide2": string;
-                    "guide3": string;
-                    "guide4": string;
-                    "guide5": string;
-                    "guide6": string;
-                    "guide7": string;
-                };
             };
             "useTemplateDialog": {
                 "title": string;
@@ -310,6 +296,7 @@ export type I18nTranslations = {
         "baseShare": {
             "shareTitle": string;
             "shareToWeb": string;
+            "noPermissionTip": string;
             "linkHolderLabel": string;
             "linkHolderCanView": string;
             "linkHolderCanViewDesc": string;
@@ -360,6 +347,77 @@ export type I18nTranslations = {
             "personal": {
                 "title": string;
             };
+            "templateAdmin": {
+                "title": string;
+                "noData": string;
+                "importing": string;
+                "usageCount": string;
+                "useTemplate": string;
+                "createdBy": string;
+                "backToTemplateList": string;
+                "tips": {
+                    "errorCategoryName": string;
+                    "needSnapshot": string;
+                    "needPublish": string;
+                    "needBaseSource": string;
+                    "forbiddenUpdateSystemTemplate": string;
+                    "addCategoryTips": string;
+                    "categoryNamePlaceholder": string;
+                    "duplicateCategoryName": string;
+                };
+                "category": {
+                    "menu": {
+                        "getStarted": string;
+                        "recommended": string;
+                        "all": string;
+                        "browseByCategory": string;
+                    };
+                };
+                "header": {
+                    "cover": string;
+                    "name": string;
+                    "description": string;
+                    "markdownDescription": string;
+                    "category": string;
+                    "isSystem": string;
+                    "source": string;
+                    "status": string;
+                    "publishSnapshot": string;
+                    "snapshotTime": string;
+                    "actions": string;
+                    "featured": string;
+                    "createdBy": string;
+                    "userNonExistent": string;
+                    "preview": string;
+                    "usage": string;
+                    "visit": string;
+                };
+                "actions": {
+                    "title": string;
+                    "publish": string;
+                    "delete": string;
+                    "duplicate": string;
+                    "preview": string;
+                    "use": string;
+                    "pinTop": string;
+                    "addCategory": string;
+                    "selectCategory": string;
+                    "viewTemplate": string;
+                    "manageCategory": string;
+                };
+                "relatedTemplates": string;
+                "noImage": string;
+                "baseSelectPanel": {
+                    "title": string;
+                    "description": string;
+                    "confirm": string;
+                    "search": string;
+                    "cancel": string;
+                    "selectBase": string;
+                    "createTemplate": string;
+                    "abnormalBase": string;
+                };
+            };
             "back": string;
             "account": {
                 "title": string;
@@ -381,7 +439,6 @@ export type I18nTranslations = {
                     "disMatch": string;
                     "equal": string;
                     "invalid": string;
-                    "invalidNew": string;
                 };
                 "changePasswordSuccess": {
                     "title": string;
@@ -396,24 +453,9 @@ export type I18nTranslations = {
                 };
                 "addPasswordError": {
                     "disMatch": string;
-                    "invalid": string;
                 };
                 "addPasswordSuccess": {
                     "title": string;
-                };
-                "deleteAccount": {
-                    "title": string;
-                    "desc": string;
-                    "error": {
-                        "title": string;
-                        "desc": string;
-                        "spacesError": string;
-                    };
-                    "confirm": {
-                        "title": string;
-                        "placeholder": string;
-                    };
-                    "loading": string;
                 };
                 "changeEmail": {
                     "title": string;
@@ -435,6 +477,20 @@ export type I18nTranslations = {
                         "sendSuccess": string;
                     };
                 };
+                "deleteAccount": {
+                    "title": string;
+                    "desc": string;
+                    "error": {
+                        "title": string;
+                        "desc": string;
+                        "spacesError": string;
+                    };
+                    "confirm": {
+                        "title": string;
+                        "placeholder": string;
+                    };
+                    "loading": string;
+                };
             };
             "notify": {
                 "title": string;
@@ -449,14 +505,14 @@ export type I18nTranslations = {
                 "light": string;
                 "system": string;
                 "version": string;
+                "infraVersion": string;
                 "language": string;
                 "interactionMode": string;
                 "mouseMode": string;
                 "touchMode": string;
                 "systemMode": string;
-                "teableSkill": string;
-                "infraVersion": string;
                 "buySelfHostedLicense": string;
+                "teableSkill": string;
             };
             "teableSkill": {
                 "intro": string;
@@ -533,85 +589,6 @@ export type I18nTranslations = {
                         "title": string;
                         "desc": string;
                     };
-                };
-                "description": string;
-                "lastUsed": string;
-                "revoke": string;
-                "owner": string;
-                "revokeTitle": string;
-                "revokeDesc": string;
-                "scopeTitle": string;
-                "scopeDesc": string;
-            };
-            "templateAdmin": {
-                "title": string;
-                "noData": string;
-                "importing": string;
-                "usageCount": string;
-                "useTemplate": string;
-                "createdBy": string;
-                "backToTemplateList": string;
-                "tips": {
-                    "errorCategoryName": string;
-                    "needSnapshot": string;
-                    "needPublish": string;
-                    "needBaseSource": string;
-                    "forbiddenUpdateSystemTemplate": string;
-                    "addCategoryTips": string;
-                    "categoryNamePlaceholder": string;
-                    "duplicateCategoryName": string;
-                };
-                "category": {
-                    "menu": {
-                        "getStarted": string;
-                        "recommended": string;
-                        "all": string;
-                        "browseByCategory": string;
-                    };
-                };
-                "header": {
-                    "cover": string;
-                    "name": string;
-                    "description": string;
-                    "markdownDescription": string;
-                    "category": string;
-                    "isSystem": string;
-                    "source": string;
-                    "status": string;
-                    "publishSnapshot": string;
-                    "snapshotTime": string;
-                    "actions": string;
-                    "featured": string;
-                    "createdBy": string;
-                    "userNonExistent": string;
-                    "preview": string;
-                    "usage": string;
-                    "visit": string;
-                };
-                "actions": {
-                    "title": string;
-                    "publish": string;
-                    "delete": string;
-                    "duplicate": string;
-                    "preview": string;
-                    "use": string;
-                    "pinTop": string;
-                    "addCategory": string;
-                    "selectCategory": string;
-                    "viewTemplate": string;
-                    "manageCategory": string;
-                };
-                "relatedTemplates": string;
-                "noImage": string;
-                "baseSelectPanel": {
-                    "title": string;
-                    "description": string;
-                    "confirm": string;
-                    "search": string;
-                    "cancel": string;
-                    "selectBase": string;
-                    "createTemplate": string;
-                    "abnormalBase": string;
                 };
             };
         };
@@ -691,7 +668,11 @@ export type I18nTranslations = {
         "invite": {
             "dialog": {
                 "title": string;
+                "desc_zero": string;
                 "desc_one": string;
+                "desc_two": string;
+                "desc_few": string;
+                "desc_many": string;
                 "desc_other": string;
                 "tabEmail": string;
                 "emailPlaceholder": string;
@@ -701,27 +682,30 @@ export type I18nTranslations = {
                 "directAccessDescription": string;
                 "linkSend": string;
                 "spaceTitle": string;
-                "collaboratorSearchPlaceholder": string;
-                "collaboratorJoin": string;
-                "collaboratorRemove": string;
-                "linkTitle": string;
-                "linkCreatedTime": string;
-                "linkCopySuccess": string;
-                "linkRemove": string;
-                "desc_billable_one": string;
-                "desc_billable_other": string;
                 "spaceTitleWithCount": string;
                 "baseTitle": string;
                 "allCollaboratorsTitle": string;
                 "baseOnly": string;
+                "collaboratorSearchPlaceholder": string;
+                "collaboratorJoin": string;
+                "collaboratorRemove": string;
+                "basePermissionRemove": string;
+                "goToBase": string;
+                "linkTitle": string;
+                "linkCreatedTime": string;
+                "linkCopySuccess": string;
+                "linkRemove": string;
                 "noInviteLinks": string;
                 "linkDescription": string;
                 "haveAccess": string;
-                "desc": string;
             };
             "base": {
                 "title": string;
+                "desc_zero": string;
                 "desc_one": string;
+                "desc_two": string;
+                "desc_few": string;
+                "desc_many": string;
                 "desc_other": string;
                 "baseTitle": string;
                 "collaboratorSearchPlaceholder": string;
@@ -732,13 +716,17 @@ export type I18nTranslations = {
                 "button": string;
                 "placeholder": string;
             };
+            "sendInvitationSuccess": string;
             "table": {
                 "collaborator": string;
                 "accessPermission": string;
                 "joinAt": string;
                 "lastLogin": string;
+                "expandPermissions": string;
+                "collapsePermissions": string;
+                "basePermissionsOnly": string;
+                "basePermissionCount": string;
             };
-            "sendInvitationSuccess": string;
             "authority": {
                 "title": string;
                 "description": string;
@@ -769,6 +757,24 @@ export type I18nTranslations = {
             "viewPricing": string;
             "billable": string;
             "billableByAuthorityMatrix": string;
+            "seatConfirm": {
+                "title": string;
+                "roleChangeTitle": string;
+                "matrixTitle": string;
+                "inviteDesc_zero": string;
+                "inviteDesc_one": string;
+                "inviteDesc_two": string;
+                "inviteDesc_few": string;
+                "inviteDesc_many": string;
+                "inviteDesc_other": string;
+                "linkDesc": string;
+                "roleChangeDesc": string;
+                "matrixDesc": string;
+                "seatLimitTitle": string;
+                "seatLimitDesc": string;
+                "seatLimitConfirm": string;
+                "confirmInvite": string;
+            };
             "licenseExpiredGracePeriod": string;
             "licenseAutoFetchFailed": string;
             "licenseAutoFetchRetryFailed": string;
@@ -777,6 +783,7 @@ export type I18nTranslations = {
                 "title": string;
                 "description": string;
             };
+            "contactAdminToUpgrade": string;
             "status": {
                 "active": string;
                 "canceled": string;
@@ -788,7 +795,6 @@ export type I18nTranslations = {
                 "paused": string;
                 "seatLimitExceeded": string;
             };
-            "contactAdminToUpgrade": string;
         };
         "admin": {
             "setting": {
@@ -814,15 +820,14 @@ export type I18nTranslations = {
                     "description": string;
                     "brandName": string;
                     "logo": string;
-                    "logoDescription": string;
                     "logoUpload": string;
                     "logoUploadDescription": string;
                 };
                 "ai": {
                     "name": string;
                     "nameDescription": string;
-                    "enable": string;
-                    "enableDescription": string;
+                    "customModel": string;
+                    "customModelDescription": string;
                     "updateLLMProvider": string;
                     "addProvider": string;
                     "addProviderDescription": string;
@@ -833,10 +838,16 @@ export type I18nTranslations = {
                     "apiKeyDescription": string;
                     "models": string;
                     "modelsDescription": string;
+                    "modelsSelectedCount": string;
+                    "clearAllModels": string;
+                    "customModelPlaceholder": string;
+                    "addModelFill": string;
+                    "modelIdReservedAt": string;
                     "baseUrlRequired": string;
                     "fetchModelListError": string;
                     "provider": string;
-                    "providerDescription": string;
+                    "aiAbilitySettings": string;
+                    "aiAbilitySettingsDescription": string;
                     "modelPreferences": string;
                     "modelPreferencesDescription": string;
                     "embeddingModel": string;
@@ -883,25 +894,29 @@ export type I18nTranslations = {
                         "confirm": string;
                         "cancel": string;
                         "missingCapabilitiesWarning": string;
+                        "modelNotSuitable": string;
                         "enableAITitle": string;
                         "enableAIDescription": string;
                         "enableAI": string;
                         "skipTest": string;
-                        "modelNotSuitable": string;
                     };
                     "chatModelAbility": {
                         "image": string;
                         "pdf": string;
                         "webSearch": string;
-                        "disabledWebSearch": string;
-                        "lgModelAbility": string;
                         "toolCall": string;
                         "reasoning": string;
                         "imageGeneration": string;
+                        "disabledWebSearch": string;
+                        "lgModelAbility": string;
                         "missingVision": string;
                         "missingToolCall": string;
                         "notTested": string;
                         "supportedFormats": string;
+                    };
+                    "imageModelAbility": {
+                        "generation": string;
+                        "imageToImage": string;
                     };
                     "configUpdated": string;
                     "noModelFound": string;
@@ -909,8 +924,6 @@ export type I18nTranslations = {
                     "selectModel": string;
                     "defaultModel": string;
                     "moreModels": string;
-                    "agentModelWarningTitle": string;
-                    "agentModelWarningDescription": string;
                     "agentModelWarningConfirm": string;
                     "recommendedModelNudge": {
                         "title": string;
@@ -932,27 +945,9 @@ export type I18nTranslations = {
                     "testConnection": string;
                     "testing": string;
                     "testSuccess": string;
-                    "testFailed": string;
-                    "fillRequiredFields": string;
-                    "modelsRequired": string;
-                    "noValidModel": string;
-                    "addCustomModel": string;
-                    "isOpenRouter": string;
-                    "customModel": string;
-                    "customModelDescription": string;
-                    "modelsSelectedCount": string;
-                    "clearAllModels": string;
-                    "customModelPlaceholder": string;
-                    "addModelFill": string;
-                    "modelIdReservedAt": string;
-                    "aiAbilitySettings": string;
-                    "aiAbilitySettingsDescription": string;
-                    "imageModelAbility": {
-                        "generation": string;
-                        "imageToImage": string;
-                    };
                     "testCompleteWithCount": string;
                     "allTestsFailed": string;
+                    "testFailed": string;
                     "batchTest": string;
                     "test": string;
                     "testProvider": string;
@@ -975,6 +970,11 @@ export type I18nTranslations = {
                     "stopTest": string;
                     "pending": string;
                     "configuredModels": string;
+                    "fillRequiredFields": string;
+                    "modelsRequired": string;
+                    "noValidModel": string;
+                    "addCustomModel": string;
+                    "isOpenRouter": string;
                     "modelRates": string;
                     "modelSettings": string;
                     "model": string;
@@ -1045,6 +1045,7 @@ export type I18nTranslations = {
                     "gatewayModels": string;
                     "gatewayModelsDescription": string;
                     "gatewayDescription": string;
+                    "providerDescription": string;
                     "noGatewayModels": string;
                     "addModel": string;
                     "addGatewayModel": string;
@@ -1168,9 +1169,6 @@ export type I18nTranslations = {
                         };
                     };
                 };
-                "webSearch": {
-                    "description": string;
-                };
                 "app": {
                     "domain": string;
                     "customDomain": string;
@@ -1196,6 +1194,16 @@ export type I18nTranslations = {
             "configuration": {
                 "title": string;
                 "description": string;
+                "progressTitle": string;
+                "allComplete": string;
+                "incomplete": string;
+                "optional": string;
+                "completed": string;
+                "group": {
+                    "system": string;
+                    "ai": string;
+                    "appBuilder": string;
+                };
                 "copyInstance": string;
                 "list": {
                     "publicOrigin": {
@@ -1207,16 +1215,6 @@ export type I18nTranslations = {
                         "description": string;
                     };
                     "llmApi": {
-                        "title": string;
-                        "description": string;
-                        "errorTips": string;
-                    };
-                    "webSearch": {
-                        "title": string;
-                        "description": string;
-                        "errorTips": string;
-                    };
-                    "email": {
                         "title": string;
                         "description": string;
                         "errorTips": string;
@@ -1245,20 +1243,15 @@ export type I18nTranslations = {
                         "title": string;
                         "description": string;
                     };
+                    "email": {
+                        "title": string;
+                        "description": string;
+                        "errorTips": string;
+                    };
                     "sandboxOpenSandbox": {
                         "title": string;
                         "description": string;
                     };
-                };
-                "progressTitle": string;
-                "allComplete": string;
-                "incomplete": string;
-                "optional": string;
-                "completed": string;
-                "group": {
-                    "system": string;
-                    "ai": string;
-                    "appBuilder": string;
                 };
             };
             "canary": {
@@ -1282,19 +1275,11 @@ export type I18nTranslations = {
             "markAs": string;
             "markAllAsRead": string;
             "noUnread": string;
+            "noAttention": string;
+            "noSeverity": string;
             "changeSetting": string;
             "new": string;
             "showMore": string;
-            "exportBase": {
-                "successText": string;
-                "failedText": string;
-            };
-            "importantNotice": {
-                "title": string;
-                "acknowledge": string;
-            };
-            "noAttention": string;
-            "noSeverity": string;
             "sections": {
                 "needsAction": string;
                 "all": string;
@@ -1303,6 +1288,14 @@ export type I18nTranslations = {
                 "critical": string;
                 "warning": string;
                 "info": string;
+            };
+            "exportBase": {
+                "successText": string;
+                "failedText": string;
+            };
+            "importantNotice": {
+                "title": string;
+                "acknowledge": string;
             };
         };
         "role": {
@@ -1350,6 +1343,7 @@ export type I18nTranslations = {
             "turnOnTip": string;
         };
         "email": {
+            "title": string;
             "send": string;
             "config": string;
             "customConfig": string;
@@ -1582,7 +1576,6 @@ export type I18nTranslations = {
                     };
                 };
             };
-            "title": string;
         };
         "waitlist": {
             "title": string;
@@ -1607,11 +1600,8 @@ export type I18nTranslations = {
             "generate": string;
             "code": string;
             "inviteSuccess": string;
-            "app": {
-                "previewAppError": string;
-                "sendErrorToAI": string;
-            };
         };
+        "noPermissionToCreateBase": string;
         "base": {
             "deleteTip": string;
             "createResource": string;
@@ -1659,6 +1649,8 @@ export type I18nTranslations = {
             "mustMention": string;
             "fetchSnapshotFailed": string;
             "alreadyClaimedThisWeek": string;
+            "maxClaimsReached": string;
+            "postTooOld": string;
             "manage": {
                 "title": string;
                 "description": string;
@@ -1717,6 +1709,33 @@ export type I18nTranslations = {
                 };
             };
         };
+        "chat": {
+            "responseInterrupted": string;
+            "serverError": string;
+            "serverErrorHint": string;
+            "modelNotSupported": string;
+            "byokModelNotSupported": string;
+            "modelServiceUnavailable": string;
+            "modelServiceError": string;
+            "imageProcessingFailed": string;
+            "imageProcessingFailedDescription": string;
+            "sandboxActiveRunBusy": string;
+            "sandboxCapacityFull": string;
+            "sandboxTransient": string;
+            "sandboxSnapshotNotFound": string;
+            "sandboxProviderError": string;
+            "sandboxProviderErrorDescription": string;
+            "agentStartFailed": string;
+            "idleTimeout": string;
+            "danglingToolUse": string;
+            "contextImportFailed": string;
+            "collapsedStatus": {
+                "open": string;
+                "working": string;
+                "completed": string;
+                "failed": string;
+            };
+        };
         "system": {
             "notFound": {
                 "title": string;
@@ -1766,6 +1785,7 @@ export type I18nTranslations = {
                 "download": string;
                 "uninstall": string;
                 "copyToBase": string;
+                "copyToSpace": string;
                 "copyToPersonal": string;
                 "copyToApp": string;
             };
@@ -1790,18 +1810,21 @@ export type I18nTranslations = {
                 "type": string;
                 "description": string;
                 "source": string;
+                "addedBy": string;
                 "skillLabel": string;
                 "syncStatus": string;
                 "preview": string;
-                "addedBy": string;
             };
             "scope": {
                 "label": string;
                 "system": string;
+                "builtin": string;
                 "base": string;
                 "user": string;
                 "userDescription": string;
                 "baseDescription": string;
+                "space": string;
+                "spaceDescription": string;
                 "app": string;
                 "appDescription": string;
                 "cuppyclaw": string;
@@ -1817,9 +1840,6 @@ export type I18nTranslations = {
                 "disabled": string;
                 "synced": string;
                 "failed": string;
-            };
-            "empty": {
-                "mySkills": string;
             };
             "confirm": {
                 "deleteTitle": string;
@@ -1841,12 +1861,6 @@ export type I18nTranslations = {
                 "copyError": string;
             };
         };
-        "changelog": {
-            "newUpdate": string;
-            "title": string;
-            "url": string;
-            "id": string;
-        };
         "resourceDescription": {
             "addDescription": string;
             "nodeDescription": string;
@@ -1854,62 +1868,17 @@ export type I18nTranslations = {
             "descriptionSaveFailed": string;
             "descriptionPlaceholder": string;
         };
-        "noPermissionToCreateBase": string;
-        "chat": {
-            "responseInterrupted": string;
-            "serverError": string;
-            "serverErrorHint": string;
-            "modelNotSupported": string;
-            "byokModelNotSupported": string;
-            "modelServiceUnavailable": string;
-            "modelServiceError": string;
-            "imageProcessingFailed": string;
-            "imageProcessingFailedDescription": string;
-            "sandboxActiveRunBusy": string;
-            "sandboxCapacityFull": string;
-            "sandboxTransient": string;
-            "sandboxSnapshotNotFound": string;
-            "sandboxProviderError": string;
-            "sandboxProviderErrorDescription": string;
-            "agentStartFailed": string;
-            "idleTimeout": string;
-            "danglingToolUse": string;
-            "contextImportFailed": string;
-        };
-        "clickToCopyTooltip": string;
-        "copiedTooltip": string;
-        "hiddenFieldCount_one": string;
-        "hiddenFieldCount_other": string;
-        "invalidFieldMapping": string;
-        "sourceFieldNotFoundMapping": string;
-        "targetFieldNotFoundMapping": string;
-        "fieldTypeNotSupportedMapping": string;
-        "fieldSettingsNotMatchMapping": string;
-        "fieldSettingsLookupNotMatch": string;
-        "fieldSettingsLinkTableNotMatch": string;
-        "fieldSettingsLinkViewNotMatch": string;
-        "fieldTypeDifferentMapping": string;
-        "fieldMappingSourceTip": string;
-        "fieldMappingTargetTip": string;
-        "reset": string;
-        "checkAll": string;
-        "uncheckAll": string;
-        "duplicateOptionsMapping": string;
-        "lookupFieldInvalidMapping": string;
-        "noMatchedOptions": string;
-        "needManualSelectionMapping": string;
-        "targetFieldIsComputed": string;
-        "targetFieldIsComputedTips": string;
-        "emptyOption": string;
-        "showEmptyTip": string;
-        "hideEmptyTip": string;
-        "hideText": string;
-        "showText": string;
-        "sourceTable": string;
-        "sourceView": string;
-        "non": {
-            "share": string;
-            "copy": string;
+        "announcement": {
+            "viewDetail": string;
+            "close": string;
+            "acknowledge": string;
+            "collapse": string;
+            "more_zero": string;
+            "more_one": string;
+            "more_two": string;
+            "more_few": string;
+            "more_many": string;
+            "more_other": string;
         };
     };
     "dashboard": {
@@ -1925,18 +1894,9 @@ export type I18nTranslations = {
             "placeholder": string;
         };
         "findDashboard": string;
-        "expand": string;
         "deprecation": {
             "title": string;
             "description": string;
-        };
-        "pluginUrlEmpty": string;
-        "install": string;
-        "publisher": string;
-        "lastUpdated": string;
-        "pluginNotFound": string;
-        "pluginEmpty": {
-            "title": string;
         };
     };
     "developer": {
@@ -1945,7 +1905,6 @@ export type I18nTranslations = {
         "apiList": string;
         "cellFormat": string;
         "fieldKeyType": string;
-        "fieldKeyTypeDesc": string;
         "chooseSource": string;
         "action": {
             "selectBase": string;
@@ -1973,7 +1932,6 @@ export type I18nTranslations = {
             "copied": string;
             "compactDescription": string;
         };
-        "only10Records": string;
     };
     "oauth": {
         "add": string;
@@ -2002,7 +1960,6 @@ export type I18nTranslations = {
                 "clear": string;
                 "lengthError": string;
                 "typeError": string;
-                "Label": string;
             };
             "callbackUrl": {
                 "label": string;
@@ -2020,6 +1977,10 @@ export type I18nTranslations = {
             };
             "clientId": {
                 "label": string;
+            };
+            "deviceFlow": {
+                "label": string;
+                "description": string;
             };
         };
         "formType": {
@@ -2041,6 +2002,23 @@ export type I18nTranslations = {
         "deleteConfirm": {
             "title": string;
             "description": string;
+        };
+        "device": {
+            "title": string;
+            "description": string;
+            "submit": string;
+            "invalidCode": string;
+            "codeUsed": string;
+            "deviceFlowDisabled": string;
+            "codeLabel": string;
+            "confirmCode": string;
+            "securityTitle": string;
+            "phishingHint": string;
+            "phishingHintStrong": string;
+            "approvedTitle": string;
+            "approvedDescription": string;
+            "deniedTitle": string;
+            "deniedDescription": string;
         };
     };
     "plugin": {
@@ -2076,7 +2054,6 @@ export type I18nTranslations = {
                 "placeholder": string;
                 "lengthError": string;
                 "typeError": string;
-                "Label": string;
             };
             "helpUrl": {
                 "label": string;
@@ -2121,6 +2098,7 @@ export type I18nTranslations = {
             "empty": string;
             "noRecords": string;
             "unnamedRecord": string;
+            "recordDeleted": string;
             "untitled": string;
             "cancel": string;
             "confirm": string;
@@ -2151,13 +2129,22 @@ export type I18nTranslations = {
             "click": string;
             "clickedCount": string;
             "atLeastOne": string;
+            "close": string;
+            "selectField": string;
         };
         "notification": {
             "title": string;
         };
+        "aiError": {
+            "title": string;
+            "retry": string;
+            "dismiss": string;
+        };
         "preview": {
             "previewFileLimit": string;
             "loadFileError": string;
+            "previousAttachment": string;
+            "nextAttachment": string;
         };
         "undoRedo": {
             "undo": string;
@@ -2268,6 +2255,11 @@ export type I18nTranslations = {
         "filter": {
             "label": string;
             "displayLabel": string;
+            "displayLabel_zero": string;
+            "displayLabel_one": string;
+            "displayLabel_two": string;
+            "displayLabel_few": string;
+            "displayLabel_many": string;
             "displayLabel_other": string;
             "addCondition": string;
             "addConditionGroup": string;
@@ -2338,6 +2330,7 @@ export type I18nTranslations = {
                     "exactDate": string;
                     "exactDateTime": string;
                     "exactFormatDate": string;
+                    "dateRange": string;
                     "currentWeek": string;
                     "currentMonth": string;
                     "currentYear": string;
@@ -2355,9 +2348,12 @@ export type I18nTranslations = {
                     "nextYear": string;
                     "pastNumberOfDays": string;
                     "nextNumberOfDays": string;
-                    "dateRange": string;
                 };
             };
+            "selectOperator": string;
+            "selectConjunction": string;
+            "selectDateMode": string;
+            "selectValue": string;
         };
         "color": {
             "label": string;
@@ -2377,6 +2373,11 @@ export type I18nTranslations = {
         "extensions": {};
         "hidden": {
             "label": string;
+            "configLabel_zero": string;
+            "configLabel_one": string;
+            "configLabel_two": string;
+            "configLabel_few": string;
+            "configLabel_many": string;
             "configLabel_other": string;
             "configLabel_other_visible": string;
             "showAll": string;
@@ -2386,6 +2387,8 @@ export type I18nTranslations = {
         };
         "expandRecord": {
             "copy": string;
+            "previousRecord": string;
+            "nextRecord": string;
             "duplicateRecord": string;
             "copyRecordUrl": string;
             "deleteRecord": string;
@@ -2413,20 +2416,30 @@ export type I18nTranslations = {
         };
         "sort": {
             "label": string;
+            "displayLabel_zero": string;
             "displayLabel_one": string;
+            "displayLabel_two": string;
+            "displayLabel_few": string;
+            "displayLabel_many": string;
             "displayLabel_other": string;
             "setTips": string;
             "addButton": string;
             "autoSort": string;
             "selectASCLabel": string;
             "selectDESCLabel": string;
+            "orderTitle": string;
         };
         "group": {
             "label": string;
+            "displayLabel_zero": string;
             "displayLabel_one": string;
+            "displayLabel_two": string;
+            "displayLabel_few": string;
+            "displayLabel_many": string;
             "displayLabel_other": string;
             "setTips": string;
             "addButton": string;
+            "maxLimitTip": string;
         };
         "field": {
             "title": {
@@ -2515,6 +2528,8 @@ export type I18nTranslations = {
                 "tableTrashRead": string;
                 "tableTrashUpdate": string;
                 "tableTrashReset": string;
+                "tableArchiveRead": string;
+                "tableArchiveManage": string;
                 "viewCreate": string;
                 "viewDelete": string;
                 "viewRead": string;
@@ -2530,6 +2545,7 @@ export type I18nTranslations = {
                 "recordRead": string;
                 "recordUpdate": string;
                 "recordCopy": string;
+                "recordArchive": string;
                 "automationCreate": string;
                 "automationDelete": string;
                 "automationRead": string;
@@ -2675,6 +2691,14 @@ export type I18nTranslations = {
                 "example": string;
             };
             "SUBSTITUTE": {
+                "summary": string;
+                "example": string;
+            };
+            "TEXTBEFORE": {
+                "summary": string;
+                "example": string;
+            };
+            "TEXTSPLIT": {
                 "summary": string;
                 "example": string;
             };
@@ -2886,14 +2910,6 @@ export type I18nTranslations = {
                 "summary": string;
                 "example": string;
             };
-            "TEXTBEFORE": {
-                "summary": string;
-                "example": string;
-            };
-            "TEXTSPLIT": {
-                "summary": string;
-                "example": string;
-            };
         };
         "functionType": {
             "fields": string;
@@ -3023,10 +3039,12 @@ export type I18nTranslations = {
             "creditLimitExceeded": string;
             "restrictedResource": string;
             "notFound": string;
+            "viewNotFound": string;
             "conflict": string;
             "unprocessableEntity": string;
             "userLimitExceeded": string;
             "tooManyRequests": string;
+            "payloadTooLarge": string;
             "internalServerError": string;
             "databaseConnectionUnavailable": string;
             "gatewayTimeout": string;
@@ -3063,15 +3081,21 @@ export type I18nTranslations = {
                 "nameMaxLength": string;
                 "descriptionMaxLength": string;
             };
-            "validation": {
-                "field": {
-                    "unique": string;
-                };
-            };
             "custom": {
                 "fieldValueNotNull": string;
                 "fieldValueDuplicate": string;
+                "recordFieldValueNotNull": string;
+                "recordFieldValueDuplicate": string;
+                "recordDeleteBlockedByRequiredLink": string;
+                "recordDeleteBlockedByRequiredLinkGeneric": string;
+                "recordDeleteBlockedByLink": string;
                 "linkFieldValueDuplicate": string;
+                "linkBatchDuplicate": string;
+                "linkOneManyDuplicate": string;
+                "linkOneOneDuplicate": string;
+                "fieldMaxColumnLimit": string;
+                "fieldRequiredExistingValues": string;
+                "fieldUniqueExistingValues": string;
                 "requestTimeout": string;
                 "searchTimeOut": string;
                 "dependencyNodeRequire": string;
@@ -3149,15 +3173,19 @@ export type I18nTranslations = {
                 "onlyFailedRunsCanRerun": string;
                 "workflowMustBeActiveToRerun": string;
                 "snapshotChangedOnlyFullRerun": string;
+                "runPayloadColdTruncated": string;
+                "runListOffsetTooDeep": string;
                 "controlStepsMissingOnlyFullRerun": string;
                 "triggerNodeAlreadyExists": string;
+                "scheduledIntervalTooShort": string;
+                "emailPollIntervalTooShort": string;
+                "unSupportLogicType": string;
                 "generateLogicError": string;
                 "logicNotFound": string;
-                "actionNotFound": string;
-                "unSupportDuplicateWorkflowNodeType": string;
-                "unSupportLogicType": string;
                 "groupEndNotFound": string;
                 "insertNodeError": string;
+                "actionNotFound": string;
+                "unSupportDuplicateWorkflowNodeType": string;
                 "controlNodeNotBeTested": string;
                 "invalidNodeType": string;
                 "unsupportedCategory": string;
@@ -3291,8 +3319,8 @@ export type I18nTranslations = {
                 "whiteListCheckError": string;
                 "databaseConnectionFailed": string;
                 "executeQuerySqlFailed": string;
-                "sqlSyntaxError": string;
                 "readOnlyCheckFailed": string;
+                "sqlSyntaxError": string;
             };
             "permission": {
                 "createRecordWithDeniedFields": string;
@@ -3373,12 +3401,12 @@ export type I18nTranslations = {
                 "lookupFieldTypeNotEqual": string;
                 "recordNotFound": string;
                 "linkCellRecordIdAlreadyExists": string;
+                "linkConsistencyError": string;
                 "oneOneLinkCellValueCannotBeArray": string;
                 "manyOneLinkCellValueCannotBeArray": string;
-                "foreignKeyDuplicate": string;
-                "linkConsistencyError": string;
                 "oneManyLinkCellValueShouldBeArray": string;
                 "manyManyLinkCellValueShouldBeArray": string;
+                "foreignKeyDuplicate": string;
                 "onlyLinkFieldCanBeFiltered": string;
                 "notLinkedToCurrentTable": string;
                 "notAttachment": string;
@@ -3418,7 +3446,10 @@ export type I18nTranslations = {
             };
             "billing": {
                 "insufficientCredit": string;
+                "upgradeRequired": string;
                 "exceedMaxRowLimit": string;
+                "exceedMaxAttachmentSizeLimit": string;
+                "exceedMaxSystemEmailLimit": string;
                 "exceedMaxAutomationRunLimit": string;
                 "manualSubscriptionNotSupported": string;
                 "appSumoSubscriptionNotSupported": string;
@@ -3443,17 +3474,18 @@ export type I18nTranslations = {
                 "configurationNotSet": string;
                 "unsupportedProvider": string;
                 "providerConfigurationNotSet": string;
+                "gatewayApiKeyNotSet": string;
                 "testLLMFailed": string;
                 "audioNotSupported": string;
                 "imageNotSupported": string;
                 "modelNotSet": string;
                 "unsupportedFileType": string;
+                "attachmentDownloadFailed": string;
                 "unsupportedModelType": string;
                 "embeddingModelNotSet": string;
                 "validateActionFailed": string;
                 "generateFailed": string;
                 "unsupportedActionType": string;
-                "gatewayApiKeyNotSet": string;
                 "geminiImageNotSupportedViaGateway": string;
             };
             "skill": {
@@ -3638,6 +3670,10 @@ export type I18nTranslations = {
                 "invalidZip": string;
                 "domainAlreadyInUse": string;
                 "domainReserved": string;
+                "siteInfoBeforeGeneration": string;
+                "generationEditingConflict": string;
+                "siteInfoLayoutNotEditable": string;
+                "siteInfoManagedInCode": string;
             };
             "reward": {
                 "notFound": string;
@@ -3647,6 +3683,7 @@ export type I18nTranslations = {
                 "alreadyClaimedThisWeek": string;
                 "invalidPostUrl": string;
                 "postAlreadyUsed": string;
+                "tooManyFailedAttempts": string;
                 "unsupportedPlatformUrl": string;
                 "unsupportedPlatform": string;
                 "minCharCount": string;
@@ -3660,14 +3697,26 @@ export type I18nTranslations = {
                 "linkedInPostNotFound": string;
                 "linkedInAuthorNotFound": string;
                 "fetchLinkedInUserFailed": string;
-                "domainAlreadyInUse": string;
-                "domainReserved": string;
             };
         };
-        "aiError": {
-            "title": string;
-            "retry": string;
-            "dismiss": string;
+        "usageLimitBanner": {
+            "viewDetail": string;
+            "rows": {
+                "title": string;
+                "titleIncrement": string;
+                "titleBatch": string;
+                "description": string;
+                "unit": string;
+            };
+            "credit": {
+                "unit": string;
+            };
+            "attachments": {
+                "unit": string;
+            };
+            "generic": {
+                "description": string;
+            };
         };
     };
     "setting": {
@@ -3682,6 +3731,10 @@ export type I18nTranslations = {
             "password": string;
             "passwordTooShort": string;
         };
+        "form": {
+            "requireLoginTip": string;
+            "login": string;
+        };
         "toolbar": {
             "filterLinkSelectPlaceholder": string;
         };
@@ -3690,10 +3743,6 @@ export type I18nTranslations = {
         };
         "openOnNewPage": string;
         "errorTips": string;
-        "form": {
-            "requireLoginTip": string;
-            "login": string;
-        };
     };
     "space": {
         "crossSpace": {
@@ -3739,6 +3788,8 @@ export type I18nTranslations = {
             "spaceId": string;
             "importBase": string;
         };
+        "collaborators": string;
+        "more": string;
         "pin": {
             "add": string;
             "remove": string;
@@ -3783,7 +3834,6 @@ export type I18nTranslations = {
             "description": string;
             "empty": string;
         };
-        "integration": {};
         "aiSetting": {
             "title": string;
             "description": string;
@@ -3794,9 +3844,17 @@ export type I18nTranslations = {
             "baseImportTips": string;
             "confirm": string;
             "phase": {
+                "importingV2": string;
                 "parsingStructure": string;
                 "creatingBase": string;
                 "creatingTable": string;
+                "tableStructureStarted": string;
+                "tableStructureValidating": string;
+                "tableStructureCommitting": string;
+                "tableStructureDone": string;
+                "tableStructureData": string;
+                "tableStructureTablesProgress": string;
+                "tableStructureTablesDone": string;
                 "creatingCommonFields": string;
                 "creatingButtonFields": string;
                 "creatingFormulaFields": string;
@@ -3808,20 +3866,10 @@ export type I18nTranslations = {
                 "creatingWorkflows": string;
                 "creatingApps": string;
                 "creatingAuthorityMatrix": string;
+                "restoringBaseNodes": string;
                 "queuingAttachments": string;
                 "uploadingAppFiles": string;
                 "queuingDataImport": string;
-                "done": string;
-                "clickToView": string;
-                "importingV2": string;
-                "tableStructureStarted": string;
-                "tableStructureValidating": string;
-                "tableStructureCommitting": string;
-                "tableStructureDone": string;
-                "tableStructureData": string;
-                "tableStructureTablesProgress": string;
-                "tableStructureTablesDone": string;
-                "restoringBaseNodes": string;
                 "importingTableData": string;
                 "restoringLinkRelations": string;
                 "tableDataStarted": string;
@@ -3837,6 +3885,27 @@ export type I18nTranslations = {
                 "tableDataBatch": string;
                 "tableDataBatchRows": string;
                 "tableDataEmpty": string;
+                "done": string;
+                "clickToView": string;
+            };
+        };
+        "export": {
+            "phase": {
+                "preparing": string;
+                "exportingArchive": string;
+                "exportingStructure": string;
+                "exportingAttachments": string;
+                "exportingAttachmentMetadata": string;
+                "exportingTableData": string;
+                "tableDataStarted": string;
+                "tableDataProgress": string;
+                "tableDataDone": string;
+                "exportingExtraFiles": string;
+                "exportingAppFiles": string;
+                "uploadingArchive": string;
+                "generatingDownloadUrl": string;
+                "rowsProgress": string;
+                "done": string;
             };
         };
         "template": {
@@ -3881,8 +3950,6 @@ export type I18nTranslations = {
                 "defaultActiveNode": string;
                 "descriptionPlaceholder": string;
                 "titlePlaceholder": string;
-                "toBeFilledTitle": string;
-                "toBeFilledDescription": string;
             };
             "publishToCommunity": string;
             "publish": string;
@@ -3918,96 +3985,14 @@ export type I18nTranslations = {
                 "publish": string;
                 "published": string;
                 "publishing": string;
+                "notPublished": string;
                 "publishFailed": string;
                 "publishFailedTip1": string;
                 "publishFailedTip2": string;
-                "notPublished": string;
                 "ignoreAndContinue": string;
                 "goToFix": string;
                 "redeploy": string;
                 "unnamedApp": string;
-            };
-        };
-        "airtableImport": {
-            "title": string;
-            "close": string;
-            "pickBase": string;
-            "noBases": string;
-            "optionRecords": string;
-            "optionAttachments": string;
-            "import": string;
-            "done": string;
-            "failed": string;
-            "openBase": string;
-            "issuesSummary": string;
-            "issuesMore": string;
-            "issue": {
-                "fieldDegraded": string;
-                "fieldSkipped": string;
-                "viewSkipped": string;
-                "valuesDropped": string;
-                "viewConfigDegraded": string;
-            };
-            "phase": {
-                "fetchingSchema": string;
-                "creatingBase": string;
-                "creatingTable": string;
-                "creatingLinks": string;
-                "fillingLinks": string;
-                "applyingViewConfig": string;
-            };
-            "searchBases": string;
-            "noSearchResults": string;
-            "detecting": string;
-            "connectWithAirtable": string;
-            "waitingOAuth": string;
-            "connectedAs": string;
-            "permission": {
-                "create": string;
-                "edit": string;
-                "comment": string;
-                "read": string;
-            };
-            "integrationRequired": string;
-            "optionViewConfig": string;
-            "viewConfig": {
-                "help": string;
-                "helpStep1": string;
-                "helpStep2": string;
-                "helpStep3": string;
-                "linkPlaceholder": string;
-                "mismatch": string;
-                "disableReminder": string;
-            };
-        };
-        "createBaseDialog": {
-            "title": string;
-        };
-        "importBaseDialog": {
-            "title": string;
-            "fromFile": string;
-            "fromFileDesc": string;
-            "fromAirtableDesc": string;
-        };
-        "collaborators": string;
-        "more": string;
-        "export": {
-            "phase": {
-                "preparing": string;
-                "exportingArchive": string;
-                "exportingStructure": string;
-                "exportingAttachments": string;
-                "exportingAttachmentMetadata": string;
-                "exportingTableData": string;
-                "tableDataStarted": string;
-                "tableDataProgress": string;
-                "tableDataDone": string;
-                "exportingExtraFiles": string;
-                "exportingAppFiles": string;
-                "uploadingArchive": string;
-                "generatingDownloadUrl": string;
-                "rowsProgress": string;
-                "done": string;
             };
         };
         "dataDb": {
@@ -4074,6 +4059,103 @@ export type I18nTranslations = {
                 "tooltip": string;
             };
         };
+        "airtableImport": {
+            "title": string;
+            "close": string;
+            "pickBase": string;
+            "noBases": string;
+            "optionRecords": string;
+            "optionAttachments": string;
+            "import": string;
+            "done": string;
+            "failed": string;
+            "openBase": string;
+            "issuesSummary": string;
+            "issuesMore": string;
+            "issue": {
+                "fieldDegraded": string;
+                "fieldSkipped": string;
+                "viewSkipped": string;
+                "valuesDropped": string;
+                "viewConfigDegraded": string;
+            };
+            "phase": {
+                "fetchingSchema": string;
+                "creatingBase": string;
+                "creatingTable": string;
+                "creatingLinks": string;
+                "fillingLinks": string;
+                "applyingViewConfig": string;
+            };
+            "searchBases": string;
+            "noSearchResults": string;
+            "detecting": string;
+            "connectWithAirtable": string;
+            "waitingOAuth": string;
+            "connectedAs": string;
+            "permission": {
+                "create": string;
+                "edit": string;
+                "comment": string;
+                "read": string;
+            };
+            "integrationRequired": string;
+            "optionViewConfig": string;
+            "viewConfig": {
+                "help": string;
+                "helpStep1": string;
+                "helpStep2": string;
+                "helpStep3": string;
+                "linkPlaceholder": string;
+                "mismatch": string;
+                "disableReminder": string;
+            };
+        };
+        "createBaseDialog": {
+            "title": string;
+        };
+        "importBaseDialog": {
+            "title": string;
+            "fromFile": string;
+            "fromFileDesc": string;
+            "fromAirtableDesc": string;
+            "fromGoogleSheetDesc": string;
+        };
+        "googleSheetImport": {
+            "title": string;
+            "close": string;
+            "pickSpreadsheet": string;
+            "openPicker": string;
+            "changeSpreadsheet": string;
+            "analyzing": string;
+            "pickTabs": string;
+            "gridSize": string;
+            "optionRecords": string;
+            "import": string;
+            "done": string;
+            "failed": string;
+            "openBase": string;
+            "issuesSummary": string;
+            "issuesMore": string;
+            "recordsImported": string;
+            "partialImported": string;
+            "issue": {
+                "valuesDropped": string;
+                "sheetSkipped": string;
+                "columnsTruncated": string;
+            };
+            "phase": {
+                "fetchingSchema": string;
+                "creatingBase": string;
+                "creatingTable": string;
+            };
+            "detecting": string;
+            "connectWithGoogle": string;
+            "waitingOAuth": string;
+            "connectedAs": string;
+            "integrationRequired": string;
+        };
+        "integration": {};
     };
     "table": {
         "computeActivity": {
@@ -4084,30 +4166,41 @@ export type I18nTranslations = {
             "waiting": string;
             "failed": string;
             "calculationFailed": string;
+            "cellValueTooLarge": string;
             "calculatingSummary": string;
             "failedSummary": string;
+            "fieldsCalculating_zero": string;
             "fieldsCalculating_one": string;
+            "fieldsCalculating_two": string;
+            "fieldsCalculating_few": string;
+            "fieldsCalculating_many": string;
             "fieldsCalculating_other": string;
+            "fieldCalculationsFailed_zero": string;
             "fieldCalculationsFailed_one": string;
+            "fieldCalculationsFailed_two": string;
+            "fieldCalculationsFailed_few": string;
+            "fieldCalculationsFailed_many": string;
             "fieldCalculationsFailed_other": string;
+            "batchesRunning_zero": string;
             "batchesRunning_one": string;
+            "batchesRunning_two": string;
+            "batchesRunning_few": string;
+            "batchesRunning_many": string;
             "batchesRunning_other": string;
+            "batchesQueued_zero": string;
             "batchesQueued_one": string;
+            "batchesQueued_two": string;
+            "batchesQueued_few": string;
+            "batchesQueued_many": string;
             "batchesQueued_other": string;
+            "records_zero": string;
             "records_one": string;
+            "records_two": string;
+            "records_few": string;
+            "records_many": string;
             "records_other": string;
             "batchesComplete": string;
             "progressAriaLabel": string;
-            "fieldsCalculating_many": string;
-            "fieldCalculationsFailed_many": string;
-            "batchesRunning_many": string;
-            "batchesQueued_many": string;
-            "records_many": string;
-            "fieldsCalculating_few": string;
-            "fieldCalculationsFailed_few": string;
-            "batchesRunning_few": string;
-            "batchesQueued_few": string;
-            "records_few": string;
         };
         "crossSpace": {
             "duplicateFieldTitle": string;
@@ -4134,13 +4227,13 @@ export type I18nTranslations = {
                     "passwordTips": string;
                     "embed": string;
                     "embedPreview": string;
+                    "copyCode": string;
                     "hideToolbar": string;
                     "URLSetting": string;
                     "URLSettingDescription": string;
                     "cancel": string;
                     "save": string;
                     "requireLogin": string;
-                    "copyCode": string;
                 };
                 "api": {
                     "title": string;
@@ -4190,17 +4283,6 @@ export type I18nTranslations = {
             "help": string;
             "helpCenter": string;
         };
-        "validation": {
-            "link": {
-                "batch_duplicate": string;
-                "one_many_duplicate": string;
-                "one_one_duplicate": string;
-            };
-            "field": {
-                "maxColumnLimit": string;
-                "requiredExistingValues": string;
-            };
-        };
         "field": {
             "advancedProps": string;
             "hide": string;
@@ -4220,8 +4302,6 @@ export type I18nTranslations = {
                     "decimalExample": string;
                     "currencyExample": string;
                     "percentExample": string;
-                    "CurrencySymbol": string;
-                    "%Example": string;
                 };
                 "singleSelect": {
                     "title": string;
@@ -4354,6 +4434,7 @@ export type I18nTranslations = {
                 "reset": string;
                 "fieldUpdated": string;
                 "fieldCreated": string;
+                "fieldUnavailable": string;
                 "confirmFieldChange": string;
                 "areYouSurePerformIt": string;
                 "addDescription": string;
@@ -4403,6 +4484,20 @@ export type I18nTranslations = {
                 "lookupToTable": string;
                 "rollupToTable": string;
                 "selectField": string;
+                "lastModifiedScope": string;
+                "lastModifiedAll": string;
+                "lastModifiedSpecific": string;
+                "lastModifiedSelect": string;
+                "noEditableFields": string;
+                "conditionalLookup": {
+                    "sortLimitToggleLabel": string;
+                    "sortLabel": string;
+                    "limitLabel": string;
+                    "limitPlaceholder": string;
+                    "limitHint": string;
+                    "sortMissingWarningTitle": string;
+                    "sortMissingWarningDescription": string;
+                };
                 "linkTable": string;
                 "linkBase": string;
                 "tableNoPermission": string;
@@ -4431,26 +4526,9 @@ export type I18nTranslations = {
                     "affectedItems": string;
                     "type": string;
                     "source": string;
-                    "sourceTable": string;
-                    "typeField": string;
                     "loginEmailFieldWarning": string;
                     "loginEmailFieldConvertWarning": string;
                 };
-                "conditionalLookup": {
-                    "sortLimitToggleLabel": string;
-                    "sortLabel": string;
-                    "limitLabel": string;
-                    "limitPlaceholder": string;
-                    "limitHint": string;
-                    "sortMissingWarningTitle": string;
-                    "sortMissingWarningDescription": string;
-                };
-                "fieldUnavailable": string;
-                "lastModifiedScope": string;
-                "lastModifiedAll": string;
-                "lastModifiedSpecific": string;
-                "lastModifiedSelect": string;
-                "noEditableFields": string;
             };
             "subTitle": {
                 "link": string;
@@ -4466,6 +4544,7 @@ export type I18nTranslations = {
                 "rating": string;
                 "formula": string;
                 "rollup": string;
+                "conditionalRollup": string;
                 "conditionalLookup": string;
                 "createdTime": string;
                 "lastModifiedTime": string;
@@ -4474,7 +4553,6 @@ export type I18nTranslations = {
                 "autoNumber": string;
                 "button": string;
                 "lookup": string;
-                "conditionalRollup": string;
             };
             "fieldName": string;
             "fieldNameOptional": string;
@@ -4522,18 +4600,29 @@ export type I18nTranslations = {
                     "targetLanguage": string;
                     "imageSize": string;
                     "imageQuality": string;
-                    "attachPromptForImageGeneration": string;
-                    "attachPromptForRating": string;
                     "aspectRatio": string;
                     "resolution": string;
+                    "attachPromptForImageGeneration": string;
+                    "attachPromptForRating": string;
                 };
                 "imageQuality": {
                     "low": string;
                     "medium": string;
                     "high": string;
                 };
+                "hint": {
+                    "imageInputSupported": string;
+                    "attachmentNotSupported": string;
+                    "singleImageOnly": string;
+                };
                 "tip": {
                     "gptImageResolution": string;
+                };
+                "auto": string;
+                "resolution": {
+                    "1K": string;
+                    "2K": string;
+                    "4K": string;
                 };
                 "autoFill": {
                     "title": string;
@@ -4546,29 +4635,18 @@ export type I18nTranslations = {
                 "autoFillConfirm": {
                     "title": string;
                     "description": string;
-                    "saveConfigOnly": string;
-                    "generateFailed": string;
                     "emptyOnlyMode": string;
                     "emptyOnlyModeDesc": string;
                     "allMode": string;
                     "allModeDesc": string;
                     "saveOnlyMode": string;
                     "saveOnlyModeDesc": string;
+                    "saveConfigOnly": string;
                     "fillEmptyCells": string;
                     "generateAll": string;
                     "recommended": string;
+                    "generateFailed": string;
                     "limitWarning": string;
-                };
-                "hint": {
-                    "imageInputSupported": string;
-                    "attachmentNotSupported": string;
-                    "singleImageOnly": string;
-                };
-                "auto": string;
-                "resolution": {
-                    "1K": string;
-                    "2K": string;
-                    "4K": string;
                 };
             };
         };
@@ -4580,12 +4658,14 @@ export type I18nTranslations = {
             "dbTableName": string;
             "schemaName": string;
             "baseInfo": string;
-            "typeOfDatabase": string;
-            "descriptionForTable": string;
             "loginUserTable": string;
             "linkedApps": string;
+            "typeOfDatabase": string;
+            "descriptionForTable": string;
             "nameForTable": string;
             "deleteTip1": string;
+            "deleteWithDependencies": string;
+            "loginDeleteWarning": string;
             "operator": {
                 "createBlank": string;
             };
@@ -4598,13 +4678,36 @@ export type I18nTranslations = {
                 "pasting": string;
                 "pasteSuccessful": string;
                 "pasteFailed": string;
+                "pasteNoEditableFields": string;
                 "filling": string;
                 "fillSuccessful": string;
                 "fillFailed": string;
                 "clearing": string;
                 "clearSuccessful": string;
+                "clearFailed": string;
+                "clearConfirmTitle": string;
+                "clearConfirmDescription": string;
+                "archiveRecordConfirmTitle": string;
+                "archiveRecordConfirmDescription": string;
+                "archiveRecord": string;
+                "archiving": string;
+                "archiveSuccessful": string;
+                "deleteRecordConfirmTitle": string;
+                "deleteRecordConfirmDescription": string;
+                "duplicateRecordsConfirmTitle": string;
+                "duplicateRecordsConfirmDescription": string;
+                "pasteConfirmTitle": string;
+                "pasteConfirmDescription": string;
+                "paste": string;
+                "deleteRecord": string;
+                "clear": string;
                 "deleting": string;
+                "duplicating": string;
+                "deleteFailed": string;
                 "deleteSuccessful": string;
+                "duplicateFailed": string;
+                "duplicateSuccessful": string;
+                "duplicateRecords": string;
                 "deleteStream": {
                     "preparing": string;
                     "deleting": string;
@@ -4623,33 +4726,6 @@ export type I18nTranslations = {
                         "finalizing": string;
                     };
                 };
-                "pasteFileFailed": string;
-                "copyError": {
-                    "noFocus": string;
-                    "noPermission": string;
-                };
-                "crossBaseCopyTitle": string;
-                "crossBaseCopyDescription": string;
-                "crossBaseCopyConfirm": string;
-                "crossBaseCopyLoadFirst": string;
-                "pasteNoEditableFields": string;
-                "clearFailed": string;
-                "clearConfirmTitle": string;
-                "clearConfirmDescription": string;
-                "deleteRecordConfirmTitle": string;
-                "deleteRecordConfirmDescription": string;
-                "duplicateRecordsConfirmTitle": string;
-                "duplicateRecordsConfirmDescription": string;
-                "pasteConfirmTitle": string;
-                "pasteConfirmDescription": string;
-                "paste": string;
-                "deleteRecord": string;
-                "clear": string;
-                "duplicating": string;
-                "deleteFailed": string;
-                "duplicateFailed": string;
-                "duplicateSuccessful": string;
-                "duplicateRecords": string;
                 "duplicateStream": {
                     "preparing": string;
                     "duplicating": string;
@@ -4727,7 +4803,15 @@ export type I18nTranslations = {
                         "finalizing": string;
                     };
                 };
-                "pasing": string;
+                "pasteFileFailed": string;
+                "copyError": {
+                    "noFocus": string;
+                    "noPermission": string;
+                };
+                "crossBaseCopyTitle": string;
+                "crossBaseCopyDescription": string;
+                "crossBaseCopyConfirm": string;
+                "crossBaseCopyLoadFirst": string;
             };
             "graph": {
                 "effectCells": string;
@@ -4740,6 +4824,8 @@ export type I18nTranslations = {
                 "loading": string;
                 "allGood": string;
                 "fixIssues": string;
+                "type": string;
+                "message": string;
                 "v2": {
                     "dialogTitle": string;
                     "dialogDescription": string;
@@ -4759,6 +4845,20 @@ export type I18nTranslations = {
                     "manualRepairDialogReason": string;
                     "manualRepairDialogHint": string;
                     "manualRepairDialogClose": string;
+                    "repairPreviewTitle": string;
+                    "repairPreviewDescription": string;
+                    "repairPreviewTooltip": string;
+                    "repairPreviewMissingTable": string;
+                    "repairPreviewUnavailableStatus": string;
+                    "repairPreviewWhat": string;
+                    "repairPreviewTarget": string;
+                    "repairPreviewPrinciple": string;
+                    "repairPreviewNoPrinciple": string;
+                    "repairPreviewSql": string;
+                    "repairPreviewNoSql": string;
+                    "repairPreviewCannotConfirm": string;
+                    "repairPreviewParameters": string;
+                    "repairPreviewConfirm": string;
                     "checking": string;
                     "repairing": string;
                     "streamError": string;
@@ -4824,14 +4924,6 @@ export type I18nTranslations = {
                         "systemColumnUnique": string;
                         "systemColumnPrimaryKey": string;
                         "systemColumnDefault": string;
-                        "foreignKeyOrphanRows": string;
-                        "foreignKeyOrphanRowsDescription": string;
-                        "junctionForeignKeyMissing": string;
-                        "junctionForeignKeyMissingDescription": string;
-                        "junctionForeignKeyTargetTableMissing": string;
-                        "junctionForeignKeyTargetTableMissingDescription": string;
-                        "junctionForeignKeyOrphanRows": string;
-                        "junctionForeignKeyOrphanRowsDescription": string;
                         "columnUniqueMissing": string;
                         "columnUniqueMissingDescription": string;
                         "columnUniqueIndexMismatch": string;
@@ -4840,6 +4932,14 @@ export type I18nTranslations = {
                         "foreignKeyMissingDescription": string;
                         "foreignKeyTargetTableMissing": string;
                         "foreignKeyTargetTableMissingDescription": string;
+                        "foreignKeyOrphanRows": string;
+                        "foreignKeyOrphanRowsDescription": string;
+                        "junctionForeignKeyMissing": string;
+                        "junctionForeignKeyMissingDescription": string;
+                        "junctionForeignKeyTargetTableMissing": string;
+                        "junctionForeignKeyTargetTableMissingDescription": string;
+                        "junctionForeignKeyOrphanRows": string;
+                        "junctionForeignKeyOrphanRowsDescription": string;
                         "referenceMissing": string;
                         "referenceMissingDescription": string;
                         "symmetricFieldTargetMissing": string;
@@ -4850,34 +4950,6 @@ export type I18nTranslations = {
                         "symmetricFieldDuplicateUsage": string;
                         "symmetricFieldDuplicateUsageDescription": string;
                     };
-                    "phase": {
-                        "check": string;
-                        "repair": string;
-                    };
-                    "summary": {
-                        "checks": string;
-                        "success": string;
-                        "warn": string;
-                        "error": string;
-                        "skipped": string;
-                        "repaired": string;
-                        "manual": string;
-                        "problems": string;
-                    };
-                    "status": {
-                        "success": string;
-                        "error": string;
-                        "warn": string;
-                        "pending": string;
-                        "running": string;
-                        "skipped": string;
-                    };
-                    "outcome": {
-                        "repaired": string;
-                        "unchanged": string;
-                        "manual": string;
-                        "skipped": string;
-                    };
                     "repairMeta": {
                         "reason": {
                             "alreadyValid": string;
@@ -4885,22 +4957,22 @@ export type I18nTranslations = {
                             "statementGenerationFailed": string;
                             "noStatements": string;
                             "symmetricFieldConflict": string;
+                            "symmetricFieldMissing": string;
+                            "symmetricFieldBroken": string;
                             "foreignKeyTargetTableMissing": string;
                             "foreignKeyOrphanRows": string;
                             "junctionForeignKeyTargetTableMissing": string;
                             "junctionForeignKeyOrphanRows": string;
-                            "symmetricFieldMissing": string;
-                            "symmetricFieldBroken": string;
                         };
                         "description": {
+                            "autoRule": string;
                             "symmetricFieldConflict": string;
+                            "symmetricFieldMissing": string;
+                            "symmetricFieldBroken": string;
                             "foreignKeyTargetTableMissing": string;
                             "foreignKeyOrphanRows": string;
                             "junctionForeignKeyTargetTableMissing": string;
                             "junctionForeignKeyOrphanRows": string;
-                            "autoRule": string;
-                            "symmetricFieldMissing": string;
-                            "symmetricFieldBroken": string;
                         };
                         "manual": {
                             "apply": string;
@@ -4952,25 +5024,36 @@ export type I18nTranslations = {
                             };
                         };
                     };
-                    "repairPreviewTitle": string;
-                    "repairPreviewDescription": string;
-                    "repairPreviewTooltip": string;
-                    "repairPreviewMissingTable": string;
-                    "repairPreviewUnavailableStatus": string;
-                    "repairPreviewWhat": string;
-                    "repairPreviewTarget": string;
-                    "repairPreviewPrinciple": string;
-                    "repairPreviewNoPrinciple": string;
-                    "repairPreviewSql": string;
-                    "repairPreviewNoSql": string;
-                    "repairPreviewCannotConfirm": string;
-                    "repairPreviewParameters": string;
-                    "repairPreviewConfirm": string;
+                    "phase": {
+                        "check": string;
+                        "repair": string;
+                    };
+                    "summary": {
+                        "checks": string;
+                        "success": string;
+                        "warn": string;
+                        "error": string;
+                        "skipped": string;
+                        "repaired": string;
+                        "manual": string;
+                        "problems": string;
+                    };
+                    "status": {
+                        "success": string;
+                        "error": string;
+                        "warn": string;
+                        "pending": string;
+                        "running": string;
+                        "skipped": string;
+                    };
+                    "outcome": {
+                        "repaired": string;
+                        "unchanged": string;
+                        "manual": string;
+                        "skipped": string;
+                    };
                 };
                 "errorType": {
-                    "InvalidPrimaryLookup": string;
-                    "InvalidPrimaryType": string;
-                    "MissingPrimary": string;
                     "ForeignTableNotFound": string;
                     "ForeignKeyNotFound": string;
                     "SelfKeyNotFound": string;
@@ -4982,9 +5065,10 @@ export type I18nTranslations = {
                     "UniqueIndexNotFound": string;
                     "EmptyString": string;
                     "InvalidFilterOperator": string;
+                    "InvalidPrimaryLookup": string;
+                    "InvalidPrimaryType": string;
+                    "MissingPrimary": string;
                 };
-                "type": string;
-                "message": string;
             };
             "index": {
                 "description": string;
@@ -5000,12 +5084,14 @@ export type I18nTranslations = {
                 "keepAsIs": string;
                 "ignoreIndexError": string;
             };
-            "loginDeleteWarning": string;
             "searchTips": {
                 "maxFieldTips_limited": string;
             };
-            "tableInfo": string;
-            "tableInfoDetail": string;
+            "deletedRecovered": {
+                "title": string;
+                "description": string;
+                "descriptionEmpty": string;
+            };
         };
         "import": {
             "title": {
@@ -5037,15 +5123,25 @@ export type I18nTranslations = {
                 "duplicating": string;
                 "duplicateSuccess": string;
                 "duplicateFailed": string;
-                "importing": string;
                 "includeRecords": string;
-                "autoFill": string;
+                "googleSheet": string;
             };
             "tips": {
                 "importWayTip": string;
                 "fileExceedSizeTip": string;
                 "analyzing": string;
                 "importing": string;
+                "importingRows": string;
+                "importingRowsUnknown": string;
+                "importingSheet": string;
+                "preparingImport": string;
+                "importFinished": string;
+                "importFinishedPartial": string;
+                "importSheetImported": string;
+                "importSheetTruncated": string;
+                "importSheetFailed": string;
+                "importSummaryHint": string;
+                "importDone": string;
                 "notSupportFieldType": string;
                 "resultEmpty": string;
                 "searchPlaceholder": string;
@@ -5072,6 +5168,29 @@ export type I18nTranslations = {
                 "option": {
                     "doNotImport": string;
                 };
+            };
+        };
+        "download": {
+            "allAttachments": {
+                "title": string;
+                "rowsWithAttachments": string;
+                "totalAttachments": string;
+                "totalSize": string;
+                "cancel": string;
+                "downloading": string;
+                "completed": string;
+                "cancelled": string;
+                "noAttachments": string;
+                "error": string;
+                "errorPartial": string;
+                "requireHttps": string;
+                "advancedOptions": string;
+                "namingFieldLabel": string;
+                "selectField": string;
+                "noPrefixOption": string;
+                "noPrefixOptionDesc": string;
+                "groupByRow": string;
+                "groupByRowTip": string;
             };
         };
         "grid": {
@@ -5121,23 +5240,6 @@ export type I18nTranslations = {
                 "deleteCard": string;
                 "duplicateCard": string;
             };
-            "\u043F\u0430\u043D\u0435\u043B\u044C \u0456\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442\u0456\u0432": {
-                "hideFieldName": string;
-                "customizeCards": string;
-                "stackedBy": string;
-                "chooseStackingField": string;
-                "chooseStackingFieldDescription": string;
-                "hideEmptyStack": string;
-                "imageSetting": string;
-                "fit": string;
-                "noImage": string;
-                "chooseAttachmentField": string;
-            };
-            "\u0441\u0442\u0435\u043A": {
-                "addStack": string;
-                "noCards": string;
-                "uncategorized": string;
-            };
         };
         "calendar": {
             "toolbar": {
@@ -5149,7 +5251,6 @@ export type I18nTranslations = {
                 "colorType": string;
                 "customColor": string;
                 "alignWithRecords": string;
-                "ColorField": string;
             };
             "placeholder": {
                 "selectColorField": string;
@@ -5168,7 +5269,11 @@ export type I18nTranslations = {
             "insertRecordBelow": string;
             "deleteRecord": string;
             "deleteAllSelectedRecords": string;
+            "archiveRecord": string;
+            "archiveAllSelectedRecords": string;
+            "duplicateRecords": string;
             "editField": string;
+            "duplicateField": string;
             "insertFieldLeft": string;
             "insertFieldRight": string;
             "freezeUpField": string;
@@ -5179,6 +5284,7 @@ export type I18nTranslations = {
             "filterField": string;
             "sortField": string;
             "groupField": string;
+            "downloadAllAttachments": string;
             "autoFill": string;
             "groupMenuTitle": string;
             "expandGroup": string;
@@ -5186,9 +5292,6 @@ export type I18nTranslations = {
             "expandAllGroups": string;
             "collapseAllGroups": string;
             "addToChat": string;
-            "duplicateRecords": string;
-            "duplicateField": string;
-            "downloadAllAttachments": string;
         };
         "connection": {
             "title": string;
@@ -5224,13 +5327,21 @@ export type I18nTranslations = {
             };
             "addPluginView": string;
             "search": {
+                "field_zero": string;
                 "field_one": string;
+                "field_two": string;
+                "field_few": string;
+                "field_many": string;
                 "field_other": string;
             };
             "locked": {
                 "tip": string;
             };
             "noView": string;
+            "deletedRecovered": {
+                "title": string;
+                "description": string;
+            };
         };
         "lastModifiedTime": string;
         "lastModify": string;
@@ -5238,11 +5349,73 @@ export type I18nTranslations = {
             "title": string;
             "description": string;
         };
+        "tableArchive": {
+            "title": string;
+            "menuTitle": string;
+            "archivedTime": string;
+            "archivedBy": string;
+            "recordDetail": string;
+            "empty": string;
+            "allCreators": string;
+            "filterArchivedTime": string;
+            "searchPlaceholder": string;
+            "clearFilter": string;
+            "export": string;
+            "exporting": string;
+            "exportSucceed": string;
+            "restoreSelected": string;
+            "permanentDeleteSelected": string;
+            "permanentDeleteConfirm": string;
+            "permanentDeleteSucceed": string;
+            "resetArchive": string;
+            "resetArchiveConfirm": string;
+            "resetSucceed": string;
+            "orderBy": {
+                "archivedTime": string;
+                "recordCreatedTime": string;
+                "recordLastModifiedTime": string;
+            };
+        };
         "tableTrash": {
             "title": string;
             "resourceType": string;
             "deletedResource": string;
             "moreResources": string;
+            "deletedTime": string;
+            "deletedBy": string;
+            "filterAllTypes": string;
+            "filterAllUsers": string;
+            "filterDeletedTime": string;
+            "clearFilter": string;
+            "recordsDialogTitle": string;
+            "recordDetail": string;
+            "filterAllCreators": string;
+            "filterCreatedTime": string;
+            "searchPlaceholder": string;
+        };
+        "pluginPanel": {
+            "empty": {
+                "description": string;
+            };
+            "createPluginPanel": {
+                "button": string;
+                "title": string;
+            };
+            "namePlaceholder": string;
+        };
+        "addPlugin": string;
+        "pluginContextMenu": {
+            "mangeButton": string;
+            "manage": string;
+            "noPlugin": string;
+            "delete": string;
+            "deleteDescription": string;
+        };
+        "permission": {
+            "cell": {
+                "deniedRead": string;
+                "deniedUpdate": string;
+            };
         };
         "baseShare": {
             "shareTitle": string;
@@ -5272,6 +5445,9 @@ export type I18nTranslations = {
             "linkScopeDialogTitle": string;
             "linkHolderCanCopyAndSave": string;
             "linkHolderCanCopyAndSaveDesc": string;
+            "copyToMySpace": string;
+            "saveToMySpace": string;
+            "supportSaveCopy": string;
             "editRequiresLogin": string;
             "enterPassword": string;
             "allowCopyData": string;
@@ -5317,15 +5493,6 @@ export type I18nTranslations = {
                     "previousQuestion": string;
                     "nextQuestion": string;
                 };
-                "messageActions": {
-                    "copy": string;
-                    "copyToInput": string;
-                    "helpful": string;
-                    "notHelpful": string;
-                    "commentTitle": string;
-                    "commentPlaceholder": string;
-                    "saveFailed": string;
-                };
                 "completion": {
                     "noDetails": string;
                     "model": string;
@@ -5334,10 +5501,20 @@ export type I18nTranslations = {
                     "contextTipNewChat": string;
                     "contextTipMemory": string;
                 };
+                "messageActions": {
+                    "helpful": string;
+                    "notHelpful": string;
+                    "commentTitle": string;
+                    "commentPlaceholder": string;
+                    "saveFailed": string;
+                    "copy": string;
+                    "copyToInput": string;
+                };
                 "contextCompaction": {
                     "auto": string;
                     "manual": string;
                     "compacting": string;
+                    "failed": string;
                 };
                 "taskProgress": {
                     "title": string;
@@ -5350,6 +5527,7 @@ export type I18nTranslations = {
                 };
             };
             "tool": {
+                "retrying": string;
                 "showLess": string;
                 "generateApp": {
                     "creatingApp": string;
@@ -5371,7 +5549,6 @@ export type I18nTranslations = {
                     "iframeFailed": string;
                     "iframeTitle": string;
                 };
-                "retrying": string;
             };
             "action": {
                 "locateResource": string;
@@ -5382,9 +5559,40 @@ export type I18nTranslations = {
                 "submit": string;
             };
             "newChat": string;
+            "clearChat": string;
             "expand": string;
             "history": string;
             "close": string;
+            "clearChatConfirmTitle": string;
+            "clearChatConfirmDesc": string;
+            "dontShowAgain": string;
+            "modelSwitchTitle": string;
+            "modelSwitchHint": string;
+            "effort": {
+                "title": string;
+                "low": string;
+                "medium": string;
+                "high": string;
+                "xhigh": string;
+            };
+            "sandboxExpiry": {
+                "expiresIn": string;
+                "reset": string;
+                "resetTitle": string;
+                "runningTasks_zero": string;
+                "runningTasks_one": string;
+                "runningTasks_two": string;
+                "runningTasks_few": string;
+                "runningTasks_many": string;
+                "runningTasks_other": string;
+                "noRunningTasks": string;
+                "newSandboxHint": string;
+                "cancel": string;
+                "confirmReset": string;
+                "confirmResetWithTasks": string;
+                "expiresSoon": string;
+                "resetFailed": string;
+            };
             "addAttachment": string;
             "noHistory": string;
             "noFoundHistory": string;
@@ -5431,7 +5639,6 @@ export type I18nTranslations = {
                 "pastedTextFileName": string;
                 "imageNotSupported": string;
                 "tooManyFiles": string;
-                "storageFull": string;
             };
             "suggestions": {
                 "title": string;
@@ -5457,33 +5664,6 @@ export type I18nTranslations = {
                 "noPreview": string;
                 "codeChanged": string;
             };
-            "clearChat": string;
-            "clearChatConfirmTitle": string;
-            "clearChatConfirmDesc": string;
-            "dontShowAgain": string;
-            "modelSwitchTitle": string;
-            "modelSwitchHint": string;
-            "effort": {
-                "title": string;
-                "low": string;
-                "medium": string;
-                "high": string;
-                "xhigh": string;
-            };
-            "sandboxExpiry": {
-                "expiresIn": string;
-                "reset": string;
-                "resetTitle": string;
-                "runningTasks_one": string;
-                "runningTasks_other": string;
-                "noRunningTasks": string;
-                "newSandboxHint": string;
-                "cancel": string;
-                "confirmReset": string;
-                "confirmResetWithTasks": string;
-                "expiresSoon": string;
-                "resetFailed": string;
-            };
             "queue": {
                 "nQueued": string;
                 "edit": string;
@@ -5491,6 +5671,10 @@ export type I18nTranslations = {
                 "steerFailed": string;
                 "conversationInputMarker": string;
                 "removeFromQueue": string;
+                "steer": string;
+                "paused": string;
+                "resume": string;
+                "queueFull": string;
             };
             "partTool": {
                 "bash": string;
@@ -5508,10 +5692,22 @@ export type I18nTranslations = {
                 "moreTools": string;
                 "moreItems": string;
                 "fallbackName": string;
+                "questionCount_zero": string;
                 "questionCount_one": string;
+                "questionCount_two": string;
+                "questionCount_few": string;
+                "questionCount_many": string;
                 "questionCount_other": string;
                 "presentFiles": string;
                 "download": string;
+                "downloadAll": string;
+                "downloadAllSkipped_zero": string;
+                "downloadAllSkipped_one": string;
+                "downloadAllSkipped_two": string;
+                "downloadAllSkipped_few": string;
+                "downloadAllSkipped_many": string;
+                "downloadAllSkipped_other": string;
+                "downloadAllEmpty": string;
                 "installSkill": string;
                 "installSkillTitle": string;
                 "installSkillDescription": string;
@@ -5553,29 +5749,62 @@ export type I18nTranslations = {
                     "upstreamUnavailable": string;
                 };
             };
-        };
-        "download": {
-            "allAttachments": {
+            "googleSheetPick": {
                 "title": string;
-                "rowsWithAttachments": string;
-                "totalAttachments": string;
-                "totalSize": string;
-                "cancel": string;
-                "downloading": string;
-                "completed": string;
-                "cancelled": string;
-                "noAttachments": string;
-                "error": string;
-                "errorPartial": string;
-                "requireHttps": string;
-                "advancedOptions": string;
-                "namingFieldLabel": string;
-                "selectField": string;
-                "noPrefixOption": string;
-                "noPrefixOptionDesc": string;
-                "groupByRow": string;
-                "groupByRowTip": string;
+                "defaultReason": string;
+                "pick": string;
+                "opening": string;
+                "failed": string;
+                "gateExpired": string;
+                "status": {
+                    "picked": string;
+                    "cancelled": string;
+                    "failed": string;
+                };
             };
+            "artifact": {
+                "view": string;
+                "restore": string;
+                "download": string;
+                "openInNewPage": string;
+                "fullscreen": string;
+                "exitFullscreen": string;
+                "delete": string;
+                "deleteConfirm": string;
+                "deleted": string;
+                "runtimeError": string;
+                "loadFailed": string;
+                "failed": string;
+                "currentVersion": string;
+                "share": string;
+                "enableShare": string;
+                "copyLink": string;
+                "rotateLink": string;
+                "scope": string;
+                "scopePublic": string;
+                "scopeSpace": string;
+                "passwordProtect": string;
+                "passwordApply": string;
+                "passwordRequired": string;
+                "passwordPlaceholder": string;
+                "passwordIncorrect": string;
+                "passwordSubmit": string;
+                "shareNotFound": string;
+                "gallery": string;
+                "galleryEmpty": string;
+                "searchPlaceholder": string;
+                "fixWithAi": string;
+                "noPermission": string;
+            };
+        };
+        "upload": {
+            "panelUploading": string;
+            "panelFailed": string;
+            "panelCompleted": string;
+            "statusFailed": string;
+            "statusCompleted": string;
+            "statusCancel": string;
+            "statusRetry": string;
         };
         "baseNode": {
             "info": {
@@ -5598,39 +5827,6 @@ export type I18nTranslations = {
                     "unknown": string;
                 };
             };
-        };
-        "pluginPanel": {
-            "empty": {
-                "description": string;
-            };
-            "createPluginPanel": {
-                "button": string;
-                "title": string;
-            };
-            "namePlaceholder": string;
-        };
-        "addPlugin": string;
-        "pluginContextMenu": {
-            "mangeButton": string;
-            "manage": string;
-            "noPlugin": string;
-            "delete": string;
-            "deleteDescription": string;
-        };
-        "permission": {
-            "cell": {
-                "deniedRead": string;
-                "deniedUpdate": string;
-            };
-        };
-        "upload": {
-            "panelUploading": string;
-            "panelFailed": string;
-            "panelCompleted": string;
-            "statusFailed": string;
-            "statusCompleted": string;
-            "statusCancel": string;
-            "statusRetry": string;
         };
     };
     "token": {
@@ -5698,12 +5894,12 @@ export type I18nTranslations = {
             "title": string;
             "description": string;
         };
-        "help": {
-            "link": string;
-        };
         "noAccessConfirm": {
             "title": string;
             "description": string;
+        };
+        "help": {
+            "link": string;
         };
     };
     "zod": {

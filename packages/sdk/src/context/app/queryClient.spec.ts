@@ -1,3 +1,5 @@
+import arSdk from '@teable/common-i18n/src/locales/ar/sdk.json';
+import arTable from '@teable/common-i18n/src/locales/ar/table.json';
 import deSdk from '@teable/common-i18n/src/locales/de/sdk.json';
 import deTable from '@teable/common-i18n/src/locales/de/table.json';
 import enSdk from '@teable/common-i18n/src/locales/en/sdk.json';
@@ -6,6 +8,8 @@ import esSdk from '@teable/common-i18n/src/locales/es/sdk.json';
 import esTable from '@teable/common-i18n/src/locales/es/table.json';
 import frSdk from '@teable/common-i18n/src/locales/fr/sdk.json';
 import frTable from '@teable/common-i18n/src/locales/fr/table.json';
+import heSdk from '@teable/common-i18n/src/locales/he/sdk.json';
+import heTable from '@teable/common-i18n/src/locales/he/table.json';
 import itSdk from '@teable/common-i18n/src/locales/it/sdk.json';
 import itTable from '@teable/common-i18n/src/locales/it/table.json';
 import jaSdk from '@teable/common-i18n/src/locales/ja/sdk.json';
@@ -18,10 +22,11 @@ import ukSdk from '@teable/common-i18n/src/locales/uk/sdk.json';
 import ukTable from '@teable/common-i18n/src/locales/uk/table.json';
 import zhSdk from '@teable/common-i18n/src/locales/zh/sdk.json';
 import zhTable from '@teable/common-i18n/src/locales/zh/table.json';
+import { HttpErrorCode } from '@teable/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { tableI18nKeys } from '../../../../i18n-keys/src';
+import { sdkErrorI18nKeys, tableI18nKeys } from '../../../../i18n-keys/src';
 import type { ILocaleFunction } from './i18n';
-import { errorRequestHandler, getHttpErrorMessage } from './queryClient';
+import { errorRequestHandler, getHttpErrorMessage, toCamelCaseErrorCode } from './queryClient';
 
 vi.mock('@teable/ui-lib', () => ({
   sonner: { toast: { error: vi.fn(), warning: vi.fn() } },
@@ -57,10 +62,12 @@ const collectLeafValues = (value: unknown): string[] => {
 describe('table locale coverage', () => {
   const expectedKeys = collectLeafValues(tableI18nKeys);
   const locales = {
+    ar: arTable,
     de: deTable,
     en: enTable,
     es: esTable,
     fr: frTable,
+    he: heTable,
     it: itTable,
     ja: jaTable,
     ru: ruTable,
@@ -79,10 +86,12 @@ describe('sdk table data safety limit locale coverage', () => {
   const enLimitMessages = enSdk.httpErrors.limit;
   const expectedKeys = Object.keys(enLimitMessages).sort();
   const locales = {
+    ar: arSdk,
     de: deSdk,
     en: enSdk,
     es: esSdk,
     fr: frSdk,
+    he: heSdk,
     it: itSdk,
     ja: jaSdk,
     ru: ruSdk,
@@ -110,12 +119,15 @@ describe('sdk table data safety limit locale coverage', () => {
   );
 });
 
-describe('sdk validation error locale coverage', () => {
+describe('sdk v2 error message locale coverage', () => {
+  const expectedKeys = collectLeafValues(sdkErrorI18nKeys);
   const locales = {
+    ar: arSdk,
     de: deSdk,
     en: enSdk,
     es: esSdk,
     fr: frSdk,
+    he: heSdk,
     it: itSdk,
     ja: jaSdk,
     ru: ruSdk,
@@ -124,35 +136,116 @@ describe('sdk validation error locale coverage', () => {
     zh: zhSdk,
   };
 
-  it.each(Object.entries(locales))(
-    'covers unique field validation message in %s',
+  const readMessage = (sdk: unknown, i18nKey: string): string | undefined => {
+    const message = i18nKey
+      .split('.')
+      .reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], sdk);
+    return typeof message === 'string' ? message : undefined;
+  };
+
+  const placeholdersOf = (message: string): string[] =>
+    [...message.matchAll(/\{\{\s*([\w.]+)\s*\}\}/g)].map((match) => match[1]).sort();
+
+  it.each(Object.entries(locales))('covers all v2 error messages in %s', (_locale, sdk) => {
+    expect(expectedKeys.filter((key) => !readMessage(sdk, key))).toEqual([]);
+  });
+
+  // Throw sites build the localization context from the English message's
+  // placeholders; every translation must interpolate the same set or the
+  // client-side lodash template throws and the toast is silently dropped.
+  it.each(Object.entries(locales).filter(([locale]) => locale !== 'en'))(
+    'uses the same interpolation placeholders as en in %s',
     (_locale, sdk) => {
-      expect(sdk.httpErrors.validation.field.unique).toBeTruthy();
+      for (const key of expectedKeys) {
+        expect(placeholdersOf(readMessage(sdk, key) ?? ''), key).toEqual(
+          placeholdersOf(readMessage(enSdk, key) ?? '')
+        );
+      }
     }
   );
 });
 
 const t: ILocaleFunction = ((key: string, options?: Record<string, unknown>) => {
-  if (key === 'httpErrors.validation.field.unique') {
+  if (key.endsWith('httpErrors.custom.recordFieldValueDuplicate')) {
     return `${key}:${options?.fieldName ?? ''}`;
   }
-  if (key === 'sdk:httpErrors.limit.nameMaxLength') {
+  if (key.endsWith('httpErrors.limit.nameMaxLength')) {
     return `${key}:${options?.max}`;
-  }
-  if (key === 'sdk:httpErrors.validation.field.unique') {
-    return `${key}:${options?.fieldName ?? ''}`;
   }
   return key;
 }) as ILocaleFunction;
 
+describe('httpError code locale coverage', () => {
+  const expectedKeys = Object.values(HttpErrorCode).map(toCamelCaseErrorCode).sort();
+  const locales = {
+    ar: arSdk,
+    de: deSdk,
+    en: enSdk,
+    es: esSdk,
+    fr: frSdk,
+    he: heSdk,
+    it: itSdk,
+    ja: jaSdk,
+    ru: ruSdk,
+    tr: trSdk,
+    uk: ukSdk,
+    zh: zhSdk,
+  };
+
+  it.each(Object.entries(locales))('covers all HttpErrorCode titles in %s', (_locale, sdk) => {
+    const missing = expectedKeys.filter(
+      (key) => typeof sdk.httpErrors[key as keyof typeof sdk.httpErrors] !== 'string'
+    );
+    expect(missing).toEqual([]);
+  });
+});
+
 describe('getHttpErrorMessage', () => {
-  it('localizes v2 table data safety validation limit errors by domain code', () => {
+  it('translates the localization the server attached', () => {
+    const message = getHttpErrorMessage(
+      {
+        message: 'Cannot complete update: field fldEmail must have a unique value',
+        data: {
+          domainCode: 'validation.field.unique',
+          details: { fieldId: 'fldEmail', fieldName: 'Email' },
+          localization: {
+            i18nKey: 'httpErrors.custom.recordFieldValueDuplicate',
+            context: { fieldName: 'Email' },
+          },
+        },
+      },
+      t,
+      'sdk'
+    );
+
+    expect(message).toBe('sdk:httpErrors.custom.recordFieldValueDuplicate:Email');
+  });
+
+  it('translates the localization without a namespace prefix', () => {
+    const message = getHttpErrorMessage(
+      {
+        message: 'Cannot complete update: field fldEmail must have a unique value',
+        data: {
+          localization: {
+            i18nKey: 'httpErrors.custom.recordFieldValueDuplicate',
+            context: { fieldName: 'Email' },
+          },
+        },
+      },
+      t
+    );
+
+    expect(message).toBe('httpErrors.custom.recordFieldValueDuplicate:Email');
+  });
+
+  it('translates table data safety limit localizations', () => {
     const message = getHttpErrorMessage(
       {
         message: 'Table data safety limit exceeded: validation.limit.name_max_length',
         data: {
           domainCode: 'validation.limit.name_max_length',
-          details: { max: 100 },
+          details: { attempted: 120, max: 100 },
+          localization: { i18nKey: 'httpErrors.limit.nameMaxLength', context: { max: 100 } },
         },
       },
       t,
@@ -162,60 +255,11 @@ describe('getHttpErrorMessage', () => {
     expect(message).toBe('sdk:httpErrors.limit.nameMaxLength:100');
   });
 
-  it('falls back to the server message for unknown validation limit keys', () => {
+  it('falls back to the server message when no localization is attached', () => {
     const message = getHttpErrorMessage(
       {
         message: 'fallback',
-        data: {
-          domainCode: 'validation.limit.unknown_limit',
-          details: { max: 1 },
-        },
-      },
-      t,
-      'sdk'
-    );
-
-    expect(message).toBe('fallback');
-  });
-
-  it('localizes v2 validation errors by domain code', () => {
-    const message = getHttpErrorMessage(
-      {
-        message: 'Cannot complete update: field fldEmail must have a unique value',
-        data: {
-          domainCode: 'validation.field.unique',
-          details: { fieldName: 'Email' },
-        },
-      },
-      t,
-      'sdk'
-    );
-
-    expect(message).toBe('sdk:httpErrors.validation.field.unique:Email');
-  });
-
-  it('localizes v2 validation errors by domain code without namespace prefix', () => {
-    const message = getHttpErrorMessage(
-      {
-        message: 'Cannot complete update: field fldEmail must have a unique value',
-        data: {
-          domainCode: 'validation.field.unique',
-          details: { fieldName: 'Email' },
-        },
-      },
-      t
-    );
-
-    expect(message).toBe('httpErrors.validation.field.unique:Email');
-  });
-
-  it('falls back to the server message for unknown domain code keys', () => {
-    const message = getHttpErrorMessage(
-      {
-        message: 'fallback',
-        data: {
-          domainCode: 'validation.field.unknown',
-        },
+        data: { domainCode: 'validation.field.invalid_value', details: { fieldId: 'fldabc' } },
       },
       t,
       'sdk'

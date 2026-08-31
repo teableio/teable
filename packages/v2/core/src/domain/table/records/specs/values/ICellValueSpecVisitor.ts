@@ -8,6 +8,7 @@ import type { TableRecord } from '../../TableRecord';
 // Forward declarations for SetValueSpec types
 import type { ClearFieldValueSpec } from './ClearFieldValueSpec';
 import type { SetAttachmentValueSpec } from './SetAttachmentValueSpec';
+import type { SetButtonValueSpec } from './SetButtonValueSpec';
 import type { SetCheckboxValueSpec } from './SetCheckboxValueSpec';
 import type { SetDateValueSpec } from './SetDateValueSpec';
 import type { SetLinkValueByTitleSpec } from './SetLinkValueByTitleSpec';
@@ -16,11 +17,11 @@ import type { SetLongTextValueSpec } from './SetLongTextValueSpec';
 import type { SetMultipleSelectValueSpec } from './SetMultipleSelectValueSpec';
 import type { SetNumberValueSpec } from './SetNumberValueSpec';
 import type { SetRatingValueSpec } from './SetRatingValueSpec';
+import type { SetRowOrderValueSpec } from './SetRowOrderValueSpec';
 import type { SetSingleLineTextValueSpec } from './SetSingleLineTextValueSpec';
 import type { SetSingleSelectValueSpec } from './SetSingleSelectValueSpec';
 import type { SetUserValueByIdentifierSpec } from './SetUserValueByIdentifierSpec';
 import type { SetUserValueSpec } from './SetUserValueSpec';
-import type { SetRowOrderValueSpec } from './SetRowOrderValueSpec';
 
 /**
  * Base interface for cell value mutation specifications.
@@ -55,6 +56,7 @@ export interface ICellValueSpecVisitor extends ISpecVisitor {
   visitSetCheckboxValue(spec: SetCheckboxValueSpec): Result<void, DomainError>;
   visitSetDateValue(spec: SetDateValueSpec): Result<void, DomainError>;
   visitSetAttachmentValue(spec: SetAttachmentValueSpec): Result<void, DomainError>;
+  visitSetButtonValue(spec: SetButtonValueSpec): Result<void, DomainError>;
   visitSetLinkValue(spec: SetLinkValueSpec): Result<void, DomainError>;
   visitSetUserValue(spec: SetUserValueSpec): Result<void, DomainError>;
   visitSetUserValueByIdentifier(spec: SetUserValueByIdentifierSpec): Result<void, DomainError>;

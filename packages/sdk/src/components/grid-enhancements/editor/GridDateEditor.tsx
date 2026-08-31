@@ -94,7 +94,7 @@ const GridDateEditorBase: ForwardRefRenderFunction<
           ...attachInputStyle,
           border: `2px solid ${cellLineColorActived}`,
         }}
-        className="absolute left-0 top-0 text-[13px]"
+        className="absolute start-0 top-0 text-[13px]"
         onChange={(e) => setInputValue(e.target.value)}
       />
       <DateEditorMain

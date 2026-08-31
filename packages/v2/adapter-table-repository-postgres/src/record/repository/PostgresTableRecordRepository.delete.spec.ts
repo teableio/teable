@@ -218,6 +218,7 @@ const createNoopComputedPlanner = (table: Table): ComputedUpdatePlanner => {
         needsBeforeImage: false,
         requiredFieldIds: [],
       }),
+    hasWritableComputedWork: () => true,
   } as unknown as ComputedUpdatePlanner;
 };
 
@@ -393,8 +394,7 @@ const createNormalIncomingLinkFieldRowProvider = (params: {
     }
 
     if (
-      compiledQuery.parameters[0] !== params.baseId ||
-      compiledQuery.parameters[1] !== 'link' ||
+      compiledQuery.parameters[0] !== 'link' ||
       !compiledQuery.parameters.includes(params.targetTableId)
     ) {
       return [];
@@ -521,12 +521,11 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
         },
         {
           "parameters": [
-            "bseaaaaaaaaaaaaaaaa",
             "link",
             false,
             "tblbbbbbbbbbbbbbbbb",
           ],
-          "sql": "select "field"."id" as "field_id", "field"."table_id" as "source_table_id", "field"."options" as "options" from "field" inner join "table_meta" on "table_meta"."id" = "field"."table_id" where "table_meta"."base_id" = $1 and "field"."type" = $2 and "field"."deleted_time" is null and ("field"."is_lookup" is null or "field"."is_lookup" = $3) and (field.options::json->>'foreignTableId')::text = $4",
+          "sql": "select "field"."id" as "field_id", "field"."table_id" as "source_table_id", "field"."name" as "field_name", "field"."not_null" as "not_null", "field"."db_field_name" as "db_field_name", "field"."deleted_time" as "field_deleted_time", "table_meta"."name" as "source_table_name", "table_meta"."base_id" as "source_base_id", "table_meta"."deleted_time" as "table_deleted_time", "field"."options" as "options" from "field" inner join "table_meta" on "table_meta"."id" = "field"."table_id" where "field"."type" = $1 and ("field"."is_lookup" is null or "field"."is_lookup" = $2) and (field.options::json->>'foreignTableId')::text = $3",
         },
         {
           "parameters": [
@@ -554,7 +553,7 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
           "parameters": [
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "delete from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "__id" = $1",
+          "sql": "delete from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "__id" = $1 returning *",
         },
         {
           "parameters": [
@@ -675,12 +674,11 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
         },
         {
           "parameters": [
-            "bseaaaaaaaaaaaaaaaa",
             "link",
             false,
             "tblbbbbbbbbbbbbbbbb",
           ],
-          "sql": "select "field"."id" as "field_id", "field"."table_id" as "source_table_id", "field"."options" as "options" from "field" inner join "table_meta" on "table_meta"."id" = "field"."table_id" where "table_meta"."base_id" = $1 and "field"."type" = $2 and "field"."deleted_time" is null and ("field"."is_lookup" is null or "field"."is_lookup" = $3) and (field.options::json->>'foreignTableId')::text = $4",
+          "sql": "select "field"."id" as "field_id", "field"."table_id" as "source_table_id", "field"."name" as "field_name", "field"."not_null" as "not_null", "field"."db_field_name" as "db_field_name", "field"."deleted_time" as "field_deleted_time", "table_meta"."name" as "source_table_name", "table_meta"."base_id" as "source_base_id", "table_meta"."deleted_time" as "table_deleted_time", "field"."options" as "options" from "field" inner join "table_meta" on "table_meta"."id" = "field"."table_id" where "field"."type" = $1 and ("field"."is_lookup" is null or "field"."is_lookup" = $2) and (field.options::json->>'foreignTableId')::text = $3",
         },
         {
           "parameters": [
@@ -708,7 +706,7 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
             "rechhhhhhhhhhhhhhhh",
             "reciiiiiiiiiiiiiiii",
           ],
-          "sql": "delete from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where ("__id" = $1) or ("__id" = $2)",
+          "sql": "delete from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where ("__id" = $1) or ("__id" = $2) returning *",
         },
         {
           "parameters": [
@@ -1078,18 +1076,17 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
         },
         {
           "parameters": [
-            "bseaaaaaaaaaaaaaaaa",
             "link",
             false,
             "tblbbbbbbbbbbbbbbbb",
           ],
-          "sql": "select "field"."id" as "field_id", "field"."table_id" as "source_table_id", "field"."options" as "options" from "field" inner join "table_meta" on "table_meta"."id" = "field"."table_id" where "table_meta"."base_id" = $1 and "field"."type" = $2 and "field"."deleted_time" is null and ("field"."is_lookup" is null or "field"."is_lookup" = $3) and (field.options::json->>'foreignTableId')::text = $4",
+          "sql": "select "field"."id" as "field_id", "field"."table_id" as "source_table_id", "field"."name" as "field_name", "field"."not_null" as "not_null", "field"."db_field_name" as "db_field_name", "field"."deleted_time" as "field_deleted_time", "table_meta"."name" as "source_table_name", "table_meta"."base_id" as "source_base_id", "table_meta"."deleted_time" as "table_deleted_time", "field"."options" as "options" from "field" inner join "table_meta" on "table_meta"."id" = "field"."table_id" where "field"."type" = $1 and ("field"."is_lookup" is null or "field"."is_lookup" = $2) and (field.options::json->>'foreignTableId')::text = $3",
         },
         {
           "parameters": [
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "delete from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "__id" = $1",
+          "sql": "delete from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "__id" = $1 returning *",
         },
         {
           "parameters": [
@@ -1182,7 +1179,7 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
     vi.useRealTimers();
   });
 
-  it('returns Err when delete snapshot capture is incomplete', async () => {
+  it('keeps delete successful when undo snapshot capture is incomplete', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
 
@@ -1236,10 +1233,15 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
     const repo = createRepository(db, table);
 
     const result = await repo.deleteMany({ actorId }, table, deleteSpec);
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toContain(
-      'Failed to capture complete delete snapshots'
-    );
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().deletedRecords).toEqual([
+      expect.objectContaining({
+        recordId: recordId.toString(),
+        fields: {
+          [NAME_FIELD_ID]: 'Alice',
+        },
+      }),
+    ]);
 
     vi.useRealTimers();
   });

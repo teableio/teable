@@ -1,13 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { Doc } from 'sharedb/lib/client';
+import type { Error as ShareDbError } from 'sharedb/lib/sharedb';
 import { ComputeActivityContext } from '../context/compute-activity/ComputeActivityContext';
 import { FieldContext } from '../context/field/FieldContext';
-import {
-  applyFieldComputeMeta,
-  isActiveComputeStatus,
-  type FieldComputeMetaClient,
-} from './apply-field-compute-meta';
+import { applyFieldComputeMeta, type FieldComputeMetaClient } from './apply-field-compute-meta';
 import { useBaseId } from './use-base-id';
 import { useConnection } from './use-connection';
 import { useIsReadOnlyPreview } from './use-is-readonly-preview';
@@ -59,12 +56,18 @@ const normalizeComputeActivityField = (
   updatedAt: field.updatedAt,
 });
 
+const isUncreatedDocumentError = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object' || !('code' in error)) return false;
+  return error.code === 'ERR_DOC_DOES_NOT_EXIST';
+};
+
 type ComputeActivitySnapshotTransport = Omit<ComputeActivitySnapshotClient, 'fields'> & {
   fields: Array<ComputeActivityFieldTransport & { fieldId: string }>;
 };
 
 export type ComputeActivityDiagnosticsClient = {
   computeMode: 'server';
+  executionState?: 'running' | 'paused';
   activeFieldCount: number;
   queuedFieldCount: number;
   calculatingFieldCount: number;
@@ -76,6 +79,20 @@ export type ComputeActivityDiagnosticsClient = {
     message: string;
     estimatedComplexity?: number;
   }>;
+  pause?: {
+    effective: boolean;
+    blockers: Array<{
+      id: string;
+      scopeType: 'space' | 'base' | 'table';
+      scopeId: string;
+      pausedAt: string;
+      pausedBy: string | null;
+      resumeAt: string | null;
+      reason: string | null;
+    }>;
+    queuedTaskCount: number;
+    oldestQueuedAt: string | null;
+  };
 };
 
 export type ComputeActivitySnapshotClient = {
@@ -123,8 +140,6 @@ export type IComputeActivityState = {
   revision: number;
 };
 
-const isActiveField = (meta: FieldComputeMetaClient) => isActiveComputeStatus(meta.status);
-
 type VersionedActivity = {
   generation?: number;
   updatedAt?: string;
@@ -159,16 +174,6 @@ const preferNewestActivity = <T extends VersionedActivity>(
   return { ...httpActivity, ...realtimeActivity };
 };
 
-const hasMergedActiveFields = (
-  httpFields: ComputeActivitySnapshotClient['fields'] | undefined,
-  realtimeFields: Record<string, ComputeActivityFieldClient>,
-  currentTableId: string | undefined,
-  readableFieldIds: ReadonlySet<string>
-) => {
-  return Object.values(
-    mergeFieldMeta(httpFields, realtimeFields, currentTableId, readableFieldIds)
-  ).some(isActiveField);
-};
 const mergeFieldMeta = (
   httpFields: ComputeActivitySnapshotClient['fields'] | undefined,
   realtimeFields: Record<string, ComputeActivityFieldClient>,
@@ -216,11 +221,7 @@ export function useComputeActivitySubscription(
     queryKey: ['compute-activity', baseId, tableId],
     queryFn: () => fetchComputeActivity(baseId!, tableId!),
     enabled: enabled && Boolean(baseId && tableId),
-    refetchInterval: (q) =>
-      enabled &&
-      hasMergedActiveFields(q.state.data?.fields, realtimeFields, tableId, readableFieldIds)
-        ? 1500
-        : false,
+    // Mount snapshot only. Live updates come from ShareDB `cmp_{tableId}` docs.
   });
 
   useEffect(() => {
@@ -238,6 +239,12 @@ export function useComputeActivitySubscription(
       }
     };
 
+    const onError = (error: ShareDbError) => {
+      if (isUncreatedDocumentError(error)) return;
+      connection.emit('error', error);
+    };
+    tableDoc.on('error', onError);
+
     tableDoc.subscribe((err) => {
       if (err || cancelled) return;
       onTableOp();
@@ -251,6 +258,7 @@ export function useComputeActivitySubscription(
       tableDoc.removeListener('op batch', onTableOp);
       tableDoc.removeListener('op', onTableOp);
       tableDoc.removeListener('create', onTableOp);
+      tableDoc.removeListener('error', onError);
     };
   }, [enabled, tableId, connection, connected]);
 
@@ -264,6 +272,11 @@ export function useComputeActivitySubscription(
     }> = [];
     let cancelled = false;
 
+    const onError = (error: ShareDbError) => {
+      if (isUncreatedDocumentError(error)) return;
+      connection.emit('error', error);
+    };
+
     const attach = (fieldId: string) => {
       const doc = connection.get(collection, fieldId) as Doc<ComputeActivityFieldTransport>;
       const onOp = () => {
@@ -275,6 +288,7 @@ export function useComputeActivitySubscription(
         setRevision((r) => r + 1);
       };
       listeners.push({ doc, onOp });
+      doc.on('error', onError);
       doc.subscribe((err) => {
         if (err || cancelled) return;
         onOp();
@@ -303,6 +317,7 @@ export function useComputeActivitySubscription(
         doc.removeListener('op', onOp);
         doc.removeListener('op batch', onOp);
         doc.removeListener('create', onOp);
+        doc.removeListener('error', onError);
       }
     };
   }, [enabled, tableId, connection, connected, fields]);
@@ -353,12 +368,14 @@ export function useComputeActivitySubscription(
 
     return {
       computeMode: httpDiagnostics?.computeMode ?? 'server',
+      executionState: httpDiagnostics?.executionState,
       activeFieldCount: queuedFieldCount + calculatingFieldCount,
       queuedFieldCount,
       calculatingFieldCount,
       failedFieldCount,
       highComplexityFieldCount: httpDiagnostics?.highComplexityFieldCount ?? 0,
       anomalies: httpDiagnostics?.anomalies ?? [],
+      pause: httpDiagnostics?.pause,
     };
   }, [enabled, fieldMetaById, query.data?.diagnostics]);
   const activeFieldCount = diagnostics?.activeFieldCount ?? 0;

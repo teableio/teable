@@ -6,7 +6,9 @@ import { createBaseRoSchema } from './create';
 
 export const UPDATE_BASE = '/base/{baseId}';
 
-export const updateBaseRoSchema = createBaseRoSchema.omit({ spaceId: true });
+export const updateBaseRoSchema = createBaseRoSchema.omit({ spaceId: true }).extend({
+  icon: createBaseRoSchema.shape.icon.nullable(),
+});
 
 export type IUpdateBaseRo = z.infer<typeof updateBaseRoSchema>;
 

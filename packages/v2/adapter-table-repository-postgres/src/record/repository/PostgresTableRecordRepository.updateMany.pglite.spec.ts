@@ -150,6 +150,7 @@ const createNoopComputedPlanner = (table: Table): ComputedUpdatePlanner => {
         needsBeforeImage: false,
         requiredFieldIds: [],
       }),
+    hasWritableComputedWork: () => true,
   } as unknown as ComputedUpdatePlanner;
 };
 

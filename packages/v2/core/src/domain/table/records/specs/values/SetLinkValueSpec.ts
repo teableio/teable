@@ -18,12 +18,12 @@ export interface LinkItem {
 
 /**
  * Specification for setting a link field value.
- * The value should be an array of link items (linked record references).
+ * Multiple relationships store LinkItem[]; single relationships store one LinkItem.
  */
 export class SetLinkValueSpec extends MutateOnlySpec<TableRecord, ICellValueSpecVisitor> {
   constructor(
     readonly fieldId: FieldId,
-    readonly value: CellValue<LinkItem[]>,
+    readonly value: CellValue<LinkItem[] | LinkItem>,
     readonly foreignTableId?: TableId
   ) {
     super();

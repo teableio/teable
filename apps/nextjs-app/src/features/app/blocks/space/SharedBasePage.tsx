@@ -32,7 +32,7 @@ export const SharedBasePage = () => {
           <span>{t('common:settings.back')}</span>
         </Button>
         <h1 className="text-2xl font-semibold">{t('space:sharedBase.title')}</h1>
-        <p className="shrink-0 grow-0 text-left text-sm text-zinc-500">
+        <p className="shrink-0 grow-0 text-start text-sm text-zinc-500">
           {t('space:sharedBase.description')}
         </p>
       </div>

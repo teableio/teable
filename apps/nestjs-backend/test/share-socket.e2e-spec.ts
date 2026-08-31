@@ -7,6 +7,8 @@ import {
 } from '@teable/openapi';
 import { map } from 'lodash';
 import type { Connection, Doc } from 'sharedb/lib/client';
+import { vi } from 'vitest';
+import { ViewService } from '../src/features/view/view.service';
 import { ShareDbService } from '../src/share-db/share-db.service';
 import { getError } from './utils/get-error';
 import { initApp, updateViewColumnMeta, createTable, permanentDeleteTable } from './utils/init-app';
@@ -22,8 +24,11 @@ describe('Share (socket-e2e) (e2e)', () => {
   const timeoutErrorMessage = 'connection timeout';
   let fieldIds: string[] = [];
   let shareDbService!: ShareDbService;
+  let previousForceV2All: string | undefined;
 
   beforeAll(async () => {
+    previousForceV2All = process.env.FORCE_V2_ALL;
+    process.env.FORCE_V2_ALL = 'true';
     const appCtx = await initApp();
     app = appCtx.app;
     port = process.env.PORT!;
@@ -58,6 +63,8 @@ describe('Share (socket-e2e) (e2e)', () => {
     await permanentDeleteTable(baseId, tableId);
 
     await app.close();
+    if (previousForceV2All == null) delete process.env.FORCE_V2_ALL;
+    else process.env.FORCE_V2_ALL = previousForceV2All;
   });
 
   const createConnection = (shareId: string): Connection => {
@@ -153,12 +160,19 @@ describe('Share (socket-e2e) (e2e)', () => {
   });
 
   describe('View queries', () => {
-    it('should only get the shared view', async () => {
+    it('should only get the shared view through v2 without using ViewService', async () => {
+      const viewService = app.get(ViewService);
+      const legacyDocIdsSpy = vi.spyOn(viewService, 'getDocIdsByQuery');
+      const legacySnapshotsSpy = vi.spyOn(viewService, 'getSnapshotBulk');
       const collection = `${IdPrefix.View}_${tableId}`;
       const views = await getQuery(collection, shareId);
 
       expect(views.length).toEqual(1);
       expect(views[0].id).toEqual(viewId);
+      expect(legacyDocIdsSpy).not.toHaveBeenCalled();
+      expect(legacySnapshotsSpy).not.toHaveBeenCalled();
+      legacyDocIdsSpy.mockRestore();
+      legacySnapshotsSpy.mockRestore();
     });
 
     it('should get view document by id', async () => {
@@ -274,6 +288,47 @@ describe('Share (socket-e2e) (e2e)', () => {
       // Re-enable share for cleanup
       const shareResult = await apiEnableShareView({ tableId: tempTableId, viewId: tempViewId });
       tempShareId = shareResult.data.shareId;
+    });
+  });
+
+  describe('Computed activity subscriptions', () => {
+    it('replays a later generation into an uncreated client document', async () => {
+      const fieldId = fieldIds[0];
+      const data = { status: 'running', generation: 3 };
+      shareDbService.setComputedActivitySnapshotLoader(async (requestedTableId) => {
+        expect(requestedTableId).toBe(tableId);
+        return { [fieldId]: { version: 3, data } };
+      });
+
+      const connection = createConnection(shareId);
+      const doc = connection.get(`cmp_${tableId}`, fieldId) as Doc<typeof data>;
+      doc.version = 0;
+      const errors: unknown[] = [];
+      doc.on('error', (error) => errors.push(error));
+      connection.on('error', (error) => errors.push(error));
+
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(
+            () => reject(new Error('Computed activity subscription timeout')),
+            defaultTimeout
+          );
+          doc.subscribe((error) => {
+            clearTimeout(timer);
+            if (error) {
+              reject(error);
+              return;
+            }
+            resolve();
+          });
+        });
+
+        expect(errors).toEqual([]);
+        expect(doc.version).toBe(3);
+        expect(doc.data).toEqual(data);
+      } finally {
+        connection.close();
+      }
     });
   });
 });

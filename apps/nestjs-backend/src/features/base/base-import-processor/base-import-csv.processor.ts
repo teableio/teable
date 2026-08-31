@@ -13,6 +13,7 @@ import { ClsService } from 'nestjs-cls';
 import * as unzipper from 'unzipper';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { postgresAddForeignKeyNotValidSql } from '../../../db-provider/postgres-fk-delete-action';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
 import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
@@ -339,6 +340,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       referenced_table_schema: string;
       referenced_table_name: string;
       referenced_column_name: string;
+      delete_rule: string;
       dbTableName: string;
     }[];
     const attachmentsTableData = [] as {
@@ -365,6 +367,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
           referenced_table_schema: string;
           referenced_table_name: string;
           referenced_column_name: string;
+          delete_rule: string;
         }[]
       >(foreignKeysInfoSql);
       const newForeignKeyInfos = foreignKeysInfo.map((info) => ({
@@ -494,22 +497,19 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       referenced_table_schema: referencedTableSchema,
       referenced_table_name: referencedTableName,
       referenced_column_name: referencedColumnName,
+      delete_rule: deleteRule,
     } of allForeignKeyInfos) {
       const [schema, tableName] = dbTableName.split('.');
-      const addForeignKeyQuery = dataKnex
-        .raw(
-          'ALTER TABLE ??.?? ADD CONSTRAINT ?? FOREIGN KEY (??) REFERENCES ??.??(??) NOT VALID',
-          [
-            schema,
-            tableName,
-            constraint_name,
-            column_name,
-            referencedTableSchema,
-            referencedTableName,
-            referencedColumnName,
-          ]
-        )
-        .toQuery();
+      const addForeignKeyQuery = postgresAddForeignKeyNotValidSql(dataKnex, {
+        schema,
+        tableName,
+        constraintName: constraint_name,
+        columnName: column_name,
+        referencedTableSchema,
+        referencedTableName,
+        referencedColumnName,
+        deleteRule,
+      });
       await dataPrisma.$executeRawUnsafe(addForeignKeyQuery);
     }
 

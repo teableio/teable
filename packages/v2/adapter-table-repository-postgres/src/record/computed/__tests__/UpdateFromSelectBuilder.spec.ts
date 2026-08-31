@@ -4,6 +4,7 @@ import {
   FieldHasError,
   FieldId,
   FieldName,
+  FieldNotNull,
   FormulaExpression,
   LinkFieldConfig,
   RollupExpression,
@@ -252,12 +253,12 @@ describe('UpdateFromSelectBuilder', () => {
 
     expect(updateResult.value.sql).toMatchInlineSnapshot(
       `
-      "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "u" set "__version" = "u"."__version" + 1, "col_score" = "c"."__set_col_score" from (select "c_src"."__id" as "__id", CASE
+      "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "u" set "__version" = "u"."__version" + 1, "col_score" = "c"."__set_col_score"::double precision from (select "c_src"."__id" as "__id", CASE
           WHEN ("c_src"."col_score") IS NULL THEN NULL
           WHEN BTRIM(("c_src"."col_score")::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'
             THEN BTRIM(("c_src"."col_score")::text)::double precision
           ELSE NULL
-        END as "__set_col_score" from (select "t"."__id" as "__id", "t"."__version" as "__version", NULLIF(BTRIM((1)::text), '')::double precision as "col_score" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" where "t"."__id" in (select "d"."record_id" from "tmp_computed_dirty" as "d" where "d"."table_id" = $1)) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_score" IS DISTINCT FROM "c"."__set_col_score")"
+        END as "__set_col_score" from (select "t"."__id" as "__id", "t"."__version" as "__version", NULLIF(BTRIM((1)::text), '')::double precision as "col_score" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" where "t"."__id" in (select "d"."record_id" from "tmp_computed_dirty" as "d" where "d"."table_id" = $1)) as "c_src") as "c" where "u"."__id" = "c"."__id" and (("u"."col_score")::double precision IS DISTINCT FROM ("c"."__set_col_score")::double precision)"
     `
     );
   });
@@ -295,8 +296,12 @@ describe('UpdateFromSelectBuilder', () => {
     expect(sqlText).toContain('COALESCE(SUM("f"."col_amount"), 0)');
     expect(sqlText).toContain('inner join "tmp_computed_dirty"');
     expect(sqlText).toContain('"__version" = "u"."__version" + 1');
-    expect(sqlText).toContain('"u"."col_total" IS DISTINCT FROM');
-    expect(sqlText).toContain('"u"."col_total_copy" IS DISTINCT FROM');
+    expect(sqlText).toContain(
+      '("u"."col_total")::double precision IS DISTINCT FROM ("c"."__set_col_total")::double precision'
+    );
+    expect(sqlText).toContain(
+      '("u"."col_total_copy")::double precision IS DISTINCT FROM ("c"."__set_col_total_copy")::double precision'
+    );
   });
 
   it('updates a shared physical column only once when duplicate fields reference it', () => {
@@ -407,6 +412,54 @@ describe('UpdateFromSelectBuilder', () => {
     expect(updateResult.value.sql).toBe('select 1 where false');
   });
 
+  it('skips plan field ids that were deleted between planning and execution', () => {
+    const db = createTestDb();
+    const { table, formulaFieldId } = createFormulaTable();
+    const deletedFieldId = FieldId.create(`fld${'z'.repeat(16)}`)._unsafeUnwrap();
+
+    const selectBuilder = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy })
+      .from(table)
+      .select([formulaFieldId]);
+    const selectResult = selectBuilder.build();
+    expect(selectResult.isOk()).toBe(true);
+    if (selectResult.isErr()) return;
+
+    const builder = new UpdateFromSelectBuilder(db);
+    const updateResult = builder.build({
+      table,
+      fieldIds: [formulaFieldId, deletedFieldId],
+      selectQuery: selectResult.value,
+    });
+
+    expect(updateResult.isOk()).toBe(true);
+    if (updateResult.isErr()) return;
+    expect(updateResult.value.sql).toContain('"col_score" = "c"."__set_col_score"');
+  });
+
+  it('degrades to a no-op when every plan field id was deleted', () => {
+    const db = createTestDb();
+    const { table, formulaFieldId } = createFormulaTable();
+    const deletedFieldId = FieldId.create(`fld${'z'.repeat(16)}`)._unsafeUnwrap();
+
+    const selectBuilder = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy })
+      .from(table)
+      .select([formulaFieldId]);
+    const selectResult = selectBuilder.build();
+    expect(selectResult.isOk()).toBe(true);
+    if (selectResult.isErr()) return;
+
+    const builder = new UpdateFromSelectBuilder(db);
+    const updateResult = builder.build({
+      table,
+      fieldIds: [deletedFieldId],
+      selectQuery: selectResult.value,
+    });
+
+    expect(updateResult.isOk()).toBe(true);
+    if (updateResult.isErr()) return;
+    expect(updateResult.value.sql).toBe('select 1 where false');
+  });
+
   it('can omit __version increment for externally versioned field chunks', () => {
     const db = createTestDb();
     const { table, formulaFieldId } = createFormulaTable();
@@ -505,12 +558,12 @@ describe('UpdateFromSelectBuilder', () => {
 
     expect(updateResult.value.sql).toMatchInlineSnapshot(
       `
-      "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "u" set "__version" = "u"."__version" + 1, "col_score" = "c"."__set_col_score" from (select "c_src"."__id" as "__id", CASE
+      "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "u" set "__version" = "u"."__version" + 1, "col_score" = "c"."__set_col_score"::double precision from (select "c_src"."__id" as "__id", CASE
           WHEN ("c_src"."col_score") IS NULL THEN NULL
           WHEN BTRIM(("c_src"."col_score")::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'
             THEN BTRIM(("c_src"."col_score")::text)::double precision
           ELSE NULL
-        END as "__set_col_score" from (select "t"."__id" as "__id", "t"."__version" as "__version", NULLIF(BTRIM((1)::text), '')::double precision as "col_score" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_score" IS DISTINCT FROM "c"."__set_col_score")"
+        END as "__set_col_score" from (select "t"."__id" as "__id", "t"."__version" as "__version", NULLIF(BTRIM((1)::text), '')::double precision as "col_score" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1) as "c_src") as "c" where "u"."__id" = "c"."__id" and (("u"."col_score")::double precision IS DISTINCT FROM ("c"."__set_col_score")::double precision)"
     `
     );
   });
@@ -585,6 +638,12 @@ describe('UpdateFromSelectBuilder', () => {
     expect(updateResult.value.sql).toContain(
       '("u"."col_last_modified_time")::text IS DISTINCT FROM ("c"."__set_col_last_modified_time")::text'
     );
+    expect(updateResult.value.sql).toContain(
+      '"col_created_time" = "c"."__set_col_created_time"::timestamptz'
+    );
+    expect(updateResult.value.sql).toContain(
+      '"col_last_modified_time" = "c"."__set_col_last_modified_time"::timestamptz'
+    );
     expect(updateResult.value.sql).not.toContain(
       '"c_src"."col_created_time"::text as "__set_col_created_time"'
     );
@@ -655,8 +714,8 @@ describe('UpdateFromSelectBuilder', () => {
       expect(updateResult.value.compiled.sql).toContain(
         ', "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "__old" where "__old"."__id" = "c"."__id"'
       );
-      expect(updateResult.value.compiled.sql).toContain('"__old"."col_score" as "__old_col_score"');
-      expect(updateResult.value.oldColumnAliases.get('col_score')).toBe('__old_col_score');
+      expect(updateResult.value.compiled.sql).toContain('"__old"."col_score" as "__old_0"');
+      expect(updateResult.value.oldColumnAliases.get('col_score')).toBe('__old_0');
 
       // Verify columnToFieldId mapping
       const fieldIdForColumn = updateResult.value.columnToFieldId.get('col_score');
@@ -708,5 +767,93 @@ describe('UpdateFromSelectBuilder', () => {
         'from "tmp_computed_dirty" as "d", "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "__old"'
       );
     });
+  });
+
+  it('keeps the previous required link display value when the computed projection is null', () => {
+    const db = createTestDb();
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const foreignTableId = TableId.create(`tbl${'f'.repeat(16)}`)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
+    const lookupFieldId = FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap();
+
+    const foreignBuilder = Table.builder()
+      .withId(foreignTableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Profiles')._unsafeUnwrap());
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withId(lookupFieldId)
+      .withName(FieldName.create('profile_id')._unsafeUnwrap())
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+    foreignTable
+      .getFields()[0]
+      .setDbFieldName(DbFieldName.rehydrate('profile_id')._unsafeUnwrap())
+      ._unsafeUnwrap();
+    const linkConfig = LinkFieldConfig.create({
+      relationship: 'manyOne',
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: lookupFieldId.toString(),
+      isOneWay: true,
+      fkHostTableName: `${BASE_ID}.${TABLE_ID}`,
+      selfKeyName: '__id',
+      foreignKeyName: '__fk_status',
+    })._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Tasks')._unsafeUnwrap());
+    builder.field().singleLineText().withName(FieldName.create('Name')._unsafeUnwrap()).done();
+    builder
+      .field()
+      .link()
+      .withId(linkFieldId)
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .withConfig(linkConfig)
+      .withNotNull(FieldNotNull.required())
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
+    table
+      .getFields()[0]
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+    table
+      .getFields()[1]
+      .setDbFieldName(DbFieldName.rehydrate('Status')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const selectResult = new ComputedTableRecordQueryBuilder(db, {
+      foreignTables: new Map([[foreignTableId.toString(), foreignTable]]),
+      typeValidationStrategy,
+    })
+      .from(table)
+      .select([linkFieldId])
+      .withDirtyFilter({ tableId: table.id().toString() })
+      .build();
+    if (selectResult.isErr()) {
+      throw new Error(selectResult.error.message);
+    }
+
+    const updateResult = new UpdateFromSelectBuilder(db).build({
+      table,
+      fieldIds: [linkFieldId],
+      selectQuery: selectResult.value,
+    });
+    expect(updateResult.isOk()).toBe(true);
+    if (updateResult.isErr()) return;
+
+    // A null projection (missed join or cleared FK) must keep the existing
+    // display value so the NOT NULL display column is never assigned NULL.
+    expect(updateResult.value.sql).toContain('COALESCE("c"."__set_Status"::jsonb, "u"."Status")');
+    expect(updateResult.value.sql).not.toContain('ELSE "c"."__set_Status"::jsonb END');
+    expect(updateResult.value.sql).toContain('("c"."__set_Status") IS NOT NULL');
+    expect(updateResult.value.sql).not.toContain('"u"."__fk_status" IS NULL OR');
+    expect(updateResult.value.sql).not.toContain('"Status" = "c"."__set_Status"');
   });
 });

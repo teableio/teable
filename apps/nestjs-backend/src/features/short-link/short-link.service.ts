@@ -12,9 +12,20 @@ import type { IClsStore } from '../../types/cls';
 const SHORT_LINK_CODE_LENGTH = 9;
 const SHORT_LINK_CODE_MAX_RETRY = 5;
 
+/** Resolves a target path for an externally-owned type; null means gone/revoked. */
+export type IShortLinkTargetResolver = (resourceId: string) => Promise<string | null>;
+
 @Injectable()
 export class ShortLinkService {
   private logger = new Logger(ShortLinkService.name);
+
+  // Types whose storage lives outside this module (e.g. EE artifact shares)
+  // register their resolution here at module init
+  private readonly externalResolvers = new Map<ShortLinkType, IShortLinkTargetResolver>();
+
+  registerTargetResolver(type: ShortLinkType, resolver: IShortLinkTargetResolver) {
+    this.externalResolvers.set(type, resolver);
+  }
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -62,11 +73,20 @@ export class ShortLinkService {
         // the /t page performs the template permalink resolution itself
         return `/t/${resourceId}`;
       }
-      default:
+      default: {
+        const resolver = this.externalResolvers.get(type);
+        if (resolver) {
+          const path = await resolver(resourceId);
+          if (!path) {
+            throw new CustomHttpException('Short link target not found', HttpErrorCode.NOT_FOUND);
+          }
+          return path;
+        }
         throw new CustomHttpException(
           'Unsupported short link type',
           HttpErrorCode.VALIDATION_ERROR
         );
+      }
     }
   }
 

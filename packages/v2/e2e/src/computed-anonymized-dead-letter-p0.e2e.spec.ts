@@ -265,7 +265,7 @@ describe('anonymized computed dead-letter P0 regressions (e2e)', () => {
     }
   });
 
-  it('completes an async computed task whose table was permanently deleted', async () => {
+  it('discards pending computed tasks on permanent table delete and completes stragglers', async () => {
     let tableIdToCleanup: string | undefined;
     let runId: string | undefined;
 
@@ -328,8 +328,15 @@ describe('anonymized computed dead-letter P0 regressions (e2e)', () => {
       SELECT to_regclass(${`${ctx.baseId}.${table.id}`})::text as "relation"
     `.execute(ctx.testContainer.db);
       expect(physicalTable.rows.at(0)?.relation).toBeNull();
-      expect(await countTasksByRunId(ctx, runId)).toEqual({ outbox: 1, deadLetter: 0 });
+      // Permanent delete discards pending tasks seeded from the dropped table
+      // in the same transaction, so nothing is left to retry or dead-letter.
+      expect(await countTasksByRunId(ctx, runId)).toEqual({ outbox: 0, deadLetter: 0 });
 
+      // A task that slips past the discard (e.g. enqueued concurrently with
+      // the delete) must still complete through the worker's missing-table
+      // path instead of dead-lettering.
+      await enqueuePlan(ctx, plan, runId);
+      expect(await countTasksByRunId(ctx, runId)).toEqual({ outbox: 1, deadLetter: 0 });
       expect(await ctx.testContainer.processOutbox()).toBeGreaterThan(0);
       expect(await countTasksByRunId(ctx, runId)).toEqual({ outbox: 0, deadLetter: 0 });
     } finally {

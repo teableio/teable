@@ -21,12 +21,19 @@ const snapshot: TableComputeActivitySnapshot = {
   fields: [],
   diagnostics: {
     computeMode: 'server',
+    executionState: 'running',
     activeFieldCount: 0,
     queuedFieldCount: 0,
     calculatingFieldCount: 0,
     failedFieldCount: 0,
     highComplexityFieldCount: 0,
     anomalies: [],
+    pause: {
+      effective: false,
+      blockers: [],
+      queuedTaskCount: 0,
+      oldestQueuedAt: null,
+    },
   },
 };
 
@@ -49,7 +56,7 @@ describe('V2Controller compute activity route', () => {
       { createContext } as never
     );
 
-    const result = await controller.tables().getComputeActivity.callable()({ baseId, tableId });
+    const result = await controller.getComputeActivity().callable()({ baseId, tableId });
 
     expect(result).toEqual({
       ok: true,

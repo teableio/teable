@@ -1,7 +1,8 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
 import { Queue } from 'bullmq';
+import { chainCatchupFlush } from '../cold-archive/catchup-chain';
 import { RecordHistoryColdStorageService } from './record-history-cold-storage.service';
 import { recordHistoryColdConfig } from './record-history-cold.config';
 import type { ICompactMonthResult } from './record-history-compactor.service';
@@ -77,7 +78,8 @@ export class RecordHistoryColdProcessor extends WorkerHost {
         // marker, and BullMQ's lazy retention pruning turns that marker
         // into a footgun (see the 2026-07-08 stalls). If a backlog must
         // drain sooner than the next daily slot, run the EE cold runner
-        // once (flush --max-rows=0) — a deliberate op, not boot magic.
+        // once (flush --max-rows=0 --max-bytes=0) — a deliberate op, not
+        // boot magic.
         await this.queue.upsertJobScheduler(
           FLUSH_JOB_ID,
           { every: FLUSH_INTERVAL_MS },
@@ -123,12 +125,21 @@ export class RecordHistoryColdProcessor extends WorkerHost {
       `record-history cold flush: tables=${result.tables.length} rows=${result.totalRows} ` +
         `parts=${result.totalParts} bytes=${result.totalCompressedBytes} in ${result.durationMs}ms` +
         (result.totalTruncatedValues ? ` truncated=${result.totalTruncatedValues}` : '') +
-        (result.leftoverTables ? ` (deferred ${result.leftoverTables} table(s))` : '')
+        (result.leftoverTables ? ` (deferred ${result.leftoverTables} table(s))` : '') +
+        ` backlog=${result.backlogRows}`
     );
     if (result.budgetExhausted) {
       await this.chainCatchupFlush(job);
     }
     return result;
+  }
+
+  // BullMQ keeps a thrown job's reason in redis and logs nothing itself
+  @OnWorkerEvent('failed')
+  onFailed(job: Job | undefined, error: Error) {
+    this.logger.error(
+      `record-history cold job ${job?.name ?? 'unknown'} failed: ${error?.stack ?? error}`
+    );
   }
 
   /**
@@ -141,38 +152,16 @@ export class RecordHistoryColdProcessor extends WorkerHost {
    * any other pending/active catch-up and skip if one exists.
    */
   private async chainCatchupFlush(job: Job): Promise<void> {
-    try {
-      const queue = this.queue as Queue & {
-        getJobs?: (types: string[]) => Promise<({ id?: string } | undefined)[]>;
-      };
-      if (typeof queue.getJobs === 'function') {
-        const existing = (await queue.getJobs(['delayed', 'waiting', 'active'])).filter(
-          (other) => other?.id?.startsWith(CATCHUP_JOB_ID_PREFIX) && other.id !== job.id
-        );
-        if (existing.length > 0) {
-          this.logger.log('catch-up flush already chained; not starting a second chain');
-          return;
-        }
-      }
-      const hop = ((job.data as { catchupHop?: number } | undefined)?.catchupHop ?? 0) + 1;
-      await this.queue.add(
-        FLUSH_JOB_ID,
-        { catchupHop: hop },
-        {
-          // near-immediate: the budget bounds each run's blast radius, so
-          // there is nothing to gain by idling between hops — the backlog
-          // drains continuously, one budget-sized, crash-safe run at a time.
-          // budgetExhausted implies >= maxRows of progress, so the chain can
-          // never hot-loop without work.
-          delay: recordHistoryColdConfig().catchupDelayMs,
-          jobId: `${CATCHUP_JOB_ID_PREFIX}-${hop}`,
-          removeOnComplete: true,
-          removeOnFail: true,
-        }
-      );
-    } catch (error) {
-      this.logger.warn(`failed to chain catch-up flush: ${error}`);
-    }
+    const config = recordHistoryColdConfig();
+    await chainCatchupFlush({
+      job,
+      queue: this.queue,
+      flushJobId: FLUSH_JOB_ID,
+      catchupJobIdPrefix: CATCHUP_JOB_ID_PREFIX,
+      delayMs: config.catchupDelayMs,
+      maxHops: config.maxCatchupHops,
+      logger: this.logger,
+    });
   }
 
   /** compact every cold table's closed months (day parts → month parts) */

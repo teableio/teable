@@ -5,6 +5,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import type { V2Feature } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../../types/cls';
+import { getBaseCached, getTableMetaWithBaseCached } from '../../../utils/meta-ancestry-cache';
 import { CanaryService, type IBaseV2DecisionContext } from '../canary.service';
 import { USE_V2_FEATURE_KEY } from '../decorators/use-v2-feature.decorator';
 
@@ -75,6 +76,7 @@ export class V2FeatureGuard implements CanActivate {
     // 2. Resolve base context when possible. Marked new bases are V2-first and bypass rollout config.
     const base = await this.getBaseV2DecisionContext(context);
     const decision = await this.canaryService.shouldUseV2ForBaseWithReason(base, feature);
+    req.useV2 = decision.useV2;
     this.cls.set('useV2', decision.useV2);
     this.cls.set('v2Feature', feature);
     this.cls.set('v2Reason', decision.reason);
@@ -102,13 +104,14 @@ export class V2FeatureGuard implements CanActivate {
   /**
    * Extract base V2 decision context from request context.
    * Supports: spaceId (direct), baseId (lookup), tableId (lookup via base),
-   * and share routes where ShareAuthGuard has already set req.shareInfo.tableId.
+   * and share routes by resolving their narrow Table ownership before authentication.
    */
   private async getBaseV2DecisionContext(
     context: ExecutionContext
   ): Promise<IBaseV2DecisionContext | undefined> {
     const req = context.switchToHttp().getRequest();
-    const shareTableId =
+    const routeShareTableId = await this.getShareTableId(req.params.shareId);
+    const hydratedShareTableId =
       req.shareInfo && typeof req.shareInfo.tableId === 'string'
         ? req.shareInfo.tableId
         : undefined;
@@ -116,7 +119,8 @@ export class V2FeatureGuard implements CanActivate {
       req.params.spaceId ||
       req.params.baseId ||
       req.params.tableId ||
-      shareTableId ||
+      routeShareTableId ||
+      hydratedShareTableId ||
       this.getStringResourceId(req.body, ['spaceId', 'baseId', 'tableId']);
 
     if (!resourceId) {
@@ -130,30 +134,51 @@ export class V2FeatureGuard implements CanActivate {
 
     // BaseId -> lookup spaceId
     if (resourceId.startsWith(IdPrefix.Base)) {
-      const base = await this.prismaService.txClient().base.findUnique({
-        where: { id: resourceId, deletedTime: null },
-        select: { spaceId: true, v2Enabled: true },
-      });
-      return base ?? undefined;
+      const base = await getBaseCached(this.cls, this.prismaService.txClient(), resourceId);
+      if (!base || base.deletedTime) return undefined;
+      return { spaceId: base.spaceId, v2Enabled: base.v2Enabled };
     }
 
     // TableId -> lookup baseId -> lookup spaceId
     if (resourceId.startsWith(IdPrefix.Table)) {
-      const table = await this.prismaService.txClient().tableMeta.findUnique({
-        where: { id: resourceId, deletedTime: null },
-        select: { baseId: true },
-      });
-
-      if (!table) return undefined;
-
-      const base = await this.prismaService.txClient().base.findUnique({
-        where: { id: table.baseId, deletedTime: null },
-        select: { spaceId: true, v2Enabled: true },
-      });
-      return base ?? undefined;
+      const table = await getTableMetaWithBaseCached(
+        this.cls,
+        this.prismaService.txClient(),
+        resourceId
+      );
+      if (!table || table.deletedTime || table.base.deletedTime) return undefined;
+      return { spaceId: table.base.spaceId, v2Enabled: table.base.v2Enabled };
     }
 
     return undefined;
+  }
+
+  private async getShareTableId(shareId: unknown): Promise<string | undefined> {
+    if (typeof shareId !== 'string') {
+      return undefined;
+    }
+
+    if (shareId.startsWith(IdPrefix.Field)) {
+      const field = await this.prismaService.txClient().field.findFirst({
+        where: { id: shareId, deletedTime: null },
+        select: { options: true },
+      });
+      if (!field?.options) {
+        return undefined;
+      }
+      try {
+        const options = JSON.parse(field.options) as { foreignTableId?: unknown };
+        return typeof options.foreignTableId === 'string' ? options.foreignTableId : undefined;
+      } catch {
+        return undefined;
+      }
+    }
+
+    const view = await this.prismaService.txClient().view.findFirst({
+      where: { shareId, enableShare: true, deletedTime: null },
+      select: { tableId: true },
+    });
+    return view?.tableId;
   }
 
   private getStringResourceId(source: unknown, keys: string[]): string | undefined {

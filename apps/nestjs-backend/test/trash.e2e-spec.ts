@@ -1,4 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
+import net from 'node:net';
 import type { INestApplication } from '@nestjs/common';
 import { FieldType, Relationship } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -7,12 +8,14 @@ import {
   getTrash,
   getTrashItems,
   resetTrashItems,
-  ResourceType,
   restoreTrash,
+  TrashType,
   trashVoSchema,
 } from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
+import { encryptDataDbUrl } from '../src/features/space/data-db-url-secret';
+import { TrashService } from '../src/features/trash/trash.service';
 import { createAwaitWithEvent } from './utils/event-promise';
 import {
   initApp,
@@ -31,14 +34,68 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const waitForBaseTrashItems = async (baseId: string, expectedCount = 1, maxRetries = 100) => {
   for (let i = 0; i < maxRetries; i++) {
-    const result = await getTrashItems({ resourceId: baseId, resourceType: ResourceType.Base });
+    const result = await getTrashItems({ resourceId: baseId, resourceType: TrashType.Base });
     if (result.data.trashItems.length >= expectedCount) {
       return result;
     }
     await sleep(100);
   }
 
-  return await getTrashItems({ resourceId: baseId, resourceType: ResourceType.Base });
+  return await getTrashItems({ resourceId: baseId, resourceType: TrashType.Base });
+};
+
+const buildPostgresErrorResponse = (message: string) => {
+  const fields = [
+    Buffer.from('SFATAL\0'),
+    Buffer.from('CXX000\0'),
+    Buffer.from(`M${message}\0`),
+    Buffer.from('\0'),
+  ];
+  const payload = Buffer.concat(fields);
+  const response = Buffer.alloc(5 + payload.length);
+  response[0] = 'E'.charCodeAt(0);
+  response.writeInt32BE(4 + payload.length, 1);
+  payload.copy(response, 5);
+  return response;
+};
+
+const SSL_REQUEST_CODE = 80877103;
+
+/**
+ * A Supavisor pooler whose Supabase project has been deleted: every login is
+ * rejected with "(ENOTFOUND) tenant/user postgres.<ref> not found".
+ */
+const createDeadSupavisor = async (tenantRef: string) => {
+  const sockets = new Set<net.Socket>();
+  let rejectedLogins = 0;
+
+  const server = net.createServer((socket) => {
+    sockets.add(socket);
+    socket.on('close', () => sockets.delete(socket));
+    socket.on('error', () => socket.destroy());
+    socket.on('data', (chunk) => {
+      if (chunk.length === 8 && chunk.readInt32BE(4) === SSL_REQUEST_CODE) {
+        socket.write('N');
+        return;
+      }
+      rejectedLogins += 1;
+      socket.end(
+        buildPostgresErrorResponse(`(ENOTFOUND) tenant/user postgres.${tenantRef} not found`)
+      );
+    });
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const port = (server.address() as net.AddressInfo).port;
+
+  return {
+    url: `postgresql://postgres.${tenantRef}:secret@127.0.0.1:${port}/postgres`,
+    rejectedLogins: () => rejectedLogins,
+    close: async () => {
+      for (const socket of sockets) socket.destroy();
+      await new Promise((resolve) => server.close(resolve));
+    },
+  };
 };
 
 describe('Trash (e2e)', () => {
@@ -100,7 +157,7 @@ describe('Trash (e2e)', () => {
     it('should get trash for space', async () => {
       await awaitWithSpaceEvent(() => deleteSpace(spaceId));
 
-      const res = await getTrash({ resourceType: ResourceType.Space });
+      const res = await getTrash({ resourceType: TrashType.Space });
 
       expect(trashVoSchema.safeParse(res.data).success).toEqual(true);
     });
@@ -108,7 +165,7 @@ describe('Trash (e2e)', () => {
     it('should get trash for base', async () => {
       await awaitWithBaseEvent(() => deleteBase(baseId));
 
-      const res = await getTrash({ resourceType: ResourceType.Base });
+      const res = await getTrash({ resourceType: TrashType.Base });
 
       expect(trashVoSchema.safeParse(res.data).success).toEqual(true);
     });
@@ -166,7 +223,7 @@ describe('Trash (e2e)', () => {
     it('should restore space successfully', async () => {
       await awaitWithSpaceEvent(() => deleteSpace(spaceId));
 
-      const trash = (await getTrash({ resourceType: ResourceType.Space })).data;
+      const trash = (await getTrash({ resourceType: TrashType.Space })).data;
       const restored = await restoreTrash(trash.trashItems[0].id);
 
       expect(restored.status).toEqual(201);
@@ -175,7 +232,7 @@ describe('Trash (e2e)', () => {
     it('should restore base successfully', async () => {
       await awaitWithBaseEvent(() => deleteBase(baseId));
 
-      const trash = (await getTrash({ resourceType: ResourceType.Base })).data;
+      const trash = (await getTrash({ resourceType: TrashType.Base })).data;
       const restored = await restoreTrash(trash.trashItems[0].id);
 
       expect(restored.status).toEqual(201);
@@ -245,13 +302,71 @@ describe('Trash (e2e)', () => {
 
       expect(trash.trashItems.length).toEqual(3);
 
-      await resetTrashItems({ resourceType: ResourceType.Base, resourceId: baseId });
+      await resetTrashItems({ resourceType: TrashType.Base, resourceId: baseId });
 
-      const resetTrash = (
-        await getTrashItems({ resourceId: baseId, resourceType: ResourceType.Base })
-      ).data;
+      const resetTrash = (await getTrashItems({ resourceId: baseId, resourceType: TrashType.Base }))
+        .data;
 
       expect(resetTrash.trashItems.length).toEqual(0);
+    });
+  });
+
+  describe('Cleanup on a dead BYODB', () => {
+    let deadDb: Awaited<ReturnType<typeof createDeadSupavisor>>;
+
+    beforeAll(async () => {
+      deadDb = await createDeadSupavisor('sztvxe2efake');
+    });
+
+    afterAll(async () => {
+      await deadDb.close();
+    });
+
+    it('purges a table trash row even though every login to the bound DB fails', async () => {
+      const space = await createSpace({ name: 'dead byodb space' });
+      const base = await createBase({ spaceId: space.id, name: 'dead byodb base' });
+      const table = await createTable(base.id, { name: 'victim table' });
+      await deleteTable(base.id, table.id);
+
+      // The TableTrashed listener writes the trash row asynchronously
+      // (delete+insert replace), so poll until it lands.
+      let trash: { id: string; parentId: string | null } | null = null;
+      for (let i = 0; i < 100 && !trash; i++) {
+        trash = await prisma.trash.findFirst({ where: { resourceId: table.id } });
+        if (!trash) await sleep(100);
+      }
+      if (!trash) throw new Error('trash row for the deleted table never appeared');
+      expect(trash.parentId).toBe(base.id);
+
+      // Bind the space to the dead database only after the table exists on the
+      // meta-fallback DB — mirrors production, where the customer's project
+      // died after the tables were created.
+      const connection = await prisma.dataDbConnection.create({
+        data: {
+          encryptedUrl: encryptDataDbUrl(deadDb.url),
+          urlFingerprint: `dead-e2e-${Date.now()}`,
+          internalSchema: '__teable_internal',
+          status: 'ready',
+          createdBy: 'e2e',
+        },
+      });
+      await prisma.spaceDataDbBinding.create({
+        data: {
+          spaceId: space.id,
+          dataDbConnectionId: connection.id,
+          mode: 'byodb',
+          state: 'ready',
+          createdBy: 'e2e',
+        },
+      });
+
+      // Same call the TrashCleanupProcessor makes.
+      const trashService = app.get(TrashService);
+      await trashService.delete(trash.id, true);
+
+      expect(deadDb.rejectedLogins()).toBeGreaterThan(0);
+      await expect(prisma.trash.findUnique({ where: { id: trash.id } })).resolves.toBeNull();
+      await expect(prisma.tableMeta.findUnique({ where: { id: table.id } })).resolves.toBeNull();
     });
   });
 });

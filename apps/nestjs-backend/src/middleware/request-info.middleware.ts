@@ -1,7 +1,12 @@
 import { isIP } from 'node:net';
 import type { NestMiddleware } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
-import { AFFILIATE_COOKIE_NAME, AFFILIATE_VIA_MAX_LENGTH } from '@teable/core';
+import {
+  AFFILIATE_COOKIE_NAME,
+  AFFILIATE_VIA_MAX_LENGTH,
+  parseMarketingAdConsent,
+  parseSignupAttributionCookies,
+} from '@teable/core';
 import { X_CANARY_HEADER } from '@teable/openapi';
 import cookie from 'cookie';
 import type { Request, Response, NextFunction } from 'express';
@@ -35,6 +40,9 @@ const fallbackScheduleV2BackgroundTask: NonNullable<IClsStore['scheduleV2Backgro
   handle.unref?.();
 };
 
+const backgroundTaskLogger = new Logger('V2BackgroundTaskScheduler');
+const maxConcurrentBackgroundTasks = 4;
+
 const createAfterResponseScheduler = (
   cls: ClsService<IClsStore>,
   res: Response
@@ -42,23 +50,51 @@ const createAfterResponseScheduler = (
   const pendingTasks: Array<() => Promise<void> | void> = [];
   let responseFinished = res.writableEnded || res.destroyed;
   let flushScheduled = false;
+  let activeTasks = 0;
 
-  const scheduleFlush = () => {
-    if (flushScheduled) {
+  async function runTask(task: () => Promise<void> | void) {
+    activeTasks += 1;
+    try {
+      await task();
+    } catch (error) {
+      backgroundTaskLogger.error(
+        `V2 background task failed: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined
+      );
+    } finally {
+      activeTasks -= 1;
+      scheduleFlush();
+    }
+  }
+
+  function scheduleFlush() {
+    if (
+      flushScheduled ||
+      !responseFinished ||
+      pendingTasks.length === 0 ||
+      activeTasks >= maxConcurrentBackgroundTasks
+    ) {
       return;
     }
+
     flushScheduled = true;
     const handle = setTimeout(() => {
       flushScheduled = false;
-      const tasks = pendingTasks.splice(0);
-      for (const task of tasks) {
-        void task();
+      while (activeTasks < maxConcurrentBackgroundTasks) {
+        const task = pendingTasks.shift();
+        if (!task) {
+          break;
+        }
+        void runTask(task);
       }
     }, 0);
     handle.unref?.();
-  };
+  }
 
   const markResponseFinished = () => {
+    if (responseFinished) {
+      return;
+    }
     responseFinished = true;
     scheduleFlush();
   };
@@ -74,9 +110,7 @@ const createAfterResponseScheduler = (
       }
       return task();
     });
-    if (responseFinished) {
-      scheduleFlush();
-    }
+    scheduleFlush();
   };
 };
 
@@ -132,10 +166,26 @@ export class RequestInfoMiddleware implements NestMiddleware {
       this.cls.set('user.id', automationRobotUserId);
     }
 
+    const cookies = cookie.parse(req.headers.cookie ?? '');
+
     // Affiliate attribution (?via= cookie) — see IClsStore.affiliateVia.
-    const affiliateVia = cookie.parse(req.headers.cookie ?? '')[AFFILIATE_COOKIE_NAME];
+    const affiliateVia = cookies[AFFILIATE_COOKIE_NAME];
     if (affiliateVia) {
       this.cls.set('affiliateVia', affiliateVia.slice(0, AFFILIATE_VIA_MAX_LENGTH));
+    }
+
+    // Signup attribution: first-touch utm/click-id cookie (planted by the
+    // Next proxy) + Meta pixel cookies. Parsing is defensive by contract —
+    // consumed only at account creation (user.service withAttribution).
+    const signupAttribution = parseSignupAttributionCookies(cookies);
+    if (signupAttribution) {
+      this.cls.set('signupAttribution', signupAttribution);
+    }
+
+    // Banner ad_storage choice (parent-domain cookie) — see IClsStore.marketingAdConsent.
+    const marketingAdConsent = parseMarketingAdConsent(cookies);
+    if (marketingAdConsent) {
+      this.cls.set('marketingAdConsent', marketingAdConsent);
     }
 
     // Canary header for canary release override

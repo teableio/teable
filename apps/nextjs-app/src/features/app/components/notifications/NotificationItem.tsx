@@ -26,7 +26,7 @@ export const NotificationItem = React.forwardRef<HTMLElement, INotificationItemP
       <>
         <NotificationIcon notifyIcon={notifyIcon} notifyType={notifyType} />
 
-        <div className="mr-3 w-full items-center overflow-hidden whitespace-pre-wrap break-words text-sm font-normal">
+        <div className="me-3 w-full items-center overflow-hidden whitespace-pre-wrap break-words text-sm font-normal">
           <div className="overflow-auto">
             <LinkNotification data={data} notifyStatus={notifyStatus} disableLink />
           </div>

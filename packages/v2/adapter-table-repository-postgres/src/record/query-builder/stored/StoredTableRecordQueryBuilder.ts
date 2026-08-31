@@ -4,6 +4,7 @@ import {
   FieldId,
   FieldType,
   type DomainError,
+  type Field,
   type ITableRecordConditionSpecVisitor,
   type ISpecification,
   type Table,
@@ -21,27 +22,31 @@ import type { Result } from 'neverthrow';
 import { err, ok, safeTry } from 'neverthrow';
 
 import { TableRecordConditionWhereVisitor } from '../../visitors';
-import { buildDateLikeOrderExpression } from '../dateLikeOrderBy';
 import type {
   DynamicDB,
+  FieldMaskSqlMap,
   IQueryBuilderDeps,
   ITableRecordQueryBuilder,
   OrderByColumn,
   QB,
 } from '../ITableRecordQueryBuilder';
+import { maskValueExpression } from '../maskValueExpression';
+import { isNeverNullSystemOrderColumn, uniqueOrderByEntries } from '../systemOrderColumns';
 import type { QueryMode } from '../TableRecordQueryBuilderManager';
+import {
+  applyStoredFieldOrderByClause,
+  buildStoredFieldOrderByClauses,
+  type StoredFieldOrderByClause,
+} from './storedFieldOrderBy';
 import { StoredFieldSelectVisitor } from './StoredFieldSelectVisitor';
+import { buildStoredFieldValueExpression } from './storedFieldValueExpression';
 
 const T = 't'; // main table alias
 
 type ResolvedOrderBy = {
   column: string;
   direction: 'asc' | 'desc';
-  expression?: RawBuilder<unknown>;
-  userLikeMode?: 'single' | 'multiple';
-  userLikeSource?: 'field' | 'system';
-  selectChoiceMode?: 'single' | 'multiple';
-  selectChoiceOrder?: ReadonlyArray<string>;
+  clauses?: ReadonlyArray<StoredFieldOrderByClause>;
 };
 
 export interface IStoredQueryBuilderOptions {
@@ -58,9 +63,17 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
   private projection: ReadonlyArray<FieldId> | null = null;
   private limitValue: number | null = null;
   private offsetValue: number | null = null;
-  private orderByValues: Array<{ column: OrderByColumn; direction: 'asc' | 'desc' }> = [];
+  private orderByValues: Array<{
+    column: OrderByColumn;
+    direction: 'asc' | 'desc';
+    groupIdentityCollation?: boolean;
+  }> = [];
   private whereSpecs: Array<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>> = [];
+  private whereExpressions: Array<Expression<SqlBool>> = [];
+  private idsOnlyValue = false;
+  private valuesOnlyValue = false;
   private readonly sourceTableName?: string;
+  private fieldMaskSqlMapValue: FieldMaskSqlMap | undefined;
 
   readonly mode: QueryMode = 'stored';
 
@@ -81,6 +94,20 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
     return this;
   }
 
+  idsOnly(): this {
+    this.idsOnlyValue = true;
+    return this;
+  }
+
+  valuesOnly(): this {
+    this.valuesOnlyValue = true;
+    return this;
+  }
+  fieldMaskSql(maskSqlMap: FieldMaskSqlMap | undefined): this {
+    this.fieldMaskSqlMapValue = maskSqlMap;
+    return this;
+  }
+
   limit(n: number): this {
     this.limitValue = n;
     return this;
@@ -91,13 +118,26 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
     return this;
   }
 
-  orderBy(column: OrderByColumn, direction: 'asc' | 'desc'): this {
-    this.orderByValues.push({ column, direction });
+  orderBy(
+    column: OrderByColumn,
+    direction: 'asc' | 'desc',
+    options?: { readonly groupIdentityCollation?: boolean }
+  ): this {
+    this.orderByValues.push({
+      column,
+      direction,
+      groupIdentityCollation: options?.groupIdentityCollation,
+    });
     return this;
   }
 
   where(spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>): this {
     this.whereSpecs.push(spec);
+    return this;
+  }
+
+  whereExpression(expression: Expression<SqlBool>): this {
+    this.whereExpressions.push(expression);
     return this;
   }
 
@@ -121,7 +161,9 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
         const dbTableName = yield* table.dbTableName();
         const tableName = this.sourceTableName ?? (yield* dbTableName.value());
 
-        const selectColumns = yield* this.buildSelectColumns(table, projection);
+        const selectColumns = this.idsOnlyValue
+          ? []
+          : yield* this.buildSelectColumns(table, projection);
 
         // Always include __id column for record identification
         const idColumn = sql`${sql.ref(`${T}.__id`)}`.as('__id');
@@ -140,10 +182,28 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
           '__last_modified_by'
         );
 
+        const payloadColumns = this.valuesOnlyValue
+          ? [idColumn, ...selectColumns]
+          : [
+              idColumn,
+              versionColumn,
+              autoNumberColumn,
+              createdTimeColumn,
+              createdByColumn,
+              lastModifiedTimeColumn,
+              lastModifiedByColumn,
+              ...selectColumns,
+            ];
+
         // Resolve orderBy columns
         const resolvedOrderBy: ResolvedOrderBy[] = [];
-        for (const orderBy of this.orderByValues) {
-          const resolved = yield* this.resolveOrderBy(table, orderBy.column, orderBy.direction);
+        for (const orderBy of uniqueOrderByEntries(this.orderByValues)) {
+          const resolved = yield* this.resolveOrderBy(
+            table,
+            orderBy.column,
+            orderBy.direction,
+            orderBy.groupIdentityCollation
+          );
           if (resolved !== null) {
             resolvedOrderBy.push(resolved);
           }
@@ -154,51 +214,85 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
           return err(whereClauseResult.error);
         }
         const whereClause = whereClauseResult.value;
-        let query = this.db
-          .selectFrom(`${tableName} as ${T}`)
-          .select(() => [
-            idColumn,
-            versionColumn,
-            autoNumberColumn,
-            createdTimeColumn,
-            createdByColumn,
-            lastModifiedTimeColumn,
-            lastModifiedByColumn,
-            ...selectColumns,
-          ])
-          .$if(whereClause !== null, (qb) =>
-            qb.where(whereClause as unknown as Expression<SqlBool>)
-          );
 
+        // Flatten all ordering into clauses up-front so both the direct query
+        // and the narrow page-selection subquery can share them.
+        const resolvedClauses: StoredFieldOrderByClause[] = [];
         for (const orderBy of resolvedOrderBy) {
-          if (orderBy.selectChoiceMode && orderBy.selectChoiceOrder?.length) {
-            query = this.applySelectChoiceOrderBy(
-              query,
-              orderBy.column,
-              orderBy.direction,
-              orderBy.selectChoiceMode,
-              orderBy.selectChoiceOrder
-            );
-          } else if (orderBy.userLikeMode) {
-            query = this.applyUserLikeOrderBy(
-              query,
-              orderBy.column,
-              orderBy.direction,
-              orderBy.userLikeMode,
-              orderBy.userLikeSource ?? 'field'
-            );
+          if (orderBy.clauses) {
+            resolvedClauses.push(...orderBy.clauses);
+          } else if (isNeverNullSystemOrderColumn(orderBy.column)) {
+            // __auto_number/__id/__version are NOT NULL. A leading
+            // `(col IS NULL)` sort key cannot change order and prevents
+            // PostgreSQL from using the btree as an ordered scan.
+            resolvedClauses.push({
+              expression: sql.ref(`${T}.${orderBy.column}`),
+              direction: orderBy.direction,
+            });
           } else {
             // Align null ordering with v1: ASC => nulls first, DESC => nulls last.
-            // Without this, PostgreSQL defaults to ASC NULLS LAST / DESC NULLS FIRST,
-            // which is the opposite of v1, causing row offset mismatches during paste.
-            const columnRef = orderBy.expression ?? sql`${sql.ref(`${T}.${orderBy.column}`)}`;
-            const nullOrderDirection: 'asc' | 'desc' = orderBy.direction === 'asc' ? 'desc' : 'asc';
-            query = query
-              .orderBy(sql`${columnRef} is null`, nullOrderDirection)
-              .orderBy(columnRef, orderBy.direction);
+            // Native NULLS modifiers keep paste offsets identical without a
+            // leading `(col IS NULL)` key that doubles the sort list.
+            resolvedClauses.push({
+              expression: sql.ref(`${T}.${orderBy.column}`),
+              direction: orderBy.direction,
+              matchV1Nulls: true,
+            });
           }
         }
 
+        const applyConditions = (qb: QB): QB => {
+          let next = qb;
+          if (whereClause !== null) {
+            next = next.where(whereClause as unknown as Expression<SqlBool>);
+          }
+          for (const expression of this.whereExpressions) {
+            next = next.where(expression);
+          }
+          return next;
+        };
+
+        // A paged + ordered read over a wide row (dozens of text/jsonb columns)
+        // makes PostgreSQL evaluate the full target list for every scanned row
+        // and sort the wide tuples, spilling to disk on large tables. Select
+        // the page ids through a narrow subquery first, then join back for the
+        // payload and re-apply the ordering on the page rows only.
+        if (this.limitValue !== null && resolvedClauses.length > 0) {
+          let pageQuery = applyConditions(
+            this.db
+              .selectFrom(`${tableName} as ${T}`)
+              .select(sql`${sql.ref(`${T}.__id`)}`.as('__id')) as unknown as QB
+          );
+          for (const clause of resolvedClauses) {
+            pageQuery = applyStoredFieldOrderByClause(pageQuery, clause);
+          }
+          pageQuery = pageQuery
+            .limit(this.limitValue)
+            .$if(this.offsetValue !== null, (qb) => qb.offset(this.offsetValue!));
+
+          // Ids-only reads ARE the narrow page subquery — no payload join.
+          if (this.idsOnlyValue) {
+            return ok(pageQuery);
+          }
+
+          let query = this.db
+            .selectFrom(`${tableName} as ${T}`)
+            .innerJoin(pageQuery.as('__page'), '__page.__id', `${T}.__id`)
+            .select(() => payloadColumns) as unknown as QB;
+          for (const clause of resolvedClauses) {
+            query = applyStoredFieldOrderByClause(query, clause);
+          }
+          return ok(query);
+        }
+
+        let query = applyConditions(
+          this.db
+            .selectFrom(`${tableName} as ${T}`)
+            .select(this.idsOnlyValue ? () => [idColumn] : () => payloadColumns) as unknown as QB
+        );
+        for (const clause of resolvedClauses) {
+          query = applyStoredFieldOrderByClause(query, clause);
+        }
         query = query
           .$if(this.limitValue !== null, (qb) => qb.limit(this.limitValue!))
           .$if(this.offsetValue !== null, (qb) => qb.offset(this.offsetValue!));
@@ -229,76 +323,49 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
   private resolveOrderBy(
     table: Table,
     orderByColumn: OrderByColumn,
-    direction: 'asc' | 'desc'
+    direction: 'asc' | 'desc',
+    groupIdentityCollation?: boolean
   ): Result<ResolvedOrderBy | null, DomainError> {
     if (orderByColumn instanceof FieldId) {
       return table
         .getField((f) => f.id().equals(orderByColumn as FieldId))
         .andThen((field) => {
           const fieldType = field.type();
-          const isUserLike =
-            fieldType.equals(FieldType.user()) ||
-            fieldType.equals(FieldType.link()) ||
-            fieldType.equals(FieldType.createdBy()) ||
-            fieldType.equals(FieldType.lastModifiedBy());
-          const resolveDateLikeOrderBy = (column: string) => {
-            const expression = buildDateLikeOrderExpression(field, T, column);
-            return ok(expression ? { column, direction, expression } : { column, direction });
-          };
-
-          if (fieldType.equals(FieldType.createdTime())) {
-            return resolveDateLikeOrderBy('__created_time');
-          }
-          if (fieldType.equals(FieldType.lastModifiedTime())) {
-            return resolveDateLikeOrderBy('__last_modified_time');
-          }
-          if (fieldType.equals(FieldType.createdBy())) {
-            return ok({
-              column: '__created_by',
-              direction,
-              userLikeMode: 'single',
-              userLikeSource: 'system',
-            });
-          }
-          if (fieldType.equals(FieldType.lastModifiedBy())) {
-            return ok({
-              column: '__last_modified_by',
-              direction,
-              userLikeMode: 'single',
-              userLikeSource: 'system',
-            });
-          }
-          if (fieldType.equals(FieldType.autoNumber())) {
-            return ok({ column: '__auto_number', direction });
-          }
-
-          const selectChoiceOrder = this.extractSelectChoiceOrder(field);
-          const multiplicityResult = isUserLike ? field.isMultipleCellValue() : undefined;
-          if (multiplicityResult?.isErr()) {
-            return err(multiplicityResult.error);
-          }
-          const multiplicity = multiplicityResult?.isOk() ? multiplicityResult.value : undefined;
-          return field.dbFieldName().andThen((dbFieldName) =>
-            dbFieldName.value().map((column) => ({
-              column,
-              direction,
-              expression: buildDateLikeOrderExpression(field, T, column) ?? undefined,
-              ...(isUserLike
-                ? {
-                    userLikeMode: (multiplicity?.isMultiple() ? 'multiple' : 'single') as Exclude<
-                      ResolvedOrderBy['userLikeMode'],
-                      undefined
-                    >,
-                    userLikeSource: 'field' as const,
-                  }
-                : {}),
-              ...(selectChoiceOrder
-                ? {
-                    selectChoiceMode: selectChoiceOrder.mode,
-                    selectChoiceOrder: selectChoiceOrder.values,
-                  }
-                : {}),
-            }))
+          const isTrackAll =
+            'isTrackAll' in field && typeof field.isTrackAll === 'function'
+              ? field.isTrackAll() === true
+              : true;
+          const systemColumn = fieldType.equals(FieldType.createdTime())
+            ? '__created_time'
+            : fieldType.equals(FieldType.lastModifiedTime()) && isTrackAll
+              ? '__last_modified_time'
+              : fieldType.equals(FieldType.createdBy())
+                ? '__created_by'
+                : fieldType.equals(FieldType.lastModifiedBy()) && isTrackAll
+                  ? '__last_modified_by'
+                  : fieldType.equals(FieldType.autoNumber())
+                    ? '__auto_number'
+                    : undefined;
+          const columnResult = systemColumn
+            ? ok(systemColumn)
+            : field.dbFieldName().andThen((dbFieldName) => dbFieldName.value());
+          return columnResult.andThen((column) =>
+            buildStoredFieldValueExpression(field, T, column).andThen(
+              ({ expression, usesErrorFallback }) =>
+                buildStoredFieldOrderByClauses(field, column, direction, T, {
+                  columnExpression: this.maskedOrderColumnExpression(
+                    field,
+                    column,
+                    expression,
+                    usesErrorFallback
+                  ),
+                  groupIdentityCollation,
+                }).map((clauses) => ({
+                  column,
+                  direction,
+                  clauses,
+                }))
+            )
           );
         });
     }
@@ -306,159 +373,23 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
     return ok({ column: orderByColumn, direction });
   }
 
-  private extractSelectChoiceOrder(
-    field: unknown
-  ): { mode: 'single' | 'multiple'; values: string[] } | undefined {
-    const candidate = field as {
-      type?: () => { equals: (other: unknown) => boolean };
-      selectOptions?: () => ReadonlyArray<{ name: () => { toString: () => string } }>;
-      innerField?: () => { isOk: () => boolean; value: unknown };
-      isMultipleCellValue?: () => { isOk: () => boolean; value: { isMultiple: () => boolean } };
-    };
-    const fieldType = candidate.type?.();
-    if (!fieldType) {
-      return undefined;
-    }
-
-    const toChoiceNames = (
-      options: ReadonlyArray<{ name: () => { toString: () => string } }> | undefined
-    ): string[] | undefined => {
-      if (!options?.length) {
-        return undefined;
-      }
-      const names = options.map((option) => option.name().toString()).filter(Boolean);
-      return names.length ? names : undefined;
-    };
-
-    if (
-      fieldType.equals(FieldType.singleSelect()) ||
-      fieldType.equals(FieldType.multipleSelect())
-    ) {
-      const values = toChoiceNames(candidate.selectOptions?.());
-      if (!values) {
-        return undefined;
-      }
-      return {
-        mode: fieldType.equals(FieldType.multipleSelect()) ? 'multiple' : 'single',
-        values,
-      };
-    }
-
-    if (fieldType.equals(FieldType.lookup())) {
-      const innerFieldResult = candidate.innerField?.();
-      if (!innerFieldResult?.isOk()) {
-        return undefined;
-      }
-      const innerField = innerFieldResult.value as {
-        type?: () => { equals: (other: unknown) => boolean };
-        selectOptions?: () => ReadonlyArray<{ name: () => { toString: () => string } }>;
-      };
-      const innerType = innerField.type?.();
-      if (!innerType) {
-        return undefined;
-      }
-      if (
-        !innerType.equals(FieldType.singleSelect()) &&
-        !innerType.equals(FieldType.multipleSelect())
-      ) {
-        return undefined;
-      }
-      const values = toChoiceNames(innerField.selectOptions?.());
-      if (!values) {
-        return undefined;
-      }
-      // Lookup values are usually arrays; prefer multiple mode unless we know it is single-valued.
-      let mode: 'single' | 'multiple' = 'multiple';
-      const multiplicityResult = candidate.isMultipleCellValue?.();
-      const multiplicity = multiplicityResult?.isOk() ? multiplicityResult.value : undefined;
-      if (
-        innerType.equals(FieldType.singleSelect()) &&
-        multiplicity &&
-        !multiplicity.isMultiple()
-      ) {
-        mode = 'single';
-      }
-      return { mode, values };
-    }
-
-    return undefined;
-  }
-
   /**
-   * Align user/link ordering with v1:
-   * - single: sort by `title`
-   * - multiple: sort by `titles[]` text projection
-   * - null ordering: ASC => null first, DESC => null last
+   * ORDER BY over the masked value domain (T6997): a masked field sorts by
+   * `CASE WHEN <visibleWhen> THEN <value> ELSE NULL END` so restricted cells
+   * behave as NULL instead of rejecting the query.
    */
-  private applyUserLikeOrderBy(
-    query: QB,
+  private maskedOrderColumnExpression(
+    field: Field,
     column: string,
-    direction: 'asc' | 'desc',
-    mode: 'single' | 'multiple',
-    source: 'field' | 'system'
-  ): QB {
-    const columnRef = sql.ref(`${T}.${column}`);
-    // Keep v1 parity for user/link fields: cast stored value to jsonb and sort by title.
-    // System fields (createdBy/lastModifiedBy) may be scalar strings, so keep to_jsonb().
-    const columnJson = source === 'field' ? sql`${columnRef}::jsonb` : sql`to_jsonb(${columnRef})`;
-    const arrayLikeColumnJson =
-      source === 'field'
-        ? sql`CASE
-            WHEN jsonb_typeof(${columnJson}) = 'array' THEN ${columnJson}
-            WHEN jsonb_typeof(${columnJson}) = 'object' THEN jsonb_build_array(${columnJson})
-            ELSE '[]'::jsonb
-          END`
-        : sql`CASE
-            WHEN jsonb_typeof(${columnJson}) = 'array' THEN ${columnJson}
-            ELSE '[]'::jsonb
-          END`;
-    const titleExpr =
-      mode === 'multiple'
-        ? sql`jsonb_path_query_array(${arrayLikeColumnJson}, '$[*].title')::text`
-        : source === 'field'
-          ? sql`${columnJson} ->> 'title'`
-          : sql`coalesce(${columnJson} ->> 'title', ${columnJson} ->> 'name', ${columnJson} #>> '{}')`;
-
-    const nullOrderDirection: 'asc' | 'desc' = direction === 'asc' ? 'desc' : 'asc';
-
-    return query
-      .orderBy(sql`${titleExpr} is null`, nullOrderDirection)
-      .orderBy(titleExpr, direction);
-  }
-
-  private applySelectChoiceOrderBy(
-    query: QB,
-    column: string,
-    direction: 'asc' | 'desc',
-    mode: 'single' | 'multiple',
-    choiceOrder: ReadonlyArray<string>
-  ): QB {
-    const columnRef = sql.ref(`${T}.${column}`);
-    const choiceArrayLiteral = sql`ARRAY[${sql.join(
-      choiceOrder.map((name) => sql`${name}`),
-      sql`, `
-    )}]`;
-
-    const choiceIndexExpr =
-      mode === 'multiple'
-        ? sql`CASE
-            WHEN ${columnRef} IS NULL THEN NULL
-            WHEN jsonb_typeof(${columnRef}::jsonb) = 'array'
-              THEN ARRAY_POSITION(${choiceArrayLiteral}, jsonb_path_query_first(${columnRef}::jsonb, '$[0]') #>> '{}')
-            ELSE ARRAY_POSITION(${choiceArrayLiteral}, ${columnRef}::text)
-          END`
-        : sql`ARRAY_POSITION(${choiceArrayLiteral}, ${columnRef}::text)`;
-
-    const nullOrderDirection: 'asc' | 'desc' = direction === 'asc' ? 'desc' : 'asc';
-    let ordered = query
-      .orderBy(sql`${choiceIndexExpr} is null`, nullOrderDirection)
-      .orderBy(choiceIndexExpr, direction);
-
-    if (mode === 'multiple') {
-      ordered = ordered.orderBy(sql`${columnRef}::jsonb::text`, direction);
+    expression: RawBuilder<unknown>,
+    usesErrorFallback: boolean
+  ): RawBuilder<unknown> | undefined {
+    const baseExpression = usesErrorFallback ? expression : undefined;
+    const maskSql = this.fieldMaskSqlMapValue?.get(field.id().toString());
+    if (!maskSql) {
+      return baseExpression;
     }
-
-    return ordered;
+    return maskValueExpression(maskSql, baseExpression ?? sql.ref(`${T}.${column}`));
   }
 
   private buildWhereCondition(): Result<Expression<SqlBool> | null, DomainError> {

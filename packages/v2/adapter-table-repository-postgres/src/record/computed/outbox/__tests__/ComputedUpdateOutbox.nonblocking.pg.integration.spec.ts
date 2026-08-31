@@ -65,6 +65,14 @@ const createTaskInput = (planHash: string): ComputedUpdateOutboxTaskInput => ({
   extraSeedRecords: [],
   beforeImageRecords: [],
   steps: [{ level: 0, tableId: SEED_TABLE_ID, fieldIds: [FIELD_ID] }],
+  sameTableBatches: [
+    {
+      tableId: SEED_TABLE_ID,
+      steps: [{ level: 0, tableId: SEED_TABLE_ID, fieldIds: [FIELD_ID] }],
+      minLevel: 0,
+      maxLevel: 0,
+    },
+  ],
   edges: [],
   estimatedComplexity: 1,
   changeType: 'update',
@@ -184,6 +192,9 @@ describeNonBlocking('ComputedUpdateOutbox non-blocking locks (pg integration)', 
       )
       .addColumn('run_total_steps', 'integer', (col) => col.notNull().defaultTo(0))
       .addColumn('run_completed_steps_before', 'integer', (col) => col.notNull().defaultTo(0))
+      .addColumn('source_changed_at', 'timestamptz')
+      .addColumn('stage_depth', 'integer', (col) => col.notNull().defaultTo(0))
+      .addColumn('predecessor_task_id', 'text')
       .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
       .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
       .execute();
@@ -198,6 +209,22 @@ describeNonBlocking('ComputedUpdateOutbox non-blocking locks (pg integration)', 
       CREATE UNIQUE INDEX "computed_update_outbox_seed_task_id_table_id_record_id_key"
       ON "computed_update_outbox_seed"("task_id", "table_id", "record_id")
     `.execute(db);
+
+    await db.schema
+      .createTable('computed_update_stage_ledger')
+      .ifNotExists()
+      .addColumn('scope_id', 'text', (col) => col.notNull())
+      .addColumn('kind', 'text', (col) => col.notNull())
+      .addColumn('table_id', 'text', (col) => col.notNull())
+      .addColumn('record_id', 'text', (col) => col.notNull())
+      .addColumn('seq', 'bigint', (col) => col.notNull().defaultTo(0))
+      .addPrimaryKeyConstraint('computed_update_stage_ledger_pkey', [
+        'scope_id',
+        'kind',
+        'table_id',
+        'record_id',
+      ])
+      .execute();
     await sql`
       CREATE UNIQUE INDEX "computed_update_outbox_pending_unique_idx"
       ON "computed_update_outbox"("base_id", "seed_table_id", "plan_hash", "change_type")
@@ -255,6 +282,10 @@ describeNonBlocking('ComputedUpdateOutbox non-blocking locks (pg integration)', 
     expect(unwrap(first).merged).toBe(false);
     expect(unwrap(second).merged).toBe(true);
     expect(unwrap(second).taskId).toBe(unwrap(first).taskId);
+    const claimed = await outbox.claimBatch({ workerId: 'merge-worker', limit: 10 });
+    expect(unwrap(claimed)[0]?.sameTableBatches).toEqual(
+      createTaskInput('plan-free').sameTableBatches
+    );
   });
 
   it('enqueues without waiting while another session holds the merge lock', async () => {

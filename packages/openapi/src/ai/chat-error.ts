@@ -22,6 +22,9 @@ export enum ChatErrorCode {
   // Billing errors
   CREDIT_LIMIT_EXCEEDED = 'credit_limit_exceeded',
 
+  // Server-side send queue
+  QUEUE_FULL = 'queue_full',
+
   // Agent engine errors
   AGENT_START_FAILED = 'agent_start_failed',
   CONNECTION_INTERRUPTED = 'connection_interrupted',

@@ -118,7 +118,7 @@ export const LLMProviderManage = ({
 
           return (
             <div
-              className="group rounded-lg border p-4 pr-3 hover:border-primary/50"
+              className="group rounded-lg border p-4 pe-3 hover:border-primary/50"
               key={provider.name}
             >
               {/* Provider header */}
@@ -429,7 +429,7 @@ const ModelRow = ({
                     {tested && supported && <Check className="size-2.5" />}
                     <span>{t(`admin.setting.ai.chatModelAbility.${abilityType}`)}</span>
                     {tested && supportDetails && (
-                      <span className="ml-0.5 opacity-70">({supportDetails})</span>
+                      <span className="ms-0.5 opacity-70">({supportDetails})</span>
                     )}
                   </div>
                 );

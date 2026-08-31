@@ -35,7 +35,7 @@ enum MenuItemType {
   CollapseAll = 'CollapseAll',
 }
 
-const iconClassName = 'mr-2 h-4 w-4';
+const iconClassName = 'me-2 h-4 w-4';
 
 export const GroupHeaderMenu = () => {
   const isTouchDevice = useIsTouchDevice();

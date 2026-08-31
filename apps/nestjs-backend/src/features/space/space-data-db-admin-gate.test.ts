@@ -72,7 +72,8 @@ describe('SpaceController data DB admin gate', () => {
       dataDbPreflightService as never,
       dataDbBindingService as never,
       cls as never,
-      spaceDataDbMigrationService as never
+      spaceDataDbMigrationService as never,
+      {} as never
     );
   });
 
@@ -89,11 +90,11 @@ describe('SpaceController data DB admin gate', () => {
     expect(dataDbPreflightService.preflight).not.toHaveBeenCalled();
   });
 
-  it('rejects migrate-space updates from the non-admin space API', async () => {
+  it('rejects connection updates from the non-admin space API', async () => {
     await expect(
       controller.updateSpaceDataDb('spcxxx', {
         url: 'postgresql://teable:secret@example.com:5432/teable_data',
-        targetMode: 'migrate-space',
+        targetMode: 'initialize-empty',
       })
     ).rejects.toMatchObject({
       code: HttpErrorCode.RESTRICTED_RESOURCE,

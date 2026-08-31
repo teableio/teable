@@ -21,7 +21,10 @@ export type RecordValuesDTO = {
 export type RecordCreateSource =
   | { type: 'user' }
   | { type: 'form'; formId: string }
-  | { type: 'tableDuplicate' };
+  | { type: 'tableDuplicate' }
+  | { type: 'import' }
+  | { type: 'restore' }
+  | { type: 'recordDuplicate' };
 
 /** Audit source for record mutations whose product action differs from the base source. */
 export type RecordAuditSource = 'paste';

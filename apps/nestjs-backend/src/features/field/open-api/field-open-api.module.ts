@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { DbProvider } from '../../../db-provider/db.provider';
 import { ShareDbModule } from '../../../share-db/share-db.module';
 import { CalculationModule } from '../../calculation/calculation.module';
@@ -25,7 +25,7 @@ import { FieldOpenApiService } from './field-open-api.service';
     ViewOpenApiModule,
     ShareDbModule,
     CalculationModule,
-    RecordOpenApiModule,
+    forwardRef(() => RecordOpenApiModule),
     FieldCalculateModule,
     ViewModule,
     GraphModule,

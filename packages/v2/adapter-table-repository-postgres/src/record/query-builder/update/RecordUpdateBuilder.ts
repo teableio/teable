@@ -9,6 +9,7 @@ import type {
   LinkField,
   RecordId,
   SetAttachmentValueSpec,
+  SetButtonValueSpec,
   SetCheckboxValueSpec,
   SetDateValueSpec,
   SetLinkValueByTitleSpec,
@@ -307,6 +308,10 @@ class LinkValueCollectorVisitor implements ICellValueSpecVisitor {
   }
 
   visitSetAttachmentValue(_spec: SetAttachmentValueSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitSetButtonValue(_spec: SetButtonValueSpec): Result<void, DomainError> {
     return ok(undefined);
   }
 

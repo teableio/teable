@@ -240,7 +240,7 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
           </div>
         )}
         <div className="flex items-center gap-4">
-          <Label htmlFor="username" className="text-right">
+          <Label htmlFor="username" className="text-end">
             {t('space:baseModal.copyToSpace')}
           </Label>
           <Selector
@@ -270,9 +270,9 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
                     })}
                     className="py-1.5 text-xs font-normal hover:no-underline"
                   >
-                    <span className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
+                    <span className="flex min-w-0 flex-1 items-center gap-1.5 text-start">
                       <span className="truncate font-medium">{group.tableName}</span>
-                      <span className="ml-1 shrink-0 rounded bg-yellow-200/70 px-1.5 py-0.5 text-[10px] font-medium tabular-nums leading-none text-yellow-900 dark:bg-yellow-800/60 dark:text-yellow-100">
+                      <span className="ms-1 shrink-0 rounded bg-yellow-200/70 px-1.5 py-0.5 text-[10px] font-medium tabular-nums leading-none text-yellow-900 dark:bg-yellow-800/60 dark:text-yellow-100">
                         {group.fields.length}
                       </span>
                     </span>

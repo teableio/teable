@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { ILinkFieldOptions } from '@teable/core';
 import {
   generateViewId,
-  generateShareId,
   FieldType,
   ViewType,
   generatePluginInstallId,
@@ -67,6 +66,14 @@ type IDuplicateTableDataOptions = {
 };
 
 const duplicateTableDataDefaultBatchSize = 500;
+// A duplicated table starts unshared: share credentials belong to the view that
+// published them, so copying them would publish the copy the moment it exists,
+// behind a link its author never opened.
+const unsharedViewState = {
+  shareId: null,
+  enableShare: null,
+  shareMeta: null,
+} as const;
 const autoNumberFieldName = '__auto_number';
 
 @Injectable()
@@ -947,7 +954,7 @@ export class TableDuplicateService {
           version: 1,
           tableId: targetTableId,
           id: newViewId,
-          shareId: generateShareId(),
+          ...unsharedViewState,
           ...updatedFields,
         };
       }),
@@ -1058,7 +1065,7 @@ export class TableDuplicateService {
           version: 1,
           tableId: targetTableId,
           id: newViewId,
-          shareId: generateShareId(),
+          ...unsharedViewState,
           options: pluginOptions,
           ...updatedFields,
         },

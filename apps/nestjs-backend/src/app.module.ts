@@ -24,6 +24,7 @@ import { CommentOpenApiModule } from './features/comment/comment-open-api.module
 import { DashboardModule } from './features/dashboard/dashboard.module';
 import { ExportOpenApiModule } from './features/export/open-api/export-open-api.module';
 import { FieldOpenApiModule } from './features/field/open-api/field-open-api.module';
+import { GoogleSheetImportModule } from './features/google-sheet-import/google-sheet-import.module';
 import { HealthModule } from './features/health/health.module';
 import { ImportOpenApiModule } from './features/import/open-api/import-open-api.module';
 import { IntegrityModule } from './features/integrity/integrity.module';
@@ -40,6 +41,7 @@ import { PluginModule } from './features/plugin/plugin.module';
 import { PluginContextMenuModule } from './features/plugin-context-menu/plugin-context-menu.module';
 import { PluginPanelModule } from './features/plugin-panel/plugin-panel.module';
 import { RecordHistoryColdModule } from './features/record-history-cold/record-history-cold.module';
+import { RecordRemovalColdModule } from './features/record-removal-cold/record-removal-cold.module';
 import { SelectionModule } from './features/selection/selection.module';
 import { AdminOpenApiModule } from './features/setting/open-api/admin-open-api.module';
 import { SettingOpenApiModule } from './features/setting/open-api/setting-open-api.module';
@@ -89,6 +91,7 @@ export const appModules = {
     AccessTokenModule,
     ImportOpenApiModule,
     AirtableImportModule,
+    GoogleSheetImportModule,
     ExportOpenApiModule,
     PinModule,
     AdminOpenApiModule,
@@ -102,10 +105,11 @@ export const appModules = {
     AiModule,
     PluginModule,
     PluginPanelModule,
-    // the ONLY mount of the cold queue CONSUMER: feature modules import
-    // RecordHistoryColdCoreModule (services only), so auxiliary entrypoints
-    // composing them never become competing cold-queue workers
+    // the ONLY mount of the cold queue CONSUMERS: feature modules import
+    // the Core modules (services only), so auxiliary entrypoints composing
+    // them never become competing cold-queue workers
     RecordHistoryColdModule,
+    RecordRemovalColdModule,
     PluginContextMenuModule,
     PluginChartModule,
     ObservabilityModule,

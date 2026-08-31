@@ -8,6 +8,7 @@ export {
   ATTACHMENT_READ_PATH,
   createSsrfSafeFetch,
   createTrustedUrlPredicate,
+  isBlockedAddress,
   normalizeOrigins,
   type ISsrfSafeFetchFn,
 } from './fetch';

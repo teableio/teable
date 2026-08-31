@@ -25,4 +25,11 @@ export class DbFieldType extends RehydratedValueObject {
   value(): Result<string, DomainError> {
     return this.valueResult('DbFieldType');
   }
+
+  isJson(): boolean {
+    const result = this.value();
+    if (result.isErr()) return false;
+    const normalized = result.value.trim().toUpperCase();
+    return normalized === 'JSON' || normalized === 'JSONB';
+  }
 }

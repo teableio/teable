@@ -1,6 +1,7 @@
 import type { IncomingHttpHeaders } from 'http';
 import type { OpName } from '@teable/core';
 import type { IUserInfoVo } from '@teable/openapi';
+import type { IRecordRemovalReason } from '@teable/v2-core';
 import { nanoid } from 'nanoid';
 import type { Events } from './event.enum';
 
@@ -14,6 +15,9 @@ export interface IEventContext {
     type: string;
     id: string;
   };
+  // 'archived' removals keep their attachments_table reference rows (the archive snapshot
+  // still references the files and they must keep counting toward attachment usage).
+  recordRemovalReason?: IRecordRemovalReason;
   headers?: Record<string, string | undefined> | IncomingHttpHeaders;
   opMeta?: {
     name: OpName;

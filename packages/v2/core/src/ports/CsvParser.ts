@@ -31,6 +31,11 @@ export interface CsvParseResult {
    * 当使用 stream 或 url 类型源时，使用此迭代器
    */
   readonly rowsAsync?: AsyncIterable<Record<string, string>>;
+
+  /**
+   * Number of data rows when known up front (header already excluded).
+   */
+  readonly rowCount?: number;
 }
 
 /**

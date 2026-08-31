@@ -170,9 +170,12 @@ export class PasteLinkAutoResolveService {
         afterCommitHandlers.push(creationResult.afterCommit);
 
         const createdMap: ResolvedLinkValueMap = new Map();
-        for (let index = 0; index < createdTitles.length; index++) {
-          const title = createdTitles[index]!;
-          const record = creationResult.records[index]!;
+        for (let index = 0; index < creationResult.records.length; index++) {
+          const title = createdTitles[index];
+          const record = creationResult.records[index];
+          if (!title || !record) {
+            continue;
+          }
           createdMap.set(title, {
             id: record.id().toString(),
             title,
@@ -297,6 +300,6 @@ export class PasteLinkAutoResolveService {
   }
 
   private isRecordIdToken(token: string): boolean {
-    return RecordId.create(token).isOk();
+    return RecordId.isCanonical(token);
   }
 }

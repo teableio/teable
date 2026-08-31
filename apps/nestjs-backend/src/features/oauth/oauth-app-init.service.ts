@@ -27,7 +27,8 @@ export class OAuthAppInitService implements OnModuleInit {
 
   /** Seed/reconcile the first-party CLI OAuth app row. Idempotent. */
   private async seedCliOAuthApp() {
-    const { clientId, name, homepage, description, logo, redirectUris, scopes } = cliOAuthApp;
+    const { clientId, name, homepage, description, logo, redirectUris, scopes, allowDeviceFlow } =
+      cliOAuthApp;
     const data = {
       name,
       homepage,
@@ -35,6 +36,7 @@ export class OAuthAppInitService implements OnModuleInit {
       logo,
       redirectUris: JSON.stringify(redirectUris),
       scopes: JSON.stringify(scopes),
+      allowDeviceFlow,
     };
 
     try {

@@ -15,6 +15,7 @@ import {
 let app: INestApplication;
 
 const baseId = globalThis.testConfig.baseId;
+const isForceV2 = process.env.FORCE_V2_ALL === 'true';
 
 beforeAll(async () => {
   const appCtx = await initApp();
@@ -333,11 +334,20 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) update multiple single', 
       },
     ]);
 
-    const assertData = {
-      required: true,
-      width: 100,
-      order: 7,
-    };
+    // The v2 getView read projection keeps only view-type-relevant columnMeta
+    // keys (order/width/hidden/statisticFunc for grid); `required` is a form-view
+    // property, so it is written but not projected back for a grid view. V1
+    // returns the stored entry verbatim.
+    const assertData = isForceV2
+      ? {
+          width: 100,
+          order: 7,
+        }
+      : {
+          required: true,
+          width: 100,
+          order: 7,
+        };
 
     const updatedView = await getView(tableId, viewId);
     const fieldColumnMeta = updatedView.columnMeta[fieldColumnMetas[0].fieldId];

@@ -8,6 +8,7 @@ import {
   registerAfterCommit,
   TableByIdSpec,
   TableId,
+  tableDataSafetyLimitErrors,
   v2CoreTokens,
   RecordsBatchUpdated,
   withoutTransaction,
@@ -15,6 +16,7 @@ import {
 import type {
   BaseId,
   DomainError,
+  FieldComputeLastError,
   IExecutionContext,
   IHasher,
   ITableRepository,
@@ -30,6 +32,7 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
+import type { ComputedActivityFieldError } from '../activity/IComputedActivityProjector';
 import { toComputedActivityBatch } from '../activity/IComputedActivityProjector';
 import {
   hasAllTargetRecordsEdge,
@@ -39,10 +42,28 @@ import {
   buildBeforeImageRecordsFromStepChanges,
   mergeBeforeImageRecords,
 } from '../ComputedBeforeImageFromChanges';
+import { collectContinuationFieldIdsFromExecutedSteps } from '../ComputedContinuationFields';
 import type { ComputedFieldBackfillService } from '../ComputedFieldBackfillService';
-import type { ComputedFieldUpdater, StepChangeData } from '../ComputedFieldUpdater';
+import type {
+  ComputedCellLimitRejection,
+  ComputedFieldUpdater,
+  ComputedUpdateResult,
+  StepChangeData,
+} from '../ComputedFieldUpdater';
+import { formatComputedCellLimitErrorMessage } from '../ComputedFieldUpdater';
+import type { ComputedStagePlanSplit } from '../ComputedStagePlanSplitter';
+import {
+  buildDeferredStagePlan,
+  mergeComputedSeedGroups,
+  resolveAdaptiveStageBudget,
+  shouldClampToOneDependencyLevel,
+  splitComputedPlanForStageBudget,
+} from '../ComputedStagePlanSplitter';
 import type { ComputedTaskFailureClassification } from '../ComputedTaskFailureClassifier';
-import { classifyComputedTaskFailure } from '../ComputedTaskFailureClassifier';
+import {
+  classifyComputedTaskFailure,
+  isTableProvisionPendingError,
+} from '../ComputedTaskFailureClassifier';
 import { isComputedUpdateLockUnavailable } from '../ComputedUpdateLock';
 import type {
   ComputedSeedGroup,
@@ -51,6 +72,7 @@ import type {
 } from '../ComputedUpdatePlanner';
 import { splitSeedGroupsForPlan } from '../ComputedUpdatePlanner';
 import { createComputedUpdateRun, toRunSpanAttributes } from '../ComputedUpdateRun';
+import type { ComputedUpdateRunContext } from '../ComputedUpdateRun';
 import { toErrorLogFields } from '../errorLog';
 import type {
   ComputedBeforeImageRecordDto,
@@ -61,11 +83,14 @@ import type {
   ComputedUpdateOutboxTaskInput,
 } from '../outbox/ComputedUpdateOutboxPayload';
 import {
+  buildContinuationPlanHash,
   buildOutboxTaskInput,
   deserializeComputedUpdatePlan,
+  serializeComputedUpdatePlan,
 } from '../outbox/ComputedUpdateOutboxPayload';
 import type { ComputedUpdateSeedTaskInput } from '../outbox/ComputedUpdateSeedPayload';
 import { deserializeSeedPayload } from '../outbox/ComputedUpdateSeedPayload';
+import { buildFieldBackfillTaskInput } from '../outbox/FieldBackfillOutboxPayload';
 import type {
   AnyOutboxItem,
   ComputedTaskFailureDiagnostics,
@@ -75,6 +100,7 @@ import type {
   IComputedUpdateOutbox,
 } from '../outbox/IComputedUpdateOutbox';
 import { isFieldBackfillOutboxItem, isSeedOutboxItem } from '../outbox/IComputedUpdateOutbox';
+import { pushAll } from '../pushAll';
 
 /**
  * Maximum stage depth to prevent cascading update loops.
@@ -82,6 +108,10 @@ import { isFieldBackfillOutboxItem, isSeedOutboxItem } from '../outbox/IComputed
  * When this limit is reached, no more follow-up tasks are created.
  */
 const MAX_STAGE_DEPTH = 50;
+// Wakeup-driven cascades chase announced follow-up stages in the same
+// invocation; bound the chain length one wakeup may process before handing
+// back to the drain loop / later wakeups.
+const RUN_TASK_BY_ID_CONTINUATION_BUDGET = 50;
 /**
  * Lock-miss requeues carry no attempt budget (they must not consume retries toward the
  * dead letter), so a task starving on a hot key only surfaces through this warning.
@@ -91,12 +121,64 @@ const maxComputedEventLogItems = 10;
 const maxComputedEventLogFieldIds = 20;
 const maxComputedEventLogRecordIds = 10;
 
+const ASYNC_COMPUTED_EXECUTE_OPTIONS = {
+  collectChanges: true,
+  lockWait: false,
+  isolateOversizedComputedCells: true,
+} as const;
+
+const toFieldErrorsFromRejectedCells = (
+  rejections: ReadonlyArray<ComputedCellLimitRejection> | undefined
+): ReadonlyArray<ComputedActivityFieldError> | undefined => {
+  if (!rejections?.length) return undefined;
+  const byField = new Map<string, FieldComputeLastError>();
+  for (const rejection of rejections) {
+    if (byField.has(rejection.fieldId)) continue;
+    byField.set(rejection.fieldId, {
+      code: tableDataSafetyLimitErrors.computedCellValueMaxBytes.code,
+      message: formatComputedCellLimitErrorMessage(rejection.attempted, rejection.max),
+      context: {
+        attempted: rejection.attempted,
+        max: rejection.max,
+        recordId: rejection.recordId,
+        tableId: rejection.tableId,
+      },
+    });
+  }
+  return [...byField.entries()].map(([fieldId, error]) => ({ fieldId, error }));
+};
+
+const toMarkDoneFieldErrorOptions = (
+  rejections: ReadonlyArray<ComputedCellLimitRejection> | undefined
+): { fieldErrors: ReadonlyArray<ComputedActivityFieldError> } | undefined => {
+  const fieldErrors = toFieldErrorsFromRejectedCells(rejections);
+  return fieldErrors?.length ? { fieldErrors } : undefined;
+};
+
+const toRunHistoryPlan = (plan: ComputedUpdatePlan) => {
+  const payload = serializeComputedUpdatePlan(plan);
+  return { steps: payload.steps, edges: payload.edges };
+};
+
+const sourceFieldIdsOf = (task: AnyOutboxItem): ReadonlyArray<string> | undefined => {
+  if (isSeedOutboxItem(task)) {
+    return task.changedFieldIds.length ? task.changedFieldIds : undefined;
+  }
+  if ('sourceFieldIds' in task && task.sourceFieldIds?.length) {
+    return task.sourceFieldIds;
+  }
+  return undefined;
+};
+
 const buildFailureDiagnostics = (
   error: DomainError,
   failure: ComputedTaskFailureClassification,
   phase: string
 ): ComputedTaskFailureDiagnostics => {
   const execution = error.details?.postgresSql as PostgresSqlExecutionDiagnostics | undefined;
+  const details = error.details
+    ? Object.fromEntries(Object.entries(error.details).filter(([key]) => key !== 'postgresSql'))
+    : undefined;
   return {
     version: 1,
     failure: {
@@ -105,6 +187,7 @@ const buildFailureDiagnostics = (
       retryable: failure.retryable,
       directDeadLetter: !failure.retryable,
       phase,
+      ...(details && Object.keys(details).length > 0 ? { details } : {}),
     },
     ...(execution ? { execution } : {}),
   };
@@ -113,6 +196,16 @@ const buildFailureDiagnostics = (
 type SeedRecordChunk = {
   seedRecordIds: string[];
   extraSeedRecords: ComputedUpdateSeedGroupDto[];
+};
+
+/**
+ * A follow-up task announced by a finished task. When the enqueue transaction
+ * relay-claimed the continuation, `claimed` carries the ready-to-process item
+ * and the queue loop skips the separate claimById round trip.
+ */
+type ContinuationRef = {
+  taskId: string;
+  claimed?: AnyOutboxItem;
 };
 
 type LoadTaskTableResult =
@@ -247,6 +340,80 @@ export const resolveEffectiveMaxSeedRecordsPerTask = (
   return Math.min(hardCap, fanoutCap);
 };
 
+const SMALL_HOST_TASK_LIMIT = 16;
+
+export const shouldWaitForSmallHostTask = (
+  task: Pick<
+    ComputedUpdateOutboxItem,
+    'changeType' | 'seedRecordIds' | 'seedAllTableIds' | 'dirtyStats'
+  >
+): boolean => {
+  // Outbox workers must try-lock. A blocking wait deadlocks when the holder is
+  // another open transaction (computed-outbox-recovery lock contention).
+  void task;
+  return false;
+};
+
+export const shouldSkipOneLevelClamp = (
+  plan: Pick<
+    ComputedUpdatePlan,
+    'changeType' | 'seedAllTableIds' | 'seedTableId' | 'steps' | 'edges'
+  >,
+  dirtyRecordEstimate: number
+): boolean => {
+  if (plan.changeType === 'delete') return false;
+  if ((plan.seedAllTableIds?.length ?? 0) > 0) return false;
+  if (dirtyRecordEstimate <= 0 || dirtyRecordEstimate > SMALL_HOST_TASK_LIMIT) return false;
+  if (plan.steps.length === 0) return false;
+  const hostTableId = plan.seedTableId.toString();
+  if (plan.steps.some((step) => step.tableId.toString() !== hostTableId)) return false;
+  // Same-table is not enough: conditional rollup/lookup and link traversal
+  // still write other rows. Only a same-record formula chain (no cross-record
+  // edges) can share one transaction across levels.
+  return !plan.edges.some(
+    (edge) =>
+      edge.propagationMode === 'linkTraversal' ||
+      edge.propagationMode === 'allTargetRecords' ||
+      edge.propagationMode === 'conditionalFiltered'
+  );
+};
+
+/**
+ * A chunk's dirty prediction: the parent's per-table stats scaled by the
+ * chunk's seed share, falling back to bare seed counts when the parent has no
+ * stats. Resetting to seed counts unconditionally (the previous behavior)
+ * destroyed the fanout estimate, letting split children of a high-fanout
+ * import pass small-insert volume gates the parent correctly failed.
+ */
+const scaleChunkDirtyStats = (
+  task: Pick<ComputedUpdateOutboxItem, 'seedTableId' | 'dirtyStats'>,
+  chunk: SeedRecordChunk,
+  totalSeedCount: number
+): Array<{ tableId: string; recordCount: number }> => {
+  const chunkSeedCount = countSeedRecordDtos(chunk.seedRecordIds, chunk.extraSeedRecords);
+  const parentStats = (task.dirtyStats ?? []).filter(
+    (row) => Math.max(0, Number(row.recordCount) || 0) > 0
+  );
+  if (parentStats.length === 0 || totalSeedCount <= 0) {
+    return [
+      ...(chunk.seedRecordIds.length > 0
+        ? [{ tableId: task.seedTableId, recordCount: chunk.seedRecordIds.length }]
+        : []),
+      ...chunk.extraSeedRecords.map((group) => ({
+        tableId: group.tableId,
+        recordCount: group.recordIds.length,
+      })),
+    ];
+  }
+  return parentStats.map((row) => ({
+    tableId: row.tableId,
+    recordCount: Math.max(
+      1,
+      Math.ceil((Math.max(0, Number(row.recordCount) || 0) * chunkSeedCount) / totalSeedCount)
+    ),
+  }));
+};
+
 export const splitComputedTaskForSeedRecordLimit = (
   task: ComputedUpdateOutboxItem,
   maxSeedRecordsPerTask: number
@@ -261,6 +428,7 @@ export const splitComputedTaskForSeedRecordLimit = (
   });
   if (chunks.length <= 1) return [];
 
+  const totalSeedCount = countSeedRecordDtos(task.seedRecordIds, task.extraSeedRecords);
   return chunks.map((chunk, index) => ({
     baseId: task.baseId,
     seedTableId: task.seedTableId,
@@ -268,6 +436,7 @@ export const splitComputedTaskForSeedRecordLimit = (
     extraSeedRecords: chunk.extraSeedRecords,
     beforeImageRecords: filterBeforeImageRecords(task.beforeImageRecords, chunk.seedRecordIds),
     steps: task.steps,
+    sameTableBatches: task.sameTableBatches,
     edges: task.edges,
     estimatedComplexity: Math.max(1, Math.ceil(task.estimatedComplexity / chunks.length)),
     changeType: task.changeType,
@@ -276,20 +445,15 @@ export const splitComputedTaskForSeedRecordLimit = (
     runTotalSteps: task.runTotalSteps,
     runCompletedStepsBefore: task.runCompletedStepsBefore,
     stageDepth: task.stageDepth,
+    sourceChangedAt: task.sourceChangedAt ?? undefined,
+    predecessorTaskId: task.id,
     orchestration: chunkOrchestration(task.orchestration, index, chunks.length),
     planHash: withChunkedPlanHash(task.planHash, index, chunks.length),
-    dirtyStats: [
-      ...(chunk.seedRecordIds.length > 0
-        ? [{ tableId: task.seedTableId, recordCount: chunk.seedRecordIds.length }]
-        : []),
-      ...chunk.extraSeedRecords.map((group) => ({
-        tableId: group.tableId,
-        recordCount: group.recordIds.length,
-      })),
-    ],
+    dirtyStats: scaleChunkDirtyStats(task, chunk, totalSeedCount),
     affectedTableIds: task.affectedTableIds,
     affectedFieldIds: task.affectedFieldIds,
     syncMaxLevel: task.syncMaxLevel,
+    seedAllCursors: task.seedAllCursors,
   }));
 };
 
@@ -318,6 +482,7 @@ export const splitSeedTaskForSeedRecordLimit = (
     cyclePolicy: task.cyclePolicy,
     orchestration: chunkOrchestration(task.orchestration, index, chunks.length),
     runId: task.runId,
+    sourceChangedAt: task.sourceChangedAt ?? undefined,
     planHash: withChunkedPlanHash(task.planHash, index, chunks.length),
   }));
 };
@@ -387,6 +552,14 @@ class ClaimedTaskLeaseManager {
     }
     if (this.heartbeatPromise) {
       await this.heartbeatPromise;
+    }
+  }
+
+  /** Track a continuation task claimed after the manager started. */
+  addTask(task: AnyOutboxItem): void {
+    if (task.lockedBy) {
+      this.taskOwners.set(task.id, task.lockedBy);
+      this.start();
     }
   }
 
@@ -472,6 +645,19 @@ class ClaimedTaskLeaseManager {
   }
 }
 
+const mergeSeedAllTableIdLists = (
+  base: ReadonlyArray<TableId>,
+  extraTableIdStrings: ReadonlyArray<string>
+): TableId[] => {
+  const merged = new Map<string, TableId>(base.map((tableId) => [tableId.toString(), tableId]));
+  for (const tableIdString of extraTableIdStrings) {
+    if (merged.has(tableIdString)) continue;
+    const created = TableId.create(tableIdString);
+    if (created.isOk()) merged.set(tableIdString, created.value);
+  }
+  return [...merged.values()];
+};
+
 /**
  * Background worker that processes computed update outbox tasks.
  *
@@ -543,37 +729,19 @@ export class ComputedUpdateWorker {
           const leaseManager = this.createLeaseManager(claimed);
           leaseManager.start();
 
-          let processed = 0;
-          try {
-            for (const task of claimed) {
-              if (!(await leaseManager.ensureTaskActive(task.id))) {
-                this.logger.warn('computed:worker:task_skipped_lost_lease', {
-                  taskId: task.id,
-                  leaseOwner: task.lockedBy ?? null,
-                });
-                leaseManager.releaseTask(task.id);
-                continue;
-              }
+          const outcome = await this.processTaskQueue({
+            initialTasks: claimed,
+            leaseManager,
+            workerId: params.workerId,
+            actorId: actorIdResult.value,
+            tracer: params.tracer,
+            requestId: params.requestId,
+            baseContext,
+            continuationBudget: Math.max(params.limit, claimed.length),
+          });
 
-              try {
-                const processResult = await this.processClaimedTask(
-                  task,
-                  actorIdResult.value,
-                  params.tracer,
-                  params.requestId
-                );
-                if (processResult.isOk() && processResult.value) {
-                  processed += 1;
-                }
-              } finally {
-                leaseManager.releaseTask(task.id);
-              }
-            }
-          } finally {
-            await leaseManager.stop();
-          }
-
-          return ok(processed);
+          span?.setAttribute('worker.processedCount', outcome.processed);
+          return ok(outcome.processed);
         }.bind(this)
       );
     };
@@ -660,23 +828,20 @@ export class ComputedUpdateWorker {
 
           const leaseManager = this.createLeaseManager([claimed]);
           leaseManager.start();
-          try {
-            if (!(await leaseManager.ensureTaskActive(claimed.id))) {
-              return ok(false);
-            }
-
-            const processResult = await this.processClaimedTask(
-              claimed,
-              actorIdResult.value,
-              params.tracer,
-              params.requestId
-            );
-            if (processResult.isErr()) return err(processResult.error);
-            return ok(processResult.value);
-          } finally {
-            leaseManager.releaseTask(claimed.id);
-            await leaseManager.stop();
-          }
+          // Announced follow-up stages are chased inside the same invocation;
+          // wakeup-driven cascades otherwise pay one BullMQ delivery per hop.
+          const outcome = await this.processTaskQueue({
+            initialTasks: [claimed],
+            leaseManager,
+            workerId: params.workerId,
+            actorId: actorIdResult.value,
+            tracer: params.tracer,
+            requestId: params.requestId,
+            baseContext: context,
+            continuationBudget: RUN_TASK_BY_ID_CONTINUATION_BUDGET,
+          });
+          span?.setAttribute('worker.processedCount', outcome.processed);
+          return ok(outcome.firstTaskProcessed);
         }.bind(this)
       );
     };
@@ -688,6 +853,129 @@ export class ComputedUpdateWorker {
       return await executeRunTaskById();
     } finally {
       span?.end();
+    }
+  }
+
+  /**
+   * Process a queue of claimed tasks, chasing announced follow-ups in-place.
+   *
+   * Cascade stages are strictly sequential: task N enqueues task N+1 on
+   * completion, so waiting for the next wakeup delivery (or a claim-scan
+   * round) pays a full pipeline hop to rediscover a task this worker just
+   * inserted. Claim announced follow-ups directly by id and process them in
+   * the same invocation. The enqueue-published wakeup stays as the crash
+   * safety net; the terminal pre-check turns it into a cheap noop afterwards.
+   */
+  private async processTaskQueue(params: {
+    initialTasks: ReadonlyArray<AnyOutboxItem>;
+    leaseManager: ClaimedTaskLeaseManager;
+    workerId: string;
+    actorId: ActorId;
+    tracer?: ITracer;
+    requestId?: string;
+    baseContext: IExecutionContext;
+    continuationBudget: number;
+  }): Promise<{ processed: number; firstTaskProcessed: boolean }> {
+    const { leaseManager } = params;
+    let processed = 0;
+    let firstTaskProcessed = false;
+    let continuationBudget = params.continuationBudget;
+    let isFirst = true;
+    const queue: AnyOutboxItem[] = [...params.initialTasks];
+
+    try {
+      while (queue.length > 0) {
+        const task = queue.shift()!;
+        const taskIsFirst = isFirst;
+        isFirst = false;
+        if (!(await leaseManager.ensureTaskActive(task.id))) {
+          this.logger.warn('computed:worker:task_skipped_lost_lease', {
+            taskId: task.id,
+            leaseOwner: task.lockedBy ?? null,
+          });
+          leaseManager.releaseTask(task.id);
+          continue;
+        }
+
+        const continuations: ContinuationRef[] = [];
+        try {
+          const processResult = await this.processClaimedTask(
+            task,
+            params.actorId,
+            params.tracer,
+            params.requestId,
+            continuations,
+            params.workerId
+          );
+          if (processResult.isOk() && processResult.value) {
+            processed += 1;
+            if (taskIsFirst) firstTaskProcessed = true;
+          }
+        } finally {
+          leaseManager.releaseTask(task.id);
+        }
+
+        for (const continuation of continuations) {
+          if (continuationBudget <= 0) {
+            // A relay-claimed continuation would sit in `processing` until its
+            // lease expires; hand it back to the wakeup path right away.
+            if (continuation.claimed) {
+              await this.releaseRelayClaimedContinuation(continuation.claimed, params.baseContext);
+            }
+            continue;
+          }
+          if (continuation.claimed) {
+            continuationBudget -= 1;
+            leaseManager.addTask(continuation.claimed);
+            queue.push(continuation.claimed);
+            continue;
+          }
+          const continuationClaim = await this.outbox.claimById(
+            {
+              taskId: continuation.taskId,
+              workerId: params.workerId,
+              allowProcessingTakeover: false,
+            },
+            params.baseContext
+          );
+          if (continuationClaim.isErr() || !continuationClaim.value) {
+            // Deferred/raced continuations fall back to their wakeups.
+            continue;
+          }
+          continuationBudget -= 1;
+          leaseManager.addTask(continuationClaim.value);
+          queue.push(continuationClaim.value);
+        }
+      }
+    } finally {
+      await leaseManager.stop();
+    }
+
+    return { processed, firstTaskProcessed };
+  }
+
+  /**
+   * Return a relay-claimed continuation to `pending` when this invocation's
+   * continuation budget cannot process it, so wakeups reclaim it immediately
+   * instead of waiting out the processing lease.
+   */
+  private async releaseRelayClaimedContinuation(
+    task: AnyOutboxItem,
+    context: IExecutionContext
+  ): Promise<void> {
+    const released = await this.outbox.releaseForRetry(
+      {
+        task,
+        reason: 'relay_claim_continuation_budget_exhausted',
+        retryDelayMs: 0,
+      },
+      context
+    );
+    if (released.isErr()) {
+      this.logger.warn('computed:worker:relay_claim_release_failed', {
+        taskId: task.id,
+        error: released.error.message,
+      });
     }
   }
 
@@ -732,24 +1020,64 @@ export class ComputedUpdateWorker {
     task: AnyOutboxItem,
     actorId: ActorId,
     tracer?: ITracer,
-    requestId?: string
+    requestId?: string,
+    continuations?: ContinuationRef[],
+    relayWorkerId?: string
   ): Promise<Result<boolean, DomainError>> {
-    if (isFieldBackfillOutboxItem(task)) {
-      return this.processFieldBackfillTask(task, actorId, tracer, requestId);
-    }
+    const taskKind = isFieldBackfillOutboxItem(task)
+      ? 'field-backfill'
+      : isSeedOutboxItem(task)
+        ? 'seed'
+        : 'computed';
+    const startedAt = performance.now();
+    const span = tracer?.startSpan('teable.worker.processClaimedTask', {
+      'outbox.taskId': task.id,
+      'outbox.taskKind': taskKind,
+      'outbox.baseId': task.baseId,
+      'outbox.attempts': task.attempts,
+      'outbox.taskAgeMs': Math.max(0, Date.now() - task.createdAt.getTime()),
+    });
 
-    if (isSeedOutboxItem(task)) {
-      return this.processSeedTask(task, actorId, tracer, requestId);
-    }
+    const run = async (): Promise<Result<boolean, DomainError>> => {
+      if (isFieldBackfillOutboxItem(task)) {
+        return this.processFieldBackfillTask(task, actorId, tracer, requestId, continuations);
+      }
 
-    return this.processComputedTask(task as ComputedUpdateOutboxItem, actorId, tracer, requestId);
+      if (isSeedOutboxItem(task)) {
+        return this.processSeedTask(task, actorId, tracer, requestId, continuations, relayWorkerId);
+      }
+
+      return this.processComputedTask(
+        task as ComputedUpdateOutboxItem,
+        actorId,
+        tracer,
+        requestId,
+        continuations,
+        relayWorkerId
+      );
+    };
+
+    try {
+      const result = span && tracer ? await tracer.withSpan(span, run) : await run();
+      span?.setAttribute('outbox.processMs', Math.round(performance.now() - startedAt));
+      if (result.isErr()) {
+        span?.recordError(result.error.message);
+      } else {
+        span?.setAttribute('outbox.processed', result.value);
+      }
+      return result;
+    } finally {
+      span?.end();
+    }
   }
 
   private async processComputedTask(
     computedTask: ComputedUpdateOutboxItem,
     actorId: ActorId,
     tracer?: ITracer,
-    requestId?: string
+    requestId?: string,
+    continuations?: ContinuationRef[],
+    relayWorkerId?: string
   ): Promise<Result<boolean, DomainError>> {
     const context: IExecutionContext = { actorId, tracer, requestId };
     const runLogContext = {
@@ -768,6 +1096,7 @@ export class ComputedUpdateWorker {
       | 'collect_dirty_seed_groups'
       | 'plan_next_stage'
       | 'enqueue_next_stage'
+      | 'enqueue_stage_continuation'
       | 'mark_done' = 'deserialize_plan';
     const logTaskFailure = (error: unknown, failure?: ComputedTaskFailureClassification) => {
       this.logger.error('computed:outbox:task_failed', {
@@ -785,7 +1114,12 @@ export class ComputedUpdateWorker {
       });
     };
 
-    const splitResult = await this.splitLargeComputedTask(computedTask, context, runLogContext);
+    const splitResult = await this.splitLargeComputedTask(
+      computedTask,
+      context,
+      runLogContext,
+      continuations
+    );
     if (splitResult.isErr()) {
       logTaskFailure(splitResult.error);
       await this.handleTaskFailure(computedTask, splitResult.error.message, context);
@@ -800,6 +1134,9 @@ export class ComputedUpdateWorker {
       await this.handleTaskFailure(computedTask, planResult.error.message, context);
       return err(planResult.error);
     }
+
+    const stageSplit = this.splitPlanForStageBudget(planResult.value, computedTask.dirtyStats);
+    const stagePlan = stageSplit.stagePlan;
 
     const totalSteps =
       computedTask.runTotalSteps > 0
@@ -824,6 +1161,10 @@ export class ComputedUpdateWorker {
       return err(stageTableIdsResult.error);
     }
 
+    // Continuations announced inside the transaction only become processable
+    // once it commits; a rollback would leave relay-claimed refs pointing at
+    // rows that never existed.
+    const stagedContinuations: ContinuationRef[] = [];
     const executeResult = await this.unitOfWork.withTransaction(context, async (txContext) => {
       failurePhase = 'set_statement_timeout';
       const timeoutResult = await this.applyTaskStatementTimeout(txContext, runLogContext);
@@ -839,23 +1180,27 @@ export class ComputedUpdateWorker {
       });
 
       failurePhase = 'acquire_locks';
-      const lockResult = await this.updater.acquireLocks(planResult.value, txContext, {
+      const lockResult = await this.updater.acquireLocks(stagePlan, txContext, {
         logContext: runLogContext,
         wait: false,
       });
       if (lockResult.isErr()) return err(lockResult.error);
 
       failurePhase = 'execute_plan';
-      const stageResult = await this.updater.execute(planResult.value, txContext, run, {
-        collectChanges: true,
-        // Non-blocking target locks: overlapping writers requeue instead of overwriting
-        // computed columns with stale concurrent snapshots.
-        lockWait: false,
+      const ledgerScopeId = computedTask.ledgerScopeId ?? computedTask.id;
+      const stageExecution = await this.runStageWithinDirtyBudget({
+        plan: planResult.value,
+        initialSplit: stageSplit,
+        context: txContext,
+        run,
+        ledgerScopeId,
+        logContext: runLogContext,
       });
-      if (stageResult.isErr()) return err(stageResult.error);
+      if (stageExecution.isErr()) return err(stageExecution.error);
+      const { split: finalSplit, result: stageChanges, selfReferential } = stageExecution.value;
 
       const events = buildComputedUpdateEvents(
-        stageResult.value.changesByStep,
+        stageChanges.changesByStep,
         planResult.value.baseId,
         computedTask.orchestration
       );
@@ -869,30 +1214,61 @@ export class ComputedUpdateWorker {
         });
       }
 
-      const completedStepsAfter = computedTask.runCompletedStepsBefore + computedTask.steps.length;
-      failurePhase = 'collect_dirty_seed_groups';
-      const seedGroupsResult = await this.updater.collectDirtySeedGroups(
-        txContext,
-        stageTableIdsResult.value
+      const stageContinuationFieldIdsResult = collectStageContinuationFieldIds(
+        planResult.value,
+        finalSplit.stagePlan.steps,
+        stageChanges.changesByStep,
+        computedTask.ledgerScopeId ? computedTask.affectedFieldIds : [],
+        stageChanges.rejectedCells
       );
-      if (seedGroupsResult.isErr()) return err(seedGroupsResult.error);
+      if (stageContinuationFieldIdsResult.isErr()) {
+        return err(stageContinuationFieldIdsResult.error);
+      }
+      const stageContinuationFieldIds = stageContinuationFieldIdsResult.value;
 
-      const { groups: seedGroups, seedAllTableIds } = seedGroupsResult.value;
+      const settleResult = await this.settleStage({
+        task: computedTask,
+        plan: planResult.value,
+        finalSplit,
+        stageChanges,
+        continuationFieldIds: stageContinuationFieldIds,
+        selfReferential,
+        fallbackCollectTableIds: stageTableIdsResult.value,
+        runId: run.runId,
+        ledgerScopeId,
+        originRunIds: [...run.originRunIds],
+        runTotalSteps: totalSteps,
+        runCompletedStepsBefore: computedTask.runCompletedStepsBefore,
+        stageDepth: computedTask.stageDepth ?? 0,
+        sourceChangedAt: computedTask.sourceChangedAt,
+        orchestration: computedTask.orchestration,
+        context: txContext,
+        logContext: runLogContext,
+        continuations: stagedContinuations,
+        relayWorkerId,
+        setPhase: (phase) => {
+          failurePhase = phase;
+        },
+      });
+      if (settleResult.isErr()) return err(settleResult.error);
+      if (settleResult.value.kind === 'done') return ok(settleResult.value.processed);
+      const { seedGroups, seedAllTableIds, completedStepsAfter } = settleResult.value;
 
       failurePhase = 'plan_next_stage';
       const nextPlanResult = await this.planNextStage(
         planResult.value,
         txContext,
-        stageFieldIdsResult.value,
+        stageContinuationFieldIds,
         seedGroups,
         seedAllTableIds,
-        stageResult.value.changesByStep
+        stageChanges.changesByStep
       );
       if (nextPlanResult.isErr()) return err(nextPlanResult.error);
 
       const currentStageDepth = computedTask.stageDepth ?? 0;
 
-      if (nextPlanResult.value.steps.length > 0) {
+      let doneValue: boolean;
+      if (nextPlanResult.value.steps.length > 0 || nextPlanResult.value.edges.length > 0) {
         if (currentStageDepth >= MAX_STAGE_DEPTH) {
           this.logger.warn('computed:worker:max_stage_depth_reached', {
             taskId: computedTask.id,
@@ -900,6 +1276,16 @@ export class ComputedUpdateWorker {
             skippedSteps: nextPlanResult.value.steps.length,
             ...runLogContext,
           });
+
+          failurePhase = 'mark_done';
+          const doneResult = await this.markTaskDone(
+            computedTask,
+            txContext,
+            stageChanges.rejectedCells,
+            toRunHistoryPlan(planResult.value)
+          );
+          if (doneResult.isErr()) return err(doneResult.error);
+          doneValue = doneResult.value;
         } else {
           const nextTotalSteps =
             Math.max(totalSteps, completedStepsAfter) + nextPlanResult.value.steps.length;
@@ -916,22 +1302,47 @@ export class ComputedUpdateWorker {
             runTotalSteps: nextTotalSteps,
             runCompletedStepsBefore: completedStepsAfter,
             stageDepth: currentStageDepth + 1,
+            sourceChangedAt: computedTask.sourceChangedAt,
+            predecessorTaskId: computedTask.id,
+            sourceFieldIds: computedTask.sourceFieldIds,
             orchestration: computedTask.orchestration,
           });
 
           failurePhase = 'enqueue_next_stage';
-          const enqueueResult = await this.outbox.enqueueOrMerge(nextTask, txContext);
-          if (enqueueResult.isErr()) return err(enqueueResult.error);
+          const settled = await this.enqueueContinuationAndMarkDone({
+            task: computedTask,
+            nextTask,
+            context: txContext,
+            relayWorkerId,
+            fieldErrors: toFieldErrorsFromRejectedCells(stageChanges.rejectedCells),
+            runHistoryPlan: toRunHistoryPlan(planResult.value),
+          });
+          if (settled.isErr()) return err(settled.error);
+          stagedContinuations.push({
+            taskId: settled.value.taskId,
+            ...(settled.value.claimed ? { claimed: settled.value.claimed } : {}),
+          });
+          failurePhase = 'mark_done';
+          doneValue = settled.value.done;
         }
+      } else {
+        failurePhase = 'mark_done';
+        const doneResult = await this.markTaskDone(
+          computedTask,
+          txContext,
+          stageChanges.rejectedCells,
+          toRunHistoryPlan(planResult.value)
+        );
+        if (doneResult.isErr()) return err(doneResult.error);
+        doneValue = doneResult.value;
       }
 
-      failurePhase = 'mark_done';
-      const doneResult = await this.outbox.markDone(computedTask, txContext);
-      if (doneResult.isErr()) return err(doneResult.error);
-      if (!doneResult.value) return ok(false);
-
+      if (!doneValue) return ok(false);
       return ok(true);
     });
+    if (executeResult.isOk() && continuations) {
+      pushAll(continuations, stagedContinuations);
+    }
     if (executeResult.isErr()) {
       if (isComputedUpdateLockUnavailable(executeResult.error)) {
         await this.releaseTaskForRetry(
@@ -942,34 +1353,27 @@ export class ComputedUpdateWorker {
         );
         return ok(false);
       }
-      if (isNotFoundError(executeResult.error)) {
-        const referencedTableIds = new Map<string, TableId>([
-          [planResult.value.seedTableId.toString(), planResult.value.seedTableId],
-          ...planResult.value.steps.map((step) => [step.tableId.toString(), step.tableId] as const),
-          ...planResult.value.edges.flatMap((edge) => [
-            [edge.fromTableId.toString(), edge.fromTableId] as const,
-            [edge.toTableId.toString(), edge.toTableId] as const,
-          ]),
-          ...(planResult.value.seedAllTableIds ?? []).map(
-            (tableId) => [tableId.toString(), tableId] as const
-          ),
-        ]);
-        for (const tableId of referencedTableIds.values()) {
-          const tableResult = await this.loadActiveTableForTask({
-            task: computedTask,
-            tableId,
-            context,
-            logContext: runLogContext,
-          });
-          if (tableResult.isErr()) {
-            logTaskFailure(tableResult.error);
-            await this.handleTaskFailure(computedTask, tableResult.error.message, context);
-            return err(tableResult.error);
-          }
-          if (tableResult.value.status === 'completed') return ok(true);
-          if (tableResult.value.status === 'blocked') return ok(false);
-        }
+      const recovered = await this.recoverFromTableLookupFailure({
+        task: computedTask,
+        error: executeResult.error,
+        context,
+        logContext: runLogContext,
+        referencedTableIds: [
+          planResult.value.seedTableId,
+          ...planResult.value.steps.map((step) => step.tableId),
+          ...planResult.value.edges.flatMap((edge) => [edge.fromTableId, edge.toTableId]),
+          ...(planResult.value.seedAllTableIds ?? []),
+        ],
+      });
+      if (recovered.isErr()) {
+        logTaskFailure(recovered.error);
+        await this.handleTaskFailure(computedTask, recovered.error.message, context);
+        return err(recovered.error);
       }
+      if (recovered.value === 'retried') return ok(false);
+      if (recovered.value === 'completed') return ok(true);
+      if (recovered.value === 'blocked') return ok(false);
+
       const failure = classifyComputedTaskFailure(executeResult.error);
       logTaskFailure(executeResult.error, failure);
       await this.handleTaskFailure(computedTask, executeResult.error.message, context, {
@@ -981,6 +1385,95 @@ export class ComputedUpdateWorker {
     }
 
     return ok(executeResult.value);
+  }
+
+  private markTaskDone(
+    task: AnyOutboxItem,
+    context: IExecutionContext,
+    rejections?: ReadonlyArray<ComputedCellLimitRejection>,
+    runHistoryPlan?: { steps: unknown; edges: unknown }
+  ) {
+    const fieldErrors = toMarkDoneFieldErrorOptions(rejections);
+    return this.outbox.markDone(task, context, {
+      ...(fieldErrors ?? {}),
+      ...(runHistoryPlan ? { runHistoryPlan } : {}),
+    });
+  }
+
+  /**
+   * Enqueue a stage continuation and mark the predecessor task done as one
+   * combined activity projection instead of two independent ones. Both outbox
+   * calls still run their full lifecycle logic (merge-lock, bypass hash,
+   * lease-owner check, deadlock retry, wakeup scheduling) unchanged; only the
+   * per-call activity-projector round (lock + load + persist) is deferred and
+   * folded into a single projectStageSettlement call covering: the
+   * continuation's enqueued refs, its relay-claim (if the worker claimed its
+   * own continuation), and the predecessor's completion. This removes ~2 of
+   * the 3 lock/load/persist rounds a stage transaction would otherwise pay for
+   * activity bookkeeping alone.
+   */
+  private async enqueueContinuationAndMarkDone(params: {
+    task: AnyOutboxItem;
+    nextTask: ComputedUpdateOutboxTaskInput;
+    context: IExecutionContext;
+    relayWorkerId?: string;
+    fieldErrors?: ReadonlyArray<ComputedActivityFieldError>;
+    runHistoryPlan?: { steps: unknown; edges: unknown };
+  }): Promise<
+    Result<{ taskId: string; merged: boolean; claimed?: AnyOutboxItem; done: boolean }, DomainError>
+  > {
+    const { task, nextTask, context, relayWorkerId, fieldErrors } = params;
+
+    const enqueueResult = await this.outbox.enqueueOrMerge(nextTask, context, {
+      ...(relayWorkerId
+        ? { relayClaim: { workerId: relayWorkerId, predecessorTaskId: task.id } }
+        : {}),
+      skipActivityProjection: true,
+    });
+    if (enqueueResult.isErr()) return err(enqueueResult.error);
+
+    const doneResult = await this.outbox.markDone(task, context, {
+      skipActivityProjection: true,
+      ...(params.runHistoryPlan ? { runHistoryPlan: params.runHistoryPlan } : {}),
+    });
+    if (doneResult.isErr()) return err(doneResult.error);
+
+    const startedAt = task.lockedAt ?? task.createdAt;
+    const durationMs =
+      startedAt instanceof Date ? Math.max(0, Date.now() - startedAt.getTime()) : undefined;
+
+    const settlementResult = await this.outbox.projectStageSettlement(
+      {
+        done: {
+          taskId: task.id,
+          baseId: task.baseId,
+          durationMs,
+          ...(fieldErrors?.length ? { fieldErrors } : {}),
+        },
+        ...(enqueueResult.value.pendingActivityEnqueue
+          ? { enqueued: enqueueResult.value.pendingActivityEnqueue }
+          : {}),
+        ...(enqueueResult.value.claimed
+          ? {
+              claimed: [
+                {
+                  taskId: enqueueResult.value.claimed.id,
+                  baseId: enqueueResult.value.claimed.baseId,
+                },
+              ],
+            }
+          : {}),
+      },
+      context
+    );
+    if (settlementResult.isErr()) return err(settlementResult.error);
+
+    return ok({
+      taskId: enqueueResult.value.taskId,
+      merged: enqueueResult.value.merged,
+      ...(enqueueResult.value.claimed ? { claimed: enqueueResult.value.claimed } : {}),
+      done: doneResult.value,
+    });
   }
 
   private async publishComputedUpdateEvents(
@@ -1110,57 +1603,107 @@ export class ComputedUpdateWorker {
     const tableSpec = TableByIdSpec.create(params.tableId);
     const activeResult = await this.tableRepository.findOne(params.context, tableSpec);
     if (activeResult.isOk()) return ok({ status: 'loaded', table: activeResult.value });
+    if (isTableProvisionPendingError(activeResult.error)) return err(activeResult.error);
     if (!isNotFoundError(activeResult.error)) return err(activeResult.error);
 
     const anyStateResult = await this.tableRepository.findOne(params.context, tableSpec, {
       state: 'all',
     });
-    if (anyStateResult.isErr()) {
-      if (!isNotFoundError(anyStateResult.error)) return err(anyStateResult.error);
+    if (anyStateResult.isErr() && !isNotFoundError(anyStateResult.error)) {
+      return err(anyStateResult.error);
+    }
 
-      const doneResult = await this.outbox.markDone(params.task, params.context);
-      if (doneResult.isErr()) return err(doneResult.error);
-      if (!doneResult.value) return ok({ status: 'blocked' });
+    // Permanently missing and trash are the same for computation: do not
+    // compute, do not defer, do not dead-letter. Downstream skip happens in
+    // the updater when the seed table is still live; this path completes a
+    // task whose loaded table (typically the seed) is gone or recycled.
+    const doneResult = await this.markTaskDone(params.task, params.context);
+    if (doneResult.isErr()) return err(doneResult.error);
+    if (!doneResult.value) return ok({ status: 'blocked' });
 
-      this.logger.info('computed:worker:missing_table_task_completed', {
+    this.logger.info(
+      anyStateResult.isOk()
+        ? 'computed:worker:inactive_table_task_completed'
+        : 'computed:worker:missing_table_task_completed',
+      {
         taskId: params.task.id,
         tableId: params.tableId.toString(),
         ...params.logContext,
-      });
-      return ok({ status: 'completed' });
+      }
+    );
+    return ok({ status: 'completed' });
+  }
+
+  private async recoverFromTableLookupFailure(params: {
+    task: AnyOutboxItem;
+    error: DomainError;
+    context: IExecutionContext;
+    logContext: Record<string, unknown>;
+    referencedTableIds: ReadonlyArray<TableId>;
+  }): Promise<Result<'retried' | 'completed' | 'blocked' | 'unhandled', DomainError>> {
+    if (!isTableProvisionPendingError(params.error) && !isNotFoundError(params.error)) {
+      return ok('unhandled');
     }
 
-    const tableId = params.tableId.toString();
-    const message = `Computed update blocked by inactive table: tableId=${tableId}`;
-    this.logger.warn('computed:worker:inactive_table_blocked', {
-      taskId: params.task.id,
-      tableId,
-      ...params.logContext,
-    });
-    await this.releaseTaskForRetry(
-      params.task,
-      message,
-      params.context,
-      this.outboxConfig.maxBackoffMs
-    );
-    return ok({ status: 'blocked' });
+    const requeue = async (reason: string) => {
+      await this.releaseTaskForRetry(
+        params.task,
+        reason,
+        params.context,
+        this.outboxConfig.lockUnavailableRetryDelayMs
+      );
+      return ok('retried' as const);
+    };
+
+    if (isTableProvisionPendingError(params.error)) {
+      return requeue(params.error.message);
+    }
+
+    const seen = new Set<string>();
+    for (const tableId of params.referencedTableIds) {
+      const key = tableId.toString();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const tableResult = await this.loadActiveTableForTask({
+        task: params.task,
+        tableId,
+        context: params.context,
+        logContext: params.logContext,
+      });
+      if (tableResult.isErr()) {
+        if (isTableProvisionPendingError(tableResult.error)) {
+          return requeue(tableResult.error.message);
+        }
+        return err(tableResult.error);
+      }
+      if (tableResult.value.status === 'completed') return ok('completed');
+      if (tableResult.value.status === 'blocked') return ok('blocked');
+    }
+
+    // Every referenced table is loadable now. The transactional miss was a
+    // provision race (import/schema update), not a deleted table.
+    return requeue(params.error.message);
   }
 
   private async splitLargeComputedTask(
     task: ComputedUpdateOutboxItem,
     context: IExecutionContext,
-    logContext: Record<string, unknown>
+    logContext: Record<string, unknown>,
+    continuations?: ContinuationRef[]
   ): Promise<Result<boolean, DomainError>> {
     const maxSeedRecordsPerTask = resolveEffectiveMaxSeedRecordsPerTask(task, this.outboxConfig);
     const chunks = splitComputedTaskForSeedRecordLimit(task, maxSeedRecordsPerTask);
     if (chunks.length === 0) return ok(false);
 
+    // Parallel chunk splits are deliberately not relay-claimed: leaving them
+    // pending lets other workers' wakeups pick chunks up concurrently.
     for (const chunk of chunks) {
       const enqueueResult = await this.outbox.enqueueOrMerge(chunk, context);
       if (enqueueResult.isErr()) return err(enqueueResult.error);
+      continuations?.push({ taskId: enqueueResult.value.taskId });
     }
 
-    const doneResult = await this.outbox.markDone(task, context);
+    const doneResult = await this.markTaskDone(task, context);
     if (doneResult.isErr()) return err(doneResult.error);
     if (!doneResult.value) return ok(false);
 
@@ -1189,7 +1732,7 @@ export class ComputedUpdateWorker {
       if (enqueueResult.isErr()) return err(enqueueResult.error);
     }
 
-    const doneResult = await this.outbox.markDone(task, context);
+    const doneResult = await this.markTaskDone(task, context);
     if (doneResult.isErr()) return err(doneResult.error);
     if (!doneResult.value) return ok(false);
 
@@ -1211,7 +1754,8 @@ export class ComputedUpdateWorker {
     task: FieldBackfillOutboxItem,
     actorId: ActorId,
     tracer?: ITracer,
-    requestId?: string
+    requestId?: string,
+    continuations?: ContinuationRef[]
   ): Promise<Result<boolean, DomainError>> {
     const context: IExecutionContext = { actorId, tracer, requestId };
     const runLogContext = {
@@ -1224,6 +1768,7 @@ export class ComputedUpdateWorker {
       taskId: task.id,
       tableId: task.tableId,
       fieldIds: task.fieldIds,
+      cursor: task.cursor,
       ...runLogContext,
     });
 
@@ -1297,7 +1842,7 @@ export class ComputedUpdateWorker {
         ...runLogContext,
       });
       // Mark as done since there's nothing to backfill
-      const doneResult = await this.outbox.markDone(task, context);
+      const doneResult = await this.markTaskDone(task, context);
       return doneResult;
     }
 
@@ -1312,11 +1857,31 @@ export class ComputedUpdateWorker {
         const backfillResult = await this.backfillService.executeSyncMany(txContext, {
           table,
           fields: fieldsToBackfill,
+          recordBatch: {
+            cursor: task.cursor,
+            size: this.outboxConfig.fieldBackfillBatchSize,
+          },
         });
         if (backfillResult.isErr()) return err(backfillResult.error);
 
+        const batch = backfillResult.value.batch;
+        if (batch?.hasMore && batch.lastRecordId) {
+          const continuation = buildFieldBackfillTaskInput({
+            baseId: table.baseId(),
+            tableId: table.id(),
+            fieldIds: fieldsToBackfill.map((field) => field.id()),
+            hasher: this.hasher,
+            runId: task.runId,
+            estimatedRowCount: task.estimatedRowCount,
+            cursor: batch.lastRecordId,
+          });
+          const enqueueResult = await this.outbox.enqueueFieldBackfill(continuation, txContext);
+          if (enqueueResult.isErr()) return err(enqueueResult.error);
+          continuations?.push({ taskId: enqueueResult.value.taskId });
+        }
+
         // Mark task as done
-        const doneResult = await this.outbox.markDone(task, txContext);
+        const doneResult = await this.markTaskDone(task, txContext);
         if (doneResult.isErr()) return doneResult;
         if (!doneResult.value) return ok(false);
 
@@ -1344,6 +1909,7 @@ export class ComputedUpdateWorker {
       taskId: task.id,
       tableId: task.tableId,
       fieldCount: fieldsToBackfill.length,
+      cursor: task.cursor,
       ...runLogContext,
     });
 
@@ -1359,7 +1925,9 @@ export class ComputedUpdateWorker {
     task: SeedOutboxItem,
     actorId: ActorId,
     tracer?: ITracer,
-    requestId?: string
+    requestId?: string,
+    continuations?: ContinuationRef[],
+    relayWorkerId?: string
   ): Promise<Result<boolean, DomainError>> {
     const context: IExecutionContext = { actorId, tracer, requestId };
     const runLogContext = {
@@ -1379,6 +1947,7 @@ export class ComputedUpdateWorker {
       | 'collect_dirty_seed_groups'
       | 'plan_next_stage'
       | 'enqueue_next_stage'
+      | 'enqueue_stage_continuation'
       | 'mark_done' = 'deserialize_seed_payload';
     const logSeedFailure = (
       error: unknown,
@@ -1434,6 +2003,16 @@ export class ComputedUpdateWorker {
       logContext: runLogContext,
     });
     if (tableResult.isErr()) {
+      const recovered = await this.recoverFromTableLookupFailure({
+        task,
+        error: tableResult.error,
+        context,
+        logContext: runLogContext,
+        referencedTableIds: [seedData.seedTableId],
+      });
+      if (recovered.isOk() && recovered.value === 'retried') return ok(false);
+      if (recovered.isOk() && recovered.value === 'completed') return ok(true);
+      if (recovered.isOk() && recovered.value === 'blocked') return ok(false);
       logSeedFailure(tableResult.error);
       await this.handleTaskFailure(task, tableResult.error.message, context);
       return err(tableResult.error);
@@ -1474,15 +2053,23 @@ export class ComputedUpdateWorker {
 
     const plan: ComputedUpdatePlan = planResult.value;
 
-    // If no steps, nothing to do
-    if (plan.steps.length === 0) {
+    // A plan with edges but no steps is still executable work (propagation-only
+    // orphan/delete plans); only a plan with neither is a no-op.
+    if (plan.steps.length === 0 && plan.edges.length === 0) {
       this.logger.debug('computed:worker:seed_no_steps', {
         taskId: task.id,
         ...runLogContext,
       });
-      const doneResult = await this.outbox.markDone(task, context);
+      const doneResult = await this.markTaskDone(task, context);
       return doneResult;
     }
+
+    // Bound the first transaction to the stage budget; activity registration below
+    // still advertises the full plan so pending targets stay visible across stages.
+    // Seed tasks predate planning, so no dirty estimate exists yet; the plan's
+    // own estimated complexity (steps + edges + seeds) is the adaptivity signal.
+    const stageSplit = this.splitPlanForStageBudget(plan);
+    const stagePlan = stageSplit.stagePlan;
 
     failurePhase = 'project_activity';
     const batchProgress = toComputedActivityBatch(task.orchestration);
@@ -1506,7 +2093,9 @@ export class ComputedUpdateWorker {
       return err(activityResult.error);
     }
 
-    // Execute the plan within a transaction
+    // Execute the plan within a transaction. Continuations only become
+    // processable after commit; see processComputedTask for the rationale.
+    const stagedContinuations: ContinuationRef[] = [];
     const executeResult = await this.unitOfWork.withTransaction(context, async (txContext) => {
       failurePhase = 'set_statement_timeout';
       const timeoutResult = await this.applyTaskStatementTimeout(txContext, runLogContext);
@@ -1521,22 +2110,30 @@ export class ComputedUpdateWorker {
       });
 
       failurePhase = 'acquire_locks';
-      const lockResult = await this.updater.acquireLocks(plan, txContext, {
+      const lockResult = await this.updater.acquireLocks(stagePlan, txContext, {
         logContext: runLogContext,
         wait: false,
       });
       if (lockResult.isErr()) return err(lockResult.error);
 
       failurePhase = 'execute_plan';
-      const stageResult = await this.updater.execute(plan, txContext, run, {
-        collectChanges: true,
-        lockWait: false,
+      // Seed tasks are always chain roots: their partial continuations carry
+      // this scope forward as computed tasks.
+      const ledgerScopeId = task.id;
+      const stageExecution = await this.runStageWithinDirtyBudget({
+        plan,
+        initialSplit: stageSplit,
+        context: txContext,
+        run,
+        ledgerScopeId,
+        logContext: runLogContext,
       });
-      if (stageResult.isErr()) return err(stageResult.error);
+      if (stageExecution.isErr()) return err(stageExecution.error);
+      const { split: finalSplit, result: stageChanges, selfReferential } = stageExecution.value;
 
       // Publish events for computed updates
       const events = buildComputedUpdateEvents(
-        stageResult.value.changesByStep,
+        stageChanges.changesByStep,
         plan.baseId,
         task.orchestration
       );
@@ -1550,38 +2147,68 @@ export class ComputedUpdateWorker {
         });
       }
 
-      // Collect seed groups for next stage
-      const stageTableIds = plan.steps.map((step) => step.tableId);
-      failurePhase = 'collect_dirty_seed_groups';
-      const seedGroupsResult = await this.updater.collectDirtySeedGroups(txContext, stageTableIds);
-      if (seedGroupsResult.isErr()) return err(seedGroupsResult.error);
+      const stageContinuationFieldIds = collectContinuationFieldIdsFromExecutedSteps(
+        plan,
+        finalSplit.stagePlan.steps,
+        stageChanges.changesByStep,
+        stageChanges.rejectedCells
+      );
 
-      const { groups: seedGroups, seedAllTableIds } = seedGroupsResult.value;
+      const settleResult = await this.settleStage({
+        task,
+        plan,
+        finalSplit,
+        stageChanges,
+        continuationFieldIds: stageContinuationFieldIds,
+        selfReferential,
+        runId: run.runId,
+        ledgerScopeId,
+        originRunIds: [...run.originRunIds],
+        runTotalSteps: plan.steps.length,
+        runCompletedStepsBefore: 0,
+        stageDepth: 0,
+        sourceChangedAt: task.sourceChangedAt,
+        orchestration: task.orchestration,
+        context: txContext,
+        logContext: runLogContext,
+        continuations: stagedContinuations,
+        relayWorkerId,
+        setPhase: (phase) => {
+          failurePhase = phase;
+        },
+      });
+      if (settleResult.isErr()) return err(settleResult.error);
+      if (settleResult.value.kind === 'done') return ok(settleResult.value.processed);
+      const { seedGroups, seedAllTableIds } = settleResult.value;
 
       // Plan next stage if needed
       // If there are no cross-record propagation edges, the plan is purely same-record
       // (e.g. same-table formula chains) and should not enqueue follow-up stages.
       if (plan.edges.length === 0) {
-        const doneResult = await this.outbox.markDone(task, txContext);
+        const doneResult = await this.markTaskDone(
+          task,
+          txContext,
+          stageChanges.rejectedCells,
+          toRunHistoryPlan(plan)
+        );
         if (doneResult.isErr()) return err(doneResult.error);
         if (!doneResult.value) return ok(false);
         return ok(true);
       }
-      const stageFieldIds = plan.steps.flatMap((step) => step.fieldIds);
       failurePhase = 'plan_next_stage';
       const nextPlanResult = await this.planNextStage(
         plan,
         txContext,
-        stageFieldIds,
+        stageContinuationFieldIds,
         seedGroups,
         seedAllTableIds,
-        stageResult.value.changesByStep
+        stageChanges.changesByStep
       );
       if (nextPlanResult.isErr()) return err(nextPlanResult.error);
 
-      // Enqueue next stage if there are more steps
+      // Enqueue next stage if there is more work (steps, or propagation-only edges)
       // Seed tasks start at depth 0, so the first follow-up is depth 1
-      if (nextPlanResult.value.steps.length > 0) {
+      if (nextPlanResult.value.steps.length > 0 || nextPlanResult.value.edges.length > 0) {
         const nextTask = buildOutboxTaskInput({
           plan: nextPlanResult.value,
           dirtyStats: seedGroups.map((group) => ({
@@ -1595,23 +2222,44 @@ export class ComputedUpdateWorker {
           runTotalSteps: plan.steps.length + nextPlanResult.value.steps.length,
           runCompletedStepsBefore: plan.steps.length,
           stageDepth: 1,
+          sourceChangedAt: task.sourceChangedAt,
+          predecessorTaskId: task.id,
+          sourceFieldIds: sourceFieldIdsOf(task),
           orchestration: task.orchestration,
         });
 
         failurePhase = 'enqueue_next_stage';
-        const enqueueResult = await this.outbox.enqueueOrMerge(nextTask, txContext);
+        const enqueueResult = await this.outbox.enqueueOrMerge(
+          nextTask,
+          txContext,
+          relayWorkerId
+            ? { relayClaim: { workerId: relayWorkerId, predecessorTaskId: task.id } }
+            : undefined
+        );
         if (enqueueResult.isErr()) return err(enqueueResult.error);
+        stagedContinuations.push({
+          taskId: enqueueResult.value.taskId,
+          ...(enqueueResult.value.claimed ? { claimed: enqueueResult.value.claimed } : {}),
+        });
       }
 
       // Mark seed task as done
       failurePhase = 'mark_done';
-      const doneResult = await this.outbox.markDone(task, txContext);
+      const doneResult = await this.markTaskDone(
+        task,
+        txContext,
+        stageChanges.rejectedCells,
+        toRunHistoryPlan(plan)
+      );
       if (doneResult.isErr()) return err(doneResult.error);
       if (!doneResult.value) return ok(false);
 
       return ok(true);
     });
 
+    if (executeResult.isOk() && continuations) {
+      pushAll(continuations, stagedContinuations);
+    }
     if (executeResult.isErr()) {
       if (isComputedUpdateLockUnavailable(executeResult.error)) {
         await this.releaseTaskForRetry(
@@ -1622,6 +2270,21 @@ export class ComputedUpdateWorker {
         );
         return ok(false);
       }
+      const recovered = await this.recoverFromTableLookupFailure({
+        task,
+        error: executeResult.error,
+        context,
+        logContext: runLogContext,
+        referencedTableIds: [seedData.seedTableId],
+      });
+      if (recovered.isErr()) {
+        logSeedFailure(recovered.error, 'computed:worker:seed_failed');
+        await this.handleTaskFailure(task, recovered.error.message, context);
+        return err(recovered.error);
+      }
+      if (recovered.value === 'retried') return ok(false);
+      if (recovered.value === 'completed') return ok(true);
+      if (recovered.value === 'blocked') return ok(false);
       const failure = classifyComputedTaskFailure(executeResult.error);
       logSeedFailure(executeResult.error, 'computed:worker:seed_failed', failure);
       await this.handleTaskFailure(task, executeResult.error.message, context, {
@@ -1642,6 +2305,670 @@ export class ComputedUpdateWorker {
     return ok(executeResult.value);
   }
 
+  private splitPlanForStageBudget(
+    plan: ComputedUpdatePlan,
+    dirtyStats?: ReadonlyArray<{ recordCount: number }>,
+    options?: { forceOneLevelClamp?: boolean }
+  ): ComputedStagePlanSplit {
+    const dirtyRecordEstimate = (dirtyStats ?? []).reduce(
+      (sum, group) => sum + Math.max(0, group.recordCount),
+      0
+    );
+    const baseBudget = {
+      maxSteps: this.outboxConfig.stageMaxSteps,
+      maxFields: this.outboxConfig.stageMaxFields,
+      maxEdges: this.outboxConfig.stageMaxEdges,
+    };
+    const budget = resolveAdaptiveStageBudget(
+      baseBudget,
+      {
+        estimatedComplexity: plan.estimatedComplexity,
+        dirtyRecordEstimate,
+        hasSeedAllTables: (plan.seedAllTableIds?.length ?? 0) > 0,
+      },
+      {
+        smallRunComplexityThreshold: this.outboxConfig.stageSmallRunComplexityThreshold,
+        smallRunBudgetMultiplier: this.outboxConfig.stageSmallRunBudgetMultiplier,
+      }
+    );
+    let maxSteps = budget.maxSteps;
+    // One-level-per-transaction stays the default: a partial dirty batch that
+    // also writes a dependent level makes stage-wide settlement ambiguous, and
+    // skipping the clamp on estimates previously broke delete/import replans
+    // (T6648 / PR #2948). Tiny same-record host formula chains (T6706) and
+    // explicit-seed linkTraversal updates and small inserts can skip it:
+    // abort-mode overflow writes nothing, then forceOneLevelClamp restores the
+    // T6609 boundary. Deletes, bulk inserts, seed-all, and non-traversal edges
+    // stay clamped so intermediate stage-output collection can still drive replan.
+    const skipOneLevelClamp =
+      options?.forceOneLevelClamp !== true &&
+      (shouldSkipOneLevelClamp(plan, dirtyRecordEstimate) ||
+        !shouldClampToOneDependencyLevel(plan, {
+          dirtyRecordEstimate,
+          stageMaxDirtyRecords: this.outboxConfig.stageMaxDirtyRecords,
+        }));
+    if (!skipOneLevelClamp && this.outboxConfig.stageMaxDirtyRecords > 0 && plan.steps.length > 1) {
+      const firstLevel = Math.min(...plan.steps.map((step) => step.level));
+      const firstLevelStepCount = plan.steps.filter((step) => step.level === firstLevel).length;
+      const hasLaterLevel = plan.steps.some((step) => step.level > firstLevel);
+      if (hasLaterLevel) {
+        // A partial dirty batch commits only a subset of the current level's
+        // records. Executing a dependent level in that same transaction makes
+        // its stage-wide settlement ambiguous: earlier batches may have changed
+        // an upstream field while only the final batch's downstream values are
+        // current. Commit one dependency level completely before the next one.
+        maxSteps = maxSteps > 0 ? Math.min(maxSteps, firstLevelStepCount) : firstLevelStepCount;
+      }
+    }
+    return splitComputedPlanForStageBudget(plan, {
+      maxSteps,
+      maxFields: budget.maxFields,
+      maxEdges: budget.maxEdges,
+    });
+  }
+
+  /**
+   * Execute a stage under the dirty-record budget. When propagation aborts over
+   * budget (no steps ran), retry with half as many steps until the stage fits.
+   * A single-step stage runs unguarded: its fan-out cannot be reduced here, and
+   * seed splitting plus statement timeouts remain the caps for that case.
+   */
+  private async runStageWithinDirtyBudget(params: {
+    plan: ComputedUpdatePlan;
+    initialSplit: ComputedStagePlanSplit;
+    context: IExecutionContext;
+    run: ComputedUpdateRunContext;
+    /** Stage-ledger scope: the continuation chain's root task id. */
+    ledgerScopeId: string;
+    logContext: Record<string, unknown>;
+  }): Promise<
+    Result<
+      {
+        split: ComputedStagePlanSplit;
+        result: ComputedUpdateResult;
+        selfReferential: boolean;
+      },
+      DomainError
+    >
+  > {
+    const maxDirtyRecords = this.outboxConfig.stageMaxDirtyRecords;
+    let split = params.initialSplit;
+    for (;;) {
+      const stepCount = split.stagePlan.steps.length;
+      if (maxDirtyRecords <= 0) {
+        const result = await this.updater.execute(split.stagePlan, params.context, params.run, {
+          ...ASYNC_COMPUTED_EXECUTE_OPTIONS,
+          // Continuations may still carry stage-ledger state (e.g. after a
+          // budget config change); the ledger frontier must drain even
+          // unbudgeted.
+          ledgerScopeId: params.ledgerScopeId,
+        });
+        if (result.isErr()) return err(result.error);
+        return ok({ split, result: result.value, selfReferential: false });
+      }
+
+      if (stepCount <= 1) {
+        // Floor: batch the single step by target records — a record's computed value
+        // depends only on its own sources, so executing a partial dirty set is safe.
+        // Self-referential plans (the floor table feeds itself) additionally carry
+        // this batch's processed rows as next-batch seeds (the frontier), so later
+        // generations stay reachable while the exclusion set keeps every batch's
+        // budget slots reserved for genuinely-new rows.
+        const floorTableKey = split.stagePlan.steps[0]?.tableId.toString();
+        const selfReferential = split.stagePlan.edges.some(
+          (edge) => edge.fromTableId.toString() === floorTableKey
+        );
+        if (selfReferential) {
+          this.logger.info('computed:worker:stage_dirty_budget_floor_self_referential', {
+            maxDirtyRecords,
+            ...params.logContext,
+          });
+        }
+        // Enter the queue regime before the first partial batch: explicit seeds
+        // migrate into the run ledger's frontier queue HEAD, so every batch —
+        // including the first — stays inside the shared stageMaxDirtyRecords
+        // pool (the batch seeds only the queue's budget-bounded head; retirement
+        // follows the consumed-head seq rule). The push is part of the stage
+        // transaction: it rolls back with a failed batch and is idempotent on
+        // retry via the ledger's primary key.
+        const migratedSeedGroups = mergeComputedSeedGroups(
+          split.stagePlan.seedRecordIds.length > 0
+            ? [
+                {
+                  tableId: split.stagePlan.seedTableId,
+                  recordIds: split.stagePlan.seedRecordIds,
+                },
+              ]
+            : [],
+          split.stagePlan.extraSeedRecords
+        );
+        let floorSplit: ComputedStagePlanSplit = split;
+        if (migratedSeedGroups.length > 0) {
+          const pushResult = await this.updater.pushStageLedgerFrontierSeeds(
+            params.context,
+            params.ledgerScopeId,
+            migratedSeedGroups
+          );
+          if (pushResult.isErr()) return err(pushResult.error);
+          this.logger.debug('computed:worker:seeds_migrated_to_ledger', {
+            ledgerScopeId: params.ledgerScopeId,
+            migratedSeedGroups: migratedSeedGroups.map((group) => ({
+              tableId: group.tableId.toString(),
+              recordIds: group.recordIds.map((recordId) => recordId.toString()),
+            })),
+            ...params.logContext,
+          });
+          floorSplit = {
+            ...split,
+            stagePlan: {
+              ...split.stagePlan,
+              seedRecordIds: [],
+              extraSeedRecords: [],
+            },
+          };
+        }
+        const result = await this.updater.execute(
+          floorSplit.stagePlan,
+          params.context,
+          params.run,
+          {
+            ...ASYNC_COMPUTED_EXECUTE_OPTIONS,
+            maxDirtyRecords,
+            dirtyBudgetMode: 'partial' as const,
+            ledgerScopeId: params.ledgerScopeId,
+          }
+        );
+        if (result.isErr()) return err(result.error);
+        return ok({ split: floorSplit, result: result.value, selfReferential });
+      }
+
+      const result = await this.updater.execute(split.stagePlan, params.context, params.run, {
+        ...ASYNC_COMPUTED_EXECUTE_OPTIONS,
+        maxDirtyRecords,
+        dirtyBudgetMode: 'abort',
+        ledgerScopeId: params.ledgerScopeId,
+      });
+      if (result.isErr()) return err(result.error);
+      const dirtyBudget = result.value.dirtyBudget;
+      if (dirtyBudget?.status !== 'exceeded') {
+        return ok({ split, result: result.value, selfReferential: false });
+      }
+
+      const executedLevels = new Set(split.stagePlan.steps.map((step) => step.level));
+      if (executedLevels.size > 1) {
+        this.logger.info('computed:worker:stage_dirty_budget_reclamp', {
+          stepCount,
+          maxDirtyRecords,
+          dirtyRecordsAtAbort: dirtyBudget.dirtyRecordsAtAbort,
+          ...params.logContext,
+        });
+        split = this.splitPlanForStageBudget(params.plan, undefined, { forceOneLevelClamp: true });
+        continue;
+      }
+
+      const shrinkBudget = {
+        maxSteps: Math.max(1, Math.floor(stepCount / 2)),
+        maxFields: this.outboxConfig.stageMaxFields,
+        maxEdges: this.outboxConfig.stageMaxEdges,
+      };
+      this.logger.info('computed:worker:stage_dirty_budget_shrink', {
+        stepCount,
+        nextMaxSteps: shrinkBudget.maxSteps,
+        maxDirtyRecords,
+        dirtyRecordsAtAbort: dirtyBudget.dirtyRecordsAtAbort,
+        ...params.logContext,
+      });
+      split = splitComputedPlanForStageBudget(params.plan, shrinkBudget);
+    }
+  }
+
+  /**
+   * Shared stage settlement for both worker task kinds: collect the stage's dirty
+   * outputs and finish partial batches and deferred continuations in place. Returns
+   * 'continue' with the merged seed groups when the caller should proceed to its
+   * own next-stage planning.
+   */
+  private async settleStage(params: {
+    task: AnyOutboxItem;
+    plan: ComputedUpdatePlan;
+    finalSplit: ComputedStagePlanSplit;
+    stageChanges: ComputedUpdateResult;
+    /** Actual output fields accumulated across every partial batch in this stage. */
+    continuationFieldIds: ReadonlyArray<FieldId>;
+    selfReferential: boolean;
+    /** Collect scope when the stage ran whole (no deferral, no partial batch). */
+    fallbackCollectTableIds?: ReadonlyArray<TableId>;
+    runId: string;
+    /** Stage-ledger scope: the continuation chain's root task id. */
+    ledgerScopeId: string;
+    originRunIds: ReadonlyArray<string>;
+    runTotalSteps: number;
+    /** Run progress before this stage executed. */
+    runCompletedStepsBefore: number;
+    stageDepth: number;
+    /** Earliest source-mutation time, carried to continuations for lineage. */
+    sourceChangedAt?: Date;
+    orchestration?: ComputedRealtimeOrchestrationDto;
+    context: IExecutionContext;
+    logContext: Record<string, unknown>;
+    continuations?: ContinuationRef[];
+    /** When set, stage continuations are relay-claimed for this worker. */
+    relayWorkerId?: string;
+    setPhase: (
+      phase: 'collect_dirty_seed_groups' | 'enqueue_stage_continuation' | 'mark_done'
+    ) => void;
+  }): Promise<
+    Result<
+      | { kind: 'done'; processed: boolean }
+      | {
+          kind: 'continue';
+          seedGroups: ComputedSeedGroup[];
+          seedAllTableIds: TableId[];
+          completedStepsAfter: number;
+        },
+      DomainError
+    >
+  > {
+    const { finalSplit, stageChanges, plan } = params;
+    const finalStagePlan = finalSplit.stagePlan;
+    const partialOutcome =
+      stageChanges.dirtyBudget?.status === 'partial' ? stageChanges.dirtyBudget : undefined;
+    const completedStepsAfter =
+      params.runCompletedStepsBefore + (partialOutcome ? 0 : finalStagePlan.steps.length);
+
+    params.setPhase('collect_dirty_seed_groups');
+    // Stage OUTPUT tables: step tables plus propagation target tables. Edge-only
+    // stages (orphan-edge continuations) have no steps at all — their outputs
+    // live entirely in the edges' target tables, which must still feed the
+    // exclusion ledger (partial batches) and the completed-stage collection.
+    const stageStepTables = [
+      ...new Map([
+        ...finalStagePlan.steps.map((step) => [step.tableId.toString(), step.tableId] as const),
+        ...finalStagePlan.edges.map((edge) => [edge.toTableId.toString(), edge.toTableId] as const),
+      ]).values(),
+    ];
+    // Whole-table SOURCE progress is tracked by per-table cursors (advanced only
+    // when the slice's propagation completed), so the exclusion ledger only ever
+    // holds processed TARGET rows from the stage's step tables.
+    const propagationTruncated =
+      partialOutcome !== undefined &&
+      (partialOutcome.truncated === 'propagation' || partialOutcome.truncated === 'both');
+    // One lifecycle decision drives frontier retirement AND collection: while
+    // deferred edge chunks remain, consumed sources carry forward.
+    const settlementMode = finalSplit.deferred !== null ? 'carry-sources' : 'stage-final';
+
+    if (partialOutcome) {
+      // The frontier is a seq-ordered queue in the run ledger: each batch seeds
+      // only its budget-bounded HEAD. If propagation completed, exactly the
+      // consumed head retires; otherwise the queue stays (the head re-seeds next
+      // batch and progresses via target exclusions). Settlement is SQL-side —
+      // no record ids cross into JS:
+      // - self-referential stages append rows NEW this batch (dirty step-table
+      //   rows not yet excluded) to the queue tail;
+      // - every processed step-table row joins the exclusion ledger.
+      const ledgerResult = await this.updater.settleStageLedgerPartialBatch(params.context, {
+        scopeId: params.ledgerScopeId,
+        stepTableIds: stageStepTables,
+        appendFrontier: params.selfReferential,
+        retireFrontierUpToSeq:
+          !propagationTruncated && partialOutcome.frontierMaxSeq !== undefined
+            ? partialOutcome.frontierMaxSeq
+            : null,
+        settlementMode,
+      });
+      if (ledgerResult.isErr()) return err(ledgerResult.error);
+      // Whole-table seeding progress: cursors advance only once the slice's
+      // propagation completed; a truncated slice re-seeds from the old cursor.
+      const seedAllCursors = propagationTruncated
+        ? plan.seedAllCursors
+        : partialOutcome.seedAllCursors ?? plan.seedAllCursors;
+      // Normalize every whole-table-seeded source (explicit seed-all and the
+      // implicit schema-update case alike, as reported by the batch itself) to
+      // explicit seedAllTableIds: continuations must not re-derive the implicit
+      // classification once seeds have migrated into the frontier queue.
+      const wholeTableSeedTables = mergeSeedAllTableIdLists(
+        plan.seedAllTableIds ?? [],
+        partialOutcome.wholeTableSeedTables ?? []
+      );
+      const finishResult = await this.finishStageWithPartialBatch({
+        task: params.task,
+        setPhase: params.setPhase,
+        plan,
+        continuations: params.continuations,
+        relayWorkerId: params.relayWorkerId,
+        affectedFieldIds: params.continuationFieldIds.map((fieldId) => fieldId.toString()),
+        processedStats: ledgerResult.value.processedByTable,
+        ledgerStats: {
+          newFrontierRows: ledgerResult.value.newFrontierRows,
+          retiredFrontierRows: ledgerResult.value.retiredFrontierRows,
+        },
+        seedAllTableIds: wholeTableSeedTables,
+        seedAllCursors,
+        runId: params.runId,
+        ledgerScopeId: params.ledgerScopeId,
+        originRunIds: params.originRunIds,
+        runTotalSteps: params.runTotalSteps,
+        runCompletedStepsBefore: completedStepsAfter,
+        stageDepth: params.stageDepth,
+        sourceChangedAt: params.sourceChangedAt,
+        orchestration: params.orchestration,
+        context: params.context,
+        logContext: params.logContext,
+        rejectedCells: stageChanges.rejectedCells,
+      });
+      if (finishResult.isErr()) return err(finishResult.error);
+      return ok({ kind: 'done', processed: finishResult.value });
+    }
+
+    // Stage completed. Records processed by earlier partial batches are real
+    // dirty outputs of the stage and re-enter follow-up planning as seeds. The
+    // collection runs over the union of the dirty temp table and the exclusion
+    // ledger WITHOUT materializing it anywhere (no fold back into the
+    // transaction), keeping the final batch inside the dirty budget; per-table
+    // counts pick seed-all vs exact-id representation and the total exact ids
+    // are hard-capped. The stage's ledger state drops with it.
+    // Stages with deferred work also collect the deferred edges' SOURCE tables:
+    // preserved consumed sources (and any still-dirty source rows) must seed the
+    // continuation, or edge chunks after the first would propagate from nothing.
+    const deferredSourceTables = finalSplit.deferred
+      ? [
+          ...new Map(
+            finalSplit.deferred.edges.map(
+              (edge) => [edge.fromTableId.toString(), edge.fromTableId] as const
+            )
+          ).values(),
+        ]
+      : [];
+    const dirtyCollectionTableIds = finalSplit.deferred
+      ? [
+          ...new Map(
+            [...stageStepTables, ...deferredSourceTables].map(
+              (tableId) => [tableId.toString(), tableId] as const
+            )
+          ).values(),
+        ]
+      : params.fallbackCollectTableIds ?? stageStepTables;
+    const seedGroupsResult = await this.updater.collectStageOutputSeedGroups(params.context, {
+      scopeId: params.ledgerScopeId,
+      tableIds: dirtyCollectionTableIds,
+      seedAllThreshold: this.outboxConfig.stageSeedAllThreshold || undefined,
+      exactIdsTotalCap: this.outboxConfig.stageMaxCollectedSeedIds,
+      settlementMode,
+    });
+    if (seedGroupsResult.isErr()) return err(seedGroupsResult.error);
+    const { groups: seedGroups, seedAllTableIds } = seedGroupsResult.value;
+    const clearResult = await this.updater.clearTaskStageLedger(
+      params.context,
+      params.ledgerScopeId
+    );
+    if (clearResult.isErr()) return err(clearResult.error);
+
+    if (finalSplit.deferred) {
+      const finishResult = await this.finishStageWithContinuation({
+        task: params.task,
+        setPhase: params.setPhase,
+        plan,
+        deferred: finalSplit.deferred,
+        seedGroups,
+        seedAllTableIds,
+        runId: params.runId,
+        originRunIds: params.originRunIds,
+        runTotalSteps: params.runTotalSteps,
+        runCompletedStepsBefore: completedStepsAfter,
+        stageDepth: params.stageDepth,
+        sourceChangedAt: params.sourceChangedAt,
+        orchestration: params.orchestration,
+        context: params.context,
+        logContext: params.logContext,
+        continuations: params.continuations,
+        relayWorkerId: params.relayWorkerId,
+        rejectedCells: stageChanges.rejectedCells,
+      });
+      if (finishResult.isErr()) return err(finishResult.error);
+      return ok({ kind: 'done', processed: finishResult.value });
+    }
+
+    return ok({ kind: 'continue', seedGroups, seedAllTableIds, completedStepsAfter });
+  }
+
+  /**
+   * Shared tail for a partial floor batch: the batch's outputs are already in
+   * the run ledger (SQL-side settlement), so the continuation is the same plan
+   * with only O(1) durable state — seed-all tables, cursors, and the lineage
+   * hash. The step is not complete, so run progress does not advance.
+   */
+  private async finishStageWithPartialBatch(params: {
+    continuations?: ContinuationRef[];
+    /** When set, the continuation is relay-claimed for this worker. */
+    relayWorkerId?: string;
+    task: AnyOutboxItem;
+    setPhase: (phase: 'enqueue_stage_continuation' | 'mark_done') => void;
+    plan: ComputedUpdatePlan;
+    /** Bounded by schema width; never grows with the stage's record fan-out. */
+    affectedFieldIds: ReadonlyArray<string>;
+    /** Per-table processed counts from the batch's ledger settlement. */
+    processedStats: ReadonlyArray<{ tableId: string; recordCount: number }>;
+    /** Ledger movement counts, logged for observability. */
+    ledgerStats?: { newFrontierRows: number; retiredFrontierRows: number };
+    /** Whole-table seed tables, normalized to explicit form on continuations. */
+    seedAllTableIds?: ReadonlyArray<TableId>;
+    /** Whole-table seeding resume cursors to persist on the continuation. */
+    seedAllCursors?: Readonly<Record<string, string>>;
+    runId: string;
+    /** Stage-ledger scope carried to the continuation so the chain stays keyed. */
+    ledgerScopeId: string;
+    originRunIds: ReadonlyArray<string>;
+    runTotalSteps: number;
+    runCompletedStepsBefore: number;
+    stageDepth: number;
+    /** Earliest source-mutation time, carried to the continuation for lineage. */
+    sourceChangedAt?: Date;
+    orchestration?: ComputedRealtimeOrchestrationDto;
+    context: IExecutionContext;
+    logContext: Record<string, unknown>;
+    rejectedCells?: ReadonlyArray<ComputedCellLimitRejection>;
+  }): Promise<Result<boolean, DomainError>> {
+    params.setPhase('enqueue_stage_continuation');
+    const seedAllTableIds = params.seedAllTableIds ?? params.plan.seedAllTableIds;
+    const continuationPlan: ComputedUpdatePlan = {
+      ...params.plan,
+      ledgerScopeId: params.ledgerScopeId,
+      seedAllTableIds: seedAllTableIds && seedAllTableIds.length > 0 ? seedAllTableIds : undefined,
+      seedAllCursors: params.seedAllCursors,
+      // Explicit seeds live in the ledger queue (or retired with it) on partial
+      // batches.
+      seedRecordIds: [],
+      extraSeedRecords: [],
+    };
+    const builtTask = buildOutboxTaskInput({
+      plan: continuationPlan,
+      dirtyStats: [...params.processedStats],
+      syncMaxLevel: 0,
+      hasher: this.hasher,
+      runId: params.runId,
+      originRunIds: [...params.originRunIds],
+      runTotalSteps: params.runTotalSteps,
+      runCompletedStepsBefore: params.runCompletedStepsBefore,
+      stageDepth: params.stageDepth,
+      sourceChangedAt: params.sourceChangedAt,
+      predecessorTaskId: params.task.id,
+      orchestration: params.orchestration,
+      sourceFieldIds: sourceFieldIdsOf(params.task),
+      affectedFieldIds: [...params.affectedFieldIds],
+    });
+    const nextTask = {
+      ...builtTask,
+      planHash: buildContinuationPlanHash(builtTask.planHash, {
+        runId: params.runId,
+        stageIndex: params.runCompletedStepsBefore,
+        predecessorTaskId: params.task.id,
+      }),
+    };
+
+    const enqueueResult = await this.outbox.enqueueOrMerge(
+      nextTask,
+      params.context,
+      params.relayWorkerId
+        ? { relayClaim: { workerId: params.relayWorkerId, predecessorTaskId: params.task.id } }
+        : undefined
+    );
+    if (enqueueResult.isErr()) return err(enqueueResult.error);
+    params.continuations?.push({
+      taskId: enqueueResult.value.taskId,
+      ...(enqueueResult.value.claimed ? { claimed: enqueueResult.value.claimed } : {}),
+    });
+
+    this.logger.info('computed:worker:stage_partial_batch_enqueued', {
+      continuationTaskId: enqueueResult.value.taskId,
+      processedRecordCount: params.processedStats.reduce(
+        (sum, group) => sum + group.recordCount,
+        0
+      ),
+      newFrontierRows: params.ledgerStats?.newFrontierRows,
+      retiredFrontierRows: params.ledgerStats?.retiredFrontierRows,
+      ...params.logContext,
+    });
+
+    params.setPhase('mark_done');
+    const doneResult = await this.markTaskDone(
+      params.task,
+      params.context,
+      params.rejectedCells,
+      toRunHistoryPlan(params.plan)
+    );
+    if (doneResult.isErr()) return err(doneResult.error);
+    return ok(doneResult.value);
+  }
+
+  /**
+   * Shared tail for both worker task kinds: enqueue the stage continuation and mark
+   * the current task done inside the caller's transaction. Returns markDone's outcome.
+   */
+  private async finishStageWithContinuation(
+    params: Omit<
+      Parameters<ComputedUpdateWorker['enqueueStageContinuation']>[0],
+      'predecessorTaskId'
+    > & {
+      task: AnyOutboxItem;
+      setPhase: (phase: 'enqueue_stage_continuation' | 'mark_done') => void;
+      rejectedCells?: ReadonlyArray<ComputedCellLimitRejection>;
+    }
+  ): Promise<Result<boolean, DomainError>> {
+    params.setPhase('enqueue_stage_continuation');
+    const continuationResult = await this.enqueueStageContinuation({
+      ...params,
+      predecessorTaskId: params.task.id,
+      sourceFieldIds: sourceFieldIdsOf(params.task),
+    });
+    if (continuationResult.isErr()) return err(continuationResult.error);
+
+    params.setPhase('mark_done');
+    const doneResult = await this.markTaskDone(
+      params.task,
+      params.context,
+      params.rejectedCells,
+      toRunHistoryPlan(params.plan)
+    );
+    if (doneResult.isErr()) return err(doneResult.error);
+    return ok(doneResult.value);
+  }
+
+  /**
+   * Enqueue the deferred remainder of a budget-split plan as a follow-up outbox task.
+   * Must run inside the same transaction that commits the executed stage and marks the
+   * current task done, so the continuation exists iff the stage's writes are durable.
+   */
+  private async enqueueStageContinuation(params: {
+    continuations?: ContinuationRef[];
+    /** When set, the continuation is relay-claimed for this worker. */
+    relayWorkerId?: string;
+    plan: ComputedUpdatePlan;
+    deferred: NonNullable<ComputedStagePlanSplit['deferred']>;
+    seedGroups: ReadonlyArray<ComputedSeedGroup>;
+    seedAllTableIds: ReadonlyArray<TableId>;
+    runId: string;
+    originRunIds: ReadonlyArray<string>;
+    runTotalSteps: number;
+    runCompletedStepsBefore: number;
+    stageDepth: number;
+    /** Earliest source-mutation time, carried to the continuation for lineage. */
+    sourceChangedAt?: Date;
+    sourceFieldIds?: ReadonlyArray<string>;
+    predecessorTaskId: string;
+    orchestration?: ComputedRealtimeOrchestrationDto;
+    context: IExecutionContext;
+    logContext: Record<string, unknown>;
+  }): Promise<Result<void, DomainError>> {
+    const continuationPlan = buildDeferredStagePlan({
+      plan: params.plan,
+      deferred: params.deferred,
+      dirtySeedGroups: params.seedGroups,
+      dirtySeedAllTableIds: params.seedAllTableIds,
+    });
+
+    const builtTask = buildOutboxTaskInput({
+      plan: continuationPlan,
+      dirtyStats: params.seedGroups.map((group) => ({
+        tableId: group.tableId.toString(),
+        recordCount: group.recordIds.length,
+      })),
+      syncMaxLevel: 0,
+      hasher: this.hasher,
+      runId: params.runId,
+      originRunIds: [...params.originRunIds],
+      // Field-split stages can execute more step-slices than the original plan
+      // counted; keep the total ahead of completed so progress never overflows.
+      runTotalSteps: Math.max(
+        params.runTotalSteps,
+        params.runCompletedStepsBefore + params.deferred.steps.length
+      ),
+      runCompletedStepsBefore: params.runCompletedStepsBefore,
+      stageDepth: params.stageDepth,
+      sourceChangedAt: params.sourceChangedAt,
+      predecessorTaskId: params.predecessorTaskId,
+      sourceFieldIds: params.sourceFieldIds,
+      orchestration: params.orchestration,
+    });
+    const nextTask = {
+      ...builtTask,
+      planHash: buildContinuationPlanHash(builtTask.planHash, {
+        runId: params.runId,
+        stageIndex: params.runCompletedStepsBefore,
+        predecessorTaskId: params.predecessorTaskId,
+      }),
+    };
+
+    const enqueueResult = await this.outbox.enqueueOrMerge(
+      nextTask,
+      params.context,
+      params.relayWorkerId
+        ? {
+            relayClaim: {
+              workerId: params.relayWorkerId,
+              predecessorTaskId: params.predecessorTaskId,
+            },
+          }
+        : undefined
+    );
+    if (enqueueResult.isErr()) return err(enqueueResult.error);
+    params.continuations?.push({
+      taskId: enqueueResult.value.taskId,
+      ...(enqueueResult.value.claimed ? { claimed: enqueueResult.value.claimed } : {}),
+    });
+
+    this.logger.info('computed:worker:stage_continuation_enqueued', {
+      continuationTaskId: enqueueResult.value.taskId,
+      merged: enqueueResult.value.merged,
+      executedSteps: params.runCompletedStepsBefore,
+      deferredSteps: params.deferred.steps.length,
+      deferredEdges: params.deferred.edges.length,
+      continuationSeedGroups: continuationPlan.extraSeedRecords.length,
+      continuationSeedAllTables: continuationPlan.seedAllTableIds?.length ?? 0,
+      ...params.logContext,
+    });
+    return ok(undefined);
+  }
+
   private async planNextStage(
     plan: ComputedUpdatePlan,
     context: IExecutionContext,
@@ -1650,7 +2977,11 @@ export class ComputedUpdateWorker {
     seedAllTableIds?: ReadonlyArray<TableId>,
     changesByStep: ReadonlyArray<StepChangeData> = []
   ): Promise<Result<ComputedUpdatePlan, DomainError>> {
-    if (plan.edges.length === 0) return ok({ ...plan, steps: [], edges: [] });
+    // NOTE: do NOT shortcut on plan.edges being empty. Budget-split stages can
+    // execute a step whose outgoing edges were assigned to a SIBLING stage
+    // (e.g. a link-title edge classified as orphan because its hosting step
+    // lives outside this task), so an edge-less stage's changes may still have
+    // cross-record downstream work that only a fresh planner pass can see.
     if (seedFieldIds.length === 0 && (!seedAllTableIds || seedAllTableIds.length === 0))
       return ok({ ...plan, steps: [], edges: [] });
 
@@ -1733,10 +3064,12 @@ const toPayload = (task: ComputedUpdateOutboxItem): ComputedUpdateOutboxPayload 
   extraSeedRecords: task.extraSeedRecords,
   beforeImageRecords: task.beforeImageRecords,
   steps: task.steps,
+  sameTableBatches: task.sameTableBatches,
   edges: task.edges,
   estimatedComplexity: task.estimatedComplexity,
   changeType: task.changeType,
   seedAllTableIds: task.seedAllTableIds,
+  seedAllCursors: task.seedAllCursors,
 });
 
 const collectSeedFieldIds = (
@@ -1760,7 +3093,47 @@ const collectSeedFieldIds = (
       ids.set(parsed.value.toString(), parsed.value);
     }
   }
+  if (ids.size === 0) {
+    // Edge-only tasks carry no step fields: their propagation targets are the
+    // stage's outputs and must still drive downstream planning.
+    for (const edge of task.edges) {
+      for (const rawFieldId of edge.propagationTargetFieldIds ?? [edge.toFieldId]) {
+        const parsed = FieldId.create(rawFieldId);
+        if (parsed.isErr()) return err(parsed.error);
+        ids.set(parsed.value.toString(), parsed.value);
+      }
+    }
+  }
 
+  return ok([...ids.values()]);
+};
+
+/**
+ * Union this batch's real outputs with outputs carried by earlier partial
+ * batches of the same stage. The set is bounded by schema width and resets
+ * when a new stage is planned.
+ */
+const collectStageContinuationFieldIds = (
+  plan: ComputedUpdatePlan,
+  executedSteps: ReadonlyArray<ComputedUpdatePlan['steps'][number]>,
+  changesByStep: ReadonlyArray<StepChangeData>,
+  carriedFieldIds: ReadonlyArray<string>,
+  rejectedCells?: ReadonlyArray<ComputedCellLimitRejection>
+): Result<ReadonlyArray<FieldId>, DomainError> => {
+  const ids = new Map<string, FieldId>();
+  for (const rawFieldId of carriedFieldIds) {
+    const fieldId = FieldId.create(rawFieldId);
+    if (fieldId.isErr()) return err(fieldId.error);
+    ids.set(fieldId.value.toString(), fieldId.value);
+  }
+  for (const fieldId of collectContinuationFieldIdsFromExecutedSteps(
+    plan,
+    executedSteps,
+    changesByStep,
+    rejectedCells
+  )) {
+    ids.set(fieldId.toString(), fieldId);
+  }
   return ok([...ids.values()]);
 };
 
@@ -1776,10 +3149,13 @@ const collectSeedTableIds = (
     ids.set(parsed.value.toString(), parsed.value);
   }
 
-  if (ids.size > 0) return ok([...ids.values()]);
-
   for (const step of task.steps) {
     const parsed = TableId.create(step.tableId);
+    if (parsed.isErr()) return err(parsed.error);
+    ids.set(parsed.value.toString(), parsed.value);
+  }
+  for (const edge of task.edges) {
+    const parsed = TableId.create(edge.toTableId);
     if (parsed.isErr()) return err(parsed.error);
     ids.set(parsed.value.toString(), parsed.value);
   }

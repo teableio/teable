@@ -18,18 +18,21 @@ export const defaultPgPoolFactory: PgPoolFactory = (config) => new Pool(config);
 
 export interface IPgPoolAcquireOptions {
   applicationName?: string;
-  max?: number;
   connectionTimeoutMillis?: number;
+  max?: number;
+  poolName?: string;
 }
 
 /** Fail fast on TCP connect instead of hanging on OS timeout (~75–130s+). */
 export const DEFAULT_PG_POOL_CONNECTION_TIMEOUT_MS = 5000;
 
 export interface IPgPoolSnapshot {
+  applicationName: string;
   database: string;
   host: string;
   idle: number;
   max: number;
+  poolName?: string;
   port?: number;
   references: number;
   total: number;
@@ -42,11 +45,13 @@ export interface IPgPoolLease {
 }
 
 interface IPgPoolEntry {
+  applicationName: string;
   database: string;
   host: string;
   key: string;
   max: number;
   pool: Pool;
+  poolName?: string;
   port?: number;
   references: number;
 }
@@ -57,6 +62,7 @@ interface INormalizedPoolConfig {
   host: string;
   key: string;
   max: number;
+  poolName?: string;
   port?: number;
 }
 
@@ -102,8 +108,9 @@ const normalizePoolConfig = (
     connectionString: normalizedConnectionString,
     database: url.pathname.replace(/^\//, ''),
     host: url.hostname,
-    key: identityUrl.toString(),
+    key: JSON.stringify([identityUrl.toString(), options.poolName ?? null]),
     max,
+    ...(options.poolName !== undefined ? { poolName: options.poolName } : {}),
     port: Number(url.port || 5432),
   };
 };
@@ -127,8 +134,9 @@ export class PgPoolRegistry implements OnApplicationShutdown {
     const normalized = normalizePoolConfig(connectionString, options);
     let entry = this.entries.get(normalized.key);
     if (!entry) {
+      const applicationName = options.applicationName ?? 'teable';
       const pool = this.poolFactory({
-        application_name: options.applicationName ?? 'teable',
+        application_name: applicationName,
         connectionString: normalized.connectionString,
         connectionTimeoutMillis: resolveConnectionTimeoutMillis(options),
         max: normalized.max,
@@ -140,11 +148,13 @@ export class PgPoolRegistry implements OnApplicationShutdown {
         );
       });
       entry = {
+        applicationName,
         database: normalized.database,
         host: normalized.host,
         key: normalized.key,
         max: normalized.max,
         pool,
+        ...(normalized.poolName !== undefined ? { poolName: normalized.poolName } : {}),
         port: normalized.port,
         references: 0,
       };
@@ -170,18 +180,20 @@ export class PgPoolRegistry implements OnApplicationShutdown {
   snapshot(): IPgPoolSnapshot[] {
     return Array.from(this.entries.values())
       .map((entry) => ({
+        applicationName: entry.applicationName,
         database: entry.database,
         host: entry.host,
         idle: entry.pool.idleCount,
         max: entry.max,
+        ...(entry.poolName !== undefined ? { poolName: entry.poolName } : {}),
         ...(entry.port ? { port: entry.port } : {}),
         references: entry.references,
         total: entry.pool.totalCount,
         waiting: entry.pool.waitingCount,
       }))
       .sort((left, right) =>
-        `${left.host}:${left.port ?? ''}/${left.database}`.localeCompare(
-          `${right.host}:${right.port ?? ''}/${right.database}`
+        `${left.host}:${left.port ?? ''}/${left.database}/${left.poolName ?? ''}`.localeCompare(
+          `${right.host}:${right.port ?? ''}/${right.database}/${right.poolName ?? ''}`
         )
       );
   }

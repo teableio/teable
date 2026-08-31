@@ -19,6 +19,12 @@ describe('formatNumberToString', () => {
       expect(formatNumberToString(num as any, decimalFormatting)).toBe('');
     });
 
+    it('should fall back to default decimal formatting when formatting is missing', () => {
+      const num = 1.234;
+      expect(formatNumberToString(num)).toBe('1.23');
+      expect(formatNumberToString(num, undefined)).toBe('1.23');
+    });
+
     it('should correctly format integer', () => {
       const num = 1234;
       const formatting: INumberFormatting = { type: NumberFormattingType.Decimal, precision: 0 };

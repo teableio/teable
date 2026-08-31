@@ -60,7 +60,7 @@ const UploadPanel = (props: IUploadPanelProps) => {
               <Button variant="ghost">{t('table:import.tips.importWayTip')}</Button>
             ) : (
               <div className="absolute flex size-full items-center justify-center bg-secondary opacity-90">
-                <span className="mr-1 size-4 animate-spin">
+                <span className="me-1 size-4 animate-spin">
                   <Spin className="size-4" />
                 </span>
                 <span>{t('table:import.tips.importing')}</span>
@@ -73,7 +73,7 @@ const UploadPanel = (props: IUploadPanelProps) => {
           <Process file={file} onClose={onClose} process={process}></Process>
           {analyzeLoading && (
             <div className="absolute flex size-full items-center justify-center bg-secondary opacity-90">
-              <Spin className="mr-1 size-4" />
+              <Spin className="me-1 size-4" />
               <span>{t('table:import.tips.analyzing')}</span>
             </div>
           )}

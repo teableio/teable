@@ -5,10 +5,12 @@ import * as Sentry from '@sentry/nestjs';
 import {
   ActorId,
   type IExecutionContext,
+  type SchemaOperationRecord,
   type SchemaOperationRunNextResult,
   type SchemaOperationRunnerService,
   v2CoreTokens,
 } from '@teable/v2-core';
+import type { DependencyContainer } from '@teable/v2-di';
 
 import { V2ContainerService } from './v2-container.service';
 
@@ -144,19 +146,42 @@ export class V2SchemaOperationRunnerService implements OnApplicationBootstrap, O
 
     while (!this.stopped && processed < maxBatch) {
       const now = new Date();
-      const result = await this.runner.runNext(this.createContext(), {
+      // schema_operation rows live in the meta database, so claiming is
+      // identical on every container; the handler must run on the container
+      // scoped to the operation's data database (BYODB), otherwise repair DDL
+      // lands on the meta database and reads keep failing with 42P01.
+      const claimed = await this.runner.claimNext(this.createContext(), {
         workerId: this.workerId,
         now,
         staleRunningBefore: new Date(now.getTime() - this.staleRunningMs),
       });
 
+      if (claimed.isErr()) {
+        this.logger.warn(`V2 schema operation runner failed to claim: ${claimed.error.message}`);
+        return;
+      }
+
+      if (claimed.value.status !== 'claimed') {
+        return;
+      }
+
+      const operation = claimed.value.operation;
+      const runner = await this.resolveOperationRunner(operation);
+      if (!runner) {
+        continue;
+      }
+
+      const result = await runner.runOperation(this.createContext(), operation, { now });
       if (result.isErr()) {
-        this.logger.warn(`V2 schema operation runner failed to claim/run: ${result.error.message}`);
+        this.logger.warn(`V2 schema operation runner failed to run: ${result.error.message}`);
         return;
       }
 
       const value = result.value;
       if (!isWorkResult(value)) {
+        this.logger.warn(
+          `V2 schema operation runner skipped claimed operation: operationId=${operation.id}, reason=${value.reason}`
+        );
         return;
       }
 
@@ -169,6 +194,35 @@ export class V2SchemaOperationRunnerService implements OnApplicationBootstrap, O
         `V2 schema operation runner reached max batch size: workerId=${this.workerId}, maxBatch=${maxBatch}`
       );
     }
+  }
+
+  private async resolveOperationRunner(
+    operation: SchemaOperationRecord
+  ): Promise<SchemaOperationRunnerService | undefined> {
+    const baseId = operation.target.baseId;
+    if (!baseId) {
+      return this.runner;
+    }
+
+    let container: DependencyContainer;
+    try {
+      container = await this.v2ContainerService.getContainerForBase(baseId);
+    } catch (error) {
+      this.logger.error(
+        `V2 schema operation runner failed to resolve container for base ${baseId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+      return undefined;
+    }
+
+    if (!container.isRegistered(v2CoreTokens.schemaOperationRunnerService)) {
+      this.logger.error(`V2 schema operation runner service is not registered for base ${baseId}`);
+      return undefined;
+    }
+    return container.resolve<SchemaOperationRunnerService>(
+      v2CoreTokens.schemaOperationRunnerService
+    );
   }
 
   private createContext(): IExecutionContext {
@@ -200,6 +254,16 @@ export class V2SchemaOperationRunnerService implements OnApplicationBootstrap, O
 
     const operation = result.operation;
     const target = operation.target;
+    const originalLastError = result.originalLastError ?? null;
+    const runnerError = result.error.message;
+    // Prefer the original failure for Sentry titles/grouping. Repair handlers often
+    // overwrite last_error with a generic "cannot repair" reason that hides the
+    // real root cause (e.g. double precision = text during computed backfill).
+    const diagnosticMessage =
+      originalLastError && originalLastError !== runnerError
+        ? `${runnerError} | original: ${originalLastError}`
+        : runnerError;
+
     Sentry.withScope((scope) => {
       scope.setLevel('error');
       scope.setTag('feature', 'v2-schema-operation-runner');
@@ -210,12 +274,18 @@ export class V2SchemaOperationRunnerService implements OnApplicationBootstrap, O
       scope.setTag('schema_operation.phase', operation.phase);
       scope.setTag('schema_operation.terminal', String(result.terminal));
       scope.setTag('schema_operation.retryable', String(result.retryable));
+      scope.setTag('schema_operation.created_by', operation.createdBy);
       if (target.baseId) {
         scope.setTag('base.id', target.baseId);
       }
       if (target.tableId) {
         scope.setTag('table.id', target.tableId);
       }
+      scope.setFingerprint([
+        'v2-schema-operation-runner',
+        operation.type,
+        originalLastError ?? runnerError,
+      ]);
       scope.setContext('schema_operation', {
         id: operation.id,
         type: operation.type,
@@ -225,12 +295,13 @@ export class V2SchemaOperationRunnerService implements OnApplicationBootstrap, O
         maxAttempts: operation.maxAttempts,
         idempotencyKey: operation.idempotencyKey,
         target,
+        createdBy: operation.createdBy,
         lastError: operation.lastError,
-        originalLastError: result.originalLastError ?? null,
-        runnerError: result.error.message,
+        originalLastError,
+        runnerError,
       });
 
-      const error = new Error(result.error.message);
+      const error = new Error(diagnosticMessage);
       error.name = 'V2SchemaOperationFailure';
       Sentry.captureException(error);
     });

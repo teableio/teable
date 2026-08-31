@@ -134,10 +134,42 @@ const unsupportedRepair = (message: string, details?: PayloadRecord): DomainErro
     details,
   });
 
+const tableUpdateFailureCode = (result: unknown): string | undefined => {
+  const failure = payloadRecord(result).tableUpdateFailure;
+  const code = payloadRecord(failure).code;
+  return typeof code === 'string' && code.length > 0 ? code : undefined;
+};
+
 const isRepairableTableUpdate = (operation: SchemaOperationRecord): boolean => {
   if (operation.type !== 'table.update') return true;
-  return /\bcolumn\b.*\bdoes not exist\b/i.test(operation.lastError ?? '');
+  const lastError = operation.lastError;
+  // No recorded error means the update was interrupted before its finalization
+  // write (crash, restart, lost after-commit hook), not rejected: the idempotent
+  // schema ensure reconciles any half-applied DDL and completes the operation
+  // instead of marking it dead.
+  if (lastError == null || lastError.trim().length === 0) return true;
+  // Recorded failures are auto-repairable only when the idempotent schema ensure
+  // can reconcile them safely. Missing columns need recreation. A parent rollback
+  // either rolled metadata and DDL back together (a no-op repair) or, on split
+  // databases, committed metadata while rolling data DDL back (a required repair).
+  const failureCode = tableUpdateFailureCode(operation.result);
+  if (failureCode) {
+    return (
+      failureCode === 'db.undefined_column' || failureCode === 'transaction.parent_rolled_back'
+    );
+  }
+  // Rows written before failures carried structured codes only have the
+  // Postgres prose; keep the message heuristic for those.
+  return /\bcolumn\b.*\bdoes not exist\b/i.test(lastError);
 };
+
+// beginTableSchemaOperation always persists a tableId payload. If the rollback
+// record has no payload, that begin write rolled back with the parent transaction,
+// so its metadata and transactional DDL also rolled back and only settlement remains.
+const isFullyRolledBackTableUpdate = (operation: SchemaOperationRecord): boolean =>
+  operation.type === 'table.update' &&
+  tableUpdateFailureCode(operation.result) === 'transaction.parent_rolled_back' &&
+  operation.payload == null;
 
 @injectable()
 export class TableSchemaOperationRepairHandler implements ISchemaOperationHandler {
@@ -184,6 +216,15 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
         );
       }
 
+      if (isFullyRolledBackTableUpdate(operation)) {
+        return ok({
+          result: {
+            repaired: 'transaction_rollback',
+            tableIds: tableIds.map((tableId) => tableId.toString()),
+          },
+        });
+      }
+
       const recordCount = hasPositiveRecordCount(operation, tableIds);
       if (recordCount === 'unknown') {
         return err(
@@ -217,6 +258,9 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
       const references = yield* handler.collectReferences(tables);
       const foreignTables = yield* await handler.foreignTableLoaderService.load(context, {
         references: externalReferences(tables, references),
+        // Table updates can race with table.delete, which marks related tables
+        // deleting/not-found. Missing-column repair only needs host DDL.
+        allowMissing: operation.type === 'table.update',
       });
 
       yield* await handler.unitOfWork.withTransaction(
@@ -224,6 +268,16 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
         async (dataContext) =>
           safeTry<void, DomainError>(async function* () {
             yield* await handler.tableSchemaRepository.ensureInsertedMany!(dataContext, tables);
+            // Repair-only: recreate missing foreign relations before replaying
+            // two-way link side effects. Do not do this on the create/update hot path.
+            for (const foreignTable of foreignTables) {
+              if (handler.tableSchemaRepository.ensurePhysicalTable) {
+                yield* await handler.tableSchemaRepository.ensurePhysicalTable(
+                  dataContext,
+                  foreignTable
+                );
+              }
+            }
             yield* await handler.replayFieldCreationSideEffects(dataContext, tables, foreignTables);
             return ok(undefined);
           }),
@@ -280,7 +334,13 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
     const service = this;
     return safeTry<ReadonlyArray<Table>, DomainError>(async function* () {
       const spec = yield* TableAggregate.specs().byIds(tableIds).build();
-      const tables = yield* await service.tableRepository.find(context, spec, { state: 'all' });
+      // Schema ensure must not replay soft-deleted children. `state: 'all'` hydrates
+      // deleted oneMany links whose fkHostTableName still points at a dropped
+      // foreign relation; ALTER then fails with "relation does not exist" and the
+      // runner marks the table.update dead (T7062 / BACKEND-CN-172).
+      const tables = yield* await service.tableRepository.find(context, spec, {
+        state: 'activeAnyProvision',
+      });
       const tablesById = new Map(tables.map((table) => [table.id().toString(), table] as const));
       const orderedTables: Table[] = [];
       for (const tableId of tableIds) {

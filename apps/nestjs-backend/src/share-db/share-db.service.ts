@@ -1,5 +1,4 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
-import { context as otelContext, trace as otelTrace } from '@opentelemetry/api';
 import { FieldOpBuilder, IdPrefix } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { noop } from 'lodash';
@@ -78,8 +77,12 @@ export class ShareDbService extends ShareDBClass {
 
     // broadcast raw op events to client
     this.prismaService.bindAfterTransaction(async () => {
+      // Consume both CLS slots synchronously, before the first await, so a
+      // following $tx in the same request can never see or lose them.
       const rawOpMaps = this.cls.get('tx.rawOpMaps');
       this.cls.set('tx.rawOpMaps', undefined);
+      const clearCacheKeys = this.cls.get('clearCacheKeys');
+      this.cls.set('clearCacheKeys', undefined);
 
       const ops: IRawOpMap[] = [];
       if (rawOpMaps?.length) {
@@ -87,16 +90,23 @@ export class ShareDbService extends ShareDBClass {
       }
 
       if (ops.length) {
-        await this.updateTableMetaByRawOpMap(rawOpMaps);
-        await this.publishOpsMap(rawOpMaps);
-        this.eventEmitterService.ops2Event(ops);
+        try {
+          await this.updateTableMetaByRawOpMap(rawOpMaps);
+          await this.publishOpsMap(rawOpMaps);
+          this.eventEmitterService.ops2Event(ops);
+        } catch (error) {
+          // Not awaited by $tx(): an error here would surface as an unhandled
+          // rejection and skip the cache flush below.
+          this.logger.error(
+            `Failed to broadcast ops after transaction: ${error instanceof Error ? error.message : String(error)}`,
+            error instanceof Error ? error.stack : undefined
+          );
+        }
       }
 
       // clear cache keys
-      const clearCacheKeys = this.cls.get('clearCacheKeys');
       if (clearCacheKeys?.length) {
         await Promise.all(clearCacheKeys.map((key) => this.performanceCacheService.del(key)));
-        this.cls.set('clearCacheKeys', undefined);
       }
     });
   }
@@ -196,36 +206,31 @@ export class ShareDbService extends ShareDBClass {
     context: ShareDBClass.middleware.SubmitContext,
     next: (err?: unknown) => void
   ) => {
-    const tracer = otelTrace.getTracer('default');
-    const currentSpan = tracer.startSpan('submitOp');
+    const submitSource =
+      ((context as ShareDBClass.middleware.SubmitContext & { options?: { source?: unknown } })
+        .options?.source as unknown) ??
+      ((context as ShareDBClass.middleware.SubmitContext & { extra?: { source?: unknown } }).extra
+        ?.source as unknown);
+    if (submitSource === v2ProjectionSubmitSource) {
+      return next();
+    }
 
-    otelContext.with(otelTrace.setSpan(otelContext.active(), currentSpan), () => {
-      const submitSource =
-        ((context as ShareDBClass.middleware.SubmitContext & { options?: { source?: unknown } })
-          .options?.source as unknown) ??
-        ((context as ShareDBClass.middleware.SubmitContext & { extra?: { source?: unknown } }).extra
-          ?.source as unknown);
-      if (submitSource === v2ProjectionSubmitSource) {
-        return next();
-      }
+    const opSource = typeof context.op.src === 'string' ? context.op.src : '';
+    if (opSource.startsWith(v2ProjectionOpSourcePrefix)) {
+      return next();
+    }
 
-      const opSource = typeof context.op.src === 'string' ? context.op.src : '';
-      if (opSource.startsWith(v2ProjectionOpSourcePrefix)) {
-        return next();
-      }
+    if (!hasClientStream(context.agent)) {
+      return next();
+    }
 
-      if (!hasClientStream(context.agent)) {
-        return next();
-      }
+    const [docType] = context.collection.split('_');
 
-      const [docType] = context.collection.split('_');
-
-      if (docType !== IdPrefix.Record || !context.op.op) {
-        this.realtimeMetrics?.recordOperationError('invalid_doc_type');
-        return next(new Error('only record op can be committed'));
-      }
-      this.realtimeMetrics?.recordOperationSubmit();
-      next();
-    });
+    if (docType !== IdPrefix.Record || !context.op.op) {
+      this.realtimeMetrics?.recordOperationError('invalid_doc_type');
+      return next(new Error('only record op can be committed'));
+    }
+    this.realtimeMetrics?.recordOperationSubmit();
+    next();
   };
 }

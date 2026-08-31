@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { CellFormat, FieldKeyType, FieldType } from '@teable/core';
-import type { IFieldRo, IFieldVo, ILinkFieldOptionsRo, IRecord } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
+import { CellFormat, FieldKeyType, FieldType, HttpErrorCode } from '@teable/core';
+import type { IFieldRo, IFieldVo, ILinkFieldOptionsRo, IRecord, ISnapshotBase } from '@teable/core';
+import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
 import {
   CreateRecordAction,
   type ICreateTableWithDefault,
@@ -11,30 +11,44 @@ import {
   type ITableVo,
 } from '@teable/openapi';
 import {
+  mapDomainErrorToHttpError,
+  mapDomainErrorToHttpStatus,
+  type ITableDto,
+} from '@teable/v2-contract-http';
+import {
   executeCreateTableEndpoint,
   executeDeleteTableEndpoint,
   executeDuplicateTableEndpoint,
+  executeGetTableByIdEndpoint,
   executeListTableRecordsEndpoint,
+  executeListTablesEndpoint,
+  executeRenameTableEndpoint,
   executeRestoreTableEndpoint,
+  executeUpdateTablePropertiesEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
-import { v2CoreTokens } from '@teable/v2-core';
-import type { ICommandBus, IExecutionContext, IQueryBus } from '@teable/v2-core';
+import { GetDefaultViewIdQuery, v2CoreTokens } from '@teable/v2-core';
+import type {
+  GetDefaultViewIdResult,
+  ICommandBus,
+  IExecutionContext,
+  IQueryBus,
+} from '@teable/v2-core';
 import { ClsService } from 'nestjs-cls';
-import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { DatabaseRouter } from '../../../global/database-router.service';
 import type { IClsStore } from '../../../types/cls';
+import { CustomHttpException } from '../../../custom.exception';
+import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
+import { Events, TableUpdateEvent, type IChangeTable } from '../../../event-emitter/events';
 import { AuditScope } from '../../audit/audit-scope';
 import { Audit } from '../../audit/audit.decorator';
-import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import { RecordHistoryColdStorageService } from '../../record-history-cold/record-history-cold-storage.service';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
-import { ViewService } from '../../view/view.service';
+import { throwV2Error } from '../../v2/v2-http-error';
 import { TableDuplicateService } from '../table-duplicate.service';
-import { TableService } from '../table.service';
 import { mapLegacyCreateTableToV2Input } from './table-open-api-v2.mapper';
 
 const internalServerError = 'Internal server error';
@@ -44,9 +58,6 @@ export class TableOpenApiV2Service {
   constructor(
     private readonly v2ContainerService: V2ContainerService,
     private readonly v2ContextFactory: V2ExecutionContextFactory,
-    private readonly tableService: TableService,
-    private readonly fieldOpenApiService: FieldOpenApiService,
-    private readonly viewService: ViewService,
     private readonly prismaService: PrismaService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     private readonly tableDuplicateLegacyService: TableDuplicateService,
@@ -56,7 +67,8 @@ export class TableOpenApiV2Service {
     private readonly recordHistoryColdStorage: RecordHistoryColdStorageService,
     @Optional()
     @Inject(SpaceDataDbMigrationGuardService)
-    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService,
+    @Optional() private readonly eventEmitterService?: EventEmitterService
   ) {}
 
   private readonly logger = new Logger(TableOpenApiV2Service.name);
@@ -95,30 +107,274 @@ export class TableOpenApiV2Service {
     await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
   }
 
+  async getDefaultViewId(tableId: string): Promise<{ id: string }> {
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const context = await this.v2ContextFactory.createContext(container);
+    const queryResult = GetDefaultViewIdQuery.create({ tableId });
+    if (queryResult.isErr()) {
+      throwV2Error(
+        mapDomainErrorToHttpError(queryResult.error),
+        mapDomainErrorToHttpStatus(queryResult.error)
+      );
+    }
+
+    const result = await queryBus.execute<GetDefaultViewIdQuery, GetDefaultViewIdResult>(
+      context,
+      queryResult.value
+    );
+    if (result.isErr()) {
+      throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
+
+    return { id: result.value.viewId };
+  }
+
+  async getTable(baseId: string, tableId: string): Promise<ITableVo> {
+    const container = await this.v2ContainerService.getContainerForBase(baseId);
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const context = await this.v2ContextFactory.createContext(container);
+    const result = await executeGetTableByIdEndpoint(context, { baseId, tableId }, queryBus);
+
+    if (result.status === 200 && result.body.ok) {
+      return this.overlayTableMeta(this.mapV2TableToVo(result.body.data.table), tableId);
+    }
+
+    if (!result.body.ok) {
+      throwV2Error(result.body.error, result.status);
+    }
+
+    throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  async getTables(baseId: string): Promise<ITableVo[]> {
+    const container = await this.v2ContainerService.getContainerForBase(baseId);
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const context = await this.v2ContextFactory.createContext(container);
+    const result = await executeListTablesEndpoint(context, { baseId, sortBy: 'name' }, queryBus);
+
+    if (result.status === 200 && result.body.ok) {
+      const tables = result.body.data.tables.map((table) => this.mapV2TableToVo(table));
+      const metas = await this.prismaService.tableMeta.findMany({
+        where: { baseId, deletedTime: null },
+        select: { id: true, order: true, lastModifiedTime: true },
+      });
+      const metaById = new Map(metas.map((meta) => [meta.id, meta]));
+      return tables
+        .map((table) => {
+          const meta = metaById.get(table.id);
+          return {
+            ...table,
+            ...(meta?.order != null ? { order: meta.order } : {}),
+            ...(meta?.lastModifiedTime
+              ? { lastModifiedTime: meta.lastModifiedTime.toISOString() }
+              : {}),
+          };
+        })
+        .sort((left, right) => (left.order ?? 0) - (right.order ?? 0));
+    }
+
+    if (!result.body.ok) {
+      throwV2Error(result.body.error, result.status);
+    }
+
+    throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  async getSnapshotBulk(baseId: string, ids: string[]): Promise<ISnapshotBase<ITableVo>[]> {
+    const tables = await this.prismaService.tableMeta.findMany({
+      where: { baseId, id: { in: ids }, deletedTime: null, provisionState: ProvisionState.ready },
+      orderBy: { order: 'asc' },
+    });
+
+    const defaultViewIdByTableId = new Map<string, string>();
+    if (tables.length) {
+      const views = await this.prismaService.view.findMany({
+        where: {
+          tableId: { in: tables.map((table) => table.id) },
+          deletedTime: null,
+        },
+        select: { id: true, tableId: true, order: true },
+        orderBy: { order: 'asc' },
+      });
+      for (const view of views) {
+        if (!defaultViewIdByTableId.has(view.tableId)) {
+          defaultViewIdByTableId.set(view.tableId, view.id);
+        }
+      }
+    }
+
+    return tables
+      .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
+      .map((table) => ({
+        id: table.id,
+        v: table.version,
+        type: 'json0',
+        data: {
+          ...table,
+          description: table.description ?? undefined,
+          icon: table.icon ?? undefined,
+          lastModifiedTime:
+            table.lastModifiedTime?.toISOString() || table.createdTime.toISOString(),
+          defaultViewId: defaultViewIdByTableId.get(table.id),
+        } as ITableVo,
+      }));
+  }
+
+  async getDocIds(baseId: string, projectionTableIds?: string[]): Promise<{ ids: string[] }> {
+    const tables = await this.prismaService.tableMeta.findMany({
+      where: {
+        deletedTime: null,
+        baseId,
+        provisionState: ProvisionState.ready,
+        ...(projectionTableIds
+          ? {
+              id: { in: projectionTableIds },
+            }
+          : {}),
+      },
+      select: { id: true },
+      orderBy: { order: 'asc' },
+    });
+    return { ids: tables.map((table) => table.id) };
+  }
+
+  async updateName(baseId: string, tableId: string, name: string): Promise<void> {
+    await this.assertBaseWritable(baseId);
+    const current = await this.prismaService.tableMeta.findFirst({
+      where: { id: tableId, baseId, deletedTime: null },
+      select: {
+        name: true,
+        dbTableName: true,
+        description: true,
+        icon: true,
+        order: true,
+      },
+    });
+    const container = await this.v2ContainerService.getContainerForBase(baseId);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ContextFactory.createContext(container);
+    const result = await executeRenameTableEndpoint(context, { baseId, tableId, name }, commandBus);
+
+    if (result.status === 200 && result.body.ok) {
+      const user = this.cls.get('user');
+      const dbTableName = current?.dbTableName;
+      const description = current?.description;
+      const icon = current?.icon;
+      const order = current?.order;
+      await this.eventEmitterService?.emitAsync(
+        Events.TABLE_UPDATE,
+        new TableUpdateEvent(
+          {
+            baseId,
+            table: {
+              id: tableId,
+              name: { oldValue: current?.name, newValue: name },
+              dbTableName: { oldValue: dbTableName, newValue: dbTableName },
+              description: { oldValue: description, newValue: description },
+              icon: { oldValue: icon, newValue: icon },
+              order: { oldValue: order, newValue: order },
+            } as IChangeTable,
+          },
+          {
+            user: user ? { id: user.id, name: user.name, email: user.email } : undefined,
+          }
+        )
+      );
+      return;
+    }
+
+    if (!result.body.ok) {
+      throwV2Error(result.body.error, result.status);
+    }
+
+    throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  async updateIcon(baseId: string, tableId: string, icon: string | null): Promise<void> {
+    await this.assertBaseWritable(baseId);
+    const container = await this.v2ContainerService.getContainerForBase(baseId);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ContextFactory.createContext(container);
+    const result = await executeUpdateTablePropertiesEndpoint(
+      context,
+      { baseId, tableId, icon },
+      commandBus
+    );
+
+    if (result.status === 200 && result.body.ok) {
+      return;
+    }
+
+    if (!result.body.ok) {
+      throwV2Error(result.body.error, result.status);
+    }
+
+    throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  async updateDescription(
+    baseId: string,
+    tableId: string,
+    description: string | null
+  ): Promise<void> {
+    await this.assertBaseWritable(baseId);
+    const container = await this.v2ContainerService.getContainerForBase(baseId);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ContextFactory.createContext(container);
+    const result = await executeUpdateTablePropertiesEndpoint(
+      context,
+      { baseId, tableId, description },
+      commandBus
+    );
+
+    if (result.status === 200 && result.body.ok) {
+      return;
+    }
+
+    if (!result.body.ok) {
+      throwV2Error(result.body.error, result.status);
+    }
+
+    throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  private mapV2TableToVo(table: ITableDto): ITableVo {
+    const dbTableName = table.dbTableName ?? '';
+    const defaultViewId = table.views?.[0]?.id;
+    return {
+      id: table.id,
+      name: table.name,
+      dbTableName,
+      ...(table.description !== undefined ? { description: table.description } : {}),
+      ...(table.icon !== undefined ? { icon: table.icon } : {}),
+      ...(defaultViewId ? { defaultViewId } : {}),
+    };
+  }
+
+  private async overlayTableMeta(table: ITableVo, tableId: string): Promise<ITableVo> {
+    const meta = await this.prismaService.tableMeta.findUnique({
+      where: { id: tableId },
+      select: { order: true, lastModifiedTime: true },
+    });
+    return {
+      ...table,
+      ...(meta?.order != null ? { order: meta.order } : {}),
+      ...(meta?.lastModifiedTime ? { lastModifiedTime: meta.lastModifiedTime.toISOString() } : {}),
+    };
+  }
+
   private async collectCrossSpaceAffectedFields(
     tableId: string
   ): Promise<Array<{ fieldId: string; fieldName: string; type: string }>> {
     // Delegate to the v1 service so cross-space link, conditional lookup,
     // conditional rollup, and their transitive lookup/rollup dependents are
-    // all detected consistently with the duplicate-check endpoint and the
-    // v1 downgrade path. Keeping detection in one place avoids drift.
+    // all detected consistently with the duplicate-check endpoint. v2 refuses
+    // to silently downgrade those fields.
     return this.tableDuplicateLegacyService.previewCrossSpaceAffectedFields(tableId);
-  }
-
-  private throwV2Error(
-    error: {
-      code: string;
-      message: string;
-      tags?: ReadonlyArray<string>;
-      details?: Readonly<Record<string, unknown>>;
-    },
-    status: number
-  ): never {
-    throw new CustomHttpException(error.message, getDefaultCodeByStatus(status), {
-      domainCode: error.code,
-      domainTags: error.tags,
-      details: error.details,
-    });
   }
 
   @Audit({
@@ -148,16 +404,15 @@ export class TableOpenApiV2Service {
 
     if (result.status === 201 && result.body.ok) {
       return await this.buildLegacyCreateTableResponse(
-        baseId,
         normalizedCreateTableRo,
-        result.body.data.table.id,
+        result.body.data.table,
         context,
         container.resolve<IQueryBus>(v2CoreTokens.queryBus)
       );
     }
 
     if (!result.body.ok) {
-      this.throwV2Error(result.body.error, result.status);
+      throwV2Error(result.body.error, result.status);
     }
 
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -191,7 +446,7 @@ export class TableOpenApiV2Service {
     }
 
     if (!result.body.ok) {
-      this.throwV2Error(result.body.error, result.status);
+      throwV2Error(result.body.error, result.status);
     }
 
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -217,7 +472,7 @@ export class TableOpenApiV2Service {
     }
 
     if (!result.body.ok) {
-      this.throwV2Error(result.body.error, result.status);
+      throwV2Error(result.body.error, result.status);
     }
 
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -239,13 +494,14 @@ export class TableOpenApiV2Service {
     await this.assertTableWritable(tableId);
     // The v2 duplicate command does not run cross-space validation when
     // creating fields, so a table containing any cross-space link would
-    // silently produce another cross-space copy. Delegate to the v1 path,
-    // which downgrades cross-space link/lookup/rollup fields to single line
-    // text. Callers should hit `duplicate-check` first to preview which
-    // fields will be downgraded.
+    // silently produce another cross-space copy. Refuse instead of
+    // downgrading those fields to single line text on a hidden v1 path.
     const affected = await this.collectCrossSpaceAffectedFields(tableId);
     if (affected.length > 0) {
-      return this.tableDuplicateLegacyService.duplicateTable(baseId, tableId, duplicateTableRo);
+      throw new CustomHttpException(
+        'v2 will not silently downgrade cross-space fields when duplicating a table',
+        HttpErrorCode.VALIDATION_ERROR
+      );
     }
 
     const container = await this.v2ContainerService.getContainerForBase(baseId);
@@ -263,46 +519,36 @@ export class TableOpenApiV2Service {
     );
 
     if (result.status === 201 && result.body.ok) {
-      await this.syncLegacyDuplicateViews(
-        tableId,
-        result.body.data.table.id,
-        result.body.data.fieldIdMap,
-        result.body.data.viewIdMap
-      );
       return await this.buildLegacyDuplicateTableResponse(
         baseId,
         tableId,
-        result.body.data.table.id,
+        result.body.data.table,
         result.body.data.fieldIdMap,
-        result.body.data.viewIdMap
+        result.body.data.viewIdMap,
+        context,
+        container.resolve<IQueryBus>(v2CoreTokens.queryBus)
       );
     }
 
     if (!result.body.ok) {
-      this.throwV2Error(result.body.error, result.status);
+      throwV2Error(result.body.error, result.status);
     }
 
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
   private async buildLegacyCreateTableResponse(
-    baseId: string,
     createTableRo: ICreateTableWithDefault,
-    tableId: string,
+    tableDto: ITableDto,
     context: IExecutionContext,
     queryBus: IQueryBus
   ): Promise<ITableFullVo> {
-    const table = await this.tableService.getTableMeta(baseId, tableId);
-    const fields = await this.fieldOpenApiService.getFields(tableId, {
-      filterHidden: false,
-    });
-    const views = await this.viewService.getViews(tableId);
+    const table = this.mapV2TableToVo(tableDto);
     const records = await this.getCreatedRecords(table, createTableRo, context, queryBus);
-
     return {
       ...table,
-      fields,
-      views,
+      fields: tableDto.fields as IFieldVo[],
+      views: tableDto.views as ITableFullVo['views'],
       records,
     };
   }
@@ -310,18 +556,25 @@ export class TableOpenApiV2Service {
   private async buildLegacyDuplicateTableResponse(
     baseId: string,
     sourceTableId: string,
-    tableId: string,
+    tableDto: ITableDto,
     fieldMap: Record<string, string>,
-    viewMap: Record<string, string>
+    viewMap: Record<string, string>,
+    context: IExecutionContext,
+    queryBus: IQueryBus
   ): Promise<IDuplicateTableVo> {
-    const table = await this.tableService.getTableMeta(baseId, tableId);
-    const fields = await this.buildLegacyDuplicateFieldResponse(sourceTableId, tableId, fieldMap);
-    const views = await this.viewService.getViews(tableId);
-
+    const table = this.mapV2TableToVo(tableDto);
+    const fields = await this.buildLegacyDuplicateFieldResponse(
+      baseId,
+      sourceTableId,
+      tableDto.fields as IFieldVo[],
+      fieldMap,
+      context,
+      queryBus
+    );
     return {
       ...table,
       fields,
-      views,
+      views: tableDto.views as IDuplicateTableVo['views'],
       fieldMap,
       viewMap,
     };
@@ -360,7 +613,7 @@ export class TableOpenApiV2Service {
       }
 
       if (!result.body.ok) {
-        this.throwV2Error(result.body.error, result.status);
+        throwV2Error(result.body.error, result.status);
       }
 
       throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -373,19 +626,22 @@ export class TableOpenApiV2Service {
   }
 
   private async buildLegacyDuplicateFieldResponse(
+    baseId: string,
     sourceTableId: string,
-    duplicatedTableId: string,
-    fieldMap: Record<string, string>
+    duplicatedFields: IFieldVo[],
+    fieldMap: Record<string, string>,
+    context: IExecutionContext,
+    queryBus: IQueryBus
   ): Promise<IFieldVo[]> {
-    const [sourceFields, duplicatedFields] = await Promise.all([
-      this.fieldOpenApiService.getFields(sourceTableId, {
-        filterHidden: false,
-      }),
-      this.fieldOpenApiService.getFields(duplicatedTableId, {
-        filterHidden: false,
-      }),
-    ]);
-
+    const sourceResult = await executeGetTableByIdEndpoint(
+      context,
+      { baseId, tableId: sourceTableId },
+      queryBus
+    );
+    const sourceFields =
+      sourceResult.status === 200 && sourceResult.body.ok
+        ? (sourceResult.body.data.table.fields as IFieldVo[])
+        : [];
     const sourceFieldIdByDuplicatedId = new Map(
       Object.entries(fieldMap).map(([sourceFieldId, duplicatedFieldId]) => [
         duplicatedFieldId,
@@ -399,12 +655,10 @@ export class TableOpenApiV2Service {
       if (!sourceFieldId) {
         return field;
       }
-
       const sourceField = sourceFieldById.get(sourceFieldId);
       if (!sourceField) {
         return field;
       }
-
       return {
         ...field,
         ...(sourceField.dbFieldName ? { dbFieldName: sourceField.dbFieldName } : {}),
@@ -413,111 +667,11 @@ export class TableOpenApiV2Service {
     });
   }
 
-  private async syncLegacyDuplicateViews(
-    sourceTableId: string,
-    duplicatedTableId: string,
-    fieldMap: Record<string, string>,
-    viewMap: Record<string, string>
-  ): Promise<void> {
-    const sourceViews = await this.prismaService.view.findMany({
-      where: {
-        tableId: sourceTableId,
-        deletedTime: null,
-      },
-      select: {
-        id: true,
-        filter: true,
-        sort: true,
-        group: true,
-        options: true,
-        columnMeta: true,
-        enableShare: true,
-      },
-    });
-
-    if (!sourceViews.length) {
-      return;
-    }
-
-    const replacements = new Map<string, string>([
-      ...Object.entries(fieldMap),
-      ...Object.entries(viewMap),
-      [sourceTableId, duplicatedTableId],
-    ]);
-
-    await Promise.all(
-      sourceViews.map(async (sourceView) => {
-        const duplicatedViewId = viewMap[sourceView.id];
-        if (!duplicatedViewId) {
-          return;
-        }
-
-        await this.prismaService.view.update({
-          where: {
-            id: duplicatedViewId,
-          },
-          data: {
-            filter: this.remapLegacyJsonString(sourceView.filter, replacements),
-            sort: this.remapLegacyJsonString(sourceView.sort, replacements),
-            group: this.remapLegacyJsonString(sourceView.group, replacements),
-            options: this.remapLegacyJsonString(sourceView.options, replacements),
-            columnMeta: this.remapLegacyJsonString(sourceView.columnMeta, replacements),
-            enableShare: sourceView.enableShare ?? null,
-          },
-        });
-      })
-    );
-  }
-
-  private remapLegacyJsonString(value: string, replacements: ReadonlyMap<string, string>): string;
-  private remapLegacyJsonString(
-    value: string | null,
-    replacements: ReadonlyMap<string, string>
-  ): string | null;
-  private remapLegacyJsonString(
-    value: string | null,
-    replacements: ReadonlyMap<string, string>
-  ): string | null {
-    if (!value) {
-      return value;
-    }
-
-    return JSON.stringify(this.remapLegacyStructuredValue(JSON.parse(value), replacements));
-  }
-
-  private remapLegacyStructuredValue(
-    value: unknown,
-    replacements: ReadonlyMap<string, string>
-  ): unknown {
-    if (typeof value === 'string') {
-      return replacements.get(value) ?? value;
-    }
-
-    if (Array.isArray(value)) {
-      return value.map((entry) => this.remapLegacyStructuredValue(entry, replacements));
-    }
-
-    if (value && typeof value === 'object') {
-      return Object.entries(value as Record<string, unknown>).reduce<Record<string, unknown>>(
-        (acc, [key, entryValue]) => {
-          acc[replacements.get(key) ?? key] = this.remapLegacyStructuredValue(
-            entryValue,
-            replacements
-          );
-          return acc;
-        },
-        {}
-      );
-    }
-
-    return value;
-  }
-
   private async normalizeLegacyCreateTableRo(
     baseId: string,
     createTableRo: ICreateTableWithDefault
   ): Promise<ICreateTableWithDefault> {
-    const withLookupFieldIds = await this.populateLegacyLinkLookupFieldIds(createTableRo);
+    const withLookupFieldIds = await this.populateLegacyLinkLookupFieldIds(baseId, createTableRo);
     const normalizedDbTableName = this.normalizeLegacyDbTableName(
       baseId,
       withLookupFieldIds.dbTableName
@@ -547,41 +701,52 @@ export class TableOpenApiV2Service {
   }
 
   private async populateLegacyLinkLookupFieldIds(
+    baseId: string,
     createTableRo: ICreateTableWithDefault
   ): Promise<ICreateTableWithDefault> {
     const fields = createTableRo.fields ?? [];
-    const foreignTableIds = [
-      ...new Set(
-        fields.flatMap((field) => {
-          if (field.type !== FieldType.Link || field.isLookup) {
-            return [];
-          }
+    const foreignBaseIdByTableId = new Map(
+      fields.flatMap((field) => {
+        if (field.type !== FieldType.Link || field.isLookup) {
+          return [];
+        }
 
-          const options =
-            field.options && typeof field.options === 'object' && !Array.isArray(field.options)
-              ? (field.options as Record<string, unknown>)
-              : undefined;
-          if (typeof options?.lookupFieldId === 'string') {
-            return [];
-          }
+        const options =
+          field.options && typeof field.options === 'object' && !Array.isArray(field.options)
+            ? (field.options as Record<string, unknown>)
+            : undefined;
+        if (typeof options?.lookupFieldId === 'string') {
+          return [];
+        }
 
-          const foreignTableId = options?.foreignTableId;
-          return typeof foreignTableId === 'string' ? [foreignTableId] : [];
-        })
-      ),
-    ];
+        const foreignTableId = options?.foreignTableId;
+        if (typeof foreignTableId !== 'string') {
+          return [];
+        }
+        const foreignBaseId = typeof options?.baseId === 'string' ? options.baseId : baseId;
+        return [[foreignTableId, foreignBaseId] as const];
+      })
+    );
 
-    if (foreignTableIds.length === 0) {
+    if (foreignBaseIdByTableId.size === 0) {
       return createTableRo;
     }
 
     const primaryFieldIdByTableId = new Map<string, string>();
     await Promise.all(
-      foreignTableIds.map(async (foreignTableId) => {
-        const foreignFields = await this.fieldOpenApiService.getFields(foreignTableId, {
-          filterHidden: false,
-        });
-        const primaryField = foreignFields.find(
+      [...foreignBaseIdByTableId].map(async ([foreignTableId, foreignBaseId]) => {
+        const container = await this.v2ContainerService.getContainerForBase(foreignBaseId);
+        const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+        const context = await this.v2ContextFactory.createContext(container);
+        const foreignResult = await executeGetTableByIdEndpoint(
+          context,
+          { baseId: foreignBaseId, tableId: foreignTableId },
+          queryBus
+        );
+        if (foreignResult.status !== 200 || !foreignResult.body.ok) {
+          return;
+        }
+        const primaryField = (foreignResult.body.data.table.fields as IFieldVo[]).find(
           (field) => (field as Record<string, unknown>).isPrimary === true
         );
         if (primaryField?.id) {

@@ -64,6 +64,7 @@ export interface IBaseShareContentProps {
   isCreateLoading?: boolean;
   isDeleteLoading?: boolean;
   isRefreshLoading?: boolean;
+  disabled?: boolean;
   permissionOptions: IPermissionOption[];
   onToggleShare: (enabled: boolean) => void;
   onUpdateSetting: (data: Record<string, unknown>) => void;
@@ -80,6 +81,7 @@ export const BaseShareContent = ({
   isCreateLoading,
   isDeleteLoading,
   isRefreshLoading,
+  disabled,
   permissionOptions,
   onToggleShare,
   onUpdateSetting,
@@ -130,6 +132,21 @@ export const BaseShareContent = ({
       <div className="flex items-center gap-2">
         {isCreateLoading ? (
           <Spin className="size-5" />
+        ) : disabled ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                {/* Focusable so keyboard users can reach the tooltip; the disabled switch itself can't take focus */}
+                {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
+                <span className="inline-flex items-center" tabIndex={0}>
+                  <Switch id="share-switch" checked={isShareEnabled} disabled />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>{t('baseShare.noPermissionTip')}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         ) : (
           <Switch id="share-switch" checked={isShareEnabled} onCheckedChange={handleToggleShare} />
         )}
@@ -144,8 +161,11 @@ export const BaseShareContent = ({
             <div className="flex items-center gap-1.5 text-sm">
               <span className="text-muted-foreground">{t('baseShare.linkHolderLabel')}</span>
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="inline-flex items-center gap-0.5 font-medium text-blue-500 hover:text-blue-600">
+                <DropdownMenuTrigger asChild disabled={disabled}>
+                  <button
+                    disabled={disabled}
+                    className="inline-flex items-center gap-0.5 font-medium text-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
                     {activePermission?.label}
                     <ChevronDown className="size-3.5" />
                   </button>
@@ -196,7 +216,7 @@ export const BaseShareContent = ({
                       size="icon-sm"
                       className="shrink-0"
                       onClick={onRefreshShare}
-                      disabled={isRefreshLoading}
+                      disabled={isRefreshLoading || disabled}
                     >
                       {isRefreshLoading ? (
                         <Spin className="size-4" />
@@ -222,6 +242,7 @@ export const BaseShareContent = ({
               <Switch
                 id="share-allowCopy"
                 checked={Boolean(share.allowCopy)}
+                disabled={disabled}
                 onCheckedChange={(checked) => onUpdateSetting({ allowCopy: checked })}
               />
               <Label className="text-sm font-normal" htmlFor="share-allowCopy">
@@ -233,6 +254,7 @@ export const BaseShareContent = ({
               <Switch
                 id="share-password"
                 checked={Boolean(share.password)}
+                disabled={disabled}
                 onCheckedChange={handlePasswordSwitchChange}
               />
               <Label className="text-sm font-normal" htmlFor="share-password">
@@ -243,6 +265,7 @@ export const BaseShareContent = ({
                   className="h-5 px-1 hover:text-muted-foreground"
                   variant="link"
                   size="xs"
+                  disabled={disabled}
                   onClick={() => setShowPasswordDialog(true)}
                 >
                   <Edit className="size-4" />
@@ -273,7 +296,7 @@ export const BaseShareContent = ({
               }}
               disabled={isDeleteLoading}
             >
-              {isDeleteLoading && <Spin className="mr-2 size-4" />}
+              {isDeleteLoading && <Spin className="me-2 size-4" />}
               {t('common:actions.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>

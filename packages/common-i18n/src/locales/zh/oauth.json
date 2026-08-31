@@ -31,6 +31,10 @@
       "description": "用户授权您的集成后要重定向的完整 URL。",
       "add": "添加回调 URL"
     },
+    "deviceFlow": {
+      "label": "启用设备授权流程",
+      "description": "允许此应用通过在浏览器中输入一次性代码来登录（适用于 CLI 及无浏览器的设备）。任何知道 client ID 的人都能以此应用的名义发起该流程，请仅在应用确实需要时启用。"
+    },
     "secret": {
       "label": "客户端密钥",
       "add": "生成一个新的客户端密钥",
@@ -55,6 +59,23 @@
     "scopes": "此应用程序将能够获取以下权限范围：",
     "redirectDescription": "授权将重定向到",
     "authorize": "授权"
+  },
+  "device": {
+    "title": "连接设备",
+    "description": "输入终端上显示的 8 位代码，把该设备登录到你的账号。",
+    "submit": "继续",
+    "invalidCode": "授权码无效或已过期，请回到终端确认后重试。",
+    "codeUsed": "该授权码已被使用。请重新运行登录命令获取新的授权码。",
+    "deviceFlowDisabled": "该应用不允许通过设备授权码登录。",
+    "codeLabel": "授权码",
+    "confirmCode": "请确认它和终端里显示的一致。",
+    "securityTitle": "安全警告",
+    "phishingHint": "设备验证码是常见的网络钓鱼攻击目标，可被用于登录你的账户。切勿分享此验证码。仅当你本人发起登录时才可继续操作。",
+    "phishingHintStrong": "如果你并非有意访问此页面，或此链接来自他人，请关闭此标签页。",
+    "approvedTitle": "设备已连接",
+    "approvedDescription": "可以关闭本页面，回到终端继续。",
+    "deniedTitle": "已拒绝",
+    "deniedDescription": "该设备未获得访问权限，可以关闭本页面。"
   },
   "help": {
     "link": "https://help.teable.cn/zh/api-doc/oauth",

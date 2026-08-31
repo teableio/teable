@@ -1,12 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  HttpErrorCode,
-  type IFilter,
-  type IGroup,
-  type ISort,
-  type IViewOptions,
-} from '@teable/core';
+import { type IFilter, type IGroup, type ISort, type IViewOptions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   ensureTableDataSafetyViewOperationLimits,
@@ -17,7 +11,7 @@ import {
   type ViewOperationPayloadViewConfig,
   type ViewOperationPluginContext,
 } from '@teable/v2-core';
-import { CustomHttpException } from '../../custom.exception';
+import { throwV2Error } from '../v2/v2-http-error';
 
 type SerializedViewProperties = {
   name?: string | null;
@@ -102,12 +96,7 @@ export class ViewDataSafetyLimitService {
     const result = ensureTableDataSafetyViewOperationLimits(context, this.getLimits());
     if (result.isOk()) return;
 
-    const error = result.error;
-    throw new CustomHttpException(error.message, HttpErrorCode.VALIDATION_ERROR, {
-      domainCode: error.code,
-      domainTags: error.tags,
-      details: error.details,
-    });
+    throwV2Error(result.error, HttpStatus.BAD_REQUEST);
   }
 
   async ensureCanCreateView(tableId: string): Promise<void> {

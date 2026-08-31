@@ -1,3 +1,4 @@
+import { pgErrorCode } from '@teable/v2-adapter-db-postgres-shared';
 import type {
   TableId,
   BaseId,
@@ -30,6 +31,11 @@ import {
   RecordsBatchUpdated,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
+import {
+  formulaSqlPgTokens,
+  Pg16TypeValidationStrategy,
+  type IPgTypeValidationStrategy,
+} from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { sql } from 'kysely';
 import type {
@@ -44,6 +50,7 @@ import type { Result } from 'neverthrow';
 
 import type { ComputedUpdatePlanner } from '../../record/computed/ComputedUpdatePlanner';
 import type { FieldDependencyGraph } from '../../record/computed/FieldDependencyGraph';
+import type { IComputedUpdateOutbox } from '../../record/computed/outbox/IComputedUpdateOutbox';
 import { v2RecordRepositoryPostgresTokens } from '../../record/di/tokens';
 import {
   executeCompiledQueries,
@@ -52,6 +59,7 @@ import {
 } from '../../shared/db';
 import {
   createSchemaNotNullViolationError,
+  createSchemaUniqueViolationError,
   isNotNullViolation,
   isUniqueViolation,
 } from '../../shared/errors';
@@ -126,6 +134,10 @@ const ensureDbFieldNames = (fields: ReadonlyArray<Field>): Result<void, DomainEr
   return ok(undefined);
 };
 
+const noopComputedUpdateOutbox: Pick<IComputedUpdateOutbox, 'discardBySeedTable'> = {
+  discardBySeedTable: async () => ok({ discardedTaskIds: [], discardedDeadLetterTaskIds: [] }),
+};
+
 @injectable()
 export class PostgresTableSchemaRepository implements ITableSchemaRepository {
   constructor(
@@ -142,7 +154,14 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     @inject(v2RecordRepositoryPostgresTokens.computedDependencyGraph)
     private readonly fieldDependencyGraph: FieldDependencyGraph,
     @inject(v2RecordRepositoryPostgresTokens.metaDb)
-    private readonly metaDb: Kysely<V1TeableDatabase> = db
+    private readonly metaDb: Kysely<V1TeableDatabase> = db,
+    @inject(formulaSqlPgTokens.typeValidationStrategy)
+    private readonly typeValidationStrategy: IPgTypeValidationStrategy = new Pg16TypeValidationStrategy(),
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdateOutbox)
+    private readonly computedUpdateOutbox: Pick<
+      IComputedUpdateOutbox,
+      'discardBySeedTable'
+    > = noopComputedUpdateOutbox
   ) {}
 
   private resolveMetaDb(
@@ -655,6 +674,27 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     return this.ensureInsertedWithKnownTables(context, table, [table]);
   }
 
+  @TraceSpan()
+  async ensurePhysicalTable(
+    context: IExecutionContext,
+    table: Table
+  ): Promise<Result<void, DomainError>> {
+    const repository = this;
+    return await safeTry<void, DomainError>(async function* () {
+      const { schema, tableName } = yield* table
+        .dbTableName()
+        .andThen((name) => name.split({ defaultSchema: null }));
+      const db = resolvePostgresDbOrTx(repository.db, context) as Kysely<V1TeableDatabase>;
+      const introspector = new PostgresSchemaIntrospector(db);
+      const exists = yield* await introspector.tableExists(schema, tableName);
+      if (exists) {
+        return ok(undefined);
+      }
+      yield* await repository.insert(context, table);
+      return ok(undefined);
+    });
+  }
+
   private async ensureInsertedWithKnownTables(
     context: IExecutionContext,
     table: Table,
@@ -731,6 +771,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
             recordUpdates.push(update);
           },
         },
+        typeValidationStrategy: repository.typeValidationStrategy,
       });
       yield* mutateSpec.accept(visitor);
       const statements = yield* visitor.where();
@@ -748,21 +789,21 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
           });
         } catch (error) {
           if (isUniqueViolation(error)) {
-            return err(
-              domainError.validation({
-                message: 'Cannot complete update: unique constraint violated',
-                code: 'validation.field.unique',
-              })
-            );
+            return err(createSchemaUniqueViolationError(error, tableName, table.getFields()));
           }
 
           if (isNotNullViolation(error)) {
-            return err(createSchemaNotNullViolationError(error, table.getFields(), context.$t));
+            return err(createSchemaNotNullViolationError(error, table.getFields()));
           }
 
+          const pgCode = pgErrorCode(error);
           return err(
             domainError.infrastructure({
+              // 42703 (undefined_column) means the physical schema is behind the
+              // metadata, which the idempotent schema operation repair recreates.
+              ...(pgCode === '42703' ? { code: 'db.undefined_column' } : {}),
               message: `Failed to update table schema: ${describeError(error)}`,
+              ...(pgCode ? { details: { pgCode } } : {}),
             })
           );
         }
@@ -1074,6 +1115,18 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
           })
         );
       }
+
+      // Pending computed tasks seeded from this table can only fail ("Table not
+      // found") once the drop commits, and dead letters replayed after it die
+      // the same way; discard both in the same transaction.
+      // Soft deletes keep their tasks: a restore makes them replayable.
+      yield* await repository.computedUpdateOutbox.discardBySeedTable(
+        {
+          baseId: table.baseId().toString(),
+          seedTableId: table.id().toString(),
+        },
+        context
+      );
 
       return ok(undefined);
     });

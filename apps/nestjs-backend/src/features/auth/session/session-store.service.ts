@@ -55,9 +55,22 @@ export class SessionStoreService extends Store {
     const userId = session.passport.user.id;
     const userSessions = (await this.cacheService.get(`auth:session-user:${userId}`)) ?? {};
     if (!userSessions[sid]) {
-      this.logger.log(`Session ${sid} not found in userSessions`);
-      await this.cacheService.del(`auth:session-store:${sid}`);
-      return null;
+      // The per-user map is updated with an unlocked read-modify-write, so two
+      // concurrent signins/touches for the same user (multiple devices,
+      // parallel e2e workers) can clobber each other's entry. A missing entry
+      // therefore only means "revoked" when a clearByUserId actually happened
+      // and this session predates it; otherwise repair the map instead of
+      // destroying a session the user still holds.
+      const clearedAtSec = await this.cacheService.get(`auth:session-user-cleared:${userId}`);
+      if (clearedAtSec && this.sessionRenewedAtSec(session) <= clearedAtSec) {
+        this.logger.log(`Session ${sid} not found in userSessions`);
+        await this.cacheService.del(`auth:session-store:${sid}`);
+        return null;
+      }
+      this.logger.log(`Session ${sid} restored into userSessions after a lost map update`);
+      userSessions[sid] = Math.floor(Date.now() / 1000) + this.userSessionExpire;
+      await this.cacheService.set(`auth:session-user:${userId}`, userSessions, this.ttl);
+      return session;
     }
     // The expiration time is greater than the session cache time,
     // so that the user session does not expire while the session is still alive.
@@ -121,7 +134,29 @@ export class SessionStoreService extends Store {
     }
   }
 
+  /**
+   * A session's last issue/renewal time: cookie.expires is stamped now+ttl on
+   * save and on every rolling touch. Unknown expiry is treated as renewed
+   * "now" so a fresh post-clear session is never mistaken for a revoked one.
+   */
+  private sessionRenewedAtSec(session: ISessionData): number {
+    const expires = session.cookie?.expires;
+    const expiresMs =
+      expires instanceof Date ? expires.getTime() : expires ? new Date(expires).getTime() : NaN;
+    if (!Number.isFinite(expiresMs)) {
+      return Math.floor(Date.now() / 1000);
+    }
+    return Math.floor(expiresMs / 1000) - this.ttl;
+  }
+
   async clearByUserId(userId: string) {
+    // Mark the clear before deleting anything so the getCache repair path
+    // (lost-map-update recovery) cannot resurrect the sessions being revoked.
+    await this.cacheService.set(
+      `auth:session-user-cleared:${userId}`,
+      Math.floor(Date.now() / 1000),
+      this.userSessionExpire
+    );
     const userSessions = (await this.cacheService.get(`auth:session-user:${userId}`)) ?? {};
     for (const sid of Object.keys(userSessions)) {
       // Preventing competition

@@ -11,5 +11,8 @@ describe('core index exports', () => {
     expect(core).toHaveProperty('MemoryCommandBus');
     expect(core).toHaveProperty('NoopEventBus');
     expect(core).toHaveProperty('v2CoreTokens');
+    expect(core).toHaveProperty('PauseComputedOutboxCommand');
+    expect(core).toHaveProperty('GetComputedOutboxOverviewQuery');
+    expect(core).toHaveProperty('NoopComputedOutboxAdmin');
   });
 });

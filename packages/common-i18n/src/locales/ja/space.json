@@ -30,7 +30,8 @@
     "fromScratch": "最初から",
     "fromTemplate": "テンプレートから",
     "moveBaseToAnotherSpace": "{{baseName}} を別のスペースに移動する",
-    "chooseSpace": "スペースを選択"
+    "chooseSpace": "スペースを選択",
+    "duplicateBaseSucceedAndJump": "完了しました。クリックして移動"
   },
   "spaceSetting": {
     "title": "スペースの設定",
@@ -38,8 +39,11 @@
     "collaborators": "共同作業者",
     "generalDescription": "現在のスペースの設定をここで変更",
     "spaceName": "スペース名",
-    "spaceId": "スペースID"
+    "spaceId": "スペースID",
+    "importBase": "インポート"
   },
+  "collaborators": "コラボレーター",
+  "more": "その他",
   "pin": {
     "add": "ピンに追加",
     "remove": "ピンから削除",
@@ -63,7 +67,16 @@
     "moveBaseSuccessTitle": "移動成功",
     "moveBaseSuccessDescription": "{{baseName}}は{{spaceName}}に正常に移動されました",
     "moveBaseCrossSpaceTitle": "ご注意",
-    "moveBaseCrossSpaceDataLossWarning": "クロススペース参照はサポートされていません。関連するフィールドはテキストフィールドに変換されます。この操作は取り消せません。"
+    "moveBaseCrossSpaceDataLossWarning": "クロススペース参照はサポートされていません。関連するフィールドはテキストフィールドに変換されます。この操作は取り消せません。",
+    "moveBaseCrossDataDbTitle": "データベース間の移動",
+    "moveBaseCrossDataDbWarning": "移動元と移動先のスペースは異なるデータベースを使用しています。この移動ではベースのデータを移動先のデータベースにコピーするため、時間がかかる場合があります。転送中、このベースへの書き込みは一時停止されます。",
+    "moveBaseProgressTitle": "ベースを移動中…",
+    "moveBaseProgressPhase": "段階：{{phase}}",
+    "moveBaseProgressPercent": "{{percent}}%",
+    "moveBaseFailedTitle": "移動に失敗しました",
+    "moveBaseFailedDescription": "段階 {{phase}}：{{error}}",
+    "moveBaseRetry": "再試行",
+    "moveBaseCancel": "キャンセル"
   },
   "deleteSpaceModal": {
     "title": "スペースを削除",
@@ -75,7 +88,6 @@
     "description": "参加を招待されたすべてのベース",
     "empty": "共有ベースはまだありません"
   },
-  "integration": {},
   "aiSetting": {
     "title": "AI設定",
     "description": "スペースのAI設定を管理します",
@@ -86,9 +98,17 @@
     "baseImportTips": "クリックするか、.teaファイルをこの領域にドラッグ＆ドロップしてアップロードします",
     "confirm": "確認して続行",
     "phase": {
+      "importingV2": "インポート中",
       "parsingStructure": "Parsing structure",
       "creatingBase": "Creating base: {{detail}}",
       "creatingTable": "Creating table: {{detail}}",
+      "tableStructureStarted": "テーブル構造を準備中：{{tableName}}（{{tableIndex}}/{{totalTables}}）",
+      "tableStructureValidating": "テーブル間のリレーションを検証中",
+      "tableStructureCommitting": "テーブル構造を保存中",
+      "tableStructureDone": "テーブル構造を保存しました：{{tableName}}（{{tableIndex}}/{{totalTables}}）",
+      "tableStructureData": "テーブル構造",
+      "tableStructureTablesProgress": "{{count}}/{{total}} テーブルを準備済み",
+      "tableStructureTablesDone": "{{count}}/{{total}} テーブルを保存済み",
       "creatingCommonFields": "Creating basic fields for {{table}}: {{fields}}",
       "creatingButtonFields": "Creating button fields for {{table}}: {{fields}}",
       "creatingFormulaFields": "Creating formula fields for {{table}}: {{fields}}",
@@ -100,11 +120,46 @@
       "creatingWorkflows": "Creating workflows",
       "creatingApps": "Creating apps",
       "creatingAuthorityMatrix": "Creating authority matrix",
+      "restoringBaseNodes": "フォルダー階層を復元中",
       "queuingAttachments": "Queuing attachment uploads",
       "uploadingAppFiles": "Uploading app files",
       "queuingDataImport": "Queuing data import",
+      "importingTableData": "テーブルデータをインポート中",
+      "restoringLinkRelations": "リンクレコードのデータを復元中",
+      "tableDataStarted": "レコードをインポート中：{{tableName}}",
+      "tableDataProgress": "レコードをインポート中：{{tableName}}",
+      "tableDataDone": "レコードのインポートが完了しました：{{tableName}}",
+      "linkFieldsData": "リンクレコードのデータ",
+      "linkFieldsProgress": "リンクレコードのデータを復元中",
+      "linkFieldsDone": "リンクレコードのデータを復元しました",
+      "tableDataRowsProgress": "{{count}} 行をインポート済み",
+      "tableDataRowsDone": "{{count}} 行をインポート済み",
+      "tableDataRowsTotalProgress": "{{count}}/{{total}} 行を処理済み",
+      "tableDataRowsTotalDone": "{{count}}/{{total}} 行を処理済み",
+      "tableDataBatch": "バッチ {{batch}}",
+      "tableDataBatchRows": "このバッチの {{count}} 行",
+      "tableDataEmpty": "インポートするテーブルデータがありません",
       "done": "Import completed",
       "clickToView": "クリックして表示"
+    }
+  },
+  "export": {
+    "phase": {
+      "preparing": "エクスポートを準備中",
+      "exportingArchive": "エクスポートファイルを作成中",
+      "exportingStructure": "構造をエクスポート中",
+      "exportingAttachments": "添付ファイルをエクスポート中",
+      "exportingAttachmentMetadata": "添付ファイルのメタデータをエクスポート中",
+      "exportingTableData": "レコードをエクスポート中",
+      "tableDataStarted": "レコードをエクスポート中：{{tableName}}（{{tableIndex}}/{{totalTables}}）",
+      "tableDataProgress": "レコードをエクスポート中：{{tableName}}",
+      "tableDataDone": "レコードのエクスポートが完了しました：{{tableName}}",
+      "exportingExtraFiles": "追加ファイルをエクスポート中",
+      "exportingAppFiles": "アプリのファイルをエクスポート中",
+      "uploadingArchive": "エクスポートファイルをアップロード中",
+      "generatingDownloadUrl": "ダウンロードリンクを生成中",
+      "rowsProgress": "{{count}} 行をエクスポート済み",
+      "done": "エクスポートが完了しました"
     }
   },
   "template": {
@@ -131,7 +186,9 @@
     "lastOpened": "最終閲覧",
     "enter": "入る",
     "noTables": "テーブルなし",
-    "empty": "まだBaseがありません"
+    "empty": "まだBaseがありません",
+    "recent": "最近",
+    "manual": "手動の並び順"
   },
   "publishBase": {
     "title": "テンプレートセンターに公開",
@@ -182,14 +239,78 @@
       "publish": "公開",
       "published": "公開済み",
       "publishing": "公開中...",
+      "notPublished": "未公開",
       "publishFailed": "公開に失敗しました",
       "publishFailedTip1": "ソースアプリが正常に公開できるか確認してください",
       "publishFailedTip2": "このテンプレートを再公開してみてください",
-      "notPublished": "未公開",
       "ignoreAndContinue": "無視して続行",
       "goToFix": "修正へ移動",
       "redeploy": "再デプロイ",
       "unnamedApp": "無名のアプリ"
+    }
+  },
+  "dataDb": {
+    "create": {
+      "title": "データ用データベース",
+      "description": "このスペースがベースのスキーマとレコードを保存する場所を選択します。",
+      "defaultHint": "ほとんどのスペースにおすすめです。",
+      "byodbOption": "自分の PostgreSQL データベースを使用",
+      "byodbHint": "お客様が管理するデータベース内の Teable 内部スキーマにこのスペースを初期化します。",
+      "urlLabel": "PostgreSQL 接続 URL",
+      "sslHint": "PostgreSQL サーバーが要求するものと同じ SSL パラメータを使用してください。パスワードはテスト後に表示されません。",
+      "testConnection": "接続をテスト",
+      "testing": "テスト中...",
+      "retestRequired": "URL を変更したら再度テストしてください。",
+      "databaseLabel": "データベース",
+      "databasePlaceholder": "データベースを選択",
+      "databaseHint": "このスペース用の PostgreSQL データベースを選択し、接続を再度テストしてください。",
+      "preflightPassed": "接続チェックに合格しました",
+      "preflightFailed": "接続チェックに失敗しました",
+      "missingCapabilities": "権限が不足しています",
+      "testFailed": "データベース接続のテストに失敗しました。",
+      "errors": {
+        "INVALID_DATABASE_URL": {
+          "message": "PostgreSQL の接続 URL が無効です。"
+        },
+        "PRIVATE_NETWORK_BLOCKED": {
+          "message": "プライベートネットワーク上のデータベースホストは既定でブロックされます。",
+          "remediation": "TEABLE_SSRF_PROTECTION_DISABLED=true は、信頼できるセルフホスト環境でのみ設定してください。"
+        },
+        "CONNECTION_FAILED": {
+          "message": "データベースへの接続に失敗しました。",
+          "remediation": "ホスト、ポート、データベース名、ユーザー名、パスワード、SSL パラメータを確認してください。"
+        },
+        "IPV6_NETWORK_UNREACHABLE": {
+          "message": "データベースホストが IPv6 アドレスに解決されましたが、この Teable のデプロイでは IPv6 ネットワークに到達できません。",
+          "remediation": "IPv4 で到達可能なデータベースのエンドポイントまたはコネクションプーラーを使用するか、この Teable のデプロイで IPv6 の外向き通信を有効にしてください。"
+        },
+        "PRIVILEGE_CHECK_FAILED": {
+          "message": "データベースの権限チェックに失敗しました。"
+        },
+        "DDL_PRIVILEGE_CHECK_FAILED": {
+          "message": "Teable のデータデータベースを初期化するために必要な DDL 権限がアカウントにありません。",
+          "remediation": "スキーマ、テーブル、関数、トリガーを作成する権限を付与してください。"
+        },
+        "NON_EMPTY_UNKNOWN_DATABASE": {
+          "message": "Teable の内部スキーマに、Teable が管理していないオブジェクトが既に存在します。",
+          "remediation": "競合する内部スキーマのないデータベースを使用するか、そのスキーマから不明なオブジェクトを削除してください。"
+        },
+        "INCOMPATIBLE_TEABLE_DATABASE": {
+          "message": "このデータベースには、不完全または互換性のない Teable のデータオブジェクトが含まれています。",
+          "remediation": "空のデータベースを使用するか、互換性のある Teable データデータベースの移行／引き継ぎフローを使用してください。"
+        }
+      }
+    },
+    "fields": {
+      "host": "ホスト",
+      "database": "データベース",
+      "internalSchema": "内部スキーマ",
+      "version": "バージョン",
+      "classification": "分類"
+    },
+    "badge": {
+      "label": "専用",
+      "tooltip": "このスペースは専用のデータベースでホストされており、他のスペースから分離されています"
     }
   },
   "airtableImport": {
@@ -244,6 +365,40 @@
       "disableReminder": "完了しました。Airtable で共有リンクをオフにできます。"
     }
   },
+  "googleSheetImport": {
+    "title": "Google Sheets からインポート",
+    "close": "閉じる",
+    "pickSpreadsheet": "インポートするスプレッドシートを選択",
+    "openPicker": "Google Drive からスプレッドシートを選択",
+    "changeSpreadsheet": "変更",
+    "analyzing": "スプレッドシートを読み込んでいます…",
+    "pickTabs": "インポートするシートを選択",
+    "gridSize": "{{rows}} 行 × {{columns}} 列",
+    "optionRecords": "レコードをインポート",
+    "import": "インポート開始",
+    "done": "インポートが完了しました",
+    "failed": "インポートに失敗しました",
+    "openBase": "ベースを開く",
+    "issuesSummary": "インポート中に {{count}} 件の調整がありました：",
+    "issuesMore": "他 {{count}} 件…",
+    "recordsImported": "{{tableName}}：{{count}} 件のレコードをインポートしました",
+    "partialImported": "エラー発生前に {{count}} 個のテーブルが完全にインポートされ、保持されています",
+    "issue": {
+      "valuesDropped": "{{sheetName}} / {{fieldName}}：{{count}} 件の値が破棄されました（{{reason}}）",
+      "sheetSkipped": "シート「{{sheetName}}」はスキップされました：{{reason}}",
+      "columnsTruncated": "{{sheetName}}：列数の上限を超えた {{count}} 列はインポートされませんでした"
+    },
+    "phase": {
+      "fetchingSchema": "スプレッドシートの構造を読み込み中",
+      "creatingBase": "ベースを作成中：{{detail}}",
+      "creatingTable": "テーブルを作成中：{{tableName}}（{{tableIndex}}/{{totalTables}}）"
+    },
+    "detecting": "Google 連携を確認しています…",
+    "connectWithGoogle": "Google アカウントを接続",
+    "waitingOAuth": "ポップアップで認可を完了してください…",
+    "connectedAs": "接続済み：{{account}}",
+    "integrationRequired": "このインスタンスでは Google Sheets 連携が設定されていません。管理者に設定を依頼してください。"
+  },
   "createBaseDialog": {
     "title": "どのように始めますか？"
   },
@@ -251,6 +406,7 @@
     "title": "ベースをインポート",
     "fromFile": "ファイルからインポート",
     "fromFileDesc": ".tea データベースファイルをアップロード",
-    "fromAirtableDesc": "Airtable アカウントを接続"
+    "fromAirtableDesc": "Airtable アカウントを接続",
+    "fromGoogleSheetDesc": "Google Drive のスプレッドシートを選択"
   }
 }

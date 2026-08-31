@@ -146,7 +146,7 @@ export const FormBody = (props: IFormBodyProps) => {
       </div>
 
       {logoUrl && (
-        <div className="group absolute left-1/2 top-[104px] ml-[-40px] size-20">
+        <div className="group absolute start-1/2 top-[104px] ms-[-40px] size-20">
           <img
             className="absolute inset-0 size-full rounded-lg object-cover shadow-sm"
             src={previewUrl(logoUrl)}

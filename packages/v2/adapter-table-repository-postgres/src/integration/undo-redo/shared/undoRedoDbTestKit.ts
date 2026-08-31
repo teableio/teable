@@ -77,6 +77,12 @@ export const createUndoRedoDbHarness = async (options?: {
   });
   const probe = new CommandProbeMiddleware();
 
+  // The postgres adapter writes a one-row table_trash index inside the delete
+  // transaction, so the delete-undo purge guard is sound here and stays on.
+  testContainer.container.registerInstance(v2CoreTokens.undoRedoReplayConfig, {
+    restorePurgeGuard: true,
+  });
+
   testContainer.container.registerInstance(
     v2CoreTokens.commandBus,
     new MemoryCommandBus(testContainer.container, [probe])

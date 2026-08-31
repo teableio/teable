@@ -89,7 +89,11 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
       return queryBuilder;
     }
 
-    if (this.shouldSkipInvalidFilterItem(field, filterMeta, path)) {
+    const skipDecision = this.shouldSkipInvalidFilterItem(field, filterMeta, path);
+    if (skipDecision === 'match-all') {
+      return queryBuilder[conjunction].whereRaw('1 = 1');
+    }
+    if (skipDecision === 'skip') {
       return queryBuilder;
     }
 
@@ -97,7 +101,9 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
     const validFilterOperators = Object.keys(getFilterOperatorMapping(field));
 
     if (!includes(validFilterOperators, convertOperator)) {
-      this.throwIfFilterReferencesInvalidOperator(field, value);
+      if (this.throwIfFilterReferencesInvalidOperator(field, value) === 'match-all') {
+        return queryBuilder[conjunction].whereRaw('1 = 1');
+      }
       this.logger.warn(
         `Skip filter item: field=${field.id}(${field.name}) operator='${convertOperator}' not in [${validFilterOperators.join(',')}]`
       );
@@ -114,12 +120,20 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
         this.dbProvider!
       );
     } catch (error) {
-      this.handleCompilerError(error, field, convertOperator, value);
+      if (this.handleCompilerError(error, field, convertOperator, value) === 'match-all') {
+        // The compiler bailed before appending (ensureLiteralValue runs first),
+        // so the pending conjunction still applies to this raw TRUE.
+        queryBuilder.whereRaw('1 = 1');
+      }
     }
     return queryBuilder;
   }
 
-  private shouldSkipInvalidFilterItem(field: FieldCore, filterMeta: IFilterItem, path: number[]) {
+  private shouldSkipInvalidFilterItem(
+    field: FieldCore,
+    filterMeta: IFilterItem,
+    path: number[]
+  ): false | 'skip' | 'match-all' {
     const validationIssues = this.getFilterItemValidationIssues(path);
     if (validationIssues.length === 0) {
       return false;
@@ -128,8 +142,11 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
     const hasInvalidOperator = validationIssues.some(
       (issue) => issue.code === 'OPERATOR_NOT_ALLOWED'
     );
-    if (hasInvalidOperator) {
-      this.throwIfFilterReferencesInvalidOperator(field, filterMeta.value);
+    if (
+      hasInvalidOperator &&
+      this.throwIfFilterReferencesInvalidOperator(field, filterMeta.value) === 'match-all'
+    ) {
+      return 'match-all';
     }
 
     this.logger.warn(
@@ -137,7 +154,7 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
         .map((issue) => issue.code)
         .join(',')}]`
     );
-    return true;
+    return 'skip';
   }
 
   private getConvertedOperator(field: FieldCore, operator: string, isSymbol?: boolean) {
@@ -148,10 +165,27 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
     return invert(getFilterOperatorMapping(field))[operator] as IFilterOperator;
   }
 
-  private throwIfFilterReferencesInvalidOperator(field: FieldCore, value: unknown) {
+  /**
+   * Returns 'match-all' when the item references another field, the operator
+   * cannot support that, and the caller opted into degradation — the item must
+   * then be compiled as TRUE (never silently dropped: under an OR conjunction a
+   * dropped item would SHRINK the result set, and affected-set machinery must
+   * only ever widen).
+   */
+  private throwIfFilterReferencesInvalidOperator(
+    field: FieldCore,
+    value: unknown
+  ): 'match-all' | undefined {
     const referenceFieldId = this.extractFieldReferenceFieldId(value);
     if (!referenceFieldId) {
-      return;
+      return undefined;
+    }
+    if (this.context?.unsupportedFieldReferenceBehavior === 'match-all') {
+      this.logger.warn(
+        `Field-reference filter on field=${field.id}(${field.name}) is not supported here; ` +
+          `treating the condition as match-all`
+      );
+      return 'match-all';
     }
 
     const referenceName = this.fields?.[referenceFieldId]?.name ?? referenceFieldId;
@@ -164,11 +198,25 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
     field: FieldCore,
     convertOperator: IFilterOperator,
     value: unknown
-  ) {
-    if (error instanceof FieldReferenceCompatibilityException) {
-      throw error;
-    }
-    if (this.extractFieldReferenceFieldId(value)) {
+  ): 'match-all' | undefined {
+    const isFieldReferenceItem =
+      error instanceof FieldReferenceCompatibilityException ||
+      Boolean(this.extractFieldReferenceFieldId(value));
+    if (isFieldReferenceItem) {
+      if (this.context?.unsupportedFieldReferenceBehavior === 'match-all') {
+        // The compiler rejects this operator + field-reference combination
+        // (e.g. 'contains' against another field). For affected-set derivation
+        // the conservative degradation is to treat the condition as TRUE:
+        // including extra rows is safe, while throwing here fails the record
+        // WRITE that merely touched this table. User-issued queries keep the
+        // default 'throw' behavior.
+        const reason = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Treat filter item as match-all: field=${field.id}(${field.name}) ` +
+            `operator='${convertOperator}' unsupported field reference: ${reason}`
+        );
+        return 'match-all';
+      }
       throw error;
     }
     if (!this.isSkippableCompilerError(error)) {

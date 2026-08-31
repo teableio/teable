@@ -59,7 +59,7 @@ export const OptionList = (props: IOptionListProps) => {
                 backgroundColor={backgroundColor}
                 color={color}
               />
-              {checkIsActive(value) && <Check className="ml-2 size-4 shrink-0" />}
+              {checkIsActive(value) && <Check className="ms-2 size-4 shrink-0" />}
             </CommandItem>
           );
         })}

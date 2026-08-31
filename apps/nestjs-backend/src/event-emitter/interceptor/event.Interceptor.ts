@@ -6,7 +6,7 @@ import type { Request } from 'express';
 import type { Observable } from 'rxjs';
 import { tap } from 'rxjs';
 import { match, P } from 'ts-pattern';
-import { EMIT_EVENT_NAME } from '../decorators/emit-controller-event.decorator';
+import { EMIT_EVENT_NAME, SKIP_EVENT_WHEN_V2 } from '../decorators/emit-controller-event.decorator';
 import { EventEmitterService } from '../event-emitter.service';
 import type { IEventContext } from '../events';
 import {
@@ -29,9 +29,13 @@ export class EventMiddleware implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const req = context.switchToHttp().getRequest<Request>();
     const emitEventName = this.reflector.get<Events>(EMIT_EVENT_NAME, context.getHandler());
+    const skipWhenV2 = this.reflector.get<boolean>(SKIP_EVENT_WHEN_V2, context.getHandler());
 
     return next.handle().pipe(
       tap((data) => {
+        if (skipWhenV2 && (req as Request & { useV2?: boolean }).useV2) {
+          return;
+        }
         const interceptContext = this.interceptContext(req, data);
 
         const event = this.createEvent(emitEventName, interceptContext);

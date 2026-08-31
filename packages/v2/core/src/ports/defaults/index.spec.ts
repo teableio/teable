@@ -8,6 +8,7 @@ describe('ports/defaults index', () => {
     expect(defaults).toHaveProperty('NoopLogger');
     expect(defaults).toHaveProperty('NoopRealtimeEngine');
     expect(defaults).toHaveProperty('NoopUndoRedoStore');
+    expect(defaults).toHaveProperty('NoopComputedOutboxAdmin');
     expect(defaults).toHaveProperty('NoopUnitOfWork');
   });
 });

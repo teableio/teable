@@ -11,7 +11,7 @@ import {
 import { describe, expect, it } from 'vitest';
 
 import { toQualifiedIdentifierLiteral } from './sqlIdentifiers';
-import { ensureUndoCaptureInfrastructure } from './undoCapture';
+import { ensureUndoCaptureInfrastructure, matchesUndoCaptureTableName } from './undoCapture';
 
 type RowProvider = (compiledQuery: CompiledQuery) => unknown[];
 
@@ -114,7 +114,7 @@ describe('ensureUndoCaptureInfrastructure', () => {
         query.sql.includes('FROM pg_trigger AS t')
       );
       expect(triggerProbe?.sql).toContain('JOIN pg_proc AS p ON p.oid = t.tgfoid');
-      expect(triggerProbe?.sql).toContain('p.pronamespace = current_schema()::regnamespace');
+      expect(triggerProbe?.sql).toContain("t.tgenabled = 'O'");
       expect(
         driver.queries.some((query) =>
           query.sql.includes('CREATE OR REPLACE TRIGGER "__teable_undo_capture"')
@@ -183,5 +183,16 @@ describe('ensureUndoCaptureInfrastructure', () => {
     } finally {
       await Promise.all([root.db.destroy(), scoped.db.destroy()]);
     }
+  });
+});
+
+describe('matchesUndoCaptureTableName', () => {
+  it('accepts schema-qualified and unqualified names for the same table', () => {
+    expect(matchesUndoCaptureTableName('ledger_rows', 'bseTestBase.ledger_rows')).toBe(true);
+    expect(matchesUndoCaptureTableName('bseTestBase.ledger_rows', 'ledger_rows')).toBe(true);
+    expect(matchesUndoCaptureTableName('bseTestBase.ledger_rows', 'bseTestBase.ledger_rows')).toBe(
+      true
+    );
+    expect(matchesUndoCaptureTableName('other_table', 'bseTestBase.ledger_rows')).toBe(false);
   });
 });

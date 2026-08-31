@@ -57,7 +57,7 @@ export function FieldSelector(props: IFieldSelector) {
           className="w-full justify-between truncate"
         >
           <span className="truncate">{comOptions.find((o) => o.value === value)?.label}</span>
-          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="ms-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-96 p-0">
@@ -79,12 +79,12 @@ export function FieldSelector(props: IFieldSelector) {
                 >
                   <Check
                     className={cn(
-                      'mr-2 h-4 w-4 shrink-0',
+                      'me-2 h-4 w-4 shrink-0',
                       value === o.value ? 'opacity-100' : 'opacity-0'
                     )}
                   />
                   <div className="flex items-center truncate">
-                    <Icon className="mr-1 shrink-0" />
+                    <Icon className="me-1 shrink-0" />
                     <span className="truncate">{o.label}</span>
                   </div>
                 </CommandItem>

@@ -270,6 +270,36 @@ describe('LinkTitleResolverService', () => {
     expect(leftValue).toEqual([{ id: recordId.toString(), title: 'Alpha' }]);
   });
 
+  it('unwraps a single-relationship typecast title to a link object', async () => {
+    const table = buildTextTable('a', 'p');
+    const recordId = RecordId.create(`rec${'q'.repeat(16)}`)._unsafeUnwrap();
+    const records: TableRecordReadModel[] = [
+      {
+        id: recordId.toString(),
+        fields: {
+          [table.primaryFieldId().toString()]: 'Owner A',
+        },
+        version: 1,
+      },
+    ];
+
+    const service = new LinkTitleResolverService(
+      new FakeTableRepository(table),
+      new FakeRecordQueryRepository(records)
+    );
+
+    const fieldId = FieldId.create(`fld${'r'.repeat(16)}`)._unsafeUnwrap();
+    const titleSpec = SetLinkValueByTitleSpec.create(fieldId, table.id(), ['Owner A'], false);
+    const result = await service.resolveAndReplace(createContext(), titleSpec);
+    const replaced = result._unsafeUnwrap();
+
+    expect(replaced).toBeInstanceOf(SetLinkValueSpec);
+    expect((replaced as SetLinkValueSpec).value.toValue()).toEqual({
+      id: recordId.toString(),
+      title: 'Owner A',
+    });
+  });
+
   it('skips querying when all requested titles are empty', async () => {
     const table = buildTextTable('a', 'm');
     const recordQueryRepository = new FakeRecordQueryRepository([]);

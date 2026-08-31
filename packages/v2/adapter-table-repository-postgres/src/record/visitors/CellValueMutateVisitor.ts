@@ -23,6 +23,7 @@ import type {
   SetUserValueSpec,
   SetUserValueByIdentifierSpec,
   Table,
+  SetButtonValueSpec,
 } from '@teable/v2-core';
 import {
   CellValue,
@@ -400,6 +401,10 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
     if (!Array.isArray(rawValue)) {
       return rawValue;
     }
+    // Align with v1: empty multi-select arrays are stored as null.
+    if (rawValue.length === 0) {
+      return null;
+    }
 
     const options = field.selectOptions();
     const nameById = new Map(options.map((opt) => [opt.id().toString(), opt.name().toString()]));
@@ -517,6 +522,10 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
     }
 
     return ok(undefined);
+  }
+
+  visitSetButtonValue(spec: SetButtonValueSpec): Result<void, DomainError> {
+    return this.addJsonValue(spec.fieldId, spec.value.toValue());
   }
 
   visitSetUserValue(spec: SetUserValueSpec): Result<void, DomainError> {

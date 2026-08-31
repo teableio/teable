@@ -5,14 +5,20 @@ import {
   mapDomainErrorToHttpStatus,
 } from '@teable/v2-contract-http';
 import { CreateRecordsCommand } from '@teable/v2-core';
-import type { CreateRecordsResult, ICommandBus, IExecutionContext } from '@teable/v2-core';
+import type {
+  CreateRecordsResult,
+  ICommandBus,
+  IExecutionContext,
+  RecordCreateSource,
+} from '@teable/v2-core';
 
 export const executeCreateRecordsEndpoint = async (
   context: IExecutionContext,
   rawBody: unknown,
-  commandBus: ICommandBus
+  commandBus: ICommandBus,
+  options?: { source?: RecordCreateSource }
 ): Promise<ICreateRecordsEndpointResult> => {
-  const commandResult = CreateRecordsCommand.create(rawBody);
+  const commandResult = CreateRecordsCommand.create(rawBody, options);
   if (commandResult.isErr()) {
     const error = commandResult.error;
     return {
