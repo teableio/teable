@@ -180,9 +180,14 @@ export class DuplicateTableHandler
         context,
         async (dataTransactionContext) =>
           safeTry<void, DomainError>(async function* () {
-            yield* await handler.tableSchemaRepository.insert(
+            yield* await handler.tableSchemaRepository.insertMany(
               dataTransactionContext,
-              persistedTable
+              [persistedTable],
+              {
+                knownTables: [persistedTable],
+                optimizeForEmptyTables: true,
+                skipUndoCaptureSetup: true,
+              }
             );
 
             if (physicalPlan?.isOk()) {

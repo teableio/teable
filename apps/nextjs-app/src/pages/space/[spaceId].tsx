@@ -63,13 +63,13 @@ export const getServerSideProps: GetServerSideProps = withEnv(
 
       await Promise.all([
         queryClient.fetchQuery({
-          queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId as string, {
+          queryKey: ReactQueryKeys.spaceUniqueCollaboratorList(spaceId as string, {
             skip: 0,
-            take: 50,
+            take: 30,
             orderBy: 'asc',
-            includeBase: true,
           }),
-          queryFn: ({ queryKey }) => ssrApi.getSpaceCollaboratorList(queryKey[1], queryKey[2]),
+          queryFn: ({ queryKey }) =>
+            ssrApi.getSpaceUniqueCollaboratorList(queryKey[1], queryKey[2]),
         }),
 
         queryClient.fetchQuery({

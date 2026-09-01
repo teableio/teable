@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "@teable/v2-adapter-realtime-sharedb": "workspace:*",
+    "@teable/v2-adapter-table-query-ops-postgres": "workspace:*",
     "@teable/v2-container-node-test": "workspace:*",
     "@teable/v2-contract-http": "workspace:*",
     "@teable/v2-contract-http-client": "workspace:*",
@@ -41,6 +42,7 @@
     "@teable/v2-di": "workspace:*",
     "@teable/v2-import": "workspace:*",
     "@teable/v2-postgres-schema": "workspace:*",
+    "@teable/v2-table-query-ops": "workspace:*",
     "@teable/v2-table-templates": "workspace:*",
     "@teable/v2-utils": "workspace:*",
     "express": "4.21.1",
@@ -50,6 +52,7 @@
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",
     "@teable/v2-adapter-db-postgres-pg": "workspace:*",
+    "@teable/v2-adapter-table-repository-postgres": "workspace:*",
     "@teable/eslint-config-bases": "workspace:^",
     "@types/express": "4.17.21",
     "@types/node": "22.18.0",

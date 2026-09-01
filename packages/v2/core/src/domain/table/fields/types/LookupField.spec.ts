@@ -12,6 +12,7 @@ import { Table } from '../../Table';
 import { TableId } from '../../TableId';
 import { TableName } from '../../TableName';
 import { DbFieldName } from '../DbFieldName';
+import { DbFieldType } from '../DbFieldType';
 import type { Field } from '../Field';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
@@ -894,6 +895,38 @@ describe('LookupField', () => {
       expect(lookupField.isMultipleCellValue()._unsafeUnwrap().isMultiple()).toBe(true);
     });
 
+    it('treats unset multiplicity as single when persisted storage is scalar', () => {
+      const lookupField = LookupField.createPending({
+        id: createFieldId('q')._unsafeUnwrap(),
+        name: FieldName.create('Lookup')._unsafeUnwrap(),
+        lookupOptions: LookupOptions.create({
+          linkFieldId: createFieldId('r')._unsafeUnwrap().toString(),
+          foreignTableId: createTableId('s')._unsafeUnwrap().toString(),
+          lookupFieldId: createFieldId('t')._unsafeUnwrap().toString(),
+        })._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      lookupField.setDbFieldType(DbFieldType.rehydrate('TEXT')._unsafeUnwrap())._unsafeUnwrap();
+
+      expect(lookupField.isMultipleCellValue()._unsafeUnwrap().isMultiple()).toBe(false);
+    });
+
+    it('treats unset multiplicity as multiple when persisted storage is JSON', () => {
+      const lookupField = LookupField.createPending({
+        id: createFieldId('u')._unsafeUnwrap(),
+        name: FieldName.create('Lookup')._unsafeUnwrap(),
+        lookupOptions: LookupOptions.create({
+          linkFieldId: createFieldId('v')._unsafeUnwrap().toString(),
+          foreignTableId: createTableId('w')._unsafeUnwrap().toString(),
+          lookupFieldId: createFieldId('x')._unsafeUnwrap().toString(),
+        })._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      lookupField.setDbFieldType(DbFieldType.rehydrate('JSON')._unsafeUnwrap())._unsafeUnwrap();
+
+      expect(lookupField.isMultipleCellValue()._unsafeUnwrap().isMultiple()).toBe(true);
+    });
+
     it('derives single multiplicity for manyOne lookup to single-value target in legacy mode', () => {
       const baseId = createBaseId('g')._unsafeUnwrap();
       const hostTableId = createTableId('h')._unsafeUnwrap();
@@ -1592,6 +1625,122 @@ describe('LookupField', () => {
       // isMultipleCellValue should be preserved as false
       const isMultiple = updatedField.isMultipleCellValue()._unsafeUnwrap();
       expect(isMultiple.isMultiple()).toBe(false);
+    });
+
+    it('T6901 rematerializes inner type when lookupFieldId changes through Table.update', () => {
+      const hostTableId = createTableId('h')._unsafeUnwrap();
+      const foreignTableId = createTableId('f')._unsafeUnwrap();
+      const hostPrimaryId = createFieldId('a')._unsafeUnwrap();
+      const foreignPrimaryId = createFieldId('b')._unsafeUnwrap();
+      const statusFieldId = createFieldId('c')._unsafeUnwrap();
+      const amountFieldId = createFieldId('d')._unsafeUnwrap();
+      const linkFieldId = createFieldId('e')._unsafeUnwrap();
+      const lookupFieldId = createFieldId('g')._unsafeUnwrap();
+      const baseId = createBaseId('z')._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('Foreign')._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withId(foreignPrimaryId)
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      foreignBuilder
+        .field()
+        .singleSelect()
+        .withId(statusFieldId)
+        .withName(FieldName.create('Status')._unsafeUnwrap())
+        .withOptions([SelectOption.create({ name: 'todo', color: 'orangeDark1' })._unsafeUnwrap()])
+        .done();
+      foreignBuilder
+        .field()
+        .number()
+        .withId(amountFieldId)
+        .withName(FieldName.create('Amount')._unsafeUnwrap())
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+      const hostBuilder = Table.builder()
+        .withId(hostTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('Host')._unsafeUnwrap());
+      hostBuilder
+        .field()
+        .singleLineText()
+        .withId(hostPrimaryId)
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .primary()
+        .done();
+      hostBuilder
+        .field()
+        .link()
+        .withId(linkFieldId)
+        .withName(FieldName.create('Link')._unsafeUnwrap())
+        .withConfig(
+          LinkFieldConfig.create({
+            relationship: LinkRelationship.manyMany().toString(),
+            foreignTableId: foreignTableId.toString(),
+            lookupFieldId: foreignPrimaryId.toString(),
+          })._unsafeUnwrap()
+        )
+        .done();
+      hostBuilder
+        .field()
+        .lookup()
+        .withId(lookupFieldId)
+        .withName(FieldName.create('Lookup')._unsafeUnwrap())
+        .withInnerField(
+          SingleSelectField.create({
+            id: createFieldId('i')._unsafeUnwrap(),
+            name: FieldName.create('Inner')._unsafeUnwrap(),
+            options: [SelectOption.create({ name: 'todo', color: 'orangeDark1' })._unsafeUnwrap()],
+          })._unsafeUnwrap()
+        )
+        .withLookupOptions(
+          LookupOptions.create({
+            linkFieldId: linkFieldId.toString(),
+            foreignTableId: foreignTableId.toString(),
+            lookupFieldId: statusFieldId.toString(),
+          })._unsafeUnwrap()
+        )
+        .withIsMultipleCellValue(true)
+        .done();
+      hostBuilder.view().defaultGrid().done();
+      const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+      const currentLookup = hostTable
+        .getField((field) => field.id().equals(lookupFieldId))
+        ._unsafeUnwrap() as LookupField;
+      const spec = UpdateLookupOptionsSpec.create(
+        lookupFieldId,
+        currentLookup.lookupOptions(),
+        LookupOptions.create({
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: amountFieldId.toString(),
+        })._unsafeUnwrap()
+      );
+
+      const updated = hostTable
+        .update((mutator) =>
+          mutator.updateField(lookupFieldId, [spec], { foreignTables: [foreignTable] })
+        )
+        ._unsafeUnwrap().table;
+      const rematerialized = updated
+        .getField((field) => field.id().equals(lookupFieldId))
+        ._unsafeUnwrap() as LookupField;
+
+      expect(rematerialized.isPending()).toBe(false);
+      expect(rematerialized.innerFieldType()._unsafeUnwrap().toString()).toBe('number');
+      expect(rematerialized.cellValueType()._unsafeUnwrap().toString()).toBe('number');
+      expect(rematerialized.dependencies().some((fieldId) => fieldId.equals(statusFieldId))).toBe(
+        false
+      );
     });
   });
 

@@ -318,6 +318,91 @@ export class PermissionGuard {
     return true;
   }
 
+  /**
+   * Enforce personal-access-token restrictions for guards that took over
+   * permission checking from this global guard via @DisabledPermission (the EE
+   * authority-matrix guards). A token's scope + resource access are a hard
+   * upper bound: role- or matrix-derived permissions may only narrow the
+   * effective set, never widen it past what the token was granted. This mirrors
+   * the intersection this guard applies in getPermissions()/validPermissions(),
+   * and the token handling already present in AuthorityBaseGuard.
+   *
+   * @param ownPermissions the permission set the caller resolved from the
+   *   user's role or the authority matrix (the ceiling before the token).
+   * @returns
+   *   - `{ handled: false }` — the request is not token-authenticated; the
+   *     caller keeps its own decision and manages cls.permissions itself.
+   *   - `{ handled: true, authorized }` — token-authenticated; the caller must
+   *     return `authorized`. cls.permissions is set to `ownPermissions ∩ token
+   *     scope`. Throws when a required permission is outside the token scope, or
+   *     when getPermissionsByAccessToken rejects the resource as outside the
+   *     token's spaceIds/baseIds.
+   */
+  protected async narrowPermissionsByAccessToken(
+    context: ExecutionContext,
+    resourceId: string,
+    ownPermissions: Action[],
+    requiredPermissions: Action[] | undefined
+  ): Promise<{ handled: boolean; authorized?: boolean }> {
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (!accessTokenId) {
+      return { handled: false };
+    }
+    // Token-authenticated endpoint that declares no @Permissions: allowed only
+    // when explicitly opted in via @TokenAccess, matching permissionCheck().
+    if (!requiredPermissions?.length) {
+      return {
+        handled: true,
+        authorized: this.reflector.getAllAndOverride<boolean>(IS_TOKEN_ACCESS, [
+          context.getHandler(),
+          context.getClass(),
+        ]),
+      };
+    }
+    // getPermissionsByAccessToken throws when resourceId is outside the token's
+    // spaceIds/baseIds — this is what enforces the token's resource access range
+    // on routes where the global guard was disabled.
+    const tokenScopes = (await this.permissionService.getPermissionsByAccessToken(
+      resourceId,
+      accessTokenId
+    )) as Action[];
+    const narrowed = ownPermissions.filter((permission) => tokenScopes.includes(permission));
+    this.cls.set('permissions', narrowed);
+    const notAllowed = requiredPermissions.find((permission) => !narrowed.includes(permission));
+    if (notAllowed) {
+      throw new CustomHttpException(
+        `Not allowed to perform ${notAllowed}`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.notAllowedOperation',
+          },
+        }
+      );
+    }
+    return { handled: true, authorized: true };
+  }
+
+  /**
+   * Boolean convenience over narrowPermissionsByAccessToken for callers whose
+   * own decision is already "allow": returns the token verdict when a token is
+   * present, and true (keep the caller's allow) otherwise.
+   */
+  protected async allowUnlessAccessTokenNarrows(
+    context: ExecutionContext,
+    resourceId: string,
+    ownPermissions: Action[],
+    requiredPermissions: Action[] | undefined
+  ): Promise<boolean> {
+    const decision = await this.narrowPermissionsByAccessToken(
+      context,
+      resourceId,
+      ownPermissions,
+      requiredPermissions
+    );
+    return decision.handled ? !!decision.authorized : true;
+  }
+
   protected async permissionCheck(context: ExecutionContext) {
     const permissions = this.reflector.getAllAndOverride<Action[] | undefined>(PERMISSIONS_KEY, [
       context.getHandler(),

@@ -24,6 +24,18 @@ vi.mock('@teable/v2-contract-http-implementation/handlers', () => ({
   executeUpdateRecordEndpoint,
 }));
 
+vi.mock('@teable/v2-contract-http', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@teable/v2-contract-http')>();
+  return {
+    ...original,
+    mapFieldToDto: (field: unknown, primaryFieldId?: unknown) => {
+      const testDto = (field as { __testDto?: Record<string, unknown> }).__testDto;
+      if (testDto) return { isErr: () => false, value: testDto };
+      return original.mapFieldToDto(field as never, primaryFieldId as never);
+    },
+  };
+});
+
 import { FieldOpenApiV2Service } from './field-open-api-v2.service';
 
 type ITestFieldOpenApiV2Service = {
@@ -91,7 +103,6 @@ type ITestFieldOpenApiV2Service = {
 
 const createService = () =>
   new FieldOpenApiV2Service(
-    {} as never,
     {} as never,
     {} as never,
     {} as never,
@@ -177,7 +188,6 @@ describe('FieldOpenApiV2Service deleteField', () => {
         createContext: vi.fn().mockResolvedValue(context),
       } as never,
       dataLoaderService as never,
-      {} as never,
       {
         get: vi.fn((key: string) => (key === 'user.id' ? `usr${'f'.repeat(16)}` : undefined)),
       } as never,
@@ -197,6 +207,46 @@ describe('FieldOpenApiV2Service deleteField', () => {
       commandBus
     );
     expect(dataLoaderService.field.invalidateTables).toHaveBeenCalledWith([tableId]);
+  });
+});
+
+describe('FieldOpenApiV2Service getSnapshotBulk', () => {
+  it('retries when the persisted version changes while reading field data', async () => {
+    const tableId = `tbl${'a'.repeat(16)}`;
+    const fieldId = `fld${'b'.repeat(16)}`;
+    const oldField = { id: fieldId, name: 'Old name' } as IFieldVo;
+    const currentField = { id: fieldId, name: 'Current name' } as IFieldVo;
+    const txClient = {
+      field: {
+        findMany: vi
+          .fn()
+          .mockResolvedValueOnce([{ id: fieldId, version: 6 }])
+          .mockResolvedValueOnce([{ id: fieldId, version: 7 }])
+          .mockResolvedValueOnce([{ id: fieldId, version: 7 }])
+          .mockResolvedValueOnce([{ id: fieldId, version: 7 }]),
+      },
+    };
+    const prismaService = {
+      txClient: vi.fn(() => txClient),
+    };
+    const service = new FieldOpenApiV2Service(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      prismaService as never,
+      {} as never
+    );
+    vi.spyOn(service, 'getFields')
+      .mockResolvedValueOnce([oldField])
+      .mockResolvedValueOnce([currentField]);
+
+    await expect(service.getSnapshotBulk(tableId, [fieldId])).resolves.toEqual([
+      { id: fieldId, v: 7, type: 'json0', data: currentField },
+    ]);
+    expect(service.getFields).toHaveBeenCalledTimes(2);
+    expect(txClient.field.findMany).toHaveBeenCalledTimes(4);
   });
 });
 
@@ -222,25 +272,24 @@ describe('FieldOpenApiV2Service updateField', () => {
       body: { ok: true },
     });
     const commandBus = {};
-    const tableQueryService = {
-      getById: vi.fn().mockResolvedValue({
-        isErr: () => false,
-        value: {},
-      }),
+    const domainField = {
+      id: () => ({ toString: () => fieldId }),
+      __testDto: fieldDto,
     };
-    const tableMapper = {
-      toDTO: vi.fn().mockReturnValue({
+    const queryBus = {
+      execute: vi.fn().mockResolvedValue({
         isErr: () => false,
         value: {
-          fields: [fieldDto],
+          fields: [domainField],
+          primaryFieldId: undefined,
+          view: undefined,
         },
       }),
     };
     const container = {
       resolve: vi.fn((token: symbol) => {
         if (token === v2CoreTokens.commandBus) return commandBus;
-        if (token === v2CoreTokens.tableQueryService) return tableQueryService;
-        if (token === v2CoreTokens.tableMapper) return tableMapper;
+        if (token === v2CoreTokens.queryBus) return queryBus;
         throw new Error(`Unexpected token ${String(token)}`);
       }),
     };
@@ -257,7 +306,6 @@ describe('FieldOpenApiV2Service updateField', () => {
         createContext: vi.fn().mockResolvedValue(context),
       } as never,
       dataLoaderService as never,
-      {} as never,
       {
         get: vi.fn((key: string) => (key === 'user.id' ? `usr${'f'.repeat(16)}` : undefined)),
       } as never,
@@ -1157,6 +1205,45 @@ describe('FieldOpenApiV2Service mapLegacyCreateFieldToV2', () => {
     });
   });
 
+  it('T6901 maps convert of a select lookup onto a number lookup target', () => {
+    const service = createService();
+    const mapped = service.mapConvertFieldToV2(
+      {
+        type: 'number',
+        isLookup: true,
+        options: {
+          formatting: { type: 'decimal', precision: 0 },
+        },
+        lookupOptions: {
+          foreignTableId: 'tblForeign00000001',
+          lookupFieldId: 'fldNumber0000000001',
+          linkFieldId: 'fldLink000000000001',
+        },
+      },
+      {
+        type: 'singleSelect',
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: 'tblForeign00000001',
+          lookupFieldId: 'fldSelect0000000001',
+          linkFieldId: 'fldLink000000000001',
+        },
+      }
+    );
+
+    expect(mapped).toEqual({
+      type: 'lookup',
+      options: {
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldNumber0000000001',
+        linkFieldId: 'fldLink000000000001',
+      },
+      innerOptions: {
+        formatting: { type: 'decimal', precision: 0 },
+      },
+    });
+  });
+
   it('maps conditional lookup create payload to v2 conditionalLookup input', () => {
     const service = createService();
     const mapped = service.mapLegacyCreateFieldToV2({
@@ -1421,7 +1508,6 @@ describe('FieldOpenApiV2Service mapLegacyCreateFieldToV2', () => {
 describe('FieldOpenApiV2Service normalizeFieldVo', () => {
   const createNormalizeService = () =>
     new FieldOpenApiV2Service(
-      {} as never,
       {} as never,
       {} as never,
       {} as never,
@@ -1750,39 +1836,60 @@ describe('FieldOpenApiV2Service normalizeFieldVo', () => {
     expect(vo.options).toEqual({});
   });
 
-  it('extracts field vo directly from returned table dto and preserves lookup link metadata', async () => {
-    const service = createNormalizeService();
-    const vo = await service.extractFieldVoFromTableDto(
+  it('reads a field through the v2 field list and preserves lookup link metadata', async () => {
+    const fieldDtos = [
       {
-        fields: [
-          {
-            id: 'fldLink000000000001',
-            name: 'Link',
-            type: 'link',
-            options: {
-              relationship: 'manyMany',
-              foreignTableId: 'tblForeign00000001',
-              fkHostTableName: 'bseBase.tblJunction',
-              selfKeyName: '__fk_self',
-              foreignKeyName: '__fk_foreign',
-            },
-          },
-          {
-            id: 'fldLookup000000001',
-            name: 'Lookup',
-            type: 'singleLineText',
-            isLookup: true,
-            lookupOptions: {
-              linkFieldId: 'fldLink000000000001',
-              foreignTableId: 'tblForeign00000001',
-              lookupFieldId: 'fldSource000000001',
-            },
-            options: null,
-          },
-        ],
+        id: 'fldLink000000000001',
+        name: 'Link',
+        type: 'link',
+        options: {
+          relationship: 'manyMany',
+          foreignTableId: 'tblForeign00000001',
+          fkHostTableName: 'bseBase.tblJunction',
+          selfKeyName: '__fk_self',
+          foreignKeyName: '__fk_foreign',
+        },
       },
-      'fldLookup000000001'
-    );
+      {
+        id: 'fldLookup000000001',
+        name: 'Lookup',
+        type: 'singleLineText',
+        isLookup: true,
+        lookupOptions: {
+          linkFieldId: 'fldLink000000000001',
+          foreignTableId: 'tblForeign00000001',
+          lookupFieldId: 'fldSource000000001',
+        },
+        options: null,
+      },
+    ];
+    const queryBus = {
+      execute: vi.fn().mockResolvedValue({
+        isErr: () => false,
+        value: {
+          fields: fieldDtos.map((dto) => ({
+            id: () => ({ toString: () => dto.id }),
+            __testDto: dto,
+          })),
+          primaryFieldId: undefined,
+          view: undefined,
+        },
+      }),
+    };
+    const container = { resolve: vi.fn(() => queryBus) };
+    const service = new FieldOpenApiV2Service(
+      { getContainerForTable: vi.fn().mockResolvedValue(container) } as never,
+      { createContext: vi.fn().mockResolvedValue({}) } as never,
+      {} as never,
+      {} as never,
+      createFieldSupplementService() as never,
+      {} as never
+    ) as unknown as ITestFieldOpenApiV2Service;
+    const vo = await (
+      service as unknown as {
+        getFieldFromV2: (tableId: string, fieldId: string) => Promise<IFieldVo>;
+      }
+    ).getFieldFromV2('tbl3sYKYH4tDz0IEg91', 'fldLookup000000001');
 
     expect(vo.lookupOptions).toMatchObject({
       linkFieldId: 'fldLink000000000001',
@@ -1792,6 +1899,29 @@ describe('FieldOpenApiV2Service normalizeFieldVo', () => {
       selfKeyName: '__fk_self',
       foreignKeyName: '__fk_foreign',
     });
+  });
+
+  it('preserves oneMany lookup-of-user multiplicity from the DTO', () => {
+    const service = createNormalizeService();
+    const vo = service.normalizeFieldVo({
+      id: 'fldLookupUser000001',
+      name: 'Owners',
+      type: 'user',
+      isLookup: true,
+      isComputed: true,
+      isMultipleCellValue: true,
+      dbFieldType: 'JSON',
+      options: { isMultiple: false, shouldNotify: false },
+      lookupOptions: {
+        foreignTableId: 'tblForeign00000001',
+        linkFieldId: 'fldLink000000000001',
+        lookupFieldId: 'fldOwner0000000001',
+        relationship: 'oneMany',
+      },
+    });
+
+    expect(vo.isMultipleCellValue).toBe(true);
+    expect(vo.dbFieldType).toBe(DbFieldType.Json);
   });
 });
 
@@ -1820,7 +1950,6 @@ describe('FieldOpenApiV2Service createField', () => {
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
       { field: { invalidateTables: vi.fn() } } as never,
       {} as never,
-      {} as never,
       createFieldSupplementService() as never,
       {} as never
     ) as unknown as ITestFieldOpenApiV2Service;
@@ -1837,11 +1966,6 @@ describe('FieldOpenApiV2Service createField', () => {
         name: 'Created Field',
         type: 'singleLineText',
       } as IFieldVo);
-    const extractFieldVoFromTableDto = vi.spyOn(
-      service as object,
-      'extractFieldVoFromTableDto' as never
-    );
-
     const createdField = await service.createField('tbl3sYKYH4tDz0IEg91', {
       type: 'singleLineText',
       name: 'Created Field',
@@ -1858,7 +1982,6 @@ describe('FieldOpenApiV2Service createField', () => {
       expect.stringMatching(/^fld/),
       { requestId: 'reqTestId' }
     );
-    expect(extractFieldVoFromTableDto).not.toHaveBeenCalled();
   });
 
   it('falls back to v2 field read for lookup fields to preserve legacy response shape', async () => {
@@ -1884,7 +2007,6 @@ describe('FieldOpenApiV2Service createField', () => {
       createV2ContainerService(commandBus, tableQueryService) as never,
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
       { field: { invalidateTables: vi.fn() } } as never,
-      {} as never,
       {} as never,
       createFieldSupplementService() as never,
       {} as never
@@ -1966,7 +2088,6 @@ describe('FieldOpenApiV2Service createFields', () => {
       createV2ContainerService(commandBus, tableQueryService) as never,
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
       { field: { invalidateTables: vi.fn() } } as never,
-      {} as never,
       {} as never,
       createFieldSupplementService() as never,
       {} as never
@@ -2072,5 +2193,63 @@ describe('FieldOpenApiV2Service hasDuplicatedDbFieldName', () => {
     };
 
     expect(service.hasDuplicatedDbFieldName(table, 'fld_missing_db_name')).toBe(false);
+  });
+});
+
+describe('overlayStoredPendingState (T6581)', () => {
+  type IOverlayTestService = {
+    overlayStoredPendingState: (vos: Array<Record<string, unknown>>) => Promise<void>;
+  };
+
+  const createServiceWithFieldRows = (rows: Array<{ id: string; isPending: boolean | null }>) => {
+    const findMany = vi.fn(async () => rows);
+    const prismaService = { txClient: () => ({ field: { findMany } }) };
+    const service = new FieldOpenApiV2Service(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      prismaService as never
+    ) as unknown as IOverlayTestService;
+    return { service, findMany };
+  };
+
+  it('replaces the forced pending default with the stored state', async () => {
+    const { service, findMany } = createServiceWithFieldRows([
+      { id: 'fldFormula00000000', isPending: null },
+      { id: 'fldRollup000000000', isPending: true },
+    ]);
+    const formulaVo = { id: 'fldFormula00000000', isComputed: true, isPending: true };
+    const rollupVo = { id: 'fldRollup000000000', isComputed: true, isPending: true };
+    const textVo = { id: 'fldText0000000000', type: 'singleLineText' };
+
+    await service.overlayStoredPendingState([formulaVo, rollupVo, textVo]);
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: { id: { in: ['fldFormula00000000', 'fldRollup000000000'] } },
+      select: { id: true, isPending: true },
+    });
+    expect(formulaVo).not.toHaveProperty('isPending');
+    expect(rollupVo.isPending).toBe(true);
+    expect(textVo).not.toHaveProperty('isPending');
+  });
+
+  it('skips the query when no computed fields are present', async () => {
+    const { service, findMany } = createServiceWithFieldRows([]);
+    const textVo = { id: 'fldText0000000000', type: 'singleLineText' };
+
+    await service.overlayStoredPendingState([textVo]);
+
+    expect(findMany).not.toHaveBeenCalled();
+  });
+
+  it('clears pending for computed fields missing a stored row', async () => {
+    const { service } = createServiceWithFieldRows([]);
+    const formulaVo = { id: 'fldFormula00000000', isComputed: true, isPending: true };
+
+    await service.overlayStoredPendingState([formulaVo]);
+
+    expect(formulaVo).not.toHaveProperty('isPending');
   });
 });

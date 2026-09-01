@@ -3,6 +3,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type {
   IFieldRo,
+  IFieldVo,
   IFilter,
   ILinkFieldOptionsRo,
   ILookupOptionsRo,
@@ -4147,29 +4148,29 @@ describe('OpenAPI formula (e2e)', () => {
       });
       const recordId = records[0].id;
 
-      const [andField, orField, notField] = await Promise.all([
-        createField(table1Id, {
-          name: 'logical-truthiness-and',
-          type: FieldType.Formula,
-          options: {
-            expression: `AND({${numberFieldRo.id}}, {${textFieldRo.id}})`,
-          },
-        }),
-        createField(table1Id, {
-          name: 'logical-truthiness-or',
-          type: FieldType.Formula,
-          options: {
-            expression: `OR({${numberFieldRo.id}}, {${textFieldRo.id}})`,
-          },
-        }),
-        createField(table1Id, {
-          name: 'logical-truthiness-not',
-          type: FieldType.Formula,
-          options: {
-            expression: `NOT({${numberFieldRo.id}})`,
-          },
-        }),
-      ]);
+      // Create sequentially: v2 schema writes use OCC on the view version, so
+      // concurrent createField calls on the same table fail with view.version_conflict.
+      const andField = await createField(table1Id, {
+        name: 'logical-truthiness-and',
+        type: FieldType.Formula,
+        options: {
+          expression: `AND({${numberFieldRo.id}}, {${textFieldRo.id}})`,
+        },
+      });
+      const orField = await createField(table1Id, {
+        name: 'logical-truthiness-or',
+        type: FieldType.Formula,
+        options: {
+          expression: `OR({${numberFieldRo.id}}, {${textFieldRo.id}})`,
+        },
+      });
+      const notField = await createField(table1Id, {
+        name: 'logical-truthiness-not',
+        type: FieldType.Formula,
+        options: {
+          expression: `NOT({${numberFieldRo.id}})`,
+        },
+      });
 
       const readValues = async () => {
         const record = await getRecord(table1Id, recordId);
@@ -6115,9 +6116,12 @@ describe('OpenAPI formula (e2e)', () => {
     );
 
     it('should treat boolean comparisons on single select fields as numeric inside SUM', async () => {
-      const selectFields = await Promise.all(
-        Array.from({ length: 3 }, (_, index) =>
-          createField(table1Id, {
+      // Create sequentially: v2 schema writes use OCC on the view version, so
+      // concurrent createField calls on the same table fail with view.version_conflict.
+      const selectFields: IFieldVo[] = [];
+      for (let index = 0; index < 3; index++) {
+        selectFields.push(
+          await createField(table1Id, {
             name: `sum-select-${index + 1}`,
             type: FieldType.SingleSelect,
             options: {
@@ -6127,8 +6131,8 @@ describe('OpenAPI formula (e2e)', () => {
               ],
             } as ISelectFieldOptionsRo,
           })
-        )
-      );
+        );
+      }
 
       const equalityExpressions = selectFields.map((field) => `{${field.id}} = "NB"`);
 
@@ -6852,9 +6856,12 @@ describe('OpenAPI formula (e2e)', () => {
         },
       ] as const;
 
-      const createdFields = await Promise.all(
-        scenarios.map(({ expression }, index) =>
-          createField(table.id, {
+      // Create sequentially: v2 schema writes use OCC on the view version, so
+      // concurrent createField calls on the same table fail with view.version_conflict.
+      const createdFields: IFieldVo[] = [];
+      for (const [index, { expression }] of scenarios.entries()) {
+        createdFields.push(
+          await createField(table.id, {
             name: `WORKDAY case ${index + 1}`,
             type: FieldType.Formula,
             options: {
@@ -6862,8 +6869,8 @@ describe('OpenAPI formula (e2e)', () => {
               timeZone: 'UTC',
             },
           })
-        )
-      );
+        );
+      }
 
       const created = await createRecords(table.id, {
         fieldKeyType: FieldKeyType.Id,

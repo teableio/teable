@@ -7,6 +7,7 @@ const ArrowUpRight = (props: SVGProps<SVGSVGElement>) => (
     height="1em"
     fill="none"
     viewBox="0 0 24 24"
+    data-rtl-flip=""
     {...props}
   >
     <path

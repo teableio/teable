@@ -3,7 +3,7 @@ import type { ICreateCommentRo, IUpdateCommentRo } from '@teable/openapi';
 import { createComment, getCommentDetail, updateComment } from '@teable/openapi';
 import { Button, TooltipProvider } from '@teable/ui-lib';
 import type { TElement } from '@udecode/plate';
-import { usePlateEditor, Plate, ParagraphPlugin } from '@udecode/plate/react';
+import { usePlateEditor, Plate, ParagraphPlugin, usePluginOption } from '@udecode/plate/react';
 import { AlignPlugin } from '@udecode/plate-alignment/react';
 import { LinkPlugin } from '@udecode/plate-link/react';
 import { ImagePlugin, PlaceholderPlugin } from '@udecode/plate-media/react';
@@ -14,7 +14,7 @@ import { noop } from 'lodash';
 import { useEffect, useRef, useState } from 'react';
 import { ReactQueryKeys } from '../../../config';
 import { useTranslation } from '../../../context/app/i18n';
-import { useTablePermission } from '../../../hooks';
+import { useCommentPermission } from '../../../hooks';
 import { useModalRefElement } from '../../expand-record/useModalRefElement';
 import { ImageElement } from '../../plate/ui/image-element';
 import { ImagePreview } from '../../plate/ui/image-preview';
@@ -39,6 +39,24 @@ interface ICommentEditorProps {
   recordId: string;
 }
 
+/**
+ * Reports in-flight uploads to the composer — the plugin option only reads inside
+ * the Plate context. Renders nothing: the progress on the image itself is the
+ * feedback; this only stops Enter from sending a comment whose placeholder has no
+ * url yet, which would post without the image the author is waiting for.
+ */
+const UploadingProbe = (props: { onUploadingChange: (uploading: boolean) => void }) => {
+  const { onUploadingChange } = props;
+  const uploadingFiles = usePluginOption(PlaceholderPlugin, 'uploadingFiles');
+  const isUploading = Object.keys(uploadingFiles ?? {}).length > 0;
+
+  useEffect(() => {
+    onUploadingChange(isUploading);
+  }, [isUploading, onUploadingChange]);
+
+  return null;
+};
+
 const defaultEditorValue = [
   {
     type: 'p',
@@ -56,13 +74,14 @@ export const CommentEditor = (props: ICommentEditorProps) => {
   const { quoteId, setQuoteId, setEditorRef, editingCommentId, setEditingCommentId } =
     useCommentStore();
   const [composition, setComposition] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mentionUserRender = (element: any) => {
     const value = element.value;
     return <MentionUser id={value.id} name={value.name} avatar={value.avatar} />;
   };
   const [value, setValue] = useState(defaultEditorValue);
-  const permission = useTablePermission();
+  const { commentWritable } = useCommentPermission();
   const queryClient = useQueryClient();
   const modalElementRef = useModalRefElement();
 
@@ -191,6 +210,9 @@ export const CommentEditor = (props: ICommentEditorProps) => {
     },
   });
   const submit = () => {
+    if (!commentWritable || isUploading) {
+      return;
+    }
     if (!EditorTransform.editorValue2CommentValue(value).length) {
       return;
     }
@@ -247,35 +269,42 @@ export const CommentEditor = (props: ICommentEditorProps) => {
               setQuoteId(undefined);
             }}
           />
-          <Toolbar className="no-scrollbar gap-x-1 border-y p-1">
-            <MediaToolbarButton nodeType={ImagePlugin.key} />
-            <MentionToolbarButton />
-          </Toolbar>
-          <Editor
-            placeholder={t('comment.placeholder')}
-            size={'sm'}
-            focusRing={false}
-            className="h-[130px] rounded-none border-none outline-none focus:outline-none"
-            variant={'ghost'}
-            disabled={!permission['record|comment']}
-            onCompositionStart={() => {
-              setComposition(true);
-            }}
-            onCompositionEnd={() => {
-              setComposition(false);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey && !composition) {
-                event.preventDefault();
-                submit();
-              }
-              if (event.key === 'Escape') {
-                editor.tf.blur();
-                event.stopPropagation();
-                modalElementRef?.current?.focus();
-              }
-            }}
-          />
+          <UploadingProbe onUploadingChange={setIsUploading} />
+          {/* image / mention insertion are writes too — a read-only viewer keeps
+              the panel, not the composer's tools */}
+          {commentWritable && (
+            <Toolbar className="no-scrollbar gap-x-1 border-y p-1">
+              <MediaToolbarButton nodeType={ImagePlugin.key} />
+              <MentionToolbarButton />
+            </Toolbar>
+          )}
+          {commentWritable && (
+            <Editor
+              placeholder={t('comment.placeholder')}
+              size={'sm'}
+              focusRing={false}
+              className="h-[130px] rounded-none border-none outline-none focus:outline-none"
+              variant={'ghost'}
+              disabled={!commentWritable}
+              onCompositionStart={() => {
+                setComposition(true);
+              }}
+              onCompositionEnd={() => {
+                setComposition(false);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey && !composition) {
+                  event.preventDefault();
+                  submit();
+                }
+                if (event.key === 'Escape') {
+                  editor.tf.blur();
+                  event.stopPropagation();
+                  modalElementRef?.current?.focus();
+                }
+              }}
+            />
+          )}
         </Plate>
       </div>
     </TooltipProvider>

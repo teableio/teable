@@ -8792,10 +8792,10 @@ exports[`text functions > 'Trim' with 'attachment' 1`] = `
     },
   },
   "result": "10, 20",
-  "sql": "TRIM((
+  "sql": "TRIM(((
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    ))",
+    ))::text)",
 }
 `;
 
@@ -8814,7 +8814,7 @@ exports[`text functions > 'Trim' with 'autoNumber' 1`] = `
     },
   },
   "result": "1",
-  "sql": "TRIM(("t"."AutoNumber")::text)",
+  "sql": "TRIM((("t"."AutoNumber")::text)::text)",
 }
 `;
 
@@ -8833,7 +8833,7 @@ exports[`text functions > 'Trim' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "TRIM(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))",
+  "sql": "TRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)",
 }
 `;
 
@@ -8852,7 +8852,7 @@ exports[`text functions > 'Trim' with 'checkbox' 1`] = `
     },
   },
   "result": "true",
-  "sql": "TRIM(("t"."Checkbox")::text)",
+  "sql": "TRIM((("t"."Checkbox")::text)::text)",
 }
 `;
 
@@ -8881,7 +8881,7 @@ exports[`text functions > 'Trim' with 'conditionalLookup' 1`] = `
     },
   },
   "result": null,
-  "sql": "TRIM((
+  "sql": "TRIM(((
       SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
       FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -8900,7 +8900,7 @@ exports[`text functions > 'Trim' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-    ))",
+    ))::text)",
 }
 `;
 
@@ -8922,7 +8922,7 @@ exports[`text functions > 'Trim' with 'conditionalRollup' 1`] = `
     },
   },
   "result": null,
-  "sql": "TRIM(trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00')))",
+  "sql": "TRIM((trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00')))::text)",
 }
 `;
 
@@ -8941,11 +8941,11 @@ exports[`text functions > 'Trim' with 'createdBy' 1`] = `
     },
   },
   "result": "System",
-  "sql": "TRIM((CASE
+  "sql": "TRIM(((CASE
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END))",
+  END))::text)",
 }
 `;
 
@@ -8968,7 +8968,7 @@ exports[`text functions > 'Trim' with 'createdTime' 1`] = `
     },
   },
   "result": "0000/00/00 00:00",
-  "sql": "TRIM(TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))",
+  "sql": "TRIM((TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text)",
 }
 `;
 
@@ -8991,7 +8991,7 @@ exports[`text functions > 'Trim' with 'date' 1`] = `
     },
   },
   "result": "2024/02/03 00:00",
-  "sql": "TRIM(TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))",
+  "sql": "TRIM((TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text)",
 }
 `;
 
@@ -9013,7 +9013,7 @@ exports[`text functions > 'Trim' with 'formula' 1`] = `
     },
   },
   "result": "10.00",
-  "sql": "TRIM(trim(to_char((10)::numeric, '999999990D00')))",
+  "sql": "TRIM((trim(to_char((10)::numeric, '999999990D00')))::text)",
 }
 `;
 
@@ -9032,11 +9032,11 @@ exports[`text functions > 'Trim' with 'lastModifiedBy' 1`] = `
     },
   },
   "result": "System",
-  "sql": "TRIM((CASE
+  "sql": "TRIM(((CASE
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END))",
+  END))::text)",
 }
 `;
 
@@ -9059,7 +9059,7 @@ exports[`text functions > 'Trim' with 'lastModifiedTime' 1`] = `
     },
   },
   "result": "0000/00/00 00:00",
-  "sql": "TRIM(TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))",
+  "sql": "TRIM((TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text)",
 }
 `;
 
@@ -9078,7 +9078,7 @@ exports[`text functions > 'Trim' with 'link' 1`] = `
     },
   },
   "result": "10",
-  "sql": "TRIM(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))",
+  "sql": "TRIM((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))::text)",
 }
 `;
 
@@ -9097,7 +9097,7 @@ exports[`text functions > 'Trim' with 'longText' 1`] = `
     },
   },
   "result": "10",
-  "sql": "TRIM("t"."LongText")",
+  "sql": "TRIM(("t"."LongText")::text)",
 }
 `;
 
@@ -9123,7 +9123,7 @@ exports[`text functions > 'Trim' with 'lookup' 1`] = `
     },
   },
   "result": null,
-  "sql": "TRIM((
+  "sql": "TRIM(((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -9142,7 +9142,7 @@ exports[`text functions > 'Trim' with 'lookup' 1`] = `
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-    ))",
+    ))::text)",
 }
 `;
 
@@ -9161,10 +9161,10 @@ exports[`text functions > 'Trim' with 'multipleSelect' 1`] = `
     },
   },
   "result": "10, 20",
-  "sql": "TRIM((
+  "sql": "TRIM(((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    ))",
+    ))::text)",
 }
 `;
 
@@ -9186,7 +9186,7 @@ exports[`text functions > 'Trim' with 'number' 1`] = `
     },
   },
   "result": "10.00",
-  "sql": "TRIM(trim(to_char(("t"."Number")::numeric, '999999990D00')))",
+  "sql": "TRIM((trim(to_char(("t"."Number")::numeric, '999999990D00')))::text)",
 }
 `;
 
@@ -9205,7 +9205,7 @@ exports[`text functions > 'Trim' with 'rating' 1`] = `
     },
   },
   "result": "4",
-  "sql": "TRIM(("t"."Rating")::text)",
+  "sql": "TRIM((("t"."Rating")::text)::text)",
 }
 `;
 
@@ -9227,7 +9227,7 @@ exports[`text functions > 'Trim' with 'rollup' 1`] = `
     },
   },
   "result": null,
-  "sql": "TRIM(trim(to_char(("t"."RollupType")::numeric, '999999990D00')))",
+  "sql": "TRIM((trim(to_char(("t"."RollupType")::numeric, '999999990D00')))::text)",
 }
 `;
 
@@ -9246,7 +9246,7 @@ exports[`text functions > 'Trim' with 'singleLineText' 1`] = `
     },
   },
   "result": "10",
-  "sql": "TRIM("t"."SingleLineText")",
+  "sql": "TRIM(("t"."SingleLineText")::text)",
 }
 `;
 
@@ -9265,7 +9265,7 @@ exports[`text functions > 'Trim' with 'singleSelect' 1`] = `
     },
   },
   "result": "10",
-  "sql": "TRIM("t"."SingleSelect")",
+  "sql": "TRIM(("t"."SingleSelect")::text)",
 }
 `;
 
@@ -9284,10 +9284,10 @@ exports[`text functions > 'Trim' with 'user' 1`] = `
     },
   },
   "result": null,
-  "sql": "TRIM((
+  "sql": "TRIM(((
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    ))",
+    ))::text)",
 }
 `;
 

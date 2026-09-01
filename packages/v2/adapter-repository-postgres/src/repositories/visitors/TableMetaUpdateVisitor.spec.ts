@@ -16,17 +16,26 @@ import {
   RollupExpression,
   RollupFieldConfig,
   Table,
+  TableAddViewSpec,
   TableByNameSpec,
   TableId,
+  TableRemoveViewSpec,
+  TableRenameViewSpec,
+  TableUpdateViewDescriptionSpec,
+  TableUpdateViewLockedSpec,
   type ITableMapper,
   TableName,
+  TableProperties,
   TableRenameSpec,
+  TableUpdatePropertiesSpec,
   TableUpdateFieldDbFieldNameSpec,
   TableUpdateFieldHasErrorSpec,
   TableUpdateFieldNameSpec,
   UpdateUserMultiplicitySpec,
   UserMultiplicity,
   ViewColumnMeta,
+  ViewName,
+  ViewOrder,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import {
@@ -176,6 +185,248 @@ const compileStatements = (
 ): CompiledQuery[] => statements.map((statement) => statement.compile(db));
 
 describe('TableMetaUpdateVisitor', () => {
+  it('inserts a view with max-order allocation and version tracking', () => {
+    const builder = Table.builder()
+      .withBaseId(BaseId.create(`bse${'v'.repeat(16)}`)._unsafeUnwrap())
+      .withId(TableId.create(`tbl${'v'.repeat(16)}`)._unsafeUnwrap())
+      .withName(TableName.create('Views')._unsafeUnwrap());
+    builder.field().singleLineText().withName(FieldName.create('Title')._unsafeUnwrap()).done();
+    builder.view().defaultGrid().done();
+    const originalTable = builder.build()._unsafeUnwrap();
+    const sourceFilter = {
+      conjunction: 'and',
+      filterSet: [
+        {
+          fieldId: originalTable.primaryFieldId().toString(),
+          operator: 'IN',
+          isSymbol: true,
+          value: 'alpha',
+        },
+      ],
+    };
+    const createResult = originalTable
+      .createView({
+        name: 'Planning',
+        type: 'grid',
+        filter: {
+          fieldId: originalTable.primaryFieldId().toString(),
+          operator: 'isAnyOf',
+          value: ['alpha'],
+        },
+        sourceFilter,
+      })
+      ._unsafeUnwrap();
+    const { view } = createResult;
+    const table = createResult.updateResult.table;
+    const { db, visitor } = createVisitor(table);
+
+    const result = visitor.visitTableAddView(TableAddViewSpec.create(view));
+
+    expect(result.isOk()).toBe(true);
+    const compiled = compileStatements(db, result._unsafeUnwrap())[0]!;
+    expect(compiled.sql).toContain('insert into "view"');
+    expect(compiled.sql).toContain('on conflict ("id") do update');
+    expect(compiled.sql).toContain('"deleted_time" = $');
+    expect(compiled.sql).toContain('"version" = coalesce(view.version, 0) + 1');
+    expect(compiled.sql).toContain('"version"');
+    // Order is allocated from the aggregate's live views (the fixture's
+    // default grid carries no persisted order yet → max(-1) + 1 = 0) and is
+    // bound as a plain parameter, not a subquery.
+    expect(compiled.parameters).toContain(0);
+    expect(compiled.parameters).toContain(
+      JSON.stringify(view.queryDefaults()._unsafeUnwrap().sourceFilter())
+    );
+    expect(visitor.viewVersionTouchOrder()).toEqual([view.id().toString()]);
+
+    // Persistence state is stamped back onto the aggregate view only after the
+    // statements execute (the repository triggers this), never at visit time —
+    // the optimistic view-version check must keep seeing the view versionless.
+    expect(view.version().isErr()).toBe(true);
+    expect(view.auditMetadata().isErr()).toBe(true);
+    visitor.applyCreatedViewPersistenceStamps();
+    expect(view.order()._unsafeUnwrap().toNumber()).toBe(0);
+    expect(view.version()._unsafeUnwrap().toNumber()).toBe(1);
+    expect(view.auditMetadata()._unsafeUnwrap().toDto()).toEqual({
+      createdBy: 'system',
+      createdTime: '2026-03-30T00:00:00.000Z',
+      lastModifiedBy: 'system',
+      lastModifiedTime: '2026-03-30T00:00:00.000Z',
+    });
+  });
+
+  it('serializes only the added View when inserting', () => {
+    const builder = Table.builder()
+      .withBaseId(BaseId.create(`bse${'w'.repeat(16)}`)._unsafeUnwrap())
+      .withId(TableId.create(`tbl${'w'.repeat(16)}`)._unsafeUnwrap())
+      .withName(TableName.create('Views')._unsafeUnwrap());
+    builder.field().singleLineText().withName(FieldName.create('Title')._unsafeUnwrap()).done();
+    builder.view().defaultGrid().done();
+    const originalTable = builder.build()._unsafeUnwrap();
+    const createResult = originalTable
+      .createView({ name: 'Planning', type: 'grid' })
+      ._unsafeUnwrap();
+    const { view, updateResult } = createResult;
+    const db = createTestDb();
+    class ViewOnlyMapper extends DefaultTableMapper {
+      override toDTO(): never {
+        throw new Error('visitTableAddView must not serialize the table');
+      }
+    }
+    const visitor = new TableMetaUpdateVisitor({
+      db,
+      table: updateResult.table,
+      tableMapper: new ViewOnlyMapper(),
+      actorId: 'system',
+      now: new Date('2026-03-30T00:00:00.000Z'),
+      where: (eb) => eb.eb('id', '=', updateResult.table.id().toString()),
+    });
+
+    const result = visitor.visitTableAddView(TableAddViewSpec.create(view));
+
+    expect(result.isOk()).toBe(true);
+    const compiled = compileStatements(db, result._unsafeUnwrap())[0]!;
+    expect(compiled.sql).toContain('insert into "view"');
+    expect(compiled.parameters).toContain(view.id().toString());
+    expect(compiled.parameters).toContain(0);
+  });
+
+  it('allocates the next order from sibling ViewOrder values', () => {
+    const builder = Table.builder()
+      .withBaseId(BaseId.create(`bse${'x'.repeat(16)}`)._unsafeUnwrap())
+      .withId(TableId.create(`tbl${'x'.repeat(16)}`)._unsafeUnwrap())
+      .withName(TableName.create('Views')._unsafeUnwrap());
+    builder.field().singleLineText().withName(FieldName.create('Title')._unsafeUnwrap()).done();
+    builder.view().defaultGrid().done();
+    const originalTable = builder.build()._unsafeUnwrap();
+    originalTable.views()[0]!.setOrder(ViewOrder.rehydrate(3)._unsafeUnwrap())._unsafeUnwrap();
+    const createResult = originalTable
+      .createView({ name: 'Planning', type: 'grid' })
+      ._unsafeUnwrap();
+    const { view, updateResult } = createResult;
+    const { db, visitor } = createVisitor(updateResult.table);
+
+    const result = visitor.visitTableAddView(TableAddViewSpec.create(view));
+
+    expect(result.isOk()).toBe(true);
+    expect(compileStatements(db, result._unsafeUnwrap())[0]!.parameters).toContain(4);
+  });
+
+  it('soft-deletes only the View owned by the Table aggregate', () => {
+    const fixture = createTableFixture();
+    const { db, visitor } = createVisitor(fixture.table);
+
+    const result = visitor.visitTableRemoveView(TableRemoveViewSpec.create(fixture.view));
+
+    expect(result.isOk()).toBe(true);
+    const compiled = compileStatements(db, result._unsafeUnwrap())[0]!;
+    expect(compiled.sql).toContain('update "view"');
+    expect(compiled.sql).toContain('"deleted_time" = $1');
+    expect(compiled.sql).toContain('"id" =');
+    expect(compiled.sql).toContain('"table_id" =');
+    expect(compiled.sql).toContain('"deleted_time" is null');
+    expect(compiled.parameters).toContain(fixture.view.id().toString());
+    expect(compiled.parameters).toContain(fixture.table.id().toString());
+  });
+
+  it('renames only the active View owned by the Table and tracks its version', () => {
+    const fixture = createTableFixture();
+    const { db, visitor } = createVisitor(fixture.table);
+    const spec = TableRenameViewSpec.create(
+      fixture.view.id(),
+      fixture.view.name(),
+      ViewName.create('Renamed view')._unsafeUnwrap()
+    );
+
+    const result = visitor.visitTableRenameView(spec);
+
+    expect(result.isOk()).toBe(true);
+    const compiled = compileStatements(db, result._unsafeUnwrap())[0]!;
+    expect(compiled.sql).toContain('update "view"');
+    expect(compiled.sql).toContain('"name" = $1');
+    expect(compiled.sql).toContain('"version" = coalesce(version, 0) + 1');
+    expect(compiled.sql).toContain('"last_modified_time"');
+    expect(compiled.sql).toContain('"last_modified_by"');
+    expect(compiled.sql).toContain('"table_id" =');
+    expect(compiled.sql).toContain('"deleted_time" is null');
+    expect(compiled.parameters).toContain('Renamed view');
+    expect(compiled.parameters).toContain(fixture.view.id().toString());
+    expect(compiled.parameters).toContain(fixture.table.id().toString());
+    expect(visitor.viewVersionTouchOrder()).toEqual([fixture.view.id().toString()]);
+  });
+
+  it('updates description only for the active owned View and tracks its version', () => {
+    const fixture = createTableFixture();
+    const { db, visitor } = createVisitor(fixture.table);
+    const spec = TableUpdateViewDescriptionSpec.create(
+      fixture.view.id(),
+      undefined,
+      'Updated description'
+    );
+
+    const result = visitor.visitTableUpdateViewDescription(spec);
+
+    expect(result.isOk()).toBe(true);
+    const compiled = compileStatements(db, result._unsafeUnwrap())[0]!;
+    expect(compiled.sql).toContain('update "view"');
+    expect(compiled.sql).toContain('"description" = $1');
+    expect(compiled.sql).toContain('"version" = coalesce(version, 0) + 1');
+    expect(compiled.sql).toContain('"last_modified_time"');
+    expect(compiled.sql).toContain('"last_modified_by"');
+    expect(compiled.sql).toContain('"table_id" =');
+    expect(compiled.sql).toContain('"deleted_time" is null');
+    expect(compiled.parameters).toContain('Updated description');
+    expect(compiled.parameters).toContain(fixture.view.id().toString());
+    expect(compiled.parameters).toContain(fixture.table.id().toString());
+    expect(visitor.viewVersionTouchOrder()).toEqual([fixture.view.id().toString()]);
+  });
+
+  it('persists an omitted View description as null for snapshot replay', () => {
+    const fixture = createTableFixture();
+    const { db, visitor } = createVisitor(fixture.table);
+    const spec = TableUpdateViewDescriptionSpec.create(
+      fixture.view.id(),
+      'Temporary description',
+      undefined
+    );
+
+    const result = visitor.visitTableUpdateViewDescription(spec);
+
+    expect(result.isOk()).toBe(true);
+    const compiled = compileStatements(db, result._unsafeUnwrap())[0]!;
+    expect(compiled.sql).toContain('"description" = $1');
+    expect(compiled.parameters[0]).toBeNull();
+    expect(visitor.viewVersionTouchOrder()).toEqual([fixture.view.id().toString()]);
+  });
+
+  it.each([
+    ['locked', true, true],
+    ['unlocked', false, false],
+    ['omitted', undefined, null],
+  ] as const)(
+    'updates the %s state only for the active owned View and tracks its version',
+    (_label, nextIsLocked, expectedValue) => {
+      const fixture = createTableFixture();
+      const { db, visitor } = createVisitor(fixture.table);
+      const spec = TableUpdateViewLockedSpec.create(fixture.view.id(), undefined, nextIsLocked);
+
+      const result = visitor.visitTableUpdateViewLocked(spec);
+
+      expect(result.isOk()).toBe(true);
+      const compiled = compileStatements(db, result._unsafeUnwrap())[0]!;
+      expect(compiled.sql).toContain('update "view"');
+      expect(compiled.sql).toContain('"is_locked" = $1');
+      expect(compiled.sql).toContain('"version" = coalesce(version, 0) + 1');
+      expect(compiled.sql).toContain('"last_modified_time"');
+      expect(compiled.sql).toContain('"last_modified_by"');
+      expect(compiled.sql).toContain('"table_id" =');
+      expect(compiled.sql).toContain('"deleted_time" is null');
+      expect(compiled.parameters).toContain(expectedValue);
+      expect(compiled.parameters).toContain(fixture.view.id().toString());
+      expect(compiled.parameters).toContain(fixture.table.id().toString());
+      expect(visitor.viewVersionTouchOrder()).toEqual([fixture.view.id().toString()]);
+    }
+  );
+
   it('builds table metadata updates and merges collected statements', () => {
     const fixture = createTableFixture();
     const { db, visitor } = createVisitor(fixture.table);
@@ -197,6 +448,30 @@ describe('TableMetaUpdateVisitor', () => {
     expect(sqls[0]).toContain('"name" = $1');
     expect(sqls[0]).toContain('where "id" = $4');
     expect(sqls[1]).toContain('update "table_meta"');
+  });
+
+  it('builds a database update for table description and icon', () => {
+    const fixture = createTableFixture();
+    const { db, visitor } = createVisitor(fixture.table);
+    const previousProperties = TableProperties.empty();
+    const nextProperties = TableProperties.create({
+      description: 'Projects tracked by the team',
+      icon: '📊',
+    })._unsafeUnwrap();
+    const spec = TableUpdatePropertiesSpec.create(previousProperties, nextProperties, {
+      description: 'Projects tracked by the team',
+      icon: '📊',
+    });
+
+    const result = visitor.visitTableUpdateProperties(spec);
+
+    expect(result.isOk()).toBe(true);
+    const compiled = compileStatements(db, result._unsafeUnwrap())[0]!;
+    expect(compiled.sql).toContain('update "table_meta"');
+    expect(compiled.sql).toContain('"description" = $1');
+    expect(compiled.sql).toContain('"icon" = $2');
+    expect(compiled.parameters).toContain('Projects tracked by the team');
+    expect(compiled.parameters).toContain('📊');
   });
 
   it('builds add, addMany, duplicate and remove field statements', () => {
@@ -424,6 +699,7 @@ describe('TableMetaUpdateVisitor', () => {
         {
           viewId: view.id(),
           queryDefaults: {
+            sourceFilter: () => undefined,
             toDto: () => ({
               filter: {
                 conjunction: 'and',
@@ -486,6 +762,105 @@ describe('TableMetaUpdateVisitor', () => {
       JSON.stringify([{ fieldId: titleField.id().toString() }])
     );
     expect(visitor.viewVersionTouchOrder()).toEqual([view.id().toString(), view.id().toString()]);
+  });
+
+  it('clears View options when a column-meta snapshot explicitly removes them', () => {
+    const fixture = createTableFixture();
+    const { db, visitor } = createVisitor(fixture.table);
+    const { view, titleField } = fixture;
+    const columnMeta = ViewColumnMeta.create({
+      [titleField.id().toString()]: { order: 0 },
+    })._unsafeUnwrap();
+
+    const result = visitor.visitTableUpdateViewColumnMeta({
+      updates: () => [
+        {
+          viewId: view.id(),
+          fieldId: titleField.id(),
+          columnMeta,
+          previousOptions: { rowHeight: 2 },
+          nextOptions: undefined,
+          optionsChanged: true,
+        },
+      ],
+    } as never);
+
+    expect(result.isOk()).toBe(true);
+    const compiled = compileStatements(db, result._unsafeUnwrap())[0]!;
+    expect(compiled.sql).toContain('"column_meta" = $1');
+    expect(compiled.sql).toContain('"options" = $2');
+    expect(compiled.parameters[1]).toBeNull();
+    expect(visitor.viewVersionTouchOrder()).toEqual([view.id().toString()]);
+  });
+
+  it('serializes a focused View options update and scopes it to the Table aggregate', () => {
+    const fixture = createTableFixture();
+    const { db, visitor } = createVisitor(fixture.table);
+    const { view } = fixture;
+    const nextOptions = { rowHeight: 'tall', fieldNameDisplayLines: 2 };
+
+    const result = visitor.visitTableUpdateViewOptions({
+      update: () => ({
+        viewId: view.id(),
+        previousOptions: { rowHeight: 'short' },
+        nextOptions,
+      }),
+    } as never);
+
+    expect(result.isOk()).toBe(true);
+    const compiled = compileStatements(db, result._unsafeUnwrap())[0]!;
+    expect(compiled.sql).toContain('update "view"');
+    expect(compiled.sql).toContain('"table_id" =');
+    expect(compiled.sql).toContain('"deleted_time" is null');
+    expect(compiled.parameters).toContain(JSON.stringify(nextOptions));
+    expect(compiled.parameters).toContain(fixture.table.id().toString());
+    expect(visitor.viewVersionTouchOrder()).toEqual([view.id().toString()]);
+  });
+
+  it('serializes focused View share metadata and scopes it to the Table aggregate', () => {
+    const fixture = createTableFixture();
+    const { db, visitor } = createVisitor(fixture.table);
+    const { view } = fixture;
+    const nextShareMeta = { allowCopy: true, password: 'secret' };
+
+    const result = visitor.visitTableUpdateViewShareMeta({
+      viewId: () => view.id(),
+      previousShareMeta: () => undefined,
+      nextShareMeta: () => nextShareMeta,
+    } as never);
+
+    expect(result.isOk()).toBe(true);
+    const compiled = compileStatements(db, result._unsafeUnwrap())[0]!;
+    expect(compiled.sql).toContain('update "view"');
+    expect(compiled.sql).toContain('"share_meta" =');
+    expect(compiled.sql).toContain('"table_id" =');
+    expect(compiled.sql).toContain('"deleted_time" is null');
+    expect(compiled.parameters).toContain(JSON.stringify(nextShareMeta));
+    expect(compiled.parameters).toContain(fixture.table.id().toString());
+    expect(visitor.viewVersionTouchOrder()).toEqual([view.id().toString()]);
+  });
+
+  it('serializes a focused View share ID rotation and scopes it to the Table aggregate', () => {
+    const fixture = createTableFixture();
+    const { db, visitor } = createVisitor(fixture.table);
+    const { view } = fixture;
+    const nextShareId = `shr${'b'.repeat(16)}`;
+
+    const result = visitor.visitTableUpdateViewShareId({
+      viewId: () => view.id(),
+      previousShareId: () => `shr${'a'.repeat(16)}`,
+      nextShareId: () => nextShareId,
+    } as never);
+
+    expect(result.isOk()).toBe(true);
+    const compiled = compileStatements(db, result._unsafeUnwrap())[0]!;
+    expect(compiled.sql).toContain('update "view"');
+    expect(compiled.sql).toContain('"share_id" =');
+    expect(compiled.sql).toContain('"table_id" =');
+    expect(compiled.sql).toContain('"deleted_time" is null');
+    expect(compiled.parameters).toContain(nextShareId);
+    expect(compiled.parameters).toContain(fixture.table.id().toString());
+    expect(visitor.viewVersionTouchOrder()).toEqual([view.id().toString()]);
   });
 
   it('covers option-based and storage-based wrapper updates', () => {
@@ -580,7 +955,8 @@ describe('TableMetaUpdateVisitor', () => {
     expect(optionOnly.isOk()).toBe(true);
     expect(storageUpdate.isOk()).toBe(true);
     expect(compileStatements(db, optionOnly._unsafeUnwrap())[0]?.sql).toContain('"options" = $1');
-    expect(compileStatements(db, storageUpdate._unsafeUnwrap())[0]?.sql).toContain('"meta" = $2');
+    expect(compileStatements(db, storageUpdate._unsafeUnwrap())[0]?.sql).toContain('"type" = $1');
+    expect(compileStatements(db, storageUpdate._unsafeUnwrap())[0]?.sql).toContain('"meta" = $3');
   });
 
   it('persists derived user multiplicity metadata when user options change', () => {
@@ -597,7 +973,8 @@ describe('TableMetaUpdateVisitor', () => {
 
     expect(result.isOk()).toBe(true);
     const compiled = compileStatements(db, result._unsafeUnwrap())[0]!;
-    expect(compiled.sql).toContain('"options" = $1');
+    expect(compiled.sql).toContain('"type" = $1');
+    expect(compiled.sql).toContain('"options" = $2');
     expect(compiled.sql).toContain('"is_multiple_cell_value" =');
     expect(compiled.parameters).toContain(true);
   });
@@ -627,6 +1004,12 @@ describe('TableMetaUpdateVisitor', () => {
     const unsupported = [
       ['visitTableByBaseId', 'TableByBaseIdSpec is not supported for table updates'],
       ['visitTableById', 'TableByIdSpec is not supported for table updates'],
+      ['visitTableByViewId', 'TableByViewIdSpec is not supported for table updates'],
+      ['visitTableWithViewIds', 'TableWithViewIdsSpec is not supported for table updates'],
+      [
+        'visitTableWithPrimaryField',
+        'TableWithPrimaryFieldSpec is not supported for table updates',
+      ],
       [
         'visitTableByIncomingReferenceToTable',
         'TableByIncomingReferenceToTableSpec is not supported for table updates',

@@ -33,7 +33,11 @@ import {
   type SingleSelectField,
   type UserField,
 } from '@teable/v2-core';
-import { formatNumberStringSql } from '@teable/v2-formula-sql-pg';
+import {
+  formatNumberStringSql,
+  Pg16TypeValidationStrategy,
+  type IPgTypeValidationStrategy,
+} from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { CompiledQuery, Kysely } from 'kysely';
 import { sql } from 'kysely';
@@ -56,6 +60,7 @@ export type FieldConversionParams = {
   fieldId?: string;
   tableLocationsById?: ReadonlyMap<string, TableIdentifier>;
   fieldsById?: ReadonlyMap<string, FieldConversionFieldMetadata>;
+  typeValidationStrategy?: IPgTypeValidationStrategy;
 };
 
 const createCompiledStatementBuilder = (
@@ -70,8 +75,66 @@ const quoteIdent = (value: string): string => `"${value.replace(/"/g, '""')}"`;
 
 const quoteLiteral = (value: string): string => `'${value.replace(/'/g, "''")}'`;
 
+const pgPhysicalColumnExistsSql = (schema: string, tableName: string, columnName: string): string =>
+  `EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_attribute AS a
+    JOIN pg_catalog.pg_class AS c ON c.oid = a.attrelid
+    JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+    WHERE n.nspname = ${quoteLiteral(schema)}
+      AND c.relname = ${quoteLiteral(tableName)}
+      AND a.attname = ${quoteLiteral(columnName)}
+      AND a.attnum > 0
+      AND NOT a.attisdropped
+  )`;
+
+const renameColumnIfExistsSql = (
+  schema: string,
+  tableName: string,
+  fromColumn: string,
+  toColumn: string
+): string => `DO $v2_rename_col_if_exists$
+BEGIN
+  IF ${pgPhysicalColumnExistsSql(schema, tableName, fromColumn)} THEN
+    EXECUTE format(
+      'ALTER TABLE %I.%I RENAME COLUMN %I TO %I',
+      ${quoteLiteral(schema)},
+      ${quoteLiteral(tableName)},
+      ${quoteLiteral(fromColumn)},
+      ${quoteLiteral(toColumn)}
+    );
+  END IF;
+END
+$v2_rename_col_if_exists$;`;
+
+const skipWhenPhysicalColumnMissingSql = (
+  schema: string,
+  tableName: string,
+  columnName: string
+): string => `  IF NOT ${pgPhysicalColumnExistsSql(schema, tableName, columnName)} THEN
+    RETURN;
+  END IF;
+`;
+
 const ISO_DATE_OR_DATETIME_SQL_REGEX =
   '^[0-9]{4}-[0-9]{2}-[0-9]{2}([T ][0-9]{2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]+)?)?([Zz]|[+-][0-9]{2}(:?[0-9]{2})?)?)?$';
+
+const buildRatingConversionExpression = (valueExpression: string, max: number): string =>
+  `CASE WHEN (${valueExpression}) IS NULL OR ROUND((${valueExpression})::double precision) < 1 THEN NULL ELSE LEAST(ROUND((${valueExpression})::double precision), ${max}) END`;
+
+const DEFAULT_TYPE_VALIDATION_STRATEGY = new Pg16TypeValidationStrategy();
+
+const asTextSql = (valueSql: string): string => `(${valueSql})::text`;
+
+const safeTimestampCastSql = (
+  valueSql: string,
+  strategy: IPgTypeValidationStrategy = DEFAULT_TYPE_VALIDATION_STRATEGY
+): string => {
+  const textSql = asTextSql(valueSql);
+  const isIsoDate = `${textSql} ~ ${quoteLiteral(ISO_DATE_OR_DATETIME_SQL_REGEX)}`;
+  const isValidTimestamp = strategy.isValidForType(textSql, 'timestamptz');
+  return `CASE WHEN ${isIsoDate} AND ${isValidTimestamp} THEN (${valueSql})::timestamptz ELSE NULL END`;
+};
 
 const SELECT_CHOICE_NAME_MAX_LENGTH =
   DEFAULT_TABLE_DATA_SAFETY_LIMITS.fieldOptions.maxSelectChoiceNameLength;
@@ -976,7 +1039,7 @@ const buildFormulaMigrationStatements = (
       tmp,
       whereNotNull,
       cellValueType,
-      newType,
+      newField,
       oldField,
       params
     );
@@ -1063,8 +1126,14 @@ const buildLookupToBasicFieldMigrationStatements = (
     const dropStatements = yield* oldField.accept(deleteVisitor);
     const createStatements = yield* newField.accept(createVisitor);
 
-    const isMultipleResult = oldField.isMultipleCellValue();
-    const sourceIsMultiple = isMultipleResult.isOk() ? isMultipleResult.value.toBoolean() : false;
+    // An explicit is_multiple_cell_value must win over storage-derived inference:
+    // single-valued lookups of JSON-object fields (user/link/attachment/...) persist
+    // db_field_type = 'JSON' with override=false, and the domain multiplicity already
+    // falls back to persisted-storage inference when the override is unset.
+    const sourceIsMultiple = oldField
+      .isMultipleCellValue()
+      .map((multiplicity) => multiplicity.toBoolean())
+      .unwrapOr(false);
     const targetIsMultiple = newField.type().toString() === 'multipleSelect';
     const renameSql = `ALTER TABLE ${tbl} RENAME COLUMN ${quoteIdent(dbFieldName)} TO ${tmp}`;
     const arrayValuesExpression = `CASE WHEN ${tmp} IS NOT NULL AND jsonb_typeof(${tmp}::jsonb) = 'array' THEN ${tmp}::jsonb ELSE '[]'::jsonb END`;
@@ -1087,12 +1156,12 @@ const buildLookupToBasicFieldMigrationStatements = (
           return numericValueExpression;
         case 'rating': {
           const max = (newField as RatingField).ratingMax().toNumber();
-          return `CASE WHEN (${firstValueExpression}) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN GREATEST(0, LEAST(FLOOR((${firstValueExpression})::double precision), ${max})) ELSE NULL END`;
+          return `CASE WHEN (${firstValueExpression}) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN ${buildRatingConversionExpression(firstValueExpression, max)} ELSE NULL END`;
         }
         case 'checkbox':
           return `CASE WHEN lower((${firstValueExpression})::text) IN ('true', 't', '1', 'yes', 'y') THEN TRUE WHEN lower((${firstValueExpression})::text) IN ('false', 'f', '0', 'no', 'n') THEN FALSE WHEN (${firstValueExpression}) IS NOT NULL AND (${firstValueExpression}) <> '' THEN TRUE ELSE NULL END`;
         case 'date':
-          return `CASE WHEN (${firstValueExpression}) ~ ${quoteLiteral(ISO_DATE_OR_DATETIME_SQL_REGEX)} THEN (${firstValueExpression})::timestamptz ELSE NULL END`;
+          return safeTimestampCastSql(firstValueExpression, params.typeValidationStrategy);
         case 'singleSelect':
           return firstValueExpression;
         case 'multipleSelect':
@@ -1134,10 +1203,11 @@ function buildFormulaMigrationSql(
   tmp: string,
   whereNotNull: string,
   cellValueType: CellValueType | undefined,
-  newType: string,
+  newField: Field,
   oldField: FormulaField,
-  _params: FieldConversionParams
+  params: FieldConversionParams
 ): string | null {
+  const newType = newField.type().toString();
   const isDateTime = cellValueType?.equals(CellValueType.dateTime());
   const isNumber = cellValueType?.equals(CellValueType.number());
   const isString = cellValueType?.equals(CellValueType.string());
@@ -1165,7 +1235,7 @@ function buildFormulaMigrationSql(
     }
     if (isString) {
       // Try to parse string as number; non-numeric → NULL
-      return `UPDATE ${tbl} SET ${dst} = CASE WHEN ${tmp} ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN ${tmp}::double precision ELSE NULL END ${whereNotNull}`;
+      return `UPDATE ${tbl} SET ${dst} = CASE WHEN ${asTextSql(tmp)} ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN ${tmp}::double precision ELSE NULL END ${whereNotNull}`;
     }
     // dateTime, boolean → number: incompatible (v1 returns null)
     return null;
@@ -1174,8 +1244,8 @@ function buildFormulaMigrationSql(
   // --- Target: rating ---
   if (newType === 'rating') {
     if (isNumber) {
-      // Clamp number to valid rating range [1, max]
-      return `UPDATE ${tbl} SET ${dst} = CASE WHEN ${tmp} >= 1 THEN LEAST(${tmp}, ${dst}) ELSE NULL END ${whereNotNull}`;
+      const max = (newField as RatingField).ratingMax().toNumber();
+      return `UPDATE ${tbl} SET ${dst} = ${buildRatingConversionExpression(tmp, max)} ${whereNotNull}`;
     }
     return null;
   }
@@ -1188,7 +1258,7 @@ function buildFormulaMigrationSql(
     }
     if (isString) {
       // Try to parse string as timestamp
-      return `UPDATE ${tbl} SET ${dst} = CASE WHEN ${tmp} ~ ${quoteLiteral(ISO_DATE_OR_DATETIME_SQL_REGEX)} THEN ${tmp}::timestamptz ELSE NULL END ${whereNotNull}`;
+      return `UPDATE ${tbl} SET ${dst} = ${safeTimestampCastSql(tmp, params.typeValidationStrategy)} ${whereNotNull}`;
     }
     // number, boolean → date: incompatible
     return null;
@@ -1263,7 +1333,12 @@ const buildLinkToTextMigrationStatements = (
     const dropStatements = yield* oldField.accept(deleteVisitor);
     const createStatements = yield* newField.accept(createVisitor);
 
-    const renameSql = `ALTER TABLE ${quoteIdent(sourceSchema)}.${quoteIdent(sourceTableName)} RENAME COLUMN ${quoteIdent(dbFieldName)} TO ${quoteIdent(tmpColumnName)}`;
+    const renameSql = renameColumnIfExistsSql(
+      sourceSchema,
+      sourceTableName,
+      dbFieldName,
+      tmpColumnName
+    );
     const buildMapTextSql = (metadata: LinkMappingMetadata): string | null => {
       if (!metadata.lookupColumnName || !metadata.foreignTable) {
         return null;
@@ -1275,6 +1350,7 @@ DECLARE
   lookup_col text := ${quoteLiteral(metadata.lookupColumnName)};
 ${buildTableIdentifierDeclarations(metadata.foreignTable)}
 BEGIN
+${skipWhenPhysicalColumnMissingSql(sourceSchema, sourceTableName, tmpColumnName)}
   IF lookup_col IS NULL OR foreign_schema IS NULL OR foreign_name IS NULL THEN
     RETURN;
   END IF;
@@ -1369,7 +1445,12 @@ const buildLinkToSelectMigrationStatements = (
     const dropStatements = yield* oldField.accept(deleteVisitor);
     const createStatements = yield* newField.accept(createVisitor);
 
-    const renameSql = `ALTER TABLE ${quoteIdent(sourceSchema)}.${quoteIdent(sourceTableName)} RENAME COLUMN ${quoteIdent(dbFieldName)} TO ${quoteIdent(tmpColumnName)}`;
+    const renameSql = renameColumnIfExistsSql(
+      sourceSchema,
+      sourceTableName,
+      dbFieldName,
+      tmpColumnName
+    );
     const buildMapSelectSql = (metadata: LinkMappingMetadata): string | null => {
       if (!metadata.lookupColumnName || !metadata.foreignTable) {
         return null;
@@ -1381,6 +1462,7 @@ DECLARE
   lookup_col text := ${quoteLiteral(metadata.lookupColumnName)};
 ${buildTableIdentifierDeclarations(metadata.foreignTable)}
 BEGIN
+${skipWhenPhysicalColumnMissingSql(sourceSchema, sourceTableName, tmpColumnName)}
   IF lookup_col IS NULL OR foreign_schema IS NULL OR foreign_name IS NULL THEN
     RETURN;
   END IF;
@@ -2028,7 +2110,7 @@ class TextFieldConversionVisitor extends BaseFieldConversionVisitor {
     return ok([
       this.alterColumnTypeUsing(
         'double precision',
-        `CASE WHEN ${col} ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN ${col}::double precision ELSE NULL END`
+        `CASE WHEN ${asTextSql(col)} ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN ${col}::double precision ELSE NULL END`
       ),
     ]);
   }
@@ -2036,14 +2118,14 @@ class TextFieldConversionVisitor extends BaseFieldConversionVisitor {
   visitRatingField(
     field: RatingField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    // Text → Rating: parse as number, floor to integer, clamp to [0, max]
+    // Text → Rating: parse, round, clamp to max, and map values below 1 to NULL
     const { dbFieldName } = this.params;
     const col = `"${dbFieldName}"`;
     const max = field.ratingMax().toNumber();
     return ok([
       this.alterColumnTypeUsing(
         'double precision',
-        `CASE WHEN ${col} ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN GREATEST(0, LEAST(FLOOR(${col}::double precision), ${max})) ELSE NULL END`
+        `CASE WHEN ${asTextSql(col)} ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN ${buildRatingConversionExpression(col, max)} ELSE NULL END`
       ),
     ]);
   }
@@ -2071,7 +2153,7 @@ class TextFieldConversionVisitor extends BaseFieldConversionVisitor {
     return ok([
       this.alterColumnTypeUsing(
         'timestamptz',
-        `CASE WHEN ${col} ~ ${quoteLiteral(ISO_DATE_OR_DATETIME_SQL_REGEX)} THEN ${col}::timestamptz ELSE NULL END`
+        safeTimestampCastSql(col, this.params.typeValidationStrategy)
       ),
     ]);
   }
@@ -2284,7 +2366,7 @@ class NumberFieldConversionVisitor extends BaseFieldConversionVisitor {
   visitRatingField(
     field: RatingField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    // Number → Rating: floor decimals to integer and clamp to [0, max]
+    // Number → Rating: round, clamp to max, and map values below 1 to NULL
     const { db, dbFieldName } = this.params;
     const fullTableName = this.fullTableName;
     const max = field.ratingMax().toNumber();
@@ -2292,7 +2374,7 @@ class NumberFieldConversionVisitor extends BaseFieldConversionVisitor {
       {
         scope: 'data',
         compile: () =>
-          sql`UPDATE ${sql.raw(fullTableName)} SET "${sql.raw(dbFieldName)}" = GREATEST(0, LEAST(FLOOR("${sql.raw(dbFieldName)}"), ${sql.val(max)}))`.compile(
+          sql`UPDATE ${sql.raw(fullTableName)} SET "${sql.raw(dbFieldName)}" = ${sql.raw(buildRatingConversionExpression(quoteIdent(dbFieldName), max))}`.compile(
             db
           ),
       },

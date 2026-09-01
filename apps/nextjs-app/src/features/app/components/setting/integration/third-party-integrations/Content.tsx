@@ -34,7 +34,7 @@ export const ThirdPartyIntegrationsContent = () => {
       </IntegrationContainer>
       <div
         className={cn(
-          'absolute left-0 top-0 w-full h-full flex-1 bg-background translate-x-full transition-transform duration-300',
+          'absolute start-0 top-0 w-full h-full flex-1 bg-background translate-x-full rtl:-translate-x-full transition-transform duration-300',
           {
             'translate-x-0': detail,
           }

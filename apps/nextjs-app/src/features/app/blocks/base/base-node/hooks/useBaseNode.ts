@@ -1,12 +1,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getBaseNodeChannel } from '@teable/core';
 import type { IBaseNodeTreeVo, IBaseNodeVo } from '@teable/openapi';
-import { BaseNodeResourceType, getBaseNodeTree } from '@teable/openapi';
+import { getBaseNodeTree } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useConnection } from '@teable/sdk/hooks';
 import { isEmpty, get } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { buildTreeItems, hasChildrenNode } from './helper';
+import { buildTreeItems, filterAutoHiddenFolders } from './helper';
 
 export type TreeItemData = Omit<IBaseNodeVo, 'children'> & { children: string[] };
 
@@ -23,7 +23,9 @@ export const useBaseNode = (baseId: string, isRestrictedAuthority?: boolean) => 
       ReactQueryKeys.baseNodeTree(baseId)
     );
     if (cachedData?.nodes && cachedData.nodes.length > 0) {
-      return buildTreeItems(cachedData.nodes);
+      return buildTreeItems(
+        isRestrictedAuthority ? filterAutoHiddenFolders(cachedData.nodes) : cachedData.nodes
+      );
     }
     return {};
   });
@@ -52,18 +54,7 @@ export const useBaseNode = (baseId: string, isRestrictedAuthority?: boolean) => 
 
   useEffect(() => {
     if (nodes.length > 0) {
-      setTreeItems(
-        buildTreeItems(
-          isRestrictedAuthority
-            ? nodes.filter((node) => {
-                if (node.resourceType === BaseNodeResourceType.Folder) {
-                  return hasChildrenNode(node.id, nodes);
-                }
-                return true;
-              })
-            : nodes
-        )
-      );
+      setTreeItems(buildTreeItems(isRestrictedAuthority ? filterAutoHiddenFolders(nodes) : nodes));
     } else {
       setTreeItems({});
     }

@@ -3,6 +3,7 @@ import { Component, Database, X } from '@teable/icons';
 import type { IGetBaseVo, IGetSpaceVo } from '@teable/openapi';
 import { getBaseAll, getSpaceList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { useContentDir } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
 import { isEmpty } from 'lodash';
 import { useTranslation } from 'next-i18next';
@@ -22,6 +23,7 @@ export const AccessList = (props: IAccessListProps) => {
   const { baseIds, spaceIds, hasFullAccess, onDeleteBaseId, onDeleteSpaceId, onDeleteFullAccess } =
     props;
   const { t } = useTranslation('token');
+  const contentDir = useContentDir();
 
   const { data: spaceList } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
@@ -95,10 +97,10 @@ export const AccessList = (props: IAccessListProps) => {
         const displayBases = displayBaseMap[spaceId];
         return (
           <div key={spaceId} className="space-y-1">
-            <div className="pl-2 text-xs font-medium text-muted-foreground">{space?.name}</div>
+            <div className="ps-2 text-xs font-medium text-muted-foreground">{space?.name}</div>
             <div>
               {displaySpace && (
-                <div className="flex h-8 items-center justify-between rounded-md pl-2 pr-1 hover:bg-accent">
+                <div className="flex h-8 items-center justify-between rounded-md pe-1 ps-2 hover:bg-accent">
                   <div className="flex items-center gap-2">
                     <Component className="size-4 shrink-0" />
                     {t('allSpace')}
@@ -116,7 +118,7 @@ export const AccessList = (props: IAccessListProps) => {
               {displayBases?.map((base) => (
                 <div
                   key={base.id}
-                  className="flex h-8 items-center justify-between rounded-md pl-2 pr-1 hover:bg-accent"
+                  className="flex h-8 items-center justify-between rounded-md pe-1 ps-2 hover:bg-accent"
                 >
                   <div className="flex items-center gap-2">
                     {base.icon ? (
@@ -124,7 +126,7 @@ export const AccessList = (props: IAccessListProps) => {
                     ) : (
                       <Database className="size-4 shrink-0" />
                     )}
-                    {base.name}
+                    <span dir={contentDir}>{base.name}</span>
                   </div>
                   <Button
                     variant={'ghost'}

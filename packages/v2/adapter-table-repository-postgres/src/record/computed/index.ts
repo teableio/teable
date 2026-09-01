@@ -5,6 +5,7 @@ export * from './ComputedFieldUpdater';
 export * from './ComputedUpdateLock';
 export * from './ComputedUpdatePlanner';
 export * from './ComputedUpdateRun';
+export * from './ComputedUpdateRuntimeConfig';
 export * from './ExternalComputedRefreshService';
 export * from './RunComputedTaskByIdCommand';
 export * from './RunComputedTaskByIdHandler';

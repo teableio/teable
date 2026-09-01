@@ -64,19 +64,19 @@ export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTr
         <DropdownMenuContent align="end">
           {showRename && (
             <DropdownMenuItem onClick={onRename}>
-              <Pencil className="mr-2" />
+              <Pencil className="me-2" />
               {t('actions.rename')}
             </DropdownMenuItem>
           )}
           {showImportBase && (
             <DropdownMenuItem onClick={() => onImportBase?.()}>
-              <Import className="mr-2" />
+              <Import className="me-2" />
               {t('space:spaceSetting.importBase')}
             </DropdownMenuItem>
           )}
           {showSettings && (
             <DropdownMenuItem onClick={handleOpenSettings}>
-              <Settings className="mr-2" />
+              <Settings className="me-2" />
               {t('space:spaceSetting.title')}
             </DropdownMenuItem>
           )}
@@ -84,7 +84,7 @@ export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTr
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirm(true)}>
-                <Trash2 className="mr-2" />
+                <Trash2 className="me-2" />
                 {t('actions.delete')}
               </DropdownMenuItem>
             </>

@@ -69,7 +69,7 @@ export const ScopesSelect = (props: IScopesSelectProps) => {
   }, [actionPrefixStaticMap, actionPrefixDisplayOrder, actionsPrefixes]);
 
   return (
-    <div className="space-y-3 pl-2">
+    <div className="space-y-3 ps-2">
       {actionsPrefix.map((actionPrefix) => {
         const actions = getActions(actionPrefix);
         const isAllSelected = actions.every((action) => value[action]);

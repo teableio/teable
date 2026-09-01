@@ -49,12 +49,16 @@ const isLevelSufficient = (
   return getBillingLevelWeight(currentLevel) >= getBillingLevelWeight(targetLevel);
 };
 
-export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
-  children,
-  spaceId,
-  targetBillingLevel,
-  onUpgradeClick,
+// The upgrade affordance as data: badge element, upgrade-needed flag and click action.
+// Use it directly where JSX wrapping does not fit (e.g. config-driven menus); the
+// UpgradeWrapper component below is built on top of it.
+export const useUpgradeAction = (props: {
+  spaceId?: string;
+  targetBillingLevel?: BillingProductLevel;
+  onUpgradeClick?: () => void;
 }) => {
+  const { onUpgradeClick } = props;
+  let { spaceId, targetBillingLevel } = props;
   const isCloud = useIsCloud();
   const isCommunity = useIsCommunity();
   const isEE = useIsEE();
@@ -185,6 +189,33 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
       </span>
     );
   }, [needsUpgrade, isAppSumo, targetAppSumoTierConfig, billingConfig, handleUpgradeClick]);
+
+  return {
+    badge,
+    needsUpgrade: Boolean(needsUpgrade),
+    isCommunity,
+    isReadOnlyPreview,
+    currentLevel,
+    isLevelSufficient: isLevelSufficientMemo,
+    handleUpgradeClick,
+  };
+};
+
+export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
+  children,
+  spaceId,
+  targetBillingLevel,
+  onUpgradeClick,
+}) => {
+  const {
+    badge,
+    needsUpgrade,
+    isCommunity,
+    isReadOnlyPreview,
+    currentLevel,
+    isLevelSufficient: isLevelSufficientMemo,
+    handleUpgradeClick,
+  } = useUpgradeAction({ spaceId, targetBillingLevel, onUpgradeClick });
 
   if (typeof children === 'function') {
     const element = children({

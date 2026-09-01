@@ -19,10 +19,16 @@ type ViewOperationPluginHookResult<T> = Result<T, DomainError> | Promise<Result<
 export type ViewOperationPayloadViewConfig = {
   readonly name?: string | null;
   readonly description?: string | null;
+  readonly isLocked?: boolean;
+  readonly order?: number;
+  readonly columnMeta?: unknown;
   readonly filter?: unknown;
   readonly sort?: unknown;
   readonly group?: unknown;
   readonly options?: unknown;
+  readonly enableShare?: boolean;
+  readonly shareId?: string;
+  readonly shareMeta?: unknown;
 };
 
 type ViewOperationCountLimitPayload = {

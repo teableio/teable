@@ -8,6 +8,7 @@ import { FieldOptionsAdded } from '../../../events/FieldOptionsAdded';
 import { FieldUpdated } from '../../../events/FieldUpdated';
 import { TableRenamed } from '../../../events/TableRenamed';
 import { ViewColumnMetaUpdated } from '../../../events/ViewColumnMetaUpdated';
+import { ViewCreated } from '../../../events/ViewCreated';
 import { DbFieldName } from '../../../fields/DbFieldName';
 import { FieldId } from '../../../fields/FieldId';
 import { FieldName } from '../../../fields/FieldName';
@@ -20,10 +21,15 @@ import { SingleSelectField } from '../../../fields/types/SingleSelectField';
 import { Table } from '../../../Table';
 import { TableName } from '../../../TableName';
 import { ViewColumnMeta } from '../../../views/ViewColumnMeta';
+import { ViewId } from '../../../views/ViewId';
+import { ViewName } from '../../../views/ViewName';
+import { ViewQueryDefaults } from '../../../views/ViewQueryDefaults';
+import { GridView } from '../../../views/types/GridView';
 import { RemoveSymmetricLinkFieldSpec } from '../../field-updates/RemoveSymmetricLinkFieldSpec';
 import { UpdateNumberFormattingSpec } from '../../field-updates/UpdateNumberFormattingSpec';
 import { TableAddFieldSpec } from '../../TableAddFieldSpec';
 import { TableAddFieldsSpec } from '../../TableAddFieldsSpec';
+import { TableAddViewSpec } from '../../TableAddViewSpec';
 import { TableAddSelectOptionsSpec } from '../../TableAddSelectOptionsSpec';
 import { TableByBaseIdSpec } from '../../TableByBaseIdSpec';
 import { TableByIdSpec } from '../../TableByIdSpec';
@@ -94,6 +100,31 @@ describe('TableEventGeneratingSpecVisitor', () => {
     expect(events).toHaveLength(2);
     expect(events[0]).toBeInstanceOf(FieldCreated);
     expect(events[1]).toBeInstanceOf(FieldCreated);
+  });
+
+  it('generates ViewCreated for TableAddViewSpec', () => {
+    const table = buildTable();
+    const view = GridView.create({
+      id: ViewId.create(`viw${'b'.repeat(16)}`)._unsafeUnwrap(),
+      name: ViewName.create('Planning')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    view
+      .setColumnMeta(
+        ViewColumnMeta.forView({
+          viewType: view.type(),
+          fields: table.getFields(),
+          primaryFieldId: table.primaryFieldId(),
+        })._unsafeUnwrap()
+      )
+      ._unsafeUnwrap();
+    view.setQueryDefaults(ViewQueryDefaults.empty())._unsafeUnwrap();
+
+    const visitor = new TableEventGeneratingSpecVisitor(table);
+    TableAddViewSpec.create(view).accept(visitor)._unsafeUnwrap();
+
+    expect(visitor.getEvents()).toHaveLength(1);
+    expect(visitor.getEvents()[0]).toBeInstanceOf(ViewCreated);
+    expect((visitor.getEvents()[0] as ViewCreated).viewId.equals(view.id())).toBe(true);
   });
 
   it('generates FieldOptionsAdded only when added options are non-empty', () => {

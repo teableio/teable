@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CustomHttpException } from '../../custom.exception';
@@ -6,9 +6,11 @@ import {
   activeBaseDataDbMoveJobStates,
   baseDataDbMovingErrorCode,
 } from '../base/base-data-db-move.constants';
+import { DataDbHealthService } from './data-db-health.service';
 import {
   activeSpaceDataDbMigrationStates,
   spaceDataDbMigratingErrorCode,
+  spaceDataDbReadOnlyErrorCode,
 } from './space-data-db-migration.constants';
 
 const recordWriteBlockingStates = ['freezing_writes', 'switching'] as const;
@@ -41,9 +43,13 @@ type IMigrationJobReader = Pick<
 
 @Injectable()
 export class SpaceDataDbMigrationGuardService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    @Optional() private readonly dataDbHealthService?: DataDbHealthService
+  ) {}
 
   async assertSpaceSchemaWritable(spaceId: string): Promise<void> {
+    await this.assertSpaceDataDbHealthy(spaceId);
     const activeJob = await this.findActiveMigrationForSpace(spaceId, [
       ...activeSpaceDataDbMigrationStates,
     ]);
@@ -65,6 +71,7 @@ export class SpaceDataDbMigrationGuardService {
   }
 
   async assertSpaceRecordWritable(spaceId: string): Promise<void> {
+    await this.assertSpaceDataDbHealthy(spaceId);
     const activeJob = await this.findActiveMigrationForSpace(
       spaceId,
       [...recordWriteBlockingStates],
@@ -91,6 +98,30 @@ export class SpaceDataDbMigrationGuardService {
 
   async assertSpaceWritable(spaceId: string): Promise<void> {
     await this.assertSpaceSchemaWritable(spaceId);
+  }
+
+  /**
+   * Fail fast when the space's BYODB database is known read-only: without
+   * this, every write travels to the customer database just to collect the
+   * same rejection after a connect + queue delay. Only the deterministic
+   * read_only state blocks — degraded/unreachable are fuzzy or transient, and
+   * letting those writes flow keeps real errors and passive health signals
+   * alive. The health lookup is 30s-cached and flushed on recovery, so
+   * unblocking is prompt once the database accepts writes again.
+   */
+  private async assertSpaceDataDbHealthy(spaceId: string): Promise<void> {
+    const health = await this.dataDbHealthService?.getHealthStateForSpace(spaceId);
+    if (health !== 'read_only') {
+      return;
+    }
+    throw new CustomHttpException(
+      'Space data database is read-only; writes are paused until it accepts writes again',
+      HttpErrorCode.CONFLICT,
+      {
+        errorCode: spaceDataDbReadOnlyErrorCode,
+        spaceId,
+      }
+    );
   }
 
   private async findActiveMigrationForSpace(
@@ -277,6 +308,41 @@ export class SpaceDataDbMigrationGuardService {
     }
     await this.assertActiveBaseMove(table.baseId, [...baseMoveRecordWriteBlockingStates]);
     await this.assertSpaceRecordWritable(table.base.spaceId);
+  }
+
+  async assertTableRecordSearchReadable(
+    tableId: string,
+    query?: { search?: unknown }
+  ): Promise<void> {
+    if (!query?.search) {
+      return;
+    }
+    const table = await this.prismaClient.tableMeta.findUnique({
+      where: { id: tableId },
+      select: { baseId: true, base: { select: { spaceId: true } } },
+    });
+    if (!table) {
+      return;
+    }
+    const activeJob = await this.findActiveMigrationForSpace(
+      table.base.spaceId,
+      [...activeSpaceDataDbMigrationStates],
+      { switchOnCompletionOnly: false }
+    );
+    if (!activeJob) {
+      return;
+    }
+
+    throw new CustomHttpException(
+      'Search is temporarily degraded during data database migration',
+      HttpErrorCode.TOO_MANY_REQUESTS,
+      {
+        errorCode: spaceDataDbMigratingErrorCode,
+        migrationJobId: activeJob.id,
+        migrationState: activeJob.state,
+        spaceId: table.base.spaceId,
+      }
+    );
   }
 
   private get prismaClient(): IMigrationJobClient {

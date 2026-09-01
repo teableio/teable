@@ -4,7 +4,6 @@
   "apiList": "Vollständige API-Liste",
   "cellFormat": "Zellenergebnisformat",
   "fieldKeyType": "Feld Schlüsseltyp",
-  "fieldKeyTypeDesc": "Der Typ des Feldschlüssels im Ergebnis",
   "chooseSource": "Datenquelle auswählen...",
   "action": {
     "selectBase": "Base auswählen...",
@@ -17,5 +16,19 @@
   "replaceToken": "Token ersetzen",
   "createNewToken": "Neues Token erstellen",
   "showPagination": "Paginierungsparameter werden im JSON-Modus angezeigt",
-  "addSort": "Eine Sortierung hinzufügen"
+  "addSort": "Eine Sortierung hinzufügen",
+  "tabs": {
+    "apiBuilder": "API-Builder",
+    "aiContext": "KI-Kontext"
+  },
+  "aiContext": {
+    "title": "KI-freundlicher Tabellenkontext",
+    "description": "Kopieren Sie diesen Kontext in Ihren KI-Assistenten (ChatGPT, Claude usw.), damit er versteht, wie er mit Ihren Tabellendaten arbeiten kann.",
+    "selectTableFirst": "Bitte wählen Sie eine Tabelle, um den KI-Kontext zu erzeugen",
+    "fullContext": "Vollständiger Kontext",
+    "compactContext": "Kompakt",
+    "copyToClipboard": "In die Zwischenablage kopieren",
+    "copied": "Kopiert!",
+    "compactDescription": "Eine kürzere Version, die sich für schnelles Teilen von Kontext bei begrenztem Token-Budget eignet."
+  }
 }

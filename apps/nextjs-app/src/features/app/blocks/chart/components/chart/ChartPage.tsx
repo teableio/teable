@@ -30,7 +30,7 @@ export const ChartPage = () => {
             variant="outline"
             pressed={isTable}
             onPressedChange={setIsTable}
-            className="absolute bottom-0.5 right-0.5 h-auto p-1.5 data-[state=on]:bg-foreground data-[state=on]:text-background"
+            className="absolute bottom-0.5 end-0.5 h-auto p-1.5 data-[state=on]:bg-foreground data-[state=on]:text-background"
             aria-label="Toggle bold"
           >
             <Table2 />

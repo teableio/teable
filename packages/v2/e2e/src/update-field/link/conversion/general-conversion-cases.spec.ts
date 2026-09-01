@@ -812,6 +812,223 @@ describe('update-field: link conversion general cases', () => {
     expect(links[0]?.id).toBe(b.id);
   });
 
+  test('should convert one-way one-one to two-way one-one', async () => {
+    const tableA = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: nextName('v1p-ow-oo-tw-oo-a'),
+      fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+    });
+    const tableB = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: nextName('v1p-ow-oo-tw-oo-b'),
+      fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+    });
+
+    const linkTable = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: tableA.id,
+      field: {
+        type: 'link',
+        name: 'Link',
+        options: {
+          relationship: 'oneOne',
+          foreignTableId: tableB.id,
+          lookupFieldId: primaryFieldId(tableB),
+          isOneWay: true,
+        },
+      },
+    });
+    const linkField = linkTable.fields.find((f) => f.name === 'Link');
+    if (!linkField) throw new Error('Link field missing');
+
+    const b = await ctx.createRecord(tableB.id, { [primaryFieldId(tableB)]: 'x' });
+    const a = await ctx.createRecord(tableA.id, {
+      [primaryFieldId(tableA)]: 'a1',
+      [linkField.id]: { id: b.id },
+    });
+
+    const updatedTable = await ctx.updateField({
+      tableId: tableA.id,
+      fieldId: linkField.id,
+      field: {
+        options: {
+          relationship: 'oneOne',
+          foreignTableId: tableB.id,
+          lookupFieldId: primaryFieldId(tableB),
+          isOneWay: false,
+        },
+      },
+    });
+
+    await ctx.drainOutbox();
+
+    const updatedField = updatedTable.fields.find((f) => f.id === linkField.id);
+    expect(updatedField?.type).toBe('link');
+    expect((updatedField?.options as { relationship?: string } | undefined)?.relationship).toBe(
+      'oneOne'
+    );
+    const symFieldId = extractSymmetricFieldId(updatedField);
+    expect(symFieldId).toBeDefined();
+
+    const rowsA = await ctx.listRecords(tableA.id);
+    const rowA = rowsA.find((r) => r.id === a.id);
+    const linksA = asLinkArray(rowA?.fields[linkField.id]);
+    expect(linksA[0]?.id).toBe(b.id);
+    expect(linksA[0]?.title).toBe('x');
+
+    const rowsB = await ctx.listRecords(tableB.id);
+    const rowB = rowsB.find((r) => r.id === b.id);
+    const symLinks = asLinkArray(rowB?.fields[symFieldId!]);
+    expect(symLinks[0]?.id).toBe(a.id);
+  });
+
+  test('should convert one-many to many-one link with 2 lookup and 2 formula fields', async () => {
+    const tableA = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: nextName('v1p-om-mo-deps-a'),
+      fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+    });
+    const tableB = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: nextName('v1p-om-mo-deps-b'),
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        { type: 'number', name: 'Count' },
+      ],
+    });
+
+    const titleFieldId = primaryFieldId(tableB);
+    const countFieldId = tableB.fields.find((f) => f.name === 'Count')?.id;
+    if (!countFieldId) throw new Error('Count field missing');
+
+    const withLink = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: tableA.id,
+      field: {
+        type: 'link',
+        name: 'Link',
+        options: {
+          relationship: 'oneMany',
+          foreignTableId: tableB.id,
+          lookupFieldId: titleFieldId,
+          isOneWay: true,
+        },
+      },
+    });
+    const linkField = withLink.fields.find((f) => f.name === 'Link');
+    if (!linkField) throw new Error('Link field missing');
+
+    const withLookup1 = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: tableA.id,
+      field: {
+        type: 'lookup',
+        name: 'TitleLookup',
+        options: {
+          linkFieldId: linkField.id,
+          foreignTableId: tableB.id,
+          lookupFieldId: titleFieldId,
+        },
+      },
+    });
+    const lookupField1 = withLookup1.fields.find((f) => f.name === 'TitleLookup');
+    if (!lookupField1) throw new Error('TitleLookup field missing');
+
+    const withLookup2 = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: tableA.id,
+      field: {
+        type: 'lookup',
+        name: 'CountLookup',
+        options: {
+          linkFieldId: linkField.id,
+          foreignTableId: tableB.id,
+          lookupFieldId: countFieldId,
+        },
+      },
+    });
+    const lookupField2 = withLookup2.fields.find((f) => f.name === 'CountLookup');
+    if (!lookupField2) throw new Error('CountLookup field missing');
+
+    const withFormula1 = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: tableA.id,
+      field: {
+        type: 'formula',
+        name: 'Formula1',
+        options: { expression: `{${lookupField1.id}}` },
+      },
+    });
+    const formulaField1 = withFormula1.fields.find((f) => f.name === 'Formula1');
+    if (!formulaField1) throw new Error('Formula1 field missing');
+
+    const withFormula2 = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: tableA.id,
+      field: {
+        type: 'formula',
+        name: 'Formula2',
+        options: { expression: `{${lookupField2.id}}` },
+      },
+    });
+    const formulaField2 = withFormula2.fields.find((f) => f.name === 'Formula2');
+    if (!formulaField2) throw new Error('Formula2 field missing');
+
+    const b1 = await ctx.createRecord(tableB.id, {
+      [titleFieldId]: 'x',
+      [countFieldId]: 1,
+    });
+    const b2 = await ctx.createRecord(tableB.id, { [titleFieldId]: 'y' });
+    const a1 = await ctx.createRecord(tableA.id, {
+      [primaryFieldId(tableA)]: 'a1',
+      [linkField.id]: [{ id: b1.id }, { id: b2.id }],
+    });
+
+    await ctx.drainOutbox();
+
+    const rowsBefore = await ctx.listRecords(tableA.id);
+    const rowBefore = rowsBefore.find((r) => r.id === a1.id);
+    expect(rowBefore?.fields[formulaField1.id]).toEqual(['x', 'y']);
+    expect(rowBefore?.fields[formulaField2.id]).toEqual([1]);
+
+    const updatedTable = await ctx.updateField({
+      tableId: tableA.id,
+      fieldId: linkField.id,
+      field: {
+        options: {
+          relationship: 'manyOne',
+          foreignTableId: tableB.id,
+          lookupFieldId: titleFieldId,
+          isOneWay: true,
+        },
+      },
+    });
+
+    await ctx.drainOutbox();
+
+    const updatedLink = updatedTable.fields.find((f) => f.id === linkField.id);
+    expect(updatedLink?.type).toBe('link');
+    expect((updatedLink?.options as { relationship?: string } | undefined)?.relationship).toBe(
+      'manyOne'
+    );
+
+    // v1: many-one link keeps only one value; dependent lookups/formulas flip to scalar
+    const refreshedTable = await ctx.getTableById(tableA.id);
+    const refreshedFormula1 = refreshedTable.fields.find((f) => f.id === formulaField1.id) as
+      | { isMultipleCellValue?: boolean }
+      | undefined;
+    const refreshedFormula2 = refreshedTable.fields.find((f) => f.id === formulaField2.id) as
+      | { isMultipleCellValue?: boolean }
+      | undefined;
+    expect(refreshedFormula1?.isMultipleCellValue).not.toBe(true);
+    expect(refreshedFormula2?.isMultipleCellValue).not.toBe(true);
+
+    const rowsAfter = await ctx.listRecords(tableA.id);
+    const rowAfter = rowsAfter.find((r) => r.id === a1.id);
+    expect(rowAfter?.fields[formulaField1.id]).toEqual('x');
+    expect(rowAfter?.fields[formulaField2.id]).toEqual(1);
+  });
+
   test('should convert one-way many-many to two-way many-many', async () => {
     const tableA = await ctx.createTable({
       baseId: ctx.baseId,

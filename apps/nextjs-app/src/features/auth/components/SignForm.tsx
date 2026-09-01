@@ -49,20 +49,9 @@ export const SignForm: FC<ISignForm> = (props) => {
   const { data: setting } = usePublicSettingQuery();
   const {
     enableWaitlist = false,
-    disallowSignUp = false,
     turnstileSiteKey,
     signupVerificationSendCodeMailRate = 0,
   } = setting ?? {};
-
-  const hasInvitationRedirect = useMemo(() => {
-    try {
-      const redirect = decodeURIComponent((router.query.redirect as string) || '');
-      const url = new URL(redirect, window.location.origin);
-      return url.searchParams.has('invitationId') && url.searchParams.has('invitationCode');
-    } catch {
-      return false;
-    }
-  }, [router.query.redirect]);
 
   const joinWaitlist = useCallback(() => {
     if (enableWaitlist) {
@@ -152,10 +141,9 @@ export const SignForm: FC<ISignForm> = (props) => {
       setTurnstileToken(undefined);
       setTurnstileKey((prev) => prev + 1);
 
-      // Track Google Ads conversion for successful sign-up with user info
+      // Cross-domain GA4 signup event (Google Ads conversions upload server-side)
       if (variables.type === 'signup' && data.data) {
         trackSignUp({
-          conversionId: env.googleAdsConversionId,
           marketingGaId: env.marketingGaId,
           userInfo: {
             id: data.data.id,
@@ -317,16 +305,17 @@ export const SignForm: FC<ISignForm> = (props) => {
         className
       )}
     >
-      <div className="relative mb-4 text-muted-foreground">
-        <h2 className="text-center text-xl">
+      <div className="relative mb-6 text-muted-foreground">
+        <h2 className="text-start text-base">
           {type === 'signin' ? t('auth:title.signin') : t('auth:title.signup')}
         </h2>
       </div>
       <form className="relative" onSubmit={onSubmit} onChange={() => setError(undefined)}>
-        <div className="grid gap-3">
-          <div className="grid gap-3">
+        <div className="grid gap-4">
+          <div className="grid gap-2">
             <Label htmlFor="email">{t('auth:label.email')}</Label>
             <Input
+              className="h-9 sm:h-8"
               id="email"
               placeholder={t('auth:placeholder.email')}
               type="text"
@@ -339,11 +328,12 @@ export const SignForm: FC<ISignForm> = (props) => {
               disabled={isLoading}
             />
           </div>
-          <div className="grid gap-3">
+          <div className="grid gap-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="password">{t('auth:label.password')}</Label>
             </div>
             <Input
+              className="h-9 sm:h-8"
               id="password"
               placeholder={t('auth:placeholder.password')}
               type="password"
@@ -352,7 +342,7 @@ export const SignForm: FC<ISignForm> = (props) => {
             />
             {type === 'signin' && (
               <Link
-                className="absolute right-0 text-xs text-muted-foreground underline-offset-4 hover:underline"
+                className="absolute end-0 text-xs text-muted-foreground underline-offset-4 hover:underline"
                 href="/auth/forget-password"
               >
                 {t('auth:forgetPassword.trigger')}
@@ -365,6 +355,7 @@ export const SignForm: FC<ISignForm> = (props) => {
               <Label htmlFor="invite-code">{t('common:waitlist.code')}</Label>
               <div className="flex items-center">
                 <Input
+                  className="h-9 sm:h-8"
                   id="invite-code"
                   type="text"
                   placeholder={t('common:waitlist.inviteCodePlaceholder')}
@@ -380,57 +371,51 @@ export const SignForm: FC<ISignForm> = (props) => {
             </div>
           )}
 
-          <div
-            data-state={showVerificationCode ? 'show' : 'hide'}
-            className={cn('transition-all data-[state=show]:mt-4', {
-              'h-0 overflow-hidden': !showVerificationCode,
-            })}
-          >
-            {showVerificationCode && (
-              <div className="grid gap-3">
-                <Label htmlFor="verification-code">{t('auth:label.verificationCode')}</Label>
-                <Input
-                  id="verification-code"
-                  type="text"
-                  placeholder={t('auth:placeholder.verificationCode')}
-                  value={signupVerificationCode}
-                  onChange={(e) => setSignupVerificationCode(e.target.value)}
-                />
-                <SendVerificationButton
-                  disabled={sendSignupVerificationCodeLoading || countdown > 0}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const emailInput = e.currentTarget.form?.querySelector(
-                      '#email'
-                    ) as HTMLInputElement;
-                    const email = emailInput?.value;
-                    if (!email) {
-                      return;
-                    }
+          {showVerificationCode && (
+            <div className="mt-4 grid gap-3">
+              <Label htmlFor="verification-code">{t('auth:label.verificationCode')}</Label>
+              <Input
+                className="h-9 sm:h-8"
+                id="verification-code"
+                type="text"
+                placeholder={t('auth:placeholder.verificationCode')}
+                value={signupVerificationCode}
+                onChange={(e) => setSignupVerificationCode(e.target.value)}
+              />
+              <SendVerificationButton
+                disabled={sendSignupVerificationCodeLoading || countdown > 0}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const emailInput = e.currentTarget.form?.querySelector(
+                    '#email'
+                  ) as HTMLInputElement;
+                  const email = emailInput?.value;
+                  if (!email) {
+                    return;
+                  }
 
-                    // Check Turnstile verification if enabled
-                    if (turnstileSiteKey && !turnstileToken) {
-                      setError(t('auth:signError.turnstileRequired'));
-                      return;
-                    }
+                  // Check Turnstile verification if enabled
+                  if (turnstileSiteKey && !turnstileToken) {
+                    setError(t('auth:signError.turnstileRequired'));
+                    return;
+                  }
 
-                    const res = sendSignupVerificationCodeRoSchema.safeParse({
-                      email,
-                      turnstileToken,
-                    });
-                    if (!res.success) {
-                      setError(fromZodError(res.error).message);
-                      return;
-                    }
-                    sendSignupVerificationCodeMutation({ email, turnstileToken });
-                  }}
-                  loading={sendSignupVerificationCodeLoading}
-                  countdown={countdown}
-                />
-              </div>
-            )}
-          </div>
+                  const res = sendSignupVerificationCodeRoSchema.safeParse({
+                    email,
+                    turnstileToken,
+                  });
+                  if (!res.success) {
+                    setError(fromZodError(res.error).message);
+                    return;
+                  }
+                  sendSignupVerificationCodeMutation({ email, turnstileToken });
+                }}
+                loading={sendSignupVerificationCodeLoading}
+                countdown={countdown}
+              />
+            </div>
+          )}
 
           {/* Turnstile Widget */}
           {turnstileSiteKey && (
@@ -454,20 +439,6 @@ export const SignForm: FC<ISignForm> = (props) => {
               {isLoading && <Spin />}
               {buttonText}
             </Button>
-            {(!disallowSignUp || hasInvitationRedirect) && (
-              <div className="flex justify-end py-2">
-                <Link
-                  href={{
-                    pathname: type === 'signin' ? '/auth/signup' : '/auth/login',
-                    query: { ...router.query },
-                  }}
-                  shallow
-                  className="text-xs text-muted-foreground underline-offset-4 hover:underline"
-                >
-                  {type === 'signin' ? t('auth:button.signup') : t('auth:button.signin')}
-                </Link>
-              </div>
-            )}
             <ErrorCom error={error} />
           </div>
         </div>

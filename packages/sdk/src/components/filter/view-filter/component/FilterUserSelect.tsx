@@ -75,7 +75,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
           key={option.value}
         >
           <div
-            className={cn('flex items-center space-x-2 flex-1', {
+            className={cn('flex items-center space-x-2 flex-1 rtl:space-x-reverse', {
               truncate: !isMultiple,
             })}
           >
@@ -136,7 +136,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
                 <span className="font-medium" title={name}>
                   {name}
                 </span>
-                <span className="pl-2 text-xs text-muted-foreground">
+                <span className="ps-2 text-xs text-muted-foreground">
                   {id === currentUser.id ? `(${t('noun.you')})` : null}
                 </span>
               </div>
@@ -155,6 +155,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
     <>
       {!isMultiple ? (
         <BaseSingleSelect
+          drawerTitle={t('filter.selectValue')}
           options={options}
           modal={modal}
           onSelect={onSelect}
@@ -167,6 +168,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
         />
       ) : (
         <BaseMultipleSelect
+          drawerTitle={t('filter.selectValue')}
           options={options}
           modal={modal}
           onSelect={onSelect}

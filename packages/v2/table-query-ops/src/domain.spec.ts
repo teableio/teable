@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  SEARCH_ACCESS_PATH_RECOMMENDATION_SHAPE_HASH,
   TablePhysicalStats,
   TableQueryIndexInspection,
   TableQueryObservationWindow,
@@ -217,6 +218,168 @@ describe('TableQueryRiskPolicy', () => {
 
     expect(report.isOk()).toBe(true);
     expect(report._unsafeUnwrap().level()).toBe('critical');
+    expect(report._unsafeUnwrap().snapshot().remediationCandidates[0]).toMatchObject({
+      kind: 'create_search_access_path',
+      executableInPhase1: false,
+    });
+  });
+
+  it('keeps per-field search indexes for narrow selected-field search', () => {
+    const shape = TableQueryShape.create({
+      queryKind: 'search',
+      searchShape: {
+        fieldCount: 8,
+        allFields: false,
+        valueLengthBucket: 'medium',
+      },
+      executionShape: {
+        durationMs: 12_000,
+        timedOut: true,
+        errorKind: 'timeout',
+      },
+    })._unsafeUnwrap();
+    const observation = TableQueryObservationWindow.create({
+      baseId: 'bse_test',
+      tableId: 'tbl_test',
+      windowStart: new Date('2026-06-01T00:00:00.000Z'),
+      windowSizeSeconds: 300,
+      shape,
+      requestCount: 8,
+      slowCount: 5,
+      timeoutCount: 3,
+      dbErrorCount: 0,
+      totalDurationMs: 42_000,
+      maxDurationMs: 12_000,
+    })._unsafeUnwrap();
+    const report = new TableQueryRiskPolicy().evaluate({
+      observation,
+      physicalStats: TablePhysicalStats.create({
+        estimatedRows: 100_000,
+        totalBytes: 1024,
+      })._unsafeUnwrap(),
+      indexInspection: TableQueryIndexInspection.create({
+        state: 'missing',
+        usefulIndexes: [],
+        missingIndexCandidates: [
+          {
+            fieldId: 'fld_name',
+            fieldDbName: 'name',
+            kind: 'gin_trgm',
+            reason: 'Search field can use trigram index',
+          },
+        ],
+        abnormalIndexes: [],
+      })._unsafeUnwrap(),
+    });
+
+    expect(report._unsafeUnwrap().snapshot().remediationCandidates[0]?.kind).toBe(
+      'create_search_index'
+    );
+  });
+
+  it('skips generated-text search path when one already exists', () => {
+    const report = new TableQueryRiskPolicy().evaluate({
+      observation: createObservation(),
+      physicalStats: TablePhysicalStats.create({
+        estimatedRows: 100_000,
+        totalBytes: 1024,
+      })._unsafeUnwrap(),
+      indexInspection: TableQueryIndexInspection.create({
+        state: 'ready',
+        usefulIndexes: [
+          {
+            kind: 'gin_trgm',
+            accessPath: 'generated_text',
+            valid: true,
+            name: 'idx_tqops_search_tbl_test',
+          },
+        ],
+        missingIndexCandidates: [],
+        abnormalIndexes: [],
+      })._unsafeUnwrap(),
+    });
+
+    expect(
+      report
+        ._unsafeUnwrap()
+        .snapshot()
+        .remediationCandidates.some((candidate) => candidate.kind === 'create_search_access_path')
+    ).toBe(false);
+  });
+
+  it('dedupes wide-search recommendations onto one shape hash', () => {
+    const observation = createObservation();
+    const report = new TableQueryRiskPolicy()
+      .evaluate({
+        observation,
+        physicalStats: TablePhysicalStats.create({
+          estimatedRows: 100_000,
+          totalBytes: 1024,
+        })._unsafeUnwrap(),
+        indexInspection: TableQueryIndexInspection.create({
+          state: 'missing',
+          usefulIndexes: [],
+          missingIndexCandidates: [],
+          abnormalIndexes: [],
+        })._unsafeUnwrap(),
+      })
+      ._unsafeUnwrap();
+    const recommendation = TableQueryRecommendation.createOpen({
+      observation,
+      report,
+      now: new Date('2026-06-01T00:00:00.000Z'),
+    })._unsafeUnwrap();
+
+    expect(recommendation.snapshot().shapeHash).toBe(SEARCH_ACCESS_PATH_RECOMMENDATION_SHAPE_HASH);
+  });
+
+  it('keeps per-field search indexes for all-fields aggregation observations', () => {
+    const shape = TableQueryShape.create({
+      queryKind: 'aggregation',
+      searchShape: {
+        fieldCount: 40,
+        allFields: true,
+        valueLengthBucket: 'medium',
+      },
+      executionShape: {
+        durationMs: 12_000,
+        timedOut: true,
+        errorKind: 'timeout',
+      },
+    })._unsafeUnwrap();
+    const report = new TableQueryRiskPolicy().evaluate({
+      observation: TableQueryObservationWindow.create({
+        baseId: 'bse_test',
+        tableId: 'tbl_test',
+        windowStart: new Date('2026-06-01T00:00:00.000Z'),
+        windowSizeSeconds: 300,
+        shape,
+        requestCount: 8,
+        slowCount: 5,
+        timeoutCount: 3,
+        dbErrorCount: 0,
+        totalDurationMs: 42_000,
+        maxDurationMs: 12_000,
+      })._unsafeUnwrap(),
+      physicalStats: TablePhysicalStats.create({
+        estimatedRows: 100_000,
+        totalBytes: 1024,
+      })._unsafeUnwrap(),
+      indexInspection: TableQueryIndexInspection.create({
+        state: 'missing',
+        usefulIndexes: [],
+        missingIndexCandidates: [
+          {
+            fieldId: 'fld_name',
+            fieldDbName: 'name',
+            kind: 'gin_trgm',
+            reason: 'Search field can use trigram index',
+          },
+        ],
+        abnormalIndexes: [],
+      })._unsafeUnwrap(),
+    });
+
     expect(report._unsafeUnwrap().snapshot().remediationCandidates[0]?.kind).toBe(
       'create_search_index'
     );

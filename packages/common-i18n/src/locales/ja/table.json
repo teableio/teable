@@ -7,6 +7,7 @@
     "waiting": "待機中",
     "failed": "失敗",
     "calculationFailed": "計算に失敗しました",
+    "cellValueTooLarge": "計算セルの値が大きすぎます（{{attempted}} / {{max}} バイト）。元データを短くするか、数式を変更してください。",
     "calculatingSummary": "計算中（{{count}}）",
     "failedSummary": "失敗（{{count}}）",
     "fieldsCalculating_other": "{{count}}個のフィールドを計算中",
@@ -31,6 +32,7 @@
       "share": {
         "label": "共有",
         "statusLabel": "ビューをウェブに共有",
+        "noPermission": "ビューを共有する権限がありません",
         "genLink": "新しいリンクを生成する",
         "allowCopy": "閲覧者がこのビューからデータをコピーできるようにする",
         "allowEdit": "サインインしたユーザーが表示中のデータを編集できるようにする",
@@ -41,11 +43,13 @@
         "passwordTips": "共有ビューにアクセスするためのパスワード制限",
         "embed": "埋め込み",
         "embedPreview": "埋め込みプレビュー",
+        "copyCode": "コードをコピー",
         "hideToolbar": "ツールバーを隠す",
         "URLSetting": "URLパラメータ設定",
         "URLSettingDescription": "以下の設定を調整しても共有リンクには影響しません。新しいパラメータでリンクをコピーして有効にする必要があります。",
         "cancel": "キャンセル",
-        "save": "保存"
+        "save": "保存",
+        "requireLogin": "送信にログインを必須にする"
       },
       "api": {
         "title": "API アクセス",
@@ -94,17 +98,6 @@
     "description": "サイドバーの「+」ボタンをクリックしてリソースを追加",
     "help": "詳細については、<HelpCenter /> をご覧ください",
     "helpCenter": "ヘルプセンター"
-  },
-  "validation": {
-    "link": {
-      "batch_duplicate": "関連付けできません：同じバッチ内で、このレコードはすでに別のレコードに関連付けられています。一対多の関係では、各子レコードは1つの親レコードにのみ属できます。",
-      "one_many_duplicate": "関連付けできません：このレコードはすでに別のレコードに関連付けられています。一対多の関係では、各子レコードは1つの親レコードにのみ属できます。",
-      "one_one_duplicate": "関連付けできません：対象レコードは一対一の関係ですでに別のレコードに関連付けられています。"
-    },
-    "field": {
-      "maxColumnLimit": "テーブル「{{tableName}}」には最大 {{maxFieldCount}} 個のフィールドしか作成できません。",
-      "requiredExistingValues": "既存のレコードに空の値があるため、フィールド「{{fieldName}}」を必須にできません。"
-    }
   },
   "field": {
     "advancedProps": "高度なプロパティ",
@@ -253,8 +246,11 @@
       "editField": "フィールドの編集",
       "insertField": "フィールドの挿入",
       "graph": "グラフ",
+      "defaultValue": "既定値",
+      "reset": "リセット",
       "fieldUpdated": "フィールドが更新されました",
       "fieldCreated": "フィールドが作成されました",
+      "fieldUnavailable": "このフィールドは利用できません。テーブルを更新してからもう一度お試しください。",
       "confirmFieldChange": "Confirm Field Change",
       "areYouSurePerformIt": "本当に実行しますか？",
       "addDescription": "説明を追加",
@@ -286,6 +282,8 @@
       "manyToMany": "複数 対 複数",
       "self": "自分",
       "selectTable": "テーブルを選択...",
+      "selectBase": "ベースを選択...",
+      "linkFromAnotherBase": "別のベースからリンク",
       "inSelfLink": "セルフリンク",
       "betweenTwoTables": "2つのテーブルの間",
       "tips": "ヒント",
@@ -302,7 +300,24 @@
       "lookupToTable": "参照したい <bold>{{tableName}}</bold> フィールド",
       "rollupToTable": "<bold>{{tableName}}</bold> からロールアップしたいフィールド",
       "selectField": "フィールドを選択...",
+      "lastModifiedScope": "フィールド",
+      "lastModifiedAll": "編集可能なすべてのフィールド",
+      "lastModifiedSpecific": "特定のフィールド",
+      "lastModifiedSelect": "追跡するフィールド",
+      "noEditableFields": "編集可能なフィールドがありません",
+      "conditionalLookup": {
+        "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
+        "sortLabel": "Sort results",
+        "limitLabel": "Maximum records to include",
+        "limitPlaceholder": "Leave blank to include all matches",
+        "limitHint": "We only keep up to {{limit}} matching records.",
+        "sortMissingWarningTitle": "Sorting field unavailable",
+        "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
+      },
       "linkTable": "リンクテーブル",
+      "linkBase": "リンク先ベース",
+      "tableNoPermission": "権限のないテーブル",
+      "baseNoPermission": "権限のないベース",
       "noLinkTip": "参照するリンクされたレコードがありません。別のレコードへのリンクフィールドを追加して、参照を再度構成してください。",
       "fieldValidationRules": "フィールド値の検証ルール",
       "enableValidateFieldUnique": "一意の値のみ",
@@ -327,17 +342,8 @@
         "affectedItems": "影響を受ける項目",
         "type": "タイプ",
         "source": "ソース",
-        "sourceTable": "ソーステーブル",
-        "typeField": "フィールド"
-      },
-      "conditionalLookup": {
-        "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
-        "sortLabel": "Sort results",
-        "limitLabel": "Maximum records to include",
-        "limitPlaceholder": "Leave blank to include all matches",
-        "limitHint": "We only keep up to {{limit}} matching records.",
-        "sortMissingWarningTitle": "Sorting field unavailable",
-        "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
+        "loginEmailFieldWarning": "このフィールドはログイン用メールアドレスの識別子として使われています。削除すると次のアプリのログインが壊れます：",
+        "loginEmailFieldConvertWarning": "このフィールドはアプリのログイン用メールフィールドです。型を変更すると次のアプリのログインが壊れます："
       }
     },
     "subTitle": {
@@ -354,6 +360,7 @@
       "rating": "事前に定義された尺度で評価を追加します。",
       "formula": "フィールドに基づいて値を計算します。",
       "rollup": "リンクされたレコードからデータを要約します。",
+      "conditionalRollup": "条件フィルターを使ってリンク先テーブルの値を集計します。",
       "conditionalLookup": "設定したフィルターに一致する関連値を表示します。",
       "createdTime": "各レコードが作成された日時を確認します。",
       "lastModifiedTime": "レコード内の一部またはすべてのフィールドに対する最新の編集の日時を表示します。",
@@ -391,7 +398,10 @@
         "sourceFieldForAttachment": "添付ファイルのソースフィールド",
         "imageSize": "画像サイズ",
         "imageQuality": "画像品質",
-        "imageCount": "画像数"
+        "imageCount": "画像数",
+        "aspectRatio": "アスペクト比",
+        "resolution": "解像度",
+        "advancedSettings": "詳細設定"
       },
       "placeholder": {
         "summarize": "コンテンツのサマリー",
@@ -406,6 +416,8 @@
         "targetLanguage": "英語、中国語、フランス語...",
         "imageSize": "画像サイズを入力してください",
         "imageQuality": "画像品質を入力してください",
+        "aspectRatio": "アスペクト比を選択",
+        "resolution": "解像度を選択",
         "attachPromptForImageGeneration": "画像は鮮明で自然なものにしてください",
         "attachPromptForRating": "画像の品質を評価してください"
       },
@@ -414,8 +426,19 @@
         "medium": "中",
         "high": "高"
       },
+      "hint": {
+        "imageInputSupported": "💡 このモデルは画像入力に対応しています。添付ファイルのフィールドを選択すると、画像を生成の参照として使用できます。",
+        "attachmentNotSupported": "💡 このモデルは添付ファイルの入力に対応していません。画像から画像への生成に対応しているのは Gemini モデルのみです。",
+        "singleImageOnly": "このモデルは一度に 1 枚の画像しか生成できません"
+      },
       "tip": {
         "gptImageResolution": "総画素数の上限があるため、4K モードでは一部のアスペクト比で生成可能な最大の準拠サイズが使用されます。"
+      },
+      "auto": "自動",
+      "resolution": {
+        "1K": "1K（標準）",
+        "2K": "2K（HD）",
+        "4K": "4K（Ultra HD）"
       },
       "autoFill": {
         "title": "自動更新",
@@ -428,8 +451,18 @@
       "autoFillConfirm": {
         "title": "列全体を生成しますか？",
         "description": "列全体を生成すると {{rowCount}} 行が更新されます。この操作は大量の AI リソースを消費する可能性があります。",
+        "emptyOnlyMode": "空のセルのみ入力",
+        "emptyOnlyModeDesc": "空のセルのみ生成し、既存の内容は上書きしません",
+        "allMode": "列全体を生成",
+        "allModeDesc": "すべての行に対して生成し、既存の内容を上書きします",
+        "saveOnlyMode": "設定のみ保存",
+        "saveOnlyModeDesc": "フィールドの設定のみを保存し、セルには書き込みません",
         "saveConfigOnly": "設定のみ保存",
-        "generateFailed": "生成に失敗しました"
+        "fillEmptyCells": "空のセルを入力",
+        "generateAll": "すべて生成",
+        "recommended": "おすすめ",
+        "generateFailed": "生成に失敗しました",
+        "limitWarning": "1 タスクあたり 1,000 行の制限があるため、最初の 1,000 行のみ処理されます。残りの行はタスクを再実行して処理できます。"
       }
     }
   },
@@ -441,12 +474,14 @@
     "dbTableName": "物理データベース内のテーブル名",
     "schemaName": "物理データベースのスキーマ名",
     "baseInfo": "ベース情報",
-    "typeOfDatabase": "データベースの種類",
-    "descriptionForTable": "このテーブルの説明",
     "loginUserTable": "アプリログイン",
     "linkedApps": "関連アプリ",
+    "typeOfDatabase": "データベースの種類",
+    "descriptionForTable": "このテーブルの説明",
     "nameForTable": "このテーブルの名前",
-    "deleteTip1": "この表にリンクされている他の表のリンクフィールドは削除されます",
+    "deleteTip1": "この表にリンクされている他の表のリンクフィールドはテキストに変換されます",
+    "deleteWithDependencies": "テーブル <b>{{tableName}}</b> を削除すると、次のフィールドに影響します：",
+    "loginDeleteWarning": "このテーブルは次のアプリでユーザーテーブルとして使われています。削除するとログイン機能が壊れます。",
     "operator": {
       "createBlank": "新しいテーブル"
     },
@@ -459,13 +494,36 @@
       "pasting": "貼り付け中...",
       "pasteSuccessful": "貼り付け成功",
       "pasteFailed": "貼り付け失敗",
+      "pasteNoEditableFields": "選択したフィールドは読み取り専用のため貼り付けできません。",
       "filling": "入力中...",
       "fillSuccessful": "入力成功",
       "fillFailed": "入力失敗",
       "clearing": "クリア...",
       "clearSuccessful": "クリア成功",
+      "clearFailed": "クリアに失敗しました",
+      "clearConfirmTitle": "データをクリア",
+      "clearConfirmDescription": "この操作で {{rowCount}} 件のレコードの {{cellCount}} セルがクリアされます。続行しますか？",
+      "archiveRecordConfirmTitle": "レコードをアーカイブ",
+      "archiveRecordConfirmDescription": "この操作により {{recordCount}} 件のレコードがアーカイブされます。アーカイブされたレコードはテーブルのアーカイブから閲覧・復元できます。",
+      "archiveRecord": "アーカイブ",
+      "archiving": "アーカイブ中...",
+      "archiveSuccessful": "アーカイブに成功しました",
+      "deleteRecordConfirmTitle": "レコードを削除",
+      "deleteRecordConfirmDescription": "この操作で {{recordCount}} 件のレコードが削除されます。続行しますか？",
+      "duplicateRecordsConfirmTitle": "レコードを複製",
+      "duplicateRecordsConfirmDescription": "この操作で {{recordCount}} 件のレコードが複製されます。続行しますか？",
+      "pasteConfirmTitle": "貼り付けを実行",
+      "pasteConfirmDescription": "{{recordCount}} 件のレコードを上書きする貼り付けを実行しようとしています。続行しますか？",
+      "paste": "貼り付け",
+      "deleteRecord": "削除",
+      "clear": "クリア",
       "deleting": "削除中...",
+      "duplicating": "複製中...",
+      "deleteFailed": "削除に失敗しました",
       "deleteSuccessful": "削除成功",
+      "duplicateFailed": "複製に失敗しました",
+      "duplicateSuccessful": "複製に成功しました",
+      "duplicateRecords": "複製",
       "deleteStream": {
         "preparing": "Preparing selection",
         "deleting": "Deleting records",
@@ -484,9 +542,87 @@
           "finalizing": "Finalizing"
         }
       },
+      "duplicateStream": {
+        "preparing": "選択範囲を準備中",
+        "duplicating": "レコードを複製中",
+        "descriptionWithIssues": "一部の複製チャンクが失敗しました。以下の詳細をご確認ください。",
+        "completedWithIssues": "問題ありで複製が完了しました",
+        "issuesBadge": "{{count}} 件の問題",
+        "chunkFailureTitle": "チャンクの失敗の詳細",
+        "chunkFailureSummary": "ストリームの実行中に {{count}} 件のチャンクでエラーが報告されました。",
+        "chunkLabel": "チャンク {{index}}",
+        "rowsLabel": "{{count}} 行",
+        "phaseLabel": {
+          "preparing": "準備中",
+          "guarding": "確認中",
+          "processing": "複製中",
+          "publishing": "公開中",
+          "finalizing": "仕上げ中"
+        }
+      },
+      "pasteStream": {
+        "preparing": "選択範囲を準備中",
+        "pasting": "レコードを貼り付け中",
+        "descriptionWithIssues": "一部の貼り付けチャンクが失敗しました。以下の詳細をご確認ください。",
+        "completedWithIssues": "問題ありで貼り付けが完了しました",
+        "issuesBadge": "{{count}} 件の問題",
+        "chunkFailureTitle": "チャンクの失敗の詳細",
+        "chunkFailureSummary": "ストリームの実行中に {{count}} 件のチャンクでエラーが報告されました。",
+        "chunkLabel": "チャンク {{index}}",
+        "rowsLabel": "{{count}} 行",
+        "phaseLabel": {
+          "preparing": "準備中",
+          "guarding": "確認中",
+          "processing": "貼り付け中",
+          "publishing": "公開中",
+          "finalizing": "仕上げ中"
+        }
+      },
+      "clearStream": {
+        "confirmDescription": "この操作で {{recordCount}} 件のレコードの値がクリアされます。続行しますか？",
+        "preparing": "選択範囲を準備中",
+        "clearing": "レコードをクリア中",
+        "descriptionWithIssues": "一部のクリアチャンクが失敗しました。以下の詳細をご確認ください。",
+        "completedWithIssues": "問題ありでクリアが完了しました",
+        "issuesBadge": "{{count}} 件の問題",
+        "chunkFailureTitle": "チャンクの失敗の詳細",
+        "chunkFailureSummary": "ストリームの実行中に {{count}} 件のチャンクでエラーが報告されました。",
+        "chunkLabel": "チャンク {{index}}",
+        "rowsLabel": "{{count}} 行",
+        "phaseLabel": {
+          "preparing": "準備中",
+          "guarding": "確認中",
+          "processing": "クリア中",
+          "publishing": "公開中",
+          "finalizing": "仕上げ中"
+        }
+      },
+      "restoreFieldStream": {
+        "confirmTitle": "フィールドを復元",
+        "confirmDescription": "この操作で削除されたフィールドとそのレコード値が復元されます。",
+        "preparing": "フィールドの復元を準備中",
+        "restoring": "フィールドを復元中...",
+        "restoringRecords": "レコードの値を復元中",
+        "restoreFailed": "復元に失敗しました",
+        "descriptionWithIssues": "一部の復元チャンクが失敗しました。以下の詳細をご確認ください。",
+        "completedWithIssues": "問題ありで復元が完了しました",
+        "issuesBadge": "{{count}} 件の問題",
+        "chunkFailureTitle": "チャンクの失敗の詳細",
+        "chunkFailureSummary": "ストリームの実行中に {{count}} 件のチャンクでエラーが報告されました。",
+        "chunkLabel": "チャンク {{index}}",
+        "rowsLabel": "{{count}} 行",
+        "phaseLabel": {
+          "preparing": "準備中",
+          "guarding": "確認中",
+          "processing": "復元中",
+          "publishing": "公開中",
+          "finalizing": "仕上げ中"
+        }
+      },
       "pasteFileFailed": "ファイルは添付ファイル欄にのみ貼り付けることができます",
       "copyError": {
-        "noFocus": "ページをアクティブに保ち、ウィンドウを切り替えないでください"
+        "noFocus": "ページをアクティブに保ち、ウィンドウを切り替えないでください",
+        "noPermission": "レコードをコピーする権限がありません"
       },
       "crossBaseCopyTitle": "プレーンテキストとしてコピーしますか？",
       "crossBaseCopyDescription": "この選択範囲にはベース間のリンクフィールドが含まれています。データを元のベース内に留めるため、フィールドはプレーンテキストとしてコピーされ、リンク関係は失われます。",
@@ -504,6 +640,8 @@
       "loading": "整合性チェック中...",
       "allGood": "すべて正常です！",
       "fixIssues": "問題を修正",
+      "type": "種類",
+      "message": "エラーメッセージ",
       "v2": {
         "dialogTitle": "スキーマ整合性",
         "dialogDescription": "{{tableName}} に対して v2 のスキーマチェックと修復を実行します。",
@@ -523,6 +661,20 @@
         "manualRepairDialogReason": "手動修復が必要な理由",
         "manualRepairDialogHint": "このダイアログでは、現在はルールが要求する修復オプションのみを案内します。実行処理は後からこの契約の上に追加できます。",
         "manualRepairDialogClose": "閉じる",
+        "repairPreviewTitle": "修復の詳細を確認",
+        "repairPreviewDescription": "これらの詳細は修復のドライランによるものです。修復は確認後にのみ実行されます。",
+        "repairPreviewTooltip": "ドライランの修復計画を開きます。ダイアログには返された SQL が表示されるか、SQL がない場合は明示されます。",
+        "repairPreviewMissingTable": "このチェック結果にはテーブルが含まれていないため、ドライラン修復の対象を特定できません。",
+        "repairPreviewUnavailableStatus": "このステータスは修復不要のため、ドライラン修復計画を生成できません。",
+        "repairPreviewWhat": "修復される内容",
+        "repairPreviewTarget": "フィールド「{{fieldName}}」の「{{ruleName}}」ルール",
+        "repairPreviewPrinciple": "修復の仕組み",
+        "repairPreviewNoPrinciple": "このルールからは追加の修復ガイダンスは返されませんでした。",
+        "repairPreviewSql": "実行する SQL",
+        "repairPreviewNoSql": "ドライランでは実行可能な SQL が返されなかったため、自動修復を直接実行できません。",
+        "repairPreviewCannotConfirm": "ドライランで SQL は返されましたが、このルールは現時点で自動修復として確定できません。修復計画の確認は可能です。",
+        "repairPreviewParameters": "パラメータ",
+        "repairPreviewConfirm": "修復を実行",
         "checking": "スキーマをチェックしています...",
         "repairing": "スキーマを修復しています...",
         "streamError": "スキーマ整合性ストリームに失敗しました。",
@@ -551,7 +703,9 @@
           "checkCompleted": "Schema integrity check completed",
           "baseCheckCompleted": "Base schema integrity check completed",
           "repairCompleted": "Schema integrity repair completed",
-          "baseRepairCompleted": "Base schema integrity repair completed"
+          "baseRepairCompleted": "Base schema integrity repair completed",
+          "skippedStatusNotSelected": "このステータスレベルが修復対象として選択されていないためスキップされました",
+          "skippedRepairUnavailable": "現在の状態では自動修復が利用できないためスキップされました"
         },
         "rule": {
           "column": "Physical column",
@@ -586,6 +740,14 @@
           "systemColumnUnique": "System column \"{{columnName}}\" should have a UNIQUE index",
           "systemColumnPrimaryKey": "System column \"{{columnName}}\" should be PRIMARY KEY",
           "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression",
+          "columnUniqueMissing": "フィールド「{{fieldName}}」は一意である必要があります",
+          "columnUniqueMissingDescription": "重複値を書き込めないよう、「{{fieldName}}」に UNIQUE 制約を追加します。",
+          "columnUniqueIndexMismatch": "フィールド「{{fieldName}}」に想定される一意インデックスがありません",
+          "columnUniqueIndexMismatchDescription": "読み書きがフィールドの一意性ルールに従うよう、「{{fieldName}}」のインデックスを一意インデックスとして再構築します。",
+          "foreignKeyMissing": "フィールド「{{fieldName}}」に外部キー制約がありません",
+          "foreignKeyMissingDescription": "リンクされたレコードの整合性を保つため、「{{fieldName}}」から「{{targetTableName}}」への外部キーを復元します。",
+          "foreignKeyTargetTableMissing": "「{{fieldName}}」のリンク先テーブルが見つかりません",
+          "foreignKeyTargetTableMissingDescription": "対象テーブル「{{targetPhysicalTableName}}」が存在しないため、自動修復では「{{fieldName}}」の外部キーを復元できません。",
           "foreignKeyOrphanRows": "Field \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
           "foreignKeyOrphanRowsDescription": "Automatic repair cannot restore the foreign key for \"{{fieldName}}\" until the {{count}} invalid references to \"{{targetTableName}}\" are cleaned up.",
           "junctionForeignKeyMissing": "The junction table for \"{{fieldName}}\" is missing one of its foreign keys",
@@ -593,7 +755,90 @@
           "junctionForeignKeyTargetTableMissing": "The linked table for the junction of \"{{fieldName}}\" cannot be found",
           "junctionForeignKeyTargetTableMissingDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" because the target table \"{{targetPhysicalTableName}}\" does not exist.",
           "junctionForeignKeyOrphanRows": "The junction table for \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
-          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up."
+          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up.",
+          "referenceMissing": "フィールド「{{fieldName}}」に参照マッピングがありません",
+          "referenceMissingDescription": "ルックアップやリレーションの更新が正しく伝播するよう、「{{fieldName}}」と依存フィールドの間の参照メタデータを復元します。",
+          "symmetricFieldTargetMissing": "「{{fieldName}}」に対応するリンクフィールドが見つかりません",
+          "symmetricFieldWrongType": "「{{fieldName}}」に対応するフィールドはリンクフィールドではありません",
+          "symmetricFieldInvalidOptions": "「{{fieldName}}」に対応するフィールドのリンク設定が無効です",
+          "symmetricFieldMissingBackReference": "「{{fieldName}}」に対応するフィールドが現在のフィールドを参照し返していません",
+          "symmetricFieldWrongBackReference": "「{{fieldName}}」に対応するフィールドが現在のフィールドではなく別のフィールドを参照しています",
+          "symmetricFieldDuplicateUsage": "対称リンクの対象「{{symmetricFieldId}}」が「{{conflictFieldName}}」でも使われています",
+          "symmetricFieldDuplicateUsageDescription": "双方向リンクの各ペアには一意の対称フィールドが必要です。修復前に、どのフィールドがこの関係を保持するか選択してください。"
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "This rule is already valid",
+            "manualRule": "This rule requires a manual decision",
+            "statementGenerationFailed": "The system could not generate a safe repair statement",
+            "noStatements": "This rule has no automatic repair statement",
+            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
+            "symmetricFieldMissing": "対応するリンクフィールドがないため、修復前に確認が必要です",
+            "symmetricFieldBroken": "対応するリンクフィールドが壊れているため、修復前に確認が必要です",
+            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
+            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
+            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
+            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
+          },
+          "description": {
+            "autoRule": "修復ではこのルールが生成したスキーマ文を実行し、その後ルールを再チェックしてスキーマが正しいことを確認します。",
+            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
+            "symmetricFieldMissing": "現在のリンクを一方向に変換してから修復を再実行すると、必要に応じて依存する中間テーブルのルールを再作成できます。",
+            "symmetricFieldBroken": "現在のリンクを一方向に変換してから修復を再実行すると、依存するリンクスキーマのルールを再チェックできます。",
+            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
+            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
+          },
+          "manual": {
+            "apply": "Apply manual repair",
+            "symmetricField": {
+              "title": "Resolve symmetric link conflict",
+              "description": "Pick how this duplicate symmetric link should be repaired.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
+              "option": {
+                "keepCurrent": "Keep the current field as the two-way link",
+                "convertDuplicate": "Convert the duplicate field to a one-way link"
+              }
+            },
+            "symmetricFieldMissing": {
+              "title": "対応するリンクフィールドの欠落を解決",
+              "description": "対応するリンクフィールドは削除されています。修復前に、このフィールドを一方向リンクに変換することを確認してください。",
+              "resolutionLabel": "修復方針",
+              "resolutionDescription": "既存のリレーションデータが保存済みのリンク構造を引き続き使えるよう、現在のリンクを一方向リンクに変換します。",
+              "option": {
+                "convertCurrent": "現在のリンクを一方向リンクに変換"
+              }
+            },
+            "symmetricFieldBroken": {
+              "title": "壊れた対応リンクフィールドを解決",
+              "description": "対応するリンクフィールドは存在しますが、有効な双方向の相手ではありません。修復前に、このフィールドを一方向リンクに変換することを確認してください。",
+              "resolutionLabel": "修復方針",
+              "resolutionDescription": "壊れたペアに依存しないよう、現在のリンクを一方向リンクに変換します。",
+              "option": {
+                "convertCurrent": "現在のリンクを一方向リンクに変換"
+              }
+            },
+            "foreignKeyOrphanRows": {
+              "title": "無効なリンク値をクリア",
+              "description": "存在しないレコードを指す外部キー値をクリアしてから、外部キー制約を復元します。",
+              "resolutionLabel": "修復方針",
+              "resolutionDescription": "無効なリンク値は既に存在しないレコードを指しています。外部キーを復元する前に、これらの値のクリアを確認してください。",
+              "option": {
+                "clearOrphanValues": "無効なリンク値をクリア"
+              }
+            },
+            "junctionForeignKeyOrphanRows": {
+              "title": "無効な中間テーブル行をクリーンアップ",
+              "description": "存在しないレコードを指す中間テーブルの行を削除してから、外部キー制約を復元します。",
+              "resolutionLabel": "修復方針",
+              "resolutionDescription": "無効な中間テーブル行は既に存在しないレコードを指しています。外部キーを復元する前に、これらの無効なリレーション行の削除を確認してください。",
+              "option": {
+                "deleteOrphanRows": "無効なリレーション行を削除"
+              }
+            }
+          }
         },
         "phase": {
           "check": "チェック結果",
@@ -622,42 +867,20 @@
           "unchanged": "変更なし",
           "manual": "手動",
           "skipped": "スキップ"
-        },
-        "repairMeta": {
-          "reason": {
-            "alreadyValid": "This rule is already valid",
-            "manualRule": "This rule requires a manual decision",
-            "statementGenerationFailed": "The system could not generate a safe repair statement",
-            "noStatements": "This rule has no automatic repair statement",
-            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
-            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
-            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
-            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
-            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
-          },
-          "description": {
-            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
-            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
-            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
-            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
-            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
-          },
-          "manual": {
-            "apply": "Apply manual repair",
-            "symmetricField": {
-              "title": "Resolve symmetric link conflict",
-              "description": "Pick how this duplicate symmetric link should be repaired.",
-              "resolutionLabel": "Repair strategy",
-              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
-              "option": {
-                "keepCurrent": "Keep the current field as the two-way link",
-                "convertDuplicate": "Convert the duplicate field to a one-way link"
-              }
-            }
-          }
         }
       },
       "errorType": {
+        "ForeignTableNotFound": "ForeignTableNotFound",
+        "ForeignKeyNotFound": "ForeignKeyNotFound",
+        "SelfKeyNotFound": "SelfKeyNotFound",
+        "SymmetricFieldNotFound": "SymmetricFieldNotFound",
+        "MissingRecordReference": "MissingRecordReference",
+        "InvalidLinkReference": "InvalidLinkReference",
+        "ForeignKeyHostTableNotFound": "ForeignKeyHostTableNotFound",
+        "ReferenceFieldNotFound": "ReferenceFieldNotFound",
+        "UniqueIndexNotFound": "UniqueIndexNotFound",
+        "EmptyString": "EmptyString",
+        "InvalidFilterOperator": "InvalidFilterOperator",
         "InvalidPrimaryLookup": "主フィールドが Lookup として誤設定",
         "InvalidPrimaryType": "主フィールドのタイプが非対応",
         "MissingPrimary": "テーブルに主フィールドがありません"
@@ -676,6 +899,14 @@
       "enableIndex": "有効にする",
       "keepAsIs": "現状のまま",
       "ignoreIndexError": "一時的に無視"
+    },
+    "searchTips": {
+      "maxFieldTips_limited": "フィールドの上限 {{count}} を超えたため、超過分は無視されます"
+    },
+    "deletedRecovered": {
+      "title": "開こうとしたテーブルは削除されています",
+      "description": "「{{tableName}}」に切り替えました",
+      "descriptionEmpty": "Base ページに戻りました"
     }
   },
   "import": {
@@ -698,6 +929,7 @@
       "addFromOtherSource": "他のソースから追加",
       "excelFile": "Microsoft Excelル",
       "airtable": "Airtable",
+      "googleSheet": "Google Sheets",
       "csvFile": "CSVファイル",
       "importCsvData": "CSVデータをインポート",
       "importExcelData": "Microsoft Excelデータをインポート",
@@ -708,13 +940,24 @@
       "duplicating": "複製中...",
       "duplicateSuccess": "複製しました",
       "duplicateFailed": "複製に失敗しました",
-      "importing": "インポート中",
       "includeRecords": "レコードを含む"
     },
     "tips": {
       "importWayTip": "クリックまたはこの領域にドラッグしてファイルをアップロードします",
       "fileExceedSizeTip": "このタイプのファイルサイズは制限を超えています",
       "analyzing": "分析",
+      "importing": "インポート中",
+      "importingRows": "Importing {{processed}} of {{total}} rows",
+      "importingRowsUnknown": "Imported {{processed}} rows",
+      "importingSheet": "Sheet {{current}} of {{total}}: {{name}}",
+      "preparingImport": "Preparing import...",
+      "importFinished": "Import finished",
+      "importFinishedPartial": "Import finished with row limits",
+      "importSheetImported": "{{rowCount}} rows",
+      "importSheetTruncated": "Imported {{rowCount}} rows (row limit reached, remaining rows skipped)",
+      "importSheetFailed": "Failed ({{error}})",
+      "importSummaryHint": "Review each table before closing.",
+      "importDone": "Done",
       "notSupportFieldType": "フィールドタイプはサポートされていません",
       "resultEmpty": "結果が見つかりませんでした。",
       "searchPlaceholder": "検索...",
@@ -741,6 +984,29 @@
       "option": {
         "doNotImport": "インポートしない"
       }
+    }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "すべての添付ファイルをダウンロード",
+      "rowsWithAttachments": "添付行",
+      "totalAttachments": "添付数",
+      "totalSize": "合計サイズ",
+      "cancel": "キャンセル",
+      "downloading": "ダウンロード中...",
+      "completed": "ダウンロード完了",
+      "cancelled": "ダウンロードがキャンセルされました",
+      "noAttachments": "ダウンロードする添付ファイルがありません",
+      "error": "ダウンロード失敗",
+      "errorPartial": "{{failedCount}} ファイルのダウンロードに失敗しました",
+      "requireHttps": "一括ダウンロードにはHTTPSが必要です。HTTPSまたはlocalhostでアクセスしてください。",
+      "advancedOptions": "詳細オプション",
+      "namingFieldLabel": "添付ファイル名のプレフィックス",
+      "selectField": "デフォルト: 添付ファイル番号",
+      "noPrefixOption": "プレフィックスなし",
+      "noPrefixOptionDesc": "元のファイル名を保持",
+      "groupByRow": "フォルダにアーカイブ",
+      "groupByRowTip": "行に複数の添付ファイルがある場合、同じフォルダに配置されます。添付ファイルが1つだけの行はフォルダを作成しません。"
     }
   },
   "grid": {
@@ -819,7 +1085,11 @@
     "insertRecordBelow": "レコードを下に挿入",
     "deleteRecord": "レコードを削除",
     "deleteAllSelectedRecords": "選択したすべてのレコードを削除",
+    "archiveRecord": "レコードをアーカイブ",
+    "archiveAllSelectedRecords": "選択したすべてのレコードをアーカイブ",
+    "duplicateRecords": "選択したレコードを複製",
     "editField": "フィールドを編集",
+    "duplicateField": "フィールドを複製",
     "insertFieldLeft": "左に挿入",
     "insertFieldRight": "右に挿入",
     "freezeUpField": "このフィールドまでフリーズ",
@@ -827,6 +1097,10 @@
     "hideField": "フィールドを非表示",
     "deleteField": "フィールドを削除",
     "deleteAllSelectedFields": "選択したすべてのフィールドを削除",
+    "filterField": "このフィールドでフィルター",
+    "sortField": "このフィールドで並べ替え",
+    "groupField": "このフィールドでグループ化",
+    "downloadAllAttachments": "すべてのファイルをダウンロード",
     "autoFill": "すべてのレコードを更新",
     "groupMenuTitle": "グループメニュー",
     "expandGroup": "このグループとそのサブグループを展開",
@@ -867,18 +1141,92 @@
       "title": "クラッシュしました！",
       "description": "このビューは壊れています。それでも更新が失敗する場合は、お問い合わせください。support@teable.ai"
     },
+    "addPluginView": "プラグインビューを追加",
+    "search": {
+      "field_other": "フィールド（{{length}}）"
+    },
     "locked": {
       "tip": "このビューはロックされています。個人モードを有効にしてビューオプションを編集し、変更は自分にのみ適用されます。"
     },
-    "noView": "ビューがありません"
+    "noView": "ビューがありません",
+    "deletedRecovered": {
+      "title": "開こうとしたビューは削除されています",
+      "description": "「{{viewName}}」に切り替えました"
+    }
   },
   "lastModifiedTime": "最終更新日時",
   "lastModify": "最終更新: ",
+  "pasteNewRecords": {
+    "title": "複数のレコードを追加しますか？",
+    "description": "{{count}} 件のレコードがテーブルに追加されます。"
+  },
+  "tableArchive": {
+    "title": "テーブルのアーカイブ",
+    "menuTitle": "アーカイブ",
+    "archivedTime": "アーカイブ日時",
+    "archivedBy": "アーカイブしたユーザー",
+    "recordDetail": "レコードの詳細",
+    "empty": "アーカイブされたレコードはありません",
+    "allCreators": "すべての作成者",
+    "filterArchivedTime": "アーカイブ日時",
+    "searchPlaceholder": "アーカイブされたレコードを検索",
+    "clearFilter": "フィルターをクリア",
+    "export": "CSV をエクスポート",
+    "exporting": "エクスポート中… {{count}} 行",
+    "exportSucceed": "エクスポート完了、ダウンロードを開始します",
+    "restoreSelected": "復元（{{count}}）",
+    "permanentDeleteSelected": "完全に削除（{{count}}）",
+    "permanentDeleteConfirm": "{{count}} 件のアーカイブ済みレコードを完全に削除しますか？この操作は元に戻せません。",
+    "permanentDeleteSucceed": "完全に削除しました",
+    "resetArchive": "アーカイブを空にする",
+    "resetArchiveConfirm": "このテーブルのすべてのアーカイブ済みレコードを削除しますか？この操作は元に戻せません。",
+    "resetSucceed": "アーカイブを空にしました",
+    "orderBy": {
+      "archivedTime": "アーカイブ日時で並べ替え",
+      "recordCreatedTime": "作成日時で並べ替え",
+      "recordLastModifiedTime": "最終更新日時で並べ替え"
+    }
+  },
   "tableTrash": {
     "title": "ゴミ箱",
     "resourceType": "タイプ",
     "deletedResource": "リソース",
-    "moreResources": "他 {{count}} 件"
+    "moreResources": "他 {{count}} 件",
+    "deletedTime": "削除日時",
+    "deletedBy": "削除したユーザー",
+    "filterAllTypes": "すべてのタイプ",
+    "filterAllUsers": "すべてのユーザー",
+    "filterDeletedTime": "削除日時",
+    "clearFilter": "フィルターをクリア",
+    "recordsDialogTitle": "削除されたレコード（{{count}}）",
+    "recordDetail": "レコードの詳細",
+    "filterAllCreators": "すべての作成者",
+    "filterCreatedTime": "作成日時",
+    "searchPlaceholder": "レコードを検索"
+  },
+  "pluginPanel": {
+    "empty": {
+      "description": "プラグインパネルはまだ追加されていません。"
+    },
+    "createPluginPanel": {
+      "button": "プラグインパネルを作成",
+      "title": "プラグインパネルを作成"
+    },
+    "namePlaceholder": "プラグインパネル名を入力"
+  },
+  "addPlugin": "プラグインを追加",
+  "pluginContextMenu": {
+    "mangeButton": "プラグインを管理",
+    "manage": "コンテキストメニューのプラグインを管理します",
+    "noPlugin": "コンテキストメニューのプラグインはありません",
+    "delete": "削除",
+    "deleteDescription": "このプラグインを削除してもよろしいですか？"
+  },
+  "permission": {
+    "cell": {
+      "deniedRead": "このセルを表示する権限がありません",
+      "deniedUpdate": "このセルを更新する権限がありません"
+    }
   },
   "baseShare": {
     "shareTitle": "共有",
@@ -908,7 +1256,10 @@
     "linkScopeDialogTitle": "Link field scope",
     "linkHolderCanCopyAndSave": "コピーとして保存可能",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
-    "editRequiresLogin": "Users must log in to edit records",
+    "copyToMySpace": "Copy to my space",
+    "saveToMySpace": "Save to my space",
+    "supportSaveCopy": "自分のスペースにコピーを保存できます",
+    "editRequiresLogin": "ログインするとレコードを編集できます",
     "enterPassword": "パスワードを入力",
     "allowCopyData": "閲覧者がデータをコピーすることを許可",
     "sharedNode": "共有ノード",
@@ -940,16 +1291,67 @@
         "failed": "失敗"
       }
     },
+    "googleSheetPick": {
+      "title": "Google スプレッドシートを選択",
+      "defaultReason": "Google のファイル選択画面でスプレッドシートを選択すると、読み取れるようになります。",
+      "pick": "スプレッドシートを選択",
+      "opening": "選択画面を開いています…",
+      "failed": "Google のファイル選択画面を開けませんでした",
+      "gateExpired": "このリクエストは期限切れですが、選択したファイルへのアクセス権は有効です。続けるにはエージェントに新しいメッセージを送信してください。",
+      "status": {
+        "picked": "{{count}} 件のスプレッドシートを許可しました",
+        "cancelled": "スキップしました",
+        "failed": "失敗しました"
+      }
+    },
     "agent": {
       "askUserQuestion": {
-        "otherPlaceholder": "または回答を入力…"
+        "otherPlaceholder": "または回答を入力…",
+        "asked": "質問済み",
+        "skipped": "スキップ済み",
+        "pendingAnswer": "回答待ち",
+        "notSelected": "未選択",
+        "timedOut": "タイムアウト",
+        "timedOutWithDuration": "タイムアウト（{{duration}}）",
+        "cancelled": "キャンセル済み",
+        "previousQuestion": "前の質問",
+        "nextQuestion": "次の質問"
+      },
+      "completion": {
+        "noDetails": "詳細はありません",
+        "model": "モデル",
+        "contextWindow": "コンテキストウィンドウ",
+        "contextTooltip": "エージェントの作業メモリの使用量です。上限に近づくと、エージェントは以前の会話を自動的に要約して空きを作ります。",
+        "contextTipNewChat": "別の話題では新しいチャットを開始すると、クレジットの消費を大幅に減らせます。",
+        "contextTipMemory": "「〜を覚えて」と伝えると長期メモリに保存され、他のチャットからも参照できます。"
       },
       "messageActions": {
+        "helpful": "役に立った",
+        "notHelpful": "役に立たなかった",
+        "commentTitle": "この回答をどう改善できますか？（任意）",
+        "commentPlaceholder": "例：要点を外している、不正確、ツールの選択が違う…",
+        "saveFailed": "フィードバックを保存できませんでした",
         "copy": "コピー",
         "copyToInput": "入力欄にコピー"
+      },
+      "contextCompaction": {
+        "auto": "コンテキストが自動的に圧縮されました",
+        "manual": "コンテキストが圧縮されました",
+        "compacting": "コンテキストを圧縮中…",
+        "failed": "コンテキストの圧縮に失敗しました"
+      },
+      "taskProgress": {
+        "title": "タスクの進捗"
+      },
+      "tool": {
+        "copy": "コピー",
+        "copied": "コピーしました！",
+        "collapse": "折りたたむ",
+        "linesHidden": "{{count}} 行が非表示です - クリックして展開"
       }
     },
     "tool": {
+      "retrying": "再試行中（{{attempt}}/{{maxRetries}}）...",
       "showLess": "折りたたむ",
       "generateApp": {
         "creatingApp": "アプリを作成中",
@@ -961,14 +1363,14 @@
         "code": "コード",
         "download": "ダウンロード",
         "downloadHtml": "HTML",
-        "downloadImage": "画像（PNG）",
         "copy": "コピー",
         "copied": "コピーしました！",
         "fullscreen": "全画面",
         "exitFullscreen": "全画面を終了",
         "downloadSuccess": "画像を正常にダウンロードしました",
         "downloadFailed": "画像のキャプチャに失敗しました",
-        "iframeFailed": "キャプチャに失敗：iframe にアクセスできません"
+        "iframeFailed": "キャプチャに失敗：iframe にアクセスできません",
+        "iframeTitle": "HTML プレビュー"
       }
     },
     "action": {
@@ -980,9 +1382,35 @@
       "submit": "送信"
     },
     "newChat": "新しいチャット",
+    "clearChat": "チャットをクリア",
     "expand": "展開",
     "history": "履歴",
     "close": "折りたたむ",
+    "clearChatConfirmTitle": "チャットのクリアを確認",
+    "clearChatConfirmDesc": "現在のチャット内容は保存されません。クリアしてもよろしいですか？",
+    "dontShowAgain": "今後表示しない",
+    "modelSwitchTitle": "モデルを切り替え",
+    "modelSwitchHint": "現在は {{previous}} で実行中です。次回の送信から新しいモデルに切り替わり、直近 3 ターンのみを参照します。",
+    "effort": {
+      "title": "知能レベル",
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "xhigh": "非常に高"
+    },
+    "sandboxExpiry": {
+      "expiresIn": "エージェントコンピューターは {{time}} 後に期限切れになります",
+      "reset": "更新",
+      "resetTitle": "エージェントコンピューターを更新",
+      "runningTasks_other": "実行中のタスクが {{count}} 件あります。更新すると中断されます。",
+      "noRunningTasks": "現在実行中のタスクはありません。",
+      "newSandboxHint": "更新後も通常どおり使い続けられます。",
+      "cancel": "キャンセル",
+      "confirmReset": "更新",
+      "confirmResetWithTasks": "それでも更新",
+      "expiresSoon": "エージェントコンピューターの期限が近づいています",
+      "resetFailed": "エージェントコンピューターを更新できませんでした"
+    },
     "addAttachment": "添付ファイルを追加",
     "noHistory": "チャット履歴がありません",
     "noFoundHistory": "チャット履歴が見つかりません。新しいチャットを開始してください",
@@ -1005,7 +1433,8 @@
       "tables": "テーブル",
       "apps": "アプリ",
       "workflows": "自動化",
-      "folders": "フォルダ"
+      "folders": "フォルダ",
+      "envs": "シークレット"
     },
     "slashCommand": {
       "skills": "Skills",
@@ -1027,8 +1456,7 @@
     "attachment": {
       "pastedTextFileName": "貼り付けテキスト",
       "imageNotSupported": "画像はサポートされていません",
-      "tooManyFiles": "1つのメッセージに添付できるファイルは最大{{count}}個です",
-      "storageFull": "サンドボックスのストレージがいっぱいです。ファイルを削除してから再試行してください。"
+      "tooManyFiles": "1つのメッセージに添付できるファイルは最大{{count}}個です"
     },
     "suggestions": {
       "title": "何をお手伝いしましょうか？",
@@ -1053,30 +1481,121 @@
       "writeCodeHint": "コードを記述してフローチャートのプレビューを確認してください。",
       "noPreview": "フローチャートのプレビューはありません。",
       "codeChanged": "このプレビューが生成されてからコードが変更されました。"
+    },
+    "artifact": {
+      "view": "表示",
+      "restore": "このバージョンを復元",
+      "download": "ダウンロード",
+      "openInNewPage": "新しいページで開く",
+      "fullscreen": "全画面",
+      "exitFullscreen": "全画面を終了",
+      "delete": "削除",
+      "deleteConfirm": "このアーティファクトを削除しますか？チャットのカードは削除済み表示になります。",
+      "deleted": "このアーティファクトは削除されました",
+      "runtimeError": "アーティファクトのエラー",
+      "loadFailed": "アーティファクトの読み込みに失敗しました",
+      "failed": "アーティファクトの生成に失敗しました",
+      "currentVersion": "現在",
+      "share": "共有",
+      "enableShare": "共有を有効にする",
+      "copyLink": "リンクをコピー",
+      "rotateLink": "リンクをリセット",
+      "scope": "閲覧できる人",
+      "scopePublic": "リンクを知っている全員",
+      "scopeSpace": "スペースメンバー",
+      "passwordProtect": "パスワード保護",
+      "passwordApply": "設定",
+      "passwordRequired": "このアーティファクトはパスワードで保護されています",
+      "passwordPlaceholder": "パスワードを入力",
+      "passwordIncorrect": "パスワードが違います",
+      "passwordSubmit": "確認",
+      "shareNotFound": "この共有アーティファクトは利用できません",
+      "gallery": "マイアーティファクト",
+      "galleryEmpty": "まだアーティファクトがありません。チャットでAIに作成を依頼しましょう。",
+      "searchPlaceholder": "アーティファクトを検索",
+      "fixWithAi": "AIで修正",
+      "noPermission": "このアーティファクトにアクセスする権限がありません"
+    },
+    "queue": {
+      "nQueued": "{{count}} 件待機中",
+      "edit": "編集",
+      "steerNow": "中断せずに会話の方向を調整",
+      "steerFailed": "会話の方向を調整できませんでした。メッセージはキューに残ります。",
+      "conversationInputMarker": "会話の方向を調整しました",
+      "removeFromQueue": "削除"
+    },
+    "partTool": {
+      "bash": "コマンドを実行",
+      "read": "ファイルを読み取り",
+      "write": "ファイルを作成",
+      "edit": "ファイルを編集",
+      "glob": "ファイルを検索",
+      "find": "ファイルを検索",
+      "grep": "ファイル内を検索",
+      "ls": "ディレクトリを一覧表示",
+      "webSearch": "ウェブを検索",
+      "skill": "スキルを読み込み中",
+      "foundFiles": "{{count}} 件のファイルが見つかりました",
+      "listedEntries": "{{count}} 件",
+      "moreTools": "他 {{count}} 件のツール",
+      "moreItems": "他 {{count}} 件",
+      "fallbackName": "ツール",
+      "questionCount_other": "{{count}} 件の質問",
+      "presentFiles": "提示されたファイル",
+      "download": "ダウンロード",
+      "downloadAll": "すべてダウンロード",
+      "downloadAllSkipped_other": "{{count}} 件のファイルは整理され、zip には含まれていません",
+      "downloadAllEmpty": "これらのファイルは整理済みのため、ダウンロードできません",
+      "installSkill": "インストール",
+      "installSkillTitle": "スキルをインストール",
+      "installSkillDescription": "このスキルのインストール先を選択します",
+      "skillInstalled": "インストール済み",
+      "installSkillFailed": "スキルをインストールできませんでした",
+      "installSkillReplaceWarning": "このスコープに同名のスキルが既にある場合は置き換えられます。"
+    },
+    "retry": {
+      "interrupted": "応答が中断されました",
+      "button": "再試行",
+      "offline": "オフラインです。接続が回復したら再試行します。",
+      "pausedHidden": "再試行を一時停止しました — 再接続するにはこのタブを開いてください。",
+      "maxAttemptsReached": "自動的に再接続できませんでした。手動でページを再読み込みしてください。"
+    },
+    "initChatFailed": "チャットを初期化できませんでした",
+    "app": {
+      "loadingChatHistory": "チャット履歴を読み込み中...",
+      "generatorTitle": "AI アプリジェネレーター",
+      "generatorDesc": "作りたいものを説明してください"
+    },
+    "voice": {
+      "start": "音声入力を開始",
+      "stop": "音声入力を停止",
+      "accept": "音声入力を完了",
+      "cancel": "音声入力を破棄",
+      "permissionTip": "マイクへのアクセスを許可してください。",
+      "recording": "録音中...",
+      "transcribing": "文字起こし中...",
+      "error": {
+        "microphoneDenied": "マイクへのアクセスがブロックされています。",
+        "microphoneUnavailable": "マイクが見つかりません。",
+        "unsupportedBrowser": "音声の録音に対応していません。",
+        "recordingFailed": "録音に失敗しました。",
+        "missingServerKey": "音声入力が設定されていません。",
+        "unauthenticated": "もう一度サインインしてください。",
+        "rateLimited": "試行回数が多すぎます。少し待ってください。",
+        "upstreamAuthFailed": "文字起こしの API キーが無効です。",
+        "upstreamBadRequest": "音声エンドポイントが無効です。",
+        "upstreamUnavailable": "音声機能を利用できません。"
+      }
     }
   },
-  "download": {
-    "allAttachments": {
-      "title": "すべての添付ファイルをダウンロード",
-      "rowsWithAttachments": "添付行",
-      "totalAttachments": "添付数",
-      "totalSize": "合計サイズ",
-      "cancel": "キャンセル",
-      "downloading": "ダウンロード中...",
-      "completed": "ダウンロード完了",
-      "cancelled": "ダウンロードがキャンセルされました",
-      "noAttachments": "ダウンロードする添付ファイルがありません",
-      "error": "ダウンロード失敗",
-      "errorPartial": "{{failedCount}} ファイルのダウンロードに失敗しました",
-      "requireHttps": "一括ダウンロードにはHTTPSが必要です。HTTPSまたはlocalhostでアクセスしてください。",
-      "advancedOptions": "詳細オプション",
-      "namingFieldLabel": "添付ファイル名のプレフィックス",
-      "selectField": "デフォルト: 添付ファイル番号",
-      "noPrefixOption": "プレフィックスなし",
-      "noPrefixOptionDesc": "元のファイル名を保持",
-      "groupByRow": "フォルダにアーカイブ",
-      "groupByRowTip": "行に複数の添付ファイルがある場合、同じフォルダに配置されます。添付ファイルが1つだけの行はフォルダを作成しません。"
-    }
+  "upload": {
+    "panelUploading": "{{count}} 件のファイルをアップロード中",
+    "panelFailed": "{{count}} 件のファイルが失敗しました",
+    "panelCompleted": "{{count}} 件のファイルが完了しました",
+    "statusFailed": "失敗",
+    "statusCompleted": "完了",
+    "statusCancel": "アップロードをキャンセル",
+    "statusRetry": "アップロードを再試行"
   },
   "baseNode": {
     "info": {
@@ -1088,7 +1607,16 @@
       "folderId": "フォルダ ID",
       "tableId": "テーブル ID",
       "automationId": "オートメーション ID",
-      "appId": "アプリ ID"
+      "appId": "アプリ ID",
+      "searchVector": "全文検索",
+      "searchVectorFields": "フィールド",
+      "searchVectorStatus": {
+        "ready": "有効",
+        "configured": "設定済み",
+        "rebuildPending": "メンテナンス待ち",
+        "stale": "再構築が必要",
+        "unknown": "不明"
+      }
     }
   }
 }

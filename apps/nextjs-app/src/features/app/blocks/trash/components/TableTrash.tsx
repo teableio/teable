@@ -1,10 +1,10 @@
-import type { QueryFunctionContext } from '@tanstack/react-query';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import type {
   IRestoreFieldTrashStreamDoneEvent,
   IRestoreFieldTrashStreamErrorEvent,
   IRestoreFieldTrashStreamProgressEvent,
+  ITableTrashItemsFilter,
   ITrashVo,
   ITableTrashItemVo,
   IViewSnapshotItemVo,
@@ -18,9 +18,16 @@ import {
   TableTrashType,
 } from '@teable/openapi';
 import { CollaboratorWithHoverCard, InfiniteTable } from '@teable/sdk/components';
+import type { IDateRangeValue } from '@teable/sdk/components/filter/view-filter/component/filterDatePicker/DateRangePicker';
 import { VIEW_ICON_MAP } from '@teable/sdk/components/view/constant';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBase, useBasePermission, useFieldStaticGetter, useIsHydrated } from '@teable/sdk/hooks';
+import {
+  useBase,
+  useBasePermission,
+  useCollaboratorFilterUsers,
+  useFieldStaticGetter,
+  useIsHydrated,
+} from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
@@ -29,14 +36,12 @@ import { Fragment, useCallback, useMemo, useRef, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 import type { SelectionActionDialogStatus } from '../../view/grid/components/SelectionActionProgressDialog';
 import { RestoreFieldTrashProgressDialog } from './RestoreFieldTrashProgressDialog';
+import { TableTrashFilterBar } from './TableTrashFilterBar';
+import { TrashRecordsDialog } from './TrashRecordsDialog';
 
 interface ITableTrashProps {
   tableId: string;
 }
-
-// A bulk deletion can put tens of thousands of resources into one trash item;
-// rendering them all would create as many DOM nodes in a single cell.
-const MAX_DISPLAY_RESOURCE_COUNT = 100;
 
 export const TableTrash = (props: ITableTrashProps) => {
   const { tableId } = props;
@@ -50,9 +55,13 @@ export const TableTrash = (props: ITableTrashProps) => {
   const hasRestorePermission = permission?.['table|trash_update'];
   const useV2RestoreField = base?.v2Status?.useV2 ?? Boolean(base?.isCanary);
 
-  const [nextCursor, setNextCursor] = useState<string | null | undefined>();
-  const [userMap, setUserMap] = useState<ITrashVo['userMap']>({});
-  const [resourceMap, setResourceMap] = useState<ITrashVo['resourceMap']>({});
+  const [resourceTypes, setResourceTypes] = useState<TableTrashType[]>([]);
+  const [deletedByIds, setDeletedByIds] = useState<string[]>([]);
+  const [deletedDateRange, setDeletedDateRange] = useState<IDateRangeValue | null>(null);
+  // The item stays set while the close animation plays; only `recordsDialogOpen` drives
+  // the dialog, otherwise the closing dialog flashes empty.
+  const [viewingItem, setViewingItem] = useState<ITableTrashItemVo | null>(null);
+  const [recordsDialogOpen, setRecordsDialogOpen] = useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [restoreProgress, setRestoreProgress] =
     useState<IRestoreFieldTrashStreamProgressEvent | null>(null);
@@ -65,30 +74,59 @@ export const TableTrash = (props: ITableTrashProps) => {
   const restoreErrorsRef = useRef<IRestoreFieldTrashStreamErrorEvent[]>([]);
   const restoreProgressRef = useRef<IRestoreFieldTrashStreamProgressEvent | null>(null);
 
-  const queryFn = async ({
-    queryKey,
-    pageParam,
-  }: QueryFunctionContext<readonly ['trash-items', string], string | undefined>) => {
-    const res = await getTrashItems({
-      resourceType: TrashType.Table,
-      resourceId: queryKey[1] as string,
-      cursor: pageParam,
-    });
-    const { trashItems, nextCursor } = res.data;
-    setNextCursor(() => nextCursor);
-    setUserMap({ ...userMap, ...res.data.userMap });
-    setResourceMap({ ...resourceMap, ...res.data.resourceMap });
-    return trashItems;
-  };
+  const trashQuery = useMemo<ITableTrashItemsFilter>(
+    () => ({
+      ...(resourceTypes.length ? { resourceTypes } : {}),
+      ...(deletedByIds.length ? { deletedBy: deletedByIds } : {}),
+      ...(deletedDateRange?.exactDate ? { deletedTimeStart: deletedDateRange.exactDate } : {}),
+      ...(deletedDateRange?.exactDateEnd ? { deletedTimeEnd: deletedDateRange.exactDateEnd } : {}),
+    }),
+    [resourceTypes, deletedByIds, deletedDateRange]
+  );
 
-  const { data, isFetching, isLoading, fetchNextPage } = useInfiniteQuery({
-    queryKey: ReactQueryKeys.getTrashItems(tableId),
-    queryFn,
+  const { data, isFetching, isLoading, hasNextPage, fetchNextPage } = useInfiniteQuery({
+    queryKey: ReactQueryKeys.getTrashItems(tableId, trashQuery),
+    queryFn: ({ pageParam }) =>
+      getTrashItems({
+        resourceType: TrashType.Table,
+        resourceId: tableId,
+        cursor: pageParam,
+        ...trashQuery,
+      }).then((res) => res.data),
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
     initialPageParam: undefined as string | undefined,
-    getNextPageParam: () => nextCursor,
+    getNextPageParam: (lastPage: ITrashVo) => lastPage.nextCursor ?? undefined,
   });
+
+  const allRows = useMemo(
+    () => (data ? data.pages.flatMap((page) => page.trashItems) : []) as ITableTrashItemVo[],
+    [data]
+  );
+
+  const userMap = useMemo(() => {
+    const map: ITrashVo['userMap'] = {};
+    data?.pages.forEach((page) => Object.assign(map, page.userMap));
+    return map;
+  }, [data]);
+
+  const resourceMap = useMemo(() => {
+    const map: ITrashVo['resourceMap'] = {};
+    data?.pages.forEach((page) => Object.assign(map, page.resourceMap));
+    return map;
+  }, [data]);
+
+  const { users: filterUsers, setUserSearch } = useCollaboratorFilterUsers({
+    selectedIds: deletedByIds,
+    userMap,
+  });
+
+  const onFilterReset = useCallback(() => {
+    setResourceTypes([]);
+    setDeletedByIds([]);
+    setDeletedDateRange(null);
+    setUserSearch('');
+  }, [setUserSearch]);
 
   const { mutateAsync: mutateRestore } = useMutation({
     mutationFn: (props: { trashId: string }) => restoreTrash(props.trashId, tableId),
@@ -163,10 +201,10 @@ export const TableTrash = (props: ITableTrashProps) => {
     [mutateRestore, restoreFieldTrash, useV2RestoreField]
   );
 
-  const allRows = useMemo(
-    () => (data ? data.pages.flatMap((d) => d) : []) as ITableTrashItemVo[],
-    [data]
-  );
+  const handleViewRecords = useCallback((item: ITableTrashItemVo) => {
+    setViewingItem(item);
+    setRecordsDialogOpen(true);
+  }, []);
 
   const columns: ColumnDef<ITableTrashItemVo>[] = useMemo(() => {
     const result: ColumnDef<ITableTrashItemVo>[] = [
@@ -178,51 +216,62 @@ export const TableTrash = (props: ITableTrashProps) => {
         cell: ({ row }) => {
           const resourceType = row.getValue<TableTrashType>('resourceType');
           const resourceIds = row.getValue<ITableTrashItemVo['resourceIds']>('resourceIds');
-          const resourceList = resourceIds
+          const isRecord = resourceType === TableTrashType.Record;
+          // The server only returns a preview of each item's resources; the rest are
+          // represented by the total count.
+          const displayList = resourceIds
             .map((resourceId) => {
               return resourceMap[resourceId];
             })
             .filter(Boolean);
-          const displayList = resourceList.slice(0, MAX_DISPLAY_RESOURCE_COUNT);
-          const hiddenCount = resourceList.length - displayList.length;
-          return (
+          const hiddenCount = row.original.totalResourceCount - displayList.length;
+          const chips = (
             <Fragment>
-              {resourceList.length ? (
-                <div className="flex w-full flex-wrap gap-1">
-                  {displayList.map((resource) => {
-                    const { id, name } = resource;
-                    const Icon =
-                      resourceType === TableTrashType.Field
-                        ? getFieldStatic((resource as IFieldSnapshotItemVo).type, {
-                            isLookup: Boolean((resource as IFieldSnapshotItemVo).isLookup),
-                            isConditionalLookup: Boolean(
-                              (resource as IFieldSnapshotItemVo).isConditionalLookup
-                            ),
-                            hasAiConfig: false,
-                          }).Icon
-                        : resourceType === TableTrashType.View
-                          ? VIEW_ICON_MAP[(resource as IViewSnapshotItemVo).type]
-                          : null;
-                    return (
-                      <div
-                        key={id}
-                        className="flex items-center rounded-sm border bg-muted px-2 py-[2px] text-xs"
-                      >
-                        {Icon && <Icon className="mr-1 size-3" />}
-                        {name || t('sdk:common.unnamedRecord')}
-                      </div>
-                    );
-                  })}
-                  {hiddenCount > 0 && (
-                    <span className="ml-1 flex items-center text-xs text-muted-foreground">
-                      {t('table:tableTrash.moreResources', { count: hiddenCount })}
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <span className="text-muted-foreground">{t('sdk:common.empty')}</span>
+              {displayList.map((resource) => {
+                const { id, name } = resource;
+                const Icon =
+                  resourceType === TableTrashType.Field
+                    ? getFieldStatic((resource as IFieldSnapshotItemVo).type, {
+                        isLookup: Boolean((resource as IFieldSnapshotItemVo).isLookup),
+                        isConditionalLookup: Boolean(
+                          (resource as IFieldSnapshotItemVo).isConditionalLookup
+                        ),
+                        hasAiConfig: false,
+                      }).Icon
+                    : resourceType === TableTrashType.View
+                      ? VIEW_ICON_MAP[(resource as IViewSnapshotItemVo).type]
+                      : null;
+                return (
+                  <span
+                    key={id}
+                    className="flex items-center rounded-sm border bg-muted px-2 py-[2px] text-xs"
+                  >
+                    {Icon && <Icon className="me-1 size-3" />}
+                    {name || t('sdk:common.unnamedRecord')}
+                  </span>
+                );
+              })}
+              {hiddenCount > 0 && (
+                <span className="ms-1 flex items-center text-xs text-muted-foreground">
+                  {t('table:tableTrash.moreResources', { count: hiddenCount })}
+                </span>
               )}
             </Fragment>
+          );
+          if (!displayList.length && hiddenCount <= 0) {
+            return <span className="text-muted-foreground">{t('sdk:common.empty')}</span>;
+          }
+          // Record rows: the whole chip block is one click target opening the records grid.
+          return isRecord ? (
+            <button
+              type="button"
+              className="-m-1 flex w-full cursor-pointer flex-wrap gap-1 rounded-md p-1 text-start hover:bg-primary/10"
+              onClick={() => handleViewRecords(row.original)}
+            >
+              {chips}
+            </button>
+          ) : (
+            <div className="flex w-full flex-wrap gap-1">{chips}</div>
           );
         },
       },
@@ -308,23 +357,43 @@ export const TableTrash = (props: ITableTrashProps) => {
     getFieldStatic,
     restoringTrashId,
     handleRestore,
+    handleViewRecords,
   ]);
 
   const fetchNextPageInner = useCallback(() => {
-    if (!isFetching && nextCursor) {
+    if (!isFetching && hasNextPage) {
       fetchNextPage();
     }
-  }, [fetchNextPage, isFetching, nextCursor]);
+  }, [fetchNextPage, isFetching, hasNextPage]);
 
   if (!isHydrated || isLoading) return null;
 
   return (
-    <>
-      <InfiniteTable
-        rows={allRows}
-        columns={columns}
-        className="sm:overflow-x-hidden"
-        fetchNextPage={fetchNextPageInner}
+    <div className="flex size-full min-h-0 flex-col">
+      <TableTrashFilterBar
+        users={filterUsers}
+        resourceTypes={resourceTypes}
+        deletedByIds={deletedByIds}
+        dateRange={deletedDateRange}
+        onResourceTypesChange={setResourceTypes}
+        onDeletedByIdsChange={setDeletedByIds}
+        onDateRangeChange={setDeletedDateRange}
+        onUserSearch={setUserSearch}
+        onReset={onFilterReset}
+      />
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <InfiniteTable
+          rows={allRows}
+          columns={columns}
+          className="sm:overflow-x-hidden"
+          fetchNextPage={fetchNextPageInner}
+        />
+      </div>
+      <TrashRecordsDialog
+        tableId={tableId}
+        trashItem={viewingItem}
+        open={recordsDialogOpen}
+        onOpenChange={setRecordsDialogOpen}
       />
       <RestoreFieldTrashProgressDialog
         open={restoreDialogOpen}
@@ -334,6 +403,6 @@ export const TableTrash = (props: ITableTrashProps) => {
         status={restoreStatus}
         onOpenChange={setRestoreDialogOpen}
       />
-    </>
+    </div>
   );
 };

@@ -13,6 +13,10 @@ export type ComputedOutboxWakeup = Readonly<{
   availableAt: Date;
   emittedAt: Date;
   cause: ComputedOutboxWakeupCause;
+  /** W3C traceparent captured at enqueue time so the worker stays in the write trace. */
+  traceparent?: string;
+  /** Optional W3C tracestate paired with traceparent. */
+  tracestate?: string;
 }>;
 
 export type ComputedOutboxWakeupPublishOutcome = { status: 'accepted' } | { status: 'disabled' };
@@ -40,6 +44,8 @@ export const createComputedOutboxWakeup = (params: {
   baseId: string;
   availableAt?: Date;
   cause: ComputedOutboxWakeupCause;
+  traceparent?: string;
+  tracestate?: string;
 }): ComputedOutboxWakeup => ({
   schemaVersion: 1,
   wakeupId: params.wakeupId ?? generatePrefixedId(WAKEUP_ID_PREFIX, WAKEUP_ID_BODY_LENGTH),
@@ -48,4 +54,6 @@ export const createComputedOutboxWakeup = (params: {
   availableAt: params.availableAt ?? new Date(),
   emittedAt: new Date(),
   cause: params.cause,
+  ...(params.traceparent ? { traceparent: params.traceparent } : {}),
+  ...(params.tracestate ? { tracestate: params.tracestate } : {}),
 });

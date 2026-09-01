@@ -35,9 +35,7 @@ describe('LocalStorage', () => {
       path: '/mock/path',
     },
     encryption: {
-      algorithm: 'aes-128-cbc',
-      key: '73b00476e456323e',
-      iv: '8c9183e4c175f63c',
+      entries: [{ algorithm: 'aes-128-cbc', key: '73b00476e456323e', iv: '8c9183e4c175f63c' }],
     },
     tokenExpireIn: '7d',
     urlExpireIn: '7d',

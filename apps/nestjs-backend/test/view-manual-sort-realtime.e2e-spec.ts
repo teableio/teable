@@ -22,11 +22,9 @@ const waitForQueryReady = (query: Query<unknown>, timeout = 5000): Promise<void>
   });
 };
 
-// The manual-sort endpoint rewrites __row_<viewId> with raw SQL, so no record
-// op exists to wake subscriptions and no record write bumps the table's
-// lastModifiedTime (the socket doc-ids cache key). Both must happen via
-// publishRowOrderChange, otherwise open pages keep the old order and a
-// refresh serves the stale cached order over the socket.
+// Manual sort materializes __row_<viewId> in one bulk v2 record write. The
+// ViewManualSortApplied projection must invalidate collection queries after
+// commit, while the native record repository rotates table lastModifiedTime.
 describe('OpenAPI ViewController manual-sort realtime (e2e)', () => {
   let app: INestApplication;
   let cookie: string;

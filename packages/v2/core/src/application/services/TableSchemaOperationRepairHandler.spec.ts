@@ -104,12 +104,13 @@ class FakeTableRepository implements Partial<ITableRepository> {
 
   constructor(private readonly tables: ReadonlyArray<Table>) {}
 
-  async find(
-    _: IExecutionContext,
-    spec: { isSatisfiedBy(table: Table): boolean }
-  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    return ok(this.tables.filter((table) => spec.isSatisfiedBy(table)));
-  }
+  readonly find = vi.fn(
+    async (
+      _: IExecutionContext,
+      spec: { isSatisfiedBy(table: Table): boolean }
+    ): Promise<Result<ReadonlyArray<Table>, DomainError>> =>
+      ok(this.tables.filter((table) => spec.isSatisfiedBy(table)))
+  );
 }
 
 const createHandler = (tables: ReadonlyArray<Table>) => {
@@ -117,6 +118,7 @@ const createHandler = (tables: ReadonlyArray<Table>) => {
   const tableRepository = new FakeTableRepository(tables);
   const tableSchemaRepository = {
     ensureInsertedMany: vi.fn(async () => ok(undefined)),
+    ensurePhysicalTable: vi.fn(async () => ok(undefined)),
   } as unknown as ITableSchemaRepository;
   const fieldCreationSideEffectService = {
     execute: vi.fn(
@@ -163,6 +165,7 @@ describe('TableSchemaOperationRepairHandler', () => {
       table,
     ]);
     expect(fieldCreationSideEffectService.execute).toHaveBeenCalledOnce();
+    expect(tableSchemaRepository.ensurePhysicalTable).not.toHaveBeenCalled();
     expect(tableRepository.setProvisionState).toHaveBeenCalledWith(
       expect.any(Object),
       table,
@@ -174,10 +177,58 @@ describe('TableSchemaOperationRepairHandler', () => {
     );
   });
 
-  it('repairs a missing-column table update operation and completes the same operation key', async () => {
+  it('repairs a missing-column table update operation classified by its structured failure code', async () => {
     const table = createTable('f', 'Repair Update');
-    const { handler, tableRepository, tableSchemaRepository, fieldCreationSideEffectService } =
-      createHandler([table]);
+    const {
+      handler,
+      tableRepository,
+      tableSchemaRepository,
+      fieldCreationSideEffectService,
+      foreignTableLoaderService,
+    } = createHandler([table]);
+
+    const result = await handler.run(
+      context(),
+      operation(table, {
+        type: 'table.update',
+        payload: {
+          tableId: table.id().toString(),
+        },
+        result: {
+          tableUpdateFailure: { code: 'db.undefined_column' },
+        },
+        lastError: 'Failed to update table schema: error: column "Missing_Field" does not exist',
+      })
+    );
+
+    expect(result._unsafeUnwrap()).toEqual({
+      result: {
+        repaired: 'table_schema',
+        tableIds: [table.id().toString()],
+      },
+    });
+    expect(tableSchemaRepository.ensureInsertedMany).toHaveBeenCalledWith(expect.any(Object), [
+      table,
+    ]);
+    expect(fieldCreationSideEffectService.execute).toHaveBeenCalledOnce();
+    expect(tableRepository.setProvisionState).toHaveBeenCalledWith(
+      expect.any(Object),
+      table,
+      'ready',
+      expect.objectContaining({
+        idempotencyKey: `repair-op:table:${table.id().toString()}`,
+        operationType: 'table.update',
+      })
+    );
+    expect(foreignTableLoaderService.load).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ allowMissing: true })
+    );
+  });
+
+  it('repairs a legacy missing-column table update that only recorded Postgres prose', async () => {
+    const table = createTable('j', 'Legacy Repair Update');
+    const { handler, tableSchemaRepository } = createHandler([table]);
 
     const result = await handler.run(
       context(),
@@ -199,6 +250,63 @@ describe('TableSchemaOperationRepairHandler', () => {
     expect(tableSchemaRepository.ensureInsertedMany).toHaveBeenCalledWith(expect.any(Object), [
       table,
     ]);
+  });
+
+  it('does not repair a missing-column message when the structured failure code says otherwise', async () => {
+    const table = createTable('k', 'False Positive Update');
+    const { handler, tableSchemaRepository } = createHandler([table]);
+
+    const result = await handler.run(
+      context(),
+      operation(table, {
+        type: 'table.update',
+        payload: {
+          tableId: table.id().toString(),
+        },
+        result: {
+          tableUpdateFailure: { code: 'infrastructure' },
+        },
+        lastError:
+          'Failed to update table schema: error: invalid input value for enum: column "enum" does not exist',
+      })
+    );
+
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'schema_operation.repair_not_supported',
+    });
+    expect(tableSchemaRepository.ensureInsertedMany).not.toHaveBeenCalled();
+  });
+
+  it('repairs an interrupted table update operation that never recorded an error', async () => {
+    const table = createTable('i', 'Interrupted Update');
+    const { handler, tableRepository, tableSchemaRepository, fieldCreationSideEffectService } =
+      createHandler([table]);
+
+    const result = await handler.run(
+      context(),
+      operation(table, {
+        type: 'table.update',
+        status: 'pending',
+        phase: 'metadata_pending',
+        payload: {
+          tableId: table.id().toString(),
+        },
+        lastError: null,
+      })
+    );
+
+    expect(result._unsafeUnwrap()).toEqual({
+      result: {
+        repaired: 'table_schema',
+        tableIds: [table.id().toString()],
+      },
+    });
+    expect(tableSchemaRepository.ensureInsertedMany).toHaveBeenCalledWith(expect.any(Object), [
+      table,
+    ]);
+    expect(tableRepository.find).toHaveBeenCalledWith(expect.any(Object), expect.anything(), {
+      state: 'activeAnyProvision',
+    });
     expect(fieldCreationSideEffectService.execute).toHaveBeenCalledOnce();
     expect(tableRepository.setProvisionState).toHaveBeenCalledWith(
       expect.any(Object),
@@ -301,6 +409,25 @@ describe('TableSchemaOperationRepairHandler', () => {
       code: 'schema_operation.repair_not_supported',
     });
     expect(tableSchemaRepository.ensureInsertedMany).not.toHaveBeenCalled();
+  });
+
+  it('recreates missing foreign physical tables during schema-only create repair', async () => {
+    const table = createTable('i', 'Child');
+    const parent = createTable('j', 'Parent');
+    const { handler, tableSchemaRepository, foreignTableLoaderService } = createHandler([table]);
+    foreignTableLoaderService.load.mockResolvedValueOnce(ok([parent]));
+
+    const result = await handler.run(context(), operation(table));
+
+    expect(result.isOk()).toBe(true);
+    expect(tableSchemaRepository.ensureInsertedMany).toHaveBeenCalledWith(expect.any(Object), [
+      table,
+    ]);
+    expect(tableSchemaRepository.ensurePhysicalTable).toHaveBeenCalledWith(
+      expect.any(Object),
+      parent
+    );
+    expect(tableSchemaRepository.ensurePhysicalTable).toHaveBeenCalledOnce();
   });
 
   it('repairs a structure-only DotTea import batch and derives the original operation id', async () => {

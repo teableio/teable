@@ -106,6 +106,39 @@ describe('clearSelectionStream', () => {
     expect(result.errors).toHaveLength(1);
   });
 
+  it('throws an HttpError carrying localization when the stream ends without done', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          createSSEStreamResponse([
+            'data: {"id":"error","phase":"clearing","batchIndex":0,"totalCount":1,"processedCount":0,"clearedCount":0,"recordIds":[],"message":"Cannot complete update: field fldabc cannot be empty","code":"validation.field.not_null","localization":{"i18nKey":"httpErrors.custom.recordFieldValueNotNull","context":{"fieldName":"Required"}}}',
+          ])
+        )
+    );
+
+    const promise = clearSelectionStream('tbl0000000000000000', {
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+    });
+
+    await expect(promise).rejects.toMatchObject({
+      message: 'Cannot complete update: field fldabc cannot be empty',
+      status: 400,
+      code: 'validation_error',
+      data: {
+        domainCode: 'validation.field.not_null',
+        localization: {
+          i18nKey: 'httpErrors.custom.recordFieldValueNotNull',
+          context: { fieldName: 'Required' },
+        },
+      },
+    });
+  });
+
   it('uses patch defaults and keeps the current undo/redo window id header', async () => {
     const common = new AxiosHeaders();
     common.set('X-Window-Id', 'win_stream_clear');

@@ -74,7 +74,11 @@ export class GetComputeActivityHandler
     const guardResult = await pluginExecutionResult.value.guard();
     if (guardResult.isErr()) return err(guardResult.error);
 
-    const result = await this.activityReader.getByTableId(context, query.tableId.toString());
+    const result = await this.activityReader.getByTableId(
+      context,
+      query.tableId.toString(),
+      query.baseId.toString()
+    );
     if (result.isErr()) return err(result.error);
 
     // Ensure baseId is populated when activity rows are empty.

@@ -6,6 +6,7 @@ import type { IDomainContext } from '../../domain/shared/DomainContext';
 import type { DomainError } from '../../domain/shared/DomainError';
 import {
   ensureWithinTableDataSafetyLimit,
+  tableDataSafetyLimitErrors,
   resolveTableDataSafetyLimits,
   type ResolvedTableDataSafetyLimitConfig,
 } from '../../domain/shared/TableDataSafetyLimits';
@@ -17,9 +18,9 @@ import type {
 } from '../../ports/TableOperationPlugin';
 import { TableOperationKind } from '../../ports/TableOperationPlugin';
 import type { ITableRepository } from '../../ports/TableRepository';
+import type { TableDataSafetyLimitComposer } from './TableDataSafetyLimitComposer';
 import { ensureTableDataSafetyFieldLimits } from './TableDataSafetyLimitFieldOperationPlugin';
 import { ensureTableDataSafetyViewConfigLimits } from './TableDataSafetyLimitViewOperationPlugin';
-import { TableDataSafetyLimitComposer } from './TableDataSafetyLimitComposer';
 
 type PreparedTableDataSafetyOperationLimitState = {
   readonly domainContext: IDomainContext | undefined;
@@ -76,7 +77,7 @@ export class TableDataSafetyLimitTableOperationPlugin
     const limits = preparedState?.limits ?? resolveTableDataSafetyLimits();
 
     const nameResult = ensureWithinTableDataSafetyLimit(
-      'validation.limit.name_max_length',
+      tableDataSafetyLimitErrors.nameMaxLength,
       tableNameLength(context),
       limits.displayText.maxNameLength,
       { target: 'table.name' }
@@ -165,7 +166,7 @@ export class TableDataSafetyLimitTableOperationPlugin
     domainContext: IDomainContext | undefined
   ): Result<void, DomainError> {
     const fieldsResult = ensureWithinTableDataSafetyLimit(
-      'validation.limit.create_table_fields_max',
+      tableDataSafetyLimitErrors.createTableFieldsMax,
       payload.fieldCount,
       limits.tableSchema.maxCreateTableFields,
       { target: 'table.fields' }
@@ -176,7 +177,7 @@ export class TableDataSafetyLimitTableOperationPlugin
     if (fieldsPerTableResult.isErr()) return fieldsPerTableResult;
 
     const viewsResult = ensureWithinTableDataSafetyLimit(
-      'validation.limit.create_table_views_max',
+      tableDataSafetyLimitErrors.createTableViewsMax,
       payload.viewCount,
       limits.tableSchema.maxCreateTableViews,
       { target: 'table.views' }
@@ -184,7 +185,7 @@ export class TableDataSafetyLimitTableOperationPlugin
     if (viewsResult.isErr()) return viewsResult;
 
     const viewsPerTableResult = ensureWithinTableDataSafetyLimit(
-      'validation.limit.views_per_table_max',
+      tableDataSafetyLimitErrors.viewsPerTableMax,
       payload.viewCount > 0 ? payload.viewCount : 1,
       limits.tableSchema.maxViewsPerTable,
       { target: 'table.views' }
@@ -192,7 +193,7 @@ export class TableDataSafetyLimitTableOperationPlugin
     if (viewsPerTableResult.isErr()) return viewsPerTableResult;
 
     const recordsResult = ensureWithinTableDataSafetyLimit(
-      'validation.limit.create_table_records_max',
+      tableDataSafetyLimitErrors.createTableRecordsMax,
       payload.recordCount,
       limits.tableSchema.maxCreateTableRecords,
       { target: 'table.records' }
@@ -201,7 +202,7 @@ export class TableDataSafetyLimitTableOperationPlugin
 
     for (const [index, viewName] of payload.viewNames.entries()) {
       const viewNameResult = ensureWithinTableDataSafetyLimit(
-        'validation.limit.name_max_length',
+        tableDataSafetyLimitErrors.nameMaxLength,
         viewName.length,
         limits.displayText.maxNameLength,
         {
@@ -228,7 +229,7 @@ export class TableDataSafetyLimitTableOperationPlugin
     if (fieldsPerTableResult.isErr()) return fieldsPerTableResult;
 
     const viewsPerTableResult = ensureWithinTableDataSafetyLimit(
-      'validation.limit.views_per_table_max',
+      tableDataSafetyLimitErrors.viewsPerTableMax,
       table.views().length > 0 ? table.views().length : 1,
       limits.tableSchema.maxViewsPerTable,
       { target: 'table.views' }
@@ -264,7 +265,7 @@ export class TableDataSafetyLimitTableOperationPlugin
     limits: ResolvedTableDataSafetyLimitConfig
   ): Result<void, DomainError> {
     return ensureWithinTableDataSafetyLimit(
-      'validation.limit.fields_per_table_max',
+      tableDataSafetyLimitErrors.fieldsPerTableMax,
       fieldCount,
       limits.tableSchema.maxFieldsPerTable,
       { target: 'table.fields' }
@@ -314,7 +315,7 @@ export class TableDataSafetyLimitTableOperationPlugin
     const existingTableCount = existingTableCountResult.value;
 
     return ensureWithinTableDataSafetyLimit(
-      'validation.limit.tables_per_base_max',
+      tableDataSafetyLimitErrors.tablesPerBaseMax,
       existingTableCount + addedTableCount,
       limits.tableSchema.maxTablesPerBase,
       {

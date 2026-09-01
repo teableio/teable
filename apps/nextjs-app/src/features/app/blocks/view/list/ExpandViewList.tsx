@@ -104,12 +104,12 @@ export const ExpandViewList = () => {
                     }}
                   >
                     <Icon className="size-4 shrink-0" />
-                    <span className="ml-2 truncate text-sm" title={name}>
+                    <span className="ms-2 truncate text-sm" title={name}>
                       {name}
                     </span>
                     <span className="grow" />
                     {isDraggable && permission['view|update'] && (
-                      <div {...attributes} {...listeners} className="pr-1">
+                      <div {...attributes} {...listeners} className="pe-1">
                         <DraggableHandle className="size-3 shrink-0" />
                       </div>
                     )}

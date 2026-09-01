@@ -90,24 +90,47 @@ export class PostgresProvider implements IDbProvider {
 
   getForeignKeysInfo(dbTableName: string) {
     const [schemaName, tableName] = this.splitTableName(dbTableName);
+    // Anchor on pg_constraint.conrelid (the exact constrained table). Constraint
+    // names are unique per table, not per schema, so information_schema joins on
+    // (constraint_name, table_schema) fan out whenever two tables in one schema
+    // hold a same-named FK (e.g. v2's `fk_{column}` naming): the duplicate/import
+    // drop phase then issued the same DROP CONSTRAINT twice and died with PG
+    // 42704, and the rebuild phase read a polluted referenced column/delete rule.
+    // Teable FKs are single-column, so conkey[1]/confkey[1] keep the established
+    // one-row-per-constraint contract.
     return this.knex
       .raw(
         `
-      SELECT tc.constraint_name,
-       kcu.column_name,
-       ccu.table_schema AS referenced_table_schema,
-       ccu.table_name   AS referenced_table_name,
-       ccu.column_name  AS referenced_column_name
-FROM information_schema.table_constraints tc
-         JOIN information_schema.key_column_usage kcu
-              ON tc.constraint_name = kcu.constraint_name
-                  AND tc.table_schema = kcu.table_schema
-         JOIN information_schema.constraint_column_usage ccu
-              ON ccu.constraint_name = tc.constraint_name
-                  AND ccu.table_schema = tc.table_schema
-WHERE tc.constraint_type = 'FOREIGN KEY'
-  AND tc.table_schema = ?
-  AND tc.table_name = ?;
+      SELECT con.conname    AS constraint_name,
+             src_att.attname AS column_name,
+             ref_nsp.nspname AS referenced_table_schema,
+             ref_rel.relname AS referenced_table_name,
+             ref_att.attname AS referenced_column_name,
+             CASE con.confdeltype
+               WHEN 'a' THEN 'NO ACTION'
+               WHEN 'r' THEN 'RESTRICT'
+               WHEN 'c' THEN 'CASCADE'
+               WHEN 'n' THEN 'SET NULL'
+               WHEN 'd' THEN 'SET DEFAULT'
+             END AS delete_rule
+FROM pg_constraint con
+         JOIN pg_class src_rel
+              ON src_rel.oid = con.conrelid
+         JOIN pg_namespace src_nsp
+              ON src_nsp.oid = src_rel.relnamespace
+         JOIN pg_attribute src_att
+              ON src_att.attrelid = con.conrelid
+                  AND src_att.attnum = con.conkey[1]
+         JOIN pg_class ref_rel
+              ON ref_rel.oid = con.confrelid
+         JOIN pg_namespace ref_nsp
+              ON ref_nsp.oid = ref_rel.relnamespace
+         JOIN pg_attribute ref_att
+              ON ref_att.attrelid = con.confrelid
+                  AND ref_att.attnum = con.confkey[1]
+WHERE con.contype = 'f'
+  AND src_nsp.nspname = ?
+  AND src_rel.relname = ?;
       `,
         [schemaName, tableName]
       )

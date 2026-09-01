@@ -11,6 +11,7 @@ import type {
   IPasteSelectionStreamEvent,
   IPasteSelectionStreamProgressEvent,
 } from './paste-stream';
+import { createSelectionStreamError } from './stream-error';
 
 export const PASTE_BY_ID_STREAM_URL = '/table/{tableId}/selection/paste-by-id-stream';
 
@@ -93,7 +94,7 @@ export const pasteSelectionByIdStream = async (
 
   if (!doneEvent) {
     const lastError = errors.at(-1);
-    if (lastError) throw new Error(lastError.message);
+    if (lastError) throw createSelectionStreamError(lastError);
     throw new Error('Paste selection by id stream ended without result');
   }
 

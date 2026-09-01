@@ -328,6 +328,52 @@ describe('OpenAPI Rollup field (e2e)', () => {
     expect(hostAfterClear.fields[rollupField.id]).toEqual(30);
   });
 
+  it('keeps OR-filtered rollups inside each one-many link scope (T7004)', async () => {
+    const statusField = getFieldByType(table2.fields, FieldType.SingleSelect);
+    const numberField = getFieldByType(table2.fields, FieldType.Number);
+    const linkField = getFieldByType(table1.fields, FieldType.Link) as LinkFieldCore;
+
+    const rollupField = await createField(table1.id, {
+      name: 'OR-filtered linked total T7004',
+      type: FieldType.Rollup,
+      options: {
+        expression: 'sum({values})',
+        formatting: {
+          type: NumberFormattingType.Decimal,
+          precision: 0,
+        },
+      },
+      lookupOptions: {
+        foreignTableId: table2.id,
+        linkFieldId: linkField.id,
+        lookupFieldId: numberField.id,
+        filter: {
+          conjunction: 'or',
+          filterSet: [
+            { fieldId: statusField.id, operator: 'is', value: 'todo' },
+            { fieldId: statusField.id, operator: 'is', value: 'doing' },
+          ],
+        },
+      } as ILookupOptionsRo,
+    });
+
+    await updateRecordField(table2.id, table2.records[0].id, numberField.id, 10);
+    await updateRecordField(table2.id, table2.records[0].id, statusField.id, 'todo');
+    await updateRecordField(table2.id, table2.records[1].id, numberField.id, 20);
+    await updateRecordField(table2.id, table2.records[1].id, statusField.id, 'doing');
+    await updateRecordField(table2.id, table2.records[2].id, numberField.id, 30);
+    await updateRecordField(table2.id, table2.records[2].id, statusField.id, 'done');
+    await updateRecordField(table1.id, table1.records[0].id, linkField.id, [
+      { id: table2.records[0].id },
+    ]);
+
+    const linkedHost = await getRecord(table1.id, table1.records[0].id);
+    const unlinkedHost = await getRecord(table1.id, table1.records[1].id);
+
+    expect(linkedHost.fields[rollupField.id]).toEqual(10);
+    expect(unlinkedHost.fields[rollupField.id]).toEqual(0);
+  });
+
   it('should update rollupField by remove a linkRecord from cell', async () => {
     const lookedUpToField = getFieldByType(table2.fields, FieldType.Number);
     const rollupFieldVo = await rollupFrom(table1, lookedUpToField.id, 'countall({values})');
@@ -819,8 +865,6 @@ describe('OpenAPI Rollup field (e2e)', () => {
 
   describe('rollup expression coverage', () => {
     const baseId = globalThis.testConfig.baseId;
-    const isForceV2 = process.env.FORCE_V2_ALL === 'true';
-
     const setupRollupFixtures = async () => {
       const foreign = await createTable(baseId, {
         name: 'RollupExpr_Foreign',
@@ -877,7 +921,9 @@ describe('OpenAPI Rollup field (e2e)', () => {
       { expression: 'average({values})', lookupFieldKey: 'amountId', expected: 15 },
       { expression: 'max({values})', lookupFieldKey: 'amountId', expected: 20 },
       { expression: 'min({values})', lookupFieldKey: 'amountId', expected: 10 },
-      { expression: 'and({values})', lookupFieldKey: 'flagId', expected: isForceV2 ? false : true },
+      // Unchecked checkboxes are stored as null on both write paths, so
+      // and({values}) over [true, null] ignores the null and stays true.
+      { expression: 'and({values})', lookupFieldKey: 'flagId', expected: true },
       { expression: 'or({values})', lookupFieldKey: 'flagId', expected: true },
       { expression: 'xor({values})', lookupFieldKey: 'flagId', expected: true },
       { expression: 'array_join({values})', lookupFieldKey: 'labelId', expected: 'Alpha, Beta' },

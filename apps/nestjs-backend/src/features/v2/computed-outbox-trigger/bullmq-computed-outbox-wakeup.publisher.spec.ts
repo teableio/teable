@@ -61,6 +61,29 @@ describe('BullMqComputedOutboxWakeupPublisher', () => {
     expect(metrics.recordPublish).toHaveBeenCalledWith('accepted', 'retry');
   });
 
+  it('forwards optional W3C trace carrier on the wake-up job', async () => {
+    const add = vi.fn().mockResolvedValue({ id: 'job-trace' });
+    const publisher = new BullMqComputedOutboxWakeupPublisher(
+      queue(add) as never,
+      { recordPublish: vi.fn(), recordPublishDuration: vi.fn() } as never
+    );
+
+    await publisher.publish({
+      ...createWakeup(),
+      traceparent: '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01',
+      tracestate: 'vendor=1',
+    });
+
+    expect(add).toHaveBeenCalledWith(
+      'computed-outbox-wakeup',
+      expect.objectContaining({
+        traceparent: '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01',
+        tracestate: 'vendor=1',
+      }),
+      expect.any(Object)
+    );
+  });
+
   it('records and propagates queue publication failures', async () => {
     const queueError = new Error('redis unavailable');
     const metrics = {

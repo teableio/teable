@@ -16,5 +16,19 @@
   "replaceToken": "Reemplazar token",
   "createNewToken": "Crear nuevo token",
   "showPagination": "Los parámetros de paginación se muestran en modo JSON",
-  "addSort": "Agregar un ordenamiento"
+  "addSort": "Agregar un ordenamiento",
+  "tabs": {
+    "apiBuilder": "Constructor de API",
+    "aiContext": "Contexto de IA"
+  },
+  "aiContext": {
+    "title": "Contexto de tabla apto para IA",
+    "description": "Copia este contexto en tu asistente de IA (ChatGPT, Claude, etc.) para que entienda cómo interactuar con los datos de tu tabla.",
+    "selectTableFirst": "Selecciona una tabla para generar el contexto de IA",
+    "fullContext": "Contexto completo",
+    "compactContext": "Compacto",
+    "copyToClipboard": "Copiar al portapapeles",
+    "copied": "¡Copiado!",
+    "compactDescription": "Una versión más corta, adecuada para compartir contexto rápidamente teniendo en cuenta los límites de tokens."
+  }
 }

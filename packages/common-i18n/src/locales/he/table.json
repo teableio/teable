@@ -1,0 +1,1640 @@
+{
+  "computeActivity": {
+    "currentCalculations": "חישובים נוכחיים",
+    "thisTableOnly": "טבלה זו בלבד",
+    "calculatingNow": "בחישוב כעת",
+    "calculating": "בחישוב",
+    "waiting": "ממתין",
+    "failed": "נכשל",
+    "calculationFailed": "החישוב נכשל",
+    "cellValueTooLarge": "ערך התא המחושב גדול מדי ({{attempted}} / {{max}} בייטים). יש לקצר את נתוני המקור או לשנות את הנוסחה.",
+    "calculatingSummary": "בחישוב ({{count}})",
+    "failedSummary": "נכשלו ({{count}})",
+    "fieldsCalculating_one": "{{count}} שדה בחישוב",
+    "fieldsCalculating_two": "שני שדות בחישוב",
+    "fieldsCalculating_other": "{{count}} שדות בחישוב",
+    "fieldCalculationsFailed_one": "חישוב של {{count}} שדה נכשל",
+    "fieldCalculationsFailed_two": "חישוב של שני שדות נכשל",
+    "fieldCalculationsFailed_other": "חישוב של {{count}} שדות נכשל",
+    "batchesRunning_one": "{{count}} אצווה פועלת",
+    "batchesRunning_two": "שתי אצוות פועלות",
+    "batchesRunning_other": "{{count}} אצוות פועלות",
+    "batchesQueued_one": "{{count}} אצווה ממתינה",
+    "batchesQueued_two": "שתי אצוות ממתינות",
+    "batchesQueued_other": "{{count}} אצוות ממתינות",
+    "records_one": "{{formattedCount}} רשומה",
+    "records_two": "שתי רשומות",
+    "records_other": "{{formattedCount}} רשומות",
+    "batchesComplete": "אצוות שהושלמו {{completed}}/{{total}}",
+    "progressAriaLabel": "התקדמות החישוב של {{fieldName}}"
+  },
+  "crossSpace": {
+    "duplicateFieldTitle": "לתשומת לב",
+    "duplicateFieldDescription": "הפניות בין מרחבים אינן נתמכות. העותק המשוכפל יומר לשדה טקסט בשורה אחת.",
+    "duplicateTableTitle": "לתשומת לב",
+    "duplicateTableDescription": "הפניות בין מרחבים אינן נתמכות. העותק המשוכפל יומר לשדה טקסט בשורה אחת.",
+    "convertAndDuplicate": "המרה ושכפול"
+  },
+  "toolbar": {
+    "viewFilterInShare": "תצוגה זו נמצאת בשימוש בקישור לשיתוף תצוגה. שינויים בהגדרות התצוגה ישנו גם את קישור השיתוף.",
+    "createFieldButtonText": "יצירת שדה <0/> חדש",
+    "others": {
+      "share": {
+        "label": "שיתוף",
+        "statusLabel": "שיתוף התצוגה לאינטרנט",
+        "noPermission": "אין הרשאה לשיתוף התצוגה",
+        "genLink": "יצירת קישור חדש",
+        "allowCopy": "לאפשר לצופים להעתיק נתונים מתצוגה זו",
+        "allowEdit": "לאפשר לצופים מחוברים לערוך נתונים גלויים",
+        "showAllFields": "הצגת כל השדות ברשומות מורחבות",
+        "restrict": "הגבלה באמצעות סיסמה",
+        "tips": "כל בעלי הקישור יכולים לראות את התצוגה.",
+        "passwordTitle": "הזנת סיסמה",
+        "passwordTips": "הגבלת סיסמה לגישה לתצוגות משותפות",
+        "embed": "הטמעה",
+        "embedPreview": "תצוגה מקדימה",
+        "copyCode": "העתקת הקוד",
+        "hideToolbar": "הסתרת סרגל הכלים",
+        "URLSetting": "הגדרת פרמטרי URL",
+        "URLSettingDescription": "שינוי ההגדרות הבאות לא ישפיע על קוד ההטמעה. יש להעתיק את הקוד עם הפרמטרים החדשים כדי שייכנס לתוקף",
+        "cancel": "ביטול",
+        "save": "שמירה",
+        "requireLogin": "דרישת התחברות לשליחה"
+      },
+      "api": {
+        "title": "גישת API",
+        "aiContext": "חיבור AI",
+        "advanced": "מתקדם",
+        "recommended": "מומלץ",
+        "apiDocGroupTitle": "הקשר API",
+        "apiDocGroupDescription": "יש להעתיק את המסמך שלהלן ל-AI כדי שיוכל להבין את סכימת הטבלה הנוכחית, את השדות ואת דוגמאות ה-API, ולאחר מכן לקרוא, ליצור, לעדכן או למחוק רשומות לפי הצורך.",
+        "generatingToken": "ביצירה...",
+        "generateToken": "יצירת אסימון",
+        "confirmTitle": "יצירת אסימון API",
+        "confirmDescription": "פעולה זו תיצור אסימון API חדש עם ההרשאות הבאות לבסיס זה:",
+        "scopeTableRead": "קריאת פרטי הטבלה",
+        "scopeFieldRead": "קריאת שדות",
+        "scopeRead": "קריאת רשומות",
+        "scopeCreate": "יצירת רשומות",
+        "scopeUpdate": "עדכון רשומות",
+        "scopeDelete": "מחיקת רשומות",
+        "confirmExpiry": "האסימון יהיה תקף למשך שנה אחת.",
+        "confirmButton": "אישור ויצירה",
+        "tokenInfo": "תוקף האסימון: {{expiry}}",
+        "copied": "הועתק!",
+        "copyAIDoc": "העתקת המסמך",
+        "aiDocPreview": "תצוגה מקדימה של ההקשר",
+        "manageToken": "ניהול אסימונים",
+        "openInNewTab": "פתיחה בלשונית חדשה",
+        "queryBuilderTitle": "בונה שאילתות API",
+        "queryBuilderDesc": "הגדרה חזותית של מסננים, מיון ופרמטרים נוספים ליצירת קוד בקשת API מוכן להרצה.",
+        "viewApiDocs": "צפייה בתיעוד ה-API המלא"
+      },
+      "personalView": {
+        "personal": "אישי",
+        "tip": "לאחר ההפעלה, הגדרות התצוגה יחולו עבורך בלבד",
+        "dialog": {
+          "title": "יציאה ממצב אישי",
+          "description": "הגדרות התצוגה האישית ישוחזרו למצב שיתוף הפעולה בזמן אמת. אפשר גם לשמור את הגדרות התצוגה האישית ולסנכרן אותן לכולם",
+          "cancelText": "יציאה וסנכרון",
+          "confirmText": "אישור היציאה"
+        }
+      }
+    }
+  },
+  "welcome": {
+    "title": "ברוכים הבאים",
+    "emptyTitle": "בניית הבסיס שלך מתחילה כאן",
+    "description": "יש ללחוץ על כפתור \"+\" בסרגל הצד כדי להוסיף משאבים",
+    "help": "למידע נוסף אפשר לבקר ב<HelpCenter />",
+    "helpCenter": "מרכז העזרה"
+  },
+  "field": {
+    "advancedProps": "מאפיינים מתקדמים",
+    "hide": "הסתרה",
+    "default": {
+      "singleLineText": {
+        "title": "תווית"
+      },
+      "longText": {
+        "title": "הערות"
+      },
+      "number": {
+        "title": "מספר",
+        "formatType": "סוג תבנית",
+        "currencySymbol": "סמל מטבע",
+        "defaultSymbol": "$",
+        "precision": "דיוק",
+        "decimalExample": "מספר (123)",
+        "currencyExample": "מטבע ($100)",
+        "percentExample": "אחוז (20%)"
+      },
+      "singleSelect": {
+        "title": "סטטוס",
+        "options": {
+          "todo": "לביצוע",
+          "inProgress": "בתהליך",
+          "done": "הושלם"
+        }
+      },
+      "multipleSelect": {
+        "title": "תגיות"
+      },
+      "attachment": {
+        "title": "קבצים מצורפים"
+      },
+      "user": {
+        "title": "משתף פעולה"
+      },
+      "date": {
+        "title": "תאריך",
+        "dateFormatting": "תבנית תאריך",
+        "timeFormatting": "תבנית שעה",
+        "timeZone": "אזור זמן",
+        "yearMonth": "שנה/חודש",
+        "monthDay": "חודש/יום",
+        "year": "שנה",
+        "month": "חודש",
+        "day": "יום",
+        "local": "מקומי",
+        "friendly": "ידידותי",
+        "us": "ארה״ב",
+        "european": "אירופי",
+        "asia": "אסיה",
+        "custom": "מותאם אישית",
+        "12Hour": "12 שעות",
+        "24Hour": "24 שעות",
+        "noDisplay": "ללא הצגה"
+      },
+      "autoNumber": {
+        "title": "מזהה"
+      },
+      "createdTime": {
+        "title": "מועד יצירה"
+      },
+      "lastModifiedTime": {
+        "title": "מועד שינוי אחרון"
+      },
+      "createdBy": {
+        "title": "נוצר על ידי"
+      },
+      "lastModifiedBy": {
+        "title": "שונה לאחרונה על ידי"
+      },
+      "rating": {
+        "title": "דירוג"
+      },
+      "checkbox": {
+        "title": "הושלם"
+      },
+      "button": {
+        "title": "כפתור",
+        "label": "תווית הכפתור",
+        "limitCount": "הגבלת לחיצות",
+        "resetCount": "לאפשר איפוס",
+        "maxCount": "מקסימום לחיצות",
+        "automation": "אוטומציה",
+        "customAutomation": "אוטומציה מותאמת אישית",
+        "clickConfirm": "אישור לפני לחיצה",
+        "confirmTitle": "כותרת",
+        "confirmDescription": "תוכן",
+        "confirmButtonText": "טקסט כפתור האישור"
+      },
+      "formula": {
+        "title": "חישוב",
+        "formula": "נוסחה"
+      },
+      "lookup": {
+        "title": "{{lookupFieldName}} (מתוך {{linkFieldName}})"
+      },
+      "conditionalLookup": {
+        "title": "{{lookupFieldName}} (מסונן מתוך {{tableName}})"
+      },
+      "rollup": {
+        "title": "צבירת {{lookupFieldName}} (מתוך {{linkFieldName}})",
+        "rollup": "צבירה",
+        "selectAnRollupFunction": "בחירת פונקציית צבירה",
+        "func": {
+          "and": "AND",
+          "arrayCompact": "ARRAYCOMPACT",
+          "arrayJoin": "ARRAYJOIN",
+          "arrayUnique": "ARRAYUNIQUE",
+          "average": "AVERAGE",
+          "concatenate": "CONCATENATE",
+          "count": "COUNT",
+          "countA": "COUNTA",
+          "countAll": "COUNTALL",
+          "max": "MAX",
+          "min": "MIN",
+          "or": "OR",
+          "sum": "SUM",
+          "xor": "XOR"
+        },
+        "funcDesc": {
+          "and": "מחזירה true אם כל הערכים הם true",
+          "arrayCompact": "מסירה מהמערך מחרוזות ריקות וערכי null. שומרת על 'false' ועל מחרוזות שמכילות תו רווח אחד או יותר.",
+          "arrayJoin": "מחברת את כל הערכים למחרוזת אחת מופרדת בפסיקים.",
+          "arrayUnique": "מחזירה רק פריטים ייחודיים.",
+          "average": "ממוצע הערכים.",
+          "concatenate": "מחברת את ערכי הטקסט לערך טקסט אחד.",
+          "count": "סופרת רק ערכים מספריים שאינם ריקים. כדי לספור את כל הרשומות יש להשתמש ב-COUNTALL.",
+          "countA": "סופרת את מספר הערכים שאינם ריקים. הפונקציה סופרת ערכים מספריים וגם ערכי טקסט.",
+          "countAll": "סופרת את כל הערכים, כולל רשומות ריקות.",
+          "max": "מחזירה את הגדול מבין המספרים שניתנו.",
+          "min": "מחזירה את הקטן מבין המספרים שניתנו.",
+          "or": "מחזירה true אם לפחות אחד מהערכים הוא true.",
+          "sum": "מסכמת את הערכים.",
+          "xor": "מחזירה true אם ורק אם מספר אי-זוגי של ערכים הוא true."
+        }
+      },
+      "conditionalRollup": {
+        "title": "צבירה מותנית של {{lookupFieldName}}"
+      }
+    },
+    "editor": {
+      "addField": "הוספת שדה",
+      "editField": "עריכת שדה",
+      "insertField": "הוספת שדה",
+      "graph": "תרשים",
+      "defaultValue": "ערך ברירת מחדל",
+      "reset": "איפוס",
+      "fieldUpdated": "השדה עודכן",
+      "fieldCreated": "השדה נוצר",
+      "fieldUnavailable": "השדה אינו זמין. יש לרענן את הטבלה ולנסות שוב.",
+      "confirmFieldChange": "אישור שינוי השדה",
+      "areYouSurePerformIt": "האם לבצע את הפעולה?",
+      "addDescription": "הוספת תיאור",
+      "dbFieldName": "שם השדה במסד הנתונים",
+      "descriptionPlaceholder": "תיאור השדה (אופציונלי)",
+      "type": "סוג",
+      "showAs": "הצגה כ",
+      "color": "צבע",
+      "number": "מספר",
+      "chartBar": "תרשים עמודות",
+      "chartLine": "תרשים קו",
+      "ring": "טבעת",
+      "bar": "פס",
+      "text": "טקסט",
+      "markdown": "Markdown",
+      "url": "URL",
+      "email": "אימייל",
+      "phone": "טלפון",
+      "maxNumber": "מספר מקסימלי",
+      "showNumber": "הצגת מספר",
+      "autoFillDate": "מילוי אוטומטי בתאריך הנוכחי",
+      "createSymmetricLink": "יצירת שדה קישור הפוך בטבלה המקושרת",
+      "allowLinkMultipleRecords": "לאפשר בחירה מרובה",
+      "allowLinkToDuplicateRecords": "מאפשר לבחור רשומות יותר מפעם אחת",
+      "allowSymmetricFieldLinkMultipleRecords": "מאפשר לבחור רשומות יותר מפעם אחת",
+      "oneToOne": "אחד-לאחד",
+      "oneToMany": "אחד-לרבים",
+      "manyToOne": "רבים-לאחד",
+      "manyToMany": "רבים-לרבים",
+      "self": "עצמי",
+      "selectTable": "בחירת טבלה...",
+      "selectBase": "בחירת בסיס...",
+      "linkFromAnotherBase": "קישור מבסיס אחר",
+      "inSelfLink": "בקישור עצמי",
+      "betweenTwoTables": "בין שתי טבלאות",
+      "tips": "טיפים",
+      "linkTipMessage": "הגדרה זו מייצגת<br></br> יחס <b>{{relationship}}</b> <span>{{linkType}}</span>",
+      "style": "סגנון",
+      "maximum": "מקסימום",
+      "addOption": "הוספת אפשרות",
+      "allowMultiUsers": "לאפשר הוספת מספר משתמשים",
+      "notifyUsers": "שליחת התראה למשתמשים לאחר בחירתם",
+      "searchTable": "חיפוש טבלה...",
+      "calculating": "בחישוב...",
+      "doSaveChanges": "לשמור את השינויים שבוצעו?",
+      "linkFieldToLookup": "שדה הרשומה המקושרת שישמש לשליפה",
+      "lookupToTable": "השדה מתוך <bold>{{tableName}}</bold> שברצונך לשלוף",
+      "rollupToTable": "השדה מתוך <bold>{{tableName}}</bold> שברצונך לצבור",
+      "selectField": "בחירת שדה...",
+      "lastModifiedScope": "שדות",
+      "lastModifiedAll": "כל השדות הניתנים לעריכה",
+      "lastModifiedSpecific": "שדות מסוימים",
+      "lastModifiedSelect": "שדות במעקב",
+      "noEditableFields": "אין שדות זמינים לעריכה",
+      "conditionalLookup": {
+        "sortLimitToggleLabel": "מיון הרשומות המקושרות והגבלת מספר ההתאמות",
+        "sortLabel": "מיון התוצאות",
+        "limitLabel": "מספר הרשומות המקסימלי לכלול",
+        "limitPlaceholder": "השארה ריקה תכלול את כל ההתאמות",
+        "limitHint": "נשמרות עד {{limit}} רשומות תואמות בלבד.",
+        "sortMissingWarningTitle": "שדה המיון אינו זמין",
+        "sortMissingWarningDescription": "השדה ששימש למיון זה נמחק. התוצאות מתעלמות מהמיון ואוכפות רק את המגבלה."
+      },
+      "linkTable": "טבלת הקישור",
+      "linkBase": "בסיס הקישור",
+      "tableNoPermission": "טבלה ללא הרשאה",
+      "baseNoPermission": "בסיס ללא הרשאה",
+      "noLinkTip": "אין רשומות מקושרות לשליפה. יש להוסיף שדה קישור לרשומה אחרת ואז להגדיר את השליפה מחדש.",
+      "fieldValidationRules": "כללי אימות לערך השדה",
+      "enableValidateFieldUnique": "ערכים ייחודיים בלבד",
+      "enableValidateFieldNotNull": "חובה",
+      "knowMore": "מידע נוסף",
+      "linkFieldKnowMoreLink": "https://help.teable.ai/en/basic/field/advanced/link",
+      "showByField": "הצגת רשומות לפי שדה",
+      "filterByView": "סינון רשומות לפי תצוגה",
+      "filter": "סינון רשומות",
+      "hideFields": "הסתרת שדות",
+      "moreOptions": "אפשרויות נוספות",
+      "allowNewOptionsWhenEditing": "לאפשר אפשרויות חדשות בעת עריכה",
+      "deleteField": {
+        "title": "מחיקת שדה",
+        "simpleConfirm": "למחוק את השדה <b>{{fieldName}}</b>?",
+        "withDependencies": "מחיקת השדה <b>{{fieldName}}</b> תשפיע על השדות הבאים:",
+        "deleteCount": "מחיקת {{count}} שדות",
+        "riskIdentified": "זוהה סיכון({{count}})",
+        "noDependencies": "ללא הפניות({{count}})",
+        "safeToDelete": "בטוח למחיקה",
+        "safeToDeleteDesc": "שדות אחרים אינם מפנים לשדה זה, ואפשר למחוק אותו בבטחה",
+        "affectedItems": "פריטים מושפעים",
+        "type": "סוג",
+        "source": "מקור",
+        "loginEmailFieldWarning": "שדה זה משמש כמזהה האימייל להתחברות. מחיקתו תשבש את ההתחברות באפליקציות הבאות:",
+        "loginEmailFieldConvertWarning": "שדה זה משמש כשדה האימייל להתחברות לאפליקציות. שינוי הסוג שלו ישבש את ההתחברות באפליקציות הבאות:"
+      }
+    },
+    "subTitle": {
+      "link": "קישור לרשומות בטבלה שנבחרה",
+      "singleLineText": "הזנת טקסט, או מילוי מראש של כל תא חדש בערך ברירת מחדל.",
+      "longText": "הזנת טקסט במספר שורות.",
+      "attachment": "הוספה או הפקה של תמונות באמצעות AI, או העלאת מסמכים וקבצים אחרים לצפייה או להורדה.",
+      "checkbox": "סימון או ביטול סימון לציון סטטוס.",
+      "multipleSelect": "בחירת אפשרות אחת או יותר מתוך רשימה מוגדרת מראש.",
+      "singleSelect": "בחירת אפשרות אחת מתוך רשימה מוגדרת מראש, או מילוי מראש של כל תא חדש באפשרות ברירת מחדל.",
+      "user": "הוספת משתמש לרשומה.",
+      "date": "הזנת תאריך (למשל 11/12/2023) או בחירה מתוך לוח שנה.",
+      "number": "הזנת מספר, או מילוי מראש של כל תא חדש בערך ברירת מחדל.",
+      "rating": "הוספת דירוג בסולם מוגדר מראש.",
+      "formula": "חישוב ערכים על בסיס שדות.",
+      "rollup": "סיכום נתונים מרשומות מקושרות.",
+      "conditionalRollup": "סיכום ערכים מטבלה מקושרת לפי תנאי סינון.",
+      "conditionalLookup": "הצגת ערכים מקושרים שעומדים בתנאי הסינון שלך.",
+      "createdTime": "הצגת התאריך והשעה שבהם נוצרה כל רשומה.",
+      "lastModifiedTime": "הצגת התאריך והשעה של העריכה האחרונה בחלק מהשדות ברשומה או בכולם.",
+      "createdBy": "הצגת המשתמש שיצר את הרשומה.",
+      "lastModifiedBy": "הצגת המשתמש שביצע את העריכה האחרונה בחלק מהשדות ברשומה או בכולם.",
+      "autoNumber": "יצירה אוטומטית של מספרים ייחודיים ועולים לכל רשומה.",
+      "button": "הפעלת פעולה מותאמת אישית.",
+      "lookup": "הצגת ערכים משדה ברשומה מקושרת."
+    },
+    "fieldName": "שם השדה",
+    "fieldNameOptional": "שם השדה (אופציונלי)",
+    "fieldType": "סוג השדה",
+    "aiConfig": {
+      "title": "הגדרות AI",
+      "type": {
+        "summary": "סיכום",
+        "translation": "תרגום",
+        "extraction": "חילוץ מידע",
+        "improvement": "שיפור",
+        "tag": "תיוג חכם",
+        "classification": "סיווג חכם",
+        "customization": "התאמה אישית",
+        "imageGeneration": "הפקת תמונות",
+        "rating": "דירוג"
+      },
+      "label": {
+        "type": "סוג פעולת AI",
+        "model": "מודל AI",
+        "targetLanguage": "שפת יעד",
+        "sourceField": "שדה מקור",
+        "sourceFieldForTag": "בחירת שדה והתאמתו לתגיות שנוצרו",
+        "sourceFieldForClassify": "בחירת שדה והתאמתו לסיווגים שנוצרו",
+        "attachPrompt": "צירוף דרישות",
+        "prompt": "התאמת הפרומפט",
+        "sourceFieldForAttachment": "שדה מקור לקובץ המצורף",
+        "imageSize": "גודל התמונה",
+        "imageQuality": "איכות התמונה",
+        "imageCount": "מספר התמונות",
+        "aspectRatio": "יחס גובה-רוחב",
+        "resolution": "רזולוציה",
+        "advancedSettings": "הגדרות מתקדמות"
+      },
+      "placeholder": {
+        "summarize": "סיכום התוכן",
+        "translate": "תרגום תמציתי, קל להבנה וקליל",
+        "extractInfo": "חילוץ אימייל, טלפון, שם, כתובת...",
+        "extractDate": "חילוץ שעת ההתחלה",
+        "improveText": "רשמי, ידידותי, הומוריסטי...",
+        "attachPromptForTag": "אין לחרוג משלוש תגיות",
+        "attachPromptForClassify": "לסווג \"בתהליך\" כ\"ללא סיכון\"",
+        "prompt": "הזנה / בחירה של השדה המוזכר",
+        "type": "בחירת פעולת AI",
+        "targetLanguage": "אנגלית, סינית, צרפתית...",
+        "imageSize": "יש להזין את גודל התמונה",
+        "imageQuality": "יש להזין את איכות התמונה",
+        "aspectRatio": "בחירת יחס גובה-רוחב",
+        "resolution": "בחירת רזולוציה",
+        "attachPromptForImageGeneration": "התמונה צריכה להיות חיה וטבעית",
+        "attachPromptForRating": "דירוג איכות התמונה"
+      },
+      "imageQuality": {
+        "low": "נמוכה",
+        "medium": "בינונית",
+        "high": "גבוהה"
+      },
+      "hint": {
+        "imageInputSupported": "💡 המודל תומך בקלט תמונה. אפשר לבחור שדה קובץ מצורף כדי להשתמש בתמונות כהפניה להפקה.",
+        "attachmentNotSupported": "💡 המודל אינו תומך בקלט של קבצים מצורפים. רק מודלי Gemini תומכים בהפקת תמונה מתמונה.",
+        "singleImageOnly": "המודל יכול להפיק תמונה אחת בכל פעם"
+      },
+      "tip": {
+        "gptImageResolution": "4K עדיין כפוף לתקרת הפיקסלים הכוללת, ולכן בחלק מיחסי הגובה-רוחב נעשה שימוש בגודל התקין הגדול ביותר במקום בצלע מלאה של 3840px."
+      },
+      "auto": "אוטומטי",
+      "resolution": {
+        "1K": "1K (רגילה)",
+        "2K": "2K (HD)",
+        "4K": "4K (Ultra HD)"
+      },
+      "autoFill": {
+        "title": "עדכון אוטומטי",
+        "tip": "לאחר ההפעלה, השדה הנוכחי יתעדכן בסנכרון עם שינויי התוכן של הגדרות ה-AI"
+      },
+      "autoFillFieldDialog": {
+        "title": "הפקה מחדש של שדה AI",
+        "description": "ההפקה תתבצע עבור {{count}} שורות בתצוגה הנוכחית. המשימה תרוץ ברקע."
+      },
+      "autoFillConfirm": {
+        "title": "החלת הגדרות שדה ה-AI",
+        "description": "ההפקה תתבצע עבור {{count}} שורות בתצוגה הנוכחית. המשימה תרוץ ברקע.",
+        "emptyOnlyMode": "מילוי תאים ריקים בלבד",
+        "emptyOnlyModeDesc": "הפקה עבור תאים ריקים בלבד; תוכן קיים לא יידרס",
+        "allMode": "הפקה לכל העמודה",
+        "allModeDesc": "הפקה עבור כל השורות; תוכן קיים יידרס",
+        "saveOnlyMode": "שמירת ההגדרות בלבד",
+        "saveOnlyModeDesc": "שמירת הגדרות השדה בלבד; לא ייכתבו תאים",
+        "saveConfigOnly": "שמירת ההגדרות בלבד",
+        "fillEmptyCells": "מילוי תאים ריקים",
+        "generateAll": "הפקת הכול",
+        "recommended": "מומלץ",
+        "generateFailed": "ההפקה נכשלה",
+        "limitWarning": "בשל מגבלת 1,000 שורות למשימה, יעובדו רק 1,000 השורות הראשונות. אפשר להריץ את המשימה שוב כדי לעבד את יתר השורות."
+      }
+    }
+  },
+  "table": {
+    "newTableLabel": "טבלה חדשה",
+    "rename": "שינוי שם",
+    "tableRecordHistory": "היסטוריית רשומות",
+    "deleteConfirm": "למחוק את \"{{tableName}}\"?",
+    "dbTableName": "שם הטבלה במסד הנתונים הפיזי",
+    "schemaName": "שם הסכימה במסד הנתונים הפיזי",
+    "baseInfo": "פרטי הבסיס",
+    "loginUserTable": "התחברות לאפליקציה",
+    "linkedApps": "אפליקציות מקושרות",
+    "typeOfDatabase": "סוג מסד הנתונים",
+    "descriptionForTable": "תיאור לטבלה זו",
+    "nameForTable": "שם לטבלה זו",
+    "deleteTip1": "שדות קישור בטבלאות אחרות המקושרים לטבלה זו יומרו לטקסט.",
+    "deleteWithDependencies": "מחיקת הטבלה <b>{{tableName}}</b> תשפיע על השדות הבאים:",
+    "loginDeleteWarning": "טבלה זו משמשת כטבלת משתמשים באפליקציות הבאות. מחיקתה תשבש את יכולת ההתחברות שלהן.",
+    "operator": {
+      "createBlank": "טבלה חדשה"
+    },
+    "actionTips": {
+      "copyAndPasteEnvironment": "העתקה והדבקה פועלות רק ב-HTTPS או ב-localhost",
+      "copyAndPasteBrowser": "העתקה והדבקה אינן נתמכות בדפדפן זה",
+      "copying": "בהעתקה...",
+      "copySuccessful": "ההעתקה הצליחה",
+      "copyFailed": "ההעתקה נכשלה",
+      "pasting": "בהדבקה...",
+      "pasteSuccessful": "ההדבקה הצליחה",
+      "pasteFailed": "ההדבקה נכשלה",
+      "pasteNoEditableFields": "השדות שנבחרו הם לקריאה בלבד ולא ניתן להדביק אליהם.",
+      "filling": "במילוי...",
+      "fillSuccessful": "המילוי הצליח",
+      "fillFailed": "המילוי נכשל",
+      "clearing": "בניקוי...",
+      "clearSuccessful": "הניקוי הצליח",
+      "clearFailed": "הניקוי נכשל",
+      "clearConfirmTitle": "ניקוי נתונים",
+      "clearConfirmDescription": "פעולה זו תנקה {{cellCount}} תאים ב-{{rowCount}} רשומות. להמשיך?",
+      "archiveRecordConfirmTitle": "העברת רשומות לארכיון",
+      "archiveRecordConfirmDescription": "פעולה זו תעביר {{recordCount}} רשומות לארכיון. רשומות בארכיון ניתנות לצפייה ולשחזור מארכיון הטבלה.",
+      "archiveRecord": "העברה לארכיון",
+      "archiving": "בהעברה לארכיון...",
+      "archiveSuccessful": "ההעברה לארכיון הצליחה",
+      "deleteRecordConfirmTitle": "מחיקת רשומות",
+      "deleteRecordConfirmDescription": "פעולה זו תמחק {{recordCount}} רשומות. להמשיך?",
+      "duplicateRecordsConfirmTitle": "שכפול רשומות",
+      "duplicateRecordsConfirmDescription": "פעולה זו תשכפל {{recordCount}} רשומות. להמשיך?",
+      "pasteConfirmTitle": "ביצוע הדבקה",
+      "pasteConfirmDescription": "ההדבקה שעומדת להתבצע תדרוס {{recordCount}} רשומות. להמשיך?",
+      "paste": "הדבקה",
+      "deleteRecord": "מחיקה",
+      "clear": "ניקוי",
+      "deleting": "במחיקה...",
+      "duplicating": "בשכפול...",
+      "deleteFailed": "המחיקה נכשלה",
+      "deleteSuccessful": "המחיקה הצליחה",
+      "duplicateFailed": "השכפול נכשל",
+      "duplicateSuccessful": "השכפול הצליח",
+      "duplicateRecords": "שכפול",
+      "deleteStream": {
+        "preparing": "בהכנת הבחירה",
+        "deleting": "במחיקת הרשומות",
+        "descriptionWithIssues": "חלק ממקטעי המחיקה נכשלו. יש לעיין בפרטים שלהלן.",
+        "completedWithIssues": "המחיקה הושלמה עם תקלות",
+        "issuesBadge": "{{count}} תקלות",
+        "chunkFailureTitle": "פרטי הכשל במקטעים",
+        "chunkFailureSummary": "{{count}} מקטעים דיווחו על שגיאה בזמן שהזרם המשיך לפעול.",
+        "chunkLabel": "מקטע {{index}}",
+        "rowsLabel": "{{count}} שורות",
+        "phaseLabel": {
+          "preparing": "בהכנה",
+          "guarding": "בבדיקה",
+          "deleting": "במחיקה",
+          "publishing": "בפרסום",
+          "finalizing": "בסיום"
+        }
+      },
+      "duplicateStream": {
+        "preparing": "בהכנת הבחירה",
+        "duplicating": "בשכפול הרשומות",
+        "descriptionWithIssues": "חלק ממקטעי השכפול נכשלו. יש לעיין בפרטים שלהלן.",
+        "completedWithIssues": "השכפול הושלם עם תקלות",
+        "issuesBadge": "{{count}} תקלות",
+        "chunkFailureTitle": "פרטי הכשל במקטעים",
+        "chunkFailureSummary": "{{count}} מקטעים דיווחו על שגיאה בזמן שהתהליך המשיך לפעול.",
+        "chunkLabel": "מקטע {{index}}",
+        "rowsLabel": "{{count}} שורות",
+        "phaseLabel": {
+          "preparing": "בהכנה",
+          "guarding": "בבדיקה",
+          "processing": "בשכפול",
+          "publishing": "בפרסום",
+          "finalizing": "בסיום"
+        }
+      },
+      "pasteStream": {
+        "preparing": "בהכנת הבחירה",
+        "pasting": "בהדבקת רשומות",
+        "descriptionWithIssues": "חלק ממקטעי ההדבקה נכשלו. יש לעיין בפרטים שלהלן.",
+        "completedWithIssues": "ההדבקה הושלמה עם בעיות",
+        "issuesBadge": "{{count}} בעיות",
+        "chunkFailureTitle": "פרטי הכשל במקטעים",
+        "chunkFailureSummary": "{{count}} מקטעים דיווחו על שגיאה בזמן שהתהליך המשיך לפעול.",
+        "chunkLabel": "מקטע {{index}}",
+        "rowsLabel": "{{count}} שורות",
+        "phaseLabel": {
+          "preparing": "בהכנה",
+          "guarding": "בבדיקה",
+          "processing": "בהדבקה",
+          "publishing": "בפרסום",
+          "finalizing": "בסיום"
+        }
+      },
+      "clearStream": {
+        "confirmDescription": "פעולה זו תנקה ערכים ב-{{recordCount}} רשומות. האם להמשיך?",
+        "preparing": "בהכנת הבחירה",
+        "clearing": "בניקוי רשומות",
+        "descriptionWithIssues": "חלק ממקטעי הניקוי נכשלו. יש לעיין בפרטים שלהלן.",
+        "completedWithIssues": "הניקוי הושלם עם בעיות",
+        "issuesBadge": "{{count}} בעיות",
+        "chunkFailureTitle": "פרטי הכשל במקטעים",
+        "chunkFailureSummary": "{{count}} מקטעים דיווחו על שגיאה בזמן שהתהליך המשיך לפעול.",
+        "chunkLabel": "מקטע {{index}}",
+        "rowsLabel": "{{count}} שורות",
+        "phaseLabel": {
+          "preparing": "בהכנה",
+          "guarding": "בבדיקה",
+          "processing": "בניקוי",
+          "publishing": "בפרסום",
+          "finalizing": "בסיום"
+        }
+      },
+      "restoreFieldStream": {
+        "confirmTitle": "שחזור שדות",
+        "confirmDescription": "פעולה זו תשחזר שדות שנמחקו ואת ערכי הרשומות שלהם.",
+        "preparing": "בהכנת שחזור השדות",
+        "restoring": "בשחזור שדות...",
+        "restoringRecords": "בשחזור ערכי הרשומות",
+        "restoreFailed": "השחזור נכשל",
+        "descriptionWithIssues": "חלק ממקטעי השחזור נכשלו. יש לעיין בפרטים שלהלן.",
+        "completedWithIssues": "השחזור הושלם עם בעיות",
+        "issuesBadge": "{{count}} בעיות",
+        "chunkFailureTitle": "פרטי הכשל במקטעים",
+        "chunkFailureSummary": "{{count}} מקטעים דיווחו על שגיאה בזמן שהתהליך המשיך לפעול.",
+        "chunkLabel": "מקטע {{index}}",
+        "rowsLabel": "{{count}} שורות",
+        "phaseLabel": {
+          "preparing": "בהכנה",
+          "guarding": "בבדיקה",
+          "processing": "בשחזור",
+          "publishing": "בפרסום",
+          "finalizing": "בסיום"
+        }
+      },
+      "pasteFileFailed": "אפשר להדביק קבצים רק בשדה קובץ מצורף",
+      "copyError": {
+        "noFocus": "יש להשאיר את הדף פעיל ולא להחליף חלונות",
+        "noPermission": "אין הרשאה להעתקת רשומות"
+      },
+      "crossBaseCopyTitle": "להעתיק כטקסט רגיל?",
+      "crossBaseCopyDescription": "הבחירה כוללת שדה קישור בין בסיסים. כדי לשמור את הנתונים בבסיס המקורי שלהם, השדה יועתק כטקסט רגיל ויאבד את קשרי הקישור שלו.",
+      "crossBaseCopyConfirm": "העתקה כטקסט רגיל",
+      "crossBaseCopyLoadFirst": "יש לגלול כדי לטעון את כל השורות שנבחרו לפני העתקת שדות קישור בין בסיסים."
+    },
+    "graph": {
+      "effectCells": "תאים שעשויים להיות מושפעים",
+      "estimatedTime": "זמן משוער",
+      "linkFieldCount": "מספר שדות הקישור המושפעים"
+    },
+    "integrity": {
+      "check": "בדיקה",
+      "title": "בדיקת תקינות",
+      "loading": "בבדיקת תקינות...",
+      "allGood": "הכול תקין!",
+      "fixIssues": "תיקון הבעיות",
+      "type": "סוג",
+      "message": "הודעת שגיאה",
+      "v2": {
+        "dialogTitle": "תקינות הסכימה",
+        "dialogDescription": "הרצת בודק הסכימה ותהליך התיקון של v2 עבור {{tableName}}.",
+        "dialogDescriptionNoTable": "הרצת בודק הסכימה ותהליך התיקון של v2 עבור הבסיס הנוכחי.",
+        "runCheck": "הרצת בדיקה",
+        "recheck": "בדיקה חוזרת",
+        "repair": "תיקון",
+        "repairWarnings": "תיקון אזהרות בלבד",
+        "repairWarningsAndErrors": "תיקון אזהרות ושגיאות",
+        "repairRule": "תיקון הכלל",
+        "repairUnavailable": "לא ניתן לתקן כלל זה באופן אוטומטי",
+        "manual": "ידני",
+        "manualRepairNotice": "בעיה זו דורשת תיקון ידני",
+        "manualRepairNoticeWithCount": "{{count}} בעיות דורשות תיקון ידני. לפתיחת חלון התיקון יש להשתמש בפעולה \"ידני\" שליד כל כלל.",
+        "manualRepairDialogTitle": "נדרש תיקון ידני",
+        "manualRepairDialogDescription": "לא ניתן לתקן בעיה זו באופן אוטומטי. יש לעיין בהנחיות שלהלן ולבחור כיצד לתקן אותה.",
+        "manualRepairDialogReason": "מדוע נדרש תיקון ידני",
+        "manualRepairDialogHint": "חלון זה מציג כרגע את אפשרויות התיקון שהכלל דורש. הביצוע בפועל יתווסף על גבי חוזה זה בהמשך.",
+        "manualRepairDialogClose": "סגירה",
+        "repairPreviewTitle": "אישור פרטי התיקון",
+        "repairPreviewDescription": "הפרטים האלה מגיעים מהרצה יבשה של התיקון. התיקון יבוצע רק לאחר אישור.",
+        "repairPreviewTooltip": "פתיחת תוכנית התיקון מההרצה היבשה. החלון יציג את ה-SQL שהוחזר, או יציין במפורש שאין SQL זמין.",
+        "repairPreviewMissingTable": "תוצאת בדיקה זו אינה כוללת טבלה, ולכן לא ניתן לקבוע את יעד התיקון בהרצה היבשה.",
+        "repairPreviewUnavailableStatus": "סטטוס זה אינו דורש תיקון, ולכן לא ניתן להפיק תוכנית תיקון בהרצה יבשה.",
+        "repairPreviewWhat": "מה יתוקן",
+        "repairPreviewTarget": "הכלל \"{{ruleName}}\" עבור השדה \"{{fieldName}}\"",
+        "repairPreviewPrinciple": "כיצד פועל התיקון",
+        "repairPreviewNoPrinciple": "כלל זה לא החזיר הנחיות תיקון נוספות.",
+        "repairPreviewSql": "SQL להרצה",
+        "repairPreviewNoSql": "ההרצה היבשה לא החזירה SQL בר-הרצה, ולכן לא ניתן להריץ תיקון אוטומטי ישירות.",
+        "repairPreviewCannotConfirm": "ההרצה היבשה החזירה SQL, אך לא ניתן לאשר כרגע תיקון אוטומטי לכלל זה. עדיין אפשר לעיין בתוכנית התיקון.",
+        "repairPreviewParameters": "פרמטרים",
+        "repairPreviewConfirm": "הרצת התיקון",
+        "checking": "בבדיקת הסכימה...",
+        "repairing": "בתיקון הסכימה...",
+        "streamError": "הזרמת תוצאות בדיקת תקינות הסכימה נכשלה.",
+        "noTableSelected": "יש לבחור טבלה כדי להריץ את בודק הסכימה של v2.",
+        "noResults": "אין עדיין תוצאות סכימה.",
+        "noFilteredResults": "אין תוצאות שתואמות את המסננים הנוכחיים.",
+        "systemColumns": "עמודות מערכת",
+        "general": "כללי",
+        "optional": "אופציונלי",
+        "statementCount": "{{count}} פקודות",
+        "detailsMissing": "חסר: {{details}}",
+        "detailsExtra": "מיותר: {{details}}",
+        "message": {
+          "schemaValid": "הסכימה תקינה",
+          "schemaValidationFailed": "אימות הסכימה נכשל",
+          "schemaElementMissing": "רכיב סכימה חסר",
+          "schemaAlreadyValid": "הסכימה כבר תקינה",
+          "schemaRepaired": "הסכימה תוקנה בהצלחה",
+          "manualRepair": "הכלל דורש תיקון ידני",
+          "noRepairStatements": "אין פקודות תיקון זמינות",
+          "skippedDependencies": "דולג משום שהתלויות אינן מתקיימות",
+          "checkStreamConnected": "זרם בדיקת תקינות הסכימה מחובר",
+          "baseCheckStreamConnected": "זרם בדיקת תקינות הסכימה של הבסיס מחובר",
+          "repairStreamConnected": "זרם תיקון תקינות הסכימה מחובר",
+          "baseRepairStreamConnected": "זרם תיקון תקינות הסכימה של הבסיס מחובר",
+          "checkCompleted": "בדיקת תקינות הסכימה הושלמה",
+          "baseCheckCompleted": "בדיקת תקינות הסכימה של הבסיס הושלמה",
+          "repairCompleted": "תיקון תקינות הסכימה הושלם",
+          "baseRepairCompleted": "תיקון תקינות הסכימה של הבסיס הושלם",
+          "skippedStatusNotSelected": "דולג משום שרמת סטטוס זו לא נבחרה לתיקון",
+          "skippedRepairUnavailable": "דולג משום שתיקון אוטומטי אינו זמין במצב הנוכחי"
+        },
+        "rule": {
+          "column": "עמודה פיזית",
+          "columnTyped": "עמודה פיזית ({{dataType}})",
+          "notNull": "אילוץ NOT NULL",
+          "columnUnique": "אילוץ UNIQUE",
+          "fkColumn": "עמודת מפתח זר",
+          "index": "אינדקס",
+          "uniqueIndex": "אינדקס ייחודי",
+          "primaryKey": "PRIMARY KEY",
+          "defaultExpression": "ביטוי ברירת מחדל",
+          "foreignKey": "אילוץ מפתח זר",
+          "junctionTable": "טבלת ביניים",
+          "junctionUnique": "אילוץ ייחודיות בטבלת הביניים",
+          "junctionIndex": "אינדקס טבלת הביניים",
+          "junctionForeignKey": "מפתח זר בטבלת הביניים",
+          "reference": "רשומות ייחוס",
+          "generatedColumn": "עמודה מחושבת",
+          "generatedMeta": "מצב העמודה המחושבת",
+          "linkValueColumn": "עמודת ערכי הקישור",
+          "orderColumn": "עמודת סדר",
+          "fieldMeta": "מטא-נתוני השדה",
+          "symmetricField": "יחס שדה סימטרי",
+          "systemColumn": "עמודת מערכת \"{{columnName}}\"",
+          "connection": "חיבור",
+          "completion": "סיום",
+          "unexpected": "שגיאה בלתי צפויה"
+        },
+        "detail": {
+          "systemColumnMissing": "עמודת המערכת \"{{columnName}}\" לא נמצאה",
+          "systemColumnNotNull": "עמודת המערכת \"{{columnName}}\" צריכה להיות NOT NULL",
+          "systemColumnUnique": "לעמודת המערכת \"{{columnName}}\" צריך להיות אינדקס UNIQUE",
+          "systemColumnPrimaryKey": "עמודת המערכת \"{{columnName}}\" צריכה להיות PRIMARY KEY",
+          "systemColumnDefault": "לעמודת המערכת \"{{columnName}}\" צריך להיות ביטוי ברירת מחדל",
+          "columnUniqueMissing": "השדה \"{{fieldName}}\" צריך להיות ייחודי",
+          "columnUniqueMissingDescription": "הוספת אילוץ UNIQUE ל-\"{{fieldName}}\" כדי למנוע כתיבה של ערכים כפולים.",
+          "columnUniqueIndexMismatch": "לשדה \"{{fieldName}}\" חסר האינדקס הייחודי הצפוי",
+          "columnUniqueIndexMismatchDescription": "בנייה מחדש של האינדקס של \"{{fieldName}}\" כאינדקס ייחודי, כך שקריאות וכתיבות יפעלו לפי כלל הייחודיות של השדה.",
+          "foreignKeyMissing": "לשדה \"{{fieldName}}\" חסר אילוץ המפתח הזר",
+          "foreignKeyMissingDescription": "שחזור המפתח הזר מ-\"{{fieldName}}\" אל \"{{targetTableName}}\" כדי שהרשומות המקושרות יישארו עקביות.",
+          "foreignKeyTargetTableMissing": "הטבלה המקושרת של \"{{fieldName}}\" לא נמצאה",
+          "foreignKeyTargetTableMissingDescription": "לא ניתן לשחזר אוטומטית את המפתח הזר של \"{{fieldName}}\" משום שטבלת היעד \"{{targetPhysicalTableName}}\" אינה קיימת.",
+          "foreignKeyOrphanRows": "בשדה \"{{fieldName}}\" עדיין יש {{count}} שורות שמצביעות על רשומות מקושרות חסרות",
+          "foreignKeyOrphanRowsDescription": "לא ניתן לשחזר אוטומטית את המפתח הזר של \"{{fieldName}}\" עד שינוקו {{count}} ההפניות הלא חוקיות אל \"{{targetTableName}}\".",
+          "junctionForeignKeyMissing": "בטבלת הביניים של \"{{fieldName}}\" חסר אחד המפתחות הזרים",
+          "junctionForeignKeyMissingDescription": "שחזור המפתח הזר בטבלת הביניים של \"{{fieldName}}\" כדי ששורות היחס יישארו מקושרות לרשומות קיימות ב-\"{{targetTableName}}\".",
+          "junctionForeignKeyTargetTableMissing": "הטבלה המקושרת של טבלת הביניים עבור \"{{fieldName}}\" לא נמצאה",
+          "junctionForeignKeyTargetTableMissingDescription": "לא ניתן לשחזר אוטומטית את המפתח הזר בטבלת הביניים של \"{{fieldName}}\" משום שטבלת היעד \"{{targetPhysicalTableName}}\" אינה קיימת.",
+          "junctionForeignKeyOrphanRows": "בטבלת הביניים של \"{{fieldName}}\" עדיין יש {{count}} שורות שמצביעות על רשומות מקושרות חסרות",
+          "junctionForeignKeyOrphanRowsDescription": "לא ניתן לשחזר אוטומטית את המפתח הזר בטבלת הביניים של \"{{fieldName}}\" עד שינוקו {{count}} שורות היחס הלא חוקיות שמפנות אל \"{{targetTableName}}\".",
+          "referenceMissing": "לשדה \"{{fieldName}}\" חסר מיפוי ייחוס",
+          "referenceMissingDescription": "שחזור מטא-נתוני הייחוס בין \"{{fieldName}}\" לשדה שהוא תלוי בו, כדי שעדכוני שליפה ויחסים יתפשטו כראוי.",
+          "symmetricFieldTargetMissing": "שדה הקישור המשויך ל-\"{{fieldName}}\" לא נמצא",
+          "symmetricFieldWrongType": "השדה המשויך ל-\"{{fieldName}}\" אינו שדה קישור",
+          "symmetricFieldInvalidOptions": "לשדה המשויך ל-\"{{fieldName}}\" יש הגדרת קישור לא חוקית",
+          "symmetricFieldMissingBackReference": "השדה המשויך ל-\"{{fieldName}}\" אינו מצביע חזרה אל השדה הנוכחי",
+          "symmetricFieldWrongBackReference": "השדה המשויך ל-\"{{fieldName}}\" מצביע על שדה אחר במקום על השדה הנוכחי",
+          "symmetricFieldDuplicateUsage": "יעד הקישור הסימטרי \"{{symmetricFieldId}}\" נמצא בשימוש גם על ידי \"{{conflictFieldName}}\"",
+          "symmetricFieldDuplicateUsageDescription": "לכל זוג קישור דו-כיווני חייב להיות שדה סימטרי ייחודי. יש לבחור איזה שדה ישמור על הקשר הזה לפני התיקון."
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "כלל זה כבר תקין",
+            "manualRule": "כלל זה דורש החלטה ידנית",
+            "statementGenerationFailed": "המערכת לא הצליחה להפיק פקודת תיקון בטוחה",
+            "noStatements": "לכלל זה אין פקודת תיקון אוטומטית",
+            "symmetricFieldConflict": "התנגשות זו בקישור הסימטרי דורשת בחירה ידנית",
+            "symmetricFieldMissing": "שדה הקישור המשויך חסר, ונדרש אישור לפני התיקון",
+            "symmetricFieldBroken": "שדה הקישור המשויך פגום, ונדרש אישור לפני התיקון",
+            "foreignKeyTargetTableMissing": "תיקון אוטומטי אינו זמין משום שהטבלה המקושרת חסרה",
+            "foreignKeyOrphanRows": "תיקון אוטומטי אינו זמין משום שעדיין קיימות שורות מקושרות לא חוקיות",
+            "junctionForeignKeyTargetTableMissing": "תיקון אוטומטי אינו זמין משום שטבלת היעד של טבלת הביניים חסרה",
+            "junctionForeignKeyOrphanRows": "תיקון אוטומטי אינו זמין משום שעדיין קיימות שורות ביניים לא חוקיות"
+          },
+          "description": {
+            "autoRule": "התיקון יריץ את פקודות הסכימה שהכלל הזה הפיק, ולאחר מכן יבדוק את הכלל שוב כדי לוודא שהסכימה תקינה.",
+            "symmetricFieldConflict": "יותר משדה אחד מצביע על אותו יעד קישור סימטרי. יש לבחור איזה שדה יחזיק בקשר הדו-כיווני לפני התיקון.",
+            "symmetricFieldMissing": "המרת הקישור הנוכחי לחד-כיווני, ולאחר מכן הרצת התיקון מחדש כדי שכללי טבלת הביניים התלויים ייווצרו מחדש לפי הצורך.",
+            "symmetricFieldBroken": "המרת הקישור הנוכחי לחד-כיווני, ולאחר מכן הרצת התיקון מחדש כדי שכללי סכימת הקישור התלויים ייבדקו שוב.",
+            "foreignKeyTargetTableMissing": "יש לבדוק אם הטבלה המקושרת {{targetPhysicalTableName}} נמחקה או ששמה שונה. יש ליצור את הטבלה מחדש, או לעדכן או להסיר את הגדרת הקישור של \"{{fieldName}}\", ואז להריץ את הבדיקה שוב.",
+            "foreignKeyOrphanRows": "יש לנקות את השורות המקושרות הלא חוקיות של \"{{fieldName}}\" לפני הוספת אילוץ המפתח הזר מחדש.",
+            "junctionForeignKeyTargetTableMissing": "יש לבדוק אם טבלת היעד {{targetPhysicalTableName}} נמחקה או ששמה שונה. יש ליצור את הטבלה מחדש, או לעדכן או להסיר את הגדרת הקישור של \"{{fieldName}}\", ואז להריץ את הבדיקה שוב.",
+            "junctionForeignKeyOrphanRows": "יש לנקות את שורות הביניים הלא חוקיות של \"{{fieldName}}\" לפני החזרת המפתח הזר."
+          },
+          "manual": {
+            "apply": "החלת התיקון הידני",
+            "symmetricField": {
+              "title": "פתרון התנגשות בקישור סימטרי",
+              "description": "יש לבחור כיצד לתקן את הקישור הסימטרי הכפול הזה.",
+              "resolutionLabel": "אסטרטגיית תיקון",
+              "resolutionDescription": "יש לבחור איזה שדה ישמור על התנהגות הקישור הדו-כיווני.",
+              "option": {
+                "keepCurrent": "שמירת השדה הנוכחי כקישור הדו-כיווני",
+                "convertDuplicate": "המרת השדה הכפול לקישור חד-כיווני"
+              }
+            },
+            "symmetricFieldMissing": {
+              "title": "טיפול בשדה קישור משויך חסר",
+              "description": "שדה הקישור המשויך נמחק. יש לאשר את המרת השדה הזה לקישור חד-כיווני לפני התיקון.",
+              "resolutionLabel": "אסטרטגיית תיקון",
+              "resolutionDescription": "המרת הקישור הנוכחי לקישור חד-כיווני, כך שנתוני היחס הקיימים ימשיכו להשתמש במבנה הקישור השמור.",
+              "option": {
+                "convertCurrent": "המרת הקישור הנוכחי לחד-כיווני"
+              }
+            },
+            "symmetricFieldBroken": {
+              "title": "טיפול בשדה קישור משויך פגום",
+              "description": "שדה הקישור המשויך קיים, אך אינו מקבילה דו-כיוונית חוקית. יש לאשר את המרת השדה הזה לקישור חד-כיווני לפני התיקון.",
+              "resolutionLabel": "אסטרטגיית תיקון",
+              "resolutionDescription": "המרת הקישור הנוכחי לקישור חד-כיווני, כך שלא יהיה תלוי עוד בשדה המשויך הפגום.",
+              "option": {
+                "convertCurrent": "המרת הקישור הנוכחי לחד-כיווני"
+              }
+            },
+            "foreignKeyOrphanRows": {
+              "title": "ניקוי ערכי קישור לא חוקיים",
+              "description": "ניקוי ערכי מפתח זר שמצביעים על רשומות חסרות, ולאחר מכן שחזור אילוץ המפתח הזר.",
+              "resolutionLabel": "אסטרטגיית תיקון",
+              "resolutionDescription": "ערכי קישור לא חוקיים מצביעים על רשומות שכבר אינן קיימות. יש לאשר את ניקוי הערכים האלה לפני שחזור המפתח הזר.",
+              "option": {
+                "clearOrphanValues": "ניקוי ערכי קישור לא חוקיים"
+              }
+            },
+            "junctionForeignKeyOrphanRows": {
+              "title": "ניקוי שורות ביניים לא חוקיות",
+              "description": "מחיקת שורות ביניים שמצביעות על רשומות חסרות, ולאחר מכן שחזור אילוץ המפתח הזר.",
+              "resolutionLabel": "אסטרטגיית תיקון",
+              "resolutionDescription": "שורות ביניים לא חוקיות מצביעות על רשומות שכבר אינן קיימות. יש לאשר את מחיקת שורות היחס הלא חוקיות האלה לפני שחזור המפתח הזר.",
+              "option": {
+                "deleteOrphanRows": "מחיקת שורות יחס לא חוקיות"
+              }
+            }
+          }
+        },
+        "phase": {
+          "check": "תוצאות הבדיקה",
+          "repair": "תוצאות התיקון"
+        },
+        "summary": {
+          "checks": "{{count}} בדיקות",
+          "success": "{{count}} עברו",
+          "warn": "{{count}} אזהרות",
+          "error": "{{count}} שגיאות",
+          "skipped": "{{count}} דולגו",
+          "repaired": "{{count}} תוקנו",
+          "manual": "{{count}} ידניים",
+          "problems": "{{count}} בעיות"
+        },
+        "status": {
+          "success": "עבר",
+          "error": "שגיאה",
+          "warn": "אזהרה",
+          "pending": "ממתין",
+          "running": "פועל",
+          "skipped": "דולג"
+        },
+        "outcome": {
+          "repaired": "תוקן",
+          "unchanged": "ללא שינוי",
+          "manual": "ידני",
+          "skipped": "דולג"
+        }
+      },
+      "errorType": {
+        "ForeignTableNotFound": "ForeignTableNotFound",
+        "ForeignKeyNotFound": "ForeignKeyNotFound",
+        "SelfKeyNotFound": "SelfKeyNotFound",
+        "SymmetricFieldNotFound": "SymmetricFieldNotFound",
+        "MissingRecordReference": "MissingRecordReference",
+        "InvalidLinkReference": "InvalidLinkReference",
+        "ForeignKeyHostTableNotFound": "ForeignKeyHostTableNotFound",
+        "ReferenceFieldNotFound": "ReferenceFieldNotFound",
+        "UniqueIndexNotFound": "UniqueIndexNotFound",
+        "EmptyString": "EmptyString",
+        "InvalidFilterOperator": "InvalidFilterOperator",
+        "InvalidPrimaryLookup": "השדה הראשי מוגדר בטעות כשדה שליפה",
+        "InvalidPrimaryType": "לשדה הראשי יש סוג שאינו נתמך",
+        "MissingPrimary": "לטבלה אין שדה ראשי"
+      }
+    },
+    "index": {
+      "description": "אינדקסים יכולים לשפר משמעותית את ביצועי החיפוש, במיוחד בכמויות נתונים גדולות (מעל {{rowCount}} שורות). החיסרון הוא האטה קלה בפעולות הכתיבה. בחיפושים תכופים או במאגרי נתונים גדולים מומלץ להפעיל אינדקסים",
+      "repair": "עדכון האינדקס",
+      "repairTip": "זוהו חריגות באינדקס שעלולות לפגוע בביצועי החיפוש. מומלץ ללחוץ על כפתור עדכון האינדקס כדי לעדכן אותו",
+      "enableIndexTip": "האינדקס בבנייה כעת. משך הזמן תלוי בגודל הטבלה. במהלך התהליך ייתכן שביצועי הקריאה והכתיבה בטבלה יושפעו. נא להתאזר בסבלנות",
+      "fieldSearchTip_limited": "כאשר האפשרות כבויה, החיפוש המקורב מתבצע בכל השדות. שדות תאריך, תיבת סימון וכפתור אינם נתמכים. נתמכים עד {{count}} שדות",
+      "fieldSearchTip_infinity": "כאשר האפשרות כבויה, החיפוש המקורב מתבצע בכל השדות. שדות תאריך, תיבת סימון וכפתור אינם נתמכים",
+      "globalSearchFieldTip": "מצב חיפוש גלובלי פעיל. החיפוש המקורב מתבצע בכל השדות. שדות תאריך, תיבת סימון וכפתור אינם נתמכים",
+      "hideNotMatchRowTip": "כאשר האפשרות כבויה, כל השורות מוצגות",
+      "autoIndexTip": "הטבלה עברה את {{rowCount}} השורות. מומלץ להפעיל אינדקסים כדי לשפר את ביצועי החיפוש. הפעלת אינדקסים עלולה להאט מעט את מהירות הכתיבה. במהלך יצירת האינדקס ייתכן שביצועי הקריאה והכתיבה בטבלה יושפעו. נא להתאזר בסבלנות",
+      "enableIndex": "הפעלה",
+      "keepAsIs": "השארה ללא שינוי",
+      "ignoreIndexError": "התעלמות"
+    },
+    "searchTips": {
+      "maxFieldTips_limited": "חריגה מהמספר המרבי של {{count}} שדות, המערכת תתעלם מהשדות הנוספים"
+    },
+    "deletedRecovered": {
+      "title": "הטבלה שנפתחה נמחקה",
+      "description": "מוצגת כעת \"{{tableName}}\"",
+      "descriptionEmpty": "חזרה לדף הבסיס"
+    }
+  },
+  "import": {
+    "title": {
+      "upload": "העלאה",
+      "import": "ייבוא",
+      "localFile": "קבצים מקומיים",
+      "linkUrl": "קישור (URL)",
+      "linkUrlInputTitle": "הוספת קובץ מ-URL",
+      "importTitle": "יצירת טבלה חדשה",
+      "incrementImportTitle": "ייבוא אל — ",
+      "optionsTitle": "אפשרויות ייבוא",
+      "primitiveFields": "שדות המקור",
+      "importFields": "שדה ייבוא",
+      "primaryField": "שדה ראשי",
+      "tipsTitle": "טיפים",
+      "confirm": "אישור והמשך"
+    },
+    "menu": {
+      "addFromOtherSource": "הוספה ממקורות אחרים",
+      "excelFile": "Microsoft Excel",
+      "airtable": "Airtable",
+      "googleSheet": "Google Sheets",
+      "csvFile": "קובץ CSV",
+      "importCsvData": "ייבוא נתוני CSV",
+      "importExcelData": "ייבוא נתונים מ-Microsoft Excel",
+      "cancel": "ביטול",
+      "downAsCsv": "הורדת CSV",
+      "importData": "ייבוא נתונים",
+      "duplicate": "שכפול",
+      "duplicating": "בשכפול...",
+      "duplicateSuccess": "השכפול הושלם בהצלחה",
+      "duplicateFailed": "השכפול נכשל",
+      "includeRecords": "כולל רשומות"
+    },
+    "tips": {
+      "importWayTip": "לחיצה או גרירת קובץ לאזור זה להעלאה",
+      "fileExceedSizeTip": "גודל קובץ מסוג זה חורג מהמגבלה של",
+      "analyzing": "בניתוח",
+      "importing": "בייבוא",
+      "importingRows": "בייבוא {{processed}} מתוך {{total}} שורות",
+      "importingRowsUnknown": "יובאו {{processed}} שורות",
+      "importingSheet": "גיליון {{current}} מתוך {{total}}: {{name}}",
+      "preparingImport": "בהכנת הייבוא...",
+      "importFinished": "הייבוא הסתיים",
+      "importFinishedPartial": "הייבוא הסתיים במסגרת מגבלת השורות",
+      "importSheetImported": "{{rowCount}} שורות",
+      "importSheetTruncated": "יובאו {{rowCount}} שורות (הושגה מגבלת השורות, שאר השורות דולגו)",
+      "importSheetFailed": "נכשל ({{error}})",
+      "importSummaryHint": "יש לבדוק כל טבלה לפני הסגירה.",
+      "importDone": "סיום",
+      "notSupportFieldType": "סוג השדה אינו נתמך",
+      "resultEmpty": "לא נמצאו תוצאות.",
+      "searchPlaceholder": "חיפוש...",
+      "importAlert": "לאחר שהייבוא מתחיל לא ניתן לעצור אותו עד שיושלם בהצלחה או ייפסק עקב כשל. סטטוס הייבוא מוצג בפינה העליונה של הטבלה. עם סיום התהליך תישלח התראה עם התוצאות. אין לעדכן שדות במהלך הייבוא, שכן הדבר עלול לגרום לשגיאות.",
+      "noTips": "הבנתי, לא להציג שוב"
+    },
+    "options": {
+      "autoSelectFieldOptionName": "בחירה אוטומטית של סוגי שדות",
+      "useFirstRowAsHeaderOptionName": "שימוש בשורה הראשונה ככותרת",
+      "importDataOptionName": "ייבוא נתונים",
+      "sheetKey": "שם הגיליון: ",
+      "excludeFirstRow": "החרגת השורה הראשונה מהייבוא"
+    },
+    "form": {
+      "defaultFieldName": "שדה",
+      "error": {
+        "urlEmptyTip": "אין להשאיר את ה-URL ריק!",
+        "errorFileFormat": "פורמט הקובץ שגוי!",
+        "uniqueFieldName": "שם השדה חייב להיות ייחודי!",
+        "fieldNameEmpty": "אין להשאיר את שם השדה ריק!",
+        "atLeastAImportField": "יש להגדיר לפחות שדה אחד לייבוא",
+        "urlValidateTip": "לא ניתן לנתח את ה-URL. יש לנסות כתובת אחרת!"
+      },
+      "option": {
+        "doNotImport": "לא לייבא"
+      }
+    }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "הורדת כל הקבצים המצורפים",
+      "rowsWithAttachments": "שורות עם קבצים מצורפים",
+      "totalAttachments": "קבצים מצורפים",
+      "totalSize": "גודל כולל",
+      "cancel": "ביטול",
+      "downloading": "בהורדה...",
+      "completed": "ההורדה הושלמה",
+      "cancelled": "ההורדה בוטלה",
+      "noAttachments": "אין קבצים מצורפים להורדה",
+      "error": "ההורדה נכשלה",
+      "errorPartial": "הורדת {{failedCount}} קבצים נכשלה",
+      "requireHttps": "הורדה מרוכזת דורשת HTTPS. יש לגשת דרך HTTPS או דרך localhost.",
+      "advancedOptions": "אפשרויות מתקדמות",
+      "namingFieldLabel": "קידומת לשם הקובץ המצורף",
+      "selectField": "ברירת מחדל: מספר הקובץ המצורף",
+      "noPrefixOption": "ללא קידומת",
+      "noPrefixOptionDesc": "שמירת שם הקובץ המקורי",
+      "groupByRow": "ארגון בתיקיות",
+      "groupByRowTip": "כאשר לשורה יש כמה קבצים מצורפים, הם יאורגנו באותה תיקייה; שורה עם קובץ מצורף אחד בלבד לא תיצור תיקייה."
+    }
+  },
+  "grid": {
+    "prefillingRowTitle": "הוספת רשומה חדשה",
+    "prefillingRowTooltip": "יש להזין למטה את נתוני הרשומה החדשה. הרשומה תישמר אוטומטית עם לחיצה מחוץ לשורה זו.",
+    "presortRowTitle": "הרשומה סוננה או הועברה בעקבות כללי המיון"
+  },
+  "form": {
+    "fieldsManagement": "שדות",
+    "addAll": "הצגת הכול",
+    "removeAll": "הסתרת הכול",
+    "createField": "יצירת שדה",
+    "hideFieldTip": "גרירת שדה לכאן תסתיר אותו מהטופס",
+    "unableAddFieldTip": "לא ניתן להוסיף שדה מסוג זה",
+    "removeFromFormTip": "הסתרה מהטופס",
+    "descriptionPlaceholder": "הזנת תיאור לטופס",
+    "dragToFormTip": "גרירת שדה לכאן תציג אותו בטופס",
+    "protectedFieldTip": "השדה הזה מוגדר כשדה \"חובה\" ולא ניתן להסיר אותו בתצוגת הטופס. יש לשנות זאת בהגדרות השדה."
+  },
+  "kanban": {
+    "toolbar": {
+      "hideFieldName": "הסתרת שם השדה",
+      "customizeCards": "התאמת הכרטיסים",
+      "stackedBy": "ערימות לפי <0/>",
+      "chooseStackingField": "בחירת שדה הערימות",
+      "chooseStackingFieldDescription": "באיזה שדה להשתמש בתצוגת הקנבן הזו? הרשומות יחולקו לערימות לפי השדה הזה.",
+      "hideEmptyStack": "הסתרת ערימות ריקות",
+      "imageSetting": "הגדרת התמונה",
+      "fit": "התאמה",
+      "noImage": "ללא תמונה",
+      "chooseAttachmentField": "בחירת שדה קובץ מצורף"
+    },
+    "stack": {
+      "addStack": "הוספת ערימה",
+      "noCards": "אין כרטיסים",
+      "uncategorized": "ללא קטגוריה"
+    },
+    "stackMenu": {
+      "collapseStack": "כיווץ הערימה",
+      "renameStack": "שינוי שם הערימה",
+      "deleteStack": "מחיקת הערימה"
+    },
+    "cardMenu": {
+      "insertCardAbove": "הוספת כרטיס מעל",
+      "insertCardBelow": "הוספת כרטיס מתחת",
+      "expandCard": "הרחבת הכרטיס",
+      "deleteCard": "מחיקת הכרטיס",
+      "duplicateCard": "שכפול הכרטיס"
+    }
+  },
+  "calendar": {
+    "toolbar": {
+      "config": "הגדרות לוח השנה",
+      "startDateField": "שדה תאריך התחלה",
+      "endDateField": "שדה תאריך סיום",
+      "titleField": "שדה הכותרת",
+      "colorField": "שדה הצבע",
+      "colorType": "תצוגת הצבע",
+      "customColor": "צבע מותאם אישית",
+      "alignWithRecords": "בהתאמה לרשומות"
+    },
+    "placeholder": {
+      "selectColorField": "בחירת שדה צבע"
+    },
+    "dialog": {
+      "startDate": "תאריך התחלה",
+      "endDate": "תאריך סיום",
+      "notAdd": "לא להוסיף",
+      "addDateField": "הוספת שדות תאריך",
+      "content": "כדי ליצור לוח זמנים בתצוגת לוח שנה, הטבלה צריכה לכלול שני שדות תאריך: תאריך התחלה ותאריך סיום"
+    },
+    "moreLinkText": "הצגת כל {{count}} הרשומות"
+  },
+  "menu": {
+    "insertRecordAbove": "הוספת <input /> רשומות מעל",
+    "insertRecordBelow": "הוספת <input /> רשומות מתחת",
+    "deleteRecord": "מחיקת הרשומה",
+    "deleteAllSelectedRecords": "מחיקת כל הרשומות שנבחרו",
+    "archiveRecord": "העברת הרשומה לארכיון",
+    "archiveAllSelectedRecords": "העברת כל הרשומות שנבחרו לארכיון",
+    "duplicateRecords": "שכפול הרשומות שנבחרו",
+    "editField": "עריכת השדה",
+    "duplicateField": "שכפול השדה",
+    "insertFieldLeft": "הוספה משמאל",
+    "insertFieldRight": "הוספה מימין",
+    "freezeUpField": "הקפאה עד לשדה זה",
+    "freezeFieldWindowTooNarrow": "לא ניתן להקפיא עד לאזור זה משום שהחלון הנוכחי צר מדי",
+    "hideField": "הסתרת השדה",
+    "deleteField": "מחיקת השדה",
+    "deleteAllSelectedFields": "מחיקת כל השדות שנבחרו",
+    "filterField": "סינון לפי שדה זה",
+    "sortField": "מיון לפי שדה זה",
+    "groupField": "קיבוץ לפי שדה זה",
+    "downloadAllAttachments": "הורדת כל הקבצים",
+    "autoFill": "הפקה",
+    "groupMenuTitle": "תפריט הקיבוץ",
+    "expandGroup": "הרחבת הקבוצה הזו ותתי-הקבוצות שלה",
+    "collapseGroup": "כיווץ הקבוצה הזו ותתי-הקבוצות שלה",
+    "expandAllGroups": "הרחבת כל הקבוצות",
+    "collapseAllGroups": "כיווץ כל הקבוצות",
+    "addToChat": "הוספה לצ'אט"
+  },
+  "connection": {
+    "title": "חיבור למסד הנתונים",
+    "description": "ניתן לגשת ישירות למסד הנתונים דרך חיבור מסד הנתונים, כולל כל הטבלאות שבבסיס הנוכחי",
+    "noPermission": "אין הרשאה לגשת למסד הנתונים",
+    "connectionCountTip": "המספר המרבי של חיבורים למסד הנתונים הוא <b>{{max}}</b>, ומספר החיבורים הנוכחי הוא <b>{{current}}</b>",
+    "createFailed": "יש לוודא שמשתנה הסביבה PUBLIC_DATABASE_PROXY מוגדר כראוי",
+    "readonlyUnavailable": "שיתוף מסד נתונים לקריאה בלבד אינו זמין עבור מסד נתונים זה. יש להעניק למשתמש מסד הנתונים של Teable הרשאה ליצירת roles ו-grants, או להשתמש במסד נתונים יעד שתומך ב-roles לקריאה בלבד."
+  },
+  "view": {
+    "addRecord": "הוספת רשומה",
+    "searchView": "חיפוש תצוגה...",
+    "dragToolTip": "המיון האוטומטי מופעל, ולכן גרירה ידנית אינה זמינה",
+    "insertToolTip": "המיון האוטומטי מופעל, ולכן הוספה במיקום מסוים אינה זמינה",
+    "action": {
+      "rename": "שינוי שם",
+      "duplicate": "שכפול",
+      "delete": "מחיקה",
+      "lock": "נעילת התצוגה",
+      "unlock": "ביטול נעילת התצוגה",
+      "enable": "הפעלה"
+    },
+    "category": {
+      "table": "תצוגת רשת",
+      "form": "תצוגת טופס",
+      "kanban": "תצוגת קנבן",
+      "gallery": "תצוגת גלריה",
+      "calendar": "תצוגת לוח שנה"
+    },
+    "crash": {
+      "title": "קריסה!",
+      "description": "התצוגה הזו תקולה. אם הרענון עדיין נכשל, אפשר לפנות אלינו. support@teable.ai"
+    },
+    "addPluginView": "הוספת תצוגת תוסף",
+    "search": {
+      "field_one": "{{name}}",
+      "field_two": "שני שדות",
+      "field_other": "שדות({{length}})"
+    },
+    "locked": {
+      "tip": "התצוגה הזו נעולה. אפשר להפעיל מצב אישי כדי לערוך את אפשרויות התצוגה, והשינויים יחולו רק עבורך."
+    },
+    "noView": "אין תצוגה",
+    "deletedRecovered": {
+      "title": "התצוגה שנפתחה נמחקה",
+      "description": "מעבר ל\"{{viewName}}\""
+    }
+  },
+  "lastModifiedTime": "מועד שינוי אחרון",
+  "lastModify": "שינוי אחרון: ",
+  "pasteNewRecords": {
+    "title": "להוסיף מספר רשומות?",
+    "description": "{{count}} הרשומות יתווספו לטבלה."
+  },
+  "tableArchive": {
+    "title": "ארכיון הטבלה",
+    "menuTitle": "ארכיון",
+    "archivedTime": "מועד ארכוב",
+    "archivedBy": "אורכב על ידי",
+    "recordDetail": "פרטי הרשומה",
+    "empty": "אין רשומות בארכיון",
+    "allCreators": "כל היוצרים",
+    "filterArchivedTime": "מועד ארכוב",
+    "searchPlaceholder": "חיפוש רשומות בארכיון",
+    "clearFilter": "ניקוי המסנן",
+    "export": "ייצוא CSV",
+    "exporting": "בייצוא... {{count}} שורות",
+    "exportSucceed": "הייצוא הושלם, ההורדה מתחילה",
+    "restoreSelected": "שחזור ({{count}})",
+    "permanentDeleteSelected": "מחיקה לצמיתות ({{count}})",
+    "permanentDeleteConfirm": "למחוק לצמיתות {{count}} רשומות מהארכיון? לא ניתן לבטל פעולה זו.",
+    "permanentDeleteSucceed": "נמחק לצמיתות",
+    "resetArchive": "ניקוי הארכיון",
+    "resetArchiveConfirm": "לנקות את כל הרשומות שבארכיון של הטבלה הזו? לא ניתן לבטל פעולה זו.",
+    "resetSucceed": "הארכיון נוקה",
+    "orderBy": {
+      "archivedTime": "מיון לפי מועד ארכוב",
+      "recordCreatedTime": "מיון לפי מועד יצירה",
+      "recordLastModifiedTime": "מיון לפי מועד שינוי אחרון"
+    }
+  },
+  "tableTrash": {
+    "title": "אשפה",
+    "resourceType": "סוג",
+    "deletedResource": "משאב",
+    "moreResources": "ועוד {{count}}",
+    "deletedTime": "מועד המחיקה",
+    "deletedBy": "נמחק על ידי",
+    "filterAllTypes": "כל הסוגים",
+    "filterAllUsers": "כל המשתמשים",
+    "filterDeletedTime": "מועד המחיקה",
+    "clearFilter": "ניקוי המסנן",
+    "recordsDialogTitle": "רשומות שנמחקו ({{count}})",
+    "recordDetail": "פרטי הרשומה",
+    "filterAllCreators": "כל היוצרים",
+    "filterCreatedTime": "מועד היצירה",
+    "searchPlaceholder": "חיפוש רשומות"
+  },
+  "pluginPanel": {
+    "empty": {
+      "description": "עדיין לא נוספו פאנלים של תוספים."
+    },
+    "createPluginPanel": {
+      "button": "יצירת פאנל תוספים",
+      "title": "יצירת פאנל תוספים"
+    },
+    "namePlaceholder": "הזנת שם לפאנל התוספים"
+  },
+  "addPlugin": "הוספת תוסף",
+  "pluginContextMenu": {
+    "mangeButton": "ניהול תוספים",
+    "manage": "ניהול התוספים של תפריט ההקשר",
+    "noPlugin": "אין תוספים לתפריט ההקשר",
+    "delete": "מחיקה",
+    "deleteDescription": "למחוק את התוסף הזה?"
+  },
+  "permission": {
+    "cell": {
+      "deniedRead": "אין הרשאה לצפות בתא הזה",
+      "deniedUpdate": "אין הרשאה לעדכן את התא הזה"
+    }
+  },
+  "baseShare": {
+    "shareTitle": "שיתוף",
+    "shareToWeb": "שיתוף לאינטרנט",
+    "refreshLink": "יצירת קישור מחדש",
+    "deleteConfirmTitle": "מחיקת קישור השיתוף",
+    "deleteConfirmDescription": "לא ניתן לבטל פעולה זו. בעלי הקישור לא יוכלו עוד לגשת לבסיס המשותף.",
+    "createSuccess": "קישור השיתוף נוצר",
+    "createFailed": "יצירת קישור השיתוף נכשלה",
+    "updateFailed": "עדכון הגדרות השיתוף נכשל",
+    "deleteSuccess": "קישור השיתוף נמחק",
+    "deleteFailed": "מחיקת קישור השיתוף נכשלה",
+    "refreshSuccess": "קישור השיתוף נוצר מחדש",
+    "refreshFailed": "יצירת קישור השיתוף מחדש נכשלה",
+    "linkHolderLabel": "בעלי הקישור",
+    "linkHolderCanView": "יכולים לצפות",
+    "linkHolderCanViewDesc": "כל בעלי הקישור יכולים לצפות בנתונים",
+    "linkHolderCanEdit": "יכולים לערוך",
+    "linkHolderCanEditDesc": "משתמשים מחוברים יכולים לערוך רשומות בטבלה",
+    "viewLinkHolderCanViewDesc": "כל בעלי הקישור יכולים לצפות בנתוני התצוגה הזו",
+    "viewLinkHolderCanEditDesc": "משתמשים מחוברים יכולים לערוך נתונים בתחום התצוגה",
+    "linkExposureNoticeOne": "מבקרים יוכלו לראות נתונים מתוך \"{{name}}\"",
+    "linkExposureNoticeMany": "מבקרים יוכלו לראות נתונים מתוך \"{{name}}\" ומתוך {{count}} טבלאות בסך הכול",
+    "linkExposureNoticeGeneric": "מבקרים יוכלו לראות נתונים מטבלאות מקושרות",
+    "restrictScope": "הגבלת ההיקף",
+    "linkScopeDesc": "הגבלת הרשומות והשדות שניתן לבחור בשדות הקישור של התצוגה הזו. ההגדרה חלה על השדה עצמו ומשפיעה על כל תצוגה שמשתמשת בו.",
+    "linkScopeDialogTitle": "היקף שדה הקישור",
+    "linkHolderCanCopyAndSave": "יכולים לשמור עותק",
+    "linkHolderCanCopyAndSaveDesc": "כל בעלי הקישור יכולים לשמור עותק במרחב שלהם",
+    "copyToMySpace": "העתקה למרחב שלי",
+    "saveToMySpace": "שמירה במרחב שלי",
+    "supportSaveCopy": "שמירת עותק במרחב שלך",
+    "editRequiresLogin": "כניסה לחשבון כדי לערוך רשומות",
+    "enterPassword": "הזנת סיסמה",
+    "allowCopyData": "אפשרות לצופים להעתיק נתונים",
+    "sharedNode": "פריט משותף",
+    "restrictByPassword": "הגבלה באמצעות סיסמה",
+    "advanced": "מתקדם",
+    "embedConfig": "הגדרות הטמעה",
+    "appPublicLink": "קישור ציבורי לאפליקציה",
+    "appNotPublished": "האפליקציה הזו עדיין לא פורסמה. יש לפרסם אותה לפני השיתוף.",
+    "goToPublish": "מעבר לפרסום",
+    "publishSuccess": "האפליקציה פורסמה בהצלחה",
+    "publishFailed": "פרסום האפליקציה נכשל",
+    "openLink": "פתיחת הקישור",
+    "appPublished": "האפליקציה פורסמה",
+    "shareTableTab": "שיתוף הטבלה",
+    "shareViewTab": "שיתוף התצוגה"
+  },
+  "aiChat": {
+    "integrationConnect": {
+      "title": "חיבור ל-{{provider}}",
+      "reconnectTitle": "חיבור מחדש ל-{{provider}}",
+      "defaultReason": "לסוכן דרושה גישה לחשבון {{provider}} שלך כדי להמשיך.",
+      "connect": "חיבור",
+      "connecting": "בחיבור…",
+      "giveUp": "ויתור",
+      "failed": "החיבור נכשל",
+      "status": {
+        "connected": "מחובר",
+        "cancelled": "דולג",
+        "failed": "נכשל"
+      }
+    },
+    "googleSheetPick": {
+      "title": "בחירת גיליונות Google",
+      "defaultReason": "יש לבחור את הגיליונות בבורר הקבצים של Google כדי שניתן יהיה לקרוא אותם.",
+      "pick": "בחירת גיליונות",
+      "opening": "בפתיחת הבורר…",
+      "failed": "לא ניתן היה לפתוח את בורר הקבצים של Google",
+      "gateExpired": "תוקף הבקשה הזו פג, אך ההרשאה לקבצים שנבחרו עדיין בתוקף — יש לשלוח לסוכן הודעה חדשה כדי להמשיך.",
+      "status": {
+        "picked": "הוענקה גישה ל-{{count}} גיליונות",
+        "cancelled": "דולג",
+        "failed": "נכשל"
+      }
+    },
+    "agent": {
+      "askUserQuestion": {
+        "otherPlaceholder": "או הקלדת תשובה משלך…",
+        "asked": "נשאלה",
+        "skipped": "דולג",
+        "pendingAnswer": "ממתין לתשובה",
+        "notSelected": "לא נבחר",
+        "timedOut": "פג הזמן הקצוב",
+        "timedOutWithDuration": "פג הזמן הקצוב ({{duration}})",
+        "cancelled": "בוטל",
+        "previousQuestion": "השאלה הקודמת",
+        "nextQuestion": "השאלה הבאה"
+      },
+      "completion": {
+        "noDetails": "אין פרטים זמינים",
+        "model": "מודל",
+        "contextWindow": "חלון ההקשר",
+        "contextTooltip": "השימוש בזיכרון העבודה של הסוכן. בהתקרבות למגבלה, הסוכן יסכם אוטומטית את החלקים המוקדמים של השיחה כדי לפנות מקום.",
+        "contextTipNewChat": "פתיחת צ'אט חדש לנושאים שונים מפחיתה משמעותית את השימוש בקרדיטים.",
+        "contextTipMemory": "אמירת \"תזכור משהו\" שומרת את המידע בזיכרון ארוך הטווח, שזמין בכל הצ'אטים."
+      },
+      "messageActions": {
+        "helpful": "מועיל",
+        "notHelpful": "לא מועיל",
+        "commentTitle": "איך אפשר לשפר את התשובה הזו? (אופציונלי)",
+        "commentPlaceholder": "למשל: פספוס העניין, לא מדויק, כלי שגוי…",
+        "saveFailed": "שמירת המשוב נכשלה",
+        "copy": "העתקה",
+        "copyToInput": "העתקה לתיבת הקלט"
+      },
+      "contextCompaction": {
+        "auto": "ההקשר נדחס אוטומטית",
+        "manual": "ההקשר נדחס",
+        "compacting": "בדחיסת ההקשר…",
+        "failed": "דחיסת ההקשר נכשלה"
+      },
+      "taskProgress": {
+        "title": "התקדמות המשימה"
+      },
+      "tool": {
+        "copy": "העתקה",
+        "copied": "הועתק!",
+        "collapse": "כיווץ",
+        "linesHidden": "{{count}} שורות מוסתרות - לחיצה להרחבה"
+      }
+    },
+    "tool": {
+      "retrying": "ניסיון חוזר ({{attempt}}/{{maxRetries}})...",
+      "showLess": "הצגה מצומצמת",
+      "generateApp": {
+        "creatingApp": "ביצירת האפליקציה",
+        "updatingApp": "בעדכון האפליקציה",
+        "viewProgress": "הצגת ההתקדמות"
+      },
+      "htmlPreview": {
+        "preview": "תצוגה מקדימה",
+        "code": "קוד",
+        "download": "הורדה",
+        "downloadHtml": "HTML",
+        "copy": "העתקה",
+        "copied": "הועתק!",
+        "fullscreen": "מסך מלא",
+        "exitFullscreen": "יציאה ממסך מלא",
+        "iframeTitle": "תצוגה מקדימה של HTML"
+      }
+    },
+    "action": {
+      "locateResource": "איתור"
+    },
+    "showUI": {
+      "skip": "דילוג",
+      "next": "הבא",
+      "submit": "שליחה"
+    },
+    "newChat": "צ'אט חדש",
+    "clearChat": "ניקוי הצ'אט",
+    "expand": "הרחבה",
+    "history": "היסטוריה",
+    "close": "כיווץ",
+    "clearChatConfirmTitle": "אישור ניקוי הצ'אט",
+    "clearChatConfirmDesc": "תוכן הצ'אט הנוכחי לא יישמר. לנקות אותו?",
+    "dontShowAgain": "לא להציג שוב",
+    "modelSwitchTitle": "החלפת מודל",
+    "modelSwitchHint": "כרגע פועל {{previous}}. בשליחה הבאה המודל החדש ייכנס לפעולה ויראה רק את 3 הסבבים האחרונים בשיחה.",
+    "effort": {
+      "title": "אינטליגנציה",
+      "low": "נמוך",
+      "medium": "בינוני",
+      "high": "גבוה",
+      "xhigh": "גבוה במיוחד"
+    },
+    "sandboxExpiry": {
+      "expiresIn": "מחשב הסוכן יפוג בעוד {{time}}",
+      "reset": "חידוש",
+      "resetTitle": "חידוש מחשב הסוכן",
+      "runningTasks_one": "{{count}} משימה פועלת כעת. החידוש יפסיק אותה.",
+      "runningTasks_two": "שתי משימות פועלות כעת. החידוש יפסיק אותן.",
+      "runningTasks_other": "{{count}} משימות פועלות כעת. החידוש יפסיק אותן.",
+      "noRunningTasks": "אין כרגע משימות שפועלות.",
+      "newSandboxHint": "לאחר החידוש אפשר להמשיך להשתמש בו כרגיל.",
+      "cancel": "ביטול",
+      "confirmReset": "חידוש",
+      "confirmResetWithTasks": "חידוש בכל זאת",
+      "expiresSoon": "מחשב הסוכן עומד לפוג",
+      "resetFailed": "חידוש מחשב הסוכן נכשל"
+    },
+    "addAttachment": "הוספת קובץ מצורף",
+    "noHistory": "אין היסטוריית צ'אט",
+    "noFoundHistory": "לא נמצאה היסטוריית צ'אט, אפשר להתחיל שיחה חדשה",
+    "timeGroup": {
+      "today": "היום",
+      "oneWeek": "שבוע",
+      "twoWeek": "שבועיים",
+      "oneMonth": "חודש",
+      "other": "אחר"
+    },
+    "context": {
+      "searchEmpty": "לא נמצא הקשר תואם",
+      "selectionRow": "שורה {{row}}",
+      "selectionRows": "שורות {{start}}-{{end}}",
+      "selectionColumn": "עמודה {{col}}",
+      "selectionColumns": "עמודות {{start}}-{{end}}",
+      "selectionColumnsNamed": "{{names}} +{{count}}"
+    },
+    "mention": {
+      "tables": "טבלאות",
+      "apps": "אפליקציות",
+      "workflows": "אוטומציות",
+      "folders": "תיקיות",
+      "envs": "סודות"
+    },
+    "slashCommand": {
+      "skills": "מיומנויות",
+      "searchEmpty": "לא נמצאו תוצאות"
+    },
+    "inputPlaceholder": "@ להוספת פריטים, / להרצת מיומנויות",
+    "inputPlaceholderFiles": "הדבקה או גרירה של קבצים לכאן",
+    "thought": "בחשיבה",
+    "stage": {
+      "initializing": "בהכנה",
+      "working": "בעבודה",
+      "committing": "בשמירה",
+      "recovering": "בשחזור"
+    },
+    "meta": {
+      "input": "קלט",
+      "output": "פלט"
+    },
+    "attachment": {
+      "pastedTextFileName": "טקסט שהודבק",
+      "imageNotSupported": "תמונות אינן נתמכות",
+      "tooManyFiles": "ניתן לצרף עד {{count}} קבצים בהודעה אחת"
+    },
+    "suggestions": {
+      "title": "איך אפשר לעזור?",
+      "whatCanIDo": "מה אפשר לעשות?",
+      "createOrModifyDatabase": "יצירה או שינוי של מסד נתונים",
+      "buildAutomations": "בניית אוטומציות",
+      "buildApps": "בניית אפליקציות",
+      "buildMeCRM": "בניית CRM בשבילי",
+      "addAIField": "הוספת שדה AI לניתוח כל לקוח",
+      "createDataAnalysis": "יצירת דוח ניתוח נתונים בשבילי",
+      "emailWhenRecordCreated": "שליחת אימייל אליי כשנוצרת רשומה",
+      "syncStatusToSlack": "סנכרון עדכוני סטטוס ל-Slack",
+      "buildDashboard": "בניית לוח בקרה מהטבלה הזו",
+      "buildLeadCapture": "בניית דף נחיתה לאיסוף לידים בשבילי"
+    },
+    "buildApp": {
+      "task": {
+        "foundResults": "נמצאו {{count}} תוצאות"
+      }
+    },
+    "scriptPreview": {
+      "writeCodeHint": "כתיבת קוד תציג תצוגה מקדימה של תרשים הזרימה.",
+      "noPreview": "אין תצוגה מקדימה של תרשים זרימה.",
+      "codeChanged": "הקוד השתנה מאז שנוצרה התצוגה המקדימה הזו."
+    },
+    "queue": {
+      "nQueued": "{{count}} בתור",
+      "edit": "עריכה",
+      "steerNow": "הכוונת השיחה בלי להפריע",
+      "steer": "הכוונה",
+      "conversationInputMarker": "השיחה הוכוונה",
+      "removeFromQueue": "הסרה",
+      "paused": "התור הושהה בעקבות הפסקה",
+      "resume": "המשך",
+      "queueFull": "תור השליחה מלא. יש להמתין להשלמת העיבוד של Cuppy."
+    },
+    "partTool": {
+      "bash": "הרצת פקודה",
+      "read": "קריאת קובץ",
+      "write": "יצירת קובץ",
+      "edit": "עריכת קובץ",
+      "glob": "איתור קבצים",
+      "find": "איתור קבצים",
+      "grep": "חיפוש בקבצים",
+      "ls": "הצגת תוכן התיקייה",
+      "webSearch": "חיפוש באינטרנט",
+      "skill": "בטעינת מיומנות",
+      "foundFiles": "נמצאו {{count}} קבצים",
+      "listedEntries": "{{count}} פריטים",
+      "moreTools": "+{{count}} כלים נוספים",
+      "moreItems": "+{{count}} נוספים",
+      "fallbackName": "כלי",
+      "questionCount_one": "{{count}} שאלה",
+      "questionCount_two": "שתי שאלות",
+      "questionCount_other": "{{count}} שאלות",
+      "presentFiles": "קבצים שהוצגו",
+      "download": "הורדה",
+      "downloadAll": "הורדת הכול",
+      "downloadAllSkipped_one": "{{count}} קובץ נוקה ולא נכלל בקובץ ה-zip",
+      "downloadAllSkipped_two": "שני קבצים נוקו ולא נכללו בקובץ ה-zip",
+      "downloadAllSkipped_other": "{{count}} קבצים נוקו ולא נכללו בקובץ ה-zip",
+      "downloadAllEmpty": "הקבצים האלה נוקו ולא ניתן עוד להוריד אותם",
+      "installSkill": "התקנה",
+      "installSkillTitle": "התקנת מיומנות",
+      "installSkillDescription": "יש לבחור היכן להתקין את המיומנות הזו",
+      "skillInstalled": "הותקנה",
+      "installSkillFailed": "התקנת המיומנות נכשלה",
+      "installSkillReplaceWarning": "אם כבר קיימת מיומנות באותו שם בהיקף הזה, היא תוחלף."
+    },
+    "retry": {
+      "interrupted": "התשובה הופסקה",
+      "button": "ניסיון חוזר",
+      "offline": "אין חיבור לאינטרנט. ננסה שוב ברגע שהחיבור יחזור.",
+      "pausedHidden": "הניסיון החוזר מושהה — יש לפתוח את הלשונית הזו כדי להתחבר מחדש.",
+      "maxAttemptsReached": "החיבור מחדש האוטומטי נכשל. יש לרענן את הדף באופן ידני."
+    },
+    "initChatFailed": "אתחול הצ'אט נכשל",
+    "app": {
+      "loadingChatHistory": "בטעינת היסטוריית הצ'אט...",
+      "generatorTitle": "מחולל אפליקציות AI",
+      "generatorDesc": "יש לתאר מה רוצים לבנות"
+    },
+    "voice": {
+      "start": "התחלת הקלטה קולית",
+      "stop": "עצירת ההקלטה הקולית",
+      "accept": "סיום ההקלטה הקולית",
+      "cancel": "ביטול ההקלטה הקולית",
+      "permissionTip": "יש לאפשר גישה למיקרופון.",
+      "recording": "בהקלטה...",
+      "transcribing": "בתמלול...",
+      "error": {
+        "microphoneDenied": "הגישה למיקרופון חסומה.",
+        "microphoneUnavailable": "לא נמצא מיקרופון.",
+        "unsupportedBrowser": "הקלטת אודיו אינה נתמכת.",
+        "recordingFailed": "ההקלטה נכשלה.",
+        "missingServerKey": "הקלט הקולי אינו מוגדר.",
+        "unauthenticated": "יש להיכנס שוב לחשבון.",
+        "rateLimited": "יותר מדי ניסיונות. יש להמתין רגע.",
+        "upstreamAuthFailed": "מפתח ה-API לתמלול אינו חוקי.",
+        "upstreamBadRequest": "ה-endpoint של הקלט הקולי אינו חוקי.",
+        "upstreamUnavailable": "הקלט הקולי אינו זמין."
+      }
+    },
+    "artifact": {
+      "view": "הצגה",
+      "restore": "שחזור הגרסה הזו",
+      "download": "הורדה",
+      "openInNewPage": "פתיחה בדף חדש",
+      "fullscreen": "מסך מלא",
+      "exitFullscreen": "יציאה ממסך מלא",
+      "delete": "מחיקה",
+      "deleteConfirm": "למחוק את הארטיפקט הזה? כרטיסי הצ'אט יוחלפו בסימון של פריט שנמחק.",
+      "deleted": "הארטיפקט הזה נמחק",
+      "runtimeError": "שגיאה בארטיפקט",
+      "loadFailed": "טעינת הארטיפקט נכשלה",
+      "failed": "הפקת הארטיפקט נכשלה",
+      "currentVersion": "נוכחית",
+      "share": "שיתוף",
+      "enableShare": "הפעלת השיתוף",
+      "copyLink": "העתקת הקישור",
+      "rotateLink": "איפוס הקישור",
+      "scope": "מי יכול לצפות",
+      "scopePublic": "כל בעלי הקישור",
+      "scopeSpace": "חברי המרחב",
+      "passwordProtect": "הגנה בסיסמה",
+      "passwordApply": "הגדרה",
+      "passwordRequired": "הארטיפקט הזה מוגן בסיסמה",
+      "passwordPlaceholder": "הזנת סיסמה",
+      "passwordIncorrect": "סיסמה שגויה",
+      "passwordSubmit": "אישור",
+      "shareNotFound": "הארטיפקט המשותף הזה אינו זמין",
+      "gallery": "הארטיפקטים שלי",
+      "galleryEmpty": "אין עדיין ארטיפקטים — אפשר לבקש מה-AI ליצור אחד בכל צ'אט.",
+      "searchPlaceholder": "חיפוש ארטיפקטים",
+      "fixWithAi": "תיקון בעזרת AI",
+      "noPermission": "אין הרשאת גישה לארטיפקט הזה"
+    }
+  },
+  "upload": {
+    "panelUploading": "בהעלאת {{count}} קבצים",
+    "panelFailed": "{{count}} קבצים נכשלו",
+    "panelCompleted": "{{count}} קבצים הושלמו",
+    "statusFailed": "נכשל",
+    "statusCompleted": "הושלם",
+    "statusCancel": "ביטול ההעלאה",
+    "statusRetry": "ניסיון העלאה חוזר"
+  },
+  "baseNode": {
+    "info": {
+      "menu": "פרטי הפריט",
+      "createdBy": "נוצר על ידי",
+      "createdTime": "מועד יצירה",
+      "lastModifiedBy": "שונה על ידי",
+      "lastModifiedTime": "מועד שינוי",
+      "folderId": "מזהה התיקייה",
+      "tableId": "מזהה הטבלה",
+      "automationId": "מזהה האוטומציה",
+      "appId": "מזהה האפליקציה",
+      "searchVector": "חיפוש טקסט מלא",
+      "searchVectorFields": "שדות",
+      "searchVectorStatus": {
+        "ready": "מופעל",
+        "configured": "מוגדר",
+        "rebuildPending": "ממתין לתחזוקה",
+        "stale": "נדרשת בנייה מחדש",
+        "unknown": "לא ידוע"
+      }
+    }
+  }
+}

@@ -2,6 +2,7 @@ import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../domain/shared/DomainError';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import type { IRecordRemovalReason } from '../domain/table/events/RecordsDeleted';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordInsertOrder } from '../domain/table/records/RecordInsertOrder';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
@@ -11,6 +12,7 @@ import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
 import type { IBatchMutationOrchestration } from './BatchMutationOrchestration';
 import type { IExecutionContext } from './ExecutionContext';
+import type { UndoRedoArchiveTrashRow } from './UndoRedoStore';
 
 export interface RecordStoredSnapshot {
   /** Stringified record id from storage. */
@@ -383,6 +385,14 @@ export interface InsertOptions {
   cleanupTrashRecordIds?: ReadonlyArray<string>;
 
   /**
+   * Optional record ids whose attachments_table reference rows must be deleted
+   * BEFORE the insert writes new ones (restore of archived records: archiving kept
+   * the reference rows and the insert rebuilds them — skipping the cleanup would
+   * double-count attachment usage).
+   */
+  cleanupAttachmentRefRecordIds?: ReadonlyArray<string>;
+
+  /**
    * When true, generate SQL to fill missing link titles by JOINing
    * the foreign table's primary field. Used in typecast mode when
    * API clients provide link IDs without titles.
@@ -398,6 +408,14 @@ export interface InsertOptions {
 }
 
 export interface UpdateOptions {
+  /**
+   * Optional optimistic-concurrency guard.
+   *
+   * The adapter must apply the mutation only when the stored __version equals
+   * this value and report mutationApplied=false on a mismatch.
+   */
+  expectedVersion?: number;
+
   /**
    * Batch write orchestration metadata for realtime/computed projection grouping.
    */
@@ -605,4 +623,71 @@ export interface ITableRecordRepository {
     recordIdBatches: Iterable<ReadonlyArray<RecordId>> | AsyncIterable<ReadonlyArray<RecordId>>,
     options?: DeleteManyStreamOptions
   ): Promise<Result<DeleteManyStreamResult, DomainError>>;
+
+  /**
+   * Optional: insert archive snapshot rows into record_trash (reason 'archived').
+   * Used by the redo replay of an archive operation to re-persist the snapshot
+   * (write-ahead, inside the delete transaction) that the undo removed.
+   */
+  insertArchiveTrashRows?(
+    context: IExecutionContext,
+    table: Table,
+    rows: ReadonlyArray<ArchiveTrashRowInput>
+  ): Promise<Result<void, DomainError>>;
+
+  /**
+   * Optional: insert a single table_trash index row (resource_type 'record',
+   * snapshot = JSON id list) inside the delete transaction. Nest enables
+   * restorePurgeGuard against this index so undo on another pod can see the
+   * deleted ids as soon as delete commits, without waiting for N record_trash
+   * JSON rows. The NestJS projection later inserts those recycle-bin snapshots.
+   */
+  insertDeletedTrashRows?(
+    context: IExecutionContext,
+    table: Table,
+    input: DeletedTrashMarkerInput
+  ): Promise<Result<void, DomainError>>;
+
+  /**
+   * Optional: of the given record ids, return those that still survive in trash.
+   * Prefer record_trash rows with the given reason (markers or filled snapshots).
+   * For reason 'deleted', if none of those rows exist yet, fall back to ids listed
+   * in table_trash snapshots — the delete transaction writes that index before
+   * recycle-bin JSON lands. Once any record_trash row exists for the requested
+   * set, do not fall back: partial purge must not be undone from the index.
+   * Undo replay uses this to skip records whose trash disappeared after the
+   * stack entry was written (purged, or restored through another path).
+   */
+  listTrashedRecordIds?(
+    context: IExecutionContext,
+    table: Table,
+    recordIds: ReadonlyArray<string>,
+    reason: IRecordRemovalReason
+  ): Promise<Result<ReadonlySet<string>, DomainError>>;
+
+  /**
+   * Optional: of the given record ids, return those that already exist in the
+   * live table. Restore replay uses this so a retry does not insert the same
+   * ids twice.
+   */
+  listExistingRecordIds?(
+    context: IExecutionContext,
+    table: Table,
+    recordIds: ReadonlyArray<string>
+  ): Promise<Result<ReadonlySet<string>, DomainError>>;
 }
+
+export type ArchiveTrashRowInput = UndoRedoArchiveTrashRow;
+
+/**
+ * Stub snapshot written with the delete transaction so restorePurgeGuard can
+ * test existence without waiting for the full recycle-bin JSON payload.
+ */
+export const DELETED_RECORD_TRASH_MARKER_SNAPSHOT = '{}';
+
+export type DeletedTrashMarkerInput = {
+  readonly recordIds: ReadonlyArray<string>;
+  readonly createdBy: string;
+  readonly createdTime: string;
+  readonly operationId?: string;
+};

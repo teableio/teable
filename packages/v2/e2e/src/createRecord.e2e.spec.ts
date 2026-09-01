@@ -611,6 +611,320 @@ describe('v2 http createRecord (e2e)', () => {
     expect(hostRow.rows.length).toBe(1);
     expect(normalizeJsonArray(hostRow.rows[0].lookup_value)).toEqual([sourceStatusName]);
   });
+
+  /**
+   * v1 reference: record.e2e-spec.ts:529 — formula fields are calculated in
+   * the create response, both constant and field-dependent expressions.
+   */
+  it('creates a record and auto calculates computed formula fields', async () => {
+    const titleId = createFieldId();
+    const constFormulaId = createFieldId();
+    const dependentFormulaId = createFieldId();
+
+    const table = await createTable({
+      baseId: ctx.baseId,
+      name: 'Create Formula Compute',
+      fields: [
+        { type: 'singleLineText', id: titleId, name: 'Title', isPrimary: true },
+        { type: 'formula', id: constFormulaId, name: 'Const', options: { expression: '1 + 1' } },
+        {
+          type: 'formula',
+          id: dependentFormulaId,
+          name: 'Suffixed',
+          options: { expression: `{${titleId}} & "1"` },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+
+    const record = await createRecord(table.id, { [titleId]: 'text value' });
+
+    expect(record.fields[constFormulaId]).toBe(2);
+    expect(record.fields[dependentFormulaId]).toBe('text value1');
+  });
+
+  /**
+   * v1 reference: record.e2e-spec.ts:1689 — chained numeric formulas
+   * (f2 depends on f1) are computed in the create response.
+   */
+  it('creates with chained numeric formulas (f2 depends on f1)', async () => {
+    const baseNumId = createFieldId();
+    const f1Id = createFieldId();
+    const f2Id = createFieldId();
+
+    const table = await createTable({
+      baseId: ctx.baseId,
+      name: 'Create Numeric Formula Chain',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        { type: 'number', id: baseNumId, name: 'Base' },
+        { type: 'formula', id: f1Id, name: 'F1', options: { expression: `{${baseNumId}} + 1` } },
+        { type: 'formula', id: f2Id, name: 'F2', options: { expression: `{${f1Id}} + 2` } },
+      ],
+      views: [{ type: 'grid' }],
+    });
+
+    const record = await createRecord(table.id, { [baseNumId]: 10 });
+
+    expect(record.fields[f1Id]).toBe(11);
+    expect(record.fields[f2Id]).toBe(13);
+  });
+
+  /**
+   * v1 reference: record.e2e-spec.ts:1714 — chained string formulas are
+   * computed in the create response.
+   */
+  it('creates with chained string formulas', async () => {
+    const txtId = createFieldId();
+    const f1Id = createFieldId();
+    const f2Id = createFieldId();
+
+    const table = await createTable({
+      baseId: ctx.baseId,
+      name: 'Create String Formula Chain',
+      fields: [
+        { type: 'singleLineText', id: txtId, name: 'Title', isPrimary: true },
+        { type: 'formula', id: f1Id, name: 'F1', options: { expression: `{${txtId}} & '-x'` } },
+        { type: 'formula', id: f2Id, name: 'F2', options: { expression: `{${f1Id}} & '-y'` } },
+      ],
+      views: [{ type: 'grid' }],
+    });
+
+    const record = await createRecord(table.id, { [txtId]: 'abc' });
+
+    expect(record.fields[f1Id]).toBe('abc-x');
+    expect(record.fields[f2Id]).toBe('abc-x-y');
+  });
+
+  /**
+   * v1 reference: record.e2e-spec.ts:742 — a singleSelect default value is
+   * applied when the field is omitted on create.
+   */
+  it('creates a record with default single select', async () => {
+    const table = await createTable({
+      baseId: ctx.baseId,
+      name: 'Create Default Single Select',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        {
+          type: 'singleSelect',
+          name: 'Status',
+          options: {
+            choices: [{ name: 'default value' }],
+            defaultValue: 'default value',
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const statusFieldId = table.fields.find((f) => f.name === 'Status')?.id ?? '';
+
+    const record = await createRecord(table.id, {});
+
+    expect(record.fields[statusFieldId]).toBe('default value');
+  });
+
+  /**
+   * v1 reference: record.e2e-spec.ts:762 — a multipleSelect default value is
+   * applied when the field is omitted on create.
+   */
+  it('creates a record with default multiple select', async () => {
+    const table = await createTable({
+      baseId: ctx.baseId,
+      name: 'Create Default Multiple Select',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        {
+          type: 'multipleSelect',
+          name: 'Tags',
+          options: {
+            choices: [{ name: 'default value' }, { name: 'default value2' }],
+            defaultValue: ['default value', 'default value2'],
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const tagsFieldId = table.fields.find((f) => f.name === 'Tags')?.id ?? '';
+
+    const record = await createRecord(table.id, {});
+
+    expect(record.fields[tagsFieldId]).toEqual(['default value', 'default value2']);
+  });
+
+  /**
+   * v1 reference: record.e2e-spec.ts:782 — a number default value is applied
+   * when the field is omitted on create.
+   */
+  it('creates a record with default number', async () => {
+    const table = await createTable({
+      baseId: ctx.baseId,
+      name: 'Create Default Number',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        { type: 'number', name: 'Amount', options: { defaultValue: 1 } },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const amountFieldId = table.fields.find((f) => f.name === 'Amount')?.id ?? '';
+
+    const record = await createRecord(table.id, {});
+
+    expect(record.fields[amountFieldId]).toBe(1);
+  });
+
+  /**
+   * v1 reference: record.e2e-spec.ts:801 — user default values (explicit user
+   * id and the "me" alias) are resolved to full user cell values on create.
+   */
+  it('creates a record with default user', async () => {
+    const table = await createTable({
+      baseId: ctx.baseId,
+      name: 'Create Default User',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        { type: 'user', name: 'Single Owner', options: { defaultValue: ctx.testUser.id } },
+        {
+          type: 'user',
+          name: 'Me Team',
+          options: { isMultiple: true, defaultValue: ['me'] },
+        },
+        {
+          type: 'user',
+          name: 'Id Team',
+          options: { isMultiple: true, defaultValue: [ctx.testUser.id] },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const singleOwnerFieldId = table.fields.find((f) => f.name === 'Single Owner')?.id ?? '';
+    const meTeamFieldId = table.fields.find((f) => f.name === 'Me Team')?.id ?? '';
+    const idTeamFieldId = table.fields.find((f) => f.name === 'Id Team')?.id ?? '';
+
+    const record = await createRecord(table.id, {});
+
+    const expectedUser = {
+      id: ctx.testUser.id,
+      title: ctx.testUser.name,
+      email: ctx.testUser.email,
+    };
+    expect(record.fields[singleOwnerFieldId]).toMatchObject(expectedUser);
+    expect(record.fields[meTeamFieldId]).toMatchObject([expectedUser]);
+    expect(record.fields[idTeamFieldId]).toMatchObject([expectedUser]);
+  });
+
+  /**
+   * v1 reference: record.e2e-spec.ts:621 — creating a record still succeeds
+   * when a formula references a deleted field; the errored formula stays empty.
+   */
+  it('creates a record when a formula references a deleted field', async () => {
+    const table = await createTable({
+      baseId: ctx.baseId,
+      name: 'Create Errored Formula',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        { type: 'number', name: 'Doomed' },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const titleFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+    const doomedFieldId = table.fields.find((f) => f.name === 'Doomed')?.id ?? '';
+
+    const withFormula = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: table.id,
+      field: { type: 'formula', name: 'Errored', options: { expression: `{${doomedFieldId}}` } },
+    });
+    const formulaFieldId = withFormula.fields.find((f) => f.name === 'Errored')?.id ?? '';
+
+    await ctx.deleteField({ tableId: table.id, fieldId: doomedFieldId });
+
+    const record = await createRecord(table.id, { [titleFieldId]: 'after delete' });
+
+    expect(record.fields[titleFieldId]).toBe('after delete');
+    expect(record.fields[formulaFieldId] == null).toBe(true);
+  });
+
+  /**
+   * v1 reference: record.e2e-spec.ts:646 — creating a record with a link value
+   * still succeeds when the lookup/rollup source field was deleted; the
+   * errored computed fields stay empty.
+   */
+  it('creates a record when lookup and rollup reference a deleted field', async () => {
+    const foreignTable = await createTable({
+      baseId: ctx.baseId,
+      name: 'Errored Lookup Foreign',
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        { type: 'number', name: 'Value' },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const foreignNameFieldId = foreignTable.fields.find((f) => f.isPrimary)?.id ?? '';
+    const foreignValueFieldId = foreignTable.fields.find((f) => f.name === 'Value')?.id ?? '';
+    const foreignRecord = await createRecord(foreignTable.id, {
+      [foreignNameFieldId]: 'Target',
+      [foreignValueFieldId]: 42,
+    });
+
+    const linkId = createFieldId();
+    const table = await createTable({
+      baseId: ctx.baseId,
+      name: 'Errored Lookup Host',
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        {
+          type: 'link',
+          id: linkId,
+          name: 'Link',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignNameFieldId,
+            isOneWay: true,
+          },
+        },
+        {
+          type: 'lookup',
+          name: 'Value Lookup',
+          options: {
+            linkFieldId: linkId,
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignValueFieldId,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const titleFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+    const lookupFieldId = table.fields.find((f) => f.name === 'Value Lookup')?.id ?? '';
+
+    const withRollup = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: table.id,
+      field: {
+        type: 'rollup',
+        name: 'Value Sum',
+        options: { expression: 'sum({values})' },
+        config: {
+          linkFieldId: linkId,
+          foreignTableId: foreignTable.id,
+          lookupFieldId: foreignValueFieldId,
+        },
+      },
+    });
+    const rollupFieldId = withRollup.fields.find((f) => f.name === 'Value Sum')?.id ?? '';
+
+    await ctx.deleteField({ tableId: foreignTable.id, fieldId: foreignValueFieldId });
+
+    const record = await createRecord(table.id, {
+      [titleFieldId]: 'after source delete',
+      [linkId]: { id: foreignRecord.id },
+    });
+
+    expect(record.fields[lookupFieldId] == null).toBe(true);
+    expect(record.fields[rollupFieldId] == null).toBe(true);
+  });
 });
 
 describe('v2 http createRecord with link fields (e2e)', () => {
@@ -873,13 +1187,97 @@ describe('v2 http createRecord with link fields (e2e)', () => {
       }),
     });
 
-    // FK constraint on junction table prevents inserting non-existent record IDs
-    // The database returns a foreign key violation error
-    expect(response.status).toBe(500);
+    // FK constraint on junction table prevents inserting non-existent record IDs;
+    // the foreign key violation surfaces as a validation error
+    expect(response.status).toBe(400);
 
-    const body = (await response.json()) as { ok?: boolean; error?: { message?: string } };
+    const body = (await response.json()) as {
+      ok?: boolean;
+      error?: { code?: string; message?: string };
+    };
     expect(body.ok).toBe(false);
-    // The error message should indicate a foreign key constraint violation
-    expect(body.error?.message ?? '').toContain('Failed to insert record');
+    expect(body.error?.code).toBe('validation.link.invalid_reference');
+  });
+
+  /**
+   * v1 reference: record.e2e-spec.ts:905 — a record can be created when a
+   * notNull-constrained link field is provided, even with an empty title and a
+   * dependent lookup field present.
+   */
+  it('creates a record with a required (notNull) link field', async () => {
+    const foreignTable = await createTable({
+      baseId: ctx.baseId,
+      name: 'Required Link Foreign',
+      fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      views: [{ type: 'grid' }],
+    });
+    const requiredForeignNameFieldId = foreignTable.fields.find((f) => f.isPrimary)?.id ?? '';
+    const foreignRecord = await createRecord(foreignTable.id, {
+      [requiredForeignNameFieldId]: 'Constraint Target',
+    });
+
+    const table = await createTable({
+      baseId: ctx.baseId,
+      name: 'Required Link Main',
+      fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+      views: [{ type: 'grid' }],
+    });
+    const titleFieldId = table.fields.find((f) => f.isPrimary)?.id ?? '';
+
+    const withLink = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: table.id,
+      field: {
+        type: 'link',
+        name: 'Required Link',
+        options: {
+          relationship: 'manyMany',
+          foreignTableId: foreignTable.id,
+          lookupFieldId: requiredForeignNameFieldId,
+          isOneWay: true,
+        },
+      },
+    });
+    const requiredLinkFieldId = withLink.fields.find((f) => f.name === 'Required Link')?.id ?? '';
+
+    await ctx.updateField({
+      tableId: table.id,
+      fieldId: requiredLinkFieldId,
+      field: { notNull: true },
+    });
+
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: table.id,
+      field: {
+        type: 'lookup',
+        name: 'Name Lookup',
+        options: {
+          linkFieldId: requiredLinkFieldId,
+          foreignTableId: foreignTable.id,
+          lookupFieldId: requiredForeignNameFieldId,
+        },
+      },
+    });
+
+    const response = await fetch(`${ctx.baseUrl}/tables/createRecord`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tableId: table.id,
+        fields: {
+          [titleFieldId]: 'Satisfies Constraint',
+          [requiredLinkFieldId]: [{ id: foreignRecord.id, title: '' }],
+        },
+      }),
+    });
+
+    expect(response.status).toBe(201);
+
+    const rawBody = await response.json();
+    const parsed = createRecordOkResponseSchema.safeParse(rawBody);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.ok).toBe(true);
   });
 });

@@ -1,3 +1,4 @@
+import { sdkErrorI18nKeys } from '@teable/i18n-keys';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -10,9 +11,9 @@ import {
   type FieldCellValueSchema,
 } from '../../../fields/visitors/FieldCellValueSchemaVisitor';
 import { SetFieldValueSpecFactoryVisitor } from '../../../fields/visitors/SetFieldValueSpecFactoryVisitor';
+import { ClearFieldValueSpec } from './ClearFieldValueSpec';
 import type { ICellValueSpec } from './ICellValueSpecVisitor';
 import { NoopCellValueSpec } from './NoopCellValueSpec';
-import { ClearFieldValueSpec } from './ClearFieldValueSpec';
 
 /**
  * Factory for creating SetValueSpec instances.
@@ -54,6 +55,10 @@ export class SetFieldValueSpecFactory {
               fieldId: field.id().toString(),
               fieldName: field.name().toString(),
               fieldType: field.type().toString(),
+            },
+            localization: {
+              i18nKey: sdkErrorI18nKeys.custom.recordFieldValueNotNull,
+              context: { fieldName: field.name().toString() },
             },
           })
         );

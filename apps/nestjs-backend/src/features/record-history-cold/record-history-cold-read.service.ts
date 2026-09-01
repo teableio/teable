@@ -1,11 +1,11 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
+import { isColdReadInterrupted, isMissingPartError } from '../cold-archive/cold-errors';
+import type { IServingOrder } from '../cold-archive/part-order';
+import { orderPartsByServingBound, pageOutranksRest } from '../cold-archive/part-order';
 import type { IColdHistoryRow, IParsedPartKey, ITableColdStats } from './part-codec';
 import { bloomMightContain, compareRowByTimeDesc } from './part-codec';
-import {
-  ColdReadDeadlineError,
-  RecordHistoryColdStorageService,
-} from './record-history-cold-storage.service';
+import { RecordHistoryColdStorageService } from './record-history-cold-storage.service';
 import { recordHistoryColdConfig } from './record-history-cold.config';
 
 /** row shape consumed by the existing getRecordHistory post-processing */
@@ -366,7 +366,7 @@ class ColdSegmentIterator {
     }
     if (!this.statsLoaded) {
       this.statsLoaded = true;
-      this.stats = await this.coldStorage.readStats(this.input.tableId);
+      this.stats = await this.coldStorage.readStatsCached(this.input.tableId);
       if (this.budgetSpent()) return false;
     }
     return true;
@@ -408,28 +408,42 @@ class ColdSegmentIterator {
     try {
       return await this.collectMonthOnce(yyyymm);
     } catch (error) {
-      if (!ColdSegmentIterator.isMissingPartError(error)) throw error;
+      if (this.degradeInterrupted(error, yyyymm)) return [];
+      if (!isMissingPartError(error)) throw error;
       this.logger.warn(
         `cold part vanished under a concurrent rewrite in ${this.input.tableId}/${yyyymm}; re-listing`
       );
-      return await this.collectMonthOnce(yyyymm);
+      try {
+        return await this.collectMonthOnce(yyyymm);
+      } catch (retryError) {
+        if (this.degradeInterrupted(retryError, yyyymm)) return [];
+        throw retryError;
+      }
     }
   }
 
-  private static isMissingPartError(error: unknown): boolean {
-    const candidate = error as { name?: string; code?: string; message?: string } | undefined;
-    const signature = `${candidate?.name ?? ''} ${candidate?.code ?? ''} ${candidate?.message ?? ''}`;
-    return /NoSuchKey|NotFound|ENOENT|does not exist|404/i.test(signature);
+  // a transient store failure (throttled/5xx LIST) is the deadline's twin: months
+  // already collected stand, the incomplete one drops, zero progress still raises 503
+  private degradeInterrupted(error: unknown, yyyymm: string): boolean {
+    if (!isColdReadInterrupted(error)) return false;
+    this.timedOut = true;
+    this.logger.warn(
+      `record-history cold read interrupted at ${this.input.tableId}/${yyyymm}: ${
+        error instanceof Error ? error.message : error
+      }; returning a partial page`
+    );
+    return true;
   }
 
   private async collectMonthOnce(yyyymm: string): Promise<IColdHistoryRow[]> {
     const { input } = this;
     const parts = await this.coldStorage.listMonthParts(input.tableId, yyyymm);
     if (this.budgetSpent()) return [];
-    const candidates = this.pruneParts(parts);
+    const order = this.servingOrder();
+    const candidates = orderPartsByServingBound(this.pruneParts(parts), order);
     const k = input.limit + 1;
     let collected: IColdHistoryRow[] = [];
-    for (const candidate of candidates) {
+    for (let index = 0; index < candidates.length; index++) {
       if (Date.now() > this.deadline) {
         this.timedOut = true;
       }
@@ -441,13 +455,14 @@ class ColdSegmentIterator {
         );
         return [];
       }
-      collected.push(...(await this.scanPartTopK(candidate, k)));
-      // one request consumes at most k rows, so anything beyond the k
-      // newest can never be read — compact periodically to keep a month
-      // with hundreds of parts from allocating parts × k rows at once
-      if (collected.length > k * 8) {
-        collected = ColdSegmentIterator.topKDeduped(collected, k);
-      }
+      collected.push(...(await this.scanPartTopK(candidates[index], k)));
+      // one request consumes at most k rows, so anything beyond the k newest
+      // can never be read: folding them away every time the page fills keeps
+      // a month with hundreds of parts from holding parts × k rows at once
+      if (collected.length < k) continue;
+      collected = ColdSegmentIterator.topKDeduped(collected, k);
+      const weakest = collected.length === k ? collected[k - 1].createdTime : undefined;
+      if (pageOutranksRest(weakest, candidates[index + 1], order)) break;
     }
     if (this.timedOut) return [];
     return ColdSegmentIterator.topKDeduped(collected, k);
@@ -518,6 +533,15 @@ class ColdSegmentIterator {
     return candidates.filter((part) => this.statsAllowPart(part));
   }
 
+  // history is always newest-first, and parts are record-major, so a part's
+  // newest row is the only bound the listing cannot supply
+  private servingOrder(): IServingOrder<IPartCandidate> {
+    return {
+      boundOf: (part) => this.stats?.parts[part.key]?.maxCreatedTime,
+      descending: true,
+    };
+  }
+
   private withinBoundary(row: IColdHistoryRow): boolean {
     const { boundary } = this;
     if (!boundary) return true;
@@ -562,7 +586,7 @@ class ColdSegmentIterator {
       }
     } catch (error) {
       // a download that outlived the budget is a timeout, not a failure
-      if (!(error instanceof ColdReadDeadlineError)) throw error;
+      if (!isColdReadInterrupted(error)) throw error;
       this.timedOut = true;
     }
     return top.sort((a, b) => compareRowByTimeDesc(a, b));

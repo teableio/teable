@@ -5,6 +5,7 @@ import {
   mergeSearchVectorCoverage,
   PostgresTableSearchVectorAdvisor,
   registerV2TableOpsPostgresAdapter,
+  renderSearchTextProjectionSql,
   type AnalyzeTableSearchVectorResult,
   type UnknownPostgresDatabase,
 } from '@teable/v2-adapter-table-query-ops-postgres';
@@ -34,6 +35,7 @@ import {
   type ITableRecordQueryRepository,
   type ITableRepository,
   type ITracer,
+  type SearchFieldTextProjection,
   type Table,
 } from '@teable/v2-core';
 import {
@@ -466,6 +468,27 @@ type SearchAccessPathTempQueryPathResult = {
   readonly returnedCount: number;
   readonly recordIds: readonly string[];
 };
+
+// Durable output must not carry raw record ids (customer data); a
+// deterministic set hash still lets two runs be compared for equality.
+const stableRecordIdSetHash = (recordIds: readonly string[]): string => {
+  const joined = [...recordIds].sort().join('\n');
+  let hash = 0;
+  for (let index = 0; index < joined.length; index += 1) {
+    hash = (hash * 31 + joined.charCodeAt(index)) >>> 0;
+  }
+  return `${recordIds.length}:${hash.toString(16).padStart(8, '0')}`;
+};
+
+const redactTempQueryPathResult = ({
+  recordIds,
+  ...rest
+}: SearchAccessPathTempQueryPathResult): Omit<SearchAccessPathTempQueryPathResult, 'recordIds'> & {
+  readonly recordIdSetHash: string;
+} => ({
+  ...rest,
+  recordIdSetHash: stableRecordIdSetHash(recordIds),
+});
 
 type SearchAccessPathTempPlanEvidence = {
   readonly explainStatus: 'validated' | 'failed';
@@ -1549,12 +1572,19 @@ const createContext = (container: {
 };
 
 const buildSearchDocumentGeneratedExpression = (
-  fields: ReadonlyArray<{ readonly fieldDbName?: string }>
+  fields: ReadonlyArray<{
+    readonly fieldDbName?: string;
+    readonly textProjection?: SearchFieldTextProjection;
+  }>
 ): string => {
   const document = fields
-    .map((field) => field.fieldDbName)
-    .filter((fieldDbName): fieldDbName is string => Boolean(fieldDbName))
-    .map((fieldDbName) => `coalesce(${quoteIdentifier(fieldDbName)}::text, '')`)
+    .filter((field): field is { fieldDbName: string; textProjection?: SearchFieldTextProjection } =>
+      Boolean(field.fieldDbName)
+    )
+    .map(
+      (field) =>
+        `coalesce(${renderSearchTextProjectionSql(quoteIdentifier(field.fieldDbName), field.textProjection)}, '')`
+    )
     .join(` || E'\\n' || `);
   return `lower(${document || "''"})`;
 };
@@ -1826,7 +1856,7 @@ export const TableQueryOpsLive = Layer.effect(
     const hasOpsTables = async () => {
       const result = await sql<{ enabled: boolean }>`
         SELECT (
-          to_regclass('table_query_observation_window') IS NOT NULL
+          to_regclass('table_query_observation_shard') IS NOT NULL
           AND to_regclass('table_query_recommendation') IS NOT NULL
           AND to_regclass('table_query_remediation_task') IS NOT NULL
         ) AS enabled
@@ -2354,9 +2384,11 @@ export const TableQueryOpsLive = Layer.effect(
           samples.push({
             searchProbeLengthBucket: searchProbeLengthBucket(search),
             probeSource: input.probeSource ?? 'manual',
-            legacyIlikePath,
-            optimizedGeneratedTextPath,
-            ...exactComparison,
+            legacyIlikePath: redactTempQueryPathResult(legacyIlikePath),
+            optimizedGeneratedTextPath: redactTempQueryPathResult(optimizedGeneratedTextPath),
+            exactResultMatch: exactComparison.exactResultMatch,
+            missingFromOptimizedCount: exactComparison.missingFromOptimized.length,
+            unexpectedFromOptimizedCount: exactComparison.unexpectedFromOptimized.length,
             totalDeltaFromLegacy: optimizedGeneratedTextPath.total - legacyIlikePath.total,
             durationDeltaPctFromLegacy: durationDeltaPct(
               legacyIlikePath.durationMs,
@@ -2442,6 +2474,37 @@ export const TableQueryOpsLive = Layer.effect(
         throw new Error('table-query-ops execute-search-access-path requires --table-id');
       }
       const dryRun = !(input.execute ?? false);
+      if (input.mode === 'drop') {
+        if (dryRun) {
+          return {
+            scope: input,
+            dryRun,
+            action: 'dry_run',
+            result: {
+              note: 'Would drop the managed search document column + GIN index and disable the table config; rerun with --execute.',
+            },
+          };
+        }
+        await ensureRegistered(input.ensureSchema ?? true);
+        const context = createContext(container);
+        const tableRepository = container.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+        const tableId = TableId.create(input.tableId);
+        if (tableId.isErr()) throw tableId.error;
+        const tableResult = await tableRepository.findOne(
+          context,
+          TableByIdSpec.create(tableId.value)
+        );
+        if (tableResult.isErr()) throw tableResult.error;
+        const reconciler = container.resolve<TableSearchVectorReconciler>(
+          v2TableOpsTokens.searchVectorReconciler
+        );
+        const dropResult = await reconciler.reconcile(context, {
+          table: tableResult.value,
+          mode: 'drop',
+        });
+        if (dropResult.isErr()) throw dropResult.error;
+        return { scope: input, dryRun, action: 'dropped', result: dropResult.value };
+      }
       const analysis = await analyzeSearchAccessPathsUnsafe({
         tableId: input.tableId,
         fieldIds: input.fieldIds,
@@ -2790,23 +2853,23 @@ export const TableQueryOpsLive = Layer.effect(
             const [summaryRows, hotTableRows, recommendationRows, taskRows] = await Promise.all([
               sql<CountRow>`
                 SELECT
-                  (SELECT count(*) FROM table_query_observation_window ow
+                  (SELECT count(DISTINCT (ow.table_id, ow.query_kind, ow.shape_hash, ow.window_start)) FROM table_query_observation_shard ow
                     LEFT JOIN base scope_b ON scope_b.id = ow.base_id
                     WHERE true ${scopeSql(input, 'ow')} ${spaceScopeSql(input, 'ow')}
                   ) AS observation_window_count,
-                  (SELECT coalesce(sum(ow.request_count), 0) FROM table_query_observation_window ow
+                  (SELECT coalesce(sum(ow.request_count), 0) FROM table_query_observation_shard ow
                     LEFT JOIN base scope_b ON scope_b.id = ow.base_id
                     WHERE true ${scopeSql(input, 'ow')} ${spaceScopeSql(input, 'ow')}
                   ) AS request_count,
-                  (SELECT coalesce(sum(ow.slow_count), 0) FROM table_query_observation_window ow
+                  (SELECT coalesce(sum(ow.slow_count), 0) FROM table_query_observation_shard ow
                     LEFT JOIN base scope_b ON scope_b.id = ow.base_id
                     WHERE true ${scopeSql(input, 'ow')} ${spaceScopeSql(input, 'ow')}
                   ) AS slow_count,
-                  (SELECT coalesce(sum(ow.timeout_count), 0) FROM table_query_observation_window ow
+                  (SELECT coalesce(sum(ow.timeout_count), 0) FROM table_query_observation_shard ow
                     LEFT JOIN base scope_b ON scope_b.id = ow.base_id
                     WHERE true ${scopeSql(input, 'ow')} ${spaceScopeSql(input, 'ow')}
                   ) AS timeout_count,
-                  (SELECT coalesce(sum(ow.db_error_count), 0) FROM table_query_observation_window ow
+                  (SELECT coalesce(sum(ow.db_error_count), 0) FROM table_query_observation_shard ow
                     LEFT JOIN base scope_b ON scope_b.id = ow.base_id
                     WHERE true ${scopeSql(input, 'ow')} ${spaceScopeSql(input, 'ow')}
                   ) AS db_error_count,
@@ -2850,7 +2913,7 @@ export const TableQueryOpsLive = Layer.effect(
                   sum(ow.db_error_count) AS db_error_count,
                   max(ow.max_duration_ms) AS max_duration_ms,
                   max(ow.window_start) AS latest_window_start
-                FROM table_query_observation_window ow
+                FROM table_query_observation_shard ow
                 LEFT JOIN base b ON b.id = ow.base_id
                 LEFT JOIN base scope_b ON scope_b.id = ow.base_id
                 WHERE true ${scopeSql(input, 'ow')} ${spaceScopeSql(input, 'ow')}

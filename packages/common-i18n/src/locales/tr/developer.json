@@ -16,5 +16,19 @@
   "replaceToken": "Token değiştir",
   "createNewToken": "Yeni token oluştur",
   "showPagination": "Sayfalandırma parametreleri JSON modunda görüntülenir",
-  "addSort": "Sıralama ekle"
+  "addSort": "Sıralama ekle",
+  "tabs": {
+    "apiBuilder": "API Oluşturucu",
+    "aiContext": "Yapay Zekâ Bağlamı"
+  },
+  "aiContext": {
+    "title": "Yapay zekâ dostu tablo bağlamı",
+    "description": "Bu bağlamı yapay zekâ asistanınıza (ChatGPT, Claude vb.) kopyalayarak tablo verilerinizle nasıl etkileşim kuracağını anlamasını sağlayın.",
+    "selectTableFirst": "Yapay zekâ bağlamı oluşturmak için bir tablo seçin",
+    "fullContext": "Tam bağlam",
+    "compactContext": "Kompakt",
+    "copyToClipboard": "Panoya kopyala",
+    "copied": "Kopyalandı!",
+    "compactDescription": "Token sınırlarını göz önünde bulundurarak bağlamı hızlıca paylaşmaya uygun daha kısa bir sürüm."
+  }
 }

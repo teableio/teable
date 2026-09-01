@@ -173,7 +173,7 @@ function TreeDragLine({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
     <div
       style={dragLine}
       className={cn(
-        'absolute z-30 -mt-px h-px w-[unset] bg-foreground before:absolute before:-left-[3px] before:-top-[2.5px] before:border-y-[3px] before:border-l-[3px] before:border-y-transparent before:border-l-foreground',
+        'absolute z-30 -mt-px h-px w-[unset] bg-foreground before:absolute before:-left-[3px] before:-top-[2.5px] before:border-y-[3px] before:border-s-[3px] before:border-y-transparent before:border-s-foreground',
         className
       )}
       {...props}

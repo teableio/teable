@@ -320,7 +320,7 @@ export const findAdjacentNonFolderNode = (
   return null;
 };
 
-export const hasChildrenNode = (parentId: string, nodes: IBaseNodeVo[]): boolean => {
+const hasChildrenNode = (parentId: string, nodes: IBaseNodeVo[]): boolean => {
   const parentNode = nodes.find((node) => node.id === parentId);
   if (!parentNode) return false;
 
@@ -346,6 +346,16 @@ export const hasChildrenNode = (parentId: string, nodes: IBaseNodeVo[]): boolean
   }
 
   return false;
+};
+
+/** A folder carries no permission of its own: it is visible only while something readable is left inside. */
+export const filterAutoHiddenFolders = (nodes: IBaseNodeVo[]): IBaseNodeVo[] => {
+  return nodes.filter((node) => {
+    if (node.resourceType === BaseNodeResourceType.Folder) {
+      return hasChildrenNode(node.id, nodes);
+    }
+    return true;
+  });
 };
 
 export const getChildrenNodes = (parentId: string, nodes: IBaseNodeVo[]): IBaseNodeVo[] => {

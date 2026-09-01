@@ -184,6 +184,7 @@ describe('V2RecordsBatchCreatedHistoryProjection', () => {
       context as never,
       {
         tableId: { toString: () => 'tblHistTable0000001' },
+        source: { type: 'user' },
         records: [
           {
             recordId: 'recHistRecord000001',
@@ -234,6 +235,51 @@ describe('V2RecordsBatchCreatedHistoryProjection', () => {
       recordIds: ['recHistRecord000001', 'recHistRecord000002'],
     });
   });
+
+  it.each([{ type: 'import' }, { type: 'tableDuplicate' }])(
+    'skips record history for $type-sourced batch creation',
+    async (source) => {
+      const { db, service: v2ContainerService } = createV2ContainerService();
+      const tableQueryService = {
+        getById: vi
+          .fn()
+          .mockResolvedValue(
+            okResult(createTable([createTextField('fldHistField0000001', 'Name')]))
+          ),
+      };
+      const eventEmitterService = {
+        emit: vi.fn(),
+      };
+      const projection = new V2RecordsBatchCreatedHistoryProjection(
+        v2ContainerService as never,
+        { recordHistoryDisabled: false } as never,
+        tableQueryService as never,
+        eventEmitterService as never
+      );
+      const { context, scheduled } = createScheduledContext('usrBatchCreator00001');
+
+      const result = await projection.handle(
+        context as never,
+        {
+          tableId: { toString: () => 'tblHistTable0000001' },
+          source,
+          records: [
+            {
+              recordId: 'recHistRecord000001',
+              fields: [{ fieldId: 'fldHistField0000001', value: 'created-1' }],
+            },
+          ],
+        } as never
+      );
+
+      expect(result._unsafeUnwrap()).toBeUndefined();
+
+      await flushScheduled(scheduled);
+
+      expect(db.insertInto).not.toHaveBeenCalled();
+      expect(eventEmitterService.emit).not.toHaveBeenCalled();
+    }
+  );
 });
 
 describe('V2RecordsBatchUpdatedHistoryProjection', () => {

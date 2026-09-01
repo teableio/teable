@@ -40,6 +40,8 @@ export type ISharedTablePsqlCopyPlan = ISpaceDataDbProcessPipelinePlan & {
   table: string;
   sourceSql: string;
   targetSql: string;
+  /** Idempotent scoped delete before COPY so per-table retries restart cleanly. */
+  targetReset?: ISpaceDataDbProcessPlan;
 };
 
 export type ISharedTablePostgresFdwCopyPlan = {
@@ -134,6 +136,47 @@ export const postgresToolUrl = (url: string) => {
     parsed.search
   }${parsed.hash}`;
 };
+
+const postgresMajorVersionPattern = /\b([1-9]\d?)\.\d+\b/;
+
+export const parsePostgresMajorVersion = (text: string): number | null => {
+  const match = text.match(postgresMajorVersionPattern);
+  return match ? Number(match[1]) : null;
+};
+
+export const assertPgDumpSupportsServer = (input: {
+  dumpVersionText: string;
+  serverVersionText: string;
+}): { dumpMajor: number; serverMajor: number } => {
+  const dumpMajor = parsePostgresMajorVersion(input.dumpVersionText);
+  const serverMajor = parsePostgresMajorVersion(input.serverVersionText);
+  if (dumpMajor == null || serverMajor == null) {
+    throw new Error(
+      `Unable to parse PostgreSQL versions for dump compatibility: pg_dump=${
+        input.dumpVersionText.trim() || '<empty>'
+      }; server=${input.serverVersionText.trim() || '<empty>'}`
+    );
+  }
+  if (dumpMajor < serverMajor) {
+    throw new Error(
+      `pg_dump version ${dumpMajor} cannot dump PostgreSQL ${serverMajor}. Install postgresql-client-${serverMajor} or newer; newer pg_dump can dump older servers.`
+    );
+  }
+  return { dumpMajor, serverMajor };
+};
+
+export const buildServerVersionProbePlan = (url: string): ISpaceDataDbProcessPlan => ({
+  command: 'psql',
+  args: [
+    '--no-psqlrc',
+    '--quiet',
+    '--tuples-only',
+    '--no-align',
+    '--command',
+    'SHOW server_version',
+    postgresToolUrl(url),
+  ],
+});
 
 export const buildBaseSchemaRestoreListPlan = (dumpFile: string): ISpaceDataDbProcessPlan => ({
   command: 'pg_restore',
@@ -360,10 +403,14 @@ export const buildSharedTablePsqlCopyPlan = (input: {
   table: string;
   columns: string[];
   whereSql: string;
+  targetWhereSql?: string;
   snapshotId?: string;
 }): ISharedTablePsqlCopyPlan => {
   const plan = buildSharedTableCopyPlan(input);
   const sourceSql = withExportedSnapshot(plan.sourceSql, input.snapshotId);
+  const targetResetSql = `DELETE FROM ${qualify(input.targetSchema, input.table)} WHERE ${
+    input.targetWhereSql ?? input.whereSql
+  }`;
   return {
     table: input.table,
     label: `shared-table:${input.table}`,
@@ -377,6 +424,10 @@ export const buildSharedTablePsqlCopyPlan = (input: {
       command: 'psql',
       args: psqlArgs(input.targetUrl, plan.targetSql),
     },
+    targetReset: {
+      command: 'psql',
+      args: psqlArgs(input.targetUrl, targetResetSql),
+    },
   };
 };
 
@@ -388,6 +439,7 @@ export const buildSharedTablePostgresFdwCopyPlan = (input: {
   table: string;
   columns: string[];
   whereSql: string;
+  targetWhereSql?: string;
   fdwSchema: string;
   serverName: string;
 }): ISharedTablePostgresFdwCopyPlan => {
@@ -429,6 +481,8 @@ export const buildSharedTablePostgresFdwCopyPlan = (input: {
     `IMPORT FOREIGN SCHEMA ${quoteIdent(input.sourceSchema)} LIMIT TO (${importLimit}) FROM SERVER ${quoteIdent(
       input.serverName
     )} INTO ${quoteIdent(input.fdwSchema)}`,
+    // Scoped delete keeps FDW inserts restart-safe across per-table retries.
+    `DELETE FROM ${targetTable} WHERE ${input.targetWhereSql ?? input.whereSql}`,
     `INSERT INTO ${targetTable} (${columns}) SELECT ${columns} FROM ${foreignTable} WHERE ${input.whereSql}`,
     `DROP SERVER ${quoteIdent(input.serverName)} CASCADE`,
     `DROP SCHEMA ${quoteIdent(input.fdwSchema)} CASCADE`,
@@ -473,8 +527,39 @@ const computedOutboxColumns = [
   'affected_table_ids',
   'affected_field_ids',
   'sync_max_level',
+  'source_changed_at',
+  'stage_depth',
+  'predecessor_task_id',
   'created_at',
   'updated_at',
+];
+
+const computedRunHistoryColumns = [
+  'task_id',
+  'base_id',
+  'seed_table_id',
+  'change_type',
+  'run_id',
+  'origin_run_ids',
+  'steps',
+  'edges',
+  'affected_table_ids',
+  'affected_field_ids',
+  'source_field_ids',
+  'seed_record_count',
+  'stage_depth',
+  'predecessor_task_id',
+  'run_total_steps',
+  'run_completed_steps_before',
+  'sync_max_level',
+  'estimated_complexity',
+  'attempts',
+  'outcome',
+  'source_changed_at',
+  'enqueued_at',
+  'started_at',
+  'completed_at',
+  'duration_ms',
 ];
 
 const recordHistoryColumns = [
@@ -490,11 +575,18 @@ const recordHistoryColumns = [
 
 const buildMigrationSharedTableDefinitions = (input: {
   sourceSchema: string;
+  targetSchema: string;
   spaceId: string;
   spaceIds?: string[];
   baseIds: string[];
   tableIds: string[];
   sharedTableIds?: string[];
+  /**
+   * When true, include computed_update_pause_scope.
+   * Defaults to false: space migration must not copy source pause scopes or
+   * they freeze computed updates on the target after switch. Base moves opt in.
+   */
+  includePauseScopes?: boolean;
   /** When false, only base/table pause scopes are copied (base move). Default true. */
   includeSpacePauseScopes?: boolean;
 }) => {
@@ -509,19 +601,21 @@ const buildMigrationSharedTableDefinitions = (input: {
       'computed_update_outbox'
     )} WHERE ${basePredicate})`,
   ].join(' AND ');
-  const pauseScopeParts = [
-    `("scope_type" = 'base' AND "scope_id" = ANY(${textArray(input.baseIds)}))`,
-    `("scope_type" = 'table' AND "scope_id" = ANY(${textArray(sharedTableIds)}))`,
-  ];
-  if (input.includeSpacePauseScopes !== false) {
-    pauseScopeParts.unshift(
-      `("scope_type" = 'space' AND "scope_id" = ANY(${textArray(spaceIds)}))`
-    );
-  }
-  const pauseScopePredicate = pauseScopeParts.join(' OR ');
+  const targetOutboxSeedPredicate = [
+    textArrayPredicate('table_id', input.tableIds),
+    `"task_id" IN (SELECT "id" FROM ${qualify(
+      input.targetSchema,
+      'computed_update_outbox'
+    )} WHERE ${basePredicate})`,
+  ].join(' AND ');
   const undoPredicate = `split_part("table_name", '.', 1) = ANY(${textArray(input.baseIds)})`;
 
-  return [
+  const definitions: Array<{
+    table: string;
+    columns: string[];
+    whereSql: string;
+    targetWhereSql?: string;
+  }> = [
     {
       table: 'record_history',
       columns: recordHistoryColumns,
@@ -534,10 +628,35 @@ const buildMigrationSharedTableDefinitions = (input: {
     },
     {
       table: 'record_trash',
-      columns: ['id', 'table_id', 'record_id', 'snapshot', 'created_time', 'created_by'],
+      columns: [
+        'id',
+        'table_id',
+        'record_id',
+        'snapshot',
+        'created_time',
+        'created_by',
+        'reason',
+        'record_created_time',
+        'record_created_by',
+        'record_last_modified_time',
+        'record_last_modified_by',
+        'operation_id',
+      ],
       whereSql: tablePredicate,
     },
-    {
+  ];
+
+  if (input.includePauseScopes === true) {
+    const pauseScopeParts = [
+      `("scope_type" = 'base' AND "scope_id" = ANY(${textArray(input.baseIds)}))`,
+      `("scope_type" = 'table' AND "scope_id" = ANY(${textArray(sharedTableIds)}))`,
+    ];
+    if (input.includeSpacePauseScopes !== false) {
+      pauseScopeParts.unshift(
+        `("scope_type" = 'space' AND "scope_id" = ANY(${textArray(spaceIds)}))`
+      );
+    }
+    definitions.push({
       table: 'computed_update_pause_scope',
       columns: [
         'id',
@@ -550,8 +669,11 @@ const buildMigrationSharedTableDefinitions = (input: {
         'updated_at',
         'updated_by',
       ],
-      whereSql: pauseScopePredicate,
-    },
+      whereSql: pauseScopeParts.join(' OR '),
+    });
+  }
+
+  definitions.push(
     {
       table: 'computed_update_outbox',
       columns: computedOutboxColumns,
@@ -563,9 +685,15 @@ const buildMigrationSharedTableDefinitions = (input: {
       whereSql: basePredicate,
     },
     {
+      table: 'computed_update_run_history',
+      columns: computedRunHistoryColumns,
+      whereSql: basePredicate,
+    },
+    {
       table: 'computed_update_outbox_seed',
       columns: ['id', 'task_id', 'table_id', 'record_id'],
       whereSql: outboxSeedPredicate,
+      targetWhereSql: targetOutboxSeedPredicate,
     },
     {
       table: '__undo_log',
@@ -581,7 +709,14 @@ const buildMigrationSharedTableDefinitions = (input: {
       ],
       whereSql: undoPredicate,
     },
-  ];
+    {
+      table: 'record_removal_tombstone',
+      columns: ['id', 'table_id', 'record_id', 'type', 'created_time'],
+      whereSql: tablePredicate,
+    }
+  );
+
+  return definitions;
 };
 
 export const buildMigrationSharedTablePsqlCopyPlans = (input: {
@@ -595,6 +730,7 @@ export const buildMigrationSharedTablePsqlCopyPlans = (input: {
   tableIds: string[];
   sharedTableIds?: string[];
   snapshotId?: string;
+  includePauseScopes?: boolean;
   includeSpacePauseScopes?: boolean;
 }): ISharedTablePsqlCopyPlan[] => {
   const shared = buildMigrationSharedTableDefinitions(input);
@@ -608,6 +744,7 @@ export const buildMigrationSharedTablePsqlCopyPlans = (input: {
       table: item.table,
       columns: item.columns,
       whereSql: item.whereSql,
+      targetWhereSql: item.targetWhereSql,
       snapshotId: input.snapshotId,
     })
   );
@@ -625,6 +762,7 @@ export const buildMigrationSharedTablePostgresFdwCopyPlans = (input: {
   sharedTableIds?: string[];
   fdwSchemaPrefix: string;
   serverNamePrefix: string;
+  includePauseScopes?: boolean;
   includeSpacePauseScopes?: boolean;
 }): ISharedTablePostgresFdwCopyPlan[] => {
   const shared = buildMigrationSharedTableDefinitions(input);
@@ -640,6 +778,7 @@ export const buildMigrationSharedTablePostgresFdwCopyPlans = (input: {
       table: item.table,
       columns: item.columns,
       whereSql: item.whereSql,
+      targetWhereSql: item.targetWhereSql,
       fdwSchema,
       serverName: `${input.serverNamePrefix}_${index}`,
     });

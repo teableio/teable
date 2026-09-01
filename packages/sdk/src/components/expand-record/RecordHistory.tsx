@@ -10,12 +10,7 @@ import type {
   IRecordHistoryItemVo,
   IRecordHistoryVo,
 } from '@teable/openapi';
-import {
-  getFields,
-  getRecordHistory,
-  getRecordListHistory,
-  getUserCollaborators,
-} from '@teable/openapi';
+import { getFields, getRecordHistory, getRecordListHistory } from '@teable/openapi';
 import {
   Button,
   Popover,
@@ -31,7 +26,14 @@ import type { ReactNode } from 'react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReactQueryKeys } from '../../config';
 import { useTranslation } from '../../context/app/i18n';
-import { useBaseId, useFieldStaticGetter, useFields, useIsHydrated, useTableId } from '../../hooks';
+import {
+  useCollaboratorFilterUsers,
+  useFieldStaticGetter,
+  useFields,
+  useIsHydrated,
+  useTableId,
+} from '../../hooks';
+import { useContentDir } from '../../hooks/use-content-dir';
 import { createFieldInstance, type IFieldInstance } from '../../model';
 import { CellValue, UserAvatar } from '../cell-value';
 import { CollaboratorWithHoverCard } from '../collaborator';
@@ -82,13 +84,31 @@ const getCellValueTooltipText = (field: IFieldVo, value: unknown): string => {
   }
 };
 
+// keep the overflow popover consistent with the chips: a deleted linked record
+// shows the "record deleted" label instead of its stale title
+const getLinkCellTooltipText = (
+  value: unknown,
+  deletedRecordIds: string[],
+  deletedLabel: string
+): string => {
+  const items = Array.isArray(value) ? value : value == null ? [] : [value];
+  return items
+    .map((item) => {
+      const { id, title } = (item ?? {}) as { id?: string; title?: string };
+      return id && deletedRecordIds.includes(id) ? deletedLabel : title;
+    })
+    .filter(Boolean)
+    .join(', ');
+};
+
 const CellValueWithTooltip = (props: {
   field: IFieldInstance;
   value: unknown;
   tooltipText?: string;
   copyText?: string;
+  deletedRecordIds?: string[];
 }) => {
-  const { field, value, tooltipText, copyText } = props;
+  const { field, value, tooltipText, copyText, deletedRecordIds } = props;
   const { t } = useTranslation();
   const [isOverflow, setIsOverflow] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -128,7 +148,12 @@ const CellValueWithTooltip = (props: {
         </div>
       ) : (
         <div className="flex min-h-5 w-full items-center">
-          <CellValue value={value} field={field} className="max-w-full" />
+          <CellValue
+            value={value}
+            field={field}
+            className="max-w-full"
+            deletedRecordIds={deletedRecordIds}
+          />
         </div>
       )}
     </div>
@@ -169,7 +194,7 @@ const CellValueWithTooltip = (props: {
           text={copyText}
           size="icon-xs"
           variant="outline"
-          className="absolute right-0 top-0 opacity-0 shadow-sm  transition-opacity duration-200 group-hover:opacity-100 dark:!bg-[#333333]"
+          className="absolute end-0 top-0 opacity-0 shadow-sm  transition-opacity duration-200 group-hover:opacity-100 dark:!bg-[#333333]"
           onClick={(e) => e.stopPropagation()}
         />
       )}
@@ -291,7 +316,7 @@ const RecordHistoryFilterBar = (props: IRecordHistoryFilterBarProps) => {
 
   const renderUserDisplay = useCallback((option: IRecordHistoryUserOption) => {
     return (
-      <div className="flex h-6 max-w-32 items-center gap-1.5 rounded bg-secondary pl-1 pr-2 text-xs">
+      <div className="flex h-6 max-w-32 items-center gap-1.5 rounded bg-secondary pe-2 ps-1 text-xs">
         <UserAvatar name={option.label} avatar={option.avatar} className="size-5" />
         <span className="truncate">{option.label}</span>
       </div>
@@ -356,19 +381,22 @@ const RecordHistoryFilterBar = (props: IRecordHistoryFilterBarProps) => {
 
 const RecordHistoryContent = (props: IRecordHistoryContentProps) => {
   const { recordId, onRecordClick, tableId, contextFields } = props;
-  const baseId = useBaseId();
   const { t } = useTranslation();
   const isHydrated = useIsHydrated();
   const getFieldStatic = useFieldStaticGetter();
+  const contentDir = useContentDir();
 
   const [userMap, setUserMap] = useState<IRecordHistoryVo['userMap']>({});
   const [fieldIds, setFieldIds] = useState<string[]>([]);
   const [createdByIds, setCreatedByIds] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState<IDateRangeValue | null>(null);
-  const [userSearch, setUserSearch] = useState('');
   const [selectedUserMap, setSelectedUserMap] = useState<Record<string, IItemBaseCollaboratorUser>>(
     {}
   );
+  const { users, setUserSearch } = useCollaboratorFilterUsers({
+    selectedIds: createdByIds,
+    userMap: selectedUserMap,
+  });
 
   const shouldFetchFields = contextFields == null;
 
@@ -396,35 +424,6 @@ const RecordHistoryContent = (props: IRecordHistoryContentProps) => {
     }),
     [createdByIds, dateRange?.exactDate, dateRange?.exactDateEnd, fieldIds]
   );
-
-  const { data: collaboratorsData } = useQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorListUser(baseId as string, {
-      includeSystem: true,
-      skip: 0,
-      take: 100,
-      search: userSearch,
-    }),
-    queryFn: ({ queryKey }) =>
-      getUserCollaborators(queryKey[1], queryKey[2]).then((res) => res.data),
-    enabled: Boolean(baseId),
-  });
-
-  const users = useMemo(() => {
-    const userMap = new Map<string, IItemBaseCollaboratorUser>();
-
-    createdByIds.forEach((id) => {
-      const user = selectedUserMap[id];
-      if (user) {
-        userMap.set(id, user);
-      }
-    });
-
-    collaboratorsData?.users.forEach((user) => {
-      userMap.set(user.id, user);
-    });
-
-    return Array.from(userMap.values());
-  }, [collaboratorsData?.users, createdByIds, selectedUserMap]);
 
   const queryFn = async ({
     queryKey,
@@ -471,7 +470,9 @@ const RecordHistoryContent = (props: IRecordHistoryContentProps) => {
       const cellValue = validatedCellValue.success ? validatedCellValue.data : undefined;
       const canCopy = SUPPORTED_COPY_FIELD_TYPES.includes(cell.meta.type);
       const copyText = typeof cellValue === 'string' ? cellValue : undefined;
-      const tooltipText = getCellValueTooltipText(cell.meta as IFieldVo, cellValue);
+      const tooltipText = cell.deletedRecordIds?.length
+        ? getLinkCellTooltipText(cellValue, cell.deletedRecordIds, t('common.recordDeleted'))
+        : getCellValueTooltipText(cell.meta as IFieldVo, cellValue);
 
       return (
         <Fragment>
@@ -481,6 +482,7 @@ const RecordHistoryContent = (props: IRecordHistoryContentProps) => {
               field={cell.meta as IFieldInstance}
               tooltipText={tooltipText}
               copyText={canCopy ? copyText : undefined}
+              deletedRecordIds={cell.deletedRecordIds}
             />
           ) : (
             <span className="flex min-h-6 items-center text-muted-foreground">
@@ -578,11 +580,16 @@ const RecordHistoryContent = (props: IRecordHistoryContentProps) => {
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="min-w-0 flex-1 truncate text-[13px] leading-5">
+                    <span
+                      dir={contentDir}
+                      className="min-w-0 flex-1 truncate text-[13px] leading-5"
+                    >
                       {fieldName}
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-[400px] break-words">{fieldName}</TooltipContent>
+                  <TooltipContent className="max-w-[400px] break-words">
+                    <span dir={contentDir}>{fieldName}</span>
+                  </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
@@ -648,11 +655,11 @@ const RecordHistoryContent = (props: IRecordHistoryContentProps) => {
         cell: ({ row }) => {
           const recordId = row.getValue<string>('recordId');
           return (
-            <div className="flex min-h-6 w-full items-center pr-4">
+            <div className="flex min-h-6 w-full items-center pe-4">
               <Button
                 size="xs"
                 variant="ghost"
-                className="h-6 gap-1 border border-transparent bg-transparent pr-1 font-normal hover:border-border hover:bg-background"
+                className="h-6 gap-1 border border-transparent bg-transparent pe-1 font-normal hover:border-border hover:bg-background"
                 onClick={() => onRecordClick(recordId)}
               >
                 {t('expandRecord.recordHistory.viewRecord')}
@@ -665,7 +672,7 @@ const RecordHistoryContent = (props: IRecordHistoryContentProps) => {
     }
 
     return tableColumns;
-  }, [recordId, userMap, t, getFieldStatic, onRecordClick]);
+  }, [recordId, userMap, t, getFieldStatic, onRecordClick, contentDir]);
 
   const fetchNextPageInner = useCallback(() => {
     if (!isFetching && hasNextPage) {
@@ -678,7 +685,7 @@ const RecordHistoryContent = (props: IRecordHistoryContentProps) => {
     setCreatedByIds([]);
     setDateRange(null);
     setUserSearch('');
-  }, []);
+  }, [setUserSearch]);
 
   if (!isHydrated) return null;
 

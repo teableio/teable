@@ -34,7 +34,7 @@ export interface IBaseItemProps {
   dragHandleListeners?: Record<string, unknown>;
   onToggleExpand?: () => void;
   onEnterBase?: () => void;
-  onUpdate?: (data: { name?: string; icon?: string }) => void;
+  onUpdate?: (data: { name?: string; icon?: string | null }) => void;
   onDelete?: (permanent?: boolean) => void;
 }
 
@@ -131,7 +131,9 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
           <EmojiPicker
             className="flex items-center justify-center"
             disabled={!hasUpdatePermission || isEditing}
+            icon={base.icon}
             onChange={(icon) => onUpdate?.({ icon })}
+            onRemove={() => onUpdate?.({ icon: null })}
           >
             {base.icon ? <Emoji emoji={base.icon} size="1rem" /> : <Database className="size-4" />}
           </EmojiPicker>
@@ -177,7 +179,6 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
               </div>
 
               <Button
-                variant="outline"
                 size="xs"
                 className="hidden h-7 w-0 shrink-0 gap-1 opacity-0 group-hover:w-auto sm:flex sm:group-hover:opacity-100"
                 onClick={(e) => {
@@ -216,12 +217,12 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
 
       {/* Actions Column */}
       <div
-        className="absolute right-0 flex shrink-0 items-center gap-2 bg-accent px-4 opacity-0 group-hover:opacity-100 dark:bg-popover"
+        className="absolute end-0 flex shrink-0 items-center gap-2 bg-accent px-4 opacity-0 group-hover:opacity-100 dark:bg-popover"
         onClick={stopPropagation}
         onMouseDown={stopPropagation}
       >
         <Button
-          variant="outline"
+          variant="default"
           size="xs"
           className="h-7 gap-1 sm:hidden"
           onClick={(e) => {

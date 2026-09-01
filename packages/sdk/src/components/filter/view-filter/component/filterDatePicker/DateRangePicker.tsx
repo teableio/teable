@@ -21,13 +21,14 @@ import {
   setYear,
   type Locale,
 } from 'date-fns';
-import { enUS, fr, ja, ru, zhCN } from 'date-fns/locale';
+import { ar, de, enUS, es, fr, he, it, ja, ru, tr, uk, zhCN } from 'date-fns/locale';
 import { formatInTimeZone, fromZonedTime, toZonedTime } from 'date-fns-tz';
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { Matcher } from 'react-day-picker';
 import { AppContext } from '../../../../../context';
 import { useTranslation } from '../../../../../context/app/i18n';
+import { useInDrawer } from '../../../../adaptive-panel';
 
 const MIN_YEAR = 100;
 const MAX_YEAR = 3000;
@@ -42,14 +43,21 @@ const LOCALE_MAP: Record<string, Locale> = {
   ja: ja,
   ru: ru,
   fr: fr,
+  de: de,
+  es: es,
+  it: it,
+  tr: tr,
+  uk: uk,
+  ar: ar,
+  he: he,
 };
 
 // react-day-picker modifier styles for highlighting selected date range
 const RANGE_MODIFIER_CLASSNAMES = {
   range_start:
-    '[&>button]:!bg-primary [&>button]:!text-primary-foreground [&>button]:hover:!bg-primary [&>button]:hover:!text-primary-foreground rounded-l-md rounded-r-none',
+    '[&>button]:!bg-primary [&>button]:!text-primary-foreground [&>button]:hover:!bg-primary [&>button]:hover:!text-primary-foreground rounded-s-md rounded-e-none',
   range_end:
-    '[&>button]:!bg-primary [&>button]:!text-primary-foreground [&>button]:hover:!bg-primary [&>button]:hover:!text-primary-foreground rounded-r-md rounded-l-none',
+    '[&>button]:!bg-primary [&>button]:!text-primary-foreground [&>button]:hover:!bg-primary [&>button]:hover:!text-primary-foreground rounded-e-md rounded-s-none',
   range_middle:
     '!bg-accent [&>button]:!bg-transparent [&>button]:!text-accent-foreground [&>button]:hover:!bg-transparent [&>button]:hover:!text-accent-foreground rounded-none',
 } as const;
@@ -240,7 +248,7 @@ const YearMonthPicker = memo(function YearMonthPicker({
             <div
               key={virtualRow.key}
               className={cn(
-                'absolute left-0 top-0 flex w-full items-center px-1',
+                'absolute start-0 top-0 flex w-full items-center px-1',
                 showSeparator && 'border-t border-dashed border-border/50'
               )}
               style={{
@@ -627,6 +635,7 @@ export function DateRangePicker({
     [onChange]
   );
 
+  const inDrawer = useInDrawer();
   const isConfirmDisabled = !fromDate || !toDate || !isTimeRangeValid;
 
   const inputWidthClass = useMemo(() => {
@@ -645,12 +654,13 @@ export function DateRangePicker({
           className={cn(
             'group flex h-8 items-center rounded-md border border-border bg-background px-2 py-1 text-sm transition-colors hover:border-primary/30 focus-within:border-primary dark:bg-[color-mix(in_oklab,white_5%,hsl(var(--background)))]',
             inputWidthClass,
+            inDrawer && 'w-full',
             !displayValue && 'text-muted-foreground',
             className
           )}
         >
           <PopoverTrigger asChild>
-            <button type="button" className="min-w-0 flex-1 truncate text-left focus:outline-none">
+            <button type="button" className="min-w-0 flex-1 truncate text-start focus:outline-none">
               {inputDisplayValue}
             </button>
           </PopoverTrigger>
@@ -658,7 +668,11 @@ export function DateRangePicker({
             <XFilled
               role="button"
               tabIndex={0}
-              className="ml-1 hidden size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground focus:block group-hover:block"
+              className={cn(
+                'ms-1 hidden size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground focus:block group-hover:block',
+                // There is no hover on a phone; keep it permanently visible.
+                inDrawer && 'block'
+              )}
               onClick={handleClear}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -670,9 +684,24 @@ export function DateRangePicker({
           )}
         </div>
       </PopoverAnchor>
-      <PopoverContent className="w-auto p-0" align="start" sideOffset={4}>
-        <div className="flex flex-col">
-          <div className="flex gap-2 p-2">
+      <PopoverContent
+        className={cn(
+          'w-auto p-0',
+          // Two 252px calendars side by side overflow a 375px screen, so they
+          // stack; the panel is capped and scrolls internally.
+          inDrawer &&
+            'flex w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden [max-height:min(70dvh,var(--radix-popper-available-height))]'
+        )}
+        align="start"
+        sideOffset={4}
+      >
+        <div className={cn('flex flex-col', inDrawer && 'min-h-0 flex-1 overflow-hidden')}>
+          <div
+            className={cn(
+              'flex gap-2 p-2',
+              inDrawer && 'min-h-0 flex-1 flex-col items-center overflow-y-auto'
+            )}
+          >
             <div className="flex flex-col">
               <RangeCalendar
                 month={leftMonth}
@@ -691,7 +720,7 @@ export function DateRangePicker({
               )}
             </div>
 
-            <div className="w-px bg-border" />
+            <div className={cn('w-px bg-border', inDrawer && 'h-px w-full self-stretch')} />
 
             <div className="flex flex-col">
               <RangeCalendar
@@ -712,7 +741,14 @@ export function DateRangePicker({
             </div>
           </div>
 
-          <div className="flex items-center justify-between border-t px-3 py-2">
+          {/* Pinned, not merely last: the confirm button must be reachable
+              without scrolling the panel. */}
+          <div
+            className={cn(
+              'flex items-center justify-between border-t px-3 py-2',
+              inDrawer && 'shrink-0 gap-2 bg-popover'
+            )}
+          >
             <span className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
               {!isTimeRangeValid ? (
                 <span className="text-destructive">{t('editor.date.invalidTimeRange')}</span>
@@ -738,7 +774,12 @@ export function DateRangePicker({
                 </>
               )}
             </span>
-            <Button size="sm" onClick={handleConfirm} disabled={isConfirmDisabled}>
+            <Button
+              size="sm"
+              className="shrink-0"
+              onClick={handleConfirm}
+              disabled={isConfirmDisabled}
+            >
               {t('common.confirm')}
             </Button>
           </div>

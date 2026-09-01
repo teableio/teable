@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { UserPlus } from '@teable/icons';
-import { getSpaceById, getSpaceCollaboratorList } from '@teable/openapi';
+import { getSpaceById, getSpaceUniqueCollaboratorList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useIsHydrated } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
@@ -24,9 +24,9 @@ export const CollaboratorPage = ({ spaceId: spaceIdProp }: { spaceId?: string } 
   });
 
   const { data: collaborators } = useQuery({
-    queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId as string, { includeBase: true }),
+    queryKey: ReactQueryKeys.spaceUniqueCollaboratorList(spaceId as string, { take: 1 }),
     queryFn: ({ queryKey }) =>
-      getSpaceCollaboratorList(queryKey[1], { includeBase: true }).then((res) => res.data),
+      getSpaceUniqueCollaboratorList(queryKey[1], queryKey[2]).then((res) => res.data),
     enabled: Boolean(spaceId),
   });
 
@@ -37,7 +37,7 @@ export const CollaboratorPage = ({ spaceId: spaceIdProp }: { spaceId?: string } 
         <Trans
           ns="common"
           i18nKey={'invite.dialog.desc'}
-          count={collaborators?.uniqTotal ?? 0}
+          count={collaborators?.total ?? 0}
           components={{ b: <b /> }}
         />
       }
@@ -45,11 +45,7 @@ export const CollaboratorPage = ({ spaceId: spaceIdProp }: { spaceId?: string } 
     >
       {isHydrated && !!space && (
         <div className="size-full">
-          <Collaborators
-            spaceId={space.id}
-            role={space.role}
-            collaboratorQuery={{ includeBase: true }}
-          >
+          <Collaborators spaceId={space.id} role={space.role}>
             <InviteSpacePopover space={space}>
               <Button size="sm">
                 <UserPlus className="size-4" /> {t('space:action.invite')}

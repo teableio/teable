@@ -80,4 +80,25 @@ describe('parseDateValue', () => {
 
     formatterSpy.mockRestore();
   });
+
+  it.each([
+    '2026-02-30',
+    '2026-02-29',
+    '2026-01-32',
+    '2026-00-10',
+    '2026-13-01',
+    '2026-03-01 25:00',
+    '2026-03-01 10:61',
+    '2026-03-01 10:30:61',
+    '2026-02-30T00:00:00Z',
+  ])('rejects calendar-invalid date input %s', (input) => {
+    expect(parseDateValue(createDateField('utc'), input)).toBeUndefined();
+  });
+
+  it.each([
+    ['2024-02-29', '2024-02-29T00:00:00.000Z'],
+    ['2026-12-31 23:59:59', '2026-12-31T23:59:59.000Z'],
+  ])('accepts valid calendar boundary %s', (input, expected) => {
+    expect(parseDateValue(createDateField('utc'), input)).toBe(expected);
+  });
 });

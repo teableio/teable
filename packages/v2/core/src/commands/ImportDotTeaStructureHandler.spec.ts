@@ -215,7 +215,7 @@ class FakeUnitOfWork implements IUnitOfWork {
 }
 
 describe('ImportDotTeaStructureHandler', () => {
-  it('returns error when dottea has no tables', async () => {
+  it('allows empty-table bases so callers can restore non-table extras', async () => {
     const parser = new FakeDotTeaParser(ok({ tables: [] }));
     const tableRepository = new FakeTableRepository();
     const handler = new ImportDotTeaStructureHandler(
@@ -233,8 +233,60 @@ describe('ImportDotTeaStructureHandler', () => {
     })._unsafeUnwrap();
 
     const result = await handler.handle(createContext(), command);
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().code).toBe('dottea.no_tables');
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().tables).toEqual([]);
+    expect(result._unsafeUnwrap().tableIdMap).toEqual({});
+    expect(result._unsafeUnwrap().fieldIdMap).toEqual({});
+    expect(result._unsafeUnwrap().viewIdMap).toEqual({});
+  });
+
+  it('preserves field description when building imported tables', async () => {
+    const tableId = `tbl${'t'.repeat(16)}`;
+    const fieldId = `fld${'f'.repeat(16)}`;
+    const viewId = `viw${'v'.repeat(16)}`;
+
+    const parser = new FakeDotTeaParser(
+      ok({
+        id: `bse${'s'.repeat(16)}`,
+        tables: [
+          {
+            id: tableId,
+            name: 'Products',
+            fields: [
+              {
+                id: fieldId,
+                name: 'Name',
+                type: 'singleLineText',
+                description: 'field description from .tea',
+                isPrimary: true,
+              },
+            ],
+            views: [{ id: viewId, type: 'grid', name: 'Grid' }],
+          },
+        ],
+      })
+    );
+
+    const tableCreationService = new FakeTableCreationService();
+    const handler = new ImportDotTeaStructureHandler(
+      parser,
+      new FakeForeignTableLoaderService() as never,
+      new FakeTableRepository(),
+      tableCreationService as never,
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+
+    const command = ImportDotTeaStructureCommand.createFromBuffer({
+      baseId,
+      dotTeaData: new Uint8Array([1]),
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    expect(result.isOk()).toBe(true);
+
+    const importedField = tableCreationService.lastInput?.tables[0]?.getFields()[0];
+    expect(importedField?.description()).toBe('field description from .tea');
   });
 
   it('imports tables and publishes events', async () => {

@@ -18,10 +18,20 @@ const dateValueSchema = z
   .object({
     mode: recordConditionDateModeSchema,
     numberOfDays: z.coerce.number().int().nonnegative().optional(),
-    exactDate: z.string().datetime({ precision: 3, offset: true }).optional(),
+    exactDate: z.string().datetime({ offset: true }).optional(),
+    exactDateEnd: z.string().datetime({ offset: true }).optional(),
     timeZone: z.string(),
   })
   .superRefine((val, ctx) => {
+    if (val.mode === 'dateRange') {
+      if (!val.exactDate || !val.exactDateEnd) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "When mode is 'dateRange', exactDate and exactDateEnd are required",
+        });
+      }
+      return;
+    }
     const requiresExact =
       val.mode === 'exactDate' || val.mode === 'exactDateTime' || val.mode === 'exactFormatDate';
     const requiresDays =
@@ -97,6 +107,7 @@ export class RecordConditionDateValue extends ValueObject {
     private readonly modeValue: RecordConditionDateMode,
     private readonly numberOfDaysValue: number | undefined,
     private readonly exactDateValue: string | undefined,
+    private readonly exactDateEndValue: string | undefined,
     private readonly timeZoneValue: TimeZone
   ) {
     super();
@@ -115,6 +126,7 @@ export class RecordConditionDateValue extends ValueObject {
         parsed.data.mode,
         parsed.data.numberOfDays,
         parsed.data.exactDate,
+        parsed.data.exactDateEnd,
         timeZoneResult.value
       )
     );
@@ -125,6 +137,7 @@ export class RecordConditionDateValue extends ValueObject {
       this.modeValue === other.modeValue &&
       this.numberOfDaysValue === other.numberOfDaysValue &&
       this.exactDateValue === other.exactDateValue &&
+      this.exactDateEndValue === other.exactDateEndValue &&
       this.timeZoneValue.equals(other.timeZoneValue)
     );
   }
@@ -141,6 +154,10 @@ export class RecordConditionDateValue extends ValueObject {
     return this.exactDateValue;
   }
 
+  exactDateEnd(): string | undefined {
+    return this.exactDateEndValue;
+  }
+
   timeZone(): TimeZone {
     return this.timeZoneValue;
   }
@@ -150,6 +167,7 @@ export class RecordConditionDateValue extends ValueObject {
       mode: this.modeValue,
       numberOfDays: this.numberOfDaysValue,
       exactDate: this.exactDateValue,
+      exactDateEnd: this.exactDateEndValue,
       timeZone: this.timeZoneValue.toString(),
     };
   }

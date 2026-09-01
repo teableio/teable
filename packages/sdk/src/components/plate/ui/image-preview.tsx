@@ -53,7 +53,7 @@ export const ImagePreview = () => {
 
   return createPortal(
     <div
-      className={cn('fixed top-0 left-0 z-50 size-full select-none', !isOpen && 'hidden')}
+      className={cn('fixed top-0 start-0 z-50 size-full select-none', !isOpen && 'hidden')}
       onContextMenu={(e) => e.stopPropagation()}
       {...maskLayerProps}
     >

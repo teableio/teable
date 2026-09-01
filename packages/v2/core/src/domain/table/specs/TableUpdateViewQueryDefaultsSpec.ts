@@ -12,6 +12,7 @@ import type { ITableSpecVisitor } from './ITableSpecVisitor';
 
 export type TableViewQueryDefaultsUpdate = {
   viewId: ViewId;
+  previousQueryDefaults?: ViewQueryDefaults;
   queryDefaults: ViewQueryDefaults;
 };
 
@@ -78,6 +79,7 @@ export class TableUpdateViewQueryDefaultsSpec<
       id: t.id(),
       baseId: t.baseId(),
       name: t.name(),
+      properties: t.properties(),
       fields: t.getFields(),
       views: nextViews,
       primaryFieldId: t.primaryFieldId(),

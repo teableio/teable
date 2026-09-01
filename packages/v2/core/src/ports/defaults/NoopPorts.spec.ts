@@ -87,6 +87,7 @@ describe('NoopTableRecordQueryRepository', () => {
 
     const context = { actorId: actorIdResult._unsafeUnwrap() };
     (await repo.find(context, table))._unsafeUnwrap();
+    expect((await repo.count(context, table))._unsafeUnwrap()).toBe(0);
   });
 });
 

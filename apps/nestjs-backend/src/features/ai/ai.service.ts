@@ -8,13 +8,13 @@ import {
   LLMProviderType,
   SettingKey,
   Task,
+  getChatModelTagsFromAbility,
   normalizeGatewayPricing,
   supportsImageInputForImageGeneration,
 } from '@teable/openapi';
 import type {
   IAIConfig,
   IAiGenerateRo,
-  IChatModelAbility,
   IGatewayApiModel,
   IGetAIConfig,
   GatewayModelTag,
@@ -26,6 +26,7 @@ import type { Response } from 'express';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { CustomHttpException } from '../../custom.exception';
 import { PerformanceCacheService } from '../../performance-cache';
+import { decryptAiConfigSecrets } from '../../utils/ai-config-encryption';
 import { SettingService } from '../setting/setting.service';
 import { AiGatewayModelsService } from './ai-gateway-models.service';
 import { getAdaptedProviderOptions, getTaskModelKey, modelProviders } from './util';
@@ -365,7 +366,9 @@ export class AiService {
       where: { resourceId: spaceId, type: IntegrationType.AI, enable: true },
     });
 
-    const aiIntegrationConfig = aiIntegration?.config ? JSON.parse(aiIntegration.config) : null;
+    const aiIntegrationConfig = aiIntegration?.config
+      ? decryptAiConfigSecrets(JSON.parse(aiIntegration.config), `integration:${aiIntegration.id}`)
+      : null;
     const { aiConfig } = await this.settingService.getSetting();
 
     const hasInstanceAIConfig =
@@ -710,7 +713,7 @@ export class AiService {
 
     // Priority 2: Fallback to converting deprecated ability to tags
     if (modelConfig?.ability) {
-      return this.abilityToTags(modelConfig.ability);
+      return getChatModelTagsFromAbility(modelConfig.ability) ?? [];
     }
 
     return [];
@@ -727,20 +730,6 @@ export class AiService {
       nextTags.push('vision');
     }
     return nextTags;
-  }
-
-  /**
-   * Convert deprecated IChatModelAbility to GatewayModelTag[]
-   * Used for backward compatibility with old ability format
-   */
-  private abilityToTags(ability: IChatModelAbility): GatewayModelTag[] {
-    const tags: GatewayModelTag[] = [];
-    if (ability.image) tags.push('vision');
-    if (ability.pdf) tags.push('file-input');
-    if (ability.toolCall) tags.push('tool-use');
-    if (ability.reasoning) tags.push('reasoning');
-    if (ability.imageGeneration) tags.push('image-generation');
-    return tags;
   }
 
   /**
@@ -850,13 +839,11 @@ export class AiService {
         if (!modelConfig) continue;
 
         // Check tags (new format) or ability (backward compatibility)
-        const hasVision = modelConfig.tags?.includes('vision') || modelConfig.ability?.image;
-        if (hasVision) {
+        const tags: GatewayModelTag[] =
+          modelConfig.tags ?? getChatModelTagsFromAbility(modelConfig.ability) ?? [];
+        if (tags.includes('vision')) {
           const modelKey = `${provider.type}@${model}@${provider.name}`;
           const modelInstance = await this.getModelInstance(modelKey, llmProviders);
-          // Convert ability to tags for backward compatibility
-          const tags: GatewayModelTag[] =
-            modelConfig.tags ?? this.abilityToTags(modelConfig.ability ?? {});
           return {
             modelKey,
             modelInstance,

@@ -5,6 +5,7 @@ import type { ICreateSpaceRo, IDataDbPreflightRo, IDataDbPreflightVo } from '@te
 import { CustomHttpException } from '../../custom.exception';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
 import { DataDbBaselineService } from './data-db-baseline.service';
+import { DataDbHealthService } from './data-db-health.service';
 import { resolveDataDbInternalSchema } from './data-db-internal-schema';
 import { DataDbMigrationService } from './data-db-migration.service';
 import {
@@ -67,7 +68,8 @@ export class DataDbBindingService {
     private readonly baselineService: DataDbBaselineService,
     private readonly dataDbClientManager: DataDbClientManager,
     @Optional() private readonly dataDbMigrationService?: DataDbMigrationService,
-    @Optional() private readonly spaceDataDbMigrationService?: SpaceDataDbMigrationService
+    @Optional() private readonly spaceDataDbMigrationService?: SpaceDataDbMigrationService,
+    @Optional() private readonly dataDbHealthService?: DataDbHealthService
   ) {}
 
   async createBindingForNewSpace(
@@ -188,6 +190,17 @@ export class DataDbBindingService {
         data: { state: preflight.ok ? 'ready' : 'error' },
       });
     });
+
+    // A manual retest is an authoritative probe either way: fold its verdict
+    // into the health lane so 状态 and health cannot contradict each other.
+    if (preflight.ok) {
+      void this.dataDbHealthService?.reportConnectionRecovered(connection.id);
+    } else {
+      void this.dataDbHealthService?.reportConnectionFailure({
+        connectionId: connection.id,
+        message: buildPreflightErrorMessage(preflight),
+      });
+    }
 
     return preflight;
   }

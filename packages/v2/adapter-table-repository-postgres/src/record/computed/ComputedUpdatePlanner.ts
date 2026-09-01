@@ -15,6 +15,7 @@ import type {
   RecordId,
   Table,
 } from '@teable/v2-core';
+import { getTableComputedDownstreamHint } from '@teable/v2-adapter-db-postgres-shared';
 import { inject, injectable } from '@teable/v2-di';
 import { extractConditionFieldIds } from '@teable/v2-field-dependency-core';
 import { err, ok, safeTry } from 'neverthrow';
@@ -27,6 +28,7 @@ import type {
   FieldMeta,
   TableProvisionStatesForDependencyGraph,
 } from './FieldDependencyGraph';
+import { pushAll } from './pushAll';
 
 export type UpdateContext = {
   table: Table;
@@ -188,6 +190,12 @@ export type ComputedUpdatePlan = {
   edges: ReadonlyArray<ComputedDependencyEdge>;
   estimatedComplexity: number;
   changeType: UpdateContext['changeType'];
+  /**
+   * User-mutated field ids that started this plan. Schema-wide; leftover
+   * slices keep the original mutation, not every formula input.
+   */
+  changedFieldIds?: ReadonlyArray<FieldId>;
+
   cyclePolicy?: ComputedUpdateCyclePolicy;
   /**
    * Same-table batches that can be executed using CTE optimization.
@@ -201,6 +209,19 @@ export type ComputedUpdatePlan = {
    * Used to avoid storing/loading individual record IDs when the full table is dirty.
    */
   seedAllTableIds?: ReadonlyArray<TableId>;
+  /**
+   * Whole-table seeding resume cursors (last seeded __id per table id). O(1)
+   * durable state replacing per-row exclusion ledgers for full-table sources;
+   * cursors only advance once the seeded slice's propagation completed.
+   */
+  seedAllCursors?: Readonly<Record<string, string>>;
+  /**
+   * Stage-ledger scope: the continuation chain's root task id. Keys the durable
+   * exclusion ledger + frontier queue in computed_update_stage_ledger. Chains
+   * are serial, so the scope has one writer; parallel chunk-split tasks of the
+   * same run get distinct scopes.
+   */
+  ledgerScopeId?: string;
 };
 
 const emptyComputedUpdatePlan = (
@@ -218,6 +239,7 @@ const emptyComputedUpdatePlan = (
   changeType: context.changeType,
   cyclePolicy: context.cyclePolicy,
   sameTableBatches: [],
+  ...(context.changedFieldIds.length ? { changedFieldIds: context.changedFieldIds } : {}),
 });
 
 const withPlannerTraceSpan = async <T>(
@@ -876,6 +898,9 @@ export class ComputedUpdatePlanner {
                   cyclePolicy: context.cyclePolicy,
                   sameTableBatches: [],
                   cycleInfo,
+                  ...(context.changedFieldIds.length
+                    ? { changedFieldIds: context.changedFieldIds }
+                    : {}),
                 });
               }
             }
@@ -962,10 +987,65 @@ export class ComputedUpdatePlanner {
               cyclePolicy: context.cyclePolicy,
               sameTableBatches,
               cycleInfo,
+              ...(context.changedFieldIds.length
+                ? { changedFieldIds: context.changedFieldIds }
+                : {}),
             });
           }.bind(this)
         )
     );
+  }
+
+  /**
+   * Whether a plan-free seed would have any computed writes.
+   * Write path: in-memory table + hydrate-time outbound-reference hint. No extra SQL.
+   */
+  hasWritableComputedWork(
+    context: Pick<
+      PlanStageContext,
+      'baseId' | 'table' | 'changedFieldIds' | 'changeType' | 'impact'
+    >
+  ): boolean {
+    const table = context.table;
+    if (!table) {
+      return true;
+    }
+
+    const hasSameTableComputed = tableHasComputedTargetFields(table);
+    const hasOutboundReference = getTableComputedDownstreamHint(table) === true;
+
+    if (context.changeType === 'insert') {
+      return hasSameTableComputed || hasOutboundReference;
+    }
+
+    if ((context.impact?.linkFieldIds.length ?? 0) > 0) {
+      return true;
+    }
+
+    const seedFieldIds = collectImpactSeedFieldIds(context.changedFieldIds, context.impact);
+    if (seedFieldIds.length === 0) {
+      return false;
+    }
+
+    const changed = new Set(seedFieldIds.map((id) => id.toString()));
+    const sameTableDependent = table.getFields().some((field) => {
+      const fieldType = field.type().toString();
+      const isTarget =
+        isComputedFieldType(fieldType) ||
+        (field.computed().toBoolean() && !systemComputedFieldTypes.has(fieldType));
+      if (!isTarget) {
+        return false;
+      }
+      return field.dependencies().some((depId) => changed.has(depId.toString()));
+    });
+    if (sameTableDependent) {
+      return true;
+    }
+
+    if (hasSameTableComputed) {
+      return true;
+    }
+    return hasOutboundReference;
   }
 
   private async hasComputedTargets(
@@ -1101,10 +1181,10 @@ const collectRelevantEdgesForImpact = (
 ): ReadonlyArray<FieldDependencyEdge> => {
   const relevantEdges: FieldDependencyEdge[] = [];
   if (impact.includesValueChange) {
-    relevantEdges.push(...edges.filter(isEdgeRelevantForValue));
+    pushAll(relevantEdges, edges.filter(isEdgeRelevantForValue));
   }
   if (impact.includesLinkRelation) {
-    relevantEdges.push(...edges.filter(isEdgeRelevantForLink));
+    pushAll(relevantEdges, edges.filter(isEdgeRelevantForLink));
   }
   return relevantEdges;
 };

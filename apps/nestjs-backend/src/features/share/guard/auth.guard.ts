@@ -48,13 +48,19 @@ export class ShareAuthGuard extends PassportAuthGuard([SHARE_JWT_STRATEGY]) {
         shareId,
         templateHeader,
         shareViewHeader,
-        req.headers.cookie
+        req.headers.cookie,
+        req.useV2 === true
       );
       req.shareInfo = shareInfo;
+      // Mark link-field share reads as share-view context so downstream gates
+      // (EE authority matrix, table-permission projection) do not re-apply the
+      // operator's direct foreign-table matrix. Source-table auth already ran
+      // above; candidate/selected scope stays limited by link field config.
+      this.cls.set('shareViewId', shareInfo.shareId);
       return activate;
     }
 
-    const shareInfo = await this.shareAuthService.getShareViewInfo(shareId);
+    const shareInfo = await this.shareAuthService.getShareViewInfo(shareId, req.useV2 === true);
 
     try {
       req.shareInfo = shareInfo;

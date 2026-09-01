@@ -1,3 +1,4 @@
+import { sdkErrorI18nKeys } from '@teable/i18n-keys';
 import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -10,6 +11,7 @@ import {
   type UserItem,
 } from '../../domain/table/records/specs/values/SetUserValueSpec';
 import { CellValue } from '../../domain/table/records/values/CellValue';
+import type { TableId } from '../../domain/table/TableId';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
 import { buildUserAvatarUrl } from '../../ports/UserAvatarUrl';
@@ -51,6 +53,7 @@ export class UserValueResolverService
 
   async resolveSpecs(
     context: IExecutionContext,
+    tableId: TableId,
     specs: ReadonlyArray<SetUserValueSpec | SetUserValueByIdentifierSpec>
   ): Promise<Result<ReadonlyArray<ICellValueSpec>, DomainError>> {
     const service = this;
@@ -103,19 +106,32 @@ export class UserValueResolverService
         }
       }
 
-      const lookupKeys = [...new Set([...strictIds, ...identifiers])];
-      const usersResult = yield* await service.userLookupService.listUsersByIdentifiers(lookupKeys);
+      // Structured user objects carry a platform user id, so resolve them by
+      // primary key without collaborator scoping: a copied cell must paste the
+      // same member even when that member is not a collaborator of this table.
+      // Free-form text input stays scoped to the table's collaborators.
+      const strictUsersResult = yield* await service.userLookupService.listUsersByIds([
+        ...strictIds,
+      ]);
+      const scopedUsersResult = yield* await service.userLookupService.listTableUsersByIdentifiers(
+        tableId.toString(),
+        [...identifiers]
+      );
 
       const usersById = new Map<string, UserLookupRecord>();
-      const usersByEmail = new Map<string, UserLookupRecord>();
-      const usersByName = new Map<string, UserLookupRecord>();
+      const scopedUsersById = new Map<string, UserLookupRecord>();
+      const scopedUsersByEmail = new Map<string, UserLookupRecord>();
+      const scopedUsersByName = new Map<string, UserLookupRecord>();
 
-      for (const user of usersResult) {
+      for (const user of strictUsersResult) {
         usersById.set(user.id, user);
+      }
+      for (const user of scopedUsersResult) {
+        scopedUsersById.set(user.id, user);
         if (user.email) {
-          usersByEmail.set(user.email, user);
+          scopedUsersByEmail.set(user.email, user);
         }
-        usersByName.set(user.name, user);
+        scopedUsersByName.set(user.name, user);
       }
 
       const resolvedSpecs: ICellValueSpec[] = [];
@@ -139,14 +155,12 @@ export class UserValueResolverService
               return err(keyResult.error);
             }
             const key = keyResult.value;
-            const user = usersById.get(key) ?? usersByEmail.get(key) ?? usersByName.get(key);
+            const user =
+              scopedUsersById.get(key) ?? scopedUsersByEmail.get(key) ?? scopedUsersByName.get(key);
+            // v1 parity: free-form text that matches no collaborator clears
+            // the cell instead of failing the whole write.
             if (!user) {
-              return err(
-                domainError.validation({
-                  code: 'validation.field.user_not_found',
-                  message: `User(${key}) not found in table`,
-                })
-              );
+              continue;
             }
             resolvedItems.push(toUserItem(user));
           }
@@ -181,7 +195,8 @@ export class UserValueResolverService
             return err(
               domainError.validation({
                 code: 'validation.field.user_not_found',
-                message: `User(${id}) not found in table`,
+                message: `User(${id}) not found`,
+                localization: { i18nKey: sdkErrorI18nKeys.user.notFound },
               })
             );
           }

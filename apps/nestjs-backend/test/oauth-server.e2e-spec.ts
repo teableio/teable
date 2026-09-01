@@ -2,7 +2,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import crypto from 'crypto';
 import type { INestApplication } from '@nestjs/common';
-import { HttpError } from '@teable/core';
+import { cliOAuthApp, HttpError } from '@teable/core';
 import {
   CREATE_BASE,
   CREATE_SPACE,
@@ -31,6 +31,7 @@ import type {
 import type { AxiosInstance, AxiosResponse } from 'axios';
 import axiosInstance from 'axios';
 import { omit } from 'lodash';
+import { CacheService } from '../src/cache/cache.service';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
 import { initApp } from './utils/init-app';
@@ -1228,6 +1229,154 @@ describe('OpenAPI OAuthController (e2e)', () => {
         })
       );
       expect(error?.status).toBe(401);
+    });
+  });
+
+  /**
+   * RFC 8628 device authorization grant, end to end on the real cache store.
+   * Deliberately not unit-level: the flow's cross-request state lives in
+   * Redis, and its unit specs run on an idealized in-memory cache — a
+   * key-layout drift in CacheService (setnx/get split) once 404'd every
+   * user-code lookup while all unit tests stayed green. This file is the
+   * canary for that class of bug.
+   */
+  describe('device authorization grant', () => {
+    const deviceGrantType = 'urn:ietf:params:oauth:grant-type:device_code';
+    const urlencoded = {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      validateStatus: () => true,
+    };
+
+    const requestDeviceCode = (body: Record<string, string>) =>
+      anonymousAxios.post('/oauth/device/code', new URLSearchParams(body).toString(), urlencoded);
+
+    const pollToken = (deviceCode: string, clientId = cliOAuthApp.clientId) =>
+      anonymousAxios.post(
+        '/oauth/access_token',
+        new URLSearchParams({
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          grant_type: deviceGrantType,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          device_code: deviceCode,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          client_id: clientId,
+        }).toString(),
+        urlencoded
+      );
+
+    beforeAll(async () => {
+      // The endpoint rate limits per IP; repeated local runs inside one window
+      // would otherwise start flaking on the 429.
+      const cacheService = app.get(CacheService);
+      for (const ip of ['127.0.0.1', '::1', '::ffff:127.0.0.1']) {
+        await cacheService.del(`oauth:device-rate:${ip}`);
+      }
+    });
+
+    it('walks the whole flow: code, approval page, decision, tokens, spent replay', async () => {
+      const device = await requestDeviceCode({
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        client_id: cliOAuthApp.clientId,
+      });
+      expect(device.status).toBe(200);
+      expect(device.data).toMatchObject({
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        user_code: expect.stringMatching(/^[A-Z]{4}-[A-Z]{4}$/),
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        expires_in: expect.any(Number),
+        interval: expect.any(Number),
+      });
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      const { device_code, user_code } = device.data;
+
+      // The approval page accepts the code the way people type it.
+      const appInfo = await axios.get(`/oauth/device/${user_code.toLowerCase().replace('-', '')}`);
+      expect(appInfo.data).toMatchObject({ name: cliOAuthApp.name });
+      expect(appInfo.data.scopes.length).toBeGreaterThan(0);
+
+      await axios.post('/oauth/device/decision', { userCode: user_code, approve: true });
+
+      const tokens = await pollToken(device_code);
+      expect(tokens.status).toBe(200);
+      expect(tokens.data).toMatchObject({
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        token_type: 'Bearer',
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        access_token: expect.any(String),
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        refresh_token: expect.any(String),
+      });
+
+      // The token belongs to whoever approved in the browser.
+      const userInfo = await anonymousAxios.get(`/auth/user`, {
+        headers: { Authorization: `Bearer ${tokens.data.access_token}` },
+      });
+      expect(userInfo.data.email).toEqual(testEmail);
+
+      // Single use: the spent code reads as expired.
+      const replay = await pollToken(device_code);
+      expect(replay.status).toBe(400);
+      expect(replay.data).toEqual({ error: 'expired_token' });
+    });
+
+    it('answers authorization_pending, then slow_down to a hasty poll', async () => {
+      const device = await requestDeviceCode({
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        client_id: cliOAuthApp.clientId,
+      });
+
+      const pending = await pollToken(device.data.device_code);
+      expect(pending.status).toBe(400);
+      expect(pending.data).toEqual({ error: 'authorization_pending' });
+
+      const hasty = await pollToken(device.data.device_code);
+      expect(hasty.status).toBe(400);
+      expect(hasty.data).toEqual({ error: 'slow_down' });
+    });
+
+    it('reports a denial once, then forgets the code', async () => {
+      const device = await requestDeviceCode({
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        client_id: cliOAuthApp.clientId,
+      });
+
+      await axios.post('/oauth/device/decision', {
+        userCode: device.data.user_code,
+        approve: false,
+      });
+
+      const denied = await pollToken(device.data.device_code);
+      expect(denied.data).toEqual({ error: 'access_denied' });
+      const gone = await pollToken(device.data.device_code);
+      expect(gone.data).toEqual({ error: 'expired_token' });
+    });
+
+    it('speaks RFC 8628 error codes on the device authorization endpoint', async () => {
+      const missing = await requestDeviceCode({});
+      expect(missing.status).toBe(400);
+      expect(missing.data.error).toBe('invalid_request');
+
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      const unknown = await requestDeviceCode({ client_id: 'no-such-client' });
+      expect(unknown.data.error).toBe('invalid_client');
+
+      // `oauth` is created fresh per test and never opted in to the device flow.
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      const notOptedIn = await requestDeviceCode({ client_id: oauth.clientId });
+      expect(notOptedIn.data.error).toBe('unauthorized_client');
+
+      const badScope = await requestDeviceCode({
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        client_id: cliOAuthApp.clientId,
+        scope: 'not|granted',
+      });
+      expect(badScope.data.error).toBe('invalid_scope');
+    });
+
+    it('refuses the approval page for a code nobody issued', async () => {
+      const error = await getError(() => axios.get(`/oauth/device/ZZZZ-ZZZZ`));
+      expect(error?.status).toBe(404);
     });
   });
 });

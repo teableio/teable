@@ -3,9 +3,12 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { TableCreationService } from '../application/services/TableCreationService';
+import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
 import type { BaseId } from '../domain/base/BaseId';
 import { domainError, isDomainError, type DomainError } from '../domain/shared/DomainError';
+import { TableCreated } from '../domain/table/events/TableCreated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { validateForeignTablesForFields } from '../domain/table/fields/ForeignTableRelatedField';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
@@ -13,13 +16,28 @@ import { calculateBatchSize } from '../domain/table/methods/records/calculateBat
 import { RecordId } from '../domain/table/records/RecordId';
 import { TableRecord } from '../domain/table/records/TableRecord';
 import { TableRecordCellValue } from '../domain/table/records/TableRecordFields';
+import { resolveFormulaFields } from '../domain/table/resolveFormulaFields';
 import type { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { ViewId } from '../domain/table/views/ViewId';
-import type { IComputedFieldBackfillService } from '../ports/ComputedFieldBackfillService';
+import { IBaseDataBulkCopier } from '../ports/BaseDataBulkCopier';
+import type {
+  BaseDataBulkCopyPlan,
+  BaseDataBulkCopyResult,
+  BulkCopyJunctionInput,
+  BulkCopyTableInput,
+} from '../ports/BaseDataBulkCopier';
+import { IComputedFieldBackfillService } from '../ports/ComputedFieldBackfillService';
+import { NoopBaseDataBulkCopier } from '../ports/defaults/NoopBaseDataBulkCopier';
+import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { NormalizedDotTeaStructure } from '../ports/DotTeaParser';
 import * as EventBusPort from '../ports/EventBus';
 import type { IExecutionContext } from '../ports/ExecutionContext';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
+import { ITableMapper } from '../ports/mappers/TableMapper';
+import type { ITablePersistenceDTO } from '../ports/mappers/TableMapper';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
+import { TableOperationKind } from '../ports/TableOperationPlugin';
 import type {
   InsertManyStreamBatch,
   RecordRestoreSystemValues,
@@ -34,6 +52,7 @@ import {
   DuplicateBaseCommand,
   type DuplicateBaseDoneEvent,
   type DuplicateBaseEvent,
+  type DuplicateBaseProgressEvent,
   type DuplicateBaseRecordInput,
   type DuplicateBaseResult,
 } from './DuplicateBaseCommand';
@@ -81,6 +100,23 @@ const replaceMappedIds = <T>(value: T, replacements: ReadonlyMap<string, string>
   return JSON.parse(serialized) as T;
 };
 
+const resetDuplicatedViewIdentity = (
+  view: ITablePersistenceDTO['views'][number]
+): ITablePersistenceDTO['views'][number] => {
+  const {
+    version: _version,
+    enableShare: _enableShare,
+    shareId: _shareId,
+    shareMeta: _shareMeta,
+    createdBy: _createdBy,
+    createdTime: _createdTime,
+    lastModifiedBy: _lastModifiedBy,
+    lastModifiedTime: _lastModifiedTime,
+    ...portableState
+  } = view;
+  return { ...portableState, enableShare: false };
+};
+
 @CommandHandler(DuplicateBaseCommand)
 @injectable()
 export class DuplicateBaseHandler
@@ -98,7 +134,22 @@ export class DuplicateBaseHandler
     @inject(v2CoreTokens.unitOfWork)
     private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
     @inject(v2CoreTokens.computedFieldBackfillService)
-    private readonly computedFieldBackfillService: IComputedFieldBackfillService
+    private readonly computedFieldBackfillService: IComputedFieldBackfillService,
+    @inject(v2CoreTokens.tableMapper)
+    private readonly tableMapper: ITableMapper = new DefaultTableMapper(),
+    @inject(v2CoreTokens.recordWritePluginRunner)
+    private readonly recordWritePluginRunner: RecordWritePluginRunner = new RecordWritePluginRunner(
+      [],
+      new NoopLogger(),
+      new DefaultTableMapper()
+    ),
+    @inject(v2CoreTokens.tableOperationPluginRunner)
+    private readonly tableOperationPluginRunner: TableOperationPluginRunner = new TableOperationPluginRunner(
+      [],
+      new NoopLogger()
+    ),
+    @inject(v2CoreTokens.baseDataBulkCopier)
+    private readonly baseDataBulkCopier: IBaseDataBulkCopier = new NoopBaseDataBulkCopier()
   ) {}
 
   async handle(
@@ -139,48 +190,73 @@ export class DuplicateBaseHandler
         };
       }
       let recordsLength = 0;
+      let recordCopyMode: DuplicateBaseDoneEvent['recordCopyMode'] = 'none';
       if (command.withRecords) {
-        for (const table of command.source.structure.tables) {
-          const targetTable = tablesBySourceId.get(table.id ?? '');
-          if (!targetTable || !table.id) continue;
+        const bulkCopyPlan = this.buildBulkCopyPlan(command, tablesBySourceId, result);
+        const bulkCopySupported = bulkCopyPlan
+          ? await this.baseDataBulkCopier.isSupported(context, bulkCopyPlan)
+          : undefined;
+        const bulkCopyReady =
+          bulkCopyPlan !== undefined &&
+          bulkCopySupported?.isOk() === true &&
+          bulkCopySupported.value;
 
-          for await (const event of this.createRecordsStream(context, command, {
-            sourceTableId: table.id,
-            sourceTableName: table.name ?? targetTable.name().toString(),
-            targetTable,
-            tableIdMap: result.tableIdMap,
-            fieldIdMap: result.fieldIdMap,
-            viewIdMap: result.viewIdMap,
-          })) {
-            yield event;
-            if (event.id === 'error') return;
-            if (event.id === 'progress' && event.phase === 'table_data_done') {
-              recordsLength += event.processedRows ?? 0;
+        if (bulkCopyPlan && bulkCopyReady) {
+          // Same-database physical copy: rows, link storage columns and junction
+          // tables are cloned verbatim, so no link restore or computed backfill
+          // runs here; the host recomputes persisted computed columns after the
+          // command completes.
+          recordCopyMode = 'bulk';
+          const bulkCopyResult = yield* this.bulkCopyRecordsStream(context, bulkCopyPlan);
+          if (bulkCopyResult.isErr()) {
+            yield this.errorEvent(bulkCopyResult.error);
+            return;
+          }
+          recordsLength = bulkCopyResult.value.recordsLength;
+        } else {
+          recordCopyMode = 'stream';
+          for (const table of command.source.structure.tables) {
+            const targetTable = tablesBySourceId.get(table.id ?? '');
+            if (!targetTable || !table.id) continue;
+
+            for await (const event of this.createRecordsStream(context, command, {
+              sourceTableId: table.id,
+              sourceTableName: table.name ?? targetTable.name().toString(),
+              targetTable,
+              tableIdMap: result.tableIdMap,
+              fieldIdMap: result.fieldIdMap,
+              viewIdMap: result.viewIdMap,
+            })) {
+              yield event;
+              if (event.id === 'error') return;
+              if (event.id === 'progress' && event.phase === 'table_data_done') {
+                recordsLength += event.processedRows ?? 0;
+              }
             }
           }
-        }
 
-        for (const table of command.source.structure.tables) {
-          const targetTable = tablesBySourceId.get(table.id ?? '');
-          if (!targetTable || !table.id) continue;
+          for (const table of command.source.structure.tables) {
+            const targetTable = tablesBySourceId.get(table.id ?? '');
+            if (!targetTable || !table.id) continue;
 
-          for await (const event of this.restoreLinkFieldsStream(context, command, {
-            sourceTableId: table.id,
-            targetTable,
-            fieldIdMap: result.fieldIdMap,
-          })) {
-            yield event;
-            if (event.id === 'error') return;
+            for await (const event of this.restoreLinkFieldsStream(context, command, {
+              sourceTableId: table.id,
+              targetTable,
+              fieldIdMap: result.fieldIdMap,
+            })) {
+              yield event;
+              if (event.id === 'error') return;
+            }
           }
-        }
 
-        const backfillResult = await this.backfillComputedFields(
-          context,
-          Array.from(tablesBySourceId.values())
-        );
-        if (backfillResult.isErr()) {
-          yield this.errorEvent(backfillResult.error);
-          return;
+          const backfillResult = await this.backfillComputedFields(
+            context,
+            Array.from(tablesBySourceId.values())
+          );
+          if (backfillResult.isErr()) {
+            yield this.errorEvent(backfillResult.error);
+            return;
+          }
         }
       }
 
@@ -191,6 +267,7 @@ export class DuplicateBaseHandler
         fieldIdMap: result.fieldIdMap,
         viewIdMap: result.viewIdMap,
         recordsLength,
+        recordCopyMode,
       } satisfies DuplicateBaseDoneEvent;
     } catch (error) {
       yield this.errorEvent(
@@ -220,10 +297,28 @@ export class DuplicateBaseHandler
         normalized
       );
 
+      const replacements = new Map<string, string>([
+        ...(normalized.id ? ([[normalized.id, command.baseId.toString()]] as const) : []),
+        ...Object.entries(tableIdMap),
+        ...Object.entries(fieldIdMap),
+        ...Object.entries(viewIdMap),
+      ]);
       const buildResults = yield* sequence(
         remapped.tables.map((table, tableIndex) => {
           const tableId = table.id!;
           const tableName = table.name ?? `Table ${tableIndex + 1}`;
+          const sourceTableId = normalized.tables[tableIndex]?.id;
+          const snapshot = sourceTableId
+            ? command.source.tableSnapshots?.get(sourceTableId)
+            : undefined;
+          if (snapshot) {
+            return handler.buildTableFromSnapshot(snapshot, {
+              baseId: command.baseId,
+              tableId,
+              tableName,
+              replacements,
+            });
+          }
           return buildTableFromInput(
             {
               baseId: command.baseId.toString(),
@@ -250,13 +345,31 @@ export class DuplicateBaseHandler
                 name: view.name,
               })),
             },
-            { executionContext: context }
+            { executionContext: context, aiConfigMode: 'trustedRehydrate' }
           );
         })
       );
 
       const builtTables = buildResults.map((r) => r.table);
       const referencesByTable = buildResults.map((r) => r.foreignTableReferences);
+      const tablePluginExecution = yield* await handler.tableOperationPluginRunner.prepare({
+        kind: TableOperationKind.createMany,
+        executionContext: context,
+        payload: {
+          baseId: command.baseId,
+          tables: builtTables.map((table) => ({
+            baseId: command.baseId,
+            tableName: table.name(),
+            table,
+            fieldCount: table.getFields().length,
+            viewCount: table.views().length,
+            recordCount: 0,
+            viewNames: table.views().map((view) => view.name().toString()),
+          })),
+        },
+        isTransactionBound: false,
+      });
+      yield* await tablePluginExecution.guard();
       const allReferences = uniqueForeignTableReferences(referencesByTable.flat());
       const internalTableIds = new Set(builtTables.map((table) => table.id().toString()));
       const externalReferences = allReferences.filter(
@@ -313,6 +426,186 @@ export class DuplicateBaseHandler
         ),
       });
     });
+  }
+
+  private buildTableFromSnapshot(
+    snapshot: ITablePersistenceDTO,
+    params: {
+      baseId: BaseId;
+      tableId: string;
+      tableName: string;
+      replacements: ReadonlyMap<string, string>;
+    }
+  ) {
+    const remapped = replaceMappedIds(snapshot, params.replacements);
+    const dto: ITablePersistenceDTO = {
+      ...remapped,
+      id: params.tableId,
+      baseId: params.baseId.toString(),
+      name: params.tableName,
+      dbTableName: `${params.baseId.toString()}.${params.tableId}`,
+      fields: remapped.fields,
+      views: remapped.views.map(resetDuplicatedViewIdentity),
+    };
+
+    return this.tableMapper.toDomain(dto).andThen((table) =>
+      resolveFormulaFields(table).andThen(() =>
+        table.foreignTableReferences().map((foreignTableReferences) => {
+          table.addDomainEvent(
+            TableCreated.create({
+              tableId: table.id(),
+              baseId: table.baseId(),
+              tableName: table.name(),
+              fieldIds: table.fieldIds(),
+              viewIds: table.viewIds(),
+            })
+          );
+          return { table, fieldSpecs: [], foreignTableReferences };
+        })
+      )
+    );
+  }
+
+  /**
+   * Assembles the physical copy plan for the same-database fast path. Returns
+   * undefined — falling back to row streaming — whenever the source carries no
+   * physical layout (portable imports) or a freshly created target table does
+   * not expose its physical name yet.
+   */
+  private buildBulkCopyPlan(
+    command: DuplicateBaseCommand,
+    tablesBySourceId: ReadonlyMap<string, Table>,
+    result: {
+      tableIdMap: Record<string, string>;
+      fieldIdMap: Record<string, string>;
+      viewIdMap: Record<string, string>;
+    }
+  ): BaseDataBulkCopyPlan | undefined {
+    const source = command.source;
+    const sourceDbTableNameByTableId = source.sourceDbTableNameByTableId;
+    if (!sourceDbTableNameByTableId) {
+      return undefined;
+    }
+
+    const dtoByTableId = new Map<string, ITablePersistenceDTO>();
+    const targetDto = (table: Table): ITablePersistenceDTO | undefined => {
+      const tableId = table.id().toString();
+      const cached = dtoByTableId.get(tableId);
+      if (cached) return cached;
+      const dtoResult = this.tableMapper.toDTO(table);
+      if (dtoResult.isErr()) return undefined;
+      dtoByTableId.set(tableId, dtoResult.value);
+      return dtoResult.value;
+    };
+
+    const tables: BulkCopyTableInput[] = [];
+    for (const sourceTable of source.structure.tables) {
+      const sourceTableId = sourceTable.id;
+      if (!sourceTableId) continue;
+      const targetTable = tablesBySourceId.get(sourceTableId);
+      if (!targetTable) continue;
+      const sourceDbTableName = sourceDbTableNameByTableId[sourceTableId];
+      const targetDbTableNameResult = targetTable.dbTableName().andThen((name) => name.value());
+      const dto = targetDto(targetTable);
+      if (!sourceDbTableName || targetDbTableNameResult.isErr() || !dto) {
+        return undefined;
+      }
+      const excludedTargetColumns = dto.fields
+        .filter((field) => field.isComputed === true || field.type === 'button')
+        .map((field) => field.dbFieldName)
+        .filter((name): name is string => typeof name === 'string' && name.length > 0);
+      tables.push({
+        sourceTableId,
+        targetTableId: targetTable.id().toString(),
+        targetTableName: targetTable.name().toString(),
+        sourceDbTableName,
+        targetDbTableName: targetDbTableNameResult.value,
+        excludedTargetColumns,
+        linkValueColumns: source.linkValueColumnsByTableId?.[sourceTableId] ?? [],
+      });
+    }
+    if (tables.length === 0) {
+      return undefined;
+    }
+
+    // Junction pairs join the source physical link storage (pre-filtered by the
+    // host for cross-base allowance and disconnected links) with the freshly
+    // created target link fields; a source link whose target is no longer a
+    // link has no junction to copy.
+    const junctions: BulkCopyJunctionInput[] = [];
+    const seenJunctions: Record<string, true> = {};
+    for (const sourceLinkField of source.sourceLinkFields ?? []) {
+      if (!sourceLinkField.fkHostTableName.includes('junction_')) continue;
+      const targetFieldId = result.fieldIdMap[sourceLinkField.fieldId];
+      const targetTable = tablesBySourceId.get(sourceLinkField.tableId);
+      if (!targetFieldId || !targetTable) continue;
+      const dto = targetDto(targetTable);
+      if (!dto) return undefined;
+      const targetLinkField = dto.fields.find(
+        (field) => field.id === targetFieldId && field.type === 'link'
+      );
+      if (!targetLinkField || targetLinkField.type !== 'link') continue;
+      const { fkHostTableName, selfKeyName, foreignKeyName } = targetLinkField.options;
+      if (!fkHostTableName || !selfKeyName || !foreignKeyName) continue;
+      const junctionKey = `${sourceLinkField.fkHostTableName}:${fkHostTableName}`;
+      if (seenJunctions[junctionKey]) continue;
+      seenJunctions[junctionKey] = true;
+      junctions.push({
+        sourceJunctionDbTableName: sourceLinkField.fkHostTableName,
+        targetJunctionDbTableName: fkHostTableName,
+        sourceSelfKeyName: sourceLinkField.selfKeyName,
+        sourceForeignKeyName: sourceLinkField.foreignKeyName,
+        targetSelfKeyName: selfKeyName,
+        targetForeignKeyName: foreignKeyName,
+      });
+    }
+
+    return {
+      tables,
+      junctions,
+      viewIdMap: result.viewIdMap,
+      fieldIdMap: result.fieldIdMap,
+      batchSize: command.batchSize,
+    };
+  }
+
+  /**
+   * Bridges the copier's progress callback into the command event stream while
+   * the physical copy runs.
+   */
+  private async *bulkCopyRecordsStream(
+    context: IExecutionContext,
+    plan: BaseDataBulkCopyPlan
+  ): AsyncGenerator<DuplicateBaseProgressEvent, Result<BaseDataBulkCopyResult, DomainError>> {
+    const queue: DuplicateBaseProgressEvent[] = [];
+    let wake: (() => void) | undefined;
+    const copyPromise: Promise<Result<BaseDataBulkCopyResult, DomainError>> =
+      this.baseDataBulkCopier
+        .copyBaseData(context, plan, (progress) => {
+          queue.push({ id: 'progress', ...progress });
+          wake?.();
+        })
+        .catch((error: unknown) =>
+          err(domainError.fromUnknown(error, { code: 'duplicate_base.bulk_copy_failed' }))
+        );
+    let settled = false;
+    void copyPromise.then(() => {
+      settled = true;
+      wake?.();
+    });
+
+    while (queue.length > 0 || !settled) {
+      const event = queue.shift();
+      if (event) {
+        yield event;
+        continue;
+      }
+      await new Promise<void>((resolve) => {
+        wake = resolve;
+      });
+      wake = undefined;
+    }
+    return copyPromise;
   }
 
   private async backfillComputedFields(
@@ -433,21 +726,50 @@ export class DuplicateBaseHandler
       this.getSourceLinkFieldIds(command, params.sourceTableId)
     )) {
       const currentBatchIndex = batchIndex;
+      const pluginExecutionResult = await this.recordWritePluginRunner.prepare({
+        kind: RecordWriteOperationKind.duplicateStream,
+        executionContext: context,
+        table: params.targetTable,
+        payload: {
+          sourceRecordIds: batch.records.map((record) => record.id()),
+          recordsFieldValues: batch.records.map(tableRecordToRecordWriteFieldValues),
+          batchSize,
+          recordCount: batch.records.length,
+        },
+        isTransactionBound: false,
+      });
+      if (pluginExecutionResult.isErr()) {
+        yield this.errorEvent(pluginExecutionResult.error);
+        return;
+      }
+      const pluginExecution = pluginExecutionResult.value;
+      const guardResult = await pluginExecution.guard();
+      if (guardResult.isErr()) {
+        yield this.errorEvent(guardResult.error);
+        return;
+      }
+
+      const recordRepository = this.tableRecordRepository;
       const result = await this.unitOfWork.withTransaction(context, async (transactionContext) =>
-        this.tableRecordRepository.insertManyStream(
-          transactionContext,
-          params.targetTable,
-          [batch],
-          {
-            skipComputedUpdates: true,
-            skipChangedFields: true,
-          }
-        )
+        safeTry<{ totalInserted: number }, DomainError>(async function* () {
+          yield* await pluginExecution.beforePersist(transactionContext);
+          const inserted = yield* await recordRepository.insertManyStream(
+            transactionContext,
+            params.targetTable,
+            [batch],
+            {
+              skipComputedUpdates: true,
+              skipChangedFields: true,
+            }
+          );
+          return ok(inserted);
+        })
       );
       if (result.isErr()) {
         yield this.errorEvent(result.error);
         return;
       }
+      await pluginExecution.afterCommit();
 
       totalInserted += result.value.totalInserted;
       yield {
@@ -686,10 +1008,25 @@ export class DuplicateBaseHandler
   }
 
   private errorEvent(error: DomainError): DuplicateBaseEvent {
-    return {
+    const event: DuplicateBaseEvent = {
       id: 'error',
       message: error.message,
       code: error.code,
     };
+    Object.defineProperty(event, 'error', {
+      value: error,
+      enumerable: false,
+      configurable: false,
+      writable: false,
+    });
+    return event;
   }
 }
+
+const tableRecordToRecordWriteFieldValues = (record: TableRecord): ReadonlyMap<string, unknown> =>
+  new Map(
+    record
+      .fields()
+      .entries()
+      .map((entry) => [entry.fieldId.toString(), entry.value.toValue()] as const)
+  );

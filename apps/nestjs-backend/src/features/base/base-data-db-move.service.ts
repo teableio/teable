@@ -295,7 +295,9 @@ export class BaseDataDbMoveService {
         lastError: null,
       });
 
-      await this.copyService.assertPostgresToolsAvailable('pg_dump_stream_restore');
+      await this.copyService.assertPostgresToolsAvailable('pg_dump_stream_restore', {
+        sourceUrl,
+      });
       await mkdir(workDir, { recursive: true });
 
       await this.assertTargetSchemaAbsent(targetUrl, inventory.baseId);
@@ -324,6 +326,7 @@ export class BaseDataDbMoveService {
         spaceIds: [],
         baseIds: [inventory.baseId],
         tableIds: inventory.tableIds,
+        includePauseScopes: true,
         includeSpacePauseScopes: false,
       });
       const sharedResults = await this.copyService.copySharedTables(sharedPlans);

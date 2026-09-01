@@ -119,7 +119,7 @@ export function ModelCard({
             model.isImageModel ||
             model.tags?.includes('image-generation')) && (
             <Badge variant="secondary" className="text-xs">
-              <ImageIcon className="mr-1 size-3" />
+              <ImageIcon className="me-1 size-3" />
               Image
             </Badge>
           )}

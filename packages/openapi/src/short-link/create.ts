@@ -9,6 +9,7 @@ export enum ShortLinkType {
   ViewShare = 'view-share',
   BaseShare = 'base-share',
   Template = 'template',
+  Artifact = 'artifact',
 }
 
 export const createShortLinkRoSchema = z.object({

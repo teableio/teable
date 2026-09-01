@@ -198,6 +198,11 @@ export class ComputedFieldCascadeAfterSchemaUpdate {
           includeComputedSeedFields: true,
         }
       );
+      // Steps-only by design: this cascade executes per-step backfills (no
+      // propagation machinery), and its planner always includes the altered
+      // table's own step (includeComputedSeedFields) — steps.length === 0 truly
+      // means no work, unlike the strategy/worker paths where edge-only plans
+      // are executable.
       if (plan.steps.length === 0) return ok(undefined);
 
       const sortedSteps = [...plan.steps].sort((a, b) => a.level - b.level);

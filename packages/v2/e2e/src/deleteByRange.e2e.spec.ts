@@ -1210,6 +1210,111 @@ describe('v2 http deleteByRange (e2e)', () => {
     });
   });
 
+  describe('deleteByRange with lookup-backed formula filter (v1 parity)', () => {
+    it('should delete selection when filter compares text field to lookup-backed formula', async () => {
+      const detailTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Delete Order Details ${Date.now()}`,
+        fields: [{ name: 'External Number', type: 'singleLineText', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+      const externalNumberFieldId = detailTable.fields.find((field) => field.isPrimary)?.id ?? '';
+      const detail1 = await ctx.createRecord(detailTable.id, {
+        [externalNumberFieldId]: 'ORD-001',
+      });
+      await ctx.createRecord(detailTable.id, { [externalNumberFieldId]: 'ORD-002' });
+
+      const orderTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Delete Orders ${Date.now()}`,
+        fields: [{ name: 'Order Number', type: 'singleLineText', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+      const orderNumberFieldId = orderTable.fields.find((field) => field.isPrimary)?.id ?? '';
+
+      const orderTableWithLink = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: orderTable.id,
+        field: {
+          name: 'Detail Link',
+          type: 'link',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: detailTable.id,
+            lookupFieldId: externalNumberFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+      const linkFieldId =
+        orderTableWithLink.fields.find((field) => field.name === 'Detail Link')?.id ?? '';
+
+      const orderTableWithLookup = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: orderTable.id,
+        field: {
+          name: 'External Number Lookup',
+          type: 'lookup',
+          options: {
+            linkFieldId,
+            foreignTableId: detailTable.id,
+            lookupFieldId: externalNumberFieldId,
+          },
+        },
+      });
+      const lookupFieldId =
+        orderTableWithLookup.fields.find((field) => field.name === 'External Number Lookup')?.id ??
+        '';
+
+      const orderTableWithFormula = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: orderTable.id,
+        field: {
+          name: 'Match Flag',
+          type: 'formula',
+          options: {
+            expression: `IF({${orderNumberFieldId}} = {${lookupFieldId}}, "match", "not-match")`,
+          },
+        },
+      });
+      const formulaFieldId =
+        orderTableWithFormula.fields.find((field) => field.name === 'Match Flag')?.id ?? '';
+
+      const order1 = await ctx.createRecord(orderTable.id, {
+        [orderNumberFieldId]: 'ORD-001',
+        [linkFieldId]: { id: detail1.id },
+      });
+      const order2 = await ctx.createRecord(orderTable.id, {
+        [orderNumberFieldId]: 'ORD-002',
+      });
+      await ctx.drainOutbox();
+
+      const beforeRecords = await ctx.listRecords(orderTable.id);
+      expect(beforeRecords.find((record) => record.id === order1.id)?.fields[formulaFieldId]).toBe(
+        'match'
+      );
+
+      const result = await ctx.deleteByRange({
+        tableId: orderTable.id,
+        viewId: orderTable.views[0].id,
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        filter: {
+          fieldId: formulaFieldId,
+          operator: 'is',
+          value: 'match',
+        },
+      });
+
+      expect(result.deletedCount).toBe(1);
+
+      const afterRecords = await ctx.listRecords(orderTable.id);
+      expect(afterRecords.map((record) => record.id)).toEqual([order2.id]);
+    });
+  });
+
   describe('deleteByRange with search', () => {
     let searchTableId: string;
     let searchViewId: string;

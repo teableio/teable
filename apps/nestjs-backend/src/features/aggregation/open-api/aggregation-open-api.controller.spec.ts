@@ -4,6 +4,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { vi } from 'vitest';
 import { AggregationService } from '../aggregation.service';
 import { AGGREGATION_SERVICE_SYMBOL } from '../aggregation.service.symbol';
+import { AggregationOpenApiV2Service } from './aggregation-open-api-v2.service';
 import { AggregationOpenApiController } from './aggregation-open-api.controller';
 import { AggregationOpenApiService } from './aggregation-open-api.service';
 
@@ -23,7 +24,7 @@ describe('AggregationOpenApiController', () => {
       ],
     })
       .useMocker((token) => {
-        if (token === PrismaService) {
+        if (token === PrismaService || token === AggregationOpenApiV2Service) {
           return vi.fn();
         }
       })

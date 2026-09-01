@@ -112,12 +112,12 @@ export const Selector: React.FC<ISelectorProps> = ({
               >
                 <Check
                   className={cn(
-                    'mr-2 h-4 w-4 flex-shrink-0',
+                    'me-2 h-4 w-4 flex-shrink-0',
                     id === selectedId ? 'opacity-100' : 'opacity-0'
                   )}
                 />
                 {icon}{' '}
-                <span className={cn('ml-2 truncate', name ? '' : 'text-primary/60')}>
+                <span className={cn('ms-2 truncate', name ? '' : 'text-primary/60')}>
                   {name ? name : defaultName}
                 </span>
               </CommandItem>

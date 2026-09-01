@@ -119,12 +119,13 @@ describe('update-field: checkbox property updates', () => {
       field: { options: { defaultValue: false } },
     });
 
-    // Assert: New records get false by default
+    // The option remains false while new unchecked cells are stored as null.
     const updatedField = updatedTable.fields.find((f) => f.id === fieldId);
     expect((updatedField?.options as CheckboxFieldOptions | undefined)?.defaultValue).toBe(false);
 
     const r1 = await ctx.createRecord(tableId, {});
-    expect(r1.fields[fieldId]).toBe(false);
+    // v1 contract: a false default is stored as null, so the cell stays empty
+    expect(r1.fields[fieldId] == null).toBe(true);
 
     // Cleanup
     await ctx.deleteField({ tableId, fieldId });
@@ -224,7 +225,7 @@ describe('update-field: checkbox conversions', () => {
   });
 
   test('should convert checkbox to text', async () => {
-    // Setup: Create checkbox field with values: true, false, null
+    // Setup: Create checkbox field with checked and empty values.
     const fieldId = createFieldId();
     await ctx.createField({
       baseId: ctx.baseId,
@@ -242,10 +243,11 @@ describe('update-field: checkbox conversions', () => {
       field: { type: 'singleLineText' },
     });
 
-    // Assert: Values become "true", "false", null
+    // Assert: Checked becomes "true" while unchecked and empty remain null.
     const records = await ctx.listRecords(tableId);
     expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toBe('true');
-    expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toBe('false');
+    // v1 contract: false input was stored as null, so it converts to an empty cell
+    expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toBeNull();
     expect(records.find((r) => r.id === r3.id)?.fields[fieldId]).toBeNull();
 
     // Cleanup
@@ -254,7 +256,7 @@ describe('update-field: checkbox conversions', () => {
   });
 
   test('should convert checkbox to number', async () => {
-    // Setup: Create checkbox field with values: true, false, null
+    // Setup: Create checkbox field with checked and empty values.
     const fieldId = createFieldId();
     await ctx.createField({
       baseId: ctx.baseId,
@@ -272,10 +274,11 @@ describe('update-field: checkbox conversions', () => {
       field: { type: 'number' },
     });
 
-    // Assert: Values become 1, 0, null
+    // Assert: Checked becomes 1 while unchecked and empty remain null.
     const records = await ctx.listRecords(tableId);
     expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toBe(1);
-    expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toBe(0);
+    // v1 contract: false input was stored as null, so it converts to an empty cell
+    expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toBeNull();
     expect(records.find((r) => r.id === r3.id)?.fields[fieldId]).toBeNull();
 
     // Cleanup
@@ -284,7 +287,7 @@ describe('update-field: checkbox conversions', () => {
   });
 
   test('should convert checkbox to singleSelect with option generation', async () => {
-    // Setup: Create checkbox field with values: true, false
+    // Setup: Only checked values remain after false is normalized to null.
     const fieldId = createFieldId();
     await ctx.createField({
       baseId: ctx.baseId,
@@ -301,18 +304,16 @@ describe('update-field: checkbox conversions', () => {
       field: { type: 'singleSelect' },
     });
 
-    // Assert:
-    // - Values become "true", "false"
-    // - Options auto-generated: [{name: "true", ...}, {name: "false", ...}]
+    // Assert: only the stored checked value generates a select option.
     const updatedField = updatedTable.fields.find((f) => f.id === fieldId);
     expect(updatedField?.type).toBe('singleSelect');
     const options = updatedField?.options as { choices: { name: string }[] };
+    // v1 contract: false is stored as null, so only 'true' exists to become a choice
     expect(options.choices.map((c) => c.name)).toContain('true');
-    expect(options.choices.map((c) => c.name)).toContain('false');
 
     const records = await ctx.listRecords(tableId);
     expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toBe('true');
-    expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toBe('false');
+    expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toBeNull();
 
     // Cleanup
     await ctx.deleteField({ tableId, fieldId });
@@ -320,7 +321,7 @@ describe('update-field: checkbox conversions', () => {
   });
 
   test('should convert checkbox to multipleSelect with option generation', async () => {
-    // Setup: Create checkbox field with values: true, false, null
+    // Setup: Only checked values remain after false is normalized to null.
     const fieldId = createFieldId();
     await ctx.createField({
       baseId: ctx.baseId,
@@ -338,18 +339,16 @@ describe('update-field: checkbox conversions', () => {
       field: { type: 'multipleSelect' },
     });
 
-    // Assert:
-    // - Values become ["true"], ["false"], null
-    // - Options auto-generated: [{name: "true", ...}, {name: "false", ...}]
+    // Assert: only the stored checked value generates a select option.
     const updatedField = updatedTable.fields.find((f) => f.id === fieldId);
     expect(updatedField?.type).toBe('multipleSelect');
     const options = updatedField?.options as { choices: { name: string }[] };
+    // v1 contract: false is stored as null, so only 'true' exists to become a choice
     expect(options.choices.map((c) => c.name)).toContain('true');
-    expect(options.choices.map((c) => c.name)).toContain('false');
 
     const records = await ctx.listRecords(tableId);
     expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toEqual(['true']);
-    expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toEqual(['false']);
+    expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toBeNull();
     expect(records.find((r) => r.id === r3.id)?.fields[fieldId]).toBeNull();
 
     // Cleanup
@@ -358,7 +357,7 @@ describe('update-field: checkbox conversions', () => {
   });
 
   test('should convert checkbox to rating', async () => {
-    // Setup: Create checkbox field with values: true, false, null
+    // Setup: Create checkbox field with checked and empty values.
     const fieldId = createFieldId();
     await ctx.createField({
       baseId: ctx.baseId,
@@ -379,13 +378,14 @@ describe('update-field: checkbox conversions', () => {
       },
     });
 
-    // Assert: Values become 5 (max), 0, null
+    // Assert: Checked becomes max while unchecked and empty remain null.
     const updatedField = updatedTable.fields.find((f) => f.id === fieldId);
     expect(updatedField?.type).toBe('rating');
 
     const records = await ctx.listRecords(tableId);
     expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toBe(5);
-    expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toBe(0);
+    // v1 contract: false input was stored as null, so it converts to an empty cell
+    expect(records.find((r) => r.id === r2.id)?.fields[fieldId]).toBeNull();
     expect(records.find((r) => r.id === r3.id)?.fields[fieldId]).toBeNull();
 
     // Cleanup

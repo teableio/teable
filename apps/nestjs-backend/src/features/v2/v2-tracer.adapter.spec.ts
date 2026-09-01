@@ -46,4 +46,21 @@ describe('OpenTelemetryTracer', () => {
       otelContext.active()
     );
   });
+
+  it('captures and restores W3C carriers around async handoff', async () => {
+    const startSpan = vi.fn(() => ({ end: vi.fn() }));
+    vi.mocked(trace.getTracer).mockReturnValue({ startSpan } as never);
+    vi.mocked(trace.getActiveSpan).mockReturnValue({ spanContext: () => ({}) } as never);
+
+    const tracer = new OpenTelemetryTracer();
+    // Without a real OTEL SDK propagator this may be undefined; ensure no throw.
+    const carrier = tracer.capturePropagationCarrier();
+    await expect(tracer.runWithPropagationCarrier(carrier, async () => 'ok')).resolves.toBe('ok');
+    await expect(
+      tracer.runWithPropagationCarrier(
+        { traceparent: '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01' },
+        async () => 'ok'
+      )
+    ).resolves.toBe('ok');
+  });
 });

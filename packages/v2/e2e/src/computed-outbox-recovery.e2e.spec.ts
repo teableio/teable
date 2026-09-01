@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { computedUpdateLockKeyForRecord } from '@teable/v2-adapter-table-repository-postgres';
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
   createRecordOkResponseSchema,
@@ -350,7 +351,10 @@ describe('computed outbox recovery (e2e)', () => {
     });
 
     const scenario = await prepareLockContentionScenario(harness);
-    const computedLockKey = `v2:computed:${scenario.sourceTableId}:${scenario.sourceRecordId}`;
+    const computedLockKey = computedUpdateLockKeyForRecord(
+      scenario.sourceTableId,
+      scenario.sourceRecordId
+    );
     let targetRecordId = '';
     let requeuedTaskId = '';
 
@@ -369,7 +373,9 @@ describe('computed outbox recovery (e2e)', () => {
       });
       targetRecordId = targetRecord.id;
 
-      expect(await harness.testContainer.processOutboxOnce()).toBe(0);
+      // Per-record keys let disjoint target work finish while the source row
+      // is held. The source-keyed task must still miss and requeue.
+      await harness.testContainer.processOutboxOnce();
 
       const pendingTask = await harness.testContainer.db
         .selectFrom('computed_update_outbox')

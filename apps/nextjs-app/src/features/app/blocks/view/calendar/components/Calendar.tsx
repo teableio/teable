@@ -1,9 +1,16 @@
 /* eslint-disable import/no-duplicates */
 import type { EventDropArg, EventInput, EventMountArg } from '@fullcalendar/core/index.js';
+import arLocale from '@fullcalendar/core/locales/ar';
+import deLocale from '@fullcalendar/core/locales/de';
 import enGbLocale from '@fullcalendar/core/locales/en-gb';
+import esLocale from '@fullcalendar/core/locales/es';
 import frLocale from '@fullcalendar/core/locales/fr';
+import heLocale from '@fullcalendar/core/locales/he';
+import itLocale from '@fullcalendar/core/locales/it';
 import jaLocale from '@fullcalendar/core/locales/ja';
 import ruLocale from '@fullcalendar/core/locales/ru';
+import trLocale from '@fullcalendar/core/locales/tr';
+import ukLocale from '@fullcalendar/core/locales/uk';
 import zhCnLocale from '@fullcalendar/core/locales/zh-cn';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import type { EventResizeDoneArg } from '@fullcalendar/interaction';
@@ -29,7 +36,7 @@ import {
   cn,
 } from '@teable/ui-lib/shadcn';
 import { addDays, subDays, format, set } from 'date-fns';
-import { enUS, zhCN, ja, ru, fr } from 'date-fns/locale';
+import { ar, de, enUS, es, fr, he, it, ja, ru, tr, uk, zhCN } from 'date-fns/locale';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { useTranslation } from 'next-i18next';
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -48,6 +55,13 @@ const FULL_CALENDAR_LOCALE_MAP = {
   ja: jaLocale,
   ru: ruLocale,
   fr: frLocale,
+  de: deLocale,
+  es: esLocale,
+  it: itLocale,
+  tr: trLocale,
+  uk: ukLocale,
+  ar: arLocale,
+  he: heLocale,
 };
 
 // Remember to update in @sdk/src/components/editor/date/EditorMain.tsx
@@ -57,6 +71,13 @@ const DATE_PICKER_LOCAL_MAP = {
   ja: ja,
   ru: ru,
   fr: fr,
+  de: de,
+  es: es,
+  it: it,
+  tr: tr,
+  uk: uk,
+  ar: ar,
+  he: he,
 };
 
 export interface ICalendarProps {
@@ -436,7 +457,7 @@ export const Calendar = (props: ICalendarProps) => {
             {title || calendarRef.current?.getApi().view.title}
             <Loader2
               className={cn(
-                'ml-1 size-5 animate-spin transition-opacity duration-1000',
+                'ms-1 size-5 animate-spin transition-opacity duration-1000',
                 isLoading ? 'opacity-100' : 'opacity-0'
               )}
             />

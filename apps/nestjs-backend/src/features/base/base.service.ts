@@ -242,7 +242,12 @@ export class BaseService {
       });
     }
     const role = getMaxLevelRole(collaborators);
-    const collaborator = collaborators.find((c) => c.roleName === role);
+    // On equal roles prefer the space row: findMany is unordered, and consumers
+    // gate space-level features on collaboratorType (a space Creator who is
+    // also a base Creator must not randomly read as base-only).
+    const collaborator =
+      collaborators.find((c) => c.roleName === role && c.resourceType === CollaboratorType.Space) ??
+      collaborators.find((c) => c.roleName === role);
     return {
       role: role,
       collaboratorType: collaborator?.resourceType as CollaboratorType,
@@ -313,10 +318,38 @@ export class BaseService {
     };
   }
 
+  /**
+   * Narrow a base list to what a personal access token is allowed to see.
+   * The token's resource access range (spaceIds/baseIds) is a hard boundary:
+   * `base|read_all` only says the token may read bases, not which ones. Mirrors
+   * SpaceService.filterSpaceListWithAccessToken so the base list and space list
+   * enforce the token range consistently. No-op for user (non-token) requests.
+   */
+  private async filterBaseListWithAccessToken<T extends { id: string; spaceId: string }>(
+    baseList: T[]
+  ) {
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (!accessTokenId) {
+      return baseList;
+    }
+    const accessToken = await this.permissionService.getAccessToken(accessTokenId);
+    if (accessToken.hasFullAccess) {
+      return baseList;
+    }
+    const allowedSpaceIds = new Set(accessToken.spaceIds ?? []);
+    const allowedBaseIds = new Set(accessToken.baseIds ?? []);
+    if (allowedSpaceIds.size === 0 && allowedBaseIds.size === 0) {
+      return [];
+    }
+    return baseList.filter(
+      (base) => allowedBaseIds.has(base.id) || allowedSpaceIds.has(base.spaceId)
+    );
+  }
+
   async getAllBaseList() {
     const { spaceIds, baseIds, roleMap } =
       await this.collaboratorService.getCurrentUserCollaboratorsBaseAndSpaceArray();
-    const baseList = await this.prismaService.base.findMany({
+    const baseListAll = await this.prismaService.base.findMany({
       select: {
         id: true,
         name: true,
@@ -334,6 +367,8 @@ export class BaseService {
       },
       orderBy: [{ spaceId: 'asc' }, { order: 'asc' }],
     });
+
+    const baseList = await this.filterBaseListWithAccessToken(baseListAll);
 
     if (!baseList.length) {
       return [];
@@ -874,6 +909,7 @@ export class BaseService {
         purgedTableIds = tableIds;
 
         await this.dropBase(baseId, tableIds);
+        await this.purgeComputedOutboxForBase(baseId, tableIds);
         await this.tableOpenApiService.cleanReferenceFieldIds(tableIds);
         await this.tableOpenApiService.cleanTaskRelatedData(tableIds);
         await this.tableOpenApiService.cleanTablesRelatedData(baseId, tableIds, {
@@ -909,6 +945,7 @@ export class BaseService {
       purgedTableIds = tableIds;
 
       await this.dropBaseTable(tableIds);
+      await this.purgeComputedOutboxForBase(baseId, tableIds);
       await this.tableOpenApiService.cleanReferenceFieldIds(tableIds);
       await this.tableOpenApiService.cleanTaskRelatedData(tableIds);
       await this.tableOpenApiService.cleanTablesRelatedData(baseId, tableIds, {
@@ -994,6 +1031,50 @@ export class BaseService {
 
   async dropBaseTable(tableIds: string[]) {
     await this.tableOpenApiService.dropTables(tableIds);
+  }
+
+  /**
+   * The computed outbox ledger (pending tasks, dead letters, pause scopes,
+   * activity projections) lives in shared tables on the base's data database,
+   * outside the schema that dropBase removes. Purge it explicitly: a leftover
+   * pending task replays into a "Table not found" dead letter, and a leftover
+   * dead letter sits on the admin anomaly page forever with nothing left to
+   * recover (T6634).
+   */
+  async purgeComputedOutboxForBase(baseId: string, tableIds: string[]) {
+    try {
+      const scopedDataPrisma = await this.dataDbClientManager.dataPrismaForBase(baseId, {
+        useTransaction: true,
+      });
+      const executor = this.getDataPrismaExecutor(scopedDataPrisma);
+      const byBaseStatements = [
+        `delete from "computed_update_outbox_seed" where "task_id" in (select "id" from "computed_update_outbox" where "base_id" = $1)`,
+        `delete from "computed_update_stage_ledger" where "scope_id" in (select coalesce(case when jsonb_typeof("dirty_stats") = 'object' then "dirty_stats"->>'ledgerScopeId' end, "id") from "computed_update_outbox" where "base_id" = $1)`,
+        `delete from "computed_update_outbox" where "base_id" = $1`,
+        `delete from "computed_update_dead_letter" where "base_id" = $1`,
+        `delete from "computed_update_run_history" where "base_id" = $1`,
+        `delete from "computed_task_field_ref" where "base_id" = $1`,
+        `delete from "computed_field_activity" where "base_id" = $1`,
+        `delete from "computed_table_activity" where "base_id" = $1`,
+      ];
+      for (const statement of byBaseStatements) {
+        await executor.$executeRawUnsafe(statement, baseId);
+      }
+      await executor.$executeRawUnsafe(
+        `delete from "computed_update_pause_scope" where ("scope_type" = 'base' and "scope_id" = $1) or ("scope_type" = 'table' and "scope_id" in (select jsonb_array_elements_text($2::jsonb)))`,
+        baseId,
+        JSON.stringify(tableIds)
+      );
+    } catch (error) {
+      handleBestEffortDataDbDropError({
+        error,
+        isMetaFallback: await this.dataDbClientManager.isMetaFallbackForBase(baseId, {
+          useTransaction: true,
+        }),
+        logger: this.logger,
+        target: `computed outbox ledger for base ${baseId}`,
+      });
+    }
   }
 
   async cleanBaseRelatedData(baseId: string) {
@@ -1115,6 +1196,7 @@ export class BaseService {
           where: { id: baseId },
           data: { spaceId: targetSpaceId },
         });
+        await this.afterMetaMoveBase(baseId, targetSpaceId);
       });
     } catch (error) {
       this.logger.error(
@@ -1142,6 +1224,10 @@ export class BaseService {
       }
     }
   }
+
+  // Edition hook: runs inside the move transaction, after base.spaceId is updated.
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  protected async afterMetaMoveBase(_baseId: string, _targetSpaceId: string): Promise<void> {}
 
   async previewMoveBaseCrossSpace(
     baseId: string,

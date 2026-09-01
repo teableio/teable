@@ -57,8 +57,19 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
     ) {
       return this.executeSearchVectorSchemaMaintenance(context, task);
     }
+    // Policy-driven reclaim: drops only advisor-managed objects (the reconciler
+    // enforces the __tqops_search_* naming contract), so it runs without the
+    // manual-index-execution gate, like schema maintenance.
+    if (task.kind === 'drop_search_access_path') {
+      return this.executeSearchAccessPathDrop(context, task);
+    }
     if (!input.allowManualIndexExecution) {
-      return ok({ skipped: true, reason: 'manual index execution disabled' });
+      return err(
+        domainError.forbidden({
+          code: 'table_query_ops.index_execution_disabled',
+          message: 'Table query index execution is disabled',
+        })
+      );
     }
     if (manualSearchVectorTaskKinds[task.kind]) {
       try {
@@ -75,6 +86,12 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
         return err(toInfrastructureError(error, 'Failed to execute search vector remediation'));
       }
     }
+    return this.executeGenericIndexTask(task);
+  }
+
+  private async executeGenericIndexTask(
+    task: ReturnType<TableQueryRemediationTask['snapshot']>
+  ): Promise<Result<unknown, DomainError>> {
     const payload = task.payload as {
       readonly fieldDbName?: string;
       readonly fieldId?: string;
@@ -133,6 +150,37 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
     }
   }
 
+  private async executeSearchAccessPathDrop(
+    context: IExecutionContext,
+    task: ReturnType<TableQueryRemediationTask['snapshot']>
+  ): Promise<Result<unknown, DomainError>> {
+    if (!this.tableRepository || !this.searchVectorReconciler) {
+      return err(
+        domainError.infrastructure({
+          message: 'Search access path drop dependencies are not registered',
+        })
+      );
+    }
+    const tableId = TableId.create(task.tableId);
+    if (tableId.isErr()) return err(tableId.error);
+    const table = await this.tableRepository.findOne(context, TableByIdSpec.create(tableId.value));
+    if (table.isErr()) return err(table.error);
+    const scopeKey = reclaimScopeKey(task.payload);
+    if (!scopeKey) {
+      return err(
+        domainError.validation({
+          code: 'table_query_ops.invalid_reclaim_task_payload',
+          message: 'Search access path reclaim task must include its scope key',
+        })
+      );
+    }
+    return this.searchVectorReconciler.reconcile(context, {
+      table: table.value,
+      mode: 'drop',
+      expectedDefinitionKey: scopeKey,
+    });
+  }
+
   private async executeSearchVectorSchemaMaintenance(
     context: IExecutionContext,
     task: ReturnType<TableQueryRemediationTask['snapshot']>
@@ -169,6 +217,13 @@ const isSchemaMaintenancePayload = (payload: unknown): boolean =>
   payload !== null &&
   'trigger' in payload &&
   payload.trigger === 'schema_change';
+
+const reclaimScopeKey = (payload: unknown): string | undefined => {
+  if (typeof payload !== 'object' || payload === null) return undefined;
+  if (!('trigger' in payload) || payload.trigger !== 'reclaim') return undefined;
+  if (!('scopeKey' in payload) || typeof payload.scopeKey !== 'string') return undefined;
+  return payload.scopeKey;
+};
 
 const splitPhysicalName = (
   dbTableName: string,

@@ -21,7 +21,7 @@ export const SpaceSettingContainer = ({
 }: SpaceSettingContainerProps) => {
   return (
     <div className={cn('h-full w-full', wrapperClassName)}>
-      <div className={cn('h-full w-full flex flex-col p-6', headerClassName)}>
+      <div className={cn('h-full w-full flex flex-col p-4 sm:p-6', headerClassName)}>
         <div className={cn('pb-6', titleClassName)}>
           <p className="text-lg font-semibold">{title}</p>
           {description && <div className="mt-1 text-sm text-muted-foreground">{description}</div>}

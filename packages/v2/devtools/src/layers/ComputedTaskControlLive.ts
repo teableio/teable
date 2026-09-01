@@ -56,6 +56,22 @@ const toPauseScopeRow = (scope: ComputedUpdatePauseScope): ComputedPauseScopeRow
   active: scope.active,
 });
 
+const blocksScope = (
+  blocker: ComputedUpdatePauseScope,
+  target: ComputedUpdatePauseScope
+): boolean => {
+  if (target.scopeType === 'table') {
+    if (blocker.scopeType === 'space') return blocker.scopeId === target.spaceId;
+    if (blocker.scopeType === 'base') return blocker.scopeId === target.baseId;
+    return blocker.scopeId === target.scopeId;
+  }
+  if (target.scopeType === 'base') {
+    if (blocker.scopeType === 'space') return blocker.scopeId === target.spaceId;
+    return blocker.baseId === target.scopeId;
+  }
+  return blocker.spaceId === target.scopeId;
+};
+
 const parseResumeAt = (value: string | undefined): Date | null | undefined => {
   if (value == null) return undefined;
   const parsed = new Date(value);
@@ -145,7 +161,7 @@ export const ComputedTaskControlLive = Layer.effect(
         input: ResumeComputedScopesInput
       ): Effect.Effect<ResumeComputedScopesOutput, CliError> =>
         Effect.gen(function* () {
-          if (!validateScopeType(input.scopeType)) {
+          if ('scopeType' in input && !validateScopeType(input.scopeType)) {
             return yield* Effect.fail(
               new CliError({
                 message: `Invalid scopeType: ${input.scopeType}`,
@@ -155,25 +171,63 @@ export const ComputedTaskControlLive = Layer.effect(
             );
           }
 
-          const resumed = yield* Effect.tryPromise({
+          const result = yield* Effect.tryPromise({
             try: async () => {
-              const resumeResult = await pauseRegistry.resumeScope({
-                scopeType: input.scopeType,
-                scopeId: input.scopeId,
-              });
+              const beforeResult = await pauseRegistry.listScopes({ activeOnly: false });
+              if (beforeResult.isErr()) throw beforeResult.error;
+              const target =
+                'leaseId' in input
+                  ? beforeResult.value.find((scope) => scope.id === input.leaseId)
+                  : beforeResult.value.find(
+                      (scope) =>
+                        scope.scopeType === input.scopeType && scope.scopeId === input.scopeId
+                    );
+              const resumeResult =
+                'leaseId' in input
+                  ? await pauseRegistry.releaseLease({
+                      leaseId: input.leaseId,
+                      actor: input.actor ?? 'devtools-computed-resume',
+                      releaseReason: input.releaseReason,
+                    })
+                  : await pauseRegistry.resumeScope({
+                      scopeType: input.scopeType,
+                      scopeId: input.scopeId,
+                      actor: input.actor ?? 'devtools-computed-resume',
+                      releaseReason: input.releaseReason,
+                    });
               if (resumeResult.isErr()) throw resumeResult.error;
-              return resumeResult.value;
+              const activeResult = await pauseRegistry.listScopes({ activeOnly: true });
+              if (activeResult.isErr()) throw activeResult.error;
+              const remainingBlockers = target
+                ? activeResult.value.filter((scope) => blocksScope(scope, target))
+                : [];
+              return {
+                resumed: resumeResult.value,
+                target,
+                remainingBlockers,
+              };
             },
             catch: (error) => CliError.fromUnknown(error),
           });
 
+          const leaseId = 'leaseId' in input ? input.leaseId : result.target?.id ?? null;
+          const scopeType =
+            result.target?.scopeType ?? ('scopeType' in input ? input.scopeType : null);
+          const scopeId = result.target?.scopeId ?? ('scopeId' in input ? input.scopeId : null);
           return {
-            scopeType: input.scopeType,
-            scopeId: input.scopeId,
-            resumed,
-            notes: resumed
-              ? ['Paused scope removed. Workers can claim matching computed tasks again.']
-              : ['No matching paused scope row existed.'],
+            leaseId,
+            scopeType,
+            scopeId,
+            forced: 'scopeType' in input,
+            resumed: result.resumed,
+            remainingBlockers: result.remainingBlockers.map(toPauseScopeRow),
+            notes: result.resumed
+              ? result.remainingBlockers.length > 0
+                ? [
+                    `Pause lease released, but ${result.remainingBlockers.length} blocker(s) still affect the scope.`,
+                  ]
+                : ['Pause lease released. Workers can claim matching computed tasks again.']
+              : ['No matching active pause lease existed.'],
           };
         }),
       listPauseScopes: (
@@ -195,7 +249,7 @@ export const ComputedTaskControlLive = Layer.effect(
             activeOnly,
             scopes: scopes.map(toPauseScopeRow),
             notes: [
-              'Paused scopes prevent workers from claiming matching computed tasks. Manual task execution can still bypass this if triggered separately.',
+              'Paused scopes prevent workers and manual run-task execution from claiming matching computed tasks.',
             ],
           };
         }),

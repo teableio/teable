@@ -225,16 +225,28 @@ export interface TableRecordConditionWhereVisitorOptions {
   hostTableAlias?: string;
 }
 
-class DateUtil {
+export class DateUtil {
   constructor(private readonly timeZone: string) {}
 
   date(value?: dayjs.ConfigType): Dayjs {
-    return dayjs(value).utc().tz(this.timeZone);
+    const zoned = dayjs(value).utc().tz(this.timeZone);
+    // dayjs's timezone plugin stores the zone offset in a field that later code
+    // checks for truthiness, so instances whose current offset is exactly 0
+    // (UTC, Etc/GMT, London in winter) fall back to the host-local calendar in
+    // startOf/endOf and produce host-timezone-dependent ranges. Pure utc-mode
+    // instances share the same day boundaries and are immune.
+    if (zoned.utcOffset() === 0) {
+      return dayjs(value).utc();
+    }
+    return zoned;
   }
 
   offset(dateField: ManipulateType, offset: number, value = this.date()): Dayjs {
     if (offset === 0) return value;
-    return value[offset > 0 ? 'add' : 'subtract'](Math.abs(offset), dateField);
+    const shifted = value[offset > 0 ? 'add' : 'subtract'](Math.abs(offset), dateField);
+    // Keep the source wall-clock time while recalculating the target date's
+    // IANA offset. The outer date() retains the zero-offset dayjs workaround.
+    return this.date(shifted.tz(this.timeZone, true));
   }
 
   offsetDay(offset: number, value = this.date()): Dayjs {
@@ -437,6 +449,51 @@ const buildDateComparableExpr = (
   return compareAsDateOnly ? buildDateOnlyComparableExpr(field, expr) : expr;
 };
 
+// dbFieldType REAL is provisioned as a physical double precision column, so
+// the cast must be float8: a float4 cast would truncate values beyond ~7
+// significant digits and make equal doubles compare unequal. DATETIME is
+// deliberately absent: legacy plain date columns exist as both timestamptz
+// and timestamp without time zone (and even text), so no single cast target
+// is safe for them.
+const SARGABLE_FIELD_REFERENCE_CAST_BY_DB_TYPE: Record<string, string> = {
+  TEXT: 'text',
+  REAL: 'double precision',
+  BOOLEAN: 'boolean',
+};
+
+const DRIFT_PRONE_FIELD_TYPES = new Set([
+  'formula',
+  'rollup',
+  'lookup',
+  'conditionalLookup',
+  'conditionalRollup',
+]);
+
+/**
+ * Cast type that lets the filtered column stay bare (index-sargable) in a
+ * field-reference comparison. Only trusted for directly provisioned columns:
+ * computed fields are where v1-era metadata drift (a physical jsonb column
+ * behind a scalar-typed field) actually occurs, so they keep the to_jsonb
+ * defense. Literal comparisons already compare these columns bare, so this
+ * does not widen the drift exposure of non-computed fields.
+ */
+const resolveSargableFieldReferenceCast = (field: core.Field): string | undefined => {
+  if (DRIFT_PRONE_FIELD_TYPES.has(field.type().toString())) return undefined;
+  const dbFieldType = field.dbFieldType().andThen((type) => type.value());
+  if (dbFieldType.isErr()) return undefined;
+  return SARGABLE_FIELD_REFERENCE_CAST_BY_DB_TYPE[dbFieldType.value.trim().toUpperCase()];
+};
+
+// Normalizing the reference side through jsonb keeps it drift-tolerant (a
+// physical jsonb scalar unwraps instead of raising `operator does not exist`)
+// while producing a plain scalar the bare left column can compare against.
+const normalizeFieldReferenceScalar = (
+  rightColumnRef: RecordConditionWhere,
+  castType: string
+): RecordConditionWhere => {
+  return sql`(to_jsonb(${rightColumnRef}) #>> '{}')::${sql.raw(castType)}`;
+};
+
 const classifyFieldReferenceComparison = (
   field: core.Field,
   referenceField: core.Field,
@@ -486,6 +543,7 @@ const resolveDateRange = (
     const mode = value.mode();
     const numberOfDays = value.numberOfDays();
     const exactDate = value.exactDate();
+    const exactDateEnd = value.exactDateEnd();
     const dateUtil = new DateUtil(value.timeZone().toString());
 
     const requireExactDate = (): Result<string, DomainError> => {
@@ -525,6 +583,23 @@ const resolveDateRange = (
       return requireExactDate().map((raw) => {
         const parsed = dateUtil.date(raw);
         return [parsed.startOf('day'), parsed.endOf('day')];
+      });
+    };
+
+    const determineDateRangeSpan = (): Result<[Dayjs, Dayjs], DomainError> => {
+      return requireExactDate().andThen((rawStart) => {
+        if (!exactDateEnd) {
+          return err(
+            core.domainError.unexpected({ message: 'Date condition requires exactDateEnd' })
+          );
+        }
+        const hasTimeFormat = formatting != null && formatting.time() !== core.TimeFormatting.None;
+        const start = dateUtil.date(rawStart);
+        const end = dateUtil.date(exactDateEnd);
+        return ok<[Dayjs, Dayjs]>([
+          hasTimeFormat ? start : start.startOf('day'),
+          hasTimeFormat ? end : end.endOf('day'),
+        ]);
       });
     };
 
@@ -578,8 +653,8 @@ const resolveDateRange = (
         weekStart: 1,
       });
       const cursorDate = match(relativeMode)
-        .with('next', () => dateUtil.date().add(1, unit))
-        .with('last', () => dateUtil.date().subtract(1, unit))
+        .with('next', () => dateUtil.offset(unit, 1))
+        .with('last', () => dateUtil.offset(unit, -1))
         .with('current', () => dateUtil.date())
         .exhaustive();
       return [cursorDate.startOf(unit).startOf('day'), cursorDate.endOf(unit).endOf('day')];
@@ -606,6 +681,7 @@ const resolveDateRange = (
         .with('daysAgo', () => calculateDateRangeForOffsetDays(true))
         .with('daysFromNow', () => calculateDateRangeForOffsetDays(false))
         .with('exactDate', () => determineExactDateRange())
+        .with('dateRange', () => determineDateRangeSpan())
         .with('exactDateTime', () => determineExactDateTimeRange())
         .with('exactFormatDate', () => determineExactFormatDateRange())
         .with('currentWeek', () => ok(generateRelativeDateFromCurrentDateRange('current', 'week')))
@@ -719,6 +795,10 @@ const buildIsCondition = (
     const isUserOrLinkLike = fieldIsUserOrLink(field) || fieldIsLookupWithUserOrLinkInner(field);
     if (core.isRecordConditionDateValue(value)) {
       const range = yield* resolveDateRange(value, resolveDateFormatting(field));
+      // v1 parity: an inverted dateRange (start > end) is skipped, not an error
+      if (value.mode() === 'dateRange' && Date.parse(range.start) > Date.parse(range.end)) {
+        return ok(sql`true`);
+      }
       if (isMultiple || fieldIsJson(field)) {
         const normalizedArray = normalizeToJsonArray(columnRef);
         return ok(sql`EXISTS (
@@ -776,7 +856,22 @@ const buildIsCondition = (
         !isMultipleRaw &&
         !(yield* fieldIsMultiple(referenceField))
       ) {
-        return ok(sql`${columnRef} = ${rightColumnRef}`);
+        // Compare via to_jsonb: the route is classified from field metadata
+        // only, and v1-era metadata drift can leave a physical jsonb column
+        // behind a scalar-typed field. A bare `=` then fails with
+        // `operator does not exist: jsonb = text`; jsonb comparison keeps
+        // numeric equality semantics and tolerates the drift. But wrapping the
+        // filtered column defeats its index and turns conditional-lookup
+        // backfills into per-row seq scans (T6821), so when the filtered
+        // column's type is trustworthy keep it bare and normalize only the
+        // reference side.
+        const sargableCast = resolveSargableFieldReferenceCast(field);
+        if (sargableCast) {
+          return ok(
+            sql`${columnRef} = ${normalizeFieldReferenceScalar(rightColumnRef, sargableCast)}`
+          );
+        }
+        return ok(sql`to_jsonb(${columnRef}) = to_jsonb(${rightColumnRef})`);
       }
 
       const arrayLikeMatch = yield* buildArrayLikeFieldReferenceIsCondition(
@@ -797,7 +892,8 @@ const buildIsCondition = (
         return ok(sql`1 = 0`);
       }
 
-      return ok(sql`${columnRef} = ${rightColumnRef}`);
+      // See the generic branch above: metadata drift makes bare `=` unsafe.
+      return ok(sql`to_jsonb(${columnRef}) = to_jsonb(${rightColumnRef})`);
     }
 
     const literalOperand = yield* expectLiteralOperand(operand);
@@ -859,6 +955,10 @@ const buildIsNotCondition = (
     const isMultiple = isArrayLikeOutputField(field, isMultipleRaw);
     const isUserOrLinkLike = fieldIsUserOrLink(field) || fieldIsLookupWithUserOrLinkInner(field);
     if (core.isRecordConditionDateValue(value)) {
+      // v1 parity: dateRange only supports is/isWithIn — with isNot the condition is skipped
+      if (value.mode() === 'dateRange') {
+        return ok(sql`true`);
+      }
       const range = yield* resolveDateRange(value, resolveDateFormatting(field));
       if (isMultiple || fieldIsJson(field)) {
         const normalizedArray = normalizeToJsonArray(columnRef);
@@ -935,7 +1035,17 @@ const buildIsNotCondition = (
         return ok(sql`1 = 1`);
       }
 
-      return ok(sql`${columnRef} is distinct from ${rightColumnRef}`);
+      // See buildIsCondition: metadata drift makes a bare comparison unsafe,
+      // but a trusted scalar column stays bare so its index remains usable.
+      if (!isMultipleRaw && !(yield* fieldIsMultiple(referenceField))) {
+        const sargableCast = resolveSargableFieldReferenceCast(field);
+        if (sargableCast) {
+          return ok(
+            sql`${columnRef} is distinct from ${normalizeFieldReferenceScalar(rightColumnRef, sargableCast)}`
+          );
+        }
+      }
+      return ok(sql`to_jsonb(${columnRef}) is distinct from to_jsonb(${rightColumnRef})`);
     }
 
     const literalOperand = yield* expectLiteralOperand(operand);
@@ -1008,7 +1118,8 @@ const buildContainsCondition = (
       const escapedValue = escapeJsonbRegex(
         String(operand.kind === 'field' ? `{${operand.column}}` : operand.value)
       );
-      const isLinkField = fieldIsLink(field);
+      const isLinkField = fieldHasLinkDisplayValue(field);
+
       const jsonPath = isLinkField
         ? isMultiple
           ? `$[*].title ? (@ like_regex "${escapedValue}" flag "i")`
@@ -1211,6 +1322,10 @@ const buildIsWithinCondition = (
     const column = yield* resolveColumn(field, tableAlias);
     const dateValue = yield* resolveDateValue(value);
     const range = yield* resolveDateRange(dateValue, resolveDateFormatting(field));
+    // v1 parity: an inverted dateRange (start > end) is skipped, not an error
+    if (dateValue.mode() === 'dateRange' && Date.parse(range.start) > Date.parse(range.end)) {
+      return ok(sql`true`);
+    }
     const columnRef = sql.ref(column);
     const isMultiple = isArrayLikeOutputField(field, yield* fieldIsMultiple(field));
     if (isMultiple || fieldIsJson(field)) {
@@ -1331,17 +1446,15 @@ const buildListCondition = (
 
     if (kind === 'any') return ok(sql`${jsonbColumn} ?| ${textArray}`);
     if (kind === 'none') {
-      // Use COALESCE to match v1 behavior: NULL values should pass "none" checks.
-      const coalesced = sql`to_jsonb(coalesce(${columnRef}, '[]'::jsonb))`;
-      return ok(sql`not (${coalesced} ?| ${textArray})`);
+      // normalizeToJsonArray already maps NULL to [] and works for scalar lookup TEXT columns.
+      return ok(sql`not (${jsonbColumn} ?| ${textArray})`);
     }
     if (kind === 'all') return ok(sql`${jsonbColumn} ?& ${textArray}`);
     if (kind === 'exact') {
       return ok(sql`(${jsonbColumn} @> ${jsonbArray}) and (${jsonbColumn} <@ ${jsonbArray})`);
     }
-    // notExact: use COALESCE so NULL values are included (match v1 behavior)
-    const coalescedNE = sql`to_jsonb(coalesce(${columnRef}, '[]'::jsonb))`;
-    return ok(sql`not ((${coalescedNE} @> ${jsonbArray}) and (${coalescedNE} <@ ${jsonbArray}))`);
+    // notExact: normalized NULL values compare as [] so they remain in negative filter results.
+    return ok(sql`not ((${jsonbColumn} @> ${jsonbArray}) and (${jsonbColumn} <@ ${jsonbArray}))`);
   });
 };
 

@@ -27,5 +27,19 @@ export interface IRealtimeEngine {
     options?: RealtimeApplyChangeOptions
   ): Promise<Result<void, DomainError>>;
 
-  delete(context: IExecutionContext, docId: RealtimeDocId): Promise<Result<void, DomainError>>;
+  delete(
+    context: IExecutionContext,
+    docId: RealtimeDocId,
+    options?: RealtimeApplyChangeOptions
+  ): Promise<Result<void, DomainError>>;
+
+  /**
+   * Notify collection query subscribers when a bulk storage mutation has no
+   * meaningful per-document operation to publish.
+   */
+  invalidateCollection(
+    context: IExecutionContext,
+    collection: string,
+    change: RealtimeChange
+  ): Promise<Result<void, DomainError>>;
 }

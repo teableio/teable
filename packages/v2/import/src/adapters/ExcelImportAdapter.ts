@@ -11,6 +11,51 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import * as XLSX from 'xlsx';
 
+type DenseCell = { w?: string; v?: unknown };
+type DenseRow = Array<DenseCell | undefined> | undefined;
+
+const excelHeaderScanRows = 30;
+const excelWorkbookCache = new WeakMap<Uint8Array, XLSX.WorkBook>();
+
+const denseCellToString = (cell: DenseCell | undefined): string => {
+  if (!cell) {
+    return '';
+  }
+  const value = cell.w ?? cell.v;
+  return value == null ? '' : String(value);
+};
+
+const filledCellCount = (row: DenseRow): number =>
+  (row ?? []).reduce(
+    (count, cell) => (denseCellToString(cell).trim() === '' ? count : count + 1),
+    0
+  );
+
+const findExcelHeaderRowIndex = (rows: ReadonlyArray<DenseRow>): number => {
+  const scanUntil = Math.min(rows.length, excelHeaderScanRows);
+  let bestIndex = -1;
+  let bestCount = 0;
+  for (let index = 0; index < scanUntil; index++) {
+    const count = filledCellCount(rows[index]);
+    if (count > bestCount) {
+      bestCount = count;
+      bestIndex = index;
+    }
+  }
+  return bestIndex;
+};
+
+const readDenseSheetRows = (sheet: XLSX.WorkSheet): Array<DenseRow> => {
+  const dataProp = (sheet as { ['!data']?: unknown })['!data'];
+  if (Array.isArray(dataProp) && dataProp.length > 0) {
+    return dataProp as Array<DenseRow>;
+  }
+  if (Array.isArray(sheet)) {
+    return sheet as Array<DenseRow>;
+  }
+  return [];
+};
+
 /**
  * Excel Import Adapter
  * Supports XLSX, XLS files
@@ -30,7 +75,7 @@ export class ExcelImportAdapter implements IImportSourceAdapter {
       const buffer = await this.getBuffer(source);
       if (buffer.isErr()) return err(buffer.error);
 
-      const workbook = XLSX.read(buffer.value, { dense: true });
+      const workbook = this.readWorkbook(buffer.value);
       const sheetNames = workbook.SheetNames;
 
       if (sheetNames.length === 0) {
@@ -54,26 +99,35 @@ export class ExcelImportAdapter implements IImportSourceAdapter {
         );
       }
 
-      const rawData = (sheet['!data'] ?? []) as Array<Array<{ w?: string; v?: unknown }>>;
+      // SheetJS dense sheets are the row array itself; 0.20+ also exposes the
+      // same rows on `!data`. Used ranges that start below A1 leave a hole at
+      // index 0, so headers cannot be taken from rawData[0].
+      const rawData = readDenseSheetRows(sheet);
+      const headerRowIndex = findExcelHeaderRowIndex(rawData);
 
-      if (rawData.length === 0) {
+      if (headerRowIndex < 0) {
         return ok({
           headers: [],
           rows: [],
+          rowCount: 0,
           sheets: sheetNames.map((name, index) => ({ name, index })),
           currentSheet: targetSheet,
         });
       }
 
-      const headerRow = rawData[0] ?? [];
-      const headers = headerRow.map((cell, i) => String(cell?.w ?? cell?.v ?? `Column_${i + 1}`));
+      const headerRow = rawData[headerRowIndex] ?? [];
+      const headers = Array.from(
+        { length: headerRow.length },
+        (_, i) => denseCellToString(headerRow[i]) || `Column_${i + 1}`
+      );
 
-      // Use generator for memory efficiency (include header row)
-      const rows = this.createRowsIterable(rawData, 0);
+      // Include the detected header row so callers can skip it via useFirstRowAsHeader.
+      const rows = this.createRowsIterable(rawData, headerRowIndex, headers.length);
 
       return ok({
         headers,
         rows,
+        rowCount: Math.max(rawData.length - headerRowIndex, 0),
         sheets: sheetNames.map((name, index) => ({ name, index })),
         currentSheet: targetSheet,
       });
@@ -123,6 +177,16 @@ export class ExcelImportAdapter implements IImportSourceAdapter {
       sampleRows,
       sheets: sheets ?? [],
     });
+  }
+
+  private readWorkbook(buffer: Uint8Array): XLSX.WorkBook {
+    const cached = excelWorkbookCache.get(buffer);
+    if (cached) {
+      return cached;
+    }
+    const workbook = XLSX.read(buffer, { type: 'array', dense: true });
+    excelWorkbookCache.set(buffer, workbook);
+    return workbook;
   }
 
   private async getBuffer(source: IImportSource): Promise<Result<Uint8Array, DomainError>> {
@@ -183,12 +247,16 @@ export class ExcelImportAdapter implements IImportSourceAdapter {
   }
 
   private *createRowsIterable(
-    rawData: Array<Array<{ w?: string; v?: unknown }>>,
-    startIndex: number
+    rawData: ReadonlyArray<DenseRow>,
+    startIndex: number,
+    columnCount: number
   ): Iterable<ReadonlyArray<unknown>> {
     for (let i = startIndex; i < rawData.length; i++) {
       const row = rawData[i] ?? [];
-      yield row.map((cell) => cell?.w ?? cell?.v ?? '');
+      const values = Array.from({ length: columnCount }, (_, index) =>
+        denseCellToString(row[index])
+      );
+      yield values;
     }
   }
 }

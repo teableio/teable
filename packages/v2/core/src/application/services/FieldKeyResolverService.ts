@@ -6,6 +6,13 @@ import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import { FieldType } from '../../domain/table/fields/FieldType';
 import type { Table } from '../../domain/table/Table';
 
+export interface FieldKeyResolutionContext {
+  readonly fieldKeyType: FieldKeyType;
+  readonly fieldMap: ReadonlyMap<string, string> | undefined;
+  readonly availableFieldKeys: ReadonlyArray<string>;
+  readonly checkboxKeys: ReadonlySet<string> | undefined;
+}
+
 /**
  * Service to resolve field keys (name/dbFieldName) to field IDs
  *
@@ -40,25 +47,60 @@ export class FieldKeyResolverService {
     fields: Record<string, unknown>,
     fieldKeyType: FieldKeyType
   ): Result<Record<string, unknown>, DomainError> {
-    const normalizedFields = this.normalizeCheckboxFalseToNull(table, fields, fieldKeyType);
+    return this.resolveFieldKeysWithContext(
+      this.createResolutionContext(table, fieldKeyType),
+      fields
+    );
+  }
 
-    // If already using field IDs, no resolution needed
+  /**
+   * Precompute the table-invariant lookup maps so bulk callers resolve many
+   * records without rebuilding them per record.
+   */
+  static createResolutionContext(
+    table: Table,
+    fieldKeyType: FieldKeyType
+  ): FieldKeyResolutionContext {
     if (fieldKeyType === FieldKeyType.Id) {
-      return ok(normalizedFields);
+      return { fieldKeyType, fieldMap: undefined, availableFieldKeys: [], checkboxKeys: undefined };
+    }
+
+    const checkboxKeys = new Set<string>();
+    for (const field of table.getFields()) {
+      if (field.type().equals(FieldType.checkbox())) {
+        checkboxKeys.add(this.getFieldKey(field, fieldKeyType));
+      }
+    }
+    const fieldMap = this.buildFieldMap(table, fieldKeyType);
+    return {
+      fieldKeyType,
+      fieldMap,
+      availableFieldKeys: Array.from(fieldMap.keys()),
+      checkboxKeys: checkboxKeys.size > 0 ? checkboxKeys : undefined,
+    };
+  }
+
+  static resolveFieldKeysWithContext(
+    context: FieldKeyResolutionContext,
+    fields: Record<string, unknown>
+  ): Result<Record<string, unknown>, DomainError> {
+    // If already using field IDs, no resolution needed
+    if (context.fieldKeyType === FieldKeyType.Id || !context.fieldMap) {
+      return ok(fields);
     }
 
     const resolvedFields: Record<string, unknown> = {};
-    const fieldMap = this.buildFieldMap(table, fieldKeyType);
-    const availableFieldKeys = Array.from(fieldMap.keys());
-
-    for (const [key, value] of Object.entries(normalizedFields)) {
-      const fieldId = fieldMap.get(key);
+    for (const [key, value] of Object.entries(fields)) {
+      const fieldId = context.fieldMap.get(key);
 
       if (!fieldId) {
-        return err(this.buildFieldNotFoundError(fieldKeyType, key, availableFieldKeys));
+        return err(
+          this.buildFieldNotFoundError(context.fieldKeyType, key, context.availableFieldKeys)
+        );
       }
 
-      resolvedFields[fieldId] = value;
+      // Checkbox unchecked values are represented as `null` when field keys are non-id.
+      resolvedFields[fieldId] = context.checkboxKeys?.has(key) && value === false ? null : value;
     }
 
     return ok(resolvedFields);

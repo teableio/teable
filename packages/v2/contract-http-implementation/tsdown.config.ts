@@ -3,5 +3,5 @@ import { defineConfig } from 'tsdown';
 
 export default defineConfig({
   ...v2TsdownBaseConfig,
-  entry: ['src/index.ts', 'src/handlers/index.ts'],
+  entry: ['src/index.ts', 'src/handlers/index.ts', 'src/tableQueryOpsRouter.ts'],
 });

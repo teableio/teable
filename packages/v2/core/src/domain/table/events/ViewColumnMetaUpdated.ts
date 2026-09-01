@@ -3,6 +3,7 @@ import { DomainEventName } from '../../shared/DomainEventName';
 import { OccurredAt } from '../../shared/OccurredAt';
 import type { FieldId } from '../fields/FieldId';
 import type { TableId } from '../TableId';
+import type { ViewColumnMetaChange } from '../views/ViewColumnMeta';
 import type { ViewId } from '../views/ViewId';
 import { AbstractTableUpdatedEvent } from './AbstractTableUpdatedEvent';
 
@@ -16,6 +17,11 @@ export class ViewColumnMetaUpdated extends AbstractTableUpdatedEvent {
     readonly viewId: ViewId,
     readonly fieldId: FieldId,
     readonly fieldInColumnMeta: boolean,
+    readonly changes?: ReadonlyArray<ViewColumnMetaChange>,
+    readonly optionsChange?: {
+      readonly previousOptions: unknown;
+      readonly nextOptions: unknown;
+    },
     readonly oldVersion?: number,
     readonly newVersion?: number
   ) {
@@ -28,6 +34,11 @@ export class ViewColumnMetaUpdated extends AbstractTableUpdatedEvent {
     viewId: ViewId;
     fieldId: FieldId;
     fieldInColumnMeta?: boolean;
+    changes?: ReadonlyArray<ViewColumnMetaChange>;
+    optionsChange?: {
+      readonly previousOptions: unknown;
+      readonly nextOptions: unknown;
+    };
     oldVersion?: number;
     newVersion?: number;
   }): ViewColumnMetaUpdated {
@@ -37,6 +48,8 @@ export class ViewColumnMetaUpdated extends AbstractTableUpdatedEvent {
       params.viewId,
       params.fieldId,
       params.fieldInColumnMeta ?? true,
+      params.changes ? [...params.changes] : undefined,
+      params.optionsChange,
       params.oldVersion,
       params.newVersion
     );

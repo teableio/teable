@@ -77,7 +77,10 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
         state: 'activeAnyProvision',
       });
       let tableResult = activeTableResult;
-      let shouldRunSideEffects = command.mode === 'permanent' && activeTableResult.isOk();
+      // Match v1: convert inbound link fields to text as soon as the table is
+      // trashed. Waiting until permanent delete leaves broken link cells that
+      // freeze the record editor until the trash is emptied.
+      let shouldRunSideEffects = activeTableResult.isOk();
 
       if (
         command.mode === 'permanent' &&

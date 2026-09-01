@@ -58,7 +58,7 @@ export const PluginList = () => {
                 />
               </div>
               <div className="h-full flex-1 overflow-hidden">
-                <div className="flex h-6 items-center gap-1 pr-11">
+                <div className="flex h-6 items-center gap-1 pe-11">
                   <StatusDot className="shrink-0" status={plugin.status} />
                   <div className="line-clamp-1 break-words text-sm">{plugin.name}</div>
                 </div>
@@ -69,7 +69,7 @@ export const PluginList = () => {
                   {plugin.description}
                 </div>
               </div>
-              <div className="absolute right-2 top-3 space-x-1.5">
+              <div className="absolute end-2 top-3 space-x-1.5 rtl:space-x-reverse">
                 <Button
                   className="h-5 p-0.5"
                   variant={'ghost'}

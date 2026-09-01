@@ -1,6 +1,7 @@
 import { Table2 } from '@teable/icons';
 import type { IBaseErdTableNode } from '@teable/openapi';
 import type { useFieldStaticGetter } from '@teable/sdk/hooks';
+import { useContentDir } from '@teable/sdk/hooks';
 import { memo } from 'react';
 import type { NodeProps } from 'reactflow';
 import { Handle, Position } from 'reactflow';
@@ -24,6 +25,7 @@ export const BaseErdTableNode = memo(({ data }: NodeProps<IBaseErdTableNodeProps
     openTable,
     baseId,
   } = data;
+  const contentDir = useContentDir();
 
   const title = crossBaseName ? `${name}(${crossBaseName})` : name;
   const fieldComponents = fields.map((field) => {
@@ -38,7 +40,7 @@ export const BaseErdTableNode = memo(({ data }: NodeProps<IBaseErdTableNodeProps
       <div key={field.id} className="relative flex h-6 w-full items-center p-2">
         <div className="flex w-full items-center gap-2">
           <Icon className="size-4 shrink-0" />
-          <span className=" truncate" title={field.name}>
+          <span dir={contentDir} className=" truncate" title={field.name}>
             {field.name}
           </span>
         </div>
@@ -71,7 +73,7 @@ export const BaseErdTableNode = memo(({ data }: NodeProps<IBaseErdTableNodeProps
         ) : (
           <Table2 className="size-4 shrink-0" />
         )}
-        <span className="text-md  truncate font-semibold" title={title}>
+        <span dir={contentDir} className="text-md  truncate font-semibold" title={title}>
           {title}
         </span>
       </div>

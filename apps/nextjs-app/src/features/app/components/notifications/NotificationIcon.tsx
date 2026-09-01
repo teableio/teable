@@ -40,7 +40,7 @@ const NotificationIcon = (props: NotificationIconProps) => {
     }
   }, [notifyIcon, notifyType]);
   return (
-    <div className="relative flex flex-none items-center self-start pr-2">{dynamicComponent()}</div>
+    <div className="relative flex flex-none items-center self-start pe-2">{dynamicComponent()}</div>
   );
 };
 

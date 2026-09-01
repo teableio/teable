@@ -1,5 +1,5 @@
 import { getUniqName, ViewType } from '@teable/core';
-import { Airtable, FileCsv, FileExcel, Slack, Table2 } from '@teable/icons';
+import { Airtable, FileCsv, FileExcel, GoogleSheet, Slack, Table2 } from '@teable/icons';
 import type { ICreateBaseNodeRo } from '@teable/openapi';
 import { BaseNodeResourceType, SUPPORTEDTYPE, UserIntegrationProvider } from '@teable/openapi';
 import { useBase, useTables } from '@teable/sdk';
@@ -17,6 +17,7 @@ import { useState } from 'react';
 import { usePublicSettingQuery } from '@/features/app/hooks/useSetting';
 import { TableImport } from '../../import-table';
 import { AirtableImportDialog } from '../../space/component/airtable-import';
+import { GoogleSheetImportDialog } from '../../space/component/google-sheet-import';
 import { useDefaultFields } from '../../table-list/useAddTable';
 import { BaseNodeResourceIconMap, ROOT_ID } from '../base-node/hooks';
 
@@ -43,6 +44,7 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
     canCreateApp,
   } = props;
   const { t } = useTranslation(['table', 'common']);
+  const folderId = parentId && parentId !== ROOT_ID ? parentId : undefined;
   const [tableImportdialogVisible, setTableImportdialogVisible] = useState(false);
   const [fileType, setFileType] = useState<SUPPORTEDTYPE>(SUPPORTEDTYPE.CSV);
   const importFile = (type: SUPPORTEDTYPE) => {
@@ -57,7 +59,11 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
   const airtableImportEnabled = !!publicSetting?.availableIntegrationProviders?.includes(
     UserIntegrationProvider.Airtable
   );
+  const googleSheetImportEnabled = !!publicSetting?.availableIntegrationProviders?.includes(
+    UserIntegrationProvider.GoogleSheet
+  );
   const [airtableOpen, setAirtableOpen] = useState(false);
+  const [googleSheetOpen, setGoogleSheetOpen] = useState(false);
 
   const AddTableMenuItems = () => {
     if (!canCreateTable) return null;
@@ -158,7 +164,6 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
 
   const ImportTableMenuItems = () => {
     if (!canCreateTable) return null;
-    if (parentId && parentId !== ROOT_ID) return null;
     return (
       <>
         <DropdownMenuSeparator />
@@ -197,6 +202,18 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
             </Button>
           </DropdownMenuItem>
         )}
+        {googleSheetImportEnabled && (
+          <DropdownMenuItem
+            data-attr="base-create-menu-import-google-sheet"
+            className="cursor-pointer"
+            onClick={() => setGoogleSheetOpen(true)}
+          >
+            <Button variant="ghost" size="xs" className="h-4">
+              <GoogleSheet className="size-4" />
+              {t('table:import.menu.googleSheet')}
+            </Button>
+          </DropdownMenuItem>
+        )}
       </>
     );
   };
@@ -215,6 +232,7 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
       {tableImportdialogVisible && (
         <TableImport
           fileType={fileType}
+          folderId={folderId}
           open={tableImportdialogVisible}
           onOpenChange={(open) => setTableImportdialogVisible(open)}
         />
@@ -224,8 +242,18 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
         <AirtableImportDialog
           spaceId={base.spaceId}
           baseId={base.id}
+          folderId={folderId}
           open={airtableOpen}
           onOpenChange={setAirtableOpen}
+        />
+      )}
+
+      {googleSheetOpen && (
+        <GoogleSheetImportDialog
+          spaceId={base.spaceId}
+          baseId={base.id}
+          open={googleSheetOpen}
+          onOpenChange={setGoogleSheetOpen}
         />
       )}
     </div>

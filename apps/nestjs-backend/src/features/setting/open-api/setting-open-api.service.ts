@@ -235,12 +235,7 @@ export class SettingOpenApiService {
       SettingKey.APP_CONFIG,
     ]);
     const { aiConfig, appConfig, enableCreditReward, ...rest } = setting;
-
-    const availableIntegrationProviders: string[] = [
-      ...(process.env.GMAIL_CLIENT_ID ? ['gmail'] : []),
-      ...(process.env.OUTLOOK_CLIENT_ID ? ['outlook'] : []),
-      ...(process.env.AIRTABLE_CLIENT_ID ? ['airtable'] : []),
-    ];
+    const availableIntegrationProviders = this.getAvailableIntegrationProviders();
 
     return {
       ...rest,
@@ -282,6 +277,20 @@ export class SettingOpenApiService {
     };
   }
 
+  private getAvailableIntegrationProviders(): string[] {
+    return [
+      ...(process.env.GMAIL_CLIENT_ID ? ['gmail'] : []),
+      ...(process.env.OUTLOOK_CLIENT_ID ? ['outlook'] : []),
+      ...(process.env.AIRTABLE_CLIENT_ID ? ['airtable'] : []),
+      // The OAuth client is shared with Google sign-in, so the Picker key is
+      // the variable that actually expresses "this instance opted into Sheets
+      // import" — gate on it so configuring login alone does not light the
+      // entry up. An incomplete OAuth setup still surfaces as a clear runtime
+      // error on connect.
+      ...(process.env.GOOGLE_SHEET_PICKER_API_KEY ? ['googleSheet'] : []),
+    ];
+  }
+
   async uploadLogo(file: Express.Multer.File) {
     const token = 'brand';
     const path = join(StorageAdapter.getDir(UploadType.Logo), 'brand');
@@ -290,6 +299,8 @@ export class SettingOpenApiService {
     const { hash } = await this.storageAdapter.uploadFileWidthPath(bucket, path, file.path, {
       // eslint-disable-next-line @typescript-eslint/naming-convention
       'Content-Type': file.mimetype,
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      'Cache-Control': StorageAdapter.getCacheControl(UploadType.Logo),
     });
 
     const { size, mimetype } = file;

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import { vi } from 'vitest';
+import StorageAdapter from './adapter';
 import { AliyunStorage } from './aliyun';
 import { S3Storage } from './s3';
 import { getFreshPreviewCacheUrl, getPreviewCacheKey, getPreviewUrlConfigSig } from './utils';
@@ -164,6 +165,35 @@ describe('preview cache config fingerprint', () => {
     ).toBeUndefined();
     expect(getFreshPreviewCacheUrl({ url: 'https://a/b', expiresIn: 60 })).toBeUndefined();
     expect(getFreshPreviewCacheUrl(undefined)).toBeUndefined();
+  });
+});
+
+describe('preview url cache-control injection', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('adds private cache-control to private-bucket preview urls (s3)', async () => {
+    const storage = new S3Storage(mockS3Config(true));
+    const url = await storage.getPreviewUrl('private-bucket', 'table/attachment/preview', 60);
+    expect(new URL(url).searchParams.get('response-cache-control')).toBe(
+      StorageAdapter.PRIVATE_PREVIEW_CACHE_CONTROL
+    );
+  });
+
+  it('adds private cache-control to private-bucket preview urls (aliyun)', async () => {
+    const storage = new AliyunStorage(mockS3Config(false));
+    const url = await storage.getPreviewUrl('private-bucket', 'table/attachment/preview', 60);
+    expect(new URL(url).searchParams.get('response-cache-control')).toBe(
+      StorageAdapter.PRIVATE_PREVIEW_CACHE_CONTROL
+    );
+  });
+
+  it('leaves public-bucket preview urls without response-cache-control', async () => {
+    vi.stubEnv('BACKEND_STORAGE_PUBLIC_BUCKET', 'public-bucket');
+    const storage = new S3Storage(mockS3Config(true));
+    const url = await storage.getPreviewUrl('public-bucket', 'template/cover', 60);
+    expect(new URL(url).searchParams.get('response-cache-control')).toBeNull();
   });
 });
 

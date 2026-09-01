@@ -15,7 +15,13 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `TableRenamed.ts` - Role: domain event; Purpose: payload for table rename.
 - `FieldCreated.ts` - Role: domain event; Purpose: payload for field creation.
 - `FieldDeleted.ts` - Role: domain event; Purpose: payload for field deletion.
+- `ViewDeleted.ts` - Role: domain event; Purpose: carry the removed View id and its last persisted
+  version so realtime document deletion is ordered correctly.
 - `ViewColumnMetaUpdated.ts` - Role: domain event; Purpose: payload for view column meta update when field is added/removed.
+- `ViewSortUpdated.ts` - Role: domain event; Purpose: carry previous/next public sort payloads and
+  persisted View versions to v2 projections.
+- `ViewManualSortApplied.ts` - Role: domain event; Purpose: notify native v2 projections after
+  aggregate-authorized record row-order materialization.
 
 ## Examples
 

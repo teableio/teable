@@ -1,5 +1,6 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 import { getRandomString } from '@teable/core';
+import { useUiDirection } from '@teable/ui-lib';
 import { clamp } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useEffect, useRef, useMemo, useImperativeHandle, forwardRef } from 'react';
@@ -16,7 +17,7 @@ import {
 import type { CombinedSelection } from '../../managers';
 import type { ICell, IInnerCell } from '../../renderers/cell-renderer/interface';
 import { CellType } from '../../renderers/cell-renderer/interface';
-import { isPrintableKey } from '../../utils';
+import { isPrintableKey, shouldForwardPasteToGrid } from '../../utils';
 import { BooleanEditor } from './BooleanEditor';
 import { RatingEditor } from './RatingEditor';
 import { SelectEditor } from './SelectEditor';
@@ -146,8 +147,9 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     initialSearchRef.current = '';
 
     requestAnimationFrame(() => {
-      // Don't steal focus from dialogs/modals/sheets
-      if (document.activeElement?.closest('[role="dialog"]')) return;
+      // Don't steal focus from dialogs/modals/sheets — unless this grid itself lives inside it
+      const dialog = document.activeElement?.closest('[role="dialog"]');
+      if (dialog && !dialog.contains(defaultFocusRef.current)) return;
       (editorRef.current || defaultFocusRef.current)?.focus?.();
     });
   }, [cellType, activeCell, selection, isEditing]);
@@ -178,6 +180,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     [editingEnable, height, width]
   );
 
+  const uiDir = useUiDirection();
   const rect = useMemo(() => {
     const { rowInitSize, columnInitSize, containerWidth, containerHeight } = coordInstance;
     const x = clamp(
@@ -316,7 +319,20 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   };
 
   const onPasteInner = (e: React.ClipboardEvent) => {
-    if (!activeCell || isEditing) return;
+    if (!activeCell) return;
+    if (
+      !shouldForwardPasteToGrid({
+        isEditing: Boolean(isEditing),
+        eventTarget: e.target,
+        hiddenFocusEl: defaultFocusRef.current,
+      })
+    ) {
+      return;
+    }
+    if (isEditing) {
+      e.preventDefault();
+      setEditing(false);
+    }
     onPaste?.(selection, e);
   };
 
@@ -328,9 +344,15 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   return (
     <div
       id={editorId}
-      className="click-outside-ignore pointer-events-none absolute left-0 top-0 w-full"
+      className="click-outside-ignore pointer-events-none absolute start-0 top-0 w-full"
     >
       <div
+        // The grid pins itself to dir="ltr" so its column geometry and
+        // `scrollLeft` stay put, but a cell editor is a panel like any other and
+        // reads with the rest of the interface. Position stays physical — it is
+        // measured off that same LTR frame — while everything drawn inside the
+        // box follows the document again.
+        dir={uiDir}
         className="absolute z-10"
         style={{
           top: rect.y,

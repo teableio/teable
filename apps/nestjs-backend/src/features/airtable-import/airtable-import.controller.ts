@@ -21,6 +21,7 @@ import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { TokenAccess } from '../auth/decorators/token.decorator';
 import { PermissionService } from '../auth/permission.service';
+import { BaseNodeService } from '../base-node/base-node.service';
 import { AirtableApiError } from './airtable-api.client';
 import { AirtableImportService } from './airtable-import.service';
 
@@ -44,6 +45,7 @@ export class AirtableImportController {
   constructor(
     private readonly airtableImportService: AirtableImportService,
     private readonly permissionService: PermissionService,
+    private readonly baseNodeService: BaseNodeService,
     private readonly cls: ClsService<IClsStore>
   ) {}
 
@@ -111,6 +113,14 @@ export class AirtableImportController {
       this.cls.get('accessTokenId')
     );
     await this.assertIntegrationScope(importAirtableRo.integrationId);
+    // fail fast: past flushHeaders errors can only surface as stream events
+    if (importAirtableRo.folderId && importAirtableRo.baseId) {
+      const folderNodeId = await this.baseNodeService.resolveFolderNodeId(
+        importAirtableRo.baseId,
+        importAirtableRo.folderId
+      );
+      importAirtableRo = { ...importAirtableRo, folderId: folderNodeId };
+    }
 
     const sseHeartbeatMs = 15_000;
     res.setHeader('Content-Type', 'text/event-stream');

@@ -9,7 +9,9 @@ export const usePreviewUrl = () => {
     (path: string) => {
       const { publicUrl, prefix = '', provider, publicBucket } = storage;
 
-      if (path.startsWith(prefix)) {
+      // Server responses may already carry full urls (e.g. share view options
+      // converted by the backend); prepending again would corrupt them.
+      if (path.startsWith(prefix) || /^https?:\/\//i.test(path)) {
         return path;
       }
 

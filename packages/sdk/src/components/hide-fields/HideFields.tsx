@@ -10,8 +10,10 @@ import { HideFieldsBase } from './HideFieldsBase';
 export const HideFields: React.FC<{
   footer?: React.ReactNode;
   onFieldClick?: (field: IFieldInstance) => void;
+  responsive?: boolean;
+  title?: string;
   children: (text: string, isActive: boolean) => React.ReactNode;
-}> = ({ footer, onFieldClick, children }) => {
+}> = ({ footer, onFieldClick, responsive, title, children }) => {
   const activeViewId = useViewId();
   const fields = useFields({ withHidden: true, withDenied: true });
   const view = useView() as GridView | undefined;
@@ -75,6 +77,8 @@ export const HideFields: React.FC<{
 
   return (
     <HideFieldsBase
+      responsive={responsive}
+      title={title}
       footer={footer}
       fields={fieldData}
       hidden={hiddenFieldIds}

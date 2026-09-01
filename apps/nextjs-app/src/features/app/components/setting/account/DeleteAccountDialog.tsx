@@ -100,7 +100,7 @@ export const DeleteAccountDialog = () => {
                   <AlertDescription className="text-[13px]">
                     <strong>{t('settings.account.deleteAccount.error.title')}</strong>
                     <p className="mt-1">{t('settings.account.deleteAccount.error.desc')}</p>
-                    <ul className="ml-4 mt-2 flex list-disc flex-col gap-2">
+                    <ul className="ms-4 mt-2 flex list-disc flex-col gap-2">
                       {error.map((item, index) => (
                         <li key={index}>
                           <Button variant="secondary" asChild size="xs">
@@ -150,7 +150,7 @@ export const DeleteAccountDialog = () => {
             onClick={handleDelete}
             disabled={confirmText !== 'DELETE'}
           >
-            {isLoading && <Loader2 className="mr-2 size-4 animate-spin" />}
+            {isLoading && <Loader2 className="me-2 size-4 animate-spin" />}
             {isLoading ? t('settings.account.deleteAccount.loading') : t('common:actions.delete')}
           </Button>
         </DialogFooter>

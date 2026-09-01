@@ -80,6 +80,24 @@ describe('NumberFieldCore', () => {
     expect(multipleLookupField.cellValue2String([1.234, 2.345])).toBe('1.23, 2.35');
   });
 
+  it('should fallback to default formatting when lookup options omit formatting', () => {
+    const lookupWithoutFormatting = plainToInstance(NumberFieldCore, {
+      id: 'fldLookupNumber',
+      name: 'Lookup Number',
+      type: FieldType.Number,
+      isLookup: true,
+      isComputed: true,
+      options: {},
+      cellValueType: CellValueType.Number,
+      dbFieldType: DbFieldType.Real,
+      dbFieldName: 'lookup_number',
+    });
+
+    expect(() => lookupWithoutFormatting.cellValue2String(3)).not.toThrow();
+    expect(lookupWithoutFormatting.cellValue2String(3)).toBe('3.00');
+    expect(lookupWithoutFormatting.item2String(3)).toBe('3.00');
+  });
+
   it('should convert string to cellValue', () => {
     expect(field.convertStringToCellValue('1.234')).toBe(1.234);
     expect(field.convertStringToCellValue('abc')).toBeNull();

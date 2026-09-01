@@ -24,6 +24,7 @@ import {
   type IPasteSelectionStreamEvent,
   type IPasteSelectionStreamProgressEvent,
 } from './paste-stream';
+import { createSelectionStreamError } from './stream-error';
 
 export const CLEAR_BY_ID_URL = '/table/{tableId}/selection/clear-by-id';
 export const CLEAR_BY_ID_STREAM_URL = `${CLEAR_BY_ID_URL}-stream`;
@@ -335,7 +336,10 @@ export const clearByIdSelectionStream = async (
 
   if (!doneEvent) {
     const lastError = errors.at(-1);
-    throw new Error(lastError?.message ?? 'Clear selection by id stream ended without result');
+    if (lastError) {
+      throw createSelectionStreamError(lastError);
+    }
+    throw new Error('Clear selection by id stream ended without result');
   }
 
   return { data: null, done: doneEvent, errors };
@@ -396,7 +400,10 @@ export const pasteByIdSelectionStream = async (
 
   if (!doneEvent) {
     const lastError = errors.at(-1);
-    throw new Error(lastError?.message ?? 'Paste selection by id stream ended without result');
+    if (lastError) {
+      throw createSelectionStreamError(lastError);
+    }
+    throw new Error('Paste selection by id stream ended without result');
   }
 
   const finalDoneEvent = doneEvent as IPasteSelectionStreamDoneEvent;
@@ -482,7 +489,10 @@ export const deleteByIdSelectionStream = async (
 
   if (!finalResult || !doneEvent) {
     const lastError = errors.at(-1);
-    throw new Error(lastError?.message ?? 'Delete selection by id stream ended without result');
+    if (lastError) {
+      throw createSelectionStreamError(lastError);
+    }
+    throw new Error('Delete selection by id stream ended without result');
   }
 
   return { data: finalResult, done: doneEvent, errors };

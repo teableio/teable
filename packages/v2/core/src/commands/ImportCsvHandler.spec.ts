@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { createDefaultTableDataSafetyLimitComposer } from '../application/services/TableDataSafetyLimitComposer';
 import { TableDataSafetyLimitTableOperationPlugin } from '../application/services/TableDataSafetyLimitTableOperationPlugin';
 import { ActorId } from '../domain/shared/ActorId';
-import type { DomainError } from '../domain/shared/DomainError';
+import { isDomainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
@@ -32,7 +32,11 @@ import type {
   RecordMutationResult,
   UpdateManyStreamResult,
 } from '../ports/TableRecordRepository';
-import type { ITableRepository, TableProvisionState } from '../ports/TableRepository';
+import type {
+  ITableRepository,
+  TableProvisionOperationOptions,
+  TableProvisionState,
+} from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { ImportCsvCommand } from './ImportCsvCommand';
@@ -74,7 +78,12 @@ class FakeCsvParser implements ICsvParser {
 
 class FakeTableRepository implements ITableRepository {
   tables: Table[] = [];
-  provisionStateChanges: Array<{ tableId: string; state: TableProvisionState }> = [];
+  provisionStateChanges: Array<{
+    tableId: string;
+    state: TableProvisionState;
+    status?: string;
+    lastError?: string | null;
+  }> = [];
 
   async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
     this.tables.push(table);
@@ -134,9 +143,15 @@ class FakeTableRepository implements ITableRepository {
   async setProvisionState(
     _: IExecutionContext,
     table: Table,
-    state: TableProvisionState
+    state: TableProvisionState,
+    operation?: TableProvisionOperationOptions
   ): Promise<Result<void, DomainError>> {
-    this.provisionStateChanges.push({ tableId: table.id().toString(), state });
+    this.provisionStateChanges.push({
+      tableId: table.id().toString(),
+      state,
+      status: operation?.status,
+      lastError: operation?.lastError,
+    });
     return ok(undefined);
   }
 }
@@ -197,20 +212,27 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   ): Promise<Result<{ totalInserted: number }, DomainError>> {
     let totalInserted = 0;
     let batchIndex = 0;
-    if (isAsyncIterable(batches)) {
-      for await (const batch of batches) {
-        this.inserted.push(...batch);
-        totalInserted += batch.length;
-        options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
-        batchIndex += 1;
+    try {
+      if (isAsyncIterable(batches)) {
+        for await (const batch of batches) {
+          this.inserted.push(...batch);
+          totalInserted += batch.length;
+          options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
+          batchIndex += 1;
+        }
+      } else {
+        for (const batch of batches) {
+          this.inserted.push(...batch);
+          totalInserted += batch.length;
+          options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
+          batchIndex += 1;
+        }
       }
-    } else {
-      for (const batch of batches) {
-        this.inserted.push(...batch);
-        totalInserted += batch.length;
-        options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
-        batchIndex += 1;
+    } catch (error) {
+      if (isDomainError(error)) {
+        return err(error);
       }
+      throw error;
     }
 
     return ok({ totalInserted });
@@ -353,7 +375,9 @@ describe('ImportCsvHandler', () => {
     );
     expect(insertedFieldValues[0].get(noteFieldId)?.toValue()).toBe('hello');
     expect(insertedFieldValues[1].has(noteFieldId)).toBe(false);
-    expect(eventBus.published.some(isRecordsBatchCreatedEvent)).toBe(true);
+    const batchCreatedEvents = eventBus.published.filter(isRecordsBatchCreatedEvent);
+    expect(batchCreatedEvents.length).toBeGreaterThan(0);
+    expect(batchCreatedEvents.every((event) => event.source.type === 'import')).toBe(true);
     expect(eventBus.published.length).toBeGreaterThan(0);
     expect(tableRepository.provisionStateChanges.map(({ state }) => state)).toEqual([
       'pending',
@@ -483,6 +507,50 @@ describe('ImportCsvHandler', () => {
     expect(valuesByFieldId.get(fieldsByName.get('注册日期')!)).toBeDefined();
   });
 
+  it('abandons the schema operation as dead when data-phase import fails and meta cleanup succeeds', async () => {
+    const parser = new FakeCsvParser(
+      ok({
+        headers: ['Name', 'Age'],
+        rows: [
+          { Name: 'Alice', Age: '30' },
+          { Name: 'Bob', Age: '40' },
+        ],
+      })
+    );
+    const tableRepository = new FakeTableRepository();
+    const handler = new ImportCsvHandler(
+      parser,
+      tableRepository,
+      new FakeTableSchemaRepository(),
+      new FakeTableRecordRepository(),
+      new FakeEventBus(),
+      new FakeUnitOfWork(),
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
+    );
+
+    const command = ImportCsvCommand.createFromString({
+      baseId,
+      csvData: 'Name,Age\nAlice,30\nBob,40',
+      tableName: 'People Over Limit',
+      maxRowCount: 1,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.rows_per_table_max');
+    expect(tableRepository.provisionStateChanges.map(({ state }) => state)).toEqual([
+      'pending',
+      'error',
+    ]);
+    expect(tableRepository.provisionStateChanges.at(-1)).toMatchObject({
+      lastError: 'Exceed max row limit: 1',
+      state: 'error',
+      status: 'dead',
+    });
+  });
+
   it('returns error when csv has no headers', async () => {
     const parser = new FakeCsvParser(
       ok({
@@ -583,5 +651,66 @@ describe('ImportCsvHandler', () => {
     const result = await handler.handle(createContext(), command);
     expect(result.isOk()).toBe(true);
     expect(result._unsafeUnwrap().totalImported).toBe(1);
+  });
+
+  it('keeps async CSV rows lazy until insertManyStream pulls them', async () => {
+    const totalRows = 502;
+    let pulled = 0;
+    const pulledWhenInserted: number[] = [];
+    const rowsAsync = (async function* () {
+      for (let index = 0; index < totalRows; index++) {
+        pulled += 1;
+        yield { Name: `Row ${index}` };
+      }
+    })();
+
+    const parser = new FakeCsvParser(
+      ok({ headers: ['Name'], rows: [] }),
+      ok({ headers: ['Name'], rows: [], rowsAsync })
+    );
+    const tableRepository = new FakeTableRepository();
+    const tableRecordRepository = new FakeTableRecordRepository();
+    const originalInsertManyStream =
+      tableRecordRepository.insertManyStream.bind(tableRecordRepository);
+    tableRecordRepository.insertManyStream = async (context, table, batches, options) => {
+      if (!isAsyncIterable(batches)) {
+        return originalInsertManyStream(context, table, batches, options);
+      }
+      async function* tap() {
+        for await (const batch of batches) {
+          pulledWhenInserted.push(pulled);
+          yield batch;
+        }
+      }
+      return originalInsertManyStream(context, table, tap(), options);
+    };
+
+    const handler = new ImportCsvHandler(
+      parser,
+      tableRepository,
+      new FakeTableSchemaRepository(),
+      tableRecordRepository,
+      new FakeEventBus(),
+      new FakeUnitOfWork(),
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      ImportCsvCommand.createFromStream({
+        baseId,
+        csvStream: (async function* () {
+          yield 'Name\n';
+        })(),
+        batchSize: 500,
+      })._unsafeUnwrap()
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().totalImported).toBe(totalRows);
+    expect(pulledWhenInserted[0]).toBe(500);
+    expect(pulledWhenInserted[0]).toBeLessThan(totalRows);
+    expect(pulled).toBe(totalRows);
   });
 });

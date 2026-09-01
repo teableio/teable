@@ -66,7 +66,7 @@ describe('ComputeActivityPanel', () => {
     setActivity({});
   });
 
-  it('shows current fields with their icons and batch progress', async () => {
+  it('shows compact progress only for running fields', async () => {
     mockedUseFields.mockReturnValue([
       {
         id: 'fldFormula',
@@ -87,9 +87,16 @@ describe('ComputeActivityPanel', () => {
         status: 'running',
         activeTaskCount: 3,
         processingTaskCount: 1,
+        estimatedDirtyRecords: 6000,
         batchProgress: { total: 5, completed: 2 },
       },
-      fldLookup: { status: 'queued', activeTaskCount: 1, processingTaskCount: 0 },
+      fldLookup: {
+        status: 'queued',
+        activeTaskCount: 4,
+        processingTaskCount: 0,
+        estimatedDirtyRecords: 12000,
+        batchProgress: { total: 4, completed: 2 },
+      },
     });
 
     render(<ComputeActivityPanel />);
@@ -98,7 +105,24 @@ describe('ComputeActivityPanel', () => {
     expect(screen.getByText('Revenue formula')).toBeInTheDocument();
     expect(screen.getByText('Customer lookup')).toBeInTheDocument();
     expect(screen.getAllByTestId('field-type-icon')).toHaveLength(2);
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '2');
+    const progressText = screen.getByText('40%');
+    expect(progressText).toHaveClass('ms-auto', 'text-muted-foreground');
+    expect(progressText.parentElement).toHaveClass('justify-between');
+    expect(screen.getByText('computeActivity.calculating')).not.toHaveTextContent('%');
+    expect(screen.queryByText('50%')).not.toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    const scrollArea = screen.getByText('Revenue formula').closest('.overflow-y-auto');
+    expect(scrollArea).toBeInTheDocument();
+    expect(scrollArea).not.toContainElement(
+      screen.getByText('computeActivity.currentCalculations')
+    );
+    expect(mockedT).toHaveBeenCalledWith('computeActivity.records', {
+      count: 6000,
+      formattedCount: '6,000',
+    });
+    expect(mockedT).not.toHaveBeenCalledWith('computeActivity.batchesRunning', expect.anything());
+    expect(mockedT).not.toHaveBeenCalledWith('computeActivity.batchesQueued', expect.anything());
+    expect(mockedT).not.toHaveBeenCalledWith('computeActivity.batchesComplete', expect.anything());
   });
 
   it('does not reveal activity for fields without record-read permission', async () => {
@@ -165,6 +189,36 @@ describe('ComputeActivityPanel', () => {
     expect(screen.getByText('Broken rollup')).toBeInTheDocument();
     expect(screen.getByText('Invalid dependency')).toBeInTheDocument();
     expect(screen.queryByText('Finished formula')).not.toBeInTheDocument();
+  });
+
+  it('translates oversized computed cell failures', async () => {
+    mockedUseFields.mockReturnValue([
+      {
+        id: 'fldFailed',
+        name: 'Huge formula',
+        type: 'formula',
+        canReadFieldRecord: true,
+      },
+    ] as never);
+    setActivity({
+      fldFailed: {
+        status: 'failed',
+        lastError: {
+          code: 'validation.limit.computed_cell_value_max_bytes',
+          message:
+            'Computed cell value is too large (312000 / 262144 bytes). Shorten the source data or change the formula.',
+          context: { attempted: 312000, max: 262144 },
+        },
+      },
+    });
+
+    render(<ComputeActivityPanel />);
+    await userEvent.click(screen.getByRole('button'));
+
+    expect(mockedT).toHaveBeenCalledWith('computeActivity.cellValueTooLarge', {
+      attempted: 312000,
+      max: 262144,
+    });
   });
 
   it('does not reserve a top bar when there is no current activity', () => {

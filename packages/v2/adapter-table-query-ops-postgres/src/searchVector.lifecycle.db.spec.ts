@@ -78,7 +78,20 @@ const asStringArray = (value: unknown): string[] => {
     : [];
 };
 
-describe('generated substring search document schema lifecycle (db)', () => {
+// Needs a real Postgres (env-provided URL or the search CI flag). Without the
+// gate, plain `pnpm test-unit` on a machine with no Docker and no database
+// URL fails while booting testcontainers.
+const hasTestDatabaseUrl = Boolean(
+  process.env.TEABLE_V2_TEST_DATABASE_URL ??
+    process.env.PRISMA_DATABASE_URL ??
+    process.env.DATABASE_URL
+);
+const describeWithDb =
+  process.env.TEABLE_V2_RUN_SEARCH_VECTOR_PG_INTEGRATION === '1' || hasTestDatabaseUrl
+    ? describe
+    : describe.skip;
+
+describeWithDb('generated substring search document schema lifecycle (db)', () => {
   let testContainer: IV2NodeTestContainer;
   let commandBus: ICommandBus;
   let tableRepository: ITableRepository;
@@ -232,8 +245,10 @@ describe('generated substring search document schema lifecycle (db)', () => {
     await runPendingMaintenance();
 
     config = await expectReadyConfig(table);
+    // Number fields are excluded from substring documents (equality uses btree).
     expect(asStringArray(config.field_ids)).not.toContain(scoreField.id().toString());
     expect(await searchTotal(table, config, 'lifecycleunique')).toBe(1);
+    expect(await searchTotal(table, config, '88.00')).toBe(0);
 
     const deleteRegion = DeleteFieldCommand.create({
       baseId: table.baseId().toString(),
@@ -255,6 +270,34 @@ describe('generated substring search document schema lifecycle (db)', () => {
     expect(asStringArray(config.field_ids)).not.toContain(regionFieldId);
     expect(await searchTotal(table, config, 'SingaporeWest')).toBe(0);
     expect(await searchTotal(table, config, 'lifecycleunique')).toBe(1);
+
+    // Table-level kill switch: drop removes the managed objects, disables the
+    // config, and search keeps working through the default ILIKE path.
+    const dropResult = await reconciler.reconcile(context, { table, mode: 'drop' });
+    expect(dropResult._unsafeUnwrap()).toMatchObject({ action: 'dropped', status: 'disabled' });
+    expect((await statusReader.read(context, table.id().toString()))._unsafeUnwrap()).toMatchObject(
+      {
+        state: 'disabled',
+        configured: false,
+      }
+    );
+    const physicalAfterDrop = getTablePhysicalName(table)._unsafeUnwrap();
+    const droppedState = await sql<{ column_exists: boolean; index_exists: boolean }>`
+      SELECT
+        EXISTS (
+          SELECT 1
+          FROM pg_attribute a
+          JOIN pg_class c ON c.oid = a.attrelid
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = ${physicalAfterDrop.schema}
+            AND c.relname = ${physicalAfterDrop.tableName}
+            AND a.attname = ${config.generated_column_name}
+            AND NOT a.attisdropped
+        ) AS column_exists,
+        to_regclass(${`${physicalAfterDrop.schema}.${config.index_name}`}) IS NOT NULL AS index_exists
+    `.execute(db);
+    expect(droppedState.rows[0]).toEqual({ column_exists: false, index_exists: false });
+    expect(await searchTotalWithDefaultPath(table, 'lifecycleunique')).toBe(1);
   }, 120_000);
   it('falls back safely and removes new objects when real-DDL rebuild validation fails', async () => {
     const created = await createTable();
@@ -440,6 +483,8 @@ describe('generated substring search document schema lifecycle (db)', () => {
       workerId: 'search-vector-lifecycle-e2e-worker',
       now: new Date(),
       allowedKinds: ['rebuild_search_access_path'],
+      allowManualIndexExecution: false,
+      allowPolicyIndexExecution: false,
     });
     const task = claimed._unsafeUnwrap();
     expect(task).toBeDefined();
@@ -458,20 +503,23 @@ describe('generated substring search document schema lifecycle (db)', () => {
   };
 
   const searchTotal = async (table: Table, config: SearchVectorConfig, value: string) => {
-    const coveredFieldIds = asStringArray(config.field_ids).map((id) =>
-      FieldId.create(id)._unsafeUnwrap()
-    );
+    const fieldIds = asStringArray(config.field_ids);
+    const coveredFieldIds = fieldIds.map((id) => FieldId.create(id)._unsafeUnwrap());
     const result = await recordQueryRepository.find(context, table, undefined, {
-      search: { search: RecordSearch.fromTuple([value, '', true]) },
+      search: { search: RecordSearch.fromTuple([value, fieldIds.join(','), true]) },
       searchAccessPath: {
         kind: 'generated_text',
         generatedColumnName: config.generated_column_name,
         provider: config.provider,
-        searchScope: config.search_scope === 'selected_fields' ? 'selected_fields' : 'all_fields',
+        searchScope: 'selected_fields',
         coveredFieldIds,
       },
     });
-    return result._unsafeUnwrap().total;
+    const value_ = result._unsafeUnwrap();
+    // Guard against silent fallback: every lifecycle assertion below would
+    // also pass on plain ILIKE, so require the indexed path to actually run.
+    expect(value_.searchAccessPath).toMatchObject({ used: 'generated_text' });
+    return value_.total;
   };
 
   const searchTotalWithDefaultPath = async (table: Table, value: string) => {

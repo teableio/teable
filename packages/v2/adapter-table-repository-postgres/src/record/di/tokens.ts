@@ -12,6 +12,9 @@ export const v2RecordRepositoryPostgresTokens = {
   computedFieldUpdater: Symbol('v2.adapter.recordRepositoryPostgres.computedFieldUpdater'),
   computedUpdateStrategy: Symbol('v2.adapter.recordRepositoryPostgres.computedUpdateStrategy'),
   computedUpdateLockConfig: Symbol('v2.adapter.recordRepositoryPostgres.computedUpdateLockConfig'),
+  computedUpdateRuntimeConfig: Symbol(
+    'v2.adapter.recordRepositoryPostgres.computedUpdateRuntimeConfig'
+  ),
   computedUpdateHybridConfig: Symbol(
     'v2.adapter.recordRepositoryPostgres.computedUpdateHybridConfig'
   ),

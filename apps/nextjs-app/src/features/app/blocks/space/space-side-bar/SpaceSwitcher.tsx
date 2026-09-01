@@ -183,7 +183,7 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
               avatar={currentSpace?.avatar}
               className="size-8 shrink-0"
             />
-            <p className="min-w-0 truncate text-left font-semibold">{currentSpace?.name}</p>
+            <p className="min-w-0 truncate text-start font-semibold">{currentSpace?.name}</p>
             <ChevronDown className="size-4 shrink-0" />
           </Button>
         </PopoverTrigger>

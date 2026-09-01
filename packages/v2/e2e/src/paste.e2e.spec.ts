@@ -2750,6 +2750,19 @@ describe('v2 http paste (e2e)', () => {
         .onConflict((oc) => oc.column('id').doNothing())
         .execute();
 
+      // User values only resolve to collaborators of the table's base/space.
+      await ctx.testContainer.db
+        .insertInto('collaborator')
+        .values({
+          id: `col${bob.id}`,
+          resource_type: 'base',
+          resource_id: ctx.baseId,
+          principal_id: bob.id,
+          principal_type: 'user',
+        })
+        .onConflict((oc) => oc.column('id').doNothing())
+        .execute();
+
       await ctx.createRecords(userTableId, [
         {
           fields: {
@@ -5545,6 +5558,520 @@ describe('v2 http paste (e2e)', () => {
       expect(records.find((r) => r.id === descRecX1Id)?.fields[descNameFieldId]).toBe('Pasted-X1');
 
       await ctx.updateRecord(descTableId, descRecX1Id, { [descNameFieldId]: 'X1' });
+    });
+  });
+
+  describe('paste computed numeric coercion regression (v1 parity)', () => {
+    it('recomputes a numeric formula when pasted text contains multiple numeric fragments', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Numeric Coercion ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Score', type: 'number' },
+          { name: 'WeightText', type: 'singleLineText' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const scoreFieldId = table.fields.find((field) => field.name === 'Score')?.id ?? '';
+      const weightFieldId = table.fields.find((field) => field.name === 'WeightText')?.id ?? '';
+
+      const tableWithFormula = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: table.id,
+        field: {
+          name: 'WeightedScore',
+          type: 'formula',
+          options: { expression: `{${scoreFieldId}} * {${weightFieldId}}` },
+        },
+      });
+      const weightedScoreFieldId =
+        tableWithFormula.fields.find((field) => field.name === 'WeightedScore')?.id ?? '';
+
+      await ctx.createRecord(table.id, {
+        [table.fields.find((field) => field.isPrimary)?.id ?? '']: 'row-1',
+        [scoreFieldId]: 10,
+        [weightFieldId]: '0.5',
+      });
+      await ctx.drainOutbox();
+
+      const result = await ctx.paste({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        projection: [weightFieldId],
+        content: '0.4/0.6',
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+      });
+
+      expect(result.updatedCount).toBe(1);
+      await ctx.drainOutbox();
+
+      const records = await ctx.listRecords(table.id);
+      expect(records[0].fields[weightFieldId]).toBe('0.4/0.6');
+      expect(records[0].fields[weightedScoreFieldId]).toBeCloseTo(4, 10);
+    });
+  });
+
+  describe('paste lookup date into date field (v1 parity)', () => {
+    const dateFormatting = { date: 'YYYY-MM-DD', time: 'None', timeZone: 'utc' } as const;
+
+    const setupLookupDateFixture = async (sourceDates: string[]) => {
+      const sourceTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Lookup Date Source ${Date.now()}-${sourceDates.length}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Activity Date', type: 'date', options: { formatting: dateFormatting } },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const sourceNameFieldId = sourceTable.fields.find((field) => field.isPrimary)?.id ?? '';
+      const sourceDateFieldId =
+        sourceTable.fields.find((field) => field.name === 'Activity Date')?.id ?? '';
+
+      const sourceRecordIds: string[] = [];
+      for (const [index, date] of sourceDates.entries()) {
+        const record = await ctx.createRecord(sourceTable.id, {
+          [sourceNameFieldId]: `Activity ${index + 1}`,
+          [sourceDateFieldId]: date,
+        });
+        sourceRecordIds.push(record.id);
+      }
+
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Lookup Date Host ${Date.now()}-${sourceDates.length}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Target Date', type: 'date', options: { formatting: dateFormatting } },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const hostPrimaryFieldId = hostTable.fields.find((field) => field.isPrimary)?.id ?? '';
+      const targetDateFieldId =
+        hostTable.fields.find((field) => field.name === 'Target Date')?.id ?? '';
+
+      const hostTableWithLink = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hostTable.id,
+        field: {
+          name: 'Activities',
+          type: 'link',
+          options: {
+            relationship: 'oneMany',
+            foreignTableId: sourceTable.id,
+            lookupFieldId: sourceNameFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+      const linkFieldId =
+        hostTableWithLink.fields.find((field) => field.name === 'Activities')?.id ?? '';
+
+      const hostTableWithLookup = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hostTable.id,
+        field: {
+          name: 'Date (from Activities)',
+          type: 'lookup',
+          options: {
+            linkFieldId,
+            foreignTableId: sourceTable.id,
+            lookupFieldId: sourceDateFieldId,
+          },
+        },
+      });
+      const lookupDateFieldId =
+        hostTableWithLookup.fields.find((field) => field.name === 'Date (from Activities)')?.id ??
+        '';
+
+      const hostRecord = await ctx.createRecord(hostTable.id, {
+        [hostPrimaryFieldId]: 'Row 1',
+        [linkFieldId]: sourceRecordIds.map((id) => ({ id })),
+      });
+      await ctx.drainOutbox();
+
+      const targetDateFieldIndex = hostTableWithLookup.fields.findIndex(
+        (field) => field.id === targetDateFieldId
+      );
+
+      return {
+        hostTableId: hostTable.id,
+        hostViewId: hostTable.views[0].id,
+        hostRecordId: hostRecord.id,
+        targetDateFieldId,
+        targetDateFieldIndex,
+        lookupDateFieldId,
+      };
+    };
+
+    const lookupSourceFieldMeta = {
+      name: 'Date (from Activities)',
+      type: 'date',
+      cellValueType: 'dateTime',
+      isComputed: true,
+      isLookup: true,
+      isMultipleCellValue: true,
+      options: { formatting: dateFormatting },
+    };
+
+    it('pastes a raw lookup date array into a regular date field', async () => {
+      const fixture = await setupLookupDateFixture(['2026-02-15T00:00:00.000Z']);
+
+      const records = await ctx.listRecords(fixture.hostTableId);
+      const lookupValue = records.find((record) => record.id === fixture.hostRecordId)?.fields[
+        fixture.lookupDateFieldId
+      ];
+      expect(lookupValue).toEqual(['2026-02-15T00:00:00.000Z']);
+
+      const result = await ctx.paste({
+        tableId: fixture.hostTableId,
+        viewId: fixture.hostViewId,
+        content: [[lookupValue]],
+        sourceFields: [lookupSourceFieldMeta],
+        ranges: [
+          [fixture.targetDateFieldIndex, 0],
+          [fixture.targetDateFieldIndex, 0],
+        ],
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const afterRecords = await ctx.listRecords(fixture.hostTableId);
+      expect(
+        afterRecords.find((record) => record.id === fixture.hostRecordId)?.fields[
+          fixture.targetDateFieldId
+        ]
+      ).toBe('2026-02-15T00:00:00.000Z');
+    });
+
+    it('keeps the first raw lookup date when pasting multiple lookup dates', async () => {
+      const fixture = await setupLookupDateFixture([
+        '2026-02-15T00:00:00.000Z',
+        '2026-02-20T00:00:00.000Z',
+      ]);
+
+      const records = await ctx.listRecords(fixture.hostTableId);
+      const lookupValue = records.find((record) => record.id === fixture.hostRecordId)?.fields[
+        fixture.lookupDateFieldId
+      ];
+      expect(lookupValue).toEqual(['2026-02-15T00:00:00.000Z', '2026-02-20T00:00:00.000Z']);
+
+      const result = await ctx.paste({
+        tableId: fixture.hostTableId,
+        viewId: fixture.hostViewId,
+        content: [[lookupValue]],
+        sourceFields: [lookupSourceFieldMeta],
+        ranges: [
+          [fixture.targetDateFieldIndex, 0],
+          [fixture.targetDateFieldIndex, 0],
+        ],
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const afterRecords = await ctx.listRecords(fixture.hostTableId);
+      expect(
+        afterRecords.find((record) => record.id === fixture.hostRecordId)?.fields[
+          fixture.targetDateFieldId
+        ]
+      ).toBe('2026-02-15T00:00:00.000Z');
+    });
+  });
+
+  describe('paste empty-string normalization on update path (T6520)', () => {
+    it('stores null when pasting empty strings over existing values', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Empty String Update ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Count', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const nameFieldId = table.fields.find((field) => field.isPrimary)?.id ?? '';
+      const countFieldId = table.fields.find((field) => field.name === 'Count')?.id ?? '';
+
+      await ctx.createRecord(table.id, {
+        [nameFieldId]: 'Filled',
+        [countFieldId]: 42,
+      });
+
+      const result = await ctx.paste({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        ranges: [
+          [0, 0],
+          [1, 0],
+        ],
+        content: [['', '']],
+        typecast: true,
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const records = await ctx.listRecords(table.id);
+      expect(records[0].fields[nameFieldId]).toBeNull();
+      expect(records[0].fields[countFieldId]).toBeNull();
+    });
+
+    it('stores null when pasting an empty string without typecast', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Empty String No Typecast ${Date.now()}`,
+        fields: [{ name: 'Name', type: 'singleLineText', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+
+      const nameFieldId = table.fields.find((field) => field.isPrimary)?.id ?? '';
+      await ctx.createRecord(table.id, { [nameFieldId]: 'Filled' });
+
+      const result = await ctx.paste({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        content: [['']],
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const records = await ctx.listRecords(table.id);
+      expect(records[0].fields[nameFieldId]).toBeNull();
+    });
+  });
+
+  describe('paste user by collaborator name (v1 parity)', () => {
+    it('resolves a collaborator by name when pasting text into a user field', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste User By Name ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Assignee', type: 'user', options: { isMultiple: false } },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const nameFieldId = table.fields.find((field) => field.isPrimary)?.id ?? '';
+      const userFieldId = table.fields.find((field) => field.name === 'Assignee')?.id ?? '';
+      const userFieldIndex = table.fields.findIndex((field) => field.id === userFieldId);
+
+      await ctx.createRecord(table.id, { [nameFieldId]: 'Row 1' });
+
+      const result = await ctx.paste({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        ranges: [
+          [userFieldIndex, 0],
+          [userFieldIndex, 0],
+        ],
+        content: [[ctx.testUser.name]],
+        typecast: true,
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const records = await ctx.listRecords(table.id);
+      expect(records[0].fields[userFieldId]).toMatchObject({
+        id: ctx.testUser.id,
+        title: ctx.testUser.name,
+      });
+    });
+  });
+
+  describe('paste with incomplete view filters (v1 parity)', () => {
+    it('should ignore incomplete non-checkbox view filters before pasting', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Incomplete Filter ${Date.now()}`,
+        fields: [
+          { name: 'Label', type: 'singleLineText', isPrimary: true },
+          { name: 'Number', type: 'number' },
+          { name: 'Status', type: 'singleSelect', options: ['To do', 'In progress', 'Done'] },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const labelFieldId = table.fields.find((field) => field.isPrimary)?.id ?? '';
+      const numberFieldIdLocal = table.fields.find((field) => field.name === 'Number')?.id ?? '';
+      const statusFieldId = table.fields.find((field) => field.name === 'Status')?.id ?? '';
+      const statusFieldIndex = table.fields.findIndex((field) => field.id === statusFieldId);
+
+      const recordIds: string[] = [];
+      for (const label of ['row1', 'row2', 'row3', 'row4']) {
+        const record = await ctx.createRecord(table.id, { [labelFieldId]: label });
+        recordIds.push(record.id);
+      }
+
+      // Incomplete filter: operator requires a value but value is null.
+      await ctx.testContainer.db
+        .updateTable('view')
+        .set({
+          filter: JSON.stringify({
+            conjunction: 'and',
+            filterSet: [{ fieldId: numberFieldIdLocal, operator: 'is', value: null }],
+          }),
+        })
+        .where('id', '=', table.views[0].id)
+        .execute();
+
+      const result = await ctx.paste({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        ranges: [
+          [statusFieldIndex, 2],
+          [statusFieldIndex, 2],
+        ],
+        content: [['In progress']],
+      });
+
+      expect(result.updatedCount).toBe(1);
+      expect(result.createdCount).toBe(0);
+
+      const records = await ctx.listRecords(table.id);
+      expect(records).toHaveLength(4);
+      const target = records.find((record) => record.id === recordIds[2]);
+      expect(target?.fields[statusFieldId]).toBe('In progress');
+    });
+  });
+
+  describe('paste user values for non-collaborator members', () => {
+    const outsider = {
+      id: 'usrPasteNonCollaborator',
+      name: 'Paste Non Collaborator',
+      email: 'paste-non-collaborator@e2e.com',
+    };
+    const deletedUser = {
+      id: 'usrPasteDeleted',
+      name: 'Paste Deleted',
+      email: 'paste-deleted@e2e.com',
+    };
+
+    const createUserTable = async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Paste Non Collaborator ${Date.now()} ${Math.random()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Assignee', type: 'user', options: { isMultiple: false } },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      return {
+        table,
+        nameFieldId: table.fields.find((field) => field.isPrimary)?.id ?? '',
+        userFieldId: table.fields.find((field) => field.name === 'Assignee')?.id ?? '',
+        userFieldIndex: table.fields.findIndex((field) => field.name === 'Assignee'),
+      };
+    };
+
+    beforeAll(async () => {
+      // The outsider exists on the platform but is deliberately NOT a
+      // collaborator of the test base/space.
+      await ctx.testContainer.db
+        .insertInto('users')
+        .values({ id: outsider.id, name: outsider.name, email: outsider.email })
+        .onConflict((oc) => oc.column('id').doNothing())
+        .execute();
+      // A platform user that has since been deleted.
+      await ctx.testContainer.db
+        .insertInto('users')
+        .values({
+          id: deletedUser.id,
+          name: deletedUser.name,
+          email: deletedUser.email,
+          deleted_time: new Date(),
+        })
+        .onConflict((oc) => oc.column('id').doUpdateSet({ deleted_time: new Date() }))
+        .execute();
+    });
+
+    it('writes a copied user object whose member is not a collaborator', async () => {
+      const { table, nameFieldId, userFieldId, userFieldIndex } = await createUserTable();
+      await ctx.createRecord(table.id, { [nameFieldId]: 'Row 1' });
+
+      // Simulates a cell copied from a user field (structured user object).
+      const result = await ctx.paste({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        ranges: [
+          [userFieldIndex, 0],
+          [userFieldIndex, 0],
+        ],
+        content: [[{ id: outsider.id, title: outsider.name, email: outsider.email }]],
+        typecast: true,
+        sourceFields: [{ type: 'user', cellValueType: 'string' }],
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const records = await ctx.listRecords(table.id);
+      expect(records[0]?.fields[userFieldId]).toMatchObject({
+        id: outsider.id,
+        title: outsider.name,
+        email: outsider.email,
+      });
+    });
+
+    it('clears the cell instead of failing when pasted text matches no collaborator', async () => {
+      const { table, nameFieldId, userFieldId, userFieldIndex } = await createUserTable();
+      await ctx.createRecord(table.id, {
+        [nameFieldId]: 'Row 1',
+        [userFieldId]: { id: ctx.testUser.id, title: ctx.testUser.name },
+      });
+
+      // Simulates pasting copied plain text (a name), not a structured cell.
+      const result = await ctx.paste({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        ranges: [
+          [userFieldIndex, 0],
+          [userFieldIndex, 0],
+        ],
+        content: [[outsider.name]],
+        typecast: true,
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const records = await ctx.listRecords(table.id);
+      expect(records[0]?.fields[userFieldId] ?? null).toBeNull();
+    });
+
+    it('rejects a copied user object whose member has been deleted', async () => {
+      const { table, nameFieldId, userFieldIndex } = await createUserTable();
+      await ctx.createRecord(table.id, { [nameFieldId]: 'Row 1' });
+
+      const response = await fetch(`${ctx.baseUrl}/tables/paste`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          viewId: table.views[0].id,
+          ranges: [
+            [userFieldIndex, 0],
+            [userFieldIndex, 0],
+          ],
+          content: [[{ id: deletedUser.id, title: deletedUser.name, email: deletedUser.email }]],
+          typecast: true,
+          sourceFields: [{ type: 'user', cellValueType: 'string' }],
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      const rawBody = (await response.json()) as {
+        error?: { code?: string; message?: string };
+      };
+      expect(rawBody.error?.code).toBe('validation.field.user_not_found');
     });
   });
 });

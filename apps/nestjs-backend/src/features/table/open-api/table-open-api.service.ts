@@ -29,6 +29,7 @@ import type {
   ICreateRecordsRo,
   ICreateTableRo,
   IDuplicateTableRo,
+  ITableDeleteReferencesVo,
   ITableFullVo,
   ITablePermissionVo,
   ITableVo,
@@ -428,6 +429,92 @@ export class TableOpenApiService {
     });
   }
 
+  async getDeleteTableReferences(tableId: string): Promise<ITableDeleteReferencesVo> {
+    const relatedLinkFieldRaws = await this.linkService.getRelatedLinkFieldRaws(tableId);
+    const inboundLinks = relatedLinkFieldRaws.filter((field) => field.tableId !== tableId);
+    const inboundLinkIds = inboundLinks.map((field) => field.id);
+
+    const dependentFieldIds = inboundLinkIds.length
+      ? (
+          await this.prismaService.reference.findMany({
+            where: { fromFieldId: { in: inboundLinkIds } },
+            select: { toFieldId: true },
+          })
+        ).map((ref) => ref.toFieldId)
+      : [];
+
+    const extraDependents =
+      dependentFieldIds.length > 0
+        ? await this.prismaService.field.findMany({
+            where: {
+              id: { in: dependentFieldIds },
+              tableId: { not: tableId },
+              deletedTime: null,
+            },
+            select: { id: true, name: true, type: true, tableId: true },
+          })
+        : [];
+
+    const fieldById = new Map<
+      string,
+      { id: string; name: string; type: string; tableId: string }
+    >();
+    for (const field of inboundLinks) {
+      fieldById.set(field.id, {
+        id: field.id,
+        name: field.name,
+        type: field.type,
+        tableId: field.tableId,
+      });
+    }
+    for (const field of extraDependents) {
+      fieldById.set(field.id, field);
+    }
+
+    const tableIds = [...new Set([...fieldById.values()].map((field) => field.tableId))];
+    if (tableIds.length === 0) {
+      return { dependentFields: [] };
+    }
+
+    const tables = await this.prismaService.tableMeta.findMany({
+      where: { id: { in: tableIds } },
+      select: { id: true, name: true, icon: true, baseId: true },
+    });
+    const bases = await this.prismaService.base.findMany({
+      where: { id: { in: [...new Set(tables.map((table) => table.baseId))] } },
+      select: { id: true, name: true, icon: true },
+    });
+    const baseById = new Map(bases.map((base) => [base.id, base]));
+    const tableById = new Map(tables.map((table) => [table.id, table]));
+
+    return {
+      dependentFields: [...fieldById.values()].flatMap((field) => {
+        const table = tableById.get(field.tableId);
+        const base = table ? baseById.get(table.baseId) : undefined;
+        if (!table || !base) {
+          return [];
+        }
+        return [
+          {
+            id: field.id,
+            name: field.name,
+            type: field.type,
+            source: {
+              id: table.id,
+              name: table.name,
+              icon: table.icon,
+              base: {
+                id: base.id,
+                name: base.name,
+                icon: base.icon,
+              },
+            },
+          },
+        ];
+      }),
+    };
+  }
+
   async detachLink(tableId: string) {
     // Only surviving tables need detaching. The deleted table's own link fields can remain intact
     // so that a later restore can preserve their original link configuration.
@@ -514,7 +601,18 @@ export class TableOpenApiService {
           target: `table ${table.id}`,
         });
       }
-      await this.tableMutationCacheInvalidator.invalidateDroppedTable(table.dbTableName);
+      try {
+        await this.tableMutationCacheInvalidator.invalidateDroppedTable(table.dbTableName);
+      } catch (error) {
+        handleBestEffortDataDbDropError({
+          error,
+          isMetaFallback: await this.databaseRouter.isMetaFallbackForBase(table.baseId, {
+            useTransaction: true,
+          }),
+          logger: this.logger,
+          target: `mutation cache for table ${table.id}`,
+        });
+      }
     }
   }
 
@@ -734,7 +832,7 @@ export class TableOpenApiService {
     });
   }
 
-  async updateIcon(baseId: string, tableId: string, icon: string) {
+  async updateIcon(baseId: string, tableId: string, icon: string | null) {
     await this.prismaService.$tx(async () => {
       await this.tableService.updateTable(baseId, tableId, { icon });
     });

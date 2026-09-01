@@ -47,15 +47,20 @@ import type {
 import type { TableAddFieldSpec } from './TableAddFieldSpec';
 import type { TableAddFieldsSpec } from './TableAddFieldsSpec';
 import type { TableAddSelectOptionsSpec } from './TableAddSelectOptionsSpec';
+import type { TableAddViewSpec } from './TableAddViewSpec';
 import type { TableByBaseIdSpec } from './TableByBaseIdSpec';
 import type { TableByIdSpec } from './TableByIdSpec';
 import type { TableByIdsSpec } from './TableByIdsSpec';
 import type { TableByIncomingReferenceToTableSpec } from './TableByIncomingReferenceToTableSpec';
 import type { TableByNameLikeSpec } from './TableByNameLikeSpec';
 import type { TableByNameSpec } from './TableByNameSpec';
+import type { TableByViewIdSpec } from './TableByViewIdSpec';
 import type { TableDuplicateFieldSpec } from './TableDuplicateFieldSpec';
+import type { TableEnsureViewRowOrderSpec } from './TableEnsureViewRowOrderSpec';
 import type { TableRemoveFieldSpec } from './TableRemoveFieldSpec';
+import type { TableRemoveViewSpec } from './TableRemoveViewSpec';
 import type { TableRenameSpec } from './TableRenameSpec';
+import type { TableRenameViewSpec } from './TableRenameViewSpec';
 import type { TableUpdateFieldAiConfigSpec } from './TableUpdateFieldAiConfigSpec';
 import type { TableUpdateFieldConstraintsSpec } from './TableUpdateFieldConstraintsSpec';
 import type { TableUpdateFieldDbFieldNameSpec } from './TableUpdateFieldDbFieldNameSpec';
@@ -63,23 +68,50 @@ import type { TableUpdateFieldDescriptionSpec } from './TableUpdateFieldDescript
 import type { TableUpdateFieldHasErrorSpec } from './TableUpdateFieldHasErrorSpec';
 import type { TableUpdateFieldNameSpec } from './TableUpdateFieldNameSpec';
 import type { TableUpdateFieldTypeSpec } from './TableUpdateFieldTypeSpec';
+import type { TableUpdatePropertiesSpec } from './TableUpdatePropertiesSpec';
 import type { TableUpdateViewColumnMetaSpec } from './TableUpdateViewColumnMetaSpec';
+import type { TableUpdateViewDescriptionSpec } from './TableUpdateViewDescriptionSpec';
+import type { TableUpdateViewLockedSpec } from './TableUpdateViewLockedSpec';
+import type { TableUpdateViewOptionsSpec } from './TableUpdateViewOptionsSpec';
+import type { TableUpdateViewOrderSpec } from './TableUpdateViewOrderSpec';
 import type { TableUpdateViewQueryDefaultsSpec } from './TableUpdateViewQueryDefaultsSpec';
+import type { TableUpdateViewShareIdSpec } from './TableUpdateViewShareIdSpec';
+import type { TableUpdateViewShareMetaSpec } from './TableUpdateViewShareMetaSpec';
+import type { TableUpdateViewShareStateSpec } from './TableUpdateViewShareStateSpec';
+import type { TableWithViewIdsSpec } from './TableWithViewIdsSpec';
+import type { TableWithPrimaryFieldSpec } from './TableWithPrimaryFieldSpec';
 
 export interface ITableSpecVisitor<TResult = unknown> extends ISpecVisitor {
   // ============ Existing specs ============
   visitTableAddField(spec: TableAddFieldSpec): Result<TResult, DomainError>;
   visitTableAddFields(spec: TableAddFieldsSpec): Result<TResult, DomainError>;
+  visitTableAddView(spec: TableAddViewSpec): Result<TResult, DomainError>;
+  visitTableEnsureViewRowOrder(spec: TableEnsureViewRowOrderSpec): Result<TResult, DomainError>;
+  visitTableRemoveView(spec: TableRemoveViewSpec): Result<TResult, DomainError>;
+  visitTableRenameView(spec: TableRenameViewSpec): Result<TResult, DomainError>;
+  visitTableUpdateViewDescription(
+    spec: TableUpdateViewDescriptionSpec
+  ): Result<TResult, DomainError>;
+  visitTableUpdateViewLocked(spec: TableUpdateViewLockedSpec): Result<TResult, DomainError>;
+  visitTableUpdateViewOrder(spec: TableUpdateViewOrderSpec): Result<TResult, DomainError>;
   visitTableAddSelectOptions(spec: TableAddSelectOptionsSpec): Result<TResult, DomainError>;
   visitTableDuplicateField(spec: TableDuplicateFieldSpec): Result<TResult, DomainError>;
   visitTableRemoveField(spec: TableRemoveFieldSpec): Result<TResult, DomainError>;
   visitTableUpdateViewColumnMeta(spec: TableUpdateViewColumnMetaSpec): Result<TResult, DomainError>;
+  visitTableUpdateViewOptions(spec: TableUpdateViewOptionsSpec): Result<TResult, DomainError>;
+  visitTableUpdateViewShareId(spec: TableUpdateViewShareIdSpec): Result<TResult, DomainError>;
+  visitTableUpdateViewShareMeta(spec: TableUpdateViewShareMetaSpec): Result<TResult, DomainError>;
+  visitTableUpdateViewShareState(spec: TableUpdateViewShareStateSpec): Result<TResult, DomainError>;
   visitTableUpdateViewQueryDefaults(
     spec: TableUpdateViewQueryDefaultsSpec
   ): Result<TResult, DomainError>;
   visitTableRename(spec: TableRenameSpec): Result<TResult, DomainError>;
+  visitTableUpdateProperties(spec: TableUpdatePropertiesSpec): Result<TResult, DomainError>;
   visitTableByBaseId(spec: TableByBaseIdSpec): Result<TResult, DomainError>;
   visitTableById(spec: TableByIdSpec): Result<TResult, DomainError>;
+  visitTableByViewId(spec: TableByViewIdSpec): Result<TResult, DomainError>;
+  visitTableWithViewIds(spec: TableWithViewIdsSpec): Result<TResult, DomainError>;
+  visitTableWithPrimaryField(spec: TableWithPrimaryFieldSpec): Result<TResult, DomainError>;
   visitTableByIncomingReferenceToTable(
     spec: TableByIncomingReferenceToTableSpec
   ): Result<TResult, DomainError>;

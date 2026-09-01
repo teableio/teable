@@ -85,7 +85,13 @@ describe('Auto number continuity (e2e)', () => {
 
       expect(after.records.length).toBe(initialCount + 1);
       expect(finalMax).toBe(maxAutoNumber + 1);
-      expect(created[0].autoNumber).toBe(finalMax);
+      // v2's create response DTO only projects { id, fields } (autoNumber is
+      // DB-assigned via __auto_number and readable through getRecords), so the
+      // response-projection assertion is v1-only; the continuity assertions
+      // above already prove the failed request did not consume a number.
+      if (!isForceV2) {
+        expect(created[0].autoNumber).toBe(finalMax);
+      }
     });
 
     it('should keep autoNumber when missing required field then retry with value', async () => {
@@ -131,7 +137,11 @@ describe('Auto number continuity (e2e)', () => {
 
       expect(after.records.length).toBe(initialCount + 1);
       expect(finalMax).toBe(maxAutoNumber + 1);
-      expect(created[0].autoNumber).toBe(finalMax);
+      // See above: v2's create response DTO omits autoNumber; continuity is
+      // verified via getRecords on both paths.
+      if (!isForceV2) {
+        expect(created[0].autoNumber).toBe(finalMax);
+      }
     });
   });
 });

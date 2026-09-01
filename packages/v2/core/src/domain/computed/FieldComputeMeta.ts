@@ -4,14 +4,29 @@ import { z } from 'zod';
 
 import { BaseId } from '../base/BaseId';
 import { domainError, type DomainError } from '../shared/DomainError';
+import { tableDataSafetyLimitErrors } from '../shared/TableDataSafetyLimits';
 import { FieldId } from '../table/fields/FieldId';
 import { TableId } from '../table/TableId';
 import { FieldComputeStatus, type FieldComputeStatusValue } from './ComputeStatus';
+
+export const COMPUTED_CELL_VALUE_MAX_BYTES_CODE =
+  tableDataSafetyLimitErrors.computedCellValueMaxBytes.code;
+
+export type FieldComputeLastError = {
+  code?: string;
+  message: string;
+  context?: Record<string, unknown>;
+};
+
+export const isStickyComputedCellLimitError = (
+  lastError: FieldComputeLastError | null | undefined
+): boolean => lastError?.code === COMPUTED_CELL_VALUE_MAX_BYTES_CODE;
 
 const lastErrorSchema = z
   .object({
     code: z.string().optional(),
     message: z.string(),
+    context: z.record(z.string(), z.unknown()).optional(),
   })
   .nullable()
   .optional();
@@ -52,7 +67,7 @@ export type FieldComputeMetaDto = {
   updatedAt: string;
   lastCompletedAt?: string | null;
   lastDurationMs?: number | null;
-  lastError?: { code?: string; message: string } | null;
+  lastError?: FieldComputeLastError | null;
   extensions?: Record<string, unknown>;
 };
 
@@ -189,7 +204,7 @@ export class FieldComputeMeta {
     estimatedDirtyRecords?: number;
     startedAt?: string;
     lastDurationMs?: number;
-    lastError?: { code?: string; message: string } | null;
+    lastError?: FieldComputeLastError | null;
   } {
     return {
       status: this.state.status,
@@ -271,7 +286,7 @@ export class FieldComputeMeta {
 
   reconcileProcessing(params: {
     processingTaskCount: number;
-    lastError?: { code?: string; message: string } | null;
+    lastError?: FieldComputeLastError | null;
     now?: Date;
   }): void {
     const now = params.now ?? new Date();
@@ -366,17 +381,31 @@ export class FieldComputeMeta {
    */
   noteTaskFinished(params: {
     durationMs?: number;
-    error?: { code?: string; message: string } | null;
+    error?: FieldComputeLastError | null;
     now?: Date;
   }): void {
     const now = params.now ?? new Date();
     this.applyTaskFinishedMetadata(params, now);
-    this.terminalFailurePending = params.error != null;
+    this.terminalFailurePending =
+      params.error != null || isStickyComputedCellLimitError(this.state.lastError);
+    this.dirty = true;
+  }
+
+  /**
+   * Record a field-level failure that should survive a successful task
+   * completion (e.g. an oversized computed cell that was isolated so the rest
+   * of the cascade could finish). A later attach/enqueue still clears it.
+   */
+  notePersistentFailure(params: { error: FieldComputeLastError; now?: Date }): void {
+    const now = params.now ?? new Date();
+    this.state.lastError = params.error;
+    this.state.updatedAt = now.toISOString();
+    this.terminalFailurePending = true;
     this.dirty = true;
   }
 
   /** Apply retry diagnostics without recording a completion. */
-  noteRetryScheduled(params: { error: { code?: string; message: string }; now?: Date }): void {
+  noteRetryScheduled(params: { error: FieldComputeLastError; now?: Date }): void {
     const now = params.now ?? new Date();
     this.state.lastError = params.error;
     this.state.updatedAt = now.toISOString();
@@ -389,7 +418,7 @@ export class FieldComputeMeta {
   releaseTask(params: {
     wasProcessing: boolean;
     durationMs?: number;
-    error?: { code?: string; message: string } | null;
+    error?: FieldComputeLastError | null;
     now?: Date;
   }): void {
     const now = params.now ?? new Date();
@@ -398,7 +427,8 @@ export class FieldComputeMeta {
     if (params.wasProcessing) {
       this.state.processingTaskCount = Math.max(0, this.state.processingTaskCount - 1);
     }
-    if (this.state.activeTaskCount === 0 && params.error == null) {
+    const stickyLimit = isStickyComputedCellLimitError(this.state.lastError);
+    if (this.state.activeTaskCount === 0 && params.error == null && !stickyLimit) {
       this.state.lastError = null;
     }
     if (this.state.activeTaskCount === 0) {
@@ -413,7 +443,10 @@ export class FieldComputeMeta {
         this.state.extensions = Object.keys(rest).length > 0 ? rest : undefined;
       }
     }
-    this.recomputeStatus(now, params.error != null && this.state.activeTaskCount === 0);
+    this.recomputeStatus(
+      now,
+      this.state.activeTaskCount === 0 && (params.error != null || stickyLimit)
+    );
   }
 
   private setBatchProgress(progress: StoredFieldComputeBatchProgress): void {
@@ -466,7 +499,7 @@ export class FieldComputeMeta {
   private applyTaskFinishedMetadata(
     params: {
       durationMs?: number;
-      error?: { code?: string; message: string } | null;
+      error?: FieldComputeLastError | null;
     },
     now: Date
   ): void {
@@ -481,7 +514,11 @@ export class FieldComputeMeta {
         completed: Math.min(currentProgress.total, currentProgress.completed + 1),
       });
     }
-    if (params.error !== undefined) this.state.lastError = params.error;
+    if (params.error !== undefined) {
+      const keepSticky =
+        params.error == null && isStickyComputedCellLimitError(this.state.lastError);
+      if (!keepSticky) this.state.lastError = params.error;
+    }
     if (params.durationMs != null && params.durationMs >= 0) {
       this.state.lastDurationMs = Math.trunc(params.durationMs);
       this.state.lastCompletedAt = now.toISOString();

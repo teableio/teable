@@ -115,7 +115,7 @@ export const SelectOptions = (props: {
                   className={cn('py-1', isLookup && 'cursor-default')}
                 >
                   <div className="flex items-center">
-                    {!isLookup && <DraggableHandle className="mr-1 size-4 cursor-grabbing" />}
+                    {!isLookup && <DraggableHandle className="me-1 size-4 cursor-grabbing" />}
                     <ChoiceItem
                       choice={choice}
                       readonly={isLookup}
@@ -167,7 +167,7 @@ export const SelectOptions = (props: {
                           >
                             <div className="flex items-center">
                               {!isLookup && (
-                                <div {...dragHandleProps} className="mr-1 size-4">
+                                <div {...dragHandleProps} className="me-1 size-4">
                                   <DraggableHandle className="size-4 cursor-grabbing" />
                                 </div>
                               )}

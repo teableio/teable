@@ -241,4 +241,45 @@ describe('SchemaOperationRunnerService', () => {
       })
     );
   });
+
+  it('claims on one container and runs the handler on another (BYODB routing seam)', async () => {
+    const claimRepository = new FakeSchemaOperationRepository(operation());
+    const claimSideHandler: ISchemaOperationHandler = {
+      type: 'table.create',
+      run: vi.fn(async () => ok({ result: { repaired: false } })),
+    };
+    const claimRunner = new SchemaOperationRunnerService(claimRepository, [claimSideHandler]);
+
+    const runRepository = new FakeSchemaOperationRepository();
+    const runSideHandler: ISchemaOperationHandler = {
+      type: 'table.create',
+      run: vi.fn(async () => ok({ result: { repaired: true } })),
+    };
+    const runRunner = new SchemaOperationRunnerService(runRepository, [runSideHandler]);
+
+    const now = new Date('2026-04-28T01:00:00.000Z');
+    const claimed = await claimRunner.claimNext(context(), { workerId: 'repair-worker', now });
+
+    expect(claimed._unsafeUnwrap()).toMatchObject({ status: 'claimed' });
+    expect(claimRepository.claimNextRunnable).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ lockedBy: 'repair-worker', now, types: ['table.create'] })
+    );
+    expect(claimSideHandler.run).not.toHaveBeenCalled();
+
+    const claim = claimed._unsafeUnwrap();
+    if (claim.status !== 'claimed') {
+      throw new Error('expected a claimed operation');
+    }
+    const result = await runRunner.runOperation(context(), claim.operation, { now });
+
+    expect(result._unsafeUnwrap()).toMatchObject({ status: 'completed' });
+    expect(runSideHandler.run).toHaveBeenCalledTimes(1);
+    expect(runRepository.advance).toHaveBeenCalledWith(
+      expect.any(Object),
+      'req-runner:table:tblRunner000000001',
+      expect.objectContaining({ status: 'ready', result: { repaired: true } })
+    );
+    expect(claimRepository.advance).not.toHaveBeenCalled();
+  });
 });

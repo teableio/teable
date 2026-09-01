@@ -35,6 +35,19 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .execute();
 
   await db.schema
+    .createTable('space_data_db_binding')
+    .ifNotExists()
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('space_id', 'text', (col) => col.notNull().unique())
+    .addColumn('data_db_connection_id', 'text')
+    .addColumn('mode', 'text', (col) => col.notNull().defaultTo('default'))
+    .addColumn('state', 'text', (col) => col.notNull().defaultTo('ready'))
+    .addColumn('created_by', 'text', (col) => col.notNull().defaultTo('system'))
+    .addColumn('created_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .addColumn('last_modified_time', 'timestamptz')
+    .execute();
+
+  await db.schema
     .createTable('table_meta')
     .ifNotExists()
     .addColumn('id', 'text', (col) => col.primaryKey())
@@ -246,6 +259,12 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .addColumn('snapshot', 'text', (col) => col.notNull())
     .addColumn('created_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn('created_by', 'text', (col) => col.notNull())
+    .addColumn('reason', 'text', (col) => col.notNull().defaultTo('deleted'))
+    .addColumn('record_created_time', 'timestamptz')
+    .addColumn('record_created_by', 'text')
+    .addColumn('record_last_modified_time', 'timestamptz')
+    .addColumn('record_last_modified_by', 'text')
+    .addColumn('operation_id', 'text')
     .execute();
 
   await db.schema
@@ -254,6 +273,27 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .on('record_trash')
     .columns(['table_id', 'record_id'])
     .execute();
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS "record_trash_archived_removed_idx"
+      ON "record_trash"("table_id", "created_time" DESC, "id" DESC) WHERE "reason" = 'archived'
+  `.execute(db);
+  await sql`
+    CREATE INDEX IF NOT EXISTS "record_trash_archived_created_idx"
+      ON "record_trash"("table_id", "record_created_time") WHERE "reason" = 'archived'
+  `.execute(db);
+  await sql`
+    CREATE INDEX IF NOT EXISTS "record_trash_archived_creator_idx"
+      ON "record_trash"("table_id", "record_created_by") WHERE "reason" = 'archived'
+  `.execute(db);
+  await sql`
+    CREATE INDEX IF NOT EXISTS "record_trash_archived_modified_idx"
+      ON "record_trash"("table_id", "record_last_modified_time") WHERE "reason" = 'archived'
+  `.execute(db);
+  await sql`
+    CREATE INDEX IF NOT EXISTS "record_trash_archived_modifier_idx"
+      ON "record_trash"("table_id", "record_last_modified_by") WHERE "reason" = 'archived'
+  `.execute(db);
 
   await db.schema
     .createTable('computed_update_outbox')
@@ -288,6 +328,9 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
       col.notNull().defaultTo(sql`ARRAY[]::text[]`)
     )
     .addColumn('sync_max_level', 'integer')
+    .addColumn('source_changed_at', 'timestamptz')
+    .addColumn('stage_depth', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('predecessor_task_id', 'text')
     .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .execute();
@@ -299,6 +342,22 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .addColumn('task_id', 'text', (col) => col.notNull())
     .addColumn('table_id', 'text', (col) => col.notNull())
     .addColumn('record_id', 'text', (col) => col.notNull())
+    .execute();
+
+  await db.schema
+    .createTable('computed_update_stage_ledger')
+    .ifNotExists()
+    .addColumn('scope_id', 'text', (col) => col.notNull())
+    .addColumn('kind', 'text', (col) => col.notNull())
+    .addColumn('table_id', 'text', (col) => col.notNull())
+    .addColumn('record_id', 'text', (col) => col.notNull())
+    .addColumn('seq', 'bigint', (col) => col.notNull().defaultTo(0))
+    .addPrimaryKeyConstraint('computed_update_stage_ledger_pkey', [
+      'scope_id',
+      'kind',
+      'table_id',
+      'record_id',
+    ])
     .execute();
 
   await db.schema
@@ -348,11 +407,75 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
       col.notNull().defaultTo(sql`ARRAY[]::text[]`)
     )
     .addColumn('sync_max_level', 'integer')
+    .addColumn('source_changed_at', 'timestamptz')
+    .addColumn('stage_depth', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('predecessor_task_id', 'text')
     .addColumn('trace_data', 'jsonb')
     .addColumn('failed_at', 'timestamptz', (col) => col.notNull())
     .addColumn('created_at', 'timestamptz', (col) => col.notNull())
     .addColumn('updated_at', 'timestamptz', (col) => col.notNull())
     .execute();
+
+  await db.schema
+    .createTable('computed_update_run_history')
+    .ifNotExists()
+    .addColumn('task_id', 'text', (col) => col.primaryKey())
+    .addColumn('base_id', 'text', (col) => col.notNull())
+    .addColumn('seed_table_id', 'text', (col) => col.notNull())
+    .addColumn('change_type', 'text', (col) => col.notNull())
+    .addColumn('run_id', 'text', (col) => col.notNull())
+    .addColumn('origin_run_ids', sql`text[]`, (col) =>
+      col.notNull().defaultTo(sql`ARRAY[]::text[]`)
+    )
+    .addColumn('steps', 'jsonb')
+    .addColumn('edges', 'jsonb')
+    .addColumn('affected_table_ids', sql`text[]`, (col) =>
+      col.notNull().defaultTo(sql`ARRAY[]::text[]`)
+    )
+    .addColumn('affected_field_ids', sql`text[]`, (col) =>
+      col.notNull().defaultTo(sql`ARRAY[]::text[]`)
+    )
+    .addColumn('source_field_ids', sql`text[]`, (col) =>
+      col.notNull().defaultTo(sql`ARRAY[]::text[]`)
+    )
+    .addColumn('seed_record_count', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('stage_depth', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('predecessor_task_id', 'text')
+    .addColumn('run_total_steps', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('run_completed_steps_before', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('sync_max_level', 'integer')
+    .addColumn('estimated_complexity', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('attempts', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('outcome', 'text', (col) => col.notNull())
+    .addColumn('source_changed_at', 'timestamptz')
+    .addColumn('enqueued_at', 'timestamptz', (col) => col.notNull())
+    .addColumn('started_at', 'timestamptz')
+    .addColumn('completed_at', 'timestamptz', (col) => col.notNull())
+    .addColumn('duration_ms', 'integer', (col) => col.notNull().defaultTo(0))
+    .execute();
+
+  await db.schema
+    .createIndex('computed_update_run_history_run_id_idx')
+    .ifNotExists()
+    .on('computed_update_run_history')
+    .columns(['run_id'])
+    .execute();
+  await db.schema
+    .createIndex('computed_update_run_history_base_id_completed_at_idx')
+    .ifNotExists()
+    .on('computed_update_run_history')
+    .columns(['base_id', 'completed_at'])
+    .execute();
+  await db.schema
+    .createIndex('computed_update_run_history_completed_at_idx')
+    .ifNotExists()
+    .on('computed_update_run_history')
+    .columns(['completed_at'])
+    .execute();
+  await sql`
+    CREATE INDEX IF NOT EXISTS "computed_update_run_history_origin_run_ids_gin"
+    ON "computed_update_run_history" USING GIN ("origin_run_ids")
+  `.execute(db);
 
   await db.schema
     .createIndex('computed_update_outbox_status_next_run_at_idx')
@@ -395,6 +518,13 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .on('computed_update_outbox_seed')
     .columns(['task_id', 'table_id', 'record_id'])
     .unique()
+    .execute();
+
+  await db.schema
+    .createIndex('computed_update_stage_ledger_scope_id_kind_seq_idx')
+    .ifNotExists()
+    .on('computed_update_stage_ledger')
+    .columns(['scope_id', 'kind', 'seq'])
     .execute();
 
   await db.schema

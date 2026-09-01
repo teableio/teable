@@ -60,6 +60,8 @@ export const publicSettingVoSchema = settingVoSchema
     signupVerificationSendCodeMailRate: z.number().optional(),
     enableCreditReward: z.boolean().optional(),
     availableIntegrationProviders: z.array(z.string()).optional(),
+    // EE cloud: whether the deployment has a GitHub App for app-builder sync.
+    githubAppConfigured: z.boolean().optional(),
   });
 export type IPublicSettingVo = z.infer<typeof publicSettingVoSchema>;
 

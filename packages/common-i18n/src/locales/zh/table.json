@@ -7,6 +7,7 @@
     "waiting": "等待中",
     "failed": "失败",
     "calculationFailed": "计算失败",
+    "cellValueTooLarge": "计算单元格值过大（{{attempted}} / {{max}} 字节）。请缩短源数据或修改公式。",
     "calculatingSummary": "计算中({{count}})",
     "failedSummary": "失败({{count}})",
     "fieldsCalculating_other": "{{count}} 个字段正在计算",
@@ -97,17 +98,6 @@
     "description": "点击侧边栏中的“+”按钮添加资源",
     "help": "访问 <HelpCenter /> 获取更多信息",
     "helpCenter": "帮助中心"
-  },
-  "validation": {
-    "link": {
-      "batch_duplicate": "无法建立关联：同一批次中已有其他记录关联了该记录。在一对多关系中，每条子记录只能属于一个父记录。",
-      "one_many_duplicate": "无法建立关联：该记录已关联到其他记录。在一对多关系中，每条子记录只能属于一个父记录。",
-      "one_one_duplicate": "无法建立关联：目标记录已在一对一关系中被其他记录关联。"
-    },
-    "field": {
-      "maxColumnLimit": "表“{{tableName}}”最多只能有 {{maxFieldCount}} 个字段。",
-      "requiredExistingValues": "字段“{{fieldName}}”中已有记录为空，无法设置为必填。"
-    }
   },
   "field": {
     "advancedProps": "高级属性",
@@ -215,35 +205,35 @@
         "rollup": "汇总",
         "selectAnRollupFunction": "选择一个汇总函数",
         "func": {
+          "and": "与",
+          "arrayCompact": "数组去空",
+          "arrayJoin": "数组连接",
+          "arrayUnique": "数组去重",
+          "average": "平均值",
+          "concatenate": "连接",
           "count": "数值计数",
           "countA": "非空计数",
           "countAll": "全计数",
           "max": "最大值",
           "min": "最小值",
-          "sum": "求和",
-          "average": "平均值",
-          "concatenate": "连接",
-          "arrayJoin": "数组连接",
-          "arrayUnique": "数组去重",
-          "arrayCompact": "数组去空",
-          "and": "与",
           "or": "或",
+          "sum": "求和",
           "xor": "异或"
         },
         "funcDesc": {
+          "and": "如果所有值都为真，则返回真",
+          "arrayCompact": "去除数组中的空值",
+          "arrayJoin": "将所有值连接为一个逗号分隔的字符串",
+          "arrayUnique": "去除数组中的重复值",
+          "average": "计算所有值的平均值",
+          "concatenate": "将所有值连接为一个字符串",
           "count": "计算所有数字类型值的数量",
           "countA": "计算所有非空值的数量",
           "countAll": "计算所有值的数量",
           "max": "计算所有值的最大值",
           "min": "计算所有值的最小值",
-          "sum": "计算所有值的和",
-          "average": "计算所有值的平均值",
-          "concatenate": "将所有值连接为一个字符串",
-          "arrayJoin": "将所有值连接为一个逗号分隔的字符串",
-          "arrayUnique": "去除数组中的重复值",
-          "arrayCompact": "去除数组中的空值",
-          "and": "如果所有值都为真，则返回真",
           "or": "如果有一个值为真，则返回真",
+          "sum": "计算所有值的和",
           "xor": "如果奇数个值为真，则返回真"
         }
       },
@@ -352,7 +342,6 @@
         "affectedItems": "受影响项",
         "type": "类型",
         "source": "来源",
-        "sourceTable": "所属表格",
         "loginEmailFieldWarning": "此字段被用作登录邮箱标识字段，删除后以下应用的登录功能将失效：",
         "loginEmailFieldConvertWarning": "此字段被用作应用的登录邮箱字段，转换类型会导致以下应用的登录功能失效："
       }
@@ -490,7 +479,8 @@
     "typeOfDatabase": "数据库类型",
     "descriptionForTable": "表的描述",
     "nameForTable": "表的名称",
-    "deleteTip1": "其他表中关联了此表的关联字段将会被删除。",
+    "deleteTip1": "其他表中关联了此表的关联字段将会转为文本。",
+    "deleteWithDependencies": "删除表格 <b>{{tableName}}</b> 将会影响以下字段：",
     "loginDeleteWarning": "此表被以下应用作为用户表使用，删除后应用的登录功能将失效。",
     "operator": {
       "createBlank": "新表格"
@@ -513,6 +503,11 @@
       "clearFailed": "清除失败",
       "clearConfirmTitle": "清除数据",
       "clearConfirmDescription": "此操作将清除 {{cellCount}} 个单元格，{{rowCount}} 条记录。确定要继续吗？",
+      "archiveRecordConfirmTitle": "归档记录",
+      "archiveRecordConfirmDescription": "此操作将归档 {{recordCount}} 条记录。归档后可在表格归档区查看和恢复。",
+      "archiveRecord": "归档",
+      "archiving": "正在归档...",
+      "archiveSuccessful": "归档成功",
       "deleteRecordConfirmTitle": "删除记录",
       "deleteRecordConfirmDescription": "此操作将删除 {{recordCount}} 条记录。确定要继续吗？",
       "duplicateRecordsConfirmTitle": "复制记录",
@@ -907,6 +902,11 @@
     },
     "searchTips": {
       "maxFieldTips_limited": "最多支持 {{count}} 个字段，多余字段将被忽略"
+    },
+    "deletedRecovered": {
+      "title": "你访问的表格已被删除",
+      "description": "已切换到「{{tableName}}」",
+      "descriptionEmpty": "已返回 Base 页面"
     }
   },
   "import": {
@@ -929,6 +929,7 @@
       "addFromOtherSource": "从第三方资源导入",
       "excelFile": "Microsoft Excel",
       "airtable": "Airtable",
+      "googleSheet": "Google Sheets",
       "csvFile": "CSV 文件",
       "importCsvData": "导入 CSV 数据",
       "importExcelData": "导入 Microsoft Excel 数据",
@@ -939,7 +940,6 @@
       "duplicating": "复制中...",
       "duplicateSuccess": "复制成功",
       "duplicateFailed": "复制失败",
-      "importing": "导入中",
       "includeRecords": "包含记录"
     },
     "tips": {
@@ -947,6 +947,17 @@
       "fileExceedSizeTip": "该类型文件限制文件大小为",
       "analyzing": "分析中",
       "importing": "导入中",
+      "importingRows": "正在导入 {{processed}} / {{total}} 行",
+      "importingRowsUnknown": "已导入 {{processed}} 行",
+      "importingSheet": "工作表 {{current}} / {{total}}：{{name}}",
+      "preparingImport": "正在准备导入...",
+      "importFinished": "导入完成",
+      "importFinishedPartial": "导入完成（部分表达到行数上限）",
+      "importSheetImported": "{{rowCount}} 行",
+      "importSheetTruncated": "已导入 {{rowCount}} 行（超出上限，已跳过剩余行）",
+      "importSheetFailed": "失败（{{error}}）",
+      "importSummaryHint": "请确认各表导入结果后再关闭。",
+      "importDone": "完成",
       "notSupportFieldType": "字段类型不支持",
       "resultEmpty": "未查询到结果",
       "searchPlaceholder": "搜索...",
@@ -964,11 +975,11 @@
       "defaultFieldName": "字段",
       "error": {
         "urlEmptyTip": "URL不能为空！",
-        "fieldNameEmpty": "字段名不能为空",
         "errorFileFormat": "文件格式错误！",
         "uniqueFieldName": "字段名不能重复！",
-        "urlValidateTip": "不能解析该URL，请重新输入！",
-        "atLeastAImportField": "请至少设置一个导入字段！"
+        "fieldNameEmpty": "字段名不能为空",
+        "atLeastAImportField": "请至少设置一个导入字段！",
+        "urlValidateTip": "不能解析该URL，请重新输入！"
       },
       "option": {
         "doNotImport": "无需导入"
@@ -1074,6 +1085,8 @@
     "insertRecordBelow": "在下方插入 <input /> 记录",
     "deleteRecord": "删除记录",
     "deleteAllSelectedRecords": "删除所有选定的记录",
+    "archiveRecord": "归档记录",
+    "archiveAllSelectedRecords": "归档所有选定的记录",
     "duplicateRecords": "复制所选记录",
     "editField": "编辑字段",
     "duplicateField": "复制字段",
@@ -1130,13 +1143,16 @@
     },
     "addPluginView": "视图插件",
     "search": {
-      "field_one": "{{name}}",
       "field_other": "字段({{length}})"
     },
     "locked": {
       "tip": "当前视图已被锁定，你可以启用个人模式来编辑视图选项，修改将仅对你自己生效"
     },
-    "noView": "当前表格没有视图"
+    "noView": "当前表格没有视图",
+    "deletedRecovered": {
+      "title": "你访问的视图已被删除",
+      "description": "已切换到「{{viewName}}」"
+    }
   },
   "lastModifiedTime": "修改时间",
   "lastModify": "上次修改：",
@@ -1144,11 +1160,49 @@
     "title": "确认新增记录？",
     "description": "将会新增 {{count}} 条记录"
   },
+  "tableArchive": {
+    "title": "表格归档区",
+    "menuTitle": "归档区",
+    "archivedTime": "归档时间",
+    "archivedBy": "归档人",
+    "recordDetail": "记录详情",
+    "empty": "暂无归档记录",
+    "allCreators": "全部创建人",
+    "filterArchivedTime": "归档时间",
+    "searchPlaceholder": "搜索归档记录",
+    "clearFilter": "清除筛选",
+    "export": "导出 CSV",
+    "exporting": "导出中… {{count}} 行",
+    "exportSucceed": "导出完成，开始下载",
+    "restoreSelected": "恢复（{{count}}）",
+    "permanentDeleteSelected": "永久删除（{{count}}）",
+    "permanentDeleteConfirm": "永久删除 {{count}} 条归档记录？此操作不可撤销。",
+    "permanentDeleteSucceed": "已永久删除",
+    "resetArchive": "清空归档区",
+    "resetArchiveConfirm": "清空该表格的全部归档记录？此操作不可撤销。",
+    "resetSucceed": "归档区已清空",
+    "orderBy": {
+      "archivedTime": "按归档时间排序",
+      "recordCreatedTime": "按创建时间排序",
+      "recordLastModifiedTime": "按最后修改时间排序"
+    }
+  },
   "tableTrash": {
     "title": "回收站",
     "resourceType": "类型",
     "deletedResource": "资源",
-    "moreResources": "还有 {{count}} 条"
+    "moreResources": "还有 {{count}} 条",
+    "deletedTime": "删除时间",
+    "deletedBy": "删除人",
+    "filterAllTypes": "全部类型",
+    "filterAllUsers": "全部操作人",
+    "filterDeletedTime": "删除时间",
+    "clearFilter": "清除筛选",
+    "recordsDialogTitle": "已删除的记录（{{count}}）",
+    "recordDetail": "记录详情",
+    "filterAllCreators": "全部创建人",
+    "filterCreatedTime": "创建时间",
+    "searchPlaceholder": "搜索记录"
   },
   "pluginPanel": {
     "empty": {
@@ -1202,7 +1256,10 @@
     "linkScopeDialogTitle": "配置关联字段范围",
     "linkHolderCanCopyAndSave": "可另存为副本",
     "linkHolderCanCopyAndSaveDesc": "获得链接的人可以将数据保存到自己的空间",
-    "editRequiresLogin": "用户必须登录才能编辑记录",
+    "copyToMySpace": "复制到我的空间",
+    "saveToMySpace": "保存到我的空间",
+    "supportSaveCopy": "可保存副本到我的空间",
+    "editRequiresLogin": "登录后即可编辑记录",
     "enterPassword": "输入密码",
     "allowCopyData": "允许查看者复制数据",
     "sharedNode": "已分享节点",
@@ -1230,6 +1287,19 @@
       "failed": "连接失败",
       "status": {
         "connected": "已连接",
+        "cancelled": "已跳过",
+        "failed": "失败"
+      }
+    },
+    "googleSheetPick": {
+      "title": "选择 Google 表格",
+      "defaultReason": "在 Google 文件选择器中选择表格，以便读取其内容。",
+      "pick": "选择表格",
+      "opening": "正在打开选择器…",
+      "failed": "无法打开 Google 文件选择器",
+      "gateExpired": "此请求已过期，但所选文件的授权仍然有效，向智能体发送新消息即可继续。",
+      "status": {
+        "picked": "已授权 {{count}} 个表格",
         "cancelled": "已跳过",
         "failed": "失败"
       }
@@ -1267,7 +1337,8 @@
       "contextCompaction": {
         "auto": "上下文已自动压缩",
         "manual": "上下文已压缩",
-        "compacting": "正在压缩上下文…"
+        "compacting": "正在压缩上下文…",
+        "failed": "上下文压缩失败"
       },
       "taskProgress": {
         "title": "任务进度"
@@ -1292,14 +1363,10 @@
         "code": "代码",
         "download": "下载",
         "downloadHtml": "HTML",
-        "downloadImage": "图片 (PNG)",
         "copy": "复制",
         "copied": "已复制!",
         "fullscreen": "全屏",
         "exitFullscreen": "退出全屏",
-        "downloadSuccess": "图片下载成功",
-        "downloadFailed": "图片捕获失败",
-        "iframeFailed": "捕获失败：无法访问 iframe",
         "iframeTitle": "HTML 预览"
       }
     },
@@ -1332,7 +1399,6 @@
       "expiresIn": "智能体的计算机将在 {{time}} 后到期",
       "reset": "续期",
       "resetTitle": "续期智能体的计算机",
-      "runningTasks_one": "当前有 {{count}} 个正在运行的任务，续期将中断该任务。",
       "runningTasks_other": "当前有 {{count}} 个正在运行的任务，续期将中断这些任务。",
       "noRunningTasks": "当前没有正在运行的任务。",
       "newSandboxHint": "续期后即可继续正常使用。",
@@ -1387,8 +1453,7 @@
     "attachment": {
       "pastedTextFileName": "粘贴文本",
       "imageNotSupported": "不支持图片",
-      "tooManyFiles": "每条消息最多添加 {{count}} 个文件",
-      "storageFull": "沙箱存储空间已满，请删除部分文件后重试。"
+      "tooManyFiles": "每条消息最多添加 {{count}} 个文件"
     },
     "suggestions": {
       "title": "有什么可以帮您？",
@@ -1416,11 +1481,14 @@
     },
     "queue": {
       "nQueued": "{{count}} 条排队中",
-      "edit": "编辑",
+      "edit": "编辑消息",
       "steerNow": "引导对话，不中断模型运行",
-      "steerFailed": "引导对话失败，消息已保留在队列中",
+      "steer": "调整方向",
       "conversationInputMarker": "已引导对话",
-      "removeFromQueue": "移除"
+      "removeFromQueue": "移除",
+      "paused": "由于你中断了当前响应，队列已暂停",
+      "resume": "继续",
+      "queueFull": "发送队列已满，请等 Cuppy 处理完再发。"
     },
     "partTool": {
       "bash": "执行命令",
@@ -1441,6 +1509,9 @@
       "questionCount_other": "{{count}} 个问题",
       "presentFiles": "已生成文件",
       "download": "下载",
+      "downloadAll": "下载全部",
+      "downloadAllSkipped_other": "{{count}} 个文件已被清理，未包含在压缩包中",
+      "downloadAllEmpty": "文件已被清理，没有可下载的内容",
       "installSkill": "安装",
       "installSkillTitle": "安装技能",
       "installSkillDescription": "选择技能的安装位置",
@@ -1481,6 +1552,40 @@
         "upstreamBadRequest": "语音 endpoint 无效。",
         "upstreamUnavailable": "语音服务不可用。"
       }
+    },
+    "artifact": {
+      "view": "查看",
+      "restore": "恢复此版本",
+      "download": "下载",
+      "openInNewPage": "在新页面打开",
+      "fullscreen": "全屏",
+      "exitFullscreen": "退出全屏",
+      "delete": "删除",
+      "deleteConfirm": "删除该 Artifact？聊天中的卡片将显示为已删除。",
+      "deleted": "该 Artifact 已被删除",
+      "runtimeError": "Artifact 运行报错",
+      "loadFailed": "Artifact 加载失败",
+      "failed": "Artifact 生成失败",
+      "currentVersion": "当前",
+      "share": "分享",
+      "enableShare": "开启分享",
+      "copyLink": "复制链接",
+      "rotateLink": "重置链接",
+      "scope": "可见范围",
+      "scopePublic": "任何拥有链接的人",
+      "scopeSpace": "空间成员",
+      "passwordProtect": "密码保护",
+      "passwordApply": "设置",
+      "passwordRequired": "该 Artifact 已设置密码",
+      "passwordPlaceholder": "输入密码",
+      "passwordIncorrect": "密码错误",
+      "passwordSubmit": "确认",
+      "shareNotFound": "该分享的 Artifact 不可用",
+      "gallery": "我的 Artifacts",
+      "galleryEmpty": "还没有 Artifact——在任意 Chat 中让 AI 创建一个吧。",
+      "searchPlaceholder": "搜索 Artifact",
+      "fixWithAi": "让 AI 修复",
+      "noPermission": "你无权访问该 Artifact"
     }
   },
   "upload": {

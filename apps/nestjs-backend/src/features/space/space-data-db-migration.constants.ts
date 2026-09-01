@@ -2,7 +2,7 @@
 export const migrateSpaceTargetMode = 'migrate-space';
 export const spaceDataDbAdminOnlyErrorCode = 'SPACE_DATA_DB_ADMIN_ONLY';
 export const spaceDataDbAdminOnlyMessage =
-  'Space data database migration is only available from the admin panel';
+  'Space data database configuration is only available from the admin panel';
 
 export const activeSpaceDataDbMigrationStates = [
   'pending',
@@ -26,6 +26,7 @@ export const cancelableSpaceDataDbMigrationStates = [
 ] as const;
 
 export const spaceDataDbMigratingErrorCode = 'SPACE_DATA_DB_MIGRATING';
+export const spaceDataDbReadOnlyErrorCode = 'SPACE_DATA_DB_READONLY';
 export const spaceDataDbMigrationActiveErrorCode = 'SPACE_DATA_DB_MIGRATION_ACTIVE';
 export const spaceDataDbMigrationCanceledErrorCode = 'SPACE_DATA_DB_MIGRATION_CANCELED';
 export const spaceDataDbMigrationCancelConflictErrorCode =

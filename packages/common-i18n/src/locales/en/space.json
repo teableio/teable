@@ -366,6 +366,40 @@
       "disableReminder": "Done — you can now turn off the shared-base link in Airtable."
     }
   },
+  "googleSheetImport": {
+    "title": "Import from Google Sheets",
+    "close": "Close",
+    "pickSpreadsheet": "Choose a spreadsheet to import",
+    "openPicker": "Select a spreadsheet from Google Drive",
+    "changeSpreadsheet": "Change",
+    "analyzing": "Reading spreadsheet…",
+    "pickTabs": "Choose the tabs to import",
+    "gridSize": "{{rows}} rows × {{columns}} columns",
+    "optionRecords": "Import records",
+    "import": "Start import",
+    "done": "Import completed",
+    "failed": "Import failed",
+    "openBase": "Open base",
+    "issuesSummary": "{{count}} items were adjusted during import:",
+    "issuesMore": "+{{count}} more",
+    "recordsImported": "{{tableName}}: {{count}} records imported",
+    "partialImported": "{{count}} tables were fully imported before the failure and have been kept",
+    "issue": {
+      "valuesDropped": "{{sheetName}} / {{fieldName}}: {{count}} values dropped ({{reason}})",
+      "sheetSkipped": "Tab \"{{sheetName}}\" skipped: {{reason}}",
+      "columnsTruncated": "{{sheetName}}: {{count}} columns beyond the column limit were not imported"
+    },
+    "phase": {
+      "fetchingSchema": "Reading spreadsheet structure",
+      "creatingBase": "Creating base: {{detail}}",
+      "creatingTable": "Creating table: {{tableName}} ({{tableIndex}}/{{totalTables}})"
+    },
+    "detecting": "Checking Google connection…",
+    "connectWithGoogle": "Connect Google account",
+    "waitingOAuth": "Finish authorizing in the popup…",
+    "connectedAs": "Connected: {{account}}",
+    "integrationRequired": "The Google Sheets integration is not configured on this instance. Ask an administrator to set it up."
+  },
   "createBaseDialog": {
     "title": "How do you want to start?"
   },
@@ -373,6 +407,7 @@
     "title": "Import base",
     "fromFile": "Import from file",
     "fromFileDesc": "Upload a .tea database file",
-    "fromAirtableDesc": "Connect your Airtable account"
+    "fromAirtableDesc": "Connect your Airtable account",
+    "fromGoogleSheetDesc": "Pick a spreadsheet from your Google Drive"
   }
 }

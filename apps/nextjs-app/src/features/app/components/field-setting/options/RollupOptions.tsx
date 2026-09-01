@@ -246,7 +246,7 @@ export const RollupOptions = (props: {
     return (
       <div className="flex items-center justify-start">
         <div>
-          <div className="truncate pl-1 text-[13px]">{label}</div>
+          <div className="truncate ps-1 text-[13px]">{label}</div>
         </div>
       </div>
     );
@@ -256,7 +256,7 @@ export const RollupOptions = (props: {
     const { label, description } = option;
     return (
       <div className="flex items-start justify-start">
-        <div className="pl-1">
+        <div className="ps-1">
           <div className="truncate text-[13px]">{label}</div>
           <span className="text-wrap text-xs text-primary/60" title={description}>
             {description}

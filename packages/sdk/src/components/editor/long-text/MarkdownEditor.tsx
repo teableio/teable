@@ -103,13 +103,13 @@ const MarkdownEditorInner = ({
         <Milkdown />
       </div>
       {!hideExpand && (
-        <div className="absolute right-1 top-1">
+        <div className="absolute end-1 top-1">
           <ExpandMarkdownEditor value={value} onChange={onChange} />
         </div>
       )}
       {hideExpand && !hideMarkdownBadge && !gridMode && (
         <span
-          className="absolute bottom-1.5 right-2 select-none rounded-sm bg-foreground/80 px-1 py-px text-[9px] font-semibold tracking-wide text-background backdrop-blur-sm"
+          className="absolute bottom-1.5 end-2 select-none rounded-sm bg-foreground/80 px-1 py-px text-[9px] font-semibold tracking-wide text-background backdrop-blur-sm"
           title="Markdown enabled"
         >
           MD

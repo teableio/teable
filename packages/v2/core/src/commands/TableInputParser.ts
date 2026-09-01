@@ -4,6 +4,7 @@ import { match } from 'ts-pattern';
 
 import { BaseId } from '../domain/base/BaseId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
+import { FieldType } from '../domain/table/fields/FieldType';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { Table } from '../domain/table/Table';
 import type { TableBuildOptions, TableBuilder } from '../domain/table/TableBuilder';
@@ -157,6 +158,8 @@ class PluginViewSpec implements ITableViewSpec {
 
 export type TableInputParserOptions = {
   executionContext?: IExecutionContext;
+  /** Internal snapshot/import recovery only; public mutation boundaries stay strict. */
+  aiConfigMode?: 'strict' | 'trustedRehydrate';
 };
 
 /**
@@ -181,6 +184,21 @@ export function parseFieldSpecs(
 
   const primaryIndex = primaryIndexes[0] ?? 0;
 
+  // v1 parity (T6520): the primary field type is restricted at creation just
+  // like on conversion — a checkbox/attachment/... first field is rejected
+  // instead of being silently promoted to primary.
+  const primaryFieldInput = fieldsToUse[primaryIndex];
+  if (primaryFieldInput) {
+    const primaryTypeResult = FieldType.create(primaryFieldInput.type);
+    if (primaryTypeResult.isOk() && !primaryTypeResult.value.isPrimarySupported()) {
+      return err(
+        domainError.validation({
+          message: `Field type ${primaryFieldInput.type} is not supported as primary field`,
+        })
+      );
+    }
+  }
+
   const fieldsWithPrimaryFlag = fieldsToUse.map((field, index) =>
     index === primaryIndex && field.isPrimary !== true ? { ...field, isPrimary: true } : field
   );
@@ -190,6 +208,7 @@ export function parseFieldSpecs(
       parseTableFieldSpec(field, {
         isPrimary: index === primaryIndex,
         executionContext: options?.executionContext,
+        aiConfigMode: options?.aiConfigMode,
       })
     );
 

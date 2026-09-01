@@ -92,6 +92,12 @@ const actionsI18nMap: Record<
   'table|trash_reset': {
     description: 'permission.actionDescription.tableTrashReset',
   },
+  'table|archive_read': {
+    description: 'permission.actionDescription.tableArchiveRead',
+  },
+  'table|archive_manage': {
+    description: 'permission.actionDescription.tableArchiveManage',
+  },
   'table_record_history|read': {
     description: 'permission.actionDescription.recordHistoryRead',
   },
@@ -139,6 +145,9 @@ const actionsI18nMap: Record<
   },
   'record|copy': {
     description: 'permission.actionDescription.recordCopy',
+  },
+  'record|archive': {
+    description: 'permission.actionDescription.recordArchive',
   },
   'automation|create': {
     description: 'permission.actionDescription.automationCreate',

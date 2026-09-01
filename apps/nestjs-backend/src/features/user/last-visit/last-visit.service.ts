@@ -13,7 +13,7 @@ import type {
   IUserLastVisitVo,
   IUserLastVisitBaseNodeVo,
 } from '@teable/openapi';
-import { LastVisitResourceType } from '@teable/openapi';
+import { BaseNodeResourceType, LastVisitResourceType } from '@teable/openapi';
 import { Knex } from 'knex';
 import { keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -77,6 +77,183 @@ export class LastVisitService {
       resourceId: lastVisit.resourceId,
       resourceType: lastVisit.resourceType as LastVisitResourceType,
     };
+  }
+
+  /**
+   * The entry URL of each given base, resolved purely from the user's own
+   * visit history — so a base-list click can navigate straight to
+   * /base/{id}/table/{tableId}/{viewId} instead of paying the /base/{id}
+   * redirect chain. Pure resolution: callers own access control and pass ids
+   * already scoped to what the user may see (the space controller passes its
+   * permission-checked base list). A base maps to its latest visited
+   * still-alive table, or — when never visited — to its default first table,
+   * mirroring the redirect chain; bases whose target is a non-table node stay
+   * omitted so the chain handles them.
+   *
+   * URLs mirror the frontend getNodeUrl table rule
+   * (features/app/blocks/base/base-node/hooks/helper.ts) — keep in sync.
+   */
+  async getBaseEntryMap(userId: string, baseIds: string[]): Promise<Record<string, string>> {
+    if (baseIds.length === 0) return {};
+
+    // Latest visited node per base (newest first, pick first occurrence);
+    // only table nodes proceed — matching what the redirect chain would pick.
+    // Visit rows are pruned to one per (base, type). The userId filter keeps
+    // this to the caller's own history only.
+    const nodeVisits = await this.prismaService.userLastVisit.findMany({
+      where: {
+        userId,
+        parentResourceId: { in: baseIds },
+        resourceType: {
+          in: [
+            LastVisitResourceType.Table,
+            LastVisitResourceType.Dashboard,
+            LastVisitResourceType.Workflow,
+            LastVisitResourceType.App,
+          ],
+        },
+      },
+      orderBy: { lastVisitTime: 'desc' },
+      select: { parentResourceId: true, resourceId: true, resourceType: true },
+    });
+    const latestNodeByBase = new Map<string, { resourceId: string; resourceType: string }>();
+    for (const visit of nodeVisits) {
+      if (!latestNodeByBase.has(visit.parentResourceId)) {
+        latestNodeByBase.set(visit.parentResourceId, visit);
+      }
+    }
+    const tableIdToBaseId = new Map<string, string>();
+    for (const [visitedBaseId, node] of latestNodeByBase) {
+      if (node.resourceType === LastVisitResourceType.Table) {
+        tableIdToBaseId.set(node.resourceId, visitedBaseId);
+      }
+    }
+    // Never-visited bases fall back to the same default the redirect chain
+    // would compute: the first non-folder node, when it is a table
+    const neverVisitedBaseIds = baseIds.filter((id) => !latestNodeByBase.has(id));
+    await this.collectDefaultTableEntries(neverVisitedBaseIds, tableIdToBaseId);
+
+    if (tableIdToBaseId.size === 0) return {};
+    const urlByTableId = await this.resolveTableEntryUrls(userId, tableIdToBaseId);
+    const entryMap: Record<string, string> = {};
+    for (const [tableId, entryBaseId] of tableIdToBaseId) {
+      const url = urlByTableId[tableId];
+      if (url) entryMap[entryBaseId] = url;
+    }
+    return entryMap;
+  }
+
+  /**
+   * Entry URL per table (last visited view when alive, else the first by
+   * order) for known (tableId, baseId) pairs — e.g. pinned tables. Same
+   * contract as getBaseEntryMap: pure resolution over the user's own visit
+   * history, callers own access control.
+   */
+  async getTableEntryUrls(
+    userId: string,
+    tables: { tableId: string; baseId: string }[]
+  ): Promise<Record<string, string>> {
+    if (tables.length === 0) return {};
+    return this.resolveTableEntryUrls(
+      userId,
+      new Map(tables.map((table) => [table.tableId, table.baseId]))
+    );
+  }
+
+  /**
+   * The default table of each base — its first non-folder node when that node
+   * is a table — mirroring the redirect chain. Bases whose first node is a
+   * dashboard/automation/app are skipped on purpose: those URLs cannot
+   * self-heal when stale (no table-route-style fallback), so the redirect
+   * chain keeps handling them. (An EE authority-restricted first table can
+   * slip in here; clicking it self-heals through the table route's
+   * permission-filtered fallback.)
+   */
+  private async collectDefaultTableEntries(
+    baseIds: string[],
+    tableIdToBaseId: Map<string, string>
+  ): Promise<void> {
+    if (baseIds.length === 0) return;
+    const nodes = await this.prismaService.baseNode.findMany({
+      where: { baseId: { in: baseIds } },
+      orderBy: [{ baseId: 'asc' }, { order: 'asc' }],
+      select: { baseId: true, resourceType: true, resourceId: true },
+    });
+    const firstNodeByBase = new Map<string, { resourceType: string; resourceId: string }>();
+    for (const node of nodes) {
+      if (node.resourceType === BaseNodeResourceType.Folder) continue;
+      if (!firstNodeByBase.has(node.baseId)) {
+        firstNodeByBase.set(node.baseId, node);
+      }
+    }
+    for (const [defaultBaseId, node] of firstNodeByBase) {
+      if (node.resourceType === BaseNodeResourceType.Table) {
+        tableIdToBaseId.set(node.resourceId, defaultBaseId);
+      }
+    }
+  }
+
+  /**
+   * For each table: keep it only when still alive in its expected base, then
+   * emit its entry pathname keyed by tableId — with the user's own last
+   * visited view when alive, otherwise viewless (the table route resolves
+   * the view with permission filtering, one redirect)
+   */
+  private async resolveTableEntryUrls(
+    userId: string,
+    tableIdToBaseId: Map<string, string>
+  ): Promise<Record<string, string>> {
+    const entryMap: Record<string, string> = {};
+    const tableIds = [...tableIdToBaseId.keys()];
+    const [tables, viewVisits, views] = await Promise.all([
+      this.prismaService.tableMeta.findMany({
+        where: { id: { in: tableIds }, deletedTime: null },
+        select: { id: true, baseId: true },
+      }),
+      this.prismaService.userLastVisit.findMany({
+        where: {
+          userId,
+          resourceType: LastVisitResourceType.View,
+          parentResourceId: { in: tableIds },
+        },
+        orderBy: { lastVisitTime: 'desc' },
+        select: { parentResourceId: true, resourceId: true },
+      }),
+      this.prismaService.view.findMany({
+        where: { tableId: { in: tableIds }, deletedTime: null },
+        orderBy: { order: 'asc' },
+        select: { id: true, tableId: true },
+      }),
+    ]);
+    const latestViewByTable = new Map<string, string>();
+    for (const visit of viewVisits) {
+      if (!latestViewByTable.has(visit.parentResourceId)) {
+        latestViewByTable.set(visit.parentResourceId, visit.resourceId);
+      }
+    }
+    const viewIdsByTable = new Map<string, string[]>();
+    for (const view of views) {
+      const list = viewIdsByTable.get(view.tableId) ?? [];
+      list.push(view.id);
+      viewIdsByTable.set(view.tableId, list);
+    }
+
+    for (const table of tables) {
+      const entryBaseId = tableIdToBaseId.get(table.id);
+      const tableViewIds = viewIdsByTable.get(table.id);
+      if (entryBaseId !== table.baseId || !entryBaseId || !tableViewIds?.length) continue;
+      // Only the user's own last visited view may appear in the URL — they
+      // could see it at visit time. Falling back to the first view by order
+      // would leak (and route to) views an EE authority-matrix role hides;
+      // a viewless URL instead lets the table route resolve the view through
+      // its permission-filtered list at the cost of one redirect.
+      const lastViewId = latestViewByTable.get(table.id);
+      const viewId = lastViewId && tableViewIds.includes(lastViewId) ? lastViewId : undefined;
+      entryMap[table.id] = viewId
+        ? `/base/${entryBaseId}/table/${table.id}/${viewId}`
+        : `/base/${entryBaseId}/table/${table.id}`;
+    }
+    return entryMap;
   }
 
   async spaceVisit(userId: string, parentResourceId: string) {

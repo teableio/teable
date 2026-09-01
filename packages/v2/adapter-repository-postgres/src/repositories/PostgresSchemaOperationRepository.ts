@@ -283,6 +283,10 @@ export class PostgresSchemaOperationRepository implements core.ISchemaOperationR
     const typeFilter = input.types?.length
       ? sql`AND "type" IN (${sql.join(input.types.map((type) => sql`${type}`))})`
       : sql``;
+    // CSV/table.import rows stay pending while the request is still writing
+    // records. They are not automatically repairable, so claiming them after
+    // the stale window would mark a live import dead. DotTea structure imports
+    // remain eligible.
 
     try {
       const result = await sql<SchemaOperationRow>`
@@ -295,6 +299,10 @@ export class PostgresSchemaOperationRepository implements core.ISchemaOperationR
               "status" = 'pending'
               AND "next_run_at" <= ${now}
               AND "last_modified_time" <= ${staleRunningBefore}
+              AND NOT (
+                "type" = 'table.import'
+                AND COALESCE("payload"->>'source', '') <> 'dottea'
+              )
             )
             OR (
               "status" = 'running'

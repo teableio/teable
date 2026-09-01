@@ -85,6 +85,19 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
     );
   }
 
+  private isValuePreservingConversion(
+    specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
+    fieldId: FieldId
+  ): boolean {
+    const targetFieldId = fieldId.toString();
+    return specs.some(
+      (spec) =>
+        spec instanceof TableUpdateFieldTypeSpec &&
+        spec.isValuePreservingConversion() &&
+        spec.newField().id().toString() === targetFieldId
+    );
+  }
+
   private ensureFieldDbFieldName(
     field: Field,
     fallbackDbFieldName?: string
@@ -227,6 +240,13 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
         updateSpecsResult.value;
       yield* handler.ensureTypeConversionSpecDbFieldNames(updateSpecs);
       const hasTypeConversion = handler.hasTypeConversion(updateSpecs, command.fieldId);
+      // Value-preserving conversions (e.g. singleSelect → text) keep every
+      // stored cell verbatim, so materializing the whole column into the
+      // undo/redo snapshots would be pure waste: replaying the meta change
+      // alone restores the field, and the replay path already skips value
+      // writes when a snapshot carries no records.
+      const includeSnapshotRecords =
+        hasTypeConversion && !handler.isValuePreservingConversion(updateSpecs, command.fieldId);
       if (updateSpecs.length === 0) {
         if (!command.allowNoop) {
           return err(domainError.validation({ message: 'No changes to apply' }));
@@ -238,7 +258,7 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
         context,
         table,
         command.fieldId,
-        { includeRecords: hasTypeConversion }
+        { includeRecords: includeSnapshotRecords }
       );
       const previewTable = yield* table.clone(handler.tableMapper);
       const previewPreviousField = yield* previewTable.getField((f) =>
@@ -369,7 +389,7 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
         context,
         updateResult.table,
         command.fieldId,
-        { includeRecords: hasTypeConversion }
+        { includeRecords: includeSnapshotRecords }
       );
       yield* await handler.undoRedoStackService.appendEntry(
         toUndoRedoStackAppendContext(context),

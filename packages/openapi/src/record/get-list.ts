@@ -192,7 +192,7 @@ export const contentQueryBaseSchema = queryBaseSchema.extend({
     .optional()
     .meta({
       description:
-        'Whether to include grouped query extra metadata such as group points. Projected record reads may skip this metadata unless explicitly enabled.',
+        'Whether to include query extra metadata such as group points and search hit indexes. Group metadata defaults to enabled; optimized generated-index searches require explicit opt-in for search hit indexes.',
     }),
 });
 

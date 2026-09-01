@@ -1,7 +1,10 @@
-import type { Action, IFieldVo } from '@teable/core';
+import type { Action, IFieldVo, ISignupAttribution, MarketingAdConsent } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import type { V2Feature } from '@teable/openapi';
-import type { ExecutionContextBackgroundTaskScheduler } from '@teable/v2-core';
+import type {
+  ExecutionContextBackgroundTaskScheduler,
+  IRecordRemovalReason,
+} from '@teable/v2-core';
 import type { ClsStore } from 'nestjs-cls';
 import type { IAuditOperation } from '../features/audit/audit-scope';
 import type { IWorkflowContext } from '../features/auth/strategies/types';
@@ -63,6 +66,18 @@ export interface IClsStore extends ClsStore {
   // Affiliate token from the first-party teable_affiliate_via cookie (NOT origin.via
   // above) — see apps/nextjs-app/src/lib/affiliate-cookie.ts for the contract.
   affiliateVia?: string;
+  // First-touch utm/click-id params (teable_attribution cookie) + Meta pixel
+  // cookies, parsed by RequestInfoMiddleware on every request but consumed only
+  // once, at account creation (user.service withAttribution → refMeta).
+  // Contract: @teable/core attribution.ts.
+  signupAttribution?: ISignupAttribution;
+  // Banner ad_storage choice (teable_consent parent-domain cookie), parsed by
+  // RequestInfoMiddleware; consumed at account creation to scope what may be
+  // forwarded to ad platforms for EEA users. undefined = no banner choice.
+  marketingAdConsent?: MarketingAdConsent;
+  // OAuth login destination from the verified oauth state — the only
+  // signup-time invite signal on OAuth paths (OauthStoreService.verify).
+  oauthRedirectUri?: string;
   tx: {
     client?: Prisma.TransactionClient;
     timeStr?: string;
@@ -115,6 +130,7 @@ export interface IClsStore extends ClsStore {
   v2Reason?: IV2Reason; // Reason why V2 was enabled or disabled
   v2Feature?: V2Feature; // The feature name that triggered V2 check
   windowId?: string; // Window ID from x-window-id header for undo/redo tracking
+  recordRemovalReason?: IRecordRemovalReason; // set by the archive flow; flows into op events
   // cache for base share node tree (to avoid repeated queries within same request)
   baseShareNodeCache?: Map<
     string,
@@ -126,4 +142,13 @@ export interface IClsStore extends ClsStore {
   // Keep values bounded — only store structured metadata (view config, field
   // list), never record payloads or unbounded user input.
   shareViewScopeCache?: Map<string, unknown>;
+  // cache for data-db routing resolution (table/base → spaceId, space → resolved
+  // data db). One request resolves the same routing several times across guards,
+  // container lookup, and query paths; this dedupes the meta-db lookups.
+  // Type is `unknown` to avoid importing the resolver types here.
+  dataDbRoutingCache?: Map<string, unknown>;
+  // cache for table → base → space ancestry rows shared across guards and
+  // permission checks (see utils/meta-ancestry-cache.ts). Stores full rows
+  // including soft-deleted ones; callers apply their own deletedTime filters.
+  metaAncestryCache?: Map<string, unknown>;
 }

@@ -49,7 +49,7 @@ export default function withAuthSSR<
         return {
           redirect: {
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            destination: `/auth/login?redirect=${encodeURIComponent(req.url!)}`,
+            destination: `/auth/signup?redirect=${encodeURIComponent(req.url!)}`,
             permanent: false,
           },
         };

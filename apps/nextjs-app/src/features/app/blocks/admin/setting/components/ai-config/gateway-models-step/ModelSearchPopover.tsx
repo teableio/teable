@@ -84,9 +84,9 @@ export function ModelSearchPopover({
         >
           {selectedModelId || t('admin.setting.ai.searchModel')}
           {isLoadingModels ? (
-            <Loader2 className="ml-2 size-4 shrink-0 animate-spin opacity-50" />
+            <Loader2 className="ms-2 size-4 shrink-0 animate-spin opacity-50" />
           ) : (
-            <Search className="ml-2 size-4 shrink-0 opacity-50" />
+            <Search className="ms-2 size-4 shrink-0 opacity-50" />
           )}
         </Button>
       </PopoverTrigger>

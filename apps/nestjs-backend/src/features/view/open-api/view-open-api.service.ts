@@ -15,11 +15,11 @@ import type {
   CellValueType,
   ISort,
   IGroup,
+  IManualSortRo,
   TableDomain,
 } from '@teable/core';
 import {
   ViewType,
-  IManualSortRo,
   RecordOpBuilder,
   ViewOpBuilder,
   generateShareId,
@@ -1101,23 +1101,25 @@ export class ViewOpenApiService {
     if (!filter) {
       return [];
     }
-    const linkFields = await this.prismaService.field.findMany({
-      where: { tableId, deletedTime: null, type: FieldType.Link },
+    // Lookup-of-link fields keep type=Link but store config in lookupOptions and may
+    // have NULL options. They are not filterable Link fields; exclude them here.
+    const linkFieldRaws = await this.prismaService.field.findMany({
+      where: { tableId, deletedTime: null, type: FieldType.Link, isLookup: { not: true } },
     });
 
-    const linkFieldInstances = linkFields.map((field) => createFieldInstanceByRaw(field));
+    const linkFieldInstances = linkFieldRaws.map((field) => createFieldInstanceByRaw(field));
 
     const lookupFieldIds = linkFieldInstances.reduce((arr, field) => {
-      const { lookupFieldId } = field.options as ILinkFieldOptions;
+      const { lookupFieldId } = (field.options ?? {}) as ILinkFieldOptions;
       if (lookupFieldId) {
         arr.push(lookupFieldId);
       }
       return arr;
     }, [] as string[]);
 
-    const linkFieldTableMap = linkFields.reduce(
+    const linkFieldTableMap = linkFieldInstances.reduce(
       (map, field) => {
-        const { foreignTableId } = JSON.parse(field.options as string) as ILinkFieldOptions;
+        const { foreignTableId } = (field.options ?? {}) as ILinkFieldOptions;
         if (foreignTableId) {
           map[field.id] = foreignTableId;
         }

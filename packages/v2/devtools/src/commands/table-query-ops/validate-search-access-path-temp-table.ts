@@ -5,6 +5,7 @@ import { ValidationError } from '../../errors/CliError';
 import { Output } from '../../services/Output';
 import { TableQueryOps } from '../../services/TableQueryOps';
 import { connectionOption, optionToUndefined, parseCsv, tableIdOption } from '../shared';
+import { redactSearchVectorOutput } from './redact-search-vector-output';
 
 const fieldIdsOption = Options.text('field-ids').pipe(Options.optional);
 const providerOption = Options.choice('provider', ['auto', 'pg_bigm', 'pg_trgm']).pipe(
@@ -108,7 +109,7 @@ const handler = (args: {
     yield* output.success(
       'table-query-ops.validate-search-access-path-temp-table',
       outputInput,
-      result
+      redactSearchVectorOutput(result)
     );
   });
 

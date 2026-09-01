@@ -1,17 +1,27 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFieldVo, ILinkFieldOptions, IRollupFieldOptions } from '@teable/core';
+import type {
+  IButtonFieldCellValue,
+  IFieldRo,
+  IFieldVo,
+  ILinkFieldOptions,
+  IRollupFieldOptions,
+} from '@teable/core';
 import {
   CellValueType,
+  Colors,
   DbFieldType,
   FieldKeyType,
   FieldType,
   getRandomString,
   Relationship,
+  SortFunc,
   ViewType,
 } from '@teable/core';
 import {
   axios,
+  buttonClick,
+  buttonReset,
   clear,
   convertField,
   copy,
@@ -25,18 +35,24 @@ import {
   deleteSelection,
   deleteSelectionStream,
   deleteView,
+  disableShareView,
+  duplicateView,
   duplicateSelectionStream,
   getField,
   getFields,
   getRecord,
   getRecords,
   getTrashItems,
+  getViewInstallPlugin,
   ResourceType,
   getView,
   getViewList,
+  getShareView,
+  installViewPlugin,
   paste,
   RangeType,
   redo,
+  enableShareView,
   undo,
   updateRecord,
   updateRecordOrders,
@@ -44,17 +60,24 @@ import {
   updateViewColumnMeta,
   updateViewDescription,
   updateViewFilter,
+  updateViewGroup,
+  updateViewOptions,
   updateViewName,
   updateViewOrder,
+  updateViewSort,
+  updateViewShareMeta,
+  manualSortView,
+  refreshViewShareId,
   X_CANARY_HEADER,
   ensureUndoRedoWindowIdHeader,
 } from '@teable/openapi';
 import type { ITableFullVo } from '@teable/openapi';
+import { onTestFinished } from 'vitest';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import { X_TEABLE_V2_HEADER } from '../src/features/canary/interceptors/v2-indicator.interceptor';
 import { X_TEABLE_UNDO_REDO_ENGINE_HEADER } from '../src/features/undo-redo/open-api/undo-redo.service';
-import { createAwaitWithEvent } from './utils/event-promise';
+import { createEventPromise } from './utils/event-promise';
 import { initApp, permanentDeleteTable, createTable, updateRecordByApi } from './utils/init-app';
 
 const isForceV2 = process.env.FORCE_V2_ALL === 'true';
@@ -107,9 +130,20 @@ describe('Undo Redo (e2e)', () => {
     eventEmitterService = app.get(EventEmitterService);
     windowId = 'win' + getRandomString(8);
     ensureUndoRedoWindowIdHeader(windowId);
+    // Per-request routing can select v2 even without FORCE_V2_ALL (e.g. the
+    // seeded base is v2Enabled); v2 paths append undo entries without emitting
+    // the v1 OPERATION_PUSH event, so only wait for it on v1-routed responses.
     awaitWithEvent = isForceV2
       ? async <T>(action: () => Promise<T>) => await action()
-      : createAwaitWithEvent(eventEmitterService, Events.OPERATION_PUSH);
+      : async <T>(action: () => Promise<T>) => {
+          const eventPromise = createEventPromise(eventEmitterService, Events.OPERATION_PUSH);
+          const response = await action();
+          const headers = (response as { headers?: Record<string, unknown> } | undefined)?.headers;
+          if (headers?.[X_TEABLE_V2_HEADER] !== 'true') {
+            await eventPromise;
+          }
+          return response;
+        };
   });
 
   afterAll(async () => {
@@ -173,6 +207,85 @@ describe('Undo Redo (e2e)', () => {
       fieldKeyType: FieldKeyType.Id,
       record: { fields: { [table.fields[0].id]: 'new value' } },
     });
+  });
+
+  it.skipIf(!isForceV2)('should undo / redo a v2 Button click', async () => {
+    const button = (
+      await createField(table.id, {
+        type: FieldType.Button,
+        options: {
+          label: 'Run',
+          color: Colors.Teal,
+          workflow: {
+            id: `wfl${'b'.repeat(16)}`,
+            name: 'Run',
+            isActive: true,
+          },
+        },
+      })
+    ).data;
+    const recordId = table.records[0].id;
+
+    const clickResponse = await buttonClick(table.id, recordId, button.id);
+    expect(clickResponse.headers[X_TEABLE_V2_HEADER]).toBe('true');
+    expect((clickResponse.data.record.fields[button.id] as IButtonFieldCellValue).count).toBe(1);
+
+    const undoResponse = await undo(table.id);
+    expect(undoResponse.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+    expect(undoResponse.data).toMatchObject({ status: 'fulfilled' });
+
+    const redoResponse = await redo(table.id);
+    expect(redoResponse.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+    expect(redoResponse.data).toMatchObject({ status: 'fulfilled' });
+
+    const clickAfterRedo = await buttonClick(table.id, recordId, button.id);
+    expect((clickAfterRedo.data.record.fields[button.id] as IButtonFieldCellValue).count).toBe(2);
+
+    await undo(table.id);
+    await undo(table.id);
+
+    const clickAfterUndo = await buttonClick(table.id, recordId, button.id);
+    expect((clickAfterUndo.data.record.fields[button.id] as IButtonFieldCellValue).count).toBe(1);
+  });
+
+  it.skipIf(!isForceV2)('should undo / redo a v2 Button reset', async () => {
+    const button = (
+      await createField(table.id, {
+        type: FieldType.Button,
+        options: {
+          label: 'Run',
+          color: Colors.Teal,
+          resetCount: true,
+          workflow: {
+            id: `wfl${'c'.repeat(16)}`,
+            name: 'Run',
+            isActive: true,
+          },
+        },
+      })
+    ).data;
+    const recordId = table.records[0].id;
+
+    await buttonClick(table.id, recordId, button.id);
+    const resetResponse = await buttonReset(table.id, recordId, button.id);
+    expect(resetResponse.headers[X_TEABLE_V2_HEADER]).toBe('true');
+
+    const undoReset = await undo(table.id);
+    expect(undoReset.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+    expect(undoReset.data).toMatchObject({ status: 'fulfilled' });
+
+    const redoReset = await redo(table.id);
+    expect(redoReset.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+    expect(redoReset.data).toMatchObject({ status: 'fulfilled' });
+
+    const clickAfterRedo = await buttonClick(table.id, recordId, button.id);
+    expect((clickAfterRedo.data.record.fields[button.id] as IButtonFieldCellValue).count).toBe(1);
+
+    await undo(table.id);
+    await undo(table.id);
+
+    const clickAfterUndo = await buttonClick(table.id, recordId, button.id);
+    expect((clickAfterUndo.data.record.fields[button.id] as IButtonFieldCellValue).count).toBe(2);
   });
 
   it('should undo / redo delete record', async () => {
@@ -1231,23 +1344,23 @@ describe('Undo Redo (e2e)', () => {
   });
 
   it('should undo / redo create view', async () => {
-    const view = (
-      await awaitWithEvent(() =>
-        createView(table.id, {
-          type: ViewType.Grid,
-          name: 'view1',
-        })
-      )
-    ).data;
+    const createResponse = await awaitWithEvent(() =>
+      createView(table.id, {
+        type: ViewType.Grid,
+        name: 'view1',
+      })
+    );
+    const view = createResponse.data;
+    const expectedEngine = createResponse.headers[X_TEABLE_V2_HEADER] === 'true' ? 'v2' : 'v1';
 
     const undoRes = await undo(table.id);
-    expect(undoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v1');
+    expect(undoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(expectedEngine);
 
     const viewsAfterUndo = (await getViewList(table.id)).data;
     expect(viewsAfterUndo.find((v) => v.id === view.id)).toBeUndefined();
 
     const redoRes = await redo(table.id);
-    expect(redoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v1');
+    expect(redoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(expectedEngine);
 
     const viewsAfterRedo = (await getViewList(table.id)).data;
     expect(viewsAfterRedo.find((v) => v.id === view.id)).toMatchObject({
@@ -1256,6 +1369,69 @@ describe('Undo Redo (e2e)', () => {
       type: view.type,
     });
   });
+
+  it.skipIf(!isForceV2)(
+    'should undo / redo Plugin View install with the same installation identity',
+    async () => {
+      const installResponse = await installViewPlugin(table.id, {
+        name: 'Undo plugin',
+        pluginId: 'plgsheetform',
+      });
+      const installed = installResponse.data;
+
+      expect(installResponse.headers[X_TEABLE_V2_HEADER]).toBe('true');
+      await expect(getViewInstallPlugin(table.id, installed.viewId)).resolves.toMatchObject({
+        data: {
+          pluginId: 'plgsheetform',
+          pluginInstallId: installed.pluginInstallId,
+          name: 'Undo plugin',
+        },
+      });
+
+      const undoResponse = await undo(table.id);
+      expect(undoResponse.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+      expect(await waitForViewVisibility(table.id, installed.viewId, false, 300)).toBeUndefined();
+      await expect(getViewInstallPlugin(table.id, installed.viewId)).rejects.toThrow();
+
+      const redoResponse = await redo(table.id);
+      expect(redoResponse.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+      expect(await waitForViewVisibility(table.id, installed.viewId, true, 300)).toMatchObject({
+        id: installed.viewId,
+        name: 'Undo plugin',
+        type: ViewType.Plugin,
+      });
+      await expect(getViewInstallPlugin(table.id, installed.viewId)).resolves.toMatchObject({
+        data: {
+          pluginId: 'plgsheetform',
+          pluginInstallId: installed.pluginInstallId,
+          name: 'Undo plugin',
+        },
+      });
+    }
+  );
+
+  it.skipIf(!isForceV2)(
+    'should undo / redo duplicate view with the same View identity',
+    async () => {
+      const source = table.views[0];
+      const duplicateResponse = await duplicateView(table.id, source.id);
+      const duplicated = duplicateResponse.data;
+      const expectedEngine = duplicateResponse.headers[X_TEABLE_V2_HEADER] === 'true' ? 'v2' : 'v1';
+
+      const undoResponse = await undo(table.id);
+      expect(undoResponse.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(expectedEngine);
+      expect(await waitForViewVisibility(table.id, duplicated.id, false, 300)).toBeUndefined();
+
+      const redoResponse = await redo(table.id);
+      expect(redoResponse.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(expectedEngine);
+      expect(await waitForViewVisibility(table.id, duplicated.id, true, 300)).toMatchObject({
+        id: duplicated.id,
+        name: duplicated.name,
+        type: duplicated.type,
+        columnMeta: duplicated.columnMeta,
+      });
+    }
+  );
 
   it('should undo / redo delete view', async () => {
     const view = (
@@ -1267,9 +1443,11 @@ describe('Undo Redo (e2e)', () => {
       )
     ).data;
 
-    await awaitWithEvent(() => deleteView(table.id, view.id));
+    const deleteResponse = await awaitWithEvent(() => deleteView(table.id, view.id));
+    const expectedEngine = deleteResponse.headers[X_TEABLE_V2_HEADER] === 'true' ? 'v2' : 'v1';
 
-    await undo(table.id);
+    const undoResponse = await undo(table.id);
+    expect(undoResponse.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(expectedEngine);
 
     expect(await waitForViewVisibility(table.id, view.id, true, 300)).toMatchObject({
       id: view.id,
@@ -1277,63 +1455,114 @@ describe('Undo Redo (e2e)', () => {
       type: view.type,
     });
 
-    await redo(table.id);
+    const redoResponse = await redo(table.id);
+    expect(redoResponse.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(expectedEngine);
 
     expect(await waitForViewVisibility(table.id, view.id, false, 300)).toBeUndefined();
   });
 
+  it.skipIf(!isForceV2)(
+    'should never revive a revoked share credential through delete snapshot replay',
+    async () => {
+      const view = (
+        await createView(table.id, {
+          type: ViewType.Grid,
+          name: 'Shared delete replay',
+        })
+      ).data;
+      const enabled = await enableShareView({ tableId: table.id, viewId: view.id });
+      const revokedShareId = enabled.data.shareId;
+
+      expect(enabled.headers[X_TEABLE_V2_HEADER]).toBe('true');
+      await expect(getShareView(revokedShareId)).resolves.toBeDefined();
+
+      const deleted = await deleteView(table.id, view.id);
+      expect(deleted.headers[X_TEABLE_V2_HEADER]).toBe('true');
+      await expect(getShareView(revokedShareId)).rejects.toThrow();
+
+      const firstUndo = await undo(table.id);
+      expect(firstUndo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+      const firstRestore = (await getView(table.id, view.id)).data;
+      expect(firstRestore.enableShare).not.toBe(true);
+      expect(firstRestore.shareId).toBeUndefined();
+      await expect(getShareView(revokedShareId)).rejects.toThrow();
+
+      // Restored snapshots are deliberately unshared, so refresh cannot rotate
+      // the revoked credential and must leave the delete redo entry intact.
+      await expect(refreshViewShareId(table.id, view.id)).rejects.toThrow();
+
+      const redoDelete = await redo(table.id);
+      expect(redoDelete.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+      expect(await waitForViewVisibility(table.id, view.id, false, 300)).toBeUndefined();
+
+      const secondUndo = await undo(table.id);
+      expect(secondUndo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+      const secondRestore = (await getView(table.id, view.id)).data;
+      expect(secondRestore.enableShare).not.toBe(true);
+      expect(secondRestore.shareId).toBeUndefined();
+      await expect(getShareView(revokedShareId)).rejects.toThrow();
+    }
+  );
+
   it('should undo / redo update view property', async () => {
     // name
     const view = table.views[0];
-    (await awaitWithEvent(() => updateViewName(table.id, view.id, { name: 'newName' }))).data;
+    const renameResponse = await awaitWithEvent(() =>
+      updateViewName(table.id, view.id, { name: 'newName' })
+    );
+    const renameEngine = renameResponse.headers[X_TEABLE_V2_HEADER] === 'true' ? 'v2' : 'v1';
 
-    await undo(table.id);
+    const renameUndo = await undo(table.id);
+    expect(renameUndo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(renameEngine);
 
     expect((await getView(table.id, view.id)).data.name).toEqual(view.name);
 
-    await redo(table.id);
+    const renameRedo = await redo(table.id);
+    expect(renameRedo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(renameEngine);
 
     expect((await getView(table.id, view.id)).data.name).toEqual('newName');
 
     // description
-    (
-      await awaitWithEvent(() =>
-        updateViewDescription(table.id, view.id, { description: 'newName' })
-      )
-    ).data;
+    const descriptionResponse = await awaitWithEvent(() =>
+      updateViewDescription(table.id, view.id, { description: 'newName' })
+    );
+    const descriptionEngine =
+      descriptionResponse.headers[X_TEABLE_V2_HEADER] === 'true' ? 'v2' : 'v1';
 
-    await undo(table.id);
+    const descriptionUndo = await undo(table.id);
+    expect(descriptionUndo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(descriptionEngine);
 
     expect((await getView(table.id, view.id)).data.description).toEqual(view.description);
 
-    await redo(table.id);
+    const descriptionRedo = await redo(table.id);
+    expect(descriptionRedo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(descriptionEngine);
 
     expect((await getView(table.id, view.id)).data.description).toEqual('newName');
 
     // filter
+    const filterResponse = await awaitWithEvent(() =>
+      updateViewFilter(table.id, view.id, {
+        filter: {
+          filterSet: [
+            {
+              fieldId: table.fields![0].id,
+              value: 'text',
+              operator: 'is',
+            },
+          ],
+          conjunction: 'and',
+        },
+      })
+    );
+    const filterEngine = filterResponse.headers[X_TEABLE_V2_HEADER] === 'true' ? 'v2' : 'v1';
 
-    (
-      await awaitWithEvent(() =>
-        updateViewFilter(table.id, view.id, {
-          filter: {
-            filterSet: [
-              {
-                fieldId: table.fields![0].id,
-                value: 'text',
-                operator: 'is',
-              },
-            ],
-            conjunction: 'and',
-          },
-        })
-      )
-    ).data;
-
-    await undo(table.id);
+    const filterUndo = await undo(table.id);
+    expect(filterUndo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(filterEngine);
 
     expect((await getView(table.id, view.id)).data.filter).toEqual(view.filter);
 
-    await redo(table.id);
+    const filterRedo = await redo(table.id);
+    expect(filterRedo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(filterEngine);
 
     expect((await getView(table.id, view.id)).data.filter).toEqual({
       filterSet: [
@@ -1345,34 +1574,170 @@ describe('Undo Redo (e2e)', () => {
       ],
       conjunction: 'and',
     });
+
+    // sort
+    const sort = {
+      sortObjs: [{ fieldId: table.fields![0].id, order: SortFunc.Desc }],
+      manualSort: false,
+    };
+    const sortResponse = await awaitWithEvent(() => updateViewSort(table.id, view.id, { sort }));
+    const sortEngine = sortResponse.headers[X_TEABLE_V2_HEADER] === 'true' ? 'v2' : 'v1';
+
+    const sortUndo = await undo(table.id);
+    expect(sortUndo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(sortEngine);
+    expect((await getView(table.id, view.id)).data.sort).toEqual(view.sort);
+
+    const sortRedo = await redo(table.id);
+    expect(sortRedo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(sortEngine);
+    expect((await getView(table.id, view.id)).data.sort).toEqual(sort);
+
+    // group
+    const group = [{ fieldId: table.fields![0].id, order: SortFunc.Asc }];
+    const groupResponse = await awaitWithEvent(() => updateViewGroup(table.id, view.id, { group }));
+    const groupEngine = groupResponse.headers[X_TEABLE_V2_HEADER] === 'true' ? 'v2' : 'v1';
+
+    const groupUndo = await undo(table.id);
+    expect(groupUndo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(groupEngine);
+    expect((await getView(table.id, view.id)).data.group).toEqual(view.group);
+
+    const groupRedo = await redo(table.id);
+    expect(groupRedo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(groupEngine);
+    expect((await getView(table.id, view.id)).data.group).toEqual(group);
+
+    // options
+    const options = { rowHeight: 'tall' as const, fieldNameDisplayLines: 2 };
+    const optionsResponse = await awaitWithEvent(() =>
+      updateViewOptions(table.id, view.id, { options })
+    );
+    const optionsEngine = optionsResponse.headers[X_TEABLE_V2_HEADER] === 'true' ? 'v2' : 'v1';
+
+    const optionsUndo = await undo(table.id);
+    expect(optionsUndo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(optionsEngine);
+    expect((await getView(table.id, view.id)).data.options).toEqual(view.options);
+
+    const optionsRedo = await redo(table.id);
+    expect(optionsRedo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(optionsEngine);
+    expect((await getView(table.id, view.id)).data.options).toEqual(options);
+  });
+
+  // v1 share-meta updates never registered an undo operation (no window id on
+  // that path), so this half of the contract only exists on the v2 engine.
+  it.skipIf(!isForceV2)(
+    'should undo / redo view share metadata through the v2 engine',
+    async () => {
+      const view = table.views[0];
+      const shareMeta = { allowCopy: true, submit: { requireLogin: true } };
+      const shareMetaResponse = await updateViewShareMeta(table.id, view.id, shareMeta);
+      expect(shareMetaResponse.headers[X_TEABLE_V2_HEADER]).toBe('true');
+
+      const shareMetaUndo = await undo(table.id);
+      expect(shareMetaUndo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+      expect((await getView(table.id, view.id)).data.shareMeta).toEqual(view.shareMeta);
+
+      const shareMetaRedo = await redo(table.id);
+      expect(shareMetaRedo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+      expect((await getView(table.id, view.id)).data.shareMeta).toEqual(shareMeta);
+    }
+  );
+
+  // v1 manual sort never registered an undo operation, so this half of the
+  // contract only exists on the v2 engine.
+  it.skipIf(!isForceV2)('should undo / redo view manual sort through the v2 engine', async () => {
+    const view = table.views[0];
+    const sort = {
+      sortObjs: [{ fieldId: table.fields![0].id, order: SortFunc.Desc }],
+      manualSort: false,
+    };
+    await updateViewSort(table.id, view.id, { sort });
+
+    const manualSortResponse = await manualSortView(table.id, view.id, {
+      sortObjs: [{ fieldId: table.fields![0].id, order: SortFunc.Asc }],
+    });
+    expect(manualSortResponse.headers[X_TEABLE_V2_HEADER]).toBe('true');
+
+    const manualSortUndo = await undo(table.id);
+    expect(manualSortUndo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+    expect((await getView(table.id, view.id)).data.sort).toEqual(sort);
+
+    const manualSortRedo = await redo(table.id);
+    expect(manualSortRedo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+    expect((await getView(table.id, view.id)).data.sort).toEqual({
+      sortObjs: [{ fieldId: table.fields![0].id, order: SortFunc.Asc }],
+      manualSort: true,
+    });
+  });
+
+  it('should undo / redo v2 View share lifecycle without restoring revoked credentials', async () => {
+    // This case asserts the v2 share lifecycle chain end to end; pin the env so
+    // the default CI lane cannot route it to v1.
+    const previousForceV2All = process.env.FORCE_V2_ALL;
+    process.env.FORCE_V2_ALL = 'true';
+    onTestFinished(() => {
+      if (previousForceV2All == null) delete process.env.FORCE_V2_ALL;
+      else process.env.FORCE_V2_ALL = previousForceV2All;
+    });
+    const view = table.views[0];
+    const enableResponse = await enableShareView({ tableId: table.id, viewId: view.id });
+    const firstShareId = enableResponse.data.shareId;
+    expect(enableResponse.headers[X_TEABLE_V2_HEADER]).toBe('true');
+
+    const enableUndo = await undo(table.id);
+    expect(enableUndo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+    const afterEnableUndo = (await getView(table.id, view.id)).data;
+    expect(afterEnableUndo.enableShare).not.toBe(true);
+    expect(afterEnableUndo.shareId).toBe(firstShareId);
+    await expect(getShareView(firstShareId)).rejects.toThrow();
+
+    const enableRedo = await redo(table.id);
+    expect(enableRedo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+    const afterEnableRedo = (await getView(table.id, view.id)).data;
+    expect(afterEnableRedo.enableShare).toBe(true);
+    expect(afterEnableRedo.shareId).not.toBe(firstShareId);
+    await expect(getShareView(firstShareId)).rejects.toThrow();
+
+    const disabledShareId = afterEnableRedo.shareId!;
+    await disableShareView({ tableId: table.id, viewId: view.id });
+    await expect(getShareView(disabledShareId)).rejects.toThrow();
+
+    const disableUndo = await undo(table.id);
+    expect(disableUndo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+    const afterDisableUndo = (await getView(table.id, view.id)).data;
+    expect(afterDisableUndo.enableShare).toBe(true);
+    expect(afterDisableUndo.shareId).not.toBe(disabledShareId);
+    await expect(getShareView(disabledShareId)).rejects.toThrow();
+
+    const disableRedo = await redo(table.id);
+    expect(disableRedo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+    expect((await getView(table.id, view.id)).data.enableShare).not.toBe(true);
   });
 
   it('should undo / redo update view column meta', async () => {
     const view = table.views[0];
-    (
-      await awaitWithEvent(() =>
-        updateViewColumnMeta(table.id, view.id, [
-          {
-            fieldId: table.fields[1].id,
-            columnMeta: {
-              order: 10,
-            },
+    const updateResponse = await awaitWithEvent(() =>
+      updateViewColumnMeta(table.id, view.id, [
+        {
+          fieldId: table.fields[1].id,
+          columnMeta: {
+            order: 10,
           },
-        ])
-      )
-    ).data;
+        },
+      ])
+    );
+    const expectedEngine = updateResponse.headers[X_TEABLE_V2_HEADER] === 'true' ? 'v2' : 'v1';
 
     const fields = (await getFields(table.id, { viewId: view.id })).data;
 
     expect(fields[2].id).toEqual(table.fields[1].id);
 
-    await undo(table.id);
+    const undoResponse = await undo(table.id);
+    expect(undoResponse.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(expectedEngine);
 
     const fieldsAfterUndo = (await getFields(table.id, { viewId: view.id })).data;
 
     expect(fieldsAfterUndo[1].id).toEqual(table.fields[1].id);
 
-    await redo(table.id);
+    const redoResponse = await redo(table.id);
+    expect(redoResponse.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(expectedEngine);
 
     const fieldsAfterRedo = (await getFields(table.id, { viewId: view.id })).data;
 
@@ -1390,18 +1755,19 @@ describe('Undo Redo (e2e)', () => {
       )
     ).data;
 
-    (
-      await awaitWithEvent(() =>
-        updateViewOrder(table.id, view.id, { anchorId: view1.id, position: 'after' })
-      )
-    ).data;
+    const updateResponse = await awaitWithEvent(() =>
+      updateViewOrder(table.id, view.id, { anchorId: view1.id, position: 'after' })
+    );
+    const expectedEngine = updateResponse.headers[X_TEABLE_V2_HEADER] === 'true' ? 'v2' : 'v1';
 
-    await undo(table.id);
+    const undoResponse = await undo(table.id);
+    expect(undoResponse.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(expectedEngine);
 
     const viewsAfterUndo = (await getViewList(table.id)).data;
     expect(viewsAfterUndo[0].id).equal(view.id);
 
-    await redo(table.id);
+    const redoResponse = await redo(table.id);
+    expect(redoResponse.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(expectedEngine);
 
     const viewsAfterRedo = (await getViewList(table.id)).data;
     expect(viewsAfterRedo[1].id).equal(view.id);

@@ -3,6 +3,7 @@ import { ThemeProvider } from '@teable/next-themes';
 import type { IGetBaseVo } from '@teable/openapi';
 import { isObject, merge } from 'lodash';
 import { useMemo } from 'react';
+import { isRtlLang, setContentDirectionEnabled } from '../../utils/text-direction';
 import { AppContext } from '../app/AppContext';
 import { ConnectionProvider } from './ConnectionProvider';
 import type { ILocalePartial } from './i18n';
@@ -35,6 +36,14 @@ export const AppProvider = (props: IAppProviderProps) => {
     shareId,
     maxSearchFieldCount,
   } = props;
+  // Canvas renderers read the gate from a module-level flag rather than from
+  // context, so it has to be in place before children paint — an effect would
+  // land a frame too late. Guarded to the client because the module is shared
+  // across requests during SSR.
+  if (typeof window !== 'undefined') {
+    setContentDirectionEnabled(isRtlLang(lang));
+  }
+
   const value = useMemo(
     () => ({
       lang,

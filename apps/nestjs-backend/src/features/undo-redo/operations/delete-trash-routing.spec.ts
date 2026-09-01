@@ -167,10 +167,14 @@ describe('trash-backed undo operations', () => {
     const dataDbClientManager = {
       dataPrismaForTable: vi.fn().mockResolvedValue(dataPrismaService),
     };
+    const recordRemovalTombstoneService = {
+      markRestored: vi.fn().mockResolvedValue(undefined),
+    };
     const operation = new DeleteRecordsOperation(
       recordOpenApiService as never,
       { bigTransactionTimeout: 60_000 } as never,
-      dataDbClientManager as never
+      dataDbClientManager as never,
+      recordRemovalTombstoneService as never
     );
 
     await operation.undo({
@@ -197,8 +201,14 @@ describe('trash-backed undo operations', () => {
       where: {
         tableId: 'tbl1',
         recordId: { in: ['rec1', 'rec2'] },
+        reason: 'deleted',
       },
     });
+    expect(recordRemovalTombstoneService.markRestored).toHaveBeenCalledWith(
+      dataPrismaService,
+      'tbl1',
+      ['rec1', 'rec2']
+    );
   });
 
   it('DeleteViewOperation restores metadata and clears its trash marker from the data prisma service', async () => {

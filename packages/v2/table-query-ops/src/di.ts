@@ -4,6 +4,7 @@ import {
   AcceptTableQueryRecommendationHandler,
   AnalyzeAndRecommendTableQueryHandler,
   AnalyzeTableQueryRiskHandler,
+  DecideTableQueryRecommendationHandler,
   DismissTableQueryRecommendationHandler,
   NoopTableQueryObservationReader,
   NoopTableQueryObservationSink,
@@ -13,11 +14,18 @@ import {
   RunTableQueryRemediationTaskHandler,
 } from './application';
 import {
+  TableQueryDecisionPolicy,
+  defaultTableQueryDecisionPolicyConfig,
+  type TableQueryDecisionPolicyConfig,
+} from './decisionPolicy';
+import {
   TableQueryRiskPolicy,
   defaultTableQueryRiskPolicyConfig,
   type TableQueryRiskPolicyConfig,
 } from './domain';
 import {
+  NoopTableQueryDecisionLogRepository,
+  NoopTableQueryObservationPublisher,
   NoopTableSearchVectorSchemaMaintenanceScheduler,
   SystemTableQueryOpsClock,
   type TableQueryOpsAnalyzerConfig,
@@ -32,6 +40,7 @@ import { v2TableOpsTokens } from './tokens';
 
 export type RegisterV2TableOpsOptions = {
   readonly riskPolicyConfig?: Partial<TableQueryRiskPolicyConfig>;
+  readonly decisionPolicyConfig?: Partial<TableQueryDecisionPolicyConfig>;
   readonly sqlDiagnosticsConfig?: Partial<TableQuerySqlDiagnosticsConfig>;
   readonly analyzerConfig?: Partial<TableQueryOpsAnalyzerConfig>;
   readonly taskWorkerConfig?: Partial<TableQueryOpsTaskWorkerConfig>;
@@ -56,6 +65,24 @@ export const registerV2TableOps = (
       })
     );
   }
+  if (!container.isRegistered(v2TableOpsTokens.decisionPolicy)) {
+    container.registerInstance(
+      v2TableOpsTokens.decisionPolicy,
+      new TableQueryDecisionPolicy({
+        ...defaultTableQueryDecisionPolicyConfig,
+        ...options.decisionPolicyConfig,
+      })
+    );
+  }
+  if (!container.isRegistered(v2TableOpsTokens.decisionLogRepository)) {
+    container.register(
+      v2TableOpsTokens.decisionLogRepository,
+      NoopTableQueryDecisionLogRepository,
+      {
+        lifecycle,
+      }
+    );
+  }
   if (!container.isRegistered(v2TableOpsTokens.sqlDiagnosticsConfig)) {
     container.registerInstance(v2TableOpsTokens.sqlDiagnosticsConfig, {
       ...defaultTableQuerySqlDiagnosticsConfig,
@@ -64,6 +91,11 @@ export const registerV2TableOps = (
   }
   if (!container.isRegistered(v2TableOpsTokens.observationSink)) {
     container.register(v2TableOpsTokens.observationSink, NoopTableQueryObservationSink, {
+      lifecycle,
+    });
+  }
+  if (!container.isRegistered(v2TableOpsTokens.observationPublisher)) {
+    container.register(v2TableOpsTokens.observationPublisher, NoopTableQueryObservationPublisher, {
       lifecycle,
     });
   }
@@ -110,6 +142,7 @@ export const registerV2TableOps = (
       intervalMs: 60_000,
       workerId: 'table-query-ops-task-worker',
       allowManualIndexExecution: false,
+      allowPolicyIndexExecution: false,
       allowedKinds: ['manual_investigation'],
       ...options.taskWorkerConfig,
     } satisfies TableQueryOpsTaskWorkerConfig);
@@ -130,6 +163,9 @@ export const registerV2TableOps = (
     DismissTableQueryRecommendationHandler,
     { lifecycle }
   );
+  container.register(DecideTableQueryRecommendationHandler, DecideTableQueryRecommendationHandler, {
+    lifecycle,
+  });
   container.register(RunTableQueryRemediationTaskHandler, RunTableQueryRemediationTaskHandler, {
     lifecycle,
   });

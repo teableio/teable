@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { JwtService } from '@nestjs/jwt';
 import { HttpErrorCode } from '@teable/core';
 import type { PrismaService } from '@teable/db-main-prisma';
 import { PluginPosition, pluginGetTokenRoSchema, type IPluginGetTokenRo } from '@teable/openapi';
@@ -7,6 +6,7 @@ import type { ClsService } from 'nestjs-cls';
 import type { CacheService } from '../../cache/cache.service';
 import type { IClsStore } from '../../types/cls';
 import type { AccessTokenService } from '../access-token/access-token.service';
+import type { TeableJwtService } from '../auth/jwt/teable-jwt.service';
 import { PluginAuthService } from './plugin-auth.service';
 
 describe('PluginAuthService', () => {
@@ -45,7 +45,7 @@ describe('PluginAuthService', () => {
     set: setAuthCode,
   } as unknown as CacheService;
   const accessTokenService = {} as AccessTokenService;
-  const jwtService = { verifyAsync: verifyRefreshToken } as unknown as JwtService;
+  const jwtService = { verifyAsync: verifyRefreshToken } as unknown as TeableJwtService;
   const cls = { get: getCls } as unknown as ClsService<IClsStore>;
 
   const pluginId = 'plgTest';

@@ -132,6 +132,7 @@ export class RecordCreationService {
         if (needsResolution) {
           const resolvedSpec = yield* await service.recordMutationSpecResolver.resolveAndReplace(
             context,
+            tableForCreate.id(),
             createResult.mutateSpec
           );
           record = yield* resolvedSpec.mutate(record);

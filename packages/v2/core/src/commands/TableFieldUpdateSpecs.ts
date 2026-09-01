@@ -128,6 +128,7 @@ import type { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import { getDomainContext } from '../ports/ExecutionContext';
+import { validateFieldAiConfig } from '../schemas/field';
 import type { IUpdateTableFieldSpec } from './IUpdateTableFieldSpec';
 
 // ============ Helper functions ============
@@ -3623,6 +3624,12 @@ export const buildUpdateFieldSpecs = (
   }
 
   if (Object.prototype.hasOwnProperty.call(input, 'aiConfig')) {
+    // v1 parity (T6520): aiConfig must match the (possibly converted) field type.
+    const aiConfigFieldType = input.type ?? currentField.type().toString();
+    const aiConfigValidation = validateFieldAiConfig(aiConfigFieldType, input.aiConfig);
+    if (!aiConfigValidation.valid) {
+      return err(domainError.validation({ message: aiConfigValidation.message }));
+    }
     specs.push(
       TableUpdateFieldAiConfigSpec.create(currentField.id(), null, input.aiConfig ?? null)
     );

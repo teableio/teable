@@ -1,3 +1,4 @@
+import { sdkErrorI18nKeys } from '@teable/i18n-keys';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { domainError, type DomainError } from '../../../shared/DomainError';
@@ -7,6 +8,8 @@ import type { Field } from '../../fields/Field';
 import { FieldType } from '../../fields/FieldType';
 import { FieldByKeySpec } from '../../fields/specs/FieldByKeySpec';
 import { FieldDefaultValueVisitor } from '../../fields/visitors/FieldDefaultValueVisitor';
+import { FieldCellValueSchemaVisitor } from '../../fields/visitors/FieldCellValueSchemaVisitor';
+import type { FieldCellValueSchema } from '../../fields/visitors/FieldCellValueSchemaVisitor';
 import { RecordCreateResult } from '../../records/RecordCreateResult';
 import { RecordId } from '../../records/RecordId';
 import { RecordMutationSpecBuilder } from '../../records/RecordMutationSpecBuilder';
@@ -21,6 +24,7 @@ interface CreateRecordEditableFieldContext {
   hasDefaultValue: boolean;
   defaultValue: unknown;
   isUserField: boolean;
+  cellValueSchema: FieldCellValueSchema | undefined;
 }
 
 export interface CreateRecordBuildContext {
@@ -42,12 +46,14 @@ export function createRecordBuildContext(table: Table): CreateRecordBuildContext
   }
 
   const defaultValueVisitor = FieldDefaultValueVisitor.create();
+  const schemaVisitor = FieldCellValueSchemaVisitor.create();
   const editableFields = table.getEditableFields().map((field) => {
     const defaultValueResult = field.accept(defaultValueVisitor);
     const defaultValue =
       defaultValueResult.isOk() && defaultValueResult.value !== undefined
         ? defaultValueResult.value
         : undefined;
+    const schemaResult = field.accept(schemaVisitor);
 
     return {
       field,
@@ -55,6 +61,7 @@ export function createRecordBuildContext(table: Table): CreateRecordBuildContext
       hasDefaultValue: defaultValue !== undefined,
       defaultValue,
       isUserField: field.type().equals(FieldType.user()),
+      cellValueSchema: schemaResult.isOk() ? schemaResult.value : undefined,
     } satisfies CreateRecordEditableFieldContext;
   });
 
@@ -135,7 +142,7 @@ export function buildRecordWithSpec(
         if (valuesAreValidated) {
           builder.setValidated(field.field, providedValue);
         } else {
-          builder.set(field.field, providedValue);
+          builder.setWithSchema(field.field, providedValue, field.cellValueSchema);
         }
       } else if (field.hasDefaultValue) {
         const defaultValue = field.defaultValue;
@@ -144,8 +151,29 @@ export function buildRecordWithSpec(
           builder.set(field.field, defaultValue);
           builder.withTypecast(typecast);
         } else {
-          builder.set(field.field, defaultValue);
+          builder.setWithSchema(field.field, defaultValue, field.cellValueSchema);
         }
+      } else if (!valuesAreValidated && field.field.notNull().toBoolean()) {
+        // v1 parity (T6520): reject missing notNull fields before any SQL runs.
+        // Relying on the database constraint means the INSERT has already
+        // consumed the auto-number sequence when it fails, leaving gaps —
+        // Postgres sequences do not roll back. Pre-validated internal flows
+        // (restore/duplicate) are exempt so legacy rows stay restorable.
+        return err(
+          domainError.validation({
+            code: 'validation.field.not_null',
+            message: `Cannot create record: field "${field.field.name().toString()}" violates not-null constraint`,
+            details: {
+              fieldId: field.fieldId,
+              fieldName: field.field.name().toString(),
+              fieldType: field.field.type().toString(),
+            },
+            localization: {
+              i18nKey: sdkErrorI18nKeys.custom.recordFieldValueNotNull,
+              context: { fieldName: field.field.name().toString() },
+            },
+          })
+        );
       }
     }
 

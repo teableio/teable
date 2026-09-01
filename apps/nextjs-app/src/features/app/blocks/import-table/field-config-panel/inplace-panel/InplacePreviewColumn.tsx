@@ -94,7 +94,7 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
               <TableCell className="w-48 truncate">
                 <div className="flex w-48 items-center truncate">
                   <Icon className="size-4 shrink-0" />
-                  <div className="flex-1 truncate pl-2">
+                  <div className="flex-1 truncate ps-2">
                     <div className="truncate">{column.name}</div>
                     <span className="truncate text-gray-500">
                       {index === 0 ? t('table:import.title.primaryField') : null}

@@ -1,3 +1,4 @@
+import { setTableComputedDownstreamHint } from '@teable/v2-adapter-db-postgres-shared';
 import {
   BaseId,
   FieldId,
@@ -51,6 +52,146 @@ describe('ComputedUpdatePlanner', () => {
     expect(planResult._unsafeUnwrap().steps).toEqual([]);
     expect(graph.hasComputedTargets).toHaveBeenCalledOnce();
     expect(graph.load).not.toHaveBeenCalled();
+  });
+
+  it('skips plan-free seeds when the table has no computed fields or outbound refs', async () => {
+    const baseId = BaseId.create(`bse${'a'.repeat(15)}0`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'b'.repeat(15)}0`)._unsafeUnwrap();
+    const textFieldId = FieldId.create(`fld${'c'.repeat(15)}0`)._unsafeUnwrap();
+    const planner = new ComputedUpdatePlanner({ load: vi.fn() } as never);
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('SourceOnly')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+    setTableComputedDownstreamHint(table, false);
+
+    const result = planner.hasWritableComputedWork({
+      baseId,
+      table,
+      changedFieldIds: [textFieldId],
+      changeType: 'update',
+    });
+
+    expect(result).toBe(false);
+  });
+
+  it('keeps insert seeds when the table has computed fields', async () => {
+    const baseId = BaseId.create(`bse${'a'.repeat(15)}0`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'b'.repeat(15)}0`)._unsafeUnwrap();
+    const textFieldId = FieldId.create(`fld${'c'.repeat(15)}0`)._unsafeUnwrap();
+    const formulaFieldId = FieldId.create(`fld${'e'.repeat(15)}0`)._unsafeUnwrap();
+    const planner = new ComputedUpdatePlanner({ load: vi.fn() } as never);
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('InsertComputed')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .formula()
+      .withId(formulaFieldId)
+      .withName(FieldName.create('TitleCopy')._unsafeUnwrap())
+      .withExpression(FormulaExpression.create(`{${textFieldId.toString()}}`)._unsafeUnwrap())
+      .withDependencies([textFieldId])
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const result = planner.hasWritableComputedWork({
+      baseId,
+      table,
+      changedFieldIds: [textFieldId],
+      changeType: 'insert',
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it('keeps update seeds when hydrate marked outbound references', async () => {
+    const baseId = BaseId.create(`bse${'a'.repeat(15)}0`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'b'.repeat(15)}0`)._unsafeUnwrap();
+    const textFieldId = FieldId.create(`fld${'c'.repeat(15)}0`)._unsafeUnwrap();
+    const planner = new ComputedUpdatePlanner({ load: vi.fn() } as never);
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('LookupSource')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+    setTableComputedDownstreamHint(table, true);
+
+    const result = planner.hasWritableComputedWork({
+      baseId,
+      table,
+      changedFieldIds: [textFieldId],
+      changeType: 'update',
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it('keeps update seeds when a same-table formula depends on the changed field', async () => {
+    const baseId = BaseId.create(`bse${'a'.repeat(15)}0`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'b'.repeat(15)}0`)._unsafeUnwrap();
+    const textFieldId = FieldId.create(`fld${'c'.repeat(15)}0`)._unsafeUnwrap();
+    const formulaFieldId = FieldId.create(`fld${'e'.repeat(15)}0`)._unsafeUnwrap();
+    const planner = new ComputedUpdatePlanner({ load: vi.fn() } as never);
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('SameTableFormula')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .formula()
+      .withId(formulaFieldId)
+      .withName(FieldName.create('TitleCopy')._unsafeUnwrap())
+      .withExpression(FormulaExpression.create(`{${textFieldId.toString()}}`)._unsafeUnwrap())
+      .withDependencies([textFieldId])
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const result = planner.hasWritableComputedWork({
+      baseId,
+      table,
+      changedFieldIds: [textFieldId],
+      changeType: 'update',
+    });
+
+    expect(result).toBe(true);
   });
 
   it('propagates link relation changes from lookup fields into dependent formulas', async () => {

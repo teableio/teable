@@ -30,7 +30,8 @@ export class CommentOpenApiController {
   ) {}
 
   @Get('/:recordId/count')
-  @Permissions('view|read')
+  // eslint-disable-next-line sonarjs/no-duplicate-string
+  @Permissions('record|read')
   async getRecordCommentCount(
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string
@@ -48,7 +49,6 @@ export class CommentOpenApiController {
   }
 
   @Get('/:recordId/attachment/:path')
-  // eslint-disable-next-line sonarjs/no-duplicate-string
   @Permissions('record|read')
   async getAttachmentPresignedUrl(@Param('path') path: string) {
     const [, token] = path.split('/');
@@ -123,7 +123,8 @@ export class CommentOpenApiController {
   }
 
   @Delete('/:recordId/:commentId')
-  @Permissions('record|read')
+  // deleting your own comment is a comment operation, like editing it
+  @Permissions('record|comment')
   async deleteComment(
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string,

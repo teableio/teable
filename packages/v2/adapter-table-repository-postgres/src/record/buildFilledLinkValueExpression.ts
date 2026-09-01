@@ -45,9 +45,11 @@ export const buildFilledLinkValueExpression = (params: {
       return ok(sql`(
         SELECT COALESCE(
           jsonb_agg(
-            jsonb_build_object(
-              'id', v.id,
-              'title', COALESCE(v.title, ${sql.ref(`ft.${lookupDbFieldName}`)}::text)
+            jsonb_strip_nulls(
+              jsonb_build_object(
+                'id', v.id,
+                'title', COALESCE(v.title, ${sql.ref(`ft.${lookupDbFieldName}`)}::text)
+              )
             )
             ORDER BY v.ord
           ),
@@ -64,9 +66,11 @@ export const buildFilledLinkValueExpression = (params: {
     }
 
     return ok(sql`(
-      SELECT jsonb_build_object(
-        'id', v.id,
-        'title', COALESCE(v.title, ${sql.ref(`ft.${lookupDbFieldName}`)}::text)
+      SELECT jsonb_strip_nulls(
+        jsonb_build_object(
+          'id', v.id,
+          'title', COALESCE(v.title, ${sql.ref(`ft.${lookupDbFieldName}`)}::text)
+        )
       )
       FROM (VALUES (${singleItem.id}, ${singleItem.title ?? null})) AS v(id, title)
       LEFT JOIN ${sql.table(foreignDbTableName)} ft ON ft.__id = v.id

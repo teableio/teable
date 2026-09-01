@@ -347,6 +347,44 @@ describe('DeleteFieldHandler', () => {
     expect(result._unsafeUnwrapErr().message).toBe('Field not found');
   });
 
+  it('treats a missing field as success when replaying undo or redo', async () => {
+    const { table, baseId, tableId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const handler = new DeleteFieldHandler(
+      tableRepository,
+      new TableUpdateFlow(
+        tableRepository,
+        new FakeTableSchemaRepository(),
+        new FakeEventBus(),
+        new FakeUnitOfWork()
+      ),
+      new FakeFieldDeletionSideEffectService() as unknown as FieldDeletionSideEffectService,
+      new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+      createFieldOperationPluginRunner(),
+      noopUndoRedoService,
+      new FakeFieldUndoRedoSnapshotService() as unknown as FieldUndoRedoSnapshotService,
+      new FakeFieldDeleteSnapshotSink()
+    );
+
+    const commandResult = DeleteFieldCommand.create({
+      baseId: baseId.toString(),
+      tableId: tableId.toString(),
+      fieldId: `fld${'x'.repeat(16)}`,
+    });
+
+    const result = await handler.handle(
+      {
+        ...createContext(),
+        undoRedo: { mode: 'undo', operationId: 'op-delete-field-1' },
+      },
+      commandResult._unsafeUnwrap()
+    );
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().events).toHaveLength(0);
+  });
+
   it('skips the target undo snapshot when the caller already captured it', async () => {
     const { table, baseId, tableId, secondaryFieldId } = buildTable();
     const tableRepository = new FakeTableRepository();

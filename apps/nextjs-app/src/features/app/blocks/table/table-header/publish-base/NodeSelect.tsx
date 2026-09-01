@@ -70,7 +70,7 @@ export const NodeSelect = (props: INodeSelectProps) => {
     >
       <SelectTrigger size="lg" className={cn(className, '[&_svg:last-child]:hidden')}>
         <SelectValue placeholder={placeholder || t('common:actions.select')} />
-        <ChevronDown className="ml-2 size-4 shrink-0 opacity-50" />
+        <ChevronDown className="ms-2 size-4 shrink-0 opacity-50" />
       </SelectTrigger>
       <SelectContent>
         {availableNodes.length === 0 ? (

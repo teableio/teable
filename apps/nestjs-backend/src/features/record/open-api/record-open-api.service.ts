@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-identical-functions */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type {
   IAttachmentCellValue,
   IAttachmentItem,
@@ -42,6 +42,7 @@ import { RecordModifySharedService } from '../record-modify/record-modify.shared
 import type { IRecordInnerRo } from '../record.service';
 import { RecordService } from '../record.service';
 import type { IUpdateRecordsInternalRo } from '../type';
+import { collectLinkTargetIds, parseLinkFieldOptions } from './link-cell-value.util';
 
 const getAllowedRecordHistoryFieldIds = (
   fieldIds?: string[],
@@ -58,8 +59,37 @@ const getAllowedRecordHistoryFieldIds = (
   return fieldIds.filter((fieldId) => projectionIds.includes(fieldId));
 };
 
+type ILinkStateRef = {
+  state: IRecordHistoryItemVo['before'];
+  fieldId: string;
+  ids: string[];
+  foreignTableId?: string;
+};
+
+const collectLinkStates = (historyList: IRecordHistoryItemVo[]): ILinkStateRef[] => {
+  const linkStates: ILinkStateRef[] = [];
+  for (const item of historyList) {
+    for (const state of [item.before, item.after]) {
+      if (
+        state.meta.type !== FieldType.Link ||
+        (state as { coldTruncated?: boolean }).coldTruncated
+      ) {
+        continue;
+      }
+      const ids = collectLinkTargetIds(state.data);
+      if (!ids.length) continue;
+      const foreignTableId = (state.meta.options as { foreignTableId?: string } | undefined)
+        ?.foreignTableId;
+      linkStates.push({ state, fieldId: item.fieldId, ids, foreignTableId });
+    }
+  }
+  return linkStates;
+};
+
 @Injectable()
 export class RecordOpenApiService {
+  private readonly logger = new Logger(RecordOpenApiService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly recordService: RecordService,
@@ -103,6 +133,10 @@ export class RecordOpenApiService {
    */
   @Audit({
     action: Events.TABLE_RECORD_CREATE,
+    // Target table explicitly: the ambient operation's resourceId can be the
+    // import's base or a duplication's SOURCE table, which would mis-scope
+    // downstream consumers (audit rows + analytics aggregation).
+    resourceId: (tableId: string) => tableId,
     emit: (_result, _tableId, createRecordsRo: ICreateRecordsRo) => ({
       recordCount: createRecordsRo.records.length,
     }),
@@ -271,19 +305,22 @@ export class RecordOpenApiService {
       });
     }
 
-    const userList = await this.prismaService.user.findMany({
-      where: {
-        id: {
-          in: Array.from(createdBySet),
+    const [, userList] = await Promise.all([
+      this.annotateDeletedLinkRecords(historyList),
+      this.prismaService.user.findMany({
+        where: {
+          id: {
+            in: Array.from(createdBySet),
+          },
         },
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        avatar: true,
-      },
-    });
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          avatar: true,
+        },
+      }),
+    ]);
 
     const handledUserList = userList.map((user) => {
       const { avatar } = user;
@@ -298,6 +335,84 @@ export class RecordOpenApiService {
       userMap: keyBy(handledUserList, 'id'),
       nextCursor,
     };
+  }
+
+  // history keeps link titles as written; mark ids whose record is gone at read
+  // time so the client labels them deleted
+  private async annotateDeletedLinkRecords(historyList: IRecordHistoryItemVo[]): Promise<void> {
+    const linkStates = collectLinkStates(historyList);
+    if (!linkStates.length) return;
+
+    await this.resolveForeignTableIds(linkStates);
+
+    const idsByTable = new Map<string, Set<string>>();
+    for (const { foreignTableId, ids } of linkStates) {
+      if (!foreignTableId) continue;
+      const tableIds = idsByTable.get(foreignTableId) ?? new Set<string>();
+      ids.forEach((recordId) => tableIds.add(recordId));
+      idsByTable.set(foreignTableId, tableIds);
+    }
+    if (!idsByTable.size) return;
+
+    const existingIds = await this.getExistingRecordIds(idsByTable);
+
+    for (const { state, foreignTableId, ids } of linkStates) {
+      if (!foreignTableId) continue;
+      const deletedRecordIds = ids.filter((id) => !existingIds.has(id));
+      if (deletedRecordIds.length) {
+        state.deletedRecordIds = deletedRecordIds;
+      }
+    }
+  }
+
+  // legacy v2-written rows carry options: null — resolve their foreign table from
+  // the field as it exists now (assumes the link target table is unchanged)
+  private async resolveForeignTableIds(linkStates: ILinkStateRef[]): Promise<void> {
+    const missingFieldIds = [
+      ...new Set(linkStates.filter((s) => !s.foreignTableId).map((s) => s.fieldId)),
+    ];
+    if (!missingFieldIds.length) return;
+
+    const fields = await this.prismaService.field.findMany({
+      where: { id: { in: missingFieldIds } },
+      select: { id: true, options: true },
+    });
+    const foreignTableIdByFieldId = new Map(
+      fields.map(
+        (field) => [field.id, parseLinkFieldOptions(field.options).foreignTableId] as const
+      )
+    );
+    for (const linkState of linkStates) {
+      linkState.foreignTableId ??= foreignTableIdByFieldId.get(linkState.fieldId);
+    }
+  }
+
+  private async getExistingRecordIds(idsByTable: Map<string, Set<string>>): Promise<Set<string>> {
+    // a deleted foreign table means every link into it is dead — skip its probe
+    const liveForeignTables = await this.prismaService.tableMeta.findMany({
+      where: { id: { in: [...idsByTable.keys()] }, deletedTime: null },
+      select: { id: true },
+    });
+    const existingIds = new Set<string>();
+    await Promise.all(
+      liveForeignTables.map(async ({ id: foreignTableId }) => {
+        const ids = [...(idsByTable.get(foreignTableId) ?? [])];
+        try {
+          const heads = await this.recordService.getRecordsHeadWithIds(foreignTableId, ids);
+          heads.forEach(({ id }) => existingIds.add(id));
+        } catch (error) {
+          // a failed probe must not mislabel links as deleted (or fail the whole
+          // request) — treat this table's ids as alive and keep the stale titles
+          ids.forEach((id) => existingIds.add(id));
+          this.logger.warn(
+            `record history deleted-link probe failed for table ${foreignTableId}: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          );
+        }
+      })
+    );
+    return existingIds;
   }
 
   /**

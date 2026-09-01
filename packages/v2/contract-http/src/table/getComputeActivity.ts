@@ -29,12 +29,31 @@ export const computeActivityAnomalySchema = z.object({
 
 export const computeActivityDiagnosticsSchema = z.object({
   computeMode: z.literal('server'),
+  executionState: z.enum(['running', 'paused']).optional(),
   activeFieldCount: z.number(),
   queuedFieldCount: z.number(),
   calculatingFieldCount: z.number(),
   failedFieldCount: z.number(),
   highComplexityFieldCount: z.number(),
   anomalies: z.array(computeActivityAnomalySchema),
+  pause: z
+    .object({
+      effective: z.boolean(),
+      blockers: z.array(
+        z.object({
+          id: z.string(),
+          scopeType: z.enum(['space', 'base', 'table']),
+          scopeId: z.string(),
+          pausedAt: z.string(),
+          pausedBy: z.string().nullable(),
+          resumeAt: z.string().nullable(),
+          reason: z.string().nullable(),
+        })
+      ),
+      queuedTaskCount: z.number().int().nonnegative(),
+      oldestQueuedAt: z.string().nullable(),
+    })
+    .optional(),
 });
 
 export const getComputeActivityResponseDataSchema = z.object({
@@ -124,6 +143,10 @@ export const mapComputeActivitySnapshotToDto = (
       lastCompletedAt: field.lastCompletedAt,
       batchProgress: getFieldComputeBatchProgress(field),
     })),
-    diagnostics: snapshot.diagnostics,
+    diagnostics: {
+      ...snapshot.diagnostics,
+      executionState: snapshot.diagnostics.executionState,
+      pause: snapshot.diagnostics.pause,
+    },
   });
 };

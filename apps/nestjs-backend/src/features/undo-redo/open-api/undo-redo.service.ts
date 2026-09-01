@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, Logger, Optional } from '@nestjs/common';
+import type { DataPrismaService } from '@teable/db-data-prisma';
 import type { IRedoVo, IUndoRedoStreamEvent, IUndoVo } from '@teable/openapi';
 import {
   RedoCommand,
@@ -11,13 +12,16 @@ import {
 import type {
   ICommandBus,
   RedoResult,
+  UndoRedoCommandData,
   UndoRedoStackService as V2UndoRedoStackService,
   UndoResult,
 } from '@teable/v2-core';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../../cache/cache.service';
 import type { ICacheStore } from '../../../cache/types';
+import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
 import type { IClsStore } from '../../../types/cls';
+import { RecordRemovalTombstoneService } from '../../record-removal-cold/record-removal-tombstone.service';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
@@ -26,6 +30,21 @@ import { UndoRedoStackService } from '../stack/undo-redo-stack.service';
 import { buildUndoRedoEnginePreferenceKey } from './undo-redo-engine-preference';
 
 export const X_TEABLE_UNDO_REDO_ENGINE_HEADER = 'x-teable-undo-redo-engine';
+
+// Record ids a v2 undo restores back to the table: replaying RestoreRecords
+// (undo of a delete) or RestoreArchivedRecords (undo of an archive) deletes the
+// matching record_trash rows inside the engine, so these are the ids whose cold
+// copies need suppression.
+const collectV2RestoredRecordIds = (command: UndoRedoCommandData): string[] => {
+  const leaves = command.type === 'Batch' ? command.payload : [command];
+  const recordIds = new Set<string>();
+  for (const leaf of leaves) {
+    if (leaf.type === 'RestoreRecords' || leaf.type === 'RestoreArchivedRecords') {
+      leaf.payload.records.forEach((record) => recordIds.add(record.recordId));
+    }
+  }
+  return [...recordIds];
+};
 
 export type IUndoRedoEngine = 'v1' | 'v2';
 
@@ -95,9 +114,39 @@ export class UndoRedoService {
     private readonly cacheService: CacheService<ICacheStore>,
     private readonly undoRedoStackService: UndoRedoStackService,
     private readonly undoRedoOperationService: UndoRedoOperationService,
+    private readonly dataDbClientManager: DataDbClientManager,
+    private readonly recordRemovalTombstoneService: RecordRemovalTombstoneService,
     @Optional()
     private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
+
+  // Cold-copy suppression after a fulfilled v2 undo. The row deletion happens
+  // inside the v2 engine (package boundary — the tombstone service is out of
+  // reach there), so the marker is written here once the replay committed.
+  // Failure is logged, never rethrown: the undo itself succeeded, and failing
+  // the response would invite a retry that pops ANOTHER stack entry.
+  private async markV2RestoredTombstones(tableId: string, undoCommand: UndoRedoCommandData) {
+    try {
+      const recordIds = collectV2RestoredRecordIds(undoCommand);
+      if (recordIds.length === 0) {
+        return;
+      }
+      const dataPrisma = (await this.dataDbClientManager.dataPrismaForTable(tableId, {
+        useTransaction: true,
+      })) as DataPrismaService;
+      await this.recordRemovalTombstoneService.markRestored(
+        (dataPrisma.txClient?.() ?? dataPrisma) as DataPrismaService,
+        tableId,
+        recordIds
+      );
+    } catch (error) {
+      this.logger.error(
+        `tombstone marking failed after v2 undo on ${tableId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+  }
 
   async undo(tableId: string, windowId: string): Promise<IUndoRedoResponse<IUndoVo>> {
     await this.assertTableWritable(tableId);
@@ -315,6 +364,14 @@ export class UndoRedoService {
     };
   }
 
+  private toV2FailedBody(error: { message: string; code?: string }): IUndoVo {
+    return {
+      status: 'failed',
+      errorMessage: error.message,
+      ...(error.code ? { errorCode: error.code } : {}),
+    };
+  }
+
   private async executeV2UndoRedo(
     tableId: string,
     windowId: string,
@@ -333,10 +390,7 @@ export class UndoRedoService {
 
       if (commandResult.isErr()) {
         return {
-          body: {
-            status: 'failed',
-            errorMessage: commandResult.error.message,
-          },
+          body: this.toV2FailedBody(commandResult.error),
           engine: 'v2',
         };
       }
@@ -347,16 +401,17 @@ export class UndoRedoService {
       >(context, commandResult.value);
       if (executeResult.isErr()) {
         return {
-          body: {
-            status: 'failed',
-            errorMessage: executeResult.error.message,
-          },
+          body: this.toV2FailedBody(executeResult.error),
           engine: 'v2',
         };
       }
 
       if (!executeResult.value.entry) {
         return undefined;
+      }
+
+      if (mode === 'undo') {
+        await this.markV2RestoredTombstones(tableId, executeResult.value.entry.undoCommand);
       }
 
       return {
@@ -404,6 +459,7 @@ export class UndoRedoService {
             mode,
             engine: 'v2',
             message: tableIdResult.error.message,
+            code: tableIdResult.error.code,
           });
           return;
         }
@@ -443,8 +499,13 @@ export class UndoRedoService {
             mode,
             engine: 'v2',
             message: replayResult.error.message,
+            code: replayResult.error.code,
           });
           return;
+        }
+
+        if (mode === 'undo' && replayResult.value) {
+          await this.markV2RestoredTombstones(tableId, replayResult.value.undoCommand);
         }
 
         queue.push({

@@ -13,6 +13,8 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { FieldKeyType, stringifyClipboardText } from '@teable/core';
+import type { IFieldVo } from '@teable/core';
 import type {
   IClearSelectionStreamEvent,
   ICopyVo,
@@ -47,6 +49,7 @@ import {
   temporaryPasteRoSchema,
   ITemporaryPasteRo,
   IdReturnType,
+  RangeType,
   copyByIdRoSchema,
 } from '@teable/openapi';
 import { Response } from 'express';
@@ -66,6 +69,8 @@ import {
   X_TEABLE_V2_HEADER,
   X_TEABLE_V2_REASON_HEADER,
 } from '../canary/interceptors/v2-indicator.interceptor';
+import { createFieldInstanceByVo } from '../field/model/factory';
+import { FieldOpenApiV2Service } from '../field/open-api/field-open-api-v2.service';
 import { RecordOpenApiV2Service } from '../record/open-api/record-open-api-v2.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { TqlPipe } from '../record/open-api/tql.pipe';
@@ -80,9 +85,8 @@ export class SelectionController {
     private selectionService: SelectionService,
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly recordOpenApiV2Service: RecordOpenApiV2Service,
+    private readonly fieldOpenApiV2Service: FieldOpenApiV2Service,
     private readonly cls: ClsService<IClsStore>,
-    // protected (not private) so the EE override controller can reach assertXxx
-    // from its own paste / clear / delete overrides.
     protected readonly shareViewScopeService: ShareViewScopeService
   ) {}
 
@@ -245,8 +249,19 @@ export class SelectionController {
     };
 
     if (this.cls.get('useV2')) {
-      const { payload } = await this.selectionService.buildClearByIdUpdatePayload(tableId, clearRo);
-      await this.recordOpenApiV2Service.updateRecords(tableId, payload);
+      const fields = await this.fieldOpenApiV2Service.getFields(tableId, {
+        viewId: clearRo.viewId,
+        projection: clearRo.selection.fieldIds ?? clearRo.projection,
+        filterHidden: !(clearRo.selection.fieldIds?.length || clearRo.projection?.length),
+      });
+      await this.recordOpenApiV2Service.updateRecords(tableId, {
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+        records: recordIds.map((recordId) => ({
+          id: recordId,
+          fields: Object.fromEntries(fields.map((field) => [field.id, null])),
+        })),
+      });
     } else {
       await this.selectionService.clearById(tableId, clearRo, { windowId });
     }
@@ -321,30 +336,119 @@ export class SelectionController {
     };
   }
 
+  private toCopyVo(
+    records: Array<{ fields: Record<string, unknown> }>,
+    fields: IFieldVo[]
+  ): ICopyVo {
+    const fieldInstances = fields.map(createFieldInstanceByVo);
+    const rectangleData = records.map((record) =>
+      fieldInstances.map((fieldInstance) =>
+        fieldInstance.cellValue2String(record.fields[fieldInstance.id] as never)
+      )
+    );
+    return {
+      content: stringifyClipboardText(rectangleData),
+      header: fields,
+    };
+  }
+
+  private async copyWithV2(tableId: string, query: IRangesRo): Promise<ICopyVo> {
+    return this.recordOpenApiV2Service.copy(tableId, query);
+  }
+
+  private async copyByIdWithV2(tableId: string, copyRo: ICopyByIdRo): Promise<ICopyVo> {
+    const recordIds = await this.recordOpenApiV2Service.resolveRecordIdsBySelection(
+      tableId,
+      copyRo
+    );
+    const fieldIds = copyRo.selection.fieldIds ?? copyRo.projection;
+    const fields = await this.fieldOpenApiV2Service.getFields(tableId, {
+      viewId: copyRo.viewId,
+      projection: fieldIds,
+      filterHidden: !fieldIds?.length,
+    });
+    this.recordOpenApiV2Service.assertCopyCellCount(recordIds.length, fields.length);
+    const records = await this.recordOpenApiV2Service.getRecordsByIds(tableId, recordIds, {
+      projection: fieldIds?.length ? fieldIds : fields.map((field) => field.id),
+      fieldKeyType: FieldKeyType.Id,
+    });
+    return this.toCopyVo(records, fields);
+  }
+
+  private async getIdsFromRangesWithV2(
+    tableId: string,
+    query: IRangesToIdQuery
+  ): Promise<IRangesToIdVo> {
+    if (query.returnType === IdReturnType.FieldId) {
+      return { fieldIds: await this.columnSelectionToIdsWithV2(tableId, query) };
+    }
+    const recordIds = await this.recordOpenApiV2Service.getRecordIdsFromRanges(tableId, query);
+    if (query.returnType === IdReturnType.RecordId) {
+      return { recordIds };
+    }
+    return {
+      recordIds,
+      fieldIds: await this.columnSelectionToIdsWithV2(tableId, query),
+    };
+  }
+
+  private async columnSelectionToIdsWithV2(
+    tableId: string,
+    query: IRangesToIdQuery
+  ): Promise<string[]> {
+    const fieldIds = await this.recordOpenApiV2Service.getOrderedReadableFieldIds(tableId, {
+      viewId: query.viewId,
+      projection: query.projection,
+      ignoreViewQuery: query.ignoreViewQuery,
+    });
+    if (query.type === RangeType.Rows) {
+      return fieldIds;
+    }
+    if (query.type === RangeType.Columns) {
+      return query.ranges.reduce<string[]>((acc, range) => {
+        return acc.concat(fieldIds.slice(range[0], range[1] + 1));
+      }, []);
+    }
+    const [start, end] = query.ranges;
+    return fieldIds.slice(start[0], end[0] + 1);
+  }
+
+  @UseV2Feature('getRecords')
   @Permissions('record|read')
   @Get('/range-to-id')
   async getIdsFromRanges(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(rangesToIdQuerySchema), TqlPipe) query: IRangesToIdQuery
   ): Promise<IRangesToIdVo> {
+    if (this.cls.get('useV2')) {
+      return this.getIdsFromRangesWithV2(tableId, query);
+    }
     return this.selectionService.getIdsFromRanges(tableId, query);
   }
 
+  @UseV2Feature('copy')
   @Permissions('record|read', 'record|copy')
   @Get('/copy')
   async copy(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(rangesQuerySchema), TqlPipe) query: IRangesRo
   ): Promise<ICopyVo> {
+    if (this.cls.get('useV2') && query.viewId) {
+      return this.copyWithV2(tableId, query);
+    }
     return this.selectionService.copy(tableId, query);
   }
 
+  @UseV2Feature('copy')
   @Permissions('record|read', 'record|copy')
   @Post('/copy-by-id')
   async copyById(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(copyByIdRoSchema), TqlPipe) copyRo: ICopyByIdRo
   ): Promise<ICopyVo> {
+    if (this.cls.get('useV2')) {
+      return this.copyByIdWithV2(tableId, copyRo);
+    }
     return this.selectionService.copyById(tableId, copyRo);
   }
 

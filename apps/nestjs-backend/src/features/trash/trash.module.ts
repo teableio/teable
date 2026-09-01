@@ -5,6 +5,7 @@ import { CanaryModule } from '../canary/canary.module';
 import { FieldOpenApiModule } from '../field/open-api/field-open-api.module';
 import { RecordOpenApiModule } from '../record/open-api/record-open-api.module';
 import { RecordModule } from '../record/record.module';
+import { RecordRemovalColdCoreModule } from '../record-removal-cold/record-removal-cold.module';
 import { SpaceModule } from '../space/space.module';
 import { TableOpenApiModule } from '../table/open-api/table-open-api.module';
 import { UserModule } from '../user/user.module';
@@ -25,6 +26,7 @@ import { V2TableTrashService } from './v2-table-trash.service';
     CanaryModule,
     TableOpenApiModule,
     FieldOpenApiModule,
+    RecordRemovalColdCoreModule,
     RecordOpenApiModule,
     RecordModule,
     V2Module,

@@ -12,7 +12,11 @@ import {
   resolveOrderBy,
 } from '../../commands/shared/orderBy';
 import { resolveSelectionStreamBatchSize } from '../../commands/shared/streamBatchSize';
-import { domainError, type DomainError } from '../../domain/shared/DomainError';
+import {
+  domainError,
+  type DomainError,
+  type IDomainErrorLocalization,
+} from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import { generateUuid } from '../../domain/shared/IdGenerator';
 import { OffsetPagination } from '../../domain/shared/pagination/OffsetPagination';
@@ -150,6 +154,7 @@ export interface DuplicateRecordsStreamErrorEvent {
   recordIds: string[];
   message: string;
   code?: string;
+  localization?: IDomainErrorLocalization;
 }
 
 export type DuplicateRecordsStreamEvent =
@@ -858,7 +863,7 @@ export class DuplicateRecordsApplicationService {
           fields: recordToFieldValues(record),
           orders: mutationResult.recordOrders?.get(record.id().toString()),
         })),
-        source: { type: 'user' },
+        source: { type: 'recordDuplicate' },
         orchestration,
       }),
     ];
@@ -1250,13 +1255,14 @@ export class DuplicateRecordsApplicationService {
 
   private createErrorEvent(
     error: DomainError,
-    details: Omit<DuplicateRecordsStreamErrorEvent, 'id' | 'message' | 'code'>
+    details: Omit<DuplicateRecordsStreamErrorEvent, 'id' | 'message' | 'code' | 'localization'>
   ): DuplicateRecordsStreamErrorEvent {
     return {
       id: 'error',
       ...details,
       code: error.code,
       message: error.message,
+      ...(error.localization && { localization: error.localization }),
     };
   }
 }

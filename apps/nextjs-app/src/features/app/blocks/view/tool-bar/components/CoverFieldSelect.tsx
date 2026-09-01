@@ -35,7 +35,7 @@ export const CoverFieldSelect = (props: ICoverFieldSelect) => {
   );
 
   return (
-    <div className={cn('w-full flex flex-col gap-2 px-4 py-3', className)}>
+    <div className={cn('w-full flex flex-col gap-2 px-4 pt-3 pb-4', className)}>
       <div className="flex items-center justify-between">
         <span className="text-sm">{t('table:kanban.toolbar.imageSetting')}</span>
         {fieldId && (

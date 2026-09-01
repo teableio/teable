@@ -24,7 +24,7 @@ export const CollaboratorItem = (props: {
   const { t } = useTranslation('common');
   const dayjs = useLanDayjs();
   return (
-    <div className="relative flex items-center gap-3 pr-6">
+    <div className="relative flex items-center gap-3 pe-6">
       <Collaborator item={item} tips={collaboratorTips} />
       <div className="text-xs text-muted-foreground">
         {t('invite.dialog.collaboratorJoin', {
@@ -37,7 +37,7 @@ export const CollaboratorItem = (props: {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                className="absolute right-0 h-auto p-0 hover:bg-inherit"
+                className="absolute end-0 h-auto p-0 hover:bg-inherit"
                 size="sm"
                 variant="ghost"
                 disabled={!deletable}

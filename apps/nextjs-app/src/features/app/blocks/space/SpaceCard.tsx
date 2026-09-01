@@ -6,16 +6,18 @@ import {
   deleteSpace,
   permanentDeleteSpace,
   updateSpace,
-  getSpaceCollaboratorList,
+  getSpaceUniqueCollaboratorList,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { useContentDir } from '@teable/sdk/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { type FC, useEffect, useState } from 'react';
+import { type FC, useEffect, useMemo, useState } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { LevelWithUpgrade } from '../../components/billing/LevelWithUpgrade';
 import { InviteSpacePopover } from '../../components/collaborator/space/InviteSpacePopover';
+import { uniqueCollaboratorToSpaceItem } from '../../components/collaborator-manage/utils';
 import { CollaboratorAvatars } from '../../components/space/CollaboratorAvatars';
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
@@ -33,24 +35,27 @@ interface ISpaceCard {
 export const SpaceCard: FC<ISpaceCard> = (props) => {
   const { space, bases, subscription, disallowSpaceInvitation } = props;
   const router = useRouter();
+  const contentDir = useContentDir();
   const isCloud = useIsCloud();
   const queryClient = useQueryClient();
   const [renaming, setRenaming] = useState<boolean>(false);
   const [spaceName, setSpaceName] = useState<string>(space.name);
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
-  // Get all collaborators including those from bases
+  // Get all principals with access, including base-only collaborators
   const { data: collaboratorsData } = useQuery({
-    queryKey: ReactQueryKeys.spaceCollaboratorList(space.id, {
+    queryKey: ReactQueryKeys.spaceUniqueCollaboratorList(space.id, {
       skip: 0,
       take: 100,
-      includeBase: true,
     }),
     queryFn: ({ queryKey }) =>
-      getSpaceCollaboratorList(queryKey[1], queryKey[2]).then((res) => res.data),
+      getSpaceUniqueCollaboratorList(queryKey[1], queryKey[2]).then((res) => res.data),
   });
 
-  const collaborators = collaboratorsData?.collaborators || [];
+  const collaborators = useMemo(
+    () => (collaboratorsData?.collaborators || []).map(uniqueCollaboratorToSpaceItem),
+    [collaboratorsData]
+  );
 
   const { mutate: deleteSpaceMutator } = useMutation({
     mutationFn: deleteSpace,
@@ -101,7 +106,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
               onChange={(e) => setSpaceName(e.target.value)}
               onBlur={(e) => toggleUpdateSpace(e)}
             >
-              <CardTitle className="truncate leading-5" title={space.name}>
+              <CardTitle dir={contentDir} className="truncate leading-5" title={space.name}>
                 {space.name}
               </CardTitle>
             </SpaceRenaming>

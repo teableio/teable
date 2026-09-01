@@ -11,6 +11,16 @@ import {
   TableRestored,
   TableTrashed,
 } from '@teable/v2-core';
+import {
+  Kysely,
+  PostgresAdapter,
+  PostgresIntrospector,
+  PostgresQueryCompiler,
+  type CompiledQuery,
+  type DatabaseConnection,
+  type Driver,
+  type QueryResult,
+} from 'kysely';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@teable/db-main-prisma', () => ({
@@ -59,7 +69,7 @@ class FakeTracer {
 interface IRecordTrashInsertRow {
   /* eslint-disable @typescript-eslint/naming-convention */
   record_id: string;
-  created_time: Date;
+  snapshot: unknown;
 }
 
 const createV2ContainerService = () => {
@@ -79,10 +89,15 @@ const createV2ContainerService = () => {
       deleted_time: new Date('2026-03-12T00:00:00.000Z'),
     }),
   };
+  const trashSelectQuery = {
+    where: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    executeTakeFirst: vi.fn().mockResolvedValue(undefined),
+  };
   const db = {
     deleteFrom: vi.fn().mockReturnValue(deleteQuery),
     insertInto: vi.fn().mockReturnValue(insertQuery),
-    selectFrom: vi.fn().mockReturnValue(selectQuery),
+    selectFrom: vi.fn((table: string) => (table === 'trash' ? trashSelectQuery : selectQuery)),
   };
   const dataDb = {
     deleteFrom: vi.fn().mockReturnValue(deleteQuery),
@@ -109,6 +124,7 @@ const createV2ContainerService = () => {
     deleteQuery,
     insertQuery,
     selectQuery,
+    trashSelectQuery,
     service: {
       getContainer: vi.fn().mockResolvedValue(container),
       getContainerForTable: vi.fn().mockResolvedValue(container),
@@ -145,9 +161,8 @@ describe('V2TableTrashedProjection', () => {
     expect(db.selectFrom).toHaveBeenCalledWith('table_meta');
     expect(selectQuery.where).toHaveBeenCalledWith('id', '=', 'tblaaaaaaaaaaaaaaaa');
     expect(selectQuery.select).toHaveBeenCalledWith(['base_id', 'deleted_time']);
-    expect(db.deleteFrom).toHaveBeenCalledWith('trash');
-    expect(deleteQuery.where).toHaveBeenNthCalledWith(1, 'resource_id', '=', 'tblaaaaaaaaaaaaaaaa');
-    expect(deleteQuery.where).toHaveBeenNthCalledWith(2, 'resource_type', '=', ResourceType.Table);
+    expect(db.selectFrom).toHaveBeenCalledWith('trash');
+    expect(db.deleteFrom).not.toHaveBeenCalledWith('trash');
     expect(db.insertInto).toHaveBeenCalledWith('trash');
     expect(insertQuery.values).toHaveBeenCalledWith({
       id: expect.any(String),
@@ -174,6 +189,36 @@ describe('V2TableTrashedProjection', () => {
       created_by: 'usrTestUserId',
       created_time: deletedTime,
     });
+  });
+
+  it('keeps a trash row already written by the delete transaction', async () => {
+    const {
+      db,
+      trashSelectQuery,
+      insertQuery,
+      service: v2ContainerService,
+    } = createV2ContainerService();
+    trashSelectQuery.executeTakeFirst.mockResolvedValue({ id: 'trhAlreadyWritten' });
+    const projection = new V2TableTrashedProjection(v2ContainerService as never);
+    const event = TableTrashed.create({
+      tableId: TableId.create('tblaaaaaaaaaaaaaaaa')._unsafeUnwrap(),
+      baseId: BaseId.create('bseaaaaaaaaaaaaaaaa')._unsafeUnwrap(),
+      tableName: TableName.create('Trash Me')._unsafeUnwrap(),
+      fieldIds: [],
+      viewIds: [],
+    });
+
+    const result = await projection.handle(
+      { actorId: ActorId.create('usrTestUserId')._unsafeUnwrap() },
+      event
+    );
+
+    expect(result._unsafeUnwrap()).toBeUndefined();
+    expect(db.selectFrom).toHaveBeenCalledWith('trash');
+    expect(db.insertInto).not.toHaveBeenCalledWith('trash');
+    expect(insertQuery.values).toHaveBeenCalledWith(
+      expect.objectContaining({ table_id: 'tblaaaaaaaaaaaaaaaa' })
+    );
   });
 });
 
@@ -205,28 +250,36 @@ describe('V2TableRestoredProjection', () => {
 
 describe('V2RecordTrashService', () => {
   it('persists deleted records through the v2 Kysely db transaction', async () => {
-    const operations: Array<{ table: string; values: unknown }> = [];
-    type ITrashTransaction = {
-      insertInto: ReturnType<typeof vi.fn>;
+    // Real Kysely + capture driver: the record_trash insert is a raw
+    // jsonb_array_elements statement, so assert on the compiled queries.
+    const executed: Array<{ sql: string; parameters: ReadonlyArray<unknown> }> = [];
+    const connection: DatabaseConnection = {
+      async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
+        executed.push({ sql: compiledQuery.sql, parameters: compiledQuery.parameters });
+        return { rows: [] };
+      },
+      // eslint-disable-next-line require-yield
+      async *streamQuery(): AsyncIterableIterator<never> {
+        throw new Error('not implemented');
+      },
     };
-    const trx = {
-      insertInto: vi.fn((table: string) => ({
-        values: (values: unknown) => ({
-          execute: vi.fn(async () => {
-            operations.push({ table, values });
-          }),
-          executeTakeFirst: vi.fn(async () => {
-            operations.push({ table, values });
-            return undefined;
-          }),
-        }),
-      })),
-    } satisfies ITrashTransaction;
-    const db = {
-      transaction: vi.fn(() => ({
-        execute: async (callback: (trx: ITrashTransaction) => Promise<void>) => callback(trx),
-      })),
+    const driver: Driver = {
+      init: async () => undefined,
+      acquireConnection: async () => connection,
+      beginTransaction: async () => undefined,
+      commitTransaction: async () => undefined,
+      rollbackTransaction: async () => undefined,
+      releaseConnection: async () => undefined,
+      destroy: async () => undefined,
     };
+    const db = new Kysely({
+      dialect: {
+        createAdapter: () => new PostgresAdapter(),
+        createDriver: () => driver,
+        createIntrospector: (kysely) => new PostgresIntrospector(kysely),
+        createQueryCompiler: () => new PostgresQueryCompiler(),
+      },
+    });
     const container = {
       resolve: vi.fn((token: symbol) => {
         if (token !== v2DataDbTokens.db) {
@@ -259,33 +312,294 @@ describe('V2RecordTrashService', () => {
     await service.persistDeletedRecords(payload, { tracer } as Pick<IExecutionContext, 'tracer'>);
 
     expect(v2ContainerService.getContainerForTable).toHaveBeenCalledWith('tblaaaaaaaaaaaaaaaa');
-    expect(db.transaction).toHaveBeenCalled();
-    expect(operations).toHaveLength(2);
-    expect(operations[0]).toEqual({
-      table: 'table_trash',
-      values: {
-        id: 'oprTestTrashPersist',
-        table_id: 'tblaaaaaaaaaaaaaaaa',
-        resource_type: 'record',
-        snapshot: JSON.stringify(['recFirstRecordId01', 'recSecondRecordId2']),
-        created_by: 'usrTestUserId',
-        created_time: expect.any(Date),
-      },
-    });
-    expect(operations[1].table).toBe('record_trash');
-    expect(Array.isArray(operations[1].values)).toBe(true);
-    const tableTrashValue = operations[0].values as { created_time: Date };
-    const recordTrashValues = operations[1].values as IRecordTrashInsertRow[];
-    expect(recordTrashValues.map((row) => row.record_id)).toEqual([
-      'recFirstRecordId01',
-      'recSecondRecordId2',
-    ]);
-    expect(
-      recordTrashValues.every((row) => row.created_time === tableTrashValue.created_time)
-    ).toBe(true);
+    expect(executed).toHaveLength(2);
+
+    const tableTrashInsert = executed[0]!;
+    expect(tableTrashInsert.sql).toContain('insert into "table_trash"');
+    expect(tableTrashInsert.parameters).toContain('oprTestTrashPersist');
+    expect(tableTrashInsert.parameters).toContain(
+      JSON.stringify(['recFirstRecordId01', 'recSecondRecordId2'])
+    );
+
+    const recordTrashInsert = executed[1]!;
+    // The insert target must stay on the query-builder AST (quoted identifier)
+    // so BYODB internal-schema rewriting still applies to it.
+    expect(recordTrashInsert.sql).toContain('insert into "record_trash"');
+    expect(recordTrashInsert.sql).toContain('jsonb_array_elements');
+    expect(recordTrashInsert.parameters).toContain('tblaaaaaaaaaaaaaaaa');
+    expect(recordTrashInsert.parameters).toContain('usrTestUserId');
+    expect(recordTrashInsert.parameters).toContain('oprTestTrashPersist');
+    const rowsParam = recordTrashInsert.parameters.find(
+      (parameter): parameter is string =>
+        typeof parameter === 'string' && parameter.startsWith('[{')
+    );
+    expect(rowsParam).toBeDefined();
+    const rows = JSON.parse(rowsParam!) as IRecordTrashInsertRow[];
+    expect(rows.map((row) => row.record_id)).toEqual(['recFirstRecordId01', 'recSecondRecordId2']);
+    expect(rows.map((row) => (row.snapshot as { fields: Record<string, unknown> }).fields)).toEqual(
+      [{ fldText: 'A' }, { fldText: 'B' }]
+    );
     expect(tracer.spans.map((span) => span.name)).toContain(
       'teable.V2RecordTrashService.persistDeletedRecords'
     );
+  });
+
+  it('fills existing marker snapshots instead of inserting record_trash rows', async () => {
+    const executed: Array<{ sql: string; parameters: ReadonlyArray<unknown> }> = [];
+    const connection: DatabaseConnection = {
+      async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
+        executed.push({ sql: compiledQuery.sql, parameters: compiledQuery.parameters });
+        if (compiledQuery.sql.includes('update "record_trash"')) {
+          return {
+            rows: [{ record_id: 'recFirstRecordId01' }, { record_id: 'recSecondRecordId2' }] as R[],
+          };
+        }
+        return { rows: [] };
+      },
+      // eslint-disable-next-line require-yield
+      async *streamQuery(): AsyncIterableIterator<never> {
+        throw new Error('not implemented');
+      },
+    };
+    const driver: Driver = {
+      init: async () => undefined,
+      acquireConnection: async () => connection,
+      beginTransaction: async () => undefined,
+      commitTransaction: async () => undefined,
+      rollbackTransaction: async () => undefined,
+      releaseConnection: async () => undefined,
+      destroy: async () => undefined,
+    };
+    const db = new Kysely({
+      dialect: {
+        createAdapter: () => new PostgresAdapter(),
+        createDriver: () => driver,
+        createIntrospector: (kysely) => new PostgresIntrospector(kysely),
+        createQueryCompiler: () => new PostgresQueryCompiler(),
+      },
+    });
+    const container = {
+      resolve: vi.fn((token: symbol) => {
+        if (token !== v2DataDbTokens.db) {
+          throw new Error(`Unexpected token ${String(token)}`);
+        }
+        return db;
+      }),
+    };
+    const v2ContainerService = {
+      getContainerForTable: vi.fn().mockResolvedValue(container),
+    };
+    const service = new V2RecordTrashService(v2ContainerService as never);
+    const payload: IDeleteRecordsPayload = {
+      operationId: 'oprTestTrashFill',
+      tableId: 'tblaaaaaaaaaaaaaaaa',
+      userId: 'usrTestUserId',
+      records: [
+        { id: 'recFirstRecordId01', fields: { fldText: 'A' } },
+        { id: 'recSecondRecordId2', fields: { fldText: 'B' } },
+      ],
+    };
+
+    await service.persistDeletedRecords(payload, undefined, { fillExistingMarkers: true });
+
+    const updateQuery = executed.find((query) => query.sql.includes('update "record_trash"'));
+    expect(updateQuery?.sql).toContain('returning "record_id"');
+    expect(executed.some((query) => query.sql.includes('insert into "table_trash"'))).toBe(true);
+    expect(executed.some((query) => query.sql.includes('insert into "record_trash"'))).toBe(false);
+  });
+
+  it('skips snapshot insert when fillExistingMarkers finds no markers or table_trash index', async () => {
+    const executed: Array<{ sql: string; parameters: ReadonlyArray<unknown> }> = [];
+    const connection: DatabaseConnection = {
+      async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
+        executed.push({ sql: compiledQuery.sql, parameters: compiledQuery.parameters });
+        return { rows: [] };
+      },
+      // eslint-disable-next-line require-yield
+      async *streamQuery(): AsyncIterableIterator<never> {
+        throw new Error('not implemented');
+      },
+    };
+    const driver: Driver = {
+      init: async () => undefined,
+      acquireConnection: async () => connection,
+      beginTransaction: async () => undefined,
+      commitTransaction: async () => undefined,
+      rollbackTransaction: async () => undefined,
+      releaseConnection: async () => undefined,
+      destroy: async () => undefined,
+    };
+    const db = new Kysely({
+      dialect: {
+        createAdapter: () => new PostgresAdapter(),
+        createDriver: () => driver,
+        createIntrospector: (kysely) => new PostgresIntrospector(kysely),
+        createQueryCompiler: () => new PostgresQueryCompiler(),
+      },
+    });
+    const container = {
+      resolve: vi.fn((token: symbol) => {
+        if (token !== v2DataDbTokens.db) {
+          throw new Error(`Unexpected token ${String(token)}`);
+        }
+        return db;
+      }),
+    };
+    const v2ContainerService = {
+      getContainerForTable: vi.fn().mockResolvedValue(container),
+    };
+    const service = new V2RecordTrashService(v2ContainerService as never);
+    const payload: IDeleteRecordsPayload = {
+      operationId: 'oprTestTrashSkip',
+      tableId: 'tblaaaaaaaaaaaaaaaa',
+      userId: 'usrTestUserId',
+      records: [{ id: 'recFirstRecordId01', fields: { fldText: 'A' } }],
+    };
+
+    await service.persistDeletedRecords(payload, undefined, { fillExistingMarkers: true });
+
+    expect(executed.some((query) => query.sql.includes('update "record_trash"'))).toBe(true);
+    expect(executed.some((query) => query.sql.includes('insert into "table_trash"'))).toBe(false);
+    expect(executed.some((query) => query.sql.includes('insert into "record_trash"'))).toBe(false);
+  });
+
+  it('inserts record_trash snapshots when fillExistingMarkers finds a table_trash index', async () => {
+    const executed: Array<{ sql: string; parameters: ReadonlyArray<unknown> }> = [];
+    const connection: DatabaseConnection = {
+      async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
+        executed.push({ sql: compiledQuery.sql, parameters: compiledQuery.parameters });
+        if (compiledQuery.sql.includes('select') && compiledQuery.sql.includes('"table_trash"')) {
+          return {
+            rows: [
+              {
+                id: 'oprExistingIndex01',
+                snapshot: JSON.stringify(['recFirstRecordId01']),
+                created_time: '2024-01-02T03:04:05.000Z',
+              },
+            ] as R[],
+          };
+        }
+        return { rows: [] };
+      },
+      // eslint-disable-next-line require-yield
+      async *streamQuery(): AsyncIterableIterator<never> {
+        throw new Error('not implemented');
+      },
+    };
+    const driver: Driver = {
+      init: async () => undefined,
+      acquireConnection: async () => connection,
+      beginTransaction: async () => undefined,
+      commitTransaction: async () => undefined,
+      rollbackTransaction: async () => undefined,
+      releaseConnection: async () => undefined,
+      destroy: async () => undefined,
+    };
+    const db = new Kysely({
+      dialect: {
+        createAdapter: () => new PostgresAdapter(),
+        createDriver: () => driver,
+        createIntrospector: (kysely) => new PostgresIntrospector(kysely),
+        createQueryCompiler: () => new PostgresQueryCompiler(),
+      },
+    });
+    const container = {
+      resolve: vi.fn((token: symbol) => {
+        if (token !== v2DataDbTokens.db) {
+          throw new Error(`Unexpected token ${String(token)}`);
+        }
+        return db;
+      }),
+    };
+    const v2ContainerService = {
+      getContainerForTable: vi.fn().mockResolvedValue(container),
+    };
+    const service = new V2RecordTrashService(v2ContainerService as never);
+    const payload: IDeleteRecordsPayload = {
+      operationId: 'oprTestTrashIndex',
+      tableId: 'tblaaaaaaaaaaaaaaaa',
+      userId: 'usrTestUserId',
+      records: [{ id: 'recFirstRecordId01', fields: { fldText: 'A' } }],
+    };
+
+    await service.persistDeletedRecords(payload, undefined, { fillExistingMarkers: true });
+
+    expect(executed.some((query) => query.sql.includes('update "record_trash"'))).toBe(true);
+    expect(
+      executed.some((query) => query.sql.includes('select') && query.sql.includes('"table_trash"'))
+    ).toBe(true);
+    expect(executed.some((query) => query.sql.includes('insert into "record_trash"'))).toBe(true);
+    expect(executed.some((query) => query.sql.includes('insert into "table_trash"'))).toBe(false);
+    expect(
+      executed.some(
+        (query) =>
+          query.sql.includes('insert into "record_trash"') &&
+          query.parameters.includes('2024-01-02T03:04:05.000Z')
+      )
+    ).toBe(true);
+  });
+
+  it('inserts record_trash snapshots when table_trash snapshot is already parsed', async () => {
+    const executed: Array<{ sql: string; parameters: ReadonlyArray<unknown> }> = [];
+    const connection: DatabaseConnection = {
+      async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
+        executed.push({ sql: compiledQuery.sql, parameters: compiledQuery.parameters });
+        if (compiledQuery.sql.includes('select') && compiledQuery.sql.includes('"table_trash"')) {
+          return {
+            rows: [
+              {
+                id: 'oprExistingIndex01',
+                snapshot: ['recFirstRecordId01'],
+              },
+            ] as R[],
+          };
+        }
+        return { rows: [] };
+      },
+      // eslint-disable-next-line require-yield
+      async *streamQuery(): AsyncIterableIterator<never> {
+        throw new Error('not implemented');
+      },
+    };
+    const driver: Driver = {
+      init: async () => undefined,
+      acquireConnection: async () => connection,
+      beginTransaction: async () => undefined,
+      commitTransaction: async () => undefined,
+      rollbackTransaction: async () => undefined,
+      releaseConnection: async () => undefined,
+      destroy: async () => undefined,
+    };
+    const db = new Kysely({
+      dialect: {
+        createAdapter: () => new PostgresAdapter(),
+        createDriver: () => driver,
+        createIntrospector: (kysely) => new PostgresIntrospector(kysely),
+        createQueryCompiler: () => new PostgresQueryCompiler(),
+      },
+    });
+    const container = {
+      resolve: vi.fn((token: symbol) => {
+        if (token !== v2DataDbTokens.db) {
+          throw new Error(`Unexpected token ${String(token)}`);
+        }
+        return db;
+      }),
+    };
+    const v2ContainerService = {
+      getContainerForTable: vi.fn().mockResolvedValue(container),
+    };
+    const service = new V2RecordTrashService(v2ContainerService as never);
+    const payload: IDeleteRecordsPayload = {
+      operationId: 'oprTestTrashParsed',
+      tableId: 'tblaaaaaaaaaaaaaaaa',
+      userId: 'usrTestUserId',
+      records: [{ id: 'recFirstRecordId01', fields: { fldText: 'A' } }],
+    };
+
+    await service.persistDeletedRecords(payload, undefined, { fillExistingMarkers: true });
+
+    expect(executed.some((query) => query.sql.includes('insert into "record_trash"'))).toBe(true);
   });
 });
 
@@ -340,7 +654,8 @@ describe('V2RecordsDeletedTableTrashProjection', () => {
           },
         ],
       },
-      context
+      context,
+      { fillExistingMarkers: true }
     );
     expect(tracer.spans.map((span) => span.name)).toEqual(
       expect.arrayContaining([

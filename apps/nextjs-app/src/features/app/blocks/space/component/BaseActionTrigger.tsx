@@ -375,19 +375,19 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
         >
           {showRename && (
             <DropdownMenuItem onClick={onRename}>
-              <Pencil className="mr-2" />
+              <Pencil className="me-2" />
               {t('actions.rename')}
             </DropdownMenuItem>
           )}
           {showDuplicate && (
             <DropdownMenuItem onClick={() => baseStore.openModal(base)}>
-              <Copy className="mr-2" />
+              <Copy className="me-2" />
               {t('actions.duplicate')}
             </DropdownMenuItem>
           )}
           {showShare && (
             <DropdownMenuItem onClick={() => setShareOpen(true)}>
-              <Share2 className="mr-2" />
+              <Share2 className="me-2" />
               {t('actions.share')}
             </DropdownMenuItem>
           )}
@@ -397,7 +397,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
                 setExportConfirm(true);
               }}
             >
-              <Export className="mr-2 size-4" />
+              <Export className="me-2 size-4" />
               {t('actions.export')}
             </DropdownMenuItem>
           )}
@@ -407,7 +407,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
                 setMoveConfirm(true);
               }}
             >
-              <ArrowRight className="mr-2 size-4" />
+              <ArrowRight className="me-2 size-4" />
               {t('actions.move')}
             </DropdownMenuItem>
           )}
@@ -415,7 +415,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirm(true)}>
-                <Trash2 className="mr-2" />
+                <Trash2 className="me-2" />
                 {t('actions.delete')}
               </DropdownMenuItem>
             </>
@@ -454,7 +454,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
           closeable
         >
           <DialogHeader className="overflow-hidden">
-            <DialogTitle className="flex min-w-0 items-center gap-2 pr-6">
+            <DialogTitle className="flex min-w-0 items-center gap-2 pe-6">
               <span className="shrink-0">{t('space:tip.exportTitle')}</span>
               <Database className="size-5 shrink-0" />
               <span className="truncate">{base.name}</span>
@@ -612,20 +612,20 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
                         })}
                         className="px-3 py-2 text-xs font-normal transition-colors data-[state=open]:bg-muted/70 hover:bg-muted/60 hover:no-underline"
                       >
-                        <span className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
+                        <span className="flex min-w-0 flex-1 items-center gap-1.5 text-start">
                           <Database className="size-3.5 shrink-0 text-muted-foreground/70" />
                           <span className="truncate font-medium text-foreground">
                             {group.baseName}
                           </span>
                           <span className="shrink-0 text-muted-foreground/40">/</span>
                           <span className="truncate text-muted-foreground">{group.tableName}</span>
-                          <span className="ml-1 shrink-0 rounded bg-muted-foreground/15 px-1.5 py-0.5 text-[10px] font-medium tabular-nums leading-none text-muted-foreground">
+                          <span className="ms-1 shrink-0 rounded bg-muted-foreground/15 px-1.5 py-0.5 text-[10px] font-medium tabular-nums leading-none text-muted-foreground">
                             {group.fields.length}
                           </span>
                         </span>
                       </AccordionTrigger>
                       <AccordionContent innerClassName="px-3 pb-2.5 pt-0">
-                        <div className="flex flex-wrap gap-1 pl-[1.375rem]">
+                        <div className="flex flex-wrap gap-1 ps-[1.375rem]">
                           {group.fields.map((f) => (
                             <span
                               key={f.fieldId}

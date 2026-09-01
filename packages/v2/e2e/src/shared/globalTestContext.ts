@@ -52,20 +52,22 @@ import {
   deleteByRangeOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
-import type {
-  ICreateTableCommandInput,
-  ICreateFieldCommandInput,
-  ICreateTablesCommandInput,
-  IDuplicateTableCommandInput,
-  IPasteCommandInput,
-  IImportCsvCommandInput,
-  IImportRecordsCommandInput,
-  IUpdateFieldCommandInput,
-  IUpdateRecordsCommandInput,
-  RecordFilter,
-  RecordSearchInput,
+import {
+  ActorId,
+  MemoryUndoRedoStore,
+  v2CoreTokens,
+  type ICreateTableCommandInput,
+  type ICreateFieldCommandInput,
+  type ICreateTablesCommandInput,
+  type IDuplicateTableCommandInput,
+  type IImportCsvCommandInput,
+  type IImportRecordsCommandInput,
+  type IPasteCommandInput,
+  type IUpdateFieldCommandInput,
+  type IUpdateRecordsCommandInput,
+  type RecordFilter,
+  type RecordSearchInput,
 } from '@teable/v2-core';
-import { ActorId, MemoryUndoRedoStore, v2CoreTokens } from '@teable/v2-core';
 import { registerV2ImportServices } from '@teable/v2-import';
 import express from 'express';
 import { createE2eTestContainer, type E2eDbMode } from './createE2eTestContainer';
@@ -429,6 +431,22 @@ const initSharedContext = async (
       .execute()
   );
 
+  // User typecast resolution only matches collaborators of the table's base or
+  // space (v1 parity), so the test user must be a base collaborator.
+  await time('seed-test-user-collaborator', async () =>
+    testContainer.db
+      .insertInto('collaborator')
+      .values({
+        id: `col${TEST_USER.id}`,
+        resource_type: 'base',
+        resource_id: baseId,
+        principal_id: TEST_USER.id,
+        principal_type: 'user',
+      })
+      .onConflict((oc) => oc.column('id').doNothing())
+      .execute()
+  );
+
   // Create actorId for execution context
   const actorIdResult = ActorId.create(TEST_USER.id);
   if (actorIdResult.isErr()) {
@@ -566,7 +584,7 @@ const initSharedContext = async (
     const response = await fetch(`${baseUrl}/tables/rename`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ tableId, name }),
+      body: JSON.stringify({ baseId, tableId, name }),
     });
     if (!response.ok) {
       const errorText = await response.text();

@@ -353,6 +353,15 @@ export class CreateTablesHandler
           foreignTables,
         });
       }
+      for (let index = 0; index < tableCommands.length; index += 1) {
+        const table = builtTables[index];
+        const recordsFieldValues = tableCommands[index]?.records ?? [];
+        if (table && recordsFieldValues.length > 0) {
+          yield* table.createRecords(recordsFieldValues, {
+            emitRecordCreatedEvents: false,
+          });
+        }
+      }
 
       const metadataResult = yield* await handler.unitOfWork.withTransaction(
         context,

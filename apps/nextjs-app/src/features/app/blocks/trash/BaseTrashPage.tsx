@@ -152,7 +152,7 @@ export const BaseTrashPage = () => {
             }
           };
 
-          return <div className="text-wrap pr-2 text-sm">{resourceName()}</div>;
+          return <div className="text-wrap pe-2 text-sm">{resourceName()}</div>;
         },
       },
       {
@@ -243,7 +243,7 @@ export const BaseTrashPage = () => {
           <div className="flex flex-col items-start gap-2">
             <h1 className="text-2xl font-semibold">{t('noun.trash')}</h1>
             {!isCommunity && retentionDays > 0 && (
-              <p className="shrink-0 grow-0 text-left text-sm text-zinc-500">
+              <p className="shrink-0 grow-0 text-start text-sm text-zinc-500">
                 {t('common:trash.baseDescription', { retentionDays })}
               </p>
             )}

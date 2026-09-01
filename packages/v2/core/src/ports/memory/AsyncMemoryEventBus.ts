@@ -91,16 +91,24 @@ export class AsyncMemoryEventBus implements IEventBus {
   private shouldAwait(events: ReadonlyArray<IDomainEvent>): boolean {
     if (!events.length) return false;
 
-    const awaitableEventNames = new Set([
-      'FieldCreated',
-      'FieldUpdated',
-      'FieldDeleted',
-      'FieldDuplicated',
-      'FieldOptionsAdded',
-      'ViewColumnMetaUpdated',
-    ]);
+    // Field/view schema events must finish before the HTTP response because
+    // callers immediately re-read schema. RecordsDeleted is not awaitable:
+    // restorePurgeGuard reads the table_trash index committed inside the delete
+    // transaction, and the NestJS recycle-bin snapshot fill stays fire-and-forget.
+    const awaitableEventNames: Record<string, true> = {
+      FieldCreated: true,
+      FieldUpdated: true,
+      FieldDeleted: true,
+      FieldDuplicated: true,
+      FieldOptionsAdded: true,
+      ViewColumnMetaUpdated: true,
+      ViewRenamed: true,
+      ViewDescriptionUpdated: true,
+      ViewLockedUpdated: true,
+      ViewOrderUpdated: true,
+    };
 
-    return events.every((event) => awaitableEventNames.has(event.name.toString()));
+    return events.every((event) => awaitableEventNames[event.name.toString()] === true);
   }
 
   constructor(

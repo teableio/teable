@@ -5,6 +5,7 @@ import { produce } from 'immer';
 import { set, get } from 'lodash';
 import { useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from '../../context/app/i18n';
+import { useInDrawer } from '../adaptive-panel';
 import { Condition } from './condition';
 import { ConjunctionSelect } from './condition/ConjunctionSelect';
 import { BaseFilterContext } from './context';
@@ -43,6 +44,7 @@ const DEFAULT_VALUE = {
 
 export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterProps<T>) => {
   const { t } = useTranslation();
+  const inDrawer = useInDrawer();
   const {
     onChange,
     maxDepth = 2,
@@ -134,7 +136,12 @@ export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterP
           e.preventDefault();
         }
       }}
-      className={cn('flex justify-start gap-2', footerClassName)}
+      className={cn(
+        'flex justify-start gap-2',
+        inDrawer &&
+          'mt-2 shrink-0 gap-4 [&>button]:min-w-0 [&>button]:flex-1 [&>button>span]:truncate',
+        footerClassName
+      )}
       onClick={(e) => {
         e.stopPropagation();
         e.preventDefault();
@@ -162,7 +169,7 @@ export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterP
         }}
       >
         <Plus className="size-4" />
-        {t('filter.addCondition')}
+        <span className="truncate">{t('filter.addCondition')}</span>
       </Button>
       <Button
         variant="outline"
@@ -175,7 +182,7 @@ export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterP
         }}
       >
         <ListPlus className="size-4" />
-        {t('filter.addConditionGroup')}
+        <span className="truncate">{t('filter.addConditionGroup')}</span>
       </Button>
     </div>
   );
@@ -194,7 +201,11 @@ export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterP
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
         {children.length > 0 && (
           <div
-            className={cn('flex flex-1 gap-2 flex-col overflow-auto pr-4 pb-2', contentClassName)}
+            className={cn(
+              'flex flex-1 gap-2 flex-col overflow-auto pe-4 pb-2',
+              inDrawer && 'min-w-0 gap-4 overflow-x-hidden pe-2',
+              contentClassName
+            )}
             ref={filterContainerRef}
           >
             <ConjunctionSelect value={conjunction} onSelect={onConjunctionChange} />

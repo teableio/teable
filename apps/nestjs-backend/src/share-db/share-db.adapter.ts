@@ -392,6 +392,33 @@ export class ShareDbAdapter extends ShareDb.DB {
     return { version: snapshot.v - 1, type: RawOpType.Edit };
   }
 
+  private getComputedActivityCreateReplayOps(
+    snapshot: ISnapshotBase<unknown>,
+    to: number | null
+  ): Array<ICreateOp | IEditOp> {
+    const targetVersion = Math.max(0, Math.min(to ?? snapshot.v, snapshot.v));
+    if (targetVersion === 0) return [];
+
+    const ops = new Array<ICreateOp | IEditOp>(targetVersion);
+    ops[0] = {
+      src: getRandomString(21),
+      seq: 1,
+      v: 0,
+      create: {
+        type: 'json0',
+        data: snapshot.data,
+      },
+    } as ICreateOp;
+    for (let version = 1; version < targetVersion; version += 1) {
+      ops[version] = {
+        src: getRandomString(21),
+        seq: 1,
+        v: version,
+      } as IEditOp;
+    }
+    return ops;
+  }
+
   private hasGapVersion({
     opType,
     currentVersion,
@@ -409,6 +436,27 @@ export class ShareDbAdapter extends ShareDb.DB {
       return false;
     }
     return true;
+  }
+
+  private getIdsWithGapVersion(
+    fromMap: Record<string, number>,
+    versionAndTypeMap: Record<string, { version: number; type: RawOpType }>
+  ): string[] {
+    const ids: string[] = [];
+    for (const [id, from] of Object.entries(fromMap)) {
+      const versionAndType = versionAndTypeMap[id];
+      if (!versionAndType) continue;
+      if (
+        this.hasGapVersion({
+          opType: versionAndType.type,
+          currentVersion: versionAndType.version,
+          fromVersion: from,
+        })
+      ) {
+        ids.push(id);
+      }
+    }
+    return ids;
   }
 
   async internalGetOps(
@@ -511,6 +559,11 @@ export class ShareDbAdapter extends ShareDb.DB {
     if (docType === computedActivityCollectionPrefix) {
       const snapshots = await this.getSnapshotData(docType, collectionId, [id], options);
       const snapshot = snapshots[0];
+      if (snapshot && from === 0) {
+        callback(null, this.getComputedActivityCreateReplayOps(snapshot, to));
+        return;
+      }
+
       await this.internalGetOps(collection, id, from, to, options, callback, {
         getVersionAndType: async () => this.getComputedActivityVersionAndType(snapshot),
         getSnapshotData: async () => (snapshot ? [snapshot] : []),
@@ -549,22 +602,7 @@ export class ShareDbAdapter extends ShareDb.DB {
           collectionId,
           Object.keys(fromMap)
         );
-    const needGetSnapshotDataIds: string[] = [];
-    for (const [id, from] of Object.entries(fromMap)) {
-      const versionAndType = versionAndTypeMap[id];
-      if (!versionAndType) {
-        continue;
-      }
-      if (
-        this.hasGapVersion({
-          opType: versionAndType.type,
-          currentVersion: versionAndType.version,
-          fromVersion: from,
-        })
-      ) {
-        needGetSnapshotDataIds.push(id);
-      }
-    }
+    const needGetSnapshotDataIds = this.getIdsWithGapVersion(fromMap, versionAndTypeMap);
 
     const snapshots =
       activitySnapshots ??
@@ -578,6 +616,11 @@ export class ShareDbAdapter extends ShareDb.DB {
     );
     const result: Record<string, unknown> = {};
     for (const [id, from] of Object.entries(fromMap)) {
+      const activitySnapshot = activitySnapshots ? snapshotDataMap[id] : undefined;
+      if (activitySnapshot && from === 0) {
+        result[id] = this.getComputedActivityCreateReplayOps(activitySnapshot, toMap?.[id] ?? null);
+        continue;
+      }
       let resultError: unknown = null;
       await this.internalGetOps(
         collection,

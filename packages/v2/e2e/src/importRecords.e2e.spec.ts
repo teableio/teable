@@ -176,12 +176,13 @@ describe('v2 http importRecords (e2e)', () => {
 
       expect(result.totalImported).toBe(4);
 
-      // Verify checkbox values
+      // Checkbox false is normalized to an empty cell for v1 storage parity.
       const records = await ctx.listRecords(table.id);
       const task1 = records.find((r) => r.fields[taskFieldId] === 'Task1');
       const task2 = records.find((r) => r.fields[taskFieldId] === 'Task2');
       expect(task1!.fields[completedFieldId]).toBe(true);
-      expect(task2!.fields[completedFieldId]).toBe(false);
+      // v1 contract: unchecked is stored as null, never false
+      expect(task2!.fields[completedFieldId] == null).toBe(true);
     });
   });
 

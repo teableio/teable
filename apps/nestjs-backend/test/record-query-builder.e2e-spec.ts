@@ -150,6 +150,34 @@ describe('RecordQueryBuilder (e2e)', () => {
     `);
   });
 
+  it('keeps unsupported field-reference fallback opt-in for internal queries', async () => {
+    const filter = {
+      conjunction: 'and' as const,
+      filterSet: [
+        {
+          fieldId: f1.id,
+          operator: 'contains' as const,
+          value: { type: 'field' as const, fieldId: f2.id },
+        },
+      ],
+    };
+
+    const strict = await rqb.createRecordQueryBuilder(dbTableName, {
+      tableId: table.id,
+      projection: [f1.id],
+      filter,
+    });
+    expect(() => strict.qb.toQuery()).toThrow(/does not support comparing against another field/);
+
+    const degraded = await rqb.createRecordQueryBuilder(dbTableName, {
+      tableId: table.id,
+      projection: [f1.id],
+      filter,
+      unsupportedFieldReferenceBehavior: 'match-all',
+    });
+    expect(() => degraded.qb.toQuery()).not.toThrow();
+  });
+
   it('pushes record id restriction into the base CTE', async () => {
     const { qb, alias } = await rqb.createRecordQueryBuilder(dbTableName, {
       tableId: table.id,

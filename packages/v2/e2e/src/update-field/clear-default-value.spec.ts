@@ -150,7 +150,8 @@ describe('e2e API: clear field defaultValue T6107', () => {
     expect(fieldOptions(field).defaultValue).toBeUndefined();
 
     const afterClear = await ctx.createRecord(tableId, { [primaryFieldId]: 'unchecked' });
-    expect(afterClear.fields[fieldId] == null || afterClear.fields[fieldId] === false).toBe(true);
+    // v1 contract: checkbox cells are true or empty — false must never be stored
+    expect(afterClear.fields[fieldId] == null).toBe(true);
 
     await ctx.deleteField({ tableId, fieldId });
     await ctx.deleteRecords(tableId, [beforeClear.id, afterClear.id]);

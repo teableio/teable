@@ -6,6 +6,7 @@ import { useCallback, useMemo } from 'react';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
 import { useFields, useView } from '../../../hooks';
 import type { IFieldInstance } from '../../../model';
+import { normalizeCellValueForDisplay } from '../../../utils/normalize-cell-value';
 import { getDisplayChoiceMap } from '../../../utils/select-color';
 import { getFileCover, isSystemFileIcon } from '../../editor';
 import { GRID_DEFAULT } from '../../grid/configs';
@@ -61,13 +62,15 @@ const useGenerateGroupCellFn = () => {
         const { id: fieldId, type, isMultipleCellValue: isMultiple, cellValueType } = field;
         const emptyStr = '(Empty)';
 
-        const validateCellValue =
-          field.cellValueType === CellValueType.DateTime
-            ? validateDateFieldValueLoose(_cellValue, field.isMultipleCellValue)
-            : field.validateCellValue(_cellValue);
-        const cellValue = (
-          validateCellValue.success ? validateCellValue.data : undefined
-        ) as unknown;
+        // Same transitional-shape handling as the grid cell path (T6459).
+        // Date fields keep the loose validator used for group headers.
+        let cellValue: unknown;
+        if (field.cellValueType === CellValueType.DateTime) {
+          const validated = validateDateFieldValueLoose(_cellValue, field.isMultipleCellValue);
+          cellValue = validated.success ? validated.data : undefined;
+        } else {
+          cellValue = normalizeCellValueForDisplay(field, _cellValue);
+        }
 
         if (cellValue == null) {
           return {
@@ -309,7 +312,9 @@ export const useGridGroupCollection = () => {
 
     return group
       .map(({ fieldId }) => fields.find((f) => f.id === fieldId))
-      .filter(Boolean) as IFieldInstance[];
+      .filter(
+        (field): field is IFieldInstance => field != null && field.canReadFieldRecord !== false
+      );
   }, [fields, group]);
 
   const generateGroupCellFn = useGenerateGroupCellFn();

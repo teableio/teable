@@ -237,6 +237,7 @@ const createNoopComputedPlanner = (table: Table): ComputedUpdatePlanner => {
         needsBeforeImage: false,
         requiredFieldIds: [],
       }),
+    hasWritableComputedWork: () => true,
   } as unknown as ComputedUpdatePlanner;
 };
 
@@ -1957,7 +1958,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
 });
 
 // =============================================================================
-// Tests: hybrid/async mode skips planStage in transaction
+// Tests: hybrid/async computed update routing
 // =============================================================================
 
 const createHybridRepository = (
@@ -2228,13 +2229,14 @@ describe('PostgresTableRecordRepository hybrid/async computed update', () => {
     vi.useRealTimers();
   });
 
-  it('skips planStage and enqueues seed task directly in hybrid mode for updateManyStream', async () => {
+  it('plans and executes hybrid policy for updateManyStream when work is not deferred', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
 
     const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
     const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
     const textFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const computedFieldId = FieldId.create(`fld${'n'.repeat(16)}`)._unsafeUnwrap();
     const recordIdA = RecordId.create(RECORD_ID)._unsafeUnwrap();
     const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
 
@@ -2249,6 +2251,14 @@ describe('PostgresTableRecordRepository hybrid/async computed update', () => {
       .withName(FieldName.create('Name')._unsafeUnwrap())
       .primary()
       .done();
+    builder
+      .field()
+      .formula()
+      .withId(computedFieldId)
+      .withName(FieldName.create('Computed Name')._unsafeUnwrap())
+      .withExpression(FormulaExpression.create(`{${textFieldId.toString()}} & ""`)._unsafeUnwrap())
+      .withDependencies([textFieldId])
+      .done();
     builder.view().defaultGrid().done();
 
     const table = builder.build()._unsafeUnwrap();
@@ -2257,13 +2267,33 @@ describe('PostgresTableRecordRepository hybrid/async computed update', () => {
       ._unsafeUnwrap()
       .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
       ._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(computedFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_computed_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
 
     const updateResult = table
       .updateRecord(recordIdA, new Map([[NAME_FIELD_ID, 'Alice']]))
       ._unsafeUnwrap();
 
-    const planStageSpy = vi.fn();
+    const planStageSpy = vi.fn().mockResolvedValue(
+      ok({
+        baseId: table.baseId(),
+        seedTableId: table.id(),
+        seedRecordIds: [recordIdA],
+        extraSeedRecords: [],
+        beforeImageRecords: [],
+        changedFieldIds: [textFieldId],
+        changeType: 'update' as const,
+        steps: [{ tableId, fieldIds: [computedFieldId], level: 0 }],
+        edges: [],
+        estimatedComplexity: 1,
+        sameTableBatches: [],
+      })
+    );
     const enqueueSeedTaskSpy = vi.fn().mockResolvedValue(ok({ taskId: 'seed-1', merged: false }));
+    const executeSpy = vi.fn().mockResolvedValue(ok({ changesByStep: [] }));
     const scheduleDispatchSpy = vi.fn();
 
     const computedUpdatePlanner = {
@@ -2281,7 +2311,7 @@ describe('PostgresTableRecordRepository hybrid/async computed update', () => {
     const computedUpdateStrategy = {
       mode: 'hybrid' as const,
       name: 'hybrid',
-      execute: async () => ok(undefined),
+      execute: executeSpy,
       scheduleDispatch: scheduleDispatchSpy,
     };
 
@@ -2309,20 +2339,160 @@ describe('PostgresTableRecordRepository hybrid/async computed update', () => {
     const result = await repo.updateManyStream({ actorId }, table, batches());
     expect(result.isOk()).toBe(true);
 
-    // planStage must NOT be called in hybrid mode
-    expect(planStageSpy).not.toHaveBeenCalled();
-
-    // enqueueSeedTask must be called with the seed data
-    expect(enqueueSeedTaskSpy).toHaveBeenCalledTimes(1);
-    const seedTask = enqueueSeedTaskSpy.mock.calls[0][0];
-    expect(seedTask.seedTableId).toBe(tableId.toString());
-    expect(seedTask.seedRecordIds).toContain(recordIdA.toString());
-    expect(seedTask.changeType).toBe('update');
-
-    // scheduleDispatch must be called
-    expect(scheduleDispatchSpy).toHaveBeenCalledTimes(1);
+    expect(planStageSpy).toHaveBeenCalledTimes(1);
+    expect(executeSpy).toHaveBeenCalledTimes(1);
+    expect(enqueueSeedTaskSpy).not.toHaveBeenCalled();
+    expect(scheduleDispatchSpy).not.toHaveBeenCalled();
 
     vi.useRealTimers();
+  });
+
+  it('keeps multi-record hybrid batches on the plan-free outbox path', async () => {
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const textFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordIdA = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const recordIdB = RecordId.create(`rec${'b'.repeat(16)}`)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('HybridMultiRecordTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const planStageSpy = vi.fn();
+    const enqueueSeedTaskSpy = vi
+      .fn()
+      .mockResolvedValue(ok({ taskId: 'seed-many', merged: false }));
+    const scheduleDispatchSpy = vi.fn();
+    const computedUpdatePlanner = {
+      plan: async () => ok({ steps: [] }),
+      planStage: planStageSpy,
+      resolveBeforeImageRequirements: async () =>
+        ok({ needsBeforeImage: false, requiredFieldIds: [] }),
+      hasWritableComputedWork: () => true,
+    } as unknown as ComputedUpdatePlanner;
+    const computedUpdateOutbox = {
+      ...createNoopOutbox(),
+      enqueueSeedTask: enqueueSeedTaskSpy,
+    };
+    const repo = createHybridRepository(createRecordingDb().db, table, {
+      computedUpdatePlanner,
+      computedUpdateOutbox,
+      computedUpdateStrategy: {
+        mode: 'hybrid',
+        name: 'hybrid',
+        execute: vi.fn(),
+        scheduleDispatch: scheduleDispatchSpy,
+      },
+    });
+
+    const result = await (
+      repo as unknown as {
+        runComputedUpdateManyByIds(
+          context: { actorId: ActorId },
+          table: Table,
+          recordIds: ReadonlyArray<RecordId>,
+          impact: {
+            valueFieldIds: ReadonlyArray<FieldId>;
+            linkFieldIds: ReadonlyArray<FieldId>;
+          }
+        ): Promise<{ isOk(): boolean }>;
+      }
+    ).runComputedUpdateManyByIds({ actorId }, table, [recordIdA, recordIdB], {
+      valueFieldIds: [textFieldId],
+      linkFieldIds: [],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(planStageSpy).not.toHaveBeenCalled();
+    expect(enqueueSeedTaskSpy).toHaveBeenCalledTimes(1);
+    expect(enqueueSeedTaskSpy.mock.calls[0][0].seedRecordIds).toEqual([
+      recordIdA.toString(),
+      recordIdB.toString(),
+    ]);
+    expect(scheduleDispatchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips plan-free hybrid seeds when the change has no computed work', async () => {
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const textFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordIdA = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const recordIdB = RecordId.create(`rec${'b'.repeat(16)}`)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('HybridNoComputedTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const planStageSpy = vi.fn();
+    const enqueueSeedTaskSpy = vi
+      .fn()
+      .mockResolvedValue(ok({ taskId: 'seed-many', merged: false }));
+    const scheduleDispatchSpy = vi.fn();
+    const computedUpdatePlanner = {
+      plan: async () => ok({ steps: [] }),
+      planStage: planStageSpy,
+      resolveBeforeImageRequirements: async () =>
+        ok({ needsBeforeImage: false, requiredFieldIds: [] }),
+      hasWritableComputedWork: () => false,
+    } as unknown as ComputedUpdatePlanner;
+    const computedUpdateOutbox = {
+      ...createNoopOutbox(),
+      enqueueSeedTask: enqueueSeedTaskSpy,
+    };
+    const repo = createHybridRepository(createRecordingDb().db, table, {
+      computedUpdatePlanner,
+      computedUpdateOutbox,
+      computedUpdateStrategy: {
+        mode: 'hybrid',
+        name: 'hybrid',
+        execute: vi.fn(),
+        scheduleDispatch: scheduleDispatchSpy,
+      },
+    });
+
+    const result = await (
+      repo as unknown as {
+        runComputedUpdateManyByIds(
+          context: { actorId: ActorId },
+          table: Table,
+          recordIds: ReadonlyArray<RecordId>,
+          impact: {
+            valueFieldIds: ReadonlyArray<FieldId>;
+            linkFieldIds: ReadonlyArray<FieldId>;
+          }
+        ): Promise<{ isOk(): boolean }>;
+      }
+    ).runComputedUpdateManyByIds({ actorId }, table, [recordIdA, recordIdB], {
+      valueFieldIds: [textFieldId],
+      linkFieldIds: [],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(planStageSpy).not.toHaveBeenCalled();
+    expect(enqueueSeedTaskSpy).not.toHaveBeenCalled();
+    expect(scheduleDispatchSpy).not.toHaveBeenCalled();
   });
 
   it('still calls planStage in sync mode for updateManyStream', async () => {
@@ -2570,7 +2740,7 @@ describe('PostgresTableRecordRepository hybrid/async computed update', () => {
     vi.useRealTimers();
   });
 
-  it('does not call planStage in hybrid mode for updateMany (non-computed fields skip early)', async () => {
+  it('plans hybrid updateMany and exits when there are no computed steps', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
 
@@ -2609,7 +2779,21 @@ describe('PostgresTableRecordRepository hybrid/async computed update', () => {
       value: 'pending',
     })._unsafeUnwrap();
 
-    const planStageSpy = vi.fn();
+    const planStageSpy = vi.fn().mockResolvedValue(
+      ok({
+        baseId: table.baseId(),
+        seedTableId: table.id(),
+        seedRecordIds: [recordId],
+        extraSeedRecords: [],
+        beforeImageRecords: [],
+        changedFieldIds: [textFieldId],
+        changeType: 'update' as const,
+        steps: [],
+        edges: [],
+        estimatedComplexity: 0,
+        sameTableBatches: [],
+      })
+    );
     const enqueueSeedTaskSpy = vi.fn().mockResolvedValue(ok({ taskId: 'seed-2', merged: false }));
 
     const computedUpdatePlanner = {
@@ -2647,9 +2831,8 @@ describe('PostgresTableRecordRepository hybrid/async computed update', () => {
     const result = await repo.updateMany({ actorId }, table, filterSpec, mutateSpec);
     expect(result.isOk()).toBe(true);
 
-    // planStage must NOT be called in hybrid mode — even if no computed fields
-    // exist, the code path should branch on strategy.mode before calling planStage
-    expect(planStageSpy).not.toHaveBeenCalled();
+    expect(planStageSpy).toHaveBeenCalledTimes(1);
+    expect(enqueueSeedTaskSpy).not.toHaveBeenCalled();
 
     vi.useRealTimers();
   });
@@ -2695,6 +2878,7 @@ describe('PostgresTableRecordRepository deferred computed scheduling', () => {
       computedUpdateStrategy: { scheduleDispatch },
       expandComputedSeedFieldIds: vi.fn(() => [textFieldId]),
       hasher: { sha256: () => 'computed-seed-hash' },
+      shouldEnqueuePlanFreeSeed: vi.fn(() => true),
     };
 
     const result = await (

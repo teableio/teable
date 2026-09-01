@@ -116,7 +116,9 @@ export const createShareBaseSSR = async <T extends IShareBasePagePropsBase>(
       baseId: baseIdStr,
       ssrApi,
       getTranslationsProps: () =>
-        getTranslationsProps(context, i18nNamespaces ?? baseAllConfig.i18nNamespaces),
+        getTranslationsProps(context, [
+          ...new Set([...(i18nNamespaces ?? baseAllConfig.i18nNamespaces), 'auth' as const]),
+        ]),
       base,
     };
 

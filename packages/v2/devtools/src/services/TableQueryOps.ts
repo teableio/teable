@@ -65,7 +65,7 @@ export interface TableQueryOpsAnalyzeSearchAccessPathsInput extends TableQueryOp
 }
 
 export interface TableQueryOpsExecuteSearchAccessPathInput extends TableQueryOpsScopeInput {
-  readonly mode?: 'create' | 'rebuild';
+  readonly mode?: 'create' | 'rebuild' | 'drop';
   readonly fieldIds?: readonly string[];
   readonly provider?: TableQueryOpsSearchAccessPathProvider;
   readonly sampleSearch?: string;
@@ -789,7 +789,7 @@ export type TableQueryOpsAnalyzeSearchVectorsResult = TableQueryOpsAnalyzeSearch
 export interface TableQueryOpsExecuteSearchAccessPathResult {
   readonly scope: TableQueryOpsExecuteSearchAccessPathInput;
   readonly dryRun: boolean;
-  readonly action: 'dry_run' | 'executed' | 'failed';
+  readonly action: 'dry_run' | 'executed' | 'dropped' | 'failed';
   readonly result?: unknown;
   readonly error?: string;
 }
@@ -836,23 +836,25 @@ export interface TableQueryOpsSearchAccessPathTempTableValidationResult {
   readonly samples: readonly {
     readonly searchProbeLengthBucket: 'none' | 'short' | 'medium' | 'long';
     readonly probeSource: TableQueryOpsSearchProbeSource;
+    // Record ids are customer data: durable output carries a deterministic
+    // set hash + counts instead of the raw id arrays.
     readonly legacyIlikePath: {
       readonly durationMs: number;
       readonly timing: TableQueryOpsSearchTimingSummary;
       readonly total: number;
       readonly returnedCount: number;
-      readonly recordIds: readonly string[];
+      readonly recordIdSetHash: string;
     };
     readonly optimizedGeneratedTextPath: {
       readonly durationMs: number;
       readonly timing: TableQueryOpsSearchTimingSummary;
       readonly total: number;
       readonly returnedCount: number;
-      readonly recordIds: readonly string[];
+      readonly recordIdSetHash: string;
     };
     readonly exactResultMatch: boolean;
-    readonly missingFromOptimized: readonly string[];
-    readonly unexpectedFromOptimized: readonly string[];
+    readonly missingFromOptimizedCount: number;
+    readonly unexpectedFromOptimizedCount: number;
     readonly totalDeltaFromLegacy: number;
     readonly durationDeltaPctFromLegacy: number;
     readonly planEvidence: {

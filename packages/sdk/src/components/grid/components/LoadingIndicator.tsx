@@ -34,7 +34,7 @@ export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
     coordInstance;
 
   return (
-    <div className="pointer-events-none absolute left-0 top-0">
+    <div className="pointer-events-none absolute start-0 top-0">
       {columnLoadings.map(({ index, progress, onCancel }) => {
         const columnWidth = coordInstance.getColumnWidth(index);
         const columnOffset = coordInstance.getColumnRelativeOffset(index, scrollLeft);
@@ -58,11 +58,11 @@ export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
             }}
           >
             <div
-              className="pointer-events-auto absolute right-1 top-1 cursor-pointer rounded-full bg-background"
+              className="pointer-events-auto absolute end-1 top-1 cursor-pointer rounded-full bg-background"
               onClick={onCancel}
             >
               <div
-                className="absolute right-0 top-0 flex size-6 items-center justify-center rounded-full"
+                className="absolute end-0 top-0 flex size-6 items-center justify-center rounded-full"
                 style={{
                   background: `conic-gradient(currentColor ${progress * 360}deg, rgba(0,0,0,0.1) 0deg)`,
                 }}
@@ -107,7 +107,7 @@ export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
               height: rowHeight,
             }}
           >
-            <div className="absolute right-1 top-1 rounded-full bg-background">
+            <div className="absolute end-1 top-1 rounded-full bg-background">
               <div className="absolute inset-1 animate-ping rounded-full bg-amber-500/30" />
               <div className="absolute inset-0 animate-[spin_1.2s_linear_infinite] rounded-full border-2 border-dotted border-transparent border-t-amber-500" />
               <div className="size-6 p-1">

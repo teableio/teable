@@ -38,6 +38,7 @@ const SELECT_CELL_PADDING_TOP = 6;
 
 const { cellHorizontalPadding, maxRowCount } = GRID_DEFAULT;
 
+// text must already be truncated to fit by the caller
 const drawLabel = (
   ctx: CanvasRenderingContext2D,
   props: {
@@ -45,7 +46,6 @@ const drawLabel = (
     y: number;
     width: number;
     text: string;
-    maxTextWidth: number;
     textColor: string;
     bgColor: string;
     editable?: boolean;
@@ -53,8 +53,7 @@ const drawLabel = (
     spriteManager: SpriteManager;
   }
 ) => {
-  const { x, y, width, text, maxTextWidth, textColor, bgColor, editable, theme, spriteManager } =
-    props;
+  const { x, y, width, text, textColor, bgColor, editable, theme, spriteManager } = props;
   const { fontSizeXS, iconSizeSM } = theme;
 
   drawRect(ctx, {
@@ -70,7 +69,6 @@ const drawLabel = (
     x: x + OPTION_PADDING_HORIZONTAL,
     y: y + (iconSizeSM - fontSizeXS) / 2 + 0.5,
     fill: textColor,
-    maxWidth: maxTextWidth,
     fontSize: fontSizeXS,
   });
 
@@ -267,7 +265,6 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
       }
 
       // Recalculate for current row after potential wrap
-      const actualMaxTextWidth = row === 1 ? firstRowMaxTextWidth : maxTextWidth;
       const actualMaxOptionWidth = row === 1 ? drawArea.width - addBtnOffset : drawArea.width;
       const actualOptionWidth = Math.min(displayWidth + totalOptionPadding, actualMaxOptionWidth);
 
@@ -276,7 +273,6 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
         y,
         width: actualOptionWidth,
         text: displayText,
-        maxTextWidth: actualMaxTextWidth,
         textColor,
         bgColor,
         editable,

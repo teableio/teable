@@ -4,6 +4,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
+import { collectContinuationFieldIds } from '../ComputedContinuationFields';
 import type {
   ComputedFieldUpdater,
   ComputedUpdateResult,
@@ -16,6 +17,12 @@ import type {
 } from '../ComputedUpdatePlanner';
 import { splitSeedGroupsForPlan } from '../ComputedUpdatePlanner';
 import { createComputedUpdateRun, toRunLogContext } from '../ComputedUpdateRun';
+import {
+  defaultComputedUpdateRuntimeConfig,
+  type ComputedUpdateRuntimeConfig,
+} from '../ComputedUpdateRuntimeConfig';
+import { withInlineComputedStatementTimeout } from '../ComputedUpdateTransactionSettings';
+import { pushAll } from '../pushAll';
 import type {
   IUpdateStrategy,
   UpdateStrategyExecuteOptions,
@@ -32,7 +39,9 @@ export class SyncInTransactionStrategy implements IUpdateStrategy {
 
   constructor(
     @inject(v2RecordRepositoryPostgresTokens.computedUpdatePlanner)
-    private readonly planner: ComputedUpdatePlanner
+    private readonly planner: ComputedUpdatePlanner,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdateRuntimeConfig)
+    private readonly runtimeConfig: ComputedUpdateRuntimeConfig = defaultComputedUpdateRuntimeConfig
   ) {}
 
   async execute(
@@ -41,9 +50,25 @@ export class SyncInTransactionStrategy implements IUpdateStrategy {
     context: IExecutionContext,
     _options?: UpdateStrategyExecuteOptions
   ): Promise<Result<ComputedUpdateResult | undefined, DomainError>> {
+    return withInlineComputedStatementTimeout(context, this.runtimeConfig, () =>
+      this.executeInner(updater, plan, context)
+    );
+  }
+
+  private async executeInner(
+    updater: ComputedFieldUpdater,
+    plan: ComputedUpdatePlan,
+    context: IExecutionContext
+  ): Promise<Result<ComputedUpdateResult | undefined, DomainError>> {
+    // Edge-only plans (delete/orphan propagation: edges but no steps) are real
+    // executable work, and seed-all tables are real seed input — neither may be
+    // dropped as a no-op here or the propagation never reaches the fixed lower
+    // layers.
     if (
-      plan.steps.length === 0 ||
-      (plan.seedRecordIds.length === 0 && plan.extraSeedRecords.length === 0)
+      (plan.steps.length === 0 && plan.edges.length === 0) ||
+      (plan.seedRecordIds.length === 0 &&
+        plan.extraSeedRecords.length === 0 &&
+        (plan.seedAllTableIds ?? []).length === 0)
     ) {
       return ok(undefined);
     }
@@ -61,13 +86,13 @@ export class SyncInTransactionStrategy implements IUpdateStrategy {
 
     // Track already-updated fields to prevent duplicate updates across stages.
     // Without this, computed fields in the dependency chain would be updated multiple times
-    // because collectStepFieldIds passes them as changedFieldIds to the next stage.
+    // because actual field changes pass them as changedFieldIds to the next stage.
     const updatedFieldIds = new Set<string>();
 
     // Accumulate changes from all stages
     const allChangesByStep: StepChangeData[] = [];
 
-    while (currentPlan.steps.length > 0) {
+    while (currentPlan.steps.length > 0 || currentPlan.edges.length > 0) {
       const run = createComputedUpdateRun({
         runId,
         originRunIds,
@@ -87,7 +112,7 @@ export class SyncInTransactionStrategy implements IUpdateStrategy {
       if (stageResult.isErr()) return err(stageResult.error);
 
       // Accumulate changes from this stage
-      allChangesByStep.push(...stageResult.value.changesByStep);
+      pushAll(allChangesByStep, stageResult.value.changesByStep);
 
       completedSteps += currentPlan.steps.length;
 
@@ -104,7 +129,10 @@ export class SyncInTransactionStrategy implements IUpdateStrategy {
 
       const { groups: seedGroups, seedAllTableIds } = seedGroupsResult.value;
 
-      const nextSeedFieldIds = collectStepFieldIds(currentPlan);
+      const nextSeedFieldIds = collectContinuationFieldIds(
+        currentPlan,
+        stageResult.value.changesByStep
+      );
       const nextPlanResult = await this.planNextStage(
         currentPlan,
         context,
@@ -126,7 +154,7 @@ export class SyncInTransactionStrategy implements IUpdateStrategy {
         }))
         .filter((step) => step.fieldIds.length > 0);
 
-      if (filteredSteps.length === 0) break;
+      if (filteredSteps.length === 0 && nextPlanResult.value.edges.length === 0) break;
 
       currentPlan = { ...nextPlanResult.value, steps: filteredSteps };
       totalSteps += currentPlan.steps.length;
@@ -170,20 +198,16 @@ export class SyncInTransactionStrategy implements IUpdateStrategy {
   }
 }
 
-const collectStepFieldIds = (plan: ComputedUpdatePlan): FieldId[] => {
-  const ids = new Map<string, FieldId>();
-  for (const step of plan.steps) {
-    for (const fieldId of step.fieldIds) {
-      ids.set(fieldId.toString(), fieldId);
-    }
-  }
-  return [...ids.values()];
-};
-
+/** Output tables of a plan: step tables plus propagation edge target tables. */
 const collectStepTableIds = (plan: ComputedUpdatePlan): TableId[] => {
   const ids = new Map<string, TableId>();
   for (const step of plan.steps) {
     ids.set(step.tableId.toString(), step.tableId);
+  }
+  // Edge-only stages produce their outputs solely in edge target tables; those
+  // dirty rows must still feed next-stage planning.
+  for (const edge of plan.edges) {
+    ids.set(edge.toTableId.toString(), edge.toTableId);
   }
   return [...ids.values()];
 };

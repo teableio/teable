@@ -16,6 +16,7 @@ import {
   useFields,
   useTableId,
   useGroupPoint,
+  useCommentPermission,
   useTablePermission,
   useFieldPermission,
   useBaseId,
@@ -43,6 +44,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const { shareId } = useContext(ShareViewContext) ?? {};
   const { sort, filter } = view ?? {};
   const permission = useTablePermission();
+  const { commentReadable, commentWritable } = useCommentPermission();
   const fields = useFields();
   const readableFields = useFields({ withHidden: true });
   const allFields = useFields({ withHidden: true, withDenied: true });
@@ -149,9 +151,10 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
       cardDraggable: Boolean(
         permission['record|update'] && permission['view|update'] && stackFieldRecordEditable
       ),
-      cardCommentCreatable: Boolean(permission['record|comment']),
+      cardCommentReadable: commentReadable,
+      cardCommentCreatable: commentWritable,
     };
-  }, [permission, fieldPermission, stackFieldRecordEditable]);
+  }, [permission, fieldPermission, stackFieldRecordEditable, commentReadable, commentWritable]);
 
   const stackCollection = useMemo(() => {
     if (groupPoints == null || stackField == null) return;

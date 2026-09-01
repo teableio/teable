@@ -5,6 +5,7 @@ import { useContext } from 'react';
 import { TaskStatusCollectionContext } from '../../context';
 import type { IButtonClickStatusHook } from '../../hooks';
 import { useFieldStaticGetter } from '../../hooks';
+import { useContentDir } from '../../hooks/use-content-dir';
 import type { Field, Record } from '../../model';
 import { AiFieldGenerateButton } from './AiFieldGenerateButton';
 import { CellEditorWrap } from './CellEditorWrap';
@@ -29,6 +30,7 @@ export const RecordEditorItem = (props: {
     onAttachmentDownload,
   } = props;
   const { type, isLookup } = field;
+  const contentDir = useContentDir();
   const hasAiConfig = Boolean(field.aiConfig);
   const fieldStaticGetter = useFieldStaticGetter();
   const { Icon } = fieldStaticGetter(type, {
@@ -41,33 +43,72 @@ export const RecordEditorItem = (props: {
     taskStatusCollection?.cells?.some((c) => c.recordId === record?.id && c.fieldId === field.id) ??
     false;
   const cellValue = record?.getCellValue(field.id);
+  const compact = !vertical;
+  const showAiGenerateButton = hasAiConfig && Boolean(field.tableId && record && !readonly);
+  const aiGenerateButton = showAiGenerateButton && field.tableId && record && (
+    <AiFieldGenerateButton
+      tableId={field.tableId}
+      fieldId={field.id}
+      recordId={record.id}
+      isInTaskQueue={isInTaskQueue}
+    />
+  );
   const onChangeInner = (value: unknown) => {
     if (cellValue === value) return;
     onChange?.(value, field.id);
   };
 
   return (
-    <div className={cn(vertical ? 'flex space-x-4' : 'space-y-2', 'relative group/field-row')}>
-      <div className={cn('w-36 flex items-top space-x-1 ', vertical ? 'pt-1' : 'w-full')}>
-        <div className="flex size-5 items-center">
+    <div
+      className={cn(
+        vertical ? 'flex space-x-4 rtl:space-x-reverse' : 'space-y-2',
+        'relative group/field-row'
+      )}
+    >
+      <div
+        className={cn(
+          'flex w-36 items-start gap-1',
+          vertical ? 'pt-1' : 'relative w-full items-center',
+          compact && aiGenerateButton && 'pe-8'
+        )}
+      >
+        <div className="me-1 flex size-4 items-center">
           <Icon className="size-4" />
         </div>
-        <div className="flex min-w-0 items-start justify-between gap-1 text-sm">
-          <span className={cn('min-w-0 truncate', vertical && 'break-words whitespace-normal')}>
-            {field.name}
+        <div
+          className={cn(
+            'flex min-w-0 flex-1 gap-1 text-sm',
+            vertical ? 'items-start' : 'items-center'
+          )}
+        >
+          <span className="flex min-w-0">
+            <span
+              dir={contentDir}
+              className={cn('min-w-0 truncate', vertical && 'break-words whitespace-normal')}
+            >
+              {field.name}
+            </span>
+            {field.notNull && (
+              <span className="ms-0.5 shrink-0 text-red-500" aria-label="required">
+                *
+              </span>
+            )}
           </span>
           {field.description && (
             <TooltipWrap description={field.description}>
-              <span className="ml-0.5 mt-[3px] inline-flex shrink-0 cursor-pointer text-muted-foreground">
+              <span
+                className={cn(
+                  'ms-0.5 inline-flex shrink-0 cursor-pointer text-muted-foreground',
+                  vertical && 'mt-[3px]'
+                )}
+              >
                 <Info className="size-4" />
               </span>
             </TooltipWrap>
           )}
         </div>
-        {field.notNull && (
-          <span className="text-red-500" aria-label="required">
-            *
-          </span>
+        {compact && aiGenerateButton && (
+          <div className="absolute end-0 top-1/2 -translate-y-1/2">{aiGenerateButton}</div>
         )}
       </div>
       <CellEditorWrap
@@ -82,21 +123,16 @@ export const RecordEditorItem = (props: {
         onAttachmentDownload={onAttachmentDownload}
       />
 
-      <div
-        className={cn(
-          'absolute -right-8 top-1 opacity-0 transition-opacity group-hover/field-row:opacity-100',
-          isInTaskQueue && 'opacity-100'
-        )}
-      >
-        {hasAiConfig && field.tableId && record && !readonly && (
-          <AiFieldGenerateButton
-            tableId={field.tableId}
-            fieldId={field.id}
-            recordId={record.id}
-            isInTaskQueue={isInTaskQueue}
-          />
-        )}
-      </div>
+      {!compact && aiGenerateButton && (
+        <div
+          className={cn(
+            'absolute -end-8 top-1 opacity-0 transition-opacity group-hover/field-row:opacity-100',
+            isInTaskQueue && 'opacity-100'
+          )}
+        >
+          {aiGenerateButton}
+        </div>
+      )}
     </div>
   );
 };

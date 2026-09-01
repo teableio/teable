@@ -82,6 +82,9 @@ const tableProvisionPredicate = (
   )`;
 };
 
+const legacyReadyFieldPredicate = (alias: string) =>
+  sql<boolean>`COALESCE(${sql.ref(`${alias}.is_pending`)}, false) = false`;
+
 const withGraphTraceSpan = async <T>(
   executionContext: IExecutionContext | undefined,
   operation: string,
@@ -243,6 +246,7 @@ export class FieldDependencyGraph {
             .select(sql<number>`1`.as('exists'))
             .where('t.base_id', '=', baseId.toString())
             .where('f.deleted_time', 'is', null)
+            .where(legacyReadyFieldPredicate('f'))
             .where('t.deleted_time', 'is', null)
             .where(
               tableProvisionPredicate('t', tableProvisionStates, options.scopedPendingTableIds)
@@ -264,7 +268,40 @@ export class FieldDependencyGraph {
             .limit(1)
             .executeTakeFirst();
 
-          return ok(Boolean(row));
+          if (row) {
+            return ok(true);
+          }
+
+          // A base with no computed fields of its own can still feed computed
+          // fields in OTHER bases (cross-base conditional lookup/rollup).
+          // Probe reference edges originating from this base's fields; without
+          // this, seed writes in a source-only base return an empty plan and
+          // dependent bases silently keep stale values.
+          const crossBaseRow = await db
+            .selectFrom('reference as r')
+            .innerJoin('field as f_from', 'f_from.id', 'r.from_field_id')
+            .innerJoin('field as f_to', 'f_to.id', 'r.to_field_id')
+            .innerJoin('table_meta as t_from', 't_from.id', 'f_from.table_id')
+            .innerJoin('table_meta as t_to', 't_to.id', 'f_to.table_id')
+            .select(sql<number>`1`.as('exists'))
+            .where('t_from.base_id', '=', baseId.toString())
+            .where('t_to.base_id', '<>', baseId.toString())
+            .where('f_from.deleted_time', 'is', null)
+            .where('f_to.deleted_time', 'is', null)
+            .where(legacyReadyFieldPredicate('f_from'))
+            .where(legacyReadyFieldPredicate('f_to'))
+            .where('t_from.deleted_time', 'is', null)
+            .where('t_to.deleted_time', 'is', null)
+            .where(
+              tableProvisionPredicate('t_from', tableProvisionStates, options.scopedPendingTableIds)
+            )
+            .where(
+              tableProvisionPredicate('t_to', tableProvisionStates, options.scopedPendingTableIds)
+            )
+            .limit(1)
+            .executeTakeFirst();
+
+          return ok(Boolean(crossBaseRow));
         } catch (error) {
           return err(
             domainError.infrastructure({
@@ -591,6 +628,7 @@ export class FieldDependencyGraph {
         ])
         .where('t.base_id', '=', baseId.toString())
         .where('f.deleted_time', 'is', null)
+        .where(legacyReadyFieldPredicate('f'))
         .where('t.deleted_time', 'is', null)
         .where(tableProvisionPredicate('t', tableProvisionStates, options.scopedPendingTableIds))
         .where(
@@ -749,6 +787,8 @@ export class FieldDependencyGraph {
         .where('t_from.base_id', '=', baseId.toString())
         .where('f_from.deleted_time', 'is', null)
         .where('f_to.deleted_time', 'is', null)
+        .where(legacyReadyFieldPredicate('f_from'))
+        .where(legacyReadyFieldPredicate('f_to'))
         .where('t_from.deleted_time', 'is', null)
         .where('t_to.deleted_time', 'is', null)
         .where(tableProvisionPredicate('t_from', tableProvisionStates, scopedPendingTableIds))
@@ -764,6 +804,8 @@ export class FieldDependencyGraph {
         .where('t_to.base_id', '=', baseId.toString())
         .where('f_from.deleted_time', 'is', null)
         .where('f_to.deleted_time', 'is', null)
+        .where(legacyReadyFieldPredicate('f_from'))
+        .where(legacyReadyFieldPredicate('f_to'))
         .where('t_from.deleted_time', 'is', null)
         .where('t_to.deleted_time', 'is', null)
         .where(tableProvisionPredicate('t_from', tableProvisionStates, scopedPendingTableIds))
@@ -1456,6 +1498,7 @@ export class FieldDependencyGraph {
         ])
         .where('f.id', 'in', fieldIds)
         .where('f.deleted_time', 'is', null)
+        .where(legacyReadyFieldPredicate('f'))
         .where('t.deleted_time', 'is', null)
         .where(tableProvisionPredicate('t', tableProvisionStates, scopedPendingTableIds))
         .where(

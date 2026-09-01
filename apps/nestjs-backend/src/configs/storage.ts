@@ -2,6 +2,8 @@
 import { Inject } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { registerAs } from '@nestjs/config';
+import { resolveCipherEntries } from './secrets/resolve-cipher-entries';
+import { SECRET_SPECS } from './secrets/secret-specs';
 
 export const storageConfig = registerAs('storage', () => ({
   provider: (process.env.BACKEND_STORAGE_PROVIDER ?? 'local') as
@@ -49,9 +51,11 @@ export const storageConfig = registerAs('storage', () => ({
   },
   uploadMethod: process.env.BACKEND_STORAGE_UPLOAD_METHOD ?? 'put',
   encryption: {
-    algorithm: process.env.BACKEND_STORAGE_ENCRYPTION_ALGORITHM ?? 'aes-128-cbc',
-    key: process.env.BACKEND_STORAGE_ENCRYPTION_KEY ?? '73b00476e456323e',
-    iv: process.env.BACKEND_STORAGE_ENCRYPTION_IV ?? '8c9183e4c175f63c',
+    entries: resolveCipherEntries({
+      algorithm: process.env.BACKEND_STORAGE_ENCRYPTION_ALGORITHM ?? 'aes-128-cbc',
+      keySpec: SECRET_SPECS.storageEncryptionKey,
+      ivSpec: SECRET_SPECS.storageEncryptionIv,
+    }),
   },
   // must be less than 7 days
   tokenExpireIn: process.env.BACKEND_STORAGE_TOKEN_EXPIRE_IN ?? '6d',

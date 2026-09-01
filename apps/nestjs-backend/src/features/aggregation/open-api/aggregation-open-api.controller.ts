@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards, UseInterceptors } from '@nestjs/common';
 import type { IFilter } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -38,17 +38,26 @@ import { filterHasMe } from '../../../utils/filter-has-me';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { AllowAnonymous } from '../../auth/decorators/allow-anonymous.decorator';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
+import { UseV2Feature } from '../../canary/decorators/use-v2-feature.decorator';
+import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
+import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
 import { TqlPipe } from '../../record/open-api/tql.pipe';
+import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
+import { AggregationOpenApiV2Service } from './aggregation-open-api-v2.service';
 import { AggregationOpenApiService } from './aggregation-open-api.service';
 
 @Controller('api/table/:tableId/aggregation')
 @AllowAnonymous()
+@UseGuards(V2FeatureGuard)
+@UseInterceptors(V2IndicatorInterceptor)
 export class AggregationOpenApiController {
   constructor(
     private readonly aggregationOpenApiService: AggregationOpenApiService,
+    private readonly aggregationOpenApiV2Service: AggregationOpenApiV2Service,
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly performanceCacheService: PerformanceCacheService
+    private readonly performanceCacheService: PerformanceCacheService,
+    protected readonly spaceDataDbMigrationGuardService: SpaceDataDbMigrationGuardService
   ) {}
 
   private async getAggregationWithCache<T>(
@@ -102,24 +111,34 @@ export class AggregationOpenApiController {
 
   @Get()
   @Permissions('table|read')
+  @UseV2Feature('getAggregation')
   async getAggregation(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(aggregationRoSchema), TqlPipe) query?: IAggregationRo
   ): Promise<IAggregationVo> {
-    return await this.getAggregationWithCache('aggregation', tableId, query, () =>
-      this.aggregationOpenApiService.getAggregation(tableId, query)
-    );
+    return await this.getAggregationWithCache('aggregation', tableId, query, async () => {
+      if (this.cls.get('useV2')) {
+        const v2Result = await this.aggregationOpenApiV2Service.tryGetAggregation(tableId, query);
+        if (v2Result !== undefined) return v2Result;
+      }
+      return this.aggregationOpenApiService.getAggregation(tableId, query);
+    });
   }
 
   @Get('/row-count')
   @Permissions('table|read')
+  @UseV2Feature('getRowCount')
   async getRowCount(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(rowCountRoSchema), TqlPipe) query?: IRowCountRo
   ): Promise<IRowCountVo> {
-    return await this.getAggregationWithCache('row_count', tableId, query, () =>
-      this.aggregationOpenApiService.getRowCount(tableId, query)
-    );
+    return await this.getAggregationWithCache('row_count', tableId, query, async () => {
+      if (this.cls.get('useV2')) {
+        const v2Result = await this.aggregationOpenApiV2Service.tryGetRowCount(tableId, query);
+        if (v2Result !== undefined) return v2Result;
+      }
+      return this.aggregationOpenApiService.getRowCount(tableId, query);
+    });
   }
 
   @Get('/record-index')
@@ -135,46 +154,78 @@ export class AggregationOpenApiController {
 
   @Get('/search-count')
   @Permissions('table|read')
+  @UseV2Feature('getSearchCount')
   async getSearchCount(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(searchCountRoSchema), TqlPipe) query: ISearchCountRo
   ): Promise<ISearchCountVo> {
-    return await this.getAggregationWithCache('search_count', tableId, query, () =>
-      this.aggregationOpenApiService.getSearchCount(tableId, query)
-    );
+    await this.spaceDataDbMigrationGuardService.assertTableRecordSearchReadable(tableId, query);
+
+    return await this.getAggregationWithCache('search_count', tableId, query, async () => {
+      if (this.cls.get('useV2')) {
+        const v2Result = await this.aggregationOpenApiV2Service.tryGetSearchCount(tableId, query);
+        if (v2Result !== undefined) return v2Result;
+      }
+      return this.aggregationOpenApiService.getSearchCount(tableId, query);
+    });
   }
 
   @Get('/search-index')
   @Permissions('table|read')
+  @UseV2Feature('getSearchIndex')
   async getSearchIndex(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(searchIndexByQueryRoSchema), TqlPipe) query: ISearchIndexByQueryRo
   ): Promise<ISearchIndexVo> {
-    return await this.getAggregationWithCache('search_index', tableId, query, () =>
-      this.aggregationOpenApiService.getRecordIndexBySearchOrder(tableId, query)
-    );
+    await this.spaceDataDbMigrationGuardService.assertTableRecordSearchReadable(tableId, query);
+
+    return await this.getAggregationWithCache('search_index', tableId, query, async () => {
+      if (this.cls.get('useV2')) {
+        const v2Result = await this.aggregationOpenApiV2Service.tryGetSearchIndex(tableId, query);
+        if (v2Result !== undefined) return v2Result;
+      }
+      return this.aggregationOpenApiService.getRecordIndexBySearchOrder(tableId, query);
+    });
   }
 
   @Get('/group-points')
   @Permissions('table|read')
+  @UseV2Feature('getGroupPoints')
   async getGroupPoints(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(groupPointsRoSchema), TqlPipe) query?: IGroupPointsRo
   ): Promise<IGroupPointsVo> {
-    return await this.getAggregationWithCache('group_points', tableId, query, () =>
-      this.aggregationOpenApiService.getGroupPoints(tableId, query, true)
-    );
+    return await this.getAggregationWithCache('group_points', tableId, query, async () => {
+      if (this.cls.get('useV2')) {
+        const v2Result = await this.aggregationOpenApiV2Service.tryGetGroupPoints(tableId, query);
+        if (v2Result !== undefined) return v2Result;
+      }
+      return this.aggregationOpenApiService.getGroupPoints(tableId, query, true);
+    });
   }
 
   @Get('/calendar-daily-collection')
   @Permissions('table|read')
+  @UseV2Feature('getCalendarDailyCollection')
   async getCalendarDailyCollection(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(calendarDailyCollectionRoSchema), TqlPipe)
     query: ICalendarDailyCollectionRo
   ): Promise<ICalendarDailyCollectionVo> {
-    return await this.getAggregationWithCache('calendar_daily_collection', tableId, query, () =>
-      this.aggregationOpenApiService.getCalendarDailyCollection(tableId, query)
+    return await this.getAggregationWithCache(
+      'calendar_daily_collection',
+      tableId,
+      query,
+      async () => {
+        if (this.cls.get('useV2')) {
+          const v2Result = await this.aggregationOpenApiV2Service.tryGetCalendarDailyCollection(
+            tableId,
+            query
+          );
+          if (v2Result !== undefined) return v2Result;
+        }
+        return this.aggregationOpenApiService.getCalendarDailyCollection(tableId, query);
+      }
     );
   }
 

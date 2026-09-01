@@ -8,12 +8,15 @@ import {
   type AttachmentItem,
 } from '../../domain/table/records/specs/values/SetAttachmentValueSpec';
 import { CellValue } from '../../domain/table/records/values/CellValue';
+import { TableId } from '../../domain/table/TableId';
 import type {
   AttachmentLookupRecord,
   IAttachmentLookupService,
 } from '../../ports/AttachmentLookupService';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { AttachmentValueResolverService } from './AttachmentValueResolverService';
+
+const testTableId = TableId.create(`tbl${'t'.repeat(16)}`)._unsafeUnwrap();
 
 const createContext = (): IExecutionContext => ({
   actorId: ActorId.create('system')._unsafeUnwrap(),
@@ -39,7 +42,7 @@ class FakeAttachmentLookupService implements IAttachmentLookupService {
 describe('AttachmentValueResolverService', () => {
   it('returns empty array for empty specs', async () => {
     const service = new AttachmentValueResolverService(new FakeAttachmentLookupService([]));
-    const result = await service.resolveSpecs(createContext(), []);
+    const result = await service.resolveSpecs(createContext(), testTableId, []);
 
     expect(result.isOk()).toBe(true);
     expect(result._unsafeUnwrap()).toEqual([]);
@@ -61,7 +64,7 @@ describe('AttachmentValueResolverService', () => {
     );
 
     const service = new AttachmentValueResolverService(new FakeAttachmentLookupService([]));
-    const result = await service.resolveSpecs(createContext(), [spec]);
+    const result = await service.resolveSpecs(createContext(), testTableId, [spec]);
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().code).toBe('validation.field.invalid_attachment_format');
@@ -95,7 +98,7 @@ describe('AttachmentValueResolverService', () => {
     );
     const service = new AttachmentValueResolverService(new FakeAttachmentLookupService([stored]));
 
-    const result = await service.resolveSpecs(createContext(), [spec]);
+    const result = await service.resolveSpecs(createContext(), testTableId, [spec]);
     const resolvedSpec = result._unsafeUnwrap()[0];
 
     expect(resolvedSpec).toBeInstanceOf(SetAttachmentValueSpec);
@@ -133,7 +136,7 @@ describe('AttachmentValueResolverService', () => {
     );
     const service = new AttachmentValueResolverService(new FakeAttachmentLookupService([stored]));
 
-    const result = await service.resolveSpecs(createContext(), [spec]);
+    const result = await service.resolveSpecs(createContext(), testTableId, [spec]);
     const resolvedSpec = result._unsafeUnwrap()[0];
 
     expect(resolvedSpec).toBeInstanceOf(SetAttachmentValueSpec);
@@ -158,7 +161,7 @@ describe('AttachmentValueResolverService', () => {
     const spec = new SetAttachmentValueSpec(fieldId, CellValue.null<AttachmentItem[]>());
 
     const service = new AttachmentValueResolverService(new FakeAttachmentLookupService([]));
-    const result = await service.resolveSpecs(createContext(), [spec]);
+    const result = await service.resolveSpecs(createContext(), testTableId, [spec]);
     const resolvedSpec = result._unsafeUnwrap()[0];
 
     expect(resolvedSpec).toBeInstanceOf(SetAttachmentValueSpec);
@@ -192,7 +195,7 @@ describe('AttachmentValueResolverService', () => {
     );
     const service = new AttachmentValueResolverService(new FakeAttachmentLookupService([stored]));
 
-    const result = await service.resolveSpecs(createContext(), [spec]);
+    const result = await service.resolveSpecs(createContext(), testTableId, [spec]);
     const resolvedSpec = result._unsafeUnwrap()[0];
 
     expect(resolvedSpec).toBeInstanceOf(SetAttachmentValueSpec);

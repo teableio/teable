@@ -146,7 +146,7 @@ const showExportBaseToast = (
         <a
           href={downloadUrl}
           download={fileName || undefined}
-          className="ml-auto"
+          className="ms-auto"
           onClick={(event) => {
             onAcknowledge(notification, toastId);
             if (!fileName) return;
@@ -447,7 +447,7 @@ export const NotificationsManage: React.FC = () => {
           >
             <Bell className="size-5 shrink-0" />
             {unreadCount > 0 && (
-              <span className="absolute right-2.5 top-1 inline-flex -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full bg-red-400 p-1 text-[8px] leading-none text-white">
+              <span className="absolute end-2.5 top-1 inline-flex -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full bg-red-400 p-1 text-[8px] leading-none text-white rtl:-translate-x-1/2">
                 {unreadCount}
               </span>
             )}
@@ -462,7 +462,7 @@ export const NotificationsManage: React.FC = () => {
                 <Button
                   variant="ghost"
                   size="xs"
-                  className={cn('ml-2', {
+                  className={cn('ms-2', {
                     'bg-accent': notifyStatus === NotificationStatesEnum.Unread,
                   })}
                   onClick={() => setNotifyStatus(NotificationStatesEnum.Unread)}
@@ -472,7 +472,7 @@ export const NotificationsManage: React.FC = () => {
                 <Button
                   variant="ghost"
                   size="xs"
-                  className={cn('ml-2', {
+                  className={cn('ms-2', {
                     'bg-accent': notifyStatus === NotificationStatesEnum.Read,
                   })}
                   onClick={() => setNotifyStatus(NotificationStatesEnum.Read)}
@@ -527,7 +527,7 @@ export const NotificationsManage: React.FC = () => {
                 <Button
                   variant="ghost"
                   size="xs"
-                  className="mr-2"
+                  className="me-2"
                   disabled={unreadCount < 1}
                   onClick={() => {
                     markAllAsReadMutator();

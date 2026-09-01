@@ -1,6 +1,7 @@
 import { useTheme } from '@teable/next-themes';
 import { cn } from '@teable/ui-lib';
 import { useMemo } from 'react';
+import { useTranslation } from '../../../../context/app/i18n';
 import type { SingleSelectField } from '../../../../model';
 import { getSelectColorPairs } from '../../../../utils/select-color';
 import type { IColorOption } from './base';
@@ -18,6 +19,7 @@ interface ISingleSelect {
 }
 
 function FilterSingleSelect(props: ISingleSelect) {
+  const { t } = useTranslation();
   const { onSelect, field, value, className, popoverClassName, modal } = props;
   const { resolvedTheme } = useTheme();
 
@@ -35,20 +37,21 @@ function FilterSingleSelect(props: ISingleSelect) {
     return (
       <div
         key={value}
-        className="flex h-5 max-w-full items-center overflow-hidden rounded-full px-2 text-xs"
+        className="flex h-5 w-fit max-w-full items-center overflow-hidden rounded-full px-2 text-xs"
         style={{
           backgroundColor: colorPair.backgroundColor,
           color: colorPair.color,
         }}
         title={label}
       >
-        <span className="truncate">{label}</span>
+        <span className="min-w-0 flex-1 truncate">{label}</span>
       </div>
     );
   };
 
   return (
     <BaseSingleSelect
+      drawerTitle={t('filter.selectValue')}
       options={options}
       value={value}
       onSelect={onSelect}

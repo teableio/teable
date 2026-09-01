@@ -1,5 +1,6 @@
 import { cn } from '@teable/ui-lib';
 import { useMemo } from 'react';
+import { useContentDir } from '../../hooks/use-content-dir';
 
 export const EllipsisFileName = (props: {
   className?: string;
@@ -7,6 +8,7 @@ export const EllipsisFileName = (props: {
   endLength?: number;
 }) => {
   const { className, name, endLength = 3 } = props;
+  const contentDir = useContentDir();
   const { extension, fileName, end } = useMemo(() => {
     const extension = name.split('.').pop();
     const fileName = name.split('.').slice(0, -1).join('.');
@@ -20,7 +22,10 @@ export const EllipsisFileName = (props: {
   }, [name, endLength]);
 
   return (
-    <div className={cn('text-center flex items-center justify-center truncate', className)}>
+    <div
+      dir={contentDir}
+      className={cn('text-center flex items-center justify-center truncate', className)}
+    >
       <span className="truncate text-sm">{fileName}</span>
       <span className="text-sm">
         {end}

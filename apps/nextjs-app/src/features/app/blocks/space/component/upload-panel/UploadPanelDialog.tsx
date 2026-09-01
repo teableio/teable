@@ -1,4 +1,11 @@
+import { HttpErrorCode, type HttpError } from '@teable/core';
 import { importBaseStream, type IImportBaseProgressEvent, type INotifyVo } from '@teable/openapi';
+import { getHttpErrorMessage } from '@teable/sdk';
+import {
+  extractUsageLimitReason,
+  UsageLimitModalType,
+  useUsageLimitModalStore,
+} from '@teable/sdk/components/billing/store';
 import { Spin } from '@teable/ui-lib/index';
 import {
   Button,
@@ -110,8 +117,22 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
     [tAny]
   );
 
-  const addLog = React.useCallback((message: string, type: ILogEntry['type'] = 'info') => {
-    setLogs((prev) => [...prev, { message, type, timestamp: Date.now() }]);
+  const addLog = React.useCallback(
+    (message: string, type: ILogEntry['type'] = 'info', action?: ILogEntry['action']) => {
+      setLogs((prev) => [...prev, { message, type, timestamp: Date.now(), action }]);
+    },
+    []
+  );
+
+  const openUsageLimitModal = React.useCallback((error: unknown, code?: string) => {
+    useUsageLimitModalStore.setState({
+      modalType:
+        code === HttpErrorCode.CREDIT_LIMIT_EXCEEDED
+          ? UsageLimitModalType.CreditInsufficient
+          : UsageLimitModalType.Upgrade,
+      modalOpen: true,
+      reason: extractUsageLimitReason(error),
+    });
   }, []);
 
   const updateTableProgress = React.useCallback(
@@ -178,7 +199,7 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
           onClick={() => router.push(`/base/${baseId}`)}
         >
           {label}
-          <span className="ml-1 text-blue-500 underline">
+          <span className="ms-1 text-blue-500 underline">
             {tAny('space:import.phase.clickToView')}
           </span>
         </div>,
@@ -264,8 +285,28 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
       setTableProgresses({});
       showImportSuccessToast(baseId, result.data.base.name);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      addLog(msg, 'error');
+      const { status, code } = err as HttpError;
+      const localized =
+        getHttpErrorMessage(err as HttpError, tAny, 'sdk') ||
+        (err instanceof Error ? err.message : 'Unknown error');
+
+      if (status === 402) {
+        // Before the import started there is no context worth keeping, so hand
+        // over to the shared upgrade modal. Once rows were imported (base
+        // created, tables truncated) keep the log panel and offer the upgrade
+        // inline so the user still sees what did land.
+        if (!createdBaseIdRef.current) {
+          openUsageLimitModal(err, code);
+          onOpenChange(false);
+          return;
+        }
+        addLog(localized, 'error', {
+          label: tAny('common:actions.upgrade'),
+          onClick: () => openUsageLimitModal(err, code),
+        });
+        return;
+      }
+      addLog(localized, 'error');
     } finally {
       setIsImporting(false);
       setIsV2Importing(false);
@@ -277,6 +318,7 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
     translatePhase,
     tAny,
     onOpenChange,
+    openUsageLimitModal,
     router,
     showImportSuccessToast,
     updateTableProgress,

@@ -228,7 +228,9 @@ describe('UpdateRecordsCommand', () => {
     expect(commandResult.isErr()).toBe(true);
   });
 
-  it('rejects duplicate explicit record ids', () => {
+  // v1 parity: duplicate recordIds in one batch are merged field-by-field with
+  // last write winning, instead of rejecting the whole batch (T6520).
+  it('merges duplicate explicit record ids across different fields', () => {
     const duplicateRecordId = `rec${'a'.repeat(16)}`;
     const commandResult = UpdateRecordsCommand.create({
       tableId,
@@ -249,7 +251,90 @@ describe('UpdateRecordsCommand', () => {
       fieldKeyType: 'id',
     });
 
-    expect(commandResult.isErr()).toBe(true);
+    expect(commandResult.isOk()).toBe(true);
+    const command = commandResult._unsafeUnwrap();
+    expect(command.records).toHaveLength(1);
+    expect(command.records?.[0]?.recordId.toString()).toBe(duplicateRecordId);
+    expect(command.records?.[0]?.fieldValues.get(numberFieldId)).toBe(42);
+    expect(command.records?.[0]?.fieldValues.get(textFieldId)).toBe('again');
+  });
+
+  it('merges duplicate explicit record ids with last write winning per field', () => {
+    const duplicateRecordId = `rec${'a'.repeat(16)}`;
+    const otherRecordId = `rec${'b'.repeat(16)}`;
+    const commandResult = UpdateRecordsCommand.create({
+      tableId,
+      records: [
+        {
+          id: duplicateRecordId,
+          fields: {
+            [textFieldId]: 'first',
+            [numberFieldId]: 1,
+          },
+        },
+        {
+          id: otherRecordId,
+          fields: {
+            [textFieldId]: 'other',
+          },
+        },
+        {
+          id: duplicateRecordId,
+          fields: {
+            [textFieldId]: 'second',
+          },
+        },
+      ],
+      fieldKeyType: 'id',
+    });
+
+    expect(commandResult.isOk()).toBe(true);
+    const command = commandResult._unsafeUnwrap();
+    expect(command.records).toHaveLength(2);
+    expect(command.records?.map((record) => record.recordId.toString())).toEqual([
+      duplicateRecordId,
+      otherRecordId,
+    ]);
+    expect(command.records?.[0]?.fieldValues.get(textFieldId)).toBe('second');
+    expect(command.records?.[0]?.fieldValues.get(numberFieldId)).toBe(1);
+    expect(command.records?.[1]?.fieldValues.get(textFieldId)).toBe('other');
+  });
+
+  it('uses the last duplicate occurrence when records are reordered', () => {
+    const duplicateRecordId = `rec${'a'.repeat(16)}`;
+    const otherRecordId = `rec${'b'.repeat(16)}`;
+    const commandResult = UpdateRecordsCommand.create({
+      tableId,
+      records: [
+        {
+          id: duplicateRecordId,
+          fields: { [textFieldId]: 'first', [numberFieldId]: 1 },
+        },
+        {
+          id: otherRecordId,
+          fields: { [textFieldId]: 'other' },
+        },
+        {
+          id: duplicateRecordId,
+          fields: { [textFieldId]: 'second' },
+        },
+      ],
+      order: {
+        viewId: `viw${'c'.repeat(16)}`,
+        anchorId: `rec${'c'.repeat(16)}`,
+        position: 'after',
+      },
+      fieldKeyType: 'id',
+    });
+
+    expect(commandResult.isOk()).toBe(true);
+    const command = commandResult._unsafeUnwrap();
+    expect(command.records?.map((record) => record.recordId.toString())).toEqual([
+      otherRecordId,
+      duplicateRecordId,
+    ]);
+    expect(command.records?.[1]?.fieldValues.get(textFieldId)).toBe('second');
+    expect(command.records?.[1]?.fieldValues.get(numberFieldId)).toBe(1);
   });
 
   it('rejects empty filter groups', () => {

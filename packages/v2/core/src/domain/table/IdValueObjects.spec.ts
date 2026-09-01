@@ -60,6 +60,28 @@ describe('RecordId', () => {
     RecordId.create(valid)._unsafeUnwrap();
     RecordId.create(invalidLegacy)._unsafeUnwrapErr();
   });
+
+  it('accepts legacy variable-length record ids without accepting other prefixes or charsets', () => {
+    const legacyLonger = `rec${'d'.repeat(17)}`;
+    const legacyShorter = `rec${'d'.repeat(8)}`;
+    const maxLength = `rec${'d'.repeat(64)}`;
+    const tooLong = `rec${'d'.repeat(65)}`;
+    const emptyBody = 'rec';
+    const wrongPrefix = `fld${'d'.repeat(16)}`;
+    RecordId.create(legacyLonger)._unsafeUnwrap();
+    RecordId.create(legacyShorter)._unsafeUnwrap();
+    RecordId.create(maxLength)._unsafeUnwrap();
+    RecordId.create(tooLong)._unsafeUnwrapErr();
+    RecordId.create(emptyBody)._unsafeUnwrapErr();
+    RecordId.create(wrongPrefix)._unsafeUnwrapErr();
+  });
+
+  it('only treats generated-format ids as canonical', () => {
+    expect(RecordId.isCanonical(`rec${'d'.repeat(16)}`)).toBe(true);
+    expect(RecordId.isCanonical(`rec${'d'.repeat(17)}`)).toBe(false);
+    expect(RecordId.isCanonical('recipe')).toBe(false);
+    expect(RecordId.isCanonical(null)).toBe(false);
+  });
 });
 
 describe('ViewId', () => {

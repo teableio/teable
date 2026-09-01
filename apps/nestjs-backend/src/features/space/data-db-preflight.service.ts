@@ -11,6 +11,7 @@ import type {
   IDataDbPreflightRo,
   IDataDbPreflightVo,
 } from '@teable/openapi';
+import { isBlockedAddress } from '@teable/v2-utils';
 import type { Knex } from 'knex';
 import createKnex from 'knex';
 import { resolveDataDbInternalSchema } from './data-db-internal-schema';
@@ -48,13 +49,16 @@ const DATA_PLANE_TABLES = [
   'computed_update_outbox',
   'computed_update_outbox_seed',
   'computed_update_dead_letter',
+  'computed_update_run_history',
   'computed_update_pause_scope',
+  'computed_update_stage_ledger',
   'computed_field_activity',
   'computed_table_activity',
   'computed_task_field_ref',
   'record_history',
   'table_trash',
   'record_trash',
+  'record_removal_tombstone',
   '__undo_log',
   'attachments',
   'attachments_table',
@@ -163,23 +167,6 @@ export const replaceDatabaseUrlDatabase = (url: string, database: string): strin
 };
 
 const isPrivateNetworkAllowed = () => process.env.TEABLE_SSRF_PROTECTION_DISABLED === 'true';
-
-const isPrivateIp = (address: string): boolean => {
-  if (address === '127.0.0.1' || address === '::1') {
-    return true;
-  }
-  if (address.startsWith('10.') || address.startsWith('192.168.')) {
-    return true;
-  }
-  if (address.startsWith('169.254.')) {
-    return true;
-  }
-  const parts = address.split('.').map((part) => Number(part));
-  if (parts.length === 4 && parts.every((part) => Number.isInteger(part))) {
-    return parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31;
-  }
-  return address.toLowerCase().startsWith('fc') || address.toLowerCase().startsWith('fd');
-};
 
 export const dataDbKnexClientFactory: IDataDbPreflightClientFactory = (url) => {
   const client: Knex = createKnex({
@@ -400,6 +387,12 @@ export class DataDbPreflightService {
           capabilities: binding.dataDbConnection.capabilities as
             | IDataDbConnectionSummaryVo['capabilities']
             | undefined,
+          health: {
+            state: binding.dataDbConnection.healthState,
+            reason: binding.dataDbConnection.healthReason,
+            changedAt: binding.dataDbConnection.healthChangedAt?.toISOString(),
+            lastCheckAt: binding.dataDbConnection.lastHealthCheckAt?.toISOString(),
+          },
           ...(relatedSpaces ? { relatedSpaces } : {}),
         };
       }
@@ -601,11 +594,16 @@ export class DataDbPreflightService {
     }
 
     const { hostname } = new URL(url);
+    // Resolve to every candidate address, then reject with the vetted
+    // `isBlockedAddress` (ipaddr.js: anything whose range() !== 'unicast').
+    // This covers all of 127.0.0.0/8, 0.0.0.0, 100.64.0.0/10, link-local, ULA
+    // and DNS-resolved private ranges — the hand-rolled denylist only caught
+    // the single literal 127.0.0.1 (GHSA-p7jc-ccj3-j23x).
     const addresses = isIP(hostname)
       ? [{ address: hostname }]
       : await dns.lookup(hostname, { all: true }).catch(() => []);
 
-    if (addresses.some(({ address }) => isPrivateIp(address))) {
+    if (addresses.some(({ address }) => isBlockedAddress(address))) {
       return PRIVATE_NETWORK_ERROR;
     }
     return null;

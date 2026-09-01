@@ -38,6 +38,7 @@ import {
   SingleNumberDisplayType,
   TimeFormatting,
   TIME_ZONE_LIST,
+  FieldValueTypeVisitor,
 } from '@teable/v2-core';
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -61,6 +62,8 @@ const columnMetaSchema = z.record(z.string(), columnMetaEntrySchema);
 export const viewDtoSchema = z.object({
   id: z.string(),
   name: z.string(),
+  description: z.string().optional(),
+  icon: z.string().optional(),
   type: z.enum(['grid', 'calendar', 'kanban', 'form', 'gallery', 'plugin']),
   columnMeta: columnMetaSchema,
 });
@@ -135,6 +138,7 @@ export const fieldComputeMetaDtoSchema = z.object({
     .object({
       code: z.string().optional(),
       message: z.string(),
+      context: z.record(z.string(), z.unknown()).optional(),
     })
     .nullable()
     .optional(),
@@ -158,21 +162,35 @@ export const tableComputeMetaDtoSchema = z.object({
   computeMode: z.literal('server').optional(),
 });
 
+const cellValueTypeSchema = z.enum(['string', 'number', 'boolean', 'dateTime']);
+const dbFieldTypeSchema = z.enum([
+  'TEXT',
+  'INTEGER',
+  'DATETIME',
+  'REAL',
+  'BLOB',
+  'JSON',
+  'BOOLEAN',
+]);
+
 const baseFieldDtoSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string().nullable().optional(),
   dbFieldName: z.string().optional(),
-  isPrimary: z.boolean(),
+  isPrimary: z.boolean().optional(),
   notNull: z.boolean().optional(),
   unique: z.boolean().optional(),
   isComputed: z.boolean().optional(),
   hasError: z.boolean().optional(),
+  aiConfig: z.unknown().nullable().optional(),
   isLookup: z.boolean().optional(),
   lookupOptions: lookupOptionsSchema.optional(),
   conditionalLookupOptions: conditionalLookupOptionsSchema.optional(),
-  /** Async computed activity for this field (formula/lookup/rollup recalculation). */
   computeMeta: fieldComputeMetaDtoSchema.optional(),
+  cellValueType: cellValueTypeSchema.optional(),
+  dbFieldType: dbFieldTypeSchema.optional(),
+  isMultipleCellValue: z.boolean().optional(),
 });
 
 const fieldColorSchema = z.enum(fieldColorValues);
@@ -217,7 +235,12 @@ const singleLineTextOptionsSchema = z.object({
   defaultValue: z.string().optional(),
 });
 
+const longTextShowAsSchema = z.object({
+  type: z.literal('markdown'),
+});
+
 const longTextOptionsSchema = z.object({
+  showAs: longTextShowAsSchema.optional().nullable(),
   defaultValue: z.string().optional(),
 });
 
@@ -307,8 +330,6 @@ const buttonOptionsSchema = z.object({
   workflow: buttonWorkflowSchema.optional().nullable(),
   confirm: buttonConfirmSchema.optional().nullable(),
 });
-
-const cellValueTypeSchema = z.enum(['string', 'number', 'boolean', 'dateTime']);
 
 const formulaFormattingSchema = z.union([numberFormattingSchema, dateFormattingSchema]);
 
@@ -473,6 +494,8 @@ export const tableDtoSchema = z.object({
   id: z.string(),
   baseId: z.string(),
   name: z.string(),
+  description: z.string().optional(),
+  icon: z.string().optional(),
   dbTableName: z.string().optional(),
   fields: z.array(fieldDtoSchema),
   views: z.array(viewDtoSchema),
@@ -499,27 +522,61 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     name: string;
     description?: string | null;
     dbFieldName?: string;
-    isPrimary: boolean;
+    isPrimary?: boolean;
     notNull?: boolean;
     unique?: boolean;
     isComputed?: boolean;
     hasError?: boolean;
+    aiConfig?: unknown | null;
+    cellValueType?: 'string' | 'number' | 'boolean' | 'dateTime';
+    dbFieldType?: 'TEXT' | 'INTEGER' | 'DATETIME' | 'REAL' | 'BLOB' | 'JSON' | 'BOOLEAN';
+    isMultipleCellValue?: boolean;
   } {
     const notNull = field.notNull().toBoolean();
     const unique = field.unique().toBoolean();
     const isComputed = field.computed().toBoolean();
     const hasError = field.hasError().isError();
+    const valueType = field.accept(new FieldValueTypeVisitor());
+    const cellValueType = valueType.isOk() ? valueType.value.cellValueType.toString() : undefined;
+    const isMultipleCellValue = valueType.isOk()
+      ? valueType.value.isMultipleCellValue.toBoolean()
+      : undefined;
+    const persistedDbFieldType = field.dbFieldType().andThen((type) => type.value());
+    const rawDbFieldType = persistedDbFieldType.isOk()
+      ? persistedDbFieldType.value
+          .trim()
+          .toUpperCase()
+          .replace(/^JSONB$/, 'JSON')
+      : undefined;
+    const dbFieldType = (
+      ['TEXT', 'INTEGER', 'DATETIME', 'REAL', 'BLOB', 'JSON', 'BOOLEAN'] as const
+    ).includes(rawDbFieldType as 'TEXT')
+      ? (rawDbFieldType as 'TEXT' | 'INTEGER' | 'DATETIME' | 'REAL' | 'BLOB' | 'JSON' | 'BOOLEAN')
+      : isMultipleCellValue
+        ? 'JSON'
+        : cellValueType === 'number'
+          ? 'REAL'
+          : cellValueType === 'boolean'
+            ? 'BOOLEAN'
+            : cellValueType === 'dateTime'
+              ? 'DATETIME'
+              : 'TEXT';
+    const isPrimary = field.id().equals(this.primaryFieldId);
 
     return {
       id: field.id().toString(),
       name: field.name().toString(),
       ...(field.description() != null ? { description: field.description() } : {}),
       dbFieldName: this.optionalDbFieldName(field),
-      isPrimary: field.id().equals(this.primaryFieldId),
+      ...(isPrimary ? { isPrimary } : {}),
       ...(notNull ? { notNull } : {}),
       unique,
       ...(isComputed ? { isComputed } : {}),
       ...(hasError ? { hasError } : {}),
+      ...(field.aiConfig() !== undefined ? { aiConfig: field.aiConfig() } : {}),
+      ...(cellValueType ? { cellValueType } : {}),
+      ...(isMultipleCellValue ? { isMultipleCellValue } : {}),
+      dbFieldType,
     };
   }
 
@@ -539,6 +596,8 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
 
   visitLongTextField(field: LongTextField): Result<IFieldDto, DomainError> {
     const options: LongTextOptionsDto = {};
+    const showAs = field.showAs();
+    if (showAs) options.showAs = showAs.toDto();
     const defaultValue = field.defaultValue();
     if (defaultValue) options.defaultValue = defaultValue.toString();
 
@@ -860,6 +919,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
           return {
             ...this.baseField(field),
             type: 'link' as const,
+            dbFieldType: 'JSON',
             options: rest,
             meta: field.metaDto(),
           };
@@ -867,6 +927,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
         return {
           ...this.baseField(field),
           type: 'link' as const,
+          dbFieldType: 'JSON',
           options,
           meta: field.metaDto(),
         };
@@ -889,12 +950,17 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
 
     // For pending lookup fields, return minimal DTO with singleLineText as default type
     if (field.isPending()) {
-      return ok({
-        ...baseField,
-        type: 'singleLineText',
-        isLookup: true,
-        lookupOptions: lookupOptionsWithRelationship,
-      });
+      return ok(
+        this.applyLookupValueShape(
+          {
+            ...baseField,
+            type: 'singleLineText',
+            isLookup: true,
+            lookupOptions: lookupOptionsWithRelationship,
+          },
+          isMultipleCellValue
+        )
+      );
     }
 
     // Lookup fields delegate to the inner field's visitor, adding isLookup and lookupOptions
@@ -906,26 +972,40 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     if (innerResult.isErr()) return innerResult;
 
     const innerDto = innerResult.value;
-    return ok({
-      ...innerDto,
-      ...baseField,
-      isLookup: true,
-      lookupOptions: lookupOptionsWithRelationship,
-    });
+    return ok(
+      this.applyLookupValueShape(
+        {
+          ...innerDto,
+          ...baseField,
+          isLookup: true,
+          lookupOptions: lookupOptionsWithRelationship,
+        },
+        isMultipleCellValue
+      )
+    );
   }
 
   visitConditionalLookupField(field: ConditionalLookupField): Result<IFieldDto, DomainError> {
     const conditionalLookupOptions = field.conditionalLookupOptionsDto();
     const baseField = this.baseField(field);
+    const isMultipleCellValueResult = field.isMultipleCellValue();
+    const isMultipleCellValue = isMultipleCellValueResult.isOk()
+      ? isMultipleCellValueResult.value.toBoolean()
+      : undefined;
 
     // For pending lookup fields, return minimal DTO with singleLineText as default type
     if (field.isPending()) {
-      return ok({
-        ...baseField,
-        type: 'singleLineText',
-        isLookup: true,
-        conditionalLookupOptions,
-      });
+      return ok(
+        this.applyLookupValueShape(
+          {
+            ...baseField,
+            type: 'singleLineText',
+            isLookup: true,
+            conditionalLookupOptions,
+          },
+          isMultipleCellValue
+        )
+      );
     }
 
     const innerResult = field
@@ -936,12 +1016,47 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     if (innerResult.isErr()) return innerResult;
 
     const innerDto = innerResult.value;
-    return ok({
-      ...innerDto,
-      ...baseField,
-      isLookup: true,
-      conditionalLookupOptions,
-    });
+    return ok(
+      this.applyLookupValueShape(
+        {
+          ...innerDto,
+          ...baseField,
+          isLookup: true,
+          conditionalLookupOptions,
+        },
+        isMultipleCellValue
+      )
+    );
+  }
+
+  private applyLookupValueShape<T extends IFieldDto>(
+    dto: T,
+    isMultipleCellValue: boolean | undefined
+  ): T {
+    if (isMultipleCellValue == null) {
+      return dto;
+    }
+
+    const next = {
+      ...dto,
+      isMultipleCellValue,
+      ...(isMultipleCellValue ? { dbFieldType: 'JSON' as const } : {}),
+    };
+
+    if (
+      isMultipleCellValue &&
+      next.type === 'user' &&
+      next.options &&
+      typeof next.options === 'object' &&
+      !Array.isArray(next.options)
+    ) {
+      next.options = {
+        ...next.options,
+        isMultiple: true,
+      };
+    }
+
+    return next;
   }
 
   private mapLookupInnerLinkField(field: LinkField): Extract<IFieldDto, { type: 'link' }> {
@@ -1006,6 +1121,8 @@ export const mapTableToDto = (table: Table): Result<ITableDto, DomainError> => {
       id: table.id().toString(),
       baseId: table.baseId().toString(),
       name: table.name().toString(),
+      ...(table.description() !== undefined ? { description: table.description() } : {}),
+      ...(table.icon() !== undefined ? { icon: table.icon() } : {}),
       dbTableName,
       fields: [...fields],
       views: [...views],

@@ -7,6 +7,7 @@
     "waiting": "En attente",
     "failed": "Échec",
     "calculationFailed": "Échec du calcul",
+    "cellValueTooLarge": "La valeur calculée est trop grande ({{attempted}} / {{max}} octets). Raccourcissez les données source ou modifiez la formule.",
     "calculatingSummary": "Calcul en cours ({{count}})",
     "failedSummary": "Échec ({{count}})",
     "fieldsCalculating_one": "{{count}} champ en cours de calcul",
@@ -41,6 +42,7 @@
       "share": {
         "label": "Partager",
         "statusLabel": "Partager la vue sur le web",
+        "noPermission": "Aucune permission de partager la vue",
         "genLink": "Générer un nouveau lien",
         "allowCopy": "Autoriser les spectateurs à copier des données depuis cette vue",
         "allowEdit": "Autoriser les utilisateurs connectés à modifier les données visibles",
@@ -51,11 +53,13 @@
         "passwordTips": "Restrictions de mot de passe pour accéder aux vues partagées",
         "embed": "Intégrer",
         "embedPreview": "Aperçu de l'intégration",
+        "copyCode": "Copier le code",
         "hideToolbar": "Masquer la barre d'outils",
         "URLSetting": "Configuration des paramètres URL",
         "URLSettingDescription": "Ajuster les paramètres suivants n'affectera pas les liens partagés. Vous devez copier le lien avec de nouveaux paramètres pour qu'il prenne effet.",
         "cancel": "Annuler",
-        "save": "Enregistrer"
+        "save": "Enregistrer",
+        "requireLogin": "Exiger la connexion pour l’envoi"
       },
       "api": {
         "title": "Accès API",
@@ -104,17 +108,6 @@
     "description": "Cliquez sur le bouton \"+\" dans la barre latérale pour ajouter des ressources",
     "help": "Visitez le <HelpCenter /> pour plus d'informations",
     "helpCenter": "Centre d'aide"
-  },
-  "validation": {
-    "link": {
-      "batch_duplicate": "Impossible de lier l'enregistrement : dans ce même lot, il est déjà lié par un autre enregistrement. Dans une relation un-à-plusieurs, chaque enregistrement enfant ne peut appartenir qu'à un seul enregistrement parent.",
-      "one_many_duplicate": "Impossible de lier l'enregistrement : il est déjà lié à un autre enregistrement. Dans une relation un-à-plusieurs, chaque enregistrement enfant ne peut appartenir qu'à un seul enregistrement parent.",
-      "one_one_duplicate": "Impossible de lier l'enregistrement : l'enregistrement cible est déjà lié par un autre enregistrement dans une relation un-à-un."
-    },
-    "field": {
-      "maxColumnLimit": "La table \"{{tableName}}\" peut contenir au maximum {{maxFieldCount}} champs.",
-      "requiredExistingValues": "Impossible de rendre le champ \"{{fieldName}}\" obligatoire, car des enregistrements existants contiennent des valeurs vides."
-    }
   },
   "field": {
     "advancedProps": "Propriétés avancées",
@@ -263,8 +256,11 @@
       "editField": "Modifier le champ",
       "insertField": "Insérer un champ",
       "graph": "Graphique",
+      "defaultValue": "Valeur par défaut",
+      "reset": "Réinitialiser",
       "fieldUpdated": "Champ mis à jour",
       "fieldCreated": "Champ créé",
+      "fieldUnavailable": "Ce champ n’est pas disponible. Actualisez la table et réessayez.",
       "confirmFieldChange": "Confirm Field Change",
       "areYouSurePerformIt": "Êtes-vous sûr de vouloir effectuer cette action ?",
       "addDescription": "Ajouter une description",
@@ -296,6 +292,8 @@
       "manyToMany": "plusieurs-à-plusieurs",
       "self": "Auto",
       "selectTable": "Sélectionner une table...",
+      "selectBase": "Sélectionner une base...",
+      "linkFromAnotherBase": "Lier depuis une autre base",
       "inSelfLink": "dans un lien auto-référencé",
       "betweenTwoTables": "entre deux tables",
       "tips": "Conseils",
@@ -312,7 +310,24 @@
       "lookupToTable": "Champ de <bold>{{tableName}}</bold> que vous souhaitez rechercher",
       "rollupToTable": "Champ de <bold>{{tableName}}</bold> que vous souhaitez rechercher",
       "selectField": "Sélectionner un champ...",
+      "lastModifiedScope": "Champs",
+      "lastModifiedAll": "Tous les champs modifiables",
+      "lastModifiedSpecific": "Champs spécifiques",
+      "lastModifiedSelect": "Champs suivis",
+      "noEditableFields": "Aucun champ modifiable disponible",
+      "conditionalLookup": {
+        "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
+        "sortLabel": "Sort results",
+        "limitLabel": "Maximum records to include",
+        "limitPlaceholder": "Leave blank to include all matches",
+        "limitHint": "We only keep up to {{limit}} matching records.",
+        "sortMissingWarningTitle": "Sorting field unavailable",
+        "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
+      },
       "linkTable": "Table de lien",
+      "linkBase": "Base liée",
+      "tableNoPermission": "Table sans permission",
+      "baseNoPermission": "Base sans permission",
       "noLinkTip": "Aucun enregistrement lié à rechercher. Ajoutez un champ de lien vers un autre enregistrement, puis essayez de configurer votre recherche à nouveau.",
       "fieldValidationRules": "Règles de validation des valeurs de champ",
       "enableValidateFieldUnique": "Valeurs uniques uniquement",
@@ -337,17 +352,8 @@
         "affectedItems": "Éléments affectés",
         "type": "Type",
         "source": "Source",
-        "sourceTable": "Table source",
-        "typeField": "Champ"
-      },
-      "conditionalLookup": {
-        "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
-        "sortLabel": "Sort results",
-        "limitLabel": "Maximum records to include",
-        "limitPlaceholder": "Leave blank to include all matches",
-        "limitHint": "We only keep up to {{limit}} matching records.",
-        "sortMissingWarningTitle": "Sorting field unavailable",
-        "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
+        "loginEmailFieldWarning": "Ce champ sert d’identifiant e-mail de connexion. Le supprimer cassera la connexion des applications suivantes :",
+        "loginEmailFieldConvertWarning": "Ce champ sert de champ e-mail de connexion pour les applications. Changer son type cassera la connexion des applications suivantes :"
       }
     },
     "subTitle": {
@@ -364,6 +370,7 @@
       "rating": "Ajoutez une évaluation sur une échelle prédéfinie.",
       "formula": "Calculez des valeurs basées sur des champs.",
       "rollup": "Résumez les données des enregistrements liés.",
+      "conditionalRollup": "Résume les valeurs d’une table liée à l’aide de filtres conditionnels.",
       "conditionalLookup": "Affiche les valeurs liées correspondant aux filtres définis.",
       "createdTime": "Voir la date et l'heure de création de chaque enregistrement.",
       "lastModifiedTime": "Voir la date et l'heure de la modification la plus récente de certains ou de tous les champs d'un enregistrement.",
@@ -401,7 +408,10 @@
         "sourceFieldForAttachment": "Champ source pour l'attachement",
         "imageSize": "Taille de l'image",
         "imageQuality": "Qualité de l'image",
-        "imageCount": "Nombre d'images"
+        "imageCount": "Nombre d'images",
+        "aspectRatio": "Format d’image",
+        "resolution": "Résolution",
+        "advancedSettings": "Paramètres avancés"
       },
       "placeholder": {
         "summarize": "Résumé du contenu",
@@ -416,6 +426,8 @@
         "targetLanguage": "Anglais, Chinois, Français...",
         "imageSize": "Veuillez entrer la taille de l'image",
         "imageQuality": "Veuillez entrer la qualité de l'image",
+        "aspectRatio": "Sélectionner le format d’image",
+        "resolution": "Sélectionner la résolution",
         "attachPromptForImageGeneration": "L'image doit être vivante et naturelle",
         "attachPromptForRating": "Évaluez la qualité de l'image"
       },
@@ -424,8 +436,19 @@
         "medium": "Moyenne",
         "high": "Élevée"
       },
+      "hint": {
+        "imageInputSupported": "💡 Ce modèle prend en charge les images en entrée. Vous pouvez sélectionner un champ de pièces jointes pour utiliser des images comme référence.",
+        "attachmentNotSupported": "💡 Ce modèle ne prend pas en charge les pièces jointes en entrée. Seuls les modèles Gemini prennent en charge la génération image-vers-image.",
+        "singleImageOnly": "Ce modèle ne peut générer qu’une image à la fois"
+      },
       "tip": {
         "gptImageResolution": "En raison de la limite du nombre total de pixels, le mode 4K utilise pour certains formats la plus grande taille de sortie conforme disponible."
+      },
+      "auto": "Auto",
+      "resolution": {
+        "1K": "1K (standard)",
+        "2K": "2K (HD)",
+        "4K": "4K (Ultra HD)"
       },
       "autoFill": {
         "title": "Mise à jour automatique",
@@ -438,8 +461,18 @@
       "autoFillConfirm": {
         "title": "Générer toute la colonne ?",
         "description": "La génération de la colonne mettra à jour {{rowCount}} lignes. Cette opération peut consommer beaucoup de ressources d'IA.",
+        "emptyOnlyMode": "Remplir uniquement les cellules vides",
+        "emptyOnlyModeDesc": "Générer uniquement pour les cellules vides ; le contenu existant ne sera pas écrasé",
+        "allMode": "Générer toute la colonne",
+        "allModeDesc": "Générer pour toutes les lignes ; le contenu existant sera écrasé",
+        "saveOnlyMode": "Enregistrer uniquement la configuration",
+        "saveOnlyModeDesc": "Enregistrer uniquement la configuration du champ ; aucune cellule ne sera écrite",
         "saveConfigOnly": "Enregistrer la configuration uniquement",
-        "generateFailed": "Échec de la génération"
+        "fillEmptyCells": "Remplir les cellules vides",
+        "generateAll": "Tout générer",
+        "recommended": "Recommandé",
+        "generateFailed": "Échec de la génération",
+        "limitWarning": "En raison de la limite de 1 000 lignes par tâche, seules les 1 000 premières lignes seront traitées. Vous pouvez relancer la tâche pour traiter les lignes restantes."
       }
     }
   },
@@ -451,12 +484,14 @@
     "dbTableName": "Nom de la table dans la base de données physique",
     "schemaName": "Nom du schéma dans la base de données physique",
     "baseInfo": "Informations sur la base",
-    "typeOfDatabase": "Type de base de données",
-    "descriptionForTable": "Description pour cette table",
     "loginUserTable": "Connexion app",
     "linkedApps": "Applications liées",
+    "typeOfDatabase": "Type de base de données",
+    "descriptionForTable": "Description pour cette table",
     "nameForTable": "Nom pour cette table",
-    "deleteTip1": "Les champs de lien associés à cette table dans d'autres tables seront supprimés.",
+    "deleteTip1": "Les champs de lien associés à cette table dans d'autres tables seront convertis en texte.",
+    "deleteWithDependencies": "La suppression de la table <b>{{tableName}}</b> affectera les champs suivants :",
+    "loginDeleteWarning": "Cette table est utilisée comme table d’utilisateurs par les applications suivantes. La supprimer cassera leur fonctionnalité de connexion.",
     "operator": {
       "createBlank": "Nouvelle table"
     },
@@ -469,13 +504,36 @@
       "pasting": "Collage en cours...",
       "pasteSuccessful": "Collage réussi",
       "pasteFailed": "Échec du collage",
+      "pasteNoEditableFields": "Les champs sélectionnés sont en lecture seule et ne peuvent pas recevoir de collage.",
       "filling": "Remplissage en cours...",
       "fillSuccessful": "Remplissage réussi",
       "fillFailed": "Échec du remplissage",
       "clearing": "Effacement en cours...",
       "clearSuccessful": "Effacement réussi",
+      "clearFailed": "Échec de l’effacement",
+      "clearConfirmTitle": "Effacer les données",
+      "clearConfirmDescription": "Cette action effacera {{cellCount}} cellules dans {{rowCount}} enregistrements. Voulez-vous continuer ?",
+      "archiveRecordConfirmTitle": "Archiver les enregistrements",
+      "archiveRecordConfirmDescription": "Cette action archivera {{recordCount}} enregistrements. Les enregistrements archivés peuvent être consultés et restaurés depuis l'archive de la table.",
+      "archiveRecord": "Archiver",
+      "archiving": "Archivage...",
+      "archiveSuccessful": "Archivage réussi",
+      "deleteRecordConfirmTitle": "Supprimer les enregistrements",
+      "deleteRecordConfirmDescription": "Cette action supprimera {{recordCount}} enregistrements. Voulez-vous continuer ?",
+      "duplicateRecordsConfirmTitle": "Dupliquer les enregistrements",
+      "duplicateRecordsConfirmDescription": "Cette action dupliquera {{recordCount}} enregistrements. Voulez-vous continuer ?",
+      "pasteConfirmTitle": "Effectuer le collage",
+      "pasteConfirmDescription": "Vous êtes sur le point d’effectuer un collage qui écrasera {{recordCount}} enregistrements. Voulez-vous continuer ?",
+      "paste": "Coller",
+      "deleteRecord": "Supprimer",
+      "clear": "Effacer",
       "deleting": "Suppression en cours...",
+      "duplicating": "Duplication...",
+      "deleteFailed": "Échec de la suppression",
       "deleteSuccessful": "Suppression réussie",
+      "duplicateFailed": "Échec de la duplication",
+      "duplicateSuccessful": "Duplication réussie",
+      "duplicateRecords": "Dupliquer",
       "deleteStream": {
         "preparing": "Preparing selection",
         "deleting": "Deleting records",
@@ -494,9 +552,87 @@
           "finalizing": "Finalizing"
         }
       },
+      "duplicateStream": {
+        "preparing": "Préparation de la sélection",
+        "duplicating": "Duplication des enregistrements",
+        "descriptionWithIssues": "Certains lots de duplication ont échoué. Consultez les détails ci-dessous.",
+        "completedWithIssues": "Duplication terminée avec des problèmes",
+        "issuesBadge": "{{count}} problèmes",
+        "chunkFailureTitle": "Détails de l’échec du lot",
+        "chunkFailureSummary": "{{count}} lot(s) ont signalé une erreur alors que le flux continuait.",
+        "chunkLabel": "Lot {{index}}",
+        "rowsLabel": "{{count}} lignes",
+        "phaseLabel": {
+          "preparing": "Préparation",
+          "guarding": "Vérification",
+          "processing": "Duplication",
+          "publishing": "Publication",
+          "finalizing": "Finalisation"
+        }
+      },
+      "pasteStream": {
+        "preparing": "Préparation de la sélection",
+        "pasting": "Collage des enregistrements",
+        "descriptionWithIssues": "Certains lots de collage ont échoué. Consultez les détails ci-dessous.",
+        "completedWithIssues": "Collage terminé avec des problèmes",
+        "issuesBadge": "{{count}} problèmes",
+        "chunkFailureTitle": "Détails de l’échec du lot",
+        "chunkFailureSummary": "{{count}} lot(s) ont signalé une erreur alors que le flux continuait.",
+        "chunkLabel": "Lot {{index}}",
+        "rowsLabel": "{{count}} lignes",
+        "phaseLabel": {
+          "preparing": "Préparation",
+          "guarding": "Vérification",
+          "processing": "Collage",
+          "publishing": "Publication",
+          "finalizing": "Finalisation"
+        }
+      },
+      "clearStream": {
+        "confirmDescription": "Cette action effacera les valeurs de {{recordCount}} enregistrements. Voulez-vous continuer ?",
+        "preparing": "Préparation de la sélection",
+        "clearing": "Effacement des enregistrements",
+        "descriptionWithIssues": "Certains lots d’effacement ont échoué. Consultez les détails ci-dessous.",
+        "completedWithIssues": "Effacement terminé avec des problèmes",
+        "issuesBadge": "{{count}} problèmes",
+        "chunkFailureTitle": "Détails de l’échec du lot",
+        "chunkFailureSummary": "{{count}} lot(s) ont signalé une erreur alors que le flux continuait.",
+        "chunkLabel": "Lot {{index}}",
+        "rowsLabel": "{{count}} lignes",
+        "phaseLabel": {
+          "preparing": "Préparation",
+          "guarding": "Vérification",
+          "processing": "Effacement",
+          "publishing": "Publication",
+          "finalizing": "Finalisation"
+        }
+      },
+      "restoreFieldStream": {
+        "confirmTitle": "Restaurer les champs",
+        "confirmDescription": "Cette action restaurera les champs supprimés et les valeurs de leurs enregistrements.",
+        "preparing": "Préparation de la restauration des champs",
+        "restoring": "Restauration des champs...",
+        "restoringRecords": "Restauration des valeurs des enregistrements",
+        "restoreFailed": "Échec de la restauration",
+        "descriptionWithIssues": "Certains lots de restauration ont échoué. Consultez les détails ci-dessous.",
+        "completedWithIssues": "Restauration terminée avec des problèmes",
+        "issuesBadge": "{{count}} problèmes",
+        "chunkFailureTitle": "Détails de l’échec du lot",
+        "chunkFailureSummary": "{{count}} lot(s) ont signalé une erreur alors que le flux continuait.",
+        "chunkLabel": "Lot {{index}}",
+        "rowsLabel": "{{count}} lignes",
+        "phaseLabel": {
+          "preparing": "Préparation",
+          "guarding": "Vérification",
+          "processing": "Restauration",
+          "publishing": "Publication",
+          "finalizing": "Finalisation"
+        }
+      },
       "pasteFileFailed": "Les fichiers ne peuvent être collés que dans un champ de pièces jointes",
       "copyError": {
-        "noFocus": "Veuillez garder la page active et ne pas changer de fenêtre"
+        "noFocus": "Veuillez garder la page active et ne pas changer de fenêtre",
+        "noPermission": "Vous n’avez pas la permission de copier des enregistrements"
       },
       "crossBaseCopyTitle": "Copier en texte brut ?",
       "crossBaseCopyDescription": "Cette sélection contient un champ de lien entre bases. Pour que les données restent dans leur base d’origine, le champ sera copié en texte brut et perdra ses relations de lien.",
@@ -514,6 +650,8 @@
       "loading": "Vérification de l'intégrité...",
       "allGood": "Tout va bien !",
       "fixIssues": "Corriger les problèmes",
+      "type": "Type",
+      "message": "Message d’erreur",
       "v2": {
         "dialogTitle": "Intégrité du schéma",
         "dialogDescription": "Exécute la vérification et la réparation du schéma v2 pour {{tableName}}.",
@@ -533,6 +671,20 @@
         "manualRepairDialogReason": "Pourquoi une réparation manuelle est nécessaire",
         "manualRepairDialogHint": "Cette fenêtre présente pour l’instant les options de réparation exigées par la règle. L’exécution réelle pourra être ajoutée plus tard sur cette base.",
         "manualRepairDialogClose": "Fermer",
+        "repairPreviewTitle": "Confirmer les détails de la réparation",
+        "repairPreviewDescription": "Ces détails proviennent de la simulation de réparation. La réparation ne s’exécutera qu’après votre confirmation.",
+        "repairPreviewTooltip": "Ouvre le plan de réparation issu de la simulation. La boîte de dialogue affichera le SQL renvoyé ou indiquera clairement qu’aucun SQL n’est disponible.",
+        "repairPreviewMissingTable": "Ce résultat de vérification ne comporte pas de table, le cible de la réparation simulée ne peut donc pas être déterminée.",
+        "repairPreviewUnavailableStatus": "Ce statut ne nécessite pas de réparation, aucun plan de réparation simulée ne peut donc être généré.",
+        "repairPreviewWhat": "Ce qui sera réparé",
+        "repairPreviewTarget": "La règle « {{ruleName}} » pour le champ « {{fieldName}} »",
+        "repairPreviewPrinciple": "Fonctionnement de la réparation",
+        "repairPreviewNoPrinciple": "Cette règle n’a pas renvoyé d’indications de réparation supplémentaires.",
+        "repairPreviewSql": "SQL à exécuter",
+        "repairPreviewNoSql": "La simulation n’a pas renvoyé de SQL exécutable ; la réparation automatique ne peut donc pas être lancée directement.",
+        "repairPreviewCannotConfirm": "La simulation a renvoyé du SQL, mais cette règle ne peut pas être confirmée pour une réparation automatique pour l’instant. Vous pouvez tout de même examiner le plan de réparation.",
+        "repairPreviewParameters": "Paramètres",
+        "repairPreviewConfirm": "Lancer la réparation",
         "checking": "Vérification du schéma...",
         "repairing": "Réparation du schéma...",
         "streamError": "Échec du flux d'intégrité du schéma.",
@@ -561,7 +713,9 @@
           "checkCompleted": "Schema integrity check completed",
           "baseCheckCompleted": "Base schema integrity check completed",
           "repairCompleted": "Schema integrity repair completed",
-          "baseRepairCompleted": "Base schema integrity repair completed"
+          "baseRepairCompleted": "Base schema integrity repair completed",
+          "skippedStatusNotSelected": "Ignoré car ce niveau de statut n’a pas été sélectionné pour la réparation",
+          "skippedRepairUnavailable": "Ignoré car la réparation automatique n’est pas disponible dans l’état actuel"
         },
         "rule": {
           "column": "Physical column",
@@ -596,6 +750,14 @@
           "systemColumnUnique": "System column \"{{columnName}}\" should have a UNIQUE index",
           "systemColumnPrimaryKey": "System column \"{{columnName}}\" should be PRIMARY KEY",
           "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression",
+          "columnUniqueMissing": "Le champ « {{fieldName}} » devrait être unique",
+          "columnUniqueMissingDescription": "Ajoutez une contrainte UNIQUE à « {{fieldName}} » afin que les valeurs en double ne puissent pas être écrites.",
+          "columnUniqueIndexMismatch": "Le champ « {{fieldName}} » ne possède pas l’index unique attendu",
+          "columnUniqueIndexMismatchDescription": "Reconstruisez l’index de « {{fieldName}} » en index unique afin que les lectures et écritures respectent la règle d’unicité du champ.",
+          "foreignKeyMissing": "Le champ « {{fieldName}} » n’a pas sa contrainte de clé étrangère",
+          "foreignKeyMissingDescription": "Restaurez la clé étrangère de « {{fieldName}} » vers « {{targetTableName}} » afin que les enregistrements liés restent cohérents.",
+          "foreignKeyTargetTableMissing": "La table liée pour « {{fieldName}} » est introuvable",
+          "foreignKeyTargetTableMissingDescription": "La réparation automatique ne peut pas restaurer la clé étrangère de « {{fieldName}} » car la table cible « {{targetPhysicalTableName}} » n’existe pas.",
           "foreignKeyOrphanRows": "Field \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
           "foreignKeyOrphanRowsDescription": "Automatic repair cannot restore the foreign key for \"{{fieldName}}\" until the {{count}} invalid references to \"{{targetTableName}}\" are cleaned up.",
           "junctionForeignKeyMissing": "The junction table for \"{{fieldName}}\" is missing one of its foreign keys",
@@ -603,7 +765,90 @@
           "junctionForeignKeyTargetTableMissing": "The linked table for the junction of \"{{fieldName}}\" cannot be found",
           "junctionForeignKeyTargetTableMissingDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" because the target table \"{{targetPhysicalTableName}}\" does not exist.",
           "junctionForeignKeyOrphanRows": "The junction table for \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
-          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up."
+          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up.",
+          "referenceMissing": "Le champ « {{fieldName}} » n’a pas de mappage de référence",
+          "referenceMissingDescription": "Restaurez les métadonnées de référence entre « {{fieldName}} » et son champ de dépendance afin que les mises à jour de recherche et de relation se propagent correctement.",
+          "symmetricFieldTargetMissing": "Le champ de lien apparié pour « {{fieldName}} » est introuvable",
+          "symmetricFieldWrongType": "Le champ apparié pour « {{fieldName}} » n’est pas un champ de lien",
+          "symmetricFieldInvalidOptions": "Le champ apparié pour « {{fieldName}} » a une configuration de lien non valide",
+          "symmetricFieldMissingBackReference": "Le champ apparié pour « {{fieldName}} » ne renvoie pas vers le champ actuel",
+          "symmetricFieldWrongBackReference": "Le champ apparié pour « {{fieldName}} » pointe vers un autre champ que le champ actuel",
+          "symmetricFieldDuplicateUsage": "La cible de lien symétrique « {{symmetricFieldId}} » est réutilisée par « {{conflictFieldName}} »",
+          "symmetricFieldDuplicateUsageDescription": "Chaque paire de liens bidirectionnels doit avoir un champ symétrique unique. Choisissez le champ qui conservera cette relation avant de réparer."
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "This rule is already valid",
+            "manualRule": "This rule requires a manual decision",
+            "statementGenerationFailed": "The system could not generate a safe repair statement",
+            "noStatements": "This rule has no automatic repair statement",
+            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
+            "symmetricFieldMissing": "Le champ de lien apparié est manquant et nécessite une confirmation avant réparation",
+            "symmetricFieldBroken": "Le champ de lien apparié est corrompu et nécessite une confirmation avant réparation",
+            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
+            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
+            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
+            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
+          },
+          "description": {
+            "autoRule": "La réparation exécutera les instructions de schéma générées par cette règle, puis revérifiera la règle pour confirmer la validité du schéma.",
+            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
+            "symmetricFieldMissing": "Convertissez le lien actuel en lien unidirectionnel, puis relancez la réparation afin que les règles dépendantes de la table de jonction puissent être recréées si nécessaire.",
+            "symmetricFieldBroken": "Convertissez le lien actuel en lien unidirectionnel, puis relancez la réparation afin que les règles de schéma de lien dépendantes puissent être revérifiées.",
+            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
+            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
+          },
+          "manual": {
+            "apply": "Apply manual repair",
+            "symmetricField": {
+              "title": "Resolve symmetric link conflict",
+              "description": "Pick how this duplicate symmetric link should be repaired.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
+              "option": {
+                "keepCurrent": "Keep the current field as the two-way link",
+                "convertDuplicate": "Convert the duplicate field to a one-way link"
+              }
+            },
+            "symmetricFieldMissing": {
+              "title": "Résoudre le champ de lien apparié manquant",
+              "description": "Le champ de lien apparié a été supprimé. Confirmez la conversion de ce champ en lien unidirectionnel avant de réparer.",
+              "resolutionLabel": "Stratégie de réparation",
+              "resolutionDescription": "Convertissez le lien actuel en lien unidirectionnel afin que les données de relation existantes puissent continuer à utiliser leur structure de lien stockée.",
+              "option": {
+                "convertCurrent": "Convertir le lien actuel en lien unidirectionnel"
+              }
+            },
+            "symmetricFieldBroken": {
+              "title": "Résoudre le champ de lien apparié corrompu",
+              "description": "Le champ de lien apparié existe, mais ce n’est pas un homologue bidirectionnel valide. Confirmez la conversion de ce champ en lien unidirectionnel avant de réparer.",
+              "resolutionLabel": "Stratégie de réparation",
+              "resolutionDescription": "Convertissez le lien actuel en lien unidirectionnel afin qu’il ne dépende plus de la paire corrompue.",
+              "option": {
+                "convertCurrent": "Convertir le lien actuel en lien unidirectionnel"
+              }
+            },
+            "foreignKeyOrphanRows": {
+              "title": "Effacer les valeurs liées non valides",
+              "description": "Effacez les valeurs de clé étrangère qui pointent vers des enregistrements manquants, puis restaurez la contrainte de clé étrangère.",
+              "resolutionLabel": "Stratégie de réparation",
+              "resolutionDescription": "Les valeurs liées non valides pointent vers des enregistrements qui n’existent plus. Confirmez leur effacement avant de restaurer la clé étrangère.",
+              "option": {
+                "clearOrphanValues": "Effacer les valeurs liées non valides"
+              }
+            },
+            "junctionForeignKeyOrphanRows": {
+              "title": "Nettoyer les lignes de jonction non valides",
+              "description": "Supprimez les lignes de jonction qui pointent vers des enregistrements manquants, puis restaurez la contrainte de clé étrangère.",
+              "resolutionLabel": "Stratégie de réparation",
+              "resolutionDescription": "Les lignes de jonction non valides pointent vers des enregistrements qui n’existent plus. Confirmez la suppression de ces lignes de relation avant de restaurer la clé étrangère.",
+              "option": {
+                "deleteOrphanRows": "Supprimer les lignes de relation non valides"
+              }
+            }
+          }
         },
         "phase": {
           "check": "Résultats de vérification",
@@ -632,42 +877,20 @@
           "unchanged": "Inchangé",
           "manual": "Manuel",
           "skipped": "Ignoré"
-        },
-        "repairMeta": {
-          "reason": {
-            "alreadyValid": "This rule is already valid",
-            "manualRule": "This rule requires a manual decision",
-            "statementGenerationFailed": "The system could not generate a safe repair statement",
-            "noStatements": "This rule has no automatic repair statement",
-            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
-            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
-            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
-            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
-            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
-          },
-          "description": {
-            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
-            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
-            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
-            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
-            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
-          },
-          "manual": {
-            "apply": "Apply manual repair",
-            "symmetricField": {
-              "title": "Resolve symmetric link conflict",
-              "description": "Pick how this duplicate symmetric link should be repaired.",
-              "resolutionLabel": "Repair strategy",
-              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
-              "option": {
-                "keepCurrent": "Keep the current field as the two-way link",
-                "convertDuplicate": "Convert the duplicate field to a one-way link"
-              }
-            }
-          }
         }
       },
       "errorType": {
+        "ForeignTableNotFound": "ForeignTableNotFound",
+        "ForeignKeyNotFound": "ForeignKeyNotFound",
+        "SelfKeyNotFound": "SelfKeyNotFound",
+        "SymmetricFieldNotFound": "SymmetricFieldNotFound",
+        "MissingRecordReference": "MissingRecordReference",
+        "InvalidLinkReference": "InvalidLinkReference",
+        "ForeignKeyHostTableNotFound": "ForeignKeyHostTableNotFound",
+        "ReferenceFieldNotFound": "ReferenceFieldNotFound",
+        "UniqueIndexNotFound": "UniqueIndexNotFound",
+        "EmptyString": "EmptyString",
+        "InvalidFilterOperator": "InvalidFilterOperator",
         "InvalidPrimaryLookup": "Champ principal mal configuré comme Lookup",
         "InvalidPrimaryType": "Le champ principal a un type non pris en charge",
         "MissingPrimary": "La table n'a pas de champ principal"
@@ -686,6 +909,14 @@
       "enableIndex": "activer",
       "keepAsIs": "laisser tel quel",
       "ignoreIndexError": "ignorer temporairement"
+    },
+    "searchTips": {
+      "maxFieldTips_limited": "Le maximum de {{count}} champs est dépassé ; les champs supplémentaires seront ignorés"
+    },
+    "deletedRecovered": {
+      "title": "La table que vous avez ouverte a été supprimée",
+      "description": "Bascule vers « {{tableName}} »",
+      "descriptionEmpty": "Retour à la page de la Base"
     }
   },
   "import": {
@@ -708,6 +939,7 @@
       "addFromOtherSource": "Ajouter depuis d'autres sources",
       "excelFile": "Microsoft Excel",
       "airtable": "Airtable",
+      "googleSheet": "Google Sheets",
       "csvFile": "Fichier CSV",
       "importCsvData": "Importer des données CSV",
       "importExcelData": "Importer des données Microsoft Excel",
@@ -718,7 +950,6 @@
       "duplicating": "Duplication en cours...",
       "duplicateSuccess": "Dupliqué avec succès",
       "duplicateFailed": "Échec de la duplication",
-      "importing": "Importation",
       "includeRecords": "Inclure les enregistrements"
     },
     "tips": {
@@ -726,6 +957,17 @@
       "fileExceedSizeTip": "Ce type de fichier dépasse la limite de taille de",
       "analyzing": "analyse",
       "importing": "Importation",
+      "importingRows": "Importing {{processed}} of {{total}} rows",
+      "importingRowsUnknown": "Imported {{processed}} rows",
+      "importingSheet": "Sheet {{current}} of {{total}}: {{name}}",
+      "preparingImport": "Preparing import...",
+      "importFinished": "Import finished",
+      "importFinishedPartial": "Import finished with row limits",
+      "importSheetImported": "{{rowCount}} rows",
+      "importSheetTruncated": "Imported {{rowCount}} rows (row limit reached, remaining rows skipped)",
+      "importSheetFailed": "Failed ({{error}})",
+      "importSummaryHint": "Review each table before closing.",
+      "importDone": "Done",
       "notSupportFieldType": "Type de champ non pris en charge",
       "resultEmpty": "Aucun résultat trouvé.",
       "searchPlaceholder": "Rechercher...",
@@ -752,6 +994,29 @@
       "option": {
         "doNotImport": "Ne pas importer"
       }
+    }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "Télécharger toutes les pièces jointes",
+      "rowsWithAttachments": "Lignes avec PJ",
+      "totalAttachments": "Pièces jointes",
+      "totalSize": "Taille totale",
+      "cancel": "Annuler",
+      "downloading": "Téléchargement en cours...",
+      "completed": "Téléchargement terminé",
+      "cancelled": "Téléchargement annulé",
+      "noAttachments": "Aucune pièce jointe à télécharger",
+      "error": "Échec du téléchargement",
+      "errorPartial": "{{failedCount}} fichiers n'ont pas pu être téléchargés",
+      "requireHttps": "Le téléchargement groupé nécessite HTTPS. Veuillez accéder via HTTPS ou localhost.",
+      "advancedOptions": "Options avancées",
+      "namingFieldLabel": "Préfixe du nom de pièce jointe",
+      "selectField": "Par défaut: index de pièce jointe",
+      "noPrefixOption": "Sans préfixe",
+      "noPrefixOptionDesc": "Conserver le nom de fichier original",
+      "groupByRow": "Archiver dans des dossiers",
+      "groupByRowTip": "Lorsqu'une ligne contient plusieurs pièces jointes, elles seront placées dans le même dossier ; les lignes avec une seule pièce jointe ne créeront pas de dossier."
     }
   },
   "grid": {
@@ -830,7 +1095,11 @@
     "insertRecordBelow": "Insérer un enregistrement en dessous",
     "deleteRecord": "Supprimer l'enregistrement",
     "deleteAllSelectedRecords": "Supprimer tous les enregistrements sélectionnés",
+    "archiveRecord": "Archiver l'enregistrement",
+    "archiveAllSelectedRecords": "Archiver tous les enregistrements sélectionnés",
+    "duplicateRecords": "Dupliquer les enregistrements sélectionnés",
     "editField": "Modifier le champ",
+    "duplicateField": "Dupliquer le champ",
     "insertFieldLeft": "Insérer à gauche",
     "insertFieldRight": "Insérer à droite",
     "freezeUpField": "Geler jusqu'à ce champ",
@@ -838,6 +1107,10 @@
     "hideField": "Masquer le champ",
     "deleteField": "Supprimer le champ",
     "deleteAllSelectedFields": "Supprimer tous les champs sélectionnés",
+    "filterField": "Filtrer par ce champ",
+    "sortField": "Trier par ce champ",
+    "groupField": "Grouper par ce champ",
+    "downloadAllAttachments": "Télécharger tous les fichiers",
     "autoFill": "Mettre à jour tous les enregistrements",
     "groupMenuTitle": "Menu de groupe",
     "expandGroup": "Développer ce groupe et ses sous-groupes",
@@ -878,18 +1151,94 @@
       "title": "Plantage !",
       "description": "Cette vue est endommagée. Si le rafraîchissement échoue toujours, veuillez nous contacter à support@teable.ai"
     },
+    "addPluginView": "Ajouter une vue plugin",
+    "search": {
+      "field_one": "{{name}}",
+      "field_many": "champs ({{length}})",
+      "field_other": "champs ({{length}})"
+    },
     "locked": {
       "tip": "Cette vue est verrouillée. Vous pouvez activer le mode personnel pour modifier les options de la vue, et les modifications ne prendront effet que pour vous."
     },
-    "noView": "Aucune vue"
+    "noView": "Aucune vue",
+    "deletedRecovered": {
+      "title": "La vue que vous avez ouverte a été supprimée",
+      "description": "Bascule vers « {{viewName}} »"
+    }
   },
   "lastModifiedTime": "Dernière modification",
   "lastModify": "Dernière modification : ",
+  "pasteNewRecords": {
+    "title": "Voulez-vous ajouter plusieurs enregistrements ?",
+    "description": "Les {{count}} enregistrements seront ajoutés à la table."
+  },
+  "tableArchive": {
+    "title": "Archive de la table",
+    "menuTitle": "Archives",
+    "archivedTime": "Date d'archivage",
+    "archivedBy": "Archivé par",
+    "recordDetail": "Détail de l'enregistrement",
+    "empty": "Aucun enregistrement archivé",
+    "allCreators": "Tous les créateurs",
+    "filterArchivedTime": "Date d'archivage",
+    "searchPlaceholder": "Rechercher des enregistrements archivés",
+    "clearFilter": "Effacer les filtres",
+    "export": "Exporter en CSV",
+    "exporting": "Exportation… {{count}} lignes",
+    "exportSucceed": "Exportation terminée, téléchargement en cours",
+    "restoreSelected": "Restaurer ({{count}})",
+    "permanentDeleteSelected": "Supprimer définitivement ({{count}})",
+    "permanentDeleteConfirm": "Supprimer définitivement {{count}} enregistrements archivés ? Cette action est irréversible.",
+    "permanentDeleteSucceed": "Supprimé définitivement",
+    "resetArchive": "Vider l'archive",
+    "resetArchiveConfirm": "Vider tous les enregistrements archivés de cette table ? Cette action est irréversible.",
+    "resetSucceed": "Archive vidée",
+    "orderBy": {
+      "archivedTime": "Trier par date d'archivage",
+      "recordCreatedTime": "Trier par date de création",
+      "recordLastModifiedTime": "Trier par dernière modification"
+    }
+  },
   "tableTrash": {
     "title": "Corbeille",
     "resourceType": "Type",
     "deletedResource": "Ressource",
-    "moreResources": "et {{count}} de plus"
+    "moreResources": "et {{count}} de plus",
+    "deletedTime": "Date de suppression",
+    "deletedBy": "Supprimé par",
+    "filterAllTypes": "Tous les types",
+    "filterAllUsers": "Tous les utilisateurs",
+    "filterDeletedTime": "Date de suppression",
+    "clearFilter": "Effacer les filtres",
+    "recordsDialogTitle": "Enregistrements supprimés ({{count}})",
+    "recordDetail": "Détails de l'enregistrement",
+    "filterAllCreators": "Tous les créateurs",
+    "filterCreatedTime": "Date de création",
+    "searchPlaceholder": "Rechercher des enregistrements"
+  },
+  "pluginPanel": {
+    "empty": {
+      "description": "Aucun panneau de plugin n’a encore été ajouté."
+    },
+    "createPluginPanel": {
+      "button": "Créer un panneau de plugin",
+      "title": "Créer un panneau de plugin"
+    },
+    "namePlaceholder": "Saisir un nom de panneau de plugin"
+  },
+  "addPlugin": "Ajouter un plugin",
+  "pluginContextMenu": {
+    "mangeButton": "Gérer les plugins",
+    "manage": "Gérez vos plugins de menu contextuel",
+    "noPlugin": "Aucun plugin de menu contextuel",
+    "delete": "Supprimer",
+    "deleteDescription": "Voulez-vous vraiment supprimer ce plugin ?"
+  },
+  "permission": {
+    "cell": {
+      "deniedRead": "Vous n’avez pas la permission de voir cette cellule",
+      "deniedUpdate": "Vous n’avez pas la permission de modifier cette cellule"
+    }
   },
   "baseShare": {
     "shareTitle": "Partager",
@@ -919,7 +1268,10 @@
     "linkScopeDialogTitle": "Link field scope",
     "linkHolderCanCopyAndSave": "Peut enregistrer comme copie",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
-    "editRequiresLogin": "Users must log in to edit records",
+    "copyToMySpace": "Copy to my space",
+    "saveToMySpace": "Save to my space",
+    "supportSaveCopy": "Enregistrez une copie dans votre espace",
+    "editRequiresLogin": "Connectez-vous pour modifier les enregistrements",
     "enterPassword": "Entrer le mot de passe",
     "allowCopyData": "Permettre aux spectateurs de copier les données",
     "sharedNode": "Nœud partagé",
@@ -951,16 +1303,67 @@
         "failed": "Échec"
       }
     },
+    "googleSheetPick": {
+      "title": "Sélectionner des feuilles de calcul Google",
+      "defaultReason": "Sélectionnez les feuilles de calcul dans le sélecteur de fichiers Google pour qu'elles puissent être lues.",
+      "pick": "Choisir des feuilles de calcul",
+      "opening": "Ouverture du sélecteur…",
+      "failed": "Impossible d'ouvrir le sélecteur de fichiers Google",
+      "gateExpired": "Cette demande a expiré, mais les fichiers sélectionnés restent autorisés — envoyez un nouveau message à l'agent pour continuer.",
+      "status": {
+        "picked": "{{count}} feuilles de calcul autorisées",
+        "cancelled": "Ignoré",
+        "failed": "Échec"
+      }
+    },
     "agent": {
       "askUserQuestion": {
-        "otherPlaceholder": "Ou saisissez votre réponse…"
+        "otherPlaceholder": "Ou saisissez votre réponse…",
+        "asked": "Posée",
+        "skipped": "Ignorée",
+        "pendingAnswer": "En attente de réponse",
+        "notSelected": "Non sélectionné",
+        "timedOut": "Délai dépassé",
+        "timedOutWithDuration": "Délai dépassé ({{duration}})",
+        "cancelled": "Annulée",
+        "previousQuestion": "Question précédente",
+        "nextQuestion": "Question suivante"
+      },
+      "completion": {
+        "noDetails": "Aucun détail disponible",
+        "model": "Modèle",
+        "contextWindow": "Fenêtre de contexte",
+        "contextTooltip": "Utilisation de la mémoire de travail de l’agent. À l’approche de la limite, l’agent résume automatiquement la conversation précédente pour libérer de l’espace.",
+        "contextTipNewChat": "Démarrez une nouvelle conversation pour d’autres sujets afin de réduire nettement la consommation de crédits.",
+        "contextTipMemory": "Dites « souviens-toi de ceci » pour l’enregistrer en mémoire à long terme, accessible d’une conversation à l’autre."
       },
       "messageActions": {
+        "helpful": "Utile",
+        "notHelpful": "Pas utile",
+        "commentTitle": "Comment améliorer cette réponse ? (facultatif)",
+        "commentPlaceholder": "p. ex. hors sujet, inexact, mauvais outil…",
+        "saveFailed": "Échec de l’enregistrement du retour",
         "copy": "Copier",
         "copyToInput": "Copier dans la saisie"
+      },
+      "contextCompaction": {
+        "auto": "Le contexte a été compacté automatiquement",
+        "manual": "Le contexte a été compacté",
+        "compacting": "Compactage du contexte…",
+        "failed": "Échec du compactage du contexte"
+      },
+      "taskProgress": {
+        "title": "Progression de la tâche"
+      },
+      "tool": {
+        "copy": "Copier",
+        "copied": "Copié !",
+        "collapse": "Réduire",
+        "linesHidden": "{{count}} lignes masquées – cliquez pour développer"
       }
     },
     "tool": {
+      "retrying": "Nouvelle tentative ({{attempt}}/{{maxRetries}})...",
       "showLess": "Afficher moins",
       "generateApp": {
         "creatingApp": "Création de l'application",
@@ -972,14 +1375,14 @@
         "code": "Code",
         "download": "Télécharger",
         "downloadHtml": "HTML",
-        "downloadImage": "Image (PNG)",
         "copy": "Copier",
         "copied": "Copié !",
         "fullscreen": "Plein écran",
         "exitFullscreen": "Quitter le plein écran",
         "downloadSuccess": "Image téléchargée avec succès",
         "downloadFailed": "Échec de la capture d'image",
-        "iframeFailed": "Échec de la capture : iframe non accessible"
+        "iframeFailed": "Échec de la capture : iframe non accessible",
+        "iframeTitle": "Aperçu HTML"
       }
     },
     "action": {
@@ -991,9 +1394,37 @@
       "submit": "Soumettre"
     },
     "newChat": "Nouveau Chat",
+    "clearChat": "Effacer la conversation",
     "expand": "Développer",
     "history": "Historique",
     "close": "Réduire",
+    "clearChatConfirmTitle": "Confirmer l’effacement de la conversation",
+    "clearChatConfirmDesc": "Le contenu actuel de la conversation ne sera pas enregistré. Voulez-vous vraiment l’effacer ?",
+    "dontShowAgain": "Ne plus afficher",
+    "modelSwitchTitle": "Changer de modèle",
+    "modelSwitchHint": "Actuellement exécuté sur {{previous}}. Au prochain envoi, le nouveau modèle prend le relais et ne voit que les 3 derniers échanges.",
+    "effort": {
+      "title": "Intelligence",
+      "low": "Faible",
+      "medium": "Moyenne",
+      "high": "Élevée",
+      "xhigh": "Très élevée"
+    },
+    "sandboxExpiry": {
+      "expiresIn": "L’ordinateur de l’agent expire dans {{time}}",
+      "reset": "Renouveler",
+      "resetTitle": "Renouveler l’ordinateur de l’agent",
+      "runningTasks_one": "{{count}} tâche est en cours. Le renouvellement l’interrompra.",
+      "runningTasks_many": "{{count}} tâches sont en cours. Le renouvellement les interrompra.",
+      "runningTasks_other": "{{count}} tâches sont en cours. Le renouvellement les interrompra.",
+      "noRunningTasks": "Aucune tâche n’est en cours.",
+      "newSandboxHint": "Vous pourrez continuer à l’utiliser normalement après le renouvellement.",
+      "cancel": "Annuler",
+      "confirmReset": "Renouveler",
+      "confirmResetWithTasks": "Renouveler quand même",
+      "expiresSoon": "L’ordinateur de l’agent expire bientôt",
+      "resetFailed": "Échec du renouvellement de l’ordinateur de l’agent"
+    },
     "addAttachment": "Ajouter une pièce jointe",
     "noHistory": "Aucun historique de chat",
     "noFoundHistory": "Aucun historique de chat trouvé, veuillez commencer une nouvelle conversation",
@@ -1016,7 +1447,8 @@
       "tables": "Tables",
       "apps": "Applications",
       "workflows": "Automatisations",
-      "folders": "Dossiers"
+      "folders": "Dossiers",
+      "envs": "Secrets"
     },
     "slashCommand": {
       "skills": "Skills",
@@ -1038,8 +1470,7 @@
     "attachment": {
       "pastedTextFileName": "Texte collé",
       "imageNotSupported": "L'image n'est pas prise en charge",
-      "tooManyFiles": "Vous pouvez joindre au maximum {{count}} fichiers par message",
-      "storageFull": "Le stockage du bac à sable est plein. Supprimez quelques fichiers et réessayez."
+      "tooManyFiles": "Vous pouvez joindre au maximum {{count}} fichiers par message"
     },
     "suggestions": {
       "title": "Comment puis-je vous aider ?",
@@ -1064,30 +1495,125 @@
       "writeCodeHint": "Écrivez du code pour voir l'aperçu du diagramme de flux.",
       "noPreview": "Aucun aperçu de diagramme de flux disponible.",
       "codeChanged": "Le code a changé depuis la génération de cet aperçu."
+    },
+    "artifact": {
+      "view": "Voir",
+      "restore": "Restaurer cette version",
+      "download": "Télécharger",
+      "openInNewPage": "Ouvrir dans une nouvelle page",
+      "fullscreen": "Plein écran",
+      "exitFullscreen": "Quitter le plein écran",
+      "delete": "Supprimer",
+      "deleteConfirm": "Supprimer cet artifact ? Les cartes du chat afficheront un espace réservé supprimé.",
+      "deleted": "Cet artifact a été supprimé",
+      "runtimeError": "Erreur de l'artifact",
+      "loadFailed": "Échec du chargement de l'artifact",
+      "failed": "Échec de la génération de l'artifact",
+      "currentVersion": "Actuelle",
+      "share": "Partager",
+      "enableShare": "Activer le partage",
+      "copyLink": "Copier le lien",
+      "rotateLink": "Réinitialiser le lien",
+      "scope": "Qui peut voir",
+      "scopePublic": "Toute personne avec le lien",
+      "scopeSpace": "Membres de l'espace",
+      "passwordProtect": "Protection par mot de passe",
+      "passwordApply": "Définir",
+      "passwordRequired": "Cet artifact est protégé par mot de passe",
+      "passwordPlaceholder": "Saisir le mot de passe",
+      "passwordIncorrect": "Mot de passe incorrect",
+      "passwordSubmit": "Confirmer",
+      "shareNotFound": "Cet artifact partagé n'est pas disponible",
+      "gallery": "Mes Artifacts",
+      "galleryEmpty": "Aucun artifact pour l'instant — demandez à l'IA d'en créer un.",
+      "searchPlaceholder": "Rechercher des artifacts",
+      "fixWithAi": "Corriger avec l'IA",
+      "noPermission": "Vous n'avez pas accès à cet artifact"
+    },
+    "queue": {
+      "nQueued": "{{count}} en file d’attente",
+      "edit": "Modifier",
+      "steerNow": "Orienter la conversation sans l’interrompre",
+      "steerFailed": "Impossible d’orienter la conversation. Le message reste en file d’attente.",
+      "conversationInputMarker": "Conversation orientée",
+      "removeFromQueue": "Retirer"
+    },
+    "partTool": {
+      "bash": "Exécuter une commande",
+      "read": "Lire un fichier",
+      "write": "Créer un fichier",
+      "edit": "Modifier un fichier",
+      "glob": "Rechercher des fichiers",
+      "find": "Rechercher des fichiers",
+      "grep": "Rechercher dans les fichiers",
+      "ls": "Lister le répertoire",
+      "webSearch": "Rechercher sur le web",
+      "skill": "Chargement de la compétence",
+      "foundFiles": "{{count}} fichiers trouvés",
+      "listedEntries": "{{count}} entrées",
+      "moreTools": "+{{count}} autres outils",
+      "moreItems": "+{{count}} de plus",
+      "fallbackName": "Outil",
+      "questionCount_one": "{{count}} question",
+      "questionCount_many": "{{count}} questions",
+      "questionCount_other": "{{count}} questions",
+      "presentFiles": "Fichiers présentés",
+      "download": "Télécharger",
+      "downloadAll": "Tout télécharger",
+      "downloadAllSkipped_one": "{{count}} fichier a été nettoyé et exclu du zip",
+      "downloadAllSkipped_many": "{{count}} fichiers ont été nettoyés et exclus du zip",
+      "downloadAllSkipped_other": "{{count}} fichiers ont été nettoyés et exclus du zip",
+      "downloadAllEmpty": "Ces fichiers ont été nettoyés et ne peuvent plus être téléchargés",
+      "installSkill": "Installer",
+      "installSkillTitle": "Installer la compétence",
+      "installSkillDescription": "Choisissez où installer cette compétence",
+      "skillInstalled": "Installée",
+      "installSkillFailed": "Échec de l’installation de la compétence",
+      "installSkillReplaceWarning": "Si une compétence portant le même nom existe déjà dans cette portée, elle sera remplacée."
+    },
+    "retry": {
+      "interrupted": "Réponse interrompue",
+      "button": "Réessayer",
+      "offline": "Vous êtes hors ligne. Nous réessaierons dès le retour de la connexion.",
+      "pausedHidden": "Nouvelle tentative en pause — ouvrez cet onglet pour vous reconnecter.",
+      "maxAttemptsReached": "Reconnexion automatique impossible. Veuillez actualiser la page manuellement."
+    },
+    "initChatFailed": "Échec de l’initialisation de la conversation",
+    "app": {
+      "loadingChatHistory": "Chargement de l’historique de la conversation...",
+      "generatorTitle": "Générateur d’applications IA",
+      "generatorDesc": "Décrivez ce que vous voulez créer"
+    },
+    "voice": {
+      "start": "Démarrer la saisie vocale",
+      "stop": "Arrêter la saisie vocale",
+      "accept": "Terminer la saisie vocale",
+      "cancel": "Annuler la saisie vocale",
+      "permissionTip": "Autorisez l’accès au microphone.",
+      "recording": "Enregistrement...",
+      "transcribing": "Transcription...",
+      "error": {
+        "microphoneDenied": "L’accès au microphone est bloqué.",
+        "microphoneUnavailable": "Aucun microphone détecté.",
+        "unsupportedBrowser": "L’enregistrement audio n’est pas pris en charge.",
+        "recordingFailed": "Échec de l’enregistrement.",
+        "missingServerKey": "La saisie vocale n’est pas configurée.",
+        "unauthenticated": "Reconnectez-vous.",
+        "rateLimited": "Trop de tentatives. Patientez un instant.",
+        "upstreamAuthFailed": "La clé d’API de transcription n’est pas valide.",
+        "upstreamBadRequest": "Le point de terminaison vocal n’est pas valide.",
+        "upstreamUnavailable": "La fonction vocale est indisponible."
+      }
     }
   },
-  "download": {
-    "allAttachments": {
-      "title": "Télécharger toutes les pièces jointes",
-      "rowsWithAttachments": "Lignes avec PJ",
-      "totalAttachments": "Pièces jointes",
-      "totalSize": "Taille totale",
-      "cancel": "Annuler",
-      "downloading": "Téléchargement en cours...",
-      "completed": "Téléchargement terminé",
-      "cancelled": "Téléchargement annulé",
-      "noAttachments": "Aucune pièce jointe à télécharger",
-      "error": "Échec du téléchargement",
-      "errorPartial": "{{failedCount}} fichiers n'ont pas pu être téléchargés",
-      "requireHttps": "Le téléchargement groupé nécessite HTTPS. Veuillez accéder via HTTPS ou localhost.",
-      "advancedOptions": "Options avancées",
-      "namingFieldLabel": "Préfixe du nom de pièce jointe",
-      "selectField": "Par défaut: index de pièce jointe",
-      "noPrefixOption": "Sans préfixe",
-      "noPrefixOptionDesc": "Conserver le nom de fichier original",
-      "groupByRow": "Archiver dans des dossiers",
-      "groupByRowTip": "Lorsqu'une ligne contient plusieurs pièces jointes, elles seront placées dans le même dossier ; les lignes avec une seule pièce jointe ne créeront pas de dossier."
-    }
+  "upload": {
+    "panelUploading": "Téléversement de {{count}} fichiers",
+    "panelFailed": "{{count}} fichiers en échec",
+    "panelCompleted": "{{count}} fichiers terminés",
+    "statusFailed": "Échec",
+    "statusCompleted": "Terminé",
+    "statusCancel": "Annuler le téléversement",
+    "statusRetry": "Réessayer le téléversement"
   },
   "baseNode": {
     "info": {
@@ -1099,7 +1625,16 @@
       "folderId": "ID de dossier",
       "tableId": "ID de table",
       "automationId": "ID d'automatisation",
-      "appId": "ID d'application"
+      "appId": "ID d'application",
+      "searchVector": "Recherche en texte intégral",
+      "searchVectorFields": "champs",
+      "searchVectorStatus": {
+        "ready": "Activé",
+        "configured": "Configuré",
+        "rebuildPending": "Maintenance en attente",
+        "stale": "Reconstruction nécessaire",
+        "unknown": "Inconnu"
+      }
     }
   }
 }

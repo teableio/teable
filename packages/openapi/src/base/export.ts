@@ -5,6 +5,7 @@ import { BaseNodeResourceType } from '../base-node/types';
 import { pluginInstallStorageSchema } from '../dashboard';
 import { PluginPosition } from '../plugin';
 import { registerRoute, urlBuilder } from '../utils';
+import { toSSERequestError } from '../utils/sse';
 import { z } from '../zod';
 export const EXPORT_BASE = '/base/{baseId}/export';
 export const EXPORT_BASE_STREAM = '/base/{baseId}/export-stream';
@@ -368,7 +369,7 @@ export const exportBaseStream = async (
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Export base failed: ${response.status} ${errorText}`);
+    throw toSSERequestError(errorText, response.status, 'Export base failed');
   }
 
   const reader = response.body?.getReader();

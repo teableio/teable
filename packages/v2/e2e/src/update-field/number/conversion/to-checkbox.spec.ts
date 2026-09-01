@@ -59,6 +59,7 @@ describe('update-field: number → checkbox conversion', () => {
 
     const records = await ctx.listRecords(tableId);
     const rec1 = records.find((r) => r.id === r1.id);
+    // TODO(T6520 drift): v1 repair(0) stores null; v2 field conversion still stores false
     expect(rec1?.fields[fieldId]).toBe(false);
 
     await ctx.deleteField({ tableId, fieldId });

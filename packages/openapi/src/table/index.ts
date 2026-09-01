@@ -17,3 +17,4 @@ export * from './get-abnormal-index';
 export * from './repair-table-index';
 export * from './duplicate';
 export * from './duplicate-check';
+export * from './get-delete-references';

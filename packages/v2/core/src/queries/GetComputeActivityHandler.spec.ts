@@ -44,12 +44,19 @@ const createSnapshot = (baseId: string, tableId: string): TableComputeActivitySn
   fields: [],
   diagnostics: {
     computeMode: 'server',
+    executionState: 'running',
     activeFieldCount: 0,
     queuedFieldCount: 0,
     calculatingFieldCount: 0,
     failedFieldCount: 0,
     highComplexityFieldCount: 0,
     anomalies: [],
+    pause: {
+      effective: false,
+      blockers: [],
+      queuedTaskCount: 0,
+      oldestQueuedAt: null,
+    },
   },
 });
 
@@ -163,6 +170,10 @@ describe('GetComputeActivityHandler', () => {
       }),
       undefined
     );
-    expect(getByTableId).toHaveBeenCalledWith(context, table.id().toString());
+    expect(getByTableId).toHaveBeenCalledWith(
+      context,
+      table.id().toString(),
+      table.baseId().toString()
+    );
   });
 });

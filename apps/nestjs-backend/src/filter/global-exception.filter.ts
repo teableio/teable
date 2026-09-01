@@ -25,6 +25,7 @@ import {
   setV2AttributionHeaders,
   setV2AttributionOnSentryScope,
 } from '../features/canary/v2-attribution';
+import { ColdStorageUnavailableError } from '../features/cold-archive/cold-errors';
 import { classifyDataDbRuntimeError } from '../global/data-db-runtime-error';
 import type { IDataDbRuntimeErrorClassification } from '../global/data-db-runtime-error';
 import type { IClsStore } from '../types/cls';
@@ -73,7 +74,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (responseWritable) {
       setV2AttributionHeaders(response, getV2Attribution(this.cls));
     }
-    this.annotateActiveSpan(dataDbError);
+    this.annotateActiveSpan(exception, dataDbError);
     this.recordDataDbMetric(dataDbError);
     this.captureException(exception, dataDbError);
 
@@ -95,6 +96,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (exception instanceof TemplateAppTokenNotAllowedException) {
       return response.status(exception.getStatus()).json({
         message: exception.message,
+      });
+    }
+    // reaches here only from cold reads that had no local degradation left
+    if (exception instanceof ColdStorageUnavailableError) {
+      return response.status(503).json({
+        message: 'Archived data is temporarily unavailable; please retry.',
+        status: 503,
+        code: HttpErrorCode.DATABASE_CONNECTION_UNAVAILABLE,
       });
     }
     if (dataDbError) {
@@ -185,9 +194,26 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     });
   }
 
-  private annotateActiveSpan(dataDbError?: IDataDbRuntimeErrorClassification | null) {
+  private annotateActiveSpan(
+    exception: Error | HttpException,
+    dataDbError?: IDataDbRuntimeErrorClassification | null
+  ) {
     const span = trace.getActiveSpan();
     if (!span) return;
+
+    // NestInstrumentation is disabled (see tracing.ts) and RouteTracingInterceptor never
+    // runs for what a guard or pipe rejects, so this filter is the only place left that
+    // still sees a thrown exception with the request span active.
+    span.recordException(exception);
+    // Only 5xx is the server failing. Marking 4xx would multiply the APM error rate and
+    // promote every routine 404 into a full-detail trace export.
+    const status = dataDbError ? 503 : exceptionParse(exception).getStatus();
+    if (status >= 500) {
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: dataDbError?.code ?? exception.message,
+      });
+    }
 
     const v2Attributes = getV2AttributionSpanAttributes(getV2Attribution(this.cls));
     if (Object.keys(v2Attributes).length) {
@@ -208,7 +234,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       [dataDbOtelAttribute.retryable]: dataDbError.retryable,
       [dataDbOtelAttribute.userActionable]: dataDbError.userActionable,
     });
-    span.setStatus({ code: SpanStatusCode.ERROR, message: dataDbError.code });
   }
 
   private recordDataDbMetric(dataDbError?: IDataDbRuntimeErrorClassification | null) {

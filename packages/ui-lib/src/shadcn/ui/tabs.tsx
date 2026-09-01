@@ -2,6 +2,7 @@
 
 import * as TabsPrimitive from '@radix-ui/react-tabs';
 import * as React from 'react';
+import { useUiDirection } from '../../base/direction/direction';
 
 import { cn } from '../utils';
 
@@ -14,7 +15,7 @@ const Tabs = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Root> & { size?: TabsSize }
 >(({ size = 'default', ...props }, ref) => (
   <TabsSizeContext.Provider value={size}>
-    <TabsPrimitive.Root ref={ref} {...props} />
+    <TabsPrimitive.Root ref={ref} dir={useUiDirection()} {...props} />
   </TabsSizeContext.Provider>
 ));
 Tabs.displayName = TabsPrimitive.Root.displayName;

@@ -44,6 +44,8 @@ describe('UndoRedoService write freeze', () => {
       cacheService as never,
       undoRedoStackService as never,
       undoRedoOperationService as never,
+      { dataPrismaForTable: vi.fn() } as never,
+      { markRestored: vi.fn() } as never,
       migrationGuard as never
     );
 

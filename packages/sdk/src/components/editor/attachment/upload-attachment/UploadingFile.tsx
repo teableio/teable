@@ -43,7 +43,7 @@ export const UploadingFile = ({ file, progress, onCancel }: IUploadingFileProps)
           {onCancel && (
             <button
               type="button"
-              className="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-black/60 opacity-0 transition-opacity hover:bg-black/80 group-hover:opacity-100"
+              className="absolute end-1 top-1 flex size-5 items-center justify-center rounded-full bg-black/60 opacity-0 transition-opacity hover:bg-black/80 group-hover:opacity-100"
               onClick={onCancel}
             >
               <X className="size-3 text-white" />

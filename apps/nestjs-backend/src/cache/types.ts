@@ -14,12 +14,26 @@ export interface ICacheStore {
   [key: `auth:session-store:${string}`]: ISessionData;
   [key: `auth:session-user:${string}`]: Record<string, number>;
   [key: `auth:session-expire:${string}`]: boolean;
+  // Epoch seconds of the user's last clearByUserId, kept for the session ttl:
+  // distinguishes "revoked by sign-out-everywhere" from "lost the concurrent
+  // read-modify-write on the per-user session map".
+  [key: `auth:session-user-cleared:${string}`]: number;
   [key: `oauth2:${string}`]: IOauth2State;
   [key: `reset-password-email:${string}`]: IResetPasswordEmailCache;
   [key: `workflow:running:${string}`]: string;
   [key: `workflow:repeatKey:${string}`]: string;
   [key: `oauth:code:${string}`]: IOAuthCodeState;
   [key: `oauth:txn:${string}`]: IOAuthTxnStore;
+  // Device authorization grant: the state lives under the device code the CLI
+  // polls with, and the user code the person types is only an index into it.
+  [key: `oauth:device:${string}`]: IOAuthDeviceState;
+  [key: `oauth:device-user:${string}`]: string;
+  [key: `oauth:device-rate:${string}`]: number;
+  [key: `reward:claim-gate:${string}`]: string;
+  // Poll pacing lives in a side key (TTL = the poll interval), NOT on the
+  // state: a pending poll that wrote the state back could clobber a
+  // concurrent approval.
+  [key: `oauth:device-poll:${string}`]: number;
   // userId:tableId:windowId
   [key: `operations:undo:${string}:${string}:${string}`]: IUndoRedoOperation[];
   [key: `operations:redo:${string}:${string}:${string}`]: IUndoRedoOperation[];
@@ -108,6 +122,21 @@ export interface IOAuthCodeState {
   codeChallengeMethod?: 'S256';
 }
 
+export interface IOAuthDeviceState {
+  clientId: string;
+  scopes: string[];
+  userCode: string;
+  status: 'pending' | 'approved' | 'denied';
+  /** Set once someone approves in a browser; the next poll turns it into tokens. */
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  /** Epoch ms the code dies at, so rewriting the state cannot extend its life. */
+  expiresAt: number;
+}
+
 export interface IOAuthTxnStore {
   redirectURI: string;
   clientId: string;
@@ -125,6 +154,7 @@ export enum OperationName {
   UpdateView = 'updateView',
   CreateRecords = 'createRecords',
   DeleteRecords = 'deleteRecords',
+  ArchiveRecords = 'archiveRecords',
   UpdateRecords = 'updateRecords',
   UpdateRecordsOrder = 'updateRecordsOrder',
   CreateFields = 'createFields',
@@ -189,6 +219,19 @@ export interface ICreateRecordsOperation extends IUndoRedoOperationBase {
 
 export interface IDeleteRecordsOperation extends Omit<ICreateRecordsOperation, 'name'> {
   name: OperationName.DeleteRecords;
+}
+
+// The archived snapshots stay in record_trash (write-ahead), so the stack entry only
+// carries ids: undo restores the rows matched by operationId, redo re-archives by id.
+export interface IArchiveRecordsOperation extends IUndoRedoOperationBase {
+  name: OperationName.ArchiveRecords;
+  params: {
+    tableId: string;
+  };
+  result: {
+    recordIds: string[];
+  };
+  operationId: string;
 }
 
 export interface IConvertFieldOperation extends IUndoRedoOperationBase {
@@ -294,6 +337,7 @@ export type IUndoRedoOperation =
   | IUpdateRecordsOperation
   | ICreateRecordsOperation
   | IDeleteRecordsOperation
+  | IArchiveRecordsOperation
   | IUpdateRecordsOrderOperation
   | ICreateFieldsOperation
   | IDeleteFieldsOperation

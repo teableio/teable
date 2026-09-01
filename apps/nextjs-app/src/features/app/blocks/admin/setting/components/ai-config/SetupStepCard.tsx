@@ -40,7 +40,7 @@ export function SetupStepCard({
         <CollapsibleTrigger asChild disabled={disabled}>
           <button
             className={cn(
-              'flex w-full items-center gap-4 p-4 text-left',
+              'flex w-full items-center gap-4 p-4 text-start',
               !disabled && 'hover:bg-muted'
             )}
           >

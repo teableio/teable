@@ -5,19 +5,25 @@ import { AuthModule } from '../auth/auth.module';
 import { CanaryModule } from '../canary/canary.module';
 import { CollaboratorModule } from '../collaborator/collaborator.module';
 import { FieldModule } from '../field/field.module';
+import { FieldOpenApiModule } from '../field/open-api/field-open-api.module';
 import { RecordOpenApiModule } from '../record/open-api/record-open-api.module';
 import { RecordModule } from '../record/record.module';
 import { SelectionModule } from '../selection/selection.module';
+import { SpaceDataDbMigrationGuardModule } from '../space/space-data-db-migration-guard.module';
+import { V2Module } from '../v2/v2.module';
+import { ViewOpenApiModule } from '../view/open-api/view-open-api.module';
 import { ViewModule } from '../view/view.module';
 import { ShareAuthModule } from './share-auth.module';
 import { ShareSocketService } from './share-socket.service';
 import { ShareController } from './share.controller';
 import { ShareService } from './share.service';
+import { SharedViewRecordQueryV2Service } from './shared-view-record-query-v2.service';
 
 @Module({
   imports: [
     AuthModule,
     FieldModule,
+    FieldOpenApiModule,
     RecordModule,
     RecordOpenApiModule,
     SelectionModule,
@@ -25,9 +31,12 @@ import { ShareService } from './share.service';
     ShareAuthModule,
     CollaboratorModule,
     ViewModule,
+    ViewOpenApiModule,
     CanaryModule,
+    SpaceDataDbMigrationGuardModule,
+    V2Module,
   ],
-  providers: [ShareService, DbProvider, ShareSocketService],
+  providers: [ShareService, DbProvider, ShareSocketService, SharedViewRecordQueryV2Service],
   controllers: [ShareController],
   exports: [ShareService, ShareSocketService],
 })

@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { defaultComputedUpdateOutboxConfig } from '@teable/v2-adapter-table-repository-postgres';
 import { Queue } from 'bullmq';
 
+import { ComputedOutboxClaimConcurrencyService } from './computed-outbox-claim-concurrency.service';
 import { COMPUTED_OUTBOX_WAKEUP_QUEUE } from './constants';
 
 const ACQUIRE_SCRIPT = `
@@ -59,7 +60,7 @@ end
 return removed
 `;
 
-const ADMISSION_CAPACITY = defaultComputedUpdateOutboxConfig.maxConcurrentProcessingPerBase;
+const DEFAULT_ADMISSION_CAPACITY = defaultComputedUpdateOutboxConfig.maxConcurrentProcessingPerBase;
 const LEASE_MS = 30_000;
 const RENEW_INTERVAL_MS = 10_000;
 const RENEW_TIMEOUT_MS = 5000;
@@ -93,8 +94,19 @@ export class ComputedOutboxBaseAdmissionService {
 
   constructor(
     @InjectQueue(COMPUTED_OUTBOX_WAKEUP_QUEUE)
-    private readonly queue: Queue
+    private readonly queue: Queue,
+    @Optional()
+    private readonly claimConcurrency?: ComputedOutboxClaimConcurrencyService
   ) {}
+
+  /**
+   * Admission must track the effective per-base claim cap, or a raised cap
+   * would still be throttled here. BYODB bases keep their env-default claim
+   * caps; the DB-side claim gate stays authoritative for them.
+   */
+  private get capacity(): number {
+    return this.claimConcurrency?.effective.perBase ?? DEFAULT_ADMISSION_CAPACITY;
+  }
 
   async runWithPermit<T>(
     baseId: string,
@@ -104,7 +116,7 @@ export class ComputedOutboxBaseAdmissionService {
     const owner = randomUUID();
     const acquisitionStartedAt = performance.now();
     const acquired = Number(
-      await this.eval(ACQUIRE_SCRIPT, [key], [LEASE_MS, ADMISSION_CAPACITY, owner])
+      await this.eval(ACQUIRE_SCRIPT, [key], [LEASE_MS, this.capacity, owner])
     );
     if (acquired !== 1) return { admitted: false };
     let activeUntil = acquisitionStartedAt + LEASE_MS;

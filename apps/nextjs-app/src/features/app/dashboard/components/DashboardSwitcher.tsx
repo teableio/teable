@@ -54,7 +54,7 @@ export const DashboardSwitcher = (props: {
           className={cn('w-[200px] justify-between', className)}
         >
           <span className="truncate">{selectedDashboard?.name}</span>
-          <ChevronsUpDown className="ml-auto size-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="ms-auto size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[200px] p-0">
@@ -77,7 +77,7 @@ export const DashboardSwitcher = (props: {
                   {name}
                   <Check
                     className={cn(
-                      'ml-auto h-4 w-4',
+                      'ms-auto h-4 w-4',
                       dashboardId === id ? 'opacity-100' : 'opacity-0'
                     )}
                   />
@@ -99,7 +99,7 @@ export const DashboardSwitcher = (props: {
                         createDashboardDialogRef.current?.open();
                       }}
                     >
-                      <PlusCircle className="mr-2 size-5" />
+                      <PlusCircle className="me-2 size-5" />
                       {t('dashboard:createDashboard.button')}
                     </CommandItem>
                   </CreateDashboardDialog>

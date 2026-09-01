@@ -394,14 +394,14 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
           disabled={disabled}
         >
           <div className="flex min-w-0 flex-1 items-center gap-2">{renderSelectedNodes()}</div>
-          <ChevronDown className="ml-2 size-4 shrink-0 opacity-50" />
+          <ChevronDown className="ms-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[354px] overflow-hidden p-0" align="start">
         {/* search input */}
         <div className="px-4 pt-4">
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute start-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder={t('common:actions.search')}
               value={searchQuery}
@@ -411,7 +411,7 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute end-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 <X className="size-4" />
               </button>
@@ -494,7 +494,10 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
 
                       {renderNodeIcon(item)}
 
-                      <div className="min-w-0 flex-1 truncate text-left" title={item.getItemName()}>
+                      <div
+                        className="min-w-0 flex-1 truncate text-start"
+                        title={item.getItemName()}
+                      >
                         {item.getItemName()}
                       </div>
                     </button>

@@ -10,6 +10,7 @@ import {
   LinkRelationship,
   type LookupField,
   type DomainError,
+  type Field,
   type FieldConditionDTO,
   type IFilterItemDTO,
   type ITableRecordConditionSpecVisitor,
@@ -39,6 +40,11 @@ import { match } from 'ts-pattern';
 
 import { TableRecordConditionWhereVisitor } from '../../visitors';
 import { buildDateLikeOrderExpression } from '../dateLikeOrderBy';
+import {
+  applyV1NullsOrder,
+  isNeverNullSystemOrderColumn,
+  uniqueOrderByEntries,
+} from '../systemOrderColumns';
 import type {
   DynamicDB,
   IQueryBuilderDeps,
@@ -64,6 +70,12 @@ const F = 'f'; // foreign table alias in lateral
 const H = 'h'; // host table alias in set-based aggregate joins
 const DEFAULT_CONDITIONAL_ORDER_BY = { column: '__auto_number', direction: 'asc' } as const;
 
+type ResolvedConditionalOrderBy = {
+  column: string;
+  direction: 'asc' | 'desc';
+  tieBreaker?: LinkOrderBy;
+};
+
 const parsePositiveInt = (raw: string | undefined, fallback: number): number => {
   if (!raw) return fallback;
   const parsed = Number(raw);
@@ -79,6 +91,13 @@ const CONDITIONAL_QUERY_DEFAULT_LIMIT = Math.min(
   CONDITIONAL_QUERY_MAX_LIMIT
 );
 const SIMPLE_CONDITIONAL_ROLLUP_OPERATORS: ReadonlySet<string> = new Set(['is', 'isAnyOf']);
+/**
+ * Value-less operators acceptable as residual constants on the set-based
+ * field-reference paths. They never reference a host field, so a filter like
+ * `foreign.key is {host.key} AND foreign.x isNotEmpty` stays hash-joinable
+ * instead of falling back to the per-host correlated lateral.
+ */
+const RESIDUAL_VALUELESS_OPERATORS: ReadonlySet<string> = new Set(['isEmpty', 'isNotEmpty']);
 const ORDER_INSENSITIVE_ROLLUP_EXPRESSIONS: ReadonlySet<RollupFunction> = new Set([
   'sum({values})',
   'average({values})',
@@ -109,7 +128,10 @@ type ConditionalFieldReferenceGroup = {
   hostFieldId: string;
   /** Field-reference equality item (`foreign.field is {host.field}`). */
   filterItem: IFilterItemDTO;
-  /** Source-only residual filters AND-ed with the field-ref equality. */
+  /**
+   * Additional field-ref equalities and source-only residual filters AND-ed
+   * with the primary field-ref equality.
+   */
   residualFilterItems: IFilterItemDTO[];
   limit?: number;
   /** Optional foreign-table sort for ranking / order-sensitive aggregates. */
@@ -189,6 +211,33 @@ const referencedHostFieldId = (item: IFilterItemDTO): string | null => {
   return null;
 };
 
+/**
+ * Resolve a field on a table for computed SQL building, enriching the bare
+ * `Field not found` domain error with the field id, table id, and the build
+ * scene. The `Field not found:` prefix is load-bearing — the computed task
+ * failure classifier keys stale-field-reference detection off that phrase.
+ */
+const resolveTableField = (
+  table: Table,
+  fieldId: FieldId,
+  scene: string
+): Result<Field, DomainError> =>
+  table
+    .getField((f) => f.id().equals(fieldId))
+    .mapErr(() =>
+      domainError.notFound({
+        code: 'record.computed.field_not_found',
+        message: `Field not found: ${fieldId.toString()} on table ${table
+          .id()
+          .toString()} (${scene})`,
+        details: {
+          fieldId: fieldId.toString(),
+          tableId: table.id().toString(),
+          scene,
+        },
+      })
+    );
+
 const filterItems = (filter: FieldConditionDTO['filter']): IFilterItemDTO[] => {
   if (!filter?.filterSet) {
     return [];
@@ -235,6 +284,9 @@ const isResidualConstantFilterItem = (item: IFilterItemDTO): boolean => {
   if (referencedHostFieldId(item) !== null) {
     return false;
   }
+  if (RESIDUAL_VALUELESS_OPERATORS.has(item.operator)) {
+    return item.value == null;
+  }
   if (!SIMPLE_CONDITIONAL_ROLLUP_OPERATORS.has(item.operator)) {
     return false;
   }
@@ -251,8 +303,14 @@ const isResidualConstantFilterItem = (item: IFilterItemDTO): boolean => {
 };
 
 /**
- * Split an AND filter into one field-reference equality key plus residual
+ * Split an AND filter into field-reference equality keys plus residual
  * source-only constant predicates. Nested filter sets are rejected.
+ *
+ * The first field-ref equality is the grouping/sharing key. Additional
+ * field-ref equalities are retained as residual items so the set-based
+ * WHERE keeps the full composite key. Callers that DISTINCT/GROUP BY a
+ * single host-key column must refuse residuals that still reference a
+ * host field.
  */
 const splitFieldReferenceAndResiduals = (
   filter: FieldConditionDTO['filter']
@@ -278,11 +336,12 @@ const splitFieldReferenceAndResiduals = (
     if (item.operator === 'is') {
       const referenced = referencedHostFieldId(item);
       if (referenced) {
-        if (fieldRefItem) {
-          return null;
+        if (!fieldRefItem) {
+          fieldRefItem = item;
+          hostFieldId = referenced;
+        } else {
+          residualFilterItems.push(item);
         }
-        fieldRefItem = item;
-        hostFieldId = referenced;
         continue;
       }
     }
@@ -299,6 +358,9 @@ const splitFieldReferenceAndResiduals = (
 
   return { fieldRefItem, hostFieldId, residualFilterItems };
 };
+
+const groupHasCompositeFieldReferenceKey = (group: ConditionalFieldReferenceGroup): boolean =>
+  group.residualFilterItems.some((item) => referencedHostFieldId(item) !== null);
 
 const conditionSortDto = (
   condition: FieldCondition
@@ -350,7 +412,7 @@ const conditionalRollupFieldReferenceGroup = (
 
 /**
  * Field-reference rollup eligible for a set-based host join:
- * - one field-ref equality (+ optional residual constant filters)
+ * - one or more field-ref equalities (+ optional residual constant filters)
  * - order-insensitive aggs (sum/max/...) with optional limit
  * - order-sensitive aggs (array_join/...) with ranking + limit
  */
@@ -388,7 +450,7 @@ const conditionalRollupSetBasedFieldReferenceGroup = (
 
 /**
  * Field-reference lookup eligible for set-based host join:
- * one field-ref equality, optional residual constants, optional sort, optional limit.
+ * one or more field-ref equalities, optional residual constants, optional sort, optional limit.
  */
 const conditionalLookupFieldReferenceGroup = (
   columnType: LateralColumnType
@@ -598,6 +660,16 @@ export interface IDirtyFilterConfig {
   recordIds?: ReadonlyArray<string>;
 }
 
+/**
+ * A live computed field whose persisted config references a deleted field.
+ * Surfaced by the builder so callers can log the degradation.
+ */
+export interface IDanglingComputedFieldReference {
+  readonly fieldId: string;
+  readonly tableId: string;
+  readonly scene: string;
+}
+
 export interface IComputedQueryBuilderOptions {
   /** Foreign tables for link/lookup/rollup - can be pre-set (for tests) or loaded via prepare() */
   readonly foreignTables?: ReadonlyMap<string, Table>;
@@ -626,6 +698,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private foreignTables: ReadonlyMap<string, Table>;
   private missingForeignTableIds: ReadonlySet<string> = new Set();
   private whereSpecs: Array<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>> = [];
+  private whereExpressions: Array<Expression<SqlBool>> = [];
   private dirtyFilterConfig: IDirtyFilterConfig | null = null;
   private readonly typeValidationStrategy: IPgTypeValidationStrategy;
   private readonly preferStoredLastModifiedFormula: boolean;
@@ -635,6 +708,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private readonly resolveSystemUserSnapshotsFromUsers: boolean;
   private readonly allowFullTableSetBasedRollups: boolean;
   private unchunkedDirtySetHostKeyColumns: ReadonlyArray<string> = [];
+  private danglingFieldRefs: IDanglingComputedFieldReference[] = [];
 
   readonly mode: QueryMode = 'computed';
 
@@ -672,13 +746,24 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     return this;
   }
 
-  orderBy(column: OrderByColumn, direction: 'asc' | 'desc'): this {
+  // group-identity collation is a stored-mode concern (grouped lists and
+  // range reads always run stored); computed reads keep their own collation
+  orderBy(
+    column: OrderByColumn,
+    direction: 'asc' | 'desc',
+    _options?: { readonly groupIdentityCollation?: boolean }
+  ): this {
     this.orderByValues.push({ column, direction });
     return this;
   }
 
   where(spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>): this {
     this.whereSpecs.push(spec);
+    return this;
+  }
+
+  whereExpression(expression: Expression<SqlBool>): this {
+    this.whereExpressions.push(expression);
     return this;
   }
 
@@ -698,6 +783,27 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
   canExecuteUnchunkedDirtySet(): boolean {
     return this.unchunkedDirtySetHostKeyColumns.length > 0;
+  }
+
+  /**
+   * Dangling references degraded to NULL during the last build().
+   */
+  danglingFieldReferences(): ReadonlyArray<IDanglingComputedFieldReference> {
+    return this.danglingFieldRefs;
+  }
+
+  /**
+   * A computed field whose config references a deleted field must behave
+   * exactly like hasError (NULL output) instead of failing the whole task:
+   * legacy field-delete paths could leave dependents unmarked, and a hard
+   * error here dead-letters the task as non-retryable obsolete_plan.
+   */
+  private degradeDanglingFieldReference(table: Table, fieldId: FieldId, scene: string): void {
+    this.danglingFieldRefs.push({
+      fieldId: fieldId.toString(),
+      tableId: table.id().toString(),
+      scene,
+    });
   }
 
   unchunkedHostKeyColumns(): ReadonlyArray<string> {
@@ -779,6 +885,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     const foreignTables = this.foreignTables;
     const projection = this.projection;
     this.unchunkedDirtySetHostKeyColumns = [];
+    this.danglingFieldRefs = [];
     const { laterals, conditionalLaterals, ctx: lateralCtx } = this.createLateralContext();
 
     return safeTry<QB, DomainError>(
@@ -806,7 +913,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
         // Resolve orderBy columns
         const resolvedOrderBy: ResolvedOrderBy[] = [];
-        for (const orderBy of this.orderByValues) {
+        for (const orderBy of uniqueOrderByEntries(this.orderByValues)) {
           const columnResult = yield* this.resolveOrderByColumn(table, orderBy.column);
           if (columnResult !== null) {
             resolvedOrderBy.push({
@@ -840,6 +947,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             qb.where(whereClause as unknown as Expression<SqlBool>)
           );
 
+        for (const expression of this.whereExpressions) {
+          query = query.where(expression);
+        }
+
         for (const orderBy of resolvedOrderBy) {
           if (orderBy.userLikeMode) {
             query = this.applyUserLikeOrderBy(
@@ -851,10 +962,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             );
           } else {
             const columnRef = orderBy.expression ?? sql`${sql.ref(`${T}.${orderBy.column}`)}`;
-            const nullOrderDirection: 'asc' | 'desc' = orderBy.direction === 'asc' ? 'desc' : 'asc';
-            query = query
-              .orderBy(sql`${columnRef} is null`, nullOrderDirection)
-              .orderBy(columnRef, orderBy.direction);
+            if (isNeverNullSystemOrderColumn(orderBy.column)) {
+              query = query.orderBy(columnRef, orderBy.direction);
+            } else {
+              query = query.orderBy(columnRef, applyV1NullsOrder(orderBy.direction));
+            }
           }
         }
 
@@ -1019,7 +1131,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       if (
         (columnType.type !== 'lookup' && columnType.type !== 'rollup') ||
         !columnType.condition ||
-        !columnType.condition.hasFilter()
+        columnType.condition.isEmpty()
       ) {
         return '';
       }
@@ -1103,7 +1215,9 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             columns: [],
             condition:
               (columnType.type === 'lookup' || columnType.type === 'rollup') &&
-              columnType.condition?.hasFilter()
+              (columnType.condition?.hasFilter() ||
+                columnType.condition?.hasSort() ||
+                columnType.condition?.hasLimit())
                 ? columnType.condition
                 : undefined,
           });
@@ -1262,10 +1376,31 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             continue;
           }
 
+          // Optional condition sort/limit (plain lookup/rollup options). The
+          // schema accepted them but the pipeline ignored them (T6520): the
+          // sort overrides the link-order aggregation ranking and the limit
+          // restricts the correlated row source per host record.
+          const resolvedConditionSort = lateral.condition?.hasSort()
+            ? yield* this.resolveConditionalSort(foreignTable, lateral.condition)
+            : null;
+          const conditionLimit = lateral.condition?.hasLimit()
+            ? lateral.condition.limit()
+            : undefined;
+          const linkOrderBy = lateral.columns.reduce<LinkOrderBy | undefined>(
+            (current, column) =>
+              current ?? ('orderBy' in column.columnType ? column.columnType.orderBy : undefined),
+            undefined
+          );
+          const conditionSort = resolvedConditionSort
+            ? { ...resolvedConditionSort, tieBreaker: linkOrderBy }
+            : null;
+
           const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
           for (const col of lateral.columns) {
             selectExprs.push(
-              yield* this.buildLateralSelectExpr(foreignTable, col.columnType, col.outputAlias)
+              yield* this.buildLateralSelectExpr(foreignTable, col.columnType, col.outputAlias, {
+                orderByOverride: conditionSort ?? undefined,
+              })
             );
           }
 
@@ -1276,13 +1411,36 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             lateral.condition
           );
 
-          let baseQuery = this.db
-            .selectFrom(`${foreignTableName} as ${F}`)
-            .select(selectExprs)
-            .where(joinCondition);
+          let baseQuery;
+          if (conditionSort || conditionLimit !== undefined) {
+            let rowsQuery = this.db
+              .selectFrom(`${foreignTableName} as ${F}`)
+              .selectAll(F)
+              .where(joinCondition);
+            if (filterWhere !== null) {
+              rowsQuery = rowsQuery.where(sql<SqlBool>`(${filterWhere})`);
+            }
+            const rowsOrderBy = conditionSort
+              ? buildResolvedConditionalOrderByExpr(conditionSort)
+              : conditionLimit !== undefined
+                ? buildLinkOrderByExpr(linkOrderBy) ?? sql.ref(`${F}.__auto_number`)
+                : null;
+            if (rowsOrderBy) {
+              rowsQuery = rowsQuery.orderBy(rowsOrderBy);
+            }
+            if (conditionLimit !== undefined) {
+              rowsQuery = rowsQuery.limit(conditionLimit);
+            }
+            baseQuery = this.db.selectFrom(rowsQuery.as(F)).select(selectExprs);
+          } else {
+            baseQuery = this.db
+              .selectFrom(`${foreignTableName} as ${F}`)
+              .select(selectExprs)
+              .where(joinCondition);
 
-          if (filterWhere !== null) {
-            baseQuery = baseQuery.where(filterWhere);
+            if (filterWhere !== null) {
+              baseQuery = baseQuery.where(sql<SqlBool>`(${filterWhere})`);
+            }
           }
 
           subqueries.push({ query: baseQuery.as(lateral.alias), joinMode: 'lateral' });
@@ -1447,6 +1605,42 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
    * - conditionalLookup: set-based host aggregate for field-reference equality
    *   (+ residual constants, optional sort/limit); otherwise LATERAL jsonb_agg
    */
+  /**
+   * A field-reference group can only drive the set-based fast paths when every
+   * pair resolves: each filter fieldId on the foreign table and each referenced
+   * value fieldId on the host table. Persisted conditions can violate this
+   * (e.g. both sides naming a host-table field); those must fall back to the
+   * generic lateral path instead of failing SQL generation.
+   */
+  private canResolveFieldReferenceGroup(
+    foreignTable: Table,
+    group: ConditionalFieldReferenceGroup
+  ): boolean {
+    const hostTable = this.table;
+    if (!hostTable) return false;
+
+    const pairs: Array<{ hostFieldId: string; foreignFieldId: string }> = [
+      { hostFieldId: group.hostFieldId, foreignFieldId: group.foreignFieldId },
+    ];
+    for (const item of group.residualFilterItems) {
+      const residualHostFieldId = referencedHostFieldId(item);
+      if (residualHostFieldId) {
+        pairs.push({ hostFieldId: residualHostFieldId, foreignFieldId: item.fieldId });
+      }
+    }
+
+    return pairs.every((pair) => {
+      const hostFieldId = FieldId.create(pair.hostFieldId);
+      const foreignFieldId = FieldId.create(pair.foreignFieldId);
+      if (hostFieldId.isErr() || foreignFieldId.isErr()) return false;
+
+      return (
+        hostTable.getField((field) => field.id().equals(hostFieldId.value)).isOk() &&
+        foreignTable.getField((field) => field.id().equals(foreignFieldId.value)).isOk()
+      );
+    });
+  }
+
   private resolveScalarConditionalHostKeyColumn(
     foreignTable: Table,
     group: ConditionalFieldReferenceGroup
@@ -1457,11 +1651,32 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     }
 
     return safeTry<string | null, DomainError>(function* () {
-      const hostFieldId = yield* FieldId.create(group.hostFieldId);
-      const foreignFieldId = yield* FieldId.create(group.foreignFieldId);
-      const hostField = yield* hostTable.getField((field) => field.id().equals(hostFieldId));
-      const foreignField = yield* foreignTable.getField((field) =>
-        field.id().equals(foreignFieldId)
+      // Composite field-ref keys cannot DISTINCT/GROUP BY a single text column.
+      // Keep the host-id join so extra equalities stay in the WHERE clause.
+      if (groupHasCompositeFieldReferenceKey(group)) {
+        return ok(null);
+      }
+
+      // Self-table field-ref filters are swapped by FieldCondition.toRecordConditionSpec:
+      // `NameMirror is {Name}` becomes F.Name = H.NameMirror. The DISTINCT/join
+      // host-key column must follow that swapped host side, or the predicate
+      // reads H.NameMirror from a projection that only selected Name.
+      const isSelfTable = hostTable.id().equals(foreignTable.id());
+      const hostFieldId = yield* FieldId.create(
+        isSelfTable ? group.foreignFieldId : group.hostFieldId
+      );
+      const foreignFieldId = yield* FieldId.create(
+        isSelfTable ? group.hostFieldId : group.foreignFieldId
+      );
+      const hostField = yield* resolveTableField(
+        hostTable,
+        hostFieldId,
+        'resolving conditional field-reference host key'
+      );
+      const foreignField = yield* resolveTableField(
+        foreignTable,
+        foreignFieldId,
+        'resolving conditional field-reference foreign key'
       );
 
       // Text equality is stable under DISTINCT/GROUP BY and covers the high-fanout
@@ -1520,8 +1735,16 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           const foreignTableName = yield* foreignDbTableName.value();
 
           const firstColumnType = lateral.columns[0]?.columnType;
-          const sharedRollupSetBasedGroup = sharedConditionalRollupSetBasedFieldReferenceGroup(
-            lateral.columns
+          // Degenerate field-reference filters (e.g. both sides naming a
+          // host-table field) cannot drive the set-based fast paths. Fall back
+          // to the generic lateral path, which treats unresolvable condition
+          // fields as a skipped filter instead of failing the whole run.
+          const resolvableGroup = (
+            group: ConditionalFieldReferenceGroup | null
+          ): ConditionalFieldReferenceGroup | null =>
+            group && this.canResolveFieldReferenceGroup(foreignTable, group) ? group : null;
+          const sharedRollupSetBasedGroup = resolvableGroup(
+            sharedConditionalRollupSetBasedFieldReferenceGroup(lateral.columns)
           );
           if (sharedRollupSetBasedGroup) {
             const hostKeyColumn = yield* this.resolveScalarConditionalHostKeyColumn(
@@ -1544,8 +1767,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             continue;
           }
 
-          const sharedLookupFieldRefGroup = sharedConditionalLookupFieldReferenceGroup(
-            lateral.columns
+          const sharedLookupFieldRefGroup = resolvableGroup(
+            sharedConditionalLookupFieldReferenceGroup(lateral.columns)
           );
           if (sharedLookupFieldRefGroup) {
             const hostKeyColumn = yield* this.resolveScalarConditionalHostKeyColumn(
@@ -1568,10 +1791,16 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             continue;
           }
 
-          const sharedFieldRefGroup = sharedConditionalFieldReferenceGroup(lateral.columns);
+          const sharedFieldRefGroup = resolvableGroup(
+            sharedConditionalFieldReferenceGroup(lateral.columns)
+          );
           const condition = match(firstColumnType)
             .with({ type: 'conditionalLookup' }, (c) => c.condition)
             .with({ type: 'conditionalRollup' }, (c) => c.condition)
+            // Plain lookup/rollup conditions carry optional sort/limit too —
+            // without this they were accepted by the schema but never applied.
+            .with({ type: 'lookup' }, (c) => c.condition)
+            .with({ type: 'rollup' }, (c) => c.condition)
             .otherwise(() => undefined);
 
           const sourceOnlyRollupGroup = isSourceOnlyConditionalRollupGroup(
@@ -1589,6 +1818,12 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           const sortClause = condition
             ? yield* this.resolveConditionalSort(foreignTable, condition)
             : null;
+          const linkOrderBy = lateral.columns.reduce<LinkOrderBy | undefined>(
+            (current, column) =>
+              current ?? ('orderBy' in column.columnType ? column.columnType.orderBy : undefined),
+            undefined
+          );
+          const resolvedSortClause = sortClause ? { ...sortClause, tieBreaker: linkOrderBy } : null;
           const configuredLimit = condition?.limit();
           const isConditionalDerived =
             firstColumnType?.type === 'conditionalLookup' ||
@@ -1600,7 +1835,9 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             !condition?.hasLimit();
           const limitValue = canUseUnboundedOrderlessRollup
             ? undefined
-            : configuredLimit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT;
+            : isConditionalDerived
+              ? configuredLimit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT
+              : configuredLimit;
           const useUncorrelatedRollupFastPath =
             this.shouldUseConditionalRollupFastPath(foreignTable, firstColumnType) &&
             !sharedFieldRefGroup;
@@ -1608,11 +1845,13 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             isConditionalDerived && !canUseUnboundedOrderlessRollup
               ? DEFAULT_CONDITIONAL_ORDER_BY
               : undefined;
-          const orderByForSelect = sortClause ?? defaultOrderBy;
+          const orderByForSelect = resolvedSortClause ?? defaultOrderBy;
           const orderByForLimit =
-            sortClause ??
-            (limitValue !== undefined && isConditionalDerived
-              ? DEFAULT_CONDITIONAL_ORDER_BY
+            resolvedSortClause ??
+            (limitValue !== undefined
+              ? isConditionalDerived
+                ? DEFAULT_CONDITIONAL_ORDER_BY
+                : linkOrderBy ?? DEFAULT_CONDITIONAL_ORDER_BY
               : null);
           const needsSubquery = Boolean(orderByForLimit || limitValue);
           const sourceAlias = needsSubquery ? `${lateral.alias}_src` : F;
@@ -1645,10 +1884,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
                   baseQuery = baseQuery.where(whereClause);
                 }
                 if (orderByForLimit !== null) {
-                  baseQuery = baseQuery.orderBy(
-                    sql.ref(`${F}.${orderByForLimit.column}`),
-                    orderByForLimit.direction
-                  );
+                  const orderByExpr =
+                    'source' in orderByForLimit
+                      ? buildLinkOrderByExpr(orderByForLimit)
+                      : buildResolvedConditionalOrderByExpr(orderByForLimit);
+                  if (orderByExpr) baseQuery = baseQuery.orderBy(orderByExpr);
                 }
                 if (limitValue !== undefined) {
                   baseQuery = baseQuery.limit(limitValue);
@@ -1786,12 +2026,29 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       return ok(DEFAULT_CONDITIONAL_ORDER_BY);
     }
 
+    const parsedSortFieldId = FieldId.create(group.sort.fieldId);
+    if (
+      parsedSortFieldId.isOk() &&
+      foreignTable.getField((f) => f.id().equals(parsedSortFieldId.value)).isErr()
+    ) {
+      this.degradeDanglingFieldReference(
+        foreignTable,
+        parsedSortFieldId.value,
+        'conditional field-reference sort field'
+      );
+      return ok(DEFAULT_CONDITIONAL_ORDER_BY);
+    }
+
     return safeTry<{ column: string; direction: 'asc' | 'desc' }, DomainError>(function* () {
       const sortFieldId = FieldId.create(group.sort!.fieldId);
       if (sortFieldId.isErr()) {
         return err(sortFieldId.error);
       }
-      const field = yield* foreignTable.getField((f) => f.id().equals(sortFieldId.value));
+      const field = yield* resolveTableField(
+        foreignTable,
+        sortFieldId.value,
+        'resolving conditional field-reference sort field'
+      );
       const dbFieldName = yield* field.dbFieldName();
       const column = yield* dbFieldName.value();
       return ok({ column, direction: group.sort!.order });
@@ -2035,11 +2292,20 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       return ok(null);
     }
 
-    return safeTry<{ column: string; direction: 'asc' | 'desc' } | null, DomainError>(function* () {
-      const sort = condition.sort();
-      if (!sort) return ok(null);
+    const sort = condition.sort();
+    if (!sort) return ok(null);
 
-      const field = yield* foreignTable.getField((f) => f.id().equals(sort.fieldId()));
+    if (foreignTable.getField((f) => f.id().equals(sort.fieldId())).isErr()) {
+      this.degradeDanglingFieldReference(foreignTable, sort.fieldId(), 'conditional sort field');
+      return ok(null);
+    }
+
+    return safeTry<{ column: string; direction: 'asc' | 'desc' } | null, DomainError>(function* () {
+      const field = yield* resolveTableField(
+        foreignTable,
+        sort.fieldId(),
+        'resolving conditional sort field'
+      );
       const dbFieldName = yield* field.dbFieldName();
       const column = yield* dbFieldName.value();
       return ok({ column, direction: sort.order() });
@@ -2125,69 +2391,73 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private buildLateralSelectExpr(
     foreignTable: Table,
     columnType: LateralColumnType,
-    outputAlias: string
+    outputAlias: string,
+    options?: { orderByOverride?: ResolvedConditionalOrderBy }
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
     return (
       match(columnType)
         .with({ type: 'link' }, ({ lookupFieldId, isMultiValue, orderBy }) =>
-          foreignTable
-            .getField((f) => f.id().equals(lookupFieldId))
-            .andThen((lookupField) => {
-              // Keep v1-compatible link title behavior: when the configured lookup field
-              // becomes a checkbox via type conversion, fall back to foreign primary field.
-              const titleField = lookupField.type().equals(FieldType.checkbox())
-                ? (() => {
-                    const primaryFieldResult = foreignTable.getField((f) =>
-                      f.id().equals(foreignTable.primaryFieldId())
-                    );
-                    return primaryFieldResult.isOk() ? primaryFieldResult.value : lookupField;
-                  })()
-                : lookupField;
+          resolveTableField(
+            foreignTable,
+            lookupFieldId,
+            'resolving link title lookup field'
+          ).andThen((lookupField) => {
+            // Keep v1-compatible link title behavior: when the configured lookup field
+            // becomes a checkbox via type conversion, fall back to foreign primary field.
+            const titleField = lookupField.type().equals(FieldType.checkbox())
+              ? (() => {
+                  const primaryFieldResult = foreignTable.getField((f) =>
+                    f.id().equals(foreignTable.primaryFieldId())
+                  );
+                  return primaryFieldResult.isOk() ? primaryFieldResult.value : lookupField;
+                })()
+              : lookupField;
 
-              return titleField
-                .dbFieldName()
-                .andThen((dbFieldName) => dbFieldName.value())
-                .map((columnName) => {
-                  const columnRef = sql.ref(`${F}.${columnName}`);
-                  const qualifiedRef = this.buildQualifiedRef(F, columnName);
-                  const isMultiValueResult = titleField
-                    .isMultipleCellValue()
-                    .map((multiplicity) => multiplicity.isMultiple());
-                  const isMultiValueField = isMultiValueResult.isOk() && isMultiValueResult.value;
-                  const formattedSql = !isMultiValueField
-                    ? formatFieldValueAsStringSql(titleField, qualifiedRef, undefined, undefined, {
-                        normalizeJsonScalar:
-                          titleField.type().equals(FieldType.formula()) ||
-                          titleField.type().equals(FieldType.conditionalRollup()),
-                      })
-                    : undefined;
+            return titleField
+              .dbFieldName()
+              .andThen((dbFieldName) => dbFieldName.value())
+              .map((columnName) => {
+                const columnRef = sql.ref(`${F}.${columnName}`);
+                const qualifiedRef = this.buildQualifiedRef(F, columnName);
+                const isMultiValueResult = titleField
+                  .isMultipleCellValue()
+                  .map((multiplicity) => multiplicity.isMultiple());
+                const isMultiValueField = isMultiValueResult.isOk() && isMultiValueResult.value;
+                const formattedSql = !isMultiValueField
+                  ? formatFieldValueAsStringSql(titleField, qualifiedRef, undefined, undefined, {
+                      normalizeJsonScalar:
+                        titleField.type().equals(FieldType.formula()) ||
+                        titleField.type().equals(FieldType.conditionalRollup()),
+                    })
+                  : undefined;
 
-                  // For JSON-stored fields (User, Attachment, etc.), extract the 'title' property
-                  // Check if field is stored as JSON by checking dbFieldType
-                  const dbFieldTypeResult = titleField.dbFieldType().andThen((t) => t.value());
-                  const isJsonbStorage =
-                    dbFieldTypeResult.isOk() && dbFieldTypeResult.value.toUpperCase() === 'JSON';
+                // For JSON-stored fields (User, Attachment, etc.), extract the 'title' property
+                // Check if field is stored as JSON by checking dbFieldType
+                const isJsonbStorage = titleField
+                  .dbFieldType()
+                  .map((t) => t.isJson())
+                  .unwrapOr(false);
 
-                  let titleTextRef: RawBuilder<unknown>;
-                  if (isMultiValueField) {
-                    // For multi-value fields (e.g., formula returning array like ['A'] or ['B', 'C']),
-                    // convert JSONB array to comma-separated string
-                    // This matches v1's formatStringArray behavior
-                    const columnJson = sql`to_jsonb(${columnRef})`;
-                    const normalizedColumnJson = sql`(CASE
+                let titleTextRef: RawBuilder<unknown>;
+                if (isMultiValueField) {
+                  // For multi-value fields (e.g., formula returning array like ['A'] or ['B', 'C']),
+                  // convert JSONB array to comma-separated string
+                  // This matches v1's formatStringArray behavior
+                  const columnJson = sql`to_jsonb(${columnRef})`;
+                  const normalizedColumnJson = sql`(CASE
                       WHEN ${columnRef} IS NULL THEN '[]'::jsonb
                       WHEN jsonb_typeof(${columnJson}) = 'array' THEN ${columnJson}
                       WHEN jsonb_typeof(${columnJson}) = 'null' THEN '[]'::jsonb
                       ELSE jsonb_build_array(${columnJson})
                     END)`;
-                    const formattedElemSql = formatFieldValueAsStringSql(
-                      titleField,
-                      `elem #>> '{}'`,
-                      undefined,
-                      undefined,
-                      { normalizeJsonScalar: false }
-                    );
-                    titleTextRef = sql`(
+                  const formattedElemSql = formatFieldValueAsStringSql(
+                    titleField,
+                    `elem #>> '{}'`,
+                    undefined,
+                    undefined,
+                    { normalizeJsonScalar: false }
+                  );
+                  titleTextRef = sql`(
                       SELECT string_agg(
                         CASE
                           WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
@@ -2198,52 +2468,52 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
                       )
                       FROM jsonb_array_elements(${normalizedColumnJson}) WITH ORDINALITY AS t(elem, ord)
                     )`;
-                  } else if (formattedSql) {
-                    // Use formatted SQL if available (for Number/DateTime formatting)
-                    titleTextRef = sql.raw(formattedSql);
-                  } else if (isJsonbStorage) {
-                    // For JSON-stored fields, extract a display-friendly scalar
-                    titleTextRef = sql.raw(extractJsonScalarText(qualifiedRef));
-                  } else {
-                    // Default: cast to text
-                    titleTextRef = sql`(${columnRef})::text`;
-                  }
-                  // Build JSON object: {id: ..., title: ...}
-                  const jsonObj = sql`jsonb_strip_nulls(jsonb_build_object('id', ${sql.ref(`${F}.__id`)}, 'title', ${titleTextRef}))`;
+                } else if (formattedSql) {
+                  // Use formatted SQL if available (for Number/DateTime formatting)
+                  titleTextRef = sql.raw(formattedSql);
+                } else if (isJsonbStorage) {
+                  // For JSON-stored fields, extract a display-friendly scalar
+                  titleTextRef = sql.raw(extractJsonScalarText(qualifiedRef));
+                } else {
+                  // Default: cast to text
+                  titleTextRef = sql`(${columnRef})::text`;
+                }
+                // Build JSON object: {id: ..., title: ...}
+                const jsonObj = sql`jsonb_strip_nulls(jsonb_build_object('id', ${sql.ref(`${F}.__id`)}, 'title', ${titleTextRef}))`;
 
-                  // CRITICAL FIX: If multi-value and orderBy is undefined, provide default ordering
-                  // This ensures OneMany foreign-based links get proper __id ordering
-                  const effectiveOrderBy =
-                    isMultiValue && !orderBy
-                      ? ({ source: 'foreign' as const, column: undefined } as LinkOrderBy)
-                      : orderBy;
-                  const orderByExpr = buildLinkOrderByExpr(effectiveOrderBy);
+                // CRITICAL FIX: If multi-value and orderBy is undefined, provide default ordering
+                // This ensures OneMany foreign-based links get proper __id ordering
+                const effectiveOrderBy =
+                  isMultiValue && !orderBy
+                    ? ({ source: 'foreign' as const, column: undefined } as LinkOrderBy)
+                    : orderBy;
+                const orderByExpr = buildLinkOrderByExpr(effectiveOrderBy);
 
-                  if (isMultiValue) {
-                    // Multi-value: aggregate as JSON array
-                    // Use jsonb_agg to get JSONB type which is more efficient for storage and indexing
-                    return orderByExpr
-                      ? sql`jsonb_agg(${jsonObj} ORDER BY ${orderByExpr})`.as(outputAlias)
-                      : sql`jsonb_agg(${jsonObj})`.as(outputAlias);
-                  } else {
-                    // Single value: return single object (use first match)
-                    // Must use jsonb_agg (not json_agg) because only JSONB supports subscript [0] access
-                    return orderByExpr
-                      ? sql`(jsonb_agg(${jsonObj} ORDER BY ${orderByExpr}))[0]`.as(outputAlias)
-                      : sql`(jsonb_agg(${jsonObj}))[0]`.as(outputAlias);
-                  }
-                });
-            })
+                if (isMultiValue) {
+                  // Multi-value: aggregate as JSON array
+                  // Use jsonb_agg to get JSONB type which is more efficient for storage and indexing
+                  return orderByExpr
+                    ? sql`jsonb_agg(${jsonObj} ORDER BY ${orderByExpr})`.as(outputAlias)
+                    : sql`jsonb_agg(${jsonObj})`.as(outputAlias);
+                } else {
+                  // Single value: return single object (use first match)
+                  // Must use jsonb_agg (not json_agg) because only JSONB supports subscript [0] access
+                  return orderByExpr
+                    ? sql`(jsonb_agg(${jsonObj} ORDER BY ${orderByExpr}))[0]`.as(outputAlias)
+                    : sql`(jsonb_agg(${jsonObj}))[0]`.as(outputAlias);
+                }
+              });
+          })
         )
         .with({ type: 'lookup' }, ({ foreignFieldId, orderBy, isMultiValue }) =>
           this.buildLookupAggExpr(foreignTable, foreignFieldId, outputAlias, {
-            orderBy,
+            orderBy: options?.orderByOverride ?? orderBy,
             isMultiValue,
           })
         )
         .with({ type: 'rollup' }, ({ foreignFieldId, expression, orderBy }) =>
           this.buildRollupAggregateExpr(foreignTable, foreignFieldId, expression, {
-            orderBy,
+            orderBy: options?.orderByOverride ?? orderBy,
           }).map((expr: RawBuilder<unknown>) => expr.as(outputAlias))
         )
         // Conditional types are handled in buildConditionalJoins, not here
@@ -2331,11 +2601,13 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     foreignFieldId: FieldId,
     tableAlias: string = F
   ): Result<RawBuilder<unknown>, DomainError> {
-    return foreignTable
-      .getField((f) => f.id().equals(foreignFieldId))
-      .andThen((field) =>
-        this.getFieldSourceExpr(field, tableAlias).map(({ expr }) => sql`${expr}`)
-      );
+    return resolveTableField(
+      foreignTable,
+      foreignFieldId,
+      'resolving foreign column reference'
+    ).andThen((field) =>
+      this.getFieldSourceExpr(field, tableAlias).map(({ expr }) => sql`${expr}`)
+    );
   }
 
   private buildPerRowNestedJsonTextExpr(colRef: RawBuilder<unknown>): RawBuilder<unknown> {
@@ -2362,26 +2634,48 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     )`;
   }
 
+  /**
+   * Deduplicate a pre-ordered jsonb array while keeping first-occurrence order.
+   * `json_agg(DISTINCT x)` / `SELECT DISTINCT val ORDER BY val` sort by value and
+   * cannot preserve link/source order.
+   */
   private buildDistinctNestedJsonTextArrayExpr(
     baseAggregate: RawBuilder<unknown>
   ): RawBuilder<unknown> {
     return sql`(
-      SELECT jsonb_agg(to_jsonb(v.val))
+      SELECT jsonb_agg(to_jsonb(v.val) ORDER BY v.outer_ord, v.inner_ord)
       FROM (
-        SELECT DISTINCT val
+        SELECT DISTINCT ON (flattened.val) flattened.val, flattened.outer_ord, flattened.inner_ord
         FROM (
-          SELECT ${sql.raw(extractJsonScalarText('leaf'))} AS val
-          FROM jsonb_array_elements(COALESCE(${baseAggregate}, '[]'::jsonb)) AS row_elem(elem)
+          SELECT ${sql.raw(extractJsonScalarText('leaf'))} AS val,
+                 row_elem.outer_ord,
+                 leaf_elem.inner_ord
+          FROM jsonb_array_elements(COALESCE(${baseAggregate}, '[]'::jsonb))
+            WITH ORDINALITY AS row_elem(elem, outer_ord)
           CROSS JOIN LATERAL jsonb_array_elements(
             CASE
               WHEN jsonb_typeof(row_elem.elem) = 'array' THEN row_elem.elem
               ELSE jsonb_build_array(row_elem.elem)
             END
-          ) AS leaf_elem(leaf)
+          ) WITH ORDINALITY AS leaf_elem(leaf, inner_ord)
         ) AS flattened
         WHERE val IS NOT NULL AND val <> ''
-        ORDER BY val
+        ORDER BY flattened.val, flattened.outer_ord, flattened.inner_ord
       ) AS v
+    )`;
+  }
+
+  private buildFirstOccurrenceUniqueJsonbArrayExpr(
+    orderedJsonbAgg: RawBuilder<unknown>
+  ): RawBuilder<unknown> {
+    return sql`(
+      SELECT jsonb_agg(uniq.val ORDER BY uniq.pos)
+      FROM (
+        SELECT DISTINCT ON (src.val) src.val, src.pos
+        FROM jsonb_array_elements(COALESCE(${orderedJsonbAgg}, '[]'::jsonb))
+          WITH ORDINALITY AS src(val, pos)
+        ORDER BY src.val, src.pos
+      ) AS uniq
     )`;
   }
 
@@ -2440,41 +2734,53 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     outputAlias: string,
     options?: {
       tableAlias?: string;
-      orderBy?: LinkOrderBy | { column: string; direction: 'asc' | 'desc' };
+      orderBy?: LinkOrderBy | ResolvedConditionalOrderBy;
       isMultiValue?: boolean;
     }
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
     const tableAlias = options?.tableAlias ?? F;
     const orderBy = options?.orderBy;
     const isMultiValue = options?.isMultiValue ?? true;
-    return foreignTable
-      .getField((f) => f.id().equals(foreignFieldId))
-      .andThen((foreignField) =>
-        this.getFieldSourceExpr(foreignField, tableAlias).andThen(
-          ({ expr: colRef, isJsonbStorage: sourceIsJsonb }) => {
-            // Build orderBy expression - handle both LinkOrderBy and simple format
-            const orderByExpr = orderBy
-              ? 'source' in orderBy
-                ? buildLinkOrderByExpr(orderBy)
-                : sql`${sql.ref(`${tableAlias}.${orderBy.column}`)} ${sql.raw(orderBy.direction)}`
-              : null;
-            // Include leading space in orderByRef so no trailing space when empty
-            const orderByRef = orderByExpr ? sql` order by ${orderByExpr}` : sql``;
+    if (foreignTable.getField((f) => f.id().equals(foreignFieldId)).isErr()) {
+      this.degradeDanglingFieldReference(
+        foreignTable,
+        foreignFieldId,
+        'lookup aggregation source field'
+      );
+      return ok(sql`NULL::jsonb`.as(outputAlias));
+    }
+    return resolveTableField(
+      foreignTable,
+      foreignFieldId,
+      'resolving lookup aggregation source field'
+    ).andThen((foreignField) =>
+      this.getFieldSourceExpr(foreignField, tableAlias).andThen(
+        ({ expr: colRef, isJsonbStorage: sourceIsJsonb }) => {
+          // Build orderBy expression - handle both LinkOrderBy and simple format
+          const orderByExpr = orderBy
+            ? 'source' in orderBy
+              ? buildLinkOrderByExpr(orderBy)
+              : buildResolvedConditionalOrderByExpr(orderBy, tableAlias)
+            : null;
+          // Include leading space in orderByRef so no trailing space when empty
+          const orderByRef = orderByExpr ? sql` order by ${orderByExpr}` : sql``;
 
-            // Check if the foreign field actually stores data as JSONB by checking dbFieldType
-            // Don't assume lookup/link fields are always JSONB - they might be TEXT if looking up text values
-            const dbFieldTypeResult = foreignField.dbFieldType().andThen((t) => t.value());
-            const isJsonbStorage =
-              sourceIsJsonb ??
-              (dbFieldTypeResult.isOk() && dbFieldTypeResult.value.toUpperCase() === 'JSON');
+          // Check if the foreign field actually stores data as JSONB by checking dbFieldType
+          // Don't assume lookup/link fields are always JSONB - they might be TEXT if looking up text values
+          const isJsonbStorage =
+            sourceIsJsonb ??
+            foreignField
+              .dbFieldType()
+              .map((t) => t.isJson())
+              .unwrapOr(false);
 
-            if (isJsonbStorage) {
-              const aggExpr = sql`jsonb_agg(${colRef}::jsonb${orderByRef}) FILTER (WHERE ${colRef} IS NOT NULL)`;
-              const flattenedExpr = this.canUseSingleLevelLookupFlatten(foreignField)
-                ? this.buildSingleLevelLookupFlattenExpr(aggExpr)
-                : // For general JSONB columns we still need the recursive flattening path
-                  // to preserve v1-compatible behavior for deeper nesting.
-                  sql`(
+          if (isJsonbStorage) {
+            const aggExpr = sql`jsonb_agg(${colRef}::jsonb${orderByRef}) FILTER (WHERE ${colRef} IS NOT NULL)`;
+            const flattenedExpr = this.canUseSingleLevelLookupFlatten(foreignField)
+              ? this.buildSingleLevelLookupFlattenExpr(aggExpr)
+              : // For general JSONB columns we still need the recursive flattening path
+                // to preserve v1-compatible behavior for deeper nesting.
+                sql`(
                     WITH RECURSIVE __flat(e) AS (
                       SELECT ${aggExpr}
                       UNION ALL
@@ -2489,29 +2795,27 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
                     SELECT jsonb_agg(e) FILTER (WHERE jsonb_typeof(e) <> 'array') FROM __flat
                   )`;
 
-              return ok(
-                isMultiValue
-                  ? sql`${flattenedExpr}`.as(outputAlias)
-                  : sql`${flattenedExpr} -> 0`.as(outputAlias)
-              );
-            }
-
-            const fieldValueTypeResult = foreignField.accept(new FieldValueTypeVisitor());
-            const isDateTimeLookupTarget =
-              fieldValueTypeResult.isOk() &&
-              fieldValueTypeResult.value.cellValueType.equals(CellValueType.dateTime());
-
-            const lookupValueExpr =
-              isMultiValue && isDateTimeLookupTarget
-                ? sql`to_jsonb(to_char(${colRef} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))`
-                : sql`to_jsonb(${colRef})`;
-            const aggExpr = sql`jsonb_agg(${lookupValueExpr}${orderByRef}) FILTER (WHERE ${colRef} IS NOT NULL)`;
             return ok(
-              isMultiValue ? aggExpr.as(outputAlias) : sql`${aggExpr} -> 0`.as(outputAlias)
+              isMultiValue
+                ? sql`${flattenedExpr}`.as(outputAlias)
+                : sql`${flattenedExpr} -> 0`.as(outputAlias)
             );
           }
-        )
-      );
+
+          const fieldValueTypeResult = foreignField.accept(new FieldValueTypeVisitor());
+          const isDateTimeLookupTarget =
+            fieldValueTypeResult.isOk() &&
+            fieldValueTypeResult.value.cellValueType.equals(CellValueType.dateTime());
+
+          const lookupValueExpr =
+            isMultiValue && isDateTimeLookupTarget
+              ? sql`to_jsonb(to_char(${colRef} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))`
+              : sql`to_jsonb(${colRef})`;
+          const aggExpr = sql`jsonb_agg(${lookupValueExpr}${orderByRef}) FILTER (WHERE ${colRef} IS NOT NULL)`;
+          return ok(isMultiValue ? aggExpr.as(outputAlias) : sql`${aggExpr} -> 0`.as(outputAlias));
+        }
+      )
+    );
   }
 
   private buildRollupAggregateExpr(
@@ -2520,17 +2824,23 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     expression: RollupFunction,
     options?: {
       tableAlias?: string;
-      orderBy?: LinkOrderBy | { column: string; direction: 'asc' | 'desc' };
+      orderBy?: LinkOrderBy | ResolvedConditionalOrderBy;
       filterWhere?: Expression<SqlBool>;
     }
   ): Result<RawBuilder<unknown>, DomainError> {
+    if (foreignTable.getField((f) => f.id().equals(foreignFieldId)).isErr()) {
+      this.degradeDanglingFieldReference(
+        foreignTable,
+        foreignFieldId,
+        'rollup aggregation source field'
+      );
+      return ok(sql`NULL`);
+    }
     const tableAlias = options?.tableAlias ?? F;
     const orderByExpr = options?.orderBy
       ? 'source' in options.orderBy
         ? buildLinkOrderByExpr(options.orderBy)
-        : sql`${sql.ref(`${tableAlias}.${options.orderBy.column}`)} ${sql.raw(
-            options.orderBy.direction
-          )}`
+        : buildResolvedConditionalOrderByExpr(options.orderBy, tableAlias)
       : null;
     const orderBySql = orderByExpr ? sql` ORDER BY ${orderByExpr}` : sql``;
     const filterAgg = (agg: RawBuilder<unknown>): RawBuilder<unknown> =>
@@ -2538,7 +2848,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
     return safeTry<RawBuilder<unknown>, DomainError>(
       function* (this: ComputedTableRecordQueryBuilder) {
-        const foreignField = yield* foreignTable.getField((f) => f.id().equals(foreignFieldId));
+        const foreignField = yield* resolveTableField(
+          foreignTable,
+          foreignFieldId,
+          'resolving rollup aggregation source field'
+        );
         const colRef = yield* this.getForeignColRef(foreignTable, foreignFieldId, tableAlias);
         const valueType = yield* foreignField.accept(new FieldValueTypeVisitor());
         const isNumericTarget = valueType.cellValueType.equals(CellValueType.number());
@@ -2584,7 +2898,15 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             return ok(this.castAgg(sql`COALESCE(${filterAgg(sql`COUNT(${rowPresenceExpr})`)}, 0)`));
           }
           case 'counta({values})':
+            return ok(this.castAgg(sql`COALESCE(${filterAgg(sql`COUNT(${colRef})`)}, 0)`));
           case 'count({values})':
+            // Numeric sources keep duplicate numbers. Scalar non-numeric sources
+            // count unique non-empty values so COUNT is not identical to COUNTA.
+            if (!isNumericTarget && !isMultipleValue) {
+              return ok(
+                this.castAgg(sql`COALESCE(${filterAgg(sql`COUNT(DISTINCT ${colRef})`)}, 0)`)
+              );
+            }
             return ok(this.castAgg(sql`COALESCE(${filterAgg(sql`COUNT(${colRef})`)}, 0)`));
           case 'max({values})': {
             const aggregate = filterAgg(sql`MAX(${colRef})`);
@@ -2635,19 +2957,20 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             );
           }
           case 'array_unique({values})': {
+            const uniqueOrderExpr = orderByExpr ?? sql.ref(`${tableAlias}.__auto_number`);
             if (foreignField.type().equals(FieldType.link())) {
-              const baseAggregate = orderByExpr
-                ? sql`jsonb_agg(to_jsonb(${colRef}) ORDER BY ${orderByExpr}) FILTER (WHERE ${colRef} IS NOT NULL)`
-                : sql`jsonb_agg(to_jsonb(${colRef})) FILTER (WHERE ${colRef} IS NOT NULL)`;
+              const baseAggregate = sql`jsonb_agg(to_jsonb(${colRef}) ORDER BY ${uniqueOrderExpr}) FILTER (WHERE ${colRef} IS NOT NULL)`;
               return ok(this.buildDistinctNestedJsonTextArrayExpr(baseAggregate));
             }
             if (isMultipleValue) {
-              const baseAggregate = orderByExpr
-                ? sql`jsonb_agg(${colRef} ORDER BY ${orderByExpr}) FILTER (WHERE ${colRef} IS NOT NULL)`
-                : sql`jsonb_agg(${colRef}) FILTER (WHERE ${colRef} IS NOT NULL)`;
+              const baseAggregate = sql`jsonb_agg(${colRef} ORDER BY ${uniqueOrderExpr}) FILTER (WHERE ${colRef} IS NOT NULL)`;
               return ok(this.buildDistinctNestedJsonTextArrayExpr(baseAggregate));
             }
-            return ok(sql`json_agg(DISTINCT ${colRef})`);
+            return ok(
+              this.buildFirstOccurrenceUniqueJsonbArrayExpr(
+                sql`jsonb_agg(to_jsonb(${colRef}) ORDER BY ${uniqueOrderExpr}) FILTER (WHERE ${colRef} IS NOT NULL)`
+              )
+            );
           }
           case 'array_compact({values})': {
             const baseAggregate = orderByExpr
@@ -2843,9 +3166,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   ): Result<ResolvedOrderByColumn | null, DomainError> {
     // If it's a FieldId, resolve to dbFieldName
     if (orderByColumn instanceof FieldId) {
-      return table
-        .getField((f) => f.id().equals(orderByColumn as FieldId))
-        .andThen((field) => {
+      return resolveTableField(table, orderByColumn as FieldId, 'resolving order-by field').andThen(
+        (field) => {
           const fieldType = field.type();
           const isUserLike =
             fieldType.equals(FieldType.user()) ||
@@ -2860,8 +3182,18 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           if (fieldType.equals(FieldType.createdTime())) {
             return resolveDateLikeOrderBy('__created_time');
           }
+          const isTrackAll =
+            'isTrackAll' in field && typeof field.isTrackAll === 'function'
+              ? field.isTrackAll() === true
+              : true;
           if (fieldType.equals(FieldType.lastModifiedTime())) {
-            return resolveDateLikeOrderBy('__last_modified_time');
+            if (isTrackAll) {
+              return resolveDateLikeOrderBy('__last_modified_time');
+            }
+            return field
+              .dbFieldName()
+              .andThen((dbFieldName) => dbFieldName.value())
+              .andThen((column) => resolveDateLikeOrderBy(column));
           }
           if (fieldType.equals(FieldType.createdBy())) {
             return ok({
@@ -2870,7 +3202,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               userLikeSource: 'system',
             });
           }
-          if (fieldType.equals(FieldType.lastModifiedBy())) {
+          if (fieldType.equals(FieldType.lastModifiedBy()) && isTrackAll) {
             return ok({
               column: '__last_modified_by',
               userLikeMode: 'single',
@@ -2898,7 +3230,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
                 : {}),
             }))
           );
-        });
+        }
+      );
     }
 
     // System column - use as-is
@@ -2932,37 +3265,60 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           ? sql`${columnJson} ->> 'title'`
           : sql`coalesce(${columnJson} ->> 'title', ${columnJson} ->> 'name', ${columnJson} #>> '{}')`;
 
-    const nullOrderDirection: 'asc' | 'desc' = direction === 'asc' ? 'desc' : 'asc';
-
-    return query
-      .orderBy(sql`${titleExpr} is null`, nullOrderDirection)
-      .orderBy(titleExpr, direction);
+    return query.orderBy(titleExpr, applyV1NullsOrder(direction));
   }
 }
 
-const buildLinkOrderByExpr = (orderBy?: LinkOrderBy): RawBuilder<unknown> | null => {
+const buildResolvedConditionalOrderByExpr = (
+  orderBy: ResolvedConditionalOrderBy,
+  tableAlias = F
+): RawBuilder<unknown> => {
+  if (
+    orderBy.column === '__auto_number' &&
+    (!orderBy.tieBreaker || orderBy.tieBreaker.source === 'foreign')
+  ) {
+    return sql`${sql.ref(`${tableAlias}.${orderBy.column}`)} ${sql.raw(orderBy.direction)}`;
+  }
+  const tieBreaker = buildStableTieBreakerExpr(orderBy.tieBreaker, tableAlias);
+  return sql`${sql.ref(`${tableAlias}.${orderBy.column}`)} ${sql.raw(
+    orderBy.direction
+  )}, ${tieBreaker} asc`;
+};
+
+const buildStableTieBreakerExpr = (orderBy?: LinkOrderBy, tableAlias = F): RawBuilder<unknown> => {
+  if (!orderBy || orderBy.source === 'foreign') {
+    return sql.ref(`${tableAlias}.__auto_number`);
+  }
+
+  return sql`(SELECT ${sql.ref(`j.__id`)} FROM ${sql.table(orderBy.junctionTable)} AS j WHERE ${sql.ref(`j.${orderBy.selfKey}`)} = ${sql.ref(`${T}.__id`)} AND ${sql.ref(`j.${orderBy.foreignKey}`)} = ${sql.ref(`${tableAlias}.__id`)})`;
+};
+
+const buildLinkOrderByExpr = (
+  orderBy?: LinkOrderBy,
+  tableAlias = F
+): RawBuilder<unknown> | null => {
   if (!orderBy) return null;
 
   if (orderBy.source === 'foreign') {
     // If explicit order column exists, use it with __auto_number as tie-breaker
     if (orderBy.column) {
-      return sql`${sql.ref(`${F}.${orderBy.column}`)}, ${sql.ref(`${F}.__auto_number`)}`;
+      return sql`${sql.ref(`${tableAlias}.${orderBy.column}`)}, ${sql.ref(`${tableAlias}.__auto_number`)}`;
     }
     // No explicit order column - use __auto_number to maintain insertion/creation order
     // Foreign tables (regular data tables) have __auto_number column that reflects creation order
     // This is critical for tests that expect stable ordering based on record creation time
-    return sql`${sql.ref(`${F}.__auto_number`)}`;
+    return sql`${sql.ref(`${tableAlias}.__auto_number`)}`;
   }
 
   // Junction-based ordering (ManyMany, OneMany one-way)
   if (orderBy.column) {
     // Explicit order column exists - use it with junction __id as tie-breaker
     // This ensures stable ordering when multiple records have the same order value
-    return sql`(SELECT ${sql.ref(`j.${orderBy.column}`)} FROM ${sql.table(orderBy.junctionTable)} AS j WHERE ${sql.ref(`j.${orderBy.selfKey}`)} = ${sql.ref(`${T}.__id`)} AND ${sql.ref(`j.${orderBy.foreignKey}`)} = ${sql.ref(`${F}.__id`)}), (SELECT ${sql.ref(`j.__id`)} FROM ${sql.table(orderBy.junctionTable)} AS j WHERE ${sql.ref(`j.${orderBy.selfKey}`)} = ${sql.ref(`${T}.__id`)} AND ${sql.ref(`j.${orderBy.foreignKey}`)} = ${sql.ref(`${F}.__id`)})`;
+    return sql`(SELECT ${sql.ref(`j.${orderBy.column}`)} FROM ${sql.table(orderBy.junctionTable)} AS j WHERE ${sql.ref(`j.${orderBy.selfKey}`)} = ${sql.ref(`${T}.__id`)} AND ${sql.ref(`j.${orderBy.foreignKey}`)} = ${sql.ref(`${tableAlias}.__id`)}), (SELECT ${sql.ref(`j.__id`)} FROM ${sql.table(orderBy.junctionTable)} AS j WHERE ${sql.ref(`j.${orderBy.selfKey}`)} = ${sql.ref(`${T}.__id`)} AND ${sql.ref(`j.${orderBy.foreignKey}`)} = ${sql.ref(`${tableAlias}.__id`)})`;
   }
 
   // No explicit order column - use junction table's __id to maintain insertion order
   // Junction tables only have __id (serial), not __auto_number
   // This is critical for tests that expect stable ordering based on link creation order
-  return sql`(SELECT ${sql.ref(`j.__id`)} FROM ${sql.table(orderBy.junctionTable)} AS j WHERE ${sql.ref(`j.${orderBy.selfKey}`)} = ${sql.ref(`${T}.__id`)} AND ${sql.ref(`j.${orderBy.foreignKey}`)} = ${sql.ref(`${F}.__id`)})`;
+  return sql`(SELECT ${sql.ref(`j.__id`)} FROM ${sql.table(orderBy.junctionTable)} AS j WHERE ${sql.ref(`j.${orderBy.selfKey}`)} = ${sql.ref(`${T}.__id`)} AND ${sql.ref(`j.${orderBy.foreignKey}`)} = ${sql.ref(`${tableAlias}.__id`)})`;
 };

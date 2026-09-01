@@ -364,7 +364,7 @@ export const ManualRepairDialog = ({
         className="h-7 px-2 text-xs"
         onClick={() => setOpen(true)}
       >
-        <Info className="mr-1 size-3.5" />
+        <Info className="me-1 size-3.5" />
         {triggerLabel}
       </Button>
       <DialogContent className="max-w-xl">
@@ -405,7 +405,7 @@ export const ManualRepairDialog = ({
                     <label key={key} className="block space-y-1.5 text-sm">
                       <div className="font-medium text-foreground">
                         {label}
-                        {isRequired ? <span className="ml-1 text-destructive">*</span> : null}
+                        {isRequired ? <span className="ms-1 text-destructive">*</span> : null}
                       </div>
                       {fieldDescription ? (
                         <div className="text-xs text-muted-foreground">{fieldDescription}</div>
@@ -435,7 +435,7 @@ export const ManualRepairDialog = ({
 
         <DialogFooter>
           <Button type="button" onClick={() => void handleSubmit()} disabled={isSubmitting}>
-            {isSubmitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+            {isSubmitting ? <Loader2 className="me-2 size-4 animate-spin" /> : null}
             {submitLabel}
           </Button>
           <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
@@ -529,7 +529,7 @@ const RepairRulePreviewDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 space-y-4 overflow-y-auto pr-1">
+        <div className="min-h-0 space-y-4 overflow-y-auto pe-1">
           {displayResults.map((previewResult) => {
             const localizedMessage = getLocalizedResultMessage(t as Translate, previewResult);
             const localizedRuleName = getLocalizedRuleDescription(t as Translate, previewResult);
@@ -650,7 +650,7 @@ const RepairRulePreviewDialog = ({
             {t('common:actions.cancel')}
           </Button>
           <Button type="button" onClick={onConfirm} disabled={isSubmitting || !canExecute}>
-            {isSubmitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+            {isSubmitting ? <Loader2 className="me-2 size-4 animate-spin" /> : null}
             {t('table:table.integrity.v2.repairPreviewConfirm')}
           </Button>
         </DialogFooter>
@@ -769,7 +769,7 @@ const RuleRepairAction = ({
   };
 
   return (
-    <div className="ml-auto flex items-center gap-2 opacity-0 transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100">
+    <div className="ms-auto flex items-center gap-2 opacity-0 transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100">
       {result.repair?.mode === 'manual' && result.repair.manualRepairSchema && onRepairRule ? (
         <ManualRuleRepairAction
           result={result}
@@ -790,9 +790,9 @@ const RuleRepairAction = ({
                 onClick={() => void handlePreview()}
               >
                 {(isRunning && isActive) || isPreviewLoading ? (
-                  <Loader2 className="mr-1 size-3.5 animate-spin" />
+                  <Loader2 className="me-1 size-3.5 animate-spin" />
                 ) : (
-                  <Wrench className="mr-1 size-3.5" />
+                  <Wrench className="me-1 size-3.5" />
                 )}
                 {t('table:table.integrity.v2.repairRule')}
               </Button>
@@ -1079,9 +1079,9 @@ export const IntegrityActions = ({
     <div className="flex flex-wrap items-center gap-2">
       <Button size="sm" variant="outline" onClick={onCheck} disabled={!canRun || isRunning}>
         {isRunning && phase === 'check' ? (
-          <Loader2 className="mr-2 size-4 animate-spin" />
+          <Loader2 className="me-2 size-4 animate-spin" />
         ) : (
-          <RefreshCcw className="mr-2 size-4" />
+          <RefreshCcw className="me-2 size-4" />
         )}
         {hasRun ? t('table:table.integrity.v2.recheck') : t('table:table.integrity.v2.runCheck')}
       </Button>
@@ -1090,12 +1090,12 @@ export const IntegrityActions = ({
           size="sm"
           onClick={() => onRepair(['warn'])}
           disabled={!canRepairWarnings || isRunning}
-          className="rounded-r-none border-r-0"
+          className="rounded-e-none border-e-0"
         >
           {isRunning && phase === 'repair' ? (
-            <Loader2 className="mr-2 size-4 animate-spin" />
+            <Loader2 className="me-2 size-4 animate-spin" />
           ) : (
-            <Wrench className="mr-2 size-4" />
+            <Wrench className="me-2 size-4" />
           )}
           {t('table:table.integrity.v2.repair')}
         </Button>
@@ -1105,7 +1105,7 @@ export const IntegrityActions = ({
               size="sm"
               variant="default"
               disabled={!canRepairAny || isRunning}
-              className="rounded-l-none px-2"
+              className="rounded-s-none px-2"
             >
               <ChevronDown className="size-4" />
             </Button>

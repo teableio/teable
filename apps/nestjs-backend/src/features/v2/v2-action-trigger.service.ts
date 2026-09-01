@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { getActionTriggerChannel } from '@teable/core';
-import type { ITableActionKey } from '@teable/core';
+import type { ITableActionKey, IViewActionKey } from '@teable/core';
 import {
   FieldCreated,
   FieldDeleted,
@@ -12,6 +12,9 @@ import {
   RecordsBatchUpdated,
   RecordsDeleted,
   TableActionTriggerRequested,
+  ViewColumnMetaUpdated,
+  ViewFilterUpdated,
+  ViewGroupUpdated,
   ProjectionHandler,
   ok,
   serializeFieldUpdatedValue,
@@ -23,15 +26,32 @@ import { ShareDbService } from '../../share-db/share-db.service';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from './v2-projection-registrar';
 
 export interface IActionTriggerData {
-  actionKey: ITableActionKey;
+  actionKey: ITableActionKey | IViewActionKey;
   payload?: Record<string, unknown>;
 }
 
+interface IActionTriggerSink {
+  submit(targetId: string, data: IActionTriggerData[]): void;
+}
+
 type IPendingActionTriggerBatch = {
-  shareDbService: ShareDbService;
-  tableId: string;
+  sink: IActionTriggerSink;
+  targetId: string;
   data: IActionTriggerData[];
 };
+
+class ShareDbActionTriggerSink implements IActionTriggerSink {
+  constructor(private readonly shareDbService: ShareDbService) {}
+
+  submit(targetId: string, data: IActionTriggerData[]): void {
+    const channel = getActionTriggerChannel(targetId);
+    const presence = this.shareDbService.connect().getPresence(channel);
+    const localPresence = presence.create(targetId);
+    localPresence.submit(data, (error) => {
+      if (error) console.error('Action trigger error:', error);
+    });
+  }
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value instanceof Object && !Array.isArray(value);
@@ -113,27 +133,22 @@ const flushPendingActionTriggers = () => {
   pendingActionTriggerBatches.clear();
 
   for (const batch of batches) {
-    const channel = getActionTriggerChannel(batch.tableId);
-    const presence = batch.shareDbService.connect().getPresence(channel);
-    const localPresence = presence.create(batch.tableId);
-    localPresence.submit(batch.data, (error) => {
-      if (error) console.error('Action trigger error:', error);
-    });
+    batch.sink.submit(batch.targetId, batch.data);
   }
 };
 
 const emitActionTrigger = (
-  shareDbService: ShareDbService,
-  tableId: string,
+  sink: IActionTriggerSink,
+  targetId: string,
   data: IActionTriggerData[]
 ) => {
-  const pending = pendingActionTriggerBatches.get(tableId) ?? {
-    shareDbService,
-    tableId,
+  const pending = pendingActionTriggerBatches.get(targetId) ?? {
+    sink,
+    targetId,
     data: [],
   };
   pending.data.push(...data);
-  pendingActionTriggerBatches.set(tableId, pending);
+  pendingActionTriggerBatches.set(targetId, pending);
 
   if (!flushScheduled) {
     flushScheduled = true;
@@ -143,17 +158,19 @@ const emitActionTrigger = (
 
 /**
  * V2 projection handler that emits action triggers for record create events.
- * This enables V1 frontend features like row count refresh.
+ * This keeps realtime clients informed about record changes such as row-count refreshes.
  */
 @ProjectionHandler(RecordCreated)
 class V2RecordCreatedActionTriggerProjection implements IEventHandler<RecordCreated> {
-  constructor(private readonly shareDbService: ShareDbService) {}
+  constructor(private readonly actionTriggerSink: IActionTriggerSink) {}
 
   async handle(
     _context: IExecutionContext,
     event: RecordCreated
   ): Promise<Result<void, DomainError>> {
-    emitActionTrigger(this.shareDbService, event.tableId.toString(), [{ actionKey: 'addRecord' }]);
+    emitActionTrigger(this.actionTriggerSink, event.tableId.toString(), [
+      { actionKey: 'addRecord' },
+    ]);
     return ok(undefined);
   }
 }
@@ -163,7 +180,7 @@ class V2RecordCreatedActionTriggerProjection implements IEventHandler<RecordCrea
  */
 @ProjectionHandler(RecordsBatchCreated)
 class V2RecordsBatchCreatedActionTriggerProjection implements IEventHandler<RecordsBatchCreated> {
-  constructor(private readonly shareDbService: ShareDbService) {}
+  constructor(private readonly actionTriggerSink: IActionTriggerSink) {}
 
   async handle(
     _context: IExecutionContext,
@@ -173,7 +190,7 @@ class V2RecordsBatchCreatedActionTriggerProjection implements IEventHandler<Reco
     const totalRecordCount = orchestration?.totalRecordCount ?? event.records.length;
     const skipRealtime = shouldSkipRealtimeBatchMutation(totalRecordCount, orchestration);
 
-    emitActionTrigger(this.shareDbService, event.tableId.toString(), [
+    emitActionTrigger(this.actionTriggerSink, event.tableId.toString(), [
       {
         actionKey: 'addRecord',
         payload: skipRealtime
@@ -200,14 +217,14 @@ class V2RecordsBatchCreatedActionTriggerProjection implements IEventHandler<Reco
  */
 @ProjectionHandler(RecordUpdated)
 class V2RecordUpdatedActionTriggerProjection implements IEventHandler<RecordUpdated> {
-  constructor(private readonly shareDbService: ShareDbService) {}
+  constructor(private readonly actionTriggerSink: IActionTriggerSink) {}
 
   async handle(
     _context: IExecutionContext,
     event: RecordUpdated
   ): Promise<Result<void, DomainError>> {
     const fieldIds = event.changes.map((c) => c.fieldId);
-    emitActionTrigger(this.shareDbService, event.tableId.toString(), [
+    emitActionTrigger(this.actionTriggerSink, event.tableId.toString(), [
       { actionKey: 'setRecord', payload: { fieldIds } },
     ]);
     return ok(undefined);
@@ -219,7 +236,7 @@ class V2RecordUpdatedActionTriggerProjection implements IEventHandler<RecordUpda
  */
 @ProjectionHandler(RecordsBatchUpdated)
 class V2RecordsBatchUpdatedActionTriggerProjection implements IEventHandler<RecordsBatchUpdated> {
-  constructor(private readonly shareDbService: ShareDbService) {}
+  constructor(private readonly actionTriggerSink: IActionTriggerSink) {}
 
   async handle(
     _context: IExecutionContext,
@@ -230,7 +247,7 @@ class V2RecordsBatchUpdatedActionTriggerProjection implements IEventHandler<Reco
 
     if (shouldSkipRealtimeBatchMutation(totalRecordCount, orchestration)) {
       const fieldIds = collectChangedFieldIds(event.updates);
-      emitActionTrigger(this.shareDbService, event.tableId.toString(), [
+      emitActionTrigger(this.actionTriggerSink, event.tableId.toString(), [
         {
           actionKey: 'setRecord',
           payload: {
@@ -250,7 +267,7 @@ class V2RecordsBatchUpdatedActionTriggerProjection implements IEventHandler<Reco
       return ok(undefined);
     }
 
-    emitActionTrigger(this.shareDbService, event.tableId.toString(), [
+    emitActionTrigger(this.actionTriggerSink, event.tableId.toString(), [
       { actionKey: 'setRecord', payload: { fieldIds: collectChangedFieldIds(event.updates) } },
     ]);
     return ok(undefined);
@@ -262,7 +279,7 @@ class V2RecordsBatchUpdatedActionTriggerProjection implements IEventHandler<Reco
  */
 @ProjectionHandler(RecordReordered)
 class V2RecordReorderedActionTriggerProjection implements IEventHandler<RecordReordered> {
-  constructor(private readonly shareDbService: ShareDbService) {}
+  constructor(private readonly actionTriggerSink: IActionTriggerSink) {}
 
   async handle(
     _context: IExecutionContext,
@@ -271,7 +288,7 @@ class V2RecordReorderedActionTriggerProjection implements IEventHandler<RecordRe
     // reorder changes row order only — the explicit empty fieldIds tells
     // field-aware listeners (row count, aggregations) that no cell value
     // changed, so they can skip refreshing
-    emitActionTrigger(this.shareDbService, event.tableId.toString(), [
+    emitActionTrigger(this.actionTriggerSink, event.tableId.toString(), [
       { actionKey: 'setRecord', payload: { fieldIds: [] } },
     ]);
     return ok(undefined);
@@ -283,7 +300,7 @@ class V2RecordReorderedActionTriggerProjection implements IEventHandler<RecordRe
  */
 @ProjectionHandler(RecordsDeleted)
 class V2RecordsDeletedActionTriggerProjection implements IEventHandler<RecordsDeleted> {
-  constructor(private readonly shareDbService: ShareDbService) {}
+  constructor(private readonly actionTriggerSink: IActionTriggerSink) {}
 
   async handle(
     _context: IExecutionContext,
@@ -292,7 +309,7 @@ class V2RecordsDeletedActionTriggerProjection implements IEventHandler<RecordsDe
     const orchestration = event.orchestration;
     const totalRecordCount = orchestration?.totalRecordCount ?? event.recordIds.length;
     const skipRealtime = shouldSkipRealtimeBatchMutation(totalRecordCount, orchestration);
-    emitActionTrigger(this.shareDbService, event.tableId.toString(), [
+    emitActionTrigger(this.actionTriggerSink, event.tableId.toString(), [
       {
         actionKey: 'deleteRecord',
         payload: skipRealtime
@@ -319,13 +336,13 @@ class V2RecordsDeletedActionTriggerProjection implements IEventHandler<RecordsDe
  */
 @ProjectionHandler(FieldCreated)
 class V2FieldCreatedActionTriggerProjection implements IEventHandler<FieldCreated> {
-  constructor(private readonly shareDbService: ShareDbService) {}
+  constructor(private readonly actionTriggerSink: IActionTriggerSink) {}
 
   async handle(
     _context: IExecutionContext,
     event: FieldCreated
   ): Promise<Result<void, DomainError>> {
-    emitActionTrigger(this.shareDbService, event.tableId.toString(), [
+    emitActionTrigger(this.actionTriggerSink, event.tableId.toString(), [
       {
         actionKey: 'addField',
         payload: {
@@ -353,13 +370,13 @@ class V2FieldCreatedActionTriggerProjection implements IEventHandler<FieldCreate
  */
 @ProjectionHandler(FieldDeleted)
 class V2FieldDeletedActionTriggerProjection implements IEventHandler<FieldDeleted> {
-  constructor(private readonly shareDbService: ShareDbService) {}
+  constructor(private readonly actionTriggerSink: IActionTriggerSink) {}
 
   async handle(
     _context: IExecutionContext,
     event: FieldDeleted
   ): Promise<Result<void, DomainError>> {
-    emitActionTrigger(this.shareDbService, event.tableId.toString(), [
+    emitActionTrigger(this.actionTriggerSink, event.tableId.toString(), [
       {
         actionKey: 'deleteField',
         payload: {
@@ -377,7 +394,7 @@ class V2FieldDeletedActionTriggerProjection implements IEventHandler<FieldDelete
  */
 @ProjectionHandler(FieldUpdated)
 class V2FieldUpdatedActionTriggerProjection implements IEventHandler<FieldUpdated> {
-  constructor(private readonly shareDbService: ShareDbService) {}
+  constructor(private readonly actionTriggerSink: IActionTriggerSink) {}
 
   async handle(
     _context: IExecutionContext,
@@ -387,7 +404,7 @@ class V2FieldUpdatedActionTriggerProjection implements IEventHandler<FieldUpdate
       return ok(undefined);
     }
 
-    emitActionTrigger(this.shareDbService, event.tableId.toString(), [
+    emitActionTrigger(this.actionTriggerSink, event.tableId.toString(), [
       {
         actionKey: 'setField',
         payload: {
@@ -400,17 +417,75 @@ class V2FieldUpdatedActionTriggerProjection implements IEventHandler<FieldUpdate
   }
 }
 
+@ProjectionHandler(ViewFilterUpdated)
+class V2ViewFilterUpdatedActionTriggerProjection implements IEventHandler<ViewFilterUpdated> {
+  constructor(private readonly actionTriggerSink: IActionTriggerSink) {}
+
+  async handle(
+    _context: IExecutionContext,
+    event: ViewFilterUpdated
+  ): Promise<Result<void, DomainError>> {
+    emitActionTrigger(this.actionTriggerSink, event.viewId.toString(), [
+      { actionKey: 'applyViewFilter' },
+    ]);
+    return ok(undefined);
+  }
+}
+
+@ProjectionHandler(ViewGroupUpdated)
+class V2ViewGroupUpdatedActionTriggerProjection implements IEventHandler<ViewGroupUpdated> {
+  constructor(private readonly actionTriggerSink: IActionTriggerSink) {}
+
+  async handle(
+    _context: IExecutionContext,
+    event: ViewGroupUpdated
+  ): Promise<Result<void, DomainError>> {
+    emitActionTrigger(this.actionTriggerSink, event.viewId.toString(), [
+      { actionKey: 'applyViewGroup' },
+    ]);
+    return ok(undefined);
+  }
+}
+
+@ProjectionHandler(ViewColumnMetaUpdated)
+class V2ViewColumnMetaUpdatedActionTriggerProjection
+  implements IEventHandler<ViewColumnMetaUpdated>
+{
+  constructor(private readonly actionTriggerSink: IActionTriggerSink) {}
+
+  async handle(
+    _context: IExecutionContext,
+    event: ViewColumnMetaUpdated
+  ): Promise<Result<void, DomainError>> {
+    const actions: IActionTriggerData[] = [];
+    for (const change of event.changes ?? []) {
+      const previous = change.previousColumnMeta;
+      const next = change.nextColumnMeta;
+      if (!next.hidden && previous?.hidden !== next.hidden) {
+        actions.push({ actionKey: 'showViewField' });
+      }
+      if (previous?.statisticFunc !== next.statisticFunc) {
+        actions.push({ actionKey: 'applyViewStatisticFunc' });
+      }
+    }
+    if (actions.length > 0) {
+      emitActionTrigger(this.actionTriggerSink, event.viewId.toString(), actions);
+    }
+    return ok(undefined);
+  }
+}
+
 @ProjectionHandler(TableActionTriggerRequested)
 class V2TableActionTriggerRequestedProjection
   implements IEventHandler<TableActionTriggerRequested>
 {
-  constructor(private readonly shareDbService: ShareDbService) {}
+  constructor(private readonly actionTriggerSink: IActionTriggerSink) {}
 
   async handle(
     _context: IExecutionContext,
     event: TableActionTriggerRequested
   ): Promise<Result<void, DomainError>> {
-    emitActionTrigger(this.shareDbService, event.tableId.toString(), [
+    emitActionTrigger(this.actionTriggerSink, event.tableId.toString(), [
       {
         actionKey: event.actionKey,
         ...(event.payload ? { payload: event.payload } : {}),
@@ -422,7 +497,7 @@ class V2TableActionTriggerRequestedProjection
 
 /**
  * Service that registers V2 action trigger projections with the V2 container.
- * These projections emit ShareDB presence events for V1 frontend compatibility.
+ * The projections target a narrow sink port; the Nest adapter owns ShareDB integration.
  */
 @V2ProjectionRegistrar()
 @Injectable()
@@ -438,57 +513,72 @@ export class V2ActionTriggerService implements IV2ProjectionRegistrar {
   registerProjections(container: DependencyContainer): void {
     this.logger.log('Registering V2 action trigger projections');
 
-    const shareDbService = this.shareDbService;
+    const actionTriggerSink = new ShareDbActionTriggerSink(this.shareDbService);
 
     // Register projection instances directly since they depend on NestJS ShareDbService
     container.registerInstance(
       V2RecordCreatedActionTriggerProjection,
-      new V2RecordCreatedActionTriggerProjection(shareDbService)
+      new V2RecordCreatedActionTriggerProjection(actionTriggerSink)
     );
 
     container.registerInstance(
       V2RecordsBatchCreatedActionTriggerProjection,
-      new V2RecordsBatchCreatedActionTriggerProjection(shareDbService)
+      new V2RecordsBatchCreatedActionTriggerProjection(actionTriggerSink)
     );
 
     container.registerInstance(
       V2RecordUpdatedActionTriggerProjection,
-      new V2RecordUpdatedActionTriggerProjection(shareDbService)
+      new V2RecordUpdatedActionTriggerProjection(actionTriggerSink)
     );
 
     container.registerInstance(
       V2RecordsBatchUpdatedActionTriggerProjection,
-      new V2RecordsBatchUpdatedActionTriggerProjection(shareDbService)
+      new V2RecordsBatchUpdatedActionTriggerProjection(actionTriggerSink)
     );
 
     container.registerInstance(
       V2RecordReorderedActionTriggerProjection,
-      new V2RecordReorderedActionTriggerProjection(shareDbService)
+      new V2RecordReorderedActionTriggerProjection(actionTriggerSink)
     );
 
     container.registerInstance(
       V2RecordsDeletedActionTriggerProjection,
-      new V2RecordsDeletedActionTriggerProjection(shareDbService)
+      new V2RecordsDeletedActionTriggerProjection(actionTriggerSink)
     );
 
     container.registerInstance(
       V2FieldCreatedActionTriggerProjection,
-      new V2FieldCreatedActionTriggerProjection(shareDbService)
+      new V2FieldCreatedActionTriggerProjection(actionTriggerSink)
     );
 
     container.registerInstance(
       V2FieldDeletedActionTriggerProjection,
-      new V2FieldDeletedActionTriggerProjection(shareDbService)
+      new V2FieldDeletedActionTriggerProjection(actionTriggerSink)
     );
 
     container.registerInstance(
       V2FieldUpdatedActionTriggerProjection,
-      new V2FieldUpdatedActionTriggerProjection(shareDbService)
+      new V2FieldUpdatedActionTriggerProjection(actionTriggerSink)
+    );
+
+    container.registerInstance(
+      V2ViewFilterUpdatedActionTriggerProjection,
+      new V2ViewFilterUpdatedActionTriggerProjection(actionTriggerSink)
+    );
+
+    container.registerInstance(
+      V2ViewGroupUpdatedActionTriggerProjection,
+      new V2ViewGroupUpdatedActionTriggerProjection(actionTriggerSink)
+    );
+
+    container.registerInstance(
+      V2ViewColumnMetaUpdatedActionTriggerProjection,
+      new V2ViewColumnMetaUpdatedActionTriggerProjection(actionTriggerSink)
     );
 
     container.registerInstance(
       V2TableActionTriggerRequestedProjection,
-      new V2TableActionTriggerRequestedProjection(shareDbService)
+      new V2TableActionTriggerRequestedProjection(actionTriggerSink)
     );
   }
 }

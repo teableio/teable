@@ -861,6 +861,9 @@ export class ComputedDependencyCollectorService {
         selectionMap,
         fieldReferenceSelectionMap,
         fieldReferenceFieldMap,
+        // Affected-set derivation: an unsupported field-reference comparison
+        // must widen the set, never fail the triggering record write.
+        unsupportedFieldReferenceBehavior: 'match-all',
       })
       .appendQueryBuilder();
 
@@ -1036,6 +1039,9 @@ export class ComputedDependencyCollectorService {
         selectionMap,
         fieldReferenceSelectionMap,
         fieldReferenceFieldMap,
+        // Affected-set derivation: an unsupported field-reference comparison
+        // must widen the set, never fail the triggering record write.
+        unsupportedFieldReferenceBehavior: 'match-all',
       })
       .appendQueryBuilder();
 

@@ -82,7 +82,7 @@ import type { TableBuilder } from '../domain/table/TableBuilder';
 import { TableId } from '../domain/table/TableId';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import { getDomainContext } from '../ports/ExecutionContext';
-import { trackedFieldIdsSchema } from '../schemas/field';
+import { trackedFieldIdsSchema, validateFieldAiConfig } from '../schemas/field';
 import type { ITableFieldInput, ResolvedTableFieldInput } from '../schemas/field';
 import {
   checkFieldNotNullValidationEnabled,
@@ -2455,10 +2455,21 @@ export const parseTableFieldSpec = (
     isPrimary: boolean;
     executionContext?: IExecutionContext;
     bypassSelectFieldOptionLimit?: boolean;
+    aiConfigMode?: 'strict' | 'trustedRehydrate';
     hostTable?: Table;
     foreignTables?: ReadonlyArray<Table>;
   }
 ): Result<ICreateTableFieldSpec, DomainError> => {
+  // v1 parity (T6520): aiConfig is validated against the field type — e.g. an
+  // attachment field carrying a text-style aiConfig is rejected instead of
+  // being stored as an opaque value.
+  if (options.aiConfigMode !== 'trustedRehydrate') {
+    const aiConfigValidation = validateFieldAiConfig(field.type, field.aiConfig);
+    if (!aiConfigValidation.valid) {
+      return err(domainError.validation({ message: aiConfigValidation.message }));
+    }
+  }
+
   return optional(field.id, FieldId.create).andThen((id) =>
     FieldName.create(field.name).andThen((name) =>
       resolveFieldValidation(field).andThen((validation) =>

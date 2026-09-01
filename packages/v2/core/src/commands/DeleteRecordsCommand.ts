@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import { domainError, type DomainError } from '../domain/shared/DomainError';
+import type { IRecordRemovalReason } from '../domain/table/events/RecordsDeleted';
 import { RecordId } from '../domain/table/records/RecordId';
 import { TableId } from '../domain/table/TableId';
 
@@ -12,6 +13,8 @@ export const deleteRecordsInputSchema = z.object({
 });
 
 export type IDeleteRecordsCommandInput = z.input<typeof deleteRecordsInputSchema>;
+
+export type { IRecordRemovalReason };
 
 export class DeleteRecordsCommand {
   private constructor(

@@ -73,10 +73,16 @@ const normalizeLookupLinkTitles = (expr: SqlExpr): SqlExpr => {
     );
   }
 
+  // Leftover TEXT lookup-of-link titles are marked scalar. Use to_jsonb()
+  // once instead of ::jsonb so 'Peer A' stays a JSON string, not invalid json.
   const jsonbValue =
     expr.storageKind === 'json' ? `(${expr.valueSql})::jsonb` : `to_jsonb(${expr.valueSql})`;
+  const titleSql =
+    expr.storageKind === 'json'
+      ? buildJsonObjectText(jsonbValue)
+      : `(SELECT ${buildJsonObjectText('j')} FROM (SELECT ${jsonbValue} AS j) s)`;
   return makeExpr(
-    buildJsonObjectText(jsonbValue),
+    titleSql,
     'string',
     false,
     expr.errorConditionSql,

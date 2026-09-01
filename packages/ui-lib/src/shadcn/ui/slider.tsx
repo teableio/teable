@@ -2,6 +2,7 @@
 
 import * as SliderPrimitive from '@radix-ui/react-slider';
 import * as React from 'react';
+import { useUiDirection } from '../../base/direction/direction';
 
 import { cn } from '../utils';
 
@@ -10,6 +11,7 @@ const Slider = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>
 >(({ className, ...props }, ref) => (
   <SliderPrimitive.Root
+    dir={useUiDirection()}
     ref={ref}
     className={cn('relative flex w-full touch-none select-none items-center', className)}
     {...props}

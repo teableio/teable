@@ -36,6 +36,21 @@ export interface IListTableRecordsResponseDataDto {
   records: ITableRecordDto[];
   /** Pagination metadata */
   pagination: IListTableRecordsPaginationDto;
+  /** Ordered leaf group buckets, included only when explicitly requested. */
+  groups?: IListTableRecordsGroupDto[];
+  /** Search match indexes, included only when explicitly requested. */
+  searchMatches?: IListTableRecordsSearchMatchDto[];
+}
+
+export interface IListTableRecordsGroupDto {
+  fields: Record<string, unknown>;
+  count: number;
+}
+
+export interface IListTableRecordsSearchMatchDto {
+  index: number;
+  fieldId: string;
+  recordId: string;
 }
 
 export type IListTableRecordsResponseDto = IApiResponseDto<IListTableRecordsResponseDataDto>;
@@ -54,9 +69,22 @@ export const listTableRecordsPaginationSchema = z.object({
   hasMore: z.boolean(),
 });
 
+export const listTableRecordsGroupSchema = z.object({
+  fields: z.record(z.string(), z.unknown()),
+  count: z.number().int().nonnegative(),
+});
+
+export const listTableRecordsSearchMatchSchema = z.object({
+  index: z.number().int().positive(),
+  fieldId: z.string().min(1),
+  recordId: z.string().min(1),
+});
+
 export const listTableRecordsResponseDataSchema = z.object({
   records: z.array(tableRecordDtoSchema),
   pagination: listTableRecordsPaginationSchema,
+  groups: z.array(listTableRecordsGroupSchema).optional(),
+  searchMatches: z.array(listTableRecordsSearchMatchSchema).optional(),
 });
 
 export const listTableRecordsOkResponseSchema = apiOkResponseDtoSchema(
@@ -76,5 +104,17 @@ export const mapListTableRecordsResultToDto = (
       limit: result.limit,
       hasMore: result.offset + records.length < result.total,
     },
+    ...(result.groups
+      ? { groups: result.groups.map(({ fields, count }) => ({ fields: { ...fields }, count })) }
+      : {}),
+    ...(result.searchMatches
+      ? {
+          searchMatches: result.searchMatches.map(({ index, fieldId, recordId }) => ({
+            index,
+            fieldId: fieldId.toString(),
+            recordId: recordId.toString(),
+          })),
+        }
+      : {}),
   }));
 };

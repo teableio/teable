@@ -48,6 +48,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "0.3.14",
     "@teable/v2-adapter-db-postgres-pg": "workspace:*",
+    "@teable/v2-adapter-table-query-ops-postgres": "workspace:*",
     "@teable/v2-container-node-test": "workspace:*",
     "@teable/v2-table-templates": "workspace:*",
     "@teable/v2-tsdown-config": "workspace:*",

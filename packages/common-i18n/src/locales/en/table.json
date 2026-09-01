@@ -7,6 +7,7 @@
     "waiting": "Waiting",
     "failed": "Failed",
     "calculationFailed": "Calculation failed",
+    "cellValueTooLarge": "Computed cell value is too large ({{attempted}} / {{max}} bytes). Shorten the source data or change the formula.",
     "calculatingSummary": "Calculating ({{count}})",
     "failedSummary": "Failed ({{count}})",
     "fieldsCalculating_one": "{{count}} field calculating",
@@ -102,17 +103,6 @@
     "description": "Click the \"+\" button in the sidebar to add resources",
     "help": "Visit the <HelpCenter /> for more information",
     "helpCenter": "Help center"
-  },
-  "validation": {
-    "link": {
-      "batch_duplicate": "Cannot link record(s): already linked by another record in the same batch. In one-to-many relationships, each record can only belong to one parent.",
-      "one_many_duplicate": "Cannot link record(s): already linked to another record. In one-to-many relationships, each record can only belong to one parent.",
-      "one_one_duplicate": "Cannot link record(s): the target record is already linked by another record in a one-to-one relationship."
-    },
-    "field": {
-      "maxColumnLimit": "Table \"{{tableName}}\" can have at most {{maxFieldCount}} fields.",
-      "requiredExistingValues": "Cannot mark field \"{{fieldName}}\" as required because existing records contain empty values."
-    }
   },
   "field": {
     "advancedProps": "Advanced properties",
@@ -494,7 +484,8 @@
     "typeOfDatabase": "Type of database",
     "descriptionForTable": "Description for this table",
     "nameForTable": "Name for this table",
-    "deleteTip1": "Link fields linked with this table in other tables will be deleted.",
+    "deleteTip1": "Link fields linked with this table in other tables will be converted to text.",
+    "deleteWithDependencies": "Deleting table <b>{{tableName}}</b> will affect the following fields:",
     "loginDeleteWarning": "This table is used as a user table by the following apps. Deleting it will break their login functionality.",
     "operator": {
       "createBlank": "New table"
@@ -517,6 +508,11 @@
       "clearFailed": "Clear failed",
       "clearConfirmTitle": "Clear data",
       "clearConfirmDescription": "This action will clear {{cellCount}} cells in {{rowCount}} records. Are you sure you want to continue?",
+      "archiveRecordConfirmTitle": "Archive records",
+      "archiveRecordConfirmDescription": "This action will archive {{recordCount}} records. Archived records can be viewed and restored from the table archive.",
+      "archiveRecord": "Archive",
+      "archiving": "Archiving...",
+      "archiveSuccessful": "Archive successful",
       "deleteRecordConfirmTitle": "Delete records",
       "deleteRecordConfirmDescription": "This action will delete {{recordCount}} records. Are you sure you want to continue?",
       "duplicateRecordsConfirmTitle": "Duplicate records",
@@ -911,6 +907,11 @@
     },
     "searchTips": {
       "maxFieldTips_limited": "Exceeded the maximum {{count}} number of fields, extra fields will be ignored"
+    },
+    "deletedRecovered": {
+      "title": "The table you opened has been deleted",
+      "description": "Switched to \"{{tableName}}\"",
+      "descriptionEmpty": "Returned to the base page"
     }
   },
   "import": {
@@ -933,6 +934,7 @@
       "addFromOtherSource": "Add from other sources",
       "excelFile": "Microsoft Excel",
       "airtable": "Airtable",
+      "googleSheet": "Google Sheets",
       "csvFile": "CSV file",
       "importCsvData": "Import CSV data",
       "importExcelData": "Import Microsoft Excel data",
@@ -950,6 +952,17 @@
       "fileExceedSizeTip": "This type file size exceeds the limit of",
       "analyzing": "analyzing",
       "importing": "Importing",
+      "importingRows": "Importing {{processed}} of {{total}} rows",
+      "importingRowsUnknown": "Imported {{processed}} rows",
+      "importingSheet": "Sheet {{current}} of {{total}}: {{name}}",
+      "preparingImport": "Preparing import...",
+      "importFinished": "Import finished",
+      "importFinishedPartial": "Import finished with row limits",
+      "importSheetImported": "{{rowCount}} rows",
+      "importSheetTruncated": "Imported {{rowCount}} rows (row limit reached, remaining rows skipped)",
+      "importSheetFailed": "Failed ({{error}})",
+      "importSummaryHint": "Review each table before closing.",
+      "importDone": "Done",
       "notSupportFieldType": "Field type is not supported",
       "resultEmpty": "No results found.",
       "searchPlaceholder": "Search...",
@@ -1077,6 +1090,8 @@
     "insertRecordBelow": "Insert <input /> record below",
     "deleteRecord": "Delete record",
     "deleteAllSelectedRecords": "Delete all selected records",
+    "archiveRecord": "Archive record",
+    "archiveAllSelectedRecords": "Archive all selected records",
     "duplicateRecords": "Duplicate selected records",
     "editField": "Edit field",
     "duplicateField": "Duplicate field",
@@ -1139,7 +1154,11 @@
     "locked": {
       "tip": "This view is locked. You can enable personal mode to edit view options, and the changes will only take effect for yourself."
     },
-    "noView": "No view"
+    "noView": "No view",
+    "deletedRecovered": {
+      "title": "The view you opened has been deleted",
+      "description": "Switched to \"{{viewName}}\""
+    }
   },
   "lastModifiedTime": "Last modified time",
   "lastModify": "Last modify: ",
@@ -1147,11 +1166,49 @@
     "title": "Do you want to add multiple records?",
     "description": "The {{count}} records will be added to the table."
   },
+  "tableArchive": {
+    "title": "Table archive",
+    "menuTitle": "Archive",
+    "archivedTime": "Archived time",
+    "archivedBy": "Archived by",
+    "recordDetail": "Record detail",
+    "empty": "No archived records",
+    "allCreators": "All creators",
+    "filterArchivedTime": "Archived time",
+    "searchPlaceholder": "Search archived records",
+    "clearFilter": "Clear filter",
+    "export": "Export CSV",
+    "exporting": "Exporting... {{count}} rows",
+    "exportSucceed": "Export complete, downloading",
+    "restoreSelected": "Restore ({{count}})",
+    "permanentDeleteSelected": "Permanently delete ({{count}})",
+    "permanentDeleteConfirm": "Permanently delete {{count}} archived records? This cannot be undone.",
+    "permanentDeleteSucceed": "Permanently deleted",
+    "resetArchive": "Clear archive",
+    "resetArchiveConfirm": "Clear all archived records of this table? This cannot be undone.",
+    "resetSucceed": "Archive cleared",
+    "orderBy": {
+      "archivedTime": "Sort by archived time",
+      "recordCreatedTime": "Sort by created time",
+      "recordLastModifiedTime": "Sort by last modified time"
+    }
+  },
   "tableTrash": {
     "title": "Trash",
     "resourceType": "Type",
     "deletedResource": "Resource",
-    "moreResources": "and {{count}} more"
+    "moreResources": "and {{count}} more",
+    "deletedTime": "Deleted time",
+    "deletedBy": "Deleted by",
+    "filterAllTypes": "All types",
+    "filterAllUsers": "All users",
+    "filterDeletedTime": "Deleted time",
+    "clearFilter": "Clear filter",
+    "recordsDialogTitle": "Deleted records ({{count}})",
+    "recordDetail": "Record details",
+    "filterAllCreators": "All creators",
+    "filterCreatedTime": "Created time",
+    "searchPlaceholder": "Search records"
   },
   "pluginPanel": {
     "empty": {
@@ -1205,7 +1262,10 @@
     "linkScopeDialogTitle": "Link field scope",
     "linkHolderCanCopyAndSave": "Can save as copy",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
-    "editRequiresLogin": "Users must log in to edit records",
+    "copyToMySpace": "Copy to my space",
+    "saveToMySpace": "Save to my space",
+    "supportSaveCopy": "Save a copy to your space",
+    "editRequiresLogin": "Sign in to edit records",
     "enterPassword": "Enter password",
     "allowCopyData": "Allow viewers to copy data",
     "sharedNode": "Shared node",
@@ -1233,6 +1293,19 @@
       "failed": "Connection failed",
       "status": {
         "connected": "Connected",
+        "cancelled": "Skipped",
+        "failed": "Failed"
+      }
+    },
+    "googleSheetPick": {
+      "title": "Pick Google spreadsheets",
+      "defaultReason": "Pick the spreadsheets in Google's file picker so they can be read.",
+      "pick": "Choose spreadsheets",
+      "opening": "Opening picker…",
+      "failed": "Couldn't open the Google file picker",
+      "gateExpired": "This request expired, but your picked files are still granted — send the agent a new message to continue.",
+      "status": {
+        "picked": "{{count}} spreadsheets granted",
         "cancelled": "Skipped",
         "failed": "Failed"
       }
@@ -1270,7 +1343,8 @@
       "contextCompaction": {
         "auto": "Context was automatically compacted",
         "manual": "Context was compacted",
-        "compacting": "Compacting context…"
+        "compacting": "Compacting context…",
+        "failed": "Context compaction failed"
       },
       "taskProgress": {
         "title": "Task Progress"
@@ -1295,14 +1369,10 @@
         "code": "Code",
         "download": "Download",
         "downloadHtml": "HTML",
-        "downloadImage": "Image (PNG)",
         "copy": "Copy",
         "copied": "Copied!",
         "fullscreen": "Fullscreen",
         "exitFullscreen": "Exit Fullscreen",
-        "downloadSuccess": "Image downloaded successfully",
-        "downloadFailed": "Failed to capture image",
-        "iframeFailed": "Failed to capture: iframe not accessible",
         "iframeTitle": "HTML Preview"
       }
     },
@@ -1390,8 +1460,7 @@
     "attachment": {
       "pastedTextFileName": "Pasted text",
       "imageNotSupported": "Image is not supported",
-      "tooManyFiles": "You can attach at most {{count}} files per message",
-      "storageFull": "Sandbox storage is full. Delete some files and try again."
+      "tooManyFiles": "You can attach at most {{count}} files per message"
     },
     "suggestions": {
       "title": "How can I help?",
@@ -1419,11 +1488,14 @@
     },
     "queue": {
       "nQueued": "{{count}} Queued",
-      "edit": "Edit",
+      "edit": "Edit message",
       "steerNow": "Steer conversation without interrupting",
-      "steerFailed": "Couldn't steer conversation. Message kept in queue.",
+      "steer": "Steer",
       "conversationInputMarker": "Steered conversation",
-      "removeFromQueue": "Remove"
+      "removeFromQueue": "Remove",
+      "paused": "Queue paused because you interrupted",
+      "resume": "Resume",
+      "queueFull": "The send queue is full. Wait for Cuppy to catch up."
     },
     "partTool": {
       "bash": "Run command",
@@ -1445,6 +1517,10 @@
       "questionCount_other": "{{count}} questions",
       "presentFiles": "Presented files",
       "download": "Download",
+      "downloadAll": "Download all",
+      "downloadAllSkipped_one": "{{count}} file was cleaned up and left out of the zip",
+      "downloadAllSkipped_other": "{{count}} files were cleaned up and left out of the zip",
+      "downloadAllEmpty": "These files have been cleaned up and can no longer be downloaded",
       "installSkill": "Install",
       "installSkillTitle": "Install skill",
       "installSkillDescription": "Choose where to install this skill",
@@ -1485,6 +1561,40 @@
         "upstreamBadRequest": "Voice endpoint is invalid.",
         "upstreamUnavailable": "Voice is unavailable."
       }
+    },
+    "artifact": {
+      "view": "View",
+      "restore": "Restore this version",
+      "download": "Download",
+      "openInNewPage": "Open in new page",
+      "fullscreen": "Fullscreen",
+      "exitFullscreen": "Exit fullscreen",
+      "delete": "Delete",
+      "deleteConfirm": "Delete this artifact? Chat cards will become a deleted placeholder.",
+      "deleted": "This artifact has been deleted",
+      "runtimeError": "Artifact error",
+      "loadFailed": "Artifact failed to load",
+      "failed": "Artifact generation failed",
+      "currentVersion": "Current",
+      "share": "Share",
+      "enableShare": "Enable sharing",
+      "copyLink": "Copy link",
+      "rotateLink": "Reset link",
+      "scope": "Who can view",
+      "scopePublic": "Anyone with the link",
+      "scopeSpace": "Space members",
+      "passwordProtect": "Password protection",
+      "passwordApply": "Set",
+      "passwordRequired": "This artifact is password protected",
+      "passwordPlaceholder": "Enter password",
+      "passwordIncorrect": "Incorrect password",
+      "passwordSubmit": "Confirm",
+      "shareNotFound": "This shared artifact is unavailable",
+      "gallery": "My Artifacts",
+      "galleryEmpty": "No artifacts yet — ask AI to create one in any chat.",
+      "searchPlaceholder": "Search artifacts",
+      "fixWithAi": "Fix with AI",
+      "noPermission": "You do not have access to this artifact"
     }
   },
   "upload": {

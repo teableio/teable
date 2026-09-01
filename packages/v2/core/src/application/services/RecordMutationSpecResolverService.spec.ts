@@ -55,7 +55,7 @@ class FakeAttachmentLookupService implements IAttachmentLookupService {
 class FakeUserLookupService implements IUserLookupService {
   constructor(private readonly users: ReadonlyArray<UserLookupRecord>) {}
 
-  async listUsersByIdentifiers(identifiers: ReadonlyArray<string>) {
+  async listTableUsersByIdentifiers(_tableId: string, identifiers: ReadonlyArray<string>) {
     return ok(
       this.users.filter((user) =>
         identifiers.some(
@@ -64,6 +64,10 @@ class FakeUserLookupService implements IUserLookupService {
         )
       )
     );
+  }
+
+  async listUsersByIds(ids: ReadonlyArray<string>) {
+    return ok(this.users.filter((user) => ids.includes(user.id)));
   }
 }
 
@@ -120,6 +124,8 @@ class FakeRecordQueryRepository implements ITableRecordQueryRepository {
     yield ok({ id: 'rec', fields: {}, version: 1 });
   }
 }
+
+const testTableId = TableId.create(`tbl${'c'.repeat(16)}`)._unsafeUnwrap();
 
 const buildTable = () => {
   const baseId = BaseId.create(`bse${'b'.repeat(16)}`)._unsafeUnwrap();
@@ -183,7 +189,7 @@ describe('RecordMutationSpecResolverService', () => {
       new UserValueResolverService(new FakeUserLookupService([]))
     );
 
-    const result = await service.resolveAndReplace(createContext(), spec);
+    const result = await service.resolveAndReplace(createContext(), testTableId, spec);
     expect(result.isOk()).toBe(true);
     expect(result._unsafeUnwrap()).toBe(spec);
   });
@@ -231,7 +237,7 @@ describe('RecordMutationSpecResolverService', () => {
       new UserValueResolverService(userLookup)
     );
 
-    const result = await service.resolveAndReplace(createContext(), spec);
+    const result = await service.resolveAndReplace(createContext(), testTableId, spec);
     const replaced = result._unsafeUnwrap();
 
     expect(replaced).toBeInstanceOf(AndSpec);
@@ -261,7 +267,7 @@ describe('RecordMutationSpecResolverService', () => {
     let lookupCallCount = 0;
     let lookupIdentifiers: string[] = [];
     const userLookup: IUserLookupService = {
-      async listUsersByIdentifiers(identifiers: ReadonlyArray<string>) {
+      async listTableUsersByIdentifiers(_tableId: string, identifiers: ReadonlyArray<string>) {
         lookupCallCount++;
         lookupIdentifiers = [...identifiers];
         const users = [
@@ -270,6 +276,9 @@ describe('RecordMutationSpecResolverService', () => {
           { id: 'usr-3', name: 'Charlie', email: 'charlie@example.com' },
         ];
         return ok(users.filter((u) => identifiers.includes(u.id)));
+      },
+      async listUsersByIds() {
+        return ok([]);
       },
     };
 
@@ -283,7 +292,7 @@ describe('RecordMutationSpecResolverService', () => {
     );
 
     // Call resolveAndReplaceMany with multiple specs
-    const result = await service.resolveAndReplaceMany(createContext(), [
+    const result = await service.resolveAndReplaceMany(createContext(), testTableId, [
       spec1,
       spec2,
       null,

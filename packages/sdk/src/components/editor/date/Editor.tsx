@@ -15,7 +15,7 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
   props,
   ref
 ) => {
-  const { value, onChange, className, readonly, options, disableTimePicker = false } = props;
+  const { value, onChange, className, readonly, options, modal, disableTimePicker = false } = props;
   const editorRef = useRef<IEditorRef<string>>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const popoverTriggerRef = useRef<HTMLButtonElement>(null);
@@ -99,13 +99,13 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
   const placeholder = !readonly ? t('editor.date.placeholder') : '';
 
   return (
-    <Popover open={isPopoverOpen} onOpenChange={setPopoverOpen}>
+    <Popover open={isPopoverOpen} onOpenChange={setPopoverOpen} modal={modal}>
       {isTouchDevice ? (
         <PopoverTrigger asChild disabled={readonly}>
           <Button
             variant={'outline'}
             className={cn(
-              'w-full first-line:pl-3 text-left font-normal h-10 sm:h-9 dark:bg-[color-mix(in_oklab,white_5%,hsl(var(--background)))] hover:border-primary/30 dark:hover:bg-[color-mix(in_oklab,white_5%,hsl(var(--background)))] ',
+              'h-8 w-full text-start font-normal first-line:ps-3 dark:bg-[color-mix(in_oklab,white_5%,hsl(var(--background)))] hover:border-primary/30 dark:hover:bg-[color-mix(in_oklab,white_5%,hsl(var(--background)))]',
               !value && 'text-muted-foreground',
               className
             )}
@@ -122,7 +122,7 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
               value={inputValue}
               readOnly={readonly}
               placeholder={placeholder}
-              className={cn('h-10 sm:h-8', className)}
+              className={cn('h-8', className)}
               onChange={(e) => setInputValue(e.target.value)}
               onClick={onInputClick}
               onBlur={onInputBlur}
@@ -130,7 +130,7 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
             {!isEditing && (
               <Input
                 className={cn(
-                  'absolute left-0 top-0 h-10 sm:h-8 pointer-events-none disabled:opacity-100',
+                  'pointer-events-none absolute start-0 top-0 h-8 disabled:opacity-100',
                   className
                 )}
                 placeholder={placeholder}

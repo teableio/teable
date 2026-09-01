@@ -35,7 +35,7 @@ export class OAuthService {
 
   async createOAuth(ro: OAuthCreateRo): Promise<OAuthCreateVo> {
     const userId = this.cls.get('user.id');
-    const { redirectUris, name, description, scopes, homepage, logo } = ro;
+    const { redirectUris, name, description, scopes, homepage, logo, allowDeviceFlow } = ro;
     const res = await this.prismaService.oAuthApp.create({
       data: {
         name,
@@ -44,6 +44,7 @@ export class OAuthService {
         homepage,
         logo,
         redirectUris: redirectUris ? JSON.stringify(redirectUris) : null,
+        allowDeviceFlow,
         createdBy: userId,
         clientId: generateClientId(),
       },
@@ -57,6 +58,7 @@ export class OAuthService {
         'homepage',
         'logo',
         'redirectUris',
+        'allowDeviceFlow',
         'clientId',
       ])
     );
@@ -106,6 +108,7 @@ export class OAuthService {
           'homepage',
           'logo',
           'redirectUris',
+          'allowDeviceFlow',
           'clientId',
           'secrets',
         ]
@@ -115,7 +118,7 @@ export class OAuthService {
 
   async updateOAuth(clientId: string, ro: OAuthCreateRo): Promise<OAuthUpdateVo> {
     await this.validateOwnership(clientId);
-    const { redirectUris, name, description, scopes, homepage, logo } = ro;
+    const { redirectUris, name, description, scopes, homepage, logo, allowDeviceFlow } = ro;
     const res = await this.prismaService.oAuthApp.update({
       where: {
         clientId,
@@ -127,6 +130,8 @@ export class OAuthService {
         homepage,
         logo,
         redirectUris: redirectUris ? JSON.stringify(redirectUris) : null,
+        // undefined leaves the stored value untouched (Prisma skips it).
+        allowDeviceFlow,
       },
     });
 
@@ -141,6 +146,7 @@ export class OAuthService {
         'homepage',
         'logo',
         'redirectUris',
+        'allowDeviceFlow',
         'clientId',
       ])
     );

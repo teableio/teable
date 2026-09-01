@@ -62,6 +62,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   return (
     <ScrollableToolbarGroup>
       <HideFields
+        responsive
         onFieldClick={(field) => {
           const columnIndex = fields.findIndex(({ id }) => id === field.id);
           if (columnIndex === -1) {
@@ -92,12 +93,13 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
         )}
       </HideFields>
       <ViewFilter
+        responsive
         filters={view?.filter || null}
         onChange={onFilterChange}
         contentHeader={
           view.enableShare && (
             <div className="mb-2 flex max-w-full items-center justify-start rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground dark:bg-white/5">
-              <Share2 className="mr-2 size-4 shrink-0" />
+              <Share2 className="me-2 size-4 shrink-0" />
               <span className="text-muted-foreground">{t('table:toolbar.viewFilterInShare')}</span>
             </div>
           )
@@ -124,7 +126,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
           </ToolBarButton>
         )}
       </ViewFilter>
-      <Sort sorts={view?.sort || null} onChange={onSortChange}>
+      <Sort responsive sorts={view?.sort || null} onChange={onSortChange}>
         {(text: string, isActive) => (
           <ToolBarButton
             disabled={disabled}
@@ -142,7 +144,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
           </ToolBarButton>
         )}
       </Sort>
-      <Group group={view?.group || null} onChange={onGroupChange}>
+      <Group responsive group={view?.group || null} onChange={onGroupChange}>
         {(text: string, isActive) => (
           <ToolBarButton
             disabled={disabled}
@@ -162,6 +164,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
       </Group>
 
       <RowHeight
+        responsive
         rowHeight={(view?.options as IGridViewOptions)?.rowHeight}
         fieldNameDisplayLines={(view?.options as IGridViewOptions)?.fieldNameDisplayLines}
         onChange={(type, value) => {

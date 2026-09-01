@@ -24,6 +24,7 @@ import type {
   IEventHandler,
   IExecutionContext,
   IFieldVisitor,
+  LinkField,
   MultipleSelectField,
   Result,
   SingleSelectField,
@@ -177,8 +178,9 @@ class FieldOptionsVisitor implements IFieldVisitor<Record<string, unknown> | nul
   visitButtonField(): Result<Record<string, unknown> | null, DomainError> {
     return ok(null);
   }
-  visitLinkField(): Result<Record<string, unknown> | null, DomainError> {
-    return ok(null);
+  visitLinkField(field: LinkField): Result<Record<string, unknown> | null, DomainError> {
+    // foreignTableId keeps the row self-contained for read-time deleted-link marking
+    return ok({ foreignTableId: field.foreignTableId().toString() });
   }
   visitLookupField(): Result<Record<string, unknown> | null, DomainError> {
     return ok(null);
@@ -362,7 +364,12 @@ export class V2RecordUpdatedHistoryProjection implements IEventHandler<RecordUpd
 
 /**
  * V2 projection handler that writes record history for batch record creation events.
- * Import and paste create records in batches; history is written to the routed v2 data DB.
+ * Paste and API batch creates write history to the routed v2 data DB. Import and
+ * table-duplicate batches are skipped: created cells carry no information beyond the
+ * record itself (`__created_by`/`__created_time` already cover attribution), and large
+ * batches would otherwise write rows × non-empty-cells history entries. For duplicate
+ * this also keeps the hydrated fallback path consistent with the physical bulk path,
+ * which emits empty field payloads and never wrote history.
  */
 @ProjectionHandler(RecordsBatchCreated)
 export class V2RecordsBatchCreatedHistoryProjection implements IEventHandler<RecordsBatchCreated> {
@@ -378,6 +385,10 @@ export class V2RecordsBatchCreatedHistoryProjection implements IEventHandler<Rec
     event: RecordsBatchCreated
   ): Promise<Result<void, DomainError>> {
     if (this.baseConfig.recordHistoryDisabled) {
+      return ok(undefined);
+    }
+
+    if (event.source.type === 'import' || event.source.type === 'tableDuplicate') {
       return ok(undefined);
     }
 

@@ -245,7 +245,7 @@ describe('DuplicateFieldHandler', () => {
     }
 
     expect(result.error.code).toBe(TABLE_FIELD_LIMIT_ERROR_CODE);
-    expect(result.error.message).toContain('limit:2');
+    expect(result.error.message).toBe('Table "Duplicate Field Table" can have at most 2 fields.');
     expect(result.error.details).toMatchObject({
       tableName: 'Duplicate Field Table',
       currentFieldCount: 2,

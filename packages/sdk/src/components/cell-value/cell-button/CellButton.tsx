@@ -11,6 +11,7 @@ import {
 import { useMemo } from 'react';
 import colors from 'tailwindcss/colors';
 import { useTranslation } from '../../../context/app/i18n';
+import { useContentDir } from '../../../hooks/use-content-dir';
 import type { ICellValue } from '../type';
 
 interface ICellButton extends ICellValue<IButtonFieldCellValue> {
@@ -23,6 +24,7 @@ interface ICellButton extends ICellValue<IButtonFieldCellValue> {
 export const CellButton = (props: ICellButton) => {
   const { className, style, itemClassName, options: fieldOptions, value, isLookup } = props;
   const { t } = useTranslation();
+  const contentDir = useContentDir();
   const count = value?.count ?? 0;
   const maxCount = fieldOptions.maxCount ?? 0;
   const isClickable = useMemo(() => {
@@ -55,7 +57,11 @@ export const CellButton = (props: ICellButton) => {
                 color: button.textColor,
               }}
             >
-              <span className="w-full truncate text-xs" style={{ color: button.textColor }}>
+              <span
+                dir={contentDir}
+                className="w-full truncate text-xs"
+                style={{ color: button.textColor }}
+              >
                 {button.label}
               </span>
             </Button>

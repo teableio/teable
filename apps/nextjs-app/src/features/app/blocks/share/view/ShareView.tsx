@@ -8,6 +8,7 @@ import { GalleryView } from './component/gallery/GalleryView';
 import { GridView } from './component/grid/GridView';
 import { KanbanView } from './component/kanban/KanbanView';
 import { PluginView } from './component/plugin/SharePluginView';
+import { ShareViewMobileSignIn } from './ShareSignInButton';
 
 export const ShareView = () => {
   const { view, shareId, extra } = useContext(ShareViewContext);
@@ -36,6 +37,7 @@ export const ShareView = () => {
   return (
     <div className="flex h-screen w-full flex-col">
       <div className="min-h-0 w-full flex-1">{getViewComponent()}</div>
+      <ShareViewMobileSignIn />
       <DownloadAllAttachmentsDialog />
     </div>
   );

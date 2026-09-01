@@ -76,6 +76,7 @@ export class NextController {
     'integrations/authorize/?*',
     't/?*',
     's/?*',
+    'artifact/?*',
   ])
   public async home(@Req() req: Request, @Res() res: Response) {
     if (!this.nextService.server) {

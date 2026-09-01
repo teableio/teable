@@ -11,6 +11,7 @@ import { createAwaitWithEvent } from './utils/event-promise';
 import {
   createField,
   createTable,
+  deleteRecord,
   permanentDeleteTable,
   initApp,
   updateRecord,
@@ -141,6 +142,41 @@ describe('Record history (e2e)', () => {
 
       expect(recordHistoryVoSchema.safeParse(mainTableRecordHistory).success).toEqual(true);
       expect(recordHistoryVoSchema.safeParse(foreignTableRecordHistory).success).toEqual(true);
+    });
+
+    it('should mark link cell values whose linked record has been deleted', async () => {
+      const recordId = mainTable.records[0].id;
+      const foreignRecordId = foreignTable.records[0].id;
+      const linkField = await createField(mainTable.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: foreignTable.id,
+        },
+      });
+
+      await awaitWithEvent(() =>
+        updateRecord(mainTable.id, recordId, {
+          record: {
+            fields: {
+              [linkField.id]: { id: foreignRecordId },
+            },
+          },
+          fieldKeyType: FieldKeyType.Id,
+        })
+      );
+
+      const { data: beforeDeletion } = await getRecordHistory(mainTable.id, recordId, {});
+      const aliveItem = beforeDeletion.historyList.find((item) => item.fieldId === linkField.id);
+      expect(aliveItem?.after.deletedRecordIds).toBeUndefined();
+
+      await deleteRecord(foreignTable.id, foreignRecordId);
+
+      const { data: afterDeletion } = await getRecordHistory(mainTable.id, recordId, {});
+      const deletedItem = afterDeletion.historyList.find((item) => item.fieldId === linkField.id);
+      expect(deletedItem?.after.deletedRecordIds).toEqual([foreignRecordId]);
+      expect(deletedItem?.before.deletedRecordIds).toBeUndefined();
+      expect(recordHistoryVoSchema.safeParse(afterDeletion).success).toEqual(true);
     });
   });
 });

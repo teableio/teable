@@ -72,6 +72,8 @@ interface IAirtableImportDialogProps {
   spaceId: string;
   /** When set, import the Airtable base's tables into this existing base instead of creating a new one. */
   baseId?: string;
+  /** Base-node folder to place the imported tables under; root level when omitted. Requires baseId. */
+  folderId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -110,7 +112,7 @@ const ViewConfigImportOption = (props: {
             <TooltipPortal>
               <TooltipContent align="start" className="max-w-xs">
                 <p>{t('space:airtableImport.viewConfig.help')}</p>
-                <ol className="mt-1.5 list-decimal space-y-0.5 pl-4">
+                <ol className="mt-1.5 list-decimal space-y-0.5 ps-4">
                   <li>{t('space:airtableImport.viewConfig.helpStep1')}</li>
                   <li>{t('space:airtableImport.viewConfig.helpStep2')}</li>
                   <li>{t('space:airtableImport.viewConfig.helpStep3')}</li>
@@ -121,7 +123,7 @@ const ViewConfigImportOption = (props: {
         </TooltipProvider>
       </div>
       {enabled && (
-        <div className="ml-6 space-y-1.5">
+        <div className="ms-6 space-y-1.5">
           <Input
             value={shareLink}
             placeholder={t('space:airtableImport.viewConfig.linkPlaceholder')}
@@ -173,7 +175,7 @@ const evaluateShareLink = (
 };
 
 export const AirtableImportDialog = (props: IAirtableImportDialogProps) => {
-  const { spaceId, baseId, open, onOpenChange } = props;
+  const { spaceId, baseId, folderId, open, onOpenChange } = props;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   // t() expects compile-time literal keys; phase/issue keys are runtime strings.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -371,6 +373,7 @@ export const AirtableImportDialog = (props: IAirtableImportDialogProps) => {
         {
           spaceId,
           ...(baseId ? { baseId } : {}),
+          ...(baseId && folderId ? { folderId } : {}),
           integrationId: integration.id,
           airtableBaseId: base.id,
           baseName: base.name,
@@ -457,7 +460,7 @@ export const AirtableImportDialog = (props: IAirtableImportDialogProps) => {
                 onClick={() => connect(UserIntegrationProvider.Airtable, { name: 'Airtable' })}
                 disabled={isConnecting}
               >
-                {isConnecting && <Spin className="mr-1 size-4" />}
+                {isConnecting && <Spin className="me-1 size-4" />}
                 {isConnecting
                   ? t('space:airtableImport.waitingOAuth')
                   : t('space:airtableImport.connectWithAirtable')}
@@ -487,9 +490,9 @@ export const AirtableImportDialog = (props: IAirtableImportDialogProps) => {
                   {/* Search bar and grid stay mounted while loading so swapping
                       skeleton tiles for real ones never shifts the dialog height. */}
                   <div className="relative mt-2">
-                    <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Search className="absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      className="pl-8"
+                      className="ps-8"
                       value={baseSearch}
                       disabled={isLoadingBases}
                       placeholder={t('space:airtableImport.searchBases')}
@@ -497,7 +500,7 @@ export const AirtableImportDialog = (props: IAirtableImportDialogProps) => {
                     />
                   </div>
                   {isLoadingBases ? (
-                    <div className="mt-3 grid max-h-72 grid-cols-2 content-start gap-2 overflow-y-auto pr-1">
+                    <div className="mt-3 grid max-h-72 grid-cols-2 content-start gap-2 overflow-y-auto pe-1">
                       {Array.from({ length: 8 }).map((_, index) => (
                         <div
                           key={index}
@@ -516,14 +519,14 @@ export const AirtableImportDialog = (props: IAirtableImportDialogProps) => {
                       {t('space:airtableImport.noSearchResults')}
                     </p>
                   ) : (
-                    <div className="mt-3 grid max-h-72 grid-cols-2 content-start gap-2 overflow-y-auto pr-1">
+                    <div className="mt-3 grid max-h-72 grid-cols-2 content-start gap-2 overflow-y-auto pe-1">
                       {filteredBases.map((base) => (
                         <button
                           key={base.id}
                           type="button"
                           onClick={() => setSelectedBaseId(base.id)}
                           className={cn(
-                            'flex items-center gap-2.5 rounded-lg border p-2.5 text-left transition-colors',
+                            'flex items-center gap-2.5 rounded-lg border p-2.5 text-start transition-colors',
                             selectedBaseId === base.id
                               ? 'border-primary bg-primary/5'
                               : 'hover:bg-muted/50'

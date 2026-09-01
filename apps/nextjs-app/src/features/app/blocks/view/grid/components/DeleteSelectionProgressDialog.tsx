@@ -3,6 +3,10 @@ import type {
   IDeleteSelectionStreamErrorEvent,
   IDeleteSelectionStreamProgressEvent,
 } from '@teable/openapi';
+import { getLocalizationMessage } from '@teable/sdk';
+import type { ILocaleFunction } from '@teable/sdk/context/app/i18n';
+import { useTranslation } from 'next-i18next';
+import { tableConfig } from '@/features/i18n/table.config';
 import {
   SelectionActionProgressDialog,
   type ISelectionActionDialogError,
@@ -50,14 +54,19 @@ const toSummary = (
       }
     : null;
 
-const toErrors = (errors: IDeleteSelectionStreamErrorEvent[]): ISelectionActionDialogError[] =>
+const toErrors = (
+  errors: IDeleteSelectionStreamErrorEvent[],
+  t: ILocaleFunction
+): ISelectionActionDialogError[] =>
   errors.map((error) => ({
     phase: toErrorPhase(error.phase),
     batchIndex: error.batchIndex,
     totalCount: error.totalCount,
     completedCount: error.deletedCount,
     recordIds: error.recordIds,
-    message: error.message,
+    message: error.localization
+      ? getLocalizationMessage(error.localization, t, 'sdk')
+      : error.message,
   }));
 
 export const DeleteSelectionProgressDialog = ({
@@ -81,13 +90,14 @@ export const DeleteSelectionProgressDialog = ({
   onConfirm?: () => void;
   onOpenChange?: (open: boolean) => void;
 }) => {
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   return (
     <SelectionActionProgressDialog
       open={open}
       mode={mode}
       progress={toProgress(progress)}
       summary={toSummary(summary)}
-      errors={toErrors(errors)}
+      errors={toErrors(errors, t as unknown as ILocaleFunction)}
       status={status}
       confirmRecordCount={confirmRecordCount}
       onConfirm={onConfirm}

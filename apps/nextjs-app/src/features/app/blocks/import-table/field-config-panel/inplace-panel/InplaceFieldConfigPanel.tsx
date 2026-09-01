@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { IInplaceImportOptionRo, IImportOptionRo } from '@teable/openapi';
 import { getTableById as apiGetTableById, getFields as apiGetFields } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBaseId } from '@teable/sdk/hooks';
+import { useBaseId, useContentDir } from '@teable/sdk/hooks';
 import { isEqual } from 'lodash';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
@@ -25,6 +25,7 @@ export type IInplaceOption = Pick<
 const InplaceFieldConfigPanel = (props: IInplaceFieldConfigPanel) => {
   const baseId = useBaseId() as string;
   const { t } = useTranslation(['table']);
+  const contentDir = useContentDir();
   const { tableId, workSheets, insertConfig, onChange, errorMessage } = props;
 
   const options: IInplaceOption = useMemo(
@@ -80,7 +81,7 @@ const InplaceFieldConfigPanel = (props: IInplaceFieldConfigPanel) => {
       <div>
         <p className="text-base font-bold">
           {t('table:import.title.incrementImportTitle')}
-          {table?.name}
+          <span dir={contentDir}>{table?.name}</span>
         </p>
       </div>
 
@@ -95,7 +96,7 @@ const InplaceFieldConfigPanel = (props: IInplaceFieldConfigPanel) => {
         </div>
       )}
 
-      {errorMessage && <p className="pl-2 text-sm text-red-500">{errorMessage}</p>}
+      {errorMessage && <p className="ps-2 text-sm text-red-500">{errorMessage}</p>}
 
       <InplaceImportOptionPanel
         options={options}

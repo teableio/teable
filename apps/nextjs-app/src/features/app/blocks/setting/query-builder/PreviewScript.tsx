@@ -21,7 +21,7 @@ export const CodeBlock = ({
   language?: string;
 }) => (
   <div className={cn('relative', className)}>
-    <CopyButton text={code} className="absolute right-4 top-4" />
+    <CopyButton text={code} className="absolute end-4 top-4" />
     <SyntaxHighlighter
       language={language}
       style={vscDarkPlus}
@@ -83,8 +83,8 @@ export const QueryParamsTable: React.FC<QueryParamsTableProps> = ({ query }) => 
     <table className="w-full border-collapse">
       <thead>
         <tr>
-          <th className="w-60 border p-2 text-left">Key</th>
-          <th className="border p-2 text-left">Value</th>
+          <th className="w-60 border p-2 text-start">Key</th>
+          <th className="border p-2 text-start">Value</th>
         </tr>
       </thead>
       <tbody>

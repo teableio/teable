@@ -165,6 +165,76 @@ describe('selectionService', () => {
     });
   });
 
+  describe('by-id payload record loader', () => {
+    const fields = [
+      {
+        id: 'field1',
+        name: 'Field 1',
+        type: FieldType.SingleLineText,
+        options: {},
+        dbFieldName: 'Field 1',
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+      },
+    ] as IFieldVo[];
+
+    it('uses a supplied record loader for clear payload preparation', async () => {
+      const recordLoader = vi.fn().mockResolvedValue([
+        { id: 'record2', fields: { field1: 'second' } },
+        { id: 'record1', fields: { field1: 'first' } },
+      ]);
+      vi.spyOn(selectionService, 'resolveFieldsBySelection').mockResolvedValue(fields);
+      const legacyLoader = vi.spyOn(selectionService, 'getRecordsByIdsForFields');
+
+      const result = await selectionService.buildClearByIdUpdatePayload(
+        tableId,
+        { selection: { recordIds: ['record2', 'record1'], fieldIds: ['field1'] } },
+        { recordIds: ['record2', 'record1'], recordLoader }
+      );
+
+      expect(recordLoader).toHaveBeenCalledWith(tableId, ['record2', 'record1'], ['field1']);
+      expect(legacyLoader).not.toHaveBeenCalled();
+      expect(result.recordIds).toEqual(['record2', 'record1']);
+    });
+
+    it('uses a supplied record loader for paste payload preparation', async () => {
+      const recordLoader = vi.fn().mockResolvedValue([
+        { id: 'record2', fields: { field1: 'second' } },
+        { id: 'record1', fields: { field1: 'first' } },
+      ]);
+      vi.spyOn(selectionService, 'resolveFieldsBySelection').mockResolvedValue(fields);
+      const legacyLoader = vi.spyOn(selectionService, 'getRecordsByIdsForFields');
+
+      const result = await selectionService.buildPasteByIdPayload(
+        tableId,
+        {
+          selection: { recordIds: ['record2', 'record1'], fieldIds: ['field1'] },
+          content: [['new second'], ['new first']],
+        },
+        { recordIds: ['record2', 'record1'], recordLoader }
+      );
+
+      expect(recordLoader).toHaveBeenCalledWith(tableId, ['record2', 'record1'], ['field1']);
+      expect(legacyLoader).not.toHaveBeenCalled();
+      expect(result.recordIds).toEqual(['record2', 'record1']);
+    });
+
+    it('keeps the legacy loader as the default', async () => {
+      vi.spyOn(selectionService, 'resolveFieldsBySelection').mockResolvedValue(fields);
+      const legacyLoader = vi
+        .spyOn(selectionService, 'getRecordsByIdsForFields')
+        .mockResolvedValue([{ id: 'record1', fields: { field1: 'first' } }]);
+
+      await selectionService.buildClearByIdUpdatePayload(
+        tableId,
+        { selection: { recordIds: ['record1'], fieldIds: ['field1'] } },
+        { recordIds: ['record1'] }
+      );
+
+      expect(legacyLoader).toHaveBeenCalledWith(tableId, ['record1'], ['field1']);
+    });
+  });
+
   describe('parseCopyContent', () => {
     it('should parse the copy content into a 2D array', () => {
       // Input

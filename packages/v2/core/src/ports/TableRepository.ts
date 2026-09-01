@@ -24,6 +24,16 @@ export type TableFindOptions = IFindOptions<TableSortKey> & {
   state?: TableQueryState;
 };
 
+export type TableLockMode = 'forUpdate';
+
+export type TableFindOneOptions = Pick<TableFindOptions, 'state'> & {
+  /**
+   * Requires a transaction-bound execution context. The repository locks the
+   * aggregate root row before hydrating its current child collection.
+   */
+  lock?: TableLockMode;
+};
+
 export type FieldVersionChange = {
   fieldId: string;
   oldVersion: number;
@@ -70,7 +80,7 @@ export interface ITableRepository {
   findOne(
     context: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>,
-    options?: Pick<TableFindOptions, 'state'>
+    options?: TableFindOneOptions
   ): Promise<Result<Table, DomainError>>;
   find(
     context: IExecutionContext,

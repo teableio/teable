@@ -30,7 +30,8 @@
     "fromScratch": "З нуля",
     "fromTemplate": "З шаблону",
     "moveBaseToAnotherSpace": "Перемістити {{baseName}} в інший простір",
-    "chooseSpace": "Виберіть простір"
+    "chooseSpace": "Виберіть простір",
+    "duplicateBaseSucceedAndJump": "Готово, натисніть, щоб перейти"
   },
   "spaceSetting": {
     "title": "Налаштування простору",
@@ -38,8 +39,11 @@
     "collaborators": "Співавтори",
     "generalDescription": "Змініть налаштування поточного місця тут",
     "spaceName": "Назва простору",
-    "spaceId": "ID простору"
+    "spaceId": "ID простору",
+    "importBase": "Імпорт"
   },
+  "collaborators": "Співавтори",
+  "more": "Більше",
   "pin": {
     "add": "Додати до закріплення",
     "remove": "Видалити з закріплених",
@@ -63,7 +67,16 @@
     "moveBaseSuccessTitle": "Переміщення успішне",
     "moveBaseSuccessDescription": "{{baseName}} успішно переміщено до {{spaceName}}",
     "moveBaseCrossSpaceTitle": "Сповіщення",
-    "moveBaseCrossSpaceDataLossWarning": "Перехресні посилання між просторами не підтримуються. Пов'язані поля будуть перетворені на текстові поля. Цю дію не можна скасувати."
+    "moveBaseCrossSpaceDataLossWarning": "Перехресні посилання між просторами не підтримуються. Пов'язані поля будуть перетворені на текстові поля. Цю дію не можна скасувати.",
+    "moveBaseCrossDataDbTitle": "Перенесення між базами даних",
+    "moveBaseCrossDataDbWarning": "Вихідний і цільовий простори використовують різні бази даних. Під час перенесення дані бази буде скопійовано до цільової БД, що може зайняти час. На час перенесення запис до цієї бази призупиняється.",
+    "moveBaseProgressTitle": "Перенесення бази…",
+    "moveBaseProgressPhase": "Етап: {{phase}}",
+    "moveBaseProgressPercent": "{{percent}} %",
+    "moveBaseFailedTitle": "Не вдалося перенести",
+    "moveBaseFailedDescription": "Етап {{phase}}: {{error}}",
+    "moveBaseRetry": "Повторити",
+    "moveBaseCancel": "Скасувати"
   },
   "deleteSpaceModal": {
     "title": "Видалити простір",
@@ -75,7 +88,6 @@
     "description": "Всі бази, до яких мене запросили приєднатися",
     "empty": "Ще немає спільних баз"
   },
-  "integration": {},
   "aiSetting": {
     "title": "Налаштування ШІ",
     "description": "Керування налаштуваннями ШІ вашого простору",
@@ -86,9 +98,17 @@
     "baseImportTips": "Натисніть або перетягніть файл .tea у цю область для завантаження",
     "confirm": "Підтвердити та продовжити",
     "phase": {
+      "importingV2": "Імпортування",
       "parsingStructure": "Parsing structure",
       "creatingBase": "Creating base: {{detail}}",
       "creatingTable": "Creating table: {{detail}}",
+      "tableStructureStarted": "Підготовка структури таблиці: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableStructureValidating": "Перевірка зв’язків між таблицями",
+      "tableStructureCommitting": "Збереження структури таблиці",
+      "tableStructureDone": "Структуру таблиці збережено: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableStructureData": "Структура таблиці",
+      "tableStructureTablesProgress": "Підготовлено таблиць: {{count}}/{{total}}",
+      "tableStructureTablesDone": "Збережено таблиць: {{count}}/{{total}}",
       "creatingCommonFields": "Creating basic fields for {{table}}: {{fields}}",
       "creatingButtonFields": "Creating button fields for {{table}}: {{fields}}",
       "creatingFormulaFields": "Creating formula fields for {{table}}: {{fields}}",
@@ -100,11 +120,46 @@
       "creatingWorkflows": "Creating workflows",
       "creatingApps": "Creating apps",
       "creatingAuthorityMatrix": "Creating authority matrix",
+      "restoringBaseNodes": "Відновлення ієрархії папок",
       "queuingAttachments": "Queuing attachment uploads",
       "uploadingAppFiles": "Uploading app files",
       "queuingDataImport": "Queuing data import",
+      "importingTableData": "Імпорт даних таблиць",
+      "restoringLinkRelations": "Відновлення даних пов’язаних записів",
+      "tableDataStarted": "Імпорт записів: {{tableName}}",
+      "tableDataProgress": "Імпорт записів: {{tableName}}",
+      "tableDataDone": "Імпорт записів завершено: {{tableName}}",
+      "linkFieldsData": "Дані пов’язаних записів",
+      "linkFieldsProgress": "Відновлення даних пов’язаних записів",
+      "linkFieldsDone": "Дані пов’язаних записів відновлено",
+      "tableDataRowsProgress": "Імпортовано рядків: {{count}}",
+      "tableDataRowsDone": "Імпортовано рядків: {{count}}",
+      "tableDataRowsTotalProgress": "Оброблено рядків: {{count}}/{{total}}",
+      "tableDataRowsTotalDone": "Оброблено рядків: {{count}}/{{total}}",
+      "tableDataBatch": "пакет {{batch}}",
+      "tableDataBatchRows": "Рядків у цьому пакеті: {{count}}",
+      "tableDataEmpty": "Немає даних таблиць для імпорту",
       "done": "Import completed",
       "clickToView": "Натисніть для перегляду"
+    }
+  },
+  "export": {
+    "phase": {
+      "preparing": "Підготовка експорту",
+      "exportingArchive": "Створення файлу експорту",
+      "exportingStructure": "Експорт структури",
+      "exportingAttachments": "Експорт вкладень",
+      "exportingAttachmentMetadata": "Експорт метаданих вкладень",
+      "exportingTableData": "Експорт записів",
+      "tableDataStarted": "Експорт записів: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableDataProgress": "Експорт записів: {{tableName}}",
+      "tableDataDone": "Експорт записів завершено: {{tableName}}",
+      "exportingExtraFiles": "Експорт додаткових файлів",
+      "exportingAppFiles": "Експорт файлів застосунку",
+      "uploadingArchive": "Завантаження файлу експорту",
+      "generatingDownloadUrl": "Створення посилання для завантаження",
+      "rowsProgress": "Експортовано рядків: {{count}}",
+      "done": "Експорт завершено"
     }
   },
   "template": {
@@ -131,7 +186,9 @@
     "lastOpened": "Останнє відкриття",
     "enter": "Увійти",
     "noTables": "Немає таблиць",
-    "empty": "Баз поки немає"
+    "empty": "Баз поки немає",
+    "recent": "Нещодавні",
+    "manual": "Ручний порядок"
   },
   "publishBase": {
     "title": "Опублікувати в центрі шаблонів",
@@ -182,14 +239,78 @@
       "publish": "Опублікувати",
       "published": "Опубліковано",
       "publishing": "Публікація...",
+      "notPublished": "Не опубліковано",
       "publishFailed": "Помилка публікації",
       "publishFailedTip1": "Перевірте, чи може вихідний додаток бути успішно опублікований",
       "publishFailedTip2": "Спробуйте повторно опублікувати цей шаблон",
-      "notPublished": "Не опубліковано",
       "ignoreAndContinue": "Ігнорувати та продовжити",
       "goToFix": "Перейти до виправлення",
       "redeploy": "Повторне розгортання",
       "unnamedApp": "Безіменний додаток"
+    }
+  },
+  "dataDb": {
+    "create": {
+      "title": "База даних для даних",
+      "description": "Виберіть, де цей простір зберігає схеми баз і записи.",
+      "defaultHint": "Рекомендовано для більшості просторів.",
+      "byodbOption": "Використовувати мою базу даних PostgreSQL",
+      "byodbHint": "Ініціалізує цей простір у внутрішній схемі Teable всередині вашої керованої бази даних.",
+      "urlLabel": "URL підключення до PostgreSQL",
+      "sslHint": "Використовуйте ті самі параметри SSL, які вимагає ваш сервер PostgreSQL. Після перевірки пароль більше не відображається.",
+      "testConnection": "Перевірити підключення",
+      "testing": "Перевірка...",
+      "retestRequired": "Після зміни URL перевірте підключення ще раз.",
+      "databaseLabel": "База даних",
+      "databasePlaceholder": "Виберіть базу даних",
+      "databaseHint": "Виберіть базу даних PostgreSQL для цього простору та перевірте підключення ще раз.",
+      "preflightPassed": "Перевірки підключення пройдено",
+      "preflightFailed": "Перевірки підключення не пройдено",
+      "missingCapabilities": "Бракує привілеїв",
+      "testFailed": "Не вдалося перевірити підключення до бази даних.",
+      "errors": {
+        "INVALID_DATABASE_URL": {
+          "message": "URL підключення до PostgreSQL недійсний."
+        },
+        "PRIVATE_NETWORK_BLOCKED": {
+          "message": "Хости баз даних у приватних мережах за замовчуванням заблоковані.",
+          "remediation": "Установлюйте TEABLE_SSRF_PROTECTION_DISABLED=true лише в довірених self-hosted розгортаннях."
+        },
+        "CONNECTION_FAILED": {
+          "message": "Не вдалося підключитися до бази даних.",
+          "remediation": "Перевірте хост, порт, назву бази даних, ім’я користувача, пароль і параметри SSL."
+        },
+        "IPV6_NETWORK_UNREACHABLE": {
+          "message": "Хост бази даних розв’язався в IPv6-адресу, але це розгортання Teable не має доступу до мереж IPv6.",
+          "remediation": "Використайте ендпоінт бази даних або пулер, доступний через IPv4, чи ввімкніть вихідну мережу IPv6 для цього розгортання Teable."
+        },
+        "PRIVILEGE_CHECK_FAILED": {
+          "message": "Перевірки привілеїв бази даних не пройдено."
+        },
+        "DDL_PRIVILEGE_CHECK_FAILED": {
+          "message": "В облікового запису немає DDL-привілеїв, потрібних для ініціалізації бази даних Teable.",
+          "remediation": "Надайте привілеї на створення схем, таблиць, функцій і тригерів."
+        },
+        "NON_EMPTY_UNKNOWN_DATABASE": {
+          "message": "Внутрішня схема Teable вже містить об’єкти, які не керуються Teable.",
+          "remediation": "Використайте базу даних без конфліктної внутрішньої схеми або видаліть невідомі об’єкти з цієї схеми."
+        },
+        "INCOMPATIBLE_TEABLE_DATABASE": {
+          "message": "Ця база даних містить неповні або несумісні об’єкти даних Teable.",
+          "remediation": "Використайте порожню базу даних або сумісний процес міграції/підключення бази даних Teable."
+        }
+      }
+    },
+    "fields": {
+      "host": "Хост",
+      "database": "База даних",
+      "internalSchema": "Внутрішня схема",
+      "version": "Версія",
+      "classification": "Класифікація"
+    },
+    "badge": {
+      "label": "Виділена",
+      "tooltip": "Цей простір розміщено на виділеній базі даних, ізольованій від інших просторів"
     }
   },
   "airtableImport": {
@@ -244,6 +365,40 @@
       "disableReminder": "Готово — тепер можна вимкнути посилання спільного доступу в Airtable."
     }
   },
+  "googleSheetImport": {
+    "title": "Імпорт з Google Sheets",
+    "close": "Закрити",
+    "pickSpreadsheet": "Виберіть таблицю для імпорту",
+    "openPicker": "Вибрати таблицю з Google Drive",
+    "changeSpreadsheet": "Змінити",
+    "analyzing": "Читання таблиці…",
+    "pickTabs": "Виберіть аркуші для імпорту",
+    "gridSize": "{{rows}} рядків × {{columns}} стовпців",
+    "optionRecords": "Імпортувати записи",
+    "import": "Почати імпорт",
+    "done": "Імпорт завершено",
+    "failed": "Не вдалося імпортувати",
+    "openBase": "Відкрити базу",
+    "issuesSummary": "Під час імпорту скориговано елементів: {{count}}",
+    "issuesMore": "+{{count}} ще",
+    "recordsImported": "{{tableName}}: імпортовано {{count}} записів",
+    "partialImported": "{{count}} таблиць було повністю імпортовано до збою, їх збережено",
+    "issue": {
+      "valuesDropped": "{{sheetName}} / {{fieldName}}: відкинуто значень: {{count}} ({{reason}})",
+      "sheetSkipped": "Аркуш «{{sheetName}}» пропущено: {{reason}}",
+      "columnsTruncated": "{{sheetName}}: {{count}} стовпців понад ліміт не імпортовано"
+    },
+    "phase": {
+      "fetchingSchema": "Читання структури таблиці",
+      "creatingBase": "Створення бази: {{detail}}",
+      "creatingTable": "Створення таблиці: {{tableName}} ({{tableIndex}}/{{totalTables}})"
+    },
+    "detecting": "Перевірка підключення до Google…",
+    "connectWithGoogle": "Підключити обліковий запис Google",
+    "waitingOAuth": "Завершіть авторизацію у спливаючому вікні…",
+    "connectedAs": "Підключено: {{account}}",
+    "integrationRequired": "Інтеграцію з Google Sheets не налаштовано в цьому екземплярі. Зверніться до адміністратора."
+  },
   "createBaseDialog": {
     "title": "Як ви хочете почати?"
   },
@@ -251,6 +406,7 @@
     "title": "Імпорт бази",
     "fromFile": "Імпорт з файлу",
     "fromFileDesc": "Завантажте файл бази .tea",
-    "fromAirtableDesc": "Підключіть обліковий запис Airtable"
+    "fromAirtableDesc": "Підключіть обліковий запис Airtable",
+    "fromGoogleSheetDesc": "Виберіть таблицю на своєму Google Drive"
   }
 }

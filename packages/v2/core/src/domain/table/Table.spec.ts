@@ -13,18 +13,25 @@ import { TableRenamed } from './events/TableRenamed';
 import { TableRestored } from './events/TableRestored';
 import { TableTrashed } from './events/TableTrashed';
 import { DbFieldName } from './fields/DbFieldName';
+import { DbFieldType } from './fields/DbFieldType';
 import { Field } from './fields/Field';
 import { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
 import { CheckboxDefaultValue } from './fields/types/CheckboxDefaultValue';
 import { CheckboxField } from './fields/types/CheckboxField';
+import { CellValueMultiplicity } from './fields/types/CellValueMultiplicity';
+import { CellValueType } from './fields/types/CellValueType';
 import { FieldNotNull } from './fields/types/FieldNotNull';
 import { FieldUnique } from './fields/types/FieldUnique';
 import { FormulaExpression } from './fields/types/FormulaExpression';
+import { FormulaField } from './fields/types/FormulaField';
 import { LinkField } from './fields/types/LinkField';
 import { LinkFieldConfig } from './fields/types/LinkFieldConfig';
 import { LongTextField } from './fields/types/LongTextField';
+import { LookupField } from './fields/types/LookupField';
+import { LookupOptions } from './fields/types/LookupOptions';
 import { NumberDefaultValue } from './fields/types/NumberDefaultValue';
+import { NumberField } from './fields/types/NumberField';
 import { SingleLineTextField } from './fields/types/SingleLineTextField';
 import { TextDefaultValue } from './fields/types/TextDefaultValue';
 import { RecordId } from './records/RecordId';
@@ -655,6 +662,50 @@ describe('Table', () => {
     expect(otherEntry?.hidden).toBe(true);
   });
 
+  it('appends a field after active fields missing column metadata', () => {
+    const builder = Table.builder()
+      .withBaseId(createBaseId('m')._unsafeUnwrap())
+      .withName(TableName.create('Sparse View Metadata')._unsafeUnwrap());
+    builder.field().singleLineText().withName(FieldName.create('Title')._unsafeUnwrap()).done();
+    builder.field().singleLineText().withName(FieldName.create('Legacy A')._unsafeUnwrap()).done();
+    builder.field().singleLineText().withName(FieldName.create('Legacy B')._unsafeUnwrap()).done();
+    builder.view().grid().withName(ViewName.create('Grid')._unsafeUnwrap()).done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const [titleField, legacyAField, legacyBField] = table.getFields();
+    const targetView = table.views()[0];
+    if (!titleField || !legacyAField || !legacyBField || !targetView) {
+      throw new Error('Expected test table structure');
+    }
+
+    const sparseMeta = ViewColumnMeta.create({
+      [titleField.id().toString()]: { order: 0 },
+    })._unsafeUnwrap();
+    const sparseTable = TableUpdateViewColumnMetaSpec.create([
+      {
+        viewId: targetView.id(),
+        fieldId: titleField.id(),
+        columnMeta: sparseMeta,
+      },
+    ])
+      .mutate(table)
+      ._unsafeUnwrap();
+    const newField = SingleLineTextField.create({
+      id: createFieldId('n')._unsafeUnwrap(),
+      name: FieldName.create('Added')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const updatedTable = sparseTable
+      .update((mutator) => mutator.addField(newField, { targetViewId: targetView.id() }))
+      ._unsafeUnwrap().table;
+    const columnMeta = updatedTable.views()[0]?.columnMeta()._unsafeUnwrap().toDto();
+
+    expect(columnMeta?.[titleField.id().toString()]?.order).toBe(0);
+    expect(columnMeta?.[legacyAField.id().toString()]?.order).toBe(1);
+    expect(columnMeta?.[legacyBField.id().toString()]?.order).toBe(2);
+    expect(columnMeta?.[newField.id().toString()]?.order).toBe(3);
+  });
+
   it('rejects adding a field with duplicate dbFieldName', () => {
     const baseIdResult = createBaseId('d');
     const tableNameResult = TableName.create('Duplicate DbFieldName');
@@ -1004,6 +1055,12 @@ describe('Table', () => {
     builder.view().defaultGrid().done();
     const table = builder.build()._unsafeUnwrap();
 
+    table
+      .getField((field) => field.id().equals(statusFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldType(DbFieldType.rehydrate('TEXT')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
     const nextField = CheckboxField.create({
       id: statusFieldId,
       name: FieldName.create('Status')._unsafeUnwrap(),
@@ -1016,6 +1073,389 @@ describe('Table', () => {
       .getField((field) => field.id().equals(statusFieldId))
       ._unsafeUnwrap();
     expect(updatedField.type().toString()).toBe('checkbox');
+    expect(updatedField.dbFieldType().isErr()).toBe(true);
+  });
+
+  it('preserves persisted dbFieldType when replaceField rebuilds a pending lookup', () => {
+    const lookupFieldId = createFieldId('k')._unsafeUnwrap();
+    const linkFieldId = createFieldId('l')._unsafeUnwrap();
+    const builder = Table.builder()
+      .withBaseId(createBaseId('k')._unsafeUnwrap())
+      .withName(TableName.create('Lookup Replace')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const lookup = LookupField.createPending({
+      id: lookupFieldId,
+      name: FieldName.create('Amount Lookup')._unsafeUnwrap(),
+      lookupOptions: LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        lookupFieldId: createFieldId('p')._unsafeUnwrap().toString(),
+        foreignTableId: createTableId('f')._unsafeUnwrap().toString(),
+      })._unsafeUnwrap(),
+      isMultipleCellValue: false,
+    })._unsafeUnwrap();
+    lookup.setDbFieldName(DbFieldName.rehydrate('col_amount')._unsafeUnwrap())._unsafeUnwrap();
+    lookup.setDbFieldType(DbFieldType.rehydrate('REAL')._unsafeUnwrap())._unsafeUnwrap();
+    const withLookup = table.addField(lookup)._unsafeUnwrap();
+
+    const rebuilt = LookupField.createPending({
+      id: lookupFieldId,
+      name: FieldName.create('Amount Lookup')._unsafeUnwrap(),
+      lookupOptions: LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        lookupFieldId: createFieldId('p')._unsafeUnwrap().toString(),
+        foreignTableId: createTableId('f')._unsafeUnwrap().toString(),
+      })._unsafeUnwrap(),
+      dbFieldName: DbFieldName.rehydrate('col_amount')._unsafeUnwrap(),
+      isMultipleCellValue: false,
+    })._unsafeUnwrap();
+
+    const replaced = withLookup.replaceField(lookupFieldId, rebuilt);
+    expect(replaced.isOk()).toBe(true);
+    const nextLookup = replaced
+      ._unsafeUnwrap()
+      .getField((field) => field.id().equals(lookupFieldId))
+      ._unsafeUnwrap();
+    expect(
+      nextLookup
+        .dbFieldType()
+        .andThen((value) => value.value())
+        ._unsafeUnwrap()
+    ).toBe('REAL');
+  });
+
+  it('derives REAL when replaceField rebuilds a number lookup with stale TEXT dbFieldType', () => {
+    const lookupFieldId = createFieldId('s')._unsafeUnwrap();
+    const linkFieldId = createFieldId('t')._unsafeUnwrap();
+    const innerFieldId = createFieldId('u')._unsafeUnwrap();
+    const lookupTargetId = createFieldId('v')._unsafeUnwrap();
+    const builder = Table.builder()
+      .withBaseId(createBaseId('s')._unsafeUnwrap())
+      .withName(TableName.create('Stale Text Lookup')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const lookup = LookupField.create({
+      id: lookupFieldId,
+      name: FieldName.create('Amount Lookup')._unsafeUnwrap(),
+      innerField: NumberField.create({
+        id: innerFieldId,
+        name: FieldName.create('Amount')._unsafeUnwrap(),
+      })._unsafeUnwrap(),
+      lookupOptions: LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        lookupFieldId: lookupTargetId.toString(),
+        foreignTableId: createTableId('f')._unsafeUnwrap().toString(),
+      })._unsafeUnwrap(),
+      isMultipleCellValue: false,
+    })._unsafeUnwrap();
+    lookup.setDbFieldName(DbFieldName.rehydrate('col_amount')._unsafeUnwrap())._unsafeUnwrap();
+    lookup.setDbFieldType(DbFieldType.rehydrate('TEXT')._unsafeUnwrap())._unsafeUnwrap();
+    const withLookup = table.addField(lookup)._unsafeUnwrap();
+
+    const rebuilt = LookupField.createPending({
+      id: lookupFieldId,
+      name: FieldName.create('Amount Lookup')._unsafeUnwrap(),
+      lookupOptions: LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        lookupFieldId: lookupTargetId.toString(),
+        foreignTableId: createTableId('f')._unsafeUnwrap().toString(),
+      })._unsafeUnwrap(),
+      dbFieldName: DbFieldName.rehydrate('col_amount')._unsafeUnwrap(),
+      isMultipleCellValue: false,
+    })._unsafeUnwrap();
+
+    const replaced = withLookup.replaceField(lookupFieldId, rebuilt);
+    expect(replaced.isOk()).toBe(true);
+    const nextLookup = replaced
+      ._unsafeUnwrap()
+      .getField((field) => field.id().equals(lookupFieldId))
+      ._unsafeUnwrap();
+    expect(
+      nextLookup
+        .dbFieldType()
+        .andThen((value) => value.value())
+        ._unsafeUnwrap()
+    ).toBe('REAL');
+  });
+
+  it('derives JSON when replaceField rebuilds a lookup-of-link with leftover TEXT dbFieldType', () => {
+    const lookupFieldId = createFieldId('w')._unsafeUnwrap();
+    const linkFieldId = createFieldId('x')._unsafeUnwrap();
+    const innerLinkFieldId = createFieldId('y')._unsafeUnwrap();
+    const lookupTargetId = createFieldId('z')._unsafeUnwrap();
+    const builder = Table.builder()
+      .withBaseId(createBaseId('w')._unsafeUnwrap())
+      .withName(TableName.create('Stale Text Link Lookup')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const innerLink = LinkField.create({
+      id: innerLinkFieldId,
+      name: FieldName.create('Related')._unsafeUnwrap(),
+      config: LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: createTableId('i')._unsafeUnwrap().toString(),
+        lookupFieldId: createFieldId('r')._unsafeUnwrap().toString(),
+        fkHostTableName: `${createTableId('f')._unsafeUnwrap().toString()}.related`,
+        selfKeyName: '__id',
+        foreignKeyName: '__fk_related',
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const lookup = LookupField.create({
+      id: lookupFieldId,
+      name: FieldName.create('Related Lookup')._unsafeUnwrap(),
+      innerField: innerLink,
+      lookupOptions: LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        lookupFieldId: lookupTargetId.toString(),
+        foreignTableId: createTableId('f')._unsafeUnwrap().toString(),
+      })._unsafeUnwrap(),
+      isMultipleCellValue: false,
+    })._unsafeUnwrap();
+    lookup.setDbFieldName(DbFieldName.rehydrate('col_related')._unsafeUnwrap())._unsafeUnwrap();
+    lookup.setDbFieldType(DbFieldType.rehydrate('TEXT')._unsafeUnwrap())._unsafeUnwrap();
+    const withLookup = table.addField(lookup)._unsafeUnwrap();
+
+    const rebuilt = LookupField.createPending({
+      id: lookupFieldId,
+      name: FieldName.create('Related Lookup')._unsafeUnwrap(),
+      lookupOptions: LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        lookupFieldId: lookupTargetId.toString(),
+        foreignTableId: createTableId('f')._unsafeUnwrap().toString(),
+      })._unsafeUnwrap(),
+      dbFieldName: DbFieldName.rehydrate('col_related')._unsafeUnwrap(),
+      isMultipleCellValue: false,
+    })._unsafeUnwrap();
+
+    const replaced = withLookup.replaceField(lookupFieldId, rebuilt);
+    expect(replaced.isOk()).toBe(true);
+    const nextLookup = replaced
+      ._unsafeUnwrap()
+      .getField((field) => field.id().equals(lookupFieldId))
+      ._unsafeUnwrap();
+    expect(
+      nextLookup
+        .dbFieldType()
+        .andThen((value) => value.value())
+        ._unsafeUnwrap()
+    ).toBe('JSON');
+  });
+
+  it('does not copy JSON dbFieldType when replaceField changes lookup multiplicity', () => {
+    const lookupFieldId = createFieldId('m')._unsafeUnwrap();
+    const linkFieldId = createFieldId('n')._unsafeUnwrap();
+    const builder = Table.builder()
+      .withBaseId(createBaseId('m')._unsafeUnwrap())
+      .withName(TableName.create('Lookup Multiplicity')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const lookup = LookupField.createPending({
+      id: lookupFieldId,
+      name: FieldName.create('Count Lookup')._unsafeUnwrap(),
+      lookupOptions: LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        lookupFieldId: createFieldId('p')._unsafeUnwrap().toString(),
+        foreignTableId: createTableId('f')._unsafeUnwrap().toString(),
+      })._unsafeUnwrap(),
+      isMultipleCellValue: true,
+    })._unsafeUnwrap();
+    lookup.setDbFieldName(DbFieldName.rehydrate('col_count')._unsafeUnwrap())._unsafeUnwrap();
+    lookup.setDbFieldType(DbFieldType.rehydrate('JSON')._unsafeUnwrap())._unsafeUnwrap();
+    const withLookup = table.addField(lookup)._unsafeUnwrap();
+
+    const rebuilt = LookupField.createPending({
+      id: lookupFieldId,
+      name: FieldName.create('Count Lookup')._unsafeUnwrap(),
+      lookupOptions: LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        lookupFieldId: createFieldId('p')._unsafeUnwrap().toString(),
+        foreignTableId: createTableId('f')._unsafeUnwrap().toString(),
+      })._unsafeUnwrap(),
+      dbFieldName: DbFieldName.rehydrate('col_count')._unsafeUnwrap(),
+      isMultipleCellValue: false,
+    })._unsafeUnwrap();
+
+    const replaced = withLookup.replaceField(lookupFieldId, rebuilt);
+    expect(replaced.isOk()).toBe(true);
+    const nextLookup = replaced
+      ._unsafeUnwrap()
+      .getField((field) => field.id().equals(lookupFieldId))
+      ._unsafeUnwrap();
+    expect(nextLookup.dbFieldType().isErr()).toBe(true);
+  });
+
+  it('does not copy DATETIME dbFieldType when replaceField changes lookup target', () => {
+    const lookupFieldId = createFieldId('d')._unsafeUnwrap();
+    const linkFieldId = createFieldId('e')._unsafeUnwrap();
+    const dateTargetId = createFieldId('p')._unsafeUnwrap();
+    const textTargetId = createFieldId('q')._unsafeUnwrap();
+    const builder = Table.builder()
+      .withBaseId(createBaseId('d')._unsafeUnwrap())
+      .withName(TableName.create('Lookup Target')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const lookup = LookupField.createPending({
+      id: lookupFieldId,
+      name: FieldName.create('Date Lookup')._unsafeUnwrap(),
+      lookupOptions: LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        lookupFieldId: dateTargetId.toString(),
+        foreignTableId: createTableId('f')._unsafeUnwrap().toString(),
+      })._unsafeUnwrap(),
+      isMultipleCellValue: false,
+    })._unsafeUnwrap();
+    lookup.setDbFieldName(DbFieldName.rehydrate('col_date')._unsafeUnwrap())._unsafeUnwrap();
+    lookup.setDbFieldType(DbFieldType.rehydrate('DATETIME')._unsafeUnwrap())._unsafeUnwrap();
+    const withLookup = table.addField(lookup)._unsafeUnwrap();
+
+    const rebuilt = LookupField.createPending({
+      id: lookupFieldId,
+      name: FieldName.create('Date Lookup')._unsafeUnwrap(),
+      lookupOptions: LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        lookupFieldId: textTargetId.toString(),
+        foreignTableId: createTableId('f')._unsafeUnwrap().toString(),
+      })._unsafeUnwrap(),
+      dbFieldName: DbFieldName.rehydrate('col_date')._unsafeUnwrap(),
+      isMultipleCellValue: false,
+    })._unsafeUnwrap();
+
+    const replaced = withLookup.replaceField(lookupFieldId, rebuilt);
+    expect(replaced.isOk()).toBe(true);
+    const nextLookup = replaced
+      ._unsafeUnwrap()
+      .getField((field) => field.id().equals(lookupFieldId))
+      ._unsafeUnwrap();
+    expect(nextLookup.dbFieldType().isErr()).toBe(true);
+  });
+
+  it('does not copy TEXT dbFieldType when replaceField rebuilds a formula', () => {
+    const formulaFieldId = createFieldId('f')._unsafeUnwrap();
+    const builder = Table.builder()
+      .withBaseId(createBaseId('f')._unsafeUnwrap())
+      .withName(TableName.create('Formula Replace')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+    const formula = FormulaField.create({
+      id: formulaFieldId,
+      name: FieldName.create('Plus 100')._unsafeUnwrap(),
+      expression: FormulaExpression.create('""')._unsafeUnwrap(),
+      resultType: {
+        cellValueType: CellValueType.string(),
+        isMultipleCellValue: CellValueMultiplicity.single(),
+      },
+    })._unsafeUnwrap();
+    formula.setDbFieldName(DbFieldName.rehydrate('col_plus')._unsafeUnwrap())._unsafeUnwrap();
+    formula.setDbFieldType(DbFieldType.rehydrate('TEXT')._unsafeUnwrap())._unsafeUnwrap();
+    const withFormula = table.addField(formula)._unsafeUnwrap();
+
+    const rebuilt = FormulaField.create({
+      id: formulaFieldId,
+      name: FieldName.create('Plus 100')._unsafeUnwrap(),
+      expression: FormulaExpression.create('1')._unsafeUnwrap(),
+      resultType: {
+        cellValueType: CellValueType.number(),
+        isMultipleCellValue: CellValueMultiplicity.single(),
+      },
+    })._unsafeUnwrap();
+    rebuilt.setDbFieldName(DbFieldName.rehydrate('col_plus')._unsafeUnwrap())._unsafeUnwrap();
+
+    const replaced = withFormula.replaceField(formulaFieldId, rebuilt);
+    expect(replaced.isOk()).toBe(true);
+    const nextFormula = replaced
+      ._unsafeUnwrap()
+      .getField((field) => field.id().equals(formulaFieldId))
+      ._unsafeUnwrap();
+    expect(nextFormula.dbFieldType().isErr()).toBe(true);
+  });
+
+  it('does not copy REAL dbFieldType when formula result type becomes dateTime', () => {
+    const formulaFieldId = createFieldId('g')._unsafeUnwrap();
+    const builder = Table.builder()
+      .withBaseId(createBaseId('g')._unsafeUnwrap())
+      .withName(TableName.create('Formula Result Type')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const formula = FormulaField.create({
+      id: formulaFieldId,
+      name: FieldName.create('Agg')._unsafeUnwrap(),
+      expression: FormulaExpression.create('1')._unsafeUnwrap(),
+      resultType: {
+        cellValueType: CellValueType.number(),
+        isMultipleCellValue: CellValueMultiplicity.single(),
+      },
+    })._unsafeUnwrap();
+    formula.setDbFieldName(DbFieldName.rehydrate('col_agg')._unsafeUnwrap())._unsafeUnwrap();
+    formula.setDbFieldType(DbFieldType.rehydrate('REAL')._unsafeUnwrap())._unsafeUnwrap();
+    const withFormula = table.addField(formula)._unsafeUnwrap();
+
+    const rebuilt = FormulaField.create({
+      id: formulaFieldId,
+      name: FieldName.create('Agg')._unsafeUnwrap(),
+      expression: FormulaExpression.create('NOW()')._unsafeUnwrap(),
+      resultType: {
+        cellValueType: CellValueType.dateTime(),
+        isMultipleCellValue: CellValueMultiplicity.single(),
+      },
+    })._unsafeUnwrap();
+    rebuilt.setDbFieldName(DbFieldName.rehydrate('col_agg')._unsafeUnwrap())._unsafeUnwrap();
+
+    const replaced = withFormula.replaceField(formulaFieldId, rebuilt);
+    expect(replaced.isOk()).toBe(true);
+    const nextFormula = replaced
+      ._unsafeUnwrap()
+      .getField((field) => field.id().equals(formulaFieldId))
+      ._unsafeUnwrap();
+    expect(nextFormula.dbFieldType().isErr()).toBe(true);
   });
 
   it('updates field through aggregate updateField API', () => {
@@ -1567,7 +2007,8 @@ describe('Table.createRecord with default values', () => {
 
     expect(record.fields().get(textFieldId._unsafeUnwrap())?.toValue()).toBe('Default Text');
     expect(record.fields().get(numberFieldId._unsafeUnwrap())?.toValue()).toBe(50);
-    expect(record.fields().get(checkboxFieldId._unsafeUnwrap())?.toValue()).toBe(false);
+    // v1 contract: checkbox false normalizes to null in storage
+    expect(record.fields().get(checkboxFieldId._unsafeUnwrap())?.toValue()).toBeNull();
   });
 
   it('mixes explicit values with default values', () => {
@@ -1971,6 +2412,7 @@ describe('Table.createRecordsStream', () => {
     const externalLookupFieldId = createFieldId('y')._unsafeUnwrap();
 
     const defaultViewId = createViewId('a')._unsafeUnwrap();
+    const sourceShareId = `shr${'s'.repeat(16)}`;
 
     const sourceDto: ITablePersistenceDTO = {
       id: sourceTableId.toString(),
@@ -2075,6 +2517,9 @@ describe('Table.createRecordsStream', () => {
           id: defaultViewId.toString(),
           type: 'grid',
           name: 'Grid',
+          enableShare: true,
+          shareId: sourceShareId,
+          shareMeta: { allowCopy: true },
           columnMeta: {
             [primaryFieldId.toString()]: { order: 0, visible: true },
             [selfLinkFieldId.toString()]: { order: 1, width: 220 },
@@ -2183,6 +2628,10 @@ describe('Table.createRecordsStream', () => {
 
     expect(duplicatedDto.views).toHaveLength(1);
     expect(duplicatedDto.views[0]?.id).toBe(duplicatedViewId);
+    // The copy starts unshared — no inherited public link, no inherited share rules.
+    expect(duplicatedDto.views[0]?.enableShare).toBeUndefined();
+    expect(duplicatedDto.views[0]?.shareId).toBeUndefined();
+    expect(duplicatedDto.views[0]?.shareMeta).toBeUndefined();
     expect(Object.keys(duplicatedDto.views[0]!.columnMeta)).toEqual(
       expect.arrayContaining([
         duplicatedPrimaryFieldId!,

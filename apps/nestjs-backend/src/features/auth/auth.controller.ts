@@ -27,6 +27,7 @@ export class AuthController {
     private readonly deleteUserService: DeleteUserService
   ) {}
 
+  @AllowAnonymous(AllowAnonymousType.USER)
   @Post('signout')
   @HttpCode(200)
   async signout(@Req() req: Express.Request, @Res({ passthrough: true }) res: Response) {

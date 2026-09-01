@@ -1,11 +1,4 @@
-import {
-  BaseId,
-  domainError,
-  FieldId,
-  TableId,
-  type DomainError,
-  type IHasher,
-} from '@teable/v2-core';
+import { BaseId, FieldId, TableId, type DomainError, type IHasher } from '@teable/v2-core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -29,6 +22,8 @@ export type FieldBackfillOutboxPayload = {
   fieldIds: string[];
   /** Estimated row count for complexity tracking */
   estimatedRowCount?: number;
+  /** Last record id committed by the preceding cursor-ordered batch. */
+  cursor?: string;
 };
 
 /**
@@ -47,12 +42,14 @@ export const serializeFieldBackfillPayload = (params: {
   tableId: TableId;
   fieldIds: ReadonlyArray<FieldId>;
   estimatedRowCount?: number;
+  cursor?: string;
 }): FieldBackfillOutboxPayload => ({
   taskType: 'field-backfill',
   baseId: params.baseId.toString(),
   tableId: params.tableId.toString(),
   fieldIds: params.fieldIds.map((id) => id.toString()),
   estimatedRowCount: params.estimatedRowCount,
+  cursor: params.cursor,
 });
 
 /**
@@ -65,6 +62,7 @@ export const deserializeFieldBackfillPayload = (
     baseId: BaseId;
     tableId: TableId;
     fieldIds: FieldId[];
+    cursor?: string;
   },
   DomainError
 > => {
@@ -90,6 +88,7 @@ export const deserializeFieldBackfillPayload = (
     baseId: baseIdResult.value,
     tableId: tableIdResult.value,
     fieldIds: fieldIdsResult.value,
+    cursor: payload.cursor,
   });
 };
 
@@ -105,6 +104,7 @@ export const computeFieldBackfillHash = (
     baseId: payload.baseId,
     tableId: payload.tableId,
     fieldIds: [...payload.fieldIds].sort(), // Sort for consistent hash
+    cursor: payload.cursor,
   };
   return hasher.sha256(JSON.stringify(hashInput));
 };
@@ -119,12 +119,14 @@ export const buildFieldBackfillTaskInput = (params: {
   hasher: IHasher;
   runId: string;
   estimatedRowCount?: number;
+  cursor?: string;
 }): FieldBackfillOutboxTaskInput => {
   const payload = serializeFieldBackfillPayload({
     baseId: params.baseId,
     tableId: params.tableId,
     fieldIds: params.fieldIds,
     estimatedRowCount: params.estimatedRowCount,
+    cursor: params.cursor,
   });
 
   return {

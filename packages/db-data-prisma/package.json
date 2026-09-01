@@ -47,7 +47,7 @@
     "@prisma/adapter-pg": "6.2.1",
     "@prisma/client": "6.2.1",
     "@teable/db-main-prisma": "workspace:^",
-    "nanoid": "3.3.7",
+    "nanoid": "3.3.18",
     "pg": "8.11.5",
     "prisma": "6.2.1"
   },

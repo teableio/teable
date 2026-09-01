@@ -35,7 +35,7 @@
     "@teable/formula": "workspace:*",
     "@teable/i18n-keys": "workspace:*",
     "@teable/v2-di": "workspace:*",
-    "nanoid": "3.3.7",
+    "nanoid": "3.3.18",
     "neverthrow": "8.2.0",
     "ts-pattern": "5.0.8",
     "zod": "4.1.8"

@@ -45,7 +45,7 @@ export const TemplateSheet = (props: ITemplateSheetProps) => {
       <SheetContent side="bottom" className="h-[95%]">
         <SheetHeader className="flex w-full border-b p-1">
           <div className="flex w-full items-center justify-start gap-2">
-            <div className="left-0 flex flex-1 flex-col gap-1 p-0.5 pr-2">
+            <div className="start-0 flex flex-1 flex-col gap-1 p-0.5 pe-2">
               <div className="flex gap-2">
                 <SheetTitle>{t('common:template.title')}</SheetTitle>
                 <Input

@@ -1,0 +1,20 @@
+{
+  "auth": {
+    "title": "أدخل كلمة المرور لعرض هذه الصفحة",
+    "submit": "إرسال",
+    "password": "كلمة المرور",
+    "passwordTooShort": "يجب ألا تقل كلمة المرور عن 3 أحرف"
+  },
+  "form": {
+    "requireLoginTip": "يتطلب هذا النموذج تسجيل الدخول قبل الإرسال",
+    "login": "تسجيل الدخول"
+  },
+  "toolbar": {
+    "filterLinkSelectPlaceholder": "اختر..."
+  },
+  "view": {
+    "signInToEdit": "<a>سجّل الدخول</a> للتعديل"
+  },
+  "openOnNewPage": "فتح في صفحة جديدة",
+  "errorTips": "فعّل مصدر المشاركة مصفوفة الصلاحيات، ولا يُسمح بالعرض"
+}

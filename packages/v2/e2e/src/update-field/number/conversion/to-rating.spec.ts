@@ -70,13 +70,13 @@ describe('update-field: number → rating conversion', () => {
     const rec3 = records.find((r) => r.id === r3.id);
     expect(rec1?.fields[fieldId]).toBe(3);
     expect(rec2?.fields[fieldId]).toBe(5);
-    expect(rec3?.fields[fieldId]).toBe(0);
+    expect(rec3?.fields[fieldId]).toBeNull();
 
     await ctx.deleteField({ tableId, fieldId });
     await ctx.deleteRecords(tableId, [r1.id, r2.id, r3.id]);
   });
 
-  test('should floor decimal values', async () => {
+  test('should round decimal values', async () => {
     const fieldId = await createNumberField('Decimal Number Field');
     const r1 = await ctx.createRecord(tableId, { [fieldId]: 3.7 });
     const r2 = await ctx.createRecord(tableId, { [fieldId]: 2.3 });
@@ -90,14 +90,14 @@ describe('update-field: number → rating conversion', () => {
     const records = await ctx.listRecords(tableId);
     const rec1 = records.find((r) => r.id === r1.id);
     const rec2 = records.find((r) => r.id === r2.id);
-    expect(rec1?.fields[fieldId]).toBe(3);
+    expect(rec1?.fields[fieldId]).toBe(4);
     expect(rec2?.fields[fieldId]).toBe(2);
 
     await ctx.deleteField({ tableId, fieldId });
     await ctx.deleteRecords(tableId, [r1.id, r2.id]);
   });
 
-  test('should map null values to max rating (current behavior)', async () => {
+  test('should preserve null values', async () => {
     const fieldId = await createNumberField('Nullable Number Field');
     const r1 = await ctx.createRecord(tableId, { [fieldId]: 4 });
     const r2 = await ctx.createRecord(tableId, { [primaryFieldId]: 'No value' });
@@ -115,13 +115,13 @@ describe('update-field: number → rating conversion', () => {
     const rec1 = records.find((r) => r.id === r1.id);
     const rec2 = records.find((r) => r.id === r2.id);
     expect(rec1?.fields[fieldId]).toBe(4);
-    expect(rec2?.fields[fieldId]).toBe(5);
+    expect(rec2?.fields[fieldId]).toBeNull();
 
     await ctx.deleteField({ tableId, fieldId });
     await ctx.deleteRecords(tableId, [r1.id, r2.id]);
   });
 
-  test('should clamp negative values to 0', async () => {
+  test('should map negative values to null', async () => {
     const fieldId = await createNumberField('Negative Number Field');
     const r1 = await ctx.createRecord(tableId, { [fieldId]: -5 });
     const r2 = await ctx.createRecord(tableId, { [fieldId]: -0.5 });
@@ -135,8 +135,8 @@ describe('update-field: number → rating conversion', () => {
     const records = await ctx.listRecords(tableId);
     const rec1 = records.find((r) => r.id === r1.id);
     const rec2 = records.find((r) => r.id === r2.id);
-    expect(rec1?.fields[fieldId]).toBe(0);
-    expect(rec2?.fields[fieldId]).toBe(0);
+    expect(rec1?.fields[fieldId]).toBeNull();
+    expect(rec2?.fields[fieldId]).toBeNull();
 
     await ctx.deleteField({ tableId, fieldId });
     await ctx.deleteRecords(tableId, [r1.id, r2.id]);

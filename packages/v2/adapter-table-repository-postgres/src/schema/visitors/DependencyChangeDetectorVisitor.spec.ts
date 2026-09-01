@@ -39,7 +39,12 @@ describe('DependencyChangeDetectorVisitor', () => {
     const changedFieldId = createFieldId('fld_changed');
     const typeField = createField({ id: 'fld_type_new', type: 'lookup' });
 
-    visitor.visitTableUpdateFieldType({ newField: () => typeField } as never)._unsafeUnwrap();
+    visitor
+      .visitTableUpdateFieldType({
+        newField: () => typeField,
+        isValuePreservingConversion: () => false,
+      } as never)
+      ._unsafeUnwrap();
     visitor
       .visitUpdateFormulaExpression({ fieldId: () => changedFieldId } as never)
       ._unsafeUnwrap();
@@ -56,11 +61,27 @@ describe('DependencyChangeDetectorVisitor', () => {
     ]);
   });
 
+  it('skips cycle checks for value-preserving type conversions', () => {
+    const visitor = new DependencyChangeDetectorVisitor();
+    const typeField = createField({ id: 'fld_text', type: 'singleLineText' });
+
+    visitor
+      .visitTableUpdateFieldType({
+        newField: () => typeField,
+        isValuePreservingConversion: () => true,
+      } as never)
+      ._unsafeUnwrap();
+
+    expect(visitor.needsCheck()).toBe(false);
+    expect(visitor.dependencyChangedFieldIds()).toEqual([]);
+  });
+
   it('leaves non-dependency specs as no-ops', () => {
     const visitor = new DependencyChangeDetectorVisitor();
     const noOpMethods = [
       'visit',
       'visitTableRename',
+      'visitTableAddView',
       'visitTableAddSelectOptions',
       'visitTableDuplicateField',
       'visitTableRemoveField',
@@ -68,6 +89,9 @@ describe('DependencyChangeDetectorVisitor', () => {
       'visitTableUpdateViewQueryDefaults',
       'visitTableByBaseId',
       'visitTableById',
+      'visitTableByViewId',
+      'visitTableWithViewIds',
+      'visitTableWithPrimaryField',
       'visitTableByIncomingReferenceToTable',
       'visitTableByIds',
       'visitTableByName',

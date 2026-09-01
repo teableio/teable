@@ -272,8 +272,12 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     // Build subquery with WHERE conditions
     const sub = this.qb.client.queryBuilder().select(this.qb.client.raw('1'));
     this.dbProvider
-      .filterQuery(sub, fieldMap, filter, undefined, { selectionMap } as unknown as {
+      .filterQuery(sub, fieldMap, filter, undefined, {
+        selectionMap,
+        unsupportedFieldReferenceBehavior: 'match-all',
+      } as unknown as {
         selectionMap: Map<string, string>;
+        unsupportedFieldReferenceBehavior: 'match-all';
       })
       .appendQueryBuilder();
     return `(${sub.toQuery()})`;
@@ -1497,6 +1501,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
               selectionMap,
               fieldReferenceSelectionMap,
               fieldReferenceFieldMap,
+              unsupportedFieldReferenceBehavior: 'match-all',
             })
             .appendQueryBuilder();
         }
@@ -1567,6 +1572,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             selectionMap,
             fieldReferenceSelectionMap,
             fieldReferenceFieldMap,
+            unsupportedFieldReferenceBehavior: 'match-all',
           })
           .appendQueryBuilder();
       }
@@ -1819,6 +1825,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             selectionMap,
             fieldReferenceSelectionMap,
             fieldReferenceFieldMap,
+            unsupportedFieldReferenceBehavior: 'match-all',
           })
           .appendQueryBuilder();
       };

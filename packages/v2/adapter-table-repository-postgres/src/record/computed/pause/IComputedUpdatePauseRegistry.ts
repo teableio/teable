@@ -36,6 +36,14 @@ export type PauseComputedUpdateScopeParams = {
 export type ResumeComputedUpdateScopeParams = {
   scopeType: ComputedUpdatePauseScopeType;
   scopeId: string;
+  actor?: string | null;
+  releaseReason?: string | null;
+};
+
+export type ReleaseComputedUpdatePauseLeaseParams = {
+  leaseId: string;
+  actor?: string | null;
+  releaseReason?: string | null;
 };
 
 export type ListComputedUpdatePauseScopesParams = {
@@ -51,6 +59,11 @@ export interface IComputedUpdatePauseRegistry {
 
   resumeScope(
     params: ResumeComputedUpdateScopeParams,
+    context?: IExecutionContext
+  ): Promise<Result<boolean, DomainError>>;
+
+  releaseLease(
+    params: ReleaseComputedUpdatePauseLeaseParams,
     context?: IExecutionContext
   ): Promise<Result<boolean, DomainError>>;
 

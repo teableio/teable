@@ -104,7 +104,7 @@ const TemplateBase = ({
         {/* Only show space selector if no fixed spaceId */}
         {!fixedSpaceId && (
           <div className="flex items-center gap-4">
-            <Label htmlFor="username" className="text-right">
+            <Label htmlFor="username" className="text-end">
               {t('space:baseModal.toSpace')}
             </Label>
             <Selector

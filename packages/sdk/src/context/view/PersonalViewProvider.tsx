@@ -1,4 +1,17 @@
-import type { IFieldVo, IGridColumnMeta, ISort, ITableActionKey, IViewVo } from '@teable/core';
+import type {
+  IFieldVo,
+  IFilter,
+  IGridColumnMeta,
+  IGroup,
+  ISort,
+  ITableActionKey,
+  IViewVo,
+} from '@teable/core';
+import {
+  stripFilterByReadableFieldIds,
+  stripInProgressFilterItems,
+  stripSortByReadableFieldIds,
+} from '@teable/core';
 import type { IGetRecordsRo, IAggregationRo } from '@teable/openapi';
 import { useCallback, useMemo } from 'react';
 import { useFields, useTableId, useTableListener, useView } from '../../hooks';
@@ -29,11 +42,35 @@ export const PersonalViewProvider = ({ children }: IPersonalViewProviderProps) =
     }
 
     const { filter, sort, group, columnMeta } = cachedView || {};
+    // The personal-view query inlines persisted defaults with
+    // ignoreViewQuery: true, which makes them indistinguishable from explicit
+    // client conditions server-side (where unreadable-field references are
+    // rejected). Strip entries the current user cannot read so a permission
+    // change cannot break the subscription; undefined until fields load.
+    const readableFieldIds = fields.length
+      ? new Set(fields.filter((field) => field.canReadFieldRecord !== false).map(({ id }) => id))
+      : undefined;
+    const cellValueTypeMap = fields.reduce<Record<string, Pick<IFieldVo, 'cellValueType'>>>(
+      (acc, field) => {
+        acc[field.id] = { cellValueType: field.cellValueType };
+        return acc;
+      },
+      {}
+    );
     const commonQuery = {
       ignoreViewQuery: true,
-      filter,
-      orderBy: (sort as ISort)?.sortObjs,
-      groupBy: group,
+      // in-progress conditions (field+operator picked, value still empty) must
+      // not reach the query: every content change re-creates the record
+      // subscription, so an unfinished condition flashes the whole grid, and
+      // v2 compiles `is`/`isNot` with a null value to IS NULL, hiding rows
+      filter: stripInProgressFilterItems(
+        stripFilterByReadableFieldIds(filter as IFilter, readableFieldIds),
+        cellValueTypeMap
+      ),
+      orderBy: stripSortByReadableFieldIds(sort as ISort, readableFieldIds)?.sortObjs,
+      groupBy: readableFieldIds
+        ? (group as IGroup)?.filter((item) => readableFieldIds.has(item.fieldId))
+        : (group as IGroup),
       // projection is a field-id set, not a sequence: keep it order-stable so
       // downstream cache keys don't churn when columns are reordered
       projection: [...visibleFieldIds].sort(),
@@ -49,7 +86,7 @@ export const PersonalViewProvider = ({ children }: IPersonalViewProviderProps) =
       personalViewCommonQuery: commonQuery,
       personalViewAggregationQuery: aggregationQuery,
     };
-  }, [cachedView, visibleFieldIds]);
+  }, [cachedView, visibleFieldIds, fields]);
 
   const updatePersonalView = useCallback(
     (actionKey: string, payload?: Record<string, unknown>) => {

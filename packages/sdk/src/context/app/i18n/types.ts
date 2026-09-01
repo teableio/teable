@@ -21,6 +21,10 @@ type TKey = NestedKeys<SdkI18nNamespaces>;
 
 type TValue = NestedValues<SdkI18nNamespaces>;
 
+type PluralBaseKey<K> = K extends `${infer Base}_other` ? Base : never;
+
+type TPluralKey = PluralBaseKey<TKey>;
+
 type ILocale = SdkI18nNamespaces;
 
 type DeepPartial<T> = {
@@ -31,4 +35,18 @@ type ILocalePartial = DeepPartial<ILocale>;
 
 type ILocaleFunction = (key: TKey, options?: Record<string, unknown>) => TValue;
 
-export type { ILocale, ILocalePartial, TKey, TValue, ILocaleFunction };
+type ILocalePluralFunction = (
+  key: TPluralKey,
+  count: number,
+  options?: Record<string, unknown>
+) => string;
+
+export type {
+  ILocale,
+  ILocalePartial,
+  TKey,
+  TPluralKey,
+  TValue,
+  ILocaleFunction,
+  ILocalePluralFunction,
+};

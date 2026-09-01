@@ -1,15 +1,20 @@
 export const v2TableOpsTokens = {
   observationSink: Symbol('v2.tableOps.observationSink'),
+  observationPublisher: Symbol('v2.tableOps.observationPublisher'),
   observationReader: Symbol('v2.tableOps.observationReader'),
   physicalStatsReader: Symbol('v2.tableOps.physicalStatsReader'),
   indexInspector: Symbol('v2.tableOps.indexInspector'),
   planValidator: Symbol('v2.tableOps.planValidator'),
   recommendationRepository: Symbol('v2.tableOps.recommendationRepository'),
+  decisionLogRepository: Symbol('v2.tableOps.decisionLogRepository'),
+  decisionPolicy: Symbol('v2.tableOps.decisionPolicy'),
+  searchAccessPathReclaimSource: Symbol('v2.tableOps.searchAccessPathReclaimSource'),
   taskRepository: Symbol('v2.tableOps.taskRepository'),
   remediationExecutor: Symbol('v2.tableOps.remediationExecutor'),
   searchVectorReconciler: Symbol('v2.tableOps.searchVectorReconciler'),
   searchAccessPathReconciler: Symbol('v2.tableOps.searchAccessPathReconciler'),
   searchVectorStatusReader: Symbol('v2.tableOps.searchVectorStatusReader'),
+  searchAccessPathResolver: Symbol('v2.tableOps.searchAccessPathResolver'),
   searchAccessPathCapabilityReader: Symbol('v2.tableOps.searchAccessPathCapabilityReader'),
   searchVectorSchemaMaintenanceScheduler: Symbol(
     'v2.tableOps.searchVectorSchemaMaintenanceScheduler'

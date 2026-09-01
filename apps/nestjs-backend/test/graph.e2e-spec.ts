@@ -6,6 +6,7 @@ import {
   type IFieldRo,
   type IButtonFieldOptions,
   type ILinkFieldOptions,
+  FieldAIActionType,
   FieldKeyType,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -25,14 +26,25 @@ describe('OpenAPI Graph (e2e)', () => {
   const baseId = globalThis.testConfig.baseId;
   let table1: ITableFullVo;
   let table2: ITableFullVo;
+  // These specs assert v1 graph plans; FORCE_V2_ALL routes requests to v2,
+  // where the v1 plan counters stay zero. Pin it off and let the v2-only
+  // specs re-enable it locally (see withForceV2All below).
+  let previousForceV2All: string | undefined;
 
   beforeAll(async () => {
+    previousForceV2All = process.env.FORCE_V2_ALL;
+    process.env.FORCE_V2_ALL = 'false';
     const appCtx = await initApp();
     app = appCtx.app;
     prisma = app.get(PrismaService);
   });
 
   afterAll(async () => {
+    if (previousForceV2All == null) {
+      delete process.env.FORCE_V2_ALL;
+    } else {
+      process.env.FORCE_V2_ALL = previousForceV2All;
+    }
     await app.close();
   });
 
@@ -364,6 +376,54 @@ describe('OpenAPI Graph (e2e)', () => {
     expect(plan).toEqual({ skip: true });
   });
 
+  it('should skip the update plan when only the AI config of a longText field changes', async () => {
+    const textField = table1.fields[0];
+    await updateRecord(table1.id, table1.records[0].id, {
+      fieldKeyType: FieldKeyType.Id,
+      record: {
+        fields: {
+          [textField.id]: 'hello',
+        },
+      },
+    });
+
+    const aiField = await createField(table1.id, {
+      name: 'AI Reply',
+      type: FieldType.LongText,
+      options: {
+        showAs: { type: 'markdown' },
+      },
+      aiConfig: {
+        type: FieldAIActionType.Customization,
+        modelKey: 'old-model',
+        prompt: 'Write a concise reply.',
+      },
+    });
+
+    // Fields created before the options-union regression store clean options
+    // ({showAs} only); restore that stored shape to model an existing field.
+    await prisma.field.update({
+      where: { id: aiField.id },
+      data: { options: JSON.stringify({ showAs: { type: 'markdown' } }) },
+    });
+
+    // The field editor always resubmits the unchanged options together with the
+    // new aiConfig; the plan must still recognize this as a non-data change.
+    const { data: plan } = await planFieldConvert(table1.id, aiField.id, {
+      type: FieldType.LongText,
+      options: {
+        showAs: { type: 'markdown' },
+      },
+      aiConfig: {
+        type: FieldAIActionType.Customization,
+        modelKey: 'new-model',
+        prompt: 'Write a concise reply.',
+      },
+    });
+
+    expect(plan).toEqual({ skip: true });
+  });
+
   it('should update lookup field plan', async () => {
     const linkFieldRo: IFieldRo = {
       type: FieldType.Link,
@@ -543,5 +603,88 @@ describe('OpenAPI Graph (e2e)', () => {
         },
       });
     }
+  });
+
+  // The v2 convert dry run only serves v2-routed requests; the other specs in
+  // this file pin FORCE_V2_ALL off, so the v2 dry-run specs opt back in
+  // explicitly. See field-open-api.controller.ts planFieldConvert.
+  const withForceV2All = async (fn: () => Promise<void>) => {
+    const previous = process.env.FORCE_V2_ALL;
+    process.env.FORCE_V2_ALL = 'true';
+    try {
+      await fn();
+    } finally {
+      if (previous == null) {
+        delete process.env.FORCE_V2_ALL;
+      } else {
+        process.env.FORCE_V2_ALL = previous;
+      }
+    }
+  };
+
+  it('should skip the v2 convert dry run when only AI config or display options change', async () => {
+    await withForceV2All(async () => {
+      const aiField = await createField(table1.id, {
+        name: 'AI Reply',
+        type: FieldType.LongText,
+        options: {
+          showAs: { type: 'markdown' },
+        },
+        aiConfig: {
+          type: FieldAIActionType.Customization,
+          modelKey: 'old-model',
+          prompt: 'Write a concise reply.',
+        },
+      });
+
+      const { data: plan } = await planFieldConvert(table1.id, aiField.id, {
+        type: FieldType.LongText,
+        options: {
+          showAs: { type: 'markdown' },
+        },
+        aiConfig: {
+          type: FieldAIActionType.Customization,
+          modelKey: 'new-model',
+          prompt: 'Write a concise reply.',
+        },
+      });
+
+      expect(plan).toEqual({ skip: true });
+    });
+  });
+
+  it('should count affected cells in the v2 convert dry run for a type conversion', async () => {
+    await withForceV2All(async () => {
+      const textField = table1.fields[0];
+      await updateRecord(table1.id, table1.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [textField.id]: 'hello',
+          },
+        },
+      });
+
+      const longTextField = await createField(table1.id, {
+        name: 'Notes',
+        type: FieldType.LongText,
+      });
+      await updateRecord(table1.id, table1.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [longTextField.id]: 'some notes',
+          },
+        },
+      });
+
+      const { data: plan } = await planFieldConvert(table1.id, longTextField.id, {
+        type: FieldType.SingleLineText,
+      });
+
+      expect(plan.skip).toBeUndefined();
+      expect(plan.updateCellCount).toEqual(1);
+      expect(plan.linkFieldCount).toEqual(0);
+    });
   });
 });

@@ -3,6 +3,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 import { type ITableMapper } from '../../ports/mappers/TableMapper';
+import type { RecordFilter } from '../../queries/RecordFilterDto';
 import type { BaseId } from '../base/BaseId';
 import { AggregateRoot } from '../shared/AggregateRoot';
 import type { IDomainContext } from '../shared/DomainContext';
@@ -20,6 +21,7 @@ import { TableDeleted } from './events/TableDeleted';
 import { TableRestored } from './events/TableRestored';
 import { TableTrashed } from './events/TableTrashed';
 import type { DbFieldName } from './fields/DbFieldName';
+import { DbFieldType } from './fields/DbFieldType';
 import type { Field } from './fields/Field';
 import type { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
@@ -31,6 +33,7 @@ import { CellValueType } from './fields/types/CellValueType';
 import type { FieldHasError } from './fields/types/FieldHasError';
 import type { FieldNotNull } from './fields/types/FieldNotNull';
 import type { FieldUnique } from './fields/types/FieldUnique';
+import { LookupField } from './fields/types/LookupField';
 import { MultipleSelectField } from './fields/types/MultipleSelectField';
 import {
   ensureSelectFieldOptionCountWithinLimit,
@@ -46,10 +49,66 @@ import {
   type LinkForeignTableReference,
 } from './fields/visitors/LinkForeignTableReferenceVisitor';
 import {
+  applyViewManualSort as applyViewManualSortMethod,
+  type ApplyViewManualSortMethodResult,
+} from './methods/applyViewManualSort';
+import {
+  applyViewSnapshot as applyViewSnapshotMethod,
+  type ApplyViewSnapshotMethodResult,
+} from './methods/applyViewSnapshot';
+import {
+  createButtonClickPlan as createButtonClickPlanMethod,
+  type ButtonClickPlan,
+  type CreateButtonClickPlanParams,
+} from './methods/createButtonClickPlan';
+import {
+  createCollapsedGroupExclusionFilter as createCollapsedGroupExclusionFilterMethod,
+  type CollapsedGroupValueRow,
+} from './methods/createCollapsedGroupExclusionFilter';
+import {
+  createRecordAggregation as createRecordAggregationMethod,
+  type CreateRecordAggregationParams,
+} from './methods/createRecordAggregation';
+import {
+  createRecordCalendarDailyCollection as createRecordCalendarDailyCollectionMethod,
+  type CreateRecordCalendarDailyCollectionParams,
+} from './methods/createRecordCalendarDailyCollection';
+import {
+  createView as createViewMethod,
+  type CreateViewMethodParams,
+  type CreateViewMethodResult,
+} from './methods/createView';
+import {
+  createRecordCollaboratorsQueryPlan as createRecordCollaboratorsQueryPlanMethod,
+  createViewCollaboratorsQueryPlan as createViewCollaboratorsQueryPlanMethod,
+  type CreateViewCollaboratorsQueryPlanParams,
+  type ViewCollaboratorsQueryPlan,
+} from './methods/createViewCollaboratorsQueryPlan';
+import {
+  createViewLinkRecordsQueryPlan as createViewLinkRecordsQueryPlanMethod,
+  type CreateViewLinkRecordsQueryPlanParams,
+  type ViewLinkRecordsQueryPlan,
+} from './methods/createViewLinkRecordsQueryPlan';
+import {
+  createViewSelectionCopyPlan as createViewSelectionCopyPlanMethod,
+  type CreateViewSelectionCopyPlanParams,
+  type ViewSelectionCopyPlan,
+} from './methods/createViewSelectionCopyPlan';
+import {
+  clearViewFilterDependencies as clearViewFilterDependenciesMethod,
+  deleteView as deleteViewMethod,
+  type DeleteViewMethodResult,
+} from './methods/deleteView';
+import {
   duplicate as duplicateMethod,
   type DuplicateMethodParams as TableDuplicateParams,
   type DuplicateMethodResult as TableDuplicateResult,
 } from './methods/duplicate';
+import {
+  duplicateView as duplicateViewMethod,
+  type DuplicateViewMethodOptions,
+  type DuplicateViewMethodResult,
+} from './methods/duplicateView';
 import {
   getOrderedVisibleFieldIds as getOrderedVisibleFieldIdsMethod,
   type GetOrderedVisibleFieldIdsOptions,
@@ -67,12 +126,79 @@ import {
   type UpdateRecordOptions,
   type UpdateRecordsStreamOptions,
 } from './methods/records';
+import {
+  refreshViewShareId as refreshViewShareIdMethod,
+  type RefreshViewShareIdMethodResult,
+} from './methods/refreshViewShareId';
 import { rename as renameMethod } from './methods/rename';
+import { renameView as renameViewMethod, type RenameViewMethodResult } from './methods/renameView';
+import {
+  resetButtonValue as resetButtonValueMethod,
+  type ResetButtonValueParams,
+} from './methods/resetButtonValue';
+import {
+  setButtonValue as setButtonValueMethod,
+  type SetButtonValueParams,
+} from './methods/setButtonValue';
+import { updateProperties as updatePropertiesMethod } from './methods/updateProperties';
+import {
+  updateViewColumnMeta as updateViewColumnMetaMethod,
+  type UpdateViewColumnMetaMethodResult,
+} from './methods/updateViewColumnMeta';
+import {
+  updateViewDescription as updateViewDescriptionMethod,
+  type UpdateViewDescriptionMethodResult,
+} from './methods/updateViewDescription';
+import {
+  updateViewFilter as updateViewFilterMethod,
+  type UpdateViewFilterMethodResult,
+} from './methods/updateViewFilter';
+import {
+  updateViewGroup as updateViewGroupMethod,
+  type UpdateViewGroupMethodResult,
+} from './methods/updateViewGroup';
+import {
+  updateViewLocked as updateViewLockedMethod,
+  type UpdateViewLockedMethodResult,
+} from './methods/updateViewLocked';
+import {
+  updateViewOptions as updateViewOptionsMethod,
+  type UpdateViewOptionsMethodResult,
+} from './methods/updateViewOptions';
+import {
+  updateViewOrder as updateViewOrderMethod,
+  type UpdateViewOrderMethodResult,
+  type ViewOrderPosition,
+} from './methods/updateViewOrder';
+import {
+  updateViewShareMeta as updateViewShareMetaMethod,
+  type UpdateViewShareMetaMethodResult,
+} from './methods/updateViewShareMeta';
+import {
+  disableViewShare as disableViewShareMethod,
+  enableViewShare as enableViewShareMethod,
+  type TableDisableViewShareResult,
+  type TableEnableViewShareResult,
+} from './methods/updateViewShareState';
+import {
+  updateViewSort as updateViewSortMethod,
+  type UpdateViewSortMethodResult,
+} from './methods/updateViewSort';
 import { validateFormSubmission as validateFormSubmissionMethod } from './methods/validateFormSubmission';
+import {
+  fieldFilterLinkScope as fieldFilterLinkScopeMethod,
+  type FieldFilterLinkScope,
+} from './methods/fieldFilterLinkScope';
+import {
+  viewFilterLinkReferences as viewFilterLinkReferencesMethod,
+  type ViewFilterLinkReference,
+} from './methods/viewFilterLinkReferences';
 import type { RecordCreateResult } from './records/RecordCreateResult';
 import type { RecordId } from './records/RecordId';
 import type { RecordUpdateResult } from './records/RecordUpdateResult';
 import type { TableRecord } from './records/TableRecord';
+import type { TableRecordAggregation } from './records/TableRecordAggregation';
+import type { TableRecordCalendarDailyCollection } from './records/TableRecordCalendarDailyCollection';
 import { resolveFormulaFields } from './resolveFormulaFields';
 import type { ITableSpecVisitor } from './specs/ITableSpecVisitor';
 import { TableSpecBuilder } from './specs/TableSpecBuilder';
@@ -81,10 +207,100 @@ import { TableBuilder } from './TableBuilder';
 import type { TableId } from './TableId';
 import { TableMutator, type TableUpdateResult } from './TableMutator';
 import type { TableName } from './TableName';
+import { TableProperties, type TablePropertiesPatch } from './TableProperties';
 import type { View } from './views/View';
-import { ViewColumnMeta, type ViewColumnMetaEntry } from './views/ViewColumnMeta';
+import {
+  ViewColumnMeta,
+  type ViewColumnMetaEntry,
+  type ViewColumnMetaPatch,
+} from './views/ViewColumnMeta';
 import type { ViewId } from './views/ViewId';
+import type { ViewName } from './views/ViewName';
+import type { ViewQueryGroupItem } from './views/ViewQueryDefaults';
 import { CloneViewVisitor } from './views/visitors/CloneViewVisitor';
+
+export type TableCreateViewInput = CreateViewMethodParams;
+export type TableCreateViewResult = CreateViewMethodResult;
+export type TableDeleteViewResult = DeleteViewMethodResult;
+export type TableDuplicateViewOptions = DuplicateViewMethodOptions;
+export type TableDuplicateViewResult = DuplicateViewMethodResult;
+export type TableRenameViewResult = RenameViewMethodResult;
+export type TableUpdateViewDescriptionResult = UpdateViewDescriptionMethodResult;
+export type TableUpdateViewLockedResult = UpdateViewLockedMethodResult;
+export type TableUpdateViewOrderResult = UpdateViewOrderMethodResult;
+export type TableUpdateViewOptionsResult = UpdateViewOptionsMethodResult;
+export type TableUpdateViewColumnMetaResult = UpdateViewColumnMetaMethodResult;
+export type TableUpdateViewFilterResult = UpdateViewFilterMethodResult;
+export type TableUpdateViewGroupResult = UpdateViewGroupMethodResult;
+export type TableUpdateViewSortResult = UpdateViewSortMethodResult;
+export type TableRefreshViewShareIdResult = RefreshViewShareIdMethodResult;
+export type TableApplyViewManualSortResult = ApplyViewManualSortMethodResult;
+export type TableApplyViewSnapshotResult = ApplyViewSnapshotMethodResult;
+export type TableViewFilterLinkReference = ViewFilterLinkReference;
+export type TableButtonClickPlan = ButtonClickPlan;
+
+const isPersistedScalarDbFieldType = (value: string): boolean => {
+  switch (value.trim().toUpperCase()) {
+    case 'REAL':
+    case 'DATETIME':
+    case 'BOOLEAN':
+    case 'INTEGER':
+    case 'BIGINT':
+    case 'SMALLINT':
+      return true;
+    default:
+      return false;
+  }
+};
+
+const dbFieldTypeFromFieldType = (fieldType: FieldType): string | undefined => {
+  if (fieldType.equals(FieldType.autoNumber())) return 'INTEGER';
+  if (fieldType.equals(FieldType.number()) || fieldType.equals(FieldType.rating())) return 'REAL';
+  if (
+    fieldType.equals(FieldType.link()) ||
+    fieldType.equals(FieldType.user()) ||
+    fieldType.equals(FieldType.createdBy()) ||
+    fieldType.equals(FieldType.lastModifiedBy()) ||
+    fieldType.equals(FieldType.attachment()) ||
+    fieldType.equals(FieldType.button())
+  ) {
+    return 'JSON';
+  }
+  if (
+    fieldType.equals(FieldType.date()) ||
+    fieldType.equals(FieldType.createdTime()) ||
+    fieldType.equals(FieldType.lastModifiedTime())
+  ) {
+    return 'DATETIME';
+  }
+  if (fieldType.equals(FieldType.checkbox())) return 'BOOLEAN';
+  return undefined;
+};
+
+const deriveDbFieldTypeFromResolvedField = (field: Field): string | undefined => {
+  if (field instanceof LookupField && field.isPending()) return undefined;
+  if (field instanceof LookupField) {
+    const innerType = field.innerFieldType();
+    if (innerType.isOk()) {
+      const fromInner = dbFieldTypeFromFieldType(innerType.value);
+      if (fromInner) return fromInner;
+    }
+  }
+  const fromOwnType = dbFieldTypeFromFieldType(field.type());
+  if (fromOwnType) return fromOwnType;
+  const valueType = field.accept(new FieldValueTypeVisitor());
+  if (valueType.isErr()) return undefined;
+  switch (valueType.value.cellValueType.toString()) {
+    case 'number':
+      return 'REAL';
+    case 'dateTime':
+      return 'DATETIME';
+    case 'boolean':
+      return 'BOOLEAN';
+    default:
+      return undefined;
+  }
+};
 
 export class Table extends AggregateRoot<TableId> {
   private dbTableNameValue: DbTableName;
@@ -93,6 +309,7 @@ export class Table extends AggregateRoot<TableId> {
     id: TableId,
     private readonly baseIdValue: BaseId,
     private readonly nameValue: TableName,
+    private readonly propertiesValue: TableProperties,
     private readonly fieldsValue: ReadonlyArray<Field>,
     private readonly viewsValue: ReadonlyArray<View>,
     private readonly primaryFieldIdValue: FieldId,
@@ -120,6 +337,7 @@ export class Table extends AggregateRoot<TableId> {
         props.id,
         props.baseId,
         props.name,
+        props.properties ?? TableProperties.empty(),
         props.fields,
         props.views,
         props.primaryFieldId,
@@ -148,6 +366,7 @@ export class Table extends AggregateRoot<TableId> {
       props.id,
       props.baseId,
       props.name,
+      props.properties ?? TableProperties.empty(),
       props.fields,
       props.views,
       props.primaryFieldId,
@@ -172,6 +391,18 @@ export class Table extends AggregateRoot<TableId> {
     return this.nameValue;
   }
 
+  properties(): TableProperties {
+    return this.propertiesValue;
+  }
+
+  description(): string | undefined {
+    return this.propertiesValue.description();
+  }
+
+  icon(): string | undefined {
+    return this.propertiesValue.icon();
+  }
+
   dbTableName(): Result<DbTableName, DomainError> {
     const valueResult = this.dbTableNameValue.value();
     if (valueResult.isErr()) return err(valueResult.error);
@@ -190,9 +421,11 @@ export class Table extends AggregateRoot<TableId> {
     const nextValue = dbTableName.value();
     if (nextValue.isErr()) return err(nextValue.error);
 
-    const currentValue = this.dbTableNameValue.value();
-    if (currentValue.isOk()) {
-      if (currentValue.value !== nextValue.value)
+    // Probe with isRehydrated() instead of value(): the unset branch is the
+    // common case on rehydration, and value() would allocate a stack-capturing
+    // DomainError per call just to signal "not set".
+    if (this.dbTableNameValue.isRehydrated()) {
+      if (!this.dbTableNameValue.equals(dbTableName))
         return err(domainError.invariant({ message: 'DbTableName already set' }));
       return ok(undefined);
     }
@@ -271,6 +504,19 @@ export class Table extends AggregateRoot<TableId> {
     return [...this.viewsValue];
   }
 
+  defaultView(): Result<View, DomainError> {
+    const view = this.viewsValue[0];
+    if (!view) {
+      return err(
+        domainError.notFound({
+          code: 'view.not_found',
+          message: `View not found with tableId: ${this.id().toString()}`,
+        })
+      );
+    }
+    return ok(view);
+  }
+
   /**
    * Get a view by its ID.
    * @param viewId - The view ID to find
@@ -307,6 +553,16 @@ export class Table extends AggregateRoot<TableId> {
     return ok(view);
   }
 
+  viewFilterLinkReferences(
+    viewId: ViewId
+  ): Result<ReadonlyArray<TableViewFilterLinkReference>, DomainError> {
+    return viewFilterLinkReferencesMethod.call(this, viewId);
+  }
+
+  fieldFilterLinkScope(fieldId: FieldId): Result<FieldFilterLinkScope | null, DomainError> {
+    return fieldFilterLinkScopeMethod.call(this, fieldId);
+  }
+
   /**
    * Get ordered visible field IDs for a view.
    *
@@ -322,6 +578,55 @@ export class Table extends AggregateRoot<TableId> {
     options?: GetOrderedVisibleFieldIdsOptions
   ): Result<ReadonlyArray<FieldId>, DomainError> {
     return getOrderedVisibleFieldIdsMethod.call(this, viewId, options);
+  }
+
+  createRecordAggregation(
+    params: CreateRecordAggregationParams
+  ): Result<TableRecordAggregation, DomainError> {
+    return createRecordAggregationMethod.call(this, params);
+  }
+
+  createRecordCalendarDailyCollection(
+    params: CreateRecordCalendarDailyCollectionParams
+  ): Result<TableRecordCalendarDailyCollection, DomainError> {
+    return createRecordCalendarDailyCollectionMethod.call(this, params);
+  }
+
+  createViewLinkRecordsQueryPlan(
+    params: CreateViewLinkRecordsQueryPlanParams
+  ): Result<ViewLinkRecordsQueryPlan, DomainError> {
+    return createViewLinkRecordsQueryPlanMethod.call(this, params);
+  }
+
+  createViewCollaboratorsQueryPlan(
+    params: CreateViewCollaboratorsQueryPlanParams
+  ): Result<ViewCollaboratorsQueryPlan, DomainError> {
+    return createViewCollaboratorsQueryPlanMethod.call(this, params);
+  }
+
+  createRecordCollaboratorsQueryPlan(
+    fieldId: FieldId
+  ): Result<ViewCollaboratorsQueryPlan, DomainError> {
+    return createRecordCollaboratorsQueryPlanMethod.call(this, fieldId);
+  }
+
+  createViewSelectionCopyPlan(
+    params: CreateViewSelectionCopyPlanParams
+  ): Result<ViewSelectionCopyPlan, DomainError> {
+    return createViewSelectionCopyPlanMethod.call(this, params);
+  }
+
+  createCollapsedGroupExclusionFilter(
+    groupBy: ReadonlyArray<ViewQueryGroupItem>,
+    groupedRows: ReadonlyArray<CollapsedGroupValueRow>,
+    collapsedGroupIds: ReadonlySet<string>
+  ): Result<RecordFilter | undefined, DomainError> {
+    return createCollapsedGroupExclusionFilterMethod.call(
+      this,
+      groupBy,
+      groupedRows,
+      collapsedGroupIds
+    );
   }
 
   validateFormSubmission(
@@ -535,6 +840,18 @@ export class Table extends AggregateRoot<TableId> {
     return createRecordMethod.call(this, fieldValues, options);
   }
 
+  createButtonClickPlan(params: CreateButtonClickPlanParams): Result<ButtonClickPlan, DomainError> {
+    return createButtonClickPlanMethod.call(this, params);
+  }
+
+  setButtonValue(params: SetButtonValueParams): Result<RecordUpdateResult, DomainError> {
+    return setButtonValueMethod.call(this, params);
+  }
+
+  resetButtonValue(params: ResetButtonValueParams): Result<RecordUpdateResult, DomainError> {
+    return resetButtonValueMethod.call(this, params);
+  }
+
   /**
    * Update a record with the given field values.
    *
@@ -629,6 +946,7 @@ export class Table extends AggregateRoot<TableId> {
       typecast?: boolean;
       valuesAreValidated?: boolean;
       emitRecordCreatedEvents?: boolean;
+      source?: RecordCreateSource;
     }
   ): Result<CreateRecordsMethodResult, DomainError> {
     return createRecordsMethod.call(this, recordsFieldValues, options);
@@ -753,6 +1071,113 @@ export class Table extends AggregateRoot<TableId> {
     return mutator.apply();
   }
 
+  createView(input: TableCreateViewInput): Result<TableCreateViewResult, DomainError> {
+    return createViewMethod.call(this, input);
+  }
+
+  applyViewSnapshot(snapshotView: View): Result<TableApplyViewSnapshotResult, DomainError> {
+    return applyViewSnapshotMethod.call(this, snapshotView);
+  }
+
+  deleteView(viewId: ViewId): Result<TableDeleteViewResult, DomainError> {
+    return deleteViewMethod.call(this, viewId);
+  }
+
+  duplicateView(
+    sourceViewId: ViewId,
+    options?: TableDuplicateViewOptions
+  ): Result<TableDuplicateViewResult, DomainError> {
+    return duplicateViewMethod.call(this, sourceViewId, options);
+  }
+
+  renameView(viewId: ViewId, nextName: ViewName): Result<TableRenameViewResult, DomainError> {
+    return renameViewMethod.call(this, viewId, nextName);
+  }
+
+  updateViewDescription(
+    viewId: ViewId,
+    nextDescription: string
+  ): Result<TableUpdateViewDescriptionResult, DomainError> {
+    return updateViewDescriptionMethod.call(this, viewId, nextDescription);
+  }
+
+  updateViewFilter(
+    viewId: ViewId,
+    filter: unknown
+  ): Result<TableUpdateViewFilterResult, DomainError> {
+    return updateViewFilterMethod.call(this, viewId, filter);
+  }
+
+  updateViewGroup(viewId: ViewId, group: unknown): Result<TableUpdateViewGroupResult, DomainError> {
+    return updateViewGroupMethod.call(this, viewId, group);
+  }
+
+  updateViewOptions(
+    viewId: ViewId,
+    patch: unknown
+  ): Result<TableUpdateViewOptionsResult, DomainError> {
+    return updateViewOptionsMethod.call(this, viewId, patch);
+  }
+
+  updateViewShareMeta(
+    viewId: ViewId,
+    shareMeta: unknown
+  ): Result<UpdateViewShareMetaMethodResult, DomainError> {
+    return updateViewShareMetaMethod.call(this, viewId, shareMeta);
+  }
+
+  refreshViewShareId(viewId: ViewId): Result<TableRefreshViewShareIdResult, DomainError> {
+    return refreshViewShareIdMethod.call(this, viewId);
+  }
+
+  enableViewShare(viewId: ViewId): Result<TableEnableViewShareResult, DomainError> {
+    return enableViewShareMethod.call(this, viewId);
+  }
+
+  disableViewShare(viewId: ViewId): Result<TableDisableViewShareResult, DomainError> {
+    return disableViewShareMethod.call(this, viewId);
+  }
+
+  updateViewSort(viewId: ViewId, sort: unknown): Result<TableUpdateViewSortResult, DomainError> {
+    return updateViewSortMethod.call(this, viewId, sort);
+  }
+
+  applyViewManualSort(
+    viewId: ViewId,
+    sort: unknown
+  ): Result<TableApplyViewManualSortResult, DomainError> {
+    return applyViewManualSortMethod.call(this, viewId, sort);
+  }
+
+  updateViewLocked(
+    viewId: ViewId,
+    nextIsLocked: boolean | undefined
+  ): Result<TableUpdateViewLockedResult, DomainError> {
+    return updateViewLockedMethod.call(this, viewId, nextIsLocked);
+  }
+
+  updateViewOrder(
+    sourceViewId: ViewId,
+    anchorViewId: ViewId,
+    position: ViewOrderPosition
+  ): Result<TableUpdateViewOrderResult, DomainError> {
+    return updateViewOrderMethod.call(this, sourceViewId, anchorViewId, position);
+  }
+
+  updateViewColumnMeta(
+    viewId: ViewId,
+    patches: ReadonlyArray<ViewColumnMetaPatch>
+  ): Result<TableUpdateViewColumnMetaResult, DomainError> {
+    return updateViewColumnMetaMethod.call(this, viewId, patches);
+  }
+
+  clearViewFilterDependencies(
+    viewId: ViewId,
+    fieldIds: ReadonlyArray<FieldId>
+  ): Result<TableUpdateResult | undefined, DomainError> {
+    return clearViewFilterDependenciesMethod.call(this, viewId, fieldIds);
+  }
+
   updateField(
     fieldId: FieldId,
     buildSpecs: (
@@ -825,6 +1250,10 @@ export class Table extends AggregateRoot<TableId> {
     return renameMethod.call(this, nextName);
   }
 
+  updateProperties(patch: TablePropertiesPatch): Result<Table, DomainError> {
+    return updatePropertiesMethod.call(this, patch);
+  }
+
   addField(
     field: Field,
     options?: {
@@ -874,6 +1303,7 @@ export class Table extends AggregateRoot<TableId> {
       id: this.id(),
       baseId: this.baseIdValue,
       name: this.nameValue,
+      properties: this.propertiesValue,
       fields: nextFields,
       views: nextViewsResult.value,
       primaryFieldId: this.primaryFieldIdValue,
@@ -893,6 +1323,64 @@ export class Table extends AggregateRoot<TableId> {
       if (resolved.isErr()) return err(resolved.error);
       return ok(nextTable);
     });
+  }
+
+  addView(view: View): Result<Table, DomainError> {
+    if (this.viewsValue.some((existing) => existing.id().equals(view.id()))) {
+      return err(domainError.conflict({ message: 'View already exists' }));
+    }
+    if (this.viewsValue.some((existing) => existing.name().equals(view.name()))) {
+      return err(domainError.conflict({ message: 'View names must be unique' }));
+    }
+    const columnMetaResult = view.columnMeta();
+    if (columnMetaResult.isErr()) return err(columnMetaResult.error);
+    const queryDefaultsResult = view.queryDefaults();
+    if (queryDefaultsResult.isErr()) return err(queryDefaultsResult.error);
+
+    const props: ITableBuildProps = {
+      id: this.id(),
+      baseId: this.baseIdValue,
+      name: this.nameValue,
+      properties: this.propertiesValue,
+      fields: this.fieldsValue,
+      views: [...this.viewsValue, view],
+      primaryFieldId: this.primaryFieldIdValue,
+    };
+    if (this.dbTableNameValue.isRehydrated()) props.dbTableName = this.dbTableNameValue;
+    return Table.rehydrate(props);
+  }
+
+  removeView(viewId: ViewId): Result<Table, DomainError> {
+    if (this.viewsValue.length <= 1) {
+      return err(
+        domainError.validation({
+          code: 'view.cannot_delete_last',
+          message: 'Cannot delete the last view in a table. A table must have at least one view.',
+        })
+      );
+    }
+
+    const targetView = this.viewsValue.find((view) => view.id().equals(viewId));
+    if (!targetView) {
+      return err(
+        domainError.notFound({
+          code: 'view.not_found',
+          message: `View not found: ${viewId.toString()}`,
+        })
+      );
+    }
+
+    const props: ITableBuildProps = {
+      id: this.id(),
+      baseId: this.baseIdValue,
+      name: this.nameValue,
+      properties: this.propertiesValue,
+      fields: this.fieldsValue,
+      views: this.viewsValue.filter((view) => !view.id().equals(viewId)),
+      primaryFieldId: this.primaryFieldIdValue,
+    };
+    if (this.dbTableNameValue.isRehydrated()) props.dbTableName = this.dbTableNameValue;
+    return Table.rehydrate(props);
   }
 
   removeField(fieldId: FieldId): Result<Table, DomainError> {
@@ -919,6 +1407,7 @@ export class Table extends AggregateRoot<TableId> {
       id: this.id(),
       baseId: this.baseIdValue,
       name: this.nameValue,
+      properties: this.propertiesValue,
       fields: nextFields,
       views: nextViewsResult.value,
       primaryFieldId: this.primaryFieldIdValue,
@@ -1028,6 +1517,7 @@ export class Table extends AggregateRoot<TableId> {
       id: this.id(),
       baseId: this.baseIdValue,
       name: this.nameValue,
+      properties: this.propertiesValue,
       fields: nextFields,
       views: this.viewsValue,
       primaryFieldId: this.primaryFieldIdValue,
@@ -1090,6 +1580,7 @@ export class Table extends AggregateRoot<TableId> {
       id: this.id(),
       baseId: this.baseIdValue,
       name: this.nameValue,
+      properties: this.propertiesValue,
       fields: nextFields,
       views: this.viewsValue,
       primaryFieldId: this.primaryFieldIdValue,
@@ -1151,6 +1642,50 @@ export class Table extends AggregateRoot<TableId> {
       const setDbFieldNameResult = newField.setDbFieldName(oldDbFieldNameResult.value);
       if (setDbFieldNameResult.isErr()) return err(setDbFieldNameResult.error);
     }
+    // Same-type, same-multiplicity pending rebuilds omit dbFieldType.
+    // Copy persisted scalar storage (REAL/DATETIME/BOOLEAN/INTEGER) when present.
+    // If leftover TEXT/JSON metadata still points at a numeric/temporal/json inner
+    // field, derive storage from that inner type so backfill recasts without a
+    // physical-column catalog round trip.
+    // Skip when lookup target or cellValueType changed (count REAL -> max DATETIME).
+    // Pending lookups default to string, so skip the value-type check for them.
+    if (oldField.type().equals(newField.type())) {
+      const oldMultiple = oldField.isMultipleCellValue();
+      const newMultiple = newField.isMultipleCellValue();
+      const sameMultiplicity =
+        oldMultiple.isOk() && newMultiple.isOk() && oldMultiple.value.equals(newMultiple.value);
+      const sameLookupTarget =
+        !(oldField instanceof LookupField) ||
+        !(newField instanceof LookupField) ||
+        oldField.lookupFieldId().equals(newField.lookupFieldId());
+      const newIsPendingLookup = newField instanceof LookupField && newField.isPending();
+      const oldValueType = oldField.accept(new FieldValueTypeVisitor());
+      const newValueType = newField.accept(new FieldValueTypeVisitor());
+      const sameValueType =
+        newIsPendingLookup ||
+        (oldValueType.isOk() &&
+          newValueType.isOk() &&
+          oldValueType.value.cellValueType.equals(newValueType.value.cellValueType));
+      if (sameMultiplicity && sameLookupTarget && sameValueType) {
+        const oldDbFieldTypeResult = oldField.dbFieldType();
+        if (oldDbFieldTypeResult.isOk() && newField.dbFieldType().isErr()) {
+          const persistedType = oldDbFieldTypeResult.value.value();
+          if (persistedType.isOk() && isPersistedScalarDbFieldType(persistedType.value)) {
+            const setDbFieldTypeResult = newField.setDbFieldType(oldDbFieldTypeResult.value);
+            if (setDbFieldTypeResult.isErr()) return err(setDbFieldTypeResult.error);
+          }
+        }
+        if (newField.dbFieldType().isErr() && newIsPendingLookup) {
+          const derivedType = deriveDbFieldTypeFromResolvedField(oldField);
+          if (derivedType) {
+            const rehydrated = DbFieldType.rehydrate(derivedType);
+            if (rehydrated.isErr()) return err(rehydrated.error);
+            const setDerivedResult = newField.setDbFieldType(rehydrated.value);
+            if (setDerivedResult.isErr()) return err(setDerivedResult.error);
+          }
+        }
+      }
+    }
 
     // Primary field conversion aligns with v1: conversion is allowed but target type is restricted.
     if (this.primaryFieldIdValue.equals(fieldId)) {
@@ -1181,6 +1716,7 @@ export class Table extends AggregateRoot<TableId> {
       id: this.id(),
       baseId: this.baseIdValue,
       name: this.nameValue,
+      properties: this.propertiesValue,
       fields: nextFields,
       views: this.viewsValue,
       primaryFieldId: this.primaryFieldIdValue,
@@ -1284,14 +1820,35 @@ export class Table extends AggregateRoot<TableId> {
         defaultMetaByType.set(viewType, defaultMeta);
       }
 
-      const defaultEntry = defaultMeta.toDto()[newFieldKey];
+      const defaultMetaDto = defaultMeta.toDto();
+      const defaultEntry = defaultMetaDto[newFieldKey];
       if (!defaultEntry)
         return err(domainError.validation({ message: 'Missing new field column meta' }));
 
+      const hydratedCurrentMeta = { ...currentMeta };
       const currentEntries = Object.values(currentMeta);
-      const maxOrder = currentEntries.length
+      let maxOrder = currentEntries.length
         ? Math.max(...currentEntries.map((entry) => entry.order ?? -1))
         : -1;
+
+      for (const existingField of fields) {
+        const fieldKey = existingField.id().toString();
+        if (fieldKey === newFieldKey || typeof hydratedCurrentMeta[fieldKey]?.order === 'number') {
+          continue;
+        }
+
+        const defaultExistingEntry = defaultMetaDto[fieldKey];
+        if (!defaultExistingEntry) {
+          return err(domainError.validation({ message: 'Missing existing field column meta' }));
+        }
+
+        maxOrder += 1;
+        hydratedCurrentMeta[fieldKey] = {
+          ...defaultExistingEntry,
+          ...hydratedCurrentMeta[fieldKey],
+          order: maxOrder,
+        };
+      }
 
       const nextEntry = this.buildAddedFieldColumnMetaEntry({
         view,
@@ -1301,7 +1858,7 @@ export class Table extends AggregateRoot<TableId> {
       });
 
       const nextMeta = {
-        ...currentMeta,
+        ...hydratedCurrentMeta,
         [newFieldKey]: { ...nextEntry, order: maxOrder + 1 },
       };
 

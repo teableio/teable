@@ -264,7 +264,16 @@ export class FormulaSqlPgTranslator {
           lookupSql.errorConditionSql,
           lookupSql.errorMessageSql,
           lookupField, // Keep reference to lookup field for context
-          isMultiple ? 'array' : lookupSql.storageKind ?? metadata.storageKind
+          isMultiple
+            ? 'array'
+            : innerField.type().equals(FieldType.link()) &&
+                lookupField
+                  .dbFieldType()
+                  .andThen((dbFieldType) => dbFieldType.value())
+                  .map((raw) => raw.toUpperCase() === 'TEXT')
+                  .unwrapOr(false)
+              ? 'scalar'
+              : lookupSql.storageKind ?? metadata.storageKind
         )
       )
       .orElse(() =>

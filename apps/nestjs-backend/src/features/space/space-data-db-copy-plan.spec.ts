@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  assertPgDumpSupportsServer,
   buildBaseSchemaDumpRestorePlan,
   buildBaseSchemaDumpStreamRestorePlan,
   buildBaseSchemaPgcopydbPlan,
   buildBaseSchemaRestorePlan,
   buildMigrationSharedTablePostgresFdwCopyPlans,
   buildMigrationSharedTablePsqlCopyPlans,
+  buildServerVersionProbePlan,
   buildSharedTablePostgresFdwCopyPlan,
   buildSharedTableCopyPlan,
   buildSharedTablePsqlCopyPlan,
+  parsePostgresMajorVersion,
   postgresToolUrl,
 } from './space-data-db-copy-plan';
 
@@ -451,21 +454,33 @@ describe('space data DB copy plan', () => {
       'record_history',
       'table_trash',
       'record_trash',
-      'computed_update_pause_scope',
       'computed_update_outbox',
       'computed_update_dead_letter',
+      'computed_update_run_history',
       'computed_update_outbox_seed',
       '__undo_log',
+      'record_removal_tombstone',
     ]);
     expect(plans[0].sourceSql).toContain(`"table_id" = ANY(ARRAY['tblxxx', 'tblyyy']::text[])`);
-    expect(plans[3].sourceSql).toContain(`"scope_id" = ANY(ARRAY['spc''x']::text[])`);
-    expect(plans[4].sourceSql).toContain(`"base_id" = ANY(ARRAY['bsexxx', 'bseyyy']::text[])`);
+    expect(plans[3].sourceSql).toContain(`"base_id" = ANY(ARRAY['bsexxx', 'bseyyy']::text[])`);
+    expect(plans[5].sourceSql).toContain(`"base_id" = ANY(ARRAY['bsexxx', 'bseyyy']::text[])`);
     expect(plans[6].sourceSql).toContain(
       'FROM "public"."computed_update_outbox" WHERE "base_id" = ANY'
     );
+    const outboxSeedTargetResetSql = String(plans[6].targetReset?.args.at(-2));
+    expect(outboxSeedTargetResetSql).toContain(
+      'FROM "teable_meta_target"."computed_update_outbox" WHERE "base_id" = ANY'
+    );
+    expect(outboxSeedTargetResetSql).not.toContain('FROM "public"."computed_update_outbox"');
     expect(plans[7].sourceSql).toContain(
       `split_part("table_name", '.', 1) = ANY(ARRAY['bsexxx', 'bseyyy']::text[])`
     );
+    expect(plans[8].sourceSql).toContain(`"table_id" = ANY(ARRAY['tblxxx', 'tblyyy']::text[])`);
+    expect(
+      plans.every((plan) =>
+        plan.targetReset?.args.some((arg) => String(arg).includes('DELETE FROM'))
+      )
+    ).toBe(true);
     expect(plans.every((plan) => plan.source.args.includes(sourceUrl))).toBe(true);
     expect(plans.every((plan) => plan.target.args.includes(targetUrl))).toBe(true);
   });
@@ -491,12 +506,35 @@ describe('space data DB copy plan', () => {
     expect(plans.find((plan) => plan.table === 'record_trash')?.sourceSql).toContain(
       `"table_id" = ANY(ARRAY['tblactive', 'tbldeleted']::text[])`
     );
+    expect(plans.find((plan) => plan.table === 'record_removal_tombstone')?.sourceSql).toContain(
+      `"table_id" = ANY(ARRAY['tblactive', 'tbldeleted']::text[])`
+    );
     expect(plans.find((plan) => plan.table === 'computed_update_outbox_seed')?.sourceSql).toContain(
       `"table_id" = ANY(ARRAY['tblactive']::text[])`
     );
+    expect(plans.find((plan) => plan.table === 'computed_update_pause_scope')).toBeUndefined();
+  });
+
+  it('can still include pause scopes for base-move style copies', () => {
+    const plans = buildMigrationSharedTablePsqlCopyPlans({
+      sourceUrl,
+      targetUrl,
+      sourceSchema: 'public',
+      targetSchema: 'teable_meta_target',
+      spaceId: 'spcxxx',
+      baseIds: ['bsexxx'],
+      tableIds: ['tblactive'],
+      sharedTableIds: ['tblactive', 'tbldeleted'],
+      includePauseScopes: true,
+      includeSpacePauseScopes: false,
+    });
+
     expect(plans.find((plan) => plan.table === 'computed_update_pause_scope')?.sourceSql).toContain(
       `"scope_id" = ANY(ARRAY['tblactive', 'tbldeleted']::text[])`
     );
+    expect(
+      plans.find((plan) => plan.table === 'computed_update_pause_scope')?.sourceSql
+    ).not.toContain(`"scope_type" = 'space'`);
   });
 
   it('builds scoped postgres_fdw plans for all migration shared tables', () => {
@@ -516,15 +554,22 @@ describe('space data DB copy plan', () => {
       'record_history',
       'table_trash',
       'record_trash',
-      'computed_update_pause_scope',
       'computed_update_outbox',
       'computed_update_dead_letter',
+      'computed_update_run_history',
       'computed_update_outbox_seed',
       '__undo_log',
+      'record_removal_tombstone',
     ]);
     expect(plans[0].sql).toContain('FROM "sdmjxxx_fdw_0"."record_history"');
-    expect(plans[3].sql).toContain(`"scope_id" = ANY(ARRAY['spc''x']::text[])`);
-    expect(plans[6].sql).toContain('FROM "sdmjxxx_fdw_6"."computed_update_outbox"');
+    expect(plans[0].sql).toContain('DELETE FROM "teable_meta_target"."record_history"');
+    expect(plans[3].sql).toContain('FROM "sdmjxxx_fdw_3"."computed_update_outbox"');
+    expect(plans[6].sql).toContain(
+      'DELETE FROM "teable_meta_target"."computed_update_outbox_seed" WHERE "table_id" = ANY'
+    );
+    expect(plans[6].sql).toContain(
+      'FROM "teable_meta_target"."computed_update_outbox" WHERE "base_id" = ANY'
+    );
     expect(plans.every((plan) => plan.target.args.includes(targetUrl))).toBe(true);
   });
 
@@ -538,5 +583,55 @@ describe('space data DB copy plan', () => {
         whereSql: '',
       })
     ).toThrow('requires a scoped WHERE clause');
+  });
+});
+
+describe('pg_dump server version compatibility (T6970)', () => {
+  const productionDumpVersion = 'pg_dump (PostgreSQL) 16.15 (Debian 16.15-1.pgdg12+2)';
+  const productionServerVersion = '18.4 (Debian 18.4-1.pgdg13+1)';
+
+  it('parses major versions from pg_dump and SHOW server_version text', () => {
+    expect(parsePostgresMajorVersion(productionDumpVersion)).toBe(16);
+    expect(parsePostgresMajorVersion(productionServerVersion)).toBe(18);
+    expect(parsePostgresMajorVersion('pg_dump (PostgreSQL) 18.6 (Homebrew)')).toBe(18);
+  });
+
+  it('T6970: pg_dump 16.15 cannot dump PostgreSQL 18.4', () => {
+    expect(() =>
+      assertPgDumpSupportsServer({
+        dumpVersionText: productionDumpVersion,
+        serverVersionText: productionServerVersion,
+      })
+    ).toThrow(/pg_dump version 16 cannot dump PostgreSQL 18/);
+  });
+
+  it('allows a newer pg_dump to dump equal or older servers', () => {
+    expect(
+      assertPgDumpSupportsServer({
+        dumpVersionText: 'pg_dump (PostgreSQL) 18.4 (Debian 18.4-1.pgdg13+1)',
+        serverVersionText: productionServerVersion,
+      })
+    ).toEqual({ dumpMajor: 18, serverMajor: 18 });
+    expect(
+      assertPgDumpSupportsServer({
+        dumpVersionText: 'pg_dump (PostgreSQL) 18.6 (Homebrew)',
+        serverVersionText: '16.11',
+      })
+    ).toEqual({ dumpMajor: 18, serverMajor: 16 });
+  });
+
+  it('builds a tuples-only SHOW server_version probe for the source URL', () => {
+    expect(buildServerVersionProbePlan(sourceUrl)).toEqual({
+      command: 'psql',
+      args: [
+        '--no-psqlrc',
+        '--quiet',
+        '--tuples-only',
+        '--no-align',
+        '--command',
+        'SHOW server_version',
+        sourceUrl,
+      ],
+    });
   });
 });

@@ -1,6 +1,4 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
-import { authConfig } from '../../configs/auth.config';
 import { AuthModule } from '../auth/auth.module';
 import { PermissionModule } from '../auth/permission.module';
 import { BaseModule } from '../base/base.module';
@@ -25,14 +23,6 @@ import { BaseShareJwtStrategy } from './strategies/jwt.strategy';
     FieldModule,
     ShortLinkModule,
     ViewModule,
-    JwtModule.registerAsync({
-      useFactory: () => ({
-        secret: authConfig().jwt.secret,
-        signOptions: {
-          expiresIn: '7d',
-        },
-      }),
-    }),
   ],
   controllers: [BaseShareController, BaseShareOpenController],
   providers: [

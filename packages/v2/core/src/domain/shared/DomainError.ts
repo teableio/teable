@@ -1,3 +1,5 @@
+import type { SdkErrorI18nKey } from '@teable/i18n-keys';
+
 /**
  * Domain Error Tags
  *
@@ -65,24 +67,44 @@ export type DomainErrorTag = (typeof domainErrorTagValues)[number];
 export type DomainErrorCode = string;
 
 /**
+ * User-facing translation attached where the error is created.
+ * `i18nKey` selects a message in the frontend `sdk` locale namespace and
+ * `context` must cover every interpolation placeholder of that message —
+ * a site that cannot supply the placeholders must omit `localization`
+ * entirely so the client falls back to the English `message`.
+ */
+export interface IDomainErrorLocalization {
+  readonly i18nKey: SdkErrorI18nKey;
+  readonly context?: Readonly<Record<string, unknown>>;
+}
+
+/**
  * DomainError - A structured, serializable error representation for domain layer.
  *
  * Design decisions:
  * - Plain data object (not extending Error) to remain serializable across boundaries.
  * - No throw/exception semantics; errors are returned via Result<T, DomainError>.
  * - Immutable (all fields readonly) for predictable behavior.
+ * - Diagnostic `stack`/`cause` are non-enumerable so JSON/HTTP DTO paths stay clean,
+ *   while Sentry and log boundaries can still attribute the creation site.
  *
  * Fields:
  * - `code`: Machine-readable identifier for error type (e.g., "validation.field.invalid").
  * - `message`: Human-readable description suitable for logging or display.
  * - `tags`: Array of semantic tags for categorization and HTTP status mapping.
  * - `details`: Optional structured metadata (e.g., field name, expected vs actual values).
+ * - `localization`: Optional user-facing translation, attached at the throw site.
+ * - `stack`: Optional creation-site stack (non-enumerable diagnostic).
+ * - `cause`: Optional original thrown value when wrapping unknowns (non-enumerable).
  */
 export interface DomainError {
   readonly code: DomainErrorCode;
   readonly message: string;
   readonly tags: ReadonlyArray<DomainErrorTag>;
   readonly details?: Readonly<Record<string, unknown>>;
+  readonly localization?: IDomainErrorLocalization;
+  readonly stack?: string;
+  readonly cause?: unknown;
   toString(): string;
 }
 
@@ -95,37 +117,100 @@ type DomainErrorInput = {
   message: string;
   tags: ReadonlyArray<DomainErrorTag>;
   details?: Readonly<Record<string, unknown>>;
+  localization?: IDomainErrorLocalization;
+  stack?: string;
+  cause?: unknown;
+};
+
+const defineNonEnumerable = (target: object, key: string, value: unknown): void => {
+  Object.defineProperty(target, key, {
+    value,
+    enumerable: false,
+    configurable: true,
+    writable: true,
+  });
+};
+
+const attachCreationStack = (
+  error: DomainError,
+  constructorOpt: (...args: never[]) => unknown
+): void => {
+  if (typeof Error.captureStackTrace === 'function') {
+    // V8 keeps the stack lazy: the string is only materialized when `stack` is
+    // read (Sentry/log boundaries), so hot validation paths don't pay for it.
+    // Passing the public factory as `constructorOpt` already trims every
+    // DomainError-internal frame, in source and compiled output alike.
+    Error.captureStackTrace(error, constructorOpt);
+    return;
+  }
+  const fallback = new Error(error.message).stack;
+  if (fallback) {
+    defineNonEnumerable(error, 'stack', fallback);
+  }
 };
 
 /**
- * Internal factory to create a frozen DomainError object.
+ * Internal factory to create a DomainError object.
+ * `constructorOpt` is the outermost factory frame to omit from the captured stack
+ * (the public factory itself, e.g. `domainError.validation`) so Sentry
+ * attributes the real call site.
  */
-const createError = (input: DomainErrorInput): DomainError => ({
-  code: input.code,
-  message: input.message,
-  tags: input.tags,
-  details: input.details,
-  toString: () => input.message,
-});
+function createError(
+  input: DomainErrorInput,
+  constructorOpt: (...args: never[]) => unknown = createError
+): DomainError {
+  const error: DomainError = {
+    code: input.code,
+    message: input.message,
+    tags: input.tags,
+    details: input.details,
+    localization: input.localization,
+    toString: () => input.message,
+  };
+
+  if (input.stack) {
+    defineNonEnumerable(error, 'stack', input.stack);
+  } else {
+    attachCreationStack(error, constructorOpt);
+  }
+
+  if (input.cause !== undefined) {
+    defineNonEnumerable(error, 'cause', input.cause);
+  }
+
+  return error;
+}
 
 type DomainErrorParams = {
   message: string;
   code?: DomainErrorCode;
   details?: Readonly<Record<string, unknown>>;
   tags?: ReadonlyArray<DomainErrorTag>;
+  localization?: IDomainErrorLocalization;
+  cause?: unknown;
 };
 
 /**
  * Internal helper to merge base tags with user-provided params.
  * Ensures the primary tag is always present and deduplicates.
  */
-const withTags = (tags: ReadonlyArray<DomainErrorTag>, params: DomainErrorParams): DomainError =>
-  createError({
-    code: params.code ?? tags[0] ?? 'unexpected',
-    message: params.message,
-    tags: params.tags ? [...new Set([...tags, ...params.tags])] : tags,
-    details: params.details,
-  });
+function withTags(
+  tags: ReadonlyArray<DomainErrorTag>,
+  params: DomainErrorParams,
+  constructorOpt: (...args: never[]) => unknown = withTags
+): DomainError {
+  return createError(
+    {
+      code: params.code ?? tags[0] ?? 'unexpected',
+      message: params.message,
+      tags: params.tags ? [...new Set([...tags, ...params.tags])] : tags,
+      details: params.details,
+      localization: params.localization,
+      cause: params.cause,
+    },
+    constructorOpt
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Domain Error Factory
@@ -162,7 +247,11 @@ export const domainError = {
    * HTTP mapping: 400 Bad Request
    */
   validation: (params: DomainErrorParams): DomainError =>
-    withTags(['validation'], { code: params.code ?? 'validation.invalid', ...params }),
+    withTags(
+      ['validation'],
+      { code: params.code ?? 'validation.invalid', ...params },
+      domainError.validation
+    ),
 
   /**
    * State conflict (duplicate, already exists).
@@ -170,7 +259,7 @@ export const domainError = {
    * HTTP mapping: 409 Conflict
    */
   conflict: (params: DomainErrorParams): DomainError =>
-    withTags(['conflict'], { code: params.code ?? 'conflict', ...params }),
+    withTags(['conflict'], { code: params.code ?? 'conflict', ...params }, domainError.conflict),
 
   /**
    * Resource not found.
@@ -178,7 +267,7 @@ export const domainError = {
    * HTTP mapping: 404 Not Found
    */
   notFound: (params: DomainErrorParams): DomainError =>
-    withTags(['not-found'], { code: params.code ?? 'not_found', ...params }),
+    withTags(['not-found'], { code: params.code ?? 'not_found', ...params }, domainError.notFound),
 
   /**
    * Domain invariant violation.
@@ -187,7 +276,11 @@ export const domainError = {
    * HTTP mapping: 422 Unprocessable Entity (or 400 depending on context)
    */
   invariant: (params: DomainErrorParams): DomainError =>
-    withTags(['invariant'], { code: params.code ?? 'invariant.violation', ...params }),
+    withTags(
+      ['invariant'],
+      { code: params.code ?? 'invariant.violation', ...params },
+      domainError.invariant
+    ),
 
   /**
    * Feature not implemented.
@@ -196,7 +289,11 @@ export const domainError = {
    * HTTP mapping: 501 Not Implemented
    */
   notImplemented: (params: DomainErrorParams): DomainError =>
-    withTags(['not-implemented'], { code: params.code ?? 'not_implemented', ...params }),
+    withTags(
+      ['not-implemented'],
+      { code: params.code ?? 'not_implemented', ...params },
+      domainError.notImplemented
+    ),
 
   /**
    * Authentication failure.
@@ -204,7 +301,11 @@ export const domainError = {
    * HTTP mapping: 401 Unauthorized
    */
   unauthorized: (params: DomainErrorParams): DomainError =>
-    withTags(['unauthorized'], { code: params.code ?? 'unauthorized', ...params }),
+    withTags(
+      ['unauthorized'],
+      { code: params.code ?? 'unauthorized', ...params },
+      domainError.unauthorized
+    ),
 
   /**
    * Authorization failure (authenticated but not permitted).
@@ -212,7 +313,7 @@ export const domainError = {
    * HTTP mapping: 403 Forbidden
    */
   forbidden: (params: DomainErrorParams): DomainError =>
-    withTags(['forbidden'], { code: params.code ?? 'forbidden', ...params }),
+    withTags(['forbidden'], { code: params.code ?? 'forbidden', ...params }, domainError.forbidden),
 
   /**
    * Infrastructure or external service failure.
@@ -221,7 +322,11 @@ export const domainError = {
    * HTTP mapping: 503 Service Unavailable (or 500)
    */
   infrastructure: (params: DomainErrorParams): DomainError =>
-    withTags(['infrastructure'], { code: params.code ?? 'infrastructure', ...params }),
+    withTags(
+      ['infrastructure'],
+      { code: params.code ?? 'infrastructure', ...params },
+      domainError.infrastructure
+    ),
 
   /**
    * Catch-all for unclassified errors.
@@ -230,26 +335,65 @@ export const domainError = {
    * HTTP mapping: 500 Internal Server Error
    */
   unexpected: (params: DomainErrorParams): DomainError =>
-    withTags(['unexpected'], { code: params.code ?? 'unexpected', ...params }),
+    withTags(
+      ['unexpected'],
+      { code: params.code ?? 'unexpected', ...params },
+      domainError.unexpected
+    ),
 
   /**
    * Wrap unknown errors (e.g., caught exceptions) into DomainError.
    * If the error is already a DomainError, returns it unchanged.
    *
    * Use at system boundaries to normalize error types.
+   * When wrapping a real Error, preserves its stack as the diagnostic stack and
+   * keeps the original value on non-enumerable `cause`.
    */
   fromUnknown: (error: unknown, params?: Omit<DomainErrorParams, 'message'>): DomainError => {
     if (isDomainError(error)) {
       return error;
     }
-    const message = error instanceof Error ? error.message : String(error);
-    return withTags(['unexpected'], {
-      message,
-      code: params?.code ?? 'unexpected',
-      details: params?.details,
-      tags: params?.tags,
-    });
+    if (error instanceof Error) {
+      // Errors produced by toError() carry the original DomainError; unwrap it
+      // so a toError -> fromUnknown round trip is lossless (code, tags, details).
+      const unwrapped = (error as { domainError?: unknown }).domainError;
+      if (isDomainError(unwrapped)) {
+        return unwrapped;
+      }
+      return createError(
+        {
+          code: params?.code ?? 'unexpected',
+          message: error.message ? error.message : error.name || String(error),
+          tags: params?.tags
+            ? [...new Set<DomainErrorTag>(['unexpected', ...params.tags])]
+            : ['unexpected'],
+          details: params?.details,
+          localization: params?.localization,
+          stack: error.stack,
+          cause: error,
+        },
+        domainError.fromUnknown
+      );
+    }
+    return withTags(
+      ['unexpected'],
+      {
+        message: String(error),
+        code: params?.code ?? 'unexpected',
+        details: params?.details,
+        tags: params?.tags,
+        localization: params?.localization,
+        cause: error,
+      },
+      domainError.fromUnknown
+    );
   },
+
+  /**
+   * Convert a DomainError into a real Error for throw/Sentry boundaries.
+   * Domain code still returns Result; only adapters should call this.
+   */
+  toError: (error: DomainError): Error => toError(error),
 };
 
 // ---------------------------------------------------------------------------
@@ -261,7 +405,10 @@ export const domainError = {
  * Useful for handling errors at boundaries or in catch blocks.
  */
 export const isDomainError = (error: unknown): error is DomainError => {
-  if (!error || typeof error !== 'object') return false;
+  // DomainError is intentionally a POJO, never a real Error. Rejecting Error
+  // instances keeps boundary wrappers from toError()/HttpException out of
+  // Result paths and fromUnknown passthrough.
+  if (!error || typeof error !== 'object' || error instanceof Error) return false;
   const candidate = error as DomainError;
   return (
     typeof candidate.code === 'string' &&
@@ -281,6 +428,34 @@ export const hasTag = (error: DomainError, tag: DomainErrorTag): boolean =>
  * Useful for programmatic error handling based on error codes.
  */
 export const hasCode = (error: DomainError, code: DomainErrorCode): boolean => error.code === code;
+
+/**
+ * Convert a DomainError into a real Error for HTTP/Sentry/unhandled boundaries.
+ *
+ * Domain code still returns Result; only adapters that must throw or report to
+ * exception trackers should call this.
+ */
+export const toError = (error: DomainError): Error => {
+  const exception = new Error(error.message);
+  // Plain assignment would make `name` an enumerable own property; keep it
+  // non-enumerable like a native Error's.
+  defineNonEnumerable(exception, 'name', `DomainError:${error.code}`);
+  if (error.stack) {
+    exception.stack = error.stack;
+  }
+  // Non-enumerable like the DomainError diagnostics: Sentry and boundary code
+  // read these by property access, while JSON serialization of the Error stays
+  // clean (a bare Error stringifies to `{}`).
+  defineNonEnumerable(exception, 'code', error.code);
+  defineNonEnumerable(exception, 'tags', error.tags);
+  defineNonEnumerable(exception, 'details', error.details);
+  defineNonEnumerable(exception, 'localization', error.localization);
+  defineNonEnumerable(exception, 'domainError', error);
+  if (error.cause !== undefined) {
+    defineNonEnumerable(exception, 'cause', error.cause);
+  }
+  return exception;
+};
 
 // ---------------------------------------------------------------------------
 // Convenience Type Predicates

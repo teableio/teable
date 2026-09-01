@@ -1,13 +1,13 @@
 // import { TableList } from '../../table-list/TableList';
 import { useBase } from '@teable/sdk/hooks';
-import { ChangelogNotification } from '@/components/changelog';
 import { BaseNodeTree } from './BaseNodeTree';
 import { BasePageRouter } from './BasePageRouter';
 
 export const BaseSideBar = (props: {
   renderWinFreeCredit?: (spaceId: string) => React.ReactNode;
+  renderAnnouncementCard?: () => React.ReactNode;
 }) => {
-  const { renderWinFreeCredit } = props;
+  const { renderWinFreeCredit, renderAnnouncementCard } = props;
   const base = useBase();
   return (
     <>
@@ -17,7 +17,7 @@ export const BaseSideBar = (props: {
         <BaseNodeTree />
       </div>
       {renderWinFreeCredit && renderWinFreeCredit(base.spaceId)}
-      <ChangelogNotification />
+      {renderAnnouncementCard && renderAnnouncementCard()}
     </>
   );
 };

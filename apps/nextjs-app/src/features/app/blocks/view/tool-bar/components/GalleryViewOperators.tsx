@@ -1,6 +1,7 @@
 import { ArrowUpDown, Filter as FilterIcon, Share2, Settings, AlertTriangle } from '@teable/icons';
 import type { GalleryView } from '@teable/sdk';
 import { Sort, ViewFilter, VisibleFields } from '@teable/sdk';
+import { useIsDrawerLayout } from '@teable/sdk/components';
 import { useView } from '@teable/sdk/hooks/use-view';
 import { Label, Switch, cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
@@ -11,6 +12,9 @@ import { CoverFieldSelect } from './CoverFieldSelect';
 import { ScrollableToolbarGroup } from './ScrollableToolbarGroup';
 
 export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
+  // Same footer as the kanban toolbar: rendered inside the shared shell, so it
+  // also appears in the desktop popover.
+  const isDrawer = useIsDrawerLayout();
   const { disabled } = props;
   const view = useView() as GalleryView | undefined;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
@@ -34,6 +38,8 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
   return (
     <ScrollableToolbarGroup className="items-center">
       <VisibleFields
+        responsive
+        title={t('table:kanban.toolbar.customizeCards')}
         footer={
           <>
             <CoverFieldSelect
@@ -43,8 +49,19 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
               onCheckedChange={onCoverFitChange}
               className="border-t"
             />
-            <div className="flex h-10 items-center justify-between border-t px-4">
-              <Label htmlFor="is-field-name-hidden" className="text-sm font-normal">
+            {/* min-height instead of a fixed one so the label can wrap in
+                de/fr/ru - drawer only, since this footer also renders inside
+                the desktop popover. */}
+            <div
+              className={cn(
+                'flex h-10 items-center justify-between border-t px-4',
+                isDrawer && 'h-auto min-h-10 gap-3 py-3'
+              )}
+            >
+              <Label
+                htmlFor="is-field-name-hidden"
+                className={cn('text-sm font-normal', isDrawer && 'min-w-0')}
+              >
                 {t('table:kanban.toolbar.hideFieldName')}
               </Label>
               <Switch
@@ -69,12 +86,13 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
         )}
       </VisibleFields>
       <ViewFilter
+        responsive
         filters={view?.filter || null}
         onChange={onFilterChange}
         contentHeader={
           view.enableShare && (
             <div className="mb-2 flex max-w-full items-center justify-start rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground dark:bg-white/5">
-              <Share2 className="mr-2 size-4 shrink-0" />
+              <Share2 className="me-2 size-4 shrink-0" />
               <span className="text-muted-foreground">{t('table:toolbar.viewFilterInShare')}</span>
             </div>
           )
@@ -100,7 +118,7 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
           </ToolBarButton>
         )}
       </ViewFilter>
-      <Sort sorts={view?.sort || null} onChange={onSortChange}>
+      <Sort responsive sorts={view?.sort || null} onChange={onSortChange}>
         {(text: string, isActive) => (
           <ToolBarButton
             disabled={disabled}

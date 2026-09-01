@@ -11,9 +11,12 @@ import type {
   IRecordReadQuerySource,
   IRecordSearchAccessPath,
   ListTableRecordsResult,
+  RecordQueryPluginScope,
 } from '@teable/v2-core';
 
 export interface IListTableRecordsEndpointOptions {
+  readonly queryScope?: RecordQueryPluginScope;
+  /** @deprecated Prefer queryScope */
   readonly recordReadQuerySource?: IRecordReadQuerySource;
   readonly recordSearchAccessPath?: IRecordSearchAccessPath;
 }

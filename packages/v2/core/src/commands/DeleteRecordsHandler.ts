@@ -11,6 +11,7 @@ import {
 } from '../application/services/UndoRedoStackService';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
+import { generateUuid } from '../domain/shared/IdGenerator';
 import type { IDeletedRecordSnapshot } from '../domain/table/events/RecordsDeleted';
 import { RecordsDeleted } from '../domain/table/events/RecordsDeleted';
 import { RecordId } from '../domain/table/records/RecordId';
@@ -26,6 +27,7 @@ import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DeleteRecordsCommand } from './DeleteRecordsCommand';
 import { buildDeletedRecordSnapshot } from './shared/buildDeletedRecordSnapshot';
+import { persistDeletedTrashMarkers } from './shared/persistDeletedTrashMarkers';
 import { composeRecordConditionSpecs } from './shared/recordWriteScope';
 import { toTableRecord } from './shared/toTableRecord';
 
@@ -118,6 +120,7 @@ export class DeleteRecordsHandler
       const scopedDeleteSpec =
         composeRecordConditionSpecs(deleteSpec, pluginRecordSpec) ?? deleteSpec;
       let deleteReportedNotFound = false;
+      const operationId = context.requestId ?? generateUuid();
 
       const deleteResult =
         yield* await handler.unitOfWork.withTransaction<TableRecordRepositoryPort.DeleteManyResult>(
@@ -127,6 +130,7 @@ export class DeleteRecordsHandler
             if (pluginBeforePersist.isErr()) {
               return err(pluginBeforePersist.error);
             }
+
             const deleteResult = await handler.tableRecordRepository.deleteMany(
               transactionContext,
               table,
@@ -139,6 +143,26 @@ export class DeleteRecordsHandler
                 return ok<TableRecordRepositoryPort.DeleteManyResult>({});
               }
               return err(deleteResult.error);
+            }
+
+            const deletedRecordIds = deleteResult.value.deletedRecords?.map(
+              (record) => record.recordId
+            );
+            if (deletedRecordIds?.length) {
+              const markerResult = await persistDeletedTrashMarkers(
+                handler.tableRecordRepository,
+                transactionContext,
+                table,
+                {
+                  recordIds: deletedRecordIds,
+                  createdBy: context.actorId.toString(),
+                  createdTime: new Date().toISOString(),
+                  operationId,
+                }
+              );
+              if (markerResult.isErr()) {
+                return err(markerResult.error);
+              }
             }
 
             return ok(deleteResult.value);
@@ -161,7 +185,11 @@ export class DeleteRecordsHandler
         persistedDeletedSnapshots
       );
       if (storedSnapshotsResult.isErr()) {
-        return err(storedSnapshotsResult.error);
+        const deletedRecordIds =
+          persistedDeletedSnapshots?.map((snapshot) => snapshot.recordId) ??
+          command.recordIds.map((recordId) => recordId.toString());
+        await pluginExecution.afterCommit();
+        return ok(DeleteRecordsResult.create(deletedRecordIds, []));
       }
 
       const recordSnapshots: IDeletedRecordSnapshot[] = storedSnapshotsResult.value.map(
@@ -176,7 +204,7 @@ export class DeleteRecordsHandler
           recordIds: deletedRecordIds.map((id) => RecordId.create(id)._unsafeUnwrap()),
           recordSnapshots,
           orchestration: {
-            operationId: context.requestId,
+            operationId,
             totalRecordCount: deletedRecordIds.length,
             totalChunkCount: 1,
             chunkIndex: 0,
@@ -187,21 +215,23 @@ export class DeleteRecordsHandler
       yield* await handler.eventBus.publishMany(context, events);
 
       if (recordSnapshots.length > 0) {
+        const stackRecords = recordSnapshots.map((snapshot) => ({
+          recordId: snapshot.id,
+          fields: snapshot.fields,
+          ...(snapshot.version !== undefined ? { version: snapshot.version } : {}),
+          ...(snapshot.orders ? { orders: snapshot.orders } : {}),
+          ...(snapshot.autoNumber !== undefined ? { autoNumber: snapshot.autoNumber } : {}),
+          ...(snapshot.createdTime ? { createdTime: snapshot.createdTime } : {}),
+          ...(snapshot.createdBy ? { createdBy: snapshot.createdBy } : {}),
+          ...(snapshot.lastModifiedTime ? { lastModifiedTime: snapshot.lastModifiedTime } : {}),
+          ...(snapshot.lastModifiedBy ? { lastModifiedBy: snapshot.lastModifiedBy } : {}),
+        }));
+
         yield* await handler.undoRedoStackService.appendRecordDelete(
           toUndoRedoStackAppendContext(context),
           {
             tableId: table.id(),
-            deletedRecords: recordSnapshots.map((snapshot) => ({
-              recordId: snapshot.id,
-              fields: snapshot.fields,
-              ...(snapshot.version !== undefined ? { version: snapshot.version } : {}),
-              ...(snapshot.orders ? { orders: snapshot.orders } : {}),
-              ...(snapshot.autoNumber !== undefined ? { autoNumber: snapshot.autoNumber } : {}),
-              ...(snapshot.createdTime ? { createdTime: snapshot.createdTime } : {}),
-              ...(snapshot.createdBy ? { createdBy: snapshot.createdBy } : {}),
-              ...(snapshot.lastModifiedTime ? { lastModifiedTime: snapshot.lastModifiedTime } : {}),
-              ...(snapshot.lastModifiedBy ? { lastModifiedBy: snapshot.lastModifiedBy } : {}),
-            })),
+            deletedRecords: stackRecords,
           }
         );
       }

@@ -1,4 +1,5 @@
 import { hostname } from 'os';
+import type { OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import { SpaceDataDbMigrationService } from './space-data-db-migration.service';
 
@@ -8,22 +9,58 @@ type ISpaceDataDbMigrationWorkerRunResult = {
   error?: string;
 };
 
+const enabledEnvKey = 'BYODB_SPACE_DATA_DB_MIGRATION_WORKER_ENABLED';
+const pollMsEnvKey = 'BYODB_SPACE_DATA_DB_MIGRATION_WORKER_POLL_MS';
+const errorBackoffMsEnvKey = 'BYODB_SPACE_DATA_DB_MIGRATION_WORKER_ERROR_BACKOFF_MS';
+const workerIdEnvKey = 'BYODB_SPACE_DATA_DB_MIGRATION_WORKER_ID';
+
 const defaultPollMs = 5000;
 const defaultErrorBackoffMs = 10000;
+
+const parseBoolean = (value: unknown, defaultValue: boolean): boolean => {
+  if (value == null || value === '') return defaultValue;
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  return defaultValue;
+};
 
 const readPositiveIntegerEnv = (key: string, fallback: number) => {
   const value = Number.parseInt(process.env[key] ?? '', 10);
   return Number.isFinite(value) && value > 0 ? value : fallback;
 };
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 @Injectable()
-export class SpaceDataDbMigrationWorkerService {
+export class SpaceDataDbMigrationWorkerService implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(SpaceDataDbMigrationWorkerService.name);
   private stopped = false;
+  private loopPromise: Promise<void> | undefined;
 
   constructor(private readonly migrationService: SpaceDataDbMigrationService) {}
+
+  onApplicationBootstrap() {
+    if (!this.isEnabled()) {
+      this.logger.log('BYODB space data DB migration worker disabled');
+      return;
+    }
+
+    this.stopped = false;
+    this.loopPromise = this.runForever().catch((error) => {
+      this.logger.error(
+        `BYODB space data DB migration worker exited unexpectedly: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined
+      );
+    });
+  }
+
+  onModuleDestroy() {
+    this.stop();
+  }
 
   stop() {
     this.stopped = true;
@@ -60,15 +97,9 @@ export class SpaceDataDbMigrationWorkerService {
 
   async runForever(options: { pollMs?: number; errorBackoffMs?: number } = {}) {
     this.stopped = false;
-    const pollMs =
-      options.pollMs ??
-      readPositiveIntegerEnv('BYODB_SPACE_DATA_DB_MIGRATION_WORKER_POLL_MS', defaultPollMs);
+    const pollMs = options.pollMs ?? readPositiveIntegerEnv(pollMsEnvKey, defaultPollMs);
     const errorBackoffMs =
-      options.errorBackoffMs ??
-      readPositiveIntegerEnv(
-        'BYODB_SPACE_DATA_DB_MIGRATION_WORKER_ERROR_BACKOFF_MS',
-        defaultErrorBackoffMs
-      );
+      options.errorBackoffMs ?? readPositiveIntegerEnv(errorBackoffMsEnvKey, defaultErrorBackoffMs);
 
     this.logger.log(
       `BYODB space data DB migration worker ${this.getWorkerId()} started; pollMs=${pollMs}`
@@ -95,7 +126,28 @@ export class SpaceDataDbMigrationWorkerService {
     this.logger.log(`BYODB space data DB migration worker ${this.getWorkerId()} stopped`);
   }
 
+  /**
+   * Await the in-process loop after stop(). Useful for tests that start the
+   * bootstrap lifecycle explicitly.
+   */
+  async waitForStop() {
+    await this.loopPromise;
+  }
+
+  private isEnabled() {
+    // Tests drive jobs via runOnce(); keep the background loop off unless a
+    // suite opts in explicitly.
+    const isTestRuntime =
+      process.env.NODE_ENV === 'test' ||
+      process.env.VITEST === 'true' ||
+      Boolean(process.env.VITEST);
+    if (isTestRuntime) {
+      return parseBoolean(process.env[enabledEnvKey], false);
+    }
+    return parseBoolean(process.env[enabledEnvKey], true);
+  }
+
   private getWorkerId() {
-    return process.env.BYODB_SPACE_DATA_DB_MIGRATION_WORKER_ID ?? `${hostname()}:${process.pid}`;
+    return process.env[workerIdEnvKey] ?? `${hostname()}:${process.pid}`;
   }
 }

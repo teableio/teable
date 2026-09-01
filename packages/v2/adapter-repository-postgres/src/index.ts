@@ -13,3 +13,4 @@ export * from './di/tokens';
 export * from './repositories/PostgresTableRowLimitPlugin';
 export * from './repositories/PostgresSchemaOperationRepository';
 export * from './repositories/PostgresTableRepository';
+export * from './repositories/PostgresViewPluginRepository';

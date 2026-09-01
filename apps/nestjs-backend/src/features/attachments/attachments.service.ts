@@ -37,6 +37,15 @@ import { InjectStorageAdapter } from './plugins/storage';
 import type { IPresignParams, IPresignRes } from './plugins/types';
 import { getSafeUploadContentType } from './plugins/utils';
 import { getExtensionPreview } from './utils';
+
+const BACKEND_ONLY_UPLOAD_TYPES: ReadonlySet<UploadType> = new Set([
+  UploadType.RecordHistory,
+  UploadType.RecordRemoval,
+  UploadType.WorkflowRunCold,
+  UploadType.AuditLogCold,
+  UploadType.Artifact,
+]);
+
 @Injectable()
 export class AttachmentsService {
   private logger = new Logger(AttachmentsService.name);
@@ -130,10 +139,10 @@ export class AttachmentsService {
 
   async signature(signatureRo: SignatureRo & { internal?: boolean }): Promise<SignatureVo> {
     const { type, ...presignedParams } = signatureRo;
-    // cold record-history parts are written exclusively by the backend flusher
-    // (never presigned); a client-signed upload under this prefix could forge
-    // or corrupt cold history parts and _stats.json
-    if (type === UploadType.RecordHistory) {
+    // cold archive parts are written exclusively by the backend flushers
+    // (never presigned); a client-signed upload under these prefixes could
+    // forge or corrupt cold parts and _stats.json
+    if (BACKEND_ONLY_UPLOAD_TYPES.has(type)) {
       throw new BadRequestException('this upload type cannot be signed');
     }
     const contentLength = signatureRo.contentLength;
@@ -145,6 +154,7 @@ export class AttachmentsService {
     const bucket = StorageAdapter.getBucket(type);
     const res = await this.storageAdapter.presigned(bucket, dir, {
       ...presignedParams,
+      cacheControl: StorageAdapter.getCacheControl(type),
     });
     const { path, token } = res;
     await this.cacheService.set(
@@ -482,6 +492,10 @@ export class AttachmentsService {
     }
   }
 
+  // Sends only Content-Type/Length rather than echoing presigned
+  // requestHeaders: fine for the private-bucket types every caller uses
+  // today, but a public-bucket type would silently lose its Cache-Control
+  // metadata here.
   private async uploadStreamToStorage(
     url: string,
     stream: Readable,

@@ -41,6 +41,8 @@ export const OAUTH_ACTIONS: (
   'table|trash_read',
   'table|trash_update',
   'table|trash_reset',
+  'table|archive_read',
+  'table|archive_manage',
   'view|create',
   'view|delete',
   'view|read',
@@ -54,6 +56,7 @@ export const OAUTH_ACTIONS: (
   'record|delete',
   'record|read',
   'record|update',
+  'record|archive',
   'automation|create',
   'automation|delete',
   'automation|read',
@@ -86,4 +89,9 @@ export const cliOAuthApp = {
    */
   redirectUris: ['http://127.0.0.1/callback'],
   scopes: OAUTH_ACTIONS,
+  /**
+   * The device grant is per-app opt-in (its approval page is a phishing
+   * surface); the CLI is why the flow exists, so it opts in.
+   */
+  allowDeviceFlow: true,
 };

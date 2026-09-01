@@ -263,6 +263,8 @@ export class BuiltinAssetsInitService implements OnModuleInit {
     const { hash } = await this.storageAdapter.uploadFileWidthPath(bucket, path, fullPath, {
       // eslint-disable-next-line @typescript-eslint/naming-convention
       'Content-Type': mimetype,
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      'Cache-Control': StorageAdapter.getCacheControl(type),
     });
 
     await this.prismaService.txClient().attachments.upsert({

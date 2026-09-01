@@ -158,16 +158,26 @@ async function bootApp() {
 
   axios.defaults.baseURL = url + '/api';
 
-  const cookie = (
-    await getCookie(globalThis.testConfig.email, globalThis.testConfig.password)
-  ).cookie.join(';');
+  const sessionHandleService = app.get<SessionHandleService>(SessionHandleService);
+  const createSession = async () => {
+    const cookie = (
+      await getCookie(globalThis.testConfig.email, globalThis.testConfig.password)
+    ).cookie.join(';');
+    const sessionID = await sessionHandleService.getSessionIdFromRequest({
+      headers: { cookie },
+      url: `${url}/socket`,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    return { cookie, sessionID };
+  };
+  const session = await createSession();
 
   const cookieInterceptorId = axios.interceptors.request.use((config) => {
     // Never attach the shared session to signin/signup: passport regenerates the
     // session attached to a login request, which would destroy this cookie's sid
     // and break every later spec file sharing the app.
     if (!/\/auth\/(?:signin|signup)\b/.test(config.url ?? '')) {
-      config.headers.Cookie = cookie;
+      config.headers.Cookie = session.cookie;
     }
     return config;
   });
@@ -181,18 +191,19 @@ async function bootApp() {
   console.log('> Test System Time Zone:', timeZone);
   console.log('> Test Current System Time:', now.toString());
 
-  const sessionHandleService = app.get<SessionHandleService>(SessionHandleService);
   const bundle = {
     app,
     appUrl: url,
-    cookie,
-    sessionID: await sessionHandleService.getSessionIdFromRequest({
-      headers: { cookie },
-      url: `${url}/socket`,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any),
+    ...session,
   };
-  return { bundle, cookieInterceptorId };
+  const refreshSession = async () => {
+    const userId = await sessionHandleService.getUserId(session.sessionID);
+    if (userId !== globalThis.testConfig.userId) {
+      Object.assign(session, await createSession());
+    }
+    return session;
+  };
+  return { bundle, cookieInterceptorId, refreshSession };
 }
 
 /**

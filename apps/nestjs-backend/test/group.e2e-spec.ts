@@ -4,10 +4,12 @@ import type { IFieldRo, IFieldVo, IGroup, IGroupItem, IViewGroupRo } from '@teab
 import {
   CellValueType,
   Colors,
+  DateFormattingPreset,
   FieldKeyType,
   FieldType,
   Relationship,
   SortFunc,
+  TimeFormatting,
 } from '@teable/core';
 import type { IGetRecordsRo, IGroupHeaderPoint, IGroupPoint, ITableFullVo } from '@teable/openapi';
 import { GroupPointType, updateViewGroup, updateViewSort } from '@teable/openapi';
@@ -808,5 +810,109 @@ describe('Multiple select grouping with special characters in choice names', () 
 
     expect(headerValues).toHaveLength(3);
     expect(records).toHaveLength(3);
+  });
+});
+
+describe('Group by user and sort by date descending (T6751)', () => {
+  let table: ITableFullVo;
+  const userId = globalThis.testConfig.userId;
+  const userName = globalThis.testConfig.userName;
+  const userEmail = globalThis.testConfig.email;
+
+  beforeAll(async () => {
+    table = await createTable(baseId, {
+      name: 'group_user_date_sort_t6751',
+      fields: [
+        { name: 'Name', type: FieldType.SingleLineText },
+        { name: 'Owner', type: FieldType.User },
+        {
+          name: 'Payment Date',
+          type: FieldType.Date,
+          options: {
+            formatting: {
+              date: DateFormattingPreset.ISO,
+              time: TimeFormatting.None,
+              timeZone: 'Asia/Shanghai',
+            },
+          },
+        },
+        { name: 'Amount', type: FieldType.Number },
+      ],
+      records: [
+        {
+          fields: {
+            Name: 'd-2025-07',
+            Owner: { id: userId, title: userName, email: userEmail },
+            'Payment Date': '2025-07-31T00:00:00.000Z',
+            Amount: 100,
+          },
+        },
+        {
+          fields: {
+            Name: 'd-2025-04',
+            Owner: { id: userId, title: userName, email: userEmail },
+            'Payment Date': '2025-04-29T00:00:00.000Z',
+            Amount: 200,
+          },
+        },
+        {
+          fields: {
+            Name: 'd-2024-11',
+            Owner: { id: userId, title: userName, email: userEmail },
+            'Payment Date': '2024-11-14T00:00:00.000Z',
+            Amount: 300,
+          },
+        },
+        {
+          fields: {
+            Name: 'd-2024-10',
+            Owner: { id: userId, title: userName, email: userEmail },
+            'Payment Date': '2024-10-09T00:00:00.000Z',
+            Amount: 400,
+          },
+        },
+        {
+          fields: {
+            Name: 'd-2026-02',
+            Owner: { id: userId, title: userName, email: userEmail },
+            'Payment Date': '2026-02-04T00:00:00.000Z',
+            Amount: 840,
+          },
+        },
+        {
+          fields: {
+            Name: 'd-2026-01',
+            Owner: { id: userId, title: userName, email: userEmail },
+            'Payment Date': '2026-01-29T00:00:00.000Z',
+            Amount: 500,
+          },
+        },
+      ],
+    });
+  });
+
+  afterAll(async () => {
+    await permanentDeleteTable(baseId, table.id);
+  });
+
+  it('keeps later years first within the same user group', async () => {
+    const nameField = table.fields.find((field) => field.name === 'Name')!;
+    const ownerField = table.fields.find((field) => field.name === 'Owner')!;
+    const dateField = table.fields.find((field) => field.name === 'Payment Date')!;
+
+    const { records } = await getRecords(table.id, {
+      fieldKeyType: FieldKeyType.Id,
+      groupBy: [{ fieldId: ownerField.id, order: SortFunc.Asc }],
+      orderBy: [{ fieldId: dateField.id, order: SortFunc.Desc }],
+    });
+
+    expect(records.map((record) => record.fields?.[nameField.id] as string)).toEqual([
+      'd-2026-02',
+      'd-2026-01',
+      'd-2025-07',
+      'd-2025-04',
+      'd-2024-11',
+      'd-2024-10',
+    ]);
   });
 });

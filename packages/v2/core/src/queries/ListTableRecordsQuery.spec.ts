@@ -84,4 +84,80 @@ describe('ListTableRecordsQuery', () => {
 
     expect(result.isErr()).toBe(true);
   });
+
+  it('applies a bounded group metadata limit to public requests', () => {
+    const result = ListTableRecordsQuery.create({
+      tableId: createTableId('f').toString(),
+      groupBy: [`fld${'a'.repeat(16)}`],
+      includeGroups: true,
+    });
+
+    expect(result.isOk()).toBe(true);
+    const query = result._unsafeUnwrap();
+    expect(query.includeGroupMetadata).toBe(true);
+    expect(query.groupLimit).toBe(5_000);
+  });
+
+  it('preserves a trusted host group metadata limit', () => {
+    const result = ListTableRecordsQuery.create(
+      {
+        tableId: createTableId('g').toString(),
+      },
+      {
+        includeGroupMetadata: true,
+        groupLimit: 25,
+      }
+    );
+
+    expect(result.isOk()).toBe(true);
+    const query = result._unsafeUnwrap();
+    expect(query.includeGroupMetadata).toBe(true);
+    expect(query.groupLimit).toBe(25);
+  });
+
+  it('does not apply a group limit when group metadata is disabled', () => {
+    const result = ListTableRecordsQuery.create(
+      {
+        tableId: createTableId('h').toString(),
+        includeGroups: false,
+      },
+      {
+        includeGroupMetadata: true,
+        groupLimit: 25,
+      }
+    );
+
+    expect(result.isOk()).toBe(true);
+    const query = result._unsafeUnwrap();
+    expect(query.includeGroupMetadata).toBe(false);
+    expect(query.groupLimit).toBeUndefined();
+  });
+
+  describe('idsOnly page size', () => {
+    const base = { tableId: `tbl${'a'.repeat(16)}`, fieldKeyType: 'id' as const };
+
+    it('overrides the public limit cap for ids-only sweeps', () => {
+      const query = ListTableRecordsQuery.create(
+        { ...base, limit: 1000, offset: 0 },
+        { idsOnly: true, idsOnlyPageSize: 10_000 }
+      )._unsafeUnwrap();
+
+      expect(query.pagination.limit().toNumber()).toBe(10_000);
+      expect(query.idsOnly).toBe(true);
+    });
+
+    it('ignores the host page size when idsOnly is not set', () => {
+      const query = ListTableRecordsQuery.create(
+        { ...base, limit: 1000, offset: 0 },
+        { idsOnlyPageSize: 10_000 }
+      )._unsafeUnwrap();
+
+      expect(query.pagination.limit().toNumber()).toBe(1000);
+    });
+
+    it('still rejects a request limit above the public cap', () => {
+      const result = ListTableRecordsQuery.create({ ...base, limit: 10_000 });
+      expect(result.isErr()).toBe(true);
+    });
+  });
 });

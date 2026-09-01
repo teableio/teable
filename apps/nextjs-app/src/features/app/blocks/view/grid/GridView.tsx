@@ -30,7 +30,7 @@ export const GridView = (props: IViewBaseProps) => {
             <RowCountProvider query={personalViewCommonQuery}>
               <ComputeActivityProvider>
                 <GridToolBar />
-                <div className="w-full grow overflow-hidden sm:pl-2">
+                <div className="w-full grow overflow-hidden sm:ps-2">
                   <GridViewBase groupPointsServerDataMap={serverGroupPointsMap} />
                 </div>
               </ComputeActivityProvider>

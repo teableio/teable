@@ -258,6 +258,12 @@ export const DebugDataLive = Layer.effect(
                     ]),
                   }
                 : undefined;
+            const toFieldIds = (fieldIds: readonly string[]) =>
+              fieldIds.map((fieldId) => {
+                const result = FieldId.create(fieldId);
+                if (result.isErr()) throw result.error;
+                return result.value;
+              });
             const searchAccessPath =
               options?.searchAccessPath?.kind === 'generated_tsvector'
                 ? {
@@ -265,13 +271,17 @@ export const DebugDataLive = Layer.effect(
                     generatedColumnName: options.searchAccessPath.generatedColumnName,
                     languageConfig: options.searchAccessPath.languageConfig,
                     searchScope: options.searchAccessPath.searchScope,
-                    coveredFieldIds: options.searchAccessPath.coveredFieldIds.map((fieldId) => {
-                      const result = FieldId.create(fieldId);
-                      if (result.isErr()) throw result.error;
-                      return result.value;
-                    }),
+                    coveredFieldIds: toFieldIds(options.searchAccessPath.coveredFieldIds),
                   }
-                : options?.searchAccessPath;
+                : options?.searchAccessPath?.kind === 'generated_text'
+                  ? {
+                      kind: 'generated_text' as const,
+                      generatedColumnName: options.searchAccessPath.generatedColumnName,
+                      provider: options.searchAccessPath.provider,
+                      searchScope: options.searchAccessPath.searchScope,
+                      coveredFieldIds: toFieldIds(options.searchAccessPath.coveredFieldIds),
+                    }
+                  : options?.searchAccessPath;
 
             // 3. Query records
             const queryResult = await recordQueryRepo.find(context, table, undefined, {
@@ -288,6 +298,11 @@ export const DebugDataLive = Layer.effect(
                 fields: r.fields,
               })),
               total: queryResult.value.total,
+              // Surface the resolution so operators can see whether the
+              // requested access path actually ran or silently fell back.
+              ...(queryResult.value.searchAccessPath
+                ? { searchAccessPath: queryResult.value.searchAccessPath }
+                : {}),
             };
           },
           catch: (e) => CliError.fromUnknown(e),

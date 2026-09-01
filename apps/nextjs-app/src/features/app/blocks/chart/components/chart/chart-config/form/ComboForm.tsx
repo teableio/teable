@@ -1,3 +1,4 @@
+import { useContentDir } from '@teable/sdk/hooks';
 import {
   Accordion,
   AccordionContent,
@@ -32,6 +33,7 @@ export const ComboForm = (props: {
 }) => {
   const { type, config, onChange } = props;
   const { t } = useTranslation('chart');
+  const contentDir = useContentDir();
   const baseQueryData = useBaseQueryData();
   const xColumns = baseQueryData?.columns ?? [];
   const yColumns = useFilterNumberColumns(baseQueryData?.columns);
@@ -140,7 +142,7 @@ export const ComboForm = (props: {
                       onAddXAxis(column.column);
                     }}
                   >
-                    {column.name}
+                    <span dir={contentDir}>{column.name}</span>
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
@@ -179,7 +181,7 @@ export const ComboForm = (props: {
                       onAddYAxis(column.column);
                     }}
                   >
-                    {column.name}
+                    <span dir={contentDir}>{column.name}</span>
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>

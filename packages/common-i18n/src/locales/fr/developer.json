@@ -15,6 +15,20 @@
   "previewReturnValue": "Aperçu de la valeur de retour",
   "replaceToken": "Remplacer le jeton",
   "createNewToken": "Créer un nouveau jeton",
-  "only10Records": "Seuls les 10 premiers enregistrements sont affichés",
-  "addSort": "Ajouter un tri"
+  "showPagination": "Les paramètres de pagination sont affichés en mode JSON",
+  "addSort": "Ajouter un tri",
+  "tabs": {
+    "apiBuilder": "Générateur d’API",
+    "aiContext": "Contexte IA"
+  },
+  "aiContext": {
+    "title": "Contexte de table adapté à l’IA",
+    "description": "Copiez ce contexte dans votre assistant IA (ChatGPT, Claude, etc.) pour qu’il comprenne comment interagir avec les données de votre table.",
+    "selectTableFirst": "Veuillez sélectionner une table pour générer le contexte IA",
+    "fullContext": "Contexte complet",
+    "compactContext": "Compact",
+    "copyToClipboard": "Copier dans le presse-papiers",
+    "copied": "Copié !",
+    "compactDescription": "Une version plus courte, adaptée au partage rapide de contexte en tenant compte des limites de jetons."
+  }
 }

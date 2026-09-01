@@ -97,7 +97,7 @@ export const FloatPlugin = (props: {
       dragHandleClassName="float-plugin-drag-handle"
       resizeHandleClasses={{
         bottomRight:
-          'border-b border-r border-foreground/40 after:absolute after:size-2 after:border-b-2 after:border-r-2 after:border-b after:border-r after:border-primary',
+          'border-b border-e border-foreground/40 after:absolute after:size-2 after:border-b-2 after:border-e-2 after:border-b after:border-e after:border-primary',
       }}
       minHeight={90}
       minWidth={120}
@@ -139,7 +139,7 @@ export const FloatPlugin = (props: {
             {!frozenDrag && (
               <DragHandleDots2Icon className="float-plugin-drag-handle inline-block size-4 shrink-0 cursor-move" />
             )}
-            <div className={cn('truncate', { 'ml-2': frozenDrag })}>{name}</div>
+            <div className={cn('truncate', { 'ms-2': frozenDrag })}>{name}</div>
           </div>
           <Button variant="link" size="icon" onClick={onClose}>
             <X className="size-4 shrink-0" />

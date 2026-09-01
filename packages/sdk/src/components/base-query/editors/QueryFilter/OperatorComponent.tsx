@@ -63,7 +63,7 @@ export const OperatorComponent: IFilterBaseComponent<IBaseFilterItem> = (props) 
   }, [operatorsStatic, operators]);
 
   const onSelectHandler = (value: IBaseFilterItem['operator'] | null) => {
-    const resetFieldValue = shouldResetFieldValue(item.operator as string, value as string);
+    const resetFieldValue = shouldResetFieldValue(item.operator as string, value as string, field);
     if (resetFieldValue || !operators.includes(value as IBaseFilterItem['operator'])) {
       const newPath = path.slice(0, -1);
       onChange(newPath, {

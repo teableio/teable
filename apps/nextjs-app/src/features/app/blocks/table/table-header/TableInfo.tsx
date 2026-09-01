@@ -1,6 +1,12 @@
 import { Table2 } from '@teable/icons';
 import { BaseNodeResourceType, type IBaseNodeTableResourceMeta } from '@teable/openapi';
-import { useBaseId, useConnection, useTable, useTablePermission } from '@teable/sdk/hooks';
+import {
+  useBaseId,
+  useConnection,
+  useTable,
+  useTablePermission,
+  useContentDir,
+} from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { cn, Input, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { AppWindowMacIcon, ShieldCheck } from 'lucide-react';
@@ -43,6 +49,7 @@ export const TableInfo: React.FC<ITableInfoProps> = (props: ITableInfoProps) => 
   const baseId = useBaseId() as string;
   const router = useRouter();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const contentDir = useContentDir();
   const { treeItems } = useBaseNodeContext();
   const canUpdateTable = permission['table|update'];
 
@@ -83,7 +90,9 @@ export const TableInfo: React.FC<ITableInfoProps> = (props: ITableInfoProps) => 
       {connected && !isImporting ? (
         <EmojiPicker
           className="flex size-5 cursor-pointer items-center justify-center hover:bg-muted-foreground/60"
+          icon={table?.icon}
           onChange={(icon: string) => table?.updateIcon(icon)}
+          onRemove={() => table?.updateIcon(null)}
           disabled={!canUpdateTable}
         >
           {icon}
@@ -93,7 +102,7 @@ export const TableInfo: React.FC<ITableInfoProps> = (props: ITableInfoProps) => 
       )}
       <div
         className={cn(
-          'relative flex h-8 max-w-[120px] shrink-0 grow-0 flex-col items-start justify-center gap-1 @xl/view-header:max-w-[144px]',
+          'relative flex h-9 max-w-[120px] shrink-0 grow-0 flex-col items-start justify-center gap-0 @xl/view-header:max-w-[144px]',
           isEditing ? 'min-w-[120px]' : 'min-w-20'
         )}
       >
@@ -102,7 +111,7 @@ export const TableInfo: React.FC<ITableInfoProps> = (props: ITableInfoProps) => 
             ref={inputRef}
             type="text"
             defaultValue={table?.name}
-            className="absolute left-0 top-0 size-full cursor-text"
+            className="absolute start-0 top-0 size-full cursor-text"
             // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             onBlur={(e) => {
@@ -126,6 +135,7 @@ export const TableInfo: React.FC<ITableInfoProps> = (props: ITableInfoProps) => 
         ) : (
           <div className="flex w-full items-center gap-1.5">
             <div
+              dir={contentDir}
               className="min-w-0 truncate text-sm leading-none"
               onDoubleClick={() => {
                 canUpdateTable && setIsEditing(true);

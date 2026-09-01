@@ -12,7 +12,6 @@ import {
 } from '../application/services/TableSchemaOperationLifecycleService';
 import type { BaseId } from '../domain/base/BaseId';
 import type { DomainError } from '../domain/shared/DomainError';
-import { domainError } from '../domain/shared/DomainError';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { validateForeignTablesForFields } from '../domain/table/fields/ForeignTableRelatedField';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
@@ -197,11 +196,14 @@ export class ImportDotTeaStructureHandler
     return safeTry<ImportDotTeaStructureResult, DomainError>(async function* () {
       // Use parseNormalizedStructure() which handles v1→v2 conversion in dottea package
       const normalized = yield* await handler.dotTeaParser.parseNormalizedStructure(command.source);
+      // Bases may contain only non-table resources (e.g. webhook workflows). Structure
+      // import is then a no-op; callers restore extras (workflows/apps) separately.
       if (normalized.tables.length === 0) {
-        return err(
-          domainError.validation({
-            message: 'DotTea structure has no tables to import',
-            code: 'dottea.no_tables',
+        return ok(
+          ImportDotTeaStructureResult.create(command.baseId.toString(), [], {
+            tableIdMap: {},
+            fieldIdMap: {},
+            viewIdMap: {},
           })
         );
       }
@@ -295,6 +297,8 @@ export class ImportDotTeaStructureHandler
                 dbFieldName: field.dbFieldName,
                 type: field.type as ITableFieldInput['type'],
                 name: field.name,
+                description: field.description,
+                aiConfig: field.aiConfig,
                 isPrimary: field.isPrimary,
                 notNull: field.notNull,
                 unique: field.unique,
@@ -311,6 +315,8 @@ export class ImportDotTeaStructureHandler
             },
             {
               executionContext: context,
+              // .tea rehydrate: same trusted boundary as DuplicateBaseHandler
+              aiConfigMode: 'trustedRehydrate',
             }
           );
         })

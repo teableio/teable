@@ -1324,7 +1324,7 @@ export const LLMProviderForm = ({
                   {providerOptions.map(({ value, label, Icon, hideInProviderSelect }) => (
                     <SelectItem key={value} value={value} disabled={hideInProviderSelect}>
                       <div className="flex flex-row items-center text-[13px]">
-                        <Icon className="size-5 shrink-0 pr-1" />
+                        <Icon className="size-5 shrink-0 pe-1" />
                         {label}
                       </div>
                     </SelectItem>
@@ -1476,7 +1476,7 @@ export const LLMProviderForm = ({
                     type="button"
                     variant="destructive"
                   >
-                    <Square className="mr-1 size-3" />
+                    <Square className="me-1 size-3" />
                     {t('admin.setting.ai.stopTest')}
                   </Button>
                 ) : (

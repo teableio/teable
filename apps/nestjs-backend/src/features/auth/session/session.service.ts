@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
-import { Audit } from '../../audit/audit.decorator';
 import { AuditScope } from '../../audit/audit-scope';
+import { Audit } from '../../audit/audit.decorator';
 
 @Injectable()
 export class SessionService {

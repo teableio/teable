@@ -1,7 +1,7 @@
 {
   "actions": {
-    "add": "添加",
     "title": "操作",
+    "add": "添加",
     "save": "保存",
     "doNotSave": "不保存",
     "submit": "提交",
@@ -64,9 +64,6 @@
     "refresh": "刷新",
     "login": "登录",
     "useTemplate": "使用模版",
-    "copyToMySpace": "复制到我的空间",
-    "saveToMySpace": "保存到我的空间",
-    "supportSaveCopy": "支持保存副本",
     "copyLink": "复制链接",
     "openLink": "打开链接",
     "backToSpace": "返回空间",
@@ -84,11 +81,11 @@
   "password": {
     "setInvalid": "设置的密码无效，至少需要8个字符，且必须包含至少一个字母和一个数字。"
   },
-  "non": {
-    "share": "分享",
-    "copy": "已复制"
-  },
   "template": {
+    "non": {
+      "share": "分享",
+      "copy": "已复制"
+    },
     "aiTitle": "让我们一起构建",
     "aiGreeting": "{{name}}，有什么可以帮您？",
     "aiSubTitle": "首个让团队在数据协作并生成生产级应用的 AI 平台",
@@ -102,17 +99,7 @@
     "allTemplatesLoaded": "所有模板已加载",
     "createTemplate": "创建模版",
     "promptBox": {
-      "placeholder": "使用 Teable 构建你的业务应用",
-      "start": "开始",
-      "carouselGuides": {
-        "guide1": "粘贴收据 → 让 Teable 自动提取关键数据",
-        "guide2": "创建 AI CRM，包含线索和跟进表",
-        "guide3": "粘贴客户反馈 → 让 Teable 发现洞察并生成报告",
-        "guide4": "创建项目跟踪器，包含任务和截止日期",
-        "guide5": "粘贴线索表格 → 让 Teable 构建智能 CRM",
-        "guide6": "创建内容计划器，包含帖子和发布日期",
-        "guide7": "粘贴简历 → 让 Teable 整理和筛选候选人"
-      }
+      "start": "开始"
     },
     "useTemplateDialog": {
       "title": "选择空间",
@@ -120,15 +107,12 @@
       "noSpaceDescription": "你还没有任何空间，请先创建一个空间以继续。",
       "newSpacePlaceholder": "空间名称",
       "createSpace": "创建"
-    },
-    "non": {
-      "share": "分享",
-      "copy": "已复制"
     }
   },
   "baseShare": {
     "shareTitle": "分享",
     "shareToWeb": "公开分享到网络",
+    "noPermissionTip": "你没有权限管理分享设置",
     "linkHolderLabel": "获得链接的人",
     "linkHolderCanView": "可查看",
     "linkHolderCanViewDesc": "获得链接的人可以查看数据",
@@ -335,9 +319,9 @@
       "themeDesc": "选择应用主题。",
       "dark": "深色",
       "light": "浅色",
+      "system": "系统",
       "version": "应用版本",
       "infraVersion": "Infra 版本",
-      "system": "系统",
       "language": "语言",
       "interactionMode": "交互模式",
       "mouseMode": "光标模式",
@@ -450,6 +434,7 @@
     "credits": "算力",
     "aiChat": "AI 对话",
     "app": "应用",
+    "webSearch": "网页搜索",
     "folder": "文件夹",
     "newAutomation": "新自动化",
     "newApp": "新应用",
@@ -499,7 +484,7 @@
   "invite": {
     "dialog": {
       "title": "{{spaceName}} 空间分享",
-      "desc": "这个空间有<b>{{count}} 个协作者</b>。添加一个空间协作者将使他们能够访问该空间内的所有数据库。",
+      "desc_other": "此空间有 <b>{{count}} 位协作者</b>。添加空间协作者后，他们将可以访问此空间内的所有数据库。",
       "tabEmail": "通过电子邮件邀请",
       "emailPlaceholder": "输入邮箱地址，按 Enter 键分隔邮箱",
       "tabLink": "通过链接邀请",
@@ -515,6 +500,8 @@
       "collaboratorSearchPlaceholder": "按姓名或电子邮件查找空间协作者",
       "collaboratorJoin": "加入于 {{joinTime}}",
       "collaboratorRemove": "移除协作者",
+      "basePermissionRemove": "移除数据库权限",
+      "goToBase": "前往数据库",
       "linkTitle": "邀请链接",
       "linkCreatedTime": "创建于 {{createdTime}}",
       "linkCopySuccess": "链接已复制",
@@ -525,7 +512,6 @@
     },
     "base": {
       "title": "分享{{baseName}}",
-      "desc_one": "此数据库与 {{count}} 位协作者共享。",
       "desc_other": "此数据库与 {{count}} 位协作者共享。",
       "baseTitle": "此数据库协作者",
       "collaboratorSearchPlaceholder": "通过姓名或电子邮件查找数据库协作者",
@@ -541,12 +527,19 @@
       "collaborator": "协作者",
       "accessPermission": "访问权限",
       "joinAt": "加入于",
-      "lastLogin": "最近登录"
+      "lastLogin": "最近登录",
+      "expandPermissions": "展开{{name}}的权限",
+      "collapsePermissions": "折叠{{name}}的权限",
+      "basePermissionsOnly": "仅拥有部分数据库的访问权限",
+      "basePermissionCount": "数据库权限:{{count}} 个"
     },
     "authority": {
       "title": "权限矩阵已启用",
       "description": "协作者的有效访问权限受分配给他们的角色的影响，未分配用户使用默认角色",
       "viewDetail": "查看详情"
+    },
+    "app": {
+      "previewAppError": "应用错误"
     }
   },
   "help": {
@@ -570,6 +563,19 @@
     "viewPricing": "查看定价",
     "billable": "计费",
     "billableByAuthorityMatrix": "由权限矩阵产生的计费",
+    "seatConfirm": {
+      "title": "邀请将增加订阅费用",
+      "roleChangeTitle": "调整角色将增加订阅费用",
+      "matrixTitle": "添加成员将增加订阅费用",
+      "inviteDesc_other": "本次邀请的 {{count}} 位成员将以「{{role}}」角色加入，将占用 {{count}} 个订阅席位，费用会随之增加。如果只需查看或评论，改选免费的「可查看」或「可查看与评论」即可。",
+      "linkDesc": "通过此链接加入的成员将获得「{{role}}」角色，每加入 1 人将占用 1 个订阅席位，费用会随之增加。如果只需查看或评论，改选免费的「可查看」或「可查看与评论」即可。",
+      "roleChangeDesc": "调整为「{{role}}」后，该成员将占用 1 个订阅席位，费用会随之增加。",
+      "matrixDesc": "该成员目前是免费角色（可查看/可查看与评论），加入权限矩阵后将占用 1 个订阅席位，费用会随之增加。",
+      "seatLimitTitle": "许可证席位不足",
+      "seatLimitDesc": "当前实例已使用 {{seats}}/{{seatLimit}} 个许可证席位，剩余席位不足以完成本次操作，请联系管理员增购席位。如果对方只需查看或评论，可以改用免费的「可查看」或「可查看与评论」角色。",
+      "seatLimitConfirm": "知道了",
+      "confirmInvite": "确认并邀请"
+    },
     "licenseExpiredGracePeriod": "您的私有化部署许可证已过期，系统将在 {{expiredTime}} 降级为免费版并停用高级功能，请尽快更新许可证以保留完整功能。",
     "licenseAutoFetchFailed": "许可证自动续期失败，宽限期剩余 {{days}} 天，届时将降级为免费版。",
     "licenseAutoFetchRetryFailed": "自动续期仍然失败，请检查与 Teable 服务器的连接，或手动更新许可证。",
@@ -613,8 +619,8 @@
       "brandingSettings": {
         "title": "品牌配置",
         "description": "仅在企业版中可用",
+        "brandName": "品牌名称",
         "logo": "Logo",
-        "logoDescription": "Logo 是您在 Teable 中的品牌标识。",
         "logoUpload": "上传 Logo",
         "logoUploadDescription": "上传 Logo 图片，支持 PNG、JPEG 格式，推荐尺寸为 100x100px。最大上传大小为 500KB."
       },
@@ -1102,8 +1108,8 @@
       "viewer": "可查看"
     },
     "description": {
-      "owner": "具有完全配置和编辑数据库、自动化、权限矩阵、管理空间设置和计费的权限",
-      "creator": "具有完全配置和编辑数据库、自动化和启用权限矩阵的权限",
+      "owner": "具有完全配置数据库、应用、自动化、权限矩阵、管理空间设置和计费的权限",
+      "creator": "具有完全配置数据库、应用、自动化和权限矩阵的权限",
       "editor": "可以编辑记录和视图，不能配置表格或字段",
       "commenter": "可以查看和评论记录，不能编辑记录",
       "viewer": "仅可查看记录，不能编辑或评论记录"
@@ -1444,6 +1450,8 @@
     "mustMention": "帖子必须提及 {{mention}}",
     "fetchSnapshotFailed": "获取帖子快照失败",
     "alreadyClaimedThisWeek": "您本周已为此账户领取过奖励",
+    "maxClaimsReached": "您本周已达到最大奖励领取次数 (2 次)",
+    "postTooOld": "帖子必须是最近 {{hours}} 小时内发布的",
     "manage": {
       "title": "奖励管理",
       "description": "查看和管理所有空间的奖励记录",
@@ -1521,7 +1529,13 @@
     "agentStartFailed": "AI 引擎启动失败，请重试或开始新的对话。",
     "idleTimeout": "命令执行超过时间限制（{{seconds}}秒），请重试。",
     "danglingToolUse": "上一次会话被中断，已自动修复。请重新发送消息。",
-    "contextImportFailed": "上一次会话数据恢复失败，请重试以继续（将不包含之前的上下文）。"
+    "contextImportFailed": "上一次会话数据恢复失败，请重试以继续（将不包含之前的上下文）。",
+    "collapsedStatus": {
+      "open": "打开 AI 对话",
+      "working": "AI 正在工作",
+      "completed": "AI 任务已完成",
+      "failed": "AI 任务失败"
+    }
   },
   "system": {
     "notFound": {
@@ -1571,7 +1585,8 @@
       "replace": "替换",
       "download": "下载",
       "uninstall": "卸载",
-      "copyToBase": "复制到 Base",
+      "copyToBase": "复制到数据库",
+      "copyToSpace": "复制到空间",
       "copyToPersonal": "复制到个人",
       "copyToApp": "复制到 App"
     },
@@ -1604,10 +1619,13 @@
     "scope": {
       "label": "作用域",
       "system": "系统",
-      "base": "当前数据库",
+      "builtin": "内置",
+      "base": "数据库",
       "user": "个人",
       "userDescription": "仅自己可用",
-      "baseDescription": "当前数据库内协作者共用",
+      "baseDescription": "与此数据库的协作者共享",
+      "space": "空间",
+      "spaceDescription": "与此空间的所有成员共享",
       "app": "App",
       "appDescription": "仅此 App 可用",
       "cuppyclaw": "Bot",
@@ -1623,9 +1641,6 @@
       "disabled": "已禁用",
       "synced": "已同步",
       "failed": "同步失败"
-    },
-    "empty": {
-      "mySkills": "暂无个人技能，导入一个开始使用。"
     },
     "confirm": {
       "deleteTitle": "删除技能",
@@ -1647,17 +1662,18 @@
       "copyError": "复制失败"
     }
   },
-  "changelog": {
-    "newUpdate": "7 月 28 日更新",
-    "title": "面向 AI Agent 的 Teable Skill",
-    "url": "https://help.teable.ai/en/changelog#jul-28-2026",
-    "id": "changelog-2026-07-28-teable-skill-for-ai-agents"
-  },
   "resourceDescription": {
     "addDescription": "添加描述",
     "nodeDescription": "节点描述",
     "descriptionSaving": "保存中...",
     "descriptionSaveFailed": "保存描述失败，请重试",
     "descriptionPlaceholder": "为此节点添加一段描述"
+  },
+  "announcement": {
+    "viewDetail": "查看详情",
+    "close": "关闭公告",
+    "acknowledge": "我知道了",
+    "collapse": "收起",
+    "more_other": "还有 {{count}} 条公告"
   }
 }

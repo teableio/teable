@@ -69,13 +69,13 @@ export const LastModifiedTimeOptions = ({ options = {}, onChange }: IProps) => {
       <div className="space-y-2">
         <Label className="text-sm font-medium">{t('field.editor.lastModifiedScope')}</Label>
         <RadioGroup value={trackAll ? 'all' : 'specific'} onValueChange={handleRadioChange}>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 rtl:space-x-reverse">
             <RadioGroupItem value="all" id="lmt-all" />
             <Label htmlFor="lmt-all" className="font-normal">
               {t('field.editor.lastModifiedAll')}
             </Label>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 rtl:space-x-reverse">
             <RadioGroupItem value="specific" id="lmt-specific" />
             <Label htmlFor="lmt-specific" className="font-normal">
               {t('field.editor.lastModifiedSpecific')}
@@ -110,7 +110,7 @@ export const LastModifiedTimeOptions = ({ options = {}, onChange }: IProps) => {
                     <span className="truncate">{current.name}</span>
                     <button
                       aria-label="remove"
-                      className="ml-1 text-xs text-muted-foreground hover:text-foreground"
+                      className="ms-1 text-xs text-muted-foreground hover:text-foreground"
                       onClick={() => removeField(fieldId)}
                     >
                       ×

@@ -1,0 +1,72 @@
+{
+  "add": "Nouveaux plugins",
+  "title": {
+    "add": "Nouveaux plugins",
+    "edit": "Modifier les plugins"
+  },
+  "pluginUser": {
+    "name": "Utilisateur du plugin",
+    "description": "Utilisateur de plugin généré automatiquement par le système"
+  },
+  "secret": "Secret",
+  "regenerateSecret": "Régénérer le secret",
+  "form": {
+    "name": {
+      "label": "Nom",
+      "description": "Nom du plugin"
+    },
+    "description": {
+      "label": "Description",
+      "description": "Description du plugin"
+    },
+    "detailDesc": {
+      "label": "Description détaillée",
+      "description": "Description détaillée du plugin"
+    },
+    "logo": {
+      "label": "Logo",
+      "description": "Logo du plugin : vous pouvez téléverser une image ou utiliser une URL",
+      "upload": "Téléverser",
+      "clear": "Effacer",
+      "placeholder": "Glissez-déposez votre logo ici ou cliquez pour téléverser",
+      "lengthError": "Un seul fichier est autorisé.",
+      "typeError": "Seuls les fichiers image sont autorisés."
+    },
+    "helpUrl": {
+      "label": "URL d’aide",
+      "description": "URL de la documentation d’aide du plugin"
+    },
+    "positions": {
+      "label": "Emplacements",
+      "description": "Emplacements du plugin"
+    },
+    "i18n": {
+      "label": "i18n",
+      "description": "Traductions du plugin (nom, description, description détaillée)"
+    },
+    "url": {
+      "label": "URL",
+      "description": "URL du plugin"
+    },
+    "autoCreateMember": {
+      "label": "Créer automatiquement un membre",
+      "description": "Créer automatiquement un membre pour le plugin"
+    },
+    "config": {
+      "label": "Configuration",
+      "description": "Configuration du plugin"
+    }
+  },
+  "markdown": {
+    "write": "Rédiger",
+    "preview": "Aperçu"
+  },
+  "status": {
+    "reviewing": "En cours d’examen",
+    "published": "Publié",
+    "developing": "En développement"
+  },
+  "button": {
+    "submitApproved": "Soumettre pour approbation"
+  }
+}

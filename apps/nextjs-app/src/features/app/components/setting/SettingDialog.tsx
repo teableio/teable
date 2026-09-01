@@ -18,7 +18,7 @@ export const SettingDialog = ({ spaceId, includeSpaceSettings = true }: ISetting
       {isTouchDevice ? (
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetContent
-            className="h-5/6 rounded-t-lg px-1 pb-0 pt-4 [&>button]:right-4 [&>button]:top-4 "
+            className="h-5/6 rounded-t-lg px-1 pb-0 pt-4 [&>button]:end-4 [&>button]:top-4 "
             side="bottom"
           >
             <UnifiedSettingDialogContent
@@ -34,7 +34,7 @@ export const SettingDialog = ({ spaceId, includeSpaceSettings = true }: ISetting
       ) : (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent
-            className="h-4/5 max-h-[80vh] max-w-6xl overflow-hidden p-0 [&>button]:right-4 [&>button]:top-4 "
+            className="h-4/5 max-h-[80vh] max-w-6xl overflow-hidden p-0 [&>button]:end-4 [&>button]:top-4 "
             onOpenAutoFocus={(e) => e.preventDefault()}
           >
             <UnifiedSettingDialogContent

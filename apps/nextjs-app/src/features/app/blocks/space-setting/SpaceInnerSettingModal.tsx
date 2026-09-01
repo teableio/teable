@@ -50,7 +50,7 @@ export const SpaceInnerSettingModal = (props: ISpaceInnerSettingModalProps) => {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent
-        className="flex h-[85%] max-h-[85%] max-w-[80%] flex-col gap-0 p-0 transition-[max-width] duration-300"
+        className="flex h-[85%] max-h-[85%] max-w-[80%] flex-col gap-0 p-0 shadow-none transition-[max-width] duration-300"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <UnifiedSettingDialogContent

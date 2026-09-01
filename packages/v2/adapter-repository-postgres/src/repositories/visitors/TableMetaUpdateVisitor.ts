@@ -2,16 +2,31 @@ import {
   AbstractSpecFilterVisitor,
   TableAddFieldSpec,
   TableAddFieldsSpec,
+  TableAddViewSpec,
+  TableEnsureViewRowOrderSpec,
+  TableRemoveViewSpec,
   TableAddSelectOptionsSpec,
   TableDuplicateFieldSpec,
   TableRemoveFieldSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
+  TableByViewIdSpec,
+  TableWithViewIdsSpec,
+  TableWithPrimaryFieldSpec,
   TableByIncomingReferenceToTableSpec,
   TableByIdsSpec,
   TableByNameLikeSpec,
   TableByNameSpec,
   TableRenameSpec,
+  TableUpdatePropertiesSpec,
+  TableRenameViewSpec,
+  TableUpdateViewDescriptionSpec,
+  TableUpdateViewLockedSpec,
+  TableUpdateViewOrderSpec,
+  TableUpdateViewOptionsSpec,
+  TableUpdateViewShareIdSpec,
+  TableUpdateViewShareMetaSpec,
+  TableUpdateViewShareStateSpec,
   TableUpdateViewColumnMetaSpec,
   TableUpdateViewQueryDefaultsSpec,
   type TableViewQueryDefaultsUpdate,
@@ -66,6 +81,10 @@ import {
   type ITableSpecVisitor,
   type Table,
   type FieldId,
+  type View,
+  ViewAuditMetadata,
+  ViewOrder,
+  ViewVersion,
   domainError,
   type DomainError,
 } from '@teable/v2-core';
@@ -92,6 +111,7 @@ export type TableUpdateBuilder =
   | UpdateQueryBuilder<V1TeableDatabase, 'view', 'view', UpdateResult>
   | UpdateQueryBuilder<V1TeableDatabase, 'field', 'field', UpdateResult>
   | InsertQueryBuilder<V1TeableDatabase, 'field', InsertResult>
+  | InsertQueryBuilder<V1TeableDatabase, 'view', InsertResult>
   | DeleteQueryBuilder<V1TeableDatabase, 'reference', DeleteResult>;
 
 type TableMetaUpdateVisitorParams = {
@@ -105,6 +125,8 @@ type TableMetaUpdateVisitorParams = {
 
 type TableMetaUpdate = {
   name?: string;
+  description?: string | null;
+  icon?: string | null;
 };
 
 export class TableMetaUpdateVisitor
@@ -116,6 +138,7 @@ export class TableMetaUpdateVisitor
   private readonly viewVersionIncrement: RawBuilder<number> = sql<number>`coalesce(version, 0) + 1`;
   private readonly fieldVersionTouches: string[] = [];
   private readonly viewVersionTouches: string[] = [];
+  private readonly pendingViewPersistenceStamps: Array<() => void> = [];
 
   constructor(private readonly params: TableMetaUpdateVisitorParams) {
     super();
@@ -125,6 +148,58 @@ export class TableMetaUpdateVisitor
       now: params.now,
       actorId: params.actorId,
     });
+  }
+
+  /**
+   * Apply the persistence-state stamps queued by visitTableAddView. The
+   * repository calls this after the compiled statements executed: stamping any
+   * earlier would make the optimistic view-version check treat the not-yet
+   * inserted row as a lost update (a newly added child must stay versionless
+   * until persisted).
+   */
+  applyCreatedViewPersistenceStamps(): void {
+    for (const stamp of this.pendingViewPersistenceStamps) {
+      stamp();
+    }
+    this.pendingViewPersistenceStamps.length = 0;
+  }
+
+  /**
+   * Reflect the persisted state of a freshly-inserted view back onto the
+   * aggregate: order, version, and audit metadata are allocated here (see
+   * ViewOrder — "until persistence allocates it"), so stamping them lets
+   * callers project the created view without reloading the table.
+   * Values already present (e.g. an undo-restored view) are left untouched.
+   */
+  private maxSiblingViewOrder(excludeViewId: string): number {
+    return this.params.table.views().reduce((max, candidate) => {
+      if (candidate.id().toString() === excludeViewId) return max;
+      const order = candidate.order();
+      if (order.isErr()) return max;
+      return Math.max(max, order.value.toNumber());
+    }, -1);
+  }
+
+  private stampCreatedViewPersistenceState(view: View, allocatedOrder: number): void {
+    const actorId = this.params.actorId;
+    const nowIso = this.params.now.toISOString();
+    if (view.order().isErr()) {
+      const order = ViewOrder.rehydrate(allocatedOrder);
+      if (order.isOk()) view.setOrder(order.value);
+    }
+    if (view.version().isErr()) {
+      const version = ViewVersion.rehydrate(1);
+      if (version.isOk()) view.setVersion(version.value);
+    }
+    if (view.auditMetadata().isErr()) {
+      const auditMetadata = ViewAuditMetadata.rehydrate({
+        createdBy: actorId,
+        createdTime: nowIso,
+        lastModifiedBy: actorId,
+        lastModifiedTime: nowIso,
+      });
+      if (auditMetadata.isOk()) view.setAuditMetadata(auditMetadata.value);
+    }
   }
 
   fieldVersionTouchOrder(): ReadonlyArray<string> {
@@ -165,6 +240,207 @@ export class TableMetaUpdateVisitor
       statements.push(this.buildInsertOrReviveFieldStatement(fieldRowResult.value));
     }
 
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableAddView(
+    spec: TableAddViewSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    const addedView = spec.view();
+    const dtoResult = this.params.tableMapper.toViewDTO(addedView);
+    if (dtoResult.isErr()) return err(dtoResult.error);
+    const view = dtoResult.value;
+
+    const query = view.query ?? {};
+    const sortPayload =
+      query.sort || query.manualSort !== undefined
+        ? {
+            ...(query.sort ? { sortObjs: query.sort } : {}),
+            ...(query.manualSort !== undefined ? { manualSort: query.manualSort } : {}),
+          }
+        : null;
+    const tableId = this.params.table.id().toString();
+    this.trackViewVersionTouch(view.id);
+
+    // Persistence allocates what a newly-built View doesn't carry (order,
+    // version, audit metadata). Compute the order from the aggregate's live
+    // views instead of a SQL subquery so the same value can be stamped back
+    // onto the aggregate — callers can then project the created view without
+    // reloading the whole table.
+    const allocatedOrder = view.order ?? this.maxSiblingViewOrder(addedView.id().toString()) + 1;
+    this.pendingViewPersistenceStamps.push(() =>
+      this.stampCreatedViewPersistenceState(spec.view(), allocatedOrder)
+    );
+
+    const row = {
+      id: view.id,
+      name: view.name,
+      description: view.description ?? null,
+      table_id: tableId,
+      type: view.type,
+      options: view.options === undefined ? null : JSON.stringify(view.options),
+      order: allocatedOrder,
+      version: 1,
+      column_meta: JSON.stringify(view.columnMeta),
+      filter:
+        view.sourceFilter !== undefined
+          ? this.stringifyLegacyFilter(view.sourceFilter)
+          : query.filter === undefined
+            ? null
+            : this.stringifyLegacyFilter(this.mapRecordFilterToLegacy(query.filter)),
+      sort: sortPayload ? JSON.stringify(sortPayload) : null,
+      group: query.group ? JSON.stringify(query.group) : null,
+      is_locked: view.isLocked ?? null,
+      enable_share: view.enableShare ?? null,
+      share_id: view.shareId ?? null,
+      share_meta: view.shareMeta === undefined ? null : JSON.stringify(view.shareMeta),
+      created_time: this.params.now,
+      last_modified_time: this.params.now,
+      deleted_time: null,
+      created_by: this.params.actorId,
+      last_modified_by: this.params.actorId,
+    };
+    const statements: ReadonlyArray<TableUpdateBuilder> = [
+      this.params.db
+        .insertInto('view')
+        .values(row)
+        .onConflict((oc) =>
+          oc.column('id').doUpdateSet({
+            name: row.name,
+            description: row.description,
+            table_id: sql`excluded."table_id"`,
+            order: sql<number>`excluded."order"`,
+            type: row.type,
+            options: row.options,
+            column_meta: row.column_meta,
+            filter: row.filter,
+            sort: row.sort,
+            group: row.group,
+            is_locked: row.is_locked,
+            enable_share: row.enable_share,
+            share_id: row.share_id,
+            share_meta: row.share_meta,
+            version: sql<number>`coalesce(view.version, 0) + 1`,
+            deleted_time: null,
+            last_modified_time: row.last_modified_time,
+            last_modified_by: row.last_modified_by,
+          })
+        ),
+    ];
+
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableEnsureViewRowOrder(
+    _spec: TableEnsureViewRowOrderSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    const statements: ReadonlyArray<TableUpdateBuilder> = [];
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableRemoveView(
+    spec: TableRemoveViewSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    const statements: ReadonlyArray<TableUpdateBuilder> = [
+      this.params.db
+        .updateTable('view')
+        .set({
+          deleted_time: this.params.now,
+          last_modified_time: this.params.now,
+          last_modified_by: this.params.actorId,
+        })
+        .where('id', '=', spec.view().id().toString())
+        .where('table_id', '=', this.params.table.id().toString())
+        .where('deleted_time', 'is', null),
+    ];
+
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableRenameView(
+    spec: TableRenameViewSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    const viewId = spec.viewId().toString();
+    this.trackViewVersionTouch(viewId);
+    const statements: ReadonlyArray<TableUpdateBuilder> = [
+      this.params.db
+        .updateTable('view')
+        .set({
+          name: spec.nextName().toString(),
+          version: this.viewVersionIncrement,
+          last_modified_time: this.params.now,
+          last_modified_by: this.params.actorId,
+        })
+        .where('id', '=', viewId)
+        .where('table_id', '=', this.params.table.id().toString())
+        .where('deleted_time', 'is', null),
+    ];
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableUpdateViewDescription(
+    spec: TableUpdateViewDescriptionSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    const viewId = spec.viewId().toString();
+    this.trackViewVersionTouch(viewId);
+    const statements: ReadonlyArray<TableUpdateBuilder> = [
+      this.params.db
+        .updateTable('view')
+        .set({
+          description: spec.nextDescription() ?? null,
+          version: this.viewVersionIncrement,
+          last_modified_time: this.params.now,
+          last_modified_by: this.params.actorId,
+        })
+        .where('id', '=', viewId)
+        .where('table_id', '=', this.params.table.id().toString())
+        .where('deleted_time', 'is', null),
+    ];
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableUpdateViewLocked(
+    spec: TableUpdateViewLockedSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    const viewId = spec.viewId().toString();
+    this.trackViewVersionTouch(viewId);
+    const statements: ReadonlyArray<TableUpdateBuilder> = [
+      this.params.db
+        .updateTable('view')
+        .set({
+          is_locked: spec.nextIsLocked() ?? null,
+          version: this.viewVersionIncrement,
+          last_modified_time: this.params.now,
+          last_modified_by: this.params.actorId,
+        })
+        .where('id', '=', viewId)
+        .where('table_id', '=', this.params.table.id().toString())
+        .where('deleted_time', 'is', null),
+    ];
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableUpdateViewOrder(
+    spec: TableUpdateViewOrderSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    const statements: TableUpdateBuilder[] = [];
+    for (const change of spec.changes()) {
+      const viewId = change.viewId.toString();
+      this.trackViewVersionTouch(viewId);
+      statements.push(
+        this.params.db
+          .updateTable('view')
+          .set({
+            order: change.nextOrder.toNumber(),
+            version: this.viewVersionIncrement,
+            last_modified_time: this.params.now,
+            last_modified_by: this.params.actorId,
+          })
+          .where('id', '=', viewId)
+          .where('table_id', '=', this.params.table.id().toString())
+          .where('deleted_time', 'is', null)
+      );
+    }
     return this.addCond(statements).map(() => statements);
   }
 
@@ -247,15 +523,99 @@ export class TableMetaUpdateVisitor
         .updateTable('view')
         .set({
           column_meta: JSON.stringify(update.columnMeta.toDto()),
+          ...(update.optionsChanged
+            ? {
+                options:
+                  update.nextOptions === undefined ? null : JSON.stringify(update.nextOptions),
+              }
+            : {}),
           version: this.viewVersionIncrement,
           last_modified_time: this.params.now,
           last_modified_by: this.params.actorId,
         })
         .where('id', '=', update.viewId.toString())
+        .where('table_id', '=', this.params.table.id().toString())
         .where('deleted_time', 'is', null)
     );
 
     return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableUpdateViewOptions(
+    spec: TableUpdateViewOptionsSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    const update = spec.update();
+    this.trackViewVersionTouch(update.viewId.toString());
+    const statement = this.params.db
+      .updateTable('view')
+      .set({
+        options: JSON.stringify(update.nextOptions),
+        version: this.viewVersionIncrement,
+        last_modified_time: this.params.now,
+        last_modified_by: this.params.actorId,
+      })
+      .where('id', '=', update.viewId.toString())
+      .where('table_id', '=', this.params.table.id().toString())
+      .where('deleted_time', 'is', null);
+    return this.addCond([statement]).map(() => [statement]);
+  }
+
+  visitTableUpdateViewShareMeta(
+    spec: TableUpdateViewShareMetaSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    this.trackViewVersionTouch(spec.viewId().toString());
+    const statement = this.params.db
+      .updateTable('view')
+      .set({
+        share_meta:
+          spec.nextShareMeta() === undefined ? null : JSON.stringify(spec.nextShareMeta()),
+        version: this.viewVersionIncrement,
+        last_modified_time: this.params.now,
+        last_modified_by: this.params.actorId,
+      })
+      .where('id', '=', spec.viewId().toString())
+      .where('table_id', '=', this.params.table.id().toString())
+      .where('deleted_time', 'is', null);
+    return this.addCond([statement]).map(() => [statement]);
+  }
+
+  visitTableUpdateViewShareId(
+    spec: TableUpdateViewShareIdSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    this.trackViewVersionTouch(spec.viewId().toString());
+    const statement = this.params.db
+      .updateTable('view')
+      .set({
+        share_id: spec.nextShareId(),
+        version: this.viewVersionIncrement,
+        last_modified_time: this.params.now,
+        last_modified_by: this.params.actorId,
+      })
+      .where('id', '=', spec.viewId().toString())
+      .where('table_id', '=', this.params.table.id().toString())
+      .where('deleted_time', 'is', null);
+    return this.addCond([statement]).map(() => [statement]);
+  }
+
+  visitTableUpdateViewShareState(
+    spec: TableUpdateViewShareStateSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    this.trackViewVersionTouch(spec.viewId().toString());
+    const nextState = spec.nextState();
+    const statement = this.params.db
+      .updateTable('view')
+      .set({
+        enable_share: nextState.enableShare,
+        share_id: nextState.shareId ?? null,
+        share_meta: nextState.shareMeta === undefined ? null : JSON.stringify(nextState.shareMeta),
+        version: this.viewVersionIncrement,
+        last_modified_time: this.params.now,
+        last_modified_by: this.params.actorId,
+      })
+      .where('id', '=', spec.viewId().toString())
+      .where('table_id', '=', this.params.table.id().toString())
+      .where('deleted_time', 'is', null);
+    return this.addCond([statement]).map(() => [statement]);
   }
 
   visitTableUpdateViewQueryDefaults(
@@ -269,6 +629,7 @@ export class TableMetaUpdateVisitor
       .updates()
       .map((update: TableViewQueryDefaultsUpdate) => {
         const query = update.queryDefaults.toDto();
+        const sourceFilter = update.queryDefaults.sourceFilter();
         const sortPayload =
           query.sort || query.manualSort !== undefined
             ? {
@@ -281,9 +642,11 @@ export class TableMetaUpdateVisitor
           .updateTable('view')
           .set({
             filter:
-              query.filter === undefined
-                ? null
-                : this.stringifyLegacyFilter(this.mapRecordFilterToLegacy(query.filter)),
+              sourceFilter !== undefined
+                ? this.stringifyLegacyFilter(sourceFilter)
+                : query.filter === undefined
+                  ? null
+                  : this.stringifyLegacyFilter(this.mapRecordFilterToLegacy(query.filter)),
             sort: sortPayload ? JSON.stringify(sortPayload) : null,
             group: query.group ? JSON.stringify(query.group) : null,
             version: this.viewVersionIncrement,
@@ -291,6 +654,7 @@ export class TableMetaUpdateVisitor
             last_modified_by: this.params.actorId,
           })
           .where('id', '=', update.viewId.toString())
+          .where('table_id', '=', this.params.table.id().toString())
           .where('deleted_time', 'is', null);
       });
 
@@ -304,9 +668,49 @@ export class TableMetaUpdateVisitor
     return this.addCond(statements).map(() => statements);
   }
 
+  visitTableUpdateProperties(
+    spec: TableUpdatePropertiesSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    const patch = spec.patch();
+    const updates: TableMetaUpdate = {
+      ...('description' in patch ? { description: patch.description ?? null } : {}),
+      ...('icon' in patch ? { icon: patch.icon ?? null } : {}),
+    };
+    const statements: ReadonlyArray<TableUpdateBuilder> = [this.buildTableMetaUpdate(updates)];
+    return this.addCond(statements).map(() => statements);
+  }
+
   visitTableById(_: TableByIdSpec): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
     return err(
       domainError.validation({ message: 'TableByIdSpec is not supported for table updates' })
+    );
+  }
+
+  visitTableByViewId(_: TableByViewIdSpec): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableByViewIdSpec is not supported for table updates',
+      })
+    );
+  }
+
+  visitTableWithViewIds(
+    _: TableWithViewIdsSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableWithViewIdsSpec is not supported for table updates',
+      })
+    );
+  }
+
+  visitTableWithPrimaryField(
+    _: TableWithPrimaryFieldSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableWithPrimaryFieldSpec is not supported for table updates',
+      })
     );
   }
 
@@ -564,6 +968,7 @@ export class TableMetaUpdateVisitor
       this.params.db
         .updateTable('field')
         .set({
+          type: row.type,
           options: row.options,
           meta: row.meta,
           cell_value_type: row.cell_value_type,

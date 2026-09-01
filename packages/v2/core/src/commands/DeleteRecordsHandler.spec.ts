@@ -471,7 +471,7 @@ describe('DeleteRecordsHandler', () => {
     expect(result._unsafeUnwrapErr().message).toBe('delete failed');
   });
 
-  it('returns error when repository delete snapshot is missing for scoped delete', async () => {
+  it('deletes successfully when repository delete snapshot is missing for scoped delete', async () => {
     const { table, tableId } = buildTable();
     const recordId = `rec${'m'.repeat(16)}`;
     const scopedSpec = {
@@ -515,11 +515,11 @@ describe('DeleteRecordsHandler', () => {
 
     const result = await handler.handle(createContext(), command);
 
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().code).toBe('record.stored_snapshot.unavailable');
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().deletedRecordIds).toEqual([recordId]);
   });
 
-  it('returns error when repository delete snapshot is missing for unscoped delete', async () => {
+  it('deletes successfully when repository delete snapshot is missing for unscoped delete', async () => {
     const { table, tableId } = buildTable();
     const tableRepository = new FakeTableRepository();
     tableRepository.tables.push(table);
@@ -541,8 +541,8 @@ describe('DeleteRecordsHandler', () => {
 
     const result = await handler.handle(createContext(), command);
 
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().code).toBe('record.stored_snapshot.unavailable');
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().deletedRecordIds).toEqual([`rec${'u'.repeat(16)}`]);
   });
 
   it('rejects explicit deletions when existing rows fall outside plugin scope', async () => {

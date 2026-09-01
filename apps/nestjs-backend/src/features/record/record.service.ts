@@ -29,7 +29,6 @@ import {
   extractFieldIdsFromFilter,
   FieldKeyType,
   FieldType,
-  generateRecordHistoryId,
   generateRecordId,
   HttpErrorCode,
   identify,
@@ -279,6 +278,97 @@ export class RecordService {
       }
       return acc;
     }, {});
+  }
+
+  /**
+   * Resolve display titles for user-like cells that carry no usable title —
+   * bare user-id cells and system-synthesized audit cells (track-all
+   * LastModifiedBy/CreatedBy snapshots are not persisted, so the SQL fallback
+   * shapes `{id, title: id}`). Stored point-in-time titles are preserved.
+   * Operates on raw db rows so both Json and Text cell formats resolve.
+   */
+  private async hydrateUnresolvedUserCellTitles(
+    rows: Record<string, unknown>[],
+    fields: IFieldInstance[]
+  ): Promise<void> {
+    if (!rows.length) {
+      return;
+    }
+    const userLikeColumns = fields
+      .filter((field) =>
+        [FieldType.User, FieldType.CreatedBy, FieldType.LastModifiedBy].includes(field.type)
+      )
+      .map((field) => this.getQueryColumnName(field));
+    if (!userLikeColumns.length) {
+      return;
+    }
+
+    const isUnresolvedUserId = (cell: unknown): cell is { id: string } => {
+      if (!cell || typeof cell !== 'object' || Array.isArray(cell)) {
+        return false;
+      }
+      const { id, title } = cell as { id?: unknown; title?: unknown };
+      return (
+        typeof id === 'string' &&
+        id.startsWith(IdPrefix.User) &&
+        (typeof title !== 'string' || title === id)
+      );
+    };
+    const collectUnresolvedIds = (value: unknown, target: Set<string>) => {
+      if (Array.isArray(value)) {
+        value.forEach((item) => collectUnresolvedIds(item, target));
+        return;
+      }
+      if (isUnresolvedUserId(value)) {
+        target.add(value.id);
+      }
+    };
+
+    const unresolvedIds = new Set<string>();
+    for (const row of rows) {
+      for (const column of userLikeColumns) {
+        collectUnresolvedIds(row[column], unresolvedIds);
+      }
+    }
+    if (!unresolvedIds.size) {
+      return;
+    }
+
+    const users = await this.prismaService.txClient().user.findMany({
+      where: { id: { in: [...unresolvedIds] } },
+      select: { id: true, name: true, email: true },
+    });
+    if (!users.length) {
+      return;
+    }
+    const userMap = new Map(users.map((user) => [user.id, user]));
+
+    const resolveCellValue = (value: unknown): unknown => {
+      if (Array.isArray(value)) {
+        return value.map((item) => resolveCellValue(item));
+      }
+      if (!isUnresolvedUserId(value)) {
+        return value;
+      }
+      const user = userMap.get(value.id);
+      if (!user) {
+        return value;
+      }
+      const cell = value as { id: string; email?: unknown };
+      return {
+        ...cell,
+        title: user.name,
+        ...(typeof cell.email === 'string' ? {} : { email: user.email }),
+      };
+    };
+
+    for (const row of rows) {
+      for (const column of userLikeColumns) {
+        if (row[column] != null) {
+          row[column] = resolveCellValue(row[column]);
+        }
+      }
+    }
   }
 
   async getAllRecordCount(dbTableName: string, tableId?: string) {
@@ -1437,15 +1527,9 @@ export class RecordService {
       {} as Record<string, IFieldInstance>
     );
 
-    const recordHistoryList: {
-      id: string;
-      table_id: string;
-      record_id: string;
-      field_id: string;
-      before: string;
-      after: string;
-      created_by: string;
-    }[] = [];
+    // Imported records intentionally write no record history: creation is already
+    // attributed by __created_by/__created_time, and per-cell null→value entries
+    // would add rows × non-empty-cells of history on large imports.
     const newRecords = records.map((record) => {
       const createdTime =
         writableCreatedTimeFieldNames.size > 0 ? new Date().toISOString() : undefined;
@@ -1454,17 +1538,6 @@ export class RecordService {
       Object.entries(record.fields).forEach(([fieldId, value]) => {
         const fieldInstance = fieldInstanceMap[fieldId];
         fieldsValues[fieldInstance.dbFieldName] = fieldInstance.convertCellValue2DBValue(value);
-        if (value !== '' && value != null) {
-          recordHistoryList.push({
-            id: generateRecordHistoryId(),
-            table_id: table.id,
-            record_id: recordId,
-            field_id: fieldInstance.id,
-            before: JSON.stringify({ data: null }),
-            after: JSON.stringify({ data: value }),
-            created_by: userId,
-          });
-        }
       });
       if (auditUserValue && createdByFields.length) {
         createdByFields.forEach((field) => {
@@ -1488,17 +1561,6 @@ export class RecordService {
     });
     const sql = this.dbProvider.batchInsertSql(dbTableName, newRecords);
     await this.databaseRouter.executeDataPrismaForTable(table.id, sql);
-    if (recordHistoryList.length) {
-      const dataKnex = await this.databaseRouter.dataKnexForTable(table.id);
-      const dataDbUrl = await this.databaseRouter.getDataDatabaseUrlForTable(table.id);
-      const dataDbInternalSchema = new URL(dataDbUrl).searchParams.get('schema') || 'public';
-      const historySql = dataKnex
-        .withSchema(dataDbInternalSchema)
-        .insert(recordHistoryList)
-        .into('record_history')
-        .toQuery();
-      await this.databaseRouter.executeDataPrismaForTable(table.id, historySql);
-    }
   }
 
   async creditCheck(tableId: string) {
@@ -2156,6 +2218,7 @@ export class RecordService {
       }
     });
 
+    await this.hydrateUnresolvedUserCellTitles(result, fields);
     const primaryField = await this.getPrimaryField(tableId);
 
     const snapshots = result

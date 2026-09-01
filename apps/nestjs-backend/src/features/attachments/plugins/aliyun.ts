@@ -6,7 +6,7 @@ import { Injectable } from '@nestjs/common';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { second } from '../../../utils/second';
-import type StorageAdapter from './adapter';
+import StorageAdapter from './adapter';
 import { S3Storage } from './s3';
 import type { IRespHeaders } from './types';
 
@@ -59,6 +59,12 @@ export class AliyunStorage extends S3Storage implements StorageAdapter {
       Bucket: bucket,
       Key: path,
       ResponseContentDisposition: respHeaders?.['Content-Disposition'],
+      // See s3.ts: an explicit type override prevents Safari from sniffing and
+      // auto-extracting downloads of objects stored without a Content-Type.
+      ResponseContentType: respHeaders?.['Content-Type'] || undefined,
+      ResponseCacheControl: StorageAdapter.isPublicBucket(bucket)
+        ? undefined
+        : StorageAdapter.PRIVATE_PREVIEW_CACHE_CONTROL,
     });
 
     const res = await getSignedUrl(this.aliyunClient, command, {

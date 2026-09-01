@@ -268,5 +268,6 @@ describe('RecordInsertBuilder', () => {
     expect(normalizeSql(compiled.sql)).toContain('LEFT JOIN "bseLegacy"."Legacy_Name" ft');
     expect(normalizeSql(compiled.sql)).toContain('"ft"."Primary_Field"');
     expect(normalizeSql(compiled.sql)).not.toContain(`"${foreignTable.id().toString()}"`);
+    expect(normalizeSql(compiled.sql)).toContain('jsonb_strip_nulls');
   });
 });

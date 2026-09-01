@@ -1,7 +1,8 @@
 import { FieldType } from '@teable/core';
 import type { SortFunc } from '@teable/core';
-import { Checked, Square } from '@teable/icons';
+import { Checked, ChevronDown, Square } from '@teable/icons';
 import {
+  Button,
   Select,
   SelectTrigger,
   SelectValue,
@@ -13,6 +14,7 @@ import {
 import { useMemo } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 import { useFields } from '../../hooks';
+import { AdaptiveSelect } from '../adaptive-panel';
 
 interface IOrderProps {
   value: SortFunc;
@@ -120,21 +122,49 @@ function OrderSelect(props: IOrderProps) {
     return option || DEFAULTOPTIONS;
   }, [field?.cellValueType, field?.type, t]);
 
+  const selectedLabel = options.find((option) => option.value === value)?.label;
+
   return (
-    <Select value={value} onValueChange={onSelect}>
-      <SelectTrigger className={cn('mx-2 w-32', triggerClassName)}>
-        <SelectValue placeholder={t('common.selectPlaceHolder')} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectGroup>
-          {options.map((option, index) => (
-            <SelectItem value={option.value} key={index}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectGroup>
-      </SelectContent>
-    </Select>
+    <AdaptiveSelect
+      title={t('sort.orderTitle')}
+      options={options.map((option) => ({ value: option.value, label: option.label }))}
+      value={value}
+      onSelect={(next) => onSelect(next as SortFunc)}
+      // Two options, no search: let the panel be as tall as its content.
+      size="auto"
+      desktop={
+        <Select value={value} onValueChange={onSelect}>
+          <SelectTrigger className={cn('mx-2 w-32', triggerClassName)}>
+            <SelectValue placeholder={t('common.selectPlaceHolder')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {options.map((option, index) => (
+                <SelectItem value={option.value} key={index}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      }
+      trigger={
+        <Button
+          variant="outline"
+          role="combobox"
+          className={cn(
+            // Shares the row with the field selector rather than reserving a
+            // fixed 128px: at 320px a fixed order button leaves the field name
+            // about two characters wide.
+            'h-9 w-auto min-w-24 max-w-32 flex-1 justify-between px-3 font-normal',
+            triggerClassName
+          )}
+        >
+          <span className="truncate">{selectedLabel}</span>
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+        </Button>
+      }
+    />
   );
 }
 

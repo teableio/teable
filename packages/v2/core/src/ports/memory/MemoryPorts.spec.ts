@@ -527,6 +527,52 @@ describe('AsyncMemoryEventBus', () => {
     expect(publishResolved).toBe(true);
   });
 
+  it('does not await RecordsDeleted projections before publish resolves', async () => {
+    class RecordsDeletedEvent implements IDomainEvent {
+      readonly name = DomainEventName.recordsDeleted();
+      readonly occurredAt = OccurredAt.now();
+    }
+
+    let handled = false;
+
+    @EventHandler(RecordsDeletedEvent)
+    class RecordsDeletedHandler implements IEventHandler<RecordsDeletedEvent> {
+      async handle(
+        _context: IExecutionContext,
+        _event: RecordsDeletedEvent
+      ): ReturnType<IEventHandler<RecordsDeletedEvent>['handle']> {
+        handled = true;
+        return ok(undefined);
+      }
+    }
+    expect(RecordsDeletedHandler).toBeDefined();
+
+    const scheduledTasks: Array<() => Promise<void>> = [];
+    const backgroundTasks: Array<() => Promise<void> | void> = [];
+    const schedule: AsyncEventBusScheduler = (task) => {
+      scheduledTasks.push(task);
+    };
+
+    const resolver = new MapResolver();
+    const bus = new AsyncMemoryEventBus(resolver, { schedule });
+    const context: IExecutionContext = {
+      ...createContext(),
+      scheduleBackgroundTask: (task) => {
+        backgroundTasks.push(task);
+      },
+    };
+
+    const publishResult = await bus.publish(context, new RecordsDeletedEvent());
+    publishResult._unsafeUnwrap();
+
+    expect(scheduledTasks).toHaveLength(0);
+    expect(backgroundTasks).toHaveLength(1);
+    expect(handled).toBe(false);
+
+    await backgroundTasks.shift()?.();
+    expect(handled).toBe(true);
+  });
+
   it('does not retain published events when recording is disabled', async () => {
     class PingEvent implements IDomainEvent {
       readonly name = DomainEventName.tableCreated();

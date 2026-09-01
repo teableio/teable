@@ -183,7 +183,11 @@ export class SpaceDataDbProcessError extends Error {
       exitCode: number | null;
     }
   ) {
-    super(message);
+    const parts = [message];
+    if (result.stderr?.trim()) {
+      parts.push(`[stderr]: ${result.stderr.trim()}`);
+    }
+    super(parts.join('\n'));
   }
 }
 
@@ -196,7 +200,14 @@ export class SpaceDataDbProcessPipelineError extends Error {
       target: ISpaceDataDbProcessPartialResult;
     }
   ) {
-    super(message);
+    const parts = [message];
+    if (result.source.stderr?.trim()) {
+      parts.push(`[source stderr]: ${result.source.stderr.trim()}`);
+    }
+    if (result.target.stderr?.trim()) {
+      parts.push(`[target stderr]: ${result.target.stderr.trim()}`);
+    }
+    super(parts.join('\n'));
   }
 }
 

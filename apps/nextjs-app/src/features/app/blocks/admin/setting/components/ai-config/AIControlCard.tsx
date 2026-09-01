@@ -11,7 +11,8 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { CircleHelp, TriangleAlert } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 
 interface SwitchListProps {
   disableActions: string[];
@@ -19,6 +20,8 @@ interface SwitchListProps {
   sandboxConfigured?: boolean;
   disabled?: boolean;
   onChange: (value: { disableActions: string[] }) => Promise<unknown> | void;
+  /** Edition-specific rows rendered right after an action's own row */
+  renderAfterAction?: (action: AIActions, ctx: { enabled: boolean }) => ReactNode;
 }
 
 export enum AIActions {
@@ -56,6 +59,7 @@ const SwitchList = (props: SwitchListProps) => {
     instanceDisableActions = [],
     sandboxConfigured,
     disabled: disabledAll,
+    renderAfterAction,
   } = props;
   const { t } = useTranslation('common');
 
@@ -82,6 +86,12 @@ const SwitchList = (props: SwitchListProps) => {
     }));
   }, [AIFeatureListDescriptionMap, AIFeatureListNameMap, instanceDisableActions]);
 
+  const isActionEnabled = useCallback(
+    (action: AIActions) =>
+      !disableActions?.includes(action) && !instanceDisableActions.includes(action),
+    [disableActions, instanceDisableActions]
+  );
+
   const onCheckItemHandler = useCallback(
     (actionName: AIActions, open: boolean) => {
       if (open && disableActions.find((action) => action === actionName)) {
@@ -104,32 +114,35 @@ const SwitchList = (props: SwitchListProps) => {
   return (
     <>
       {AIFeatureListWithOptions.map(({ name, description, disabled, key }) => (
-        <div className="flex items-center justify-between" key={key}>
-          <div className="flex items-center gap-x-1">
-            <Label
-              htmlFor={key}
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              {name}
-            </Label>
-            <TooltipWrap description={description}>
-              <CircleHelp className="size-4 cursor-pointer text-muted-foreground" />
-            </TooltipWrap>
-            {key === AIActions.AIChat && sandboxConfigured === false && (
-              <TooltipWrap description={t('admin.setting.ai.actions.aiChat.sandboxWarning')}>
-                <TriangleAlert className="size-4 cursor-pointer text-yellow-500" />
+        <Fragment key={key}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-x-1">
+              <Label
+                htmlFor={key}
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                {name}
+              </Label>
+              <TooltipWrap description={description}>
+                <CircleHelp className="size-4 cursor-pointer text-muted-foreground" />
               </TooltipWrap>
-            )}
+              {key === AIActions.AIChat && sandboxConfigured === false && (
+                <TooltipWrap description={t('admin.setting.ai.actions.aiChat.sandboxWarning')}>
+                  <TriangleAlert className="size-4 cursor-pointer text-yellow-500" />
+                </TooltipWrap>
+              )}
+            </div>
+            <Switch
+              id={key}
+              onCheckedChange={(open) => {
+                onCheckItemHandler(key, open);
+              }}
+              checked={isActionEnabled(key)}
+              disabled={disabledAll || disabled}
+            />
           </div>
-          <Switch
-            id={key}
-            onCheckedChange={(open) => {
-              onCheckItemHandler(key, open);
-            }}
-            checked={!disableActions?.includes(key) && !instanceDisableActions.includes(key)}
-            disabled={disabledAll || disabled}
-          />
-        </div>
+          {renderAfterAction?.(key, { enabled: isActionEnabled(key) })}
+        </Fragment>
       ))}
     </>
   );
@@ -141,12 +154,15 @@ export const AIControlCard = ({
   sandboxConfigured,
   disabled,
   onChange,
+  renderAfterAction,
 }: {
   disableActions: string[];
   instanceDisableActions?: string[];
   sandboxConfigured?: boolean;
   disabled?: boolean;
   onChange: (value: { disableActions: string[] }) => Promise<unknown> | void;
+  /** Edition-specific rows rendered right after an action's own row */
+  renderAfterAction?: (action: AIActions, ctx: { enabled: boolean }) => ReactNode;
 }) => {
   const { t } = useTranslation('common');
   const [localDisableActions, setLocalDisableActions] = useState(disableActions);
@@ -180,6 +196,7 @@ export const AIControlCard = ({
             instanceDisableActions={instanceDisableActions}
             sandboxConfigured={sandboxConfigured}
             disabled={disabled || isSaving}
+            renderAfterAction={renderAfterAction}
           />
         </div>
       </CardContent>

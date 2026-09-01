@@ -4,8 +4,8 @@ import { BaseId } from '../../../domain/base/BaseId';
 import { FieldId } from '../../../domain/table/fields/FieldId';
 import { FieldName } from '../../../domain/table/fields/FieldName';
 import { AttachmentField } from '../../../domain/table/fields/types/AttachmentField';
-import { ButtonField } from '../../../domain/table/fields/types/ButtonField';
 import { ButtonConfirm } from '../../../domain/table/fields/types/ButtonConfirm';
+import { ButtonField } from '../../../domain/table/fields/types/ButtonField';
 import { ButtonLabel } from '../../../domain/table/fields/types/ButtonLabel';
 import { ButtonMaxCount } from '../../../domain/table/fields/types/ButtonMaxCount';
 import { ButtonResetCount } from '../../../domain/table/fields/types/ButtonResetCount';
@@ -41,8 +41,8 @@ import { SelectOption } from '../../../domain/table/fields/types/SelectOption';
 import { SingleLineTextField } from '../../../domain/table/fields/types/SingleLineTextField';
 import { SingleLineTextShowAs } from '../../../domain/table/fields/types/SingleLineTextShowAs';
 import { SingleSelectField } from '../../../domain/table/fields/types/SingleSelectField';
-import { TimeZone } from '../../../domain/table/fields/types/TimeZone';
 import { TextDefaultValue } from '../../../domain/table/fields/types/TextDefaultValue';
+import { TimeZone } from '../../../domain/table/fields/types/TimeZone';
 import { UserDefaultValue } from '../../../domain/table/fields/types/UserDefaultValue';
 import { UserField } from '../../../domain/table/fields/types/UserField';
 import { UserMultiplicity } from '../../../domain/table/fields/types/UserMultiplicity';
@@ -56,10 +56,12 @@ import { GalleryView } from '../../../domain/table/views/types/GalleryView';
 import { GridView } from '../../../domain/table/views/types/GridView';
 import { KanbanView } from '../../../domain/table/views/types/KanbanView';
 import { PluginView } from '../../../domain/table/views/types/PluginView';
+import { ViewAuditMetadata } from '../../../domain/table/views/ViewAuditMetadata';
 import { ViewColumnMeta } from '../../../domain/table/views/ViewColumnMeta';
 import { ViewId } from '../../../domain/table/views/ViewId';
 import { ViewName } from '../../../domain/table/views/ViewName';
 import { ViewQueryDefaults } from '../../../domain/table/views/ViewQueryDefaults';
+import { ViewVersion } from '../../../domain/table/views/ViewVersion';
 import type { ITableFieldPersistenceDTO } from '../TableMapper';
 import { DefaultTableMapper } from './DefaultTableMapper';
 
@@ -341,6 +343,25 @@ const buildFormulaTable = () => {
 };
 
 describe('DefaultTableMapper', () => {
+  it('round-trips table description and icon', () => {
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(buildTable())._unsafeUnwrap();
+    const table = mapper
+      .toDomain({
+        ...dto,
+        description: 'Projects tracked by the team',
+        icon: '📊',
+      })
+      ._unsafeUnwrap();
+
+    expect(table.description()).toBe('Projects tracked by the team');
+    expect(table.icon()).toBe('📊');
+    expect(mapper.toDTO(table)._unsafeUnwrap()).toMatchObject({
+      description: 'Projects tracked by the team',
+      icon: '📊',
+    });
+  });
+
   it('maps tables to persistence dto and back', () => {
     const table = buildTable();
     if (!table) return;
@@ -376,6 +397,89 @@ describe('DefaultTableMapper', () => {
 
     const fieldDbNameResult = mapped.getFields()[0]?.dbFieldName();
     fieldDbNameResult?._unsafeUnwrap();
+  });
+
+  it('round-trips a lossless source filter separately from its canonical form', () => {
+    const table = buildTable();
+    if (!table) return;
+    const canonicalFilter = {
+      fieldId: `fld${'a'.repeat(16)}`,
+      operator: 'isAnyOf' as const,
+      value: ['alpha'],
+    };
+    const sourceFilter = {
+      conjunction: 'and',
+      filterSet: [
+        {
+          fieldId: canonicalFilter.fieldId,
+          operator: 'IN',
+          isSymbol: true,
+          value: 'alpha',
+        },
+      ],
+    };
+
+    const mapper = new DefaultTableMapper();
+    const originalDto = mapper.toDTO(table)._unsafeUnwrap();
+    const dto = {
+      ...originalDto,
+      views: originalDto.views.map((view, index) =>
+        index === 0
+          ? {
+              ...view,
+              query: { filter: canonicalFilter },
+              sourceFilter,
+            }
+          : view
+      ),
+    };
+    expect(dto.views[0]?.sourceFilter).toEqual(sourceFilter);
+
+    const mappedResult = mapper.toDomain(dto);
+    expect(
+      mappedResult.isOk(),
+      mappedResult.isErr() ? JSON.stringify(mappedResult.error) : undefined
+    ).toBe(true);
+    const mapped = mappedResult._unsafeUnwrap();
+    const mappedDefaults = mapped.views()[0]!.queryDefaults()._unsafeUnwrap();
+    expect(mappedDefaults.filter()).toEqual({
+      conjunction: 'and',
+      items: [canonicalFilter],
+    });
+    expect(mappedDefaults.sourceFilter()).toEqual(sourceFilter);
+  });
+
+  it('round-trips read-only metadata on View child entities', () => {
+    const table = buildTable();
+    const metadata = {
+      createdBy: 'creator',
+      createdTime: '2026-07-27T00:00:00.000Z',
+      lastModifiedBy: 'editor',
+      lastModifiedTime: '2026-07-27T01:00:00.000Z',
+    };
+    table.views()[0].setAuditMetadata(ViewAuditMetadata.rehydrate(metadata)._unsafeUnwrap());
+    table.views()[0].setVersion(ViewVersion.rehydrate(7)._unsafeUnwrap());
+    const mapper = new DefaultTableMapper();
+
+    const dto = mapper.toDTO(table)._unsafeUnwrap();
+    const mapped = mapper.toDomain(dto)._unsafeUnwrap();
+
+    expect(dto.views[0]).toMatchObject(metadata);
+    expect(dto.views[0]?.version).toBe(7);
+    expect(mapped.views()[0].auditMetadata()._unsafeUnwrap().toDto()).toEqual(metadata);
+    expect(mapped.views()[0].version()._unsafeUnwrap().toNumber()).toBe(7);
+  });
+
+  it('maps a single View without serializing sibling fields', () => {
+    const table = buildTable();
+    const mapper = new DefaultTableMapper();
+    const view = table.views()[0]!;
+
+    const viewDto = mapper.toViewDTO(view)._unsafeUnwrap();
+    const tableDto = mapper.toDTO(table)._unsafeUnwrap();
+
+    expect(viewDto).toEqual(tableDto.views[0]);
+    expect(viewDto.id).toBe(view.id().toString());
   });
 
   it('deduplicates select choices by name when rehydrating persistence dto', () => {
@@ -1060,6 +1164,195 @@ describe('DefaultTableMapper', () => {
     expect((lookupField as LookupField).isPending()).toBe(true);
   });
 
+  it('rehydrates lookup-of-rollup from v1 persistence without aborting the table', () => {
+    const mapper = new DefaultTableMapper();
+    const tableId = `tbl${'p'.repeat(16)}`;
+    const baseId = `bse${'p'.repeat(16)}`;
+    const nameFieldId = `fld${'p'.repeat(16)}`;
+    const linkFieldId = `fld${'q'.repeat(16)}`;
+    const lookupRollupFieldId = `fld${'r'.repeat(16)}`;
+    const foreignTableId = `tbl${'f'.repeat(16)}`;
+    const foreignRollupFieldId = `fld${'s'.repeat(16)}`;
+
+    const mapped = mapper
+      .toDomain({
+        id: tableId,
+        baseId,
+        name: 'Payroll',
+        primaryFieldId: nameFieldId,
+        fields: [
+          {
+            id: nameFieldId,
+            name: 'Title',
+            type: 'singleLineText',
+          },
+          {
+            id: linkFieldId,
+            name: 'Employee',
+            type: 'link',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId,
+              lookupFieldId: `fld${'t'.repeat(16)}`,
+              isOneWay: true,
+              fkHostTableName: `${baseId}.Payroll`,
+              selfKeyName: '__id',
+              foreignKeyName: `__fk_${linkFieldId}`,
+            },
+          },
+          {
+            id: lookupRollupFieldId,
+            name: 'Overtime Rate',
+            type: 'rollup',
+            isLookup: true,
+            isComputed: true,
+            options: {
+              expression: 'max({values})',
+              timeZone: 'Asia/Shanghai',
+              formatting: { type: 'decimal', precision: 0 },
+            },
+            lookupOptions: {
+              linkFieldId,
+              foreignTableId,
+              lookupFieldId: foreignRollupFieldId,
+              relationship: 'manyOne',
+              fkHostTableName: `${baseId}.Payroll`,
+              selfKeyName: '__id',
+              foreignKeyName: `__fk_${linkFieldId}`,
+            },
+            config: {
+              linkFieldId,
+              foreignTableId,
+              lookupFieldId: foreignRollupFieldId,
+            },
+            cellValueType: 'number',
+            isMultipleCellValue: false,
+          },
+        ],
+        views: [],
+      } as never)
+      ._unsafeUnwrap();
+
+    const lookup = mapped
+      .getFields()
+      .find((field) => field.id().toString() === lookupRollupFieldId);
+    expect(lookup).toBeInstanceOf(LookupField);
+    expect((lookup as LookupField).isPending()).toBe(false);
+  });
+
+  it('rehydrates lookup-of-rollup when only lookupOptions are present', () => {
+    const mapper = new DefaultTableMapper();
+    const tableId = `tbl${'u'.repeat(16)}`;
+    const baseId = `bse${'u'.repeat(16)}`;
+    const nameFieldId = `fld${'u'.repeat(16)}`;
+    const linkFieldId = `fld${'v'.repeat(16)}`;
+    const lookupRollupFieldId = `fld${'w'.repeat(16)}`;
+
+    const result = mapper.toDomain({
+      id: tableId,
+      baseId,
+      name: 'Payroll Vo',
+      primaryFieldId: nameFieldId,
+      fields: [
+        {
+          id: nameFieldId,
+          name: 'Title',
+          type: 'singleLineText',
+        },
+        {
+          id: linkFieldId,
+          name: 'Employee',
+          type: 'link',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: `tbl${'g'.repeat(16)}`,
+            lookupFieldId: `fld${'x'.repeat(16)}`,
+            isOneWay: true,
+            fkHostTableName: `${baseId}.Payroll`,
+            selfKeyName: '__id',
+            foreignKeyName: `__fk_${linkFieldId}`,
+          },
+        },
+        {
+          id: lookupRollupFieldId,
+          name: 'Overtime Rate',
+          type: 'rollup',
+          isLookup: true,
+          isComputed: true,
+          options: {
+            expression: 'max({values})',
+            timeZone: 'Asia/Shanghai',
+            formatting: { type: 'decimal', precision: 0 },
+          },
+          lookupOptions: {
+            linkFieldId,
+            foreignTableId: `tbl${'g'.repeat(16)}`,
+            lookupFieldId: `fld${'y'.repeat(16)}`,
+          },
+          cellValueType: 'number',
+          isMultipleCellValue: false,
+        },
+      ],
+      views: [],
+    } as never);
+
+    expect(result.isOk()).toBe(true);
+    const lookup = result
+      ._unsafeUnwrap()
+      .getFields()
+      .find((field) => field.id().toString() === lookupRollupFieldId);
+    expect(lookup).toBeInstanceOf(LookupField);
+    expect((lookup as LookupField).isPending()).toBe(false);
+  });
+
+  it('loads a lookup-of-rollup when expression and config are both missing', () => {
+    const mapper = new DefaultTableMapper();
+    const tableId = `tbl${'h'.repeat(16)}`;
+    const baseId = `bse${'h'.repeat(16)}`;
+    const nameFieldId = `fld${'h'.repeat(16)}`;
+    const lookupRollupFieldId = `fld${'i'.repeat(16)}`;
+
+    const result = mapper.toDomain({
+      id: tableId,
+      baseId,
+      name: 'Payroll Invalid Expression',
+      primaryFieldId: nameFieldId,
+      fields: [
+        {
+          id: nameFieldId,
+          name: 'Title',
+          type: 'singleLineText',
+        },
+        {
+          id: lookupRollupFieldId,
+          name: 'Overtime Rate',
+          type: 'rollup',
+          isLookup: true,
+          isComputed: true,
+          options: {
+            timeZone: 'Asia/Shanghai',
+          },
+          lookupOptions: {
+            linkFieldId: `fld${'j'.repeat(16)}`,
+            foreignTableId: `tbl${'k'.repeat(16)}`,
+            lookupFieldId: `fld${'l'.repeat(16)}`,
+          },
+          cellValueType: 'number',
+          isMultipleCellValue: false,
+        },
+      ],
+      views: [],
+    } as never);
+
+    expect(result.isOk()).toBe(true);
+    const lookup = result
+      ._unsafeUnwrap()
+      .getFields()
+      .find((field) => field.id().toString() === lookupRollupFieldId);
+    expect(lookup).toBeInstanceOf(LookupField);
+    expect((lookup as LookupField).isPending()).toBe(false);
+  });
+
   it('maps link fields without db config when persisting duplicate-style tables', () => {
     const dto = {
       id: `tbl${'q'.repeat(16)}`,
@@ -1274,5 +1567,89 @@ describe('DefaultTableMapper', () => {
     expect(
       (conditionalRollupField as ConditionalRollupField).cellValueType()._unsafeUnwrap().toString()
     ).toBe('number');
+  });
+
+  it('loads a lookup-of-rollup whose persisted options lost the rollup expression', () => {
+    const table = buildTable();
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(table)._unsafeUnwrap();
+    const lookupOfRollupId = `fld${'z'.repeat(16)}`;
+
+    const result = mapper.toDomain({
+      ...dto,
+      fields: [
+        ...dto.fields,
+        {
+          id: lookupOfRollupId,
+          name: 'Overtime Rate',
+          type: 'rollup' as const,
+          isLookup: true,
+          isComputed: true,
+          options: {
+            formatting: { type: 'decimal', precision: 0 },
+          },
+          lookupOptions: {
+            linkFieldId: `fld${'c'.repeat(16)}`,
+            lookupFieldId: `fld${'d'.repeat(16)}`,
+            foreignTableId: `tbl${'b'.repeat(16)}`,
+            relationship: 'manyOne' as const,
+          },
+          config: {
+            linkFieldId: `fld${'c'.repeat(16)}`,
+            lookupFieldId: `fld${'d'.repeat(16)}`,
+            foreignTableId: `tbl${'b'.repeat(16)}`,
+            relationship: 'manyOne' as const,
+          },
+          cellValueType: 'number',
+          isMultipleCellValue: false,
+        },
+      ],
+    });
+
+    expect(result.isOk(), result.isErr() ? result.error.message : undefined).toBe(true);
+    const mapped = result._unsafeUnwrap();
+    const field = mapped
+      .getFields()
+      .find((candidate) => candidate.id().equals(FieldId.create(lookupOfRollupId)._unsafeUnwrap()));
+    expect(field).toBeInstanceOf(LookupField);
+  });
+
+  it('rehydrates a rollup whose persisted options lost the expression instead of failing the table', () => {
+    const table = buildTable();
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(table)._unsafeUnwrap();
+    const rollupId = `fld${'x'.repeat(16)}`;
+
+    const result = mapper.toDomain({
+      ...dto,
+      fields: [
+        ...dto.fields,
+        {
+          id: rollupId,
+          name: 'Total Amount',
+          type: 'rollup' as const,
+          isComputed: true,
+          options: {
+            formatting: { type: 'decimal', precision: 2 },
+          },
+          config: {
+            linkFieldId: `fld${'c'.repeat(16)}`,
+            lookupFieldId: `fld${'d'.repeat(16)}`,
+            foreignTableId: `tbl${'b'.repeat(16)}`,
+            relationship: 'oneMany' as const,
+          },
+          cellValueType: 'number',
+          isMultipleCellValue: false,
+        },
+      ],
+    });
+
+    expect(result.isOk(), result.isErr() ? result.error.message : undefined).toBe(true);
+    const mapped = result._unsafeUnwrap();
+    const field = mapped
+      .getFields()
+      .find((candidate) => candidate.id().equals(FieldId.create(rollupId)._unsafeUnwrap()));
+    expect(field).toBeDefined();
+    expect(field?.hasError().isError()).toBe(true);
   });
 });

@@ -406,4 +406,85 @@ describe('ComputedActivity', () => {
     expect(restored.changedSnapshot().fields).toHaveLength(1);
     expect(restored.changedSnapshot().tables).toHaveLength(0);
   });
+
+  it('keeps computed cell-limit lastError after a successful release', () => {
+    const activity = ComputedActivity.empty();
+    activity.attachTask({
+      baseId,
+      targets: [fieldA],
+      estimatedComplexity: 1,
+      estimatedDirtyRecords: 1,
+      hasAllTargetRecords: false,
+      now,
+    });
+    activity.markProcessing({ baseId, targets: [fieldA], now });
+    activity.notePersistentFieldErrors({
+      errors: [
+        {
+          fieldId: fieldA.fieldId.toString(),
+          error: {
+            code: 'validation.limit.computed_cell_value_max_bytes',
+            message:
+              'Computed cell value is too large (312000 / 262144 bytes). Shorten the source data or change the formula.',
+            context: { attempted: 312000, max: 262144 },
+          },
+        },
+      ],
+      now,
+    });
+    activity.releaseTask({
+      baseId,
+      targets: [fieldA],
+      wasProcessing: true,
+      durationMs: 40,
+      now,
+    });
+
+    const field = activity.getField(fieldA.fieldId)!.toDto();
+    expect(field.status).toBe('failed');
+    expect(field.lastError?.code).toBe('validation.limit.computed_cell_value_max_bytes');
+    expect(field.lastError?.context).toEqual({ attempted: 312000, max: 262144 });
+  });
+
+  it('clears computed cell-limit lastError when a new task is attached', () => {
+    const activity = ComputedActivity.empty();
+    activity.attachTask({
+      baseId,
+      targets: [fieldA],
+      estimatedComplexity: 1,
+      estimatedDirtyRecords: 1,
+      hasAllTargetRecords: false,
+      now,
+    });
+    activity.notePersistentFieldErrors({
+      errors: [
+        {
+          fieldId: fieldA.fieldId.toString(),
+          error: {
+            code: 'validation.limit.computed_cell_value_max_bytes',
+            message: 'too large',
+          },
+        },
+      ],
+      now,
+    });
+    activity.releaseTask({
+      baseId,
+      targets: [fieldA],
+      wasProcessing: false,
+      now,
+    });
+    expect(activity.getField(fieldA.fieldId)!.toDto().status).toBe('failed');
+
+    activity.attachTask({
+      baseId,
+      targets: [fieldA],
+      estimatedComplexity: 1,
+      estimatedDirtyRecords: 1,
+      hasAllTargetRecords: false,
+      now,
+    });
+    expect(activity.getField(fieldA.fieldId)!.toDto().lastError).toBeNull();
+    expect(activity.getField(fieldA.fieldId)!.toDto().status).toBe('queued');
+  });
 });

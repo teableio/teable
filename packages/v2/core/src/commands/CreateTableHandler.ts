@@ -159,6 +159,12 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
         sideEffects: plannedSideEffects,
       });
       yield* await sideEffectPluginExecution.guard();
+      if (recordsFieldValues.length > 0) {
+        yield* table.createRecords(recordsFieldValues, {
+          emitRecordCreatedEvents: false,
+        });
+      }
+
       const persistedTable = yield* await handler.unitOfWork.withTransaction(
         context,
         async (metaTransactionContext) =>

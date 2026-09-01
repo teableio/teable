@@ -1,10 +1,14 @@
 import { inRange } from 'lodash';
 
 export const LOAD_PAGE_SIZE = 300;
-// only the very first query: keeps the initial payload small (and matches the
-// server-side default take used for SSR seeding). The first failed range check
-// — a scroll, or a viewport taller than this — reissues a full-size window
-export const INITIAL_LOAD_PAGE_SIZE = 100;
+// only the very first query: keeps the initial payload small. The SSR record
+// fetch and the table-switch seed pass this same constant as take, so the
+// seeded rows exactly back the grid's first window — change them together.
+// Effective still-viewport coverage is 2/3 of this (the rest is prefetch
+// margin): 64 keeps a 1440p viewport (~40 rows) at rest, only 4K upgrades
+// immediately. The first failed range check — a scroll, or a viewport taller
+// than the covered range — reissues a full-size window
+export const INITIAL_LOAD_PAGE_SIZE = 64;
 
 /**
  * Sliding-window pagination shared by the async-record hooks: given the

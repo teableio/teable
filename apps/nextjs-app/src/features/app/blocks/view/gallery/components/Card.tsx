@@ -44,7 +44,8 @@ export const Card = (props: IKanbanCardProps) => {
   } = useGallery();
   const { copyRecordUrl, viewRecordHistory, addRecordComment } = useContextMenu();
 
-  const { cardCreatable, cardDeletable, cardEditable, cardCommentCreatable } = permission;
+  const { cardCreatable, cardDeletable, cardEditable, cardCommentReadable, cardCommentCreatable } =
+    permission;
   const coverFieldId = coverField?.id;
   const coverCellValue = card.getCellValue(coverFieldId as string) as
     | IAttachmentCellValue
@@ -154,7 +155,7 @@ export const Card = (props: IKanbanCardProps) => {
               return (
                 <div key={fieldId} className="mb-2">
                   {!isFieldNameHidden && (
-                    <div className="mb-1 flex items-center space-x-1 text-muted-foreground">
+                    <div className="mb-1 flex items-center space-x-1 text-muted-foreground rtl:space-x-reverse">
                       <Icon className="size-4 text-sm" />
                       <span className="text-xs">{name}</span>
                     </div>
@@ -203,10 +204,11 @@ export const Card = (props: IKanbanCardProps) => {
             {t('sdk:expandRecord.viewRecordHistory')}
           </ContextMenuItem>
         )}
-        {cardCommentCreatable && (
+        {cardCommentReadable && (
           <ContextMenuItem onClick={onAddRecordComment}>
             <MessageSquare className="size-4" />
-            {t('sdk:expandRecord.addRecordComment')}
+            {/* read-only collaborators open the thread, they just can't add to it */}
+            {cardCommentCreatable ? t('sdk:expandRecord.addRecordComment') : t('sdk:comment.title')}
           </ContextMenuItem>
         )}
         {cardDeletable && (

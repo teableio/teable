@@ -62,7 +62,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
     >
       {displayOptions?.map(({ value, label, backgroundColor, color }) => (
         <SelectTag
-          className={cn('flex items-center', !readonly && 'pr-1.5')}
+          className={cn('flex items-center', !readonly && 'pe-1.5')}
           key={value}
           label={label}
           color={color}

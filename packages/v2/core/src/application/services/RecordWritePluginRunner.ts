@@ -75,13 +75,22 @@ const createEnforceGroups = <T>(
   return groups.filter((group) => group.length > 0);
 };
 
-const sanitizeRecordWritePluginContext = (
-  context: RecordWritePluginContext,
+const createRecordWritePluginContextSanitizer = (
   tableMapper: TableMapperPort.ITableMapper
-): Result<RecordWritePluginContext, DomainError> => {
-  return context.table
-    .clone(tableMapper)
-    .map((table) => ({ ...context, table }) as RecordWritePluginContext);
+): RecordWritePluginContextSanitizer => {
+  // Clone once per runner execution so plugins share a detached snapshot.
+  // The live table stays isolated; plugins that need exclusive mutation
+  // should copy state into preparedState rather than mutating the snapshot.
+  let snapshotResult: Result<RecordWritePluginContext['table'], DomainError> | undefined;
+
+  return (context) => {
+    snapshotResult ??= context.table.clone(tableMapper);
+    if (snapshotResult.isErr()) {
+      return err(snapshotResult.error);
+    }
+
+    return ok({ ...context, table: snapshotResult.value } as RecordWritePluginContext);
+  };
 };
 
 const getTableId = (table: RecordWritePluginContext['table']): string | undefined => {
@@ -471,6 +480,7 @@ export class RecordWritePluginRunner {
       return err(matchedPluginsResult.error);
     }
     const matchedPlugins = matchedPluginsResult.value;
+    const sanitizeContext = createRecordWritePluginContextSanitizer(this.tableMapper);
 
     for (const group of createEnforceGroups(matchedPlugins, (plugin) => plugin.enforce)) {
       const results = await Promise.all(
@@ -478,6 +488,7 @@ export class RecordWritePluginRunner {
           this.preparePlugin(
             plugin,
             context,
+            sanitizeContext,
             options?.previousExecution?.getPreparedStateFor(plugin)
           )
         )
@@ -493,18 +504,17 @@ export class RecordWritePluginRunner {
     }
 
     return ok(
-      new RecordWritePluginExecution(this.logger, context, preparedPlugins, (pluginContext) =>
-        sanitizeRecordWritePluginContext(pluginContext, this.tableMapper)
-      )
+      new RecordWritePluginExecution(this.logger, context, preparedPlugins, sanitizeContext)
     );
   }
 
   private async preparePlugin(
     plugin: IRecordWritePlugin,
     context: RecordWritePluginContext,
+    sanitizeContext: RecordWritePluginContextSanitizer,
     previousPreparedState?: unknown
   ): Promise<Result<PreparedPluginEntry, DomainError>> {
-    const pluginContextResult = sanitizeRecordWritePluginContext(context, this.tableMapper);
+    const pluginContextResult = sanitizeContext(context);
     if (pluginContextResult.isErr()) {
       return err(pluginContextResult.error);
     }

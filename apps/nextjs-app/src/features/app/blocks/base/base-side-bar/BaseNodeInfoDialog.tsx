@@ -218,7 +218,7 @@ export const BaseNodeInfoDialog = (props: IBaseNodeInfoDialogProps) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw_-_32px)] max-w-[480px] overflow-hidden rounded-lg">
         <DialogHeader className="min-w-0 overflow-hidden">
-          <DialogTitle className="flex min-w-0 max-w-full overflow-hidden pr-6">
+          <DialogTitle className="flex min-w-0 max-w-full overflow-hidden pe-6">
             <span className="min-w-0 flex-1 truncate">{t('table:baseNode.info.menu')}</span>
           </DialogTitle>
         </DialogHeader>

@@ -1,13 +1,13 @@
 import type { IBaseRole, IRole } from '@teable/core';
 import { ChevronLeft, UserPlus, X } from '@teable/icons';
-import { z } from '@teable/openapi';
 import { Spin } from '@teable/ui-lib/base';
 import { Button, Input } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { CopyButton } from '@/features/app/components/CopyButton';
 import { RoleSelect } from '../../../collaborator-manage/components/RoleSelect';
 import type { IRoleStatic } from '../../../collaborator-manage/types';
+import { isInviteEmailValid, withInviteEmail } from '../../../collaborator-manage/utils';
 
 export const EmailContent = ({
   defaultRole,
@@ -19,8 +19,9 @@ export const EmailContent = ({
 }: {
   defaultRole: IRole;
   isCreateLoading: boolean;
-  onCreate: (ro: { emails: string[]; role: IBaseRole }) => Promise<void>;
-  onBack: () => void;
+  onCreate: (ro: { emails: string[]; role: IBaseRole }) => Promise<boolean>;
+  /** Renders the back header only when provided (standalone embeds omit it). */
+  onBack?: () => void;
   filteredRoleStatic: IRoleStatic[];
   resourceUrl: string;
 }) => {
@@ -31,19 +32,26 @@ export const EmailContent = ({
   const [hasSentInvitation, setHasSentInvitation] = useState(false);
   const emailInputRef = useRef<HTMLInputElement>(null);
 
+  /**
+   * Returns whether the field should be cleared — true for an address that is
+   * already in the list too: the user asked for it, it is there, and leaving
+   * their text behind reads as "nothing happened".
+   */
+  const addEmail = (value: string) => {
+    if (!isInviteEmailValid(value)) {
+      return false;
+    }
+    setInviteEmails((emails) => withInviteEmail(emails, value));
+    return true;
+  };
+
   const emailInputChange = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.code === 'Backspace' && !email?.length) {
       setInviteEmails(inviteEmails.slice(0, inviteEmails.length - 1));
       return;
     }
-    if (
-      ['Space', 'Enter'].includes(e.code) &&
-      email &&
-      z.string().email().safeParse(email).success &&
-      !inviteEmails.includes(email)
-    ) {
+    if (['Space', 'Enter'].includes(e.code) && email && addEmail(email)) {
       setEmail('');
-      setInviteEmails(inviteEmails.concat(email));
       e.preventDefault();
     }
   };
@@ -52,14 +60,13 @@ export const EmailContent = ({
     setInviteEmails((inviteEmails) => inviteEmails.filter((inviteEmail) => email !== inviteEmail));
   };
 
-  const isEmailInputValid = useMemo(() => z.string().email().safeParse(email).success, [email]);
-
   const sendInvitation = async () => {
     try {
-      await onCreate({
+      const sent = await onCreate({
         emails: inviteEmails,
         role: selectedRole as IBaseRole,
       });
+      if (!sent) return;
       setEmail('');
       setInviteEmails([]);
       setHasSentInvitation(true);
@@ -70,15 +77,17 @@ export const EmailContent = ({
 
   return (
     <div className="flex flex-col gap-4">
-      <Button
-        variant="link"
-        size="sm"
-        className="h-auto justify-start gap-2 p-0 text-sm font-semibold hover:no-underline"
-        onClick={onBack}
-      >
-        <ChevronLeft className="size-4" />
-        {t('invite.dialog.tabEmail')}
-      </Button>
+      {onBack && (
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto justify-start gap-2 p-0 text-sm font-semibold hover:no-underline"
+          onClick={onBack}
+        >
+          <ChevronLeft className="size-4" />
+          {t('invite.dialog.tabEmail')}
+        </Button>
+      )}
       <div className="space-y-4">
         {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
         <div
@@ -92,7 +101,7 @@ export const EmailContent = ({
             >
               {email}
               <X
-                className="ml-1 cursor-pointer hover:opacity-70"
+                className="ms-1 cursor-pointer hover:opacity-70"
                 onClick={() => deleteEmail(email)}
               />
             </div>
@@ -105,8 +114,10 @@ export const EmailContent = ({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onBlur={() => {
-              if (isEmailInputValid) {
-                setInviteEmails(inviteEmails.concat(email));
+              // Went through addEmail like every other path: this one used to
+              // concat unconditionally, so clicking away could add an address
+              // the list already held.
+              if (addEmail(email)) {
                 setEmail('');
               }
             }}

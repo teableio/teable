@@ -17,6 +17,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import {
   buildOutboxTaskInput,
   v2RecordRepositoryPostgresTokens,
+  type ComputedActivityProjector,
   type ComputedUpdatePlan,
   type IComputedUpdateOutbox,
 } from '../../adapter-table-repository-postgres/src';
@@ -35,9 +36,13 @@ const unwrapDomainId = <T>(result: {
 
 describe('computed activity lifecycle (e2e)', () => {
   let ctx: SharedTestContext;
+  let activityProjector: ComputedActivityProjector;
 
   beforeAll(async () => {
     ctx = await getSharedTestContext();
+    activityProjector = ctx.testContainer.container.resolve<ComputedActivityProjector>(
+      v2RecordRepositoryPostgresTokens.computedActivityProjector
+    );
   });
 
   it('enqueue → activity queued/running → processOutbox → idle with duration', async () => {
@@ -126,6 +131,8 @@ describe('computed activity lifecycle (e2e)', () => {
       throw new Error(enqueueResult.error.message);
     }
 
+    await activityProjector.flushAllPendingActivity();
+
     const reader = ctx.testContainer.container.resolve<IComputedActivityReader>(
       v2CoreTokens.computedActivityReader
     );
@@ -181,6 +188,7 @@ describe('computed activity lifecycle (e2e)', () => {
     const processed = await ctx.testContainer.processOutbox();
     expect(processed).toBeGreaterThan(0);
     await ctx.drainOutbox();
+    await activityProjector.flushAllPendingActivity();
 
     const afterDone = await reader.getByTableId(undefined, table.id);
     if (afterDone.isErr()) {
@@ -227,6 +235,7 @@ describe('computed activity lifecycle (e2e)', () => {
       [amountField.id]: 7,
     });
     await ctx.drainOutbox();
+    await activityProjector.flushAllPendingActivity();
 
     const baseId = unwrapDomainId(BaseId.create(ctx.baseId));
     const tableId = unwrapDomainId(TableId.create(table.id));
@@ -273,6 +282,7 @@ describe('computed activity lifecycle (e2e)', () => {
       throw new Error(enqueueResult.error.message);
     }
     const taskId = enqueueResult.value.taskId;
+    await activityProjector.flushAllPendingActivity();
 
     const reader = ctx.testContainer.container.resolve<IComputedActivityReader>(
       v2CoreTokens.computedActivityReader
@@ -346,6 +356,7 @@ describe('computed activity lifecycle (e2e)', () => {
       [amountField.id]: 21,
     });
     await ctx.drainOutbox();
+    await activityProjector.flushAllPendingActivity();
 
     const reader = ctx.testContainer.container.resolve<IComputedActivityReader>(
       v2CoreTokens.computedActivityReader
@@ -365,6 +376,7 @@ describe('computed activity lifecycle (e2e)', () => {
     const processed = await ctx.testContainer.processOutbox();
     expect(processed).toBeGreaterThan(0);
     await ctx.drainOutbox();
+    await activityProjector.flushAllPendingActivity();
 
     const after = await reader.getByTableId(undefined, table.id);
     if (after.isErr()) throw new Error(after.error.message);

@@ -53,7 +53,8 @@ export const executeGetTableByIdEndpoint = async (
   if (activityReader) {
     const activity = await activityReader.getByTableId(
       context,
-      queryResult.value.tableId.toString()
+      queryResult.value.tableId.toString(),
+      queryResult.value.baseId.toString()
     );
     if (activity.isOk()) {
       table = enrichTableDtoWithComputeActivity(table, activity.value);

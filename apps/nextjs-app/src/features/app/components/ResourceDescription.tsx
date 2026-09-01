@@ -215,7 +215,7 @@ const ResourceDescriptionDialog = ({
         onPointerDownOutside={preventIgnoredOutsideEvent}
       >
         <DialogHeader>
-          <DialogTitle className="flex min-w-0 flex-wrap items-center gap-2 pr-6">
+          <DialogTitle className="flex min-w-0 flex-wrap items-center gap-2 pe-6">
             {t('resourceDescription.nodeDescription')}
             <span className="flex h-6 items-center rounded-md border bg-muted px-1.5 text-center text-xs font-medium leading-4 text-muted-foreground">
               Markdown
@@ -287,7 +287,7 @@ export const ResourceDescription = ({
 
   if (!showDescription) {
     return fallback ? (
-      <div className={cn('text-[11px] leading-3 text-muted-foreground', fallbackClassName)}>
+      <div className={cn('text-[11px] leading-4 text-muted-foreground', fallbackClassName)}>
         {fallback}
       </div>
     ) : null;
@@ -299,7 +299,7 @@ export const ResourceDescription = ({
         <Button
           variant="link"
           className={cn(
-            'h-3 w-full justify-start p-0 text-left text-[11px] leading-3 text-muted-foreground hover:text-foreground',
+            'h-4 w-full justify-start p-0 text-start text-[11px] leading-4 text-muted-foreground hover:text-foreground',
             className
           )}
           onClick={() => setDescriptionDialogOpen(true)}
@@ -311,7 +311,7 @@ export const ResourceDescription = ({
       ) : (
         <div
           className={cn(
-            'h-3 w-full text-left text-[11px] leading-3 text-muted-foreground',
+            'h-4 w-full text-start text-[11px] leading-4 text-muted-foreground',
             readOnlyClassName
           )}
         >

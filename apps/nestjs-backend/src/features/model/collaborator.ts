@@ -45,8 +45,9 @@ export class CollaboratorModel {
           clearCacheKeys.push(generateCollaboratorCacheKey(createData.resourceId));
         }
       }
+      const result = await next(params);
       await clearCache(params, clearCacheKeys, this.performanceCacheService, this.cls);
-      return next(params);
+      return result;
     });
   }
 

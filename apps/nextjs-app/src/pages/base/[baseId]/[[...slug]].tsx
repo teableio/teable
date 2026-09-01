@@ -49,8 +49,6 @@ export const getServerSideProps: GetServerSideProps<IBaseNodePageProps> = withEn
     withAuthSSR(async (context, ssrApi) => {
       const { baseId, slug, ...queryParams } = context.query;
       context.res.setHeader('Content-Security-Policy', 'frame-ancestors *;');
-      const queryClient = new QueryClient();
-      const base = await handleBase(baseId as string, ssrApi, queryClient);
       // Redirect legacy table URLs: /base/xxx/tbl1/viw1 → /base/xxx/table/tbl1/viw1
       if (Array.isArray(slug) && slug.length > 0 && slug[0].startsWith(IdPrefix.Table)) {
         const queryString = new URLSearchParams(queryParams as Record<string, string>).toString();
@@ -59,19 +57,36 @@ export const getServerSideProps: GetServerSideProps<IBaseNodePageProps> = withEn
         return redirect(`/base/${baseId}/table/${tablePath}${query}`);
       }
 
-      const parsed = parseBaseSlug(slug as string[]);
+      // This QueryClient lives for a single SSR pass — everything it fetches
+      // stays fresh, so repeated fetchQuery calls on the same key (e.g. the
+      // table list validation) reuse the result instead of refetching.
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { staleTime: Infinity } },
+      });
       const baseIdStr = baseId as string;
-      await Promise.all([
-        queryClient.fetchQuery({
-          queryKey: ReactQueryKeys.base(baseIdStr),
-          queryFn: () => base,
-        }),
-        queryClient.fetchQuery({
-          queryKey: ReactQueryKeys.getBasePermission(baseIdStr),
-          queryFn: () => ssrApi.getBasePermission(baseIdStr),
-        }),
+      // The permission call only needs baseId, so it runs alongside the base
+      // fetch. Its endpoint is PUBLIC-annotated with the same headerless
+      // template fallback as the base endpoint, so it succeeds for template
+      // previews too; the replay below (with the template header handleBase
+      // installed) is only a backstop when the parallel call failed anyway.
+      const [base, permissionResult] = await Promise.all([
+        handleBase(baseIdStr, ssrApi, queryClient),
+        ssrApi.getBasePermission(baseIdStr).then(
+          (data) => ({ data }),
+          (error) => ({ error })
+        ),
       ]);
+      let basePermission;
+      if ('data' in permissionResult) {
+        basePermission = permissionResult.data;
+      } else if (base?.template?.headers) {
+        basePermission = await ssrApi.getBasePermission(baseIdStr);
+      } else {
+        throw permissionResult.error;
+      }
+      queryClient.setQueryData(ReactQueryKeys.getBasePermission(baseIdStr), basePermission);
 
+      const parsed = parseBaseSlug(slug as string[]);
       ssrApi.configureBaseHeaders(base);
 
       const i18nNamespaces = baseAllConfig.i18nNamespaces;
@@ -99,7 +114,10 @@ export const getServerSideProps: GetServerSideProps<IBaseNodePageProps> = withEn
         default:
           return { notFound: true };
       }
-    })
+    }),
+    false,
+    // user/me only gates the login redirect — run it alongside the handler
+    { parallelHandler: true }
   )
 );
 

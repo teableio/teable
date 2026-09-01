@@ -19,6 +19,7 @@ import {
   PER_TRACE_CAP,
   SETTLED_LINGER_MS,
   TOMBSTONE_CAP,
+  TRACE_EXPORT_SPAN_CAP,
 } from './tracing-span-export';
 
 type ExportCallback = Parameters<SpanExporter['export']>[1];
@@ -114,6 +115,7 @@ const DEFAULT_OPTIONS = {
   scheduledDelayMillis: 5000,
   priorityScheduledDelayMillis: 1000,
   exportTimeoutMillis: 30_000,
+  maxExportedSpansPerTrace: TRACE_EXPORT_SPAN_CAP,
 };
 
 const createProcessor = (overrides: Partial<typeof DEFAULT_OPTIONS> = {}) => {
@@ -175,11 +177,19 @@ describe('span predicates', () => {
 
   it('recognizes priority spans', () => {
     expect(isPriorityTraceSpan(makeSpan({ kind: SpanKind.SERVER }))).toBe(true);
-    expect(isPriorityTraceSpan(makeSpan({ attributes: { 'http.route': '/api/x' } }))).toBe(true);
     expect(
-      isPriorityTraceSpan(makeSpan({ attributes: { 'nest.controller': 'A', 'nest.handler': 'b' } }))
+      isPriorityTraceSpan(makeSpan({ attributes: { 'teable.route.full': 'GET /api/x' } }))
     ).toBe(true);
     expect(isPriorityTraceSpan(makeSpan({}))).toBe(false);
+  });
+
+  it('does not promote the nest handler span that mirrors the SERVER span', () => {
+    // NestInstrumentation sets http.route + the interceptor used to add nest.*; both
+    // made a second always-exported copy of every request.
+    expect(isPriorityTraceSpan(makeSpan({ attributes: { 'http.route': '/api/x' } }))).toBe(false);
+    expect(
+      isPriorityTraceSpan(makeSpan({ attributes: { 'nest.controller': 'A', 'nest.handler': 'b' } }))
+    ).toBe(false);
   });
 });
 
@@ -196,7 +206,11 @@ describe('createSmartSpanProcessor', () => {
     runSpan(processor, makeSpan({ traceId: SAMPLED_TRACE_ID, name: 'db-call' }));
     runSpan(
       processor,
-      makeSpan({ traceId: SAMPLED_TRACE_ID, name: 'route', attributes: { 'http.route': '/x' } })
+      makeSpan({
+        traceId: SAMPLED_TRACE_ID,
+        name: 'route',
+        attributes: { 'teable.route.full': 'GET /x' },
+      })
     );
     processor.onEnd(root);
     await processor.forceFlush();
@@ -308,7 +322,10 @@ describe('createSmartSpanProcessor', () => {
     const errorChild = makeSpan({ name: 'error-child', statusCode: SpanStatusCode.ERROR });
     startSpan(processor, errorChild);
     runSpan(processor, makeSpan({ name: 'buffered' }));
-    runSpan(processor, makeSpan({ name: 'handler', attributes: { 'http.route': '/api/chat' } }));
+    runSpan(
+      processor,
+      makeSpan({ name: 'handler', attributes: { 'teable.route.full': 'GET /api/chat' } })
+    );
     processor.onEnd(errorChild);
     await processor.forceFlush();
     expect(names(priorityExporter)).toEqual(['handler']);
@@ -565,6 +582,59 @@ describe('createSmartSpanProcessor', () => {
     await processor.forceFlush();
     expect(names(batchExporter)).not.toContain('follow-oldest');
     expect(names(batchExporter)).toContain('follow-recent');
+  });
+
+  it('truncates a runaway trace past the per-trace export cap', async () => {
+    const { processor, batchExporter, priorityExporter } = createProcessor({
+      maxExportedSpansPerTrace: 3,
+    });
+    for (let i = 0; i < 6; i++) {
+      runSpan(processor, makeSpan({ traceId: SAMPLED_TRACE_ID, name: `detail-${i}` }));
+    }
+    // priority and error spans stay exempt so APM stats and failures survive
+    runSpan(
+      processor,
+      makeSpan({
+        traceId: SAMPLED_TRACE_ID,
+        name: 'route',
+        attributes: { 'teable.route.full': 'GET /x' },
+      })
+    );
+    runSpan(
+      processor,
+      makeSpan({ traceId: SAMPLED_TRACE_ID, name: 'boom', statusCode: SpanStatusCode.ERROR })
+    );
+    await processor.forceFlush();
+    expect(names(batchExporter)).toEqual(['detail-0', 'detail-1', 'detail-2', 'boom']);
+    expect(names(priorityExporter)).toEqual(['route']);
+  });
+
+  it('keeps counting across settled gaps, so a leaked trace cannot reset the cap', async () => {
+    const { processor, batchExporter } = createProcessor({ maxExportedSpansPerTrace: 2 });
+    // each span opens and closes alone: the trace settles between every one
+    runSpan(processor, makeSpan({ traceId: SAMPLED_TRACE_ID, name: 'a' }));
+    runSpan(processor, makeSpan({ traceId: SAMPLED_TRACE_ID, name: 'b' }));
+    runSpan(processor, makeSpan({ traceId: SAMPLED_TRACE_ID, name: 'dropped' }));
+    await processor.forceFlush();
+    expect(names(batchExporter)).toEqual(['a', 'b']);
+  });
+
+  it('reclaims the export tally once a quiet trace is swept', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const start = Date.now();
+    const [runaway, other] = findTraceIds(2, true);
+    const { processor, batchExporter } = createProcessor({ maxExportedSpansPerTrace: 2 });
+    runSpan(processor, makeSpan({ traceId: runaway, name: 'a' }));
+    runSpan(processor, makeSpan({ traceId: runaway, name: 'b' }));
+    runSpan(processor, makeSpan({ traceId: runaway, name: 'dropped' }));
+
+    // silence past the exported TTL, then unrelated traffic drives the sweep
+    vi.setSystemTime(start + EXPORTED_TTL_MS + 60_000);
+    runSpan(processor, makeSpan({ traceId: other, name: 'other' }));
+
+    runSpan(processor, makeSpan({ traceId: runaway, name: 'after-sweep' }));
+    await processor.forceFlush();
+    expect(names(batchExporter)).toEqual(['a', 'b', 'other', 'after-sweep']);
   });
 
   it('drains the pending buffer on shutdown', async () => {

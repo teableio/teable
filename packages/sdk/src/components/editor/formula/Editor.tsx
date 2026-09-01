@@ -334,12 +334,12 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
 
   const normalContent = (
     <div className="flex h-[360px] w-full">
-      <div ref={listRef} className="w-[200px] shrink-0 overflow-y-auto border-r">
+      <div ref={listRef} className="w-[200px] shrink-0 overflow-y-auto border-e">
         {formatFunctionList.length || filteredFields.length ? (
           <>
             {filteredFields.length > 0 && (
               <div>
-                <h3 className="text- py-1 pl-2 text-[13px] font-semibold text-muted-foreground">
+                <h3 className="text- py-1 ps-2 text-[13px] font-semibold text-muted-foreground">
                   {t('functionType.fields')}
                 </h3>
                 {filteredFields.map((result, index: number) => {
@@ -362,7 +362,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
                       onClick={onItemClick}
                       onMouseEnter={() => setSuggestionItemIndex(index)}
                     >
-                      <Icon className="mr-1 size-4 shrink-0" />
+                      <Icon className="me-1 size-4 shrink-0" />
                       <span className="truncate">{name}</span>
                     </div>
                   );
@@ -373,7 +373,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
               const { name: listName, list, prevCount, type } = funcDataList;
               return (
                 <div key={listName}>
-                  <h3 className="py-1 pl-2 text-[13px] font-semibold text-slate-500">{listName}</h3>
+                  <h3 className="py-1 ps-2 text-[13px] font-semibold text-slate-500">{listName}</h3>
                   {list.map((item, index) => {
                     const { name: funcName } = item;
                     const Icon = Type2IconMap[type];
@@ -394,7 +394,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
                           setSuggestionItemIndex(filteredFields.length + prevCount + index)
                         }
                       >
-                        <Icon className="mr-1 shrink-0" />
+                        <Icon className="me-1 shrink-0" />
                         <span className="truncate">{funcName}</span>
                       </div>
                     );
@@ -413,7 +413,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
 
   return (
     <div className="w-[700px]">
-      <div className="flex h-12 w-full items-center justify-between border-b pl-4 pr-2">
+      <div className="flex h-12 w-full items-center justify-between border-b pe-2 ps-4">
         <h1 className="text-base">{t('editor.formula.title')}</h1>
       </div>
 
@@ -429,10 +429,10 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
         <div className="h-5 w-full truncate px-2 text-xs text-destructive">{errMsg}</div>
       </div>
       <div className="flex h-[52px] w-full items-center justify-between border-b px-2">
-        <div className="mr-2 flex flex-1 flex-col justify-center overflow-hidden">
+        <div className="me-2 flex flex-1 flex-col justify-center overflow-hidden">
           <FunctionHelper funcHelpData={funcHelpData} />
         </div>
-        <Button size={'sm'} className="ml-2" onClick={onConfirmInner}>
+        <Button size={'sm'} className="ms-2" onClick={onConfirmInner}>
           {t('common.confirm')}
         </Button>
       </div>

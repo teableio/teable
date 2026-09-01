@@ -9,6 +9,7 @@ import { Table } from '../../Table';
 import { TableId } from '../../TableId';
 import { TableName } from '../../TableName';
 import { DbFieldName } from '../DbFieldName';
+import { DbFieldType } from '../DbFieldType';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
 import { CellValueMultiplicity } from './CellValueMultiplicity';
@@ -23,6 +24,8 @@ import { LongTextField } from './LongTextField';
 import { SelectOption } from './SelectOption';
 import { SingleLineTextField } from './SingleLineTextField';
 import { SingleSelectField } from './SingleSelectField';
+import { RecordValueConditionSpec } from '../../records/specs/RecordConditionSpec';
+import { isRecordConditionFieldReferenceValue } from '../../records/specs/RecordConditionValues';
 
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap();
 const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`)._unsafeUnwrap();
@@ -106,6 +109,60 @@ describe('FieldCondition v1 compatibility', () => {
       hostLookupFieldId.toString(),
     ]);
     expect(condition.toRecordConditionSpec(foreignTable, hostTable).isOk()).toBe(true);
+  });
+
+  it('swaps isSymbol self-table field references the same way as type:field', () => {
+    const baseId = createBaseId('s');
+    const tableId = createTableId('s');
+    const nameFieldId = createFieldId('a');
+    const nameMirrorFieldId = createFieldId('b');
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Self')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameMirrorFieldId)
+      .withName(FieldName.create('NameMirror')._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const condition = FieldCondition.create({
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: nameMirrorFieldId.toString(),
+            operator: 'is',
+            value: nameFieldId.toString(),
+            isSymbol: true,
+          },
+        ],
+      },
+    })._unsafeUnwrap();
+
+    const spec = condition.toRecordConditionSpec(table, table)._unsafeUnwrap();
+    expect(spec).toBeInstanceOf(RecordValueConditionSpec);
+    if (!(spec instanceof RecordValueConditionSpec)) {
+      return;
+    }
+    expect(spec.field().id().equals(nameFieldId)).toBe(true);
+    const value = spec.value();
+    expect(isRecordConditionFieldReferenceValue(value)).toBe(true);
+    if (!isRecordConditionFieldReferenceValue(value)) {
+      return;
+    }
+    expect(value.field().id().equals(nameMirrorFieldId)).toBe(true);
   });
 });
 
@@ -862,5 +919,26 @@ describe('ConditionalLookupField.onDependencyUpdated', () => {
     const reaction = result._unsafeUnwrap();
     expect(reaction?.spec).toBeInstanceOf(TableUpdateFieldHasErrorSpec);
     expect(reaction?.afterPersist).toBeUndefined();
+  });
+
+  it('treats unset multiplicity as single when persisted storage is scalar', () => {
+    const field = ConditionalLookupField.createPending({
+      id: createFieldId('1'),
+      name: FieldName.create('Conditional Lookup')._unsafeUnwrap(),
+      conditionalLookupOptions: ConditionalLookupOptions.create({
+        foreignTableId: createTableId('2').toString(),
+        lookupFieldId: createFieldId('3').toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: createFieldId('4').toString(), operator: 'isNotEmpty' }],
+          },
+        },
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    field.setDbFieldType(DbFieldType.rehydrate('TEXT')._unsafeUnwrap())._unsafeUnwrap();
+
+    expect(field.isMultipleCellValue()._unsafeUnwrap().isMultiple()).toBe(false);
   });
 });

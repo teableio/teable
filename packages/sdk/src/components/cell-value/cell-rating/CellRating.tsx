@@ -39,7 +39,7 @@ export const CellRating = (props: ICellRating) => {
           <Icon
             key={index}
             className={cn(
-              'size-4 mr-1 rounded cursor-pointer text-slate-200 fill-slate-200 dark:text-gray-700 dark:fill-gray-700',
+              'size-4 me-1 rounded cursor-pointer text-slate-200 fill-slate-200 dark:text-gray-700 dark:fill-gray-700',
               value != null && index < value && 'fill',
               itemClassName
             )}

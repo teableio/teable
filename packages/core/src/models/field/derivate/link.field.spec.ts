@@ -107,6 +107,9 @@ describe('LinkFieldCore', () => {
     expect(multipleFieldFromSingle.success && multipleFieldFromSingle.data).toEqual([cellValue]);
     expect(fieldMultiple.validateCellValue([cellValue, cellValue]).success).toBe(true);
     expect(fieldMultiple.validateCellValue([]).success).toBe(false);
+    const nullTitle = field.validateCellValue({ id: 'recxxxxxxxx', title: null });
+    expect(nullTitle.success).toBe(true);
+    expect(nullTitle.success && nullTitle.data).toEqual({ id: 'recxxxxxxxx' });
   });
 
   it('should convert string to cellValue', () => {

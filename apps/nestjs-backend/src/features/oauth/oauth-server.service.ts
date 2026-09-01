@@ -6,13 +6,13 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { getRandomString, HttpErrorCode, nullsToUndefined } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { DecisionInfoGetVo } from '@teable/openapi';
 import type { Response, Request } from 'express';
 import { difference, pick } from 'lodash';
 import ms from 'ms';
+import { ClsService } from 'nestjs-cls';
 import type {
   IssueGrantCodeFunction,
   IssueExchangeCodeFunction,
@@ -26,8 +26,14 @@ import { CacheService } from '../../cache/cache.service';
 import type { IOAuthCodeState } from '../../cache/types';
 import { IOAuthConfig, OAuthConfig } from '../../configs/oauth.config';
 import { CustomHttpException } from '../../custom.exception';
+import { Events } from '../../event-emitter/events';
+import type { IClsStore } from '../../types/cls';
 import { second } from '../../utils/second';
 import { AccessTokenService } from '../access-token/access-token.service';
+import { AuditScope } from '../audit/audit-scope';
+import { Audit } from '../audit/audit.decorator';
+import { TeableJwtService } from '../auth/jwt/teable-jwt.service';
+import { DEVICE_CODE_GRANT_TYPE, OAuthDeviceService } from './oauth-device.service';
 import { OAuthTxStore } from './oauth-tx-store';
 import { PkceService } from './pkce.service';
 import type { IAuthorizeClient, ITokenClient, IOAuth2Server, IAuthorizeRequest } from './types';
@@ -41,9 +47,14 @@ export class OAuthServerService {
     private readonly prismaService: PrismaService,
     private readonly cacheService: CacheService,
     private readonly accessTokenService: AccessTokenService,
-    private readonly jwtService: JwtService,
+    private readonly jwtService: TeableJwtService,
     private readonly oauthTxStore: OAuthTxStore,
     private readonly pkceService: PkceService,
+    private readonly deviceService: OAuthDeviceService,
+    // `audit` + `cls` are the @Audit decorator's host contract (it reads
+    // this.audit / this.cls) — required by the decorated touchAuthorize.
+    private readonly audit: AuditScope,
+    private readonly cls: ClsService<IClsStore>,
     @OAuthConfig() private readonly oauth2Config: IOAuthConfig
   ) {
     this.server = oauth2orize.createServer({
@@ -56,6 +67,11 @@ export class OAuthServerService {
     (this.server as unknown as IOAuth2Server<ITokenClient>).exchange(
       oauth2orize.exchange.refreshToken(this.refreshTokenExchange)
     );
+    // Device grant: a plain middleware rather than an oauth2orize exchange
+    // factory, because the client polls the same endpoint many times and most
+    // of those calls answer with an error rather than a token.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (this.server as any).exchange(DEVICE_CODE_GRANT_TYPE, this.deviceCodeExchange);
   }
 
   private async getAuthorizedTime(userId: string, clientId: string) {
@@ -250,7 +266,17 @@ export class OAuthServerService {
       .catch(cb);
   };
 
-  private touchAuthorize = async (clientId: string, userId: string) => {
+  // Was an arrow property; now a method so @Audit can decorate it (decisionComplete
+  // still binds `this` itself). Audit row + emit make the grant visible to the audit
+  // trail and to analytics ("user authorized app X" — integration-adoption signal).
+  @Audit({
+    action: Events.OAUTH_APP_AUTHORIZE,
+    resourceId: (clientId: string) => clientId,
+    userId: (_clientId: string, userId: string) => userId,
+    params: (clientId: string) => ({ clientId }),
+    emit: true,
+  })
+  private async touchAuthorize(clientId: string, userId: string) {
     await this.prismaService.oAuthAppAuthorized.upsert({
       where: {
         // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -268,7 +294,7 @@ export class OAuthServerService {
         authorizedTime: new Date().toISOString(),
       },
     });
-  };
+  }
 
   async decision(req: Request, res: Response) {
     return new Promise<void>((resolve, reject) => {
@@ -408,6 +434,118 @@ export class OAuthServerService {
     }
   }
 
+  /**
+   * Poll leg of the device grant (RFC 8628 §3.4-3.5). Answers with a token pair
+   * once someone approved the user code in a browser, and with the spec's error
+   * codes until then — `authorization_pending` is the normal case, not a fault.
+   */
+  private deviceCodeExchange = async (
+    req: Request,
+    res: Response,
+    next: (err?: unknown) => void
+  ) => {
+    const deviceCode = (req.body as Record<string, string> | undefined)?.device_code;
+    const client = req.user as ITokenClient | undefined;
+
+    const respond = (status: number, payload: Record<string, unknown>) => {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Pragma', 'no-cache');
+      res.statusCode = status;
+      res.end(JSON.stringify(payload));
+    };
+
+    try {
+      if (!client) {
+        return next(new UnauthorizedException('Invalid client'));
+      }
+      if (!deviceCode) {
+        return respond(400, {
+          error: 'invalid_request',
+          error_description: 'device_code is required',
+        });
+      }
+
+      const result = await this.deviceService.poll(deviceCode, client.clientId);
+      if (result.status !== 'approved') {
+        const errors = {
+          pending: 'authorization_pending',
+          slow_down: 'slow_down',
+          denied: 'access_denied',
+          expired: 'expired_token',
+        } as const;
+        return respond(400, { error: errors[result.status] });
+      }
+
+      const { user, scopes } = result.state;
+      let tokens: { accessToken: string; refreshToken: string };
+      try {
+        await this.checkTokenRateLimit(client.clientId, user.id);
+        tokens = await this.prismaService.$tx(() =>
+          this.issueTokenPair({ client, userId: user.id, scopes })
+        );
+      } catch (error) {
+        // poll() consumed the code as its claim; put the approval back so a
+        // transient failure here (rate limit, DB hiccup) costs the client one
+        // poll, not the person the whole browser round-trip.
+        await this.deviceService.restore(deviceCode, result.state);
+        throw error;
+      }
+      // No touchAuthorize here: decideDevice already recorded the grant when
+      // the person approved, and a second call would double the audit event.
+
+      return respond(200, {
+        access_token: tokens.accessToken,
+        refresh_token: tokens.refreshToken,
+        token_type: 'Bearer',
+        scopes,
+        expires_in: second(this.oauth2Config.accessTokenExpireIn),
+        refresh_expires_in: second(this.oauth2Config.refreshTokenExpireIn),
+      });
+    } catch (error) {
+      return next(error);
+    }
+  };
+
+  /** Access token + refresh token for one (client, user, scopes). */
+  private async issueTokenPair(params: {
+    client: ITokenClient;
+    userId: string;
+    scopes: string[];
+  }): Promise<{ accessToken: string; refreshToken: string }> {
+    const { client, userId, scopes } = params;
+    const accessToken = await this.generateAccessToken({
+      userId,
+      scopes,
+      clientId: client.clientId,
+      clientName: client.name,
+    });
+    const refreshTokenSign = getRandomString(16);
+    const refreshToken = await this.getRefreshToken(client, accessToken.id, refreshTokenSign);
+    await this.prismaService.txClient().oAuthAppToken.create({
+      data: {
+        clientId: client.clientId,
+        refreshTokenSign,
+        appSecretId: (client as { secretId?: string }).secretId,
+        createdBy: userId,
+        expiredTime: this.getRefreshTokenExpireTime(),
+      },
+    });
+    return { accessToken: accessToken.token, refreshToken };
+  }
+
+  /** Approve or deny a device user code on behalf of the signed-in user. */
+  async decideDevice(params: {
+    userCode: string;
+    approve: boolean;
+    user: { id: string; name: string; email: string };
+  }) {
+    const { clientId } = await this.deviceService.decide(params);
+    if (params.approve) {
+      await this.touchAuthorize(clientId, params.user.id);
+    }
+  }
+
   private codeExchange: IssueExchangeCodeFunction = async (client, code, redirectUri, done) => {
     const completeExchange = await this.prismaService
       .$tx(async () => {
@@ -430,31 +568,13 @@ export class OAuthServerService {
         const tokenClient = client as ITokenClient;
         this.verifyExchangeClient(tokenClient, codeState);
 
-        const accessToken = await this.generateAccessToken({
+        const { accessToken, refreshToken } = await this.issueTokenPair({
+          client: tokenClient,
           userId: codeState.user.id,
           scopes: codeState.scopes,
-          clientId: client.clientId,
-          clientName: tokenClient.name,
-        });
-
-        const refreshTokenSign = getRandomString(16);
-        const appSecretId = tokenClient.secretId;
-        const refreshToken = await this.getRefreshToken(
-          tokenClient,
-          accessToken.id,
-          refreshTokenSign
-        );
-        await this.prismaService.txClient().oAuthAppToken.create({
-          data: {
-            clientId: client.clientId,
-            refreshTokenSign,
-            appSecretId: appSecretId,
-            createdBy: codeState.user.id,
-            expiredTime: this.getRefreshTokenExpireTime(),
-          },
         });
         return () =>
-          done(null, accessToken.token, refreshToken, {
+          done(null, accessToken, refreshToken, {
             scopes: codeState.scopes,
             expires_in: second(this.oauth2Config.accessTokenExpireIn),
             refresh_expires_in: second(this.oauth2Config.refreshTokenExpireIn),

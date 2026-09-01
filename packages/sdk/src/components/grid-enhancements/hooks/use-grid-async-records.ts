@@ -1,19 +1,21 @@
 import type { IRecord, ISearchHitIndex } from '@teable/core';
 import { computeSearchHitIndex } from '@teable/core';
 import type { IGetRecordsRo, IGroupHeaderRef, IGroupPointsVo } from '@teable/openapi';
-import { debounce, keyBy } from 'lodash';
+import { debounce, isEqual, keyBy } from 'lodash';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import type { IGridProps, IRectangle } from '../..';
 import { useFields, usePersonalView, useSearch, useTableId, useView } from '../../../hooks';
 import { useRecords } from '../../../hooks/use-records';
 import type { IFieldInstance, Record as IRecordInstance } from '../../../model';
 import { createRecordInstance, recordInstanceFieldMap } from '../../../model';
+import { applyCollapsedGroupChange, collectGroupRowCounts } from '../../../utils/collapsed-group';
 import {
   computeNextWindowQuery,
   INITIAL_LOAD_PAGE_SIZE,
   LOAD_PAGE_SIZE,
 } from '../../../utils/record-window';
 import {
+  MAX_POINTS_PER_ENTRY,
   MAX_SNAPSHOT_BYTES,
   MAX_SNAPSHOT_ROWS,
   useGridViewCacheStore,
@@ -184,23 +186,36 @@ export const useGridAsyncRecords = (
     // view's slot, so skip until state and key agree again
     if (keyChanged) return;
     if (view?.id && groupPoints != null) {
-      useGridViewCacheStore
-        .getState()
-        .setGroupPoints(
-          groupPointsCacheKey,
-          groupPoints,
-          (extraRef.current as { allGroupHeaderRefs?: IGroupHeaderRef[] } | undefined)
-            ?.allGroupHeaderRefs
-        );
+      const cache = useGridViewCacheStore.getState();
+      cache.setGroupPoints(
+        groupPointsCacheKey,
+        groupPoints,
+        (extraRef.current as { allGroupHeaderRefs?: IGroupHeaderRef[] } | undefined)
+          ?.allGroupHeaderRefs
+      );
+      // remember each expanded group's visible row count; a group keeps its
+      // last known value while collapsed, so expanding it later can restore
+      // its row block in place instead of dropping everything behind it.
+      // Same size discipline as the structure facet: past the cap the walk
+      // and the retained map are all cost and no seed value
+      if (groupPoints.length <= MAX_POINTS_PER_ENTRY) {
+        cache.mergeGroupRowCounts(groupPointsCacheKey, collectGroupRowCounts(groupPoints));
+      }
     }
   }, [groupPoints, groupPointsCacheKey, view?.id, cacheEnabled]);
   const recordsScopeKey = useMemo(
     () =>
       JSON.stringify({
         initQuery,
-        outerQuery,
+        // collapse/expand toggles are excluded: they get a soft path in the
+        // combined effect below (patch the layout in place) instead of the wipe
+        outerQuery: { ...outerQuery, collapsedGroupIds: undefined },
       }),
     [initQuery, outerQuery]
+  );
+  const collapsedGroupIdsKey = useMemo(
+    () => JSON.stringify(outerQuery?.collapsedGroupIds ?? null),
+    [outerQuery]
   );
   // on a shared (non-personal) view the server resolves filter/sort (and
   // row-hiding search) through viewId, so they redefine the result set without
@@ -209,7 +224,8 @@ export const useGridAsyncRecords = (
   // changes the cache must keep the current page (still correct in that case)
   // and only drop the entries retained from the previous result set. Group and
   // personal-view changes also flow through outerQuery — the scope wipe handles
-  // them and takes precedence in the combined effect below.
+  // them and takes precedence in the combined effect below; collapse toggles
+  // are carved out of that key and patched in place instead.
   const viewQueryScopeKey = useMemo(
     () =>
       JSON.stringify({
@@ -226,9 +242,14 @@ export const useGridAsyncRecords = (
   visiblePagesRef.current = visiblePages;
   const previousRecordsScopeKeyRef = useRef(recordsScopeKey);
   const previousViewQueryScopeKeyRef = useRef(viewQueryScopeKey);
+  const previousCollapsedGroupIdsKeyRef = useRef(collapsedGroupIdsKey);
+  const hideNotMatchSearchKey = hideNotMatchRow ? JSON.stringify(searchQuery ?? null) : '';
+  const previousHideNotMatchSearchKeyRef = useRef(hideNotMatchSearchKey);
   const lastMergedSkipRef = useRef(0);
   const loadedRecordMapRef = useRef(loadedRecordMap);
   loadedRecordMapRef.current = loadedRecordMap;
+  const groupPointsRef = useRef(groupPoints);
+  groupPointsRef.current = groupPoints;
   const fieldsRef = useRef(fields);
   fieldsRef.current = fields;
   const cacheKeyRef = useRef(groupPointsCacheKey);
@@ -305,7 +326,12 @@ export const useGridAsyncRecords = (
     });
 
     if (extra != null) {
-      setGroupPoints((extra as { groupPoints: IGroupPointsVo } | undefined)?.groupPoints ?? null);
+      const freshGroupPoints =
+        (extra as { groupPoints: IGroupPointsVo } | undefined)?.groupPoints ?? null;
+      // deliveries re-send a structurally identical list on every page (and
+      // after an exact local collapse patch): keep the previous reference so
+      // the grid does not rebuild its O(total rows) linear layout for nothing
+      setGroupPoints((prev) => (isEqual(prev, freshGroupPoints) ? prev : freshGroupPoints));
     }
   }, [records, extra]);
 
@@ -321,11 +347,16 @@ export const useGridAsyncRecords = (
   useLayoutEffect(() => {
     const recordsScopeChanged = previousRecordsScopeKeyRef.current !== recordsScopeKey;
     const viewQueryScopeChanged = previousViewQueryScopeKeyRef.current !== viewQueryScopeKey;
+    const collapsedGroupIdsChanged =
+      previousCollapsedGroupIdsKeyRef.current !== collapsedGroupIdsKey;
+    const searchChanged = previousHideNotMatchSearchKeyRef.current !== hideNotMatchSearchKey;
     const previousCacheKey = previousScopeCacheKeyRef.current;
     const cacheKeyChanged = previousCacheKey !== groupPointsCacheKey;
     previousRecordsScopeKeyRef.current = recordsScopeKey;
     previousViewQueryScopeKeyRef.current = viewQueryScopeKey;
+    previousCollapsedGroupIdsKeyRef.current = collapsedGroupIdsKey;
     previousScopeCacheKeyRef.current = groupPointsCacheKey;
+    previousHideNotMatchSearchKeyRef.current = hideNotMatchSearchKey;
 
     const keySwitched = cacheEnabled && cacheKeyChanged;
 
@@ -343,6 +374,33 @@ export const useGridAsyncRecords = (
       setGroupPoints(entry?.groupPoints ?? null);
     };
 
+    // row counts collected under the previous result set must not place rows
+    // under a redefined one — cleared on every same-view scope change
+    const clearCachedGroupRowCounts = () => {
+      if (!cacheEnabled) return;
+      useGridViewCacheStore.getState().clearGroupRowCounts(groupPointsCacheKey);
+    };
+
+    const patchCollapsedGroupState = () => {
+      // a simultaneous view-query change (e.g. search toggling row hiding
+      // while it expands all groups) redefines the result set — drop the
+      // cached counts so neither this patch nor a later expand uses them
+      if (viewQueryScopeChanged) {
+        clearCachedGroupRowCounts();
+      }
+      const knownRowCounts = cacheEnabled
+        ? useGridViewCacheStore.getState().cacheMap[groupPointsCacheKey]?.groupRowCounts
+        : undefined;
+      const patched = applyCollapsedGroupChange(
+        groupPointsRef.current,
+        loadedRecordMapRef.current,
+        new Set(outerQuery?.collapsedGroupIds),
+        knownRowCounts
+      );
+      setGroupPoints(patched.groupPoints);
+      setLoadedRecordMap(patched.recordMap);
+    };
+
     // a scope change re-creates the subscription, which always delivers a fresh
     // ready event. On a view switch, seed the target view's last known rows and
     // group structure (session cache) — the fresh data overwrites them on ready;
@@ -356,8 +414,22 @@ export const useGridAsyncRecords = (
       } else {
         setLoadedRecordMap({});
         setGroupPoints(null);
+        clearCachedGroupRowCounts();
       }
       setVisiblePages(defaultVisiblePages);
+      return;
+    }
+
+    // collapse/expand toggle on the same view: the subscription re-creates
+    // (the ids ride in the query), but the new result is the same rows minus
+    // the collapsed ones — patch the group layout and loaded rows in place
+    // instead of dropping the whole grid to loading placeholders, keeping the
+    // scroll position and the other groups on screen. The first fresh
+    // delivery then replaces everything (pendingFresh) with server truth
+    if (collapsedGroupIdsChanged && !cacheKeyChanged) {
+      settledRef.current = false;
+      pendingFreshRef.current = true;
+      patchCollapsedGroupState();
       return;
     }
 
@@ -379,10 +451,23 @@ export const useGridAsyncRecords = (
       return;
     }
 
+    if (searchChanged) {
+      // Hide-not-match search redefines the row set. Keeping the previous
+      // first page makes unmatched default rows look like search hits (T7058).
+      settledRef.current = false;
+      pendingFreshRef.current = true;
+      setLoadedRecordMap({});
+      setGroupPoints(null);
+      clearCachedGroupRowCounts();
+      setVisiblePages(defaultVisiblePages);
+      return;
+    }
+
     // same-view query change (filter/sort edits): the subscription stays alive
     // and the server pushes nothing when the new result set equals the old one
     // — keep the current page (still correct in that case, diff events
     // overwrite it otherwise) and only drop the retained entries
+    clearCachedGroupRowCounts();
     const startIndex = lastMergedSkipRef.current;
     setLoadedRecordMap(() =>
       records.reduce((acc, record, i) => {
@@ -393,11 +478,14 @@ export const useGridAsyncRecords = (
   }, [
     recordsScopeKey,
     viewQueryScopeKey,
+    collapsedGroupIdsKey,
+    outerQuery,
     records,
     extra,
     groupPointsCacheKey,
     cacheEnabled,
     snapshotRows,
+    hideNotMatchSearchKey,
   ]);
 
   useEffect(() => {

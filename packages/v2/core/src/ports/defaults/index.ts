@@ -1,5 +1,7 @@
 export * from './NoopAttachmentUrlSignerService';
+export * from './NoopButtonClickWorkflowService';
 export * from './NoopCsvParser';
+export * from './NoopComputedOutboxAdmin';
 export * from './NoopEventBus';
 export * from './NoopFieldDeleteSnapshotSink';
 export * from './NoopHasher';

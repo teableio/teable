@@ -7,12 +7,12 @@ import type {
 } from '../../../ports/mappers/TableMapper';
 import type { DomainError } from '../../shared/DomainError';
 import { TableCreated } from '../events/TableCreated';
+import { FieldId } from '../fields/FieldId';
 import { LinkField } from '../fields/types/LinkField';
 import { LinkFieldConfig } from '../fields/types/LinkFieldConfig';
 import type { Table } from '../Table';
 import { TableId } from '../TableId';
 import type { TableName } from '../TableName';
-import { FieldId } from '../fields/FieldId';
 import { ViewId } from '../views/ViewId';
 
 export type DuplicateMethodParams = {
@@ -151,6 +151,22 @@ const normalizeDuplicatedLinkOptions = (
   };
 };
 
+// A duplicated table starts unshared. Share credentials are lifecycle state of
+// the view that published them, not portable configuration: carrying them over
+// would publish the copy the moment it is created, behind a link its author
+// never opened. Matches DuplicateBaseHandler's resetDuplicatedViewIdentity.
+const resetDuplicatedViewShare = (
+  view: ITablePersistenceDTO['views'][number]
+): ITablePersistenceDTO['views'][number] => {
+  const {
+    enableShare: _enableShare,
+    shareId: _shareId,
+    shareMeta: _shareMeta,
+    ...unsharedView
+  } = view;
+  return unsharedView;
+};
+
 const rewriteDuplicatedDto = (
   dto: ITablePersistenceDTO,
   params: DuplicateMethodParams,
@@ -159,6 +175,7 @@ const rewriteDuplicatedDto = (
   const sanitized: ITablePersistenceDTO = {
     ...dto,
     fields: dto.fields.map(sanitizeFieldPersistenceDto),
+    views: dto.views.map(resetDuplicatedViewShare),
   };
   const remapped = deepRemapTableScopedIds(sanitized, context) as ITablePersistenceDTO;
 

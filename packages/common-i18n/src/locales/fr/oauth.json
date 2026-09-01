@@ -2,7 +2,8 @@
   "add": "Nouvelle application OAuth",
   "title": {
     "add": "Nouvelle application OAuth",
-    "edit": "Modifier l'application OAuth"
+    "edit": "Modifier l'application OAuth",
+    "description": "Les applications Teable peuvent agir en leur propre nom et effectuer des opérations directement via l’API, sans usurper l’identité d’un utilisateur. Consultez notre <a>documentation d’aide</a> pour en savoir plus."
   },
   "form": {
     "name": {
@@ -54,5 +55,13 @@
     "scopes": "Cette application pourra obtenir les périmètres suivants :",
     "redirectDescription": "L'autorisation redirigera vers",
     "authorize": "Autoriser"
+  },
+  "help": {
+    "link": "https://help.teable.ai/en/api-doc/oauth",
+    "title": "En savoir plus"
+  },
+  "deleteConfirm": {
+    "title": "Supprimer l’application OAuth",
+    "description": "Voulez-vous vraiment supprimer l’application OAuth {{name}} ? Cette action est irréversible."
   }
 }

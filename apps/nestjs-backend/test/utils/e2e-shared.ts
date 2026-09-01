@@ -33,6 +33,7 @@ export interface ISharedBundle {
 interface ISharedEntry {
   bundle: ISharedBundle;
   proxied: ISharedBundle;
+  refreshSession?: () => Promise<Pick<ISharedBundle, 'cookie' | 'sessionID'>>;
 }
 
 interface ISharedState {
@@ -146,6 +147,7 @@ function envDiffFromBaseline(): string[] {
 export interface IBootResult {
   bundle: ISharedBundle;
   cookieInterceptorId: number;
+  refreshSession?: () => Promise<Pick<ISharedBundle, 'cookie' | 'sessionID'>>;
 }
 
 /**
@@ -203,13 +205,14 @@ export async function acquireApp(
 
   const st = state();
   let entryPromise = st.registry.get(cacheKey);
+  const reusing = Boolean(entryPromise);
   if (!entryPromise) {
     // Files run sequentially inside a worker, so nothing else executes test code
     // while this boot is in flight: any env delta across the boot is a boot
     // artifact (e.g. SSL_CERT_FILE) — absorb it into the baseline so later files
     // aren't misclassified as env-customized.
     const preBootEnv = { ...process.env };
-    entryPromise = boot().then(({ bundle }) => {
+    entryPromise = boot().then(({ bundle, refreshSession }) => {
       const baseline = st.baselineEnv;
       if (baseline) {
         const keys = new Set([...Object.keys(preBootEnv), ...Object.keys(process.env)]);
@@ -222,6 +225,7 @@ export async function acquireApp(
       const entry: ISharedEntry = {
         bundle,
         proxied: { ...bundle, app: closelessApp(bundle.app) },
+        refreshSession,
       };
       st.resolved.set(cacheKey, entry);
       if (!st.primaryKey && axios) {
@@ -236,13 +240,61 @@ export async function acquireApp(
     st.registry.set(cacheKey, entryPromise);
   }
   const entry = await entryPromise;
+  if (reusing && entry.refreshSession) {
+    const session = await entry.refreshSession();
+    Object.assign(entry.bundle, session);
+    Object.assign(entry.proxied, session);
+  }
+  // Self-heal on reuse: probe auth and reboot the shared app when it can no
+  // longer authenticate (see sharedAppAuthBroken for the mechanism).
+  if (reusing && axios && (await sharedAppAuthBroken(cacheKey, entry, axios))) {
+    st.registry.delete(cacheKey);
+    st.resolved.delete(cacheKey);
+    if (st.primaryKey === cacheKey) {
+      st.primaryKey = undefined;
+      st.axiosSnapshot = undefined;
+    }
+    await entry.bundle.app.close().catch(() => undefined);
+    return acquireApp(cacheKey, boot, restoreAxios, axios);
+  }
   // Reusing a secondary shared app (e.g. the EE-edition app while CLOUD is the
   // worker primary): point the axios singleton at it — booting did this, reuse
   // must too. The runner resets back to the primary after the file.
   if (axios) {
     axios.defaults.baseURL = entry.bundle.appUrl + '/api';
   }
-  return entry.proxied;
+  return { ...entry.proxied };
+}
+
+/**
+ * Whether the shared app persistently rejects its own canonical session over
+ * HTTP. Process-global singletons leak across app instances — passport
+ * strategies, for example, self-register on the process-global passport at
+ * construction (last boot wins) and capture their own app's services; after a
+ * private app closes, HTTP auth on the surviving shared app can 401 every
+ * request even though the session store itself is intact (verified in CI:
+ * a middleware replay resolves the session while a protected HTTP request
+ * 401s). The caller reboots the shared app instead of letting every remaining
+ * file in the worker fail.
+ */
+async function sharedAppAuthBroken(
+  cacheKey: string,
+  entry: ISharedEntry,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  axios: any
+): Promise<boolean> {
+  const probeStatus = await axios
+    .get(`${entry.bundle.appUrl}/api/space`, {
+      headers: { Cookie: entry.bundle.cookie },
+      validateStatus: () => true,
+    })
+    .then((res: { status: number }) => res.status)
+    .catch(() => undefined);
+  if (probeStatus !== 401) return false;
+  process.stderr.write(
+    `[e2e-shared] auth probe on the shared app "${cacheKey}" returned 401; rebooting it\n`
+  );
+  return true;
 }
 
 /* --------------------------- axios singleton hygiene --------------------------- */

@@ -40,6 +40,7 @@ export const thresholdConfig = registerAs('threshold', () => ({
   },
   baseNodeMaxFolderDepth: Number(process.env.BASE_NODE_MAX_FOLDER_DEPTH ?? 2),
   maxFreeOwnedSpaceCount: Number(process.env.MAX_FREE_SPACE_OWNER_COUNT ?? 2),
+  rewardClaimMinIntervalSeconds: Number(process.env.REWARD_CLAIM_MIN_INTERVAL_SECONDS ?? 5),
   changeEmailSendCodeMailRate: Number(process.env.BACKEND_CHANGE_EMAIL_SEND_CODE_MAIL_RATE ?? 30),
   resetPasswordSendMailRate: Number(process.env.BACKEND_RESET_PASSWORD_SEND_MAIL_RATE ?? 30),
   signupVerificationSendCodeMailRate: Number(
@@ -63,12 +64,21 @@ export const thresholdConfig = registerAs('threshold', () => ({
     },
   },
   automation: {
+    // floors the `minutes` timing variant only; above its max of 60 no minutes schedule is
+    // configurable at all, which is how minute-level scheduling gets disabled outright
+    minScheduledMinutesInterval: Number(
+      process.env.AUTOMATION_MIN_SCHEDULED_MINUTES_INTERVAL ?? 10
+    ),
+    minEmailPollIntervalMinutes: Number(
+      process.env.AUTOMATION_MIN_EMAIL_POLL_INTERVAL_MINUTES ?? 10
+    ),
     maxEmailsPerPoll: Number(process.env.AUTOMATION_MAX_EMAILS_PER_POLL ?? 100),
     maxEmailDedupWindowSize: Number(process.env.AUTOMATION_MAX_EMAIL_DEDUP_WINDOW_SIZE ?? 500),
     httpRequestTimeout: Number(process.env.AUTOMATION_HTTP_REQUEST_TIMEOUT ?? 300_000), // 5 mins
     watchdogDisabled: process.env.AUTOMATION_WATCHDOG_DISABLED === 'true',
   },
-  // per-space scheduling defaults; clamped to each resource's worker pool at resolve time
+  // per-space scheduling limits: each value is both the default and the ceiling
+  // for space-configured overrides, clamped to the resource's worker pool
   spaceScheduling: {
     aiFieldGenerationDefaultLimit: Number(
       process.env.SPACE_AI_FIELD_GENERATION_DEFAULT_LIMIT ?? 10

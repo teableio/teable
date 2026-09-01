@@ -98,7 +98,10 @@ export const trashItemVoSchema = z.object({
 
 export const tableTrashItemVoSchema = z.object({
   id: z.string(),
+  // Preview only: a bulk deletion can reference tens of thousands of resources, so the
+  // list returns the first few ids; the full set is paged through the item records endpoint.
   resourceIds: z.array(z.string()),
+  totalResourceCount: z.number(),
   resourceType: z.enum(TableTrashType),
   deletedTime: z.string(),
   deletedBy: z.string(),

@@ -1,3 +1,4 @@
+import { detectTextDirection, isContentDirectionEnabled } from '../../../../utils/text-direction';
 import type { IGridTheme } from '../../configs';
 import { GRID_DEFAULT } from '../../configs';
 import type { IRectangle } from '../../interface';
@@ -140,6 +141,7 @@ export const linkCellRenderer: IInternalCellRenderer<ILinkCell> = {
       isActive,
     });
 
+    const prevDirection = ctx.direction;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = cellTextColorHighlight;
@@ -161,7 +163,13 @@ export const linkCellRenderer: IInternalCellRenderer<ILinkCell> = {
         hoveredKey = key;
       }
 
+      // Each linked title is its own bidi run: give it the direction its own
+      // content implies so neutrals land correctly, while the chips themselves
+      // keep flowing in the grid's own direction.
+      const contentDir = isContentDirectionEnabled() ? detectTextDirection(text) : null;
+      if (contentDir != null) ctx.direction = contentDir;
       ctx.fillText(text, x, y + offsetY);
+      if (contentDir != null) ctx.direction = prevDirection;
     });
 
     if (hoveredLink) {

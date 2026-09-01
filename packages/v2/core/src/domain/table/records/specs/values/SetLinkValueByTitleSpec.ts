@@ -28,7 +28,8 @@ export class SetLinkValueByTitleSpec extends MutateOnlySpec<TableRecord, ICellVa
   private constructor(
     readonly fieldId: FieldId,
     readonly foreignTableId: TableId,
-    readonly titles: ReadonlyArray<string>
+    readonly titles: ReadonlyArray<string>,
+    readonly isMultiple: boolean
   ) {
     super();
   }
@@ -36,9 +37,10 @@ export class SetLinkValueByTitleSpec extends MutateOnlySpec<TableRecord, ICellVa
   static create(
     fieldId: FieldId,
     foreignTableId: TableId,
-    titles: ReadonlyArray<string>
+    titles: ReadonlyArray<string>,
+    isMultiple = true
   ): SetLinkValueByTitleSpec {
-    return new SetLinkValueByTitleSpec(fieldId, foreignTableId, titles);
+    return new SetLinkValueByTitleSpec(fieldId, foreignTableId, titles, isMultiple);
   }
 
   /**

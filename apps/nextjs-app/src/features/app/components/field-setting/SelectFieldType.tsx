@@ -32,7 +32,6 @@ interface ISelectorItem {
   name: string;
   icon?: React.ReactNode;
   description?: string;
-  tag?: string;
   disabled?: boolean;
   disabledReason?: string;
 }
@@ -95,14 +94,13 @@ const fieldTypeItem = (
   setOpen: (open: boolean) => void,
   onChange?: (type: InnerFieldType) => void
 ) => {
-  const { id, name, icon, description, tag, disabled, disabledReason } = item;
+  const { id, name, icon, description, disabled, disabledReason } = item;
 
   const content = (
     <div className="flex w-full min-w-0 items-center gap-2">
       <Check className={cn('h-4 w-4 flex-shrink-0', id === value ? 'opacity-100' : 'opacity-0')} />
       {icon}
       <span className={cn('truncate flex-1', name ? '' : 'text-primary/60')}>{name}</span>
-      {tag && <span className="shrink-0 text-sm">{tag}</span>}
     </div>
   );
 
@@ -165,7 +163,6 @@ export const SelectFieldType = (props: {
         name: title,
         description,
         icon: <Icon className="size-4" />,
-        tag: type === FieldType.Attachment ? '🍌' : undefined,
       };
     });
   }, [getFieldStatic, isPrimary]);
@@ -240,7 +237,6 @@ export const SelectFieldType = (props: {
         name: title,
         description,
         icon: <Icon className="size-4" />,
-        tag: type === FieldType.Attachment ? '🍌' : undefined,
       };
     });
 

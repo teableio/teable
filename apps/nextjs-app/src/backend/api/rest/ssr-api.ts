@@ -8,6 +8,7 @@ import type {
   IGetSpaceVo,
   IUpdateNotifyStatusRo,
   ListSpaceCollaboratorVo,
+  ListSpaceUniqueCollaboratorVo,
   ShareViewGetVo,
   ITableFullVo,
   ITableListVo,
@@ -19,6 +20,7 @@ import type {
   IGroupPointsRo,
   IGroupPointsVo,
   ListSpaceCollaboratorRo,
+  ListSpaceUniqueCollaboratorRo,
   IPublicSettingVo,
   IGetDashboardVo,
   IGetDashboardListVo,
@@ -67,6 +69,7 @@ import {
   GET_VIEW_LIST,
   SHARE_VIEW_GET,
   SPACE_COLLABORATE_LIST,
+  SPACE_COLLABORATE_UNIQUE_LIST,
   UPDATE_NOTIFICATION_STATUS,
   USER_ME,
   GET_BASE_PERMISSION,
@@ -83,6 +86,7 @@ import {
   GET_TEMPLATE_PERMALINK,
   GET_SHORT_LINK,
 } from '@teable/openapi';
+import { INITIAL_LOAD_PAGE_SIZE } from '@teable/sdk/utils/record-window';
 import type { AxiosInstance } from 'axios';
 import { getAxios } from './axios';
 
@@ -148,6 +152,9 @@ export class SsrApi {
             viewId,
             fieldKeyType: FieldKeyType.Id,
             groupBy: currentView?.group ? JSON.stringify(currentView.group) : undefined,
+            // must equal the grid's first window size — the seeded rows back
+            // that query verbatim, and any gap renders as blank rows
+            take: INITIAL_LOAD_PAGE_SIZE,
           },
         });
       })
@@ -253,6 +260,14 @@ export class SsrApi {
   async getSpaceCollaboratorList(spaceId: string, query?: ListSpaceCollaboratorRo) {
     return await this.axios
       .get<ListSpaceCollaboratorVo>(urlBuilder(SPACE_COLLABORATE_LIST, { spaceId }), {
+        params: query,
+      })
+      .then(({ data }) => data);
+  }
+
+  async getSpaceUniqueCollaboratorList(spaceId: string, query?: ListSpaceUniqueCollaboratorRo) {
+    return await this.axios
+      .get<ListSpaceUniqueCollaboratorVo>(urlBuilder(SPACE_COLLABORATE_UNIQUE_LIST, { spaceId }), {
         params: query,
       })
       .then(({ data }) => data);

@@ -505,7 +505,7 @@ describe('TableSpecEventVisitor', () => {
     [
       protoInstance(TableAddSelectOptionsSpec),
       protoInstance(TableDuplicateFieldSpec),
-      protoInstance(TableUpdateViewQueryDefaultsSpec),
+      protoInstance(TableUpdateViewQueryDefaultsSpec, { updatesValue: [] }),
       protoInstance(TableByBaseIdSpec),
       protoInstance(TableByIdSpec),
       protoInstance(TableByIncomingReferenceToTableSpec),

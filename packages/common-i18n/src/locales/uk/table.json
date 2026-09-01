@@ -7,6 +7,7 @@
     "waiting": "Очікування",
     "failed": "Помилка",
     "calculationFailed": "Помилка обчислення",
+    "cellValueTooLarge": "Обчислене значення занадто велике ({{attempted}} / {{max}} байт). Скоротіть вихідні дані або змініть формулу.",
     "calculatingSummary": "Обчислення ({{count}})",
     "failedSummary": "Помилка ({{count}})",
     "fieldsCalculating_one": "Обчислюється {{count}} поле",
@@ -57,6 +58,7 @@
         "passwordTips": "Обмеження пароля для доступу до загальних видів",
         "embed": "Вбудувати",
         "embedPreview": "Перегляд вбудовування",
+        "copyCode": "Копіювати код",
         "hideToolbar": "Приховати панель інструментів",
         "URLSetting": "Налаштування параметрів URL",
         "URLSettingDescription": "Зміна наступних параметрів не вплине на вже створені посилання. Вам потрібно скопіювати посилання з новими параметрами, щоб вони набрали чинності",
@@ -112,17 +114,6 @@
     "help": "Відвідайте <HelpCenter /> для отримання додаткової інформації",
     "helpCenter": "Центр допомоги"
   },
-  "validation": {
-    "link": {
-      "batch_duplicate": "Неможливо пов'язати запис: у цьому ж пакеті його вже пов'язано іншим записом. У зв'язках один-до-багатьох кожен дочірній запис може належати лише одному батьківському запису.",
-      "one_many_duplicate": "Неможливо пов'язати запис: його вже пов'язано з іншим записом. У зв'язках один-до-багатьох кожен дочірній запис може належати лише одному батьківському запису.",
-      "one_one_duplicate": "Неможливо пов'язати запис: цільовий запис уже пов'язано іншим записом у зв'язку один-до-одного."
-    },
-    "field": {
-      "maxColumnLimit": "Таблиця \"{{tableName}}\" може містити не більше ніж {{maxFieldCount}} полів.",
-      "requiredExistingValues": "Не можна зробити поле \"{{fieldName}}\" обов'язковим, оскільки наявні записи містять порожні значення."
-    }
-  },
   "field": {
     "advancedProps": "Розширені властивості",
     "hide": "приховати",
@@ -136,12 +127,12 @@
       "number": {
         "title": "Число",
         "formatType": "Тип формату",
-        "CurrencySymbol": "Символ валюти",
+        "currencySymbol": "Символ валюти",
         "defaultSymbol": "₽",
         "precision": "Точність",
         "decimalExample": "Число (123)",
         "currencyExample": "Валюта (100₴)",
-        "%Example": "Відсоток (20%)"
+        "percentExample": "Відсоток (20%)"
       },
       "singleSelect": {
         "title": "Статус",
@@ -274,6 +265,7 @@
       "reset": "Скинути",
       "fieldUpdated": "Поле оновлено",
       "fieldCreated": "Поле створено",
+      "fieldUnavailable": "Це поле недоступне. Оновіть таблицю та повторіть спробу.",
       "confirmFieldChange": "Confirm Field Change",
       "areYouSurePerformIt": "Ви впевнені, що хочете це виконати?",
       "addDescription": "Додати опис",
@@ -323,6 +315,20 @@
       "lookupToTable": "Поле з <bold>{{tableName}}</bold>, яке потрібно знайти",
       "rollupToTable": "Поле з <bold>{{tableName}}</bold>, яке потрібно знайти",
       "selectField": "Виберіть поле...",
+      "lastModifiedScope": "Поля",
+      "lastModifiedAll": "Усі редаговані поля",
+      "lastModifiedSpecific": "Певні поля",
+      "lastModifiedSelect": "Відстежувані поля",
+      "noEditableFields": "Немає доступних редагованих полів",
+      "conditionalLookup": {
+        "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
+        "sortLabel": "Sort results",
+        "limitLabel": "Maximum records to include",
+        "limitPlaceholder": "Leave blank to include all matches",
+        "limitHint": "We only keep up to {{limit}} matching records.",
+        "sortMissingWarningTitle": "Sorting field unavailable",
+        "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
+      },
       "linkTable": "Таблиця посилань",
       "linkBase": "База посилань",
       "tableNoPermission": "Немає таблиці дозволів",
@@ -351,17 +357,8 @@
         "affectedItems": "Елементи, на які вплине",
         "type": "Тип",
         "source": "Джерело",
-        "sourceTable": "Вихідна таблиця",
-        "typeField": "Поле"
-      },
-      "conditionalLookup": {
-        "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
-        "sortLabel": "Sort results",
-        "limitLabel": "Maximum records to include",
-        "limitPlaceholder": "Leave blank to include all matches",
-        "limitHint": "We only keep up to {{limit}} matching records.",
-        "sortMissingWarningTitle": "Sorting field unavailable",
-        "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
+        "loginEmailFieldWarning": "Це поле використовується як ідентифікатор ел. пошти для входу. Його видалення порушить вхід у таких застосунках:",
+        "loginEmailFieldConvertWarning": "Це поле використовується як поле ел. пошти для входу в застосунки. Зміна його типу порушить вхід у таких застосунках:"
       }
     },
     "subTitle": {
@@ -378,6 +375,7 @@
       "rating": "Додайте оцінку за попередньо визначеною шкалою.",
       "formula": "Обчислити значення на основі полів.",
       "rollup": "Підсумувати дані з пов'язаних записів.",
+      "conditionalRollup": "Підсумовує значення зі зв’язаної таблиці з умовними фільтрами.",
       "conditionalLookup": "Показує пов'язані значення, що відповідають заданим фільтрам.",
       "createdTime": "Перегляньте дату та час створення кожного запису.",
       "lastModifiedTime": "Дивіться дату й час останнього редагування деяких або всіх полів у записі.",
@@ -415,7 +413,10 @@
         "sourceFieldForAttachment": "Вихідне поле для вкладень",
         "imageSize": "Розмір зображення",
         "imageQuality": "Якість зображення",
-        "imageCount": "Кількість зображень"
+        "imageCount": "Кількість зображень",
+        "aspectRatio": "Співвідношення сторін",
+        "resolution": "Роздільна здатність",
+        "advancedSettings": "Розширені налаштування"
       },
       "placeholder": {
         "summarize": "Сума змісту",
@@ -430,6 +431,8 @@
         "targetLanguage": "Англійська, Китайська, Французька...",
         "imageSize": "Будь ласка, введіть розмір зображення",
         "imageQuality": "Будь ласка, введіть якість зображення",
+        "aspectRatio": "Виберіть співвідношення сторін",
+        "resolution": "Виберіть роздільну здатність",
         "attachPromptForImageGeneration": "Зображення повинно бути живим та природним",
         "attachPromptForRating": "Оцінити якість зображення"
       },
@@ -438,8 +441,19 @@
         "medium": "Середня",
         "high": "Висока"
       },
+      "hint": {
+        "imageInputSupported": "💡 Ця модель підтримує введення зображень. Виберіть поле вкладень, щоб використовувати зображення як зразок для генерації.",
+        "attachmentNotSupported": "💡 Ця модель не підтримує введення вкладень. Генерацію «зображення в зображення» підтримують лише моделі Gemini.",
+        "singleImageOnly": "Ця модель може створювати лише одне зображення за раз"
+      },
       "tip": {
         "gptImageResolution": "Через обмеження загальної кількості пікселів режим 4K для деяких співвідношень сторін використовує найбільший допустимий розмір."
+      },
+      "auto": "Авто",
+      "resolution": {
+        "1K": "1K (стандарт)",
+        "2K": "2K (HD)",
+        "4K": "4K (Ultra HD)"
       },
       "autoFill": {
         "title": "Автооновлення",
@@ -452,8 +466,18 @@
       "autoFillConfirm": {
         "title": "Згенерувати весь стовпець?",
         "description": "Генерація всього стовпця оновить {{rowCount}} рядків. Ця операція може споживати велику кількість ресурсів AI.",
+        "emptyOnlyMode": "Заповнювати лише порожні клітинки",
+        "emptyOnlyModeDesc": "Генерувати лише для порожніх клітинок, наявний вміст не перезаписується",
+        "allMode": "Згенерувати весь стовпець",
+        "allModeDesc": "Генерувати для всіх рядків, наявний вміст буде перезаписано",
+        "saveOnlyMode": "Зберегти лише конфігурацію",
+        "saveOnlyModeDesc": "Зберегти лише конфігурацію поля, клітинки не змінюватимуться",
         "saveConfigOnly": "Зберегти лише конфігурацію",
-        "generateFailed": "Не вдалося виконати генерацію"
+        "fillEmptyCells": "Заповнити порожні клітинки",
+        "generateAll": "Згенерувати все",
+        "recommended": "Рекомендовано",
+        "generateFailed": "Не вдалося виконати генерацію",
+        "limitWarning": "Через обмеження в 1000 рядків на завдання буде оброблено лише перші 1000 рядків. Запустіть завдання ще раз, щоб обробити решту."
       }
     }
   },
@@ -465,12 +489,14 @@
     "dbTableName": "Ім'я таблиці у фізичній базі даних",
     "schemaName": "Назва схеми у фізичній базі даних",
     "baseInfo": "Базова інформація",
-    "typeOfDatabase": "Тип бази даних",
-    "descriptionForTable": "Опис цієї таблиці",
     "loginUserTable": "Вхід у додаток",
     "linkedApps": "Пов'язані додатки",
+    "typeOfDatabase": "Тип бази даних",
+    "descriptionForTable": "Опис цієї таблиці",
     "nameForTable": "Назва цієї таблиці",
-    "deleteTip1": "Поля посилань, пов'язані з цією таблицею в інших таблицях, будуть видалені.",
+    "deleteTip1": "Поля посилань, пов'язані з цією таблицею в інших таблицях, будуть перетворені на текст.",
+    "deleteWithDependencies": "Видалення таблиці <b>{{tableName}}</b> вплине на такі поля:",
+    "loginDeleteWarning": "Ця таблиця використовується як таблиця користувачів у таких застосунках. Її видалення порушить їхній вхід.",
     "operator": {
       "createBlank": "Нова таблиця"
     },
@@ -480,16 +506,39 @@
       "copying": "Копіювання...",
       "copySuccessful": "Копіювання успішне",
       "copyFailed": "Не вдалося копіювати",
-      "pasing": "Вставлення...",
+      "pasting": "Вставлення...",
       "pasteSuccessful": "Вставити успішно",
       "pasteFailed": "Не вдалося вставити",
+      "pasteNoEditableFields": "Вибрані поля доступні лише для читання, вставлення неможливе.",
       "filling": "Заповнення...",
       "fillSuccessful": "Заповнення успішно",
       "fillFailed": "Не вдалося заповнити",
       "clearing": "Очищення...",
       "clearSuccessful": "Очистити успішно",
+      "clearFailed": "Не вдалося очистити",
+      "clearConfirmTitle": "Очистити дані",
+      "clearConfirmDescription": "Ця дія очистить {{cellCount}} клітинок у {{rowCount}} записах. Продовжити?",
+      "archiveRecordConfirmTitle": "Архівувати записи",
+      "archiveRecordConfirmDescription": "Ця дія архівує {{recordCount}} записів. Архівовані записи можна переглядати та відновлювати з архіву таблиці.",
+      "archiveRecord": "Архівувати",
+      "archiving": "Архівування...",
+      "archiveSuccessful": "Архівування виконано",
+      "deleteRecordConfirmTitle": "Видалити записи",
+      "deleteRecordConfirmDescription": "Ця дія видалить {{recordCount}} записів. Продовжити?",
+      "duplicateRecordsConfirmTitle": "Дублювати записи",
+      "duplicateRecordsConfirmDescription": "Ця дія продублює {{recordCount}} записів. Продовжити?",
+      "pasteConfirmTitle": "Виконати вставлення",
+      "pasteConfirmDescription": "Ви збираєтеся виконати вставлення, яке перезапише {{recordCount}} записів. Продовжити?",
+      "paste": "Вставити",
+      "deleteRecord": "Видалити",
+      "clear": "Очистити",
       "deleting": "Видалення...",
+      "duplicating": "Дублювання...",
+      "deleteFailed": "Не вдалося видалити",
       "deleteSuccessful": "Успішне видалення",
+      "duplicateFailed": "Не вдалося дублювати",
+      "duplicateSuccessful": "Дублювання виконано",
+      "duplicateRecords": "Дублювати",
       "deleteStream": {
         "preparing": "Preparing selection",
         "deleting": "Deleting records",
@@ -508,9 +557,87 @@
           "finalizing": "Finalizing"
         }
       },
+      "duplicateStream": {
+        "preparing": "Підготовка виділення",
+        "duplicating": "Дублювання записів",
+        "descriptionWithIssues": "Деякі блоки дублювання не вдалися. Подробиці нижче.",
+        "completedWithIssues": "Дублювання завершено з проблемами",
+        "issuesBadge": "Проблем: {{count}}",
+        "chunkFailureTitle": "Подробиці збою блоку",
+        "chunkFailureSummary": "Блоків з помилкою: {{count}} — при цьому потік продовжував працювати.",
+        "chunkLabel": "Блок {{index}}",
+        "rowsLabel": "Рядків: {{count}}",
+        "phaseLabel": {
+          "preparing": "Підготовка",
+          "guarding": "Перевірка",
+          "processing": "Дублювання",
+          "publishing": "Публікація",
+          "finalizing": "Завершення"
+        }
+      },
+      "pasteStream": {
+        "preparing": "Підготовка виділення",
+        "pasting": "Вставлення записів",
+        "descriptionWithIssues": "Деякі блоки вставлення не вдалися. Подробиці нижче.",
+        "completedWithIssues": "Вставлення завершено з проблемами",
+        "issuesBadge": "Проблем: {{count}}",
+        "chunkFailureTitle": "Подробиці збою блоку",
+        "chunkFailureSummary": "Блоків з помилкою: {{count}} — при цьому потік продовжував працювати.",
+        "chunkLabel": "Блок {{index}}",
+        "rowsLabel": "Рядків: {{count}}",
+        "phaseLabel": {
+          "preparing": "Підготовка",
+          "guarding": "Перевірка",
+          "processing": "Вставлення",
+          "publishing": "Публікація",
+          "finalizing": "Завершення"
+        }
+      },
+      "clearStream": {
+        "confirmDescription": "Ця дія очистить значення в {{recordCount}} записах. Продовжити?",
+        "preparing": "Підготовка виділення",
+        "clearing": "Очищення записів",
+        "descriptionWithIssues": "Деякі блоки очищення не вдалися. Подробиці нижче.",
+        "completedWithIssues": "Очищення завершено з проблемами",
+        "issuesBadge": "Проблем: {{count}}",
+        "chunkFailureTitle": "Подробиці збою блоку",
+        "chunkFailureSummary": "Блоків з помилкою: {{count}} — при цьому потік продовжував працювати.",
+        "chunkLabel": "Блок {{index}}",
+        "rowsLabel": "Рядків: {{count}}",
+        "phaseLabel": {
+          "preparing": "Підготовка",
+          "guarding": "Перевірка",
+          "processing": "Очищення",
+          "publishing": "Публікація",
+          "finalizing": "Завершення"
+        }
+      },
+      "restoreFieldStream": {
+        "confirmTitle": "Відновити поля",
+        "confirmDescription": "Ця дія відновить видалені поля та значення їхніх записів.",
+        "preparing": "Підготовка відновлення полів",
+        "restoring": "Відновлення полів...",
+        "restoringRecords": "Відновлення значень записів",
+        "restoreFailed": "Не вдалося відновити",
+        "descriptionWithIssues": "Деякі блоки відновлення не вдалися. Подробиці нижче.",
+        "completedWithIssues": "Відновлення завершено з проблемами",
+        "issuesBadge": "Проблем: {{count}}",
+        "chunkFailureTitle": "Подробиці збою блоку",
+        "chunkFailureSummary": "Блоків з помилкою: {{count}} — при цьому потік продовжував працювати.",
+        "chunkLabel": "Блок {{index}}",
+        "rowsLabel": "Рядків: {{count}}",
+        "phaseLabel": {
+          "preparing": "Підготовка",
+          "guarding": "Перевірка",
+          "processing": "Відновлення",
+          "publishing": "Публікація",
+          "finalizing": "Завершення"
+        }
+      },
       "pasteFileFailed": "Файли можна вставляти лише в поле вкладення",
       "copyError": {
-        "noFocus": "Будь ласка, тримайте сторінку активною та не перемикайте вікна"
+        "noFocus": "Будь ласка, тримайте сторінку активною та не перемикайте вікна",
+        "noPermission": "У вас немає дозволу копіювати записи"
       },
       "crossBaseCopyTitle": "Скопіювати як звичайний текст?",
       "crossBaseCopyDescription": "Виділення містить поле-посилання між базами. Щоб дані залишалися у своїй базі, поле буде скопійовано як звичайний текст і втратить зв’язки.",
@@ -528,6 +655,8 @@
       "loading": "Перевірка цілісності...",
       "allGood": "Все добре!",
       "fixIssues": "Виправити проблеми",
+      "type": "Тип",
+      "message": "Повідомлення про помилку",
       "v2": {
         "dialogTitle": "Цілісність схеми",
         "dialogDescription": "Запустіть перевірку та відновлення схеми v2 для {{tableName}}.",
@@ -547,6 +676,20 @@
         "manualRepairDialogReason": "Чому потрібне ручне виправлення",
         "manualRepairDialogHint": "Наразі це вікно лише показує параметри виправлення, які вимагає правило. Пізніше на основі цього контракту можна додати фактичне виконання.",
         "manualRepairDialogClose": "Закрити",
+        "repairPreviewTitle": "Підтвердьте деталі відновлення",
+        "repairPreviewDescription": "Ці відомості отримано з пробного запуску відновлення. Відновлення виконається лише після підтвердження.",
+        "repairPreviewTooltip": "Відкриває план відновлення з пробного запуску. У діалозі відобразиться повернений SQL або буде чітко вказано, що SQL немає.",
+        "repairPreviewMissingTable": "Цей результат перевірки не містить таблиці, тому ціль пробного відновлення визначити неможливо.",
+        "repairPreviewUnavailableStatus": "Цей статус не потребує відновлення, тому план пробного відновлення не створюється.",
+        "repairPreviewWhat": "Що буде відновлено",
+        "repairPreviewTarget": "Правило «{{ruleName}}» для поля «{{fieldName}}»",
+        "repairPreviewPrinciple": "Як працює відновлення",
+        "repairPreviewNoPrinciple": "Це правило не повернуло додаткових вказівок щодо відновлення.",
+        "repairPreviewSql": "SQL для виконання",
+        "repairPreviewNoSql": "Пробний запуск не повернув виконуваного SQL, тому автоматичне відновлення не можна запустити напряму.",
+        "repairPreviewCannotConfirm": "Пробний запуск повернув SQL, але це правило зараз не можна підтвердити для автоматичного відновлення. План відновлення все одно можна переглянути.",
+        "repairPreviewParameters": "Параметри",
+        "repairPreviewConfirm": "Запустити відновлення",
         "checking": "Перевірка схеми...",
         "repairing": "Виправлення схеми...",
         "streamError": "Не вдалося отримати потокові результати перевірки цілісності схеми.",
@@ -575,7 +718,9 @@
           "checkCompleted": "Schema integrity check completed",
           "baseCheckCompleted": "Base schema integrity check completed",
           "repairCompleted": "Schema integrity repair completed",
-          "baseRepairCompleted": "Base schema integrity repair completed"
+          "baseRepairCompleted": "Base schema integrity repair completed",
+          "skippedStatusNotSelected": "Пропущено, оскільки цей рівень статусу не було вибрано для відновлення",
+          "skippedRepairUnavailable": "Пропущено, оскільки автоматичне відновлення недоступне в поточному стані"
         },
         "rule": {
           "column": "Physical column",
@@ -610,6 +755,14 @@
           "systemColumnUnique": "System column \"{{columnName}}\" should have a UNIQUE index",
           "systemColumnPrimaryKey": "System column \"{{columnName}}\" should be PRIMARY KEY",
           "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression",
+          "columnUniqueMissing": "Поле «{{fieldName}}» має бути унікальним",
+          "columnUniqueMissingDescription": "Додайте обмеження UNIQUE до «{{fieldName}}», щоб не можна було записати дублікати.",
+          "columnUniqueIndexMismatch": "У поля «{{fieldName}}» відсутній очікуваний унікальний індекс",
+          "columnUniqueIndexMismatchDescription": "Перебудуйте індекс для «{{fieldName}}» як унікальний, щоб читання та запис відповідали правилу унікальності поля.",
+          "foreignKeyMissing": "У поля «{{fieldName}}» відсутнє обмеження зовнішнього ключа",
+          "foreignKeyMissingDescription": "Відновіть зовнішній ключ із «{{fieldName}}» до «{{targetTableName}}», щоб пов’язані записи залишалися узгодженими.",
+          "foreignKeyTargetTableMissing": "Пов’язану таблицю для «{{fieldName}}» не знайдено",
+          "foreignKeyTargetTableMissingDescription": "Автоматичне відновлення не може відновити зовнішній ключ для «{{fieldName}}», оскільки цільова таблиця «{{targetPhysicalTableName}}» не існує.",
           "foreignKeyOrphanRows": "Field \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
           "foreignKeyOrphanRowsDescription": "Automatic repair cannot restore the foreign key for \"{{fieldName}}\" until the {{count}} invalid references to \"{{targetTableName}}\" are cleaned up.",
           "junctionForeignKeyMissing": "The junction table for \"{{fieldName}}\" is missing one of its foreign keys",
@@ -617,7 +770,90 @@
           "junctionForeignKeyTargetTableMissing": "The linked table for the junction of \"{{fieldName}}\" cannot be found",
           "junctionForeignKeyTargetTableMissingDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" because the target table \"{{targetPhysicalTableName}}\" does not exist.",
           "junctionForeignKeyOrphanRows": "The junction table for \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
-          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up."
+          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up.",
+          "referenceMissing": "У поля «{{fieldName}}» відсутнє зіставлення посилань",
+          "referenceMissingDescription": "Відновіть метадані посилань між «{{fieldName}}» і полем-залежністю, щоб оновлення lookup і зв’язків поширювалися коректно.",
+          "symmetricFieldTargetMissing": "Парне поле зв’язку для «{{fieldName}}» не знайдено",
+          "symmetricFieldWrongType": "Парне поле для «{{fieldName}}» не є полем зв’язку",
+          "symmetricFieldInvalidOptions": "У парного поля для «{{fieldName}}» недійсна конфігурація зв’язку",
+          "symmetricFieldMissingBackReference": "Парне поле для «{{fieldName}}» не посилається назад на поточне поле",
+          "symmetricFieldWrongBackReference": "Парне поле для «{{fieldName}}» посилається на інше поле, а не на поточне",
+          "symmetricFieldDuplicateUsage": "Симетричну ціль зв’язку «{{symmetricFieldId}}» також використовує «{{conflictFieldName}}»",
+          "symmetricFieldDuplicateUsageDescription": "Кожній парі двостороннього зв’язку потрібне унікальне симетричне поле. Перед відновленням виберіть, яке поле збереже цей зв’язок."
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "This rule is already valid",
+            "manualRule": "This rule requires a manual decision",
+            "statementGenerationFailed": "The system could not generate a safe repair statement",
+            "noStatements": "This rule has no automatic repair statement",
+            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
+            "symmetricFieldMissing": "Парне поле зв’язку відсутнє й потребує підтвердження перед відновленням",
+            "symmetricFieldBroken": "Парне поле зв’язку пошкоджене й потребує підтвердження перед відновленням",
+            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
+            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
+            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
+            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
+          },
+          "description": {
+            "autoRule": "Відновлення виконає інструкції схеми, згенеровані цим правилом, а потім перевірить правило ще раз, щоб підтвердити коректність схеми.",
+            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
+            "symmetricFieldMissing": "Перетворіть поточний зв’язок на односторонній, а потім повторіть відновлення, щоб за потреби відтворити залежні правила сполучної таблиці.",
+            "symmetricFieldBroken": "Перетворіть поточний зв’язок на односторонній, а потім повторіть відновлення, щоб заново перевірити залежні правила схеми зв’язків.",
+            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
+            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
+          },
+          "manual": {
+            "apply": "Apply manual repair",
+            "symmetricField": {
+              "title": "Resolve symmetric link conflict",
+              "description": "Pick how this duplicate symmetric link should be repaired.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
+              "option": {
+                "keepCurrent": "Keep the current field as the two-way link",
+                "convertDuplicate": "Convert the duplicate field to a one-way link"
+              }
+            },
+            "symmetricFieldMissing": {
+              "title": "Усунути відсутнє парне поле зв’язку",
+              "description": "Парне поле зв’язку видалено. Перед відновленням підтвердьте перетворення цього поля на односторонній зв’язок.",
+              "resolutionLabel": "Стратегія відновлення",
+              "resolutionDescription": "Перетворіть поточний зв’язок на односторонній, щоб наявні дані відношень і далі використовували збережену структуру зв’язку.",
+              "option": {
+                "convertCurrent": "Перетворити поточний зв’язок на односторонній"
+              }
+            },
+            "symmetricFieldBroken": {
+              "title": "Усунути пошкоджене парне поле зв’язку",
+              "description": "Парне поле зв’язку існує, але не є коректною двосторонньою парою. Перед відновленням підтвердьте перетворення цього поля на односторонній зв’язок.",
+              "resolutionLabel": "Стратегія відновлення",
+              "resolutionDescription": "Перетворіть поточний зв’язок на односторонній, щоб він більше не залежав від пошкодженої пари.",
+              "option": {
+                "convertCurrent": "Перетворити поточний зв’язок на односторонній"
+              }
+            },
+            "foreignKeyOrphanRows": {
+              "title": "Очистити недійсні пов’язані значення",
+              "description": "Очистіть значення зовнішнього ключа, що вказують на відсутні записи, а потім відновіть обмеження зовнішнього ключа.",
+              "resolutionLabel": "Стратегія відновлення",
+              "resolutionDescription": "Недійсні пов’язані значення вказують на записи, яких більше немає. Підтвердьте їх очищення перед відновленням зовнішнього ключа.",
+              "option": {
+                "clearOrphanValues": "Очистити недійсні пов’язані значення"
+              }
+            },
+            "junctionForeignKeyOrphanRows": {
+              "title": "Очистити недійсні рядки сполучної таблиці",
+              "description": "Видаліть рядки сполучної таблиці, що вказують на відсутні записи, а потім відновіть обмеження зовнішнього ключа.",
+              "resolutionLabel": "Стратегія відновлення",
+              "resolutionDescription": "Недійсні рядки сполучної таблиці вказують на записи, яких більше немає. Підтвердьте їх видалення перед відновленням зовнішнього ключа.",
+              "option": {
+                "deleteOrphanRows": "Видалити недійсні рядки зв’язків"
+              }
+            }
+          }
         },
         "phase": {
           "check": "Результати перевірки",
@@ -646,42 +882,20 @@
           "unchanged": "Без змін",
           "manual": "Вручну",
           "skipped": "Пропущено"
-        },
-        "repairMeta": {
-          "reason": {
-            "alreadyValid": "This rule is already valid",
-            "manualRule": "This rule requires a manual decision",
-            "statementGenerationFailed": "The system could not generate a safe repair statement",
-            "noStatements": "This rule has no automatic repair statement",
-            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
-            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
-            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
-            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
-            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
-          },
-          "description": {
-            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
-            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
-            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
-            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
-            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
-          },
-          "manual": {
-            "apply": "Apply manual repair",
-            "symmetricField": {
-              "title": "Resolve symmetric link conflict",
-              "description": "Pick how this duplicate symmetric link should be repaired.",
-              "resolutionLabel": "Repair strategy",
-              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
-              "option": {
-                "keepCurrent": "Keep the current field as the two-way link",
-                "convertDuplicate": "Convert the duplicate field to a one-way link"
-              }
-            }
-          }
         }
       },
       "errorType": {
+        "ForeignTableNotFound": "ForeignTableNotFound",
+        "ForeignKeyNotFound": "ForeignKeyNotFound",
+        "SelfKeyNotFound": "SelfKeyNotFound",
+        "SymmetricFieldNotFound": "SymmetricFieldNotFound",
+        "MissingRecordReference": "MissingRecordReference",
+        "InvalidLinkReference": "InvalidLinkReference",
+        "ForeignKeyHostTableNotFound": "ForeignKeyHostTableNotFound",
+        "ReferenceFieldNotFound": "ReferenceFieldNotFound",
+        "UniqueIndexNotFound": "UniqueIndexNotFound",
+        "EmptyString": "EmptyString",
+        "InvalidFilterOperator": "InvalidFilterOperator",
         "InvalidPrimaryLookup": "Первинне поле неправильно налаштовано як Lookup",
         "InvalidPrimaryType": "Первинне поле має непідтримуваний тип",
         "MissingPrimary": "У таблиці відсутнє первинне поле"
@@ -700,6 +914,14 @@
       "enableIndex": "увімкнути",
       "keepAsIs": "залишити як",
       "ignoreIndexError": "тимчасово ігнорувати"
+    },
+    "searchTips": {
+      "maxFieldTips_limited": "Перевищено максимум у {{count}} полів, зайві поля буде проігноровано"
+    },
+    "deletedRecovered": {
+      "title": "Таблицю, яку ви відкрили, було видалено",
+      "description": "Здійснено перехід до таблиці «{{tableName}}»",
+      "descriptionEmpty": "Здійснено повернення на сторінку Base"
     }
   },
   "import": {
@@ -722,6 +944,7 @@
       "addFromOtherSource": "Додати з інших джерел",
       "excelFile": "Microsoft Excel",
       "airtable": "Airtable",
+      "googleSheet": "Google Sheets",
       "csvFile": "CSV-файл",
       "importCsvData": "Імпортувати дані CSV",
       "importExcelData": "Імпортувати дані Microsoft Excel",
@@ -732,15 +955,24 @@
       "duplicating": "Дублювання...",
       "duplicateSuccess": "Успішно дублювано",
       "duplicateFailed": "Не вдалося дублювати",
-      "importing": "Імпорт",
-      "includeRecords": "Включити записи",
-      "autoFill": "Оновити всі записи"
+      "includeRecords": "Включити записи"
     },
     "tips": {
       "importWayTip": "Натисніть або перетягніть файл у цю область, щоб завантажити",
       "fileExceedSizeTip": "Розмір файлу цього типу перевищує ліміт",
       "analyzing": "аналіз",
       "importing": "Імпорт",
+      "importingRows": "Importing {{processed}} of {{total}} rows",
+      "importingRowsUnknown": "Imported {{processed}} rows",
+      "importingSheet": "Sheet {{current}} of {{total}}: {{name}}",
+      "preparingImport": "Preparing import...",
+      "importFinished": "Import finished",
+      "importFinishedPartial": "Import finished with row limits",
+      "importSheetImported": "{{rowCount}} rows",
+      "importSheetTruncated": "Imported {{rowCount}} rows (row limit reached, remaining rows skipped)",
+      "importSheetFailed": "Failed ({{error}})",
+      "importSummaryHint": "Review each table before closing.",
+      "importDone": "Done",
       "notSupportFieldType": "Тип поля не підтримується",
       "resultEmpty": "Не знайдено результатів.",
       "searchPlaceholder": "Шукати...",
@@ -769,6 +1001,29 @@
       }
     }
   },
+  "download": {
+    "allAttachments": {
+      "title": "Завантажити всі вкладення",
+      "rowsWithAttachments": "Рядки з вклад.",
+      "totalAttachments": "Вкладення",
+      "totalSize": "Загальний розмір",
+      "cancel": "Скасувати",
+      "downloading": "Завантаження...",
+      "completed": "Завантаження завершено",
+      "cancelled": "Завантаження скасовано",
+      "noAttachments": "Немає вкладень для завантаження",
+      "error": "Помилка завантаження",
+      "errorPartial": "{{failedCount}} файлів не вдалося завантажити",
+      "requireHttps": "Пакетне завантаження вимагає HTTPS. Будь ласка, використовуйте HTTPS або localhost.",
+      "advancedOptions": "Додаткові параметри",
+      "namingFieldLabel": "Префікс імені вкладення",
+      "selectField": "За замовчуванням: індекс вкладення",
+      "noPrefixOption": "Без префікса",
+      "noPrefixOptionDesc": "Зберегти оригінальну назву файлу",
+      "groupByRow": "Архівувати в папки",
+      "groupByRowTip": "Коли рядок має кілька вкладень, вони будуть розміщені в одній папці; рядки з одним вкладенням не створюють папку."
+    }
+  },
   "grid": {
     "prefillingRowTitle": "Додати новий запис",
     "prefillingRowTooltip": "Пожалуйста, введіть дані нового запису нижче. Запис буде збережено автоматично, як тільки ви клацнете в цьому рядку.",
@@ -787,7 +1042,7 @@
     "protectedFieldTip": "Це поле було встановлено як \"обов'язкове\" поле і не може бути видалено у вигляді форми. Будь ласка, змініть його в настройках поля."
   },
   "kanban": {
-    "панель інструментів": {
+    "toolbar": {
       "hideFieldName": "Скрити ім'я поля",
       "customizeCards": "Налаштувати картку",
       "stackedBy": "Згруповано за <0/>",
@@ -799,7 +1054,7 @@
       "noImage": "Без зображення",
       "chooseAttachmentField": "Виберіть поле вкладень"
     },
-    "стек": {
+    "stack": {
       "addStack": "Додати групу",
       "noCards": "Немає карток",
       "uncategorized": "Без категорії"
@@ -823,7 +1078,7 @@
       "startDateField": "Початкова дата",
       "endDateField": "Кінцева дата",
       "titleField": "Заголовок",
-      "ColorField": "Колір",
+      "colorField": "Колір",
       "colorType": "Відображення кольору",
       "customColor": "Налаштувати колір",
       "alignWithRecords": "Відповідати записам"
@@ -845,7 +1100,11 @@
     "insertRecordBelow": "Вставте запис <input /> нижче",
     "deleteRecord": "Видалити запис",
     "deleteAllSelectedRecords": "Видалити всі вибрані записи",
+    "archiveRecord": "Архівувати запис",
+    "archiveAllSelectedRecords": "Архівувати всі вибрані записи",
+    "duplicateRecords": "Дублювати вибрані записи",
     "editField": "Поле редагування",
+    "duplicateField": "Дублювати поле",
     "insertFieldLeft": "Вставити ліворуч",
     "insertFieldRight": "Вставити праворуч",
     "freezeUpField": "Закріпити до цього поля",
@@ -856,6 +1115,8 @@
     "filterField": "Фільтрувати за цим полем",
     "sortField": "Сортувати за цим полем",
     "groupField": "Групувати за цим полем",
+    "downloadAllAttachments": "Завантажити всі файли",
+    "autoFill": "Згенерувати",
     "groupMenuTitle": "Меню групи",
     "expandGroup": "Розгорнути цю групу та її підгрупи",
     "collapseGroup": "Згорнути цю групу та її підгрупи",
@@ -880,6 +1141,8 @@
       "rename": "Переіменувати",
       "duplicate": "Дублювати",
       "delete": "Видалити",
+      "lock": "Заблокувати подання",
+      "unlock": "Розблокувати подання",
       "enable": "Включити"
     },
     "category": {
@@ -896,12 +1159,18 @@
     "addPluginView": "Add Plugin View",
     "search": {
       "field_one": "{{name}}",
+      "field_few": "fields({{length}})",
+      "field_many": "fields({{length}})",
       "field_other": "fields({{length}})"
     },
     "locked": {
       "tip": "Цей вид заблокований. Ви можете включити персональний режим для редагування параметрів виду, і зміни відбудуться тільки для вас."
     },
-    "noView": "Немає видів"
+    "noView": "Немає видів",
+    "deletedRecovered": {
+      "title": "Вид, який ви відкрили, було видалено",
+      "description": "Здійснено перехід до виду «{{viewName}}»"
+    }
   },
   "lastModifiedTime": "Час останньої зміни",
   "lastModify": "Остання зміна: ",
@@ -909,11 +1178,73 @@
     "title": "Ви хочете додати кілька записів?",
     "description": "{{count}} записів буде додано до таблиці."
   },
+  "tableArchive": {
+    "title": "Архів таблиці",
+    "menuTitle": "Архів",
+    "archivedTime": "Час архівування",
+    "archivedBy": "Ким архівовано",
+    "recordDetail": "Деталі запису",
+    "empty": "Немає архівованих записів",
+    "allCreators": "Усі створювачі",
+    "filterArchivedTime": "Час архівування",
+    "searchPlaceholder": "Пошук архівованих записів",
+    "clearFilter": "Скинути фільтри",
+    "export": "Експорт CSV",
+    "exporting": "Експорт… {{count}} рядків",
+    "exportSucceed": "Експорт завершено, починається завантаження",
+    "restoreSelected": "Відновити ({{count}})",
+    "permanentDeleteSelected": "Видалити назавжди ({{count}})",
+    "permanentDeleteConfirm": "Видалити назавжди {{count}} архівованих записів? Цю дію неможливо скасувати.",
+    "permanentDeleteSucceed": "Видалено назавжди",
+    "resetArchive": "Очистити архів",
+    "resetArchiveConfirm": "Очистити всі архівовані записи цієї таблиці? Цю дію неможливо скасувати.",
+    "resetSucceed": "Архів очищено",
+    "orderBy": {
+      "archivedTime": "Сортувати за часом архівування",
+      "recordCreatedTime": "Сортувати за часом створення",
+      "recordLastModifiedTime": "Сортувати за останньою зміною"
+    }
+  },
   "tableTrash": {
     "title": "Кошик",
     "resourceType": "Тип",
     "deletedResource": "Ресурс",
-    "moreResources": "і ще {{count}}"
+    "moreResources": "і ще {{count}}",
+    "deletedTime": "Час видалення",
+    "deletedBy": "Видалив",
+    "filterAllTypes": "Усі типи",
+    "filterAllUsers": "Усі користувачі",
+    "filterDeletedTime": "Час видалення",
+    "clearFilter": "Скинути фільтри",
+    "recordsDialogTitle": "Видалені записи ({{count}})",
+    "recordDetail": "Деталі запису",
+    "filterAllCreators": "Усі створювачі",
+    "filterCreatedTime": "Час створення",
+    "searchPlaceholder": "Пошук записів"
+  },
+  "pluginPanel": {
+    "empty": {
+      "description": "Панелі плагінів ще не додано."
+    },
+    "createPluginPanel": {
+      "button": "Створити панель плагінів",
+      "title": "Створити панель плагінів"
+    },
+    "namePlaceholder": "Введіть назву панелі плагінів"
+  },
+  "addPlugin": "Додати плагін",
+  "pluginContextMenu": {
+    "mangeButton": "Керувати плагінами",
+    "manage": "Керуйте плагінами контекстного меню",
+    "noPlugin": "Плагінів контекстного меню немає",
+    "delete": "Видалити",
+    "deleteDescription": "Видалити цей плагін?"
+  },
+  "permission": {
+    "cell": {
+      "deniedRead": "У вас немає дозволу переглядати цю клітинку",
+      "deniedUpdate": "У вас немає дозволу оновлювати цю клітинку"
+    }
   },
   "baseShare": {
     "shareTitle": "Поділитися",
@@ -943,7 +1274,10 @@
     "linkScopeDialogTitle": "Link field scope",
     "linkHolderCanCopyAndSave": "Може зберегти як копію",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
-    "editRequiresLogin": "Users must log in to edit records",
+    "copyToMySpace": "Copy to my space",
+    "saveToMySpace": "Save to my space",
+    "supportSaveCopy": "Збережіть копію у своєму просторі",
+    "editRequiresLogin": "Увійдіть, щоб редагувати записи",
     "enterPassword": "Введіть пароль",
     "allowCopyData": "Дозволити глядачам копіювати дані",
     "sharedNode": "Спільний вузол",
@@ -975,16 +1309,67 @@
         "failed": "Помилка"
       }
     },
+    "googleSheetPick": {
+      "title": "Виберіть таблиці Google",
+      "defaultReason": "Виберіть таблиці у засобі вибору файлів Google, щоб їх можна було прочитати.",
+      "pick": "Вибрати таблиці",
+      "opening": "Відкриття вікна вибору…",
+      "failed": "Не вдалося відкрити засіб вибору файлів Google",
+      "gateExpired": "Термін дії запиту минув, але доступ до вибраних файлів збережено — надішліть агенту нове повідомлення, щоб продовжити.",
+      "status": {
+        "picked": "Надано доступ до таблиць: {{count}}",
+        "cancelled": "Пропущено",
+        "failed": "Помилка"
+      }
+    },
     "agent": {
       "askUserQuestion": {
-        "otherPlaceholder": "Або введіть відповідь…"
+        "otherPlaceholder": "Або введіть відповідь…",
+        "asked": "Запитано",
+        "skipped": "Пропущено",
+        "pendingAnswer": "Очікування відповіді",
+        "notSelected": "Не вибрано",
+        "timedOut": "Час вичерпано",
+        "timedOutWithDuration": "Час вичерпано ({{duration}})",
+        "cancelled": "Скасовано",
+        "previousQuestion": "Попереднє запитання",
+        "nextQuestion": "Наступне запитання"
+      },
+      "completion": {
+        "noDetails": "Подробиці недоступні",
+        "model": "Модель",
+        "contextWindow": "Контекстне вікно",
+        "contextTooltip": "Використання робочої пам’яті агента. Наближаючись до ліміту, агент автоматично підсумовує попередню розмову, щоб звільнити місце.",
+        "contextTipNewChat": "Починайте новий чат для інших тем — це значно знижує витрати кредитів.",
+        "contextTipMemory": "Скажіть «запам’ятай», щоб зберегти в довготривалу пам’ять, доступну в усіх чатах."
       },
       "messageActions": {
+        "helpful": "Корисно",
+        "notHelpful": "Не корисно",
+        "commentTitle": "Як можна покращити цю відповідь? (необов’язково)",
+        "commentPlaceholder": "напр.: не по суті, неточно, не той інструмент…",
+        "saveFailed": "Не вдалося зберегти відгук",
         "copy": "Копіювати",
         "copyToInput": "Копіювати в поле вводу"
+      },
+      "contextCompaction": {
+        "auto": "Контекст було автоматично стиснуто",
+        "manual": "Контекст стиснуто",
+        "compacting": "Стиснення контексту…",
+        "failed": "Не вдалося стиснути контекст"
+      },
+      "taskProgress": {
+        "title": "Хід виконання завдання"
+      },
+      "tool": {
+        "copy": "Копіювати",
+        "copied": "Скопійовано!",
+        "collapse": "Згорнути",
+        "linesHidden": "Приховано рядків: {{count}} — натисніть, щоб розгорнути"
       }
     },
     "tool": {
+      "retrying": "Повтор ({{attempt}}/{{maxRetries}})...",
       "showLess": "Показати менше",
       "generateApp": {
         "creatingApp": "Створення додатку",
@@ -996,14 +1381,14 @@
         "code": "Код",
         "download": "Завантажити",
         "downloadHtml": "HTML",
-        "downloadImage": "Зображення (PNG)",
         "copy": "Копіювати",
         "copied": "Скопійовано!",
         "fullscreen": "Повний екран",
         "exitFullscreen": "Вийти з повноекранного режиму",
         "downloadSuccess": "Зображення успішно завантажено",
         "downloadFailed": "Не вдалося знімати зображення",
-        "iframeFailed": "Не вдалося знімати: iframe недоступний"
+        "iframeFailed": "Не вдалося знімати: iframe недоступний",
+        "iframeTitle": "Попередній перегляд HTML"
       }
     },
     "action": {
@@ -1015,9 +1400,38 @@
       "submit": "Надіслати"
     },
     "newChat": "Новий чат",
+    "clearChat": "Очистити чат",
     "expand": "Розгорнути",
     "history": "Історія",
     "close": "Згорнути",
+    "clearChatConfirmTitle": "Підтвердьте очищення чату",
+    "clearChatConfirmDesc": "Поточний вміст чату не буде збережено. Точно очистити?",
+    "dontShowAgain": "Більше не показувати",
+    "modelSwitchTitle": "Змінити модель",
+    "modelSwitchHint": "Наразі працює на {{previous}}. Під час наступного надсилання керування перейде до нової моделі, яка побачить лише останні 3 репліки.",
+    "effort": {
+      "title": "Інтелект",
+      "low": "Низький",
+      "medium": "Середній",
+      "high": "Високий",
+      "xhigh": "Дуже високий"
+    },
+    "sandboxExpiry": {
+      "expiresIn": "Комп’ютер агента спливає через {{time}}",
+      "reset": "Продовжити",
+      "resetTitle": "Продовжити комп’ютер агента",
+      "runningTasks_one": "Виконується {{count}} завдання. Продовження перерве його.",
+      "runningTasks_few": "Виконуються {{count}} завдання. Продовження перерве їх.",
+      "runningTasks_many": "Виконується {{count}} завдань. Продовження перерве їх.",
+      "runningTasks_other": "Виконується {{count}} завдання. Продовження перерве їх.",
+      "noRunningTasks": "Наразі немає завдань, що виконуються.",
+      "newSandboxHint": "Після продовження ви зможете продовжити роботу як звичайно.",
+      "cancel": "Скасувати",
+      "confirmReset": "Продовжити",
+      "confirmResetWithTasks": "Усе одно продовжити",
+      "expiresSoon": "Термін дії комп’ютера агента незабаром спливе",
+      "resetFailed": "Не вдалося продовжити комп’ютер агента"
+    },
     "addAttachment": "Додати вкладення",
     "noHistory": "Немає історії чату",
     "noFoundHistory": "Немає історії чату, будь ласка, почати нову розмову",
@@ -1040,7 +1454,8 @@
       "tables": "Таблиці",
       "apps": "Програми",
       "workflows": "Автоматизації",
-      "folders": "Папки"
+      "folders": "Папки",
+      "envs": "Секрети"
     },
     "slashCommand": {
       "skills": "Skills",
@@ -1062,8 +1477,7 @@
     "attachment": {
       "pastedTextFileName": "Вставлений текст",
       "imageNotSupported": "Зображення не підтримується",
-      "tooManyFiles": "Ви можете прикріпити не більше {{count}} файлів до одного повідомлення",
-      "storageFull": "Сховище пісочниці заповнене. Видаліть кілька файлів і повторіть спробу."
+      "tooManyFiles": "Ви можете прикріпити не більше {{count}} файлів до одного повідомлення"
     },
     "suggestions": {
       "title": "Як я можу допомогти?",
@@ -1088,30 +1502,127 @@
       "writeCodeHint": "Напишіть код, щоб побачити попередній перегляд блок-схеми.",
       "noPreview": "Попередній перегляд блок-схеми недоступний.",
       "codeChanged": "Код змінився з моменту генерації цього попереднього перегляду."
+    },
+    "artifact": {
+      "view": "Відкрити",
+      "restore": "Відновити цю версію",
+      "download": "Завантажити",
+      "openInNewPage": "Відкрити на новій сторінці",
+      "fullscreen": "На весь екран",
+      "exitFullscreen": "Вийти з повноекранного режиму",
+      "delete": "Видалити",
+      "deleteConfirm": "Видалити цей артефакт? Картки в чаті стануть заглушкою видаленого.",
+      "deleted": "Цей артефакт було видалено",
+      "runtimeError": "Помилка артефакту",
+      "loadFailed": "Не вдалося завантажити артефакт",
+      "failed": "Не вдалося створити артефакт",
+      "currentVersion": "Поточна",
+      "share": "Поділитися",
+      "enableShare": "Увімкнути доступ",
+      "copyLink": "Скопіювати посилання",
+      "rotateLink": "Скинути посилання",
+      "scope": "Хто може переглядати",
+      "scopePublic": "Усі, хто має посилання",
+      "scopeSpace": "Учасники простору",
+      "passwordProtect": "Захист паролем",
+      "passwordApply": "Задати",
+      "passwordRequired": "Цей артефакт захищено паролем",
+      "passwordPlaceholder": "Введіть пароль",
+      "passwordIncorrect": "Неправильний пароль",
+      "passwordSubmit": "Підтвердити",
+      "shareNotFound": "Цей спільний артефакт недоступний",
+      "gallery": "Мої артефакти",
+      "galleryEmpty": "Ще немає артефактів — попросіть ШІ створити його в чаті.",
+      "searchPlaceholder": "Пошук артефактів",
+      "fixWithAi": "Виправити за допомогою ШІ",
+      "noPermission": "У вас немає доступу до цього артефакту"
+    },
+    "queue": {
+      "nQueued": "У черзі: {{count}}",
+      "edit": "Редагувати",
+      "steerNow": "Скерувати розмову, не перериваючи її",
+      "steerFailed": "Не вдалося скерувати розмову. Повідомлення залишилося в черзі.",
+      "conversationInputMarker": "Розмову скеровано",
+      "removeFromQueue": "Прибрати"
+    },
+    "partTool": {
+      "bash": "Виконати команду",
+      "read": "Прочитати файл",
+      "write": "Створити файл",
+      "edit": "Редагувати файл",
+      "glob": "Знайти файли",
+      "find": "Знайти файли",
+      "grep": "Шукати у файлах",
+      "ls": "Список каталогу",
+      "webSearch": "Пошук в інтернеті",
+      "skill": "Завантаження навички",
+      "foundFiles": "Знайдено файлів: {{count}}",
+      "listedEntries": "Записів: {{count}}",
+      "moreTools": "+{{count}} інструментів",
+      "moreItems": "+{{count}} ще",
+      "fallbackName": "Інструмент",
+      "questionCount_one": "{{count}} питання",
+      "questionCount_few": "{{count}} питання",
+      "questionCount_many": "{{count}} питань",
+      "questionCount_other": "{{count}} питання",
+      "presentFiles": "Представлені файли",
+      "download": "Завантажити",
+      "downloadAll": "Завантажити все",
+      "downloadAllSkipped_one": "{{count}} файл було очищено й не включено до zip",
+      "downloadAllSkipped_few": "{{count}} файли було очищено й не включено до zip",
+      "downloadAllSkipped_many": "{{count}} файлів було очищено й не включено до zip",
+      "downloadAllSkipped_other": "{{count}} файла було очищено й не включено до zip",
+      "downloadAllEmpty": "Ці файли було очищено, і їх більше не можна завантажити",
+      "installSkill": "Встановити",
+      "installSkillTitle": "Встановити навичку",
+      "installSkillDescription": "Виберіть, куди встановити цю навичку",
+      "skillInstalled": "Встановлено",
+      "installSkillFailed": "Не вдалося встановити навичку",
+      "installSkillReplaceWarning": "Якщо в цій області вже є навичка з такою ж назвою, її буде замінено."
+    },
+    "retry": {
+      "interrupted": "Відповідь перервано",
+      "button": "Повторити",
+      "offline": "Ви офлайн. Повторимо спробу, щойно з’явиться зв’язок.",
+      "pausedHidden": "Повтор призупинено — відкрийте цю вкладку, щоб перепідключитися.",
+      "maxAttemptsReached": "Не вдалося перепідключитися автоматично. Оновіть сторінку вручну."
+    },
+    "initChatFailed": "Не вдалося ініціалізувати чат",
+    "app": {
+      "loadingChatHistory": "Завантаження історії чату...",
+      "generatorTitle": "ШІ-генератор застосунків",
+      "generatorDesc": "Опишіть, що ви хочете створити"
+    },
+    "voice": {
+      "start": "Почати голосове введення",
+      "stop": "Зупинити голосове введення",
+      "accept": "Завершити голосове введення",
+      "cancel": "Скасувати голосове введення",
+      "permissionTip": "Дозвольте доступ до мікрофона.",
+      "recording": "Запис...",
+      "transcribing": "Розшифрування...",
+      "error": {
+        "microphoneDenied": "Доступ до мікрофона заблоковано.",
+        "microphoneUnavailable": "Мікрофон не знайдено.",
+        "unsupportedBrowser": "Запис звуку не підтримується.",
+        "recordingFailed": "Не вдалося виконати запис.",
+        "missingServerKey": "Голосове введення не налаштовано.",
+        "unauthenticated": "Увійдіть знову.",
+        "rateLimited": "Забагато спроб. Зачекайте трохи.",
+        "upstreamAuthFailed": "Ключ API транскрипції недійсний.",
+        "upstreamBadRequest": "Голосовий ендпоінт недійсний.",
+        "upstreamUnavailable": "Голосова функція недоступна."
+      }
     }
   },
-  "download": {
-    "allAttachments": {
-      "title": "Завантажити всі вкладення",
-      "rowsWithAttachments": "Рядки з вклад.",
-      "totalAttachments": "Вкладення",
-      "totalSize": "Загальний розмір",
-      "cancel": "Скасувати",
-      "downloading": "Завантаження...",
-      "completed": "Завантаження завершено",
-      "cancelled": "Завантаження скасовано",
-      "noAttachments": "Немає вкладень для завантаження",
-      "error": "Помилка завантаження",
-      "errorPartial": "{{failedCount}} файлів не вдалося завантажити",
-      "requireHttps": "Пакетне завантаження вимагає HTTPS. Будь ласка, використовуйте HTTPS або localhost.",
-      "advancedOptions": "Додаткові параметри",
-      "namingFieldLabel": "Префікс імені вкладення",
-      "selectField": "За замовчуванням: індекс вкладення",
-      "noPrefixOption": "Без префікса",
-      "noPrefixOptionDesc": "Зберегти оригінальну назву файлу",
-      "groupByRow": "Архівувати в папки",
-      "groupByRowTip": "Коли рядок має кілька вкладень, вони будуть розміщені в одній папці; рядки з одним вкладенням не створюють папку."
-    }
+  "upload": {
+    "panelUploading": "Завантаження файлів: {{count}}",
+    "panelFailed": "Не вдалося завантажити файлів: {{count}}",
+    "panelCompleted": "Завершено файлів: {{count}}",
+    "statusFailed": "Не вдалося",
+    "statusCompleted": "Завершено",
+    "statusCancel": "Скасувати завантаження",
+    "statusRetry": "Повторити завантаження"
   },
   "baseNode": {
     "info": {
@@ -1123,7 +1634,16 @@
       "folderId": "ID папки",
       "tableId": "ID таблиці",
       "automationId": "ID автоматизації",
-      "appId": "ID додатка"
+      "appId": "ID додатка",
+      "searchVector": "Повнотекстовий пошук",
+      "searchVectorFields": "поля",
+      "searchVectorStatus": {
+        "ready": "Увімкнено",
+        "configured": "Налаштовано",
+        "rebuildPending": "Очікується обслуговування",
+        "stale": "Потребує перебудови",
+        "unknown": "Невідомо"
+      }
     }
   }
 }

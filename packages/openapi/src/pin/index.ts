@@ -1,3 +1,4 @@
+export * from './entry-map';
 export * from './delete';
 export * from './add';
 export * from './get-list';

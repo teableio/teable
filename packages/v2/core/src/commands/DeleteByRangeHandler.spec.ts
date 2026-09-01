@@ -803,7 +803,7 @@ describe('DeleteByRangeHandler', () => {
     expect(result._unsafeUnwrapErr().message).toBe('delete failed');
   });
 
-  it('returns error when repository delete snapshots disagree with planned rows', async () => {
+  it('uses pre-read snapshots when repository delete snapshots disagree with planned rows', async () => {
     const { table, tableId, viewId } = buildTable();
     const tableRepository = new FakeTableRepository();
     tableRepository.tables.push(table);
@@ -831,7 +831,10 @@ describe('DeleteByRangeHandler', () => {
     });
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().code).toBe('record.stored_snapshot.missing');
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().deletedRecordIds).toEqual([
+      `rec${'a'.repeat(16)}`,
+      `rec${'b'.repeat(16)}`,
+    ]);
   });
 });

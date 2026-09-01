@@ -151,6 +151,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
         hasSearch: options.hasSearch,
         restrictRecordIds: options.restrictRecordIds,
         paginationMode: options.paginationMode,
+        unsupportedFieldReferenceBehavior: options.unsupportedFieldReferenceBehavior,
       });
       this.buildFieldCtes(
         qb,
@@ -215,7 +216,15 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
 
     const selectionMap = state.getSelectionMap();
     if (filter) {
-      this.buildFilter(qb, table, filter, selectionMap, currentUserId, alias);
+      this.buildFilter(
+        qb,
+        table,
+        filter,
+        selectionMap,
+        currentUserId,
+        alias,
+        options.unsupportedFieldReferenceBehavior
+      );
     }
 
     if (sort) {
@@ -261,13 +270,22 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       offset,
       paginationMode: usePaginatedRange ? 'full' : undefined,
       preferStoredLookupFields,
+      unsupportedFieldReferenceBehavior: options.unsupportedFieldReferenceBehavior,
     });
 
     this.buildAggregateSelect(qb, table, state, options.projection, preferStoredLookupFields);
     const selectionMap = state.getSelectionMap();
 
     if (filter) {
-      this.buildFilter(qb, table, filter, selectionMap, currentUserId, alias);
+      this.buildFilter(
+        qb,
+        table,
+        filter,
+        selectionMap,
+        currentUserId,
+        alias,
+        options.unsupportedFieldReferenceBehavior
+      );
     }
 
     const fieldMap = table.fieldList.reduce(
@@ -436,6 +454,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       hasSearch?: boolean;
       restrictRecordIds?: string[];
       paginationMode?: 'split' | 'full';
+      unsupportedFieldReferenceBehavior?: 'throw' | 'match-all';
     }
   ): void {
     const {
@@ -448,6 +467,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       hasSearch,
       restrictRecordIds,
       paginationMode = 'split',
+      unsupportedFieldReferenceBehavior,
     } = params;
     state.setBaseCteName(undefined);
 
@@ -500,7 +520,15 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       .from({ [alias]: originalSource });
 
     if (applyPagination && filter) {
-      this.buildFilter(baseBuilder, table, filter, baseSelectionMap!, currentUserId, alias);
+      this.buildFilter(
+        baseBuilder,
+        table,
+        filter,
+        baseSelectionMap!,
+        currentUserId,
+        alias,
+        unsupportedFieldReferenceBehavior
+      );
     }
 
     if (applyPagination && sort && sort.length) {
@@ -719,7 +747,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     filter: IFilter,
     selectionMap: IReadonlyRecordSelectionMap,
     currentUserId: string | undefined,
-    mainAlias?: string
+    mainAlias?: string,
+    unsupportedFieldReferenceBehavior?: 'throw' | 'match-all'
   ): this {
     // Allow filters to reference fields even if they are not part of the final projection
     // so that permission-hidden fields can still participate in WHERE clauses.
@@ -744,7 +773,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
         map,
         filter,
         { withUserId: currentUserId },
-        { selectionMap: augmentedSelection }
+        { selectionMap: augmentedSelection, unsupportedFieldReferenceBehavior }
       )
       .appendQueryBuilder();
     return this;

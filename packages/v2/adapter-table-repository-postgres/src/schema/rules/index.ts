@@ -26,6 +26,7 @@ export type {
 export {
   ColumnExistsRule,
   ColumnUniqueConstraintRule,
+  ConditionalMatchIndexRule,
   createFieldSchemaRules,
   FieldMetaRule,
   FieldSchemaRulesVisitor,

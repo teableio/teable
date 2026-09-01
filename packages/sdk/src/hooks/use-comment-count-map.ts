@@ -3,10 +3,10 @@ import { IdPrefix, getTableCommentChannel } from '@teable/core';
 import type { IGetRecordsRo, ICommentCountVo } from '@teable/openapi';
 import { getCommentCount, CommentPatchType, saveQueryParams } from '@teable/openapi';
 import { get } from 'lodash';
-import { useContext, useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { LARGE_QUERY_THRESHOLD } from '../components/grid-enhancements/hooks/constant';
 import { ReactQueryKeys } from '../config';
-import { ShareViewContext } from '../context/table/ShareViewContext';
+import { useCommentPermission } from './use-comment-permission';
 import { useConnection } from './use-connection';
 import { useSearch } from './use-search';
 import { useTableId } from './use-table-id';
@@ -23,11 +23,9 @@ export const useCommentCountMap = (query?: IGetRecordsRo) => {
   const { filteringSearchQuery } = useSearch();
 
   const { connection } = useConnection();
-  // Comments are intentionally hidden from share-view viewers (they would
-  // leak internal collaborator identities). Skip the fetch entirely; the
-  // server would 403 anyway under the new share-view GET rule.
-  const { shareId } = useContext(ShareViewContext);
-  const isShareContext = Boolean(shareId);
+  // Whoever cannot open the comments has no business knowing they exist: the
+  // count badge follows the same gate as the panel (share links included).
+  const { commentReadable } = useCommentPermission();
 
   const queryParams = useMemo<IGetRecordsRo>(() => {
     return {
@@ -56,7 +54,7 @@ export const useCommentCountMap = (query?: IGetRecordsRo) => {
       }
       return getCommentCount(tableId!, queryParams).then(({ data }) => data);
     },
-    enabled: !!tableId && !isShareContext,
+    enabled: !!tableId && commentReadable,
   });
 
   const [commentCount, setCommentCount] = useState<ICommentCountVo>([]);
@@ -66,7 +64,7 @@ export const useCommentCountMap = (query?: IGetRecordsRo) => {
   }, [data]);
 
   useEffect(() => {
-    if (!tableId) {
+    if (!tableId || !commentReadable) {
       return;
     }
 
@@ -109,7 +107,7 @@ export const useCommentCountMap = (query?: IGetRecordsRo) => {
       presence?.listenerCount('receive') === 0 && presence?.unsubscribe();
       presence?.listenerCount('receive') === 0 && presence?.destroy();
     };
-  }, [connection, tableId]);
+  }, [connection, tableId, commentReadable]);
 
   return useMemo(() => {
     return Object.fromEntries(commentCount.map((item) => [item.recordId, item.count]));

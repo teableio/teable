@@ -13,7 +13,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe the adapter package scope.
 - `src/ShareDbPublisher.ts` - Role: adapter port; Purpose: define op publisher contract and types.
 - `src/ShareDbBackendPublisher.ts` - Role: adapter helper; Purpose: submit ops through ShareDB backend.
-- `src/ShareDbRealtimeEngine.ts` - Role: realtime adapter; Purpose: map IRealtimeEngine to ShareDB ops.
+- `src/ShareDbRealtimeEngine.ts` - Role: realtime adapter; Purpose: map IRealtimeEngine to ShareDB ops and publish update/delete operations at the caller-provided document version.
 - `src/ShareDbWebSocketServer.ts` - Role: transport helper; Purpose: bind ShareDB to a WebSocket server.
 - `src/websocket-json-stream.d.ts` - Role: type shim; Purpose: declare module types for WebSocket JSON streams.
 - `src/di/register.ts` - Role: DI helper; Purpose: register engine + projections.

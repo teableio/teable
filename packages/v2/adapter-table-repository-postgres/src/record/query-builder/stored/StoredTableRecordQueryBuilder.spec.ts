@@ -1,10 +1,16 @@
 import {
   BaseId,
+  CellValueMultiplicity,
+  CellValueType,
   DateFormattingPreset,
   DateTimeFormatting,
   DbFieldName,
+  DbFieldType,
+  FieldHasError,
+  FieldId,
   FieldName,
   FieldType,
+  FormulaExpression,
   RecordConditionFieldReferenceValue,
   Table,
   TableId,
@@ -19,6 +25,7 @@ import {
   PostgresAdapter,
   PostgresIntrospector,
   PostgresQueryCompiler,
+  sql as kyselySql,
 } from 'kysely';
 import { describe, expect, test } from 'vitest';
 
@@ -175,6 +182,102 @@ describe('StoredTableRecordQueryBuilder', () => {
       expect(parameters).toEqual([]);
     });
 
+    test('projects typed nulls instead of stale stored values for errored computed fields', () => {
+      const db = createTestDb();
+      const primaryFieldId = FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap();
+      const formulaFieldId = FieldId.create(`fld${'f'.repeat(16)}`)._unsafeUnwrap();
+      const builder = Table.builder()
+        .withId(TableId.create(MAIN_TABLE_ID)._unsafeUnwrap())
+        .withBaseId(BaseId.create(BASE_ID)._unsafeUnwrap())
+        .withName(TableName.create('ErroredComputedTable')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withId(primaryFieldId)
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder
+        .field()
+        .formula()
+        .withId(formulaFieldId)
+        .withName(FieldName.create('Broken formula')._unsafeUnwrap())
+        .withExpression(FormulaExpression.create(`{${primaryFieldId.toString()}}`)._unsafeUnwrap())
+        .withResultType({
+          cellValueType: CellValueType.string(),
+          isMultipleCellValue: CellValueMultiplicity.single(),
+        })
+        .done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
+      const formulaField = table
+        .getField((field) => field.id().equals(formulaFieldId))
+        ._unsafeUnwrap();
+      formulaField
+        .setDbFieldName(DbFieldName.rehydrate('col_broken_formula')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      formulaField.setDbFieldType(DbFieldType.rehydrate('TEXT')._unsafeUnwrap())._unsafeUnwrap();
+      formulaField.setHasError(FieldHasError.error());
+
+      const qb = new StoredTableRecordQueryBuilder(db);
+      const { sql } = compileQuery(
+        db,
+        qb.from(table).select([formulaFieldId]).orderBy(formulaFieldId, 'asc')
+      );
+
+      expect(sql).toContain('NULL::text as "col_broken_formula"');
+      expect(sql).toContain('order by NULL::text asc nulls first');
+      expect(sql).not.toContain('"t"."col_broken_formula"');
+    });
+
+    test('emits uncast NULL for errored computed fields with unknown dbFieldType', () => {
+      const db = createTestDb();
+      const primaryFieldId = FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap();
+      const formulaFieldId = FieldId.create(`fld${'f'.repeat(16)}`)._unsafeUnwrap();
+      const builder = Table.builder()
+        .withId(TableId.create(MAIN_TABLE_ID)._unsafeUnwrap())
+        .withBaseId(BaseId.create(BASE_ID)._unsafeUnwrap())
+        .withName(TableName.create('ErroredComputedTable')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withId(primaryFieldId)
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder
+        .field()
+        .formula()
+        .withId(formulaFieldId)
+        .withName(FieldName.create('Broken formula')._unsafeUnwrap())
+        .withExpression(FormulaExpression.create(`{${primaryFieldId.toString()}}`)._unsafeUnwrap())
+        .withResultType({
+          cellValueType: CellValueType.string(),
+          isMultipleCellValue: CellValueMultiplicity.single(),
+        })
+        .done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
+      const formulaField = table
+        .getField((field) => field.id().equals(formulaFieldId))
+        ._unsafeUnwrap();
+      formulaField
+        .setDbFieldName(DbFieldName.rehydrate('col_broken_formula')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      // Persisted metadata is untrusted: must never reach raw SQL as a cast.
+      formulaField
+        .setDbFieldType(DbFieldType.rehydrate(`text) FROM x --`)._unsafeUnwrap())
+        ._unsafeUnwrap();
+      formulaField.setHasError(FieldHasError.error());
+
+      const qb = new StoredTableRecordQueryBuilder(db);
+      const { sql } = compileQuery(db, qb.from(table).select([formulaFieldId]));
+
+      expect(sql).toContain('NULL as "col_broken_formula"');
+      expect(sql).not.toContain('NULL::');
+      expect(sql).not.toContain('FROM x');
+    });
+
     test('applies limit and offset', () => {
       const db = createTestDb();
       const table = createTableWithAllFields();
@@ -184,6 +287,191 @@ describe('StoredTableRecordQueryBuilder', () => {
 
       expect(sql).toContain('limit $1 offset $2');
       expect(parameters).toEqual([10, 20]);
+    });
+
+    test('selects ordered pages through a narrow id subquery', () => {
+      const db = createTestDb();
+      const table = createTableWithAllFields();
+
+      const qb = new StoredTableRecordQueryBuilder(db);
+      const { sql, parameters } = compileQuery(
+        db,
+        qb.from(table).orderBy('__auto_number', 'asc').limit(10).offset(20)
+      );
+
+      // Wide rows are only fetched for the page selected by the narrow subquery.
+      expect(sql).toContain('inner join (select "t"."__id" as "__id" from');
+      expect(sql).toContain('as "__page" on "__page"."__id" = "t"."__id"');
+      const inner = sql.slice(sql.indexOf('inner join ('), sql.indexOf('as "__page"'));
+      expect(inner).not.toContain('col_single_line_text');
+      expect(inner).toContain('order by "t"."__auto_number" asc');
+      expect(inner).not.toContain('is null');
+      expect(inner).toContain('limit $1 offset $2');
+      // The outer query re-applies the ordering for the joined page rows.
+      const outer = sql.slice(sql.indexOf('as "__page"'));
+      expect(outer).toContain('order by');
+      expect(outer).not.toContain('limit');
+      expect(parameters).toEqual([10, 20]);
+    });
+
+    test('orders never-null system columns without an is-null prefix', () => {
+      const db = createTestDb();
+      const table = createTableWithAllFields();
+
+      const qb = new StoredTableRecordQueryBuilder(db);
+      const { sql } = compileQuery(db, qb.from(table).orderBy('__auto_number', 'asc'));
+
+      expect(sql).toContain('order by "t"."__auto_number" asc');
+      expect(sql).not.toContain('"t"."__auto_number" is null');
+    });
+
+    test('orders nullable number columns with native nulls first', () => {
+      const db = createTestDb();
+      const table = createTableWithAllFields();
+      const numberField = table
+        .getFields()
+        .find((field) => field.type().equals(FieldType.number()));
+
+      expect(numberField).toBeDefined();
+      if (!numberField) return;
+
+      const qb = new StoredTableRecordQueryBuilder(db);
+      const { sql } = compileQuery(db, qb.from(table).orderBy(numberField.id(), 'asc').limit(10));
+
+      const inner = sql.slice(sql.indexOf('inner join ('), sql.indexOf('as "__page"'));
+      expect(inner).toContain('order by "t"."col_number" asc nulls first');
+      expect(inner).not.toContain('is null');
+      expect(sql).toContain('"t"."col_number" asc nulls first');
+    });
+
+    test('orders fields through the masked CASE value', () => {
+      const db = createTestDb();
+      const table = createTableWithAllFields();
+      const [visibilityField, , numberField] = table.getFields();
+      expect(visibilityField).toBeDefined();
+      expect(numberField).toBeDefined();
+      if (!visibilityField || !numberField) return;
+
+      const qb = new StoredTableRecordQueryBuilder(db);
+      const { sql, parameters } = compileQuery(
+        db,
+        qb
+          .from(table)
+          .fieldMaskSql(
+            new Map([
+              [
+                numberField.id().toString(),
+                kyselySql<boolean>`${kyselySql.ref('t.col_single_line_text')} = ${'visible'}`,
+              ],
+            ])
+          )
+          .orderBy(numberField.id(), 'asc')
+      );
+
+      expect(sql).toContain(
+        'order by CASE WHEN "t"."col_single_line_text" = $1 THEN "t"."col_number" ELSE NULL END asc nulls first'
+      );
+      expect(sql).not.toContain('order by "t"."col_number" asc');
+      expect(parameters).toEqual(['visible']);
+    });
+
+    test('collapses duplicate system column order keys', () => {
+      const db = createTestDb();
+      const table = createTableWithAllFields();
+
+      const qb = new StoredTableRecordQueryBuilder(db);
+      const { sql } = compileQuery(
+        db,
+        qb.from(table).orderBy('__auto_number', 'asc').orderBy('__auto_number', 'asc')
+      );
+
+      expect(sql.match(/order by "t"."__auto_number" asc/g)).toEqual([
+        'order by "t"."__auto_number" asc',
+      ]);
+    });
+
+    test('idsOnly selects just the record id column', () => {
+      const db = createTestDb();
+      const table = createTableWithAllFields();
+
+      const qb = new StoredTableRecordQueryBuilder(db);
+      const { sql } = compileQuery(db, qb.from(table).idsOnly());
+
+      expect(sql).toContain('"t"."__id" as "__id"');
+      expect(sql).not.toContain('__version');
+      expect(sql).not.toContain('__created_time');
+      expect(sql).not.toContain('col_single_line_text');
+    });
+
+    test('valuesOnly selects id and projected field columns only', () => {
+      const db = createTestDb();
+      const table = createTableWithAllFields();
+      const firstFieldId = table.getFields()[0].id();
+
+      const qb = new StoredTableRecordQueryBuilder(db);
+      const { sql } = compileQuery(db, qb.from(table).select([firstFieldId]).valuesOnly());
+
+      expect(sql).toContain('"t"."__id" as "__id"');
+      expect(sql).toContain('"t"."col_single_line_text" as "col_single_line_text"');
+      expect(sql).not.toContain('__version');
+      expect(sql).not.toContain('__auto_number');
+      expect(sql).not.toContain('__created_time');
+      expect(sql).not.toContain('__created_by');
+      expect(sql).not.toContain('__last_modified_time');
+      expect(sql).not.toContain('__last_modified_by');
+      expect(sql).not.toContain('col_long_text');
+    });
+
+    test('idsOnly ordered pages return the narrow subquery without a payload join', () => {
+      const db = createTestDb();
+      const table = createTableWithAllFields();
+
+      const qb = new StoredTableRecordQueryBuilder(db);
+      const { sql, parameters } = compileQuery(
+        db,
+        qb.from(table).idsOnly().orderBy('__auto_number', 'asc').limit(10).offset(20)
+      );
+
+      expect(sql).not.toContain('inner join');
+      expect(sql).toContain('"t"."__id" as "__id"');
+      expect(sql).not.toContain('__version');
+      expect(sql).toContain('order by "t"."__auto_number" asc');
+      expect(sql).not.toContain('is null');
+      expect(sql).toContain('limit $1 offset $2');
+      expect(parameters).toEqual([10, 20]);
+    });
+
+    test('places whereExpression conditions inside the page subquery', () => {
+      const db = createTestDb();
+      const table = createTableWithAllFields();
+
+      const qb = new StoredTableRecordQueryBuilder(db);
+      const { sql, parameters } = compileQuery(
+        db,
+        qb
+          .from(table)
+          .orderBy('__auto_number', 'asc')
+          .limit(10)
+          .whereExpression(kyselySql<boolean>`${kyselySql.ref('t.__auto_number')} > ${5}`)
+      );
+
+      const inner = sql.slice(sql.indexOf('inner join ('), sql.indexOf('as "__page"'));
+      expect(inner).toContain('where "t"."__auto_number" > $1');
+      expect(inner).toContain('limit $2');
+      const outer = sql.slice(0, sql.indexOf('inner join ('));
+      expect(outer).not.toContain('where');
+      expect(parameters).toEqual([5, 10]);
+    });
+
+    test('keeps single-query shape for unpaginated ordered reads', () => {
+      const db = createTestDb();
+      const table = createTableWithAllFields();
+
+      const qb = new StoredTableRecordQueryBuilder(db);
+      const { sql } = compileQuery(db, qb.from(table).orderBy('__auto_number', 'asc'));
+
+      expect(sql).not.toContain('inner join');
+      expect(sql).toContain('order by');
     });
 
     test('filters by projection', () => {
@@ -235,14 +523,61 @@ describe('StoredTableRecordQueryBuilder', () => {
         qb.from(table).orderBy(createdTimeField.id(), 'desc')
       );
 
-      expect(sql).toContain('order by to_char(timezone($1, "t"."__created_time"), $2) is null asc');
-      expect(sql).toContain('to_char(timezone($3, "t"."__created_time"), $4) desc');
-      expect(parameters.slice(-4)).toEqual([
-        'Asia/Singapore',
-        'YYYY-MM-DD',
-        'Asia/Singapore',
-        'YYYY-MM-DD',
-      ]);
+      expect(sql).toContain(
+        'order by to_char(timezone($1, "t"."__created_time"), $2) desc nulls last'
+      );
+      expect(sql).not.toContain('is null');
+      expect(parameters.slice(-2)).toEqual(['Asia/Singapore', 'YYYY-MM-DD']);
+    });
+
+    test('orders tracked lastModifiedTime by the field column not the system timestamp', () => {
+      const db = createTestDb();
+      const formatting = DateTimeFormatting.create({
+        date: DateFormattingPreset.ISO,
+        time: TimeFormatting.None,
+        timeZone: 'Asia/Shanghai',
+      })._unsafeUnwrap();
+      const trackedFieldId = FieldId.create(`fld${'t'.repeat(16)}`)._unsafeUnwrap();
+
+      const table = Table.builder()
+        .withId(TableId.create(MAIN_TABLE_ID)._unsafeUnwrap())
+        .withBaseId(BaseId.create(BASE_ID)._unsafeUnwrap())
+        .withName(TableName.create('TrackedLastModifiedSortTable')._unsafeUnwrap())
+        .field()
+        .singleLineText()
+        .withId(trackedFieldId)
+        .withName(FieldName.create('Status')._unsafeUnwrap())
+        .done()
+        .field()
+        .lastModifiedTime()
+        .withName(FieldName.create('LastModified')._unsafeUnwrap())
+        .withFormatting(formatting)
+        .withTrackedFieldIds([trackedFieldId])
+        .done()
+        .view()
+        .defaultGrid()
+        .done()
+        .build()
+        ._unsafeUnwrap();
+
+      const [statusField, lastModifiedTimeField] = table.getFields();
+      statusField
+        .setDbFieldName(DbFieldName.rehydrate('col_status')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      lastModifiedTimeField
+        .setDbFieldName(DbFieldName.rehydrate('col_last_modified')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      const qb = new StoredTableRecordQueryBuilder(db);
+      const { sql, parameters } = compileQuery(
+        db,
+        qb.from(table).orderBy(lastModifiedTimeField.id(), 'desc')
+      );
+
+      expect(sql).toContain(
+        'order by to_char(timezone($1, "t"."col_last_modified"), $2) desc nulls last'
+      );
+      expect(sql).not.toContain('order by to_char(timezone($1, "t"."__last_modified_time")');
+      expect(parameters.slice(-2)).toEqual(['Asia/Shanghai', 'YYYY-MM-DD']);
     });
 
     test('orders date fields by formatted year when date formatting collapses precision', () => {
@@ -274,9 +609,9 @@ describe('StoredTableRecordQueryBuilder', () => {
       const qb = new StoredTableRecordQueryBuilder(db);
       const { sql, parameters } = compileQuery(db, qb.from(table).orderBy(dateField.id(), 'asc'));
 
-      expect(sql).toContain('order by to_char(timezone($1, "t"."col_date"), $2) is null desc');
-      expect(sql).toContain('to_char(timezone($3, "t"."col_date"), $4) asc');
-      expect(parameters.slice(-4)).toEqual(['Asia/Singapore', 'YYYY', 'Asia/Singapore', 'YYYY']);
+      expect(sql).toContain('order by to_char(timezone($1, "t"."col_date"), $2) asc nulls first');
+      expect(sql).not.toContain('is null');
+      expect(parameters.slice(-2)).toEqual(['Asia/Singapore', 'YYYY']);
     });
 
     test('orders single user field by title with ASC null-first semantics', () => {
@@ -290,8 +625,31 @@ describe('StoredTableRecordQueryBuilder', () => {
       const qb = new StoredTableRecordQueryBuilder(db);
       const { sql } = compileQuery(db, qb.from(table).orderBy(userField.id(), 'asc'));
 
-      expect(sql).toContain('"t"."col_user"::jsonb ->> \'title\' is null desc');
-      expect(sql).toContain('"t"."col_user"::jsonb ->> \'title\' asc');
+      expect(sql).toContain('"t"."col_user"::jsonb ->> \'title\' asc nulls first');
+      expect(sql).not.toContain('is null');
+    });
+
+    test('orders single user field by the group identity when flagged for group collation', () => {
+      const db = createTestDb();
+      const table = createTableWithAllFields();
+      const userField = table.getFields().find((field) => field.type().equals(FieldType.user()));
+
+      expect(userField).toBeDefined();
+      if (!userField) return;
+
+      const qb = new StoredTableRecordQueryBuilder(db);
+      const { sql } = compileQuery(
+        db,
+        qb.from(table).orderBy(userField.id(), 'asc', { groupIdentityCollation: true })
+      );
+
+      // title over the identity (object/scalar normalized), null-first, then
+      // the identity object as the same-title tiebreak — the exact collation
+      // the group queries use
+      expect(sql).toContain(`CASE jsonb_typeof("t"."col_user"::jsonb)`);
+      expect(sql).toContain(`->> 'title' asc nulls first`);
+      expect(sql).not.toContain('is null');
+      expect(sql).toMatch(/END asc$/);
     });
 
     test('orders createdBy field by title with ASC null-first semantics', () => {
@@ -308,11 +666,9 @@ describe('StoredTableRecordQueryBuilder', () => {
       const { sql } = compileQuery(db, qb.from(table).orderBy(createdByField.id(), 'asc'));
 
       expect(sql).toContain(
-        `coalesce(to_jsonb("t"."__created_by") ->> 'title', to_jsonb("t"."__created_by") ->> 'name', to_jsonb("t"."__created_by") #>> '{}') is null desc`
+        `coalesce(to_jsonb("t"."__created_by") ->> 'title', to_jsonb("t"."__created_by") ->> 'name', to_jsonb("t"."__created_by") #>> '{}') asc nulls first`
       );
-      expect(sql).toContain(
-        `coalesce(to_jsonb("t"."__created_by") ->> 'title', to_jsonb("t"."__created_by") ->> 'name', to_jsonb("t"."__created_by") #>> '{}') asc`
-      );
+      expect(sql).not.toContain('is null');
     });
   });
 
@@ -471,8 +827,27 @@ describe('StoredTableRecordQueryBuilder', () => {
       expect(sql).toContain(
         `WHEN jsonb_typeof("t"."col_assignees"::jsonb) = 'object' THEN jsonb_build_array("t"."col_assignees"::jsonb)`
       );
-      expect(sql).toContain("'$[*].title')::text");
-      expect(sql).toContain('"t"."col_assignees"::jsonb');
+      expect(sql).toContain("'$[*].title')::text asc nulls first");
+      expect(sql).not.toContain('is null');
+    });
+
+    test('orders multiple user field by identity titles when flagged for group collation', () => {
+      const db = createTestDb();
+      const { table, assigneesField } = createUserFilterTable();
+
+      const qb = new StoredTableRecordQueryBuilder(db);
+      const { sql } = compileQuery(
+        db,
+        qb.from(table).orderBy(assigneesField.id(), 'asc', { groupIdentityCollation: true })
+      );
+
+      // titles over the group identity array with the '[]' empty fallback,
+      // then the identity itself as the same-titles tiebreak
+      expect(sql).toContain('COALESCE(jsonb_path_query_array(CASE');
+      expect(sql).toContain(`CASE jsonb_typeof("t"."col_assignees"::jsonb)`);
+      expect(sql).toContain(`FROM jsonb_array_elements("t"."col_assignees"::jsonb) AS u`);
+      expect(sql).toContain(`'$[*].title')::text, '[]') asc`);
+      expect(sql).toMatch(/END asc$/);
     });
   });
 

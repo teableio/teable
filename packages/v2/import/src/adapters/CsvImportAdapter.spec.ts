@@ -202,5 +202,30 @@ describe('CsvImportAdapter', () => {
       expect(result.isOk()).toBe(true);
       expect(fetchFn).toHaveBeenCalledWith('https://example.com/a.csv', undefined);
     });
+
+    it('keeps quoted newlines as a single CSV row', async () => {
+      setSafeFetch(
+        vi
+          .fn()
+          .mockResolvedValue(
+            new Response('name,note\nAlice,"hello\nworld"\nBob,ok\n', { status: 200 })
+          )
+      );
+
+      const result = await adapter.parse({ type: 'csv', url: 'https://example.com/quoted.csv' });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) {
+        return;
+      }
+
+      expect(result.value.rowCount).toBe(3);
+      expect(result.value.headers).toEqual(['name', 'note']);
+      expect([...result.value.rows]).toEqual([
+        ['name', 'note'],
+        ['Alice', 'hello\nworld'],
+        ['Bob', 'ok'],
+      ]);
+    });
   });
 });

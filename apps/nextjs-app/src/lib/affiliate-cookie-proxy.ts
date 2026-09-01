@@ -30,7 +30,7 @@ const hostnameFromOrigin = (origin: string | undefined): string | undefined => {
  * main domains, and every non-apex outcome degrades to a host-only cookie,
  * never worse than no capture.
  */
-const resolveCookieDomainForRequest = (request: NextRequest): string | undefined => {
+export const resolveCookieDomainForRequest = (request: NextRequest): string | undefined => {
   const candidates = [
     request.headers.get('x-forwarded-host')?.split(',')[0],
     request.headers.get('host'),

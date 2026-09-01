@@ -142,7 +142,7 @@ export const SheetView = () => {
     <div className="flex size-full flex-1 flex-col overflow-hidden">
       {
         <>
-          <div className="flex h-12 items-center justify-between border-y py-2 pl-8 pr-4">
+          <div className="flex h-12 items-center justify-between border-y py-2 pe-4 ps-8">
             <div className="flex gap-2">
               <Button
                 size={'sm'}
@@ -181,7 +181,7 @@ export const SheetView = () => {
           </div>
           <div className="flex flex-1 overflow-hidden rounded-sm">
             {mode === 'design' && (
-              <div className="flex w-56 flex-col border-r p-2">
+              <div className="flex w-56 flex-col border-e p-2">
                 <div className="my-1 flex flex-1 overflow-auto ">
                   <ToggleGroup
                     type="single"

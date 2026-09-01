@@ -459,7 +459,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
 
               <div className="flex flex-col gap-2">
                 <span className="text-sm font-semibold">{t('publishBase.form.security')}</span>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 rtl:space-x-reverse">
                   <Switch
                     id="include-data"
                     checked={includeData}
@@ -639,7 +639,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                   </div>
                 </div>
                 {templateDetail?.isPublished && (
-                  <div className="z-50 flex h-9 w-[432px] items-center gap-2 overflow-hidden rounded-md border bg-background pl-3">
+                  <div className="z-50 flex h-9 w-[432px] items-center gap-2 overflow-hidden rounded-md border bg-background ps-3">
                     <Link className="size-4 shrink-0" />
                     <div className="grow truncate text-sm text-muted-foreground">
                       {displayShareUrl}
@@ -647,7 +647,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="size-9 shrink-0 rounded-none border-l p-0"
+                      className="size-9 shrink-0 rounded-none border-s p-0"
                       onClick={handleCopyUrl}
                     >
                       <Copy className="size-4" />
@@ -655,7 +655,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="size-9 shrink-0 rounded-none border-l p-0"
+                      className="size-9 shrink-0 rounded-none border-s p-0"
                       onClick={() => window.open(displayShareUrl, '_blank')}
                     >
                       <ExternalLink className="size-4" />
@@ -681,7 +681,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       >
         <DialogContent className="max-w-[512px] gap-0 p-0">
           <DialogHeader className="flex h-[60px] flex-col justify-center px-6">
-            <DialogTitle className="text-left text-lg font-semibold">
+            <DialogTitle className="text-start text-lg font-semibold">
               {t('publishBase.publishSuccess')}
             </DialogTitle>
           </DialogHeader>

@@ -1,0 +1,113 @@
+{
+  "errors": {
+    "invalid_type": "צפוי {{expected}}, התקבל {{received}}",
+    "invalid_type_received_undefined": "שדה חובה",
+    "invalid_type_received_null": "שדה חובה",
+    "invalid_literal": "ערך קבוע לא חוקי, צפוי {{expected}}",
+    "unrecognized_keys": "מפתחות לא מזוהים באובייקט: {{- keys}}",
+    "invalid_union": "קלט לא חוקי",
+    "invalid_union_discriminator": "ערך מבחין לא חוקי. צפוי {{- options}}",
+    "invalid_enum_value": "ערך לא חוקי. צפוי {{- options}}, התקבל '{{received}}'",
+    "invalid_arguments": "ארגומנטים לא חוקיים לפונקציה",
+    "invalid_return_type": "סוג ערך מוחזר לא חוקי",
+    "invalid_date": "תאריך לא חוקי",
+    "custom": "קלט לא חוקי",
+    "invalid_intersection_types": "לא ניתן למזג את תוצאות החיתוך",
+    "not_multiple_of": "המספר חייב להיות כפולה של {{multipleOf}}",
+    "not_finite": "המספר חייב להיות סופי",
+    "invalid_string": {
+      "email": "{{validation}} לא חוקי",
+      "url": "{{validation}} לא חוקי",
+      "uuid": "{{validation}} לא חוקי",
+      "cuid": "{{validation}} לא חוקי",
+      "regex": "לא חוקי",
+      "datetime": "{{validation}} לא חוקי",
+      "startsWith": "קלט לא חוקי: חייב להתחיל ב-\"{{startsWith}}\"",
+      "endsWith": "קלט לא חוקי: חייב להסתיים ב-\"{{endsWith}}\""
+    },
+    "too_small": {
+      "array": {
+        "exact": "המערך חייב להכיל בדיוק {{minimum}} פריטים",
+        "inclusive": "המערך חייב להכיל לפחות {{minimum}} פריטים",
+        "not_inclusive": "המערך חייב להכיל יותר מ-{{minimum}} פריטים"
+      },
+      "string": {
+        "exact": "המחרוזת חייבת להכיל בדיוק {{minimum}} תווים",
+        "inclusive": "המחרוזת חייבת להכיל לפחות {{minimum}} תווים",
+        "not_inclusive": "המחרוזת חייבת להכיל יותר מ-{{minimum}} תווים"
+      },
+      "number": {
+        "exact": "המספר חייב להיות בדיוק {{minimum}}",
+        "inclusive": "המספר חייב להיות גדול מ-{{minimum}} או שווה לו",
+        "not_inclusive": "המספר חייב להיות גדול מ-{{minimum}}"
+      },
+      "set": {
+        "exact": "קלט לא חוקי",
+        "inclusive": "קלט לא חוקי",
+        "not_inclusive": "קלט לא חוקי"
+      },
+      "date": {
+        "exact": "התאריך חייב להיות בדיוק {{- minimum, datetime}}",
+        "inclusive": "התאריך חייב להיות {{- minimum, datetime}} או מאוחר יותר",
+        "not_inclusive": "התאריך חייב להיות מאוחר מ-{{- minimum, datetime}}"
+      }
+    },
+    "too_big": {
+      "array": {
+        "exact": "המערך חייב להכיל בדיוק {{maximum}} פריטים",
+        "inclusive": "המערך חייב להכיל לכל היותר {{maximum}} פריטים",
+        "not_inclusive": "המערך חייב להכיל פחות מ-{{maximum}} פריטים"
+      },
+      "string": {
+        "exact": "המחרוזת חייבת להכיל בדיוק {{maximum}} תווים",
+        "inclusive": "המחרוזת חייבת להכיל לכל היותר {{maximum}} תווים",
+        "not_inclusive": "המחרוזת חייבת להכיל פחות מ-{{maximum}} תווים"
+      },
+      "number": {
+        "exact": "המספר חייב להיות בדיוק {{maximum}}",
+        "inclusive": "המספר חייב להיות קטן מ-{{maximum}} או שווה לו",
+        "not_inclusive": "המספר חייב להיות קטן מ-{{maximum}}"
+      },
+      "set": {
+        "exact": "קלט לא חוקי",
+        "inclusive": "קלט לא חוקי",
+        "not_inclusive": "קלט לא חוקי"
+      },
+      "date": {
+        "exact": "התאריך חייב להיות בדיוק {{- maximum, datetime}}",
+        "inclusive": "התאריך חייב להיות {{- maximum, datetime}} או מוקדם יותר",
+        "not_inclusive": "התאריך חייב להיות מוקדם מ-{{- maximum, datetime}}"
+      }
+    }
+  },
+  "validations": {
+    "email": "אימייל",
+    "url": "url",
+    "uuid": "uuid",
+    "cuid": "cuid",
+    "regex": "regex",
+    "datetime": "datetime"
+  },
+  "types": {
+    "function": "פונקציה",
+    "number": "מספר",
+    "string": "מחרוזת",
+    "nan": "nan",
+    "integer": "מספר שלם",
+    "float": "מספר עשרוני",
+    "boolean": "בוליאני",
+    "date": "תאריך",
+    "bigint": "bigint",
+    "undefined": "undefined",
+    "symbol": "symbol",
+    "null": "null",
+    "array": "מערך",
+    "object": "אובייקט",
+    "unknown": "לא ידוע",
+    "promise": "promise",
+    "void": "void",
+    "never": "never",
+    "map": "map",
+    "set": "set"
+  }
+}

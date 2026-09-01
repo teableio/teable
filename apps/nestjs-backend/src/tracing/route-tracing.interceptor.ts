@@ -29,6 +29,9 @@ export class RouteTracingInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest();
     const response = context.switchToHttp().getResponse();
 
+    // NestInstrumentation is disabled (see tracing.ts), so this is the request's SERVER
+    // span. While it was enabled the active span was Nest's controller-handler span, and
+    // stamping that one gave every request a second, nearly identical always-exported span.
     const span = trace.getActiveSpan();
 
     if (span) {

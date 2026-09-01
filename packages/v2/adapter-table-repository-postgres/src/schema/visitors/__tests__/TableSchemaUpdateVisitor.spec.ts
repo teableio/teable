@@ -16,20 +16,89 @@ import {
   Table,
   TableAddFieldSpec,
   TableAddFieldsSpec,
+  TableAddViewSpec,
+  TableEnsureViewRowOrderSpec,
   TableId,
   TableRemoveFieldSpec,
   TableName,
   TableUpdateFieldHasErrorSpec,
   TableUpdateFieldTypeSpec,
   UpdateLinkRelationshipSpec,
+  ViewColumnMeta,
+  ViewId,
+  ViewName,
+  ViewQueryDefaults,
+  createGridView,
+  createLongTextField,
 } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
 
 import { TableSchemaUpdateVisitor } from '../TableSchemaUpdateVisitor';
 import { createTestDb } from './helpers/createTestDb';
-import { createDtField } from './helpers/fieldFactories';
+import { createDtField, createTextField } from './helpers/fieldFactories';
 
 describe('TableSchemaUpdateVisitor', () => {
+  describe('visitTableAddView', () => {
+    it('adds, backfills and indexes the row-order column for a grid view', () => {
+      const db = createTestDb();
+      const tableBuilder = Table.builder()
+        .withBaseId(BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap())
+        .withName(TableName.create('Test Table')._unsafeUnwrap());
+      tableBuilder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .done();
+      tableBuilder.view().defaultGrid().done();
+      const table = tableBuilder.build()._unsafeUnwrap();
+      const view = createGridView({
+        id: ViewId.create(`viw${'b'.repeat(16)}`)._unsafeUnwrap(),
+        name: ViewName.create('Planning')._unsafeUnwrap(),
+      })._unsafeUnwrap();
+      view
+        .setColumnMeta(
+          ViewColumnMeta.forView({
+            viewType: view.type(),
+            fields: table.getFields(),
+            primaryFieldId: table.primaryFieldId(),
+          })._unsafeUnwrap()
+        )
+        ._unsafeUnwrap();
+      view.setQueryDefaults(ViewQueryDefaults.empty())._unsafeUnwrap();
+
+      const visitor = new TableSchemaUpdateVisitor({
+        db,
+        schema: 'public',
+        tableName: 'table_data',
+        tableId: table.id().toString(),
+        table,
+      });
+      const statements = visitor.visitTableAddView(TableAddViewSpec.create(view))._unsafeUnwrap();
+      const sqls = statements.map((statement) => statement.compile(db).sql);
+
+      expect(sqls).toHaveLength(3);
+      expect(sqls[0].toLowerCase()).toContain('add column if not exists');
+      expect(sqls[0]).toContain(view.id().toRowOrderColumnName());
+      expect(sqls[1]).toContain('"__auto_number"');
+      expect(sqls[2].toLowerCase()).toBe(
+        `create index if not exists "idx_${view.id().toRowOrderColumnName()}" on "public"."table_data" ("${view.id().toRowOrderColumnName()}")`
+      );
+
+      const ensureVisitor = new TableSchemaUpdateVisitor({
+        db,
+        schema: 'public',
+        tableName: 'table_data',
+        tableId: table.id().toString(),
+        table,
+      });
+      const ensureSqls = ensureVisitor
+        .visitTableEnsureViewRowOrder(TableEnsureViewRowOrderSpec.create(view))
+        ._unsafeUnwrap()
+        .map((statement) => statement.compile(db).sql);
+      expect(ensureSqls).toEqual(sqls);
+    });
+  });
+
   describe('visitTableUpdateFieldConstraints', () => {
     describe('NOT NULL constraint', () => {
       it.todo(
@@ -881,7 +950,98 @@ describe('TableSchemaUpdateVisitor', () => {
       expect(sqls[0]).toContain("status = 'rebuild_pending'");
       expect(sqls[1]).toContain("a.attgenerated = 's'");
       expect(sqls[1]).toContain("a.attname LIKE '\\_\\_tqops\\_tsv\\_%' ESCAPE '\\'");
-      expect(sqls[1]).toContain('ALTER TABLE %I.%I DROP COLUMN IF EXISTS %I');
+      expect(sqls[1]).toContain('ALTER TABLE %I.%I %s');
+      expect(sqls[1]).toContain('DROP COLUMN IF EXISTS %I');
+    });
+
+    it('keeps managed search vectors when converting singleSelect to text', () => {
+      const db = createTestDb();
+      const schema = `bse${'a'.repeat(16)}`;
+      const tableName = `tbl${'b'.repeat(16)}`;
+      const fieldId = FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap();
+      const builder = Table.builder()
+        .withId(TableId.create(tableName)._unsafeUnwrap())
+        .withBaseId(BaseId.create(schema)._unsafeUnwrap())
+        .withName(TableName.create('Search Vector Value Preserving')._unsafeUnwrap());
+      builder
+        .field()
+        .singleSelect()
+        .withId(fieldId)
+        .withName(FieldName.create('Source')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
+      const oldField = table.getField((field) => field.id().equals(fieldId))._unsafeUnwrap();
+      oldField.setDbFieldName(DbFieldName.rehydrate('source')._unsafeUnwrap())._unsafeUnwrap();
+      const newField = createTextField('c'.repeat(16), 'Source', 'source')._unsafeUnwrap();
+      const visitor = new TableSchemaUpdateVisitor({
+        db,
+        schema,
+        tableName,
+        tableId: table.id().toString(),
+        table,
+      });
+
+      const spec = TableUpdateFieldTypeSpec.create(oldField, newField);
+      expect(spec.isValuePreservingConversion()).toBe(true);
+      const result = visitor.visitTableUpdateFieldType(spec);
+
+      expect(result.isOk()).toBe(true);
+      const sqls = result._unsafeUnwrap().map((statement) => statement.compile(db).sql);
+      expect(sqls.some((text) => text.includes("status = 'rebuild_pending'"))).toBe(false);
+      expect(sqls.some((text) => text.includes("a.attgenerated = 's'"))).toBe(false);
+      expect(sqls.some((text) => text.includes('DROP INDEX IF EXISTS'))).toBe(false);
+    });
+
+    it('rebuilds search artifacts when a zero-DDL conversion changes the search shape', () => {
+      // singleLineText → longText emits no conversion DDL (both are text
+      // columns) yet flips the search projection to multiline, which changes
+      // both the stored search document and the trigram index expression.
+      const db = createTestDb();
+      const schema = `bse${'a'.repeat(16)}`;
+      const tableName = `tbl${'b'.repeat(16)}`;
+      const fieldId = FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap();
+      const builder = Table.builder()
+        .withId(TableId.create(tableName)._unsafeUnwrap())
+        .withBaseId(BaseId.create(schema)._unsafeUnwrap())
+        .withName(TableName.create('Search Vector Shape Change')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withId(fieldId)
+        .withName(FieldName.create('Source')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
+      const oldField = table.getField((field) => field.id().equals(fieldId))._unsafeUnwrap();
+      oldField.setDbFieldName(DbFieldName.rehydrate('source')._unsafeUnwrap())._unsafeUnwrap();
+      const newField = createLongTextField({
+        id: fieldId,
+        name: FieldName.create('Source')._unsafeUnwrap(),
+      })._unsafeUnwrap();
+      newField.setDbFieldName(DbFieldName.rehydrate('source')._unsafeUnwrap())._unsafeUnwrap();
+      const visitor = new TableSchemaUpdateVisitor({
+        db,
+        schema,
+        tableName,
+        tableId: table.id().toString(),
+        table,
+      });
+
+      const result = visitor.visitTableUpdateFieldType(
+        TableUpdateFieldTypeSpec.create(oldField, newField)
+      );
+
+      expect(result.isOk()).toBe(true);
+      const sqls = result._unsafeUnwrap().map((statement) => statement.compile(db).sql);
+      expect(sqls.some((text) => text.includes("status = 'rebuild_pending'"))).toBe(true);
+      expect(sqls.some((text) => text.includes("a.attgenerated = 's'"))).toBe(true);
+      expect(sqls.some((text) => text.includes('DROP INDEX IF EXISTS'))).toBe(true);
+      // The recreated index must use the longText (multiline) expression.
+      expect(sqls.some((text) => text.includes('CREATE INDEX IF NOT EXISTS'))).toBe(true);
+      expect(sqls.some((text) => text.includes('REPLACE(REPLACE(REPLACE('))).toBe(true);
     });
 
     it.todo(
@@ -1173,7 +1333,8 @@ describe('TableSchemaUpdateVisitor', () => {
       const sqls = result._unsafeUnwrap().map((statement) => statement.compile(db).sql);
       expect(sqls[0]).toContain("status = 'rebuild_pending'");
       expect(sqls[1]).toContain("a.attgenerated = 's'");
-      expect(sqls[1]).toContain('ALTER TABLE %I.%I DROP COLUMN IF EXISTS %I');
+      expect(sqls[1]).toContain('ALTER TABLE %I.%I %s');
+      expect(sqls[1]).toContain('DROP COLUMN IF EXISTS %I');
       expect(sqls.slice(2).some((text) => text.toLowerCase().includes('drop column'))).toBe(true);
     });
   });

@@ -185,7 +185,9 @@ export const AdvancedImageSettings = (props: IAdvancedImageSettingsProps) => {
     <Collapsible open={open} onOpenChange={onOpenChange}>
       <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/50">
         <Settings className="size-4" />
-        <span className="flex-1 text-left">{t('table:field.aiConfig.label.advancedSettings')}</span>
+        <span className="flex-1 text-start">
+          {t('table:field.aiConfig.label.advancedSettings')}
+        </span>
         {open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
       </CollapsibleTrigger>
       <CollapsibleContent className="mt-2 space-y-4 rounded-md border p-3">

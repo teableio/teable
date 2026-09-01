@@ -40,6 +40,7 @@ import { createPortal } from 'react-dom';
 import { useClickAway, useLocalStorage } from 'react-use';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
+import { collapseChatPanelIfExpanded } from '@/features/app/components/sidebar/useChatPanelStore';
 import { useShareUrlPrefix } from '@/features/app/context/ShareContext';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
 import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
@@ -253,6 +254,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         const viewId = tableViewIdsMap[resourceId];
         const url = tableHrefMap[resourceId];
         if (url) {
+          collapseChatPanelIfExpanded();
           router.push({ pathname: url }, undefined, {
             shallow: !isSharePage && Boolean(viewId),
           });
@@ -267,6 +269,9 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         urlPrefix: shareUrlPrefix,
       });
       if (!url) return;
+      // A folder never reaches here (getNodeUrl returns null for it), so this
+      // only fires for node clicks that actually navigate to content
+      collapseChatPanelIfExpanded();
       // Table URLs built here have no view id (hrefMap not ready yet); only a
       // non-shallow navigation runs getServerSideProps, which redirects to the
       // last-visited/default view. A shallow push would strand the page on a
@@ -591,7 +596,9 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         {resourceType === BaseNodeResourceType.Table && (
           <EmojiPicker
             className="flex size-full items-center justify-center hover:bg-muted-foreground/60"
+            icon={icon}
             onChange={(icon: string) => curdHooks.updateNode(nodeId, { icon })}
+            onRemove={() => curdHooks.updateNode(nodeId, { icon: null })}
             disabled={!canUpdateTable}
           >
             {icon ? <Emoji emoji={icon} size="1rem" /> : <IconComponent className="size-full" />}
@@ -671,8 +678,8 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                     <div className="flex min-w-0 flex-1 items-center gap-2">
                       <ItemIcon item={item} />
                       <div className="flex min-w-0 grow items-center" title={name}>
-                        <span className="truncate text-left">{name}</span>
-                        <div className="ml-auto flex shrink-0 items-center gap-1 pl-1">
+                        <span className="truncate text-start">{name}</span>
+                        <div className="ms-auto flex shrink-0 items-center gap-1 ps-1">
                           <ItemStatus item={item} />
                           {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
                           <div
@@ -792,14 +799,14 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                           <ItemIcon item={item} />
                           <div className="flex min-w-0 grow items-center" title={name}>
                             <span
-                              className="truncate text-left"
+                              className="truncate text-start"
                               onDoubleClick={() => {
                                 setEditingNodeId(nodeId);
                               }}
                             >
                               {name}
                             </span>
-                            <div className="ml-auto flex shrink-0 items-center gap-1 pl-1">
+                            <div className="ms-auto flex shrink-0 items-center gap-1 ps-1">
                               <ItemStatus item={item} />
                             </div>
                           </div>
@@ -881,7 +888,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                       nodeId={nodeId}
                                       sharedNodeIds={sharedNodeIds}
                                       node={node}
-                                      className={cn('ml-1', GROUP_ACTIVE_HIDDEN_CLS)}
+                                      className={cn('ms-1', GROUP_ACTIVE_HIDDEN_CLS)}
                                     />
                                   )}
                                 </>
@@ -960,7 +967,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                       disabled={!canCreateResource}
                     >
                       <AddBoldIcon className="size-4" />
-                      <span className="truncate text-left">{t('common:base.createResource')}</span>
+                      <span className="truncate text-start">{t('common:base.createResource')}</span>
                     </Button>
                   </BaseNodeAddResourceButton>
                 </span>

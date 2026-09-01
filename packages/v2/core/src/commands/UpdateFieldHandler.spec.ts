@@ -17,6 +17,7 @@ import { FieldUpdated } from '../domain/table/events/FieldUpdated';
 import { DbFieldName } from '../domain/table/fields/DbFieldName';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import { SelectOption } from '../domain/table/fields/types/SelectOption';
 import { SingleLineTextField } from '../domain/table/fields/types/SingleLineTextField';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
@@ -844,6 +845,117 @@ describe('UpdateFieldHandler', () => {
     expect(capturedUniqueStates).toEqual([false, true]);
   });
 
+  describe('value-preserving conversion snapshots', () => {
+    const buildSelectTable = () => {
+      const base = buildTable();
+      const selectFieldId = FieldId.create(`fld${'s'.repeat(16)}`)._unsafeUnwrap();
+      const option = SelectOption.create({ name: 'Open', color: 'blue' })._unsafeUnwrap();
+      const withSelect = base.table
+        .update((mutator) =>
+          mutator.addField(
+            (() => {
+              const builder = Table.builder()
+                .withId(base.tableId)
+                .withBaseId(BaseId.create(`bse${'u'.repeat(16)}`)._unsafeUnwrap())
+                .withName(TableName.create('tmp')._unsafeUnwrap());
+              builder
+                .field()
+                .singleSelect()
+                .withId(selectFieldId)
+                .withName(FieldName.create('Status')._unsafeUnwrap())
+                .withOptions([option])
+                .done();
+              builder.view().defaultGrid().done();
+              const field = builder
+                .build()
+                ._unsafeUnwrap()
+                .getField((candidate) => candidate.id().equals(selectFieldId))
+                ._unsafeUnwrap();
+              field
+                .setDbFieldName(DbFieldName.rehydrate(selectFieldId.toString())._unsafeUnwrap())
+                ._unsafeUnwrap();
+              return field;
+            })()
+          )
+        )
+        ._unsafeUnwrap().table;
+      return { table: withSelect, tableId: base.tableId, selectFieldId };
+    };
+
+    const runConversion = async (fieldUpdate: Record<string, unknown>) => {
+      const { table, tableId, selectFieldId } = buildSelectTable();
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+
+      const capturedIncludeRecords: Array<boolean | undefined> = [];
+      const snapshotService = {
+        async capture(
+          _context: IExecutionContext,
+          _table: Table,
+          sourceFieldId: FieldId,
+          options?: { includeRecords?: boolean }
+        ) {
+          capturedIncludeRecords.push(options?.includeRecords);
+          return ok({
+            field: {
+              id: sourceFieldId.toString(),
+              name: 'Status',
+              type: 'singleSelect',
+            },
+            views: [],
+          });
+        },
+      } as unknown as FieldUndoRedoSnapshotService;
+
+      const handler = new UpdateFieldHandler(
+        tableRepository,
+        tableMapper,
+        new TableUpdateFlow(
+          tableRepository,
+          new FakeTableSchemaRepository(),
+          new FakeEventBus(),
+          new FakeUnitOfWork()
+        ),
+        {
+          async prepare() {
+            return ok([]);
+          },
+          async execute(_context: IExecutionContext, input: { table: Table }) {
+            return ok({ specs: [], updatedTable: input.table, events: [] });
+          },
+        } as unknown as FieldUpdateSideEffectService,
+        {
+          async load() {
+            return ok([]);
+          },
+        } as unknown as ForeignTableLoaderService,
+        createFieldOperationPluginRunner(),
+        noopUndoRedoService,
+        snapshotService
+      );
+
+      const command = UpdateFieldCommand.create({
+        tableId: tableId.toString(),
+        fieldId: selectFieldId.toString(),
+        field: fieldUpdate,
+      })._unsafeUnwrap();
+
+      const result = await handler.handle(createContext(), command);
+      expect(result.isOk()).toBe(true);
+      return capturedIncludeRecords;
+    };
+
+    it('skips record snapshots when converting singleSelect to text (values preserved)', async () => {
+      const captured = await runConversion({ type: 'singleLineText' });
+      expect(captured).toEqual([false, false]);
+    });
+
+    it('keeps record snapshots when the conversion rewrites values', async () => {
+      const captured = await runConversion({ type: 'number' });
+      expect(captured).toEqual([true, true]);
+    });
+  });
+
   it('returns a validation error when link conversion would exceed the foreign table field limit', async () => {
     const baseId = `bse${'a'.repeat(16)}`;
     const hostTableId = `tbl${'b'.repeat(16)}`;
@@ -948,8 +1060,7 @@ describe('UpdateFieldHandler', () => {
     }
 
     expect(result.error.code).toBe(TABLE_FIELD_LIMIT_ERROR_CODE);
-    expect(result.error.message).toContain('limit:3');
-    expect(result.error.message).toContain('table:Foreign');
+    expect(result.error.message).toBe('Table "Foreign" can have at most 3 fields.');
     expect(result.error.details).toMatchObject({
       tableName: 'Foreign',
       currentFieldCount: 3,

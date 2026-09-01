@@ -8,10 +8,11 @@ interface ISortProps {
   children: (text: string, isActive: boolean) => React.ReactElement;
   sorts: ISort | null;
   onChange: (sort: ISort | null) => void;
+  responsive?: boolean;
 }
 
 function Sort(props: ISortProps) {
-  const { children, onChange, sorts: outerSorts } = props;
+  const { children, onChange, sorts: outerSorts, responsive } = props;
 
   const [innerSorts, setInnerSorts] = useState(outerSorts);
 
@@ -44,7 +45,12 @@ function Sort(props: ISortProps) {
   };
 
   return (
-    <SortBase sorts={innerSorts} onChange={onChangeInner} hiddenManual={true}>
+    <SortBase
+      responsive={responsive}
+      sorts={innerSorts}
+      onChange={onChangeInner}
+      hiddenManual={true}
+    >
       {children?.(text, isActive)}
     </SortBase>
   );

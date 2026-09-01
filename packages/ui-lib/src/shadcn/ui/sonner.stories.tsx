@@ -628,7 +628,7 @@ const ScenarioPicker = ({
               type="button"
               aria-pressed={selected}
               onClick={() => onSelect(scenario.id)}
-              className="flex min-h-10 min-w-0 items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-left text-sm transition-colors hover:bg-muted/60 aria-pressed:border-primary aria-pressed:bg-primary/10"
+              className="flex min-h-10 min-w-0 items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-start text-sm transition-colors hover:bg-muted/60 aria-pressed:border-primary aria-pressed:bg-primary/10"
             >
               <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                 {scenario.method}

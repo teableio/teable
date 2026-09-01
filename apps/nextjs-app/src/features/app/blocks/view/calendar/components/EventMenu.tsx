@@ -33,7 +33,7 @@ enum MenuItemType {
   Duplicate = 'Duplicate',
 }
 
-const iconClassName = 'mr-2 h-4 w-4 shrink-0';
+const iconClassName = 'me-2 h-4 w-4 shrink-0';
 
 export const EventMenu = () => {
   const { eventMenu, closeEventMenu } = useEventMenuStore();

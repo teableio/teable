@@ -1,14 +1,19 @@
-import type { Field, IExecutionContext } from '@teable/v2-core';
+import type { Field } from '@teable/v2-core';
 import { ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 import {
   createSchemaNotNullViolationError,
+  createSchemaUniqueViolationError,
   describeError,
+  extractForeignKeyFieldId,
   extractNotNullColumn,
   extractUniqueColumn,
+  extractUniqueFieldId,
+  isForeignKeyViolation,
   isLinkUniqueViolation,
   isNotNullViolation,
   isUniqueViolation,
+  PG_FOREIGN_KEY_VIOLATION,
   PG_NOT_NULL_VIOLATION,
   PG_UNIQUE_VIOLATION,
   wrapDatabaseError,
@@ -104,6 +109,39 @@ describe('PostgreSQL error utilities', () => {
     });
   });
 
+  describe('isForeignKeyViolation', () => {
+    it('returns true for PostgreSQL foreign key violation error code', () => {
+      expect(isForeignKeyViolation({ code: PG_FOREIGN_KEY_VIOLATION })).toBe(true);
+    });
+
+    it('returns false for other error codes', () => {
+      expect(isForeignKeyViolation({ code: PG_UNIQUE_VIOLATION })).toBe(false);
+    });
+
+    it('returns false for null and non-objects', () => {
+      expect(isForeignKeyViolation(null)).toBe(false);
+      expect(isForeignKeyViolation(123)).toBe(false);
+    });
+  });
+
+  describe('extractForeignKeyFieldId', () => {
+    it('extracts the field id from a link FK constraint name', () => {
+      expect(
+        extractForeignKeyFieldId({
+          code: PG_FOREIGN_KEY_VIOLATION,
+          constraint: 'fk___fk_fldMtgtch78Z5oH2j8x',
+        })
+      ).toBe('fldMtgtch78Z5oH2j8x');
+    });
+
+    it('returns undefined for non-link constraint names', () => {
+      expect(
+        extractForeignKeyFieldId({ code: PG_FOREIGN_KEY_VIOLATION, constraint: 'some_other_fk' })
+      ).toBeUndefined();
+      expect(extractForeignKeyFieldId({ code: PG_FOREIGN_KEY_VIOLATION })).toBeUndefined();
+    });
+  });
+
   describe('extractNotNullColumn', () => {
     it('extracts column name from PG error with column property', () => {
       expect(extractNotNullColumn({ code: PG_NOT_NULL_VIOLATION, column: 'fld_abc123' })).toBe(
@@ -159,6 +197,51 @@ describe('PostgreSQL error utilities', () => {
         )
       ).toBe('Ge_Ren_Zhu_Ye');
     });
+
+    it('extracts column name from PostgreSQL unique-violation detail', () => {
+      expect(
+        extractUniqueColumn(
+          {
+            code: PG_UNIQUE_VIOLATION,
+            constraint: 'bseu12nlhshtmzyauyv_teable_ai_user___fldriodmjlopvqhlvjn_unique',
+            detail: 'Key (email)=(user@example.com) already exists.',
+          },
+          'bseu12nLHShtmzYAUYv.teable_ai_usersCMmJrADgjF'
+        )
+      ).toBe('email');
+    });
+
+    it('extracts a quoted column name from PostgreSQL unique-violation detail', () => {
+      expect(
+        extractUniqueColumn(
+          {
+            code: PG_UNIQUE_VIOLATION,
+            detail: 'Key ("Email Col")=(user@example.com) already exists.',
+          },
+          'test_table'
+        )
+      ).toBe('Email Col');
+    });
+  });
+
+  describe('extractUniqueFieldId', () => {
+    it('extracts a v1 unique index field id case-insensitively', () => {
+      expect(
+        extractUniqueFieldId({
+          code: PG_UNIQUE_VIOLATION,
+          constraint: 'bseu12nlhshtmzyauyv_teable_ai_user___fldriodmjlopvqhlvjn_unique',
+        })
+      ).toBe('fldriodmjlopvqhlvjn');
+    });
+
+    it('returns undefined for v2 table_column_unique names', () => {
+      expect(
+        extractUniqueFieldId({
+          code: PG_UNIQUE_VIOLATION,
+          constraint: 'test_table_fld_email_unique',
+        })
+      ).toBeUndefined();
+    });
   });
 
   describe('isLinkUniqueViolation', () => {
@@ -203,6 +286,50 @@ describe('PostgreSQL error utilities', () => {
     });
   });
 
+  describe('createSchemaUniqueViolationError', () => {
+    const fields = [
+      stubField('fldAbc123', 'Email Address', 'fld_email'),
+      stubField('fldDef456', 'Other Field', 'fld_other'),
+    ];
+
+    it('returns a semantic unique-field message with field details and localization', () => {
+      const result = createSchemaUniqueViolationError(
+        { code: PG_UNIQUE_VIOLATION, constraint: 'test_table_fld_email_unique' },
+        'test_table',
+        fields
+      );
+
+      expect(result.tags).toContain('validation');
+      expect(result.code).toBe('validation.field.unique_existing_values');
+      expect(result.message).toBe(
+        'Cannot mark field "Email Address" as unique because existing records contain duplicate values.'
+      );
+      expect(result.details).toEqual({
+        fieldId: 'fldAbc123',
+        fieldName: 'Email Address',
+      });
+      expect(result.localization).toEqual({
+        i18nKey: 'httpErrors.custom.fieldUniqueExistingValues',
+        context: { fieldName: 'Email Address' },
+      });
+    });
+
+    it('falls back to a generic message without localization when the field cannot be resolved', () => {
+      const result = createSchemaUniqueViolationError(
+        { code: PG_UNIQUE_VIOLATION, constraint: 'unrelated_constraint' },
+        'test_table',
+        fields
+      );
+
+      expect(result.code).toBe('validation.field.unique_existing_values');
+      expect(result.message).toBe(
+        'Cannot mark this field as unique because existing records contain duplicate values.'
+      );
+      expect(result.details).toBeUndefined();
+      expect(result.localization).toBeUndefined();
+    });
+  });
+
   describe('createSchemaNotNullViolationError', () => {
     const fields = [
       stubField('fldDef456', 'Required Field', 'fld_required'),
@@ -216,7 +343,7 @@ describe('PostgreSQL error utilities', () => {
       );
 
       expect(result.tags).toContain('validation');
-      expect(result.code).toBe('validation.field.not_null');
+      expect(result.code).toBe('validation.field.required_existing_values');
       expect(result.message).toBe(
         'Cannot mark field "Required Field" as required because existing records contain empty values.'
       );
@@ -224,18 +351,10 @@ describe('PostgreSQL error utilities', () => {
         fieldId: 'fldDef456',
         fieldName: 'Required Field',
       });
-    });
-
-    it('uses the execution-context translator when field name is known', () => {
-      const t: NonNullable<IExecutionContext['$t']> = (key, options) =>
-        `${key}:${String(options?.fieldName)}`;
-      const result = createSchemaNotNullViolationError(
-        { code: PG_NOT_NULL_VIOLATION, column: 'fld_required' },
-        fields,
-        t
-      );
-
-      expect(result.message).toBe('validation.field.requiredExistingValues:Required Field');
+      expect(result.localization).toEqual({
+        i18nKey: 'httpErrors.custom.fieldRequiredExistingValues',
+        context: { fieldName: 'Required Field' },
+      });
     });
 
     it('falls back to a generic semantic message when the column cannot be resolved', () => {
@@ -244,11 +363,12 @@ describe('PostgreSQL error utilities', () => {
         fields
       );
 
-      expect(result.code).toBe('validation.field.not_null');
+      expect(result.code).toBe('validation.field.required_existing_values');
       expect(result.message).toBe(
         'Cannot mark this field as required because existing records contain empty values.'
       );
       expect(result.details).toBeUndefined();
+      expect(result.localization).toBeUndefined();
     });
   });
 
@@ -264,6 +384,7 @@ describe('PostgreSQL error utilities', () => {
         expect(result.tags).toContain('validation');
         expect(result.code).toBe('validation.field.not_null');
         expect(result.message).toBe('Cannot complete insert: field  cannot be empty');
+        expect(result.localization).toBeUndefined();
       });
 
       it('wraps unique violation as validation error', () => {
@@ -282,6 +403,7 @@ describe('PostgreSQL error utilities', () => {
         expect(result.tags).toContain('validation');
         expect(result.code).toBe('validation.link.one_one_duplicate');
         expect(result.message).toContain('one-to-one relationship');
+        expect(result.localization).toEqual({ i18nKey: 'httpErrors.custom.linkOneOneDuplicate' });
       });
 
       it('wraps unknown error as infrastructure error', () => {
@@ -367,6 +489,56 @@ describe('PostgreSQL error utilities', () => {
           'Cannot complete insert: field fldAbc123 must have a unique value'
         );
         expect(result.details).toEqual({ fieldId: 'fldAbc123', fieldName: 'Email Address' });
+        expect(result.localization).toEqual({
+          i18nKey: 'httpErrors.custom.recordFieldValueDuplicate',
+          context: { fieldName: 'Email Address' },
+        });
+      });
+
+      it('resolves v1 unique index names to field identity and localization', () => {
+        const pgError = {
+          code: PG_UNIQUE_VIOLATION,
+          constraint: 'bseu12nlhshtmzyauyv_teable_ai_user___fldabc123xxxxxxx_unique',
+        };
+        const result = wrapDatabaseError(pgError, 'insert', {
+          tableName,
+          fields: [stubField('fldAbc123XXXXXXX', 'Email Address', 'email')],
+        });
+
+        expect(result.code).toBe('validation.field.unique');
+        expect(result.message).toBe(
+          'Cannot complete insert: field fldAbc123XXXXXXX must have a unique value'
+        );
+        expect(result.details).toEqual({
+          fieldId: 'fldAbc123XXXXXXX',
+          fieldName: 'Email Address',
+        });
+        expect(result.localization).toEqual({
+          i18nKey: 'httpErrors.custom.recordFieldValueDuplicate',
+          context: { fieldName: 'Email Address' },
+        });
+      });
+
+      it('resolves unique field identity from PostgreSQL detail when the constraint name is opaque', () => {
+        const pgError = {
+          code: PG_UNIQUE_VIOLATION,
+          constraint: 'opaque_legacy_unique_name',
+          detail: 'Key (fld_email)=(user@example.com) already exists.',
+        };
+        const result = wrapDatabaseError(pgError, 'insert', {
+          tableName,
+          fields,
+        });
+
+        expect(result.code).toBe('validation.field.unique');
+        expect(result.message).toBe(
+          'Cannot complete insert: field fldAbc123 must have a unique value'
+        );
+        expect(result.details).toEqual({ fieldId: 'fldAbc123', fieldName: 'Email Address' });
+        expect(result.localization).toEqual({
+          i18nKey: 'httpErrors.custom.recordFieldValueDuplicate',
+          context: { fieldName: 'Email Address' },
+        });
       });
 
       it('includes fieldId in message and fieldName in details for not-null violation', () => {
@@ -383,6 +555,10 @@ describe('PostgreSQL error utilities', () => {
         expect(result.code).toBe('validation.field.not_null');
         expect(result.message).toBe('Cannot complete insert: field fldDef456 cannot be empty');
         expect(result.details).toEqual({ fieldId: 'fldDef456', fieldName: 'Required Field' });
+        expect(result.localization).toEqual({
+          i18nKey: 'httpErrors.custom.recordFieldValueNotNull',
+          context: { fieldName: 'Required Field' },
+        });
       });
 
       it('falls back to generic unique message when column not in fields', () => {
@@ -450,6 +626,34 @@ describe('PostgreSQL error utilities', () => {
         const result = wrapDatabaseError(error, 'delete', { tableName });
 
         expect(result.message).toContain('Failed to delete record:');
+      });
+
+      it('maps a foreign key violation on delete to a link-reference validation error', () => {
+        const pgError = {
+          code: PG_FOREIGN_KEY_VIOLATION,
+          constraint: 'fk___fk_fldMtgtch78Z5oH2j8x',
+        };
+        const result = wrapDatabaseError(pgError, 'delete', { tableName, count: 2 });
+
+        expect(result.tags).toContain('validation');
+        expect(result.code).toBe('validation.link.referenced');
+        expect(result.message).toContain('still referenced by a link');
+        expect(result.message).not.toContain('required');
+        expect(result.details).toEqual({
+          fieldId: 'fldMtgtch78Z5oH2j8x',
+          fieldType: 'link',
+        });
+      });
+    });
+
+    describe('foreign key violation on write operations', () => {
+      it('maps a foreign key violation on insert to an invalid-reference validation error', () => {
+        const pgError = { code: PG_FOREIGN_KEY_VIOLATION, constraint: 'fk___fk_fldabc' };
+        const result = wrapDatabaseError(pgError, 'insert', { tableName });
+
+        expect(result.tags).toContain('validation');
+        expect(result.code).toBe('validation.link.invalid_reference');
+        expect(result.message).toContain('a linked record does not exist');
       });
     });
   });

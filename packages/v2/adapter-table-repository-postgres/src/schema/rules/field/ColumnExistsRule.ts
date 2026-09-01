@@ -170,6 +170,9 @@ export class ColumnExistsRule implements ISchemaRule {
   }
 
   down(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    if (ctx.preserveSharedColumn) {
+      return ok([]);
+    }
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const columnName = yield* resolveColumnName(ctx.field);
       const table: TableIdentifier = { schema: ctx.schema, tableName: ctx.tableName };

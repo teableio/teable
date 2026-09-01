@@ -237,6 +237,12 @@ describe('lookup computed update scope regression', () => {
         on conflict (id) do nothing
       `.execute(ctx.testContainer.db);
 
+      await sql`
+        insert into collaborator (id, resource_type, resource_id, principal_id, principal_type)
+        values ('col' || ${bobCell.id}, 'base', ${ctx.baseId}, ${bobCell.id}, 'user')
+        on conflict (id) do nothing
+      `.execute(ctx.testContainer.db);
+
       const aliceCell = { id: ctx.testUser.id, title: ctx.testUser.name };
       const sourceNameFieldId = createFieldId();
       const sourceUserFieldId = createFieldId();

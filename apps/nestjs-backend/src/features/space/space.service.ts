@@ -40,6 +40,7 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
 import { generateIntegrationCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
+import { decryptAiConfigSecrets, encryptAiConfigSecrets } from '../../utils/ai-config-encryption';
 import { AVATAR_OUTPUT_MIMETYPE, AVATAR_SIZE, cropSquareAvatarImage } from '../../utils/avatar';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
@@ -47,6 +48,7 @@ import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { PermissionService } from '../auth/permission.service';
 import { BaseService } from '../base/base.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
+import { queueClearCacheKeys } from '../model/helper';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
 import { SettingService } from '../setting/setting.service';
 import { normalizeSpaceAIIntegrationConfig } from './ai-integration-config';
@@ -309,6 +311,8 @@ export class SpaceService {
     const { hash } = await this.storageAdapter.uploadFile(bucket, storagePath, croppedImageBuffer, {
       // eslint-disable-next-line @typescript-eslint/naming-convention
       'Content-Type': AVATAR_OUTPUT_MIMETYPE,
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      'Cache-Control': StorageAdapter.getCacheControl(UploadType.SpaceAvatar),
     });
 
     const attachmentInput = {
@@ -712,7 +716,7 @@ export class SpaceService {
     keyGenerator: generateIntegrationCacheKey,
     statsType: 'integration',
   })
-  async getIntegrationList(spaceId: string): Promise<IIntegrationItemVo[]> {
+  private async getStoredIntegrationList(spaceId: string): Promise<IIntegrationItemVo[]> {
     const integrationList = await this.prismaService.integration.findMany({
       where: { resourceId: spaceId },
     });
@@ -729,11 +733,30 @@ export class SpaceService {
     });
   }
 
+  async getIntegrationList(spaceId: string): Promise<IIntegrationItemVo[]> {
+    // Secrets stay in the stored (encrypted) shape inside the Redis blob;
+    // decrypting after the cache keeps only ciphertext in Redis.
+    const integrationList = await this.getStoredIntegrationList(spaceId);
+    return integrationList.map((item) => ({
+      ...item,
+      config: decryptAiConfigSecrets(item.config, `integration:${item.id}`),
+    }));
+  }
+
+  /** Stored integration configs hold ciphertext; API responses keep plaintext. */
+  private decryptIntegrationRow<T extends { id: string; config: string }>(row: T): T {
+    return {
+      ...row,
+      config: JSON.stringify(
+        decryptAiConfigSecrets(JSON.parse(row.config), `integration:${row.id}`)
+      ),
+    };
+  }
+
   async createIntegration(spaceId: string, addIntegrationRo: ICreateIntegrationRo) {
     const { type, enable } = addIntegrationRo;
     const { config } = addIntegrationRo;
 
-    await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
     if (type === IntegrationType.AI) {
       const aiIntegration = await this.prismaService.integration.findFirst({
         where: {
@@ -744,18 +767,23 @@ export class SpaceService {
 
       if (!aiIntegration) {
         const nextConfig = normalizeSpaceAIIntegrationConfig(config);
-        return await this.prismaService.integration.create({
+        const created = await this.prismaService.integration.create({
           data: {
             id: generateIntegrationId(),
             resourceId: spaceId,
             type,
             enable,
-            config: JSON.stringify(nextConfig),
+            config: JSON.stringify(encryptAiConfigSecrets(nextConfig)),
           },
         });
+        await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
+        return this.decryptIntegrationRow(created);
       }
 
       const { id, enable: originalEnable } = aiIntegration;
+      // Merge over the STORED shape (values stay encrypted) — encryption is
+      // idempotent on already-prefixed values, so mixed content never
+      // double-encrypts nor downgrades while the write switch is off.
       const originalConfig = JSON.parse(aiIntegration.config);
       const nextConfig = normalizeSpaceAIIntegrationConfig({
         ...originalConfig,
@@ -763,13 +791,15 @@ export class SpaceService {
         llmProviders: [...originalConfig.llmProviders, ...config.llmProviders],
       });
 
-      return await this.prismaService.integration.update({
+      const updated = await this.prismaService.integration.update({
         where: { id },
         data: {
-          config: JSON.stringify(nextConfig),
+          config: JSON.stringify(encryptAiConfigSecrets(nextConfig)),
           enable: enable ?? originalEnable,
         },
       });
+      await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
+      return this.decryptIntegrationRow(updated);
     }
 
     const res = await this.prismaService.integration.create({
@@ -797,7 +827,11 @@ export class SpaceService {
         }),
       },
     });
-    await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
+    if (this.cls.isActive() && this.cls.get('tx.client')) {
+      queueClearCacheKeys(this.cls, [generateIntegrationCacheKey(spaceId)]);
+    } else {
+      await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
+    }
     return res;
   }
 
@@ -815,14 +849,14 @@ export class SpaceService {
       updateData.enable = enable;
     }
     if (config) {
-      updateData.config = JSON.stringify(config);
+      updateData.config = JSON.stringify(encryptAiConfigSecrets(config));
     }
     const res = await this.prismaService.integration.update({
       where: { id: integrationId },
       data: updateData,
     });
     await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
-    return res;
+    return this.decryptIntegrationRow(res);
   }
 
   async deleteIntegration(integrationId: string, spaceId: string) {

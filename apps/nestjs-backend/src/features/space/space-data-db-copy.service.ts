@@ -1,12 +1,15 @@
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
+import { setTimeout as delay } from 'timers/promises';
 import { Injectable } from '@nestjs/common';
 import {
+  assertPgDumpSupportsServer,
   buildBaseSchemaDumpRestorePlan,
   buildBaseSchemaDumpStreamRestorePlan,
   buildBaseSchemaPgcopydbPlan,
   buildBaseSchemaRestoreListPlan,
   buildBaseSchemaRestorePlan,
+  buildServerVersionProbePlan,
   type ISpaceDataDbDumpStreamRestorePlan,
   type ISharedTablePostgresFdwCopyPlan,
   type ISharedTablePsqlCopyPlan,
@@ -23,6 +26,7 @@ import {
 export const REQUIRED_POSTGRES_COPY_TOOLS = ['pg_dump', 'pg_restore', 'psql'] as const;
 export const REQUIRED_PGCOPYDB_COPY_TOOLS = [...REQUIRED_POSTGRES_COPY_TOOLS, 'pgcopydb'] as const;
 export const PG_RESTORE_LIST_STDOUT_LIMIT = 64 * 1024 * 1024;
+const sharedTableCopyMaxAttempts = 3;
 
 export type ISpaceDataDbBaseSchemaCopyStrategy =
   | 'pg_dump_restore'
@@ -174,13 +178,45 @@ export const filterPgRestoreListForForeignKeys = (
 export class SpaceDataDbCopyService {
   constructor(private readonly processRunner: SpaceDataDbProcessRunnerService) {}
 
+  private async retrySharedTableCopy<T>(
+    copy: (attempt: number) => Promise<T>,
+    processOptions?: ISpaceDataDbProcessRunOptions
+  ): Promise<T> {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= sharedTableCopyMaxAttempts; attempt++) {
+      try {
+        return await copy(attempt);
+      } catch (error) {
+        lastError = error;
+        if (attempt >= sharedTableCopyMaxAttempts || (await processOptions?.shouldCancel?.())) {
+          throw error;
+        }
+        await delay(2000 * attempt);
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
+  }
+
   async assertPostgresToolsAvailable(
     strategy: ISpaceDataDbBaseSchemaCopyStrategy = 'pg_dump_restore',
-    processOptions?: ISpaceDataDbProcessRunOptions
+    processOptions?: ISpaceDataDbProcessRunOptions & { sourceUrl?: string }
   ): Promise<ISpaceDataDbProcessRunResult[]> {
+    const { sourceUrl, ...runOptions } = processOptions ?? {};
+    const runnerOptions = processOptions ? runOptions : undefined;
     const results: ISpaceDataDbProcessRunResult[] = [];
     for (const command of postgresCopyToolsForStrategy(strategy)) {
-      results.push(await this.processRunner.run({ command, args: ['--version'] }, processOptions));
+      results.push(await this.processRunner.run({ command, args: ['--version'] }, runnerOptions));
+    }
+    if (sourceUrl) {
+      const dumpVersion = results.find((result) => result.command === 'pg_dump');
+      const serverVersion = await this.processRunner.run(
+        buildServerVersionProbePlan(sourceUrl),
+        runnerOptions
+      );
+      assertPgDumpSupportsServer({
+        dumpVersionText: dumpVersion?.stdout ?? '',
+        serverVersionText: serverVersion.stdout,
+      });
     }
     return results;
   }
@@ -290,18 +326,23 @@ export class SpaceDataDbCopyService {
       restore,
     };
   }
-
   async copySharedTable(
     plan: ISharedTablePsqlCopyPlan,
     processOptions?: ISpaceDataDbProcessRunOptions
   ): Promise<ISpaceDataDbSharedTableCopyResult> {
-    const result = await this.processRunner.runPipeline(plan, processOptions);
-    return {
-      strategy: 'psql_copy',
-      table: plan.table,
-      copiedRows: parsePsqlCopyRowCount(`${result.target.stdout}\n${result.target.stderr}`),
-      ...result,
-    };
+    return this.retrySharedTableCopy(async (attempt) => {
+      if (attempt > 1 && plan.targetReset) {
+        // Clear any partial target rows from the previous interrupted COPY.
+        await this.processRunner.run(plan.targetReset, processOptions);
+      }
+      const result = await this.processRunner.runPipeline(plan, processOptions);
+      return {
+        strategy: 'psql_copy',
+        table: plan.table,
+        copiedRows: parsePsqlCopyRowCount(`${result.target.stdout}\n${result.target.stderr}`),
+        ...result,
+      };
+    }, processOptions);
   }
 
   async copySharedTables(
@@ -322,13 +363,16 @@ export class SpaceDataDbCopyService {
     plan: ISharedTablePostgresFdwCopyPlan,
     processOptions?: ISpaceDataDbProcessRunOptions
   ): Promise<ISpaceDataDbPostgresFdwSharedTableCopyResult> {
-    const target = await this.processRunner.run(plan.target, processOptions);
-    return {
-      strategy: 'postgres_fdw',
-      table: plan.table,
-      copiedRows: parsePsqlInsertRowCount(`${target.stdout}\n${target.stderr}`),
-      target,
-    };
+    return this.retrySharedTableCopy(async () => {
+      // FDW plan deletes scoped target rows inside the transaction.
+      const target = await this.processRunner.run(plan.target, processOptions);
+      return {
+        strategy: 'postgres_fdw',
+        table: plan.table,
+        copiedRows: parsePsqlInsertRowCount(`${target.stdout}\n${target.stderr}`),
+        target,
+      };
+    }, processOptions);
   }
 
   async copySharedTablesViaPostgresFdw(

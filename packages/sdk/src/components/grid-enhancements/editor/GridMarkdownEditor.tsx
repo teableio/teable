@@ -241,7 +241,7 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
     <>
       {!isScrolling && (!isReadonly || canExpandReadonly) && (
         <div
-          className="pointer-events-auto absolute right-1 top-1 z-10"
+          className="pointer-events-auto absolute end-1 top-1 z-10"
           style={{ marginRight: -2, marginTop: -2 }}
         >
           <ExpandMarkdownEditor
@@ -315,7 +315,7 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
                 setEditorValue(val);
               }}
             />
-            <div className="absolute bottom-[2px] left-0 w-full rounded-b-md bg-background pb-[2px] pr-1 text-right text-xs text-slate-400 dark:text-slate-600">
+            <div className="absolute bottom-[2px] start-0 w-full rounded-b-md bg-background pb-[2px] pe-1 text-end text-xs text-slate-400 dark:text-slate-600">
               Shift + Enter
             </div>
           </>

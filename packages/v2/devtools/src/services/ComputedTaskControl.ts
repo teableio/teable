@@ -45,15 +45,26 @@ export interface PauseComputedScopesOutput {
   readonly notes: ReadonlyArray<string>;
 }
 
-export interface ResumeComputedScopesInput {
-  readonly scopeType: ComputedUpdatePauseScopeType;
-  readonly scopeId: string;
-}
+export type ResumeComputedScopesInput =
+  | {
+      readonly leaseId: string;
+      readonly actor?: string;
+      readonly releaseReason?: string;
+    }
+  | {
+      readonly scopeType: ComputedUpdatePauseScopeType;
+      readonly scopeId: string;
+      readonly actor?: string;
+      readonly releaseReason?: string;
+    };
 
 export interface ResumeComputedScopesOutput {
-  readonly scopeType: ComputedUpdatePauseScopeType;
-  readonly scopeId: string;
+  readonly leaseId: string | null;
+  readonly scopeType: ComputedUpdatePauseScopeType | null;
+  readonly scopeId: string | null;
+  readonly forced: boolean;
   readonly resumed: boolean;
+  readonly remainingBlockers: ReadonlyArray<ComputedPauseScopeRow>;
   readonly notes: ReadonlyArray<string>;
 }
 

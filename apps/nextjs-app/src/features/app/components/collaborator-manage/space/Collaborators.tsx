@@ -1,42 +1,56 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { IRole } from '@teable/core';
 import { canManageRole, Role } from '@teable/core';
-import { Settings } from '@teable/icons';
+import { ArrowUpRight } from '@teable/icons';
 import type {
   CollaboratorItem,
-  ListSpaceCollaboratorRo,
+  UniqueCollaboratorItem,
   UpdateBaseCollaborateRo,
 } from '@teable/openapi';
 import {
   PrincipalType,
   deleteBaseCollaborator,
+  deleteSpaceBaseCollaborators,
   deleteSpaceCollaborator,
-  getSpaceCollaboratorList,
+  getSpaceUniqueCollaboratorList,
   updateBaseCollaborator,
   updateSpaceCollaborator,
 } from '@teable/openapi';
 import { ReactQueryKeys, useSession } from '@teable/sdk';
-import { Badge, Button, Input } from '@teable/ui-lib/shadcn';
+import {
+  Button,
+  Input,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@teable/ui-lib/shadcn';
 import { debounce } from 'lodash';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import type { FC, PropsWithChildren } from 'react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSeatConfirm } from '../../../hooks/useSeatConfirm';
 import { CollaboratorTable } from '../../collaborator/share/common/CollaboratorTable';
 import { useFilteredRoleStatic as useFilteredBaseRoleStatic } from '../base/useFilteredRoleStatic';
-import { OverflowText } from '../components/Collaborator';
 import { useFilteredRoleStatic } from './useFilteredRoleStatic';
 
 interface ICollaborators {
   spaceId: string;
   role: IRole;
-  collaboratorQuery?: ListSpaceCollaboratorRo;
+}
+
+interface IDeleteCollaboratorContext {
+  principalId: string;
+  principalType: PrincipalType;
+  resourceId: string;
+  isBase?: boolean;
 }
 
 const MEMBERS_PER_PAGE = 50;
 
 export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
-  const { spaceId, role: currentRole, children, collaboratorQuery } = props;
+  const { spaceId, role: currentRole, children } = props;
   const [search, setSearch] = React.useState('');
   const [inputValue, setInputValue] = useState('');
   const [isComposing, setIsComposing] = useState(false);
@@ -44,6 +58,7 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
   const { t } = useTranslation('common');
   const { user } = useSession();
   const router = useRouter();
+  const confirmSeat = useSeatConfirm({ spaceId });
 
   const setSearchDebounced = useMemo(() => {
     return debounce(setSearch, 200);
@@ -56,18 +71,9 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
   }, [inputValue, isComposing, setSearchDebounced]);
 
   const { data, hasNextPage, fetchNextPage, isLoading } = useInfiniteQuery({
-    queryKey: collaboratorQuery
-      ? ReactQueryKeys.spaceCollaboratorList(spaceId, {
-          ...collaboratorQuery,
-          search,
-          includeBase: true,
-        })
-      : ReactQueryKeys.spaceCollaboratorList(spaceId, {
-          search,
-          includeBase: true,
-        }),
+    queryKey: ReactQueryKeys.spaceUniqueCollaboratorList(spaceId, { search }),
     queryFn: ({ queryKey, pageParam }) =>
-      getSpaceCollaboratorList(queryKey[1], {
+      getSpaceUniqueCollaboratorList(queryKey[1], {
         ...queryKey[2],
         skip: pageParam * MEMBERS_PER_PAGE,
         take: MEMBERS_PER_PAGE,
@@ -115,6 +121,9 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
       await queryClient.invalidateQueries({
         queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
       });
+      await queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.spaceUniqueCollaboratorList(spaceId),
+      });
       if (isBase) {
         queryClient.invalidateQueries({
           queryKey: ReactQueryKeys.baseCollaboratorList(resourceId),
@@ -127,17 +136,7 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
   });
 
   const { mutate: deleteCollaborator, isPending: deleteCollaboratorLoading } = useMutation({
-    mutationFn: ({
-      principalId,
-      resourceId,
-      principalType,
-      isBase,
-    }: {
-      principalId: string;
-      principalType: PrincipalType;
-      resourceId: string;
-      isBase?: boolean;
-    }) =>
+    mutationFn: ({ principalId, resourceId, principalType, isBase }: IDeleteCollaboratorContext) =>
       isBase
         ? deleteBaseCollaborator({
             baseId: resourceId,
@@ -156,8 +155,37 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
       await queryClient.invalidateQueries({
         queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
       });
+      await queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.spaceUniqueCollaboratorList(spaceId),
+      });
     },
   });
+
+  const { mutate: deletePrincipalBaseGrants, isPending: deletePrincipalLoading } = useMutation({
+    mutationFn: ({ principalId, principalType }: Omit<IDeleteCollaboratorContext, 'resourceId'>) =>
+      deleteSpaceBaseCollaborators({
+        spaceId,
+        deleteSpaceCollaboratorRo: { principalId, principalType },
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.spaceUniqueCollaboratorList(spaceId),
+      });
+    },
+  });
+
+  const handleDeletePrincipal = useCallback(
+    (item: UniqueCollaboratorItem) => {
+      deletePrincipalBaseGrants({
+        principalId: item.type === PrincipalType.User ? item.userId : item.departmentId,
+        principalType: item.type,
+      });
+    },
+    [deletePrincipalBaseGrants]
+  );
 
   const filteredRoleStatic = useFilteredRoleStatic(currentRole);
   const filteredBaseRoleStatic = useFilteredBaseRoleStatic(currentRole);
@@ -191,7 +219,11 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
   );
 
   const handleUpdateRole = useCallback(
-    (role: IRole, item: CollaboratorItem) => {
+    async (role: IRole, item: CollaboratorItem) => {
+      const addedSeats = item.type === PrincipalType.User && !item.billable ? 1 : 0;
+      if (!(await confirmSeat({ role, count: addedSeats, action: 'roleChange' }))) {
+        return;
+      }
       const isBase = Boolean(item.base);
       const collaboratorId = item.type === PrincipalType.User ? item.userId : item.departmentId;
       updateCollaborator({
@@ -204,7 +236,7 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
         isBase,
       });
     },
-    [spaceId, updateCollaborator]
+    [spaceId, updateCollaborator, confirmSeat]
   );
 
   const handleDelete = useCallback(
@@ -224,23 +256,24 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
   const renderTips = useCallback(
     (item: CollaboratorItem) => {
       if (!item.base) return null;
+      const label = t('invite.dialog.goToBase');
       return (
-        <div className="inline-flex items-center gap-2">
-          <Badge
-            className="max-w-24 px-2 shrink-0 whitespace-nowrap text-muted-foreground"
-            variant="outline"
-          >
-            <OverflowText text={item.base.name} />
-          </Badge>
-          <Button
-            className="h-auto p-0.5"
-            size="xs"
-            variant="ghost"
-            onClick={() => goBase(item.base!.id)}
-          >
-            <Settings className="size-4 shrink-0" />
-          </Button>
-        </div>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon-xs"
+                className="size-4 text-muted-foreground hover:text-foreground"
+                variant="ghost"
+                aria-label={label}
+                onClick={() => goBase(item.base!.id)}
+              >
+                <ArrowUpRight className="size-4 shrink-0 " />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{label}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       );
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -262,17 +295,20 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
       </div>
       <div className="flex min-h-0 flex-1 flex-col">
         <CollaboratorTable
-          list={collaborators}
+          groupByPrincipal
+          uniqueList={collaborators}
+          spaceId={spaceId}
           total={total}
           hasNextPage={hasNextPage}
           fetchNextPage={fetchNextPage}
           isLoading={isLoading}
           updateRoleLoading={updateCollaboratorLoading}
-          deleteLoading={deleteCollaboratorLoading}
+          deleteLoading={deleteCollaboratorLoading || deletePrincipalLoading}
           getPermissions={getPermissions}
           getFilteredRoleStatic={getFilteredRoleStatic}
           onUpdateRole={handleUpdateRole}
           onDelete={handleDelete}
+          onDeletePrincipal={handleDeletePrincipal}
           renderTips={renderTips}
         />
       </div>

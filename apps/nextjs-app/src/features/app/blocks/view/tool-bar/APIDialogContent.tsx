@@ -707,10 +707,10 @@ export const APIDialogContent = ({ onOpenChange }: APIDialogContentProps) => {
         {isDataLoading ? (
           <div className="flex h-64 items-center justify-center">
             <Loader2 className="size-8 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-muted-foreground">{t('common:actions.loading')}</span>
+            <span className="ms-2 text-muted-foreground">{t('common:actions.loading')}</span>
           </div>
         ) : (
-          <div className="min-h-0 w-full max-w-full flex-1 overflow-y-auto overflow-x-hidden pr-3">
+          <div className="min-h-0 w-full max-w-full flex-1 overflow-y-auto overflow-x-hidden pe-3">
             <div className="flex w-full min-w-0 max-w-full flex-col gap-10 overflow-x-hidden">
               <AgentSkillSection onOpenDetails={handleOpenSkillDetails} />
 

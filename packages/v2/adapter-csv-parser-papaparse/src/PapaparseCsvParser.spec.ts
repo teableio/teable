@@ -55,6 +55,36 @@ describe('PapaparseCsvParser', () => {
     ]);
   });
 
+  it('parses stream sources through rowsAsync without collecting the payload first', async () => {
+    const parser = new PapaparseCsvParser();
+    async function* chunks() {
+      yield 'Name,Age\n';
+      yield 'Alice,30\n';
+      yield 'Bob,40';
+    }
+
+    const result = await parser.parseAsync({
+      type: 'stream',
+      data: chunks(),
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      return;
+    }
+
+    const rows = [];
+    for await (const row of result.value.rowsAsync ?? []) {
+      rows.push(row);
+    }
+
+    expect(result.value.headers).toEqual(['Name', 'Age']);
+    expect(rows).toEqual([
+      { Name: 'Alice', Age: '30' },
+      { Name: 'Bob', Age: '40' },
+    ]);
+  });
+
   it('keeps the first row as data when CSV has no header row', () => {
     const parser = new PapaparseCsvParser();
     const result = parser.parse(

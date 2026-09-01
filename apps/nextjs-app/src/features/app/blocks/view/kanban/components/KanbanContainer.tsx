@@ -199,7 +199,7 @@ export const KanbanContainer = () => {
           }}
         </Droppable>
         {stackCreatable && isSingleSelectField && (
-          <div className="pr-2">
+          <div className="pe-2">
             <KanbanStackCreator />
           </div>
         )}

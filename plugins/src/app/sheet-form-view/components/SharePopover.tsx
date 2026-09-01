@@ -115,7 +115,7 @@ export const SharePopover: React.FC<{
         <div className="flex items-center justify-between">
           <Label htmlFor="share-switch">{t('share.statusLabel')}</Label>
           <Switch
-            className="ml-auto"
+            className="ms-auto"
             id="share-switch"
             checked={enableShare}
             disabled={enableShareLoading || disableShareLoading || !permission['view|share']}
@@ -145,6 +145,7 @@ export const SharePopover: React.FC<{
                     <Button
                       size={'icon-xs'}
                       variant={'outline'}
+                      disabled={!permission['view|share']}
                       onClick={() => view.setRefreshLink()}
                     >
                       <RefreshCcw className="size-4 shrink-0" />
@@ -162,6 +163,7 @@ export const SharePopover: React.FC<{
                 <Switch
                   id="share-password"
                   checked={Boolean(shareMeta?.password)}
+                  disabled={!permission['view|share']}
                   onCheckedChange={onPasswordSwitchChange}
                 />
                 <Label className="text-xs" htmlFor="share-password">
@@ -172,6 +174,7 @@ export const SharePopover: React.FC<{
                     className="h-5 py-0 hover:text-muted-foreground"
                     variant={'link'}
                     size={'xs'}
+                    disabled={!permission['view|share']}
                     onClick={() => setShowPasswordDialog(true)}
                   >
                     <Edit />
@@ -182,6 +185,7 @@ export const SharePopover: React.FC<{
                 <Switch
                   id="share-required-login"
                   checked={Boolean(shareMeta?.submit?.requireLogin)}
+                  disabled={!permission['view|share']}
                   onCheckedChange={onSubmitRequireLoginChange}
                 />
                 <Label className="text-xs" htmlFor="share-required-login">

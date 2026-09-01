@@ -1,6 +1,33 @@
+import type { HttpErrorCode } from '@teable/core';
+import { HttpError } from '@teable/core';
 import { axios } from '../axios';
 
 const defaultIgnoredResultIds = new Set(['connect', 'complete']);
+
+// Keep the backend error envelope ({ message, status, code, data }) intact so callers can
+// branch on status/code (e.g. 402 usage limits) instead of receiving a stringified body.
+export const toSSERequestError = (
+  errorText: string,
+  status: number,
+  errorPrefix: string
+): HttpError => {
+  try {
+    const parsed: unknown = JSON.parse(errorText);
+    if (
+      typeof parsed === 'object' &&
+      parsed != null &&
+      typeof (parsed as { message?: unknown }).message === 'string'
+    ) {
+      return new HttpError(
+        parsed as { message: string; code?: HttpErrorCode; data?: Record<string, unknown> },
+        status
+      );
+    }
+  } catch {
+    // response body is not JSON
+  }
+  return new HttpError(`${errorPrefix}: ${status} ${errorText}`, status);
+};
 
 const hasToJson = (headers: unknown): headers is { toJSON: () => unknown } =>
   typeof headers === 'object' &&
@@ -136,7 +163,7 @@ export const streamSSE = async <T extends { id: string }>(
   if (!response.ok) {
     const errorText = await response.text();
     const errorPrefix = options?.errorPrefix ?? 'SSE stream failed';
-    throw new Error(`${errorPrefix}: ${response.status} ${errorText}`);
+    throw toSSERequestError(errorText, response.status, errorPrefix);
   }
 
   const reader = response.body?.getReader();

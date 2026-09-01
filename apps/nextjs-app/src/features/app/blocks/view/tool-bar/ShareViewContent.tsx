@@ -127,7 +127,7 @@ const EmbedConfigPopover = ({
               className="flex-1"
               onClick={() => setPreviewOpen(true)}
             >
-              <Eye className="mr-1 size-4" />
+              <Eye className="me-1 size-4" />
               {t('table:toolbar.others.share.embedPreview')}
             </Button>
             <DialogContent className="sm:max-w-[425px] md:max-w-[600px] lg:max-w-[800px]">
@@ -146,7 +146,7 @@ const EmbedConfigPopover = ({
             </DialogContent>
           </Dialog>
           <Button variant="outline" size="sm" className="flex-1" onClick={handleCopyCode}>
-            <Copy className="mr-1 size-4" />
+            <Copy className="me-1 size-4" />
             {t('table:toolbar.others.share.copyCode')}
           </Button>
         </div>
@@ -179,19 +179,19 @@ const EmbedConfigPopover = ({
               defaultValue={shareTheme}
               onValueChange={(e) => setShareTheme(e)}
             >
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 rtl:space-x-reverse">
                 <RadioGroupItem value="system" id="embed-r1" />
                 <Label className="text-xs font-normal" htmlFor="embed-r1">
                   {t('common:settings.setting.system')}
                 </Label>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 rtl:space-x-reverse">
                 <RadioGroupItem value="light" id="embed-r2" />
                 <Label className="text-xs font-normal" htmlFor="embed-r2">
                   {t('common:settings.setting.light')}
                 </Label>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 rtl:space-x-reverse">
                 <RadioGroupItem value="dark" id="embed-r3" />
                 <Label className="text-xs font-normal" htmlFor="embed-r3">
                   {t('common:settings.setting.dark')}
@@ -319,6 +319,8 @@ export const ShareViewContent: React.FC = () => {
   const needConfigRequireLogin = [ViewType.Form].includes(view.type);
   const needEmbedHiddenToolbar = ![ViewType.Form].includes(view.type);
 
+  const canManageShare = Boolean(permission['view|share']);
+
   const permissionOptions = needConfigAllowEdit
     ? [
         {
@@ -340,12 +342,29 @@ export const ShareViewContent: React.FC = () => {
   return (
     <div className="flex w-full flex-col gap-4 py-4">
       <div className="flex items-center gap-2">
-        <Switch
-          id="share-view-switch"
-          checked={enableShare}
-          disabled={enableShareLoading || disableShareLoading || !permission['view|share']}
-          onCheckedChange={setEnableShare}
-        />
+        {canManageShare ? (
+          <Switch
+            id="share-view-switch"
+            checked={enableShare}
+            disabled={enableShareLoading || disableShareLoading}
+            onCheckedChange={setEnableShare}
+          />
+        ) : (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                {/* Focusable so keyboard users can reach the tooltip; the disabled switch itself can't take focus */}
+                {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
+                <span className="inline-flex items-center" tabIndex={0}>
+                  <Switch id="share-view-switch" checked={enableShare} disabled />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>{t('common:baseShare.noPermissionTip')}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
         <Label htmlFor="share-view-switch" className="text-sm">
           {t('table:toolbar.others.share.statusLabel')}
         </Label>
@@ -359,8 +378,11 @@ export const ShareViewContent: React.FC = () => {
                   {t('table:baseShare.linkHolderLabel')}
                 </span>
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="inline-flex items-center gap-0.5 font-medium text-blue-500 hover:text-blue-600">
+                  <DropdownMenuTrigger asChild disabled={!canManageShare}>
+                    <button
+                      disabled={!canManageShare}
+                      className="inline-flex items-center gap-0.5 font-medium text-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
                       {activePermission.label}
                       <ChevronDown className="size-3.5" />
                     </button>
@@ -417,6 +439,7 @@ export const ShareViewContent: React.FC = () => {
                       variant="outline"
                       size="icon-sm"
                       className="shrink-0"
+                      disabled={!canManageShare}
                       onClick={() => view.setRefreshLink()}
                     >
                       <RefreshCcw className="size-4 shrink-0" />
@@ -439,6 +462,7 @@ export const ShareViewContent: React.FC = () => {
                 <Switch
                   id="share-view-allowCopy"
                   checked={shareMeta?.allowCopy}
+                  disabled={!canManageShare}
                   onCheckedChange={(checked) => setShareMeta({ allowCopy: checked })}
                 />
                 <Label className="text-sm font-normal" htmlFor="share-view-allowCopy">
@@ -451,6 +475,7 @@ export const ShareViewContent: React.FC = () => {
                 <Switch
                   id="share-view-includeHiddenField"
                   checked={shareMeta?.includeHiddenField}
+                  disabled={!canManageShare}
                   onCheckedChange={(checked) => setShareMeta({ includeHiddenField: checked })}
                 />
                 <Label className="text-sm font-normal" htmlFor="share-view-includeHiddenField">
@@ -462,6 +487,7 @@ export const ShareViewContent: React.FC = () => {
               <Switch
                 id="share-view-password"
                 checked={Boolean(shareMeta?.password)}
+                disabled={!canManageShare}
                 onCheckedChange={onPasswordSwitchChange}
               />
               <Label className="text-sm font-normal" htmlFor="share-view-password">
@@ -472,6 +498,7 @@ export const ShareViewContent: React.FC = () => {
                   className="h-5 px-1 hover:text-muted-foreground"
                   variant="link"
                   size="xs"
+                  disabled={!canManageShare}
                   onClick={() => setShowPasswordDialog(true)}
                 >
                   <Edit className="size-3" />
@@ -483,6 +510,7 @@ export const ShareViewContent: React.FC = () => {
                 <Switch
                   id="share-view-required-login"
                   checked={Boolean(shareMeta?.submit?.requireLogin)}
+                  disabled={!canManageShare}
                   onCheckedChange={onSubmitRequireLoginChange}
                 />
                 <Label className="text-sm font-normal" htmlFor="share-view-required-login">

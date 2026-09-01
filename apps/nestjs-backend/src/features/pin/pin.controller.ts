@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Post, Put, Query } from '@nestjs/common';
-import type { IGetPinListVo } from '@teable/openapi';
+import type { IPinEntryMapVo, IGetPinListVo } from '@teable/openapi';
 import {
   AddPinRo,
   DeletePinRo,
@@ -28,6 +28,11 @@ export class PinController {
   @Get('list')
   async getList(): Promise<IGetPinListVo> {
     return this.pinService.getList();
+  }
+
+  @Get('entry-map')
+  async getEntryMap(): Promise<IPinEntryMapVo> {
+    return this.pinService.getEntryMap();
   }
 
   @Put('order')

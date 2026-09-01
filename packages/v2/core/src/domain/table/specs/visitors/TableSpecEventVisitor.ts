@@ -7,10 +7,27 @@ import type { ISpecification } from '../../../shared/specification/ISpecificatio
 import { FieldCreated } from '../../events/FieldCreated';
 import { FieldDeleted } from '../../events/FieldDeleted';
 import { FieldUpdated } from '../../events/FieldUpdated';
+import { TablePropertiesUpdated } from '../../events/TablePropertiesUpdated';
 import { TableRenamed } from '../../events/TableRenamed';
 import { ViewColumnMetaUpdated } from '../../events/ViewColumnMetaUpdated';
+import { ViewCreated } from '../../events/ViewCreated';
+import { ViewDeleted } from '../../events/ViewDeleted';
+import { ViewDescriptionUpdated } from '../../events/ViewDescriptionUpdated';
+import { ViewFilterUpdated } from '../../events/ViewFilterUpdated';
+import { ViewGroupUpdated } from '../../events/ViewGroupUpdated';
+import { ViewLockedUpdated } from '../../events/ViewLockedUpdated';
+import { ViewOptionsUpdated } from '../../events/ViewOptionsUpdated';
+import { ViewOrderUpdated } from '../../events/ViewOrderUpdated';
+import { ViewRenamed } from '../../events/ViewRenamed';
+import { ViewShareDisabled } from '../../events/ViewShareDisabled';
+import { ViewShareEnabled } from '../../events/ViewShareEnabled';
+import { ViewShareIdRefreshed } from '../../events/ViewShareIdRefreshed';
+import { ViewShareMetaUpdated } from '../../events/ViewShareMetaUpdated';
+import { ViewSortUpdated } from '../../events/ViewSortUpdated';
 import type { FieldId } from '../../fields/FieldId';
 import type { Table } from '../../Table';
+import { viewGroupDtoFromQueryDefaults } from '../../views/ViewGroup';
+import { viewSortDtoFromQueryDefaults } from '../../views/ViewSort';
 import type {
   RemoveSymmetricLinkFieldSpec,
   UpdateButtonColorSpec,
@@ -57,15 +74,20 @@ import type { ITableSpecVisitor } from '../ITableSpecVisitor';
 import type { TableAddFieldSpec } from '../TableAddFieldSpec';
 import type { TableAddFieldsSpec } from '../TableAddFieldsSpec';
 import type { TableAddSelectOptionsSpec } from '../TableAddSelectOptionsSpec';
+import type { TableAddViewSpec } from '../TableAddViewSpec';
 import type { TableByBaseIdSpec } from '../TableByBaseIdSpec';
 import type { TableByIdSpec } from '../TableByIdSpec';
 import type { TableByIdsSpec } from '../TableByIdsSpec';
 import type { TableByIncomingReferenceToTableSpec } from '../TableByIncomingReferenceToTableSpec';
 import type { TableByNameLikeSpec } from '../TableByNameLikeSpec';
 import type { TableByNameSpec } from '../TableByNameSpec';
+import type { TableByViewIdSpec } from '../TableByViewIdSpec';
 import type { TableDuplicateFieldSpec } from '../TableDuplicateFieldSpec';
+import type { TableEnsureViewRowOrderSpec } from '../TableEnsureViewRowOrderSpec';
 import type { TableRemoveFieldSpec } from '../TableRemoveFieldSpec';
+import type { TableRemoveViewSpec } from '../TableRemoveViewSpec';
 import type { TableRenameSpec } from '../TableRenameSpec';
+import type { TableRenameViewSpec } from '../TableRenameViewSpec';
 import type { TableUpdateFieldAiConfigSpec } from '../TableUpdateFieldAiConfigSpec';
 import type { TableUpdateFieldConstraintsSpec } from '../TableUpdateFieldConstraintsSpec';
 import type { TableUpdateFieldDbFieldNameSpec } from '../TableUpdateFieldDbFieldNameSpec';
@@ -73,8 +95,18 @@ import type { TableUpdateFieldDescriptionSpec } from '../TableUpdateFieldDescrip
 import type { TableUpdateFieldHasErrorSpec } from '../TableUpdateFieldHasErrorSpec';
 import type { TableUpdateFieldNameSpec } from '../TableUpdateFieldNameSpec';
 import type { TableUpdateFieldTypeSpec } from '../TableUpdateFieldTypeSpec';
+import type { TableUpdatePropertiesSpec } from '../TableUpdatePropertiesSpec';
 import type { TableUpdateViewColumnMetaSpec } from '../TableUpdateViewColumnMetaSpec';
+import type { TableUpdateViewDescriptionSpec } from '../TableUpdateViewDescriptionSpec';
+import type { TableUpdateViewLockedSpec } from '../TableUpdateViewLockedSpec';
+import type { TableUpdateViewOptionsSpec } from '../TableUpdateViewOptionsSpec';
+import type { TableUpdateViewOrderSpec } from '../TableUpdateViewOrderSpec';
 import type { TableUpdateViewQueryDefaultsSpec } from '../TableUpdateViewQueryDefaultsSpec';
+import type { TableUpdateViewShareIdSpec } from '../TableUpdateViewShareIdSpec';
+import type { TableUpdateViewShareMetaSpec } from '../TableUpdateViewShareMetaSpec';
+import type { TableUpdateViewShareStateSpec } from '../TableUpdateViewShareStateSpec';
+import type { TableWithViewIdsSpec } from '../TableWithViewIdsSpec';
+import type { TableWithPrimaryFieldSpec } from '../TableWithPrimaryFieldSpec';
 import { FieldUpdateSemanticsVisitor } from './FieldUpdateSemanticsVisitor';
 
 /**
@@ -164,6 +196,100 @@ export class TableSpecEventVisitor implements ITableSpecVisitor<void> {
     return ok(undefined);
   }
 
+  visitTableAddView(spec: TableAddViewSpec<ITableSpecVisitor<void>>): Result<void, DomainError> {
+    this.eventsCollected.push(
+      ViewCreated.create({
+        tableId: this.table.id(),
+        baseId: this.table.baseId(),
+        viewId: spec.view().id(),
+      })
+    );
+    return ok(undefined);
+  }
+
+  visitTableEnsureViewRowOrder(
+    _spec: TableEnsureViewRowOrderSpec<ITableSpecVisitor<void>>
+  ): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableRemoveView(
+    spec: TableRemoveViewSpec<ITableSpecVisitor<void>>
+  ): Result<void, DomainError> {
+    const version = spec.view().version();
+    this.eventsCollected.push(
+      ViewDeleted.create({
+        tableId: this.table.id(),
+        baseId: this.table.baseId(),
+        viewId: spec.view().id(),
+        ...(version.isOk() ? { oldVersion: version.value.toNumber() } : {}),
+      })
+    );
+    return ok(undefined);
+  }
+
+  visitTableRenameView(
+    spec: TableRenameViewSpec<ITableSpecVisitor<void>>
+  ): Result<void, DomainError> {
+    this.eventsCollected.push(
+      ViewRenamed.create({
+        tableId: this.table.id(),
+        baseId: this.table.baseId(),
+        viewId: spec.viewId(),
+        previousName: spec.previousName(),
+        nextName: spec.nextName(),
+      })
+    );
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewDescription(
+    spec: TableUpdateViewDescriptionSpec<ITableSpecVisitor<void>>
+  ): Result<void, DomainError> {
+    this.eventsCollected.push(
+      ViewDescriptionUpdated.create({
+        tableId: this.table.id(),
+        baseId: this.table.baseId(),
+        viewId: spec.viewId(),
+        previousDescription: spec.previousDescription(),
+        nextDescription: spec.nextDescription(),
+      })
+    );
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewLocked(
+    spec: TableUpdateViewLockedSpec<ITableSpecVisitor<void>>
+  ): Result<void, DomainError> {
+    this.eventsCollected.push(
+      ViewLockedUpdated.create({
+        tableId: this.table.id(),
+        baseId: this.table.baseId(),
+        viewId: spec.viewId(),
+        previousIsLocked: spec.previousIsLocked(),
+        nextIsLocked: spec.nextIsLocked(),
+      })
+    );
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewOrder(
+    spec: TableUpdateViewOrderSpec<ITableSpecVisitor<void>>
+  ): Result<void, DomainError> {
+    for (const change of spec.changes()) {
+      this.eventsCollected.push(
+        ViewOrderUpdated.create({
+          tableId: this.table.id(),
+          baseId: this.table.baseId(),
+          viewId: change.viewId,
+          previousOrder: change.previousOrder,
+          nextOrder: change.nextOrder,
+        })
+      );
+    }
+    return ok(undefined);
+  }
+
   private collectViewOrders(
     fieldId: FieldId
   ): Result<Readonly<Record<string, number>>, DomainError> {
@@ -217,6 +343,29 @@ export class TableSpecEventVisitor implements ITableSpecVisitor<void> {
     const updates = spec.updates();
 
     for (const update of updates) {
+      if (update.changes?.length || update.optionsChanged) {
+        const eventFieldId = update.changes?.[0]?.fieldId ?? update.fieldId;
+        const metaDto = update.columnMeta.toDto();
+        this.eventsCollected.push(
+          ViewColumnMetaUpdated.create({
+            tableId: this.table.id(),
+            baseId: this.table.baseId(),
+            viewId: update.viewId,
+            fieldId: eventFieldId,
+            fieldInColumnMeta: Boolean(metaDto[eventFieldId.toString()]),
+            changes: update.changes,
+            ...(update.optionsChanged
+              ? {
+                  optionsChange: {
+                    previousOptions: update.previousOptions,
+                    nextOptions: update.nextOptions,
+                  },
+                }
+              : {}),
+          })
+        );
+        continue;
+      }
       // Get column meta entries to find affected field IDs
       const metaDto = update.columnMeta.toDto();
       for (const fieldIdStr of Object.keys(metaDto)) {
@@ -240,8 +389,121 @@ export class TableSpecEventVisitor implements ITableSpecVisitor<void> {
   }
 
   visitTableUpdateViewQueryDefaults(
-    _spec: TableUpdateViewQueryDefaultsSpec<ITableSpecVisitor<void>>
+    spec: TableUpdateViewQueryDefaultsSpec<ITableSpecVisitor<void>>
   ): Result<void, DomainError> {
+    for (const update of spec.updates()) {
+      const previous = update.previousQueryDefaults?.sourceFilter();
+      const next = update.queryDefaults.sourceFilter();
+      if (update.previousQueryDefaults && JSON.stringify(previous) !== JSON.stringify(next)) {
+        this.eventsCollected.push(
+          ViewFilterUpdated.create({
+            tableId: this.table.id(),
+            baseId: this.table.baseId(),
+            viewId: update.viewId,
+            previousFilter: previous,
+            nextFilter: next,
+          })
+        );
+      }
+      if (update.previousQueryDefaults) {
+        const previousGroup = viewGroupDtoFromQueryDefaults(update.previousQueryDefaults);
+        const nextGroup = viewGroupDtoFromQueryDefaults(update.queryDefaults);
+        if (JSON.stringify(previousGroup) !== JSON.stringify(nextGroup)) {
+          this.eventsCollected.push(
+            ViewGroupUpdated.create({
+              tableId: this.table.id(),
+              baseId: this.table.baseId(),
+              viewId: update.viewId,
+              previousGroup,
+              nextGroup,
+            })
+          );
+        }
+        const previousSort = viewSortDtoFromQueryDefaults(update.previousQueryDefaults);
+        const nextSort = viewSortDtoFromQueryDefaults(update.queryDefaults);
+        if (JSON.stringify(previousSort) !== JSON.stringify(nextSort)) {
+          this.eventsCollected.push(
+            ViewSortUpdated.create({
+              tableId: this.table.id(),
+              baseId: this.table.baseId(),
+              viewId: update.viewId,
+              previousSort,
+              nextSort,
+            })
+          );
+        }
+      }
+    }
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewOptions(
+    spec: TableUpdateViewOptionsSpec<ITableSpecVisitor<void>>
+  ): Result<void, DomainError> {
+    const update = spec.update();
+    this.eventsCollected.push(
+      ViewOptionsUpdated.create({
+        tableId: this.table.id(),
+        baseId: this.table.baseId(),
+        viewId: update.viewId,
+        previousOptions: update.previousOptions,
+        nextOptions: update.nextOptions,
+      })
+    );
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewShareMeta(
+    spec: TableUpdateViewShareMetaSpec<ITableSpecVisitor<void>>
+  ): Result<void, DomainError> {
+    this.eventsCollected.push(
+      ViewShareMetaUpdated.create({
+        tableId: this.table.id(),
+        baseId: this.table.baseId(),
+        viewId: spec.viewId(),
+        previousShareMeta: spec.previousShareMeta(),
+        nextShareMeta: spec.nextShareMeta(),
+      })
+    );
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewShareId(
+    spec: TableUpdateViewShareIdSpec<ITableSpecVisitor<void>>
+  ): Result<void, DomainError> {
+    this.eventsCollected.push(
+      ViewShareIdRefreshed.create({
+        tableId: this.table.id(),
+        baseId: this.table.baseId(),
+        viewId: spec.viewId(),
+        previousShareId: spec.previousShareId(),
+        nextShareId: spec.nextShareId(),
+      })
+    );
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewShareState(
+    spec: TableUpdateViewShareStateSpec<ITableSpecVisitor<void>>
+  ): Result<void, DomainError> {
+    const nextState = spec.nextState();
+    this.eventsCollected.push(
+      nextState.enableShare
+        ? ViewShareEnabled.create({
+            tableId: this.table.id(),
+            baseId: this.table.baseId(),
+            viewId: spec.viewId(),
+            shareId: nextState.shareId,
+            shareMeta: nextState.shareMeta,
+          })
+        : ViewShareDisabled.create({
+            tableId: this.table.id(),
+            baseId: this.table.baseId(),
+            viewId: spec.viewId(),
+            previousShareId: spec.previousState().shareId,
+            shareMeta: nextState.shareMeta,
+          })
+    );
     return ok(undefined);
   }
 
@@ -263,6 +525,22 @@ export class TableSpecEventVisitor implements ITableSpecVisitor<void> {
     return ok(undefined);
   }
 
+  visitTableUpdateProperties(
+    spec: TableUpdatePropertiesSpec<ITableSpecVisitor<void>>
+  ): Result<void, DomainError> {
+    if (!spec.previousProperties().equals(spec.nextProperties())) {
+      this.eventsCollected.push(
+        TablePropertiesUpdated.create({
+          tableId: this.table.id(),
+          baseId: this.table.baseId(),
+          previousProperties: spec.previousProperties(),
+          nextProperties: spec.nextProperties(),
+        })
+      );
+    }
+    return ok(undefined);
+  }
+
   visitTableByBaseId(_spec: TableByBaseIdSpec<ITableSpecVisitor<void>>): Result<void, DomainError> {
     // Query-only spec, no events generated
     return ok(undefined);
@@ -270,6 +548,25 @@ export class TableSpecEventVisitor implements ITableSpecVisitor<void> {
 
   visitTableById(_spec: TableByIdSpec<ITableSpecVisitor<void>>): Result<void, DomainError> {
     // Query-only spec, no events generated
+    return ok(undefined);
+  }
+
+  visitTableByViewId(_spec: TableByViewIdSpec<ITableSpecVisitor<void>>): Result<void, DomainError> {
+    // Query-only spec, no events generated
+    return ok(undefined);
+  }
+
+  visitTableWithViewIds(
+    _spec: TableWithViewIdsSpec<ITableSpecVisitor<void>>
+  ): Result<void, DomainError> {
+    // Query-only child hydration spec, no events generated
+    return ok(undefined);
+  }
+
+  visitTableWithPrimaryField(
+    _spec: TableWithPrimaryFieldSpec<ITableSpecVisitor<void>>
+  ): Result<void, DomainError> {
+    // Query-only child hydration spec, no events generated
     return ok(undefined);
   }
 

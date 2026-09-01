@@ -209,7 +209,8 @@ describe('update-field: user property updates', () => {
     });
 
     const records = await ctx.listRecordsWithoutDrain(tableId);
-    expect(records.find((r) => r.id === r1.id)?.fields[fieldId]).toEqual([]);
+    // v1 contract: [] input is stored as null, so the cell stays empty
+    expect(records.find((r) => r.id === r1.id)?.fields[fieldId] == null).toBe(true);
 
     await ctx.deleteField({ tableId, fieldId });
     await ctx.deleteRecords(tableId, [r1.id]);

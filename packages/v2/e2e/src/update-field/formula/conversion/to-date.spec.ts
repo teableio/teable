@@ -133,6 +133,54 @@ describe('update-field: formula → date conversion', () => {
     await ctx.deleteRecords(tableId, [rec.id]);
   });
 
+  test('should null calendar-invalid string formula values without aborting conversion', async () => {
+    const textFieldId = createFieldId();
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: { type: 'singleLineText', id: textFieldId, name: 'Date Text Source' },
+    });
+
+    const formulaFieldId = createFieldId();
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: {
+        type: 'formula',
+        id: formulaFieldId,
+        name: 'Formula Text Date',
+        options: { expression: `{${textFieldId}}` },
+      },
+    });
+
+    const values = ['2026-02-30', '2026-13-01', '2026-03-01'];
+    const records = await Promise.all(
+      values.map((value) => ctx.createRecord(tableId, { [textFieldId]: value }))
+    );
+    await ctx.drainOutbox();
+
+    const updatedTable = await ctx.updateField({
+      tableId,
+      fieldId: formulaFieldId,
+      field: { type: 'date' },
+    });
+
+    expect(updatedTable.fields.find((field) => field.id === formulaFieldId)?.type).toBe('date');
+    const convertedRecords = await ctx.listRecords(tableId);
+    const convertedValues = records.map(
+      (record) =>
+        convertedRecords.find((candidate) => candidate.id === record.id)?.fields[formulaFieldId]
+    );
+    expect(convertedValues).toEqual([null, null, '2026-03-01T00:00:00.000Z']);
+
+    await ctx.deleteField({ tableId, fieldId: formulaFieldId });
+    await ctx.deleteField({ tableId, fieldId: textFieldId });
+    await ctx.deleteRecords(
+      tableId,
+      records.map((record) => record.id)
+    );
+  });
+
   test('should handle null values', async () => {
     const dateFieldId = createFieldId();
     await ctx.createField({

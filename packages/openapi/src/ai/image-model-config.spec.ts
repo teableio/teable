@@ -59,8 +59,8 @@ describe('getImageModelConfigByGatewayId', () => {
       '768x1024',
       '1024x672',
       '672x1024',
-      '1024x576',
-      '576x1024',
+      '1280x720',
+      '720x1280',
       '2048x1152',
       '1152x2048',
       '2048x2048',
@@ -190,6 +190,24 @@ describe('OPENAI_GPT_IMAGE_2_PRESETS', () => {
     expect(getOpenAIGptImage2SizeMeta()).toBeUndefined();
     expect(getOpenAIGptImage2SizeMeta('1792x1024')).toBeUndefined();
   });
+
+  it('keeps non-experimental presets within the GPT Image 2 size constraints', () => {
+    const experimentalSizes = new Set(['3840x2160', '2160x3840']);
+
+    for (const { size } of OPENAI_GPT_IMAGE_2_PRESETS) {
+      if (experimentalSizes.has(size)) continue;
+
+      const [width, height] = size.split('x').map(Number);
+      const pixels = width * height;
+
+      expect(width % 16, size).toBe(0);
+      expect(height % 16, size).toBe(0);
+      expect(Math.max(width, height), size).toBeLessThan(3840);
+      expect(Math.max(width, height) / Math.min(width, height), size).toBeLessThanOrEqual(3);
+      expect(pixels, size).toBeGreaterThanOrEqual(655_360);
+      expect(pixels, size).toBeLessThanOrEqual(8_294_400);
+    }
+  });
 });
 
 describe('getImageModelConfigByModelKey', () => {
@@ -210,8 +228,8 @@ describe('getImageModelConfigByModelKey', () => {
       '768x1024',
       '1024x672',
       '672x1024',
-      '1024x576',
-      '576x1024',
+      '1280x720',
+      '720x1280',
       '2048x1152',
       '1152x2048',
       '2048x2048',

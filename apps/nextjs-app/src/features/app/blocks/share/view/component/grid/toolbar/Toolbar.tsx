@@ -59,14 +59,14 @@ export const Toolbar = () => {
           </Button>
         </CreateRecordModal>
       )}
-      <HideFields>
+      <HideFields responsive>
         {(text, isActive) => (
           <ToolBarButton isActive={isActive} text={text} textClassName="@2xl/toolbar:inline">
             <EyeOff className="size-4 text-sm" />
           </ToolBarButton>
         )}
       </HideFields>
-      <ShareViewFilter filters={view?.filter || null} onChange={onFilterChange}>
+      <ShareViewFilter responsive filters={view?.filter || null} onChange={onFilterChange}>
         {(text, isActive, hasWarning) => (
           <ToolBarButton
             isActive={isActive}
@@ -87,7 +87,7 @@ export const Toolbar = () => {
           </ToolBarButton>
         )}
       </ShareViewFilter>
-      <Sort sorts={view?.sort || null} onChange={onSortChange}>
+      <Sort responsive sorts={view?.sort || null} onChange={onSortChange}>
         {(text: string, isActive) => (
           <ToolBarButton
             isActive={isActive}
@@ -104,7 +104,7 @@ export const Toolbar = () => {
           </ToolBarButton>
         )}
       </Sort>
-      <Group group={view?.group || null} onChange={onGroupChange}>
+      <Group responsive group={view?.group || null} onChange={onGroupChange}>
         {(text: string, isActive) => (
           <ToolBarButton
             isActive={isActive}
@@ -122,6 +122,7 @@ export const Toolbar = () => {
         )}
       </Group>
       <RowHeight
+        responsive
         rowHeight={(view?.options as IGridViewOptions)?.rowHeight}
         fieldNameDisplayLines={(view?.options as IGridViewOptions)?.fieldNameDisplayLines}
         onChange={(type, value) => {

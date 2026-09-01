@@ -402,6 +402,10 @@ type ITargetArtifactCleanupStats = {
     deletedRows: number | null;
     truncated?: boolean;
   }[];
+  internalSchema?: {
+    schemaName: string;
+    dropped: boolean;
+  };
   truncateSharedTables?: boolean;
   startedAt: string;
   completedAt?: string;
@@ -651,6 +655,11 @@ type IMigrationJobClient = {
     create(args: unknown): Promise<{ id: string }>;
     update(args: unknown): Promise<unknown>;
     updateMany(args: unknown): Promise<{ count: number }>;
+    count(args: unknown): Promise<number>;
+  };
+  spaceDataDbBinding: {
+    count(args: unknown): Promise<number>;
+    findMany(args: unknown): Promise<{ spaceId: string }[]>;
   };
 };
 
@@ -681,6 +690,7 @@ const sharedTables = {
   recordHistory: 'record_history',
   tableTrash: 'table_trash',
   recordTrash: 'record_trash',
+  recordRemovalTombstone: 'record_removal_tombstone',
   computedUpdateOutbox: 'computed_update_outbox',
   computedUpdateDeadLetter: 'computed_update_dead_letter',
   computedUpdateOutboxSeed: 'computed_update_outbox_seed',
@@ -707,8 +717,15 @@ const relationKindsWithTableDependencySignatures = new Set([
   'foreign_table',
 ]);
 const validationFailedMessage = 'Space data database migration validation failed';
+class PostCutoverFinalizationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PostCutoverFinalizationError';
+  }
+}
 const metaFallbackDataDbCacheKey = 'meta-fallback';
 const defaultMigrationCopyTimeoutMs = 24 * 60 * 60 * 1000;
+const defaultMigrationComputedPauseTtlMs = 26 * 60 * 60 * 1000;
 const defaultMigrationCopyJobs = 1;
 const defaultMigrationCopyMaxJobs = 4;
 const defaultComputedDrainTimeoutMs = 10 * 60 * 1000;
@@ -787,7 +804,8 @@ const migrationProgressCompletedSteps: Record<string, number> = {
   canceled_before_copy: 1,
 };
 
-const migrationPauseReason = (jobId: string) => `space-data-db-migration:${jobId}`;
+const migrationPauseReasonPrefix = 'space-data-db-migration:';
+const migrationPauseReason = (jobId: string) => `${migrationPauseReasonPrefix}${jobId}`;
 
 const readPositiveIntEnv = (key: string, fallback: number) => {
   const value = Number(process.env[key]);
@@ -1218,6 +1236,7 @@ export class SpaceDataDbMigrationService {
     return { jobId: claimableJob.id };
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity -- reconciles each durable migration phase without collapsing post-cutover safety branches
   async recoverStaleActiveMigrationJobs(
     workerId: string,
     options: { staleAfterMs?: number; now?: Date } = {}
@@ -1251,26 +1270,131 @@ export class SpaceDataDbMigrationService {
     for (const job of jobs) {
       const lastProgressAt = job.lastModifiedTime?.toISOString() ?? 'never';
       const lastError = this.buildStaleMigrationJobLastError(job, lastProgressAt);
-      const marked = await this.migrationJobClient.spaceDataDbMigrationJob.updateMany({
+      const staleRecovery = {
+        errorCode: spaceDataDbStaleActiveJobErrorCode,
+        workerId,
+        previousState: job.state,
+        staleAfterMs,
+        staleBefore: staleBefore.toISOString(),
+        claimedAt: now.toISOString(),
+      };
+      const recoveryCopyStats = {
+        ...(this.asRecord(job.copyStats) ?? {}),
+        staleRecovery,
+      };
+
+      // Take exclusive ownership before releasing pauses or touching the target database.
+      // The conditional lastModifiedTime predicate is the only barrier against a worker whose
+      // heartbeat lapsed but which is still mid-copy; releasing its pause or truncating its
+      // target before winning this claim corrupts a live migration.
+      const claimed = await this.migrationJobClient.spaceDataDbMigrationJob.updateMany({
         where: {
           id: job.id,
           state: job.state,
           OR: [{ lastModifiedTime: null }, { lastModifiedTime: { lt: staleBefore } }],
         },
+        data: { copyStats: recoveryCopyStats },
+      });
+      if (claimed.count !== 1) {
+        continue;
+      }
+      // The claim refreshed lastModifiedTime, so ownership is now carried by state alone.
+      const ownedJobWhere = { id: job.id, state: job.state };
+
+      if (job.state === 'switching' && this.wasMigrationRouteSwitched(job.validationStats)) {
+        // Same ordering as validateAndSwitchJob: delete the source backlog before lifting
+        // any source pause, or the zombie backlog replays against the orphaned source copy.
+        const finalizationErrors: string[] = [];
+        try {
+          await this.cleanupSourceComputedAfterSwitchForJob(job.id);
+        } catch (error) {
+          finalizationErrors.push(
+            `source computed cleanup failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          );
+        }
+        if (!finalizationErrors.length) {
+          finalizationErrors.push(...(await this.releaseMigrationComputedPauses(job.id)));
+        }
+        if (finalizationErrors.length) {
+          await this.migrationJobClient.spaceDataDbMigrationJob.updateMany({
+            where: ownedJobWhere,
+            data: {
+              lastError: finalizationErrors.join('; '),
+              copyStats: {
+                ...recoveryCopyStats,
+                finalizing: {
+                  routeSwitched: true,
+                  retryable: true,
+                  lastAttemptAt: now.toISOString(),
+                  errors: finalizationErrors,
+                },
+              },
+            },
+          });
+          continue;
+        }
+        // Rollback proof derives its post-switch write cutoff from completedAt, so it must be
+        // the instant the route actually switched, not the instant recovery noticed.
+        const switchedAt = this.resolveMigrationSwitchedAt(job.validationStats) ?? now;
+        const finalized = await this.migrationJobClient.spaceDataDbMigrationJob.updateMany({
+          where: ownedJobWhere,
+          data: {
+            state: 'succeeded',
+            completedAt: switchedAt,
+            lastError: null,
+            copyStats: {
+              ...recoveryCopyStats,
+              finalizing: {
+                routeSwitched: true,
+                retryable: false,
+                completedAt: now.toISOString(),
+                recoveredBy: workerId,
+              },
+            },
+          },
+        });
+        if (finalized.count === 1) {
+          await this.cleanupSourceDeltaCaptureForJob(job).catch(() => undefined);
+          recovered.push({ jobId: job.id, state: job.state, lastError: '' });
+        }
+        continue;
+      }
+
+      const releaseErrors = await this.releaseMigrationComputedPauses(job.id);
+      if (releaseErrors.length) {
+        await this.migrationJobClient.spaceDataDbMigrationJob.updateMany({
+          where: ownedJobWhere,
+          data: { lastError: releaseErrors.join('; '), copyStats: recoveryCopyStats },
+        });
+        continue;
+      }
+      if (['copying', 'validating'].includes(job.state)) {
+        try {
+          await this.cleanupTargetArtifactsForJob(job.id, 'stale_active_job', {
+            truncateSharedTables: await this.canTruncateTargetSharedTables(job.targetConnectionId),
+          });
+        } catch (error) {
+          await this.migrationJobClient.spaceDataDbMigrationJob.updateMany({
+            where: ownedJobWhere,
+            data: {
+              lastError: error instanceof Error ? error.message : String(error),
+              copyStats: recoveryCopyStats,
+            },
+          });
+          continue;
+        }
+      }
+      const marked = await this.migrationJobClient.spaceDataDbMigrationJob.updateMany({
+        where: ownedJobWhere,
         data: {
           state: 'failed',
           completedAt: now,
           lastError,
           copyStats: {
-            ...(this.asRecord(job.copyStats) ?? {}),
-            staleRecovery: {
-              errorCode: spaceDataDbStaleActiveJobErrorCode,
-              workerId,
-              previousState: job.state,
-              staleAfterMs,
-              staleBefore: staleBefore.toISOString(),
-              recoveredAt: now.toISOString(),
-            },
+            ...recoveryCopyStats,
+            staleRecovery: { ...staleRecovery, recoveredAt: now.toISOString() },
           },
         },
       });
@@ -1278,17 +1402,37 @@ export class SpaceDataDbMigrationService {
         continue;
       }
 
-      await this.resumeSourceComputedForJob(job.id).catch(() => undefined);
-      if (['copying', 'validating'].includes(job.state)) {
-        await this.cleanupTargetArtifactsForJob(job.id, 'stale_active_job', {
-          truncateSharedTables: await this.canTruncateTargetSharedTables(job.targetConnectionId),
-        }).catch(() => undefined);
-      }
-
       recovered.push({ jobId: job.id, state: job.state, lastError });
     }
 
     return recovered;
+  }
+
+  private wasMigrationRouteSwitched(validationStats: unknown) {
+    return this.asRecord(validationStats)?.switched === true;
+  }
+
+  private resolveMigrationSwitchedAt(validationStats: unknown): Date | null {
+    const switchedAt = this.asRecord(validationStats)?.switchedAt;
+    if (typeof switchedAt !== 'string') return null;
+    const parsed = new Date(switchedAt);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  private async releaseMigrationComputedPauses(jobId: string) {
+    const results = await Promise.allSettled([
+      this.resumeTargetComputedForJob(jobId),
+      this.resumeSourceComputedForJob(jobId),
+    ]);
+    return results.flatMap((result, index) =>
+      result.status === 'rejected'
+        ? [
+            `${index === 0 ? 'target' : 'source'} computed resume failed: ${
+              result.reason instanceof Error ? result.reason.message : String(result.reason)
+            }`,
+          ]
+        : []
+    );
   }
 
   private buildStaleMigrationJobLastError(job: IStaleMigrationJobRecord, lastProgressAt: string) {
@@ -1972,6 +2116,7 @@ export class SpaceDataDbMigrationService {
     };
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity -- coordinates the durable copy/cutover pipeline and its phase-specific cleanup guarantees
   async runMigrationJob(jobId: string, options: IRunMigrationJobOptions = {}) {
     const {
       workDir,
@@ -1996,7 +2141,6 @@ export class SpaceDataDbMigrationService {
     await mkdir(workDir, { recursive: true });
     await this.assertMigrationNotCanceled(jobId);
     const freezeSourceWrites = await this.shouldFreezeSourceWritesForJob(jobId);
-    let pause: { created: boolean } = { created: false };
     let targetArtifactsMayExist = false;
     let sourceSnapshot: ISourceSnapshotHandle | null = null;
     try {
@@ -2097,7 +2241,7 @@ export class SpaceDataDbMigrationService {
             lastError: null,
           },
         });
-        pause = await this.pauseSourceComputedForJob(jobId);
+        await this.pauseSourceComputedForJob(jobId);
         await this.waitForSourceComputedDrainForJob(jobId, {
           timeoutMs: computedDrainTimeoutMs,
           pollMs: computedDrainPollMs,
@@ -2124,15 +2268,78 @@ export class SpaceDataDbMigrationService {
       return await this.validateAndSwitchJob(jobId);
     } catch (error) {
       await this.closeSourceSnapshot(sourceSnapshot).catch(() => undefined);
-      if (pause.created) {
-        await this.resumeSourceComputedForJob(jobId).catch(() => undefined);
-      }
       const job = await this.getMigrationJob(jobId).catch(() => null);
+      if (
+        error instanceof PostCutoverFinalizationError ||
+        (job && this.wasMigrationRouteSwitched(job.validationStats))
+      ) {
+        const lastError = error instanceof Error ? error.message : String(error);
+        if (job && job.state !== 'succeeded') {
+          await this.migrationJobClient.spaceDataDbMigrationJob
+            .update({
+              where: { id: jobId },
+              data: {
+                state: 'switching',
+                lastError,
+                copyStats: {
+                  ...(this.asRecord(job.copyStats) ?? {}),
+                  finalizing: {
+                    routeSwitched: true,
+                    retryable: true,
+                    lastAttemptAt: new Date().toISOString(),
+                    errors: [lastError],
+                  },
+                },
+              },
+            })
+            .catch(() => undefined);
+          await this.cleanupSourceDeltaCaptureForJob(job).catch(() => undefined);
+        }
+        throw error instanceof PostCutoverFinalizationError
+          ? error
+          : new PostCutoverFinalizationError(lastError);
+      }
       if (job) {
         await this.cleanupSourceDeltaCaptureForJob(job).catch(() => undefined);
       }
+      const cleanupErrors = await this.releaseMigrationComputedPauses(jobId);
       if (targetArtifactsMayExist) {
-        await this.cleanupTargetArtifactsForJob(jobId, 'pre_switch_failure').catch(() => undefined);
+        await this.cleanupTargetArtifactsForJob(jobId, 'pre_switch_failure').catch(
+          (cleanupError) => {
+            cleanupErrors.push(
+              `target artifact cleanup failed: ${
+                cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+              }`
+            );
+          }
+        );
+      }
+      if (
+        cleanupErrors.length &&
+        job &&
+        (job.state === 'failed' || activeSpaceDataDbMigrationStates.includes(job.state as never))
+      ) {
+        await this.migrationJobClient.spaceDataDbMigrationJob.update({
+          where: { id: jobId },
+          data: {
+            state: 'switching',
+            completedAt: null,
+            lastError: [
+              error instanceof Error ? error.message : String(error),
+              ...cleanupErrors,
+            ].join('; '),
+            copyStats: {
+              ...(this.asRecord(job.copyStats) ?? {}),
+              finalizing: {
+                routeSwitched: false,
+                retryable: true,
+                lastAttemptAt: new Date().toISOString(),
+                errors: cleanupErrors,
+              },
+            },
+          },
+        });
+        throw error;
       }
       await this.completeFailedMigrationJob(jobId, error).catch(() => undefined);
       throw error;
@@ -2196,13 +2403,13 @@ export class SpaceDataDbMigrationService {
     // rows (mirroring shouldReplayDeltaRow) so a migration does not have to log
     // and then page through the whole instance's shared-table churn.
     const scopeBySharedTable = this.getDeltaCaptureScopeBySharedTable(inventory);
-    const sharedRelations: IDeltaCaptureRelation[] = Object.values(sharedTables).map(
-      (tableName) => ({
+    const sharedRelations: IDeltaCaptureRelation[] = Object.values(sharedTables)
+      .filter((tableName) => tableName !== sharedTables.computedUpdatePauseScope)
+      .map((tableName) => ({
         schemaName: sourceSchema,
         tableName,
         scope: scopeBySharedTable[tableName],
-      })
-    );
+      }));
     const seen = new Set<string>();
     return [...baseRelations, ...sharedRelations].filter((relation) => {
       const key = `${relation.schemaName}.${relation.tableName}`;
@@ -2229,10 +2436,8 @@ export class SpaceDataDbMigrationService {
       [sharedTables.computedUpdateOutbox]: scoped('base_id', inventory.baseIds),
       [sharedTables.computedUpdateDeadLetter]: scoped('base_id', inventory.baseIds),
       [sharedTables.computedUpdateOutboxSeed]: scoped('table_id', inventory.tableIds),
-      // computed_update_pause_scope and __undo_log key their scope on composite
-      // or derived values that a trigger WHEN clause cannot express cheaply;
-      // their churn is negligible, so keep capturing them unscoped and let
-      // shouldReplayDeltaRow filter at replay time.
+      // __undo_log keys its scope on a derived value that a trigger WHEN clause
+      // cannot express cheaply; keep capturing it unscoped and filter at replay time.
     };
   }
 
@@ -2560,12 +2765,12 @@ export class SpaceDataDbMigrationService {
       inventory.sharedTableIds.length ? inventory.sharedTableIds : inventory.tableIds
     );
     const baseIds = new Set(inventory.baseIds);
-    const copySpaceIds = new Set(this.getInventoryCopySpaceIds(inventory));
 
     if (
       row.tableName === sharedTables.recordHistory ||
       row.tableName === sharedTables.tableTrash ||
-      row.tableName === sharedTables.recordTrash
+      row.tableName === sharedTables.recordTrash ||
+      row.tableName === sharedTables.recordRemovalTombstone
     ) {
       return typeof payload.table_id === 'string' && tableScopeIds.has(payload.table_id);
     }
@@ -2579,13 +2784,9 @@ export class SpaceDataDbMigrationService {
       return typeof payload.table_id === 'string' && inventory.tableIds.includes(payload.table_id);
     }
     if (row.tableName === sharedTables.computedUpdatePauseScope) {
-      const scopeType = payload.scope_type;
-      const scopeId = payload.scope_id;
-      return (
-        (scopeType === 'space' && typeof scopeId === 'string' && copySpaceIds.has(scopeId)) ||
-        (scopeType === 'base' && typeof scopeId === 'string' && baseIds.has(scopeId)) ||
-        (scopeType === 'table' && typeof scopeId === 'string' && tableScopeIds.has(scopeId))
-      );
+      // Pause scopes are intentionally not mirrored during space migration.
+      // Target pause rows are owned by pauseTargetComputedForJob only.
+      return false;
     }
     if (row.tableName === sharedTables.undoLog) {
       const tableName = typeof payload.table_name === 'string' ? payload.table_name : '';
@@ -3882,6 +4083,7 @@ export class SpaceDataDbMigrationService {
 
     try {
       const pause = await this.insertMigrationComputedPause(client, sourceSchema, spaceIds, job);
+      this.assertMigrationComputedPauseOwned(jobId, 'source', pause);
 
       await this.migrationJobClient.spaceDataDbMigrationJob.update({
         where: { id: jobId },
@@ -3929,6 +4131,7 @@ export class SpaceDataDbMigrationService {
         this.getInventoryCopySpaceIds(this.normalizeInventory(job.inventory, job.spaceId)),
         job
       );
+      this.assertMigrationComputedPauseOwned(jobId, 'target', pause);
       return { created: pause.created };
     } finally {
       await client.destroy().catch(() => undefined);
@@ -3976,6 +4179,105 @@ export class SpaceDataDbMigrationService {
     }
   }
 
+  /**
+   * After a successful switch the source database still holds this space's
+   * computed outbox backlog (rows are copied to the target, never deleted) and
+   * the migration pause row. Leaving both behind creates a silent black hole:
+   * the permanent pause blocks claim/redrive/wakeup until someone deletes it
+   * manually, at which point the zombie backlog executes against the orphaned
+   * source schema copy. Delete the backlog first, then lift the pause, so the
+   * source can never replay stale work.
+   *
+   * Only default-mode sources are cleaned: a BYODB source would need the old
+   * connection, which post-switch resolution no longer returns (the space
+   * binding already points at the target).
+   */
+  async cleanupSourceComputedAfterSwitchForJob(
+    jobId: string
+  ): Promise<{ skipped: boolean; outboxDeleted: number; pauseDeleted: number }> {
+    const job = await this.getMigrationJob(jobId);
+    const inventory = this.normalizeInventory(job.inventory, job.spaceId);
+    if (inventory.sourceDataDb.mode !== 'default' || inventory.sourceDataDb.connectionId) {
+      return { skipped: true, outboxDeleted: 0, pauseDeleted: 0 };
+    }
+    const sourceDataDb = this.getSourceDataDbFromInventory(job);
+    const sourceSchema = sourceDataDb.internalSchema ?? 'public';
+    const client = this.clientFactory(sourceDataDb.url);
+    try {
+      let outboxDeleted = 0;
+      if (inventory.baseIds.length) {
+        const outboxRows = normalizeRawRows<{ id: string }>(
+          await client.raw(
+            `
+              DELETE FROM ${qualify(sourceSchema, sharedTables.computedUpdateOutbox)}
+              WHERE "base_id" = ANY(?::text[])
+              RETURNING "id"
+            `,
+            [inventory.baseIds]
+          )
+        );
+        outboxDeleted = outboxRows.length;
+      }
+      if (inventory.tableIds.length) {
+        await client.raw(
+          `
+            DELETE FROM ${qualify(sourceSchema, sharedTables.computedUpdateOutboxSeed)}
+            WHERE "table_id" = ANY(?::text[])
+          `,
+          [inventory.tableIds]
+        );
+      }
+      const pause = await this.deleteMigrationComputedPause(
+        client,
+        sourceSchema,
+        this.getInventoryCopySpaceIds(inventory),
+        job.id
+      );
+      return { skipped: false, outboxDeleted, pauseDeleted: pause.deleted };
+    } finally {
+      await client.destroy().catch(() => undefined);
+    }
+  }
+
+  async normalizeTargetComputedOutboxForJob(jobId: string): Promise<{ reset: number }> {
+    const job = await this.getMigrationJob(jobId);
+    if (!job.targetConnection?.encryptedUrl) {
+      throw new CustomHttpException(
+        `Migration job ${jobId} has no target connection`,
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
+    const baseIds = this.normalizeInventory(job.inventory, job.spaceId).baseIds;
+    if (!baseIds.length) {
+      return { reset: 0 };
+    }
+    const client = this.clientFactory(decryptDataDbUrl(job.targetConnection.encryptedUrl));
+    try {
+      const rows = normalizeRawRows<{ count: string | number | bigint }>(
+        await client.raw(
+          `
+            WITH reset AS (
+              UPDATE ${qualify(job.targetInternalSchema, sharedTables.computedUpdateOutbox)}
+              SET "status" = 'pending',
+                  "locked_at" = NULL,
+                  "locked_by" = NULL,
+                  "next_run_at" = LEAST(COALESCE("next_run_at", now()), now()),
+                  "updated_at" = now()
+              WHERE "base_id" = ANY(?::text[])
+                AND "status" = 'processing'
+              RETURNING 1
+            )
+            SELECT COUNT(*) AS "count" FROM reset
+          `,
+          [baseIds]
+        )
+      );
+      return { reset: Number(rows[0]?.count ?? 0) };
+    } finally {
+      await client.destroy().catch(() => undefined);
+    }
+  }
+
   private async insertMigrationComputedPause(
     client: IDataDbPreflightClient,
     schema: string,
@@ -3983,14 +4285,21 @@ export class SpaceDataDbMigrationService {
     job: IMigrationJobRecord
   ) {
     if (!spaceIds.length) {
-      return { created: false, createdCount: 0 };
+      return { created: false, createdCount: 0, conflictedScopeIds: [] as string[] };
     }
 
-    const valuesSql = spaceIds.map(() => `(?, 'space', ?, now(), ?, NULL, ?, now(), ?)`).join(', ');
+    const ttlMs = readPositiveIntEnv(
+      'BYODB_SPACE_DATA_DB_COMPUTED_PAUSE_TTL_MS',
+      defaultMigrationComputedPauseTtlMs
+    );
+    const valuesSql = spaceIds
+      .map(() => `(?, 'space', ?, now(), ?, now() + (? * interval '1 millisecond'), ?, now(), ?)`)
+      .join(', ');
     const bindings = spaceIds.flatMap((spaceId) => [
       `sdmp_${job.id}_${spaceId}`,
       spaceId,
       job.createdBy,
+      ttlMs,
       migrationPauseReason(job.id),
       job.createdBy,
     ]);
@@ -4011,16 +4320,51 @@ export class SpaceDataDbMigrationService {
               "updated_at" = EXCLUDED."updated_at",
               "updated_by" = EXCLUDED."updated_by"
           WHERE "pause_scope"."reason" = ?
+             OR "pause_scope"."reason" LIKE ?
              OR (
                "pause_scope"."resume_at" IS NOT NULL
                AND "pause_scope"."resume_at" <= now()
              )
           RETURNING "id"
         `,
-        [...bindings, pauseReason]
+        [...bindings, pauseReason, `${migrationPauseReasonPrefix}%`]
       )
     );
-    return { created: rows.length > 0, createdCount: rows.length };
+    // The upsert above is guarded by reason, so a scope held by another owner is silently
+    // declined. Detect that explicitly: the migration can neither renew nor release a pause it
+    // does not own, so it must not mistake one for its own protection.
+    const conflicted = normalizeRawRows<Record<string, unknown>>(
+      await client.raw(
+        `
+          SELECT "scope_id"
+          FROM ${pauseTable}
+          WHERE "scope_type" = 'space'
+            AND "scope_id" = ANY(?::text[])
+            AND ("resume_at" IS NULL OR "resume_at" > now())
+            AND "reason" IS DISTINCT FROM ?
+        `,
+        [spaceIds, pauseReason]
+      )
+    );
+    return {
+      created: rows.length > 0,
+      createdCount: rows.length,
+      conflictedScopeIds: conflicted.map((row) => String(row.scope_id)),
+    };
+  }
+
+  private assertMigrationComputedPauseOwned(
+    jobId: string,
+    side: 'source' | 'target',
+    pause: { conflictedScopeIds: string[] }
+  ) {
+    if (!pause.conflictedScopeIds.length) return;
+    throw new CustomHttpException(
+      `Migration job ${jobId} could not own the ${side} computed pause for scope(s) ${pause.conflictedScopeIds.join(
+        ', '
+      )}; another active pause holds them. Release it before continuing.`,
+      HttpErrorCode.VALIDATION_ERROR
+    );
   }
 
   async getMigrationJobStatus(
@@ -4112,7 +4456,20 @@ export class SpaceDataDbMigrationService {
       );
     }
 
-    await this.resumeSourceComputedForJob(jobId);
+    const releaseErrors = await this.releaseMigrationComputedPauses(jobId);
+    if (releaseErrors.length) {
+      throw new CustomHttpException(
+        `Space data database migration cancellation could not release computed pauses: ${releaseErrors.join('; ')}`,
+        HttpErrorCode.CONFLICT,
+        {
+          errorCode: spaceDataDbMigrationCancelConflictErrorCode,
+          migrationJobId: jobId,
+          migrationState: job.state,
+          spaceId,
+          releaseErrors,
+        }
+      );
+    }
 
     const lastError = `Space data database migration canceled by ${canceledBy || 'unknown user'}`;
     const runTransaction = this.prismaService.$tx.bind(this.prismaService) as unknown as <T>(
@@ -4153,6 +4510,7 @@ export class SpaceDataDbMigrationService {
     return await this.getMigrationJobStatus(spaceId, jobId);
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity -- preserves route and pause finalization invariants across rollback phases
   async rollbackMigrationForSpace(
     spaceId: string,
     jobId: string,
@@ -4236,6 +4594,22 @@ export class SpaceDataDbMigrationService {
       const spaceIds = this.getInventoryCopySpaceIds(
         this.normalizeInventory(job.inventory, job.spaceId)
       );
+      const releaseResults = await Promise.allSettled([
+        this.resumeTargetComputedForJob(jobId),
+        this.resumeOriginalSourceComputedPause(job, sourceDataDb),
+      ]);
+      const releaseErrors = releaseResults.flatMap((result, index) =>
+        result.status === 'rejected'
+          ? [
+              `${index === 0 ? 'target' : 'source'} computed resume failed: ${
+                result.reason instanceof Error ? result.reason.message : String(result.reason)
+              }`,
+            ]
+          : []
+      );
+      if (releaseErrors.length) {
+        throw new PostCutoverFinalizationError(releaseErrors.join('; '));
+      }
 
       const runTransaction = this.prismaService.$tx.bind(this.prismaService) as unknown as <T>(
         fn: (prisma: IPrismaTransactionClient) => Promise<T>
@@ -4281,16 +4655,29 @@ export class SpaceDataDbMigrationService {
       if (job.sourceConnectionId) {
         await this.dataDbClientManager.invalidateConnection(job.sourceConnectionId);
       }
-      await this.resumeOriginalSourceComputedPause(job, sourceDataDb);
       rollbackCompleted = true;
       return await this.getMigrationJobStatus(spaceId, jobId);
     } catch (error) {
       if (!rollbackCompleted && !restoredBeforeThrow) {
+        const releaseRetryable = error instanceof PostCutoverFinalizationError;
         await this.migrationJobClient.spaceDataDbMigrationJob.update({
           where: { id: jobId },
           data: {
-            state: 'succeeded',
+            state: releaseRetryable ? 'switching' : 'succeeded',
             lastError: error instanceof Error ? error.message : String(error),
+            ...(releaseRetryable
+              ? {
+                  copyStats: {
+                    ...(this.asRecord(job.copyStats) ?? {}),
+                    finalizing: {
+                      routeSwitched: true,
+                      retryable: true,
+                      lastAttemptAt: new Date().toISOString(),
+                      errors: [error instanceof Error ? error.message : String(error)],
+                    },
+                  },
+                }
+              : {}),
           },
         });
       }
@@ -4593,11 +4980,10 @@ export class SpaceDataDbMigrationService {
 
   private buildPostSwitchSharedWritePlans(
     inventory: ISpaceDataDbInventory,
-    spaceId: string,
+    _spaceId: string,
     switchedAt: string
   ) {
     const plans: { table: string; whereSql: string; bindings: unknown[] }[] = [];
-    const spaceIds = this.getInventoryCopySpaceIds(inventory);
     const pushTableScoped = (table: string) => {
       if (!inventory.tableIds.length) {
         return;
@@ -4625,29 +5011,9 @@ export class SpaceDataDbMigrationService {
     pushTableScoped(sharedTables.recordHistory);
     pushTableScoped(sharedTables.tableTrash);
     pushTableScoped(sharedTables.recordTrash);
+    pushTableScoped(sharedTables.recordRemovalTombstone);
     pushBaseScoped(sharedTables.computedUpdateOutbox);
     pushBaseScoped(sharedTables.computedUpdateDeadLetter);
-
-    plans.push({
-      table: sharedTables.computedUpdatePauseScope,
-      whereSql: [
-        `("paused_at" > ?::timestamp OR "updated_at" > ?::timestamp)`,
-        `(`,
-        `("scope_type" = 'space' AND "scope_id" = ANY(?::text[]))`,
-        inventory.baseIds.length
-          ? `OR ("scope_type" = 'base' AND "scope_id" = ANY(?::text[]))`
-          : '',
-        inventory.tableIds.length
-          ? `OR ("scope_type" = 'table' AND "scope_id" = ANY(?::text[]))`
-          : '',
-        `)`,
-      ]
-        .filter(Boolean)
-        .join(' '),
-      bindings: [switchedAt, switchedAt, spaceIds, inventory.baseIds, inventory.tableIds].filter(
-        (value) => (Array.isArray(value) ? value.length > 0 : Boolean(value))
-      ),
-    });
 
     if (inventory.baseIds.length) {
       plans.push({
@@ -4779,6 +5145,9 @@ export class SpaceDataDbMigrationService {
       tableIds: inventory.tableIds,
       sharedTableIds: inventory.sharedTableIds,
       snapshotId: options.snapshotId,
+      // Never copy source pause scopes into the target: they would freeze
+      // computed updates after switch. Migration inserts its own pause row.
+      includePauseScopes: false,
     };
     const fdwNamePrefix = this.buildPostgresFdwNamePrefix(jobId);
     const plans =
@@ -4820,11 +5189,14 @@ export class SpaceDataDbMigrationService {
         copiedTables.push(this.buildSharedTableCopySummary(result));
         if (
           job.switchOnCompletion === true &&
-          result.table === sharedTables.computedUpdatePauseScope &&
-          !targetComputedPaused
+          !targetComputedPaused &&
+          result.table === sharedTables.recordTrash
         ) {
+          // Pause target computed after trash/history and before outbox rows so
+          // the target never claims outbox work during/after the switch window.
           await this.pauseTargetComputedForJob(jobId);
           targetComputedPaused = true;
+          lastPauseRenewedAt = Date.now();
         }
         await this.migrationJobClient.spaceDataDbMigrationJob.update({
           where: { id: jobId },
@@ -4850,11 +5222,25 @@ export class SpaceDataDbMigrationService {
           },
         });
       };
+      // Each renewal opens a fresh pool against the customer's target database, so renew well
+      // inside the lease instead of on every poll (the copy runner polls once per second).
+      const pauseRenewIntervalMs = Math.max(
+        60_000,
+        Math.floor(
+          readPositiveIntEnv(
+            'BYODB_SPACE_DATA_DB_COMPUTED_PAUSE_TTL_MS',
+            defaultMigrationComputedPauseTtlMs
+          ) / 4
+        )
+      );
+      let lastPauseRenewedAt = Date.now();
       const processOptions = this.buildCancelableProcessOptions(jobId, options.timeoutMs);
       const processOptionsWithHeartbeat = {
         ...processOptions,
         onPoll: async () => {
           await processOptions.onPoll?.();
+          // Heartbeat before renewal: a stalled renewal must not make this job look stale to
+          // the recovery sweeper while the copy is still running.
           await this.updateSharedTableCopyHeartbeat(job, inventory, {
             stage: 'copying_shared_rows',
             tableNames,
@@ -4864,6 +5250,10 @@ export class SpaceDataDbMigrationService {
             strategy,
             updatedAt: new Date().toISOString(),
           });
+          if (targetComputedPaused && Date.now() - lastPauseRenewedAt >= pauseRenewIntervalMs) {
+            lastPauseRenewedAt = Date.now();
+            await this.pauseTargetComputedForJob(jobId);
+          }
         },
       };
       const results =
@@ -4878,6 +5268,10 @@ export class SpaceDataDbMigrationService {
               processOptionsWithHeartbeat,
               { onTableCopied }
             );
+      if (job.switchOnCompletion === true && !targetComputedPaused) {
+        await this.pauseTargetComputedForJob(jobId);
+        targetComputedPaused = true;
+      }
       const copiedSharedTables = results.map((result) => this.buildSharedTableCopySummary(result));
       const copyStats = {
         phase: 'shared_rows_completed',
@@ -4906,7 +5300,7 @@ export class SpaceDataDbMigrationService {
       if (await this.isProcessCancelErrorForJob(error, jobId)) {
         throw error;
       }
-      const lastError = error instanceof Error ? error.message : String(error);
+      const lastError = this.buildProcessFailureMessage(error);
       await this.migrationJobClient.spaceDataDbMigrationJob.update({
         where: { id: jobId },
         data: {
@@ -5018,6 +5412,15 @@ export class SpaceDataDbMigrationService {
       return readOnlyMessage;
     }
     const baseMessage = error instanceof Error ? error.message : String(error);
+    // Process runner embeds stderr into Error.message. Prefer that single
+    // source of truth so last_error stays scannable and non-duplicative.
+    if (
+      baseMessage.includes('[stderr]:') ||
+      baseMessage.includes('[source stderr]:') ||
+      baseMessage.includes('[target stderr]:')
+    ) {
+      return baseMessage;
+    }
     const failureStats = this.buildProcessFailureStats(error);
     const detail = this.getProcessFailureDetail(failureStats);
     return detail ? `${baseMessage}: ${detail}` : baseMessage;
@@ -5071,6 +5474,7 @@ export class SpaceDataDbMigrationService {
     const validationStats = await this.validateCopyForJob(jobId, {
       keepWriteGate: job.switchOnCompletion === true,
     });
+    await this.normalizeTargetComputedOutboxForJob(jobId);
     const inventory = this.normalizeInventory(job.inventory, job.spaceId);
     const spaceIds = this.getInventorySpaceIds(inventory);
     if (!job.targetConnectionId) {
@@ -5162,6 +5566,14 @@ export class SpaceDataDbMigrationService {
             },
           });
         }
+        await prisma.spaceDataDbMigrationJob.update({
+          where: { id: jobId },
+          data: {
+            state: 'switching',
+            validationStats: completedValidationStats,
+            lastError: null,
+          },
+        });
       });
     } catch (error) {
       const lastError = error instanceof Error ? error.message : String(error);
@@ -5179,16 +5591,57 @@ export class SpaceDataDbMigrationService {
     if (job.sourceConnectionId) {
       await this.dataDbClientManager.invalidateConnection(job.sourceConnectionId);
     }
+    const finalizingStartedAt = new Date().toISOString();
+    await this.migrationJobClient.spaceDataDbMigrationJob.update({
+      where: { id: jobId },
+      data: {
+        state: 'switching',
+        validationStats: completedValidationStats,
+        copyStats: {
+          ...(this.asRecord(job.copyStats) ?? {}),
+          finalizing: {
+            routeSwitched: true,
+            retryable: true,
+            startedAt: finalizingStartedAt,
+          },
+        },
+        lastError: null,
+      },
+    });
+    // Delete the source backlog before lifting any source pause: releasing first would let
+    // the zombie backlog execute against the orphaned source schema copy.
+    const releaseErrors: string[] = [];
     try {
-      await this.resumeTargetComputedForJob(jobId);
+      await this.cleanupSourceComputedAfterSwitchForJob(jobId);
     } catch (error) {
-      completedValidationStats = {
-        ...completedValidationStats,
-        warnings: [
-          ...(completedValidationStats.warnings ?? []),
-          `target_computed_resume_failed: ${error instanceof Error ? error.message : String(error)}`,
-        ],
-      };
+      releaseErrors.push(
+        `source computed cleanup failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    if (!releaseErrors.length) {
+      releaseErrors.push(...(await this.releaseMigrationComputedPauses(jobId)));
+    }
+    if (releaseErrors.length) {
+      const lastError = releaseErrors.join('; ');
+      await this.migrationJobClient.spaceDataDbMigrationJob.update({
+        where: { id: jobId },
+        data: {
+          state: 'switching',
+          validationStats: completedValidationStats,
+          copyStats: {
+            ...(this.asRecord(job.copyStats) ?? {}),
+            finalizing: {
+              routeSwitched: true,
+              retryable: true,
+              startedAt: finalizingStartedAt,
+              lastAttemptAt: new Date().toISOString(),
+              errors: releaseErrors,
+            },
+          },
+          lastError,
+        },
+      });
+      throw new PostCutoverFinalizationError(lastError);
     }
     await this.migrationJobClient.spaceDataDbMigrationJob.update({
       where: { id: jobId },
@@ -5197,6 +5650,15 @@ export class SpaceDataDbMigrationService {
         validationStats: completedValidationStats,
         completedAt: switchedAt ?? new Date(),
         lastError: null,
+        copyStats: {
+          ...(this.asRecord(job.copyStats) ?? {}),
+          finalizing: {
+            routeSwitched: true,
+            retryable: false,
+            startedAt: finalizingStartedAt,
+            completedAt: new Date().toISOString(),
+          },
+        },
       },
     });
     await this.cleanupSourceDeltaCaptureForJob(job).catch(() => undefined);
@@ -5482,8 +5944,8 @@ export class SpaceDataDbMigrationService {
   private async getMigrationState(jobId: string) {
     return (await this.migrationJobClient.spaceDataDbMigrationJob.findFirst({
       where: { id: jobId },
-      select: { id: true, state: true, spaceId: true },
-    })) as { id: string; state: string; spaceId?: string } | null;
+      select: { id: true, state: true, spaceId: true, copyStats: true },
+    })) as { id: string; state: string; spaceId?: string; copyStats?: unknown } | null;
   }
 
   private async completeFailedMigrationJob(jobId: string, error: unknown) {
@@ -5495,6 +5957,31 @@ export class SpaceDataDbMigrationService {
       current.state !== 'failed' &&
       !activeSpaceDataDbMigrationStates.includes(current.state as never)
     ) {
+      return;
+    }
+
+    const releaseErrors = await this.releaseMigrationComputedPauses(jobId);
+    if (releaseErrors.length) {
+      await this.migrationJobClient.spaceDataDbMigrationJob.updateMany({
+        where: { id: jobId, state: current.state },
+        data: {
+          state: 'switching',
+          completedAt: null,
+          lastError: [
+            error instanceof Error ? error.message : String(error),
+            ...releaseErrors,
+          ].join('; '),
+          copyStats: {
+            ...(this.asRecord(current.copyStats) ?? {}),
+            finalizing: {
+              routeSwitched: false,
+              retryable: true,
+              lastAttemptAt: new Date().toISOString(),
+              errors: releaseErrors,
+            },
+          },
+        },
+      });
       return;
     }
 
@@ -6615,6 +7102,14 @@ export class SpaceDataDbMigrationService {
       client,
       conflicts,
       internalSchema,
+      sharedTables.recordRemovalTombstone,
+      inventory.sharedTableIds.length ? `"table_id" = ANY(?::text[])` : '',
+      [inventory.sharedTableIds]
+    );
+    await this.pushConflictCount(
+      client,
+      conflicts,
+      internalSchema,
       sharedTables.computedUpdateOutbox,
       inventory.baseIds.length ? `"base_id" = ANY(?::text[])` : '',
       [inventory.baseIds]
@@ -6640,7 +7135,7 @@ export class SpaceDataDbMigrationService {
       conflicts,
       internalSchema,
       sharedTables.computedUpdatePauseScope,
-      [
+      `("resume_at" IS NULL OR "resume_at" > now()) AND (${[
         `("scope_type" = 'space' AND "scope_id" = ANY(?::text[]))`,
         inventory.baseIds.length ? `("scope_type" = 'base' AND "scope_id" = ANY(?::text[]))` : '',
         inventory.sharedTableIds.length
@@ -6648,7 +7143,7 @@ export class SpaceDataDbMigrationService {
           : '',
       ]
         .filter(Boolean)
-        .join(' OR '),
+        .join(' OR ')})`,
       [spaceIds, inventory.baseIds, inventory.sharedTableIds].filter((value) =>
         Array.isArray(value) ? value.length > 0 : Boolean(value)
       )
@@ -6732,7 +7227,6 @@ export class SpaceDataDbMigrationService {
       truncateSharedTables: options.truncateSharedTables === true,
       startedAt: new Date().toISOString(),
     };
-
     try {
       stats.sharedTables = await this.cleanupTargetSharedRows(
         client,
@@ -6742,6 +7236,44 @@ export class SpaceDataDbMigrationService {
         { truncate: options.truncateSharedTables === true }
       );
       stats.baseSchemas = await this.cleanupTargetBaseSchemas(client, inventory.baseIds);
+
+      const activeBindingsCount = await this.migrationJobClient.spaceDataDbBinding.count({
+        where: {
+          dataDbConnectionId: job.targetConnectionId,
+        },
+      });
+
+      const otherJobsCount = await this.migrationJobClient.spaceDataDbMigrationJob.count({
+        where: {
+          id: { not: jobId },
+          targetConnectionId: job.targetConnectionId,
+          OR: [
+            { state: { in: [...activeSpaceDataDbMigrationStates] } },
+            { state: 'succeeded', switchOnCompletion: false },
+          ],
+        },
+      });
+
+      // The internal schema is connection-wide, not job-owned. Drop it only
+      // when no binding, active migration, or successful dry-run still uses it.
+      if (
+        activeBindingsCount === 0 &&
+        otherJobsCount === 0 &&
+        job.targetInternalSchema &&
+        job.targetInternalSchema !== 'public'
+      ) {
+        await client.raw(`DROP SCHEMA IF EXISTS ${quoteIdent(job.targetInternalSchema)} CASCADE`);
+        stats.internalSchema = {
+          schemaName: job.targetInternalSchema,
+          dropped: true,
+        };
+      } else {
+        stats.internalSchema = {
+          schemaName: job.targetInternalSchema,
+          dropped: false,
+        };
+      }
+
       stats.completedAt = new Date().toISOString();
       await this.updateTargetCleanupStats(jobId, job.copyStats, stats);
       return stats;
@@ -6877,6 +7409,7 @@ export class SpaceDataDbMigrationService {
       [sharedTables.computedUpdateOutbox, 5],
       [sharedTables.computedUpdatePauseScope, 6],
       [sharedTables.undoLog, 7],
+      [sharedTables.recordRemovalTombstone, 8],
     ]);
     return [...plans].sort((left, right) => {
       const leftPriority = priority.get(left.table) ?? Number.MAX_SAFE_INTEGER;
@@ -7291,7 +7824,9 @@ export class SpaceDataDbMigrationService {
         targetCount,
       };
       const mismatches: IValidationMismatch[] = [];
-      if (sourceCount !== targetCount) {
+      // Pause scopes are managed by the migration itself on the target and are
+      // not copied from source, so source/target counts are not expected to match.
+      if (plan.table !== sharedTables.computedUpdatePauseScope && sourceCount !== targetCount) {
         mismatches.push({
           ...rowValidation,
           reason: 'row_count_mismatch',
@@ -7366,8 +7901,8 @@ export class SpaceDataDbMigrationService {
 
   private buildSharedTableCountPlansForScope(
     inventory: ISpaceDataDbInventory,
-    spaceId: string,
-    spaceIds: string[],
+    _spaceId: string,
+    _spaceIds: string[],
     baseIds: string[],
     tableIds: string[],
     sharedTableIds: string[] = tableIds
@@ -7396,6 +7931,7 @@ export class SpaceDataDbMigrationService {
     pushTableScoped(sharedTables.recordHistory);
     pushTableScoped(sharedTables.tableTrash);
     pushTableScoped(sharedTables.recordTrash);
+    pushTableScoped(sharedTables.recordRemovalTombstone);
     pushBaseScoped(sharedTables.computedUpdateOutbox);
     pushBaseScoped(sharedTables.computedUpdateDeadLetter);
 
@@ -7413,21 +7949,6 @@ export class SpaceDataDbMigrationService {
         bindings: [tableIds, baseIds],
       });
     }
-
-    plans.push({
-      table: sharedTables.computedUpdatePauseScope,
-      whereSql: () =>
-        [
-          `("scope_type" = 'space' AND "scope_id" = ANY(?::text[]))`,
-          baseIds.length ? `("scope_type" = 'base' AND "scope_id" = ANY(?::text[]))` : '',
-          sharedTableIds.length ? `("scope_type" = 'table' AND "scope_id" = ANY(?::text[]))` : '',
-        ]
-          .filter(Boolean)
-          .join(' OR '),
-      bindings: [spaceIds, baseIds, sharedTableIds].filter((value) =>
-        Array.isArray(value) ? value.length > 0 : Boolean(value)
-      ),
-    });
 
     if (baseIds.length) {
       plans.push({
@@ -8536,13 +9057,16 @@ export class SpaceDataDbMigrationService {
     const rows = normalizeRawRows<{ id: string }>(
       await client.raw(
         `
-          DELETE FROM ${qualify(schema, sharedTables.computedUpdatePauseScope)}
+          UPDATE ${qualify(schema, sharedTables.computedUpdatePauseScope)}
+          SET "resume_at" = now(),
+              "updated_at" = now()
           WHERE "scope_type" = ?
             AND "scope_id" = ANY(?::text[])
-            AND "reason" = ?
+            AND ("reason" = ? OR "reason" LIKE ?)
+            AND ("resume_at" IS NULL OR "resume_at" > now())
           RETURNING "id"
         `,
-        ['space', spaceIds, migrationPauseReason(jobId)]
+        ['space', spaceIds, migrationPauseReason(jobId), `${migrationPauseReasonPrefix}%`]
       )
     );
     return { deleted: rows.length };

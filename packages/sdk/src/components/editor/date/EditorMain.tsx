@@ -1,6 +1,6 @@
 import { type IDateFieldOptions, TimeFormatting } from '@teable/core';
 import { Button, Calendar, cn, NavView } from '@teable/ui-lib';
-import { enUS, zhCN, ja, ru, fr } from 'date-fns/locale';
+import { ar, de, enUS, es, fr, he, it, ja, ru, tr, uk, zhCN } from 'date-fns/locale';
 import { formatInTimeZone, toDate, toZonedTime, fromZonedTime } from 'date-fns-tz';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useContext, useImperativeHandle, useMemo, useRef, useState } from 'react';
@@ -13,6 +13,12 @@ export interface IDateEditorMain extends ICellEditor<string | null> {
   style?: React.CSSProperties;
   options?: IDateFieldOptions;
   disableTimePicker?: boolean;
+  /**
+   * Radix `modal` for the calendar popover. Set it when this editor is
+   * rendered inside a modal container (dialog/drawer), so the popover joins
+   * the same dismissable layer instead of closing its parent on outside tap.
+   */
+  modal?: boolean;
 }
 
 // Remember to update in @nextjs-app/src/features/app/blocks/view/calendar/components/Calendar.tsx
@@ -22,6 +28,13 @@ const LOCAL_MAP = {
   ja: ja,
   ru: ru,
   fr: fr,
+  de: de,
+  es: es,
+  it: it,
+  tr: tr,
+  uk: uk,
+  ar: ar,
+  he: he,
 };
 
 const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMain> = (

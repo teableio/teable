@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 
 import { ShareDbBackendPublisher } from './ShareDbBackendPublisher';
+import type { ShareDbOp } from './ShareDbPublisher';
 import { ShareDbPubSubPublisher } from './ShareDbPubSubPublisher';
 import { ShareDbRealtimeEngine } from './ShareDbRealtimeEngine';
 import { ShareDbWebSocketServer } from './ShareDbWebSocketServer';
@@ -527,6 +528,67 @@ describe('ShareDbRealtimeEngine', () => {
     ]);
   });
 
+  it('never emits instruction-less ops when a set change carries undefined values', async () => {
+    const actorId = ActorId.create('test-actor')._unsafeUnwrap();
+    const context = { actorId };
+    const docId = RealtimeDocId.fromParts('viw_tbl_test', 'viw_test')._unsafeUnwrap();
+
+    let publishedOp: ShareDbOp | undefined;
+    const publisher = {
+      publish: async (_channels: ReadonlyArray<string>, op: ShareDbOp) => {
+        publishedOp = op;
+        return ok(undefined);
+      },
+    };
+    const engine = new ShareDbRealtimeEngine(publisher as unknown as ShareDbBackendPublisher);
+
+    const result = await engine.applyChange(context, docId, [
+      { type: 'set', path: ['query'], value: {} },
+      { type: 'set', path: ['sourceFilter'], value: undefined, oldValue: undefined },
+      { type: 'set', path: ['filter'], value: undefined, oldValue: undefined },
+    ]);
+
+    expect(result.isOk()).toBe(true);
+    // Every component must keep a json0 instruction after JSON serialization,
+    // otherwise ot-json0 throws "invalid / missing instruction in op" on apply.
+    expect(JSON.parse(JSON.stringify(publishedOp?.op))).toEqual([
+      { p: ['query'], oi: {} },
+      { p: ['sourceFilter'], oi: null },
+      { p: ['filter'], oi: null },
+    ]);
+  });
+
+  it('publishes collection-only invalidation without a synthetic document', async () => {
+    const actorId = ActorId.create('test-actor')._unsafeUnwrap();
+    const context = { actorId, requestId: 'manual-sort-request' };
+    let publishedChannels: ReadonlyArray<string> = [];
+    let publishedOp: unknown;
+    const publisher = {
+      publish: async (channels: ReadonlyArray<string>, op: unknown) => {
+        publishedChannels = channels;
+        publishedOp = op;
+        return ok(undefined);
+      },
+    };
+    const engine = new ShareDbRealtimeEngine(publisher as unknown as ShareDbBackendPublisher);
+
+    const result = await engine.invalidateCollection(context, 'rec_tbl_test', {
+      type: 'set',
+      path: ['fields', '__row_viw_test'],
+      value: null,
+      oldValue: null,
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(publishedChannels).toEqual(['rec_tbl_test']);
+    expect(publishedOp).toMatchObject({
+      c: 'rec_tbl_test',
+      src: '@@v2-projection:manual-sort-request',
+      op: [{ p: ['fields', '__row_viw_test'], oi: null, od: null }],
+    });
+    expect(publishedOp).not.toHaveProperty('d');
+  });
+
   it('delivers delete ops to subscribed clients', async () => {
     if (!runtime) throw new Error('Missing ShareDB runtime');
 
@@ -557,6 +619,48 @@ describe('ShareDbRealtimeEngine', () => {
       await deleted;
       expect(client.doc.type).toBe(null);
       expect(client.doc.data).toBeUndefined();
+    } finally {
+      client.dispose();
+    }
+  });
+
+  it('delivers versioned delete ops after a document update', async () => {
+    if (!runtime) throw new Error('Missing ShareDB runtime');
+
+    const actorId = ActorId.create('test-actor')._unsafeUnwrap();
+    const context = { actorId };
+    const collection = 'viw_tbl_test';
+    const documentId = 'view_delete_after_update';
+    const docId = RealtimeDocId.fromParts(collection, documentId)._unsafeUnwrap();
+    const initial = { id: documentId, name: 'Updated before delete' };
+    const backendEngine = new ShareDbRealtimeEngine(new ShareDbBackendPublisher(runtime.backend));
+    (await backendEngine.ensure(context, docId, initial))._unsafeUnwrap();
+
+    const client = createShareDbClientDoc<typeof initial>({
+      url: runtime.url,
+      collection,
+      docId: documentId,
+    });
+
+    try {
+      await client.ready;
+      const pubsubEngine = new ShareDbRealtimeEngine(
+        new ShareDbPubSubPublisher(runtime.backend.pubsub)
+      );
+      const updated = waitNextRemoteOp(client.doc);
+      (
+        await pubsubEngine.applyChange(
+          context,
+          docId,
+          { type: 'set', path: ['name'], value: 'Advanced version' },
+          { version: 1 }
+        )
+      )._unsafeUnwrap();
+      await updated;
+
+      const deleted = waitDocDeleted(client.doc, 500);
+      (await pubsubEngine.delete(context, docId, { version: 2 }))._unsafeUnwrap();
+      await deleted;
     } finally {
       client.dispose();
     }

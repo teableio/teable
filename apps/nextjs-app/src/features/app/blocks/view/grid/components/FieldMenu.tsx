@@ -30,7 +30,6 @@ import {
   useTablePermission,
   useView,
 } from '@teable/sdk';
-import { insertSingle } from '@teable/sdk/utils';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
   cn,
@@ -66,6 +65,7 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { useFieldSettingStore } from '../../field/useFieldSettingStore';
 import { useToolBarStore } from '../../tool-bar/components/useToolBarStore';
 import { useViewConfigurable } from '../../tool-bar/hook/useViewConfigurable';
+import { getInsertFieldOrder } from './insertFieldOrder';
 import type { IMenuItemProps } from './RecordMenu';
 
 enum MenuItemType {
@@ -84,7 +84,7 @@ enum MenuItemType {
   AddToChat = 'AddToChat',
 }
 
-const iconClassName = 'mr-2 h-4 w-4';
+const iconClassName = 'me-2 h-4 w-4';
 const disabledTooltipMaxWidth = 300;
 
 interface IFieldMenuItem extends Omit<IMenuItemProps<MenuItemType>, 'onClick'> {
@@ -120,7 +120,7 @@ const DisabledTooltipMenuItem = ({
         </TooltipTrigger>
         <TooltipContent
           side={side}
-          className="max-w-[300px] whitespace-normal break-words text-left"
+          className="max-w-[300px] whitespace-normal break-words text-start"
         >
           {content}
         </TooltipContent>
@@ -214,19 +214,9 @@ export const FieldMenu = () => {
     : {};
 
   const insertField = async (isInsertAfter: boolean = true) => {
-    const fieldId = fieldIds[0];
-    const index = allFields.findIndex((f) => f.id === fieldId);
+    const newOrder = getInsertFieldOrder(allFields, view.columnMeta, fieldIds[0], isInsertAfter);
 
-    if (index === -1) return;
-
-    const newOrder = insertSingle(
-      index,
-      allFields.length,
-      (index: number) => {
-        return view.columnMeta[allFields[index].id].order;
-      },
-      isInsertAfter
-    );
+    if (newOrder == null) return;
 
     return openSetting({
       order: newOrder,

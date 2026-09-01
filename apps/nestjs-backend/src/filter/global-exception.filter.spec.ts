@@ -1,5 +1,7 @@
 import { BadRequestException, Logger, RequestTimeoutException } from '@nestjs/common';
+import { HttpErrorCode } from '@teable/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MailDeliveryException } from '../features/mail-sender/mail-delivery-error';
 import { GlobalExceptionFilter } from './global-exception.filter';
 
 const { activeSpan, runtimeErrorCounter, sentryScope, captureException, withScope } = vi.hoisted(
@@ -7,6 +9,7 @@ const { activeSpan, runtimeErrorCounter, sentryScope, captureException, withScop
     const activeSpan = {
       setAttributes: vi.fn(),
       setStatus: vi.fn(),
+      recordException: vi.fn(),
     };
     const runtimeErrorCounter = {
       add: vi.fn(),
@@ -191,6 +194,24 @@ describe('GlobalExceptionFilter', () => {
     expect(captureException).not.toHaveBeenCalled();
   });
 
+  it('answers a user SMTP rejection with 424 instead of capturing it', () => {
+    const filter = new GlobalExceptionFilter(configService as never);
+
+    filter.catch(
+      new MailDeliveryException('rejected', { responseCode: 554, host: 'smtp.example.com' }),
+      host as never
+    );
+
+    expect(captureException).not.toHaveBeenCalled();
+    expect(response.status).toHaveBeenCalledWith(424);
+    expect(response.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: HttpErrorCode.FAILED_DEPENDENCY,
+        data: { smtp: { responseCode: 554, host: 'smtp.example.com' } },
+      })
+    );
+  });
+
   it('writes nothing once the response is already completed, but keeps telemetry', () => {
     const sentResponse = {
       status: vi.fn(),
@@ -297,5 +318,27 @@ describe('GlobalExceptionFilter', () => {
       [dataDbOtelAttribute.retryable]: false,
       [dataDbOtelAttribute.userActionable]: true,
     });
+  });
+
+  // NestInstrumentation used to do this on its handler span; it is disabled now, so the
+  // filter is the only thing left that sees a thrown exception with the span active.
+  it('records the exception on the span but leaves 4xx unmarked', () => {
+    const filter = new GlobalExceptionFilter(configService as never);
+    const exception = new BadRequestException('bad input');
+
+    filter.catch(exception, host as never);
+
+    expect(activeSpan.recordException).toHaveBeenCalledWith(exception);
+    expect(activeSpan.setStatus).not.toHaveBeenCalled();
+  });
+
+  it('marks the span as errored for a 5xx', () => {
+    const filter = new GlobalExceptionFilter(configService as never);
+    const exception = new Error('boom');
+
+    filter.catch(exception, host as never);
+
+    expect(activeSpan.recordException).toHaveBeenCalledWith(exception);
+    expect(activeSpan.setStatus).toHaveBeenCalledWith({ code: 2, message: 'boom' });
   });
 });

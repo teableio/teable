@@ -89,11 +89,11 @@ export const ContextColumnsCommand = (props: {
               >
                 <Check
                   className={cn(
-                    'mr-2 h-4 w-4 flex-shrink-0',
+                    'me-2 h-4 w-4 flex-shrink-0',
                     isSelected ? 'opacity-100' : 'opacity-0'
                   )}
                 />
-                <span className="ml-2 truncate">{column.name}</span>
+                <span className="ms-2 truncate">{column.name}</span>
               </CommandItem>
             );
           })}
@@ -118,11 +118,11 @@ export const ContextColumnsCommand = (props: {
                 >
                   <Check
                     className={cn(
-                      'mr-2 h-4 w-4 flex-shrink-0',
+                      'me-2 h-4 w-4 flex-shrink-0',
                       isSelected ? 'opacity-100' : 'opacity-0'
                     )}
                   />
-                  <span className="ml-2 truncate">{column.name}</span>
+                  <span className="ms-2 truncate">{column.name}</span>
                 </CommandItem>
               );
             })}

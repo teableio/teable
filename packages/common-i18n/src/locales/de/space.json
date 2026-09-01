@@ -30,7 +30,8 @@
     "fromScratch": "Von Grund auf neu",
     "fromTemplate": "Aus Vorlage",
     "moveBaseToAnotherSpace": "Verschiebe {{baseName}} zu einem anderen Space",
-    "chooseSpace": "Space auswählen"
+    "chooseSpace": "Space auswählen",
+    "duplicateBaseSucceedAndJump": "Erfolg, zum Öffnen klicken"
   },
   "spaceSetting": {
     "title": "Space Einstellungen",
@@ -38,8 +39,11 @@
     "collaborators": "Kollaborateure",
     "generalDescription": "Ändern Sie hier die Einstellungen für Ihren aktuellen Space",
     "spaceName": "Space Name",
-    "spaceId": "Space ID"
+    "spaceId": "Space ID",
+    "importBase": "Importieren"
   },
+  "collaborators": "Mitarbeitende",
+  "more": "Mehr",
   "pin": {
     "add": "Anpinnen",
     "remove": "Pin entfernen",
@@ -63,7 +67,16 @@
     "moveBaseSuccessTitle": "Verschiebung erfolgreich",
     "moveBaseSuccessDescription": "{{baseName}} wurde erfolgreich nach {{spaceName}} verschoben",
     "moveBaseCrossSpaceTitle": "Hinweis",
-    "moveBaseCrossSpaceDataLossWarning": "Bereichsübergreifende Verweise werden nicht unterstützt. Die betroffenen Felder werden in Textfelder umgewandelt. Diese Aktion kann nicht rückgängig gemacht werden."
+    "moveBaseCrossSpaceDataLossWarning": "Bereichsübergreifende Verweise werden nicht unterstützt. Die betroffenen Felder werden in Textfelder umgewandelt. Diese Aktion kann nicht rückgängig gemacht werden.",
+    "moveBaseCrossDataDbTitle": "Verschieben zwischen Datenbanken",
+    "moveBaseCrossDataDbWarning": "Der Quell- und der Ziel-Space verwenden unterschiedliche Datenbanken. Bei diesem Verschieben werden die Base-Daten in die Zieldatenbank kopiert, was eine Weile dauern kann. Schreibvorgänge auf diese Base sind während der Übertragung pausiert.",
+    "moveBaseProgressTitle": "Base wird verschoben…",
+    "moveBaseProgressPhase": "Phase: {{phase}}",
+    "moveBaseProgressPercent": "{{percent}} %",
+    "moveBaseFailedTitle": "Verschieben fehlgeschlagen",
+    "moveBaseFailedDescription": "Phase {{phase}}: {{error}}",
+    "moveBaseRetry": "Erneut versuchen",
+    "moveBaseCancel": "Abbrechen"
   },
   "deleteSpaceModal": {
     "title": "Space löschen",
@@ -75,7 +88,6 @@
     "description": "Alle Bases, zu denen ich eingeladen wurde",
     "empty": "Noch keine geteilten Bases"
   },
-  "integration": {},
   "aiSetting": {
     "title": "KI-Einstellungen",
     "description": "Verwalten Sie die KI-Einstellungen Ihres Space",
@@ -86,9 +98,17 @@
     "baseImportTips": "Klicken oder ziehen Sie die .tea-Datei in diesen Bereich zum Hochladen",
     "confirm": "Bestätigen und fortfahren",
     "phase": {
+      "importingV2": "Wird importiert",
       "parsingStructure": "Parsing structure",
       "creatingBase": "Creating base: {{detail}}",
       "creatingTable": "Creating table: {{detail}}",
+      "tableStructureStarted": "Tabellenstruktur wird vorbereitet: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableStructureValidating": "Tabellenbeziehungen werden geprüft",
+      "tableStructureCommitting": "Tabellenstruktur wird gespeichert",
+      "tableStructureDone": "Tabellenstruktur gespeichert: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableStructureData": "Tabellenstruktur",
+      "tableStructureTablesProgress": "{{count}}/{{total}} Tabellen vorbereitet",
+      "tableStructureTablesDone": "{{count}}/{{total}} Tabellen gespeichert",
       "creatingCommonFields": "Creating basic fields for {{table}}: {{fields}}",
       "creatingButtonFields": "Creating button fields for {{table}}: {{fields}}",
       "creatingFormulaFields": "Creating formula fields for {{table}}: {{fields}}",
@@ -100,11 +120,46 @@
       "creatingWorkflows": "Creating workflows",
       "creatingApps": "Creating apps",
       "creatingAuthorityMatrix": "Creating authority matrix",
+      "restoringBaseNodes": "Ordnerhierarchie wird wiederhergestellt",
       "queuingAttachments": "Queuing attachment uploads",
       "uploadingAppFiles": "Uploading app files",
       "queuingDataImport": "Queuing data import",
+      "importingTableData": "Tabellendaten werden importiert",
+      "restoringLinkRelations": "Verknüpfte Datensätze werden wiederhergestellt",
+      "tableDataStarted": "Datensätze werden importiert: {{tableName}}",
+      "tableDataProgress": "Datensätze werden importiert: {{tableName}}",
+      "tableDataDone": "Datensatzimport abgeschlossen: {{tableName}}",
+      "linkFieldsData": "Daten verknüpfter Datensätze",
+      "linkFieldsProgress": "Verknüpfte Datensätze werden wiederhergestellt",
+      "linkFieldsDone": "Verknüpfte Datensätze wiederhergestellt",
+      "tableDataRowsProgress": "{{count}} Zeilen importiert",
+      "tableDataRowsDone": "{{count}} Zeilen importiert",
+      "tableDataRowsTotalProgress": "{{count}}/{{total}} Zeilen verarbeitet",
+      "tableDataRowsTotalDone": "{{count}}/{{total}} Zeilen verarbeitet",
+      "tableDataBatch": "Batch {{batch}}",
+      "tableDataBatchRows": "{{count}} Zeilen in diesem Batch",
+      "tableDataEmpty": "Keine Tabellendaten zum Importieren",
       "done": "Import completed",
       "clickToView": "Klicken zum Anzeigen"
+    }
+  },
+  "export": {
+    "phase": {
+      "preparing": "Export wird vorbereitet",
+      "exportingArchive": "Exportdatei wird erstellt",
+      "exportingStructure": "Struktur wird exportiert",
+      "exportingAttachments": "Anhänge werden exportiert",
+      "exportingAttachmentMetadata": "Anhang-Metadaten werden exportiert",
+      "exportingTableData": "Datensätze werden exportiert",
+      "tableDataStarted": "Datensätze werden exportiert: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableDataProgress": "Datensätze werden exportiert: {{tableName}}",
+      "tableDataDone": "Datensatzexport abgeschlossen: {{tableName}}",
+      "exportingExtraFiles": "Zusätzliche Dateien werden exportiert",
+      "exportingAppFiles": "App-Dateien werden exportiert",
+      "uploadingArchive": "Exportdatei wird hochgeladen",
+      "generatingDownloadUrl": "Download-Link wird erstellt",
+      "rowsProgress": "{{count}} Zeilen exportiert",
+      "done": "Export abgeschlossen"
     }
   },
   "template": {
@@ -131,7 +186,9 @@
     "lastOpened": "Zuletzt geöffnet",
     "enter": "Eintreten",
     "noTables": "Keine Tabellen",
-    "empty": "Noch keine Bases"
+    "empty": "Noch keine Bases",
+    "recent": "Zuletzt verwendet",
+    "manual": "Manuelle Reihenfolge"
   },
   "publishBase": {
     "title": "Im Vorlagenzentrum veröffentlichen",
@@ -146,9 +203,7 @@
       "includeData": "Daten einschließen",
       "defaultActiveNode": "Standardmäßig aktiver Knoten",
       "descriptionPlaceholder": "Beschreibung",
-      "titlePlaceholder": "Titel",
-      "toBeFilledTitle": "Benennen Sie Ihre Arbeit",
-      "toBeFilledDescription": "Beschreiben Sie kurz Ihre Idee"
+      "titlePlaceholder": "Titel"
     },
     "publishToCommunity": "Im Vorlagenzentrum veröffentlichen",
     "publish": "Veröffentlichen",
@@ -184,14 +239,78 @@
       "publish": "Veröffentlichen",
       "published": "Veröffentlicht",
       "publishing": "Veröffentlichen...",
+      "notPublished": "Nicht veröffentlicht",
       "publishFailed": "Veröffentlichung fehlgeschlagen",
       "publishFailedTip1": "Überprüfen Sie, ob die Quell-App erfolgreich veröffentlicht werden kann",
       "publishFailedTip2": "Versuchen Sie, diese Vorlage erneut zu veröffentlichen",
-      "notPublished": "Nicht veröffentlicht",
       "ignoreAndContinue": "Ignorieren und fortfahren",
       "goToFix": "Zur Behebung",
       "redeploy": "Erneut bereitstellen",
       "unnamedApp": "Unbenannte App"
+    }
+  },
+  "dataDb": {
+    "create": {
+      "title": "Datenbank für Daten",
+      "description": "Wählen Sie, wo dieser Space Base-Schemas und Datensätze speichert.",
+      "defaultHint": "Für die meisten Spaces empfohlen.",
+      "byodbOption": "Meine PostgreSQL-Datenbank verwenden",
+      "byodbHint": "Initialisiert diesen Space in einem internen Teable-Schema innerhalb Ihrer selbst verwalteten Datenbank.",
+      "urlLabel": "PostgreSQL-Verbindungs-URL",
+      "sslHint": "Verwenden Sie dieselben SSL-Parameter, die Ihr PostgreSQL-Server verlangt. Das Passwort wird nach dem Test nie wieder angezeigt.",
+      "testConnection": "Verbindung testen",
+      "testing": "Wird getestet...",
+      "retestRequired": "Nach dem Ändern der URL erneut testen.",
+      "databaseLabel": "Datenbank",
+      "databasePlaceholder": "Datenbank auswählen",
+      "databaseHint": "Wählen Sie die PostgreSQL-Datenbank für diesen Space und testen Sie die Verbindung erneut.",
+      "preflightPassed": "Verbindungsprüfungen bestanden",
+      "preflightFailed": "Verbindungsprüfungen fehlgeschlagen",
+      "missingCapabilities": "Fehlende Berechtigungen",
+      "testFailed": "Die Datenbankverbindung konnte nicht getestet werden.",
+      "errors": {
+        "INVALID_DATABASE_URL": {
+          "message": "Die PostgreSQL-Verbindungs-URL ist ungültig."
+        },
+        "PRIVATE_NETWORK_BLOCKED": {
+          "message": "Datenbank-Hosts in privaten Netzwerken sind standardmäßig blockiert.",
+          "remediation": "Setzen Sie TEABLE_SSRF_PROTECTION_DISABLED=true nur in vertrauenswürdigen selbst gehosteten Deployments."
+        },
+        "CONNECTION_FAILED": {
+          "message": "Verbindung zur Datenbank fehlgeschlagen.",
+          "remediation": "Prüfen Sie Host, Port, Datenbankname, Benutzername, Passwort und SSL-Parameter."
+        },
+        "IPV6_NETWORK_UNREACHABLE": {
+          "message": "Der Datenbank-Host wurde zu einer IPv6-Adresse aufgelöst, aber dieses Teable-Deployment kann IPv6-Netzwerke nicht erreichen.",
+          "remediation": "Verwenden Sie einen über IPv4 erreichbaren Datenbank-Endpunkt oder Connection Pooler, oder aktivieren Sie ausgehendes IPv6 für dieses Teable-Deployment."
+        },
+        "PRIVILEGE_CHECK_FAILED": {
+          "message": "Die Prüfung der Datenbankberechtigungen ist fehlgeschlagen."
+        },
+        "DDL_PRIVILEGE_CHECK_FAILED": {
+          "message": "Dem Konto fehlen DDL-Berechtigungen, die zum Initialisieren einer Teable-Datenbank erforderlich sind.",
+          "remediation": "Erteilen Sie Berechtigungen zum Erstellen von Schemas, Tabellen, Funktionen und Triggern."
+        },
+        "NON_EMPTY_UNKNOWN_DATABASE": {
+          "message": "Das interne Schema von Teable enthält bereits Objekte, die nicht von Teable verwaltet werden.",
+          "remediation": "Verwenden Sie eine Datenbank ohne konfliktbehaftetes internes Schema oder entfernen Sie die unbekannten Objekte aus diesem Schema."
+        },
+        "INCOMPATIBLE_TEABLE_DATABASE": {
+          "message": "Diese Datenbank enthält unvollständige oder inkompatible Teable-Datenobjekte.",
+          "remediation": "Verwenden Sie eine leere Datenbank oder einen kompatiblen Migrations-/Adoptionsablauf für Teable-Datenbanken."
+        }
+      }
+    },
+    "fields": {
+      "host": "Host",
+      "database": "Datenbank",
+      "internalSchema": "Internes Schema",
+      "version": "Version",
+      "classification": "Klassifizierung"
+    },
+    "badge": {
+      "label": "Dediziert",
+      "tooltip": "Dieser Space liegt auf einer dedizierten Datenbank, isoliert von anderen Spaces"
     }
   },
   "airtableImport": {
@@ -246,6 +365,40 @@
       "disableReminder": "Fertig – Sie können den Freigabelink in Airtable jetzt deaktivieren."
     }
   },
+  "googleSheetImport": {
+    "title": "Aus Google Sheets importieren",
+    "close": "Schließen",
+    "pickSpreadsheet": "Google-Tabelle zum Importieren auswählen",
+    "openPicker": "Tabelle aus Google Drive auswählen",
+    "changeSpreadsheet": "Ändern",
+    "analyzing": "Tabelle wird gelesen…",
+    "pickTabs": "Tabellenblätter zum Importieren auswählen",
+    "gridSize": "{{rows}} Zeilen × {{columns}} Spalten",
+    "optionRecords": "Datensätze importieren",
+    "import": "Import starten",
+    "done": "Import abgeschlossen",
+    "failed": "Import fehlgeschlagen",
+    "openBase": "Base öffnen",
+    "issuesSummary": "{{count}} Elemente wurden beim Import angepasst:",
+    "issuesMore": "+{{count}} weitere",
+    "recordsImported": "{{tableName}}: {{count}} Datensätze importiert",
+    "partialImported": "{{count}} Tabellen wurden vor dem Fehler vollständig importiert und bleiben erhalten",
+    "issue": {
+      "valuesDropped": "{{sheetName}} / {{fieldName}}: {{count}} Werte verworfen ({{reason}})",
+      "sheetSkipped": "Tabellenblatt \"{{sheetName}}\" übersprungen: {{reason}}",
+      "columnsTruncated": "{{sheetName}}: {{count}} Spalten über dem Spaltenlimit wurden nicht importiert"
+    },
+    "phase": {
+      "fetchingSchema": "Struktur der Tabelle wird gelesen",
+      "creatingBase": "Base wird erstellt: {{detail}}",
+      "creatingTable": "Tabelle wird erstellt: {{tableName}} ({{tableIndex}}/{{totalTables}})"
+    },
+    "detecting": "Google-Verbindung wird geprüft…",
+    "connectWithGoogle": "Google-Konto verbinden",
+    "waitingOAuth": "Autorisierung im Popup abschließen…",
+    "connectedAs": "Verbunden: {{account}}",
+    "integrationRequired": "Die Google Sheets-Integration ist auf dieser Instanz nicht konfiguriert. Bitte einen Administrator um Einrichtung."
+  },
   "createBaseDialog": {
     "title": "Wie möchtest du beginnen?"
   },
@@ -253,6 +406,7 @@
     "title": "Base importieren",
     "fromFile": "Aus Datei importieren",
     "fromFileDesc": "Eine .tea-Datenbankdatei hochladen",
-    "fromAirtableDesc": "Airtable-Konto verbinden"
+    "fromAirtableDesc": "Airtable-Konto verbinden",
+    "fromGoogleSheetDesc": "Eine Tabelle aus Ihrem Google Drive auswählen"
   }
 }

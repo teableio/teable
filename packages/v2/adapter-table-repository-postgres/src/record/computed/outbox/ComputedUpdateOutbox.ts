@@ -28,6 +28,7 @@ import {
   noopComputedActivityProjector,
   toComputedActivityBatch,
   type ComputedActivityProjectionResult,
+  type ComputedActivityStageSettlementParams,
   type IComputedActivityProjector,
 } from '../activity/IComputedActivityProjector';
 import {
@@ -71,18 +72,61 @@ import type {
   ReleaseForRetryParams,
   ComputedUpdateOutboxConfig,
   AnyOutboxItem,
+  EnqueueOrMergeOptions,
+  EnqueueOrMergeOutcome,
   FieldBackfillOutboxItem,
   SeedOutboxItem,
   RegisterPlannedTaskActivityParams,
+  MarkDoneOptions,
   MarkFailedOptions,
+  PendingActivityEnqueue,
 } from './IComputedUpdateOutbox';
 
 const OUTBOX_TABLE = 'computed_update_outbox';
 const OUTBOX_SEED_TABLE = 'computed_update_outbox_seed';
 const DEAD_LETTER_TABLE = 'computed_update_dead_letter';
+const RUN_HISTORY_TABLE = 'computed_update_run_history';
+/** Opportunistic run-history prune runs at most this often per outbox instance. */
+const RUN_HISTORY_PRUNE_INTERVAL_MS = 5 * 60 * 1000;
+/** Expired rows removed per DELETE. */
+const RUN_HISTORY_PRUNE_BATCH_SIZE = 10_000;
+/** Max DELETE batches per prune tick (500k rows). */
+const RUN_HISTORY_PRUNE_MAX_BATCHES = 50;
+/** Wall-clock budget for one prune tick. */
+const RUN_HISTORY_PRUNE_TIME_BUDGET_MS = 2_000;
+const STAGE_LEDGER_TABLE = 'computed_update_stage_ledger';
 const PENDING_SEED_UNIQUE_INDEX = 'computed_update_outbox_pending_unique_idx';
+const SPACE_DATA_DB_BINDING_TABLE = 'space_data_db_binding';
+
+/**
+ * The shared container (data db === meta db) claims from the instance-wide
+ * outbox. Once a space is bound to an external data database, the physical
+ * tables the shared container can reach are an orphaned pre-switch copy —
+ * executing that space's tasks here would read and write stale data. Fence
+ * them out entirely; the space's own container serves its outbox.
+ */
+export const buildComputedTaskNotForeignBoundCondition = (
+  eb: ExpressionBuilder<DynamicDB, keyof DynamicDB>,
+  alias: string
+) =>
+  eb.not(
+    eb.exists(
+      eb
+        .selectFrom(`${SPACE_DATA_DB_BINDING_TABLE} as sdb`)
+        .innerJoin('base as fbb', (join) => join.onRef('fbb.id', '=', `${alias}.base_id`))
+        .select(sql<number>`1`.as('one'))
+        .whereRef('sdb.space_id', '=', 'fbb.space_id')
+        .where('sdb.mode', '!=', 'default')
+    )
+  );
 
 const DEFAULT_STATUS = 'pending';
+
+// Recorded on tasks dead-lettered at claim time: the previous execution died
+// without a graceful markFailed (OOM kill / SIGKILL), so the lease expiry is
+// the only observable evidence of the failure.
+const STALE_LEASE_EXHAUSTED_ERROR =
+  'processing lease expired after ungraceful worker exit; retry budget exhausted';
 const OUTBOX_ID_PREFIX = 'cuo';
 const OUTBOX_ID_BODY_LENGTH = 16;
 const OUTBOX_SEED_ID_PREFIX = 'cus';
@@ -108,18 +152,50 @@ export type OutboxRow = Record<string, unknown>;
 const getClaimLockScope = (row: OutboxRow): string =>
   `${String(row.base_id)}:${String(row.seed_table_id)}`;
 
-export const dedupeClaimRowsByScope = <T extends OutboxRow>(rows: ReadonlyArray<T>): T[] => {
-  const seen = new Set<string>();
+export const dedupeClaimRowsByScope = <T extends OutboxRow>(
+  rows: ReadonlyArray<T>,
+  perScopeLimit = 1
+): T[] => {
+  const counts = new Map<string, number>();
   const selected: T[] = [];
 
   for (const row of rows) {
     const scope = getClaimLockScope(row);
-    if (seen.has(scope)) continue;
-    seen.add(scope);
+    const count = counts.get(scope) ?? 0;
+    if (count >= perScopeLimit) continue;
+    counts.set(scope, count + 1);
     selected.push(row);
   }
 
   return selected;
+};
+
+// Task-terminal transactions (markDone / releaseForRetry) mix outbox row locks
+// with blocking activity-table advisory locks; concurrent completions can
+// deadlock across those resource types. PostgreSQL resolves the deadlock by
+// aborting one transaction — retrying the aborted side from scratch succeeds
+// and, critically, keeps the task from being stranded in `processing` until
+// its lease expires.
+const DEADLOCK_RETRY_ATTEMPTS = 2;
+const DEADLOCK_RETRY_DELAY_MS = 50;
+
+const isDeadlockDomainError = (error: DomainError): boolean => {
+  const details = error.details as { error?: unknown } | undefined;
+  return `${error.message} ${String(details?.error ?? '')}`.includes('deadlock detected');
+};
+
+const runWithDeadlockRetry = async <T>(
+  operation: () => Promise<Result<T, DomainError>>,
+  onRetry: (error: DomainError, attempt: number) => void
+): Promise<Result<T, DomainError>> => {
+  let result = await operation();
+  for (let attempt = 1; attempt <= DEADLOCK_RETRY_ATTEMPTS; attempt++) {
+    if (!result.isErr() || !isDeadlockDomainError(result.error)) return result;
+    onRetry(result.error, attempt);
+    await new Promise((resolve) => setTimeout(resolve, DEADLOCK_RETRY_DELAY_MS * attempt));
+    result = await operation();
+  }
+  return result;
 };
 
 const buildProcessingConcurrencyCondition = (
@@ -174,6 +250,11 @@ type ActivityEnqueueOutcome = {
   taskId: string;
   merged: boolean;
   activity: ComputedActivityProjectionResult | null;
+  /** Set when a relay claim succeeded inside the enqueue transaction. */
+  claimed?: AnyOutboxItem;
+  claimActivity?: ComputedActivityProjectionResult | null;
+  /** Set when the caller requested `skipActivityProjection` and targets exist. */
+  pendingActivityEnqueue?: PendingActivityEnqueue;
 };
 
 type MarkDoneOutcome = {
@@ -195,6 +276,8 @@ type MarkDoneOutcome = {
 @injectable()
 export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
   private pendingSeedUniqueIndexAvailable?: boolean;
+  private runHistoryTableAvailable?: boolean;
+  private lastRunHistoryPruneAtMs = 0;
 
   constructor(
     @inject(v2RecordRepositoryPostgresTokens.db)
@@ -268,16 +351,17 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     await publish();
   }
 
-  private async projectEnqueuedItem(
-    params: {
-      taskId: string;
-      baseId: string;
-      item: AnyOutboxItem;
-      now: Date;
-      trx: unknown;
-    },
-    context?: IExecutionContext
-  ): Promise<Result<ComputedActivityProjectionResult | null, DomainError>> {
+  /**
+   * Pure derivation of an outbox item's enqueue projection input (targets +
+   * metrics). Shared by projectEnqueuedItem's normal path and the
+   * skipActivityProjection path, which still needs this to populate
+   * `pendingActivityEnqueue` for a caller-driven combined projection.
+   */
+  private resolveEnqueueProjectionInput(params: {
+    taskId: string;
+    baseId: string;
+    item: AnyOutboxItem;
+  }): Result<PendingActivityEnqueue | null, DomainError> {
     const targetsResult = resolveFieldTargetsFromOutboxItem(params.item);
     if (targetsResult.isErr()) return err(targetsResult.error);
     const targets = targetsResult.value;
@@ -316,24 +400,65 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       'orchestration' in params.item ? params.item.orchestration : undefined
     );
 
+    return ok({
+      taskId: params.taskId,
+      baseId: params.baseId,
+      targets,
+      metrics: {
+        estimatedComplexity: Math.max(0, Math.trunc(estimatedComplexity)),
+        estimatedDirtyRecords: Math.max(0, Math.trunc(estimatedDirtyRecords)),
+        hasAllTargetRecords: hasAllTargets,
+        ...(batchProgress ? { batchProgress } : {}),
+      },
+    });
+  }
+
+  private async projectEnqueuedItem(
+    params: {
+      taskId: string;
+      baseId: string;
+      item: AnyOutboxItem;
+      now: Date;
+      trx: unknown;
+      /**
+       * Skip the actual onTaskEnqueued round; return the resolved input as
+       * `pendingActivityEnqueue` instead so the caller can fold it into a
+       * combined projection later in the same transaction.
+       */
+      skipActivityProjection?: boolean;
+    },
+    context?: IExecutionContext
+  ): Promise<
+    Result<
+      {
+        activity: ComputedActivityProjectionResult | null;
+        pendingActivityEnqueue?: PendingActivityEnqueue;
+      },
+      DomainError
+    >
+  > {
+    const inputResult = this.resolveEnqueueProjectionInput(params);
+    if (inputResult.isErr()) return err(inputResult.error);
+    const input = inputResult.value;
+    if (!input) return ok({ activity: null });
+
+    if (params.skipActivityProjection) {
+      return ok({ activity: null, pendingActivityEnqueue: input });
+    }
+
     const result = await this.activityProjector.onTaskEnqueued(
       {
-        taskId: params.taskId,
-        baseId: params.baseId,
-        targets,
-        metrics: {
-          estimatedComplexity: Math.max(0, Math.trunc(estimatedComplexity)),
-          estimatedDirtyRecords: Math.max(0, Math.trunc(estimatedDirtyRecords)),
-          hasAllTargetRecords: hasAllTargets,
-          ...(batchProgress ? { batchProgress } : {}),
-        },
+        taskId: input.taskId,
+        baseId: input.baseId,
+        targets: input.targets,
+        metrics: input.metrics,
         now: params.now,
         trx: params.trx,
       },
       context
     );
     if (result.isErr()) return err(result.error);
-    return ok(result.value);
+    return ok({ activity: result.value });
   }
 
   async registerPlannedTaskActivity(
@@ -398,34 +523,73 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     },
     context?: IExecutionContext
   ): Promise<void> {
-    const wakeup = createComputedOutboxWakeup(params);
-    const publishSafely = async () => {
-      try {
-        const outcome = await this.wakeupPublisher.publish(wakeup);
-        if (outcome.status === 'disabled') return;
-        this.logger.debug('computed:outbox:wakeup_published', {
-          taskId: wakeup.taskId,
-          baseId: wakeup.baseId,
-          wakeupId: wakeup.wakeupId,
-          availableAt: wakeup.availableAt,
-          cause: wakeup.cause,
+    // Capture the write-path parent before afterCommit so the worker can join the same trace.
+    const carrier = context?.tracer?.capturePropagationCarrier?.();
+    const wakeup = createComputedOutboxWakeup({
+      ...params,
+      ...(carrier?.traceparent ? { traceparent: carrier.traceparent } : {}),
+      ...(carrier?.tracestate ? { tracestate: carrier.tracestate } : {}),
+    });
+
+    const publishSafely = async (afterCommit: boolean) => {
+      const run = async () => {
+        const span = context?.tracer?.startSpan('teable.outbox.scheduleWakeup.publish', {
+          'outbox.taskId': wakeup.taskId,
+          'outbox.baseId': wakeup.baseId,
+          'outbox.wakeupId': wakeup.wakeupId,
+          'outbox.wakeupCause': wakeup.cause,
+          'outbox.hasTraceparent': Boolean(wakeup.traceparent),
+          'outbox.afterCommit': afterCommit,
         });
-      } catch (error) {
-        this.wakeupPublisher.recordSkip?.('publish_failed');
-        this.logger.warn('computed:outbox:wakeup_publish_failed', {
-          taskId: wakeup.taskId,
-          baseId: wakeup.baseId,
-          wakeupId: wakeup.wakeupId,
-          cause: wakeup.cause,
-          ...toErrorLogFields(error),
-        });
+        const publishWork = async () => {
+          try {
+            const outcome = await this.wakeupPublisher.publish(wakeup);
+            span?.setAttribute('outbox.publishStatus', outcome.status);
+            if (outcome.status === 'disabled') return;
+            this.logger.debug('computed:outbox:wakeup_published', {
+              taskId: wakeup.taskId,
+              baseId: wakeup.baseId,
+              wakeupId: wakeup.wakeupId,
+              availableAt: wakeup.availableAt,
+              cause: wakeup.cause,
+              hasTraceparent: Boolean(wakeup.traceparent),
+            });
+          } catch (error) {
+            span?.recordError(error instanceof Error ? error.message : String(error));
+            this.wakeupPublisher.recordSkip?.('publish_failed');
+            this.logger.warn('computed:outbox:wakeup_publish_failed', {
+              taskId: wakeup.taskId,
+              baseId: wakeup.baseId,
+              wakeupId: wakeup.wakeupId,
+              cause: wakeup.cause,
+              ...toErrorLogFields(error),
+            });
+          }
+        };
+
+        try {
+          if (span && context?.tracer) {
+            await context.tracer.withSpan(span, publishWork);
+          } else {
+            await publishWork();
+          }
+        } finally {
+          span?.end();
+        }
+      };
+
+      // afterCommit may leave the request ALS; re-enter the captured parent when available.
+      if (carrier && context?.tracer?.runWithPropagationCarrier) {
+        await context.tracer.runWithPropagationCarrier(carrier, run);
+        return;
       }
+      await run();
     };
 
     const transaction = getUnitOfWorkTransaction(context, 'data');
     if (transaction) {
       if (transaction.afterCommit) {
-        transaction.afterCommit(publishSafely);
+        transaction.afterCommit(() => publishSafely(true));
       } else {
         this.wakeupPublisher.recordSkip?.('no_after_commit');
         this.logger.warn('computed:outbox:wakeup_skipped_without_after_commit_hook', {
@@ -437,17 +601,20 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       }
       return;
     }
-    await publishSafely();
+
+    await publishSafely(false);
   }
 
   async enqueueOrMerge(
     task: ComputedUpdateOutboxTaskInput,
-    context?: IExecutionContext
-  ): Promise<Result<{ taskId: string; merged: boolean }, DomainError>> {
+    context?: IExecutionContext,
+    options?: EnqueueOrMergeOptions
+  ): Promise<Result<EnqueueOrMergeOutcome, DomainError>> {
     const span = context?.tracer?.startSpan('teable.outbox.enqueueOrMerge', {
       'outbox.baseId': task.baseId,
       'outbox.seedTableId': task.seedTableId,
       'outbox.changeType': task.changeType,
+      'outbox.relayClaimRequested': Boolean(options?.relayClaim),
     });
 
     const executeEnqueue = async (): Promise<Result<ActivityEnqueueOutcome, DomainError>> => {
@@ -496,6 +663,16 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               });
             }
             const taskId = await this.insertOutbox(trx, effectiveTask, now);
+            const verified = await this.verifyOutboxTaskPersisted(trx, {
+              taskId,
+              planHash: effectiveTask.planHash,
+              merged: false,
+              phase: 'insert',
+              baseId: task.baseId,
+              seedTableId: task.seedTableId,
+              changeType: task.changeType,
+            });
+            if (verified.isErr()) return err(verified.error);
             const projected = await this.projectEnqueuedItem(
               {
                 taskId,
@@ -512,14 +689,54 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 },
                 now,
                 trx,
+                skipActivityProjection: options?.skipActivityProjection,
               },
               context
             );
             if (projected.isErr()) return err(projected.error);
-            return ok({ taskId, merged: false, activity: projected.value });
+            if (options?.relayClaim) {
+              const relayResult = await this.tryRelayClaimInserted(
+                trx,
+                {
+                  taskId,
+                  task: effectiveTask,
+                  relayClaim: options.relayClaim,
+                  now,
+                  skipActivityProjection: options?.skipActivityProjection,
+                },
+                context
+              );
+              if (relayResult.isErr()) return err(relayResult.error);
+              if (relayResult.value) {
+                return ok({
+                  taskId,
+                  merged: false,
+                  activity: projected.value.activity,
+                  claimed: relayResult.value.claimed,
+                  claimActivity: relayResult.value.activity,
+                  pendingActivityEnqueue: projected.value.pendingActivityEnqueue,
+                });
+              }
+            }
+            return ok({
+              taskId,
+              merged: false,
+              activity: projected.value.activity,
+              pendingActivityEnqueue: projected.value.pendingActivityEnqueue,
+            });
           }
 
-          const taskId = await this.mergeComputedTask(trx, existing, task, now);
+          const { taskId, merged } = await this.mergeComputedTask(trx, existing, task, now);
+          const verified = await this.verifyOutboxTaskPersisted(trx, {
+            taskId,
+            planHash: task.planHash,
+            merged,
+            phase: 'merge',
+            baseId: task.baseId,
+            seedTableId: task.seedTableId,
+            changeType: task.changeType,
+          });
+          if (verified.isErr()) return err(verified.error);
           const projected = await this.projectEnqueuedItem(
             {
               taskId,
@@ -536,12 +753,18 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               },
               now,
               trx,
+              skipActivityProjection: options?.skipActivityProjection,
             },
             context
           );
           if (projected.isErr()) return err(projected.error);
 
-          return ok({ taskId, merged: true, activity: projected.value });
+          return ok({
+            taskId,
+            merged,
+            activity: projected.value.activity,
+            pendingActivityEnqueue: projected.value.pendingActivityEnqueue,
+          });
         },
         {
           logger: this.logger,
@@ -564,6 +787,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       }
       if (result.isErr()) return err(result.error);
       await this.publishActivityChanged(result.value.activity, context);
+      await this.publishActivityChanged(result.value.claimActivity, context);
+      span?.setAttribute('outbox.relayClaimed', Boolean(result.value.claimed));
+      // The wakeup stays scheduled even for relay-claimed continuations: it is
+      // the crash safety net, and the terminal/active-lease pre-check turns it
+      // into a cheap noop when the relay chain stays healthy.
       await this.scheduleWakeup(
         {
           taskId: result.value.taskId,
@@ -572,10 +800,125 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         },
         context
       );
-      return ok({ taskId: result.value.taskId, merged: result.value.merged });
+      return ok({
+        taskId: result.value.taskId,
+        merged: result.value.merged,
+        ...(result.value.claimed ? { claimed: result.value.claimed } : {}),
+        ...(result.value.pendingActivityEnqueue
+          ? { pendingActivityEnqueue: result.value.pendingActivityEnqueue }
+          : {}),
+      });
     } finally {
       span?.end();
     }
+  }
+
+  /**
+   * Claim a continuation freshly inserted by this transaction for the enqueuing
+   * worker, so the cascade hop skips the separate relay claim transaction
+   * (locator + base advisory lock + FOR UPDATE + deferral checks + seed reload).
+   *
+   * Deferral checks are preserved where they can change mid-cascade (pause,
+   * concurrency caps). The foreign-bound check is intentionally skipped: the
+   * predecessor task just executed on this container's outbox, and any binding
+   * change lands via pause/discard flows whose checks the wakeup safety net
+   * still runs after lease expiry.
+   */
+  private async tryRelayClaimInserted(
+    trx: Kysely<DynamicDB> | Transaction<DynamicDB>,
+    params: {
+      taskId: string;
+      task: ComputedUpdateOutboxTaskInput;
+      relayClaim: NonNullable<EnqueueOrMergeOptions['relayClaim']>;
+      now: Date;
+      /**
+       * Skip the onTasksClaimed round; the caller (which also skipped
+       * onTaskEnqueued) is responsible for marking `taskId` as claimed via a
+       * combined projectStageSettlement call in the same transaction. The
+       * outbox row's processing flip and the re-read below still run
+       * unconditionally.
+       */
+      skipActivityProjection?: boolean;
+    },
+    context?: IExecutionContext
+  ): Promise<
+    Result<
+      { claimed: AnyOutboxItem; activity: ComputedActivityProjectionResult | null } | null,
+      DomainError
+    >
+  > {
+    if (!this.config.continuationRelayClaimEnabled) return ok(null);
+    const { taskId, task, relayClaim, now } = params;
+
+    const pauseProbeRow: OutboxRow = {
+      base_id: task.baseId,
+      seed_table_id: task.seedTableId,
+      affected_table_ids: [...task.affectedTableIds],
+    };
+    const pauseRetryAt = await this.getPauseRetryAt(trx, pauseProbeRow, now, context);
+    if (pauseRetryAt !== undefined) return ok(null);
+
+    // Concurrency caps are re-read per call so runtime overrides keep applying.
+    // The predecessor is excluded: it is deleted by markDone in this same
+    // transaction, so the hand-off keeps the committed active count unchanged.
+    const reclaimBefore = new Date(now.getTime() - this.config.processingLeaseMs);
+    const activeRows = (await trx
+      .selectFrom(OUTBOX_TABLE)
+      .select(['seed_table_id'])
+      .where('status', '=', 'processing')
+      .where('locked_at', 'is not', null)
+      .where('locked_at', '>', reclaimBefore)
+      .where('base_id', '=', task.baseId)
+      .where('id', '!=', relayClaim.predecessorTaskId)
+      .execute()) as Array<{ seed_table_id: unknown }>;
+    const sameSeedCount = activeRows.filter(
+      (row) => String(row.seed_table_id) === task.seedTableId
+    ).length;
+    if (
+      activeRows.length >= this.config.maxConcurrentProcessingPerBase ||
+      sameSeedCount >= this.config.maxConcurrentProcessingPerSeedTable
+    ) {
+      return ok(null);
+    }
+
+    const claimOwner = createClaimOwner(relayClaim.workerId);
+    await trx
+      .updateTable(OUTBOX_TABLE)
+      .set({
+        status: 'processing',
+        locked_at: now,
+        locked_by: claimOwner,
+        updated_at: now,
+      })
+      .where('id', '=', taskId)
+      .execute();
+
+    // Re-read through the same materialization path as claimById so the item
+    // the worker processes is byte-identical to a relay-claimed one.
+    const row = (await trx
+      .selectFrom(OUTBOX_TABLE)
+      .selectAll()
+      .where('id', '=', taskId)
+      .executeTakeFirst()) as OutboxRow | undefined;
+    if (!row) return ok(null);
+    const seedMap = await this.loadSeedRecords(trx, [row]);
+    const claimed = toAnyOutboxItem(row, seedMap.get(taskId) ?? []);
+
+    if (params.skipActivityProjection) {
+      return ok({ claimed, activity: null });
+    }
+
+    const activityResult = await this.activityProjector.onTasksClaimed(
+      {
+        tasks: [{ taskId, baseId: task.baseId }],
+        now,
+        trx,
+      },
+      context
+    );
+    if (activityResult.isErr()) return err(activityResult.error);
+
+    return ok({ claimed, activity: activityResult.value });
   }
 
   async enqueueFieldBackfill(
@@ -633,6 +976,16 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               });
             }
             const taskId = await this.insertFieldBackfill(trx, effectiveTask, now);
+            const verified = await this.verifyOutboxTaskPersisted(trx, {
+              taskId,
+              planHash: effectiveTask.planHash,
+              merged: false,
+              phase: 'backfill_insert',
+              baseId: task.baseId,
+              seedTableId: task.tableId,
+              changeType: FIELD_BACKFILL_CHANGE_TYPE,
+            });
+            if (verified.isErr()) return err(verified.error);
             const projected = await this.projectEnqueuedItem(
               {
                 taskId,
@@ -653,7 +1006,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               context
             );
             if (projected.isErr()) return err(projected.error);
-            return ok({ taskId, merged: false, activity: projected.value });
+            return ok({ taskId, merged: false, activity: projected.value.activity });
           }
 
           // Merge field IDs with existing task
@@ -661,7 +1014,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           const existingFieldIds = parseStringArray(existing.affected_field_ids);
           const mergedFieldIds = [...new Set([...existingFieldIds, ...task.fieldIds])];
 
-          await trx
+          const updated = await trx
             .updateTable(OUTBOX_TABLE)
             .set({
               affected_field_ids: mergedFieldIds,
@@ -669,21 +1022,49 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               updated_at: now,
             })
             .where('id', '=', taskId)
+            .returning('id')
             .execute();
 
-          this.logger.debug('computed:outbox:field_backfill_merged', {
-            taskId,
-            fieldIds: mergedFieldIds,
+          let mergedTaskId = taskId;
+          let backfillMerged = true;
+          if (updated.length === 0) {
+            // See mergeComputedTask: never silently drop the caller's field ids
+            // if the locked target row vanished out from under us.
+            this.logger.error('computed:outbox:merge_update_affected_zero_rows', {
+              taskId,
+              baseId: task.baseId,
+              tableId: task.tableId,
+              planHash: task.planHash,
+            });
+            const fallbackTask = { ...task, planHash: uniquifyPlanHash(task.planHash) };
+            mergedTaskId = await this.insertFieldBackfill(trx, fallbackTask, now);
+            backfillMerged = false;
+          } else {
+            this.logger.debug('computed:outbox:field_backfill_merged', {
+              taskId,
+              fieldIds: mergedFieldIds,
+            });
+          }
+
+          const verifiedMerge = await this.verifyOutboxTaskPersisted(trx, {
+            taskId: mergedTaskId,
+            planHash: task.planHash,
+            merged: backfillMerged,
+            phase: 'backfill_merge',
+            baseId: task.baseId,
+            seedTableId: task.tableId,
+            changeType: FIELD_BACKFILL_CHANGE_TYPE,
           });
+          if (verifiedMerge.isErr()) return err(verifiedMerge.error);
 
           const projected = await this.projectEnqueuedItem(
             {
-              taskId,
+              taskId: mergedTaskId,
               baseId: task.baseId,
               item: {
                 ...task,
                 fieldIds: mergedFieldIds,
-                id: taskId,
+                id: mergedTaskId,
                 status: 'pending',
                 attempts: 0,
                 maxAttempts: this.config.maxAttempts,
@@ -698,7 +1079,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           );
           if (projected.isErr()) return err(projected.error);
 
-          return ok({ taskId, merged: true, activity: projected.value });
+          return ok({
+            taskId: mergedTaskId,
+            merged: backfillMerged,
+            activity: projected.value.activity,
+          });
         },
         {
           logger: this.logger,
@@ -781,6 +1166,16 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 })
               );
             }
+            const verifiedBypass = await this.verifyOutboxTaskPersisted(trx, {
+              taskId,
+              planHash: bypassTask.planHash,
+              merged: false,
+              phase: 'seed_bypass_insert',
+              baseId: task.baseId,
+              seedTableId: task.seedTableId,
+              changeType: SEED_CHANGE_TYPE,
+            });
+            if (verifiedBypass.isErr()) return err(verifiedBypass.error);
             const projected = await this.projectEnqueuedItem(
               {
                 taskId,
@@ -801,7 +1196,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               context
             );
             if (projected.isErr()) return err(projected.error);
-            return ok({ taskId, merged: false, activity: projected.value });
+            return ok({ taskId, merged: false, activity: projected.value.activity });
           }
 
           const existing = await this.findPendingSeedTask(trx, task);
@@ -809,6 +1204,16 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           if (!existing) {
             const taskId = await this.insertSeedTask(trx, task, now);
             if (taskId) {
+              const verifiedInsert = await this.verifyOutboxTaskPersisted(trx, {
+                taskId,
+                planHash: task.planHash,
+                merged: false,
+                phase: 'seed_insert',
+                baseId: task.baseId,
+                seedTableId: task.seedTableId,
+                changeType: SEED_CHANGE_TYPE,
+              });
+              if (verifiedInsert.isErr()) return err(verifiedInsert.error);
               const projected = await this.projectEnqueuedItem(
                 {
                   taskId,
@@ -829,7 +1234,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 context
               );
               if (projected.isErr()) return err(projected.error);
-              return ok({ taskId, merged: false, activity: projected.value });
+              return ok({ taskId, merged: false, activity: projected.value.activity });
             }
 
             const conflicted = await this.findPendingSeedTask(trx, task);
@@ -841,7 +1246,22 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               );
             }
 
-            const mergedTaskId = await this.mergeSeedTask(trx, conflicted, task, now);
+            const { taskId: mergedTaskId, merged: conflictMerged } = await this.mergeSeedTask(
+              trx,
+              conflicted,
+              task,
+              now
+            );
+            const verifiedConflictMerge = await this.verifyOutboxTaskPersisted(trx, {
+              taskId: mergedTaskId,
+              planHash: task.planHash,
+              merged: conflictMerged,
+              phase: 'seed_conflict_merge',
+              baseId: task.baseId,
+              seedTableId: task.seedTableId,
+              changeType: SEED_CHANGE_TYPE,
+            });
+            if (verifiedConflictMerge.isErr()) return err(verifiedConflictMerge.error);
             const projected = await this.projectEnqueuedItem(
               {
                 taskId: mergedTaskId,
@@ -862,10 +1282,24 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               context
             );
             if (projected.isErr()) return err(projected.error);
-            return ok({ taskId: mergedTaskId, merged: true, activity: projected.value });
+            return ok({
+              taskId: mergedTaskId,
+              merged: conflictMerged,
+              activity: projected.value.activity,
+            });
           }
 
-          const taskId = await this.mergeSeedTask(trx, existing, task, now);
+          const { taskId, merged } = await this.mergeSeedTask(trx, existing, task, now);
+          const verifiedMerge = await this.verifyOutboxTaskPersisted(trx, {
+            taskId,
+            planHash: task.planHash,
+            merged,
+            phase: 'seed_merge',
+            baseId: task.baseId,
+            seedTableId: task.seedTableId,
+            changeType: SEED_CHANGE_TYPE,
+          });
+          if (verifiedMerge.isErr()) return err(verifiedMerge.error);
           const projected = await this.projectEnqueuedItem(
             {
               taskId,
@@ -886,7 +1320,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             context
           );
           if (projected.isErr()) return err(projected.error);
-          return ok({ taskId, merged: true, activity: projected.value });
+          return ok({ taskId, merged, activity: projected.value.activity });
         },
         {
           logger: this.logger,
@@ -935,6 +1369,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     type ClaimBatchResult = {
       tasks: ReadonlyArray<AnyOutboxItem>;
       activity: ComputedActivityProjectionResult | null;
+      deadLetterActivities: ReadonlyArray<ComputedActivityProjectionResult | null>;
     };
     const executeClaim = async (): Promise<Result<ClaimBatchResult, DomainError>> => {
       const now = params.now ?? new Date();
@@ -943,6 +1378,38 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       const claimOwner = createClaimOwner(params.workerId);
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
       const includeSpaceScopeInSql = this.db === this.metaDb;
+
+      // Emptiness probe outside the claim transaction: the drain loop's
+      // terminating round and idle polls otherwise pay BEGIN + advisory lock +
+      // two locked scans + COMMIT to learn there is nothing claimable. The
+      // probe ignores pause/concurrency filters on purpose — it may report
+      // work that the full round then filters out, never the reverse. Built on
+      // the query builder (not raw sql) so withSchema table rewriting applies.
+      const probe = await db
+        .selectNoFrom((eb) => [
+          eb
+            .exists(
+              eb
+                .selectFrom(OUTBOX_TABLE)
+                .select(sql<number>`1`.as('one'))
+                .where('status', '=', DEFAULT_STATUS)
+                .where('next_run_at', '<=', now)
+            )
+            .as('pending'),
+          eb
+            .exists(
+              eb
+                .selectFrom(OUTBOX_TABLE)
+                .select(sql<number>`1`.as('one'))
+                .where('status', '=', 'processing')
+                .where(sql<boolean>`("locked_at" is null or "locked_at" <= ${reclaimBefore})`)
+            )
+            .as('stale'),
+        ])
+        .executeTakeFirst();
+      if (!probe?.pending && !probe?.stale) {
+        return ok({ tasks: [], activity: null, deadLetterActivities: [] });
+      }
 
       return runInTransaction(
         db,
@@ -961,7 +1428,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             this.logger.debug('computed:outbox:claim_skipped_lock_busy', {
               workerId: params.workerId,
             });
-            return ok({ tasks: [], activity: null });
+            return ok({ tasks: [], activity: null, deadLetterActivities: [] });
           }
           const staleRows =
             reclaimLimit > 0
@@ -970,11 +1437,14 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                   .selectAll('o')
                   .where('o.status', '=', 'processing')
                   .where(sql<boolean>`("locked_at" is null or "locked_at" <= ${reclaimBefore})`)
-                  .where((eb) =>
-                    buildComputedTaskNotPausedCondition(eb, 'o', now, {
+                  .where((eb) => {
+                    const notPaused = buildComputedTaskNotPausedCondition(eb, 'o', now, {
                       includeSpaceScope: includeSpaceScopeInSql,
-                    })
-                  )
+                    });
+                    return includeSpaceScopeInSql
+                      ? eb.and([notPaused, buildComputedTaskNotForeignBoundCondition(eb, 'o')])
+                      : notPaused;
+                  })
                   .orderBy('locked_at', 'asc')
                   .orderBy('created_at', 'asc')
                   .limit(reclaimLimit)
@@ -983,7 +1453,49 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                   .execute()
               : [];
 
-          const remaining = Math.max(params.limit - staleRows.length, 0);
+          // An expired lease with no graceful markFailed means the previous run
+          // died mid-task (OOM kill / SIGKILL). Charge the lost attempt at
+          // reclaim — the only point where the crash is observable — so a
+          // poison task cannot crash-loop below max_attempts forever. Tasks
+          // whose budget is already spent are retired to the dead letter here
+          // instead of being replayed.
+          let exhaustedStale = staleRows.filter(
+            (row) => Number(row.attempts) + 1 >= Number(row.max_attempts)
+          );
+          if (exhaustedStale.length > 0 && !includeSpaceScopeInSql) {
+            // Space-scope pauses are JS-filtered in split data/meta mode; a
+            // paused task must stay parked, not get dead-lettered.
+            exhaustedStale = await this.filterRowsPausedBySpace(trx, exhaustedStale, now, context);
+          }
+          const retryableStale = staleRows.filter(
+            (row) => Number(row.attempts) + 1 < Number(row.max_attempts)
+          );
+
+          const deadLetterActivities: (ComputedActivityProjectionResult | null)[] = [];
+          if (exhaustedStale.length > 0) {
+            const exhaustedSeedMap = await this.loadSeedRecords(trx, exhaustedStale);
+            for (const row of exhaustedStale) {
+              const task = toAnyOutboxItem(row, exhaustedSeedMap.get(String(row.id)) ?? []);
+              const nextAttempts = Number(row.attempts) + 1;
+              const terminalActivity = await this.moveToDeadLetterInTrx(
+                trx,
+                task,
+                { nextAttempts, error: STALE_LEASE_EXHAUSTED_ERROR, now },
+                context
+              );
+              if (terminalActivity.isErr()) return err(terminalActivity.error);
+              deadLetterActivities.push(terminalActivity.value);
+              this.logger.warn('computed:outbox:dead_letter', {
+                taskId: String(row.id),
+                error: STALE_LEASE_EXHAUSTED_ERROR,
+                attempts: nextAttempts,
+                maxAttempts: Number(row.max_attempts),
+                failureKind: 'stale_lease_exhausted',
+              });
+            }
+          }
+
+          const remaining = Math.max(params.limit - retryableStale.length, 0);
           const pendingRows =
             remaining > 0
               ? await trx
@@ -991,11 +1503,14 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                   .selectAll('o')
                   .where('o.status', '=', DEFAULT_STATUS)
                   .where('o.next_run_at', '<=', now)
-                  .where((eb) =>
-                    buildComputedTaskNotPausedCondition(eb, 'o', now, {
+                  .where((eb) => {
+                    const notPaused = buildComputedTaskNotPausedCondition(eb, 'o', now, {
                       includeSpaceScope: includeSpaceScopeInSql,
-                    })
-                  )
+                    });
+                    return includeSpaceScopeInSql
+                      ? eb.and([notPaused, buildComputedTaskNotForeignBoundCondition(eb, 'o')])
+                      : notPaused;
+                  })
                   .where((eb) =>
                     buildProcessingConcurrencyCondition(eb, 'o', reclaimBefore, this.config)
                   )
@@ -1008,25 +1523,50 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                   .execute()
               : [];
 
-          const candidateRows = dedupeClaimRowsByScope([...staleRows, ...pendingRows]);
+          // One worker executes its claims serially, so taking up to the
+          // per-seed-table cap per scope in one round halves the claim rounds
+          // a drain needs; filterRowsByConcurrency still enforces both caps
+          // cumulatively against rows already processing.
+          const candidateRows = dedupeClaimRowsByScope(
+            [...retryableStale, ...pendingRows],
+            Math.max(1, this.config.maxConcurrentProcessingPerSeedTable)
+          );
           const unpausedRows = includeSpaceScopeInSql
             ? candidateRows
             : await this.filterRowsPausedBySpace(trx, candidateRows, now, context);
           const rows = await this.filterRowsByConcurrency(trx, unpausedRows, reclaimBefore);
 
-          if (rows.length === 0) return ok({ tasks: [], activity: null });
+          if (rows.length === 0) return ok({ tasks: [], activity: null, deadLetterActivities });
 
+          const reclaimedIdSet = new Set(retryableStale.map((row) => String(row.id)));
           const ids = rows.map((row) => String(row.id));
-          await trx
-            .updateTable(OUTBOX_TABLE)
-            .set({
-              status: 'processing',
-              locked_at: now,
-              locked_by: claimOwner,
-              updated_at: now,
-            })
-            .where('id', 'in', ids)
-            .execute();
+          const freshIds = ids.filter((id) => !reclaimedIdSet.has(id));
+          const reclaimedIds = ids.filter((id) => reclaimedIdSet.has(id));
+          if (freshIds.length > 0) {
+            await trx
+              .updateTable(OUTBOX_TABLE)
+              .set({
+                status: 'processing',
+                locked_at: now,
+                locked_by: claimOwner,
+                updated_at: now,
+              })
+              .where('id', 'in', freshIds)
+              .execute();
+          }
+          if (reclaimedIds.length > 0) {
+            await trx
+              .updateTable(OUTBOX_TABLE)
+              .set({
+                status: 'processing',
+                locked_at: now,
+                locked_by: claimOwner,
+                updated_at: now,
+                attempts: sql<number>`"attempts" + 1`,
+              })
+              .where('id', 'in', reclaimedIds)
+              .execute();
+          }
 
           const seedMap = await this.loadSeedRecords(trx, rows);
           const tasks = rows.map((row) =>
@@ -1034,6 +1574,9 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               {
                 ...row,
                 status: 'processing',
+                attempts: reclaimedIdSet.has(String(row.id))
+                  ? Number(row.attempts) + 1
+                  : row.attempts,
                 locked_at: now,
                 locked_by: claimOwner,
                 updated_at: now,
@@ -1060,22 +1603,22 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             leaseOwner: claimOwner,
             claimedCount: rows.length,
             pendingCount: pendingRows.length,
-            reclaimedCount: staleRows.length,
+            reclaimedCount: reclaimedIds.length,
             taskIds: ids,
           });
 
-          if (staleRows.length > 0) {
+          if (reclaimedIds.length > 0) {
             this.logger.warn('computed:outbox:stale_processing_reclaimed', {
               workerId: params.workerId,
               leaseOwner: claimOwner,
-              reclaimedCount: staleRows.length,
+              reclaimedCount: reclaimedIds.length,
               processingLeaseMs: this.config.processingLeaseMs,
               reclaimBefore,
-              taskIds: staleRows.map((row) => String(row.id)),
+              taskIds: reclaimedIds,
             });
           }
 
-          return ok({ tasks, activity: activityResult.value });
+          return ok({ tasks, activity: activityResult.value, deadLetterActivities });
         },
         {
           logger: this.logger,
@@ -1094,6 +1637,9 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       }
       if (result.isErr()) return err(result.error);
       await this.publishActivityChanged(result.value.activity, context);
+      for (const deadLetterActivity of result.value.deadLetterActivities) {
+        await this.publishActivityChanged(deadLetterActivity, context);
+      }
       return ok(result.value.tasks);
     } finally {
       span?.end();
@@ -1196,7 +1742,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     });
 
     type ClaimByIdResult = {
-      task: AnyOutboxItem;
+      task: AnyOutboxItem | null;
       activity: ComputedActivityProjectionResult | null;
     } | null;
     const executeClaim = async (): Promise<Result<ClaimByIdResult, DomainError>> => {
@@ -1219,6 +1765,9 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               .forUpdate()
               .skipLocked()
               .executeTakeFirst();
+            if (row && (await this.getPauseRetryAt(trx, row, now, context)) !== undefined) {
+              row = undefined;
+            }
           } else {
             const locator = await trx
               .selectFrom(`${OUTBOX_TABLE} as o`)
@@ -1258,10 +1807,42 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
           if (!row) return ok(null);
 
+          // Taking over a lease that expired without a graceful markFailed
+          // means the previous run died mid-task (OOM kill / SIGKILL): charge
+          // the lost attempt, and retire the task to the dead letter when the
+          // retry budget is spent instead of replaying the crash. A takeover of
+          // a live lease (continuation relay) is a deliberate handover and
+          // burns no attempt.
+          const leaseExpired =
+            String(row.status) === 'processing' &&
+            (row.locked_at == null ||
+              new Date(row.locked_at as Date | string).getTime() <= reclaimBefore.getTime());
+          const nextAttempts = leaseExpired ? Number(row.attempts) + 1 : Number(row.attempts);
+          if (leaseExpired && nextAttempts >= Number(row.max_attempts)) {
+            const deadSeedMap = await this.loadSeedRecords(trx, [row]);
+            const task = toAnyOutboxItem(row, deadSeedMap.get(String(row.id)) ?? []);
+            const terminalActivity = await this.moveToDeadLetterInTrx(
+              trx,
+              task,
+              { nextAttempts, error: STALE_LEASE_EXHAUSTED_ERROR, now },
+              context
+            );
+            if (terminalActivity.isErr()) return err(terminalActivity.error);
+            this.logger.warn('computed:outbox:dead_letter', {
+              taskId: params.taskId,
+              error: STALE_LEASE_EXHAUSTED_ERROR,
+              attempts: nextAttempts,
+              maxAttempts: Number(row.max_attempts),
+              failureKind: 'stale_lease_exhausted',
+            });
+            return ok({ task: null, activity: terminalActivity.value });
+          }
+
           await trx
             .updateTable(OUTBOX_TABLE)
             .set({
               status: 'processing',
+              attempts: nextAttempts,
               locked_at: now,
               locked_by: claimOwner,
               updated_at: now,
@@ -1274,6 +1855,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           const claimedRow = {
             ...row,
             status: 'processing',
+            attempts: nextAttempts,
             locked_at: now,
             locked_by: claimOwner,
             updated_at: now,
@@ -1285,6 +1867,8 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               workerId: params.workerId,
               previousLeaseOwner: row.locked_by ? String(row.locked_by) : null,
               newLeaseOwner: claimOwner,
+              leaseExpired,
+              attempts: nextAttempts,
             });
           }
 
@@ -1316,7 +1900,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
     try {
       let result: Result<
-        { task: AnyOutboxItem; activity: ComputedActivityProjectionResult | null } | null,
+        { task: AnyOutboxItem | null; activity: ComputedActivityProjectionResult | null } | null,
         DomainError
       >;
       if (span && context?.tracer) {
@@ -1378,12 +1962,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     context?: IExecutionContext
   ): Promise<OutboxClaimDeferral | null> {
     const status = String(row.status);
-    if (status === DEFAULT_STATUS) {
-      const nextRunAt = new Date(row.next_run_at as Date | string);
-      if (nextRunAt.getTime() > now.getTime()) {
-        return { status: 'deferred', reason: 'not_due', retryAt: nextRunAt };
-      }
-    } else if (status === 'processing' && row.locked_at != null) {
+    if (status === 'processing' && row.locked_at != null) {
       const lockedAt = new Date(row.locked_at as Date | string);
       if (lockedAt.getTime() > reclaimBefore.getTime()) {
         return {
@@ -1394,9 +1973,24 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       }
     }
 
+    if (this.db === this.metaDb && (await this.isTaskForeignBound(db, row))) {
+      // Same indefinite parking as a permanent pause: this container must never
+      // execute a task whose space's data lives in an external database.
+      return { status: 'deferred', reason: 'paused', retryAt: null };
+    }
+
+    // Pause before not_due: a paused scope defers next_run_at to the lease's
+    // resumeAt, so the actionable explanation is the pause, not the schedule.
     const pauseRetryAt = await this.getPauseRetryAt(db, row, now, context);
     if (pauseRetryAt !== undefined) {
       return { status: 'deferred', reason: 'paused', retryAt: pauseRetryAt };
+    }
+
+    if (status === DEFAULT_STATUS) {
+      const nextRunAt = new Date(row.next_run_at as Date | string);
+      if (nextRunAt.getTime() > now.getTime()) {
+        return { status: 'deferred', reason: 'not_due', retryAt: nextRunAt };
+      }
     }
 
     const concurrencyRetryAt = await this.getConcurrencyRetryAt(db, row, reclaimBefore);
@@ -1405,6 +1999,25 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     }
 
     return null;
+  }
+
+  private async isTaskForeignBound(
+    db: Kysely<DynamicDB> | Transaction<DynamicDB>,
+    row: OutboxRow
+  ): Promise<boolean> {
+    const base = (await db
+      .selectFrom('base')
+      .select('space_id')
+      .where('id', '=', String(row.base_id))
+      .executeTakeFirst()) as { space_id: string | null } | undefined;
+    if (base?.space_id == null) return false;
+    const bound = await db
+      .selectFrom(SPACE_DATA_DB_BINDING_TABLE)
+      .select(sql<number>`1`.as('one'))
+      .where('space_id', '=', String(base.space_id))
+      .where('mode', '!=', 'default')
+      .executeTakeFirst();
+    return bound != null;
   }
 
   private async getPauseRetryAt(
@@ -1540,10 +2153,13 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
   async markDone(
     taskOrId: AnyOutboxItem | string,
-    context?: IExecutionContext
+    context?: IExecutionContext,
+    options?: MarkDoneOptions
   ): Promise<Result<boolean, DomainError>> {
     const taskId = typeof taskOrId === 'string' ? taskOrId : taskOrId.id;
     const leaseOwner = typeof taskOrId === 'string' ? null : taskOrId.lockedBy ?? null;
+    const skipActivityProjection = options?.skipActivityProjection ?? false;
+    const fieldErrors = options?.fieldErrors;
     const span = context?.tracer?.startSpan('teable.outbox.markDone', {
       'outbox.taskId': taskId,
     });
@@ -1560,9 +2176,9 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 .where('id', '=', taskId)
                 .where('status', '=', 'processing')
                 .where('locked_by', '=', leaseOwner)
-                .returning('id')
+                .returningAll()
                 .execute()
-            : await trx.deleteFrom(OUTBOX_TABLE).where('id', '=', taskId).returning('id').execute();
+            : await trx.deleteFrom(OUTBOX_TABLE).where('id', '=', taskId).returningAll().execute();
 
           if (deleted.length === 0) {
             if (leaseOwner) {
@@ -1575,7 +2191,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             }
 
             // Task row already gone (crash/reclaim/manual cleanup). Still drop any leftover
-            // activity refs so the UI cannot stay queued forever with no outbox work.
+            // activity refs so the UI cannot stay queued forever with no outbox work. The
+            // caller never requests skipActivityProjection on this string-id path (it has no
+            // combined projection to fold into), but honor it defensively if it ever does.
+            if (skipActivityProjection) return ok({ done: false as const });
             const baseId = typeof taskOrId === 'string' ? undefined : taskOrId.baseId;
             const activityResult = await this.activityProjector.onTaskDone(
               {
@@ -1583,6 +2202,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 baseId,
                 now: new Date(),
                 trx,
+                ...(fieldErrors?.length ? { fieldErrors } : {}),
               },
               context
             );
@@ -1591,6 +2211,21 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           }
 
           await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
+
+          await this.insertRunHistory(
+            trx,
+            deleted[0] as unknown as Record<string, unknown>,
+            typeof taskOrId === 'string' ? null : taskOrId,
+            new Date(),
+            options
+          );
+
+          if (skipActivityProjection) {
+            // The caller (already holding this same transaction) folds this task's
+            // completion into a combined projectStageSettlement call alongside its
+            // own enqueueOrMerge — see ComputedUpdateWorker's stage settlement.
+            return ok({ done: true as const });
+          }
 
           const baseId = typeof taskOrId === 'string' ? undefined : taskOrId.baseId;
           const startedAt =
@@ -1606,6 +2241,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               durationMs,
               now: new Date(),
               trx,
+              ...(fieldErrors?.length ? { fieldErrors } : {}),
             },
             context
           );
@@ -1622,20 +2258,307 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     };
 
     try {
-      let result: Result<MarkDoneOutcome, DomainError>;
-      if (span && context?.tracer) {
-        result = await context.tracer.withSpan(span, executeMarkDone);
-      } else {
-        result = await executeMarkDone();
-      }
+      const run = async (): Promise<Result<MarkDoneOutcome, DomainError>> =>
+        span && context?.tracer
+          ? await context.tracer.withSpan(span, executeMarkDone)
+          : await executeMarkDone();
+      const result = await runWithDeadlockRetry(run, (error, attempt) => {
+        this.logger.warn('computed:outbox:mark_done_deadlock_retry', {
+          taskId,
+          attempt,
+          error: error.message,
+        });
+      });
       if (result.isErr()) return err(result.error);
       if (result.value.activity) {
         await this.publishActivityChanged(result.value.activity, context);
+      }
+      if (result.value.done) {
+        // Outside the caller's transaction on purpose: pruning is bounded
+        // housekeeping that must never extend or fail a task completion.
+        void this.maybePruneRunHistory();
       }
       return ok(result.value.done);
     } finally {
       span?.end();
     }
+  }
+
+  /**
+   * Record a completed task into the run-history ledger inside the markDone
+   * transaction. Guarded by a cached table-existence probe so a fleet whose
+   * data-db migration has not landed yet degrades to "no ledger" instead of
+   * failing completions.
+   */
+  private async insertRunHistory(
+    trx: Kysely<DynamicDB> | Transaction<DynamicDB>,
+    row: Record<string, unknown>,
+    taskItem: AnyOutboxItem | null,
+    now: Date,
+    options?: MarkDoneOptions
+  ): Promise<void> {
+    if (!this.config.runHistoryEnabled) return;
+    if (!(await this.hasRunHistoryTable(trx))) return;
+
+    const changeType = String(row.change_type);
+    const enqueuedAt = parseDateColumn(row.created_at) ?? now;
+    const startedAt = parseDateColumn(row.locked_at) ?? null;
+    const durationMs = startedAt ? Math.max(0, now.getTime() - startedAt.getTime()) : 0;
+    const affectedFieldIds = parseStringArray(row.affected_field_ids);
+    const plan = resolveRunHistoryPlan(row, taskItem, options?.runHistoryPlan);
+
+    await trx
+      .insertInto(RUN_HISTORY_TABLE)
+      .values({
+        task_id: String(row.id),
+        base_id: String(row.base_id),
+        seed_table_id: String(row.seed_table_id),
+        change_type: changeType,
+        run_id: String(row.run_id ?? ''),
+        origin_run_ids: parseStringArray(row.origin_run_ids),
+        steps: toJsonValue(plan.steps),
+        edges: toJsonValue(plan.edges),
+        affected_table_ids: parseStringArray(row.affected_table_ids),
+        affected_field_ids: affectedFieldIds,
+        // Seed rows: trigger fields are affected_field_ids. Planned leftovers
+        // carry the run's original mutation field ids in dirty_stats (schema-wide).
+        source_field_ids:
+          changeType === SEED_CHANGE_TYPE
+            ? affectedFieldIds
+            : parseSourceFieldIds(row.dirty_stats) ?? [],
+        seed_record_count: countSeedRecordsForHistory(row, taskItem),
+        stage_depth: Number(row.stage_depth ?? 0),
+        predecessor_task_id: row.predecessor_task_id ? String(row.predecessor_task_id) : null,
+        run_total_steps: Number(row.run_total_steps ?? 0),
+        run_completed_steps_before: Number(row.run_completed_steps_before ?? 0),
+        sync_max_level: row.sync_max_level === null ? null : Number(row.sync_max_level ?? 0),
+        estimated_complexity: Number(row.estimated_complexity ?? 0),
+        attempts: Number(row.attempts ?? 0),
+        outcome: 'succeeded',
+        source_changed_at: parseDateColumn(row.source_changed_at) ?? null,
+        enqueued_at: enqueuedAt,
+        started_at: startedAt,
+        completed_at: now,
+        duration_ms: durationMs,
+      })
+      .onConflict((oc) => oc.column('task_id').doNothing())
+      .execute();
+  }
+
+  private async hasRunHistoryTable(
+    trx: Kysely<DynamicDB> | Transaction<DynamicDB>
+  ): Promise<boolean> {
+    if (typeof this.runHistoryTableAvailable === 'boolean') {
+      return this.runHistoryTableAvailable;
+    }
+
+    try {
+      const result = await sql<{ exists: boolean }>`
+        select exists (
+          select 1
+          from information_schema.tables
+          where table_schema = current_schema()
+            and table_name = ${RUN_HISTORY_TABLE}
+        ) as "exists"
+      `.execute(trx);
+      const exists = Boolean(result.rows[0]?.exists);
+      this.runHistoryTableAvailable = exists;
+      return exists;
+    } catch (error) {
+      this.logger.debug('computed:outbox:run_history_table_probe_failed', {
+        error: toErrorLogFields(error),
+      });
+      this.runHistoryTableAvailable = false;
+      return false;
+    }
+  }
+
+  /**
+   * Opportunistically prune expired run-history rows. At most one bounded
+   * multi-batch pass per RUN_HISTORY_PRUNE_INTERVAL_MS per outbox instance,
+   * on its own connection so it never joins (or delays) a task transaction.
+   */
+  private async maybePruneRunHistory(): Promise<void> {
+    if (!this.config.runHistoryEnabled || this.config.runHistoryRetentionMs <= 0) return;
+    if (this.runHistoryTableAvailable !== true) return;
+    const nowMs = Date.now();
+    if (nowMs - this.lastRunHistoryPruneAtMs < RUN_HISTORY_PRUNE_INTERVAL_MS) return;
+    this.lastRunHistoryPruneAtMs = nowMs;
+
+    try {
+      const cutoff = new Date(nowMs - this.config.runHistoryRetentionMs);
+      const db = this.db as unknown as Kysely<DynamicDB>;
+      const deadline = nowMs + RUN_HISTORY_PRUNE_TIME_BUDGET_MS;
+      let pruned = 0;
+      for (let batch = 0; batch < RUN_HISTORY_PRUNE_MAX_BATCHES; batch += 1) {
+        if (Date.now() >= deadline) break;
+        const expired = db
+          .selectFrom(RUN_HISTORY_TABLE)
+          .select('task_id')
+          .where('completed_at', '<', cutoff)
+          .limit(RUN_HISTORY_PRUNE_BATCH_SIZE);
+        const result = await db
+          .deleteFrom(RUN_HISTORY_TABLE)
+          .where('task_id', 'in', expired)
+          .executeTakeFirst();
+        const deleted = Number(result?.numDeletedRows ?? 0);
+        pruned += deleted;
+        if (deleted < RUN_HISTORY_PRUNE_BATCH_SIZE) break;
+      }
+      if (pruned > 0) {
+        this.logger.debug('computed:outbox:run_history_pruned', { pruned });
+      }
+    } catch (error) {
+      this.logger.warn('computed:outbox:run_history_prune_failed', {
+        error: toErrorLogFields(error),
+      });
+    }
+  }
+
+  /**
+   * Combined activity projection tail for one stage transaction. Call after
+   * enqueueOrMerge and markDone both ran with `skipActivityProjection: true`
+   * in the same transaction: this folds the completed task, its continuation,
+   * and its relay-claim into one lock round / load / persist instead of the
+   * three independent rounds those calls would otherwise each pay.
+   */
+  async projectStageSettlement(
+    params: ComputedActivityStageSettlementParams,
+    context?: IExecutionContext
+  ): Promise<Result<ComputedActivityProjectionResult | null, DomainError>> {
+    const span = context?.tracer?.startSpan('teable.outbox.projectStageSettlement', {
+      'outbox.doneTaskId': params.done.taskId,
+      'outbox.enqueuedTaskId': params.enqueued?.taskId ?? '',
+      'outbox.claimedTaskCount': params.claimed?.length ?? 0,
+    });
+
+    const executeProject = async (): Promise<
+      Result<ComputedActivityProjectionResult | null, DomainError>
+    > => {
+      const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+      return runInTransaction(
+        db,
+        context,
+        async (trx) => this.activityProjector.projectStageSettlement({ ...params, trx }, context),
+        {
+          logger: this.logger,
+          operation: 'project_stage_settlement',
+          logContext: {
+            doneTaskId: params.done.taskId,
+            enqueuedTaskId: params.enqueued?.taskId,
+          },
+        }
+      );
+    };
+
+    try {
+      const result =
+        span && context?.tracer
+          ? await context.tracer.withSpan(span, executeProject)
+          : await executeProject();
+      if (result.isErr()) return err(result.error);
+      await this.publishActivityChanged(result.value, context);
+      return ok(result.value);
+    } finally {
+      span?.end();
+    }
+  }
+
+  async discardBySeedTable(
+    params: { baseId: string; seedTableId: string },
+    context?: IExecutionContext
+  ): Promise<
+    Result<
+      {
+        discardedTaskIds: ReadonlyArray<string>;
+        discardedDeadLetterTaskIds: ReadonlyArray<string>;
+      },
+      DomainError
+    >
+  > {
+    const { baseId, seedTableId } = params;
+    type DiscardOutcome = {
+      taskIds: string[];
+      deadLetterTaskIds: string[];
+      activity?: ComputedActivityProjectionResult | null;
+    };
+    const executeDiscard = async (): Promise<Result<DiscardOutcome, DomainError>> => {
+      const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+      return runInTransaction<DiscardOutcome>(
+        db,
+        context,
+        async (trx) => {
+          const now = new Date();
+          const deleted = await trx
+            .deleteFrom(OUTBOX_TABLE)
+            .where('base_id', '=', baseId)
+            .where('seed_table_id', '=', seedTableId)
+            .where('status', '=', DEFAULT_STATUS)
+            .returning(['id', 'dirty_stats'])
+            .execute();
+          // Dead letters seeded from the dropped table can only be replayed into
+          // "Table not found" — purge them in the same transaction as the drop.
+          const deadDeleted = await trx
+            .deleteFrom(DEAD_LETTER_TABLE)
+            .where('base_id', '=', baseId)
+            .where('seed_table_id', '=', seedTableId)
+            .returning(['id'])
+            .execute();
+          const deadLetterTaskIds = deadDeleted.map((row) => String(row.id));
+          if (deleted.length === 0) return ok({ taskIds: [], deadLetterTaskIds });
+
+          const taskIds = deleted.map((row) => String(row.id));
+          const ledgerScopeIds = [
+            ...new Set(deleted.map((row) => parseLedgerScopeId(row.dirty_stats) ?? String(row.id))),
+          ];
+          await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', 'in', taskIds).execute();
+          await trx
+            .deleteFrom(STAGE_LEDGER_TABLE)
+            .where('scope_id', 'in', ledgerScopeIds)
+            .execute();
+
+          let activity: ComputedActivityProjectionResult | null = null;
+          for (const taskId of taskIds) {
+            const activityResult = await this.activityProjector.onTaskDone(
+              { taskId, baseId, now, trx },
+              context
+            );
+            if (activityResult.isErr()) return err(activityResult.error);
+            activity = activityResult.value ?? activity;
+          }
+
+          return ok({ taskIds, deadLetterTaskIds, activity });
+        },
+        {
+          logger: this.logger,
+          operation: 'discard_by_seed_table',
+          logContext: { baseId, seedTableId },
+        }
+      );
+    };
+
+    const result = await runWithDeadlockRetry(executeDiscard, (error, attempt) => {
+      this.logger.warn('computed:outbox:discard_pending_deadlock_retry', {
+        baseId,
+        seedTableId,
+        attempt,
+        error: error.message,
+      });
+    });
+    if (result.isErr()) return err(result.error);
+    if (result.value.taskIds.length > 0 || result.value.deadLetterTaskIds.length > 0) {
+      this.logger.info('computed:outbox:pending_discarded_for_deleted_table', {
+        baseId,
+        seedTableId,
+        discardedCount: result.value.taskIds.length,
+        discardedDeadLetterCount: result.value.deadLetterTaskIds.length,
+      });
+      await this.publishActivityChanged(result.value.activity, context);
+    }
+    return ok({
+      discardedTaskIds: result.value.taskIds,
+      discardedDeadLetterTaskIds: result.value.deadLetterTaskIds,
+    });
   }
 
   async releaseForRetry(
@@ -1709,12 +2632,22 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             : undefined;
 
           if (pending && String(pending.id) !== params.task.id) {
-            const mergedTaskId = await this.mergeRetryTaskIntoPending(
-              trx,
-              pending,
-              params.task,
-              now
-            );
+            const { taskId: mergedTaskId, merged: retryMerged } =
+              await this.mergeRetryTaskIntoPending(trx, pending, params.task, now);
+            // Verify the merge target survived before we delete the retrying
+            // task's own row below: never delete the only durable copy of this
+            // task's dirty data on the strength of a merge we have not confirmed
+            // actually landed.
+            const verifiedRetryMerge = await this.verifyOutboxTaskPersisted(trx, {
+              taskId: mergedTaskId,
+              planHash: params.task.planHash,
+              merged: retryMerged,
+              phase: 'release_retry_merge',
+              baseId: params.task.baseId,
+              seedTableId: getOutboxRowSeedTableId(params.task),
+              changeType: getOutboxRowChangeType(params.task),
+            });
+            if (verifiedRetryMerge.isErr()) return err(verifiedRetryMerge.error);
             const removed = await this.deleteOwnedProcessingTask(trx, params.task.id, leaseOwner);
             if (!removed) {
               this.logger.warn('computed:outbox:release_retry_skipped_owner_mismatch', {
@@ -1755,9 +2688,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             .updateTable(OUTBOX_TABLE)
             .set({
               status: DEFAULT_STATUS,
-              ...(mergeLockAcquired
-                ? {}
-                : { plan_hash: uniquifyPlanHash(params.task.planHash) }),
+              ...(mergeLockAcquired ? {} : { plan_hash: uniquifyPlanHash(params.task.planHash) }),
               next_run_at: nextRunAt,
               last_error: params.reason,
               locked_at: null,
@@ -1802,12 +2733,17 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     };
 
     try {
-      let result: Result<ReleaseOutcome, DomainError>;
-      if (span && context?.tracer) {
-        result = await context.tracer.withSpan(span, executeRelease);
-      } else {
-        result = await executeRelease();
-      }
+      const run = async (): Promise<Result<ReleaseOutcome, DomainError>> =>
+        span && context?.tracer
+          ? await context.tracer.withSpan(span, executeRelease)
+          : await executeRelease();
+      const result = await runWithDeadlockRetry(run, (error, attempt) => {
+        this.logger.warn('computed:outbox:release_retry_deadlock_retry', {
+          taskId: params.task.id,
+          attempt,
+          error: error.message,
+        });
+      });
       if (result.isErr()) return err(result.error);
       if (result.value.released) {
         await this.publishActivityChanged(result.value.activity, context);
@@ -1892,33 +2828,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           }
 
           if (options.directDeadLetter === true || nextAttempts >= task.maxAttempts) {
-            const isBackfill = isFieldBackfillItem(task);
-            const isSeed = isSeedItem(task);
-
-            // Build dead letter values based on task type
-            const deadLetterValues = buildDeadLetterValues(task, {
-              isBackfill,
-              isSeed,
-              nextAttempts,
-              error,
-              now,
-              diagnostics: options.diagnostics,
-            });
-
-            await trx.insertInto(DEAD_LETTER_TABLE).values(deadLetterValues).execute();
-
-            await trx.deleteFrom(OUTBOX_TABLE).where('id', '=', task.id).execute();
-            await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', task.id).execute();
-
-            const terminalActivity = await this.activityProjector.onTaskFailed(
-              {
-                taskId: task.id,
-                baseId: task.baseId,
-                error: { message: error },
-                terminal: true,
-                now,
-                trx,
-              },
+            const terminalActivity = await this.moveToDeadLetterInTrx(
+              trx,
+              task,
+              { nextAttempts, error, now, diagnostics: options.diagnostics },
               context
             );
             if (terminalActivity.isErr()) return err(terminalActivity.error);
@@ -2016,6 +2929,69 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     }
   }
 
+  /**
+   * Move a task to the dead-letter table inside the caller's transaction:
+   * insert the dead-letter row, drop the outbox/seed rows and the chain's
+   * durable stage-ledger state, and project the terminal failure. Shared by
+   * markFailed and the claim paths that retire crash-looping tasks whose
+   * lease expired with an exhausted retry budget.
+   */
+  private async moveToDeadLetterInTrx(
+    trx: Kysely<DynamicDB> | Transaction<DynamicDB>,
+    task: AnyOutboxItem,
+    params: {
+      nextAttempts: number;
+      error: string;
+      now: Date;
+      diagnostics?: MarkFailedOptions['diagnostics'];
+    },
+    context?: IExecutionContext
+  ): Promise<Result<ComputedActivityProjectionResult | null, DomainError>> {
+    const { nextAttempts, error, now, diagnostics } = params;
+    const isBackfill = isFieldBackfillItem(task);
+    const isSeed = isSeedItem(task);
+
+    // Build dead letter values based on task type
+    const deadLetterValues = buildDeadLetterValues(task, {
+      isBackfill,
+      isSeed,
+      nextAttempts,
+      error,
+      now,
+      diagnostics,
+    });
+
+    await trx.insertInto(DEAD_LETTER_TABLE).values(deadLetterValues).execute();
+
+    await trx.deleteFrom(OUTBOX_TABLE).where('id', '=', task.id).execute();
+    await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', task.id).execute();
+    // A dead-lettered task ends its continuation chain: drop the chain's
+    // durable stage-ledger state (scope = chain root task id; a task
+    // that never staged has no rows and this is a no-op).
+    await trx
+      .deleteFrom(STAGE_LEDGER_TABLE)
+      .where(
+        'scope_id',
+        '=',
+        (!isBackfill && !isSeed && (task as ComputedUpdateOutboxItem).ledgerScopeId) || task.id
+      )
+      .execute();
+
+    const terminalActivity = await this.activityProjector.onTaskFailed(
+      {
+        taskId: task.id,
+        baseId: task.baseId,
+        error: { message: error },
+        terminal: true,
+        now,
+        trx,
+      },
+      context
+    );
+    if (terminalActivity.isErr()) return err(terminalActivity.error);
+    return ok(terminalActivity.value);
+  }
+
   private async insertOutbox(
     trx: Kysely<DynamicDB> | Transaction<DynamicDB>,
     task: ComputedUpdateOutboxTaskInput,
@@ -2050,7 +3026,14 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           dirtyStats: task.dirtyStats,
           beforeImageRecords: task.beforeImageRecords,
           seedAllTableIds: seedAllTableIds.length > 0 ? seedAllTableIds : undefined,
+          sameTableBatches: task.sameTableBatches,
           orchestration: task.orchestration,
+          seedAllCursors:
+            task.seedAllCursors && Object.keys(task.seedAllCursors).length > 0
+              ? task.seedAllCursors
+              : undefined,
+          ledgerScopeId: task.ledgerScopeId,
+          sourceFieldIds: task.sourceFieldIds?.length ? [...task.sourceFieldIds] : undefined,
         }),
         run_id: task.runId,
         origin_run_ids: task.originRunIds,
@@ -2059,6 +3042,9 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         affected_table_ids: task.affectedTableIds,
         affected_field_ids: task.affectedFieldIds,
         sync_max_level: task.syncMaxLevel,
+        source_changed_at: task.sourceChangedAt ?? now,
+        stage_depth: task.stageDepth ?? 0,
+        predecessor_task_id: task.predecessorTaskId ?? null,
         created_at: now,
         updated_at: now,
       })
@@ -2074,12 +3060,59 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     return taskId;
   }
 
+  /**
+   * Defense in depth against a silent enqueue loss: verify the task row the
+   * caller believes it just inserted/merged is actually visible in this same
+   * transaction before it commits. The merge/insert paths above hold a row
+   * lock (or write inside a single statement) for their whole lifetime, so
+   * this should never fire from the code as written today — but if a future
+   * change (or an as-yet-unproven race) ever breaks that invariant, silently
+   * returning `ok(...)` for a row that was never durably written is exactly
+   * the class of bug T6648 chased: a cascade continuation vanishes with no
+   * error, no dead letter, and no trace. Fail loudly and let the transaction
+   * abort/retry instead.
+   */
+  private async verifyOutboxTaskPersisted(
+    trx: Kysely<DynamicDB> | Transaction<DynamicDB>,
+    params: {
+      taskId: string;
+      planHash: string;
+      merged: boolean;
+      phase: string;
+      baseId: string;
+      seedTableId: string;
+      changeType: string;
+    }
+  ): Promise<Result<void, DomainError>> {
+    const row = await trx
+      .selectFrom(OUTBOX_TABLE)
+      .select(sql<number>`1`.as('one'))
+      .where('id', '=', params.taskId)
+      .executeTakeFirst();
+    if (row) return ok(undefined);
+
+    this.logger.error('computed:outbox:enqueue_lost', {
+      taskId: params.taskId,
+      planHash: params.planHash,
+      merged: params.merged,
+      phase: params.phase,
+      baseId: params.baseId,
+      seedTableId: params.seedTableId,
+      changeType: params.changeType,
+    });
+    return err(
+      domainError.infrastructure({
+        message: `computed outbox enqueue lost: taskId=${params.taskId} did not persist (phase=${params.phase}, merged=${params.merged})`,
+      })
+    );
+  }
+
   private async mergeComputedTask(
     trx: Kysely<DynamicDB> | Transaction<DynamicDB>,
     existing: OutboxRow,
     task: ComputedUpdateOutboxTaskInput,
     now: Date
-  ): Promise<string> {
+  ): Promise<{ taskId: string; merged: boolean }> {
     const taskId = String(existing.id);
     const seedAllTableIds = mergeSeedAllTableIds(
       parseSeedAllTableIds(existing.dirty_stats),
@@ -2111,6 +3144,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     );
     const existingRunId = existing.run_id ? String(existing.run_id) : null;
     const mergedRunId = existingRunId ?? task.runId;
+    const mergedSourceChangedAt = minDate(
+      parseDateColumn(existing.source_changed_at),
+      task.sourceChangedAt
+    );
 
     const seedInlineLimit = this.config.seedInlineLimit;
     const mergedSeedCount = countSeedRecords(mergedSeedGroups);
@@ -2122,7 +3159,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
     }
 
-    await trx
+    const updated = await trx
       .updateTable(OUTBOX_TABLE)
       .set({
         seed_record_ids: useSeedTable ? null : toJsonValue(mergedSeedGroups),
@@ -2132,6 +3169,16 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           seedAllTableIds:
             seedAllTableIds && seedAllTableIds.length > 0 ? seedAllTableIds : undefined,
           orchestration: mergedOrchestration,
+          sameTableBatches: task.sameTableBatches ?? parseSameTableBatchDtos(existing.dirty_stats),
+          seedAllCursors: mergeSeedAllCursors(
+            parseSeedAllCursors(existing.dirty_stats),
+            task.seedAllCursors
+          ),
+          ledgerScopeId: task.ledgerScopeId ?? parseLedgerScopeId(existing.dirty_stats),
+          sourceFieldIds: mergeSourceFieldIds(
+            parseSourceFieldIds(existing.dirty_stats),
+            task.sourceFieldIds
+          ),
         }),
         run_id: mergedRunId,
         origin_run_ids: mergedOriginRunIds,
@@ -2145,11 +3192,43 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           task.estimatedComplexity
         ),
         sync_max_level: Math.max(Number(existing.sync_max_level ?? 0), task.syncMaxLevel),
+        // Lineage: keep the earliest source mutation and the deepest stage so
+        // end-to-end latency never shrinks and the cascade-depth guard stays
+        // conservative across merges.
+        source_changed_at: mergedSourceChangedAt ?? now,
+        stage_depth: Math.max(Number(existing.stage_depth ?? 0), task.stageDepth ?? 0),
+        predecessor_task_id:
+          (existing.predecessor_task_id ? String(existing.predecessor_task_id) : null) ??
+          task.predecessorTaskId ??
+          null,
         next_run_at: now,
         updated_at: now,
       })
       .where('id', '=', taskId)
+      .returning('id')
       .execute();
+
+    if (updated.length === 0) {
+      // The row we just selected `FOR UPDATE` (and have held locked for this
+      // whole method) vanished before our own UPDATE landed. Nothing in the
+      // code today should be able to produce this — the lock is held across
+      // every await between the SELECT and here — but silently treating this
+      // as a successful merge would drop the caller's dirty data on the floor
+      // exactly like the T6648 symptom. Clean up the seed rows we just wrote
+      // against the now-nonexistent task id, and fall back to a fresh insert
+      // under a bypass plan hash so the dirty data is never lost, trading one
+      // redundant (idempotent) recompute for correctness.
+      this.logger.error('computed:outbox:merge_update_affected_zero_rows', {
+        taskId,
+        baseId: task.baseId,
+        seedTableId: task.seedTableId,
+        planHash: task.planHash,
+      });
+      await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
+      const fallbackTask = { ...task, planHash: uniquifyPlanHash(task.planHash) };
+      const insertedId = await this.insertOutbox(trx, fallbackTask, now);
+      return { taskId: insertedId, merged: false };
+    }
 
     this.logger.debug('computed:outbox:merged', {
       taskId,
@@ -2158,7 +3237,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       originRunIds: mergedOriginRunIds,
     });
 
-    return taskId;
+    return { taskId, merged: true };
   }
 
   private async mergeRetryTaskIntoPending(
@@ -2166,7 +3245,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     pending: OutboxRow,
     task: AnyOutboxItem,
     now: Date
-  ): Promise<string> {
+  ): Promise<{ taskId: string; merged: boolean }> {
     if (isSeedOutboxItem(task)) {
       return this.mergeSeedTask(trx, pending, seedOutboxItemToTaskInput(task), now);
     }
@@ -2183,13 +3262,13 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     existing: OutboxRow,
     task: FieldBackfillOutboxItem,
     now: Date
-  ): Promise<string> {
+  ): Promise<{ taskId: string; merged: boolean }> {
     const taskId = String(existing.id);
     const mergedFieldIds = [
       ...new Set([...parseStringArray(existing.affected_field_ids), ...task.fieldIds]),
     ];
 
-    await trx
+    const updated = await trx
       .updateTable(OUTBOX_TABLE)
       .set({
         affected_field_ids: mergedFieldIds,
@@ -2201,9 +3280,24 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         updated_at: now,
       })
       .where('id', '=', taskId)
+      .returning('id')
       .execute();
 
-    return taskId;
+    if (updated.length === 0) {
+      // See mergeComputedTask: never silently drop the caller's field-backfill
+      // request if the locked target row vanished out from under us.
+      this.logger.error('computed:outbox:merge_update_affected_zero_rows', {
+        taskId,
+        baseId: task.baseId,
+        tableId: task.tableId,
+        planHash: task.planHash,
+      });
+      const fallbackTask = { ...task, planHash: uniquifyPlanHash(task.planHash) };
+      const insertedId = await this.insertFieldBackfill(trx, fallbackTask, now);
+      return { taskId: insertedId, merged: false };
+    }
+
+    return { taskId, merged: true };
   }
 
   private async deleteOwnedProcessingTask(
@@ -2343,7 +3437,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         last_error: null,
         estimated_complexity: task.estimatedRowCount ?? 0,
         plan_hash: task.planHash,
-        dirty_stats: null,
+        dirty_stats: task.cursor ? toJsonValue({ fieldBackfillCursor: task.cursor }) : null,
         run_id: task.runId,
         origin_run_ids: [],
         run_total_steps: 1,
@@ -2351,6 +3445,9 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         affected_table_ids: [task.tableId],
         affected_field_ids: task.fieldIds,
         sync_max_level: 0,
+        source_changed_at: now,
+        stage_depth: 0,
+        predecessor_task_id: null,
         created_at: now,
         updated_at: now,
       })
@@ -2390,7 +3487,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     existing: OutboxRow,
     task: ComputedUpdateSeedTaskInput,
     now: Date
-  ): Promise<string> {
+  ): Promise<{ taskId: string; merged: boolean }> {
     const taskId = String(existing.id);
     const existingPayload = parseSeedPayloadFromRow(existing);
     const mergedPayload = mergeSeedPayloads(existingPayload, task);
@@ -2404,7 +3501,16 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
     }
 
-    await trx
+    // The incoming mutation's row never materializes, so accumulate its run id
+    // into origin_run_ids — otherwise every merged-away mutation loses its
+    // request → task correlation (only the first enqueuer's run_id survives).
+    const existingSeedRunId = existing.run_id ? String(existing.run_id) : null;
+    const mergedSeedOriginRunIds = mergeOriginRunIds(
+      parseStringArray(existing.origin_run_ids),
+      task.runId && task.runId !== existingSeedRunId ? [task.runId] : []
+    );
+
+    const updated = await trx
       .updateTable(OUTBOX_TABLE)
       .set({
         seed_record_ids: useSeedTable ? null : toJsonValue(mergedSeedGroups),
@@ -2415,11 +3521,33 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           beforeImageRecords: mergedPayload.beforeImageRecords,
           orchestration: mergedPayload.orchestration,
         }),
+        origin_run_ids: mergedSeedOriginRunIds,
         next_run_at: now,
         updated_at: now,
       })
       .where('id', '=', taskId)
+      .returning('id')
       .execute();
+
+    if (updated.length === 0) {
+      // See mergeComputedTask: never silently drop the caller's seed dirty
+      // data if the locked target row vanished out from under us.
+      this.logger.error('computed:outbox:merge_update_affected_zero_rows', {
+        taskId,
+        baseId: task.baseId,
+        seedTableId: task.seedTableId,
+        planHash: task.planHash,
+      });
+      await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
+      const fallbackTask = { ...task, planHash: uniquifyPlanHash(task.planHash) };
+      const insertedId = await this.insertSeedTask(trx, fallbackTask, now);
+      if (!insertedId) {
+        throw new Error(
+          `Failed to recover lost seed merge under bypass plan hash for taskId=${taskId}`
+        );
+      }
+      return { taskId: insertedId, merged: false };
+    }
 
     this.logger.debug('computed:outbox:seed_merged', {
       taskId,
@@ -2427,7 +3555,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       changedFieldIds: mergedPayload.changedFieldIds,
     });
 
-    return taskId;
+    return { taskId, merged: true };
   }
 
   private async insertSeedTask(
@@ -2471,6 +3599,12 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       affected_table_ids: [task.seedTableId],
       affected_field_ids: task.changedFieldIds,
       sync_max_level: 0,
+      // Seed tasks are enqueued inside the mutating transaction, so `now` IS
+      // the source-change time this lineage chain traces back to (chunk
+      // re-enqueues carry the original time instead).
+      source_changed_at: task.sourceChangedAt ?? now,
+      stage_depth: 0,
+      predecessor_task_id: null,
       created_at: now,
       updated_at: now,
     };
@@ -2563,20 +3697,27 @@ const toOutboxItem = (
     extraSeedRecords,
     beforeImageRecords: parseBeforeImageRecordDtos(row.dirty_stats),
     steps: parseJsonArray(row.steps) ?? [],
+    sameTableBatches: parseSameTableBatchDtos(row.dirty_stats),
     edges: parseJsonArray(row.edges) ?? [],
     estimatedComplexity: Number(row.estimated_complexity ?? 0),
     changeType: String(row.change_type) as ComputedUpdateOutboxItem['changeType'],
     planHash: String(row.plan_hash),
     dirtyStats: parseDirtyStats(row.dirty_stats),
     seedAllTableIds: parseSeedAllTableIds(row.dirty_stats),
+    seedAllCursors: parseSeedAllCursors(row.dirty_stats),
+    ledgerScopeId: parseLedgerScopeId(row.dirty_stats),
     orchestration: parseRealtimeOrchestration(row.dirty_stats),
+    sourceFieldIds: parseSourceFieldIds(row.dirty_stats),
     runId: String(row.run_id ?? ''),
     originRunIds: parseStringArray(row.origin_run_ids),
     runTotalSteps: Number(row.run_total_steps ?? 0),
     runCompletedStepsBefore: Number(row.run_completed_steps_before ?? 0),
+    syncMaxLevel: Number(row.sync_max_level ?? 0),
+    stageDepth: Number(row.stage_depth ?? 0),
+    sourceChangedAt: parseDateColumn(row.source_changed_at),
+    predecessorTaskId: row.predecessor_task_id ? String(row.predecessor_task_id) : undefined,
     affectedTableIds: parseStringArray(row.affected_table_ids),
     affectedFieldIds: parseStringArray(row.affected_field_ids),
-    syncMaxLevel: Number(row.sync_max_level ?? 0),
     status: String(row.status) as ComputedUpdateOutboxItem['status'],
     attempts: Number(row.attempts ?? 0),
     maxAttempts: Number(row.max_attempts ?? 0),
@@ -2617,6 +3758,21 @@ const parseStringArray = (value: unknown): string[] => {
   return [];
 };
 
+const parseDateColumn = (value: unknown): Date | undefined => {
+  if (value instanceof Date) return value;
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+  }
+  return undefined;
+};
+
+const minDate = (a: Date | undefined, b: Date | undefined): Date | undefined => {
+  if (!a) return b;
+  if (!b) return a;
+  return a.getTime() <= b.getTime() ? a : b;
+};
+
 const parseDirtyStats = (value: unknown): ReadonlyArray<DirtyRecordStats> | undefined => {
   const parsed = parseJsonValue(value);
   // Rolling upgrade compatibility: older rows store dirty_stats as the raw stats array,
@@ -2637,6 +3793,23 @@ const parseDirtyStats = (value: unknown): ReadonlyArray<DirtyRecordStats> | unde
       };
     })
     .filter((item): item is DirtyRecordStats => item !== null);
+};
+
+const parseSourceFieldIds = (value: unknown): string[] | undefined => {
+  const parsed = parseJsonValue(value);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
+  const raw = (parsed as { sourceFieldIds?: unknown }).sourceFieldIds;
+  if (!Array.isArray(raw)) return undefined;
+  const ids = raw.filter((id): id is string => typeof id === 'string' && id.length > 0);
+  return ids.length ? ids : undefined;
+};
+
+const mergeSourceFieldIds = (
+  existing: ReadonlyArray<string> | undefined,
+  incoming: ReadonlyArray<string> | undefined
+): string[] | undefined => {
+  if (!existing?.length && !incoming?.length) return undefined;
+  return [...new Set([...(existing ?? []), ...(incoming ?? [])])];
 };
 
 const parseBeforeImageRecordDtos = (
@@ -2667,6 +3840,50 @@ const parseBeforeImageRecordDtos = (
     .filter(
       (item): item is ComputedUpdateOutboxItem['beforeImageRecords'][number] => item !== null
     );
+};
+
+const parseSameTableBatchDtos = (value: unknown): ComputedUpdateOutboxItem['sameTableBatches'] => {
+  const parsed = parseJsonValue(value);
+  if (Array.isArray(parsed) || parsed == null || typeof parsed !== 'object') return undefined;
+  const raw = (parsed as { sameTableBatches?: unknown }).sameTableBatches;
+  if (!Array.isArray(raw)) return undefined;
+  return raw as ComputedUpdateOutboxItem['sameTableBatches'];
+};
+
+/**
+ * Keep the furthest per-table cursor (cursors are ascending record-id
+ * watermarks) so a retry-merge never rewinds whole-table seeding progress.
+ */
+const mergeSeedAllCursors = (
+  existing: Record<string, string> | undefined,
+  incoming: Readonly<Record<string, string>> | undefined
+): Record<string, string> | undefined => {
+  if (!existing && !incoming) return undefined;
+  const merged: Record<string, string> = { ...(existing ?? {}) };
+  for (const [tableId, cursor] of Object.entries(incoming ?? {})) {
+    const current = merged[tableId];
+    merged[tableId] = current === undefined || cursor > current ? cursor : current;
+  }
+  return Object.keys(merged).length > 0 ? merged : undefined;
+};
+
+const parseLedgerScopeId = (value: unknown): string | undefined => {
+  const parsed = parseJsonValue(value);
+  if (Array.isArray(parsed) || parsed == null || typeof parsed !== 'object') return undefined;
+  const raw = (parsed as { ledgerScopeId?: unknown }).ledgerScopeId;
+  return typeof raw === 'string' && raw.length > 0 ? raw : undefined;
+};
+
+const parseSeedAllCursors = (value: unknown): Record<string, string> | undefined => {
+  const parsed = parseJsonValue(value);
+  if (Array.isArray(parsed) || parsed == null || typeof parsed !== 'object') return undefined;
+  const raw = (parsed as { seedAllCursors?: unknown }).seedAllCursors;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const cursors: Record<string, string> = {};
+  for (const [tableId, recordId] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof recordId === 'string') cursors[tableId] = recordId;
+  }
+  return Object.keys(cursors).length > 0 ? cursors : undefined;
 };
 
 const parseSeedAllTableIds = (value: unknown): string[] | undefined => {
@@ -2822,6 +4039,7 @@ const computedOutboxItemToTaskInput = (
   beforeImageRecords: task.beforeImageRecords,
   steps: task.steps,
   edges: task.edges,
+  sameTableBatches: task.sameTableBatches,
   estimatedComplexity: task.estimatedComplexity,
   changeType: task.changeType,
   runId: task.runId,
@@ -2835,6 +4053,12 @@ const computedOutboxItemToTaskInput = (
   affectedTableIds: task.affectedTableIds,
   affectedFieldIds: task.affectedFieldIds,
   syncMaxLevel: task.syncMaxLevel,
+  // Durable continuation state must survive a retry-merge into a same-hash
+  // pending task: whole-table seed markers, seeding cursors, and the stage
+  // ledger scope. Dropping any of them would silently rewind or lose progress.
+  seedAllTableIds: task.seedAllTableIds,
+  seedAllCursors: task.seedAllCursors,
+  ledgerScopeId: task.ledgerScopeId,
 });
 
 const seedOutboxItemToTaskInput = (task: SeedOutboxItem): ComputedUpdateSeedTaskInput => ({
@@ -3082,6 +4306,7 @@ const toFieldBackfillOutboxItem = (row: OutboxRow): FieldBackfillOutboxItem => {
     tableId: String(row.seed_table_id),
     fieldIds: parseStringArray(row.affected_field_ids),
     estimatedRowCount: Number(row.estimated_complexity ?? 0),
+    cursor: parseFieldBackfillCursor(row.dirty_stats),
     runId: String(row.run_id ?? ''),
     planHash: String(row.plan_hash),
     status: String(row.status) as FieldBackfillOutboxItem['status'],
@@ -3091,6 +4316,7 @@ const toFieldBackfillOutboxItem = (row: OutboxRow): FieldBackfillOutboxItem => {
     lockedAt: row.locked_at ? new Date(String(row.locked_at)) : null,
     lockedBy: row.locked_by ? String(row.locked_by) : null,
     lastError: row.last_error ? String(row.last_error) : null,
+    sourceChangedAt: parseDateColumn(row.source_changed_at),
     createdAt: new Date(String(row.created_at)),
     updatedAt: new Date(String(row.updated_at)),
   };
@@ -3101,6 +4327,13 @@ const toFieldBackfillOutboxItem = (row: OutboxRow): FieldBackfillOutboxItem => {
  */
 const isFieldBackfillItem = (task: AnyOutboxItem): task is FieldBackfillOutboxItem => {
   return (task as FieldBackfillOutboxItem).taskType === 'field-backfill';
+};
+
+const parseFieldBackfillCursor = (value: unknown): string | undefined => {
+  const parsed = parseJsonValue(value);
+  if (!parsed || typeof parsed !== 'object') return undefined;
+  const cursor = (parsed as { fieldBackfillCursor?: unknown }).fieldBackfillCursor;
+  return typeof cursor === 'string' && cursor.length > 0 ? cursor : undefined;
 };
 
 /**
@@ -3137,6 +4370,7 @@ const toSeedOutboxItem = (row: OutboxRow, seedGroupsFromTable: SeedGroup[]): See
     lockedAt: row.locked_at ? new Date(String(row.locked_at)) : null,
     lockedBy: row.locked_by ? String(row.locked_by) : null,
     lastError: row.last_error ? String(row.last_error) : null,
+    sourceChangedAt: parseDateColumn(row.source_changed_at),
     createdAt: new Date(String(row.created_at)),
     updatedAt: new Date(String(row.updated_at)),
   };
@@ -3224,6 +4458,50 @@ const isSeedItem = (task: AnyOutboxItem): task is SeedOutboxItem => {
   return (task as SeedOutboxItem).taskType === 'seed';
 };
 
+const resolveRunHistoryPlan = (
+  row: Record<string, unknown>,
+  taskItem: AnyOutboxItem | null,
+  optionPlan: { steps: unknown; edges: unknown } | undefined
+): { steps: unknown; edges: unknown } => {
+  // Persist this task's own slice. Continuations used to store empty
+  // steps/edges and rely on the seed row; when the chain lookup misses
+  // that root the admin graph is a pile of disconnected nodes.
+  if (optionPlan) return optionPlan;
+  if (
+    taskItem &&
+    'steps' in taskItem &&
+    Array.isArray(taskItem.steps) &&
+    (taskItem.steps.length > 0 ||
+      ('edges' in taskItem && Array.isArray(taskItem.edges) && taskItem.edges.length > 0))
+  ) {
+    return { steps: taskItem.steps, edges: 'edges' in taskItem ? taskItem.edges : [] };
+  }
+  return {
+    steps: parseJsonArray(row.steps) ?? [],
+    edges: parseJsonArray(row.edges) ?? [],
+  };
+};
+
+/**
+ * Seed-record count for the run-history ledger. Prefers the deleted row's
+ * inline seed groups; rows whose seeds spilled to computed_update_outbox_seed
+ * fall back to the claimed task item (already hydrated with the spilled
+ * seeds), so no extra count query runs on the completion path.
+ */
+const countSeedRecordsForHistory = (
+  row: Record<string, unknown>,
+  taskItem: AnyOutboxItem | null
+): number => {
+  const inline = parseSeedGroups(row.seed_record_ids, String(row.seed_table_id));
+  const inlineCount = countSeedRecords(inline);
+  if (inlineCount > 0 || !taskItem) return inlineCount;
+  if (isFieldBackfillItem(taskItem)) return 0;
+  if (isSeedItem(taskItem)) {
+    return countSeedRecords(buildSeedGroupsFromSeedPayload(taskItem));
+  }
+  return countSeedRecords(buildSeedGroupsFromTask(taskItem));
+};
+
 const buildFailureLogFields = (
   task: AnyOutboxItem,
   options: MarkFailedOptions
@@ -3268,6 +4546,9 @@ const buildDeadLetterValues = (
     trace_data: diagnostics ? toJsonValue(diagnostics) : null,
     plan_hash: task.planHash,
     run_id: task.runId,
+    source_changed_at: task.sourceChangedAt ?? null,
+    stage_depth: 0,
+    predecessor_task_id: null as string | null,
     failed_at: now,
     created_at: task.createdAt,
     updated_at: now,
@@ -3283,7 +4564,9 @@ const buildDeadLetterValues = (
       steps: toJsonValue([]),
       edges: toJsonValue([]),
       estimated_complexity: backfillTask.estimatedRowCount ?? 0,
-      dirty_stats: null,
+      dirty_stats: backfillTask.cursor
+        ? toJsonValue({ fieldBackfillCursor: backfillTask.cursor })
+        : null,
       origin_run_ids: [],
       run_total_steps: 1,
       run_completed_steps_before: 0,
@@ -3322,6 +4605,8 @@ const buildDeadLetterValues = (
   const computedTask = task as ComputedUpdateOutboxItem;
   return {
     ...common,
+    stage_depth: computedTask.stageDepth ?? 0,
+    predecessor_task_id: computedTask.predecessorTaskId ?? null,
     seed_table_id: computedTask.seedTableId,
     seed_record_ids: toJsonValue(buildSeedGroupsFromTask(computedTask)),
     change_type: computedTask.changeType,
@@ -3332,6 +4617,7 @@ const buildDeadLetterValues = (
       dirtyStats: computedTask.dirtyStats,
       beforeImageRecords: computedTask.beforeImageRecords,
       orchestration: computedTask.orchestration,
+      sameTableBatches: computedTask.sameTableBatches,
     }),
     origin_run_ids: computedTask.originRunIds,
     run_total_steps: computedTask.runTotalSteps,

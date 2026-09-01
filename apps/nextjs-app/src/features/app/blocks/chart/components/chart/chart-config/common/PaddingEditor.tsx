@@ -13,7 +13,7 @@ export const PaddingEditor = (props: {
   return (
     <div className="flex flex-col gap-2 p-0.5">
       <div className="flex items-center gap-2">
-        <Label className="w-14 text-right text-xs">{t('form.padding.top')}</Label>
+        <Label className="w-14 text-end text-xs">{t('form.padding.top')}</Label>
         <Input
           type="number"
           className="text-[13px]"
@@ -30,7 +30,7 @@ export const PaddingEditor = (props: {
         />
       </div>
       <div className="flex items-center gap-2">
-        <Label className="w-14 text-right text-xs">{t('form.padding.right')}</Label>
+        <Label className="w-14 text-end text-xs">{t('form.padding.right')}</Label>
         <Input
           type="number"
           className="text-[13px]"
@@ -47,7 +47,7 @@ export const PaddingEditor = (props: {
         />
       </div>
       <div className="flex items-center gap-2">
-        <Label className="w-14 text-right text-xs">{t('form.padding.bottom')}</Label>
+        <Label className="w-14 text-end text-xs">{t('form.padding.bottom')}</Label>
         <Input
           type="number"
           className="text-[13px]"
@@ -64,7 +64,7 @@ export const PaddingEditor = (props: {
         />
       </div>
       <div className="flex items-center gap-2">
-        <Label className="w-14 text-right text-xs">{t('form.padding.left')}</Label>
+        <Label className="w-14 text-end text-xs">{t('form.padding.left')}</Label>
         <Input
           type="number"
           className="text-[13px]"

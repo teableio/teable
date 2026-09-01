@@ -1,0 +1,1611 @@
+{
+  "common": {
+    "empty": "ריק",
+    "noRecords": "אין רשומות",
+    "unnamedRecord": "רשומה ללא שם",
+    "recordDeleted": "הרשומה נמחקה",
+    "untitled": "ללא שם",
+    "cancel": "ביטול",
+    "confirm": "אישור",
+    "clear": "ניקוי",
+    "back": "חזרה",
+    "done": "סיום",
+    "create": "יצירה",
+    "search": {
+      "placeholder": "חיפוש...",
+      "empty": "לא נמצאו תוצאות"
+    },
+    "readOnlyTip": "התצוגה נעולה. אפשר להפעיל<button>מצב אישי</button>כדי לערוך את אפשרויות התצוגה, והשינויים יחולו רק עבורך.",
+    "selectPlaceHolder": "בחירה...",
+    "loading": "בטעינה...",
+    "loadMore": "טעינת עוד",
+    "uploadFailed": "ההעלאה נכשלה",
+    "rowCount": "{{count}} רשומות",
+    "summary": "סיכום",
+    "summaryTip": "ריחוף עם העכבר לבחירת סיכום",
+    "actions": "פעולות",
+    "remove": "הסרה",
+    "runStatus": {
+      "success": "{{name}} הצליח",
+      "failed": "{{name}} נכשל",
+      "running": "{{name}} פועל"
+    },
+    "resetSuccess": "האיפוס בוצע בהצלחה",
+    "click": "לחיצה",
+    "clickedCount": "{{label}}: נלחץ {{text}} פעמים",
+    "close": "סגירה",
+    "atLeastOne": "יש להשאיר לפחות {{noun}} אחד",
+    "selectField": "בחירת שדה"
+  },
+  "notification": {
+    "title": "התראה"
+  },
+  "aiError": {
+    "title": "ההפקה באמצעות AI נכשלה",
+    "retry": "ניסיון חוזר",
+    "dismiss": "סגירה"
+  },
+  "preview": {
+    "previewFileLimit": "מגבלת גודל לתצוגה מקדימה: {{size}}MB, יש להוריד את הקובץ כדי לצפות בו.",
+    "loadFileError": "טעינת הקובץ נכשלה",
+    "previousAttachment": "הקודם",
+    "nextAttachment": "הבא"
+  },
+  "undoRedo": {
+    "undo": "ביטול פעולה",
+    "redo": "ביצוע חוזר",
+    "undoFailed": "ביטול הפעולה נכשל",
+    "redoFailed": "הביצוע החוזר נכשל",
+    "nothingToUndo": "אין פעולה לביטול",
+    "nothingToRedo": "אין פעולה לביצוע חוזר",
+    "undoSucceed": "הפעולה בוטלה",
+    "redoSucceed": "הפעולה בוצעה מחדש",
+    "undoing": "בביטול פעולה...",
+    "redoing": "בביצוע חוזר..."
+  },
+  "editor": {
+    "attachment": {
+      "uploadDragOver": "יש לשחרר את הקובץ כאן להעלאה",
+      "uploadBaseTextPrefix": "לחיצה להעלאה ",
+      "uploadBaseText": " או הדבקה או גרירה לכאן",
+      "uploadDragDefault": "הדבקה או גרירה לכאן להעלאה",
+      "upload": "העלאת קובץ",
+      "downloadAll": "הורדת הכול",
+      "downloadSuccess": "ההורדה הושלמה",
+      "downloadFailed": "ההורדה נכשלה",
+      "downloadCancelled": "ההורדה בוטלה",
+      "requireHttps": "הורדה מרובה מחייבת HTTPS. יש לגשת דרך HTTPS או localhost"
+    },
+    "date": {
+      "placeholder": "בחירת תאריך",
+      "today": "היום",
+      "rangePlaceholder": "בחירת טווח תאריכים",
+      "rangeSelected": "נבחר",
+      "invalidTimeRange": "שעת הסיום חייבת להיות מאוחרת משעת ההתחלה",
+      "from": "מתאריך",
+      "to": "עד תאריך"
+    },
+    "formula": {
+      "title": "עורך נוסחאות",
+      "guideSyntax": "תחביר",
+      "guideExample": "דוגמה",
+      "helperExample": "דוגמה: ",
+      "fieldValue": "מחזיר את הערך של התאים בשדה {{fieldName}}.",
+      "placeholder": "הזנת ביטוי",
+      "placeholderForAIPrompt": "תיאור הנוסחה שברצונך להפיק",
+      "editExpression": "עריכת נוסחה",
+      "generateExpressionByAI": "הפקת נוסחה באמצעות AI",
+      "inputPrompt": "הזנת הנחיה",
+      "generateExpression": "הנוסחה שהופקה",
+      "generatingByAI": "בהפקת נוסחה באמצעות AI...",
+      "generatedExpressionTips": "בתום ההפקה, לחיצה על החלה תוסיף את הנוסחה במהירות",
+      "action": {
+        "generating": "בהפקה...",
+        "generate": "הפקה",
+        "apply": "החלה"
+      },
+      "expressionRequired": "חובה להזין ביטוי"
+    },
+    "link": {
+      "placeholder": "בחירת רשומות לקישור",
+      "searchPlaceholder": "חיפוש רשומות",
+      "globalSearch": "חיפוש גלובלי",
+      "fieldSearch": "חיפוש בשדה",
+      "maxFieldTips": "חריגה מהמקסימום של {{count}} שדות, השדות הנוספים לא ייכללו",
+      "create": "הוספת רשומה",
+      "selectRecord": "בחירת רשומה",
+      "all": "הכול",
+      "selected": "שנבחרו",
+      "alreadyOpen": "הרשומה כבר פתוחה.",
+      "linkedTo": "מקושר אל",
+      "foreignTableIdRequired": "חובה לבחור טבלה מקושרת",
+      "linkFieldIdRequired": "חובה לבחור שדה קישור",
+      "selectTooManyRecords": "מספר הרשומות שנבחרו אינו יכול לעלות על {{maxCount}}",
+      "rangeSelectFailed": "בחירת הרשומות בטווח נכשלה"
+    },
+    "user": {
+      "searchPlaceholder": "חיפוש משתמשים לפי שם",
+      "notify": "שליחת התראה למשתמשים לאחר בחירתם"
+    },
+    "select": {
+      "addOption": "הוספת האפשרות '{{option}}'",
+      "choicesNameRequired": "שם האפשרות אינו יכול להיות ריק"
+    },
+    "lookup": {
+      "lookupFieldIdRequired": "חובה לבחור שדה שליפה",
+      "lookupOptionsNotAllowed": "לא ניתן להגדיר אפשרויות שליפה כאשר המאפיין isLookup הוא true או כאשר סוג השדה הוא צבירה.",
+      "lookupOptionsRequired": "חובה להגדיר אפשרויות שליפה"
+    },
+    "rollup": {
+      "expressionRequired": "חובה להזין ביטוי"
+    },
+    "conditionalRollup": {
+      "filterRequired": "המסנן חייב לכלול לפחות תנאי אחד"
+    },
+    "conditionalLookup": {
+      "filterRequired": "שליפה מותנית מחייבת לפחות תנאי סינון אחד"
+    },
+    "aiConfig": {
+      "modelKeyRequired": "חובה לבחור מודל",
+      "typeNotSupported": "סוג AI לא נתמך",
+      "sourceFieldIdRequired": "חובה לבחור שדה מקור",
+      "targetLanguageRequired": "חובה לבחור שפת יעד",
+      "promptRequired": "חובה להזין פרומפט"
+    },
+    "error": {
+      "refineOptionsError": "שגיאה בניתוח אפשרויות השדה {{message}}",
+      "optionsRequired": "חובה להגדיר אפשרויות שדה"
+    }
+  },
+  "filter": {
+    "label": "סינון",
+    "displayLabel": "סינון לפי ",
+    "displayLabel_one": "סינון לפי {{fieldName}} ועוד שדה אחד",
+    "displayLabel_two": "סינון לפי {{fieldName}} ועוד שני שדות",
+    "displayLabel_other": "סינון לפי {{fieldName}} ועוד {{count}} שדות",
+    "addCondition": "הוספת תנאי",
+    "addConditionGroup": "הוספת קבוצת תנאים",
+    "nestedLimitTip": "ניתן לקנן תנאי סינון עד {{depth}} רמות בלבד",
+    "linkInputPlaceholder": "הזנת ערך",
+    "currentUser": "אני (המשתמש הנוכחי)",
+    "invalidateSelected": "ערך לא חוקי",
+    "invalidateSelectedTips": "הערך שנבחר נמחק, יש לבחור מחדש",
+    "invalidConditionTip": "תנאי סינון זה אינו חוקי ולא ייושם. יש לעדכן את הערך.",
+    "default": {
+      "empty": "לא הוחלו תנאי סינון",
+      "placeholder": "הזנת ערך"
+    },
+    "conjunction": {
+      "and": "וגם",
+      "or": "או",
+      "where": "כאשר",
+      "meetingAll": "עמידה בכל התנאים",
+      "meetingAny": "עמידה באחד התנאים"
+    },
+    "operator": {
+      "is": "הוא",
+      "isNot": "אינו",
+      "contains": "מכיל",
+      "doesNotContain": "אינו מכיל",
+      "isEmpty": "ריק",
+      "isNotEmpty": "אינו ריק",
+      "isGreater": "גדול מ",
+      "isGreaterEqual": "גדול או שווה ל",
+      "isLess": "קטן מ",
+      "isLessEqual": "קטן או שווה ל",
+      "isAnyOf": "הוא אחד מ",
+      "isNoneOf": "אינו אף אחד מ",
+      "hasAnyOf": "מכיל אחד מ",
+      "hasAllOf": "מכיל את כל",
+      "hasNoneOf": "אינו מכיל אף אחד מ",
+      "isExactly": "זהה בדיוק ל",
+      "isWithIn": "בתוך",
+      "isBefore": "לפני",
+      "isAfter": "אחרי",
+      "isOnOrBefore": "בתאריך או לפניו",
+      "isOnOrAfter": "בתאריך או אחריו",
+      "number": {
+        "is": "=",
+        "isNot": "≠",
+        "isGreater": ">",
+        "isGreaterEqual": "≥",
+        "isLess": "<",
+        "isLessEqual": "≤"
+      }
+    },
+    "conditionalRollup": {
+      "switchToField": "שימוש בערך שדה",
+      "switchToValue": "שימוש בערך ידני"
+    },
+    "component": {
+      "date": {
+        "today": "היום",
+        "tomorrow": "מחר",
+        "yesterday": "אתמול",
+        "oneWeekAgo": "לפני שבוע",
+        "oneWeekFromNow": "בעוד שבוע",
+        "oneMonthAgo": "לפני חודש",
+        "oneMonthFromNow": "בעוד חודש",
+        "daysAgo": "לפני מספר ימים",
+        "daysFromNow": "בעוד מספר ימים",
+        "exactDate": "תאריך מדויק",
+        "exactDateTime": "חותמת זמן מדויקת",
+        "exactFormatDate": "תאריך מדויק (מעוצב)",
+        "dateRange": "טווח מותאם אישית",
+        "currentWeek": "השבוע הנוכחי",
+        "currentMonth": "החודש הנוכחי",
+        "currentYear": "השנה הנוכחית",
+        "lastWeek": "השבוע שעבר",
+        "lastMonth": "החודש שעבר",
+        "lastYear": "השנה שעברה",
+        "nextWeekPeriod": "השבוע הבא",
+        "nextMonthPeriod": "החודש הבא",
+        "nextYearPeriod": "השנה הבאה",
+        "pastWeek": "השבוע האחרון",
+        "pastMonth": "החודש האחרון",
+        "pastYear": "השנה האחרונה",
+        "nextWeek": "השבוע הקרוב",
+        "nextMonth": "החודש הקרוב",
+        "nextYear": "השנה הקרובה",
+        "pastNumberOfDays": "מספר הימים האחרונים",
+        "nextNumberOfDays": "מספר הימים הקרובים"
+      }
+    },
+    "selectOperator": "בחירת אופרטור",
+    "selectConjunction": "בחירת מילת חיבור",
+    "selectDateMode": "בחירת אפשרות תאריך",
+    "selectValue": "בחירת ערך"
+  },
+  "color": {
+    "label": "צבע"
+  },
+  "rowHeight": {
+    "short": "נמוך",
+    "medium": "בינוני",
+    "tall": "גבוה",
+    "extraTall": "גבוה מאוד",
+    "title": "גובה שורה"
+  },
+  "fieldNameConfig": {
+    "title": "שם השדה",
+    "displayLines": "{{count}} שורות"
+  },
+  "hidden": {
+    "label": "שדות מוסתרים",
+    "configLabel_one": "שדה מוסתר אחד",
+    "configLabel_two": "שני שדות מוסתרים",
+    "configLabel_other": "{{count}} שדות מוסתרים",
+    "configLabel_other_visible": "{{count}} שדות גלויים",
+    "showAll": "הצגת הכול",
+    "hideAll": "הסתרת הכול",
+    "primaryKey": "שדה ראשי: מזהה את הרשומות\nלא ניתן להסתיר או למחוק אותו, והוא מוצג ברשומות מקושרות.",
+    "notInCurrentView": "השדה \"{{fieldName}}\" אינו מוצג בתצוגה הנוכחית ולא ניתן לעבור אליו"
+  },
+  "expandRecord": {
+    "copy": "העתקה ללוח",
+    "previousRecord": "הקודם",
+    "nextRecord": "הבא",
+    "duplicateRecord": "שכפול רשומה",
+    "copyRecordUrl": "העתקת ה-URL של הרשומה",
+    "deleteRecord": "מחיקת רשומה",
+    "addRecordComment": "הוספת תגובה",
+    "viewRecordHistory": "הצגת היסטוריית הרשומה",
+    "recordHistory": {
+      "hiddenRecordHistory": "הסתרת היסטוריית הרשומה",
+      "showRecordHistory": "הצגת היסטוריית הרשומה",
+      "createdTime": "מועד השינוי",
+      "createdBy": "שונה על ידי",
+      "before": "לפני",
+      "after": "אחרי",
+      "buttonClicked": "כפתור שנלחץ",
+      "filterTime": "טווח זמן",
+      "allFields": "כל השדות",
+      "allUsers": "כל המשתמשים",
+      "clearFilter": "ניקוי המסננים",
+      "viewRecord": "הצגת הרשומה"
+    },
+    "showHiddenFields": "הצגת {{count}} שדות מוסתרים",
+    "hideHiddenFields": "הסתרת {{count}} שדות מוסתרים",
+    "showMore": "הצגת עוד",
+    "showLess": "הצגת פחות",
+    "recordFrom": "רשומה מתוך"
+  },
+  "sort": {
+    "label": "מיון",
+    "displayLabel_one": "מיון לפי {{count}} שדה",
+    "displayLabel_two": "מיון לפי שני שדות",
+    "displayLabel_other": "מיון לפי {{count}} שדות",
+    "setTips": "מיון לפי",
+    "addButton": "הוספת מיון נוסף",
+    "autoSort": "מיון אוטומטי של הרשומות",
+    "selectASCLabel": "מהראשון לאחרון",
+    "selectDESCLabel": "מהאחרון לראשון",
+    "orderTitle": "בחירת סדר המיון"
+  },
+  "group": {
+    "label": "קיבוץ",
+    "displayLabel_one": "קיבוץ לפי {{count}} שדה",
+    "displayLabel_two": "קיבוץ לפי שני שדות",
+    "displayLabel_other": "קיבוץ לפי {{count}} שדות",
+    "setTips": "קיבוץ לפי",
+    "addButton": "הוספת תת-קבוצה",
+    "maxLimitTip": "ניתן לקבץ לפי {{count}} שדות לכל היותר"
+  },
+  "field": {
+    "title": {
+      "singleLineText": "טקסט בשורה אחת",
+      "longText": "טקסט ארוך",
+      "singleSelect": "בחירה יחידה",
+      "number": "מספר",
+      "multipleSelect": "בחירה מרובה",
+      "link": "קישור לרשומה",
+      "formula": "נוסחה",
+      "date": "תאריך",
+      "createdTime": "מועד יצירה",
+      "lastModifiedTime": "מועד שינוי אחרון",
+      "attachment": "קובץ מצורף",
+      "checkbox": "תיבת סימון",
+      "rollup": "צבירה",
+      "conditionalRollup": "צבירה מותנית",
+      "user": "משתמש",
+      "rating": "דירוג",
+      "autoNumber": "מספור אוטומטי",
+      "lookup": "שליפה",
+      "conditionalLookup": "שליפה מותנית",
+      "button": "כפתור",
+      "createdBy": "נוצר על ידי",
+      "lastModifiedBy": "שונה לאחרונה על ידי"
+    },
+    "description": {
+      "singleLineText": "אחסון טקסט קצר כמו שמות או כותרות.",
+      "longText": "תיעוד הערות ותיאורים ארוכים יותר.",
+      "singleSelect": "בחירת אפשרות אחת מתוך רשימה.",
+      "number": "מעקב אחר ערכים מספריים עם עיצוב מותאם.",
+      "multipleSelect": "תיוג רשומות בכמה אפשרויות.",
+      "link": "קישור הרשומה לטבלה אחרת.",
+      "formula": "חישוב ערכים על סמך שדות אחרים.",
+      "date": "תיעוד תאריכים או שעות.",
+      "createdTime": "הצגת מועד יצירת הרשומה.",
+      "lastModifiedTime": "הצגת מועד העדכון האחרון.",
+      "attachment": "העלאת קבצים או הפקת תמונות באמצעות AI, בתמיכת מודלים כמו GPT Image 2",
+      "checkbox": "סימון פשוט של כן או לא.",
+      "rollup": "סיכום רשומות מקושרות באמצעות נוסחאות.",
+      "conditionalRollup": "סיכום נתונים לפי תנאים.",
+      "user": "שיוך רשומות לחברי מרחב העבודה.",
+      "rating": "דירוג פריטים בסמלים הניתנים להתאמה.",
+      "autoNumber": "מתן מספר סידורי ייחודי לכל רשומה.",
+      "lookup": "הצגת ערכים מרשומות מקושרות.",
+      "conditionalLookup": "הצגת ערכים מקושרים שתואמים למסננים שהוגדרו.",
+      "button": "הרצת פעולות בלחיצה על כפתור.",
+      "createdBy": "הצגת מי יצר את הרשומה.",
+      "lastModifiedBy": "הצגת מי שינה את הרשומה לאחרונה."
+    },
+    "link": {
+      "oneWay": "חד-כיווני",
+      "twoWay": "דו-כיווני"
+    },
+    "button": {
+      "confirm": {
+        "title": "אישור פעולה",
+        "description": "האם לבצע את פעולת הכפתור?"
+      }
+    }
+  },
+  "permission": {
+    "actionDescription": {
+      "spaceCreate": "יצירת מרחב",
+      "spaceDelete": "מחיקת מרחב",
+      "spaceRead": "קריאת מרחב",
+      "spaceUpdate": "עדכון מרחב",
+      "spaceInviteEmail": "הזמנה באימייל במרחב",
+      "spaceInviteLink": "הזמנה בקישור במרחב",
+      "spaceGrantRole": "הענקת תפקיד במרחב",
+      "baseCreate": "יצירת בסיס",
+      "baseDelete": "מחיקת בסיס",
+      "baseRead": "קריאת בסיס",
+      "baseReadAll": "קריאת כל הבסיסים",
+      "baseUpdate": "עדכון בסיס",
+      "baseInviteEmail": "הזמנה באימייל בבסיס",
+      "baseInviteLink": "הזמנה בקישור בבסיס",
+      "baseAuthorityMatrixConfig": "הגדרת מטריצת ההרשאות",
+      "baseDbConnect": "חיבור למסד הנתונים",
+      "tableCreate": "יצירת טבלה",
+      "tableRead": "קריאת טבלה",
+      "tableDelete": "מחיקת טבלה",
+      "tableUpdate": "עדכון טבלה",
+      "tableImport": "ייבוא נתונים לטבלה",
+      "tableExport": "ייצוא נתוני הטבלה",
+      "tableTrashRead": "קריאת אשפת הטבלה",
+      "tableTrashUpdate": "עדכון אשפת הטבלה",
+      "tableTrashReset": "איפוס אשפת הטבלה",
+      "tableArchiveRead": "קריאת ארכיון הטבלה",
+      "tableArchiveManage": "ניהול ארכיון הטבלה",
+      "viewCreate": "יצירת תצוגה",
+      "viewDelete": "מחיקת תצוגה",
+      "viewRead": "קריאת תצוגה",
+      "viewUpdate": "עדכון תצוגה",
+      "viewShare": "שיתוף תצוגה",
+      "fieldCreate": "יצירת שדה",
+      "fieldDelete": "מחיקת שדה",
+      "fieldRead": "קריאת שדה",
+      "fieldUpdate": "עדכון שדה",
+      "recordCreate": "יצירת רשומה",
+      "recordComment": "הוספת תגובה לרשומה",
+      "recordDelete": "מחיקת רשומה",
+      "recordRead": "קריאת רשומה",
+      "recordUpdate": "עדכון רשומה",
+      "recordCopy": "העתקת רשומה",
+      "recordArchive": "העברת רשומה לארכיון",
+      "automationCreate": "יצירת אוטומציה",
+      "automationDelete": "מחיקת אוטומציה",
+      "automationRead": "קריאת אוטומציה",
+      "automationUpdate": "עדכון אוטומציה",
+      "appCreate": "יצירת אפליקציה",
+      "appDelete": "מחיקת אפליקציה",
+      "appRead": "קריאת אפליקציה",
+      "appUpdate": "עדכון אפליקציה",
+      "userEmailRead": "קריאת האימייל של המשתמש הנוכחי",
+      "userIntegrations": "ניהול האינטגרציות של המשתמש",
+      "recordHistoryRead": "קריאת היסטוריית הרשומה",
+      "baseQuery": "הרצת שאילתה על הבסיס",
+      "instanceRead": "קריאת המופע",
+      "instanceUpdate": "עדכון המופע",
+      "enterpriseRead": "קריאת תצורת הארגון",
+      "enterpriseUpdate": "עדכון תצורת הארגון"
+    }
+  },
+  "noun": {
+    "table": "טבלה",
+    "view": "תצוגה",
+    "space": "מרחב",
+    "base": "בסיס",
+    "field": "שדה",
+    "record": "רשומה",
+    "automation": "אוטומציה",
+    "app": "אפליקציה",
+    "user": "משתמש",
+    "recordHistory": "היסטוריית רשומה",
+    "you": "אני",
+    "instance": "מופע",
+    "enterprise": "ארגון",
+    "history": "היסטוריה",
+    "global": "גלובלי"
+  },
+  "formula": {
+    "SUM": {
+      "summary": "מחבר את המספרים יחד. שקול ל-number1 + number2 + ...",
+      "example": "SUM(100, 200, 300) => 600"
+    },
+    "AVERAGE": {
+      "summary": "מחזיר את ממוצע המספרים.",
+      "example": "AVERAGE(100, 200, 300) => 200"
+    },
+    "MAX": {
+      "summary": "מחזיר את הגדול מבין המספרים הנתונים.",
+      "example": "MAX(100, 200, 300) => 300"
+    },
+    "MIN": {
+      "summary": "מחזיר את הקטן מבין המספרים הנתונים.",
+      "example": "MIN(100, 200, 300) => 100"
+    },
+    "ROUND": {
+      "summary": "מעגל את הערך למספר הספרות העשרוניות שנקבע ב-\"precision\" (ליתר דיוק, ROUND מעגל למספר השלם הקרוב ביותר ברמת הדיוק שצוינה, ומחצית מעוגלת כלפי מעלה לכיוון אינסוף חיובי.)",
+      "example": "ROUND(1.99, 0) => 2\nROUND(16.8, -1) => 20"
+    },
+    "ROUNDUP": {
+      "summary": "מעגל את הערך למספר הספרות העשרוניות שנקבע ב-\"precision\", תמיד כלפי מעלה, כלומר הרחק מאפס. (חובה לספק ערך ל-precision, אחרת הפונקציה לא תפעל.)",
+      "example": "ROUNDUP(1.1, 0) => 2\nROUNDUP(-1.1, 0) => -2"
+    },
+    "ROUNDDOWN": {
+      "summary": "מעגל את הערך למספר הספרות העשרוניות שנקבע ב-\"precision\", תמיד כלפי מטה, כלומר לכיוון אפס. (חובה לספק ערך ל-precision, אחרת הפונקציה לא תפעל.)",
+      "example": "ROUNDDOWN(1.9, 0) => 1\nROUNDDOWN(-1.9, 0) => -1"
+    },
+    "CEILING": {
+      "summary": "מחזיר את הכפולה השלמה הקרובה ביותר של significance שגדולה מהערך או שווה לו. אם לא סופק significance, ההנחה היא significance של 1.",
+      "example": "CEILING(2.49) => 3\nCEILING(2.49, 1) => 2.5\nCEILING(2.49, -1) => 10"
+    },
+    "FLOOR": {
+      "summary": "מחזיר את הכפולה השלמה הקרובה ביותר של significance שקטנה מהערך או שווה לו. אם לא סופק significance, ההנחה היא significance של 1.",
+      "example": "FLOOR(2.49) => 2\nFLOOR(2.49, 1) => 2.4\nFLOOR(2.49, -1) => 0"
+    },
+    "EVEN": {
+      "summary": "מחזיר את המספר הזוגי השלם הקטן ביותר שגדול מהערך שצוין או שווה לו.",
+      "example": "EVEN(0.1) => 2\nEVEN(-0.1) => -2"
+    },
+    "ODD": {
+      "summary": "מעגל ערך חיובי כלפי מעלה למספר האי-זוגי הקרוב ביותר, וערך שלילי כלפי מטה למספר האי-זוגי הקרוב ביותר.",
+      "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
+    },
+    "INT": {
+      "summary": "מחזיר את החלק השלם של המספר, בעיגול כלפי מטה לכיוון אינסוף שלילי.",
+      "example": "INT(1.9) => 1\nINT(-1.9) => -2"
+    },
+    "ABS": {
+      "summary": "מחזיר את הערך המוחלט.",
+      "example": "ABS(-1) => 1"
+    },
+    "SQRT": {
+      "summary": "מחזיר את השורש הריבועי של מספר לא שלילי.",
+      "example": "SQRT(4) => 2"
+    },
+    "POWER": {
+      "summary": "מחשב את הבסיס שצוין בחזקה שצוינה.",
+      "example": "POWER(2) => 4"
+    },
+    "EXP": {
+      "summary": "מחשב את מספר אוילר (e) בחזקה שצוינה.",
+      "example": "EXP(0) => 1\nEXP(1) => 2.718"
+    },
+    "LOG": {
+      "summary": "מחשב את הלוגריתם של הערך בבסיס שסופק. אם לא צוין בסיס, ברירת המחדל היא 10.",
+      "example": "LOG(100) => 2\nLOG(1024, 2) => 10"
+    },
+    "MOD": {
+      "summary": "מחזיר את השארית שמתקבלת מחלוקת הארגומנט הראשון בשני.",
+      "example": "MOD(9, 2) => 1\nMOD(9, 3) => 0"
+    },
+    "VALUE": {
+      "summary": "ממיר את מחרוזת הטקסט למספר.",
+      "example": "VALUE(\"$1,000,000\") => 1000000"
+    },
+    "CONCATENATE": {
+      "summary": "מחבר ארגומנטים מסוגי ערכים שונים לערך טקסט אחד.",
+      "example": "CONCATENATE(\"Hello \", \"Teable\") => Hello Teable"
+    },
+    "FIND": {
+      "summary": "מוצא מופע של stringToFind במחרוזת whereToSearch, החל מ-startFromPosition האופציונלי. (ברירת המחדל של startFromPosition היא 0.) אם לא נמצא מופע של stringToFind, התוצאה תהיה 0.",
+      "example": "FIND(\"Teable\", \"Hello Teable\") => 7\nFIND(\"Teable\", \"Hello Teable\", 5) => 7\nFIND(\"Teable\", \"Hello Teable\", 10) => 0"
+    },
+    "SEARCH": {
+      "summary": "מחפש מופע של stringToFind במחרוזת whereToSearch, החל מ-startFromPosition האופציונלי. (ברירת המחדל של startFromPosition היא 0.) אם לא נמצא מופע של stringToFind, התוצאה תהיה ריקה.\nדומה ל-FIND(), אלא ש-FIND() מחזיר 0 במקום ערך ריק כאשר לא נמצא מופע של stringToFind.",
+      "example": "SEARCH(\"Teable\", \"Hello Teable\") => 7\nSEARCH(\"Teable\", \"Hello Teable\", 5) => 7\nSEARCH(\"Teable\", \"Hello Teable\", 10) => \"\""
+    },
+    "MID": {
+      "summary": "מחלץ תת-מחרוזת באורך count תווים החל מ-whereToStart.",
+      "example": "MID(\"Hello Teable\", 6, 6) => \"Teable\""
+    },
+    "LEFT": {
+      "summary": "מחלץ howMany תווים מתחילת המחרוזת.",
+      "example": "LEFT(\"2023-09-06\", 4) => \"2023\""
+    },
+    "RIGHT": {
+      "summary": "מחלץ howMany תווים מסוף המחרוזת.",
+      "example": "RIGHT(\"2023-09-06\", 5) => \"09-06\""
+    },
+    "REPLACE": {
+      "summary": "מחליף את מספר התווים המתחילים בתו ההתחלה בטקסט החלופי.\n(לחיפוש והחלפה של כל המופעים של old_text ב-new_text, יש להשתמש ב-SUBSTITUTE().)",
+      "example": "REPLACE(\"Hello Table\", 7, 5, \"Teable\") => \"Hello Teable\""
+    },
+    "REGEXP_REPLACE": {
+      "summary": "מחליף את כל תתי-המחרוזות התואמות לביטוי הרגולרי בטקסט החלופי.",
+      "example": "REGEXP_REPLACE(\"Hello Table\", \"H.* \", \"\") => \"Teable\""
+    },
+    "SUBSTITUTE": {
+      "summary": "מחליף מופעים של old_text ב-new_text.\nניתן לציין מספר אינדקס (החל מ-1) כדי להחליף מופע מסוים בלבד של old_text. אם לא צוין מספר אינדקס, כל המופעים של old_text יוחלפו.",
+      "example": "SUBSTITUTE(\"Hello Table\", \"Table\", \"Teable\") => \"Hello Teable\""
+    },
+    "TEXTBEFORE": {
+      "summary": "מחזיר את הטקסט שלפני התו המפריד.",
+      "example": "TEXTBEFORE(\"20, 04, 79\", \",\") => \"20\""
+    },
+    "TEXTSPLIT": {
+      "summary": "מפצל טקסט לפי תו מפריד ומחזיר כמה ערכי טקסט.",
+      "example": "TEXTSPLIT(\"20, 04, 79\", \",\") => [\"20\", \" 04\", \" 79\"]"
+    },
+    "LOWER": {
+      "summary": "ממיר מחרוזת לאותיות קטנות.",
+      "example": "LOWER(\"Hello Teable\") => \"hello teable\""
+    },
+    "UPPER": {
+      "summary": "ממיר מחרוזת לאותיות גדולות.",
+      "example": "UPPER(\"Hello Teable\") => \"HELLO TEABLE\""
+    },
+    "REPT": {
+      "summary": "חוזר על המחרוזת במספר הפעמים שצוין.",
+      "example": "REPT(\"Hello!\") => \"Hello!Hello!Hello!\""
+    },
+    "TRIM": {
+      "summary": "מסיר רווחים מתחילת המחרוזת ומסופה.",
+      "example": "TRIM(\" Hello \") => \"Hello\""
+    },
+    "LEN": {
+      "summary": "מחלצת howMany תווים מתחילת המחרוזת.",
+      "example": "LEN(\"Hello\") => 5"
+    },
+    "T": {
+      "summary": "מחזירה את הארגומנט אם הוא טקסט, ואחרת ערך ריק.",
+      "example": "T(\"Hello\") => \"Hello\"\nT(100) => null"
+    },
+    "ENCODE_URL_COMPONENT": {
+      "summary": "מחליפה תווים מסוימים במקבילות מקודדות לצורך בניית כתובות URL או URI. התווים הבאים אינם מקודדים: - _ . ~",
+      "example": "ENCODE_URL_COMPONENT(\"Hello Teable\") => \"Hello%20Teable\""
+    },
+    "IF": {
+      "summary": "מחזירה את value1 אם התנאי הלוגי מתקיים, ואחרת את value2. אפשר גם לבנות בעזרתה משפטי IF מקוננים.\nאפשר גם להשתמש בה כדי לבדוק אם תא ריק.",
+      "example": "IF(2 > 1, \"A\", \"B\") => \"A\"\nIF(2 > 1, TRUE, FALSE) => TRUE"
+    },
+    "SWITCH": {
+      "summary": "מקבלת ביטוי, רשימה של ערכים אפשריים עבורו, ולכל ערך את התוצאה שתוחזר במקרה כזה. אפשר גם לספק ערך ברירת מחדל אם הביטוי אינו תואם לאף אחת מהאפשרויות שהוגדרו. במקרים רבים אפשר להשתמש ב-SWITCH() במקום נוסחת IF() מקוננת.",
+      "example": "SWITCH(\"B\", \"A\", \"Value A\", \"B\", \"Value B\", \"Default Value\") => \"Value B\""
+    },
+    "AND": {
+      "summary": "מחזירה true אם כל הארגומנטים נכונים, ואחרת false.",
+      "example": "AND(1 < 2, 5 > 3) => true\nAND(1 < 2, 5 < 3) => false"
+    },
+    "OR": {
+      "summary": "מחזירה true אם לפחות אחד מהארגומנטים נכון.",
+      "example": "OR(1 < 2, 5 < 3) => true\nOR(1 > 2, 5 < 3) => false"
+    },
+    "XOR": {
+      "summary": "מחזירה true אם מספר אי-זוגי של ארגומנטים נכונים.",
+      "example": "XOR(1 < 2, 5 < 3, 8 < 10) => false\nXOR(1 > 2, 5 < 3, 8 < 10) => true"
+    },
+    "NOT": {
+      "summary": "הופכת את הערך הלוגי של הארגומנט.",
+      "example": "NOT(1 < 2) => false\nNOT(1 > 2) => true"
+    },
+    "BLANK": {
+      "summary": "מחזירה ערך ריק.",
+      "example": "BLANK() => null\nIF(2 > 3, \"Yes\", BLANK()) => null"
+    },
+    "ERROR": {
+      "summary": "מחזירה את ערך השגיאה.",
+      "example": "IF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
+    },
+    "IS_ERROR": {
+      "summary": "מחזירה true אם הביטוי גורם לשגיאה.",
+      "example": "IS_ERROR(ERROR()) => true"
+    },
+    "TODAY": {
+      "summary": "מחזירה את התאריך הנוכחי.",
+      "example": "TODAY() => \"2023-09-08 00:00\""
+    },
+    "NOW": {
+      "summary": "מחזירה את התאריך והשעה הנוכחיים.",
+      "example": "NOW() => \"2023-09-08 16:50\""
+    },
+    "YEAR": {
+      "summary": "מחזירה את השנה בת ארבע הספרות של תאריך ושעה.",
+      "example": "YEAR(\"2023-09-08\") => 2023"
+    },
+    "MONTH": {
+      "summary": "מחזירה את החודש של תאריך ושעה כמספר בין 1 (ינואר) ל-12 (דצמבר).",
+      "example": "MONTH(\"2023-09-08\") => 9"
+    },
+    "WEEKNUM": {
+      "summary": "מחזירה את מספר השבוע בשנה.",
+      "example": "WEEKNUM(\"2023-09-08\") => 36"
+    },
+    "WEEKDAY": {
+      "summary": "מחזירה את היום בשבוע כמספר שלם בין 0 ל-6, כולל. אפשר להוסיף ארגומנט שני (\"Sunday\" או \"Monday\") כדי לקבוע באיזה יום מתחיל השבוע. ברירת המחדל היא יום ראשון. דוגמה:\nWEEKDAY(TODAY(), \"Monday\")",
+      "example": "WEEKDAY(\"2023-09-08\") => 5"
+    },
+    "DAY": {
+      "summary": "מחזירה את היום בחודש של תאריך ושעה כמספר בין 1 ל-31.",
+      "example": "DAY(\"2023-09-08\") => 8"
+    },
+    "HOUR": {
+      "summary": "מחזירה את השעה של תאריך ושעה כמספר בין 0 (חצות) ל-23 (23:00).",
+      "example": "HOUR(\"2023-09-08 16:50\") => 16"
+    },
+    "MINUTE": {
+      "summary": "מחזירה את הדקה של תאריך ושעה כמספר שלם בין 0 ל-59.",
+      "example": "MINUTE(\"2023-09-08 16:50\") => 50"
+    },
+    "SECOND": {
+      "summary": "מחזירה את השנייה של תאריך ושעה כמספר שלם בין 0 ל-59.",
+      "example": "SECOND(\"2023-09-08 16:50:30\") => 30"
+    },
+    "FROMNOW": {
+      "summary": "מחשבת את מספר הימים בין התאריך הנוכחי לתאריך אחר.",
+      "example": "FROMNOW({Date}, \"day\") => 25"
+    },
+    "TONOW": {
+      "summary": "מחשבת את מספר הימים בין התאריך הנוכחי לתאריך אחר.",
+      "example": "TONOW({Date}, \"day\") => 25"
+    },
+    "DATETIME_DIFF": {
+      "summary": "מחזירה את ההפרש בין שני תאריכים ביחידות שצוינו. יחידת ברירת המחדל היא \"second\".\nיחידות נתמכות: \"millisecond\" (ms), \"second\" (s), \"minute\" (m), \"hour\" (h), \"day\" (d), \"week\" (w), \"month\" (M), \"year\" (y).\nDATETIME_DIFF תמיד מחסרת את הארגומנט השני מהראשון (`date1 - date2`). כדי לקבל את הזמן שחלף מתאריך התחלה עד תאריך סיום מאוחר יותר, יש לכתוב `DATETIME_DIFF(endDate, startDate, unit)`.",
+      "example": "DATETIME_DIFF(\"2026-03-13\", \"2026-03-09\") => 345600\nDATETIME_DIFF(\"2026-03-13\", \"2026-03-09\", \"day\") => 4"
+    },
+    "WORKDAY": {
+      "summary": "מחזירה את יום העבודה שמתקבל מתאריך ההתחלה, ללא החגים שצוינו",
+      "example": "WORKDAY(\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\nWORKDAY(\"2023-09-08\", 200, \"2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25\") => \"2024-06-20 00:00:00\""
+    },
+    "WORKDAY_DIFF": {
+      "summary": "מחזירה את מספר ימי העבודה שאחרי [startDate] ועד [endDate] ועד בכלל. זו ספירה של ימי עסקים ולא הפרש בימים קלנדריים, ולכן סופי שבוע ורשימת חגים אופציונלית אינם נכללים. לחישוב הזמן שחלף בימים קלנדריים יש להשתמש ב-`DATETIME_DIFF(endDate, startDate, \"day\")`. התוצאה שלילית כאשר [endDate] מוקדם מ-[startDate], ו-WORKDAY_DIFF(startDate, WORKDAY(startDate, n)) מחזירה n.",
+      "example": "WORKDAY_DIFF(\"2026-03-09\", \"2026-03-13\") => 4\nWORKDAY_DIFF(\"2026-03-09\", WORKDAY(\"2026-03-09\", 5)) => 5"
+    },
+    "IS_SAME": {
+      "summary": "משווה בין שני תאריכים ברמת היחידה שצוינה וקובעת אם הם זהים. מחזירה true אם כן, ו-false אם לא.",
+      "example": "IS_SAME(\"2023-09-08\", \"2023-09-10\") => false\nIS_SAME(\"2023-09-08\", \"2023-09-10\", \"month\") => true"
+    },
+    "IS_AFTER": {
+      "summary": "קובעת אם date1 מאוחר מ-date2. מחזירה true אם כן, ו-false אם לא.",
+      "example": "IS_AFTER(\"2023-09-10\", \"2023-09-08\") => true\nIS_AFTER(\"2023-09-10\", \"2023-09-08\", \"month\") => false"
+    },
+    "IS_BEFORE": {
+      "summary": "קובעת אם date1 מוקדם מ-date2. מחזירה true אם כן, ו-false אם לא.",
+      "example": "IS_BEFORE(\"2023-09-08\", \"2023-09-10\") => true\nIS_BEFORE(\"2023-09-08\", \"2023-09-10\", \"month\") => false"
+    },
+    "DATE_ADD": {
+      "summary": "מוסיפה לתאריך ולשעה \"count\" יחידות שצוינו.",
+      "example": "DATE_ADD(\"2023-09-08 18:00:00\", 10, \"day\") => \"2023-09-18 18:00:00\""
+    },
+    "DATESTR": {
+      "summary": "מעצבת תאריך ושעה כמחרוזת (YYYY-MM-DD).",
+      "example": "DATESTR(\"2023/09/08\") => \"2023-09-08\""
+    },
+    "TIMESTR": {
+      "summary": "מעצבת תאריך ושעה כמחרוזת של שעה בלבד (HH:mm:ss).",
+      "example": "DATESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
+    },
+    "DATETIME_FORMAT": {
+      "summary": "מעצבת תאריך ושעה למחרוזת בתבנית שצוינה. מציינים נתמכים: YY, YYYY, M, MM, MMM, MMMM, D, DD, d, dd, ddd, dddd, H, HH, h, hh, m, mm, s, ss, SSS, Z, ZZ, A, a, LT, LTS, L, LL, LLL, LLLL, l, ll, lll, llll.",
+      "example": "DATETIME_FORMAT(\"2023-09-08\", \"DD-MM-YYYY\") => \"08-09-2023\""
+    },
+    "DATETIME_PARSE": {
+      "summary": "מפרשת מחרוזת טקסט כתאריך מובנה, עם פרמטרים אופציונליים של תבנית קלט ושל שפה. תבנית הפלט תמיד תהיה \"M/D/YYYY h:mm a\".",
+      "example": "DATETIME_PARSE(\"8 Sep 2023 18:00\", \"D MMM YYYY HH:mm\") => \"2023-09-08 18:00:00\""
+    },
+    "CREATED_TIME": {
+      "summary": "מחזירה את מועד היצירה של הרשומה הנוכחית.",
+      "example": "CREATED_TIME() => \"2023-09-08 18:00:00\""
+    },
+    "LAST_MODIFIED_TIME": {
+      "summary": "מחזירה את התאריך והשעה של השינוי האחרון שבוצע על ידי משתמש בשדה שאינו מחושב בטבלה. אפשר להעביר שדה כדי לעקוב אחר עדכונים באותה עמודה בלבד.",
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\"; LAST_MODIFIED_TIME({Due Date}) => \"2023-09-09 12:00:00\""
+    },
+    "COUNTALL": {
+      "summary": "מחזירה את מספר כל הפריטים, כולל טקסט וערכים ריקים.",
+      "example": "COUNTALL(100, 200, \"\", \"Teable\", TRUE()) => 5"
+    },
+    "COUNTA": {
+      "summary": "מחזירה את מספר הערכים שאינם ריקים. הפונקציה סופרת ערכים מספריים וגם ערכי טקסט.",
+      "example": "COUNTA(100, 200, 300, \"\", \"Teable\", TRUE) => 4"
+    },
+    "COUNT": {
+      "summary": "מחזירה את מספר הפריטים המספריים.",
+      "example": "COUNT(100, 200, 300, \"\", \"Teable\", TRUE) => 3"
+    },
+    "ARRAY_JOIN": {
+      "summary": "מחברת את מערך פריטי הצבירה למחרוזת אחת עם מפריד.",
+      "example": "ARRAY_JOIN([\"Tom\", \"Jerry\", \"Mike\"], \"; \") => \"Tom; Jerry; Mike\""
+    },
+    "ARRAY_UNIQUE": {
+      "summary": "מחזירה רק את הפריטים הייחודיים במערך.",
+      "example": "ARRAY_UNIQUE([1, 2, 3, 2, 1]) => [1, 2, 3]"
+    },
+    "ARRAY_FLATTEN": {
+      "summary": "משטחת את המערך ומסירה כל קינון. כל הפריטים הופכים לאיברים של מערך אחד.",
+      "example": "ARRAY_FLATTEN([1, 2, \" \", 3, true], [\"ABC\"]) => [1, 2, 3, \" \", true, \"ABC\"]"
+    },
+    "ARRAY_COMPACT": {
+      "summary": "מסירה מהמערך מחרוזות ריקות וערכי null. שומרת על \"false\" ועל מחרוזות שמכילות תו רווח אחד או יותר.",
+      "example": "ARRAY_COMPACT([1, 2, 3, \"\", null, \"ABC\"]) => [1, 2, 3, \"ABC\"]"
+    },
+    "TEXT_ALL": {
+      "summary": "מחזירה את כל ערכי הטקסט",
+      "example": "TEXT_ALL(\"t\") => t"
+    },
+    "RECORD_ID": {
+      "summary": "מחזירה את המזהה של הרשומה הנוכחית.",
+      "example": "RECORD_ID() => \"recxxxxxx\""
+    },
+    "AUTO_NUMBER": {
+      "summary": "מחזירה מספר ייחודי ועולה לכל רשומה.",
+      "example": "AUTO_NUMBER() => 1"
+    },
+    "FORMULA": {
+      "summary": "שילוב של משתנים, אופרטורים ופונקציות לבניית נוסחאות לחישוב.",
+      "example": "הפניה לעמודה: {שם השדה}\n\nשימוש באופרטור: 100 * 2 + 300\n\nשימוש בפונקציה: SUM({שדה מספר 1}, 100)\n\nשימוש במשפט IF: \nIF(תנאי לוגי, \"ערך 1\", \"ערך 2\")"
+    }
+  },
+  "functionType": {
+    "fields": "שדות",
+    "numeric": "מספרים",
+    "text": "טקסט",
+    "logical": "לוגיקה",
+    "date": "תאריך",
+    "array": "מערך",
+    "system": "מערכת"
+  },
+  "statisticFunc": {
+    "none": "ללא",
+    "count": "ספירה",
+    "empty": "ריק",
+    "filled": "מלא",
+    "unique": "ייחודי",
+    "max": "מקסימום",
+    "min": "מינימום",
+    "sum": "סכום",
+    "average": "ממוצע",
+    "checked": "מסומן",
+    "unChecked": "לא מסומן",
+    "percentEmpty": "אחוז ריקים",
+    "percentFilled": "אחוז מלאים",
+    "percentUnique": "אחוז ייחודיים",
+    "percentChecked": "אחוז מסומנים",
+    "percentUnChecked": "אחוז לא מסומנים",
+    "earliestDate": "התאריך המוקדם ביותר",
+    "latestDate": "התאריך המאוחר ביותר",
+    "dateRangeOfDays": "טווח תאריכים (ימים)",
+    "dateRangeOfMonths": "טווח תאריכים (חודשים)",
+    "totalAttachmentSize": "סה״כ גודל קבצים מצורפים"
+  },
+  "selectionStatistic": {
+    "tip": "רק שדות מסוג מספר נכללים בסיכום.",
+    "copyTip": "לחיצה להעתקה",
+    "copied": "הועתק"
+  },
+  "baseQuery": {
+    "add": "הוספה",
+    "error": {
+      "invalidCol": "עמודה לא חוקית, יש לבחור מחדש",
+      "invalidCols": "עמודות לא חוקיות: {{colNames}}",
+      "invalidTable": "טבלה לא חוקית, יש לבחור מחדש",
+      "requiredSelect": "יש לבחור אפשרות אחת"
+    },
+    "from": {
+      "title": "מתוך",
+      "fromTable": "בחירת טבלה",
+      "fromQuery": "מתוך שאילתה"
+    },
+    "select": {
+      "title": "בחירה"
+    },
+    "where": {
+      "title": "תנאי"
+    },
+    "groupBy": {
+      "title": "קיבוץ לפי"
+    },
+    "orderBy": {
+      "title": "מיון לפי",
+      "asc": "עולה",
+      "desc": "יורד"
+    },
+    "limit": {
+      "title": "מגבלה"
+    },
+    "offset": {
+      "title": "היסט"
+    },
+    "join": {
+      "title": "צירוף",
+      "joinType": "סוג הצירוף",
+      "leftJoin": "צירוף שמאלי",
+      "rightJoin": "צירוף ימני",
+      "innerJoin": "צירוף פנימי",
+      "fullJoin": "צירוף מלא",
+      "data": "מתוך"
+    },
+    "aggregation": {
+      "title": "אגרגציה"
+    }
+  },
+  "comment": {
+    "title": "תגובה",
+    "placeholder": "כתיבת תגובה...",
+    "emptyComment": "פתיחת שיחה",
+    "deletedComment": "תגובה שנמחקה",
+    "tip": {
+      "editing": "בעריכה...",
+      "edited": "(נערך)",
+      "notifyAll": "התראה על כל התגובות",
+      "notifyRelatedToMe": "התראה על תגובות שקשורות אליי",
+      "all": "הכול",
+      "relatedToMe": "קשור אליי",
+      "reactionUserSuffix": "הגיבו עם האימוג'י {{emoji}}",
+      "me": "אני",
+      "connection": "וגם"
+    },
+    "toolbar": {
+      "link": "קישור",
+      "image": "תמונה",
+      "mention": "אזכור"
+    },
+    "floatToolbar": {
+      "editLink": "עריכת קישור",
+      "linkText": "טקסט הקישור",
+      "enterUrl": "הזנת כתובת URL"
+    }
+  },
+  "memberSelector": {
+    "title": "בחירת חברים",
+    "memberSelectorSearchPlaceholder": "חיפוש חברים...",
+    "departmentSelectorSearchPlaceholder": "חיפוש מחלקות...",
+    "selected": "נבחרו",
+    "empty": "אין חברים",
+    "emptyDepartment": "אין מחלקות"
+  },
+  "httpErrors": {
+    "validationError": "שגיאת אימות",
+    "invalidCaptcha": "ה-CAPTCHA אינו חוקי",
+    "invalidCredentials": "פרטי ההתחברות שגויים",
+    "unauthorized": "אין הרשאה",
+    "unauthorizedShare": "אין הרשאה לשיתוף הזה",
+    "paymentRequired": "נדרש תשלום",
+    "creditLimitExceeded": "חריגה ממגבלת הקרדיטים",
+    "restrictedResource": "משאב מוגבל",
+    "notFound": "לא נמצא",
+    "viewNotFound": "התצוגה לא נמצאה",
+    "conflict": "התנגשות",
+    "unprocessableEntity": "לא ניתן לעבד את הבקשה",
+    "userLimitExceeded": "חריגה ממגבלת המשתמשים",
+    "tooManyRequests": "יותר מדי בקשות",
+    "payloadTooLarge": "גוף הבקשה גדול מדי",
+    "internalServerError": "שגיאה פנימית בשרת",
+    "databaseConnectionUnavailable": "החיבור למסד הנתונים אינו זמין",
+    "gatewayTimeout": "פג הזמן הקצוב בשער",
+    "unknownErrorCode": "קוד שגיאה לא ידוע",
+    "networkError": "בעיה בחיבור לרשת",
+    "requestTimeout": "פג הזמן הקצוב לבקשה",
+    "failedDependency": "תלות שנכשלה",
+    "automationNodeParseError": "שגיאה בניתוח צומת האוטומציה",
+    "automationNodeNeedTest": "יש לבדוק את צומת האוטומציה",
+    "automationNodeTestOutdated": "בדיקת צומת האוטומציה אינה מעודכנת",
+    "invalidToken": "האסימון אינו חוקי",
+    "limit": {
+      "fieldOptionsMaxBytes": "אפשרויות השדה גדולות מדי. המקסימום הוא {{max}} בתים.",
+      "selectChoicesMax": "לשדה הבחירה הזה יש יותר מדי אפשרויות. המקסימום הוא {{max}} אפשרויות.",
+      "selectChoiceNameMaxLength": "שמות האפשרויות בשדה הבחירה ארוכים מדי. המקסימום הוא {{max}} תווים.",
+      "selectDefaultValuesMax": "לשדה הבחירה הזה יש יותר מדי ערכי ברירת מחדל. המקסימום הוא {{max}} ערכים.",
+      "cellValueMaxBytes": "ערך התא גדול מדי. המקסימום הוא {{max}} בתים.",
+      "recordFieldsMaxBytes": "נתוני הרשומה גדולים מדי. המקסימום הוא {{max}} בתים.",
+      "recordsPerMutationMax": "הפעולה משנה יותר מדי רשומות. המקסימום הוא {{max}} רשומות בכל פעם.",
+      "computedCellValueMaxBytes": "ערך התא המחושב גדול מדי. המקסימום הוא {{max}} בתים.",
+      "formulaMaxLength": "הנוסחה ארוכה מדי. המקסימום הוא {{max}} תווים.",
+      "tablesPerBaseMax": "הבסיס הזה הגיע למגבלת הטבלאות. המקסימום הוא {{max}} טבלאות.",
+      "fieldsPerTableMax": "לטבלה הזו יש יותר מדי שדות. המקסימום הוא {{max}} שדות.",
+      "rowsPerTableMax": "לטבלה הזו יש יותר מדי רשומות. המקסימום הוא {{max}} רשומות.",
+      "viewsPerTableMax": "הטבלה הזו הגיעה למגבלת התצוגות. המקסימום הוא {{max}} תצוגות.",
+      "createTableFieldsMax": "לטבלה החדשה יש יותר מדי שדות. המקסימום הוא {{max}} שדות.",
+      "createTableViewsMax": "לטבלה החדשה יש יותר מדי תצוגות. המקסימום הוא {{max}} תצוגות.",
+      "createTableRecordsMax": "לטבלה החדשה יש יותר מדי רשומות. המקסימום הוא {{max}} רשומות.",
+      "viewFilterItemsMax": "לתצוגה הזו יש יותר מדי תנאי סינון. המקסימום הוא {{max}} תנאים.",
+      "viewFilterDepthMax": "מסנן התצוגה מקונן לעומק רב מדי. העומק המרבי הוא {{max}}.",
+      "viewSortItemsMax": "לתצוגה הזו יש יותר מדי כללי מיון. המקסימום הוא {{max}} כללים.",
+      "viewGroupItemsMax": "לתצוגה הזו יש יותר מדי כללי קיבוץ. המקסימום הוא {{max}} כללים.",
+      "viewOptionsMaxBytes": "אפשרויות התצוגה גדולות מדי. המקסימום הוא {{max}} בתים.",
+      "nameMaxLength": "השם ארוך מדי. המקסימום הוא {{max}} תווים.",
+      "descriptionMaxLength": "התיאור ארוך מדי. המקסימום הוא {{max}} תווים."
+    },
+    "custom": {
+      "fieldValueNotNull": "השדה \"{{fieldName}}\" בטבלה \"{{tableName}}\" אינו מאפשר ערכים ריקים, יש למלא אותו במלואו לפני השליחה.",
+      "fieldValueDuplicate": "השדה \"{{fieldName}}\" בטבלה \"{{tableName}}\" אינו מאפשר ערכים כפולים, יש למלא ערך ייחודי לפני השליחה.",
+      "recordFieldValueNotNull": "השדה \"{{fieldName}}\" אינו מאפשר ערכים ריקים, יש למלא אותו לפני השליחה.",
+      "recordFieldValueDuplicate": "השדה \"{{fieldName}}\" אינו מאפשר ערכים כפולים, יש למלא ערך ייחודי לפני השליחה.",
+      "recordDeleteBlockedByRequiredLink": "לא ניתן למחוק: שדה הקישור \"{{fieldName}}\" בטבלה \"{{tableName}}\" הוא שדה חובה והיה נשאר ריק.",
+      "recordDeleteBlockedByRequiredLinkGeneric": "לא ניתן למחוק: הרשומה הזו עדיין מופנית משדה קישור בטבלה אחרת.",
+      "recordDeleteBlockedByLink": "לא ניתן למחוק: שדה הקישור \"{{fieldName}}\" בטבלה \"{{tableName}}\" עדיין מפנה לרשומה הזו.",
+      "linkFieldValueDuplicate": "השדה \"{{fieldName}}\" אינו מאפשר קישור כפול לאותה רשומה",
+      "linkBatchDuplicate": "לא ניתן לקשר את הרשומות: הן כבר מקושרות לרשומה אחרת באותה אצווה. בקשר של אחד-לרבים כל רשומה יכולה להשתייך לרשומת אב אחת בלבד.",
+      "linkOneManyDuplicate": "לא ניתן לקשר את הרשומות: הן כבר מקושרות לרשומה אחרת. בקשר של אחד-לרבים כל רשומה יכולה להשתייך לרשומת אב אחת בלבד.",
+      "linkOneOneDuplicate": "לא ניתן לקשר את הרשומות: רשומת היעד כבר מקושרת לרשומה אחרת בקשר של אחד-לאחד.",
+      "fieldMaxColumnLimit": "הטבלה \"{{tableName}}\" יכולה להכיל עד {{maxFieldCount}} שדות.",
+      "fieldRequiredExistingValues": "לא ניתן להגדיר את השדה \"{{fieldName}}\" כשדה חובה, מכיוון שברשומות קיימות יש ערכים ריקים.",
+      "fieldUniqueExistingValues": "לא ניתן להגדיר את השדה \"{{fieldName}}\" כייחודי, מכיוון שברשומות קיימות יש ערכים כפולים.",
+      "requestTimeout": "הפעולה גדולה מדי, יש לנסות שוב בהיקף קטן יותר.",
+      "searchTimeOut": "פג הזמן הקצוב לחיפוש, יש לצמצם את היקף החיפוש ולנסות שוב",
+      "dependencyNodeRequire": "צומת התלות לא נבדק, יש לוודא שכל הצמתים הקודמים נבדקו",
+      "invalidOperation": "זוהתה פעולה לא חוקית, יש לבדוק את פרמטרי הפעולה"
+    },
+    "comment": {
+      "listCountExceeded": "מספר התגובות המבוקש חורג מהמגבלה המרבית של 1000",
+      "invalidContentType": "סוג תוכן התגובה אינו חוקי"
+    },
+    "attachment": {
+      "tokenExpireInTooLong": "תוקף האסימון חייב להיות קצר מ-7 ימים",
+      "s3RegionRequired": "נדרש אזור S3",
+      "s3EndpointRequired": "נדרש endpoint של S3",
+      "s3AccessKeyRequired": "נדרש מפתח גישה ל-S3",
+      "s3SecretKeyRequired": "נדרש מפתח סודי ל-S3",
+      "s3UploadMethodMustBePut": "שיטת ההעלאה ל-S3 חייבת להיות PUT",
+      "presignedError": "יצירת כתובת URL חתומה מראש נכשלה",
+      "invalidObjectMeta": "מטא-נתוני האובייקט אינם חוקיים",
+      "invalidImageStream": "זרם התמונה אינו חוקי",
+      "calculateImageSizeFailed": "חישוב גודל התמונה נכשל",
+      "uploadFailed": "ההעלאה נכשלה",
+      "invalidImage": "התמונה אינה חוקית",
+      "cantGetImageStream": "לא ניתן לקבל את זרם התמונה",
+      "invalidProvider": "ספק האחסון אינו חוקי",
+      "failedToDeleteDirectory": "מחיקת התיקייה נכשלה",
+      "invalidToken": "האסימון אינו חוקי",
+      "tokenExpired": "תוקף האסימון פג",
+      "sizeMismatch": "גודל הקובץ אינו תואם",
+      "notAllowUploadFileType": "סוג הקובץ {{mimetype}} אינו מורשה להעלאה",
+      "notFound": "הקובץ המצורף לא נמצא",
+      "invalidPath": "נתיב הקובץ המצורף אינו חוקי",
+      "fileSizeExceedsMaximumLimit": "גודל הקובץ חורג מהמגבלה המרבית של {{maxSize}}",
+      "invalidUploadType": "סוג ההעלאה אינו חוקי",
+      "urlReject": "כתובת ה-URL נדחתה או שאינה נגישה"
+    },
+    "email": {
+      "testEmailError": "שגיאה בתצורת הדואר {{message}}"
+    },
+    "auth": {
+      "invalidConfirm": "קלט האישור אינו חוקי",
+      "emailNotRegistered": "כתובת האימייל הזו אינה רשומה",
+      "passwordNotSet": "לא הוגדרה סיסמה לחשבון הזה",
+      "systemUser": "זהו חשבון של משתמש מערכת",
+      "alreadyRegistered": "כתובת האימייל הזו כבר רשומה",
+      "passwordIncorrect": "הסיסמה שגויה",
+      "tokenInvalid": "האסימון אינו חוקי או שתוקפו פג",
+      "passwordAlreadyExists": "כבר הוגדרה סיסמה לחשבון הזה",
+      "verificationCodeInvalid": "קוד האימות אינו חוקי או שתוקפו פג",
+      "newEmailSameAsCurrentEmail": "כתובת האימייל החדשה זהה לנוכחית",
+      "emailAlreadyRegistered": "כתובת האימייל הזו כבר רשומה",
+      "waitlistNotEnabled": "רשימת ההמתנה אינה מופעלת",
+      "emailOrPasswordIncorrect": "האימייל או הסיסמה שגויים",
+      "accountDeactivated": "החשבון הזה הושבת על ידי מנהל המערכת",
+      "accountLockedOut": "החשבון ננעל בעקבות יותר מדי ניסיונות כניסה שנכשלו. יש לנסות שוב מאוחר יותר.",
+      "passwordLoginDisabled": "הכניסה באמצעות סיסמה מושבתת"
+    },
+    "automation": {
+      "buttonClickTriggerDuplicated": "שדה הכפתור הזה כבר משויך לאוטומציה {{name}}[{{id}}], יש לבחור שדה כפתור אחר",
+      "triggerNotFound": "לאוטומציה חייב להיות צומת טריגר",
+      "nodeNotFound": "הצומת {{nodeId}} לא נמצא",
+      "triggerTestFailed": "בדיקת הטריגר נכשלה, יש לבדוק את תצורת הטריגר",
+      "testFailed": "בדיקת האוטומציה נכשלה, יש לבדוק את תצורת האוטומציה",
+      "runFailed": "הרצת האוטומציה נכשלה",
+      "nodeParseError": "תצורת הצומת {{name}} חסרה או שגויה, יש לבדוק את תצורת הצומת",
+      "nodeNeedTest": "יש לבדוק את הצומת {{name}}",
+      "nodeTestOutdated": "בדיקת הצומת {{name}} אינה מעודכנת",
+      "notFound": "האוטומציה לא נמצאה",
+      "currentSnapshotEmpty": "תמונת המצב הנוכחית של האוטומציה ריקה",
+      "runNotFound": "הרצת האוטומציה לא נמצאה",
+      "anchorNotFound": "אוטומציית העוגן לא נמצאה",
+      "validationError": "שגיאת אימות בתצורת האוטומציה",
+      "tableNotInBase": "ניתן להירשם רק לטבלה שנמצאת בתוך הבסיס",
+      "alreadyActiveAndNotDraft": "האוטומציה כבר פעילה ואינה טיוטה",
+      "noActiveSnapshot": "לאוטומציה אין תמונת מצב פעילה",
+      "onlyFailedRunsCanRerun": "ניתן להריץ מחדש רק הרצות שנכשלו",
+      "workflowMustBeActiveToRerun": "האוטומציה חייבת להיות פעילה כדי להריץ אותה מחדש",
+      "snapshotChangedOnlyFullRerun": "האוטומציה שונתה מאז ההרצה הזו. מותרת רק הרצה מחדש מלאה.",
+      "runPayloadColdTruncated": "חלקים מההרצה הזו נחתכו בעת הארכוב הקר, ולכן לא ניתן להריץ מחדש ממנה",
+      "runListOffsetTooDeep": "העמוד הזה עמוק מדי בהיסטוריית ההרצות עבור דפדוף לפי היסט, יש להמשיך באמצעות ה-cursor שהוחזר בעמוד הקודם.",
+      "controlStepsMissingOnlyFullRerun": "חסרים נתוני צומת בקרה עבור ההרצה הזו. נתמכת רק הרצה מחדש מלאה.",
+      "triggerNodeAlreadyExists": "לאוטומציה הזו כבר יש צומת טריגר",
+      "scheduledIntervalTooShort": "בין הרצות של אוטומציות מתוזמנות חייבות לחלוף לפחות {{min}} דקות",
+      "emailPollIntervalTooShort": "טריגרים של אימייל יכולים לבדוק אם הגיע דואר חדש אחת ל-{{min}} דקות לכל היותר",
+      "unSupportLogicType": "סוג הלוגיקה אינו נתמך",
+      "generateLogicError": "שגיאה ביצירת צומת הלוגיקה",
+      "logicNotFound": "צומת הלוגיקה של האוטומציה לא נמצא",
+      "groupEndNotFound": "לא נמצא GroupEnd עבור הלוגיקה",
+      "insertNodeError": "שגיאה בהוספת הצומת",
+      "actionNotFound": "צומת הפעולה של האוטומציה לא נמצא",
+      "unSupportDuplicateWorkflowNodeType": "לא ניתן לשכפל צומת אוטומציה מסוג זה",
+      "controlNodeNotBeTested": "אין לבדוק צומת בקרה",
+      "invalidNodeType": "סוג הצומת אינו חוקי",
+      "unsupportedCategory": "הקטגוריה אינה נתמכת",
+      "unknownConnectionType": "סוג חיבור אימייל לא ידוע",
+      "imapPasswordNotConfigured": "סיסמת ה-IMAP אינה מוגדרת",
+      "integrationNotFound": "האינטגרציה לא נמצאה או שאין לה פרטי התחברות",
+      "webhookTriggerNotFound": "טריגר ה-webhook לא נמצא",
+      "emailReceivedTriggerNotFound": "הטריגר EmailReceived לא נמצא",
+      "emailConnectorNotAvailable": "שירות מחבר האימייל אינו זמין",
+      "listMailboxesFailed": "טעינת רשימת תיבות הדואר נכשלה: {{detail}}"
+    },
+    "scrape": {
+      "unknownDataset": "מערך נתונים לא ידוע: {{datasetId}}",
+      "apiKeyNotConfigured": "שירות גריפת הנתונים אינו מוגדר",
+      "triggerFailed": "הפעלת גריפת הנתונים נכשלה: {{detail}}",
+      "snapshotError": "שגיאה בתמונת המצב של גריפת הנתונים: {{detail}}",
+      "timeout": "פג הזמן הקצוב לגריפת הנתונים לאחר {{seconds}}s"
+    },
+    "integration": {
+      "oauthCodeExchangeFailed": "החלפת קוד ה-OAuth נכשלה: {{detail}}",
+      "oauthTokenRefreshFailed": "רענון אסימון ה-OAuth נכשל: {{detail}}",
+      "userInfoFetchFailed": "קבלת פרטי המשתמש נכשלה: {{detail}}"
+    },
+    "space": {
+      "notFound": "המרחב לא נמצא",
+      "noPermission": "אין הרשאה לגשת למרחב הזה",
+      "disallowSpaceCreation": "יצירת מרחבים הושבתה על ידי מנהל המערכת",
+      "cannotChangeOnlyOwnerRole": "לא ניתן לשנות את התפקיד של הבעלים היחיד של המרחב",
+      "cannotDeleteOnlyOwner": "לא ניתן למחוק את הבעלים היחיד של המרחב",
+      "deleted": "המרחב נמחק",
+      "cannotOperate": "לא ניתן לבצע פעולות במרחב, יש לוודא שיש במרחב חברי ארגון ושהם מוגדרים כבעלים",
+      "notBelongToOrg": "המרחב הזה אינו שייך לארגון",
+      "invalidSpaceIds": "מזהי המרחבים אינם חוקיים: {{spaceIds}}",
+      "freeOwnedSpaceLimitExceeded": "הושג המספר המרבי של מרחבים חינמיים בבעלותך ({{max}}). כדי ליצור מרחב חינמי חדש יש לשדרג מרחב קיים או למחוק אחד.",
+      "freeOwnedSpaceLimitExceededOther": "עבור {{name}} הושג המספר המרבי של מרחבים חינמיים בבעלות ({{max}})."
+    },
+    "base": {
+      "notFound": "הבסיס לא נמצא",
+      "cannotAccess": "אין הרשאה לגשת לבסיס {{baseId}}",
+      "anchorNotFound": "בסיס העוגן {{anchorId}} לא נמצא",
+      "baseAndSpaceMismatch": "הבסיס {{baseId}} והמרחב {{spaceId}} אינם תואמים",
+      "templateNotFound": "התבנית {{templateId}} לא נמצאה"
+    },
+    "baseNode": {
+      "baseIdIsRequired": "נדרש מזהה בסיס",
+      "nodeIdIsRequired": "נדרש מזהה פריט",
+      "invalidResourceType": "סוג המשאב אינו חוקי",
+      "notFound": "פריט הבסיס לא נמצא",
+      "parentMustBeFolder": "פריט האב חייב להיות תיקייה",
+      "cannotDuplicateFolder": "לא ניתן לשכפל תיקייה",
+      "cannotDeleteEmptyFolder": "לא ניתן למחוק את התיקייה מכיוון שאינה ריקה",
+      "onlyOneOfParentIdOrAnchorIdRequired": "יש לספק רק אחד מבין parentId או anchorId",
+      "cannotMoveToItself": "לא ניתן להעביר פריט אל עצמו",
+      "cannotMoveToCircularReference": "לא ניתן להעביר פריט אל צאצא שלו (הפניה מעגלית)",
+      "anchorIdOrParentIdRequired": "יש לספק לפחות אחד מבין parentId או anchorId",
+      "parentNotFound": "פריט האב לא נמצא",
+      "parentIsNotFolder": "פריט האב אינו תיקייה",
+      "circularReference": "זוהתה הפניה מעגלית",
+      "folderDepthLimitExceeded": "חריגה ממגבלת עומק התיקיות",
+      "folderNotFound": "התיקייה לא נמצאה",
+      "anchorNotFound": "פריט העוגן לא נמצא",
+      "nameAlreadyExists": "השם כבר קיים"
+    },
+    "dashboard": {
+      "notFound": "לוח הבקרה לא נמצא"
+    },
+    "plugin": {
+      "notFound": "התוסף לא נמצא",
+      "notSupportInstallInView": "התוסף אינו תומך בהתקנה בתצוגה",
+      "userNotFound": "משתמש התוסף לא נמצא",
+      "invalidSecret": "הסוד אינו חוקי",
+      "invalidRefreshToken": "אסימון הרענון אינו חוקי",
+      "anomalousToken": "אסימון חריג"
+    },
+    "pluginPanel": {
+      "notFound": "פאנל התוספים לא נמצא"
+    },
+    "pluginInstall": {
+      "notFound": "התוסף אינו מותקן"
+    },
+    "share": {
+      "incorrectPassword": "הסיסמה שגויה",
+      "notAllowedToSubmit": "שליחת הטופס אינה מותרת",
+      "notAllowedToEdit": "עריכה אינה מותרת בשיתוף הזה",
+      "viewRequired": "נדרשת תצוגה עבור הפעולה הזו",
+      "hiddenFieldsSubmissionNotAllowed": "לא ניתן לשלוח את הטופס כאשר הוא כולל שדות מוסתרים",
+      "submitRecordsError": "שליחת הרשומה נכשלה",
+      "notAllowedToCopy": "פעולת ההעתקה אינה מותרת",
+      "fieldHiddenNotAllowed": "השדה מוסתר ולא ניתן לגשת אליו",
+      "fieldTypeNotLinkField": "השדה אינו שדה קישור",
+      "fieldIdRequired": "נדרש מזהה שדה",
+      "fieldNotUserRelatedField": "השדה אינו שדה מסוג משתמש",
+      "viewTypeNotAllowed": "סוג התצוגה הזה אינו מורשה לפעולה הזו"
+    },
+    "shareAuth": {
+      "passwordRestrictionNotEnabled": "הגנת הסיסמה אינה מופעלת בשיתוף הזה",
+      "shareViewNotFound": "התצוגה המשותפת לא נמצאה או שהשיתוף מושבת",
+      "linkFieldNotFound": "שדה הקישור לא נמצא",
+      "loginRequired": "יש להיכנס כדי לערוך את התצוגה המשותפת הזו"
+    },
+    "baseShare": {
+      "notFound": "שיתוף הבסיס לא נמצא או שהשיתוף מושבת",
+      "alreadyExists": "כבר קיים שיתוף עבור הפריט הזה",
+      "copyNotAllowed": "השיתוף הזה אינו מאפשר העתקה"
+    },
+    "shareSocket": {
+      "viewPermissionNotAllowed": "אין הרשאה לגשת לתצוגה הזו",
+      "fieldPermissionNotAllowed": "אין הרשאה לגשת לשדות האלה",
+      "recordPermissionNotAllowed": "אין הרשאה לגשת לרשומות האלה"
+    },
+    "pluginContextMenu": {
+      "notFound": "תפריט ההקשר של התוסף לא נמצא",
+      "anchorNotFound": "עוגן תפריט ההקשר של התוסף לא נמצא"
+    },
+    "pluginChart": {
+      "queryNotFound": "שאילתת התרשים של התוסף לא נמצאה"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "מנהל ההתקן של מסד הנתונים אינו נתמך: {{driver}}",
+      "onlyOwnerCanRemove": "רק הבעלים של הבסיס יכולים להסיר את החיבור למסד הנתונים של הבסיס {{baseId}}",
+      "onlyOwnerCanCreate": "רק הבעלים של הבסיס יכולים ליצור חיבור למסד הנתונים של הבסיס {{baseId}}",
+      "roleNotExist": "התפקיד {{role}} אינו קיים במסד הנתונים"
+    },
+    "baseQuery": {
+      "queryFailed": "השאילתה נכשלה: {{message}}",
+      "invalidJoinType": "סוג הצירוף אינו חוקי: {{joinType}}",
+      "tableNotFound": "הטבלה {{tableId}} לא נמצאה בבסיס {{baseId}}"
+    },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "לא ניתן להריץ SQL שמכיל את מילת המפתח {{keyword}}",
+      "whiteListCheckError": "אירעה שגיאה בבדיקת הגישה לטבלה: {{message}}",
+      "databaseConnectionFailed": "החיבור למסד הנתונים נכשל: {{message}}",
+      "executeQuerySqlFailed": "הרצת שאילתת ה-SQL נכשלה: {{message}}",
+      "readOnlyCheckFailed": "בדיקת הקריאה בלבד נכשלה: {{message}}",
+      "sqlSyntaxError": "שגיאת תחביר ב-SQL, יש לבדוק את השאילתה"
+    },
+    "permission": {
+      "createRecordWithDeniedFields": "אין הרשאה ליצור רשומה עם השדות({{fields}})",
+      "deleteRecords": "אין הרשאה למחוק את הרשומות({{recordIds}})",
+      "readRecordWithDeniedFields": "אין הרשאה לקרוא את השדות({{fields}}) ברשומה({{recordId}})",
+      "updateRecordWithDeniedFields": "אין הרשאה לעדכן את השדות({{fields}}) ברשומה({{recordId}})",
+      "checkIdNotExist": "מזהה בדיקת ההרשאות אינו קיים",
+      "userNotAdmin": "המשתמש אינו מנהל",
+      "accessTokenNoPermission": "לאסימון הגישה אין את ההרשאה הנדרשת",
+      "invalidResource": "המשאב אינו חוקי",
+      "notAllowedSpace": "אין הרשאה לגשת למרחב הזה",
+      "notAllowedBase": "אין הרשאה לגשת לבסיס הזה",
+      "notAllowedTables": "אין הרשאה לגשת לטבלאות({{tableIds}})",
+      "notAllowedOperationTable": "אין הרשאה לבצע פעולות בטבלה הזו",
+      "notAllowedOperationRecord": "אין הרשאה לבצע פעולות ברשומה הזו",
+      "notAllowedRecordUpdate": "אין הרשאה לעדכן את הרשומה הזו",
+      "notAllowedOperationView": "אין הרשאה לבצע פעולות בתצוגה הזו",
+      "deniedByEnabledAuthorityMatrix": "הגישה נדחתה על ידי מטריצת ההרשאות המופעלת",
+      "invalidRequestPath": "נתיב הבקשה אינו חוקי",
+      "notAllowedOperation": "אין הרשאה לבצע את הפעולה הזו",
+      "notAllowedDepartment": "אין הרשאה לגשת למחלקה הזו",
+      "templateHeaderInvalid": "כותרת התבנית אינה חוקית"
+    },
+    "authorityMatrix": {
+      "defaultRoleNotFound": "תפקיד ברירת המחדל לא נמצא",
+      "alreadyDisabled": "מטריצת ההרשאות כבר מושבתת",
+      "alreadyEnabled": "מטריצת ההרשאות כבר מופעלת",
+      "notFound": "מטריצת ההרשאות לא נמצאה",
+      "primaryFieldCannotBeDisabledForRead": "לא ניתן להשבית גישת קריאה לשדה הראשי",
+      "fieldDuplicated": "השדה מופיע יותר מפעם אחת בתצורת ההרשאות",
+      "cannotSetRecordPermissionGroup": "לא ניתן להגדיר שילוב זה של הרשאות רשומה({{actions}})",
+      "notFoundBaseAndTable": "מזהה הבסיס ומזהה הטבלה לא נמצאו",
+      "roleTablesShouldNotBeEmpty": "טבלאות התפקיד במטריצת ההרשאות אינן יכולות להיות ריקות"
+    },
+    "selection": {
+      "invalidReturnType": "סוג הערך המוחזר אינו חוקי",
+      "exceedMaxReadRows": "חריגה ממגבלת השורות המרבית לקריאה",
+      "invalidCellValueType": "סוג ערך התא אינו חוקי",
+      "exceedMaxCopyCells": "חריגה ממגבלת התאים המרבית להעתקה",
+      "exceedMaxPasteCells": "חריגה ממגבלת התאים המרבית להדבקה"
+    },
+    "field": {
+      "unsupportedFieldType": "סוג השדה {{type}} אינו נתמך",
+      "unsupportedPrimaryFieldType": "סוג השדה {{type}} אינו נתמך כשדה ראשי",
+      "primaryFieldNotSupported": "סוג השדה אינו נתמך כשדה ראשי",
+      "calculateRecordNotFound": "לא נמצאה רשומה עבור: {{value}}, fieldId: {{fieldId}}, בעת חישוב {{recordId}}",
+      "toRecordIdsOrFromRecordIdsRequired": "עבור שדה מחושב רגיל נדרש toRecordIds או fromRecordIds",
+      "recordFieldsRequired": "שדות הרשומה אינם מוגדרים",
+      "uniqueUnsupportedType": "השדה {{name}}[{{fieldId}}] אינו תומך באימות ייחודיות של ערכים",
+      "notNullValidationWhenCreateField": "השדה {{name}}[{{fieldId}}] אינו תומך באימות \"לא ריק\" בעת יצירת שדה חדש",
+      "dbFieldNameAlreadyExists": "שם השדה במסד הנתונים {{dbFieldName}} כבר קיים",
+      "fieldValidationError": "שגיאת אימות בשדה {{name}}[{{fieldId}}]",
+      "fieldNameAlreadyExists": "שם השדה {{name}} כבר קיים",
+      "notFound": "השדה לא נמצא",
+      "fieldKeyTypeNotFound": "השדה \"{{fieldKeyType}}: {{missedFields}}\" לא נמצא",
+      "notFoundInTable": "השדה {{fieldId}} לא נמצא בטבלה {{tableId}}",
+      "deleteFieldsNotFound": "השדות למחיקה {{fieldIds}} לא נמצאו בטבלה {{tableId}}",
+      "lookupValuesShouldBeArray": "כאשר שדה הקישור מכיל ערכים מרובים, lookupValues חייב להיות מערך",
+      "linkCellValuesShouldBeArray": "כאשר שדה הקישור מכיל ערכים מרובים, linkCellValues חייב להיות מערך",
+      "lookupAndLinkLengthMatch": "אורך lookupValues חייב להיות זהה לאורך linkCellValues",
+      "cycleDetected": "זוהתה תלות מעגלית",
+      "cycleDetectedCreateField": "זוהתה תלות מעגלית, לא ניתן ליצור את השדה {{name}}[{{id}}]",
+      "recordMapNotFound": "לא נמצאה רשומה בטבלה {{tableName}} עבור השדה {{fieldName}}",
+      "forbidDeletePrimaryField": "לא ניתן למחוק את השדה הראשי",
+      "foreignTableIdInvalid": "הטבלה המקושרת {{foreignTableId}} אינה חוקית",
+      "crossSpaceLinkForbidden": "הפניות בין מרחבים אינן נתמכות. יש לבחור טבלה באותו מרחב (היעד {{foreignTableId}} נמצא במרחב אחר).",
+      "relationshipInvalid": "סוג הקשר {{relationship}} אינו חוקי",
+      "linkFieldIdInvalid": "שדה הקישור {{linkFieldId}} אינו חוקי",
+      "lookupFieldIdInvalid": "שדה השליפה {{lookupFieldId}} אינו חוקי",
+      "formulaExpressionParseError": "שגיאה בניתוח ביטוי הנוסחה",
+      "formulaReferenceNotFound": "שדה ההפניה בנוסחה {{fieldIds}} לא נמצא",
+      "formulaReferenceNotFieldId": "ההפניות בנוסחה {{fieldIds}} לא נמצאו. נוסחאות חייבות להשתמש במזהי שדות (בתבנית fldXXXXXXXXXXXXXXXX) ולא בשמות שדות.",
+      "rollupExpressionParseError": "שגיאה בניתוח ביטוי הצבירה",
+      "choiceNameAlreadyExists": "שם האפשרות {{name}} כבר קיים",
+      "symmetricFieldIdRequired": "נדרש מזהה שדה סימטרי",
+      "foreignKeyNameCannotUseId": "שם המפתח הזר אינו יכול להיות __id",
+      "createForeignKeyError": "יצירת המפתח הזר נכשלה",
+      "lookupFieldTypeNotEqual": "סוג השדה הנוכחי {{fieldType}} אינו זהה לסוג שדה השליפה {{lookupFieldType}}",
+      "recordNotFound": "הרשומה {{recordId}} לא נמצאה ב-{{tableId}}",
+      "linkCellRecordIdAlreadyExists": "לא ניתן להגדיר recordId כפול: {{recordId}} באותו תא",
+      "linkConsistencyError": "שגיאת עקביות, מזהה הרשומה {{recordId}} אינו קיים",
+      "oneOneLinkCellValueCannotBeArray": "ערכים של שדה קישור אחד-לאחד אינם יכולים להיות מערך",
+      "manyOneLinkCellValueCannotBeArray": "ערכים של שדה קישור רבים-לאחד אינם יכולים להיות מערך",
+      "oneManyLinkCellValueShouldBeArray": "ערכים של שדה קישור אחד-לרבים חייבים להיות מערך",
+      "manyManyLinkCellValueShouldBeArray": "ערכים של שדה קישור רבים-לרבים חייבים להיות מערך",
+      "foreignKeyDuplicate": "מפתח זר כפול",
+      "onlyLinkFieldCanBeFiltered": "רק שדות קישור ניתנים לסינון",
+      "notLinkedToCurrentTable": "השדה אינו מקושר לטבלה הנוכחית",
+      "notAttachment": "השדה אינו שדה קובץ מצורף",
+      "isComputed": "השדה מחושב ולא ניתן לשנות אותו",
+      "notFoundAICofig": "לשדה אין תצורת AI",
+      "foreignTableIdRequired": "נדרשת טבלה מקושרת",
+      "lookupFieldIdRequired": "נדרש שדה שליפה",
+      "lookupFieldNotExist": "שדה השליפה {{lookupFieldId}} אינו קיים",
+      "lookupFieldNotBelongToTable": "שדה השליפה {{lookupFieldId}} אינו שייך לטבלה {{foreignTableId}}",
+      "lookupFieldTypeNotMatch": "סוג השדה הנוכחי {{fieldType}} אינו תואם לסוג שדה השליפה {{lookupFieldType}}",
+      "conditionalRollupOptionsRequired": "נדרשות הגדרות עבור שדה צבירה מותנית",
+      "conditionalRollupParseError": "שגיאה בניתוח צבירה מותנית: {{message}}",
+      "conditionalLookupOptionsRequired": "נדרשות הגדרות עבור שדה שליפה מותנית",
+      "button": {
+        "clickCountReachedMaxCount": "מספר הלחיצות על הכפתור הגיע למגבלה המרבית",
+        "notSupportReset": "שדה כפתור אינו תומך באיפוס"
+      },
+      "primaryCannotBeLookup": "לא ניתן להגדיר את השדה הראשי כשדה שליפה",
+      "primaryFieldAlreadyExists": "לטבלה כבר יש שדה ראשי"
+    },
+    "view": {
+      "notFound": "התצוגה לא נמצאה",
+      "cannotDeleteLastView": "לא ניתן למחוק את התצוגה האחרונה בטבלה. לכל טבלה חייבת להיות לפחות תצוגה אחת.",
+      "defaultViewNotFound": "תצוגת ברירת המחדל לא נמצאה",
+      "propertyParseError": "ניתוח מאפיין התצוגה נכשל",
+      "primaryFieldCannotBeHidden": "לא ניתן להסתיר את השדה הראשי",
+      "filterUnsupportedFieldType": "סוג השדה אינו נתמך בסינון",
+      "filterInvalidOperator": "אופרטור הסינון אינו חוקי עבור סוג שדה זה",
+      "filterInvalidOperatorMode": "שילוב האופרטור והמצב במסנן אינו חוקי",
+      "sortUnsupportedFieldType": "סוג השדה אינו נתמך במיון",
+      "groupUnsupportedFieldType": "סוג השדה אינו נתמך בקיבוץ",
+      "anchorNotFound": "תצוגת העוגן לא נמצאה",
+      "notEnoughGapToShuffleRow": "אין מספיק מרווח לסידור מחדש של השורה",
+      "shareNotEnabled": "שיתוף התצוגה אינו מופעל",
+      "shareAlreadyEnabled": "שיתוף התצוגה כבר מופעל",
+      "shareAlreadyDisabled": "שיתוף התצוגה כבר מושבת"
+    },
+    "billing": {
+      "insufficientCredit": "אין מספיק קרדיטים",
+      "upgradeRequired": "התכונה הזו אינה זמינה בתוכנית הנוכחית. יש לשדרג את התוכנית כדי להשתמש בה.",
+      "exceedMaxRowLimit": "חריגה ממגבלת השורות המרבית {{maxRowCount}}",
+      "exceedMaxAttachmentSizeLimit": "אחסון הקבצים המצורפים הגיע למגבלת התוכנית. יש לשדרג את התוכנית או להסיר חלק מהקבצים המצורפים.",
+      "exceedMaxSystemEmailLimit": "שליחת האימיילים החודשית הגיעה למגבלת התוכנית. יש לשדרג את התוכנית.",
+      "exceedMaxAutomationRunLimit": "חריגה ממגבלת ההרצות המרבית של האוטומציות",
+      "manualSubscriptionNotSupported": "ניהול מנוי עצמאי אינו זמין במרחב הזה. לשדרוג, להורדת דרגה או לשינויים אחרים במנוי, יש לפנות לתמיכה של Teable.",
+      "appSumoSubscriptionNotSupported": "לא ניתן לשנות מנויי AppSumo דרך הממשק הזה. יש לנהל את המנוי ב-AppSumo.",
+      "customerNotFound": "לא נמצאה רשומת לקוח לחיוב עבור המרחב הזה."
+    },
+    "aggregation": {
+      "searchQueryRequired": "נדרשת מחרוזת חיפוש",
+      "maxSearchIndexResult": "המספר המרבי של תוצאות באינדקס החיפוש הוא 1000",
+      "queryCollectionMustBeTableId": "אוסף השאילתה חייב להיות מזהה טבלה",
+      "searchTimeOut": "פג הזמן הקצוב לחיפוש, יש לצמצם את טווח החיפוש ולנסות שוב",
+      "indexNotFound": "האינדקס לא נמצא",
+      "invalidStartDateFieldId": "מזהה שדה תאריך ההתחלה אינו חוקי",
+      "invalidEndDateFieldId": "מזהה שדה תאריך הסיום אינו חוקי",
+      "fieldMapRequired": "כאשר מוגדר חיפוש, נדרשת מפת שדות",
+      "filterLinkCellQueryConflict": "לא ניתן להגדיר את filterLinkCellSelected ואת filterLinkCellCandidate בו-זמנית"
+    },
+    "ai": {
+      "chatModelLgNotSet": "מודל צ'אט ה-AI מסוג lg אינו מוגדר",
+      "chatModelLgProviderNotSet": "ספק מודל צ'אט ה-AI מסוג lg אינו מוגדר",
+      "chatModelSmNotSet": "מודל צ'אט ה-AI מסוג sm אינו מוגדר",
+      "chatModelMdNotSet": "מודל צ'אט ה-AI מסוג md אינו מוגדר",
+      "configurationNotSet": "תצורת ה-AI אינה מוגדרת",
+      "unsupportedProvider": "ספק ה-AI {{type}} אינו נתמך",
+      "providerConfigurationNotSet": "תצורת ספק ה-AI אינה מוגדרת",
+      "gatewayApiKeyNotSet": "מפתח ה-API של AI Gateway אינו מוגדר",
+      "testLLMFailed": "בדיקת החיבור ל-LLM נכשלה",
+      "audioNotSupported": "קלט אודיו אינו נתמך במודל {{model}}",
+      "imageNotSupported": "קלט תמונה אינו נתמך במודל {{model}}",
+      "modelNotSet": "מודל ה-AI אינו מוגדר",
+      "unsupportedFileType": "סוג הקובץ {{mimetype}} אינו נתמך",
+      "attachmentDownloadFailed": "הורדת הקובץ המצורף נכשלה: {{reason}}",
+      "unsupportedModelType": "סוג המודל אינו נתמך",
+      "embeddingModelNotSet": "מודל ה-embedding אינו מוגדר",
+      "validateActionFailed": "אימות פעולת ה-AI של השדה נכשל",
+      "generateFailed": "ההפקה באמצעות AI נכשלה",
+      "unsupportedActionType": "סוג פעולת ה-AI אינו נתמך",
+      "geminiImageNotSupportedViaGateway": "הפקת תמונות ב-Gemini אינה נתמכת דרך AI Gateway. יש להגדיר במקום זאת ספק Google ישיר."
+    },
+    "skill": {
+      "notFound": "המיומנות לא נמצאה",
+      "onlyGithubCanSync": "רק מיומנויות שמקורן ב-GitHub ניתנות לסנכרון",
+      "syncFailed": "הסנכרון נכשל: {{errorCode}}",
+      "skillMdNotFoundAtSource": "הקובץ SKILL.md לא נמצא במיקום המקור",
+      "slugChangedUpstream": "ה-slug של המיומנות שונה במקור מ-\"{{oldSlug}}\" ל-\"{{newSlug}}\". יש למחוק ולייבא מחדש כדי לאמץ את ה-slug החדש.",
+      "skillMdNotFoundAtPath": "הקובץ SKILL.md לא נמצא בנתיב {{path}}/SKILL.md",
+      "invalidSkillFile": "קובץ מיומנות לא חוקי. נדרש ארכיון מסוג .skill או .zip",
+      "tooManyResourceFiles": "המיומנות מכילה יותר מדי קבצים (מקסימום {{max}})",
+      "noSkillMdInPackage": "לא נמצא קובץ SKILL.md בחבילת המיומנות",
+      "multipleSkillMdInPackage": "נמצאו {{count}} קבצי SKILL.md באותה רמה. החבילה צריכה להכיל מיומנות אחת בלבד.",
+      "invalidResourcePaths": "נתיבי משאבים לא חוקיים: {{paths}}",
+      "nameFieldRequired": "הקובץ SKILL.md חייב לכלול שדה \"name\" ב-frontmatter",
+      "invalidSlugFormat": "ה-slug של המיומנות חייב לכלול אותיות לטיניות קטנות, ספרות ומקפים בלבד",
+      "filesExceedSizeLimit": "קבצים חורגים ממגבלת {{maxSizeKB}}KB: {{files}}",
+      "binaryFilesNotAllowed": "קבצים בינאריים אינם מותרים: {{files}}",
+      "totalSizeExceedsLimit": "הגודל הכולל של המשאבים חורג ממגבלת {{maxSizeMB}}MB",
+      "invalidGithubUrl": "כתובת GitHub לא חוקית. הפורמט הנדרש: https://github.com/owner/repo/tree/<branch>/path/to/skill",
+      "directoryTooDeep": "תיקיית המיומנות חורגת מהעומק המרבי של {{maxDepth}} רמות. תיקיות מקוננות: {{dirs}}",
+      "importFailed": "הייבוא נכשל: {{errorCode}}",
+      "alreadyInScope": "המיומנות כבר נמצאת בהיקף היעד"
+    },
+    "sandbox": {
+      "fileNotFound": "הקובץ לא נמצא ב-sandbox",
+      "onlyRegularFiles": "ניתן להוריד קבצים רגילים בלבד",
+      "fileTooLarge": "הקובץ גדול מדי להורדה (מקסימום {{max}} בתים)",
+      "cannotDeleteRoot": "לא ניתן למחוק את תיקיית השורש uploads/outputs",
+      "deleteFailed": "מחיקת הקבצים נכשלה",
+      "uploadFailed": "העלאת הקובץ ל-sandbox נכשלה",
+      "fileEndpointUnavailable": "ה-sandbox אינו חושף endpoint זמין לקבצים",
+      "invalidPath": "נתיב קובץ לא חוקי: הנתיב חייב להיות בתוך תיקיית uploads או outputs של ה-sandbox",
+      "tooManyDownloads": "יותר מדי בקשות הורדה",
+      "dailyLimitExceeded": "חריגה ממגבלת נפח ההורדות היומית",
+      "storageFull": "אחסון ה-sandbox מלא",
+      "tooManyFiles": "מותרים לכל היותר {{max}} קבצים בהודעה אחת",
+      "noActiveSandbox": "לא נמצא sandbox פעיל"
+    },
+    "role": {
+      "notFound": "התפקיד לא נמצא"
+    },
+    "collaborator": {
+      "alreadyExisted": "משתף הפעולה כבר קיים",
+      "notFound": "משתף הפעולה לא נמצא",
+      "userNotFoundInCollaborator": "המשתמש לא נמצא ברשימת משתפי הפעולה",
+      "noPermissionToDelete": "אין הרשאה למחוק את משתף הפעולה הזה",
+      "noPermissionToUpdate": "אין הרשאה לעדכן את משתף הפעולה הזה",
+      "noPermissionToOperateRole": "אין הרשאה לבצע פעולות על התפקיד הזה",
+      "alreadyExistedInBase": "משתף הפעולה כבר קיים בבסיס",
+      "userNotFound": "המשתמש לא נמצא: {{userIds}}",
+      "baseNotFound": "הבסיס לא נמצא",
+      "noPermissionToAddRole": "אין הרשאה להוסיף משתף פעולה בתפקיד הזה",
+      "departmentNotFound": "המחלקה לא נמצאה"
+    },
+    "table": {
+      "notFound": "הטבלה לא נמצאה",
+      "dbTableNameAlreadyExists": "שם הטבלה במסד הנתונים כבר קיים",
+      "anchorNotFound": "טבלת העוגן לא נמצאה",
+      "notInTrash": "הטבלה אינה באשפה",
+      "notSupportTableIndex": "סוג האינדקס של הטבלה אינו נתמך",
+      "createTableIndexError": "יצירת האינדקס לטבלה נכשלה",
+      "dropTableIndexError": "מחיקת האינדקס של הטבלה נכשלה",
+      "notFoundPrimaryField": "לא נמצא שדה ראשי בטבלה"
+    },
+    "export": {
+      "notSupportViewType": "סוג התצוגה {{viewType}} אינו נתמך לייצוא"
+    },
+    "import": {
+      "notSupportedFileFormat": "פורמט הקובץ אינו נתמך, נתמכים רק {{supportType}}, וסוג התוכן של הקובץ הוא {{fileFormat}}",
+      "notSupportedFileType": "סוג הקובץ לייבוא אינו נתמך",
+      "exceedMaxFieldsLength": "מספר השדות בטבלה אינו יכול לעלות על {{maxFieldsLength}}, וכעת יש {{length}}",
+      "tooManyConcurrentImports": "יותר מדי משימות ייבוא פעילות ({{current}}/{{max}}). יש לנסות שוב מאוחר יותר."
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "מנהל המערכת חסם הזמנות למרחבים במופע הנוכחי",
+      "invalidCode": "קוד ההזמנה אינו חוקי",
+      "linkNotFound": "קישור ההזמנה לא נמצא",
+      "linkExpired": "תוקף קישור ההזמנה פג",
+      "limitExceeded": "חריגה ממספר ההזמנות המרבי לשעה"
+    },
+    "pin": {
+      "alreadyExists": "ההצמדה כבר קיימת",
+      "notFound": "ההצמדה לא נמצאה",
+      "anchorNotFound": "עוגן ההצמדה לא נמצא"
+    },
+    "trash": {
+      "invalidResourceType": "סוג המשאב אינו חוקי",
+      "notFound": "הפריט לא נמצא באשפה",
+      "parentSpaceTrashed": "לא ניתן לשחזר את הבסיס הזה מכיוון שגם המרחב שמכיל אותו נמצא באשפה",
+      "parentBaseOrSpaceTrashed": "לא ניתן לשחזר את הטבלה הזו מכיוון שגם הבסיס או המרחב שמכיל אותה נמצא באשפה",
+      "parentBaseTrashed": "לא ניתן לשחזר את הפריט הזה מכיוון שגם הבסיס שמכיל אותו נמצא באשפה",
+      "parentNotFound": "משאב האב לא נמצא",
+      "tableNotFound": "פריט הטבלה לא נמצא באשפה"
+    },
+    "license": {
+      "invalid": "הרישיון אינו חוקי",
+      "instanceIdMismatch": "ה-instanceId שהתקבל אינו תואם ל-instanceId של המופע הנוכחי",
+      "expired": "תוקף הרישיון פג",
+      "userLimitExceeded": "מספר המשתמשים במופע הנוכחי חורג ממגבלת המושבים של הרישיון. יש להשבית חלק מהמשתמשים או לשדרג את הרישיון"
+    },
+    "domainVerification": {
+      "notFound": "לא נמצא קוד אימות לדומיין",
+      "invalidCode": "קוד האימות אינו חוקי",
+      "resendCooldown": "יש להמתין דקה אחת לפני בקשת קוד חדש",
+      "alreadyVerified": "הדומיין כבר אומת"
+    },
+    "organization": {
+      "notFound": "הארגון לא נמצא",
+      "authenticationNotFound": "הגדרת האימות לא נמצאה",
+      "spaceShouldExist": "חייב להתקיים מרחב עבור הארגון",
+      "emailsNotInOrgDomain": "כתובות האימייל {{emails}} אינן שייכות לדומיין של הארגון",
+      "emailNotSpaceUser": "כתובת האימייל אינה שייכת למשתמש במרחב"
+    },
+    "mail": {
+      "failedToSendEmail": "שליחת האימייל נכשלה"
+    },
+    "user": {
+      "disallowSignUp": "מנהל המערכת חסם הרשמה במופע הנוכחי",
+      "emailDomainBanned": "דומיין האימייל הזה נחסם עקב הפרות מדיניות",
+      "waitlistInviteCodeRequired": "רשימת ההמתנה פעילה, ולכן נדרש קוד הזמנה",
+      "waitlistInviteCodeInvalid": "רשימת ההמתנה פעילה, וקוד ההזמנה אינו חוקי",
+      "systemUser": "המשתמש הוא משתמש מערכת",
+      "collaboratorsInSpaces": "למשתמש יש שיתופי פעולה במרחבים (או במרחבים שנמחקו ונמצאים באשפה)",
+      "notFound": "המשתמש לא נמצא",
+      "cannotDeleteAdmin": "לא ניתן למחוק משתמש מנהל",
+      "cannotDeactivateAdmin": "לא ניתן להשבית משתמש מנהל",
+      "cannotRemoveLastAdmin": "לא ניתן להסיר הרשאות ניהול ממשתמש המנהל הפעיל האחרון",
+      "permanentDeleted": "המשתמש נמחק לצמיתות",
+      "cannotDeleteSelf": "לא ניתן למחוק את החשבון שלך",
+      "alreadyInDepartment": "המשתמש {{userId}} כבר נמצא במחלקת היעד",
+      "emailsNotFound": "כתובות האימייל {{emails}} לא נמצאו",
+      "deleted": "המשתמש {{userId}} נמחק",
+      "alreadyInOrg": "המשתמש {{userId}} כבר נמצא בארגון",
+      "notInOrg": "המשתמש {{userId}} אינו נמצא בארגון"
+    },
+    "record": {
+      "notFound": "הרשומה לא נמצאה",
+      "deletedIdsNotFound": "חלק מהרשומות המיועדות למחיקה לא נמצאו",
+      "updateFailed": "עדכון הרשומה נכשל",
+      "noFileOrUrlProvided": "לא סופק קובץ או URL",
+      "createRecordsEmpty": "רשימת הרשומות ליצירה אינה יכולה להיות ריקה",
+      "duplicateFailed": "שכפול הרשומה נכשל"
+    },
+    "typecast": {
+      "cellValueValidationFailed": "אימות ערך התא נכשל"
+    },
+    "workflow": {
+      "notActive": "האוטומציה אינה פעילה"
+    },
+    "lastVisit": {
+      "invalidResourceType": "סוג המשאב אינו חוקי"
+    },
+    "template": {
+      "categoryNotFound": "קטגוריית התבניות לא נמצאה",
+      "snapshotRequired": "לא ניתן לפרסם את התבנית מכיוון שחסרה לה תמונת מצב",
+      "sourceTemplateNotFound": "תבנית המקור לא נמצאה",
+      "noMinOrderFound": "לא נמצא ערך סדר מינימלי",
+      "takeCountTooLarge": "מספר התבניות המבוקש חורג מהמגבלה המרבית",
+      "categoryLimitReached": "הושגה מגבלת קטגוריות התבניות (מקסימום {{maxCount}})"
+    },
+    "department": {
+      "parentNotFound": "מחלקת האב לא נמצאה",
+      "notFound": "המחלקה לא נמצאה",
+      "cannotMoveToItself": "לא ניתן להעביר מחלקה אל עצמה",
+      "cannotMoveToSub": "לא ניתן להעביר מחלקה אל מחלקת המשנה שלה"
+    },
+    "app": {
+      "notFound": "האפליקציה לא נמצאה",
+      "noFilesToUpdate": "אין קבצים לעדכון",
+      "noChatIdFound": "לא נמצא מזהה צ'אט עבור האפליקציה הזו",
+      "noChatFound": "לא נמצא צ'אט עבור האפליקציה הזו",
+      "versionNotFound": "הגרסה לא נמצאה",
+      "cannotRollbackToLatestVersion": "לא ניתן לחזור לגרסה האחרונה",
+      "noChatOrProjectTokenFound": "לא נמצא צ'אט או אסימון פרויקט",
+      "apiKeyNotSet": "מפתח ה-API של בונה האפליקציות אינו מוגדר",
+      "cannotDeployAppBeforeInitialization": "לא ניתן לפרוס את האפליקציה לפני האתחול",
+      "noProjectOrVersionFound": "לא נמצא פרויקט או גרסה",
+      "noDeploymentUrlAvailable": "אין URL זמין לפריסה",
+      "noFilesInZip": "לא נמצאו קבצים בקובץ ה-ZIP",
+      "zipFileTooLarge": "גודל קובץ ה-ZIP חורג ממגבלת 5MB",
+      "invalidZip": "קובץ ZIP לא חוקי",
+      "domainAlreadyInUse": "הדומיין הזה כבר משויך לאפליקציה אחרת",
+      "domainReserved": "תת-הדומיין שמור",
+      "siteInfoBeforeGeneration": "יש ליצור את האפליקציה לפני התאמת פרטי האתר שלה",
+      "generationEditingConflict": "הפקה באמצעות AI עורכת כעת את האפליקציה הזו. יש לנסות שוב את עדכון הקובץ לאחר שהיא תסתיים.",
+      "siteInfoLayoutNotEditable": "הקוד של האפליקציה הזו אינו בנוי לקבל עריכות של פרטי האתר כאן. במקום זאת יש לשלוח הודעה בצ'אט ולבקש מה-AI לשנות את כותרת האתר, התיאור או הסמל.",
+      "siteInfoManagedInCode": "האפליקציה הזו מנהלת את כותרת האתר והתיאור בקוד. במקום זאת יש לשלוח הודעה בצ'אט ולבקש מה-AI לשנות אותם."
+    },
+    "reward": {
+      "notFound": "התגמול לא נמצא",
+      "unsupportedSourceType": "סוג מקור התגמול אינו נתמך",
+      "maxClaimsReached": "מכסת התגמולים לשבוע הזה (2) נוצלה במלואה",
+      "verificationFailed": "האימות נכשל: {{errors}}",
+      "alreadyClaimedThisWeek": "כבר נדרש תגמול עבור החשבון הזה השבוע",
+      "invalidPostUrl": "פורמט כתובת הפוסט אינו חוקי",
+      "postAlreadyUsed": "הפוסט הזה כבר שימש לדרישת תגמול",
+      "tooManyFailedAttempts": "יותר מדי ניסיונות אימות כושלים השבוע",
+      "unsupportedPlatformUrl": "כתובת של רשת חברתית שאינה נתמכת",
+      "unsupportedPlatform": "פלטפורמה לא נתמכת: {{platform}}",
+      "minCharCount": "הפוסט חייב לכלול לפחות {{count}} תווים",
+      "minFollowerCount": "לחשבון חייבים להיות לפחות {{count}} עוקבים",
+      "mustMention": "הפוסט חייב לאזכר את {{mention}}",
+      "fetchTweetFailed": "שליפת הציוץ מ-X נכשלה: {{error}}",
+      "tweetNotFound": "הציוץ ב-X לא נמצא: {{postId}}",
+      "fetchUserFailed": "שליפת המשתמש מ-X נכשלה: {{error}}",
+      "xUserNotFound": "המשתמש ב-X לא נמצא: {{username}}",
+      "fetchLinkedInPostFailed": "שליפת הפוסט מ-LinkedIn נכשלה: {{error}}",
+      "linkedInPostNotFound": "הפוסט ב-LinkedIn לא נמצא: {{postId}}",
+      "linkedInAuthorNotFound": "מחבר הפוסט ב-LinkedIn לא נמצא: {{postId}}",
+      "fetchLinkedInUserFailed": "שליפת המשתמש מ-LinkedIn נכשלה: {{error}}"
+    }
+  },
+  "usageLimitBanner": {
+    "viewDetail": "הצגת פרטים",
+    "rows": {
+      "title": "המרחב הזה משתמש ב-{{current}} שורות, מעבר למגבלת התוכנית שלך שהיא {{limit}}",
+      "titleIncrement": "הפעולה הזו מוסיפה {{increment}} שורות, מעבר למגבלת התוכנית שלך שהיא {{limit}}",
+      "titleBatch": "הפעולה הזו תחרוג ממגבלת התוכנית שלך של {{limit}} שורות",
+      "description": "לא ניתן להוסיף רשומות נוספות. שדרוג יסיר את המגבלה מיד, ואפשר גם לפנות מקום על ידי מחיקת רשומות.",
+      "unit": "שורות"
+    },
+    "credit": {
+      "unit": "קרדיטים"
+    },
+    "attachments": {
+      "unit": "קבצים מצורפים"
+    },
+    "generic": {
+      "description": "שדרוג התוכנית יסיר את המגבלה הזו."
+    }
+  }
+}

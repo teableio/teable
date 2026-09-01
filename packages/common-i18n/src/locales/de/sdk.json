@@ -3,6 +3,7 @@
     "empty": "Leer",
     "noRecords": "Keine Datensätze verfügbar",
     "unnamedRecord": "Unbenannter Datensatz",
+    "recordDeleted": "Datensatz gelöscht",
     "untitled": "Unbenannt",
     "cancel": "Abbrechen",
     "confirm": "Bestätigen",
@@ -32,14 +33,23 @@
     "resetSuccess": "Erfolgreich zurückgesetzt",
     "click": "Klicken",
     "clickedCount": "{{label}}: Klickt {{text}} mal",
-    "atLeastOne": "Reservieren Sie zumindest ein {{noun}}"
+    "atLeastOne": "Reservieren Sie zumindest ein {{noun}}",
+    "close": "Schließen",
+    "selectField": "Feld auswählen"
   },
   "notification": {
     "title": "Benachrichtigung"
   },
+  "aiError": {
+    "title": "KI-Generierung fehlgeschlagen",
+    "retry": "Erneut versuchen",
+    "dismiss": "Schließen"
+  },
   "preview": {
     "previewFileLimit": "Größenbeschränkung der Vorschaudatei: {{size}}MB, bitte laden Sie die Datei herunter, um sie anzusehen.",
-    "loadFileError": "Datei konnte nicht geladen werden"
+    "loadFileError": "Datei konnte nicht geladen werden",
+    "previousAttachment": "Vorherige",
+    "nextAttachment": "Nächste"
   },
   "undoRedo": {
     "undo": "Rückgängig machen",
@@ -59,11 +69,21 @@
       "uploadBaseTextPrefix": "Click to upload ",
       "uploadBaseText": "or paste or drag and drop here",
       "uploadDragDefault": "Einfügen oder Ziehen und Ablegen zum Hochladen",
-      "upload": "Hochladen"
+      "upload": "Hochladen",
+      "downloadAll": "Alle herunterladen",
+      "downloadSuccess": "Download abgeschlossen",
+      "downloadFailed": "Download fehlgeschlagen",
+      "downloadCancelled": "Download abgebrochen",
+      "requireHttps": "Der Massendownload erfordert HTTPS. Bitte greifen Sie über HTTPS oder localhost zu"
     },
     "date": {
       "placeholder": "Datum auswählen",
-      "today": "Heute"
+      "today": "Heute",
+      "rangePlaceholder": "Zeitraum wählen",
+      "rangeSelected": "Ausgewählt",
+      "invalidTimeRange": "Die Endzeit muss nach der Startzeit liegen",
+      "from": "Von",
+      "to": "Bis"
     },
     "formula": {
       "title": "Formeleditor",
@@ -140,13 +160,13 @@
   "filter": {
     "label": "Filter",
     "displayLabel": "Filtern nach ",
+    "displayLabel_one": "Filtern nach {{fieldName}} und {{count}} anderen Feldern",
     "displayLabel_other": "Filtern nach {{fieldName}} und {{count}} anderen Feldern",
     "addCondition": "Bedingung hinzufügen",
     "addConditionGroup": "Bedingungsgruppe hinzufügen",
     "nestedLimitTip": "Filterbedingungen können nur {{depth}} Ebenen tief verschachtelt werden",
     "linkInputPlaceholder": "Wert eingeben",
     "currentUser": "Ich (aktueller Benutzer)",
-    "tips": {},
     "invalidateSelected": "Unzulässiger Wert",
     "invalidateSelectedTips": "Der ausgewählte Wert wurde gelöscht, bitte wählen Sie erneut",
     "invalidConditionTip": "Diese Filterbedingung ist ungültig und wird ignoriert. Bitte passen Sie den Wert an.",
@@ -210,6 +230,7 @@
         "exactDate": "exaktes Datum",
         "exactDateTime": "exakter Zeitstempel",
         "exactFormatDate": "exaktes Datum (formatiert)",
+        "dateRange": "benutzerdefinierter Zeitraum",
         "currentWeek": "Aktuelle Woche",
         "currentMonth": "Aktueller Monat",
         "currentYear": "Aktuelles Jahr",
@@ -228,7 +249,11 @@
         "pastNumberOfDays": "letzte Anzahl an Tagen",
         "nextNumberOfDays": "nächste Anzahl an Tagen"
       }
-    }
+    },
+    "selectOperator": "Operator auswählen",
+    "selectConjunction": "Verknüpfung auswählen",
+    "selectDateMode": "Datumsoption auswählen",
+    "selectValue": "Wert auswählen"
   },
   "color": {
     "label": "Farbe"
@@ -244,10 +269,9 @@
     "title": "Feldname",
     "displayLines": "{{count}} Zeilen"
   },
-  "share": {},
-  "extensions": {},
   "hidden": {
     "label": "Versteckte Felder",
+    "configLabel_one": "{{count}} versteckte Felder",
     "configLabel_other": "{{count}} versteckte Felder",
     "configLabel_other_visible": "{{count}} sichtbare Felder",
     "showAll": "Alle zeigen",
@@ -257,6 +281,8 @@
   },
   "expandRecord": {
     "copy": "In die Zwischenablage kopieren",
+    "previousRecord": "Zurück",
+    "nextRecord": "Weiter",
     "duplicateRecord": "Datensatz duplizieren",
     "copyRecordUrl": "Datensatz URL kopieren",
     "deleteRecord": "Datensatz löschen",
@@ -290,14 +316,16 @@
     "addButton": "Weitere Sortierung hinzufügen",
     "autoSort": "Datensätze automatisch sortieren",
     "selectASCLabel": "erste → letzte",
-    "selectDESCLabel": "letzte → erste"
+    "selectDESCLabel": "letzte → erste",
+    "orderTitle": "Sortierreihenfolge auswählen"
   },
   "group": {
     "label": "Gruppieren",
     "displayLabel_one": "Gruppiere nach {{count}} Feld",
     "displayLabel_other": "Gruppiere nach {{count}} Feldern",
     "setTips": "Gruppieren nach",
-    "addButton": "Untergruppe hinzufügen"
+    "addButton": "Untergruppe hinzufügen",
+    "maxLimitTip": "Sie können nach maximal {{count}} Feldern gruppieren"
   },
   "field": {
     "title": {
@@ -335,7 +363,7 @@
       "date": "Daten oder Zeiten festhalten.",
       "createdTime": "Anzeigen, wann ein Datensatz erstellt wurde.",
       "lastModifiedTime": "Die zuletzt aktualisierte Zeit anzeigen.",
-      "attachment": "Dateien hochladen oder KI-generierte Bilder erstellen, unterstützt Modelle wie 🍌 Nano banana pro",
+      "attachment": "Dateien hochladen oder KI-generierte Bilder erstellen, unterstützt Modelle wie GPT Image 2",
       "checkbox": "Ein einfaches Ja oder Nein umschalten.",
       "rollup": "Verknüpfte Datensätze mit Formeln zusammenfassen.",
       "conditionalRollup": "Daten anhand von Bedingungen zusammenfassen.",
@@ -386,6 +414,8 @@
       "tableTrashRead": "Tabelle Papierkorb lesen",
       "tableTrashUpdate": "Tabelle Papierkorb akualisieren",
       "tableTrashReset": "Tabelle Papierkorb zurücksetzen",
+      "tableArchiveRead": "Tabellenarchiv lesen",
+      "tableArchiveManage": "Tabellenarchiv verwalten",
       "viewCreate": "Ansicht erstellen",
       "viewDelete": "Ansicht löschen",
       "viewRead": "Ansicht lesen",
@@ -401,6 +431,7 @@
       "recordRead": "Datensatz lesen",
       "recordUpdate": "Datensatz aktualisieren",
       "recordCopy": "Copy record",
+      "recordArchive": "Datensatz archivieren",
       "automationCreate": "Automatisierung erstellen",
       "automationDelete": "Automatisierung löschen",
       "automationRead": "Automatisierung lesen",
@@ -548,6 +579,14 @@
     "SUBSTITUTE": {
       "summary": "Ersetzt Vorkommen von alter_text durch new_text.\nSie können optional eine Indexnummer (beginnend mit 1) angeben, um nur ein bestimmtes Vorkommen von alter_text zu ersetzen. Wenn keine Indexnummer angegeben wird, werden alle Vorkommen von alter_text ersetzt.",
       "example": "SUBSTITUTE(\"Hallo Table\", \"Table\", \"Teable\") => \"Hallo Teable\""
+    },
+    "TEXTBEFORE": {
+      "summary": "Gibt den Text vor einem Trennzeichen zurück.",
+      "example": "TEXTBEFORE(\"20, 04, 79\", \",\") => \"20\""
+    },
+    "TEXTSPLIT": {
+      "summary": "Teilt Text an einem Trennzeichen und gibt mehrere Textwerte zurück.",
+      "example": "TEXTSPLIT(\"20, 04, 79\", \",\") => [\"20\", \" 04\", \" 79\"]"
     },
     "LOWER": {
       "summary": "Wandelt eine Zeichenkette in Kleinbuchstaben um.",
@@ -886,10 +925,12 @@
     "creditLimitExceeded": "Kreditlimit überschritten",
     "restrictedResource": "Eingeschränkte Ressource",
     "notFound": "Nicht gefunden",
+    "viewNotFound": "Ansicht nicht gefunden",
     "conflict": "Konflikt",
     "unprocessableEntity": "Nicht verarbeitbare Entität",
     "userLimitExceeded": "Benutzerlimit überschritten",
     "tooManyRequests": "Zu viele Anfragen",
+    "payloadTooLarge": "Nutzlast zu groß",
     "internalServerError": "Interner Serverfehler",
     "databaseConnectionUnavailable": "Datenbankverbindung nicht verfügbar",
     "gatewayTimeout": "Gateway Timeout",
@@ -926,15 +967,21 @@
       "nameMaxLength": "Der Name ist zu lang. Maximal zulässig sind {{max}} Zeichen.",
       "descriptionMaxLength": "Die Beschreibung ist zu lang. Maximal zulässig sind {{max}} Zeichen."
     },
-    "validation": {
-      "field": {
-        "unique": "Feld muss einen eindeutigen Wert haben"
-      }
-    },
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" Feld \"{{fieldName}}\" darf keine leeren Werte enthalten, bitte vollständig ausfüllen bevor Sie absenden.",
       "fieldValueDuplicate": "\"{{tableName}}\" Feld \"{{fieldName}}\" darf keine doppelten Werte enthalten, bitte einen eindeutigen Wert vor dem Absenden ausfüllen.",
+      "recordFieldValueNotNull": "Feld \"{{fieldName}}\" darf keine leeren Werte enthalten, bitte vollständig ausfüllen bevor Sie absenden.",
+      "recordFieldValueDuplicate": "Feld \"{{fieldName}}\" darf keine doppelten Werte enthalten, bitte einen eindeutigen Wert vor dem Absenden ausfüllen.",
+      "recordDeleteBlockedByRequiredLink": "Löschen nicht möglich: Das Pflicht-Verknüpfungsfeld \"{{fieldName}}\" in Tabelle \"{{tableName}}\" würde dadurch leer werden.",
+      "recordDeleteBlockedByRequiredLinkGeneric": "Löschen nicht möglich: Dieser Datensatz wird noch von einem Verknüpfungsfeld in einer anderen Tabelle referenziert.",
+      "recordDeleteBlockedByLink": "Löschen nicht möglich: Das Verknüpfungsfeld \"{{fieldName}}\" in Tabelle \"{{tableName}}\" referenziert diesen Datensatz noch.",
       "linkFieldValueDuplicate": "\"{{fieldName}}\" Feld darf keine doppelten Werte enthalten, bitte einen eindeutigen Wert vor dem Absenden ausfüllen.",
+      "linkBatchDuplicate": "Verknüpfung nicht möglich: Im selben Batch wurde der Datensatz bereits von einem anderen Datensatz verknüpft. In Eins-zu-viele-Beziehungen kann jeder untergeordnete Datensatz nur zu einem übergeordneten Datensatz gehören.",
+      "linkOneManyDuplicate": "Verknüpfung nicht möglich: Der Datensatz ist bereits mit einem anderen Datensatz verknüpft. In Eins-zu-viele-Beziehungen kann jeder untergeordnete Datensatz nur zu einem übergeordneten Datensatz gehören.",
+      "linkOneOneDuplicate": "Verknüpfung nicht möglich: Der Zieldatensatz ist in einer Eins-zu-eins-Beziehung bereits mit einem anderen Datensatz verknüpft.",
+      "fieldMaxColumnLimit": "Die Tabelle \"{{tableName}}\" darf höchstens {{maxFieldCount}} Felder enthalten.",
+      "fieldRequiredExistingValues": "Feld \"{{fieldName}}\" kann nicht als erforderlich markiert werden, da vorhandene Datensätze leere Werte enthalten.",
+      "fieldUniqueExistingValues": "Feld \"{{fieldName}}\" kann nicht als eindeutig markiert werden, da vorhandene Datensätze doppelte Werte enthalten.",
       "requestTimeout": "Der aktuelle Vorgangsbereich ist zu groß, bitte versuchen Sie es mit einem kleineren Bereich erneut.",
       "searchTimeOut": "Suche ist abgelaufen, bitte die Suchbegriffe reduzieren und erneut versuchen.",
       "dependencyNodeRequire": "Abhängiger Knoten nicht getestet, bitte überprüfen Sie, ob alle vorherigen Knoten getestet wurden",
@@ -1012,15 +1059,19 @@
       "onlyFailedRunsCanRerun": "Nur fehlgeschlagene Ausführungen können erneut ausgeführt werden",
       "workflowMustBeActiveToRerun": "Der Workflow muss aktiv sein, um erneut ausgeführt zu werden",
       "snapshotChangedOnlyFullRerun": "Der Workflow wurde seit dieser Ausführung geändert. Nur eine vollständige Wiederholung ist zulässig.",
+      "runPayloadColdTruncated": "Teile dieses Laufs wurden bei der Kaltarchivierung gekürzt; ein erneuter Lauf ist nicht möglich",
+      "runListOffsetTooDeep": "Diese Seite liegt für Offset-Paging zu tief im Ausführungsverlauf; fahren Sie mit dem Cursor der vorherigen Seite fort.",
       "controlStepsMissingOnlyFullRerun": "Kontrollknotendaten fehlen für diese Ausführung. Nur eine vollständige Wiederholung wird unterstützt.",
       "triggerNodeAlreadyExists": "Diese Automatisierung hat bereits einen Trigger-Knoten",
+      "scheduledIntervalTooShort": "Geplante Automatisierungen müssen mindestens {{min}} Minuten auseinanderliegen",
+      "emailPollIntervalTooShort": "E-Mail-Trigger dürfen höchstens alle {{min}} Minuten nach neuen E-Mails suchen",
+      "unSupportLogicType": "Nicht unterstützter Logiktyp",
       "generateLogicError": "Fehler beim Generieren des Logikknotens",
       "logicNotFound": "Automatisierungs-Logikknoten nicht gefunden",
-      "actionNotFound": "Automatisierungs-Aktionsknoten nicht gefunden",
-      "unSupportDuplicateWorkflowNodeType": "Duplizierung dieses Automatisierungs-Knotentyps nicht unterstützt",
-      "unSupportLogicType": "Nicht unterstützter Logiktyp",
       "groupEndNotFound": "GroupEnd für Logik nicht gefunden",
       "insertNodeError": "Fehler beim Einfügen des Knotens",
+      "actionNotFound": "Automatisierungs-Aktionsknoten nicht gefunden",
+      "unSupportDuplicateWorkflowNodeType": "Duplizierung dieses Automatisierungs-Knotentyps nicht unterstützt",
       "controlNodeNotBeTested": "Kontrollknoten sollte nicht getestet werden",
       "invalidNodeType": "Ungültiger Knotentyp",
       "unsupportedCategory": "Nicht unterstützte Kategorie",
@@ -1154,6 +1205,7 @@
       "whiteListCheckError": "Fehler beim Überprüfen des Tabellenzugriffs: {{message}}",
       "databaseConnectionFailed": "Datenbankverbindung fehlgeschlagen: {{message}}",
       "executeQuerySqlFailed": "Ausführung der Abfrage-SQL fehlgeschlagen: {{message}}",
+      "readOnlyCheckFailed": "Nur-Lesen-Prüfung fehlgeschlagen: {{message}}",
       "sqlSyntaxError": "SQL-Syntaxfehler, bitte überprüfen Sie Ihre Abfrage"
     },
     "permission": {
@@ -1235,12 +1287,12 @@
       "lookupFieldTypeNotEqual": "Aktueller Feldtyp {{fieldType}} ist nicht gleich Nachschlagefeldtyp {{lookupFieldType}}",
       "recordNotFound": "Datensatz {{recordId}} nicht gefunden in {{tableId}}",
       "linkCellRecordIdAlreadyExists": "Doppelte recordId kann nicht gesetzt werden: {{recordId}} in derselben Zelle",
+      "linkConsistencyError": "Konsistenzfehler, recordId {{recordId}} existiert nicht",
       "oneOneLinkCellValueCannotBeArray": "Eins-zu-Eins-Verknüpfungsfeldwerte können kein Array sein",
       "manyOneLinkCellValueCannotBeArray": "Viele-zu-Eins-Verknüpfungsfeldwerte können kein Array sein",
-      "foreignKeyDuplicate": "Fremdschlüssel dupliziert",
-      "linkConsistencyError": "Konsistenzfehler, recordId {{recordId}} existiert nicht",
       "oneManyLinkCellValueShouldBeArray": "Eins-zu-Viele-Verknüpfungsfeldwerte sollten ein Array sein",
       "manyManyLinkCellValueShouldBeArray": "Viele-zu-Viele-Verknüpfungsfeldwerte sollten ein Array sein",
+      "foreignKeyDuplicate": "Fremdschlüssel dupliziert",
       "onlyLinkFieldCanBeFiltered": "Nur Verknüpfungsfelder können zum Filtern verwendet werden",
       "notLinkedToCurrentTable": "Feld ist nicht mit der aktuellen Tabelle verknüpft",
       "notAttachment": "Feld ist kein Anhangfeld",
@@ -1280,7 +1332,10 @@
     },
     "billing": {
       "insufficientCredit": "Unzureichendes Guthaben",
+      "upgradeRequired": "Diese Funktion ist in Ihrem aktuellen Tarif nicht verfügbar. Bitte führen Sie ein Upgrade durch, um sie zu nutzen.",
       "exceedMaxRowLimit": "Maximale Zeilenanzahl {{maxRowCount}} überschritten",
+      "exceedMaxAttachmentSizeLimit": "Der Anhangspeicher hat das Limit Ihres Tarifs erreicht. Bitte führen Sie ein Upgrade durch oder entfernen Sie einige Anhänge.",
+      "exceedMaxSystemEmailLimit": "Die monatlichen E-Mail-Sendungen haben das Limit Ihres Tarifs erreicht. Bitte führen Sie ein Upgrade durch.",
       "exceedMaxAutomationRunLimit": "Maximale monatliche Anzahl von Automatisierungsausführungen erreicht",
       "manualSubscriptionNotSupported": "Self-Service-Abonnement ist für diesen Space nicht verfügbar. Für Upgrades, Downgrades oder andere Abonnementänderungen wenden Sie sich bitte an den Teable-Support.",
       "appSumoSubscriptionNotSupported": "AppSumo-Abonnements können über diese Oberfläche nicht geändert werden. Bitte verwalten Sie Ihr Abonnement auf AppSumo.",
@@ -1305,16 +1360,19 @@
       "configurationNotSet": "KI-Konfiguration ist nicht festgelegt",
       "unsupportedProvider": "Nicht unterstützter KI-Anbieter {{type}}",
       "providerConfigurationNotSet": "KI-Anbieter-Konfiguration ist nicht festgelegt",
+      "gatewayApiKeyNotSet": "Der API-Schlüssel des AI Gateway ist nicht konfiguriert",
       "testLLMFailed": "LLM-Verbindungstest fehlgeschlagen",
       "audioNotSupported": "Audio-Eingabe wird von diesem Modell {{model}} nicht unterstützt",
       "imageNotSupported": "Bild-Eingabe wird von diesem Modell {{model}} nicht unterstützt",
       "modelNotSet": "KI-Modell ist nicht festgelegt",
       "unsupportedFileType": "Nicht unterstützter Dateityp {{mimetype}}",
+      "attachmentDownloadFailed": "Anhang konnte nicht heruntergeladen werden: {{reason}}",
       "unsupportedModelType": "Nicht unterstützter Modelltyp",
       "embeddingModelNotSet": "Einbettungsmodell ist nicht festgelegt",
       "validateActionFailed": "Validierung der Feld-AI-Aktion fehlgeschlagen",
       "generateFailed": "AI-Generierung fehlgeschlagen",
-      "unsupportedActionType": "Nicht unterstützter AI-Aktionstyp"
+      "unsupportedActionType": "Nicht unterstützter AI-Aktionstyp",
+      "geminiImageNotSupportedViaGateway": "Die Gemini-Bildgenerierung wird über das AI Gateway nicht unterstützt. Bitte konfigurieren Sie stattdessen einen direkten Google-Anbieter."
     },
     "skill": {
       "notFound": "Fähigkeit nicht gefunden",
@@ -1335,7 +1393,8 @@
       "totalSizeExceedsLimit": "Gesamtgröße der Ressourcen überschreitet das {{maxSizeMB}}MB-Limit",
       "invalidGithubUrl": "Ungültige GitHub-URL. Erwartet: https://github.com/owner/repo/tree/<branch>/path/to/skill",
       "directoryTooDeep": "Fähigkeitsverzeichnis überschreitet die maximale Tiefe von {{maxDepth}} Ebenen. Verschachtelte Verzeichnisse: {{dirs}}",
-      "importFailed": "Import fehlgeschlagen: {{errorCode}}"
+      "importFailed": "Import fehlgeschlagen: {{errorCode}}",
+      "alreadyInScope": "Der Skill befindet sich bereits im Zielbereich"
     },
     "sandbox": {
       "fileNotFound": "Datei in der Sandbox nicht gefunden",
@@ -1491,7 +1550,16 @@
       "apiKeyNotSet": "App Builder API-Schlüssel ist nicht festgelegt",
       "cannotDeployAppBeforeInitialization": "App kann vor der Initialisierung nicht bereitgestellt werden",
       "noProjectOrVersionFound": "Kein Projekt oder Version gefunden",
-      "noDeploymentUrlAvailable": "Keine Bereitstellungs-URL verfügbar"
+      "noDeploymentUrlAvailable": "Keine Bereitstellungs-URL verfügbar",
+      "noFilesInZip": "Keine Dateien im ZIP gefunden",
+      "zipFileTooLarge": "Die ZIP-Datei überschreitet das Limit von 5 MB",
+      "invalidZip": "Ungültige ZIP-Datei",
+      "domainAlreadyInUse": "Diese Domain ist bereits an eine andere App gebunden",
+      "domainReserved": "Diese Subdomain ist reserviert",
+      "siteInfoBeforeGeneration": "Generieren Sie die App, bevor Sie ihre Website-Informationen anpassen",
+      "generationEditingConflict": "Eine KI-Generierung bearbeitet gerade diese App. Bitte wiederholen Sie die Dateiaktualisierung, sobald sie abgeschlossen ist.",
+      "siteInfoLayoutNotEditable": "Der Code dieser App ist nicht darauf ausgelegt, hier Änderungen an den Website-Informationen zu übernehmen. Bitten Sie die KI stattdessen per Chat, Titel, Beschreibung oder Symbol der Website zu ändern.",
+      "siteInfoManagedInCode": "Diese App verwaltet Titel und Beschreibung der Website im Code. Bitten Sie die KI stattdessen per Chat, sie zu ändern."
     },
     "reward": {
       "notFound": "Belohnung nicht gefunden",
@@ -1501,6 +1569,7 @@
       "alreadyClaimedThisWeek": "Sie haben bereits eine Belohnung für dieses Konto in dieser Woche beansprucht",
       "invalidPostUrl": "Ungültiges Beitrags-URL-Format",
       "postAlreadyUsed": "Dieser Beitrag wurde bereits verwendet, um eine Belohnung zu beanspruchen",
+      "tooManyFailedAttempts": "Zu viele fehlgeschlagene Überprüfungsversuche diese Woche",
       "unsupportedPlatformUrl": "Nicht unterstützte Social-Media-Plattform-URL",
       "unsupportedPlatform": "Nicht unterstützte Plattform: {{platform}}",
       "minCharCount": "Beitrag muss mindestens {{count}} Zeichen haben",
@@ -1513,9 +1582,26 @@
       "fetchLinkedInPostFailed": "Abrufen des LinkedIn-Beitrags fehlgeschlagen: {{error}}",
       "linkedInPostNotFound": "LinkedIn-Beitrag nicht gefunden: {{postId}}",
       "linkedInAuthorNotFound": "LinkedIn-Autor nicht gefunden: {{postId}}",
-      "fetchLinkedInUserFailed": "Abrufen des LinkedIn-Benutzers fehlgeschlagen: {{error}}",
-      "domainAlreadyInUse": "Diese Domain ist bereits an eine andere App gebunden",
-      "domainReserved": "Subdomain ist reserviert"
+      "fetchLinkedInUserFailed": "Abrufen des LinkedIn-Benutzers fehlgeschlagen: {{error}}"
+    }
+  },
+  "usageLimitBanner": {
+    "viewDetail": "Details anzeigen",
+    "rows": {
+      "title": "Dieser Space nutzt {{current}} Zeilen und überschreitet damit das Limit von {{limit}} in Ihrem Tarif",
+      "titleIncrement": "Diese Aktion fügt {{increment}} Zeilen hinzu und überschreitet das Limit von {{limit}} in Ihrem Tarif",
+      "titleBatch": "Dieser Vorgang würde das Limit von {{limit}} Zeilen in Ihrem Tarif überschreiten",
+      "description": "Sie können keine weiteren Datensätze hinzufügen. Führen Sie ein Upgrade durch, um das Limit sofort aufzuheben, oder löschen Sie Datensätze, um Platz zu schaffen.",
+      "unit": "Zeilen"
+    },
+    "credit": {
+      "unit": "Credits"
+    },
+    "attachments": {
+      "unit": "Anhänge"
+    },
+    "generic": {
+      "description": "Führen Sie ein Tarif-Upgrade durch, um dieses Limit aufzuheben."
     }
   }
 }

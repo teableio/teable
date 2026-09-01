@@ -211,6 +211,7 @@ export class EventEmitterService {
   private createExtendPlainContext(docId: string, id: string) {
     const user = this.cls.get('user');
     const entry = this.cls.get('entry');
+    const recordRemovalReason = this.cls.get('recordRemovalReason');
     return {
       baseId: docId,
       tableId: id.startsWith(IdPrefix.Table) ? id : docId,
@@ -220,6 +221,7 @@ export class EventEmitterService {
       context: {
         user,
         entry,
+        recordRemovalReason,
       },
     };
   }

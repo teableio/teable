@@ -17,19 +17,19 @@ export const BrandFooter = () => {
             components={[
               <Link
                 key={'brandFooter'}
-                href="/"
+                href="https://teable.ai"
                 target="_blank"
                 className="flex items-center text-sm text-black dark:text-white"
               >
                 <TeableLogo className="text-xl" />
-                <span className="ml-1 font-semibold">{brandName}</span>
+                <span className="ms-1 font-semibold">{brandName}</span>
               </Link>,
             ]}
           />
         ) : (
           <Link href="/" target="_blank" className="flex items-center">
             <TeableLogo className="text-xl" />
-            <span className="ml-1 font-semibold">{brandName}</span>
+            <span className="ms-1 font-semibold">{brandName}</span>
           </Link>
         )}
       </div>

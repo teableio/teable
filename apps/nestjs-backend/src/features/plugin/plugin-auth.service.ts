@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { getRandomString, HttpErrorCode } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -20,6 +19,7 @@ import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { second } from '../../utils/second';
 import { AccessTokenService } from '../access-token/access-token.service';
+import { TeableJwtService } from '../auth/jwt/teable-jwt.service';
 import { validateSecret } from './utils';
 
 interface IRefreshTokenInput {
@@ -43,7 +43,7 @@ export class PluginAuthService {
     private readonly prismaService: PrismaService,
     private readonly cacheService: CacheService,
     private readonly accessTokenService: AccessTokenService,
-    private readonly jwtService: JwtService,
+    private readonly jwtService: TeableJwtService,
     private readonly cls: ClsService<IClsStore>
   ) {}
 

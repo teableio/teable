@@ -16,6 +16,7 @@ import { describe, expect, it, beforeAll, afterAll, beforeEach, vi } from 'vites
 import { ComputedUpdatePauseRegistry } from '../../pause/ComputedUpdatePauseRegistry';
 import type { ComputedOutboxWakeup, IComputedOutboxWakeupPublisher } from '../ComputedOutboxWakeup';
 import { ComputedUpdateOutbox } from '../ComputedUpdateOutbox';
+import type { ComputedUpdateOutboxTaskInput } from '../ComputedUpdateOutboxPayload';
 import { buildSeedTaskInput } from '../ComputedUpdateSeedPayload';
 import {
   defaultComputedUpdateOutboxConfig,
@@ -165,6 +166,8 @@ const insertOutboxRow = async (
     seedTableId?: string;
     affectedTableIds?: string[];
     status: 'pending' | 'processing';
+    attempts?: number;
+    maxAttempts?: number;
     lockedAt?: Date | null;
     lockedBy?: string | null;
     nextRunAt?: Date;
@@ -196,8 +199,8 @@ const insertOutboxRow = async (
       steps: JSON.stringify([]),
       edges: JSON.stringify([]),
       status: params.status,
-      attempts: 0,
-      max_attempts: 8,
+      attempts: params.attempts ?? 0,
+      max_attempts: params.maxAttempts ?? 8,
       next_run_at: params.nextRunAt ?? now,
       locked_at: params.lockedAt ?? null,
       locked_by: params.lockedBy ?? null,
@@ -214,6 +217,61 @@ const insertOutboxRow = async (
       run_completed_steps_before: 0,
       created_at: params.createdAt ?? now,
       updated_at: params.updatedAt ?? now,
+    })
+    .execute();
+};
+
+const readTaskNextRunAt = async (db: Kysely<V1TeableDatabase>, taskId: string): Promise<Date> => {
+  const row = await db
+    .selectFrom('computed_update_outbox')
+    .select('next_run_at')
+    .where('id', '=', taskId)
+    .executeTakeFirstOrThrow();
+  return new Date(row.next_run_at as unknown as Date | string);
+};
+
+const insertDeadLetterRow = async (
+  db: Kysely<V1TeableDatabase>,
+  params: {
+    id: string;
+    baseId?: string;
+    seedTableId?: string;
+    lastError?: string;
+  }
+) => {
+  const now = new Date('2026-01-05T12:00:00Z');
+  const seedTableId = params.seedTableId ?? PRIMARY_SEED_TABLE_ID;
+  await db
+    .insertInto('computed_update_dead_letter')
+    .values({
+      id: params.id,
+      base_id: params.baseId ?? PRIMARY_BASE_ID,
+      seed_table_id: seedTableId,
+      seed_record_ids: JSON.stringify([{ tableId: seedTableId, recordIds: ['rec1'] }]),
+      change_type: 'update',
+      steps: JSON.stringify([]),
+      edges: JSON.stringify([]),
+      status: 'dead',
+      attempts: 8,
+      max_attempts: 8,
+      next_run_at: now,
+      locked_at: null,
+      locked_by: null,
+      last_error: params.lastError ?? 'error: canceling statement due to statement timeout',
+      estimated_complexity: 1,
+      plan_hash: `hash-${params.id}`,
+      dirty_stats: JSON.stringify([]),
+      affected_table_ids: [seedTableId],
+      affected_field_ids: [`fld${'c'.repeat(16)}`],
+      sync_max_level: 0,
+      run_id: `run-${params.id}`,
+      origin_run_ids: [],
+      run_total_steps: 1,
+      run_completed_steps_before: 0,
+      trace_data: null,
+      failed_at: now,
+      created_at: now,
+      updated_at: now,
     })
     .execute();
 };
@@ -292,6 +350,15 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
       .execute();
 
     await db.schema
+      .createTable('space_data_db_binding')
+      .ifNotExists()
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('space_id', 'text', (col) => col.notNull())
+      .addColumn('mode', 'text', (col) => col.notNull())
+      .addColumn('state', 'text', (col) => col.notNull())
+      .execute();
+
+    await db.schema
       .createTable('table_meta')
       .ifNotExists()
       .addColumn('id', 'text', (col) => col.primaryKey())
@@ -333,6 +400,51 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
       )
       .addColumn('run_total_steps', 'integer', (col) => col.notNull().defaultTo(0))
       .addColumn('run_completed_steps_before', 'integer', (col) => col.notNull().defaultTo(0))
+      .addColumn('source_changed_at', 'timestamptz')
+      .addColumn('stage_depth', 'integer', (col) => col.notNull().defaultTo(0))
+      .addColumn('predecessor_task_id', 'text')
+      .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+      .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+      .execute();
+
+    await db.schema
+      .createTable('computed_update_dead_letter')
+      .ifNotExists()
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('base_id', 'text', (col) => col.notNull())
+      .addColumn('seed_table_id', 'text', (col) => col.notNull())
+      .addColumn('seed_record_ids', sql`jsonb`)
+      .addColumn('change_type', 'text', (col) => col.notNull())
+      .addColumn('steps', sql`jsonb`)
+      .addColumn('edges', sql`jsonb`)
+      .addColumn('status', 'text', (col) => col.notNull())
+      .addColumn('attempts', 'integer', (col) => col.notNull().defaultTo(0))
+      .addColumn('max_attempts', 'integer', (col) => col.notNull().defaultTo(8))
+      .addColumn('next_run_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+      .addColumn('locked_at', 'timestamptz')
+      .addColumn('locked_by', 'text')
+      .addColumn('last_error', 'text')
+      .addColumn('estimated_complexity', 'integer', (col) => col.notNull().defaultTo(0))
+      .addColumn('plan_hash', 'text', (col) => col.notNull())
+      .addColumn('dirty_stats', sql`jsonb`)
+      .addColumn('affected_table_ids', sql`text[]`, (col) =>
+        col.notNull().defaultTo(sql`ARRAY[]::text[]`)
+      )
+      .addColumn('affected_field_ids', sql`text[]`, (col) =>
+        col.notNull().defaultTo(sql`ARRAY[]::text[]`)
+      )
+      .addColumn('sync_max_level', 'integer')
+      .addColumn('run_id', 'text', (col) => col.notNull())
+      .addColumn('origin_run_ids', sql`text[]`, (col) =>
+        col.notNull().defaultTo(sql`ARRAY[]::text[]`)
+      )
+      .addColumn('run_total_steps', 'integer', (col) => col.notNull().defaultTo(0))
+      .addColumn('run_completed_steps_before', 'integer', (col) => col.notNull().defaultTo(0))
+      .addColumn('source_changed_at', 'timestamptz')
+      .addColumn('stage_depth', 'integer', (col) => col.notNull().defaultTo(0))
+      .addColumn('predecessor_task_id', 'text')
+      .addColumn('trace_data', sql`jsonb`)
+      .addColumn('failed_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
       .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
       .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
       .execute();
@@ -350,6 +462,22 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
       CREATE UNIQUE INDEX IF NOT EXISTS "computed_update_outbox_seed_task_id_table_id_record_id_key"
       ON "computed_update_outbox_seed"("task_id", "table_id", "record_id")
     `.execute(db);
+
+    await db.schema
+      .createTable('computed_update_stage_ledger')
+      .ifNotExists()
+      .addColumn('scope_id', 'text', (col) => col.notNull())
+      .addColumn('kind', 'text', (col) => col.notNull())
+      .addColumn('table_id', 'text', (col) => col.notNull())
+      .addColumn('record_id', 'text', (col) => col.notNull())
+      .addColumn('seq', 'bigint', (col) => col.notNull().defaultTo(0))
+      .addPrimaryKeyConstraint('computed_update_stage_ledger_pkey', [
+        'scope_id',
+        'kind',
+        'table_id',
+        'record_id',
+      ])
+      .execute();
 
     await sql`
       CREATE UNIQUE INDEX IF NOT EXISTS "computed_update_outbox_pending_unique_idx"
@@ -375,12 +503,53 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
       CREATE UNIQUE INDEX IF NOT EXISTS "computed_update_pause_scope_scope_type_scope_id_key"
       ON "computed_update_pause_scope"("scope_type", "scope_id")
     `.execute(db);
+
+    await db.schema
+      .createTable('computed_update_run_history')
+      .ifNotExists()
+      .addColumn('task_id', 'text', (col) => col.primaryKey())
+      .addColumn('base_id', 'text', (col) => col.notNull())
+      .addColumn('seed_table_id', 'text', (col) => col.notNull())
+      .addColumn('change_type', 'text', (col) => col.notNull())
+      .addColumn('run_id', 'text', (col) => col.notNull())
+      .addColumn('origin_run_ids', sql`text[]`, (col) =>
+        col.notNull().defaultTo(sql`ARRAY[]::text[]`)
+      )
+      .addColumn('steps', sql`jsonb`)
+      .addColumn('edges', sql`jsonb`)
+      .addColumn('affected_table_ids', sql`text[]`, (col) =>
+        col.notNull().defaultTo(sql`ARRAY[]::text[]`)
+      )
+      .addColumn('affected_field_ids', sql`text[]`, (col) =>
+        col.notNull().defaultTo(sql`ARRAY[]::text[]`)
+      )
+      .addColumn('source_field_ids', sql`text[]`, (col) =>
+        col.notNull().defaultTo(sql`ARRAY[]::text[]`)
+      )
+      .addColumn('seed_record_count', 'integer', (col) => col.notNull().defaultTo(0))
+      .addColumn('stage_depth', 'integer', (col) => col.notNull().defaultTo(0))
+      .addColumn('predecessor_task_id', 'text')
+      .addColumn('run_total_steps', 'integer', (col) => col.notNull().defaultTo(0))
+      .addColumn('run_completed_steps_before', 'integer', (col) => col.notNull().defaultTo(0))
+      .addColumn('sync_max_level', 'integer')
+      .addColumn('estimated_complexity', 'integer', (col) => col.notNull().defaultTo(0))
+      .addColumn('attempts', 'integer', (col) => col.notNull().defaultTo(0))
+      .addColumn('outcome', 'text', (col) => col.notNull())
+      .addColumn('source_changed_at', 'timestamptz')
+      .addColumn('enqueued_at', 'timestamptz', (col) => col.notNull())
+      .addColumn('started_at', 'timestamptz')
+      .addColumn('completed_at', 'timestamptz', (col) => col.notNull())
+      .addColumn('duration_ms', 'integer', (col) => col.notNull().defaultTo(0))
+      .execute();
   });
 
   beforeEach(async () => {
+    await sql`DELETE FROM "computed_update_run_history"`.execute(db);
     await db.deleteFrom('computed_update_pause_scope').execute();
     await db.deleteFrom('computed_update_outbox_seed').execute();
+    await db.deleteFrom('computed_update_dead_letter').execute();
     await db.deleteFrom('computed_update_outbox').execute();
+    await db.deleteFrom('space_data_db_binding').execute();
     await db.deleteFrom('table_meta').execute();
     await db.deleteFrom('base').execute();
     await db.deleteFrom('space').execute();
@@ -430,6 +599,63 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
     expect(claimed._unsafeUnwrap()?.id).toBe('cuo-due-by-id');
   });
 
+  it('fences out tasks whose space is bound to an external data database', async () => {
+    const now = new Date('2026-01-05T12:00:00Z');
+    await db
+      .insertInto('space_data_db_binding')
+      .values({ id: 'sdbforeign1', space_id: PRIMARY_SPACE_ID, mode: 'byodb', state: 'ready' })
+      .execute();
+    await insertOutboxRow(db, {
+      id: 'cuo-foreign-bound',
+      status: 'pending',
+      baseId: PRIMARY_BASE_ID,
+      nextRunAt: now,
+    });
+    await insertOutboxRow(db, {
+      id: 'cuo-locally-bound',
+      status: 'pending',
+      baseId: SECONDARY_BASE_ID,
+      seedTableId: SECONDARY_SEED_TABLE_ID,
+      nextRunAt: now,
+    });
+
+    const outbox = createTestOutbox(db);
+    const batch = await outbox.claimBatch({ workerId: 'queue-worker', limit: 10, now });
+    expect(batch.isOk()).toBe(true);
+    expect(batch._unsafeUnwrap().map((task) => task.id)).toEqual(['cuo-locally-bound']);
+
+    const byId = await outbox.claimById({
+      taskId: 'cuo-foreign-bound',
+      workerId: 'queue-worker',
+      now,
+    });
+    expect(byId.isOk()).toBe(true);
+    expect(byId._unsafeUnwrap()).toBeNull();
+  });
+
+  it('still claims tasks whose space has a default-mode binding row', async () => {
+    const now = new Date('2026-01-05T12:00:00Z');
+    await db
+      .insertInto('space_data_db_binding')
+      .values({ id: 'sdbdefault1', space_id: PRIMARY_SPACE_ID, mode: 'default', state: 'ready' })
+      .execute();
+    await insertOutboxRow(db, {
+      id: 'cuo-default-bound',
+      status: 'pending',
+      baseId: PRIMARY_BASE_ID,
+      nextRunAt: now,
+    });
+
+    const outbox = createTestOutbox(db);
+    const claimed = await outbox.claimById({
+      taskId: 'cuo-default-bound',
+      workerId: 'queue-worker',
+      now,
+    });
+    expect(claimed.isOk()).toBe(true);
+    expect(claimed._unsafeUnwrap()?.id).toBe('cuo-default-bound');
+  });
+
   it('does not take over an active processing task by default', async () => {
     const now = new Date('2026-01-05T12:00:00Z');
     await insertOutboxRow(db, {
@@ -476,6 +702,30 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
     const claimed = await outbox.claimById({
       taskId: 'cuo-paused-by-id',
       workerId: 'queue-worker',
+    });
+
+    expect(claimed.isOk()).toBe(true);
+    expect(claimed._unsafeUnwrap()).toBeNull();
+  });
+
+  it('does not let processing takeover bypass a paused scope', async () => {
+    await insertOutboxRow(db, {
+      id: 'cuo-paused-takeover',
+      status: 'processing',
+      baseId: PRIMARY_BASE_ID,
+      lockedAt: new Date(Date.now() - 60_000),
+      lockedBy: 'stale-worker:cuc_stale',
+    });
+    await createPauseRegistry(db).pauseScope({
+      scopeType: 'base',
+      scopeId: PRIMARY_BASE_ID,
+      actor: 'tester',
+    });
+
+    const claimed = await createTestOutbox(db).claimById({
+      taskId: 'cuo-paused-takeover',
+      workerId: 'manual-replay',
+      allowProcessingTakeover: true,
     });
 
     expect(claimed.isOk()).toBe(true);
@@ -700,17 +950,25 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
     }
   });
 
-  it('reports indefinite and scheduled pauses through the claim eligibility seam', async () => {
+  it('reports legacy indefinite and scheduled pauses through the claim eligibility seam', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-01-05T12:00:00Z'));
     try {
       await insertOutboxRow(db, { id: 'cuo-paused-eligibility', status: 'pending' });
-      const pauseRegistry = createPauseRegistry(db);
-      await pauseRegistry.pauseScope({
-        scopeType: 'base',
-        scopeId: PRIMARY_BASE_ID,
-        actor: 'tester',
-      });
+      await db
+        .insertInto('computed_update_pause_scope')
+        .values({
+          id: 'cup-legacy-indefinite',
+          scope_type: 'base',
+          scope_id: PRIMARY_BASE_ID,
+          paused_at: new Date('2026-01-05T11:00:00Z'),
+          paused_by: 'legacy-operator',
+          resume_at: null,
+          reason: 'legacy pause',
+          updated_at: new Date('2026-01-05T11:00:00Z'),
+          updated_by: 'legacy-operator',
+        })
+        .execute();
       const outbox = createTestOutbox(db);
 
       const indefinite = await outbox.getTaskClaimEligibility('cuo-paused-eligibility');
@@ -721,12 +979,11 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
       });
 
       const resumeAt = new Date('2026-01-05T12:05:00Z');
-      await pauseRegistry.pauseScope({
-        scopeType: 'base',
-        scopeId: PRIMARY_BASE_ID,
-        resumeAt,
-        actor: 'tester',
-      });
+      await db
+        .updateTable('computed_update_pause_scope')
+        .set({ resume_at: resumeAt, updated_at: new Date('2026-01-05T12:00:00Z') })
+        .where('id', '=', 'cup-legacy-indefinite')
+        .execute();
       const scheduled = await outbox.getTaskClaimEligibility('cuo-paused-eligibility');
       expect(scheduled._unsafeUnwrap()).toEqual({
         status: 'deferred',
@@ -1057,6 +1314,194 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
     ]);
   });
 
+  it('preserves durable staging state when a computed retry merges into a pending task', async () => {
+    const now = new Date('2026-01-05T12:00:20Z');
+    const planHash = 'same-computed-plan';
+    const cursorRecordId = `rec${'p'.repeat(16)}`;
+    const leaseOwner = 'worker-old:cuc_old2';
+
+    await insertOutboxRow(db, {
+      id: 'cuo-pending-comp',
+      status: 'pending',
+      planHash,
+      seedRecordIds: [createRecordId(3).toString()],
+      dirtyStats: { dirtyStats: [] },
+      createdAt: new Date(now.getTime() - 10_000),
+      updatedAt: new Date(now.getTime() - 10_000),
+    });
+    await insertOutboxRow(db, {
+      id: 'cuo-processing-comp',
+      status: 'processing',
+      planHash,
+      seedRecordIds: [createRecordId(4).toString()],
+      dirtyStats: { dirtyStats: [] },
+      lockedAt: new Date(now.getTime() - 100),
+      lockedBy: leaseOwner,
+      createdAt: new Date(now.getTime() - 1_000),
+      updatedAt: new Date(now.getTime() - 100),
+    });
+
+    const publisher = new RecordingWakeupPublisher();
+    const outbox = createTestOutbox(db, publisher);
+    const task = {
+      id: 'cuo-processing-comp',
+      baseId: PRIMARY_BASE_ID,
+      seedTableId: PRIMARY_SEED_TABLE_ID,
+      seedRecordIds: [createRecordId(4).toString()],
+      extraSeedRecords: [],
+      beforeImageRecords: [],
+      steps: [],
+      sameTableBatches: [],
+      edges: [],
+      estimatedComplexity: 1,
+      changeType: 'update' as const,
+      planHash,
+      dirtyStats: [],
+      // Durable staging state that a retry-merge must not drop.
+      seedAllTableIds: [PRIMARY_SEED_TABLE_ID],
+      seedAllCursors: { [PRIMARY_SEED_TABLE_ID]: cursorRecordId },
+      ledgerScopeId: 'cuo-chain-root',
+      runId: 'run-processing-comp',
+      originRunIds: [],
+      runTotalSteps: 1,
+      runCompletedStepsBefore: 0,
+      affectedTableIds: [PRIMARY_SEED_TABLE_ID],
+      affectedFieldIds: [],
+      syncMaxLevel: 0,
+      status: 'processing' as const,
+      attempts: 0,
+      maxAttempts: 8,
+      nextRunAt: now,
+      lockedAt: new Date(now.getTime() - 100),
+      lockedBy: leaseOwner,
+      lastError: null,
+      createdAt: new Date(now.getTime() - 1_000),
+      updatedAt: new Date(now.getTime() - 100),
+    };
+
+    const released = await outbox.releaseForRetry({
+      task: task as never,
+      reason: 'lock unavailable',
+      retryDelayMs: 0,
+      now,
+    });
+
+    expect(released.isOk()).toBe(true);
+    expect(released._unsafeUnwrap()).toBe(true);
+
+    const rows = await db
+      .selectFrom('computed_update_outbox')
+      .select(['id', 'status', 'dirty_stats'])
+      .execute();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe('cuo-pending-comp');
+    const envelope =
+      typeof rows[0].dirty_stats === 'string'
+        ? JSON.parse(rows[0].dirty_stats)
+        : (rows[0].dirty_stats as Record<string, unknown>);
+    expect(envelope.seedAllTableIds).toEqual([PRIMARY_SEED_TABLE_ID]);
+    expect(envelope.seedAllCursors).toEqual({ [PRIMARY_SEED_TABLE_ID]: cursorRecordId });
+    expect(envelope.ledgerScopeId).toBe('cuo-chain-root');
+  });
+
+  it('never drops dirty data when the merge target is claimed out from under enqueueOrMerge (T6648)', async () => {
+    // pglite is a single connection, so this cannot drive two genuinely
+    // concurrent transactions. It instead drives the state transition a real
+    // race would produce: a pending merge target that another worker claims
+    // (pending -> processing) between when the caller decided to merge into
+    // it and when enqueueOrMerge actually runs. The regression this guards:
+    // the caller's dirty data must never vanish just because its intended
+    // merge target is no longer mergeable — it must land as an independent
+    // task instead.
+    const now = new Date('2026-01-05T12:00:30Z');
+    const planHash = 'race-merge-plan';
+    const originalSeedRecordId = createRecordId(10).toString();
+    const incomingSeedRecordId = createRecordId(11).toString();
+
+    await insertOutboxRow(db, {
+      id: 'cuo-race-target',
+      status: 'pending',
+      planHash,
+      seedRecordIds: [originalSeedRecordId],
+      dirtyStats: { dirtyStats: [{ tableId: PRIMARY_SEED_TABLE_ID, recordCount: 1 }] },
+      createdAt: new Date(now.getTime() - 5_000),
+      updatedAt: new Date(now.getTime() - 5_000),
+    });
+
+    // Simulate another worker's claimBatch winning the row lock and
+    // committing first: the intended merge target is no longer 'pending' by
+    // the time our enqueue actually runs.
+    const claimOwner = 'worker-other:cuc_other';
+    await db
+      .updateTable('computed_update_outbox')
+      .set({
+        status: 'processing',
+        locked_at: now,
+        locked_by: claimOwner,
+        updated_at: now,
+      })
+      .where('id', '=', 'cuo-race-target')
+      .execute();
+
+    const outbox = createTestOutbox(db);
+    const incomingTask = {
+      baseId: PRIMARY_BASE_ID,
+      seedTableId: PRIMARY_SEED_TABLE_ID,
+      seedRecordIds: [incomingSeedRecordId],
+      extraSeedRecords: [],
+      beforeImageRecords: [],
+      steps: [],
+      sameTableBatches: [],
+      edges: [],
+      estimatedComplexity: 1,
+      changeType: 'update' as const,
+      planHash,
+      dirtyStats: [{ tableId: PRIMARY_SEED_TABLE_ID, recordCount: 1 }],
+      runId: 'run-race-incoming',
+      originRunIds: [],
+      runTotalSteps: 1,
+      runCompletedStepsBefore: 0,
+      affectedTableIds: [PRIMARY_SEED_TABLE_ID],
+      affectedFieldIds: [],
+      syncMaxLevel: 0,
+    };
+
+    const result = await outbox.enqueueOrMerge(incomingTask as never);
+
+    expect(result.isOk()).toBe(true);
+    const outcome = result._unsafeUnwrap();
+    // Cannot merge into a row that is no longer pending: falls back to a
+    // fresh insert rather than silently discarding the caller's dirty data.
+    expect(outcome.merged).toBe(false);
+    expect(outcome.taskId).not.toBe('cuo-race-target');
+
+    const rows = await db
+      .selectFrom('computed_update_outbox')
+      .select(['id', 'status', 'locked_by', 'seed_record_ids'])
+      .orderBy('id')
+      .execute();
+    expect(rows).toHaveLength(2);
+
+    // The original processing row is untouched by the merge attempt.
+    const claimedRow = rows.find((row) => row.id === 'cuo-race-target');
+    expect(claimedRow?.status).toBe('processing');
+    expect(claimedRow?.locked_by).toBe(claimOwner);
+
+    // The caller's dirty data survives as its own independent, immediately
+    // claimable pending task — never silently lost. This test's outbox
+    // config (seedInlineLimit: 0) spills seeds to the seed table rather than
+    // the inline JSON column.
+    const newRow = rows.find((row) => row.id === outcome.taskId);
+    expect(newRow).toBeDefined();
+    expect(newRow?.status).toBe('pending');
+    const seedRows = await db
+      .selectFrom('computed_update_outbox_seed')
+      .select(['table_id', 'record_id'])
+      .where('task_id', '=', outcome.taskId)
+      .execute();
+    expect(seedRows.map((row) => row.record_id)).toEqual([incomingSeedRecordId]);
+  });
+
   it('reclaims stale processing tasks after the lease expires', async () => {
     const now = new Date('2026-01-05T12:00:10Z');
     await insertOutboxRow(db, {
@@ -1089,6 +1534,216 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
     expect(row.status).toBe('processing');
     expect(String(row.locked_by)).toContain('worker-new:');
     expect(new Date(String(row.locked_at)).toISOString()).toBe(now.toISOString());
+  });
+
+  it('charges an attempt when reclaiming an expired lease', async () => {
+    const now = new Date('2026-01-05T12:00:10Z');
+    await insertOutboxRow(db, {
+      id: 'cuo-crash-attempt',
+      status: 'processing',
+      attempts: 2,
+      lockedAt: new Date(now.getTime() - 1500),
+      lockedBy: 'worker-dead:cuc_dead',
+      createdAt: new Date(now.getTime() - 10_000),
+      updatedAt: new Date(now.getTime() - 1500),
+    });
+
+    const claimed = await createTestOutbox(db).claimBatch({
+      workerId: 'worker-new',
+      limit: 10,
+      now,
+    });
+
+    expect(claimed.isOk()).toBe(true);
+    expect(claimed._unsafeUnwrap()).toHaveLength(1);
+    expect(claimed._unsafeUnwrap()[0].attempts).toBe(3);
+
+    const row = await db
+      .selectFrom('computed_update_outbox')
+      .select(['attempts', 'status'])
+      .where('id', '=', 'cuo-crash-attempt')
+      .executeTakeFirstOrThrow();
+    expect(Number(row.attempts)).toBe(3);
+    expect(row.status).toBe('processing');
+  });
+
+  it('dead-letters a crash-looping task whose retry budget is exhausted instead of reclaiming it', async () => {
+    const now = new Date('2026-01-05T12:00:10Z');
+    await insertOutboxRow(db, {
+      id: 'cuo-poison',
+      status: 'processing',
+      attempts: 7,
+      maxAttempts: 8,
+      lockedAt: new Date(now.getTime() - 1500),
+      lockedBy: 'worker-dead:cuc_dead',
+      createdAt: new Date(now.getTime() - 10_000),
+      updatedAt: new Date(now.getTime() - 1500),
+    });
+
+    const claimed = await createTestOutbox(db).claimBatch({
+      workerId: 'worker-new',
+      limit: 10,
+      now,
+    });
+
+    expect(claimed.isOk()).toBe(true);
+    expect(claimed._unsafeUnwrap()).toHaveLength(0);
+
+    const outboxRow = await db
+      .selectFrom('computed_update_outbox')
+      .select('id')
+      .where('id', '=', 'cuo-poison')
+      .executeTakeFirst();
+    expect(outboxRow).toBeUndefined();
+
+    const deadRow = await db
+      .selectFrom('computed_update_dead_letter')
+      .select(['attempts', 'last_error', 'status'])
+      .where('id', '=', 'cuo-poison')
+      .executeTakeFirstOrThrow();
+    expect(Number(deadRow.attempts)).toBe(8);
+    expect(deadRow.status).toBe('dead');
+    expect(String(deadRow.last_error)).toContain('processing lease expired');
+  });
+
+  it('keeps an exhausted stale task parked instead of dead-lettering it while its base is paused', async () => {
+    const now = new Date('2026-01-05T12:00:10Z');
+    await insertOutboxRow(db, {
+      id: 'cuo-poison-paused',
+      status: 'processing',
+      attempts: 7,
+      maxAttempts: 8,
+      lockedAt: new Date(now.getTime() - 1500),
+      lockedBy: 'worker-dead:cuc_dead',
+      createdAt: new Date(now.getTime() - 10_000),
+      updatedAt: new Date(now.getTime() - 1500),
+    });
+    await createPauseRegistry(db).pauseScope({
+      scopeType: 'base',
+      scopeId: PRIMARY_BASE_ID,
+      actor: 'tester',
+    });
+
+    const claimed = await createTestOutbox(db).claimBatch({
+      workerId: 'worker-new',
+      limit: 10,
+      now,
+    });
+
+    expect(claimed.isOk()).toBe(true);
+    expect(claimed._unsafeUnwrap()).toHaveLength(0);
+
+    const row = await db
+      .selectFrom('computed_update_outbox')
+      .select(['status', 'attempts'])
+      .where('id', '=', 'cuo-poison-paused')
+      .executeTakeFirstOrThrow();
+    expect(row.status).toBe('processing');
+    expect(Number(row.attempts)).toBe(7);
+
+    const deadRow = await db
+      .selectFrom('computed_update_dead_letter')
+      .select('id')
+      .where('id', '=', 'cuo-poison-paused')
+      .executeTakeFirst();
+    expect(deadRow).toBeUndefined();
+  });
+
+  it('charges an attempt when a by-id claim takes over an expired lease', async () => {
+    const now = new Date('2026-01-05T12:00:10Z');
+    await insertOutboxRow(db, {
+      id: 'cuo-crash-by-id',
+      status: 'processing',
+      attempts: 1,
+      lockedAt: new Date(now.getTime() - 1500),
+      lockedBy: 'worker-dead:cuc_dead',
+      createdAt: new Date(now.getTime() - 10_000),
+      updatedAt: new Date(now.getTime() - 1500),
+    });
+
+    const claimed = await createTestOutbox(db).claimById({
+      taskId: 'cuo-crash-by-id',
+      workerId: 'queue-worker',
+      now,
+    });
+
+    expect(claimed.isOk()).toBe(true);
+    expect(claimed._unsafeUnwrap()?.attempts).toBe(2);
+
+    const row = await db
+      .selectFrom('computed_update_outbox')
+      .select('attempts')
+      .where('id', '=', 'cuo-crash-by-id')
+      .executeTakeFirstOrThrow();
+    expect(Number(row.attempts)).toBe(2);
+  });
+
+  it('dead-letters an exhausted expired task on a by-id claim', async () => {
+    const now = new Date('2026-01-05T12:00:10Z');
+    await insertOutboxRow(db, {
+      id: 'cuo-poison-by-id',
+      status: 'processing',
+      attempts: 7,
+      maxAttempts: 8,
+      lockedAt: new Date(now.getTime() - 1500),
+      lockedBy: 'worker-dead:cuc_dead',
+      createdAt: new Date(now.getTime() - 10_000),
+      updatedAt: new Date(now.getTime() - 1500),
+    });
+
+    const claimed = await createTestOutbox(db).claimById({
+      taskId: 'cuo-poison-by-id',
+      workerId: 'queue-worker',
+      now,
+    });
+
+    expect(claimed.isOk()).toBe(true);
+    expect(claimed._unsafeUnwrap()).toBeNull();
+
+    const outboxRow = await db
+      .selectFrom('computed_update_outbox')
+      .select('id')
+      .where('id', '=', 'cuo-poison-by-id')
+      .executeTakeFirst();
+    expect(outboxRow).toBeUndefined();
+
+    const deadRow = await db
+      .selectFrom('computed_update_dead_letter')
+      .select(['attempts', 'last_error'])
+      .where('id', '=', 'cuo-poison-by-id')
+      .executeTakeFirstOrThrow();
+    expect(Number(deadRow.attempts)).toBe(8);
+    expect(String(deadRow.last_error)).toContain('processing lease expired');
+  });
+
+  it('does not charge an attempt when takeover relays a live lease', async () => {
+    const now = new Date('2026-01-05T12:00:10Z');
+    await insertOutboxRow(db, {
+      id: 'cuo-relay-live',
+      status: 'processing',
+      attempts: 3,
+      lockedAt: new Date(now.getTime() - 200),
+      lockedBy: 'worker-prev:cuc_prev',
+      createdAt: new Date(now.getTime() - 10_000),
+      updatedAt: new Date(now.getTime() - 200),
+    });
+
+    const claimed = await createTestOutbox(db).claimById({
+      taskId: 'cuo-relay-live',
+      workerId: 'queue-worker',
+      allowProcessingTakeover: true,
+      now,
+    });
+
+    expect(claimed.isOk()).toBe(true);
+    expect(claimed._unsafeUnwrap()?.attempts).toBe(3);
+
+    const row = await db
+      .selectFrom('computed_update_outbox')
+      .select('attempts')
+      .where('id', '=', 'cuo-relay-live')
+      .executeTakeFirstOrThrow();
+    expect(Number(row.attempts)).toBe(3);
   });
 
   it('does not reclaim processing tasks whose lease was renewed', async () => {
@@ -1274,6 +1929,175 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
     expect(claimed._unsafeUnwrap().map((task) => task.id)).toEqual(['cuo-unpaused-space']);
   });
 
+  it('defers due pending tasks out of the claim scan while their base scope is paused', async () => {
+    await insertOutboxRow(db, {
+      id: 'cuo-defer-primary',
+      status: 'pending',
+      baseId: PRIMARY_BASE_ID,
+      seedTableId: PRIMARY_SEED_TABLE_ID,
+    });
+    await insertOutboxRow(db, {
+      id: 'cuo-defer-secondary',
+      status: 'pending',
+      baseId: SECONDARY_BASE_ID,
+      seedTableId: SECONDARY_SEED_TABLE_ID,
+    });
+    const secondaryDueAt = await readTaskNextRunAt(db, 'cuo-defer-secondary');
+
+    const resumeAt = new Date(Date.now() + 60 * 60 * 1000);
+    const pauseRegistry = createPauseRegistry(db);
+    const paused = await pauseRegistry.pauseScope({
+      scopeType: 'base',
+      scopeId: PRIMARY_BASE_ID,
+      resumeAt,
+      actor: 'tester',
+    });
+    expect(paused.isOk()).toBe(true);
+
+    // The paused base's due backlog leaves the hot claim scan entirely: the
+    // pending probe and scan predicate key on next_run_at <= now, so a deferred
+    // row costs zero per-poll work until the lease expires.
+    expect(await readTaskNextRunAt(db, 'cuo-defer-primary')).toEqual(resumeAt);
+    expect(await readTaskNextRunAt(db, 'cuo-defer-secondary')).toEqual(secondaryDueAt);
+
+    const outbox = createTestOutbox(db);
+    const claimed = await outbox.claimBatch({ workerId: 'worker-defer', limit: 10 });
+    expect(claimed.isOk()).toBe(true);
+    expect(claimed._unsafeUnwrap().map((task) => task.id)).toEqual(['cuo-defer-secondary']);
+  });
+
+  it('restores deferred tasks to due when the scope resumes early', async () => {
+    await insertOutboxRow(db, {
+      id: 'cuo-restore-primary',
+      status: 'pending',
+      baseId: PRIMARY_BASE_ID,
+      seedTableId: PRIMARY_SEED_TABLE_ID,
+    });
+
+    const resumeAt = new Date(Date.now() + 60 * 60 * 1000);
+    const pauseRegistry = createPauseRegistry(db);
+    await pauseRegistry.pauseScope({
+      scopeType: 'base',
+      scopeId: PRIMARY_BASE_ID,
+      resumeAt,
+      actor: 'tester',
+    });
+    expect(await readTaskNextRunAt(db, 'cuo-restore-primary')).toEqual(resumeAt);
+
+    const resumed = await pauseRegistry.resumeScope({
+      scopeType: 'base',
+      scopeId: PRIMARY_BASE_ID,
+      actor: 'tester',
+    });
+    expect(resumed.isOk()).toBe(true);
+    expect(resumed._unsafeUnwrap()).toBe(true);
+    expect((await readTaskNextRunAt(db, 'cuo-restore-primary')).getTime()).toBeLessThanOrEqual(
+      Date.now()
+    );
+
+    const outbox = createTestOutbox(db);
+    const claimed = await outbox.claimBatch({ workerId: 'worker-restore', limit: 10 });
+    expect(claimed.isOk()).toBe(true);
+    expect(claimed._unsafeUnwrap().map((task) => task.id)).toEqual(['cuo-restore-primary']);
+  });
+
+  it('claims deferred tasks automatically once the pause lease expires', async () => {
+    await insertOutboxRow(db, {
+      id: 'cuo-expiry-primary',
+      status: 'pending',
+      baseId: PRIMARY_BASE_ID,
+      seedTableId: PRIMARY_SEED_TABLE_ID,
+    });
+
+    const resumeAt = new Date(Date.now() + 30 * 60 * 1000);
+    const pauseRegistry = createPauseRegistry(db);
+    await pauseRegistry.pauseScope({
+      scopeType: 'base',
+      scopeId: PRIMARY_BASE_ID,
+      resumeAt,
+      actor: 'tester',
+    });
+    expect(await readTaskNextRunAt(db, 'cuo-expiry-primary')).toEqual(resumeAt);
+
+    // No manual resume: once the lease expires the deferred row is due again,
+    // so the backlog drains without an operator touching the queue.
+    const outbox = createTestOutbox(db);
+    const claimed = await outbox.claimBatch({
+      workerId: 'worker-expiry',
+      limit: 10,
+      now: new Date(resumeAt.getTime() + 60_000),
+    });
+    expect(claimed.isOk()).toBe(true);
+    expect(claimed._unsafeUnwrap().map((task) => task.id)).toEqual(['cuo-expiry-primary']);
+  });
+
+  it('defers pending tasks matched by table and space scopes', async () => {
+    await insertOutboxRow(db, {
+      id: 'cuo-defer-table',
+      status: 'pending',
+      baseId: PRIMARY_BASE_ID,
+      seedTableId: PRIMARY_SEED_TABLE_ID,
+      affectedTableIds: [PRIMARY_TARGET_TABLE_ID],
+    });
+    await insertOutboxRow(db, {
+      id: 'cuo-defer-space',
+      status: 'pending',
+      baseId: SECONDARY_BASE_ID,
+      seedTableId: SECONDARY_SEED_TABLE_ID,
+    });
+
+    const tableResumeAt = new Date(Date.now() + 60 * 60 * 1000);
+    const pauseRegistry = createPauseRegistry(db);
+    await pauseRegistry.pauseScope({
+      scopeType: 'table',
+      scopeId: PRIMARY_TARGET_TABLE_ID,
+      resumeAt: tableResumeAt,
+      actor: 'tester',
+    });
+    expect(await readTaskNextRunAt(db, 'cuo-defer-table')).toEqual(tableResumeAt);
+
+    const spaceResumeAt = new Date(Date.now() + 45 * 60 * 1000);
+    await pauseRegistry.pauseScope({
+      scopeType: 'space',
+      scopeId: SECONDARY_SPACE_ID,
+      resumeAt: spaceResumeAt,
+      actor: 'tester',
+    });
+    expect(await readTaskNextRunAt(db, 'cuo-defer-space')).toEqual(spaceResumeAt);
+
+    const outbox = createTestOutbox(db);
+    const claimed = await outbox.claimBatch({ workerId: 'worker-scopes', limit: 10 });
+    expect(claimed.isOk()).toBe(true);
+    expect(claimed._unsafeUnwrap()).toHaveLength(0);
+  });
+
+  it('reports paused rather than not_due for a pause-deferred task through the eligibility seam', async () => {
+    await insertOutboxRow(db, {
+      id: 'cuo-defer-eligibility',
+      status: 'pending',
+      baseId: PRIMARY_BASE_ID,
+      seedTableId: PRIMARY_SEED_TABLE_ID,
+    });
+
+    const resumeAt = new Date(Date.now() + 60 * 60 * 1000);
+    const pauseRegistry = createPauseRegistry(db);
+    await pauseRegistry.pauseScope({
+      scopeType: 'base',
+      scopeId: PRIMARY_BASE_ID,
+      resumeAt,
+      actor: 'tester',
+    });
+
+    const outbox = createTestOutbox(db);
+    const eligibility = await outbox.getTaskClaimEligibility('cuo-defer-eligibility');
+    expect(eligibility.isOk()).toBe(true);
+    expect(eligibility._unsafeUnwrap()).toEqual({
+      status: 'deferred',
+      reason: 'paused',
+      retryAt: resumeAt,
+    });
+  });
+
   it('lists active pause scopes with resolved metadata and supports resume', async () => {
     const registry = createPauseRegistry(db);
     const futureResumeAt = new Date(Date.now() + 60 * 60 * 1000);
@@ -1305,27 +2129,565 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
 
     const remaining = await registry.listScopes({ activeOnly: false });
     expect(remaining.isOk()).toBe(true);
-    expect(remaining._unsafeUnwrap()).toHaveLength(0);
+    expect(remaining._unsafeUnwrap()).toHaveLength(1);
+    expect(remaining._unsafeUnwrap()[0].active).toBe(false);
   });
 
-  it('treats expired pause scopes as inactive in active-only listing', async () => {
+  it('releases one pause lease by id and preserves it as inactive history', async () => {
     const registry = createPauseRegistry(db);
-    const expiredResumeAt = new Date(Date.now() - 60 * 1000);
-
-    await registry.pauseScope({
+    const paused = await registry.pauseScope({
       scopeType: 'base',
       scopeId: PRIMARY_BASE_ID,
-      resumeAt: expiredResumeAt,
+      resumeAt: new Date(Date.now() + 60 * 60 * 1000),
+      actor: 'pause-operator',
+    });
+    expect(paused.isOk()).toBe(true);
+
+    const released = await registry.releaseLease({
+      leaseId: paused._unsafeUnwrap().id,
+      actor: 'resume-operator',
+      releaseReason: 'maintenance complete',
+    });
+
+    expect(released.isOk()).toBe(true);
+    expect(released._unsafeUnwrap()).toBe(true);
+    const releasedAgain = await registry.releaseLease({ leaseId: paused._unsafeUnwrap().id });
+    expect(releasedAgain.isOk()).toBe(true);
+    expect(releasedAgain._unsafeUnwrap()).toBe(false);
+    const active = await registry.listScopes({ activeOnly: true });
+    const history = await registry.listScopes({ activeOnly: false });
+    expect(active._unsafeUnwrap()).toHaveLength(0);
+    expect(history._unsafeUnwrap()).toHaveLength(1);
+    expect(history._unsafeUnwrap()[0]).toMatchObject({
+      id: paused._unsafeUnwrap().id,
+      active: false,
+      updatedBy: 'resume-operator',
+    });
+  });
+
+  it('defaults a pause lease to 30 minutes', async () => {
+    const registry = createPauseRegistry(db);
+    const requestedAt = Date.now();
+
+    const paused = await registry.pauseScope({
+      scopeType: 'base',
+      scopeId: PRIMARY_BASE_ID,
       actor: 'tester',
     });
 
-    const activeScopes = await registry.listScopes({ activeOnly: true });
-    const allScopes = await registry.listScopes({ activeOnly: false });
+    expect(paused.isOk()).toBe(true);
+    const resumeAt = paused._unsafeUnwrap().resumeAt;
+    expect(resumeAt).not.toBeNull();
+    expect(resumeAt!.getTime() - requestedAt).toBeGreaterThanOrEqual(29 * 60 * 1000);
+    expect(resumeAt!.getTime() - requestedAt).toBeLessThanOrEqual(31 * 60 * 1000);
+  });
 
-    expect(activeScopes.isOk()).toBe(true);
-    expect(allScopes.isOk()).toBe(true);
-    expect(activeScopes._unsafeUnwrap()).toHaveLength(0);
-    expect(allScopes._unsafeUnwrap()).toHaveLength(1);
-    expect(allScopes._unsafeUnwrap()[0].active).toBe(false);
+  it('rejects expired and overlong pause leases', async () => {
+    const registry = createPauseRegistry(db);
+    const expired = await registry.pauseScope({
+      scopeType: 'base',
+      scopeId: PRIMARY_BASE_ID,
+      resumeAt: new Date(Date.now() - 60 * 1000),
+      actor: 'tester',
+    });
+    const overlong = await registry.pauseScope({
+      scopeType: 'base',
+      scopeId: PRIMARY_BASE_ID,
+      resumeAt: new Date(Date.now() + 2 * 60 * 60 * 1000 + 60 * 1000),
+      actor: 'tester',
+    });
+
+    expect(expired.isErr()).toBe(true);
+    expect(overlong.isErr()).toBe(true);
+  });
+
+  it('discards pending tasks and dead letters for a deleted seed table but spares processing and other tables', async () => {
+    const outbox = createTestOutbox(db);
+    await insertOutboxRow(db, { id: 'cuo-discard-pending', status: 'pending' });
+    await insertDeadLetterRow(db, { id: 'cuo-dead-discard' });
+    await insertDeadLetterRow(db, {
+      id: 'cuo-dead-other-table',
+      seedTableId: PRIMARY_TARGET_TABLE_ID,
+    });
+    await insertOutboxRow(db, {
+      id: 'cuo-discard-chained',
+      status: 'pending',
+      dirtyStats: { ledgerScopeId: 'cuo-chain-root' },
+    });
+    await insertOutboxRow(db, {
+      id: 'cuo-discard-processing',
+      status: 'processing',
+      lockedAt: new Date(),
+      lockedBy: 'worker-1',
+    });
+    await insertOutboxRow(db, {
+      id: 'cuo-other-table',
+      status: 'pending',
+      seedTableId: PRIMARY_TARGET_TABLE_ID,
+    });
+    await insertOutboxRow(db, {
+      id: 'cuo-other-base',
+      status: 'pending',
+      baseId: SECONDARY_BASE_ID,
+      seedTableId: SECONDARY_SEED_TABLE_ID,
+    });
+    await db
+      .insertInto('computed_update_outbox_seed')
+      .values([
+        {
+          id: 'seed-1',
+          task_id: 'cuo-discard-pending',
+          table_id: PRIMARY_SEED_TABLE_ID,
+          record_id: 'rec1',
+        },
+        {
+          id: 'seed-2',
+          task_id: 'cuo-other-table',
+          table_id: PRIMARY_TARGET_TABLE_ID,
+          record_id: 'rec1',
+        },
+      ])
+      .execute();
+    await db
+      .insertInto('computed_update_stage_ledger')
+      .values([
+        {
+          scope_id: 'cuo-discard-pending',
+          kind: 'dirty',
+          table_id: PRIMARY_SEED_TABLE_ID,
+          record_id: 'rec1',
+        },
+        {
+          scope_id: 'cuo-chain-root',
+          kind: 'dirty',
+          table_id: PRIMARY_SEED_TABLE_ID,
+          record_id: 'rec2',
+        },
+        {
+          scope_id: 'cuo-other-table',
+          kind: 'dirty',
+          table_id: PRIMARY_TARGET_TABLE_ID,
+          record_id: 'rec1',
+        },
+      ])
+      .execute();
+
+    const result = await outbox.discardBySeedTable({
+      baseId: PRIMARY_BASE_ID,
+      seedTableId: PRIMARY_SEED_TABLE_ID,
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect([...result._unsafeUnwrap().discardedTaskIds].sort()).toEqual([
+      'cuo-discard-chained',
+      'cuo-discard-pending',
+    ]);
+    expect(result._unsafeUnwrap().discardedDeadLetterTaskIds).toEqual(['cuo-dead-discard']);
+
+    const remainingDeadLetters = await db
+      .selectFrom('computed_update_dead_letter')
+      .select(['id'])
+      .execute();
+    expect(remainingDeadLetters.map((row) => row.id)).toEqual(['cuo-dead-other-table']);
+
+    const remainingTasks = await db.selectFrom('computed_update_outbox').select(['id']).execute();
+    expect(remainingTasks.map((row) => row.id).sort()).toEqual([
+      'cuo-discard-processing',
+      'cuo-other-base',
+      'cuo-other-table',
+    ]);
+
+    const remainingSeeds = await db
+      .selectFrom('computed_update_outbox_seed')
+      .select(['task_id'])
+      .execute();
+    expect(remainingSeeds.map((row) => row.task_id)).toEqual(['cuo-other-table']);
+
+    const remainingLedger = await db
+      .selectFrom('computed_update_stage_ledger')
+      .select(['scope_id'])
+      .execute();
+    expect(remainingLedger.map((row) => row.scope_id)).toEqual(['cuo-other-table']);
+  });
+
+  it('returns no ids when nothing is pending for the seed table', async () => {
+    const outbox = createTestOutbox(db);
+    await insertOutboxRow(db, {
+      id: 'cuo-still-processing',
+      status: 'processing',
+      lockedAt: new Date(),
+      lockedBy: 'worker-1',
+    });
+
+    const result = await outbox.discardBySeedTable({
+      baseId: PRIMARY_BASE_ID,
+      seedTableId: PRIMARY_SEED_TABLE_ID,
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().discardedTaskIds).toEqual([]);
+    expect(result._unsafeUnwrap().discardedDeadLetterTaskIds).toEqual([]);
+  });
+
+  describe('lineage', () => {
+    const buildComputedTaskInput = (
+      overrides: Partial<ComputedUpdateOutboxTaskInput> = {}
+    ): ComputedUpdateOutboxTaskInput => ({
+      baseId: PRIMARY_BASE_ID,
+      seedTableId: PRIMARY_SEED_TABLE_ID,
+      seedRecordIds: ['rec0000000000000001', 'rec0000000000000002'],
+      extraSeedRecords: [],
+      beforeImageRecords: [],
+      steps: [{ tableId: PRIMARY_TARGET_TABLE_ID, fieldIds: [`fld${'c'.repeat(16)}`], level: 0 }],
+      edges: [],
+      estimatedComplexity: 2,
+      changeType: 'update',
+      runId: 'run-lineage',
+      originRunIds: [],
+      runTotalSteps: 1,
+      runCompletedStepsBefore: 0,
+      planHash: 'hash-lineage',
+      affectedTableIds: [PRIMARY_TARGET_TABLE_ID],
+      affectedFieldIds: [`fld${'c'.repeat(16)}`],
+      syncMaxLevel: 0,
+      ...overrides,
+    });
+
+    it('accumulates merged-away seed run ids into origin_run_ids and keeps source_changed_at', async () => {
+      const outbox = createTestOutbox(db);
+      const changedFieldIds = [FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap()];
+      const buildSeed = (runId: string, recordIndex: number) =>
+        buildSeedTaskInput({
+          baseId: BaseId.create(PRIMARY_BASE_ID)._unsafeUnwrap(),
+          seedTableId: TableId.create(PRIMARY_SEED_TABLE_ID)._unsafeUnwrap(),
+          seedRecordIds: [createRecordId(recordIndex)],
+          extraSeedRecords: [],
+          changedFieldIds,
+          changeType: 'update',
+          hasher: new NoopHasher(),
+          runId,
+        });
+
+      const first = await outbox.enqueueSeedTask(buildSeed('run-a', 1));
+      expect(first.isOk()).toBe(true);
+      expect(first._unsafeUnwrap().merged).toBe(false);
+
+      const afterFirst = await db
+        .selectFrom('computed_update_outbox')
+        .selectAll()
+        .where('id', '=', first._unsafeUnwrap().taskId)
+        .executeTakeFirstOrThrow();
+      expect(afterFirst.source_changed_at).not.toBeNull();
+
+      const second = await outbox.enqueueSeedTask(buildSeed('run-b', 2));
+      expect(second.isOk()).toBe(true);
+      expect(second._unsafeUnwrap().merged).toBe(true);
+      expect(second._unsafeUnwrap().taskId).toBe(first._unsafeUnwrap().taskId);
+
+      const afterMerge = await db
+        .selectFrom('computed_update_outbox')
+        .selectAll()
+        .where('id', '=', first._unsafeUnwrap().taskId)
+        .executeTakeFirstOrThrow();
+      expect(String(afterMerge.run_id)).toBe('run-a');
+      expect(afterMerge.origin_run_ids).toEqual(['run-b']);
+      // Merge keeps the first mutation's source-change time.
+      expect(new Date(String(afterMerge.source_changed_at)).getTime()).toBe(
+        new Date(String(afterFirst.source_changed_at)).getTime()
+      );
+    });
+
+    it('round-trips stage depth, predecessor and source-changed time on computed tasks', async () => {
+      const outbox = createTestOutbox(db);
+      const sourceChangedAt = new Date('2026-01-05T11:59:00Z');
+      const enqueued = await outbox.enqueueOrMerge(
+        buildComputedTaskInput({
+          stageDepth: 3,
+          sourceChangedAt,
+          predecessorTaskId: 'cuo-predecessor',
+        })
+      );
+      expect(enqueued.isOk()).toBe(true);
+
+      const claimed = await outbox.claimById({
+        taskId: enqueued._unsafeUnwrap().taskId,
+        workerId: 'lineage-worker',
+      });
+      expect(claimed.isOk()).toBe(true);
+      const item = claimed._unsafeUnwrap();
+      expect(item).not.toBeNull();
+      // Seed/backfill items carry a taskType discriminator; computed items do not.
+      if (!item || 'taskType' in item) throw new Error('expected computed task item');
+      expect(item.stageDepth).toBe(3);
+      expect(item.predecessorTaskId).toBe('cuo-predecessor');
+      expect(item.sourceChangedAt?.getTime()).toBe(sourceChangedAt.getTime());
+    });
+
+    it('records run history when a computed task completes', async () => {
+      const outbox = createTestOutbox(db);
+      const sourceChangedAt = new Date('2026-01-05T11:58:00Z');
+      const enqueued = await outbox.enqueueOrMerge(
+        buildComputedTaskInput({
+          planHash: 'hash-lineage-history',
+          runId: 'run-history',
+          originRunIds: ['run-parent'],
+          stageDepth: 2,
+          sourceChangedAt,
+          predecessorTaskId: 'cuo-history-predecessor',
+        })
+      );
+      expect(enqueued.isOk()).toBe(true);
+      const taskId = enqueued._unsafeUnwrap().taskId;
+
+      const claimed = await outbox.claimById({ taskId, workerId: 'lineage-worker' });
+      const item = claimed._unsafeUnwrap();
+      expect(item).not.toBeNull();
+
+      const done = await outbox.markDone(item!);
+      expect(done.isOk()).toBe(true);
+      expect(done._unsafeUnwrap()).toBe(true);
+
+      const history = await db
+        .selectFrom('computed_update_run_history')
+        .selectAll()
+        .where('task_id', '=', taskId)
+        .executeTakeFirstOrThrow();
+      expect(String(history.outcome)).toBe('succeeded');
+      expect(String(history.run_id)).toBe('run-history');
+      expect(history.origin_run_ids).toEqual(['run-parent']);
+      expect(Number(history.stage_depth)).toBe(2);
+      expect(String(history.predecessor_task_id)).toBe('cuo-history-predecessor');
+      expect(Number(history.seed_record_count)).toBe(2);
+      expect(new Date(String(history.source_changed_at)).getTime()).toBe(sourceChangedAt.getTime());
+      expect(history.started_at).not.toBeNull();
+      expect(history.completed_at).not.toBeNull();
+      expect(Number(history.duration_ms)).toBeGreaterThanOrEqual(0);
+
+      const remaining = await db
+        .selectFrom('computed_update_outbox')
+        .select('id')
+        .where('id', '=', taskId)
+        .executeTakeFirst();
+      expect(remaining).toBeUndefined();
+    });
+  });
+
+  describe('continuation relay claim', () => {
+    const FIELD_ID = `fld${'c'.repeat(16)}`;
+    const PREDECESSOR_ID = 'cuo-relay-predecessor';
+
+    const createContinuationInput = (planHash: string): ComputedUpdateOutboxTaskInput => ({
+      baseId: PRIMARY_BASE_ID,
+      seedTableId: PRIMARY_SEED_TABLE_ID,
+      seedRecordIds: ['rec1'],
+      extraSeedRecords: [],
+      beforeImageRecords: [],
+      steps: [{ level: 0, tableId: PRIMARY_SEED_TABLE_ID, fieldIds: [FIELD_ID] }],
+      edges: [],
+      estimatedComplexity: 1,
+      changeType: 'update',
+      planHash,
+      dirtyStats: [{ tableId: PRIMARY_SEED_TABLE_ID, recordCount: 1 }],
+      runId: `run-${planHash}`,
+      originRunIds: [],
+      runTotalSteps: 2,
+      runCompletedStepsBefore: 1,
+      stageDepth: 1,
+      affectedTableIds: [PRIMARY_SEED_TABLE_ID],
+      affectedFieldIds: [FIELD_ID],
+      syncMaxLevel: 0,
+    });
+
+    const insertPredecessor = async () => {
+      await insertOutboxRow(db, {
+        id: PREDECESSOR_ID,
+        status: 'processing',
+        lockedAt: new Date(),
+        lockedBy: 'relay-worker:cuc-parent',
+      });
+    };
+
+    const relayOptions = {
+      relayClaim: { workerId: 'relay-worker', predecessorTaskId: PREDECESSOR_ID },
+    };
+
+    it('claims a fresh continuation inside the enqueue transaction', async () => {
+      await insertPredecessor();
+      const publisher = new RecordingWakeupPublisher();
+      const outbox = createTestOutbox(db, publisher);
+
+      const result = await outbox.enqueueOrMerge(
+        createContinuationInput('plan-relay-fresh'),
+        undefined,
+        relayOptions
+      );
+
+      expect(result.isOk()).toBe(true);
+      const outcome = result._unsafeUnwrap();
+      expect(outcome.merged).toBe(false);
+      expect(outcome.claimed).toBeDefined();
+      expect(outcome.claimed?.id).toBe(outcome.taskId);
+      expect(outcome.claimed?.status).toBe('processing');
+      expect(outcome.claimed?.lockedBy).toContain('relay-worker');
+
+      const row = await db
+        .selectFrom('computed_update_outbox')
+        .select(['status', 'locked_by'])
+        .where('id', '=', outcome.taskId)
+        .executeTakeFirst();
+      expect(row?.status).toBe('processing');
+      expect(String(row?.locked_by)).toContain('relay-worker');
+      // The crash-safety wakeup is still published.
+      expect(publisher.wakeups.map((wakeup) => wakeup.taskId)).toContain(outcome.taskId);
+    });
+
+    it('does not relay-claim when the enqueue merges into an existing pending task', async () => {
+      await insertPredecessor();
+      const outbox = createTestOutbox(db);
+
+      const first = await outbox.enqueueOrMerge(createContinuationInput('plan-relay-merge'));
+      expect(first.isOk()).toBe(true);
+
+      const second = await outbox.enqueueOrMerge(
+        createContinuationInput('plan-relay-merge'),
+        undefined,
+        relayOptions
+      );
+      expect(second.isOk()).toBe(true);
+      const outcome = second._unsafeUnwrap();
+      expect(outcome.merged).toBe(true);
+      expect(outcome.claimed).toBeUndefined();
+
+      const row = await db
+        .selectFrom('computed_update_outbox')
+        .select(['status'])
+        .where('id', '=', outcome.taskId)
+        .executeTakeFirst();
+      expect(row?.status).toBe('pending');
+    });
+
+    it('excludes the predecessor from the concurrency cap', async () => {
+      await insertPredecessor();
+      // One more active task: active-excluding-predecessor = 1 < cap 2.
+      await insertOutboxRow(db, {
+        id: 'cuo-relay-other-active',
+        status: 'processing',
+        lockedAt: new Date(),
+        lockedBy: 'other-worker:cuc-1',
+      });
+      const outbox = createTestOutbox(db);
+
+      const result = await outbox.enqueueOrMerge(
+        createContinuationInput('plan-relay-cap-ok'),
+        undefined,
+        relayOptions
+      );
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().claimed?.status).toBe('processing');
+    });
+
+    it('leaves the continuation pending when the base concurrency cap is reached', async () => {
+      await insertPredecessor();
+      await insertOutboxRow(db, {
+        id: 'cuo-relay-active-1',
+        status: 'processing',
+        lockedAt: new Date(),
+        lockedBy: 'other-worker:cuc-1',
+      });
+      await insertOutboxRow(db, {
+        id: 'cuo-relay-active-2',
+        status: 'processing',
+        seedTableId: PRIMARY_TARGET_TABLE_ID,
+        lockedAt: new Date(),
+        lockedBy: 'other-worker:cuc-2',
+      });
+      const outbox = createTestOutbox(db);
+
+      const result = await outbox.enqueueOrMerge(
+        createContinuationInput('plan-relay-cap-blocked'),
+        undefined,
+        relayOptions
+      );
+      expect(result.isOk()).toBe(true);
+      const outcome = result._unsafeUnwrap();
+      expect(outcome.claimed).toBeUndefined();
+
+      const row = await db
+        .selectFrom('computed_update_outbox')
+        .select(['status', 'locked_by'])
+        .where('id', '=', outcome.taskId)
+        .executeTakeFirst();
+      expect(row?.status).toBe('pending');
+      expect(row?.locked_by).toBeNull();
+    });
+
+    it('leaves the continuation pending when its scope is paused', async () => {
+      await insertPredecessor();
+      const registry = createPauseRegistry(db);
+      const paused = await registry.pauseScope({
+        scopeType: 'base',
+        scopeId: PRIMARY_BASE_ID,
+        resumeAt: new Date(Date.now() + 60 * 60 * 1000),
+        actor: 'tester',
+      });
+      expect(paused.isOk()).toBe(true);
+      const outbox = createTestOutbox(db);
+
+      const result = await outbox.enqueueOrMerge(
+        createContinuationInput('plan-relay-paused'),
+        undefined,
+        relayOptions
+      );
+      expect(result.isOk()).toBe(true);
+      const outcome = result._unsafeUnwrap();
+      expect(outcome.claimed).toBeUndefined();
+
+      const row = await db
+        .selectFrom('computed_update_outbox')
+        .select(['status'])
+        .where('id', '=', outcome.taskId)
+        .executeTakeFirst();
+      expect(row?.status).toBe('pending');
+    });
+
+    it('does not relay-claim when disabled by config', async () => {
+      await insertPredecessor();
+      const outbox = createTestOutbox(db, undefined, { continuationRelayClaimEnabled: false });
+
+      const result = await outbox.enqueueOrMerge(
+        createContinuationInput('plan-relay-disabled'),
+        undefined,
+        relayOptions
+      );
+      expect(result.isOk()).toBe(true);
+      const outcome = result._unsafeUnwrap();
+      expect(outcome.claimed).toBeUndefined();
+
+      const row = await db
+        .selectFrom('computed_update_outbox')
+        .select(['status'])
+        .where('id', '=', outcome.taskId)
+        .executeTakeFirst();
+      expect(row?.status).toBe('pending');
+    });
+
+    it('spills relay-claimed seeds to the seed table and loads them back on the claimed item', async () => {
+      await insertPredecessor();
+      // seedInlineLimit is 0 in the test outbox, so seeds always spill.
+      const outbox = createTestOutbox(db);
+      const input = {
+        ...createContinuationInput('plan-relay-seeds'),
+        seedRecordIds: ['rec1', 'rec2', 'rec3'],
+      };
+
+      const result = await outbox.enqueueOrMerge(input, undefined, relayOptions);
+      expect(result.isOk()).toBe(true);
+      const outcome = result._unsafeUnwrap();
+      const claimed = outcome.claimed;
+      expect(claimed).toBeDefined();
+      if (claimed && 'seedRecordIds' in claimed) {
+        expect([...claimed.seedRecordIds].sort()).toEqual(['rec1', 'rec2', 'rec3']);
+      }
+    });
   });
 });

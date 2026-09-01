@@ -1,4 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
+import {
+  planMonthCompaction,
+  supersededKeys,
+  swapCompactedStatsEntries,
+} from '../cold-archive/compaction';
 import { ExternalRowSorter, SortMemoryBudget } from './external-sort';
 import { truncateColdRow } from './part-codec';
 import type { IParsedPartKey, ITableColdStats } from './part-codec';
@@ -53,29 +58,21 @@ export class RecordHistoryCompactorService {
     const startedAt = Date.now();
     const config = recordHistoryColdConfig();
     const parts = await this.coldStorage.listMonthParts(tableId, yyyymm);
-    const dayParts = parts.filter((part) => part.kind === 'day');
-    const monthParts = parts.filter((part) => part.kind === 'month');
+    const plan = planMonthCompaction(parts, options);
 
     const base: Omit<ICompactMonthResult, 'skippedReason'> = {
       tableId,
       yyyymm,
-      inputParts: parts.length,
+      inputParts: plan.inputParts,
       outputParts: 0,
       rows: 0,
       durationMs: 0,
     };
-    if (dayParts.length === 0 && !options?.force) {
-      return { ...base, durationMs: Date.now() - startedAt, skippedReason: 'no-day-parts' };
-    }
-    if (parts.length === 0) {
-      return { ...base, durationMs: Date.now() - startedAt, skippedReason: 'empty-month' };
+    if (plan.skippedReason) {
+      return { ...base, durationMs: Date.now() - startedAt, skippedReason: plan.skippedReason };
     }
 
-    const inputs: IParsedPartKey[] = [...dayParts, ...monthParts];
-    // never write the keys we are still reading (S3 GET vs same-key overwrite
-    // is unspecified): new month parts start past the existing max seq and
-    // healing drops the superseded keys afterwards
-    const startSeq = monthParts.reduce((max, part) => Math.max(max, part.seq + 1), 0);
+    const { inputs, startSeq } = plan;
     const writer = new PartWriter({
       store: this.coldStorage.partStore,
       rootDir: this.coldStorage.rootDir,
@@ -93,32 +90,16 @@ export class RecordHistoryCompactorService {
       config.truncateValueUnits
     );
     const entries = await writer.finish();
-    const writtenKeys = new Set(entries.map((entry) => entry.key));
 
-    // stats: replace exactly the consumed inputs with the fresh outputs; an
-    // entry for a part that landed after our input snapshot belongs to a
-    // concurrent run and stays intact
-    const inputKeys = new Set(inputs.map((input) => input.key));
     const stats: ITableColdStats = (await this.coldStorage.readStats(tableId)) ?? {
       version: 1,
       tableId,
       parts: {},
     };
-    for (const key of Object.keys(stats.parts)) {
-      if (inputKeys.has(key)) delete stats.parts[key];
-    }
-    for (const entry of entries) {
-      stats.parts[entry.key] = entry;
-    }
+    swapCompactedStatsEntries(stats.parts, inputs, entries);
     await this.coldStorage.writeStats(tableId, stats);
 
-    // heal: delete exactly what this run consumed and superseded — never a
-    // key that appeared after the input snapshot. A concurrent backfill or
-    // flush may have written it, and it can be the only cold copy of rows
-    // whose buffer entries that other run then deletes.
-    const staleKeys = inputs
-      .filter((input) => !writtenKeys.has(input.key))
-      .map((input) => input.key);
+    const staleKeys = supersededKeys(inputs, entries);
     await this.coldStorage.deleteKeys(staleKeys);
 
     this.logger.log(

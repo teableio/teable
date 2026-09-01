@@ -9,14 +9,15 @@ import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { IExecutionContext } from '../ExecutionContext';
 import type {
+  ITableRecordCountOptions,
+  ITableRecordCountQueryRepository,
   ITableRecordQueryOptions,
-  ITableRecordQueryRepository,
   ITableRecordQueryResult,
   ITableRecordQueryStreamOptions,
 } from '../TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../TableRecordReadModel';
 
-export class NoopTableRecordQueryRepository implements ITableRecordQueryRepository {
+export class NoopTableRecordQueryRepository implements ITableRecordCountQueryRepository {
   async find(
     _context: IExecutionContext,
     _table: Table,
@@ -42,5 +43,14 @@ export class NoopTableRecordQueryRepository implements ITableRecordQueryReposito
     _options?: ITableRecordQueryStreamOptions
   ): AsyncIterable<Result<TableRecordReadModel, DomainError>> {
     // Noop implementation: yields nothing
+  }
+
+  async count(
+    _context: IExecutionContext,
+    _table: Table,
+    _spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    _options?: ITableRecordCountOptions
+  ): Promise<Result<number, DomainError>> {
+    return ok(0);
   }
 }

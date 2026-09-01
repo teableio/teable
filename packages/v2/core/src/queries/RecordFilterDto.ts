@@ -18,10 +18,20 @@ const dateValueSchema = z
   .object({
     mode: recordFilterDateModeSchema,
     numberOfDays: z.coerce.number().int().nonnegative().optional(),
-    exactDate: z.string().datetime({ precision: 3, offset: true }).optional(),
+    exactDate: z.string().datetime({ offset: true }).optional(),
+    exactDateEnd: z.string().datetime({ offset: true }).optional(),
     timeZone: z.string(),
   })
   .superRefine((val, ctx) => {
+    if (val.mode === 'dateRange') {
+      if (!val.exactDate || !val.exactDateEnd) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "When mode is 'dateRange', exactDate and exactDateEnd are required",
+        });
+      }
+      return;
+    }
     const requiresExact =
       val.mode === 'exactDate' || val.mode === 'exactDateTime' || val.mode === 'exactFormatDate';
     const requiresDays =
@@ -151,10 +161,22 @@ export type RecordFilterNot = {
 
 export type RecordFilterNode = RecordFilterCondition | RecordFilterGroup | RecordFilterNot;
 
-const recordFilterGroupSchema: z.ZodType<RecordFilterGroup> = z.object({
-  conjunction: recordFilterConjunctionSchema,
-  items: z.array(z.lazy(() => recordFilterNodeSchema)).min(1),
-});
+const recordFilterGroupSchema: z.ZodType<RecordFilterGroup> = z.preprocess(
+  (value) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return value;
+    }
+    const raw = value as Record<string, unknown>;
+    if (raw.items == null && Array.isArray(raw.filterSet)) {
+      return { ...raw, items: raw.filterSet };
+    }
+    return value;
+  },
+  z.object({
+    conjunction: recordFilterConjunctionSchema,
+    items: z.array(z.lazy(() => recordFilterNodeSchema)).min(1),
+  })
+);
 
 const recordFilterNotSchema: z.ZodType<RecordFilterNot> = z.object({
   not: z.lazy(() => recordFilterNodeSchema),

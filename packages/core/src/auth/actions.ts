@@ -55,6 +55,8 @@ export const tableActions = [
   'table|trash_read',
   'table|trash_update',
   'table|trash_reset',
+  'table|archive_read',
+  'table|archive_manage',
 ] as const;
 export const tableActionSchema = z.enum(tableActions);
 export type TableAction = z.infer<typeof tableActionSchema>;
@@ -80,6 +82,7 @@ export const recordActions = [
   'record|update',
   'record|comment',
   'record|copy',
+  'record|archive',
 ] as const;
 export const recordActionSchema = z.enum(recordActions);
 export type RecordAction = z.infer<typeof recordActionSchema>;

@@ -72,6 +72,65 @@ describe('SpaceDataDbCopyService', () => {
     }
   });
 
+  it('T6970: rejects pg_dump older than the source server before copy starts', async () => {
+    processRunner.run.mockImplementation((plan: { command: string; args: string[] }) => {
+      const stdout =
+        plan.command === 'pg_dump' && plan.args[0] === '--version'
+          ? 'pg_dump (PostgreSQL) 16.15 (Debian 16.15-1.pgdg12+2)\n'
+          : plan.command === 'psql' && plan.args.includes('SHOW server_version')
+            ? '18.4 (Debian 18.4-1.pgdg13+1)\n'
+            : `${plan.command} (PostgreSQL) 16.15\n`;
+      return Promise.resolve({
+        command: plan.command,
+        args: plan.args,
+        exitCode: 0,
+        signal: null,
+        stderr: '',
+        stdout,
+        startedAt: '2026-05-06T00:00:00.000Z',
+        completedAt: '2026-05-06T00:00:01.000Z',
+        durationMs: 1000,
+      });
+    });
+    const service = new SpaceDataDbCopyService(processRunner as never);
+
+    await expect(
+      service.assertPostgresToolsAvailable('pg_dump_stream_restore', { sourceUrl })
+    ).rejects.toThrow(/pg_dump version 16 cannot dump PostgreSQL 18/);
+  });
+
+  it('T6970: allows pg_dump 18 to dump a PostgreSQL 18 source', async () => {
+    processRunner.run.mockImplementation((plan: { command: string; args: string[] }) => {
+      const stdout =
+        plan.command === 'psql' && plan.args.includes('SHOW server_version')
+          ? '18.4 (Debian 18.4-1.pgdg13+1)\n'
+          : `${plan.command} (PostgreSQL) 18.4 (Debian 18.4-1.pgdg13+1)\n`;
+      return Promise.resolve({
+        command: plan.command,
+        args: plan.args,
+        exitCode: 0,
+        signal: null,
+        stderr: '',
+        stdout,
+        startedAt: '2026-05-06T00:00:00.000Z',
+        completedAt: '2026-05-06T00:00:01.000Z',
+        durationMs: 1000,
+      });
+    });
+    const service = new SpaceDataDbCopyService(processRunner as never);
+
+    await expect(
+      service.assertPostgresToolsAvailable('pg_dump_stream_restore', { sourceUrl })
+    ).resolves.toHaveLength(REQUIRED_POSTGRES_COPY_TOOLS.length);
+    expect(processRunner.run).toHaveBeenCalledWith(
+      expect.objectContaining({
+        command: 'psql',
+        args: expect.arrayContaining(['SHOW server_version']),
+      }),
+      {}
+    );
+  });
+
   it('requires pgcopydb only when the pgcopydb base-schema strategy is selected', () => {
     expect(postgresCopyToolsForStrategy('pg_dump_restore')).toEqual([
       'pg_dump',
@@ -595,5 +654,55 @@ describe('SpaceDataDbCopyService', () => {
       0,
       2
     );
+  });
+
+  it('retries a failed shared table COPY after resetting target rows', async () => {
+    vi.useFakeTimers();
+    processRunner.run.mockResolvedValue({
+      command: 'psql',
+      args: [],
+      exitCode: 0,
+      signal: null,
+      stderr: '',
+      stdout: 'DELETE 1',
+      startedAt: '2026-05-06T00:00:00.000Z',
+      completedAt: '2026-05-06T00:00:01.000Z',
+      durationMs: 1000,
+    });
+    processRunner.runPipeline
+      .mockRejectedValueOnce(new Error('source stream broke'))
+      .mockResolvedValueOnce({
+        source: { command: 'psql', args: [], exitCode: 0, signal: null, stderr: '', stdout: '' },
+        target: {
+          command: 'psql',
+          args: [],
+          exitCode: 0,
+          signal: null,
+          stderr: '',
+          stdout: 'COPY 4\n',
+        },
+      });
+    const service = new SpaceDataDbCopyService(processRunner as never);
+
+    const promise = service.copySharedTable(
+      {
+        table: 'record_trash',
+        sourceSql: 'COPY source trash TO STDOUT',
+        targetSql: 'COPY target trash FROM STDIN',
+        source: { command: psqlCommand, args: ['trash-source'] },
+        target: { command: psqlCommand, args: trashTargetArgs },
+        targetReset: { command: psqlCommand, args: ['trash-reset'] },
+      },
+      { timeoutMs: 10_000 }
+    );
+
+    await vi.advanceTimersByTimeAsync(2500);
+    await expect(promise).resolves.toMatchObject({ table: 'record_trash', copiedRows: 4 });
+    expect(processRunner.runPipeline).toHaveBeenCalledTimes(2);
+    expect(processRunner.run).toHaveBeenCalledWith(
+      { command: psqlCommand, args: ['trash-reset'] },
+      { timeoutMs: 10_000 }
+    );
+    vi.useRealTimers();
   });
 });

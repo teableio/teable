@@ -324,6 +324,30 @@ export class RedisNativeService {
   }
 
   /**
+   * Batch ZCOUNT via pipeline — single network roundtrip for multiple sorted-set keys.
+   * @param keys - Array of Redis sorted set keys
+   * @param min - Minimum score (number or '-inf')
+   * @param max - Maximum score (number or '+inf')
+   * @returns Array of counts (0 for missing keys)
+   * @throws on any per-command error — unknown must not read as zero
+   */
+  async zcountMulti(keys: string[], min: number | string, max: number | string): Promise<number[]> {
+    if (keys.length === 0) return [];
+    const pipe = this.client.pipeline();
+    for (const key of keys) {
+      pipe.zcount(key, min, max);
+    }
+    const replies = await pipe.exec();
+    return keys.map((key, i) => {
+      const reply = replies?.[i];
+      if (!reply) throw new Error(`zcountMulti got no reply for ${key}`);
+      const [err, count] = reply;
+      if (err) throw err;
+      return (count as number) ?? 0;
+    });
+  }
+
+  /**
    * Batch SCARD via pipeline — single network roundtrip for multiple set keys.
    * @param keys - Array of Redis set keys
    * @returns Array of cardinalities (0 for missing keys or errors)

@@ -8,6 +8,7 @@ import type { ITracer } from './Tracer';
 export interface IUnitOfWorkTransaction {
   readonly kind: 'unitOfWorkTransaction';
   readonly scope?: UnitOfWorkScope;
+  readonly pending?: boolean;
   readonly committed?: boolean;
   readonly rolledBack?: boolean;
   afterCommit?(handler: UnitOfWorkAfterCommitHandler): void;
@@ -33,7 +34,7 @@ export interface IExecutionContext {
   requestId?: string;
   windowId?: string;
   scheduleBackgroundTask?: ExecutionContextBackgroundTaskScheduler;
-  undoRedo?: { mode: 'undo' | 'redo' | 'normal' };
+  undoRedo?: { mode: 'undo' | 'redo' | 'normal'; operationId?: string };
   config?: {
     tableLimits?: TableDataSafetyLimitConfig;
     /** @deprecated Use `tableLimits.fieldOptions.maxSelectChoices`. */
@@ -43,6 +44,10 @@ export interface IExecutionContext {
   };
   $t?: (key: TableI18nKey, options?: Record<string, unknown>) => string;
 }
+
+export const isUndoRedoReplay = (
+  context: Pick<IExecutionContext, 'undoRedo'>
+): boolean => context.undoRedo?.mode === 'undo' || context.undoRedo?.mode === 'redo';
 
 export const getUnitOfWorkTransaction = (
   context: IExecutionContext | undefined,

@@ -35,6 +35,30 @@ export type ISortItem = z.infer<typeof sortItemSchema>;
 
 export type ISort = z.infer<typeof sortSchema>;
 
+/**
+ * Drop sort items that reference fields outside `readableFieldIds`.
+ *
+ * Use this only for persisted view defaults (view/share-view sort), so a
+ * permission change does not make the saved view unusable. Explicit
+ * client-supplied sorts must NOT be stripped — they are rejected server-side
+ * so a query cannot silently change ordering semantics. A `undefined`
+ * readable set means the readable fields are unknown (e.g. fields not loaded
+ * yet) and passes the sort through unchanged.
+ */
+export const stripSortByReadableFieldIds = (
+  sort: ISort | null | undefined,
+  readableFieldIds: ReadonlySet<string> | undefined
+): ISort | undefined => {
+  if (!sort) {
+    return undefined;
+  }
+  if (readableFieldIds == null) {
+    return sort;
+  }
+  const sortObjs = sort.sortObjs.filter((item) => readableFieldIds.has(item.fieldId));
+  return sortObjs.length ? { ...sort, sortObjs } : undefined;
+};
+
 export const manualSortRoSchema = z.object({
   sortObjs: sortItemSchema.array(),
 });

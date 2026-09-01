@@ -440,6 +440,47 @@ export class FieldCondition extends ValueObject {
     return [...idMap.values()];
   }
 
+  /**
+   * Field IDs (on the foreign table) that are compared for equality against a
+   * field-reference value, e.g. `{wooid} is {field: order_id}`. These columns
+   * act as per-host-row join keys when the condition is evaluated, so large
+   * foreign tables need an index on them to avoid per-row scans.
+   */
+  fieldReferenceMatchFieldIds(): ReadonlyArray<FieldId> {
+    const filter = this.rawFilterValue;
+    if (!filter) return [];
+
+    const idMap = new Map<string, FieldId>();
+    const collect = (node: IFilterDTO | IFilterItemDTO): void => {
+      if ('filterSet' in node) {
+        node.filterSet.forEach((entry) => collect(entry as IFilterDTO | IFilterItemDTO));
+        return;
+      }
+
+      if (node.operator !== 'is') return;
+      if (isRecordIdFieldId(node.fieldId)) return;
+
+      const rawValue = node.value;
+      const isFieldReference =
+        (node.isSymbol && typeof rawValue === 'string') ||
+        (rawValue !== null &&
+          typeof rawValue === 'object' &&
+          'type' in rawValue &&
+          (rawValue as { type?: unknown }).type === 'field' &&
+          'fieldId' in rawValue &&
+          typeof (rawValue as { fieldId?: unknown }).fieldId === 'string');
+      if (!isFieldReference) return;
+
+      const fieldIdResult = FieldId.create(node.fieldId);
+      if (fieldIdResult.isOk()) {
+        idMap.set(node.fieldId, fieldIdResult.value);
+      }
+    };
+
+    collect(filter);
+    return [...idMap.values()];
+  }
+
   referencesField(fieldId: FieldId): boolean {
     return this.referencesFieldId(fieldId.toString());
   }
@@ -576,12 +617,21 @@ export class FieldCondition extends ValueObject {
               'type' in filterItemEntry.value &&
               (filterItemEntry.value as { type?: string }).type === 'field' &&
               'fieldId' in filterItemEntry.value;
+            const referencedFieldIdFromValue = isFieldRefObject
+              ? (filterItemEntry.value as { fieldId: string }).fieldId
+              : filterItemEntry.isSymbol && filterItemEntry.value != null
+                ? String(filterItemEntry.value)
+                : undefined;
+            // Self-table `NameMirror is {Name}` is stored as either
+            // `{ type: 'field' }` or `isSymbol`. Both must swap so the
+            // source alias reads Name and the host alias reads NameMirror.
             const isSelfTableReference =
-              isFieldRefObject && hostTable !== undefined && hostTable.id().equals(table.id());
-            const effectiveFieldIdValue =
-              isSelfTableReference && isFieldRefObject
-                ? (filterItemEntry.value as { fieldId: string }).fieldId
-                : filterItemEntry.fieldId;
+              referencedFieldIdFromValue !== undefined &&
+              hostTable !== undefined &&
+              hostTable.id().equals(table.id());
+            const effectiveFieldIdValue = isSelfTableReference
+              ? referencedFieldIdFromValue
+              : filterItemEntry.fieldId;
 
             const fieldResult = FieldCondition.resolveConditionField(
               effectiveFieldIdValue,
@@ -600,11 +650,9 @@ export class FieldCondition extends ValueObject {
             if (filterItemEntry.value !== undefined && filterItemEntry.value !== null) {
               if (filterItemEntry.isSymbol || isFieldRefObject) {
                 // Field reference - resolve from host table if provided, otherwise from main table
-                const refFieldIdValue = isFieldRefObject
-                  ? isSelfTableReference
-                    ? filterItemEntry.fieldId
-                    : (filterItemEntry.value as { fieldId: string }).fieldId
-                  : String(filterItemEntry.value);
+                const refFieldIdValue = isSelfTableReference
+                  ? filterItemEntry.fieldId
+                  : referencedFieldIdFromValue ?? String(filterItemEntry.value);
                 const refFieldResult = FieldCondition.resolveConditionField(
                   refFieldIdValue,
                   hostFields,

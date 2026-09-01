@@ -15,6 +15,7 @@ import React, { useMemo } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 import { useFields, useFieldStaticGetter } from '../../hooks';
 import type { IFieldInstance } from '../../model';
+import { useInDrawer } from '../adaptive-panel';
 
 interface IFieldCommand {
   fields?: IFieldInstance[];
@@ -31,6 +32,7 @@ interface IFieldCommand {
 
 export function FieldCommand(props: IFieldCommand) {
   const {
+    className,
     placeholder,
     emptyHolder,
     onSelect,
@@ -42,6 +44,10 @@ export function FieldCommand(props: IFieldCommand) {
     maxHeight,
   } = props;
   const { t } = useTranslation();
+
+  // Inside a drawer the list is the panel, not a card floating over one:
+  // shed the rounding/shadow/max-width and switch to the taller touch rows.
+  const inDrawer = useInDrawer();
 
   const defaultFields = useFields({ withHidden: true, withDenied: true });
   const fields = propsFields ?? defaultFields;
@@ -72,10 +78,14 @@ export function FieldCommand(props: IFieldCommand) {
           }
           onSelect?.(field.id);
         }}
-        className={cn('flex', disabled && 'pointer-events-none opacity-50')}
+        className={cn(
+          'flex',
+          inDrawer && 'h-9 gap-2 rounded-md px-3',
+          disabled && 'pointer-events-none opacity-50'
+        )}
       >
         <Icon className="size-4 shrink-0" />
-        <span className="truncate pl-3">{field.name}</span>
+        <span className={cn('truncate ps-3', inDrawer && 'ps-0')}>{field.name}</span>
       </CommandItem>
     );
 
@@ -98,13 +108,29 @@ export function FieldCommand(props: IFieldCommand) {
   };
 
   return (
-    <Command className="max-w-md rounded-lg p-0 shadow-md">
+    <Command
+      className={cn(
+        'max-w-md rounded-lg p-0 shadow-md',
+        inDrawer && 'h-full max-w-none rounded-none bg-transparent shadow-none',
+        className
+      )}
+    >
       <CommandInput
         placeholder={placeholder || t('common.search.placeholder')}
-        className="text-xs"
-        containerClassName="border-none"
+        className={cn('text-xs', inDrawer && 'h-8 text-sm')}
+        containerClassName={cn(
+          // `border-none` (border-style) and `border` (border-width) live in
+          // different tailwind-merge groups, so both survive and the drawer
+          // box paints no outline. Pick one branch instead of layering them.
+          inDrawer
+            ? 'mx-4 mb-1 mt-4 h-8 shrink-0 gap-2 rounded-md border border-input px-3 py-0'
+            : 'border-none'
+        )}
       />
-      <CommandList style={maxHeight ? { maxHeight } : undefined}>
+      <CommandList
+        className={cn(inDrawer && 'max-h-full flex-1 p-2')}
+        style={maxHeight ? { maxHeight } : undefined}
+      >
         <CommandEmpty>{emptyHolder || t('common.search.empty')}</CommandEmpty>
         <CommandGroup heading={groupHeading}>{mergeFields?.map(renderFieldItem)}</CommandGroup>
       </CommandList>

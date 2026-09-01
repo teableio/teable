@@ -71,7 +71,7 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
         target: `.${GUIDE_CREATE_SPACE}`,
         title: <div className="text-base">{t('guide.createSpaceTooltipTitle')}</div>,
         content: (
-          <div className="text-left text-[13px]">
+          <div className="text-start text-[13px]">
             <Trans
               ns="common"
               i18nKey="guide.createSpaceTooltipContent"
@@ -84,14 +84,16 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
       [StepKey.CreateBase]: {
         target: `.${GUIDE_CREATE_BASE}`,
         title: <div className="text-base">{t('guide.createBaseTooltipTitle')}</div>,
-        content: <div className="text-left text-[13px]">{t('guide.createBaseTooltipContent')}</div>,
+        content: (
+          <div className="text-start text-[13px]">{t('guide.createBaseTooltipContent')}</div>
+        ),
         disableBeacon: true,
       },
       [StepKey.CreateTable]: {
         target: `.${GUIDE_CREATE_TABLE}`,
         title: <div className="text-base">{t('guide.createTableTooltipTitle')}</div>,
         content: (
-          <div className="text-left text-[13px]">{t('guide.createTableTooltipContent')}</div>
+          <div className="text-start text-[13px]">{t('guide.createTableTooltipContent')}</div>
         ),
         disableBeacon: true,
         placement: 'right',
@@ -100,7 +102,7 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
         target: `.${GUIDE_CREATE_VIEW}`,
         title: <div className="text-base">{t('guide.createViewTooltipTitle')}</div>,
         content: (
-          <div className="text-left text-[13px]">
+          <div className="text-start text-[13px]">
             <Trans
               ns="common"
               i18nKey="guide.createViewTooltipContent"
@@ -114,7 +116,7 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
         target: `.${GUIDE_VIEW_FILTERING}`,
         title: <div className="text-base">{t('guide.viewFilteringTooltipTitle')}</div>,
         content: (
-          <div className="text-left text-[13px]">
+          <div className="text-start text-[13px]">
             <Trans
               ns="common"
               i18nKey="guide.viewFilteringTooltipContent"
@@ -128,7 +130,7 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
         target: `.${GUIDE_VIEW_SORTING}`,
         title: <div className="text-base">{t('guide.viewSortingTooltipTitle')}</div>,
         content: (
-          <div className="text-left text-[13px]">
+          <div className="text-start text-[13px]">
             <Trans
               ns="common"
               i18nKey="guide.viewSortingTooltipContent"
@@ -142,7 +144,7 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
         target: `.${GUIDE_VIEW_GROUPING}`,
         title: <div className="text-base">{t('guide.viewGroupingTooltipTitle')}</div>,
         content: (
-          <div className="text-left text-[13px]">{t('guide.viewGroupingTooltipContent')}</div>
+          <div className="text-start text-[13px]">{t('guide.viewGroupingTooltipContent')}</div>
         ),
         disableBeacon: true,
       },
@@ -150,7 +152,7 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
         target: `.${GUIDE_API_BUTTON}`,
         title: <div className="text-base">{t('guide.apiButtonTooltipTitle')}</div>,
         content: (
-          <div className="text-left text-[13px]">
+          <div className="text-start text-[13px]">
             <Trans
               ns="common"
               i18nKey="guide.apiButtonTooltipContent"

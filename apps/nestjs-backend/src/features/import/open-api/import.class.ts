@@ -404,7 +404,7 @@ export class CsvImporter extends Importer {
               recordBuffer.push(...newChunk);
               totalRowCount += newChunk.length;
 
-              if (this.config.maxRowCount && totalRowCount > this.config.maxRowCount) {
+              if (this.config.maxRowCount != null && totalRowCount > this.config.maxRowCount) {
                 isAbort = true;
                 recordBuffer = [];
                 onError?.(Importer.OVER_PLAN_ROW_COUNT_ERROR_MESSAGE);
@@ -490,6 +490,65 @@ export class CsvImporter extends Importer {
   }
 }
 
+type DenseExcelCell = { w?: string; v?: unknown };
+type DenseExcelRow = Array<DenseExcelCell | undefined> | undefined;
+
+const excelHeaderScanRows = 30;
+
+const denseExcelCellToString = (cell: DenseExcelCell | undefined): string => {
+  if (!cell) {
+    return '';
+  }
+  const value = cell.w ?? cell.v;
+  return value == null ? '' : String(value);
+};
+
+const filledExcelCellCount = (row: DenseExcelRow): number =>
+  (row ?? []).reduce(
+    (count, cell) => (denseExcelCellToString(cell).trim() === '' ? count : count + 1),
+    0
+  );
+
+const findExcelHeaderRowIndex = (rows: ReadonlyArray<DenseExcelRow>): number => {
+  const scanUntil = Math.min(rows.length, excelHeaderScanRows);
+  let bestIndex = -1;
+  let bestCount = 0;
+  for (let index = 0; index < scanUntil; index++) {
+    const count = filledExcelCellCount(rows[index]);
+    if (count > bestCount) {
+      bestCount = count;
+      bestIndex = index;
+    }
+  }
+  return bestIndex;
+};
+
+const readDenseExcelRows = (sheet: XLSX.WorkSheet): Array<DenseExcelRow> => {
+  const dataProp = (sheet as { ['!data']?: unknown })['!data'];
+  if (Array.isArray(dataProp) && dataProp.length > 0) {
+    return dataProp as Array<DenseExcelRow>;
+  }
+  if (Array.isArray(sheet)) {
+    return sheet as Array<DenseExcelRow>;
+  }
+  return [];
+};
+
+const denseSheetToImportRows = (sheet: XLSX.WorkSheet): unknown[][] => {
+  const rawData = readDenseExcelRows(sheet);
+  const headerRowIndex = findExcelHeaderRowIndex(rawData);
+  if (headerRowIndex < 0) {
+    return [];
+  }
+
+  const headerWidth = Math.max((rawData[headerRowIndex] ?? []).length, 1);
+  return rawData
+    .slice(headerRowIndex)
+    .map((row) =>
+      Array.from({ length: headerWidth }, (_, index) => denseExcelCellToString(row?.[index]))
+    );
+};
+
 export class ExcelImporter extends Importer {
   public static readonly SUPPORTEDTYPE: IValidateTypes[] = [
     FieldType.Checkbox,
@@ -526,9 +585,7 @@ export class ExcelImporter extends Importer {
           const workbook = XLSX.read(buf, { dense: true });
           const result: IParseResult = {};
           Object.keys(workbook.Sheets).forEach((name) => {
-            result[name] = workbook.Sheets[name]['!data']?.map((item) =>
-              item.map((v) => v.w ?? v.v)
-            ) as unknown[][];
+            result[name] = denseSheetToImportRows(workbook.Sheets[name]);
           });
           res(result);
         });
@@ -545,7 +602,7 @@ export class ExcelImporter extends Importer {
       const chunks = parseResult[key];
       const parseResults = chunkArray(chunks, Importer.MAX_CHUNK_LENGTH);
 
-      if (this.config.maxRowCount && chunks.length > this.config.maxRowCount) {
+      if (this.config.maxRowCount != null && chunks.length > this.config.maxRowCount) {
         onError?.(Importer.OVER_PLAN_ROW_COUNT_ERROR_MESSAGE);
         return;
       }

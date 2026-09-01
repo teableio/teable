@@ -150,7 +150,8 @@ describe('CreateRecordsHandler (db)', () => {
 
     expect(sortedRows[1][titleDbField]).toBe('Second Record');
     expect(sortedRows[1][amountDbField]).toBe(200);
-    expect(sortedRows[1][approvedDbField]).toBe(false);
+    // v1 contract: checkbox false is stored as null (T6520)
+    expect(sortedRows[1][approvedDbField]).toBeNull();
 
     expect(sortedRows[2][titleDbField]).toBe('Third Record');
     expect(sortedRows[2][amountDbField]).toBe(300);

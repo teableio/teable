@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 import type { DomainError } from '../../domain/shared/DomainError';
 import {
   ensureWithinTableDataSafetyLimit,
+  tableDataSafetyLimitErrors,
   measureJsonBytes,
   resolveTableDataSafetyLimits,
   type ResolvedTableDataSafetyLimitConfig,
@@ -16,7 +17,7 @@ import {
 } from '../../ports/ViewOperationPlugin';
 import {
   createDefaultTableDataSafetyLimitComposer,
-  TableDataSafetyLimitComposer,
+  type TableDataSafetyLimitComposer,
 } from './TableDataSafetyLimitComposer';
 
 type PreparedTableDataSafetyViewLimitState = {
@@ -24,27 +25,29 @@ type PreparedTableDataSafetyViewLimitState = {
 };
 
 type FilterSetLike = {
-  readonly filterSet: ReadonlyArray<FilterNode>;
+  readonly filterSet?: ReadonlyArray<FilterNode>;
+  readonly items?: ReadonlyArray<FilterNode>;
 };
 
 type FilterNode = FilterSetLike | Readonly<Record<string, unknown>>;
 type FilterMeasureResult = { itemCount: number; depth: number };
 
-const isFilterSet = (value: unknown): value is FilterSetLike =>
-  Boolean(
-    value &&
-      typeof value === 'object' &&
-      'filterSet' in value &&
-      Array.isArray((value as { filterSet?: unknown }).filterSet)
-  );
+const filterChildren = (value: unknown): ReadonlyArray<FilterNode> | undefined => {
+  if (!value || typeof value !== 'object') return undefined;
+  const group = value as FilterSetLike;
+  if (Array.isArray(group.filterSet)) return group.filterSet;
+  if (Array.isArray(group.items)) return group.items;
+  return undefined;
+};
 
 const measureFilter = (filter: unknown): FilterMeasureResult => {
   if (filter == null) return { itemCount: 0, depth: 0 };
 
   const visit = (node: unknown, depth: number): FilterMeasureResult => {
-    if (!isFilterSet(node)) return { itemCount: 1, depth };
+    const children = filterChildren(node);
+    if (!children) return { itemCount: 1, depth };
 
-    return node.filterSet.reduce<FilterMeasureResult>(
+    return children.reduce<FilterMeasureResult>(
       (acc, child) => {
         const childResult = visit(child, depth + 1);
         return {
@@ -76,7 +79,7 @@ export const ensureTableDataSafetyViewOperationLimits = (
   if (context.kind === ViewOperationKind.create || context.kind === ViewOperationKind.duplicate) {
     const addedViewCount = context.payload.addedViewCount ?? 1;
     const viewsPerTableResult = ensureWithinTableDataSafetyLimit(
-      'validation.limit.views_per_table_max',
+      tableDataSafetyLimitErrors.viewsPerTableMax,
       context.payload.currentViewCount + addedViewCount,
       limits.tableSchema.maxViewsPerTable,
       {
@@ -100,7 +103,7 @@ export const ensureTableDataSafetyViewConfigLimits = (
 ): Result<void, DomainError> => {
   if (view.name != null) {
     const nameResult = ensureWithinTableDataSafetyLimit(
-      'validation.limit.name_max_length',
+      tableDataSafetyLimitErrors.nameMaxLength,
       view.name.length,
       limits.displayText.maxNameLength,
       { target: 'view.name' }
@@ -110,7 +113,7 @@ export const ensureTableDataSafetyViewConfigLimits = (
 
   if (view.description != null) {
     const descriptionResult = ensureWithinTableDataSafetyLimit(
-      'validation.limit.description_max_length',
+      tableDataSafetyLimitErrors.descriptionMaxLength,
       view.description.length,
       limits.displayText.maxDescriptionLength,
       { target: 'view.description' }
@@ -121,7 +124,7 @@ export const ensureTableDataSafetyViewConfigLimits = (
   if (view.filter !== undefined) {
     const { itemCount, depth } = measureFilter(view.filter);
     const filterItemsResult = ensureWithinTableDataSafetyLimit(
-      'validation.limit.view_filter_items_max',
+      tableDataSafetyLimitErrors.viewFilterItemsMax,
       itemCount,
       limits.viewConfig.maxFilterItems,
       { target: 'view.filter' }
@@ -129,7 +132,7 @@ export const ensureTableDataSafetyViewConfigLimits = (
     if (filterItemsResult.isErr()) return filterItemsResult;
 
     const filterDepthResult = ensureWithinTableDataSafetyLimit(
-      'validation.limit.view_filter_depth_max',
+      tableDataSafetyLimitErrors.viewFilterDepthMax,
       depth,
       limits.viewConfig.maxFilterDepth,
       { target: 'view.filter' }
@@ -139,7 +142,7 @@ export const ensureTableDataSafetyViewConfigLimits = (
 
   if (view.sort !== undefined) {
     const sortResult = ensureWithinTableDataSafetyLimit(
-      'validation.limit.view_sort_items_max',
+      tableDataSafetyLimitErrors.viewSortItemsMax,
       sortItemCount(view.sort),
       limits.viewConfig.maxSortItems,
       { target: 'view.sort' }
@@ -149,7 +152,7 @@ export const ensureTableDataSafetyViewConfigLimits = (
 
   if (view.group !== undefined) {
     const groupResult = ensureWithinTableDataSafetyLimit(
-      'validation.limit.view_group_items_max',
+      tableDataSafetyLimitErrors.viewGroupItemsMax,
       groupItemCount(view.group),
       limits.viewConfig.maxGroupItems,
       { target: 'view.group' }
@@ -159,7 +162,7 @@ export const ensureTableDataSafetyViewConfigLimits = (
 
   if (view.options !== undefined) {
     const optionsResult = ensureWithinTableDataSafetyLimit(
-      'validation.limit.view_options_max_bytes',
+      tableDataSafetyLimitErrors.viewOptionsMaxBytes,
       measureJsonBytes(view.options),
       limits.viewConfig.maxOptionsBytes,
       { target: 'view.options' }

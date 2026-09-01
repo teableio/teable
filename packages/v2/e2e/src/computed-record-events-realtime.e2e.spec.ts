@@ -433,6 +433,14 @@ describe('v2 computed record events and realtime projection (e2e)', () => {
           on conflict (id) do nothing
         `.execute(testContainer.db);
 
+        await sql`
+          insert into collaborator (id, resource_type, resource_id, principal_id, principal_type)
+          values
+            ('col' || ${aliceCell.id}, 'base', ${baseId}, ${aliceCell.id}, 'user'),
+            ('col' || ${bobCell.id}, 'base', ${baseId}, ${bobCell.id}, 'user')
+          on conflict (id) do nothing
+        `.execute(testContainer.db);
+
         const foreignPrimaryFieldId = createFieldId();
         const foreignUserFieldId = createFieldId();
         const foreignTable = await createTable({

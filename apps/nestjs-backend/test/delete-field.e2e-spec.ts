@@ -179,52 +179,61 @@ describe('OpenAPI delete field (e2e)', () => {
       }
     });
 
-    it('should hide the table from reads before dropping a physical column', async () => {
-      const field = table.fields.find((f) => f.name === 'Column To Delete')!;
-      const dbFieldName = field.dbFieldName!;
-      const container = await v2ContainerService.getContainerForTable(table.id);
-      const tableSchemaRepository = container.resolve<ITableSchemaRepository>(
-        v2CoreTokens.tableSchemaRepository
-      );
-      const originalUpdate = tableSchemaRepository.update.bind(tableSchemaRepository);
-      const { schemaName, tableName } = parseDbTableName(table.dbTableName);
-      let observedProvisionState: ProvisionState | undefined;
-      let readDuringSchemaUpdateError: unknown;
-
-      tableSchemaRepository.update = (async (...args: Parameters<typeof originalUpdate>) => {
-        await dataPrisma.$executeRawUnsafe(
-          `ALTER TABLE ${quoteIdent(schemaName)}.${quoteIdent(tableName)} DROP COLUMN IF EXISTS ${quoteIdent(dbFieldName)} CASCADE`
+    // This test makes a re-entrant getRecords HTTP call from inside a
+    // monkey-patched tableSchemaRepository.update while the v2 delete flow is
+    // mid-transaction; under the shared-app worker model that is markedly
+    // slower than a plain delete. Allow CI-level headroom (the suite default
+    // is 10s locally / 60s in CI) so local full-suite runs don't flake.
+    it(
+      'should hide the table from reads before dropping a physical column',
+      { timeout: 60_000 },
+      async () => {
+        const field = table.fields.find((f) => f.name === 'Column To Delete')!;
+        const dbFieldName = field.dbFieldName!;
+        const container = await v2ContainerService.getContainerForTable(table.id);
+        const tableSchemaRepository = container.resolve<ITableSchemaRepository>(
+          v2CoreTokens.tableSchemaRepository
         );
-        const tableRaw = await prisma.tableMeta.findUniqueOrThrow({
-          where: { id: table.id },
-          select: { provisionState: true },
-        });
-        observedProvisionState = tableRaw.provisionState;
+        const originalUpdate = tableSchemaRepository.update.bind(tableSchemaRepository);
+        const { schemaName, tableName } = parseDbTableName(table.dbTableName);
+        let observedProvisionState: ProvisionState | undefined;
+        let readDuringSchemaUpdateError: unknown;
+
+        tableSchemaRepository.update = (async (...args: Parameters<typeof originalUpdate>) => {
+          await dataPrisma.$executeRawUnsafe(
+            `ALTER TABLE ${quoteIdent(schemaName)}.${quoteIdent(tableName)} DROP COLUMN IF EXISTS ${quoteIdent(dbFieldName)} CASCADE`
+          );
+          const tableRaw = await prisma.tableMeta.findUniqueOrThrow({
+            where: { id: table.id },
+            select: { provisionState: true },
+          });
+          observedProvisionState = tableRaw.provisionState;
+
+          try {
+            await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+          } catch (error) {
+            readDuringSchemaUpdateError = error;
+          }
+
+          return originalUpdate(...args);
+        }) as typeof tableSchemaRepository.update;
 
         try {
-          await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
-        } catch (error) {
-          readDuringSchemaUpdateError = error;
+          await deleteField(table.id, field.id);
+        } finally {
+          tableSchemaRepository.update = originalUpdate;
         }
 
-        return originalUpdate(...args);
-      }) as typeof tableSchemaRepository.update;
+        const readErrorMessage = JSON.stringify(readDuringSchemaUpdateError);
+        expect(observedProvisionState).toBe(ProvisionState.pending);
+        expect(readDuringSchemaUpdateError).toMatchObject({ status: 404 });
+        expect(readErrorMessage).not.toContain(dbFieldName);
 
-      try {
-        await deleteField(table.id, field.id);
-      } finally {
-        tableSchemaRepository.update = originalUpdate;
+        const records = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+        expect(records.records).toHaveLength(1);
+        expect(records.records[0].fields[field.id]).toBeUndefined();
       }
-
-      const readErrorMessage = JSON.stringify(readDuringSchemaUpdateError);
-      expect(observedProvisionState).toBe(ProvisionState.pending);
-      expect(readDuringSchemaUpdateError).toMatchObject({ status: 404 });
-      expect(readErrorMessage).not.toContain(dbFieldName);
-
-      const records = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
-      expect(records.records).toHaveLength(1);
-      expect(records.records[0].fields[field.id]).toBeUndefined();
-    });
+    );
   });
 
   describe('delete field with formula dependencies', () => {

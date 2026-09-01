@@ -5,9 +5,23 @@ import type {
   ITableSpecVisitor,
   TableAddFieldSpec,
   TableAddFieldsSpec,
+  TableAddViewSpec,
+  TableEnsureViewRowOrderSpec,
+  TableRemoveViewSpec,
+  TableRenameViewSpec,
+  TableUpdateViewDescriptionSpec,
+  TableUpdateViewLockedSpec,
+  TableUpdateViewOrderSpec,
+  TableUpdateViewOptionsSpec,
+  TableUpdateViewShareIdSpec,
+  TableUpdateViewShareMetaSpec,
+  TableUpdateViewShareStateSpec,
   TableAddSelectOptionsSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
+  TableByViewIdSpec,
+  TableWithViewIdsSpec,
+  TableWithPrimaryFieldSpec,
   TableByIncomingReferenceToTableSpec,
   TableByIdsSpec,
   TableByNameLikeSpec,
@@ -17,6 +31,7 @@ import type {
   TableUpdateViewColumnMetaSpec,
   TableUpdateViewQueryDefaultsSpec,
   TableRenameSpec,
+  TableUpdatePropertiesSpec,
   // Common field update specs
   TableUpdateFieldNameSpec,
   TableUpdateFieldTypeSpec,
@@ -126,11 +141,45 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
     return ok(undefined);
   }
 
+  visitTableUpdateProperties(_spec: TableUpdatePropertiesSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
   visitTableAddField(_spec: TableAddFieldSpec): Result<void, DomainError> {
     return ok(undefined);
   }
 
   visitTableAddFields(_spec: TableAddFieldsSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableAddView(_spec: TableAddViewSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableEnsureViewRowOrder(_spec: TableEnsureViewRowOrderSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableRemoveView(_spec: TableRemoveViewSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableRenameView(_spec: TableRenameViewSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewDescription(
+    _spec: TableUpdateViewDescriptionSpec
+  ): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewLocked(_spec: TableUpdateViewLockedSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewOrder(_spec: TableUpdateViewOrderSpec): Result<void, DomainError> {
     return ok(undefined);
   }
 
@@ -153,6 +202,22 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
     return ok(undefined);
   }
 
+  visitTableUpdateViewOptions(_spec: TableUpdateViewOptionsSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewShareMeta(_spec: TableUpdateViewShareMetaSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewShareId(_spec: TableUpdateViewShareIdSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewShareState(_spec: TableUpdateViewShareStateSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
   visitTableUpdateViewQueryDefaults(
     _spec: TableUpdateViewQueryDefaultsSpec
   ): Result<void, DomainError> {
@@ -164,6 +229,18 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
   }
 
   visitTableById(_spec: TableByIdSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableByViewId(_spec: TableByViewIdSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableWithViewIds(_spec: TableWithViewIdsSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableWithPrimaryField(_spec: TableWithPrimaryFieldSpec): Result<void, DomainError> {
     return ok(undefined);
   }
 
@@ -199,6 +276,13 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
 
   visitTableUpdateFieldType(spec: TableUpdateFieldTypeSpec): Result<void, DomainError> {
     if (spec.isTypeConversion()) {
+      // singleSelect → text/longText keeps the column and every cell. There is
+      // no SQL rewrite, so treating it as a value change would still run the
+      // computed planner/cascade over the whole table.
+      if (spec.isValuePreservingConversion()) {
+        return ok(undefined);
+      }
+
       const fieldId = spec.newField().id();
       const newIsComputed = spec.newField().computed().toBoolean();
       // Type conversion rewrites stored values (or value shape), so dependents

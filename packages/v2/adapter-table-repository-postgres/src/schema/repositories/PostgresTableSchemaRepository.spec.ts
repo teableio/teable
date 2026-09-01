@@ -331,6 +331,47 @@ describe('PostgresTableSchemaRepository', () => {
     expect(backfillService.calls[0]?.includeOneManyTwoWay).toBe(false);
   });
 
+  it('discards pending computed outbox tasks only on permanent delete', async () => {
+    const baseId = BaseId.generate()._unsafeUnwrap();
+    const tableId = TableId.generate()._unsafeUnwrap();
+    const tableName = TableName.create('Drop Target')._unsafeUnwrap();
+    const fieldName = FieldName.create('Name')._unsafeUnwrap();
+    const actorId = ActorId.create('system')._unsafeUnwrap();
+    const context: IExecutionContext = { actorId };
+
+    const builder = Table.builder().withBaseId(baseId).withId(tableId).withName(tableName);
+    builder.field().singleLineText().withName(fieldName).done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const discardCalls: Array<{ baseId: string; seedTableId: string }> = [];
+    const recordingOutbox = {
+      discardBySeedTable: async (params: { baseId: string; seedTableId: string }) => {
+        discardCalls.push(params);
+        return ok({ discardedTaskIds: [], discardedDeadLetterTaskIds: [] });
+      },
+    };
+    const repository = new PostgresTableSchemaRepository(
+      db,
+      new FakeTableRepository([table]) as never,
+      new FakeComputedFieldBackfillService(),
+      new FakeComputedFieldCascadeService(),
+      new FakeComputedUpdatePlanner() as never,
+      new FakeFieldDependencyGraph() as never,
+      db,
+      undefined,
+      recordingOutbox
+    );
+
+    (await repository.insert(context, table))._unsafeUnwrap();
+
+    (await repository.delete(context, table, { mode: 'soft' }))._unsafeUnwrap();
+    expect(discardCalls).toEqual([]);
+
+    (await repository.delete(context, table, { mode: 'permanent' }))._unsafeUnwrap();
+    expect(discardCalls).toEqual([{ baseId: baseId.toString(), seedTableId: tableId.toString() }]);
+  });
+
   it('creates a table whose schema checker reports no warn or error results', async () => {
     const baseId = BaseId.generate()._unsafeUnwrap();
     const tableId = TableId.generate()._unsafeUnwrap();
@@ -495,6 +536,61 @@ describe('PostgresTableSchemaRepository', () => {
 
     const repairedColumn = await introspector.columnExists(schema, dbTableName, dbFieldName);
     expect(repairedColumn._unsafeUnwrap()).toBe(true);
+  });
+
+  it('creates a missing physical table without replaying schema on an existing one', async () => {
+    const baseId = BaseId.generate()._unsafeUnwrap();
+    const tableId = TableId.generate()._unsafeUnwrap();
+    const tableName = TableName.create('Ensure Physical')._unsafeUnwrap();
+    const fieldName = FieldName.create('Name')._unsafeUnwrap();
+    const actorId = ActorId.create('system')._unsafeUnwrap();
+    const context: IExecutionContext = { actorId };
+
+    const builder = Table.builder().withBaseId(baseId).withId(tableId).withName(tableName);
+    builder.field().singleLineText().withName(fieldName).done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository([table]);
+    const repository = new PostgresTableSchemaRepository(
+      db,
+      tableRepository as never,
+      new FakeComputedFieldBackfillService(),
+      new FakeComputedFieldCascadeService(),
+      new FakeComputedUpdatePlanner() as never,
+      new FakeFieldDependencyGraph() as never
+    );
+
+    const { schema, tableName: dbTableName } = table
+      .dbTableName()
+      .andThen((name) => name.split({ defaultSchema: null }))
+      ._unsafeUnwrap();
+    const introspector = new PostgresSchemaIntrospector(db);
+
+    (await repository.insert(context, table))._unsafeUnwrap();
+    await sql
+      .raw(`DROP TABLE IF EXISTS "${schema ?? 'public'}"."${dbTableName}" CASCADE`)
+      .execute(db);
+    expect((await introspector.tableExists(schema, dbTableName))._unsafeUnwrap()).toBe(false);
+
+    (await repository.ensurePhysicalTable(context, table))._unsafeUnwrap();
+    expect((await introspector.tableExists(schema, dbTableName))._unsafeUnwrap()).toBe(true);
+
+    const dbFieldName = table
+      .getFields()[0]!
+      .dbFieldName()
+      .andThen((name) => name.value())
+      ._unsafeUnwrap();
+    await sql`ALTER TABLE ${sql.raw(`"${schema ?? 'public'}"."${dbTableName}"`)}
+      DROP COLUMN ${sql.raw(`"${dbFieldName}"`)}`.execute(db);
+    expect(
+      (await introspector.columnExists(schema, dbTableName, dbFieldName))._unsafeUnwrap()
+    ).toBe(false);
+
+    (await repository.ensurePhysicalTable(context, table))._unsafeUnwrap();
+    expect(
+      (await introspector.columnExists(schema, dbTableName, dbFieldName))._unsafeUnwrap()
+    ).toBe(false);
   });
 
   it('executes reference metadata statements on the meta DB when databases are split', async () => {

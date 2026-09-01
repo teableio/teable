@@ -19,6 +19,8 @@ export interface ComputedPlanLogEntry {
   seedTableId: string;
   changeType?: 'insert' | 'update' | 'delete';
   seedRecordIds: string[];
+  /** Stage-ledger scope when the plan executes under staged budgets. */
+  ledgerScopeId?: string;
   steps: Array<{
     tableId: string;
     level: number;
@@ -115,6 +117,21 @@ export class SpyLogger implements ILogger {
   getLastComputedPlan(): ComputedPlanLogEntry | undefined {
     const plans = this.getComputedPlans();
     return plans[plans.length - 1];
+  }
+
+  /**
+   * Seed groups the staged worker migrated into the stage-ledger frontier queue
+   * (floor entry). Together with plan seedRecordIds this reconstructs a task's
+   * effective seed set for assertions.
+   */
+  getMigratedSeedGroups(): Array<{ tableId: string; recordIds: string[] }> {
+    return this.entries
+      .filter((e) => e.message === 'computed:worker:seeds_migrated_to_ledger')
+      .flatMap(
+        (e) =>
+          (e.context as { migratedSeedGroups?: Array<{ tableId: string; recordIds: string[] }> })
+            .migratedSeedGroups ?? []
+      );
   }
 
   /**

@@ -29,7 +29,9 @@ export const useRecordsQuery = (query?: IGetRecordsRo, enabled = true) => {
     queryKey: ReactQueryKeys.linkEditorRecords(shareId, shareQueryParams),
     queryFn: () => getShareViewRecords(shareId, shareQueryParams).then(({ data }) => data),
     enabled: Boolean(shareId && enabled),
-    placeholderData: keepPreviousData,
+    // Keep previous pages while scrolling, but not while searching — leftover
+    // rows would render as if they matched the new probe (T7058).
+    placeholderData: searchQuery?.[0] ? undefined : keepPreviousData,
   });
 
   return useMemo(() => {

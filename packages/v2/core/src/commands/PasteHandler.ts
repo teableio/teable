@@ -17,6 +17,7 @@ import {
   type RecordWritePluginExecution,
   RecordWritePluginRunner,
 } from '../application/services/RecordWritePluginRunner';
+import { RecordQueryPluginRunner } from '../application/services/RecordQueryPluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableQueryService } from '../application/services/TableQueryService';
@@ -28,13 +29,18 @@ import {
   toUndoRedoStackAppendContext,
   UndoRedoStackService,
 } from '../application/services/UndoRedoStackService';
-import { domainError, type DomainError } from '../domain/shared/DomainError';
+import {
+  domainError,
+  type DomainError,
+  type IDomainErrorLocalization,
+} from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { generateUuid } from '../domain/shared/IdGenerator';
 import { OffsetPagination } from '../domain/shared/pagination/OffsetPagination';
 import { PageLimit } from '../domain/shared/pagination/PageLimit';
 import { PageOffset } from '../domain/shared/pagination/PageOffset';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { composeAndSpecsOrUndefined } from '../domain/shared/specification/composeAndSpecs';
 import type {
   RecordFieldChangeDTO,
   RecordUpdateDTO,
@@ -71,6 +77,7 @@ import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { AsyncIterableQueue } from '../ports/memory/AsyncIterableQueue';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
+import { RecordQueryOperationKind, type RecordQueryPluginScope } from '../ports/RecordQueryPlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
@@ -273,6 +280,7 @@ export interface PasteStreamErrorEvent {
   recordIds: string[];
   message: string;
   code?: string;
+  localization?: IDomainErrorLocalization;
 }
 
 export type PasteStreamEvent =
@@ -319,7 +327,9 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     @inject(v2CoreTokens.undoRedoService)
     protected readonly undoRedoStackService: UndoRedoStackService,
     @inject(v2CoreTokens.unitOfWork)
-    protected readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    protected readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.recordQueryPluginRunner)
+    protected readonly recordQueryPluginRunner?: RecordQueryPluginRunner
   ) {}
 
   @TraceSpan()
@@ -344,6 +354,16 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
           projection: command.projection,
         }
       );
+      const queryScope = yield* await handler.resolvePasteReadScope(
+        context,
+        persistedTable,
+        command
+      );
+      if (queryScope?.readableFieldIds) {
+        orderedFieldIds = orderedFieldIds.filter((fieldId) =>
+          queryScope.readableFieldIds!.has(fieldId.toString())
+        );
+      }
       const totalCols = orderedFieldIds.length;
 
       const view = yield* persistedTable.getView(command.viewId);
@@ -367,9 +387,18 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         effectiveFilter,
         context.actorId.toString()
       );
-      const filterSpec = yield* buildSanitizedRecordConditionSpec(
+      const viewFilterSpec = yield* buildSanitizedRecordConditionSpec(
         persistedTable,
         actorResolvedFilter
+      );
+      const filterSpec = composeAndSpecsOrUndefined(
+        [
+          viewFilterSpec,
+          queryScope?.recordSpec && !queryScope.skipRecordSpec ? queryScope.recordSpec : undefined,
+        ].filter(
+          (spec): spec is ISpecification<TableRecord, ITableRecordConditionSpecVisitor> =>
+            spec != null
+        )
       );
       const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIds);
 
@@ -686,6 +715,34 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         createdRecordIds: eventData.createdRecords.map((r) => r.recordId),
       });
     });
+  }
+
+  private async resolvePasteReadScope(
+    context: ExecutionContextPort.IExecutionContext,
+    table: Table,
+    command: PasteCommand
+  ): Promise<Result<RecordQueryPluginScope | undefined, DomainError>> {
+    if (!this.recordQueryPluginRunner) {
+      return ok(undefined);
+    }
+    const prepared = await this.recordQueryPluginRunner.prepare({
+      kind: RecordQueryOperationKind.list,
+      executionContext: context,
+      table,
+      payload: {
+        viewId: command.viewId.toString(),
+        ignoreViewQuery: command.ignoreViewQuery,
+        projectionFieldIds: command.projection,
+      },
+    });
+    if (prepared.isErr()) {
+      return err(prepared.error);
+    }
+    const guardResult = await prepared.value.guard();
+    if (guardResult.isErr()) {
+      return err(guardResult.error);
+    }
+    return prepared.value.getScope();
   }
 
   protected async planColumnExpansion(
@@ -1439,6 +1496,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
         const resolvedBatchResult = await this.resolveUpdateBatch(
           context,
+          batchTable.id(),
           batchResult.value,
           typecast
         );
@@ -1578,6 +1636,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
       const resolvedRecordsResult = await this.resolveCreatedRecords(
         context,
+        batchTable.id(),
         createResult.value.records,
         createResult.value.mutateSpecs,
         typecast
@@ -1606,6 +1665,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
   protected async resolveUpdateBatch(
     context: ExecutionContextPort.IExecutionContext,
+    tableId: TableId,
     batch: ReadonlyArray<RecordUpdateResult>,
     typecast: boolean
   ): Promise<Result<ReadonlyArray<RecordUpdateResult>, DomainError>> {
@@ -1615,6 +1675,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
     const resolveManyResult = await this.recordMutationSpecResolver.resolveAndReplaceMany(
       context,
+      tableId,
       batch.map((updateResult) => updateResult.mutateSpec)
     );
     if (resolveManyResult.isErr()) {
@@ -1635,6 +1696,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
   protected async resolveCreatedRecords(
     context: ExecutionContextPort.IExecutionContext,
+    tableId: TableId,
     records: ReadonlyArray<TableRecord>,
     mutateSpecs: ReadonlyArray<ICellValueSpec | null>,
     typecast: boolean
@@ -1645,6 +1707,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
     const resolveManyResult = await this.recordMutationSpecResolver.resolveAndReplaceMany(
       context,
+      tableId,
       mutateSpecs
     );
     if (resolveManyResult.isErr()) {
@@ -3252,6 +3315,7 @@ export class PasteStreamApplicationService extends PasteHandler {
       recordIds: summary.recordIds,
       message: error.message,
       code: error.code,
+      ...(error.localization && { localization: error.localization }),
     };
   }
 }

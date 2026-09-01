@@ -434,6 +434,7 @@ class FakeRecordMutationSpecResolverService {
 
   async resolveAndReplace(
     _: IExecutionContext,
+    _tableId: TableId,
     spec: ICellValueSpec
   ): Promise<Result<ICellValueSpec, DomainError>> {
     this.resolveCalls.push(spec);
@@ -1151,6 +1152,67 @@ describe('UpdateRecordHandler', () => {
     expect(result._unsafeUnwrapErr().code).toBe('validation.field.select_options_limit');
     expect(tableRepository.updated).toHaveLength(0);
     expect(eventBus.published).toHaveLength(0);
+  });
+
+  it('writes other fields when an auto-created select option would exceed the cap', async () => {
+    const { table, tableId, textFieldId, singleSelectFieldId } = buildTable();
+    const recordResult = table
+      .createRecord(new Map([[textFieldId.toString(), 'Old Title']]))
+      ._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+
+    const recordRepository = new FakeTableRecordRepository();
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.record = {
+      id: recordResult.record.id().toString(),
+      fields: { [textFieldId.toString()]: 'Old Title' },
+      version: 1,
+    };
+
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = new UpdateRecordHandler(
+      tableQueryService,
+      recordRepository,
+      recordQueryRepository,
+      new FakeRecordOrderCalculator(),
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      noopRecordChangedValueDecoratorService,
+      createRecordWritePluginRunner(),
+      new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      new FakeUndoRedoService() as unknown as UndoRedoStackService,
+      unitOfWork
+    );
+
+    const commandResult = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId: recordResult.record.id().toString(),
+      typecast: true,
+      fields: {
+        [textFieldId.toString()]: 'Kept Title',
+        [singleSelectFieldId.toString()]: 'In Progress',
+      },
+    });
+
+    const result = await handler.handle(
+      createContext({
+        selectFieldOptions: {
+          maxChoicesPerField: 1,
+        },
+      }),
+      commandResult._unsafeUnwrap()
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(tableRepository.updated).toHaveLength(0);
+    expect(eventBus.published.some((event) => isRecordUpdatedEvent(event))).toBe(true);
   });
 
   it('returns error when record query fails', async () => {

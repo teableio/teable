@@ -2,6 +2,8 @@
 import { Inject } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { registerAs } from '@nestjs/config';
+import { resolveCipherEntries } from './secrets/resolve-cipher-entries';
+import { SECRET_SPECS } from './secrets/secret-specs';
 
 export const mailConfig = registerAs('mail', () => {
   const host = process.env.BACKEND_MAIL_HOST;
@@ -37,9 +39,11 @@ export const mailConfig = registerAs('mail', () => {
     greetingTimeout: parseInt(process.env.BACKEND_MAIL_GREETING_TIMEOUT ?? '10000', 10),
     dnsTimeout: parseInt(process.env.BACKEND_MAIL_DNS_TIMEOUT ?? '5000', 10),
     encryption: {
-      algorithm: 'aes-128-cbc',
-      key: process.env.BACKEND_MAIL_ENCRYPTION_KEY ?? 'ie21hOKjlXUiGDx1',
-      iv: process.env.BACKEND_MAIL_ENCRYPTION_IV ?? 'i0vKGXBWkzyAoGf1',
+      entries: resolveCipherEntries({
+        algorithm: 'aes-128-cbc',
+        keySpec: SECRET_SPECS.mailEncryptionKey,
+        ivSpec: SECRET_SPECS.mailEncryptionIv,
+      }),
       encoding: 'base64' as BufferEncoding,
     },
   };

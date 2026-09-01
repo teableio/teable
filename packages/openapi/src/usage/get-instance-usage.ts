@@ -1,10 +1,17 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import { z } from 'zod';
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
-import type { IUsageVo } from './get-space-usage';
 import { usageVoSchema } from './get-space-usage';
 
 export const GET_INSTANCE_USAGE = '/instance/usage';
+
+export const instanceUsageVoSchema = usageVoSchema.extend({
+  seats: z.number().optional(),
+  seatLimit: z.number().optional(),
+});
+
+export type IInstanceUsageVo = z.infer<typeof instanceUsageVoSchema>;
 
 export const GetInstanceUsageRoute: RouteConfig = registerRoute({
   method: 'get',
@@ -16,7 +23,7 @@ export const GetInstanceUsageRoute: RouteConfig = registerRoute({
       description: 'Returns usage information for the instance.',
       content: {
         'application/json': {
-          schema: usageVoSchema,
+          schema: instanceUsageVoSchema,
         },
       },
     },
@@ -25,5 +32,5 @@ export const GetInstanceUsageRoute: RouteConfig = registerRoute({
 });
 
 export const getInstanceUsage = async () => {
-  return axios.get<IUsageVo>(GET_INSTANCE_USAGE);
+  return axios.get<IInstanceUsageVo>(GET_INSTANCE_USAGE);
 };

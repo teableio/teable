@@ -1,5 +1,9 @@
 import type { ICurrencyFormatting, INumberFormatting } from '@teable/core';
-import { NumberFormattingType, defaultNumberFormatting } from '@teable/core';
+import {
+  NumberFormattingType,
+  defaultNumberFormatting,
+  numberFormattingSchema,
+} from '@teable/core';
 import { Input } from '@teable/ui-lib/shadcn';
 import { Label } from '@teable/ui-lib/shadcn/ui/label';
 import {
@@ -10,6 +14,7 @@ import {
   SelectValue,
 } from '@teable/ui-lib/shadcn/ui/select';
 import { useTranslation } from 'next-i18next';
+import { useMemo } from 'react';
 
 interface IProps {
   formatting?: INumberFormatting;
@@ -17,7 +22,15 @@ interface IProps {
 }
 
 export const NumberFormatting: React.FC<IProps> = (props) => {
-  const { formatting = defaultNumberFormatting, onChange } = props;
+  const { formatting: formattingProp, onChange } = props;
+  // A truthy but mismatched formatting object (e.g. a persisted datetime
+  // formatting reaching this component while a rollup result type is being
+  // inferred) must not crash the editor: fall back to the default instead of
+  // reading missing fields off it.
+  const formatting = useMemo(() => {
+    const parsed = numberFormattingSchema.safeParse(formattingProp ?? defaultNumberFormatting);
+    return parsed.success ? parsed.data : defaultNumberFormatting;
+  }, [formattingProp]);
   const { type, precision } = formatting;
   const { t } = useTranslation(['table']);
 

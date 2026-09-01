@@ -1,7 +1,9 @@
 import { getValidFilterOperators, isFieldReferenceValue } from '@teable/core';
 import { cn } from '@teable/ui-lib';
 import { useCallback, useMemo } from 'react';
+import { useTranslation } from '../../../../context/app/i18n';
 import { useFieldStaticGetter, useTables } from '../../../../hooks';
+import { useInDrawer } from '../../../adaptive-panel';
 import { useCrud } from '../../hooks';
 import type { IBaseFilterCustomComponentProps, IConditionItemProperty } from '../../types';
 import { DefaultErrorLabel } from '../component';
@@ -16,6 +18,8 @@ interface IFieldSelectProps<T extends IConditionItemProperty = IViewFilterCondit
 export const FieldSelect = <T extends IConditionItemProperty = IViewFilterConditionItem>(
   props: IFieldSelectProps<T>
 ) => {
+  const { t } = useTranslation();
+  const inDrawer = useInDrawer();
   const fields = useFields();
   const ctxModal = useFilterModal();
   const { path, value, modal = ctxModal, item } = props;
@@ -68,14 +72,25 @@ export const FieldSelect = <T extends IConditionItemProperty = IViewFilterCondit
         isConditionalLookup: option.isConditionalLookup,
         hasAiConfig: Boolean(option.aiConfig),
       });
+      // Drawer rows need one shrinkable flex child so the label truncates;
+      // desktop keeps the original fragment, where the icon and the label are
+      // two direct children of the option row.
+      if (!inDrawer) {
+        return (
+          <>
+            <Icon className="size-4 shrink-0" />
+            <span className="truncate ps-1 text-[13px]">{option.label}</span>
+          </>
+        );
+      }
       return (
-        <>
+        <span className="flex min-w-0 items-center">
           <Icon className="size-4 shrink-0" />
-          <div className="truncate pl-1 text-[13px]">{option.label}</div>
-        </>
+          <span className="min-w-0 truncate ps-1 text-[13px]">{option.label}</span>
+        </span>
       );
     },
-    [fieldStaticGetter]
+    [fieldStaticGetter, inDrawer]
   );
 
   return (
@@ -100,8 +115,9 @@ export const FieldSelect = <T extends IConditionItemProperty = IViewFilterCondit
         });
       }}
       value={value}
-      className={cn('shrink-0 w-[156px] h-8 gap-0 pr-1')}
+      className={cn('shrink-0 w-[156px] h-8 gap-0 pe-1', inDrawer && 'w-auto min-w-[120px] flex-1')}
       popoverClassName="w-fit"
+      drawerTitle={t('common.selectField')}
       optionRender={optionRender}
       defaultLabel={<DefaultErrorLabel />}
       displayRender={(selectedField) => {
@@ -115,7 +131,7 @@ export const FieldSelect = <T extends IConditionItemProperty = IViewFilterCondit
         return (
           <div className="flex flex-1 items-center truncate">
             <Icon className="shrink-0" />
-            <span className="truncate pl-1">{label}</span>
+            <span className="truncate ps-1">{label}</span>
           </div>
         );
       }}

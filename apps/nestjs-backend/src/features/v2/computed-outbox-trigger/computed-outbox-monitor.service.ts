@@ -13,28 +13,43 @@ import type {
   IComputedOutboxMaintenanceTarget,
 } from '../../../global/data-db-client-manager.service';
 import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
+import { mapWithConcurrency } from '../../../utils/map-with-concurrency';
+import {
+  COMPUTED_OUTBOX_CLAIM_CONCURRENCY_MAX,
+  COMPUTED_OUTBOX_CLAIM_CONCURRENCY_MIN,
+  ComputedOutboxClaimConcurrencyService,
+  type ComputedOutboxClaimConcurrencyOverride,
+} from './computed-outbox-claim-concurrency.service';
 import { ComputedOutboxTriggerMetrics } from './computed-outbox-trigger.metrics';
 import {
   computedOutboxWakeupWireSchema,
   type ComputedOutboxWakeupWire,
 } from './computed-outbox-wakeup.wire';
 import {
+  COMPUTED_OUTBOX_WORKER_CONCURRENCY_MAX,
+  COMPUTED_OUTBOX_WORKER_CONCURRENCY_MIN,
+  ComputedOutboxWorkerConcurrencyService,
+} from './computed-outbox-worker-concurrency.service';
+import {
   COMPUTED_OUTBOX_COMPLETED_RETENTION_COUNT,
+  COMPUTED_OUTBOX_FAILED_RETENTION_COUNT,
+  COMPUTED_OUTBOX_JOB_SCAN_LIMIT,
   COMPUTED_OUTBOX_RECENT_COMPLETED_LIMIT,
   COMPUTED_OUTBOX_RECENT_FAILED_LIMIT,
   COMPUTED_OUTBOX_WAKEUP_QUEUE,
 } from './constants';
-import { mapWithConcurrency } from './map-with-concurrency';
 
 type Storage = 'default' | 'byodb';
 type HealthStatus = 'healthy' | 'degraded' | 'critical';
 type HealthReason =
   | 'queue_unavailable'
+  | 'queue_paused'
   | 'consumer_unavailable'
   | 'failed_jobs'
   | 'dead_letters'
   | 'stale_processing'
   | 'overdue_pending'
+  | 'paused_backlog'
   | 'target_unavailable';
 
 type OutboxCounts = IComputedOutboxMaintenanceSnapshot;
@@ -52,7 +67,23 @@ export type ComputedOutboxMonitorSnapshot = {
   queue: {
     configured: boolean;
     reachable: boolean;
+    /** BullMQ global queue pause switch — distinct from database-backed scope pauses. */
+    isPaused: boolean;
     workers: number | null;
+    /** Per-process worker concurrency: env default plus the runtime Redis override. */
+    workerConcurrency: {
+      processDefault: number;
+      override: number | null;
+      min: number;
+      max: number;
+    };
+    /** Outbox claim caps (per base / per seed table): env defaults plus the runtime override. */
+    claimConcurrency: {
+      processDefault: { perBase: number; perSeedTable: number };
+      override: ComputedOutboxClaimConcurrencyOverride;
+      min: number;
+      max: number;
+    };
     waiting: number;
     active: number;
     delayed: number;
@@ -61,6 +92,7 @@ export type ComputedOutboxMonitorSnapshot = {
     prioritized: number;
     completed: number;
     completedRetentionLimit: number;
+    failedRetentionLimit: number;
     recentCompleted: Array<{
       taskId: string;
       baseId: string;
@@ -91,25 +123,95 @@ export type ComputedOutboxMonitorSnapshot = {
     >;
     error?: string;
   };
+  pauses: {
+    activeScopeCount: number;
+    pausedPending: number;
+    oldestPausedAgeMs: number;
+  };
   activity: ReturnType<ComputedOutboxTriggerMetrics['getRuntimeSnapshot']>;
 };
+
+export type ComputedOutboxQueueJobState =
+  | 'waiting'
+  | 'active'
+  | 'delayed'
+  | 'failed'
+  | 'paused'
+  | 'prioritized'
+  | 'completed';
+
+export type ComputedOutboxQueueJobOutcome = 'processed' | 'noop' | 'deferred' | 'parked';
+
+const QUEUE_JOB_OUTCOMES: ReadonlySet<string> = new Set([
+  'processed',
+  'noop',
+  'deferred',
+  'parked',
+]);
+
+export type ComputedOutboxQueueJobSummary = {
+  taskId: string;
+  baseId: string;
+  cause?: ComputedOutboxWakeupWire['cause'];
+  state: ComputedOutboxQueueJobState;
+  attemptsMade: number;
+  createdAt: string;
+  availableAt?: string;
+  emittedAt?: string;
+  scheduledFor?: string;
+  startedAt?: string;
+  finishedAt?: string;
+  processingDurationMs?: number;
+  failedReason?: string | null;
+  /** Handler outcome retained as the job return value (completed jobs only). */
+  outcome?: ComputedOutboxQueueJobOutcome;
+};
+
+export type ComputedOutboxQueueJobScanResult = {
+  jobs: ComputedOutboxQueueJobSummary[];
+  scan: Array<{
+    state: ComputedOutboxQueueJobState;
+    scanned: number;
+    truncated: boolean;
+    /**
+     * Orphaned Redis references: the job id is still in the state's set (so it
+     * counts toward getJobCounts and the state tiles) but the job data hash is
+     * gone, leaving nothing to list. Only present when > 0.
+     */
+    missing?: number;
+  }>;
+  error?: string;
+};
+
+// Orphan sweep floor: scanning the failed set touches every retained id, so
+// each process only re-checks after this long even though refresh runs more
+// often. Multiple replicas sweeping concurrently is harmless (ZREM idempotent).
+const ORPHANED_FAILED_SWEEP_MIN_INTERVAL_MS = 5 * 60_000;
 
 const emptyCounts = (): OutboxCounts => ({
   duePending: 0,
   scheduledPending: 0,
+  pausedPending: 0,
   activeProcessing: 0,
   staleProcessing: 0,
   dead: 0,
+  anomalyGroups: 0,
   oldestDueAgeMs: 0,
+  oldestPausedAgeMs: 0,
+  activePauseScopeCount: 0,
 });
 
 const addCounts = (left: OutboxCounts, right: OutboxCounts): OutboxCounts => ({
   duePending: left.duePending + right.duePending,
   scheduledPending: left.scheduledPending + right.scheduledPending,
+  pausedPending: left.pausedPending + right.pausedPending,
   activeProcessing: left.activeProcessing + right.activeProcessing,
   staleProcessing: left.staleProcessing + right.staleProcessing,
   dead: left.dead + right.dead,
+  anomalyGroups: (left.anomalyGroups ?? 0) + (right.anomalyGroups ?? 0),
   oldestDueAgeMs: Math.max(left.oldestDueAgeMs, right.oldestDueAgeMs),
+  oldestPausedAgeMs: Math.max(left.oldestPausedAgeMs, right.oldestPausedAgeMs),
+  activePauseScopeCount: left.activePauseScopeCount + right.activePauseScopeCount,
 });
 
 @Injectable()
@@ -119,6 +221,7 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
   private currentRefresh: Promise<ComputedOutboxMonitorSnapshot> | undefined;
   private lastSnapshot: ComputedOutboxMonitorSnapshot | undefined;
   private stopped = false;
+  private lastOrphanSweepAt = 0;
 
   constructor(
     @ComputedOutboxTriggerConfig()
@@ -127,7 +230,11 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
     private readonly metrics: ComputedOutboxTriggerMetrics,
     @Optional()
     @Inject(getQueueToken(COMPUTED_OUTBOX_WAKEUP_QUEUE))
-    private readonly queue?: Queue<ComputedOutboxWakeupWire>
+    private readonly queue?: Queue<ComputedOutboxWakeupWire>,
+    @Optional()
+    private readonly workerConcurrency?: ComputedOutboxWorkerConcurrencyService,
+    @Optional()
+    private readonly claimConcurrency?: ComputedOutboxClaimConcurrencyService
   ) {}
 
   onApplicationBootstrap(): void {
@@ -148,6 +255,191 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
     if (this.currentRefresh) return this.currentRefresh;
     if (options?.force || !this.lastSnapshot) return this.refresh();
     return this.lastSnapshot;
+  }
+
+  /**
+   * Drop retained failed wake-up jobs from Redis. Failed jobs are attempt-level
+   * history; the durable ledger (and its dead letters) is untouched, so nothing
+   * recoverable is lost.
+   */
+  async cleanFailedJobs(): Promise<{ cleaned: number }> {
+    if (!this.queue) return { cleaned: 0 };
+    let cleaned = 0;
+    // queue.clean removes at most `limit` jobs per call; loop until drained.
+    for (;;) {
+      const removed = await this.queue.clean(0, 1000, 'failed');
+      cleaned += removed.length;
+      if (removed.length < 1000) break;
+    }
+    void this.refresh().catch(() => undefined);
+    return { cleaned };
+  }
+
+  /**
+   * Per-state scan cap for the admin job browser. Terminal states are capped
+   * at their BullMQ retention count so every retained job is visible and the
+   * list agrees with the state-tile counts; live states (waiting/active/
+   * delayed/paused) are unbounded in Redis, so they keep a page-sized cap and
+   * report `truncated` during extreme backlogs.
+   *
+   * Failed/completed Redis sets cannot exceed their retention, so filling the
+   * scan cap still means we covered every retained job — do not flag those as
+   * truncated (that warning made the Failed tile look incomplete).
+   */
+  private queueJobScanCap(state: ComputedOutboxQueueJobState): number {
+    switch (state) {
+      case 'failed':
+        return COMPUTED_OUTBOX_FAILED_RETENTION_COUNT;
+      case 'completed':
+        return COMPUTED_OUTBOX_COMPLETED_RETENTION_COUNT;
+      default:
+        return COMPUTED_OUTBOX_JOB_SCAN_LIMIT;
+    }
+  }
+
+  /**
+   * Scan retained BullMQ jobs per state for the admin job browser. Each state
+   * is fetched in COMPUTED_OUTBOX_JOB_SCAN_LIMIT-sized pages up to its scan
+   * cap to bound single Redis round-trips; `truncated` marks live states whose
+   * retained set exceeds the page-sized cap.
+   */
+  async listQueueJobs(
+    states: ReadonlyArray<ComputedOutboxQueueJobState>
+  ): Promise<ComputedOutboxQueueJobScanResult> {
+    if (!this.queue) {
+      return { jobs: [], scan: [], error: 'BullMQ queue is not configured' };
+    }
+    const uniqueStates = [...new Set(states)];
+    try {
+      const perState = await Promise.all(
+        uniqueStates.map(async (state) => {
+          const cap = this.queueJobScanCap(state);
+          const jobs: Job<ComputedOutboxWakeupWire>[] = [];
+          for (let offset = 0; offset < cap; offset += COMPUTED_OUTBOX_JOB_SCAN_LIMIT) {
+            const end = Math.min(offset + COMPUTED_OUTBOX_JOB_SCAN_LIMIT, cap) - 1;
+            const page = await this.queue!.getJobs([state], offset, end);
+            jobs.push(...page);
+            if (page.length < end - offset + 1) break;
+          }
+          return {
+            state,
+            jobs,
+            truncated: state !== 'failed' && state !== 'completed' && jobs.length >= cap,
+          };
+        })
+      );
+      const jobs: ComputedOutboxQueueJobSummary[] = [];
+      const scan: ComputedOutboxQueueJobScanResult['scan'] = [];
+      for (const { state, jobs: stateJobs, truncated } of perState) {
+        const { summaries, missing } = this.summarizeScannedState(state, stateJobs);
+        jobs.push(...summaries);
+        scan.push({
+          state,
+          scanned: summaries.length,
+          truncated,
+          ...(missing > 0 ? { missing } : {}),
+        });
+      }
+      return { jobs, scan };
+    } catch (error) {
+      this.logger.warn('computed:outbox:list_queue_jobs_failed', {
+        errorType: error instanceof Error ? error.name : 'UnknownError',
+      });
+      return { jobs: [], scan: [], error: 'BullMQ queue is unavailable' };
+    }
+  }
+
+  private summarizeScannedState(
+    state: ComputedOutboxQueueJobState,
+    stateJobs: ReadonlyArray<Job<ComputedOutboxWakeupWire> | undefined>
+  ): { summaries: ComputedOutboxQueueJobSummary[]; missing: number } {
+    const summaries: ComputedOutboxQueueJobSummary[] = [];
+    let missing = 0;
+    for (const job of stateJobs) {
+      // getJobs resolves each id in the state's set to its data hash and yields
+      // undefined for ids whose hash is gone (e.g. after Redis data loss).
+      // Those orphaned references still inflate getJobCounts, so count them
+      // instead of silently swallowing the tile/list mismatch.
+      if (!job || !Number.isFinite(job.timestamp)) {
+        missing += 1;
+        continue;
+      }
+      const summary = this.summarizeQueueJob(job, state);
+      if (summary) summaries.push(summary);
+    }
+    return { summaries, missing };
+  }
+
+  private summarizeQueueJob(
+    job: Job<ComputedOutboxWakeupWire>,
+    state: ComputedOutboxQueueJobState
+  ): ComputedOutboxQueueJobSummary | null {
+    const wakeupResult = computedOutboxWakeupWireSchema.safeParse(job.data);
+    // Malformed payloads stay visible for failed jobs (mirrors the failed
+    // history) but are dropped elsewhere: without wire data there is nothing
+    // actionable to show for a job that is still flowing.
+    if (!wakeupResult.success && state !== 'failed') return null;
+
+    const createdAt = new Date(job.timestamp).toISOString();
+    const summary: ComputedOutboxQueueJobSummary = wakeupResult.success
+      ? {
+          taskId: wakeupResult.data.taskId,
+          baseId: wakeupResult.data.baseId,
+          cause: wakeupResult.data.cause,
+          state,
+          attemptsMade: Math.max(0, job.attemptsMade ?? 0),
+          createdAt,
+          availableAt: wakeupResult.data.availableAt,
+          emittedAt: wakeupResult.data.emittedAt,
+        }
+      : {
+          taskId: String(job.id ?? 'unknown'),
+          baseId: 'unknown',
+          state,
+          attemptsMade: Math.max(0, job.attemptsMade ?? 0),
+          createdAt,
+        };
+    if (state === 'completed') {
+      const returnStatus = (job.returnvalue as { status?: unknown } | null | undefined)?.status;
+      if (typeof returnStatus === 'string' && QUEUE_JOB_OUTCOMES.has(returnStatus)) {
+        summary.outcome = returnStatus as ComputedOutboxQueueJobOutcome;
+      }
+    }
+    this.applyQueueJobStateTimestamps(summary, job, state);
+    return summary;
+  }
+
+  private applyQueueJobStateTimestamps(
+    summary: ComputedOutboxQueueJobSummary,
+    job: Job<ComputedOutboxWakeupWire>,
+    state: ComputedOutboxQueueJobState
+  ): void {
+    const processedOn = Number.isFinite(job.processedOn) ? (job.processedOn as number) : undefined;
+    const finishedOn = Number.isFinite(job.finishedOn) ? (job.finishedOn as number) : undefined;
+    if (state === 'delayed') {
+      summary.scheduledFor = new Date(job.timestamp + Math.max(0, job.delay ?? 0)).toISOString();
+    }
+    if (
+      processedOn != null &&
+      (state === 'active' || state === 'completed' || state === 'failed')
+    ) {
+      summary.startedAt = new Date(processedOn).toISOString();
+    }
+    if (finishedOn != null && (state === 'completed' || state === 'failed')) {
+      summary.finishedAt = new Date(finishedOn).toISOString();
+      if (processedOn != null) {
+        summary.processingDurationMs = Math.max(0, finishedOn - processedOn);
+      }
+    }
+    if (state === 'failed') {
+      summary.failedReason = this.truncatedFailedReason(job);
+    }
+  }
+
+  private truncatedFailedReason(job: Job<ComputedOutboxWakeupWire>): string | null {
+    return typeof job.failedReason === 'string' && job.failedReason.length > 0
+      ? job.failedReason.slice(0, 2000)
+      : null;
   }
 
   async refresh(): Promise<ComputedOutboxMonitorSnapshot> {
@@ -176,7 +468,7 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
     const [queue, outbox] = await Promise.all([this.inspectQueue(), this.inspectOutbox()]);
     const reasons = this.healthReasons(queue, outbox);
     const critical = reasons.some((reason) =>
-      ['queue_unavailable', 'consumer_unavailable'].includes(reason)
+      ['queue_unavailable', 'queue_paused', 'consumer_unavailable'].includes(reason)
     );
     const status: HealthStatus = critical
       ? 'critical'
@@ -211,6 +503,11 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
       config: this.configSnapshot(),
       queue,
       outbox,
+      pauses: {
+        activeScopeCount: outbox.activePauseScopeCount,
+        pausedPending: outbox.pausedPending,
+        oldestPausedAgeMs: outbox.oldestPausedAgeMs,
+      },
       activity: this.metrics.getRuntimeSnapshot(),
     };
   }
@@ -224,11 +521,39 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
     };
   }
 
+  private queueWorkerConcurrency(
+    override: number | null
+  ): ComputedOutboxMonitorSnapshot['queue']['workerConcurrency'] {
+    return {
+      processDefault: this.workerConcurrency?.processDefault ?? this.config.concurrency,
+      override,
+      min: COMPUTED_OUTBOX_WORKER_CONCURRENCY_MIN,
+      max: COMPUTED_OUTBOX_WORKER_CONCURRENCY_MAX,
+    };
+  }
+
+  private queueClaimConcurrency(
+    override: ComputedOutboxClaimConcurrencyOverride | null
+  ): ComputedOutboxMonitorSnapshot['queue']['claimConcurrency'] {
+    return {
+      processDefault: this.claimConcurrency?.processDefault ?? {
+        perBase: defaultComputedUpdateOutboxConfig.maxConcurrentProcessingPerBase,
+        perSeedTable: defaultComputedUpdateOutboxConfig.maxConcurrentProcessingPerSeedTable,
+      },
+      override: override ?? { perBase: null, perSeedTable: null },
+      min: COMPUTED_OUTBOX_CLAIM_CONCURRENCY_MIN,
+      max: COMPUTED_OUTBOX_CLAIM_CONCURRENCY_MAX,
+    };
+  }
+
   private emptyQueue(configured: boolean): ComputedOutboxMonitorSnapshot['queue'] {
     return {
       configured,
       reachable: false,
+      isPaused: false,
       workers: null,
+      workerConcurrency: this.queueWorkerConcurrency(null),
+      claimConcurrency: this.queueClaimConcurrency(null),
       waiting: 0,
       active: 0,
       delayed: 0,
@@ -237,6 +562,7 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
       prioritized: 0,
       completed: 0,
       completedRetentionLimit: COMPUTED_OUTBOX_COMPLETED_RETENTION_COUNT,
+      failedRetentionLimit: COMPUTED_OUTBOX_FAILED_RETENTION_COUNT,
       recentCompleted: [],
       recentFailed: [],
     };
@@ -247,7 +573,15 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
       return { ...this.emptyQueue(false), error: 'BullMQ queue is not configured' };
     }
     try {
-      const [counts, workers, completedJobs, failedJobs] = await Promise.all([
+      const [
+        counts,
+        workers,
+        completedJobs,
+        failedJobs,
+        isPaused,
+        concurrencyOverride,
+        claimConcurrencyOverride,
+      ] = await Promise.all([
         this.queue.getJobCounts(
           'waiting',
           'active',
@@ -260,19 +594,34 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
         this.queue.getWorkersCount(),
         this.queue.getCompleted(0, COMPUTED_OUTBOX_RECENT_COMPLETED_LIMIT - 1),
         this.queue.getFailed(0, COMPUTED_OUTBOX_RECENT_FAILED_LIMIT - 1),
+        typeof this.queue.isPaused === 'function' ? this.queue.isPaused() : Promise.resolve(false),
+        this.workerConcurrency?.getOverride() ?? Promise.resolve(null),
+        this.claimConcurrency?.getOverride() ?? Promise.resolve(null),
       ]);
+      // Self-heal phantom failed counts: failed-set references whose job data
+      // hash is gone (e.g. after Redis data loss) cannot be listed, retried or
+      // recovered, yet inflate the count and its health alarm forever. Sweep
+      // them out and report the remaining truth.
+      let failed = counts.failed ?? 0;
+      if (failed > 0) {
+        failed = Math.max(0, failed - (await this.sweepOrphanedFailedRefs()));
+      }
       return {
         configured: true,
         reachable: true,
+        isPaused,
         workers,
+        workerConcurrency: this.queueWorkerConcurrency(concurrencyOverride),
+        claimConcurrency: this.queueClaimConcurrency(claimConcurrencyOverride),
         waiting: counts.waiting ?? 0,
         active: counts.active ?? 0,
         delayed: counts.delayed ?? 0,
-        failed: counts.failed ?? 0,
+        failed,
         paused: counts.paused ?? 0,
         prioritized: counts.prioritized ?? 0,
         completed: counts.completed ?? 0,
         completedRetentionLimit: COMPUTED_OUTBOX_COMPLETED_RETENTION_COUNT,
+        failedRetentionLimit: COMPUTED_OUTBOX_FAILED_RETENTION_COUNT,
         recentCompleted: completedJobs.flatMap((job) => {
           const summary = this.summarizeCompletedJob(job);
           return summary ? [summary] : [];
@@ -287,6 +636,41 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
         errorType: error instanceof Error ? error.name : 'UnknownError',
       });
       return { ...this.emptyQueue(true), error: 'BullMQ queue is unavailable' };
+    }
+  }
+
+  /**
+   * Remove failed-set references whose job data hash no longer exists. Only
+   * the bare reference is deleted (real failed jobs keep their history), so
+   * nothing recoverable is lost — the durable ledger is untouched either way.
+   * Throttled per process because the check touches every retained failed id;
+   * a sweep failure only means the phantom count survives until the next try.
+   */
+  private async sweepOrphanedFailedRefs(): Promise<number> {
+    if (!this.queue) return 0;
+    const now = Date.now();
+    if (now - this.lastOrphanSweepAt < ORPHANED_FAILED_SWEEP_MIN_INTERVAL_MS) return 0;
+    this.lastOrphanSweepAt = now;
+    try {
+      const client = await this.queue.client;
+      const failedKey = this.queue.toKey('failed');
+      const ids: string[] = await client.zrange(failedKey, 0, -1);
+      if (ids.length === 0) return 0;
+      const pipeline = client.pipeline();
+      for (const id of ids) pipeline.exists(this.queue.toKey(id));
+      const results = (await pipeline.exec()) ?? [];
+      const orphaned = ids.filter((_, index) => results[index]?.[1] === 0);
+      if (orphaned.length === 0) return 0;
+      await client.zrem(failedKey, ...orphaned);
+      this.logger.log(
+        `computed:outbox:orphaned_failed_refs_swept removed=${orphaned.length} retained=${ids.length - orphaned.length}`
+      );
+      return orphaned.length;
+    } catch (error) {
+      this.logger.warn('computed:outbox:orphaned_failed_refs_sweep_failed', {
+        errorType: error instanceof Error ? error.name : 'UnknownError',
+      });
+      return 0;
     }
   }
 
@@ -421,6 +805,8 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
   ): HealthReason[] {
     const reasons: HealthReason[] = [];
     if (!queue.reachable) reasons.push('queue_unavailable');
+    // A globally paused queue accepts publishes but delivers nothing — as blocking as down.
+    if (queue.reachable && queue.isPaused) reasons.push('queue_paused');
     // Worker count is cluster-wide; surface zero consumers even on producer-only replicas.
     if (queue.reachable && queue.workers === 0) reasons.push('consumer_unavailable');
     if (queue.failed > 0) reasons.push('failed_jobs');
@@ -435,6 +821,7 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
     if (outbox.duePending > 0 && outbox.oldestDueAgeMs > this.config.monitorIntervalMs * 2) {
       reasons.push('overdue_pending');
     }
+    if (outbox.pausedPending > 0) reasons.push('paused_backlog');
     if (outbox.unavailableTargetCount > 0 || outbox.error) reasons.push('target_unavailable');
     return reasons;
   }

@@ -6,7 +6,7 @@ import { MutateOnlySpec } from '../../shared/specification/MutateOnlySpec';
 import type { FieldId } from '../fields/FieldId';
 import { Table } from '../Table';
 import type { View } from '../views/View';
-import { ViewColumnMeta } from '../views/ViewColumnMeta';
+import { ViewColumnMeta, type ViewColumnMetaChange } from '../views/ViewColumnMeta';
 import type { ViewId } from '../views/ViewId';
 import { CloneViewVisitor } from '../views/visitors/CloneViewVisitor';
 import type { ITableSpecVisitor } from './ITableSpecVisitor';
@@ -15,6 +15,10 @@ export type TableViewColumnMetaUpdate = {
   viewId: ViewId;
   fieldId: FieldId;
   columnMeta: ViewColumnMeta;
+  changes?: ReadonlyArray<ViewColumnMetaChange>;
+  previousOptions?: unknown;
+  nextOptions?: unknown;
+  optionsChanged?: boolean;
 };
 
 export class TableUpdateViewColumnMetaSpec<
@@ -167,26 +171,28 @@ export class TableUpdateViewColumnMetaSpec<
       return ok(t);
     }
 
-    const updatesByViewId = new Map<string, ViewColumnMeta>();
+    const updatesByViewId = new Map<string, TableViewColumnMetaUpdate>();
     for (const update of this.updatesValue) {
-      updatesByViewId.set(update.viewId.toString(), update.columnMeta);
+      updatesByViewId.set(update.viewId.toString(), update);
     }
 
     const nextViews: View[] = [];
     for (const view of t.views()) {
-      const nextColumnMeta = updatesByViewId.get(view.id().toString());
-      if (!nextColumnMeta) {
+      const update = updatesByViewId.get(view.id().toString());
+      if (!update) {
         nextViews.push(view);
         continue;
       }
 
-      const cloneResult = view.accept(new CloneViewVisitor());
+      const cloneResult = view.accept(
+        new CloneViewVisitor(update.optionsChanged ? { options: update.nextOptions } : undefined)
+      );
       if (cloneResult.isErr()) {
         return err(cloneResult.error);
       }
 
       const clone = cloneResult.value;
-      const setColumnMetaResult = clone.setColumnMeta(nextColumnMeta);
+      const setColumnMetaResult = clone.setColumnMeta(update.columnMeta);
       if (setColumnMetaResult.isErr()) {
         return err(setColumnMetaResult.error);
       }
@@ -201,6 +207,14 @@ export class TableUpdateViewColumnMetaSpec<
         return err(setQueryDefaultsResult.error);
       }
 
+      const auditMetadataResult = view.auditMetadata();
+      if (auditMetadataResult.isOk()) {
+        const setAuditMetadataResult = clone.setAuditMetadata(auditMetadataResult.value);
+        if (setAuditMetadataResult.isErr()) {
+          return err(setAuditMetadataResult.error);
+        }
+      }
+
       nextViews.push(clone);
     }
 
@@ -208,6 +222,7 @@ export class TableUpdateViewColumnMetaSpec<
       id: t.id(),
       baseId: t.baseId(),
       name: t.name(),
+      properties: t.properties(),
       fields: t.getFields(),
       views: nextViews,
       primaryFieldId: t.primaryFieldId(),

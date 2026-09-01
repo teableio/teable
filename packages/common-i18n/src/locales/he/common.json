@@ -1,0 +1,1687 @@
+{
+  "actions": {
+    "title": "פעולות",
+    "add": "הוספה",
+    "save": "שמירה",
+    "doNotSave": "לא לשמור",
+    "submit": "שליחה",
+    "confirm": "אישור",
+    "continue": "המשך",
+    "close": "סגירה",
+    "edit": "עריכה",
+    "fill": "מילוי",
+    "update": "עדכון",
+    "create": "יצירה",
+    "delete": "מחיקה",
+    "clear": "ניקוי",
+    "cancel": "ביטול",
+    "zoomIn": "הגדלה",
+    "zoomOut": "הקטנה",
+    "back": "חזרה",
+    "download": "הורדה",
+    "remove": "הסרה",
+    "removeConfig": "הסרת התצורה",
+    "retry": "ניסיון חוזר",
+    "saveSucceed": "השמירה הצליחה!",
+    "submitSucceed": "השליחה הצליחה!",
+    "editSucceed": "העריכה הצליחה!",
+    "updateSucceed": "העדכון הצליח!",
+    "deleteSucceed": "המחיקה הצליחה!",
+    "resetSucceed": "ריקון האשפה הצליח!",
+    "restoreSucceed": "השחזור הצליח!",
+    "loading": "בטעינה...",
+    "refreshPage": "רענון הדף",
+    "yesDelete": "כן, למחוק",
+    "rename": "שינוי שם",
+    "duplicate": "שכפול",
+    "export": "ייצוא",
+    "import": "ייבוא",
+    "change": "שינוי",
+    "upgrade": "שדרוג",
+    "upgradeToLevel": "שדרוג ל-{{level}}",
+    "search": "חיפוש",
+    "loadMore": "טעינת עוד",
+    "collapseSidebar": "כיווץ סרגל הצד",
+    "restore": "שחזור",
+    "permanentDelete": "מחיקה לצמיתות",
+    "globalSearch": "חיפוש גלובלי",
+    "fieldSearch": "חיפוש בשדה",
+    "tableIndex": "אינדקס",
+    "showAllRow": "הצגת כל השורות",
+    "hideNotMatchRow": "הסתרת שורות שאינן תואמות",
+    "more": "עוד",
+    "expand": "הרחבה",
+    "view": "צפייה",
+    "preview": "תצוגה מקדימה",
+    "viewAndEdit": "צפייה ועריכה",
+    "deleteTip": "האם למחוק את \"{{name}}\"?",
+    "move": "העברה אל",
+    "turnOn": "הפעלה",
+    "exit": "יציאה",
+    "next": "הבא",
+    "previous": "הקודם",
+    "select": "בחירה",
+    "refresh": "רענון",
+    "login": "כניסה",
+    "useTemplate": "שימוש בתבנית",
+    "copyLink": "העתקת הקישור",
+    "openLink": "פתיחת הקישור",
+    "backToSpace": "חזרה למרחב",
+    "switchBase": "החלפת בסיס",
+    "collapse": "כיווץ",
+    "viewDetails": "הצגת פרטים",
+    "getMore": "קבלת עוד",
+    "copySuccess": "ההעתקה הצליחה",
+    "share": "שיתוף"
+  },
+  "quickAction": {
+    "title": "פעולות מהירות",
+    "placeHolder": "הקלדת פקודה או חיפוש..."
+  },
+  "password": {
+    "setInvalid": "הסיסמה אינה חוקית. נדרשים לפחות 8 תווים, ובהם לפחות אות אחת וספרה אחת."
+  },
+  "template": {
+    "non": {
+      "share": "שיתוף",
+      "copy": "הועתק"
+    },
+    "aiTitle": "נבנה יחד",
+    "aiGreeting": "איך אפשר לעזור, {{name}}",
+    "aiSubTitle": "פלטפורמת ה-AI הראשונה שבה צוותים עובדים יחד על נתונים ומפיקים אפליקציות לסביבת ייצור",
+    "guideTitle": "התחלה מהתרחיש שלך",
+    "watchVideo": "צפייה בסרטון",
+    "title": "תבנית",
+    "description": "יצירת בסיס חדש מתוך תבנית",
+    "browseAll": "עיון בכל התבניות",
+    "templateTitle": "התחלה מתבנית",
+    "loadMore": "טעינת עוד",
+    "allTemplatesLoaded": "כל התבניות נטענו",
+    "createTemplate": "יצירת תבנית",
+    "promptBox": {
+      "start": "התחלה"
+    },
+    "useTemplateDialog": {
+      "title": "בחירת מרחב",
+      "description": "יש לבחור מרחב להחלת התבנית",
+      "noSpaceDescription": "אין עדיין מרחבים. יש ליצור מרחב כדי להמשיך.",
+      "newSpacePlaceholder": "שם המרחב",
+      "createSpace": "יצירה"
+    }
+  },
+  "baseShare": {
+    "shareTitle": "שיתוף",
+    "shareToWeb": "שיתוף לאינטרנט",
+    "noPermissionTip": "אין הרשאה לנהל את הגדרות השיתוף",
+    "linkHolderLabel": "בעלי הקישור",
+    "linkHolderCanView": "יכולים לצפות",
+    "linkHolderCanViewDesc": "כל בעלי הקישור יכולים לצפות בנתונים",
+    "linkHolderCanEdit": "יכולים לערוך",
+    "linkHolderCanEditDesc": "משתמשים מחוברים יכולים לערוך רשומות בטבלה",
+    "linkHolderCanCopyAndSave": "יכולים לשמור עותק",
+    "linkHolderCanCopyAndSaveDesc": "כל בעלי הקישור יכולים לשמור עותק במרחב שלהם",
+    "refreshLink": "יצירת קישור מחדש",
+    "advanced": "מתקדם",
+    "allowCopyData": "אפשרות לצופים להעתיק נתונים",
+    "restrictByPassword": "הגבלה באמצעות סיסמה",
+    "embedConfig": "הגדרות הטמעה",
+    "embedPreview": "תצוגה מקדימה",
+    "copyCode": "העתקת הקוד",
+    "enterPassword": "הזנת סיסמה",
+    "passwordTitle": "הגדרת סיסמה",
+    "deleteConfirmTitle": "מחיקת קישור השיתוף",
+    "deleteConfirmDescription": "לא ניתן לבטל פעולה זו. בעלי הקישור לא יוכלו עוד לגשת לבסיס המשותף.",
+    "createSuccess": "קישור השיתוף נוצר",
+    "createFailed": "יצירת קישור השיתוף נכשלה",
+    "updateFailed": "עדכון הגדרות השיתוף נכשל",
+    "deleteSuccess": "קישור השיתוף נמחק",
+    "deleteFailed": "מחיקת קישור השיתוף נכשלה",
+    "refreshSuccess": "קישור השיתוף נוצר מחדש",
+    "refreshFailed": "יצירת קישור השיתוף מחדש נכשלה"
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "העתקה למרחב",
+      "description": "יש לבחור מרחב שאליו יועתק הבסיס",
+      "baseName": "שם הבסיס",
+      "baseNamePlaceholder": "הזנת שם הבסיס",
+      "selectSpace": "בחירת מרחב",
+      "noSpaceDescription": "אין מרחבים הניתנים לניהול. יש ליצור מרחב חדש כדי להמשיך.",
+      "newSpacePlaceholder": "שם המרחב",
+      "createSpace": "יצירה",
+      "copyTarget": "העתקה אל",
+      "createNewBase": "בסיס חדש",
+      "copyToExistingBase": "בסיס קיים",
+      "selectBase": "בחירת בסיס",
+      "selectBasePlaceholder": "יש לבחור בסיס",
+      "noBaseInSpace": "אין במרחב זה בסיסים הניתנים לניהול. יש לבחור \"בסיס חדש\"."
+    }
+  },
+  "settings": {
+    "title": "הגדרות המופע",
+    "allSetting": "הגדרות מרחב והגדרות אישיות",
+    "personal": {
+      "title": "אישי"
+    },
+    "templateAdmin": {
+      "title": "ניהול תבניות",
+      "noData": "אין נתונים",
+      "importing": "בייבוא...",
+      "usageCount": "מספר שימושים: {{count}}",
+      "useTemplate": "שימוש בתבנית זו",
+      "createdBy": "מאת {{user}}",
+      "backToTemplateList": "חזרה לרשימת התבניות",
+      "tips": {
+        "errorCategoryName": "הקטגוריה אינה קיימת או שנמחקה",
+        "needSnapshot": "יש ליצור תמונת מצב לפני הפרסום, ושם התבנית והתיאור לא יכולים להיות ריקים",
+        "needPublish": "יש לפרסם את התבנית לפני סימונה כמובחרת",
+        "needBaseSource": "יש לבחור בסיס מקור לפני יצירת תמונת מצב",
+        "forbiddenUpdateSystemTemplate": "לא ניתן לשנות תבנית מערכת",
+        "addCategoryTips": "יש להזין תחילה שם קטגוריה בשדה החיפוש.",
+        "categoryNamePlaceholder": "הזנת שם הקטגוריה",
+        "duplicateCategoryName": "שם הקטגוריה כבר קיים"
+      },
+      "category": {
+        "menu": {
+          "getStarted": "תחילת העבודה",
+          "recommended": "מומלצות",
+          "all": "הכול",
+          "browseByCategory": "עיון לפי קטגוריה"
+        }
+      },
+      "header": {
+        "cover": "תמונת שער",
+        "name": "שם",
+        "description": "תיאור",
+        "markdownDescription": "תיאור Markdown",
+        "category": "קטגוריה",
+        "isSystem": "מערכת",
+        "source": "מקור",
+        "status": "פורסם",
+        "publishSnapshot": "פרסום תמונת מצב",
+        "snapshotTime": "מועד תמונת המצב",
+        "actions": "פעולות",
+        "featured": "מובחר",
+        "createdBy": "נוצר על ידי",
+        "userNonExistent": "המשתמש אינו קיים",
+        "preview": "תצוגה מקדימה",
+        "usage": "שימוש",
+        "visit": "מעבר"
+      },
+      "actions": {
+        "title": "פעולות",
+        "publish": "פרסום",
+        "delete": "מחיקה",
+        "duplicate": "שכפול",
+        "preview": "תצוגה מקדימה",
+        "use": "שימוש",
+        "pinTop": "הצמדה לראש הרשימה",
+        "addCategory": "הוספת קטגוריה",
+        "selectCategory": "בחירת קטגוריה",
+        "viewTemplate": "הצגת התבנית",
+        "manageCategory": "ניהול קטגוריות"
+      },
+      "relatedTemplates": "תבניות קשורות",
+      "noImage": "אין תמונה",
+      "baseSelectPanel": {
+        "title": "בחירת מקור התבנית",
+        "description": "בחירת הבסיס שישמש כתבנית",
+        "confirm": "אישור",
+        "search": "חיפוש...",
+        "cancel": "ביטול",
+        "selectBase": "בחירת בסיס",
+        "createTemplate": "יצירת תבנית",
+        "abnormalBase": "הבסיס אינו קיים או שנמחק"
+      }
+    },
+    "back": "חזרה לדף הבית",
+    "account": {
+      "title": "פרופיל",
+      "tab": "פרופיל",
+      "updatePhoto": "עדכון התמונה",
+      "updateNameDesc": "כינוי או שם פרטי, לפי השם המועדף ב-Teable",
+      "securityTitle": "אבטחת החשבון",
+      "email": "אימייל",
+      "password": "סיסמה",
+      "passwordDesc": "הגדרת סיסמה קבועה לכניסה לחשבון.",
+      "changePassword": {
+        "title": "שינוי סיסמה",
+        "desc": "יש להזין את הסיסמה הנוכחית ולהגדיר סיסמה חדשה",
+        "current": "סיסמה נוכחית",
+        "new": "סיסמה חדשה",
+        "confirm": "אישור הסיסמה החדשה"
+      },
+      "changePasswordError": {
+        "disMatch": "הסיסמה החדשה אינה תואמת.",
+        "equal": "הסיסמה החדשה חייבת להיות שונה מהסיסמה הנוכחית.",
+        "invalid": "הסיסמה הנוכחית אינה חוקית."
+      },
+      "changePasswordSuccess": {
+        "title": "🎉 הסיסמה שונתה בהצלחה.",
+        "desc": "בעוד 2 שניות תתבצע הפניה לדף הכניסה."
+      },
+      "manageToken": "אסימון גישה",
+      "addPassword": {
+        "title": "הוספת סיסמה",
+        "desc": "הגדרת סיסמה קבועה לכניסה לחשבון.",
+        "password": "הזנת הסיסמה",
+        "confirm": "אישור הסיסמה"
+      },
+      "addPasswordError": {
+        "disMatch": "הסיסמה אינה תואמת."
+      },
+      "addPasswordSuccess": {
+        "title": "🎉 הסיסמה נוספה בהצלחה."
+      },
+      "changeEmail": {
+        "title": "שינוי כתובת האימייל",
+        "desc": "יש לאמת את הסיסמה ולאשר את כתובת האימייל החדשה",
+        "current": "סיסמה נוכחית",
+        "new": "אימייל חדש",
+        "code": "קוד אימות",
+        "getCode": "שליחת קוד",
+        "error": {
+          "invalidCode": "קוד האימות אינו חוקי.",
+          "invalidPassword": "הסיסמה אינה חוקית.",
+          "invalidConflict": "כתובת האימייל החדשה כבר רשומה במערכת.",
+          "invalidSameEmail": "כתובת האימייל החדשה זהה לכתובת הנוכחית.",
+          "sendMailRateLimit": "יש להמתין {{seconds}} שניות לפני שליחת אימייל נוסף"
+        },
+        "success": {
+          "title": "🎉 האימייל שונה בהצלחה.",
+          "desc": "בעוד 2 שניות תתבצע הפניה לדף הכניסה.",
+          "sendSuccess": "קוד האימות נשלח בהצלחה."
+        }
+      },
+      "deleteAccount": {
+        "title": "מחיקת החשבון",
+        "desc": "לא ניתן לבטל פעולה זו. החשבון וכל הנתונים המשויכים אליו יימחקו לצמיתות.",
+        "error": {
+          "title": "לא ניתן למחוק את החשבון",
+          "desc": "יש לטפל תחילה בתלויות הבאות:",
+          "spacesError": "לפני מחיקת החשבון יש לצאת מהמרחבים שלך (או למחוק אותם ולאחר מכן לעבור לאשפה)."
+        },
+        "confirm": {
+          "title": "יש להזין <code>DELETE</code> כדי לאשר",
+          "placeholder": "DELETE"
+        },
+        "loading": "במחיקה..."
+      }
+    },
+    "notify": {
+      "title": "התראות",
+      "label": "פעילות במרחב שלך",
+      "desc": "קבלת אימיילים על תגובות, אזכורים, הזמנות לדפים, תזכורות, בקשות גישה ושינויים במאפיינים."
+    },
+    "setting": {
+      "title": "העדפות",
+      "theme": "ערכת נושא לממשק",
+      "themeDesc": "בחירת ערכת הצבעים של הממשק",
+      "dark": "כהה",
+      "light": "בהיר",
+      "system": "מערכת",
+      "version": "גרסת האפליקציה",
+      "infraVersion": "גרסת התשתית",
+      "language": "שפה",
+      "interactionMode": "מצב אינטראקציה",
+      "mouseMode": "מצב סמן",
+      "touchMode": "מצב מגע",
+      "systemMode": "בהתאם למערכת",
+      "buySelfHostedLicense": "רכישת רישיון לאירוח עצמי",
+      "teableSkill": "מיומנות Teable"
+    },
+    "teableSkill": {
+      "intro": "חיבור סוכן ה-AI שלך לבסיס כדי לתשאל נתונים, לנהל טבלאות, שדות ותצוגות, לייבא או לעדכן רשומות וליצור אוטומציות ואפליקציות.",
+      "worksWith": "עובד עם כל הסוכנים המובילים",
+      "more": "+ עוד",
+      "copy": "העתקה",
+      "installPromptLabel": "פרומפט להתקנת המיומנות",
+      "installCommandLabel": "פקודה להתקנת המיומנות",
+      "installPrompt": "יש לקרוא את https://github.com/teableio/agent-skills, לפעול לפי המדריך כדי להתקין עבורי את מיומנות הסוכן של Teable, ולהשלים את האימות ב-Teable CLI.",
+      "step1Title": "התקנת המיומנות",
+      "step1Description": "יש להעתיק את הפרומפט הזה לסוכן ה-AI שלך. הוא יתקין את מיומנות Teable ויפתח את הדפדפן להשלמת האימות ב-Teable CLI.",
+      "step3Title": "התנסות במיומנות Teable",
+      "step3Description": "לאחר התקנת המיומנות, אפשר לנסות את הפרומפטים האלה.",
+      "tryPrompts": {
+        "schema": {
+          "prompt": "יצירת טבלת CRM פשוטה בבסיס הזה.",
+          "note": "פרומפטים פשוטים להתחלה"
+        },
+        "template": {
+          "prompt": "העלאת כל החשבוניות מהתיקייה המקומית הזו אל <טבלת הקבלות> {הדבקת כתובת ה-URL של הטבלה} וחילוץ שדות המפתח.",
+          "note": "קבצים מקומיים ← Teable"
+        },
+        "validate": {
+          "prompt": "ייבוא issues חדשים מ-GitHub אל <מעקב הבאגים> {הדבקת כתובת ה-URL של הטבלה}.",
+          "note": "נתונים ממערכות אחרות ← Teable"
+        },
+        "trace": {
+          "prompt": "בדיקת <טבלת המשימות> {הדבקת כתובת ה-URL של הטבלה} וסימון משימות שחלף מועדן.",
+          "note": "ניקוי וארגון של נתוני Teable"
+        }
+      }
+    },
+    "nav": {
+      "settings": "הגדרות",
+      "logout": "יציאה",
+      "contactSupport": "פנייה לתמיכה"
+    },
+    "integration": {
+      "title": "אינטגרציות",
+      "thirdPartyIntegrations": {
+        "title": "אינטגרציות של צד שלישי",
+        "description": "ניתנה גישה לחשבון שלך ל-{{count}} אפליקציות.",
+        "lastUsed": "שימוש אחרון ב-{{date}}",
+        "revoke": "ביטול הרשאה",
+        "owner": "בבעלות {{user}}",
+        "revokeTitle": "האם לבטל את ההרשאה?",
+        "revokeDesc": "{{name}} לא תוכל עוד לגשת ל-API של Teable. לא ניתן לבטל פעולה זו.",
+        "scopeTitle": "הרשאות",
+        "scopeDesc": "האפליקציה תוכל לקבל את ההרשאות הבאות:"
+      },
+      "userIntegration": {
+        "title": "חשבונות מחוברים",
+        "description": "חיבור חשבונות חיצוניים כדי לאפשר ל-Teable לגשת למשאבים שלך ולסנכרן אותם.",
+        "emptyDescription": "אין חשבונות מחוברים",
+        "actions": {
+          "reconnect": "חיבור מחדש"
+        },
+        "slack": {
+          "user": "משתמש Slack",
+          "workspace": "מרחב עבודה ב-Slack"
+        },
+        "email": {
+          "user": "משתמש",
+          "email": "אימייל"
+        },
+        "deleteTitle": "הסרת חשבון מחובר",
+        "deleteDesc": "האם להסיר את {{name}}?",
+        "create": "חיבור חשבון חדש",
+        "manage": "ניהול החשבונות המחוברים",
+        "searchPlaceholder": "חיפוש בחשבונות המחוברים",
+        "defaultName": "אינטגרציית {{name}}",
+        "callback": {
+          "error": "מתן ההרשאה נכשל",
+          "title": "ההרשאה ניתנה בהצלחה",
+          "desc": "אפשר לסגור את החלון הזה."
+        }
+      }
+    }
+  },
+  "noun": {
+    "table": "טבלה",
+    "view": "תצוגה",
+    "space": "מרחב",
+    "base": "בסיס",
+    "field": "שדה",
+    "record": "רשומה",
+    "dashboard": "לוח בקרה",
+    "automation": "אוטומציה",
+    "authorityMatrix": "מטריצת הרשאות",
+    "design": "עיצוב",
+    "adminPanel": "ניהול המערכת",
+    "license": "רישיון לאירוח עצמי",
+    "instanceId": "מזהה המופע",
+    "beta": "בטא",
+    "trash": "אשפה",
+    "global": "גלובלי",
+    "organizationPanel": "הגדרות הארגון",
+    "unknownError": "שגיאה לא ידועה",
+    "pluginPanel": "חלונית",
+    "pluginContextMenu": "תפריט הקשר",
+    "plugin": "תוספים",
+    "copy": "העתקה",
+    "credits": "קרדיטים",
+    "aiChat": "צ'אט AI",
+    "app": "אפליקציה",
+    "webSearch": "חיפוש באינטרנט",
+    "folder": "תיקייה",
+    "newAutomation": "אוטומציה חדשה",
+    "newApp": "אפליקציה חדשה",
+    "newFolder": "תיקייה חדשה",
+    "template": "תבנית"
+  },
+  "level": {
+    "free": "Free",
+    "plus": "Plus",
+    "pro": "Pro",
+    "business": "Business",
+    "enterprise": "Enterprise"
+  },
+  "noResult": "אין תוצאות.",
+  "allNodes": "כל הפריטים",
+  "noDescription": "אין תיאור",
+  "untitled": "ללא שם",
+  "name": "שם",
+  "description": "תיאור",
+  "required": "חובה",
+  "characters": "תווים",
+  "atLeastOne": "יש להשאיר לפחות {{noun}} אחד",
+  "guide": {
+    "prev": "הקודם",
+    "next": "הבא",
+    "done": "סיום",
+    "skip": "דילוג",
+    "createSpaceTooltipTitle": "יצירת מרחב",
+    "createSpaceTooltipContent": "יצירת מרחב לשיתוף פעולה עם הצוות שלך.",
+    "createBaseTooltipTitle": "יצירת בסיס",
+    "createBaseTooltipContent": "בסיס מאחסן את הנתונים שלך ומעניק גישה לאוטומציות וללוח הבקרה של האפליקציות.",
+    "createTableTooltipTitle": "יצירת טבלה",
+    "createTableTooltipContent": "כאן אפשר ליצור טבלה חדשה או לייבא טבלה קיימת.",
+    "createViewTooltipTitle": "יצירת תצוגה",
+    "createViewTooltipContent": "יצירת תצוגות רשת, גלריה, קנבן וטופס. תצוגות לוח שנה יגיעו בקרוב. <br></br>בחירת התצוגה המתאימה ביותר לצורכי ניהול הנתונים שלך.",
+    "viewFilteringTooltipTitle": "סינון רשומות",
+    "viewFilteringTooltipContent": "סינון רשומות באמצעות הגדרת תנאים. רשומות מסוננות מוסתרות ולא נמחקות. <br></br>הסינון משפיע רק על התצוגה הנוכחית ולא על הנתונים עצמם.",
+    "viewSortingTooltipTitle": "מיון רשומות",
+    "viewSortingTooltipContent": "מיון רשומות לפי ערכי שדות כדי לסדר אותן בסדר המועדף עליך. <br></br>המיון משפיע רק על התצוגה הנוכחית ולא על תצוגות אחרות של אותה טבלה.",
+    "viewGroupingTooltipTitle": "קיבוץ רשומות",
+    "viewGroupingTooltipContent": "קיבוץ רשומות לפי תנאים כדי לסווג ולארגן את הנתונים בתוך תצוגה.",
+    "apiButtonTooltipTitle": "API",
+    "apiButtonTooltipContent": "גישה ל-API העוצמתי של Teable, עם כמעט כל יכולות המוצר, באמצעות <a>אסימון</a>."
+  },
+  "token": "אסימון",
+  "poweredBy": "מופעל על ידי <0></0>",
+  "invite": {
+    "dialog": {
+      "title": "שיתוף המרחב {{spaceName}}",
+      "desc_one": "במרחב הזה יש <b>{{count}} משתף פעולה</b>. הוספת משתף פעולה למרחב תעניק לו גישה לכל הבסיסים שבמרחב.",
+      "desc_two": "במרחב הזה יש <b>שני משתפי פעולה</b>. הוספת משתף פעולה למרחב תעניק לו גישה לכל הבסיסים שבמרחב.",
+      "desc_other": "במרחב הזה יש <b>{{count}} משתפי פעולה</b>. הוספת משתף פעולה למרחב תעניק לו גישה לכל הבסיסים שבמרחב.",
+      "tabEmail": "הזמנה באימייל",
+      "emailPlaceholder": "הזנת כתובות אימייל, מופרדות במקש 'Enter'",
+      "tabLink": "הזמנה בקישור",
+      "linkPlaceholder": "יצירת קישור הזמנה שמעניק הרשאת <0/> לכל מי שפותח אותו.",
+      "emailSend": "שליחת הזמנה",
+      "directAccessDescription": "משתפי פעולה שהוזמנו יכולים להשתמש בקישור שלהלן כדי לגשת ישירות למשאב הזה ולהתחיל לשתף פעולה",
+      "linkSend": "יצירת קישור",
+      "spaceTitle": "משתפי פעולה במרחב",
+      "spaceTitleWithCount": "משתפי פעולה במרחב ({{count}})",
+      "baseTitle": "משתפי פעולה בבסיס",
+      "allCollaboratorsTitle": "כל משתפי הפעולה (מרחב ובסיס)",
+      "baseOnly": "בסיס בלבד",
+      "collaboratorSearchPlaceholder": "חיפוש משתף פעולה במרחב לפי שם או אימייל",
+      "collaboratorJoin": "הצטרפות: {{joinTime}}",
+      "collaboratorRemove": "הסרת משתף הפעולה",
+      "basePermissionRemove": "הסרת הגישה לבסיס",
+      "goToBase": "מעבר לבסיס",
+      "linkTitle": "קישורי הזמנה",
+      "linkCreatedTime": "נוצר {{createdTime}}",
+      "linkCopySuccess": "הקישור הועתק",
+      "linkRemove": "הסרת הקישור",
+      "noInviteLinks": "אין קישורי הזמנה",
+      "linkDescription": "יצירת קישור הזמנה והקצאת הרשאות",
+      "haveAccess": "בעלי גישה"
+    },
+    "base": {
+      "title": "שיתוף {{baseName}}",
+      "desc_one": "הבסיס הזה משותף עם {{count}} משתף פעולה.",
+      "desc_two": "הבסיס הזה משותף עם שני משתפי פעולה.",
+      "desc_other": "הבסיס הזה משותף עם {{count}} משתפי פעולה.",
+      "baseTitle": "משתפי פעולה בבסיס",
+      "collaboratorSearchPlaceholder": "חיפוש משתף פעולה בבסיס לפי שם או אימייל",
+      "baseTitleWithCount": "משתפי פעולה בבסיס ({{count}})"
+    },
+    "addOrgCollaborator": {
+      "title": "הוספת משתף פעולה מהארגון",
+      "button": "הוספה מהארגון",
+      "placeholder": "בחירת חבר ארגון או מחלקה"
+    },
+    "sendInvitationSuccess": "ההזמנה נשלחה",
+    "table": {
+      "collaborator": "משתף פעולה",
+      "accessPermission": "הרשאת גישה",
+      "joinAt": "תאריך הצטרפות",
+      "lastLogin": "כניסה אחרונה",
+      "expandPermissions": "הרחבת ההרשאות של {{name}}",
+      "collapsePermissions": "כיווץ ההרשאות של {{name}}",
+      "basePermissionsOnly": "גישה לבסיסים נבחרים בלבד",
+      "basePermissionCount": "הרשאות בבסיסים: {{count}}"
+    },
+    "authority": {
+      "title": "מטריצת ההרשאות מופעלת",
+      "description": "הרשאת הגישה בפועל של משתפי פעולה מושפעת מהתפקידים שהוקצו להם. משתמש שלא הוקצה לו תפקיד מקבל את תפקיד ברירת המחדל",
+      "viewDetail": "הצגת הפרטים"
+    },
+    "app": {
+      "previewAppError": "שגיאה באפליקציה"
+    }
+  },
+  "help": {
+    "title": "עזרה",
+    "appLink": "https://app.teable.ai",
+    "mainLink": "https://help.teable.ai/en",
+    "apiLink": "https://help.teable.ai/en/api-doc/token"
+  },
+  "pagePermissionChangeTip": "הרשאות הדף עודכנו. נדרש רענון.",
+  "listEmptyTips": "הרשימה ריקה",
+  "billing": {
+    "overLimits": "חריגה מהמגבלות",
+    "overLimitsDescription": "המנוי הנוכחי חרג ממגבלת השימוש. יש לשדרג את התוכנית כדי להמשיך להשתמש בתכונה זו ללא הפרעה.",
+    "userLimitExceededDescription": "המופע הנוכחי הגיע למספר המשתמשים המרבי שהרישיון מתיר. יש להשבית משתמשים או לשדרג את הרישיון.",
+    "unavailableInPlanTips": "תוכנית המנוי הנוכחית אינה תומכת בתכונה זו",
+    "unavailableConnectionTips": "תכונת החיבור למסד הנתונים תוסר ותהיה זמינה רק בתוכנית Enterprise ובגרסאות בהתקנה עצמית.",
+    "levelTips": "מרחב זה נמצא כעת בתוכנית {{level}}",
+    "enterpriseFeature": "תכונת Enterprise",
+    "automationRequiresUpgrade": "יש לשדרג ל-Enterprise Edition (EE) כדי להפעיל אוטומציה",
+    "authorityMatrixRequiresUpgrade": "יש לשדרג ל-Enterprise Edition (EE) כדי להפעיל מטריצת הרשאות",
+    "viewPricing": "צפייה בתמחור",
+    "billable": "בר-חיוב",
+    "billableByAuthorityMatrix": "חיוב שנוצר ממטריצת ההרשאות",
+    "seatConfirm": {
+      "title": "הזמנה זו תגדיל את החשבון שלך",
+      "roleChangeTitle": "שינוי תפקיד זה יגדיל את החשבון שלך",
+      "matrixTitle": "הוספת חברים תגדיל את החשבון שלך",
+      "inviteDesc_one": "החבר שמוזמן יצטרף בתפקיד {{role}}, יתפוס מושב מנוי אחד, והעלות תגדל בהתאם. אם יש צורך רק בצפייה או בתגובות, אפשר לבחור בתפקיד החינמי צופה או מגיב.",
+      "inviteDesc_two": "שני החברים שמוזמנים יצטרפו בתפקיד {{role}}, יתפסו שני מושבי מנוי, והעלות תגדל בהתאם. אם יש צורך רק בצפייה או בתגובות, אפשר לבחור בתפקיד החינמי צופה או מגיב.",
+      "inviteDesc_other": "{{count}} החברים שמוזמנים יצטרפו בתפקיד {{role}}, יתפסו {{count}} מושבי מנוי, והעלות תגדל בהתאם. אם יש צורך רק בצפייה או בתגובות, אפשר לבחור בתפקיד החינמי צופה או מגיב.",
+      "linkDesc": "חברים שיצטרפו דרך קישור זה יקבלו את התפקיד {{role}}, כל אחד יתפוס מושב מנוי, והעלות תגדל ככל שיצטרפו אנשים. אם יש צורך רק בצפייה או בתגובות, אפשר לבחור בתפקיד החינמי צופה או מגיב.",
+      "roleChangeDesc": "לאחר השינוי לתפקיד {{role}}, חבר זה יתפוס מושב מנוי והעלות תגדל בהתאם.",
+      "matrixDesc": "חבר זה נמצא כעת בתפקיד חינמי (צופה/מגיב). הוספתו למטריצת ההרשאות תתפוס מושב מנוי אחד, והעלות תגדל בהתאם.",
+      "seatLimitTitle": "אין מספיק מושבים ברישיון",
+      "seatLimitDesc": "מופע זה משתמש ב-{{seats}} מתוך {{seatLimit}} מושבים ברישיון, ולא נותרו מספיק מושבים לפעולה זו. יש לפנות למנהל המערכת לרכישת מושבים נוספים. אם יש צורך רק בצפייה או בתגובות, אפשר להשתמש בתפקיד החינמי צופה או מגיב.",
+      "seatLimitConfirm": "הבנתי",
+      "confirmInvite": "אישור והזמנה"
+    },
+    "licenseExpiredGracePeriod": "הרישיון להתקנה עצמית פג, והתוכנית תשונמך לתוכנית החינמית בתאריך {{expiredTime}}. יש לעדכן את הרישיון בהקדם כדי לשמור על הגישה לתכונות הפרימיום.",
+    "licenseAutoFetchFailed": "החידוש האוטומטי של הרישיון נכשל. נותרו {{days}} ימים בתקופת החסד לפני השנמוך.",
+    "licenseAutoFetchRetryFailed": "החידוש האוטומטי עדיין נכשל. יש לבדוק את החיבור לשרת Teable, או לעדכן את הרישיון ידנית.",
+    "licenseExpiredGracePeriodDays": "הרישיון פג. נותרו {{days}} ימים בתקופת החסד לפני השנמוך.",
+    "spaceSubscriptionModal": {
+      "title": "שדרוג תוכנית המנוי של המרחב",
+      "description": "ניתן לשדרג רק מרחבים שבהם התפקיד הוא בעלים"
+    },
+    "contactAdminToUpgrade": "יש לפנות לבעלים של המרחב כדי לשדרג את תוכנית המנוי.",
+    "status": {
+      "active": "פעיל",
+      "canceled": "בוטל",
+      "incomplete": "לא הושלם",
+      "incompleteExpired": "לא הושלם ופג תוקף",
+      "trialing": "בתקופת ניסיון",
+      "pastDue": "בפיגור בתשלום",
+      "unpaid": "לא שולם",
+      "paused": "מושהה",
+      "seatLimitExceeded": "חריגה ממגבלת המושבים"
+    }
+  },
+  "admin": {
+    "setting": {
+      "instanceTitle": "הגדרות המופע",
+      "description": "שינוי ההגדרות של המופע הנוכחי",
+      "allowSignUp": "אפשרות ליצירת חשבונות חדשים",
+      "allowSignUpDescription": "השבתת האפשרות תמנע הרשמות של משתמשים חדשים, וכפתור ההרשמה לא יופיע יותר בדף הכניסה.",
+      "bannedEmailDomains": "דומיינים חסומים לאימייל",
+      "bannedEmailDomainsDescription": "כתובות אימייל מדומיינים אלה אינן יכולות להירשם, ולא יישלחו הזמנות באימייל שנוגעות אליהן. יש להקליד דומיין וללחוץ Enter כדי להוסיף אותו.",
+      "bannedEmailDomainsInvalid": "יש להזין דומיין חוקי, למשל example.com",
+      "allowSpaceInvitation": "אפשרות לשליחת הזמנות למרחב",
+      "allowSpaceInvitationDescription": "השבתת האפשרות תמנע ממשתמשים שאינם מנהלי מערכת להזמין אחרים להצטרף למרחבים. כשהאפשרות מופעלת, משתמשים חדשים שהוזמנו באימייל יכולים להשלים את ההרשמה בלחיצה על קישור ההזמנה שבאימייל, אך קישורי הזמנה משותפים לא יפעלו.",
+      "allowSpaceCreation": "אפשרות לכל המשתמשים ליצור מרחבים חדשים",
+      "allowSpaceCreationDescription": "השבתת האפשרות תמנע ממשתמשים שאינם מנהלי מערכת ליצור מרחבים חדשים.",
+      "enableEmailVerification": "הפעלת אימות אימייל",
+      "enableEmailVerificationDescription": "הפעלת האפשרות תחייב משתמשים לאמת את כתובת האימייל שלהם בעת יצירת חשבון חדש.",
+      "enableWaitlist": "הפעלת רשימת המתנה",
+      "enableWaitlistDescription": "הפעלת האפשרות תתיר הרשמה רק באמצעות קוד הזמנה.",
+      "generalSettings": "הגדרות כלליות",
+      "aiSettings": "הגדרות AI",
+      "brandingSettings": {
+        "title": "הגדרות מיתוג",
+        "description": "זמין רק ב-Enterprise Edition",
+        "brandName": "שם המותג",
+        "logo": "לוגו",
+        "logoUpload": "העלאת לוגו",
+        "logoUploadDescription": "העלאת תמונת לוגו, בפורמט PNG או JPEG, בגודל מומלץ של 100x100px. גודל ההעלאה המרבי הוא 500KB."
+      },
+      "ai": {
+        "name": "שם",
+        "nameDescription": "ניתן להתאמה, משמש להבחנה בין הספקים בממשק",
+        "customModel": "מודל מותאם אישית",
+        "customModelDescription": "מודלים מותאמים אישית זמינים בשדות AI, באוטומציית AI ובממשק צ'אט AI. מודלים ליצירת תמונות דורשים סימון לצורך בדיקה",
+        "updateLLMProvider": "עדכון ספק LLM",
+        "addProvider": "הוספת ספק LLM",
+        "addProviderDescription": "הוספת ספק LLM חדש לרשימה",
+        "providerType": "סוג הספק",
+        "baseUrl": "Base URL",
+        "apiKey": "מפתח API",
+        "baseUrlDescription": "כתובת ה-Base URL של ספק ה-LLM",
+        "apiKeyDescription": "מפתח ה-API של ספק ה-LLM",
+        "models": "מודלים",
+        "modelsDescription": "המודלים הנתמכים על ידי ספק ה-LLM",
+        "modelsSelectedCount": "{{count}} מודלים נבחרו",
+        "clearAllModels": "ניקוי כל המודלים",
+        "customModelPlaceholder": "יש להזין שם של מודל מותאם אישית",
+        "addModelFill": "הוספה",
+        "modelIdReservedAt": "מזהי מודל אינם יכולים להכיל '@'",
+        "baseUrlRequired": "יש להזין Base URL",
+        "fetchModelListError": "טעינת רשימת המודלים נכשלה",
+        "provider": "ספק LLM",
+        "aiAbilitySettings": "הגדרות יכולות AI",
+        "aiAbilitySettingsDescription": "הגדרת יכולות ה-AI",
+        "modelPreferences": "העדפות מודל",
+        "modelPreferencesDescription": "העדפות המודל עבור ספק ה-LLM",
+        "embeddingModel": "מודל embedding",
+        "embeddingModelDescription": "אופציונלי. לשאלות ותשובות על מסמכים. בדרך כלל מזהה המודל מכיל \"embedding\".",
+        "translationModel": "מודל תרגום",
+        "translationModelDescription": "מודל התרגום שישמש",
+        "chatModel": "מודל צ'אט",
+        "chatModelDescription": "מודל הצ'אט שישמש. טיפ: תכונות ה-AI של teable מחייבות תמיכה ב-tool calling",
+        "chatModels": {
+          "lg": "מודל צ'אט מתקדם",
+          "lgDescription": "לתכנון, לכתיבת קוד ולמשימות מורכבות אחרות. מומלץ: claude-sonnet-4.5",
+          "md": "מודל למשימות בינוניות",
+          "mdDescription": "לשיחות יומיומיות ולמשימות כלליות",
+          "sm": "מודל למשימות קלות",
+          "smDescription": "לשאילתות פשוטות ולתשובות מהירות",
+          "inheritHint": "זהה למודל הראשי שבברירת המחדל ({{model}})",
+          "modelTiers": "רמות מודל",
+          "modelTiersDescription": "אפשר להקצות מודלים שונים למשימות בינוניות ולמשימות קלות; רמות שלא הוגדרו משתמשות במודל הראשי שלמעלה.",
+          "allInheriting": "כל הרמות משתמשות במודל הראשי שבברירת המחדל",
+          "customized": "{{count}} מותאמים אישית"
+        },
+        "actions": {
+          "title": "יכולות AI",
+          "aiField": {
+            "title": "שדה AI",
+            "description": "יכולות שדה AI, כולל מילוי אוטומטי והגדרות AI בהגדרות השדה"
+          },
+          "aiChat": {
+            "title": "צ'אט AI",
+            "description": "סרגל הצד של צ'אט AI וכל יכולות הסוכן",
+            "sandboxWarning": "יש להגדיר את סביבת ההרצה של צ'אט AI למטה לפני השימוש"
+          },
+          "modelSelection": {
+            "title": "אפשרות לבחירת מודל",
+            "description": "מאפשר למשתמשים לבחור מודל בצ'אט AI וב-App Builder"
+          }
+        },
+        "chatModelTest": {
+          "text": "בדיקת מודל",
+          "description": "בדיקת יכולת המודל לטפל בתמונות וב-PDF.",
+          "notConfigLgModel": "יש להגדיר תחילה את מודל הצ'אט המתקדם",
+          "confirmTitle": "בדיקת יכולות המודל",
+          "confirmDescription": "לבדוק את יכולות מודל הצ'אט המתקדם?",
+          "confirm": "בדיקת מודל",
+          "cancel": "ביטול",
+          "missingCapabilitiesWarning": "מודל זה אינו תומך בעיבוד תמונות או PDF, ולכן ייתכן שחלק מהתכונות לא יהיו זמינות.",
+          "modelNotSuitable": "ייתכן שמודל זה אינו מתאים לתכונות AI מתקדמות:",
+          "enableAITitle": "הפעלת מודל מותאם אישית",
+          "enableAIDescription": "בדיקת המודל הושלמה. מודל מותאם אישית אינו מופעל כרגע. להפעיל מודל מותאם אישית כדי להשתמש ביכולות אלה?",
+          "enableAI": "הפעלת מודל מותאם אישית",
+          "skipTest": "דילוג"
+        },
+        "chatModelAbility": {
+          "image": "תמונה",
+          "pdf": "PDF",
+          "webSearch": "חיפוש באינטרנט",
+          "toolCall": "קריאה לכלים",
+          "reasoning": "חשיבה",
+          "imageGeneration": "יצירת תמונות",
+          "disabledWebSearch": "חיפוש באינטרנט מושבת",
+          "lgModelAbility": "יכולות המודל",
+          "missingVision": "אינו תומך בעיבוד תמונות או PDF",
+          "missingToolCall": "אינו תומך בקריאה לכלים או לפונקציות",
+          "notTested": "יכולות המודל טרם נבדקו. יש לבדוק את המודל תחילה בהגדרות הספק",
+          "supportedFormats": "פורמטים נתמכים"
+        },
+        "imageModelAbility": {
+          "generation": "טקסט לתמונה",
+          "imageToImage": "תמונה לתמונה"
+        },
+        "configUpdated": "הגדרות ה-AI עודכנו",
+        "noModelFound": "לא נמצא מודל.",
+        "searchModel": "חיפוש מודל...",
+        "selectModel": "בחירת מודל...",
+        "defaultModel": "{{name}} (ברירת מחדל)",
+        "moreModels": "מודלים נוספים",
+        "agentModelWarningConfirm": "הבנתי",
+        "recommendedModelNudge": {
+          "title": "כדאי לנסות את {{model}}",
+          "description": "תוצאות AI טובות יותר בצריכת קרדיטים נמוכה בהרבה.",
+          "use": "שימוש ב-{{model}}",
+          "later": "מאוחר יותר"
+        },
+        "noModelsAvailable": "אין מודלים זמינים",
+        "input": "קלט {{ratio}}",
+        "output": "פלט {{ratio}}",
+        "inputOrOutputTip": "היחס מייצג את שער ההמרה בין קרדיטים לטוקנים, למשל \"1:1000\" פירושו שקרדיט אחד ≈ 1000 טוקנים.<br></br>לתשומת לב: כל שימוש מנכה קרדיט אחד לפחות. גם אם הצריכה בפועל קטנה מקרדיט אחד, החיוב יהיה קרדיט אחד.",
+        "imageOutput": "לכל תמונה {{credits}}",
+        "imageOutputTip": "יצירת תמונות צורכת קרדיטים, כל תמונה צורכת {{credits}} קרדיטים",
+        "supportImageOutputTip": "מודל זה תומך ביצירת תמונות",
+        "supportVisionTip": "מודל זה תומך בקלט של תמונות",
+        "supportAudioTip": "מודל זה תומך בקלט של אודיו",
+        "supportVideoTip": "מודל זה תומך בקלט של וידאו",
+        "supportDeepThinkTip": "מודל זה תומך בחשיבה מעמיקה",
+        "testConnection": "בדיקה",
+        "testing": "בבדיקה...",
+        "testSuccess": "הבדיקה הצליחה",
+        "testCompleteWithCount": "הבדיקה הושלמה: {{success}}/{{total}} מודלים עברו",
+        "allTestsFailed": "כל בדיקות המודלים נכשלו",
+        "testFailed": "הבדיקה נכשלה",
+        "batchTest": "בדיקת יכולות המודלים",
+        "test": "בדיקה",
+        "testProvider": "בדיקה",
+        "testProviderTooltip": "בדיקת כל {{count}} המודלים של ספק זה",
+        "batchTesting": "בבדיקת כל המודלים...",
+        "batchTestComplete": "בדיקת האצווה הושלמה",
+        "batchTestResults": "תוצאות בדיקת האצווה",
+        "batchTestResultsSummary": "נבדקו {{tested}} מתוך {{total}} מודלים: {{success}} עברו, {{failed}} נכשלו",
+        "batchTestNoModels": "אין מודלים מוגדרים לבדיקה",
+        "modelStatus": "סטטוס המודל",
+        "imageSupport": "תמיכה בתמונות",
+        "basicGeneration": "יצירה בסיסית",
+        "supported": "נתמך",
+        "notSupported": "לא נתמך",
+        "partialSupport": "תמיכה חלקית",
+        "urlSupport": "URL",
+        "base64Support": "Base64",
+        "closeResults": "סגירה",
+        "retryFailed": "בדיקה חוזרת לכושלים",
+        "stopTest": "עצירה",
+        "pending": "ממתין",
+        "configuredModels": "מודלים מוגדרים",
+        "fillRequiredFields": "יש למלא את כל שדות החובה",
+        "modelsRequired": "יש להזין מודל אחד לפחות",
+        "noValidModel": "לא נמצא מודל חוקי",
+        "addCustomModel": "הוספת מודל מותאם אישית",
+        "isOpenRouter": "OpenRouter",
+        "modelRates": "תמחור מודלים",
+        "modelSettings": "הגדרות מודל",
+        "model": "מודל",
+        "inputRate": "קלט USD לטוקן",
+        "outputRate": "פלט USD לטוקן",
+        "inputRateTip": "מחיר הקלט שנוצר לספק המותאם אישית, ב-USD לטוקן",
+        "outputRateTip": "מחיר הפלט שנוצר לספק המותאם אישית, ב-USD לטוקן",
+        "rateExplanationTitle": "הגדרת תמחור לספק מותאם אישית",
+        "rateExplanationFormula": "יש למלא את המכפיל ביחס למחיר הייחוס של AI Gateway. לדוגמה, 0.1 פירושו שהתמחור של הספק המותאם אישית הוא 10% ממחיר הייחוס של AI Gateway.",
+        "rateExplanationExample": "התמחור לקלט, לפלט, ל-cache, לחשיבה, לתמונות ולחיפוש באינטרנט נוצר ממחיר הייחוס של AI Gateway עם אותו מכפיל. החיוב ממיר USD לקרדיטים לפי 1 USD = 100 קרדיטים.",
+        "ratesDescription": "הערכים שנוצרו נשמרים ב-modelConfigs[model].pricing ומשמשים לחיוב של ספקים מותאמים אישית ברמת המופע. עמודת היחס עדיין מציגה את רמת העלות הקיימת של Claude Opus 4.6 = 1x.",
+        "advancedRates": "תמחור מתקדם שנוצר",
+        "advancedRatesDescription": "מחירים מתקדמים אלה נוצרים ממחיר הייחוס של AI Gateway לפי המכפיל שהוגדר. הם מוצגים לבדיקה ונשמרים יחד עם תמחור המודל.",
+        "cacheRead": "Cache↓",
+        "cacheWrite": "Cache↑",
+        "reasoning": "חשיבה",
+        "perImage": "תמונה",
+        "cacheReadRateTip": "USD לכל טוקן קלט מה-cache, אם הספק מחייב בנפרד על קלט מה-cache",
+        "cacheWriteRateTip": "USD לכל טוקן כתיבה ל-cache, אם הספק מחייב בנפרד על כתיבות ל-cache",
+        "reasoningRateTip": "USD לכל טוקן חשיבה, אם הספק מחייב בנפרד על טוקני חשיבה",
+        "imageRateTip": "USD לכל תמונה שנוצרה, אם הספק מחייב לפי תמונה",
+        "imageModel": "מודל תמונות",
+        "imageGeneration": "יצירת תמונות",
+        "imageToImage": "תמונה לתמונה",
+        "clickToToggleImageModel": "💡 לחיצה מסמנת כמודל ליצירת תמונות",
+        "markAsImageModel": "סימון כמודל ליצירת תמונות",
+        "imageGenerationModel": "מודל ליצירת תמונות",
+        "markedAsImageModel": "מסומן כמודל ליצירת תמונות. ייבדקו יכולות של טקסט לתמונה ותמונה לתמונה.",
+        "markedAsTextModel": "מסומן כמודל טקסט. תיבדק יכולת הראייה (קלט של תמונות).",
+        "fetchPricingError": "טעינת התמחור נכשלה",
+        "openRouterId": "מזהה המודל ב-Gateway",
+        "notFound": "לא נמצא",
+        "applyPricing": "החלה ({{count}})",
+        "pricingApplied": "התמחור הוחל",
+        "pricingAppliedCount": "התמחור עודכן עבור {{count}} מודלים",
+        "relativeRatio": "יחס",
+        "webSearch": "אינטרנט",
+        "referencePricingTip": "מחיר הייחוס נטען מקטלוג המודלים של AI Gateway",
+        "applyReferencePricingTip": "יצירת תמחור לספק המותאם אישית ממחיר הייחוס הזה של AI Gateway",
+        "optionalPricing": "אופציונלי",
+        "gatewayRatio": "מכפיל Gateway",
+        "gatewayRatioTip": "מכפיל ביחס למחיר הייחוס של AI Gateway. 0.1 פירושו 10% ממחיר הייחוס.",
+        "generatedPricing": "תמחור שנוצר",
+        "generatedPricingTip": "מחיר הקלט והפלט שנוצר לספק המותאם אישית ונשמר ב-modelConfigs[model].pricing",
+        "rateExplanationManual": "לא נמצאה התאמת ייחוס אוטומטית? אפשר לבחור מודל ייחוס ידנית בחלון העריכה של המודל.",
+        "referenceModelLabel": "מודל ייחוס",
+        "contextWindowCap": "הקשר",
+        "contextWindowCapTip": "מספר טוקני הקלט המרבי שהמודל מקבל; קובע את כיווץ ההקשר. השארה ריקה תשתמש במגבלות מהרישום או בברירת המחדל.",
+        "maxOutputTokensCap": "פלט מרבי",
+        "maxOutputTokensCapTip": "מספר הטוקנים המרבי שהמודל רשאי לייצר בכל תשובה. השארה ריקה תשתמש במגבלות מהרישום או בברירת המחדל.",
+        "rateExplanationCaps": "ההקשר והפלט המרבי נקבעים כברירת מחדל לפי מודל הייחוס וניתנים לעריכה; ערכים ריקים חוזרים למגבלות מהרישום או לברירות המחדל.",
+        "relativeRatioTip": "רמת העלות ביחס ל-Claude Opus 4.6 = 1x, לפי האלגוריתם המשוקלל הקיים",
+        "hint": {
+          "title": "הצעות",
+          "missingV1Suffix": "ייתכן שחסרה הסיומת \"/v1\" ב-Base URL. רוב ממשקי ה-API התואמים ל-OpenAI מחייבים כתובות שמסתיימות ב-\"/v1\" (למשל https://api.openai.com/v1)",
+          "removeTrailingSlash": "כדאי לנסות להסיר את הלוכסן שבסוף ה-Base URL",
+          "checkApiKey": "יש לוודא שמפתח ה-API נכון ושתוקפו לא פג",
+          "azureDeployment": "ב-Azure יש לוודא ששם המשאב וה-deployment הנכונים מוגדרים ב-Base URL",
+          "checkQuotaOrPermission": "ייתכן שלמפתח ה-API אין הרשאות מספיקות או שהמכסה נוצלה. יש לבדוק את מצב החשבון",
+          "checkModelName": "ייתכן ששם המודל שגוי. יש לוודא ששם המודל תואם למודלים שהספק תומך בהם",
+          "checkConnection": "לא ניתן להתחבר לשרת. יש לבדוק שה-Base URL נכון ושהשרת נגיש",
+          "ollamaRunning": "יש לוודא ש-Ollama פועל מקומית. אפשר להפעיל אותו בפקודה 'ollama serve'",
+          "sslCertificate": "יש בעיה בתעודת SSL. בשימוש בתעודה בחתימה עצמית ייתכן שנדרשת הגדרה נוספת",
+          "checkConfiguration": "יש לבדוק את ההגדרות. יש לוודא שה-Base URL, מפתח ה-API ושם המודל נכונים"
+        },
+        "recommended": "מומלץ",
+        "enabled": "מופעל",
+        "gatewayModels": "מודלים של AI Gateway",
+        "gatewayModelsDescription": "הגדרת מודלים מומלצים דרך Vercel AI Gateway לתמיכה מיטבית ב-AI SDK",
+        "gatewayDescription": "מומלץ להשתמש ב-AI Gateway לתאימות ולאמינות מיטביות. יש להגדיר את מפתח ה-API בחלק App שלמטה.",
+        "providerDescription": "מתקדם: הגדרת ספקי AI מותאמים אישית לתרחישים ייעודיים או למודלים בהתקנה עצמית.",
+        "noGatewayModels": "לא הוגדרו מודלים של Gateway. יש להוסיף מודלים כדי להתחיל.",
+        "addModel": "הוספת מודל",
+        "addGatewayModel": "הוספת מודל Gateway",
+        "popularModels": "מודלים פופולריים",
+        "modelId": "מזהה מודל",
+        "modelIdHint": "מזהה המודל שבו משתמש AI Gateway (למשל anthropic/claude-sonnet-4)",
+        "searchModelPlaceholder": "הקלדה לחיפוש מודלים...",
+        "noMatchingModels": "לא נמצאו מודלים תואמים",
+        "typeToSearch": "יש להקליד מילות מפתח לחיפוש במודלים הזמינים",
+        "modelNotFound": "מזהה מודל זה לא נמצא ברשימת המודלים הזמינים, יש לבדוק את הכתיב",
+        "testModel": "בדיקת מודל",
+        "testModelSuccess": "בדיקת המודל הצליחה! ה-API הגיב כראוי",
+        "testModelImageSuccess": "אושר שמודל התמונות קיים ב-API",
+        "testModelNotFound": "המודל לא נמצא ברשימת ה-API",
+        "displayLabel": "תווית תצוגה",
+        "isImageModel": "זהו מודל ליצירת תמונות",
+        "capabilities": "יכולות",
+        "setAsDefault": "הגדרה כמודל הצ'אט שבברירת המחדל",
+        "quickAdd": "הוספה מהירה של מודלים פופולריים:",
+        "guide": {
+          "configStatus": "סטטוס ההגדרה",
+          "ready": "מוכן",
+          "needsAttention": "דורש תשומת לב",
+          "incomplete": "לא הושלם",
+          "aiEnabled": "AI מופעל",
+          "aiEnabledDesc": "מודלים מותאמים אישית מופעלים במופע זה",
+          "aiDisabledDesc": "יש להפעיל כדי להשתמש במודלי AI מותאמים אישית",
+          "gatewayKey": "מפתח API של Gateway",
+          "gatewayKeyConfigured": "מפתח ה-AI Gateway מוגדר",
+          "gatewayKeyMissing": "יש להגדיר מפתח API של AI Gateway עבור ההגדרה המומלצת",
+          "gatewayKeyRequired": "יש להגדיר תחילה מפתח API של AI Gateway בחלק App שלמטה",
+          "gatewayModels": "מודלים של Gateway",
+          "gatewayModelsConfigured": "{{count}} מודלים מופעלים",
+          "gatewayModelsEmpty": "יש להוסיף מודלים של Gateway לבחירת המשתמשים",
+          "providers": "ספקים מותאמים אישית",
+          "providersConfigured": "{{count}} ספקים מוגדרים",
+          "providersEmpty": "לא הוגדרו ספקים מותאמים אישית",
+          "chatModel": "מודל הצ'אט שבברירת המחדל",
+          "chatModelGateway": "בשימוש מודל של Gateway",
+          "chatModelProvider": "בשימוש מודל של ספק מותאם אישית",
+          "chatModelMissing": "יש לבחור מודל צ'אט לברירת המחדל"
+        },
+        "enableCard": {
+          "title": "שירותי AI",
+          "ready": "מוגדר ומוכן לשימוש",
+          "needsConfig": "מופעל, אך נדרשת הגדרה למטה",
+          "disabled": "תכונות ה-AI מושבתות כרגע",
+          "missingConfig": "הגדרות חסרות:",
+          "allConfigured": "כל ההגדרות הושלמו"
+        },
+        "wizard": {
+          "setupProgress": "התקדמות ההגדרה",
+          "checklist": "רשימת בדיקה",
+          "allComplete": "כל ההגדרות הנדרשות הושלמו! ה-AI מוכן לשימוש.",
+          "nextStep": "הבא: {{step}}",
+          "configureAI": "יש להשלים את השלבים הבאים כדי להפעיל את ה-AI",
+          "optional": "אופציונלי",
+          "gatewayHelp": "AI Gateway: מפתח API אחד למאות מודלים; בשימוש ראשון נדרשת הוספת כרטיס אשראי ב-Vercel;",
+          "gatewayByok": "נתמך (אפשר להשתמש במפתחות הספק שלך)",
+          "getApiKey": "קבלת מפתח API",
+          "keyInvalid": "מפתח API לא חוקי, יש לבדוק ולנסות שוב",
+          "gatewayErrorUnauthorized": "מפתח API לא חוקי. יש לבדוק שההעתקה בוצעה כראוי",
+          "gatewayErrorNeedCreditCard": "נדרש כרטיס אשראי לשימוש ב-AI Gateway. יש להוסיף כרטיס בלוח הבקרה של Vercel",
+          "gatewayErrorInsufficientQuota": "יתרת החשבון אינה מספיקה. יש לטעון יתרה ולנסות שוב",
+          "gatewayErrorForbidden": "הגישה נדחתה. יש לבדוק את מצב החשבון בלוח הבקרה של Vercel",
+          "gatewayErrorNetwork": "שגיאת רשת. יש לבדוק את החיבור או את הגדרות ה-proxy",
+          "pleaseTest": "יש ללחוץ על בדיקה כדי לאמת את מפתח ה-API",
+          "test": "בדיקה",
+          "testing": "בבדיקה...",
+          "attachmentTest": {
+            "title": "מצב העברה של קבצים מצורפים",
+            "urlMode": "מצב URL",
+            "base64Mode": "מצב Base64",
+            "accessible": "זמין",
+            "inaccessible": "לא זמין",
+            "urlNotAccessibleWarning": "שירות ה-AI אינו יכול לגשת לכתובות ה-URL של הקבצים המצורפים. זה נפוץ בהתקנות ברשת פנימית. מצב Base64 הופעל אוטומטית.",
+            "useBase64Mode": "שימוש במצב Base64",
+            "base64ModeDescription": "המרת קבצים מצורפים ל-Base64 לפני השליחה (אין גישה ל-Teable מהרשת הציבורית)",
+            "originChanged": "PUBLIC_ORIGIN השתנה",
+            "originChangedDesc": "כתובת השרת השתנתה מאז הבדיקה האחרונה. יש לבצע בדיקה חוזרת כדי לוודא שהקבצים המצורפים נגישים."
+          },
+          "saveAndContinue": "שמירה והמשך",
+          "completeStep1First": "יש להשלים תחילה את שלב 1: הגדרת LLM API",
+          "completeStep2First": "יש להשלים תחילה את שלב 2: הוספת מודל אחד לפחות",
+          "addCustom": "מותאם אישית...",
+          "enabledModels": "מודלים מופעלים",
+          "chatDefault": "ברירת מחדל לצ'אט",
+          "noModelsAvailable": "אין מודלים זמינים, יש להוסיף מודלים בשלב 2 תחילה",
+          "quickSetup": "הגדרה מהירה",
+          "useRecommended": "שימוש במומלץ",
+          "useRecommendedDesc": "הגדרת {{model}} כברירת מחדל לכל תרחישי הצ'אט בלחיצה אחת",
+          "chatModels": "המודל הראשי שבברירת המחדל",
+          "chatModelTip": "המודל הראשי שבברירת המחדל לצ'אט ה-AI בסרגל הצד, נקבע על ידי מנהל המערכת ואינו ניתן לשינוי על ידי המשתמשים; גם רמות משימה ללא מודל משלהן משתמשות בו",
+          "selectChatModel": "בחירת מודל צ'אט...",
+          "lgDesc": "משימות מורכבות, ניתוח מעמיק",
+          "mdDesc": "שיחות יומיומיות, משימות כלליות",
+          "smDesc": "שאילתות פשוטות, תשובות מהירות",
+          "readyToUse": "ה-AI מוגדר ומוכן לשימוש!",
+          "customProviderHelp": "הוספת ספקי AI משלך (OpenAI, Anthropic, Azure ועוד), והגדרת מפתחות API ומודלים.",
+          "testModelCapabilities": "בדיקת יכולות המודלים",
+          "customModelsAutoImported": "המודלים של הספק יובאו אוטומטית למאגר המודלים.",
+          "modelsCount": "{{count}} מודלים זמינים",
+          "customModelsHint": "לשינוי הגדרות המודלים, יש לחזור לשלב 1 ולערוך את הגדרות הספק.",
+          "gatewayOption": {
+            "title": "AI Gateway (מומלץ)",
+            "desc": "גישה למאות מודלים דרך Vercel AI Gateway, בתאימות ובאמינות מיטביות"
+          },
+          "customOption": {
+            "title": "ספק מותאם אישית",
+            "desc": "חיבור למודלים בהתקנה עצמית או פרטיים, עם תמיכה בכמה ספקים"
+          },
+          "step": {
+            "llmApi": "הגדרת LLM API",
+            "llmApiDesc": "בחירה ב-AI Gateway או הגדרת ספקים מותאמים אישית",
+            "modelPool": "הגדרת מודלים מומלצים",
+            "modelPoolDesc": "מודלים מומלצים לבחירת המשתמשים בשדות AI ובאוטומציות",
+            "chatModel": "הגדרת מודל הצ'אט",
+            "chatModelDesc": "המודל לצ'אט ה-AI בסרגל הצד (בחירה מתוך המודלים המומלצים)",
+            "providers": "הגדרת ספקים",
+            "providersDesc": "הוספה וניהול של ספקי AI"
+          }
+        }
+      },
+      "app": {
+        "domain": "דומיין",
+        "customDomain": "דומיין מותאם אישית (אופציונלי)",
+        "customDomainDescription": "הגדרת דומיין מותאם אישית לפריסת אפליקציות. יש לגשת אל <a>דומיין Vercel</a> כדי לקבל דומיין מותאם אישית",
+        "vercelToken": "אסימון API של Vercel",
+        "vercelTokenDescription": "יש לגשת אל <a>הגדרות Vercel</a> כדי לקבל אסימון API",
+        "aiGateway": "Vercel AI Gateway",
+        "aiGatewayDescription": "הגדרת Vercel AI Gateway לגישה למאות מודלים דרך endpoint אחד. יש לגשת אל <a>הגדרות AI Gateway</a> כדי לקבל מפתח API",
+        "aiGatewayApiKey": "מפתח API של AI Gateway",
+        "aiGatewayKeyConfigured": "מפתח ה-API מוגדר",
+        "aiGatewayBaseUrl": "כתובת URL מותאמת אישית ל-Gateway"
+      }
+    },
+    "action": {
+      "enterApiKey": "הזנת מפתח API",
+      "goToConfiguration": "מעבר להגדרות"
+    },
+    "tips": {
+      "thankYouForUsingTeable": "תודה על השימוש ב-teable",
+      "pleaseGoToConfiguration": "יש לעבור לדף ההגדרות ולהשלים כמה הגדרות ראשוניות כדי ליהנות ממלוא היכולות ומחוויית שימוש טובה יותר ב-teable",
+      "pleaseContactAdmin": "יש לפנות למנהל המערכת"
+    },
+    "configuration": {
+      "title": "הגדרות ממתינות",
+      "description": "השלמת ההגדרות האלה תפתח את מלוא היכולות",
+      "progressTitle": "התקדמות ההגדרה",
+      "allComplete": "כל ההגדרות הושלמו",
+      "incomplete": "חלק מההגדרות לא הושלמו",
+      "optional": "אופציונלי",
+      "completed": "הושלם",
+      "group": {
+        "system": "יסודות",
+        "ai": "שירותי AI",
+        "appBuilder": "App Builder"
+      },
+      "copyInstance": "העתקת מזהה",
+      "list": {
+        "publicOrigin": {
+          "title": "משתנה הסביבה PUBLIC_ORIGIN",
+          "description": "הגדרת משתנה הסביבה <strong>{{envPublicOrigin}}</strong> אינה תואמת את כתובת הגישה הנוכחית <underline>{{currentPublicOrigin}}</underline>, ולכן ייבוא xlsx ו-csv ופעולות של שדה קובץ מצורף עלולים לא לפעול כשורה. מומלץ להגדיר אותו ל-<underline>{{envPublicOrigin}}</underline>"
+        },
+        "https": {
+          "title": "הפעלת https",
+          "description": "HTTPS אינו מופעל, ולכן העתקה בהיקף גדול (300 שורות ומעלה) לא תהיה זמינה. מומלץ להפעיל אותו."
+        },
+        "llmApi": {
+          "title": "LLM API",
+          "description": "ה-LLM API של ה-AI אינו מוגדר, ולכן צ'אט AI ואוטומציות AI לא יהיו זמינים, <anchor>מעבר להגדרות</anchor>",
+          "errorTips": "ה-LLM API של ה-AI אינו מוגדר, ולכן צ'אט AI ואוטומציות AI לא יהיו זמינים"
+        },
+        "aiEnable": {
+          "title": "שירותי AI (צ'אט / שדה AI)",
+          "description": "יש להפעיל כדי להשתמש בצ'אט AI, בשדות AI ובאוטומציות, <anchor>מעבר להגדרות</anchor>"
+        },
+        "aiLlmApi": {
+          "title": "AI: הגדרת LLM API",
+          "description": "בחירה ב-AI Gateway או הגדרת ספקים מותאמים אישית, <anchor>מעבר להגדרות</anchor>"
+        },
+        "aiModelPool": {
+          "title": "AI: הגדרת המודלים הזמינים",
+          "description": "יש להפעיל מודל אחד לפחות עבור שדות AI ואוטומציות, <anchor>מעבר להגדרות</anchor>"
+        },
+        "aiChatModel": {
+          "title": "AI: הגדרת מודל הצ'אט",
+          "description": "יש לבחור מודל ברירת מחדל לצ'אט ה-AI בסרגל הצד, <anchor>מעבר להגדרות</anchor>"
+        },
+        "appBuilderEngine": {
+          "title": "App Builder: מנוע פריסה",
+          "description": "הגדרת מנוע הפריסה (Vercel או Teable Infra) לפרסום אפליקציות, <anchor>מעבר להגדרות</anchor>"
+        },
+        "appBuilderDomain": {
+          "title": "App Builder: דומיין מותאם אישית",
+          "description": "כדי לפרסם אפליקציות תחת דומיין מותאם אישית, יש להגדיר דומיין ואסימון Vercel, <anchor>מעבר להגדרות</anchor>"
+        },
+        "email": {
+          "title": "אימייל",
+          "description": "לא הוגדר אימייל, ולכן שחזור סיסמה עצמאי והתראות באימייל לא יהיו זמינים, <anchor>מעבר להגדרות</anchor>",
+          "errorTips": "לא הוגדר אימייל, ולכן שחזור סיסמה עצמאי, אימות אימייל והתראות לא יהיו זמינים"
+        },
+        "sandboxOpenSandbox": {
+          "title": "סביבת ההרצה של צ'אט AI",
+          "description": "הגדרת סביבת ההרצה OpenSandbox עבור צ'אט AI, <anchor>מעבר להגדרות</anchor>"
+        }
+      }
+    },
+    "canary": {
+      "title": "שחרור canary",
+      "enable": "הפעלת canary",
+      "enableDescription": "כשהאפשרות מופעלת, תכונות canary יופעלו במרחבים שנבחרו",
+      "spaces": "מרחבי canary",
+      "spacesDescription": "{{count}} מרחבים מוגדרים",
+      "configure": "הגדרה",
+      "spaceIds": "מזהי מרחבים",
+      "spaceIdsDescription": "יש להזין מזהי מרחבים, אחד בכל שורה או מופרדים בפסיקים או ברווחים",
+      "spaceIdsPlaceholder": "spcXXXXXXXXXXX\nspcYYYYYYYYYYY",
+      "preview": "תצוגה מקדימה ({{count}} מזהים)",
+      "noSpaceIds": "לא הוזנו מזהי מרחבים"
+    }
+  },
+  "notification": {
+    "title": "התראות",
+    "unread": "לא נקרא",
+    "read": "נקרא",
+    "markAs": "סימון ההתראה כ{{status}}",
+    "markAllAsRead": "סימון הכול כנקרא",
+    "noUnread": "אין התראות במצב {{status}}",
+    "noAttention": "אין התראות שדורשות טיפול",
+    "noSeverity": "אין התראות מסוג {{severity}}",
+    "changeSetting": "שינוי הגדרות ההתראות",
+    "new": "{{count}} חדשות",
+    "showMore": "הצגת עוד",
+    "sections": {
+      "needsAction": "חשוב",
+      "all": "הכול"
+    },
+    "severity": {
+      "critical": "חשוב",
+      "warning": "אזהרה",
+      "info": "רגיל"
+    },
+    "exportBase": {
+      "successText": "נתוני הייצוא מוכנים",
+      "failedText": "הייצוא נכשל, יש לנסות שוב"
+    },
+    "importantNotice": {
+      "title": "הודעה חשובה",
+      "acknowledge": "הבנתי"
+    }
+  },
+  "role": {
+    "title": {
+      "owner": "בעלים",
+      "creator": "יוצר",
+      "editor": "עורך",
+      "commenter": "מגיב",
+      "viewer": "צופה"
+    },
+    "description": {
+      "owner": "הרשאה מלאה להגדרת בסיסים, אפליקציות, אוטומציות ומטריצות הרשאות, וכן לניהול הגדרות המרחב והחיוב",
+      "creator": "הרשאה מלאה להגדרת בסיסים, אפליקציות, אוטומציות ומטריצות הרשאות",
+      "editor": "הרשאה לעריכת רשומות ותצוגות, אך לא להגדרת טבלאות או שדות",
+      "commenter": "הרשאה להוספת תגובות לרשומות",
+      "viewer": "אין הרשאה לעריכה או לתגובות"
+    }
+  },
+  "trash": {
+    "spaceTrash": "אשפת המרחב",
+    "type": "סוג",
+    "resetTrash": "ריקון האשפה",
+    "deletedBy": "על ידי",
+    "deletedTime": "מועד",
+    "fromSpace": "מהמרחב \"{{name}}\"",
+    "permanentDeleteTips": "האם למחוק לצמיתות את {{resource}} \"{{name}}\"?",
+    "resetTrashConfirm": "האם לרוקן את האשפה?",
+    "addToTrash": "העברה לאשפה",
+    "description": "נתונים שנמצאים באשפה עדיין נספרים בשימוש ברשומות ובקבצים המצורפים.",
+    "spaceDescription": "שחזור מרחבים שנמחקו ב-{{retentionDays}} הימים האחרונים",
+    "spaceInnerDescription": "שחזור בסיסים שנמחקו מהמרחב הזה ב-{{retentionDays}} הימים האחרונים",
+    "baseDescription": "שחזור משאבים שנמחקו מהבסיס הזה ב-{{retentionDays}} הימים האחרונים"
+  },
+  "pluginCenter": {
+    "pluginUrlEmpty": "לא הוגדרה כתובת URL לתוסף",
+    "install": "התקנה",
+    "publisher": "מפרסם",
+    "lastUpdated": "עודכן לאחרונה",
+    "pluginNotFound": "התוסף לא נמצא",
+    "pluginEmpty": {
+      "title": "אין עדיין תוספים"
+    }
+  },
+  "automation": {
+    "turnOnTip": "להפעיל את האוטומציה הנוכחית?"
+  },
+  "email": {
+    "title": "אימייל",
+    "send": "שליחה",
+    "config": "הגדרות אימייל",
+    "customConfig": "שרת אימייל מותאם אישית",
+    "notify": "אימייל להתראות",
+    "automation": "אימייל לאוטומציות",
+    "customNotifyConfig": "הגדרות מותאמות אישית לאימייל התראות",
+    "customAutomationConfig": "הגדרות מותאמות אישית לאימייל אוטומציות",
+    "addConfig": "הוספת הגדרות",
+    "editConfig": "עריכת הגדרות",
+    "resetConfig": "איפוס",
+    "testEmail": "אימייל בדיקה",
+    "testEmailPlaceholder": "יש להזין את כתובת אימייל הבדיקה",
+    "testEmailError": "יש להזין כתובת אימייל בדיקה חוקית",
+    "testEmailSend": "אימייל הבדיקה נשלח בהצלחה, יש לבדוק את תיבת הדואר",
+    "configError": "יש להזין הגדרות אימייל חוקיות",
+    "host": "כתובת שרת",
+    "hostDescription": "יש להזין את כתובת שרת הדואר SMTP, לדוגמה: smtp.example.com",
+    "port": "פורט",
+    "secure": "SSL/TLS",
+    "auth": "אימות",
+    "username": "שם משתמש",
+    "password": "סיסמה",
+    "sender": "שולח",
+    "senderName": "שם השולח",
+    "subscribe": "הרשמה לדיוור",
+    "unsubscribe": "הסרה מהדיוור",
+    "unsubscribeList": "רשימת ההסרות מהדיוור",
+    "unsubscribeTime": "מועד ההסרה",
+    "source": "מקור",
+    "sourceAutomationDeleted": "האוטומציה או הפריט נמחקו",
+    "sourceApiSend": "שליחת אימייל דרך ה-API",
+    "processing": "בעיבוד...",
+    "unsubscribeH1": "לאשר את ההסרה מהדיוור?",
+    "unsubscribeH2": "ההסרה תפסיק את קבלת המבצעים ועדכוני המוצר של Teable בעתיד. לאשר את ההסרה?",
+    "subscribeH1": "לאשר את ההרשמה לדיוור?",
+    "subscribeH2": "ההרשמה תאפשר קבלת מבצעים ועדכוני מוצר של Teable בעתיד. לאשר את ההרשמה?",
+    "unsubscribeListTip": "המשתמשים הבאים בבסיס הנוכחי הוסרו מהדיוור, ולא ניתן עוד לשלוח אליהם אימיילים. בעת ייבוא כתובות, יש למקם את כתובות האימייל בעמודה הראשונה ולקרוא לכותרת \"email\".",
+    "templates": {
+      "resetPassword": {
+        "subject": "איפוס סיסמה - {{brandName}}",
+        "title": "איפוס הסיסמה שלך",
+        "message": "אם לא התבקש שינוי כזה, אפשר להתעלם מהודעה זו. אחרת, יש ללחוץ על הכפתור שלמטה כדי לאפס את הסיסמה.",
+        "buttonText": "איפוס סיסמה"
+      },
+      "emailVerifyCode": {
+        "signupVerification": {
+          "subject": "אימות הרשמה - {{brandName}}",
+          "title": "אימות הרשמה",
+          "message": "קוד האימות שלך הוא {{code}}, יש להשתמש בו בתוך {{expiresIn}} דקות."
+        },
+        "domainVerification": {
+          "subject": "אימות דומיין - {{brandName}}",
+          "title": "אימות דומיין",
+          "message": "קוד האימות שלך הוא {{code}}, יש להשתמש בו בתוך {{expiresIn}} דקות."
+        },
+        "changeEmailVerification": {
+          "subject": "אימות שינוי אימייל - {{brandName}}",
+          "title": "אימות שינוי אימייל",
+          "message": "קוד האימות שלך הוא {{code}}, יש להשתמש בו בתוך {{expiresIn}} דקות."
+        }
+      },
+      "collaboratorCellTag": {
+        "subject": "צורפת לשדה {{fieldName}} ברשומה בטבלה {{tableName}} על ידי {{fromUserName}}",
+        "title": "צורפת לשדה <strong>{{fieldName}}</strong> ברשומה בטבלה <strong>{{tableName}}</strong> על ידי <strong>{{fromUserName}}</strong>",
+        "buttonText": "הצגת הרשומה"
+      },
+      "collaboratorMultiRowTag": {
+        "subject": "צורפת ל-{{refLength}} רשומות בטבלה {{tableName}} על ידי {{fromUserName}}",
+        "title": "צורפת ל-<strong>{{refLength}}</strong> רשומות בטבלה <strong>{{tableName}}</strong> על ידי <strong>{{fromUserName}}</strong>",
+        "buttonText": "הצגת הרשומות"
+      },
+      "invite": {
+        "subject": "הזמנה מ-{{name}} ({{email}}) אל {{resourceAlias}} {{resourceName}} - {{brandName}}",
+        "title": "הזמנה לשיתוף פעולה",
+        "message": "התקבלה הזמנה מ-<strong>{{name}}</strong> ({{email}}) אל {{resourceAlias}} <strong>{{resourceName}}</strong>.",
+        "buttonText": "אישור ההזמנה"
+      },
+      "waitlistInvite": {
+        "subject": "ברוכים הבאים - {{brandName}}",
+        "title": "ברוכים הבאים",
+        "message": "ההצטרפות לרשימת ההמתנה של {{brandName}} הושלמה. יש להשתמש בקוד ההזמנה הבא כדי להירשם: {{code}}. אפשר להשתמש בו {{times}} פעמים.",
+        "buttonText": "הרשמה"
+      },
+      "test": {
+        "subject": "אימייל בדיקה - {{brandName}}",
+        "title": "אימייל בדיקה",
+        "message": "זהו אימייל בדיקה, אפשר להתעלם ממנו."
+      },
+      "notify": {
+        "subject": "התראה - {{brandName}}",
+        "title": "התראה",
+        "buttonText": "הצגה",
+        "import": {
+          "title": "התראה על תוצאות הייבוא",
+          "table": {
+            "aborted": {
+              "message": "❌ הייבוא של {{tableName}} הופסק: {{errorMessage}} טווח השורות שנכשל: [{{range}}]. יש לבדוק את הנתונים בטווח הזה ולנסות שוב."
+            },
+            "failed": {
+              "message": "❌ הייבוא של {{tableName}} נכשל: {{errorMessage}}"
+            },
+            "planLimitExceeded": {
+              "message": "❌ הייבוא של {{tableName}} נכשל: הגעה למגבלת השורות, יש לשדרג את התוכנית כדי לייבא רשומות נוספות"
+            },
+            "noRecordsProcessed": {
+              "message": "❌ הייבוא של {{tableName}} נכשל: לא עובדו רשומות"
+            },
+            "success": {
+              "message": "🎉 הייבוא של {{tableName}} הושלם בהצלחה.",
+              "inplace": "🎉 הייבוא במקום אל {{tableName}} הושלם בהצלחה."
+            },
+            "partialSuccess": {
+              "message": "⚠️ {{tableName}} יובאה חלקית: {{successCount}} שורות הצליחו, {{failedCount}} שורות נכשלו. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 הורדת דוח השגיאות</a>",
+              "messageNoReport": "⚠️ {{tableName}} יובאה חלקית: {{successCount}} שורות הצליחו, {{failedCount}} שורות נכשלו."
+            },
+            "allFailed": {
+              "message": "❌ הייבוא של {{tableName}} נכשל: כל {{failedCount}} השורות נכשלו. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 הורדת דוח השגיאות</a>",
+              "messageNoReport": "❌ הייבוא של {{tableName}} נכשל: כל {{failedCount}} השורות נכשלו."
+            }
+          }
+        },
+        "recordComment": {
+          "title": "התראה על תגובה לרשומה",
+          "message": "התקבלה תגובה מ-{{fromUserName}} על {{recordName}} בטבלה {{tableName}} בבסיס {{baseName}}"
+        },
+        "collaboratorInvite": {
+          "space": "התקבלה הזמנה מ-{{fromUserName}} להצטרף למרחב {{resourceName}}",
+          "base": "התקבלה הזמנה מ-{{fromUserName}} להצטרף לבסיס {{resourceName}}"
+        },
+        "automation": {
+          "title": "התראת אוטומציה",
+          "failed": {
+            "title": "ההרצה של האוטומציה {{name}} נכשלה",
+            "message": "באוטומציה {{name}} אירעה שגיאת הרצה. אפשר לפתוח את היסטוריית ההרצות לצפייה בפרטים."
+          },
+          "insufficientCredit": {
+            "title": "ההרצה של האוטומציה {{name}} נכשלה עקב מחסור בקרדיטים של AI",
+            "message": "האוטומציה {{name}} נכשלה כי הקרדיטים של AI אינם מספיקים. יש להוסיף קרדיטים או לשדרג את התוכנית."
+          },
+          "runQuotaExceeded": {
+            "title": "ההרצה של האוטומציה {{name}} נכשלה עקב מגבלת מכסת ההרצות",
+            "message": "האוטומציה {{name}} הגיעה למכסת ההרצות החודשית. יש לשדרג את התוכנית או לרכוש הרצות אוטומציה נוספות."
+          },
+          "failedSummary": {
+            "title": "האוטומציה {{name}} נכשלה {{failCount}} פעמים",
+            "message": "באוטומציה {{name}} הצטברו {{failCount}} כשלים רצופים. אפשר לפתוח את היסטוריית ההרצות לצפייה בפרטים."
+          }
+        },
+        "billing": {
+          "title": "התראת חיוב",
+          "credit": {
+            "warning80": {
+              "title": "במרחב {{spaceName}} נוצלו 80% מקרדיטי ה-AI",
+              "message": "המרחב {{spaceName}} ניצל 80% מקרדיטי ה-AI. כדאי לשקול שדרוג או רכישת קרדיטים נוספים."
+            },
+            "warning90": {
+              "title": "במרחב {{spaceName}} נוצלו 90% מקרדיטי ה-AI",
+              "message": "המרחב {{spaceName}} ניצל 90% מקרדיטי ה-AI. מומלץ לשדרג בקרוב כדי למנוע הפסקה בשירות."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "זוהתה קפיצה חריגה בצריכת קרדיטי AI במרחב {{spaceName}}",
+                "message": "המרחב {{spaceName}}: השימוש בקרדיטי AI היום ({{todayValue}}) גבוה פי {{multiplier}} מהממוצע היומי האחרון ({{ewma}}). ייתכן שמדובר בפעילות בלתי צפויה. מומלץ לבדוק את השימוש. התורמים המובילים: {{topContributors}}"
+              },
+              "burst": {
+                "title": "זוהה זינוק בצריכת קרדיטי AI במרחב {{spaceName}}",
+                "message": "המרחב {{spaceName}} צרך {{recentValue}} קרדיטי AI ב-{{windowMinutes}} הדקות האחרונות, פי {{multiplier}} מה-P95 השעתי ההיסטורי ({{hourlyP95}}). ייתכן שמדובר בפעילות בלתי צפויה. התורמים המובילים: {{topContributors}}"
+              }
+            }
+          },
+          "automationRun": {
+            "warning80": {
+              "title": "במרחב {{spaceName}} נוצלו 80% ממכסת הרצות האוטומציה",
+              "message": "המרחב {{spaceName}} ניצל {{usedRuns}} מתוך {{totalLimit}} הרצות אוטומציה (80%). כדאי לשקול שדרוג של התוכנית."
+            },
+            "warning90": {
+              "title": "במרחב {{spaceName}} נוצלו 90% ממכסת הרצות האוטומציה",
+              "message": "המרחב {{spaceName}} ניצל {{usedRuns}} מתוך {{totalLimit}} הרצות אוטומציה (90%). מומלץ לשדרג בקרוב כדי למנוע הפסקה בשירות."
+            },
+            "gracePeriod": {
+              "title": "המרחב {{spaceName}} חרג ממכסת הרצות האוטומציה - תקופת חסד פעילה",
+              "message": "המרחב {{spaceName}} חרג ממכסת הרצות האוטומציה. האוטומציות יפסיקו לפעול ויכובו בעוד {{remainingHours}} שעות. יש לשדרג את התוכנית."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "קפיצה חריגה בהרצות אוטומציה במרחב {{spaceName}}",
+                "message": "המרחב {{spaceName}}: הרצות האוטומציה היום ({{todayValue}}) גבוהות פי {{multiplier}} מהממוצע היומי האחרון ({{ewma}}). ייתכן שאוטומציה יצאה משליטה. מומלץ לבדוק את התהליכים. התורמים המובילים: {{topContributors}}"
+              },
+              "burst": {
+                "title": "זוהה זינוק בהרצות אוטומציה במרחב {{spaceName}}",
+                "message": "במרחב {{spaceName}} זוהו {{recentValue}} הרצות אוטומציה ב-{{windowMinutes}} הדקות האחרונות, פי {{multiplier}} מה-P95 השעתי ההיסטורי ({{hourlyP95}}). ייתכן שמדובר בלולאה או בהגדרה שגויה. התורמים המובילים: {{topContributors}}"
+              }
+            }
+          }
+        },
+        "exportBase": {
+          "title": "התראה על תוצאות ייצוא הבסיס",
+          "success": {
+            "message": "הייצוא של {{baseName}} הושלם בהצלחה: <a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
+          },
+          "failed": {
+            "message": "❌ הייצוא של {{baseName}} נכשל: {{errorMessage}}"
+          }
+        },
+        "task": {
+          "ai": {
+            "failed": {
+              "title": "משימת AI נכשלה בטבלה {{tableName}}",
+              "message": "משימת AI נכשלה עבור השדה \"{{fieldName}}\" בטבלה \"{{tableName}}\": {{errorMsg}}"
+            },
+            "cancelled": {
+              "title": "משימת AI בוטלה",
+              "rateLimit": "משימת ה-AI עבור הטבלה \"{{tableName}}\" בוטלה עקב הגבלת קצב (429). יש לנסות שוב מאוחר יותר.",
+              "creditExhausted": "משימת ה-AI עבור הטבלה \"{{tableName}}\" בוטלה כי הקרדיטים אזלו. יש לשדרג את המנוי או להמתין לחידוש הקרדיטים.",
+              "authFailed": "משימת ה-AI עבור הטבלה \"{{tableName}}\" בוטלה עקב כשל באימות. יש לבדוק את הגדרת מפתח ה-API.",
+              "serviceUnavailable": "משימת ה-AI עבור הטבלה \"{{tableName}}\" בוטלה כי שירות ה-AI אינו זמין באופן זמני. יש לנסות שוב מאוחר יותר.",
+              "unknown": "משימת ה-AI עבור הטבלה \"{{tableName}}\" בוטלה. שגיאה: {{errorMessage}}"
+            }
+          }
+        },
+        "rewardRejected": {
+          "title": "בקשת התגמול נדחתה",
+          "message": "בקשת התגמול של <a href=\"{{spaceUrl}}\">{{spaceName}}</a> נדחתה מהסיבות הבאות: {{errorMessages}}. יש לבדוק ולשלוח שוב.",
+          "buttonText": "הצגת המרחב"
+        },
+        "rewardApproved": {
+          "title": "בקשת התגמול אושרה",
+          "message": "מזל טוב! בקשת התגמול של <a href=\"{{spaceUrl}}\">{{spaceName}}</a> אושרה. נוספו {{amount}} קרדיטים, בתוקף ל-{{expiredDays}} ימים.",
+          "buttonText": "הצגת המרחב"
+        }
+      }
+    }
+  },
+  "waitlist": {
+    "title": "רשימת המתנה",
+    "email": "אימייל",
+    "joinTitle": "אנחנו מתרחבים במהירות כדי לעמוד בביקוש.",
+    "joinDesc": "הצטרפות לרשימת ההמתנה — נעדכן ברגע שנהיה מוכנים.",
+    "emailPlaceholder": "כתובת האימייל שלך...",
+    "youAreOnTheList": "ההצטרפות לרשימה הושלמה!",
+    "thanksForJoining": "תודה על ההצטרפות לרשימת ההמתנה. נעדכן ברגע שיהיו חדשות.",
+    "back": "חזרה",
+    "inviteCodePlaceholder": "קוד ההזמנה שלך",
+    "join": "הצטרפות לרשימת ההמתנה",
+    "joining": "בהצטרפות...",
+    "invite": "הזמנה",
+    "inviteTime": "מועד ההזמנה",
+    "createdTime": "מועד ההצטרפות",
+    "yes": "כן",
+    "no": "לא",
+    "generateCode": "יצירת קוד הזמנה",
+    "count": "כמות",
+    "times": "פעמים",
+    "generate": "יצירה",
+    "code": "קוד הזמנה",
+    "inviteSuccess": "ההזמנה נשלחה בהצלחה"
+  },
+  "noPermissionToCreateBase": "אין הרשאה ליצירת בסיס באף מרחב",
+  "base": {
+    "deleteTip": "האם למחוק את הבסיס \"{{name}}\"?",
+    "createResource": "יצירה",
+    "noPermissionToCreateResource": "אין הרשאה ליצירה, יש לפנות לבעלים"
+  },
+  "credit": {
+    "title": "קרדיטים",
+    "leftAmount": "קרדיטים שנותרו",
+    "winFreeCredits": "שיתוף חוויה",
+    "getCredits": "קבלת 1000 קרדיטים חינם",
+    "winCredit": {
+      "title": "שיתוף ביקורת חיובית מעניק",
+      "freeCredits": "1000 קרדיטים חינם",
+      "guidelinesTitle": "צ'קליסט לשיתוף",
+      "tagTeableio": "תיוג <bold>@teableio</bold>",
+      "minCharacters": "ביקורת באורך <bold>80+</bold> תווים",
+      "minFollowers": "חשבון עם <bold>10+</bold> עוקבים",
+      "limitPerWeek": "500 קרדיטים לכל פוסט, עד 2 פוסטים בשבוע (X + LinkedIn)",
+      "postOnX": "פרסום ב-X",
+      "postOnLinkedIn": "פרסום ב-LinkedIn",
+      "preFilledDraft": "🌟 הכנו טיוטה מוכנה מראש!",
+      "claimTitle": "הדבקת כתובת הפוסט למימוש הקרדיטים",
+      "userEmail": "אימייל המשתמש",
+      "postUrlLabel": "כתובת הפוסט (X או LinkedIn)",
+      "postUrlPlaceholder": "כאן מדביקים את הקישור לפוסט",
+      "invalidUrl": "יש להזין כתובת חוקית של פוסט ב-X או ב-LinkedIn",
+      "claiming": "במימוש...",
+      "claimCredits": "מימוש הקרדיטים",
+      "congratulations": "מזל טוב!",
+      "claimSuccess": "התקבלו 500 קרדיטים!",
+      "verifying": "אימות הפוסט...",
+      "verifyingDescription": "תוכן הפוסט נבדק, זה נמשך בדרך כלל כמה שניות",
+      "verifyFailed": "האימות נכשל",
+      "tryAgain": "ניסיון חוזר"
+    },
+    "error": {
+      "verificationFailed": "האימות נכשל"
+    }
+  },
+  "reward": {
+    "title": "תגמול",
+    "rewardCredits": "תגמול בקרדיטים",
+    "minCharCount": "הפוסט חייב לכלול לפחות {{count}} תווים",
+    "minFollowerCount": "לחשבון חייבים להיות לפחות {{count}} עוקבים",
+    "mustMention": "הפוסט חייב לאזכר את {{mention}}",
+    "fetchSnapshotFailed": "שליפת תמונת המצב של הפוסט נכשלה",
+    "alreadyClaimedThisWeek": "כבר מומש תגמול עבור החשבון הזה השבוע",
+    "maxClaimsReached": "הגעה למספר המרבי של מימושי תגמול לשבוע הזה (2)",
+    "postTooOld": "הפוסט חייב להתפרסם ב-{{hours}} השעות האחרונות",
+    "manage": {
+      "title": "ניהול תגמולים",
+      "description": "צפייה וניהול של רשומות תגמול בכל המרחבים",
+      "overview": "סקירה כללית",
+      "records": "רשומות",
+      "searchSpace": "חיפוש מרחב...",
+      "searchRecords": "חיפוש postUrl/userId...",
+      "dateRange": "בחירת טווח תאריכים",
+      "from": "מתאריך",
+      "to": "עד תאריך",
+      "totalSpaces": "סה״כ: {{count}} מרחבים",
+      "totalRecords": "סה״כ: {{count}} רשומות",
+      "space": "מרחב",
+      "allSpaces": "כל המרחבים",
+      "user": "משתמש",
+      "creator": "יוצר",
+      "sourceType": "סוג מקור",
+      "platform": "פלטפורמה",
+      "allStatuses": "כל הסטטוסים",
+      "allSourceTypes": "כל סוגי המקור",
+      "allPlatforms": "כל הפלטפורמות",
+      "pendingCount": "בקשות ממתינות",
+      "approvedCount": "בקשות מאושרות",
+      "rejectedCount": "בקשות שנדחו",
+      "approvedAmount": "סכום מאושר",
+      "consumedAmount": "סכום שנוצל",
+      "availableAmount": "סכום זמין",
+      "expiringSoonAmount": "סכום שתוקפו יפוג בקרוב (7 ימים)",
+      "amount": "סכום",
+      "remainingAmount": "סכום שנותר",
+      "createdTime": "מועד יצירה",
+      "rewardTime": "מועד התגמול",
+      "expiredTime": "מועד פקיעת התוקף",
+      "lastModified": "שינוי אחרון",
+      "viewDetails": "הצגת פרטים",
+      "details": "פרטי התגמול",
+      "basicInfo": "מידע בסיסי",
+      "amountInfo": "פרטי הסכום",
+      "timeInfo": "פרטי הזמנים",
+      "socialInfo": "פרטי הרשת החברתית",
+      "verifyResult": "תוצאת האימות",
+      "uniqueKey": "מפתח ייחודי",
+      "verify": "אימות",
+      "valid": "חוקי",
+      "invalid": "לא חוקי",
+      "errors": "שגיאות",
+      "copied": "{{label}} הועתק",
+      "openPost": "פתיחת הפוסט",
+      "noData": "אין נתונים",
+      "page": "עמוד {{current}} מתוך {{total}}",
+      "status": {
+        "label": "סטטוס",
+        "pending": "ממתין",
+        "approved": "אושר",
+        "rejected": "נדחה"
+      }
+    }
+  },
+  "chat": {
+    "responseInterrupted": "התשובה הופסקה",
+    "serverError": "אירעה שגיאת שרת",
+    "serverErrorHint": "יש להתחיל שיחה חדשה ולנסות שוב.",
+    "modelNotSupported": "המודל שנבחר אינו נתמך במצב סוכן. מומלץ לעבור ל-Claude Opus 4.6 לחוויה הטובה ביותר.",
+    "byokModelNotSupported": "המודל המותאם אישית אינו תואם למצב סוכן. מומלץ לעבור ל-Claude Opus 4.6 לחוויה הטובה ביותר.",
+    "modelServiceUnavailable": "שירות המודל אינו זמין באופן זמני. יש לנסות שוב מאוחר יותר.",
+    "modelServiceError": "אירעה שגיאה בשירות המודל. יש לנסות שוב או לעבור למודל אחר.",
+    "imageProcessingFailed": "עיבוד התמונה נכשל",
+    "imageProcessingFailedDescription": "מודל ה-AI לא הצליח לעבד את התמונה. אפשר לשלוח אותה שוב או להמשיך בלעדיה.",
+    "sandboxActiveRunBusy": "Cuppy עדיין עובד. יש להמתין לפני שליחה נוספת.",
+    "sandboxCapacityFull": "הגעה למגבלת השיחות המקבילות ({{max}}). יש להמתין לסיום אחת מהן.",
+    "sandboxTransient": "Cuppy בהכנה. יש לנסות שוב בעוד רגע.",
+    "sandboxSnapshotNotFound": "הסביבה של Cuppy עדיין לא הוגדרה. יש לבקש ממנהל המערכת ליצור תמונת מצב של ה-sandbox.",
+    "sandboxProviderError": "שגיאת ריצה ב-sandbox",
+    "sandboxProviderErrorDescription": "הקריאה לסביבת הריצה של ה-sandbox נכשלה. יש לנסות שוב או לפנות למנהל המערכת לבדיקת סביבת הריצה.",
+    "agentStartFailed": "מנוע ה-AI לא הצליח לעלות. יש לנסות שוב או להתחיל שיחה חדשה.",
+    "idleTimeout": "הרצת הפקודה חרגה ממגבלת הזמן ({{seconds}}s). יש לנסות שוב.",
+    "danglingToolUse": "השיחה הקודמת נקטעה ותוקנה אוטומטית. יש לשלוח את ההודעה שוב.",
+    "contextImportFailed": "שחזור הנתונים מהשיחה הקודמת נכשל. ניסיון חוזר ימשיך ללא ההקשר הקודם.",
+    "collapsedStatus": {
+      "open": "פתיחת צ'אט AI",
+      "working": "ה-AI עובד",
+      "completed": "משימת ה-AI הושלמה",
+      "failed": "משימת ה-AI נכשלה"
+    }
+  },
+  "system": {
+    "notFound": {
+      "title": "הדף לא נמצא",
+      "description": "ייתכן שהקישור שבור או שהדף הועבר."
+    },
+    "links": {
+      "backToHome": "חזרה לדף הבית"
+    },
+    "forbidden": {
+      "title": "הגישה מוגבלת",
+      "description": "נדרשת הרשאה לגישה למשאב הזה.\nיש לפנות למנהל המערכת."
+    },
+    "paymentRequired": {
+      "title": "פתיחת תכונת פרימיום",
+      "description": "התכונה הזו זמינה בתוכניות המתקדמות.\nשדרוג יפתח יכולות נוספות."
+    },
+    "error": {
+      "title": "משהו השתבש",
+      "description": "אירעה תקלה בלתי צפויה. יש לנסות שוב מאוחר יותר."
+    }
+  },
+  "import": {
+    "error": {
+      "dateOutOfRange": "{{fieldHint}}פענוח התאריך נכשל, הערך \"{{value}}\" מחוץ לטווח החוקי",
+      "planRowLimit": "הגעה למגבלת השורות, יש לשדרג את התוכנית כדי לייבא רשומות נוספות",
+      "notNullValidation": "{{fieldHint}}שדות חובה לא יכולים להישאר ריקים",
+      "uniqueValidation": "{{fieldHint}}ערכים כפולים בשדות ייחודיים",
+      "requestTimeout": "פג הזמן הקצוב לבקשה",
+      "chunkProcessingFailed": "עיבוד האצווה נכשל: {{reason}}",
+      "unknown": "{{fieldHint}}{{message}}"
+    }
+  },
+  "skills": {
+    "title": "מיומנויות",
+    "tabs": {
+      "mySkills": "המיומנויות שלי"
+    },
+    "actions": {
+      "import": "ייבוא מיומנות",
+      "sync": "סנכרון",
+      "delete": "מחיקה",
+      "enable": "הפעלה",
+      "disable": "השבתה",
+      "edit": "עריכה",
+      "tryInChat": "התנסות בצ'אט",
+      "replace": "החלפה",
+      "download": "הורדה",
+      "uninstall": "הסרת ההתקנה",
+      "copyToBase": "העתקה לבסיס",
+      "copyToSpace": "העתקה למרחב",
+      "copyToPersonal": "העתקה לאזור האישי",
+      "copyToApp": "העתקה לאפליקציה"
+    },
+    "import": {
+      "title": "ייבוא מיומנות",
+      "description": "ייבוא מיומנות ממאגר GitHub או מקובץ ZIP",
+      "githubTab": "כתובת GitHub",
+      "fileTab": "קובץ ZIP / מיומנות",
+      "githubTitle": "ייבוא מיומנות מ-GitHub",
+      "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
+      "fileHint": "העלאת קובץ .zip או .skill שמכיל SKILL.md",
+      "or": "או",
+      "selectFile": "בחירת קובץ",
+      "replaceWarning": "אם כבר קיימת מיומנות באותו שם בהיקף הזה, הייבוא יחליף אותה.",
+      "importing": "בייבוא...",
+      "submit": "ייבוא",
+      "success": "המיומנות יובאה בהצלחה",
+      "error": "ייבוא המיומנות נכשל"
+    },
+    "detail": {
+      "slug": "מזהה",
+      "type": "סוג",
+      "description": "תיאור",
+      "source": "מקור",
+      "addedBy": "נוסף על ידי",
+      "skillLabel": "מיומנות",
+      "syncStatus": "סטטוס הסנכרון",
+      "preview": "תצוגה מקדימה של SKILL.md"
+    },
+    "scope": {
+      "label": "היקף",
+      "system": "מערכת",
+      "builtin": "מובנית",
+      "base": "בסיס",
+      "user": "אישי",
+      "userDescription": "זמינה רק לך",
+      "baseDescription": "משותפת עם משתפי הפעולה בבסיס הזה",
+      "space": "מרחב",
+      "spaceDescription": "משותפת עם כל המשתמשים במרחב הזה",
+      "app": "אפליקציה",
+      "appDescription": "זמינה רק לאפליקציה הזו",
+      "cuppyclaw": "בוט",
+      "cuppyclawDescription": "זמינה רק לבוט הזה"
+    },
+    "source": {
+      "github": "GitHub",
+      "file": "העלאת קובץ",
+      "manual": "ידני"
+    },
+    "status": {
+      "enabled": "מופעל",
+      "disabled": "מושבת",
+      "synced": "מסונכרן",
+      "failed": "הסנכרון נכשל"
+    },
+    "confirm": {
+      "deleteTitle": "מחיקת מיומנות",
+      "deleteDescription": "האם למחוק את המיומנות הזו? לא ניתן לבטל את הפעולה.",
+      "copyTitle": "העתקת מיומנות",
+      "copyDescription": "קובצי המיומנות יועתקו להיקף היעד. המיומנות המקורית תישאר ללא שינוי.",
+      "copyOverwriteWarning": "אם כבר קיימת מיומנות באותו שם בהיקף היעד, היא תוחלף."
+    },
+    "toast": {
+      "syncing": "בסנכרון המיומנות...",
+      "syncSuccess": "המיומנות סונכרנה בהצלחה",
+      "syncError": "סנכרון המיומנות נכשל",
+      "deleting": "במחיקת המיומנות...",
+      "deleteSuccess": "המיומנות נמחקה בהצלחה",
+      "deleteError": "מחיקת המיומנות נכשלה",
+      "updateSuccess": "המיומנות עודכנה בהצלחה",
+      "copying": "בהעתקה...",
+      "copySuccess": "הועתק",
+      "copyError": "ההעתקה נכשלה"
+    }
+  },
+  "resourceDescription": {
+    "addDescription": "הוספת תיאור",
+    "nodeDescription": "תיאור הפריט",
+    "descriptionSaving": "בשמירה...",
+    "descriptionSaveFailed": "שמירת התיאור נכשלה, יש לנסות שוב",
+    "descriptionPlaceholder": "הוספת תיאור לפריט הזה"
+  },
+  "announcement": {
+    "viewDetail": "הצגת פרטים",
+    "close": "סגירת ההודעה",
+    "acknowledge": "הבנתי",
+    "collapse": "הצגת פחות",
+    "more_one": "עוד {{count}} הודעה",
+    "more_two": "עוד שתי הודעות",
+    "more_other": "עוד {{count}} הודעות"
+  }
+}

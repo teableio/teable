@@ -48,10 +48,13 @@ const attachmentItemSchema = z.object({
 });
 
 // Link item schema
-const linkItemSchema = z.object({
-  id: z.string(),
-  title: z.string().optional(),
-});
+// Accept title:null from persisted empty-primary links, then strip it.
+const linkItemSchema = z
+  .object({
+    id: z.string(),
+    title: z.string().nullish(),
+  })
+  .transform(({ id, title }) => (title == null ? { id } : { id, title }));
 
 // User item schema
 const userItemSchema = z.object({
@@ -85,12 +88,14 @@ export class FieldCellValueSchemaVisitor extends AbstractFieldVisitor<ZodSchema>
   }
 
   visitSingleLineTextField(field: SingleLineTextField): Result<ZodSchema, DomainError> {
-    const baseSchema = z.string();
+    // Align with v1: empty string is stored as null.
+    const baseSchema = z.string().transform((val) => (val === '' ? null : val));
     return ok(this.applyNullable(baseSchema, field.notNull().toBoolean()));
   }
 
   visitLongTextField(field: LongTextField): Result<ZodSchema, DomainError> {
-    const baseSchema = z.string();
+    // Align with v1: empty string is stored as null.
+    const baseSchema = z.string().transform((val) => (val === '' ? null : val));
     return ok(this.applyNullable(baseSchema, field.notNull().toBoolean()));
   }
 
@@ -142,25 +147,36 @@ export class FieldCellValueSchemaVisitor extends AbstractFieldVisitor<ZodSchema>
     const options = field.selectOptions();
     if (options.length === 0) {
       // No options defined, only accept null/empty array (matching v1 behavior)
-      return ok(z.array(z.never()).nullable());
+      return ok(
+        z
+          .array(z.never())
+          .transform((val) => (val.length === 0 ? null : val))
+          .nullable()
+      );
     }
 
     // Accept both option IDs and names to align with v1 behavior.
     const optionValues = options.flatMap((opt) => [opt.id().toString(), opt.name().toString()]);
     // Deduplicate in case ID and name are the same
     const uniqueValues = [...new Set(optionValues)];
-    const baseSchema = z.array(z.enum(uniqueValues as [string, ...string[]]));
+    // Align with v1: empty arrays are stored as null, not [].
+    const baseSchema = z
+      .array(z.enum(uniqueValues as [string, ...string[]]))
+      .transform((val) => (val.length === 0 ? null : val));
     return ok(this.applyNullable(baseSchema, field.notNull().toBoolean()));
   }
 
   visitCheckboxField(field: CheckboxField): Result<ZodSchema, DomainError> {
-    // Checkbox: boolean value (true = checked, false = unchecked)
-    const baseSchema = z.boolean();
+    // Align with v1: checkbox only stores true or null (false -> null).
+    const baseSchema = z.boolean().transform((val) => (val === false ? null : val));
     return ok(this.applyNullable(baseSchema, field.notNull().toBoolean()));
   }
 
   visitAttachmentField(field: AttachmentField): Result<ZodSchema, DomainError> {
-    const baseSchema = z.array(attachmentItemSchema);
+    // Align with v1: empty attachment arrays are stored as null.
+    const baseSchema = z
+      .array(attachmentItemSchema)
+      .transform((val) => (val.length === 0 ? null : val));
     return ok(this.applyNullable(baseSchema, field.notNull().toBoolean()));
   }
 
@@ -229,20 +245,26 @@ export class FieldCellValueSchemaVisitor extends AbstractFieldVisitor<ZodSchema>
   visitLinkField(field: LinkField): Result<ZodSchema, DomainError> {
     const isMultipleRelationship = field.relationship().isMultipleValue();
 
+    // V1 compatibility: single/multi link cell shapes tolerate each other.
+    // Realtime and older integrations can briefly deliver the previous shape.
     if (isMultipleRelationship) {
-      // Add refine to check for duplicate IDs in the array
-      const baseSchema = z.array(linkItemSchema).refine(
-        (items) => {
-          const ids = items.map((item) => item.id);
-          return new Set(ids).size === ids.length;
-        },
-        { message: 'Cannot set duplicate record IDs in the same link cell' }
-      );
-      return ok(this.applyNullable(baseSchema, field.notNull().toBoolean()));
-    } else {
-      const baseSchema = linkItemSchema;
+      const baseSchema = z
+        .union([z.array(linkItemSchema), linkItemSchema])
+        .transform((value) => (Array.isArray(value) ? value : [value]))
+        .refine(
+          (items) => {
+            const ids = items.map((item) => item.id);
+            return new Set(ids).size === ids.length;
+          },
+          { message: 'Cannot set duplicate record IDs in the same link cell' }
+        );
       return ok(this.applyNullable(baseSchema, field.notNull().toBoolean()));
     }
+
+    const baseSchema = z
+      .union([linkItemSchema, z.array(linkItemSchema).nonempty()])
+      .transform((value) => (Array.isArray(value) ? value[0] : value));
+    return ok(this.applyNullable(baseSchema, field.notNull().toBoolean()));
   }
 
   visitConditionalRollupField(_field: ConditionalRollupField): Result<ZodSchema, DomainError> {

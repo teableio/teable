@@ -1,4 +1,5 @@
 import { LRUCache } from 'lru-cache';
+import { detectTextDirection, isContentDirectionEnabled } from '../../../../utils/text-direction';
 import { parseToRGB } from '../../utils';
 import type {
   ILineProps,
@@ -41,6 +42,38 @@ const graphemeSegmenter = hasSegmenter
   ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
   : createFallbackSegmenter();
 
+// Longest prefix of text (word-bounded, then grapheme-bounded within the
+// overflowing word) whose measured width stays within budget
+const truncateToBudget = (ctx: CanvasRenderingContext2D, text: string, budget: number) => {
+  let keptText = '';
+  let keptWidth = 0;
+
+  for (const { segment } of wordSegmenter.segment(text)) {
+    const segWidth = ctx.measureText(segment).width;
+    if (keptWidth + segWidth > budget) {
+      for (const { segment: grapheme } of graphemeSegmenter.segment(segment)) {
+        const gWidth = ctx.measureText(grapheme).width;
+        if (keptWidth + gWidth > budget) break;
+        keptText += grapheme;
+        keptWidth += gWidth;
+      }
+      break;
+    }
+    keptText += segment;
+    keptWidth += segWidth;
+  }
+
+  return { text: keptText, width: keptWidth };
+};
+
+/**
+ * Base direction to draw `text` with, or `null` to leave the canvas direction
+ * untouched. Detection is skipped entirely while the language gate is off, so
+ * every other locale keeps running the exact code path it ran before.
+ */
+const resolveContentDirection = (text: string) =>
+  isContentDirectionEnabled() ? detectTextDirection(text) : null;
+
 // eslint-disable-next-line sonarjs/cognitive-complexity
 export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLineTextProps) => {
   const {
@@ -73,28 +106,12 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
   } else {
     let consumed = 0;
 
-    // eslint-disable-next-line sonarjs/cognitive-complexity
     const addEllipsisLine = (overflowSeg?: string) => {
       const budget = maxWidth - ellipsisWidth;
       if (currentLineWidth > budget) {
-        let newLine = '';
-        let newWidth = 0;
-        for (const { segment: word } of wordSegmenter.segment(currentLine)) {
-          const w = ctx.measureText(word).width;
-          if (newWidth + w > budget) {
-            for (const { segment: grapheme } of graphemeSegmenter.segment(word)) {
-              const gw = ctx.measureText(grapheme).width;
-              if (newWidth + gw > budget) break;
-              newLine += grapheme;
-              newWidth += gw;
-            }
-            break;
-          }
-          newLine += word;
-          newWidth += w;
-        }
-        currentLine = newLine;
-        currentLineWidth = newWidth;
+        const truncated = truncateToBudget(ctx, currentLine, budget);
+        currentLine = truncated.text;
+        currentLineWidth = truncated.width;
       } else if (overflowSeg) {
         for (const { segment: grapheme } of graphemeSegmenter.segment(overflowSeg)) {
           const gw = ctx.measureText(grapheme).width;
@@ -182,23 +199,37 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
   const offsetY = verticalAlign === 'middle' ? fontSize / 2 : 0;
 
   if (needRender) {
+    const contentDir = resolveContentDirection(text);
+    // Only the direction-agnostic default alignment follows the content; an
+    // explicit 'right'/'center' is a layout decision the caller already made.
+    const isAutoRtl = contentDir === 'rtl' && textAlign === 'left';
+    const finalX = isAutoRtl ? x + maxWidth : x;
+    // Reading and writing ctx.direction is a canvas-state round-trip on the
+    // grid's hot paint path, so it only happens when the content asks for it.
+    const prevDirection = contentDir != null ? ctx.direction : null;
+
     if (fill) {
       ctx.fillStyle = fill;
       ctx.strokeStyle = fill;
     }
-    ctx.textAlign = textAlign;
+    if (contentDir != null) ctx.direction = contentDir;
+    ctx.textAlign = isAutoRtl ? 'right' : textAlign;
     ctx.textBaseline = verticalAlign;
 
     for (let j = 0; j < lines.length; j++) {
-      ctx.fillText(lines[j].text, x, y + j * lineHeight + offsetY);
+      ctx.fillText(lines[j].text, finalX, y + j * lineHeight + offsetY);
       if (isUnderline) {
         const textWidth = ctx.measureText(lines[j].text).width;
+        // Right-anchored text grows leftwards from finalX.
+        const underlineStart = isAutoRtl ? finalX - textWidth : finalX;
         ctx.beginPath();
-        ctx.moveTo(x, y + j * lineHeight + fontSize - 1);
-        ctx.lineTo(x + textWidth, y + j * lineHeight + fontSize - 1);
+        ctx.moveTo(underlineStart, y + j * lineHeight + fontSize - 1);
+        ctx.lineTo(underlineStart + textWidth, y + j * lineHeight + fontSize - 1);
         ctx.stroke();
       }
     }
+
+    if (prevDirection != null) ctx.direction = prevDirection;
   }
 
   return lines;
@@ -229,58 +260,60 @@ export const drawSingleLineText = (ctx: CanvasRenderingContext2D, props: ISingle
     width = cachedTextInfo.width;
     displayText = cachedTextInfo.text;
   } else {
-    const ellipsis = '...';
-    const ellipsisWidth = ctx.measureText(ellipsis).width;
+    const fullWidth = ctx.measureText(text).width;
 
-    let needsEllipsis = false;
-
-    for (const { segment } of wordSegmenter.segment(text)) {
-      const segWidth = ctx.measureText(segment).width;
-      if (width + segWidth > maxWidth) {
-        needsEllipsis = true;
-        const budget = maxWidth - ellipsisWidth;
-        for (const { segment: grapheme } of graphemeSegmenter.segment(segment)) {
-          const gWidth = ctx.measureText(grapheme).width;
-          if (width + gWidth > budget) break;
-          displayText += grapheme;
-          width += gWidth;
-        }
-        break;
-      }
-      displayText += segment;
-      width += segWidth;
-    }
-
-    if (!needsEllipsis && displayText.length < text.length) {
-      needsEllipsis = true;
-    }
-
-    if (needsEllipsis) {
-      displayText = ctx.direction === 'rtl' ? ellipsis + displayText : displayText + ellipsis;
-      width = Math.min(width + ellipsisWidth, maxWidth);
-    } else {
+    if (fullWidth <= maxWidth) {
       displayText = text;
+      width = fullWidth;
+    } else {
+      const ellipsis = '...';
+      const ellipsisWidth = ctx.measureText(ellipsis).width;
+      // Reserve the ellipsis width up front so that the rendered text and the
+      // returned width stay within maxWidth (as long as maxWidth fits at
+      // least the ellipsis itself)
+      const truncated = truncateToBudget(ctx, text, maxWidth - ellipsisWidth);
+
+      // Logical order: the bidi algorithm places the ellipsis at the reading
+      // end of the run, which is the visual left for RTL content.
+      displayText = truncated.text + ellipsis;
+      width = truncated.width + ellipsisWidth;
     }
 
     singleLineTextInfoCache.set(cacheKey, { text: displayText, width });
   }
 
   if (needRender) {
+    const contentDir = resolveContentDirection(text);
+    // Only the direction-agnostic default alignment follows the content; an
+    // explicit 'right'/'center' is a layout decision the caller already made.
+    // An unbounded maxWidth gives nothing to anchor against, so it stays as is.
+    const isAutoRtl = contentDir === 'rtl' && textAlign === 'left' && maxWidth !== Infinity;
+    const resolvedAlign = isAutoRtl ? 'right' : textAlign;
     const offsetY = verticalAlign === 'middle' ? fontSize / 2 : 0;
-    const finalX = textAlign === 'right' ? x + maxWidth : x;
+    const finalX = resolvedAlign === 'right' ? x + maxWidth : x;
+    // Reading and writing ctx.direction is a canvas-state round-trip on the
+    // grid's hot paint path, so it only happens when the content asks for it.
+    const prevDirection = contentDir != null ? ctx.direction : null;
+
     if (fill) {
       ctx.fillStyle = fill;
       ctx.strokeStyle = fill;
     }
-    ctx.textAlign = textAlign;
+    if (contentDir != null) ctx.direction = contentDir;
+    ctx.textAlign = resolvedAlign;
     ctx.textBaseline = verticalAlign;
     ctx.fillText(displayText, finalX, y + offsetY);
     if (isUnderline) {
+      // Right-anchored text grows leftwards from finalX. Corrected only for the
+      // content-driven case so existing right-aligned callers keep their geometry.
+      const underlineStart = isAutoRtl ? finalX - width : finalX;
       ctx.beginPath();
-      ctx.moveTo(finalX, y + offsetY + fontSize / 2 - 1);
-      ctx.lineTo(finalX + width, y + offsetY + fontSize / 2 - 1);
+      ctx.moveTo(underlineStart, y + offsetY + fontSize / 2 - 1);
+      ctx.lineTo(underlineStart + width, y + offsetY + fontSize / 2 - 1);
       ctx.stroke();
     }
+
+    if (prevDirection != null) ctx.direction = prevDirection;
   }
 
   return {

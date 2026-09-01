@@ -1,13 +1,9 @@
 import * as inspector from 'inspector';
 import * as os from 'os';
-import path from 'path';
 import { Injectable, Logger } from '@nestjs/common';
 import type { OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import dayjs from 'dayjs';
-import { IStorageConfig, StorageConfig } from '../../configs/storage';
-import StorageAdapter from '../../features/attachments/plugins/adapter';
-import { InjectStorageAdapter } from '../../features/attachments/plugins/storage';
+import { ProfileUploader } from './profile-uploader';
 
 /**
  * ProfilerService is used to profile the CPU usage of the application.
@@ -33,15 +29,12 @@ export class ProfilerService implements OnModuleInit, OnModuleDestroy {
   private isShuttingDown = false;
   private readonly hostname = os.hostname();
 
-  // Safety limits
+  // Safety limit
   private readonly maxProfileSizeMB = 500; // Max 500MB per profile
-  private readonly uploadTimeoutMs = 30000; // 30 seconds upload timeout
-  private readonly maxUploadRetries = 3;
 
   constructor(
     private readonly configService: ConfigService,
-    @StorageConfig() readonly storageConfig: IStorageConfig,
-    @InjectStorageAdapter() readonly storageAdapter: StorageAdapter
+    private readonly uploader: ProfileUploader
   ) {
     this.enabled = this.configService.get('ENABLE_PROFILING') === 'true';
 
@@ -149,7 +142,7 @@ export class ProfilerService implements OnModuleInit, OnModuleDestroy {
         return false;
       }
 
-      await this.uploadToStorage(filename, buffer);
+      await this.uploader.upload(this.profileDirectory, filename, buffer);
       this.logger.log(`✅ Profile uploaded: ${filename} (${sizeInMB} MB)`);
       return true;
     } catch (error) {
@@ -232,59 +225,6 @@ export class ProfilerService implements OnModuleInit, OnModuleDestroy {
     } finally {
       this.isSaving = false;
     }
-  }
-
-  private async uploadToStorage(filename: string, buffer: Buffer): Promise<void> {
-    const fullPath = path.join(this.profileDirectory, dayjs().format('YYYY-MM-DD'), filename);
-
-    // Retry logic with exponential backoff
-    let lastError: Error | null = null;
-    for (let attempt = 1; attempt <= this.maxUploadRetries; attempt++) {
-      try {
-        const uploadPromise = this.storageAdapter.uploadFile(
-          this.storageConfig.privateBucket,
-          fullPath,
-          buffer,
-          {
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            'Content-Type': 'application/json',
-          }
-        );
-
-        // Add timeout wrapper
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error(`Upload timeout after ${this.uploadTimeoutMs}ms`)),
-            this.uploadTimeoutMs
-          )
-        );
-
-        await Promise.race([uploadPromise, timeoutPromise]);
-
-        // Success!
-        if (attempt > 1) {
-          this.logger.log(`Upload succeeded on attempt ${attempt}/${this.maxUploadRetries}`);
-        }
-        return;
-      } catch (error) {
-        lastError = error as Error;
-        this.logger.warn(
-          `Upload attempt ${attempt}/${this.maxUploadRetries} failed: ${lastError.message}`
-        );
-
-        if (attempt < this.maxUploadRetries) {
-          // Exponential backoff: 1s, 2s, 4s, ...
-          const delayMs = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-          this.logger.debug(`Retrying upload in ${delayMs}ms...`);
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
-        }
-      }
-    }
-
-    // All retries failed
-    throw new Error(
-      `Failed to upload profile after ${this.maxUploadRetries} attempts: ${lastError?.message}`
-    );
   }
 
   /**

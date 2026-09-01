@@ -60,6 +60,7 @@ export const createV2HttpClient = (
             domainErrorCode: parsedError.data.error.code,
             tags: parsedError.data.error.tags,
             details: parsedError.data.error.details,
+            localization: parsedError.data.error.localization,
           },
         });
       }

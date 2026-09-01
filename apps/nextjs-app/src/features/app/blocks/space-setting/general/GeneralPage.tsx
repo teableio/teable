@@ -165,14 +165,14 @@ export const GeneralPage = ({ spaceId: spaceIdProp }: { spaceId?: string } = {})
                     value={spaceId}
                     readOnly
                     tabIndex={-1}
-                    className="cursor-default px-3 pr-10"
+                    className="cursor-default px-3 pe-10"
                   />
                   <CopyButton
                     variant="ghost"
                     text={spaceId}
                     size="xs"
                     iconClassName="size-4"
-                    className="absolute right-1 top-1/2 -translate-y-1/2"
+                    className="absolute end-1 top-1/2 -translate-y-1/2"
                   />
                 </div>
               </div>

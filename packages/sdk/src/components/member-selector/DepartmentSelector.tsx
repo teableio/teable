@@ -169,7 +169,7 @@ export const DepartmentSelector = forwardRef<IDepartmentSelectorRef, IDepartment
                         />
                         {item.hasChildren && clickable && (
                           <button
-                            className="absolute right-0 top-0 z-10 flex h-full w-8 items-center justify-center rounded-r-lg border bg-background hover:bg-accent"
+                            className="absolute end-0 top-0 z-10 flex h-full w-8 items-center justify-center rounded-e-lg border bg-background hover:bg-accent"
                             onMouseDown={(e) => e.stopPropagation()}
                             onClick={(e) => {
                               e.stopPropagation();

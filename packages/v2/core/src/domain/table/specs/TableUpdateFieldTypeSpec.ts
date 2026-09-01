@@ -3,9 +3,9 @@ import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../shared/DomainError';
 import { MutateOnlySpec } from '../../shared/specification/MutateOnlySpec';
+import type { Field } from '../fields/Field';
 import { LinkField } from '../fields/types/LinkField';
 import { FieldValueTypeVisitor } from '../fields/visitors/FieldValueTypeVisitor';
-import type { Field } from '../fields/Field';
 import type { Table } from '../Table';
 import type { ITableSpecVisitor } from './ITableSpecVisitor';
 
@@ -83,6 +83,26 @@ export class TableUpdateFieldTypeSpec<
    */
   requiresDataMigration(): boolean {
     return this.isTypeConversion();
+  }
+
+  /**
+   * True when the type changes but every stored cell value is preserved
+   * verbatim: same storage column, same value domain, no clamping/pruning/
+   * parsing. Such conversions need no data migration and no record-level
+   * undo/redo snapshot — undoing the meta change alone restores the field.
+   *
+   * Deliberately a narrow whitelist. A single-select cell stores the option
+   * name as text, so converting to a text field keeps the column and every
+   * value untouched (V1 ships the same fast path in basalConvert).
+   */
+  isValuePreservingConversion(): boolean {
+    if (!this.isTypeConversion()) {
+      return false;
+    }
+
+    const oldType = this.oldFieldValue.type().toString();
+    const newType = this.newFieldValue.type().toString();
+    return oldType === 'singleSelect' && (newType === 'singleLineText' || newType === 'longText');
   }
 
   mutate(t: Table): Result<Table, DomainError> {

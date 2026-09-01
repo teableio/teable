@@ -58,6 +58,13 @@ export type ComputedUpdateSeedPayload = {
 export type ComputedUpdateSeedTaskInput = ComputedUpdateSeedPayload & {
   runId: string;
   planHash: string;
+  /**
+   * Earliest source-mutation time this seed traces back to. Only set when a
+   * seed task is re-enqueued (chunk splits) so the lineage clock keeps the
+   * original mutation time; fresh enqueues omit it and the outbox stamps
+   * `now` at insert.
+   */
+  sourceChangedAt?: Date;
 };
 
 /**

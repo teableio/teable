@@ -724,7 +724,7 @@ describe('TableFieldUpdateSpecs same-type updates', () => {
     const specsResult = buildUpdateFieldSpecs(currentField, {
       dbFieldName: 'next_column_name',
       description: 'New description',
-      aiConfig: { prompt: 'fill this field' },
+      aiConfig: { type: 'customization', modelKey: 'openai@gpt-4o@gpt', prompt: 'fill this field' },
     });
 
     expect(specsResult.isOk()).toBe(true);
@@ -741,6 +741,28 @@ describe('TableFieldUpdateSpecs same-type updates', () => {
     expect(specsResult.value.some((spec) => spec instanceof TableUpdateFieldAiConfigSpec)).toBe(
       true
     );
+  });
+
+  it('rejects aiConfig that does not match the field type on update', () => {
+    const { currentField } = buildHarness('r', 'r', (builder, fieldId) => {
+      builder
+        .field()
+        .singleLineText()
+        .withId(fieldId)
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .done();
+    });
+
+    const specsResult = buildUpdateFieldSpecs(currentField, {
+      aiConfig: {
+        type: 'imageGeneration',
+        modelKey: 'openai@gpt-4o@gpt',
+        sourceFieldId: `fld${'z'.repeat(16)}`,
+      },
+    });
+
+    expect(specsResult.isErr()).toBe(true);
+    expect(specsResult._unsafeUnwrapErr().message).toMatch(/aiConfig/i);
   });
 
   it('clears description and aiConfig when metadata is explicitly nulled', () => {

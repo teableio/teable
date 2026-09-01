@@ -138,7 +138,7 @@ const FieldConfigPanel = (props: IFieldConfigPanel) => {
         <PreviewColumn columns={data.columns} onChange={columnHandler}></PreviewColumn>
       </div>
 
-      {errorMessage && <p className="pl-2 text-sm text-red-500">{errorMessage}</p>}
+      {errorMessage && <p className="ps-2 text-sm text-red-500">{errorMessage}</p>}
 
       <ImportOptionPanel onChange={optionHandler} options={options} />
     </div>

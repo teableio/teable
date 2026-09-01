@@ -1,3 +1,4 @@
+import { localizationSchema } from '@teable/core';
 import { axios, ensureUndoRedoWindowIdHeader } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { streamSSE } from '../utils/sse';
@@ -5,6 +6,7 @@ import { z } from '../zod';
 import { deleteVoSchema, type IDeleteVo } from './delete';
 import type { IRangesRo } from './range';
 import { rangesQuerySchema } from './range';
+import { createSelectionStreamError } from './stream-error';
 
 export const DELETE_STREAM_URL = '/table/{tableId}/selection/delete-stream';
 
@@ -36,6 +38,7 @@ export const deleteSelectionStreamErrorEventSchema = z.object({
   recordIds: z.array(z.string()),
   message: z.string(),
   code: z.string().optional(),
+  localization: localizationSchema.optional(),
 });
 
 export const deleteSelectionStreamEventSchema = z.union([
@@ -140,7 +143,7 @@ export const deleteSelectionStream = async (
   if (!finalResult || !doneEvent) {
     const lastError = errors.at(-1);
     if (lastError) {
-      throw new Error(lastError.message);
+      throw createSelectionStreamError(lastError);
     }
     throw new Error('Delete selection stream ended without result');
   }

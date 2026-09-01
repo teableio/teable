@@ -83,17 +83,23 @@ import { Table as TableAggregate } from '../../../domain/table/Table';
 import type { ITableBuildProps } from '../../../domain/table/TableBuilder';
 import { TableId } from '../../../domain/table/TableId';
 import { TableName } from '../../../domain/table/TableName';
-import { CalendarView } from '../../../domain/table/views/types/CalendarView';
-import { FormView } from '../../../domain/table/views/types/FormView';
-import { GalleryView } from '../../../domain/table/views/types/GalleryView';
-import { GridView } from '../../../domain/table/views/types/GridView';
-import { KanbanView } from '../../../domain/table/views/types/KanbanView';
-import { PluginView } from '../../../domain/table/views/types/PluginView';
+import { TableProperties } from '../../../domain/table/TableProperties';
+import type { CalendarView } from '../../../domain/table/views/types/CalendarView';
+import type { FormView } from '../../../domain/table/views/types/FormView';
+import type { GalleryView } from '../../../domain/table/views/types/GalleryView';
+import type { GridView } from '../../../domain/table/views/types/GridView';
+import type { KanbanView } from '../../../domain/table/views/types/KanbanView';
+import type { PluginView } from '../../../domain/table/views/types/PluginView';
 import type { View } from '../../../domain/table/views/View';
+import { ViewAuditMetadata } from '../../../domain/table/views/ViewAuditMetadata';
 import { ViewColumnMeta } from '../../../domain/table/views/ViewColumnMeta';
+import { createView } from '../../../domain/table/views/ViewFactory';
 import { ViewId } from '../../../domain/table/views/ViewId';
 import { ViewName } from '../../../domain/table/views/ViewName';
+import { ViewOrder } from '../../../domain/table/views/ViewOrder';
+import { ViewProperties } from '../../../domain/table/views/ViewProperties';
 import { ViewQueryDefaults } from '../../../domain/table/views/ViewQueryDefaults';
+import { ViewVersion } from '../../../domain/table/views/ViewVersion';
 import type { IViewVisitor } from '../../../domain/table/views/visitors/IViewVisitor';
 import type {
   IAutoNumberFieldOptionsDTO,
@@ -146,6 +152,18 @@ const optional = <T>(
   if (raw == null) return ok(undefined);
   return parser(raw).map((value) => value);
 };
+
+const lookupOptionsToRollupConfig = (lookupOptions: ILookupOptionsDTO): IRollupFieldConfigDTO => ({
+  linkFieldId: lookupOptions.linkFieldId,
+  foreignTableId: lookupOptions.foreignTableId,
+  lookupFieldId: lookupOptions.lookupFieldId,
+  ...(lookupOptions.filter !== undefined ? { filter: lookupOptions.filter } : {}),
+  ...(lookupOptions.sort !== undefined ? { sort: lookupOptions.sort } : {}),
+  ...(typeof lookupOptions.limit === 'number' ? { limit: lookupOptions.limit } : {}),
+});
+
+const canDegradeBrokenLookupInner = (type: ITableFieldPersistenceDTO['type']): boolean =>
+  type === 'link' || type === 'rollup';
 
 const deduplicateSelectChoiceDtos = (
   choices: ReadonlyArray<ISelectFieldChoiceDTO>
@@ -928,22 +946,34 @@ class ViewToPersistenceVisitor implements IViewVisitor<ITableViewPersistenceDTO>
     type: ITableViewPersistenceDTO['type']
   ): Result<ITableViewPersistenceDTO, DomainError> {
     return view.columnMeta().andThen((columnMeta) =>
-      view.queryDefaults().map((queryDefaults) => ({
-        id: view.id().toString(),
-        name: view.name().toString(),
-        type,
-        columnMeta: columnMeta.toDto(),
-        query: queryDefaults.toDto(),
-        ...(view.options() !== undefined ? { options: view.options() } : {}),
-      }))
+      view.queryDefaults().map((queryDefaults) => {
+        const metadataResult = view.auditMetadata();
+        const versionResult = view.version();
+        return {
+          id: view.id().toString(),
+          name: view.name().toString(),
+          type,
+          ...(versionResult.isOk() ? { version: versionResult.value.toNumber() } : {}),
+          ...view.properties().toDto(),
+          columnMeta: columnMeta.toDto(),
+          query: queryDefaults.toDto(),
+          ...(queryDefaults.sourceFilter() !== undefined
+            ? { sourceFilter: queryDefaults.sourceFilter() }
+            : {}),
+          ...(view.options() !== undefined ? { options: view.options() } : {}),
+          ...(view.order().isOk() ? { order: view.order()._unsafeUnwrap().toNumber() } : {}),
+          ...(metadataResult.isOk() ? metadataResult.value.toDto() : {}),
+        };
+      })
     );
   }
 }
 
-const mapViewToDto = (view: View): Result<ITableViewPersistenceDTO, DomainError> =>
-  view.accept(new ViewToPersistenceVisitor());
-
 export class DefaultTableMapper implements ITableMapper {
+  toViewDTO(view: View): Result<ITableViewPersistenceDTO, DomainError> {
+    return view.accept(new ViewToPersistenceVisitor());
+  }
+
   toDTO(table: Table): Result<ITablePersistenceDTO, DomainError> {
     const relationshipByLinkFieldId = new Map<string, ILinkFieldOptionsDTO['relationship']>();
     const linkOptionsByLinkFieldId = new Map<string, ILinkFieldOptionsDTO>();
@@ -969,14 +999,15 @@ export class DefaultTableMapper implements ITableMapper {
         (value) => value,
         () => undefined
       );
-
     return sequenceResults(
       table.getFields().map((field) => mapFieldToDto(field, fieldVisitor))
     ).andThen((fields) =>
-      sequenceResults(table.views().map(mapViewToDto)).map((views) => ({
+      sequenceResults(table.views().map((view) => this.toViewDTO(view))).map((views) => ({
         id: table.id().toString(),
         baseId: table.baseId().toString(),
         name: table.name().toString(),
+        ...(table.description() !== undefined ? { description: table.description() } : {}),
+        ...(table.icon() !== undefined ? { icon: table.icon() } : {}),
         ...(dbTableName ? { dbTableName } : {}),
         primaryFieldId: table.primaryFieldId().toString(),
         fields: [...fields],
@@ -990,6 +1021,10 @@ export class DefaultTableMapper implements ITableMapper {
     const baseIdResult = BaseId.create(dto.baseId);
     const nameResult = TableName.create(dto.name);
     const primaryFieldIdResult = FieldId.create(dto.primaryFieldId);
+    const propertiesResult = TableProperties.create({
+      ...(dto.description !== undefined ? { description: dto.description } : {}),
+      ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
+    });
 
     const fieldsResult = sequenceResults(dto.fields.map((f) => this.mapFieldToDomain(f)));
     const viewsResult = sequenceResults(dto.views.map((v) => this.mapViewToDomain(v)));
@@ -999,20 +1034,23 @@ export class DefaultTableMapper implements ITableMapper {
       baseIdResult.andThen((baseId) =>
         nameResult.andThen((name) =>
           primaryFieldIdResult.andThen((primaryFieldId) =>
-            fieldsResult.andThen((fields) =>
-              viewsResult.andThen((views) =>
-                dbTableNameResult.andThen((dbTableName) => {
-                  const props: ITableBuildProps = {
-                    id,
-                    baseId,
-                    name,
-                    primaryFieldId,
-                    fields,
-                    views,
-                    ...(dbTableName ? { dbTableName } : {}),
-                  };
-                  return TableAggregate.rehydrate(props);
-                })
+            propertiesResult.andThen((properties) =>
+              fieldsResult.andThen((fields) =>
+                viewsResult.andThen((views) =>
+                  dbTableNameResult.andThen((dbTableName) => {
+                    const props: ITableBuildProps = {
+                      id,
+                      baseId,
+                      name,
+                      properties,
+                      primaryFieldId,
+                      fields,
+                      views,
+                      ...(dbTableName ? { dbTableName } : {}),
+                    };
+                    return TableAggregate.rehydrate(props);
+                  })
+                )
               )
             )
           )
@@ -1057,7 +1095,7 @@ export class DefaultTableMapper implements ITableMapper {
                     isMultipleCellValue: dto.isMultipleCellValue,
                     innerOptionsPatch,
                   })
-                : dto.type === 'link'
+                : canDegradeBrokenLookupInner(dto.type)
                   ? LookupField.createPending({
                       id,
                       name,
@@ -1091,13 +1129,20 @@ export class DefaultTableMapper implements ITableMapper {
                         : {}),
                       ...(dto.meta != null ? { meta: dto.meta } : {}),
                     }
-                  : {
-                      ...dto,
-                      isLookup: undefined,
-                      lookupOptions: undefined,
-                      // Use a valid generated id for inner field (it's not persisted separately)
-                      id: innerId.toString(),
-                    }
+                  : dto.type === 'rollup'
+                    ? {
+                        ...dto,
+                        isLookup: undefined,
+                        lookupOptions: undefined,
+                        id: innerId.toString(),
+                        config: dto.config ?? lookupOptionsToRollupConfig(lookupOptionsRaw),
+                      }
+                    : {
+                        ...dto,
+                        isLookup: undefined,
+                        lookupOptions: undefined,
+                        id: innerId.toString(),
+                      }
               )
             )
           )
@@ -1221,38 +1266,44 @@ export class DefaultTableMapper implements ITableMapper {
               );
             })
             .with({ type: 'rollup' }, (dto) => {
-              const options = dto.options;
+              const options = dto.options ?? ({} as { expression?: unknown });
               const configRaw = dto.config;
               if (!configRaw)
                 return err(domainError.validation({ message: 'RollupField config is required' }));
+              const parsedExpression = RollupExpression.create(options.expression);
+              const expression = parsedExpression.isOk()
+                ? parsedExpression.value
+                : RollupExpression.default();
+              const invalidExpression = parsedExpression.isErr();
               return RollupFieldConfig.create(configRaw).andThen((config) =>
-                RollupExpression.create(options.expression).andThen((expression) =>
-                  optional(options.timeZone, TimeZone.create).andThen((timeZone) =>
-                    parseFormulaFormatting(options.formatting).andThen((formatting) =>
-                      parseFormulaShowAs(options.showAs).andThen((showAs) =>
-                        parseFormulaResultType(dto.cellValueType, dto.isMultipleCellValue).andThen(
-                          (resultType) =>
-                            resultType
-                              ? RollupField.rehydrate({
-                                  id,
-                                  name,
-                                  config,
-                                  expression,
-                                  timeZone,
-                                  formatting,
-                                  showAs,
-                                  resultType,
-                                })
-                              : RollupField.createPending({
-                                  id,
-                                  name,
-                                  config,
-                                  expression,
-                                  timeZone,
-                                  formatting,
-                                  showAs,
-                                })
-                        )
+                optional(options.timeZone, TimeZone.create).andThen((timeZone) =>
+                  parseFormulaFormatting(options.formatting).andThen((formatting) =>
+                    parseFormulaShowAs(options.showAs).andThen((showAs) =>
+                      parseFormulaResultType(dto.cellValueType, dto.isMultipleCellValue).andThen(
+                        (resultType) =>
+                          (resultType
+                            ? RollupField.rehydrate({
+                                id,
+                                name,
+                                config,
+                                expression,
+                                timeZone,
+                                formatting,
+                                showAs,
+                                resultType,
+                              })
+                            : RollupField.createPending({
+                                id,
+                                name,
+                                config,
+                                expression,
+                                timeZone,
+                                formatting,
+                                showAs,
+                              })
+                          ).andThen((field) =>
+                            this.applyHasError(field, invalidExpression ? true : dto.hasError)
+                          )
                       )
                     )
                   )
@@ -1496,25 +1547,57 @@ export class DefaultTableMapper implements ITableMapper {
   private mapViewToDomain(dto: ITableViewPersistenceDTO): Result<View, DomainError> {
     return ViewId.create(dto.id).andThen((id) =>
       ViewName.create(dto.name).andThen((name) => {
-        const viewResult = match(dto.type)
-          .with('grid', () => GridView.create({ id, name }))
-          .with('kanban', () => KanbanView.create({ id, name }))
-          .with('gallery', () => GalleryView.create({ id, name }))
-          .with('calendar', () => CalendarView.create({ id, name }))
-          .with('form', () => FormView.create({ id, name }))
-          .with('plugin', () => PluginView.create({ id, name }))
-          .exhaustive();
+        return ViewProperties.rehydrate({
+          ...(dto.description !== undefined ? { description: dto.description } : {}),
+          ...(dto.isLocked !== undefined ? { isLocked: dto.isLocked } : {}),
+          ...(dto.enableShare !== undefined ? { enableShare: dto.enableShare } : {}),
+          ...(dto.shareId !== undefined ? { shareId: dto.shareId } : {}),
+          ...(dto.shareMeta !== undefined ? { shareMeta: dto.shareMeta } : {}),
+        }).andThen((properties) => {
+          const viewResult = createView({ type: dto.type, id, name, properties });
 
-        return viewResult.andThen((view) =>
-          ViewColumnMeta.rehydrate(dto.columnMeta).andThen((columnMeta) =>
-            view
-              .setColumnMeta(columnMeta)
-              .andThen(() => ViewQueryDefaults.rehydrate(dto.query ?? {}))
-              .andThen((queryDefaults) => view.setQueryDefaults(queryDefaults))
-              .andThen(() => view.setOptions(dto.options))
-              .map(() => view)
-          )
-        );
+          return viewResult.andThen((view) =>
+            ViewColumnMeta.rehydrate(dto.columnMeta).andThen((columnMeta) =>
+              view
+                .setColumnMeta(columnMeta)
+                .andThen(() =>
+                  ViewQueryDefaults.rehydrate(dto.query ?? {}, {
+                    sourceFilter: dto.sourceFilter,
+                  })
+                )
+                .andThen((queryDefaults) => view.setQueryDefaults(queryDefaults))
+                .andThen(() => view.setOptions(dto.options))
+                .andThen(() =>
+                  dto.order === undefined
+                    ? ok(undefined)
+                    : ViewOrder.rehydrate(dto.order).andThen((order) => view.setOrder(order))
+                )
+                .andThen(() =>
+                  dto.version === undefined
+                    ? ok(undefined)
+                    : ViewVersion.rehydrate(dto.version).andThen((version) =>
+                        view.setVersion(version)
+                      )
+                )
+                .andThen(() => {
+                  if (dto.createdBy === undefined && dto.createdTime === undefined) {
+                    return ok(undefined);
+                  }
+                  return ViewAuditMetadata.rehydrate({
+                    createdBy: dto.createdBy,
+                    createdTime: dto.createdTime,
+                    ...(dto.lastModifiedBy !== undefined
+                      ? { lastModifiedBy: dto.lastModifiedBy }
+                      : {}),
+                    ...(dto.lastModifiedTime !== undefined
+                      ? { lastModifiedTime: dto.lastModifiedTime }
+                      : {}),
+                  }).andThen((metadata) => view.setAuditMetadata(metadata));
+                })
+                .map(() => view)
+            )
+          );
+        });
       })
     );
   }
@@ -1566,6 +1649,7 @@ export class DefaultTableMapper implements ITableMapper {
   }
 
   private applyHasError(field: Field, hasError: boolean | undefined): Result<Field, DomainError> {
+    if (hasError == null) return ok(field);
     field.setHasError(FieldHasError.from(hasError));
     return ok(field);
   }

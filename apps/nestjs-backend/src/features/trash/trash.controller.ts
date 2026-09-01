@@ -1,6 +1,11 @@
 import { Controller, Delete, Get, Param, Post, Query, Res } from '@nestjs/common';
 import { IdPrefix } from '@teable/core';
-import type { IRestoreFieldTrashStreamEvent, ITrashVo, V2Feature } from '@teable/openapi';
+import type {
+  IGetTrashItemRecordsVo,
+  IRestoreFieldTrashStreamEvent,
+  ITrashVo,
+  V2Feature,
+} from '@teable/openapi';
 import {
   ITrashRo,
   trashItemsRoSchema,
@@ -8,6 +13,8 @@ import {
   ITrashItemsRo,
   resetTrashItemsRoSchema,
   IResetTrashItemsRo,
+  getTrashItemRecordsQuerySchema,
+  IGetTrashItemRecordsQuery,
 } from '@teable/openapi';
 import type { Response } from 'express';
 import { ClsService } from 'nestjs-cls';
@@ -41,6 +48,15 @@ export class TrashController {
     @Query(new ZodValidationPipe(trashItemsRoSchema)) query: ITrashItemsRo
   ): Promise<ITrashVo> {
     return await this.trashService.getTrashItems(query);
+  }
+
+  @Get(':trashId/records')
+  @TokenAccess()
+  async getTrashItemRecords(
+    @Param('trashId') trashId: string,
+    @Query(new ZodValidationPipe(getTrashItemRecordsQuerySchema)) query: IGetTrashItemRecordsQuery
+  ): Promise<IGetTrashItemRecordsVo> {
+    return await this.trashService.getTableTrashItemRecords(trashId, query);
   }
 
   @Post('restore/:trashId')

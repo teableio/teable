@@ -14,6 +14,12 @@
       "types": "./src/index.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./table-query-ops": {
+      "@teable/source": "./src/tableQueryOps.ts",
+      "types": "./src/tableQueryOps.ts",
+      "import": "./dist/tableQueryOps.js",
+      "require": "./dist/tableQueryOps.cjs"
     }
   },
   "files": [

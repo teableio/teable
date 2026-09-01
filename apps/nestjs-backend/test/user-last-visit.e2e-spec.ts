@@ -218,25 +218,37 @@ describe('OpenAPI OAuthController (e2e)', () => {
         resourceId: base.id,
       });
     }
+    const unrelatedBase = await createBase({
+      spaceId: globalThis.testConfig.spaceId,
+      name: 'unrelated_base',
+    }).then((res) => res.data);
 
     const res = await getUserLastVisitListBase();
+    expect(res.data.list.some(({ resource }) => resource.id === unrelatedBase.id)).toEqual(true);
+    const createdBaseIds = new Set(base_21.map(({ id }) => id));
+    const createdBaseVisits = res.data.list.filter(({ resource }) =>
+      createdBaseIds.has(resource.id)
+    );
 
-    for (const base of base_21) {
+    for (const base of [...base_21, unrelatedBase]) {
       await permanentDeleteBase(base.id);
     }
     expect(userLastVisitListBaseVoSchema.safeParse(res.data).success).toEqual(true);
-    expect(res.data.list.length).toEqual(21);
-    expect(res.data.total).toEqual(21);
-    expect(res.data.list[0].resource.id).toEqual(base_21[20].id);
-    expect(res.data.list[20].resource.id).toEqual(base_21[0].id);
+    expect(res.data.total).toEqual(res.data.list.length);
+    expect(createdBaseVisits.length).toEqual(21);
+    expect(createdBaseVisits[0].resource.id).toEqual(base_21[20].id);
+    expect(createdBaseVisits[20].resource.id).toEqual(base_21[0].id);
 
     const res2 = await getUserLastVisitListBase();
 
-    expect(res2.data.list.length).toEqual(0);
+    expect(res2.data.list.filter(({ resource }) => createdBaseIds.has(resource.id)).length).toEqual(
+      0
+    );
 
     const userLastVisit = await prisma.userLastVisit.findMany({
       where: {
-        parentResourceId: base_21[0].spaceId,
+        resourceType: LastVisitResourceType.Base,
+        resourceId: { in: [...createdBaseIds] },
       },
     });
     expect(userLastVisit.length).toEqual(0);

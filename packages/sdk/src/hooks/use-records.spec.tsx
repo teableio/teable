@@ -8,12 +8,28 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ShareViewContext } from '../context/table/ShareViewContext';
 import { useInstances } from '../context/use-instances';
 import { useRecords } from './use-records';
+import { useSearch } from './use-search';
 import { useView } from './use-view';
+
+const { mockFields } = vi.hoisted(() => ({
+  mockFields: [
+    { id: 'fldStored', canReadFieldRecord: true },
+    { id: 'fldVisitor', canReadFieldRecord: true },
+    { id: 'fldSorted', canReadFieldRecord: true },
+    { id: 'fldDenied', canReadFieldRecord: false },
+  ],
+}));
 
 vi.mock('../context/use-instances', () => ({
   useInstances: vi.fn(() => ({ instances: [], extra: undefined })),
 }));
-vi.mock('./use-fields', () => ({ useFields: vi.fn(() => []) }));
+vi.mock('./use-fields', () => ({
+  useFields: vi.fn((options?: { withDenied?: boolean }) =>
+    options?.withDenied
+      ? mockFields
+      : mockFields.filter((field) => field.canReadFieldRecord !== false)
+  ),
+}));
 vi.mock('./use-search', () => ({ useSearch: vi.fn(() => ({ filteringSearchQuery: undefined })) }));
 vi.mock('./use-table-id', () => ({ useTableId: vi.fn(() => 'tblTest') }));
 vi.mock('./use-view-id', () => ({ useViewId: vi.fn(() => 'viwShare') }));
@@ -21,6 +37,7 @@ vi.mock('./use-view', () => ({ useView: vi.fn() }));
 
 const mockedUseView = vi.mocked(useView);
 const mockedUseInstances = vi.mocked(useInstances);
+const mockedUseSearch = vi.mocked(useSearch);
 
 const storedFilter: IFilter = {
   conjunction: 'and',
@@ -50,6 +67,7 @@ const getSubscribedQuery = () => {
     ignoreViewQuery?: boolean;
     filter?: IFilter;
     orderBy?: { fieldId: string }[];
+    search?: [string, string, boolean];
   };
 };
 
@@ -65,6 +83,19 @@ describe('useRecords subscription query', () => {
 
     const query = getSubscribedQuery();
     expect(query.ignoreViewQuery).toBe(true);
+    expect(extractFieldIdsFromFilter(query.filter, true)).toContain('fldStored');
+  });
+
+  it('keeps the inlined view filter when hide-not-match search is active', () => {
+    mockedUseSearch.mockReturnValue({
+      filteringSearchQuery: ['Cup', 'fldType', true],
+    } as ReturnType<typeof useSearch>);
+    mockView({ id: 'viwShare', filter: storedFilter });
+
+    renderHook(() => useRecords());
+
+    const query = getSubscribedQuery();
+    expect(query.search).toEqual(['Cup', 'fldType', true]);
     expect(extractFieldIdsFromFilter(query.filter, true)).toContain('fldStored');
   });
 
@@ -95,5 +126,50 @@ describe('useRecords subscription query', () => {
     const query = getSubscribedQuery();
     expect(extractFieldIdsFromFilter(query.filter, true)).not.toContain('fldStored');
     expect(query.orderBy ?? []).toHaveLength(0);
+  });
+
+  it('keeps unreadable saved filters while stripping unreadable view sorts', () => {
+    // Mask-aware server filters need the complete saved predicate and skipPoll
+    // dependency set; response-hidden sorts remain client-filtered.
+    mockView({
+      id: 'viwShare',
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          { fieldId: 'fldStored', operator: 'is', value: 'x' },
+          { fieldId: 'fldDenied', operator: 'is', value: 'y' },
+        ],
+      },
+      sort: {
+        sortObjs: [
+          { fieldId: 'fldDenied', order: SortFunc.Desc },
+          { fieldId: 'fldSorted', order: SortFunc.Asc },
+        ],
+      },
+    });
+
+    renderHook(() => useRecords());
+
+    const query = getSubscribedQuery();
+    expect(extractFieldIdsFromFilter(query.filter, true)).toEqual(['fldStored', 'fldDenied']);
+    expect(query.orderBy?.map((item) => item.fieldId)).toEqual(['fldSorted']);
+  });
+
+  it('keeps explicit query sort/filter for server-side query-access policy', () => {
+    mockView({ id: 'viwShare', filter: null, sort: null });
+
+    renderHook(() =>
+      useRecords({
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: 'fldDenied', operator: 'is', value: 'y' }],
+        },
+        orderBy: [{ fieldId: 'fldDenied', order: SortFunc.Asc }],
+      })
+    );
+
+    const query = getSubscribedQuery();
+    expect(extractFieldIdsFromFilter(query.filter, true)).toContain('fldDenied');
+    expect(query.orderBy?.map((item) => item.fieldId)).toContain('fldDenied');
   });
 });

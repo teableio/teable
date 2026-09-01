@@ -147,6 +147,25 @@ const dataDbConnectionMetadataSchema = z.object({
   capabilities: dataDbCapabilitiesSchema.optional(),
 });
 
+/**
+ * Runtime health of the connection, tracked separately from the binding
+ * lifecycle `state`: lifecycle answers "is this connection configured and
+ * migrated", health answers "can it make progress right now" (e.g. a bound,
+ * migrated connection whose database was forced read-only by a disk quota).
+ */
+export const dataDbHealthStateSchema = z.enum(['healthy', 'read_only', 'unreachable', 'degraded']);
+
+export type IDataDbHealthState = z.infer<typeof dataDbHealthStateSchema>;
+
+export const dataDbConnectionHealthSchema = z.object({
+  state: dataDbHealthStateSchema,
+  reason: z.string().nullable().optional(),
+  changedAt: z.string().optional(),
+  lastCheckAt: z.string().optional(),
+});
+
+export type IDataDbConnectionHealth = z.infer<typeof dataDbConnectionHealthSchema>;
+
 export const dataDbConnectionSummaryVoSchema = z.object({
   mode: dataDbModeSchema,
   state: dataDbBindingStateSchema,
@@ -158,6 +177,7 @@ export const dataDbConnectionSummaryVoSchema = z.object({
   lastValidatedAt: z.string().optional(),
   lastError: z.string().optional(),
   capabilities: dataDbCapabilitiesSchema.optional(),
+  health: dataDbConnectionHealthSchema.optional(),
   migration: dataDbMigrationSummarySchema.optional(),
   relatedSpaces: dataDbRelatedSpacesSchema.optional(),
 });

@@ -51,7 +51,7 @@ export abstract class FieldCore implements IFieldVo {
     estimatedDirtyRecords?: number;
     startedAt?: string;
     lastDurationMs?: number;
-    lastError?: { code?: string; message: string } | null;
+    lastError?: { code?: string; message: string; context?: Record<string, unknown> } | null;
   };
 
   hasError?: boolean;

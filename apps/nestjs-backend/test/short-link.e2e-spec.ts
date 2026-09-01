@@ -1,6 +1,10 @@
 import type { INestApplication } from '@nestjs/common';
+import { ViewType } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import {
+  createView,
   createShortLink,
+  deleteView,
   disableShareView,
   enableShareView,
   getShortLink,
@@ -17,12 +21,14 @@ describe('OpenAPI ShortLinkController (e2e)', () => {
   let app: INestApplication;
   let table: ITableFullVo;
   let shareId: string;
+  let prisma: PrismaService;
   let anonymousUser: ReturnType<typeof createAnonymousUserAxios>;
   const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    prisma = app.get(PrismaService);
     anonymousUser = createAnonymousUserAxios(appCtx.appUrl);
 
     table = await createTable(baseId, { name: 'short-link-table' });
@@ -116,5 +122,36 @@ describe('OpenAPI ShortLinkController (e2e)', () => {
     expect(errorAfterRotate?.status).toBe(404);
 
     await permanentDeleteTable(baseId, table2.id);
+  });
+
+  it('should stop resolving a retained short link after its shared View is deleted', async () => {
+    const view = (
+      await createView(table.id, {
+        type: ViewType.Grid,
+        name: 'deleted-share-view',
+      })
+    ).data;
+    const enabled = await enableShareView({ tableId: table.id, viewId: view.id });
+    const { data: created } = await createShortLink({
+      type: ShortLinkType.ViewShare,
+      resourceId: enabled.data.shareId,
+    });
+
+    // Do not resolve before deletion: the short-link cache is intentionally
+    // short-lived and this case verifies the authoritative database lookup.
+    await deleteView(table.id, view.id);
+
+    expect(
+      await prisma.shortLink.findUnique({
+        where: { code: created.code },
+        select: { type: true, resourceId: true, deletedTime: true },
+      })
+    ).toEqual({
+      type: ShortLinkType.ViewShare,
+      resourceId: enabled.data.shareId,
+      deletedTime: null,
+    });
+    const error = await getError(() => getShortLink(created.code));
+    expect(error?.status).toBe(404);
   });
 });

@@ -11,6 +11,9 @@ import type {
 import { Colors, FieldKeyType, FieldType, Relationship, SortFunc, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
+  IExportBaseProgressEvent,
+  IExportBaseSSEEvent,
+  IExportBaseVo,
   IImportBaseProgressEvent,
   IImportBaseSSEEvent,
   INotifyVo,
@@ -194,11 +197,51 @@ async function importBaseViaSseStream(
   return { progressEvents, doneEvent, errorEvent };
 }
 
+async function exportBaseViaSseStream(
+  appUrl: string,
+  cookie: string,
+  baseId: string
+): Promise<{
+  result: IExportBaseVo;
+  progressEvents: IExportBaseProgressEvent[];
+}> {
+  const headers = new Headers();
+  headers.set('Accept', 'text/event-stream');
+  headers.set('Cookie', cookie);
+  const response = await fetch(`${appUrl}/api/base/${baseId}/export-stream?includeData=true`, {
+    method: 'GET',
+    headers,
+  });
+  if (!response.ok) {
+    throw new Error(`Export SSE failed (${response.status}): ${await response.text()}`);
+  }
+
+  const events = (await response.text()).split(/\r?\n/).flatMap((line): IExportBaseSSEEvent[] => {
+    if (!line.startsWith('data: ')) return [];
+    return [JSON.parse(line.slice(6)) as IExportBaseSSEEvent];
+  });
+  const errorEvent = events.find((event) => event.type === 'error');
+  if (errorEvent?.type === 'error') throw new Error(errorEvent.message);
+  const doneEvent = events.find((event) => event.type === 'done');
+  if (!doneEvent || doneEvent.type !== 'done') {
+    throw new Error('Export SSE ended without a done event');
+  }
+
+  return {
+    result: doneEvent.data,
+    progressEvents: events.filter(
+      (event): event is IExportBaseProgressEvent => event.type === 'progress'
+    ),
+  };
+}
 describe('OpenAPI BaseController for base import (e2e)', () => {
   let app: INestApplication;
   let appUrl: string;
   let cookie: string;
   let sourceBaseId: string;
+  // The v2 importer emits a different progress phase stream: it starts with
+  // 'importing_v2' and has no per-table 'creating_table' phase.
+  const isForceV2 = process.env.FORCE_V2_ALL === 'true';
   const spaceId = globalThis.testConfig.spaceId;
   const userId = globalThis.testConfig.userId;
   let eventEmitterService: EventEmitterService;
@@ -431,10 +474,58 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
             : view;
         });
 
-      expect(withoutPluginInstallId(duplicatedTable1Views)).toEqual(
+      // The v2 importer regenerates complete default columnMeta (every table field
+      // gets an {order} entry) while v1 copies the stored column_meta verbatim, so
+      // under v2 an imported view can gain a default-order entry that the source
+      // view's stored columnMeta never materialized. Drop such one-sided
+      // default-order-only entries pairwise (matched by view id) before comparing.
+      type IComparableView = { id: string; columnMeta?: unknown };
+      const expectImportedViewsToEqual = (
+        received: IComparableView[],
+        expected: IComparableView[]
+      ) => {
+        if (!isForceV2 || received.length !== expected.length) {
+          expect(received).toEqual(expected);
+          return;
+        }
+        const isDefaultOrderOnlyEntry = (entry: unknown) => {
+          if (entry == null || typeof entry !== 'object' || Array.isArray(entry)) return false;
+          const keys = Object.keys(entry);
+          return keys.length > 0 && keys.every((key) => key === 'order');
+        };
+        const expectedById = new Map(expected.map((view) => [view.id, view]));
+        const nextReceived: IComparableView[] = [];
+        const nextExpected: IComparableView[] = [];
+        for (const receivedView of received) {
+          const expectedView = expectedById.get(receivedView.id);
+          if (!expectedView) {
+            expect(received).toEqual(expected);
+            return;
+          }
+          const receivedMeta = { ...((receivedView.columnMeta ?? {}) as Record<string, unknown>) };
+          const expectedMeta = { ...((expectedView.columnMeta ?? {}) as Record<string, unknown>) };
+          for (const [key, entry] of Object.entries(receivedMeta)) {
+            if (!(key in expectedMeta) && isDefaultOrderOnlyEntry(entry)) {
+              delete receivedMeta[key];
+            }
+          }
+          for (const [key, entry] of Object.entries(expectedMeta)) {
+            if (!(key in receivedMeta) && isDefaultOrderOnlyEntry(entry)) {
+              delete expectedMeta[key];
+            }
+          }
+          nextReceived.push({ ...receivedView, columnMeta: receivedMeta });
+          nextExpected.push({ ...expectedView, columnMeta: expectedMeta });
+        }
+        expect(nextReceived).toEqual(nextExpected);
+      };
+
+      expectImportedViewsToEqual(
+        withoutPluginInstallId(duplicatedTable1Views),
         withoutPluginInstallId(sourceTable1Views)
       );
-      expect(withoutPluginInstallId(duplicatedTable2Views)).toEqual(
+      expectImportedViewsToEqual(
+        withoutPluginInstallId(duplicatedTable2Views),
         withoutPluginInstallId(sourceTable2Views)
       );
 
@@ -1041,14 +1132,16 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
             where: { baseId },
             select: { status: true, attempts: true },
           });
+          // Allow any pending row (including lock-miss / one-shot retries that
+          // bump attempts) and in-flight processing. Delete all pending so a
+          // requeued task cannot block permanent delete after the run settled.
           const unexpectedTasks = deferredTasks.filter(
-            ({ status, attempts }) =>
-              status !== 'processing' && !(status === 'pending' && attempts === 0)
+            ({ status }) => status !== 'processing' && status !== 'pending'
           );
 
           expect(unexpectedTasks).toEqual([]);
           await prisma.computedUpdateOutbox.deleteMany({
-            where: { baseId, status: 'pending', attempts: 0 },
+            where: { baseId, status: 'pending' },
           });
 
           const remainingTaskCount = await prisma.computedUpdateOutbox.count({
@@ -1221,6 +1314,162 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       expect(
         importedRecords.records.map((record) => record.fields?.[importedHoursField!.id])
       ).toEqual([1, 2]);
+    });
+
+    it('exports through v2 SSE and imports through the normal v2 endpoint with broad parity', async () => {
+      const space = await createCanarySpace('canary_export_stream_normal_import_space');
+      const sourceBase = (
+        await createBase({
+          name: 'canary_export_stream_source',
+          spaceId: space.id,
+          icon: '📦',
+        })
+      ).data;
+      canarySourceBaseId = sourceBase.id;
+
+      const projectsTable = await createTable(sourceBase.id, {
+        name: 'Roundtrip Projects',
+        records: [],
+      });
+      const tasksTable = await createTable(sourceBase.id, {
+        name: 'Roundtrip Tasks',
+        records: [],
+      });
+      const projectNameField = projectsTable.fields.find(({ isPrimary }) => isPrimary)!;
+      const budgetField = (
+        await createField(projectsTable.id, {
+          name: 'Budget',
+          type: FieldType.Number,
+        })
+      ).data;
+      const doubledBudgetField = (
+        await createField(projectsTable.id, {
+          name: 'Double Budget',
+          type: FieldType.Formula,
+          options: { expression: `{${budgetField.id}} * 2` },
+        })
+      ).data;
+      const projectLinkField = (
+        await createField(tasksTable.id, {
+          name: 'Project',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: projectsTable.id,
+          },
+        })
+      ).data;
+
+      const projectRecord = (
+        await createRecords(projectsTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              fields: {
+                [projectNameField.id]: 'Apollo',
+                [budgetField.id]: 21,
+              },
+            },
+          ],
+        })
+      ).records[0];
+      await createRecords(tasksTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [{ fields: { [projectLinkField.id]: [{ id: projectRecord.id }] } }],
+      });
+
+      const folderNode = await createBaseNode(sourceBase.id, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Roundtrip Folder',
+      }).then((res) => res.data);
+      const sourceNodeTree = await getBaseNodeTree(sourceBase.id).then((res) => res.data);
+      const tasksNode = sourceNodeTree.nodes.find(
+        (node) =>
+          node.resourceType === BaseNodeResourceType.Table && node.resourceId === tasksTable.id
+      );
+      expect(tasksNode).toBeDefined();
+      await moveBaseNode(sourceBase.id, tasksNode!.id, { parentId: folderNode.id });
+      await createDashboard(sourceBase.id, { name: 'Roundtrip Dashboard' });
+
+      const { result: exported, progressEvents: exportProgress } = await exportBaseViaSseStream(
+        appUrl,
+        cookie,
+        sourceBase.id
+      );
+      expect(exported.previewUrl).toBeTruthy();
+      expect(exportProgress.map(({ phase }) => phase)).toEqual(
+        expect.arrayContaining([
+          'preparing',
+          'exporting_archive',
+          'exporting_structure',
+          'exporting_table_data',
+          'table_data_started',
+          'table_data_progress',
+          'table_data_done',
+          'uploading_archive',
+          'generating_download_url',
+          'done',
+        ])
+      );
+
+      const notify = await app.get(ClsService).runWith<Promise<IAttachmentItem>>(
+        {
+          user: {
+            id: userId,
+            name: 'Test User',
+            email: 'test@example.com',
+            isAdmin: null,
+          },
+        } as unknown as ClsStore,
+        async () => await getAttachmentService(app).uploadFromUrl(appUrl + exported.previewUrl)
+      );
+      const imported = await importBase({
+        notify: notify as unknown as INotifyVo,
+        spaceId: space.id,
+      });
+      expect(imported.headers['x-teable-v2']).toBe('true');
+      importedCanaryBaseId = imported.data.base.id;
+
+      const integrityDecision = await getV2SchemaIntegrityDecision(importedCanaryBaseId);
+      expect(integrityDecision.data.useV2).toBe(true);
+
+      const importedTables = await getTableList(importedCanaryBaseId).then((res) => res.data);
+      expect(importedTables.map(({ name }) => name).sort()).toEqual(
+        [projectsTable.name, tasksTable.name].sort()
+      );
+      const importedProjects = importedTables.find(({ name }) => name === projectsTable.name)!;
+      const importedTasks = importedTables.find(({ name }) => name === tasksTable.name)!;
+      const importedProjectFields = (await getFields(importedProjects.id)).data;
+      const importedDoubledBudget = importedProjectFields.find(
+        ({ name }) => name === doubledBudgetField.name
+      )!;
+      const importedProjectRecord = await waitForRecordWithFieldValue(
+        importedProjects.id,
+        importedDoubledBudget.id,
+        42
+      );
+      const importedTaskRecords = await getRecords(importedTasks.id, {
+        fieldKeyType: FieldKeyType.Name,
+      });
+      expect(importedTaskRecords.records[0].fields?.[projectLinkField.name]).toMatchObject([
+        { id: importedProjectRecord!.id },
+      ]);
+
+      const importedNodeTree = await getBaseNodeTree(importedCanaryBaseId).then((res) => res.data);
+      const importedFolder = importedNodeTree.nodes.find(
+        (node) =>
+          node.resourceType === BaseNodeResourceType.Folder &&
+          node.resourceMeta?.name === folderNode.resourceMeta?.name
+      );
+      const importedTasksNode = importedNodeTree.nodes.find(
+        (node) =>
+          node.resourceType === BaseNodeResourceType.Table && node.resourceId === importedTasks.id
+      );
+      expect(importedFolder).toBeDefined();
+      expect(importedTasksNode?.parentId).toBe(importedFolder!.id);
+      expect((await getDashboardList(importedCanaryBaseId)).data.map(({ name }) => name)).toContain(
+        'Roundtrip Dashboard'
+      );
     });
 
     it('imports a canary base through SSE stream with table and row progress', async () => {
@@ -2365,7 +2614,9 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       // Verify some expected phases appear
       const phases = progressEvents.map((e) => e.phase);
       expect(phases).toContain('creating_base');
-      expect(phases).toContain('creating_table');
+      // The v2 importer opens with 'importing_v2' and never emits the v1
+      // per-table 'creating_table' phase.
+      expect(phases).toContain(isForceV2 ? 'importing_v2' : 'creating_table');
       expect(phases).toContain('structure_created');
 
       // 7. Verify: received done event with proper structure

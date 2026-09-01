@@ -46,6 +46,7 @@ interface ITableOperationPermissionInput {
   basePermission?: PermissionMap;
   canTableRecordHistoryRead?: boolean;
   canTableTrashRead?: boolean;
+  canTableArchiveRead?: boolean;
 }
 
 export const getTableOperationMenuPermission = ({
@@ -54,6 +55,7 @@ export const getTableOperationMenuPermission = ({
   basePermission,
   canTableRecordHistoryRead,
   canTableTrashRead,
+  canTableArchiveRead,
 }: ITableOperationPermissionInput) => {
   const hasReadyTable = Boolean(table);
 
@@ -69,6 +71,7 @@ export const getTableOperationMenuPermission = ({
     importTable: Boolean(table?.permission?.['table|import']),
     tableRecordHistory: Boolean(hasReadyTable && canTableRecordHistoryRead),
     tableTrash: Boolean(hasReadyTable && canTableTrashRead),
+    tableArchive: Boolean(hasReadyTable && canTableArchiveRead),
     shareTable: Boolean(basePermission?.['base|update']),
     apiTable: hasReadyTable,
   };

@@ -13,7 +13,10 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "sideEffects": false,
+  "sideEffects": [
+    "./dist/zod.js",
+    "./src/zod.ts"
+  ],
   "exports": {
     ".": {
       "@teable/source": "./src/index.ts",

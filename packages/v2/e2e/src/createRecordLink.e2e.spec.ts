@@ -1010,4 +1010,79 @@ describe('v2 http createRecord link fields (e2e)', () => {
       });
     });
   });
+
+  /**
+   * v1 reference: lin-field-not-null.e2e-spec (T1756, T6520 list) — the
+   * notNull constraint on a link field must gate record creation, and removing
+   * the constraint must lift the gate.
+   */
+  describe('link field notNull constraint (T1756)', () => {
+    // Regression (T1756/T6520): notNull on link fields is enforced by the
+    // application-level pre-validation on create (link storage lives in
+    // FK/junction tables, so the DB column constraint cannot cover it).
+    it('rejects creating a record without a link value while notNull is set, allows after removing it', async () => {
+      const foreignTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'Link NotNull Foreign',
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+      const foreignTitleFieldId = foreignTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      const foreignRecord = await ctx.createRecord(foreignTable.id, {
+        [foreignTitleFieldId]: 'Target',
+      });
+
+      const mainTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'Link NotNull Main',
+        fields: [
+          { type: 'singleLineText', name: 'Title', isPrimary: true },
+          {
+            type: 'link',
+            name: 'Required Link',
+            notNull: true,
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignTitleFieldId,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const mainTitleFieldId = mainTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      const linkFieldId = mainTable.fields.find((f) => f.name === 'Required Link')?.id ?? '';
+
+      // With notNull: creating without a link value must fail
+      const failing = await fetch(`${ctx.baseUrl}/tables/createRecord`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: mainTable.id,
+          fields: { [mainTitleFieldId]: 'No Link' },
+        }),
+      });
+      expect(failing.status).toBeGreaterThanOrEqual(400);
+
+      // With notNull: creating with a link value succeeds
+      const withLink = await ctx.createRecord(mainTable.id, {
+        [mainTitleFieldId]: 'Has Link',
+        [linkFieldId]: { id: foreignRecord.id },
+      });
+      expect(withLink.id).toBeTruthy();
+
+      // Remove the constraint: creating without a link value succeeds
+      await ctx.updateField({
+        baseId: ctx.baseId,
+        tableId: mainTable.id,
+        fieldId: linkFieldId,
+        field: { notNull: false },
+      });
+      const withoutLink = await ctx.createRecord(mainTable.id, {
+        [mainTitleFieldId]: 'No Link After Removal',
+      });
+      expect(withoutLink.id).toBeTruthy();
+    });
+  });
 });

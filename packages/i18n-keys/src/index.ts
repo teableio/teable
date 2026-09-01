@@ -1,15 +1,92 @@
-export const tableI18nKeys = {
-  validation: {
-    link: {
-      batch_duplicate: 'validation.link.batch_duplicate',
-      one_many_duplicate: 'validation.link.one_many_duplicate',
-      one_one_duplicate: 'validation.link.one_one_duplicate',
-    },
-    field: {
-      maxColumnLimit: 'validation.field.maxColumnLimit',
-      requiredExistingValues: 'validation.field.requiredExistingValues',
-    },
+/**
+ * User-facing error message keys in the frontend `sdk` locale namespace
+ * (common-i18n `sdk.json`). A v2 error attaches one of these (plus its
+ * interpolation context) as `localization` at the site where the error is
+ * created; every layer up to HTTP passes it through untouched.
+ */
+export const sdkErrorI18nKeys = {
+  custom: {
+    recordFieldValueNotNull: 'httpErrors.custom.recordFieldValueNotNull',
+    recordFieldValueDuplicate: 'httpErrors.custom.recordFieldValueDuplicate',
+    recordDeleteBlockedByRequiredLink: 'httpErrors.custom.recordDeleteBlockedByRequiredLink',
+    recordDeleteBlockedByRequiredLinkGeneric:
+      'httpErrors.custom.recordDeleteBlockedByRequiredLinkGeneric',
+    recordDeleteBlockedByLink: 'httpErrors.custom.recordDeleteBlockedByLink',
+    linkBatchDuplicate: 'httpErrors.custom.linkBatchDuplicate',
+    linkOneManyDuplicate: 'httpErrors.custom.linkOneManyDuplicate',
+    linkOneOneDuplicate: 'httpErrors.custom.linkOneOneDuplicate',
+    fieldMaxColumnLimit: 'httpErrors.custom.fieldMaxColumnLimit',
+    fieldRequiredExistingValues: 'httpErrors.custom.fieldRequiredExistingValues',
+    fieldUniqueExistingValues: 'httpErrors.custom.fieldUniqueExistingValues',
   },
+  user: {
+    notFound: 'httpErrors.user.notFound',
+  },
+  limit: {
+    fieldOptionsMaxBytes: 'httpErrors.limit.fieldOptionsMaxBytes',
+    selectChoicesMax: 'httpErrors.limit.selectChoicesMax',
+    selectChoiceNameMaxLength: 'httpErrors.limit.selectChoiceNameMaxLength',
+    selectDefaultValuesMax: 'httpErrors.limit.selectDefaultValuesMax',
+    cellValueMaxBytes: 'httpErrors.limit.cellValueMaxBytes',
+    recordFieldsMaxBytes: 'httpErrors.limit.recordFieldsMaxBytes',
+    recordsPerMutationMax: 'httpErrors.limit.recordsPerMutationMax',
+    computedCellValueMaxBytes: 'httpErrors.limit.computedCellValueMaxBytes',
+    formulaMaxLength: 'httpErrors.limit.formulaMaxLength',
+    tablesPerBaseMax: 'httpErrors.limit.tablesPerBaseMax',
+    fieldsPerTableMax: 'httpErrors.limit.fieldsPerTableMax',
+    rowsPerTableMax: 'httpErrors.limit.rowsPerTableMax',
+    viewsPerTableMax: 'httpErrors.limit.viewsPerTableMax',
+    createTableFieldsMax: 'httpErrors.limit.createTableFieldsMax',
+    createTableViewsMax: 'httpErrors.limit.createTableViewsMax',
+    createTableRecordsMax: 'httpErrors.limit.createTableRecordsMax',
+    viewFilterItemsMax: 'httpErrors.limit.viewFilterItemsMax',
+    viewFilterDepthMax: 'httpErrors.limit.viewFilterDepthMax',
+    viewSortItemsMax: 'httpErrors.limit.viewSortItemsMax',
+    viewGroupItemsMax: 'httpErrors.limit.viewGroupItemsMax',
+    viewOptionsMaxBytes: 'httpErrors.limit.viewOptionsMaxBytes',
+    nameMaxLength: 'httpErrors.limit.nameMaxLength',
+    descriptionMaxLength: 'httpErrors.limit.descriptionMaxLength',
+  },
+} as const;
+
+export type SdkErrorI18nKey =
+  | 'httpErrors.custom.recordFieldValueNotNull'
+  | 'httpErrors.user.notFound'
+  | 'httpErrors.custom.recordFieldValueDuplicate'
+  | 'httpErrors.custom.recordDeleteBlockedByRequiredLink'
+  | 'httpErrors.custom.recordDeleteBlockedByRequiredLinkGeneric'
+  | 'httpErrors.custom.recordDeleteBlockedByLink'
+  | 'httpErrors.custom.linkBatchDuplicate'
+  | 'httpErrors.custom.linkOneManyDuplicate'
+  | 'httpErrors.custom.linkOneOneDuplicate'
+  | 'httpErrors.custom.fieldMaxColumnLimit'
+  | 'httpErrors.custom.fieldRequiredExistingValues'
+  | 'httpErrors.custom.fieldUniqueExistingValues'
+  | 'httpErrors.limit.fieldOptionsMaxBytes'
+  | 'httpErrors.limit.selectChoicesMax'
+  | 'httpErrors.limit.selectChoiceNameMaxLength'
+  | 'httpErrors.limit.selectDefaultValuesMax'
+  | 'httpErrors.limit.cellValueMaxBytes'
+  | 'httpErrors.limit.recordFieldsMaxBytes'
+  | 'httpErrors.limit.recordsPerMutationMax'
+  | 'httpErrors.limit.computedCellValueMaxBytes'
+  | 'httpErrors.limit.formulaMaxLength'
+  | 'httpErrors.limit.tablesPerBaseMax'
+  | 'httpErrors.limit.fieldsPerTableMax'
+  | 'httpErrors.limit.rowsPerTableMax'
+  | 'httpErrors.limit.viewsPerTableMax'
+  | 'httpErrors.limit.createTableFieldsMax'
+  | 'httpErrors.limit.createTableViewsMax'
+  | 'httpErrors.limit.createTableRecordsMax'
+  | 'httpErrors.limit.viewFilterItemsMax'
+  | 'httpErrors.limit.viewFilterDepthMax'
+  | 'httpErrors.limit.viewSortItemsMax'
+  | 'httpErrors.limit.viewGroupItemsMax'
+  | 'httpErrors.limit.viewOptionsMaxBytes'
+  | 'httpErrors.limit.nameMaxLength'
+  | 'httpErrors.limit.descriptionMaxLength';
+
+export const tableI18nKeys = {
   field: {
     default: {
       singleLineText: {
@@ -81,11 +158,6 @@ export const tableI18nKeys = {
 } as const;
 
 export type TableI18nKey =
-  | 'validation.link.batch_duplicate'
-  | 'validation.link.one_many_duplicate'
-  | 'validation.link.one_one_duplicate'
-  | 'validation.field.maxColumnLimit'
-  | 'validation.field.requiredExistingValues'
   | 'field.default.singleLineText.title'
   | 'field.default.longText.title'
   | 'field.default.number.title'

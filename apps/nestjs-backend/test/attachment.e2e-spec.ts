@@ -57,6 +57,23 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     table = await createTable(baseId, { name: 'table1' });
   });
 
+  it('rejects signatures for backend-only cold archive upload types', async () => {
+    // these prefixes are written exclusively by the backend flushers; a
+    // client-signed upload could forge cold parts or burn untracked storage
+    for (const type of [
+      UploadType.RecordHistory,
+      UploadType.RecordRemoval,
+      UploadType.WorkflowRunCold,
+      UploadType.AuditLogCold,
+    ]) {
+      const error = await getSignature(
+        { type, contentLength: 10, contentType: 'application/octet-stream' },
+        undefined
+      ).catch((e) => e);
+      expect(error).toMatchObject({ status: 400 });
+    }
+  });
+
   afterEach(async () => {
     await permanentDeleteTable(baseId, table.id);
   });

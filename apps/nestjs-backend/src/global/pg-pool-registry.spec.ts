@@ -21,7 +21,7 @@ const createPoolFactory = () => {
 describe('PgPoolRegistry', () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it('shares one pool for the same physical database until the final lease is released', async () => {
+  it('shares unnamed callers for the same physical database until the final lease is released', async () => {
     const { factory, pools } = createPoolFactory();
     const registry = new PgPoolRegistry(factory);
     const baseUrl = 'postgresql://teable:secret@db.example.com:5432/teable';
@@ -41,6 +41,7 @@ describe('PgPoolRegistry', () => {
     });
     expect(registry.snapshot()).toEqual([
       expect.objectContaining({
+        applicationName: 'teable',
         database: 'teable',
         host: 'db.example.com',
         max: 32,
@@ -48,6 +49,7 @@ describe('PgPoolRegistry', () => {
         references: 2,
       }),
     ]);
+    expect(registry.snapshot()[0]).not.toHaveProperty('poolName');
 
     await meta.release();
     expect(pools[0]!.end).not.toHaveBeenCalled();
@@ -55,6 +57,88 @@ describe('PgPoolRegistry', () => {
     await data.release();
     expect(pools[0]!.end).toHaveBeenCalledOnce();
     expect(registry.snapshot()).toEqual([]);
+  });
+
+  it('shares one physical pool for the same database and pool name', async () => {
+    const { factory } = createPoolFactory();
+    const registry = new PgPoolRegistry(factory);
+    const databaseUrl = 'postgresql://teable:secret@db.example.com:5432/teable';
+    const options = {
+      applicationName: 'teable-observation',
+      connectionTimeoutMillis: 250,
+      max: 1,
+      poolName: 'observation',
+    };
+
+    const first = registry.acquire(databaseUrl, options);
+    const second = registry.acquire(databaseUrl, options);
+
+    expect(first.pool).toBe(second.pool);
+    expect(factory).toHaveBeenCalledOnce();
+    expect(registry.snapshot()).toEqual([
+      expect.objectContaining({
+        applicationName: 'teable-observation',
+        max: 1,
+        poolName: 'observation',
+        references: 2,
+      }),
+    ]);
+
+    await first.release();
+    await second.release();
+  });
+
+  it('isolates different pool names and applies their independent limits', async () => {
+    const { factory, pools } = createPoolFactory();
+    const registry = new PgPoolRegistry(factory);
+    const databaseUrl = 'postgresql://teable:secret@db.example.com:5432/teable';
+
+    const observation = registry.acquire(databaseUrl, {
+      applicationName: 'teable-observation',
+      connectionTimeoutMillis: 250,
+      max: 1,
+      poolName: 'observation',
+    });
+    const analytics = registry.acquire(databaseUrl, {
+      applicationName: 'teable-analytics',
+      connectionTimeoutMillis: 1500,
+      max: 4,
+      poolName: 'analytics',
+    });
+
+    expect(observation.pool).not.toBe(analytics.pool);
+    expect(factory).toHaveBeenCalledTimes(2);
+    expect(factory).toHaveBeenNthCalledWith(1, {
+      application_name: 'teable-observation',
+      connectionString: databaseUrl,
+      connectionTimeoutMillis: 250,
+      max: 1,
+    });
+    expect(factory).toHaveBeenNthCalledWith(2, {
+      application_name: 'teable-analytics',
+      connectionString: databaseUrl,
+      connectionTimeoutMillis: 1500,
+      max: 4,
+    });
+    expect(registry.snapshot()).toEqual([
+      expect.objectContaining({
+        applicationName: 'teable-analytics',
+        max: 4,
+        poolName: 'analytics',
+      }),
+      expect.objectContaining({
+        applicationName: 'teable-observation',
+        max: 1,
+        poolName: 'observation',
+      }),
+    ]);
+
+    await observation.release();
+    expect(pools[0]!.end).toHaveBeenCalledOnce();
+    expect(pools[1]!.end).not.toHaveBeenCalled();
+
+    await analytics.release();
+    expect(pools[1]!.end).toHaveBeenCalledOnce();
   });
 
   it('lets the process pool budget override legacy per-client connection limits', async () => {
