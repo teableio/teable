@@ -2462,6 +2462,103 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toContain('FILTER (WHERE "f"."col_tags" IS NOT NULL)');
     });
 
+    test('rollup array_unique scans foreign rows instead of nesting jsonb_agg', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } =
+        createRollupTable('array_unique({values})');
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
+      );
+
+      expect(sql).not.toContain('json_agg(DISTINCT');
+      expect(sql).toContain('row_number() over');
+      expect(sql).toContain('min("x"."pos")');
+      expect(sql).toContain('group by "x"."val"');
+    });
+
+    test('rollup array_unique projection does not scan f as a row source', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId, rollupFieldIds } =
+        createRollupTable('array_unique({values})');
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .select(rollupFieldIds)
+      );
+
+      expect(sql).toContain('row_number() over');
+      expect(sql).not.toMatch(/as "col_rollup" from "[^"]+"\."[^"]+" as "f"/);
+    });
+
+    test('rollup array_unique filter applies to the unique scan', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId, rollupFieldIds } = createRollupTable(
+        'array_unique({values})',
+        {
+          filter: {
+            conjunction: 'or',
+            filterSet: [
+              { fieldId: LOOKUP_TARGET_FIELD_ID, operator: 'is', value: 10 },
+              { fieldId: LOOKUP_TARGET_FIELD_ID, operator: 'is', value: 20 },
+            ],
+          },
+        }
+      );
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .select(rollupFieldIds)
+      );
+
+      expect(sql).toContain('"fu"."col_number" = $1');
+      expect(sql).toContain('"fu"."col_number" = $2');
+    });
+
+    test('rollup array_unique limit applies to the unique scan', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId, rollupFieldIds } = createRollupTable(
+        'array_unique({values})',
+        { limit: 1 }
+      );
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .select(rollupFieldIds)
+      );
+
+      expect(sql).toContain('row_number() over');
+      expect(sql).toMatch(/"limited"\."pos" <= \$/);
+      expect(sql).not.toContain('"fu"."col_number" is not null');
+      expect(sql).toContain('"x"."val" is not null');
+    });
+
+    test('rollup array_unique keeps empty strings', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } =
+        createRollupTable('array_unique({values})');
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
+      );
+
+      expect(sql).toContain('row_number() over');
+      expect(sql).not.toContain('cast("x"."val" as text) <> \'\'');
+    });
+
     test('returns NULL rollup when rollup foreign table mismatches link foreign table', () => {
       const db = createTestDb();
       const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
@@ -2886,6 +2983,49 @@ describe('ComputedTableRecordQueryBuilder', () => {
 
       // Simulate a persisted conditionalRollup whose aggregation source field
       // was deleted from the foreign table without hasError being set.
+      const rollupConfig = (
+        mainTable.getFields()[1] as unknown as { config: () => { lookupFieldId: () => FieldId } }
+      ).config();
+      rollupConfig.lookupFieldId = () => FieldId.create(missingFieldId)._unsafeUnwrap();
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const builder = new ComputedTableRecordQueryBuilder(db, {
+        foreignTables,
+        typeValidationStrategy,
+      }).from(mainTable);
+      const { sql } = compileQuery(db, builder);
+
+      expect(sql).toContain('NULL as "col_conditional_rollup"');
+      expect(builder.danglingFieldReferences()).toEqual([
+        {
+          fieldId: missingFieldId,
+          tableId: foreignTableId.toString(),
+          scene: 'rollup aggregation source field',
+        },
+      ]);
+    });
+
+    test('field-reference conditional rollup with a deleted source degrades to NULL', () => {
+      const db = createTestDb();
+      const missingFieldId = `fld${'z'.repeat(16)}`;
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable(
+        {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: FOREIGN_FILTER_FIELD_ID,
+                operator: 'is',
+                value: HOST_FILTER_FIELD_ID,
+                isSymbol: true,
+              },
+            ],
+          },
+          limit: 10,
+        },
+        { expression: 'countall({values})' }
+      );
+
       const rollupConfig = (
         mainTable.getFields()[1] as unknown as { config: () => { lookupFieldId: () => FieldId } }
       ).config();
@@ -3626,6 +3766,8 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toContain(
         'coalesce("cond_fldcccccccccccccccc"."__host_key", \'\'::text) = coalesce("t"."col_category_ref", \'\'::text)'
       );
+      expect(sql).not.toContain('"f".*');
+      expect(sql).toContain('"f"."__id"');
       expect(parameters).toEqual([10]);
     });
 
@@ -4038,6 +4180,237 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(parameters).toEqual([5000]);
     });
 
+    test('field-reference conditional lookup with a deleted source degrades to NULL', () => {
+      const db = createTestDb();
+      const missingFieldId = `fld${'z'.repeat(16)}`;
+      const { mainTable, foreignTable, foreignTableId } = createConditionalLookupTable('is');
+      const lookupOptions = (
+        mainTable.getFields()[1] as unknown as {
+          conditionalLookupOptions: () => { lookupFieldId: () => FieldId };
+        }
+      ).conditionalLookupOptions();
+      lookupOptions.lookupFieldId = () => FieldId.create(missingFieldId)._unsafeUnwrap();
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const builder = new ComputedTableRecordQueryBuilder(db, {
+        foreignTables,
+        typeValidationStrategy,
+      }).from(mainTable);
+      const { sql } = compileQuery(db, builder);
+
+      expect(sql).toContain('NULL::jsonb as "col_matching_tasks"');
+      expect(builder.danglingFieldReferences()).toEqual([
+        {
+          fieldId: missingFieldId,
+          tableId: foreignTableId.toString(),
+          scene: 'lookup aggregation source field',
+        },
+      ]);
+    });
+
+    test('ranked conditional lookup of createdBy projects snapshot and actor columns', () => {
+      const db = createTestDb();
+      const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+      const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
+      const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+      const createdByFieldId = FieldId.create(`fld${'b'.repeat(16)}`)._unsafeUnwrap();
+      const foreignKeyFieldId = FieldId.create(`fld${'k'.repeat(16)}`)._unsafeUnwrap();
+      const hostKeyFieldId = FieldId.create(`fld${'h'.repeat(16)}`)._unsafeUnwrap();
+      const conditionalLookupFieldId = FieldId.create(CONDITIONAL_LOOKUP_FIELD_ID)._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('CreatedByForeign')._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withId(foreignKeyFieldId)
+        .withName(FieldName.create('Key')._unsafeUnwrap())
+        .done();
+      foreignBuilder
+        .field()
+        .createdBy()
+        .withId(createdByFieldId)
+        .withName(FieldName.create('CreatedBy')._unsafeUnwrap())
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+      foreignTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_key')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      foreignTable
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_created_by')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      const createdByField = foreignTable
+        .getField((field) => field.id().equals(createdByFieldId))
+        ._unsafeUnwrap();
+
+      const options = ConditionalLookupOptions.create({
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: createdByFieldId.toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: foreignKeyFieldId.toString(),
+                operator: 'is',
+                value: hostKeyFieldId.toString(),
+                isSymbol: true,
+              },
+            ],
+          },
+        },
+      })._unsafeUnwrap();
+
+      const mainBuilder = Table.builder()
+        .withId(mainTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('CreatedByHost')._unsafeUnwrap());
+      mainBuilder
+        .field()
+        .singleLineText()
+        .withId(hostKeyFieldId)
+        .withName(FieldName.create('Key')._unsafeUnwrap())
+        .done();
+      mainBuilder
+        .field()
+        .conditionalLookup()
+        .withId(conditionalLookupFieldId)
+        .withName(FieldName.create('Creators')._unsafeUnwrap())
+        .withConditionalLookupOptions(options)
+        .withInnerField(createdByField)
+        .done();
+      mainBuilder.view().defaultGrid().done();
+      const mainTable = mainBuilder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
+      mainTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_key')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      mainTable
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_creators')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, {
+          foreignTables: new Map([[foreignTableId.toString(), foreignTable]]),
+          typeValidationStrategy,
+        }).from(mainTable)
+      );
+
+      expect(sql).not.toContain('"f".*');
+      expect(sql).toContain('"f"."col_created_by"');
+      expect(sql).toContain('"f"."__created_by"');
+      expect(sql).toContain('"f"."__id"');
+      expect(sql).toContain('row_number() over');
+    });
+
+    test('ranked conditional lookup of lastModifiedTime projects the system column', () => {
+      const db = createTestDb();
+      const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+      const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
+      const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+      const lastModifiedTimeFieldId = FieldId.create(`fld${'w'.repeat(16)}`)._unsafeUnwrap();
+      const foreignKeyFieldId = FieldId.create(`fld${'n'.repeat(16)}`)._unsafeUnwrap();
+      const hostKeyFieldId = FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap();
+      const conditionalLookupFieldId = FieldId.create(CONDITIONAL_LOOKUP_FIELD_ID)._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('LastModifiedForeign')._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withId(foreignKeyFieldId)
+        .withName(FieldName.create('Key')._unsafeUnwrap())
+        .done();
+      foreignBuilder
+        .field()
+        .lastModifiedTime()
+        .withId(lastModifiedTimeFieldId)
+        .withName(FieldName.create('LastModifiedTime')._unsafeUnwrap())
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+      foreignTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_key')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      foreignTable
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_last_modified_time')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      const lastModifiedTimeField = foreignTable
+        .getField((field) => field.id().equals(lastModifiedTimeFieldId))
+        ._unsafeUnwrap();
+
+      const options = ConditionalLookupOptions.create({
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lastModifiedTimeFieldId.toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: foreignKeyFieldId.toString(),
+                operator: 'is',
+                value: hostKeyFieldId.toString(),
+                isSymbol: true,
+              },
+            ],
+          },
+        },
+      })._unsafeUnwrap();
+
+      const mainBuilder = Table.builder()
+        .withId(mainTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('LastModifiedHost')._unsafeUnwrap());
+      mainBuilder
+        .field()
+        .singleLineText()
+        .withId(hostKeyFieldId)
+        .withName(FieldName.create('Key')._unsafeUnwrap())
+        .done();
+      mainBuilder
+        .field()
+        .conditionalLookup()
+        .withId(conditionalLookupFieldId)
+        .withName(FieldName.create('ModifiedAt')._unsafeUnwrap())
+        .withConditionalLookupOptions(options)
+        .withInnerField(lastModifiedTimeField)
+        .done();
+      mainBuilder.view().defaultGrid().done();
+      const mainTable = mainBuilder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
+      mainTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_key')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      mainTable
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_modified_at')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, {
+          foreignTables: new Map([[foreignTableId.toString(), foreignTable]]),
+          typeValidationStrategy,
+        }).from(mainTable)
+      );
+
+      expect(sql).not.toContain('"f".*');
+      expect(sql).toContain('"f"."__last_modified_time"');
+      expect(sql).toContain('"f"."__id"');
+      expect(sql).toContain('row_number() over');
+    });
+
     test('conditional lookup with isNotEmpty residual filter keeps the ranked set-based join', () => {
       const db = createTestDb();
       const { mainTable, foreignTable, foreignTableId } = createConditionalLookupTable('is', {
@@ -4292,6 +4665,10 @@ describe('ComputedTableRecordQueryBuilder', () => {
         expect(compiled.sql).toContain(
           'coalesce("cond_fldqqqqqqqqqqqqqqqq"."__host_key", \'\'::text) = coalesce("t"."lookup_a_key", \'\'::text)'
         );
+        expect(compiled.sql).not.toContain('"f".*');
+        expect(compiled.sql).toContain('"f"."a_value"');
+        expect(compiled.sql).toContain('"f"."__id"');
+        expect(compiled.sql).toContain('"f"."__auto_number"');
         expect(compiled.sql.match(/= ANY\(\$\d+::text\[\]\)/g)).toHaveLength(2);
         expect(compiled.parameters).toEqual([
           mainTableId.toString(),

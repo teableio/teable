@@ -32,6 +32,20 @@ import {
   getRecord,
 } from './utils/init-app';
 
+const withForceV2All = async <T>(callback: () => Promise<T>) => {
+  const previousForceV2All = process.env.FORCE_V2_ALL;
+  process.env.FORCE_V2_ALL = 'true';
+  try {
+    return await callback();
+  } finally {
+    if (previousForceV2All == null) {
+      delete process.env.FORCE_V2_ALL;
+    } else {
+      process.env.FORCE_V2_ALL = previousForceV2All;
+    }
+  }
+};
+
 // All kind of field type (except link)
 const defaultFields: IFieldRo[] = [
   {
@@ -1418,6 +1432,81 @@ describe('OpenAPI Rollup field (e2e)', () => {
         await permanentDeleteTable(baseId, host.id);
         await permanentDeleteTable(baseId, foreign.id);
       }
+    });
+
+    it.each([
+      {
+        name: 'number + and',
+        foreignFields: [{ name: 'Amount', type: FieldType.Number }],
+        lookupName: 'Amount',
+        expression: 'and({values})',
+      },
+      {
+        name: 'checkbox + sum',
+        foreignFields: [{ name: 'Flag', type: FieldType.Checkbox }],
+        lookupName: 'Flag',
+        expression: 'sum({values})',
+      },
+      {
+        name: 'button + countall',
+        foreignFields: [
+          {
+            name: 'Action',
+            type: FieldType.Button,
+            options: { label: 'Run', color: Colors.Teal },
+          },
+        ],
+        lookupName: 'Action',
+        expression: 'countall({values})',
+      },
+    ])('rejects incompatible rollup create via API: $name', async (testCase) => {
+      await withForceV2All(async () => {
+        const foreign = await createTable(baseId, {
+          name: `RollupRejectForeign ${testCase.name}`,
+          fields: testCase.foreignFields as IFieldRo[],
+        });
+        const host = await createTable(baseId, {
+          name: `RollupRejectHost ${testCase.name}`,
+          fields: [{ name: 'Label', type: FieldType.SingleLineText } as IFieldRo],
+        });
+        const lookupFieldId = foreign.fields.find(
+          (field) => field.name === testCase.lookupName
+        )!.id;
+
+        try {
+          const linkField = await createField(host.id, {
+            name: 'Children',
+            type: FieldType.Link,
+            options: {
+              relationship: Relationship.OneMany,
+              foreignTableId: foreign.id,
+            },
+          } as IFieldRo);
+
+          await createField(
+            host.id,
+            {
+              name: 'Illegal Rollup',
+              type: FieldType.Rollup,
+              options: {
+                expression: testCase.expression,
+              },
+              lookupOptions: {
+                foreignTableId: foreign.id,
+                linkFieldId: linkField.id,
+                lookupFieldId,
+              } as ILookupOptionsRo,
+            } as IFieldRo,
+            400
+          );
+
+          const fields = await getFields(host.id);
+          expect(fields.find((field) => field.name === 'Illegal Rollup')).toBeUndefined();
+        } finally {
+          await permanentDeleteTable(baseId, host.id);
+          await permanentDeleteTable(baseId, foreign.id);
+        }
+      });
     });
   });
 

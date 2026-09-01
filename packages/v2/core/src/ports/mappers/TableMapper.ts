@@ -185,6 +185,7 @@ export type IRollupFieldConfigDTO = {
 };
 
 export type IConditionalRollupFieldConfigDTO = {
+  baseId?: string;
   foreignTableId: string;
   lookupFieldId: string;
   condition: IFieldConditionDTO;
@@ -198,6 +199,7 @@ export type IConditionalRollupFieldOptionsDTO = {
 };
 
 export type IConditionalLookupOptionsDTO = {
+  baseId?: string;
   foreignTableId: string;
   lookupFieldId: string;
   condition: IFieldConditionDTO;

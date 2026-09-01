@@ -494,6 +494,28 @@ const normalizeFieldReferenceScalar = (
   return sql`(to_jsonb(${rightColumnRef}) #>> '{}')::${sql.raw(castType)}`;
 };
 
+// When both sides are trusted matching scalars (TEXT/REAL/BOOLEAN), compare
+// columns bare so btree equality wins over gin_trgm. Wrap the host side only
+// when its physical type is unknown or drift-prone.
+const compareTrustedScalarFieldReference = (
+  columnRef: RecordConditionWhere,
+  rightColumnRef: RecordConditionWhere,
+  field: core.Field,
+  referenceField: core.Field,
+  operator: 'eq' | 'distinct'
+): RecordConditionWhere | undefined => {
+  const sargableCast = resolveSargableFieldReferenceCast(field);
+  if (!sargableCast) return undefined;
+  const hostCast = resolveSargableFieldReferenceCast(referenceField);
+  const right =
+    hostCast === sargableCast
+      ? rightColumnRef
+      : normalizeFieldReferenceScalar(rightColumnRef, sargableCast);
+  return operator === 'eq'
+    ? sql`${columnRef} = ${right}`
+    : sql`${columnRef} is distinct from ${right}`;
+};
+
 const classifyFieldReferenceComparison = (
   field: core.Field,
   referenceField: core.Field,
@@ -856,20 +878,18 @@ const buildIsCondition = (
         !isMultipleRaw &&
         !(yield* fieldIsMultiple(referenceField))
       ) {
-        // Compare via to_jsonb: the route is classified from field metadata
-        // only, and v1-era metadata drift can leave a physical jsonb column
-        // behind a scalar-typed field. A bare `=` then fails with
-        // `operator does not exist: jsonb = text`; jsonb comparison keeps
-        // numeric equality semantics and tolerates the drift. But wrapping the
-        // filtered column defeats its index and turns conditional-lookup
-        // backfills into per-row seq scans (T6821), so when the filtered
-        // column's type is trustworthy keep it bare and normalize only the
-        // reference side.
-        const sargableCast = resolveSargableFieldReferenceCast(field);
-        if (sargableCast) {
-          return ok(
-            sql`${columnRef} = ${normalizeFieldReferenceScalar(rightColumnRef, sargableCast)}`
-          );
+        // Keep the filtered column bare (T6821). When the host column is the
+        // same trusted scalar, skip the jsonb wrap so btree equality is chosen
+        // over gin_trgm on large TEXT matches.
+        const comparison = compareTrustedScalarFieldReference(
+          columnRef,
+          rightColumnRef,
+          field,
+          referenceField,
+          'eq'
+        );
+        if (comparison) {
+          return ok(comparison);
         }
         return ok(sql`to_jsonb(${columnRef}) = to_jsonb(${rightColumnRef})`);
       }
@@ -1038,11 +1058,15 @@ const buildIsNotCondition = (
       // See buildIsCondition: metadata drift makes a bare comparison unsafe,
       // but a trusted scalar column stays bare so its index remains usable.
       if (!isMultipleRaw && !(yield* fieldIsMultiple(referenceField))) {
-        const sargableCast = resolveSargableFieldReferenceCast(field);
-        if (sargableCast) {
-          return ok(
-            sql`${columnRef} is distinct from ${normalizeFieldReferenceScalar(rightColumnRef, sargableCast)}`
-          );
+        const comparison = compareTrustedScalarFieldReference(
+          columnRef,
+          rightColumnRef,
+          field,
+          referenceField,
+          'distinct'
+        );
+        if (comparison) {
+          return ok(comparison);
         }
       }
       return ok(sql`to_jsonb(${columnRef}) is distinct from to_jsonb(${rightColumnRef})`);
@@ -1148,6 +1172,22 @@ const buildContainsCondition = (
   });
 };
 
+const coerceNumericLiteral = (value: Primitive): Result<number, DomainError> => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return ok(value);
+  }
+  // v1 filter query uses Number(value) for CellValueType.Number. AutoNumber
+  // (and other number-like fields whose filter UI is a text input) send
+  // comparison values as strings.
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return ok(parsed);
+    }
+  }
+  return err(core.domainError.unexpected({ message: 'Record condition requires numeric value' }));
+};
+
 const buildNumericComparisonCondition = (
   field: core.Field,
   value: core.RecordConditionValue | undefined,
@@ -1163,17 +1203,12 @@ const buildNumericComparisonCondition = (
       return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
     const column = yield* resolveColumn(field, tableAlias);
     const operand = yield* resolvePrimitiveOperand(value, tableAlias, hostTableAlias);
-    if (operand.kind === 'literal' && typeof operand.value !== 'number') {
-      return err(
-        core.domainError.unexpected({ message: 'Record condition requires numeric value' })
-      );
-    }
     const columnRef = sql.ref(column);
     const isMultiple = isArrayLikeOutputField(field, yield* fieldIsMultiple(field));
     const right =
       operand.kind === 'field'
         ? buildNumericOperand(sql.ref(operand.column))
-        : sql`${operand.value}`;
+        : sql`${yield* coerceNumericLiteral(operand.value)}`;
     if (isMultiple || fieldIsJson(field)) {
       const normalizedArray = normalizeToJsonArray(columnRef);
       const elementNumeric = sql`NULLIF(REGEXP_REPLACE(elem, '[^0-9.+-]', '', 'g'), '')::double precision`;

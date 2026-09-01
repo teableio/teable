@@ -73,7 +73,10 @@ import { UserMultiplicity } from '../domain/table/fields/types/UserMultiplicity'
 import { UserNotification } from '../domain/table/fields/types/UserNotification';
 import { FieldOptionsDtoVisitor } from '../domain/table/fields/visitors/FieldOptionsDtoVisitor';
 import { FieldValueTypeVisitor } from '../domain/table/fields/visitors/FieldValueTypeVisitor';
-import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
+import {
+  toLinkForeignTableReference,
+  type LinkForeignTableReference,
+} from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { ForeignTable } from '../domain/table/ForeignTable';
 import {
   UpdateButtonColorSpec,
@@ -1412,6 +1415,9 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
             };
 
       return ConditionalLookupOptions.create({
+        ...(typeof optionsRaw.baseId === 'string' && optionsRaw.baseId
+          ? { baseId: optionsRaw.baseId }
+          : {}),
         foreignTableId: optionsRaw.foreignTableId,
         lookupFieldId: optionsRaw.lookupFieldId,
         condition: normalizedCondition,
@@ -1428,6 +1434,7 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
       }
 
       const reservedKeys = new Set([
+        'baseId',
         'foreignTableId',
         'lookupFieldId',
         'condition',
@@ -1508,7 +1515,9 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
 
   foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     if (this.optionsValue) {
-      return ok([{ foreignTableId: this.optionsValue.foreignTableId() }]);
+      return ok([
+        toLinkForeignTableReference(this.optionsValue.foreignTableId(), this.optionsValue.baseId()),
+      ]);
     }
     return ok([]);
   }
@@ -1817,8 +1826,7 @@ class UpdateConditionalRollupFieldSpec implements IUpdateTableFieldSpec {
             if (clearedConditionResult.isErr()) return err(clearedConditionResult.error);
 
             const clearedConfigResult = ConditionalRollupConfig.create({
-              foreignTableId: nextConfig.foreignTableId().toString(),
-              lookupFieldId: nextConfig.lookupFieldId().toString(),
+              ...nextConfig.toDto(),
               condition: clearedConditionResult.value.toDto(),
             });
             if (clearedConfigResult.isErr()) return err(clearedConfigResult.error);
@@ -1940,7 +1948,9 @@ class UpdateConditionalRollupFieldSpec implements IUpdateTableFieldSpec {
 
   foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     if (this.configValue) {
-      return ok([{ foreignTableId: this.configValue.foreignTableId() }]);
+      return ok([
+        toLinkForeignTableReference(this.configValue.foreignTableId(), this.configValue.baseId()),
+      ]);
     }
     return ok([]);
   }

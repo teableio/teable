@@ -224,8 +224,11 @@ export const getRecordsRoSchema = getRecordQuerySchema.extend(contentQueryBaseSc
       example: 0,
       description: 'The records count you want to skip',
     }),
+  cursor: z.string().min(1).optional().meta({
+    description:
+      'Keyset cursor for the next page when records are ordered by __auto_number ascending. Cannot be combined with skip > 0.',
+  }),
 });
-
 export type IGetRecordsRo = z.infer<typeof getRecordsRoSchema>;
 
 export const recordsSchema = recordSchema.array().meta({
@@ -272,6 +275,9 @@ export const recordsVoSchema = z.object({
         .meta({
           description: 'The index of the records that match the search, highlight the records',
         }),
+      nextCursor: z.string().min(1).optional().meta({
+        description: 'Keyset cursor for fetching the next page without OFFSET',
+      }),
     })
     .optional(),
 });

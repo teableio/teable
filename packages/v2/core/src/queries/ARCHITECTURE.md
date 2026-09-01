@@ -44,7 +44,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
   Table aggregate, execute its copy plan through the existing Table Record repository, and format
   the selected v2 Field values as clipboard text.
 - `ListTableRecordsHandler.ts` - Role: query handler; Purpose: load records for a table.
-- `ListTableRecordsQuery.ts` - Role: query DTO; Purpose: validate baseId/tableId and optional record filters.
+- `ListTableRecordsQuery.ts` - Role: query DTO; Purpose: validate tableId, filter, offset/cursor pagination, and projection. `includeTotal` defaults off; `cursor` is keyset on `__auto_number` asc and cannot mix with offset.
 - `CountTableRecordsHandler.ts` - Role: query handler; Purpose: count rows for a table without fetching records.
 - `CountTableRecordsQuery.ts` - Role: query DTO; Purpose: validate table/view/filter/search/link inputs for row counts.
 - `GetRecordStatusQuery.ts` - Role: query DTO; Purpose: validate Table/Record IDs plus the

@@ -39,8 +39,7 @@ const listAllRecords = async (ctx: SharedTestContext, tableId: string) => {
       offset,
     });
     records.push(...page.records);
-
-    if (records.length >= page.pagination.total || page.records.length === 0) {
+    if (page.records.length < pageSize) {
       break;
     }
   }

@@ -1631,7 +1631,8 @@ describe('v2 http createField (e2e)', () => {
         lookupFieldId: lookup.id,
         cellValueType: lookup.cellValueType,
         expression,
-        expectOk: rollupFunctionSupport[lookup.cellValueType].has(expression),
+        expectOk:
+          lookup.type !== 'button' && rollupFunctionSupport[lookup.cellValueType].has(expression),
       }))
     );
 
@@ -1708,7 +1709,7 @@ describe('v2 http createField (e2e)', () => {
       }
     });
 
-    test.each(rollupCases)('creates rollup field for $caseLabel', async (entry) => {
+    test.each(rollupCases)('validates rollup create for $caseLabel', async (entry) => {
       const rollupFieldId = createFieldId();
       const response = await fetch(`${ctx.baseUrl}/tables/createField`, {
         method: 'POST',
@@ -1731,6 +1732,13 @@ describe('v2 http createField (e2e)', () => {
       });
 
       const rawBody = await response.json();
+      if (!entry.expectOk) {
+        expect(response.status).toBe(400);
+        const parsed = createFieldErrorResponseSchema.safeParse(rawBody);
+        expect(parsed.success).toBe(true);
+        return;
+      }
+
       if (response.status !== 200) {
         throw new Error(`CreateField failed for rollup: ${JSON.stringify(rawBody)}`);
       }
@@ -1744,10 +1752,6 @@ describe('v2 http createField (e2e)', () => {
       if (!created || created.type !== 'rollup') return;
       expect(created.options.expression).toBe(entry.expression);
       expect(created.config.lookupFieldId).toBe(entry.lookupFieldId);
-      if (!entry.expectOk) {
-        expect(created.hasError).toBe(true);
-        return;
-      }
       expect(created.hasError).toBeUndefined();
     });
   });
@@ -2762,7 +2766,7 @@ describe('v2 http createField (e2e)', () => {
 
         const rollupField = await createFieldAndGet(hostTable.id, {
           type: 'rollup',
-          options: { expression: 'sum({values})' },
+          options: { expression: 'countall({values})' },
           config: {
             linkFieldId: linkField.id,
             foreignTableId: foreignTable.id,

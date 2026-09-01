@@ -817,6 +817,95 @@ describe('v2 http conditional lookup (e2e)', () => {
       activeRecord = hostRecords[0];
       expect(activeRecord.fields[lookupFieldId]).toEqual(['Alpha', 'Beta']);
     });
+
+    it('refreshes ARRAY_JOIN formula after a later foreign insert fills the lookup', async () => {
+      const foreignOrderIdFieldId = createFieldId();
+      const foreignNameFieldId = createFieldId();
+      const foreign = await createTable({
+        baseId: ctx.baseId,
+        name: 'FormulaAfterLookup_LineItems',
+        fields: [
+          {
+            type: 'number',
+            id: foreignOrderIdFieldId,
+            name: 'Order Id',
+            options: { formatting: { type: 'decimal', precision: 0 } },
+          },
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Product Name' },
+        ],
+      });
+
+      const hostNumberFieldId = createFieldId();
+      const host = await createTable({
+        baseId: ctx.baseId,
+        name: 'FormulaAfterLookup_Orders',
+        fields: [{ type: 'singleLineText', id: hostNumberFieldId, name: 'Number' }],
+      });
+
+      const hostOrderIdFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'formula',
+        id: hostOrderIdFieldId,
+        name: 'Order Id',
+        options: {
+          expression: `IF(REGEXP_REPLACE({${hostNumberFieldId}}, "[0-9]", "") = "", VALUE({${hostNumberFieldId}}), BLANK())`,
+        },
+      });
+
+      const lookupFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'conditionalLookup',
+        id: lookupFieldId,
+        name: 'Product Names',
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: foreignNameFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: foreignOrderIdFieldId,
+                  operator: 'is',
+                  value: hostOrderIdFieldId,
+                  isSymbol: true,
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      const displayFieldId = createFieldId();
+      await createField(host.id, {
+        type: 'formula',
+        id: displayFieldId,
+        name: 'Product Names Display',
+        options: {
+          expression: `IF(COUNTA({${lookupFieldId}}) > 0, ARRAY_JOIN({${lookupFieldId}}, "\\n"), BLANK())`,
+        },
+      });
+
+      const hostRecord = await createRecord(host.id, { [hostNumberFieldId]: '1001' });
+      await drainOutbox();
+
+      let hostRecords = await listRecords(host.id);
+      let record = hostRecords.find((row) => row.id === hostRecord.id);
+      expect(record?.fields[hostOrderIdFieldId]).toBe(1001);
+      expect(record?.fields[lookupFieldId] ?? null).toBeNull();
+      expect(record?.fields[displayFieldId] ?? null).toBeNull();
+
+      await createRecord(foreign.id, {
+        [foreignOrderIdFieldId]: 1001,
+        [foreignNameFieldId]: 'Widget Alpha',
+      });
+      await drainOutbox();
+
+      hostRecords = await listRecords(host.id);
+      record = hostRecords.find((row) => row.id === hostRecord.id);
+      expect(record?.fields[lookupFieldId]).toEqual(['Widget Alpha']);
+      expect(record?.fields[displayFieldId]).toBe('Widget Alpha');
+    });
   });
 
   describe('date field reference filters', () => {

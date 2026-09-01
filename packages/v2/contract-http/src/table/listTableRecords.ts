@@ -30,6 +30,8 @@ export interface IListTableRecordsPaginationDto {
   limit: number;
   /** Whether there are more records after this page */
   hasMore: boolean;
+  /** Keyset cursor for the next page when order is `__auto_number` asc */
+  nextCursor?: string;
 }
 
 export interface IListTableRecordsResponseDataDto {
@@ -67,6 +69,7 @@ export const listTableRecordsPaginationSchema = z.object({
   offset: z.number().int().nonnegative(),
   limit: z.number().int().positive(),
   hasMore: z.boolean(),
+  nextCursor: z.string().min(1).optional(),
 });
 
 export const listTableRecordsGroupSchema = z.object({
@@ -102,7 +105,8 @@ export const mapListTableRecordsResultToDto = (
       total: result.total,
       offset: result.offset,
       limit: result.limit,
-      hasMore: result.offset + records.length < result.total,
+      hasMore: result.hasMore ?? result.offset + records.length < result.total,
+      ...(result.nextCursor ? { nextCursor: result.nextCursor } : {}),
     },
     ...(result.groups
       ? { groups: result.groups.map(({ fields, count }) => ({ fields: { ...fields }, count })) }

@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { BaseId } from '../../../base/BaseId';
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import { composeAndSpecsOrUndefined } from '../../../shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
@@ -239,6 +240,10 @@ export class ConditionalLookupField
    */
   foreignTableId(): TableId {
     return this.conditionalLookupOptionsValue.foreignTableId();
+  }
+
+  baseId(): BaseId | undefined {
+    return this.conditionalLookupOptionsValue.baseId();
   }
 
   /**

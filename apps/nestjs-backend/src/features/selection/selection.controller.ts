@@ -481,6 +481,8 @@ export class SelectionController {
     @Body(new ZodValidationPipe(pasteByIdRoSchema), TqlPipe) pasteRo: IPasteByIdRo,
     @Headers('x-window-id') windowId?: string
   ): Promise<IPasteByIdVo> {
+    await this.shareViewScopeService.assertPasteById(tableId, pasteRo);
+
     if (this.cls.get('useV2')) {
       return this.pasteByIdWithV2(tableId, pasteRo);
     }
@@ -527,6 +529,8 @@ export class SelectionController {
     @Body(new ZodValidationPipe(clearByIdRoSchema), TqlPipe) clearRo: IClearByIdRo,
     @Headers('x-window-id') windowId?: string
   ) {
+    await this.shareViewScopeService.assertSelectionIdMutation(tableId, clearRo);
+
     if (this.cls.get('useV2')) {
       const recordIds = await this.recordOpenApiV2Service.resolveRecordIdsBySelection(
         tableId,
@@ -580,6 +584,8 @@ export class SelectionController {
     @Body(new ZodValidationPipe(selectionIdsRoSchema), TqlPipe) selectionRo: ISelectionIdsRo,
     @Res() response: Response
   ): Promise<void> {
+    await this.shareViewScopeService.assertSelectionIdMutation(tableId, selectionRo);
+
     const stream = await this.recordOpenApiV2Service.clearByIdStream(tableId, selectionRo);
 
     await this.streamSelectionResponse<IClearSelectionStreamEvent>(response, stream, (message) => ({
@@ -622,6 +628,8 @@ export class SelectionController {
     @Body(new ZodValidationPipe(deleteByIdRoSchema), TqlPipe) deleteRo: IDeleteByIdRo,
     @Headers('x-window-id') windowId?: string
   ): Promise<IDeleteVo> {
+    await this.shareViewScopeService.assertSelectionIdMutation(tableId, deleteRo);
+
     if (this.cls.get('useV2')) {
       const recordIds = await this.recordOpenApiV2Service.resolveRecordIdsBySelection(
         tableId,
@@ -851,6 +859,8 @@ export class SelectionController {
     @Body(new ZodValidationPipe(selectionIdsRoSchema), TqlPipe) selectionRo: ISelectionIdsRo,
     @Res() response: Response
   ): Promise<void> {
+    await this.shareViewScopeService.assertSelectionIdMutation(tableId, selectionRo);
+
     const stream = await this.recordOpenApiV2Service.deleteByIdStream(tableId, selectionRo);
 
     await this.streamSelectionResponse<IDeleteSelectionStreamEvent>(
@@ -905,6 +915,8 @@ export class SelectionController {
     @Headers('x-window-id') windowId: string | undefined,
     @Res() response: Response
   ): Promise<void> {
+    await this.shareViewScopeService.assertPasteById(tableId, pasteRo);
+
     const stream = await this.recordOpenApiV2Service.pasteByIdStream(tableId, pasteRo, {
       windowId,
     });

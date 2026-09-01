@@ -289,6 +289,7 @@ export class FieldOpenApiV2Service {
           raw.options && typeof raw.options === 'object' && !Array.isArray(raw.options)
             ? { ...(raw.options as Record<string, unknown>) }
             : {};
+        if (config.baseId != null) opts.baseId = config.baseId;
         if (config.foreignTableId != null) opts.foreignTableId = config.foreignTableId;
         if (config.lookupFieldId != null) opts.lookupFieldId = config.lookupFieldId;
         if (condition) {
@@ -308,6 +309,7 @@ export class FieldOpenApiV2Service {
       const conditionalOptions = raw.conditionalLookupOptions as Record<string, unknown>;
       const condition = conditionalOptions.condition as Record<string, unknown> | undefined;
       const lookupOptions: Record<string, unknown> = {};
+      if (conditionalOptions.baseId != null) lookupOptions.baseId = conditionalOptions.baseId;
       if (conditionalOptions.foreignTableId != null)
         lookupOptions.foreignTableId = conditionalOptions.foreignTableId;
       if (conditionalOptions.lookupFieldId != null)
@@ -337,6 +339,7 @@ export class FieldOpenApiV2Service {
       if (v2Options) {
         const condition = v2Options.condition as Record<string, unknown> | undefined;
         const lookupOptions: Record<string, unknown> = {};
+        if (v2Options.baseId != null) lookupOptions.baseId = v2Options.baseId;
         if (v2Options.foreignTableId != null)
           lookupOptions.foreignTableId = v2Options.foreignTableId;
         if (v2Options.lookupFieldId != null) lookupOptions.lookupFieldId = v2Options.lookupFieldId;
@@ -597,6 +600,7 @@ export class FieldOpenApiV2Service {
       })
     );
     await this.overlayStoredPendingState(fields);
+    await this.hydrateConditionalCrossBaseIds(tableId, fields);
 
     if (query.projection) {
       const fieldById = new Map(fields.map((field) => [field.id, field] as const));
@@ -707,6 +711,7 @@ export class FieldOpenApiV2Service {
     this.enrichLookupLinkMetadata(vo, (linkFieldId) => fieldDtoById.get(linkFieldId));
     await this.hydrateLookupFieldVo(vo, queryContext);
     await this.overlayStoredPendingState([vo]);
+    await this.hydrateConditionalCrossBaseIds(tableId, [vo]);
     return vo;
   }
 
@@ -739,6 +744,71 @@ export class FieldOpenApiV2Service {
       } else {
         delete vo.isPending;
       }
+    }
+  }
+
+  private async hydrateConditionalCrossBaseIds(
+    tableId: string,
+    fields: ReadonlyArray<IFieldVo>
+  ): Promise<void> {
+    const targets: Array<{
+      foreignTableId: string;
+      assign: (baseId: string) => void;
+    }> = [];
+
+    for (const vo of fields) {
+      if (vo.type === FieldType.ConditionalRollup) {
+        this.collectMissingCrossBaseTarget(vo.options, targets, (baseId) => {
+          (vo.options as Record<string, unknown>).baseId = baseId;
+        });
+      }
+
+      if (vo.isConditionalLookup) {
+        this.collectMissingCrossBaseTarget(vo.lookupOptions, targets, (baseId) => {
+          (vo.lookupOptions as Record<string, unknown>).baseId = baseId;
+        });
+      }
+    }
+
+    if (targets.length === 0) {
+      return;
+    }
+
+    const host = await this.prismaService.txClient().tableMeta.findUnique({
+      where: { id: tableId },
+      select: { baseId: true },
+    });
+    const foreignIds = [...new Set(targets.map((target) => target.foreignTableId))];
+    const foreignTables = await this.prismaService.txClient().tableMeta.findMany({
+      where: { id: { in: foreignIds } },
+      select: { id: true, baseId: true },
+    });
+    const baseIdByTableId = new Map(foreignTables.map((table) => [table.id, table.baseId]));
+
+    for (const target of targets) {
+      const foreignBaseId = baseIdByTableId.get(target.foreignTableId);
+      if (foreignBaseId && foreignBaseId !== host?.baseId) {
+        target.assign(foreignBaseId);
+      }
+    }
+  }
+
+  private collectMissingCrossBaseTarget(
+    options: unknown,
+    targets: Array<{
+      foreignTableId: string;
+      assign: (baseId: string) => void;
+    }>,
+    assign: (baseId: string) => void
+  ): void {
+    const record =
+      options && typeof options === 'object' && !Array.isArray(options)
+        ? (options as Record<string, unknown>)
+        : undefined;
+    const foreignTableId =
+      typeof record?.foreignTableId === 'string' ? record.foreignTableId : undefined;
+    if (foreignTableId && typeof record?.baseId !== 'string') {
+      targets.push({ foreignTableId, assign });
     }
   }
 
@@ -1263,6 +1333,7 @@ export class FieldOpenApiV2Service {
           ? { isMultipleCellValue: field.isMultipleCellValue }
           : {}),
         options: {
+          ...(lookupOpts?.baseId != null ? { baseId: lookupOpts.baseId } : {}),
           ...(lookupOpts?.foreignTableId != null
             ? { foreignTableId: lookupOpts.foreignTableId }
             : {}),
@@ -1401,6 +1472,7 @@ export class FieldOpenApiV2Service {
         ...(shouldIncludeConfig
           ? {
               config: {
+                ...(opts.baseId != null ? { baseId: opts.baseId } : {}),
                 foreignTableId: opts.foreignTableId,
                 lookupFieldId: opts.lookupFieldId,
                 condition,
@@ -2339,6 +2411,7 @@ export class FieldOpenApiV2Service {
         ...(shouldIncludeConfig
           ? {
               config: {
+                ...(opts.baseId != null ? { baseId: opts.baseId } : {}),
                 foreignTableId: opts.foreignTableId,
                 lookupFieldId: opts.lookupFieldId,
                 condition,
@@ -2363,6 +2436,7 @@ export class FieldOpenApiV2Service {
           ? (currentField.lookupOptions as Record<string, unknown>)
           : undefined;
       const normalizeConditionalLookupConfig = (value?: Record<string, unknown>) => ({
+        baseId: value?.baseId,
         foreignTableId: value?.foreignTableId,
         lookupFieldId: value?.lookupFieldId,
         filter: value?.filter ?? null,
@@ -2406,6 +2480,7 @@ export class FieldOpenApiV2Service {
         options: {
           ...(lookupOpts && shouldUpdateCondition
             ? {
+                ...(lookupOpts.baseId != null ? { baseId: lookupOpts.baseId } : {}),
                 foreignTableId: lookupOpts.foreignTableId,
                 lookupFieldId: lookupOpts.lookupFieldId,
                 condition: {

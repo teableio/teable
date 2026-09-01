@@ -682,6 +682,59 @@ describe('FieldOpenApiV2Service mapConvertFieldToV2', () => {
     });
   });
 
+  it('preserves cross-base id on conditionalRollup convert (T7064)', () => {
+    const service = createService();
+    const mapped = service.mapConvertFieldToV2({
+      type: 'conditionalRollup',
+      options: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+        expression: 'sum({values})',
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: 'Active' }],
+        },
+      },
+    });
+
+    expect(mapped).toMatchObject({
+      type: 'conditionalRollup',
+      config: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+      },
+    });
+  });
+
+  it('preserves cross-base id on conditional lookup convert (T7064)', () => {
+    const service = createService();
+    const mapped = service.mapConvertFieldToV2({
+      type: 'number',
+      isLookup: true,
+      isConditionalLookup: true,
+      lookupOptions: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: 'Active' }],
+        },
+      },
+    });
+
+    expect(mapped).toMatchObject({
+      type: 'conditionalLookup',
+      options: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+      },
+    });
+  });
+
   it('omits incomplete conditionalRollup result type in convert payload', () => {
     const service = createService();
     const mapped = service.mapConvertFieldToV2({
@@ -1318,6 +1371,59 @@ describe('FieldOpenApiV2Service mapLegacyCreateFieldToV2', () => {
     });
   });
 
+  it('preserves cross-base id on conditional lookup create (T7064)', () => {
+    const service = createService();
+    const mapped = service.mapLegacyCreateFieldToV2({
+      type: 'number',
+      isLookup: true,
+      isConditionalLookup: true,
+      lookupOptions: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: 'Active' }],
+        },
+      },
+    });
+
+    expect(mapped).toMatchObject({
+      type: 'conditionalLookup',
+      options: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+      },
+    });
+  });
+
+  it('preserves cross-base id on conditionalRollup create (T7064)', () => {
+    const service = createService();
+    const mapped = service.mapLegacyCreateFieldToV2({
+      type: 'conditionalRollup',
+      options: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+        expression: 'sum({values})',
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: 'Active' }],
+        },
+      },
+    });
+
+    expect(mapped).toMatchObject({
+      type: 'conditionalRollup',
+      config: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+      },
+    });
+  });
+
   it('maps rollup create payload and splits config from options', () => {
     const service = createService();
     const mapped = service.mapLegacyCreateFieldToV2({
@@ -1816,6 +1922,62 @@ describe('FieldOpenApiV2Service normalizeFieldVo', () => {
 
     expect(vo.isMultipleCellValue).toBeUndefined();
     expect(vo.cellValueType).toBe(CellValueType.Number);
+  });
+
+  it('flattens cross-base id onto conditionalRollup options (T7064)', () => {
+    const service = createNormalizeService();
+    const vo = service.normalizeFieldVo({
+      id: 'fldCondRollup0000001',
+      name: 'Cross Base Rollup',
+      type: 'conditionalRollup',
+      options: { expression: 'sum({values})' },
+      config: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: 'Active' }],
+          },
+        },
+      },
+    });
+
+    expect(vo.options).toMatchObject({
+      baseId: 'bseForeign000000001',
+      foreignTableId: 'tblForeign00000001',
+      lookupFieldId: 'fldLookup000000001',
+      expression: 'sum({values})',
+    });
+  });
+
+  it('flattens cross-base id onto conditional lookup options (T7064)', () => {
+    const service = createNormalizeService();
+    const vo = service.normalizeFieldVo({
+      id: 'fldCondLookup0000001',
+      name: 'Cross Base Lookup',
+      type: 'conditionalLookup',
+      innerType: 'number',
+      options: {
+        baseId: 'bseForeign000000001',
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: 'Active' }],
+          },
+        },
+      },
+    });
+
+    expect(vo.isConditionalLookup).toBe(true);
+    expect(vo.lookupOptions).toMatchObject({
+      baseId: 'bseForeign000000001',
+      foreignTableId: 'tblForeign00000001',
+      lookupFieldId: 'fldLookup000000001',
+    });
   });
 
   it('normalizes lookup options to empty object when source options are null', () => {

@@ -3047,6 +3047,12 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
       expect(hardwareRecord.fields[crossBaseLookupField.id]).toEqual([100, 50]);
       expect(softwareRecord.fields[crossBaseLookupField.id]).toEqual([70]);
     });
+
+    it('returns the foreign base id so field settings can reopen the table (T7064)', async () => {
+      const fields = await getFields(host.id);
+      const field = fields.find((candidate) => candidate.id === crossBaseLookupField.id);
+      expect(field?.lookupOptions).toMatchObject({ baseId: foreignBaseId });
+    });
   });
 
   describe('sort dependency edge cases', () => {

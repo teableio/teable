@@ -234,6 +234,107 @@ describe('AggregationOpenApiV2Service', () => {
     ]);
   });
 
+  it('falls back for selection aggregation with selectedRecordIds', async () => {
+    const fixture = createFixture();
+
+    await expect(
+      fixture.service.tryGetSelectionAggregation(tableId, {
+        viewId,
+        skip: 0,
+        take: 5,
+        selectedRecordIds: [`rec${'r'.repeat(16)}`],
+      })
+    ).resolves.toBeUndefined();
+    expect(fixture.getContainerForTable).not.toHaveBeenCalled();
+  });
+
+  it('falls back for selection aggregation when the record query plugin scope is restricted', async () => {
+    const fixture = createFixture({ pluginScope: { fieldMasks: [{}] } });
+
+    await expect(
+      fixture.service.tryGetSelectionAggregation(tableId, {
+        viewId,
+        skip: 0,
+        take: 5,
+        field: { sum: [fieldId] },
+      })
+    ).resolves.toBeUndefined();
+    expect(fixture.getContainerForTable).toHaveBeenCalledWith(tableId);
+    expect(fixture.pluginRunner.prepare).toHaveBeenCalled();
+  });
+
+  it('maps selection aggregation through a paginated v2 aggregate query', async () => {
+    const fixture = createFixture({
+      aggregateValues: [{ fieldId: primaryFieldId, statisticFunc: 'sum', value: 50 }],
+    });
+
+    const result = await fixture.service.tryGetSelectionAggregation(tableId, {
+      viewId,
+      skip: 1,
+      take: 2,
+      field: { sum: [fieldId] },
+      orderBy: [{ fieldId, order: 'asc' }],
+      groupBy: [{ fieldId, order: 'desc' }],
+    });
+
+    expect(result).toEqual({
+      aggregations: [{ fieldId, total: { value: 50, aggFunc: 'sum' } }],
+    });
+    const aggregateQuery = fixture.queries.find(
+      (query): query is AggregateTableRecordsQuery => query instanceof AggregateTableRecordsQuery
+    );
+    expect(aggregateQuery?.skip).toBe(1);
+    expect(aggregateQuery?.take).toBe(2);
+    expect(aggregateQuery?.groupBy).toEqual([{ fieldId, order: 'desc' }]);
+    expect(aggregateQuery?.orderBy).toEqual([{ fieldId, order: 'asc' }]);
+  });
+
+  it('passes collapsed groups through the v2 aggregate query', async () => {
+    const fixture = createFixture({
+      aggregateValues: [{ fieldId: primaryFieldId, statisticFunc: 'sum', value: 300 }],
+    });
+
+    const result = await fixture.service.tryGetSelectionAggregation(tableId, {
+      viewId,
+      skip: 0,
+      take: 5,
+      groupBy: [{ fieldId, order: 'asc' }],
+      collapsedGroupIds: ['group-a'],
+      field: { sum: [fieldId] },
+    });
+
+    expect(result).toEqual({
+      aggregations: [{ fieldId, total: { value: 300, aggFunc: 'sum' } }],
+    });
+    const aggregateQuery = fixture.queries.find(
+      (query): query is AggregateTableRecordsQuery => query instanceof AggregateTableRecordsQuery
+    );
+    expect(aggregateQuery?.collapsedGroupIds).toEqual(['group-a']);
+    expect(aggregateQuery?.groupBy).toEqual([{ fieldId, order: 'asc' }]);
+  });
+
+  it('passes ignoreViewQuery through the v2 aggregate query', async () => {
+    const fixture = createFixture({
+      aggregateValues: [{ fieldId: primaryFieldId, statisticFunc: 'sum', value: 100 }],
+    });
+
+    const result = await fixture.service.tryGetSelectionAggregation(tableId, {
+      viewId,
+      ignoreViewQuery: true,
+      skip: 0,
+      take: 5,
+      field: { sum: [fieldId] },
+    });
+
+    expect(result).toEqual({
+      aggregations: [{ fieldId, total: { value: 100, aggFunc: 'sum' } }],
+    });
+    const aggregateQuery = fixture.queries.find(
+      (query): query is AggregateTableRecordsQuery => query instanceof AggregateTableRecordsQuery
+    );
+    expect(aggregateQuery?.ignoreViewQuery).toBe(true);
+  });
+
   it('maps grouped counts to group points', async () => {
     const firstGroupId = String(string2Hash(`${fieldId}_A`));
     const fixture = createFixture({

@@ -434,26 +434,28 @@ describe('update-field: record value seeding after property changes', () => {
         [hostLinkFieldId]: [{ id: rec1.id }, { id: rec2.id }, { id: rec3.id }],
       });
 
-      const createdTable = await ctx.createField({
-        baseId: ctx.baseId,
-        tableId: hostTableId,
-        field: {
-          type: 'rollup',
-          id: hostRollupFieldId,
-          name: 'Amount Sum',
-          options: { expression: 'sum({values})' },
-          config: {
-            linkFieldId: hostLinkFieldId,
-            foreignTableId: sourceTableId,
-            lookupFieldId: sourceAmountFieldId,
+      await expect(
+        ctx.createField({
+          baseId: ctx.baseId,
+          tableId: hostTableId,
+          field: {
+            type: 'rollup',
+            id: hostRollupFieldId,
+            name: 'Amount Sum',
+            options: { expression: 'sum({values})' },
+            config: {
+              linkFieldId: hostLinkFieldId,
+              foreignTableId: sourceTableId,
+              lookupFieldId: sourceAmountFieldId,
+            },
           },
-        },
-      });
+        })
+      ).rejects.toThrow(/Failed to create field/);
 
-      const createdRollupField = createdTable.fields.find(
-        (field) => field.id === hostRollupFieldId
-      );
-      expect(createdRollupField?.hasError).toBe(true);
+      const hostAfterCreate = await ctx.getTableById(hostTableId);
+      expect(
+        hostAfterCreate.fields.find((field) => field.id === hostRollupFieldId)
+      ).toBeUndefined();
     } finally {
       await deleteTableSafe(ctx, hostTableId);
       await deleteTableSafe(ctx, sourceTableId);

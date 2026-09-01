@@ -1008,6 +1008,21 @@ describe('ComputedFieldUpdater', () => {
         },
         {
           "parameters": [
+            "bseaaaaaaaaaaaaaaaa",
+            "junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff",
+            "__fk_fldeeeeeeeeeeeeeeee",
+          ],
+          "sql": "
+              SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = $1
+                  AND table_name = $2
+                  AND column_name = $3
+              ) as exists
+            ",
+        },
+        {
+          "parameters": [
             "tblcccccccccccccccc",
             0,
           ],
@@ -2422,6 +2437,36 @@ describe('ComputedFieldUpdater', () => {
             "recyyyyyyyyyyyyyyyy",
           ],
           "sql": "insert into "pg_temp"."tmp_computed_dirty" ("table_id", "record_id") values ($1, $2) on conflict ("table_id", "record_id") do nothing",
+        },
+        {
+          "parameters": [
+            "bseaaaaaaaaaaaaaaaa",
+            "tblllllllllllllllll",
+            "__fk_fldpppppppppppppppp",
+          ],
+          "sql": "
+              SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = $1
+                  AND table_name = $2
+                  AND column_name = $3
+              ) as exists
+            ",
+        },
+        {
+          "parameters": [
+            "bseaaaaaaaaaaaaaaaa",
+            "tblmmmmmmmmmmmmmmmm",
+            "__fk_fldtttttttttttttttt",
+          ],
+          "sql": "
+              SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = $1
+                  AND table_name = $2
+                  AND column_name = $3
+              ) as exists
+            ",
         },
         {
           "parameters": [

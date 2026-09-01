@@ -67,8 +67,66 @@ import {
 export const COMPUTED_TABLE_ALIAS = 't';
 const T = COMPUTED_TABLE_ALIAS; // main table alias
 const F = 'f'; // foreign table alias in lateral
+const UNIQUE_SCAN_ALIAS = 'fu';
 const H = 'h'; // host table alias in set-based aggregate joins
 const DEFAULT_CONDITIONAL_ORDER_BY = { column: '__auto_number', direction: 'asc' } as const;
+
+const fieldTracksAll = (field: object): boolean =>
+  'isTrackAll' in field && typeof field.isTrackAll === 'function'
+    ? field.isTrackAll() === true
+    : false;
+
+type FieldSourceField = {
+  type: () => FieldType;
+  dbFieldName: () => Result<{ value: () => Result<string, DomainError> }, DomainError>;
+};
+
+type FieldSourceLayout =
+  | { kind: 'column'; column: string }
+  | { kind: 'createdBy'; snapshotColumn: string }
+  | { kind: 'lastModifiedBy'; snapshotColumn: string; trackAll: boolean };
+
+const resolveFieldSourceLayout = (
+  field: FieldSourceField
+): Result<FieldSourceLayout, DomainError> => {
+  if (field.type().equals(FieldType.autoNumber())) {
+    return ok({ kind: 'column', column: '__auto_number' });
+  }
+  if (field.type().equals(FieldType.createdTime())) {
+    return ok({ kind: 'column', column: '__created_time' });
+  }
+  if (field.type().equals(FieldType.lastModifiedTime()) && fieldTracksAll(field)) {
+    return ok({ kind: 'column', column: '__last_modified_time' });
+  }
+  return field.dbFieldName().andThen((dbFieldName) =>
+    dbFieldName.value().map((columnName) => {
+      if (field.type().equals(FieldType.createdBy())) {
+        return { kind: 'createdBy' as const, snapshotColumn: columnName };
+      }
+      if (field.type().equals(FieldType.lastModifiedBy())) {
+        return {
+          kind: 'lastModifiedBy' as const,
+          snapshotColumn: columnName,
+          trackAll: fieldTracksAll(field),
+        };
+      }
+      return { kind: 'column' as const, column: columnName };
+    })
+  );
+};
+
+const fieldSourcePhysicalColumns = (layout: FieldSourceLayout): string[] => {
+  switch (layout.kind) {
+    case 'column':
+      return [layout.column];
+    case 'createdBy':
+      return [layout.snapshotColumn, '__created_by'];
+    case 'lastModifiedBy':
+      return layout.trackAll
+        ? [layout.snapshotColumn, '__last_modified_by']
+        : [layout.snapshotColumn];
+  }
+};
 
 type ResolvedConditionalOrderBy = {
   column: string;
@@ -1395,24 +1453,38 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             ? { ...resolvedConditionSort, tieBreaker: linkOrderBy }
             : null;
 
+          const filterWhere = yield* this.buildFilterConditionWhere(
+            foreignTable,
+            lateral.condition
+          );
+          const uniqueScanFilterWhere = yield* this.buildFilterConditionWhere(
+            foreignTable,
+            lateral.condition,
+            T,
+            UNIQUE_SCAN_ALIAS
+          );
+          const uniqueScanOnly = lateral.columns.every((col) =>
+            this.isForeignRowUniqueScanColumn(col.columnType, foreignTable)
+          );
+
           const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
           for (const col of lateral.columns) {
             selectExprs.push(
               yield* this.buildLateralSelectExpr(foreignTable, col.columnType, col.outputAlias, {
                 orderByOverride: conditionSort ?? undefined,
+                linkField,
+                foreignTableName,
+                uniqueScanFilterWhere: uniqueScanFilterWhere ?? undefined,
+                uniqueScanLimit: conditionLimit,
               })
             );
           }
-
           const joinCondition = yield* this.getJoinCondition(linkField, foreignTableName);
 
-          const filterWhere = yield* this.buildFilterConditionWhere(
-            foreignTable,
-            lateral.condition
-          );
-
           let baseQuery;
-          if (conditionSort || conditionLimit !== undefined) {
+          if (uniqueScanOnly) {
+            baseQuery = this.db.selectNoFrom(selectExprs);
+          } else if (conditionSort || conditionLimit !== undefined) {
             let rowsQuery = this.db
               .selectFrom(`${foreignTableName} as ${F}`)
               .selectAll(F)
@@ -2055,6 +2127,44 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     });
   }
 
+  /**
+   * Physical columns the ranked foreign subquery must project for
+   * `getFieldSourceExpr` / rollup `COUNT(__id)` / order tie-breakers.
+   */
+  private collectFieldSourceColumns(field: Field): Result<string[], DomainError> {
+    return resolveFieldSourceLayout(field).map(fieldSourcePhysicalColumns);
+  }
+
+  private collectConditionalForeignProjectionColumns(
+    foreignTable: Table,
+    columns: Array<{ columnType: LateralColumnType }>,
+    orderByColumn: string
+  ): Result<string[], DomainError> {
+    return safeTry<string[], DomainError>(
+      function* (this: ComputedTableRecordQueryBuilder) {
+        const names = new Set<string>(['__id', '__auto_number', orderByColumn]);
+        for (const col of columns) {
+          if (
+            col.columnType.type !== 'conditionalLookup' &&
+            col.columnType.type !== 'conditionalRollup'
+          ) {
+            continue;
+          }
+          const { foreignFieldId } = col.columnType;
+          const fieldResult = foreignTable.getField((f) => f.id().equals(foreignFieldId));
+          if (fieldResult.isErr()) {
+            continue;
+          }
+          const sourceColumns = yield* this.collectFieldSourceColumns(fieldResult.value);
+          for (const name of sourceColumns) {
+            names.add(name);
+          }
+        }
+        return ok([...names]);
+      }.bind(this)
+    );
+  }
+
   private buildConditionalLookupFieldReferenceAggregate(
     foreignTable: Table,
     foreignTableName: string,
@@ -2084,6 +2194,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         const rankedAlias = `${alias}_src`;
         const limitValue = group.limit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT;
         const orderBy = yield* this.resolveSetBasedOrderBy(foreignTable, group);
+        const foreignProjectionColumns = yield* this.collectConditionalForeignProjectionColumns(
+          foreignTable,
+          columns,
+          orderBy.column
+        );
         const hostSource = hostKeyColumn
           ? this.buildConditionalHostKeySource(hostTableName, hostKeyColumn)
           : this.buildConditionalHostSource(hostTableName);
@@ -2094,12 +2209,12 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           sql`row_number() over (partition by ${sql.ref(hostIdentity)} order by ${sql.ref(`${F}.${orderBy.column}`)} ${sql.raw(orderBy.direction)})`.as(
             '__rn'
           ),
+          ...foreignProjectionColumns.map((column) => sql.ref(`${F}.${column}`).as(column)),
         ];
         const rankedQuery = this.db
           .selectFrom(hostSource)
           .innerJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
-          .select(rankedColumns)
-          .selectAll(F);
+          .select(rankedColumns);
 
         const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
         for (const col of columns) {
@@ -2165,8 +2280,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             : this.buildConditionalHostSource(hostTableName);
         const hostIdentity = hostKeyColumn ? `${H}.${hostKeyColumn}` : `${H}.__id`;
         const hostIdentityAlias = hostKeyColumn ? '__host_key' : '__host_id';
-
         const orderBy = yield* this.resolveSetBasedOrderBy(foreignTable, group);
+
         // Rank whenever limit is set, or the expression is order-sensitive (array_join…).
         const needsRanking = !group.orderInsensitive || group.limit !== undefined;
         const limitValue = needsRanking
@@ -2174,6 +2289,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           : undefined;
 
         if (needsRanking && limitValue !== undefined) {
+          const foreignProjectionColumns = yield* this.collectConditionalForeignProjectionColumns(
+            foreignTable,
+            columns,
+            orderBy.column
+          );
           const rankedAlias = `${alias}_src`;
           const rankedQuery = this.db
             .selectFrom(buildHostSource())
@@ -2183,8 +2303,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               sql`row_number() over (partition by ${sql.ref(hostIdentity)} order by ${sql.ref(`${F}.${orderBy.column}`)} ${sql.raw(orderBy.direction)})`.as(
                 '__rn'
               ),
-            ])
-            .selectAll(F);
+              ...foreignProjectionColumns.map((column) => sql.ref(`${F}.${column}`).as(column)),
+            ]);
 
           const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
           for (const col of columns) {
@@ -2245,7 +2365,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private buildFilterConditionWhere(
     foreignTable: Table,
     condition?: FieldCondition,
-    hostTableAlias = T
+    hostTableAlias = T,
+    foreignTableAlias = F
   ): Result<Expression<SqlBool> | null, DomainError> {
     if (!condition || !condition.hasFilter()) {
       return ok(null);
@@ -2269,7 +2390,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
       // Pass hostTableAlias so field references are resolved from the host table.
       const visitor = new TableRecordConditionWhereVisitor({
-        tableAlias: F,
+        tableAlias: foreignTableAlias,
         hostTableAlias,
       });
       const acceptResult = spec.accept(visitor);
@@ -2392,7 +2513,13 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     foreignTable: Table,
     columnType: LateralColumnType,
     outputAlias: string,
-    options?: { orderByOverride?: ResolvedConditionalOrderBy }
+    options?: {
+      orderByOverride?: ResolvedConditionalOrderBy;
+      linkField?: LinkField;
+      foreignTableName?: string;
+      uniqueScanFilterWhere?: Expression<SqlBool>;
+      uniqueScanLimit?: number;
+    }
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
     return (
       match(columnType)
@@ -2514,6 +2641,17 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         .with({ type: 'rollup' }, ({ foreignFieldId, expression, orderBy }) =>
           this.buildRollupAggregateExpr(foreignTable, foreignFieldId, expression, {
             orderBy: options?.orderByOverride ?? orderBy,
+            uniqueScan:
+              expression === 'array_unique({values})' &&
+              options?.linkField &&
+              options.foreignTableName
+                ? {
+                    linkField: options.linkField,
+                    foreignTableName: options.foreignTableName,
+                    filterWhere: options.uniqueScanFilterWhere,
+                    limit: options.uniqueScanLimit,
+                  }
+                : undefined,
           }).map((expr: RawBuilder<unknown>) => expr.as(outputAlias))
         )
         // Conditional types are handled in buildConditionalJoins, not here
@@ -2541,33 +2679,15 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   }
 
   private getFieldSourceExpr(
-    field: {
-      type: () => FieldType;
-      dbFieldName: () => Result<{ value: () => Result<string, DomainError> }, DomainError>;
-    },
+    field: FieldSourceField,
     tableAlias: string
   ): Result<{ expr: RawBuilder<unknown>; isJsonbStorage?: boolean }, DomainError> {
-    if (field.type().equals(FieldType.autoNumber())) {
-      return ok({ expr: sql.ref(`${tableAlias}.__auto_number`) });
-    }
-
-    if (field.type().equals(FieldType.createdTime())) {
-      return ok({ expr: sql.ref(`${tableAlias}.__created_time`) });
-    }
-
-    if (
-      field.type().equals(FieldType.lastModifiedTime()) &&
-      (field as { isTrackAll?: () => boolean }).isTrackAll?.()
-    ) {
-      return ok({ expr: sql.ref(`${tableAlias}.__last_modified_time`) });
-    }
-
-    return field
-      .dbFieldName()
-      .andThen((dbFieldName) => dbFieldName.value())
-      .map((columnName) => {
-        const snapshotRef = sql.ref(`${tableAlias}.${columnName}`);
-        if (field.type().equals(FieldType.createdBy())) {
+    return resolveFieldSourceLayout(field).map((layout) => {
+      switch (layout.kind) {
+        case 'column':
+          return { expr: sql.ref(`${tableAlias}.${layout.column}`) };
+        case 'createdBy': {
+          const snapshotRef = sql.ref(`${tableAlias}.${layout.snapshotColumn}`);
           return {
             expr: buildUserJsonObjectFromSnapshotExpr(
               snapshotRef,
@@ -2577,9 +2697,9 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             isJsonbStorage: true,
           };
         }
-
-        if (field.type().equals(FieldType.lastModifiedBy())) {
-          const fallbackRef = (field as { isTrackAll?: () => boolean }).isTrackAll?.()
+        case 'lastModifiedBy': {
+          const snapshotRef = sql.ref(`${tableAlias}.${layout.snapshotColumn}`);
+          const fallbackRef = layout.trackAll
             ? sql.ref(`${tableAlias}.__last_modified_by`)
             : undefined;
           return {
@@ -2591,9 +2711,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             isJsonbStorage: true,
           };
         }
-
-        return { expr: snapshotRef };
-      });
+      }
+    });
   }
 
   private getForeignColRef(
@@ -2665,18 +2784,87 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     )`;
   }
 
+  /**
+   * Deduplicate a pre-ordered jsonb array while keeping first-occurrence order.
+   * Fallback when a correlated foreign-row scan is unavailable.
+   */
   private buildFirstOccurrenceUniqueJsonbArrayExpr(
     orderedJsonbAgg: RawBuilder<unknown>
   ): RawBuilder<unknown> {
     return sql`(
-      SELECT jsonb_agg(uniq.val ORDER BY uniq.pos)
+      SELECT jsonb_agg(g.val ORDER BY g.pos)
       FROM (
-        SELECT DISTINCT ON (src.val) src.val, src.pos
+        SELECT src.val, MIN(src.pos) AS pos
         FROM jsonb_array_elements(COALESCE(${orderedJsonbAgg}, '[]'::jsonb))
           WITH ORDINALITY AS src(val, pos)
-        ORDER BY src.val, src.pos
-      ) AS uniq
+        WHERE src.val IS NOT NULL AND src.val <> 'null'::jsonb
+        GROUP BY src.val
+      ) AS g
     )`;
+  }
+
+  private isForeignRowUniqueScanColumn(
+    columnType: LateralColumnType,
+    foreignTable: Table
+  ): boolean {
+    if (columnType.type !== 'rollup' || columnType.expression !== 'array_unique({values})') {
+      return false;
+    }
+    const fieldResult = foreignTable.getField((f) => f.id().equals(columnType.foreignFieldId));
+    if (fieldResult.isErr()) {
+      return false;
+    }
+    const field = fieldResult.value;
+    if (field.type().equals(FieldType.link())) {
+      return false;
+    }
+    const valueType = field.accept(new FieldValueTypeVisitor());
+    return valueType.isOk() && !valueType.value.isMultipleCellValue.isMultiple();
+  }
+
+  /**
+   * Ordered unique over foreign rows without nesting jsonb_agg inside a
+   * scalar subquery. Nested aggregates can drop ORDER BY, so DISTINCT ON
+   * (val) then follows value order (Done before Todo) while STRING_AGG
+   * on the same lateral still follows link order.
+   */
+  private buildFirstOccurrenceUniqueScanExpr(params: {
+    colRef: RawBuilder<unknown>;
+    uniqueOrderExpr: RawBuilder<unknown>;
+    foreignTableName: string;
+    joinCondition: Expression<SqlBool>;
+    filterWhere?: Expression<SqlBool>;
+    limit?: number;
+  }): RawBuilder<unknown> {
+    let rankedRows = this.db
+      .selectFrom(`${params.foreignTableName} as ${UNIQUE_SCAN_ALIAS}`)
+      .select([
+        params.colRef.as('val'),
+        sql<number>`row_number() over (order by ${params.uniqueOrderExpr})`.as('pos'),
+      ])
+      .where(params.joinCondition);
+    if (params.filterWhere) {
+      rankedRows = rankedRows.where(sql<SqlBool>`(${params.filterWhere})`);
+    }
+    const limitedRows =
+      params.limit === undefined
+        ? rankedRows
+        : this.db
+            .selectFrom(rankedRows.as('limited'))
+            .selectAll()
+            .where(sql<SqlBool>`${sql.ref('limited.pos')} <= ${params.limit}`);
+
+    const firstOccurrence = this.db
+      .selectFrom(limitedRows.as('x'))
+      .select([sql.ref('x.val').as('val'), sql`min(${sql.ref('x.pos')})`.as('pos')])
+      .where(sql<SqlBool>`${sql.ref('x.val')} is not null`)
+      .groupBy(sql.ref('x.val'));
+
+    return sql`(${this.db
+      .selectFrom(firstOccurrence.as('q'))
+      .select(
+        sql`jsonb_agg(to_jsonb(${sql.ref('q.val')}) order by ${sql.ref('q.pos')})`.as('vals')
+      )})`;
   }
 
   private canUseSingleLevelLookupFlatten(foreignField: {
@@ -2826,6 +3014,12 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       tableAlias?: string;
       orderBy?: LinkOrderBy | ResolvedConditionalOrderBy;
       filterWhere?: Expression<SqlBool>;
+      uniqueScan?: {
+        linkField: LinkField;
+        foreignTableName: string;
+        filterWhere?: Expression<SqlBool>;
+        limit?: number;
+      };
     }
   ): Result<RawBuilder<unknown>, DomainError> {
     if (foreignTable.getField((f) => f.id().equals(foreignFieldId)).isErr()) {
@@ -2966,6 +3160,33 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               const baseAggregate = sql`jsonb_agg(${colRef} ORDER BY ${uniqueOrderExpr}) FILTER (WHERE ${colRef} IS NOT NULL)`;
               return ok(this.buildDistinctNestedJsonTextArrayExpr(baseAggregate));
             }
+            if (options?.uniqueScan && !options.filterWhere) {
+              const scanJoin = yield* this.getJoinCondition(
+                options.uniqueScan.linkField,
+                options.uniqueScan.foreignTableName,
+                UNIQUE_SCAN_ALIAS
+              );
+              const scanColRef = yield* this.getForeignColRef(
+                foreignTable,
+                foreignFieldId,
+                UNIQUE_SCAN_ALIAS
+              );
+              const scanOrderExpr = options.orderBy
+                ? 'source' in options.orderBy
+                  ? buildLinkOrderByExpr(options.orderBy, UNIQUE_SCAN_ALIAS)
+                  : buildResolvedConditionalOrderByExpr(options.orderBy, UNIQUE_SCAN_ALIAS)
+                : sql.ref(`${UNIQUE_SCAN_ALIAS}.__auto_number`);
+              return ok(
+                this.buildFirstOccurrenceUniqueScanExpr({
+                  colRef: scanColRef,
+                  uniqueOrderExpr: scanOrderExpr ?? sql.ref(`${UNIQUE_SCAN_ALIAS}.__auto_number`),
+                  foreignTableName: options.uniqueScan.foreignTableName,
+                  joinCondition: scanJoin,
+                  filterWhere: options.uniqueScan.filterWhere,
+                  limit: options.uniqueScan.limit,
+                })
+              );
+            }
             return ok(
               this.buildFirstOccurrenceUniqueJsonbArrayExpr(
                 sql`jsonb_agg(to_jsonb(${colRef}) ORDER BY ${uniqueOrderExpr}) FILTER (WHERE ${colRef} IS NOT NULL)`
@@ -3084,7 +3305,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
    */
   private getJoinCondition(
     linkField: LinkField,
-    _foreignTableName: string
+    _foreignTableName: string,
+    foreignAlias: string = F
   ): Result<Expression<SqlBool>, DomainError> {
     const relationship = linkField.relationship();
     const isOneWay = linkField.isOneWay();
@@ -3100,13 +3322,13 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     ) {
       if (foreignKeyNameResult.isOk() && foreignKeyNameResult.value !== '__id') {
         return ok(
-          sql<SqlBool>`${sql.ref(`${F}.__id`)} = ${sql.ref(`${T}.${foreignKeyNameResult.value}`)}`
+          sql<SqlBool>`${sql.ref(`${foreignAlias}.__id`)} = ${sql.ref(`${T}.${foreignKeyNameResult.value}`)}`
         );
       }
       // Fallback for symmetric oneOne where foreign table holds FK
       if (selfKeyNameResult.isOk() && selfKeyNameResult.value !== '__id') {
         return ok(
-          sql<SqlBool>`${sql.ref(`${F}.${selfKeyNameResult.value}`)} = ${sql.ref(`${T}.__id`)}`
+          sql<SqlBool>`${sql.ref(`${foreignAlias}.${selfKeyNameResult.value}`)} = ${sql.ref(`${T}.__id`)}`
         );
       }
     }
@@ -3117,13 +3339,13 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     if (relationship.equals(LinkRelationship.oneMany()) && !isOneWay) {
       if (selfKeyNameResult.isOk() && selfKeyNameResult.value !== '__id') {
         return ok(
-          sql<SqlBool>`${sql.ref(`${F}.${selfKeyNameResult.value}`)} = ${sql.ref(`${T}.__id`)}`
+          sql<SqlBool>`${sql.ref(`${foreignAlias}.${selfKeyNameResult.value}`)} = ${sql.ref(`${T}.__id`)}`
         );
       }
       // Fallback
       if (foreignKeyNameResult.isOk() && foreignKeyNameResult.value !== '__id') {
         return ok(
-          sql<SqlBool>`${sql.ref(`${F}.__id`)} = ${sql.ref(`${T}.${foreignKeyNameResult.value}`)}`
+          sql<SqlBool>`${sql.ref(`${foreignAlias}.__id`)} = ${sql.ref(`${T}.${foreignKeyNameResult.value}`)}`
         );
       }
     }
@@ -3143,7 +3365,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
         // f.__id IN (SELECT j.foreignKey FROM junction j WHERE j.selfKey = t.__id)
         return ok(
-          sql<SqlBool>`${sql.ref(`${F}.__id`)} IN (SELECT ${sql.ref(`j.${foreignKey}`)} FROM ${sql.table(junctionTable)} AS j WHERE ${sql.ref(`j.${selfKey}`)} = ${sql.ref(`${T}.__id`)})`
+          sql<SqlBool>`${sql.ref(`${foreignAlias}.__id`)} IN (SELECT ${sql.ref(`j.${foreignKey}`)} FROM ${sql.table(junctionTable)} AS j WHERE ${sql.ref(`j.${selfKey}`)} = ${sql.ref(`${T}.__id`)})`
         );
       }
     }

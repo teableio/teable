@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ILinkFieldOptions } from '@teable/core';
 import { Relationship } from '@teable/core';
+import type * as OpenApi from '@teable/openapi';
 import type { IGetRecordsRo } from '@teable/openapi';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type * as Context from '../../../context';
@@ -13,7 +14,16 @@ import { LinkEditorMain } from './EditorMain';
 const captured = vi.hoisted(() => ({
   queries: [] as (IGetRecordsRo | undefined)[],
   permissionBaseIds: [] as (string | undefined)[],
+  createRecord: undefined as ((recordId: string) => void) | undefined,
 }));
+
+vi.mock('@teable/openapi', async (importOriginal) => {
+  const actual = await importOriginal<typeof OpenApi>();
+  return {
+    ...actual,
+    getRecordIndex: vi.fn().mockResolvedValue({ data: { index: 0 } }),
+  };
+});
 
 vi.mock('../../../hooks', async (importOriginal) => {
   const actual = await importOriginal<typeof Hooks>();
@@ -60,7 +70,16 @@ vi.mock('../../search', () => ({
 }));
 
 vi.mock('../../create-record', () => ({
-  CreateRecordModal: ({ children }: { children: ReactNode }) => <>{children}</>,
+  CreateRecordModal: ({
+    children,
+    callback,
+  }: {
+    children: ReactNode;
+    callback?: (recordId: string) => void;
+  }) => {
+    captured.createRecord = callback;
+    return <>{children}</>;
+  },
 }));
 
 vi.mock('./LinkList', async () => {
@@ -73,13 +92,13 @@ vi.mock('./LinkList', async () => {
   };
 });
 
+const options = {
+  relationship: Relationship.OneMany,
+  foreignTableId: 'tblForeign',
+} as ILinkFieldOptions;
+
 describe('LinkEditorMain', () => {
   it('restores filterLinkCellCandidate when switching back to the all list (T6679)', () => {
-    const options = {
-      relationship: Relationship.OneMany,
-      foreignTableId: 'tblForeign',
-    } as ILinkFieldOptions;
-
     render(
       <QueryClientProvider client={new QueryClient()}>
         <LinkEditorMain fieldId="fldLink" recordId="recHost" options={options} isEditing />
@@ -101,11 +120,6 @@ describe('LinkEditorMain', () => {
   });
 
   it('wraps the create-record modal with the real table permission (T6683)', () => {
-    const options = {
-      relationship: Relationship.OneMany,
-      foreignTableId: 'tblForeign',
-    } as ILinkFieldOptions;
-
     captured.permissionBaseIds.length = 0;
     render(
       <QueryClientProvider client={new QueryClient()}>
@@ -114,5 +128,30 @@ describe('LinkEditorMain', () => {
     );
 
     expect(captured.permissionBaseIds).toEqual(['bseTest']);
+  });
+
+  it('invalidates share-view list caches by link field id after creating a record (T7056)', async () => {
+    const queryClient = new QueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <LinkEditorMain fieldId="fldLink" recordId="recHost" options={options} isEditing />
+      </QueryClientProvider>
+    );
+
+    expect(captured.createRecord).toBeTypeOf('function');
+    invalidateSpy.mockClear();
+
+    await act(async () => {
+      captured.createRecord?.('recNew');
+    });
+    const keys = invalidateSpy.mock.calls
+      .map((call) => (call[0] as { queryKey?: unknown } | undefined)?.queryKey)
+      .filter(Boolean);
+    expect(keys).toContainEqual(['link-editor-records', 'fldLink']);
+    expect(keys).toContainEqual(['share-view-row-count', 'fldLink']);
+    expect(keys).not.toContainEqual(['link-editor-records', 'tblForeign']);
+    expect(keys).not.toContainEqual(['row-count', 'tblForeign']);
   });
 });

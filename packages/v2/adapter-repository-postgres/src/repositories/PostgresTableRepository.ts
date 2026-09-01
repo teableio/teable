@@ -1996,6 +1996,7 @@ export class PostgresTableRepository implements core.ITableRepository {
               limit: typeof value.limit === 'number' ? value.limit : undefined,
             };
       return {
+        ...(typeof value.baseId === 'string' && value.baseId ? { baseId: value.baseId } : {}),
         foreignTableId,
         lookupFieldId,
         condition,
@@ -2219,6 +2220,9 @@ export class PostgresTableRepository implements core.ITableRepository {
       }
       // Build config from v1 format
       const config: core.IConditionalRollupFieldConfigDTO = {
+        ...(typeof v1Options.baseId === 'string' && v1Options.baseId
+          ? { baseId: v1Options.baseId }
+          : {}),
         foreignTableId:
           typeof v1Options.foreignTableId === 'string' ? v1Options.foreignTableId : '',
         lookupFieldId: typeof v1Options.lookupFieldId === 'string' ? v1Options.lookupFieldId : '',

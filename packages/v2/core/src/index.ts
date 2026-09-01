@@ -329,6 +329,7 @@ export * from './domain/shared/sort/Sort';
 export * from './domain/shared/sort/SortDirection';
 
 export * from './domain/base/BaseId';
+export { optionalForeignBaseIdSchema } from './domain/base/optionalForeignBaseId';
 
 export * from './domain/base/Base';
 export * from './domain/base/BaseName';

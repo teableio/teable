@@ -12,6 +12,12 @@ import {
   registerV2ShareDbRealtime,
 } from '@teable/v2-adapter-realtime-sharedb';
 import {
+  buildOutboxTaskInput,
+  v2RecordRepositoryPostgresTokens,
+  type ComputedUpdatePlan,
+  type IComputedUpdateOutbox,
+} from '@teable/v2-adapter-table-repository-postgres';
+import {
   createFieldOkResponseSchema,
   createRecordOkResponseSchema,
   createTableOkResponseSchema,
@@ -35,12 +41,6 @@ import { Connection } from 'sharedb/lib/client';
 import type { Socket } from 'sharedb/lib/sharedb';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
-import {
-  buildOutboxTaskInput,
-  v2RecordRepositoryPostgresTokens,
-  type ComputedUpdatePlan,
-  type IComputedUpdateOutbox,
-} from '../../adapter-table-repository-postgres/src';
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
 
 type ShareDbRuntime = {

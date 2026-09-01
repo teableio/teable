@@ -86,9 +86,15 @@ export interface ITableRecordQueryOptions {
   readonly mode?: TableRecordQueryMode;
 
   /**
-   * Pagination options (offset-based).
+   * Pagination options (offset-based). Ignored offset when `cursor` is set.
    */
   readonly pagination?: OffsetPagination;
+
+  /**
+   * Keyset cursor for `__auto_number` ascending order. When set, the repository
+   * must not apply OFFSET.
+   */
+  readonly cursor?: string;
 
   /**
    * Sort records by fields or system columns. Supports multiple sort criteria.
@@ -112,9 +118,8 @@ export interface ITableRecordQueryOptions {
 
   /**
    * Whether to compute total count (`count(*)`) for the full filtered dataset.
-   * Defaults to true.
-   * When false, repository may skip the count query and return `records.length` as `total`.
-   * Useful for streaming/chunked read paths that don't need total rows.
+   * Defaults to false.
+   * When false, repository skips the count query and returns `records.length` as `total`.
    */
   readonly includeTotal?: boolean;
 
@@ -300,6 +305,8 @@ export interface ITableRecordQueryResult {
   readonly searchMatches?: ReadonlyArray<ITableRecordSearchMatch>;
   /** Ordered leaf group buckets for compatibility presentation layers. */
   readonly groups?: ReadonlyArray<ITableRecordGroup>;
+  /** Opaque keyset cursor for the next page when order supports it. */
+  readonly nextCursor?: string;
 }
 
 export interface ITableRecordGroup {
@@ -405,16 +412,20 @@ export interface ITableRecordCountQueryRepository extends ITableRecordQueryRepos
  * This deliberately shares the same repository implementation and DI token as
  * record reads. It is not a View repository or a second aggregate boundary.
  */
+export type ITableRecordAggregationOptions = {
+  readonly maxGroupPoints?: number;
+  readonly search?: RecordQuerySearch;
+  readonly pagination?: OffsetPagination;
+  readonly orderBy?: ReadonlyArray<TableRecordOrderBy>;
+};
+
 export interface ITableRecordAggregationQueryRepository extends ITableRecordQueryRepository {
   aggregate(
     context: IExecutionContext,
     table: Table,
     aggregation: TableRecordAggregation,
     spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
-    options?: {
-      readonly maxGroupPoints?: number;
-      readonly search?: RecordQuerySearch;
-    }
+    options?: ITableRecordAggregationOptions
   ): Promise<Result<ReadonlyArray<TableRecordAggregationValue>, DomainError>>;
 }
 

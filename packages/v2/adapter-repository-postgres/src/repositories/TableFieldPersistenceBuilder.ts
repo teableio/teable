@@ -362,13 +362,14 @@ export class TableFieldPersistenceBuilder {
     }
 
     // For conditionalRollup, match v1 format: flatten config into options
-    // v1 stores: expression, timeZone, formatting, showAs, foreignTableId, lookupFieldId, filter, sort, limit
+    // v1 stores: expression, timeZone, formatting, showAs, baseId, foreignTableId, lookupFieldId, filter, sort, limit
     if (field.type === 'conditionalRollup') {
       const config = this.resolveConditionalRollupConfig(field, domainField);
       if (!config) return JSON.stringify(resolvedFieldOptions);
       const condition = config.condition as Record<string, unknown> | undefined;
       return JSON.stringify({
         ...resolvedFieldOptions,
+        ...(typeof config.baseId === 'string' && config.baseId ? { baseId: config.baseId } : {}),
         foreignTableId: config.foreignTableId,
         lookupFieldId: config.lookupFieldId,
         // Convert condition to v1 filter format
@@ -390,6 +391,7 @@ export class TableFieldPersistenceBuilder {
       if (!opts) return null;
       const condition = opts.condition as Record<string, unknown> | undefined;
       return JSON.stringify({
+        ...(typeof opts.baseId === 'string' && opts.baseId ? { baseId: opts.baseId } : {}),
         foreignTableId: opts.foreignTableId,
         lookupFieldId: opts.lookupFieldId,
         filter: condition?.filter ?? null,

@@ -2,6 +2,7 @@ import { Code2 } from '@teable/icons';
 import { useTranslation } from 'next-i18next';
 import type { ReactNode } from 'react';
 import { CopyButton } from '@/features/app/components/CopyButton';
+import { useOrigin } from '@/features/app/hooks/useOrigin';
 
 const appIconBasePath = '/images/app-icons';
 
@@ -124,6 +125,7 @@ const StepSection = ({
 
 export const TeableSkillContent = () => {
   const { t } = useTranslation('common');
+  const origin = useOrigin();
   const copy = {
     title: t('settings.setting.teableSkill'),
     intro: t('settings.teableSkill.intro'),
@@ -131,7 +133,7 @@ export const TeableSkillContent = () => {
     more: t('settings.teableSkill.more'),
     copy: t('settings.teableSkill.copy'),
     installPromptLabel: t('settings.teableSkill.installPromptLabel'),
-    installPrompt: t('settings.teableSkill.installPrompt'),
+    installPrompt: t('settings.teableSkill.installPrompt', { origin }),
     step1Title: t('settings.teableSkill.step1Title'),
     step1Description: t('settings.teableSkill.step1Description'),
     step3Title: t('settings.teableSkill.step3Title'),

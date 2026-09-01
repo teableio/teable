@@ -12,6 +12,7 @@ import { DbFieldName } from '../DbFieldName';
 import { DbFieldType } from '../DbFieldType';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
+import { LinkForeignTableReferenceVisitor } from '../visitors/LinkForeignTableReferenceVisitor';
 import { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
 import { ConditionalLookupField } from './ConditionalLookupField';
@@ -55,6 +56,88 @@ const createConditionalLookupField = (statusFieldId: FieldId) => {
     conditionalLookupOptions: lookupOptions,
   })._unsafeUnwrap();
 };
+
+describe('ConditionalLookupOptions.create', () => {
+  it('round-trips optional cross-base id (T7064)', () => {
+    const baseId = createBaseId('x').toString();
+    const result = ConditionalLookupOptions.create({
+      baseId,
+      foreignTableId: createTableId('z').toString(),
+      lookupFieldId: createFieldId('y').toString(),
+      condition: {
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: createFieldId('s').toString(), operator: 'is', value: 'Active' }],
+        },
+      },
+    });
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().toDto().baseId).toBe(baseId);
+    expect(result._unsafeUnwrap().baseId()?.toString()).toBe(baseId);
+  });
+
+  it('treats null baseId as same-base (T7064)', () => {
+    const result = ConditionalLookupOptions.create({
+      baseId: null,
+      foreignTableId: createTableId('z').toString(),
+      lookupFieldId: createFieldId('y').toString(),
+      condition: {
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: createFieldId('s').toString(), operator: 'is', value: 'Active' }],
+        },
+      },
+    });
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().toDto().baseId).toBeUndefined();
+  });
+
+  it('treats empty baseId as same-base (T7064)', () => {
+    const result = ConditionalLookupOptions.create({
+      baseId: '',
+      foreignTableId: createTableId('z').toString(),
+      lookupFieldId: createFieldId('y').toString(),
+      condition: {
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: createFieldId('s').toString(), operator: 'is', value: 'Active' }],
+        },
+      },
+    });
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().toDto().baseId).toBeUndefined();
+  });
+});
+
+describe('LinkForeignTableReferenceVisitor conditional lookup', () => {
+  it('includes optional cross-base id (T7064)', () => {
+    const foreignBaseId = createBaseId('b');
+    const lookupOptions = ConditionalLookupOptions.create({
+      baseId: foreignBaseId.toString(),
+      foreignTableId: createTableId('z').toString(),
+      lookupFieldId: createFieldId('y').toString(),
+      condition: {
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: createFieldId('s').toString(), operator: 'is', value: 'Active' }],
+        },
+      },
+    })._unsafeUnwrap();
+    const field = ConditionalLookupField.create({
+      id: createFieldId('x'),
+      name: FieldName.create('Conditional Lookup')._unsafeUnwrap(),
+      innerField: SingleLineTextField.create({
+        id: createFieldId('w'),
+        name: FieldName.create('Title')._unsafeUnwrap(),
+      })._unsafeUnwrap(),
+      conditionalLookupOptions: lookupOptions,
+    })._unsafeUnwrap();
+    const refs = new LinkForeignTableReferenceVisitor().collect([field])._unsafeUnwrap();
+    expect(refs).toHaveLength(1);
+    expect(refs[0]?.foreignTableId.toString()).toBe(lookupOptions.foreignTableId().toString());
+    expect(refs[0]?.baseId?.toString()).toBe(foreignBaseId.toString());
+  });
+});
 
 describe('FieldCondition v1 compatibility', () => {
   it('accepts __id as the physical record id field in legacy filters', () => {

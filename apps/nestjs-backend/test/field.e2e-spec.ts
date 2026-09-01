@@ -408,7 +408,7 @@ describe('OpenAPI FieldController (e2e)', () => {
         const rollupField = await createField(table1.id, {
           type: FieldType.Rollup,
           options: {
-            expression: 'sum({values})',
+            expression: 'countall({values})',
           },
           lookupOptions: {
             foreignTableId: table2.id,
@@ -419,7 +419,7 @@ describe('OpenAPI FieldController (e2e)', () => {
 
         expect(rollupField.name).toEqual(`${table2.fields[0].name} Rollup (from ${table2.name})`);
         expect(rollupField.options).toEqual({
-          expression: 'sum({values})',
+          expression: 'countall({values})',
           formatting: { type: NumberFormattingType.Decimal, precision: 2 },
         });
       });

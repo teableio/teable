@@ -635,6 +635,105 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
       expect(parameters).toEqual([]);
     });
 
+    test('plain text field is matching-text field reference compares columns bare', () => {
+      const { nameField, notesField } = createTestTable();
+      nameField.setDbFieldType(DbFieldType.rehydrate('TEXT')._unsafeUnwrap())._unsafeUnwrap();
+      notesField.setDbFieldType(DbFieldType.rehydrate('TEXT')._unsafeUnwrap())._unsafeUnwrap();
+      const value = RecordConditionFieldReferenceValue.create(notesField)._unsafeUnwrap();
+      const spec = SingleLineTextConditionSpec.create(nameField, 'is', value);
+
+      const { sql, parameters } = buildWhereFor(db, spec, {
+        tableAlias: 'f',
+        hostTableAlias: 'h',
+      });
+      expect(sql).toBe('"f"."col_name" = "h"."col_notes"');
+      expect(sql).not.toContain('to_jsonb');
+      expect(parameters).toEqual([]);
+    });
+
+    test('plain text field isNot matching-text field reference compares columns bare', () => {
+      const { nameField, notesField } = createTestTable();
+      nameField.setDbFieldType(DbFieldType.rehydrate('TEXT')._unsafeUnwrap())._unsafeUnwrap();
+      notesField.setDbFieldType(DbFieldType.rehydrate('TEXT')._unsafeUnwrap())._unsafeUnwrap();
+      const value = RecordConditionFieldReferenceValue.create(notesField)._unsafeUnwrap();
+      const spec = SingleLineTextConditionSpec.create(nameField, 'isNot', value);
+
+      const { sql, parameters } = buildWhereFor(db, spec, {
+        tableAlias: 'f',
+        hostTableAlias: 'h',
+      });
+      expect(sql).toBe('"f"."col_name" is distinct from "h"."col_notes"');
+      expect(sql).not.toContain('to_jsonb');
+      expect(parameters).toEqual([]);
+    });
+
+    test('plain number field matching-REAL field reference compares columns bare', () => {
+      const { scoreField } = createTestTable();
+      const { scoreField: hostScoreField } = createTestTable();
+      scoreField.setDbFieldType(DbFieldType.rehydrate('REAL')._unsafeUnwrap())._unsafeUnwrap();
+      hostScoreField.setDbFieldType(DbFieldType.rehydrate('REAL')._unsafeUnwrap())._unsafeUnwrap();
+      const value = RecordConditionFieldReferenceValue.create(hostScoreField)._unsafeUnwrap();
+      const spec = NumberConditionSpec.create(scoreField, 'is', value);
+
+      const { sql, parameters } = buildWhereFor(db, spec, {
+        tableAlias: 'f',
+        hostTableAlias: 'h',
+      });
+      expect(sql).toBe('"f"."col_score" = "h"."col_score"');
+      expect(sql).not.toContain('to_jsonb');
+      expect(parameters).toEqual([]);
+    });
+
+    test('plain number field isNot matching-REAL field reference compares columns bare', () => {
+      const { scoreField } = createTestTable();
+      const { scoreField: hostScoreField } = createTestTable();
+      scoreField.setDbFieldType(DbFieldType.rehydrate('REAL')._unsafeUnwrap())._unsafeUnwrap();
+      hostScoreField.setDbFieldType(DbFieldType.rehydrate('REAL')._unsafeUnwrap())._unsafeUnwrap();
+      const value = RecordConditionFieldReferenceValue.create(hostScoreField)._unsafeUnwrap();
+      const spec = NumberConditionSpec.create(scoreField, 'isNot', value);
+
+      const { sql, parameters } = buildWhereFor(db, spec, {
+        tableAlias: 'f',
+        hostTableAlias: 'h',
+      });
+      expect(sql).toBe('"f"."col_score" is distinct from "h"."col_score"');
+      expect(sql).not.toContain('to_jsonb');
+      expect(parameters).toEqual([]);
+    });
+
+    test('plain checkbox field matching-BOOLEAN field reference compares columns bare', () => {
+      const { doneField } = createTestTable();
+      const { doneField: hostDoneField } = createTestTable();
+      doneField.setDbFieldType(DbFieldType.rehydrate('BOOLEAN')._unsafeUnwrap())._unsafeUnwrap();
+      hostDoneField.setDbFieldType(DbFieldType.rehydrate('BOOLEAN')._unsafeUnwrap())._unsafeUnwrap();
+      const value = RecordConditionFieldReferenceValue.create(hostDoneField)._unsafeUnwrap();
+      const spec = CheckboxConditionSpec.create(doneField, 'is', value);
+
+      const { sql, parameters } = buildWhereFor(db, spec, {
+        tableAlias: 'f',
+        hostTableAlias: 'h',
+      });
+      expect(sql).toBe('"f"."col_done" = "h"."col_done"');
+      expect(sql).not.toContain('to_jsonb');
+      expect(parameters).toEqual([]);
+    });
+
+    test('plain number field vs lookup host wraps only the drift-prone host', () => {
+      const { lookupField, scoreField } = createScalarNumberLookupReferenceFields();
+      scoreField.setDbFieldType(DbFieldType.rehydrate('REAL')._unsafeUnwrap())._unsafeUnwrap();
+      const value = RecordConditionFieldReferenceValue.create(lookupField)._unsafeUnwrap();
+      const spec = NumberConditionSpec.create(scoreField, 'is', value);
+
+      const { sql, parameters } = buildWhereFor(db, spec, {
+        tableAlias: 'f',
+        hostTableAlias: 'h',
+      });
+      expect(sql).toBe(
+        `"f"."col_score" = (to_jsonb("h"."col_lookup_score") #>> '{}')::double precision`
+      );
+      expect(parameters).toEqual([]);
+    });
+
     test('plain number field without persisted db type keeps drift-safe jsonb equality', () => {
       const { scoreField } = createTestTable();
       const { scoreField: hostScoreField } = createTestTable();
@@ -943,6 +1042,15 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
   describe('comparison operators', () => {
     test('isGreater uses standard comparison (no COALESCE)', () => {
       const value = RecordConditionLiteralValue.create(50)._unsafeUnwrap();
+      const spec = NumberConditionSpec.create(scoreField, 'isGreater', value);
+      const { sql, parameters } = buildWhereFor(db, spec);
+
+      expect(sql).toMatchInlineSnapshot(`""t"."col_score" > $1"`);
+      expect(parameters).toEqual([50]);
+    });
+
+    test('isGreater coerces numeric string literals from autoNumber filter UI', () => {
+      const value = RecordConditionLiteralValue.create('50')._unsafeUnwrap();
       const spec = NumberConditionSpec.create(scoreField, 'isGreater', value);
       const { sql, parameters } = buildWhereFor(db, spec);
 

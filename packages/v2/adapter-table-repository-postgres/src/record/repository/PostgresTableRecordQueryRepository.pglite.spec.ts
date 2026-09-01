@@ -1659,6 +1659,67 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
     expect(viewIndexSql.some((sql) => sql.includes('as "col_name"'))).toBe(false);
   });
 
+  it('matches offset pages with cursor under field group and sort order', async () => {
+    const fixture = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'cursor-group-sort',
+      rows: [
+        { name: 'keep-a', age: 2 },
+        { name: 'drop-z', age: 9 },
+        { name: 'keep-a', age: 8 },
+        { name: 'keep-b', age: 1 },
+        { name: 'keep-b', age: 7 },
+        { name: 'keep-c', age: 3 },
+      ],
+    });
+    const orderBy = [
+      { fieldId: fixture.nameFieldId, direction: 'asc' as const },
+      { fieldId: fixture.ageFieldId, direction: 'desc' as const },
+      { column: '__auto_number' as const, direction: 'asc' as const },
+    ];
+    const pageSize = OffsetPagination.create(
+      PageLimit.create(2)._unsafeUnwrap(),
+      PageOffset.zero()
+    );
+    const offsetPage = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      orderBy,
+      pagination: OffsetPagination.create(
+        PageLimit.create(2)._unsafeUnwrap(),
+        PageOffset.create(2)._unsafeUnwrap()
+      ),
+    });
+    const firstPage = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      orderBy,
+      pagination: pageSize,
+    });
+    expect(firstPage.isOk()).toBe(true);
+    expect(offsetPage.isOk()).toBe(true);
+    if (firstPage.isErr() || offsetPage.isErr()) {
+      return;
+    }
+    expect(firstPage.value.nextCursor).toBeTruthy();
+    const cursorPage = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      orderBy,
+      cursor: firstPage.value.nextCursor,
+      pagination: pageSize,
+    });
+    expect(cursorPage.isOk()).toBe(true);
+
+    if (cursorPage.isErr()) {
+      return;
+    }
+    expect(cursorPage.value.records.map((record) => record.id.toString())).toEqual(
+      offsetPage.value.records.map((record) => record.id.toString())
+    );
+  });
+
   it('streams correct pages for cursor pagination and respects projection', async () => {
     const fixture = await setupRepositoryFixture({
       db,

@@ -71,6 +71,27 @@ interface IConditionalRollupValueProps {
   field?: IFieldInstance;
 }
 
+/**
+ * NumberEditor only displays runtime numbers. AutoNumber filters used to be
+ * stored as strings by FilterInput; coerce finite numeric strings so a saved
+ * value such as "50" still renders.
+ */
+const toNumberEditorValue = (value: unknown): number | null | undefined => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  if (value == null) {
+    return value as null | undefined;
+  }
+  return undefined;
+};
+
 const ConditionalRollupValue = (props: IConditionalRollupValueProps) => {
   const inDrawer = useInDrawer();
   const { literalComponent, value, onSelect, operator, referenceSource, modal, field } = props;
@@ -331,7 +352,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
       case CellValueType.Number:
         return (
           <NumberEditor
-            value={value as number}
+            value={toNumberEditorValue(value)}
             saveOnChange={true}
             onChange={onSelect as (value?: number | null) => void}
             className={cn('w-40 placeholder:text-xs', drawerWidth)}
@@ -370,9 +391,10 @@ export function BaseFieldValue(props: IBaseFieldValue) {
 
   switch (field?.type) {
     case FieldType.Number:
+    case FieldType.AutoNumber:
       return wrapWithReference(
         <NumberEditor
-          value={value as number}
+          value={toNumberEditorValue(value)}
           saveOnChange={true}
           onChange={onSelect as (value?: number | null) => void}
           className={cn('w-40 placeholder:text-sm', drawerWidth)}

@@ -60,11 +60,32 @@ describe('AggregateTableRecordsQuery', () => {
     expect(query.includeHiddenFields).toBe(true);
   });
 
+  it('parses a paginated row-range slice', () => {
+    const { table, numberFieldId } = buildTable();
+    const query = AggregateTableRecordsQuery.create({
+      tableId: table.id().toString(),
+      viewId: table.defaultView()._unsafeUnwrap().id().toString(),
+      fields: [{ fieldId: numberFieldId.toString(), statisticFunc: 'sum' }],
+      orderBy: [{ fieldId: numberFieldId.toString(), order: 'asc' }],
+      skip: 1,
+      take: 2,
+    })._unsafeUnwrap();
+
+    expect(query.skip).toBe(1);
+    expect(query.take).toBe(2);
+    expect(query.orderBy).toEqual([{ fieldId: numberFieldId.toString(), order: 'asc' }]);
+  });
+
   it.each([
     undefined,
     {},
     { tableId: 'bad', viewId: 'bad' },
     { tableId: `tbl${'a'.repeat(16)}`, viewId: `viw${'a'.repeat(16)}`, fields: [{}] },
+    {
+      tableId: `tbl${'a'.repeat(16)}`,
+      viewId: `viw${'a'.repeat(16)}`,
+      skip: 1,
+    },
   ])('rejects invalid input: %j', (input) => {
     expect(AggregateTableRecordsQuery.create(input).isErr()).toBe(true);
   });
@@ -126,6 +147,163 @@ describe('AggregateTableRecordsHandler', () => {
       statisticFunc: 'sum',
       value: 30,
     });
+    expect(aggregate).toHaveBeenCalledOnce();
+  });
+
+  it('forwards skip/take and orderBy to the record repository', async () => {
+    const { table, numberFieldId } = buildTable();
+    const viewId = table.defaultView()._unsafeUnwrap().id().toString();
+    const tableRepository = new MemoryTableRepository();
+    await tableRepository.insert(context, table);
+    const aggregate = vi.fn<ITableRecordAggregationQueryRepository['aggregate']>(
+      async (_context, _table, _aggregation, _spec, options) => {
+        expect(options?.pagination?.limit().toNumber()).toBe(2);
+        expect(options?.pagination?.offset().toNumber()).toBe(1);
+        expect(
+          options?.orderBy?.some(
+            (item) =>
+              'fieldId' in item && item.fieldId.equals(numberFieldId) && item.direction === 'asc'
+          )
+        ).toBe(true);
+        expect(
+          options?.orderBy?.some((item) => 'column' in item && item.column === `__row_${viewId}`)
+        ).toBe(true);
+        expect(
+          options?.orderBy?.some((item) => 'column' in item && item.column === '__auto_number')
+        ).toBe(true);
+        return ok([
+          {
+            fieldId: numberFieldId,
+            statisticFunc: 'sum',
+            value: 50,
+          },
+        ]);
+      }
+    );
+    const handler = new AggregateTableRecordsHandler(
+      tableRepository,
+      { aggregate } as unknown as ITableRecordAggregationQueryRepository,
+      new NoopLogger()
+    );
+    const query = AggregateTableRecordsQuery.create({
+      tableId: table.id().toString(),
+      viewId,
+      fields: [{ fieldId: numberFieldId.toString(), statisticFunc: 'sum' }],
+      orderBy: [{ fieldId: numberFieldId.toString(), order: 'asc' }],
+      skip: 1,
+      take: 2,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(context, query);
+
+    expect(result._unsafeUnwrap().values[0]?.value).toBe(50);
+    expect(aggregate).toHaveBeenCalledOnce();
+  });
+
+  it('omits view row order when ignoreViewQuery is true', async () => {
+    const { table, numberFieldId } = buildTable();
+    const viewId = table.defaultView()._unsafeUnwrap().id().toString();
+    const tableRepository = new MemoryTableRepository();
+    await tableRepository.insert(context, table);
+    const aggregate = vi.fn<ITableRecordAggregationQueryRepository['aggregate']>(
+      async (_context, _table, _aggregation, _spec, options) => {
+        expect(
+          options?.orderBy?.some((item) => 'column' in item && item.column === `__row_${viewId}`)
+        ).toBe(false);
+        expect(
+          options?.orderBy?.some((item) => 'column' in item && item.column === '__auto_number')
+        ).toBe(true);
+        return ok([
+          {
+            fieldId: numberFieldId,
+            statisticFunc: 'sum',
+            value: 50,
+          },
+        ]);
+      }
+    );
+    const handler = new AggregateTableRecordsHandler(
+      tableRepository,
+      { aggregate } as unknown as ITableRecordAggregationQueryRepository,
+      new NoopLogger()
+    );
+    const query = AggregateTableRecordsQuery.create({
+      tableId: table.id().toString(),
+      viewId,
+      ignoreViewQuery: true,
+      fields: [{ fieldId: numberFieldId.toString(), statisticFunc: 'sum' }],
+      skip: 1,
+      take: 2,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(context, query);
+
+    expect(result._unsafeUnwrap().values[0]?.value).toBe(50);
+    expect(aggregate).toHaveBeenCalledOnce();
+  });
+
+  it('does not use view columnMeta statistics when ignoreViewQuery omits fields', async () => {
+    const { table, numberFieldId } = buildTable();
+    const viewId = table.defaultView()._unsafeUnwrap().id();
+    const updatedTable = table
+      .updateViewColumnMeta(viewId, [
+        { fieldId: numberFieldId, columnMeta: { statisticFunc: 'sum' } },
+      ])
+      ._unsafeUnwrap().updateResult!.table;
+    const tableRepository = new MemoryTableRepository();
+    await tableRepository.insert(context, updatedTable);
+    const aggregate = vi.fn<ITableRecordAggregationQueryRepository['aggregate']>(
+      async (_context, _table, aggregation) => {
+        expect(aggregation.fields).toEqual([]);
+        return ok([]);
+      }
+    );
+    const handler = new AggregateTableRecordsHandler(
+      tableRepository,
+      { aggregate } as unknown as ITableRecordAggregationQueryRepository,
+      new NoopLogger()
+    );
+    const query = AggregateTableRecordsQuery.create({
+      tableId: updatedTable.id().toString(),
+      viewId: viewId.toString(),
+      ignoreViewQuery: true,
+      skip: 0,
+      take: 5,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(context, query);
+
+    expect(result._unsafeUnwrap().values).toEqual([]);
+    expect(aggregate).toHaveBeenCalledOnce();
+  });
+
+  it('does not require the ignored view to exist', async () => {
+    const { table } = buildTable();
+    const tableRepository = new MemoryTableRepository();
+    await tableRepository.insert(context, table);
+    const aggregate = vi.fn<ITableRecordAggregationQueryRepository['aggregate']>(
+      async (_context, _table, aggregation) => {
+        expect(aggregation.fields).toEqual([]);
+        return ok([]);
+      }
+    );
+    const handler = new AggregateTableRecordsHandler(
+      tableRepository,
+      { aggregate } as unknown as ITableRecordAggregationQueryRepository,
+      new NoopLogger()
+    );
+    const query = AggregateTableRecordsQuery.create({
+      tableId: table.id().toString(),
+      viewId: `viw${'z'.repeat(16)}`,
+      ignoreViewQuery: true,
+      skip: 0,
+      take: 5,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(context, query);
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().values).toEqual([]);
     expect(aggregate).toHaveBeenCalledOnce();
   });
 

@@ -118,6 +118,19 @@ describe('ConditionalRollupConfig.create', () => {
     });
     expect(result.isErr()).toBe(true);
   });
+
+  it('round-trips optional cross-base id (T7064)', () => {
+    const baseId = createBaseId('x').toString();
+    const result = ConditionalRollupConfig.create({
+      baseId,
+      foreignTableId: createTableId('a').toString(),
+      lookupFieldId: createFieldId('b').toString(),
+      condition: { filter: null },
+    });
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().toDto().baseId).toBe(baseId);
+    expect(result._unsafeUnwrap().baseId()?.toString()).toBe(baseId);
+  });
 });
 
 describe('ConditionalRollupField without filter', () => {

@@ -337,7 +337,7 @@
       "copy": "نسخ",
       "installPromptLabel": "مطالبة تثبيت المهارة",
       "installCommandLabel": "أمر تثبيت المهارة",
-      "installPrompt": "يرجى قراءة https://github.com/teableio/agent-skills واتّباع الدليل لمساعدتي في تثبيت مهارة وكيل Teable وإتمام مصادقة Teable CLI.",
+      "installPrompt": "يرجى قراءة https://github.com/teableio/agent-skills واتّباع الدليل لمساعدتي في تثبيت مهارة وكيل Teable وإتمام مصادقة Teable CLI. عنوان مثيل Teable الخاص بي هو {{origin}}؛ استخدم `teable auth login --endpoint {{origin}}` للمصادقة.",
       "step1Title": "تثبيت المهارة",
       "step1Description": "انسخ هذه المطالبة إلى وكيل الذكاء الاصطناعي لديك. سيثبّت مهارة Teable ويفتح المتصفح لإتمام مصادقة Teable CLI.",
       "step3Title": "جرّب استخدام مهارة Teable",

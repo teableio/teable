@@ -15,6 +15,7 @@ import {
   type ITableRecordCountQueryRepository,
   type ITableRecordCountOptions,
   type ITableRecordAggregationQueryRepository,
+  type ITableRecordAggregationOptions,
   type ITableRecordCalendarQueryRepository,
   type ITableRecordCollaboratorQueryRepository,
   type TableRecordAggregation,
@@ -80,6 +81,16 @@ import { buildFieldMaskSqlMap } from './buildFieldMaskSql';
 import { buildRecordWhereClause } from './buildRecordWhereClause';
 import { CursorStreamPaginationStrategy } from './CursorStreamPaginationStrategy';
 import { OffsetStreamPaginationStrategy } from './OffsetStreamPaginationStrategy';
+import {
+  buildBookmarkSeekExists,
+  CURSOR_ORDER_BY_ERROR,
+  getLastAutoNumberCursor,
+  isAutoNumberOnlyCursorOrderBy,
+  isRawColumnCursorField,
+  orderByHasAutoNumberAsc,
+  parseCursorToken,
+  type CursorSeekKey,
+} from './listRecordsCursor';
 import {
   buildRecordSearchFieldMatches,
   buildRecordSearchWhereClause,
@@ -362,10 +373,7 @@ export class PostgresTableRecordQueryRepository
     table: Table,
     aggregation: TableRecordAggregation,
     spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
-    options?: {
-      readonly maxGroupPoints?: number;
-      readonly search?: RecordQuerySearch;
-    }
+    options?: ITableRecordAggregationOptions
   ): Promise<Result<ReadonlyArray<TableRecordAggregationValue>, DomainError>> {
     if (!aggregation.fields.length) return ok([]);
 
@@ -399,12 +407,38 @@ export class PostgresTableRecordQueryRepository
       ];
       queryBuilder.select(projection);
       if (spec) queryBuilder.where(spec);
-      const scopedQueryResult = queryBuilder.build();
-      if (scopedQueryResult.isErr()) return err(scopedQueryResult.error);
       const searchWherePlan = buildRecordSearchWherePlan(table, options?.search, {
-        tableAlias: 'a',
+        tableAlias: TABLE_ALIAS,
       });
       if (searchWherePlan.isErr()) return err(searchWherePlan.error);
+      if (searchWherePlan.value.condition !== null) {
+        queryBuilder.whereExpression(searchWherePlan.value.condition);
+      }
+      if (options?.orderBy?.length || options?.pagination) {
+        const dbTableNameResult = table.dbTableName();
+        if (dbTableNameResult.isErr()) return err(dbTableNameResult.error);
+        const tableNameResult = dbTableNameResult.value.value();
+        if (tableNameResult.isErr()) return err(tableNameResult.error);
+        const [schemaName, tableNameOnly] = tableNameResult.value.split('.');
+        const dynamicDbForOrder = this.db as unknown as Kysely<DynamicDB>;
+        if (options.orderBy?.length) {
+          await this.applyQueryOrderBy(
+            queryBuilder,
+            options.orderBy,
+            dynamicDbForOrder,
+            schemaName,
+            tableNameOnly
+          );
+        } else {
+          queryBuilder.orderBy('__auto_number', 'asc');
+        }
+        if (options.pagination) {
+          queryBuilder.limit(options.pagination.limit().toNumber());
+          queryBuilder.offset(options.pagination.offset().toNumber());
+        }
+      }
+      const scopedQueryResult = queryBuilder.build();
+      if (scopedQueryResult.isErr()) return err(scopedQueryResult.error);
 
       const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
       const fieldColumns = new Map<string, string>();
@@ -442,9 +476,6 @@ export class PostgresTableRecordQueryRepository
               ).as(aggregateAliases[index]!);
             })
           );
-        if (searchWherePlan.value.condition !== null) {
-          aggregateQuery = aggregateQuery.where(searchWherePlan.value.condition);
-        }
 
         for (const [index, group] of groupFields.entries()) {
           const field = fieldsById.get(group.fieldId.toString())!;
@@ -785,8 +816,51 @@ export class PostgresTableRecordQueryRepository
             }
           }
 
-          // Apply pagination if provided
-          if (options?.pagination) {
+          // Apply pagination if provided. Cursor pages must not use OFFSET.
+          const cursorSeekPlan = yield* await this.resolveCursorSeekPlan(
+            table,
+            orderBy,
+            dynamicDb,
+            schemaName,
+            tableNameOnly
+          );
+          if (options?.cursor) {
+            if (cursorSeekPlan === null) {
+              return err(
+                domainError.validation({
+                  message: CURSOR_ORDER_BY_ERROR,
+                })
+              );
+            }
+            const parsedCursor = parseCursorToken(options.cursor);
+            if (parsedCursor == null) {
+              return err(
+                domainError.validation({
+                  message: 'Invalid list records cursor',
+                })
+              );
+            }
+            if (options.pagination) {
+              queryBuilder.limit(options.pagination.limit().toNumber());
+            }
+            if (cursorSeekPlan === 'auto-number') {
+              queryBuilder.whereExpression(
+                sql`${sql.ref(`${TABLE_ALIAS}.__auto_number`)} > ${parsedCursor}` as Expression<SqlBool>
+              );
+            } else {
+              const seekTableName = sourceTableName.includes('.')
+                ? sourceTableName
+                : `${schemaName}.${tableNameOnly}`;
+              const [seekSchema, seekTable] = seekTableName.split('.');
+              queryBuilder.whereExpression(
+                buildBookmarkSeekExists(
+                  sql`${sql.id(seekSchema!)}.${sql.id(seekTable!)}`,
+                  parsedCursor,
+                  cursorSeekPlan
+                )
+              );
+            }
+          } else if (options?.pagination) {
             queryBuilder.limit(options.pagination.limit().toNumber());
             queryBuilder.offset(options.pagination.offset().toNumber());
           }
@@ -1108,12 +1182,18 @@ export class PostgresTableRecordQueryRepository
                 )
               : undefined;
 
+            const pageLimit = options?.pagination?.limit().toNumber();
+            const nextCursor =
+              pageLimit != null && records.length === pageLimit && cursorSeekPlan !== null
+                ? getLastAutoNumberCursor(records)
+                : undefined;
             return ok({
               records,
               total,
               ...(groups ? { groups } : {}),
               ...(searchAccessPath ? { searchAccessPath } : {}),
               ...(searchMatches ? { searchMatches } : {}),
+              ...(nextCursor ? { nextCursor } : {}),
             });
           } catch (error) {
             span?.recordError(describeError(error));
@@ -1512,10 +1592,10 @@ export class PostgresTableRecordQueryRepository
           sourceTableName: this.getRecordReadQuerySource(options)?.tableName,
         });
 
-        if (!isCursorOrderBySupported(options?.orderBy)) {
+        if (!isAutoNumberOnlyCursorOrderBy(options?.orderBy)) {
           return err(
             domainError.validation({
-              message: 'Cursor pagination only supports orderBy __auto_number asc',
+              message: CURSOR_ORDER_BY_ERROR,
             })
           );
         }
@@ -1589,6 +1669,93 @@ export class PostgresTableRecordQueryRepository
       this.streamPaginationStrategies.find((strategy) => strategy.accepts(pagination)) ??
       this.defaultStreamPaginationStrategy
     );
+  }
+
+  /**
+   * `null` cannot seek. `'auto-number'` uses `__auto_number > n`.
+   * Otherwise bookmark the last row and compare the same stored order keys.
+   */
+  private async resolveCursorSeekPlan(
+    table: Table,
+    orderBy: ReadonlyArray<TableRecordOrderBy> | undefined,
+    dynamicDb: Kysely<DynamicDB>,
+    schemaName: string,
+    tableNameOnly: string
+  ): Promise<Result<'auto-number' | CursorSeekKey[] | null, DomainError>> {
+    if (isAutoNumberOnlyCursorOrderBy(orderBy)) {
+      return ok('auto-number');
+    }
+    if (!orderByHasAutoNumberAsc(orderBy) || !orderBy?.length) {
+      return ok(null);
+    }
+
+    const keys: CursorSeekKey[] = [];
+    for (const sort of orderBy) {
+      if (isFieldOrderBy(sort)) {
+        const fieldResult = table.getField((field) => field.id().equals(sort.fieldId));
+        if (fieldResult.isErr()) {
+          return err(fieldResult.error);
+        }
+        const field = fieldResult.value;
+        if (!isRawColumnCursorField(field)) {
+          return ok(null);
+        }
+        const columnResult = field.dbFieldName().andThen((name) => name.value());
+        if (columnResult.isErr()) {
+          return err(columnResult.error);
+        }
+        const column = columnResult.value;
+        keys.push({
+          left: sql.ref(`${TABLE_ALIAS}.${column}`),
+          right: sql.ref(`__seek.${column}`),
+          direction: sort.direction,
+          matchV1Nulls: true,
+        });
+        continue;
+      }
+      if (!isSystemColumnOrderBy(sort)) {
+        return ok(null);
+      }
+      if (sort.column === '__auto_number') {
+        if (sort.direction !== 'asc') {
+          return ok(null);
+        }
+        keys.push({
+          left: sql.ref(`${TABLE_ALIAS}.__auto_number`),
+          right: sql.ref(`__seek.__auto_number`),
+          direction: 'asc',
+          matchV1Nulls: false,
+        });
+        continue;
+      }
+      if (!sort.column.startsWith('__row_')) {
+        return ok(null);
+      }
+      const columnExists = await this.getOrderColumnExists(
+        dynamicDb,
+        schemaName,
+        tableNameOnly,
+        sort.column
+      );
+      if (!columnExists) {
+        continue;
+      }
+      keys.push({
+        left: sql.ref(`${TABLE_ALIAS}.${sort.column}`),
+        right: sql.ref(`__seek.${sort.column}`),
+        direction: sort.direction,
+        matchV1Nulls: true,
+      });
+    }
+
+    if (keys.length === 0) {
+      return ok(null);
+    }
+    const onlyAutoNumber = keys.length === 1 && keys[0]?.matchV1Nulls === false;
+    if (onlyAutoNumber) {
+      return ok('auto-number');
+    }
+    return ok(keys);
   }
 
   /**
@@ -1921,42 +2088,6 @@ const buildUnexpectedQueryError = (prefix: string, error: unknown): DomainError 
     ...(details ? { details } : {}),
     message: `${prefix}: ${describeError(error)}`,
   });
-};
-
-const parseCursorToken = (cursor: string | undefined): number | undefined => {
-  if (!cursor) {
-    return undefined;
-  }
-  const parsed = Number(cursor);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return undefined;
-  }
-  return Math.floor(parsed);
-};
-
-const getLastAutoNumberCursor = (
-  records: ReadonlyArray<TableRecordReadModel>
-): string | undefined => {
-  const lastRecord = records[records.length - 1];
-  if (
-    !lastRecord ||
-    typeof lastRecord.autoNumber !== 'number' ||
-    !Number.isFinite(lastRecord.autoNumber)
-  ) {
-    return undefined;
-  }
-  return String(Math.floor(lastRecord.autoNumber));
-};
-
-const isCursorOrderBySupported = (orderBy: ITableRecordQueryStreamOptions['orderBy']): boolean => {
-  if (!orderBy?.length) {
-    return true;
-  }
-
-  return orderBy.every(
-    (sort) =>
-      isSystemColumnOrderBy(sort) && sort.column === '__auto_number' && sort.direction === 'asc'
-  );
 };
 
 const resolveQueryMode = (
