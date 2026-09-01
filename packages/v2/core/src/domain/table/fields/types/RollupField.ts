@@ -37,7 +37,6 @@ import { CellValueType } from './CellValueType';
 import type { DateTimeFormatting } from './DateTimeFormatting';
 import { DateTimeFormatting as DateTimeFormattingValue } from './DateTimeFormatting';
 import { FieldComputed } from './FieldComputed';
-import { FieldHasError } from './FieldHasError';
 import { LinkField } from './LinkField';
 import { NumberFormatting as NumberFormattingValue } from './NumberFormatting';
 import type { NumberFormatting } from './NumberFormatting';
@@ -395,14 +394,19 @@ export class RollupField
     const valuesTypeResult = lookupField.value.accept(new FieldValueTypeVisitor());
     if (valuesTypeResult.isErr()) return err(valuesTypeResult.error);
 
-    if (!this.cellValueTypeValue || !this.isMultipleCellValueValue) {
+    const isPendingResultType = !this.cellValueTypeValue || !this.isMultipleCellValueValue;
+    if (isPendingResultType && lookupField.value.type().equals(FieldType.button())) {
+      return err(
+        domainError.validation({ message: 'Button fields cannot be used as a rollup source' })
+      );
+    }
+
+    if (isPendingResultType) {
       const resolveResult = this.resolveResultType({
         cellValueType: valuesTypeResult.value.cellValueType,
         isMultipleCellValue: valuesTypeResult.value.isMultipleCellValue,
       });
-      if (resolveResult.isErr()) {
-        this.setHasError(FieldHasError.error());
-      }
+      if (resolveResult.isErr()) return err(resolveResult.error);
     }
 
     // Include host fields referenced by filter values (field-reference filters).

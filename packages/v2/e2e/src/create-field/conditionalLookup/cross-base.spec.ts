@@ -123,4 +123,123 @@ describe('create-field: conditionalLookup cross-base', () => {
       }
     }
   });
+
+  it('refreshes ARRAY_JOIN formula after a later cross-base foreign insert fills the lookup', async () => {
+    let hostTableId: string | undefined;
+    let foreignBaseId: string | undefined;
+    let foreignTableId: string | undefined;
+
+    try {
+      foreignBaseId = await createBase(nextName('v2-cl-formula-foreign-base'));
+
+      const foreignOrderIdFieldId = createFieldId();
+      const foreignNameFieldId = createFieldId();
+      const foreignTable = await ctx.createTable({
+        baseId: foreignBaseId,
+        name: nextName('v2-cl-formula-line-items'),
+        fields: [
+          {
+            type: 'number',
+            id: foreignOrderIdFieldId,
+            name: 'Order Id',
+            options: { formatting: { type: 'decimal', precision: 0 } },
+          },
+          { type: 'singleLineText', id: foreignNameFieldId, name: 'Product Name' },
+        ],
+      });
+      foreignTableId = foreignTable.id;
+
+      const hostNumberFieldId = createFieldId();
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('v2-cl-formula-orders'),
+        fields: [{ type: 'singleLineText', id: hostNumberFieldId, name: 'Number' }],
+      });
+      hostTableId = hostTable.id;
+
+      const hostOrderIdFieldId = createFieldId();
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hostTable.id,
+        field: {
+          type: 'formula',
+          id: hostOrderIdFieldId,
+          name: 'Order Id',
+          options: {
+            expression: `IF(REGEXP_REPLACE({${hostNumberFieldId}}, "[0-9]", "") = "", VALUE({${hostNumberFieldId}}), BLANK())`,
+          },
+        },
+      });
+
+      const lookupFieldId = createFieldId();
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hostTable.id,
+        field: {
+          type: 'conditionalLookup',
+          id: lookupFieldId,
+          name: 'Product Names',
+          options: {
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignNameFieldId,
+            condition: {
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: foreignOrderIdFieldId,
+                    operator: 'is',
+                    value: hostOrderIdFieldId,
+                    isSymbol: true,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      });
+
+      const displayFieldId = createFieldId();
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hostTable.id,
+        field: {
+          type: 'formula',
+          id: displayFieldId,
+          name: 'Product Names Display',
+          options: {
+            expression: `IF(COUNTA({${lookupFieldId}}) > 0, ARRAY_JOIN({${lookupFieldId}}, "\\n"), BLANK())`,
+          },
+        },
+      });
+
+      const hostRecord = await ctx.createRecord(hostTable.id, { [hostNumberFieldId]: '1001' });
+      await ctx.drainOutbox();
+
+      let hostRecords = await ctx.listRecords(hostTable.id);
+      let record = hostRecords.find((row) => row.id === hostRecord.id);
+      expect(record?.fields[hostOrderIdFieldId]).toBe(1001);
+      expect(record?.fields[lookupFieldId] ?? null).toBeNull();
+      expect(record?.fields[displayFieldId] ?? null).toBeNull();
+
+      await ctx.createRecord(foreignTable.id, {
+        [foreignOrderIdFieldId]: 1001,
+        [foreignNameFieldId]: 'Widget Alpha',
+      });
+      await ctx.drainOutbox();
+
+      hostRecords = await ctx.listRecords(hostTable.id);
+      record = hostRecords.find((row) => row.id === hostRecord.id);
+      expect(record?.fields[lookupFieldId]).toEqual(['Widget Alpha']);
+      expect(record?.fields[displayFieldId]).toBe('Widget Alpha');
+    } finally {
+      await ctx.drainOutbox().catch(() => undefined);
+      if (hostTableId) {
+        await ctx.deleteTable(hostTableId).catch(() => undefined);
+      }
+      if (foreignBaseId && foreignTableId) {
+        await deleteTableWithBaseId(foreignBaseId, foreignTableId).catch(() => undefined);
+      }
+    }
+  });
 });

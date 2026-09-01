@@ -83,7 +83,7 @@ describe('create-field: rollup v1 parity', () => {
           type: 'rollup',
           name: 'RollupErr',
           options: {
-            expression: 'sum({values})',
+            expression: 'countall({values})',
           },
           config: {
             linkFieldId: linkField.id,

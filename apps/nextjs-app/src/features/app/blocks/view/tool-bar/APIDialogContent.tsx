@@ -47,6 +47,7 @@ import {
 } from '@/features/app/components/setting/useSettingStore';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
 import type { IBaseResourceTable } from '@/features/app/hooks/useBaseResource';
+import { useOrigin } from '@/features/app/hooks/useOrigin';
 import { tableConfig } from '@/features/i18n/table.config';
 
 interface IFieldInfo {
@@ -299,6 +300,7 @@ const SkillCopyCard = ({
 
 const AgentSkillSection = ({ onOpenDetails }: { onOpenDetails?: () => void }) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const origin = useOrigin();
   const copy = {
     title: t('common:settings.setting.teableSkill'),
     recommended: t('table:toolbar.others.api.recommended', { defaultValue: '推荐' }),
@@ -309,7 +311,7 @@ const AgentSkillSection = ({ onOpenDetails }: { onOpenDetails?: () => void }) =>
     installCommandLabel: t('common:settings.teableSkill.installCommandLabel', {
       defaultValue: 'Skill 安装指令',
     }),
-    installPrompt: t('common:settings.teableSkill.installPrompt'),
+    installPrompt: t('common:settings.teableSkill.installPrompt', { origin }),
   };
 
   return (

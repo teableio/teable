@@ -41,6 +41,7 @@ import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { UseV2Feature } from '../../canary/decorators/use-v2-feature.decorator';
 import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
+import { markUnsupportedV2FeatureFallback } from '../../canary/v2-attribution';
 import { TqlPipe } from '../../record/open-api/tql.pipe';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { AggregationOpenApiV2Service } from './aggregation-open-api-v2.service';
@@ -231,11 +232,20 @@ export class AggregationOpenApiController {
 
   @Get('/selection')
   @Permissions('table|read')
+  @UseV2Feature('getAggregation')
   async getSelectionAggregation(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(selectionAggregationRoSchema), TqlPipe)
     query: ISelectionAggregationRo
   ): Promise<IAggregationVo> {
+    if (this.cls.get('useV2')) {
+      const v2Result = await this.aggregationOpenApiV2Service.tryGetSelectionAggregation(
+        tableId,
+        query
+      );
+      if (v2Result !== undefined) return v2Result;
+      markUnsupportedV2FeatureFallback(this.cls);
+    }
     return await this.aggregationOpenApiService.getSelectionAggregation(tableId, query);
   }
 

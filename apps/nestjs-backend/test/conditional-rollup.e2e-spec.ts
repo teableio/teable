@@ -3112,6 +3112,12 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       expect(hardwareRecord.fields[crossBaseRollup.id]).toEqual(150);
       expect(softwareRecord.fields[crossBaseRollup.id]).toEqual(70);
     });
+
+    it('returns the foreign base id so field settings can reopen the table (T7064)', async () => {
+      const fields = await getFields(host.id);
+      const field = fields.find((candidate) => candidate.id === crossBaseRollup.id);
+      expect(field?.options).toMatchObject({ baseId: foreignBaseId });
+    });
   });
 
   describe('conditional rollup aggregating formula fields', () => {

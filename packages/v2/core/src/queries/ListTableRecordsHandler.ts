@@ -63,7 +63,9 @@ export class ListTableRecordsResult {
     readonly limit: number,
     readonly groups?: ReadonlyArray<ITableRecordGroup>,
     readonly searchMatches?: ReadonlyArray<TableRecordQueryRepositoryPort.ITableRecordSearchMatch>,
-    readonly appliedGroup?: ReadonlyArray<ViewQueryGroupItem>
+    readonly appliedGroup?: ReadonlyArray<ViewQueryGroupItem>,
+    readonly nextCursor?: string,
+    readonly hasMore?: boolean
   ) {}
 
   static create(
@@ -73,7 +75,9 @@ export class ListTableRecordsResult {
     limit: number,
     groups?: ReadonlyArray<ITableRecordGroup>,
     searchMatches?: ReadonlyArray<TableRecordQueryRepositoryPort.ITableRecordSearchMatch>,
-    appliedGroup?: ReadonlyArray<ViewQueryGroupItem>
+    appliedGroup?: ReadonlyArray<ViewQueryGroupItem>,
+    nextCursor?: string,
+    hasMore?: boolean
   ): ListTableRecordsResult {
     return new ListTableRecordsResult(
       records,
@@ -82,7 +86,9 @@ export class ListTableRecordsResult {
       limit,
       groups,
       searchMatches,
-      appliedGroup
+      appliedGroup,
+      nextCursor,
+      hasMore
     );
   }
 }
@@ -922,6 +928,7 @@ export class ListTableRecordsHandler
               queryPlan?.spec,
               {
                 pagination: query.pagination,
+                cursor: query.cursor,
                 orderBy: queryPlan?.recordIdsOrder?.length ? undefined : orderBy,
                 recordIdsOrder: queryPlan?.recordIdsOrder,
                 search: visibleRowSearch,
@@ -930,7 +937,7 @@ export class ListTableRecordsHandler
                 // never change this to 'computed'
                 mode: 'stored',
                 projectionFieldIds,
-                includeTotal: query.includeTotal,
+                includeTotal: query.includeTotal === true,
                 recordReadQuerySource: query.recordReadQuerySource,
                 searchAccessPath: query.recordSearchAccessPath,
                 includeSearchFieldMatches: query.includeSearchFieldMatches,
@@ -1065,7 +1072,9 @@ export class ListTableRecordsHandler
               query.pagination.limit().toNumber(),
               queryResult.groups,
               searchMatches,
-              effectiveGroup?.length ? effectiveGroup : undefined
+              effectiveGroup?.length ? effectiveGroup : undefined,
+              queryResult.nextCursor,
+              Boolean(queryResult.nextCursor)
             )
           );
         }.bind(this)

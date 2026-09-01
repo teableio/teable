@@ -51,6 +51,7 @@ import {
   updateRecordByApi,
   getRecords,
   getRecord,
+  updateViewColumnMeta,
 } from './utils/init-app';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -1731,9 +1732,73 @@ describe('OpenAPI AggregationController (e2e)', () => {
           [StatisticsFunc.Filled]: [numField.id],
         },
       });
-      // All 5 rows are visible; 4 have qty values: 10+20+30+40 = 100.
       expect(findAgg(data, numField.id, StatisticsFunc.Sum)).toBe(100);
       expect(findAgg(data, numField.id, StatisticsFunc.Filled)).toBe(4);
+    });
+
+    it('forced v2 ignoreViewQuery with omitted field does not use view statistic defaults', async () => {
+      const previousForceV2All = process.env.FORCE_V2_ALL;
+      process.env.FORCE_V2_ALL = 'true';
+      const isolatedView = await createView(table.id, {
+        name: 'sel_agg_ignored_defaults',
+        type: ViewType.Grid,
+      });
+      await updateViewColumnMeta(table.id, isolatedView.id, [
+        { fieldId: numField.id, columnMeta: { statisticFunc: StatisticsFunc.Sum } },
+      ]);
+      try {
+        const fromView = await getSelectionAggregation(table.id, {
+          viewId: isolatedView.id,
+          skip: 0,
+          take: 5,
+        });
+        expect(fromView.status).toBe(200);
+        expect(findAgg(fromView.data, numField.id, StatisticsFunc.Sum)).toBe(100);
+
+        const ignored = await getSelectionAggregation(table.id, {
+          viewId: isolatedView.id,
+          ignoreViewQuery: true,
+          skip: 0,
+          take: 5,
+        });
+        expect(ignored.status).toBe(200);
+        expect(ignored.headers['x-teable-v2']).toBe('true');
+        expect(ignored.headers['x-teable-v2-feature']).toBe('getAggregation');
+        expect(ignored.data.aggregations ?? []).toEqual([]);
+      } finally {
+        if (previousForceV2All == null) {
+          delete process.env.FORCE_V2_ALL;
+        } else {
+          process.env.FORCE_V2_ALL = previousForceV2All;
+        }
+      }
+    });
+
+    it('forced v2 selection fallback stamps unsupported_feature attribution', async () => {
+      const previousForceV2All = process.env.FORCE_V2_ALL;
+      process.env.FORCE_V2_ALL = 'true';
+      try {
+        const selectedRecordId = table.records[0]!.id;
+        const response = await getSelectionAggregation(table.id, {
+          viewId,
+          skip: 0,
+          take: 5,
+          field: {
+            [StatisticsFunc.Sum]: [numField.id],
+          },
+          selectedRecordIds: [selectedRecordId],
+        });
+        expect(response.status).toBe(200);
+        expect(response.headers['x-teable-v2']).toBe('false');
+        expect(response.headers['x-teable-v2-reason']).toBe('unsupported_feature');
+        expect(response.headers['x-teable-v2-feature']).toBe('getAggregation');
+      } finally {
+        if (previousForceV2All == null) {
+          delete process.env.FORCE_V2_ALL;
+        } else {
+          process.env.FORCE_V2_ALL = previousForceV2All;
+        }
+      }
     });
 
     describe('with groupBy + collapsedGroupIds', () => {

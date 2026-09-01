@@ -70,6 +70,22 @@ describe('Table.createRecordAggregation', () => {
     ).toEqual([{ fieldId: numberId.toString(), statisticFunc: 'sum' }]);
   });
 
+  it('does not derive view columnMeta statistics when viewId is omitted', () => {
+    const { table, viewId, numberId } = createTable();
+    const updatedTable = table
+      .updateViewColumnMeta(viewId, [{ fieldId: numberId, columnMeta: { statisticFunc: 'sum' } }])
+      ._unsafeUnwrap().updateResult!.table;
+
+    expect(updatedTable.createRecordAggregation({})._unsafeUnwrap().fields).toEqual([]);
+    expect(
+      updatedTable
+        .createRecordAggregation({
+          fields: [{ fieldId: numberId.toString(), statisticFunc: 'sum' }],
+        })
+        .isOk()
+    ).toBe(true);
+  });
+
   it('validates functions against the Field child value type', () => {
     const { table, viewId, textId, numberId, checkboxId, attachmentId } = createTable();
 

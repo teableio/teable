@@ -13,6 +13,7 @@ import type {
   ISearchCountVo,
   ISearchIndexByQueryRo,
   ISearchIndexVo,
+  ISelectionAggregationRo,
 } from '@teable/openapi';
 import { mapTableRecordToDto } from '@teable/v2-contract-http';
 import { executeListTableRecordsEndpoint } from '@teable/v2-contract-http-implementation/handlers';
@@ -148,6 +149,61 @@ export class AggregationOpenApiV2Service {
       groupBy: query.groupBy ?? undefined,
     });
     return mapAggregationResult(result, query.groupBy ?? undefined);
+  }
+
+  async tryGetSelectionAggregation(
+    tableId: string,
+    query: ISelectionAggregationRo
+  ): Promise<IAggregationVo | undefined> {
+    if (!query.viewId) {
+      return undefined;
+    }
+    if (
+      query.filterLinkCellCandidate ||
+      query.filterLinkCellSelected ||
+      query.selectedRecordIds?.length
+    ) {
+      return undefined;
+    }
+    const prepared = await this.prepareV2Read(tableId, query.viewId, query.ignoreViewQuery);
+    if (!prepared) {
+      return undefined;
+    }
+    const { context, queryBus } = prepared;
+    const filter = await normalizeLegacyFilterViaQueryBus(
+      tableId,
+      query.filter,
+      context.actorId.toString(),
+      queryBus,
+      context
+    );
+    const groupBy = (query.groupBy ?? []).map((item) => ({
+      fieldId: item.fieldId,
+      order: item.order,
+    }));
+    const requestedFields = query.field
+      ? Object.entries(query.field).flatMap(([statisticFunc, fieldIds]) =>
+          (fieldIds ?? []).map((fieldId) => ({ fieldId, statisticFunc }))
+        )
+      : undefined;
+    const orderBy = (query.orderBy ?? []).map((item) => ({
+      fieldId: item.fieldId,
+      order: item.order,
+    }));
+    const result = await this.executeAggregateQuery(prepared, {
+      tableId,
+      viewId: query.viewId,
+      filter,
+      search: query.search,
+      fields: requestedFields?.length ? requestedFields : undefined,
+      groupBy: groupBy.length ? groupBy : undefined,
+      orderBy: orderBy.length ? orderBy : undefined,
+      skip: query.skip,
+      take: query.take,
+      ignoreViewQuery: query.ignoreViewQuery,
+      collapsedGroupIds: query.collapsedGroupIds,
+    });
+    return mapAggregationResult(result, undefined);
   }
 
   async tryGetGroupPoints(
@@ -429,6 +485,11 @@ export class AggregationOpenApiV2Service {
       // Validated by AggregateTableRecordsQuery.create; v1 ROs type `order`
       // as SortFunc, which the zod schema narrows to 'asc' | 'desc'.
       groupBy?: ReadonlyArray<{ fieldId: string; order: string }>;
+      orderBy?: ReadonlyArray<{ fieldId: string; order: string }>;
+      skip?: number;
+      take?: number;
+      ignoreViewQuery?: boolean;
+      collapsedGroupIds?: ReadonlyArray<string>;
     }
   ): Promise<AggregateTableRecordsResult> {
     const aggregationQuery = AggregateTableRecordsQuery.create(input, {

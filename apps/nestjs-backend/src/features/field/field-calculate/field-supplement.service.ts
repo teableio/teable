@@ -23,9 +23,10 @@ import {
   getRandomString,
   getShowAsSchema,
   getUniqName,
-  isMultiValueLink,
   isConditionalLookupOptions,
   isLinkLookupOptions,
+  isMultiValueLink,
+  isRollupFunctionSupportedForCellValueType,
   LastModifiedTimeFieldCore,
   LongTextFieldCore,
   NumberFieldCore,
@@ -1007,6 +1008,32 @@ export class FieldSupplementService {
         {
           localization: {
             i18nKey: 'editor.error.optionsRequired',
+          },
+        }
+      );
+    }
+    if (lookupField.type === FieldType.Button) {
+      throw new CustomHttpException(
+        'Button fields cannot be used as a rollup source',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.rollupExpressionParseError',
+          },
+        }
+      );
+    }
+
+    if (
+      options.expression &&
+      !isRollupFunctionSupportedForCellValueType(options.expression, lookupField.cellValueType)
+    ) {
+      throw new CustomHttpException(
+        `Parse rollup expression ${options.expression} error: incompatible with lookup field type`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.rollupExpressionParseError',
           },
         }
       );

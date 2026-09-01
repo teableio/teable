@@ -1,10 +1,15 @@
 import type {
+  IClearByIdRo,
   IClearSelectionStreamEvent,
+  IDeleteByIdRo,
   IDeleteSelectionStreamEvent,
   IDuplicateSelectionStreamEvent,
+  IPasteByIdRo,
+  IPasteByIdStreamRo,
   IPasteSelectionStreamEvent,
   IRangesRo,
   IPasteRo,
+  ISelectionIdsRo,
 } from '@teable/openapi';
 import { IdReturnType, RangeType } from '@teable/openapi';
 import type { Response } from 'express';
@@ -27,24 +32,34 @@ import type { SelectionService } from './selection.service';
 describe('SelectionController', () => {
   let controller: SelectionController;
   let selectionService: Mocked<
-    Pick<SelectionService, 'clear' | 'delete' | 'getIdsFromRanges' | 'paste'>
+    Pick<
+      SelectionService,
+      'clear' | 'clearById' | 'delete' | 'deleteById' | 'getIdsFromRanges' | 'paste' | 'pasteById'
+    >
   >;
   let recordOpenApiService: Mocked<Pick<RecordOpenApiService, 'duplicateRecord'>>;
   let recordOpenApiV2Service: Mocked<
     Pick<
       RecordOpenApiV2Service,
+      | 'clearByIdStream'
       | 'clearStream'
+      | 'deleteByIdStream'
       | 'deleteByRangeStream'
       | 'deleteRecordsByIds'
       | 'duplicateByRangeStream'
+      | 'pasteByIdStream'
       | 'pasteStream'
       | 'resolveRecordIdsBySelection'
+      | 'updateRecords'
     >
   >;
   let fieldOpenApiV2Service: Mocked<Pick<FieldOpenApiV2Service, 'getFields'>>;
   let cls: { get: ReturnType<typeof vi.fn> };
   let shareViewScopeService: Mocked<
-    Pick<ShareViewScopeService, 'assertPaste' | 'assertSelectionMutation'>
+    Pick<
+      ShareViewScopeService,
+      'assertPaste' | 'assertPasteById' | 'assertSelectionIdMutation' | 'assertSelectionMutation'
+    >
   >;
 
   const rangesRo: IRangesRo = {
@@ -90,20 +105,27 @@ describe('SelectionController', () => {
   beforeEach(() => {
     selectionService = {
       clear: vi.fn(),
+      clearById: vi.fn(),
       delete: vi.fn(),
+      deleteById: vi.fn(),
       getIdsFromRanges: vi.fn(),
       paste: vi.fn(),
+      pasteById: vi.fn(),
     };
     recordOpenApiService = {
       duplicateRecord: vi.fn(),
     };
     recordOpenApiV2Service = {
+      clearByIdStream: vi.fn(),
       clearStream: vi.fn(),
+      deleteByIdStream: vi.fn(),
       deleteByRangeStream: vi.fn(),
       deleteRecordsByIds: vi.fn(),
       duplicateByRangeStream: vi.fn(),
+      pasteByIdStream: vi.fn(),
       pasteStream: vi.fn(),
       resolveRecordIdsBySelection: vi.fn(),
+      updateRecords: vi.fn(),
     };
     fieldOpenApiV2Service = {
       getFields: vi.fn(),
@@ -113,6 +135,8 @@ describe('SelectionController', () => {
     };
     shareViewScopeService = {
       assertPaste: vi.fn().mockResolvedValue(undefined),
+      assertPasteById: vi.fn().mockResolvedValue(undefined),
+      assertSelectionIdMutation: vi.fn().mockResolvedValue(undefined),
       assertSelectionMutation: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -607,5 +631,112 @@ describe('SelectionController', () => {
         },
       },
     ]);
+  });
+  // Regression guard for the share-view scope bypass: the *-by-id endpoints are
+  // id-addressed siblings of the range endpoints and must run the same
+  // ShareViewScopeService assertion before touching any record.
+  describe('share view scope on the *-by-id endpoints', () => {
+    const scopeError = new Error('Record(recOutside) is not writable through share view shrTest');
+    const selection = { recordIds: ['recOutside'], fieldIds: ['fldHidden'] };
+    const clearByIdRo = { viewId: 'viwTest', selection } as IClearByIdRo;
+    const deleteByIdRo = { viewId: 'viwTest', selection } as IDeleteByIdRo;
+    const pasteByIdRo = { viewId: 'viwTest', selection, content: 'OVERWRITTEN' } as IPasteByIdRo;
+    const selectionIdsRo = {
+      viewId: 'viwTest',
+      selection: { allRecords: true },
+    } as ISelectionIdsRo;
+    const pasteByIdStreamRo = {
+      ...selectionIdsRo,
+      content: 'OVERWRITTEN',
+    } as IPasteByIdStreamRo;
+
+    const expectNoMutation = () => {
+      expect(selectionService.clearById).not.toHaveBeenCalled();
+      expect(selectionService.deleteById).not.toHaveBeenCalled();
+      expect(selectionService.pasteById).not.toHaveBeenCalled();
+      expect(recordOpenApiV2Service.updateRecords).not.toHaveBeenCalled();
+      expect(recordOpenApiV2Service.deleteRecordsByIds).not.toHaveBeenCalled();
+      expect(recordOpenApiV2Service.clearByIdStream).not.toHaveBeenCalled();
+      expect(recordOpenApiV2Service.deleteByIdStream).not.toHaveBeenCalled();
+      expect(recordOpenApiV2Service.pasteByIdStream).not.toHaveBeenCalled();
+    };
+
+    it('asserts the scope on clear-by-id before mutating', async () => {
+      shareViewScopeService.assertSelectionIdMutation.mockRejectedValue(scopeError);
+
+      await expect(controller.clearById('tblTest', clearByIdRo, undefined)).rejects.toThrow(
+        scopeError
+      );
+      expect(shareViewScopeService.assertSelectionIdMutation).toHaveBeenCalledWith(
+        'tblTest',
+        clearByIdRo
+      );
+      expectNoMutation();
+    });
+
+    it('asserts the scope on clear-by-id-stream before mutating', async () => {
+      shareViewScopeService.assertSelectionIdMutation.mockRejectedValue(scopeError);
+      const response = createMockSseResponse();
+
+      await expect(
+        controller.clearByIdStream('tblTest', selectionIdsRo, response as never)
+      ).rejects.toThrow(scopeError);
+      expect(shareViewScopeService.assertSelectionIdMutation).toHaveBeenCalledWith(
+        'tblTest',
+        selectionIdsRo
+      );
+      expectNoMutation();
+    });
+
+    it('asserts the scope on delete-by-id before mutating', async () => {
+      shareViewScopeService.assertSelectionIdMutation.mockRejectedValue(scopeError);
+
+      await expect(controller.deleteById('tblTest', deleteByIdRo, undefined)).rejects.toThrow(
+        scopeError
+      );
+      expect(shareViewScopeService.assertSelectionIdMutation).toHaveBeenCalledWith(
+        'tblTest',
+        deleteByIdRo
+      );
+      expectNoMutation();
+    });
+
+    it('asserts the scope on delete-by-id-stream before mutating', async () => {
+      shareViewScopeService.assertSelectionIdMutation.mockRejectedValue(scopeError);
+      const response = createMockSseResponse();
+
+      await expect(
+        controller.deleteByIdStream('tblTest', selectionIdsRo, response as never)
+      ).rejects.toThrow(scopeError);
+      expect(shareViewScopeService.assertSelectionIdMutation).toHaveBeenCalledWith(
+        'tblTest',
+        selectionIdsRo
+      );
+      expectNoMutation();
+    });
+
+    it('asserts the scope on paste-by-id before mutating', async () => {
+      shareViewScopeService.assertPasteById.mockRejectedValue(scopeError);
+
+      await expect(controller.pasteById('tblTest', pasteByIdRo, undefined)).rejects.toThrow(
+        scopeError
+      );
+      expect(shareViewScopeService.assertPasteById).toHaveBeenCalledWith('tblTest', pasteByIdRo);
+      expectNoMutation();
+    });
+
+    it('asserts the scope on paste-by-id-stream before mutating', async () => {
+      shareViewScopeService.assertPasteById.mockRejectedValue(scopeError);
+      const response = createMockSseResponse();
+
+      await expect(
+        controller.pasteByIdStream('tblTest', pasteByIdStreamRo, undefined, response as never)
+      ).rejects.toThrow(scopeError);
+      expect(shareViewScopeService.assertPasteById).toHaveBeenCalledWith(
+        'tblTest',
+        pasteByIdStreamRo
+      );
+      expectNoMutation();
+    });
   });
 });

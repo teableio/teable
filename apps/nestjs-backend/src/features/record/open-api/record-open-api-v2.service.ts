@@ -320,6 +320,16 @@ export class RecordOpenApiV2Service {
         HttpStatus.BAD_REQUEST
       );
     }
+    if (query.cursor && query.skip) {
+      throwV2Error(
+        {
+          code: invalidFilterCode,
+          message: 'cursor cannot be combined with skip',
+          tags: ['validation'],
+        },
+        HttpStatus.BAD_REQUEST
+      );
+    }
   }
 
   /**
@@ -419,7 +429,7 @@ export class RecordOpenApiV2Service {
       // List always uses field ids internally; response keys remapped below.
       fieldKeyType: 'id' as const,
       limit: query.take,
-      offset: query.skip,
+      offset: query.cursor ? undefined : query.skip,
       projection: projectionFieldIds,
       includeTotal: shouldComputeGroupMetadata,
       ...(normalizedFilter ? { filter: normalizedFilter } : {}),
@@ -439,6 +449,7 @@ export class RecordOpenApiV2Service {
       ...(effectiveQuery.ignoreViewQuery !== undefined
         ? { ignoreViewQuery: effectiveQuery.ignoreViewQuery }
         : {}),
+      ...(query.cursor ? { cursor: query.cursor } : {}),
     } satisfies IListTableRecordsQueryInput;
     let listResult = await this.withRecordReadSpan(
       context,
@@ -529,6 +540,9 @@ export class RecordOpenApiV2Service {
       shouldExposeGroupMetadata ? computedGroupExtra : undefined,
       searchHitIndexExtra
     );
+    if (listResult.nextCursor) {
+      queryExtra = { ...queryExtra, nextCursor: listResult.nextCursor };
+    }
     queryExtra = await this.presignAttachmentGroupExtra(
       container,
       table,
@@ -1918,6 +1932,7 @@ export class RecordOpenApiV2Service {
     groups?: ReadonlyArray<ITableRecordGroup>;
     searchMatches?: ListTableRecordsResult['searchMatches'];
     appliedGroup?: ListTableRecordsResult['appliedGroup'];
+    nextCursor?: string;
   }> {
     const queryResult = ListTableRecordsQuery.create(input, options);
     if (queryResult.isErr()) {
@@ -1944,6 +1959,7 @@ export class RecordOpenApiV2Service {
       ...(result.value.groups ? { groups: result.value.groups } : {}),
       ...(result.value.searchMatches ? { searchMatches: result.value.searchMatches } : {}),
       ...(result.value.appliedGroup ? { appliedGroup: result.value.appliedGroup } : {}),
+      ...(result.value.nextCursor ? { nextCursor: result.value.nextCursor } : {}),
     };
   }
 

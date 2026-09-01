@@ -337,7 +337,7 @@
       "copy": "Kopieren",
       "installPromptLabel": "Skill-Installationsprompt",
       "installCommandLabel": "Skill-Installationsbefehl",
-      "installPrompt": "Bitte lies https://github.com/teableio/agent-skills und hilf mir anhand des Leitfadens, den Teable agent skill zu installieren und die Teable CLI-Authentifizierung abzuschließen.",
+      "installPrompt": "Bitte lies https://github.com/teableio/agent-skills und hilf mir anhand des Leitfadens, den Teable agent skill zu installieren und die Teable CLI-Authentifizierung abzuschließen. Meine Teable-Instanz ist {{origin}}; authentifiziere dich mit `teable auth login --endpoint {{origin}}`.",
       "step1Title": "Skill installieren",
       "step1Description": "Kopiere diesen Prompt in deinen AI Agent. Er installiert den Teable Skill und öffnet den Browser, um die Teable CLI-Authentifizierung abzuschließen.",
       "step3Title": "Teable-Fähigkeit ausprobieren",

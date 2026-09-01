@@ -23,13 +23,14 @@ export const collectContinuationFieldIds = (
   changesByStep: ReadonlyArray<StepChangeData>,
   rejectedCells?: ReadonlyArray<{ fieldId: string }>
 ): FieldId[] => {
-  if (plan.steps.length === 0) {
-    const edgeTargets = new Map<string, FieldId>();
-    for (const edge of plan.edges) {
-      for (const fieldId of edge.propagationTargetFieldIds ?? [edge.toFieldId]) {
-        edgeTargets.set(fieldId.toString(), fieldId);
-      }
+  const edgeTargets = new Map<string, FieldId>();
+  for (const edge of plan.edges) {
+    for (const fieldId of edge.propagationTargetFieldIds ?? [edge.toFieldId]) {
+      edgeTargets.set(fieldId.toString(), fieldId);
     }
+  }
+
+  if (plan.steps.length === 0) {
     return [...edgeTargets.values()];
   }
 
@@ -42,13 +43,13 @@ export const collectContinuationFieldIds = (
   for (const stepChange of changesByStep) {
     for (const recordChange of stepChange.recordChanges) {
       for (const change of recordChange.changes) {
-        const fieldId = plannedFields.get(change.fieldId);
+        const fieldId = plannedFields.get(change.fieldId) ?? edgeTargets.get(change.fieldId);
         if (fieldId) changedFields.set(change.fieldId, fieldId);
       }
     }
   }
   for (const rejected of rejectedCells ?? []) {
-    const fieldId = plannedFields.get(rejected.fieldId);
+    const fieldId = plannedFields.get(rejected.fieldId) ?? edgeTargets.get(rejected.fieldId);
     if (fieldId) changedFields.set(rejected.fieldId, fieldId);
   }
   return [...changedFields.values()];
@@ -60,6 +61,11 @@ export const collectContinuationFieldIds = (
  * feeding them back into planNextStage re-queues the same formulas (the
  * JSON-formula-cascade double-compute). Single-level stages keep the full
  * changed set so delete/import discovery still sees lookup outputs.
+ *
+ * An edge-only prefix (no executed steps) must still continue from the
+ * propagation targets even when the parent plan has leftover later steps.
+ * Passing the full leftover-step plan here would inspect UPDATE changes
+ * against those later fields and drop the lookup write that just happened.
  */
 export const collectContinuationFieldIdsFromExecutedSteps = (
   plan: ComputedUpdatePlan,
@@ -70,7 +76,7 @@ export const collectContinuationFieldIdsFromExecutedSteps = (
   const levels = [...new Set(executedSteps.map((step) => step.level))];
   if (levels.length <= 1) {
     return collectContinuationFieldIds(
-      executedSteps.length > 0 ? { ...plan, steps: executedSteps } : plan,
+      { ...plan, steps: executedSteps },
       changesByStep,
       rejectedCells
     );

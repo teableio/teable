@@ -21,6 +21,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `FieldValueTypeVisitor.ts` - Role: visitor; Purpose: derive cell value types and multiplicity.
 - `FieldValueTypeVisitor.spec.ts` - Role: tests; Purpose: verify value type visitor behavior.
 - `IFieldVisitor.ts` - Role: visitor interface; Purpose: declare per-field visit methods.
+- `LinkForeignTableReferenceVisitor.ts` - Role: visitor; Purpose: collect foreign table ids and optional cross-base ids from link, lookup, and conditional fields (`toLinkForeignTableReference`).
+- `LinkForeignTableReferenceVisitor.spec.ts` - Role: tests; Purpose: verify foreign-table reference collection including optional BaseId.
 - `NoopFieldVisitor.ts` - Role: no-op visitor; Purpose: default empty implementation.
 - `SetFieldValueSpecFactoryVisitor.ts` - Role: visitor; Purpose: create SetValueSpec based on field type.
 

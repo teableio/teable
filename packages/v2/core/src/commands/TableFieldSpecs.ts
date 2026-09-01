@@ -76,7 +76,10 @@ import { TimeZone } from '../domain/table/fields/types/TimeZone';
 import { UserDefaultValue } from '../domain/table/fields/types/UserDefaultValue';
 import { UserMultiplicity } from '../domain/table/fields/types/UserMultiplicity';
 import { UserNotification } from '../domain/table/fields/types/UserNotification';
-import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
+import {
+  toLinkForeignTableReference,
+  type LinkForeignTableReference,
+} from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import type { Table } from '../domain/table/Table';
 import type { TableBuilder } from '../domain/table/TableBuilder';
 import { TableId } from '../domain/table/TableId';
@@ -1411,11 +1414,7 @@ class CreateConditionalRollupFieldSpec implements ICreateTableFieldSpec {
   }
 
   foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
-    return ok([
-      {
-        foreignTableId: this.config.foreignTableId(),
-      },
-    ]);
+    return ok([toLinkForeignTableReference(this.config.foreignTableId(), this.config.baseId())]);
   }
 
   private isPrimary = false;
@@ -1476,9 +1475,10 @@ class CreateConditionalLookupFieldSpec implements ICreateTableFieldSpec {
 
   foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([
-      {
-        foreignTableId: this.conditionalLookupOptions.foreignTableId(),
-      },
+      toLinkForeignTableReference(
+        this.conditionalLookupOptions.foreignTableId(),
+        this.conditionalLookupOptions.baseId()
+      ),
     ]);
   }
 

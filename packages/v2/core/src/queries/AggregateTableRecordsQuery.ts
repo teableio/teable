@@ -22,22 +22,36 @@ const aggregationGroupSchema = z.object({
   order: z.enum(['asc', 'desc']),
 });
 
-export const aggregateTableRecordsInputSchema = z.object({
-  tableId: z.string(),
-  viewId: z.string(),
-  filter: recordFilterSchema.optional(),
-  search: recordSearchInputSchema,
-  fields: z.array(aggregationFieldSchema).optional(),
-  groupBy: z.array(aggregationGroupSchema).optional(),
-  includeHiddenFields: z.boolean().optional(),
-});
+export const aggregateTableRecordsInputSchema = z
+  .object({
+    tableId: z.string(),
+    viewId: z.string(),
+    filter: recordFilterSchema.optional(),
+    search: recordSearchInputSchema,
+    fields: z.array(aggregationFieldSchema).optional(),
+    groupBy: z.array(aggregationGroupSchema).optional(),
+    orderBy: z.array(aggregationGroupSchema).optional(),
+    skip: z.number().int().min(0).optional(),
+    take: z.number().int().min(1).optional(),
+    ignoreViewQuery: z.boolean().optional(),
+    collapsedGroupIds: z.array(z.string().min(1)).optional(),
+    includeHiddenFields: z.boolean().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.skip != null && value.take == null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'skip requires take',
+        path: ['skip'],
+      });
+    }
+  });
 
 export type IAggregateTableRecordsQueryInput = z.input<typeof aggregateTableRecordsInputSchema>;
 
 export type IAggregateTableRecordsQueryOptions = {
   readonly maxGroupPoints?: number;
 };
-
 export class AggregateTableRecordsQuery {
   private constructor(
     readonly tableId: TableId,
@@ -46,6 +60,11 @@ export class AggregateTableRecordsQuery {
     readonly search: RecordSearchInput | undefined,
     readonly fields: ReadonlyArray<TableRecordAggregationFieldInput> | undefined,
     readonly groupBy: ReadonlyArray<TableRecordAggregationGroupInput> | undefined,
+    readonly orderBy: ReadonlyArray<TableRecordAggregationGroupInput> | undefined,
+    readonly skip: number | undefined,
+    readonly take: number | undefined,
+    readonly ignoreViewQuery: boolean,
+    readonly collapsedGroupIds: ReadonlyArray<string> | undefined,
     readonly includeHiddenFields: boolean,
     readonly maxGroupPoints: number
   ) {}
@@ -74,6 +93,11 @@ export class AggregateTableRecordsQuery {
             parsed.data.search,
             parsed.data.fields,
             parsed.data.groupBy?.slice(0, 3),
+            parsed.data.orderBy,
+            parsed.data.skip,
+            parsed.data.take,
+            parsed.data.ignoreViewQuery === true,
+            parsed.data.collapsedGroupIds,
             parsed.data.includeHiddenFields ?? false,
             Math.max(1, Math.floor(options?.maxGroupPoints ?? 5_000))
           )

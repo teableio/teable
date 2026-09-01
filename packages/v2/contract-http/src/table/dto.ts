@@ -39,6 +39,7 @@ import {
   TimeFormatting,
   TIME_ZONE_LIST,
   FieldValueTypeVisitor,
+  optionalForeignBaseIdSchema,
 } from '@teable/v2-core';
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -113,12 +114,14 @@ const lookupOptionsSchema = z.object({
 });
 
 const conditionalLookupOptionsSchema = z.object({
+  baseId: optionalForeignBaseIdSchema,
   foreignTableId: z.string(),
   lookupFieldId: z.string(),
   condition: fieldConditionSchema,
 });
 
 const conditionalRollupConfigSchema = z.object({
+  baseId: optionalForeignBaseIdSchema,
   foreignTableId: z.string(),
   lookupFieldId: z.string(),
   condition: fieldConditionSchema,

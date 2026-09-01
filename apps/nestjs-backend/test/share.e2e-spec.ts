@@ -52,12 +52,18 @@ import {
   createBase,
   getShareViewRowCount,
   axios,
+  CLEAR_BY_ID_STREAM_URL,
+  CLEAR_BY_ID_URL,
   CREATE_RECORD,
+  DELETE_BY_ID_STREAM_URL,
+  DELETE_BY_ID_URL,
   DELETE_RECORD_URL,
   GET_RECORDS_URL,
   GET_SHARE_VIEW_SEARCH_COUNT,
   GET_SHARE_VIEW_SEARCH_INDEX,
   OPERATION_UNDO,
+  PASTE_BY_ID_STREAM_URL,
+  PASTE_BY_ID_URL,
   PASTE_URL,
   SHARE_VIEW_COLLABORATORS,
   SHARE_VIEW_ID_HEADER,
@@ -1944,6 +1950,201 @@ describe('OpenAPI ShareController (e2e)', () => {
       );
 
       expect(result.status).toEqual(200);
+    });
+
+    // The *-by-id selection endpoints are id-addressed siblings of the range
+    // endpoints above. They shipped without the ShareViewScopeService call the
+    // range versions have always made, which let an editable share-view link
+    // read/overwrite/delete the whole table. Each case below is a request that
+    // the range sibling already rejects.
+    describe('selection *-by-id endpoints stay inside the share view', () => {
+      const shareHeaders = () => ({ headers: { [SHARE_VIEW_ID_HEADER]: editShareId } });
+
+      it('should deny delete-by-id naming a record outside the view filter', async () => {
+        const error = await getError(() =>
+          axios.post(
+            urlBuilder(DELETE_BY_ID_URL, { tableId: editTable.id }),
+            { viewId: editViewId, selection: { recordIds: [filteredOutRecordId] } },
+            shareHeaders()
+          )
+        );
+
+        expect(error?.status).toEqual(403);
+      });
+
+      it('should deny delete-by-id escaping the view query with ignoreViewQuery', async () => {
+        // The published PoC shape: no record id is needed, the whole table is
+        // selected by turning the view query off.
+        const error = await getError(() =>
+          axios.post(
+            urlBuilder(DELETE_BY_ID_URL, { tableId: editTable.id }),
+            { viewId: editViewId, ignoreViewQuery: true, selection: { excludeRecordIds: [] } },
+            shareHeaders()
+          )
+        );
+
+        expect(error?.status).toEqual(403);
+      });
+
+      it('should deny delete-by-id-stream escaping the view query', async () => {
+        const error = await getError(() =>
+          axios.patch(
+            urlBuilder(DELETE_BY_ID_STREAM_URL, { tableId: editTable.id }),
+            { viewId: editViewId, ignoreViewQuery: true, selection: { allRecords: true } },
+            shareHeaders()
+          )
+        );
+
+        expect(error?.status).toEqual(403);
+      });
+
+      it('should deny clear-by-id naming a hidden field', async () => {
+        const error = await getError(() =>
+          axios.patch(
+            urlBuilder(CLEAR_BY_ID_URL, { tableId: editTable.id }),
+            {
+              viewId: editViewId,
+              selection: { recordIds: [visibleRecordId], fieldIds: [secretFieldId] },
+            },
+            shareHeaders()
+          )
+        );
+
+        expect(error?.status).toEqual(403);
+      });
+
+      it('should deny clear-by-id-stream escaping the view query', async () => {
+        const error = await getError(() =>
+          axios.patch(
+            urlBuilder(CLEAR_BY_ID_STREAM_URL, { tableId: editTable.id }),
+            { viewId: editViewId, ignoreViewQuery: true, selection: { allRecords: true } },
+            shareHeaders()
+          )
+        );
+
+        expect(error?.status).toEqual(403);
+      });
+
+      it('should deny paste-by-id overwriting a record outside the view filter', async () => {
+        const error = await getError(() =>
+          axios.patch(
+            urlBuilder(PASTE_BY_ID_URL, { tableId: editTable.id }),
+            {
+              viewId: editViewId,
+              selection: { recordIds: [filteredOutRecordId], fieldIds: [nameFieldId] },
+              content: 'OVERWRITTEN',
+            },
+            shareHeaders()
+          )
+        );
+
+        expect(error?.status).toEqual(403);
+      });
+
+      it('should deny paste-by-id overwriting a hidden field', async () => {
+        const error = await getError(() =>
+          axios.patch(
+            urlBuilder(PASTE_BY_ID_URL, { tableId: editTable.id }),
+            {
+              viewId: editViewId,
+              selection: { recordIds: [visibleRecordId], fieldIds: [secretFieldId] },
+              content: 'OVERWRITTEN',
+            },
+            shareHeaders()
+          )
+        );
+
+        expect(error?.status).toEqual(403);
+      });
+
+      it('should deny paste-by-id-stream escaping the view query', async () => {
+        const error = await getError(() =>
+          axios.patch(
+            urlBuilder(PASTE_BY_ID_STREAM_URL, { tableId: editTable.id }),
+            {
+              viewId: editViewId,
+              ignoreViewQuery: true,
+              selection: { allRecords: true },
+              content: 'OVERWRITTEN',
+            },
+            shareHeaders()
+          )
+        );
+
+        expect(error?.status).toEqual(403);
+      });
+
+      it('should deny selection by id targeting another view', async () => {
+        const otherView = await createView(editTable.id, {
+          name: 'out-of-scope-view',
+          type: ViewType.Grid,
+        });
+        try {
+          const error = await getError(() =>
+            axios.post(
+              urlBuilder(DELETE_BY_ID_URL, { tableId: editTable.id }),
+              { viewId: otherView.id, selection: { recordIds: [visibleRecordId] } },
+              shareHeaders()
+            )
+          );
+
+          expect(error?.status).toEqual(403);
+        } finally {
+          await deleteView(editTable.id, otherView.id);
+        }
+      });
+
+      // Earlier tests in this describe paste over the shared fixture row's Name,
+      // which drops it out of the view filter, so the positive cases below make
+      // their own in-view record instead of reusing visibleRecordId.
+      const createInViewRecord = async () => {
+        const created = await apiCreateRecords(editTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [{ fields: { [nameFieldId]: 'Visible' } }],
+        });
+        return created.data.records[0].id;
+      };
+
+      it('should accept paste-by-id on a visible record and a visible field', async () => {
+        // The scope assertions must not break the shape the share-view grid
+        // actually sends: view-scoped query, explicit in-scope ids, and no
+        // projection (the client only sends one for personal views).
+        const inViewRecordId = await createInViewRecord();
+
+        const result = await axios.patch(
+          urlBuilder(PASTE_BY_ID_URL, { tableId: editTable.id }),
+          {
+            viewId: editViewId,
+            selection: { recordIds: [inViewRecordId], fieldIds: [nameFieldId] },
+            content: 'Visible',
+          },
+          shareHeaders()
+        );
+
+        expect(result.status).toEqual(200);
+      });
+
+      it('should accept paste-by-id whose clipboard header names a hidden field', async () => {
+        // `header` carries the source table's fields so the paste can convert
+        // clipboard values into the destination's cell types; it never selects
+        // destination cells. Validating it against the share's writable fields
+        // would reject every paste of content copied from elsewhere.
+        const inViewRecordId = await createInViewRecord();
+        const secretField = editTable.fields.find((field) => field.id === secretFieldId)!;
+
+        const result = await axios.patch(
+          urlBuilder(PASTE_BY_ID_URL, { tableId: editTable.id }),
+          {
+            viewId: editViewId,
+            selection: { recordIds: [inViewRecordId], fieldIds: [nameFieldId] },
+            header: [secretField],
+            content: 'Visible',
+          },
+          shareHeaders()
+        );
+
+        expect(result.status).toEqual(200);
+      });
     });
 
     it('should deny anonymous writes carrying the share-view header', async () => {

@@ -71,6 +71,7 @@ export const listTableRecordsInputSchema = z
     ignoreViewQuery: z.coerce.boolean().optional(),
     limit: z.coerce.number().int().positive().max(MAX_RECORDS_LIMIT).optional(),
     offset: z.coerce.number().int().nonnegative().optional(),
+    cursor: z.string().min(1).optional(),
     fieldKeyType: fieldKeyTypeSchema,
   })
   .superRefine((value, ctx) => {
@@ -80,6 +81,13 @@ export const listTableRecordsInputSchema = z
         message:
           'filterLinkCellSelected and filterLinkCellCandidate can not be set at the same time',
         path: ['filterLinkCellSelected'],
+      });
+    }
+    if (value.cursor && value.offset) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'cursor cannot be combined with offset',
+        path: ['cursor'],
       });
     }
   });
@@ -163,7 +171,8 @@ export class ListTableRecordsQuery {
     readonly queryScope?: RecordQueryPluginScope,
     readonly recordReadQuerySource?: IRecordReadQuerySource,
     readonly recordSearchAccessPath?: IRecordSearchAccessPath,
-    readonly table?: Table
+    readonly table?: Table,
+    readonly cursor?: string
   ) {}
 
   static create(
@@ -214,7 +223,8 @@ export class ListTableRecordsQuery {
           // Prefer queryScope: do not pass CTE source when scope is present.
           options?.queryScope ? undefined : options?.recordReadQuerySource,
           options?.recordSearchAccessPath,
-          options?.table
+          options?.table,
+          parsed.data.cursor
         );
       })
     );

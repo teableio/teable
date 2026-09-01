@@ -117,4 +117,60 @@ describe('collectContinuationFieldIdsFromExecutedSteps', () => {
       ]).map((id) => id.toString())
     ).toEqual([formula.toString()]);
   });
+
+  it('uses edge targets when a leftover-step plan executed no steps this stage', () => {
+    const lookup = fieldId('c');
+    const formula = fieldId('d');
+    const plan = {
+      steps: [{ tableId: {} as never, fieldIds: [formula], level: 1 }],
+      edges: [{ toFieldId: lookup, propagationTargetFieldIds: [lookup] }],
+    } as unknown as ComputedUpdatePlan;
+
+    expect(
+      collectContinuationFieldIdsFromExecutedSteps(
+        plan,
+        [],
+        [
+          {
+            tableId: 'tblxxxxxxxxxxxxxxxx',
+            recordChanges: [
+              {
+                recordId: 'recxxxxxxxxxxxxxxxx',
+                oldVersion: 2,
+                changes: [{ fieldId: lookup.toString(), newValue: ['Widget'] }],
+              },
+            ],
+          },
+        ]
+      ).map((id) => id.toString())
+    ).toEqual([lookup.toString()]);
+  });
+
+  it('continues from a changed lookup edge when the formula step wrote nothing', () => {
+    const lookup = fieldId('e');
+    const formula = fieldId('f');
+    const plan = {
+      steps: [{ tableId: {} as never, fieldIds: [formula], level: 1 }],
+      edges: [{ toFieldId: lookup, propagationTargetFieldIds: [lookup] }],
+    } as unknown as ComputedUpdatePlan;
+
+    expect(
+      collectContinuationFieldIdsFromExecutedSteps(
+        plan,
+        [{ tableId: {} as never, fieldIds: [formula], level: 1 }],
+        [
+          {
+            tableId: 'tblxxxxxxxxxxxxxxxx',
+            recordChanges: [
+              {
+                recordId: 'recxxxxxxxxxxxxxxxx',
+                oldVersion: 2,
+                changes: [{ fieldId: lookup.toString(), newValue: ['Widget'] }],
+              },
+            ],
+          },
+        ]
+      ).map((id) => id.toString())
+    ).toEqual([lookup.toString()]);
+  });
 });

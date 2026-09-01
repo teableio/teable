@@ -8,6 +8,7 @@ import {
   type IQueryBus,
   type RecordFilter,
 } from '@teable/v2-core';
+import { createV2HttpClient } from '@teable/v2-contract-http-client';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
   getSharedTestContext,
@@ -848,6 +849,501 @@ describe('aggregate records via query bus (e2e, v1 parity)', () => {
 
       expect(Number(await aggregateValue(table.id, table.views[0].id, fieldId, 'count'))).toBe(0);
     });
+  });
+
+  describe('selection aggregation v1 parity', () => {
+    const hashGroupFlag = (value: string) => {
+      let hash = 5381;
+      let index = value.length;
+      while (index) hash = (hash * 33) ^ value.charCodeAt(--index);
+      return hash >>> 0;
+    };
+    const findAgg = (result: AggregateTableRecordsResult, fieldId: string, statisticFunc: string) =>
+      result.values.find(
+        (value) => value.fieldId.toString() === fieldId && value.statisticFunc === statisticFunc
+      )?.value;
+
+    it('aggregates sum/filled over a contiguous row range in view order', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Sel Agg Main ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'qty', type: 'number' },
+          { name: 'price', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const qtyFieldId = table.fields.find((field) => field.name === 'qty')?.id ?? '';
+      const priceFieldId = table.fields.find((field) => field.name === 'price')?.id ?? '';
+      await ctx.createRecords(
+        table.id,
+        [
+          { qty: 10, price: 100 },
+          { qty: 20, price: 200 },
+          { qty: 30, price: 300 },
+          { qty: 40, price: 400 },
+          { qty: null, price: null },
+        ].map((row, index) => ({
+          fields: {
+            [table.fields[0]!.id]: `r${index + 1}`,
+            ...(row.qty != null ? { [qtyFieldId]: row.qty } : {}),
+            ...(row.price != null ? { [priceFieldId]: row.price } : {}),
+          },
+        }))
+      );
+      await ctx.drainOutbox();
+
+      const result = await aggregate({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        fields: [
+          { fieldId: qtyFieldId, statisticFunc: 'sum' },
+          { fieldId: qtyFieldId, statisticFunc: 'filled' },
+          { fieldId: priceFieldId, statisticFunc: 'sum' },
+          { fieldId: priceFieldId, statisticFunc: 'filled' },
+        ],
+        skip: 1,
+        take: 2,
+      });
+      expect(findAgg(result, qtyFieldId, 'sum')).toBe(50);
+      expect(findAgg(result, qtyFieldId, 'filled')).toBe(2);
+      expect(findAgg(result, priceFieldId, 'sum')).toBe(500);
+      expect(findAgg(result, priceFieldId, 'filled')).toBe(2);
+    }, 30000);
+
+    it('returns null sum and zero filled for an all-null range', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Sel Agg Null ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'qty', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const qtyFieldId = table.fields.find((field) => field.name === 'qty')?.id ?? '';
+      await ctx.createRecords(
+        table.id,
+        [10, 20, 30, 40, null].map((qty, index) => ({
+          fields: {
+            [table.fields[0]!.id]: `r${index + 1}`,
+            ...(qty != null ? { [qtyFieldId]: qty } : {}),
+          },
+        }))
+      );
+      await ctx.drainOutbox();
+
+      const result = await aggregate({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        fields: [
+          { fieldId: qtyFieldId, statisticFunc: 'sum' },
+          { fieldId: qtyFieldId, statisticFunc: 'filled' },
+        ],
+        skip: 4,
+        take: 1,
+      });
+      expect(findAgg(result, qtyFieldId, 'sum')).toBeNull();
+      expect(findAgg(result, qtyFieldId, 'filled')).toBe(0);
+    }, 30000);
+
+    it('honors view filter and sort so the slice matches grid row order', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Sel Agg View ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'qty', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const qtyFieldId = table.fields.find((field) => field.name === 'qty')?.id ?? '';
+      await ctx.createRecords(
+        table.id,
+        [10, 20, 30, 40, null].map((qty, index) => ({
+          fields: {
+            [table.fields[0]!.id]: `r${index + 1}`,
+            ...(qty != null ? { [qtyFieldId]: qty } : {}),
+          },
+        }))
+      );
+      await ctx.drainOutbox();
+      const client = createV2HttpClient({ baseUrl: ctx.baseUrl });
+      const created = await client.tables.createView({
+        tableId: table.id,
+        view: {
+          type: 'grid',
+          name: 'sel_agg_filtered',
+          sourceFilter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: qtyFieldId,
+                operator: 'isGreaterEqual',
+                value: 20,
+              },
+            ],
+          },
+          sort: [{ fieldId: qtyFieldId, order: 'desc' }],
+        },
+      });
+      expect(created.ok).toBe(true);
+      if (!created.ok) throw new Error(created.error.message);
+
+      const result = await aggregate({
+        tableId: table.id,
+        viewId: created.data.viewId,
+        fields: [
+          { fieldId: qtyFieldId, statisticFunc: 'sum' },
+          { fieldId: qtyFieldId, statisticFunc: 'filled' },
+        ],
+        skip: 0,
+        take: 2,
+      });
+      expect(findAgg(result, qtyFieldId, 'sum')).toBe(70);
+      expect(findAgg(result, qtyFieldId, 'filled')).toBe(2);
+    }, 30000);
+
+    it('ignoreViewQuery bypasses the view filter and sees all rows', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Sel Agg Ignore ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'qty', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const qtyFieldId = table.fields.find((field) => field.name === 'qty')?.id ?? '';
+      await ctx.createRecords(
+        table.id,
+        [10, 20, 30, 40, null].map((qty, index) => ({
+          fields: {
+            [table.fields[0]!.id]: `r${index + 1}`,
+            ...(qty != null ? { [qtyFieldId]: qty } : {}),
+          },
+        }))
+      );
+      await ctx.drainOutbox();
+      const client = createV2HttpClient({ baseUrl: ctx.baseUrl });
+      const created = await client.tables.createView({
+        tableId: table.id,
+        view: {
+          type: 'grid',
+          name: 'sel_agg_ignored',
+          sourceFilter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: qtyFieldId,
+                operator: 'isGreaterEqual',
+                value: 999,
+              },
+            ],
+          },
+        },
+      });
+      expect(created.ok).toBe(true);
+      if (!created.ok) throw new Error(created.error.message);
+
+      const result = await aggregate({
+        tableId: table.id,
+        viewId: created.data.viewId,
+        ignoreViewQuery: true,
+        fields: [
+          { fieldId: qtyFieldId, statisticFunc: 'sum' },
+          { fieldId: qtyFieldId, statisticFunc: 'filled' },
+        ],
+        skip: 0,
+        take: 5,
+      });
+      expect(findAgg(result, qtyFieldId, 'sum')).toBe(100);
+      expect(findAgg(result, qtyFieldId, 'filled')).toBe(4);
+    }, 30000);
+
+    it('aggregates the full slice when no groups are collapsed', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Sel Agg Grouped ${Date.now()}`,
+        fields: [
+          { name: 'category', type: 'singleLineText', isPrimary: true },
+          { name: 'qty', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const categoryFieldId = table.fields.find((field) => field.name === 'category')?.id ?? '';
+      const qtyFieldId = table.fields.find((field) => field.name === 'qty')?.id ?? '';
+      await ctx.createRecords(
+        table.id,
+        [
+          { category: 'A', qty: 10 },
+          { category: 'A', qty: 20 },
+          { category: 'A', qty: 30 },
+          { category: 'B', qty: 100 },
+          { category: 'B', qty: 200 },
+        ].map((row) => ({
+          fields: { [categoryFieldId]: row.category, [qtyFieldId]: row.qty },
+        }))
+      );
+      await ctx.drainOutbox();
+
+      const result = await aggregate({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        groupBy: [{ fieldId: categoryFieldId, order: 'asc' }],
+        fields: [
+          { fieldId: qtyFieldId, statisticFunc: 'sum' },
+          { fieldId: qtyFieldId, statisticFunc: 'filled' },
+        ],
+        skip: 0,
+        take: 5,
+      });
+      expect(findAgg(result, qtyFieldId, 'sum')).toBe(360);
+      expect(findAgg(result, qtyFieldId, 'filled')).toBe(5);
+    }, 30000);
+
+    it('excludes records of collapsed groups so skip/take aligns with the visible slice', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Sel Agg Collapse ${Date.now()}`,
+        fields: [
+          { name: 'category', type: 'singleLineText', isPrimary: true },
+          { name: 'qty', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const categoryFieldId = table.fields.find((field) => field.name === 'category')?.id ?? '';
+      const qtyFieldId = table.fields.find((field) => field.name === 'qty')?.id ?? '';
+      await ctx.createRecords(
+        table.id,
+        [
+          { category: 'A', qty: 10 },
+          { category: 'A', qty: 20 },
+          { category: 'A', qty: 30 },
+          { category: 'B', qty: 100 },
+          { category: 'B', qty: 200 },
+        ].map((row) => ({
+          fields: { [categoryFieldId]: row.category, [qtyFieldId]: row.qty },
+        }))
+      );
+      await ctx.drainOutbox();
+      const groupAId = String(hashGroupFlag(`${categoryFieldId}_A`));
+
+      const result = await aggregate({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        groupBy: [{ fieldId: categoryFieldId, order: 'asc' }],
+        collapsedGroupIds: [groupAId],
+        fields: [
+          { fieldId: qtyFieldId, statisticFunc: 'sum' },
+          { fieldId: qtyFieldId, statisticFunc: 'filled' },
+        ],
+        skip: 0,
+        take: 5,
+      });
+      expect(findAgg(result, qtyFieldId, 'sum')).toBe(300);
+      expect(findAgg(result, qtyFieldId, 'filled')).toBe(2);
+    }, 30000);
+
+    it('applies search before skip/take so the slice is taken from matching rows', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Sel Agg Search ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'qty', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const nameFieldId = table.fields.find((field) => field.name === 'Name')?.id ?? '';
+      const qtyFieldId = table.fields.find((field) => field.name === 'qty')?.id ?? '';
+      await ctx.createRecords(table.id, [
+        { fields: { [nameFieldId]: 'no', [qtyFieldId]: 100 } },
+        { fields: { [nameFieldId]: 'match', [qtyFieldId]: 20 } },
+        { fields: { [nameFieldId]: 'match', [qtyFieldId]: 30 } },
+      ]);
+      await ctx.drainOutbox();
+
+      const result = await aggregate({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        search: ['match', nameFieldId, true],
+        fields: [
+          { fieldId: qtyFieldId, statisticFunc: 'sum' },
+          { fieldId: qtyFieldId, statisticFunc: 'filled' },
+        ],
+        skip: 0,
+        take: 2,
+      });
+      expect(findAgg(result, qtyFieldId, 'sum')).toBe(50);
+      expect(findAgg(result, qtyFieldId, 'filled')).toBe(2);
+    }, 30000);
+
+    it('ignoreViewQuery can aggregate a field hidden in the ignored view', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Sel Agg Hidden ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'qty', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const qtyFieldId = table.fields.find((field) => field.name === 'qty')?.id ?? '';
+      await ctx.createRecords(
+        table.id,
+        [10, 20, 30, 40, null].map((qty, index) => ({
+          fields: {
+            [table.fields[0]!.id]: `r${index + 1}`,
+            ...(qty != null ? { [qtyFieldId]: qty } : {}),
+          },
+        }))
+      );
+      await ctx.drainOutbox();
+      const client = createV2HttpClient({ baseUrl: ctx.baseUrl });
+      const hidden = await client.tables.updateViewColumnMeta({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        columnMeta: [{ fieldId: qtyFieldId, columnMeta: { hidden: true } }],
+      });
+      expect(hidden.ok).toBe(true);
+
+      const hiddenResult = await queryBus.execute<
+        AggregateTableRecordsQuery,
+        AggregateTableRecordsResult
+      >(
+        { actorId, windowId: 'e2e-window' },
+        AggregateTableRecordsQuery.create({
+          tableId: table.id,
+          viewId: table.views[0].id,
+          fields: [{ fieldId: qtyFieldId, statisticFunc: 'sum' }],
+          skip: 0,
+          take: 5,
+        })._unsafeUnwrap()
+      );
+      expect(hiddenResult.isErr()).toBe(true);
+      expect(hiddenResult._unsafeUnwrapErr()).toMatchObject({
+        code: 'record_aggregation.field_hidden',
+      });
+
+      const result = await aggregate({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        ignoreViewQuery: true,
+        fields: [
+          { fieldId: qtyFieldId, statisticFunc: 'sum' },
+          { fieldId: qtyFieldId, statisticFunc: 'filled' },
+        ],
+        skip: 0,
+        take: 5,
+      });
+      expect(findAgg(result, qtyFieldId, 'sum')).toBe(100);
+      expect(findAgg(result, qtyFieldId, 'filled')).toBe(4);
+    }, 30000);
+
+    it('ignoreViewQuery slices by auto number instead of the view row order', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Sel Agg Row ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'qty', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const viewId = table.views[0].id;
+      const qtyFieldId = table.fields.find((field) => field.name === 'qty')?.id ?? '';
+      const records = await ctx.createRecords(
+        table.id,
+        [10, 20, 30].map((qty, index) => ({
+          fields: {
+            [table.fields[0]!.id]: `r${index + 1}`,
+            [qtyFieldId]: qty,
+          },
+        }))
+      );
+      await ctx.drainOutbox();
+      const lastRecordId = records[2]!.id;
+      const firstRecordId = records[0]!.id;
+      const reorder = await fetch(`${ctx.baseUrl}/tables/reorderRecords`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: table.id,
+          recordIds: [lastRecordId],
+          order: { viewId, anchorId: firstRecordId, position: 'before' },
+        }),
+      });
+      expect(reorder.ok).toBe(true);
+      await ctx.drainOutbox();
+
+      const viewSlice = await aggregate({
+        tableId: table.id,
+        viewId,
+        fields: [{ fieldId: qtyFieldId, statisticFunc: 'sum' }],
+        skip: 0,
+        take: 1,
+      });
+      expect(findAgg(viewSlice, qtyFieldId, 'sum')).toBe(30);
+
+      const ignoredSlice = await aggregate({
+        tableId: table.id,
+        viewId,
+        ignoreViewQuery: true,
+        fields: [{ fieldId: qtyFieldId, statisticFunc: 'sum' }],
+        skip: 0,
+        take: 1,
+      });
+      expect(findAgg(ignoredSlice, qtyFieldId, 'sum')).toBe(10);
+    }, 30000);
+
+    it('ignoreViewQuery with omitted fields does not use view statistic defaults', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Sel Agg Defaults ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'qty', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const qtyFieldId = table.fields.find((field) => field.name === 'qty')?.id ?? '';
+      await ctx.createRecords(
+        table.id,
+        [10, 20, 30, 40, null].map((qty, index) => ({
+          fields: {
+            [table.fields[0]!.id]: `r${index + 1}`,
+            ...(qty != null ? { [qtyFieldId]: qty } : {}),
+          },
+        }))
+      );
+      await ctx.drainOutbox();
+      const client = createV2HttpClient({ baseUrl: ctx.baseUrl });
+      const patched = await client.tables.updateViewColumnMeta({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        columnMeta: [{ fieldId: qtyFieldId, columnMeta: { statisticFunc: 'sum' } }],
+      });
+      expect(patched.ok).toBe(true);
+
+      const fromView = await aggregate({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        skip: 0,
+        take: 5,
+      });
+      expect(findAgg(fromView, qtyFieldId, 'sum')).toBe(100);
+
+      const ignored = await aggregate({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        ignoreViewQuery: true,
+        skip: 0,
+        take: 5,
+      });
+      expect(ignored.values).toEqual([]);
+    }, 30000);
   });
 
   describe('aggregation contract errors', () => {

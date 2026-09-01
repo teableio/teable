@@ -3272,6 +3272,132 @@ const runBudgetedPropagationInsert = async (
   return Number((result.rows[0] as { cnt?: number } | undefined)?.cnt ?? 0);
 };
 
+type QualifiedColumn = {
+  schema: string;
+  tableName: string;
+  columnName: string;
+};
+
+const qualifiedColumnKey = (column: QualifiedColumn): string =>
+  `${column.schema}.${column.tableName}.${column.columnName}`;
+
+const splitQualifiedName = (qualified: string): { schema: string; tableName: string } => {
+  const separator = qualified.indexOf('.');
+  if (separator <= 0) {
+    return { schema: 'public', tableName: qualified };
+  }
+  return {
+    schema: qualified.slice(0, separator),
+    tableName: qualified.slice(separator + 1),
+  };
+};
+
+const resolveLinkPropagationJoinColumn = (
+  linkField: LinkField,
+  sourceTableName: string,
+  targetTableName: string
+): Result<QualifiedColumn | undefined, DomainError> => {
+  return safeTry(function* () {
+    const relationship = linkField.relationship();
+    if (
+      relationship.equals(LinkRelationship.manyOne()) ||
+      relationship.equals(LinkRelationship.oneOne())
+    ) {
+      const fkHostTableName = yield* linkField.fkHostTableNameString();
+      const foreignKey = yield* linkField.foreignKeyNameString();
+      const selfKey = yield* linkField.selfKeyNameString();
+      if (fkHostTableName === targetTableName) {
+        if (foreignKey === '__id') return ok(undefined);
+        const { schema, tableName } = splitQualifiedName(targetTableName);
+        return ok({ schema, tableName, columnName: foreignKey });
+      }
+      if (selfKey === '__id') return ok(undefined);
+      const { schema, tableName } = splitQualifiedName(sourceTableName);
+      return ok({ schema, tableName, columnName: selfKey });
+    }
+
+    if (relationship.equals(LinkRelationship.oneMany())) {
+      if (linkField.isOneWay()) {
+        const fkHostTableName = yield* linkField.fkHostTableNameString();
+        const foreignKey = yield* linkField.foreignKeyNameString();
+        if (foreignKey === '__id') return ok(undefined);
+        const { schema, tableName } = splitQualifiedName(fkHostTableName);
+        return ok({ schema, tableName, columnName: foreignKey });
+      }
+      const selfKey = yield* linkField.selfKeyNameString();
+      if (selfKey === '__id') return ok(undefined);
+      const { schema, tableName } = splitQualifiedName(sourceTableName);
+      return ok({ schema, tableName, columnName: selfKey });
+    }
+
+    const fkHostTableName = yield* linkField.fkHostTableNameString();
+    const foreignKey = yield* linkField.foreignKeyNameString();
+    if (foreignKey === '__id') return ok(undefined);
+    const { schema, tableName } = splitQualifiedName(fkHostTableName);
+    return ok({ schema, tableName, columnName: foreignKey });
+  });
+};
+
+const collectLinkPropagationJoinColumns = (
+  edges: ReadonlyArray<ComputedDependencyEdge>,
+  tableById: Map<string, Table>
+): Result<QualifiedColumn[], DomainError> => {
+  return safeTry(function* () {
+    const columns: QualifiedColumn[] = [];
+    const seen = new Set<string>();
+    for (const edge of edges) {
+      if (edge.propagationMode === 'allTargetRecords') continue;
+      if (edge.propagationMode === 'conditionalFiltered' && edge.filterCondition) continue;
+      if (!edge.linkFieldId) continue;
+      const targetTable = tableById.get(edge.toTableId.toString());
+      const sourceTable = tableById.get(edge.fromTableId.toString());
+      if (!targetTable || !sourceTable) continue;
+      const linkFieldResult = targetTable.getField(
+        (field): field is LinkField =>
+          field.id().equals(edge.linkFieldId!) && field.type().equals(FieldType.link())
+      );
+      if (linkFieldResult.isErr()) continue;
+      const linkField = linkFieldResult.value;
+      if (!linkField.foreignTableId().equals(edge.fromTableId)) continue;
+      const sourceDbName = yield* sourceTable.dbTableName().andThen((name) => name.value());
+      const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
+      const join = yield* resolveLinkPropagationJoinColumn(linkField, sourceDbName, targetDbName);
+      if (!join) continue;
+      const key = qualifiedColumnKey(join);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      columns.push(join);
+    }
+    return ok(columns);
+  });
+};
+
+const loadMissingJoinColumnKeys = async (
+  db: Kysely<DynamicDB>,
+  columns: ReadonlyArray<QualifiedColumn>
+): Promise<Set<string>> => {
+  const missing = new Set<string>();
+  for (const column of columns) {
+    try {
+      const result = await sql<{ exists: boolean }>`
+        SELECT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = ${column.schema}
+            AND table_name = ${column.tableName}
+            AND column_name = ${column.columnName}
+        ) as exists
+      `.execute(db);
+      if (result.rows[0]?.exists === false) {
+        missing.add(qualifiedColumnKey(column));
+      }
+    } catch {
+      // Keep the original SQL if catalog inspection fails so the run still
+      // surfaces a real database error instead of silently dropping edges.
+    }
+  }
+  return missing;
+};
+
 const propagateDirtyRecords = async (
   db: Kysely<DynamicDB>,
   edges: ReadonlyArray<ComputedDependencyEdge>,
@@ -3286,6 +3412,12 @@ const propagateDirtyRecords = async (
     const plannedAllTargetReasonSummary = summarizeAllTargetReasonCounts(
       plannedAllTargetReasonCounts
     );
+    const joinColumnsResult = collectLinkPropagationJoinColumns(edges, tableById);
+    if (joinColumnsResult.isErr()) {
+      return err(joinColumnsResult.error);
+    }
+    const missingJoinKeys = await loadMissingJoinColumnKeys(db, joinColumnsResult.value);
+
     const runtimeAllTargetFallbackReasonCounts: AllTargetReasonCounts = {};
 
     const maxDirtyRecords =
@@ -3316,7 +3448,8 @@ const propagateDirtyRecords = async (
           tableById,
           frontierGeneration,
           // Budget mode leaves dedup to ON CONFLICT so LIMIT can stop scans early.
-          maxDirtyRecords === undefined
+          maxDirtyRecords === undefined,
+          missingJoinKeys
         );
         if (selectResult.isErr()) {
           return err(selectResult.error);
@@ -3685,7 +3818,8 @@ const buildPropagationSelect = (
   edge: ComputedDependencyEdge,
   tableById: Map<string, Table>,
   dirtyGeneration: number,
-  distinct: boolean
+  distinct: boolean,
+  missingJoinKeys: ReadonlySet<string> = new Set()
 ): Result<BuiltPropagationSelect, DomainError> => {
   return safeTry(function* () {
     const targetTable = tableById.get(edge.toTableId.toString());
@@ -3911,6 +4045,15 @@ const buildPropagationSelect = (
 
     const sourceDbName = yield* sourceTable.dbTableName().andThen((name) => name.value());
     const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
+
+    const joinColumn = yield* resolveLinkPropagationJoinColumn(
+      linkField,
+      sourceDbName,
+      targetDbName
+    );
+    if (joinColumn && missingJoinKeys.has(qualifiedColumnKey(joinColumn))) {
+      return ok(skippedPropagationSelect(db, edge, distinct));
+    }
 
     const relationship = linkField.relationship();
     const selectQuery = yield* buildDirtySelectQuery({

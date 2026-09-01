@@ -182,7 +182,7 @@ describe('ListTableRecordsHandler', () => {
         }
       ).projectionFieldIds
     ).toBeUndefined();
-    expect((captured.options as { includeTotal?: boolean }).includeTotal).toBeUndefined();
+    expect((captured.options as { includeTotal?: boolean }).includeTotal).toBe(false);
   });
 
   it('passes empty projection and includeTotal false to the query repository', async () => {

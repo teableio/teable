@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { BaseId } from '../../../base/BaseId';
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import { composeAndSpecsOrUndefined } from '../../../shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
@@ -322,6 +323,10 @@ export class ConditionalRollupField
 
   foreignTableId(): TableId {
     return this.configValue.foreignTableId();
+  }
+
+  baseId(): BaseId | undefined {
+    return this.configValue.baseId();
   }
 
   lookupFieldId(): FieldId {

@@ -15,19 +15,20 @@ import {
   toUndoRedoStackAppendContext,
   UndoRedoStackService,
 } from '../application/services/UndoRedoStackService';
-import type { BaseId } from '../domain/base/BaseId';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { DbFieldName } from '../domain/table/fields/DbFieldName';
 import type { Field } from '../domain/table/fields/Field';
 import type { FieldId } from '../domain/table/fields/FieldId';
-import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
+import {
+  LinkForeignTableReferenceVisitor,
+  type LinkForeignTableReference,
+} from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { TableUpdateFieldTypeSpec } from '../domain/table/specs/TableUpdateFieldTypeSpec';
 import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
-import type { TableId } from '../domain/table/TableId';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { FieldOperationKind, FieldOperationTargetKind } from '../ports/FieldOperationPlugin';
 import { type ITableMapper } from '../ports/mappers/TableMapper';
@@ -142,41 +143,7 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
   private extractForeignTableReferencesFromField(
     field: Field
   ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
-    const references: LinkForeignTableReference[] = [];
-    const fieldType = field.type().toString();
-
-    // For ConditionalRollupField and RollupField, check config for foreignTableId
-    if (fieldType === 'conditionalRollup' || fieldType === 'rollup') {
-      // These fields have a config() method that returns config with foreignTableId() method
-      const fieldWithConfig = field as unknown as {
-        config(): { foreignTableId(): TableId; baseId?: BaseId };
-      };
-      const config = fieldWithConfig.config();
-      const foreignTableId = config.foreignTableId();
-      if (foreignTableId) {
-        references.push({
-          foreignTableId,
-          baseId: config.baseId,
-        });
-      }
-    }
-
-    // For LookupField and LinkField, access foreignTableId() directly on the field
-    if (fieldType === 'lookup' || fieldType === 'link') {
-      const fieldWithForeignTable = field as unknown as {
-        foreignTableId(): TableId;
-        baseId?(): BaseId;
-      };
-      const foreignTableId = fieldWithForeignTable.foreignTableId();
-      if (foreignTableId) {
-        references.push({
-          foreignTableId,
-          baseId: fieldWithForeignTable.baseId?.(),
-        });
-      }
-    }
-
-    return ok(references);
+    return new LinkForeignTableReferenceVisitor().collect([field]);
   }
 
   @TraceSpan()

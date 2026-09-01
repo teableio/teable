@@ -337,7 +337,7 @@
       "copy": "Kopyala",
       "installPromptLabel": "Skill kurulum promptu",
       "installCommandLabel": "Skill kurulum komutu",
-      "installPrompt": "Lütfen https://github.com/teableio/agent-skills adresini oku, rehbere göre Teable agent skill kurmama yardımcı ol ve Teable CLI kimlik doğrulamasını tamamla.",
+      "installPrompt": "Lütfen https://github.com/teableio/agent-skills adresini oku, rehbere göre Teable agent skill kurmama yardımcı ol ve Teable CLI kimlik doğrulamasını tamamla. Teable örneğim {{origin}}; kimlik doğrulaması için `teable auth login --endpoint {{origin}}` kullan.",
       "step1Title": "Skill kur",
       "step1Description": "Bu promptu AI Agent modelinize kopyalayın. Teable skill’ini kurar ve Teable CLI kimlik doğrulamasını tamamlamak için tarayıcıyı açar.",
       "step3Title": "Teable becerisini deneyin",

@@ -85,6 +85,27 @@ describe('ListTableRecordsQuery', () => {
     expect(result.isErr()).toBe(true);
   });
 
+  it('accepts a keyset cursor without offset', () => {
+    const result = ListTableRecordsQuery.create({
+      tableId: createTableId('g').toString(),
+      limit: 2,
+      cursor: '12',
+    });
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().cursor).toBe('12');
+    expect(result._unsafeUnwrap().pagination.offset().toNumber()).toBe(0);
+  });
+
+  it('rejects cursor combined with offset', () => {
+    const result = ListTableRecordsQuery.create({
+      tableId: createTableId('h').toString(),
+      limit: 2,
+      offset: 1,
+      cursor: '12',
+    });
+    expect(result.isErr()).toBe(true);
+  });
+
   it('applies a bounded group metadata limit to public requests', () => {
     const result = ListTableRecordsQuery.create({
       tableId: createTableId('f').toString(),

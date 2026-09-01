@@ -713,7 +713,7 @@ describe('OpenAPI RecordController (e2e)', () => {
       const rollupFieldRo: IFieldRo = {
         type: FieldType.Rollup,
         options: {
-          expression: 'sum({values})',
+          expression: 'countall({values})',
         },
         lookupOptions: {
           foreignTableId: table2.id,

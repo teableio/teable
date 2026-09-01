@@ -19,6 +19,12 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `ButtonWorkflow.ts` - Role: value object; Purpose: workflow linkage config.
 - `CheckboxDefaultValue.ts` - Role: value object; Purpose: checkbox default.
 - `CheckboxField.ts` - Role: field subtype; Purpose: checkbox field entity.
+- `ConditionalLookupField.ts` - Role: field subtype; Purpose: condition-filtered lookup without a link field.
+- `ConditionalLookupField.spec.ts` - Role: field tests; Purpose: verify conditional lookup options including optional cross-base id.
+- `ConditionalLookupOptions.ts` - Role: value object; Purpose: foreign table/field/condition and optional BaseId for cross-base lookups.
+- `ConditionalRollupConfig.ts` - Role: value object; Purpose: foreign table/field/condition and optional BaseId for cross-base rollups.
+- `ConditionalRollupField.ts` - Role: field subtype; Purpose: condition-filtered rollup without a link field.
+- `ConditionalRollupField.spec.ts` - Role: field tests; Purpose: verify conditional rollup config including optional cross-base id.
 - `CreatedByField.ts` - Role: field subtype; Purpose: system created-by field entity.
 - `CreatedTimeField.ts` - Role: field subtype; Purpose: system created-time field entity.
 - `DateDefaultValue.ts` - Role: value object; Purpose: date default config.

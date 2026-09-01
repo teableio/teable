@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { fieldColorSchema, fieldColorValues } from '../../domain/table/fields/types/FieldColor';
+import { optionalForeignBaseIdSchema } from '../../domain/base/optionalForeignBaseId';
 import { timeZoneValueSchema } from '../../domain/table/fields/types/TimeZone';
 import {
   cellValueTypeSchema,
@@ -191,6 +192,7 @@ export const lookupOptionsSchema = z
 
 export const conditionalRollupConfigSchema = z
   .object({
+    baseId: optionalForeignBaseIdSchema,
     foreignTableId: z.string(),
     lookupFieldId: z.string(),
     condition: fieldConditionSchema,
@@ -223,6 +225,7 @@ export const conditionalRollupOptionsSchema = z
 
 export const conditionalLookupOptionsSchema = z
   .object({
+    baseId: optionalForeignBaseIdSchema,
     foreignTableId: z.string(),
     lookupFieldId: z.string(),
     condition: fieldConditionSchema,

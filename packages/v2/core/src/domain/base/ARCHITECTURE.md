@@ -12,6 +12,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe Base domain values.
 - `BaseId.spec.ts` - Role: value object tests; Purpose: validate BaseId rules.
 - `BaseId.ts` - Role: value object; Purpose: BaseId validation and generation.
+- `optionalForeignBaseId.spec.ts` - Role: schema tests; Purpose: keep foreign baseId optional on table field input and cover parse/equality helpers.
+- `optionalForeignBaseId.ts` - Role: shared schema and helpers; Purpose: treat empty/null foreign baseId as same-base, parse optional BaseId, and compare optional BaseIds.
 
 ## Examples
 

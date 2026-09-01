@@ -16,7 +16,7 @@ import {
 import type { Table } from '../Table';
 
 export type CreateRecordAggregationParams = {
-  readonly viewId: string;
+  readonly viewId?: string;
   readonly fields?: ReadonlyArray<TableRecordAggregationFieldInput>;
   readonly groupBy?: ReadonlyArray<TableRecordAggregationGroupInput>;
   readonly includeHiddenFields?: boolean;
@@ -112,24 +112,26 @@ export function createRecordAggregation(
 ): Result<TableRecordAggregation, DomainError> {
   return safeTry<TableRecordAggregation, DomainError>(
     function* (this: Table) {
-      const view = yield* this.getViewById(params.viewId);
-      const visibleFieldIds = params.includeHiddenFields
-        ? undefined
-        : new Set((yield* this.getOrderedVisibleFieldIds(params.viewId)).map(String));
-      const columnMeta = yield* view.columnMeta();
+      const view = params.viewId ? yield* this.getViewById(params.viewId) : undefined;
+      const visibleFieldIds =
+        params.includeHiddenFields || !params.viewId
+          ? undefined
+          : new Set((yield* this.getOrderedVisibleFieldIds(params.viewId)).map(String));
       const requestedFields =
         params.fields ??
-        Object.entries(columnMeta.toDto())
-          .filter(
-            ([fieldId, meta]) =>
-              typeof meta.statisticFunc === 'string' &&
-              meta.statisticFunc &&
-              (!visibleFieldIds || visibleFieldIds.has(fieldId))
-          )
-          .map(([fieldId, meta]) => ({
-            fieldId,
-            statisticFunc: meta.statisticFunc!,
-          }));
+        (view
+          ? Object.entries((yield* view.columnMeta()).toDto())
+              .filter(
+                ([fieldId, meta]) =>
+                  typeof meta.statisticFunc === 'string' &&
+                  meta.statisticFunc &&
+                  (!visibleFieldIds || visibleFieldIds.has(fieldId))
+              )
+              .map(([fieldId, meta]) => ({
+                fieldId,
+                statisticFunc: meta.statisticFunc!,
+              }))
+          : []);
 
       const fields: TableRecordAggregationField[] = [];
       for (const input of requestedFields) {

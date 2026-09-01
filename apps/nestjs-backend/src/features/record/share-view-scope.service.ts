@@ -34,6 +34,29 @@ type IWritableField = {
   isPrimary: boolean | null;
 };
 
+/**
+ * The query surface shared by every selection endpoint. Both the range-based
+ * ro (`IRangesRo`/`IPasteRo`) and the id-based ones (`IClearByIdRo`,
+ * `IDeleteByIdRo`, `IPasteByIdRo`, `ISelectionIdsRo`) extend the same
+ * `contentQueryBaseSchema`, so one shape covers both families.
+ */
+type ISelectionScopeQuery = Pick<
+  IRangesRo,
+  'viewId' | 'ignoreViewQuery' | 'filter' | 'projection' | 'orderBy' | 'groupBy' | 'search'
+>;
+
+/**
+ * An id-based selection ro. `recordIds`/`fieldIds` are caller supplied and are
+ * NOT constrained by the query above, so they need their own assertions; when
+ * they are omitted the target set falls back to the (pinned) query scope.
+ */
+type ISelectionIdScopeRo = ISelectionScopeQuery & {
+  selection: {
+    recordIds?: string[];
+    fieldIds?: string[];
+  };
+};
+
 @Injectable()
 export class ShareViewScopeService {
   constructor(
@@ -256,7 +279,18 @@ export class ShareViewScopeService {
     await this.assertFieldKeysWritable(scope, Object.keys(formSubmitRo.fields ?? {}));
   }
 
-  private async assertSelectionQuery(scope: IShareViewScope, query: IRangesRo | IPasteRo) {
+  /**
+   * Pin the query to the shared view: same view, no query override. Once these
+   * hold, whatever the endpoint resolves from the query (records passing the
+   * view filter, fields visible in the view) is inside the share scope by
+   * construction — which is what makes an omitted `recordIds`/`projection`
+   * safe on the id-based endpoints.
+   */
+  private async assertSelectionQuery(
+    scope: IShareViewScope,
+    query: ISelectionScopeQuery,
+    options?: { requireProjection?: boolean }
+  ) {
     if (query.viewId !== scope.view.id) {
       throw this.restricted(`Selection operation must target share view ${scope.view.id}`);
     }
@@ -266,7 +300,10 @@ export class ShareViewScopeService {
     if (query.filter) {
       throw this.restricted('Selection operation cannot override the share view filter');
     }
-    if (!query.projection?.length) {
+    // Range endpoints address cells by column offset, so they must spell out the
+    // projection the offsets are resolved against. The id-based endpoints fall
+    // back to the view's own visible fields, which is already in scope.
+    if (options?.requireProjection && !query.projection?.length) {
       throw this.restricted('Selection operation must declare a share-view field projection');
     }
 
@@ -290,7 +327,7 @@ export class ShareViewScopeService {
       return;
     }
 
-    await this.assertSelectionQuery(scope, query);
+    await this.assertSelectionQuery(scope, query, { requireProjection: true });
   }
 
   async assertPaste(tableId: string, pasteRo: IPasteRo) {
@@ -299,7 +336,56 @@ export class ShareViewScopeService {
       return;
     }
 
-    await this.assertSelectionQuery(scope, pasteRo);
-    await this.assertFieldIdsWritable(scope, pasteRo.header?.map((field) => field.id) ?? []);
+    await this.assertSelectionQuery(scope, pasteRo, { requireProjection: true });
+  }
+
+  private async assertIdScope(scope: IShareViewScope, selectionRo: ISelectionIdScopeRo) {
+    await this.assertSelectionQuery(scope, selectionRo);
+    // An id-based mutation always resolves a record set — the explicit ids when
+    // given, the pinned view query otherwise. assertRecordIdsVisible only
+    // enforces includeRecords when it is handed ids, so check it here too:
+    // a share that does not expose records must not be able to write them.
+    // The permission layer already refuses record writes without
+    // includeRecords; this keeps the scope service self-contained, the way
+    // loadScope re-checks allowEdit.
+    if (!scope.view.shareMeta?.includeRecords) {
+      throw this.restricted(`Share view ${scope.shareId} does not expose records`);
+    }
+    await this.assertFieldIdsWritable(scope, selectionRo.selection.fieldIds);
+    await this.assertRecordIdsVisible(scope, selectionRo.selection.recordIds ?? []);
+  }
+
+  /**
+   * Id-based sibling of {@link assertSelectionMutation}, for the
+   * `clear-by-id` / `delete-by-id` families and their `-stream` variants.
+   */
+  async assertSelectionIdMutation(tableId: string, selectionRo: ISelectionIdScopeRo) {
+    const scope = await this.getScope(tableId);
+    if (!scope) {
+      return;
+    }
+
+    await this.assertIdScope(scope, selectionRo);
+  }
+
+  /**
+   * Id-based sibling of {@link assertPaste}.
+   *
+   * `pasteRo.header` is deliberately not checked here (nor in assertPaste): it
+   * carries the *source* table's field VOs, which the paste uses positionally
+   * to convert clipboard values into the destination's cell types. It never
+   * selects destination cells — those come from `selection.fieldIds` /
+   * `projection` / the view's visible fields, all asserted above — and the one
+   * place header can create fields (expandColumns) is gated on `field|create`,
+   * which a share view never grants. Validating it as a writable field set only
+   * broke pasting content copied from another table.
+   */
+  async assertPasteById(tableId: string, pasteRo: ISelectionIdScopeRo) {
+    const scope = await this.getScope(tableId);
+    if (!scope) {
+      return;
+    }
+
+    await this.assertIdScope(scope, pasteRo);
   }
 }

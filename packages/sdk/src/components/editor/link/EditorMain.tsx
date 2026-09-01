@@ -116,20 +116,17 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
 
   useEffect(() => {
     if (!isEditing) return;
-    if (tableId) {
-      queryClient.removeQueries({ queryKey: ['link-editor-records', tableId] });
-      queryClient.invalidateQueries({ queryKey: ['row-count', tableId] });
-    }
+    // Share-view caches are keyed by link field id, not foreign table id.
+    queryClient.removeQueries({ queryKey: ['link-editor-records', fieldId] });
+    queryClient.invalidateQueries({ queryKey: ['share-view-row-count', fieldId] });
     listRef.current?.onReset();
     listRef.current?.onForceUpdate();
-  }, [isEditing, queryClient, tableId]);
+  }, [isEditing, queryClient, fieldId]);
 
   const onViewShown = (type: LinkListType) => {
     if (type === listType) return;
-    if (tableId) {
-      queryClient.removeQueries({ queryKey: ['link-editor-records', tableId] });
-      queryClient.invalidateQueries({ queryKey: ['row-count', tableId] });
-    }
+    queryClient.removeQueries({ queryKey: ['link-editor-records', fieldId] });
+    queryClient.invalidateQueries({ queryKey: ['share-view-row-count', fieldId] });
     listRef.current?.onReset();
     setListType(type);
     if (type === LinkListType.Selected) {
@@ -169,9 +166,9 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
         onChange?.(newLink);
       }
 
-      // 2. Invalidate queries so the list reloads with the new record
-      queryClient.invalidateQueries({ queryKey: ['row-count', tableId] });
-      queryClient.invalidateQueries({ queryKey: ['link-editor-records', tableId] });
+      // 2. Refetch share-view list caches so the new row has cell values
+      queryClient.invalidateQueries({ queryKey: ['share-view-row-count', fieldId] });
+      queryClient.invalidateQueries({ queryKey: ['link-editor-records', fieldId] });
 
       // 3. Get the record's position and scroll to it
       if (tableId) {
@@ -191,7 +188,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
           });
       }
     },
-    [isMultiple, cellValue, onChange, queryClient, tableId, viewId, recordQuery, rowCount]
+    [isMultiple, cellValue, onChange, queryClient, fieldId, tableId, viewId, recordQuery, rowCount]
   );
 
   const initialFields = useMemo(() => {
