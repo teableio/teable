@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { llmProviderSchema, LLMProviderType, modelKeySchema } from './update';
+import {
+  isMiniMaxMessagesEndpoint,
+  llmProviderSchema,
+  LLMProviderType,
+  MINIMAX_DEFAULT_MODEL_CONFIGS,
+  MINIMAX_MODEL_IDS,
+  MINIMAX_PROVIDER_ENDPOINTS,
+  modelKeySchema,
+} from './update';
 import { gatewayApiModelRawSchema, getImageModelTagsFromAbility } from './index';
 
 const IMAGE_GENERATION_TAG = 'image-generation';
@@ -59,6 +67,70 @@ describe('llmProviderSchema', () => {
       models: 'gpt-4o,gemini-1.0-pro-001@vertex',
     });
     expect(result.success).toBe(false);
+  });
+
+  it('accepts the MiniMax provider preset', () => {
+    expect(
+      llmProviderSchema.safeParse({
+        type: LLMProviderType.MINIMAX,
+        name: 'minimax',
+        baseUrl: MINIMAX_PROVIDER_ENDPOINTS[0].baseUrl,
+        models: MINIMAX_MODEL_IDS.join(','),
+        modelConfigs: MINIMAX_DEFAULT_MODEL_CONFIGS,
+      }).success
+    ).toBe(true);
+  });
+});
+
+describe('MiniMax provider preset', () => {
+  it('contains regional chat and messages endpoints', () => {
+    expect(MINIMAX_PROVIDER_ENDPOINTS).toEqual([
+      {
+        region: 'global_en',
+        apiStyle: 'chatCompletions',
+        baseUrl: 'https://api.minimax.io/v1',
+      },
+      {
+        region: 'cn_zh',
+        apiStyle: 'chatCompletions',
+        baseUrl: 'https://api.minimaxi.com/v1',
+      },
+      {
+        region: 'global_en',
+        apiStyle: 'messages',
+        baseUrl: 'https://api.minimax.io/anthropic',
+      },
+      {
+        region: 'cn_zh',
+        apiStyle: 'messages',
+        baseUrl: 'https://api.minimaxi.com/anthropic',
+      },
+    ]);
+    expect(isMiniMaxMessagesEndpoint('https://api.minimax.io/anthropic/')).toBe(true);
+    expect(isMiniMaxMessagesEndpoint('https://api.minimax.io/v1')).toBe(false);
+  });
+
+  it('contains the current text model metadata', () => {
+    expect(MINIMAX_MODEL_IDS).toEqual(['MiniMax-M3', 'MiniMax-M2.7']);
+    expect(MINIMAX_DEFAULT_MODEL_CONFIGS['MiniMax-M3']).toMatchObject({
+      contextWindow: 1_000_000,
+      pricing: {
+        input: '0.0000006',
+        output: '0.0000024',
+        inputCacheRead: '0.00000012',
+      },
+      ability: { image: true, reasoning: true },
+    });
+    expect(MINIMAX_DEFAULT_MODEL_CONFIGS['MiniMax-M2.7']).toMatchObject({
+      contextWindow: 204_800,
+      pricing: {
+        input: '0.0000003',
+        output: '0.0000012',
+        inputCacheRead: '0.00000006',
+        inputCacheWrite: '0.000000375',
+      },
+      ability: { reasoning: true },
+    });
   });
 });
 
