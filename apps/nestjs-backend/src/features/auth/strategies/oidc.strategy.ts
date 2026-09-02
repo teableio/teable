@@ -25,6 +25,10 @@ export class OIDCStrategy extends PassportStrategy(Strategy, 'openidconnect') {
     });
   }
 
+  error(err: Error) {
+    console.error('OIDCStrategy error', err);
+  }
+
   async validate(_issuer: string, profile: Profile) {
     const { id, emails, displayName, photos } = profile;
     const email = emails?.[0].value;
