@@ -12,7 +12,10 @@ import { TableName } from '../domain/table/TableName';
 import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import { MemoryTableRepository } from '../ports/memory/MemoryTableRepository';
-import type { ITableRecordAggregationQueryRepository } from '../ports/TableRecordQueryRepository';
+import type {
+  IRecordSearchAccessPath,
+  ITableRecordAggregationQueryRepository,
+} from '../ports/TableRecordQueryRepository';
 import { AggregateTableRecordsHandler } from './AggregateTableRecordsHandler';
 import { AggregateTableRecordsQuery } from './AggregateTableRecordsQuery';
 
@@ -92,6 +95,53 @@ describe('AggregateTableRecordsQuery', () => {
 });
 
 describe('AggregateTableRecordsHandler', () => {
+  it.each([false, true])(
+    'forwards trusted search access paths through aggregates (collapsed=%s)',
+    async (collapsed) => {
+      const { table, textFieldId, numberFieldId } = buildTable();
+      const tableRepository = new MemoryTableRepository();
+      await tableRepository.insert(context, table);
+      const accessPath: IRecordSearchAccessPath = {
+        kind: 'generated_text',
+        generatedColumnName: '__tqops_document',
+        provider: 'pg_trgm',
+        searchScope: 'all_fields',
+        coveredFieldIds: [textFieldId, numberFieldId],
+      };
+      const input = {
+        tableId: table.id().toString(),
+        viewId: table.defaultView()._unsafeUnwrap().id().toString(),
+        search: ['Alpha', '', true],
+        fields: [{ fieldId: numberFieldId.toString(), statisticFunc: 'sum' }],
+        groupBy: [{ fieldId: textFieldId.toString(), order: 'asc' }],
+        ...(collapsed ? { collapsedGroupIds: ['not-a-matching-group'] } : {}),
+        recordSearchAccessPath: accessPath,
+      };
+      // Physical column names must come from trusted service options, never the request body.
+      expect(
+        AggregateTableRecordsQuery.create(input)._unsafeUnwrap().recordSearchAccessPath
+      ).toBeUndefined();
+      const query = AggregateTableRecordsQuery.create(input, {
+        recordSearchAccessPath: accessPath,
+      })._unsafeUnwrap();
+      const aggregate = vi
+        .fn<ITableRecordAggregationQueryRepository['aggregate']>()
+        .mockResolvedValue(ok([]));
+      const handler = new AggregateTableRecordsHandler(
+        tableRepository,
+        { aggregate } as unknown as ITableRecordAggregationQueryRepository,
+        new NoopLogger()
+      );
+
+      expect((await handler.handle(context, query)).isOk()).toBe(true);
+      expect(aggregate).toHaveBeenCalledTimes(collapsed ? 2 : 1);
+      for (const call of aggregate.mock.calls) {
+        expect(call[4]?.searchAccessPath).toBe(accessPath);
+        expect(call[4]?.search?.search.value).toBe('Alpha');
+      }
+    }
+  );
+
   it('loads Table with its View child, builds the record condition, and calls the Record repository', async () => {
     const { table, textFieldId, numberFieldId } = buildTable();
     const tableRepository = new MemoryTableRepository();

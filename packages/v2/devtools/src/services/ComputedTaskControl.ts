@@ -27,6 +27,7 @@ export interface ComputedPauseScopeRow {
   readonly pausedBy: string | null;
   readonly resumeAt: string | null;
   readonly reason: string | null;
+  readonly writePolicy: 'allow_bounded' | 'block';
   readonly updatedAt: string;
   readonly updatedBy: string | null;
   readonly active: boolean;
@@ -38,6 +39,7 @@ export interface PauseComputedScopesInput {
   readonly resumeAt?: string;
   readonly reason?: string;
   readonly actor?: string;
+  readonly writePolicy?: 'allow_bounded' | 'block';
 }
 
 export interface PauseComputedScopesOutput {

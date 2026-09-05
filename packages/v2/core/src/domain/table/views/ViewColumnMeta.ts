@@ -60,6 +60,39 @@ const viewColumnMetaSchema: z.ZodType<ViewColumnMetaValue> = z.record(
   viewColumnMetaEntrySchema
 );
 
+const invalidViewColumnMeta = () =>
+  err(domainError.validation({ message: 'Invalid ViewColumnMeta' }));
+
+const parseViewColumnMetaEntry = (entry: unknown): Result<ViewColumnMetaEntry, DomainError> => {
+  if (entry == null || typeof entry !== 'object' || Array.isArray(entry)) {
+    return invalidViewColumnMeta();
+  }
+  const source = entry as Record<string, unknown>;
+  if (source.order !== undefined && source.order !== null && typeof source.order !== 'number') {
+    return invalidViewColumnMeta();
+  }
+  if (source.visible !== undefined && typeof source.visible !== 'boolean') {
+    return invalidViewColumnMeta();
+  }
+  if (source.hidden !== undefined && typeof source.hidden !== 'boolean') {
+    return invalidViewColumnMeta();
+  }
+  if (source.width !== undefined && typeof source.width !== 'number') {
+    return invalidViewColumnMeta();
+  }
+  if (source.required !== undefined && typeof source.required !== 'boolean') {
+    return invalidViewColumnMeta();
+  }
+  if (
+    source.statisticFunc !== undefined &&
+    source.statisticFunc !== null &&
+    typeof source.statisticFunc !== 'string'
+  ) {
+    return invalidViewColumnMeta();
+  }
+  return ok({ ...source });
+};
+
 export class ViewColumnMeta extends ValueObject {
   private constructor(private readonly value: ViewColumnMetaValue) {
     super();
@@ -78,15 +111,18 @@ export class ViewColumnMeta extends ValueObject {
   }
 
   static rehydrate(raw: unknown): Result<ViewColumnMeta, DomainError> {
-    const parsed = viewColumnMetaSchema.safeParse(raw ?? {});
-    if (!parsed.success)
-      return err(
-        domainError.validation({
-          message: 'Invalid ViewColumnMeta',
-          details: z.formatError(parsed.error),
-        })
-      );
-    return ok(new ViewColumnMeta(parsed.data));
+    if (raw == null) return ok(new ViewColumnMeta({}));
+    if (typeof raw !== 'object' || Array.isArray(raw)) {
+      return err(domainError.validation({ message: 'Invalid ViewColumnMeta' }));
+    }
+
+    const cloned: ViewColumnMetaValue = {};
+    for (const [key, entry] of Object.entries(raw as Record<string, unknown>)) {
+      const parsed = parseViewColumnMetaEntry(entry);
+      if (parsed.isErr()) return err(parsed.error);
+      cloned[key] = parsed.value;
+    }
+    return ok(new ViewColumnMeta(cloned));
   }
 
   static empty(): ViewColumnMeta {

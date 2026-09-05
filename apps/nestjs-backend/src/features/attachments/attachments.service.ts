@@ -16,6 +16,8 @@ import {
   type SignatureRo,
   type SignatureVo,
 } from '@teable/openapi';
+// eslint-disable-next-line no-restricted-imports -- Header utilities only; requests use the SSRF-safe shared client.
+import { AxiosHeaders, type RawAxiosHeaders } from 'axios';
 import type { Request, Response } from 'express';
 import fse from 'fs-extra';
 import mimeTypes from 'mime-types';
@@ -428,11 +430,11 @@ export class AttachmentsService {
 
     try {
       const headResponse = await axios.head(fileUrl, getSafeAxiosAgents());
-      contentLength =
-        headResponse.headers['content-length'] && parseInt(headResponse.headers['content-length']);
+      const headers = AxiosHeaders.from(headResponse.headers as RawAxiosHeaders);
+      contentLength = Number(headers.getContentLength()) || undefined;
       contentType =
         mimeTypes.lookup(fileUrl) ||
-        headResponse.headers['content-type'] ||
+        headers.getContentType()?.toString() ||
         'application/octet-stream';
       this.logger.log(
         `HEAD request successful. Content-Length: ${contentLength}, Content-Type: ${contentType}`
@@ -533,7 +535,7 @@ export class AttachmentsService {
     filePath: string,
     maxSize: number
   ): Promise<{
-    contentType: string;
+    contentType: string | undefined;
   }> {
     let downloadedBytes = 0;
 
@@ -543,6 +545,9 @@ export class AttachmentsService {
       responseType: 'stream',
       ...getSafeAxiosAgents(),
     });
+    const contentType = AxiosHeaders.from(response.headers as RawAxiosHeaders)
+      .getContentType()
+      ?.toString();
 
     return new Promise((resolve, reject) => {
       const writer = fse.createWriteStream(filePath);
@@ -570,9 +575,7 @@ export class AttachmentsService {
         response.data.pipe(writer);
 
         writer.on('finish', () => {
-          resolve({
-            contentType: response?.headers?.['content-type'],
-          });
+          resolve({ contentType });
         });
         writer.on('error', (error: unknown) => {
           cleanup();

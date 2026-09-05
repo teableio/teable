@@ -460,6 +460,8 @@ describe('space data DB copy plan', () => {
       'computed_update_outbox_seed',
       '__undo_log',
       'record_removal_tombstone',
+      'computed_reliability_issue',
+      'computed_reliability_scope',
     ]);
     expect(plans[0].sourceSql).toContain(`"table_id" = ANY(ARRAY['tblxxx', 'tblyyy']::text[])`);
     expect(plans[3].sourceSql).toContain(`"base_id" = ANY(ARRAY['bsexxx', 'bseyyy']::text[])`);
@@ -560,6 +562,8 @@ describe('space data DB copy plan', () => {
       'computed_update_outbox_seed',
       '__undo_log',
       'record_removal_tombstone',
+      'computed_reliability_issue',
+      'computed_reliability_scope',
     ]);
     expect(plans[0].sql).toContain('FROM "sdmjxxx_fdw_0"."record_history"');
     expect(plans[0].sql).toContain('DELETE FROM "teable_meta_target"."record_history"');

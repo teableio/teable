@@ -27,6 +27,7 @@ import type { ComputedUpdateOutboxItem } from '../outbox/ComputedUpdateOutboxPay
 import {
   defaultComputedUpdateOutboxConfig,
   normalizeComputedUpdateOutboxConfig,
+  type FieldBackfillOutboxItem,
   type SeedOutboxItem,
   type IComputedUpdateOutbox,
 } from '../outbox/IComputedUpdateOutbox';
@@ -98,6 +99,7 @@ const createUpdaterStub = (overrides: Record<string, unknown> = {}) =>
       .fn()
       .mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
     clearTaskStageLedger: vi.fn().mockResolvedValue(ok(0)),
+    cleanupValueFrontierOrphans: vi.fn().mockResolvedValue(ok({ afterScope: '', deleted: 0 })),
     ...overrides,
   }) as unknown as ComputedFieldUpdater;
 
@@ -597,7 +599,7 @@ describe('ComputedUpdateWorker', () => {
       );
     });
 
-    it('forces statement-timeout failures into dead letter', async () => {
+    it('retries statement-timeout failures instead of dead-lettering immediately', async () => {
       const task = createMockTask({ attempts: 1, maxAttempts: 8 });
       const markFailed = vi.fn().mockResolvedValue(ok(true));
 
@@ -644,17 +646,17 @@ describe('ComputedUpdateWorker', () => {
         expect.objectContaining({
           failureKind: 'statement_timeout',
           failureReason: 'statement_timeout',
-          retryable: false,
-          directDeadLetter: true,
+          retryable: true,
           diagnostics: expect.objectContaining({
             version: 1,
             failure: expect.objectContaining({
-              directDeadLetter: true,
+              directDeadLetter: false,
               phase: 'execute_plan',
             }),
           }),
         })
       );
+      expect(markFailed.mock.calls[0]?.[3]?.directDeadLetter).toBeUndefined();
     });
 
     it('persists DomainError details on dead-letter diagnostics', async () => {
@@ -2429,6 +2431,179 @@ describe('ComputedUpdateWorker stage budget', () => {
       typeof call[0] === 'string' ? call[0] : call[0].id
     );
     expect(markedDoneIds).toEqual(expect.arrayContaining([task.id, 'cuo-relay-next']));
+  });
+
+  it('relay-claims field-backfill cursor continuations without a separate claimById round trip', async () => {
+    const fieldId = FieldId.create(FIELD_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const field = { id: () => fieldId };
+    const table = {
+      id: () => tableId,
+      baseId: () => baseId,
+      getField: () => ok(field),
+    } as unknown as Table;
+    const tableRepository: ITableRepository = {
+      ...createTableRepository(),
+      findOne: vi.fn().mockResolvedValue(ok(table)),
+    };
+
+    const task: FieldBackfillOutboxItem = {
+      id: 'cuo-backfill-1',
+      taskType: 'field-backfill',
+      baseId: BASE_ID,
+      tableId: TABLE_ID,
+      fieldIds: [FIELD_ID],
+      runId: 'bfr123456789012345',
+      planHash: 'backfill-hash',
+      status: 'processing',
+      attempts: 0,
+      maxAttempts: 8,
+      nextRunAt: new Date(),
+      lockedAt: new Date(),
+      lockedBy: 'worker-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const relayClaimedContinuation: FieldBackfillOutboxItem = {
+      ...task,
+      id: 'cuo-backfill-2',
+      cursor: RECORD_ID,
+      lockedBy: 'worker-1:cuc-relay',
+    };
+    const executeSyncMany = vi
+      .fn()
+      .mockResolvedValueOnce(
+        ok({
+          fields: [field],
+          batch: { recordCount: 500, lastRecordId: RECORD_ID, hasMore: true },
+        })
+      )
+      .mockResolvedValueOnce(
+        ok({
+          fields: [field],
+          batch: { recordCount: 167, lastRecordId: `rec${'e'.repeat(16)}`, hasMore: false },
+        })
+      );
+    const enqueueFieldBackfill = vi
+      .fn()
+      .mockResolvedValue(
+        ok({ taskId: 'cuo-backfill-2', merged: false, claimed: relayClaimedContinuation })
+      );
+    const claimById = vi.fn().mockResolvedValue(ok(null));
+    const markDone = vi.fn().mockResolvedValue(ok(true));
+    const outbox = createOutboxStub({
+      claimBatch: vi.fn().mockResolvedValue(ok([task])),
+      enqueueFieldBackfill,
+      claimById,
+      markDone,
+    });
+    const worker = new ComputedUpdateWorker(
+      outbox,
+      defaultComputedUpdateOutboxConfig,
+      createUpdaterStub(),
+      {} as ComputedUpdatePlanner,
+      createUnitOfWork(),
+      createLogger(),
+      createHasher(),
+      tableRepository,
+      { executeSyncMany } as unknown as ComputedFieldBackfillService,
+      createEventBus()
+    );
+
+    const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBe(2);
+    expect(enqueueFieldBackfill).toHaveBeenCalledWith(
+      expect.objectContaining({ cursor: RECORD_ID }),
+      expect.anything(),
+      expect.objectContaining({
+        relayClaim: { workerId: 'worker-1', predecessorTaskId: task.id },
+      })
+    );
+    expect(claimById).not.toHaveBeenCalled();
+    const markedDoneIds = markDone.mock.calls.map((call) =>
+      typeof call[0] === 'string' ? call[0] : call[0].id
+    );
+    expect(markedDoneIds).toEqual(expect.arrayContaining([task.id, 'cuo-backfill-2']));
+  });
+
+  it('does not chase a field-backfill continuation when predecessor markDone loses ownership', async () => {
+    const fieldId = FieldId.create(FIELD_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const field = { id: () => fieldId };
+    const table = {
+      id: () => tableId,
+      baseId: () => baseId,
+      getField: () => ok(field),
+    } as unknown as Table;
+    const tableRepository: ITableRepository = {
+      ...createTableRepository(),
+      findOne: vi.fn().mockResolvedValue(ok(table)),
+    };
+
+    const task: FieldBackfillOutboxItem = {
+      id: 'cuo-backfill-1',
+      taskType: 'field-backfill',
+      baseId: BASE_ID,
+      tableId: TABLE_ID,
+      fieldIds: [FIELD_ID],
+      runId: 'bfr123456789012345',
+      planHash: 'backfill-hash',
+      status: 'processing',
+      attempts: 0,
+      maxAttempts: 8,
+      nextRunAt: new Date(),
+      lockedAt: new Date(),
+      lockedBy: 'worker-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const executeSyncMany = vi.fn().mockResolvedValue(
+      ok({
+        fields: [field],
+        batch: { recordCount: 500, lastRecordId: RECORD_ID, hasMore: true },
+      })
+    );
+    const enqueueFieldBackfill = vi.fn().mockResolvedValue(
+      ok({
+        taskId: 'cuo-backfill-2',
+        merged: false,
+        claimed: { ...task, id: 'cuo-backfill-2', cursor: RECORD_ID },
+      })
+    );
+    const claimById = vi.fn().mockResolvedValue(ok(null));
+    const markDone = vi.fn().mockResolvedValue(ok(false));
+    const markFailed = vi.fn().mockResolvedValue(ok(true));
+    const outbox = createOutboxStub({
+      claimBatch: vi.fn().mockResolvedValue(ok([task])),
+      enqueueFieldBackfill,
+      claimById,
+      markDone,
+      markFailed,
+    });
+    const worker = new ComputedUpdateWorker(
+      outbox,
+      defaultComputedUpdateOutboxConfig,
+      createUpdaterStub(),
+      {} as ComputedUpdatePlanner,
+      createUnitOfWork(),
+      createLogger(),
+      createHasher(),
+      tableRepository,
+      { executeSyncMany } as unknown as ComputedFieldBackfillService,
+      createEventBus()
+    );
+
+    const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBe(0);
+    expect(executeSyncMany).toHaveBeenCalledTimes(1);
+    expect(claimById).not.toHaveBeenCalled();
+    expect(markFailed).not.toHaveBeenCalled();
   });
 
   it('splits seed task plans and defers the remainder without replanning', async () => {

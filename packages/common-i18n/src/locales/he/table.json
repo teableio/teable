@@ -338,6 +338,7 @@
       "filterByView": "סינון רשומות לפי תצוגה",
       "filter": "סינון רשומות",
       "hideFields": "הסתרת שדות",
+      "removeDuplicateValues": "הסרת ערכים כפולים",
       "moreOptions": "אפשרויות נוספות",
       "allowNewOptionsWhenEditing": "לאפשר אפשרויות חדשות בעת עריכה",
       "deleteField": {
@@ -921,6 +922,9 @@
   },
   "import": {
     "title": {
+      "createTable": "יצירת טבלה",
+      "importFromCsv": "ייבוא מ-CSV",
+      "importFromExcel": "ייבוא מ-Excel",
       "upload": "העלאה",
       "import": "ייבוא",
       "localFile": "קבצים מקומיים",

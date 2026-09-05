@@ -234,6 +234,99 @@ const drainOutbox = async (harness: TestHarness, rounds = 120): Promise<number> 
 };
 
 describe('computed stage budget continuation (e2e)', () => {
+  it('batches async filtered rollup backfills across continuation tasks T7075', async () => {
+    const harness = await createHarness({ fieldBackfillBatchSize: 2 }, { mode: 'async' });
+
+    const sourceNameFieldId = createFieldId();
+    const sourceAmountFieldId = createFieldId();
+    const sourceKindFieldId = createFieldId();
+    const hostNameFieldId = createFieldId();
+    const hostLinkFieldId = createFieldId();
+    const hostRollupFieldId = createFieldId();
+
+    const sourceTable = await createTable(harness, {
+      baseId: harness.baseId,
+      name: 'AsyncRollupSources',
+      fields: [
+        {
+          type: 'singleLineText',
+          id: sourceNameFieldId,
+          name: 'Name',
+          isPrimary: true,
+        },
+        { type: 'number', id: sourceAmountFieldId, name: 'Amount' },
+        { type: 'singleLineText', id: sourceKindFieldId, name: 'Kind' },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const hostTable = await createTable(harness, {
+      baseId: harness.baseId,
+      name: 'AsyncRollupHosts',
+      fields: [
+        { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+        {
+          type: 'link',
+          id: hostLinkFieldId,
+          name: 'Lines',
+          options: {
+            relationship: 'oneMany',
+            foreignTableId: sourceTable.id,
+            lookupFieldId: sourceNameFieldId,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+
+    const expectedByHostId = new Map<string, number>();
+    for (let index = 0; index < 5; index += 1) {
+      const isDebit = index % 2 === 0;
+      const amount = (index + 1) * 10;
+      const source = await createRecord(harness, sourceTable.id, {
+        [sourceNameFieldId]: `Line ${index + 1}`,
+        [sourceAmountFieldId]: amount,
+        [sourceKindFieldId]: isDebit ? 'debit' : 'credit',
+      });
+      const host = await createRecord(harness, hostTable.id, {
+        [hostNameFieldId]: `Host ${index + 1}`,
+        [hostLinkFieldId]: [{ id: source.id }],
+      });
+      expectedByHostId.set(host.id, isDebit ? amount : 0);
+    }
+    await drainOutbox(harness);
+
+    await createField(harness, hostTable.id, {
+      id: hostRollupFieldId,
+      type: 'rollup',
+      name: 'Debit total',
+      options: { expression: 'sum({values})' },
+      config: {
+        linkFieldId: hostLinkFieldId,
+        foreignTableId: sourceTable.id,
+        lookupFieldId: sourceAmountFieldId,
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: sourceKindFieldId, operator: 'is', value: 'debit' }],
+        },
+      },
+    });
+
+    const processed = await drainOutbox(harness);
+    expect(processed).toBe(3);
+
+    const records = await listRecords(harness, hostTable.id);
+    for (const [hostId, expected] of expectedByHostId) {
+      const row = records.find((record) => record.id === hostId);
+      expect(row).toBeDefined();
+      expect(row?.fields[hostRollupFieldId]).toBe(expected);
+    }
+
+    const dead = await sql<{ cnt: number }>`
+      SELECT count(*)::int as cnt FROM computed_update_dead_letter
+    `.execute(harness.testContainer.db);
+    expect(Number(dead.rows[0]?.cnt ?? 0)).toBe(0);
+  }, 120_000);
+
   it('batches async lookup field backfills across continuation tasks', async () => {
     const harness = await createHarness({ fieldBackfillBatchSize: 2 }, { mode: 'async' });
 

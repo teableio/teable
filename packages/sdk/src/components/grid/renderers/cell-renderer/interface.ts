@@ -139,6 +139,8 @@ export interface ISelectCell extends IEditableCell {
 export interface IImageData {
   id: string;
   url: string;
+  /** Drawn in place of `url` once loading it has failed. */
+  fallbackUrl?: string;
   width?: number;
   height?: number;
 }

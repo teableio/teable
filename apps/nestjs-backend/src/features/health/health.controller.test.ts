@@ -1,6 +1,6 @@
+import { HealthCheckService, PrismaHealthIndicator, TerminusModule } from '@nestjs/terminus';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { HealthCheckService, PrismaHealthIndicator } from '@nestjs/terminus';
 import { PrismaService } from '@teable/db-main-prisma';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HealthController } from './health.controller';
@@ -48,5 +48,17 @@ describe('HealthController', () => {
     await indicators[0]();
 
     expect(db.pingCheck).toHaveBeenNthCalledWith(1, 'metaDatabase', metaPrisma);
+  });
+
+  it('resolves the real Terminus health providers', async () => {
+    const module = await Test.createTestingModule({
+      imports: [TerminusModule],
+      controllers: [HealthController],
+      providers: [{ provide: PrismaService, useValue: metaPrisma }],
+    }).compile();
+
+    expect(module.get(HealthController)).toBeDefined();
+    expect(module.get(HealthCheckService)).toBeDefined();
+    expect(module.get(PrismaHealthIndicator)).toBeDefined();
   });
 });

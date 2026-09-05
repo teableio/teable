@@ -19,6 +19,11 @@ export interface ICacheStore {
   // read-modify-write on the per-user session map".
   [key: `auth:session-user-cleared:${string}`]: number;
   [key: `oauth2:${string}`]: IOauth2State;
+  // Mobile app sign-in (PKCE): keyed by the SHA-256 of the one-time code.
+  [key: `auth:mobile-code:${string}`]: IMobileAuthCodeState;
+  [key: `auth:mobile-web-session:${string}`]: IMobileWebSessionState;
+  // WebView sessions signed in through a web-session code, keyed by the native session id.
+  [key: `auth:mobile-children:${string}`]: string[];
   [key: `reset-password-email:${string}`]: IResetPasswordEmailCache;
   [key: `workflow:running:${string}`]: string;
   [key: `workflow:repeatKey:${string}`]: string;
@@ -54,6 +59,11 @@ export interface ICacheStore {
   // Watchdog round-robin scan cursor per status (staleAt stored as ISO string).
   [key: `automation:orphan-cursor:${string}`]: { staleAt: string; key: string };
   [key: `task:watchdog-cursor:${string}`]: { staleAt: string; key: string };
+  [key: `computed-reliability:snapshot:${string}`]: {
+    count: number;
+    oldestAt: number | null;
+    sampledAt: number;
+  };
   // Distributed lock keys
   [key: `lock:${string}`]: string;
   [key: `import:result:manifest:${string}`]: {
@@ -103,6 +113,20 @@ export interface IAttachmentPreviewCache {
 
 export interface IOauth2State {
   redirectUri?: string;
+}
+
+export interface IMobileAuthCodeState {
+  userId: string;
+  codeChallenge: string;
+  redirectUri: string;
+  createdAt: number;
+}
+
+export interface IMobileWebSessionState {
+  userId: string;
+  /** The native (cookie) session that minted the code. */
+  parentSessionId: string;
+  createdAt: number;
 }
 
 export interface IResetPasswordEmailCache {

@@ -78,7 +78,7 @@ describe('ShareDb', () => {
       runWith: vi.fn((_store, fn) => fn()),
     };
     const fieldService = {
-      authorizeComputedActivityRead: vi.fn().mockResolvedValue(undefined),
+      authorizeComputedActivityDocuments: vi.fn().mockResolvedValue(undefined),
       getSnapshotBulk: vi.fn().mockResolvedValue([]),
     };
     const adapter = new ShareDbAdapter(
@@ -113,7 +113,11 @@ describe('ShareDb', () => {
       );
     });
 
-    expect(fieldService.authorizeComputedActivityRead).toHaveBeenCalledWith('tblTest');
+    expect(fieldService.authorizeComputedActivityDocuments).toHaveBeenCalledWith('tblTest', [
+      'table',
+      'fldFormula',
+      'fldMissing',
+    ]);
     expect(loader).toHaveBeenCalledWith('tblTest');
     expect(snapshots.table).toMatchObject({
       v: 4,
@@ -134,7 +138,7 @@ describe('ShareDb', () => {
       runWith: vi.fn((_store, fn) => fn()),
     };
     const fieldService = {
-      authorizeComputedActivityRead: vi.fn().mockResolvedValue(undefined),
+      authorizeComputedActivityDocuments: vi.fn().mockResolvedValue(undefined),
       getSnapshotBulk: vi.fn().mockResolvedValue([]),
     };
     const adapter = new ShareDbAdapter(
@@ -176,7 +180,7 @@ describe('ShareDb', () => {
       runWith: vi.fn((_store, fn) => fn()),
     };
     const fieldService = {
-      authorizeComputedActivityRead: vi.fn().mockResolvedValue(undefined),
+      authorizeComputedActivityDocuments: vi.fn().mockResolvedValue(undefined),
       getSnapshotBulk: vi.fn().mockResolvedValue([]),
     };
     const adapter = new ShareDbAdapter(
@@ -222,7 +226,7 @@ describe('ShareDb', () => {
       runWith: vi.fn((_store, fn) => fn()),
     };
     const fieldService = {
-      authorizeComputedActivityRead: vi.fn().mockResolvedValue(undefined),
+      authorizeComputedActivityDocuments: vi.fn().mockResolvedValue(undefined),
       getSnapshotBulk: vi.fn().mockResolvedValue([]),
     };
     const adapter = new ShareDbAdapter(

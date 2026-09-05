@@ -71,6 +71,8 @@ export const envValidationSchema = Joi.object({
   V2_COMPUTED_OUTBOX_TRIGGER_PUBLISH_TIMEOUT_MS: Joi.number().integer().positive().default(1000),
   V2_COMPUTED_OUTBOX_MONITOR_CONCURRENCY: Joi.number().integer().positive().default(4),
   V2_COMPUTED_OUTBOX_MONITOR_INTERVAL_MS: Joi.number().integer().positive().default(30000),
+  V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_BASE: Joi.number().integer().positive().default(2),
+  V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_SEED_TABLE: Joi.number().integer().positive().default(1),
   V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS: Joi.number().integer().min(0).default(60000),
   V2_COMPUTED_INLINE_STATEMENT_TIMEOUT_MS: Joi.number().integer().min(0).default(60000),
   V2_COMPUTED_OUTBOX_FIELD_BACKFILL_BATCH_SIZE: Joi.number().integer().positive().default(500),

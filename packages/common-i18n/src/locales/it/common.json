@@ -568,19 +568,13 @@
     "billable": "Fatturabile",
     "billableByAuthorityMatrix": "Fatturazione generata dalla matrice dei permessi",
     "seatConfirm": {
-      "title": "Questo invito aumenterà il costo del tuo abbonamento",
-      "roleChangeTitle": "Questa modifica di ruolo aumenterà il costo del tuo abbonamento",
       "matrixTitle": "L'aggiunta di membri aumenterà il costo del tuo abbonamento",
-      "inviteDesc_one": "Il membro che stai invitando entrerà con il ruolo {{role}} e occuperà 1 posto dell'abbonamento; il costo aumenterà di conseguenza. Se deve solo visualizzare o commentare, scegli semplicemente il ruolo gratuito Visualizzatore o Commentatore.",
-      "inviteDesc_many": "I {{count}} membri che stai invitando entreranno con il ruolo {{role}} e occuperanno {{count}} posti dell'abbonamento; il costo aumenterà di conseguenza. Se devono solo visualizzare o commentare, scegli semplicemente il ruolo gratuito Visualizzatore o Commentatore.",
-      "inviteDesc_other": "I {{count}} membri che stai invitando entreranno con il ruolo {{role}} e occuperanno {{count}} posti dell'abbonamento; il costo aumenterà di conseguenza. Se devono solo visualizzare o commentare, scegli semplicemente il ruolo gratuito Visualizzatore o Commentatore.",
-      "linkDesc": "I membri che si uniscono tramite questo link riceveranno il ruolo {{role}} e ognuno occuperà 1 posto dell'abbonamento; il costo crescerà man mano che le persone si uniscono. Per sola visualizzazione o commenti, scegli semplicemente il ruolo gratuito Visualizzatore o Commentatore.",
-      "roleChangeDesc": "Dopo il passaggio a {{role}}, questo membro occuperà 1 posto dell'abbonamento e il costo aumenterà di conseguenza.",
       "matrixDesc": "Questo membro ha attualmente un ruolo gratuito (Visualizzatore/Commentatore). Aggiungendolo alla matrice delle autorizzazioni occuperà 1 posto dell'abbonamento e il costo aumenterà di conseguenza.",
       "seatLimitTitle": "Posti della licenza insufficienti",
       "seatLimitDesc": "Questa istanza sta usando {{seats}} di {{seatLimit}} posti con licenza e quelli rimanenti non bastano per questa azione. Contatta il tuo amministratore per acquistare più posti. Se deve solo visualizzare o commentare, puoi usare il ruolo gratuito Visualizzatore o Commentatore.",
       "seatLimitConfirm": "Ho capito",
-      "confirmInvite": "Conferma e invita"
+      "fixedSeatTitle": "Posti insufficienti nel tuo piano",
+      "fixedSeatDesc": "Il tuo piano include {{quantity}} posti e {{seats}} sono già in uso. Continuando, il limite di posti verrà superato e lo spazio verrà riportato al piano gratuito dopo un periodo di tolleranza di 7 giorni. Se deve solo visualizzare o commentare, puoi usare il ruolo gratuito Visualizzatore o Commentatore."
     },
     "licenseExpiredGracePeriod": "La tua licenza self-hosted è scaduta e verrà declassata al piano gratuito il {{expiredTime}}. Aggiorna la tua licenza tempestivamente per mantenere l'accesso alle funzionalità premium.",
     "licenseAutoFetchFailed": "Rinnovo automatico della licenza non riuscito. Restano {{days}} giorno/i del periodo di tolleranza prima del downgrade.",
@@ -1365,6 +1359,7 @@
               "title": "Attività IA annullata",
               "rateLimit": "L'attività IA per la tabella \"{{tableName}}\" è stata annullata a causa del limite di velocità (429). Si prega di riprovare più tardi.",
               "creditExhausted": "L'attività IA per la tabella \"{{tableName}}\" è stata annullata perché i crediti sono esauriti. Si prega di aggiornare l'abbonamento o attendere il rinnovo dei crediti.",
+              "providerBilling": "L'attività IA della tabella \"{{tableName}}\" è stata annullata perché il provider del modello ha rifiutato la richiesta per motivi di fatturazione. Controlla il saldo e lo stato di fatturazione dell'account associato alla chiave API configurata per questo modello. Errore: {{errorMessage}}",
               "authFailed": "L'attività IA per la tabella \"{{tableName}}\" è stata annullata a causa di un errore di autenticazione. Si prega di verificare la configurazione della chiave API.",
               "serviceUnavailable": "L'attività IA per la tabella \"{{tableName}}\" è stata annullata perché il servizio IA è temporaneamente non disponibile. Si prega di riprovare più tardi.",
               "unknown": "L'attività IA per la tabella \"{{tableName}}\" è stata annullata. Errore: {{errorMessage}}"
@@ -1683,5 +1678,9 @@
     "more_one": "{{count}} altro annuncio",
     "more_many": "{{count}} altri annunci",
     "more_other": "{{count}} altri annunci"
+  },
+  "mobileEmbed": {
+    "pickFromDirectory": "Scegli qualcosa dalla directory",
+    "pickFromDirectoryHint": "Apri una tabella, una dashboard o un'automazione dalla directory e comparirà qui."
   }
 }

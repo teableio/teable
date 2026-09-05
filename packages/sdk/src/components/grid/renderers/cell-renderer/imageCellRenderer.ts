@@ -40,6 +40,22 @@ const drawImagePlaceholder = (
   });
 };
 
+// A plain placeholder while the image is in flight; once the load has failed,
+// the file icon (with the placeholder for the frames until the icon is ready).
+const drawImageFallback = (
+  ctx: CanvasRenderingContext2D,
+  props: IRectangle & { fallbackImg?: HTMLImageElement | ImageBitmap; fill: string }
+) => {
+  const { fallbackImg, x, y, width, height, fill } = props;
+  if (!fallbackImg) {
+    drawImagePlaceholder(ctx, x, y, width, height, fill);
+    return;
+  }
+  // The file icon is square: fit it into the slot instead of stretching it.
+  const side = Math.min(width, height);
+  ctx.drawImage(fallbackImg, x + (width - side) / 2, y + (height - side) / 2, side, side);
+};
+
 const generateCacheKey = (data: IImageData[], width: number) => {
   return `${String(width)}-${data.map(({ id }) => id).join(',')}`;
 };
@@ -97,7 +113,7 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
 
     for (const imageItem of data) {
       if (drawX > x + width) break;
-      const { id, url } = imageItem;
+      const { id, url, fallbackUrl } = imageItem;
       const img = imageManager.loadOrGetImage(url, columnIndex, rowIndex);
       const imgWidth = getImageWidth(imageItem, img, imgHeight);
       drawRect(ctx, {
@@ -122,14 +138,17 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
         ctx.drawImage(img, drawX, y + cellVerticalPaddingXS, imgWidth, imgHeight);
         ctx.restore();
       } else {
-        drawImagePlaceholder(
-          ctx,
-          drawX,
-          y + cellVerticalPaddingXS,
-          imgWidth,
-          imgHeight,
-          cellOptionBgHighlight
-        );
+        drawImageFallback(ctx, {
+          fallbackImg:
+            fallbackUrl && imageManager.hasFailed(url)
+              ? imageManager.loadOrGetImage(fallbackUrl, columnIndex, rowIndex)
+              : undefined,
+          x: drawX,
+          y: y + cellVerticalPaddingXS,
+          width: imgWidth,
+          height: imgHeight,
+          fill: cellOptionBgHighlight,
+        });
       }
 
       positions.push({

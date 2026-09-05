@@ -34,9 +34,15 @@ export const List = (props: { list?: IUserIntegrationListVo['integrations'] }) =
   return (
     <div className="flex-1 overflow-auto">
       {list?.map((integration) => (
-        <div key={integration.id} className="flex items-center justify-between gap-4 border-t py-3">
-          <div className="flex items-center gap-3">
-            <UserIntegrationProviderLogo provider={integration.provider} className="size-10" />
+        <div
+          key={integration.id}
+          className="flex items-center justify-between gap-2 border-t py-3 sm:gap-4"
+        >
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <UserIntegrationProviderLogo
+              provider={integration.provider}
+              className="size-10 shrink-0"
+            />
             {integration.provider === UserIntegrationProvider.Slack ? (
               <SlackItem item={integration}>
                 <Rename
@@ -73,8 +79,8 @@ export const List = (props: { list?: IUserIntegrationListVo['integrations'] }) =
               </AccountItem>
             )}
           </div>
-          <div className="flex shrink-0 items-center gap-4">
-            <div className="text-xs text-muted-foreground">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+            <div className="max-w-20 truncate text-xs text-muted-foreground">
               {dayjs(integration.connectedTime).fromNow()}
             </div>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">

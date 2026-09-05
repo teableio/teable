@@ -44,6 +44,11 @@ import {
 } from '../query-builder/computed/SameTableBatchQueryBuilder';
 import { TableRecordConditionWhereVisitor } from '../visitors/TableRecordConditionWhereVisitor';
 import {
+  cleanupChangeFrontierOrphans,
+  clearChangeFrontier,
+  recordStageValueChanges,
+} from './ComputedChangeFrontier';
+import {
   STAGE_LEDGER_TABLE,
   type ComputedStageLedgerSettlementMode,
   appendStageLedgerPartialBatch,
@@ -578,6 +583,8 @@ export class ComputedFieldUpdater {
     run?: ComputedUpdateRunContext,
     options?: {
       collectChanges?: boolean;
+      /** Track selected source tables and invalidate evidence for excluded tables. */
+      valueFrontier?: { tableIds: ReadonlyArray<string> };
       lockWait?: boolean;
       maxDirtyRecords?: number;
       dirtyBudgetMode?: 'abort' | 'partial';
@@ -596,10 +603,15 @@ export class ComputedFieldUpdater {
       isolateOversizedComputedCells?: boolean;
     }
   ): Promise<Result<ComputedUpdateResult, DomainError>> {
+    const executeDb = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+    if (options?.ledgerScopeId && options.valueFrontier !== undefined) {
+      // A partial batch can become untracked after a budget/config change.
+      // Invalidate old table coverage before processing even overlapping rows.
+      await clearChangeFrontier(executeDb, options.ledgerScopeId, options.valueFrontier.tableIds);
+    }
     if (plan.steps.length === 0 && plan.edges.length === 0) {
       return ok({ changesByStep: [] });
     }
-    const executeDb = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
     // Backfill joins on computed expressions (e.g. the to_jsonb-wrapped field
     // comparisons of conditional lookups) have no column statistics, so the
     // planner's inflated row estimates routinely push the statement cost past
@@ -790,6 +802,22 @@ export class ComputedFieldUpdater {
             },
             options?.isolateOversizedComputedCells ?? false
           );
+          if (
+            collectChanges &&
+            options?.ledgerScopeId &&
+            options.valueFrontier &&
+            options.valueFrontier.tableIds.length > 0
+          ) {
+            await recordStageValueChanges(
+              prepared.db,
+              options.ledgerScopeId,
+              effectivePlan,
+              prepared.tableById,
+              stepsResult.changesByStep,
+              stepsResult.rejectedCells,
+              options.valueFrontier.tableIds
+            );
+          }
           mainSpan?.setAttribute('computed.executedStepCount', stepsResult.traceInfos.length);
 
           const completedSteps = resolvedRun.completedStepsBefore + stepsResult.traceInfos.length;
@@ -1428,6 +1456,12 @@ export class ComputedFieldUpdater {
     }
 
     const levels = [...stepsByLevel.keys()].sort((a, b) => a - b);
+    // Counts affect chunk selection, so read each table on first use rather than
+    // trusting a PreparedDirtyState that may have been used by an earlier call.
+    // Ordinary steps only update stored cells; rejected-cell restoration below
+    // is the only step path that can add dirty rows. Never share this cache
+    // across prepared executions or transactions.
+    const dirtyCounts = new Map<string, number>();
 
     for (const level of levels) {
       const levelSteps = stepsByLevel.get(level)!;
@@ -1469,7 +1503,8 @@ export class ComputedFieldUpdater {
             doneSteps,
             pendingSteps,
             collectChanges,
-            isolateOversizedComputedCells
+            isolateOversizedComputedCells,
+            dirtyCounts.get(step.tableId.toString())
           );
 
           if (stepResult.isErr()) {
@@ -1478,6 +1513,11 @@ export class ComputedFieldUpdater {
             return err(stepResult.error);
           }
 
+          if (stepResult.value.rejectedCells?.length) {
+            dirtyCounts.delete(step.tableId.toString());
+          } else {
+            dirtyCounts.set(step.tableId.toString(), stepResult.value.traceInfo.dirtyRecordCount);
+          }
           results.push(stepResult.value);
         }
         return ok(results);
@@ -1530,7 +1570,8 @@ export class ComputedFieldUpdater {
     doneSteps?: number,
     pendingSteps?: number,
     collectChanges: boolean = false,
-    isolateOversizedComputedCells: boolean = false
+    isolateOversizedComputedCells: boolean = false,
+    knownDirtyCount?: number
   ): Promise<Result<StepExecutionResult, DomainError>> {
     const table = tableById.get(step.tableId.toString());
     if (!table) {
@@ -1581,7 +1622,7 @@ export class ComputedFieldUpdater {
     }
 
     // Get dirty record count for this table
-    const dirtyCount = await this.getDirtyCountForTable(db, step.tableId);
+    const dirtyCount = knownDirtyCount ?? (await this.getDirtyCountForTable(db, step.tableId));
 
     const stepSpan = context.tracer?.startSpan('teable.ComputedFieldUpdater.step', {
       // Basic step info
@@ -2736,8 +2777,15 @@ export class ComputedFieldUpdater {
       exactIdsTotalCap: number;
       /** Ledger lifecycle: 'carry-sources' collects preserved consumed sources. */
       settlementMode: ComputedStageLedgerSettlementMode;
+      valueFrontierFields?: ReadonlyArray<{ tableId: string; fieldIds: ReadonlyArray<string> }>;
+      allowConsumedPruning?: boolean;
     }
-  ): Promise<Result<{ groups: ComputedSeedGroup[]; seedAllTableIds: TableId[] }, DomainError>> {
+  ): Promise<
+    Result<
+      { groups: ComputedSeedGroup[]; seedAllTableIds: TableId[]; valuePrunedTableIds?: string[] },
+      DomainError
+    >
+  > {
     const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
     const collected = await collectStageOutputSeedGroups(
       db,
@@ -2747,6 +2795,8 @@ export class ComputedFieldUpdater {
         seedAllThreshold: params.seedAllThreshold ?? DEFAULT_SEED_ALL_THRESHOLD,
         exactIdsTotalCap: params.exactIdsTotalCap,
         includeConsumedSources: params.settlementMode === 'carry-sources',
+        valueFrontierFields: params.valueFrontierFields,
+        allowConsumedPruning: params.allowConsumedPruning,
       }
     );
     if (collected.isErr()) return err(collected.error);
@@ -2773,7 +2823,27 @@ export class ComputedFieldUpdater {
       if (tableId.isErr()) return err(tableId.error);
       seedAllTableIds.push(tableId.value);
     }
-    return ok({ groups, seedAllTableIds });
+    return ok({
+      groups,
+      seedAllTableIds,
+      ...(collected.value.valuePrunedTableIds?.length
+        ? { valuePrunedTableIds: collected.value.valuePrunedTableIds }
+        : {}),
+    });
+  }
+
+  async cleanupValueFrontierOrphans(
+    context: IExecutionContext,
+    afterScope: string
+  ): Promise<Result<{ afterScope: string; deleted: number }, DomainError>> {
+    try {
+      const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+      return ok(await cleanupChangeFrontierOrphans(db, afterScope));
+    } catch (error) {
+      return err(
+        domainError.infrastructure({ message: `Failed to clean value frontier: ${String(error)}` })
+      );
+    }
   }
 
   /** Drop all stage-ledger state (stage completion or chain dead-letter). */

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
-import { IdPrefix, ViewType } from '@teable/core';
+import { HttpErrorCode, IdPrefix, ViewType } from '@teable/core';
 import {
   enableShareView as apiEnableShareView,
   disableShareView as apiDisableShareView,
@@ -206,22 +206,9 @@ describe('Share (socket-e2e) (e2e)', () => {
       const error = await getError(() => getQuery(collection, ''));
       expect(error).toBeDefined();
     });
-
-    it('should handle non-existent collection gracefully', async () => {
-      const collection = `${IdPrefix.Field}_non_existent_table`;
-      const error = await getError(() => getQuery(collection, shareId));
-      // Should either return empty results or throw an appropriate error
-      expect(error !== undefined || true).toBe(true);
-    });
   });
 
   describe('Connection lifecycle', () => {
-    it('should successfully create and use connection', async () => {
-      const connection = createConnection(shareId);
-      expect(connection).toBeDefined();
-      expect(connection.state).toBeDefined();
-    });
-
     it('should handle multiple concurrent connections', async () => {
       const collection = `${IdPrefix.View}_${tableId}`;
 
@@ -236,14 +223,6 @@ describe('Share (socket-e2e) (e2e)', () => {
         expect(views.length).toEqual(1);
         expect(views[0].id).toEqual(viewId);
       });
-    });
-
-    it('should timeout if query takes too long', async () => {
-      const collection = `${IdPrefix.View}_${tableId}`;
-      // Use a very short timeout to trigger timeout error
-      const error = await getError(() => getQuery(collection, shareId, 1));
-      // Either succeeds very quickly or times out
-      expect(error === undefined || error?.message === timeoutErrorMessage).toBe(true);
     });
   });
 
@@ -292,6 +271,58 @@ describe('Share (socket-e2e) (e2e)', () => {
   });
 
   describe('Computed activity subscriptions', () => {
+    it.each(['subscribe', 'fetch'] as const)(
+      'rejects cached private computed activity %s without hanging the connection',
+      async (operation) => {
+        // ShareDB exposes bulk helpers at runtime, but @types/sharedb omits them.
+        const connection = createConnection(shareId) as Connection & {
+          startBulk(): void;
+          endBulk(): void;
+        };
+        const doc = connection.get(`cmp_${tableId}`, 'table');
+        const docs =
+          operation === 'subscribe' ? [doc, connection.get(`cmp_${tableId}`, fieldIds[0])] : [doc];
+        // A client opened before aggregate documents became private can retain a version.
+        docs.forEach((document) => (document.version = 1));
+
+        try {
+          await vi.waitFor(() => expect(connection.state).toBe('connected'));
+          const errors = await new Promise<unknown[]>((resolve, reject) => {
+            const errors: unknown[] = [];
+            const timer = setTimeout(
+              () => reject(new Error('Computed activity authorization response timeout')),
+              defaultTimeout
+            );
+            if (operation === 'subscribe') connection.startBulk();
+            docs.forEach((document) => {
+              document[operation]((error) => {
+                errors.push(error);
+                if (errors.length === docs.length) {
+                  clearTimeout(timer);
+                  resolve(errors);
+                }
+              });
+            });
+            if (operation === 'subscribe') connection.endBulk();
+          });
+
+          expect(errors).toEqual(
+            docs.map(() => expect.objectContaining({ code: HttpErrorCode.RESTRICTED_RESOURCE }))
+          );
+          expect(doc.data).toBeUndefined();
+          expect(doc.subscribed).toBe(false);
+
+          const visibleField = connection.get(`${IdPrefix.Field}_${tableId}`, fieldIds[0]);
+          await new Promise<void>((resolve, reject) => {
+            visibleField.fetch((error) => (error ? reject(error) : resolve()));
+          });
+          expect(visibleField.data.id).toBe(fieldIds[0]);
+        } finally {
+          connection.close();
+        }
+      }
+    );
+
     it('replays a later generation into an uncreated client document', async () => {
       const fieldId = fieldIds[0];
       const data = { status: 'running', generation: 3 };

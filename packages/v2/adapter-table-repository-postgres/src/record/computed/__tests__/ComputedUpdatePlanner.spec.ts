@@ -2098,6 +2098,11 @@ describe('ComputedUpdatePlanner', () => {
       expect(
         plan.edges[0]?.propagationTargetFieldIds?.map((fieldId) => fieldId.toString())
       ).toEqual([filteredLookupFieldId.toString(), filteredRollupFieldId.toString()]);
+      expect(
+        plan.edges[0]?.propagationSourceFieldIds?.map((fieldId) => fieldId.toString()).sort()
+      ).toEqual(
+        [statusFieldId.toString(), labelFieldId.toString(), amountFieldId.toString()].sort()
+      );
     });
 
     it('keeps delete on filtered rollup as allTargetRecords', async () => {

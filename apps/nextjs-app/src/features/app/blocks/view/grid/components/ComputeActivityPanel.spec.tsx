@@ -187,7 +187,8 @@ describe('ComputeActivityPanel', () => {
     await userEvent.click(screen.getByRole('button'));
 
     expect(screen.getByText('Broken rollup')).toBeInTheDocument();
-    expect(screen.getByText('Invalid dependency')).toBeInTheDocument();
+    expect(screen.queryByText('Invalid dependency')).not.toBeInTheDocument();
+    expect(screen.getByText('computeActivity.calculationFailed')).toBeInTheDocument();
     expect(screen.queryByText('Finished formula')).not.toBeInTheDocument();
   });
 
@@ -219,6 +220,73 @@ describe('ComputeActivityPanel', () => {
       attempted: 312000,
       max: 262144,
     });
+  });
+
+  it('shows a delayed queued calculation and distinguishes an intentional pause', () => {
+    mockedUseFields.mockReturnValue([
+      { id: 'fldTest', name: 'Waiting rollup', type: 'rollup', canReadFieldRecord: true },
+    ] as never);
+    setActivity({
+      fldTest: { status: 'queued', queuedAt: new Date(Date.now() - 120_000).toISOString() },
+    });
+    const { rerender } = render(<ComputeActivityPanel />);
+    expect(screen.getByRole('button', { name: 'computeActivity.delayed' })).toBeInTheDocument();
+    const activity = mockedUseComputeActivity();
+    mockedUseComputeActivity.mockReturnValue({
+      ...activity,
+      diagnostics: { ...activity.diagnostics!, executionState: 'paused' },
+    });
+    rerender(<ComputeActivityPanel />);
+    expect(screen.getByRole('button', { name: 'computeActivity.paused' })).toBeInTheDocument();
+  });
+
+  it('keeps unresolved issues visible after execution becomes idle', async () => {
+    mockedUseFields.mockReturnValue([
+      { id: 'fldTest', name: 'Unconfirmed rollup', type: 'rollup', canReadFieldRecord: true },
+    ] as never);
+    setActivity({
+      fldTest: {
+        status: 'idle',
+        reliability: {
+          unresolvedCount: 1,
+          oldestUnresolvedAt: null,
+          scopeComplete: true,
+        },
+      },
+    });
+    render(<ComputeActivityPanel />);
+    await userEvent.click(
+      screen.getByRole('button', { name: 'computeActivity.resultsNotUpdated' })
+    );
+    expect(screen.getByText('Unconfirmed rollup')).toBeInTheDocument();
+  });
+
+  it('shows a generic warning when an authorized table issue has no known field scope', () => {
+    const activity = mockedUseComputeActivity();
+    mockedUseComputeActivity.mockReturnValue({
+      ...activity,
+      diagnostics: {
+        ...activity.diagnostics!,
+        reliability: {
+          unresolvedCount: 1,
+          oldestUnresolvedAt: null,
+          scopeComplete: false,
+        },
+      },
+    });
+    render(<ComputeActivityPanel />);
+    expect(
+      screen.getByRole('button', { name: 'computeActivity.unknownImpact' })
+    ).toBeInTheDocument();
+  });
+
+  it('shows unavailable status even without a snapshot instead of implying idle', () => {
+    const activity = mockedUseComputeActivity();
+    mockedUseComputeActivity.mockReturnValue({ ...activity, observationState: 'unavailable' });
+    render(<ComputeActivityPanel />);
+    expect(
+      screen.getByRole('button', { name: 'computeActivity.statusUnavailable' })
+    ).toBeInTheDocument();
   });
 
   it('does not reserve a top bar when there is no current activity', () => {

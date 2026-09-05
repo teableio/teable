@@ -1,6 +1,7 @@
 import {
   ActorId,
   BaseId,
+  COMPUTE_PAUSED_WRITE_BLOCKED_CODE,
   FieldId,
   FieldType,
   NoopHasher,
@@ -29,6 +30,11 @@ import type { IComputedUpdateOutbox } from '../outbox/IComputedUpdateOutbox';
 import type { ComputedUpdateWorker } from '../worker/ComputedUpdateWorker';
 import { createPGliteDb } from '../../../schema/visitors/__tests__/helpers/createPGliteDb';
 import { HybridWithOutboxStrategy } from './HybridWithOutboxStrategy';
+import {
+  noopComputedUpdatePauseRegistry,
+  type IComputedUpdatePauseRegistry,
+} from '../pause/IComputedUpdatePauseRegistry';
+import { defaultComputedUpdateRuntimeConfig } from '../ComputedUpdateRuntimeConfig';
 
 const testHasher = new NoopHasher();
 
@@ -1279,5 +1285,54 @@ describe('HybridWithOutboxStrategy', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('rejects computed-producing writes when pause writePolicy is block', async () => {
+    const plan = createPlan();
+    const { updater, executePreparedSteps } = createUpdaterStub();
+    const { outbox, enqueueOrMerge } = createOutboxStub();
+    const { worker } = createWorkerStub();
+    const { planner } = createPlannerStub();
+    const pauseRegistry: IComputedUpdatePauseRegistry = {
+      ...noopComputedUpdatePauseRegistry,
+      admitComputedWrite: vi.fn().mockResolvedValue(
+        err(
+          domainError.conflict({
+            code: COMPUTE_PAUSED_WRITE_BLOCKED_CODE,
+            message: 'Computation is paused',
+          })
+        )
+      ),
+    };
+
+    const strategy = new HybridWithOutboxStrategy(
+      outbox,
+      worker,
+      {
+        syncPolicy: 'threshold',
+        syncMaxDirtyPerTable: 2000,
+        syncMaxTotalDirty: 5000,
+        syncMaxLevelHardCap: 10,
+        dispatchMode: 'external',
+        dispatchWorkerLimit: 50,
+        dispatchWorkerId: 'computed-inline',
+        dispatchDelayMs: 0,
+      },
+      createLogger(),
+      testHasher,
+      planner,
+      createEventBusStub(),
+      defaultComputedUpdateRuntimeConfig,
+      pauseRegistry
+    );
+
+    const result = await strategy.execute(updater, plan, {
+      actorId: ActorId.create('usr_test')._unsafeUnwrap(),
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe(COMPUTE_PAUSED_WRITE_BLOCKED_CODE);
+    expect(executePreparedSteps).not.toHaveBeenCalled();
+    expect(enqueueOrMerge).not.toHaveBeenCalled();
   });
 });

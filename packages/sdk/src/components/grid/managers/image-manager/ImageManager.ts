@@ -3,6 +3,8 @@ import type { ICellItem, IRectangle } from '../../interface';
 
 interface ILoadResult {
   img: HTMLImageElement | undefined;
+  /** The browser could not load or decode `url`; stays set until the entry is evicted. */
+  failed?: boolean;
   cancel: () => void;
   url: string;
   cells: number[];
@@ -11,6 +13,8 @@ interface ILoadResult {
 export interface IGlobalImageManager {
   setWindow(newWindow: IRectangle, freezeCols: number): void;
   loadOrGetImage(url: string, col: number, row: number): HTMLImageElement | ImageBitmap | undefined;
+  /** Whether loading `url` has failed, as opposed to still being in flight. */
+  hasFailed(url: string): boolean;
   setCallback(imageLoaded: (locations: ICellItem[]) => void): void;
 }
 
@@ -125,27 +129,45 @@ export class ImageManager implements IGlobalImageManager {
       },
     };
 
-    const loadPromise = new Promise((r) => img.addEventListener('load', () => r(null)));
+    const loadPromise = new Promise<void>((resolve, reject) => {
+      img.addEventListener('load', () => resolve(), { once: true });
+      img.addEventListener('error', () => reject(new Error(`Failed to load ${url}`)), {
+        once: true,
+      });
+    });
+    // Cells are redrawn on both outcomes: a failure has to replace the loading
+    // placeholder just like a loaded image does.
+    const settle = (settled: (entry: ILoadResult) => void) => {
+      const entry = this.cache[key];
+      if (entry === undefined || canceled) return;
+      settled(entry);
+      for (const packed of entry.cells) {
+        this.loadedLocations.push(unpackNumberToColRow(packed));
+      }
+      this.sendLoaded();
+    };
     // use request animation time to avoid paying src set costs during draw calls
     requestAnimationFrame(async () => {
       try {
         img.src = url;
         await loadPromise;
         await img.decode();
-        const toWrite = this.cache[key];
-        if (toWrite !== undefined && !canceled) {
-          toWrite.img = img;
-          for (const packed of toWrite.cells) {
-            this.loadedLocations.push(unpackNumberToColRow(packed));
-          }
+        settle((entry) => {
+          entry.img = img;
           loaded = true;
-          this.sendLoaded();
-        }
+        });
       } catch {
+        settle((entry) => {
+          entry.failed = true;
+        });
         result.cancel();
       }
     });
     this.cache[key] = result;
+  }
+
+  public hasFailed(url: string): boolean {
+    return this.cache[url]?.failed === true;
   }
 
   public loadOrGetImage(

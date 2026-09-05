@@ -362,6 +362,81 @@ type CollectLinkChangesResult = {
   exclusivityConstraints: LinkExclusivityConstraint[];
 };
 
+/** Old host-FK values scoped to one batch, read in its existing transaction. */
+export type BatchExistingLinkIds = ReadonlyMap<string, ReadonlyMap<string, string[]>>;
+
+export const loadBatchExistingHostLinkIds = async (params: {
+  db: Kysely<DynamicDB>;
+  table: Table;
+  tableName: string;
+  updates: ReadonlyArray<{ recordId: RecordId; mutateSpec: ICellValueSpec }>;
+}): Promise<Result<BatchExistingLinkIds, DomainError>> => {
+  const { db, table, tableName, updates } = params;
+  try {
+    const columns = new Map<string, string>();
+    const requested = new Map<string, Set<string>>();
+    for (const update of updates) {
+      const visitor = new LinkValueCollectorVisitor();
+      const accepted = update.mutateSpec.accept(visitor);
+      if (accepted.isErr()) return err(accepted.error);
+      for (const fieldId of visitor.values().keys()) {
+        const fieldResult = table.getField((field) => field.id().toString() === fieldId);
+        if (fieldResult.isErr()) return err(fieldResult.error);
+        const field = fieldResult.value;
+        if (!field.type().equals(FieldType.link())) continue;
+        const link = field as LinkField;
+        const relationship = link.relationship().toString();
+        if (relationship !== 'manyOne' && relationship !== 'oneOne') continue;
+        if (link.hasOrderColumn()) {
+          const orderColumn = link.orderColumnName();
+          if (orderColumn.isErr()) return err(orderColumn.error);
+        }
+        const foreignKey = link.foreignKeyNameString();
+        if (foreignKey.isErr()) return err(foreignKey.error);
+        // Inverse/symmetric links and junctions retain their ordered read path.
+        if (foreignKey.value === RECORD_ID_COLUMN) continue;
+        columns.set(fieldId, foreignKey.value);
+        const recordId = update.recordId.toString();
+        const fields = requested.get(recordId) ?? new Set<string>();
+        fields.add(fieldId);
+        requested.set(recordId, fields);
+      }
+    }
+    const result = new Map<string, Map<string, string[]>>();
+    const recordIds = [...requested.keys()];
+    for (let offset = 0; offset < recordIds.length; offset += 500) {
+      const ids = recordIds.slice(offset, offset + 500);
+      // Include absent/null rows as known empty values, without falling back to
+      // per-record reads. Only cache fields actually requested by that record.
+      for (const id of ids)
+        result.set(id, new Map([...requested.get(id)!].map((field) => [field, []])));
+      const rows = await db
+        .selectFrom(tableName)
+        .select([
+          sql.ref(RECORD_ID_COLUMN).as('__record_id'),
+          ...[...columns].map(([field, column]) => sql.ref(column).as(field)),
+        ])
+        .where(RECORD_ID_COLUMN, 'in', ids)
+        .execute();
+      for (const row of rows) {
+        const fields = result.get(String(row.__record_id));
+        if (!fields) continue;
+        for (const field of fields.keys()) {
+          const value = row[field];
+          fields.set(field, typeof value === 'string' && value.length > 0 ? [value] : []);
+        }
+      }
+    }
+    return ok(result);
+  } catch (error) {
+    return err(
+      domainError.infrastructure({
+        message: `Failed to batch load existing host links: ${String(error)}`,
+      })
+    );
+  }
+};
+
 export const collectLinkChanges = async (params: {
   db: Kysely<DynamicDB>;
   table: Table;
@@ -369,6 +444,7 @@ export const collectLinkChanges = async (params: {
   recordId: string;
   mutateSpec: ICellValueSpec;
   assumeEmptyLinkState?: boolean;
+  existingLinkIds?: ReadonlyMap<string, string[]>;
 }): Promise<Result<CollectLinkChangesResult, DomainError>> => {
   const { db, table, tableName, recordId, mutateSpec, assumeEmptyLinkState } = params;
 
@@ -395,9 +471,12 @@ export const collectLinkChanges = async (params: {
       }
 
       const linkField = field as LinkField;
+      const prefetched = params.existingLinkIds?.get(fieldIdStr);
       const existingLinksResult = assumeEmptyLinkState
         ? ok<string[], DomainError>([])
-        : await loadExistingLinkRecordIds(db, tableName, recordId, linkField);
+        : prefetched !== undefined
+          ? ok<string[], DomainError>(prefetched)
+          : await loadExistingLinkRecordIds(db, tableName, recordId, linkField);
       if (existingLinksResult.isErr()) return err(existingLinksResult.error);
       const existingLinks = existingLinksResult.value;
 

@@ -50,6 +50,7 @@ export interface IEditorContainerProps
   setSelection: React.Dispatch<React.SetStateAction<CombinedSelection>>;
   setEditing: React.Dispatch<React.SetStateAction<boolean>>;
   onChange?: (cell: ICellItem, cellValue: IInnerCell) => void;
+  onContextMenu?: () => void;
 }
 
 export interface IEditorRef<T extends IInnerCell = IInnerCell> {
@@ -97,6 +98,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     onChange,
     onDelete,
     onRowExpand,
+    onContextMenu,
     setEditing,
     setActiveCell,
     setSelection,
@@ -341,6 +343,27 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     onCopy?.(selection, e);
   };
 
+  const onContextMenuInner = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!onContextMenu) return;
+    // Portalled content (the expand dialog) bubbles through React but is not over the cell
+    if (!e.currentTarget.contains(e.target as Node)) return;
+    // An open editor keeps its native context menu. Otherwise whatever editor DOM
+    // is under the pointer (readonly preview, expand button) sits over the active
+    // cell, which the stage cannot see, so the right-click belongs to the grid.
+    if (isEditing && !enableReadonlyCustomEditor) return;
+    // Text selected inside the editor keeps the native menu so it can be copied
+    const textSelection = window.getSelection();
+    if (
+      textSelection &&
+      !textSelection.isCollapsed &&
+      e.currentTarget.contains(textSelection.anchorNode)
+    ) {
+      return;
+    }
+    e.preventDefault();
+    onContextMenu();
+  };
+
   return (
     <div
       id={editorId}
@@ -363,6 +386,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
         onKeyDown={onKeyDown}
         onPaste={onPasteInner}
         onCopy={onCopyInner}
+        onContextMenu={onContextMenuInner}
       >
         {EditorRenderer}
         <input className="size-0 opacity-0" ref={defaultFocusRef} />

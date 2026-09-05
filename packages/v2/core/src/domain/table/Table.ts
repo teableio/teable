@@ -48,6 +48,7 @@ import {
   LinkForeignTableReferenceVisitor,
   type LinkForeignTableReference,
 } from './fields/visitors/LinkForeignTableReferenceVisitor';
+import type { ITableReadModel } from './ITableReadModel';
 import {
   applyViewManualSort as applyViewManualSortMethod,
   type ApplyViewManualSortMethodResult,
@@ -302,7 +303,7 @@ const deriveDbFieldTypeFromResolvedField = (field: Field): string | undefined =>
   }
 };
 
-export class Table extends AggregateRoot<TableId> {
+export class Table extends AggregateRoot<TableId> implements ITableReadModel {
   private dbTableNameValue: DbTableName;
 
   private constructor(

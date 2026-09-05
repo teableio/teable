@@ -1,4 +1,5 @@
 import type { IHttpError } from '@teable/core';
+import { HttpErrorCode } from '@teable/core';
 import type { GetServerSideProps } from 'next';
 import { Error } from '@/features/app/blocks/Error';
 import ensureLogin from '@/lib/ensureLogin';
@@ -6,8 +7,14 @@ import type { NextPageWithLayout } from '@/lib/type';
 import withAuthSSR from '@/lib/withAuthSSR';
 import withEnv from '@/lib/withEnv';
 
-const InvitePage: NextPageWithLayout<{ error?: IHttpError }> = () => {
-  return <Error message="Sorry, we were unable to accept the invite." />;
+const InvitePage: NextPageWithLayout<{ errorCode?: string | null }> = ({ errorCode }) => {
+  // Joining through this link needs a purchased seat and the space has none
+  // left; only the space owner can fix that, so point the joiner at them.
+  const message =
+    errorCode === HttpErrorCode.USER_LIMIT_EXCEEDED
+      ? 'This space has no seats left for new members. Ask the space owner to add seats, then open the invite link again.'
+      : 'Sorry, we were unable to accept the invite.';
+  return <Error message={message} />;
 };
 
 export const getServerSideProps: GetServerSideProps = withEnv(
@@ -42,7 +49,7 @@ export const getServerSideProps: GetServerSideProps = withEnv(
         console.log('error === ', error);
         if (error.status !== 401) {
           return {
-            props: {},
+            props: { errorCode: error.code ?? null },
           };
         }
         throw error;

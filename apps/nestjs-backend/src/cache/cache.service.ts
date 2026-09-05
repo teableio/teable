@@ -5,6 +5,15 @@ import Keyv from 'keyv';
 import { second } from '../utils/second';
 import type { ICacheStore } from './types';
 
+/** INCR, then attach the expiry whenever the key has none (fresh or orphaned). */
+const INCR_WITH_EXPIRY_SCRIPT = `
+local count = redis.call('INCR', KEYS[1])
+if redis.call('TTL', KEYS[1]) < 0 then
+  redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+return count
+`;
+
 @Injectable()
 export class CacheService<T extends ICacheStore = ICacheStore> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -97,6 +106,9 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
    * The counter is NOT readable via get(): atomic INCR requires a bare
    * integer on the wire, which the keyv envelope cannot carry. Read the
    * count only from this method's return value. del() does work on it.
+   *
+   * With a ttl, INCR and EXPIRE run in one Lua script, and a counter that has
+   * no expiry (fresh or orphaned) gets one on its next increment.
    */
   async incr<TKey extends keyof T>(key: TKey, ttlSeconds?: number): Promise<number> {
     const redis = this.getRedisClient();
@@ -109,14 +121,12 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
     }
 
     const fullKey = this.getRedisKey(key as string);
-    const newValue = await redis.incr(fullKey);
-
-    // Set TTL only if provided and this is the first increment (value is 1)
-    if (ttlSeconds && newValue === 1) {
-      await redis.expire(fullKey, ttlSeconds);
+    if (!ttlSeconds) {
+      return redis.incr(fullKey);
     }
 
-    return newValue;
+    const newValue = await redis.eval(INCR_WITH_EXPIRY_SCRIPT, 1, fullKey, ttlSeconds);
+    return Number(newValue);
   }
 
   private warnNotSetTTL(key: string, ttl?: number) {

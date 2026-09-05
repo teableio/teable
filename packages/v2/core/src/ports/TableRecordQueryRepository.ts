@@ -70,6 +70,9 @@ export type RecordSearchAccessPathKind = 'default' | 'generated_text' | 'generat
 export type RecordSearchAccessPathFallbackReason =
   | 'generated_text_unavailable'
   | 'generated_text_probe_too_short'
+  | 'generated_text_coverage_mismatch'
+  | 'generated_text_unsupported_projection'
+  | 'generated_text_invalid_config'
   | 'generated_tsvector_unavailable';
 
 export interface IRecordSearchAccessPathResolution {
@@ -415,6 +418,7 @@ export interface ITableRecordCountQueryRepository extends ITableRecordQueryRepos
 export type ITableRecordAggregationOptions = {
   readonly maxGroupPoints?: number;
   readonly search?: RecordQuerySearch;
+  readonly searchAccessPath?: IRecordSearchAccessPath;
   readonly pagination?: OffsetPagination;
   readonly orderBy?: ReadonlyArray<TableRecordOrderBy>;
 };

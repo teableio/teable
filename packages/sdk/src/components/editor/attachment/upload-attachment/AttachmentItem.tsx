@@ -14,12 +14,11 @@ interface IUploadAttachment {
   readonly?: boolean;
   onDelete: (id: string) => void;
   onRename: (id: string, newName: string) => void;
-  fileCover: (data: IAttachmentItem) => string;
   downloadFile: (data: IAttachmentItem) => void;
 }
 
 function AttachmentItem(props: IUploadAttachment) {
-  const { attachment, onDelete, onRename, fileCover, downloadFile, readonly } = props;
+  const { attachment, onDelete, onRename, downloadFile, readonly } = props;
   const [isEditing, setIsEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -70,10 +69,9 @@ function AttachmentItem(props: IUploadAttachment) {
     }
   }, [isEditing, attachment.name]);
 
-  const previewUrl = fileCover(attachment) || attachment.presignedUrl;
-  const shouldRenderPreviewImage = Boolean(
-    previewUrl && (isImage(attachment.mimetype) || attachment.lgThumbnailUrl)
-  );
+  const previewUrl =
+    attachment.lgThumbnailUrl ??
+    (isImage(attachment.mimetype) ? attachment.presignedUrl : undefined);
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
@@ -92,25 +90,20 @@ function AttachmentItem(props: IUploadAttachment) {
           <FilePreviewItem
             className="flex items-center justify-center text-[0px]"
             src={attachment.presignedUrl || ''}
+            thumb={attachment.lgThumbnailUrl}
             name={attachment.name}
             mimetype={attachment.mimetype}
             size={attachment.size}
+            onDelete={readonly ? undefined : () => onDelete(attachment.id)}
           >
-            {shouldRenderPreviewImage ? (
-              <img
-                className="size-full object-cover"
-                src={previewUrl}
-                alt={attachment.name}
-                draggable={false}
-              />
-            ) : (
-              <FileCover
-                className="size-full object-cover"
-                mimetype={attachment.mimetype}
-                url={previewUrl}
-                name={attachment.name}
-              />
-            )}
+            <FileCover
+              className="size-full object-cover"
+              iconClassName="text-5xl"
+              mimetype={attachment.mimetype}
+              url={previewUrl}
+              name={attachment.name}
+              draggable={false}
+            />
           </FilePreviewItem>
           <div className="absolute inset-x-0 top-0 z-10 hidden items-center gap-1 rounded-t-lg bg-black/60 px-1.5 py-1 text-white group-hover:flex">
             <span

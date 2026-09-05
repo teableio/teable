@@ -89,6 +89,17 @@ export type I18nTranslations = {
                 "description": string;
             };
         };
+        "mobile": {
+            "title": string;
+            "description": string;
+            "authorize": string;
+            "cancel": string;
+            "cancelled": string;
+            "returning": string;
+            "openApp": string;
+            "invalidRequest": string;
+            "failed": string;
+        };
     };
     "chart": {
         "notBaseId": string;
@@ -758,21 +769,20 @@ export type I18nTranslations = {
             "billable": string;
             "billableByAuthorityMatrix": string;
             "seatConfirm": {
-                "title": string;
-                "roleChangeTitle": string;
                 "matrixTitle": string;
-                "inviteDesc_zero": string;
-                "inviteDesc_one": string;
-                "inviteDesc_two": string;
-                "inviteDesc_few": string;
-                "inviteDesc_many": string;
-                "inviteDesc_other": string;
-                "linkDesc": string;
-                "roleChangeDesc": string;
                 "matrixDesc": string;
                 "seatLimitTitle": string;
                 "seatLimitDesc": string;
                 "seatLimitConfirm": string;
+                "fixedSeatTitle": string;
+                "fixedSeatDesc": string;
+                "title": string;
+                "roleChangeTitle": string;
+                "inviteDesc_one": string;
+                "inviteDesc_two": string;
+                "inviteDesc_other": string;
+                "linkDesc": string;
+                "roleChangeDesc": string;
                 "confirmInvite": string;
             };
             "licenseExpiredGracePeriod": string;
@@ -1558,6 +1568,7 @@ export type I18nTranslations = {
                                 "title": string;
                                 "rateLimit": string;
                                 "creditExhausted": string;
+                                "providerBilling": string;
                                 "authFailed": string;
                                 "serviceUnavailable": string;
                                 "unknown": string;
@@ -1880,6 +1891,10 @@ export type I18nTranslations = {
             "more_many": string;
             "more_other": string;
         };
+        "mobileEmbed": {
+            "pickFromDirectory": string;
+            "pickFromDirectoryHint": string;
+        };
     };
     "dashboard": {
         "empty": {
@@ -2145,6 +2160,7 @@ export type I18nTranslations = {
             "loadFileError": string;
             "previousAttachment": string;
             "nextAttachment": string;
+            "deleteAttachment": string;
         };
         "undoRedo": {
             "undo": string;
@@ -3454,6 +3470,9 @@ export type I18nTranslations = {
                 "manualSubscriptionNotSupported": string;
                 "appSumoSubscriptionNotSupported": string;
                 "customerNotFound": string;
+                "planNotAvailable": string;
+                "seatLimitExceeded": string;
+                "creditAddOnRetired": string;
             };
             "aggregation": {
                 "searchQueryRequired": string;
@@ -5095,6 +5114,9 @@ export type I18nTranslations = {
         };
         "import": {
             "title": {
+                "createTable": string;
+                "importFromCsv": string;
+                "importFromExcel": string;
                 "upload": string;
                 "import": string;
                 "localFile": string;

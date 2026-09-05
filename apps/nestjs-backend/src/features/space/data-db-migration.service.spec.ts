@@ -52,6 +52,23 @@ const migrations: IDataDbMigration[] = [
 const checksumSql = (sql: string) => createHash('sha256').update(sql).digest('hex');
 
 describe('DataDbMigrationService', () => {
+  it('provisions the complete reliability ledger through actual data DB migrations', async () => {
+    const client = new FakeMigrationClient();
+    const service = new DataDbMigrationService(undefined, () => client);
+    const applied = await service.migrate(
+      'postgresql://teable:secret@example.com:5432/data',
+      'teable_test'
+    );
+    expect(applied).toContain('20260905120000_computed_reliability');
+    const executedSql = client.calls.map((call) => call.sql).join('\n');
+    for (const table of ['issue', 'scope']) {
+      expect(executedSql).toContain(`CREATE TABLE IF NOT EXISTS computed_reliability_${table}`);
+    }
+    expect(executedSql).toContain(
+      'FROM computed_update_dead_letter ON CONFLICT(task_id) DO NOTHING'
+    );
+  });
+
   it('includes attachment support tables in the default data DB migrations', async () => {
     const client = new FakeMigrationClient();
     const service = new DataDbMigrationService(undefined, () => client);
@@ -61,7 +78,9 @@ describe('DataDbMigrationService', () => {
     const executedSql = client.calls.map((call) => call.sql).join('\n');
     expect(executedSql).toContain('CREATE TABLE IF NOT EXISTS "attachments"');
     expect(executedSql).toContain('CREATE TABLE IF NOT EXISTS "attachments_table"');
-    expect(executedSql).toContain('CREATE INDEX IF NOT EXISTS "attachments_table_attachment_id_idx"');
+    expect(executedSql).toContain(
+      'CREATE INDEX IF NOT EXISTS "attachments_table_attachment_id_idx"'
+    );
   });
 
   it('creates the internal schema, locks, runs pending migrations, and records them', async () => {

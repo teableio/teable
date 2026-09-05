@@ -338,6 +338,7 @@
       "filterByView": "Filtrer les enregistrements par vue",
       "filter": "Filtrer les enregistrements",
       "hideFields": "Masquer les champs",
+      "removeDuplicateValues": "Supprimer les valeurs en double",
       "moreOptions": "Plus d'options",
       "allowNewOptionsWhenEditing": "Autoriser de nouvelles options lors de l'édition",
       "deleteField": {
@@ -921,6 +922,9 @@
   },
   "import": {
     "title": {
+      "createTable": "Créer une table",
+      "importFromCsv": "Importer depuis un fichier CSV",
+      "importFromExcel": "Importer depuis Excel",
       "upload": "Télécharger",
       "import": "Importer",
       "localFile": "Fichiers locaux",

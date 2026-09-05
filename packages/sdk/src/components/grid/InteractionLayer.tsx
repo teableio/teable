@@ -785,6 +785,11 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     }
   };
 
+  const onEditorContextMenu = () => {
+    const { x, y } = getPosition();
+    onContextMenu?.(selection, { x, y });
+  };
+
   const resetState = () => {
     setActiveCell(null);
     setDragState(DEFAULT_DRAG_STATE);
@@ -923,6 +928,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         onDelete={onDelete}
         onChange={onCellEdited}
         onRowExpand={onRowExpand}
+        onContextMenu={onEditorContextMenu}
         setEditing={setEditing}
         setSelection={setSelection}
         setActiveCell={setActiveCell}

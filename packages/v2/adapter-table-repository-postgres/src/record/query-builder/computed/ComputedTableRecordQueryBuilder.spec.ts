@@ -7,6 +7,8 @@ import {
   DbFieldType,
   NumberFormatting,
   NumberFormattingType,
+  RecordByIdsSpec,
+  RecordId,
   TimeFormatting,
   createDateField,
   createNumberField,
@@ -2225,6 +2227,116 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toContain('group by "h"."__id"');
     });
 
+    test('groups filtered oneMany rollups set-based during computed backfill', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId, rollupFieldIds } = createRollupTable(
+        'sum({values})',
+        {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: LOOKUP_TARGET_FIELD_ID,
+                operator: 'is',
+                value: 1,
+              },
+            ],
+          },
+        }
+      );
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, {
+          foreignTables,
+          typeValidationStrategy,
+          allowFullTableSetBasedRollups: true,
+        })
+          .from(mainTable)
+          .select(rollupFieldIds)
+      );
+
+      expect(sql).not.toContain('join lateral');
+      expect(sql).toContain('group by "h"."__id"');
+      expect(sql).toContain('"f"."col_number" = $');
+    });
+
+    test('limits a set-based rollup host source to the explicit record batch', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId, rollupFieldIds } = createRollupTable(
+        'sum({values})',
+        {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: LOOKUP_TARGET_FIELD_ID,
+                operator: 'is',
+                value: 1,
+              },
+            ],
+          },
+        }
+      );
+      const batchRecordIds = [
+        RecordId.create(`rec${'a'.repeat(16)}`)._unsafeUnwrap(),
+        RecordId.create(`rec${'b'.repeat(16)}`)._unsafeUnwrap(),
+      ];
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql, parameters } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, {
+          foreignTables,
+          typeValidationStrategy,
+          allowFullTableSetBasedRollups: true,
+        })
+          .from(mainTable)
+          .select(rollupFieldIds)
+          .where(RecordByIdsSpec.create(batchRecordIds))
+      );
+
+      expect(sql).not.toContain('join lateral');
+      expect(sql).toContain('group by "h"."__id"');
+      expect(sql).toContain('"h"."__id" = ANY(');
+      expect(sql).toContain('"t"."__id" in (');
+      expect(parameters).toContainEqual(batchRecordIds.map((recordId) => recordId.toString()));
+    });
+
+    test('groups filtered oneMany rollups set-based when updating dirty hosts', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId, rollupFieldIds } = createRollupTable(
+        'sum({values})',
+        {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: LOOKUP_TARGET_FIELD_ID,
+                operator: 'is',
+                value: 1,
+              },
+            ],
+          },
+        }
+      );
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .select(rollupFieldIds)
+          .withDirtyFilter({ tableId: mainTable.id().toString() })
+      );
+
+      expect(sql).not.toContain('join lateral');
+      expect(sql).toContain('group by "h"."__id"');
+      expect(sql).toContain('"f"."col_number" = $');
+      expect(sql).toContain('tmp_computed_dirty');
+    });
+
     test('keeps ordinary paginated rollup reads correlated', () => {
       const db = createTestDb();
       const { mainTable, foreignTable, foreignTableId, rollupFieldIds } = createRollupTable(
@@ -2392,7 +2504,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       });
     }
 
-    test('rollup array_compact snapshot with multi-value field', () => {
+    test('rollup array_compact flattens nested json to scalar text without dedup', () => {
       const db = createTestDb();
       const { mainTable, foreignTable, foreignTableId } =
         createMultiValueRollupTable('array_compact({values})');
@@ -2405,42 +2517,11 @@ describe('ComputedTableRecordQueryBuilder', () => {
         )
       );
 
-      expect(sql).toMatchInlineSnapshot(`
-        "select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_single_line_text" as "col_single_line_text", "lat_fldkkkkkkkkkkkkkkkk_0"."col_link" as "col_link", "lat_fldkkkkkkkkkkkkkkkk_0"."col_rollup" as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', (
-                              SELECT string_agg(
-                                CASE
-                                  WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
-                                  ELSE elem #>> '{}'
-                                END,
-                                ', '
-                                ORDER BY ord
-                              )
-                              FROM jsonb_array_elements((CASE
-                              WHEN "f"."col_tags" IS NULL THEN '[]'::jsonb
-                              WHEN jsonb_typeof(to_jsonb("f"."col_tags")) = 'array' THEN to_jsonb("f"."col_tags")
-                              WHEN jsonb_typeof(to_jsonb("f"."col_tags")) = 'null' THEN '[]'::jsonb
-                              ELSE jsonb_build_array(to_jsonb("f"."col_tags"))
-                            END)) WITH ORDINALITY AS t(elem, ord)
-                            ))) ORDER BY "f"."__fk_fldssssssssssssssss_order", "f"."__auto_number") as "col_link", (
-                      WITH RECURSIVE flattened(val) AS (
-                        SELECT COALESCE(jsonb_agg("f"."col_tags" ORDER BY "f"."__fk_fldssssssssssssssss_order", "f"."__auto_number") FILTER (WHERE ("f"."col_tags") IS NOT NULL AND ("f"."col_tags")::text <> ''), '[]'::jsonb)
-                        UNION ALL
-                        SELECT elem
-                        FROM flattened
-                        CROSS JOIN LATERAL jsonb_array_elements(
-                          CASE
-                            WHEN jsonb_typeof(flattened.val) = 'array' THEN flattened.val
-                            ELSE '[]'::jsonb
-                          END
-                        ) AS elem
-                      )
-                      SELECT jsonb_agg(val) FILTER (
-                        WHERE jsonb_typeof(val) <> 'array'
-                          AND jsonb_typeof(val) <> 'null'
-                          AND val <> '""'::jsonb
-                      ) FROM flattened
-                    ) as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."__fk_fldssssssssssssssss" = "t"."__id") as "lat_fldkkkkkkkkkkkkkkkk_0" on true"
-      `);
+      expect(sql).toContain('jsonb_agg(to_jsonb(v.val) ORDER BY v.outer_ord, v.inner_ord)');
+      expect(sql).not.toContain('SELECT DISTINCT ON (flattened.identity)');
+      expect(sql).not.toContain('WITH RECURSIVE flattened');
+      expect(sql).toContain("leaf->>'title'");
+      expect(sql).toContain('jsonb_array_elements(COALESCE(jsonb_agg("f"."col_tags"');
     });
 
     test('rollup array_unique flattens multi-value field entries before deduplication', () => {
@@ -2457,9 +2538,9 @@ describe('ComputedTableRecordQueryBuilder', () => {
       );
 
       expect(sql).toContain('jsonb_agg(to_jsonb(v.val) ORDER BY v.outer_ord, v.inner_ord)');
-      expect(sql).toContain('SELECT DISTINCT ON (flattened.val)');
+      expect(sql).toContain('SELECT DISTINCT ON (flattened.identity)');
+      expect(sql).toContain("leaf->>'id'");
       expect(sql).toContain('jsonb_array_elements(COALESCE(jsonb_agg("f"."col_tags"');
-      expect(sql).toContain('FILTER (WHERE "f"."col_tags" IS NOT NULL)');
     });
 
     test('rollup array_unique scans foreign rows instead of nesting jsonb_agg', () => {
@@ -3601,6 +3682,50 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toContain('"f"."col_category" = $2');
     });
 
+    test('conditional rollup falls back to lateral for field-ref plus nested OR group', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable({
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: FOREIGN_FILTER_FIELD_ID,
+              operator: 'is',
+              value: HOST_FILTER_FIELD_ID,
+              isSymbol: true,
+            },
+            {
+              conjunction: 'or',
+              filterSet: [
+                {
+                  fieldId: FOREIGN_STATUS_FIELD_ID,
+                  operator: 'is',
+                  value: 'no',
+                },
+                {
+                  fieldId: FOREIGN_STATUS_FIELD_ID,
+                  operator: 'is',
+                  value: 'yes',
+                },
+              ],
+            },
+          ],
+        },
+      });
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
+      );
+
+      expect(sql).toContain('inner join lateral');
+      expect(sql).toContain('"f"."col_status" = $');
+      expect(sql).not.toContain('group by "h"."col_category_ref"');
+    });
+
     test('conditional rollup uses set-based host join for pure field reference filter', () => {
       const db = createTestDb();
       const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable({
@@ -3867,6 +3992,43 @@ describe('ComputedTableRecordQueryBuilder', () => {
         dirtyRecordIds,
         dirtyRecordIds,
       ]);
+    });
+
+    test('scopes set-based field-reference conditional rollup to host record ids', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable({
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: FOREIGN_FILTER_FIELD_ID,
+              operator: 'is',
+              value: HOST_FILTER_FIELD_ID,
+              isSymbol: true,
+            },
+          ],
+        },
+      });
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const hostRecordIds = [`rec${'a'.repeat(16)}`, `rec${'b'.repeat(16)}`];
+      const batchRecordIds = hostRecordIds.map((id) => RecordId.create(id)._unsafeUnwrap());
+      const { sql, parameters } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, {
+          foreignTables,
+          typeValidationStrategy,
+          allowFullTableSetBasedRollups: true,
+        })
+          .from(mainTable)
+          .where(RecordByIdsSpec.create(batchRecordIds))
+      );
+
+      expect(sql).not.toContain('inner join lateral');
+      expect(sql).toContain('select distinct "h"."col_category_ref"');
+      expect(sql).toMatch(/"h"\."__id" = any\(\$\d+::text\[\]\)/i);
+      expect(sql).not.toContain('tmp_computed_dirty');
+      expect(parameters).toContainEqual(hostRecordIds);
     });
 
     test('executes scalar field-reference rollup once per dirty host key', async () => {
@@ -4469,6 +4631,31 @@ describe('ComputedTableRecordQueryBuilder', () => {
         5000,
         dirtyRecordIds,
       ]);
+    });
+
+    test('scopes field-reference conditional lookup aggregate to host record ids', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalLookupTable('is');
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const hostRecordIds = [`rec${'a'.repeat(16)}`, `rec${'b'.repeat(16)}`];
+      const batchRecordIds = hostRecordIds.map((id) => RecordId.create(id)._unsafeUnwrap());
+
+      const { sql, parameters } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, {
+          foreignTables,
+          typeValidationStrategy,
+          allowFullTableSetBasedRollups: true,
+        })
+          .from(mainTable)
+          .where(RecordByIdsSpec.create(batchRecordIds))
+      );
+
+      expect(sql).toContain(
+        'from (select "h".* from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "h" where "h"."__id" = ANY($1::text[])) as "h"'
+      );
+      expect(sql).not.toContain('tmp_computed_dirty');
+      expect(parameters).toContainEqual(hostRecordIds);
     });
 
     test('conditional lookup snapshot with single user isNot multi user field reference filter', () => {

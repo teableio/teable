@@ -333,6 +333,7 @@
       "filterByView": "Görünüme göre kayıtları filtrele",
       "filter": "Kayıtları filtrele",
       "hideFields": "Alanları gizle",
+      "removeDuplicateValues": "Yinelenen değerleri kaldır",
       "moreOptions": "Daha fazla seçenek",
       "allowNewOptionsWhenEditing": "Düzenlerken yeni seçeneklere izin ver",
       "deleteField": {
@@ -916,6 +917,9 @@
   },
   "import": {
     "title": {
+      "createTable": "Tablo oluştur",
+      "importFromCsv": "CSV'den içe aktar",
+      "importFromExcel": "Excel'den içe aktar",
       "upload": "Yükle",
       "import": "İçe Aktar",
       "localFile": "Yerel Dosyalar",

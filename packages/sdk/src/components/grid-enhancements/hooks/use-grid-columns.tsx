@@ -18,7 +18,7 @@ import { LRUCache } from 'lru-cache';
 import { useCallback, useMemo } from 'react';
 import colors from 'tailwindcss/colors';
 import type { ChartType, ICell, IGridColumn, INumberShowAs as IGridNumberShowAs } from '../..';
-import { CellType, hexToRGBA, getFileCover, onMixedTextClick } from '../..';
+import { CellType, hexToRGBA, getFieldIconString, getFileCover, onMixedTextClick } from '../..';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
 import type { IButtonClickStatusHook } from '../../../hooks';
 import {
@@ -503,7 +503,8 @@ export const useCreateCellValue2GridDisplay = (
             const cv = (cellValue ?? []) as IAttachmentCellValue;
             const data = cv.map(
               ({ id, mimetype, presignedUrl, smThumbnailUrl, lgThumbnailUrl, width, height }) => {
-                const url = getFileCover(mimetype, presignedUrl, resolvedTheme as 'light' | 'dark');
+                const theme = resolvedTheme as 'light' | 'dark';
+                const url = getFileCover(mimetype, presignedUrl, theme);
                 const thumbnailUrl =
                   !rowHeight || rowHeight === RowHeightLevel.Short
                     ? smThumbnailUrl
@@ -511,6 +512,7 @@ export const useCreateCellValue2GridDisplay = (
                 return {
                   id,
                   url: thumbnailUrl ?? url,
+                  fallbackUrl: getFieldIconString(mimetype, theme),
                   width,
                   height,
                 };
@@ -529,6 +531,11 @@ export const useCreateCellValue2GridDisplay = (
                   field,
                   record,
                   i18nMap,
+                  onChange: readonly
+                    ? undefined
+                    : (attachments) => {
+                        record.updateCell(field.id, attachments, { t });
+                      },
                 });
               },
               customEditor: (props) => (

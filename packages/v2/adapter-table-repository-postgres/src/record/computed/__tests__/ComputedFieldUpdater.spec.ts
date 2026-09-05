@@ -53,11 +53,20 @@ class RecordingConnection implements DatabaseConnection {
   constructor(
     private readonly queries: CompiledQuery[],
     private readonly returningRows: unknown[][],
-    private readonly propagationAffectedRows: bigint[]
+    private readonly propagationAffectedRows: bigint[],
+    private readonly dirtyCounts: number[]
   ) {}
 
   async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
     this.queries.push(compiledQuery);
+    if (
+      compiledQuery.sql.startsWith(
+        'select count(*) as "count" from "pg_temp"."tmp_computed_dirty"'
+      ) &&
+      this.dirtyCounts.length
+    ) {
+      return { rows: [{ count: this.dirtyCounts.shift() }] as R[] };
+    }
     if (compiledQuery.sql.includes(' RETURNING ') && this.returningRows.length > 0) {
       return { rows: this.returningRows.shift() as R[], numAffectedRows: BigInt(0) };
     }
@@ -78,6 +87,7 @@ class RecordingConnection implements DatabaseConnection {
 
 class RecordingDriver implements Driver {
   readonly queries: CompiledQuery[] = [];
+  readonly dirtyCounts: number[] = [];
 
   constructor(
     private readonly returningRows: unknown[][] = [],
@@ -89,7 +99,12 @@ class RecordingDriver implements Driver {
   }
 
   async acquireConnection(): Promise<DatabaseConnection> {
-    return new RecordingConnection(this.queries, this.returningRows, this.propagationAffectedRows);
+    return new RecordingConnection(
+      this.queries,
+      this.returningRows,
+      this.propagationAffectedRows,
+      this.dirtyCounts
+    );
   }
 
   async beginTransaction(): Promise<void> {
@@ -827,6 +842,38 @@ const createSequentialRecordIds = (count: number): RecordId[] =>
 // =============================================================================
 
 describe('ComputedFieldUpdater', () => {
+  it('invalidates an untracked scope before empty-stage return', async () => {
+    const { baseId, table } = createSameTableFormulaChainTable();
+    const { db, driver } = createRecordingDb();
+    const updater = new ComputedFieldUpdater(
+      createTableRepository([table]),
+      createLogger(),
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy()
+    );
+    const result = await updater.execute(
+      {
+        baseId,
+        seedTableId: table.id(),
+        seedRecordIds: [],
+        extraSeedRecords: [],
+        steps: [],
+        edges: [],
+        estimatedComplexity: 0,
+        changeType: 'update',
+        sameTableBatches: [],
+      },
+      { actorId: ActorId.create(ACTOR_ID)._unsafeUnwrap() },
+      undefined,
+      { ledgerScopeId: 'scope', valueFrontier: { tableIds: [] } }
+    );
+    expect(result.isOk()).toBe(true);
+    expect(driver.queries).toHaveLength(1);
+    expect(driver.queries[0].sql).toContain('delete from "computed_update_change_frontier"');
+    expect(driver.queries[0].parameters).toContain('scope');
+  });
+
   it('uses try advisory locks when the caller requests non-blocking lock acquisition', async () => {
     const { baseId, table, plusOneFieldId } = createSameTableFormulaChainTable();
     const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
@@ -2520,6 +2567,111 @@ describe('ComputedFieldUpdater', () => {
     `);
   });
 
+  it('counts dirty rows once per table in an execution and recounts on the next execution', async () => {
+    const { baseId, table, plusOneFieldId, doubleFieldId } = createSameTableFormulaChainTable();
+    const { table: otherTable, formulaFieldIds } = createWideSameLevelFormulaTable(1);
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: table.id(),
+      seedRecordIds: [RecordId.create(RECORD_ID)._unsafeUnwrap()],
+      extraSeedRecords: [],
+      steps: Array.from({ length: 8 }, (_, level) => ({
+        tableId: level === 3 || level === 6 ? otherTable.id() : table.id(),
+        fieldIds: [
+          level === 3 || level === 6
+            ? formulaFieldIds[0]
+            : level % 2
+              ? doubleFieldId
+              : plusOneFieldId,
+        ],
+        level,
+      })),
+      edges: [],
+      estimatedComplexity: 8,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+    const { db, driver } = createRecordingDb();
+    const updater = new ComputedFieldUpdater(
+      createTableRepository([table, otherTable]),
+      createLogger(),
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy()
+    );
+    driver.dirtyCounts.push(42, 17, 43, 18);
+    const { tracer, spans } = createTracerRecorder();
+    const context = { actorId: ActorId.create(ACTOR_ID)._unsafeUnwrap(), tracer };
+    const counts = () =>
+      driver.queries.filter((query) =>
+        query.sql.startsWith('select count(*) as "count" from "pg_temp"."tmp_computed_dirty"')
+      );
+    expect((await updater.execute(plan, context)).isOk()).toBe(true);
+    expect(counts()).toHaveLength(2);
+    expect(driver.queries.filter((query) => query.sql.startsWith('update '))).toHaveLength(8);
+    expect((await updater.execute(plan, context)).isOk()).toBe(true);
+    expect(counts()).toHaveLength(4);
+    expect(
+      spans
+        .filter((span) => span.name === 'teable.ComputedFieldUpdater.step')
+        .map((span) => span.attributes['step.dirtyRecordCount'])
+    ).toEqual([42, 42, 42, 17, 42, 42, 17, 42, 43, 43, 43, 18, 43, 43, 18, 43]);
+  });
+
+  it('recounts dirty rows after oversized-cell restoration before the next step', async () => {
+    const { baseId, table, plusOneFieldId, doubleFieldId } = createSameTableFormulaChainTable();
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: table.id(),
+      seedRecordIds: [RecordId.create(RECORD_ID)._unsafeUnwrap()],
+      extraSeedRecords: [],
+      steps: [
+        { tableId: table.id(), fieldIds: [plusOneFieldId], level: 0 },
+        { tableId: table.id(), fieldIds: [doubleFieldId], level: 1 },
+      ],
+      edges: [],
+      estimatedComplexity: 2,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+    const { db, driver } = createRecordingDb([
+      [{ __id: RECORD_ID, __old_version: 1, col_plus_one: 'oversized' }],
+    ]);
+    const updater = new ComputedFieldUpdater(
+      createTableRepository([table]),
+      createLogger(),
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy(),
+      new TableDataSafetyLimitComposer([
+        new StaticTableDataSafetyLimitPlugin({ computed: { maxComputedCellValueBytes: 1 } }),
+      ])
+    );
+    driver.dirtyCounts.push(42, 43);
+    const { tracer, spans } = createTracerRecorder();
+    const result = await updater.execute(
+      plan,
+      { actorId: ActorId.create(ACTOR_ID)._unsafeUnwrap(), tracer },
+      undefined,
+      {
+        collectChanges: true,
+        isolateOversizedComputedCells: true,
+      }
+    );
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().rejectedCells).toHaveLength(1);
+    expect(
+      spans
+        .filter((span) => span.name === 'teable.ComputedFieldUpdater.step')
+        .map((span) => span.attributes['step.dirtyRecordCount'])
+    ).toEqual([42, 43]);
+    expect(
+      driver.queries.filter((query) =>
+        query.sql.startsWith('select count(*) as "count" from "pg_temp"."tmp_computed_dirty"')
+      )
+    ).toHaveLength(2);
+  });
+
   it('chunks same-table CTE batch updates when dirty records exceed threshold', async () => {
     const { baseId, table, plusOneFieldId, doubleFieldId } = createSameTableFormulaChainTable();
     const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
@@ -2599,7 +2751,10 @@ describe('ComputedFieldUpdater', () => {
     expect(updateQueries).toHaveLength(3);
     for (const query of updateQueries) {
       expect(query.sql).toMatch(/with "level_0" as/i);
-      expect(query.sql).toMatch(/join "level_1" on "u"\."__id" = "level_1"\."__id"/i);
+      // The last CTE already has the record ID and all output columns. Project
+      // directly from it instead of joining the base table a second time.
+      expect(query.sql).toMatch(/from "level_1"\) as "c_src"/i);
+      expect(query.sql).not.toMatch(/join "level_1" on "u"\."__id"/i);
       expect(query.sql).toContain(
         'AS "__record_ids"("__id") ON "t"."__id" = "__record_ids"."__id"'
       );

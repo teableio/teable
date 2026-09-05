@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { explainOkResponseSchema } from '@teable/v2-contract-http';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
@@ -773,11 +774,11 @@ describe('v2 field explain endpoints (e2e)', () => {
           {
             "diagnostics": {
               "jsonbAggCount": 0,
-              "lateralJoinCount": 0,
+              "lateralJoinCount": 1,
               "parameterCount": 0,
               "pgInputIsValidCount": 1,
               "regexpReplaceCount": 0,
-              "sqlLength": 3874,
+              "sqlLength": 4568,
               "stringAggCount": 1,
             },
             "fields": [

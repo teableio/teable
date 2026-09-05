@@ -52,6 +52,393 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
     await db?.destroy();
   });
 
+  it('builds an indexed rounded numeric-list document and maintains it on source updates', async () => {
+    const schemaName = `tqops_numeric_${process.pid}_${Date.now()}`;
+    const physicalTableSql = makePhysicalTableSql(schemaName, 'records');
+    const tableId = createTestId('tbl');
+    await sql.raw(`CREATE SCHEMA ${quoteIdentifier(schemaName)}`).execute(db);
+    try {
+      await sql
+        .raw(`CREATE TABLE ${physicalTableSql} ("__id" text PRIMARY KEY, amounts jsonb)`)
+        .execute(db);
+      await sql
+        .raw(
+          `INSERT INTO ${physicalTableSql} SELECT 'rec_' || n, jsonb_build_array(n % 100) FROM generate_series(1, 30000) n`
+        )
+        .execute(db);
+      await sql
+        .raw(
+          `UPDATE ${physicalTableSql} SET amounts = '[987654.325, null, -2.345]'::jsonb WHERE "__id" = 'rec_1'`
+        )
+        .execute(db);
+      await sql.raw(`ANALYZE ${physicalTableSql}`).execute(db);
+      await ensureExecutorMeta({
+        db,
+        tableId,
+        baseId: schemaName,
+        dbTableName: `${schemaName}.records`,
+      });
+      await ensureTableQueryOpsSchema(db as unknown as Kysely<TableQueryOpsDatabase>);
+      const result = await new PostgresTableSearchVectorExecutor(db, db).execute({
+        tableId,
+        payload: {
+          candidateKey: 'numeric_list',
+          languageConfig: 'simple',
+          generatedColumnName: '__tqops_search_numeric',
+          indexName: 'idx_tqops_search_numeric',
+          provider: 'pg_trgm',
+          operatorClass: 'gin_trgm_ops',
+          fields: [
+            {
+              fieldId: 'fldTqOpsAmounts',
+              fieldDbName: 'amounts',
+              fieldType: 'number',
+              textProjection: { kind: 'rounded_number_list', precision: 2 },
+            },
+          ],
+          allowLargeTableRewrite: true,
+          validationMode: 'real_ddl',
+          searchProbe: '987654.33',
+        },
+      });
+      expect(result.planEvidence).toMatchObject({
+        usesCandidateIndex: true,
+        semanticsCompatible: true,
+      });
+      const matches = () =>
+        sql<{
+          __id: string;
+          document: string;
+        }>`SELECT "__id", __tqops_search_numeric AS document FROM ${sql.raw(physicalTableSql)} WHERE __tqops_search_numeric LIKE '%987654.33%' ORDER BY "__id"`.execute(
+          db
+        );
+      expect((await matches()).rows).toEqual([{ __id: 'rec_1', document: '987654.33, -2.35' }]);
+      await sql
+        .raw(
+          `UPDATE ${physicalTableSql} SET amounts = '[765432.105, null, 1.234]'::jsonb WHERE "__id" = 'rec_1'`
+        )
+        .execute(db);
+      expect((await matches()).rows).toEqual([]);
+      const updated =
+        await sql`SELECT "__id", __tqops_search_numeric AS document FROM ${sql.raw(physicalTableSql)} WHERE __tqops_search_numeric LIKE '%765432.11%'`.execute(
+          db
+        );
+      expect(updated.rows).toEqual([{ __id: 'rec_1', document: '765432.11, 1.23' }]);
+    } finally {
+      await cleanupExecutorMeta({ db, tableId, baseId: schemaName });
+      await sql.raw(`DROP SCHEMA IF EXISTS ${quoteIdentifier(schemaName)} CASCADE`).execute(db);
+    }
+  }, 60_000);
+
+  it.skipIf(process.env.TEABLE_V2_RUN_PG_BIGM_INTEGRATION !== '1')(
+    'validates real pg_bigm GIN for a single Unicode character',
+    async () => {
+      const schemaName = `tqops_bigm_${process.pid}_${Date.now()}`;
+      const tableId = createTestId('tbl');
+      const physicalTableSql = makePhysicalTableSql(schemaName, 'records');
+      await sql.raw('CREATE EXTENSION IF NOT EXISTS pg_bigm').execute(db);
+      await createSearchVectorFixture({
+        db,
+        schemaName,
+        physicalTableName: 'records',
+        rowCount: 30_000,
+      });
+      try {
+        await sql
+          .raw(`UPDATE ${physicalTableSql} SET fld_title = repeat(md5("__id"), 20)`)
+          .execute(db);
+        await sql
+          .raw(`UPDATE ${physicalTableSql} SET fld_title = '订单' WHERE "__id" = 'rec_1'`)
+          .execute(db);
+        await sql.raw(`ANALYZE ${physicalTableSql}`).execute(db);
+        await ensureExecutorMeta({
+          db,
+          tableId,
+          baseId: schemaName,
+          dbTableName: `${schemaName}.records`,
+        });
+        await ensureTableQueryOpsSchema(db as unknown as Kysely<TableQueryOpsDatabase>);
+        const result = await new PostgresTableSearchVectorExecutor(db, db).execute({
+          tableId,
+          payload: {
+            candidateKey: 'bigm_short',
+            languageConfig: 'simple',
+            generatedColumnName: '__tqops_search_bigm',
+            indexName: 'idx_tqops_search_bigm',
+            provider: 'pg_bigm',
+            operatorClass: 'gin_bigm_ops',
+            fields: [
+              {
+                fieldId: 'fldTqOpsSearchTitle',
+                fieldDbName: 'fld_title',
+                fieldType: 'singleLineText',
+              },
+            ],
+            allowLargeTableRewrite: true,
+            validationMode: 'real_ddl',
+            searchProbe: '订',
+          },
+        });
+        expect(result.planEvidence).toMatchObject({
+          usesCandidateIndex: true,
+          semanticsCompatible: true,
+        });
+        const legacy =
+          await sql`SELECT "__id" FROM ${sql.raw(physicalTableSql)} WHERE fld_title ILIKE '%订%' ORDER BY "__id"`.execute(
+            db
+          );
+        const generated =
+          await sql`SELECT "__id" FROM ${sql.raw(physicalTableSql)} WHERE __tqops_search_bigm LIKE '%订%' AND fld_title ILIKE '%订%' ORDER BY "__id"`.execute(
+            db
+          );
+        expect(legacy.rows).toEqual([{ __id: 'rec_1' }]);
+        expect(generated.rows).toEqual(legacy.rows);
+      } finally {
+        await cleanupExecutorMeta({ db, tableId, baseId: schemaName });
+        await sql.raw(`DROP SCHEMA IF EXISTS ${quoteIdentifier(schemaName)} CASCADE`).execute(db);
+      }
+    },
+    60_000
+  );
+
+  it('drops retained definitions on table cleanup while keeping scoped reclaim isolated', async () => {
+    const schemaName = `tqops_drop_${process.pid}_${Date.now()}`;
+    const tableId = createTestId('tbl');
+    const physicalTableSql = makePhysicalTableSql(schemaName, 'records');
+    await createSearchVectorFixture({
+      db,
+      schemaName,
+      physicalTableName: 'records',
+      rowCount: 100,
+    });
+    try {
+      await ensureExecutorMeta({
+        db,
+        tableId,
+        baseId: schemaName,
+        dbTableName: `${schemaName}.records`,
+      });
+      await ensureTableQueryOpsSchema(db as unknown as Kysely<TableQueryOpsDatabase>);
+      const executor = new PostgresTableSearchVectorExecutor(db, db);
+      for (const name of ['old', 'retained', 'active']) {
+        await executor.execute({
+          tableId,
+          payload: {
+            candidateKey: name,
+            languageConfig: 'simple',
+            generatedColumnName: `__tqops_search_${name}`,
+            indexName: `idx_tqops_search_${name}`,
+            provider: 'pg_trgm',
+            operatorClass: 'gin_trgm_ops',
+            fields: [
+              {
+                fieldId: 'fldTqOpsSearchTitle',
+                fieldDbName: 'fld_title',
+                fieldType: 'singleLineText',
+              },
+            ],
+            rebuild: name !== 'old',
+            allowLargeTableRewrite: true,
+          },
+        });
+      }
+      await sql`
+        UPDATE table_query_search_vector_config
+        SET status = 'disabled', reclaim_drop_after = now() - interval '1 minute',
+            reclaim_drop_queued_at = now()
+        WHERE table_id = ${tableId} AND candidate_key = 'old'
+      `.execute(db);
+      await executor.drop(tableId, 'old');
+      const columns = async () =>
+        (
+          await sql<{ attname: string }>`
+        SELECT attname FROM pg_attribute
+        WHERE attrelid = to_regclass(${`${schemaName}.records`}) AND NOT attisdropped
+          AND attname IN ('__tqops_search_old', '__tqops_search_retained', '__tqops_search_active')
+        ORDER BY attname
+      `.execute(db)
+        ).rows.map((row) => row.attname);
+      expect(await columns()).toEqual(['__tqops_search_active', '__tqops_search_retained']);
+      expect((await executor.currentConfig(tableId))?.candidate_key).toBe('active');
+      // Recover previously disabled but physically stranded definitions too.
+      await sql`
+        UPDATE table_query_search_vector_config SET status = 'disabled'
+        WHERE table_id = ${tableId} AND candidate_key = 'retained'
+      `.execute(db);
+      await executor.drop(tableId);
+      expect(await columns()).toEqual([]);
+      const indexes = await sql<{ count: string }>`
+        SELECT count(*) FROM pg_indexes WHERE schemaname = ${schemaName}
+          AND indexname IN ('idx_tqops_search_old', 'idx_tqops_search_retained', 'idx_tqops_search_active')
+      `.execute(db);
+      expect(Number(indexes.rows[0].count)).toBe(0);
+      const rows = await sql<{
+        count: string;
+      }>`SELECT count(*) FROM ${sql.raw(physicalTableSql)}`.execute(db);
+      expect(Number(rows.rows[0].count)).toBe(100);
+      const configs = await sql<{ status: string }>`
+        SELECT status FROM table_query_search_vector_config WHERE table_id = ${tableId}
+      `.execute(db);
+      expect(configs.rows).toEqual([
+        { status: 'disabled' },
+        { status: 'disabled' },
+        { status: 'disabled' },
+      ]);
+      await executor.drop(tableId);
+      expect(await columns()).toEqual([]);
+    } finally {
+      await cleanupExecutorMeta({ db, tableId, baseId: schemaName });
+      await sql.raw(`DROP SCHEMA IF EXISTS ${quoteIdentifier(schemaName)} CASCADE`).execute(db);
+    }
+  }, 60_000);
+
+  it.each(['success', 'validation_failure', 'publish_failure'] as const)(
+    'preserves the previous search path when replacing an independent definition: %s',
+    async (outcome) => {
+      const schemaName = `tqops_replace_${process.pid}_${Date.now()}`;
+      const physicalTableName = 'records';
+      const physicalTableSql = makePhysicalTableSql(schemaName, physicalTableName);
+      const tableId = createTestId('tbl');
+      await createSearchVectorFixture({ db, schemaName, physicalTableName, rowCount: 30_000 });
+      await ensureExecutorMeta({
+        db,
+        tableId,
+        baseId: schemaName,
+        dbTableName: `${schemaName}.${physicalTableName}`,
+      });
+      await ensureTableQueryOpsSchema(db as unknown as Kysely<TableQueryOpsDatabase>);
+      const executor = new PostgresTableSearchVectorExecutor(db, db);
+      const oldPayload = {
+        candidateKey: 'old',
+        languageConfig: 'simple',
+        generatedColumnName: '__tqops_search_old',
+        indexName: 'idx_tqops_search_old',
+        provider: 'pg_trgm' as const,
+        operatorClass: 'gin_trgm_ops' as const,
+        fields: [
+          { fieldId: 'fldTqOpsSearchTitle', fieldDbName: 'fld_title', fieldType: 'singleLineText' },
+        ],
+        allowLargeTableRewrite: true,
+      };
+      const nextPayload = {
+        ...oldPayload,
+        candidateKey: 'next',
+        generatedColumnName: '__tqops_search_next',
+        indexName: 'idx_tqops_search_next',
+        fields: [
+          ...oldPayload.fields,
+          {
+            fieldId: 'fldTqOpsSearchNotes',
+            fieldDbName: 'fld_notes',
+            fieldType: 'singleLineText',
+          },
+        ],
+        rebuild: true,
+        validationMode: 'real_ddl' as const,
+        searchProbe: 'needle package',
+      };
+      const constraintName = `reject_candidate_${tableId}`;
+      try {
+        await executor.execute({ tableId, payload: oldPayload });
+        // A newer stale candidate must not hide the active definition.
+        await sql`
+          INSERT INTO table_query_search_vector_config (
+            id, table_id, base_id, candidate_key, generated_column_name, index_name,
+            field_ids, field_db_names, status, last_modified_time
+          ) VALUES (
+            ${`stale_${tableId}`}, ${tableId}, ${schemaName}, 'unrelated_stale',
+            '__tqops_search_missing', 'idx_tqops_search_missing', '[]', '[]', 'stale',
+            now() + interval '1 hour'
+          )
+        `.execute(db);
+        expect((await executor.currentConfig(tableId))?.candidate_key).toBe('old');
+
+        if (outcome === 'validation_failure') {
+          // Every row matches: the candidate cannot produce a selective index plan.
+          await sql.raw(`UPDATE ${physicalTableSql} SET fld_notes = 'ordinary common'`).execute(db);
+          await sql.raw(`ANALYZE ${physicalTableSql}`).execute(db);
+        }
+        if (outcome === 'publish_failure') {
+          // Reject publication after real DDL validation, testing atomic rollback
+          // of the old config's retirement as well as new-object cleanup.
+          await sql
+            .raw(
+              `ALTER TABLE table_query_search_vector_config ADD CONSTRAINT
+            ${quoteIdentifier(constraintName)} CHECK (
+              table_id <> '${tableId}' OR candidate_key <> 'next'
+            )`
+            )
+            .execute(db);
+        }
+        const result = executor.execute({
+          tableId,
+          payload: {
+            ...nextPayload,
+            searchProbe: outcome === 'validation_failure' ? 'ordinary common' : 'needle package',
+          },
+        });
+        if (outcome === 'success') {
+          expect((await result).planEvidence).toMatchObject({
+            usesCandidateIndex: true,
+            semanticsCompatible: true,
+          });
+        } else {
+          await expect(result).rejects.toThrow();
+        }
+
+        const configs = await sql<{ candidate_key: string; status: string }>`
+          SELECT candidate_key, status FROM table_query_search_vector_config
+          WHERE table_id = ${tableId} ORDER BY candidate_key
+        `.execute(db);
+        expect(configs.rows).toEqual(
+          outcome === 'success'
+            ? [
+                { candidate_key: 'next', status: 'ready' },
+                { candidate_key: 'old', status: 'stale' },
+                { candidate_key: 'unrelated_stale', status: 'stale' },
+              ]
+            : [
+                { candidate_key: 'old', status: 'ready' },
+                { candidate_key: 'unrelated_stale', status: 'stale' },
+              ]
+        );
+        const oldMatches = await sql<{ count: string }>`
+          SELECT count(*) FROM ${sql.raw(physicalTableSql)}
+          WHERE ${sql.ref(oldPayload.generatedColumnName)} LIKE '%needle package%'
+        `.execute(db);
+        expect(Number(oldMatches.rows[0]?.count)).toBe(1);
+        const indexes = await sql<{
+          old_valid: boolean;
+          next_exists: boolean;
+          next_column_exists: boolean;
+        }>`
+          SELECT
+            (SELECT indisvalid FROM pg_index WHERE indexrelid =
+              to_regclass(${`${schemaName}.${oldPayload.indexName}`})) AS old_valid,
+            to_regclass(${`${schemaName}.${nextPayload.indexName}`}) IS NOT NULL AS next_exists,
+            EXISTS (SELECT 1 FROM pg_attribute
+              WHERE attrelid = to_regclass(${`${schemaName}.${physicalTableName}`})
+                AND attname = ${nextPayload.generatedColumnName} AND NOT attisdropped
+            ) AS next_column_exists
+        `.execute(db);
+        expect(indexes.rows[0]).toEqual({
+          old_valid: true,
+          next_exists: outcome === 'success',
+          next_column_exists: outcome === 'success',
+        });
+      } finally {
+        await sql
+          .raw(
+            `ALTER TABLE table_query_search_vector_config DROP CONSTRAINT IF EXISTS ${quoteIdentifier(constraintName)}`
+          )
+          .execute(db);
+        await cleanupExecutorMeta({ db, tableId, baseId: schemaName });
+        await sql.raw(`DROP SCHEMA IF EXISTS ${quoteIdentifier(schemaName)} CASCADE`).execute(db);
+      }
+    },
+    60_000
+  );
+
   it('recommends a generated substring document and validates result-compatible real GIN', async () => {
     const schemaName = `tqops_search_vector_${process.pid}_${Date.now()}`;
     const physicalTableName = 'records';
@@ -100,6 +487,7 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
       })._unsafeUnwrap();
       const result = await advisor.analyze({} as never, {
         table,
+        provider: 'pg_trgm',
         languageConfig: 'simple',
         searchProbe: 'needle package',
         observations: [observation],
@@ -126,6 +514,7 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
             "coveredFieldDbNames": [
               "fld_title",
               "fld_notes",
+              "fld_count",
             ],
             "indexKind": "gin_trgm",
             "languageConfig": "simple",
@@ -134,9 +523,7 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
             "planStatus": "validated",
             "provider": "pg_trgm",
             "semantics": "substring",
-            "skippedReasons": [
-              "unsupported_search_field_type",
-            ],
+            "skippedReasons": [],
           }
         `);
       expect([
@@ -334,6 +721,7 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
 
       const scopedResult = await advisor.analyze({} as never, {
         table,
+        provider: 'pg_trgm',
         languageConfig: 'simple',
         searchProbe: 'needle package',
         observations: [observation],
@@ -405,6 +793,7 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
       const rebuilt = await reconciler.reconcile({} as never, {
         table,
         mode: 'rebuild',
+        provider: 'pg_trgm',
         languageConfig: 'simple',
         searchProbe: 'needle package',
         validationMode: 'real_ddl',

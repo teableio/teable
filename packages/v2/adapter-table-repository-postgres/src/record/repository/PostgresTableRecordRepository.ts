@@ -40,11 +40,12 @@ import type {
   ComputedFieldUpdater,
   ComputedUpdatePlanner,
   ComputedUpdateResult,
+  IComputedUpdateOutbox,
+  IComputedUpdatePauseRegistry,
   IUpdateStrategy,
   UpdateImpactHint,
-  IComputedUpdateOutbox,
 } from '../computed';
-import { buildSeedTaskInput } from '../computed';
+import { buildSeedTaskInput, noopComputedUpdatePauseRegistry } from '../computed';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import { normalizeStoredLinkItems } from '../normalizeLinkItems';
 import type { DynamicDB } from '../query-builder';
@@ -1063,8 +1064,26 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     @inject(v2CoreTokens.hasher)
     private readonly hasher: IHasher,
     @inject(v2RecordRepositoryPostgresTokens.metaDb)
-    private readonly metaDb: Kysely<V1TeableDatabase> = db
+    private readonly metaDb: Kysely<V1TeableDatabase> = db,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdatePauseRegistry)
+    private readonly pauseRegistry: IComputedUpdatePauseRegistry = noopComputedUpdatePauseRegistry
   ) {}
+
+  private async enqueueAdmittedSeedTask(
+    context: core.IExecutionContext,
+    table: core.Table,
+    seedTask: Parameters<IComputedUpdateOutbox['enqueueSeedTask']>[0]
+  ) {
+    const admitted = await this.pauseRegistry.admitComputedWrite(
+      {
+        tableId: table.id().toString(),
+        baseId: table.baseId().toString(),
+      },
+      context
+    );
+    if (admitted.isErr()) return admitted;
+    return this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+  }
 
   private async resolveBeforeImageCapturePlan(
     context: core.IExecutionContext,
@@ -2086,7 +2105,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       orchestration: resolveComputedRealtimeOrchestration(context, recordIds.length, orchestration),
     });
 
-    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    const enqueueResult = await this.enqueueAdmittedSeedTask(context, table, seedTask);
     if (enqueueResult.isErr()) {
       return err(enqueueResult.error);
     }
@@ -3011,7 +3030,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       ),
     });
 
-    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    const enqueueResult = await this.enqueueAdmittedSeedTask(context, table, seedTask);
     if (enqueueResult.isErr()) {
       this.logger.warn('computed:seed:enqueue_batch_update_failed', {
         error: enqueueResult.error.message,
@@ -3763,7 +3782,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
-    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    const enqueueResult = await this.enqueueAdmittedSeedTask(context, table, seedTask);
     if (enqueueResult.isErr()) {
       this.logger.warn('computed:seed:enqueue_failed', {
         error: enqueueResult.error.message,
@@ -3932,7 +3951,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
-    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    const enqueueResult = await this.enqueueAdmittedSeedTask(context, table, seedTask);
     if (enqueueResult.isErr()) {
       this.logger.warn('computed:seed:enqueue_many_failed', {
         error: enqueueResult.error.message,
@@ -4080,7 +4099,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
-    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    const enqueueResult = await this.enqueueAdmittedSeedTask(context, table, seedTask);
     if (enqueueResult.isErr()) {
       this.logger.warn('computed:seed:enqueue_failed', {
         error: enqueueResult.error.message,
@@ -4333,7 +4352,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
-    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    const enqueueResult = await this.enqueueAdmittedSeedTask(context, table, seedTask);
     if (enqueueResult.isErr()) {
       this.logger.warn('computed:seed:enqueue_delete_many_failed', {
         error: enqueueResult.error.message,

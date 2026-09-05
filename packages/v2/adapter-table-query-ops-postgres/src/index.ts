@@ -7,6 +7,7 @@ export * from './repositories';
 export * from './schema';
 export * from './searchAccessPathReclaim';
 export * from './searchDocumentProjection';
+export * from './searchDocumentFunctions';
 export * from './searchVector';
 export * from './searchVectorStatus';
 export * from './searchAccessPathCapability';

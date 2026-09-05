@@ -199,6 +199,7 @@ export type IConditionalRollupFieldOptionsDTO = {
 };
 
 export type IConditionalLookupOptionsDTO = {
+  isUnique?: boolean;
   baseId?: string;
   foreignTableId: string;
   lookupFieldId: string;
@@ -225,6 +226,7 @@ export type ILinkFieldMetaDTO = {
 };
 
 export type ILookupOptionsDTO = {
+  isUnique?: boolean;
   linkFieldId: string;
   lookupFieldId: string;
   foreignTableId: string;

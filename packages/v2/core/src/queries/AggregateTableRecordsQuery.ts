@@ -9,6 +9,7 @@ import type {
 } from '../domain/table/records/TableRecordAggregation';
 import { TableId } from '../domain/table/TableId';
 import { ViewId } from '../domain/table/views/ViewId';
+import type { IRecordSearchAccessPath } from '../ports/TableRecordQueryRepository';
 import { recordFilterSchema, type RecordFilter } from './RecordFilterDto';
 import { recordSearchInputSchema, type RecordSearchInput } from './RecordSearch';
 
@@ -51,6 +52,7 @@ export type IAggregateTableRecordsQueryInput = z.input<typeof aggregateTableReco
 
 export type IAggregateTableRecordsQueryOptions = {
   readonly maxGroupPoints?: number;
+  readonly recordSearchAccessPath?: IRecordSearchAccessPath;
 };
 export class AggregateTableRecordsQuery {
   private constructor(
@@ -66,7 +68,8 @@ export class AggregateTableRecordsQuery {
     readonly ignoreViewQuery: boolean,
     readonly collapsedGroupIds: ReadonlyArray<string> | undefined,
     readonly includeHiddenFields: boolean,
-    readonly maxGroupPoints: number
+    readonly maxGroupPoints: number,
+    readonly recordSearchAccessPath?: IRecordSearchAccessPath
   ) {}
 
   static create(
@@ -99,7 +102,8 @@ export class AggregateTableRecordsQuery {
             parsed.data.ignoreViewQuery === true,
             parsed.data.collapsedGroupIds,
             parsed.data.includeHiddenFields ?? false,
-            Math.max(1, Math.floor(options?.maxGroupPoints ?? 5_000))
+            Math.max(1, Math.floor(options?.maxGroupPoints ?? 5_000)),
+            options?.recordSearchAccessPath
           )
       )
     );

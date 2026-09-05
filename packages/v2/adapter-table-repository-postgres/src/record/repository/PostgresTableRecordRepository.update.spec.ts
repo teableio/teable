@@ -2879,6 +2879,9 @@ describe('PostgresTableRecordRepository deferred computed scheduling', () => {
       expandComputedSeedFieldIds: vi.fn(() => [textFieldId]),
       hasher: { sha256: () => 'computed-seed-hash' },
       shouldEnqueuePlanFreeSeed: vi.fn(() => true),
+      enqueueAdmittedSeedTask: vi.fn(async (context: unknown, _table: unknown, seedTask: unknown) =>
+        enqueueSeedTask(seedTask, context)
+      ),
     };
 
     const result = await (

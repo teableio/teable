@@ -295,6 +295,21 @@ describe('V2ContainerService', () => {
     vi.unstubAllEnvs();
   });
 
+  it('bounds ShareDB activity snapshot reads without supplementary pause queries', async () => {
+    const { service, shareDbService } = createService();
+    const getByTableId = vi
+      .fn()
+      .mockResolvedValue({ isErr: () => false, value: { table: null, fields: [] } });
+    vi.spyOn(service, 'getContainerForTable').mockResolvedValue({
+      resolve: () => ({ getByTableId }),
+    } as unknown as DependencyContainer);
+    const loader = shareDbService.setComputedActivitySnapshotLoader.mock.calls[0][0];
+    await expect(loader('tblActivity')).resolves.toEqual({});
+    expect(getByTableId).toHaveBeenCalledWith(undefined, 'tblActivity', undefined, {
+      budgetMs: 2000,
+    });
+  });
+
   it('discovers projection registrars and initializes the shared container during bootstrap', async () => {
     const registrar = new TestProjectionRegistrar();
     const container = createContainerMock();

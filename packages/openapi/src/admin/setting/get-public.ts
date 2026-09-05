@@ -62,6 +62,8 @@ export const publicSettingVoSchema = settingVoSchema
     availableIntegrationProviders: z.array(z.string()).optional(),
     // EE cloud: whether the deployment has a GitHub App for app-builder sync.
     githubAppConfigured: z.boolean().optional(),
+    // The server supports the mobile app's PKCE sign-in (`POST /auth/mobile/code` + `exchange`).
+    mobileAuthExchange: z.boolean().optional(),
   });
 export type IPublicSettingVo = z.infer<typeof publicSettingVoSchema>;
 

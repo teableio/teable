@@ -122,6 +122,10 @@ export class NoopComputedOutboxAdmin implements IComputedOutboxAdmin {
     return err(domainError.notImplemented({ message: NOT_CONFIGURED }));
   }
 
+  async extendPause(): Promise<Result<ComputedOutboxPauseScope, DomainError>> {
+    return err(domainError.notImplemented({ message: NOT_CONFIGURED }));
+  }
+
   async resumeScope(): Promise<Result<ResumeComputedOutboxScopeResult, DomainError>> {
     return err(domainError.notImplemented({ message: NOT_CONFIGURED }));
   }

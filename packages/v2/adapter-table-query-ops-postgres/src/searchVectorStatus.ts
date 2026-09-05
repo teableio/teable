@@ -125,6 +125,8 @@ export class PostgresTableSearchAccessPathResolver implements TableSearchAccessP
       `.execute(this.metaDb);
       if (!relation.rows[0]?.relation_name) return ok(undefined);
 
+      // Runtime needs a usable config, even if a newer candidate is pending or
+      // stale. Administration still reports the latest candidate below.
       const result = await sql<SearchAccessPathConfigRow>`
         SELECT
           generated_column_name AS "generatedColumnName",
@@ -137,8 +139,8 @@ export class PostgresTableSearchAccessPathResolver implements TableSearchAccessP
           status
         FROM table_query_search_vector_config
         WHERE table_id = ${tableId}
-          AND status IN ('ready', 'rebuild_pending', 'stale')
-        ORDER BY last_modified_time DESC NULLS LAST, created_time DESC NULLS LAST
+          AND status = 'ready'
+        ORDER BY last_modified_time DESC NULLS LAST, created_time DESC NULLS LAST, id DESC
         LIMIT 1
       `.execute(this.metaDb);
 

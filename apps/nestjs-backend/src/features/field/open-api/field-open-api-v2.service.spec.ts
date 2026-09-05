@@ -2,8 +2,25 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { CellValueType, DbFieldType, getDefaultFormatting, type IFieldVo } from '@teable/core';
+import type * as V2ContractHttp from '@teable/v2-contract-http';
 import { v2CoreTokens } from '@teable/v2-core';
 import { describe, expect, it, vi } from 'vitest';
+
+// Mapping tests inject their service dependencies explicitly; keep database and
+// application bootstrap code outside this unit test boundary.
+vi.mock('@teable/db-main-prisma', () => ({ PrismaService: class PrismaService {} }));
+vi.mock('../../data-loader/data-loader.service', () => ({
+  DataLoaderService: class DataLoaderService {},
+}));
+vi.mock('../../v2/v2-container.service', () => ({
+  V2ContainerService: class V2ContainerService {},
+}));
+vi.mock('../../v2/v2-execution-context.factory', () => ({
+  V2ExecutionContextFactory: class V2ExecutionContextFactory {},
+}));
+vi.mock('../field-calculate/field-supplement.service', () => ({
+  FieldSupplementService: class FieldSupplementService {},
+}));
 
 const {
   executeDeleteFieldEndpoint,
@@ -25,7 +42,7 @@ vi.mock('@teable/v2-contract-http-implementation/handlers', () => ({
 }));
 
 vi.mock('@teable/v2-contract-http', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@teable/v2-contract-http')>();
+  const original = await importOriginal<typeof V2ContractHttp>();
   return {
     ...original,
     mapFieldToDto: (field: unknown, primaryFieldId?: unknown) => {
@@ -2414,4 +2431,107 @@ describe('overlayStoredPendingState (T6581)', () => {
 
     expect(formulaVo).not.toHaveProperty('isPending');
   });
+});
+
+describe('T7141 lookup unique legacy boundary', () => {
+  const references = {
+    foreignTableId: 'tblForeign00000001',
+    lookupFieldId: 'fldLookup000000001',
+  };
+  const filter = {
+    conjunction: 'and',
+    filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: 'Active' }],
+  };
+
+  it.each([true, false])(
+    'preserves regular lookup isUnique=%s on create and convert',
+    (isUnique) => {
+      const service = createService();
+      const ro = {
+        type: 'user',
+        isLookup: true,
+        lookupOptions: { ...references, linkFieldId: 'fldLink000000000001', isUnique },
+      };
+      expect(service.mapLegacyCreateFieldToV2(ro)).toMatchObject({
+        type: 'lookup',
+        options: { ...ro.lookupOptions },
+      });
+      expect(
+        service.mapConvertFieldToV2(ro, {
+          ...ro,
+          lookupOptions: { ...ro.lookupOptions, isUnique: !isUnique },
+        })
+      ).toMatchObject({ type: 'lookup', options: { ...ro.lookupOptions } });
+    }
+  );
+
+  it.each([true, false])(
+    'preserves conditional lookup isUnique=%s on create and convert',
+    (isUnique) => {
+      const service = createService();
+      const ro = {
+        type: 'user',
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: { ...references, filter, isUnique },
+      };
+      const expected = {
+        type: 'conditionalLookup',
+        options: { ...references, isUnique, condition: { filter } },
+      };
+      expect(service.mapLegacyCreateFieldToV2(ro)).toMatchObject(expected);
+      expect(
+        service.mapConvertFieldToV2(ro, {
+          ...ro,
+          lookupOptions: { ...ro.lookupOptions, isUnique: !isUnique },
+        })
+      ).toMatchObject(expected);
+    }
+  );
+
+  it.each([true, false])(
+    'preserves regular and both conditional DTO shapes on read: %s',
+    (isUnique) => {
+      const service = new FieldOpenApiV2Service(
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        createFieldSupplementService() as never,
+        {} as never
+      ) as unknown as ITestFieldOpenApiV2Service;
+      const common = {
+        id: 'fldLookup000000001',
+        name: 'Lookup',
+        isLookup: true,
+        isMultipleCellValue: true,
+      };
+      const regular = service.normalizeFieldVo({
+        ...common,
+        type: 'user',
+        options: { isMultiple: true },
+        lookupOptions: { ...references, linkFieldId: 'fldLink000000000001', isUnique },
+      });
+      expect(regular.lookupOptions).toMatchObject({ ...references, isUnique });
+      for (const dto of [
+        {
+          ...common,
+          type: 'conditionalLookup',
+          innerType: 'user',
+          innerOptions: { isMultiple: true },
+          options: { ...references, isUnique, condition: { filter } },
+        },
+        {
+          ...common,
+          type: 'user',
+          options: { isMultiple: true },
+          conditionalLookupOptions: { ...references, isUnique, condition: { filter } },
+        },
+      ]) {
+        const conditional = service.normalizeFieldVo(dto);
+        expect(conditional.isConditionalLookup).toBe(true);
+        expect(conditional.lookupOptions).toMatchObject({ ...references, isUnique, filter });
+      }
+    }
+  );
 });

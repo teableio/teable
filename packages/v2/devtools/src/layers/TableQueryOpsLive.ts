@@ -5,7 +5,8 @@ import {
   mergeSearchVectorCoverage,
   PostgresTableSearchVectorAdvisor,
   registerV2TableOpsPostgresAdapter,
-  renderSearchTextProjectionSql,
+  renderGeneratedSearchTextProjectionSql,
+  ensureSearchDocumentFunctions,
   type AnalyzeTableSearchVectorResult,
   type UnknownPostgresDatabase,
 } from '@teable/v2-adapter-table-query-ops-postgres';
@@ -1583,7 +1584,7 @@ const buildSearchDocumentGeneratedExpression = (
     )
     .map(
       (field) =>
-        `coalesce(${renderSearchTextProjectionSql(quoteIdentifier(field.fieldDbName), field.textProjection)}, '')`
+        `coalesce(${renderGeneratedSearchTextProjectionSql(quoteIdentifier(field.fieldDbName), field.textProjection)}, '')`
     )
     .join(` || E'\\n' || `);
   return `lower(${document || "''"})`;
@@ -2286,6 +2287,10 @@ export const TableQueryOpsLive = Layer.effect(
         `.execute(dataDb);
         copiedRows = Number(countResult.rows[0]?.count ?? '0');
 
+        await ensureSearchDocumentFunctions(
+          dataDb as Kysely<UnknownPostgresDatabase>,
+          coveredFields.map((field) => field.textProjection)
+        );
         const expression = buildSearchDocumentGeneratedExpression(coveredFields);
         await sql
           .raw(

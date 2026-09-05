@@ -13,3 +13,7 @@ export type {
   V1PluginTable,
   V1PluginInstallTable,
 } from './v1/types';
+
+export { computedReliabilitySchemaSql } from './computedReliabilitySchema';
+
+export { computedReliabilityReadinessSql } from './computedReliabilityReadiness';

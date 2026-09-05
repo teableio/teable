@@ -1,10 +1,13 @@
+import { useTranslation } from 'next-i18next';
 import { SettingTabShell } from '@/features/app/components/setting/SettingTabShell';
 import { TeableSkillContent } from './TeableSkillContent';
 
 export const TeableSkillSection = () => {
+  const { t } = useTranslation('common');
+
   return (
-    <SettingTabShell contentClassName="pt-0">
-      <TeableSkillContent />
+    <SettingTabShell title={t('settings.setting.teableSkill')}>
+      <TeableSkillContent showTitle={false} />
     </SettingTabShell>
   );
 };

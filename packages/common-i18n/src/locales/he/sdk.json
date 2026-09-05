@@ -49,7 +49,8 @@
     "previewFileLimit": "מגבלת גודל לתצוגה מקדימה: {{size}}MB, יש להוריד את הקובץ כדי לצפות בו.",
     "loadFileError": "טעינת הקובץ נכשלה",
     "previousAttachment": "הקודם",
-    "nextAttachment": "הבא"
+    "nextAttachment": "הבא",
+    "deleteAttachment": "מחיקה"
   },
   "undoRedo": {
     "undo": "ביטול פעולה",

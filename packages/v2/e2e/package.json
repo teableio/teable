@@ -55,7 +55,7 @@
     "@teable/v2-adapter-table-repository-postgres": "workspace:*",
     "@teable/eslint-config-bases": "workspace:^",
     "@types/express": "4.17.21",
-    "@types/node": "22.18.0",
+    "@types/node": "24.13.2",
     "@types/sharedb": "5.1.0",
     "@types/ws": "8.5.12",
     "@vitest/coverage-v8": "4.0.17",

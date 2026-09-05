@@ -702,6 +702,7 @@ export class BaseService {
           resourceType: LastVisitResourceType.Base,
           resourceId: baseId,
           parentResourceId: spaceId,
+          lastVisitTime: new Date().toISOString(),
         },
       })
       .catch((error) => {
@@ -1049,6 +1050,7 @@ export class BaseService {
       const executor = this.getDataPrismaExecutor(scopedDataPrisma);
       const byBaseStatements = [
         `delete from "computed_update_outbox_seed" where "task_id" in (select "id" from "computed_update_outbox" where "base_id" = $1)`,
+        `delete from "computed_update_change_frontier" where "scope_id" in (select coalesce(case when jsonb_typeof("dirty_stats") = 'object' then "dirty_stats"->>'ledgerScopeId' end, "id") from "computed_update_outbox" where "base_id" = $1)`,
         `delete from "computed_update_stage_ledger" where "scope_id" in (select coalesce(case when jsonb_typeof("dirty_stats") = 'object' then "dirty_stats"->>'ledgerScopeId' end, "id") from "computed_update_outbox" where "base_id" = $1)`,
         `delete from "computed_update_outbox" where "base_id" = $1`,
         `delete from "computed_update_dead_letter" where "base_id" = $1`,

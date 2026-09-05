@@ -276,7 +276,7 @@ const makeCapability = (
     extensionAvailable: true,
     operatorClassInstalled: usable,
     usable,
-    minimumProbeLength: provider === 'pg_bigm' ? 2 : 3,
+    minimumProbeLength: provider === 'pg_bigm' ? 1 : 3,
     ...(!usable ? { reason: 'extension_not_installed' as const } : {}),
     ...overrides,
   };

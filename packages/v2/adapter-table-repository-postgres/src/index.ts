@@ -27,3 +27,8 @@ export * from './meta';
 
 // Utils (PG capability detection)
 export * from './utils';
+
+export { PostgresComputedReliabilityStore } from './record/computed/reliability/PostgresComputedReliabilityStore';
+export type { ComputedReliabilityIssue } from './record/computed/reliability/PostgresComputedReliabilityStore';
+
+export * from './record/computed/reliability/config';

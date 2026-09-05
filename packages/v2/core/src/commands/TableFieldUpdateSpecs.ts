@@ -106,7 +106,6 @@ import {
   UpdateRatingIconSpec,
   UpdateRatingMaxSpec,
   UpdateRollupConfigSpec,
-  UpdateRollupExpressionSpec,
   UpdateRollupFormattingSpec,
   UpdateRollupShowAsSpec,
   UpdateRollupTimeZoneSpec,
@@ -1366,7 +1365,8 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
     private readonly innerOptionsValue: Record<string, unknown> | undefined,
     private readonly innerCellValueTypeValue: string | undefined,
     private readonly innerIsMultipleCellValueValue: boolean | undefined,
-    private readonly foreignTablesValue: ReadonlyArray<Table> | undefined
+    private readonly foreignTablesValue: ReadonlyArray<Table> | undefined,
+    private readonly isUniqueValue: boolean | undefined
   ) {}
 
   static create(
@@ -1384,6 +1384,10 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
       input.options && typeof input.options === 'object' && !Array.isArray(input.options)
         ? (input.options as Record<string, unknown>)
         : undefined;
+
+    if (optionsRaw?.isUnique !== undefined && typeof optionsRaw.isUnique !== 'boolean') {
+      return err(domainError.validation({ message: 'Lookup isUnique must be a boolean' }));
+    }
 
     const parseConditionalLookupOptions = (): Result<
       ConditionalLookupOptions | undefined,
@@ -1420,6 +1424,7 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
           : {}),
         foreignTableId: optionsRaw.foreignTableId,
         lookupFieldId: optionsRaw.lookupFieldId,
+        isUnique: optionsRaw.isUnique,
         condition: normalizedCondition,
       }).map((value) => value);
     };
@@ -1441,6 +1446,7 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
         'filter',
         'sort',
         'limit',
+        'isUnique',
         'innerType',
       ]);
       const entries = Object.entries(optionsRaw).filter(([key]) => !reservedKeys.has(key));
@@ -1460,7 +1466,8 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
             parseInnerOptions(),
             typeof input.cellValueType === 'string' ? input.cellValueType : undefined,
             typeof input.isMultipleCellValue === 'boolean' ? input.isMultipleCellValue : undefined,
-            context?.foreignTables
+            context?.foreignTables,
+            typeof optionsRaw?.isUnique === 'boolean' ? optionsRaw.isUnique : undefined
           )
       )
     );
@@ -1476,9 +1483,16 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
     const specs: ISpecification<Table, ITableSpecVisitor>[] = [];
     const nextName = this.nameValue ?? currentField.name();
     const currentOptions = currentField.conditionalLookupOptions();
-    const nextOptions = this.optionsValue ?? currentOptions;
-    const conditionChanged =
-      this.optionsValue !== undefined && !this.optionsValue.equals(currentOptions);
+    const nextOptionsResult =
+      this.isUniqueValue === undefined
+        ? ok(this.optionsValue ?? currentOptions)
+        : ConditionalLookupOptions.create({
+            ...(this.optionsValue ?? currentOptions).toDto(),
+            isUnique: this.isUniqueValue,
+          });
+    if (nextOptionsResult.isErr()) return err(nextOptionsResult.error);
+    const nextOptions = nextOptionsResult.value;
+    const conditionChanged = !nextOptions.equals(currentOptions);
     const innerChanged = this.innerTypeValue !== undefined || this.innerOptionsValue !== undefined;
 
     if (this.nameValue && !this.nameValue.equals(currentField.name())) {
@@ -2404,19 +2418,23 @@ class UpdateRollupFieldSpec implements IUpdateTableFieldSpec {
     private readonly timeZoneValue: TimeZone | undefined,
     private readonly formattingValue: FormulaFormatting | undefined,
     private readonly showAsValue: FormulaShowAs | undefined,
-    private readonly shouldClearShowAs: boolean
+    private readonly shouldClearShowAs: boolean,
+    private readonly foreignTablesValue: ReadonlyArray<Table> | undefined
   ) {}
 
-  static create(input: {
-    name?: string;
-    config?: unknown;
-    options?: {
-      expression?: string;
-      timeZone?: string;
-      formatting?: unknown;
-      showAs?: unknown;
-    };
-  }): Result<UpdateRollupFieldSpec, DomainError> {
+  static create(
+    input: {
+      name?: string;
+      config?: unknown;
+      options?: {
+        expression?: string;
+        timeZone?: string;
+        formatting?: unknown;
+        showAs?: unknown;
+      };
+    },
+    options?: { foreignTables?: ReadonlyArray<Table> }
+  ): Result<UpdateRollupFieldSpec, DomainError> {
     const hasShowAs = input.options !== undefined && 'showAs' in input.options;
     return optional(input.name, FieldName.create).andThen((name) =>
       optional(input.config, RollupFieldConfig.create).andThen((config) =>
@@ -2432,7 +2450,8 @@ class UpdateRollupFieldSpec implements IUpdateTableFieldSpec {
                     timeZone,
                     formatting,
                     showAsResult.value,
-                    showAsResult.shouldClear
+                    showAsResult.shouldClear,
+                    options?.foreignTables
                   )
               )
             )
@@ -2457,26 +2476,60 @@ class UpdateRollupFieldSpec implements IUpdateTableFieldSpec {
       );
     }
 
-    if (this.configValue !== undefined) {
-      const currentConfig = currentField.config();
-      if (!this.configValue.equals(currentConfig)) {
-        specs.push(
-          UpdateRollupConfigSpec.create(currentField.id(), currentConfig, this.configValue)
-        );
+    const nextConfig = this.configValue ?? currentField.config();
+    const nextExpression = this.expressionValue ?? currentField.expression();
+    const configChanged = !nextConfig.equals(currentField.config());
+    const expressionChanged = !nextExpression.equals(currentField.expression());
+
+    if (expressionChanged) {
+      const foreignTable = this.foreignTablesValue?.find((table) =>
+        table.id().equals(nextConfig.foreignTableId())
+      );
+      if (!foreignTable) {
+        return err(domainError.invariant({ message: 'RollupField foreign table not loaded' }));
       }
+      const valuesField = ForeignTable.from(foreignTable).fieldById(nextConfig.lookupFieldId());
+      if (valuesField.isErr()) return err(valuesField.error);
+      const valuesType = valuesField.value.accept(new FieldValueTypeVisitor());
+      if (valuesType.isErr()) return err(valuesType.error);
+      const resultType = nextExpression.getParsedValueType(valuesType.value);
+      if (resultType.isErr()) return err(resultType.error);
+      const currentCellValueType = currentField.cellValueType();
+      const resultTypeChanged =
+        currentCellValueType.isErr() ||
+        !currentCellValueType.value.equals(resultType.value.cellValueType);
+      const nextFormatting =
+        this.formattingValue ??
+        (resultTypeChanged
+          ? RollupField.defaultFormatting(resultType.value.cellValueType)
+          : currentField.formatting());
+
+      // Validate the final expression and display options together, rather than
+      // validating new numeric formatting against the previous string result type.
+      const updatedFieldResult = RollupField.create({
+        id: currentField.id(),
+        name: this.nameValue ?? currentField.name(),
+        config: nextConfig,
+        expression: nextExpression,
+        valuesField: valuesField.value,
+        timeZone: this.timeZoneValue ?? currentField.timeZone(),
+        formatting: nextFormatting,
+        showAs: this.shouldClearShowAs ? undefined : this.showAsValue ?? currentField.showAs(),
+      });
+      if (updatedFieldResult.isErr()) return err(updatedFieldResult.error);
+      const updatedField = updatedFieldResult.value;
+      const descriptionResult = updatedField.setDescription(currentField.description());
+      if (descriptionResult.isErr()) return err(descriptionResult.error);
+      const aiConfigResult = updatedField.setAiConfig(currentField.aiConfig());
+      if (aiConfigResult.isErr()) return err(aiConfigResult.error);
+      specs.push(TableUpdateFieldTypeSpec.create(currentField, updatedField));
+      return ok(specs);
     }
 
-    if (this.expressionValue !== undefined) {
-      const currentExpression = currentField.expression();
-      if (!this.expressionValue.equals(currentExpression)) {
-        specs.push(
-          UpdateRollupExpressionSpec.create(
-            currentField.id(),
-            currentExpression,
-            this.expressionValue
-          )
-        );
-      }
+    if (configChanged) {
+      specs.push(
+        UpdateRollupConfigSpec.create(currentField.id(), currentField.config(), nextConfig)
+      );
     }
 
     if (this.timeZoneValue !== undefined) {
@@ -2866,6 +2919,7 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
           filter?: unknown;
           sort?: unknown;
           limit?: number;
+          isUnique?: boolean;
         }
       | undefined,
     private readonly notNullValue: FieldNotNull | undefined,
@@ -2886,6 +2940,7 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
         filter?: unknown;
         sort?: unknown;
         limit?: number;
+        isUnique?: boolean;
         showAs?: unknown;
       };
       innerOptions?: Readonly<Record<string, unknown>>;
@@ -2923,6 +2978,9 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
               : {}),
             ...(Object.prototype.hasOwnProperty.call(input.options, 'lookupFieldId')
               ? { lookupFieldId: input.options.lookupFieldId }
+              : {}),
+            ...(Object.prototype.hasOwnProperty.call(input.options, 'isUnique') || isFullUpdate
+              ? { isUnique: input.options.isUnique }
               : {}),
             ...(Object.prototype.hasOwnProperty.call(input.options, 'filter') || isFullUpdate
               ? { filter: input.options.filter }
@@ -3520,7 +3578,9 @@ export const parseUpdateFieldSpec = (
       UpdateFormulaFieldSpec.create(input as Parameters<typeof UpdateFormulaFieldSpec.create>[0])
     )
     .with('rollup', () =>
-      UpdateRollupFieldSpec.create(input as Parameters<typeof UpdateRollupFieldSpec.create>[0])
+      UpdateRollupFieldSpec.create(input as Parameters<typeof UpdateRollupFieldSpec.create>[0], {
+        foreignTables: options?.foreignTables,
+      })
     )
     .with('link', () =>
       UpdateLinkFieldSpec.create(input as Parameters<typeof UpdateLinkFieldSpec.create>[0], {

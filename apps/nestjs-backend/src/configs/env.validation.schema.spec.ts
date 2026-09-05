@@ -82,17 +82,21 @@ describe('envValidationSchema', () => {
 
     expect(error).toBeUndefined();
     expect(value.V2_COMPUTED_OUTBOX_MONITOR_INTERVAL_MS).toBe(30_000);
+    expect(value.V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_BASE).toBe(2);
+    expect(value.V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_SEED_TABLE).toBe(1);
     expect(value.V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS).toBe(60_000);
     expect(value.V2_COMPUTED_INLINE_STATEMENT_TIMEOUT_MS).toBe(60_000);
     expect(value.V2_COMPUTED_OUTBOX_FIELD_BACKFILL_BATCH_SIZE).toBe(500);
   });
 
-  it('accepts computed task timeout and field-backfill batch overrides', () => {
+  it('accepts computed task timeout, claim concurrency, and field-backfill overrides', () => {
     const { error, value } = envValidationSchema.validate(
       createEnv({
         PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable?schema=public',
         V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS: '0',
         V2_COMPUTED_INLINE_STATEMENT_TIMEOUT_MS: '15000',
+        V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_BASE: '4',
+        V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_SEED_TABLE: '2',
         V2_COMPUTED_OUTBOX_FIELD_BACKFILL_BATCH_SIZE: '250',
       })
     );
@@ -100,6 +104,8 @@ describe('envValidationSchema', () => {
     expect(error).toBeUndefined();
     expect(value.V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS).toBe(0);
     expect(value.V2_COMPUTED_INLINE_STATEMENT_TIMEOUT_MS).toBe(15_000);
+    expect(value.V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_BASE).toBe(4);
+    expect(value.V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_SEED_TABLE).toBe(2);
     expect(value.V2_COMPUTED_OUTBOX_FIELD_BACKFILL_BATCH_SIZE).toBe(250);
   });
 

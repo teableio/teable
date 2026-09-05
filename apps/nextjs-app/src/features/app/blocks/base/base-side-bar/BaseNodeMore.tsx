@@ -816,7 +816,7 @@ export const TableOperation = (props: ITableOperationProps) => {
       )}
 
       {apiDialogOpen && (
-        <APIDialog open={apiDialogOpen} setOpen={setApiDialogOpen}>
+        <APIDialog tableId={resourceId} open={apiDialogOpen} setOpen={setApiDialogOpen}>
           <span className="hidden text-sm">API</span>
         </APIDialog>
       )}

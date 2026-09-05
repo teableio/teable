@@ -4,7 +4,11 @@ import { useComputeActivity, useFields, useFieldStaticGetter } from '@teable/sdk
 import { Badge, Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { CircleAlert, Clock3, Loader2 } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
-import type { ComponentType, SVGProps } from 'react';
+import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
+
+const configuredDelayMs = Number(process.env.NEXT_PUBLIC_COMPUTE_ACTIVITY_DELAY_MS);
+const COMPUTE_DELAY_MS =
+  Number.isFinite(configuredDelayMs) && configuredDelayMs > 0 ? configuredDelayMs : 60_000;
 
 const COMPUTED_CELL_VALUE_MAX_BYTES_CODE = 'validation.limit.computed_cell_value_max_bytes';
 
@@ -23,16 +27,25 @@ const FieldActivityErrorText = ({
       max: lastError.context?.max,
     });
   }
-  return lastError.message;
+  return t('computeActivity.calculationFailed');
 };
 
 type ActivityItem = { field: IFieldInstance; meta: ComputeActivityFieldClient };
 
 const formatCount = (value: number, locale: string) => new Intl.NumberFormat(locale).format(value);
 
-const FieldActivityStatus = ({ status }: { status: ComputeActivityFieldClient['status'] }) => {
+const FieldActivityStatus = ({
+  status,
+  paused,
+}: {
+  status: ComputeActivityFieldClient['status'];
+  paused?: boolean;
+}) => {
   const { t } = useTranslation('table');
 
+  if (paused && (status === 'running' || status === 'queued')) {
+    return <span className="text-xs text-muted-foreground">{t('computeActivity.paused')}</span>;
+  }
   if (status === 'running') {
     return (
       <span className="flex shrink-0 items-center gap-1 text-xs text-blue-600 dark:text-blue-500">
@@ -58,20 +71,32 @@ const FieldActivityStatus = ({ status }: { status: ComputeActivityFieldClient['s
   return null;
 };
 
+const getProgressPercent = (meta: ComputeActivityFieldClient) => {
+  const progress = meta.status === 'running' ? meta.batchProgress : undefined;
+  return progress && progress.total > 1
+    ? Math.round((progress.completed / progress.total) * 100)
+    : undefined;
+};
+
+const FieldReliabilityWarning = ({ meta }: { meta: ComputeActivityFieldClient }) => {
+  const { t } = useTranslation('table');
+  if (!meta.reliability?.unresolvedCount || meta.status === 'failed') return null;
+  const key = 'computeActivity.resultsNotUpdated';
+  return <p className="text-xs text-amber-600 dark:text-amber-500">{t(key)}</p>;
+};
+
 const FieldActivityRow = ({
   item,
   Icon,
+  paused,
 }: {
   item: ActivityItem;
+  paused?: boolean;
   Icon: ComponentType<SVGProps<SVGSVGElement>>;
 }) => {
   const { t, i18n } = useTranslation('table');
   const { field, meta } = item;
-  const progress = meta.status === 'running' ? meta.batchProgress : undefined;
-  const progressPercent =
-    progress && progress.total > 1
-      ? Math.round((progress.completed / progress.total) * 100)
-      : undefined;
+  const progressPercent = getProgressPercent(meta);
 
   return (
     <div className="flex items-center gap-3 p-3">
@@ -81,9 +106,10 @@ const FieldActivityRow = ({
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex items-center justify-between gap-3">
           <span className="truncate text-sm font-medium text-foreground">{field.name}</span>
-          <FieldActivityStatus status={meta.status} />
+          <FieldActivityStatus status={meta.status} paused={paused} />
         </div>
 
+        <FieldReliabilityWarning meta={meta} />
         {meta.status === 'failed' ? (
           <p className="line-clamp-2 text-xs text-red-600 dark:text-red-500">
             <FieldActivityErrorText lastError={meta.lastError} />
@@ -113,9 +139,11 @@ const ActivityGroup = ({
   label,
   items,
   getIcon,
+  paused,
 }: {
   label: string;
   items: ActivityItem[];
+  paused?: boolean;
   getIcon: (field: IFieldInstance) => ComponentType<SVGProps<SVGSVGElement>>;
 }) => {
   if (!items.length) return null;
@@ -127,17 +155,40 @@ const ActivityGroup = ({
       <div className="divide-y divide-border overflow-hidden rounded-md border bg-transparent dark:bg-white/5">
         {items.map((item) => {
           const Icon = getIcon(item.field);
-          return <FieldActivityRow key={item.field.id} item={item} Icon={Icon} />;
+          return <FieldActivityRow key={item.field.id} item={item} Icon={Icon} paused={paused} />;
         })}
       </div>
     </section>
   );
 };
 
+const getActivityStatusKey = (state: {
+  observationState?: string;
+  paused?: boolean;
+  unknownImpact: boolean;
+  pendingIssue: boolean;
+  delayed: boolean;
+}) => {
+  if (state.observationState === 'unavailable') return 'computeActivity.statusUnavailable';
+  if (state.observationState === 'syncing') return 'computeActivity.statusSyncing';
+  if (state.paused) return 'computeActivity.paused';
+  if (state.unknownImpact) return 'computeActivity.unknownImpact';
+  if (state.pendingIssue) return 'computeActivity.resultsNotUpdated';
+  if (state.delayed) return 'computeActivity.delayed';
+  return undefined;
+};
+
 /** Current, permission-readable compute activity for the mounted table. */
 export const ComputeActivityPanel = () => {
   const { t } = useTranslation('table');
-  const { fieldMetaById } = useComputeActivity();
+  const { fieldMetaById, diagnostics, observationState } = useComputeActivity();
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.visibilityState !== 'hidden') setNow(Date.now());
+    }, 15_000);
+    return () => clearInterval(timer);
+  }, []);
   const fields = useFields({ withHidden: true, withDenied: true });
   const fieldStaticGetter = useFieldStaticGetter();
   const getIcon = (field: IFieldInstance) =>
@@ -149,11 +200,37 @@ export const ComputeActivityPanel = () => {
   const currentItems = fields.flatMap((field) => {
     if (field.canReadFieldRecord === false) return [];
     const meta = fieldMetaById[field.id];
-    return meta && meta.status !== 'idle' ? [{ field, meta }] : [];
+    return meta && (meta.status !== 'idle' || (meta.reliability?.unresolvedCount ?? 0) > 0)
+      ? [{ field, meta }]
+      : [];
   });
   const running = currentItems.filter((item) => item.meta.status === 'running');
   const queued = currentItems.filter((item) => item.meta.status === 'queued');
   const failed = currentItems.filter((item) => item.meta.status === 'failed');
+  const unresolved = currentItems.filter(
+    (item) => (item.meta.reliability?.unresolvedCount ?? 0) > 0
+  );
+  const unknownImpact =
+    diagnostics?.reliability?.scopeComplete === false &&
+    diagnostics.reliability.unresolvedCount > 0;
+  const pendingIssue = unresolved.length > 0;
+  const inactiveUnresolved = unresolved.filter((item) => item.meta.status === 'idle');
+  const paused = diagnostics?.pause?.effective || diagnostics?.executionState === 'paused';
+  const oldestActive = [...running, ...queued].reduce((oldest, { meta }) => {
+    const started = Date.parse(meta.queuedAt ?? meta.startedAt ?? '');
+    return Number.isFinite(started) ? Math.min(oldest, started) : oldest;
+  }, Infinity);
+  const delayed = !paused && now - oldestActive > COMPUTE_DELAY_MS;
+  const statusKey = getActivityStatusKey({
+    observationState,
+    paused,
+    unknownImpact,
+    pendingIssue,
+    delayed,
+  });
+  const statusMessage = statusKey
+    ? t(statusKey, { seconds: Math.floor((now - oldestActive) / 1000) })
+    : undefined;
   const activeCount = running.length + queued.length;
   const failedCount = failed.length;
   const summary =
@@ -165,19 +242,24 @@ export const ComputeActivityPanel = () => {
       ? t('computeActivity.fieldsCalculating', { count: activeCount })
       : t('computeActivity.fieldCalculationsFailed', { count: failedCount });
 
-  if (!currentItems.length) return null;
+  if (!currentItems.length && !statusMessage) return null;
 
   return (
     <div className="shrink-0">
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2" aria-label={ariaLabel}>
-            {activeCount > 0 ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 px-2"
+            aria-label={statusMessage ?? ariaLabel}
+          >
+            {activeCount > 0 && !paused && observationState !== 'unavailable' ? (
               <Loader2 className="size-3.5 animate-spin text-blue-600 dark:text-blue-500" />
             ) : (
               <CircleAlert className="size-3.5 text-red-600 dark:text-red-500" />
             )}
-            <span className="hidden @xl/toolbar:inline">{summary}</span>
+            <span className="hidden @xl/toolbar:inline">{statusMessage ?? summary}</span>
           </Button>
         </PopoverTrigger>
         <PopoverContent
@@ -199,17 +281,34 @@ export const ComputeActivityPanel = () => {
           </div>
           <div className="min-h-0 overflow-y-auto px-4 pb-4">
             <div className="space-y-4">
+              {statusMessage ? (
+                <p role="status" className="text-xs text-muted-foreground">
+                  {statusMessage}
+                </p>
+              ) : null}
+              {observationState === 'unavailable' && currentItems.length > 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  {t('computeActivity.snapshotMayBeStale')}
+                </p>
+              ) : null}
               <ActivityGroup
                 label={t('computeActivity.calculatingNow')}
                 items={running}
+                paused={paused}
                 getIcon={getIcon}
               />
               <ActivityGroup
                 label={t('computeActivity.waiting')}
                 items={queued}
+                paused={paused}
                 getIcon={getIcon}
               />
               <ActivityGroup label={t('computeActivity.failed')} items={failed} getIcon={getIcon} />
+              <ActivityGroup
+                label={t('computeActivity.resultsNotUpdated')}
+                items={inactiveUnresolved}
+                getIcon={getIcon}
+              />
             </div>
           </div>
         </PopoverContent>

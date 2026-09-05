@@ -358,6 +358,8 @@ export * from './queries/computed-outbox/GetComputedOutboxTaskLineageQuery';
 export * from './queries/computed-outbox/GetComputedOutboxTaskLineageHandler';
 export * from './commands/computed-outbox/PauseComputedOutboxCommand';
 export * from './commands/computed-outbox/PauseComputedOutboxHandler';
+export * from './commands/computed-outbox/ExtendComputedOutboxPauseCommand';
+export * from './commands/computed-outbox/ExtendComputedOutboxPauseHandler';
 export * from './commands/computed-outbox/ResumeComputedOutboxCommand';
 export * from './commands/computed-outbox/ResumeComputedOutboxHandler';
 export * from './commands/computed-outbox/RecoverComputedOutboxAnomalyCommand';
@@ -375,6 +377,7 @@ export * from './commands/computed-outbox/UpdateComputedOutboxClaimConcurrencyHa
 export * from './application/projections/ComputedActivityRealtimeProjection';
 
 export * from './domain/table/Table';
+export * from './domain/table/ITableReadModel';
 export * from './domain/table/methods/createViewCollaboratorsQueryPlan';
 export * from './domain/table/TableFieldLimit';
 export * from './domain/table/ForeignTable';
@@ -727,3 +730,5 @@ export * from './commands/shared/batchMutationOrchestration';
 export * from 'neverthrow';
 export * from 'ts-pattern';
 export * from './domain/table/fields/FieldKeyType';
+
+export * from './domain/computed/ComputeReliability';

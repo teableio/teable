@@ -49,7 +49,8 @@
     "previewFileLimit": "Önizleme dosya boyutu sınırı: {{size}}MB, lütfen görüntülemek için indirin.",
     "loadFileError": "Dosya yüklenemedi",
     "previousAttachment": "Önceki",
-    "nextAttachment": "Sonraki"
+    "nextAttachment": "Sonraki",
+    "deleteAttachment": "Sil"
   },
   "undoRedo": {
     "undo": "Geri Al",
@@ -1339,7 +1340,10 @@
       "exceedMaxAutomationRunLimit": "Aylık maksimum otomasyon çalıştırma sayısına ulaşıldı",
       "manualSubscriptionNotSupported": "Bu alan için self-servis abonelik kullanılamamaktadır. Yükseltme, düşürme veya diğer abonelik değişiklikleri için lütfen Teable desteğiyle iletişime geçin.",
       "appSumoSubscriptionNotSupported": "AppSumo abonelikleri bu arayüz üzerinden değiştirilemez. Lütfen aboneliğinizi AppSumo'da yönetin.",
-      "customerNotFound": "Bu alan için fatura müşteri kaydı bulunamadı."
+      "planNotAvailable": "Bu plan artık yeni abonelikler için mevcut değildir.",
+      "seatLimitExceeded": "Satın alınan koltuk sayısı yetersiz. Daha fazla iş ortağı davet etmek için koltuk ekleyin.",
+      "customerNotFound": "Bu alan için fatura müşteri kaydı bulunamadı.",
+      "creditAddOnRetired": "Yinelenen kredi eklentisi kaldırıldı. Bunun yerine planınızda daha büyük bir kredi kademesi seçin."
     },
     "aggregation": {
       "searchQueryRequired": "Arama sorgusu gereklidir",

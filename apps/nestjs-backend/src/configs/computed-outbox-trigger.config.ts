@@ -53,7 +53,7 @@ export const computedOutboxTriggerConfig = registerAs('computedOutboxTrigger', (
     ),
     claimConcurrencyPerSeedTable: readPositiveInteger(
       process.env.V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_SEED_TABLE,
-      2
+      1
     ),
   };
 });

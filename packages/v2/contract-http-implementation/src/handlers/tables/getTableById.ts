@@ -5,9 +5,10 @@ import {
   mapDomainErrorToHttpStatus,
   mapGetTableByIdResultToDto,
 } from '@teable/v2-contract-http';
-import { GetTableByIdQuery } from '@teable/v2-core';
+import { GetComputeActivityQuery, GetTableByIdQuery } from '@teable/v2-core';
 import type {
   GetTableByIdResult,
+  GetComputeActivityResult,
   IComputedActivityReader,
   IExecutionContext,
   IQueryBus,
@@ -49,18 +50,25 @@ export const executeGetTableByIdEndpoint = async (
     };
   }
 
-  let table = mapped.value.table;
+  let table = enrichTableDtoWithComputeActivity(mapped.value.table, null);
   if (activityReader) {
-    const activity = await activityReader.getByTableId(
-      context,
-      queryResult.value.tableId.toString(),
-      queryResult.value.baseId.toString()
-    );
-    if (activity.isOk()) {
-      table = enrichTableDtoWithComputeActivity(table, activity.value);
+    // Reuse the dedicated activity query's record/field authorization. The raw
+    // reader is infrastructure and must never enrich a public response directly.
+    const activityQuery = GetComputeActivityQuery.create(rawInput);
+    if (activityQuery.isOk()) {
+      try {
+        const activity = await queryBus.execute<GetComputeActivityQuery, GetComputeActivityResult>(
+          context,
+          activityQuery.value
+        );
+        if (activity.isOk()) {
+          table = enrichTableDtoWithComputeActivity(mapped.value.table, activity.value.snapshot);
+        }
+      } catch {
+        // Activity is supplementary: a permission or observation failure must not
+        // fail table metadata reads or claim a healthy calculation state.
+      }
     }
-  } else {
-    table = enrichTableDtoWithComputeActivity(table, null);
   }
 
   return {

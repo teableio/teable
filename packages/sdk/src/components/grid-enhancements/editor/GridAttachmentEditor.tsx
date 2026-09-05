@@ -31,6 +31,7 @@ export const GridAttachmentEditor = forwardRef<
     return attachments
       ? attachments.map((item) => ({
           src: item.presignedUrl || '',
+          thumb: item.lgThumbnailUrl,
           name: item.name,
           fileId: item.id,
           mimetype: item.mimetype,

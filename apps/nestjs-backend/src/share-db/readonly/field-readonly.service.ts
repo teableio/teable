@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import type { IGetFieldsQuery } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { IS_TEMPLATE_HEADER, BASE_SHARE_ID_HEADER } from '@teable/openapi';
@@ -72,6 +72,34 @@ export class FieldReadonlyServiceAdapter
         params: { tableId },
       })
       .then(() => undefined);
+  }
+
+  async authorizeComputedActivityDocuments(tableId: string, ids: string[]): Promise<void> {
+    // A global table document cannot be safely projected for individual subscribers.
+    if (ids.includes('table'))
+      throw new ForbiddenException('Computed activity aggregate is private');
+    if (!ids.length) return;
+    const shareId = this.cls.get('shareViewId');
+    if (shareId && !this.cls.get('baseShareId')) {
+      await this.authorizeComputedActivityRead(tableId);
+    }
+    const snapshots = await this.getSnapshotBulk(tableId, ids);
+    const readable = new Set(
+      snapshots
+        .filter(
+          (snapshot: {
+            id: string;
+            data?: { recordRead?: boolean; computedActivityRead?: boolean };
+          }) =>
+            snapshot.data &&
+            snapshot.data.recordRead !== false &&
+            snapshot.data.computedActivityRead !== false
+        )
+        .map((snapshot: { id: string }) => snapshot.id)
+    );
+    if (ids.some((id) => !readable.has(id))) {
+      throw new ForbiddenException('Computed activity permission not allowed');
+    }
   }
 
   getVersionAndType(tableId: string, fieldId: string) {

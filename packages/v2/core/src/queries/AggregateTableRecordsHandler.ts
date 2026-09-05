@@ -136,6 +136,7 @@ export class AggregateTableRecordsHandler
             {
               maxGroupPoints: query.maxGroupPoints,
               search: visibleRowSearch,
+              searchAccessPath: query.recordSearchAccessPath,
             }
           );
           const groupedRows = groupedValues
@@ -186,6 +187,7 @@ export class AggregateTableRecordsHandler
           {
             maxGroupPoints: query.maxGroupPoints,
             search: visibleRowSearch,
+            searchAccessPath: query.recordSearchAccessPath,
             ...(pagination ? { pagination } : {}),
             ...(orderBy ? { orderBy } : {}),
           }

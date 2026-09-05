@@ -12,6 +12,7 @@ import { PerformanceCacheService } from '../performance-cache';
 import type { IClsStore } from '../types/cls';
 import { Timing } from '../utils/timing';
 import { authMiddleware } from './auth.middleware';
+import { computedActivityAuthMiddleware } from './computed-activity-auth.middleware';
 import type { IRawOpMap } from './interface';
 import { RealtimeMetricsService } from './metrics/realtime-metrics.service';
 import { RepairAttachmentOpService } from './repair-attachment-op/repair-attachment-op.service';
@@ -73,6 +74,7 @@ export class ShareDbService extends ShareDBClass {
     }
 
     authMiddleware(this, this.sessionHandleService);
+    computedActivityAuthMiddleware(this, this.shareDbAdapter);
     this.use('submit', this.onSubmit);
 
     // broadcast raw op events to client

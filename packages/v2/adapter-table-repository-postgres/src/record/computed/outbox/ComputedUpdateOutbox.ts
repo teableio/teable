@@ -40,6 +40,8 @@ import type { DirtyRecordStats } from '../ComputedFieldUpdater';
 import { toErrorLogFields } from '../errorLog';
 import { buildComputedTaskNotPausedCondition } from '../pause/ComputedUpdatePauseRegistry';
 import { COMPUTED_UPDATE_PAUSE_SCOPE_TABLE } from '../pause/IComputedUpdatePauseRegistry';
+import { isComputedReliabilityEnabled } from '../reliability/config';
+import { PostgresComputedReliabilityStore } from '../reliability/PostgresComputedReliabilityStore';
 import {
   createComputedOutboxWakeup,
   noopComputedOutboxWakeupPublisher,
@@ -828,7 +830,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     trx: Kysely<DynamicDB> | Transaction<DynamicDB>,
     params: {
       taskId: string;
-      task: ComputedUpdateOutboxTaskInput;
+      task: Pick<ComputedUpdateOutboxTaskInput, 'baseId' | 'seedTableId' | 'affectedTableIds'>;
       relayClaim: NonNullable<EnqueueOrMergeOptions['relayClaim']>;
       now: Date;
       /**
@@ -923,12 +925,16 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
   async enqueueFieldBackfill(
     task: FieldBackfillOutboxTaskInput,
-    context?: IExecutionContext
-  ): Promise<Result<{ taskId: string; merged: boolean }, DomainError>> {
+    context?: IExecutionContext,
+    options?: Pick<EnqueueOrMergeOptions, 'relayClaim'>
+  ): Promise<
+    Result<{ taskId: string; merged: boolean; claimed?: AnyOutboxItem | null }, DomainError>
+  > {
     const span = context?.tracer?.startSpan('teable.outbox.enqueueFieldBackfill', {
       'outbox.baseId': task.baseId,
       'outbox.tableId': task.tableId,
       'outbox.fieldCount': task.fieldIds.length,
+      'outbox.relayClaimRequested': Boolean(options?.relayClaim),
     });
 
     const executeEnqueue = async (): Promise<Result<ActivityEnqueueOutcome, DomainError>> => {
@@ -1006,6 +1012,32 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               context
             );
             if (projected.isErr()) return err(projected.error);
+            if (options?.relayClaim) {
+              const relayResult = await this.tryRelayClaimInserted(
+                trx,
+                {
+                  taskId,
+                  task: {
+                    baseId: task.baseId,
+                    seedTableId: task.tableId,
+                    affectedTableIds: [task.tableId],
+                  },
+                  relayClaim: options.relayClaim,
+                  now,
+                },
+                context
+              );
+              if (relayResult.isErr()) return err(relayResult.error);
+              if (relayResult.value) {
+                return ok({
+                  taskId,
+                  merged: false,
+                  activity: projected.value.activity,
+                  claimed: relayResult.value.claimed,
+                  claimActivity: relayResult.value.activity,
+                });
+              }
+            }
             return ok({ taskId, merged: false, activity: projected.value.activity });
           }
 
@@ -1106,6 +1138,8 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       }
       if (result.isErr()) return err(result.error);
       await this.publishActivityChanged(result.value.activity, context);
+      await this.publishActivityChanged(result.value.claimActivity, context);
+      span?.setAttribute('outbox.relayClaimed', Boolean(result.value.claimed));
       await this.scheduleWakeup(
         {
           taskId: result.value.taskId,
@@ -1114,7 +1148,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         },
         context
       );
-      return ok({ taskId: result.value.taskId, merged: result.value.merged });
+      return ok({
+        taskId: result.value.taskId,
+        merged: result.value.merged,
+        ...(result.value.claimed ? { claimed: result.value.claimed } : {}),
+      });
     } finally {
       span?.end();
     }
@@ -1887,7 +1925,6 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             context
           );
           if (activityResult.isErr()) return err(activityResult.error);
-
           return ok({ task: claimed, activity: activityResult.value });
         },
         {
@@ -2212,6 +2249,22 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
           await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
 
+          if (fieldErrors?.length && isComputedReliabilityEnabled(String(deleted[0].base_id))) {
+            const reliability = new PostgresComputedReliabilityStore(trx);
+            await reliability.recordFailure({
+              taskId,
+              baseId: String(deleted[0].base_id),
+              sourceTableId: String(deleted[0].seed_table_id),
+              error: fieldErrors.map((item) => item.error.message).join('; '),
+              errorCode: fieldErrors.length === 1 ? fieldErrors[0].error.code : undefined,
+              fieldIds: fieldErrors.map((item) => item.fieldId),
+              targets: fieldErrors.flatMap((item) => {
+                const tableId = item.error.context?.tableId;
+                return typeof tableId === 'string' ? [{ tableId, fieldId: item.fieldId }] : [];
+              }),
+            });
+          }
+
           await this.insertRunHistory(
             trx,
             deleted[0] as unknown as Record<string, unknown>,
@@ -2505,6 +2558,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             .returning(['id'])
             .execute();
           const deadLetterTaskIds = deadDeleted.map((row) => String(row.id));
+
           if (deleted.length === 0) return ok({ taskIds: [], deadLetterTaskIds });
 
           const taskIds = deleted.map((row) => String(row.id));
@@ -2831,7 +2885,13 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             const terminalActivity = await this.moveToDeadLetterInTrx(
               trx,
               task,
-              { nextAttempts, error, now, diagnostics: options.diagnostics },
+              {
+                nextAttempts,
+                error,
+                now,
+                diagnostics: options.diagnostics,
+                failureKind: options.failureKind,
+              },
               context
             );
             if (terminalActivity.isErr()) return err(terminalActivity.error);
@@ -2944,6 +3004,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       error: string;
       now: Date;
       diagnostics?: MarkFailedOptions['diagnostics'];
+      failureKind?: string;
     },
     context?: IExecutionContext
   ): Promise<Result<ComputedActivityProjectionResult | null, DomainError>> {
@@ -2962,6 +3023,27 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     });
 
     await trx.insertInto(DEAD_LETTER_TABLE).values(deadLetterValues).execute();
+    if (isComputedReliabilityEnabled(task.baseId)) {
+      // The legacy resolver guesses the seed table for affected fields when steps
+      // are missing. Durable evidence must only use explicit placements or refs.
+      const hasExplicitTargets =
+        isFieldBackfillOutboxItem(task) || (!isSeedOutboxItem(task) && task.steps.length > 0);
+      const targets = hasExplicitTargets ? resolveFieldTargetsFromOutboxItem(task) : ok([]);
+      await new PostgresComputedReliabilityStore(trx).recordFailure({
+        taskId: task.id,
+        baseId: task.baseId,
+        sourceTableId: isFieldBackfillOutboxItem(task) ? task.tableId : task.seedTableId,
+        error,
+        failureKind: diagnostics?.failure.kind ?? params.failureKind,
+        failurePhase: diagnostics?.failure.phase,
+        targets: targets.isOk()
+          ? targets.value.map((target) => ({
+              tableId: target.tableId.toString(),
+              fieldId: target.fieldId.toString(),
+            }))
+          : [],
+      });
+    }
 
     await trx.deleteFrom(OUTBOX_TABLE).where('id', '=', task.id).execute();
     await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', task.id).execute();

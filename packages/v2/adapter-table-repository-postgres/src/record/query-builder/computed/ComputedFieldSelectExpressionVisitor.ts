@@ -71,6 +71,7 @@ export type LateralColumnType =
       type: 'lookup';
       foreignFieldId: FieldId;
       isMultiValue: boolean;
+      isUnique?: boolean;
       orderBy?: LinkOrderBy;
       condition?: FieldCondition;
     }
@@ -86,6 +87,7 @@ export type LateralColumnType =
       foreignFieldId: FieldId;
       condition: FieldCondition;
       isMultiValue: boolean;
+      isUnique?: boolean;
     }
   | {
       type: 'conditionalRollup';
@@ -418,36 +420,38 @@ export class ComputedFieldSelectExpressionVisitor
       }
       const formulaIsMultiple = isMultipleResult.value;
 
-      // Note: Formula fields can be scalar or array (jsonb) depending on their inferred result type.
-      // Only unwrap arrays when the formula field itself is scalar.
-      let finalValueSql: string;
+      const typedSql = translator.renderExpression(expr, (expr) => {
+        // Note: Formula fields can be scalar or array (jsonb) depending on their inferred result type.
+        // Only unwrap arrays when the formula field itself is scalar.
+        let finalValueSql: string;
 
-      if (expr.storageKind === 'json' && this.shouldExtractJsonDisplay(expr)) {
-        if (formulaIsMultiple) {
-          finalValueSql = this.extractJsonArrayToTextJsonb(expr.valueSql);
-        } else if (expr.isArray) {
+        if (expr.storageKind === 'json' && this.shouldExtractJsonDisplay(expr)) {
+          if (formulaIsMultiple) {
+            finalValueSql = this.extractJsonArrayToTextJsonb(expr.valueSql);
+          } else if (expr.isArray) {
+            finalValueSql = this.unwrapFormulaArrayToScalar(expr.valueSql, expr.valueType);
+          } else {
+            finalValueSql = extractJsonScalarText(`(${expr.valueSql})::jsonb`);
+          }
+        } else if (expr.isArray && !formulaIsMultiple) {
           finalValueSql = this.unwrapFormulaArrayToScalar(expr.valueSql, expr.valueType);
+        } else if (expr.storageKind === 'json' && !formulaIsMultiple) {
+          finalValueSql = this.unwrapFormulaJsonScalar(expr.valueSql, expr.valueType);
         } else {
-          finalValueSql = extractJsonScalarText(`(${expr.valueSql})::jsonb`);
+          finalValueSql = expr.valueSql;
         }
-      } else if (expr.isArray && !formulaIsMultiple) {
-        finalValueSql = this.unwrapFormulaArrayToScalar(expr.valueSql, expr.valueType);
-      } else if (expr.storageKind === 'json' && !formulaIsMultiple) {
-        finalValueSql = this.unwrapFormulaJsonScalar(expr.valueSql, expr.valueType);
-      } else {
-        finalValueSql = expr.valueSql;
-      }
 
-      const fieldValueTypeResult = field.accept(new FieldValueTypeVisitor());
-      if (
-        fieldValueTypeResult.isOk() &&
-        !formulaIsMultiple &&
-        fieldValueTypeResult.value.cellValueType.equals(CellValueType.number())
-      ) {
-        finalValueSql = `NULLIF(BTRIM((${finalValueSql})::text), '')::double precision`;
-      }
+        const fieldValueTypeResult = field.accept(new FieldValueTypeVisitor());
+        if (
+          fieldValueTypeResult.isOk() &&
+          !formulaIsMultiple &&
+          fieldValueTypeResult.value.cellValueType.equals(CellValueType.number())
+        ) {
+          finalValueSql = `NULLIF(BTRIM((${finalValueSql})::text), '')::double precision`;
+        }
 
-      const typedSql = guardValueSql(finalValueSql, expr.errorConditionSql);
+        return guardValueSql(finalValueSql, expr.errorConditionSql);
+      });
       return ok(sql.raw(typedSql).as(colAlias));
     });
   }
@@ -571,6 +575,7 @@ export class ComputedFieldSelectExpressionVisitor
         colAlias,
         {
           type: 'lookup',
+          isUnique: field.lookupOptions().isUnique(),
           foreignFieldId: field.lookupFieldId(),
           isMultiValue: this.forceLookupArrayOutput ? true : isMultiValue,
           orderBy: orderByResult.value,
@@ -679,6 +684,7 @@ export class ComputedFieldSelectExpressionVisitor
           colAlias,
           {
             type: 'conditionalLookup',
+            isUnique: options.isUnique(),
             foreignFieldId: options.lookupFieldId(),
             condition: options.condition(),
             isMultiValue: multiplicity.isMultiple(),

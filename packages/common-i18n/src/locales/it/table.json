@@ -338,6 +338,7 @@
       "filterByView": "Filtra record per vista",
       "filter": "Filtra record",
       "hideFields": "Nascondi campi",
+      "removeDuplicateValues": "Rimuovi valori duplicati",
       "moreOptions": "Altre opzioni",
       "allowNewOptionsWhenEditing": "Consenti nuove opzioni durante la modifica",
       "deleteField": {
@@ -921,6 +922,9 @@
   },
   "import": {
     "title": {
+      "createTable": "Crea tabella",
+      "importFromCsv": "Importa da CSV",
+      "importFromExcel": "Importa da Excel",
       "upload": "Carica",
       "import": "Importa",
       "localFile": "File Locali",

@@ -1,3 +1,4 @@
+import { SortFunc } from '@teable/core';
 import {
   AggregateTableRecordsQuery,
   AggregateTableRecordsResult,
@@ -99,14 +100,71 @@ describe('AggregationOpenApiV2Service', () => {
     const createContext = vi.fn().mockResolvedValue({
       actorId: { toString: () => `usr${'u'.repeat(16)}` },
     });
+    const resolveForRecordSearch = vi.fn().mockResolvedValue(undefined);
     const service = new AggregationOpenApiV2Service(
       { getContainerForTable } as never,
       { createContext } as never,
-      { maxGroupPoints: 5_000 } as never
+      { maxGroupPoints: 5_000 } as never,
+      { resolveForRecordSearch } as never
     );
 
-    return { service, queries, queryBus, getContainerForTable, pluginRunner };
+    return {
+      service,
+      queries,
+      queryBus,
+      getContainerForTable,
+      pluginRunner,
+      resolveForRecordSearch,
+    };
   };
+
+  it.each(['count', 'aggregation', 'groups'] as const)(
+    'resolves the trusted runtime search path for %s',
+    async (kind) => {
+      const fixture = createFixture();
+      const accessPath = {
+        kind: 'generated_text',
+        generatedColumnName: '__search_document',
+        provider: 'pg_trgm',
+        searchScope: 'all_fields',
+        coveredFieldIds: [primaryFieldId],
+      };
+      fixture.resolveForRecordSearch.mockResolvedValue(accessPath);
+      const search: [string, string, boolean] = ['order', '', true];
+      if (kind === 'count') {
+        await fixture.service.tryGetRowCount(tableId, { viewId, search });
+      } else if (kind === 'aggregation') {
+        await fixture.service.tryGetAggregation(tableId, { viewId, search });
+      } else {
+        await fixture.service.tryGetGroupPoints(tableId, {
+          viewId,
+          search,
+          groupBy: [{ fieldId, order: SortFunc.Asc }],
+        });
+      }
+      expect(fixture.resolveForRecordSearch).toHaveBeenCalledWith({
+        container: await fixture.getContainerForTable.mock.results[0].value,
+        tableId,
+        search,
+      });
+      const query = fixture.queries.find(
+        (item) =>
+          item instanceof CountTableRecordsQuery || item instanceof AggregateTableRecordsQuery
+      );
+      expect(query).toHaveProperty('recordSearchAccessPath', accessPath);
+    }
+  );
+
+  it('does not resolve an aggregate access path before the plugin scope fallback', async () => {
+    const fixture = createFixture({ pluginScope: { fieldMasks: [{}] } });
+    await expect(
+      fixture.service.tryGetAggregation(tableId, {
+        viewId,
+        search: ['order', '', true],
+      })
+    ).resolves.toBeUndefined();
+    expect(fixture.resolveForRecordSearch).not.toHaveBeenCalled();
+  });
 
   it('falls back for aggregation without a viewId', async () => {
     const fixture = createFixture();

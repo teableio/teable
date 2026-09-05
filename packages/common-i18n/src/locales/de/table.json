@@ -333,6 +333,7 @@
       "filterByView": "Datensätze nach Ansicht filtern",
       "filter": "Datensätze filtern",
       "hideFields": "Felder verstecken",
+      "removeDuplicateValues": "Doppelte Werte entfernen",
       "moreOptions": "Mehr Optionen",
       "allowNewOptionsWhenEditing": "Neue Optionen bei der Bearbeitung zulassen",
       "deleteField": {
@@ -916,6 +917,9 @@
   },
   "import": {
     "title": {
+      "createTable": "Tabelle erstellen",
+      "importFromCsv": "Aus CSV importieren",
+      "importFromExcel": "Aus Excel importieren",
       "upload": "Hochladen",
       "import": "Importieren",
       "localFile": "Lokale Dateien",

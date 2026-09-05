@@ -45,3 +45,34 @@ describe('ViewColumnMeta.applyPatches', () => {
     expect(result.changes).toEqual([]);
   });
 });
+
+describe('ViewColumnMeta.rehydrate', () => {
+  it('accepts persisted column maps without zod parsing', () => {
+    const fieldKey = fieldId.toString();
+    const raw = {
+      [fieldKey]: { order: 0, width: 180, extra: true },
+    };
+
+    const metadata = ViewColumnMeta.rehydrate(raw)._unsafeUnwrap();
+
+    expect(metadata.toDto()[fieldKey]).toEqual({ order: 0, width: 180, extra: true });
+  });
+
+  it('treats null as empty and rejects arrays', () => {
+    expect(ViewColumnMeta.rehydrate(null)._unsafeUnwrap().toDto()).toEqual({});
+    expect(ViewColumnMeta.rehydrate([]).isErr()).toBe(true);
+  });
+
+  it('rejects malformed entries while copying valid ones into a fresh object', () => {
+    const fieldKey = fieldId.toString();
+    expect(ViewColumnMeta.rehydrate({ [fieldKey]: { width: '180' } }).isErr()).toBe(true);
+    expect(ViewColumnMeta.rehydrate({ [fieldKey]: null }).isErr()).toBe(true);
+
+    const raw = { [fieldKey]: { order: 0, width: 180, extra: true } };
+    const metadata = ViewColumnMeta.rehydrate(raw)._unsafeUnwrap();
+    const dto = metadata.toDto();
+    raw[fieldKey]!.width = 1;
+    dto[fieldKey]!.width = 2;
+    expect(metadata.toDto()[fieldKey]).toEqual({ order: 0, width: 180, extra: true });
+  });
+});

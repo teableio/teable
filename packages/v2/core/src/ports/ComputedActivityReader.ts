@@ -1,8 +1,9 @@
 import type { Result } from 'neverthrow';
+import type { ComputeReliability } from '../domain/computed/ComputeReliability';
 
-import type { DomainError } from '../domain/shared/DomainError';
 import type { FieldComputeMetaDto } from '../domain/computed/FieldComputeMeta';
 import type { TableComputeMetaDto } from '../domain/computed/TableComputeMeta';
+import type { DomainError } from '../domain/shared/DomainError';
 import type { IExecutionContext } from './ExecutionContext';
 
 export type ComputeActivityAnomaly = {
@@ -30,11 +31,18 @@ export type ComputeActivityPauseDiagnostics = {
 };
 
 export type TableComputeActivitySnapshot = {
+  /** Internal scheduler signal; never serialized by the public mapper. */
+  reconciliationPerformed?: boolean;
+  /** SQL summary already uses the requested readable field scope. Never serialize this marker. */
+  reliabilityIsAccessScoped?: boolean;
+  observedAt?: string;
+  observationState?: 'available' | 'syncing' | 'unavailable';
   tableId: string;
   baseId: string;
   table: TableComputeMetaDto | null;
   fields: FieldComputeMetaDto[];
   diagnostics: {
+    reliability?: ComputeReliability;
     computeMode: 'server';
     executionState: 'running' | 'paused';
     activeFieldCount: number;
@@ -54,7 +62,12 @@ export interface IComputedActivityReader {
   getByTableId(
     context: IExecutionContext | undefined,
     tableId: string,
-    baseId?: string
+    baseId?: string,
+    options?: {
+      budgetMs?: number;
+      readableFieldIds?: readonly string[];
+      includePauseDiagnostics?: boolean;
+    }
   ): Promise<Result<TableComputeActivitySnapshot, DomainError>>;
 }
 

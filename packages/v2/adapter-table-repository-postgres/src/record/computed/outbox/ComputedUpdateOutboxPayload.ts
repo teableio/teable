@@ -43,6 +43,8 @@ export type ComputedDependencyEdgeDto = {
    * fall back to table-granular handling for such edges.
    */
   propagationTargetFieldIds?: string[];
+  /** Absent in old tasks; never infer complete provenance from fromFieldId. */
+  propagationSourceFieldIds?: string[];
   fromTableId: string;
   toTableId: string;
   linkFieldId?: string;
@@ -457,12 +459,45 @@ export const deserializeComputedUpdatePlan = (
                   const propagationTargetFieldIds =
                     targetFieldIdsResult.value.length > 0 ? targetFieldIdsResult.value : undefined;
 
+                  if (
+                    edge.propagationSourceFieldIds !== undefined &&
+                    !Array.isArray(edge.propagationSourceFieldIds)
+                  ) {
+                    return err(
+                      domainError.validation({
+                        message: 'Invalid propagationSourceFieldIds in outbox payload',
+                      })
+                    );
+                  }
+                  const sourceFieldIdsResult = (edge.propagationSourceFieldIds ?? []).reduce<
+                    Result<FieldId[], DomainError>
+                  >(
+                    (sourceAcc, rawId) =>
+                      sourceAcc.andThen((ids) => FieldId.create(rawId).map((id) => [...ids, id])),
+                    ok([])
+                  );
+                  if (sourceFieldIdsResult.isErr()) return err(sourceFieldIdsResult.error);
+                  const propagationSourceFieldIds = sourceFieldIdsResult.value.length
+                    ? sourceFieldIdsResult.value
+                    : undefined;
+                  if (
+                    propagationSourceFieldIds &&
+                    !propagationSourceFieldIds.some((id) => id.equals(fromFieldId))
+                  ) {
+                    return err(
+                      domainError.validation({
+                        message: 'Source provenance must contain fromFieldId',
+                      })
+                    );
+                  }
+
                   if (edge.linkFieldId) {
                     return FieldId.create(edge.linkFieldId).map((linkFieldId) => ({
                       linkFieldId,
                       fromFieldId,
                       toFieldId,
                       propagationTargetFieldIds,
+                      propagationSourceFieldIds,
                       fromTableId,
                       toTableId,
                       propagationMode: propagationMode ?? 'linkTraversal',
@@ -476,6 +511,7 @@ export const deserializeComputedUpdatePlan = (
                     fromFieldId,
                     toFieldId,
                     propagationTargetFieldIds,
+                    propagationSourceFieldIds,
                     fromTableId,
                     toTableId,
                     propagationMode: propagationMode ?? 'allTargetRecords',
@@ -546,6 +582,13 @@ const serializeSameTableBatch = (batch: SameTableBatch): SameTableBatchDto => ({
 const serializeEdge = (edge: ComputedDependencyEdge): ComputedDependencyEdgeDto => ({
   fromFieldId: edge.fromFieldId.toString(),
   toFieldId: edge.toFieldId.toString(),
+  ...(edge.propagationSourceFieldIds?.length
+    ? {
+        propagationSourceFieldIds: [
+          ...new Set(edge.propagationSourceFieldIds.map((id) => id.toString())),
+        ].sort(),
+      }
+    : {}),
   // Always emit targets (defaulting to toFieldId) so deserialized edges keep
   // field-granular target info; presence marks the info as trustworthy.
   propagationTargetFieldIds: [

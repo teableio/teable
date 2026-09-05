@@ -20,6 +20,7 @@ import {
   buildExtraSeedRecordsFromLinkChanges,
   buildLinkedRecordLocksFromLinkChanges,
   collectLinkChanges,
+  loadBatchExistingHostLinkIds,
   type RecordUpdateBuilderContext,
   type RecordUpdateSeedGroup,
 } from './RecordUpdateBuilder';
@@ -211,6 +212,10 @@ export class BatchRecordUpdateBuilder {
       const lastModifiedByJsonValue =
         lastModifiedByDbFieldNames.size > 0 ? buildLastModifiedByJsonValue(context) : undefined;
 
+      const existingLinkIds = context.assumeEmptyLinkState
+        ? undefined
+        : yield* await loadBatchExistingHostLinkIds({ db: builder.db, table, tableName, updates });
+
       for (const update of updates) {
         const recordIdStr = update.recordId.toString();
 
@@ -276,6 +281,7 @@ export class BatchRecordUpdateBuilder {
           recordId: recordIdStr,
           mutateSpec: update.mutateSpec,
           assumeEmptyLinkState: context.assumeEmptyLinkState,
+          existingLinkIds: existingLinkIds?.get(recordIdStr),
         });
         if (linkChangesResult.isErr()) {
           return err(linkChangesResult.error);

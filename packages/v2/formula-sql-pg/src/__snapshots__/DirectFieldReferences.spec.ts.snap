@@ -14,7 +14,7 @@ exports[`direct field references > direct reference to 'attachment' field 1`] = 
     },
   },
   "result": "10, 20",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
       FROM jsonb_array_elements((CASE
     WHEN "t"."Attachment" IS NULL THEN '[]'::jsonb
@@ -22,7 +22,7 @@ exports[`direct field references > direct reference to 'attachment' field 1`] = 
     WHEN jsonb_typeof(("t"."Attachment")::jsonb) = 'null' THEN '[]'::jsonb
     ELSE jsonb_build_array(("t"."Attachment")::jsonb)
   END)) WITH ORDINALITY AS arr(elem, ord)
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 

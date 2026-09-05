@@ -568,19 +568,13 @@
     "billable": "Facturable",
     "billableByAuthorityMatrix": "Facturation générée par la matrice d'autorités",
     "seatConfirm": {
-      "title": "Cette invitation augmentera le coût de votre abonnement",
-      "roleChangeTitle": "Ce changement de rôle augmentera le coût de votre abonnement",
       "matrixTitle": "L'ajout de membres augmentera le coût de votre abonnement",
-      "inviteDesc_one": "Le membre que vous invitez rejoindra avec le rôle {{role}} et occupera 1 siège de l'abonnement ; le coût augmentera en conséquence. S'il doit seulement consulter ou commenter, choisissez simplement le rôle gratuit Lecteur ou Commentateur.",
-      "inviteDesc_many": "Les {{count}} membres que vous invitez rejoindront avec le rôle {{role}} et occuperont {{count}} sièges de l'abonnement ; le coût augmentera en conséquence. S'ils doivent seulement consulter ou commenter, choisissez simplement le rôle gratuit Lecteur ou Commentateur.",
-      "inviteDesc_other": "Les {{count}} membres que vous invitez rejoindront avec le rôle {{role}} et occuperont {{count}} sièges de l'abonnement ; le coût augmentera en conséquence. S'ils doivent seulement consulter ou commenter, choisissez simplement le rôle gratuit Lecteur ou Commentateur.",
-      "linkDesc": "Les membres qui rejoignent via ce lien recevront le rôle {{role}} et occuperont chacun 1 siège de l'abonnement ; le coût augmentera au fil des arrivées. Pour une simple consultation ou des commentaires, choisissez simplement le rôle gratuit Lecteur ou Commentateur.",
-      "roleChangeDesc": "Après le passage au rôle {{role}}, ce membre occupera 1 siège de l'abonnement et le coût augmentera en conséquence.",
       "matrixDesc": "Ce membre a actuellement un rôle gratuit (Lecteur/Commentateur). Une fois ajouté à la matrice d'autorité, il occupera 1 siège de l'abonnement et le coût augmentera en conséquence.",
       "seatLimitTitle": "Sièges de licence insuffisants",
       "seatLimitDesc": "Cette instance utilise {{seats}} sièges sur {{seatLimit}} sous licence et il n'en reste pas assez pour cette action. Contactez votre administrateur pour acheter des sièges supplémentaires. Si la personne doit seulement consulter ou commenter, utilisez le rôle gratuit Lecteur ou Commentateur.",
       "seatLimitConfirm": "Compris",
-      "confirmInvite": "Confirmer et inviter"
+      "fixedSeatTitle": "Sièges insuffisants dans votre forfait",
+      "fixedSeatDesc": "Votre forfait comprend {{quantity}} sièges et {{seats}} sont déjà utilisés. En continuant, la limite de sièges sera dépassée et l'espace sera rétrogradé vers le forfait gratuit après un délai de grâce de 7 jours. Si la personne doit seulement consulter ou commenter, utilisez le rôle gratuit Lecteur ou Commentateur."
     },
     "licenseExpiredGracePeriod": "Votre licence auto-hébergée a expiré et sera rétrogradée au forfait gratuit le {{expiredTime}}. Veuillez mettre à jour votre licence rapidement pour conserver l'accès aux fonctionnalités premium.",
     "licenseAutoFetchFailed": "Échec du renouvellement automatique de la licence. Il reste {{days}} jour(s) de période de grâce avant la rétrogradation.",
@@ -1365,6 +1359,7 @@
               "title": "Tâche IA annulée",
               "rateLimit": "La tâche IA pour la table \"{{tableName}}\" a été annulée en raison d'une limitation de débit (429). Veuillez réessayer plus tard.",
               "creditExhausted": "La tâche IA pour la table \"{{tableName}}\" a été annulée car les crédits sont épuisés. Veuillez mettre à niveau votre abonnement ou attendre le renouvellement des crédits.",
+              "providerBilling": "La tâche IA de la table \"{{tableName}}\" a été annulée car le fournisseur du modèle a rejeté la requête pour des raisons de facturation. Veuillez vérifier le solde et l'état de facturation du compte associé à la clé API configurée pour ce modèle. Erreur : {{errorMessage}}",
               "authFailed": "La tâche IA pour la table \"{{tableName}}\" a été annulée en raison d'un échec d'authentification. Veuillez vérifier la configuration de votre clé API.",
               "serviceUnavailable": "La tâche IA pour la table \"{{tableName}}\" a été annulée car le service IA est temporairement indisponible. Veuillez réessayer plus tard.",
               "unknown": "La tâche IA pour la table \"{{tableName}}\" a été annulée. Erreur : {{errorMessage}}"
@@ -1683,5 +1678,9 @@
     "more_one": "{{count}} autre annonce",
     "more_many": "{{count}} autres annonces",
     "more_other": "{{count}} autres annonces"
+  },
+  "mobileEmbed": {
+    "pickFromDirectory": "Choisissez un élément dans le répertoire",
+    "pickFromDirectoryHint": "Ouvrez une table, un tableau de bord ou une automatisation depuis le répertoire : il apparaîtra ici."
   }
 }

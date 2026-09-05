@@ -451,6 +451,8 @@ describe('Auth Controller (e2e)', () => {
       }),
       {
         name: 'test-delete-user-table',
+        // The API no longer seeds default records (T6947); the comment below needs a row.
+        records: [{ fields: {} }, { fields: {} }, { fields: {} }],
       }
     );
     const tableId = table.data.id;

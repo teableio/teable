@@ -49,7 +49,8 @@
     "previewFileLimit": "Größenbeschränkung der Vorschaudatei: {{size}}MB, bitte laden Sie die Datei herunter, um sie anzusehen.",
     "loadFileError": "Datei konnte nicht geladen werden",
     "previousAttachment": "Vorherige",
-    "nextAttachment": "Nächste"
+    "nextAttachment": "Nächste",
+    "deleteAttachment": "Löschen"
   },
   "undoRedo": {
     "undo": "Rückgängig machen",
@@ -1339,7 +1340,10 @@
       "exceedMaxAutomationRunLimit": "Maximale monatliche Anzahl von Automatisierungsausführungen erreicht",
       "manualSubscriptionNotSupported": "Self-Service-Abonnement ist für diesen Space nicht verfügbar. Für Upgrades, Downgrades oder andere Abonnementänderungen wenden Sie sich bitte an den Teable-Support.",
       "appSumoSubscriptionNotSupported": "AppSumo-Abonnements können über diese Oberfläche nicht geändert werden. Bitte verwalten Sie Ihr Abonnement auf AppSumo.",
-      "customerNotFound": "Kein Abrechnungskundendatensatz für diesen Space gefunden."
+      "planNotAvailable": "Dieser Plan ist für neue Abonnements nicht mehr verfügbar.",
+      "seatLimitExceeded": "Nicht genügend gekaufte Sitzplätze. Fügen Sie Sitzplätze hinzu, um weitere Mitarbeiter einzuladen.",
+      "customerNotFound": "Kein Abrechnungskundendatensatz für diesen Space gefunden.",
+      "creditAddOnRetired": "Das wiederkehrende Guthaben-Add-on wurde eingestellt. Wählen Sie stattdessen eine größere Guthabenstufe in Ihrem Tarif."
     },
     "aggregation": {
       "searchQueryRequired": "Suchanfrage ist erforderlich",

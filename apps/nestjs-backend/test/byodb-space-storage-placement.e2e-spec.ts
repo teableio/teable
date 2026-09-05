@@ -118,9 +118,13 @@ const dataPlaneSystemTables = [
   'computed_update_run_history',
   'computed_update_pause_scope',
   'computed_update_stage_ledger',
+  'computed_update_change_frontier',
   'computed_field_activity',
   'computed_table_activity',
   'computed_task_field_ref',
+  'computed_reliability_issue',
+  'computed_reliability_scope',
+
   'record_history',
   'table_trash',
   'record_trash',

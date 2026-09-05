@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../domain/base/BaseId';
+import type { Field } from '../domain/table/fields/Field';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import { ConditionalLookupField } from '../domain/table/fields/types/ConditionalLookupField';
+import { ConditionalLookupOptions } from '../domain/table/fields/types/ConditionalLookupOptions';
 import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
 import { LinkRelationship } from '../domain/table/fields/types/LinkRelationship';
+import { LookupField } from '../domain/table/fields/types/LookupField';
 import { LookupOptions } from '../domain/table/fields/types/LookupOptions';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
 import { SingleLineTextField } from '../domain/table/fields/types/SingleLineTextField';
+import { UserField } from '../domain/table/fields/types/UserField';
 import { RecordId } from '../domain/table/records/RecordId';
 import { TableRecord } from '../domain/table/records/TableRecord';
 import { TableRecordCellValue } from '../domain/table/records/TableRecordFields';
@@ -56,7 +61,7 @@ const buildTable = () => {
   return builder.build()._unsafeUnwrap();
 };
 
-const buildTextLookupTable = () => {
+const buildTextLookupTable = (innerField?: Field) => {
   const foreignTableId = TableId.create(`tbl${'l'.repeat(16)}`)._unsafeUnwrap();
   const foreignFieldId = fieldId('m');
   const linkId = fieldId('n');
@@ -89,10 +94,11 @@ const buildTextLookupTable = () => {
     .withId(lookupId)
     .withName(FieldName.create('Lookup Text')._unsafeUnwrap())
     .withInnerField(
-      SingleLineTextField.create({
-        id: foreignFieldId,
-        name: FieldName.create('Foreign Text')._unsafeUnwrap(),
-      })._unsafeUnwrap()
+      innerField ??
+        SingleLineTextField.create({
+          id: foreignFieldId,
+          name: FieldName.create('Foreign Text')._unsafeUnwrap(),
+        })._unsafeUnwrap()
     )
     .withLookupOptions(
       LookupOptions.create({
@@ -749,6 +755,76 @@ describe('RecordFilterMapper', () => {
         { fieldId: titleField.id().toString(), operator: 'is', value: 'Me' },
       ],
     });
+  });
+
+  it.each(['user', 'nested lookup', 'conditional lookup'] as const)(
+    'replaces current-user tags through a lookup wrapping %s',
+    (kind) => {
+      const user = UserField.create({
+        id: fieldId('u'),
+        name: FieldName.create('Assignee')._unsafeUnwrap(),
+      })._unsafeUnwrap();
+      const foreignTableId = TableId.create(`tbl${'v'.repeat(16)}`)._unsafeUnwrap();
+      let innerField: Field = user;
+      if (kind === 'nested lookup') {
+        innerField = LookupField.create({
+          id: fieldId('w'),
+          name: FieldName.create('Nested assignee')._unsafeUnwrap(),
+          innerField: user,
+          lookupOptions: LookupOptions.create({
+            foreignTableId: foreignTableId.toString(),
+            lookupFieldId: user.id().toString(),
+            linkFieldId: fieldId('x').toString(),
+          })._unsafeUnwrap(),
+        })._unsafeUnwrap();
+      } else if (kind === 'conditional lookup') {
+        innerField = ConditionalLookupField.create({
+          id: fieldId('w'),
+          name: FieldName.create('Conditional assignee')._unsafeUnwrap(),
+          innerField: user,
+          conditionalLookupOptions: ConditionalLookupOptions.create({
+            foreignTableId: foreignTableId.toString(),
+            lookupFieldId: user.id().toString(),
+            condition: {
+              filter: {
+                conjunction: 'and',
+                filterSet: [{ fieldId: user.id().toString(), operator: 'isNotEmpty', value: null }],
+              },
+            },
+          })._unsafeUnwrap(),
+        })._unsafeUnwrap();
+      }
+      const { table, lookupId } = buildTextLookupTable(innerField);
+      const filter: RecordFilter = {
+        conjunction: 'and',
+        items: [
+          { fieldId: lookupId.toString(), operator: 'hasAnyOf', value: ['Me', 'usrOther'] },
+          { not: { fieldId: lookupId.toString(), operator: 'is', value: 'Me' } },
+        ],
+      };
+      expect(replaceCurrentUserTagInFilter(table, filter, 'usrCurrent')).toEqual({
+        conjunction: 'and',
+        items: [
+          { fieldId: lookupId.toString(), operator: 'hasAnyOf', value: ['usrCurrent', 'usrOther'] },
+          { not: { fieldId: lookupId.toString(), operator: 'is', value: 'usrCurrent' } },
+        ],
+      });
+      expect(filter.items[0]).toEqual({
+        fieldId: lookupId.toString(),
+        operator: 'hasAnyOf',
+        value: ['Me', 'usrOther'],
+      });
+    }
+  );
+
+  it('preserves the literal current-user tag in a text lookup filter', () => {
+    const { table, lookupId } = buildTextLookupTable();
+    const filter: RecordFilter = {
+      fieldId: lookupId.toString(),
+      operator: 'hasAnyOf',
+      value: ['Me'],
+    };
+    expect(replaceCurrentUserTagInFilter(table, filter, 'usrCurrent')).toEqual(filter);
   });
 
   it('does not invert hidden text lookup doesNotContain empty string under NOT', () => {

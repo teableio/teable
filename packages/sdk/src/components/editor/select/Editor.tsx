@@ -2,7 +2,7 @@ import { X } from '@teable/icons';
 import { Button, Popover, PopoverContent, PopoverTrigger, cn } from '@teable/ui-lib';
 import { keyBy } from 'lodash';
 import type { ForwardRefRenderFunction } from 'react';
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { SelectTag } from '../../cell-value/cell-select/SelectTag';
 import type { IEditorRef } from '../type';
 import type { ISelectEditorMain, ISelectValue } from './EditorMain';
@@ -16,6 +16,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
   const [open, setOpen] = useState(false);
   const selectRef = useRef<HTMLButtonElement>(null);
   const editorRef = useRef<IEditorRef<string | string[] | undefined>>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const optionsMap = useMemo(() => keyBy(options, 'value'), [options]);
   const arrayValue = isMultiple
@@ -29,6 +30,23 @@ const SelectEditorBase: ForwardRefRenderFunction<
       : [];
 
   const displayOptions = arrayValue?.map((value) => optionsMap[value as string]).filter(Boolean);
+
+  // Nested modal Popover sets ExpandRecord DialogContent to pointer-events:none
+  // (T7102). Dialog also preventDefaults interact-outside, so Radix dismiss
+  // cannot close the list — match DateEditor and listen in capture phase.
+  useEffect(() => {
+    if (!open) return;
+
+    const handlePointerDown = (e: PointerEvent) => {
+      const target = e.target as Node | null;
+      if (target && !contentRef.current?.contains(target) && !selectRef.current?.contains(target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () => document.removeEventListener('pointerdown', handlePointerDown, true);
+  }, [open]);
 
   useImperativeHandle(ref, () => ({
     focus: () => editorRef.current?.focus?.(),
@@ -88,11 +106,15 @@ const SelectEditorBase: ForwardRefRenderFunction<
       {readonly ? (
         triggerContent
       ) : (
-        <Popover open={open} onOpenChange={setOpen} modal>
+        <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger ref={selectRef} asChild>
             {triggerContent}
           </PopoverTrigger>
-          <PopoverContent className="p-0" style={{ width: selectRef.current?.offsetWidth || 0 }}>
+          <PopoverContent
+            ref={contentRef}
+            className="p-0"
+            style={{ width: selectRef.current?.offsetWidth || 0 }}
+          >
             <SelectEditorMain ref={editorRef} {...props} onChange={onChangeInner} />
           </PopoverContent>
         </Popover>

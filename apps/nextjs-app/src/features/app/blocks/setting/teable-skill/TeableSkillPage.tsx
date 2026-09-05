@@ -9,7 +9,7 @@ export const TeableSkillPage = () => {
 
   return (
     <SettingRight
-      contentClassName="py-0"
+      contentClassName="py-6"
       header={<SettingRightTitle title={t('common:settings.setting.teableSkill')} />}
     >
       <TeableSkillContent />

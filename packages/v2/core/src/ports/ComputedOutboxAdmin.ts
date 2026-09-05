@@ -65,6 +65,11 @@ export interface IComputedOutboxAdmin {
     input: { spaceId: string; reason?: string; durationMinutes?: number; actor: string | null }
   ): Promise<Result<ComputedOutboxPauseScope, DomainError>>;
 
+  extendPause(
+    context: IExecutionContext,
+    input: { targetId: string; leaseId: string; durationMinutes: number; actor: string | null }
+  ): Promise<Result<ComputedOutboxPauseScope, DomainError>>;
+
   resumeScope(
     context: IExecutionContext,
     input: { targetId: string; scopeType: ComputedOutboxPauseScopeType; scopeId: string }
