@@ -49,7 +49,8 @@
     "previewFileLimit": "预览暂不支持{{size}}MB以上的附件, 请下载后预览",
     "loadFileError": "加载文件失败",
     "previousAttachment": "上一项",
-    "nextAttachment": "下一项"
+    "nextAttachment": "下一项",
+    "deleteAttachment": "删除"
   },
   "undoRedo": {
     "undo": "撤销",
@@ -1335,7 +1336,10 @@
       "exceedMaxAutomationRunLimit": "已触及自动化每月最大运行次数",
       "manualSubscriptionNotSupported": "此空间不支持自助订阅操作，如需升级、降级或其他订阅变更，请联系官方支持。",
       "appSumoSubscriptionNotSupported": "AppSumo 订阅无法通过此界面修改，请前往 AppSumo 管理您的订阅。",
-      "customerNotFound": "未找到此空间的账单客户记录。"
+      "planNotAvailable": "该订阅方案已停止新购。",
+      "seatLimitExceeded": "已购席位不足，请增购席位后再邀请协作者。",
+      "customerNotFound": "未找到此空间的账单客户记录。",
+      "creditAddOnRetired": "按月增购算力包已停售，请改为在套餐中选择更大的算力档位。"
     },
     "aggregation": {
       "searchQueryRequired": "搜索查询是必需的",

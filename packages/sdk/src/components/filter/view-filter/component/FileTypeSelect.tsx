@@ -4,6 +4,7 @@ import { BaseSingleSelect } from './base';
 interface IFileTypeSelectProps {
   value: string | null;
   onSelect: (value: string | null) => void;
+  className?: string;
 }
 
 const typeOptions = [
@@ -13,14 +14,14 @@ const typeOptions = [
 
 function FileTypeSelect(props: IFileTypeSelectProps) {
   const { t } = useTranslation();
-  const { value, onSelect } = props;
+  const { value, onSelect, className } = props;
   return (
     <BaseSingleSelect
       value={value}
       onSelect={onSelect}
       options={typeOptions}
       drawerTitle={t('filter.selectValue')}
-      className="w-40"
+      className={className ?? 'w-40'}
     />
   );
 }

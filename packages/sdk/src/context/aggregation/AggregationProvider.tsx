@@ -87,12 +87,13 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children, q
     enabled: Boolean(tableId && visible),
     common: {
       queryKey: commonQueryKey,
-      queryFn: () => getAggregation(tableId as string, aggQuery).then((data) => data.data),
+      queryFn: ({ signal }) =>
+        getAggregation(tableId as string, aggQuery, { signal }).then((data) => data.data),
     },
     share: {
       queryKey: shareQueryKey,
-      queryFn: () =>
-        getShareViewAggregations(shareId as string, aggQuery).then((data) => data.data),
+      queryFn: ({ signal }) =>
+        getShareViewAggregations(shareId as string, aggQuery, { signal }).then((data) => data.data),
     },
   });
 

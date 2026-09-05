@@ -1,6 +1,7 @@
 import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
+import { publicComputeError } from '../../domain/computed/ComputeReliability';
 
 import {
   ComputedActivityBatchChanged,
@@ -41,7 +42,9 @@ export const mapFieldComputeActivityToRealtime = (field: FieldComputeMetaDto) =>
   generation: field.generation,
   startedAt: field.startedAt,
   lastDurationMs: field.lastDurationMs,
-  lastError: field.lastError,
+  lastError: publicComputeError(field.lastError),
+  reliability: field.reliability,
+  queuedAt: field.queuedAt,
   updatedAt: field.updatedAt,
   activeTaskCount: field.activeTaskCount,
   processingTaskCount: field.processingTaskCount,

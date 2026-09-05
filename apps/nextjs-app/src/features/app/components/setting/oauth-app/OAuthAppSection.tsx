@@ -8,7 +8,7 @@ import { OAuthAppEdit } from '@/features/app/blocks/setting/oauth-app/manage/OAu
 import { OAuthAppNew } from '@/features/app/blocks/setting/oauth-app/manage/OAuthAppNew';
 import { useInitializationZodI18n } from '@/features/app/hooks/useInitializationZodI18n';
 import { oauthAppConfig } from '@/features/i18n/oauth-app.config';
-import { SettingTabHeader, SettingTabShell } from '../SettingTabShell';
+import { SettingTabShell } from '../SettingTabShell';
 
 type IFormType = 'new' | 'edit';
 
@@ -42,43 +42,40 @@ export const OAuthAppSection = () => {
 
   return (
     <SettingTabShell
-      header={
-        <SettingTabHeader
-          leading={
-            formType ? (
-              <Button variant="ghost" size="icon-xs" onClick={onBack}>
-                <ChevronLeft className="size-4 shrink-0" />
-              </Button>
-            ) : undefined
-          }
-          title={title}
-          description={
-            !formType ? (
-              <Trans
-                ns="oauth"
-                i18nKey="title.description"
-                components={{
-                  a: (
-                    <Link
-                      href={t('oauth:help.link')}
-                      className="text-violet-500 underline underline-offset-4"
-                      target="_blank"
-                    />
-                  ),
-                }}
-              />
-            ) : undefined
-          }
-          actions={
-            !formType ? (
-              <Button size="xs" onClick={() => setViewState({ formType: 'new' })}>
-                <Plus className="size-4 shrink-0" />
-                {t('oauth:add')}
-              </Button>
-            ) : undefined
-          }
-        />
+      leading={
+        formType ? (
+          <Button variant="ghost" size="icon-xs" onClick={onBack}>
+            <ChevronLeft className="size-4 shrink-0" />
+          </Button>
+        ) : undefined
       }
+      title={title}
+      description={
+        !formType ? (
+          <Trans
+            ns="oauth"
+            i18nKey="title.description"
+            components={{
+              a: (
+                <Link
+                  href={t('oauth:help.link')}
+                  className="text-violet-500 underline underline-offset-4"
+                  target="_blank"
+                />
+              ),
+            }}
+          />
+        ) : undefined
+      }
+      actions={
+        !formType ? (
+          <Button size="xs" onClick={() => setViewState({ formType: 'new' })}>
+            <Plus className="size-4 shrink-0" />
+            {t('oauth:add')}
+          </Button>
+        ) : undefined
+      }
+      mobileNavigation={!formType}
     >
       <div className="flex-1">
         {formType === 'new' && <OAuthAppNew onBack={onBack} />}

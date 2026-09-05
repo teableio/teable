@@ -178,7 +178,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
       const reader = container.resolve<IComputedActivityReader>(
         v2CoreTokens.computedActivityReader
       );
-      const result = await reader.getByTableId(undefined, tableId);
+      const result = await reader.getByTableId(undefined, tableId, undefined, { budgetMs: 2000 });
       if (result.isErr()) throw result.error;
 
       const documents: Record<string, { version: number; data: unknown }> = {};

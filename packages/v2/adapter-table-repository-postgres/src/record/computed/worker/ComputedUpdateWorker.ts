@@ -117,6 +117,8 @@ const RUN_TASK_BY_ID_CONTINUATION_BUDGET = 50;
  * dead letter), so a task starving on a hot key only surfaces through this warning.
  */
 const TASK_REQUEUE_STARVATION_WARN_AGE_MS = 5 * 60 * 1000;
+const FIELD_BACKFILL_OWNERSHIP_LOST = 'computed:worker:field_backfill_predecessor_ownership_lost';
+
 const maxComputedEventLogItems = 10;
 const maxComputedEventLogFieldIds = 20;
 const maxComputedEventLogRecordIds = 10;
@@ -666,8 +668,61 @@ const mergeSeedAllTableIdLists = (
  * const processed = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
  * ```
  */
+/** Exact source provenance is required before narrowing deferred link sources. */
+export const deferredValueFrontierFields = (
+  deferred: NonNullable<ComputedStagePlanSplit['deferred']>
+): Array<{ tableId: string; fieldIds: string[] }> => {
+  const sourceTables = [...new Set(deferred.edges.map((edge) => edge.fromTableId.toString()))];
+  return sourceTables.flatMap((tableId) => {
+    // Same-table deferred work can still read the original X in A=ROUND(X),
+    // B=A+X. Its record inputs must never be gated only by A's output.
+    if (deferred.steps.some((step) => step.tableId.toString() === tableId)) return [];
+    const edges = deferred.edges.filter((edge) => edge.fromTableId.toString() === tableId);
+    if (
+      edges.some(
+        (edge) =>
+          edge.propagationMode !== 'linkTraversal' ||
+          !edge.linkFieldId ||
+          edge.toTableId.equals(edge.fromTableId) ||
+          edge.filterCondition ||
+          !edge.propagationSourceFieldIds?.length
+      )
+    )
+      return [];
+    return [
+      {
+        tableId,
+        fieldIds: [
+          ...new Set(edges.flatMap((edge) => edge.propagationSourceFieldIds!.map(String))),
+        ],
+      },
+    ];
+  });
+};
+
+/** Only source tables whose scheduled outputs can gate a proven deferred edge. */
+export const stageValueFrontierTableIds = (split: {
+  deferred: ComputedStagePlanSplit['deferred'];
+  stagePlan: Pick<ComputedUpdatePlan, 'steps'>;
+}): string[] =>
+  split.deferred
+    ? deferredValueFrontierFields(split.deferred)
+        .filter((source) =>
+          source.fieldIds.every((fieldId) =>
+            split.stagePlan.steps.some(
+              (step) =>
+                step.tableId.toString() === source.tableId &&
+                step.fieldIds.some((id) => id.toString() === fieldId)
+            )
+          )
+        )
+        .map((source) => source.tableId)
+    : [];
+
 @injectable()
 export class ComputedUpdateWorker {
+  private nextValueFrontierMaintenanceAt = 0;
+  private valueFrontierMaintenanceCursor = '';
   constructor(
     @inject(v2RecordRepositoryPostgresTokens.computedUpdateOutbox)
     private readonly outbox: IComputedUpdateOutbox,
@@ -708,6 +763,20 @@ export class ComputedUpdateWorker {
             tracer: params.tracer,
             requestId: params.requestId,
           };
+
+          if (Date.now() >= this.nextValueFrontierMaintenanceAt) {
+            this.nextValueFrontierMaintenanceAt = Date.now() + 60_000;
+            const maintenance = await this.updater.cleanupValueFrontierOrphans(
+              baseContext,
+              this.valueFrontierMaintenanceCursor
+            );
+            if (maintenance.isOk())
+              this.valueFrontierMaintenanceCursor = maintenance.value.afterScope;
+            else
+              this.logger.warn('computed:value_frontier:cleanup_failed', {
+                message: maintenance.error.message,
+              });
+          }
 
           const claimed = yield* await this.outbox.claimBatch(
             {
@@ -1040,7 +1109,14 @@ export class ComputedUpdateWorker {
 
     const run = async (): Promise<Result<boolean, DomainError>> => {
       if (isFieldBackfillOutboxItem(task)) {
-        return this.processFieldBackfillTask(task, actorId, tracer, requestId, continuations);
+        return this.processFieldBackfillTask(
+          task,
+          actorId,
+          tracer,
+          requestId,
+          continuations,
+          relayWorkerId
+        );
       }
 
       if (isSeedOutboxItem(task)) {
@@ -1135,6 +1211,13 @@ export class ComputedUpdateWorker {
       return err(planResult.error);
     }
 
+    // Original mutation metadata is serialized separately from the plan body.
+    // Carry it into partial execution; absent/invalid legacy metadata cannot
+    // establish actual-value coverage.
+    const sourceFields = (sourceFieldIdsOf(computedTask) ?? []).map((id) => FieldId.create(id));
+    if (sourceFields.length && sourceFields.every((field) => field.isOk())) {
+      planResult.value.changedFieldIds = sourceFields.map((field) => field._unsafeUnwrap());
+    }
     const stageSplit = this.splitPlanForStageBudget(planResult.value, computedTask.dirtyStats);
     const stagePlan = stageSplit.stagePlan;
 
@@ -1755,7 +1838,8 @@ export class ComputedUpdateWorker {
     actorId: ActorId,
     tracer?: ITracer,
     requestId?: string,
-    continuations?: ContinuationRef[]
+    continuations?: ContinuationRef[],
+    relayWorkerId?: string
   ): Promise<Result<boolean, DomainError>> {
     const context: IExecutionContext = { actorId, tracer, requestId };
     const runLogContext = {
@@ -1865,6 +1949,7 @@ export class ComputedUpdateWorker {
         if (backfillResult.isErr()) return err(backfillResult.error);
 
         const batch = backfillResult.value.batch;
+        let pendingContinuation: ContinuationRef | undefined;
         if (batch?.hasMore && batch.lastRecordId) {
           const continuation = buildFieldBackfillTaskInput({
             baseId: table.baseId(),
@@ -1875,21 +1960,39 @@ export class ComputedUpdateWorker {
             estimatedRowCount: task.estimatedRowCount,
             cursor: batch.lastRecordId,
           });
-          const enqueueResult = await this.outbox.enqueueFieldBackfill(continuation, txContext);
+          const enqueueResult = await this.outbox.enqueueFieldBackfill(
+            continuation,
+            txContext,
+            relayWorkerId
+              ? { relayClaim: { workerId: relayWorkerId, predecessorTaskId: task.id } }
+              : undefined
+          );
           if (enqueueResult.isErr()) return err(enqueueResult.error);
-          continuations?.push({ taskId: enqueueResult.value.taskId });
+          pendingContinuation = {
+            taskId: enqueueResult.value.taskId,
+            ...(enqueueResult.value.claimed ? { claimed: enqueueResult.value.claimed } : {}),
+          };
         }
 
-        // Mark task as done
         const doneResult = await this.markTaskDone(task, txContext);
         if (doneResult.isErr()) return doneResult;
-        if (!doneResult.value) return ok(false);
+        if (!doneResult.value) {
+          // Roll back the relay-claimed continuation so another worker cannot
+          // process overlapping cursor batches after this lease is lost.
+          return err(domainError.infrastructure({ message: FIELD_BACKFILL_OWNERSHIP_LOST }));
+        }
+        if (pendingContinuation) {
+          continuations?.push(pendingContinuation);
+        }
 
         return ok(true);
       }
     );
 
     if (executeResult.isErr()) {
+      if (executeResult.error.message === FIELD_BACKFILL_OWNERSHIP_LOST) {
+        return ok(false);
+      }
       const failure = classifyComputedTaskFailure(executeResult.error);
       this.logger.error('computed:worker:field_backfill_failed', {
         taskId: task.id,
@@ -1913,7 +2016,7 @@ export class ComputedUpdateWorker {
       ...runLogContext,
     });
 
-    return ok(true);
+    return ok(executeResult.value);
   }
 
   /**
@@ -2395,9 +2498,11 @@ export class ComputedUpdateWorker {
     let split = params.initialSplit;
     for (;;) {
       const stepCount = split.stagePlan.steps.length;
+      const valueFrontier = { tableIds: stageValueFrontierTableIds(split) };
       if (maxDirtyRecords <= 0) {
         const result = await this.updater.execute(split.stagePlan, params.context, params.run, {
           ...ASYNC_COMPUTED_EXECUTE_OPTIONS,
+          valueFrontier,
           // Continuations may still carry stage-ledger state (e.g. after a
           // budget config change); the ledger frontier must drain even
           // unbudgeted.
@@ -2473,6 +2578,7 @@ export class ComputedUpdateWorker {
           params.run,
           {
             ...ASYNC_COMPUTED_EXECUTE_OPTIONS,
+            valueFrontier,
             maxDirtyRecords,
             dirtyBudgetMode: 'partial' as const,
             ledgerScopeId: params.ledgerScopeId,
@@ -2484,6 +2590,7 @@ export class ComputedUpdateWorker {
 
       const result = await this.updater.execute(split.stagePlan, params.context, params.run, {
         ...ASYNC_COMPUTED_EXECUTE_OPTIONS,
+        valueFrontier,
         maxDirtyRecords,
         dirtyBudgetMode: 'abort',
         ledgerScopeId: params.ledgerScopeId,
@@ -2694,9 +2801,15 @@ export class ComputedUpdateWorker {
       seedAllThreshold: this.outboxConfig.stageSeedAllThreshold || undefined,
       exactIdsTotalCap: this.outboxConfig.stageMaxCollectedSeedIds,
       settlementMode,
+      ...(finalSplit.deferred
+        ? {
+            valueFrontierFields: deferredValueFrontierFields(finalSplit.deferred),
+            allowConsumedPruning: true,
+          }
+        : {}),
     });
     if (seedGroupsResult.isErr()) return err(seedGroupsResult.error);
-    const { groups: seedGroups, seedAllTableIds } = seedGroupsResult.value;
+    const { groups: seedGroups, seedAllTableIds, valuePrunedTableIds } = seedGroupsResult.value;
     const clearResult = await this.updater.clearTaskStageLedger(
       params.context,
       params.ledgerScopeId
@@ -2709,6 +2822,7 @@ export class ComputedUpdateWorker {
         setPhase: params.setPhase,
         plan,
         deferred: finalSplit.deferred,
+        valuePrunedTableIds,
         seedGroups,
         seedAllTableIds,
         runId: params.runId,
@@ -2884,6 +2998,7 @@ export class ComputedUpdateWorker {
     relayWorkerId?: string;
     plan: ComputedUpdatePlan;
     deferred: NonNullable<ComputedStagePlanSplit['deferred']>;
+    valuePrunedTableIds?: ReadonlyArray<string>;
     seedGroups: ReadonlyArray<ComputedSeedGroup>;
     seedAllTableIds: ReadonlyArray<TableId>;
     runId: string;
@@ -2899,8 +3014,38 @@ export class ComputedUpdateWorker {
     context: IExecutionContext;
     logContext: Record<string, unknown>;
   }): Promise<Result<void, DomainError>> {
+    const pruned = new Set(params.valuePrunedTableIds);
+    const seedPlan = pruned.size
+      ? {
+          ...params.plan,
+          seedRecordIds: pruned.has(params.plan.seedTableId.toString())
+            ? []
+            : params.plan.seedRecordIds,
+          extraSeedRecords: params.plan.extraSeedRecords.filter(
+            (group) => !pruned.has(group.tableId.toString())
+          ),
+          seedAllTableIds: params.plan.seedAllTableIds?.filter(
+            (tableId) => !pruned.has(tableId.toString())
+          ),
+        }
+      : params.plan;
+    if (
+      pruned.size &&
+      !seedPlan.seedRecordIds.length &&
+      !seedPlan.extraSeedRecords.some((group) => group.recordIds.length) &&
+      !seedPlan.seedAllTableIds?.length &&
+      !params.seedGroups.some((group) => group.recordIds.length) &&
+      !params.seedAllTableIds.length
+    ) {
+      // An explicit proof of zero changed sources is not schema initialization.
+      // Do not enqueue an empty plan, which historically means seed everything.
+      this.logger.info('computed:value_frontier:deferred_no_changed_sources', {
+        ...params.logContext,
+      });
+      return ok(undefined);
+    }
     const continuationPlan = buildDeferredStagePlan({
-      plan: params.plan,
+      plan: seedPlan,
       deferred: params.deferred,
       dirtySeedGroups: params.seedGroups,
       dirtySeedAllTableIds: params.seedAllTableIds,

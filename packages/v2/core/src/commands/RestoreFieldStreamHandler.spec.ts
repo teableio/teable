@@ -63,6 +63,7 @@ describe('toRestoreFieldCreateInput', () => {
       lookupOptions: {
         foreignTableId: 'tblForeign00000000',
         lookupFieldId: 'fldName0000000000',
+        isUnique: true,
         filter: {
           conjunction: 'and',
           filterSet: [
@@ -90,6 +91,7 @@ describe('toRestoreFieldCreateInput', () => {
       options: {
         foreignTableId: 'tblForeign00000000',
         lookupFieldId: 'fldName0000000000',
+        isUnique: true,
         condition: {
           filter: {
             conjunction: 'and',

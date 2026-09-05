@@ -5,6 +5,8 @@ import { ActorId } from '../../domain/shared/ActorId';
 import { domainError } from '../../domain/shared/DomainError';
 import type { IComputedOutboxAdmin } from '../../ports/ComputedOutboxAdmin';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
+import { ExtendComputedOutboxPauseCommand } from './ExtendComputedOutboxPauseCommand';
+import { ExtendComputedOutboxPauseHandler } from './ExtendComputedOutboxPauseHandler';
 import { PauseComputedOutboxCommand } from './PauseComputedOutboxCommand';
 import { PauseComputedOutboxHandler } from './PauseComputedOutboxHandler';
 import { RecoverComputedOutboxAnomalyCommand } from './RecoverComputedOutboxAnomalyCommand';
@@ -40,6 +42,7 @@ describe('computed outbox commands', () => {
       pausedBy: 'usrxxxxxxxxxxxxxxxxx',
       resumeAt: null,
       reason: 'maintenance',
+      writePolicy: 'allow_bounded' as const,
       updatedAt: '2026-08-07T00:00:00.000Z',
       updatedBy: 'usrxxxxxxxxxxxxxxxxx',
     };
@@ -59,6 +62,47 @@ describe('computed outbox commands', () => {
       spaceId: 'spc1',
       reason: 'maintenance',
       durationMinutes: 30,
+      actor: 'usrxxxxxxxxxxxxxxxxx',
+    });
+  });
+
+  it('extends an exact pause lease through the admin port with the actor id', async () => {
+    const scope = {
+      id: 'cup123',
+      targetId: 'cnpg-connection',
+      storage: 'byodb' as const,
+      connectionId: 'cnpg-connection',
+      scopeType: 'base' as const,
+      scopeId: 'bse1',
+      scopeName: 'Operations',
+      baseId: 'bse1',
+      baseName: 'Operations',
+      spaceId: 'spc1',
+      spaceName: 'Ops',
+      pausedAt: '2026-08-07T00:00:00.000Z',
+      pausedBy: 'usrxxxxxxxxxxxxxxxxx',
+      resumeAt: '2026-08-07T01:00:00.000Z',
+      reason: 'maintenance',
+      writePolicy: 'block' as const,
+      updatedAt: '2026-08-07T00:30:00.000Z',
+      updatedBy: 'usrxxxxxxxxxxxxxxxxx',
+    };
+    const extendPause = vi.fn().mockResolvedValue(ok(scope));
+    const handler = new ExtendComputedOutboxPauseHandler({
+      extendPause,
+    } as unknown as IComputedOutboxAdmin);
+    const command = ExtendComputedOutboxPauseCommand.create({
+      targetId: 'cnpg-connection',
+      leaseId: 'cup123',
+      durationMinutes: 60,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(context(), command);
+    expect(result._unsafeUnwrap().scope).toEqual(scope);
+    expect(extendPause).toHaveBeenCalledWith(expect.anything(), {
+      targetId: 'cnpg-connection',
+      leaseId: 'cup123',
+      durationMinutes: 60,
       actor: 'usrxxxxxxxxxxxxxxxxx',
     });
   });

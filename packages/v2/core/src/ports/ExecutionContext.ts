@@ -45,9 +45,8 @@ export interface IExecutionContext {
   $t?: (key: TableI18nKey, options?: Record<string, unknown>) => string;
 }
 
-export const isUndoRedoReplay = (
-  context: Pick<IExecutionContext, 'undoRedo'>
-): boolean => context.undoRedo?.mode === 'undo' || context.undoRedo?.mode === 'redo';
+export const isUndoRedoReplay = (context: Pick<IExecutionContext, 'undoRedo'>): boolean =>
+  context.undoRedo?.mode === 'undo' || context.undoRedo?.mode === 'redo';
 
 export const getUnitOfWorkTransaction = (
   context: IExecutionContext | undefined,

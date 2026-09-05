@@ -879,9 +879,9 @@ export class PostgresTableRepository implements core.ITableRepository {
    * Load a table row for the default 'active' (ready-only) state, absorbing
    * the short provisioning window of a concurrent schema update.
    *
-   * A physical-repair schema update commits provision_state='pending' before
-   * its meta transaction and flips back to 'ready' after commit. A read that
-   * lands inside that window must wait briefly instead of reporting
+   * A physical-repair schema update commits provision_state='pending' with
+   * its meta transaction and flips back to 'ready' after commit (T7114). A
+   * read that lands inside that window must wait briefly instead of reporting
    * "Table not found" (T6660); a table that is missing, deleted, or in
    * 'error'/'deleting' state still misses immediately.
    *
@@ -1949,6 +1949,7 @@ export class PostgresTableRepository implements core.ITableRepository {
             : row.lookup_linked_field_id || '',
         lookupFieldId: typeof source.lookupFieldId === 'string' ? source.lookupFieldId : '',
         foreignTableId: typeof source.foreignTableId === 'string' ? source.foreignTableId : '',
+        ...(typeof source.isUnique === 'boolean' ? { isUnique: source.isUnique } : {}),
         ...(source.filter !== undefined
           ? { filter: source.filter as core.ILookupOptionsDTO['filter'] }
           : {}),
@@ -1999,6 +2000,7 @@ export class PostgresTableRepository implements core.ITableRepository {
         ...(typeof value.baseId === 'string' && value.baseId ? { baseId: value.baseId } : {}),
         foreignTableId,
         lookupFieldId,
+        ...(typeof value.isUnique === 'boolean' ? { isUnique: value.isUnique } : {}),
         condition,
       };
     };

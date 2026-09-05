@@ -230,8 +230,10 @@ const applyFieldMasksToRecords = (
 /**
  * Search may keep conditionally masked fields in the row filter (otherwise
  * all-fields search compiles to SQL `false`). Search-index hits are
- * cell-level: drop matches whose field was stripped for that record, and in
- * matched mode reindex so rows that only hit hidden cells do not leave gaps.
+ * cell-level: drop matches whose *masked* field was stripped for that record,
+ * and in matched mode reindex so rows that only hit hidden cells do not leave
+ * gaps. Unmasked field hits stay even when the SQL projection omitted that
+ * cell (empty-projection ShareDB doc-ids, T7105).
  */
 const filterSearchMatchesByVisibleCells = (
   searchMatches: ReadonlyArray<TableRecordQueryRepositoryPort.ITableRecordSearchMatch> | undefined,
@@ -244,12 +246,17 @@ const filterSearchMatchesByVisibleCells = (
     return searchMatches;
   }
   const fieldsByRecordId = new Map(maskedRecords.map((record) => [record.id, record.fields]));
-  const visibleMatches = searchMatches.filter((match) =>
-    Object.prototype.hasOwnProperty.call(
+  const maskedFieldIds = new Set(fieldMasks.map((mask) => mask.fieldId));
+  const visibleMatches = searchMatches.filter((match) => {
+    const fieldId = match.fieldId.toString();
+    if (!maskedFieldIds.has(fieldId)) {
+      return true;
+    }
+    return Object.prototype.hasOwnProperty.call(
       fieldsByRecordId.get(match.recordId.toString()) ?? {},
-      match.fieldId.toString()
-    )
-  );
+      fieldId
+    );
+  });
   if (mode !== 'matched' || visibleMatches.length === searchMatches.length) {
     return visibleMatches;
   }
@@ -792,13 +799,15 @@ export class ListTableRecordsHandler
               query.fieldKeyType,
               enabledFieldIds
             );
-            // Expand projection with static readable fields + mask dependency
-            // fields so visibleWhen evaluation is not fail-open on missing columns.
+            // Expand the already-resolved SQL projection with mask evaluation
+            // columns only. Do not union every readable field back in: that
+            // re-selects the full wide row on authority-matrix tables (T7105).
+            // Masks for fields that are not in the SQL projection are skipped —
+            // their visibleWhen deps must not widen the select.
             // Visible-scope search matches also need the mask target cell so
             // hidden hits can be removed after masking. Internal fields are
             // never returned — they are stripped after mask apply.
             if (query.queryScope?.fieldMasks?.length) {
-              const maskDeps = collectMaskDependencyFieldIds(query.queryScope.fieldMasks);
               const searchMatchMaskTargets =
                 query.includeSearchFieldMatches && query.searchFieldScope === 'visible'
                   ? query.queryScope.fieldMasks.map((mask) => mask.fieldId)
@@ -806,12 +815,14 @@ export class ListTableRecordsHandler
               // No projection + no allow-list means "all columns" — seed with
               // every table field so expansion cannot collapse to mask deps.
               const baseFieldIds =
-                projectionFieldIds == null && enabledFieldIds == null
-                  ? table.fieldIds().map((id) => id.toString())
-                  : [
-                      ...(projectionFieldIds?.map((id) => id.toString()) ?? []),
-                      ...(enabledFieldIds ?? []),
-                    ];
+                projectionFieldIds != null
+                  ? projectionFieldIds.map((id) => id.toString())
+                  : table.fieldIds().map((id) => id.toString());
+              const relevantMaskFieldIds = new Set([...baseFieldIds, ...searchMatchMaskTargets]);
+              const relevantMasks = query.queryScope.fieldMasks.filter((mask) =>
+                relevantMaskFieldIds.has(mask.fieldId)
+              );
+              const maskDeps = collectMaskDependencyFieldIds(relevantMasks);
               const expanded = new Set([...baseFieldIds, ...maskDeps, ...searchMatchMaskTargets]);
               const expandedIds: FieldId[] = [];
               for (const fieldIdText of expanded) {

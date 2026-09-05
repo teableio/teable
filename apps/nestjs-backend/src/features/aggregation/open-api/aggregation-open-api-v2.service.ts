@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Optional } from '@nestjs/common';
 import { FieldKeyType, HttpErrorCode } from '@teable/core';
 import type {
   IAggregationRo,
@@ -40,6 +40,7 @@ import {
 import type { DependencyContainer } from '@teable/v2-di';
 import { type IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { CustomHttpException } from '../../../custom.exception';
+import { TableQuerySearchVectorRuntimeService } from '../../v2/table-query-search-vector-runtime.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { throwV2Error } from '../../v2/v2-http-error';
@@ -72,7 +73,9 @@ export class AggregationOpenApiV2Service {
   constructor(
     private readonly v2ContainerService: V2ContainerService,
     private readonly v2ContextFactory: V2ExecutionContextFactory,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
+    @Optional()
+    private readonly tableQuerySearchVectorRuntimeService?: TableQuerySearchVectorRuntimeService
   ) {}
 
   async tryGetRowCount(tableId: string, query: IRowCountRo = {}): Promise<IRowCountVo | undefined> {
@@ -439,6 +442,12 @@ export class AggregationOpenApiV2Service {
       selectedRecordIds?: IRowCountRo['selectedRecordIds'];
     }
   ): Promise<number> {
+    const recordSearchAccessPath =
+      await this.tableQuerySearchVectorRuntimeService?.resolveForRecordSearch({
+        container: prepared.container,
+        tableId: input.tableId,
+        search: input.search,
+      });
     const countQuery = CountTableRecordsQuery.create(
       {
         tableId: input.tableId,
@@ -458,6 +467,7 @@ export class AggregationOpenApiV2Service {
       },
       {
         queryScope: prepared.queryScope,
+        recordSearchAccessPath,
         ...(input.searchFieldScope ? { searchFieldScope: input.searchFieldScope } : {}),
       }
     );
@@ -492,8 +502,15 @@ export class AggregationOpenApiV2Service {
       collapsedGroupIds?: ReadonlyArray<string>;
     }
   ): Promise<AggregateTableRecordsResult> {
+    const recordSearchAccessPath =
+      await this.tableQuerySearchVectorRuntimeService?.resolveForRecordSearch({
+        container: prepared.container,
+        tableId: input.tableId,
+        search: input.search,
+      });
     const aggregationQuery = AggregateTableRecordsQuery.create(input, {
       maxGroupPoints: this.thresholdConfig.maxGroupPoints,
+      recordSearchAccessPath,
     });
     if (aggregationQuery.isErr()) {
       throwV2QueryDomainError(aggregationQuery.error);

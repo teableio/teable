@@ -126,45 +126,40 @@ export class AttachmentsStorageService {
     );
   }
 
-  async uploadTableImageThumbnailsFromBuffer(
-    bucket: string,
-    path: string,
-    imageBuffer: Buffer,
-    height: number
-  ) {
+  /**
+   * Thumbnails for files the browser cannot render itself (HEIC, PDF), rendered
+   * from a decoded raster. Unlike `cropTableImage` both sizes are always
+   * written: readers treat a missing thumbnail as "use the original", which
+   * only works for renderable images. Small rasters are stored at their own
+   * size rather than upscaled.
+   */
+  async uploadTableImageThumbnailsFromBuffer(bucket: string, path: string, imageBuffer: Buffer) {
     const mimetype = ATTACHMENT_THUMBNAIL_DEFAULT_MIMETYPE;
     const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(path);
     const image = sharp(imageBuffer, { failOn: 'none', unlimited: true });
-    let cutSmThumbnailPath: string | undefined;
-    let cutLgThumbnailPath: string | undefined;
 
-    if (height > ATTACHMENT_SM_THUMBNAIL_HEIGHT) {
-      const smBuffer = await image
+    const uploadThumbnail = async (thumbnailPath: string, height: number) => {
+      const buffer = await image
         .clone()
-        .resize(undefined, ATTACHMENT_SM_THUMBNAIL_HEIGHT)
+        .resize(undefined, height, { withoutEnlargement: true })
         .png()
         .toBuffer();
-      cutSmThumbnailPath = (
-        await this.storageAdapter.uploadFile(bucket, smThumbnailPath, smBuffer, {
+      return (
+        await this.storageAdapter.uploadFile(bucket, thumbnailPath, buffer, {
           // eslint-disable-next-line @typescript-eslint/naming-convention
           'Content-Type': mimetype,
         })
       ).path;
-    }
+    };
 
-    if (height > ATTACHMENT_LG_THUMBNAIL_HEIGHT) {
-      const lgBuffer = await image
-        .clone()
-        .resize(undefined, ATTACHMENT_LG_THUMBNAIL_HEIGHT)
-        .png()
-        .toBuffer();
-      cutLgThumbnailPath = (
-        await this.storageAdapter.uploadFile(bucket, lgThumbnailPath, lgBuffer, {
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          'Content-Type': mimetype,
-        })
-      ).path;
-    }
+    const cutSmThumbnailPath = await uploadThumbnail(
+      smThumbnailPath,
+      ATTACHMENT_SM_THUMBNAIL_HEIGHT
+    );
+    const cutLgThumbnailPath = await uploadThumbnail(
+      lgThumbnailPath,
+      ATTACHMENT_LG_THUMBNAIL_HEIGHT
+    );
 
     this.eventEmitterService.emit(Events.CROP_IMAGE, {
       bucket,

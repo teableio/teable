@@ -13,7 +13,7 @@ import AddBoldIcon from '@teable/ui-lib/icons/app/add-bold.svg';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
-import { TableImport } from '../import-table';
+import { TableImport } from '@overridable/TableImport';
 import { DraggableList } from './DraggableList';
 import { NoDraggableList } from './NoDraggableList';
 import { useAddTable } from './useAddTable';

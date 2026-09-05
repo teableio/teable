@@ -204,3 +204,37 @@ describe('mapLegacyCreateTableToV2Input', () => {
     ]);
   });
 });
+
+describe('lookup unique values table creation', () => {
+  it.each([true, false])(
+    'preserves isUnique=%s for regular and conditional lookup fields',
+    (isUnique) => {
+      const input = mapLegacyCreateTableToV2Input('bseTest', {
+        name: 'Lookups',
+        fields: [false, true].map((isConditionalLookup) => ({
+          name: 'Values',
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          isConditionalLookup,
+          lookupOptions: {
+            foreignTableId: 'tblForeign',
+            lookupFieldId: 'fldValue',
+            ...(isConditionalLookup
+              ? { filter: { conjunction: 'and' as const, filterSet: [] } }
+              : { linkFieldId: 'fldLink' }),
+            isUnique,
+          },
+        })),
+        views: [{ type: 'grid', name: 'Grid' }],
+        records: [],
+      });
+      expect(input.fields).toEqual([
+        expect.objectContaining({ type: 'lookup', options: expect.objectContaining({ isUnique }) }),
+        expect.objectContaining({
+          type: 'conditionalLookup',
+          options: expect.objectContaining({ isUnique }),
+        }),
+      ]);
+    }
+  );
+});

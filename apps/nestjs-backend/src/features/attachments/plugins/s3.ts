@@ -341,15 +341,11 @@ export class S3Storage implements StorageAdapter {
         ...normalizeImageDimensions(metadata),
       };
     } catch (error) {
-      throw new CustomHttpException(
-        `Calculate image size failed: ${(error as Error).message}`,
-        HttpErrorCode.VALIDATION_ERROR,
-        {
-          localization: {
-            i18nKey: 'httpErrors.attachment.calculateImageSizeFailed',
-          },
-        }
-      );
+      // Dimensions are a nice-to-have (grid aspect ratio); an image sharp cannot
+      // parse, e.g. a HEIC libheif rejects, must still upload. Thumbnails are
+      // handled downstream by the crop job, which has its own decoders.
+      this.logger.warn(`Calculate image size failed for ${path}: ${(error as Error).message}`);
+      return { hash, url, size, mimetype };
     } finally {
       stream?.destroy();
     }

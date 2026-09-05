@@ -15,10 +15,10 @@ import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { usePublicSettingQuery } from '@/features/app/hooks/useSetting';
-import { TableImport } from '../../import-table';
+import { TableImport } from '@overridable/TableImport';
 import { AirtableImportDialog } from '../../space/component/airtable-import';
 import { GoogleSheetImportDialog } from '../../space/component/google-sheet-import';
-import { useDefaultFields } from '../../table-list/useAddTable';
+import { DEFAULT_EMPTY_RECORDS, useDefaultFields } from '../../table-list/useAddTable';
 import { BaseNodeResourceIconMap, ROOT_ID } from '../base-node/hooks';
 
 interface BaseNodeAddResourceButtonProps {
@@ -77,6 +77,7 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
               parentId,
               fields: fieldRos,
               views: [{ name: t('view.category.table'), type: ViewType.Grid }],
+              records: DEFAULT_EMPTY_RECORDS,
               name: getUniqName(
                 t('table:table.newTableLabel'),
                 tables.map((table) => table.name)

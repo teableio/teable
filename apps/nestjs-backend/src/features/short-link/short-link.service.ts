@@ -8,6 +8,8 @@ import { CustomHttpException } from '../../custom.exception';
 import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
 import { generateShortLinkCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
+import { buildBaseShareDefaultUrl } from '../base-share/base-share-default-url.helper';
+import { resolveTemplateRedirectUrl } from '../template/template-permalink.helper';
 
 const SHORT_LINK_CODE_LENGTH = 9;
 const SHORT_LINK_CODE_MAX_RETRY = 5;
@@ -55,23 +57,37 @@ export class ShortLinkService {
       case ShortLinkType.BaseShare: {
         const baseShare = await prisma.baseShare.findFirst({
           where: { shareId: resourceId, enabled: true },
-          select: { id: true },
+          select: { baseId: true, nodeId: true, password: true },
         });
         if (!baseShare) {
           throw new CustomHttpException('Base share not found', HttpErrorCode.NOT_FOUND);
         }
-        return `/share/${resourceId}/base`;
+        // Password-protected shares keep the shallow path: the auth flow decides
+        // where to go next, and the protected base/table/view ids are not exposed
+        // in the redirect target before authentication.
+        if (baseShare.password) {
+          return `/share/${resourceId}/base`;
+        }
+        // Resolve the final canonical URL here so the browser reaches the target
+        // page in a single redirect instead of bouncing through the share base
+        // and table SSR pages (T6802).
+        const defaultUrl = await buildBaseShareDefaultUrl(
+          prisma,
+          baseShare.baseId,
+          baseShare.nodeId
+        );
+        if (!defaultUrl) {
+          return `/share/${resourceId}/base`;
+        }
+        return defaultUrl.replace(
+          `/base/${baseShare.baseId}`,
+          `/share/${resourceId}/base/${baseShare.baseId}`
+        );
       }
       case ShortLinkType.Template: {
-        const template = await prisma.template.findFirst({
-          where: { id: resourceId, isPublished: true },
-          select: { id: true },
-        });
-        if (!template) {
-          throw new CustomHttpException('Template not found', HttpErrorCode.NOT_FOUND);
-        }
-        // the /t page performs the template permalink resolution itself
-        return `/t/${resourceId}`;
+        // Resolve the template landing URL directly instead of redirecting
+        // through the /t permalink page (T6802).
+        return resolveTemplateRedirectUrl(prisma, resourceId);
       }
       default: {
         const resolver = this.externalResolvers.get(type);

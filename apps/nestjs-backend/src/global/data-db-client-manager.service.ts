@@ -133,6 +133,13 @@ type IMetaRoutingClient = PrismaService | NonNullable<IClsStore['tx']['client']>
 const isBoundToDataDb = <T extends { mode: string }>(binding: T | null): binding is T =>
   binding !== null && binding.mode !== 'default';
 
+export class DataDbBaseNotFoundError extends Error {
+  constructor(readonly baseId: string) {
+    super(`Base ${baseId} not found`);
+    this.name = 'DataDbBaseNotFoundError';
+  }
+}
+
 export class DataDbBindingNotReadyError extends CustomHttpException {
   readonly spaceId: string;
 
@@ -462,7 +469,7 @@ export class DataDbClientManager {
         select: { spaceId: true },
       });
       if (!base) {
-        throw new Error(`Base ${baseId} not found`);
+        throw new DataDbBaseNotFoundError(baseId);
       }
       return base.spaceId;
     });

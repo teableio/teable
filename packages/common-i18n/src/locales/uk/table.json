@@ -343,6 +343,7 @@
       "filterByView": "Фільтрувати записи за переглядом",
       "filter": "Фільтрувати записи",
       "hideFields": "Приховати поля",
+      "removeDuplicateValues": "Видалити повторювані значення",
       "moreOptions": "Більше параметрів",
       "allowNewOptionsWhenEditing": "Дозволити нові параметри під час редагування",
       "deleteField": {
@@ -926,6 +927,9 @@
   },
   "import": {
     "title": {
+      "createTable": "Створити таблицю",
+      "importFromCsv": "Імпорт із CSV",
+      "importFromExcel": "Імпорт із Excel",
       "upload": "Завантажити",
       "import": "Імпорт",
       "localFile": "Локальні файли",

@@ -673,6 +673,8 @@ const buildMigrationSharedTableDefinitions = (input: {
     });
   }
 
+  const reliabilityIssuePredicate = (schema: string) =>
+    `"issue_id" IN (SELECT "id" FROM ${qualify(schema, 'computed_reliability_issue')} WHERE ${basePredicate})`;
   definitions.push(
     {
       table: 'computed_update_outbox',
@@ -713,6 +715,37 @@ const buildMigrationSharedTableDefinitions = (input: {
       table: 'record_removal_tombstone',
       columns: ['id', 'table_id', 'record_id', 'type', 'created_time'],
       whereSql: tablePredicate,
+    }
+  );
+
+  definitions.push(
+    {
+      table: 'computed_reliability_issue',
+      columns: [
+        'failure_kind',
+        'failure_phase',
+        'error_code',
+        'id',
+        'task_id',
+        'base_id',
+        'source_table_id',
+        'error',
+        'status',
+        'scope_complete',
+        'occurrences',
+        'first_seen_at',
+        'last_seen_at',
+        'closed_at',
+        'confirmed_by',
+        'confirmation_reason',
+      ],
+      whereSql: basePredicate,
+    },
+    {
+      table: 'computed_reliability_scope',
+      columns: ['issue_id', 'table_id', 'field_id'],
+      whereSql: reliabilityIssuePredicate(input.sourceSchema),
+      targetWhereSql: reliabilityIssuePredicate(input.targetSchema),
     }
   );
 

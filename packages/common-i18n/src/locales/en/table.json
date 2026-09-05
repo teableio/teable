@@ -21,7 +21,14 @@
     "records_one": "{{formattedCount}} record",
     "records_other": "{{formattedCount}} records",
     "batchesComplete": "Completed batches {{completed}}/{{total}}",
-    "progressAriaLabel": "{{fieldName}} calculation progress"
+    "progressAriaLabel": "{{fieldName}} calculation progress",
+    "statusUnavailable": "Calculation status is temporarily unavailable",
+    "statusSyncing": "Checking calculation status",
+    "paused": "Calculations are paused",
+    "resultsNotUpdated": "Some calculation results have not been updated",
+    "delayed": "Calculation update delayed · {{seconds}}s",
+    "snapshotMayBeStale": "The last known status is shown and may be out of date.",
+    "unknownImpact": "Some calculation results have not been updated; affected fields are being identified"
   },
   "crossSpace": {
     "duplicateFieldTitle": "Notice",
@@ -333,6 +340,7 @@
       "filterByView": "Filter records by view",
       "filter": "Filter records",
       "hideFields": "Hide fields",
+      "removeDuplicateValues": "Remove duplicate values",
       "moreOptions": "More options",
       "allowNewOptionsWhenEditing": "Allow new options when editing",
       "deleteField": {
@@ -916,6 +924,9 @@
   },
   "import": {
     "title": {
+      "createTable": "Create table",
+      "importFromCsv": "Import from CSV",
+      "importFromExcel": "Import from Excel",
       "upload": "Upload",
       "import": "Import",
       "localFile": "Local files",

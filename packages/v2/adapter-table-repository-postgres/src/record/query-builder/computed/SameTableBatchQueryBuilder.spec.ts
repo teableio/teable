@@ -840,9 +840,8 @@ describe('SameTableBatchQueryBuilder', () => {
       const sqlText = compiled._unsafeUnwrap().sql;
 
       expect(sqlText).toContain('"level_0"."PlusOne"');
-      expect(sqlText).toContain(
-        'FROM "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" AS "u" JOIN "level_1"'
-      );
+      expect(sqlText).toContain('FROM "level_1"');
+      expect(sqlText).not.toContain('AS "u" JOIN "level_1"');
       expect(sqlText).not.toContain(
         'FROM "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" AS u, "level_0", "level_1"'
       );
@@ -1225,10 +1224,11 @@ describe('SameTableBatchQueryBuilder', () => {
       const sqlText = updateResult._unsafeUnwrap().sql;
 
       expect(sqlText).toContain('CROSS JOIN LATERAL');
-      expect(sqlText).toContain('"__cse"."__cse_0" as "SameA"');
-      expect(sqlText).toContain('"__cse"."__cse_0" as "SameB"');
-      expect((sqlText.match(/as "__cse_0"/g) ?? []).length).toBe(1);
-      expect(sqlText).toContain('JOIN "level_1" ON "u"."__id" = "level_1"."__id"');
+      expect(sqlText).toContain('("__formula_group_0"."SameA") as "SameA"');
+      expect(sqlText).toContain('("__formula_group_0"."SameB") as "SameB"');
+      expect((sqlText.match(/"__formula_0" AS MATERIALIZED/g) ?? []).length).toBe(1);
+      expect(sqlText).toContain('FROM "level_1"');
+      expect(sqlText).not.toContain('AS "u" JOIN "level_1"');
       expect(sqlText).not.toContain(
         'FROM "bseaaaaaaaaaaaaaaaa"."tbldddddddddddddddd" AS u, "level_0", "level_1"'
       );

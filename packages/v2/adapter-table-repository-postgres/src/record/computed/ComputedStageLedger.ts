@@ -2,6 +2,7 @@ import { domainError, type DomainError } from '@teable/v2-core';
 import { sql, type Kysely } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 import type { DynamicDB } from '../query-builder';
+import { CHANGE_FRONTIER_TABLE } from './ComputedChangeFrontier';
 
 /**
  * Durable per-stage state for budget-staged computed updates, stored in
@@ -143,6 +144,8 @@ export const retireStageLedgerFrontierHead = async (
         `.compile(db)
       );
     }
+    // Retiring a queue head completes one batch, not the scope. Actual-value
+    // evidence must survive subsequent batches and is cleared by clearStageLedger.
     const result = await db
       .deleteFrom(STAGE_LEDGER_TABLE)
       .where('scope_id', '=', scopeId)
@@ -311,10 +314,17 @@ export const collectStageOutputSeedGroups = async (
      * when the stage defers edges that must re-propagate from those sources.
      */
     includeConsumedSources?: boolean;
+    /** Only completed stages may substitute proven actual output rows. */
+    valueFrontierFields?: ReadonlyArray<{ tableId: string; fieldIds: ReadonlyArray<string> }>;
+    allowConsumedPruning?: boolean;
   }
 ): Promise<
   Result<
-    { groups: Array<{ tableId: string; recordIds: string[] }>; seedAllTableIds: string[] },
+    {
+      groups: Array<{ tableId: string; recordIds: string[] }>;
+      seedAllTableIds: string[];
+      valuePrunedTableIds?: string[];
+    },
     DomainError
   >
 > => {
@@ -367,13 +377,65 @@ export const collectStageOutputSeedGroups = async (
       union all
     `
         : sql``;
-    const disjointSource = (tableFilter: ReturnType<typeof sql.join>) => sql`
+    // Coverage is per output field, but the existing planner accepts table/row
+    // seed groups. Unioning changed rows is conservative across sibling fields.
+    const coveredTables: string[] = [];
+    if (
+      (!options.includeConsumedSources || options.allowConsumedPruning) &&
+      options.valueFrontierFields?.length
+    ) {
+      for (const output of options.valueFrontierFields) {
+        if (!output.fieldIds.length) continue;
+        const fieldIds = [...new Set(output.fieldIds)];
+        const evidence = await sql<{ covered: boolean }>`SELECT (
+          NOT EXISTS (SELECT 1 FROM ${sql.table(CHANGE_FRONTIER_TABLE)}
+            WHERE scope_id = ${scopeId} AND table_id = ${output.tableId} AND kind = 'fallback')
+          AND (SELECT count(*) FROM ${sql.table(CHANGE_FRONTIER_TABLE)}
+            WHERE scope_id = ${scopeId} AND table_id = ${output.tableId}
+              AND kind = 'covered' AND field_id IN (${sql.join(fieldIds)})) = ${fieldIds.length}
+          AND NOT EXISTS (
+            SELECT 1 FROM ${sql.table(STAGE_LEDGER_TABLE)} p
+            WHERE p.scope_id = ${scopeId} AND p.table_id = ${output.tableId} AND p.kind IN ('excluded', 'consumed')
+              AND NOT EXISTS (SELECT 1 FROM ${sql.table(CHANGE_FRONTIER_TABLE)} c
+                WHERE c.scope_id = ${scopeId} AND c.table_id = p.table_id
+                  AND c.record_id = p.record_id AND c.kind = 'processed')
+          )
+          ${
+            dirtyTableExists
+              ? sql`AND NOT EXISTS (
+            SELECT 1 FROM ${sql.table(DIRTY_TABLE)} p WHERE p.table_id = ${output.tableId}
+              AND NOT EXISTS (SELECT 1 FROM ${sql.table(CHANGE_FRONTIER_TABLE)} c
+                WHERE c.scope_id = ${scopeId} AND c.table_id = p.table_id
+                  AND c.record_id = p.record_id AND c.kind = 'processed')
+          )`
+              : sql``
+          }
+        ) AS covered`.execute(db);
+        if (evidence.rows[0]?.covered) coveredTables.push(output.tableId);
+      }
+    }
+    const originalSource = (tableFilter: ReturnType<typeof sql.join>) => sql`
       ${dirtyBranch(tableFilter)}
       select l.table_id, l.record_id from ${sql.table(STAGE_LEDGER_TABLE)} as l
       where l.scope_id = ${scopeId} and l.kind = 'excluded' and l.table_id in (${tableFilter})
         ${antiJoinDirty('l')}
       ${consumedBranch(tableFilter)}
     `;
+    const requestedFields =
+      options.valueFrontierFields?.flatMap((output) => [...output.fieldIds]) ?? [];
+    const disjointSource = (tableFilter: ReturnType<typeof sql.join>) =>
+      coveredTables.length
+        ? sql`
+          SELECT candidates.table_id, candidates.record_id FROM (${originalSource(tableFilter)}) candidates
+          WHERE candidates.table_id NOT IN (${sql.join(coveredTables)})
+          UNION ALL
+          SELECT table_id, record_id FROM ${sql.table(CHANGE_FRONTIER_TABLE)}
+          WHERE scope_id = ${scopeId} AND kind = 'changed'
+            AND table_id IN (${tableFilter}) AND table_id IN (${sql.join(coveredTables)})
+            AND field_id IN (${sql.join(requestedFields)})
+          GROUP BY table_id, record_id
+        `
+        : originalSource(tableFilter);
     const allTablesFilter = sql.join(tableIds.map((tableId) => sql`${tableId}`));
     const counts = await db.executeQuery(
       sql<{ table_id: string; cnt: string | number | bigint }>`
@@ -410,7 +472,11 @@ export const collectStageOutputSeedGroups = async (
       fetchedTotal += recordIds.length;
       groups.push({ tableId: table.tableId, recordIds });
     }
-    return ok({ groups, seedAllTableIds });
+    return ok({
+      groups,
+      seedAllTableIds,
+      ...(coveredTables.length ? { valuePrunedTableIds: coveredTables } : {}),
+    });
   } catch (error) {
     return err(infrastructureError('Failed to collect stage output seed groups', error));
   }
@@ -422,6 +488,7 @@ export const clearStageLedger = async (
   scopeId: string
 ): Promise<Result<number, DomainError>> => {
   try {
+    await db.deleteFrom(CHANGE_FRONTIER_TABLE).where('scope_id', '=', scopeId).execute();
     const result = await db
       .deleteFrom(STAGE_LEDGER_TABLE)
       .where('scope_id', '=', scopeId)

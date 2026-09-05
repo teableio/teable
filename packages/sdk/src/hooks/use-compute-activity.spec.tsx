@@ -151,6 +151,64 @@ describe('useComputeActivitySubscription', () => {
     mockedUseIsReadOnlyPreview.mockReturnValue(false);
   });
 
+  it('retains a successful snapshot and exposes an unavailable observation after a failed refresh', () => {
+    mockedUseConnection.mockReturnValue({ connected: false } as never);
+    mockedUseQuery.mockReturnValue({
+      data: idleSnapshot,
+      isError: true,
+      isFetching: false,
+      refetch: vi.fn(),
+    } as never);
+    const { result } = renderHook(() => useComputeActivitySubscription(), {
+      wrapper: createWrapper([{ id: 'fldTest' }]),
+    });
+    expect(result.current.snapshot).toBe(idleSnapshot);
+    expect(result.current.observationState).toBe('unavailable');
+    expect(result.current.fieldMetaById.fldTest.status).toBe('idle');
+  });
+
+  it('polls unresolved idle fields at the active interval and stops while hidden', () => {
+    vi.useFakeTimers();
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const refetch = vi.fn();
+    mockedUseConnection.mockReturnValue({ connected: false } as never);
+    mockedUseQuery.mockReturnValue({
+      data: {
+        ...idleSnapshot,
+        fields: [
+          {
+            fieldId: 'fldTest',
+            status: 'idle',
+            reliability: {
+              unresolvedCount: 1,
+              oldestUnresolvedAt: null,
+              scopeComplete: true,
+            },
+          },
+        ],
+      },
+      isFetching: false,
+      refetch,
+    } as never);
+    const { unmount } = renderHook(() => useComputeActivitySubscription(), {
+      wrapper: createWrapper([{ id: 'fldTest' }]),
+    });
+    act(() => vi.advanceTimersByTime(15_000));
+    expect(refetch).toHaveBeenCalledTimes(1);
+    visibility.mockReturnValue('hidden');
+    act(() => document.dispatchEvent(new Event('visibilitychange')));
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(refetch).toHaveBeenCalledTimes(1);
+    visibility.mockReturnValue('visible');
+    act(() => document.dispatchEvent(new Event('visibilitychange')));
+    expect(refetch).toHaveBeenCalledTimes(2);
+    unmount();
+    visibility.mockRestore();
+    random.mockRestore();
+    vi.useRealTimers();
+  });
+
   it('does not request or subscribe to compute activity in read-only previews', () => {
     const connection = { get: vi.fn() };
     mockedUseConnection.mockReturnValue({ connection, connected: true } as never);
@@ -313,6 +371,92 @@ describe('useComputeActivitySubscription', () => {
     expect(latestOptions?.refetchInterval).toBeUndefined();
   });
 
+  it('preserves a server syncing observation even when HTTP succeeds', () => {
+    mockedUseConnection.mockReturnValue({ connected: false } as never);
+    mockedUseQuery.mockReturnValue({
+      data: { ...idleSnapshot, observationState: 'syncing' },
+      isFetching: false,
+      refetch: vi.fn(),
+    } as never);
+    const { result } = renderHook(() => useComputeActivitySubscription(), {
+      wrapper: createWrapper([{ id: 'fldTest' }]),
+    });
+    expect(result.current.observationState).toBe('syncing');
+  });
+
+  it('preserves authoritative HTTP failures after projection generation resets', () => {
+    const fieldDoc = createDoc({
+      status: 'idle',
+      generation: 9,
+      reliability: { unresolvedCount: 0 },
+    });
+    mockedUseConnection.mockReturnValue({
+      connection: { get: vi.fn(() => fieldDoc) },
+      connected: true,
+    } as never);
+    mockedUseQuery.mockReturnValue({
+      data: {
+        ...idleSnapshot,
+        fields: [
+          {
+            fieldId: 'fldTest',
+            status: 'failed',
+            generation: 0,
+            reliability: {
+              unresolvedCount: 1,
+              oldestUnresolvedAt: null,
+              scopeComplete: true,
+            },
+          },
+        ],
+      },
+      isFetching: false,
+      refetch: vi.fn(),
+    } as never);
+    const { result } = renderHook(() => useComputeActivitySubscription(), {
+      wrapper: createWrapper([{ id: 'fldTest' }]),
+    });
+    expect(result.current.fieldMetaById.fldTest.reliability?.unresolvedCount).toBe(1);
+  });
+
+  it.each(['idle', 'failed'] as const)(
+    'uses timestamps across generation resets without masking a newer %s state',
+    (realtimeStatus) => {
+      const newerFailure = realtimeStatus === 'failed';
+      const fieldDoc = createDoc({
+        status: 'failed',
+        generation: 9,
+        updatedAt: newerFailure ? '2026-07-18T00:02:00.000Z' : '2026-07-18T00:00:00.000Z',
+        reliability: { unresolvedCount: 1 },
+      });
+      mockedUseConnection.mockReturnValue({
+        connection: { get: vi.fn(() => fieldDoc) },
+        connected: true,
+      } as never);
+      mockedUseQuery.mockReturnValue({
+        data: {
+          ...idleSnapshot,
+          fields: [
+            {
+              fieldId: 'fldTest',
+              status: 'idle',
+              generation: 0,
+              updatedAt: '2026-07-18T00:01:00.000Z',
+              reliability: { unresolvedCount: 0, oldestUnresolvedAt: null, scopeComplete: true },
+            },
+          ],
+        },
+        isFetching: false,
+        refetch: vi.fn(),
+      } as never);
+      const { result } = renderHook(() => useComputeActivitySubscription(), {
+        wrapper: createWrapper([{ id: 'fldTest' }]),
+      });
+      expect(result.current.fieldMetaById.fldTest.status).toBe(realtimeStatus);
+      expect(result.current.fieldMetaById.fldTest.reliability?.unresolvedCount).toBe(0);
+    }
+  );
+
   it('normalizes nullable activity timestamps before applying them to fields', async () => {
     const tableDoc = createDoc({ status: 'calculating', calculatingFieldCount: 1 });
     const fieldDoc = createDoc({
@@ -424,7 +568,7 @@ describe('useComputeActivitySubscription', () => {
     });
     await waitFor(() => expect(fieldDoc.subscribe).toHaveBeenCalled());
 
-    for (const doc of [tableDoc, fieldDoc]) {
+    for (const doc of [fieldDoc]) {
       const errorListenerIndex = doc.on.mock.calls.findIndex(([event]) => event === 'error');
       expect(errorListenerIndex).toBeGreaterThanOrEqual(0);
       expect(doc.on.mock.invocationCallOrder[errorListenerIndex]).toBeLessThan(
@@ -468,7 +612,7 @@ describe('useComputeActivitySubscription', () => {
 
     unmount();
 
-    expect(tableDoc.removeListener).toHaveBeenCalledTimes(4);
+    expect(tableDoc.removeListener).not.toHaveBeenCalled();
     expect(fieldDoc.removeListener).toHaveBeenCalledTimes(4);
     expect(tableDoc.removeAllListeners).not.toHaveBeenCalled();
     expect(fieldDoc.removeAllListeners).not.toHaveBeenCalled();

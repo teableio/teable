@@ -2246,6 +2246,7 @@ export class FieldOpenApiService {
         return target;
       case isLookupOrRollup: {
         const picked = pick(source.lookupOptions ?? {}, [
+          'isUnique',
           'foreignTableId',
           'lookupFieldId',
           'linkFieldId',

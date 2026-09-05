@@ -564,17 +564,13 @@
     "billable": "计费",
     "billableByAuthorityMatrix": "由权限矩阵产生的计费",
     "seatConfirm": {
-      "title": "邀请将增加订阅费用",
-      "roleChangeTitle": "调整角色将增加订阅费用",
       "matrixTitle": "添加成员将增加订阅费用",
-      "inviteDesc_other": "本次邀请的 {{count}} 位成员将以「{{role}}」角色加入，将占用 {{count}} 个订阅席位，费用会随之增加。如果只需查看或评论，改选免费的「可查看」或「可查看与评论」即可。",
-      "linkDesc": "通过此链接加入的成员将获得「{{role}}」角色，每加入 1 人将占用 1 个订阅席位，费用会随之增加。如果只需查看或评论，改选免费的「可查看」或「可查看与评论」即可。",
-      "roleChangeDesc": "调整为「{{role}}」后，该成员将占用 1 个订阅席位，费用会随之增加。",
       "matrixDesc": "该成员目前是免费角色（可查看/可查看与评论），加入权限矩阵后将占用 1 个订阅席位，费用会随之增加。",
       "seatLimitTitle": "许可证席位不足",
       "seatLimitDesc": "当前实例已使用 {{seats}}/{{seatLimit}} 个许可证席位，剩余席位不足以完成本次操作，请联系管理员增购席位。如果对方只需查看或评论，可以改用免费的「可查看」或「可查看与评论」角色。",
       "seatLimitConfirm": "知道了",
-      "confirmInvite": "确认并邀请"
+      "fixedSeatTitle": "套餐席位不足",
+      "fixedSeatDesc": "当前套餐包含 {{quantity}} 个席位，已使用 {{seats}} 个，继续操作将超出席位上限，空间将在 7 天宽限期后降级为免费版。如果对方只需查看或评论，可以改用免费的「可查看」或「可查看与评论」角色。"
     },
     "licenseExpiredGracePeriod": "您的私有化部署许可证已过期，系统将在 {{expiredTime}} 降级为免费版并停用高级功能，请尽快更新许可证以保留完整功能。",
     "licenseAutoFetchFailed": "许可证自动续期失败，宽限期剩余 {{days}} 天，届时将降级为免费版。",
@@ -1359,6 +1355,7 @@
               "title": "AI 任务已取消",
               "rateLimit": "表 \"{{tableName}}\" 的 AI 任务因请求频率超限（429）已取消。请稍后重试。",
               "creditExhausted": "表 \"{{tableName}}\" 的 AI 任务因算力额度已用尽已取消。请升级订阅或等待额度刷新。",
+              "providerBilling": "表 \"{{tableName}}\" 的 AI 任务因模型服务商账户余额或计费额度不足已取消。请检查该模型所配置 API Key 对应账户的余额与计费状态。错误：{{errorMessage}}",
               "authFailed": "表 \"{{tableName}}\" 的 AI 任务因认证失败已取消。请检查 API Key 配置。",
               "serviceUnavailable": "表 \"{{tableName}}\" 的 AI 任务因 AI 服务暂时不可用已取消。请稍后重试。",
               "unknown": "表 \"{{tableName}}\" 的 AI 任务已取消。错误：{{errorMessage}}"
@@ -1675,5 +1672,9 @@
     "acknowledge": "我知道了",
     "collapse": "收起",
     "more_other": "还有 {{count}} 条公告"
+  },
+  "mobileEmbed": {
+    "pickFromDirectory": "从目录中选择一项内容",
+    "pickFromDirectoryHint": "在目录中打开一张表、仪表盘或自动化，它会显示在这里。"
   }
 }

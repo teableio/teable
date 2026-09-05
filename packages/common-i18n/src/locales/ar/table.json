@@ -353,6 +353,7 @@
       "filterByView": "تصفية السجلات حسب العرض",
       "filter": "تصفية السجلات",
       "hideFields": "إخفاء الحقول",
+      "removeDuplicateValues": "إزالة القيم المكررة",
       "moreOptions": "خيارات إضافية",
       "allowNewOptionsWhenEditing": "السماح بخيارات جديدة أثناء التعديل",
       "deleteField": {
@@ -936,6 +937,9 @@
   },
   "import": {
     "title": {
+      "createTable": "إنشاء جدول",
+      "importFromCsv": "الاستيراد من CSV",
+      "importFromExcel": "الاستيراد من Excel",
       "upload": "رفع",
       "import": "استيراد",
       "localFile": "ملفات محلية",

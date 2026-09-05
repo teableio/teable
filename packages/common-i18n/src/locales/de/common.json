@@ -566,18 +566,13 @@
     "billable": "Abrechenbar",
     "billableByAuthorityMatrix": "Abrechnung durch Berechtigungsmatrix generiert",
     "seatConfirm": {
-      "title": "Diese Einladung erhöht Ihre Abonnementkosten",
-      "roleChangeTitle": "Diese Rollenänderung erhöht Ihre Abonnementkosten",
       "matrixTitle": "Das Hinzufügen von Mitgliedern erhöht Ihre Abonnementkosten",
-      "inviteDesc_one": "Das eingeladene Mitglied tritt mit der Rolle {{role}} bei und belegt 1 Abonnement-Platz; Ihre Kosten steigen entsprechend. Wenn nur Ansehen oder Kommentieren nötig ist, wählen Sie einfach die kostenlose Rolle „Betrachter“ oder „Kommentator“.",
-      "inviteDesc_other": "Die {{count}} eingeladenen Mitglieder treten mit der Rolle {{role}} bei und belegen {{count}} Abonnement-Plätze; Ihre Kosten steigen entsprechend. Wenn nur Ansehen oder Kommentieren nötig ist, wählen Sie einfach die kostenlose Rolle „Betrachter“ oder „Kommentator“.",
-      "linkDesc": "Mitglieder, die über diesen Link beitreten, erhalten die Rolle {{role}} und belegen je 1 Abonnement-Platz; Ihre Kosten steigen mit jeder beitretenden Person. Für reines Ansehen oder Kommentieren wählen Sie einfach die kostenlose Rolle „Betrachter“ oder „Kommentator“.",
-      "roleChangeDesc": "Nach der Änderung auf {{role}} belegt dieses Mitglied 1 Abonnement-Platz; Ihre Kosten steigen entsprechend.",
       "matrixDesc": "Dieses Mitglied hat derzeit eine kostenlose Rolle (Betrachter/Kommentator). Nach dem Hinzufügen zur Berechtigungsmatrix belegt es 1 Abonnement-Platz; Ihre Kosten steigen entsprechend.",
       "seatLimitTitle": "Nicht genügend Lizenzplätze",
       "seatLimitDesc": "Diese Instanz nutzt {{seats}} von {{seatLimit}} lizenzierten Plätzen; für diese Aktion reichen die verbleibenden Plätze nicht aus. Bitte wenden Sie sich an Ihren Administrator, um weitere Plätze zu erwerben. Wenn nur Ansehen oder Kommentieren nötig ist, können Sie stattdessen die kostenlose Rolle „Betrachter“ oder „Kommentator“ verwenden.",
       "seatLimitConfirm": "Verstanden",
-      "confirmInvite": "Bestätigen und einladen"
+      "fixedSeatTitle": "Nicht genügend Plätze in Ihrem Tarif",
+      "fixedSeatDesc": "Ihr Tarif umfasst {{quantity}} Plätze, von denen bereits {{seats}} belegt sind. Wenn Sie fortfahren, wird das Platzlimit überschritten und der Space nach einer 7-tägigen Übergangsfrist auf den kostenlosen Tarif herabgestuft. Wenn nur Ansehen oder Kommentieren nötig ist, können Sie stattdessen die kostenlose Rolle „Betrachter“ oder „Kommentator“ verwenden."
     },
     "licenseExpiredGracePeriod": "Ihre Self-Hosted-Lizenz ist abgelaufen und wird am {{expiredTime}} auf den kostenlosen Plan herabgestuft. Bitte aktualisieren Sie Ihre Lizenz umgehend, um Zugriff auf Premium-Funktionen zu behalten.",
     "licenseAutoFetchFailed": "Automatische Lizenzverlängerung fehlgeschlagen. Noch {{days}} Tag(e) Kulanzzeitraum bis zur Herabstufung.",
@@ -1362,6 +1357,7 @@
               "title": "KI-Aufgabe abgebrochen",
               "rateLimit": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde aufgrund einer Ratenbegrenzung (429) abgebrochen. Bitte versuchen Sie es später erneut.",
               "creditExhausted": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde abgebrochen, da das Guthaben erschöpft ist. Bitte aktualisieren Sie Ihr Abonnement oder warten Sie auf die Guthabenerneuerung.",
+              "providerBilling": "Die KI-Aufgabe für die Tabelle \"{{tableName}}\" wurde abgebrochen, weil der Modellanbieter die Anfrage aus Abrechnungsgründen abgelehnt hat. Bitte prüfen Sie Guthaben und Abrechnungsstatus des Kontos hinter dem für dieses Modell konfigurierten API-Schlüssel. Fehler: {{errorMessage}}",
               "authFailed": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde aufgrund eines Authentifizierungsfehlers abgebrochen. Bitte überprüfen Sie Ihre API-Schlüssel-Konfiguration.",
               "serviceUnavailable": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde abgebrochen, da der KI-Dienst vorübergehend nicht verfügbar ist. Bitte versuchen Sie es später erneut.",
               "unknown": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde abgebrochen. Fehler: {{errorMessage}}"
@@ -1679,5 +1675,9 @@
     "collapse": "Weniger anzeigen",
     "more_one": "{{count}} weitere Ankündigung",
     "more_other": "{{count}} weitere Ankündigungen"
+  },
+  "mobileEmbed": {
+    "pickFromDirectory": "Wähle etwas aus dem Verzeichnis",
+    "pickFromDirectoryHint": "Öffne eine Tabelle, ein Dashboard oder eine Automatisierung aus dem Verzeichnis, dann erscheint sie hier."
   }
 }

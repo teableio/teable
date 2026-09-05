@@ -16,7 +16,14 @@
     "batchesQueued_other": "{{count}} 批次等待中",
     "records_other": "{{formattedCount}} 条记录",
     "batchesComplete": "已完成批次 {{completed}}/{{total}}",
-    "progressAriaLabel": "{{fieldName}} 计算进度"
+    "progressAriaLabel": "{{fieldName}} 计算进度",
+    "statusUnavailable": "计算状态暂不可用",
+    "statusSyncing": "正在同步计算状态",
+    "paused": "计算已暂停",
+    "resultsNotUpdated": "部分计算结果未更新",
+    "delayed": "计算更新延迟 · {{seconds}} 秒",
+    "snapshotMayBeStale": "当前展示上次已知状态，可能已过期。",
+    "unknownImpact": "部分计算结果未更新，正在确认受影响字段"
   },
   "crossSpace": {
     "duplicateFieldTitle": "温馨提示",
@@ -328,6 +335,7 @@
       "filterByView": "从视图筛选记录",
       "filter": "筛选记录",
       "hideFields": "隐藏字段",
+      "removeDuplicateValues": "去除重复值",
       "moreOptions": "更多配置",
       "allowNewOptionsWhenEditing": "允许填写时添加选项",
       "deleteField": {
@@ -911,6 +919,9 @@
   },
   "import": {
     "title": {
+      "createTable": "创建表格",
+      "importFromCsv": "从 CSV 导入",
+      "importFromExcel": "从 Excel 导入",
       "upload": "上传",
       "import": "导入",
       "localFile": "本地文件",

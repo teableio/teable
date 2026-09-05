@@ -310,6 +310,8 @@ export class FieldOpenApiV2Service {
       const condition = conditionalOptions.condition as Record<string, unknown> | undefined;
       const lookupOptions: Record<string, unknown> = {};
       if (conditionalOptions.baseId != null) lookupOptions.baseId = conditionalOptions.baseId;
+      if (conditionalOptions.isUnique !== undefined)
+        lookupOptions.isUnique = conditionalOptions.isUnique;
       if (conditionalOptions.foreignTableId != null)
         lookupOptions.foreignTableId = conditionalOptions.foreignTableId;
       if (conditionalOptions.lookupFieldId != null)
@@ -340,6 +342,7 @@ export class FieldOpenApiV2Service {
         const condition = v2Options.condition as Record<string, unknown> | undefined;
         const lookupOptions: Record<string, unknown> = {};
         if (v2Options.baseId != null) lookupOptions.baseId = v2Options.baseId;
+        if (v2Options.isUnique !== undefined) lookupOptions.isUnique = v2Options.isUnique;
         if (v2Options.foreignTableId != null)
           lookupOptions.foreignTableId = v2Options.foreignTableId;
         if (v2Options.lookupFieldId != null) lookupOptions.lookupFieldId = v2Options.lookupFieldId;
@@ -1338,6 +1341,7 @@ export class FieldOpenApiV2Service {
             ? { foreignTableId: lookupOpts.foreignTableId }
             : {}),
           ...(lookupOpts?.lookupFieldId != null ? { lookupFieldId: lookupOpts.lookupFieldId } : {}),
+          ...(lookupOpts?.isUnique !== undefined ? { isUnique: lookupOpts.isUnique } : {}),
           condition: {
             ...(lookupOpts?.filter ? { filter: lookupOpts.filter } : {}),
             ...(lookupOpts?.sort ? { sort: lookupOpts.sort } : {}),
@@ -1368,6 +1372,7 @@ export class FieldOpenApiV2Service {
         options: {
           ...(lookupOpts?.linkFieldId != null ? { linkFieldId: lookupOpts.linkFieldId } : {}),
           ...(lookupOpts?.lookupFieldId != null ? { lookupFieldId: lookupOpts.lookupFieldId } : {}),
+          ...(lookupOpts?.isUnique !== undefined ? { isUnique: lookupOpts.isUnique } : {}),
           ...(lookupOpts?.foreignTableId != null
             ? { foreignTableId: lookupOpts.foreignTableId }
             : {}),
@@ -2439,6 +2444,7 @@ export class FieldOpenApiV2Service {
         baseId: value?.baseId,
         foreignTableId: value?.foreignTableId,
         lookupFieldId: value?.lookupFieldId,
+        isUnique: value?.isUnique === true,
         filter: value?.filter ?? null,
         sort: value?.sort ?? undefined,
         limit: value?.limit ?? undefined,
@@ -2483,6 +2489,9 @@ export class FieldOpenApiV2Service {
                 ...(lookupOpts.baseId != null ? { baseId: lookupOpts.baseId } : {}),
                 foreignTableId: lookupOpts.foreignTableId,
                 lookupFieldId: lookupOpts.lookupFieldId,
+                ...(lookupOpts.isUnique !== undefined || currentLookupOpts?.isUnique === true
+                  ? { isUnique: lookupOpts.isUnique ?? false }
+                  : {}),
                 condition: {
                   ...(lookupOpts.filter ? { filter: lookupOpts.filter } : {}),
                   ...(lookupOpts.sort ? { sort: lookupOpts.sort } : {}),
@@ -2530,6 +2539,9 @@ export class FieldOpenApiV2Service {
       const shouldClearLimit = !hasLimitPatch && currentLookupOpts?.limit !== undefined;
       const lookupOptions: Record<string, unknown> = {
         ...(lookupOpts.linkFieldId != null ? { linkFieldId: lookupOpts.linkFieldId } : {}),
+        ...(lookupOpts.isUnique !== undefined || currentLookupOpts?.isUnique === true
+          ? { isUnique: lookupOpts.isUnique ?? false }
+          : {}),
         ...(lookupOpts.lookupFieldId != null ? { lookupFieldId: lookupOpts.lookupFieldId } : {}),
         ...(lookupOpts.foreignTableId != null ? { foreignTableId: lookupOpts.foreignTableId } : {}),
         ...(hasFilterPatch || shouldClearFilter ? { filter: lookupOpts.filter } : {}),

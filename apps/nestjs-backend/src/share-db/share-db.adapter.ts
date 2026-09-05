@@ -252,11 +252,22 @@ export class ShareDbAdapter extends ShareDb.DB {
     return this.snapshots2Map(snapshots);
   }
 
+  async authorizeComputedActivityDocuments(
+    tableId: string,
+    ids: string[],
+    options: Parameters<ShareDbAdapter['getSnapshotBulk']>[3]
+  ): Promise<void> {
+    const authHeaders = this.getAuthHeaders(options);
+    await this.cls.runWith({ ...this.cls.get(), ...authHeaders }, () =>
+      this.fieldService.authorizeComputedActivityDocuments(tableId, ids)
+    );
+  }
+
   private async loadComputedActivitySnapshots(
     tableId: string,
     ids: string[]
   ): Promise<ISnapshotBase<unknown>[]> {
-    await this.fieldService.authorizeComputedActivityRead(tableId);
+    await this.fieldService.authorizeComputedActivityDocuments(tableId, ids);
     if (!this.computedActivitySnapshotLoader) return [];
 
     const documents = await this.computedActivitySnapshotLoader(tableId);
@@ -555,27 +566,32 @@ export class ShareDbAdapter extends ShareDb.DB {
     options: any,
     callback: (error: unknown, data?: unknown) => void
   ) {
-    const [docType, collectionId] = collection.split('_');
-    if (docType === computedActivityCollectionPrefix) {
-      const snapshots = await this.getSnapshotData(docType, collectionId, [id], options);
-      const snapshot = snapshots[0];
-      if (snapshot && from === 0) {
-        callback(null, this.getComputedActivityCreateReplayOps(snapshot, to));
+    try {
+      const [docType, collectionId] = collection.split('_');
+      if (docType === computedActivityCollectionPrefix) {
+        const snapshots = await this.getSnapshotData(docType, collectionId, [id], options);
+        const snapshot = snapshots[0];
+        if (snapshot && from === 0) {
+          callback(null, this.getComputedActivityCreateReplayOps(snapshot, to));
+          return;
+        }
+
+        await this.internalGetOps(collection, id, from, to, options, callback, {
+          getVersionAndType: async () => this.getComputedActivityVersionAndType(snapshot),
+          getSnapshotData: async () => (snapshot ? [snapshot] : []),
+        });
         return;
       }
 
+      const readonlyService = this.getReadonlyService(docType as IdPrefix);
       await this.internalGetOps(collection, id, from, to, options, callback, {
-        getVersionAndType: async () => this.getComputedActivityVersionAndType(snapshot),
-        getSnapshotData: async () => (snapshot ? [snapshot] : []),
+        getVersionAndType: async (...args) => await readonlyService.getVersionAndType(...args),
+        getSnapshotData: async (...args) => await this.getSnapshotData(...args),
       });
-      return;
+    } catch (err) {
+      this.logger.error(err);
+      callback(exceptionParse(err as Error));
     }
-
-    const readonlyService = this.getReadonlyService(docType as IdPrefix);
-    await this.internalGetOps(collection, id, from, to, options, callback, {
-      getVersionAndType: async (...args) => await readonlyService.getVersionAndType(...args),
-      getSnapshotData: async (...args) => await this.getSnapshotData(...args),
-    });
   }
 
   async getOpsBulk(
@@ -586,69 +602,77 @@ export class ShareDbAdapter extends ShareDb.DB {
     options: any,
     callback: (error: unknown, data?: unknown) => void
   ) {
-    const [docType, collectionId] = collection.split('_');
-    const activitySnapshots =
-      docType === computedActivityCollectionPrefix
-        ? await this.getSnapshotData(docType, collectionId, Object.keys(fromMap), options)
-        : null;
-    const versionAndTypeMap = activitySnapshots
-      ? Object.fromEntries(
-          activitySnapshots.map((snapshot) => [
-            snapshot.id,
-            this.getComputedActivityVersionAndType(snapshot),
-          ])
-        )
-      : await this.getReadonlyService(docType as IdPrefix).getVersionAndTypeMap(
-          collectionId,
-          Object.keys(fromMap)
-        );
-    const needGetSnapshotDataIds = this.getIdsWithGapVersion(fromMap, versionAndTypeMap);
+    try {
+      const [docType, collectionId] = collection.split('_');
+      const activitySnapshots =
+        docType === computedActivityCollectionPrefix
+          ? await this.getSnapshotData(docType, collectionId, Object.keys(fromMap), options)
+          : null;
+      const versionAndTypeMap = activitySnapshots
+        ? Object.fromEntries(
+            activitySnapshots.map((snapshot) => [
+              snapshot.id,
+              this.getComputedActivityVersionAndType(snapshot),
+            ])
+          )
+        : await this.getReadonlyService(docType as IdPrefix).getVersionAndTypeMap(
+            collectionId,
+            Object.keys(fromMap)
+          );
+      const needGetSnapshotDataIds = this.getIdsWithGapVersion(fromMap, versionAndTypeMap);
 
-    const snapshots =
-      activitySnapshots ??
-      (await this.getSnapshotData(docType, collectionId, needGetSnapshotDataIds, options));
-    const snapshotDataMap = snapshots.reduce(
-      (acc, snapshot) => {
-        acc[snapshot.id] = snapshot;
-        return acc;
-      },
-      {} as Record<string, ISnapshotBase<unknown>>
-    );
-    const result: Record<string, unknown> = {};
-    for (const [id, from] of Object.entries(fromMap)) {
-      const activitySnapshot = activitySnapshots ? snapshotDataMap[id] : undefined;
-      if (activitySnapshot && from === 0) {
-        result[id] = this.getComputedActivityCreateReplayOps(activitySnapshot, toMap?.[id] ?? null);
-        continue;
-      }
-      let resultError: unknown = null;
-      await this.internalGetOps(
-        collection,
-        id,
-        from,
-        toMap?.[id] ?? null,
-        options,
-        (err, data) => {
-          if (err) {
-            resultError = err;
-          }
-          result[id] = data;
+      const snapshots =
+        activitySnapshots ??
+        (await this.getSnapshotData(docType, collectionId, needGetSnapshotDataIds, options));
+      const snapshotDataMap = snapshots.reduce(
+        (acc, snapshot) => {
+          acc[snapshot.id] = snapshot;
+          return acc;
         },
-        {
-          getVersionAndType: async (_collectionId, id) =>
-            versionAndTypeMap[id] ?? { version: 0, type: RawOpType.Del },
-          getSnapshotData: async (...args) => {
-            const ids = args[2];
-            return ids.map((id) => snapshotDataMap[id]).filter(Boolean);
-          },
-        }
+        {} as Record<string, ISnapshotBase<unknown>>
       );
-      if (resultError) {
-        callback(resultError);
-        return;
+      const result: Record<string, unknown> = {};
+      for (const [id, from] of Object.entries(fromMap)) {
+        const activitySnapshot = activitySnapshots ? snapshotDataMap[id] : undefined;
+        if (activitySnapshot && from === 0) {
+          result[id] = this.getComputedActivityCreateReplayOps(
+            activitySnapshot,
+            toMap?.[id] ?? null
+          );
+          continue;
+        }
+        let resultError: unknown = null;
+        await this.internalGetOps(
+          collection,
+          id,
+          from,
+          toMap?.[id] ?? null,
+          options,
+          (err, data) => {
+            if (err) {
+              resultError = err;
+            }
+            result[id] = data;
+          },
+          {
+            getVersionAndType: async (_collectionId, id) =>
+              versionAndTypeMap[id] ?? { version: 0, type: RawOpType.Del },
+            getSnapshotData: async (...args) => {
+              const ids = args[2];
+              return ids.map((id) => snapshotDataMap[id]).filter(Boolean);
+            },
+          }
+        );
+        if (resultError) {
+          callback(resultError);
+          return;
+        }
       }
+      callback(null, result);
+    } catch (err) {
+      this.logger.error(err);
+      callback(exceptionParse(err as Error));
     }
-    callback(null, result);
   }
 
   private getOpsFromSnapshot(docType: string, snapshot: unknown): IOtOperation[] {

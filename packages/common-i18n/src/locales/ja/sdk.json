@@ -49,7 +49,8 @@
     "previewFileLimit": "プレビュー可能なファイルサイズの上限: {{size}}MB、ダウンロードしてご覧ください。",
     "loadFileError": "ファイルの読み込みに失敗しました",
     "previousAttachment": "前へ",
-    "nextAttachment": "次へ"
+    "nextAttachment": "次へ",
+    "deleteAttachment": "削除"
   },
   "undoRedo": {
     "undo": "Undo",
@@ -1335,7 +1336,10 @@
       "exceedMaxAutomationRunLimit": "自動化の月間最大実行回数に達しました",
       "manualSubscriptionNotSupported": "このスペースではセルフサービスのサブスクリプション操作をご利用いただけません。アップグレード、ダウングレード、その他のサブスクリプション変更については、Teableサポートまでお問い合わせください。",
       "appSumoSubscriptionNotSupported": "AppSumoのサブスクリプションはこのインターフェースから変更できません。AppSumoでサブスクリプションを管理してください。",
-      "customerNotFound": "このスペースの請求顧客レコードが見つかりません。"
+      "planNotAvailable": "このプランは新規サブスクリプションではご利用いただけません。",
+      "seatLimitExceeded": "購入済みシートが不足しています。シートを追加してからコラボレーターを招待してください。",
+      "customerNotFound": "このスペースの請求顧客レコードが見つかりません。",
+      "creditAddOnRetired": "クレジットの定期アドオンは提供終了しました。代わりにプランでより大きなクレジット枠をお選びください。"
     },
     "aggregation": {
       "searchQueryRequired": "検索クエリが必要です",

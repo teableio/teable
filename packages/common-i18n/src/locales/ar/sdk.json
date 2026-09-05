@@ -49,7 +49,8 @@
     "previewFileLimit": "حد حجم ملف المعاينة: {{size}} ميغابايت، يُرجى تنزيله للاطلاع عليه.",
     "loadFileError": "فشل تحميل الملف",
     "previousAttachment": "السابق",
-    "nextAttachment": "التالي"
+    "nextAttachment": "التالي",
+    "deleteAttachment": "حذف"
   },
   "undoRedo": {
     "undo": "تراجع",
@@ -1358,7 +1359,10 @@
       "exceedMaxAutomationRunLimit": "تم تجاوز الحد الأقصى لعمليات تشغيل الأتمتة",
       "manualSubscriptionNotSupported": "الاشتراك الذاتي غير متاح لهذه المساحة. للترقية أو التخفيض أو أي تغييرات أخرى في الاشتراك، يُرجى التواصل مع دعم Teable.",
       "appSumoSubscriptionNotSupported": "لا يمكن تعديل اشتراكات AppSumo من هذه الواجهة. يُرجى إدارة اشتراكك على AppSumo.",
-      "customerNotFound": "لم يتم العثور على سجل عميل للفوترة لهذه المساحة."
+      "customerNotFound": "لم يتم العثور على سجل عميل للفوترة لهذه المساحة.",
+      "planNotAvailable": "خيار الخطة هذا لم يعد متاحًا للاشتراكات الجديدة.",
+      "seatLimitExceeded": "المقاعد المشتراة غير كافية. أضف مقاعد لدعوة المزيد من المتعاونين.",
+      "creditAddOnRetired": "تمت إزالة إضافة الأرصدة المتكررة. اختر بدلًا من ذلك مستوى أرصدة أكبر في خطتك."
     },
     "aggregation": {
       "searchQueryRequired": "استعلام البحث مطلوب",

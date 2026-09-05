@@ -189,7 +189,7 @@ export const defaultComputedUpdateOutboxConfig: ComputedUpdateOutboxConfig = {
   fanoutDirtyRecordsThreshold: 2000,
   fanoutSeedSplitMaxSeeds: 5,
   maxConcurrentProcessingPerBase: 2,
-  maxConcurrentProcessingPerSeedTable: 2,
+  maxConcurrentProcessingPerSeedTable: 1,
   taskStatementTimeoutMs: 60 * 1000,
   fieldBackfillBatchSize: 500,
   // Wide dependency graphs (hub tables with hundreds of computed fields) must not run
@@ -474,8 +474,11 @@ export interface IComputedUpdateOutbox {
    */
   enqueueFieldBackfill(
     task: FieldBackfillOutboxTaskInput,
-    context?: IExecutionContext
-  ): Promise<Result<{ taskId: string; merged: boolean }, DomainError>>;
+    context?: IExecutionContext,
+    options?: Pick<EnqueueOrMergeOptions, 'relayClaim'>
+  ): Promise<
+    Result<{ taskId: string; merged: boolean; claimed?: AnyOutboxItem | null }, DomainError>
+  >;
 
   claimBatch(
     params: ClaimBatchParams,

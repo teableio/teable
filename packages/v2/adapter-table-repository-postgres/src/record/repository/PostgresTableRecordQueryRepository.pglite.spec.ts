@@ -15,6 +15,7 @@ import {
   FormulaExpression,
   LookupOptions,
   OffsetPagination,
+  NoopTracer,
   PageLimit,
   PageOffset,
   RecordSearch,
@@ -28,6 +29,7 @@ import {
   UserMultiplicity,
   createUserField,
   type ILogger,
+  type IRecordSearchAccessPath,
   type ITableRepository,
 } from '@teable/v2-core';
 import { Pg16TypeValidationStrategy } from '@teable/v2-formula-sql-pg';
@@ -41,7 +43,7 @@ import {
   PostgresQueryCompiler,
   sql,
 } from 'kysely';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { TableRecordQueryBuilderManager } from '../query-builder';
 import { PostgresCollaboratorDirectoryService } from './PostgresCollaboratorDirectoryService';
@@ -341,6 +343,7 @@ const setupRepositoryFixture = async ({
     formulaFieldId,
     dateFieldId,
     insertedRecordIds,
+    fullTableName,
   };
 };
 
@@ -1936,47 +1939,97 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
     ]);
   });
 
-  it('orders group rows and applies visible-row search before aggregation', async () => {
-    const fixture = await setupRepositoryFixture({
-      db,
-      createdSchemas,
-      seed: 'aggregate-search',
-      rows: [
-        { name: 'Alpha', age: 10 },
-        { name: 'Alpine', age: 20 },
-        { name: 'Beta', age: 30 },
-      ],
-    });
-    const aggregation = fixture.table
-      .createRecordAggregation({
-        viewId: fixture.table.defaultView()._unsafeUnwrap().id().toString(),
-        fields: [{ fieldId: fixture.ageFieldId.toString(), statisticFunc: 'count' }],
-        groupBy: [{ fieldId: fixture.nameFieldId.toString(), order: 'desc' }],
-      })
-      ._unsafeUnwrap();
+  it.each(['default', 'generated_text', 'fallback'] as const)(
+    'orders group rows and applies %s search before aggregation',
+    async (accessMode) => {
+      const fixture = await setupRepositoryFixture({
+        db,
+        createdSchemas,
+        seed: 'aggregate-search',
+        rows: [
+          { name: 'Alpha', age: 10 },
+          { name: 'Alpine', age: 20 },
+          { name: 'Beta', age: 30 },
+        ],
+      });
+      const aggregation = fixture.table
+        .createRecordAggregation({
+          viewId: fixture.table.defaultView()._unsafeUnwrap().id().toString(),
+          fields: [{ fieldId: fixture.ageFieldId.toString(), statisticFunc: 'count' }],
+          groupBy: [{ fieldId: fixture.nameFieldId.toString(), order: 'desc' }],
+        })
+        ._unsafeUnwrap();
 
-    const result = await fixture.repository.aggregate(
-      fixture.context,
-      fixture.table,
-      aggregation,
-      undefined,
-      {
-        search: {
-          search: RecordSearch.fromTuple(['Al', fixture.nameFieldId.toString(), true]),
-          visibleFieldIds: [fixture.nameFieldId],
-        },
+      if (accessMode === 'generated_text') {
+        await sql`
+        ALTER TABLE ${sql.table(fixture.fullTableName)}
+        ADD COLUMN __tqops_search_document text GENERATED ALWAYS AS (lower(coalesce(col_name, ''))) STORED
+      `.execute(db);
       }
-    );
+      const searchAccessPath: IRecordSearchAccessPath | undefined =
+        accessMode === 'default'
+          ? undefined
+          : {
+              kind: 'generated_text',
+              generatedColumnName: '__tqops_search_document',
+              provider: 'pg_trgm',
+              searchScope: 'selected_fields',
+              coveredFieldIds: [
+                accessMode === 'fallback' ? fixture.ageFieldId : fixture.nameFieldId,
+              ],
+            };
+      const tracer = new NoopTracer();
+      const span = {
+        setAttribute: vi.fn(),
+        setAttributes: vi.fn(),
+        recordError: vi.fn(),
+        end: vi.fn(),
+      };
+      vi.spyOn(tracer, 'startSpan').mockReturnValue(span);
 
-    expect(
-      result._unsafeUnwrap().map(({ value, groupValues }) => ({ value, groupValues }))
-    ).toEqual([
-      { value: 2, groupValues: undefined },
-      { value: 1, groupValues: ['Alpine'] },
-      { value: 1, groupValues: ['Alpha'] },
-    ]);
-    expect(driver.queries.at(-1)?.sql).toContain('order by "a"."col_name" desc');
-  });
+      const result = await fixture.repository.aggregate(
+        { ...fixture.context, tracer },
+        fixture.table,
+        aggregation,
+        undefined,
+        {
+          search: {
+            search: RecordSearch.fromTuple(['Alp', fixture.nameFieldId.toString(), true]),
+            visibleFieldIds: [fixture.nameFieldId],
+          },
+          searchAccessPath,
+        }
+      );
+
+      expect(
+        result._unsafeUnwrap().map(({ value, groupValues }) => ({ value, groupValues }))
+      ).toEqual([
+        { value: 2, groupValues: undefined },
+        { value: 1, groupValues: ['Alpine'] },
+        { value: 1, groupValues: ['Alpha'] },
+      ]);
+      expect(driver.queries.at(-1)?.sql).toContain('order by "a"."col_name" desc');
+      const compiled = driver.queries.at(-1)?.sql.toLowerCase() ?? '';
+      expect(compiled.includes('"t"."__tqops_search_document" like')).toBe(
+        accessMode === 'generated_text'
+      );
+      expect(compiled).toContain('ilike');
+      expect(span.setAttributes).toHaveBeenCalledWith(
+        expect.objectContaining({
+          'teable.query.source': 'repository.record_aggregate',
+          'teable.search.access_path':
+            accessMode === 'generated_text'
+              ? 'generated_text_trigram'
+              : accessMode === 'fallback'
+                ? 'fallback'
+                : 'default_ilike',
+          ...(accessMode === 'fallback'
+            ? { 'teable.search.fallback_reason': 'generated_text_coverage_mismatch' }
+            : {}),
+        })
+      );
+    }
+  );
 
   it('aggregates flattened multiple values and attachment sizes without a legacy query adapter', async () => {
     const seed = 'aggregate-json';

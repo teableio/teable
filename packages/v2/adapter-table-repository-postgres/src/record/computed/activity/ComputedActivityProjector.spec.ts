@@ -1,9 +1,13 @@
-import { FieldId, NoopLogger, TableId, type ILogger } from '@teable/v2-core';
+import { getPostgresTransaction } from '@teable/v2-adapter-db-postgres-shared';
+import { domainError, err, ok, FieldId, NoopLogger, TableId, type ILogger } from '@teable/v2-core';
+import { computedReliabilitySchemaSql } from '@teable/v2-postgres-schema';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { sql, type Kysely, type KyselyPlugin } from 'kysely';
-import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi, type Mock } from 'vitest';
 
 import { createPGliteDb } from '../../../schema/visitors/__tests__/helpers/createPGliteDb';
+import type { DynamicDB } from '../../query-builder';
+import { PostgresComputedReliabilityStore } from '../reliability/PostgresComputedReliabilityStore';
 import { ComputedActivityProjector } from './ComputedActivityProjector';
 import { PostgresComputedActivityReader } from './PostgresComputedActivityReader';
 
@@ -96,6 +100,7 @@ describe('ComputedActivityProjector', () => {
       .addColumn('paused_by', 'text')
       .addColumn('resume_at', 'timestamptz')
       .addColumn('reason', 'text')
+      .addColumn('write_policy', 'text', (column) => column.notNull().defaultTo('allow_bounded'))
       .execute();
 
     await db.schema
@@ -114,6 +119,271 @@ describe('ComputedActivityProjector', () => {
     // async projection has its own public-behavior coverage.
     projector.configureAsyncProjection({ enabled: false });
     reader = new PostgresComputedActivityReader(db, projector);
+  });
+
+  it('reports unknown impact for a source failure before any field plan exists and honors UI rollback', async () => {
+    vi.stubEnv('COMPUTED_RELIABILITY_ENABLED', 'true');
+    vi.stubEnv('COMPUTED_RELIABILITY_UI_ENABLED', 'true');
+    try {
+      for (const statement of computedReliabilitySchemaSql
+        .split(';')
+        .filter((item) => item.trim())) {
+        await sql.raw(statement).execute(db);
+      }
+      const store = new PostgresComputedReliabilityStore(db as unknown as Kysely<DynamicDB>);
+      await store.recordFailure({
+        taskId: 'unknown-failure',
+        baseId: BASE_ID,
+        sourceTableId: TABLE_ID,
+        error: 'seed failed',
+      });
+      const reader = new PostgresComputedActivityReader(db, projector);
+      const visible = (await reader.getByTableId(undefined, TABLE_ID, BASE_ID))._unsafeUnwrap();
+      expect(visible.fields).toEqual([]);
+      expect(visible.diagnostics.reliability).toMatchObject({
+        unresolvedCount: 1,
+        scopeComplete: false,
+      });
+      vi.stubEnv('COMPUTED_RELIABILITY_UI_ENABLED', 'false');
+      const hidden = (await reader.getByTableId(undefined, TABLE_ID, BASE_ID))._unsafeUnwrap();
+      expect(hidden.diagnostics.reliability).toBeUndefined();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('uses SQL scoped issue counts and marks missing reliability capabilities unavailable', async () => {
+    vi.stubEnv('COMPUTED_RELIABILITY_UI_ENABLED', 'true');
+    try {
+      const unavailable = (await reader.getByTableId(undefined, TABLE_ID, BASE_ID))._unsafeUnwrap();
+      expect(unavailable.observationState).toBe('unavailable');
+      for (const statement of computedReliabilitySchemaSql.split(';').filter((part) => part.trim()))
+        await sql.raw(statement).execute(db);
+      const store = new PostgresComputedReliabilityStore(db as unknown as Kysely<DynamicDB>);
+      await store.recordFailure({
+        taskId: 'shared-incident',
+        baseId: BASE_ID,
+        sourceTableId: TABLE_ID,
+        error: 'failed',
+        targets: [
+          { tableId: TABLE_ID, fieldId: FIELD_ID },
+          { tableId: TABLE_ID, fieldId: FIELD_ID_B },
+        ],
+      });
+      await store.recordFailure({
+        taskId: 'unknown-incident',
+        baseId: BASE_ID,
+        sourceTableId: TABLE_ID,
+        error: 'failed',
+      });
+      const allowed = (
+        await reader.getByTableId(undefined, TABLE_ID, BASE_ID, {
+          readableFieldIds: [FIELD_ID, FIELD_ID_B],
+        })
+      )._unsafeUnwrap();
+      expect(allowed.fields).toHaveLength(2);
+      expect(allowed.diagnostics.reliability?.unresolvedCount).toBe(1);
+      expect(allowed.reliabilityIsAccessScoped).toBe(true);
+      expect(allowed.observationState).toBe('available');
+      const denied = (
+        await reader.getByTableId(undefined, TABLE_ID, BASE_ID, { readableFieldIds: [] })
+      )._unsafeUnwrap();
+      expect(denied.fields).toEqual([]);
+      expect(denied.diagnostics.reliability?.unresolvedCount).toBe(0);
+      const full = (await reader.getByTableId(undefined, TABLE_ID, BASE_ID))._unsafeUnwrap();
+      expect(full.diagnostics.reliability).toMatchObject({
+        unresolvedCount: 2,
+        scopeComplete: false,
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('does not report an unpaused state when interactive pause observation fails', async () => {
+    await db.schema.dropTable('computed_update_pause_scope' as never).execute();
+    const result = await reader.getByTableId(undefined, TABLE_ID, BASE_ID, {
+      budgetMs: 2000,
+      includePauseDiagnostics: true,
+    });
+    expect(result.isErr()).toBe(true);
+  });
+
+  it('skips drift scans during a healthy cooldown and heals when the cooldown expires', async () => {
+    await ensureOutboxTasks(['cooldown-reference']);
+    await projector.onTaskEnqueued({
+      taskId: 'cooldown-reference',
+      baseId: BASE_ID,
+      targets: [{ fieldId, tableId }],
+      metrics,
+    });
+    let observedAt = Date.now();
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => observedAt);
+    const reads = vi.spyOn(db, 'selectFrom');
+    const repair = vi.spyOn(projector, 'reconcileTable');
+    onTestFinished(() => {
+      clock.mockRestore();
+      reads.mockRestore();
+      repair.mockRestore();
+    });
+    const first = (await reader.getByTableId(undefined, TABLE_ID, BASE_ID))._unsafeUnwrap();
+    expect(first.fields[0].status).toBe('queued');
+    expect(reads.mock.calls.some(([table]) => table === 'computed_task_field_ref as refs')).toBe(
+      true
+    );
+    expect(repair).not.toHaveBeenCalled();
+    await db.deleteFrom('computed_update_outbox' as never).execute();
+    reads.mockClear();
+    observedAt += 14_999;
+    const second = (await reader.getByTableId(undefined, TABLE_ID, BASE_ID))._unsafeUnwrap();
+    expect(second.fields[0].status).toBe('queued');
+    expect(reads.mock.calls.some(([table]) => table === 'computed_task_field_ref as refs')).toBe(
+      false
+    );
+    expect(repair).not.toHaveBeenCalled();
+    observedAt += 1;
+    const healed = (await reader.getByTableId(undefined, TABLE_ID, BASE_ID))._unsafeUnwrap();
+    expect(reads.mock.calls.some(([table]) => table === 'computed_task_field_ref as refs')).toBe(
+      true
+    );
+    expect(repair).toHaveBeenCalledTimes(1);
+    expect(healed.fields[0].status).toBe('idle');
+    expect(healed.diagnostics.activeFieldCount).toBe(0);
+  });
+
+  it('retains a syncing observation through the cooldown after a failed repair', async () => {
+    await ensureOutboxTasks(['lost-reference']);
+    await projector.onTaskEnqueued({
+      taskId: 'lost-reference',
+      baseId: BASE_ID,
+      targets: [{ fieldId, tableId }],
+      metrics,
+    });
+    await db.deleteFrom('computed_task_field_ref' as never).execute();
+    const repair = vi
+      .spyOn(projector, 'reconcileTable')
+      .mockResolvedValue(err(domainError.infrastructure({ message: 'repair unavailable' })));
+    const first = (await reader.getByTableId(undefined, TABLE_ID, BASE_ID))._unsafeUnwrap();
+    expect(first.observationState).toBe('syncing');
+    expect(first.reconciliationPerformed).not.toBe(true);
+    const second = (await reader.getByTableId(undefined, TABLE_ID, BASE_ID))._unsafeUnwrap();
+    expect(second.observationState).toBe('syncing');
+    expect(repair).toHaveBeenCalledTimes(1);
+  });
+
+  it('rolls back a budgeted repair and restores the connection for the next read', async () => {
+    await ensureOutboxTasks(['budget-reference']);
+    await projector.onTaskEnqueued({
+      taskId: 'budget-reference',
+      baseId: BASE_ID,
+      targets: [{ fieldId, tableId }],
+      metrics,
+    });
+    await db.deleteFrom('computed_task_field_ref' as never).execute();
+    const repair = vi
+      .spyOn(projector, 'reconcileTable')
+      .mockImplementationOnce(async (_params, context) => {
+        const trx = getPostgresTransaction<DynamicDB>(context)!;
+        await sql`update computed_field_activity set estimated_dirty_records=9999 where field_id=${FIELD_ID}`.execute(
+          trx
+        );
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        await sql`select 1`.execute(trx);
+        return ok(null);
+      });
+    const result = await reader.getByTableId(undefined, TABLE_ID, BASE_ID, { budgetMs: 100 });
+    expect(result.isErr()).toBe(true);
+    const row = await db
+      .selectFrom('computed_field_activity' as never)
+      .selectAll()
+      .executeTakeFirst();
+    expect((row as { estimated_dirty_records?: number }).estimated_dirty_records).not.toBe(9999);
+    repair.mockRestore();
+    const next = await new PostgresComputedActivityReader(db, projector).getByTableId(
+      undefined,
+      TABLE_ID,
+      BASE_ID,
+      { budgetMs: 5000 }
+    );
+    expect(next.isOk()).toBe(true);
+    expect(next._unsafeUnwrap().reconciliationPerformed).toBe(true);
+  });
+
+  it('rebuilds a committed failure after losing all in-memory activity events', async () => {
+    vi.stubEnv('COMPUTED_RELIABILITY_ENABLED', 'true');
+    vi.stubEnv('COMPUTED_RELIABILITY_UI_ENABLED', 'true');
+    vi.stubEnv('COMPUTED_RELIABILITY_BASE_IDS', '');
+    try {
+      for (const statement of computedReliabilitySchemaSql
+        .split(';')
+        .filter((item) => item.trim())) {
+        await sql.raw(statement).execute(db);
+      }
+      projector.configureAsyncProjection({ enabled: true });
+      await ensureOutboxTasks(['lost-failure']);
+      await projector.onTaskEnqueued({
+        taskId: 'lost-failure',
+        baseId: BASE_ID,
+        targets: [{ fieldId, tableId }],
+        metrics,
+      });
+      await db.transaction().execute(async (trx) => {
+        const store = new PostgresComputedReliabilityStore(trx as unknown as Kysely<DynamicDB>);
+        await store.recordFailure({
+          taskId: 'lost-failure',
+          baseId: BASE_ID,
+          sourceTableId: TABLE_ID,
+          error: 'private sql error',
+        });
+        await sql`delete from computed_update_outbox where id='lost-failure'`.execute(trx);
+        expect(
+          (
+            await projector.onTaskFailed({
+              taskId: 'lost-failure',
+              baseId: BASE_ID,
+              terminal: true,
+              error: { message: 'private sql error' },
+              trx,
+            })
+          ).isOk()
+        ).toBe(true);
+      });
+      projector.disposeAsyncFlusher();
+      const restarted = new ComputedActivityProjector(db, new NoopLogger());
+      try {
+        const result = await restarted.reconcileTable({ tableId: TABLE_ID, baseId: BASE_ID });
+        expect(result.isOk()).toBe(true);
+        expect(result._unsafeUnwrap()?.fields[0]).toMatchObject({
+          fieldId: FIELD_ID,
+          status: 'failed',
+          reliability: { unresolvedCount: 1 },
+        });
+        const newReader = new PostgresComputedActivityReader(db, restarted);
+        const snapshot = (
+          await newReader.getByTableId(undefined, TABLE_ID, BASE_ID)
+        )._unsafeUnwrap();
+        expect(snapshot.diagnostics.failedFieldCount).toBe(1);
+        expect(snapshot.observedAt).toBeDefined();
+        restarted.configureAsyncProjection({ enabled: false });
+        await ensureOutboxTasks(['unrelated-success']);
+        await restarted.onTaskEnqueued({
+          taskId: 'unrelated-success',
+          baseId: BASE_ID,
+          targets: [{ fieldId, tableId }],
+          metrics,
+        });
+        await restarted.onTaskDone({ taskId: 'unrelated-success', baseId: BASE_ID });
+        const after = (await newReader.getByTableId(undefined, TABLE_ID, BASE_ID))._unsafeUnwrap();
+        expect(after.fields[0]).toMatchObject({
+          status: 'failed',
+          reliability: { unresolvedCount: 1 },
+        });
+      } finally {
+        restarted.disposeAsyncFlusher();
+      }
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   const ensureOutboxTasks = async (taskIds: string[]) => {
@@ -1071,7 +1341,10 @@ describe('ComputedActivityProjector', () => {
       ] as never)
       .execute();
 
-    const snapshot = await reader.getByTableId(undefined, TABLE_ID, BASE_ID);
+    const snapshot = await reader.getByTableId(undefined, TABLE_ID, BASE_ID, {
+      budgetMs: 2000,
+      includePauseDiagnostics: true,
+    });
 
     expect(snapshot._unsafeUnwrap().diagnostics).toMatchObject({
       executionState: 'paused',

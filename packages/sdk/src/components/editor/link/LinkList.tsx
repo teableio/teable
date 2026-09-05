@@ -9,6 +9,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -148,7 +149,9 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
     if (rowCount <= 0) return true;
     return !hasLoadedRecords;
   }, [columns.length, hasLoadedRecords, isQuerying, isTabSwitchTransitioning, rowCount]);
-  const shouldRenderGrid = !shouldShowSkeleton;
+  const queryMatchesType = isSelectedType
+    ? Boolean(recordsQuery.filterLinkCellSelected || recordsQuery.selectedRecordIds)
+    : recordsQuery.filterLinkCellSelected == null && recordsQuery.selectedRecordIds == null;
 
   useEffect(() => {
     if (prevListTypeRef.current === type) return;
@@ -167,6 +170,8 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
       return;
     }
 
+    if (!queryMatchesType) return;
+
     if (hasTabSwitchStartedQuerying || hasLoadedRecords || rowCount <= 0) {
       setIsTabSwitchTransitioning(false);
       setHasTabSwitchStartedQuerying(false);
@@ -176,6 +181,7 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
     hasTabSwitchStartedQuerying,
     isQuerying,
     isTabSwitchTransitioning,
+    queryMatchesType,
     rowCount,
   ]);
 
@@ -240,8 +246,9 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
     gridRef.current.setSelection(new CombinedSelection(SelectionRegionType.Rows, ranges));
   }, []);
 
-  // Sync UI selection with selectedIdSet (for highlighting)
-  useEffect(() => {
+  // Sync UI selection with selectedIdSet after layout so a remounted grid
+  // still receives the current checkbox state (T7055).
+  useLayoutEffect(() => {
     if (isSelectedType) {
       if (!rowCount) return;
       gridRef.current?.setSelection(
@@ -290,13 +297,16 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
       const [colIndex, rowIndex] = cell;
       const record = recordMap[rowIndex];
       if (record !== undefined) {
+        // The async row cache can still belong to All during a tab switch.
+        // Do not paint unselected rows behind the loading overlay.
+        if (isSelectedType && !selectedIdSet.has(record.id)) return { type: CellType.Loading };
         const fieldId = columns[colIndex]?.id;
         if (!fieldId) return { type: CellType.Loading };
         return cellValue2GridDisplay(record, colIndex);
       }
       return { type: CellType.Loading };
     },
-    [recordMap, columns, cellValue2GridDisplay]
+    [recordMap, columns, cellValue2GridDisplay, isSelectedType, selectedIdSet]
   );
 
   const emitChange = useCallback(() => {
@@ -316,7 +326,7 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
       if (controlType !== RowControlType.Checkbox) return;
 
       const record = recordMap[rowIndex];
-      if (!record) return;
+      if (!record || (isSelectedType && !selectedIdSet.has(record.id))) return;
 
       if (checked) {
         if (!isMultiple) {
@@ -340,7 +350,7 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
 
       emitChange();
     },
-    [recordMap, isMultiple, emitChange, setRowSelection, t]
+    [recordMap, isMultiple, emitChange, setRowSelection, t, isSelectedType, selectedIdSet]
   );
 
   const onRowRangeSelected = useCallback(
@@ -390,7 +400,7 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
 
   const onExpandInner = (rowIndex: number) => {
     const record = recordMap[rowIndex];
-    if (record == null) return;
+    if (record == null || (isSelectedType && !selectedIdSet.has(record.id))) return;
     onExpand?.(record.id);
   };
 
@@ -415,39 +425,35 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
           <Skeleton className="h-8 w-3/4" />
         </div>
       )}
-      {shouldRenderGrid && (
-        <>
-          <Grid
-            ref={gridRef}
-            style={{
-              width: '100%',
-              height: '100%',
-            }}
-            scrollBufferX={0}
-            scrollBufferY={0}
-            theme={gridTheme}
-            columns={columns}
-            freezeColumnCount={0}
-            rowCount={isSelectedType && !cellValue ? 0 : rowCount ?? 0}
-            rowIndexVisible={false}
-            customIcons={customIcons}
-            rowControls={rowControls}
-            rowControlPaddingX={8}
-            draggable={DraggableType.None}
-            selectable={readonly ? SelectableType.None : SelectableType.Row}
-            isMultiSelectionEnable={isMultiple && !isSelectedType}
-            isRowClickSelectionEnabled={!isSelectedType}
-            onItemHovered={onItemHovered}
-            getCellContent={getCellContent}
-            onVisibleRegionChanged={onVisibleRegionChanged}
-            onRowExpand={isExpandEnable ? onExpandInner : undefined}
-            onColumnResize={onColumnResize}
-            onRowControlClick={onRowControlClick}
-            onRowRangeSelected={onRowRangeSelected}
-          />
-          <GridTooltip id={componentId} />
-        </>
-      )}
+      <Grid
+        ref={gridRef}
+        style={{
+          width: '100%',
+          height: '100%',
+        }}
+        scrollBufferX={0}
+        scrollBufferY={0}
+        theme={gridTheme}
+        columns={columns}
+        freezeColumnCount={0}
+        rowCount={isSelectedType && !cellValue ? 0 : rowCount ?? 0}
+        rowIndexVisible={false}
+        customIcons={customIcons}
+        rowControls={rowControls}
+        rowControlPaddingX={8}
+        draggable={DraggableType.None}
+        selectable={readonly ? SelectableType.None : SelectableType.Row}
+        isMultiSelectionEnable={isMultiple && !isSelectedType}
+        isRowClickSelectionEnabled={!isSelectedType}
+        onItemHovered={onItemHovered}
+        getCellContent={getCellContent}
+        onVisibleRegionChanged={onVisibleRegionChanged}
+        onRowExpand={isExpandEnable ? onExpandInner : undefined}
+        onColumnResize={onColumnResize}
+        onRowControlClick={onRowControlClick}
+        onRowRangeSelected={onRowRangeSelected}
+      />
+      <GridTooltip id={componentId} />
     </>
   );
 };

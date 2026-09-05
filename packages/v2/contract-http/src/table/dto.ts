@@ -29,6 +29,7 @@ import type {
   DomainError,
 } from '@teable/v2-core';
 import {
+  computeReliabilitySchema,
   fieldColorValues,
   ratingColorValues,
   ratingIconValues,
@@ -104,6 +105,7 @@ const fieldConditionSchema = z.object({
 });
 
 const lookupOptionsSchema = z.object({
+  isUnique: z.boolean().optional(),
   linkFieldId: z.string(),
   foreignTableId: z.string(),
   lookupFieldId: z.string(),
@@ -114,6 +116,7 @@ const lookupOptionsSchema = z.object({
 });
 
 const conditionalLookupOptionsSchema = z.object({
+  isUnique: z.boolean().optional(),
   baseId: optionalForeignBaseIdSchema,
   foreignTableId: z.string(),
   lookupFieldId: z.string(),
@@ -132,6 +135,7 @@ const conditionalRollupConfigSchema = z.object({
  * Not field schema config — extends independently of options/meta.
  */
 export const fieldComputeMetaDtoSchema = z.object({
+  reliability: computeReliabilitySchema.optional(),
   status: z.enum(['idle', 'queued', 'running', 'failed']),
   estimatedComplexity: z.number().optional(),
   estimatedDirtyRecords: z.number().optional(),
@@ -148,6 +152,7 @@ export const fieldComputeMetaDtoSchema = z.object({
 });
 
 export const tableComputeMetaDtoSchema = z.object({
+  observationState: z.enum(['available', 'syncing', 'unavailable']).optional(),
   status: z.enum(['idle', 'calculating']),
   calculatingFieldCount: z.number(),
   queuedFieldCount: z.number().optional(),

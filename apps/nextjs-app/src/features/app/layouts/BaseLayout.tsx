@@ -22,6 +22,7 @@ import { SideBarFooter } from '../components/SideBarFooter';
 import { UploadProgressPanel } from '../components/upload-progress-panel/UploadProgressPanel';
 import type { IBaseResourceTable } from '../hooks/useBaseResource';
 import { useBaseResource } from '../hooks/useBaseResource';
+import { useEmbedMode } from '../hooks/useEmbedMode';
 import { useEnv } from '../hooks/useEnv';
 import { useSdkLocale } from '../hooks/useSdkLocale';
 import { preventContextMenuUnlessText } from '../utils/prevent-context-menu';
@@ -29,6 +30,7 @@ import { TemplateBaseLayout } from './TemplateBaseLayout';
 
 const BaseLayoutInner: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
+  const isEmbed = useEmbedMode();
   const { setHighlightedTableId } = useGridSearchStore();
   const { hrefMap: tableHrefMap, viewIdMap: tableViewIdsMap } = useTableHref();
 
@@ -56,15 +58,18 @@ const BaseLayoutInner: React.FC<{ children: React.ReactNode }> = ({ children }) 
         onContextMenu={preventContextMenuUnlessText}
       >
         <div className="flex h-screen w-full">
-          <Sidebar headerLeft={<BaseSidebarHeaderLeft />} headerRight={<QuickAction />}>
-            <Fragment>
-              <div className="flex h-full flex-col gap-2 divide-y divide-solid overflow-auto py-2">
-                <BaseSideBar />
-              </div>
-              <div className="grow basis-0" />
-              <SideBarFooter />
-            </Fragment>
-          </Sidebar>
+          {/* The native mobile shell has its own directory tree: no sidebar in embed mode */}
+          {!isEmbed && (
+            <Sidebar headerLeft={<BaseSidebarHeaderLeft />} headerRight={<QuickAction />}>
+              <Fragment>
+                <div className="flex h-full flex-col gap-2 divide-y divide-solid overflow-auto py-2">
+                  <BaseSideBar />
+                </div>
+                <div className="grow basis-0" />
+                <SideBarFooter />
+              </Fragment>
+            </Sidebar>
+          )}
           <div className="min-w-80 flex-1">{children}</div>
         </div>
         <UploadProgressPanel />

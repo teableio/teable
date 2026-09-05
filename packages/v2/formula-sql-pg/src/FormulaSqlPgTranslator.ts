@@ -1,11 +1,4 @@
-import type {
-  ANTLRErrorListener,
-  ATNSimulator,
-  Recognizer,
-  RootContext,
-  Token,
-} from '@teable/formula';
-import { CharStreams, CommonTokenStream, Formula, FormulaLexer } from '@teable/formula';
+import type { RootContext } from '@teable/formula';
 import {
   domainError,
   type DomainError,
@@ -19,6 +12,10 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { buildFieldSqlMetadata } from './FieldSqlCoercionVisitor';
+import { FormulaExpressionGraph, type FormulaExpressionNode } from './FormulaExpressionGraph';
+import { formulaParseCache } from './FormulaParseCache';
+import type { FormulaSqlPgBindings } from './FormulaSqlPgBindings';
+import { FormulaSqlPgLowering } from './FormulaSqlPgLowering';
 import { FormulaSqlPgVisitor } from './FormulaSqlPgVisitor';
 import { buildErrorLiteral } from './PgSqlHelpers';
 import type { IPgTypeValidationStrategy } from './PgTypeValidationStrategy';
@@ -69,24 +66,6 @@ export type FormulaSqlPgTranslatorOptions = {
   typeValidationStrategy: IPgTypeValidationStrategy;
 };
 
-class FormulaParseErrorCollector implements ANTLRErrorListener<Token> {
-  private readonly errors: string[] = [];
-
-  syntaxError<T extends Token>(
-    _recognizer: Recognizer<T, ATNSimulator>,
-    _offendingSymbol: T | undefined,
-    _line: number,
-    _charPositionInLine: number,
-    msg: string
-  ): void {
-    this.errors.push(msg.split('expecting')[0].trim());
-  }
-
-  firstError(): string | undefined {
-    return this.errors[0];
-  }
-}
-
 export class FormulaSqlPgTranslator {
   readonly tableAlias: string;
   readonly typeValidationStrategy: IPgTypeValidationStrategy;
@@ -113,13 +92,151 @@ export class FormulaSqlPgTranslator {
     );
   }
 
+  private readonly compiled = new WeakMap<
+    SqlExpr,
+    { expression: SqlExpr; bindings: FormulaSqlPgBindings }
+  >();
+
   translateExpression(expression: string): Result<SqlExpr, DomainError> {
-    return this.parseExpression(expression).map((tree) =>
-      tree.accept(new FormulaSqlPgVisitor(this))
+    return this.translateExpressions([expression]).map((expressions) => expressions[0]);
+  }
+
+  /** Compile independent outputs together to share their common subexpressions. */
+  translateExpressions(
+    expressions: ReadonlyArray<string>
+  ): Result<ReadonlyArray<SqlExpr>, DomainError> {
+    const graph = new FormulaExpressionGraph();
+    const nodes: FormulaExpressionNode[] = [];
+    for (const expression of expressions) {
+      const parsed = this.parseExpression(expression);
+      if (parsed.isErr()) return err(parsed.error);
+      nodes.push(parsed.value.accept(new FormulaSqlPgVisitor(this, graph)));
+    }
+    const lowering = new FormulaSqlPgLowering(this);
+    const bindings = lowering.bindings;
+    return ok(
+      lowering.lowerAll(nodes).map((raw) => {
+        // Single-output callers usually inspect every channel. Plain properties
+        // avoid accessor allocation/memoization overhead on that hot path.
+        if (nodes.length === 1) {
+          const render = (sql: string | undefined) =>
+            sql === undefined ? undefined : bindings.render(sql);
+          const result: SqlExpr = {
+            ...raw,
+            valueSql: bindings.render(raw.valueSql),
+            displayValueSql: render(raw.displayValueSql),
+            errorConditionSql: render(raw.errorConditionSql),
+            errorMessageSql: render(raw.errorMessageSql),
+          };
+          this.compiled.set(result, { expression: raw, bindings });
+          return result;
+        }
+        // Host projections consume the raw channels through renderExpression(s).
+        // Render individual channels only when a caller actually reads them.
+        // Memoized accessors preserve the existing enumerable, writable API.
+        const result: SqlExpr = { ...raw };
+        for (const key of [
+          'valueSql',
+          'displayValueSql',
+          'errorConditionSql',
+          'errorMessageSql',
+        ] as const) {
+          Object.defineProperty(result, key, {
+            configurable: true,
+            enumerable: true,
+            get: () => {
+              const sql = raw[key];
+              const value = sql === undefined ? undefined : bindings.render(sql);
+              Object.defineProperty(result, key, {
+                configurable: true,
+                enumerable: true,
+                writable: true,
+                value,
+              });
+              return value;
+            },
+            set: (value: string | undefined) => {
+              Object.defineProperty(result, key, {
+                configurable: true,
+                enumerable: true,
+                writable: true,
+                value,
+              });
+            },
+          });
+        }
+        this.compiled.set(result, { expression: raw, bindings });
+        return result;
+      })
     );
   }
 
+  buildExpressionGraph(expression: string): Result<FormulaExpressionNode, DomainError> {
+    const graph = new FormulaExpressionGraph();
+    return this.parseExpression(expression).map((tree) =>
+      tree.accept(new FormulaSqlPgVisitor(this, graph))
+    );
+  }
+
+  resolveFieldNode(
+    fieldIdOrName: string,
+    graph: FormulaExpressionGraph
+  ): Result<FormulaExpressionNode, DomainError> {
+    const field =
+      this.fieldById.get(fieldIdOrName) ??
+      (this.allowNameFallback
+        ? this.fieldByName.get(fieldIdOrName.trim().toLowerCase())
+        : undefined);
+    if (!field) return err(domainError.notFound({ message: `Field not found: ${fieldIdOrName}` }));
+    const id = field.id().toString();
+    const cached = graph.fields.get(id);
+    if (cached) return ok(cached);
+    if (graph.visitingFields.has(id))
+      return err(domainError.invariant({ message: `Formula dependency cycle detected at ${id}` }));
+    graph.visitingFields.add(id);
+    const formula = field.type().equals(FieldType.formula()) ? (field as FormulaField) : undefined;
+    const useStored = formula?.expression().hasLastModifiedTimeParams().unwrapOr(false);
+    const result =
+      formula && !this.skipFormulaExpansion && !useStored
+        ? this.parseExpression(formula.expression().toString()).map((tree) =>
+            graph.intern({
+              kind: 'field',
+              field,
+              value: tree.accept(new FormulaSqlPgVisitor(this, graph)),
+            })
+          )
+        : this.resolveFieldById(fieldIdOrName).map((expression) =>
+            graph.intern({ kind: 'leaf', expression })
+          );
+    graph.visitingFields.delete(id);
+    if (result.isOk()) graph.fields.set(id, result.value);
+    return result;
+  }
+
+  /** Compose host casts/error guards before rendering, sharing one binding scope. */
+  renderExpression(expr: SqlExpr, select: (expression: SqlExpr) => string): string {
+    const compiled = this.compiled.get(expr);
+    return compiled ? compiled.bindings.render(select(compiled.expression)) : select(expr);
+  }
+
+  /** A one-row SELECT for a lateral projection of a jointly compiled program. */
+  renderExpressions(
+    expressions: ReadonlyArray<SqlExpr>,
+    select: (raw: ReadonlyArray<SqlExpr>) => string
+  ): string {
+    const compiled = expressions.map((expression) => this.compiled.get(expression));
+    const bindings = compiled[0]?.bindings;
+    if (!bindings || compiled.some((entry) => entry?.bindings !== bindings)) {
+      return `(SELECT ${select(expressions)})`;
+    }
+    return bindings.render(select(compiled.map((entry) => entry!.expression)), true);
+  }
+
   renderSql(expr: SqlExpr): string {
+    return this.renderExpression(expr, (value) => this.renderValueSql(value));
+  }
+
+  private renderValueSql(expr: SqlExpr): string {
     const renderedValueSql = expr.displayValueSql ?? expr.valueSql;
     if (!expr.errorConditionSql) return renderedValueSql;
     const errorMessage = expr.errorMessageSql ?? buildErrorLiteral('INTERNAL', 'unknown_error');
@@ -368,18 +485,6 @@ export class FormulaSqlPgTranslator {
   }
 
   private parseExpression(expression: string): Result<RootContext, DomainError> {
-    const inputStream = CharStreams.fromString(expression);
-    const lexer = new FormulaLexer(inputStream);
-    const tokenStream = new CommonTokenStream(lexer);
-    const parser = new Formula(tokenStream);
-    parser.removeErrorListeners();
-    const collector = new FormulaParseErrorCollector();
-    parser.addErrorListener(collector);
-    const tree = parser.root();
-    const error = collector.firstError();
-    if (error) {
-      return err(domainError.validation({ message: error }));
-    }
-    return ok(tree);
+    return formulaParseCache.parse(expression);
   }
 }

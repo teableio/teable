@@ -54,6 +54,8 @@ import { buildOutboxTaskInput } from '../outbox/ComputedUpdateOutboxPayload';
 import { buildSeedTaskInput } from '../outbox/ComputedUpdateSeedPayload';
 import type { EnqueueOrMergeOutcome, IComputedUpdateOutbox } from '../outbox/IComputedUpdateOutbox';
 import { pushAll } from '../pushAll';
+import type { IComputedUpdatePauseRegistry } from '../pause/IComputedUpdatePauseRegistry';
+import { noopComputedUpdatePauseRegistry } from '../pause/IComputedUpdatePauseRegistry';
 import type { ComputedUpdateWorker } from '../worker/ComputedUpdateWorker';
 import type {
   IUpdateStrategy,
@@ -181,7 +183,9 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: IEventBus,
     @inject(v2RecordRepositoryPostgresTokens.computedUpdateRuntimeConfig)
-    private readonly runtimeConfig: ComputedUpdateRuntimeConfig = defaultComputedUpdateRuntimeConfig
+    private readonly runtimeConfig: ComputedUpdateRuntimeConfig = defaultComputedUpdateRuntimeConfig,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdatePauseRegistry)
+    private readonly pauseRegistry: IComputedUpdatePauseRegistry = noopComputedUpdatePauseRegistry
   ) {}
 
   private dispatchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -318,6 +322,15 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
     ) {
       return ok(undefined);
     }
+
+    const admitted = await this.pauseRegistry.admitComputedWrite(
+      {
+        tableId: plan.seedTableId.toString(),
+        baseId: plan.baseId.toString(),
+      },
+      context
+    );
+    if (admitted.isErr()) return err(admitted.error);
 
     let currentPlan = plan;
     let completedSteps = 0;

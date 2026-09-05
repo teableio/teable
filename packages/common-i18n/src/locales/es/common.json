@@ -568,19 +568,13 @@
     "billable": "Facturable",
     "billableByAuthorityMatrix": "Facturación generada por la matriz de permisos",
     "seatConfirm": {
-      "title": "Esta invitación aumentará el costo de tu suscripción",
-      "roleChangeTitle": "Este cambio de rol aumentará el costo de tu suscripción",
       "matrixTitle": "Añadir miembros aumentará el costo de tu suscripción",
-      "inviteDesc_one": "El miembro que estás invitando se unirá con el rol {{role}} y ocupará 1 asiento de la suscripción; el costo aumentará en consecuencia. Si solo necesita ver o comentar, simplemente elige el rol gratuito Espectador o Comentador.",
-      "inviteDesc_many": "Los {{count}} miembros que estás invitando se unirán con el rol {{role}} y ocuparán {{count}} asientos de la suscripción; el costo aumentará en consecuencia. Si solo necesitan ver o comentar, simplemente elige el rol gratuito Espectador o Comentador.",
-      "inviteDesc_other": "Los {{count}} miembros que estás invitando se unirán con el rol {{role}} y ocuparán {{count}} asientos de la suscripción; el costo aumentará en consecuencia. Si solo necesitan ver o comentar, simplemente elige el rol gratuito Espectador o Comentador.",
-      "linkDesc": "Los miembros que se unan mediante este enlace recibirán el rol {{role}} y cada uno ocupará 1 asiento de la suscripción; el costo crecerá a medida que se unan. Si solo necesitan ver o comentar, simplemente elige el rol gratuito Espectador o Comentador.",
-      "roleChangeDesc": "Tras cambiar a {{role}}, este miembro ocupará 1 asiento de la suscripción y el costo aumentará en consecuencia.",
       "matrixDesc": "Este miembro tiene actualmente un rol gratuito (Espectador/Comentador). Al añadirlo a la matriz de permisos ocupará 1 asiento de la suscripción y el costo aumentará en consecuencia.",
       "seatLimitTitle": "Asientos de licencia insuficientes",
       "seatLimitDesc": "Esta instancia está usando {{seats}} de {{seatLimit}} asientos con licencia y no quedan suficientes para esta acción. Contacta con tu administrador para comprar más asientos. Si solo necesita ver o comentar, puedes usar el rol gratuito Espectador o Comentador.",
       "seatLimitConfirm": "Entendido",
-      "confirmInvite": "Confirmar e invitar"
+      "fixedSeatTitle": "Asientos insuficientes en tu plan",
+      "fixedSeatDesc": "Tu plan incluye {{quantity}} asientos y {{seats}} ya están en uso. Si continúas, se superará el límite de asientos y el espacio se degradará al plan gratuito tras un período de gracia de 7 días. Si solo necesita ver o comentar, puedes usar el rol gratuito Espectador o Comentador."
     },
     "licenseExpiredGracePeriod": "Su licencia autohospedada ha caducado y se degradará al plan gratuito el {{expiredTime}}. Actualice su licencia de inmediato para mantener el acceso a las funciones premium.",
     "licenseAutoFetchFailed": "Error en la renovación automática de la licencia. Quedan {{days}} día(s) del período de gracia antes de la degradación.",
@@ -1365,6 +1359,7 @@
               "title": "Tarea de IA cancelada",
               "rateLimit": "La tarea de IA para la tabla \"{{tableName}}\" fue cancelada debido a limitación de velocidad (429). Por favor intente de nuevo más tarde.",
               "creditExhausted": "La tarea de IA para la tabla \"{{tableName}}\" fue cancelada porque los créditos se han agotado. Por favor actualice su suscripción o espere a que los créditos se renueven.",
+              "providerBilling": "La tarea de IA de la tabla \"{{tableName}}\" se canceló porque el proveedor del modelo rechazó la solicitud por motivos de facturación. Compruebe el saldo y el estado de facturación de la cuenta asociada a la clave API configurada para este modelo. Error: {{errorMessage}}",
               "authFailed": "La tarea de IA para la tabla \"{{tableName}}\" fue cancelada debido a un fallo de autenticación. Por favor verifique la configuración de su clave API.",
               "serviceUnavailable": "La tarea de IA para la tabla \"{{tableName}}\" fue cancelada porque el servicio de IA no está disponible temporalmente. Por favor intente de nuevo más tarde.",
               "unknown": "La tarea de IA para la tabla \"{{tableName}}\" fue cancelada. Error: {{errorMessage}}"
@@ -1683,5 +1678,9 @@
     "more_one": "{{count}} anuncio más",
     "more_many": "{{count}} anuncios más",
     "more_other": "{{count}} anuncios más"
+  },
+  "mobileEmbed": {
+    "pickFromDirectory": "Elige algo del directorio",
+    "pickFromDirectoryHint": "Abre una tabla, un panel o una automatización desde el directorio y aparecerá aquí."
   }
 }

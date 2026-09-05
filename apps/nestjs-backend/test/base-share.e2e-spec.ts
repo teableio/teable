@@ -58,6 +58,8 @@ describe('BaseShareController (e2e)', () => {
   let folderNodeId: string;
   let rootTableId: string;
   let childTableId: string;
+  let rootTableDefaultViewId: string;
+  let childTableDefaultViewId: string;
   let rootTableNodeId: string;
   let childTableNodeId: string;
   let anonymousUser: ReturnType<typeof createAnonymousUserAxios>;
@@ -77,6 +79,8 @@ describe('BaseShareController (e2e)', () => {
     const childTable = await createTable(baseId, { name: 'child-table' });
     rootTableId = rootTable.id;
     childTableId = childTable.id;
+    rootTableDefaultViewId = rootTable.defaultViewId!;
+    childTableDefaultViewId = childTable.defaultViewId!;
 
     const folder = await createBaseNode(baseId, {
       resourceType: BaseNodeResourceType.Folder,
@@ -258,9 +262,10 @@ describe('BaseShareController (e2e)', () => {
       const res = await anonymousUser.get<IGetBaseShareVo>(urlBuilder(GET_BASE_SHARE, { shareId }));
       expect(res.status).toEqual(200);
 
-      // Should have defaultUrl for redirect
-      expect(res.data.defaultUrl).toBeDefined();
-      expect(res.data.defaultUrl).toContain(`/base/${baseId}/table/${rootTableId}`);
+      // Should have defaultUrl pointing straight to the final view page (T6802)
+      expect(res.data.defaultUrl).toBe(
+        `/base/${baseId}/table/${rootTableId}/${rootTableDefaultViewId}`
+      );
     });
 
     it('should return nodeId in shareMeta when sharing a folder', async () => {
@@ -272,8 +277,9 @@ describe('BaseShareController (e2e)', () => {
       expect(res.data.shareMeta.nodeId).toEqual(folderNodeId);
 
       // defaultUrl should point to the first table within the shared folder
-      expect(res.data.defaultUrl).toBeDefined();
-      expect(res.data.defaultUrl).toContain(`/base/${baseId}/table/${childTableId}`);
+      expect(res.data.defaultUrl).toBe(
+        `/base/${baseId}/table/${childTableId}/${childTableDefaultViewId}`
+      );
     });
 
     it('should return defaultUrl for shared table node', async () => {
@@ -285,8 +291,9 @@ describe('BaseShareController (e2e)', () => {
       expect(res.status).toEqual(200);
 
       // defaultUrl should point to the shared table
-      expect(res.data.defaultUrl).toBeDefined();
-      expect(res.data.defaultUrl).toContain(`/base/${baseId}/table/${rootTableId}`);
+      expect(res.data.defaultUrl).toBe(
+        `/base/${baseId}/table/${rootTableId}/${rootTableDefaultViewId}`
+      );
     });
 
     it('should include allowSave and allowCopy in shareMeta', async () => {

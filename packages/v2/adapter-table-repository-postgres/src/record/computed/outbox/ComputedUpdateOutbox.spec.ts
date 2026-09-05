@@ -75,6 +75,20 @@ const createMockTask = (
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MockDb = Kysely<any>;
 
+// Legacy unit fixtures have no reliability schema. The dummy driver returns no
+// catalog rows while preserving real Kysely raw-query compilation/execution.
+const createUnmigratedQueryDb = () => {
+  const db = new Kysely<Record<string, never>>({
+    dialect: {
+      createAdapter: () => new PostgresAdapter(),
+      createDriver: () => new DummyDriver(),
+      createIntrospector: (innerDb) => new PostgresIntrospector(innerDb),
+      createQueryCompiler: () => new PostgresQueryCompiler(),
+    },
+  });
+  return { getExecutor: () => db.getExecutor(), selectFrom: db.selectFrom.bind(db) };
+};
+
 const createMockExecutor = () => {
   const executor = {
     transformQuery: vi.fn((node) => node),
@@ -118,7 +132,7 @@ describe('ComputedUpdateOutbox', () => {
       const mockDb = {
         transaction: () => ({
           execute: async <T>(fn: (trx: unknown) => Promise<T>) => {
-            const result = await fn(mockDb);
+            const result = await fn({ ...mockDb, isTransaction: true });
             order.push('commit');
             return result;
           },
@@ -234,7 +248,7 @@ describe('ComputedUpdateOutbox', () => {
       const mockDb = {
         transaction: () => ({
           execute: async <T>(fn: (trx: unknown) => Promise<T>) => {
-            const result = await fn(mockDb);
+            const result = await fn({ ...mockDb, isTransaction: true });
             order.push('commit');
             return result;
           },
@@ -325,7 +339,7 @@ describe('ComputedUpdateOutbox', () => {
       const mockDb = {
         transaction: () => ({
           execute: async <T>(fn: (trx: unknown) => Promise<T>) => {
-            const result = await fn(mockDb);
+            const result = await fn({ ...mockDb, isTransaction: true });
             order.push('commit');
             return result;
           },
@@ -413,7 +427,7 @@ describe('ComputedUpdateOutbox', () => {
           targets: [{ tableId, fieldId }],
           metrics,
           now,
-          trx: mockDb,
+          trx: { ...mockDb, isTransaction: true },
         },
         undefined
       );
@@ -421,7 +435,7 @@ describe('ComputedUpdateOutbox', () => {
         {
           tasks: [{ taskId: 'cuo-seed', baseId: BASE_ID }],
           now,
-          trx: mockDb,
+          trx: { ...mockDb, isTransaction: true },
         },
         undefined
       );
@@ -437,7 +451,8 @@ describe('ComputedUpdateOutbox', () => {
 
       const mockDb = {
         transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
         }),
         updateTable: vi.fn().mockReturnValue({
           set: vi.fn().mockImplementation((values) => {
@@ -478,7 +493,8 @@ describe('ComputedUpdateOutbox', () => {
       try {
         const mockDb = {
           transaction: () => ({
-            execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+            execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+              fn({ ...mockDb, isTransaction: true }),
           }),
           updateTable: vi.fn().mockReturnValue({
             set: vi.fn().mockImplementation((values) => {
@@ -529,8 +545,10 @@ describe('ComputedUpdateOutbox', () => {
       let seedDeleted = false;
 
       const mockDb = {
+        ...createUnmigratedQueryDb(),
         transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
         }),
         insertInto: vi.fn().mockReturnValue({
           values: vi.fn().mockReturnValue({
@@ -568,8 +586,10 @@ describe('ComputedUpdateOutbox', () => {
         execute: vi.fn().mockResolvedValue([]),
       });
       const mockDb = {
+        ...createUnmigratedQueryDb(),
         transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
         }),
         insertInto: vi.fn().mockReturnValue({
           values,
@@ -636,7 +656,8 @@ describe('ComputedUpdateOutbox', () => {
     it('logs retry scheduled event', async () => {
       const mockDb = {
         transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
         }),
         updateTable: vi.fn().mockReturnValue({
           set: vi.fn().mockReturnValue({
@@ -755,7 +776,8 @@ describe('ComputedUpdateOutbox', () => {
       });
       const mockDb = {
         transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
         }),
         executeQuery: vi.fn().mockResolvedValue({ rows: [{ locked: true }] }),
         getExecutor: vi.fn(() => createMockExecutor()),
@@ -832,7 +854,8 @@ describe('ComputedUpdateOutbox', () => {
 
       const mockDb = {
         transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
         }),
         executeQuery: vi.fn().mockResolvedValue({ rows: [{ locked: true }] }),
         getExecutor: vi.fn(() => createMockExecutor()),
@@ -873,7 +896,8 @@ describe('ComputedUpdateOutbox', () => {
 
       const mockDb = {
         transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
         }),
         deleteFrom: vi.fn().mockImplementation((table: string) => {
           deletedTables.push(table);
@@ -909,7 +933,8 @@ describe('ComputedUpdateOutbox', () => {
     it('skips the activity projector round when skipActivityProjection is set', async () => {
       const mockDb = {
         transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
         }),
         deleteFrom: vi.fn().mockImplementation((table: string) => {
           if (table === 'computed_update_outbox') {
@@ -1000,7 +1025,8 @@ describe('ComputedUpdateOutbox', () => {
       let historyInsert: { table: string; values: Record<string, unknown> } | null = null;
       const mockDb = {
         transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
         }),
         deleteFrom: vi.fn().mockImplementation((table: string) => {
           if (table === 'computed_update_outbox') {
@@ -1122,7 +1148,8 @@ describe('ComputedUpdateOutbox', () => {
       let historyInsert: { table: string; values: Record<string, unknown> } | null = null;
       const mockDb = {
         transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
         }),
         deleteFrom: vi.fn().mockImplementation((table: string) => {
           if (table === 'computed_update_outbox') {
@@ -1190,7 +1217,8 @@ describe('ComputedUpdateOutbox', () => {
       };
       const mockDb = {
         transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
         }),
         executeQuery: vi.fn().mockResolvedValue({ rows: [{ locked: true }] }),
         getExecutor: vi.fn(() => createMockExecutor()),
@@ -1241,7 +1269,8 @@ describe('ComputedUpdateOutbox', () => {
     it('delegates to the activity projector and publishes the result', async () => {
       const mockDb = {
         transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
         }),
       } as unknown as MockDb;
 
@@ -1348,7 +1377,8 @@ describe('ComputedUpdateOutbox', () => {
 
       const mockDb = {
         transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
         }),
         executeQuery: vi.fn().mockResolvedValue({ rows: [{ locked: true }] }),
         getExecutor: vi.fn(() => createMockExecutor()),
@@ -1437,7 +1467,8 @@ describe('ComputedUpdateOutbox', () => {
 
       const mockDb = {
         transaction: () => ({
-          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+            fn({ ...mockDb, isTransaction: true }),
         }),
         executeQuery: vi.fn().mockResolvedValue({ rows: [{ locked: true }] }),
         getExecutor: vi.fn(() => createMockExecutor()),
@@ -1490,7 +1521,8 @@ describe('retry jitter', () => {
     });
     const mockDb = {
       transaction: () => ({
-        execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+        execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
+          fn({ ...mockDb, isTransaction: true }),
       }),
       executeQuery: vi.fn().mockResolvedValue({ rows: [{ locked: true }] }),
       getExecutor: vi.fn(() => executor),

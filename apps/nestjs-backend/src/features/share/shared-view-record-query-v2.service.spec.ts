@@ -106,11 +106,13 @@ describe('SharedViewRecordQueryV2Service', () => {
       actorId: { toString: () => `usr${'u'.repeat(16)}` },
     });
     const cacheGet = vi.fn(async (): Promise<Record<string, unknown> | undefined> => undefined);
+    const resolveForRecordSearch = vi.fn().mockResolvedValue(undefined);
     const service = new SharedViewRecordQueryV2Service(
       { getContainerForTable } as never,
       { createContext } as never,
       { maxGroupPoints: 5_000, maxCopyCells: 50_000 } as never,
-      { get: cacheGet } as never
+      { get: cacheGet } as never,
+      { resolveForRecordSearch } as never
     );
 
     return {
@@ -121,6 +123,7 @@ describe('SharedViewRecordQueryV2Service', () => {
       getContainerForTable,
       createContext,
       cacheGet,
+      resolveForRecordSearch,
     };
   };
 
@@ -135,6 +138,42 @@ describe('SharedViewRecordQueryV2Service', () => {
       columnMeta: {},
     },
   } as IShareViewInfo;
+
+  it.each(['count', 'aggregation', 'groups'] as const)(
+    'resolves the trusted runtime search path for %s',
+    async (kind) => {
+      const fixture = createFixture();
+      const accessPath = {
+        kind: 'generated_text',
+        generatedColumnName: '__search_document',
+        provider: 'pg_trgm',
+        searchScope: 'all_fields',
+        coveredFieldIds: [primaryFieldId],
+      };
+      fixture.resolveForRecordSearch.mockResolvedValue(accessPath);
+      const search: [string, string, boolean] = ['order', '', true];
+      if (kind === 'count') {
+        await fixture.service.getRowCount(shareInfo, { search });
+      } else if (kind === 'aggregation') {
+        await fixture.service.getAggregations(shareInfo, { search });
+      } else {
+        await fixture.service.getGroupPoints(shareInfo, {
+          search,
+          groupBy: [{ fieldId, order: SortFunc.Asc }],
+        });
+      }
+      expect(fixture.resolveForRecordSearch).toHaveBeenCalledWith({
+        container: await fixture.getContainerForTable.mock.results[0].value,
+        tableId,
+        search,
+      });
+      const query = fixture.queries.find(
+        (item) =>
+          item instanceof CountTableRecordsQuery || item instanceof AggregateTableRecordsQuery
+      );
+      expect(query).toHaveProperty('recordSearchAccessPath', accessPath);
+    }
+  );
 
   it('returns empty aggregation before resolving v2 dependencies when records are disabled', async () => {
     const fixture = createFixture();

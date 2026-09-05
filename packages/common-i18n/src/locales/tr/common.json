@@ -566,18 +566,13 @@
     "billable": "Faturalandırılabilir",
     "billableByAuthorityMatrix": "Yetki matrisi tarafından oluşturulan faturalandırma",
     "seatConfirm": {
-      "title": "Bu davet abonelik ücretinizi artıracak",
-      "roleChangeTitle": "Bu rol değişikliği abonelik ücretinizi artıracak",
       "matrixTitle": "Üye eklemek abonelik ücretinizi artıracak",
-      "inviteDesc_one": "Davet ettiğiniz üye {{role}} rolüyle katılacak ve 1 abonelik koltuğu kullanacak; ücretiniz buna göre artacak. Yalnızca görüntüleme veya yorum gerekiyorsa ücretsiz İzleyici veya Yorumcu rolünü seçmeniz yeterli.",
-      "inviteDesc_other": "Davet ettiğiniz {{count}} üye {{role}} rolüyle katılacak ve {{count}} abonelik koltuğu kullanacak; ücretiniz buna göre artacak. Yalnızca görüntüleme veya yorum gerekiyorsa ücretsiz İzleyici veya Yorumcu rolünü seçmeniz yeterli.",
-      "linkDesc": "Bu bağlantıyla katılan üyeler {{role}} rolünü alır ve her biri 1 abonelik koltuğu kullanır; katılan kişi sayısıyla ücretiniz artar. Yalnızca görüntüleme veya yorum için ücretsiz İzleyici veya Yorumcu rolünü seçmeniz yeterli.",
-      "roleChangeDesc": "{{role}} rolüne geçtikten sonra bu üye 1 abonelik koltuğu kullanacak ve ücretiniz buna göre artacak.",
       "matrixDesc": "Bu üye şu anda ücretsiz bir role sahip (İzleyici/Yorumcu). Yetki matrisine eklendiğinde 1 abonelik koltuğu kullanacak ve ücretiniz buna göre artacak.",
       "seatLimitTitle": "Lisans koltuğu yetersiz",
       "seatLimitDesc": "Bu örnek, lisanslı {{seatLimit}} koltuğun {{seats}} tanesini kullanıyor ve kalan koltuklar bu işlem için yeterli değil. Ek koltuk satın almak için lütfen yöneticinizle iletişime geçin. Yalnızca görüntüleme veya yorum gerekiyorsa ücretsiz İzleyici veya Yorumcu rolünü kullanabilirsiniz.",
       "seatLimitConfirm": "Anladım",
-      "confirmInvite": "Onayla ve davet et"
+      "fixedSeatTitle": "Planınızdaki koltuklar yetersiz",
+      "fixedSeatDesc": "Planınız {{quantity}} koltuk içeriyor ve {{seats}} koltuk zaten kullanımda. Devam ederseniz koltuk sınırı aşılacak ve alan 7 günlük ek sürenin ardından ücretsiz plana düşürülecek. Yalnızca görüntüleme veya yorum gerekiyorsa ücretsiz İzleyici veya Yorumcu rolünü kullanabilirsiniz."
     },
     "licenseExpiredGracePeriod": "Kendi sunucunuzda barındırma lisansınızın süresi doldu ve {{expiredTime}} tarihinde ücretsiz plana düşürülecek. Premium özelliklere erişimi korumak için lütfen lisansınızı hemen güncelleyin.",
     "licenseAutoFetchFailed": "Lisansın otomatik yenilenmesi başarısız oldu. Sürüm düşürülmeden önce {{days}} gün ek süre kaldı.",
@@ -1362,6 +1357,7 @@
               "title": "AI görevi iptal edildi",
               "rateLimit": "\"{{tableName}}\" tablosu için AI görevi, hız sınırlaması (429) nedeniyle iptal edildi. Lütfen daha sonra tekrar deneyin.",
               "creditExhausted": "\"{{tableName}}\" tablosu için AI görevi, krediler tükendiği için iptal edildi. Lütfen aboneliğinizi yükseltin veya kredilerin yenilenmesini bekleyin.",
+              "providerBilling": "Model sağlayıcısı isteği faturalandırma nedeniyle reddettiği için \"{{tableName}}\" tablosunun yapay zeka görevi iptal edildi. Lütfen bu model için yapılandırılan API anahtarına ait hesabın bakiyesini ve faturalandırma durumunu kontrol edin. Hata: {{errorMessage}}",
               "authFailed": "\"{{tableName}}\" tablosu için AI görevi, kimlik doğrulama hatası nedeniyle iptal edildi. Lütfen API anahtarı yapılandırmanızı kontrol edin.",
               "serviceUnavailable": "\"{{tableName}}\" tablosu için AI görevi, AI hizmeti geçici olarak kullanılamadığı için iptal edildi. Lütfen daha sonra tekrar deneyin.",
               "unknown": "\"{{tableName}}\" tablosu için AI görevi iptal edildi. Hata: {{errorMessage}}"
@@ -1679,5 +1675,9 @@
     "collapse": "Daha az göster",
     "more_one": "{{count}} duyuru daha",
     "more_other": "{{count}} duyuru daha"
+  },
+  "mobileEmbed": {
+    "pickFromDirectory": "Dizinden bir öğe seçin",
+    "pickFromDirectoryHint": "Dizinden bir tablo, pano veya otomasyon açın; burada görünecek."
   }
 }

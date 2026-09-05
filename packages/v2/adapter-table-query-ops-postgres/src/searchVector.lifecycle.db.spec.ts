@@ -245,10 +245,14 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
     await runPendingMaintenance();
 
     config = await expectReadyConfig(table);
-    // Number fields are excluded from substring documents (equality uses btree).
-    expect(asStringArray(config.field_ids)).not.toContain(scoreField.id().toString());
+    // Conversion retains the canonical rounded-number search projection.
+    expect(asStringArray(config.field_ids)).toContain(scoreField.id().toString());
     expect(await searchTotal(table, config, 'lifecycleunique')).toBe(1);
-    expect(await searchTotal(table, config, '88.00')).toBe(0);
+    // The 30,000 planner filler rows repeat scores 0–99: 300 also match 88,
+    // in addition to the regional order. Both search paths must retain them.
+    const numericSearchTotal = await searchTotal(table, config, '88.00');
+    expect(numericSearchTotal).toBe(301);
+    expect(numericSearchTotal).toBe(await searchTotalWithDefaultPath(table, '88.00'));
 
     const deleteRegion = DeleteFieldCommand.create({
       baseId: table.baseId().toString(),

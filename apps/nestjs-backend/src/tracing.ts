@@ -185,13 +185,18 @@ const metricsExporter = metricsEndpoint
   : undefined;
 
 // Strip high-cardinality resource attributes from metrics only.
-// Traces and logs keep these for debugging; metrics drop them to prevent
-// cardinality explosion (each restart = new host.name + pid; each deploy =
-// new service.version build tag, so the unique metric series count would grow
-// unbounded over time as releases accumulate).
+// Traces and logs keep these for debugging; metrics drop them to limit series
+// churn (each restart = new pid + service.instance.id; each deploy = new
+// service.version build tag, so the unique metric series count grows with
+// every release).
+//
+// host.name (= pod name) is deliberately KEPT: it is the only per-pod series
+// identity. Without it every pod's cumulative counter merges into one series,
+// and the interleaved samples read as endless counter resets — rate()-based
+// panels inflate by orders of magnitude (observed ~1000x). Its churn (pod
+// count × deploys) is acceptable on self-hosted SigNoz.
 if (metricsExporter) {
   const dropFromMetricResource = new Set([
-    'host.name',
     'host.arch',
     'os.type',
     'os.description',

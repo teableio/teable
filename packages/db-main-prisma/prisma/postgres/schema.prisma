@@ -417,6 +417,18 @@ model ComputedUpdateOutboxSeed {
   @@map("computed_update_outbox_seed")
 }
 
+/// Actual output-value evidence; independent from continuation progress.
+model ComputedUpdateChangeFrontier {
+  scopeId  String @map("scope_id")
+  kind     String
+  tableId  String @map("table_id")
+  recordId String @map("record_id")
+  fieldId  String @map("field_id")
+
+  @@id([scopeId, kind, tableId, recordId, fieldId])
+  @@map("computed_update_change_frontier")
+}
+
 /// Durable per-stage state for budget-staged computed updates, keyed by the
 /// continuation chain's root task id (its scope). Rows are written once per
 /// record and never copied between continuation tasks:
@@ -528,6 +540,7 @@ model ComputedUpdatePauseScope {
   pausedBy  String?   @map("paused_by")
   resumeAt  DateTime? @map("resume_at")
   reason    String?
+  writePolicy String  @default("allow_bounded") @map("write_policy")
   updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
   updatedBy String?   @map("updated_by")
 

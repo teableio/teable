@@ -14,6 +14,7 @@ import {
   type LookupField,
   type RecordQuerySearch,
   type IRecordSearchAccessPath,
+  type RecordSearchAccessPathFallbackReason,
   resolveSearchFieldTextShape,
   type RollupField,
   type SearchFieldTextProjection,
@@ -97,6 +98,8 @@ const buildSearchProjectionText = (
       return buildStructuredTitleListText(columnRef);
     case 'plain_list':
       return buildJoinedJsonArrayText(normalizeToJsonArray(columnRef));
+    case 'rounded_number_list':
+      return sql<string>`(SELECT string_agg(ROUND((elem.value)::numeric, ${projection.precision})::text, ', ' ORDER BY elem.ordinality) FROM jsonb_array_elements_text(${normalizeToJsonArray(columnRef)}) WITH ORDINALITY AS elem(value, ordinality))`;
     case 'rounded_number':
       return sql<string>`ROUND((${columnRef})::numeric, ${projection.precision})::text`;
   }
@@ -403,24 +406,36 @@ const buildDefaultSearchCondition = (
     return ok(sql<SqlBool>`(${combined})`);
   });
 
+type GeneratedTextSearchPlan =
+  | { readonly condition: Expression<SqlBool> }
+  | { readonly fallbackReason: RecordSearchAccessPathFallbackReason };
+
 const buildGeneratedTextSearchCondition = (
   resolvedFields: ReadonlyArray<Field>,
   recordSearch: RecordQuerySearch,
   accessPath: IRecordSearchAccessPath | undefined,
   tableAlias: string,
   fieldMaskSqlMap: FieldMaskSqlMap | undefined
-): Result<Expression<SqlBool> | undefined, DomainError> => {
-  if (accessPath?.kind !== 'generated_text') return ok(undefined);
-  if (!isPostgresIdentifier(accessPath.generatedColumnName)) return ok(undefined);
+): Result<GeneratedTextSearchPlan, DomainError> => {
+  if (accessPath?.kind !== 'generated_text') {
+    return ok({ fallbackReason: 'generated_text_unavailable' });
+  }
+  if (!isPostgresIdentifier(accessPath.generatedColumnName)) {
+    return ok({ fallbackReason: 'generated_text_invalid_config' });
+  }
 
   const probeLength = Array.from(recordSearch.search.value).length;
-  if (accessPath.provider === 'pg_trgm' && probeLength < 3) return ok(undefined);
-  if (accessPath.provider === 'pg_bigm' && probeLength < 2) return ok(undefined);
+  if (
+    (accessPath.provider === 'pg_trgm' && probeLength < 3) ||
+    (accessPath.provider === 'pg_bigm' && probeLength < 1)
+  ) {
+    return ok({ fallbackReason: 'generated_text_probe_too_short' });
+  }
 
   const coveredFieldIds = new Set(accessPath.coveredFieldIds.map((fieldId) => fieldId.toString()));
-  if (!coveredFieldIds.size) return ok(undefined);
+  if (!coveredFieldIds.size) return ok({ fallbackReason: 'generated_text_invalid_config' });
 
-  return safeTry(function* () {
+  return safeTry<GeneratedTextSearchPlan, DomainError>(function* () {
     // The prefilter is sound as long as every field that contributes a
     // predicate has its projected text inside the generated document. Fields
     // that never produce a predicate for this search (checkbox/button, dates
@@ -430,17 +445,17 @@ const buildGeneratedTextSearchCondition = (
     for (const field of resolvedFields) {
       const shape = yield* resolveSearchFieldTextShape(field);
       if (!shapeProducesCondition(shape, recordSearch.search)) continue;
-      // Shapes without a document projection (scoped date search, multi-value
-      // numbers) cannot be prefiltered by the document; fall back entirely.
+      // Shapes without a document projection (such as scoped date search)
+      // cannot be prefiltered by the document; fall back entirely.
       if (!isSearchFieldTextProjection(shape)) {
-        return ok(undefined);
+        return ok({ fallbackReason: 'generated_text_unsupported_projection' });
       }
       conditionFields.push(field);
     }
 
-    if (!conditionFields.length) return ok(undefined);
+    if (!conditionFields.length) return ok({ fallbackReason: 'generated_text_unavailable' });
     if (conditionFields.some((field) => !coveredFieldIds.has(field.id().toString()))) {
-      return ok(undefined);
+      return ok({ fallbackReason: 'generated_text_coverage_mismatch' });
     }
 
     const exactCondition = yield* buildDefaultSearchCondition(
@@ -449,20 +464,21 @@ const buildGeneratedTextSearchCondition = (
       tableAlias,
       fieldMaskSqlMap
     );
-    if (!exactCondition) return ok(undefined);
+    if (!exactCondition) return ok({ fallbackReason: 'generated_text_unavailable' });
 
     const pattern = `%${escapeLikeWildcards(recordSearch.search.value)}%`;
     const documentRef = sql.ref(`${tableAlias}.${accessPath.generatedColumnName}`);
     // pg_bigm indexes LIKE only. Keeping both providers on a normalized document gives the
     // runtime one predicate shape; the original field predicate below remains the result oracle.
     const indexedPrefilter = sql<SqlBool>`${documentRef} LIKE lower(${pattern}) ESCAPE '\\'`;
-    return ok(sql<SqlBool>`(${indexedPrefilter}) AND (${exactCondition})`);
+    return ok({ condition: sql<SqlBool>`(${indexedPrefilter}) AND (${exactCondition})` });
   });
 };
 
 export type RecordSearchWherePlan = {
   readonly condition: Expression<SqlBool> | null;
   readonly usedAccessPath: 'default' | 'generated_text' | 'generated_tsvector';
+  readonly fallbackReason?: RecordSearchAccessPathFallbackReason;
 };
 
 export const buildRecordSearchWherePlan = (
@@ -487,8 +503,8 @@ export const buildRecordSearchWherePlan = (
       tableAlias,
       options?.fieldMaskSqlMap
     );
-    if (generatedTextCondition) {
-      return ok({ condition: generatedTextCondition, usedAccessPath: 'generated_text' });
+    if ('condition' in generatedTextCondition) {
+      return ok({ condition: generatedTextCondition.condition, usedAccessPath: 'generated_text' });
     }
 
     const searchAccessPathCondition = yield* buildGeneratedTsvectorSearchCondition(
@@ -511,7 +527,16 @@ export const buildRecordSearchWherePlan = (
       tableAlias,
       options?.fieldMaskSqlMap
     );
-    return ok({ condition: defaultCondition, usedAccessPath: 'default' });
+    return ok({
+      condition: defaultCondition,
+      usedAccessPath: 'default',
+      ...(options?.searchAccessPath?.kind === 'generated_text'
+        ? { fallbackReason: generatedTextCondition.fallbackReason }
+        : {}),
+      ...(options?.searchAccessPath?.kind === 'generated_tsvector'
+        ? { fallbackReason: 'generated_tsvector_unavailable' as const }
+        : {}),
+    });
   });
 };
 

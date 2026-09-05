@@ -326,14 +326,8 @@ export class TableSchemaUpdateVisitor
                 'staleReasons', jsonb_build_array(${quoteSqlLiteral(reason)})
               ),
               last_modified_time = now()
-          WHERE id = (
-            SELECT id
-            FROM table_query_search_vector_config
-            WHERE table_id = ${quoteSqlLiteral(tableId)}
-              AND status IN ('ready', 'rebuild_pending')
-            ORDER BY last_modified_time DESC NULLS LAST, created_time DESC
-            LIMIT 1
-          );
+          WHERE table_id = ${quoteSqlLiteral(tableId)}
+            AND status IN ('ready', 'rebuild_pending');
         END IF;
       END
       $teable_search_vector$;

@@ -82,6 +82,7 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
               name: base.name,
               role: base.role,
               id: base.id,
+              spaceId: base.spaceId,
               enabledAuthority: base.enabledAuthority,
             }}
           >
@@ -133,6 +134,7 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
               name: base.name,
               role: base.role,
               id: base.id,
+              spaceId: base.spaceId,
               enabledAuthority: base.enabledAuthority,
             }}
           >
@@ -173,6 +175,7 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
               name: base.name,
               role: base.role,
               id: base.id,
+              spaceId: base.spaceId,
               enabledAuthority: base.enabledAuthority,
             }}
           >

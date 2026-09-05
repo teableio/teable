@@ -1,3 +1,4 @@
+import { getTableComputedDownstreamHint } from '@teable/v2-adapter-db-postgres-shared';
 import {
   createTeableSpanAttributes,
   domainError,
@@ -15,7 +16,6 @@ import type {
   RecordId,
   Table,
 } from '@teable/v2-core';
-import { getTableComputedDownstreamHint } from '@teable/v2-adapter-db-postgres-shared';
 import { inject, injectable } from '@teable/v2-di';
 import { extractConditionFieldIds } from '@teable/v2-field-dependency-core';
 import { err, ok, safeTry } from 'neverthrow';
@@ -153,6 +153,9 @@ export type ConditionalFilterCondition = {
 export type ComputedDependencyEdge = {
   fromFieldId: FieldId;
   toFieldId: FieldId;
+  /** Complete source provenance for a deduplicated path. Missing on legacy
+   * payloads: fromFieldId alone cannot prove which changes trigger the path. */
+  propagationSourceFieldIds?: ReadonlyArray<FieldId>;
   /**
    * Target computed fields covered by this propagation edge. Planner-level deduplication
    * may collapse multiple target fields that share the same dirty-propagation path.
@@ -1746,12 +1749,17 @@ const buildPropagationEdges = (
           edge.allTargetRecordsReasons
         ),
         propagationTargetFieldIds: [edge.toFieldId],
+        propagationSourceFieldIds: [edge.fromFieldId],
       });
       edgeIndexByKey.set(key, result.length - 1);
       return;
     }
 
     const existing = result[existingIndex];
+    const sourceFieldIds = existing.propagationSourceFieldIds ?? [existing.fromFieldId];
+    if (!sourceFieldIds.some((fieldId) => fieldId.equals(edge.fromFieldId))) {
+      existing.propagationSourceFieldIds = [...sourceFieldIds, edge.fromFieldId];
+    }
     const targetFieldIds = existing.propagationTargetFieldIds ?? [existing.toFieldId];
     if (!targetFieldIds.some((fieldId) => fieldId.equals(edge.toFieldId))) {
       existing.propagationTargetFieldIds = [...targetFieldIds, edge.toFieldId];

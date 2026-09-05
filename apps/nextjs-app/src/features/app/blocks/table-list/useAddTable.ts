@@ -7,6 +7,10 @@ import { useTranslation } from 'next-i18next';
 import { useCallback } from 'react';
 import { getNodeUrl } from '../base/base-node/hooks';
 
+// The API no longer creates records by default; the UI passes 3 empty rows explicitly
+// to keep the "create table" button behavior unchanged.
+export const DEFAULT_EMPTY_RECORDS = [{ fields: {} }, { fields: {} }, { fields: {} }];
+
 export const useDefaultFields = (): IFieldRo[] => {
   const { t } = useTranslation('table');
   return [
@@ -61,6 +65,7 @@ export function useAddTable() {
         name: uniqueName,
         views: [{ name: t('view.category.table'), type: ViewType.Grid }],
         fields: fieldRos,
+        records: DEFAULT_EMPTY_RECORDS,
       })
     ).data;
     const tableId = tableData.id;

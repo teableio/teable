@@ -13,7 +13,7 @@ import {
   type IComputedActivityReader,
   type IHasher,
 } from '@teable/v2-core';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest';
 import {
   buildOutboxTaskInput,
   v2RecordRepositoryPostgresTokens,
@@ -287,6 +287,10 @@ describe('computed activity lifecycle (e2e)', () => {
     const reader = ctx.testContainer.container.resolve<IComputedActivityReader>(
       v2CoreTokens.computedActivityReader
     );
+    // Freeze only the clock; real database/network timers keep running.
+    let observedAt = Date.now();
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => observedAt);
+    onTestFinished(() => clock.mockRestore());
     const afterEnqueue = await reader.getByTableId(undefined, table.id);
     if (afterEnqueue.isErr()) throw new Error(afterEnqueue.error.message);
     expect(
@@ -303,6 +307,13 @@ describe('computed activity lifecycle (e2e)', () => {
       .where('task_id', '=', taskId)
       .execute();
 
+    // A healthy first read starts the cooldown. Losing the task does not bypass it.
+    observedAt += 14_999;
+    const duringCooldown = (await reader.getByTableId(undefined, table.id))._unsafeUnwrap();
+    expect(
+      duringCooldown.fields.find((field) => field.fieldId === formulaField.id)?.status
+    ).toMatch(/queued|running/);
+    observedAt += 1;
     // Read path must self-heal without requiring another outbox event.
     const afterHeal = await reader.getByTableId(undefined, table.id);
     if (afterHeal.isErr()) throw new Error(afterHeal.error.message);

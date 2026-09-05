@@ -28,7 +28,9 @@ import { err, ok } from 'neverthrow';
 
 import { getTablePhysicalName, makePhysicalTableSql, quoteIdentifier } from './helpers';
 import { readPostgresSearchAccessPathCapabilities } from './searchAccessPathCapability';
+import { ensureSearchDocumentFunctions } from './searchDocumentFunctions';
 import {
+  renderGeneratedSearchTextProjectionSql,
   renderSearchTextProjectionSql,
   sanitizeSearchTextProjection,
   searchTextProjectionKey,
@@ -948,13 +950,20 @@ export class PostgresTableSearchVectorExecutor {
     const tableMeta = await this.requireTableMeta(tableId);
     const physical = splitPhysicalName(tableMeta.db_table_name, tableMeta.base_id);
     const tableSql = makePhysicalTableSql(physical.schema, physical.tableName);
-    const currentConfig = expectedDefinitionKey
-      ? await this.claimedReclaimConfig(tableId, expectedDefinitionKey)
-      : await this.currentConfig(tableId);
-    if (currentConfig) {
-      assertManagedSearchVectorNames(currentConfig.generated_column_name, currentConfig.index_name);
-      await this.dropManagedIndex(physical.schema, currentConfig.index_name);
-      await this.dropManagedColumn(tableSql, currentConfig.generated_column_name);
+    const configs = expectedDefinitionKey
+      ? [await this.claimedReclaimConfig(tableId, expectedDefinitionKey)].filter(
+          (config): config is SearchVectorConfigRow => Boolean(config)
+        )
+      : await this.allManagedConfigs(tableId);
+    const currentConfig = configs[0];
+    // Validate the entire set before DDL. Independent replacements retain old
+    // objects, and retries must also reclaim objects from already-disabled rows.
+    for (const config of configs) {
+      assertManagedSearchVectorNames(config.generated_column_name, config.index_name);
+    }
+    for (const config of configs) {
+      await this.dropManagedIndex(physical.schema, config.index_name);
+      await this.dropManagedColumn(tableSql, config.generated_column_name);
     }
     if (expectedDefinitionKey) {
       if (currentConfig) {
@@ -1047,7 +1056,7 @@ export class PostgresTableSearchVectorExecutor {
             searchProbe,
           })
         : undefined;
-    const expression = buildSearchDocumentExpression(fields);
+    const expression = buildSearchDocumentExpression(fields, true);
     const tableSql = makePhysicalTableSql(physical.schema, physical.tableName);
 
     const currentConfig = await this.currentConfig(input.tableId);
@@ -1067,7 +1076,16 @@ export class PostgresTableSearchVectorExecutor {
 
     this.assertTableRewriteAllowed(rowEstimate, alreadyReady, input);
 
-    if (input.payload.rebuild && currentConfig) {
+    // A definition with independent physical objects can be built alongside the
+    // active path. Keep that path ready until validation and the metadata switch
+    // succeed; failed candidates must never remove the previous working index.
+    const preserveCurrentObjects = Boolean(
+      currentConfig &&
+        currentConfig.candidate_key !== input.payload.candidateKey &&
+        currentConfig.generated_column_name !== columnName &&
+        currentConfig.index_name !== indexName
+    );
+    if (input.payload.rebuild && currentConfig && !preserveCurrentObjects) {
       await this.markConfigRebuildPending(input.tableId, currentConfig.candidate_key);
     }
 
@@ -1076,7 +1094,7 @@ export class PostgresTableSearchVectorExecutor {
       const { inventory, planEvidence } = await this.createAndValidateManagedObjects({
         physical,
         tableSql,
-        currentConfig,
+        currentConfig: preserveCurrentObjects ? undefined : currentConfig,
         columnName,
         indexName,
         expression,
@@ -1218,6 +1236,10 @@ export class PostgresTableSearchVectorExecutor {
     }
 
     if (!input.alreadyReady) {
+      await ensureSearchDocumentFunctions(
+        this.dataDb,
+        input.validationFields.map((field) => field.textProjection)
+      );
       await this.createManagedObjects(
         input.tableSql,
         input.columnName,
@@ -1374,10 +1396,21 @@ export class PostgresTableSearchVectorExecutor {
       FROM table_query_search_vector_config
       WHERE table_id = ${tableId}
         AND status IN ('ready', 'stale', 'rebuild_pending')
-      ORDER BY last_modified_time DESC NULLS LAST, created_time DESC
+      ORDER BY (status = 'ready') DESC, last_modified_time DESC NULLS LAST, created_time DESC
       LIMIT 1
     `.execute(this.metaDb);
     return result.rows[0];
+  }
+
+  private async allManagedConfigs(tableId: string): Promise<SearchVectorConfigRow[]> {
+    const result = await sql<SearchVectorConfigRow>`
+      SELECT candidate_key, semantics, access_path, provider, operator_class,
+             generated_column_name, index_name, language_config, field_ids, search_scope
+      FROM table_query_search_vector_config
+      WHERE table_id = ${tableId}
+      ORDER BY (status = 'ready') DESC, last_modified_time DESC NULLS LAST, created_time DESC
+    `.execute(this.metaDb);
+    return result.rows;
   }
 
   private async claimedReclaimConfig(
@@ -1416,15 +1449,18 @@ export class PostgresTableSearchVectorExecutor {
     readonly inventory: TableQuerySearchVectorInventory;
   }): Promise<void> {
     const id = `tqsv_${stableHash(`${input.tableId}:${input.candidateKey}`).slice(0, 20)}`;
+    // One statement makes publishing the candidate and retiring previous
+    // configurations atomic, including when metadata and data use different DBs.
     await sql`
-      UPDATE table_query_search_vector_config
-      SET status = 'stale',
-          last_modified_time = now()
-      WHERE table_id = ${input.tableId}
-        AND candidate_key <> ${input.candidateKey}
-        AND status IN ('ready', 'rebuild_pending')
-    `.execute(this.metaDb);
-    await sql`
+      WITH retired AS (
+        UPDATE table_query_search_vector_config
+        SET status = 'stale',
+            last_modified_time = now()
+        WHERE table_id = ${input.tableId}
+          AND candidate_key <> ${input.candidateKey}
+          AND status IN ('ready', 'rebuild_pending')
+        RETURNING id
+      )
       INSERT INTO table_query_search_vector_config (
         id,
         space_id,
@@ -1932,12 +1968,13 @@ const sampleSearchProbeFromData = async (
 };
 
 const buildSearchDocumentExpression = (
-  fields: readonly SearchDocumentExpressionField[]
+  fields: readonly SearchDocumentExpressionField[],
+  generated = false
 ): string => {
+  const render = generated ? renderGeneratedSearchTextProjectionSql : renderSearchTextProjectionSql;
   const document = fields
     .map(
-      (field) =>
-        `coalesce(${renderSearchTextProjectionSql(quoteIdentifier(field.fieldDbName), field.textProjection)}, '')`
+      (field) => `coalesce(${render(quoteIdentifier(field.fieldDbName), field.textProjection)}, '')`
     )
     .join(` || E'\\n' || `);
   return `lower(${document || quoteLiteral('')})`;
@@ -2070,7 +2107,10 @@ const analyzeNgramSemantics = (input: {
       input.capability.provider === 'pg_bigm'
         ? buildNgramTokenPreview(input.searchProbe, 2)
         : buildNgramTokenPreview(input.searchProbe, 3),
-    tokenCount: Math.max(0, input.searchProbe.length - input.capability.minimumProbeLength + 1),
+    tokenCount: Math.max(
+      0,
+      Array.from(input.searchProbe).length - (input.capability.provider === 'pg_bigm' ? 2 : 3) + 1
+    ),
     explainStatus: input.baseline.explainStatus,
     explainReason: input.capability.usable
       ? 'same_substring_semantics_as_ilike'
@@ -2450,7 +2490,8 @@ const inspectSearchVectorInventory = async (
   const column = columnRows.rows[0];
   const index = indexRows.rows[0];
   const expectedExpression = buildSearchDocumentExpression(
-    fields.filter((field): field is SearchDocumentExpressionField => Boolean(field.fieldDbName))
+    fields.filter((field): field is SearchDocumentExpressionField => Boolean(field.fieldDbName)),
+    true
   );
   const staleReasons = collectSearchVectorStaleReasons(
     column,

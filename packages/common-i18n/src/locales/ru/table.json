@@ -343,6 +343,7 @@
       "filterByView": "Фильтровать записи по представлению",
       "filter": "Фильтровать записи",
       "hideFields": "Скрыть поля",
+      "removeDuplicateValues": "Удалить повторяющиеся значения",
       "moreOptions": "Дополнительные параметры",
       "allowNewOptionsWhenEditing": "Разрешить новые варианты при редактировании",
       "deleteField": {
@@ -926,6 +927,9 @@
   },
   "import": {
     "title": {
+      "createTable": "Создать таблицу",
+      "importFromCsv": "Импорт из CSV",
+      "importFromExcel": "Импорт из Excel",
       "upload": "Загрузить",
       "import": "Импорт",
       "localFile": "Локальные файлы",

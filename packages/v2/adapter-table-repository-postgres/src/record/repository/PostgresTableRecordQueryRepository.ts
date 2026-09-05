@@ -80,7 +80,6 @@ import {
 import { buildFieldMaskSqlMap } from './buildFieldMaskSql';
 import { buildRecordWhereClause } from './buildRecordWhereClause';
 import { CursorStreamPaginationStrategy } from './CursorStreamPaginationStrategy';
-import { OffsetStreamPaginationStrategy } from './OffsetStreamPaginationStrategy';
 import {
   buildBookmarkSeekExists,
   CURSOR_ORDER_BY_ERROR,
@@ -91,11 +90,13 @@ import {
   parseCursorToken,
   type CursorSeekKey,
 } from './listRecordsCursor';
+import { OffsetStreamPaginationStrategy } from './OffsetStreamPaginationStrategy';
 import {
   buildRecordSearchFieldMatches,
   buildRecordSearchWhereClause,
   buildRecordSearchWherePlan,
   type RecordSearchFieldMatch,
+  type RecordSearchWherePlan,
 } from './RecordSearchWhereBuilder';
 import {
   buildTableRecordAggregationExpression,
@@ -206,33 +207,20 @@ type IExecutionContextWithTableQuerySqlDiagnostics = IExecutionContext & {
 
 const createRecordSearchAccessPathResolution = (
   options: ITableRecordQueryOptions | undefined,
-  used: IRecordSearchAccessPathResolution['used']
+  plan: RecordSearchWherePlan
 ): IRecordSearchAccessPathResolution | undefined => {
   if (!options?.search) return undefined;
-  const requested = options.searchAccessPath?.kind ?? 'default';
-  const generatedTextFallbackReason =
-    requested === 'generated_text' &&
-    options.searchAccessPath?.kind === 'generated_text' &&
-    options.searchAccessPath.provider === 'pg_trgm' &&
-    Array.from(options.search.search.value).length < 3
-      ? ('generated_text_probe_too_short' as const)
-      : ('generated_text_unavailable' as const);
   return {
-    requested,
-    used,
-    ...(requested === 'generated_text' && used === 'default'
-      ? { fallbackReason: generatedTextFallbackReason }
-      : {}),
-    ...(requested === 'generated_tsvector' && used === 'default'
-      ? { fallbackReason: 'generated_tsvector_unavailable' as const }
-      : {}),
+    requested: options.searchAccessPath?.kind ?? 'default',
+    used: plan.usedAccessPath,
+    ...(plan.fallbackReason ? { fallbackReason: plan.fallbackReason } : {}),
   };
 };
 
 const createRepositoryFindTraceAttributes = (
   table: Table,
   options: ITableRecordQueryOptions | undefined,
-  source: 'repository.record_find' | 'repository.record_count',
+  source: 'repository.record_find' | 'repository.record_count' | 'repository.record_aggregate',
   resolution?: IRecordSearchAccessPathResolution
 ) => {
   const search = options?.search?.search;
@@ -260,10 +248,15 @@ const createRepositoryFindTraceAttributes = (
   return {
     ...createTableQueryTraceAttributes({
       tableId: table.id().toString(),
-      queryKind: search ? 'search' : 'record_list',
+      queryKind: search
+        ? 'search'
+        : source === 'repository.record_aggregate'
+          ? 'aggregation'
+          : 'record_list',
       querySource: source,
       hasSort: Boolean(options?.orderBy?.length),
-      includeTotal: options?.includeTotal !== false,
+      includeTotal:
+        source === 'repository.record_aggregate' ? undefined : options?.includeTotal !== false,
     }),
     ...createSearchTraceAttributes({
       searchValue: search?.value,
@@ -409,8 +402,21 @@ export class PostgresTableRecordQueryRepository
       if (spec) queryBuilder.where(spec);
       const searchWherePlan = buildRecordSearchWherePlan(table, options?.search, {
         tableAlias: TABLE_ALIAS,
+        searchAccessPath: options?.searchAccessPath,
       });
       if (searchWherePlan.isErr()) return err(searchWherePlan.error);
+      const searchAccessPath = createRecordSearchAccessPathResolution(
+        options,
+        searchWherePlan.value
+      );
+      span?.setAttributes(
+        createRepositoryFindTraceAttributes(
+          table,
+          options,
+          'repository.record_aggregate',
+          searchAccessPath
+        )
+      );
       if (searchWherePlan.value.condition !== null) {
         queryBuilder.whereExpression(searchWherePlan.value.condition);
       }
@@ -714,7 +720,7 @@ export class PostgresTableRecordQueryRepository
           }
           const searchAccessPath = createRecordSearchAccessPathResolution(
             findOptions,
-            searchWherePlan.value.usedAccessPath
+            searchWherePlan.value
           );
           const countCompiled = this.withRecordReadQuerySource(
             dynamicDb
@@ -894,7 +900,7 @@ export class PostgresTableRecordQueryRepository
           }
           const searchAccessPath = createRecordSearchAccessPathResolution(
             options,
-            searchWherePlan.value.usedAccessPath
+            searchWherePlan.value
           );
           const searchFieldMatches =
             options?.includeSearchFieldMatches && !options.idsOnly

@@ -328,6 +328,7 @@
       "filterByView": "ビューでレコードをフィルターする",
       "filter": "レコードをフィルターする",
       "hideFields": "フィールドを非表示にする",
+      "removeDuplicateValues": "重複する値を削除",
       "moreOptions": "オプションを表示",
       "allowNewOptionsWhenEditing": "編集時に新しいオプションを許可",
       "deleteField": {
@@ -911,6 +912,9 @@
   },
   "import": {
     "title": {
+      "createTable": "テーブルを作成",
+      "importFromCsv": "CSV からインポート",
+      "importFromExcel": "Excel からインポート",
       "upload": "アップロード",
       "import": "インポート",
       "localFile": "ローカルファイル",

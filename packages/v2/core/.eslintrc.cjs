@@ -25,6 +25,21 @@ module.exports = {
     '@typescript-eslint/naming-convention': 'off',
     '@typescript-eslint/no-this-alias': 'off',
     'no-console': 'error',
+    'no-restricted-syntax': [
+      'error',
+      {
+        selector:
+          'TSAsExpression[typeAnnotation.typeName.name="Table"][expression.property.name="table"]',
+        message:
+          'Do not cast a query-plugin table to Table. Use ITableReadModel; mutating the live aggregate is forbidden (T7092).',
+      },
+      {
+        selector:
+          'TSAsExpression[typeAnnotation.typeName.name="Table"][expression.type="TSAsExpression"][expression.expression.property.name="table"]',
+        message:
+          'Do not cast a query-plugin table to Table via unknown/any. Use ITableReadModel (T7092).',
+      },
+    ],
   },
   overrides: [
     {

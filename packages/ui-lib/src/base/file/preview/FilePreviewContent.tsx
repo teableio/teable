@@ -1,6 +1,6 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 /* eslint-disable jsx-a11y/no-static-element-interactions */
-import { X, ChevronLeft, ChevronRight, Download } from '@teable/icons';
+import { X, ChevronLeft, ChevronRight, Download, Trash2 } from '@teable/icons';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsMobile } from '../../../hooks/use-is-mobile';
 import { Dialog, DialogContent, DialogTrigger, cn } from '../../../shadcn';
@@ -9,6 +9,7 @@ import { FilePreviewContext } from './FilePreviewContext';
 import { Thumb } from './Thumb';
 
 const MOBILE_NAVIGATION_IDLE_DELAY = 2000;
+const HEADER_BUTTON_CLASS = 'flex size-8 items-center justify-center rounded-md hover:bg-black/40';
 const ATTACHMENT_NAVIGATION_BUTTON_CLASS =
   'absolute top-1/2 z-10 flex size-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/60 text-white shadow-sm transition-transform duration-300 ease-out motion-reduce:transition-none sm:size-auto sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none sm:transition-none';
 
@@ -17,7 +18,7 @@ export const FilePreviewContent = (props: { container?: HTMLElement | null }) =>
   const { files, currentFile, openPreview, closePreview, onPrev, onNext, i18nMap } =
     useContext(FilePreviewContext);
   const isMobile = useIsMobile(640);
-  const { name, fileId, src, downloadUrl } = currentFile || {};
+  const { name, fileId, src, downloadUrl, onDelete } = currentFile || {};
   const open = Boolean(fileId);
   const thumbnailContainerRef = useRef<HTMLDivElement | null>(null);
   const activeThumbnailRef = useRef<HTMLButtonElement>(null);
@@ -200,21 +201,33 @@ export const FilePreviewContent = (props: { container?: HTMLElement | null }) =>
         }}
       >
         <div className="flex size-full min-h-0 flex-col overflow-hidden">
-          <div className="grid shrink-0 grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-2 px-4 py-2.5 sm:px-5">
-            <button
-              type="button"
-              className="flex size-8 items-center justify-center rounded-md hover:bg-black/40"
-              onClick={onDownload}
-              aria-label="Download"
-            >
-              <Download className="text-xl" />
-            </button>
+          <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 py-2.5 sm:px-5">
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                className={HEADER_BUTTON_CLASS}
+                onClick={onDownload}
+                aria-label="Download"
+              >
+                <Download className="text-xl" />
+              </button>
+              {onDelete && (
+                <button
+                  type="button"
+                  className={HEADER_BUTTON_CLASS}
+                  onClick={() => onDelete()}
+                  aria-label={i18nMap?.deleteAttachment || 'Delete'}
+                >
+                  <Trash2 className="text-xl" />
+                </button>
+              )}
+            </div>
             <h2 className="min-w-0 truncate text-center" title={name}>
               {name}
             </h2>
             <button
               type="button"
-              className="flex size-8 items-center justify-center rounded-md hover:bg-black/40"
+              className={cn(HEADER_BUTTON_CLASS, 'justify-self-end')}
               onClick={closePreview}
               aria-label="Close"
             >

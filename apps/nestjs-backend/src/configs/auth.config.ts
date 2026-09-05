@@ -82,6 +82,16 @@ export const authConfig = registerAs('auth', () => ({
     callbackURL: process.env.BACKEND_OIDC_CALLBACK_URL,
     other: process.env.BACKEND_OIDC_OTHER ? JSON.parse(process.env.BACKEND_OIDC_OTHER) : {},
   },
+  mobileAuth: {
+    // URL schemes the mobile sign-in may hand a code to (`teable://auth/callback`). The
+    // official app registers `teable`; a fork with its own scheme lists it here.
+    redirectSchemes: (process.env.MOBILE_AUTH_REDIRECT_SCHEMES ?? 'teable')
+      .split(',')
+      .map((scheme) => scheme.trim().toLowerCase())
+      .filter(Boolean),
+    codeExpiresInSeconds: 5 * 60,
+    webSessionCodeExpiresInSeconds: 2 * 60,
+  },
   signin: {
     maxLoginAttempts: process.env.SIGNIN_MAX_LOGIN_ATTEMPTS
       ? Number(process.env.SIGNIN_MAX_LOGIN_ATTEMPTS)

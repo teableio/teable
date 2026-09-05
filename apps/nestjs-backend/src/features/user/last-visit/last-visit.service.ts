@@ -32,6 +32,7 @@ import type {
 import { Events } from '../../../event-emitter/events';
 import { LastVisitUpdateEvent } from '../../../event-emitter/events/last-visit/last-visit.event';
 import type { IClsStore } from '../../../types/cls';
+import { mergeBaseVisitRows } from './merge-base-visit-rows';
 
 @Injectable()
 export class LastVisitService {
@@ -645,10 +646,12 @@ export class LastVisitService {
       }[]
     >(query.toQuery());
 
-    const list = results.map((result) => ({
+    const uniqueResults = mergeBaseVisitRows(results);
+
+    const list = uniqueResults.map((result) => ({
       resourceId: result.resourceId,
       resourceType: result.resourceType,
-      lastVisitTime: result.lastVisitTime.toISOString(),
+      lastVisitTime: new Date(result.lastVisitTime).toISOString(),
       resource: {
         id: result.resourceId,
         name: result.resourceName,
@@ -660,7 +663,7 @@ export class LastVisitService {
     }));
 
     return {
-      total: results.length,
+      total: uniqueResults.length,
       list,
     };
   }

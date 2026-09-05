@@ -49,7 +49,8 @@
     "previewFileLimit": "Preview file size limit: {{size}}MB, please download to view instead.",
     "loadFileError": "Failed to load file",
     "previousAttachment": "Previous",
-    "nextAttachment": "Next"
+    "nextAttachment": "Next",
+    "deleteAttachment": "Delete"
   },
   "undoRedo": {
     "undo": "Undo",
@@ -1340,7 +1341,10 @@
       "exceedMaxAutomationRunLimit": "Maximum automation run limit exceeded",
       "manualSubscriptionNotSupported": "Self-service subscription is not available for this space. For upgrades, downgrades, or other subscription changes, please contact Teable support.",
       "appSumoSubscriptionNotSupported": "AppSumo subscriptions cannot be modified through this interface. Please manage your subscription on AppSumo.",
-      "customerNotFound": "No billing customer record found for this space."
+      "planNotAvailable": "This plan option is no longer available for new subscriptions.",
+      "seatLimitExceeded": "Not enough purchased seats. Add seats to invite more collaborators.",
+      "customerNotFound": "No billing customer record found for this space.",
+      "creditAddOnRetired": "The recurring credit add-on has been retired. Choose a larger credit tier on your plan instead."
     },
     "aggregation": {
       "searchQueryRequired": "Search query is required",

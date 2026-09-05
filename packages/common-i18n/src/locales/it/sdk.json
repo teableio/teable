@@ -49,7 +49,8 @@
     "previewFileLimit": "Limite dimensione file di anteprima: {{size}}MB, per favore scarica per visualizzare.",
     "loadFileError": "Caricamento file fallito",
     "previousAttachment": "Precedente",
-    "nextAttachment": "Successivo"
+    "nextAttachment": "Successivo",
+    "deleteAttachment": "Elimina"
   },
   "undoRedo": {
     "undo": "Annulla",
@@ -1343,7 +1344,10 @@
       "exceedMaxAutomationRunLimit": "Raggiunto il numero massimo mensile di esecuzioni di automazione",
       "manualSubscriptionNotSupported": "L'abbonamento self-service non è disponibile per questo spazio. Per upgrade, downgrade o altre modifiche all'abbonamento, contattare il supporto Teable.",
       "appSumoSubscriptionNotSupported": "Gli abbonamenti AppSumo non possono essere modificati tramite questa interfaccia. Si prega di gestire l'abbonamento su AppSumo.",
-      "customerNotFound": "Nessun record cliente di fatturazione trovato per questo spazio."
+      "planNotAvailable": "Questo piano non è più disponibile per nuovi abbonamenti.",
+      "seatLimitExceeded": "Posti acquistati insufficienti. Aggiungi posti per invitare altri collaboratori.",
+      "customerNotFound": "Nessun record cliente di fatturazione trovato per questo spazio.",
+      "creditAddOnRetired": "Il componente aggiuntivo ricorrente di crediti è stato ritirato. Scegli invece un livello di crediti superiore nel tuo piano."
     },
     "aggregation": {
       "searchQueryRequired": "È richiesta una query di ricerca",

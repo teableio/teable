@@ -74,12 +74,13 @@ const APIDialogContent = dynamic(
 );
 
 interface APIDialogProps {
+  tableId: string;
   open?: boolean;
   setOpen?: (open: boolean) => void;
   children: React.ReactNode;
 }
 
-export const APIDialog = ({ open, setOpen, children }: APIDialogProps) => {
+export const APIDialog = ({ tableId, open, setOpen, children }: APIDialogProps) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const [internalOpen, setInternalOpen] = useState(false);
@@ -108,7 +109,7 @@ export const APIDialog = ({ open, setOpen, children }: APIDialogProps) => {
           </DialogTitle>
         </DialogHeader>
 
-        {isOpen && <APIDialogContent onOpenChange={handleOpenChange} />}
+        {isOpen && <APIDialogContent tableId={tableId} onOpenChange={handleOpenChange} />}
       </DialogContent>
     </Dialog>
   );

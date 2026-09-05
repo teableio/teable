@@ -73,6 +73,7 @@ export class SettingOpenApiController {
     return {
       ...setting,
       turnstileSiteKey: this.turnstileService.getTurnstileSiteKey(),
+      mobileAuthExchange: true,
       changeEmailSendCodeMailRate: this.thresholdConfig.changeEmailSendCodeMailRate,
       resetPasswordSendMailRate: this.thresholdConfig.resetPasswordSendMailRate,
       signupVerificationSendCodeMailRate: this.thresholdConfig.signupVerificationSendCodeMailRate,

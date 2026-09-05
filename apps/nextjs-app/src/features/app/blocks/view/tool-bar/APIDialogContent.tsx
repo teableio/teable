@@ -2,6 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { CellFormat, FieldKeyType, FieldType, type IFilterSet, type ISortItem } from '@teable/core';
 import { ArrowUpRight, Code2, Copy, Check, Loader2, MagicAi, Key } from '@teable/icons';
 import {
+  BaseNodeResourceType,
   createAccessToken,
   getFields,
   getTableById,
@@ -46,7 +47,6 @@ import {
   useSettingStore,
 } from '@/features/app/components/setting/useSettingStore';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
-import type { IBaseResourceTable } from '@/features/app/hooks/useBaseResource';
 import { useOrigin } from '@/features/app/hooks/useOrigin';
 import { tableConfig } from '@/features/i18n/table.config';
 
@@ -587,12 +587,20 @@ const AdvancedQueryPanel = ({
 };
 
 export interface APIDialogContentProps {
+  tableId: string;
   onOpenChange: (open: boolean) => void;
 }
 
-export const APIDialogContent = ({ onOpenChange }: APIDialogContentProps) => {
+export const APIDialogContent = ({ tableId, onOpenChange }: APIDialogContentProps) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const { baseId, tableId, viewId } = useBaseResource() as IBaseResourceTable;
+  const baseResource = useBaseResource();
+  const { baseId } = baseResource;
+  // The dialog can be opened for any table from the sidebar, so the table comes from
+  // props; only preselect the route view when the route is showing that same table.
+  const viewId =
+    baseResource.resourceType === BaseNodeResourceType.Table && baseResource.tableId === tableId
+      ? baseResource.viewId
+      : undefined;
   const openSetting = useSettingStore((state) => state.setOpen);
   const [copied, setCopied] = useState(false);
   const [currentUrl, setCurrentUrl] = useState('');

@@ -198,12 +198,12 @@ export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterP
         component: props.components,
       }}
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
         {children.length > 0 && (
           <div
             className={cn(
-              'flex flex-1 gap-2 flex-col overflow-auto pe-4 pb-2',
-              inDrawer && 'min-w-0 gap-4 overflow-x-hidden pe-2',
+              'flex min-w-0 flex-1 gap-3 flex-col overflow-y-auto overflow-x-hidden pe-4 pb-2',
+              inDrawer && 'pe-2',
               contentClassName
             )}
             ref={filterContainerRef}

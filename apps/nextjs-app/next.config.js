@@ -105,7 +105,8 @@ const secureHeaders = createSecureHeaders({
           ],
           mediaSrc: ["'self'", 'https:', 'http:', 'data:'],
           imgSrc: ["'self'", 'https:', 'http:', 'data:'],
-          workerSrc: ['blob:'],
+          // 'self' lets the WebView register the same-origin /mobile-sw.js app-shell worker.
+          workerSrc: ["'self'", 'blob:'],
         }
       : {},
   },
@@ -243,6 +244,17 @@ const nextConfig = {
           { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
           { key: 'Cross-Origin-Embedder-Policy', value: 'credentialless' },
           { key: 'Cross-Origin-Resource-Policy', value: 'cross-origin' },
+        ],
+      },
+      {
+        // Mobile app-shell service worker, generated into public/ after `next build`
+        // by scripts/build-mobile-precache.mjs (community nextjs-app). Revalidated on
+        // every update check so a deploy is picked up promptly; the explicit allow
+        // header keeps the "/" scope legitimate wherever the file ends up served from.
+        source: '/mobile-sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache' },
+          { key: 'Service-Worker-Allowed', value: '/' },
         ],
       },
       {
