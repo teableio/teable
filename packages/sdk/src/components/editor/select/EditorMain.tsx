@@ -58,7 +58,28 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
   const filteredOptions = useMemo(() => {
     if (!searchValue) return options;
 
-    return options.filter((v) => v.label.toLowerCase().includes(searchValue.toLowerCase()));
+    const searchLower = searchValue.toLowerCase();
+    const filtered = options.filter((v) => v.label.toLowerCase().includes(searchLower));
+    
+    // Sort to prioritize exact matches and prefix matches
+    return filtered.sort((a, b) => {
+      const aLabelLower = a.label.toLowerCase();
+      const bLabelLower = b.label.toLowerCase();
+      
+      // Check for exact matches first
+      if (aLabelLower === searchLower && bLabelLower !== searchLower) return -1;
+      if (bLabelLower === searchLower && aLabelLower !== searchLower) return 1;
+      
+      // Check for prefix matches
+      const aStartsWith = aLabelLower.startsWith(searchLower);
+      const bStartsWith = bLabelLower.startsWith(searchLower);
+      
+      if (aStartsWith && !bStartsWith) return -1;
+      if (bStartsWith && !aStartsWith) return 1;
+      
+      // If both start with search or neither does, maintain original order
+      return 0;
+    });
   }, [options, searchValue]);
 
   const onSelect = (val: string) => {
