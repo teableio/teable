@@ -155,12 +155,20 @@ export abstract class FieldCore implements IFieldVo {
 
   /**
    * Wrapper to enforce notNull when calling validateCellValue.
+   * If the field has a default value, null/undefined inputs are allowed
+   * since the default will be applied later.
    */
   validateCellValueWithNotNull(value: unknown): ZodSafeParseResult<unknown> | undefined {
     if (this.isComputed) {
       return this.validateCellValue(value);
     }
     if (this.notNull && (value === null || value === undefined)) {
+      // Check if field has a default value - if so, allow null/undefined
+      // since the default will be applied later
+      const options = this.options as { defaultValue?: unknown } | undefined;
+      if (options?.defaultValue !== undefined) {
+        return this.validateCellValue(value);
+      }
       return {
         success: false,
         error: new ZodError([
