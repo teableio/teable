@@ -17,6 +17,7 @@ import {
   getTableMetaWithBaseCached,
 } from '../../utils/meta-ancestry-cache';
 import { CollaboratorType } from '@teable/openapi';
+import { timingSafeEqual } from 'crypto';
 import { intersection, union } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException, TemplateAppTokenNotAllowedException } from '../../custom.exception';
@@ -597,7 +598,14 @@ export class PermissionService {
       if (!baseShare?.password) {
         return false;
       }
-      return payload.password === baseShare.password;
+      try {
+        return timingSafeEqual(
+          Buffer.from(payload.password),
+          Buffer.from(baseShare.password)
+        );
+      } catch {
+        return false;
+      }
     } catch {
       return false;
     }

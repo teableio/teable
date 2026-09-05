@@ -5,6 +5,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { EmailVerifyCodeType, MailTransporterType, MailType } from '@teable/openapi';
 import type { IChangePasswordRo, IInviteWaitlistVo, ISignup } from '@teable/openapi';
 import * as bcrypt from 'bcrypt';
+import { timingSafeEqual } from 'crypto';
 import { isEmpty } from 'lodash';
 import ms from 'ms';
 import { ClsService } from 'nestjs-cls';
@@ -59,7 +60,14 @@ export class LocalAuthService {
     salt: string | null
   ) {
     const _hashPassword = await bcrypt.hash(password || '', salt || '');
-    return _hashPassword === hashPassword;
+    if (!_hashPassword || !hashPassword) {
+      return false;
+    }
+    try {
+      return timingSafeEqual(Buffer.from(_hashPassword), Buffer.from(hashPassword));
+    } catch {
+      return false;
+    }
   }
 
   private async getUserByIdOrThrow(userId: string) {
