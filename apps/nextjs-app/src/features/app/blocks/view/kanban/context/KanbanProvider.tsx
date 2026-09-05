@@ -273,7 +273,6 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
       primaryField,
       displayFields,
       stackCollection,
-      setExpandRecordId,
     };
   }, [
     recordQuery,
@@ -286,7 +285,6 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
     primaryField,
     displayFields,
     stackCollection,
-    setExpandRecordId,
   ]);
 
   const onClose = () => {

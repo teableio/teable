@@ -1,6 +1,5 @@
 import type { IGetRecordsRo } from '@teable/openapi';
 import type { AttachmentField, IFieldInstance } from '@teable/sdk/model';
-import type { Dispatch, SetStateAction } from 'react';
 import { createContext } from 'react';
 import type { IKanbanPermission, IStackData } from '../type';
 
@@ -15,7 +14,6 @@ export interface IKanbanContext {
   permission: IKanbanPermission;
   primaryField: IFieldInstance;
   displayFields: IFieldInstance[];
-  setExpandRecordId: Dispatch<SetStateAction<string | undefined>>;
 }
 
 export const KanbanContext = createContext<IKanbanContext>(null!);

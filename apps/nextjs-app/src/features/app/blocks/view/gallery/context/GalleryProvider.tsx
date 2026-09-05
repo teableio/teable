@@ -108,7 +108,6 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
       coverField,
       primaryField,
       displayFields,
-      setExpandRecordId,
     };
   }, [
     recordQuery,
@@ -118,7 +117,6 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
     coverField,
     primaryField,
     displayFields,
-    setExpandRecordId,
   ]);
 
   const onClose = () => {
