@@ -177,10 +177,15 @@ export class RecordOpenApiService {
     );
   }
 
+  @retryOnDeadlock()
   async simpleUpdateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo) {
-    return await this.recordModifyService.simpleUpdateRecords(
-      tableId,
-      updateRecordsRo as IUpdateRecordsInternalRo
+    return await this.prismaService.$tx(
+      async () =>
+        this.recordModifyService.simpleUpdateRecords(
+          tableId,
+          updateRecordsRo as IUpdateRecordsInternalRo
+        ),
+      { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
   }
 
