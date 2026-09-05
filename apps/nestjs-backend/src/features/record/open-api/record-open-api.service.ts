@@ -221,10 +221,12 @@ export class RecordOpenApiService {
     return snapshots[0].data;
   }
 
+  @retryOnDeadlock()
   async deleteRecord(tableId: string, recordId: string, windowId?: string) {
     return this.recordModifyService.deleteRecord(tableId, recordId, windowId);
   }
 
+  @retryOnDeadlock()
   async deleteRecords(tableId: string, recordIds: string[], windowId?: string) {
     return this.recordModifyService.deleteRecords(tableId, recordIds, windowId);
   }
