@@ -1440,9 +1440,11 @@ export class LinkService {
       return;
     }
 
+    const sortedIds = [...recordIds].sort();
     const lockQuery = this.knex(tableMeta.dbTableName)
       .select('__id')
-      .whereIn('__id', recordIds)
+      .whereIn('__id', sortedIds)
+      .orderBy('__id')
       .forUpdate()
       .toQuery();
 
