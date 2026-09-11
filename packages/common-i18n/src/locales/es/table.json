@@ -276,7 +276,6 @@
       "bar": "Bar",
       "text": "Texto",
       "markdown": "Markdown",
-      "url": "Url",
       "email": "Correo electrónico",
       "phone": "Teléfono",
       "maxNumber": "Número máximo",
@@ -338,6 +337,7 @@
       "filterByView": "Registros de filtro por vista",
       "filter": "Registros de filtro",
       "hideFields": "Ocultar campos",
+      "removeDuplicateValues": "Eliminar valores duplicados",
       "moreOptions": "Más opciones",
       "allowNewOptionsWhenEditing": "Permitir nuevas opciones al editar",
       "deleteField": {
@@ -921,6 +921,9 @@
   },
   "import": {
     "title": {
+      "createTable": "Crear tabla",
+      "importFromCsv": "Importar desde CSV",
+      "importFromExcel": "Importar desde Excel",
       "upload": "Subir",
       "import": "Importar",
       "localFile": "Archivos Locales",
@@ -1388,6 +1391,96 @@
     "action": {
       "locateResource": "Localizar"
     },
+    "resourceOperations": {
+      "title": "Cambios de este turno",
+      "items_one": "{{count}} elemento",
+      "items_many": "{{count}} elementos",
+      "items_other": "{{count}} elementos",
+      "expandRemaining": "Mostrar más ({{count}})",
+      "collapse": "Mostrar menos",
+      "create": "Creado",
+      "update": "Actualizado",
+      "delete": "Eliminado",
+      "import": "Importar",
+      "publication": {
+        "published": "Publicado",
+        "unpublished": "Publicación retirada"
+      },
+      "structureTitles": {
+        "field": "Cambios en los campos",
+        "view": "Cambios en las vistas"
+      },
+      "structureStats": {
+        "field": {
+          "create_one": "{{count}} campo añadido",
+          "create_many": "{{count}} campos añadidos",
+          "create_other": "{{count}} campos añadidos",
+          "update_one": "{{count}} campo modificado",
+          "update_many": "{{count}} campos modificados",
+          "update_other": "{{count}} campos modificados",
+          "delete_one": "{{count}} campo eliminado",
+          "delete_many": "{{count}} campos eliminados",
+          "delete_other": "{{count}} campos eliminados",
+          "import_one": "{{count}} campo importado",
+          "import_many": "{{count}} campos importados",
+          "import_other": "{{count}} campos importados"
+        },
+        "view": {
+          "create_one": "{{count}} vista añadida",
+          "create_many": "{{count}} vistas añadidas",
+          "create_other": "{{count}} vistas añadidas",
+          "update_one": "{{count}} vista modificada",
+          "update_many": "{{count}} vistas modificadas",
+          "update_other": "{{count}} vistas modificadas",
+          "delete_one": "{{count}} vista eliminada",
+          "delete_many": "{{count}} vistas eliminadas",
+          "delete_other": "{{count}} vistas eliminadas",
+          "import_one": "{{count}} vista importada",
+          "import_many": "{{count}} vistas importadas",
+          "import_other": "{{count}} vistas importadas"
+        }
+      },
+      "workflow": {
+        "activate": "Automatización activada",
+        "deactivate": "Automatización desactivada",
+        "discard": "Cambios del borrador descartados"
+      },
+      "routine": {
+        "activate": "Rutina activada",
+        "deactivate": "Rutina desactivada",
+        "run": "Ejecución iniciada"
+      },
+      "records": {
+        "create": "Registros añadidos",
+        "createCount_one": "{{count}} registro añadido",
+        "createCount_many": "{{count}} registros añadidos",
+        "createCount_other": "{{count}} registros añadidos",
+        "update": "Registros actualizados",
+        "updateCount_one": "{{count}} registro actualizado",
+        "updateCount_many": "{{count}} registros actualizados",
+        "updateCount_other": "{{count}} registros actualizados",
+        "delete": "Registros eliminados",
+        "deleteCount_one": "{{count}} registro eliminado",
+        "deleteCount_many": "{{count}} registros eliminados",
+        "deleteCount_other": "{{count}} registros eliminados",
+        "import": "Registros importados",
+        "importCount_one": "{{count}} registro importado",
+        "importCount_many": "{{count}} registros importados",
+        "importCount_other": "{{count}} registros importados"
+      },
+      "types": {
+        "base": "Base",
+        "table": "Tabla",
+        "field": "Campo",
+        "view": "Vista",
+        "record": "Registros",
+        "app": "Aplicación",
+        "workflow": "Automatización",
+        "routine": "Rutina",
+        "folder": "Carpeta",
+        "artifact": "Artifact"
+      }
+    },
     "showUI": {
       "skip": "Omitir",
       "next": "Siguiente",
@@ -1428,7 +1521,13 @@
     "addAttachment": "Añadir archivo adjunto",
     "noHistory": "No hay historial de chat",
     "noFoundHistory": "No se encontró historial de chat coincidente, comience una nueva conversación",
+    "pin": "Fijar",
+    "unpin": "Dejar de fijar",
+    "archive": "Archivar",
+    "archivedToast": "Chat archivado. Lo encontrarás en Ajustes › Chats archivados.",
+    "unread": "Sin leer",
     "timeGroup": {
+      "pinned": "Fijados",
       "today": "Hoy",
       "oneWeek": "Una semana",
       "twoWeek": "Dos semanas",
@@ -1447,6 +1546,7 @@
       "tables": "Tablas",
       "apps": "Aplicaciones",
       "workflows": "Automatizaciones",
+      "routines": "Rutinas",
       "folders": "Carpetas",
       "envs": "Secretos"
     },
@@ -1604,6 +1704,11 @@
         "upstreamBadRequest": "El endpoint de voz no es válido.",
         "upstreamUnavailable": "La función de voz no está disponible."
       }
+    },
+    "status": {
+      "running": "Generando…",
+      "waitingInput": "Esperando tu respuesta",
+      "failed": "La respuesta falló"
     }
   },
   "upload": {

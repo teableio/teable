@@ -17,7 +17,6 @@ import {
   type TableQueryRemediationExecutor,
   type TableQueryRemediationTaskRepository,
   type TableSearchAccessPathReclaimSource,
-  type TableSearchAccessPathResolver,
   type TableSearchVectorReconciler,
   type TableSearchVectorSchemaMaintenanceScheduler,
   type TableSearchVectorStatusReader,
@@ -49,10 +48,7 @@ import { PostgresTableSearchAccessPathCapabilityReader } from './searchAccessPat
 import { PostgresTableSearchAccessPathReclaimSource } from './searchAccessPathReclaim';
 import { PostgresTableSearchVectorReconciler } from './searchVector';
 import { PostgresTableSearchVectorSchemaMaintenanceScheduler } from './searchVectorMaintenance';
-import {
-  PostgresTableSearchAccessPathResolver,
-  PostgresTableSearchVectorStatusReader,
-} from './searchVectorStatus';
+import { PostgresTableSearchVectorStatusReader } from './searchVectorStatus';
 import { v2TableOpsPostgresTokens } from './tokens';
 import type { UnknownPostgresDatabase } from './types';
 
@@ -212,6 +208,29 @@ const registerObservationDependencies = async (
   }
 };
 
+export const registerV2TableSearchAccessPathPostgresAdapter = <
+  MetaDatabase = UnknownPostgresDatabase,
+  DataDatabase = UnknownPostgresDatabase,
+>(
+  container: DependencyContainer,
+  options: {
+    readonly metaDb: Kysely<MetaDatabase>;
+    readonly dataDb: Kysely<DataDatabase>;
+  }
+): DependencyContainer => {
+  const metaDb = options.metaDb as unknown as Kysely<UnknownPostgresDatabase>;
+  const dataDb = options.dataDb as unknown as Kysely<UnknownPostgresDatabase>;
+  container.registerInstance<TableSearchVectorStatusReader>(
+    v2TableOpsTokens.searchVectorStatusReader,
+    new PostgresTableSearchVectorStatusReader(metaDb)
+  );
+  container.registerInstance<TableSearchAccessPathCapabilityReader>(
+    v2TableOpsTokens.searchAccessPathCapabilityReader,
+    new PostgresTableSearchAccessPathCapabilityReader(dataDb)
+  );
+  return container;
+};
+
 export const registerV2TableOpsPostgresAdapter = async <
   MetaDatabase = UnknownPostgresDatabase,
   DataDatabase = UnknownPostgresDatabase,
@@ -307,18 +326,10 @@ export const registerV2TableOpsPostgresAdapter = async <
     v2TableOpsTokens.searchAccessPathReconciler,
     searchVectorReconciler
   );
-  container.registerInstance<TableSearchVectorStatusReader>(
-    v2TableOpsTokens.searchVectorStatusReader,
-    new PostgresTableSearchVectorStatusReader(unknownMetaDb)
-  );
-  container.registerInstance<TableSearchAccessPathResolver>(
-    v2TableOpsTokens.searchAccessPathResolver,
-    new PostgresTableSearchAccessPathResolver(unknownMetaDb)
-  );
-  container.registerInstance<TableSearchAccessPathCapabilityReader>(
-    v2TableOpsTokens.searchAccessPathCapabilityReader,
-    new PostgresTableSearchAccessPathCapabilityReader(unknownDataDb)
-  );
+  registerV2TableSearchAccessPathPostgresAdapter(container, {
+    metaDb: unknownMetaDb,
+    dataDb: unknownDataDb,
+  });
   container.registerInstance<TableSearchVectorSchemaMaintenanceScheduler>(
     v2TableOpsTokens.searchVectorSchemaMaintenanceScheduler,
     new PostgresTableSearchVectorSchemaMaintenanceScheduler(unknownMetaDb)

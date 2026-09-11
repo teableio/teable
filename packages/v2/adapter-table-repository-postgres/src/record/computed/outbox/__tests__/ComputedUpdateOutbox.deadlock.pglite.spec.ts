@@ -1,6 +1,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { PostgresUnitOfWorkTransaction } from '@teable/v2-adapter-db-postgres-shared';
 import { BaseId, FieldId, NoopHasher, RecordId, TableId, type ILogger } from '@teable/v2-core';
+import { computedReliabilitySchemaSql } from '@teable/v2-postgres-schema';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Dialect, QueryResult } from 'kysely';
 import {
@@ -12,8 +13,10 @@ import {
   sql,
 } from 'kysely';
 import { describe, expect, it, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import type { DynamicDB } from '../../../query-builder';
 
 import { ComputedUpdatePauseRegistry } from '../../pause/ComputedUpdatePauseRegistry';
+import { PostgresComputedReliabilityStore } from '../../reliability/PostgresComputedReliabilityStore';
 import type { ComputedOutboxWakeup, IComputedOutboxWakeupPublisher } from '../ComputedOutboxWakeup';
 import { ComputedUpdateOutbox } from '../ComputedUpdateOutbox';
 import type { ComputedUpdateOutboxTaskInput } from '../ComputedUpdateOutboxPayload';
@@ -495,6 +498,7 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
       .addColumn('paused_by', 'text')
       .addColumn('resume_at', 'timestamptz')
       .addColumn('reason', 'text')
+      .addColumn('write_policy', 'text', (col) => col.notNull().defaultTo('allow_bounded'))
       .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
       .addColumn('updated_by', 'text')
       .execute();
@@ -846,6 +850,51 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
 
     expect(claims.every((result) => result.isOk())).toBe(true);
     expect(claims.filter((result) => result._unsafeUnwrap() !== null)).toHaveLength(1);
+  });
+
+  it('serializes by-id claims for one seed table while preserving capacity for another', async () => {
+    await insertOutboxRow(db, {
+      id: 'cuo-seed-concurrency-by-id-1',
+      status: 'pending',
+      baseId: PRIMARY_BASE_ID,
+      seedTableId: PRIMARY_SEED_TABLE_ID,
+    });
+    await insertOutboxRow(db, {
+      id: 'cuo-seed-concurrency-by-id-2',
+      status: 'pending',
+      baseId: PRIMARY_BASE_ID,
+      seedTableId: PRIMARY_SEED_TABLE_ID,
+    });
+    await insertOutboxRow(db, {
+      id: 'cuo-other-seed-concurrency-by-id',
+      status: 'pending',
+      baseId: PRIMARY_BASE_ID,
+      seedTableId: SECONDARY_SEED_TABLE_ID,
+    });
+    const outbox = createTestOutbox(db, undefined, {
+      maxConcurrentProcessingPerBase: 2,
+      maxConcurrentProcessingPerSeedTable: 1,
+    });
+
+    const firstSameSeed = await outbox.claimById({
+      taskId: 'cuo-seed-concurrency-by-id-1',
+      workerId: 'queue-worker-1',
+    });
+    const secondSameSeed = await outbox.claimById({
+      taskId: 'cuo-seed-concurrency-by-id-2',
+      workerId: 'queue-worker-2',
+    });
+    const otherSeed = await outbox.claimById({
+      taskId: 'cuo-other-seed-concurrency-by-id',
+      workerId: 'queue-worker-3',
+    });
+
+    expect(firstSameSeed.isOk()).toBe(true);
+    expect(firstSameSeed._unsafeUnwrap()?.id).toBe('cuo-seed-concurrency-by-id-1');
+    expect(secondSameSeed.isOk()).toBe(true);
+    expect(secondSameSeed._unsafeUnwrap()).toBeNull();
+    expect(otherSeed.isOk()).toBe(true);
+    expect(otherSeed._unsafeUnwrap()?.id).toBe('cuo-other-seed-concurrency-by-id');
   });
 
   it('does not exceed per-base concurrency within one batch claim', async () => {
@@ -1810,7 +1859,9 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
       estimatedComplexity: 2,
     });
 
-    const outbox = createTestOutbox(db);
+    const outbox = createTestOutbox(db, undefined, {
+      maxConcurrentProcessingPerSeedTable: 2,
+    });
     const claimed = await outbox.claimBatch({
       workerId: 'worker-new',
       limit: 10,
@@ -2165,6 +2216,59 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
     });
   });
 
+  it('extends the exact active lease without shortening it or replacing its policy', async () => {
+    await insertOutboxRow(db, {
+      id: 'cuo-extend-primary',
+      status: 'pending',
+      baseId: PRIMARY_BASE_ID,
+      seedTableId: PRIMARY_SEED_TABLE_ID,
+    });
+    const registry = createPauseRegistry(db);
+    const originalResumeAt = new Date(Date.now() + 60 * 60 * 1000);
+    const paused = await registry.pauseScope({
+      scopeType: 'base',
+      scopeId: PRIMARY_BASE_ID,
+      resumeAt: originalResumeAt,
+      reason: 'database maintenance',
+      writePolicy: 'block',
+      actor: 'pause-operator',
+    });
+    expect(paused.isOk()).toBe(true);
+    const original = paused._unsafeUnwrap();
+
+    const requestedAt = Date.now();
+    const extended = await registry.extendLease({
+      leaseId: original.id,
+      durationMs: 90 * 60 * 1000,
+      actor: 'extend-operator',
+    });
+    expect(extended.isOk()).toBe(true);
+    const renewed = extended._unsafeUnwrap()!;
+    expect(renewed).toMatchObject({
+      id: original.id,
+      pausedAt: original.pausedAt,
+      pausedBy: 'pause-operator',
+      reason: 'database maintenance',
+      writePolicy: 'block',
+      updatedBy: 'extend-operator',
+    });
+    expect(renewed.resumeAt!.getTime() - requestedAt).toBeGreaterThanOrEqual(89 * 60 * 1000);
+    expect(await readTaskNextRunAt(db, 'cuo-extend-primary')).toEqual(renewed.resumeAt);
+
+    const notShortened = await registry.extendLease({
+      leaseId: original.id,
+      durationMs: 15 * 60 * 1000,
+      actor: 'extend-operator',
+    });
+    expect(notShortened._unsafeUnwrap()!.resumeAt).toEqual(renewed.resumeAt);
+    const stale = await registry.extendLease({
+      leaseId: 'cup-stale',
+      durationMs: 30 * 60 * 1000,
+    });
+    expect(stale.isOk()).toBe(true);
+    expect(stale._unsafeUnwrap()).toBeNull();
+  });
+
   it('defaults a pause lease to 30 minutes', async () => {
     const registry = createPauseRegistry(db);
     const requestedAt = Date.now();
@@ -2511,6 +2615,162 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
       relayClaim: { workerId: 'relay-worker', predecessorTaskId: PREDECESSOR_ID },
     };
 
+    it('does not access reliability tables for successful enqueue claim and completion with master enabled', async () => {
+      vi.stubEnv('COMPUTED_RELIABILITY_ENABLED', 'true');
+      vi.stubEnv('COMPUTED_RELIABILITY_UI_ENABLED', 'false');
+      vi.stubEnv('COMPUTED_RELIABILITY_BASE_IDS', '');
+      const statements: string[] = [];
+      const observedDb = db.withPlugin({
+        transformQuery(args) {
+          const compiled = new PostgresQueryCompiler().compileQuery(args.node);
+          // Include bindings: a readiness probe can reference tables through to_regclass($1).
+          statements.push(`${compiled.sql} ${JSON.stringify(compiled.parameters)}`);
+          return args.node;
+        },
+        async transformResult(args) {
+          return args.result;
+        },
+      });
+      try {
+        const outbox = createTestOutbox(observedDb);
+        const enqueued = (
+          await outbox.enqueueOrMerge({
+            ...createContinuationInput('ordinary-success'),
+            stageDepth: 0,
+            runTotalSteps: 1,
+            runCompletedStepsBefore: 0,
+          })
+        )._unsafeUnwrap();
+        const claimed = (
+          await outbox.claimById({ taskId: enqueued.taskId, workerId: 'ordinary-worker' })
+        )._unsafeUnwrap();
+        expect(claimed).not.toBeNull();
+        expect((await outbox.markDone(claimed!))._unsafeUnwrap()).toBe(true);
+        expect(
+          statements.some((statement) => statement.includes('insert into "computed_update_outbox"'))
+        ).toBe(true);
+        expect(
+          statements.some((statement) => statement.includes('update "computed_update_outbox"'))
+        ).toBe(true);
+        expect(
+          statements.some((statement) => statement.includes('delete from "computed_update_outbox"'))
+        ).toBe(true);
+        expect(
+          statements.filter((statement) => statement.includes('computed_reliability_'))
+        ).toEqual([]);
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('discards source tasks without accessing a reliability ledger denied to the runtime role', async () => {
+      for (const statement of computedReliabilitySchemaSql
+        .split(';')
+        .filter((part) => part.trim())) {
+        await sql.raw(statement).execute(db);
+      }
+      await sql`create role table_drop_worker`.execute(db);
+      await sql`grant usage on schema public to table_drop_worker`.execute(db);
+      await sql`grant all on all tables in schema public to table_drop_worker`.execute(db);
+      await sql`revoke all on computed_reliability_issue,computed_reliability_scope from table_drop_worker`.execute(
+        db
+      );
+      await insertOutboxRow(db, { id: 'source-drop', status: 'pending' });
+      const statements: string[] = [];
+      const observed = db.withPlugin({
+        transformQuery(args) {
+          const compiled = new PostgresQueryCompiler().compileQuery(args.node);
+          statements.push(`${compiled.sql} ${JSON.stringify(compiled.parameters)}`);
+          return args.node;
+        },
+        async transformResult(args) {
+          return args.result;
+        },
+      });
+      vi.stubEnv('COMPUTED_RELIABILITY_ENABLED', 'true');
+      try {
+        await sql`set role table_drop_worker`.execute(db);
+        const result = (
+          await createTestOutbox(observed).discardBySeedTable({
+            baseId: PRIMARY_BASE_ID,
+            seedTableId: PRIMARY_SEED_TABLE_ID,
+          })
+        )._unsafeUnwrap();
+        expect(result.discardedTaskIds).toContain('source-drop');
+        expect(
+          statements.filter((statement) => statement.includes('computed_reliability_'))
+        ).toEqual([]);
+      } finally {
+        await sql`reset role`.execute(db);
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('persists failure evidence with unknown scope and field-level rejection', async () => {
+      vi.stubEnv('COMPUTED_RELIABILITY_ENABLED', 'true');
+      for (const statement of computedReliabilitySchemaSql
+        .split(';')
+        .filter((part) => part.trim())) {
+        await sql.raw(statement).execute(db);
+      }
+      await sql`create table if not exists computed_task_field_ref(task_id text,field_id text,table_id text)`.execute(
+        db
+      );
+      const store = new PostgresComputedReliabilityStore(db as unknown as Kysely<DynamicDB>);
+      await insertOutboxRow(db, {
+        id: PREDECESSOR_ID,
+        status: 'pending',
+        affectedFieldIds: [FIELD_ID],
+        affectedTableIds: [PRIMARY_TARGET_TABLE_ID],
+      });
+      const outbox = createTestOutbox(db, undefined, { runHistoryEnabled: false });
+      const parent = (
+        await outbox.claimById({ taskId: PREDECESSOR_ID, workerId: 'worker' })
+      )._unsafeUnwrap()!;
+      expect(
+        (await outbox.markFailed(parent, 'timeout', {}, { directDeadLetter: true }))._unsafeUnwrap()
+      ).toBe(true);
+      expect((await store.listIssues())[0]).toMatchObject({
+        task_id: PREDECESSOR_ID,
+        status: 'open',
+        scope_complete: false,
+      });
+      // No execution plan/reference identifies the downstream field's table.
+      // The durable scope must not guess that it belongs to the seed table.
+      expect(await store.getFieldSummaries(PRIMARY_SEED_TABLE_ID)).toEqual([]);
+      expect(await store.getUnknownScopeSummary(PRIMARY_SEED_TABLE_ID)).toMatchObject({
+        unresolvedCount: 1,
+        scopeComplete: false,
+      });
+      await insertOutboxRow(db, { id: 'field-rejection', status: 'pending' });
+      const rejected = (
+        await outbox.claimById({ taskId: 'field-rejection', workerId: 'worker' })
+      )._unsafeUnwrap()!;
+      expect(
+        (
+          await outbox.markDone(rejected, undefined, {
+            fieldErrors: [
+              {
+                fieldId: FIELD_ID,
+                error: {
+                  message: 'Cell limit exceeded',
+                  context: { tableId: PRIMARY_SEED_TABLE_ID },
+                },
+              },
+            ],
+          })
+        )._unsafeUnwrap()
+      ).toBe(true);
+      const rejectionIssue = (await store.listIssues()).find(
+        (issue) => issue.task_id === 'field-rejection'
+      );
+      expect(rejectionIssue).toMatchObject({ status: 'open', scope_complete: true });
+      expect(
+        (await store.getFieldSummaries(PRIMARY_SEED_TABLE_ID))[0].reliability.unresolvedCount
+      ).toBeGreaterThan(0);
+      vi.unstubAllEnvs();
+    });
+
     it('claims a fresh continuation inside the enqueue transaction', async () => {
       await insertPredecessor();
       const publisher = new RecordingWakeupPublisher();
@@ -2572,6 +2832,7 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
       await insertOutboxRow(db, {
         id: 'cuo-relay-other-active',
         status: 'processing',
+        seedTableId: SECONDARY_SEED_TABLE_ID,
         lockedAt: new Date(),
         lockedBy: 'other-worker:cuc-1',
       });
@@ -2586,11 +2847,41 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
       expect(result._unsafeUnwrap().claimed?.status).toBe('processing');
     });
 
+    it('leaves the continuation pending when another task for the seed table is active', async () => {
+      await insertPredecessor();
+      await insertOutboxRow(db, {
+        id: 'cuo-relay-same-seed-active',
+        status: 'processing',
+        seedTableId: PRIMARY_SEED_TABLE_ID,
+        lockedAt: new Date(),
+        lockedBy: 'other-worker:cuc-1',
+      });
+      const outbox = createTestOutbox(db);
+
+      const result = await outbox.enqueueOrMerge(
+        createContinuationInput('plan-relay-seed-cap-blocked'),
+        undefined,
+        relayOptions
+      );
+      expect(result.isOk()).toBe(true);
+      const outcome = result._unsafeUnwrap();
+      expect(outcome.claimed).toBeUndefined();
+
+      const row = await db
+        .selectFrom('computed_update_outbox')
+        .select(['status', 'locked_by'])
+        .where('id', '=', outcome.taskId)
+        .executeTakeFirst();
+      expect(row?.status).toBe('pending');
+      expect(row?.locked_by).toBeNull();
+    });
+
     it('leaves the continuation pending when the base concurrency cap is reached', async () => {
       await insertPredecessor();
       await insertOutboxRow(db, {
         id: 'cuo-relay-active-1',
         status: 'processing',
+        seedTableId: SECONDARY_SEED_TABLE_ID,
         lockedAt: new Date(),
         lockedBy: 'other-worker:cuc-1',
       });

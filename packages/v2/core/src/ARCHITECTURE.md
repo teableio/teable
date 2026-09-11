@@ -21,6 +21,13 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - Command handlers may orchestrate ports and application services, but must not call other command
   handlers or re-dispatch commands through `ICommandBus`.
 - Shared write behavior belongs in `application/services/` and is reused by handlers.
+- Record comment-count projections belong in `GetTableCommentCountHandler`: authorize the supplied
+  loaded record IDs through the record-query plugin, then read counts through
+  `ITableCommentQueryRepository`. Only row-scoped reads query the record data database, selecting
+  authorized IDs without replaying view filters, search, grouping or pagination.
+  Nest only converts transport inputs and dispatches the query. The PostgreSQL adapter reads comments
+  from the metadata connection, not the record data/BYODB transaction. This read projection does not
+  move comment writes or notification workflows into the Table aggregate.
 - Repository-specific post-persist work (for example schema refresh, backfill replay, or
   repository-originated action-trigger collection) stays inside the repository `create/update/delete`
   method. Application flows may only consume the returned aggregate and its domain events.

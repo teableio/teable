@@ -8,7 +8,6 @@ import type { ISpecification } from '../../domain/shared/specification/ISpecific
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
 import * as LoggerPort from '../../ports/Logger';
-import * as TableMapperPort from '../../ports/mappers/TableMapper';
 import type {
   IRecordQueryPlugin,
   RecordQueryFieldMask,
@@ -55,22 +54,6 @@ const createEnforceGroups = <T>(
   }
 
   return groups.filter((group) => group.length > 0);
-};
-
-const createRecordQueryPluginContextSanitizer = (
-  tableMapper: TableMapperPort.ITableMapper
-): RecordQueryPluginContextSanitizer => {
-  // Clone once per runner execution so plugins share a detached snapshot.
-  let snapshotResult: Result<RecordQueryPluginContext['table'], DomainError> | undefined;
-
-  return (context) => {
-    snapshotResult ??= context.table.clone(tableMapper);
-    if (snapshotResult.isErr()) {
-      return err(snapshotResult.error);
-    }
-
-    return ok({ ...context, table: snapshotResult.value } as RecordQueryPluginContext);
-  };
 };
 
 const getTableId = (table: RecordQueryPluginContext['table']): string | undefined => {
@@ -424,9 +407,7 @@ export class RecordQueryPluginRunner {
     @inject(v2CoreTokens.recordQueryPlugins)
     private readonly plugins: IRecordQueryPlugin[],
     @inject(v2CoreTokens.logger)
-    private readonly logger: LoggerPort.ILogger,
-    @inject(v2CoreTokens.tableMapper)
-    private readonly tableMapper: TableMapperPort.ITableMapper
+    private readonly logger: LoggerPort.ILogger
   ) {}
 
   async prepare(
@@ -442,7 +423,9 @@ export class RecordQueryPluginRunner {
       return err(matchedPluginsResult.error);
     }
     const matchedPlugins = matchedPluginsResult.value;
-    const sanitizeContext = createRecordQueryPluginContextSanitizer(this.tableMapper);
+    // Query plugins receive ITableReadModel and must not mutate the aggregate.
+    // Cloning via toDTO/toDomain doubled getRecords CPU (T7092).
+    const sanitizeContext: RecordQueryPluginContextSanitizer = (context) => ok(context);
 
     for (const group of createEnforceGroups(matchedPlugins, (plugin) => plugin.enforce)) {
       const results = await Promise.all(

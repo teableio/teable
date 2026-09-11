@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { HttpErrorCode, nullsToUndefined, type ViewType } from '@teable/core';
-import { Prisma, PrismaService } from '@teable/db-main-prisma';
+import { HttpErrorCode, type ViewType } from '@teable/core';
+import { type Prisma, PrismaService } from '@teable/db-main-prisma';
 import type {
   IGetPinListVo,
+  IGetPinListRo,
   IPinEntryMapVo,
   AddPinRo,
   DeletePinRo,
@@ -12,11 +13,11 @@ import type {
 } from '@teable/openapi';
 import { PinType } from '@teable/openapi';
 import { Knex } from 'knex';
-import { keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import type {
+  RoutineDeleteEvent,
   AppDeleteEvent,
   BaseDeleteEvent,
   DashboardDeleteEvent,
@@ -31,6 +32,46 @@ import { updateOrder } from '../../utils/update-order';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { LastVisitService } from '../user/last-visit/last-visit.service';
 
+/**
+ * One SQL branch of the pin list per type. It receives the caller's pin rows of that type
+ * (`pin_resource`, already filtered by user and type), joins the resource table onto them and
+ * selects the shared column set through `pinColumns`. All branches are UNION ALLed into a
+ * single statement, so listing pins costs one round trip however many types are pinned.
+ */
+export type IPinSource = (pins: Knex.QueryBuilder) => IPinBranch | Promise<IPinBranch>;
+
+/**
+ * A branch's query, wrapped: knex builders are thenables, so handing one back through an
+ * `async` source or `Promise.all` would execute it instead of passing it along.
+ */
+export interface IPinBranch {
+  query: Knex.QueryBuilder;
+}
+
+/** A pin list row as the statement returns it: one per pin whose resource still exists. */
+export interface IPinRow {
+  id: string;
+  type: string;
+  order: number;
+  name: string;
+  icon: string | null;
+  parentBaseId: string | null;
+  /** Type-specific extras: view details for views, chat details in the enterprise edition. */
+  meta: Record<string, unknown> | null;
+}
+
+/** Pin types the space sidebar lists when no type filter is given: navigable resources. */
+export const SIDEBAR_PIN_TYPES: PinType[] = [
+  PinType.Space,
+  PinType.Base,
+  PinType.Table,
+  PinType.View,
+  PinType.Dashboard,
+  PinType.Workflow,
+  PinType.App,
+  PinType.Routine,
+];
+
 @Injectable()
 export class PinService {
   constructor(
@@ -39,6 +80,109 @@ export class PinService {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     private readonly lastVisitService: LastVisitService
   ) {}
+
+  /**
+   * The SQL branch of each pin type. One entry per type: adding a type means adding a branch,
+   * nothing else. Editions extend the map for the types they own (chat, workflow and app pins
+   * live in the enterprise override, whose tables Community does not have); a pin whose type
+   * has no branch here is simply left out.
+   */
+  protected readonly pinSources: Partial<Record<PinType, IPinSource>> = {
+    [PinType.Space]: (pins) => ({
+      query: pins
+        .join('space', 'space.id', 'pin_resource.resource_id')
+        .whereNull('space.deleted_time')
+        .select(this.pinColumns({ name: 'space.name' })),
+    }),
+    [PinType.Base]: (pins) => ({
+      query: pins
+        .join('base', 'base.id', 'pin_resource.resource_id')
+        .whereNull('base.deleted_time')
+        .select(this.pinColumns({ name: 'base.name', icon: 'base.icon' })),
+    }),
+    [PinType.Table]: (pins) => ({
+      query: pins
+        .join('table_meta', 'table_meta.id', 'pin_resource.resource_id')
+        .whereNull('table_meta.deleted_time')
+        .select(
+          this.pinColumns({
+            name: 'table_meta.name',
+            icon: 'table_meta.icon',
+            parentBaseId: 'table_meta.base_id',
+          })
+        ),
+    }),
+    [PinType.View]: (pins) => ({
+      query: pins
+        .join('view', 'view.id', 'pin_resource.resource_id')
+        .join('table_meta', 'table_meta.id', 'view.table_id')
+        .whereNull('view.deleted_time')
+        .whereNull('table_meta.deleted_time')
+        .select(
+          this.pinColumns({
+            name: 'view.name',
+            parentBaseId: 'table_meta.base_id',
+            meta: this.knex.raw(
+              "jsonb_build_object('tableId', table_meta.id, 'type', view.type, 'options', view.options)"
+            ),
+          })
+        ),
+    }),
+    [PinType.Dashboard]: (pins) => ({
+      query: pins
+        .join('dashboard', 'dashboard.id', 'pin_resource.resource_id')
+        .select(this.pinColumns({ name: 'dashboard.name', parentBaseId: 'dashboard.base_id' })),
+    }),
+  };
+
+  /** The caller's pin rows of one type: the starting point of every branch. */
+  private pinsOf(userId: string, type: PinType) {
+    return this.knex('pin_resource')
+      .where('pin_resource.created_by', userId)
+      .andWhere('pin_resource.type', type);
+  }
+
+  /** The column set every branch selects, so the branches can be UNION ALLed. */
+  protected pinColumns(columns: {
+    name: string;
+    icon?: string;
+    parentBaseId?: string;
+    meta?: Knex.Raw;
+  }) {
+    return [
+      'pin_resource.resource_id as id',
+      'pin_resource.type as type',
+      'pin_resource.order as order',
+      `${columns.name} as name`,
+      columns.icon ? `${columns.icon} as icon` : this.knex.raw('NULL::text as icon'),
+      columns.parentBaseId
+        ? `${columns.parentBaseId} as parentBaseId`
+        : this.knex.raw('NULL::text as "parentBaseId"'),
+      columns.meta ? columns.meta.wrap('', ' as meta') : this.knex.raw('NULL::jsonb as meta'),
+    ];
+  }
+
+  /** Type-specific fields of a list item; editions extend it for the types they add. */
+  protected pinItemMeta(type: PinType, meta: IPinRow['meta']): Partial<IGetPinListVo[number]> {
+    if (type !== PinType.View || !meta) return {};
+    const {
+      tableId,
+      type: viewType,
+      options,
+    } = meta as {
+      tableId: string;
+      type: ViewType;
+      options: string | null;
+    };
+    const pluginLogo = options ? JSON.parse(options)?.pluginLogo : undefined;
+    return {
+      viewMeta: {
+        tableId,
+        type: viewType,
+        pluginLogo: pluginLogo ? getPublicFullStorageUrl(pluginLogo) : undefined,
+      },
+    };
+  }
 
   private async getMaxOrder(where: Prisma.PinResourceWhereInput) {
     const aggregate = await this.prismaService.pinResource.aggregate({
@@ -93,72 +237,36 @@ export class PinService {
       });
   }
 
-  async getList(): Promise<IGetPinListVo> {
-    const list = await this.prismaService.pinResource.findMany({
-      where: {
-        createdBy: this.cls.get('user.id'),
-      },
-      select: {
-        resourceId: true,
-        type: true,
-        order: true,
-      },
-      orderBy: {
-        order: 'asc',
-      },
-    });
+  async getList(query?: IGetPinListRo): Promise<IGetPinListVo> {
+    const userId = this.cls.get('user.id');
+    // No filter means the sidebar: the navigable resource types. Anything else (chat pins) is
+    // only listed when asked for by type.
+    const requested =
+      query?.type == null ? SIDEBAR_PIN_TYPES : ([] as PinType[]).concat(query.type);
+    const types = [...new Set(requested)].filter((type) => this.pinSources[type]);
+    if (!userId || types.length === 0) return [];
 
-    // Group resource IDs by type
-    const idsByType = list.reduce(
-      (acc, item) => {
-        const type = item.type as PinType;
-        if (!acc[type]) {
-          acc[type] = [];
-        }
-        acc[type].push(item.resourceId);
-        return acc;
-      },
-      {} as Record<PinType, string[]>
+    const branches = await Promise.all(
+      types.map((type) => this.pinSources[type]!(this.pinsOf(userId, type)))
     );
+    const [first, ...rest] = branches.map((branch) => branch.query);
+    const statement = (rest.length ? first.unionAll(rest, true) : first)
+      .orderBy('order', 'asc')
+      .toQuery();
+    const rows = await this.prismaService.$queryRawUnsafe<IPinRow[]>(statement);
 
-    // Fetch all resources in parallel
-    const [baseList, spaceList, tableList, viewList, dashboardList, workflowList, appList] =
-      await Promise.all([
-        this.fetchBases(idsByType[PinType.Base]),
-        this.fetchSpaces(idsByType[PinType.Space]),
-        this.fetchTables(idsByType[PinType.Table]),
-        this.fetchViews(idsByType[PinType.View]),
-        this.fetchDashboards(idsByType[PinType.Dashboard]),
-        this.fetchWorkflows(idsByType[PinType.Workflow]),
-        this.fetchApps(idsByType[PinType.App]),
-      ]);
-
-    // Create lookup maps
-    const resourceMaps = {
-      [PinType.Base]: keyBy(baseList, 'id'),
-      [PinType.Space]: keyBy(spaceList, 'id'),
-      [PinType.Table]: keyBy(tableList, 'id'),
-      [PinType.View]: keyBy(viewList, 'id'),
-      [PinType.Dashboard]: keyBy(dashboardList, 'id'),
-      [PinType.Workflow]: keyBy(workflowList, 'id'),
-      [PinType.App]: keyBy(appList, 'id'),
-    };
-
-    return list
-      .map((item) => {
-        const { resourceId, type, order } = item;
-        const resource = this.transformResource(type as PinType, resourceId, resourceMaps);
-        if (!resource) {
-          return undefined;
-        }
-        return {
-          id: resourceId,
-          type: type as PinType,
-          order,
-          ...nullsToUndefined(resource),
-        };
-      })
-      .filter(Boolean) as IGetPinListVo;
+    return rows.map((row) => {
+      const type = row.type as PinType;
+      return {
+        id: row.id,
+        type,
+        order: row.order,
+        name: row.name,
+        icon: row.icon ?? undefined,
+        parentBaseId: row.parentBaseId ?? undefined,
+        ...this.pinItemMeta(type, row.meta),
+      };
+    });
   }
 
   /**
@@ -192,111 +300,6 @@ export class PinService {
       ),
     ]);
     return { ...baseEntryMap, ...tableEntryMap };
-  }
-
-  private async fetchBases(ids?: string[]) {
-    if (!ids?.length) return [];
-    return this.prismaService.base.findMany({
-      where: { id: { in: ids }, deletedTime: null },
-      select: { id: true, name: true, icon: true },
-    });
-  }
-
-  private async fetchSpaces(ids?: string[]) {
-    if (!ids?.length) return [];
-    return this.prismaService.space.findMany({
-      where: { id: { in: ids }, deletedTime: null },
-      select: { id: true, name: true },
-    });
-  }
-
-  private async fetchTables(ids?: string[]) {
-    if (!ids?.length) return [];
-    return this.prismaService.tableMeta.findMany({
-      where: { id: { in: ids }, deletedTime: null },
-      select: { id: true, name: true, baseId: true, icon: true },
-    });
-  }
-
-  private async fetchViews(ids?: string[]) {
-    if (!ids?.length) return [];
-    return this.prismaService.$queryRaw<
-      {
-        id: string;
-        name: string;
-        baseId: string;
-        tableId: string;
-        type: ViewType;
-        options: string;
-      }[]
-    >(Prisma.sql`
-      SELECT view.id, view.name, table_meta.base_id as "baseId", table_meta.id as "tableId", view.type, view.options
-      FROM view
-      LEFT JOIN table_meta ON view.table_id = table_meta.id
-      WHERE view.id IN (${Prisma.join(ids)})
-        AND view.deleted_time IS NULL
-        AND table_meta.deleted_time IS NULL
-    `);
-  }
-
-  private async fetchDashboards(ids?: string[]) {
-    if (!ids?.length) return [];
-    return this.prismaService.dashboard.findMany({
-      where: { id: { in: ids } },
-      select: { id: true, name: true, baseId: true },
-    });
-  }
-
-  private async fetchWorkflows(ids?: string[]) {
-    if (!ids?.length) return [];
-    const sql = this.knex('workflow')
-      .select('id', 'name', this.knex.raw('base_id as "baseId"'))
-      .whereIn('id', ids)
-      .whereNull('deleted_time')
-      .toQuery();
-    return this.prismaService.$queryRawUnsafe<{ id: string; name: string; baseId: string }[]>(sql);
-  }
-
-  private async fetchApps(ids?: string[]) {
-    if (!ids?.length) return [];
-    const sql = this.knex('app')
-      .select('id', 'name', this.knex.raw('base_id as "baseId"'))
-      .whereIn('id', ids)
-      .whereNull('deleted_time')
-      .toQuery();
-    return this.prismaService.$queryRawUnsafe<{ id: string; name: string; baseId: string }[]>(sql);
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private transformResource(type: PinType, resourceId: string, resourceMaps: Record<PinType, any>) {
-    const resource = resourceMaps[type]?.[resourceId];
-    if (!resource) return undefined;
-
-    switch (type) {
-      case PinType.Base:
-        return { name: resource.name, icon: resource.icon };
-      case PinType.Space:
-      case PinType.Dashboard:
-      case PinType.Workflow:
-      case PinType.App:
-        return { name: resource.name, parentBaseId: resource.baseId };
-      case PinType.Table:
-        return { name: resource.name, parentBaseId: resource.baseId, icon: resource.icon };
-      case PinType.View: {
-        const pluginLogo = resource.options ? JSON.parse(resource.options)?.pluginLogo : undefined;
-        return {
-          name: resource.name,
-          parentBaseId: resource.baseId,
-          viewMeta: {
-            tableId: resource.tableId,
-            type: resource.type,
-            pluginLogo: pluginLogo ? getPublicFullStorageUrl(pluginLogo) : undefined,
-          },
-        };
-      }
-      default:
-        return undefined;
-    }
   }
 
   async updateOrder(data: UpdatePinOrderRo) {
@@ -342,11 +345,13 @@ export class PinService {
       item,
       anchorItem,
       getNextItem: async (whereOrder, align) => {
+        // Pins are ordered per user; a neighbour is only ever one of the caller's own rows.
         return this.prismaService.pinResource.findFirst({
           select: { order: true, id: true },
           where: {
             type: type,
             order: whereOrder,
+            createdBy: this.cls.get('user.id'),
           },
           orderBy: { order: align },
         });
@@ -400,6 +405,7 @@ export class PinService {
   @OnEvent(Events.DASHBOARD_DELETE, { async: true })
   @OnEvent(Events.WORKFLOW_DELETE, { async: true })
   @OnEvent(Events.APP_DELETE, { async: true })
+  @OnEvent(Events.ROUTINE_DELETE, { async: true })
   protected async resourceDeleteListener(
     listenerEvent:
       | ViewDeleteEvent
@@ -409,6 +415,7 @@ export class PinService {
       | DashboardDeleteEvent
       | WorkflowDeleteEvent
       | AppDeleteEvent
+      | RoutineDeleteEvent
   ) {
     switch (listenerEvent.name) {
       case Events.TABLE_VIEW_DELETE:
@@ -451,6 +458,12 @@ export class PinService {
         await this.deletePinWithoutException({
           id: listenerEvent.payload.appId,
           type: PinType.App,
+        });
+        break;
+      case Events.ROUTINE_DELETE:
+        await this.deletePinWithoutException({
+          id: listenerEvent.payload.routineId,
+          type: PinType.Routine,
         });
         break;
     }

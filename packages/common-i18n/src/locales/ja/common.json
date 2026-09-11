@@ -390,10 +390,6 @@
           "user": "Slackユーザー",
           "workspace": "Slackワークスペース"
         },
-        "email": {
-          "user": "ユーザー",
-          "email": "メール"
-        },
         "deleteTitle": "接続されたアカウントを削除",
         "deleteDesc": "{{name}}を削除してもよろしいですか？",
         "create": "新しいアカウントを接続",
@@ -437,6 +433,8 @@
     "webSearch": "ウェブ検索",
     "folder": "フォルダ",
     "newAutomation": "新しいオートメーション",
+    "routine": "ルーティン",
+    "newRoutine": "新しいルーティン",
     "newApp": "新しいアプリ",
     "newFolder": "新しいフォルダ",
     "template": "テンプレート"
@@ -564,17 +562,13 @@
     "billable": "課金対象",
     "billableByAuthorityMatrix": "権限マトリックスによって生成された課金",
     "seatConfirm": {
-      "title": "この招待によりサブスクリプション料金が増加します",
-      "roleChangeTitle": "このロール変更によりサブスクリプション料金が増加します",
       "matrixTitle": "メンバーの追加によりサブスクリプション料金が増加します",
-      "inviteDesc_other": "招待した {{count}} 人のメンバーは {{role}} ロールで参加し、サブスクリプションの {{count}} 席を使用するため、料金がその分増加します。閲覧やコメントのみでよい場合は、無料の「閲覧者」または「解説者」ロールをお選びください。",
-      "linkDesc": "このリンクから参加したメンバーには {{role}} ロールが付与され、1 人につき 1 席を使用するため、参加人数に応じて料金が増加します。閲覧やコメントのみでよい場合は、無料の「閲覧者」または「解説者」ロールをお選びください。",
-      "roleChangeDesc": "{{role}} に変更すると、このメンバーはサブスクリプションの 1 席を使用し、料金がその分増加します。",
       "matrixDesc": "このメンバーは現在無料ロール（閲覧者/解説者）です。権限マトリックスに追加するとサブスクリプションの 1 席を使用し、料金がその分増加します。",
       "seatLimitTitle": "ライセンスシートが不足しています",
       "seatLimitDesc": "このインスタンスはライセンスシート {{seatLimit}} 席中 {{seats}} 席を使用しており、この操作に必要な残りシートがありません。管理者に連絡して追加シートを購入してください。閲覧やコメントのみでよい場合は、無料の「閲覧者」または「解説者」ロールをご利用ください。",
       "seatLimitConfirm": "わかりました",
-      "confirmInvite": "確認して招待"
+      "fixedSeatTitle": "プランのシートが不足しています",
+      "fixedSeatDesc": "現在のプランにはシートが {{quantity}} 席含まれており、すでに {{seats}} 席を使用しています。続行するとシート上限を超え、7日間の猶予期間の後にスペースは無料プランにダウングレードされます。閲覧やコメントのみでよい場合は、無料の「閲覧者」または「解説者」ロールをご利用ください。"
     },
     "licenseExpiredGracePeriod": "セルフホスト版ライセンスの有効期限が切れました。{{expiredTime}}に無料プランへダウングレードされ、プレミアム機能が利用できなくなります。完全な機能を維持するため、速やかにライセンスを更新してください。",
     "licenseAutoFetchFailed": "ライセンスの自動更新に失敗しました。ダウングレードまでの猶予期間は残り {{days}} 日です。",
@@ -1293,6 +1287,24 @@
             "message": "自動化{{name}}が{{failCount}}回連続で失敗しています。実行履歴を開いて詳細をご確認ください。"
           }
         },
+        "routine": {
+          "failed": {
+            "title": "ルーチン {{name}} の実行に失敗しました",
+            "message": "ルーチン {{name}} の実行中にエラーが発生しました。実行履歴で詳細をご確認ください。"
+          },
+          "failedSummary": {
+            "title": "ルーチン {{name}} が {{failCount}} 回失敗しました",
+            "message": "ルーチン {{name}} が連続で {{failCount}} 回失敗しています。実行履歴で詳細をご確認ください。"
+          },
+          "insufficientCredit": {
+            "title": "AI クレジット不足のためルーチン {{name}} はスキップされました",
+            "message": "AI クレジットが不足しているため、ルーチン {{name}} は実行されませんでした。クレジットを追加するかプランをアップグレードしてください。"
+          },
+          "autoDeactivated": {
+            "title": "ルーチン {{name}} は連続 {{failCount}} 回の失敗により一時停止されました",
+            "message": "ルーチン {{name}} が連続で {{failCount}} 回失敗したため、自動的に一時停止しました。問題を解決してから再度有効にしてください。"
+          }
+        },
         "billing": {
           "title": "請求通知",
           "credit": {
@@ -1359,6 +1371,7 @@
               "title": "AIタスクがキャンセルされました",
               "rateLimit": "テーブル \"{{tableName}}\" のAIタスクは、レート制限（429）によりキャンセルされました。後でもう一度お試しください。",
               "creditExhausted": "テーブル \"{{tableName}}\" のAIタスクは、クレジットが使い切られたためキャンセルされました。サブスクリプションをアップグレードするか、クレジットの更新をお待ちください。",
+              "providerBilling": "モデルプロバイダーが課金上の理由でリクエストを拒否したため、テーブル \"{{tableName}}\" の AI タスクはキャンセルされました。このモデルに設定された API キーのアカウントの残高と課金状況を確認してください。エラー：{{errorMessage}}",
               "authFailed": "テーブル \"{{tableName}}\" のAIタスクは、認証エラーによりキャンセルされました。APIキーの設定をご確認ください。",
               "serviceUnavailable": "テーブル \"{{tableName}}\" のAIタスクは、AIサービスが一時的に利用できないためキャンセルされました。後でもう一度お試しください。",
               "unknown": "テーブル \"{{tableName}}\" のAIタスクがキャンセルされました。エラー：{{errorMessage}}"
@@ -1449,6 +1462,7 @@
     "minFollowerCount": "アカウントには少なくとも{{count}}人のフォロワーが必要です",
     "mustMention": "投稿は{{mention}}をメンションする必要があります",
     "fetchSnapshotFailed": "投稿スナップショットの取得に失敗しました",
+    "snapshotTimeout": "投稿スナップショットの待機がタイムアウトしました。しばらくしてからもう一度お試しください",
     "alreadyClaimedThisWeek": "今週すでにこのアカウントの報酬を請求しています",
     "maxClaimsReached": "今週のリワード請求上限（2回）に達しました",
     "postTooOld": "投稿は過去{{hours}}時間以内に公開されたものである必要があります",
@@ -1588,7 +1602,8 @@
       "copyToBase": "ベースにコピー",
       "copyToSpace": "スペースにコピー",
       "copyToPersonal": "個人にコピー",
-      "copyToApp": "アプリにコピー"
+      "copyToApp": "アプリにコピー",
+      "copyToRoutine": "ルーティンにコピー"
     },
     "import": {
       "title": "スキルをインポート",
@@ -1629,7 +1644,9 @@
       "app": "App",
       "appDescription": "このアプリでのみ利用可能",
       "cuppyclaw": "ボット",
-      "cuppyclawDescription": "このボットでのみ利用可能"
+      "cuppyclawDescription": "このボットでのみ利用可能",
+      "routine": "ルーティン",
+      "routineDescription": "このルーティンでのみ利用可能"
     },
     "source": {
       "github": "GitHub",
@@ -1675,5 +1692,22 @@
     "acknowledge": "了解しました",
     "collapse": "折りたたむ",
     "more_other": "他 {{count}} 件のお知らせ"
+  },
+  "mobileEmbed": {
+    "pickFromDirectory": "ディレクトリから項目を選択",
+    "pickFromDirectoryHint": "ディレクトリからテーブル、ダッシュボード、オートメーションを開くと、ここに表示されます。",
+    "limitReachedTitle": "プランの上限に達しました",
+    "limitReachedDescription": "このスペースは現在のプランの上限に達しています。",
+    "creditsExhaustedTitle": "AI クレジットを使い切りました",
+    "creditsExhaustedDescription": "このスペースは現在のプランに含まれる AI クレジットをすべて使い切りました。",
+    "seatLimitTitle": "空きシートがありません",
+    "seatLimitDescription": "このスペースには、これ以上コラボレーターを追加できるシートがありません。",
+    "ownerManagesPlan": "このスペースのプランを管理できるのはスペースのオーナーのみです。オーナーに連絡して解決してください。",
+    "featureUnavailableTitle": "このプランでは利用できません",
+    "billingUnavailable": "プランと請求の管理はアプリでは利用できません。",
+    "featureUnavailableDescription": "この機能は、このスペースの現在のプランでは利用できません。",
+    "importRowLimitReached": "現在のプランの行数上限に達したため、残りのレコードはインポートされませんでした。",
+    "userCapTitle": "ユーザー数の上限に達しました",
+    "userCapDescription": "このインスタンスはライセンスで許可されたユーザー数に達しています。管理者に連絡してください。"
   }
 }

@@ -1,3 +1,5 @@
+import { sql, type Kysely } from 'kysely';
+
 export type QualifiedIdentifierLiteral = string & {
   readonly __brand: 'QualifiedIdentifierLiteral';
 };
@@ -58,4 +60,11 @@ export const toQualifiedIdentifierLiteral = (
       ? `${quoteIdentifierName(schemaName)}.${quoteIdentifierName(plainTableName)}`
       : quoteIdentifierName(plainTableName)
   ) as QualifiedIdentifierLiteral;
+};
+
+export const resolveTableSql = <DB>(db: Kysely<DB>, name: keyof DB & string) => {
+  // withSchema transforms query table nodes, but not standalone raw fragments.
+  // Compile through the caller's plugins and reuse the escaped table identifier.
+  const query = db.selectFrom(name).selectAll().compile().sql;
+  return sql.raw(query.slice('select * from '.length));
 };

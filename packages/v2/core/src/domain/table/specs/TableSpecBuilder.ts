@@ -8,6 +8,7 @@ import type { SpecBuilderMode } from '../../shared/specification/SpecBuilder';
 import type { Table } from '../Table';
 import type { TableId } from '../TableId';
 import type { TableName } from '../TableName';
+import type { FieldId } from '../fields/FieldId';
 import type { ViewId } from '../views/ViewId';
 import type { ITableSpecVisitor } from './ITableSpecVisitor';
 import { TableByBaseIdSpec } from './TableByBaseIdSpec';
@@ -19,6 +20,7 @@ import { TableByNameSpec } from './TableByNameSpec';
 import { TableByViewIdSpec } from './TableByViewIdSpec';
 import { TableWithViewIdsSpec } from './TableWithViewIdsSpec';
 import { TableWithPrimaryFieldSpec } from './TableWithPrimaryFieldSpec';
+import { TableWithFieldIdsSpec } from './TableWithFieldIdsSpec';
 
 export class TableSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, TableSpecBuilder> {
   private includeBaseId = true;
@@ -69,6 +71,11 @@ export class TableSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Tabl
 
   withPrimaryField(): TableSpecBuilder {
     this.addSpec(TableWithPrimaryFieldSpec.create());
+    return this;
+  }
+
+  withFieldIds(fieldIds: ReadonlyArray<FieldId>): TableSpecBuilder {
+    this.addSpec(TableWithFieldIdsSpec.create(fieldIds));
     return this;
   }
 

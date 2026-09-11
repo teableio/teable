@@ -9,3 +9,5 @@ export * from './select-color';
 export * from './select-option';
 export * from './normalize-cell-value';
 export * from './text-direction';
+export * from './find-urls';
+export * from './url';

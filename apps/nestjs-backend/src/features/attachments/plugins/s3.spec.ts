@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
+import { Readable } from 'stream';
 import { vi } from 'vitest';
 import StorageAdapter from './adapter';
 import { AliyunStorage } from './aliyun';
@@ -213,5 +214,30 @@ describe('AliyunStorage forcePathStyle', () => {
     expect(parsed.host).toBe('teable.example.com');
     expect(parsed.pathname).toBe('/oss/private-bucket/table/attachment/preview');
     expect(parsed.searchParams.get('X-Amz-Signature')).toBeTruthy();
+  });
+});
+
+describe('S3Storage getObjectMeta', () => {
+  it('still returns the object meta when sharp cannot read the image dimensions', async () => {
+    // libheif rejects some iPhone HEICs at the header ("Too many auxiliary
+    // image references"); the upload must not fail on that, the crop job has
+    // its own decoder.
+    const storage = new S3Storage(mockS3Config(false));
+    const send = vi.fn(async (command: { constructor: { name: string } }) => {
+      if (command.constructor.name === 'HeadObjectCommand') {
+        return { ContentLength: 2282614, ContentType: 'image/heic', ETag: 'etag' };
+      }
+      return { Body: Readable.from([Buffer.from('not an image at all')]) };
+    });
+    (storage as any).s3ClientPrivateNetwork = { send };
+
+    const meta = await storage.getObjectMeta('private-bucket', 'table/photo.heic');
+
+    expect(meta).toEqual({
+      hash: 'etag',
+      size: 2282614,
+      mimetype: 'image/heic',
+      url: '/private-bucket/table/photo.heic',
+    });
   });
 });

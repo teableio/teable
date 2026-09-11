@@ -1,10 +1,4 @@
-import type {
-  DomainError,
-  IExecutionContext,
-  IRecordSearchAccessPath,
-  Table,
-  TableId,
-} from '@teable/v2-core';
+import type { DomainError, IExecutionContext, Table, TableId } from '@teable/v2-core';
 import { ok, type Result } from 'neverthrow';
 
 import type { TableQueryDecisionLogEntry } from './decisionPolicy';
@@ -280,6 +274,8 @@ export type ReconcileTableSearchAccessPathInput = {
   readonly fieldIds?: readonly string[];
   readonly searchProbe?: string;
   readonly validationMode?: 'plan' | 'real_ddl';
+  /** Automatic acceleration requires a better plan; explicit coverage configuration does not. */
+  readonly requirePlanImprovement?: boolean;
   readonly allowLargeTableRewrite?: boolean;
 };
 
@@ -336,18 +332,6 @@ export interface TableSearchVectorStatusReader {
     context: IExecutionContext,
     tableId: string
   ): Promise<Result<TableSearchVectorStatus, DomainError>>;
-}
-
-/**
- * Resolves the ready-to-use record search access path for a table, or
- * undefined when none is configured/ready. This is the read-path port the app
- * layer uses instead of querying the config storage directly.
- */
-export interface TableSearchAccessPathResolver {
-  resolve(
-    context: IExecutionContext,
-    tableId: string
-  ): Promise<Result<IRecordSearchAccessPath | undefined, DomainError>>;
 }
 
 export type TableSearchAccessPathProvider = 'pg_trgm' | 'pg_bigm';

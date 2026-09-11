@@ -585,6 +585,36 @@ describe('FieldConditionSpecBuilder', () => {
       'Record condition does not allow list value'
     );
   });
+
+  it('adapts stale user operators after isMultiple changes', () => {
+    const fields = buildFields();
+    const userIds = RecordConditionLiteralListValue.create(['usr1'])._unsafeUnwrap();
+    const currentUser = RecordConditionLiteralListValue.create(['Me'])._unsafeUnwrap();
+
+    const staleHasAnyOf = FieldConditionSpecBuilder.create(fields.userSingleField).create({
+      operator: 'hasAnyOf',
+      value: currentUser,
+    });
+    expect(staleHasAnyOf.isOk()).toBe(true);
+    const remappedToSingle = staleHasAnyOf._unsafeUnwrap();
+    expect(remappedToSingle).toBeInstanceOf(UserConditionSpec);
+    expect(remappedToSingle.operator()).toBe('isAnyOf');
+
+    const staleIsAnyOf = FieldConditionSpecBuilder.create(fields.userMultiField).create({
+      operator: 'isAnyOf',
+      value: userIds,
+    });
+    expect(staleIsAnyOf.isOk()).toBe(true);
+    expect(staleIsAnyOf._unsafeUnwrap().operator()).toBe('hasAnyOf');
+
+    const unmapped = FieldConditionSpecBuilder.create(fields.userSingleField).create({
+      operator: 'isGreater',
+      value: RecordConditionLiteralValue.create(1)._unsafeUnwrap(),
+    });
+    expect(unmapped._unsafeUnwrapErr().message).toContain(
+      'Invalid record condition operator for field'
+    );
+  });
 });
 
 describe('RecordConditionSpecBuilder', () => {

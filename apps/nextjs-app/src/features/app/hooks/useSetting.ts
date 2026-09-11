@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { getPublicSetting } from '@teable/openapi';
+import { getPublicSetting, UserIntegrationProvider } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useSession } from '@teable/sdk/hooks';
+import { useMemo } from 'react';
 
 export const useSetting = () => {
   const { user } = useSession();
@@ -36,4 +37,14 @@ export const usePublicSettingQuery = () => {
     queryKey: ReactQueryKeys.getPublicSetting(),
     queryFn: () => getPublicSetting().then(({ data }) => data),
   });
+};
+
+/** OAuth providers this deployment can connect, in enum order; empty until the setting loads. */
+export const useAvailableIntegrationProviders = (): UserIntegrationProvider[] => {
+  const { data: publicSetting } = usePublicSettingQuery();
+  const available = publicSetting?.availableIntegrationProviders;
+  return useMemo(
+    () => Object.values(UserIntegrationProvider).filter((p) => available?.includes(p)),
+    [available]
+  );
 };

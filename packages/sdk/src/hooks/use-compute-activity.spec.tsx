@@ -1,10 +1,15 @@
+import type { QueryClient } from '@tanstack/react-query';
+import type * as ReactQuery from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
+import { sonner } from '@teable/ui-lib';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
+import { createQueryClient } from '../context/app/queryClient';
 import { ComputeActivityContext } from '../context/compute-activity/ComputeActivityContext';
 import { FieldContext } from '../context/field/FieldContext';
 import {
+  COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS,
   useComputeActivity,
   useComputeActivitySubscription,
   type ComputeActivitySnapshotClient,
@@ -12,9 +17,20 @@ import {
 } from './use-compute-activity';
 import { useConnection } from './use-connection';
 import { useIsReadOnlyPreview } from './use-is-readonly-preview';
+import { useTableId } from './use-table-id';
+import { useTableListener } from './use-table-listener';
 
-vi.mock('@tanstack/react-query', () => ({
+vi.mock('@tanstack/react-query', async (importOriginal) => ({
+  ...(await importOriginal<typeof ReactQuery>()),
   useQuery: vi.fn(),
+}));
+
+vi.mock('@teable/ui-lib', () => ({
+  sonner: { toast: { error: vi.fn(), warning: vi.fn() } },
+}));
+
+vi.mock('../components/billing/store/usage-limit-modal', () => ({
+  openUsageLimitModalFromError: vi.fn(() => false),
 }));
 
 vi.mock('./use-base-id', () => ({
@@ -33,9 +49,15 @@ vi.mock('./use-is-readonly-preview', () => ({
   useIsReadOnlyPreview: vi.fn(() => false),
 }));
 
+vi.mock('./use-table-listener', () => ({
+  useTableListener: vi.fn(),
+}));
+
 const mockedUseQuery = vi.mocked(useQuery);
 const mockedUseConnection = vi.mocked(useConnection);
 const mockedUseIsReadOnlyPreview = vi.mocked(useIsReadOnlyPreview);
+const mockedUseTableListener = vi.mocked(useTableListener);
+const mockedUseTableId = vi.mocked(useTableId);
 
 const idleSnapshot: ComputeActivitySnapshotClient = {
   tableId: 'tblTest',
@@ -63,25 +85,85 @@ const idleSnapshot: ComputeActivitySnapshotClient = {
   },
 };
 
-const createDoc = (data: Record<string, unknown>) => {
-  const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
+const emitComputeActivityChanged = () => {
+  const callback = mockedUseTableListener.mock.calls.at(-1)?.[2];
+  if (!callback) {
+    throw new Error('compute activity listener is not registered');
+  }
+  callback('computeActivityChanged');
+};
+
+const snapshotPayload = (
+  fields: ComputeActivitySnapshotClient['fields'] = []
+): ComputeActivitySnapshotClient => ({
+  ...idleSnapshot,
+  table: null,
+  fields,
+});
+
+const activityResponse = (
+  fields: ComputeActivitySnapshotClient['fields'] = [],
+  init?: ResponseInit
+) => new Response(JSON.stringify({ ok: true, data: snapshotPayload(fields) }), init);
+
+const createDeferredFetch = () => {
+  const pending: Array<(value: Response) => void> = [];
+  const fetchStatus = vi.fn(() => new Promise<Response>((resolve) => pending.push(resolve)));
   return {
-    data,
-    subscribe: vi.fn((callback: (error?: Error) => void) => callback()),
-    on: vi.fn((event: string, listener: (...args: unknown[]) => void) => {
-      const eventListeners = listeners.get(event) ?? new Set();
-      eventListeners.add(listener);
-      listeners.set(event, eventListeners);
-    }),
-    removeListener: vi.fn((event: string, listener: (...args: unknown[]) => void) => {
-      listeners.get(event)?.delete(listener);
-    }),
-    removeAllListeners: vi.fn((event: string) => listeners.get(event)?.clear()),
-    destroy: vi.fn(() => listeners.forEach((eventListeners) => eventListeners.clear())),
-    emit(event: string, ...args: unknown[]) {
-      listeners.get(event)?.forEach((listener) => listener(...args));
+    fetchStatus,
+    resolveNext: (fields: ComputeActivitySnapshotClient['fields'] = []) => {
+      const resolve = pending.shift();
+      if (!resolve) throw new Error('no pending fetch');
+      resolve(activityResponse(fields));
     },
+    failNext: (status = 503) => {
+      const resolve = pending.shift();
+      if (!resolve) throw new Error('no pending fetch');
+      resolve(new Response(JSON.stringify({ ok: false }), { status }));
+    },
+    pendingCount: () => pending.length,
   };
+};
+
+const mountLive = async ({
+  fetch,
+  connected = true,
+  fields = [{ id: 'fldTest' }],
+  client,
+}: {
+  fetch: typeof globalThis.fetch;
+  connected?: boolean;
+  fields?: Array<{ id: string; canReadFieldRecord?: boolean }>;
+  client?: QueryClient;
+}) => {
+  const queryModule = await vi.importActual<typeof ReactQuery>('@tanstack/react-query');
+  const queryClient = client ?? createQueryClient();
+  mockedUseQuery.mockImplementation(queryModule.useQuery);
+  mockedUseConnection.mockReturnValue({ connected } as never);
+  vi.stubGlobal('fetch', fetch);
+  const hook = renderHook(() => useComputeActivitySubscription(), {
+    wrapper: ({ children }) => (
+      <queryModule.QueryClientProvider client={queryClient}>
+        <FieldContext.Provider value={{ fields: fields as never[] }}>
+          {children}
+        </FieldContext.Provider>
+      </queryModule.QueryClientProvider>
+    ),
+  });
+  return { ...hook, client: queryClient };
+};
+
+const flushQuery = async () => {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+  if (vi.isFakeTimers()) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+  }
 };
 
 const createWrapper = (
@@ -115,9 +197,10 @@ describe('useComputeActivity', () => {
   beforeEach(() => {
     mockedUseQuery.mockReset();
     mockedUseConnection.mockReset();
+    mockedUseTableListener.mockReset();
   });
 
-  it('does not create a duplicate query or ShareDB subscription when provider state exists', () => {
+  it('does not create a duplicate query or presence subscription when provider state exists', () => {
     const connection = { get: vi.fn() };
     const field = { id: 'fldTest', isPending: false };
     mockedUseConnection.mockReturnValue({ connection, connected: true } as never);
@@ -133,14 +216,14 @@ describe('useComputeActivity', () => {
 
     expect(result.current).toBe(sharedActivity);
     expect(mockedUseQuery).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));
-    expect(connection.get).not.toHaveBeenCalled();
+    expect(mockedUseTableListener.mock.calls.every(([id]) => id === undefined)).toBe(true);
     expect(field).toEqual({ id: 'fldTest', isPending: false });
 
     const disabledOptions = mockedUseQuery.mock.calls.at(-1)?.[0];
     expect(disabledOptions?.refetchInterval).toBeUndefined();
 
     unmount();
-    expect(connection.get).not.toHaveBeenCalled();
+    expect(mockedUseTableListener.mock.calls.every(([id]) => id === undefined)).toBe(true);
   });
 });
 
@@ -148,12 +231,238 @@ describe('useComputeActivitySubscription', () => {
   beforeEach(() => {
     mockedUseQuery.mockReset();
     mockedUseConnection.mockReset();
+    mockedUseTableListener.mockReset();
     mockedUseIsReadOnlyPreview.mockReturnValue(false);
   });
 
+  it('distinguishes initial loading from server reconciliation for an empty table', () => {
+    mockedUseConnection.mockReturnValue({
+      connection: { get: vi.fn(), state: 'connecting' },
+      connected: false,
+    } as never);
+    const refetch = vi.fn();
+    mockedUseQuery.mockReturnValue({ data: undefined, isFetching: true, refetch } as never);
+    const { result, rerender } = renderHook(() => useComputeActivitySubscription(), {
+      wrapper: createWrapper([{ id: 'fldText' }]),
+    });
+
+    expect(result.current.observationState).toBe('loading');
+
+    mockedUseQuery.mockReturnValue({
+      data: { ...idleSnapshot, table: null, fields: [] },
+      isFetching: false,
+      refetch,
+    } as never);
+    rerender();
+    expect(result.current.observationState).toBe('available');
+    expect(result.current.activeFieldCount).toBe(0);
+  });
+
+  it('retains the last snapshot when the realtime connection is disconnected', () => {
+    mockedUseConnection.mockReturnValue({
+      connection: { get: vi.fn(), state: 'disconnected' },
+      connected: false,
+    } as never);
+    mockedUseQuery.mockReturnValue({
+      data: idleSnapshot,
+      isFetching: false,
+      refetch: vi.fn(),
+    } as never);
+    const { result } = renderHook(() => useComputeActivitySubscription(), {
+      wrapper: createWrapper([{ id: 'fldTest' }]),
+    });
+    expect(result.current.observationState).toBe('unavailable');
+    expect(result.current.snapshot).toBe(idleSnapshot);
+  });
+
+  it('does not issue a second getComputeActivity on the initial ShareDB connect', async () => {
+    const queryModule = await vi.importActual<typeof ReactQuery>('@tanstack/react-query');
+    const client = createQueryClient();
+    mockedUseQuery.mockImplementation(queryModule.useQuery);
+    mockedUseConnection.mockReturnValue({ connected: false } as never);
+    const fetchStatus = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({ ok: true, data: { ...idleSnapshot, table: null, fields: [] } })
+        )
+      )
+    );
+    vi.stubGlobal('fetch', fetchStatus);
+    const { rerender, unmount } = renderHook(() => useComputeActivitySubscription(), {
+      wrapper: ({ children }) => (
+        <queryModule.QueryClientProvider client={client}>
+          <FieldContext.Provider value={{ fields: [{ id: 'fldText' }] as never[] }}>
+            {children}
+          </FieldContext.Provider>
+        </queryModule.QueryClientProvider>
+      ),
+    });
+    try {
+      await waitFor(() => expect(fetchStatus).toHaveBeenCalledTimes(1));
+      expect(String(fetchStatus.mock.calls[0]?.[0])).toContain('/api/v2/tables/getComputeActivity');
+      mockedUseConnection.mockReturnValue({ connected: true } as never);
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(1);
+    } finally {
+      unmount();
+      client.clear();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('issues another getComputeActivity after a ShareDB reconnect', async () => {
+    const queryModule = await vi.importActual<typeof ReactQuery>('@tanstack/react-query');
+    const client = createQueryClient();
+    mockedUseQuery.mockImplementation(queryModule.useQuery);
+    mockedUseConnection.mockReturnValue({ connected: true } as never);
+    const fetchStatus = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({ ok: true, data: { ...idleSnapshot, table: null, fields: [] } })
+        )
+      )
+    );
+    vi.stubGlobal('fetch', fetchStatus);
+    const { rerender, unmount } = renderHook(() => useComputeActivitySubscription(), {
+      wrapper: ({ children }) => (
+        <queryModule.QueryClientProvider client={client}>
+          <FieldContext.Provider value={{ fields: [{ id: 'fldTest' }] as never[] }}>
+            {children}
+          </FieldContext.Provider>
+        </queryModule.QueryClientProvider>
+      ),
+    });
+    try {
+      await waitFor(() => expect(fetchStatus).toHaveBeenCalledTimes(1));
+      mockedUseConnection.mockReturnValue({ connected: false } as never);
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(1);
+      mockedUseConnection.mockReturnValue({ connected: true } as never);
+      rerender();
+      await waitFor(() => expect(fetchStatus).toHaveBeenCalledTimes(2), { timeout: 3000 });
+      expect(String(fetchStatus.mock.calls[1]?.[0])).toContain('/api/v2/tables/getComputeActivity');
+    } finally {
+      unmount();
+      client.clear();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('reports a failed initial read instead of remaining in loading', () => {
+    mockedUseConnection.mockReturnValue({ connected: false } as never);
+    mockedUseQuery.mockReturnValue({
+      data: undefined,
+      isError: true,
+      isFetching: false,
+      refetch: vi.fn(),
+    } as never);
+    const { result } = renderHook(() => useComputeActivitySubscription(), {
+      wrapper: createWrapper([{ id: 'fldText' }]),
+    });
+    expect(result.current.observationState).toBe('unavailable');
+  });
+
+  it('ends a stalled initial request and recovers when the status is refreshed', async () => {
+    const queryModule = await vi.importActual<typeof ReactQuery>('@tanstack/react-query');
+    const client = createQueryClient();
+    vi.mocked(sonner.toast.error).mockClear();
+    mockedUseQuery.mockImplementation(queryModule.useQuery);
+    mockedUseConnection.mockReturnValue({ connected: false } as never);
+    vi.useFakeTimers();
+    const fetchStatus = vi.fn<typeof fetch>((_input, init) => {
+      const { promise, reject } = Promise.withResolvers<Response>();
+      init?.signal?.addEventListener('abort', () =>
+        reject(new DOMException('Aborted', 'AbortError'))
+      );
+      return promise;
+    });
+    vi.stubGlobal('fetch', fetchStatus);
+    const { result, unmount } = renderHook(() => useComputeActivitySubscription(), {
+      wrapper: ({ children }) => (
+        <queryModule.QueryClientProvider client={client}>
+          <FieldContext.Provider value={{ fields: [{ id: 'fldText' }] as never[] }}>
+            {children}
+          </FieldContext.Provider>
+        </queryModule.QueryClientProvider>
+      ),
+    });
+    try {
+      expect(result.current.observationState).toBe('loading');
+      await act(() => vi.advanceTimersByTimeAsync(15_001));
+      expect(result.current.observationState).toBe('unavailable');
+      expect(sonner.toast.error).not.toHaveBeenCalled();
+
+      fetchStatus.mockResolvedValue(
+        new Response(
+          JSON.stringify({ ok: true, data: { ...idleSnapshot, table: null, fields: [] } })
+        )
+      );
+      await act(async () => {
+        await result.current.refetch();
+        await vi.advanceTimersByTimeAsync(1);
+      });
+      expect(result.current.observationState).toBe('available');
+      expect(result.current.activeFieldCount).toBe(0);
+    } finally {
+      unmount();
+      client.clear();
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([403, 503, 200])('keeps failed HTTP status reads local (%s)', async (status) => {
+    const queryModule = await vi.importActual<typeof ReactQuery>('@tanstack/react-query');
+    const client = createQueryClient();
+    vi.mocked(sonner.toast.error).mockClear();
+    mockedUseQuery.mockImplementation(queryModule.useQuery);
+    mockedUseConnection.mockReturnValue({ connected: false } as never);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: false }), { status }))
+    );
+    const { result, unmount } = renderHook(() => useComputeActivitySubscription(), {
+      wrapper: ({ children }) => (
+        <queryModule.QueryClientProvider client={client}>
+          <FieldContext.Provider value={{ fields: [] }}>{children}</FieldContext.Provider>
+        </queryModule.QueryClientProvider>
+      ),
+    });
+    try {
+      await waitFor(() => expect(result.current.observationState).toBe('unavailable'));
+      expect(sonner.toast.error).not.toHaveBeenCalled();
+      expect(result.current.snapshot).toBeNull();
+    } finally {
+      unmount();
+      client.clear();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('retains a successful snapshot and exposes an unavailable observation after a failed refresh', () => {
+    mockedUseConnection.mockReturnValue({ connected: false } as never);
+    mockedUseQuery.mockReturnValue({
+      data: idleSnapshot,
+      isError: true,
+      isFetching: false,
+      refetch: vi.fn(),
+    } as never);
+    const { result } = renderHook(() => useComputeActivitySubscription(), {
+      wrapper: createWrapper([{ id: 'fldTest' }]),
+    });
+    expect(result.current.snapshot).toBe(idleSnapshot);
+    expect(result.current.observationState).toBe('unavailable');
+    expect(result.current.fieldMetaById.fldTest.status).toBe('idle');
+  });
+
   it('does not request or subscribe to compute activity in read-only previews', () => {
-    const connection = { get: vi.fn() };
-    mockedUseConnection.mockReturnValue({ connection, connected: true } as never);
+    mockedUseConnection.mockReturnValue({ connection: undefined, connected: true } as never);
     mockedUseIsReadOnlyPreview.mockReturnValue(true);
     mockedUseQuery.mockReturnValue({
       data: idleSnapshot,
@@ -166,34 +475,29 @@ describe('useComputeActivitySubscription', () => {
     });
 
     expect(mockedUseQuery).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));
-    expect(connection.get).not.toHaveBeenCalled();
+    expect(mockedUseTableListener.mock.calls.at(-1)?.[0]).toBeUndefined();
     expect(result.current.snapshot).toBeNull();
     expect(result.current.fieldMetaById).toEqual({});
   });
 
-  it('refreshes diagnostics from merged realtime and HTTP field state without polling', async () => {
-    const tableDoc = createDoc({ status: 'idle', calculatingFieldCount: 0 });
-    const fieldDocs = {
-      fldRunning: createDoc({
-        status: 'running',
-        startedAt: '2026-07-16T00:00:00.000Z',
-        activeTaskCount: 3,
-        processingTaskCount: 1,
-        batchProgress: { total: 5, completed: 2 },
-      }),
-      fldQueued: createDoc({ status: 'queued' }),
-      fldFailed: createDoc({ status: 'failed', lastError: 'invalid dependency' }),
-    };
-    const connection = {
-      get: vi.fn((_collection: string, id: string) =>
-        id === 'table' ? tableDoc : fieldDocs[id as keyof typeof fieldDocs]
-      ),
-      startBulk: vi.fn(),
-      endBulk: vi.fn(),
-    };
-    mockedUseConnection.mockReturnValue({ connection, connected: true } as never);
+  it('loads field diagnostics from HTTP and listens on the table presence channel', async () => {
+    mockedUseConnection.mockReturnValue({ connected: true } as never);
     mockedUseQuery.mockReturnValue({
-      data: idleSnapshot,
+      data: {
+        ...idleSnapshot,
+        fields: [
+          {
+            fieldId: 'fldRunning',
+            status: 'running',
+            startedAt: '2026-07-16T00:00:00.000Z',
+            activeTaskCount: 3,
+            processingTaskCount: 1,
+            batchProgress: { total: 5, completed: 2 },
+          },
+          { fieldId: 'fldQueued', status: 'queued' },
+          { fieldId: 'fldFailed', status: 'failed', lastError: 'invalid dependency' },
+        ],
+      },
       isFetching: false,
       refetch: vi.fn(),
     } as never);
@@ -203,6 +507,11 @@ describe('useComputeActivitySubscription', () => {
     });
 
     await waitFor(() => expect(result.current.activeFieldCount).toBe(2));
+    expect(mockedUseTableListener).toHaveBeenCalledWith(
+      'tblTest',
+      ['computeActivityChanged'],
+      expect.any(Function)
+    );
     expect(result.current.diagnostics).toMatchObject({
       activeFieldCount: 2,
       queuedFieldCount: 1,
@@ -255,83 +564,518 @@ describe('useComputeActivitySubscription', () => {
     expect(result.current.diagnostics?.pause).toEqual(pause);
   });
 
-  it('does not let stale realtime generations override newer HTTP activity', async () => {
-    const tableDoc = createDoc({
-      status: 'calculating',
-      calculatingFieldCount: 1,
-      generation: 3,
-      updatedAt: '2026-07-18T00:00:00.000Z',
-    });
-    const fieldDoc = createDoc({
-      status: 'queued',
-      activeTaskCount: 1,
-      processingTaskCount: 0,
-      generation: 3,
-      updatedAt: '2026-07-18T00:00:00.000Z',
-      batchProgress: { total: 3, completed: 2 },
-    });
-    const connection = {
-      get: vi.fn((_collection: string, id: string) => (id === 'table' ? tableDoc : fieldDoc)),
-      startBulk: vi.fn(),
-      endBulk: vi.fn(),
-    };
-    const httpSnapshot = {
-      ...idleSnapshot,
-      table: {
-        ...idleSnapshot.table,
-        generation: 4,
-        updatedAt: '2026-07-18T00:01:00.000Z',
+  describe('refresh scheduler', () => {
+    const unresolvedField = {
+      fieldId: 'fldTest',
+      status: 'idle' as const,
+      reliability: {
+        unresolvedCount: 1,
+        oldestUnresolvedAt: null,
+        scopeComplete: true,
       },
-      fields: [
-        {
-          fieldId: 'fldTest',
-          status: 'idle',
-          activeTaskCount: 0,
-          processingTaskCount: 0,
-          generation: 4,
-          updatedAt: '2026-07-18T00:01:00.000Z',
+    };
+
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    });
+
+    it('merges notices that arrive while a refresh timer is waiting', async () => {
+      vi.useFakeTimers();
+      const fetchStatus = vi.fn(() => Promise.resolve(activityResponse()));
+      const { unmount } = await mountLive({ fetch: fetchStatus });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        emitComputeActivityChanged();
+        emitComputeActivityChanged();
+        await vi.advanceTimersByTimeAsync(COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS);
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(2);
+      unmount();
+    });
+
+    it('does not trail when no notice arrives during a request', async () => {
+      vi.useFakeTimers();
+      const deferred = createDeferredFetch();
+      const { unmount } = await mountLive({ fetch: deferred.fetchStatus });
+      expect(deferred.pendingCount()).toBe(1);
+      await act(async () => {
+        deferred.resolveNext();
+        await Promise.resolve();
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS);
+      });
+      expect(deferred.fetchStatus).toHaveBeenCalledTimes(1);
+      unmount();
+    });
+
+    it('trails once after notices during a request and then stops', async () => {
+      vi.useFakeTimers();
+      const deferred = createDeferredFetch();
+      const { unmount } = await mountLive({ fetch: deferred.fetchStatus });
+      await act(async () => {
+        emitComputeActivityChanged();
+        emitComputeActivityChanged();
+      });
+      expect(deferred.fetchStatus).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        deferred.resolveNext([{ fieldId: 'fldTest', status: 'running' }]);
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS);
+      });
+      expect(deferred.fetchStatus).toHaveBeenCalledTimes(2);
+      await act(async () => {
+        deferred.resolveNext();
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS);
+      });
+      expect(deferred.fetchStatus).toHaveBeenCalledTimes(2);
+      unmount();
+    });
+
+    it('recovers idle from a notice during the first request without waiting for poll', async () => {
+      vi.useFakeTimers();
+      const deferred = createDeferredFetch();
+      const { result, unmount } = await mountLive({ fetch: deferred.fetchStatus });
+      await act(async () => {
+        emitComputeActivityChanged();
+      });
+      await act(async () => {
+        deferred.resolveNext([{ fieldId: 'fldTest', status: 'running' }]);
+        await vi.advanceTimersByTimeAsync(COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS);
+      });
+      await act(async () => {
+        deferred.resolveNext([{ fieldId: 'fldTest', status: 'idle' }]);
+      });
+      await flushQuery();
+      expect(result.current.activeFieldCount).toBe(0);
+      expect(deferred.fetchStatus).toHaveBeenCalledTimes(2);
+      unmount();
+    });
+
+    it('does not start a concurrent request while one is in flight past the min interval', async () => {
+      vi.useFakeTimers();
+      const deferred = createDeferredFetch();
+      const { unmount } = await mountLive({ fetch: deferred.fetchStatus });
+      await act(async () => {
+        emitComputeActivityChanged();
+        await vi.advanceTimersByTimeAsync(COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS + 200);
+      });
+      expect(deferred.fetchStatus).toHaveBeenCalledTimes(1);
+      unmount();
+    });
+
+    it('does not insert a fallback poll after successful presence refreshes', async () => {
+      vi.useFakeTimers();
+      const random = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+      const fetchStatus = vi.fn(() =>
+        Promise.resolve(activityResponse([{ fieldId: 'fldTest', status: 'running' }]))
+      );
+      const { unmount } = await mountLive({ fetch: fetchStatus });
+      await flushQuery();
+      expect(fetchStatus).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS);
+        emitComputeActivityChanged();
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(2);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(14_000);
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(2);
+      unmount();
+      random.mockRestore();
+    });
+
+    it('falls back at the active interval when notices stop', async () => {
+      vi.useFakeTimers();
+      const random = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+      const fetchStatus = vi.fn(() => Promise.resolve(activityResponse([unresolvedField])));
+      const { result, unmount } = await mountLive({ fetch: fetchStatus });
+      await flushQuery();
+      expect(fetchStatus).toHaveBeenCalledTimes(1);
+      expect(result.current.fieldMetaById.fldTest?.reliability?.unresolvedCount).toBe(1);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15_000);
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(2);
+      unmount();
+      random.mockRestore();
+    });
+
+    it('keeps the active poll while only table-level reliability is unresolved', async () => {
+      vi.useFakeTimers();
+      const random = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+      const payload: ComputeActivitySnapshotClient = {
+        ...snapshotPayload([]),
+        diagnostics: {
+          ...idleSnapshot.diagnostics,
+          reliability: {
+            unresolvedCount: 1,
+            oldestUnresolvedAt: null,
+            scopeComplete: false,
+          },
         },
-      ],
-    } as ComputeActivitySnapshotClient;
-    mockedUseConnection.mockReturnValue({ connection, connected: true } as never);
+      };
+      const fetchStatus = vi.fn(() =>
+        Promise.resolve(new Response(JSON.stringify({ ok: true, data: payload })))
+      );
+      const { result, unmount } = await mountLive({ fetch: fetchStatus });
+      await flushQuery();
+      expect(fetchStatus).toHaveBeenCalledTimes(1);
+      expect(result.current.diagnostics?.reliability?.unresolvedCount).toBe(1);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS);
+        emitComputeActivityChanged();
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(2);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15_000);
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(3);
+      unmount();
+      random.mockRestore();
+    });
+
+    it('does not issue event-driven HTTP while hidden and catch-up on visible', async () => {
+      vi.useFakeTimers();
+      const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+      const fetchStatus = vi.fn(() => Promise.resolve(activityResponse([unresolvedField])));
+      const { unmount } = await mountLive({ fetch: fetchStatus });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(1);
+
+      visibility.mockReturnValue('hidden');
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'));
+        emitComputeActivityChanged();
+        emitComputeActivityChanged();
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(1);
+
+      visibility.mockReturnValue('visible');
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'));
+        await vi.advanceTimersByTimeAsync(COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS);
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(2);
+      unmount();
+      visibility.mockRestore();
+    });
+
+    it('does not retry-storm after a failed read', async () => {
+      vi.useFakeTimers();
+      const fetchStatus = vi.fn(() =>
+        Promise.resolve(new Response(JSON.stringify({ ok: false }), { status: 503 }))
+      );
+      const { unmount } = await mountLive({ fetch: fetchStatus });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS);
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(1);
+      unmount();
+    });
+
+    it('does not spin fallback timers while a due poll request is in flight', async () => {
+      vi.useFakeTimers();
+      const random = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+      const deferred = createDeferredFetch();
+      const { unmount } = await mountLive({ fetch: deferred.fetchStatus });
+      await act(async () => {
+        deferred.resolveNext([{ fieldId: 'fldTest', status: 'running' }]);
+      });
+      await flushQuery();
+      expect(deferred.fetchStatus).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15_000);
+      });
+      expect(deferred.fetchStatus).toHaveBeenCalledTimes(2);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(200);
+      });
+      expect(deferred.fetchStatus).toHaveBeenCalledTimes(2);
+      unmount();
+      random.mockRestore();
+    });
+
+    it('trails after a first request longer than the min interval', async () => {
+      vi.useFakeTimers();
+      const deferred = createDeferredFetch();
+      const { result, unmount } = await mountLive({ fetch: deferred.fetchStatus });
+      await act(async () => {
+        emitComputeActivityChanged();
+        await vi.advanceTimersByTimeAsync(2_000);
+      });
+      expect(deferred.fetchStatus).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        deferred.resolveNext([{ fieldId: 'fldTest', status: 'running' }]);
+      });
+      await flushQuery();
+      expect(deferred.fetchStatus).toHaveBeenCalledTimes(2);
+      await act(async () => {
+        deferred.resolveNext([{ fieldId: 'fldTest', status: 'idle' }]);
+      });
+      await flushQuery();
+      expect(result.current.activeFieldCount).toBe(0);
+      unmount();
+    });
+
+    it('falls back after an initial failed read without presence', async () => {
+      vi.useFakeTimers();
+      const random = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+      const fetchStatus = vi.fn(() =>
+        Promise.resolve(new Response(JSON.stringify({ ok: false }), { status: 503 }))
+      );
+      const { result, unmount } = await mountLive({ fetch: fetchStatus });
+      await flushQuery();
+      expect(fetchStatus).toHaveBeenCalledTimes(1);
+      expect(result.current.observationState).toBe('unavailable');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15_000);
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(fetchStatus.mock.calls.length).toBeGreaterThanOrEqual(2);
+      unmount();
+      random.mockRestore();
+    });
+
+    it('does not retry every second after fallback failures', async () => {
+      vi.useFakeTimers();
+      const random = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+      let calls = 0;
+      const fetchStatus = vi.fn(() => {
+        calls += 1;
+        if (calls === 1) {
+          return Promise.resolve(activityResponse([{ fieldId: 'fldTest', status: 'running' }]));
+        }
+        return Promise.resolve(new Response(JSON.stringify({ ok: false }), { status: 503 }));
+      });
+      const { unmount } = await mountLive({ fetch: fetchStatus });
+      await flushQuery();
+      expect(fetchStatus).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15_000);
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(2);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3_100);
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(2);
+      unmount();
+      random.mockRestore();
+    });
+
+    it('restores fallback poll after remounting onto a cached snapshot', async () => {
+      vi.useFakeTimers();
+      const random = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+      const fetchStatus = vi.fn(() =>
+        Promise.resolve(activityResponse([{ fieldId: 'fldTest', status: 'running' }]))
+      );
+      const first = await mountLive({ fetch: fetchStatus });
+      await flushQuery();
+      expect(fetchStatus).toHaveBeenCalledTimes(1);
+      first.unmount();
+      const second = await mountLive({ fetch: fetchStatus, client: first.client });
+      await flushQuery();
+      expect(fetchStatus).toHaveBeenCalledTimes(1);
+      expect(second.result.current.activeFieldCount).toBe(1);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15_000);
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(2);
+      second.unmount();
+      first.client.clear();
+      random.mockRestore();
+    });
+
+    it('trails a fast background refetch that never paints isFetching', async () => {
+      vi.useFakeTimers();
+      const fetchStatus = vi.fn(() =>
+        Promise.resolve(activityResponse([{ fieldId: 'fldTest', status: 'running' }]))
+      );
+      const { unmount } = await mountLive({ fetch: fetchStatus });
+      await flushQuery();
+      expect(fetchStatus).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS);
+        emitComputeActivityChanged();
+        emitComputeActivityChanged();
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(2);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS);
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(3);
+      unmount();
+    });
+
+    it('trails the new table after a switch while both requests fetch', async () => {
+      vi.useFakeTimers();
+      const deferred = createDeferredFetch();
+      mockedUseTableId.mockReturnValue('tblA');
+      const { rerender, unmount } = await mountLive({ fetch: deferred.fetchStatus });
+      expect(deferred.fetchStatus).toHaveBeenCalledTimes(1);
+      mockedUseTableId.mockReturnValue('tblB');
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(deferred.fetchStatus).toHaveBeenCalledTimes(2);
+      await act(async () => {
+        emitComputeActivityChanged();
+      });
+      await act(async () => {
+        deferred.resolveNext([{ fieldId: 'fldTest', status: 'running' }]);
+        deferred.resolveNext([{ fieldId: 'fldTest', status: 'running' }]);
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS);
+      });
+      expect(deferred.fetchStatus).toHaveBeenCalledTimes(3);
+      unmount();
+      mockedUseTableId.mockReturnValue('tblTest');
+    });
+
+    it('keeps the min interval after remounting onto a cached snapshot', async () => {
+      vi.useFakeTimers();
+      const fetchStatus = vi.fn(() =>
+        Promise.resolve(activityResponse([{ fieldId: 'fldTest', status: 'running' }]))
+      );
+      const first = await mountLive({ fetch: fetchStatus });
+      await flushQuery();
+      expect(fetchStatus).toHaveBeenCalledTimes(1);
+      first.unmount();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+      const second = await mountLive({ fetch: fetchStatus, client: first.client });
+      await flushQuery();
+      expect(fetchStatus).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        emitComputeActivityChanged();
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS - 100);
+      });
+      expect(fetchStatus).toHaveBeenCalledTimes(2);
+      second.unmount();
+      first.client.clear();
+    });
+
+    it('does not let an old table request schedule the new table', async () => {
+      vi.useFakeTimers();
+      const deferred = createDeferredFetch();
+      mockedUseTableId.mockReturnValue('tblA');
+      const { rerender, unmount } = await mountLive({ fetch: deferred.fetchStatus });
+      expect(deferred.fetchStatus).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        emitComputeActivityChanged();
+      });
+      mockedUseTableId.mockReturnValue('tblB');
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      const callsAfterSwitch = deferred.fetchStatus.mock.calls.length;
+      await act(async () => {
+        deferred.resolveNext([{ fieldId: 'fldTest', status: 'running' }]);
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS);
+      });
+      expect(deferred.fetchStatus.mock.calls.length).toBe(callsAfterSwitch);
+      unmount();
+      mockedUseTableId.mockReturnValue('tblTest');
+    });
+
+    it('drops trailing work when the hook unmounts', async () => {
+      vi.useFakeTimers();
+      const deferred = createDeferredFetch();
+      const { unmount } = await mountLive({ fetch: deferred.fetchStatus });
+      await act(async () => {
+        emitComputeActivityChanged();
+      });
+      unmount();
+      await act(async () => {
+        deferred.resolveNext();
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS);
+      });
+      expect(deferred.fetchStatus).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('preserves a server syncing observation even when HTTP succeeds', () => {
+    mockedUseConnection.mockReturnValue({ connected: false } as never);
     mockedUseQuery.mockReturnValue({
-      data: httpSnapshot,
+      data: { ...idleSnapshot, observationState: 'syncing' },
       isFetching: false,
       refetch: vi.fn(),
     } as never);
-
     const { result } = renderHook(() => useComputeActivitySubscription(), {
       wrapper: createWrapper([{ id: 'fldTest' }]),
     });
-
-    await waitFor(() => expect(connection.get).toHaveBeenCalled());
-    expect(result.current.activeFieldCount).toBe(0);
-    expect(result.current.fieldMetaById.fldTest?.status).toBe('idle');
-    expect(result.current.tableMeta?.status).toBe('idle');
-
-    const latestOptions = mockedUseQuery.mock.calls.at(-1)?.[0];
-    expect(latestOptions?.refetchInterval).toBeUndefined();
+    expect(result.current.observationState).toBe('syncing');
   });
 
-  it('normalizes nullable activity timestamps before applying them to fields', async () => {
-    const tableDoc = createDoc({ status: 'calculating', calculatingFieldCount: 1 });
-    const fieldDoc = createDoc({
-      status: 'running',
-      startedAt: null,
-      lastDurationMs: null,
+  it('keeps HTTP field failures while the table summary is idle', () => {
+    mockedUseConnection.mockReturnValue({ connected: true } as never);
+    mockedUseQuery.mockReturnValue({
+      data: {
+        ...idleSnapshot,
+        fields: [
+          {
+            fieldId: 'fldTest',
+            status: 'failed',
+            generation: 0,
+            reliability: {
+              unresolvedCount: 1,
+              oldestUnresolvedAt: null,
+              scopeComplete: true,
+            },
+          },
+        ],
+      },
+      isFetching: false,
+      refetch: vi.fn(),
+    } as never);
+    const { result } = renderHook(() => useComputeActivitySubscription(), {
+      wrapper: createWrapper([{ id: 'fldTest' }]),
     });
-    const connection = {
-      get: vi.fn((_collection: string, id: string) => (id === 'table' ? tableDoc : fieldDoc)),
-      startBulk: vi.fn(),
-      endBulk: vi.fn(),
-    };
+    expect(result.current.fieldMetaById.fldTest.reliability?.unresolvedCount).toBe(1);
+    expect(result.current.fieldMetaById.fldTest.status).toBe('failed');
+  });
+
+  it('normalizes nullable activity timestamps from HTTP before applying them to fields', async () => {
     const field: {
       id: string;
       computeMeta?: { startedAt?: string; lastDurationMs?: number };
     } = { id: 'fldTest' };
-    mockedUseConnection.mockReturnValue({ connection, connected: true } as never);
+    mockedUseConnection.mockReturnValue({ connected: false } as never);
     mockedUseQuery.mockReturnValue({
-      data: idleSnapshot,
+      data: {
+        ...idleSnapshot,
+        fields: [{ fieldId: 'fldTest', status: 'running' }],
+      },
       isFetching: false,
       refetch: vi.fn(),
     } as never);
@@ -372,111 +1116,5 @@ describe('useComputeActivitySubscription', () => {
 
     await waitFor(() => expect(result.current.activeFieldCount).toBe(1));
     expect(Object.keys(result.current.fieldMetaById)).toEqual(['fldVisible']);
-  });
-
-  it('applies newly created compute activity documents', async () => {
-    const tableDoc = createDoc({});
-    const fieldDoc = createDoc({});
-    const connection = {
-      get: vi.fn((_collection: string, id: string) => (id === 'table' ? tableDoc : fieldDoc)),
-      startBulk: vi.fn(),
-      endBulk: vi.fn(),
-    };
-    mockedUseConnection.mockReturnValue({ connection, connected: true } as never);
-    mockedUseQuery.mockReturnValue({
-      data: idleSnapshot,
-      isFetching: false,
-      refetch: vi.fn(),
-    } as never);
-
-    const { result } = renderHook(() => useComputeActivitySubscription(), {
-      wrapper: createWrapper([{ id: 'fldTest' }]),
-    });
-    await act(async () => {
-      Object.assign(tableDoc.data, { status: 'calculating', calculatingFieldCount: 1 });
-      Object.assign(fieldDoc.data, { status: 'running' });
-      tableDoc.emit('create');
-      fieldDoc.emit('create');
-    });
-
-    await waitFor(() => expect(result.current.activeFieldCount).toBe(1));
-    expect(result.current.tableMeta?.status).toBe('calculating');
-    expect(result.current.fieldMetaById.fldTest?.status).toBe('running');
-  });
-  it('silences uncreated compute-doc errors before subscribing', async () => {
-    const tableDoc = createDoc({ status: 'idle', calculatingFieldCount: 0 });
-    const fieldDoc = createDoc({ status: 'queued' });
-    const connection = {
-      get: vi.fn((_collection: string, id: string) => (id === 'table' ? tableDoc : fieldDoc)),
-      startBulk: vi.fn(),
-      endBulk: vi.fn(),
-      emit: vi.fn(),
-    };
-    mockedUseConnection.mockReturnValue({ connection, connected: true } as never);
-    mockedUseQuery.mockReturnValue({
-      data: idleSnapshot,
-      isFetching: false,
-      refetch: vi.fn(),
-    } as never);
-
-    renderHook(() => useComputeActivitySubscription(), {
-      wrapper: createWrapper([{ id: 'fldTest' }]),
-    });
-    await waitFor(() => expect(fieldDoc.subscribe).toHaveBeenCalled());
-
-    for (const doc of [tableDoc, fieldDoc]) {
-      const errorListenerIndex = doc.on.mock.calls.findIndex(([event]) => event === 'error');
-      expect(errorListenerIndex).toBeGreaterThanOrEqual(0);
-      expect(doc.on.mock.invocationCallOrder[errorListenerIndex]).toBeLessThan(
-        doc.subscribe.mock.invocationCallOrder[0]
-      );
-      doc.emit('error', {
-        code: 'ERR_DOC_DOES_NOT_EXIST',
-        message: 'Cannot apply op to uncreated document',
-      });
-    }
-    expect(connection.emit).not.toHaveBeenCalled();
-
-    const unexpectedError = new Error('unexpected compute-doc error');
-    fieldDoc.emit('error', unexpectedError);
-    expect(connection.emit).toHaveBeenCalledWith('error', unexpectedError);
-  });
-
-  it('removes only listeners owned by the hook from shared docs', async () => {
-    const tableDoc = createDoc({ status: 'idle', calculatingFieldCount: 0 });
-    const fieldDoc = createDoc({ status: 'queued' });
-    const externalTableListener = vi.fn();
-    const externalFieldListener = vi.fn();
-    tableDoc.on('op', externalTableListener);
-    fieldDoc.on('op', externalFieldListener);
-    const connection = {
-      get: vi.fn((_collection: string, id: string) => (id === 'table' ? tableDoc : fieldDoc)),
-      startBulk: vi.fn(),
-      endBulk: vi.fn(),
-    };
-    mockedUseConnection.mockReturnValue({ connection, connected: true } as never);
-    mockedUseQuery.mockReturnValue({
-      data: idleSnapshot,
-      isFetching: false,
-      refetch: vi.fn(),
-    } as never);
-
-    const { unmount } = renderHook(() => useComputeActivitySubscription(), {
-      wrapper: createWrapper([{ id: 'fldTest' }]),
-    });
-    await act(async () => undefined);
-
-    unmount();
-
-    expect(tableDoc.removeListener).toHaveBeenCalledTimes(4);
-    expect(fieldDoc.removeListener).toHaveBeenCalledTimes(4);
-    expect(tableDoc.removeAllListeners).not.toHaveBeenCalled();
-    expect(fieldDoc.removeAllListeners).not.toHaveBeenCalled();
-    tableDoc.emit('op');
-    fieldDoc.emit('op');
-    expect(externalTableListener).toHaveBeenCalledTimes(1);
-    expect(externalFieldListener).toHaveBeenCalledTimes(1);
-    expect(tableDoc.destroy).not.toHaveBeenCalled();
-    expect(fieldDoc.destroy).not.toHaveBeenCalled();
   });
 });

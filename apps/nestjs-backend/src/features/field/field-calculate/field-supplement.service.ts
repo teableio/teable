@@ -1167,6 +1167,33 @@ export class FieldSupplementService {
       options.expression ??
       ConditionalRollupFieldDto.defaultOptions(lookupField.cellValueType).expression!;
 
+    if (lookupField.type === FieldType.Button) {
+      throw new CustomHttpException(
+        'Button fields cannot be used as a rollup source',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.rollupExpressionParseError',
+          },
+        }
+      );
+    }
+
+    if (
+      expression &&
+      !isRollupFunctionSupportedForCellValueType(expression, lookupField.cellValueType)
+    ) {
+      throw new CustomHttpException(
+        `Parse rollup expression ${expression} error: incompatible with lookup field type`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.rollupExpressionParseError',
+          },
+        }
+      );
+    }
+
     if (!ConditionalRollupFieldCore.supportsOrdering(expression)) {
       delete options.sort;
       delete options.limit;
@@ -1345,6 +1372,7 @@ export class FieldSupplementService {
         filter: conditionalLookup.filter,
         sort: conditionalLookup.sort,
         limit: conditionalLookup.limit,
+        isUnique: conditionalLookup.isUnique,
       },
       isMultipleCellValue: true,
       isComputed: true,

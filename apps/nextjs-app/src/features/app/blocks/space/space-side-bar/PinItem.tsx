@@ -239,6 +239,31 @@ export const PinItem = (props: IPinItemProps) => {
         </>
       );
     }
+    case PinType.Routine: {
+      const IconComponent = BaseNodeResourceIconMap.routine;
+      const routineUrl =
+        getNodeUrl({
+          baseId: pin.parentBaseId!,
+          resourceType: BaseNodeResourceType.Routine,
+          resourceId: pin.id,
+        }) ?? {};
+      return (
+        <>
+          {enterBaseOverlay}
+          <ItemButton className={className}>
+            <Link
+              href={routineUrl}
+              title={pin.name}
+              onClick={(e) => interceptEnter(e, { id: pin.parentBaseId! }, routineUrl, 'plain')}
+            >
+              <IconComponent className="size-4 shrink-0" />
+              <p className="grow truncate">{pin.name}</p>
+              {right}
+            </Link>
+          </ItemButton>
+        </>
+      );
+    }
     default:
       return <div>unknown</div>;
   }

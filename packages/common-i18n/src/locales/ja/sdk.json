@@ -49,7 +49,8 @@
     "previewFileLimit": "プレビュー可能なファイルサイズの上限: {{size}}MB、ダウンロードしてご覧ください。",
     "loadFileError": "ファイルの読み込みに失敗しました",
     "previousAttachment": "前へ",
-    "nextAttachment": "次へ"
+    "nextAttachment": "次へ",
+    "deleteAttachment": "削除"
   },
   "undoRedo": {
     "undo": "Undo",
@@ -432,6 +433,10 @@
       "automationDelete": "オートメーションの削除",
       "automationRead": "オートメーションの読み取り",
       "automationUpdate": "オートメーションの更新",
+      "routineCreate": "ルーティンを作成",
+      "routineDelete": "ルーティンを削除",
+      "routineRead": "ルーティンを読み取り",
+      "routineUpdate": "ルーティンを更新",
       "appCreate": "アプリを作成",
       "appDelete": "アプリを削除",
       "appRead": "アプリを読み取り",
@@ -454,6 +459,7 @@
     "field": "フィールド",
     "record": "レコード",
     "automation": "オートメーション",
+    "routine": "ルーティン",
     "app": "アプリ",
     "user": "ユーザー",
     "recordHistory": "レコード履歴",
@@ -1073,6 +1079,8 @@
       "unsupportedCategory": "サポートされていないカテゴリ",
       "unknownConnectionType": "不明なメール接続タイプ",
       "imapPasswordNotConfigured": "IMAPパスワードが設定されていません",
+      "secretNotGranted": "シークレット {{alias}} はこの自動化に付与されていません",
+      "credentialMustBeSecret": "認証情報はこの自動化に付与されたシークレットである必要があります",
       "integrationNotFound": "インテグレーションが見つからないか、資格情報がありません",
       "webhookTriggerNotFound": "Webhookトリガーが見つかりません",
       "emailReceivedTriggerNotFound": "メール受信トリガーが見つかりません",
@@ -1084,12 +1092,15 @@
       "apiKeyNotConfigured": "スクレイプサービスが設定されていません",
       "triggerFailed": "スクレイプトリガーに失敗しました：{{detail}}",
       "snapshotError": "スクレイプスナップショットエラー：{{detail}}",
-      "timeout": "スクレイプが{{seconds}}秒後にタイムアウトしました"
+      "timeout": "スクレイプが{{seconds}}秒後にタイムアウトしました",
+      "catalogFailed": "スクレイプカタログのリクエストに失敗しました：{{detail}}",
+      "discoverByOnCatalogDataset": "discoverBy は生のデータセット ID にのみ適用され、{{datasetId}} には使えません"
     },
     "integration": {
       "oauthCodeExchangeFailed": "OAuthコードの交換に失敗しました：{{detail}}",
       "oauthTokenRefreshFailed": "OAuthトークンの更新に失敗しました：{{detail}}",
-      "userInfoFetchFailed": "ユーザー情報の取得に失敗しました：{{detail}}"
+      "userInfoFetchFailed": "ユーザー情報の取得に失敗しました：{{detail}}",
+      "providerUnsupported": "{{provider}} 接続はサポートが終了したため付与できません"
     },
     "space": {
       "notFound": "スペースが見つかりません",
@@ -1130,6 +1141,22 @@
       "folderNotFound": "フォルダーが見つかりません",
       "anchorNotFound": "アンカーノードが見つかりません",
       "nameAlreadyExists": "名前がすでに存在します"
+    },
+    "routine": {
+      "notFound": "ルーティンが見つかりません",
+      "runNotFound": "ルーティンの実行が見つかりません",
+      "configRequiredToActivate": "保存された設定がないルーティンは有効化できません",
+      "noFutureOccurrence": "このスケジュールには今後の実行予定がありません",
+      "onlyActiveCanDeactivate": "アクティブなルーティンのみ一時停止できます",
+      "configRequiredToRun": "保存された設定がないルーティンは実行できません",
+      "runAlreadyInFlight": "このルーティンはすでに実行中です",
+      "invalidRunCursor": "実行履歴の無効なカーソルです",
+      "invalidSchedule": "無効なルーティンのスケジュールです: {{reason}}"
+    },
+    "chat": {
+      "notFound": "チャットが見つかりません",
+      "accessDenied": "このチャットにアクセスする権限がありません",
+      "serverAuthoredType": "{{type}} タイプのチャットはサーバーが作成します"
     },
     "dashboard": {
       "notFound": "ダッシュボードが見つかりません"
@@ -1335,7 +1362,10 @@
       "exceedMaxAutomationRunLimit": "自動化の月間最大実行回数に達しました",
       "manualSubscriptionNotSupported": "このスペースではセルフサービスのサブスクリプション操作をご利用いただけません。アップグレード、ダウングレード、その他のサブスクリプション変更については、Teableサポートまでお問い合わせください。",
       "appSumoSubscriptionNotSupported": "AppSumoのサブスクリプションはこのインターフェースから変更できません。AppSumoでサブスクリプションを管理してください。",
-      "customerNotFound": "このスペースの請求顧客レコードが見つかりません。"
+      "planNotAvailable": "このプランは新規サブスクリプションではご利用いただけません。",
+      "seatLimitExceeded": "購入済みシートが不足しています。シートを追加してからコラボレーターを招待してください。",
+      "customerNotFound": "このスペースの請求顧客レコードが見つかりません。",
+      "creditAddOnRetired": "クレジットの定期アドオンは提供終了しました。代わりにプランでより大きなクレジット枠をお選びください。"
     },
     "aggregation": {
       "searchQueryRequired": "検索クエリが必要です",
@@ -1588,7 +1618,8 @@
       "titleIncrement": "この操作で {{increment}} 行が追加され、プランの上限 {{limit}} 行を超えます",
       "titleBatch": "この操作はプランの上限 {{limit}} 行を超えます",
       "description": "これ以上レコードを追加できません。アップグレードすると上限がすぐに解除されます。レコードを削除して空きを作ることもできます。",
-      "unit": "行"
+      "unit": "行",
+      "constraint": "現在のプランではこれ以上レコードを追加できません。レコードを削除して空きを確保してください。"
     },
     "credit": {
       "unit": "クレジット"
@@ -1598,6 +1629,12 @@
     },
     "generic": {
       "description": "プランをアップグレードすると、この制限が解除されます。"
+    },
+    "neutral": {
+      "title": "この操作はスペースの現在のプランの上限を超えています"
+    },
+    "seats": {
+      "unit": "シート"
     }
   }
 }

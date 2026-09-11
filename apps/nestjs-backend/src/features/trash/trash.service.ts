@@ -1321,7 +1321,7 @@ export class TrashService {
     const accessTokenId = this.cls.get('accessTokenId');
     await this.permissionService.validPermissions(
       baseId,
-      ['table|delete', 'app|delete', 'automation|delete'],
+      ['table|delete', 'app|delete', 'automation|delete', 'routine|delete'],
       accessTokenId,
       true
     );
@@ -2252,7 +2252,7 @@ export class TrashService {
     const accessTokenId = this.cls.get('accessTokenId');
     await this.permissionService.validPermissions(
       resourceId,
-      ['table|delete', 'app|delete', 'automation|delete'],
+      ['table|delete', 'app|delete', 'automation|delete', 'routine|delete'],
       accessTokenId,
       true
     );

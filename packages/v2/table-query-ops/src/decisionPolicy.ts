@@ -173,7 +173,7 @@ export type TableQueryAcceptanceDecisionInput = {
   readonly now: Date;
   readonly scopeKey: string;
   readonly hot: boolean;
-  readonly estimatedRows: number;
+  readonly estimatedRows: number | null;
   readonly nextAction:
     | 'ready_for_confirmation'
     | 'needs_plan_validation'
@@ -234,7 +234,7 @@ export class TableQueryDecisionPolicy {
   decideAcceptance(
     input: TableQueryAcceptanceDecisionInput
   ): Result<TableQueryDecision, DomainError> {
-    if (!input.scopeKey || input.estimatedRows < 0) {
+    if (!input.scopeKey || (input.estimatedRows != null && input.estimatedRows < 0)) {
       return err(domainError.validation({ message: 'Invalid acceptance decision input' }));
     }
 
@@ -248,9 +248,8 @@ export class TableQueryDecisionPolicy {
       return ok(hold(['cooldown_active', ...evidence.reasonCodes], true, activeCooldown));
     }
 
-    // The executor refuses generated-column rewrites on large or unknown-size tables
-    // without an explicit human confirmation, so auto accept is small-table only.
-    if (input.estimatedRows === 0) {
+    // reltuples < 0 is unknown planner stats. 0 is an empty estimate, not unknown.
+    if (input.estimatedRows == null) {
       return ok(hold(['table_size_unknown', ...evidence.reasonCodes], true));
     }
     if (input.estimatedRows >= this.config.smallTableMaxEstimatedRows) {

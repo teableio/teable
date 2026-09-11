@@ -41,9 +41,11 @@ export const ShareViewAggregationsRoute: RouteConfig = registerRoute({
 
 export const getShareViewAggregations = async (
   shareId: string,
-  query?: IShareViewAggregationsRo
+  query?: IShareViewAggregationsRo,
+  options?: { signal?: AbortSignal }
 ) => {
   return axios.get<IAggregationVo>(urlBuilder(SHARE_VIEW_AGGREGATIONS_LIST, { shareId }), {
+    signal: options?.signal,
     params: {
       ...query,
       filter: JSON.stringify(query?.filter),

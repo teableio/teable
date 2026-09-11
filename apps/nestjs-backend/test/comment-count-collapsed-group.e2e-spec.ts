@@ -1,8 +1,15 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldVo, IFilter, IGroup } from '@teable/core';
-import { Colors, FieldKeyType, FieldType, SortFunc } from '@teable/core';
+import {
+  Colors,
+  DateFormattingPreset,
+  FieldKeyType,
+  FieldType,
+  SortFunc,
+  TimeFormatting,
+} from '@teable/core';
 import { CommentNodeType, GroupPointType, createComment, getCommentCount } from '@teable/openapi';
-import type { IGroupHeaderPoint, ITableFullVo } from '@teable/openapi';
+import type { IGetRecordsRo, IGroupHeaderPoint, ITableFullVo } from '@teable/openapi';
 import {
   createField,
   createTable,
@@ -86,15 +93,17 @@ describe('OpenAPI Comment count with collapsed groups (e2e)', () => {
     const refreshedLookupField = await getField(hostTable.id, groupedLookupFieldId);
     expect(refreshedLookupField.isMultipleCellValue).toBe(true);
 
-    await createComment(hostTable.id, hostTable.records[0].id, {
-      content: [
-        {
-          type: CommentNodeType.Paragraph,
-          children: [{ type: CommentNodeType.Text, value: 'host-1' }],
-        },
-      ],
-      quoteId: null,
-    });
+    for (const record of hostTable.records) {
+      await createComment(hostTable.id, record.id, {
+        content: [
+          {
+            type: CommentNodeType.Paragraph,
+            children: [{ type: CommentNodeType.Text, value: 'Grouped record comment' }],
+          },
+        ],
+        quoteId: null,
+      });
+    }
   });
 
   afterAll(async () => {
@@ -107,7 +116,7 @@ describe('OpenAPI Comment count with collapsed groups (e2e)', () => {
     await app.close();
   });
 
-  it('should not throw filterInvalidOperator when collapsed groups are provided', async () => {
+  it('returns comment counts only for records outside collapsed lookup groups', async () => {
     const groupBy: IGroup = [{ fieldId: groupedLookupFieldId, order: SortFunc.Asc }];
 
     const groupedRecords = await getRecords(hostTable.id, {
@@ -115,22 +124,114 @@ describe('OpenAPI Comment count with collapsed groups (e2e)', () => {
       groupBy,
     });
 
-    const firstGroupHeader = groupedRecords.extra?.groupPoints?.find(
+    const collapsedGroupHeader = groupedRecords.extra?.groupPoints?.find(
       (point): point is IGroupHeaderPoint =>
-        point.type === GroupPointType.Header && point.depth === 0
+        point.type === GroupPointType.Header &&
+        point.depth === 0 &&
+        Array.isArray(point.value) &&
+        point.value.includes('Gamma')
     );
-    expect(firstGroupHeader).toBeDefined();
+    expect(collapsedGroupHeader).toBeDefined();
 
-    const response = await getCommentCount(hostTable.id, {
+    const query: IGetRecordsRo = {
       viewId: hostTable.views[0].id,
       type: 'rec',
       take: 300,
       skip: 0,
       groupBy,
-      collapsedGroupIds: [firstGroupHeader!.id],
-    });
+      collapsedGroupIds: [collapsedGroupHeader!.id],
+    };
+    const visibleRecords = await getRecords(hostTable.id, query);
+    expect(visibleRecords.records.map(({ id }) => id)).toEqual([hostTable.records[0].id]);
 
-    expect(response.status).toBe(200);
-    expect(Array.isArray(response.data)).toBe(true);
+    const response = await getCommentCount(hostTable.id, {
+      recordIds: visibleRecords.records.map(({ id }) => id),
+    });
+    expect(response.data).toEqual([{ recordId: hostTable.records[0].id, count: 1 }]);
+    expect(response.data.map(({ recordId }) => recordId)).toEqual(
+      visibleRecords.records.map(({ id }) => id)
+    );
+
+    // The collapsed Gamma group sorts first: exclusion must precede the page limit.
+    const firstVisiblePage: IGetRecordsRo = {
+      ...query,
+      groupBy: [{ fieldId: groupedLookupFieldId, order: SortFunc.Desc }],
+      take: 1,
+    };
+    const firstPage = await getRecords(hostTable.id, firstVisiblePage);
+    expect(firstPage.records.map(({ id }) => id)).toEqual([hostTable.records[0].id]);
+    expect(
+      (await getCommentCount(hostTable.id, { recordIds: firstPage.records.map(({ id }) => id) }))
+        .data
+    ).toEqual([{ recordId: hostTable.records[0].id, count: 1 }]);
+    const nextPage = await getRecords(hostTable.id, { ...firstVisiblePage, skip: 1 });
+    expect(nextPage.records).toEqual([]);
+    expect(
+      (await getCommentCount(hostTable.id, { recordIds: nextPage.records.map(({ id }) => id) }))
+        .data
+    ).toEqual([]);
+  });
+
+  it('excludes an entire formatted date group across distinct timestamps', async () => {
+    const table = await createTable(baseId, {
+      name: 'comment_count_date_groups',
+      fields: [
+        { name: 'Name', type: FieldType.SingleLineText },
+        {
+          name: 'Date',
+          type: FieldType.Date,
+          options: {
+            formatting: {
+              date: DateFormattingPreset.ISO,
+              time: TimeFormatting.None,
+              timeZone: 'Asia/Shanghai',
+            },
+          },
+        },
+      ],
+      records: [
+        { fields: { Name: 'First', Date: '2026-04-11T17:00:00.000Z' } },
+        { fields: { Name: 'Second', Date: '2026-04-12T14:00:00.000Z' } },
+        { fields: { Name: 'Next day', Date: '2026-04-13T01:00:00.000Z' } },
+      ],
+    });
+    try {
+      for (const record of table.records) {
+        await createComment(table.id, record.id, {
+          content: [
+            {
+              type: CommentNodeType.Paragraph,
+              children: [{ type: CommentNodeType.Text, value: 'Date group comment' }],
+            },
+          ],
+          quoteId: null,
+        });
+      }
+      const groupBy: IGroup = [
+        { fieldId: table.fields.find(({ name }) => name === 'Date')!.id, order: SortFunc.Asc },
+      ];
+      const grouped = await getRecords(table.id, { groupBy });
+      const header = grouped.extra?.groupPoints?.find(
+        (point): point is IGroupHeaderPoint => point.type === GroupPointType.Header
+      );
+      expect(header).toBeDefined();
+      const query: IGetRecordsRo = {
+        viewId: table.views[0].id,
+        groupBy,
+        collapsedGroupIds: [header!.id],
+        take: 1,
+      };
+      const visibleRecords = await getRecords(table.id, query);
+      expect(visibleRecords.records.map(({ id }) => id)).toEqual([table.records[2].id]);
+      expect(
+        (
+          await getCommentCount(table.id, {
+            recordIds: visibleRecords.records.map(({ id }) => id),
+          })
+        ).data
+      ).toEqual([{ recordId: table.records[2].id, count: 1 }]);
+    } finally {
+      await permanentDeleteTable(baseId, table.id);
+    }
   });
 });

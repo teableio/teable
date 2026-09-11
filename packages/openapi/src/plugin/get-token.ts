@@ -26,7 +26,7 @@ export const pluginGetTokenVoSchema = z.object({
 export type IPluginGetTokenVo = z.infer<typeof pluginGetTokenVoSchema>;
 
 export const PluginGetTokenRoute: RouteConfig = registerRoute({
-  method: 'get',
+  method: 'post',
   path: PLUGIN_GET_TOKEN,
   description: 'Get a token',
   request: {

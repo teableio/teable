@@ -14,6 +14,7 @@ import { useAppSumoTierConfig, useBillingLevelConfig } from '../../hooks/useBill
 import { useIsCloud } from '../../hooks/useIsCloud';
 import { useIsCommunity } from '../../hooks/useIsCommunity';
 import { useIsEE } from '../../hooks/useIsEE';
+import { useUpgradeCtaEnabled } from '../../hooks/useUpgradeCtaEnabled';
 import { PRICING_URL } from './constant';
 
 interface IUpgradeWrapperRenderProps {
@@ -63,6 +64,7 @@ export const useUpgradeAction = (props: {
   const isCommunity = useIsCommunity();
   const isEE = useIsEE();
   const isReadOnlyPreview = useIsReadOnlyPreview();
+  const upgradeCtaEnabled = useUpgradeCtaEnabled();
   const base = useBase() as Base | undefined;
   const { t } = useTranslation('common');
   const { openModal } = useUsageLimitModalStore();
@@ -129,6 +131,13 @@ export const useUpgradeAction = (props: {
     !isCommunity;
 
   const handleUpgradeClick = useCallback(() => {
+    // Native mobile WebView: the feature stays gated, but the click states the
+    // constraint instead of steering to a purchase (App Store 3.1.3).
+    if (!upgradeCtaEnabled) {
+      toast.warning(t('billing.unavailableInPlanTips'));
+      return;
+    }
+
     if (onUpgradeClick) {
       onUpgradeClick();
       return;
@@ -155,12 +164,13 @@ export const useUpgradeAction = (props: {
     } else {
       window.open(PRICING_URL, '_blank');
     }
-  }, [isCloud, isAppSumo, spaceId, isSpaceOwner, t, openModal, onUpgradeClick]);
+  }, [upgradeCtaEnabled, isCloud, isAppSumo, spaceId, isSpaceOwner, t, openModal, onUpgradeClick]);
 
   const billingConfig = useBillingLevelConfig(targetBillingLevel);
 
   const badge = useMemo(() => {
-    if (!needsUpgrade) {
+    // The badge is an "Upgrade to X" affordance, so it has no place in embed mode.
+    if (!needsUpgrade || !upgradeCtaEnabled) {
       return null;
     }
 
@@ -188,7 +198,14 @@ export const useUpgradeAction = (props: {
         {badgeName}
       </span>
     );
-  }, [needsUpgrade, isAppSumo, targetAppSumoTierConfig, billingConfig, handleUpgradeClick]);
+  }, [
+    needsUpgrade,
+    upgradeCtaEnabled,
+    isAppSumo,
+    targetAppSumoTierConfig,
+    billingConfig,
+    handleUpgradeClick,
+  ]);
 
   return {
     badge,
@@ -198,6 +215,7 @@ export const useUpgradeAction = (props: {
     currentLevel,
     isLevelSufficient: isLevelSufficientMemo,
     handleUpgradeClick,
+    upgradeCtaEnabled,
   };
 };
 

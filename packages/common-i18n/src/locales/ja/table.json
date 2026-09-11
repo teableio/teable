@@ -266,7 +266,6 @@
       "bar": "棒",
       "text": "テキスト",
       "markdown": "Markdown",
-      "url": "Url",
       "email": "メール",
       "phone": "電話",
       "maxNumber": "最大数",
@@ -328,6 +327,7 @@
       "filterByView": "ビューでレコードをフィルターする",
       "filter": "レコードをフィルターする",
       "hideFields": "フィールドを非表示にする",
+      "removeDuplicateValues": "重複する値を削除",
       "moreOptions": "オプションを表示",
       "allowNewOptionsWhenEditing": "編集時に新しいオプションを許可",
       "deleteField": {
@@ -911,6 +911,9 @@
   },
   "import": {
     "title": {
+      "createTable": "テーブルを作成",
+      "importFromCsv": "CSV からインポート",
+      "importFromExcel": "Excel からインポート",
       "upload": "アップロード",
       "import": "インポート",
       "localFile": "ローカルファイル",
@@ -1376,6 +1379,70 @@
     "action": {
       "locateResource": "検索"
     },
+    "resourceOperations": {
+      "title": "今回の変更",
+      "items_other": "{{count}}件",
+      "expandRemaining": "残り{{count}}件を表示",
+      "collapse": "折りたたむ",
+      "create": "作成済み",
+      "update": "更新済み",
+      "delete": "削除済み",
+      "import": "インポート",
+      "publication": {
+        "published": "公開済み",
+        "unpublished": "公開を取り消しました"
+      },
+      "structureTitles": {
+        "field": "フィールドの変更",
+        "view": "ビューの変更"
+      },
+      "structureStats": {
+        "field": {
+          "create_other": "フィールドを{{count}}個追加",
+          "update_other": "フィールドを{{count}}個変更",
+          "delete_other": "フィールドを{{count}}個削除",
+          "import_other": "フィールドを{{count}}個インポート"
+        },
+        "view": {
+          "create_other": "ビューを{{count}}個追加",
+          "update_other": "ビューを{{count}}個変更",
+          "delete_other": "ビューを{{count}}個削除",
+          "import_other": "ビューを{{count}}個インポート"
+        }
+      },
+      "workflow": {
+        "activate": "オートメーションを有効化しました",
+        "deactivate": "オートメーションを無効化しました",
+        "discard": "下書きの変更を破棄しました"
+      },
+      "routine": {
+        "activate": "ルーティンを有効化しました",
+        "deactivate": "ルーティンを無効化しました",
+        "run": "実行を開始しました"
+      },
+      "records": {
+        "create": "レコードを追加",
+        "createCount_other": "レコードを{{count}}件追加",
+        "update": "レコードを更新",
+        "updateCount_other": "レコードを{{count}}件更新",
+        "delete": "レコードを削除",
+        "deleteCount_other": "レコードを{{count}}件削除",
+        "import": "レコードをインポート",
+        "importCount_other": "レコードを{{count}}件インポート"
+      },
+      "types": {
+        "base": "ベース",
+        "table": "テーブル",
+        "field": "フィールド",
+        "view": "ビュー",
+        "record": "レコード",
+        "app": "アプリ",
+        "workflow": "オートメーション",
+        "routine": "ルーティン",
+        "folder": "フォルダ",
+        "artifact": "アーティファクト"
+      }
+    },
     "showUI": {
       "skip": "スキップ",
       "next": "次へ",
@@ -1414,7 +1481,13 @@
     "addAttachment": "添付ファイルを追加",
     "noHistory": "チャット履歴がありません",
     "noFoundHistory": "チャット履歴が見つかりません。新しいチャットを開始してください",
+    "pin": "ピン留め",
+    "unpin": "ピン留めを解除",
+    "archive": "アーカイブ",
+    "archivedToast": "チャットをアーカイブしました。「設定 › アーカイブ済みチャット」で確認できます。",
+    "unread": "未読",
     "timeGroup": {
+      "pinned": "ピン留め",
       "today": "今日",
       "oneWeek": "1週間",
       "twoWeek": "2週間",
@@ -1433,6 +1506,7 @@
       "tables": "テーブル",
       "apps": "アプリ",
       "workflows": "自動化",
+      "routines": "ルーティン",
       "folders": "フォルダ",
       "envs": "シークレット"
     },
@@ -1586,6 +1660,11 @@
         "upstreamBadRequest": "音声エンドポイントが無効です。",
         "upstreamUnavailable": "音声機能を利用できません。"
       }
+    },
+    "status": {
+      "running": "生成中…",
+      "waitingInput": "あなたの返信を待っています",
+      "failed": "返信に失敗しました"
     }
   },
   "upload": {

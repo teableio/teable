@@ -21,7 +21,17 @@
     "records_one": "{{formattedCount}} record",
     "records_other": "{{formattedCount}} records",
     "batchesComplete": "Completed batches {{completed}}/{{total}}",
-    "progressAriaLabel": "{{fieldName}} calculation progress"
+    "progressAriaLabel": "{{fieldName}} calculation progress",
+    "statusUnavailable": "Calculation status is temporarily unavailable",
+    "statusSyncing": "Checking calculation status",
+    "statusSyncingDescription": "We are checking the latest calculation status. This does not mean calculations are running.",
+    "statusUnavailableDescription": "The latest calculation status could not be loaded. Refresh the status to try again; this will not restart calculations.",
+    "refreshStatus": "Refresh status",
+    "paused": "Calculations are paused",
+    "resultsNotUpdated": "Some calculation results have not been updated",
+    "delayed": "Calculation update delayed · {{seconds}}s",
+    "snapshotMayBeStale": "The last known status is shown and may be out of date.",
+    "unknownImpact": "Some calculation results have not been updated; affected fields are being identified"
   },
   "crossSpace": {
     "duplicateFieldTitle": "Notice",
@@ -271,7 +281,6 @@
       "bar": "Bar",
       "text": "Text",
       "markdown": "Markdown",
-      "url": "Url",
       "email": "Email",
       "phone": "Phone",
       "maxNumber": "Max number",
@@ -333,6 +342,7 @@
       "filterByView": "Filter records by view",
       "filter": "Filter records",
       "hideFields": "Hide fields",
+      "removeDuplicateValues": "Remove duplicate values",
       "moreOptions": "More options",
       "allowNewOptionsWhenEditing": "Allow new options when editing",
       "deleteField": {
@@ -916,6 +926,9 @@
   },
   "import": {
     "title": {
+      "createTable": "Create table",
+      "importFromCsv": "Import from CSV",
+      "importFromExcel": "Import from Excel",
       "upload": "Upload",
       "import": "Import",
       "localFile": "Local files",
@@ -1379,6 +1392,83 @@
     "action": {
       "locateResource": "Locate"
     },
+    "resourceOperations": {
+      "title": "Changes this turn",
+      "items_one": "{{count}} item",
+      "items_other": "{{count}} items",
+      "expandRemaining": "Show {{count}} more",
+      "collapse": "Show less",
+      "create": "Created",
+      "update": "Updated",
+      "delete": "Deleted",
+      "import": "Import",
+      "publication": {
+        "published": "Published",
+        "unpublished": "Unpublished"
+      },
+      "structureTitles": {
+        "field": "Field changes",
+        "view": "View changes"
+      },
+      "structureStats": {
+        "field": {
+          "create_one": "Added {{count}} field",
+          "create_other": "Added {{count}} fields",
+          "update_one": "Modified {{count}} field",
+          "update_other": "Modified {{count}} fields",
+          "delete_one": "Deleted {{count}} field",
+          "delete_other": "Deleted {{count}} fields",
+          "import_one": "Imported {{count}} field",
+          "import_other": "Imported {{count}} fields"
+        },
+        "view": {
+          "create_one": "Added {{count}} view",
+          "create_other": "Added {{count}} views",
+          "update_one": "Modified {{count}} view",
+          "update_other": "Modified {{count}} views",
+          "delete_one": "Deleted {{count}} view",
+          "delete_other": "Deleted {{count}} views",
+          "import_one": "Imported {{count}} view",
+          "import_other": "Imported {{count}} views"
+        }
+      },
+      "workflow": {
+        "activate": "Automation enabled",
+        "deactivate": "Automation disabled",
+        "discard": "Draft changes discarded"
+      },
+      "routine": {
+        "activate": "Routine activated",
+        "deactivate": "Routine deactivated",
+        "run": "Run started"
+      },
+      "records": {
+        "create": "Records added",
+        "createCount_one": "Added {{count}} record",
+        "createCount_other": "Added {{count}} records",
+        "update": "Records updated",
+        "updateCount_one": "Updated {{count}} record",
+        "updateCount_other": "Updated {{count}} records",
+        "delete": "Records deleted",
+        "deleteCount_one": "Deleted {{count}} record",
+        "deleteCount_other": "Deleted {{count}} records",
+        "import": "Records imported",
+        "importCount_one": "Imported {{count}} record",
+        "importCount_other": "Imported {{count}} records"
+      },
+      "types": {
+        "base": "Base",
+        "table": "Table",
+        "field": "Field",
+        "view": "View",
+        "record": "Records",
+        "app": "App",
+        "workflow": "Automation",
+        "routine": "Routine",
+        "folder": "Folder",
+        "artifact": "Artifact"
+      }
+    },
     "showUI": {
       "skip": "Skip",
       "next": "Next",
@@ -1418,7 +1508,13 @@
     "addAttachment": "Add attachment",
     "noHistory": "No chat history",
     "noFoundHistory": "No chat history found, please start a new conversation",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "archive": "Archive",
+    "archivedToast": "Chat archived. Find it under Settings › Archived chats.",
+    "unread": "Unread",
     "timeGroup": {
+      "pinned": "Pinned",
       "today": "Today",
       "oneWeek": "One week",
       "twoWeek": "Two week",
@@ -1437,6 +1533,7 @@
       "tables": "Tables",
       "apps": "Apps",
       "workflows": "Automations",
+      "routines": "Routines",
       "folders": "Folders",
       "envs": "Secrets"
     },
@@ -1595,6 +1692,11 @@
       "searchPlaceholder": "Search artifacts",
       "fixWithAi": "Fix with AI",
       "noPermission": "You do not have access to this artifact"
+    },
+    "status": {
+      "running": "Generating…",
+      "waitingInput": "Waiting for your reply",
+      "failed": "Reply failed"
     }
   },
   "upload": {

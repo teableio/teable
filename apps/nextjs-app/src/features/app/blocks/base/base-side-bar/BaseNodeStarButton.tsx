@@ -24,6 +24,8 @@ export const BaseNodeStarButton = (props: IBaseNodeStarButtonProps) => {
         return PinType.Workflow;
       case BaseNodeResourceType.App:
         return PinType.App;
+      case BaseNodeResourceType.Routine:
+        return PinType.Routine;
       default:
         return null;
     }

@@ -390,10 +390,6 @@
           "user": "Utilisateur Slack",
           "workspace": "Espace de travail Slack"
         },
-        "email": {
-          "user": "Utilisateur",
-          "email": "E-mail"
-        },
         "deleteTitle": "Supprimer le compte connecté",
         "deleteDesc": "Êtes-vous sûr de vouloir supprimer {{name}} ?",
         "create": "Connecter un nouveau compte",
@@ -437,6 +433,8 @@
     "webSearch": "Recherche web",
     "folder": "Dossier",
     "newAutomation": "Nouvelle automatisation",
+    "routine": "Routine",
+    "newRoutine": "Nouvelle routine",
     "newApp": "Nouvelle application",
     "newFolder": "Nouveau dossier",
     "template": "Modèle"
@@ -568,19 +566,13 @@
     "billable": "Facturable",
     "billableByAuthorityMatrix": "Facturation générée par la matrice d'autorités",
     "seatConfirm": {
-      "title": "Cette invitation augmentera le coût de votre abonnement",
-      "roleChangeTitle": "Ce changement de rôle augmentera le coût de votre abonnement",
       "matrixTitle": "L'ajout de membres augmentera le coût de votre abonnement",
-      "inviteDesc_one": "Le membre que vous invitez rejoindra avec le rôle {{role}} et occupera 1 siège de l'abonnement ; le coût augmentera en conséquence. S'il doit seulement consulter ou commenter, choisissez simplement le rôle gratuit Lecteur ou Commentateur.",
-      "inviteDesc_many": "Les {{count}} membres que vous invitez rejoindront avec le rôle {{role}} et occuperont {{count}} sièges de l'abonnement ; le coût augmentera en conséquence. S'ils doivent seulement consulter ou commenter, choisissez simplement le rôle gratuit Lecteur ou Commentateur.",
-      "inviteDesc_other": "Les {{count}} membres que vous invitez rejoindront avec le rôle {{role}} et occuperont {{count}} sièges de l'abonnement ; le coût augmentera en conséquence. S'ils doivent seulement consulter ou commenter, choisissez simplement le rôle gratuit Lecteur ou Commentateur.",
-      "linkDesc": "Les membres qui rejoignent via ce lien recevront le rôle {{role}} et occuperont chacun 1 siège de l'abonnement ; le coût augmentera au fil des arrivées. Pour une simple consultation ou des commentaires, choisissez simplement le rôle gratuit Lecteur ou Commentateur.",
-      "roleChangeDesc": "Après le passage au rôle {{role}}, ce membre occupera 1 siège de l'abonnement et le coût augmentera en conséquence.",
       "matrixDesc": "Ce membre a actuellement un rôle gratuit (Lecteur/Commentateur). Une fois ajouté à la matrice d'autorité, il occupera 1 siège de l'abonnement et le coût augmentera en conséquence.",
       "seatLimitTitle": "Sièges de licence insuffisants",
       "seatLimitDesc": "Cette instance utilise {{seats}} sièges sur {{seatLimit}} sous licence et il n'en reste pas assez pour cette action. Contactez votre administrateur pour acheter des sièges supplémentaires. Si la personne doit seulement consulter ou commenter, utilisez le rôle gratuit Lecteur ou Commentateur.",
       "seatLimitConfirm": "Compris",
-      "confirmInvite": "Confirmer et inviter"
+      "fixedSeatTitle": "Sièges insuffisants dans votre forfait",
+      "fixedSeatDesc": "Votre forfait comprend {{quantity}} sièges et {{seats}} sont déjà utilisés. En continuant, la limite de sièges sera dépassée et l'espace sera rétrogradé vers le forfait gratuit après un délai de grâce de 7 jours. Si la personne doit seulement consulter ou commenter, utilisez le rôle gratuit Lecteur ou Commentateur."
     },
     "licenseExpiredGracePeriod": "Votre licence auto-hébergée a expiré et sera rétrogradée au forfait gratuit le {{expiredTime}}. Veuillez mettre à jour votre licence rapidement pour conserver l'accès aux fonctionnalités premium.",
     "licenseAutoFetchFailed": "Échec du renouvellement automatique de la licence. Il reste {{days}} jour(s) de période de grâce avant la rétrogradation.",
@@ -1299,6 +1291,24 @@
             "message": "Votre automatisation {{name}} a cumulé {{failCount}} échecs consécutifs. Ouvrez l'historique des exécutions pour voir les détails."
           }
         },
+        "routine": {
+          "failed": {
+            "title": "Échec de l'exécution de la routine {{name}}",
+            "message": "Votre routine {{name}} a rencontré une erreur d'exécution. Ouvrez l'historique des exécutions pour plus de détails."
+          },
+          "failedSummary": {
+            "title": "La routine {{name}} a échoué {{failCount}} fois",
+            "message": "Votre routine {{name}} a cumulé {{failCount}} échecs consécutifs. Ouvrez l'historique des exécutions pour plus de détails."
+          },
+          "insufficientCredit": {
+            "title": "La routine {{name}} a été ignorée faute de crédits IA",
+            "message": "Votre routine {{name}} ne s'est pas exécutée car les crédits IA sont insuffisants. Ajoutez des crédits ou mettez à niveau votre offre."
+          },
+          "autoDeactivated": {
+            "title": "La routine {{name}} a été mise en pause après {{failCount}} échecs consécutifs",
+            "message": "Votre routine {{name}} a échoué {{failCount}} fois de suite et a été mise en pause automatiquement. Corrigez le problème puis réactivez-la."
+          }
+        },
         "billing": {
           "title": "Notification de facturation",
           "credit": {
@@ -1365,6 +1375,7 @@
               "title": "Tâche IA annulée",
               "rateLimit": "La tâche IA pour la table \"{{tableName}}\" a été annulée en raison d'une limitation de débit (429). Veuillez réessayer plus tard.",
               "creditExhausted": "La tâche IA pour la table \"{{tableName}}\" a été annulée car les crédits sont épuisés. Veuillez mettre à niveau votre abonnement ou attendre le renouvellement des crédits.",
+              "providerBilling": "La tâche IA de la table \"{{tableName}}\" a été annulée car le fournisseur du modèle a rejeté la requête pour des raisons de facturation. Veuillez vérifier le solde et l'état de facturation du compte associé à la clé API configurée pour ce modèle. Erreur : {{errorMessage}}",
               "authFailed": "La tâche IA pour la table \"{{tableName}}\" a été annulée en raison d'un échec d'authentification. Veuillez vérifier la configuration de votre clé API.",
               "serviceUnavailable": "La tâche IA pour la table \"{{tableName}}\" a été annulée car le service IA est temporairement indisponible. Veuillez réessayer plus tard.",
               "unknown": "La tâche IA pour la table \"{{tableName}}\" a été annulée. Erreur : {{errorMessage}}"
@@ -1455,6 +1466,7 @@
     "minFollowerCount": "Le compte doit avoir au moins {{count}} abonnés",
     "mustMention": "La publication doit mentionner {{mention}}",
     "fetchSnapshotFailed": "Échec de la récupération de la capture de la publication",
+    "snapshotTimeout": "Délai d'attente dépassé pour la capture de la publication, veuillez réessayer plus tard",
     "alreadyClaimedThisWeek": "Vous avez déjà réclamé une récompense pour ce compte cette semaine",
     "maxClaimsReached": "Vous avez atteint le maximum de réclamations de récompenses (2) pour cette semaine",
     "postTooOld": "La publication doit avoir été publiée au cours des {{hours}} dernière(s) heure(s)",
@@ -1594,7 +1606,8 @@
       "copyToBase": "Copier vers Base",
       "copyToSpace": "Copier vers l'espace",
       "copyToPersonal": "Copier vers personnel",
-      "copyToApp": "Copier vers l'application"
+      "copyToApp": "Copier vers l'application",
+      "copyToRoutine": "Copier vers la routine"
     },
     "import": {
       "title": "Importer une compétence",
@@ -1635,7 +1648,9 @@
       "app": "App",
       "appDescription": "Disponible uniquement pour cette application",
       "cuppyclaw": "Bot",
-      "cuppyclawDescription": "Disponible uniquement pour ce bot"
+      "cuppyclawDescription": "Disponible uniquement pour ce bot",
+      "routine": "Routine",
+      "routineDescription": "Disponible uniquement pour cette routine"
     },
     "source": {
       "github": "GitHub",
@@ -1683,5 +1698,22 @@
     "more_one": "{{count}} autre annonce",
     "more_many": "{{count}} autres annonces",
     "more_other": "{{count}} autres annonces"
+  },
+  "mobileEmbed": {
+    "pickFromDirectory": "Choisissez un élément dans le répertoire",
+    "pickFromDirectoryHint": "Ouvrez une table, un tableau de bord ou une automatisation depuis le répertoire : il apparaîtra ici.",
+    "limitReachedTitle": "Limite du forfait atteinte",
+    "limitReachedDescription": "Cet espace a atteint une limite de son forfait actuel.",
+    "creditsExhaustedTitle": "Crédits IA épuisés",
+    "creditsExhaustedDescription": "Cet espace a utilisé tous les crédits IA inclus dans son forfait actuel.",
+    "seatLimitTitle": "Plus de sièges disponibles",
+    "seatLimitDescription": "Cet espace n'a plus de sièges disponibles pour d'autres collaborateurs.",
+    "ownerManagesPlan": "Seul le propriétaire de l'espace peut gérer son forfait. Contactez-le pour résoudre ce problème.",
+    "featureUnavailableTitle": "Non disponible avec ce forfait",
+    "billingUnavailable": "La gestion du forfait et de la facturation n'est pas disponible dans l'application.",
+    "featureUnavailableDescription": "Cette fonctionnalité n'est pas disponible avec le forfait actuel de cet espace.",
+    "importRowLimitReached": "La limite de lignes du forfait actuel a été atteinte ; les enregistrements restants n'ont pas été importés.",
+    "userCapTitle": "Limite d'utilisateurs atteinte",
+    "userCapDescription": "Cette instance a atteint le nombre d'utilisateurs autorisé par sa licence. Contactez votre administrateur."
   }
 }

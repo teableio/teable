@@ -281,7 +281,6 @@
       "bar": "Бар",
       "text": "Текст",
       "markdown": "Markdown",
-      "url": "URL",
       "email": "Електронна пошта",
       "phone": "Телефон",
       "maxNumber": "Максимальна кількість",
@@ -343,6 +342,7 @@
       "filterByView": "Фільтрувати записи за переглядом",
       "filter": "Фільтрувати записи",
       "hideFields": "Приховати поля",
+      "removeDuplicateValues": "Видалити повторювані значення",
       "moreOptions": "Більше параметрів",
       "allowNewOptionsWhenEditing": "Дозволити нові параметри під час редагування",
       "deleteField": {
@@ -926,6 +926,9 @@
   },
   "import": {
     "title": {
+      "createTable": "Створити таблицю",
+      "importFromCsv": "Імпорт із CSV",
+      "importFromExcel": "Імпорт із Excel",
       "upload": "Завантажити",
       "import": "Імпорт",
       "localFile": "Локальні файли",
@@ -1394,6 +1397,109 @@
     "action": {
       "locateResource": "Знайти"
     },
+    "resourceOperations": {
+      "title": "Зміни за цю відповідь",
+      "items_one": "{{count}} елемент",
+      "items_few": "{{count}} елементи",
+      "items_many": "{{count}} елементів",
+      "items_other": "{{count}} елемента",
+      "expandRemaining": "Показати ще {{count}}",
+      "collapse": "Згорнути",
+      "create": "Створено",
+      "update": "Оновлено",
+      "delete": "Видалено",
+      "import": "Імпорт",
+      "publication": {
+        "published": "Опубліковано",
+        "unpublished": "Публікацію скасовано"
+      },
+      "structureTitles": {
+        "field": "Зміни полів",
+        "view": "Зміни переглядів"
+      },
+      "structureStats": {
+        "field": {
+          "create_one": "Додано {{count}} поле",
+          "create_few": "Додано {{count}} поля",
+          "create_many": "Додано {{count}} полів",
+          "create_other": "Додано {{count}} поля",
+          "update_one": "Змінено {{count}} поле",
+          "update_few": "Змінено {{count}} поля",
+          "update_many": "Змінено {{count}} полів",
+          "update_other": "Змінено {{count}} поля",
+          "delete_one": "Видалено {{count}} поле",
+          "delete_few": "Видалено {{count}} поля",
+          "delete_many": "Видалено {{count}} полів",
+          "delete_other": "Видалено {{count}} поля",
+          "import_one": "Імпортовано {{count}} поле",
+          "import_few": "Імпортовано {{count}} поля",
+          "import_many": "Імпортовано {{count}} полів",
+          "import_other": "Імпортовано {{count}} поля"
+        },
+        "view": {
+          "create_one": "Додано {{count}} перегляд",
+          "create_few": "Додано {{count}} перегляди",
+          "create_many": "Додано {{count}} переглядів",
+          "create_other": "Додано {{count}} перегляду",
+          "update_one": "Змінено {{count}} перегляд",
+          "update_few": "Змінено {{count}} перегляди",
+          "update_many": "Змінено {{count}} переглядів",
+          "update_other": "Змінено {{count}} перегляду",
+          "delete_one": "Видалено {{count}} перегляд",
+          "delete_few": "Видалено {{count}} перегляди",
+          "delete_many": "Видалено {{count}} переглядів",
+          "delete_other": "Видалено {{count}} перегляду",
+          "import_one": "Імпортовано {{count}} перегляд",
+          "import_few": "Імпортовано {{count}} перегляди",
+          "import_many": "Імпортовано {{count}} переглядів",
+          "import_other": "Імпортовано {{count}} перегляду"
+        }
+      },
+      "workflow": {
+        "activate": "Автоматизацію ввімкнено",
+        "deactivate": "Автоматизацію вимкнено",
+        "discard": "Зміни чернетки скасовано"
+      },
+      "routine": {
+        "activate": "Рутину ввімкнено",
+        "deactivate": "Рутину вимкнено",
+        "run": "Запуск розпочато"
+      },
+      "records": {
+        "create": "Записи додано",
+        "createCount_one": "Додано {{count}} запис",
+        "createCount_few": "Додано {{count}} записи",
+        "createCount_many": "Додано {{count}} записів",
+        "createCount_other": "Додано {{count}} запису",
+        "update": "Записи оновлено",
+        "updateCount_one": "Оновлено {{count}} запис",
+        "updateCount_few": "Оновлено {{count}} записи",
+        "updateCount_many": "Оновлено {{count}} записів",
+        "updateCount_other": "Оновлено {{count}} запису",
+        "delete": "Записи видалено",
+        "deleteCount_one": "Видалено {{count}} запис",
+        "deleteCount_few": "Видалено {{count}} записи",
+        "deleteCount_many": "Видалено {{count}} записів",
+        "deleteCount_other": "Видалено {{count}} запису",
+        "import": "Записи імпортовано",
+        "importCount_one": "Імпортовано {{count}} запис",
+        "importCount_few": "Імпортовано {{count}} записи",
+        "importCount_many": "Імпортовано {{count}} записів",
+        "importCount_other": "Імпортовано {{count}} запису"
+      },
+      "types": {
+        "base": "База",
+        "table": "Таблиця",
+        "field": "Поле",
+        "view": "Перегляд",
+        "record": "Записи",
+        "app": "Додаток",
+        "workflow": "Автоматизація",
+        "routine": "Рутина",
+        "folder": "Папка",
+        "artifact": "Артефакт"
+      }
+    },
     "showUI": {
       "skip": "Пропустити",
       "next": "Наступний",
@@ -1435,7 +1541,13 @@
     "addAttachment": "Додати вкладення",
     "noHistory": "Немає історії чату",
     "noFoundHistory": "Немає історії чату, будь ласка, почати нову розмову",
+    "pin": "Закріпити",
+    "unpin": "Відкріпити",
+    "archive": "В архів",
+    "archivedToast": "Чат перенесено в архів. Знайти його можна в «Налаштування › Архів чатів».",
+    "unread": "Непрочитано",
     "timeGroup": {
+      "pinned": "Закріплені",
       "today": "Сьогодні",
       "oneWeek": "Одна тиждень",
       "twoWeek": "Дві тижні",
@@ -1454,6 +1566,7 @@
       "tables": "Таблиці",
       "apps": "Програми",
       "workflows": "Автоматизації",
+      "routines": "Рутини",
       "folders": "Папки",
       "envs": "Секрети"
     },
@@ -1613,6 +1726,11 @@
         "upstreamBadRequest": "Голосовий ендпоінт недійсний.",
         "upstreamUnavailable": "Голосова функція недоступна."
       }
+    },
+    "status": {
+      "running": "Генерація…",
+      "waitingInput": "Очікує вашої відповіді",
+      "failed": "Відповідь не вдалася"
     }
   },
   "upload": {

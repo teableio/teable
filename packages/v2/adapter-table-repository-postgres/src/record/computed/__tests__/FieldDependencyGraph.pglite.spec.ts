@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 /**
  * Integration test for FieldDependencyGraph.load with conditionalRollup field.
  * Uses PGlite to test actual database loading behavior.
@@ -22,9 +23,9 @@ const TEST_SCHEMA = 'test_base';
 // PGlite Kysely dialect implementation
 class PGliteDriver {
   #client: PGlite;
-  #onQuery?: (sql: string) => void;
+  #onQuery?: (sql: string, parameters: ReadonlyArray<unknown>) => void;
 
-  constructor(client: PGlite, onQuery?: (sql: string) => void) {
+  constructor(client: PGlite, onQuery?: (sql: string, parameters: ReadonlyArray<unknown>) => void) {
     this.#client = client;
     this.#onQuery = onQuery;
   }
@@ -54,15 +55,15 @@ class PGliteDriver {
 
 class PGliteConnection {
   #client: PGlite;
-  #onQuery?: (sql: string) => void;
+  #onQuery?: (sql: string, parameters: ReadonlyArray<unknown>) => void;
 
-  constructor(client: PGlite, onQuery?: (sql: string) => void) {
+  constructor(client: PGlite, onQuery?: (sql: string, parameters: ReadonlyArray<unknown>) => void) {
     this.#client = client;
     this.#onQuery = onQuery;
   }
 
   async executeQuery<O>(compiledQuery: CompiledQuery): Promise<QueryResult<O>> {
-    this.#onQuery?.(compiledQuery.sql);
+    this.#onQuery?.(compiledQuery.sql, compiledQuery.parameters);
     const result = await this.#client.query<O>(compiledQuery.sql, [...compiledQuery.parameters]);
     return {
       numAffectedRows: result.affectedRows ? BigInt(result.affectedRows) : undefined,
@@ -78,9 +79,9 @@ class PGliteConnection {
 
 class PGliteDialect implements Dialect {
   #client: PGlite;
-  #onQuery?: (sql: string) => void;
+  #onQuery?: (sql: string, parameters: ReadonlyArray<unknown>) => void;
 
-  constructor(client: PGlite, onQuery?: (sql: string) => void) {
+  constructor(client: PGlite, onQuery?: (sql: string, parameters: ReadonlyArray<unknown>) => void) {
     this.#client = client;
     this.#onQuery = onQuery;
   }
@@ -106,6 +107,7 @@ describe('FieldDependencyGraph PGlite integration', () => {
   let pglite: PGlite;
   let db: Kysely<V1TeableDatabase>;
   const executedSql: string[] = [];
+  const capturedQueries: { sql: string; parameters: ReadonlyArray<unknown> }[] = [];
 
   const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
   const productsTableId = TableId.create(`tbl${'b'.repeat(16)}`)._unsafeUnwrap();
@@ -140,7 +142,10 @@ describe('FieldDependencyGraph PGlite integration', () => {
   beforeAll(async () => {
     pglite = await PGlite.create();
     db = new Kysely<V1TeableDatabase>({
-      dialect: new PGliteDialect(pglite, (sql) => executedSql.push(sql)),
+      dialect: new PGliteDialect(pglite, (sql, parameters) => {
+        executedSql.push(sql);
+        capturedQueries.push({ sql, parameters });
+      }),
     });
 
     // Create schema and tables
@@ -441,6 +446,52 @@ describe('FieldDependencyGraph PGlite integration', () => {
     await pglite.close();
   });
 
+  it('uses the conditional dependency index for incremental lookup expansion', async () => {
+    await pglite.exec(`SET search_path TO ${TEST_SCHEMA};
+      INSERT INTO field (id, table_id, type, options)
+      SELECT 'fld' || lpad(i::text, 16, '0'), '${reportsTableId.toString()}',
+        'conditionalRollup', json_build_object('lookupFieldId', 'unrelated-' || i)::text
+      FROM generate_series(10000, 29999) i;
+    `);
+    try {
+      const ceMigration = await readFile(
+        new URL(
+          '../../../../../../db-main-prisma/prisma/postgres/migrations/20260907110000_add_conditional_dependency_index/migration.sql',
+          import.meta.url
+        ),
+        'utf8'
+      );
+      const eeMigration = await readFile(
+        new URL(
+          '../../../../../../../../packages/db-main-prisma/prisma/postgres/migrations/20260907110000_add_conditional_dependency_index/migration.sql',
+          import.meta.url
+        ),
+        'utf8'
+      );
+      expect(eeMigration).toBe(ceMigration);
+      await pglite.exec(ceMigration);
+      await pglite.exec('SET enable_seqscan = on; ANALYZE field; ANALYZE table_meta;');
+      capturedQueries.length = 0;
+      const graph = new FieldDependencyGraph(db, logger);
+      const result = await graph.load(baseId, undefined, { requiredFieldIds: [priceFieldId] });
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) throw result.error;
+      expect(result.value.fieldsById.has(conditionalRollupFieldId.toString())).toBe(true);
+      const query = capturedQueries.find(({ sql }) => sql.includes('-- 5. ConditionalRollup'));
+      expect(query).toBeDefined();
+      if (!query) throw new Error('Incremental conditional dependency query was not issued');
+      const explanation = await pglite.query(`EXPLAIN (FORMAT JSON) ${query.sql}`, [
+        ...query.parameters,
+      ]);
+      expect(JSON.stringify(explanation.rows)).toContain(
+        'field_options_conditional_lookup_field_id_idx'
+      );
+    } finally {
+      await pglite.exec(
+        "DELETE FROM field WHERE options::jsonb->>'lookupFieldId' LIKE 'unrelated-%'"
+      );
+    }
+  });
   it('loads conditionalRollup field with filterDto from database (v1 format)', async () => {
     // Create a modified graph that uses our test schema
     const graph = new FieldDependencyGraph(db as any);

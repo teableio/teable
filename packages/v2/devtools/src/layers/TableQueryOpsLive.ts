@@ -1,11 +1,17 @@
-import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import {
+  createV2PostgresDb,
+  v2DataDbTokens,
+  v2MetaDbTokens,
+} from '@teable/v2-adapter-db-postgres-pg';
 import {
   getTablePhysicalName,
   makePhysicalTableSql,
   mergeSearchVectorCoverage,
   PostgresTableSearchVectorAdvisor,
+  PostgresTableSearchAccessPathMetadataPublisher,
   registerV2TableOpsPostgresAdapter,
-  renderSearchTextProjectionSql,
+  renderGeneratedSearchTextProjectionSql,
+  ensureSearchDocumentFunctions,
   type AnalyzeTableSearchVectorResult,
   type UnknownPostgresDatabase,
 } from '@teable/v2-adapter-table-query-ops-postgres';
@@ -1583,7 +1589,7 @@ const buildSearchDocumentGeneratedExpression = (
     )
     .map(
       (field) =>
-        `coalesce(${renderSearchTextProjectionSql(quoteIdentifier(field.fieldDbName), field.textProjection)}, '')`
+        `coalesce(${renderGeneratedSearchTextProjectionSql(quoteIdentifier(field.fieldDbName), field.textProjection)}, '')`
     )
     .join(` || E'\\n' || `);
   return `lower(${document || "''"})`;
@@ -2286,6 +2292,10 @@ export const TableQueryOpsLive = Layer.effect(
         `.execute(dataDb);
         copiedRows = Number(countResult.rows[0]?.count ?? '0');
 
+        await ensureSearchDocumentFunctions(
+          dataDb as Kysely<UnknownPostgresDatabase>,
+          coveredFields.map((field) => field.textProjection)
+        );
         const expression = buildSearchDocumentGeneratedExpression(coveredFields);
         await sql
           .raw(
@@ -3250,6 +3260,33 @@ export const TableQueryOpsLive = Layer.effect(
       ): Effect.Effect<TableQueryOpsExecuteSearchAccessPathResult, CliError> =>
         Effect.tryPromise({
           try: () => executeSearchAccessPathUnsafe(input),
+          catch: (error) => CliError.fromUnknown(error),
+        }),
+
+      refreshSearchAccessPath: (input: {
+        readonly tableId: string;
+        readonly dataConnection?: string;
+      }) =>
+        Effect.tryPromise({
+          try: async () => {
+            const inspectionDb = input.dataConnection
+              ? await createV2PostgresDb<UnknownPostgresDatabase>({
+                  pg: { connectionString: input.dataConnection },
+                })
+              : container.resolve<Kysely<UnknownPostgresDatabase>>(v2DataDbTokens.db);
+            try {
+              const publisher = new PostgresTableSearchAccessPathMetadataPublisher(
+                container.resolve<Kysely<UnknownPostgresDatabase>>(v2MetaDbTokens.db),
+                inspectionDb,
+                container.resolve<ITableRepository>(v2CoreTokens.tableRepository)
+              );
+              const result = await publisher.refresh(createContext(container), input.tableId);
+              if (result.isErr()) throw result.error;
+              return { tableId: input.tableId, published: result.value !== undefined };
+            } finally {
+              if (input.dataConnection) await inspectionDb.destroy();
+            }
+          },
           catch: (error) => CliError.fromUnknown(error),
         }),
 

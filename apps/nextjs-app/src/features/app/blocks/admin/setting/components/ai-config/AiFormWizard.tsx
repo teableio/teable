@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { MessageSquareDot, Zap, Box, Loader2 } from '@teable/icons';
 import { aiConfigVoSchema } from '@teable/openapi';
 import type {
+  IAIConfigVo,
   IGatewayModel,
   IChatModelAbility,
   IImageModelAbility,
@@ -15,6 +16,7 @@ import { Button, Form } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Resolver } from 'react-hook-form';
 import { useForm } from 'react-hook-form';
 import type { IModelOption } from './AiModelSelect';
 import { AISetupWizard, useAISetupSteps, type LLMApiMode } from './AISetupWizard';
@@ -79,8 +81,8 @@ export function AIConfigFormWizard({
     [aiConfig]
   );
 
-  const form = useForm<NonNullable<ISettingVo['aiConfig']>>({
-    resolver: zodResolver(aiConfigVoSchema),
+  const form = useForm<IAIConfigVo>({
+    resolver: zodResolver(aiConfigVoSchema) as Resolver<IAIConfigVo>,
     defaultValues: defaultValues,
   });
 
@@ -193,6 +195,8 @@ export function AIConfigFormWizard({
     () => toCompareString(savedLlmApiConfig) !== toCompareString(draftLlmApiConfig),
     [draftLlmApiConfig, savedLlmApiConfig]
   );
+  const hasClearedProviders =
+    (aiConfig?.llmProviders?.length ?? 0) > 0 && llmProviders.length === 0;
 
   const isModelPoolDirty = useMemo(
     () => toCompareString(aiConfig?.gatewayModels ?? []) !== toCompareString(gatewayModels),
@@ -415,6 +419,7 @@ export function AIConfigFormWizard({
                 onSave={saveLlmApi}
                 isSaving={savingSection === 'llmApi'}
                 isDirty={isLlmApiDirty}
+                hasClearedProviders={hasClearedProviders}
                 onComplete={() => setCurrentStep(1)}
               />
             </SetupStepCard>

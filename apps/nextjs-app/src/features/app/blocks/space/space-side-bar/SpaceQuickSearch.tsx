@@ -17,7 +17,7 @@ import {
   TooltipContent,
 } from '@teable/ui-lib/shadcn';
 import { debounce } from 'lodash';
-import { AppWindowMacIcon, BotIcon, CircleGaugeIcon } from 'lucide-react';
+import { AppWindowMacIcon, BotIcon, CalendarClockIcon, CircleGaugeIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState, useMemo, useCallback, useRef, type FC } from 'react';
@@ -38,6 +38,7 @@ const SearchTypeIconMap = {
   dashboard: CircleGaugeIcon,
   workflow: BotIcon,
   app: AppWindowMacIcon,
+  routine: CalendarClockIcon,
 };
 
 export const SpaceQuickSearch: FC<Props> = ({ spaceId }) => {

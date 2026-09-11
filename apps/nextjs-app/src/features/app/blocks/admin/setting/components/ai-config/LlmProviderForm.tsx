@@ -56,6 +56,7 @@ import { ChevronDown, ChevronUp, Square } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import type { PropsWithChildren } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Resolver } from 'react-hook-form';
 import { useForm } from 'react-hook-form';
 import { calculateMultiplier, formatMultiplier } from './ai-model-select/utils';
 import { LLM_PROVIDERS } from './constant';
@@ -1009,7 +1010,7 @@ export const LLMProviderForm = ({
   const isAutoProviderName = providerNameMode === 'auto';
 
   const form = useForm<LLMProvider>({
-    resolver: zodResolver(llmProviderSchema),
+    resolver: zodResolver(llmProviderSchema) as Resolver<LLMProvider>,
     defaultValues: getLLMProviderDefaultValues(value, isAutoProviderName),
   });
 

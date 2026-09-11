@@ -226,6 +226,11 @@ const areFieldTypeMapsEqual = (
   return true;
 };
 
+const lookupUniqueness = (primary: unknown, fallback?: unknown): { isUnique?: boolean } => {
+  const isUnique = primary ?? fallback;
+  return typeof isUnique === 'boolean' ? { isUnique } : {};
+};
+
 /**
  * Normalize a field's options from v1 (dottea) format to v2 format.
  * This handles the conversion of link, lookup, formula, rollup, conditionalRollup,
@@ -272,7 +277,12 @@ export const normalizeFieldOptions = (
     ) {
       return {
         type: 'conditionalLookup',
-        options: { foreignTableId, lookupFieldId, condition },
+        options: {
+          foreignTableId,
+          lookupFieldId,
+          condition,
+          ...lookupUniqueness(rawLookupOptions?.isUnique, normalizedSelectOptions?.isUnique),
+        },
       };
     }
     return { type: 'singleLineText', options: normalizedSelectOptions };
@@ -296,7 +306,13 @@ export const normalizeFieldOptions = (
     ) {
       return { type: 'singleLineText', options: normalizedSelectOptions };
     }
-    return { type: 'lookup', options: lookupOptions };
+    return {
+      type: 'lookup',
+      options: {
+        ...lookupOptions,
+        ...lookupUniqueness(rawLookupOptions?.isUnique),
+      },
+    };
   }
 
   if (field.type === 'link') {

@@ -1,6 +1,5 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { z } from 'zod';
 
 import { domainError, type DomainError } from '../../shared/DomainError';
 import { generatePrefixedId, prefixedIdRegex } from '../../shared/IdGenerator';
@@ -8,7 +7,7 @@ import { ValueObject } from '../../shared/ValueObject';
 
 const viewIdPrefix = 'viw';
 const viewIdBodyLength = 16;
-const viewIdSchema = z.string().regex(prefixedIdRegex(viewIdPrefix, viewIdBodyLength));
+const viewIdPattern = prefixedIdRegex(viewIdPrefix, viewIdBodyLength);
 
 export class ViewId extends ValueObject {
   private constructor(private readonly value: string) {
@@ -16,9 +15,10 @@ export class ViewId extends ValueObject {
   }
 
   static create(raw: unknown): Result<ViewId, DomainError> {
-    const parsed = viewIdSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.validation({ message: 'Invalid ViewId' }));
-    return ok(new ViewId(parsed.data));
+    if (typeof raw !== 'string' || !viewIdPattern.test(raw)) {
+      return err(domainError.validation({ message: 'Invalid ViewId' }));
+    }
+    return ok(new ViewId(raw));
   }
 
   static generate(): Result<ViewId, DomainError> {

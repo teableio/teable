@@ -49,7 +49,8 @@
     "previewFileLimit": "Limite dimensione file di anteprima: {{size}}MB, per favore scarica per visualizzare.",
     "loadFileError": "Caricamento file fallito",
     "previousAttachment": "Precedente",
-    "nextAttachment": "Successivo"
+    "nextAttachment": "Successivo",
+    "deleteAttachment": "Elimina"
   },
   "undoRedo": {
     "undo": "Annulla",
@@ -440,6 +441,10 @@
       "automationDelete": "Elimina automazione",
       "automationRead": "Leggi automazione",
       "automationUpdate": "Aggiorna automazione",
+      "routineCreate": "Crea routine",
+      "routineDelete": "Elimina routine",
+      "routineRead": "Leggi routine",
+      "routineUpdate": "Aggiorna routine",
       "appCreate": "Crea app",
       "appDelete": "Elimina app",
       "appRead": "Leggi app",
@@ -462,6 +467,7 @@
     "field": "Campo",
     "record": "Record",
     "automation": "Automazione",
+    "routine": "Routine",
     "app": "App",
     "user": "Utente",
     "recordHistory": "Cronologia Record",
@@ -1081,6 +1087,8 @@
       "unsupportedCategory": "Categoria non supportata",
       "unknownConnectionType": "Tipo di connessione e-mail sconosciuto",
       "imapPasswordNotConfigured": "Password IMAP non configurata",
+      "secretNotGranted": "Il secret {{alias}} non è concesso all'automazione",
+      "credentialMustBeSecret": "Le credenziali devono essere secret concessi all'automazione",
       "integrationNotFound": "Integrazione non trovata o senza credenziali",
       "webhookTriggerNotFound": "Trigger webhook non trovato",
       "emailReceivedTriggerNotFound": "Trigger di ricezione e-mail non trovato",
@@ -1092,12 +1100,15 @@
       "apiKeyNotConfigured": "Il servizio di scraping non è configurato",
       "triggerFailed": "Attivazione scraping fallita: {{detail}}",
       "snapshotError": "Errore snapshot scraping: {{detail}}",
-      "timeout": "Timeout scraping dopo {{seconds}}s"
+      "timeout": "Timeout scraping dopo {{seconds}}s",
+      "catalogFailed": "Richiesta del catalogo di scraping non riuscita: {{detail}}",
+      "discoverByOnCatalogDataset": "discoverBy si applica solo agli id di dataset grezzi, non a {{datasetId}}"
     },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
       "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
-      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}",
+      "providerUnsupported": "Le connessioni {{provider}} non sono più supportate e non possono essere concesse"
     },
     "space": {
       "notFound": "Spazio non trovato",
@@ -1138,6 +1149,22 @@
       "folderNotFound": "Cartella non trovata",
       "anchorNotFound": "Nodo di ancoraggio non trovato",
       "nameAlreadyExists": "Il nome esiste già"
+    },
+    "routine": {
+      "notFound": "Routine non trovata",
+      "runNotFound": "Esecuzione della routine non trovata",
+      "configRequiredToActivate": "Impossibile attivare una routine senza una configurazione salvata",
+      "noFutureOccurrence": "La pianificazione non ha occorrenze future",
+      "onlyActiveCanDeactivate": "Solo una routine attiva può essere messa in pausa",
+      "configRequiredToRun": "Impossibile eseguire una routine senza una configurazione salvata",
+      "runAlreadyInFlight": "Un'esecuzione di questa routine è già in corso",
+      "invalidRunCursor": "Cursore dell'elenco delle esecuzioni non valido",
+      "invalidSchedule": "Pianificazione della routine non valida: {{reason}}"
+    },
+    "chat": {
+      "notFound": "Chat non trovata",
+      "accessDenied": "Non sei autorizzato ad accedere a questa chat",
+      "serverAuthoredType": "Le chat di tipo {{type}} vengono create dal server"
     },
     "dashboard": {
       "notFound": "Dashboard non trovato"
@@ -1343,7 +1370,10 @@
       "exceedMaxAutomationRunLimit": "Raggiunto il numero massimo mensile di esecuzioni di automazione",
       "manualSubscriptionNotSupported": "L'abbonamento self-service non è disponibile per questo spazio. Per upgrade, downgrade o altre modifiche all'abbonamento, contattare il supporto Teable.",
       "appSumoSubscriptionNotSupported": "Gli abbonamenti AppSumo non possono essere modificati tramite questa interfaccia. Si prega di gestire l'abbonamento su AppSumo.",
-      "customerNotFound": "Nessun record cliente di fatturazione trovato per questo spazio."
+      "planNotAvailable": "Questo piano non è più disponibile per nuovi abbonamenti.",
+      "seatLimitExceeded": "Posti acquistati insufficienti. Aggiungi posti per invitare altri collaboratori.",
+      "customerNotFound": "Nessun record cliente di fatturazione trovato per questo spazio.",
+      "creditAddOnRetired": "Il componente aggiuntivo ricorrente di crediti è stato ritirato. Scegli invece un livello di crediti superiore nel tuo piano."
     },
     "aggregation": {
       "searchQueryRequired": "È richiesta una query di ricerca",
@@ -1596,7 +1626,8 @@
       "titleIncrement": "Questa azione aggiunge {{increment}} righe e supera il limite di {{limit}} del tuo piano",
       "titleBatch": "Questa operazione supererebbe il limite di {{limit}} righe del tuo piano",
       "description": "Non puoi aggiungere altri record. Passa a un piano superiore per rimuovere subito il limite oppure libera spazio eliminando dei record.",
-      "unit": "righe"
+      "unit": "righe",
+      "constraint": "Con il piano attuale non è possibile aggiungere altri record. Libera spazio eliminando dei record."
     },
     "credit": {
       "unit": "crediti"
@@ -1606,6 +1637,12 @@
     },
     "generic": {
       "description": "Passa a un piano superiore per rimuovere questo limite."
+    },
+    "neutral": {
+      "title": "Questa azione supera un limite del piano attuale dello spazio"
+    },
+    "seats": {
+      "unit": "posti"
     }
   }
 }

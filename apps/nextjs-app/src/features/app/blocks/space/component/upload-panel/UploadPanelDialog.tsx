@@ -21,6 +21,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
+import { useUpgradeCtaEnabled } from '../../../../hooks/useUpgradeCtaEnabled';
 import { ImportLogPanel, type ILogEntry, type ITableImportProgress } from './ImportLogPanel';
 import { UploadPanel } from './UploadPanel';
 
@@ -116,6 +117,8 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
     },
     [tAny]
   );
+
+  const upgradeCtaEnabled = useUpgradeCtaEnabled();
 
   const addLog = React.useCallback(
     (message: string, type: ILogEntry['type'] = 'info', action?: ILogEntry['action']) => {
@@ -300,6 +303,12 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
           onOpenChange(false);
           return;
         }
+        // The backend sentence and the inline action both pitch an upgrade: inside the
+        // native mobile WebView the log only states that the row limit was reached.
+        if (!upgradeCtaEnabled) {
+          addLog(tAny('common:mobileEmbed.importRowLimitReached'), 'error');
+          return;
+        }
         addLog(localized, 'error', {
           label: tAny('common:actions.upgrade'),
           onClick: () => openUsageLimitModal(err, code),
@@ -319,6 +328,7 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
     tAny,
     onOpenChange,
     openUsageLimitModal,
+    upgradeCtaEnabled,
     router,
     showImportSuccessToast,
     updateTableProgress,

@@ -160,15 +160,54 @@ describe('TableQueryObservationRuntimeService', () => {
     vi.useRealTimers();
   });
 
-  it('prunes shards older than the retention window', async () => {
+  it('prunes expired shards after startup delay and every hour', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-08-28T00:00:00.000Z'));
     const { service } = createService();
     await service.get();
 
-    await vi.advanceTimersByTimeAsync(24 * 60 * 60 * 1_000);
+    expect(mocks.pruneBefore).not.toHaveBeenCalled();
 
-    expect(mocks.pruneBefore).toHaveBeenCalledWith(new Date('2026-07-15T00:00:00.000Z'));
+    await vi.advanceTimersByTimeAsync(60 * 1_000);
+    expect(mocks.pruneBefore).toHaveBeenCalledTimes(1);
+    expect(mocks.pruneBefore).toHaveBeenCalledWith(new Date('2026-08-26T00:01:00.000Z'));
+
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1_000);
+    expect(mocks.pruneBefore).toHaveBeenCalledTimes(2);
+    expect(mocks.pruneBefore).toHaveBeenLastCalledWith(new Date('2026-08-26T01:00:00.000Z'));
+
+    await service.dispose();
+    vi.useRealTimers();
+  });
+
+  it('uses V2_TABLE_QUERY_OPS_RETENTION_DAYS when set', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-28T00:00:00.000Z'));
+    const { service, configService } = createService();
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'PRISMA_DATABASE_URL') return databaseUrl;
+      if (key === 'V2_TABLE_QUERY_OPS_RETENTION_DAYS') return '3';
+      return undefined;
+    });
+
+    await service.get();
+    expect(mocks.pruneBefore).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(60 * 1_000);
+    expect(mocks.pruneBefore).toHaveBeenCalledWith(new Date('2026-08-25T00:01:00.000Z'));
+    await service.dispose();
+    vi.useRealTimers();
+  });
+
+  it('keeps the runtime up when delayed pruning rejects', async () => {
+    vi.useFakeTimers();
+    mocks.pruneBefore.mockRejectedValueOnce(new Error('disk full'));
+    const { service } = createService();
+
+    await expect(service.get()).resolves.toBeDefined();
+    await vi.advanceTimersByTimeAsync(60 * 1_000);
+    await expect(service.get()).resolves.toBeDefined();
+
     await service.dispose();
     vi.useRealTimers();
   });

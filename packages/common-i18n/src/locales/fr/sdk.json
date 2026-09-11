@@ -49,7 +49,8 @@
     "previewFileLimit": "Limite de taille du fichier en aperçu : {{size}} Mo, veuillez télécharger pour le visualiser.",
     "loadFileError": "Échec du chargement du fichier",
     "previousAttachment": "Précédent",
-    "nextAttachment": "Suivant"
+    "nextAttachment": "Suivant",
+    "deleteAttachment": "Supprimer"
   },
   "undoRedo": {
     "undo": "Undo",
@@ -440,6 +441,10 @@
       "automationDelete": "Supprimer une automatisation",
       "automationRead": "Lire une automatisation",
       "automationUpdate": "Mettre à jour une automatisation",
+      "routineCreate": "Créer une routine",
+      "routineDelete": "Supprimer une routine",
+      "routineRead": "Lire une routine",
+      "routineUpdate": "Mettre à jour une routine",
       "appCreate": "Créer une application",
       "appDelete": "Supprimer une application",
       "appRead": "Lire une application",
@@ -462,6 +467,7 @@
     "field": "Champ",
     "record": "Enregistrement",
     "automation": "Automatisation",
+    "routine": "Routine",
     "app": "Application",
     "user": "Utilisateur",
     "recordHistory": "Historique des enregistrements",
@@ -1081,6 +1087,8 @@
       "unsupportedCategory": "Catégorie non supportée",
       "unknownConnectionType": "Type de connexion e-mail inconnu",
       "imapPasswordNotConfigured": "Mot de passe IMAP non configuré",
+      "secretNotGranted": "Le secret {{alias}} n'est pas accordé à l'automatisation",
+      "credentialMustBeSecret": "Les identifiants doivent être des secrets accordés à l'automatisation",
       "integrationNotFound": "Intégration introuvable ou sans identifiants",
       "webhookTriggerNotFound": "Déclencheur webhook introuvable",
       "emailReceivedTriggerNotFound": "Déclencheur de réception d'e-mail introuvable",
@@ -1092,12 +1100,15 @@
       "apiKeyNotConfigured": "Le service de scraping n'est pas configuré",
       "triggerFailed": "Échec du déclenchement du scraping : {{detail}}",
       "snapshotError": "Erreur de snapshot de scraping : {{detail}}",
-      "timeout": "Délai de scraping dépassé après {{seconds}}s"
+      "timeout": "Délai de scraping dépassé après {{seconds}}s",
+      "catalogFailed": "Échec de la requête du catalogue d'extraction : {{detail}}",
+      "discoverByOnCatalogDataset": "discoverBy ne s'applique qu'aux identifiants de dataset bruts, pas à {{datasetId}}"
     },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
       "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
-      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}",
+      "providerUnsupported": "Les connexions {{provider}} ne sont plus prises en charge et ne peuvent pas être accordées"
     },
     "space": {
       "notFound": "Espace non trouvé",
@@ -1138,6 +1149,22 @@
       "folderNotFound": "Dossier non trouvé",
       "anchorNotFound": "Nœud d'ancrage non trouvé",
       "nameAlreadyExists": "Le nom existe déjà"
+    },
+    "routine": {
+      "notFound": "Routine non trouvée",
+      "runNotFound": "Exécution de routine non trouvée",
+      "configRequiredToActivate": "Impossible d'activer une routine sans configuration enregistrée",
+      "noFutureOccurrence": "La planification n'a aucune occurrence future",
+      "onlyActiveCanDeactivate": "Seule une routine active peut être mise en pause",
+      "configRequiredToRun": "Impossible d'exécuter une routine sans configuration enregistrée",
+      "runAlreadyInFlight": "Une exécution de cette routine est déjà en cours",
+      "invalidRunCursor": "Curseur de liste d'exécutions non valide",
+      "invalidSchedule": "Planification de routine non valide : {{reason}}"
+    },
+    "chat": {
+      "notFound": "Conversation introuvable",
+      "accessDenied": "Vous n'êtes pas autorisé à accéder à cette conversation",
+      "serverAuthoredType": "Les conversations de type {{type}} sont créées par le serveur"
     },
     "dashboard": {
       "notFound": "Tableau de bord non trouvé"
@@ -1343,7 +1370,10 @@
       "exceedMaxAutomationRunLimit": "Le nombre maximal mensuel d'exécutions d'automatisation est atteint",
       "manualSubscriptionNotSupported": "L'abonnement en libre-service n'est pas disponible pour cet espace. Pour les mises à niveau, les rétrogradations ou d'autres modifications d'abonnement, veuillez contacter le support Teable.",
       "appSumoSubscriptionNotSupported": "Les abonnements AppSumo ne peuvent pas être modifiés via cette interface. Veuillez gérer votre abonnement sur AppSumo.",
-      "customerNotFound": "Aucun enregistrement client de facturation trouvé pour cet espace."
+      "planNotAvailable": "Ce forfait n'est plus disponible pour les nouveaux abonnements.",
+      "seatLimitExceeded": "Sièges achetés insuffisants. Ajoutez des sièges pour inviter plus de collaborateurs.",
+      "customerNotFound": "Aucun enregistrement client de facturation trouvé pour cet espace.",
+      "creditAddOnRetired": "L'extension de crédits récurrente a été retirée. Choisissez plutôt un palier de crédits supérieur dans votre forfait."
     },
     "aggregation": {
       "searchQueryRequired": "La requête de recherche est requise",
@@ -1596,7 +1626,8 @@
       "titleIncrement": "Cette action ajoute {{increment}} lignes et dépasse la limite de {{limit}} de votre forfait",
       "titleBatch": "Cette opération dépasserait la limite de {{limit}} lignes de votre forfait",
       "description": "Vous ne pouvez plus ajouter d'enregistrements. Passez à un forfait supérieur pour lever la limite immédiatement, ou libérez de l'espace en supprimant des enregistrements.",
-      "unit": "lignes"
+      "unit": "lignes",
+      "constraint": "Impossible d'ajouter d'autres enregistrements avec le forfait actuel. Libérez de l'espace en supprimant des enregistrements."
     },
     "credit": {
       "unit": "crédits"
@@ -1606,6 +1637,12 @@
     },
     "generic": {
       "description": "Passez à un forfait supérieur pour lever cette limite."
+    },
+    "neutral": {
+      "title": "Cette action dépasse une limite du forfait actuel de l'espace"
+    },
+    "seats": {
+      "unit": "sièges"
     }
   }
 }

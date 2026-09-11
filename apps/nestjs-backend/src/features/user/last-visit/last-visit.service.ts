@@ -21,6 +21,7 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import type {
+  RoutineDeleteEvent,
   BaseDeleteEvent,
   SpaceDeleteEvent,
   DashboardDeleteEvent,
@@ -32,6 +33,7 @@ import type {
 import { Events } from '../../../event-emitter/events';
 import { LastVisitUpdateEvent } from '../../../event-emitter/events/last-visit/last-visit.event';
 import type { IClsStore } from '../../../types/cls';
+import { mergeBaseVisitRows } from './merge-base-visit-rows';
 
 @Injectable()
 export class LastVisitService {
@@ -56,6 +58,7 @@ export class LastVisitService {
             LastVisitResourceType.Dashboard,
             LastVisitResourceType.Workflow,
             LastVisitResourceType.App,
+            LastVisitResourceType.Routine,
           ],
         },
       },
@@ -110,6 +113,7 @@ export class LastVisitService {
             LastVisitResourceType.Dashboard,
             LastVisitResourceType.Workflow,
             LastVisitResourceType.App,
+            LastVisitResourceType.Routine,
           ],
         },
       },
@@ -595,6 +599,56 @@ export class LastVisitService {
     return undefined;
   }
 
+  async routineVisit(userId: string, parentResourceId: string) {
+    const query = this.knex
+      .select({
+        resourceId: 'ulv.resource_id',
+      })
+      .from('user_last_visit as ulv')
+      .leftJoin('routine as r', function () {
+        this.on('r.id', '=', 'ulv.resource_id').andOnNull('r.deleted_time');
+      })
+      .where('ulv.user_id', userId)
+      .where('ulv.resource_type', LastVisitResourceType.Routine)
+      .where('ulv.parent_resource_id', parentResourceId)
+      .whereNotNull('r.id')
+      .limit(1)
+      .toQuery();
+
+    const results = await this.prismaService.$queryRawUnsafe<IUserLastVisitVo[]>(query);
+    const lastVisit = results[0];
+
+    if (lastVisit) {
+      return {
+        resourceId: lastVisit.resourceId,
+        resourceType: LastVisitResourceType.Routine,
+      };
+    }
+
+    // same default as the routine list: oldest first
+    const routineQuery = this.knex('routine')
+      .select({
+        id: 'id',
+      })
+      .where('base_id', parentResourceId)
+      .whereNull('deleted_time')
+      .orderBy('created_time', 'asc')
+      .limit(1)
+      .toQuery();
+
+    const routineResults = await this.prismaService.$queryRawUnsafe<{ id: string }[]>(routineQuery);
+    const routine = routineResults[0];
+
+    if (routine) {
+      return {
+        resourceId: routine.id,
+        resourceType: LastVisitResourceType.Routine,
+      };
+    }
+
+    return undefined;
+  }
+
   async baseVisit(): Promise<IUserLastVisitListBaseVo> {
     const userId = this.cls.get('user.id');
     const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
@@ -645,10 +699,12 @@ export class LastVisitService {
       }[]
     >(query.toQuery());
 
-    const list = results.map((result) => ({
+    const uniqueResults = mergeBaseVisitRows(results);
+
+    const list = uniqueResults.map((result) => ({
       resourceId: result.resourceId,
       resourceType: result.resourceType,
-      lastVisitTime: result.lastVisitTime.toISOString(),
+      lastVisitTime: new Date(result.lastVisitTime).toISOString(),
       resource: {
         id: result.resourceId,
         name: result.resourceName,
@@ -660,7 +716,7 @@ export class LastVisitService {
     }));
 
     return {
-      total: results.length,
+      total: uniqueResults.length,
       list,
     };
   }
@@ -682,6 +738,8 @@ export class LastVisitService {
         return this.workflowVisit(userId, params.parentResourceId);
       case LastVisitResourceType.App:
         return this.appVisit(userId, params.parentResourceId);
+      case LastVisitResourceType.Routine:
+        return this.routineVisit(userId, params.parentResourceId);
       default:
         throw new CustomHttpException('Invalid resource type', HttpErrorCode.VALIDATION_ERROR, {
           localization: {
@@ -872,6 +930,7 @@ export class LastVisitService {
   @OnEvent(Events.DASHBOARD_DELETE, { async: true })
   @OnEvent(Events.WORKFLOW_DELETE, { async: true })
   @OnEvent(Events.APP_DELETE, { async: true })
+  @OnEvent(Events.ROUTINE_DELETE, { async: true })
   protected async resourceDeleteListener(
     listenerEvent:
       | BaseDeleteEvent
@@ -881,6 +940,7 @@ export class LastVisitService {
       | DashboardDeleteEvent
       | WorkflowDeleteEvent
       | AppDeleteEvent
+      | RoutineDeleteEvent
   ) {
     switch (listenerEvent.name) {
       case Events.BASE_DELETE:
@@ -952,6 +1012,14 @@ export class LastVisitService {
           where: {
             resourceId: listenerEvent.payload.appId,
             resourceType: LastVisitResourceType.App,
+          },
+        });
+        break;
+      case Events.ROUTINE_DELETE:
+        await this.prismaService.userLastVisit.deleteMany({
+          where: {
+            resourceId: listenerEvent.payload.routineId,
+            resourceType: LastVisitResourceType.Routine,
           },
         });
         break;

@@ -5,6 +5,9 @@ import { CONDITIONAL_QUERY_MAX_LIMIT } from './conditional.constants';
 import { Relationship } from './constant';
 
 const lookupLinkOptionsVoSchema = z.object({
+  isUnique: z.boolean().optional().meta({
+    description: 'Remove duplicate lookup values while preserving their type and first occurrence.',
+  }),
   baseId: z.string().optional().meta({
     description:
       'the base id of the table that this field is linked to, only required for cross base link',
@@ -49,6 +52,7 @@ const lookupLinkOptionsVoSchema = z.object({
 });
 
 const lookupLinkOptionsRoSchema = lookupLinkOptionsVoSchema.pick({
+  isUnique: true,
   foreignTableId: true,
   lookupFieldId: true,
   linkFieldId: true,
@@ -56,6 +60,7 @@ const lookupLinkOptionsRoSchema = lookupLinkOptionsVoSchema.pick({
 });
 
 const lookupLinkOptionsRoKeys = new Set([
+  'isUnique',
   'foreignTableId',
   'lookupFieldId',
   'linkFieldId',
@@ -95,6 +100,9 @@ const normalizeLookupOptionsRoInput = (input: unknown): unknown => {
 };
 
 const lookupConditionalOptionsVoSchema = z.object({
+  isUnique: z.boolean().optional().meta({
+    description: 'Remove duplicate lookup values after filtering, sorting, and limiting records.',
+  }),
   baseId: z.string().optional().meta({
     description:
       'the base id of the table that this field is linked to, only required for cross base link',

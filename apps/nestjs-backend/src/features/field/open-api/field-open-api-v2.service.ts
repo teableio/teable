@@ -48,6 +48,8 @@ import {
   type Field,
   FieldId,
   GetFieldFilterLinkRecordsQuery,
+  GetFieldSnapshotsQuery,
+  type GetFieldSnapshotsResult,
   type GetViewFilterLinkRecordsResult,
   type ICommandBus,
   type IExecutionContext,
@@ -93,6 +95,9 @@ type IPreparedLegacyCreateField = {
   hasAiConfig: boolean;
   nextAiConfig: IFieldVo['aiConfig'] | undefined;
 };
+
+type IFieldDtoMap = ReadonlyMap<string, Record<string, unknown>>;
+type ILookupFieldLoader = (tableId: string, fieldId: string) => Promise<IFieldDtoMap>;
 
 const fieldOpenApiV2Component = 'service';
 
@@ -310,6 +315,8 @@ export class FieldOpenApiV2Service {
       const condition = conditionalOptions.condition as Record<string, unknown> | undefined;
       const lookupOptions: Record<string, unknown> = {};
       if (conditionalOptions.baseId != null) lookupOptions.baseId = conditionalOptions.baseId;
+      if (conditionalOptions.isUnique !== undefined)
+        lookupOptions.isUnique = conditionalOptions.isUnique;
       if (conditionalOptions.foreignTableId != null)
         lookupOptions.foreignTableId = conditionalOptions.foreignTableId;
       if (conditionalOptions.lookupFieldId != null)
@@ -340,6 +347,7 @@ export class FieldOpenApiV2Service {
         const condition = v2Options.condition as Record<string, unknown> | undefined;
         const lookupOptions: Record<string, unknown> = {};
         if (v2Options.baseId != null) lookupOptions.baseId = v2Options.baseId;
+        if (v2Options.isUnique !== undefined) lookupOptions.isUnique = v2Options.isUnique;
         if (v2Options.foreignTableId != null)
           lookupOptions.foreignTableId = v2Options.foreignTableId;
         if (v2Options.lookupFieldId != null) lookupOptions.lookupFieldId = v2Options.lookupFieldId;
@@ -554,12 +562,17 @@ export class FieldOpenApiV2Service {
   private async listDomainFields(
     tableId: string,
     viewId?: string,
-    context?: IExecutionContext
+    context?: IExecutionContext,
+    fieldIds?: ReadonlyArray<string>
   ): Promise<{ result: ListFieldsResult; context: IExecutionContext }> {
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
     const queryContext = context ?? (await this.v2ContextFactory.createContext(container));
-    const queryResult = ListFieldsQuery.create({ tableId, viewId });
+    const queryResult = ListFieldsQuery.create({
+      tableId,
+      viewId,
+      ...(fieldIds ? { fieldIds } : {}),
+    });
     if (queryResult.isErr()) {
       throwV2Error(
         mapDomainErrorToHttpError(queryResult.error),
@@ -580,9 +593,8 @@ export class FieldOpenApiV2Service {
     return { result: result.value, context: queryContext };
   }
 
-  async getFields(tableId: string, query: IGetFieldsQuery = {}): Promise<IFieldVo[]> {
-    const { result, context } = await this.listDomainFields(tableId, query.viewId);
-    const fieldDtoById = new Map(
+  private mapDomainFieldDtos(result: ListFieldsResult): IFieldDtoMap {
+    return new Map(
       result.fields.map((field) => {
         const dto = mapFieldToDto(field, result.primaryFieldId);
         if (dto.isErr()) {
@@ -591,11 +603,77 @@ export class FieldOpenApiV2Service {
         return [field.id().toString(), dto.value as Record<string, unknown>] as const;
       })
     );
+  }
+
+  private createLookupFieldLoader(context: IExecutionContext): ILookupFieldLoader {
+    // Share in-flight and completed reads only within this field-list operation.
+    // Nested lookup hydration can request the same foreign Field after the first
+    // wave has been sent; reuse that promise instead of issuing another query.
+    type Batch = {
+      fieldIds: Set<string>;
+      load: Promise<IFieldDtoMap>;
+    };
+    const collecting = new Map<string, Batch>();
+    const inFlight = new Map<string, Promise<IFieldDtoMap>>();
+    const completed = new Map<string, IFieldDtoMap>();
+    const fieldKey = (tableId: string, fieldId: string) => `${tableId}\0${fieldId}`;
+    return (tableId, fieldId) => {
+      const loaded = completed.get(tableId);
+      if (loaded?.has(fieldId)) {
+        return Promise.resolve(loaded);
+      }
+      const flying = inFlight.get(fieldKey(tableId, fieldId));
+      if (flying) {
+        return flying;
+      }
+      const existing = collecting.get(tableId);
+      if (existing) {
+        existing.fieldIds.add(fieldId);
+        inFlight.set(fieldKey(tableId, fieldId), existing.load);
+        return existing.load;
+      }
+      const fieldIds = new Set<string>([fieldId]);
+      const load = Promise.resolve()
+        .then(() => {
+          collecting.delete(tableId);
+          return this.listDomainFields(tableId, undefined, context, [...fieldIds]);
+        })
+        .then(({ result }) => {
+          const mapped = this.mapDomainFieldDtos(result);
+          const previous = completed.get(tableId);
+          const merged = previous ? new Map([...previous, ...mapped]) : mapped;
+          completed.set(tableId, merged);
+          return merged;
+        });
+      collecting.set(tableId, { fieldIds, load });
+      inFlight.set(fieldKey(tableId, fieldId), load);
+      return load;
+    };
+  }
+
+  async getFields(tableId: string, query: IGetFieldsQuery = {}): Promise<IFieldVo[]> {
+    const { result, context } = await this.listDomainFields(
+      tableId,
+      query.viewId,
+      undefined,
+      query.projection
+    );
+    return this.mapListedFieldsToVos(tableId, result, context, query);
+  }
+
+  private async mapListedFieldsToVos(
+    tableId: string,
+    result: ListFieldsResult,
+    context: IExecutionContext,
+    query: IGetFieldsQuery = {}
+  ): Promise<IFieldVo[]> {
+    const loadLookupFields = this.createLookupFieldLoader(context);
+    const fieldDtoById = this.mapDomainFieldDtos(result);
     const fields = await Promise.all(
       result.fields.map(async (field) => {
         const vo = this.normalizeFieldVo(fieldDtoById.get(field.id().toString()));
         this.enrichLookupLinkMetadata(vo, (linkFieldId) => fieldDtoById.get(linkFieldId));
-        await this.hydrateLookupFieldVo(vo, context);
+        await this.hydrateLookupFieldVo(vo, context, loadLookupFields);
         return vo;
       })
     );
@@ -648,68 +726,124 @@ export class FieldOpenApiV2Service {
       return [];
     }
 
-    const readVersions = async () => {
-      const storedFields = await this.prismaService.txClient().field.findMany({
-        where: { tableId, id: { in: fieldIds }, deletedTime: null },
-        select: { id: true, version: true },
-      });
-      return new Map(storedFields.map((field) => [field.id, field.version] as const));
-    };
-
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const versionsBefore = await readVersions();
-      const fields = await this.getFields(tableId, { filterHidden: false });
-      const versionsAfter = await readVersions();
-      const isStable = fieldIds.every(
-        (fieldId) => versionsBefore.get(fieldId) === versionsAfter.get(fieldId)
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const context = await this.v2ContextFactory.createContext(container);
+    const queryResult = GetFieldSnapshotsQuery.create({ tableId, fieldIds });
+    if (queryResult.isErr()) {
+      throwV2Error(
+        mapDomainErrorToHttpError(queryResult.error),
+        mapDomainErrorToHttpStatus(queryResult.error)
       );
-      if (!isStable) {
-        continue;
-      }
-
-      const fieldById = new Map(fields.map((field) => [field.id, field] as const));
-      return fieldIds.flatMap((id) => {
-        const field = fieldById.get(id);
-        const version = versionsAfter.get(id);
-        return field && version != null ? [{ id, v: version, type: 'json0', data: field }] : [];
-      });
     }
 
-    throw new HttpException(
-      `Fields in table ${tableId} changed while reading their snapshots`,
-      HttpStatus.CONFLICT
+    const loadSnapshots = async (): Promise<GetFieldSnapshotsResult> => {
+      const result = await queryBus.execute<GetFieldSnapshotsQuery, GetFieldSnapshotsResult>(
+        context,
+        queryResult.value
+      );
+      if (result.isErr()) {
+        throwV2Error(
+          mapDomainErrorToHttpError(result.error),
+          mapDomainErrorToHttpStatus(result.error)
+        );
+      }
+      return result.value;
+    };
+
+    const maxAttempts = 3;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const snapshotResult = await loadSnapshots();
+      const primaryFieldId = snapshotResult.primaryFieldId;
+      if (!primaryFieldId) {
+        return [];
+      }
+
+      const snapshots = await this.mapFieldSnapshotsToVos(tableId, snapshotResult, context);
+
+      const hydratedLookup = snapshots.some(
+        (snapshot) => snapshot.data.isLookup === true || snapshot.data.isConditionalLookup === true
+      );
+      if (!hydratedLookup) {
+        return snapshots;
+      }
+
+      const latest = await loadSnapshots();
+      const latestVersionById = new Map(
+        latest.snapshots.map((snapshot) => [snapshot.id, snapshot.version] as const)
+      );
+      if (snapshots.every((snapshot) => latestVersionById.get(snapshot.id) === snapshot.v)) {
+        return snapshots;
+      }
+    }
+    throw new HttpException('Field snapshot changed during hydration', HttpStatus.CONFLICT);
+  }
+
+  private async mapFieldSnapshotsToVos(
+    tableId: string,
+    snapshotResult: GetFieldSnapshotsResult,
+    context: IExecutionContext
+  ): Promise<ISnapshotBase<IFieldVo>[]> {
+    const primaryFieldId = snapshotResult.primaryFieldId;
+    if (!primaryFieldId) {
+      return [];
+    }
+
+    const fieldDtoById = new Map(
+      snapshotResult.fields.map((field) => {
+        const dto = mapFieldToDto(field, primaryFieldId);
+        if (dto.isErr()) {
+          throw new HttpException(dto.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return [field.id().toString(), dto.value as Record<string, unknown>] as const;
+      })
     );
+
+    const loadLookupFields = this.createLookupFieldLoader(context);
+    const snapshots = await Promise.all(
+      snapshotResult.snapshots.map(async (snapshot) => {
+        const vo = this.normalizeFieldVo(fieldDtoById.get(snapshot.id));
+        this.enrichLookupLinkMetadata(vo, (linkFieldId) => fieldDtoById.get(linkFieldId));
+        await this.hydrateLookupFieldVo(vo, context, loadLookupFields);
+        if (vo.isComputed === true) {
+          if (snapshot.field.isProvisionPending()) {
+            vo.isPending = true;
+          } else {
+            delete vo.isPending;
+          }
+        }
+        return { id: snapshot.id, v: snapshot.version, type: 'json0' as const, data: vo };
+      })
+    );
+    await this.hydrateConditionalCrossBaseIds(
+      tableId,
+      snapshots.map((snapshot) => snapshot.data)
+    );
+    return snapshots;
   }
 
   private async getFieldFromV2(
     tableId: string,
     fieldId: string,
-    context?: IExecutionContext
+    context?: IExecutionContext,
+    loadLookupFields?: ILookupFieldLoader
   ): Promise<IFieldVo> {
-    const { result, context: queryContext } = await this.listDomainFields(
-      tableId,
-      undefined,
-      context
-    );
-    const field = result.fields.find((candidate) => candidate.id().toString() === fieldId);
-    if (!field) {
-      throw new HttpException(`Field ${fieldId} not found`, HttpStatus.NOT_FOUND);
-    }
-    const fieldDtoById = new Map<string, Record<string, unknown>>();
-    for (const candidate of result.fields) {
-      const dtoResult = mapFieldToDto(candidate, result.primaryFieldId);
-      if (dtoResult.isErr()) {
-        throw new HttpException(dtoResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-      }
-      fieldDtoById.set(candidate.id().toString(), dtoResult.value as Record<string, unknown>);
-    }
+    const { fieldDtoById, context: queryContext } = loadLookupFields
+      ? { fieldDtoById: await loadLookupFields(tableId, fieldId), context }
+      : await this.listDomainFields(tableId, undefined, context, [fieldId]).then(
+          ({ result, context }) => ({
+            fieldDtoById: this.mapDomainFieldDtos(result),
+            context,
+          })
+        );
+
     const fieldDto = fieldDtoById.get(fieldId);
     if (!fieldDto) {
       throw new HttpException(`Field ${fieldId} not found`, HttpStatus.NOT_FOUND);
     }
     const vo = this.normalizeFieldVo(fieldDto);
     this.enrichLookupLinkMetadata(vo, (linkFieldId) => fieldDtoById.get(linkFieldId));
-    await this.hydrateLookupFieldVo(vo, queryContext);
+    await this.hydrateLookupFieldVo(vo, queryContext, loadLookupFields);
     await this.overlayStoredPendingState([vo]);
     await this.hydrateConditionalCrossBaseIds(tableId, [vo]);
     return vo;
@@ -852,7 +986,8 @@ export class FieldOpenApiV2Service {
 
   private async hydrateLookupFieldVo(
     vo: IFieldVo,
-    queryContext?: IExecutionContext
+    queryContext?: IExecutionContext,
+    loadLookupFields?: ILookupFieldLoader
   ): Promise<void> {
     if (!vo.isLookup || !vo.lookupOptions || typeof vo.lookupOptions !== 'object') {
       return;
@@ -869,7 +1004,12 @@ export class FieldOpenApiV2Service {
     const lookupFieldId = lookupOpts.lookupFieldId;
     if (typeof foreignTableId === 'string' && typeof lookupFieldId === 'string') {
       try {
-        const sourceVo = await this.getFieldFromV2(foreignTableId, lookupFieldId, queryContext);
+        const sourceVo = await this.getFieldFromV2(
+          foreignTableId,
+          lookupFieldId,
+          queryContext,
+          loadLookupFields
+        );
         // Conditional lookup already exposes innerType via normalizeFieldVo.
         // Do not overwrite it with foreign lookup source field type.
         if (!vo.isConditionalLookup && sourceVo.type) {
@@ -1338,6 +1478,7 @@ export class FieldOpenApiV2Service {
             ? { foreignTableId: lookupOpts.foreignTableId }
             : {}),
           ...(lookupOpts?.lookupFieldId != null ? { lookupFieldId: lookupOpts.lookupFieldId } : {}),
+          ...(lookupOpts?.isUnique !== undefined ? { isUnique: lookupOpts.isUnique } : {}),
           condition: {
             ...(lookupOpts?.filter ? { filter: lookupOpts.filter } : {}),
             ...(lookupOpts?.sort ? { sort: lookupOpts.sort } : {}),
@@ -1368,6 +1509,7 @@ export class FieldOpenApiV2Service {
         options: {
           ...(lookupOpts?.linkFieldId != null ? { linkFieldId: lookupOpts.linkFieldId } : {}),
           ...(lookupOpts?.lookupFieldId != null ? { lookupFieldId: lookupOpts.lookupFieldId } : {}),
+          ...(lookupOpts?.isUnique !== undefined ? { isUnique: lookupOpts.isUnique } : {}),
           ...(lookupOpts?.foreignTableId != null
             ? { foreignTableId: lookupOpts.foreignTableId }
             : {}),
@@ -2439,6 +2581,7 @@ export class FieldOpenApiV2Service {
         baseId: value?.baseId,
         foreignTableId: value?.foreignTableId,
         lookupFieldId: value?.lookupFieldId,
+        isUnique: value?.isUnique === true,
         filter: value?.filter ?? null,
         sort: value?.sort ?? undefined,
         limit: value?.limit ?? undefined,
@@ -2483,6 +2626,9 @@ export class FieldOpenApiV2Service {
                 ...(lookupOpts.baseId != null ? { baseId: lookupOpts.baseId } : {}),
                 foreignTableId: lookupOpts.foreignTableId,
                 lookupFieldId: lookupOpts.lookupFieldId,
+                ...(lookupOpts.isUnique !== undefined || currentLookupOpts?.isUnique === true
+                  ? { isUnique: lookupOpts.isUnique ?? false }
+                  : {}),
                 condition: {
                   ...(lookupOpts.filter ? { filter: lookupOpts.filter } : {}),
                   ...(lookupOpts.sort ? { sort: lookupOpts.sort } : {}),
@@ -2530,6 +2676,9 @@ export class FieldOpenApiV2Service {
       const shouldClearLimit = !hasLimitPatch && currentLookupOpts?.limit !== undefined;
       const lookupOptions: Record<string, unknown> = {
         ...(lookupOpts.linkFieldId != null ? { linkFieldId: lookupOpts.linkFieldId } : {}),
+        ...(lookupOpts.isUnique !== undefined || currentLookupOpts?.isUnique === true
+          ? { isUnique: lookupOpts.isUnique ?? false }
+          : {}),
         ...(lookupOpts.lookupFieldId != null ? { lookupFieldId: lookupOpts.lookupFieldId } : {}),
         ...(lookupOpts.foreignTableId != null ? { foreignTableId: lookupOpts.foreignTableId } : {}),
         ...(hasFilterPatch || shouldClearFilter ? { filter: lookupOpts.filter } : {}),

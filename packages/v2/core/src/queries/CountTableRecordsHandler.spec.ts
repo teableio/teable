@@ -6,10 +6,12 @@ import { ActorId } from '../domain/shared/ActorId';
 import { domainError } from '../domain/shared/DomainError';
 import { FieldName } from '../domain/table/fields/FieldName';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
+import { TableUpdateViewColumnMetaSpec } from '../domain/table/specs/TableUpdateViewColumnMetaSpec';
 import { TableUpdateViewQueryDefaultsSpec } from '../domain/table/specs/TableUpdateViewQueryDefaultsSpec';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
+import { ViewColumnMeta } from '../domain/table/views/ViewColumnMeta';
 import { ViewQueryDefaults } from '../domain/table/views/ViewQueryDefaults';
 import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { IExecutionContext } from '../ports/ExecutionContext';
@@ -210,6 +212,57 @@ describe('CountTableRecordsHandler', () => {
     );
 
     expect(captured.visibleFieldIds).toEqual([titleId.toString()]);
+  });
+
+  it('keeps the view visible-field scope when the client inlines the view query', async () => {
+    const table = buildTable();
+    const statusField = table
+      .getField((field) => field.name().toString() === 'Status')
+      ._unsafeUnwrap();
+    const view = table.views()[0]!;
+    const tableWithHiddenStatus = TableUpdateViewColumnMetaSpec.create([
+      {
+        viewId: view.id(),
+        fieldId: statusField.id(),
+        columnMeta: ViewColumnMeta.create({
+          ...view.columnMeta()._unsafeUnwrap().toDto(),
+          [statusField.id().toString()]: {
+            ...(view.columnMeta()._unsafeUnwrap().toDto()[statusField.id().toString()] ?? {}),
+            hidden: true,
+          },
+        })._unsafeUnwrap(),
+      },
+    ])
+      .mutate(table)
+      ._unsafeUnwrap();
+    const tableRepository = new MemoryTableRepository();
+    await tableRepository.insert(createContext(), tableWithHiddenStatus);
+    const titleId = table
+      .getField((field) => field.name().toString() === 'Title')
+      ._unsafeUnwrap()
+      .id()
+      .toString();
+    const captured: { visibleFieldIds?: string[] } = {};
+    const handler = new CountTableRecordsHandler(
+      tableRepository,
+      createCountRepo(async (_context, _table, _spec, options) => {
+        captured.visibleFieldIds = options?.search?.visibleFieldIds?.map((id) => id.toString());
+        return ok(1);
+      }),
+      new NoopLogger()
+    );
+
+    await handler.handle(
+      createContext(),
+      CountTableRecordsQuery.create({
+        tableId: tableWithHiddenStatus.id().toString(),
+        viewId: view.id().toString(),
+        ignoreViewQuery: true,
+        search: ['Cup', '', true],
+      })._unsafeUnwrap()
+    );
+
+    expect(captured.visibleFieldIds).toEqual([titleId]);
   });
 
   it('threads masks and searches query-only masked fields outside projection', async () => {

@@ -49,7 +49,8 @@
     "previewFileLimit": "Größenbeschränkung der Vorschaudatei: {{size}}MB, bitte laden Sie die Datei herunter, um sie anzusehen.",
     "loadFileError": "Datei konnte nicht geladen werden",
     "previousAttachment": "Vorherige",
-    "nextAttachment": "Nächste"
+    "nextAttachment": "Nächste",
+    "deleteAttachment": "Löschen"
   },
   "undoRedo": {
     "undo": "Rückgängig machen",
@@ -436,6 +437,10 @@
       "automationDelete": "Automatisierung löschen",
       "automationRead": "Automatisierung lesen",
       "automationUpdate": "Automatisierung aktualisieren",
+      "routineCreate": "Routine erstellen",
+      "routineDelete": "Routine löschen",
+      "routineRead": "Routine lesen",
+      "routineUpdate": "Routine aktualisieren",
       "appCreate": "App erstellen",
       "appDelete": "App löschen",
       "appRead": "App lesen",
@@ -458,6 +463,7 @@
     "field": "Feld",
     "record": "Datensatz",
     "automation": "Automatisierung",
+    "routine": "Routine",
     "app": "App",
     "user": "Benutzer",
     "recordHistory": "Datensatzhistorie",
@@ -1077,6 +1083,8 @@
       "unsupportedCategory": "Nicht unterstützte Kategorie",
       "unknownConnectionType": "Unbekannter E-Mail-Verbindungstyp",
       "imapPasswordNotConfigured": "IMAP-Passwort nicht konfiguriert",
+      "secretNotGranted": "Secret {{alias}} ist nicht für die Automatisierung freigegeben",
+      "credentialMustBeSecret": "Zugangsdaten müssen als Secrets für die Automatisierung freigegeben sein",
       "integrationNotFound": "Integration nicht gefunden oder hat keine Anmeldedaten",
       "webhookTriggerNotFound": "Webhook-Trigger nicht gefunden",
       "emailReceivedTriggerNotFound": "E-Mail-Empfang-Trigger nicht gefunden",
@@ -1088,12 +1096,15 @@
       "apiKeyNotConfigured": "Scrape-Dienst ist nicht konfiguriert",
       "triggerFailed": "Scrape-Auslösung fehlgeschlagen: {{detail}}",
       "snapshotError": "Scrape-Snapshot-Fehler: {{detail}}",
-      "timeout": "Scrape-Zeitüberschreitung nach {{seconds}}s"
+      "timeout": "Scrape-Zeitüberschreitung nach {{seconds}}s",
+      "catalogFailed": "Scrape-Katalog-Anfrage fehlgeschlagen: {{detail}}",
+      "discoverByOnCatalogDataset": "discoverBy gilt nur für rohe Dataset-IDs, nicht für {{datasetId}}"
     },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
       "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
-      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}",
+      "providerUnsupported": "{{provider}}-Verbindungen werden nicht mehr unterstützt und können nicht freigegeben werden"
     },
     "space": {
       "notFound": "Space nicht gefunden",
@@ -1134,6 +1145,22 @@
       "folderNotFound": "Ordner nicht gefunden",
       "anchorNotFound": "Ankerknoten nicht gefunden",
       "nameAlreadyExists": "Name existiert bereits"
+    },
+    "routine": {
+      "notFound": "Routine nicht gefunden",
+      "runNotFound": "Routinenlauf nicht gefunden",
+      "configRequiredToActivate": "Eine Routine kann nicht ohne gespeicherte Konfiguration aktiviert werden",
+      "noFutureOccurrence": "Der Zeitplan hat kein zukünftiges Vorkommen",
+      "onlyActiveCanDeactivate": "Nur eine aktive Routine kann pausiert werden",
+      "configRequiredToRun": "Eine Routine kann nicht ohne gespeicherte Konfiguration ausgeführt werden",
+      "runAlreadyInFlight": "Für diese Routine läuft bereits eine Ausführung",
+      "invalidRunCursor": "Ungültiger Cursor für die Ausführungsliste",
+      "invalidSchedule": "Ungültiger Routinenzeitplan: {{reason}}"
+    },
+    "chat": {
+      "notFound": "Chat nicht gefunden",
+      "accessDenied": "Sie dürfen auf diesen Chat nicht zugreifen",
+      "serverAuthoredType": "Chats vom Typ {{type}} werden vom Server erstellt"
     },
     "dashboard": {
       "notFound": "Dashboard nicht gefunden"
@@ -1339,7 +1366,10 @@
       "exceedMaxAutomationRunLimit": "Maximale monatliche Anzahl von Automatisierungsausführungen erreicht",
       "manualSubscriptionNotSupported": "Self-Service-Abonnement ist für diesen Space nicht verfügbar. Für Upgrades, Downgrades oder andere Abonnementänderungen wenden Sie sich bitte an den Teable-Support.",
       "appSumoSubscriptionNotSupported": "AppSumo-Abonnements können über diese Oberfläche nicht geändert werden. Bitte verwalten Sie Ihr Abonnement auf AppSumo.",
-      "customerNotFound": "Kein Abrechnungskundendatensatz für diesen Space gefunden."
+      "planNotAvailable": "Dieser Plan ist für neue Abonnements nicht mehr verfügbar.",
+      "seatLimitExceeded": "Nicht genügend gekaufte Sitzplätze. Fügen Sie Sitzplätze hinzu, um weitere Mitarbeiter einzuladen.",
+      "customerNotFound": "Kein Abrechnungskundendatensatz für diesen Space gefunden.",
+      "creditAddOnRetired": "Das wiederkehrende Guthaben-Add-on wurde eingestellt. Wählen Sie stattdessen eine größere Guthabenstufe in Ihrem Tarif."
     },
     "aggregation": {
       "searchQueryRequired": "Suchanfrage ist erforderlich",
@@ -1592,7 +1622,8 @@
       "titleIncrement": "Diese Aktion fügt {{increment}} Zeilen hinzu und überschreitet das Limit von {{limit}} in Ihrem Tarif",
       "titleBatch": "Dieser Vorgang würde das Limit von {{limit}} Zeilen in Ihrem Tarif überschreiten",
       "description": "Sie können keine weiteren Datensätze hinzufügen. Führen Sie ein Upgrade durch, um das Limit sofort aufzuheben, oder löschen Sie Datensätze, um Platz zu schaffen.",
-      "unit": "Zeilen"
+      "unit": "Zeilen",
+      "constraint": "Im aktuellen Tarif können keine weiteren Datensätze hinzugefügt werden. Löschen Sie Datensätze, um Platz zu schaffen."
     },
     "credit": {
       "unit": "Credits"
@@ -1602,6 +1633,12 @@
     },
     "generic": {
       "description": "Führen Sie ein Tarif-Upgrade durch, um dieses Limit aufzuheben."
+    },
+    "neutral": {
+      "title": "Diese Aktion überschreitet ein Limit des aktuellen Tarifs dieses Space"
+    },
+    "seats": {
+      "unit": "Plätze"
     }
   }
 }

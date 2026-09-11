@@ -326,23 +326,20 @@ describe('update-field: number property updates', () => {
       },
     });
 
-    // allowNoop: noop update should succeed silently
+    // Action: Clear showAs. The UI omits showAs from options when switching back to
+    // plain Number; the open-api pass-through then translates that to showAs: null,
+    // which is the payload this update must honor.
     await ctx.updateField({
       tableId,
       fieldId,
-      field: { options: { showAs: undefined } },
+      field: { options: { showAs: null } },
     });
 
     const table = await ctx.getTableById(tableId);
     const field = table.fields.find((f) => f.id === fieldId);
     expect(isNumberField(field!)).toBe(true);
     if (isNumberField(field!)) {
-      expect(field.options?.showAs).toEqual({
-        type: 'bar',
-        color: 'red',
-        showValue: true,
-        maxValue: 50,
-      });
+      expect(field.options?.showAs).toBeFalsy();
     }
 
     // Cleanup

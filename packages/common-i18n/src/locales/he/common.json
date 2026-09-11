@@ -390,10 +390,6 @@
           "user": "משתמש Slack",
           "workspace": "מרחב עבודה ב-Slack"
         },
-        "email": {
-          "user": "משתמש",
-          "email": "אימייל"
-        },
         "deleteTitle": "הסרת חשבון מחובר",
         "deleteDesc": "האם להסיר את {{name}}?",
         "create": "חיבור חשבון חדש",
@@ -437,6 +433,8 @@
     "webSearch": "חיפוש באינטרנט",
     "folder": "תיקייה",
     "newAutomation": "אוטומציה חדשה",
+    "routine": "רוטינה",
+    "newRoutine": "רוטינה חדשה",
     "newApp": "אפליקציה חדשה",
     "newFolder": "תיקייה חדשה",
     "template": "תבנית"
@@ -549,7 +547,7 @@
   "help": {
     "title": "עזרה",
     "appLink": "https://app.teable.ai",
-    "mainLink": "https://help.teable.ai/en",
+    "mainLink": "https://help.teable.ai",
     "apiLink": "https://help.teable.ai/en/api-doc/token"
   },
   "pagePermissionChangeTip": "הרשאות הדף עודכנו. נדרש רענון.",
@@ -1365,6 +1363,7 @@
               "title": "משימת AI בוטלה",
               "rateLimit": "משימת ה-AI עבור הטבלה \"{{tableName}}\" בוטלה עקב הגבלת קצב (429). יש לנסות שוב מאוחר יותר.",
               "creditExhausted": "משימת ה-AI עבור הטבלה \"{{tableName}}\" בוטלה כי הקרדיטים אזלו. יש לשדרג את המנוי או להמתין לחידוש הקרדיטים.",
+              "providerBilling": "משימת ה-AI של הטבלה \"{{tableName}}\" בוטלה משום שספק המודל דחה את הבקשה מסיבות חיוב. יש לבדוק את היתרה ואת מצב החיוב של החשבון המשויך למפתח ה-API שהוגדר למודל זה. שגיאה: {{errorMessage}}",
               "authFailed": "משימת ה-AI עבור הטבלה \"{{tableName}}\" בוטלה עקב כשל באימות. יש לבדוק את הגדרת מפתח ה-API.",
               "serviceUnavailable": "משימת ה-AI עבור הטבלה \"{{tableName}}\" בוטלה כי שירות ה-AI אינו זמין באופן זמני. יש לנסות שוב מאוחר יותר.",
               "unknown": "משימת ה-AI עבור הטבלה \"{{tableName}}\" בוטלה. שגיאה: {{errorMessage}}"
@@ -1380,6 +1379,24 @@
           "title": "בקשת התגמול אושרה",
           "message": "מזל טוב! בקשת התגמול של <a href=\"{{spaceUrl}}\">{{spaceName}}</a> אושרה. נוספו {{amount}} קרדיטים, בתוקף ל-{{expiredDays}} ימים.",
           "buttonText": "הצגת המרחב"
+        },
+        "routine": {
+          "failed": {
+            "title": "הרצת הרוטינה {{name}} נכשלה",
+            "message": "הרוטינה {{name}} נתקלה בשגיאת הרצה. פתח את היסטוריית ההרצות לפרטים."
+          },
+          "failedSummary": {
+            "title": "הרוטינה {{name}} נכשלה {{failCount}} פעמים",
+            "message": "הרוטינה {{name}} צברה {{failCount}} כשלונות רצופים. פתח את היסטוריית ההרצות לפרטים."
+          },
+          "insufficientCredit": {
+            "title": "הרוטינה {{name}} דולגה בשל מחסור בקרדיטים של AI",
+            "message": "הרוטינה {{name}} לא רצה כי אין מספיק קרדיטים של AI. הוסף קרדיטים או שדרג את התוכנית."
+          },
+          "autoDeactivated": {
+            "title": "הרוטינה {{name}} הושהתה לאחר {{failCount}} כשלונות רצופים",
+            "message": "הרוטינה {{name}} נכשלה {{failCount}} פעמים ברצף והושהתה אוטומטית. תקן את הבעיה והפעל אותה מחדש."
+          }
         }
       }
     }
@@ -1455,6 +1472,7 @@
     "minFollowerCount": "לחשבון חייבים להיות לפחות {{count}} עוקבים",
     "mustMention": "הפוסט חייב לאזכר את {{mention}}",
     "fetchSnapshotFailed": "שליפת תמונת המצב של הפוסט נכשלה",
+    "snapshotTimeout": "תם הזמן להמתנה לתמונת המצב של הפוסט, נסו שוב מאוחר יותר",
     "alreadyClaimedThisWeek": "כבר מומש תגמול עבור החשבון הזה השבוע",
     "maxClaimsReached": "הגעה למספר המרבי של מימושי תגמול לשבוע הזה (2)",
     "postTooOld": "הפוסט חייב להתפרסם ב-{{hours}} השעות האחרונות",
@@ -1594,7 +1612,8 @@
       "copyToBase": "העתקה לבסיס",
       "copyToSpace": "העתקה למרחב",
       "copyToPersonal": "העתקה לאזור האישי",
-      "copyToApp": "העתקה לאפליקציה"
+      "copyToApp": "העתקה לאפליקציה",
+      "copyToRoutine": "העתקה לרוטינה"
     },
     "import": {
       "title": "ייבוא מיומנות",
@@ -1635,7 +1654,9 @@
       "app": "אפליקציה",
       "appDescription": "זמינה רק לאפליקציה הזו",
       "cuppyclaw": "בוט",
-      "cuppyclawDescription": "זמינה רק לבוט הזה"
+      "cuppyclawDescription": "זמינה רק לבוט הזה",
+      "routine": "רוטינה",
+      "routineDescription": "זמינה רק לרוטינה הזו"
     },
     "source": {
       "github": "GitHub",
@@ -1683,5 +1704,22 @@
     "more_one": "עוד {{count}} הודעה",
     "more_two": "עוד שתי הודעות",
     "more_other": "עוד {{count}} הודעות"
+  },
+  "mobileEmbed": {
+    "pickFromDirectory": "בחרו פריט מהספרייה",
+    "pickFromDirectoryHint": "פתחו טבלה, דשבורד או אוטומציה מהספרייה והם יופיעו כאן.",
+    "limitReachedTitle": "הגעתם למגבלת התוכנית",
+    "limitReachedDescription": "המרחב הזה הגיע לאחת ממגבלות התוכנית הנוכחית שלו.",
+    "creditsExhaustedTitle": "קרדיטי ה-AI נגמרו",
+    "creditsExhaustedDescription": "המרחב הזה ניצל את כל קרדיטי ה-AI הכלולים בתוכנית הנוכחית שלו.",
+    "seatLimitTitle": "לא נותרו מושבים",
+    "seatLimitDescription": "במרחב הזה לא נותרו מושבים למשתפי פעולה נוספים.",
+    "ownerManagesPlan": "רק הבעלים של המרחב יכול לנהל את התוכנית שלו. פנו אליו כדי לפתור את הבעיה.",
+    "featureUnavailableTitle": "לא זמין בתוכנית הזו",
+    "billingUnavailable": "ניהול התוכנית והחיוב אינו זמין באפליקציה.",
+    "featureUnavailableDescription": "התכונה הזו אינה זמינה בתוכנית הנוכחית של המרחב הזה.",
+    "importRowLimitReached": "הגעתם למגבלת השורות של התוכנית הנוכחית; הרשומות הנותרות לא יובאו.",
+    "userCapTitle": "הגעתם למגבלת המשתמשים",
+    "userCapDescription": "המופע הזה הגיע למספר המשתמשים שהרישיון שלו מתיר. פנו למנהל המערכת."
   }
 }

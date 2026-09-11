@@ -233,7 +233,9 @@ export const useGridAsyncRecords = (
         filter: view?.filter,
         sort: view?.sort,
         group: view?.group,
-        search: hideNotMatchRow ? searchQuery : null,
+        // opening the search box enables hide-not-match UI state before any
+        // probe exists; that must not count as a row-set change (T7211)
+        search: hideNotMatchRow && searchQuery ? searchQuery : null,
       }),
     [view, hideNotMatchRow, searchQuery]
   );
@@ -243,7 +245,7 @@ export const useGridAsyncRecords = (
   const previousRecordsScopeKeyRef = useRef(recordsScopeKey);
   const previousViewQueryScopeKeyRef = useRef(viewQueryScopeKey);
   const previousCollapsedGroupIdsKeyRef = useRef(collapsedGroupIdsKey);
-  const hideNotMatchSearchKey = hideNotMatchRow ? JSON.stringify(searchQuery ?? null) : '';
+  const hideNotMatchSearchKey = hideNotMatchRow && searchQuery ? JSON.stringify(searchQuery) : '';
   const previousHideNotMatchSearchKeyRef = useRef(hideNotMatchSearchKey);
   const lastMergedSkipRef = useRef(0);
   const loadedRecordMapRef = useRef(loadedRecordMap);

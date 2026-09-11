@@ -28,6 +28,7 @@ import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
 import { useIsCloud } from '../../hooks/useIsCloud';
 import { useSetting } from '../../hooks/useSetting';
+import { useUpgradeCtaEnabled } from '../../hooks/useUpgradeCtaEnabled';
 import { useTemplateMonitor } from '../base/duplicate/useTemplateMonitor';
 import { BaseList } from './BaseList';
 import { DataDbBadge } from './DataDbBadge';
@@ -43,6 +44,7 @@ export const SpaceInnerPage: React.FC = () => {
   const spaceId = router.query.spaceId as string;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const isMobile = useIsMobile();
+  const upgradeCtaEnabled = useUpgradeCtaEnabled();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
@@ -170,6 +172,9 @@ export const SpaceInnerPage: React.FC = () => {
     const { subscribeLevel, host, settingTab } = router.query;
     const isOwner = space?.role === Role.Owner;
 
+    // `?subscribeLevel=` opens purchase tabs: ignored inside the native mobile WebView.
+    if (subscribeLevel && !upgradeCtaEnabled) return;
+
     if (subscribeLevel && host === 'self-hosted') {
       openSetting(true, PersonalSettingTab.License);
       return;
@@ -195,7 +200,7 @@ export const SpaceInnerPage: React.FC = () => {
       router.replace({ pathname: router.pathname, query: rest }, undefined, { shallow: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.query, isCloud, space?.role]);
+  }, [router.query, isCloud, space?.role, upgradeCtaEnabled]);
 
   return (
     space && (

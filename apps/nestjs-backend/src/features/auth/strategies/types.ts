@@ -10,6 +10,8 @@ export type IFromExtractor = (req: Request) => string | null;
 export interface IJwtAuthInfo {
   userId: string;
   allowSystemUser?: boolean;
+  /** Where the token is used from; `sandbox` = an AI agent acting on the user's behalf. */
+  source?: 'sandbox';
 }
 
 export enum JwtAuthInternalType {

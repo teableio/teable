@@ -13,6 +13,7 @@ import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import * as EventBusPort from '../../ports/EventBus';
 import type * as ExecutionContextPort from '../../ports/ExecutionContext';
+import type { IRecordOrderCalculator } from '../../ports/RecordOrderCalculator';
 import { RecordWriteOperationKind } from '../../ports/RecordWritePlugin';
 import type { RecordMutationResult } from '../../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../../ports/TableRecordRepository';
@@ -80,7 +81,9 @@ export class RecordCreationService {
     @inject(v2CoreTokens.unitOfWork)
     private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
     @inject(v2CoreTokens.foreignTableLoaderService)
-    private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService()
+    private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService(),
+    @inject(v2CoreTokens.recordOrderCalculator)
+    private readonly recordOrderCalculator?: IRecordOrderCalculator
   ) {}
 
   async create(
@@ -138,10 +141,19 @@ export class RecordCreationService {
           record = yield* resolvedSpec.mutate(record);
         }
       }
-
       let mutationResult: RecordMutationResult | undefined;
       let tableEvents: ReadonlyArray<IDomainEvent> = [];
       try {
+        if (input.order && service.recordOrderCalculator) {
+          yield* await service.recordOrderCalculator.calculateOrders(
+            context,
+            tableForCreate,
+            input.order.viewId,
+            input.order.anchorId,
+            input.order.position,
+            1
+          );
+        }
         const runTransaction = () =>
           service.unitOfWork.withTransaction(context, async (transactionContext) => {
             return safeTry<

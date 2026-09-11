@@ -42,4 +42,13 @@ export interface IRealtimeEngine {
     collection: string,
     change: RealtimeChange
   ): Promise<Result<void, DomainError>>;
+
+  /**
+   * Signal that a table's derived compute activity changed. Subscribers refetch
+   * the authoritative snapshot over HTTP; the signal carries no activity data.
+   */
+  notifyTableComputeActivity(
+    context: IExecutionContext,
+    tableId: string
+  ): Promise<Result<void, DomainError>>;
 }

@@ -39,38 +39,58 @@ export type TableQueryOpsRunnerHandle = {
   readonly stop: () => void;
 };
 
+export type TableQueryOpsExecutionResolver = (
+  tableId: string
+) => Promise<{ container: DependencyContainer; context: IExecutionContext }>;
+
+const startExclusiveInterval = (
+  intervalMs: number,
+  run: () => Promise<void>
+): TableQueryOpsRunnerHandle => {
+  let running = false;
+  const tick = () => {
+    if (running) return;
+    running = true;
+    void run().finally(() => {
+      running = false;
+    });
+  };
+  const timer = setInterval(tick, intervalMs);
+  tick();
+  return { stop: () => clearInterval(timer) };
+};
+
 export const startTableQueryOpsAnalyzerIfEnabled = (
   container: DependencyContainer,
-  context: IExecutionContext
+  context: IExecutionContext,
+  resolveExecution?: TableQueryOpsExecutionResolver
 ): TableQueryOpsRunnerHandle | undefined => {
   const config = container.resolve<TableQueryOpsAnalyzerConfig>(v2TableOpsTokens.analyzerConfig);
   if (!config.enabled) return undefined;
-  const timer = setInterval(() => {
-    void runAnalyzerOnce(container, context, config);
-  }, config.intervalMs);
-  void runAnalyzerOnce(container, context, config);
-  return { stop: () => clearInterval(timer) };
+  return startExclusiveInterval(config.intervalMs, () =>
+    runAnalyzerOnce(container, context, config, resolveExecution)
+  );
 };
 
 export const startTableQueryOpsTaskWorkerIfEnabled = (
   container: DependencyContainer,
-  context: IExecutionContext
+  context: IExecutionContext,
+  resolveExecution?: TableQueryOpsExecutionResolver
 ): TableQueryOpsRunnerHandle | undefined => {
   const config = container.resolve<TableQueryOpsTaskWorkerConfig>(
     v2TableOpsTokens.taskWorkerConfig
   );
   if (!config.enabled) return undefined;
-  const timer = setInterval(() => {
-    void runTaskWorkerOnce(container, context, config);
-  }, config.intervalMs);
-  void runTaskWorkerOnce(container, context, config);
-  return { stop: () => clearInterval(timer) };
+  return startExclusiveInterval(config.intervalMs, () =>
+    runTaskWorkerOnce(container, context, config, resolveExecution)
+  );
 };
 
 const runAnalyzerOnce = async (
   container: DependencyContainer,
   context: IExecutionContext,
-  config: TableQueryOpsAnalyzerConfig
+  config: TableQueryOpsAnalyzerConfig,
+  resolveExecution?: TableQueryOpsExecutionResolver
 ): Promise<void> => {
   const logger = resolveOptionalLogger(container);
   const leaseRepository = resolveOptionalLeaseRepository(container);
@@ -83,7 +103,6 @@ const runAnalyzerOnce = async (
   });
   if (acquired && (acquired.isErr() || acquired.value === false)) return;
   const reader = container.resolve<TableQueryObservationReader>(v2TableOpsTokens.observationReader);
-  const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
   const windows = await reader.findRecent(context, {
     since: new Date(clock.now().getTime() - config.lookbackMs),
     limit: config.batchSize,
@@ -95,10 +114,23 @@ const runAnalyzerOnce = async (
     return;
   }
   for (const observation of windows.value) {
+    let target: { container: DependencyContainer; context: IExecutionContext };
+    try {
+      target = resolveExecution
+        ? await resolveExecution(observation.tableId())
+        : { container, context };
+    } catch (error) {
+      logger?.warn('Table query ops could not route observation', {
+        tableId: observation.tableId(),
+        error: String(error),
+      });
+      continue;
+    }
+    const commandBus = target.container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await commandBus.execute<
       AnalyzeAndRecommendTableQueryCommand,
       AnalyzeAndRecommendTableQueryResult
-    >(context, new AnalyzeAndRecommendTableQueryCommand(observation));
+    >(target.context, new AnalyzeAndRecommendTableQueryCommand(observation));
     if (result.isErr()) {
       logger?.warn('Table query ops analyzer failed to analyze observation', {
         error: result.error.message,
@@ -109,7 +141,7 @@ const runAnalyzerOnce = async (
     const { report, recommendation } = result.value;
     if (!recommendation) continue;
     const decided = await commandBus.execute(
-      context,
+      target.context,
       new DecideTableQueryRecommendationCommand(recommendation, report)
     );
     if (decided.isErr()) {
@@ -398,7 +430,8 @@ const observationFromSearchHeat = (heat: TableQuerySearchHeatByTable, now: Date)
 const runTaskWorkerOnce = async (
   container: DependencyContainer,
   context: IExecutionContext,
-  config: TableQueryOpsTaskWorkerConfig
+  config: TableQueryOpsTaskWorkerConfig,
+  resolveExecution?: TableQueryOpsExecutionResolver
 ): Promise<void> => {
   const logger = resolveOptionalLogger(container);
   void runSearchAccessPathRecommendSweepOnce(container, context).catch((error: unknown) => {
@@ -410,7 +443,6 @@ const runTaskWorkerOnce = async (
     v2TableOpsTokens.taskRepository
   );
   const clock = container.resolve<TableQueryOpsClock>(v2TableOpsTokens.clock);
-  const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
   const claimed = await taskRepository.claimNextAccepted(context, {
     workerId: config.workerId,
     now: clock.now(),
@@ -425,8 +457,22 @@ const runTaskWorkerOnce = async (
     return;
   }
   if (!claimed.value) return;
+  let target: { container: DependencyContainer; context: IExecutionContext };
+  try {
+    target = resolveExecution
+      ? await resolveExecution(claimed.value.snapshot().tableId)
+      : { container, context };
+  } catch (error) {
+    const started = claimed.value.start(config.workerId, clock.now());
+    if (started.isOk()) {
+      const failed = started.value.fail(`Task routing failed: ${String(error)}`, clock.now());
+      if (failed.isOk()) await taskRepository.save(context, failed.value);
+    }
+    return;
+  }
+  const commandBus = target.container.resolve<ICommandBus>(v2CoreTokens.commandBus);
   const result = await commandBus.execute(
-    context,
+    target.context,
     new RunTableQueryRemediationTaskCommand(
       claimed.value.snapshot().id,
       config.allowManualIndexExecution || config.allowPolicyIndexExecution,

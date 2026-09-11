@@ -1045,6 +1045,59 @@ describe('ListTableRecordsHandler', () => {
     ).toEqual([titleField.id().toString()]);
   });
 
+  it('keeps the view visible-field scope when the client inlines the view query', async () => {
+    const table = buildTable();
+    const titleField = table
+      .getField((field) => field.name().toString() === 'Title')
+      ._unsafeUnwrap();
+    const statusField = table
+      .getField((field) => field.name().toString() === 'Status')
+      ._unsafeUnwrap();
+    const view = table.views()[0]!;
+    const tableWithHiddenStatus = TableUpdateViewColumnMetaSpec.create([
+      {
+        viewId: view.id(),
+        fieldId: statusField.id(),
+        columnMeta: ViewColumnMeta.create({
+          ...view.columnMeta()._unsafeUnwrap().toDto(),
+          [statusField.id().toString()]: {
+            ...(view.columnMeta()._unsafeUnwrap().toDto()[statusField.id().toString()] ?? {}),
+            hidden: true,
+          },
+        })._unsafeUnwrap(),
+      },
+    ])
+      .mutate(table)
+      ._unsafeUnwrap();
+    const tableRepository = new MemoryTableRepository();
+    await tableRepository.insert(createContext(), tableWithHiddenStatus);
+
+    const captured: { searchFieldIds?: string[] } = {};
+    const recordQueryRepo: ITableRecordQueryRepository = {
+      find: async (_context, _table, _spec, options) => {
+        captured.searchFieldIds = options?.search?.visibleFieldIds?.map((fieldId) =>
+          fieldId.toString()
+        );
+        return ok({ records: [], total: 0 });
+      },
+      findOne: async () => err(domainError.notFound({ message: 'Not found' })),
+      async *findStream() {},
+    };
+
+    const queryResult = ListTableRecordsQuery.create({
+      tableId: tableWithHiddenStatus.id().toString(),
+      viewId: view.id().toString(),
+      ignoreViewQuery: true,
+      projection: [titleField.id().toString()],
+      search: ['hello', '', true],
+    });
+    const handler = new ListTableRecordsHandler(tableRepository, recordQueryRepo, new NoopLogger());
+    const result = await handler.handle(createContext(), queryResult._unsafeUnwrap());
+
+    expect(result.isOk()).toBe(true);
+    expect(captured.searchFieldIds).toEqual([titleField.id().toString()]);
+  });
+
   it('resolves named field keys for filter and sort, then transforms response keys back to names', async () => {
     const table = buildTable();
     const tableRepository = new MemoryTableRepository();
@@ -1772,6 +1825,190 @@ describe('ListTableRecordsHandler', () => {
       [statusId]: 'Open',
       [notesId]: 'Keep me',
     });
+  });
+
+  it('does not widen an explicit client projection to every readable field when masks exist', async () => {
+    const builder = Table.builder()
+      .withBaseId(createBaseId('w'))
+      .withName(TableName.create('Wide Masked Records')._unsafeUnwrap());
+    builder.field().singleLineText().withName(FieldName.create('Title')._unsafeUnwrap()).done();
+    builder
+      .field()
+      .singleSelect()
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .withOptions([selectOption('Open')])
+      .done();
+    builder.field().singleLineText().withName(FieldName.create('Notes')._unsafeUnwrap()).done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+    const tableRepository = new MemoryTableRepository();
+    await tableRepository.insert(createContext(), table);
+    const titleId = table
+      .getField((field) => field.name().toString() === 'Title')
+      ._unsafeUnwrap()
+      .id()
+      .toString();
+    const statusField = table
+      .getField((field) => field.name().toString() === 'Status')
+      ._unsafeUnwrap();
+    const statusId = statusField.id().toString();
+    const notesId = table
+      .getField((field) => field.name().toString() === 'Notes')
+      ._unsafeUnwrap()
+      .id()
+      .toString();
+
+    const recordId = createRecordId('w').toString();
+    const visibleWhen = {
+      field: () => statusField,
+      isSatisfiedBy: () => true,
+      mutate: () => ok(undefined as never),
+      accept: () => ok(undefined),
+    } as never;
+
+    const captured: { projection?: string[] } = {};
+    const recordQueryRepo: ITableRecordQueryRepository = {
+      find: async (_context, _table, _spec, options) => {
+        captured.projection = (
+          options as { projectionFieldIds?: ReadonlyArray<{ toString(): string }> }
+        ).projectionFieldIds?.map((id) => id.toString());
+        return ok({
+          records: [
+            {
+              id: recordId,
+              version: 1,
+              fields: { [titleId]: 'Visible', [statusId]: 'Open', [notesId]: 'Keep out of SQL' },
+            },
+          ],
+          total: 1,
+        });
+      },
+      findOne: async () => err(domainError.notFound({ message: 'Not found' })),
+      async *findStream() {},
+    };
+
+    const query = ListTableRecordsQuery.create(
+      {
+        tableId: table.id().toString(),
+        fieldKeyType: FieldKeyType.Id,
+        projection: [titleId],
+      },
+      {
+        queryScope: {
+          readableFieldIds: new Set([titleId, statusId, notesId]),
+          fieldMasks: [{ fieldId: titleId, visibleWhen }],
+        },
+      }
+    )._unsafeUnwrap();
+    const handler = new ListTableRecordsHandler(tableRepository, recordQueryRepo, new NoopLogger());
+    const result = await handler.handle(createContext(), query);
+
+    expect(result.isOk()).toBe(true);
+    expect(captured.projection).toEqual(expect.arrayContaining([titleId, statusId]));
+    expect(captured.projection).not.toContain(notesId);
+    expect(result._unsafeUnwrap().records[0]?.fields).toEqual({ [titleId]: 'Visible' });
+  });
+
+  it('does not load mask dependencies of unprojected fields', async () => {
+    const builder = Table.builder()
+      .withBaseId(createBaseId('i'))
+      .withName(TableName.create('Independent Mask Deps')._unsafeUnwrap());
+    builder.field().singleLineText().withName(FieldName.create('Title')._unsafeUnwrap()).done();
+    builder
+      .field()
+      .singleSelect()
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .withOptions([selectOption('Open')])
+      .done();
+    builder.field().singleLineText().withName(FieldName.create('Notes')._unsafeUnwrap()).done();
+    builder.field().singleLineText().withName(FieldName.create('Extra')._unsafeUnwrap()).done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+    const tableRepository = new MemoryTableRepository();
+    await tableRepository.insert(createContext(), table);
+    const titleId = table
+      .getField((field) => field.name().toString() === 'Title')
+      ._unsafeUnwrap()
+      .id()
+      .toString();
+    const statusField = table
+      .getField((field) => field.name().toString() === 'Status')
+      ._unsafeUnwrap();
+    const statusId = statusField.id().toString();
+    const notesId = table
+      .getField((field) => field.name().toString() === 'Notes')
+      ._unsafeUnwrap()
+      .id()
+      .toString();
+    const extraField = table
+      .getField((field) => field.name().toString() === 'Extra')
+      ._unsafeUnwrap();
+    const extraId = extraField.id().toString();
+
+    const recordId = createRecordId('i').toString();
+    const titleVisibleWhen = {
+      field: () => statusField,
+      isSatisfiedBy: () => true,
+      mutate: () => ok(undefined as never),
+      accept: () => ok(undefined),
+    } as never;
+    const notesVisibleWhen = {
+      field: () => extraField,
+      isSatisfiedBy: () => true,
+      mutate: () => ok(undefined as never),
+      accept: () => ok(undefined),
+    } as never;
+
+    const captured: { projection?: string[] } = {};
+    const recordQueryRepo: ITableRecordQueryRepository = {
+      find: async (_context, _table, _spec, options) => {
+        captured.projection = (
+          options as { projectionFieldIds?: ReadonlyArray<{ toString(): string }> }
+        ).projectionFieldIds?.map((id) => id.toString());
+        return ok({
+          records: [
+            {
+              id: recordId,
+              version: 1,
+              fields: {
+                [titleId]: 'Visible',
+                [statusId]: 'Open',
+                [notesId]: 'Ignored',
+                [extraId]: 'Ignored dep',
+              },
+            },
+          ],
+          total: 1,
+        });
+      },
+      findOne: async () => err(domainError.notFound({ message: 'Not found' })),
+      async *findStream() {},
+    };
+
+    const query = ListTableRecordsQuery.create(
+      {
+        tableId: table.id().toString(),
+        fieldKeyType: FieldKeyType.Id,
+        projection: [titleId],
+      },
+      {
+        queryScope: {
+          readableFieldIds: new Set([titleId, statusId, notesId, extraId]),
+          fieldMasks: [
+            { fieldId: titleId, visibleWhen: titleVisibleWhen },
+            { fieldId: notesId, visibleWhen: notesVisibleWhen },
+          ],
+        },
+      }
+    )._unsafeUnwrap();
+    const handler = new ListTableRecordsHandler(tableRepository, recordQueryRepo, new NoopLogger());
+    const result = await handler.handle(createContext(), query);
+
+    expect(result.isOk()).toBe(true);
+    expect(captured.projection).toEqual(expect.arrayContaining([titleId, statusId]));
+    expect(captured.projection).not.toContain(notesId);
+    expect(captured.projection).not.toContain(extraId);
+    expect(result._unsafeUnwrap().records[0]?.fields).toEqual({ [titleId]: 'Visible' });
   });
 
   it('rejects right-hand field references to statically unreadable fields', async () => {
@@ -2507,6 +2744,73 @@ describe('ListTableRecordsHandler', () => {
               { fieldId: titleId, visibleWhen: alwaysVisible },
               { fieldId: statusId, visibleWhen: neverVisible },
             ],
+          },
+        }
+      )._unsafeUnwrap();
+
+      const result = await new ListTableRecordsHandler(
+        tableRepository,
+        recordQueryRepo,
+        new NoopLogger()
+      ).handle(createContext(), query);
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().searchMatches).toEqual([
+        { index: 1, fieldId: titleField.id(), recordId },
+      ]);
+    });
+
+    it('keeps unmasked search-index hits when empty projection omits those cells', async () => {
+      const table = buildTable();
+      const tableRepository = new MemoryTableRepository();
+      await tableRepository.insert(createContext(), table);
+      const titleField = table
+        .getField((field) => field.name().toString() === 'Title')
+        ._unsafeUnwrap();
+      const statusField = table
+        .getField((field) => field.name().toString() === 'Status')
+        ._unsafeUnwrap();
+      const titleId = titleField.id().toString();
+      const statusId = statusField.id().toString();
+      const recordId = createRecordId('s');
+      const neverVisible = {
+        isSatisfiedBy: () => false,
+        mutate: () => ok(undefined as never),
+        accept: () => ok(undefined),
+      } as never;
+      const recordQueryRepo: ITableRecordQueryRepository = {
+        find: async () =>
+          ok({
+            records: [
+              {
+                id: recordId.toString(),
+                version: 1,
+                fields: { [statusId]: '13' },
+              },
+            ],
+            total: 1,
+            searchMatches: [
+              { index: 1, fieldId: titleField.id(), recordId },
+              { index: 1, fieldId: statusField.id(), recordId },
+            ],
+          }),
+        findOne: async () => err(domainError.notFound({ message: 'Not found' })),
+        async *findStream() {},
+      };
+      const query = ListTableRecordsQuery.create(
+        {
+          tableId: table.id().toString(),
+          fieldKeyType: FieldKeyType.Id,
+          projection: [],
+          search: ['1', '', true],
+          includeSearchMatches: true,
+          searchIndexMode: 'matched',
+        },
+        {
+          searchFieldScope: 'visible',
+          queryScope: {
+            readableFieldIds: new Set([titleId, statusId]),
+            fieldMasks: [{ fieldId: statusId, visibleWhen: neverVisible }],
           },
         }
       )._unsafeUnwrap();

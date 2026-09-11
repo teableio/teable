@@ -10,7 +10,6 @@ import type {
 } from './ISchemaRule';
 
 type ZodTypeAny = z.ZodTypeAny;
-type ZodObjectShape = z.ZodRawShape;
 
 type ManualRepairFormMeta = {
   title?: SchemaRuleI18nMessage;
@@ -42,17 +41,20 @@ const unwrapSchema = (schema: ZodTypeAny): UnwrappedSchema => {
   for (;;) {
     if (current instanceof z.ZodOptional || current instanceof z.ZodNullable) {
       required = false;
-      current = current.unwrap();
+      // Zod 4 types unwrap() with the core schema type; the runtime value is
+      // always a classic schema instance.
+      current = current.unwrap() as ZodTypeAny;
       continue;
     }
 
     if (current instanceof z.ZodDefault) {
-      const rawDefaultValue = current._def.defaultValue;
-      const candidate = typeof rawDefaultValue === 'function' ? rawDefaultValue() : rawDefaultValue;
+      // Zod 4 exposes the resolved default through `def.defaultValue`; the
+      // getter already invokes function-valued defaults.
+      const candidate: unknown = current.def.defaultValue;
       if (typeof candidate === 'string' || typeof candidate === 'boolean') {
         defaultValue = candidate;
       }
-      current = current._def.innerType;
+      current = current.def.innerType as ZodTypeAny;
       continue;
     }
 
@@ -79,13 +81,17 @@ const serializeFieldSchema = (
         widget: meta?.widget ?? 'select',
         title: meta?.title,
         description: meta?.description,
-        options: unwrapped.options.map(
-          (value: string): SchemaRuleManualRepairOption =>
-            meta?.options?.[value] ?? {
-              value,
-              label: { fallback: value },
+        options: unwrapped.options.map((value): SchemaRuleManualRepairOption => {
+          // Zod 4 types enum options as `string | number`; manual repair
+          // enums are always string-valued.
+          const optionValue = String(value);
+          return (
+            meta?.options?.[optionValue] ?? {
+              value: optionValue,
+              label: { fallback: optionValue },
             }
-        ),
+          );
+        }),
         defaultValue,
       },
     });
@@ -117,12 +123,10 @@ const serializeFieldSchema = (
     });
   }
 
-  return err(
-    new Error(`Unsupported manual repair schema property "${key}" (${unwrapped._def.typeName})`)
-  );
+  return err(new Error(`Unsupported manual repair schema property "${key}" (${unwrapped.type})`));
 };
 
-export const withManualRepairFormMeta = <T extends z.AnyZodObject>(
+export const withManualRepairFormMeta = <T extends z.ZodObject>(
   schema: T,
   meta: ManualRepairFormMeta
 ): T => {
@@ -139,9 +143,9 @@ export const withManualRepairFieldMeta = <T extends ZodTypeAny>(
 };
 
 export const serializeManualRepairSchema = (
-  schema: z.AnyZodObject
+  schema: z.ZodObject
 ): Result<SchemaRuleManualRepairSchema, Error> => {
-  const shape: ZodObjectShape = schema.shape;
+  const shape = schema.shape;
   const formMeta = formMetaRegistry.get(schema);
   const properties: Record<string, SchemaRuleManualRepairSchemaProperty> = {};
   const required: string[] = [];

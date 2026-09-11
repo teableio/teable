@@ -5,7 +5,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import { getMetaDatabaseUrl } from '@teable/db-data-prisma';
-import { PrismaService, ProvisionState, type Prisma } from '@teable/db-main-prisma';
+import { PrismaService, ProvisionState, Prisma } from '@teable/db-main-prisma';
 import type {
   IDataDbMigrationJobStatusVo,
   IDataDbPreflightRo,
@@ -36,6 +36,10 @@ import {
   DataDbPreflightService,
 } from './data-db-preflight.service';
 import { decryptDataDbUrl, encryptDataDbUrl } from './data-db-url-secret';
+import {
+  invalidateSearchIndexesForDataDbRouting,
+  type ISearchIndexRoutingTransaction,
+} from './search-index-routing-invalidation';
 import {
   buildMigrationSharedTablePostgresFdwCopyPlans,
   buildMigrationSharedTablePsqlCopyPlans,
@@ -663,7 +667,7 @@ type IMigrationJobClient = {
   };
 };
 
-type IPrismaTransactionClient = {
+type IPrismaTransactionClient = ISearchIndexRoutingTransaction & {
   dataDbConnection: {
     upsert(args: unknown): Promise<{ id: string }>;
     update(args: unknown): Promise<unknown>;
@@ -4615,6 +4619,7 @@ export class SpaceDataDbMigrationService {
         fn: (prisma: IPrismaTransactionClient) => Promise<T>
       ) => Promise<T>;
       await runTransaction(async (prisma) => {
+        await invalidateSearchIndexesForDataDbRouting(prisma, { spaceIds });
         for (const relatedSpaceId of spaceIds) {
           await prisma.spaceDataDbBinding.upsert({
             where: { spaceId: relatedSpaceId },
@@ -5541,6 +5546,7 @@ export class SpaceDataDbMigrationService {
         switchedAt: switchedAt.toISOString(),
       };
       await runTransaction(async (prisma) => {
+        await invalidateSearchIndexesForDataDbRouting(prisma, { spaceIds });
         await prisma.dataDbConnection.update({
           where: { id: job.targetConnectionId },
           data: {

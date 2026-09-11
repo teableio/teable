@@ -1,7 +1,7 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import type { NestWorkerOptions } from '@nestjs/bullmq/dist/interfaces/worker-options.interface';
 import { Injectable, Logger } from '@nestjs/common';
-import { isImage, isPdf } from '@teable/core';
+import { isHeic, isImage, isPdf } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Queue } from 'bullmq';
 import type { Job } from 'bullmq';
@@ -9,6 +9,7 @@ import sharp from 'sharp';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
+import { renderHeicAsPng } from './heic-thumbnail';
 import { renderPdfFirstPageAsImage } from './pdf-thumbnail';
 import StorageAdapter from './plugins/adapter';
 import { InjectStorageAdapter } from './plugins/storage';
@@ -72,7 +73,24 @@ export class AttachmentsCropQueueProcessor extends WorkerHost {
     let lgThumbnailPath: string | undefined;
     let smThumbnailPath: string | undefined;
 
-    if (isImage(mimetype) && height) {
+    if (isHeic(mimetype)) {
+      // Sharp cannot decode HEVC, so height is unknown at upload time and the
+      // whole file goes through the WASM decoder instead of cropTableImage.
+      try {
+        const heicBuffer = await this.downloadToBuffer(bucket, path);
+        const { buffer } = await renderHeicAsPng(heicBuffer);
+        ({ lgThumbnailPath, smThumbnailPath } =
+          await this.attachmentsStorageService.uploadTableImageThumbnailsFromBuffer(
+            bucket,
+            path,
+            buffer
+          ));
+      } catch (error) {
+        this.logger.error(`HEIC thumbnail failed for ${path}`, error);
+        // Non-fatal: frontend falls back to file icon
+        return;
+      }
+    } else if (isImage(mimetype) && height) {
       ({ lgThumbnailPath, smThumbnailPath } = await this.attachmentsStorageService.cropTableImage(
         bucket,
         path,
@@ -80,13 +98,8 @@ export class AttachmentsCropQueueProcessor extends WorkerHost {
       ));
     } else if (isPdf(mimetype)) {
       try {
-        const stream = await this.storageAdapter.downloadFile(bucket, path);
-        const chunks: Buffer[] = [];
-        for await (const chunk of stream as AsyncIterable<Buffer>) {
-          chunks.push(Buffer.from(chunk));
-        }
-        const pdfBuffer = Buffer.concat(chunks);
-        const { buffer, height: imgHeight } = await renderPdfFirstPageAsImage(pdfBuffer);
+        const pdfBuffer = await this.downloadToBuffer(bucket, path);
+        const { buffer } = await renderPdfFirstPageAsImage(pdfBuffer);
 
         const isBlank = await this.isBlankImage(buffer);
         if (isBlank) {
@@ -98,8 +111,7 @@ export class AttachmentsCropQueueProcessor extends WorkerHost {
           await this.attachmentsStorageService.uploadTableImageThumbnailsFromBuffer(
             bucket,
             path,
-            buffer,
-            imgHeight
+            buffer
           ));
       } catch (error) {
         this.logger.error(`PDF thumbnail failed for ${path}`, error);
@@ -118,6 +130,15 @@ export class AttachmentsCropQueueProcessor extends WorkerHost {
       },
     });
     this.logger.log(`path(${path}) crop thumbnails success`);
+  }
+
+  private async downloadToBuffer(bucket: string, path: string): Promise<Buffer> {
+    const stream = await this.storageAdapter.downloadFile(bucket, path);
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream as AsyncIterable<Buffer>) {
+      chunks.push(Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
   }
 
   private async isBlankImage(pngBuffer: Buffer): Promise<boolean> {

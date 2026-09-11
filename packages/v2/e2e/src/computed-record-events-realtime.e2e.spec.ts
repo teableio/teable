@@ -26,6 +26,7 @@ import type { Socket } from 'sharedb/lib/sharedb';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
+import { createShareDbRealtimeConfig } from './shared/shareDbRealtimeConfig';
 
 type ShareDbRuntime = {
   backend: ShareDb;
@@ -212,9 +213,13 @@ describe('v2 computed record events and realtime projection (e2e)', () => {
   let baseId: string;
 
   const registerRealtime = (container: DependencyContainer, runtime: ShareDbRuntime): void => {
-    registerV2ShareDbRealtime(container, {
-      publisher: new ShareDbBackendPublisher(runtime.backend, logger),
-    });
+    registerV2ShareDbRealtime(
+      container,
+      createShareDbRealtimeConfig(
+        runtime.backend,
+        new ShareDbBackendPublisher(runtime.backend, logger)
+      )
+    );
   };
 
   const createTable = async (payload: ICreateTableCommandInput) => {

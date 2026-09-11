@@ -1,10 +1,15 @@
+import { ImageQuality } from '@teable/core';
 import { describe, expect, it } from 'vitest';
 import {
+  IMAGE_MODEL_CONFIGS,
   getImageAspectRatioCandidates,
   getImageModelConfigByModelKey,
   getImageModelConfigByGatewayId,
   getImageModelIdFromModelKey,
   getImageSizeCandidates,
+  getImageQualityCandidates,
+  getImageResolutionCandidates,
+  getSupportedImageResolution,
   getKnownImageModelAbility,
   isPromptControlledImageGenerationModel,
   supportsImageAspectRatioSelection,
@@ -17,6 +22,7 @@ import {
   OPENAI_GPT_IMAGE_2_PRESETS,
   OPENAI_GPT_IMAGE_2_SIZE_META,
   OPENAI_GPT_IMAGE_2_SIZES,
+  imageSizeSchema,
 } from './image-model-dimensions';
 
 const GPT_IMAGE_2_MODEL_ID = 'openai/gpt-image-2';
@@ -158,6 +164,19 @@ describe('getImageModelConfigByGatewayId', () => {
       'recraft/recraft-v3',
       'recraft/recraft-v4',
       'recraft/recraft-v4-pro',
+      'openai/gpt-image-2.5-flare',
+      'openai/gpt-image-2.5-sunburst',
+      'google/gemini-3.1-flash-image',
+      'google/gemini-3.1-flash-lite-image',
+      'bytedance/seedream-5.0-pro',
+      'recraft/recraft-v4.1',
+      'recraft/recraft-v4.1-pro',
+      'recraft/recraft-v4.1-utility',
+      'recraft/recraft-v4.1-utility-pro',
+      'meta/muse-image-1.0',
+      'spacexai/grok-imagine-image',
+      'spacexai/grok-imagine-image-2.0',
+      'quiverai/arrow-1.1',
     ];
 
     for (const modelId of gatewayModelIds) {
@@ -170,6 +189,101 @@ describe('getImageModelConfigByGatewayId', () => {
     expect(getImageModelConfigByGatewayId('bfl/flux-2-pro')?.modelType).toBe('image');
     expect(getImageModelConfigByGatewayId('recraft/recraft-v4-pro')?.modelType).toBe('image');
   });
+});
+
+describe('image model parameter contracts', () => {
+  it('keeps all catalog size presets in the shared size schema', () => {
+    for (const config of IMAGE_MODEL_CONFIGS) {
+      for (const size of config.supportedSizes ?? []) {
+        expect(imageSizeSchema.safeParse(size).success, `${config.model}: ${size}`).toBe(true);
+      }
+      if (config.defaultSize) {
+        expect(config.supportedSizes, config.model).toContain(config.defaultSize);
+      }
+    }
+  });
+
+  it.each(['gpt-image-2.5-flare', 'gpt-image-2.5-sunburst'])(
+    'retains the existing product size and quality options for %s',
+    (model) => {
+      const config = getImageModelConfigByGatewayId(`openai/${model}`)!;
+      expect(config.defaultSize).toBeUndefined();
+      expect(config.supportsAutoSize).toBe(true);
+      expect(getImageSizeCandidates(config)).toContain('3840x2160');
+      expect(getImageSizeCandidates(config)).not.toContain('256x256');
+      expect(getImageQualityCandidates(config)).toEqual([
+        ImageQuality.Low,
+        ImageQuality.Medium,
+        ImageQuality.High,
+      ]);
+    }
+  );
+
+  it.each(['recraft-v4', 'recraft-v4.1', 'recraft-v4.1-utility'])(
+    'uses V4 size presets for %s and doubles dimensions for its Pro variant',
+    (model) => {
+      const standard = getImageModelConfigByGatewayId(`recraft/${model}`)!;
+      const pro = getImageModelConfigByGatewayId(`recraft/${model}-pro`)!;
+      expect(standard.defaultSize).toBe(SIZE_1024);
+      expect(standard.supportedSizes).toContain('1344x768');
+      expect(standard.supportedSizes).not.toContain('1820x1024');
+      expect(pro.defaultSize).toBe('2048x2048');
+      expect(pro.supportedSizes).toEqual(
+        standard.supportedSizes!.map((size) => {
+          const [width, height] = size.split('x').map(Number);
+          return `${width * 2}x${height * 2}`;
+        })
+      );
+      expect(getImageModelConfigByGatewayId('recraft/recraft-v3')?.supportedSizes).toContain(
+        '1820x1024'
+      );
+    }
+  );
+
+  it('limits Gemini Lite and Gemini 2.5 to 1K while keeping higher-resolution models available', () => {
+    for (const model of ['gemini-3.1-flash-lite-image', 'gemini-2.5-flash-image']) {
+      const config = getImageModelConfigByGatewayId(`google/${model}`)!;
+      expect(getImageResolutionCandidates(config)).toEqual(['1K']);
+      expect(getSupportedImageResolution(config, '4K')).toBeUndefined();
+    }
+    expect(
+      getImageResolutionCandidates(getImageModelConfigByGatewayId('google/gemini-3.1-flash-image')!)
+    ).toEqual(['1K', '2K', '4K']);
+  });
+
+  it('resolves SpaceXAI IDs using the direct xAI parameter contract', () => {
+    const config = getImageModelConfigByGatewayId('spacexai/grok-imagine-image-2.0')!;
+    expect(config).toBe(getImageModelConfigByGatewayId('xai/grok-imagine-image-2.0'));
+    expect(config.supportedAspectRatios).toContain('5:2');
+    expect(getImageResolutionCandidates(config)).toEqual(['1K', '2K']);
+    expect(getImageQualityCandidates(config)).toEqual([ImageQuality.Low, ImageQuality.Medium]);
+  });
+
+  it('limits Seedream Pro to its 1K/2K presets and a single image per call', () => {
+    const config = getImageModelConfigByGatewayId('bytedance/seedream-5.0-pro')!;
+    expect(config.defaultSize).toBe(SIZE_1024);
+    expect(config.supportedSizes).toContain('2816x1584');
+    expect(config.supportedSizes).not.toContain('3840x2160');
+    expect(config.maxImagesPerCall).toBe(1);
+  });
+
+  it.each(['meta/muse-image-1.0', 'quiverai/arrow-1.1'])(
+    'does not invent pixel sizes or aspect ratios for %s',
+    (modelId) => {
+      const config = getImageModelConfigByGatewayId(modelId)!;
+      expect(supportsImageSizeSelection(config)).toBe(false);
+      expect(supportsImageAspectRatioSelection(config)).toBe(false);
+      expect(getImageResolutionCandidates(config)).toEqual([]);
+    }
+  );
+
+  it.each(['spacexai/grok-imagine-image-2.0', 'meta/muse-image-1.0', 'bytedance/seedream-5.0-pro'])(
+    'enables reference image input for %s',
+    (modelId) =>
+      expect(
+        supportsImageInputForImageModel(getImageModelConfigByGatewayId(modelId)!, modelId)
+      ).toBe(true)
+  );
 });
 
 describe('OPENAI_GPT_IMAGE_2_PRESETS', () => {

@@ -2,6 +2,7 @@ import type {
   BaseAction,
   TableAction,
   AutomationAction,
+  RoutineAction,
   TableRecordHistoryAction,
   AppAction,
 } from '@teable/core';
@@ -12,7 +13,14 @@ import { z } from '../zod';
 export const GET_BASE_PERMISSION = '/base/{baseId}/permission';
 
 export const GetBasePermissionVoSchema = z.record(
-  z.custom<TableAction | BaseAction | AutomationAction | AppAction | TableRecordHistoryAction>(),
+  z.custom<
+    | TableAction
+    | BaseAction
+    | AutomationAction
+    | RoutineAction
+    | AppAction
+    | TableRecordHistoryAction
+  >(),
   z.boolean()
 );
 

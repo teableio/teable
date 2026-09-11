@@ -36,6 +36,8 @@ export const getBaseItemSchema = z.object({
   lastModifiedTime: z.string().nullable().optional(),
   createdTime: z.string().nullable().optional(),
   createdBy: z.string(),
+  /** The caller's own position for this base; only with `orderBy=personal` and once saved. */
+  personalOrder: z.number().optional(),
   template: z
     .object({
       id: z.string(),

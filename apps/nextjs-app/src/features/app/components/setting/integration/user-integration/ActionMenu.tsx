@@ -19,6 +19,7 @@ export const ActionMenu = (props: {
   name: string;
   integrationId: string;
   onRename?: () => void;
+  /** Omitted when the provider cannot be authorized in this deployment. */
   onReconnect?: () => void;
 }) => {
   const { name, integrationId, onRename, onReconnect } = props;
@@ -46,10 +47,12 @@ export const ActionMenu = (props: {
             <Pencil className="size-4" />
             {t('actions.rename')}
           </DropdownMenuItem>
-          <DropdownMenuItem className="gap-2" onClick={() => onReconnect?.()}>
-            <Link2 className="size-4" />
-            {t('settings.integration.userIntegration.actions.reconnect')}
-          </DropdownMenuItem>
+          {onReconnect && (
+            <DropdownMenuItem className="gap-2" onClick={onReconnect}>
+              <Link2 className="size-4" />
+              {t('settings.integration.userIntegration.actions.reconnect')}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className="gap-2 text-destructive focus:text-destructive"

@@ -18,7 +18,7 @@ export const publishBaseRoSchema = z.object({
 export type IPublishBaseRo = z.infer<typeof publishBaseRoSchema>;
 
 export const PublishBaseRoute: RouteConfig = registerRoute({
-  method: 'put',
+  method: 'post',
   path: PUBLISH_BASE,
   description: 'publish or unpublish a base',
   summary: 'publish or unpublish a base',

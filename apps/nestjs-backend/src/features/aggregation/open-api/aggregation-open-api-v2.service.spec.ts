@@ -1,3 +1,4 @@
+import { SortFunc } from '@teable/core';
 import {
   AggregateTableRecordsQuery,
   AggregateTableRecordsResult,
@@ -14,6 +15,8 @@ import {
 import { ok } from 'neverthrow';
 import { vi } from 'vitest';
 import { string2Hash } from '../../../utils';
+import { TableQuerySearchVectorRuntimeService } from '../../v2/table-query-search-vector-runtime.service';
+import { createSearchIndexTable } from '../../v2/table-query-search-vector-runtime.test-fixture';
 import { AggregationOpenApiV2Service } from './aggregation-open-api-v2.service';
 
 describe('AggregationOpenApiV2Service', () => {
@@ -80,8 +83,9 @@ describe('AggregationOpenApiV2Service', () => {
         })
       ),
     };
+    const table = createSearchIndexTable(tableId, fieldId);
     const tableRepository = {
-      findOne: vi.fn(async () => ok({ id: () => ({ toString: () => tableId }) })),
+      findOne: vi.fn(async () => ok(table)),
     };
     const hasPluginRunner = options?.pluginScope !== undefined;
     const container = {
@@ -99,14 +103,72 @@ describe('AggregationOpenApiV2Service', () => {
     const createContext = vi.fn().mockResolvedValue({
       actorId: { toString: () => `usr${'u'.repeat(16)}` },
     });
+    const runtime = new TableQuerySearchVectorRuntimeService({ get: () => 'auto' } as never);
+    const resolveForRecordSearch = vi.spyOn(runtime, 'resolveForRecordSearch');
     const service = new AggregationOpenApiV2Service(
       { getContainerForTable } as never,
       { createContext } as never,
-      { maxGroupPoints: 5_000 } as never
+      { maxGroupPoints: 5_000 } as never,
+      runtime
     );
 
-    return { service, queries, queryBus, getContainerForTable, pluginRunner };
+    return {
+      service,
+      queries,
+      queryBus,
+      getContainerForTable,
+      pluginRunner,
+      tableRepository,
+      resolveForRecordSearch,
+    };
   };
+
+  it.each(['count', 'aggregation', 'groups', 'search-index'] as const)(
+    'resolves the trusted runtime search path for %s',
+    async (kind) => {
+      const fixture = createFixture();
+      const accessPath = {
+        kind: 'generated_text',
+        generatedColumnName: '__search_document',
+        provider: 'pg_trgm',
+        searchScope: 'all_fields',
+        coveredFieldIds: [primaryFieldId],
+      };
+      const search: [string, string, boolean] = ['order', '', true];
+      if (kind === 'count') {
+        await fixture.service.tryGetRowCount(tableId, { viewId, search });
+      } else if (kind === 'aggregation') {
+        await fixture.service.tryGetAggregation(tableId, { viewId, search });
+      } else if (kind === 'search-index') {
+        await fixture.service.tryGetSearchIndex(tableId, { viewId, search, take: 10 });
+      } else {
+        await fixture.service.tryGetGroupPoints(tableId, {
+          viewId,
+          search,
+          groupBy: [{ fieldId, order: SortFunc.Asc }],
+        });
+      }
+      const query = fixture.queries.find(
+        (item) =>
+          item instanceof CountTableRecordsQuery ||
+          item instanceof AggregateTableRecordsQuery ||
+          item instanceof ListTableRecordsQuery
+      );
+      expect(query).toHaveProperty('recordSearchAccessPath', expect.objectContaining(accessPath));
+      expect(fixture.tableRepository.findOne).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it('does not resolve an aggregate access path before the plugin scope fallback', async () => {
+    const fixture = createFixture({ pluginScope: { fieldMasks: [{}] } });
+    await expect(
+      fixture.service.tryGetAggregation(tableId, {
+        viewId,
+        search: ['order', '', true],
+      })
+    ).resolves.toBeUndefined();
+    expect(fixture.resolveForRecordSearch).not.toHaveBeenCalled();
+  });
 
   it('falls back for aggregation without a viewId', async () => {
     const fixture = createFixture();

@@ -57,6 +57,7 @@ export const ShareBaseDialog = (props: IShareBaseDialogProps) => {
         >
           <ShareBaseContent
             baseId={base.id}
+            spaceId={base.spaceId}
             baseName={base.name}
             role={base.role}
             enabledAuthority={base.enabledAuthority}

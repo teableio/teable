@@ -138,7 +138,6 @@ describe('V2TableTrashedProjection', () => {
     const {
       db,
       dataDb,
-      deleteQuery,
       insertQuery,
       selectQuery,
       service: v2ContainerService,
@@ -668,7 +667,7 @@ describe('V2RecordsDeletedTableTrashProjection', () => {
 
 describe('V2RecordsDeletedAttachmentProjection', () => {
   it('deletes attachment rows for deleted records through the v2 db container', async () => {
-    const { db, deleteQuery, service: v2ContainerService } = createV2ContainerService();
+    const { db, dataDb, deleteQuery, service: v2ContainerService } = createV2ContainerService();
     const projection = new V2RecordsDeletedAttachmentProjection(v2ContainerService as never);
     const event = RecordsDeleted.create({
       tableId: TableId.create('tblaaaaaaaaaaaaaaaa')._unsafeUnwrap(),
@@ -690,6 +689,7 @@ describe('V2RecordsDeletedAttachmentProjection', () => {
     const result = await projection.handle({} as never, event);
 
     expect(result._unsafeUnwrap()).toBeUndefined();
+    expect(dataDb.deleteFrom).toHaveBeenCalledWith('attachments_table');
     expect(db.deleteFrom).toHaveBeenCalledWith('attachments_table');
     expect(deleteQuery.where).toHaveBeenNthCalledWith(1, 'table_id', '=', 'tblaaaaaaaaaaaaaaaa');
     expect(deleteQuery.where).toHaveBeenNthCalledWith(2, 'record_id', 'in', [

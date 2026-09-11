@@ -8,12 +8,15 @@ import {
 
 type AttachmentLookupDb = ConstructorParameters<typeof PostgresAttachmentLookupService>[0];
 
+const createLookupService = (dataDb: AttachmentLookupDb, metaDb: AttachmentLookupDb = dataDb) =>
+  new PostgresAttachmentLookupService(dataDb, metaDb);
+
 describe('PostgresAttachmentLookupService', () => {
   it('returns early for empty token and attachment id inputs', async () => {
     const db = {
       selectFrom: vi.fn(),
     } as unknown as Kysely<unknown>;
-    const service = new PostgresAttachmentLookupService(db as unknown as AttachmentLookupDb);
+    const service = createLookupService(db as unknown as AttachmentLookupDb);
 
     await expect(service.listAttachmentsByTokens(['', ''])).resolves.toMatchObject({
       value: [],
@@ -45,7 +48,7 @@ describe('PostgresAttachmentLookupService', () => {
     const db = {
       selectFrom: vi.fn(() => ({ select })),
     } as unknown as Kysely<unknown>;
-    const service = new PostgresAttachmentLookupService(db as unknown as AttachmentLookupDb);
+    const service = createLookupService(db as unknown as AttachmentLookupDb);
 
     const result = await service.listAttachmentsByTokens(['tok_1', 'tok_2', 'tok_1']);
 
@@ -64,10 +67,20 @@ describe('PostgresAttachmentLookupService', () => {
   });
 
   it('joins attachment tables and maps attachmentId lookups', async () => {
-    const execute = vi.fn(async () => [
+    const dataExecute = vi.fn(async () => [
       {
-        attachmentId: 'att_1',
+        id: 'attt_1',
+        attachment_id: 'att_1',
+        token: 'tok_9',
         name: 'Contract',
+        table_id: 'tbl_1',
+        record_id: 'rec_1',
+        field_id: 'fld_1',
+      },
+    ]);
+    const metaExecute = vi.fn(async () => [
+      {
+        id: 9,
         token: 'tok_9',
         path: '/tmp/contract.pdf',
         size: '512',
@@ -77,19 +90,31 @@ describe('PostgresAttachmentLookupService', () => {
         thumbnailPath: null,
       },
     ]);
-    const where = vi.fn((_column: string, _op: string, values: unknown[]) => {
-      expect(values).toEqual(['att_1', 'att_2']);
-      return { execute };
-    });
-    const select = vi.fn(() => ({ where }));
-    const innerJoin = vi.fn(() => ({ select }));
-    const db = {
-      selectFrom: vi.fn(() => ({ innerJoin })),
+    const dataDb = {
+      selectFrom: vi.fn(() => ({
+        select: () => ({
+          where: () => ({ execute: dataExecute }),
+        }),
+      })),
     } as unknown as Kysely<unknown>;
-    const service = new PostgresAttachmentLookupService(db as unknown as AttachmentLookupDb);
+    const metaDb = {
+      selectFrom: vi.fn((table: string) => ({
+        select: () => ({
+          where: () => ({
+            execute: table === 'attachments_table' ? async () => [] : metaExecute,
+          }),
+        }),
+      })),
+    } as unknown as Kysely<unknown>;
+    const service = createLookupService(
+      dataDb as unknown as AttachmentLookupDb,
+      metaDb as unknown as AttachmentLookupDb
+    );
 
     const result = await service.listAttachmentsByAttachmentIds(['att_1', 'att_2', 'att_1']);
 
+    expect(dataDb.selectFrom).toHaveBeenCalledWith('attachments_table');
+    expect(metaDb.selectFrom).toHaveBeenCalledWith('attachments');
     expect(result._unsafeUnwrap()).toEqual([
       {
         id: 'att_1',
@@ -117,9 +142,7 @@ describe('PostgresAttachmentLookupService', () => {
     const dbForTokens = {
       selectFrom: vi.fn(() => ({ select })),
     } as unknown as Kysely<unknown>;
-    const tokenService = new PostgresAttachmentLookupService(
-      dbForTokens as unknown as AttachmentLookupDb
-    );
+    const tokenService = createLookupService(dbForTokens as unknown as AttachmentLookupDb);
 
     const tokenResult = await tokenService.listAttachmentsByTokens(['tok_1']);
 
@@ -131,18 +154,16 @@ describe('PostgresAttachmentLookupService', () => {
 
     const dbForAttachmentIds = {
       selectFrom: vi.fn(() => ({
-        innerJoin: () => ({
-          select: () => ({
-            where: () => ({
-              execute: async () => {
-                throw new Error('attachmentId lookup failed');
-              },
-            }),
+        select: () => ({
+          where: () => ({
+            execute: async () => {
+              throw new Error('attachmentId lookup failed');
+            },
           }),
         }),
       })),
     } as unknown as Kysely<unknown>;
-    const attachmentIdService = new PostgresAttachmentLookupService(
+    const attachmentIdService = createLookupService(
       dbForAttachmentIds as unknown as AttachmentLookupDb
     );
 
@@ -185,7 +206,7 @@ describe('PostgresAttachmentLookupService', () => {
     const db = {
       selectFrom: vi.fn(() => ({ select })),
     } as unknown as Kysely<unknown>;
-    const service = new PostgresAttachmentLookupService(db as unknown as AttachmentLookupDb);
+    const service = createLookupService(db as unknown as AttachmentLookupDb);
 
     const result = await service.listAttachmentsByTokens(['tok_1']);
 

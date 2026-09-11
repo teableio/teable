@@ -38,17 +38,19 @@ const isComputedStageBudgetEnabled = (budget: ComputedStageBudget): boolean =>
   budget.maxSteps > 0 || budget.maxFields > 0 || budget.maxEdges > 0;
 
 /**
- * Scale the stage budget up for provably-small runs.
+ * Optionally scale the stage budget up for runs estimated to be small.
  *
  * The static budgets are volume-blind: a cascade touching a hundred rows is
  * sliced exactly like one touching a hundred thousand, and every slice pays the
  * full task pipeline (claim, locks, markDone, activity projection, enqueue).
  * When the plan's estimated complexity (steps + edges + seed records) and the
- * task's planned dirty volume are both small, multiply the budgets so the run
- * fits in a few slices instead of a dozen. Whole-table seeds never qualify —
+ * task's planned dirty volume are both small, an explicit multiplier lets the run
+ * fit in a few slices instead of a dozen. Whole-table seeds never qualify —
  * their volume is unknown upfront. Misestimates degrade gracefully: the dirty
  * budget aborts an over-budget stage before any step commits and the worker's
- * shrink loop re-splits with fewer steps.
+ * shrink loop re-splits with fewer steps. This only bounds materialized rows,
+ * not scanned rows or execution time; production defaults keep the multiplier
+ * at 1 so small-output lookup scans cannot silently enlarge transactions.
  */
 export const resolveAdaptiveStageBudget = (
   base: ComputedStageBudget,
@@ -580,8 +582,21 @@ export const buildDeferredStagePlan = (params: {
       if (isRelevant(tableKey)) seedAllByKey.set(tableKey, tableId);
     }
 
-    const seedRecordIds = isRelevant(seedTableKey) ? plan.seedRecordIds : ([] as RecordId[]);
+    let seedRecordIds = isRelevant(seedTableKey) ? plan.seedRecordIds : ([] as RecordId[]);
     const seedRecordKeys = new Set(seedRecordIds.map((id) => id.toString()));
+    // A full-table scan covers surviving rows, never deleted before-image
+    // sources. Keep those IDs alongside the scan so deferred edges can still
+    // match their old values after explicit seeds have moved through the ledger.
+    if (seedAllByKey.has(seedTableKey) && plan.beforeImageRecords?.length) {
+      const retainedSeedIds = [...seedRecordIds];
+      for (const { recordId } of plan.beforeImageRecords) {
+        const recordKey = recordId.toString();
+        if (seedRecordKeys.has(recordKey)) continue;
+        seedRecordKeys.add(recordKey);
+        retainedSeedIds.push(recordId);
+      }
+      seedRecordIds = retainedSeedIds;
+    }
 
     const extraByTable = new Map<string, { tableId: TableId; recordIds: RecordId[] }>();
     const extraRecordKeys = new Map<string, Set<string>>();
@@ -605,7 +620,12 @@ export const buildDeferredStagePlan = (params: {
       }
     };
 
-    for (const group of plan.extraSeedRecords) appendExtraSeeds(group);
+    // Initial INSERT extras only lock linked rows; the updater does not seed
+    // them unless whole-table seeding is active. Do not promote those untouched
+    // rows into continuation sources. Actual stage outputs are carried below.
+    if (plan.changeType !== 'insert' || (plan.seedAllTableIds?.length ?? 0) > 0) {
+      for (const group of plan.extraSeedRecords) appendExtraSeeds(group);
+    }
     for (const group of params.dirtySeedGroups) appendExtraSeeds(group);
 
     return {
@@ -630,6 +650,9 @@ export const buildDeferredStagePlan = (params: {
 
   return {
     ...plan,
+    // The INSERT has completed. Deferred work updates surviving stage outputs,
+    // including extra seeds that the initial-insert guard would otherwise skip.
+    changeType: plan.changeType === 'insert' ? 'update' : plan.changeType,
     steps: deferred.steps,
     edges: deferred.edges,
     sameTableBatches: deferred.sameTableBatches,
@@ -642,5 +665,6 @@ export const buildDeferredStagePlan = (params: {
     // worker clears the run ledger with the stage (exclusions re-enter as seeds
     // SQL-side), so no per-stage durable state carries over here.
     seedAllCursors: undefined,
+    partialStageBudget: undefined,
   };
 };

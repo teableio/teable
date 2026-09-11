@@ -11,7 +11,9 @@ import { inject, injectable } from '@teable/v2-di';
 import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { IComputeActivitySignalConfig } from './ComputeActivitySignal';
 import { v2ShareDbTokens } from './di/tokens';
+import type { IShareDbPresencePublisher } from './ShareDbPresencePublisher';
 import type { IShareDbOpPublisher, ShareDbOp } from './ShareDbPublisher';
 
 const v2ProjectionOpSourcePrefix = '@@v2-projection:';
@@ -20,7 +22,11 @@ const v2ProjectionOpSourcePrefix = '@@v2-projection:';
 export class ShareDbRealtimeEngine implements IRealtimeEngine {
   constructor(
     @inject(v2ShareDbTokens.publisher)
-    private readonly publisher: IShareDbOpPublisher
+    private readonly publisher: IShareDbOpPublisher,
+    @inject(v2ShareDbTokens.presence)
+    private readonly presence: IShareDbPresencePublisher,
+    @inject(v2ShareDbTokens.computeActivitySignal)
+    private readonly computeActivitySignal: IComputeActivitySignalConfig
   ) {}
 
   async ensure(
@@ -166,6 +172,14 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
       c: collection,
     };
     return this.publisher.publish([collection], op);
+  }
+
+  async notifyTableComputeActivity(
+    _context: IExecutionContext,
+    tableId: string
+  ): Promise<Result<void, DomainError>> {
+    const channel = this.computeActivitySignal.resolveChannel(tableId);
+    return this.presence.publish(channel, [{ actionKey: this.computeActivitySignal.actionKey }]);
   }
 
   private toProjectionSource(requestId: string | undefined): string {

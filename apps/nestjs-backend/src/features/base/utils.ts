@@ -155,6 +155,21 @@ export function adaptStructureTimeZone(structure: IBaseJson, timeZone: string): 
     });
   }
 
+  // EE structures also carry routines; a schedule's zone lives in config.trigger.timezone.
+  const routines = (structure as { routines?: unknown }).routines;
+  if (Array.isArray(routines)) {
+    (adapted as { routines?: unknown }).routines = routines.map((routine) => {
+      const config = (routine as { config?: { trigger?: object } | null }).config;
+      if (!config?.trigger) {
+        return routine;
+      }
+      return {
+        ...routine,
+        config: { ...config, trigger: { ...config.trigger, timezone: timeZone } },
+      };
+    });
+  }
+
   return adapted;
 }
 

@@ -24,6 +24,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `ForeignTable.ts` - Role: branded wrapper; Purpose: distinguish foreign table context.
 - `IdValueObjects.spec.ts` - Role: ID tests; Purpose: verify table/field/view ID formats.
 - `Table.spec.ts` - Role: aggregate tests; Purpose: verify Table behavior and invariants.
+- `ITableReadModel.ts` - Role: query-only table surface; Purpose: record query plugins read schema without Table mutating methods (T7092).
+- `ITableReadModel.spec.ts` - Role: type tests; Purpose: reject mutate keys on ITableReadModel.
 - `Table.ts` - Role: aggregate root; Purpose: manage fields/views and domain events.
 - `TableBuilder.spec.ts` - Role: builder tests; Purpose: verify TableBuilder constraints.
 - `TableBuilder.ts` - Role: builder; Purpose: fluent aggregate construction.

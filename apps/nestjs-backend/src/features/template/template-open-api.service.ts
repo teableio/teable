@@ -259,6 +259,7 @@ export class TemplateOpenApiService {
     const templateSpaceId = await prisma.space.findFirstOrThrow({
       where: {
         isTemplate: true,
+        deletedTime: null,
       },
       select: {
         id: true,

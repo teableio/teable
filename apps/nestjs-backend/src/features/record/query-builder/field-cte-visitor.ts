@@ -1776,7 +1776,9 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             })();
       const normalizedAggregateExpression = unwrapJsonAggregateForScalar(
         this.dbProvider.driver,
-        aggregateExpressionInfo.expression,
+        field.lookupOptions?.isUnique && field.isMultipleCellValue
+          ? this.dialect.uniqueLookupArray(aggregateExpressionInfo.expression)
+          : aggregateExpressionInfo.expression,
         field,
         aggregateExpressionInfo.isJsonAggregate
       );

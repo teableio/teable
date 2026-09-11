@@ -58,7 +58,7 @@ import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import type { TableSchemaStatementBuilder } from '../core/ISchemaRule';
 import { createSchemaRepairer } from '../repairer/SchemaRepairer';
 import type { SchemaRepairResult } from '../repairer/SchemaRepairResult';
-import { SYSTEM_RULE_FIELD_ID } from '../table/SystemTableRules';
+import { SYSTEM_RULE_FIELD_ID, SYSTEM_TABLE_EXISTS_RULE_ID } from '../table/SystemTableRules';
 import { ColumnExistsRule } from './ColumnExistsRule';
 import { ColumnUniqueConstraintRule } from './ColumnUniqueConstraintRule';
 import { FieldMetaRule } from './FieldMetaRule';
@@ -623,6 +623,8 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       id TEXT PRIMARY KEY,
       base_id TEXT,
       db_table_name TEXT,
+      search_index JSONB,
+      version INTEGER NOT NULL DEFAULT 1,
       deleted_time TIMESTAMPTZ
     )`.execute(db);
 
@@ -4512,6 +4514,64 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         checker.checkField(table, field.id().toString())
       );
       expect(checkResults.every((result) => result.status === 'success')).toBe(true);
+    });
+
+    it('reports table_exists before column rules when the physical table is missing', async () => {
+      const tableName = 'test_schema_missing_relation';
+      const field = createRealField('tblmiss001', 'Name', 'name_col')._unsafeUnwrap();
+      const table = createTableAggregate(tableName, field);
+      const checker = createSchemaChecker({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+      });
+
+      const results = await collectFinalResults(checker.checkTable(table));
+      const tableExistsResult = results.find(
+        (result) => result.ruleId === SYSTEM_TABLE_EXISTS_RULE_ID
+      );
+      const columnResult = results.find(
+        (result) => result.ruleId === `column:${field.id().toString()}`
+      );
+
+      expect(tableExistsResult?.status).toBe('error');
+      expect(tableExistsResult?.details?.missingItems?.[0]?.code).toBe(SYSTEM_TABLE_EXISTS_RULE_ID);
+      expect(columnResult?.status).toBe('error');
+    });
+
+    it('repairs a missing physical table then applies current field columns', async () => {
+      const tableName = 'test_schema_create_missing_table';
+      const field = createRealField('tblmiss002', 'Name', 'name_col')._unsafeUnwrap();
+      const table = createTableAggregate(tableName, field);
+      const repairer = createSchemaRepairer({
+        db,
+        introspector,
+        schema: TEST_SCHEMA,
+      });
+
+      const results = await collectFinalRepairResults(repairer.repairTable(table));
+      expect(results.find((result) => result.ruleId === SYSTEM_TABLE_EXISTS_RULE_ID)?.outcome).toBe(
+        'repaired'
+      );
+      expect(
+        results.find((result) => result.ruleId === `column:${field.id().toString()}`)?.outcome
+      ).toBe('repaired');
+      expect(await tableExists(tableName)).toBe(true);
+
+      const rowCount = await sql<{ cnt: string }>`
+        SELECT count(*)::text AS cnt
+        FROM ${sql.id(TEST_SCHEMA)}.${sql.id(tableName)}
+      `.execute(db);
+      expect(rowCount.rows[0]?.cnt).toBe('0');
+
+      const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
+      const checkResults = await collectFinalResults(checker.checkTable(table));
+      expect(
+        checkResults.find((result) => result.ruleId === SYSTEM_TABLE_EXISTS_RULE_ID)?.status
+      ).toBe('success');
+      expect(
+        checkResults.find((result) => result.ruleId === `column:${field.id().toString()}`)?.status
+      ).toBe('success');
     });
 
     it('should include repair hint metadata in check results for failing auto-repair rules', async () => {

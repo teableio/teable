@@ -17,6 +17,7 @@ import type { INotifyVo, SignatureVo } from '@teable/openapi';
 import { Response, Request } from 'express';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Public } from '../auth/decorators/public.decorator';
+import { TokenAccess } from '../auth/decorators/token.decorator';
 import { AuthGuard } from '../auth/guard/auth.guard';
 import { AttachmentsService } from './attachments.service';
 import { DynamicAuthGuardFactory } from './guard/auth.guard';
@@ -88,6 +89,10 @@ export class AttachmentsController {
     return new StreamableFile(fileStream);
   }
 
+  // Class-level @Public() skips the global guards, but DynamicAuthGuardFactory
+  // still authenticates the caller: session or access token. Declare that for
+  // the OpenAPI document (see openapi-token-access.ts).
+  @TokenAccess()
   @UseGuards(AuthGuard, DynamicAuthGuardFactory)
   @Post('/signature')
   async signature(
@@ -96,6 +101,7 @@ export class AttachmentsController {
     return await this.attachmentsService.signature(body);
   }
 
+  @TokenAccess()
   @UseGuards(AuthGuard, DynamicAuthGuardFactory)
   @Post('/notify/:token')
   async notify(

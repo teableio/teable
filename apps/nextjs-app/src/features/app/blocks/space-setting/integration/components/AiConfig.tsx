@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { testIntegrationLLM, aiConfigVoSchema, getPublicSetting } from '@teable/openapi';
 import type {
+  IAIConfigVo,
   IAIIntegrationConfig,
   IChatModelAbility,
   IImageModelAbility,
@@ -13,6 +14,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Resolver } from 'react-hook-form';
 import { useForm } from 'react-hook-form';
 import type { AIActions } from '../../../admin/setting/components/ai-config/AIControlCard';
 import { AIControlCard } from '../../../admin/setting/components/ai-config/AIControlCard';
@@ -49,8 +51,8 @@ export const AIConfig = (props: IAIConfigProps) => {
     [config]
   );
 
-  const form = useForm<IAIIntegrationConfig>({
-    resolver: zodResolver(aiConfigVoSchema),
+  const form = useForm<IAIConfigVo>({
+    resolver: zodResolver(aiConfigVoSchema) as Resolver<IAIConfigVo>,
     defaultValues: defaultValues,
   });
   const llmProviders = form.watch('llmProviders') ?? emptyArray;

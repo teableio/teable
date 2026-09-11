@@ -197,21 +197,6 @@ export class TableUpdateFlow {
       let transactionContextRef: IExecutionContext | undefined;
       let schemaOperationStarted = false;
       let tableMetadataPersisted = false;
-      if (requiresPhysicalSchemaRepair) {
-        // Split meta/data databases can expose committed DDL before the meta transaction commits.
-        yield* await beginTableSchemaOperation(
-          handler.unitOfWork,
-          handler.tableRepository,
-          context,
-          latestTable,
-          {
-            type: 'table.update',
-            state: 'pending',
-            status: 'pending',
-          }
-        );
-        schemaOperationStarted = true;
-      }
 
       const transactionResult = await handler.unitOfWork.withTransaction(
         context,
@@ -231,20 +216,22 @@ export class TableUpdateFlow {
               latestTable = normalizedResult.table ?? latestTable;
             }
 
-            if (!requiresPhysicalSchemaRepair) {
-              yield* await beginTableSchemaOperation(
-                handler.unitOfWork,
-                handler.tableRepository,
-                metaTransactionContext,
-                latestTable,
-                {
-                  type: 'table.update',
-                  state: 'ready',
-                  status: 'pending',
-                }
-              );
-              schemaOperationStarted = true;
-            }
+            // Commit pending with the meta transaction, not before it. An
+            // aborted formula/field create used to leave provision_state=
+            // pending after rollback, hiding the table from lists and
+            // direct reads until schema-op repair (T7114).
+            yield* await beginTableSchemaOperation(
+              handler.unitOfWork,
+              handler.tableRepository,
+              metaTransactionContext,
+              latestTable,
+              {
+                type: 'table.update',
+                state: requiresPhysicalSchemaRepair ? 'pending' : 'ready',
+                status: 'pending',
+              }
+            );
+            schemaOperationStarted = true;
 
             tableUpdatePersistResult = yield* await handler.tableRepository.updateOne(
               metaTransactionContext,

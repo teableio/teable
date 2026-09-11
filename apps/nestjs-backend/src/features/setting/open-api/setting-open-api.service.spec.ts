@@ -138,6 +138,50 @@ describe('SettingOpenApiService', () => {
       },
     });
   });
+
+  it('restores the provider-list invariant when updating a partial AI config', async () => {
+    const settingService = {
+      getSetting: vi.fn().mockResolvedValue({
+        aiConfig: { capabilities: { disableActions: [] } },
+      }),
+      updateSetting: vi.fn().mockResolvedValue(undefined),
+    };
+    const service = createServiceWithSettingService(settingService);
+
+    await service.updateAiConfig({
+      section: 'capabilities',
+      patch: { capabilities: { disableActions: ['chat'] } },
+    });
+
+    expect(settingService.updateSetting).toHaveBeenCalledWith({
+      aiConfig: {
+        capabilities: { disableActions: ['chat'] },
+        llmProviders: [],
+      },
+    });
+  });
+
+  it('normalizes a null provider-list patch to an empty list', async () => {
+    const settingService = {
+      getSetting: vi.fn().mockResolvedValue({
+        aiConfig: {
+          llmProviders: [{ type: LLMProviderType.OPENAI, name: 'teable', models: 'gpt-4o' }],
+        },
+      }),
+      updateSetting: vi.fn().mockResolvedValue(undefined),
+    };
+    const service = createServiceWithSettingService(settingService);
+
+    const result = await service.updateAiConfig({
+      section: 'llmApi',
+      patch: { llmProviders: null },
+    });
+
+    expect(settingService.updateSetting).toHaveBeenCalledWith({
+      aiConfig: { llmProviders: [] },
+    });
+    expect(result).toEqual({ aiConfig: { llmProviders: [] } });
+  });
 });
 
 describe('SettingOpenApiService.testLLM image generation', () => {

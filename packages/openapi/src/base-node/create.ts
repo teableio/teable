@@ -55,12 +55,20 @@ const createBaseAppNodeRoSchema = z.object({
 
 export type ICreateAppNodeRo = z.infer<typeof createBaseAppNodeRoSchema>;
 
+const createBaseRoutineNodeRoSchema = z.object({
+  ...createBaseNodeSchema.shape,
+  resourceType: z.literal(BaseNodeResourceType.Routine),
+});
+
+export type ICreateRoutineNodeRo = z.infer<typeof createBaseRoutineNodeRoSchema>;
+
 export const createBaseNodeRoSchema = z.discriminatedUnion('resourceType', [
   createBaseFolderNodeRoSchema,
   createBaseTableNodeRoSchema,
   createBaseDashboardNodeRoSchema,
   createBaseWorkflowNodeRoSchema,
   createBaseAppNodeRoSchema,
+  createBaseRoutineNodeRoSchema,
 ]);
 
 export type ICreateBaseNodeRo = z.infer<typeof createBaseNodeRoSchema>;

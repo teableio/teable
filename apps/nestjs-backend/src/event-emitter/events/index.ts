@@ -9,3 +9,4 @@ export * from './table';
 export * from './dashboard/dashboard.event';
 export * from './workflow/workflow.event';
 export * from './app/app.event';
+export * from './routine/routine.event';

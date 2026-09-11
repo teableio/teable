@@ -1,8 +1,19 @@
 import type { INestApplication } from '@nestjs/common';
-import type { ICommentContent, ICommentVo } from '@teable/openapi';
+import {
+  CellValueType,
+  DateFormattingPreset,
+  DbFieldType,
+  FieldType,
+  Relationship,
+  TimeFormatting,
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import type { ICommentContent, ICommentVo, IGetRecordsRo, ITableFullVo } from '@teable/openapi';
 import {
   createComment,
   CommentNodeType,
+  getCommentCount,
+  getRecords as apiGetRecords,
   getCommentList,
   updateComment,
   deleteComment,
@@ -14,7 +25,13 @@ import {
   getCommentSubscribe,
   deleteCommentSubscribe,
 } from '@teable/openapi';
-import { createTable, deleteTable, initApp } from './utils/init-app';
+import {
+  createField,
+  createTable,
+  deleteTable,
+  initApp,
+  permanentDeleteTable,
+} from './utils/init-app';
 
 describe('OpenAPI CommentController (e2e)', () => {
   let app: INestApplication;
@@ -345,5 +362,132 @@ describe('OpenAPI CommentController (e2e)', () => {
       // actually the subscribe info is null but, there is no idea to return ''.
       expect(subscribeInfo.data).toEqual('');
     });
+  });
+});
+
+describe('OpenAPI Comment count search with v2 date storage (e2e)', () => {
+  let app: INestApplication;
+  let previousForceV2All: string | undefined;
+  const baseId = globalThis.testConfig.baseId;
+
+  beforeAll(async () => {
+    previousForceV2All = process.env.FORCE_V2_ALL;
+    process.env.FORCE_V2_ALL = 'true';
+    app = (await initApp()).app;
+  });
+
+  afterAll(async () => {
+    await app?.close();
+    if (previousForceV2All == null) {
+      delete process.env.FORCE_V2_ALL;
+    } else {
+      process.env.FORCE_V2_ALL = previousForceV2All;
+    }
+  });
+
+  it('returns exact comment counts for text search with a legacy scalar date lookup', async () => {
+    const sourceTable = await createTable(baseId, {
+      name: 'comment_count_date_source',
+      fields: [
+        { name: 'Name', type: FieldType.SingleLineText },
+        {
+          name: 'Date',
+          type: FieldType.Date,
+          options: {
+            formatting: {
+              date: DateFormattingPreset.ISO,
+              time: TimeFormatting.None,
+              timeZone: 'UTC',
+            },
+          },
+        },
+      ],
+      records: [
+        { fields: { Name: 'Source one', Date: '2026-04-12T12:00:00.000Z' } },
+        { fields: { Name: 'Source two', Date: '2026-04-13T12:00:00.000Z' } },
+      ],
+    });
+    let table: ITableFullVo | undefined;
+
+    try {
+      table = await createTable(baseId, {
+        name: 'comment_count_date_lookup_search',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          {
+            name: 'Source',
+            type: FieldType.Link,
+            options: {
+              relationship: Relationship.ManyOne,
+              foreignTableId: sourceTable.id,
+            },
+          },
+        ],
+        records: [
+          { fields: { Name: 'Matching record', Source: { id: sourceTable.records[0].id } } },
+          { fields: { Name: 'Other record', Source: { id: sourceTable.records[1].id } } },
+        ],
+      });
+      const lookup = await createField(table.id, {
+        name: 'Source Date',
+        type: FieldType.Date,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: sourceTable.id,
+          linkFieldId: table.fields.find(({ type }) => type === FieldType.Link)!.id,
+          lookupFieldId: sourceTable.fields.find(({ type }) => type === FieldType.Date)!.id,
+        },
+      });
+
+      // Preserve the observed legacy metadata without changing the timestamp column
+      // created by the v2 product API for this scalar manyOne date lookup.
+      if (
+        lookup.cellValueType === CellValueType.DateTime &&
+        lookup.dbFieldType === DbFieldType.DateTime
+      ) {
+        await app.get(PrismaService).field.update({
+          where: { id: lookup.id },
+          data: {
+            cellValueType: CellValueType.String,
+            dbFieldType: DbFieldType.Text,
+            options: null,
+          },
+        });
+      }
+
+      for (const record of [table.records[0], table.records[0], table.records[1]]) {
+        await createComment(table.id, record.id, {
+          content: [
+            {
+              type: CommentNodeType.Paragraph,
+              children: [{ type: CommentNodeType.Text, value: 'Search comment' }],
+            },
+          ],
+          quoteId: null,
+        });
+      }
+
+      const query: IGetRecordsRo = {
+        viewId: table.views[0].id,
+        search: ['Matching record', '', true],
+        take: 100,
+      };
+      const visibleRecords = await apiGetRecords(table.id, query);
+      expect(visibleRecords.headers['x-teable-v2']).toBe('true');
+      expect(visibleRecords.data.records.map(({ id }) => id)).toEqual([table.records[0].id]);
+
+      const counts = await getCommentCount(table.id, {
+        recordIds: visibleRecords.data.records.map(({ id }) => id),
+      });
+      expect(counts.data).toEqual([{ recordId: table.records[0].id, count: 2 }]);
+      expect(counts.data.map(({ recordId }) => recordId)).toEqual(
+        visibleRecords.data.records.map(({ id }) => id)
+      );
+    } finally {
+      if (table) {
+        await permanentDeleteTable(baseId, table.id);
+      }
+      await permanentDeleteTable(baseId, sourceTable.id);
+    }
   });
 });

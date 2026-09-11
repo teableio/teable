@@ -13,6 +13,7 @@ import { Guide } from '@/components/Guide';
 import { GoogleAnalytics, MetaPixel, MicrosoftClarity, PostHog, Umami } from '@/components/Metrics';
 import RouterProgressBar from '@/components/RouterProgress';
 import { SideBarScript } from '@/features/app/components/sidebar/SideBarScript';
+import { useMobileServiceWorker } from '@/features/app/hooks/useMobileServiceWorker';
 import { HttpErrorPage } from '@/features/system/pages';
 import type { IServerEnv } from '@/lib/server-env';
 import type { NextPageWithLayout } from '@/lib/type';
@@ -63,6 +64,9 @@ const MyApp = (appProps: AppPropsWithLayout) => {
   useEffect(() => {
     Sentry.setUser(user ? { id: user.id, email: user.email } : null);
   }, [user]);
+
+  // Mobile app-shell service worker: only inside the native app's WebView.
+  useMobileServiceWorker();
 
   return (
     <>

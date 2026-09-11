@@ -35,6 +35,7 @@ import type {
   TableByViewIdSpec,
   TableWithViewIdsSpec,
   TableWithPrimaryFieldSpec,
+  TableWithFieldIdsSpec,
   TableByIncomingReferenceToTableSpec,
   TableByIdsSpec,
   TableByNameLikeSpec,
@@ -318,6 +319,10 @@ export class TableSchemaUpdateVisitor
     const statement = `
       DO $teable_search_vector$
       BEGIN
+        UPDATE table_meta
+        SET search_index = NULL, version = version + 1
+        WHERE id = ${quoteSqlLiteral(tableId)};
+
         IF to_regclass('public.table_query_search_vector_config') IS NOT NULL THEN
           UPDATE table_query_search_vector_config
           SET status = 'rebuild_pending',
@@ -326,14 +331,8 @@ export class TableSchemaUpdateVisitor
                 'staleReasons', jsonb_build_array(${quoteSqlLiteral(reason)})
               ),
               last_modified_time = now()
-          WHERE id = (
-            SELECT id
-            FROM table_query_search_vector_config
-            WHERE table_id = ${quoteSqlLiteral(tableId)}
-              AND status IN ('ready', 'rebuild_pending')
-            ORDER BY last_modified_time DESC NULLS LAST, created_time DESC
-            LIMIT 1
-          );
+          WHERE table_id = ${quoteSqlLiteral(tableId)}
+            AND status IN ('ready', 'rebuild_pending');
         END IF;
       END
       $teable_search_vector$;
@@ -721,10 +720,10 @@ export class TableSchemaUpdateVisitor
     const fieldVisitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate(this.params);
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const statements = [
-        visitor.markSearchVectorConfigRebuildPendingStatement('source_field_added'),
-        ...(yield* spec.field().accept(fieldVisitor)),
-      ];
+      // Existing generated-text documents intentionally keep their configured
+      // field set when a new field is added. The new field becomes searchable
+      // only after an explicit search access-path reconfiguration.
+      const statements = [...(yield* spec.field().accept(fieldVisitor))];
       const dbFieldName = yield* visitor.resolveDbFieldNameText(spec.field());
       const createSearchIdx = visitor.createSearchIndexStatement(spec.field(), dbFieldName);
       if (createSearchIdx) {
@@ -742,9 +741,7 @@ export class TableSchemaUpdateVisitor
     const fieldVisitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate(this.params);
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const statements: TableSchemaStatementBuilder[] = [
-        visitor.markSearchVectorConfigRebuildPendingStatement('source_fields_added'),
-      ];
+      const statements: TableSchemaStatementBuilder[] = [];
       for (const field of spec.fields()) {
         statements.push(...(yield* field.accept(fieldVisitor)));
         const dbFieldName = yield* visitor.resolveDbFieldNameText(field);
@@ -773,6 +770,22 @@ export class TableSchemaUpdateVisitor
       : quoteIdentifier(tableName);
     const columnName = spec.view().id().toRowOrderColumnName();
     const indexName = `idx_${columnName}`;
+    // T7251: these statements execute via executeScopedTableSchemaStatements on
+    // the caller's (transactional) handle, so they cannot use the online
+    // creation path from shared/ensureRowOrderColumnOnline.ts: CONCURRENTLY is
+    // illegal inside a transaction block, and a second connection's DDL would
+    // self-conflict with locks this transaction already took earlier in the
+    // batch (TableMutator can combine view-add with data-table field ops; on
+    // single-session DBs like PGlite the "global" handle even aliases this
+    // transaction's session). Residual risk, deferred: on an existing large
+    // table this path still holds the ADD COLUMN AccessExclusiveLock through
+    // the full-table backfill until the caller's transaction commits, and a
+    // killed run rolls back the ADD COLUMN too (nothing to resume — the
+    // WHERE IS NULL guard only keeps retries idempotent). The main consumer
+    // (manual-sort storage preparation) runs these in a dedicated transaction,
+    // keeping the lock window short. The record write path
+    // (PostgresRecordOrderCalculator / PostgresTableRecordRepository) uses the
+    // fully online helper instead.
     const statements: ReadonlyArray<TableSchemaStatementBuilder> = [
       {
         scope: 'data',
@@ -1007,6 +1020,16 @@ export class TableSchemaUpdateVisitor
     return err(
       domainError.validation({
         message: 'TableWithPrimaryFieldSpec is not supported for table schema updates',
+      })
+    );
+  }
+
+  visitTableWithFieldIds(
+    _: TableWithFieldIdsSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableWithFieldIdsSpec is not supported for table schema updates',
       })
     );
   }

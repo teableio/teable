@@ -2,9 +2,15 @@ import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullm
 import { Injectable, Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
 import { Queue } from 'bullmq';
+import { RedisNativeService } from '../../cache/redis-native.service';
 import { chainCatchupFlush } from '../cold-archive/catchup-chain';
+import { runCompactionScan } from '../cold-archive/compaction-pending';
+import { COLD_WORKER_OPTIONS } from '../cold-archive/worker-options';
 import { RecordRemovalColdStorageService } from './record-removal-cold-storage.service';
-import { recordRemovalColdConfig } from './record-removal-cold.config';
+import {
+  RECORD_REMOVAL_COMPACT_PENDING_KEY,
+  recordRemovalColdConfig,
+} from './record-removal-cold.config';
 import type { ICompactMonthResult } from './record-removal-compactor.service';
 import { RecordRemovalCompactorService } from './record-removal-compactor.service';
 import type { IColdFlushRunResult } from './record-removal-flusher.service';
@@ -30,7 +36,7 @@ const CATCHUP_JOB_ID_PREFIX = 'record-removal-cold-flush-catchup';
 // write buffer / cold parts. Both schedulers are env-gated so only
 // deployments that opted in run them.
 @Injectable()
-@Processor(RECORD_REMOVAL_COLD_QUEUE)
+@Processor(RECORD_REMOVAL_COLD_QUEUE, COLD_WORKER_OPTIONS)
 export class RecordRemovalColdProcessor extends WorkerHost {
   private readonly logger = new Logger(RecordRemovalColdProcessor.name);
 
@@ -38,7 +44,8 @@ export class RecordRemovalColdProcessor extends WorkerHost {
     private readonly flusher: RecordRemovalFlusherService,
     private readonly compactor: RecordRemovalCompactorService,
     private readonly coldStorage: RecordRemovalColdStorageService,
-    @InjectQueue(RECORD_REMOVAL_COLD_QUEUE) private readonly queue: Queue
+    @InjectQueue(RECORD_REMOVAL_COLD_QUEUE) private readonly queue: Queue,
+    private readonly redis: RedisNativeService
   ) {
     super();
   }
@@ -167,24 +174,24 @@ export class RecordRemovalColdProcessor extends WorkerHost {
     });
   }
 
-  // compact every cold table's closed months, both reasons (day parts → month parts)
+  // compact the closed months, both reasons (day parts → month parts), of
+  // every table the flusher marked pending, or of every cold table until the
+  // pending set is bootstrapped (or without redis)
   private async runCompaction(): Promise<ICompactMonthResult[]> {
-    const tables = await this.coldStorage.listTables();
-    const results: ICompactMonthResult[] = [];
-    for (const tableId of tables) {
-      try {
-        results.push(...(await this.compactor.compactTable(tableId)));
-      } catch (error) {
-        this.logger.error(
-          `record-removal compaction failed for ${tableId}: ${error instanceof Error ? error.stack : error}`
-        );
-      }
-    }
-    const merged = results.filter((result) => !result.skippedReason);
+    const scan = await runCompactionScan<ICompactMonthResult>({
+      redis: this.redis,
+      key: RECORD_REMOVAL_COMPACT_PENDING_KEY,
+      subsystem: 'record-removal',
+      logger: this.logger,
+      listAll: () => this.coldStorage.listTables(),
+      compact: (tableId) => this.compactor.compactTable(tableId),
+    });
+    const merged = scan.results.filter((result) => !result.skippedReason);
     this.logger.log(
-      `record-removal cold compaction: tables=${tables.length} monthsMerged=${merged.length} ` +
+      `record-removal cold compaction: mode=${scan.mode} pending=${scan.pending} ` +
+        `tables=${scan.candidates} deferred=${scan.deferred} monthsMerged=${merged.length} ` +
         `rows=${merged.reduce((sum, item) => sum + item.rows, 0)}`
     );
-    return results;
+    return scan.results;
   }
 }

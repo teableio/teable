@@ -22,6 +22,7 @@ import type {
   TableByViewIdSpec,
   TableWithViewIdsSpec,
   TableWithPrimaryFieldSpec,
+  TableWithFieldIdsSpec,
   TableByIncomingReferenceToTableSpec,
   TableByIdsSpec,
   TableByNameLikeSpec,
@@ -199,6 +200,10 @@ export class TableAddFieldCollectorVisitor implements ITableSpecVisitor<void> {
   }
 
   visitTableWithPrimaryField(_spec: TableWithPrimaryFieldSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableWithFieldIds(_spec: TableWithFieldIdsSpec): Result<void, DomainError> {
     return ok(undefined);
   }
 

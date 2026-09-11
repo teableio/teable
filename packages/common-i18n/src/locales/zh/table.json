@@ -16,7 +16,17 @@
     "batchesQueued_other": "{{count}} 批次等待中",
     "records_other": "{{formattedCount}} 条记录",
     "batchesComplete": "已完成批次 {{completed}}/{{total}}",
-    "progressAriaLabel": "{{fieldName}} 计算进度"
+    "progressAriaLabel": "{{fieldName}} 计算进度",
+    "statusUnavailable": "计算状态暂不可用",
+    "statusSyncing": "正在核对计算状态",
+    "statusSyncingDescription": "正在核对最新的计算状态。此提示不表示有计算任务正在运行。",
+    "statusUnavailableDescription": "未能获取最新的计算状态。可以刷新状态重试，这不会重新执行计算任务。",
+    "refreshStatus": "刷新状态",
+    "paused": "计算已暂停",
+    "resultsNotUpdated": "部分计算结果未更新",
+    "delayed": "计算更新延迟 · {{seconds}} 秒",
+    "snapshotMayBeStale": "当前展示上次已知状态，可能已过期。",
+    "unknownImpact": "部分计算结果未更新，正在确认受影响字段"
   },
   "crossSpace": {
     "duplicateFieldTitle": "温馨提示",
@@ -266,7 +276,6 @@
       "bar": "条形",
       "text": "文本",
       "markdown": "Markdown",
-      "url": "网址",
       "email": "邮件",
       "phone": "电话",
       "maxNumber": "最大值",
@@ -323,11 +332,12 @@
       "enableValidateFieldUnique": "禁止重复值",
       "enableValidateFieldNotNull": "必填",
       "knowMore": "了解更多",
-      "linkFieldKnowMoreLink": "https://help.teable.cn/zh/basic/field/advanced/link",
+      "linkFieldKnowMoreLink": "https://help.teable.ai/zh/basic/field/advanced/link",
       "showByField": "选择展示的列",
       "filterByView": "从视图筛选记录",
       "filter": "筛选记录",
       "hideFields": "隐藏字段",
+      "removeDuplicateValues": "去除重复值",
       "moreOptions": "更多配置",
       "allowNewOptionsWhenEditing": "允许填写时添加选项",
       "deleteField": {
@@ -911,6 +921,9 @@
   },
   "import": {
     "title": {
+      "createTable": "创建表格",
+      "importFromCsv": "从 CSV 导入",
+      "importFromExcel": "从 Excel 导入",
       "upload": "上传",
       "import": "导入",
       "localFile": "本地文件",
@@ -1373,6 +1386,70 @@
     "action": {
       "locateResource": "定位"
     },
+    "resourceOperations": {
+      "title": "本次更改",
+      "items": "{{count}} 项",
+      "expandRemaining": "展开其余 {{count}} 项",
+      "collapse": "收起",
+      "create": "已创建",
+      "update": "已更新",
+      "delete": "已删除",
+      "import": "导入",
+      "publication": {
+        "published": "已发布",
+        "unpublished": "已取消发布"
+      },
+      "structureTitles": {
+        "field": "字段变更",
+        "view": "视图变更"
+      },
+      "structureStats": {
+        "field": {
+          "create": "新增 {{count}} 个字段",
+          "update": "修改 {{count}} 个字段",
+          "delete": "删除 {{count}} 个字段",
+          "import": "导入 {{count}} 个字段"
+        },
+        "view": {
+          "create": "新增 {{count}} 个视图",
+          "update": "修改 {{count}} 个视图",
+          "delete": "删除 {{count}} 个视图",
+          "import": "导入 {{count}} 个视图"
+        }
+      },
+      "workflow": {
+        "activate": "已启用自动化",
+        "deactivate": "已停用自动化",
+        "discard": "已放弃草稿更改"
+      },
+      "routine": {
+        "activate": "已启用例行任务",
+        "deactivate": "已停用例行任务",
+        "run": "已开始运行"
+      },
+      "records": {
+        "create": "新增了记录",
+        "createCount": "新增 {{count}} 条记录",
+        "update": "更新了记录",
+        "updateCount": "更新 {{count}} 条记录",
+        "delete": "删除了记录",
+        "deleteCount": "删除 {{count}} 条记录",
+        "import": "导入了记录",
+        "importCount": "导入 {{count}} 条记录"
+      },
+      "types": {
+        "base": "数据库",
+        "table": "表格",
+        "field": "字段",
+        "view": "视图",
+        "record": "记录",
+        "app": "应用",
+        "workflow": "自动化",
+        "routine": "例行任务",
+        "folder": "文件夹",
+        "artifact": "Artifact"
+      }
+    },
     "showUI": {
       "skip": "跳过",
       "next": "下一步",
@@ -1411,7 +1488,13 @@
     "addAttachment": "添加附件",
     "noHistory": "暂无聊天记录",
     "noFoundHistory": "没有找到匹配的聊天记录，请开始新的对话",
+    "pin": "置顶",
+    "unpin": "取消置顶",
+    "archive": "归档",
+    "archivedToast": "对话已归档，可在「设置 › 已归档对话」中查看。",
+    "unread": "未读",
     "timeGroup": {
+      "pinned": "置顶",
       "today": "今天",
       "oneWeek": "一周内",
       "twoWeek": "两周内",
@@ -1430,6 +1513,7 @@
       "tables": "数据表",
       "apps": "应用",
       "workflows": "自动化",
+      "routines": "例行任务",
       "folders": "文件夹",
       "envs": "密钥"
     },
@@ -1586,6 +1670,11 @@
       "searchPlaceholder": "搜索 Artifact",
       "fixWithAi": "让 AI 修复",
       "noPermission": "你无权访问该 Artifact"
+    },
+    "status": {
+      "running": "生成中…",
+      "waitingInput": "等待你回复",
+      "failed": "回复失败"
     }
   },
   "upload": {

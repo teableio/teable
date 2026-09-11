@@ -5,6 +5,8 @@ import {
   DeletePinRo,
   addPinRoSchema,
   deletePinRoSchema,
+  IGetPinListRo,
+  getPinListRoSchema,
   UpdatePinOrderRo,
   updatePinOrderRoSchema,
 } from '@teable/openapi';
@@ -26,8 +28,10 @@ export class PinController {
   }
 
   @Get('list')
-  async getList(): Promise<IGetPinListVo> {
-    return this.pinService.getList();
+  async getList(
+    @Query(new ZodValidationPipe(getPinListRoSchema)) query: IGetPinListRo
+  ): Promise<IGetPinListVo> {
+    return this.pinService.getList(query);
   }
 
   @Get('entry-map')

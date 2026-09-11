@@ -14,6 +14,7 @@ import {
   getDatabaseUrlDisplayParts,
 } from './data-db-preflight.service';
 import { decryptDataDbUrl, encryptDataDbUrl } from './data-db-url-secret';
+import { invalidateSearchIndexesForDataDbRouting } from './search-index-routing-invalidation';
 import {
   migrateSpaceTargetMode,
   spaceDataDbAdminOnlyErrorCode,
@@ -438,6 +439,8 @@ export class DataDbBindingService {
         select: { id: true },
       });
       connectionId = connection.id;
+
+      await invalidateSearchIndexesForDataDbRouting(prisma, { spaceIds: [spaceId] });
 
       await prisma.spaceDataDbBinding.upsert({
         where: { spaceId },

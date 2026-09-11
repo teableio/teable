@@ -1,5 +1,6 @@
 #!/usr/bin/env zx
 import 'zx/globals'
+import { withPostgresMigrateLock } from './postgres-migrate-lock.mjs';
 
 const env = $.env;
 const metaDatabaseUrl = env.PRISMA_META_DATABASE_URL ?? env.PRISMA_DATABASE_URL;
@@ -96,9 +97,14 @@ for (const { label, driver, host, port } of parsedTargets) {
 }
 
 try {
-  await retryOperation(async () => {
-    await adapters[parsedTargets[0].driver]();
-    console.log('database migrations completed successfully.');
+  await withPostgresMigrateLock({
+    connectionString: metaDatabaseUrl,
+    run: async () => {
+      await retryOperation(async () => {
+        await adapters[parsedTargets[0].driver]();
+        console.log('database migrations completed successfully.');
+      });
+    },
   });
 } catch (p) {
   console.error(`Exit code: ${p.exitCode}`);

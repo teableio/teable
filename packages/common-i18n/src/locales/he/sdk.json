@@ -49,7 +49,8 @@
     "previewFileLimit": "מגבלת גודל לתצוגה מקדימה: {{size}}MB, יש להוריד את הקובץ כדי לצפות בו.",
     "loadFileError": "טעינת הקובץ נכשלה",
     "previousAttachment": "הקודם",
-    "nextAttachment": "הבא"
+    "nextAttachment": "הבא",
+    "deleteAttachment": "מחיקה"
   },
   "undoRedo": {
     "undo": "ביטול פעולה",
@@ -1081,6 +1082,8 @@
       "unsupportedCategory": "הקטגוריה אינה נתמכת",
       "unknownConnectionType": "סוג חיבור אימייל לא ידוע",
       "imapPasswordNotConfigured": "סיסמת ה-IMAP אינה מוגדרת",
+      "secretNotGranted": "הסוד {{alias}} לא הוענק לאוטומציה זו",
+      "credentialMustBeSecret": "פרטי ההתחברות חייבים להיות סודות שהוענקו לאוטומציה זו",
       "integrationNotFound": "האינטגרציה לא נמצאה או שאין לה פרטי התחברות",
       "webhookTriggerNotFound": "טריגר ה-webhook לא נמצא",
       "emailReceivedTriggerNotFound": "הטריגר EmailReceived לא נמצא",
@@ -1092,12 +1095,15 @@
       "apiKeyNotConfigured": "שירות גריפת הנתונים אינו מוגדר",
       "triggerFailed": "הפעלת גריפת הנתונים נכשלה: {{detail}}",
       "snapshotError": "שגיאה בתמונת המצב של גריפת הנתונים: {{detail}}",
-      "timeout": "פג הזמן הקצוב לגריפת הנתונים לאחר {{seconds}}s"
+      "timeout": "פג הזמן הקצוב לגריפת הנתונים לאחר {{seconds}}s",
+      "catalogFailed": "בקשת קטלוג הגריפה נכשלה: {{detail}}",
+      "discoverByOnCatalogDataset": "discoverBy חל רק על מזהי מערכי נתונים גולמיים, לא על {{datasetId}}"
     },
     "integration": {
       "oauthCodeExchangeFailed": "החלפת קוד ה-OAuth נכשלה: {{detail}}",
       "oauthTokenRefreshFailed": "רענון אסימון ה-OAuth נכשל: {{detail}}",
-      "userInfoFetchFailed": "קבלת פרטי המשתמש נכשלה: {{detail}}"
+      "userInfoFetchFailed": "קבלת פרטי המשתמש נכשלה: {{detail}}",
+      "providerUnsupported": "חיבורי {{provider}} אינם נתמכים עוד ולא ניתן להעניק אותם"
     },
     "space": {
       "notFound": "המרחב לא נמצא",
@@ -1138,6 +1144,22 @@
       "folderNotFound": "התיקייה לא נמצאה",
       "anchorNotFound": "פריט העוגן לא נמצא",
       "nameAlreadyExists": "השם כבר קיים"
+    },
+    "routine": {
+      "notFound": "רוטינה לא נמצאה",
+      "runNotFound": "הרצת הרוטינה לא נמצאה",
+      "configRequiredToActivate": "לא ניתן להפעיל רוטינה ללא תצורה שמורה",
+      "noFutureOccurrence": "ללוח הזמנים אין הופעה עתידית",
+      "onlyActiveCanDeactivate": "ניתן להשהות רק רוטינה פעילה",
+      "configRequiredToRun": "לא ניתן להריץ רוטינה ללא תצורה שמורה",
+      "runAlreadyInFlight": "כבר יש הרצה פעילה של רוטינה זו",
+      "invalidRunCursor": "מצביע רשימת הרצות לא תקין",
+      "invalidSchedule": "לוח הזמנים של הרוטינה אינו תקין: {{reason}}"
+    },
+    "chat": {
+      "notFound": "הצ'אט לא נמצא",
+      "accessDenied": "אין לך הרשאה לגשת לצ'אט הזה",
+      "serverAuthoredType": "צ'אטים מסוג {{type}} נוצרים על ידי השרת"
     },
     "dashboard": {
       "notFound": "לוח הבקרה לא נמצא"
@@ -1596,7 +1618,8 @@
       "titleIncrement": "הפעולה הזו מוסיפה {{increment}} שורות, מעבר למגבלת התוכנית שלך שהיא {{limit}}",
       "titleBatch": "הפעולה הזו תחרוג ממגבלת התוכנית שלך של {{limit}} שורות",
       "description": "לא ניתן להוסיף רשומות נוספות. שדרוג יסיר את המגבלה מיד, ואפשר גם לפנות מקום על ידי מחיקת רשומות.",
-      "unit": "שורות"
+      "unit": "שורות",
+      "constraint": "בתוכנית הנוכחית לא ניתן להוסיף עוד רשומות. פנו מקום על ידי מחיקת רשומות."
     },
     "credit": {
       "unit": "קרדיטים"
@@ -1606,6 +1629,12 @@
     },
     "generic": {
       "description": "שדרוג התוכנית יסיר את המגבלה הזו."
+    },
+    "neutral": {
+      "title": "הפעולה הזו חורגת ממגבלה של התוכנית הנוכחית של המרחב"
+    },
+    "seats": {
+      "unit": "מושבים"
     }
   }
 }

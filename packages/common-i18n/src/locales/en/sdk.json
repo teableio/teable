@@ -49,7 +49,8 @@
     "previewFileLimit": "Preview file size limit: {{size}}MB, please download to view instead.",
     "loadFileError": "Failed to load file",
     "previousAttachment": "Previous",
-    "nextAttachment": "Next"
+    "nextAttachment": "Next",
+    "deleteAttachment": "Delete"
   },
   "undoRedo": {
     "undo": "Undo",
@@ -437,6 +438,10 @@
       "automationDelete": "Delete automation",
       "automationRead": "Read automation",
       "automationUpdate": "Update automation",
+      "routineCreate": "Create routine",
+      "routineDelete": "Delete routine",
+      "routineRead": "Read routine",
+      "routineUpdate": "Update routine",
       "appCreate": "Create app",
       "appDelete": "Delete app",
       "appRead": "Read app",
@@ -459,6 +464,7 @@
     "field": "Field",
     "record": "Record",
     "automation": "Automation",
+    "routine": "Routine",
     "app": "App",
     "user": "User",
     "recordHistory": "Record history",
@@ -1078,6 +1084,8 @@
       "unsupportedCategory": "Unsupported category",
       "unknownConnectionType": "Unknown email connection type",
       "imapPasswordNotConfigured": "IMAP password not configured",
+      "secretNotGranted": "Secret {{alias}} is not granted to the automation",
+      "credentialMustBeSecret": "Credentials must be secrets granted to the automation",
       "integrationNotFound": "Integration not found or has no credentials",
       "webhookTriggerNotFound": "Webhook trigger not found",
       "emailReceivedTriggerNotFound": "EmailReceived trigger not found",
@@ -1089,12 +1097,15 @@
       "apiKeyNotConfigured": "Scrape service is not configured",
       "triggerFailed": "Scrape trigger failed: {{detail}}",
       "snapshotError": "Scrape snapshot error: {{detail}}",
-      "timeout": "Scrape timed out after {{seconds}}s"
+      "timeout": "Scrape timed out after {{seconds}}s",
+      "catalogFailed": "Scrape catalog request failed: {{detail}}",
+      "discoverByOnCatalogDataset": "discoverBy applies only to raw dataset ids, not to {{datasetId}}"
     },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
       "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
-      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}",
+      "providerUnsupported": "{{provider}} connections are no longer supported and cannot be granted"
     },
     "space": {
       "notFound": "Space not found",
@@ -1135,6 +1146,22 @@
       "folderNotFound": "Folder not found",
       "anchorNotFound": "Anchor node not found",
       "nameAlreadyExists": "Name already exists"
+    },
+    "routine": {
+      "notFound": "Routine not found",
+      "runNotFound": "Routine run not found",
+      "configRequiredToActivate": "Cannot activate a routine without a saved config",
+      "noFutureOccurrence": "The schedule has no future occurrence",
+      "onlyActiveCanDeactivate": "Only an active routine can be deactivated",
+      "configRequiredToRun": "Cannot run a routine without a saved config",
+      "runAlreadyInFlight": "A run of this routine is already in flight",
+      "invalidRunCursor": "Invalid run list cursor",
+      "invalidSchedule": "Invalid routine schedule: {{reason}}"
+    },
+    "chat": {
+      "notFound": "Chat not found",
+      "accessDenied": "You are not allowed to access this chat",
+      "serverAuthoredType": "Chats of type {{type}} are created by the server"
     },
     "dashboard": {
       "notFound": "Dashboard not found"
@@ -1340,7 +1367,10 @@
       "exceedMaxAutomationRunLimit": "Maximum automation run limit exceeded",
       "manualSubscriptionNotSupported": "Self-service subscription is not available for this space. For upgrades, downgrades, or other subscription changes, please contact Teable support.",
       "appSumoSubscriptionNotSupported": "AppSumo subscriptions cannot be modified through this interface. Please manage your subscription on AppSumo.",
-      "customerNotFound": "No billing customer record found for this space."
+      "planNotAvailable": "This plan option is no longer available for new subscriptions.",
+      "seatLimitExceeded": "Not enough purchased seats. Add seats to invite more collaborators.",
+      "customerNotFound": "No billing customer record found for this space.",
+      "creditAddOnRetired": "The recurring credit add-on has been retired. Choose a larger credit tier on your plan instead."
     },
     "aggregation": {
       "searchQueryRequired": "Search query is required",
@@ -1593,7 +1623,8 @@
       "titleIncrement": "This action adds {{increment}} rows, exceeding your plan limit of {{limit}}",
       "titleBatch": "This operation would exceed your plan limit of {{limit}} rows",
       "description": "You can't add more records. Upgrade to lift the limit instantly, or free up space by deleting records.",
-      "unit": "rows"
+      "unit": "rows",
+      "constraint": "No more records can be added on the current plan. Free up space by deleting records."
     },
     "credit": {
       "unit": "credits"
@@ -1603,6 +1634,12 @@
     },
     "generic": {
       "description": "Upgrade your plan to lift this limit."
+    },
+    "neutral": {
+      "title": "This action exceeds a limit of the space's current plan"
+    },
+    "seats": {
+      "unit": "seats"
     }
   }
 }

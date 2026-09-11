@@ -17,6 +17,7 @@ import {
 } from '@teable/v2-adapter-repository-postgres';
 import {
   registerV2TableOpsPostgresAdapter,
+  registerV2TableSearchAccessPathPostgresAdapter,
   type RegisterV2TableOpsPostgresAdapterOptions,
   type TableQueryObservationDatabase,
 } from '@teable/v2-adapter-table-query-ops-postgres';
@@ -196,7 +197,10 @@ const registerTableQueryOpsDependencies = async (
   // puts TableSearchVectorSchemaMaintenanceProjection into the global event registry
   // via @ProjectionHandler; without these registrations every Field* event fails DI.
   registerV2TableOps(c, tableQueryOps);
-  if (!tableQueryOps) return;
+  if (!tableQueryOps) {
+    registerV2TableSearchAccessPathPostgresAdapter(c, { metaDb, dataDb });
+    return;
+  }
 
   await registerV2TableOpsPostgresAdapter(c, {
     metaDb,

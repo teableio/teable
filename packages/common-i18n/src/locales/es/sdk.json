@@ -49,7 +49,8 @@
     "previewFileLimit": "Límite de tamaño para vista previa: {{size}}MB, por favor descarga para ver.",
     "loadFileError": "Error al cargar el archivo",
     "previousAttachment": "Anterior",
-    "nextAttachment": "Siguiente"
+    "nextAttachment": "Siguiente",
+    "deleteAttachment": "Eliminar"
   },
   "undoRedo": {
     "undo": "Deshacer",
@@ -440,6 +441,10 @@
       "automationDelete": "Eliminar la automatización",
       "automationRead": "Leer automatización",
       "automationUpdate": "Actualización de automatización",
+      "routineCreate": "Crear rutina",
+      "routineDelete": "Eliminar rutina",
+      "routineRead": "Leer rutina",
+      "routineUpdate": "Actualizar rutina",
       "appCreate": "Crear aplicación",
       "appDelete": "Eliminar aplicación",
       "appRead": "Leer aplicación",
@@ -462,6 +467,7 @@
     "field": "Campo",
     "record": "Registro",
     "automation": "Automatización",
+    "routine": "Rutina",
     "app": "Aplicación",
     "user": "Usuario",
     "recordHistory": "Historia récord",
@@ -1081,6 +1087,8 @@
       "unsupportedCategory": "Categoría no soportada",
       "unknownConnectionType": "Tipo de conexión de correo desconocido",
       "imapPasswordNotConfigured": "Contraseña IMAP no configurada",
+      "secretNotGranted": "El secreto {{alias}} no está concedido a la automatización",
+      "credentialMustBeSecret": "Las credenciales deben ser secretos concedidos a la automatización",
       "integrationNotFound": "Integración no encontrada o sin credenciales",
       "webhookTriggerNotFound": "Trigger de webhook no encontrado",
       "emailReceivedTriggerNotFound": "Trigger de recepción de correo no encontrado",
@@ -1092,12 +1100,15 @@
       "apiKeyNotConfigured": "El servicio de scraping no está configurado",
       "triggerFailed": "Error al activar el scraping: {{detail}}",
       "snapshotError": "Error de snapshot de scraping: {{detail}}",
-      "timeout": "Tiempo de espera de scraping agotado después de {{seconds}}s"
+      "timeout": "Tiempo de espera de scraping agotado después de {{seconds}}s",
+      "catalogFailed": "Error en la solicitud del catálogo de extracción: {{detail}}",
+      "discoverByOnCatalogDataset": "discoverBy solo se aplica a ids de dataset sin procesar, no a {{datasetId}}"
     },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
       "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
-      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}",
+      "providerUnsupported": "Las conexiones de {{provider}} ya no son compatibles y no se pueden conceder"
     },
     "space": {
       "notFound": "Espacio no encontrado",
@@ -1138,6 +1149,22 @@
       "folderNotFound": "Carpeta no encontrada",
       "anchorNotFound": "Nodo ancla no encontrado",
       "nameAlreadyExists": "El nombre ya existe"
+    },
+    "routine": {
+      "notFound": "Rutina no encontrada",
+      "runNotFound": "Ejecución de rutina no encontrada",
+      "configRequiredToActivate": "No se puede activar una rutina sin una configuración guardada",
+      "noFutureOccurrence": "La programación no tiene ninguna ocurrencia futura",
+      "onlyActiveCanDeactivate": "Solo se puede pausar una rutina activa",
+      "configRequiredToRun": "No se puede ejecutar una rutina sin una configuración guardada",
+      "runAlreadyInFlight": "Ya hay una ejecución en curso para esta rutina",
+      "invalidRunCursor": "Cursor de lista de ejecuciones no válido",
+      "invalidSchedule": "Programación de rutina no válida: {{reason}}"
+    },
+    "chat": {
+      "notFound": "Chat no encontrado",
+      "accessDenied": "No tienes permiso para acceder a este chat",
+      "serverAuthoredType": "Los chats de tipo {{type}} los crea el servidor"
     },
     "dashboard": {
       "notFound": "Panel de control no encontrado"
@@ -1343,7 +1370,10 @@
       "exceedMaxAutomationRunLimit": "Se alcanzó el máximo mensual de ejecuciones de automatización",
       "manualSubscriptionNotSupported": "La suscripción de autoservicio no está disponible para este espacio. Para actualizaciones, cambios de plan u otras modificaciones de suscripción, comuníquese con el soporte de Teable.",
       "appSumoSubscriptionNotSupported": "Las suscripciones de AppSumo no se pueden modificar a través de esta interfaz. Por favor, gestione su suscripción en AppSumo.",
-      "customerNotFound": "No se encontró registro de cliente de facturación para este espacio."
+      "planNotAvailable": "Este plan ya no está disponible para nuevas suscripciones.",
+      "seatLimitExceeded": "No hay suficientes asientos comprados. Añade asientos para invitar a más colaboradores.",
+      "customerNotFound": "No se encontró registro de cliente de facturación para este espacio.",
+      "creditAddOnRetired": "El complemento recurrente de créditos se ha retirado. Elige en su lugar un nivel de créditos mayor en tu plan."
     },
     "aggregation": {
       "searchQueryRequired": "Se requiere consulta de búsqueda",
@@ -1596,7 +1626,8 @@
       "titleIncrement": "Esta acción añade {{increment}} filas y supera el límite de {{limit}} de tu plan",
       "titleBatch": "Esta operación superaría el límite de {{limit}} filas de tu plan",
       "description": "No puedes añadir más registros. Mejora tu plan para eliminar el límite al instante o libera espacio eliminando registros.",
-      "unit": "filas"
+      "unit": "filas",
+      "constraint": "No se pueden añadir más registros con el plan actual. Libera espacio eliminando registros."
     },
     "credit": {
       "unit": "créditos"
@@ -1606,6 +1637,12 @@
     },
     "generic": {
       "description": "Mejora tu plan para eliminar este límite."
+    },
+    "neutral": {
+      "title": "Esta acción supera un límite del plan actual del espacio"
+    },
+    "seats": {
+      "unit": "plazas"
     }
   }
 }

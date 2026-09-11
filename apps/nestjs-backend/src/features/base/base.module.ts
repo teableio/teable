@@ -12,15 +12,14 @@ import { InvitationModule } from '../invitation/invitation.module';
 import { NotificationModule } from '../notification/notification.module';
 import { ComputedModule } from '../record/computed/computed.module';
 import { RecordModule } from '../record/record.module';
+import { SpaceDataDbCopyModule } from '../space/space-data-db-copy.module';
+import { SpaceDataDbMigrationGuardModule } from '../space/space-data-db-migration-guard.module';
 import { TableOpenApiModule } from '../table/open-api/table-open-api.module';
 import { TableDuplicateService } from '../table/table-duplicate.service';
 import { TableModule } from '../table/table.module';
 import { V2Module } from '../v2/v2.module';
 import { ViewOpenApiModule } from '../view/open-api/view-open-api.module';
-import { SpaceDataDbCopyModule } from '../space/space-data-db-copy.module';
-import { SpaceDataDbMigrationGuardModule } from '../space/space-data-db-migration-guard.module';
 import { BaseDataDbMoveService } from './base-data-db-move.service';
-import { BASE_META_MOVE_SERVICE } from './base-meta-move.service';
 import { BaseDuplicateV2Service } from './base-duplicate-v2.service';
 import { BaseDuplicateService } from './base-duplicate.service';
 import { BaseExportV2Service } from './base-export-v2.service';
@@ -29,6 +28,8 @@ import { BaseImportAttachmentsCsvModule } from './base-import-processor/base-imp
 import { BaseImportAttachmentsModule } from './base-import-processor/base-import-attachments.module';
 import { BaseImportCsvModule } from './base-import-processor/base-import-csv.module';
 import { BaseImportService } from './base-import.service';
+import { BASE_META_MOVE_SERVICE } from './base-meta-move.service';
+import { BasePersonalOrderService } from './base-personal-order.service';
 import { BaseQueryService } from './base-query/base-query.service';
 import { BaseController } from './base.controller';
 import { BaseService } from './base.service';
@@ -62,6 +63,7 @@ import { DbConnectionService } from './db-connection.service';
   providers: [
     DbProvider,
     BaseService,
+    BasePersonalOrderService,
     { provide: BASE_META_MOVE_SERVICE, useExisting: BaseService },
     BaseDataDbMoveService,
     BaseExportService,
@@ -75,6 +77,7 @@ import { DbConnectionService } from './db-connection.service';
   ],
   exports: [
     BaseService,
+    BasePersonalOrderService,
     BaseDataDbMoveService,
     DbConnectionService,
     BaseDuplicateService,

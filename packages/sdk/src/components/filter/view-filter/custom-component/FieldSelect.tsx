@@ -115,7 +115,7 @@ export const FieldSelect = <T extends IConditionItemProperty = IViewFilterCondit
         });
       }}
       value={value}
-      className={cn('shrink-0 w-[156px] h-8 gap-0 pe-1', inDrawer && 'w-auto min-w-[120px] flex-1')}
+      className={cn('h-8 w-36 shrink-0 gap-0 pe-1', inDrawer && 'w-auto min-w-[120px] flex-1')}
       popoverClassName="w-fit"
       drawerTitle={t('common.selectField')}
       optionRender={optionRender}

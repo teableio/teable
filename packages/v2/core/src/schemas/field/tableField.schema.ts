@@ -181,6 +181,7 @@ export const rollupConfigSchema = z
 
 export const lookupOptionsSchema = z
   .object({
+    isUnique: z.boolean().optional(),
     linkFieldId: z.string(),
     foreignTableId: z.string(),
     lookupFieldId: z.string(),
@@ -225,6 +226,7 @@ export const conditionalRollupOptionsSchema = z
 
 export const conditionalLookupOptionsSchema = z
   .object({
+    isUnique: z.boolean().optional(),
     baseId: optionalForeignBaseIdSchema,
     foreignTableId: z.string(),
     lookupFieldId: z.string(),

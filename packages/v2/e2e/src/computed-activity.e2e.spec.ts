@@ -13,7 +13,9 @@ import {
   type IComputedActivityReader,
   type IHasher,
 } from '@teable/v2-core';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { computedReliabilitySchemaSql } from '@teable/v2-postgres-schema';
+import { sql } from 'kysely';
+import { beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest';
 import {
   buildOutboxTaskInput,
   v2RecordRepositoryPostgresTokens,
@@ -287,6 +289,10 @@ describe('computed activity lifecycle (e2e)', () => {
     const reader = ctx.testContainer.container.resolve<IComputedActivityReader>(
       v2CoreTokens.computedActivityReader
     );
+    // Freeze only the clock; real database/network timers keep running.
+    let observedAt = Date.now();
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => observedAt);
+    onTestFinished(() => clock.mockRestore());
     const afterEnqueue = await reader.getByTableId(undefined, table.id);
     if (afterEnqueue.isErr()) throw new Error(afterEnqueue.error.message);
     expect(
@@ -303,6 +309,13 @@ describe('computed activity lifecycle (e2e)', () => {
       .where('task_id', '=', taskId)
       .execute();
 
+    // A healthy first read starts the cooldown. Losing the task does not bypass it.
+    observedAt += 14_999;
+    const duringCooldown = (await reader.getByTableId(undefined, table.id))._unsafeUnwrap();
+    expect(
+      duringCooldown.fields.find((field) => field.fieldId === formulaField.id)?.status
+    ).toMatch(/queued|running/);
+    observedAt += 1;
     // Read path must self-heal without requiring another outbox event.
     const afterHeal = await reader.getByTableId(undefined, table.id);
     if (afterHeal.isErr()) throw new Error(afterHeal.error.message);
@@ -324,6 +337,150 @@ describe('computed activity lifecycle (e2e)', () => {
     expect(
       httpBody.data.fields.find((field) => field.fieldId === formulaField.id)?.status ?? 'idle'
     ).toBe('idle');
+  });
+
+  it('returns available observation for idle activity with empty reliability ledger', async () => {
+    vi.stubEnv('COMPUTED_RELIABILITY_ENABLED', 'true');
+    vi.stubEnv('COMPUTED_RELIABILITY_UI_ENABLED', 'true');
+    try {
+      for (const statement of computedReliabilitySchemaSql
+        .split(';')
+        .filter((item) => item.trim())) {
+        await sql.raw(statement).execute(ctx.testContainer.db);
+      }
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `computed activity idle reliability ${Date.now()}`,
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      });
+      const nameField = table.fields.find((field) => field.isPrimary);
+      if (!nameField) throw new Error('missing primary field');
+      const now = new Date();
+      await ctx.testContainer.db
+        .insertInto('computed_table_activity')
+        .values({
+          table_id: table.id,
+          base_id: ctx.baseId,
+          status: 'idle',
+          calculating_field_count: 0,
+          queued_field_count: 0,
+          estimated_complexity: 0,
+          recent_completions: JSON.stringify([]),
+          generation: 1,
+          updated_at: now,
+        } as never)
+        .execute();
+      await ctx.testContainer.db
+        .insertInto('computed_field_activity')
+        .values({
+          field_id: nameField.id,
+          table_id: table.id,
+          base_id: ctx.baseId,
+          status: 'idle',
+          active_task_count: 0,
+          processing_task_count: 0,
+          generation: 1,
+          estimated_complexity: 0,
+          estimated_dirty_records: 0,
+          has_all_target_records: false,
+          queued_at: null,
+          started_at: null,
+          last_completed_at: null,
+          last_duration_ms: null,
+          last_error: null,
+          extensions: JSON.stringify({
+            reliability: {
+              scopeComplete: true,
+              unresolvedCount: 0,
+              oldestUnresolvedAt: null,
+            },
+          }),
+          updated_at: now,
+        } as never)
+        .execute();
+
+      const httpRes = await fetch(
+        `${ctx.baseUrl}/tables/getComputeActivity?baseId=${ctx.baseId}&tableId=${table.id}`,
+        { method: 'GET' }
+      );
+      expect(httpRes.status).toBe(200);
+      const httpBody = getComputeActivityOkResponseSchema.parse(await httpRes.json());
+      expect(httpBody.ok).toBe(true);
+      expect(httpBody.data.observationState).toBe('available');
+      expect(httpBody.data.diagnostics.activeFieldCount).toBe(0);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('keeps idle observation available when another table has queued activity', async () => {
+    const tableIds: string[] = [];
+    onTestFinished(async () => {
+      await ctx.testContainer.db
+        .deleteFrom('computed_field_activity')
+        .where('table_id', 'in', tableIds)
+        .execute();
+      await ctx.testContainer.db
+        .deleteFrom('computed_table_activity')
+        .where('table_id', 'in', tableIds)
+        .execute();
+    });
+
+    // Preserve the observed isolation boundary: an idle projection and unrelated queued work.
+    for (const status of ['idle', 'queued'] as const) {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `activity isolation ${status}`,
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      });
+      tableIds.push(table.id);
+      const field = table.fields.find((candidate) => candidate.isPrimary);
+      if (!field) throw new Error('missing primary field');
+      const activeTaskCount = status === 'queued' ? 1 : 0;
+      const now = new Date();
+      await ctx.testContainer.db
+        .insertInto('computed_table_activity')
+        .values({
+          table_id: table.id,
+          base_id: ctx.baseId,
+          status: activeTaskCount ? 'calculating' : 'idle',
+          calculating_field_count: 0,
+          queued_field_count: activeTaskCount,
+          estimated_complexity: 0,
+          recent_completions: JSON.stringify([]),
+          generation: 1,
+          updated_at: now,
+        })
+        .execute();
+      await ctx.testContainer.db
+        .insertInto('computed_field_activity')
+        .values({
+          field_id: field.id,
+          table_id: table.id,
+          base_id: ctx.baseId,
+          status,
+          active_task_count: activeTaskCount,
+          processing_task_count: 0,
+          generation: 1,
+          estimated_complexity: 0,
+          estimated_dirty_records: 0,
+          has_all_target_records: false,
+          last_duration_ms: null,
+          last_error: null,
+          extensions: null,
+          updated_at: now,
+        })
+        .execute();
+    }
+
+    const response = await fetch(
+      `${ctx.baseUrl}/tables/getComputeActivity?baseId=${ctx.baseId}&tableId=${tableIds[0]}`
+    );
+    expect(response.status).toBe(200);
+    const body = getComputeActivityOkResponseSchema.parse(await response.json());
+    expect(body.data.table?.status).toBe('idle');
+    expect(body.data.diagnostics.activeFieldCount).toBe(0);
+    expect(body.data.observationState).toBe('available');
   });
 
   it('projects computed targets discovered while processing a seed task', async () => {

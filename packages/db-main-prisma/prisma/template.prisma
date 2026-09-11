@@ -232,6 +232,7 @@ model Base {
   space            Space       @relation(fields: [spaceId], references: [id])
   tables           TableMeta[]
   dataDbMoveJobs   BaseDataDbMoveJob[]
+  userOrders       UserBaseOrder[]
 
   @@index([order])
   @@index([spaceId])
@@ -246,6 +247,7 @@ model TableMeta {
   icon              String?
   dbTableName       String              @map("db_table_name")
   dbViewName        String?             @map("db_view_name")
+  searchIndex       Json?               @map("search_index") @db.JsonB
   provisionState    ProvisionState      @default(ready) @map("provision_state")
   version           Int
   order             Float
@@ -417,6 +419,18 @@ model ComputedUpdateOutboxSeed {
   @@map("computed_update_outbox_seed")
 }
 
+/// Actual output-value evidence; independent from continuation progress.
+model ComputedUpdateChangeFrontier {
+  scopeId  String @map("scope_id")
+  kind     String
+  tableId  String @map("table_id")
+  recordId String @map("record_id")
+  fieldId  String @map("field_id")
+
+  @@id([scopeId, kind, tableId, recordId, fieldId])
+  @@map("computed_update_change_frontier")
+}
+
 /// Durable per-stage state for budget-staged computed updates, keyed by the
 /// continuation chain's root task id (its scope). Rows are written once per
 /// record and never copied between continuation tasks:
@@ -528,6 +542,7 @@ model ComputedUpdatePauseScope {
   pausedBy  String?   @map("paused_by")
   resumeAt  DateTime? @map("resume_at")
   reason    String?
+  writePolicy String  @default("allow_bounded") @map("write_policy")
   updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
   updatedBy String?   @map("updated_by")
 
@@ -669,7 +684,8 @@ model User {
   permanentDeletedTime DateTime? @map("permanent_deleted_time")
   refMeta              String?   @map("ref_meta")
 
-  accounts Account[]
+  accounts   Account[]
+  baseOrders UserBaseOrder[]
 
   @@map("users")
 }
@@ -1106,6 +1122,27 @@ model UserLastVisit {
   @@unique([userId, resourceType, resourceId])
   @@index([userId, resourceType, parentResourceId])
   @@map("user_last_visit")
+}
+
+// One user's own arrangement of the bases they can see (the agent-first mobile home groups
+// chats by base, so the order must be stable per person). Rows exist only once the user has
+// rearranged a space; until then the list falls back to last-visit recency. Real foreign
+// keys keep it consistent: a purged base or user takes its rows along.
+model UserBaseOrder {
+  id               String    @id @default(cuid())
+  userId           String    @map("user_id")
+  baseId           String    @map("base_id")
+  order            Float
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  base Base @relation(fields: [baseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, baseId])
+  @@index([userId, order])
+  @@index([baseId])
+  @@map("user_base_order")
 }
 
 model Template {

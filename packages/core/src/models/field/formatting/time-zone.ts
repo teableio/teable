@@ -5,6 +5,12 @@ import { z } from '../../../zod';
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
+/** Human-readable UTC offset of an IANA zone, e.g. `UTC+8` — for picker labels. */
+export const getUTCOffset = (timeZone: string): string => {
+  const offsetHours = dayjs().tz(timeZone).utcOffset() / 60;
+  return offsetHours >= 0 ? `UTC+${offsetHours}` : `UTC${offsetHours}`;
+};
+
 export const TIME_ZONE_LIST = [
   'UTC',
   'Africa/Abidjan',

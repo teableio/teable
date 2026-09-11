@@ -22,6 +22,7 @@ module.exports = {
     'main',
     'tailwind.shadcnui.config.js',
     'public/streamsaver',
+    'public/mobile-sw.js',
   ],
   extends: [
     '@teable/eslint-config-bases/typescript',

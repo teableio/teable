@@ -15,7 +15,7 @@ import { authMiddleware } from './auth.middleware';
 import type { IRawOpMap } from './interface';
 import { RealtimeMetricsService } from './metrics/realtime-metrics.service';
 import { RepairAttachmentOpService } from './repair-attachment-op/repair-attachment-op.service';
-import { ShareDbAdapter, type ComputedActivitySnapshotLoader } from './share-db.adapter';
+import { ShareDbAdapter } from './share-db.adapter';
 import { RedisPubSub } from './sharedb-redis.pubsub';
 
 const v2ProjectionOpSourcePrefix = '@@v2-projection:';
@@ -113,10 +113,6 @@ export class ShareDbService extends ShareDBClass {
 
   getConnection() {
     return this.connect();
-  }
-
-  setComputedActivitySnapshotLoader(loader: ComputedActivitySnapshotLoader): void {
-    this.shareDbAdapter.setComputedActivitySnapshotLoader(loader);
   }
 
   @Timing()

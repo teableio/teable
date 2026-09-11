@@ -46,6 +46,9 @@ const useCurrentNodeFromRoute = () => {
       case BaseNodeResourceType.Workflow:
         resourceId = baseResource.workflowId;
         break;
+      case BaseNodeResourceType.Routine:
+        resourceId = baseResource.routineId;
+        break;
       case BaseNodeResourceType.App:
         resourceId = baseResource.appId;
         break;

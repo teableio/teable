@@ -14,11 +14,11 @@ import {
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
-import { usePublicSettingQuery } from '@/features/app/hooks/useSetting';
-import { TableImport } from '../../import-table';
+import { useAvailableIntegrationProviders } from '@/features/app/hooks/useSetting';
+import { TableImport } from '@overridable/TableImport';
 import { AirtableImportDialog } from '../../space/component/airtable-import';
 import { GoogleSheetImportDialog } from '../../space/component/google-sheet-import';
-import { useDefaultFields } from '../../table-list/useAddTable';
+import { DEFAULT_EMPTY_RECORDS, useDefaultFields } from '../../table-list/useAddTable';
 import { BaseNodeResourceIconMap, ROOT_ID } from '../base-node/hooks';
 
 interface BaseNodeAddResourceButtonProps {
@@ -27,6 +27,7 @@ interface BaseNodeAddResourceButtonProps {
   canCreateTable?: boolean;
   canCreateDashboard?: boolean;
   canCreateWorkflow?: boolean;
+  canCreateRoutine?: boolean;
   canCreateApp?: boolean;
   createNode: (params: ICreateBaseNodeRo) => Promise<void>;
   children: React.ReactNode;
@@ -41,6 +42,7 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
     canCreateTable,
     canCreateDashboard,
     canCreateWorkflow,
+    canCreateRoutine,
     canCreateApp,
   } = props;
   const { t } = useTranslation(['table', 'common']);
@@ -55,11 +57,11 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
   const fieldRos = useDefaultFields();
   const tables = useTables();
   const base = useBase();
-  const { data: publicSetting } = usePublicSettingQuery();
-  const airtableImportEnabled = !!publicSetting?.availableIntegrationProviders?.includes(
+  const availableIntegrationProviders = useAvailableIntegrationProviders();
+  const airtableImportEnabled = availableIntegrationProviders.includes(
     UserIntegrationProvider.Airtable
   );
-  const googleSheetImportEnabled = !!publicSetting?.availableIntegrationProviders?.includes(
+  const googleSheetImportEnabled = availableIntegrationProviders.includes(
     UserIntegrationProvider.GoogleSheet
   );
   const [airtableOpen, setAirtableOpen] = useState(false);
@@ -77,6 +79,7 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
               parentId,
               fields: fieldRos,
               views: [{ name: t('view.category.table'), type: ViewType.Grid }],
+              records: DEFAULT_EMPTY_RECORDS,
               name: getUniqName(
                 t('table:table.newTableLabel'),
                 tables.map((table) => table.name)
@@ -98,6 +101,7 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
     const list: Array<{
       resourceType:
         | BaseNodeResourceType.Workflow
+        | BaseNodeResourceType.Routine
         | BaseNodeResourceType.App
         | BaseNodeResourceType.Dashboard
         | BaseNodeResourceType.Folder;
@@ -110,6 +114,12 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
         resourceType: BaseNodeResourceType.Workflow,
         label: t('common:noun.newAutomation'),
         trailingIcon: <Slack className="size-4" />,
+      });
+    }
+    if (canCreateRoutine) {
+      list.push({
+        resourceType: BaseNodeResourceType.Routine,
+        label: t('common:noun.newRoutine'),
       });
     }
     if (canCreateApp) {

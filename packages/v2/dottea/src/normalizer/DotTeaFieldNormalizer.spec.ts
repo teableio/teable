@@ -473,3 +473,38 @@ describe('DotTeaFieldNormalizer', () => {
     expect(normalized.type).toBe('singleLineText');
   });
 });
+
+describe('lookup unique values imports', () => {
+  it.each([true, false])(
+    'preserves isUnique=%s for regular and conditional lookup exports',
+    (isUnique) => {
+      for (const isConditionalLookup of [false, true]) {
+        const normalized = normalizeField(
+          {
+            id: `fld${'u'.repeat(16)}`,
+            name: 'Values',
+            type: 'singleLineText',
+            isLookup: true,
+            isConditionalLookup,
+            lookupOptions: {
+              foreignTableId: `tbl${'f'.repeat(16)}`,
+              lookupFieldId: `fld${'v'.repeat(16)}`,
+              ...(isConditionalLookup
+                ? {
+                    filter: {
+                      conjunction: 'and',
+                      filterSet: [{ fieldId: `fld${'v'.repeat(16)}`, operator: 'isNotEmpty' }],
+                    },
+                  }
+                : { linkFieldId: `fld${'l'.repeat(16)}` }),
+              isUnique,
+            },
+          },
+          new Map([[`fld${'l'.repeat(16)}`, 'link']])
+        );
+        expect(normalized.type).toBe(isConditionalLookup ? 'conditionalLookup' : 'lookup');
+        expect(normalized.options).toMatchObject({ isUnique });
+      }
+    }
+  );
+});

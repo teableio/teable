@@ -11,6 +11,7 @@ import {
   updateTableDescription,
   updateTableIcon,
   updateTableName,
+  createTable as apiCreateTable,
   deleteTable as apiDeleteTable,
 } from '@teable/openapi';
 import { v2RecordRepositoryPostgresTokens } from '@teable/v2-adapter-table-repository-postgres';
@@ -273,11 +274,13 @@ describe('OpenAPI TableController (e2e)', () => {
   });
 
   it('/api/table/ (POST) empty', async () => {
-    const result = await createTable(baseId, { name: 'new table' });
+    // Use the raw API client: the API no longer seeds default records when the
+    // payload omits records (T6947) — the 3-empty-row default is a UI concern.
+    const result = (await apiCreateTable(baseId, { name: 'new table' })).data;
 
     tableId = result.id;
     const recordResult = await getRecords(tableId);
-    expect(recordResult.records).toHaveLength(3);
+    expect(recordResult.records).toHaveLength(0);
   });
 
   it('should invalidate base-node tree cache after table creation', async () => {

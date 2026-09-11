@@ -30,6 +30,7 @@ const pauseScope = (
   pausedBy: 'ops',
   resumeAt: new Date('2026-08-02T07:00:00.000Z'),
   reason: 'maintenance',
+  writePolicy: 'allow_bounded',
   updatedAt: new Date('2026-08-02T06:00:00.000Z'),
   updatedBy: 'ops',
   active: true,
@@ -69,7 +70,9 @@ const registryStub = (): IComputedUpdatePauseRegistry => ({
   pauseScope: vi.fn(),
   resumeScope: vi.fn(),
   releaseLease: vi.fn(),
+  extendLease: vi.fn(),
   listScopes: vi.fn(),
+  admitComputedWrite: vi.fn(),
 });
 
 describe('ComputedTaskControlLive resume', () => {

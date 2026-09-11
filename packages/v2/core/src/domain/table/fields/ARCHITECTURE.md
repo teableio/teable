@@ -25,6 +25,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `FieldId.ts` - Role: value object; Purpose: FieldId validation and generation.
 - `FieldName.ts` - Role: value object; Purpose: FieldName validation and wrapping.
 - `FieldType.ts` - Role: value object; Purpose: field type enumeration wrapper.
+- `FieldVersion.ts` - Role: value object; Purpose: enforce non-negative optimistic Field versions.
 - `ForeignTableRelatedField.ts` - Role: interface + helper; Purpose: validate cross-table references in field types.
 - `ForeignTableValidation.spec.ts` - Role: tests; Purpose: cover rollup foreign table validation.
 - `specs/ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe field specifications.

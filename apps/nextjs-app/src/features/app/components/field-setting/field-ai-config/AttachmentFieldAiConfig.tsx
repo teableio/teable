@@ -9,6 +9,8 @@ import { ImageGeneration, Pencil } from '@teable/icons';
 import {
   getAIConfig,
   getImageModelConfigByModelKey,
+  getImageQualityCandidates,
+  getSupportedImageResolution,
   isPromptControlledImageGenerationModel,
   supportsImageAspectRatioSelection,
   supportsImageSizeSelection,
@@ -71,8 +73,23 @@ export const sanitizeAttachmentAiConfigForModel = (
 
   if (nextIsPromptControlledModel) {
     delete nextAiConfig.size;
-  } else {
+  }
+
+  if (
+    !getSupportedImageResolution(
+      nextModelConfig,
+      nextAiConfig.resolution as IAttachmentFieldGenerateImageAIConfig['resolution']
+    )
+  ) {
     delete nextAiConfig.resolution;
+  }
+
+  if (
+    !getImageQualityCandidates(nextModelConfig).includes(
+      nextAiConfig.quality as NonNullable<IAttachmentFieldGenerateImageAIConfig['quality']>
+    )
+  ) {
+    delete nextAiConfig.quality;
   }
 
   return nextAiConfig as IAttachmentFieldAIConfig;
@@ -120,6 +137,8 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
     hasAdvancedOptions,
     imageSizeValues,
     aspectRatioValues,
+    resolutionValues,
+    qualityValues,
     currentSize,
     currentQuality,
     currentCount,
@@ -317,6 +336,8 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
               supportsCount={supportsCount}
               imageSizeValues={imageSizeValues}
               aspectRatioValues={aspectRatioValues}
+              resolutionValues={resolutionValues}
+              qualityValues={qualityValues}
               currentSize={currentSize}
               currentQuality={currentQuality}
               currentAspectRatio={currentAspectRatio}

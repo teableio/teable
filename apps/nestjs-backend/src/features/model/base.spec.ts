@@ -5,7 +5,8 @@ describe('BaseModel', () => {
   const buildModel = (rows: Array<{ id?: string; spaceId: string }>) => {
     const findUnique = vi.fn().mockResolvedValue(rows[0] ?? null);
     const findMany = vi.fn().mockResolvedValue(rows);
-    const prismaService = { base: { findUnique, findMany } } as unknown as PrismaService;
+    const tx = { base: { findUnique, findMany } };
+    const prismaService = { txClient: () => tx } as unknown as PrismaService;
     return { model: new BaseModel(prismaService), findUnique, findMany };
   };
 

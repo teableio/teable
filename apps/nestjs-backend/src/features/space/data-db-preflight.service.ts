@@ -52,6 +52,7 @@ const DATA_PLANE_TABLES = [
   'computed_update_run_history',
   'computed_update_pause_scope',
   'computed_update_stage_ledger',
+  'computed_update_change_frontier',
   'computed_field_activity',
   'computed_table_activity',
   'computed_task_field_ref',
@@ -64,10 +65,15 @@ const DATA_PLANE_TABLES = [
   'attachments_table',
 ];
 
+// Additive migrations may be entirely absent on an otherwise complete older data DB.
+// A partially applied group is still incompatible and must be repaired before adoption.
+const ADDITIVE_DATA_PLANE_TABLES = ['computed_reliability_issue', 'computed_reliability_scope'];
+
 const DATA_SCHEMA_MIGRATION_TABLE = '__teable_data_schema_migrations';
 const DATA_PLANE_FUNCTIONS = ['__teable_capture_undo_row'];
 const ALLOWED_INTERNAL_TABLES = new Set([
   ...DATA_PLANE_TABLES,
+  ...ADDITIVE_DATA_PLANE_TABLES,
   DATA_SCHEMA_MIGRATION_TABLE,
   '_prisma_migrations',
 ]);
@@ -818,7 +824,13 @@ export class DataDbPreflightService {
     );
     const managedTables = internalTables.filter((table) => DATA_PLANE_TABLES.includes(table));
     const managedFunctions = functions.filter((name) => DATA_PLANE_FUNCTIONS.includes(name));
-    const hasManagedObjects = managedTables.length > 0 || managedFunctions.length > 0;
+    const additiveTables = internalTables.filter((table) =>
+      ADDITIVE_DATA_PLANE_TABLES.includes(table)
+    );
+    const hasManagedObjects =
+      managedTables.length > 0 || managedFunctions.length > 0 || additiveTables.length > 0;
+    const hasCompleteAdditiveGroup =
+      additiveTables.length === 0 || additiveTables.length === ADDITIVE_DATA_PLANE_TABLES.length;
     const hasAllBaselineObjects =
       DATA_PLANE_TABLES.every((table) => managedTables.includes(table)) &&
       DATA_PLANE_FUNCTIONS.every((func) => managedFunctions.includes(func));
@@ -836,7 +848,7 @@ export class DataDbPreflightService {
       return 'non-empty-unknown';
     }
 
-    if (hasAllBaselineObjects) {
+    if (hasAllBaselineObjects && hasCompleteAdditiveGroup) {
       return 'teable-managed-compatible';
     }
 

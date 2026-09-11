@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
 import { AttachmentField } from '../types/AttachmentField';
+import { AutoNumberField } from '../types/AutoNumberField';
 import { CellValueMultiplicity } from '../types/CellValueMultiplicity';
 import { CellValueType } from '../types/CellValueType';
 import { CheckboxField } from '../types/CheckboxField';
@@ -37,6 +38,28 @@ describe('SearchDocumentFieldContributionVisitor', () => {
   const visitor = new SearchDocumentFieldContributionVisitor();
 
   it.each([
+    {
+      name: 'generated auto number dependency',
+      field: AutoNumberField.create({
+        id: fieldId('fld0000000000000019'),
+        name: fieldName('Auto number'),
+      })._unsafeUnwrap(),
+      expected: { included: false, skippedReason: 'generated_column_dependency' },
+    },
+    {
+      name: 'multiple numeric lookup with canonical rounded projection',
+      field: LookupField.create({
+        id: fieldId('fld0000000000000020'),
+        name: fieldName('Amounts'),
+        innerField: NumberField.create({
+          id: fieldId('fld0000000000000021'),
+          name: fieldName('Amount'),
+        })._unsafeUnwrap(),
+        lookupOptions: sampleLookupOptions,
+        isMultipleCellValue: true,
+      })._unsafeUnwrap(),
+      expected: { included: true, textProjection: { kind: 'rounded_number_list', precision: 2 } },
+    },
     {
       name: 'single line text',
       field: SingleLineTextField.create({
@@ -86,7 +109,7 @@ describe('SearchDocumentFieldContributionVisitor', () => {
         id: fieldId('fld0000000000000003'),
         name: fieldName('Amount'),
       })._unsafeUnwrap(),
-      expected: { included: false, skippedReason: 'unsupported_search_field_type' },
+      expected: { included: true, textProjection: { kind: 'rounded_number', precision: 2 } },
     },
     {
       name: 'rating',
@@ -94,7 +117,7 @@ describe('SearchDocumentFieldContributionVisitor', () => {
         id: fieldId('fld0000000000000013'),
         name: fieldName('Score'),
       })._unsafeUnwrap(),
-      expected: { included: false, skippedReason: 'unsupported_search_field_type' },
+      expected: { included: true, textProjection: { kind: 'rounded_number', precision: 0 } },
     },
     {
       name: 'number formula',
@@ -107,7 +130,7 @@ describe('SearchDocumentFieldContributionVisitor', () => {
           isMultipleCellValue: CellValueMultiplicity.single(),
         },
       })._unsafeUnwrap(),
-      expected: { included: false, skippedReason: 'unsupported_search_field_type' },
+      expected: { included: true, textProjection: { kind: 'rounded_number', precision: 0 } },
     },
     {
       name: 'single select',
@@ -116,7 +139,7 @@ describe('SearchDocumentFieldContributionVisitor', () => {
         name: fieldName('Status'),
         options: [SelectOption.create({ name: 'Open', color: 'blue' })._unsafeUnwrap()],
       })._unsafeUnwrap(),
-      expected: { included: false, skippedReason: 'unsupported_search_field_type' },
+      expected: { included: true, textProjection: { kind: 'plain' } },
     },
     {
       name: 'checkbox',
@@ -140,7 +163,7 @@ describe('SearchDocumentFieldContributionVisitor', () => {
         id: fieldId('fld0000000000000006'),
         name: fieldName('Owner'),
       })._unsafeUnwrap(),
-      expected: { included: false, skippedReason: 'unsupported_search_field_type' },
+      expected: { included: true, textProjection: { kind: 'structured_title' } },
     },
     {
       name: 'multiple user',
@@ -149,7 +172,7 @@ describe('SearchDocumentFieldContributionVisitor', () => {
         name: fieldName('Collaborators'),
         isMultiple: UserMultiplicity.multiple(),
       })._unsafeUnwrap(),
-      expected: { included: false, skippedReason: 'unsupported_search_field_type' },
+      expected: { included: true, textProjection: { kind: 'structured_title_list' } },
     },
     {
       name: 'multiple select',
@@ -158,7 +181,7 @@ describe('SearchDocumentFieldContributionVisitor', () => {
         name: fieldName('Tags'),
         options: [SelectOption.create({ name: 'Alpha', color: 'blue' })._unsafeUnwrap()],
       })._unsafeUnwrap(),
-      expected: { included: false, skippedReason: 'unsupported_search_field_type' },
+      expected: { included: true, textProjection: { kind: 'plain_list' } },
     },
     {
       name: 'attachment',
@@ -166,7 +189,7 @@ describe('SearchDocumentFieldContributionVisitor', () => {
         id: fieldId('fld0000000000000009'),
         name: fieldName('Files'),
       })._unsafeUnwrap(),
-      expected: { included: false, skippedReason: 'unsupported_search_field_type' },
+      expected: { included: true, textProjection: { kind: 'structured_title_list' } },
     },
     {
       name: 'attachment lookup',
@@ -179,7 +202,7 @@ describe('SearchDocumentFieldContributionVisitor', () => {
         })._unsafeUnwrap(),
         lookupOptions: sampleLookupOptions,
       })._unsafeUnwrap(),
-      expected: { included: false, skippedReason: 'unsupported_search_field_type' },
+      expected: { included: true, textProjection: { kind: 'structured_title_list' } },
     },
     {
       name: 'link',
@@ -193,7 +216,7 @@ describe('SearchDocumentFieldContributionVisitor', () => {
           isOneWay: true,
         })._unsafeUnwrap(),
       })._unsafeUnwrap(),
-      expected: { included: false, skippedReason: 'unsupported_search_field_type' },
+      expected: { included: true, textProjection: { kind: 'structured_title_list' } },
     },
   ])('$name has an explicit contribution decision', ({ field, expected }) => {
     const result = field.accept(visitor)._unsafeUnwrap();

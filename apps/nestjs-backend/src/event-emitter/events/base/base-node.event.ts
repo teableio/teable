@@ -4,6 +4,7 @@ import { AppEventFactory } from '../app/app.event';
 import type { IEventContext } from '../core-event';
 import { DashboardEventFactory } from '../dashboard/dashboard.event';
 import { Events } from '../event.enum';
+import { RoutineEventFactory } from '../routine/routine.event';
 import { WorkflowEventFactory } from '../workflow/workflow.event';
 import { BaseFolderEventFactory } from './folder/base.folder.event';
 
@@ -71,6 +72,18 @@ export class BaseNodeEventFactory {
               },
               context
             );
+          case BaseNodeResourceType.Routine:
+            return RoutineEventFactory.create(
+              Events.ROUTINE_CREATE,
+              {
+                baseId,
+                routine: {
+                  id: resourceId,
+                  ...resourceMeta,
+                },
+              },
+              context
+            );
 
           default:
             return null;
@@ -128,6 +141,18 @@ export class BaseNodeEventFactory {
               },
               context
             );
+          case BaseNodeResourceType.Routine:
+            return RoutineEventFactory.create(
+              Events.ROUTINE_UPDATE,
+              {
+                baseId,
+                routine: {
+                  id: resourceId,
+                  ...resourceMeta,
+                },
+              },
+              context
+            );
 
           default:
             return null;
@@ -159,6 +184,12 @@ export class BaseNodeEventFactory {
             return AppEventFactory.create(
               Events.APP_DELETE,
               { baseId, appId: resourceId, permanent },
+              context
+            );
+          case BaseNodeResourceType.Routine:
+            return RoutineEventFactory.create(
+              Events.ROUTINE_DELETE,
+              { baseId, routineId: resourceId, permanent },
               context
             );
           default:

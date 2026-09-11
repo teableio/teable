@@ -49,6 +49,7 @@ import { TableOpenApiV2Service } from '../table/open-api/table-open-api-v2.servi
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
 import { prepareCreateTableRo } from '../table/open-api/table.pipe.helper';
 import { TableDuplicateService } from '../table/table-duplicate.service';
+import { buildBaseNodeUrl } from './base-node-url.helper';
 import { BaseNodeFolderService } from './folder/base-node-folder.service';
 import { buildBatchUpdateSql, presenceHandler } from './helper';
 
@@ -269,26 +270,11 @@ export class BaseNodeService {
     resourceId: string,
     resourceMeta?: IBaseNodeResourceMeta
   ): string {
-    switch (resourceType) {
-      case BaseNodeResourceType.Table: {
-        const tableMeta = resourceMeta as IBaseNodeTableResourceMeta | undefined;
-        const viewId = tableMeta?.defaultViewId;
-        if (viewId) {
-          return `/base/${baseId}/table/${resourceId}/${viewId}`;
-        }
-        return `/base/${baseId}/table/${resourceId}`;
-      }
-      case BaseNodeResourceType.Dashboard:
-        return `/base/${baseId}/dashboard/${resourceId}`;
-      case BaseNodeResourceType.Workflow:
-        return `/base/${baseId}/automation/${resourceId}`;
-      case BaseNodeResourceType.App:
-        return `/base/${baseId}/app/${resourceId}`;
-      case BaseNodeResourceType.Folder:
-        return `/base/${baseId}`;
-      default:
-        return `/base/${baseId}`;
-    }
+    const viewId =
+      resourceType === BaseNodeResourceType.Table
+        ? (resourceMeta as IBaseNodeTableResourceMeta | undefined)?.defaultViewId
+        : undefined;
+    return buildBaseNodeUrl(baseId, resourceType, resourceId, viewId) ?? `/base/${baseId}`;
   }
 
   private async entry2vo(

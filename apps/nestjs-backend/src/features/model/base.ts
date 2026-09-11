@@ -34,7 +34,7 @@ export class BaseModel {
   async getSpaceIdByBaseId(baseId: string, options?: IBaseResolveOptions): Promise<string>;
   async getSpaceIdByBaseId(baseId: string, options: IBaseResolveOptions = {}) {
     const { shouldThrow = true } = options;
-    const base = await this.prismaService.base.findUnique({
+    const base = await this.prismaService.txClient().base.findUnique({
       where: { id: baseId, ...deletedTimeFilter(options) },
       select: { spaceId: true },
     });
@@ -52,7 +52,7 @@ export class BaseModel {
     options: IBaseResolveOptions = {}
   ): Promise<Map<string, string>> {
     if (!baseIds.length) return new Map();
-    const bases = await this.prismaService.base.findMany({
+    const bases = await this.prismaService.txClient().base.findMany({
       where: { id: { in: baseIds }, ...deletedTimeFilter(options) },
       select: { id: true, spaceId: true },
     });

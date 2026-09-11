@@ -1,3 +1,4 @@
+import type { IImageResolution, ImageQuality } from '@teable/core';
 import type {
   IAspectRatio,
   IImageAspectRatioRange,
@@ -21,6 +22,8 @@ export interface IImageModelConfig {
   supportedSizes?: IImageSize[];
   /** Supported aspect ratios (if sizeType is 'aspectRatio' or 'both') */
   supportedAspectRatios?: IAspectRatio[];
+  /** Resolution tiers exposed by the product for this model */
+  supportedResolutions?: IImageResolution[];
   /** Whether the provider supports automatic aspect ratio selection */
   supportsAutoAspectRatio?: boolean;
   /** Whether the provider supports automatic size selection by omitting size */
@@ -37,12 +40,16 @@ export interface IImageModelConfig {
   maxImagesPerCall?: number;
   /** Whether the model supports quality parameter */
   supportsQuality?: boolean;
+  /** Subset of the product's quality levels supported by this model */
+  supportedQualities?: ImageQuality[];
   /** Whether the model supports style parameter */
   supportsStyle?: boolean;
   /** Whether the model supports seed parameter */
   supportsSeed?: boolean;
   /** Model type: 'image' for pure image models, 'language' for multimodal LLMs */
   modelType: 'image' | 'language';
+  /** Known output MIME type when the SDK cannot identify the format */
+  outputMediaType?: string;
   /** Tags for additional capabilities */
   tags?: string[];
   /** Additional notes */

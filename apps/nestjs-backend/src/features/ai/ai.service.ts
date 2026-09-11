@@ -90,6 +90,15 @@ export class AiService {
     );
   }
 
+  /**
+   * Whether the API key behind this model belongs to the platform rather than
+   * the customer: Cloud instance models. Self-hosted instance models run on
+   * the admin's own keys.
+   */
+  public isPlatformManagedModel(modelKey: string, llmProviders: LLMProvider[] = []): boolean {
+    return this.baseConfig.isCloud && this.isInstanceAIModelByConfig(modelKey, llmProviders);
+  }
+
   public isInstanceAIModelByConfig(modelKey: string, llmProviders: LLMProvider[] = []): boolean {
     const { type, model, name } = this.parseModelKey(modelKey);
     if (!type || !model || !name) return false;
@@ -357,11 +366,16 @@ export class AiService {
       : modelProvider(effectiveModel);
   }
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity
+  /** Callers already holding a spaceId should use getAIConfigBySpaceId and skip this lookup. */
   async getAIConfig(baseId: string) {
     const { spaceId } = await this.prismaService.base.findUniqueOrThrow({
       where: { id: baseId },
     });
+    return this.getAIConfigBySpaceId(spaceId);
+  }
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  async getAIConfigBySpaceId(spaceId: string) {
     const aiIntegration = await this.prismaService.integration.findFirst({
       where: { resourceId: spaceId, type: IntegrationType.AI, enable: true },
     });
@@ -395,7 +409,7 @@ export class AiService {
 
       config = {
         ...aiConfig,
-        llmProviders: aiConfig?.llmProviders.map((provider) => ({
+        llmProviders: (aiConfig?.llmProviders ?? []).map((provider) => ({
           ...provider,
           isInstance: true,
         })),
@@ -406,8 +420,19 @@ export class AiService {
           ability,
         },
       } as IAIConfig;
-    } else if (!aiConfig?.chatModel?.lg) {
-      config = aiIntegrationConfig as IAIConfig;
+    } else if (
+      !aiConfig?.chatModel?.lg ||
+      (!this.isGatewayModel(aiConfig.chatModel.lg) &&
+        !this.findModelInProviders(aiConfig.chatModel.lg, aiConfig.llmProviders ?? []))
+    ) {
+      const llmProviders = aiIntegrationConfig.llmProviders ?? [];
+      const modelKey = this.findFirstModelKey(llmProviders);
+      // Replace the whole default so deleted Admin tiers cannot block Space-only chat.
+      config = {
+        ...aiIntegrationConfig,
+        llmProviders,
+        chatModel: { lg: modelKey, md: modelKey, sm: modelKey },
+      };
     } else {
       const lg = aiConfig.chatModel.lg;
       const sm = aiConfig.chatModel.sm;
@@ -418,8 +443,8 @@ export class AiService {
         // Include gateway models from admin config (space config doesn't have gateway models)
         gatewayModels: aiConfig.gatewayModels,
         llmProviders: [
-          ...aiIntegrationConfig.llmProviders,
-          ...aiConfig.llmProviders.map((provider) => ({
+          ...(aiIntegrationConfig.llmProviders ?? []),
+          ...(aiConfig.llmProviders ?? []).map((provider) => ({
             ...provider,
             isInstance: true,
           })),
@@ -580,8 +605,28 @@ export class AiService {
     return modelKey.endsWith(`@${INSTANCE_PROVIDER_NAME}`);
   }
 
+  private findFirstModelKey(llmProviders: LLMProvider[]): string | undefined {
+    for (const provider of llmProviders) {
+      const model = provider.models
+        .split(',')
+        .map((model) => model.trim())
+        .find(Boolean);
+      if (model) return `${provider.type}@${model}@${provider.name}`;
+    }
+  }
+
   async getChatModelInstance(baseId: string) {
-    const { chatModel, llmProviders } = await this.getAIConfig(baseId);
+    return this.chatModelInstanceOf(await this.getAIConfig(baseId));
+  }
+
+  async getChatModelInstanceBySpaceId(spaceId: string) {
+    return this.chatModelInstanceOf(await this.getAIConfigBySpaceId(spaceId));
+  }
+
+  private async chatModelInstanceOf({
+    chatModel,
+    llmProviders,
+  }: Awaited<ReturnType<AiService['getAIConfig']>>) {
     if (!chatModel?.lg) {
       throw new CustomHttpException('AI chat model lg is not set', HttpErrorCode.VALIDATION_ERROR, {
         localization: {
@@ -767,6 +812,22 @@ export class AiService {
       `[getGatewayModelPricing] No pricing found for ${modelId}, will use default rates`
     );
     return undefined;
+  }
+
+  /**
+   * Gateway reference pricing straight from the Gateway API, bypassing any
+   * admin-configured local override (which may carry a markup). Returns
+   * undefined when the model has no gateway reference or the fetch fails,
+   * so callers can fall back to getGatewayModelPricing.
+   */
+  async getGatewayReferencePricing(modelId: string) {
+    try {
+      const apiModel = await this.getGatewayApiModel(modelId);
+      return apiModel?.pricing;
+    } catch (error) {
+      this.logger.warn(`[getGatewayReferencePricing] Failed to fetch API pricing for ${modelId}`);
+      return undefined;
+    }
   }
 
   /**

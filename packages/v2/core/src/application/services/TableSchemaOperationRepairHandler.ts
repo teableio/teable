@@ -140,6 +140,16 @@ const tableUpdateFailureCode = (result: unknown): string | undefined => {
   return typeof code === 'string' && code.length > 0 ? code : undefined;
 };
 
+const isMissingColumnTableUpdate = (operation: SchemaOperationRecord): boolean => {
+  if (operation.type !== 'table.update') return false;
+  const failureCode = tableUpdateFailureCode(operation.result);
+  if (failureCode) {
+    return failureCode === 'db.undefined_column';
+  }
+  const lastError = operation.lastError;
+  return lastError != null && /\bcolumn\b.*\bdoes not exist\b/i.test(lastError);
+};
+
 const isRepairableTableUpdate = (operation: SchemaOperationRecord): boolean => {
   if (operation.type !== 'table.update') return true;
   const lastError = operation.lastError;
@@ -160,16 +170,20 @@ const isRepairableTableUpdate = (operation: SchemaOperationRecord): boolean => {
   }
   // Rows written before failures carried structured codes only have the
   // Postgres prose; keep the message heuristic for those.
-  return /\bcolumn\b.*\bdoes not exist\b/i.test(lastError);
+  return isMissingColumnTableUpdate(operation);
 };
 
-// beginTableSchemaOperation always persists a tableId payload. If the rollback
-// record has no payload, that begin write rolled back with the parent transaction,
-// so its metadata and transactional DDL also rolled back and only settlement remains.
+// beginTableSchemaOperation always persists a tableId payload. If the
+// settlement record has no payload, that begin write rolled back with the
+// parent transaction (connection timeout, parent rollback, etc.), so its
+// metadata and transactional DDL also rolled back and only settlement remains.
+// Missing-column failures are the exception: DROP COLUMN is committed outside
+// the update transaction, so schema ensure must still recreate the column even
+// when the begin payload was lost.
 const isFullyRolledBackTableUpdate = (operation: SchemaOperationRecord): boolean =>
   operation.type === 'table.update' &&
-  tableUpdateFailureCode(operation.result) === 'transaction.parent_rolled_back' &&
-  operation.payload == null;
+  operation.payload == null &&
+  isMissingColumnTableUpdate(operation) === false;
 
 @injectable()
 export class TableSchemaOperationRepairHandler implements ISchemaOperationHandler {
@@ -204,6 +218,14 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
         );
       }
       const tableIds = yield* tableIdsFromOperation(operation);
+      if (isFullyRolledBackTableUpdate(operation)) {
+        return ok({
+          result: {
+            repaired: 'transaction_rollback',
+            tableIds: tableIds.map((tableId) => tableId.toString()),
+          },
+        });
+      }
       if (!isRepairableTableUpdate(operation)) {
         const tables = yield* await handler.loadTables(context, tableIds);
         yield* await handler.restoreTableUpdateAvailability(context, operation, tables[0]!);
@@ -214,15 +236,6 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
             lastError: operation.lastError ?? undefined,
           })
         );
-      }
-
-      if (isFullyRolledBackTableUpdate(operation)) {
-        return ok({
-          result: {
-            repaired: 'transaction_rollback',
-            tableIds: tableIds.map((tableId) => tableId.toString()),
-          },
-        });
       }
 
       const recordCount = hasPositiveRecordCount(operation, tableIds);

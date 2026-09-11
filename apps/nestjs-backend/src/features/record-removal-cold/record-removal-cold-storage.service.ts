@@ -3,10 +3,13 @@ import { UploadType } from '@teable/openapi';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { coldStorageRead } from '../cold-archive/cold-errors';
+import { groupPartsByMonth } from '../cold-archive/compaction';
 import { ColdPartByteCache } from '../cold-archive/part-byte-cache';
 import { ColdStatsCache } from '../cold-archive/stats-cache';
+import type { ListedColdPart } from '../cold-archive/storage-ops';
 import {
   deleteColdKeys,
+  listColdParts,
   listMonthDirs,
   partStoreFor,
   readColdStats,
@@ -21,6 +24,7 @@ import type {
   ITableColdStats,
 } from './part-codec';
 import {
+  COLD_REMOVAL_REASONS,
   coldRootDir,
   iteratePartRows,
   monthPrefix,
@@ -97,25 +101,30 @@ export class RecordRemovalColdStorageService {
     tableId: string,
     reason: ColdRemovalReason,
     yyyymm: string
-  ): Promise<Array<IParsedPartKey & { size: number; etag?: string }>> {
-    const { objects } = await coldStorageRead(() =>
-      this.storageAdapter.listObjects(
-        this.bucket,
-        monthPrefix(this.rootDir, tableId, reason, yyyymm)
-      )
+  ): Promise<ListedColdPart<IParsedPartKey>[]> {
+    return listColdParts(
+      this.storageAdapter,
+      this.bucket,
+      monthPrefix(this.rootDir, tableId, reason, yyyymm),
+      (key) => parsePartKey(this.rootDir, key)
     );
-    const parts: Array<IParsedPartKey & { size: number; etag?: string }> = [];
-    for (const object of objects) {
-      const parsed = parsePartKey(this.rootDir, object.key);
-      if (!parsed) continue;
-      const part: IParsedPartKey & { size: number; etag?: string } = {
-        ...parsed,
-        size: object.size,
-      };
-      if (object.etag !== undefined) part.etag = object.etag;
-      parts.push(part);
+  }
+
+  /** every part of a table grouped by reason then month, newest first, from one recursive LIST */
+  async listTableParts(
+    tableId: string
+  ): Promise<Map<ColdRemovalReason, Map<string, ListedColdPart<IParsedPartKey>[]>>> {
+    const parts = await listColdParts(
+      this.storageAdapter,
+      this.bucket,
+      tablePrefix(this.rootDir, tableId),
+      (key) => parsePartKey(this.rootDir, key)
+    );
+    const byReason = new Map<ColdRemovalReason, Map<string, ListedColdPart<IParsedPartKey>[]>>();
+    for (const reason of COLD_REMOVAL_REASONS) {
+      byReason.set(reason, groupPartsByMonth(parts.filter((part) => part.reason === reason)));
     }
-    return parts;
+    return byReason;
   }
 
   // maintenance-path variant: only a missing shard reads as undefined, a

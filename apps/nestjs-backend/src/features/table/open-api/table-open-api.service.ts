@@ -716,6 +716,9 @@ export class TableOpenApiService {
           : routedDataPrisma;
       const where = { tableId: { in: tableIds } };
 
+      await bestEffort(`attachment refs for tables ${tables}`, () =>
+        dataPrisma.attachmentsTable.deleteMany({ where })
+      );
       await bestEffort(`record history for tables ${tables}`, () =>
         dataPrisma.recordHistory.deleteMany({ where })
       );

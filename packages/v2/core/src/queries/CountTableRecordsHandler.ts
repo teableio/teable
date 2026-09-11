@@ -17,7 +17,11 @@ import { v2CoreTokens } from '../ports/tokens';
 import { CountTableRecordsQuery } from './CountTableRecordsQuery';
 import { QueryHandler, type IQueryHandler } from './QueryHandler';
 import { replaceCurrentUserTagInFilter, sanitizeRecordFilter } from './RecordFilterMapper';
-import { RecordSearch, resolveVisibleRowSearch } from './RecordSearch';
+import {
+  RecordSearch,
+  resolveSearchRowScopeFieldIds,
+  resolveVisibleRowSearch,
+} from './RecordSearch';
 import {
   buildLinkCandidatePlan,
   buildTableRecordConditionPlan,
@@ -165,9 +169,7 @@ export class CountTableRecordsHandler
         const requestedSearch = RecordSearch.fromOptionalTuple(query.search);
 
         const searchVisibleFieldIds = filterFieldIdsByQueryAccess(
-          query.viewId && !query.ignoreViewQuery
-            ? yield* table.getOrderedVisibleFieldIds(query.viewId)
-            : table.fieldIds(),
+          yield* resolveSearchRowScopeFieldIds(table, query.viewId, query.ignoreViewQuery),
           enabledFieldIds,
           maskedFieldIds
         );

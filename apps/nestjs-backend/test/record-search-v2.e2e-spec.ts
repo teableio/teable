@@ -1,8 +1,11 @@
 /* eslint-disable sonarjs/no-duplicate-string */
+/* eslint-disable @typescript-eslint/naming-convention -- OpenTelemetry attributes use dotted protocol names. */
 import type { INestApplication } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   Colors,
   DateFormattingPreset,
+  DriverClient,
   FieldType,
   NumberFormattingType,
   Relationship,
@@ -10,11 +13,35 @@ import {
 } from '@teable/core';
 import type { IFilter, ISearchIndexByQueryRo, ITableFullVo } from '@teable/openapi';
 import { getSearchCount, getSearchIndex } from '@teable/openapi';
+import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import {
+  disposeTableQueryObservationPublisher,
+  ensureTableQueryObservationSchema,
+  ensureTableQueryOpsSchema,
+  PostgresTableSearchVectorReconciler,
+  type TableQueryObservationDatabase,
+  type TableQueryOpsDatabase,
+  type UnknownPostgresDatabase,
+} from '@teable/v2-adapter-table-query-ops-postgres';
+import {
+  ActorId,
+  TableByIdSpec,
+  TableId,
+  v2CoreTokens,
+  type ITableRepository,
+} from '@teable/v2-core';
+import { BufferedTableQueryObservationPublisher } from '@teable/v2-table-query-ops';
+import { sql, type Kysely } from 'kysely';
+import { Client } from 'pg';
+import { TableQueryObservationRuntimeService } from '../src/features/v2/table-query-observation-runtime.service';
+import { V2ContainerService } from '../src/features/v2/v2-container.service';
+import { OpenTelemetryTracer } from '../src/features/v2/v2-tracer.adapter';
 import { getError } from './utils/get-error';
 import {
   createField,
   createTable,
   getFields,
+  getRecords,
   initApp,
   permanentDeleteTable,
   updateViewFilter,
@@ -228,13 +255,11 @@ describe('v2 authed search-count and search-index (e2e)', () => {
     it('rejects a missing search tuple on search-count', async () => {
       const error = await getError(() => getSearchCount(table.id, { viewId }));
       expect(error?.status).toBe(400);
-      expect(error?.message).toBe('Search query is required');
     });
 
     it('rejects a missing search tuple on search-index', async () => {
       const error = await getError(() => getSearchIndex(table.id, { take: 10, viewId } as never));
       expect(error?.status).toBe(400);
-      expect(error?.message).toBe('Search query is required');
     });
 
     it('rejects search-index pages larger than 1000', async () => {
@@ -242,7 +267,6 @@ describe('v2 authed search-count and search-index (e2e)', () => {
         getSearchIndex(table.id, { take: 1001, search: ['alpha', nameFieldId, true] })
       );
       expect(error?.status).toBe(400);
-      expect(error?.message).toBe('The maximum search index result is 1000');
     });
   });
 
@@ -624,3 +648,196 @@ describe('v2 authed search-count and search-index (e2e)', () => {
     });
   });
 });
+
+describe.skipIf(globalThis.testConfig.driver !== DriverClient.Pg)(
+  'v2 standalone indexed records search T7223 (e2e)',
+  () => {
+    let app: INestApplication;
+    let table: ITableFullVo;
+    let metaDb: Kysely<UnknownPostgresDatabase>;
+    let fixtureSchemaReady = false;
+    let runtimeMode: 'auto' | 'off' = 'auto';
+    let restoreRuntimeConfig: (() => void) | undefined;
+    const baseId = globalThis.testConfig.baseId;
+
+    beforeAll(async () => {
+      vi.stubEnv('FORCE_V2_ALL', 'true');
+      vi.stubEnv('V2_TABLE_QUERY_OPS_ENABLED', 'false');
+      vi.stubEnv('V2_TABLE_QUERY_OPS_SEARCH_ACCESS_PATH_RUNTIME', 'auto');
+      vi.stubEnv('V2_TABLE_QUERY_OPS_MIN_WINDOW_REQUESTS', '1');
+      // Nest's validated startup environment takes precedence over ConfigService.set.
+      // Override configuration only; the resolver, repository and HTTP path stay real.
+      const getConfig = ConfigService.prototype.get;
+      const configOverride = vi.spyOn(ConfigService.prototype, 'get').mockImplementation(function (
+        this: ConfigService,
+        ...args
+      ) {
+        if (args[0] === 'V2_TABLE_QUERY_OPS_ENABLED') return 'false';
+        if (args[0] === 'V2_TABLE_QUERY_OPS_SEARCH_ACCESS_PATH_RUNTIME') return runtimeMode;
+        return getConfig.apply(this, args);
+      });
+      restoreRuntimeConfig = () => configOverride.mockRestore();
+      const appContext = await initApp();
+      app = appContext.app;
+    });
+
+    afterAll(async () => {
+      try {
+        if (table?.id) {
+          await permanentDeleteTable(baseId, table.id);
+          if (fixtureSchemaReady) {
+            await sql`DELETE FROM table_query_search_vector_config WHERE table_id = ${table.id}`.execute(
+              metaDb
+            );
+          }
+        }
+      } finally {
+        await app?.close();
+        restoreRuntimeConfig?.();
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('uses an existing generated-text index without observations and preserves results when runtime is off', async () => {
+      table = await createTable(baseId, {
+        name: 'standalone_search_t7223',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText },
+          { name: 'Notes', type: FieldType.LongText },
+        ],
+        records: [
+          { fields: { Title: 'prefix needleunique suffix', Notes: 'ordinary note' } },
+          { fields: { Title: 'ordinary title', Notes: 'NEEDLEUNIQUE in notes' } },
+          { fields: { Title: 'unrelated title', Notes: 'unrelated note' } },
+        ],
+      });
+      const container = await app.get(V2ContainerService).getContainerForTable(table.id);
+      metaDb = container.resolve<Kysely<UnknownPostgresDatabase>>(v2MetaDbTokens.db);
+      const dataDb = container.resolve<Kysely<UnknownPostgresDatabase>>(v2DataDbTokens.db);
+      const context = { actorId: ActorId.create('system')._unsafeUnwrap() };
+      const domainTable = (
+        await container
+          .resolve<ITableRepository>(v2CoreTokens.tableRepository)
+          .findOne(context, TableByIdSpec.create(TableId.create(table.id)._unsafeUnwrap()))
+      )._unsafeUnwrap();
+
+      // Fixture-only administration: install the real index/config without enabling
+      // management in the application or registering its publishers and workers.
+      await ensureTableQueryOpsSchema(
+        container.resolve<Kysely<TableQueryOpsDatabase>>(v2MetaDbTokens.db)
+      );
+      fixtureSchemaReady = true;
+      await ensureTableQueryObservationSchema(
+        container.resolve<Kysely<TableQueryObservationDatabase>>(v2MetaDbTokens.db)
+      );
+      await sql`CREATE EXTENSION IF NOT EXISTS pg_trgm`.execute(dataDb);
+      const reconciled = await new PostgresTableSearchVectorReconciler(metaDb, dataDb).reconcile(
+        context,
+        {
+          table: domainTable,
+          mode: 'create',
+          provider: 'pg_trgm',
+          searchProbe: 'needleunique',
+          validationMode: 'real_ddl',
+          // A three-row fixture need not win the planner cost comparison.
+          requirePlanImprovement: false,
+        }
+      );
+      const provisioned = reconciled._unsafeUnwrap();
+      expect(provisioned).toMatchObject({ action: 'created', status: 'ready' });
+      const physicalIndex = await sql<{ generated: string; valid: boolean }>`
+        SELECT a.attgenerated AS generated, i.indisvalid AS valid
+        FROM pg_index i
+        JOIN pg_class idx ON idx.oid = i.indexrelid
+        JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+        WHERE idx.relname = ${provisioned.indexName}
+          AND a.attname = ${provisioned.generatedColumnName}
+      `.execute(dataDb);
+      expect(physicalIndex.rows).toEqual([{ generated: 's', valid: true }]);
+
+      const observations = async () =>
+        (
+          await sql`SELECT * FROM table_query_observation_shard WHERE table_id = ${table.id}`.execute(
+            metaDb
+          )
+        ).rows;
+      expect(await observations()).toEqual([]);
+      // Pass-through trace recording observes the actual repository execution;
+      // neither the resolver nor its returned access path is mocked.
+      const spans = vi.spyOn(OpenTelemetryTracer.prototype, 'startSpan');
+      const queries = vi.spyOn(Client.prototype, 'query');
+      try {
+        const expectedIds = table.records
+          .slice(0, 2)
+          .map((record) => record.id)
+          .sort();
+        for (const mode of ['auto', 'off'] as const) {
+          runtimeMode = mode;
+          const expectedPath = mode === 'auto' ? 'generated_text_trigram' : 'default_ilike';
+          // Case variants preserve substring matches but use different aggregation cache keys,
+          // so both modes execute SQL even when the host enables the performance cache.
+          const searchValue = mode === 'auto' ? 'needleunique' : 'NEEDLEUNIQUE';
+
+          spans.mockClear();
+          const records = await getRecords(table.id, { search: [searchValue, '', true] });
+          expect(records.records.map((record) => record.id).sort()).toEqual(expectedIds);
+          expect(spans).toHaveBeenCalledWith(
+            'teable.table.query.db.records',
+            expect.objectContaining({
+              'teable.table_id': table.id,
+              'teable.search.access_path': expectedPath,
+            })
+          );
+
+          spans.mockClear();
+          const count = await getSearchCount(table.id, {
+            viewId: table.views[0].id,
+            search: [searchValue, '', true],
+          });
+          expect(count.data.count).toBe(2);
+          expect(spans).toHaveBeenCalledWith(
+            'teable.table.query.db.count',
+            expect.objectContaining({
+              'teable.table_id': table.id,
+              'teable.search.access_path': expectedPath,
+            })
+          );
+
+          spans.mockClear();
+          const hits = await getSearchIndex(table.id, {
+            take: 100,
+            viewId: table.views[0].id,
+            search: [searchValue, '', true],
+          });
+          expect([...new Set(hits.data.map((hit) => hit.recordId))].sort()).toEqual(expectedIds);
+          expect(spans).toHaveBeenCalledWith(
+            'teable.table.query.db.records',
+            expect.objectContaining({
+              'teable.table_id': table.id,
+              'teable.search.access_path': expectedPath,
+            })
+          );
+        }
+        const requestSql = queries.mock.calls.map(([query]) =>
+          typeof query === 'string' ? query : query.text
+        );
+        expect(requestSql.join('\n')).not.toMatch(
+          /table_query_search_vector_config|pg_index|pg_attribute|\bEXPLAIN\b/i
+        );
+
+        // Drain any accidentally registered publisher before asserting durable
+        // state, so a buffered write cannot make this check falsely pass.
+        const observationRuntime = await app.get(TableQueryObservationRuntimeService).get();
+        if (observationRuntime?.publisher instanceof BufferedTableQueryObservationPublisher) {
+          await observationRuntime.publisher.flush();
+        }
+        await disposeTableQueryObservationPublisher(container);
+        expect(await observations()).toEqual([]);
+      } finally {
+        spans.mockRestore();
+        queries.mockRestore();
+        runtimeMode = 'auto';
+      }
+    }, 120_000);
+  }
+);

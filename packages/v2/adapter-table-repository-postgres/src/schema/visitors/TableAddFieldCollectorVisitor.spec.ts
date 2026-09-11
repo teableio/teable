@@ -45,6 +45,7 @@ describe('TableAddFieldCollectorVisitor', () => {
       'visitTableByViewId',
       'visitTableWithViewIds',
       'visitTableWithPrimaryField',
+      'visitTableWithFieldIds',
       'visitTableByIncomingReferenceToTable',
       'visitTableByIds',
       'visitTableByName',

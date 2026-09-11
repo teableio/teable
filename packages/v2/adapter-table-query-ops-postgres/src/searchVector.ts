@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   LEGACY_MANAGED_SEARCH_DOCUMENT_COLUMN_PREFIX,
   LEGACY_MANAGED_SEARCH_INDEX_PREFIX,
@@ -8,6 +9,7 @@ import {
 import {
   domainError,
   type IExecutionContext,
+  type ITableSearchIndex,
   type SearchFieldTextProjection,
   type Table,
 } from '@teable/v2-core';
@@ -28,7 +30,9 @@ import { err, ok } from 'neverthrow';
 
 import { getTablePhysicalName, makePhysicalTableSql, quoteIdentifier } from './helpers';
 import { readPostgresSearchAccessPathCapabilities } from './searchAccessPathCapability';
+import { ensureSearchDocumentFunctions } from './searchDocumentFunctions';
 import {
+  renderGeneratedSearchTextProjectionSql,
   renderSearchTextProjectionSql,
   sanitizeSearchTextProjection,
   searchTextProjectionKey,
@@ -315,6 +319,7 @@ export type ExecuteTableSearchVectorInput = {
     readonly languageConfig: string;
     readonly searchProbe?: string;
     readonly validationMode?: 'plan' | 'real_ddl';
+    readonly requirePlanImprovement?: boolean;
     readonly generatedColumnName: string;
     readonly indexName: string;
     readonly provider?: TableQuerySubstringSearchProvider;
@@ -372,6 +377,7 @@ type TableMetaRow = {
   readonly base_id: string;
   readonly space_id: string | null;
   readonly db_table_name: string;
+  readonly version: number;
 };
 
 type SearchVectorConfigRow = {
@@ -948,13 +954,25 @@ export class PostgresTableSearchVectorExecutor {
     const tableMeta = await this.requireTableMeta(tableId);
     const physical = splitPhysicalName(tableMeta.db_table_name, tableMeta.base_id);
     const tableSql = makePhysicalTableSql(physical.schema, physical.tableName);
-    const currentConfig = expectedDefinitionKey
-      ? await this.claimedReclaimConfig(tableId, expectedDefinitionKey)
-      : await this.currentConfig(tableId);
-    if (currentConfig) {
-      assertManagedSearchVectorNames(currentConfig.generated_column_name, currentConfig.index_name);
-      await this.dropManagedIndex(physical.schema, currentConfig.index_name);
-      await this.dropManagedColumn(tableSql, currentConfig.generated_column_name);
+    const configs = expectedDefinitionKey
+      ? [await this.claimedReclaimConfig(tableId, expectedDefinitionKey)].filter(
+          (config): config is SearchVectorConfigRow => Boolean(config)
+        )
+      : await this.allManagedConfigs(tableId);
+    const currentConfig = configs[0];
+    // Validate the entire set before DDL. Independent replacements retain old
+    // objects, and retries must also reclaim objects from already-disabled rows.
+    for (const config of configs) {
+      assertManagedSearchVectorNames(config.generated_column_name, config.index_name);
+    }
+    await this.clearServingObjects(
+      physical,
+      configs.map((config) => config.index_name),
+      configs.map((config) => config.generated_column_name)
+    );
+    for (const config of configs) {
+      await this.dropManagedIndex(physical.schema, config.index_name);
+      await this.dropManagedColumn(tableSql, config.generated_column_name);
     }
     if (expectedDefinitionKey) {
       if (currentConfig) {
@@ -1008,8 +1026,8 @@ export class PostgresTableSearchVectorExecutor {
   ): Promise<ExecuteTableSearchVectorResult> {
     const tableMeta = await this.requireTableMeta(input.tableId);
     const physical = splitPhysicalName(tableMeta.db_table_name, tableMeta.base_id);
-    const columnName = input.payload.generatedColumnName;
-    const indexName = input.payload.indexName;
+    let columnName = input.payload.generatedColumnName;
+    let indexName = input.payload.indexName;
     // Only ADD/DROP objects this advisor owns, so a hand-built payload can never
     // target a real user column (`rebuild` would otherwise DROP it) or index.
     assertManagedSearchVectorNames(columnName, indexName);
@@ -1047,11 +1065,12 @@ export class PostgresTableSearchVectorExecutor {
             searchProbe,
           })
         : undefined;
-    const expression = buildSearchDocumentExpression(fields);
+    const expression = buildSearchDocumentExpression(fields, true);
     const tableSql = makePhysicalTableSql(physical.schema, physical.tableName);
 
     const currentConfig = await this.currentConfig(input.tableId);
     this.assertDefinitionChangeAllowed(currentConfig, input);
+    ({ columnName, indexName } = this.resolveManagedObjectNames(currentConfig, input));
     const inventoryBefore = await inspectSearchVectorInventory(
       this.dataDb,
       physical,
@@ -1067,22 +1086,28 @@ export class PostgresTableSearchVectorExecutor {
 
     this.assertTableRewriteAllowed(rowEstimate, alreadyReady, input);
 
-    if (input.payload.rebuild && currentConfig) {
-      await this.markConfigRebuildPending(input.tableId, currentConfig.candidate_key);
-    }
+    // A definition with independent physical objects can be built alongside the
+    // active path. Keep that path ready until validation and the metadata switch
+    // succeed; failed candidates must never remove the previous working index.
+    const preserveCurrentObjects = Boolean(
+      currentConfig &&
+        currentConfig.generated_column_name !== columnName &&
+        currentConfig.index_name !== indexName
+    );
 
     const changedManagedObjects = input.payload.rebuild || !alreadyReady;
     try {
       const { inventory, planEvidence } = await this.createAndValidateManagedObjects({
         physical,
         tableSql,
-        currentConfig,
+        currentConfig: preserveCurrentObjects ? undefined : currentConfig,
         columnName,
         indexName,
         expression,
         rebuild: input.payload.rebuild ?? false,
         alreadyReady,
         validationMode,
+        requirePlanImprovement: input.payload.requirePlanImprovement ?? true,
         providerCapability,
         realDdlBeforePlan,
         searchProbe,
@@ -1101,8 +1126,13 @@ export class PostgresTableSearchVectorExecutor {
         languageConfig,
         generatedColumnName: columnName,
         indexName,
-        fieldIds: fields.map((field) => field.fieldId),
-        fieldDbNames: fields.map((field) => field.fieldDbName),
+        fields: fields.map(({ fieldId, fieldDbName, textProjection }) => ({
+          fieldId,
+          fieldDbName,
+          textProjection: textProjection ?? { kind: 'plain' },
+        })),
+        dbTableName: tableMeta.db_table_name,
+        expectedVersion: tableMeta.version,
         searchScope: input.payload.searchScope ?? 'all_fields',
         inventory,
       });
@@ -1135,6 +1165,26 @@ export class PostgresTableSearchVectorExecutor {
         error
       );
     }
+  }
+
+  private resolveManagedObjectNames(
+    currentConfig: SearchVectorConfigRow | undefined,
+    input: ExecuteTableSearchVectorInput
+  ): { columnName: string; indexName: string } {
+    let columnName = input.payload.generatedColumnName;
+    let indexName = input.payload.indexName;
+    if (
+      input.payload.rebuild &&
+      currentConfig &&
+      (currentConfig.generated_column_name === columnName || currentConfig.index_name === indexName)
+    ) {
+      // Even a same-definition rebuild needs shadow objects: validation failure
+      // must not destroy the serving document. Switch the config only after validation.
+      const suffix = randomUUID().replaceAll('-', '').slice(0, 12);
+      columnName = `${columnName.slice(0, 50)}_${suffix}`;
+      indexName = `${indexName.slice(0, 50)}_${suffix}`;
+    }
+    return { columnName, indexName };
   }
 
   private async requireTableMeta(tableId: string): Promise<TableMetaRow> {
@@ -1175,20 +1225,6 @@ export class PostgresTableSearchVectorExecutor {
     );
   }
 
-  private async markConfigRebuildPending(tableId: string, candidateKey: string): Promise<void> {
-    await sql`
-      UPDATE table_query_search_vector_config
-      SET status = 'rebuild_pending',
-          last_inspection = ${JSON.stringify({
-            state: 'rebuild_pending',
-            staleReasons: ['manual_rebuild'],
-          })}::jsonb,
-          last_modified_time = now()
-      WHERE table_id = ${tableId}
-        AND candidate_key = ${candidateKey}
-    `.execute(this.metaDb);
-  }
-
   private async createAndValidateManagedObjects(input: {
     readonly physical: PhysicalTable;
     readonly tableSql: string;
@@ -1199,6 +1235,7 @@ export class PostgresTableSearchVectorExecutor {
     readonly rebuild: boolean;
     readonly alreadyReady: boolean;
     readonly validationMode: 'plan' | 'real_ddl';
+    readonly requirePlanImprovement: boolean;
     readonly providerCapability: TableQuerySubstringSearchProviderCapability;
     readonly realDdlBeforePlan: ExplainPlan | undefined;
     readonly searchProbe: string | undefined;
@@ -1218,6 +1255,10 @@ export class PostgresTableSearchVectorExecutor {
     }
 
     if (!input.alreadyReady) {
+      await ensureSearchDocumentFunctions(
+        this.dataDb,
+        input.validationFields.map((field) => field.textProjection)
+      );
       await this.createManagedObjects(
         input.tableSql,
         input.columnName,
@@ -1252,7 +1293,7 @@ export class PostgresTableSearchVectorExecutor {
           })
         : undefined;
     if (input.validationMode === 'real_ddl') {
-      assertRealDdlPlanEvidenceReady(planEvidence, input.indexName);
+      assertRealDdlPlanEvidenceReady(planEvidence, input.indexName, input.requirePlanImprovement);
     }
     return { inventory, planEvidence };
   }
@@ -1291,6 +1332,11 @@ export class PostgresTableSearchVectorExecutor {
     columnName: string,
     indexName: string
   ): Promise<void> {
+    await this.clearServingObjects(
+      physical,
+      [indexName, ...(currentConfig ? [currentConfig.index_name] : [])],
+      [columnName, ...(currentConfig ? [currentConfig.generated_column_name] : [])]
+    );
     if (currentConfig) {
       assertManagedSearchVectorNames(currentConfig.generated_column_name, currentConfig.index_name);
       await this.dropManagedIndex(physical.schema, currentConfig.index_name);
@@ -1310,6 +1356,22 @@ export class PostgresTableSearchVectorExecutor {
     await sql
       .raw(`ALTER TABLE ${tableSql} DROP COLUMN IF EXISTS ${quoteIdentifier(columnName)}`)
       .execute(this.dataDb);
+  }
+
+  private async clearServingObjects(
+    physical: PhysicalTable,
+    indexNames: readonly string[],
+    columnNames: readonly string[]
+  ): Promise<void> {
+    if (!indexNames.length && !columnNames.length) return;
+    await sql`
+      UPDATE table_meta
+      SET search_index = NULL, version = version + 1, last_modified_time = now()
+      WHERE (db_table_name = ${`${physical.schema}.${physical.tableName}`}
+          OR (db_table_name = ${physical.tableName} AND base_id = ${physical.schema}))
+        AND (search_index->>'indexName' = ANY(${indexNames}::text[])
+          OR search_index->>'generatedColumnName' = ANY(${columnNames}::text[]))
+    `.execute(this.metaDb);
   }
 
   private async createManagedObjects(
@@ -1358,10 +1420,10 @@ export class PostgresTableSearchVectorExecutor {
 
   private async findTableMeta(tableId: string): Promise<TableMetaRow | undefined> {
     const result = await sql<TableMetaRow>`
-      SELECT tm.base_id, b.space_id, tm.db_table_name
+      SELECT tm.base_id, b.space_id, tm.db_table_name, tm.version
       FROM table_meta tm
       LEFT JOIN base b ON b.id = tm.base_id
-      WHERE tm.id = ${tableId}
+      WHERE tm.id = ${tableId} AND tm.deleted_time IS NULL
       LIMIT 1
     `.execute(this.metaDb);
     return result.rows[0];
@@ -1374,10 +1436,21 @@ export class PostgresTableSearchVectorExecutor {
       FROM table_query_search_vector_config
       WHERE table_id = ${tableId}
         AND status IN ('ready', 'stale', 'rebuild_pending')
-      ORDER BY last_modified_time DESC NULLS LAST, created_time DESC
+      ORDER BY (status = 'ready') DESC, last_modified_time DESC NULLS LAST, created_time DESC
       LIMIT 1
     `.execute(this.metaDb);
     return result.rows[0];
+  }
+
+  private async allManagedConfigs(tableId: string): Promise<SearchVectorConfigRow[]> {
+    const result = await sql<SearchVectorConfigRow>`
+      SELECT candidate_key, semantics, access_path, provider, operator_class,
+             generated_column_name, index_name, language_config, field_ids, search_scope
+      FROM table_query_search_vector_config
+      WHERE table_id = ${tableId}
+      ORDER BY (status = 'ready') DESC, last_modified_time DESC NULLS LAST, created_time DESC
+    `.execute(this.metaDb);
+    return result.rows;
   }
 
   private async claimedReclaimConfig(
@@ -1393,6 +1466,13 @@ export class PostgresTableSearchVectorExecutor {
         AND status = 'disabled'
         AND reclaim_drop_after <= now()
         AND reclaim_drop_queued_at IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM table_meta serving
+          WHERE serving.id = ${tableId}
+            AND serving.search_index->>'definitionKey' IS DISTINCT FROM ${expectedDefinitionKey}
+            AND (serving.search_index->>'indexName' = table_query_search_vector_config.index_name
+              OR serving.search_index->>'generatedColumnName' = table_query_search_vector_config.generated_column_name)
+        )
       LIMIT 1
     `.execute(this.metaDb);
     return result.rows[0];
@@ -1410,21 +1490,65 @@ export class PostgresTableSearchVectorExecutor {
     readonly languageConfig: string;
     readonly generatedColumnName: string;
     readonly indexName: string;
-    readonly fieldIds: readonly string[];
-    readonly fieldDbNames: readonly string[];
+    readonly fields: ITableSearchIndex['fields'];
+    readonly dbTableName: string;
+    readonly expectedVersion: number;
     readonly searchScope: 'all_fields' | 'selected_fields';
     readonly inventory: TableQuerySearchVectorInventory;
   }): Promise<void> {
     const id = `tqsv_${stableHash(`${input.tableId}:${input.candidateKey}`).slice(0, 20)}`;
-    await sql`
-      UPDATE table_query_search_vector_config
-      SET status = 'stale',
-          last_modified_time = now()
-      WHERE table_id = ${input.tableId}
-        AND candidate_key <> ${input.candidateKey}
-        AND status IN ('ready', 'rebuild_pending')
-    `.execute(this.metaDb);
-    await sql`
+    const snapshot: ITableSearchIndex = {
+      version: 1,
+      dbTableName: input.dbTableName,
+      generatedColumnName: input.generatedColumnName,
+      indexName: input.indexName,
+      provider: input.provider,
+      searchScope: input.searchScope,
+      definitionKey: input.candidateKey,
+      indexUsable: true,
+      fields: input.fields,
+    };
+    // One statement makes publishing the candidate and retiring previous
+    // configurations atomic, including when metadata and data use different DBs.
+    const published = await sql<{ id: string }>`
+      WITH published AS (
+        UPDATE table_meta
+        SET search_index = ${JSON.stringify(snapshot)}::jsonb,
+            version = version + 1, last_modified_time = now()
+        WHERE id = ${input.tableId} AND version = ${input.expectedVersion}
+          AND db_table_name = ${input.dbTableName} AND deleted_time IS NULL
+        RETURNING id
+      ), retained_generation AS (
+        -- A request may still hold the previous serving snapshot. Keep its
+        -- objects and record their physical generation for explicit cleanup.
+        INSERT INTO table_query_search_vector_config (
+          id, space_id, base_id, table_id, candidate_key, semantics, access_path,
+          provider, operator_class, language_config, generated_column_name,
+          index_name, field_ids, field_db_names, search_scope, status,
+          last_inspection, last_modified_time
+        )
+        SELECT 'tqsv_' || substr(md5(id || ':' || index_name || ':' || generated_column_name), 1, 20),
+          space_id, base_id, table_id,
+          candidate_key || ':retired:' || index_name || ':' || generated_column_name,
+          semantics, access_path, provider, operator_class, language_config,
+          generated_column_name, index_name, field_ids, field_db_names, search_scope,
+          'stale', last_inspection, now()
+        FROM table_query_search_vector_config
+        WHERE table_id = ${input.tableId} AND candidate_key = ${input.candidateKey}
+          AND (generated_column_name <> ${input.generatedColumnName} OR index_name <> ${input.indexName})
+          AND EXISTS (SELECT 1 FROM published)
+        ON CONFLICT (table_id, candidate_key) DO NOTHING
+        RETURNING id
+      ), retired AS (
+        UPDATE table_query_search_vector_config
+        SET status = 'stale',
+            last_modified_time = now()
+        WHERE table_id = ${input.tableId}
+          AND candidate_key <> ${input.candidateKey}
+          AND status IN ('ready', 'rebuild_pending')
+          AND EXISTS (SELECT 1 FROM published)
+        RETURNING id
+      )
       INSERT INTO table_query_search_vector_config (
         id,
         space_id,
@@ -1445,7 +1569,7 @@ export class PostgresTableSearchVectorExecutor {
         last_inspection,
         last_modified_time
       )
-      VALUES (
+      SELECT
         ${id},
         ${input.spaceId},
         ${input.baseId},
@@ -1458,13 +1582,14 @@ export class PostgresTableSearchVectorExecutor {
         ${input.languageConfig},
         ${input.generatedColumnName},
         ${input.indexName},
-        ${JSON.stringify(input.fieldIds)}::jsonb,
-        ${JSON.stringify(input.fieldDbNames)}::jsonb,
+        ${JSON.stringify(input.fields.map((field) => field.fieldId))}::jsonb,
+        ${JSON.stringify(input.fields.map((field) => field.fieldDbName))}::jsonb,
         ${input.searchScope},
         ${input.inventory.state},
         ${JSON.stringify(input.inventory)}::jsonb,
         now()
-      )
+      FROM published
+      WHERE true
       ON CONFLICT (table_id, candidate_key)
       DO UPDATE SET
         space_id = EXCLUDED.space_id,
@@ -1486,7 +1611,11 @@ export class PostgresTableSearchVectorExecutor {
         reclaim_idx_scan_baseline = NULL,
         reclaim_sampled_at = NULL,
         last_modified_time = now()
+      RETURNING id
     `.execute(this.metaDb);
+    if (!published.rows.length) {
+      throw new Error('Table changed during search index build; retry remediation');
+    }
   }
 }
 
@@ -1568,6 +1697,7 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
           languageConfig: recommendation.languageConfig,
           searchProbe: input.searchProbe,
           validationMode,
+          requirePlanImprovement: input.requirePlanImprovement,
           generatedColumnName: recommendation.generatedColumnName,
           indexName: recommendation.indexName,
           provider: recommendation.provider,
@@ -1610,10 +1740,17 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
       const current = await executor.currentConfig(table.id().toString());
       if (!current) return ok(undefined);
 
-      const selectedFieldIds =
-        current.search_scope === 'selected_fields'
-          ? parseStringArray(current.field_ids)
-          : undefined;
+      // Maintenance repairs the saved contract; only an explicit administrator
+      // rebuild may expand an all-fields configuration to newly added fields.
+      const configuredFieldIds = new Set(parseStringArray(current.field_ids) ?? []);
+      const selectedFieldIds = table
+        .getFields()
+        .map((field) => field.id().toString())
+        .filter((fieldId) => configuredFieldIds.has(fieldId));
+      if (!selectedFieldIds.length) {
+        await this.markConfigStale(table.id().toString(), 'no_eligible_fields_after_schema_change');
+        return ok(undefined);
+      }
       const advisor = new PostgresTableSearchVectorAdvisor(this.dataDb);
       const analysis = await advisor.analyze(context, {
         table,
@@ -1650,7 +1787,7 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
             fieldType: field.fieldType,
             ...(field.textProjection ? { textProjection: field.textProjection } : {}),
           })),
-          searchScope: recommendation.searchScope,
+          searchScope: current.search_scope === 'all_fields' ? 'all_fields' : 'selected_fields',
           // Schema maintenance must obey the same rewrite guard as an explicit
           // remediation. Large or unknown tables remain pending for Admin approval.
           allowLargeTableRewrite: false,
@@ -1687,7 +1824,7 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
           last_inspection = ${JSON.stringify({ state: 'stale', staleReasons: [reason] })}::jsonb,
           last_modified_time = now()
       WHERE table_id = ${tableId}
-        AND status = 'ready'
+        AND status IN ('ready', 'rebuild_pending')
     `.execute(this.metaDb);
   }
 }
@@ -1931,13 +2068,14 @@ const sampleSearchProbeFromData = async (
   return probe && Array.from(probe).length >= minimumProbeLength ? probe : undefined;
 };
 
-const buildSearchDocumentExpression = (
-  fields: readonly SearchDocumentExpressionField[]
+export const buildSearchDocumentExpression = (
+  fields: readonly SearchDocumentExpressionField[],
+  generated = false
 ): string => {
+  const render = generated ? renderGeneratedSearchTextProjectionSql : renderSearchTextProjectionSql;
   const document = fields
     .map(
-      (field) =>
-        `coalesce(${renderSearchTextProjectionSql(quoteIdentifier(field.fieldDbName), field.textProjection)}, '')`
+      (field) => `coalesce(${render(quoteIdentifier(field.fieldDbName), field.textProjection)}, '')`
     )
     .join(` || E'\\n' || `);
   return `lower(${document || quoteLiteral('')})`;
@@ -2070,7 +2208,10 @@ const analyzeNgramSemantics = (input: {
       input.capability.provider === 'pg_bigm'
         ? buildNgramTokenPreview(input.searchProbe, 2)
         : buildNgramTokenPreview(input.searchProbe, 3),
-    tokenCount: Math.max(0, input.searchProbe.length - input.capability.minimumProbeLength + 1),
+    tokenCount: Math.max(
+      0,
+      Array.from(input.searchProbe).length - (input.capability.provider === 'pg_bigm' ? 2 : 3) + 1
+    ),
     explainStatus: input.baseline.explainStatus,
     explainReason: input.capability.usable
       ? 'same_substring_semantics_as_ilike'
@@ -2450,7 +2591,8 @@ const inspectSearchVectorInventory = async (
   const column = columnRows.rows[0];
   const index = indexRows.rows[0];
   const expectedExpression = buildSearchDocumentExpression(
-    fields.filter((field): field is SearchDocumentExpressionField => Boolean(field.fieldDbName))
+    fields.filter((field): field is SearchDocumentExpressionField => Boolean(field.fieldDbName)),
+    true
   );
   const staleReasons = collectSearchVectorStaleReasons(
     column,
@@ -2618,9 +2760,12 @@ const assertManagedSearchVectorNames = (columnName: string, indexName: string): 
   }
 };
 
-const buildSearchDocumentDefinitionMarker = (
+export const buildSearchDocumentDefinitionMarker = (
   expression: string,
-  providerCapability: TableQuerySubstringSearchProviderCapability
+  providerCapability: Pick<
+    TableQuerySubstringSearchProviderCapability,
+    'provider' | 'operatorClass' | 'operatorClassSchema'
+  >
 ): string =>
   `teable.table-query-ops.search-document:${SEARCH_DOCUMENT_DEFINITION_VERSION}:${stableHash(
     `${expression}:${providerCapability.provider}:${providerCapability.operatorClass}:${
@@ -2711,7 +2856,8 @@ const validateRealDdlSearchVectorPlan = async (
 
 const assertRealDdlPlanEvidenceReady = (
   evidence: TableQuerySearchVectorPlanEvidence | undefined,
-  indexName: string
+  indexName: string,
+  requirePlanImprovement: boolean
 ): void => {
   if (!evidence) {
     throw new Error('Real-DDL search vector validation did not return plan evidence');
@@ -2726,11 +2872,12 @@ const assertRealDdlPlanEvidenceReady = (
       `Real-DDL search vector validation used unexpected method ${evidence.explainMethod ?? 'unknown'}`
     );
   }
-  if (!evidence.usesCandidateIndex) {
-    throw new Error(`Real-DDL search vector validation did not use index ${indexName}`);
-  }
   if (evidence.semanticsCompatible !== true) {
     throw new Error('Real-DDL substring search validation did not preserve ILIKE results');
+  }
+  if (!requirePlanImprovement) return;
+  if (!evidence.usesCandidateIndex) {
+    throw new Error(`Real-DDL search vector validation did not use index ${indexName}`);
   }
   if (
     typeof evidence.costDeltaPct !== 'number' ||

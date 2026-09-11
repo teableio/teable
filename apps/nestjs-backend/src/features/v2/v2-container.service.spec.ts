@@ -57,6 +57,9 @@ vi.mock('@teable/v2-adapter-realtime-sharedb', () => ({
   ShareDbPubSubPublisher: class ShareDbPubSubPublisher {
     constructor(readonly pubsub: unknown) {}
   },
+  ShareDbBackendPresencePublisher: class ShareDbBackendPresencePublisher {
+    constructor(readonly backend: unknown) {}
+  },
   registerV2ShareDbRealtime: mocks.registerV2ShareDbRealtime,
 }));
 
@@ -168,7 +171,6 @@ const createService = (providers: InstanceWrapper[] = []) => {
   };
   const shareDbService = {
     pubsub: { publish: vi.fn() },
-    setComputedActivitySnapshotLoader: vi.fn(),
   };
   const cacheService = { getKeyv: vi.fn().mockReturnValue({}) };
   const attachmentsStorageService = {
@@ -193,7 +195,7 @@ const createService = (providers: InstanceWrapper[] = []) => {
 
   const service = new V2ContainerService(
     configService as never,
-    {} as PinoLogger,
+    { warn: vi.fn() } as unknown as PinoLogger,
     shareDbService as never,
     cacheService as never,
     attachmentsStorageService as never,
@@ -232,7 +234,6 @@ const createTestingModule = async (providers: InstanceWrapper[] = []) => {
   };
   const shareDbService = {
     pubsub: { publish: vi.fn() },
-    setComputedActivitySnapshotLoader: vi.fn(),
   };
   const cacheService = { getKeyv: vi.fn().mockReturnValue({}) };
   const attachmentsStorageService = {
@@ -305,6 +306,15 @@ describe('V2ContainerService', () => {
 
     expect(mocks.createV2NodePgContainer).toHaveBeenCalledTimes(1);
     expect(mocks.registerV2ShareDbRealtime).toHaveBeenCalledTimes(1);
+    expect(mocks.registerV2ShareDbRealtime).toHaveBeenCalledWith(
+      container,
+      expect.objectContaining({
+        computeActivitySignal: {
+          resolveChannel: expect.any(Function),
+          actionKey: 'computeActivityChanged',
+        },
+      })
+    );
     expect(mocks.registerV2ImportServices).toHaveBeenCalledTimes(1);
     expect(container.registerInstance).toHaveBeenCalledWith(
       v2CoreTokens.recordChangedValueDecoratorService,
@@ -635,10 +645,64 @@ describe('V2ContainerService', () => {
       })
     );
   });
-  it('enables table query ops by default without an environment flag', async () => {
+  it('does not enable table query ops without an environment flag', async () => {
     const container = createContainerMock();
     mocks.createV2NodePgContainer.mockResolvedValue(container);
-    const { service } = createService();
+    const { service, tableQueryObservationRuntime } = createService();
+
+    await service.getContainer();
+
+    expect(service.isTableQuerySearchVectorRuntimeEnabled()).toBe(false);
+    expect(tableQueryObservationRuntime.get).not.toHaveBeenCalled();
+    expect(mocks.startTableQueryOpsAnalyzerIfEnabled).not.toHaveBeenCalled();
+    expect(mocks.startTableQueryOpsTaskWorkerIfEnabled).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'V2_TABLE_QUERY_OPS_SEARCH_ACCESS_PATH_RUNTIME',
+    'V2_TABLE_QUERY_OPS_SEARCH_VECTOR_RUNTIME',
+  ])(
+    'reports standalone search via %s without starting observation or workers',
+    async (runtimeKey) => {
+      mocks.createV2NodePgContainer.mockResolvedValue(createContainerMock());
+      const { service, configService, tableQueryObservationRuntime } = createService();
+      configService.get.mockImplementation((key: string) => {
+        if (key === 'V2_TABLE_QUERY_OPS_ENABLED') return 'false';
+        if (key === runtimeKey) return 'auto';
+        // Standalone reads must not activate explicitly configured management work.
+        if (key === 'V2_TABLE_QUERY_OPS_ANALYZER_ENABLED') return 'true';
+        if (key === 'V2_TABLE_QUERY_OPS_AUTO_ACCEPT') return 'auto';
+        return undefined;
+      });
+
+      await service.getContainer();
+
+      expect(service.isTableQuerySearchVectorRuntimeEnabled()).toBe(true);
+      expect(tableQueryObservationRuntime.get).not.toHaveBeenCalled();
+      expect(mocks.startTableQueryOpsAnalyzerIfEnabled).not.toHaveBeenCalled();
+      expect(mocks.startTableQueryOpsTaskWorkerIfEnabled).not.toHaveBeenCalled();
+    }
+  );
+
+  it('honors explicit search runtime off over the legacy auto alias', () => {
+    const { service, configService } = createService();
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'V2_TABLE_QUERY_OPS_ENABLED') return 'false';
+      if (key === 'V2_TABLE_QUERY_OPS_SEARCH_ACCESS_PATH_RUNTIME') return 'off';
+      if (key === 'V2_TABLE_QUERY_OPS_SEARCH_VECTOR_RUNTIME') return 'auto';
+      return undefined;
+    });
+
+    expect(service.isTableQuerySearchVectorRuntimeEnabled()).toBe(false);
+  });
+
+  it('keeps analyzer and search workers off when only the enable flag is set', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService } = createService();
+    configService.get.mockImplementation((key: string) =>
+      key === 'V2_TABLE_QUERY_OPS_ENABLED' ? 'true' : undefined
+    );
 
     await service.getContainer();
 
@@ -646,6 +710,72 @@ describe('V2ContainerService', () => {
       expect.objectContaining({
         tableQueryOps: expect.objectContaining({
           ensureSchema: true,
+          analyzerConfig: expect.objectContaining({
+            enabled: false,
+            intervalMs: 5 * 60 * 1000,
+          }),
+          taskWorkerConfig: expect.objectContaining({
+            enabled: false,
+            allowManualIndexExecution: false,
+            allowPolicyIndexExecution: false,
+          }),
+        }),
+      })
+    );
+  });
+
+  it('scopes table query ops worker ids to HOSTNAME so container pid 1 does not share leases', async () => {
+    vi.stubEnv('HOSTNAME', 'teable-prod-d77466d8b-qhtcf');
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService } = createService();
+    configService.get.mockImplementation((key: string) =>
+      key === 'V2_TABLE_QUERY_OPS_ENABLED' ? 'true' : undefined
+    );
+
+    try {
+      await service.getContainer();
+
+      expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tableQueryOps: expect.objectContaining({
+            analyzerConfig: expect.objectContaining({
+              workerId: 'nestjs-teable-prod-d77466d8b-qhtcf:analyzer',
+            }),
+            taskWorkerConfig: expect.objectContaining({
+              workerId: 'nestjs-teable-prod-d77466d8b-qhtcf:task-worker',
+            }),
+          }),
+        })
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('allows the analyzer default to be enabled when table query ops is on', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService } = createService();
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'V2_TABLE_QUERY_OPS_ENABLED') return 'true';
+      if (key === 'V2_TABLE_QUERY_OPS_ANALYZER_ENABLED') return 'true';
+      if (key === 'V2_TABLE_QUERY_OPS_ANALYZER_INTERVAL_MS') return '120000';
+      return undefined;
+    });
+
+    await service.getContainer();
+
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tableQueryOps: expect.objectContaining({
+          analyzerConfig: expect.objectContaining({
+            enabled: true,
+            intervalMs: 120_000,
+          }),
+          taskWorkerConfig: expect.objectContaining({
+            enabled: false,
+          }),
         }),
       })
     );
