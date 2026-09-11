@@ -149,11 +149,14 @@ export const classifyComputedTaskFailure = (
     };
   }
 
+  // Timeouts are load-dependent, not deterministic: the same SQL can succeed
+  // once contention drops. Treating them like SQL-generation bugs dead-letters
+  // on the first attempt and leaves computed values permanently stale.
   if (isStatementTimeoutMessage(message)) {
     return {
       failureKind: 'statement_timeout',
       failureReason: 'statement_timeout',
-      retryable: false,
+      retryable: true,
     };
   }
 

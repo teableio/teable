@@ -2,6 +2,7 @@ export const v2CoreTokens = {
   baseRepository: Symbol('v2.core.baseRepository'),
   tableRepository: Symbol('v2.core.tableRepository'),
   tableRecordQueryRepository: Symbol('v2.core.tableRecordQueryRepository'),
+  tableCommentQueryRepository: Symbol('v2.core.tableCommentQueryRepository'),
   tableRecordRepository: Symbol('v2.core.tableRecordRepository'),
   tableSchemaRepository: Symbol('v2.core.tableSchemaRepository'),
   schemaOperationRepository: Symbol('v2.core.schemaOperationRepository'),

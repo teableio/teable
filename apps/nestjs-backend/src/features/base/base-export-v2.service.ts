@@ -8,6 +8,10 @@ import { UploadType } from '@teable/openapi';
 import type { ExportBaseProgressCallback, IExportBaseVo } from '@teable/openapi';
 import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
+  listAttachmentTableRefs,
+  listAttachmentTokensByTableIds,
+} from '@teable/v2-adapter-table-repository-postgres';
+import {
   FieldKeyType,
   ListTableRecordsQuery,
   normalizeDotTeaExportFieldsForSelfContainedBase,
@@ -305,9 +309,9 @@ export class BaseExportV2Service {
 
     if (includeData) {
       onProgress?.('exporting_attachments');
-      await this.appendAttachments(metaDb, 'attachments', tables, archive);
+      await this.appendAttachments(dataDb, metaDb, 'attachments', tables, archive);
       onProgress?.('exporting_attachment_metadata');
-      await this.appendAttachmentsDataCsv(metaDb, 'attachments', tables, archive);
+      await this.appendAttachmentsDataCsv(dataDb, metaDb, 'attachments', tables, archive);
       onProgress?.('exporting_table_data');
       await this.appendTableDataCsvs(
         dataDb,
@@ -833,30 +837,38 @@ export class BaseExportV2Service {
   }
 
   private async appendAttachments(
-    db: ExportDb,
+    dataDb: ExportDb,
+    metaDb: ExportDb,
     filePath: string,
     tables: TableRow[],
     archive: archiver.Archiver
   ) {
     if (!tables.length) return;
     const tableIds = tables.map((table) => table.id);
+    const refs = await listAttachmentTableRefs(dataDb as never, metaDb as never, { tableIds });
+    const tokens = [...new Set(refs.map((ref) => ref.token).filter(Boolean))];
+    if (!tokens.length) return;
     const result = await sql<AttachmentFileRow>`
-      select at."token", at."name", a."path", a."thumbnail_path"
-      from "attachments_table" at
-      inner join "attachments" a on a."token" = at."token"
-      where at."table_id" in (${sql.join(tableIds)})
+      select a."token", a."path", a."thumbnail_path"
+      from "attachments" a
+      where a."token" in (${sql.join(tokens.map((token) => sql`${token}`))})
         and a."deleted_time" is null
-    `.execute(db);
+    `.execute(metaDb);
+    const nameByToken = new Map(refs.map((ref) => [ref.token, ref.name]));
+    const files = result.rows.map((row) => ({
+      ...row,
+      name: nameByToken.get(row.token) ?? null,
+    }));
     const bucket = StorageAdapter.getBucket(UploadType.Table);
 
-    for (const attachment of result.rows) {
+    for (const attachment of files) {
       const suffix = attachment.name?.split('.').pop();
       const archivePath = `${filePath}/${attachment.token}${suffix ? `.${suffix}` : ''}`;
       await this.appendFileToArchive(archive, bucket, attachment.path, archivePath);
     }
 
     const prefix = `${filePath}/thumbnail__`;
-    for (const attachment of result.rows.filter((row) => row.thumbnail_path)) {
+    for (const attachment of files.filter((row) => row.thumbnail_path)) {
       const suffix = attachment.name?.split('.').pop() || 'jpg';
       const thumbnails = JSON.parse(attachment.thumbnail_path ?? '{}') as Record<string, string>;
       for (const thumbnailPath of Object.values(thumbnails).filter(Boolean)) {
@@ -874,13 +886,16 @@ export class BaseExportV2Service {
   }
 
   private async appendAttachmentsDataCsv(
-    db: ExportDb,
+    dataDb: ExportDb,
+    metaDb: ExportDb,
     filePath: string,
     tables: TableRow[],
     archive: archiver.Archiver
   ) {
     if (!tables.length) return;
     const tableIds = tables.map((table) => table.id);
+    const tokens = await listAttachmentTokensByTableIds(dataDb as never, metaDb as never, tableIds);
+    if (!tokens.length) return;
     const result = await sql<AttachmentMetadataRow>`
       select distinct
         a."id",
@@ -897,10 +912,9 @@ export class BaseExportV2Service {
         a."last_modified_by",
         a."thumbnail_path"
       from "attachments" a
-      inner join "attachments_table" at on at."token" = a."token"
-      where at."table_id" in (${sql.join(tableIds)})
+      where a."token" in (${sql.join(tokens.map((token) => sql`${token}`))})
         and a."deleted_time" is null
-    `.execute(db);
+    `.execute(metaDb);
     if (!result.rows.length) return;
 
     const csvStream = new PassThrough();

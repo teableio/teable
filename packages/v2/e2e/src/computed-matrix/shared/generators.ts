@@ -167,48 +167,6 @@ export const getLinkValue = (recordIds: string[], relationship: LinkRelationship
 };
 
 // =============================================================================
-// Expected Value Calculator
-// =============================================================================
-
-export const calculateExpectedFormulaValue = (
-  sourceType: SourceFieldType,
-  sourceValue: unknown,
-  chainDepth: number
-): unknown => {
-  if (sourceValue === null || sourceValue === undefined) {
-    return null;
-  }
-
-  // First level formula calculation
-  let result: unknown;
-  switch (sourceType) {
-    case 'number':
-      result = (sourceValue as number) * 2;
-      break;
-    case 'rating':
-      result = (sourceValue as number) * 10;
-      break;
-    case 'singleLineText':
-      result = `Result: ${sourceValue}`;
-      break;
-    case 'checkbox':
-      result = sourceValue ? 'Yes' : 'No';
-      break;
-    default:
-      result = sourceValue;
-  }
-
-  // Additional chain levels: each adds 10
-  for (let i = 1; i < chainDepth; i++) {
-    if (typeof result === 'number') {
-      result = result + 10;
-    }
-  }
-
-  return result;
-};
-
-// =============================================================================
 // Field ID Generator Factory
 // =============================================================================
 

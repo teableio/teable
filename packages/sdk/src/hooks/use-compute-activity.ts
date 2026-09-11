@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import type { Doc } from 'sharedb/lib/client';
-import type { Error as ShareDbError } from 'sharedb/lib/sharedb';
+import { COMPUTE_ACTIVITY_CHANGED, type ITableActionKey } from '@teable/core';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ComputeActivityContext } from '../context/compute-activity/ComputeActivityContext';
 import { FieldContext } from '../context/field/FieldContext';
 import { applyFieldComputeMeta, type FieldComputeMetaClient } from './apply-field-compute-meta';
@@ -9,6 +8,18 @@ import { useBaseId } from './use-base-id';
 import { useConnection } from './use-connection';
 import { useIsReadOnlyPreview } from './use-is-readonly-preview';
 import { useTableId } from './use-table-id';
+import { useTableListener } from './use-table-listener';
+
+/** Floor between actual HTTP starts for the same table. */
+export const COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS = 1_000;
+const COMPUTE_ACTIVITY_ACTIVE_POLL_INTERVAL_MS = 15_000;
+const COMPUTE_ACTIVITY_IDLE_POLL_INTERVAL_MS = 60_000;
+
+export type ComputeReliabilityClient = {
+  unresolvedCount: number;
+  oldestUnresolvedAt: string | null;
+  scopeComplete: boolean;
+};
 
 export type TableComputeActivityClient = {
   status: 'idle' | 'calculating';
@@ -21,8 +32,10 @@ export type TableComputeActivityClient = {
 };
 
 export type ComputeActivityFieldClient = FieldComputeMetaClient & {
+  reliability?: ComputeReliabilityClient;
   fieldId?: string;
   tableId?: string;
+  queuedAt?: string | null;
   activeTaskCount?: number;
   processingTaskCount?: number;
   batchProgress?: { total: number; completed: number };
@@ -42,6 +55,7 @@ const normalizeComputeActivityField = (
   field: ComputeActivityFieldTransport
 ): ComputeActivityFieldClient => ({
   status: field.status,
+  reliability: field.reliability,
   fieldId: field.fieldId,
   tableId: field.tableId,
   estimatedComplexity: field.estimatedComplexity,
@@ -49,6 +63,7 @@ const normalizeComputeActivityField = (
   ...(field.startedAt != null ? { startedAt: field.startedAt } : {}),
   ...(field.lastDurationMs != null ? { lastDurationMs: field.lastDurationMs } : {}),
   lastError: field.lastError,
+  queuedAt: field.queuedAt,
   activeTaskCount: field.activeTaskCount,
   processingTaskCount: field.processingTaskCount,
   batchProgress: field.batchProgress,
@@ -56,17 +71,13 @@ const normalizeComputeActivityField = (
   updatedAt: field.updatedAt,
 });
 
-const isUncreatedDocumentError = (error: unknown): boolean => {
-  if (!error || typeof error !== 'object' || !('code' in error)) return false;
-  return error.code === 'ERR_DOC_DOES_NOT_EXIST';
-};
-
 type ComputeActivitySnapshotTransport = Omit<ComputeActivitySnapshotClient, 'fields'> & {
   fields: Array<ComputeActivityFieldTransport & { fieldId: string }>;
 };
 
 export type ComputeActivityDiagnosticsClient = {
   computeMode: 'server';
+  reliability?: ComputeReliabilityClient;
   executionState?: 'running' | 'paused';
   activeFieldCount: number;
   queuedFieldCount: number;
@@ -96,6 +107,8 @@ export type ComputeActivityDiagnosticsClient = {
 };
 
 export type ComputeActivitySnapshotClient = {
+  observedAt?: string;
+  observationState?: 'available' | 'syncing' | 'unavailable';
   tableId: string;
   baseId: string;
   table: TableComputeActivityClient | null;
@@ -109,22 +122,33 @@ type ComputeActivityHttpResponse =
 
 async function fetchComputeActivity(
   baseId: string,
-  tableId: string
+  tableId: string,
+  signal?: AbortSignal
 ): Promise<ComputeActivitySnapshotClient | null> {
   const params = new URLSearchParams({ baseId, tableId });
-  const res = await fetch(`/api/v2/tables/getComputeActivity?${params.toString()}`, {
-    credentials: 'include',
-  });
-  if (!res.ok) return null;
-  const body = (await res.json()) as ComputeActivityHttpResponse;
-  if (!body || !('ok' in body) || !body.ok) return null;
-  return {
-    ...body.data,
-    fields: body.data.fields.map((field) => ({
-      ...normalizeComputeActivityField(field),
-      fieldId: field.fieldId,
-    })),
-  };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  const onAbort = () => controller.abort();
+  signal?.addEventListener('abort', onAbort);
+  try {
+    const res = await fetch(`/api/v2/tables/getComputeActivity?${params.toString()}`, {
+      credentials: 'include',
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error('Compute activity unavailable');
+    const body = (await res.json()) as ComputeActivityHttpResponse;
+    if (!body || !('ok' in body) || !body.ok) throw new Error('Compute activity unavailable');
+    return {
+      ...body.data,
+      fields: body.data.fields.map((field) => ({
+        ...normalizeComputeActivityField(field),
+        fieldId: field.fieldId,
+      })),
+    };
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener('abort', onAbort);
+  }
 }
 
 /** Shared compute-activity state shape (provider + hook). Explicit type avoids circular ReturnType. */
@@ -135,48 +159,14 @@ export type IComputeActivityState = {
   diagnostics: ComputeActivityDiagnosticsClient | null;
   activeFieldCount: number;
   isFetching: boolean;
+  observationState?: 'loading' | 'available' | 'syncing' | 'unavailable';
   refetch: () => unknown;
   /** Increments when activity changes — include in useGridColumns memo deps. */
   revision: number;
 };
 
-type VersionedActivity = {
-  generation?: number;
-  updatedAt?: string;
-};
-
-const preferNewestActivity = <T extends VersionedActivity>(
-  httpActivity: T | undefined,
-  realtimeActivity: T | undefined
-): T | undefined => {
-  if (!httpActivity) return realtimeActivity;
-  if (!realtimeActivity) return httpActivity;
-
-  if (httpActivity.generation != null && realtimeActivity.generation != null) {
-    return realtimeActivity.generation >= httpActivity.generation
-      ? { ...httpActivity, ...realtimeActivity }
-      : httpActivity;
-  }
-
-  const httpUpdatedAt = httpActivity.updatedAt && Date.parse(httpActivity.updatedAt);
-  const realtimeUpdatedAt = realtimeActivity.updatedAt && Date.parse(realtimeActivity.updatedAt);
-  if (
-    typeof httpUpdatedAt === 'number' &&
-    Number.isFinite(httpUpdatedAt) &&
-    typeof realtimeUpdatedAt === 'number' &&
-    Number.isFinite(realtimeUpdatedAt)
-  ) {
-    return realtimeUpdatedAt >= httpUpdatedAt
-      ? { ...httpActivity, ...realtimeActivity }
-      : httpActivity;
-  }
-
-  return { ...httpActivity, ...realtimeActivity };
-};
-
 const mergeFieldMeta = (
   httpFields: ComputeActivitySnapshotClient['fields'] | undefined,
-  realtimeFields: Record<string, ComputeActivityFieldClient>,
   currentTableId: string | undefined,
   readableFieldIds: ReadonlySet<string>
 ) => {
@@ -186,13 +176,31 @@ const mergeFieldMeta = (
     if (field.tableId && field.tableId !== currentTableId) continue;
     map[field.fieldId] = { ...field };
   }
-  for (const [fieldId, field] of Object.entries(realtimeFields)) {
-    if (!readableFieldIds.has(fieldId)) continue;
-    const merged = preferNewestActivity(map[fieldId], field);
-    if (merged) map[fieldId] = merged;
-  }
   return map;
 };
+
+const getObservationState = (
+  enabled: boolean,
+  unavailable: boolean,
+  hasSnapshot: boolean,
+  serverState?: ComputeActivitySnapshotClient['observationState']
+): NonNullable<IComputeActivityState['observationState']> => {
+  if (!enabled) return 'available';
+  if (unavailable) return 'unavailable';
+  if (serverState && serverState !== 'available') return serverState;
+  return hasSnapshot ? 'available' : 'loading';
+};
+
+const snapshotHasActiveOrIssues = (data: ComputeActivitySnapshotClient) =>
+  data.fields.some(
+    (field) =>
+      field.status === 'running' ||
+      field.status === 'queued' ||
+      field.status === 'failed' ||
+      (field.reliability?.unresolvedCount ?? 0) > 0
+  ) || (data.diagnostics.reliability?.unresolvedCount ?? 0) > 0;
+
+type PollMode = 'success' | 'failure';
 
 /**
  * Internal subscription implementation. Prefer {@link useComputeActivity} which
@@ -211,127 +219,194 @@ export function useComputeActivitySubscription(
     () => new Set(fields.filter((field) => field.canReadFieldRecord !== false).map(({ id }) => id)),
     [fields]
   );
-  const [realtimeTable, setRealtimeTable] = useState<TableComputeActivityClient | null>(null);
-  const [realtimeFields, setRealtimeFields] = useState<Record<string, ComputeActivityFieldClient>>(
-    {}
-  );
   const [revision, setRevision] = useState(0);
+  const previousConnection = useRef(connected);
+  const seenConnected = useRef(connected);
+  const generationRef = useRef(0);
+  const noticeSeqRef = useRef(0);
+  const consumedThroughRef = useRef(0);
+  const inFlightRef = useRef(false);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastRequestStartedAtRef = useRef(0);
+  const lastSuccessAtRef = useRef(0);
+  const hiddenRef = useRef(false);
+  const inactiveRef = useRef(!enabled);
+  const baseIdRef = useRef(baseId);
+  const tableIdRef = useRef(tableId);
+  const activeOrIssuesRef = useRef(false);
+  const refetchRef = useRef<() => unknown>(() => undefined);
+  const scheduleRefreshRef = useRef<() => void>(() => undefined);
+  const reschedulePollRef = useRef<(mode: PollMode) => void>(() => undefined);
+  const computeActivityMatches = useMemo<ITableActionKey[]>(() => [COMPUTE_ACTIVITY_CHANGED], []);
+
+  baseIdRef.current = baseId;
+  tableIdRef.current = tableId;
+  inactiveRef.current = !enabled;
+
+  const clearRefreshTimer = () => {
+    if (refreshTimerRef.current !== null) {
+      clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+  };
+
+  const clearPollTimer = () => {
+    if (pollTimerRef.current !== null) {
+      clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  };
+
+  const scheduleRefresh = useCallback(() => {
+    if (inactiveRef.current) return;
+    if (hiddenRef.current) {
+      clearRefreshTimer();
+      return;
+    }
+    if (inFlightRef.current) return;
+    if (refreshTimerRef.current !== null) return;
+    if (noticeSeqRef.current <= consumedThroughRef.current) return;
+
+    const elapsed = Date.now() - lastRequestStartedAtRef.current;
+    const wait =
+      lastRequestStartedAtRef.current === 0
+        ? 0
+        : Math.max(0, COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS - elapsed);
+
+    const start = () => {
+      refreshTimerRef.current = null;
+      if (inactiveRef.current || hiddenRef.current || inFlightRef.current) return;
+      if (noticeSeqRef.current <= consumedThroughRef.current) return;
+      void refetchRef.current();
+    };
+
+    if (wait <= 0) {
+      start();
+      return;
+    }
+    refreshTimerRef.current = setTimeout(start, wait);
+  }, []);
+  scheduleRefreshRef.current = scheduleRefresh;
+
+  const requestRefresh = useCallback(() => {
+    if (inactiveRef.current) return;
+    noticeSeqRef.current += 1;
+    scheduleRefresh();
+  }, [scheduleRefresh]);
+
+  const reschedulePoll = useCallback(
+    (mode: PollMode) => {
+      clearPollTimer();
+      if (inactiveRef.current || hiddenRef.current) return;
+      const interval =
+        (mode === 'failure' || activeOrIssuesRef.current
+          ? COMPUTE_ACTIVITY_ACTIVE_POLL_INTERVAL_MS
+          : COMPUTE_ACTIVITY_IDLE_POLL_INTERVAL_MS) *
+        (0.9 + Math.random() * 0.2);
+      const delay =
+        mode === 'success' && lastSuccessAtRef.current > 0
+          ? Math.max(0, lastSuccessAtRef.current + interval - Date.now())
+          : interval;
+      pollTimerRef.current = setTimeout(() => {
+        pollTimerRef.current = null;
+        if (inactiveRef.current || hiddenRef.current) return;
+        requestRefresh();
+      }, delay);
+    },
+    [requestRefresh]
+  );
+  reschedulePollRef.current = reschedulePoll;
+
+  useEffect(() => {
+    generationRef.current += 1;
+    noticeSeqRef.current = 0;
+    consumedThroughRef.current = 0;
+    inFlightRef.current = false;
+    lastRequestStartedAtRef.current = 0;
+    lastSuccessAtRef.current = 0;
+    hiddenRef.current = document.visibilityState === 'hidden';
+    inactiveRef.current = !enabled;
+    clearRefreshTimer();
+    clearPollTimer();
+    return () => {
+      generationRef.current += 1;
+      inactiveRef.current = true;
+      inFlightRef.current = false;
+      clearRefreshTimer();
+      clearPollTimer();
+    };
+  }, [enabled, baseId, tableId]);
 
   const query = useQuery({
     queryKey: ['compute-activity', baseId, tableId],
-    queryFn: () => fetchComputeActivity(baseId!, tableId!),
+    // Supplemental status failures are displayed locally by the activity panel.
+    meta: { preventGlobalError: true },
+    queryFn: async ({ signal }) => {
+      const generation = generationRef.current;
+      const coveredThrough = noticeSeqRef.current;
+      inFlightRef.current = true;
+      lastRequestStartedAtRef.current = Date.now();
+      let succeeded = false;
+      try {
+        const data = await fetchComputeActivity(baseIdRef.current!, tableIdRef.current!, signal);
+        if (!data) throw new Error('Compute activity unavailable');
+        if (generation !== generationRef.current) return data;
+        succeeded = true;
+        lastSuccessAtRef.current = Date.now();
+        consumedThroughRef.current = coveredThrough;
+        activeOrIssuesRef.current = snapshotHasActiveOrIssues(data);
+        return data;
+      } finally {
+        if (generation === generationRef.current) {
+          inFlightRef.current = false;
+          reschedulePollRef.current(succeeded ? 'success' : 'failure');
+          // After React Query observes this promise, not during queryFn.
+          setTimeout(() => {
+            if (generation !== generationRef.current) return;
+            if (noticeSeqRef.current > coveredThrough) {
+              scheduleRefreshRef.current();
+            }
+          }, 0);
+        }
+      }
+    },
     enabled: enabled && Boolean(baseId && tableId),
-    // Mount snapshot only. Live updates come from ShareDB `cmp_{tableId}` docs.
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: COMPUTE_ACTIVITY_REFETCH_MIN_INTERVAL_MS,
+    // A failed read must retain React Query's last successful snapshot.
   });
+  refetchRef.current = query.refetch;
 
   useEffect(() => {
-    if (!enabled || !tableId || !connection || !connected) return;
-
-    const collection = `cmp_${tableId}`;
-    const tableDoc = connection.get(collection, 'table') as Doc<TableComputeActivityClient>;
-    let cancelled = false;
-
-    const onTableOp = () => {
-      if (cancelled) return;
-      if (tableDoc.data) {
-        setRealtimeTable({ ...tableDoc.data });
-        setRevision((r) => r + 1);
-      }
-    };
-
-    const onError = (error: ShareDbError) => {
-      if (isUncreatedDocumentError(error)) return;
-      connection.emit('error', error);
-    };
-    tableDoc.on('error', onError);
-
-    tableDoc.subscribe((err) => {
-      if (err || cancelled) return;
-      onTableOp();
-      tableDoc.on('op batch', onTableOp);
-      tableDoc.on('op', onTableOp);
-      tableDoc.on('create', onTableOp);
-    });
-
-    return () => {
-      cancelled = true;
-      tableDoc.removeListener('op batch', onTableOp);
-      tableDoc.removeListener('op', onTableOp);
-      tableDoc.removeListener('create', onTableOp);
-      tableDoc.removeListener('error', onError);
-    };
-  }, [enabled, tableId, connection, connected]);
-
-  useEffect(() => {
-    if (!enabled || !tableId || !connection || !connected || !fields?.length) return;
-
-    const collection = `cmp_${tableId}`;
-    const listeners: Array<{
-      doc: Doc<ComputeActivityFieldTransport>;
-      onOp: () => void;
-    }> = [];
-    let cancelled = false;
-
-    const onError = (error: ShareDbError) => {
-      if (isUncreatedDocumentError(error)) return;
-      connection.emit('error', error);
-    };
-
-    const attach = (fieldId: string) => {
-      const doc = connection.get(collection, fieldId) as Doc<ComputeActivityFieldTransport>;
-      const onOp = () => {
-        if (cancelled || !doc.data) return;
-        setRealtimeFields((prev) => ({
-          ...prev,
-          [fieldId]: normalizeComputeActivityField(doc.data),
-        }));
-        setRevision((r) => r + 1);
-      };
-      listeners.push({ doc, onOp });
-      doc.on('error', onError);
-      doc.subscribe((err) => {
-        if (err || cancelled) return;
-        onOp();
-        doc.on('op batch', onOp);
-        doc.on('op', onOp);
-        doc.on('create', onOp);
-      });
-    };
-
-    const bulkConnection = connection as typeof connection & {
-      startBulk?: () => void;
-      endBulk?: () => void;
-    };
-    bulkConnection.startBulk?.();
-    try {
-      for (const field of fields) {
-        if (field.canReadFieldRecord !== false) attach(field.id);
-      }
-    } finally {
-      bulkConnection.endBulk?.();
+    if (query.dataUpdatedAt) {
+      setRevision((current) => current + 1);
     }
+  }, [query.dataUpdatedAt]);
 
-    return () => {
-      cancelled = true;
-      for (const { doc, onOp } of listeners) {
-        doc.removeListener('op', onOp);
-        doc.removeListener('op batch', onOp);
-        doc.removeListener('create', onOp);
-        doc.removeListener('error', onError);
-      }
-    };
-  }, [enabled, tableId, connection, connected, fields]);
+  useEffect(() => {
+    if (!enabled || !query.dataUpdatedAt || !query.data) return;
+    if (lastSuccessAtRef.current !== 0) return;
+    lastSuccessAtRef.current = query.dataUpdatedAt;
+    lastRequestStartedAtRef.current = query.dataUpdatedAt;
+    activeOrIssuesRef.current = snapshotHasActiveOrIssues(query.data);
+    reschedulePollRef.current('success');
+  }, [enabled, query.dataUpdatedAt, query.data]);
+
+  const onComputeActivityChanged = useCallback(() => requestRefresh(), [requestRefresh]);
+  useTableListener(enabled ? tableId : undefined, computeActivityMatches, onComputeActivityChanged);
 
   const fieldMetaById = useMemo(
-    () =>
-      enabled ? mergeFieldMeta(query.data?.fields, realtimeFields, tableId, readableFieldIds) : {},
-    [enabled, query.data?.fields, realtimeFields, tableId, readableFieldIds]
+    () => (enabled ? mergeFieldMeta(query.data?.fields, tableId, readableFieldIds) : {}),
+    [enabled, query.data?.fields, tableId, readableFieldIds]
   );
 
   // Apply onto field instances for any code reading field.isPending/computeMeta,
   // AND bump revision so memoized column themes recompute.
   useEffect(() => {
-    if (!enabled || !fields?.length) return;
+    if (!enabled || !fields?.length || (!query.data && !Object.keys(fieldMetaById).length)) return;
     let changed = false;
     for (const field of fields) {
       const meta = fieldMetaById[field.id];
@@ -347,11 +422,22 @@ export function useComputeActivitySubscription(
     if (changed) {
       setRevision((r) => r + 1);
     }
-  }, [enabled, fields, fieldMetaById]);
+  }, [enabled, fields, fieldMetaById, query.data]);
 
-  const tableMeta = enabled
-    ? preferNewestActivity(query.data?.table ?? undefined, realtimeTable ?? undefined)
-    : undefined;
+  // Table counts stay permission-scoped from HTTP field metas, not the global table doc.
+  const tableMeta = useMemo(() => {
+    if (!enabled || !query.data?.table) return undefined;
+    const metas = Object.values(fieldMetaById);
+    const calculatingFieldCount = metas.filter(({ status }) => status === 'running').length;
+    const queuedFieldCount = metas.filter(({ status }) => status === 'queued').length;
+    return {
+      ...query.data.table,
+      status:
+        calculatingFieldCount + queuedFieldCount > 0 ? ('calculating' as const) : ('idle' as const),
+      calculatingFieldCount,
+      queuedFieldCount,
+    };
+  }, [enabled, query.data?.table, fieldMetaById]);
   const diagnostics = useMemo<ComputeActivityDiagnosticsClient | null>(() => {
     const httpDiagnostics = enabled ? query.data?.diagnostics : undefined;
     const fieldMeta = Object.values(fieldMetaById);
@@ -376,11 +462,59 @@ export function useComputeActivitySubscription(
       highComplexityFieldCount: httpDiagnostics?.highComplexityFieldCount ?? 0,
       anomalies: httpDiagnostics?.anomalies ?? [],
       pause: httpDiagnostics?.pause,
+      reliability: httpDiagnostics?.reliability,
     };
   }, [enabled, fieldMetaById, query.data?.diagnostics]);
   const activeFieldCount = diagnostics?.activeFieldCount ?? 0;
 
-  const refetch = useCallback(() => (enabled ? query.refetch() : undefined), [enabled, query]);
+  const hasIssues =
+    Object.values(fieldMetaById).some(
+      (field) => field.status === 'failed' || (field.reliability?.unresolvedCount ?? 0) > 0
+    ) || (diagnostics?.reliability?.unresolvedCount ?? 0) > 0;
+
+  useEffect(() => {
+    const next = activeFieldCount > 0 || hasIssues;
+    const prev = activeOrIssuesRef.current;
+    activeOrIssuesRef.current = next;
+    if (prev !== next && enabled && baseId && tableId) {
+      reschedulePoll(lastSuccessAtRef.current > 0 ? 'success' : 'failure');
+    }
+  }, [enabled, baseId, tableId, activeFieldCount, hasIssues, reschedulePoll]);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      const hidden = document.visibilityState === 'hidden';
+      hiddenRef.current = hidden;
+      if (hidden) {
+        clearRefreshTimer();
+        clearPollTimer();
+        return;
+      }
+      if (!inactiveRef.current) {
+        requestRefresh();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [requestRefresh]);
+
+  useEffect(() => {
+    // useQuery already fetches on mount; only refresh after a real reconnect.
+    if (enabled && connected && !previousConnection.current && seenConnected.current) {
+      requestRefresh();
+    }
+    if (connected) {
+      seenConnected.current = true;
+    }
+    previousConnection.current = connected;
+  }, [enabled, connected, requestRefresh]);
+
+  const refetch = useCallback(() => {
+    if (!enabled) return;
+    requestRefresh();
+  }, [enabled, requestRefresh]);
 
   return {
     snapshot: enabled ? query.data ?? null : null,
@@ -389,6 +523,15 @@ export function useComputeActivitySubscription(
     diagnostics,
     activeFieldCount,
     isFetching: enabled && query.isFetching,
+    observationState: getObservationState(
+      enabled,
+      Boolean(
+        query.isError ||
+          (query.data && connection && !connected && connection.state !== 'connecting')
+      ),
+      Boolean(query.data),
+      query.data?.observationState
+    ),
     refetch,
     /** Increments when activity changes — include in useGridColumns memo deps. */
     revision,

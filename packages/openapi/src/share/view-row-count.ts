@@ -40,8 +40,13 @@ export const ShareViewRowCountRoute: RouteConfig = registerRoute({
   tags: ['share'],
 });
 
-export const getShareViewRowCount = async (shareId: string, query: IShareViewRowCountRo) => {
+export const getShareViewRowCount = async (
+  shareId: string,
+  query: IShareViewRowCountRo,
+  options?: { signal?: AbortSignal }
+) => {
   return axios.get<IRowCountVo>(urlBuilder(SHARE_VIEW_ROW_COUNT, { shareId }), {
+    signal: options?.signal,
     params: {
       ...query,
       filter: JSON.stringify(query.filter),

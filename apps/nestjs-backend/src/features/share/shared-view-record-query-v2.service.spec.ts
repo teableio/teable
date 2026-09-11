@@ -25,6 +25,8 @@ import {
 import { ok } from 'neverthrow';
 import { vi } from 'vitest';
 import { string2Hash } from '../../utils';
+import { TableQuerySearchVectorRuntimeService } from '../v2/table-query-search-vector-runtime.service';
+import { createSearchIndexTable } from '../v2/table-query-search-vector-runtime.test-fixture';
 import type { IShareViewInfo } from './share-auth.service';
 import { SharedViewRecordQueryV2Service } from './shared-view-record-query-v2.service';
 
@@ -97,20 +99,26 @@ describe('SharedViewRecordQueryV2Service', () => {
     const attachmentDecorator = {
       decorateAttachmentValue: vi.fn(async (value: unknown) => ok(value)),
     };
+    const table = createSearchIndexTable(tableId, fieldId);
+    const tableRepository = { findOne: vi.fn(async () => ok(table)) };
     const getContainerForTable = vi.fn().mockResolvedValue({
-      resolve: vi.fn((token) =>
-        token === v2CoreTokens.attachmentValueDecoratorService ? attachmentDecorator : queryBus
-      ),
+      resolve: vi.fn((token) => {
+        if (token === v2CoreTokens.tableRepository) return tableRepository;
+        if (token === v2CoreTokens.attachmentValueDecoratorService) return attachmentDecorator;
+        return queryBus;
+      }),
     });
     const createContext = vi.fn().mockResolvedValue({
       actorId: { toString: () => `usr${'u'.repeat(16)}` },
     });
     const cacheGet = vi.fn(async (): Promise<Record<string, unknown> | undefined> => undefined);
+    const runtime = new TableQuerySearchVectorRuntimeService({ get: () => 'auto' } as never);
     const service = new SharedViewRecordQueryV2Service(
       { getContainerForTable } as never,
       { createContext } as never,
       { maxGroupPoints: 5_000, maxCopyCells: 50_000 } as never,
-      { get: cacheGet } as never
+      { get: cacheGet } as never,
+      runtime
     );
 
     return {
@@ -121,6 +129,7 @@ describe('SharedViewRecordQueryV2Service', () => {
       getContainerForTable,
       createContext,
       cacheGet,
+      tableRepository,
     };
   };
 
@@ -135,6 +144,41 @@ describe('SharedViewRecordQueryV2Service', () => {
       columnMeta: {},
     },
   } as IShareViewInfo;
+
+  it.each(['count', 'aggregation', 'groups', 'search-index'] as const)(
+    'resolves the trusted runtime search path for %s',
+    async (kind) => {
+      const fixture = createFixture();
+      const accessPath = {
+        kind: 'generated_text',
+        generatedColumnName: '__search_document',
+        provider: 'pg_trgm',
+        searchScope: 'all_fields',
+        coveredFieldIds: [primaryFieldId],
+      };
+      const search: [string, string, boolean] = ['order', '', true];
+      if (kind === 'count') {
+        await fixture.service.getRowCount(shareInfo, { search });
+      } else if (kind === 'aggregation') {
+        await fixture.service.getAggregations(shareInfo, { search });
+      } else if (kind === 'search-index') {
+        await fixture.service.getSearchIndex(shareInfo, { search, take: 10 });
+      } else {
+        await fixture.service.getGroupPoints(shareInfo, {
+          search,
+          groupBy: [{ fieldId, order: SortFunc.Asc }],
+        });
+      }
+      const query = fixture.queries.find(
+        (item) =>
+          item instanceof CountTableRecordsQuery ||
+          item instanceof AggregateTableRecordsQuery ||
+          item instanceof ListTableRecordsQuery
+      );
+      expect(query).toHaveProperty('recordSearchAccessPath', expect.objectContaining(accessPath));
+      expect(fixture.tableRepository.findOne).toHaveBeenCalledTimes(1);
+    }
+  );
 
   it('returns empty aggregation before resolving v2 dependencies when records are disabled', async () => {
     const fixture = createFixture();
@@ -534,7 +578,6 @@ describe('SharedViewRecordQueryV2Service', () => {
       (query): query is AggregateTableRecordsQuery => query instanceof AggregateTableRecordsQuery
     );
 
-    expect(fixture.queries[0]).toBeInstanceOf(ListFieldsQuery);
     expect(aggregateQuery?.filter).toEqual({
       conjunction: 'and',
       items: [{ fieldId, operator: 'is', value: 'Alpha' }],
@@ -907,7 +950,6 @@ describe('SharedViewRecordQueryV2Service', () => {
       (query): query is CountTableRecordsQuery => query instanceof CountTableRecordsQuery
     );
 
-    expect(fixture.queries[0]).toBeInstanceOf(ListFieldsQuery);
     expect(countQuery?.viewId).toBe(candidateViewId);
     expect(countQuery?.filter).toEqual({
       conjunction: 'and',

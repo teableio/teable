@@ -77,13 +77,14 @@ export class AggregateTableRecordsHandler
     return safeTry<AggregateTableRecordsResult, DomainError>(
       async function* (this: AggregateTableRecordsHandler) {
         const applyViewDefaults = !query.ignoreViewQuery;
-        const specBuilder = Table.specs().byId(query.tableId);
-        if (applyViewDefaults) {
-          specBuilder.withViewId(query.viewId);
-        }
-        const tableSpec = yield* specBuilder.build();
-        const table = yield* (await this.tableRepository.findOne(context, tableSpec)).mapErr(
-          (error) =>
+        let table = query.table;
+        if (!table || !table.id().equals(query.tableId)) {
+          const specBuilder = Table.specs().byId(query.tableId);
+          if (applyViewDefaults) {
+            specBuilder.withViewId(query.viewId);
+          }
+          const tableSpec = yield* specBuilder.build();
+          table = yield* (await this.tableRepository.findOne(context, tableSpec)).mapErr((error) =>
             isNotFoundError(error)
               ? domainError.notFound({
                   code: applyViewDefaults ? 'view.not_found' : 'table.not_found',
@@ -92,7 +93,8 @@ export class AggregateTableRecordsHandler
                     : `Table not found: ${query.tableId.toString()}`,
                 })
               : error
-        );
+          );
+        }
         const view = applyViewDefaults ? yield* table.getView(query.viewId) : undefined;
         const defaults = view ? yield* view.queryDefaults() : undefined;
         const defaultFilter = defaults
@@ -136,6 +138,7 @@ export class AggregateTableRecordsHandler
             {
               maxGroupPoints: query.maxGroupPoints,
               search: visibleRowSearch,
+              searchAccessPath: query.recordSearchAccessPath,
             }
           );
           const groupedRows = groupedValues
@@ -186,6 +189,7 @@ export class AggregateTableRecordsHandler
           {
             maxGroupPoints: query.maxGroupPoints,
             search: visibleRowSearch,
+            searchAccessPath: query.recordSearchAccessPath,
             ...(pagination ? { pagination } : {}),
             ...(orderBy ? { orderBy } : {}),
           }

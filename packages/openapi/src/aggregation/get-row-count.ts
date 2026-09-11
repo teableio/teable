@@ -51,8 +51,13 @@ export const GetRowCountRoute: RouteConfig = registerRoute({
   tags: ['aggregation'],
 });
 
-export const getRowCount = async (tableId: string, query?: IRowCountRo) => {
+export const getRowCount = async (
+  tableId: string,
+  query?: IRowCountRo,
+  options?: { signal?: AbortSignal }
+) => {
   return axios.get<IRowCountVo>(urlBuilder(GET_ROW_COUNT, { tableId }), {
+    signal: options?.signal,
     params: {
       ...query,
       filter: JSON.stringify(query?.filter),

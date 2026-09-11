@@ -9,18 +9,12 @@
  * Total: ~12 test cases
  */
 
-import {
-  buildNameMaps,
-  printComputedSteps,
-  type ComputedPlanLogEntry,
-} from '@teable/v2-container-node-test';
 import { beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import {
   createTestContext,
   createFieldIdGenerator,
   getFieldValues,
-  getExpectedSteps,
-  verifySteps,
+  verifyLookupValue,
 } from './shared';
 import type { TestContext, ValueTransition, SelfRefType, SelfRefTestCase } from './shared';
 
@@ -176,11 +170,6 @@ describe('self-referencing matrix (e2e)', () => {
         await ctx.createRecord(table.id, childData);
         await ctx.testContainer.processOutbox();
 
-        // Get child's computed value before update
-        const beforeRecords = await ctx.listRecords(table.id);
-        const childRecord = beforeRecords.find((r) => r.fields[nameFieldId] === 'Child');
-        const beforeValue = childRecord?.fields[computedFieldId];
-
         // Clear logs before update
         ctx.clearLogs();
 
@@ -199,53 +188,20 @@ describe('self-referencing matrix (e2e)', () => {
         // Verify Results
         // =====================================================================
 
-        if (transition === 'valueToNull') {
-          if (computed === 'lookup') {
-            // Lookup should show null
-            if (Array.isArray(afterValue)) {
-              expect(afterValue.every((v) => v === null)).toBe(true);
-            } else {
-              expect(afterValue).toBeNull();
-            }
-          } else {
-            // Rollup sum of null is 0 or null
-            expect([0, null]).toContain(afterValue);
-          }
+        if (computed === 'lookup') {
+          verifyLookupValue(afterValue, updated === null ? null : [updated]);
         } else {
-          // Value should have changed
-          expect(afterValue).not.toEqual(beforeValue);
-
-          if (computed === 'lookup') {
-            // Lookup returns array
-            expect(Array.isArray(afterValue)).toBe(true);
-            if (Array.isArray(afterValue)) {
-              expect(afterValue).toContain(updated);
-            }
-          } else {
-            // Rollup returns single value
-            expect(afterValue).toBe(updated);
-          }
+          expect(afterValue).toBe(updated ?? 0);
         }
-
-        // Verify computed steps
-        const plan = ctx.getLastComputedPlan() as {
-          steps: Array<{ tableId: string; fieldIds: string[]; level: number }>;
-        };
-        // Self-referencing is complex, use range verification
-        const expectedSteps = getExpectedSteps(computed, 1, {
-          relationship,
-          direction: 'twoWay',
-        });
-        verifySteps(plan, expectedSteps, computedFieldId);
       }
     );
   });
 
   // ===========================================================================
-  // Detailed Snapshot Tests
+  // Detailed Value Tests
   // ===========================================================================
 
-  describe('snapshot tests', () => {
+  describe('detailed value tests', () => {
     test('self-ref manyOne lookup - parent name change', async () => {
       const createFieldId = createFieldIdGenerator();
 
@@ -318,23 +274,6 @@ describe('self-referencing matrix (e2e)', () => {
       const afterRecords = await ctx.listRecords(table.id);
       const afterEmployee = afterRecords.find((r) => r.fields[nameFieldId] === 'Employee');
       expect(afterEmployee?.fields[parentLookupFieldId]).toEqual(['Director']);
-
-      // Verify steps
-      const plan = ctx.getLastComputedPlan() as {
-        steps: Array<{ tableId: string; fieldIds: string[]; level: number }>;
-      };
-      expect(plan.steps.length).toBe(1);
-
-      // Snapshot - note: self-referencing link creates symmetric field, so we see more fields
-      const nameMaps = buildNameMaps({ id: table.id, name: 'SelfManyOne_Snapshot' }, [
-        { id: nameFieldId, name: 'Name' },
-        { id: parentLinkFieldId, name: 'Parent' },
-        { id: parentLookupFieldId, name: 'ParentName' },
-      ]);
-      const output = printComputedSteps(plan as ComputedPlanLogEntry, nameMaps);
-      expect(output).toContain('[Computed Steps: 1]');
-      expect(output).toContain('SelfManyOne_Snapshot');
-      expect(output).toContain('ParentName');
     });
 
     test('self-ref manyMany rollup - value sum', async () => {

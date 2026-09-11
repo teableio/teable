@@ -291,7 +291,6 @@
       "bar": "شريط",
       "text": "نص",
       "markdown": "Markdown",
-      "url": "رابط",
       "email": "بريد إلكتروني",
       "phone": "هاتف",
       "maxNumber": "الحد الأقصى للرقم",
@@ -353,6 +352,7 @@
       "filterByView": "تصفية السجلات حسب العرض",
       "filter": "تصفية السجلات",
       "hideFields": "إخفاء الحقول",
+      "removeDuplicateValues": "إزالة القيم المكررة",
       "moreOptions": "خيارات إضافية",
       "allowNewOptionsWhenEditing": "السماح بخيارات جديدة أثناء التعديل",
       "deleteField": {
@@ -936,6 +936,9 @@
   },
   "import": {
     "title": {
+      "createTable": "إنشاء جدول",
+      "importFromCsv": "الاستيراد من CSV",
+      "importFromExcel": "الاستيراد من Excel",
       "upload": "رفع",
       "import": "استيراد",
       "localFile": "ملفات محلية",
@@ -1394,6 +1397,135 @@
     "action": {
       "locateResource": "تحديد الموقع"
     },
+    "resourceOperations": {
+      "title": "تغييرات هذه الجولة",
+      "items_zero": "لا عناصر",
+      "items_one": "عنصر واحد",
+      "items_two": "عنصران",
+      "items_few": "{{count}} عناصر",
+      "items_many": "{{count}} عنصرًا",
+      "items_other": "{{count}} عنصر",
+      "expandRemaining": "عرض المزيد ({{count}})",
+      "collapse": "عرض أقل",
+      "create": "تم الإنشاء",
+      "update": "تم التحديث",
+      "delete": "تم الحذف",
+      "import": "استيراد",
+      "publication": {
+        "published": "تم النشر",
+        "unpublished": "تم إلغاء النشر"
+      },
+      "structureTitles": {
+        "field": "تغييرات الحقول",
+        "view": "تغييرات العروض"
+      },
+      "structureStats": {
+        "field": {
+          "create_zero": "لم تتم إضافة أي حقول",
+          "create_one": "تمت إضافة حقل واحد",
+          "create_two": "تمت إضافة حقلين",
+          "create_few": "تمت إضافة {{count}} حقول",
+          "create_many": "تمت إضافة {{count}} حقلًا",
+          "create_other": "تمت إضافة {{count}} حقل",
+          "update_zero": "لم يتم تعديل أي حقول",
+          "update_one": "تم تعديل حقل واحد",
+          "update_two": "تم تعديل حقلين",
+          "update_few": "تم تعديل {{count}} حقول",
+          "update_many": "تم تعديل {{count}} حقلًا",
+          "update_other": "تم تعديل {{count}} حقل",
+          "delete_zero": "لم يتم حذف أي حقول",
+          "delete_one": "تم حذف حقل واحد",
+          "delete_two": "تم حذف حقلين",
+          "delete_few": "تم حذف {{count}} حقول",
+          "delete_many": "تم حذف {{count}} حقلًا",
+          "delete_other": "تم حذف {{count}} حقل",
+          "import_zero": "لم يتم استيراد أي حقول",
+          "import_one": "تم استيراد حقل واحد",
+          "import_two": "تم استيراد حقلين",
+          "import_few": "تم استيراد {{count}} حقول",
+          "import_many": "تم استيراد {{count}} حقلًا",
+          "import_other": "تم استيراد {{count}} حقل"
+        },
+        "view": {
+          "create_zero": "لم تتم إضافة أي عروض",
+          "create_one": "تمت إضافة عرض واحد",
+          "create_two": "تمت إضافة عرضين",
+          "create_few": "تمت إضافة {{count}} عروض",
+          "create_many": "تمت إضافة {{count}} عرضًا",
+          "create_other": "تمت إضافة {{count}} عرض",
+          "update_zero": "لم يتم تعديل أي عروض",
+          "update_one": "تم تعديل عرض واحد",
+          "update_two": "تم تعديل عرضين",
+          "update_few": "تم تعديل {{count}} عروض",
+          "update_many": "تم تعديل {{count}} عرضًا",
+          "update_other": "تم تعديل {{count}} عرض",
+          "delete_zero": "لم يتم حذف أي عروض",
+          "delete_one": "تم حذف عرض واحد",
+          "delete_two": "تم حذف عرضين",
+          "delete_few": "تم حذف {{count}} عروض",
+          "delete_many": "تم حذف {{count}} عرضًا",
+          "delete_other": "تم حذف {{count}} عرض",
+          "import_zero": "لم يتم استيراد أي عروض",
+          "import_one": "تم استيراد عرض واحد",
+          "import_two": "تم استيراد عرضين",
+          "import_few": "تم استيراد {{count}} عروض",
+          "import_many": "تم استيراد {{count}} عرضًا",
+          "import_other": "تم استيراد {{count}} عرض"
+        }
+      },
+      "workflow": {
+        "activate": "تم تفعيل الأتمتة",
+        "deactivate": "تم تعطيل الأتمتة",
+        "discard": "تم إلغاء تغييرات المسودة"
+      },
+      "routine": {
+        "activate": "تم تفعيل الروتين",
+        "deactivate": "تم إيقاف الروتين",
+        "run": "بدأ التشغيل"
+      },
+      "records": {
+        "create": "تمت إضافة سجلات",
+        "createCount_zero": "لم تتم إضافة أي سجلات",
+        "createCount_one": "تمت إضافة سجل واحد",
+        "createCount_two": "تمت إضافة سجلين",
+        "createCount_few": "تمت إضافة {{count}} سجلات",
+        "createCount_many": "تمت إضافة {{count}} سجلًا",
+        "createCount_other": "تمت إضافة {{count}} سجل",
+        "update": "تم تحديث السجلات",
+        "updateCount_zero": "لم يتم تحديث أي سجلات",
+        "updateCount_one": "تم تحديث سجل واحد",
+        "updateCount_two": "تم تحديث سجلين",
+        "updateCount_few": "تم تحديث {{count}} سجلات",
+        "updateCount_many": "تم تحديث {{count}} سجلًا",
+        "updateCount_other": "تم تحديث {{count}} سجل",
+        "delete": "تم حذف السجلات",
+        "deleteCount_zero": "لم يتم حذف أي سجلات",
+        "deleteCount_one": "تم حذف سجل واحد",
+        "deleteCount_two": "تم حذف سجلين",
+        "deleteCount_few": "تم حذف {{count}} سجلات",
+        "deleteCount_many": "تم حذف {{count}} سجلًا",
+        "deleteCount_other": "تم حذف {{count}} سجل",
+        "import": "تم استيراد السجلات",
+        "importCount_zero": "لم يتم استيراد أي سجلات",
+        "importCount_one": "تم استيراد سجل واحد",
+        "importCount_two": "تم استيراد سجلين",
+        "importCount_few": "تم استيراد {{count}} سجلات",
+        "importCount_many": "تم استيراد {{count}} سجلًا",
+        "importCount_other": "تم استيراد {{count}} سجل"
+      },
+      "types": {
+        "base": "قاعدة",
+        "table": "جدول",
+        "field": "حقل",
+        "view": "عرض",
+        "record": "سجلات",
+        "app": "تطبيق",
+        "workflow": "أتمتة",
+        "routine": "روتين",
+        "folder": "مجلد",
+        "artifact": "Artifact"
+      }
+    },
     "showUI": {
       "skip": "تخطي",
       "next": "التالي",
@@ -1437,7 +1569,13 @@
     "addAttachment": "إضافة مرفق",
     "noHistory": "لا يوجد سجل محادثات",
     "noFoundHistory": "لم يتم العثور على سجل محادثات، يُرجى بدء محادثة جديدة",
+    "pin": "تثبيت",
+    "unpin": "إلغاء التثبيت",
+    "archive": "أرشفة",
+    "archivedToast": "تمت أرشفة المحادثة. ستجدها في الإعدادات › المحادثات المؤرشفة.",
+    "unread": "غير مقروء",
     "timeGroup": {
+      "pinned": "المثبّتة",
       "today": "اليوم",
       "oneWeek": "أسبوع واحد",
       "twoWeek": "أسبوعان",
@@ -1456,6 +1594,7 @@
       "tables": "الجداول",
       "apps": "التطبيقات",
       "workflows": "الأتمتة",
+      "routines": "روتينات",
       "folders": "المجلدات",
       "envs": "الأسرار"
     },
@@ -1632,6 +1771,11 @@
       "searchPlaceholder": "البحث في الـ Artifacts",
       "fixWithAi": "الإصلاح بالذكاء الاصطناعي",
       "noPermission": "ليس لديك حق الوصول إلى هذا الـ Artifact"
+    },
+    "status": {
+      "running": "جارٍ التوليد…",
+      "waitingInput": "بانتظار ردّك",
+      "failed": "فشل الرد"
     }
   },
   "upload": {

@@ -11,6 +11,7 @@ import {
   ColorUtils,
   FieldType,
   checkButtonClickable,
+  getTextActionType,
 } from '@teable/core';
 import { useTheme } from '@teable/next-themes';
 import { keyBy } from 'lodash';
@@ -18,7 +19,7 @@ import { LRUCache } from 'lru-cache';
 import { useCallback, useMemo } from 'react';
 import colors from 'tailwindcss/colors';
 import type { ChartType, ICell, IGridColumn, INumberShowAs as IGridNumberShowAs } from '../..';
-import { CellType, hexToRGBA, getFileCover, onMixedTextClick } from '../..';
+import { CellType, hexToRGBA, getFieldIconString, getFileCover, onMixedTextClick } from '../..';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
 import type { IButtonClickStatusHook } from '../../../hooks';
 import {
@@ -30,8 +31,10 @@ import {
 } from '../../../hooks';
 import type { IFieldInstance, NumberField, Record as IRecordModel } from '../../../model';
 import type { GridView } from '../../../model/view';
+import { findUrls } from '../../../utils/find-urls';
 import { normalizeCellValueForDisplay } from '../../../utils/normalize-cell-value';
 import { getDisplayChoiceMap } from '../../../utils/select-color';
+import { openUrl } from '../../../utils/url';
 import { isMarkdownShowAs, stripMarkdown } from '../../editor/long-text/utils';
 import { getFilterFieldIds } from '../../filter/view-filter/utils';
 import type { IGridTheme } from '../../grid/configs';
@@ -292,35 +295,40 @@ export const useCreateCellValue2GridDisplay = (
             // null on fields produced by legacy conversion paths. Crashing the
             // whole grid render is worse than ignoring showAs for one cell.
             const { showAs } = field.options ?? {};
+            const actionType = getTextActionType(showAs);
 
-            if (showAs != null) {
-              const { type } = showAs;
-
+            if (actionType) {
               return {
                 ...baseCellProps,
                 type: CellType.Link,
                 data: cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [],
                 displayData: field.cellValue2String(cellValue),
-                onClick: (text) => onMixedTextClick(type, text),
+                onClick: (text) => onMixedTextClick(actionType, text),
               };
             }
 
+            const displayData = field.cellValue2String(cellValue);
             return {
               ...baseCellProps,
               type: CellType.Text,
               data: (cellValue as string) || '',
-              displayData: field.cellValue2String(cellValue),
+              displayData,
+              links: findUrls(displayData),
+              onLinkClick: openUrl,
             };
           }
           case FieldType.LongText: {
             const rawDisplayData = field.cellValue2String(cellValue);
             const isMarkdown = isMarkdownShowAs(field.options);
             const isLookupField = Boolean(field.isLookup);
+            const displayData = isMarkdown ? stripMarkdown(rawDisplayData) : rawDisplayData;
             return {
               ...baseCellProps,
               type: CellType.Text,
               data: (cellValue as string) || '',
-              displayData: isMarkdown ? stripMarkdown(rawDisplayData) : rawDisplayData,
+              displayData,
+              links: findUrls(displayData),
+              onLinkClick: openUrl,
               isWrap: true,
               readonly: readonly || isLookupField,
               readonlyCustomEditor: isLookupField,
@@ -400,25 +408,28 @@ export const useCreateCellValue2GridDisplay = (
             }
 
             if (cellValueType === CellValueType.String) {
-              const showAs = field.options.showAs as ISingleLineTextShowAs;
+              const actionType = getTextActionType(
+                field.options.showAs as ISingleLineTextShowAs | undefined
+              );
 
-              if (showAs != null) {
-                const { type } = showAs;
-
+              if (actionType) {
                 return {
                   ...baseCellProps,
                   type: CellType.Link,
                   data: cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [],
                   displayData: field.cellValue2String(cellValue),
-                  onClick: (text) => onMixedTextClick(type, text),
+                  onClick: (text) => onMixedTextClick(actionType, text),
                 };
               }
 
+              const displayData = field.cellValue2String(cellValue);
               return {
                 ...baseCellProps,
                 type: CellType.Text,
                 data: (cellValue as string) || '',
-                displayData: field.cellValue2String(cellValue),
+                displayData,
+                links: findUrls(displayData),
+                onLinkClick: openUrl,
               };
             }
 
@@ -503,7 +514,8 @@ export const useCreateCellValue2GridDisplay = (
             const cv = (cellValue ?? []) as IAttachmentCellValue;
             const data = cv.map(
               ({ id, mimetype, presignedUrl, smThumbnailUrl, lgThumbnailUrl, width, height }) => {
-                const url = getFileCover(mimetype, presignedUrl, resolvedTheme as 'light' | 'dark');
+                const theme = resolvedTheme as 'light' | 'dark';
+                const url = getFileCover(mimetype, presignedUrl, theme);
                 const thumbnailUrl =
                   !rowHeight || rowHeight === RowHeightLevel.Short
                     ? smThumbnailUrl
@@ -511,6 +523,7 @@ export const useCreateCellValue2GridDisplay = (
                 return {
                   id,
                   url: thumbnailUrl ?? url,
+                  fallbackUrl: getFieldIconString(mimetype, theme),
                   width,
                   height,
                 };
@@ -529,6 +542,11 @@ export const useCreateCellValue2GridDisplay = (
                   field,
                   record,
                   i18nMap,
+                  onChange: readonly
+                    ? undefined
+                    : (attachments) => {
+                        record.updateCell(field.id, attachments, { t });
+                      },
                 });
               },
               customEditor: (props) => (

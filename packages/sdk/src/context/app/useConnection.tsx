@@ -3,7 +3,7 @@ import { Connection } from 'sharedb/lib/client';
 import type { ConnectionReceiveRequest, Socket } from 'sharedb/lib/sharedb';
 import { ReconnectingSockJS } from '../../utils/reconnectingSockJS';
 import { useTranslation } from './i18n';
-import { handleShareDbError } from './shareDbErrorHandler';
+import { handleShareDbReceive, handleShareDbError } from './shareDbErrorHandler';
 import { isConnected, useConnectionAutoManage } from './useConnectionAutoManage';
 
 export function getWsPath() {
@@ -54,9 +54,7 @@ export const useConnection = (path?: string) => {
     };
     const onShareDbError = (error: unknown) => handleShareDbError(error, t);
     const onReceive = (request: ConnectionReceiveRequest) => {
-      if (request.data.error) {
-        onShareDbError(request.data.error);
-      }
+      handleShareDbReceive(request, t);
     };
 
     connection.on('connected', onConnected);

@@ -1,9 +1,34 @@
 /* eslint-disable sonarjs/no-identical-functions */
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
-import { CellValueType, DbFieldType, getDefaultFormatting, type IFieldVo } from '@teable/core';
+import { HttpException, HttpStatus } from '@nestjs/common';
+
+import {
+  CellValueType,
+  DbFieldType,
+  FieldType,
+  getDefaultFormatting,
+  type IFieldVo,
+} from '@teable/core';
+import type * as V2ContractHttp from '@teable/v2-contract-http';
 import { v2CoreTokens } from '@teable/v2-core';
 import { describe, expect, it, vi } from 'vitest';
+
+// Mapping tests inject their service dependencies explicitly; keep database and
+// application bootstrap code outside this unit test boundary.
+vi.mock('@teable/db-main-prisma', () => ({ PrismaService: class PrismaService {} }));
+vi.mock('../../data-loader/data-loader.service', () => ({
+  DataLoaderService: class DataLoaderService {},
+}));
+vi.mock('../../v2/v2-container.service', () => ({
+  V2ContainerService: class V2ContainerService {},
+}));
+vi.mock('../../v2/v2-execution-context.factory', () => ({
+  V2ExecutionContextFactory: class V2ExecutionContextFactory {},
+}));
+vi.mock('../field-calculate/field-supplement.service', () => ({
+  FieldSupplementService: class FieldSupplementService {},
+}));
 
 const {
   executeDeleteFieldEndpoint,
@@ -25,7 +50,7 @@ vi.mock('@teable/v2-contract-http-implementation/handlers', () => ({
 }));
 
 vi.mock('@teable/v2-contract-http', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@teable/v2-contract-http')>();
+  const original = await importOriginal<typeof V2ContractHttp>();
   return {
     ...original,
     mapFieldToDto: (field: unknown, primaryFieldId?: unknown) => {
@@ -211,42 +236,661 @@ describe('FieldOpenApiV2Service deleteField', () => {
 });
 
 describe('FieldOpenApiV2Service getSnapshotBulk', () => {
-  it('retries when the persisted version changes while reading field data', async () => {
+  const createSnapshotField = (fieldId: string, dto: IFieldVo, version = 9) => ({
+    id: () => ({ toString: () => fieldId }),
+    isProvisionPending: () => false,
+    version: () => ({
+      isErr: () => false,
+      isOk: () => true,
+      value: { toNumber: () => version },
+    }),
+    get __testDto() {
+      return dto;
+    },
+  });
+
+  it('maps GetFieldSnapshots without a Prisma reread', async () => {
     const tableId = `tbl${'a'.repeat(16)}`;
     const fieldId = `fld${'b'.repeat(16)}`;
-    const oldField = { id: fieldId, name: 'Old name' } as IFieldVo;
     const currentField = { id: fieldId, name: 'Current name' } as IFieldVo;
-    const txClient = {
-      field: {
-        findMany: vi
-          .fn()
-          .mockResolvedValueOnce([{ id: fieldId, version: 6 }])
-          .mockResolvedValueOnce([{ id: fieldId, version: 7 }])
-          .mockResolvedValueOnce([{ id: fieldId, version: 7 }])
-          .mockResolvedValueOnce([{ id: fieldId, version: 7 }]),
+    const field = createSnapshotField(fieldId, currentField);
+    const execute = vi.fn(async () => ({
+      isErr: () => false,
+      value: {
+        snapshots: [{ id: fieldId, version: 9, field }],
+        fields: [field],
+        primaryFieldId: { equals: () => false },
       },
-    };
+    }));
     const prismaService = {
-      txClient: vi.fn(() => txClient),
+      txClient: vi.fn(),
     };
     const service = new FieldOpenApiV2Service(
-      {} as never,
-      {} as never,
+      { getContainerForTable: vi.fn(async () => ({ resolve: () => ({ execute }) })) } as never,
+      { createContext: vi.fn(async () => ({})) } as never,
       {} as never,
       {} as never,
       {} as never,
       prismaService as never,
       {} as never
     );
-    vi.spyOn(service, 'getFields')
-      .mockResolvedValueOnce([oldField])
-      .mockResolvedValueOnce([currentField]);
 
-    await expect(service.getSnapshotBulk(tableId, [fieldId])).resolves.toEqual([
-      { id: fieldId, v: 7, type: 'json0', data: currentField },
+    const snapshots = await service.getSnapshotBulk(tableId, [fieldId]);
+    expect(snapshots).toEqual([
+      {
+        id: fieldId,
+        v: 9,
+        type: 'json0',
+        data: expect.objectContaining({ id: fieldId, name: 'Current name' }),
+      },
     ]);
-    expect(service.getFields).toHaveBeenCalledTimes(2);
-    expect(txClient.field.findMany).toHaveBeenCalledTimes(4);
+    expect(prismaService.txClient).not.toHaveBeenCalled();
+    expect(
+      execute.mock.calls[0]?.[1].fieldIds?.map((id: { toString(): string }) => id.toString())
+    ).toEqual([fieldId]);
+  });
+
+  it('returns an empty bulk when GetFieldSnapshots omits version-less fields', async () => {
+    const tableId = `tbl${'a'.repeat(16)}`;
+    const fieldId = `fld${'b'.repeat(16)}`;
+    const execute = vi.fn(async () => ({
+      isErr: () => false,
+      value: {
+        snapshots: [],
+        fields: [],
+      },
+    }));
+    const service = new FieldOpenApiV2Service(
+      { getContainerForTable: vi.fn(async () => ({ resolve: () => ({ execute }) })) } as never,
+      { createContext: vi.fn(async () => ({})) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { txClient: vi.fn() } as never,
+      {} as never
+    );
+
+    await expect(service.getSnapshotBulk(tableId, [fieldId])).resolves.toEqual([]);
+  });
+
+  it('fills missing cross-base baseId on conditional snapshots without listing host fields', async () => {
+    const tableId = `tbl${'a'.repeat(16)}`;
+    const foreignTableId = `tbl${'b'.repeat(16)}`;
+    const hostBaseId = `bse${'a'.repeat(16)}`;
+    const foreignBaseId = `bse${'b'.repeat(16)}`;
+    const fieldId = `fld${'c'.repeat(16)}`;
+    const currentField = {
+      id: fieldId,
+      name: 'Cross-base rollup',
+      type: FieldType.ConditionalRollup,
+      options: { foreignTableId, expression: 'countall({values})' },
+    } as IFieldVo;
+    const field = createSnapshotField(fieldId, currentField);
+    const execute = vi.fn(async () => ({
+      isErr: () => false,
+      value: {
+        snapshots: [{ id: fieldId, version: 9, field }],
+        fields: [field],
+        primaryFieldId: { equals: () => false },
+      },
+    }));
+    const tableMeta = {
+      findUnique: vi.fn(async () => ({ baseId: hostBaseId })),
+      findMany: vi.fn(async () => [{ id: foreignTableId, baseId: foreignBaseId }]),
+    };
+    const service = new FieldOpenApiV2Service(
+      { getContainerForTable: vi.fn(async () => ({ resolve: () => ({ execute }) })) } as never,
+      { createContext: vi.fn(async () => ({})) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { txClient: () => ({ tableMeta }) } as never,
+      {} as never
+    );
+
+    const snapshots = await service.getSnapshotBulk(tableId, [fieldId]);
+    expect(snapshots).toHaveLength(1);
+    expect(snapshots[0]?.data.options).toMatchObject({ baseId: foreignBaseId, foreignTableId });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(tableMeta.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('hydrates lookup snapshot choices from the source field once per foreign table', async () => {
+    const tableId = `tbl${'a'.repeat(16)}`;
+    const foreignTableId = `tbl${'b'.repeat(16)}`;
+    const sourceFieldId = `fld${'d'.repeat(16)}`;
+    let sourceChoices = [{ id: 'choBefore', name: 'Before', color: 'blueBright' }];
+    const lookupFields = Array.from({ length: 22 }, (_, index) => ({
+      id: `fld${String(index).padStart(16, '0')}`,
+      name: `Lookup ${index}`,
+      type: 'singleLineText',
+      isLookup: true,
+      lookupOptions: { foreignTableId, lookupFieldId: sourceFieldId },
+      options: { choices: [{ name: 'Before' }] },
+    }));
+    const execute = vi.fn(
+      async (
+        _context: unknown,
+        query: { tableId: { toString(): string }; fieldIds?: ReadonlyArray<{ toString(): string }> }
+      ) => {
+        const id = query.tableId.toString();
+        if (id === tableId) {
+          const fields = lookupFields.map((dto) => createSnapshotField(dto.id, dto as IFieldVo));
+          return {
+            isErr: () => false,
+            value: {
+              snapshots: fields.map((field, index) => ({
+                id: lookupFields[index]!.id,
+                version: 1,
+                field,
+              })),
+              fields,
+              primaryFieldId: { equals: () => false },
+            },
+          };
+        }
+        return {
+          isErr: () => false,
+          value: {
+            fields: [
+              createSnapshotField(sourceFieldId, {
+                id: sourceFieldId,
+                name: 'Status',
+                type: 'singleSelect',
+                options: { choices: sourceChoices },
+              } as IFieldVo),
+            ],
+            primaryFieldId: { equals: () => false },
+          },
+        };
+      }
+    );
+    const service = new FieldOpenApiV2Service(
+      { getContainerForTable: vi.fn(async () => ({ resolve: () => ({ execute }) })) } as never,
+      { createContext: vi.fn(async () => ({})) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        txClient: () => ({
+          field: { findMany: async () => [] },
+          tableMeta: {
+            findUnique: async () => ({ baseId: `bse${'a'.repeat(16)}` }),
+            findMany: async () => [],
+          },
+        }),
+      } as never,
+      {} as never
+    );
+
+    const before = await service.getSnapshotBulk(
+      tableId,
+      lookupFields.map((field) => field.id)
+    );
+    expect(before).toHaveLength(22);
+    expect(before[0]?.data).toMatchObject({
+      type: 'singleSelect',
+      options: { choices: [{ name: 'Before' }] },
+    });
+    expect(execute.mock.calls.map(([, query]) => query.tableId.toString())).toEqual([
+      tableId,
+      foreignTableId,
+      tableId,
+    ]);
+    expect(execute.mock.calls[1]?.[1].fieldIds?.map((id) => id.toString())).toEqual([
+      sourceFieldId,
+    ]);
+
+    sourceChoices = [
+      { id: 'choBefore', name: 'Before', color: 'blueBright' },
+      { id: 'choAfter', name: 'After', color: 'greenBright' },
+    ];
+    const after = await service.getSnapshotBulk(
+      tableId,
+      lookupFields.map((field) => field.id)
+    );
+    expect(after[0]?.data.options).toMatchObject({
+      choices: [{ name: 'Before' }, { name: 'After' }],
+    });
+    expect(
+      execute.mock.calls.filter(([, query]) => query.tableId.toString() === foreignTableId)
+    ).toHaveLength(2);
+  });
+
+  it('retries snapshot bulk when host lookup version changes during source hydration', async () => {
+    const tableId = `tbl${'a'.repeat(16)}`;
+    const foreignTableId = `tbl${'b'.repeat(16)}`;
+    const lookupId = `fld${'0'.repeat(16)}`;
+    const sourceFieldId = `fld${'d'.repeat(16)}`;
+    let hostVersion = 1;
+    const hostDto = (): IFieldVo =>
+      ({
+        id: lookupId,
+        name: 'Lookup',
+        isLookup: true,
+        type: hostVersion === 1 ? 'singleLineText' : 'number',
+        cellValueType: hostVersion === 1 ? 'string' : 'number',
+        lookupOptions: { foreignTableId, lookupFieldId: sourceFieldId },
+        options: {},
+      }) as IFieldVo;
+    const execute = vi.fn(async (_context: unknown, query: { tableId: { toString(): string } }) => {
+      const id = query.tableId.toString();
+      if (id === tableId) {
+        const field = createSnapshotField(lookupId, hostDto(), hostVersion);
+        return {
+          isErr: () => false,
+          value: {
+            snapshots: [{ id: lookupId, version: hostVersion, field }],
+            fields: [field],
+            primaryFieldId: { equals: () => false },
+          },
+        };
+      }
+      hostVersion = 2;
+      return {
+        isErr: () => false,
+        value: {
+          fields: [
+            createSnapshotField(sourceFieldId, {
+              id: sourceFieldId,
+              name: 'Amount',
+              type: 'number',
+              cellValueType: 'number',
+              options: {},
+            } as IFieldVo),
+          ],
+          primaryFieldId: { equals: () => false },
+        },
+      };
+    });
+    const service = new FieldOpenApiV2Service(
+      { getContainerForTable: vi.fn(async () => ({ resolve: () => ({ execute }) })) } as never,
+      { createContext: vi.fn(async () => ({})) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        txClient: () => ({
+          field: { findMany: async () => [] },
+          tableMeta: {
+            findUnique: async () => ({ baseId: `bse${'a'.repeat(16)}` }),
+            findMany: async () => [],
+          },
+        }),
+      } as never,
+      {} as never
+    );
+
+    const snapshots = await service.getSnapshotBulk(tableId, [lookupId]);
+    expect(snapshots).toHaveLength(1);
+    expect(snapshots[0]).toMatchObject({
+      id: lookupId,
+      v: 2,
+      data: { type: 'number', cellValueType: 'number' },
+    });
+  });
+
+  it('rejects snapshot bulk with conflict when host versions never stabilize', async () => {
+    const tableId = `tbl${'a'.repeat(16)}`;
+    const foreignTableId = `tbl${'b'.repeat(16)}`;
+    const lookupId = `fld${'0'.repeat(16)}`;
+    const sourceFieldId = `fld${'d'.repeat(16)}`;
+    let hostVersion = 1;
+    const hostDto = (): IFieldVo =>
+      ({
+        id: lookupId,
+        name: 'Lookup',
+        isLookup: true,
+        type: hostVersion === 1 ? 'singleLineText' : 'number',
+        cellValueType: hostVersion === 1 ? 'string' : 'number',
+        lookupOptions: { foreignTableId, lookupFieldId: sourceFieldId },
+        options: {},
+      }) as IFieldVo;
+    const execute = vi.fn(async (_context: unknown, query: { tableId: { toString(): string } }) => {
+      const id = query.tableId.toString();
+      if (id === tableId) {
+        const field = createSnapshotField(lookupId, hostDto(), hostVersion);
+        return {
+          isErr: () => false,
+          value: {
+            snapshots: [{ id: lookupId, version: hostVersion, field }],
+            fields: [field],
+            primaryFieldId: { equals: () => false },
+          },
+        };
+      }
+      hostVersion += 1;
+      return {
+        isErr: () => false,
+        value: {
+          fields: [
+            createSnapshotField(sourceFieldId, {
+              id: sourceFieldId,
+              name: 'Amount',
+              type: 'number',
+              cellValueType: 'number',
+              options: {},
+            } as IFieldVo),
+          ],
+          primaryFieldId: { equals: () => false },
+        },
+      };
+    });
+    const service = new FieldOpenApiV2Service(
+      { getContainerForTable: vi.fn(async () => ({ resolve: () => ({ execute }) })) } as never,
+      { createContext: vi.fn(async () => ({})) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        txClient: () => ({
+          field: { findMany: async () => [] },
+          tableMeta: {
+            findUnique: async () => ({ baseId: `bse${'a'.repeat(16)}` }),
+            findMany: async () => [],
+          },
+        }),
+      } as never,
+      {} as never
+    );
+
+    const error = await service.getSnapshotBulk(tableId, [lookupId]).catch((caught) => caught);
+    expect(error).toBeInstanceOf(HttpException);
+    expect((error as HttpException).getStatus()).toBe(HttpStatus.CONFLICT);
+    expect(error).toMatchObject({ message: 'Field snapshot changed during hydration' });
+  });
+});
+
+describe('FieldOpenApiV2Service lookup metadata reads (T7180)', () => {
+  const hostTableId = `tbl${'a'.repeat(16)}`;
+  const foreignTableId = `tbl${'b'.repeat(16)}`;
+  const otherTableId = `tbl${'c'.repeat(16)}`;
+  const sourceFieldId = `fld${'d'.repeat(16)}`;
+  const otherSourceFieldId = `fld${'e'.repeat(16)}`;
+  const lookupFields = Array.from({ length: 22 }, (_, index) => ({
+    id: `fld${String(index).padStart(16, '0')}`,
+    name: `Lookup ${index}`,
+    type: 'singleLineText',
+    isLookup: true,
+    lookupOptions: {
+      foreignTableId: index === 21 ? otherTableId : foreignTableId,
+      lookupFieldId: index === 21 ? otherSourceFieldId : sourceFieldId,
+    },
+    options: {},
+  }));
+
+  const setup = (nestedSource = false) => {
+    let sourceChoices = [{ id: 'choFirst', name: 'First', color: 'redBright' }];
+    let failForeign = false;
+    let requestId = 0;
+    let mappedFields = 0;
+    const execute = vi.fn(
+      async (
+        _context: unknown,
+        query: {
+          tableId: { toString(): string };
+          fieldIds?: ReadonlyArray<{ toString(): string }>;
+        }
+      ) => {
+        const id = query.tableId.toString();
+        if (id === foreignTableId && failForeign) throw new Error('Foreign metadata unavailable');
+        const dtos =
+          id === hostTableId
+            ? lookupFields
+            : [
+                {
+                  id: id === otherTableId ? otherSourceFieldId : sourceFieldId,
+                  name: 'Source',
+                  ...(nestedSource && id === foreignTableId
+                    ? {
+                        isLookup: true,
+                        lookupOptions: {
+                          foreignTableId: otherTableId,
+                          lookupFieldId: otherSourceFieldId,
+                        },
+                      }
+                    : {}),
+                  type: id === otherTableId ? 'number' : 'singleSelect',
+                  options:
+                    id === otherTableId
+                      ? { formatting: { type: 'decimal', precision: 3 } }
+                      : { choices: sourceChoices },
+                },
+              ];
+        return {
+          isErr: () => false,
+          value: {
+            fields: dtos.map((dto) => ({
+              id: () => ({ toString: () => dto.id }),
+              version: () => ({
+                isErr: () => false,
+                isOk: () => true,
+                value: { toNumber: () => 1 },
+              }),
+              get __testDto() {
+                mappedFields++;
+                return dto;
+              },
+            })),
+            primaryFieldId: undefined,
+            view: undefined,
+          },
+        };
+      }
+    );
+    const contextFactory = { createContext: vi.fn(async () => ({ requestId: ++requestId })) };
+    const service = new FieldOpenApiV2Service(
+      { getContainerForTable: vi.fn(async () => ({ resolve: () => ({ execute }) })) } as never,
+      contextFactory as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        txClient: () => ({
+          field: { findMany: async () => lookupFields.map(({ id }) => ({ id, version: 1 })) },
+        }),
+      } as never,
+      {} as never
+    );
+    return {
+      service,
+      execute,
+      contextFactory,
+      mappedFieldCount: () => mappedFields,
+      changeSource: () => {
+        sourceChoices = [{ id: 'choSecond', name: 'Second', color: 'blueBright' }];
+      },
+      failSource: (fail: boolean) => {
+        failForeign = fail;
+      },
+    };
+  };
+
+  it('loads each foreign table once for a 22-lookup field list, preserving distinct field results', async () => {
+    const { service, execute, contextFactory, mappedFieldCount } = setup();
+    const fields = await service.getFields(hostTableId);
+    expect(fields).toHaveLength(22);
+    expect(mappedFieldCount()).toBe(24);
+    expect(execute.mock.calls.map(([, query]) => query.tableId.toString())).toEqual([
+      hostTableId,
+      foreignTableId,
+      otherTableId,
+    ]);
+    expect(execute.mock.calls[0]?.[1].fieldIds).toBeUndefined();
+    expect(execute.mock.calls[1]?.[1].fieldIds?.map((id) => id.toString())).toEqual([
+      sourceFieldId,
+    ]);
+    expect(execute.mock.calls[2]?.[1].fieldIds?.map((id) => id.toString())).toEqual([
+      otherSourceFieldId,
+    ]);
+    expect(contextFactory.createContext).toHaveBeenCalledTimes(1);
+    const context = execute.mock.calls[0][0];
+    expect(execute.mock.calls.every(([queryContext]) => queryContext === context)).toBe(true);
+    expect(fields[0]).toMatchObject({
+      type: 'singleSelect',
+      options: { choices: [{ name: 'First' }] },
+    });
+    expect(fields[21]).toMatchObject({
+      type: 'number',
+      options: { formatting: { precision: 3 } },
+    });
+    expect(fields[0].options).not.toBe(fields[1].options);
+  });
+
+  it('shares reads through nested lookup hydration as well as direct references', async () => {
+    const { service, execute } = setup(true);
+    const fields = await service.getFields(hostTableId);
+    expect(fields.every((field) => field.type === 'number')).toBe(true);
+    expect(execute.mock.calls.map(([, query]) => query.tableId.toString())).toEqual([
+      hostTableId,
+      foreignTableId,
+      otherTableId,
+    ]);
+    expect(execute.mock.calls[0]?.[1].fieldIds).toBeUndefined();
+    expect(execute.mock.calls[1]?.[1].fieldIds?.map((id) => id.toString())).toEqual([
+      sourceFieldId,
+    ]);
+    expect(execute.mock.calls[2]?.[1].fieldIds?.map((id) => id.toString())).toEqual([
+      otherSourceFieldId,
+    ]);
+  });
+
+  it('reuses an in-flight foreign field read when nested hydration requests the same field', async () => {
+    const hostTableId = `tbl${'h'.repeat(16)}`;
+    const tableA = `tbl${'a'.repeat(16)}`;
+    const tableB = `tbl${'b'.repeat(16)}`;
+    const fieldA = `fld${'a'.repeat(16)}`;
+    const fieldB = `fld${'b'.repeat(16)}`;
+    const hostDirectId = `fld${'1'.padStart(16, '0')}`;
+    const hostNestedId = `fld${'2'.padStart(16, '0')}`;
+    let releaseB = () => undefined as void;
+    const bGate = new Promise<void>((resolve) => {
+      releaseB = resolve;
+    });
+    let bQueries = 0;
+    let bStarted = () => undefined as void;
+    const bStartedAt = new Promise<void>((resolve) => {
+      bStarted = resolve;
+    });
+    const execute = vi.fn(async (_context: unknown, query: { tableId: { toString(): string } }) => {
+      const id = query.tableId.toString();
+      const dto =
+        id === hostTableId
+          ? [
+              {
+                id: hostDirectId,
+                isLookup: true,
+                lookupOptions: { foreignTableId: tableB, lookupFieldId: fieldB },
+                type: 'singleLineText',
+                options: {},
+              },
+              {
+                id: hostNestedId,
+                isLookup: true,
+                lookupOptions: { foreignTableId: tableA, lookupFieldId: fieldA },
+                type: 'singleLineText',
+                options: {},
+              },
+            ]
+          : id === tableA
+            ? [
+                {
+                  id: fieldA,
+                  isLookup: true,
+                  lookupOptions: { foreignTableId: tableB, lookupFieldId: fieldB },
+                  type: 'singleLineText',
+                  options: {},
+                },
+              ]
+            : [
+                {
+                  id: fieldB,
+                  type: 'number',
+                  cellValueType: 'number',
+                  options: {},
+                },
+              ];
+      if (id === tableB) {
+        bQueries++;
+        bStarted();
+        await bGate;
+      }
+      return {
+        isErr: () => false,
+        value: {
+          fields: dto.map((field) => ({
+            id: () => ({ toString: () => field.id }),
+            get __testDto() {
+              return field;
+            },
+          })),
+          primaryFieldId: { equals: () => false },
+        },
+      };
+    });
+    const service = new FieldOpenApiV2Service(
+      { getContainerForTable: vi.fn(async () => ({ resolve: () => ({ execute }) })) } as never,
+      { createContext: vi.fn(async () => ({})) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        txClient: () => ({
+          field: { findMany: async () => [] },
+        }),
+      } as never,
+      {} as never
+    );
+
+    const pending = service.getFields(hostTableId);
+    await bStartedAt;
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(bQueries).toBe(1);
+    releaseB();
+    const fields = await pending;
+    expect(bQueries).toBe(1);
+    expect(fields).toHaveLength(2);
+    expect(fields.every((field) => field.type === 'number')).toBe(true);
+  });
+
+  it('reads changed foreign metadata on the next operation even for the same service instance', async () => {
+    const { service, execute, changeSource } = setup();
+    await service.getFields(hostTableId);
+    changeSource();
+    const fields = await service.getFields(hostTableId);
+    expect(fields[0]).toMatchObject({ options: { choices: [{ name: 'Second' }] } });
+    expect(
+      execute.mock.calls.filter(([, query]) => query.tableId.toString() === foreignTableId)
+    ).toHaveLength(2);
+  });
+
+  it('shares a rejected foreign read for one operation and retries it on the next operation', async () => {
+    const { service, execute, failSource } = setup();
+    failSource(true);
+    const fields = await service.getFields(hostTableId);
+    expect(fields[0].type).toBe('singleLineText');
+    expect(fields[21].type).toBe('number');
+    expect(
+      execute.mock.calls.filter(([, query]) => query.tableId.toString() === foreignTableId)
+    ).toHaveLength(1);
+    failSource(false);
+    const recovered = await service.getFields(hostTableId);
+    expect(recovered[0].type).toBe('singleSelect');
+    expect(
+      execute.mock.calls.filter(([, query]) => query.tableId.toString() === foreignTableId)
+    ).toHaveLength(2);
+  });
+
+  it('does not coalesce concurrent operations with different execution contexts', async () => {
+    const { service, execute, contextFactory } = setup();
+    await Promise.all([service.getFields(hostTableId), service.getFields(hostTableId)]);
+    expect(contextFactory.createContext).toHaveBeenCalledTimes(2);
+    const foreignCalls = execute.mock.calls.filter(
+      ([, query]) => query.tableId.toString() === foreignTableId
+    );
+    expect(foreignCalls).toHaveLength(2);
+    expect(foreignCalls[0][0]).not.toBe(foreignCalls[1][0]);
   });
 });
 
@@ -2414,4 +3058,107 @@ describe('overlayStoredPendingState (T6581)', () => {
 
     expect(formulaVo).not.toHaveProperty('isPending');
   });
+});
+
+describe('T7141 lookup unique legacy boundary', () => {
+  const references = {
+    foreignTableId: 'tblForeign00000001',
+    lookupFieldId: 'fldLookup000000001',
+  };
+  const filter = {
+    conjunction: 'and',
+    filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: 'Active' }],
+  };
+
+  it.each([true, false])(
+    'preserves regular lookup isUnique=%s on create and convert',
+    (isUnique) => {
+      const service = createService();
+      const ro = {
+        type: 'user',
+        isLookup: true,
+        lookupOptions: { ...references, linkFieldId: 'fldLink000000000001', isUnique },
+      };
+      expect(service.mapLegacyCreateFieldToV2(ro)).toMatchObject({
+        type: 'lookup',
+        options: { ...ro.lookupOptions },
+      });
+      expect(
+        service.mapConvertFieldToV2(ro, {
+          ...ro,
+          lookupOptions: { ...ro.lookupOptions, isUnique: !isUnique },
+        })
+      ).toMatchObject({ type: 'lookup', options: { ...ro.lookupOptions } });
+    }
+  );
+
+  it.each([true, false])(
+    'preserves conditional lookup isUnique=%s on create and convert',
+    (isUnique) => {
+      const service = createService();
+      const ro = {
+        type: 'user',
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: { ...references, filter, isUnique },
+      };
+      const expected = {
+        type: 'conditionalLookup',
+        options: { ...references, isUnique, condition: { filter } },
+      };
+      expect(service.mapLegacyCreateFieldToV2(ro)).toMatchObject(expected);
+      expect(
+        service.mapConvertFieldToV2(ro, {
+          ...ro,
+          lookupOptions: { ...ro.lookupOptions, isUnique: !isUnique },
+        })
+      ).toMatchObject(expected);
+    }
+  );
+
+  it.each([true, false])(
+    'preserves regular and both conditional DTO shapes on read: %s',
+    (isUnique) => {
+      const service = new FieldOpenApiV2Service(
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        createFieldSupplementService() as never,
+        {} as never
+      ) as unknown as ITestFieldOpenApiV2Service;
+      const common = {
+        id: 'fldLookup000000001',
+        name: 'Lookup',
+        isLookup: true,
+        isMultipleCellValue: true,
+      };
+      const regular = service.normalizeFieldVo({
+        ...common,
+        type: 'user',
+        options: { isMultiple: true },
+        lookupOptions: { ...references, linkFieldId: 'fldLink000000000001', isUnique },
+      });
+      expect(regular.lookupOptions).toMatchObject({ ...references, isUnique });
+      for (const dto of [
+        {
+          ...common,
+          type: 'conditionalLookup',
+          innerType: 'user',
+          innerOptions: { isMultiple: true },
+          options: { ...references, isUnique, condition: { filter } },
+        },
+        {
+          ...common,
+          type: 'user',
+          options: { isMultiple: true },
+          conditionalLookupOptions: { ...references, isUnique, condition: { filter } },
+        },
+      ]) {
+        const conditional = service.normalizeFieldVo(dto);
+        expect(conditional.isConditionalLookup).toBe(true);
+        expect(conditional.lookupOptions).toMatchObject({ ...references, isUnique, filter });
+      }
+    }
+  );
 });

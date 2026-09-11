@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import KeyvRedis from '@keyv/redis';
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Redis } from 'ioredis';
 import Keyv from 'keyv';
@@ -416,12 +416,14 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
     // Use redlock for distributed locking
     const cacheKeyStr = key as string;
     const lockResource = `${this.lockPrefix}:${cacheKeyStr}`;
+    let lockAcquired = false;
     try {
       // Use redlock.using for automatic lock management
       return await this.redlock!.using(
         [lockResource],
         10000,
         async (signal: RedlockAbortSignal) => {
+          lockAcquired = true;
           // Check if lock extension failed
           if (signal.aborted) {
             throw signal.error;
@@ -449,18 +451,22 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
         }
       );
     } catch (error: unknown) {
-      if (error instanceof ResourceLockedError || error instanceof ExecutionError) {
-        this.logger.error(`Redlock error for ${cacheKeyStr}: ${error}`);
+      if (
+        !lockAcquired &&
+        (error instanceof ResourceLockedError || error instanceof ExecutionError)
+      ) {
+        this.logger.warn(`Redlock error for ${cacheKeyStr}: ${error}`);
         await new Promise((resolve) => setTimeout(resolve, 50));
-        const { cached: cachedAfterLock, generation: retryGeneration } =
-          await this.getWithGeneration(key, options);
+        const { cached: cachedAfterLock } = await this.getWithGeneration(key, options);
         if (cachedAfterLock !== null) {
           return cachedAfterLock.data as TResult;
         }
-        return this.executeAndCache(key, fn, { ...options, generation: retryGeneration });
+        // A slow cache producer can outlive lock acquisition retries. Running the
+        // loader without its lock turns every waiting request into duplicate SQL.
+        throw new ServiceUnavailableException('Query is busy. Please try again shortly.');
       }
       this.stats.errors++;
-      // Fallback to direct execution
+      // Loader and lock-release errors must not cause a second execution.
       throw error;
     }
   }

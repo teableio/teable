@@ -1,11 +1,8 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { z } from 'zod';
 
 import { domainError, type DomainError } from '../../shared/DomainError';
 import { ValueObject } from '../../shared/ValueObject';
-
-const fieldNameSchema = z.string().trim().min(1);
 
 export class FieldName extends ValueObject {
   private constructor(private readonly value: string) {
@@ -13,9 +10,14 @@ export class FieldName extends ValueObject {
   }
 
   static create(raw: unknown): Result<FieldName, DomainError> {
-    const parsed = fieldNameSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.validation({ message: 'Invalid FieldName' }));
-    return ok(new FieldName(parsed.data));
+    if (typeof raw !== 'string') {
+      return err(domainError.validation({ message: 'Invalid FieldName' }));
+    }
+    const value = raw.trim();
+    if (value.length === 0) {
+      return err(domainError.validation({ message: 'Invalid FieldName' }));
+    }
+    return ok(new FieldName(value));
   }
 
   equals(other: FieldName): boolean {

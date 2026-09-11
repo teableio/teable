@@ -1,6 +1,7 @@
 import {
   ActorId,
   BaseId,
+  COMPUTE_PAUSED_WRITE_BLOCKED_CODE,
   FieldId,
   FieldType,
   NoopHasher,
@@ -29,6 +30,11 @@ import type { IComputedUpdateOutbox } from '../outbox/IComputedUpdateOutbox';
 import type { ComputedUpdateWorker } from '../worker/ComputedUpdateWorker';
 import { createPGliteDb } from '../../../schema/visitors/__tests__/helpers/createPGliteDb';
 import { HybridWithOutboxStrategy } from './HybridWithOutboxStrategy';
+import {
+  noopComputedUpdatePauseRegistry,
+  type IComputedUpdatePauseRegistry,
+} from '../pause/IComputedUpdatePauseRegistry';
+import { defaultComputedUpdateRuntimeConfig } from '../ComputedUpdateRuntimeConfig';
 
 const testHasher = new NoopHasher();
 
@@ -105,12 +111,14 @@ const createMockTable = (tableId: string, fieldIds: string[]): Table => {
 
 const createPreparedState = (
   dirtyStats: PreparedDirtyState['dirtyStats'],
-  tableById: Map<string, Table> = new Map()
+  tableById: Map<string, Table> = new Map(),
+  valueGatedEdges: PreparedDirtyState['valueGatedEdges'] = []
 ): PreparedDirtyState => ({
   db: {} as PreparedDirtyState['db'],
   tableById,
   dirtyStats,
   totalDirtyRecords: dirtyStats.reduce((sum, stat) => sum + stat.recordCount, 0),
+  valueGatedEdges,
 });
 
 const createUpdaterStub = () => {
@@ -291,6 +299,504 @@ describe('HybridWithOutboxStrategy', () => {
     expect(steps).toHaveLength(3);
 
     expect(enqueueOrMerge).not.toHaveBeenCalled();
+  });
+
+  it('keeps ungated-volume gated lookup steps async under threshold hard cap', async () => {
+    const seedTableId = TableId.create(SEED_TABLE_ID)._unsafeUnwrap();
+    const otherTableId = TableId.create(OTHER_TABLE_ID)._unsafeUnwrap();
+    const roundedId = FieldId.create(FIELD_ID_A)._unsafeUnwrap();
+    const lookupId = FieldId.create(FIELD_ID_B)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
+    const edge = {
+      fromTableId: seedTableId,
+      toTableId: otherTableId,
+      fromFieldId: roundedId,
+      toFieldId: lookupId,
+      propagationSourceFieldIds: [roundedId],
+      propagationTargetFieldIds: [lookupId],
+      linkFieldId,
+      propagationMode: 'linkTraversal' as const,
+      order: 0,
+    };
+    const plan: ComputedUpdatePlan = {
+      ...createPlan(),
+      steps: [
+        { tableId: seedTableId, fieldIds: [roundedId], level: 0 },
+        { tableId: otherTableId, fieldIds: [lookupId], level: 1 },
+      ],
+      edges: [edge],
+    };
+    const { updater, prepareDirtyState, executePreparedSteps } = createUpdaterStub();
+    const { outbox, enqueueOrMerge } = createOutboxStub();
+    const { worker } = createWorkerStub();
+    const { planner } = createPlannerStub();
+
+    prepareDirtyState.mockResolvedValue(
+      ok(createPreparedState([{ tableId: SEED_TABLE_ID, recordCount: 1 }], new Map(), [edge]))
+    );
+    executePreparedSteps.mockResolvedValue(
+      ok({
+        traceInfos: [],
+        changesByStep: [
+          {
+            tableId: SEED_TABLE_ID,
+            recordChanges: [
+              {
+                recordId: RECORD_ID,
+                oldVersion: 1,
+                changes: [{ fieldId: FIELD_ID_A, oldValue: 1, newValue: 2 }],
+              },
+            ],
+          },
+        ],
+      })
+    );
+    enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
+
+    const strategy = new HybridWithOutboxStrategy(
+      outbox,
+      worker,
+      {
+        syncPolicy: 'threshold',
+        syncMaxDirtyPerTable: 2000,
+        syncMaxTotalDirty: 5000,
+        syncMaxLevelHardCap: 1,
+        dispatchMode: 'external',
+        dispatchWorkerLimit: 50,
+        dispatchWorkerId: 'computed-inline',
+        dispatchDelayMs: 0,
+      },
+      createLogger(),
+      testHasher,
+      planner,
+      createEventBusStub()
+    );
+
+    const result = await strategy.execute(updater, plan, {
+      actorId: ActorId.create('usr_test')._unsafeUnwrap(),
+    });
+    expect(result.isOk()).toBe(true);
+    const syncSteps = executePreparedSteps.mock.calls[0][3] as UpdateStep[];
+    expect(syncSteps).toHaveLength(1);
+    expect(syncSteps[0]?.level).toBe(0);
+    expect(enqueueOrMerge).toHaveBeenCalledTimes(1);
+    const outboxTask = enqueueOrMerge.mock.calls[0][0];
+    expect(outboxTask.steps).toHaveLength(1);
+    expect(outboxTask.steps[0].level).toBe(1);
+  });
+
+  it('keeps gated lookup async when eager dirty count is nonzero but incomplete', async () => {
+    const seedTableId = TableId.create(SEED_TABLE_ID)._unsafeUnwrap();
+    const otherTableId = TableId.create(OTHER_TABLE_ID)._unsafeUnwrap();
+    const roundedId = FieldId.create(FIELD_ID_A)._unsafeUnwrap();
+    const lookupId = FieldId.create(FIELD_ID_B)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
+    const edge = {
+      fromTableId: seedTableId,
+      toTableId: otherTableId,
+      fromFieldId: roundedId,
+      toFieldId: lookupId,
+      propagationSourceFieldIds: [roundedId],
+      propagationTargetFieldIds: [lookupId],
+      linkFieldId,
+      propagationMode: 'linkTraversal' as const,
+      order: 0,
+    };
+    const plan: ComputedUpdatePlan = {
+      ...createPlan(),
+      steps: [
+        { tableId: seedTableId, fieldIds: [roundedId], level: 0 },
+        { tableId: otherTableId, fieldIds: [lookupId], level: 1 },
+      ],
+      edges: [edge],
+    };
+    const { updater, prepareDirtyState, executePreparedSteps } = createUpdaterStub();
+    const { outbox, enqueueOrMerge } = createOutboxStub();
+    const { worker } = createWorkerStub();
+    const { planner } = createPlannerStub();
+
+    prepareDirtyState.mockResolvedValue(
+      ok(
+        createPreparedState(
+          [
+            { tableId: SEED_TABLE_ID, recordCount: 1 },
+            { tableId: OTHER_TABLE_ID, recordCount: 1 },
+          ],
+          new Map(),
+          [edge]
+        )
+      )
+    );
+    executePreparedSteps.mockResolvedValue(
+      ok({
+        traceInfos: [],
+        changesByStep: [
+          {
+            tableId: SEED_TABLE_ID,
+            recordChanges: [
+              {
+                recordId: RECORD_ID,
+                oldVersion: 1,
+                changes: [{ fieldId: FIELD_ID_A, oldValue: 1, newValue: 2 }],
+              },
+            ],
+          },
+        ],
+      })
+    );
+    enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
+
+    const strategy = new HybridWithOutboxStrategy(
+      outbox,
+      worker,
+      {
+        syncPolicy: 'threshold',
+        syncMaxDirtyPerTable: 2000,
+        syncMaxTotalDirty: 5000,
+        syncMaxLevelHardCap: 1,
+        dispatchMode: 'external',
+        dispatchWorkerLimit: 50,
+        dispatchWorkerId: 'computed-inline',
+        dispatchDelayMs: 0,
+      },
+      createLogger(),
+      testHasher,
+      planner,
+      createEventBusStub()
+    );
+
+    const result = await strategy.execute(updater, plan, {
+      actorId: ActorId.create('usr_test')._unsafeUnwrap(),
+    });
+    expect(result.isOk()).toBe(true);
+    const syncSteps = executePreparedSteps.mock.calls[0][3] as UpdateStep[];
+    expect(syncSteps).toHaveLength(1);
+    expect(syncSteps[0]?.level).toBe(0);
+    expect(enqueueOrMerge).toHaveBeenCalledTimes(1);
+    expect(enqueueOrMerge.mock.calls[0][0].steps[0].level).toBe(1);
+  });
+
+  it('does not enqueue gated lookup remainder when ROUND values are unchanged', async () => {
+    const seedTableId = TableId.create(SEED_TABLE_ID)._unsafeUnwrap();
+    const otherTableId = TableId.create(OTHER_TABLE_ID)._unsafeUnwrap();
+    const roundedId = FieldId.create(FIELD_ID_A)._unsafeUnwrap();
+    const lookupId = FieldId.create(FIELD_ID_B)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
+    const edge = {
+      fromTableId: seedTableId,
+      toTableId: otherTableId,
+      fromFieldId: roundedId,
+      toFieldId: lookupId,
+      propagationSourceFieldIds: [roundedId],
+      propagationTargetFieldIds: [lookupId],
+      linkFieldId,
+      propagationMode: 'linkTraversal' as const,
+      order: 0,
+    };
+    const plan: ComputedUpdatePlan = {
+      ...createPlan(),
+      steps: [
+        { tableId: seedTableId, fieldIds: [roundedId], level: 0 },
+        { tableId: otherTableId, fieldIds: [lookupId], level: 1 },
+      ],
+      edges: [edge],
+    };
+    const { updater, prepareDirtyState, executePreparedSteps } = createUpdaterStub();
+    const { outbox, enqueueOrMerge } = createOutboxStub();
+    const { worker } = createWorkerStub();
+    const { planner } = createPlannerStub();
+
+    prepareDirtyState.mockResolvedValue(
+      ok(createPreparedState([{ tableId: SEED_TABLE_ID, recordCount: 1 }], new Map(), [edge]))
+    );
+    executePreparedSteps.mockResolvedValue(
+      ok({
+        traceInfos: [],
+        changesByStep: [
+          {
+            tableId: SEED_TABLE_ID,
+            recordChanges: [
+              {
+                recordId: RECORD_ID,
+                oldVersion: 1,
+                changes: [{ fieldId: FIELD_ID_A, oldValue: 1, newValue: 1 }],
+              },
+            ],
+          },
+        ],
+      })
+    );
+
+    const strategy = new HybridWithOutboxStrategy(
+      outbox,
+      worker,
+      {
+        syncPolicy: 'threshold',
+        syncMaxDirtyPerTable: 2000,
+        syncMaxTotalDirty: 5000,
+        syncMaxLevelHardCap: 0,
+        dispatchMode: 'external',
+        dispatchWorkerLimit: 50,
+        dispatchWorkerId: 'computed-inline',
+        dispatchDelayMs: 0,
+      },
+      createLogger(),
+      testHasher,
+      planner,
+      createEventBusStub()
+    );
+
+    const result = await strategy.execute(updater, plan, {
+      actorId: ActorId.create('usr_test')._unsafeUnwrap(),
+    });
+    expect(result.isOk()).toBe(true);
+    expect(enqueueOrMerge).not.toHaveBeenCalled();
+  });
+
+  it('enqueues unrestricted remainder when gated sources never ran in sync', async () => {
+    const seedTableId = TableId.create(SEED_TABLE_ID)._unsafeUnwrap();
+    const otherTableId = TableId.create(OTHER_TABLE_ID)._unsafeUnwrap();
+    const roundedId = FieldId.create(FIELD_ID_A)._unsafeUnwrap();
+    const lookupId = FieldId.create(FIELD_ID_B)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
+    const edge = {
+      fromTableId: seedTableId,
+      toTableId: otherTableId,
+      fromFieldId: roundedId,
+      toFieldId: lookupId,
+      propagationSourceFieldIds: [roundedId],
+      propagationTargetFieldIds: [lookupId],
+      linkFieldId,
+      propagationMode: 'linkTraversal' as const,
+      order: 0,
+    };
+    const plan: ComputedUpdatePlan = {
+      ...createPlan(),
+      steps: [
+        { tableId: seedTableId, fieldIds: [roundedId], level: 0 },
+        { tableId: otherTableId, fieldIds: [lookupId], level: 1 },
+      ],
+      edges: [edge],
+    };
+    const { updater, prepareDirtyState, executePreparedSteps } = createUpdaterStub();
+    const { outbox, enqueueOrMerge } = createOutboxStub();
+    const { worker } = createWorkerStub();
+    const { planner } = createPlannerStub();
+
+    prepareDirtyState.mockResolvedValue(
+      ok(createPreparedState([{ tableId: SEED_TABLE_ID, recordCount: 1 }], new Map(), [edge]))
+    );
+    executePreparedSteps.mockResolvedValue(ok({ traceInfos: [], changesByStep: [] }));
+    enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
+
+    const strategy = new HybridWithOutboxStrategy(
+      outbox,
+      worker,
+      {
+        syncPolicy: 'none',
+        syncMaxDirtyPerTable: 2000,
+        syncMaxTotalDirty: 5000,
+        syncMaxLevelHardCap: 0,
+        dispatchMode: 'external',
+        dispatchWorkerLimit: 50,
+        dispatchWorkerId: 'computed-inline',
+        dispatchDelayMs: 0,
+      },
+      createLogger(),
+      testHasher,
+      planner,
+      createEventBusStub()
+    );
+
+    const result = await strategy.execute(updater, plan, {
+      actorId: ActorId.create('usr_test')._unsafeUnwrap(),
+    });
+    expect(result.isOk()).toBe(true);
+    expect(enqueueOrMerge).toHaveBeenCalledTimes(1);
+    const outboxTask = enqueueOrMerge.mock.calls[0][0];
+    expect(outboxTask.steps).toHaveLength(2);
+    expect(outboxTask.edges[0].restrictDirtySourceRecordIds).toBeUndefined();
+  });
+
+  it('does not pin empty restrict when seedTableOnly leaves the formula async', async () => {
+    const seedTableId = TableId.create(SEED_TABLE_ID)._unsafeUnwrap();
+    const otherTableId = TableId.create(OTHER_TABLE_ID)._unsafeUnwrap();
+    const roundedId = FieldId.create(FIELD_ID_A)._unsafeUnwrap();
+    const lookupId = FieldId.create(FIELD_ID_B)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
+    const edge = {
+      fromTableId: seedTableId,
+      toTableId: otherTableId,
+      fromFieldId: roundedId,
+      toFieldId: lookupId,
+      propagationSourceFieldIds: [roundedId],
+      propagationTargetFieldIds: [lookupId],
+      linkFieldId,
+      propagationMode: 'linkTraversal' as const,
+      order: 0,
+    };
+    const plan: ComputedUpdatePlan = {
+      ...createPlan(),
+      steps: [
+        { tableId: seedTableId, fieldIds: [roundedId], level: 0 },
+        { tableId: otherTableId, fieldIds: [lookupId], level: 1 },
+      ],
+      edges: [edge],
+    };
+    const { updater, prepareDirtyState, executePreparedSteps } = createUpdaterStub();
+    const { outbox, enqueueOrMerge } = createOutboxStub();
+    const { worker } = createWorkerStub();
+    const { planner } = createPlannerStub();
+
+    prepareDirtyState.mockResolvedValue(
+      ok(createPreparedState([{ tableId: SEED_TABLE_ID, recordCount: 3000 }], new Map(), [edge]))
+    );
+    enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
+
+    const strategy = new HybridWithOutboxStrategy(
+      outbox,
+      worker,
+      {
+        syncPolicy: 'seedTableOnly',
+        syncMaxDirtyPerTable: 2000,
+        syncMaxTotalDirty: 5000,
+        syncMaxLevelHardCap: 1,
+        dispatchMode: 'external',
+        dispatchWorkerLimit: 50,
+        dispatchWorkerId: 'computed-inline',
+        dispatchDelayMs: 0,
+      },
+      createLogger(),
+      testHasher,
+      planner,
+      createEventBusStub()
+    );
+
+    const result = await strategy.execute(updater, plan, {
+      actorId: ActorId.create('usr_test')._unsafeUnwrap(),
+    });
+    expect(result.isOk()).toBe(true);
+    expect(executePreparedSteps).not.toHaveBeenCalled();
+    expect(enqueueOrMerge).toHaveBeenCalledTimes(1);
+    const outboxTask = enqueueOrMerge.mock.calls[0][0];
+    expect(outboxTask.steps).toHaveLength(2);
+    expect(outboxTask.edges[0].restrictDirtySourceRecordIds).toBeUndefined();
+  });
+
+  it('keeps original seeds and restricts only the gated ROUND edge', async () => {
+    const seedTableId = TableId.create(SEED_TABLE_ID)._unsafeUnwrap();
+    const otherTableId = TableId.create(OTHER_TABLE_ID)._unsafeUnwrap();
+    const roundedId = FieldId.create(FIELD_ID_A)._unsafeUnwrap();
+    const lookupRoundId = FieldId.create(FIELD_ID_B)._unsafeUnwrap();
+    const lookupXId = FieldId.create(FIELD_ID_C)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
+    const record1 = RECORD_ID;
+    const record2 = `rec${'i'.repeat(16)}`;
+    const gatedEdge = {
+      fromTableId: seedTableId,
+      toTableId: otherTableId,
+      fromFieldId: roundedId,
+      toFieldId: lookupRoundId,
+      propagationSourceFieldIds: [roundedId],
+      propagationTargetFieldIds: [lookupRoundId],
+      linkFieldId,
+      propagationMode: 'linkTraversal' as const,
+      order: 0,
+    };
+    const directXEdge = {
+      fromTableId: seedTableId,
+      toTableId: otherTableId,
+      fromFieldId: FieldId.create(`fld${'x'.repeat(16)}`)._unsafeUnwrap(),
+      toFieldId: lookupXId,
+      propagationSourceFieldIds: [FieldId.create(`fld${'x'.repeat(16)}`)._unsafeUnwrap()],
+      propagationTargetFieldIds: [lookupXId],
+      linkFieldId,
+      propagationMode: 'linkTraversal' as const,
+      order: 0,
+    };
+    const plan: ComputedUpdatePlan = {
+      ...createPlan(),
+      seedRecordIds: [
+        RecordId.create(record1)._unsafeUnwrap(),
+        RecordId.create(record2)._unsafeUnwrap(),
+      ],
+      steps: [
+        { tableId: seedTableId, fieldIds: [roundedId], level: 0 },
+        { tableId: otherTableId, fieldIds: [lookupRoundId], level: 1 },
+        { tableId: otherTableId, fieldIds: [lookupXId], level: 1 },
+      ],
+      edges: [gatedEdge, directXEdge],
+    };
+    const { updater, prepareDirtyState, executePreparedSteps } = createUpdaterStub();
+    const { outbox, enqueueOrMerge } = createOutboxStub();
+    const { worker } = createWorkerStub();
+    const { planner } = createPlannerStub();
+
+    prepareDirtyState.mockResolvedValue(
+      ok(
+        createPreparedState([{ tableId: OTHER_TABLE_ID, recordCount: 3000 }], new Map(), [
+          gatedEdge,
+        ])
+      )
+    );
+    executePreparedSteps.mockResolvedValue(
+      ok({
+        traceInfos: [],
+        changesByStep: [
+          {
+            tableId: SEED_TABLE_ID,
+            recordChanges: [
+              {
+                recordId: record1,
+                oldVersion: 1,
+                changes: [{ fieldId: FIELD_ID_A, oldValue: 1, newValue: 2 }],
+              },
+              {
+                recordId: record2,
+                oldVersion: 1,
+                changes: [{ fieldId: FIELD_ID_A, oldValue: 1, newValue: 1 }],
+              },
+            ],
+          },
+        ],
+      })
+    );
+    enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
+
+    const strategy = new HybridWithOutboxStrategy(
+      outbox,
+      worker,
+      {
+        syncPolicy: 'threshold',
+        syncMaxDirtyPerTable: 2000,
+        syncMaxTotalDirty: 5000,
+        syncMaxLevelHardCap: 0,
+        dispatchMode: 'external',
+        dispatchWorkerLimit: 50,
+        dispatchWorkerId: 'computed-inline',
+        dispatchDelayMs: 0,
+      },
+      createLogger(),
+      testHasher,
+      planner,
+      createEventBusStub()
+    );
+
+    const result = await strategy.execute(updater, plan, {
+      actorId: ActorId.create('usr_test')._unsafeUnwrap(),
+    });
+    expect(result.isOk()).toBe(true);
+    expect(enqueueOrMerge).toHaveBeenCalledTimes(1);
+    const outboxTask = enqueueOrMerge.mock.calls[0][0];
+    expect(outboxTask.seedRecordIds).toEqual([record1, record2]);
+    const roundEdge = outboxTask.edges.find(
+      (edge: { toFieldId: string }) => edge.toFieldId === lookupRoundId.toString()
+    );
+    const xEdge = outboxTask.edges.find(
+      (edge: { toFieldId: string }) => edge.toFieldId === lookupXId.toString()
+    );
+    expect(roundEdge.restrictDirtySourceRecordIds).toEqual([record1]);
+    expect(xEdge.restrictDirtySourceRecordIds).toBeUndefined();
   });
 
   it('syncs seed-table steps when using seedTableOnly policy', async () => {
@@ -1279,5 +1785,54 @@ describe('HybridWithOutboxStrategy', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('rejects computed-producing writes when pause writePolicy is block', async () => {
+    const plan = createPlan();
+    const { updater, executePreparedSteps } = createUpdaterStub();
+    const { outbox, enqueueOrMerge } = createOutboxStub();
+    const { worker } = createWorkerStub();
+    const { planner } = createPlannerStub();
+    const pauseRegistry: IComputedUpdatePauseRegistry = {
+      ...noopComputedUpdatePauseRegistry,
+      admitComputedWrite: vi.fn().mockResolvedValue(
+        err(
+          domainError.conflict({
+            code: COMPUTE_PAUSED_WRITE_BLOCKED_CODE,
+            message: 'Computation is paused',
+          })
+        )
+      ),
+    };
+
+    const strategy = new HybridWithOutboxStrategy(
+      outbox,
+      worker,
+      {
+        syncPolicy: 'threshold',
+        syncMaxDirtyPerTable: 2000,
+        syncMaxTotalDirty: 5000,
+        syncMaxLevelHardCap: 10,
+        dispatchMode: 'external',
+        dispatchWorkerLimit: 50,
+        dispatchWorkerId: 'computed-inline',
+        dispatchDelayMs: 0,
+      },
+      createLogger(),
+      testHasher,
+      planner,
+      createEventBusStub(),
+      defaultComputedUpdateRuntimeConfig,
+      pauseRegistry
+    );
+
+    const result = await strategy.execute(updater, plan, {
+      actorId: ActorId.create('usr_test')._unsafeUnwrap(),
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe(COMPUTE_PAUSED_WRITE_BLOCKED_CODE);
+    expect(executePreparedSteps).not.toHaveBeenCalled();
+    expect(enqueueOrMerge).not.toHaveBeenCalled();
   });
 });

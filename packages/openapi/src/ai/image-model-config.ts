@@ -1,3 +1,5 @@
+import { IMAGE_RESOLUTIONS, ImageQuality } from '@teable/core';
+import type { IImageResolution } from '@teable/core';
 import { z } from 'zod';
 import type { IImageModelAbility } from '../admin';
 import { supportsImageInputForImageGeneration } from './image-generation-input-capability';
@@ -86,9 +88,8 @@ export function getImageModelConfigByGatewayId(
     return getUniqueImageModelConfigByModel(gatewayModelId);
   }
 
-  const providerModelMatch = IMAGE_MODEL_CONFIGS.find(
-    (c) => c.provider === provider && c.model === model
-  );
+  // Gateway renamed xAI to SpaceXAI; direct AI SDK providers still use xai.
+  const providerModelMatch = getImageModelConfig(provider === 'spacexai' ? 'xai' : provider, model);
   if (providerModelMatch) {
     return providerModelMatch;
   }
@@ -234,6 +235,28 @@ export function supportsImageAspectRatioSelection(config: IImageModelConfig): bo
 
 export function supportsImageCountSelection(config: IImageModelConfig): boolean {
   return config.maxImagesPerCall !== 1;
+}
+
+export function getImageResolutionCandidates(config: IImageModelConfig): IImageResolution[] {
+  return (
+    config.supportedResolutions ??
+    (isPromptControlledImageGenerationModel(config) ? [...IMAGE_RESOLUTIONS] : [])
+  );
+}
+
+export function getSupportedImageResolution(
+  config: IImageModelConfig | undefined,
+  resolution?: IImageResolution
+): IImageResolution | undefined {
+  if (!config) return resolution;
+  return resolution && getImageResolutionCandidates(config).includes(resolution)
+    ? resolution
+    : undefined;
+}
+
+export function getImageQualityCandidates(config: IImageModelConfig): ImageQuality[] {
+  if (!config.supportsQuality) return [];
+  return config.supportedQualities ?? [ImageQuality.Low, ImageQuality.Medium, ImageQuality.High];
 }
 
 export function supportsImageInputForImageModel(

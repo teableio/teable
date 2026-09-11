@@ -399,10 +399,9 @@ export class RecordOpenApiV2Service {
       order: item.order,
     }));
     const normalizedGroupBy = effectiveQuery.groupBy?.map((item) => item.fieldId);
-    const recordSearchAccessPath = await this.resolveRecordSearchAccessPath(
+    const recordSearchAccessPath = this.resolveRecordSearchAccessPath(
       context,
-      tableId,
-      container,
+      table,
       effectiveQuery.search
     );
     const shouldExposeGroupMetadata =
@@ -2406,18 +2405,17 @@ export class RecordOpenApiV2Service {
     return field.name().toString();
   }
 
-  private async resolveRecordSearchAccessPath(
+  private resolveRecordSearchAccessPath(
     context: IExecutionContext,
-    tableId: string,
-    container: DependencyContainer,
+    table: Table,
     search: IGetRecordsRo['search']
-  ): Promise<IRecordSearchAccessPath | undefined> {
+  ): IRecordSearchAccessPath | undefined {
     const runtimeService = this.tableQuerySearchVectorRuntimeService;
     if (!runtimeService) {
       return undefined;
     }
 
-    return await this.withRecordReadSpan(
+    return this.withRecordReadSyncSpan(
       context,
       'teable.RecordOpenApiV2Service.resolveRecordSearchAccessPath',
       {
@@ -2425,8 +2423,7 @@ export class RecordOpenApiV2Service {
       },
       () =>
         runtimeService.resolveForRecordSearch({
-          container,
-          tableId,
+          table,
           search,
         })
     );

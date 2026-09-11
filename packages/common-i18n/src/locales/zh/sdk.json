@@ -49,7 +49,8 @@
     "previewFileLimit": "预览暂不支持{{size}}MB以上的附件, 请下载后预览",
     "loadFileError": "加载文件失败",
     "previousAttachment": "上一项",
-    "nextAttachment": "下一项"
+    "nextAttachment": "下一项",
+    "deleteAttachment": "删除"
   },
   "undoRedo": {
     "undo": "撤销",
@@ -432,6 +433,10 @@
       "automationDelete": "删除自动化",
       "automationRead": "读取自动化",
       "automationUpdate": "更新自动化",
+      "routineCreate": "创建例行任务",
+      "routineDelete": "删除例行任务",
+      "routineRead": "读取例行任务",
+      "routineUpdate": "更新例行任务",
       "appCreate": "创建应用",
       "appDelete": "删除应用",
       "appRead": "查看应用",
@@ -454,6 +459,7 @@
     "field": "字段",
     "record": "记录",
     "automation": "自动化",
+    "routine": "例行任务",
     "app": "应用",
     "user": "用户",
     "recordHistory": "记录历史",
@@ -1073,6 +1079,8 @@
       "unsupportedCategory": "不支持的类别",
       "unknownConnectionType": "未知的邮件连接类型",
       "imapPasswordNotConfigured": "IMAP 密码未配置",
+      "secretNotGranted": "Secret {{alias}} 未授权给此自动化",
+      "credentialMustBeSecret": "凭据必须使用授权给此自动化的 Secret",
       "integrationNotFound": "集成未找到或没有凭据",
       "webhookTriggerNotFound": "Webhook 触发器未找到",
       "emailReceivedTriggerNotFound": "邮件接收触发器未找到",
@@ -1084,12 +1092,15 @@
       "apiKeyNotConfigured": "抓取服务未配置",
       "triggerFailed": "抓取触发失败：{{detail}}",
       "snapshotError": "抓取快照错误：{{detail}}",
-      "timeout": "抓取超时，已等待 {{seconds}} 秒"
+      "timeout": "抓取超时，已等待 {{seconds}} 秒",
+      "catalogFailed": "抓取目录请求失败：{{detail}}",
+      "discoverByOnCatalogDataset": "discoverBy 只用于原始数据集 id，不适用于 {{datasetId}}"
     },
     "integration": {
       "oauthCodeExchangeFailed": "OAuth 授权码交换失败：{{detail}}",
       "oauthTokenRefreshFailed": "OAuth 令牌刷新失败：{{detail}}",
-      "userInfoFetchFailed": "获取用户信息失败：{{detail}}"
+      "userInfoFetchFailed": "获取用户信息失败：{{detail}}",
+      "providerUnsupported": "{{provider}} 连接已不再支持,无法授权"
     },
     "space": {
       "notFound": "空间不存在",
@@ -1130,6 +1141,22 @@
       "folderNotFound": "文件夹未找到",
       "anchorNotFound": "锚点节点未找到",
       "nameAlreadyExists": "名称已存在"
+    },
+    "routine": {
+      "notFound": "例行任务未找到",
+      "runNotFound": "例行任务运行记录未找到",
+      "configRequiredToActivate": "无法激活没有已保存配置的例行任务",
+      "noFutureOccurrence": "该计划没有未来的运行时间",
+      "onlyActiveCanDeactivate": "只有已启用的例行任务才能停用",
+      "configRequiredToRun": "无法运行没有已保存配置的例行任务",
+      "runAlreadyInFlight": "该例行任务已有一个正在进行的运行",
+      "invalidRunCursor": "无效的运行列表游标",
+      "invalidSchedule": "无效的例行任务计划：{{reason}}"
+    },
+    "chat": {
+      "notFound": "会话不存在",
+      "accessDenied": "你无权访问此会话",
+      "serverAuthoredType": "{{type}} 类型的会话由服务端创建"
     },
     "dashboard": {
       "notFound": "仪表板不存在"
@@ -1335,7 +1362,10 @@
       "exceedMaxAutomationRunLimit": "已触及自动化每月最大运行次数",
       "manualSubscriptionNotSupported": "此空间不支持自助订阅操作，如需升级、降级或其他订阅变更，请联系官方支持。",
       "appSumoSubscriptionNotSupported": "AppSumo 订阅无法通过此界面修改，请前往 AppSumo 管理您的订阅。",
-      "customerNotFound": "未找到此空间的账单客户记录。"
+      "planNotAvailable": "该订阅方案已停止新购。",
+      "seatLimitExceeded": "已购席位不足，请增购席位后再邀请协作者。",
+      "customerNotFound": "未找到此空间的账单客户记录。",
+      "creditAddOnRetired": "按月增购算力包已停售，请改为在套餐中选择更大的算力档位。"
     },
     "aggregation": {
       "searchQueryRequired": "搜索查询是必需的",
@@ -1588,7 +1618,8 @@
       "titleIncrement": "本次操作需新增 {{increment}} 行，将超出当前套餐上限 {{limit}} 行",
       "titleBatch": "本次操作的行数超出当前套餐上限（{{limit}} 行）",
       "description": "无法继续添加记录。升级套餐立即解除限制，或清理数据后继续。",
-      "unit": "行"
+      "unit": "行",
+      "constraint": "当前套餐下无法再添加记录，可删除部分记录以释放空间。"
     },
     "credit": {
       "unit": "算力"
@@ -1598,6 +1629,12 @@
     },
     "generic": {
       "description": "升级套餐以解除此限制。"
+    },
+    "neutral": {
+      "title": "此操作超出了该空间当前套餐的限制"
+    },
+    "seats": {
+      "unit": "席位"
     }
   }
 }

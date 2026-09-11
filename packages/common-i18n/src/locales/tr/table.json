@@ -271,7 +271,6 @@
       "bar": "Çubuk",
       "text": "Metin",
       "markdown": "Markdown",
-      "url": "URL",
       "email": "E-posta",
       "phone": "Telefon",
       "maxNumber": "Maksimum Sayı",
@@ -333,6 +332,7 @@
       "filterByView": "Görünüme göre kayıtları filtrele",
       "filter": "Kayıtları filtrele",
       "hideFields": "Alanları gizle",
+      "removeDuplicateValues": "Yinelenen değerleri kaldır",
       "moreOptions": "Daha fazla seçenek",
       "allowNewOptionsWhenEditing": "Düzenlerken yeni seçeneklere izin ver",
       "deleteField": {
@@ -916,6 +916,9 @@
   },
   "import": {
     "title": {
+      "createTable": "Tablo oluştur",
+      "importFromCsv": "CSV'den içe aktar",
+      "importFromExcel": "Excel'den içe aktar",
       "upload": "Yükle",
       "import": "İçe Aktar",
       "localFile": "Yerel Dosyalar",
@@ -1383,6 +1386,83 @@
     "action": {
       "locateResource": "Konumunu bul"
     },
+    "resourceOperations": {
+      "title": "Bu turdaki değişiklikler",
+      "items_one": "{{count}} öğe",
+      "items_other": "{{count}} öğe",
+      "expandRemaining": "{{count}} öğe daha göster",
+      "collapse": "Daha az göster",
+      "create": "Oluşturuldu",
+      "update": "Güncellendi",
+      "delete": "Silindi",
+      "import": "İçe aktar",
+      "publication": {
+        "published": "Yayımlandı",
+        "unpublished": "Yayımdan kaldırıldı"
+      },
+      "structureTitles": {
+        "field": "Alan değişiklikleri",
+        "view": "Görünüm değişiklikleri"
+      },
+      "structureStats": {
+        "field": {
+          "create_one": "{{count}} alan eklendi",
+          "create_other": "{{count}} alan eklendi",
+          "update_one": "{{count}} alan değiştirildi",
+          "update_other": "{{count}} alan değiştirildi",
+          "delete_one": "{{count}} alan silindi",
+          "delete_other": "{{count}} alan silindi",
+          "import_one": "{{count}} alan içe aktarıldı",
+          "import_other": "{{count}} alan içe aktarıldı"
+        },
+        "view": {
+          "create_one": "{{count}} görünüm eklendi",
+          "create_other": "{{count}} görünüm eklendi",
+          "update_one": "{{count}} görünüm değiştirildi",
+          "update_other": "{{count}} görünüm değiştirildi",
+          "delete_one": "{{count}} görünüm silindi",
+          "delete_other": "{{count}} görünüm silindi",
+          "import_one": "{{count}} görünüm içe aktarıldı",
+          "import_other": "{{count}} görünüm içe aktarıldı"
+        }
+      },
+      "workflow": {
+        "activate": "Otomasyon etkinleştirildi",
+        "deactivate": "Otomasyon devre dışı bırakıldı",
+        "discard": "Taslak değişiklikleri atıldı"
+      },
+      "routine": {
+        "activate": "Rutin etkinleştirildi",
+        "deactivate": "Rutin devre dışı bırakıldı",
+        "run": "Çalıştırma başlatıldı"
+      },
+      "records": {
+        "create": "Kayıtlar eklendi",
+        "createCount_one": "{{count}} kayıt eklendi",
+        "createCount_other": "{{count}} kayıt eklendi",
+        "update": "Kayıtlar güncellendi",
+        "updateCount_one": "{{count}} kayıt güncellendi",
+        "updateCount_other": "{{count}} kayıt güncellendi",
+        "delete": "Kayıtlar silindi",
+        "deleteCount_one": "{{count}} kayıt silindi",
+        "deleteCount_other": "{{count}} kayıt silindi",
+        "import": "Kayıtlar içe aktarıldı",
+        "importCount_one": "{{count}} kayıt içe aktarıldı",
+        "importCount_other": "{{count}} kayıt içe aktarıldı"
+      },
+      "types": {
+        "base": "Veritabanı",
+        "table": "Tablo",
+        "field": "Alan",
+        "view": "Görünüm",
+        "record": "Kayıtlar",
+        "app": "Uygulama",
+        "workflow": "Otomasyon",
+        "routine": "Rutin",
+        "folder": "Klasör",
+        "artifact": "Artifact"
+      }
+    },
     "showUI": {
       "skip": "Atla",
       "next": "Sonraki",
@@ -1422,7 +1502,13 @@
     "addAttachment": "Ek ekle",
     "noHistory": "Sohbet geçmişi yok",
     "noFoundHistory": "Sohbet geçmişi bulunamadı, lütfen yeni bir konuşma başlatın",
+    "pin": "Sabitle",
+    "unpin": "Sabitlemeyi kaldır",
+    "archive": "Arşivle",
+    "archivedToast": "Sohbet arşivlendi. Ayarlar › Arşivlenen sohbetler altında bulabilirsiniz.",
+    "unread": "Okunmadı",
     "timeGroup": {
+      "pinned": "Sabitlenenler",
       "today": "Bugün",
       "oneWeek": "Bir hafta",
       "twoWeek": "İki hafta",
@@ -1441,6 +1527,7 @@
       "tables": "Tablolar",
       "apps": "Uygulamalar",
       "workflows": "Otomasyonlar",
+      "routines": "Rutinler",
       "folders": "Klasörler",
       "envs": "Gizli bilgiler"
     },
@@ -1596,6 +1683,11 @@
         "upstreamBadRequest": "Ses uç noktası geçersiz.",
         "upstreamUnavailable": "Ses özelliği kullanılamıyor."
       }
+    },
+    "status": {
+      "running": "Oluşturuluyor…",
+      "waitingInput": "Yanıtınız bekleniyor",
+      "failed": "Yanıt başarısız oldu"
     }
   },
   "upload": {

@@ -1,4 +1,5 @@
 import type {
+  RoutineAction,
   AppAction,
   AutomationAction,
   BaseAction,
@@ -10,6 +11,7 @@ import type {
 } from './actions';
 
 export const OAUTH_ACTIONS: (
+  | RoutineAction
   | AppAction
   | BaseAction
   | TableAction
@@ -61,6 +63,10 @@ export const OAUTH_ACTIONS: (
   'automation|delete',
   'automation|read',
   'automation|update',
+  'routine|create',
+  'routine|delete',
+  'routine|read',
+  'routine|update',
   'user|email_read',
   'user|integrations',
 ];

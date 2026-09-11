@@ -37,7 +37,27 @@ export interface IReconnectingSockJSOptions {
   timeout?: number;
   /** Enable debug logging. Default: false */
   debug?: boolean;
+  /** Override Math.random for tests. */
+  random?: () => number;
 }
+
+/** Full-jitter backoff so simultaneous disconnects do not retry on the same tick. */
+export const reconnectDelayMs = (
+  attempts: number,
+  options: {
+    reconnectInterval: number;
+    reconnectDecay: number;
+    maxReconnectInterval: number;
+    random?: () => number;
+  }
+): number => {
+  const base = Math.min(
+    options.reconnectInterval * Math.pow(options.reconnectDecay, attempts),
+    options.maxReconnectInterval
+  );
+  const random = options.random ?? Math.random;
+  return Math.floor(base * random());
+};
 
 type IMessageEvent = { data: string };
 type IEventHandler<T> = ((event: T) => void) | null;
@@ -62,6 +82,7 @@ export class ReconnectingSockJS {
   private readonly transports: ISockJSTransport[];
   private readonly timeout: number;
   private readonly debug: boolean;
+  private readonly random: () => number;
 
   // State
   private socket: WebSocket | null = null;
@@ -84,6 +105,7 @@ export class ReconnectingSockJS {
     this.transports = options.transports ?? ['websocket', 'xhr-streaming'];
     this.timeout = options.timeout ?? 5000;
     this.debug = options.debug ?? false;
+    this.random = options.random ?? Math.random;
 
     this.connect();
   }
@@ -219,10 +241,12 @@ export class ReconnectingSockJS {
   }
 
   private calculateDelay(): number {
-    return Math.min(
-      this.reconnectInterval * Math.pow(this.reconnectDecay, this.reconnectAttempts),
-      this.maxReconnectInterval
-    );
+    return reconnectDelayMs(this.reconnectAttempts, {
+      reconnectInterval: this.reconnectInterval,
+      reconnectDecay: this.reconnectDecay,
+      maxReconnectInterval: this.maxReconnectInterval,
+      random: this.random,
+    });
   }
 
   private clearReconnectTimer(): void {

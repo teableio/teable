@@ -3,7 +3,10 @@ import { ImageQuality } from '@teable/core';
 import {
   getImageAspectRatioCandidates,
   getImageModelConfigByModelKey,
+  getImageQualityCandidates,
+  getImageResolutionCandidates,
   getImageSizeCandidates,
+  getSupportedImageResolution,
   isPromptControlledImageGenerationModel,
   supportsImageAspectRatioSelection,
   supportsImageCountSelection,
@@ -25,6 +28,7 @@ const getModelDefaults = (
 
   return {
     size: supportsImageSizeSelection(config) ? config.defaultSize : undefined,
+    resolution: undefined,
     quality: config.supportsQuality ? ImageQuality.Medium : undefined,
     n: supportsImageCountSelection(config) ? 1 : undefined,
     aspectRatio:
@@ -44,6 +48,18 @@ const getInitialLoadUpdates = (
   const updates: Partial<IAttachmentFieldGenerateImageAIConfig> = {};
   const isPromptControlledModel = isPromptControlledImageGenerationModel(config);
   const defaultSize = config.defaultSize;
+
+  if (
+    currentConfig?.resolution !== getSupportedImageResolution(config, currentConfig?.resolution)
+  ) {
+    updates.resolution = undefined;
+  }
+  if (
+    currentConfig?.quality &&
+    !getImageQualityCandidates(config).includes(currentConfig.quality)
+  ) {
+    updates.quality = config.supportsQuality ? ImageQuality.Medium : undefined;
+  }
 
   if (supportsImageSizeSelection(config) && !currentConfig?.size && defaultSize) {
     updates.size = defaultSize;
@@ -76,17 +92,15 @@ export const useImageModelUiState = (
     [modelKey, gatewayModels]
   );
   const imageModelConfig = resolvedImageModel?.config;
-  const isPromptControlledModel = imageModelConfig
-    ? isPromptControlledImageGenerationModel(imageModelConfig)
-    : false;
-
   const supportsSize = imageModelConfig ? supportsImageSizeSelection(imageModelConfig) : false;
   const supportsQuality = imageModelConfig?.supportsQuality ?? false;
   const supportsCount = imageModelConfig ? supportsImageCountSelection(imageModelConfig) : false;
   const supportsAspectRatio = imageModelConfig
     ? supportsImageAspectRatioSelection(imageModelConfig)
     : false;
-  const supportsResolution = isPromptControlledModel;
+  const resolutionValues = imageModelConfig ? getImageResolutionCandidates(imageModelConfig) : [];
+  const qualityValues = imageModelConfig ? getImageQualityCandidates(imageModelConfig) : [];
+  const supportsResolution = resolutionValues.length > 0;
   const supportsImageInput = resolvedImageModel
     ? supportsImageInputForImageModel(
         resolvedImageModel.config,
@@ -126,11 +140,16 @@ export const useImageModelUiState = (
     hasAdvancedOptions,
     imageSizeValues,
     aspectRatioValues,
+    resolutionValues,
+    qualityValues,
     currentSize: aiConfig?.size || imageModelConfig?.defaultSize || AUTO_SIZE_ID,
-    currentQuality: aiConfig?.quality ?? ImageQuality.Medium,
+    currentQuality:
+      aiConfig?.quality && qualityValues.includes(aiConfig.quality)
+        ? aiConfig.quality
+        : ImageQuality.Medium,
     currentCount: aiConfig?.n || 1,
     currentAspectRatio: aiConfig?.aspectRatio || imageModelConfig?.defaultAspectRatio,
-    currentResolution: aiConfig?.resolution,
+    currentResolution: getSupportedImageResolution(imageModelConfig, aiConfig?.resolution),
     maxCount: imageModelConfig?.maxImagesPerCall || 10,
     maxImagesPerCall: imageModelConfig?.maxImagesPerCall,
     imageModelId: imageModelConfig?.model,

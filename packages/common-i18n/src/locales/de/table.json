@@ -271,7 +271,6 @@
       "bar": "Balken",
       "text": "Text",
       "markdown": "Markdown",
-      "url": "Url",
       "email": "E-Mail",
       "phone": "Telfonnummer",
       "maxNumber": "Maximale Nummer",
@@ -333,6 +332,7 @@
       "filterByView": "Datensätze nach Ansicht filtern",
       "filter": "Datensätze filtern",
       "hideFields": "Felder verstecken",
+      "removeDuplicateValues": "Doppelte Werte entfernen",
       "moreOptions": "Mehr Optionen",
       "allowNewOptionsWhenEditing": "Neue Optionen bei der Bearbeitung zulassen",
       "deleteField": {
@@ -916,6 +916,9 @@
   },
   "import": {
     "title": {
+      "createTable": "Tabelle erstellen",
+      "importFromCsv": "Aus CSV importieren",
+      "importFromExcel": "Aus Excel importieren",
       "upload": "Hochladen",
       "import": "Importieren",
       "localFile": "Lokale Dateien",
@@ -1382,6 +1385,83 @@
     "action": {
       "locateResource": "Suchen"
     },
+    "resourceOperations": {
+      "title": "Änderungen dieser Antwort",
+      "items_one": "{{count}} Element",
+      "items_other": "{{count}} Elemente",
+      "expandRemaining": "Weitere anzeigen ({{count}})",
+      "collapse": "Weniger anzeigen",
+      "create": "Erstellt",
+      "update": "Aktualisiert",
+      "delete": "Gelöscht",
+      "import": "Importieren",
+      "publication": {
+        "published": "Veröffentlicht",
+        "unpublished": "Veröffentlichung aufgehoben"
+      },
+      "structureTitles": {
+        "field": "Feldänderungen",
+        "view": "Ansichtsänderungen"
+      },
+      "structureStats": {
+        "field": {
+          "create_one": "{{count}} Feld hinzugefügt",
+          "create_other": "{{count}} Felder hinzugefügt",
+          "update_one": "{{count}} Feld geändert",
+          "update_other": "{{count}} Felder geändert",
+          "delete_one": "{{count}} Feld gelöscht",
+          "delete_other": "{{count}} Felder gelöscht",
+          "import_one": "{{count}} Feld importiert",
+          "import_other": "{{count}} Felder importiert"
+        },
+        "view": {
+          "create_one": "{{count}} Ansicht hinzugefügt",
+          "create_other": "{{count}} Ansichten hinzugefügt",
+          "update_one": "{{count}} Ansicht geändert",
+          "update_other": "{{count}} Ansichten geändert",
+          "delete_one": "{{count}} Ansicht gelöscht",
+          "delete_other": "{{count}} Ansichten gelöscht",
+          "import_one": "{{count}} Ansicht importiert",
+          "import_other": "{{count}} Ansichten importiert"
+        }
+      },
+      "workflow": {
+        "activate": "Automatisierung aktiviert",
+        "deactivate": "Automatisierung deaktiviert",
+        "discard": "Entwurfsänderungen verworfen"
+      },
+      "routine": {
+        "activate": "Routine aktiviert",
+        "deactivate": "Routine deaktiviert",
+        "run": "Ausführung gestartet"
+      },
+      "records": {
+        "create": "Datensätze hinzugefügt",
+        "createCount_one": "{{count}} Datensatz hinzugefügt",
+        "createCount_other": "{{count}} Datensätze hinzugefügt",
+        "update": "Datensätze aktualisiert",
+        "updateCount_one": "{{count}} Datensatz aktualisiert",
+        "updateCount_other": "{{count}} Datensätze aktualisiert",
+        "delete": "Datensätze gelöscht",
+        "deleteCount_one": "{{count}} Datensatz gelöscht",
+        "deleteCount_other": "{{count}} Datensätze gelöscht",
+        "import": "Datensätze importiert",
+        "importCount_one": "{{count}} Datensatz importiert",
+        "importCount_other": "{{count}} Datensätze importiert"
+      },
+      "types": {
+        "base": "Base",
+        "table": "Tabelle",
+        "field": "Feld",
+        "view": "Ansicht",
+        "record": "Datensätze",
+        "app": "App",
+        "workflow": "Automatisierung",
+        "routine": "Routine",
+        "folder": "Ordner",
+        "artifact": "Artifact"
+      }
+    },
     "showUI": {
       "skip": "Überspringen",
       "next": "Nächste",
@@ -1421,7 +1501,13 @@
     "addAttachment": "Anhang hinzufügen",
     "noHistory": "Keine Chat-Verlauf",
     "noFoundHistory": "Keine passenden Chat-Verlauf gefunden, starten Sie einen neuen Chat",
+    "pin": "Anheften",
+    "unpin": "Loslösen",
+    "archive": "Archivieren",
+    "archivedToast": "Chat archiviert. Zu finden unter Einstellungen › Archivierte Chats.",
+    "unread": "Ungelesen",
     "timeGroup": {
+      "pinned": "Angeheftet",
       "today": "Heute",
       "oneWeek": "Eine Woche",
       "twoWeek": "Zwei Wochen",
@@ -1440,6 +1526,7 @@
       "tables": "Tabellen",
       "apps": "Apps",
       "workflows": "Automatisierungen",
+      "routines": "Routinen",
       "folders": "Ordner",
       "envs": "Secrets"
     },
@@ -1595,6 +1682,11 @@
         "upstreamBadRequest": "Der Sprach-Endpunkt ist ungültig.",
         "upstreamUnavailable": "Die Sprachfunktion ist nicht verfügbar."
       }
+    },
+    "status": {
+      "running": "Wird generiert …",
+      "waitingInput": "Wartet auf Ihre Antwort",
+      "failed": "Antwort fehlgeschlagen"
     }
   },
   "upload": {

@@ -300,6 +300,24 @@ const createMissingTableExistsRowProvider = (
   };
 };
 
+const createMissingColumnExistsRowProvider = (
+  schemaName: string,
+  tableName: string,
+  columnName: string
+): RowProvider => {
+  return (compiledQuery) => {
+    if (
+      compiledQuery.sql.includes('FROM information_schema.columns') &&
+      compiledQuery.parameters[0] === schemaName &&
+      compiledQuery.parameters[1] === tableName &&
+      compiledQuery.parameters[2] === columnName
+    ) {
+      return [{ exists: false }];
+    }
+    return [];
+  };
+};
+
 const isUndoCaptureQuery = (query: CompiledQuery) => {
   const text = query.sql;
   return (
@@ -384,6 +402,8 @@ const createNormalIncomingLinkFieldRowProvider = (params: {
   sourceTableId: string;
   fieldId: string;
   options: Record<string, unknown>;
+  fieldDeleted?: boolean;
+  tableDeleted?: boolean;
 }): RowProvider => {
   return (compiledQuery) => {
     if (
@@ -413,6 +433,12 @@ const createNormalIncomingLinkFieldRowProvider = (params: {
       {
         field_id: params.fieldId,
         source_table_id: params.sourceTableId,
+        field_name: 'DeletedLink',
+        source_table_name: 'SourceTable',
+        source_base_id: params.baseId,
+        db_field_name: 'Link',
+        field_deleted_time: params.fieldDeleted ? '2025-01-01T00:00:00.000Z' : null,
+        table_deleted_time: params.tableDeleted ? '2025-01-01T00:00:00.000Z' : null,
         options: JSON.stringify(params.options),
       },
     ];
@@ -515,6 +541,22 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
         },
         {
           "parameters": [
+            "bseaaaaaaaaaaaaaaaa",
+            "tblcccccccccccccccc",
+            "__fk_fldffffffffffffffff",
+          ],
+          "sql": "
+            SELECT EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_schema = $1
+                AND table_name = $2
+                AND column_name = $3
+            ) AS exists
+          ",
+        },
+        {
+          "parameters": [
             "rechhhhhhhhhhhhhhhh",
           ],
           "sql": "select "__fk_fldffffffffffffffff" as "self_key", "__id" as "foreign_key" from "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" where "__fk_fldffffffffffffffff" in ($1)",
@@ -540,6 +582,38 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
             AND table_name = $2
           ) AS exists
         ",
+        },
+        {
+          "parameters": [
+            "bseaaaaaaaaaaaaaaaa",
+            "tblcccccccccccccccc",
+            "__fk_fldffffffffffffffff",
+          ],
+          "sql": "
+            SELECT EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_schema = $1
+                AND table_name = $2
+                AND column_name = $3
+            ) AS exists
+          ",
+        },
+        {
+          "parameters": [
+            "bseaaaaaaaaaaaaaaaa",
+            "tblcccccccccccccccc",
+            "__fk_fldffffffffffffffff_order",
+          ],
+          "sql": "
+            SELECT EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_schema = $1
+                AND table_name = $2
+                AND column_name = $3
+            ) AS exists
+          ",
         },
         {
           "parameters": [
@@ -667,6 +741,38 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
         },
         {
           "parameters": [
+            "bseaaaaaaaaaaaaaaaa",
+            "junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff",
+            "__fk_fldffffffffffffffff",
+          ],
+          "sql": "
+            SELECT EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_schema = $1
+                AND table_name = $2
+                AND column_name = $3
+            ) AS exists
+          ",
+        },
+        {
+          "parameters": [
+            "bseaaaaaaaaaaaaaaaa",
+            "junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff",
+            "__fk_fldeeeeeeeeeeeeeeee",
+          ],
+          "sql": "
+            SELECT EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_schema = $1
+                AND table_name = $2
+                AND column_name = $3
+            ) AS exists
+          ",
+        },
+        {
+          "parameters": [
             "rechhhhhhhhhhhhhhhh",
             "reciiiiiiiiiiiiiiii",
           ],
@@ -693,6 +799,22 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
             AND table_name = $2
           ) AS exists
         ",
+        },
+        {
+          "parameters": [
+            "bseaaaaaaaaaaaaaaaa",
+            "junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff",
+            "__fk_fldffffffffffffffff",
+          ],
+          "sql": "
+            SELECT EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_schema = $1
+                AND table_name = $2
+                AND column_name = $3
+            ) AS exists
+          ",
         },
         {
           "parameters": [
@@ -755,6 +877,7 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
     const foreignKeyName = `__fk_${LINK_FIELD_ID}`;
     const selfKeyName = `__fk_${SYMMETRIC_FIELD_ID}`;
     const rowProvider = composeRowProviders(
+      createMissingColumnExistsRowProvider(BASE_ID, `junction_${LINK_FIELD_ID}`, 'Link'),
       createRecordIdRowProvider(tableName, [recordId.toString()]),
       createNormalIncomingLinkFieldRowProvider({
         baseId: BASE_ID,
@@ -798,6 +921,235 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
     expect(incomingCleanupIndex).toBeGreaterThan(-1);
     expect(targetDeleteIndex).toBeGreaterThan(-1);
     expect(incomingCleanupIndex).toBeLessThan(targetDeleteIndex);
+
+    vi.useRealTimers();
+  });
+
+  it('does not skip two-way oneMany extra seed when JSONB lives on the source table', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const sourceTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('DeleteTargetTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const deleteSpec = TableRecord.specs('or').recordId(recordId).build()._unsafeUnwrap();
+
+    const tableName = `"${BASE_ID}"."${TABLE_ID}"`;
+    const selfKeyName = `__fk_${LINK_FIELD_ID}`;
+    const rowProvider = composeRowProviders(
+      createMissingColumnExistsRowProvider(BASE_ID, TABLE_ID, 'Link'),
+      createRecordIdRowProvider(tableName, [recordId.toString()]),
+      createNormalIncomingLinkFieldRowProvider({
+        baseId: BASE_ID,
+        targetTableId: TABLE_ID,
+        sourceTableId: FOREIGN_TABLE_ID,
+        fieldId: LINK_FIELD_ID,
+        options: {
+          relationship: 'oneMany',
+          foreignTableId: TABLE_ID,
+          lookupFieldId: NAME_FIELD_ID,
+          fkHostTableName: `${BASE_ID}.${TABLE_ID}`,
+          selfKeyName,
+          foreignKeyName: '__id',
+          isOneWay: false,
+        },
+      }),
+      createUndoLogRowProvider([
+        {
+          record_id: recordId.toString(),
+          old_row: {
+            __id: recordId.toString(),
+          },
+        },
+      ])
+    );
+
+    const { db, driver } = createRecordingDb(rowProvider);
+    const repo = createRepository(db, table);
+
+    const result = await repo.deleteMany({ actorId }, table, deleteSpec);
+    expect(result.isOk()).toBe(true);
+
+    const snapshotSql = toSnapshot(driver.queries).map((query) => query.sql);
+    expect(
+      snapshotSql.some((sqlText) =>
+        sqlText.includes(`select "${selfKeyName}" as "foreign_id" from ${tableName}`)
+      )
+    ).toBe(true);
+
+    vi.useRealTimers();
+  });
+
+  it('skips incoming cleanup SQL when a deleted link host column is already gone', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const sourceTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('DeleteTargetTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const deleteSpec = TableRecord.specs('or').recordId(recordId).build()._unsafeUnwrap();
+
+    const tableName = `"${BASE_ID}"."${TABLE_ID}"`;
+    const hostTableName = `"${BASE_ID}"."${FOREIGN_TABLE_ID}"`;
+    const foreignKeyName = `__fk_${LINK_FIELD_ID}`;
+    const rowProvider = composeRowProviders(
+      createMissingColumnExistsRowProvider(BASE_ID, FOREIGN_TABLE_ID, foreignKeyName),
+      createRecordIdRowProvider(tableName, [recordId.toString()]),
+      createNormalIncomingLinkFieldRowProvider({
+        baseId: BASE_ID,
+        targetTableId: TABLE_ID,
+        sourceTableId: sourceTableId.toString(),
+        fieldId: LINK_FIELD_ID,
+        fieldDeleted: true,
+        options: {
+          relationship: 'manyOne',
+          isOneWay: false,
+          foreignTableId: TABLE_ID,
+          lookupFieldId: LOOKUP_FIELD_ID,
+          fkHostTableName: `${BASE_ID}.${FOREIGN_TABLE_ID}`,
+          selfKeyName: '__id',
+          foreignKeyName,
+        },
+      }),
+      createUndoLogRowProvider([
+        {
+          record_id: recordId.toString(),
+          old_row: {
+            __id: recordId.toString(),
+          },
+        },
+      ])
+    );
+
+    const { db, driver } = createRecordingDb(rowProvider);
+    const repo = createRepository(db, table);
+
+    const result = await repo.deleteMany({ actorId }, table, deleteSpec);
+    expect(result.isOk()).toBe(true);
+
+    const snapshotSql = toSnapshot(driver.queries).map((query) => query.sql);
+    expect(
+      snapshotSql.some(
+        (sqlText) =>
+          sqlText.includes(`update ${hostTableName}`) && sqlText.includes(`"${foreignKeyName}"`)
+      )
+    ).toBe(false);
+    expect(snapshotSql.some((sqlText) => sqlText.includes(`delete from ${hostTableName}`))).toBe(
+      false
+    );
+    expect(snapshotSql.some((sqlText) => sqlText.includes(`delete from ${tableName}`))).toBe(true);
+
+    vi.useRealTimers();
+  });
+
+  it('still cleans incoming deleted links when the physical FK column remains', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const sourceTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('DeleteTargetTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const deleteSpec = TableRecord.specs('or').recordId(recordId).build()._unsafeUnwrap();
+
+    const tableName = `"${BASE_ID}"."${TABLE_ID}"`;
+    const hostTableName = `"${BASE_ID}"."${FOREIGN_TABLE_ID}"`;
+    const foreignKeyName = `__fk_${LINK_FIELD_ID}`;
+    const rowProvider = composeRowProviders(
+      createRecordIdRowProvider(tableName, [recordId.toString()]),
+      createNormalIncomingLinkFieldRowProvider({
+        baseId: BASE_ID,
+        targetTableId: TABLE_ID,
+        sourceTableId: sourceTableId.toString(),
+        fieldId: LINK_FIELD_ID,
+        fieldDeleted: true,
+        options: {
+          relationship: 'manyOne',
+          isOneWay: false,
+          foreignTableId: TABLE_ID,
+          lookupFieldId: LOOKUP_FIELD_ID,
+          fkHostTableName: `${BASE_ID}.${FOREIGN_TABLE_ID}`,
+          selfKeyName: '__id',
+          foreignKeyName,
+        },
+      }),
+      createUndoLogRowProvider([
+        {
+          record_id: recordId.toString(),
+          old_row: {
+            __id: recordId.toString(),
+          },
+        },
+      ])
+    );
+
+    const { db, driver } = createRecordingDb(rowProvider);
+    const repo = createRepository(db, table);
+
+    const result = await repo.deleteMany({ actorId }, table, deleteSpec);
+    expect(result.isOk()).toBe(true);
+
+    const snapshotSql = toSnapshot(driver.queries).map((query) => query.sql);
+    expect(
+      snapshotSql.some(
+        (sqlText) =>
+          sqlText.includes(`update ${hostTableName}`) && sqlText.includes(`"${foreignKeyName}"`)
+      )
+    ).toBe(true);
+    expect(snapshotSql.some((sqlText) => sqlText.includes(`delete from ${tableName}`))).toBe(true);
 
     vi.useRealTimers();
   });

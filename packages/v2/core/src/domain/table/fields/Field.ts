@@ -12,6 +12,7 @@ import { DbFieldType } from './DbFieldType';
 import type { FieldId } from './FieldId';
 import type { FieldName } from './FieldName';
 import type { FieldType } from './FieldType';
+import { FieldVersion } from './FieldVersion';
 import { FieldSpecBuilder } from './specs/FieldSpecBuilder';
 import { CellValueMultiplicity } from './types/CellValueMultiplicity';
 import { FieldComputed } from './types/FieldComputed';
@@ -62,6 +63,8 @@ export abstract class Field extends Entity<FieldId> {
   private hasErrorValue: FieldHasError;
   private notNullValue: FieldNotNull;
   private uniqueValue: FieldUnique;
+  private versionValue: FieldVersion | undefined;
+  private provisionPendingValue = false;
 
   static specs(): FieldSpecBuilder {
     return FieldSpecBuilder.create();
@@ -81,6 +84,30 @@ export abstract class Field extends Entity<FieldId> {
 
   description(): string | null {
     return this.descriptionValue;
+  }
+
+  version(): Result<FieldVersion, DomainError> {
+    if (!this.versionValue) {
+      return err(domainError.invariant({ message: 'FieldVersion not set' }));
+    }
+    return ok(this.versionValue);
+  }
+
+  setVersion(version: FieldVersion): Result<void, DomainError> {
+    if (this.versionValue) {
+      if (this.versionValue.equals(version)) return ok(undefined);
+      return err(domainError.invariant({ message: 'FieldVersion already set' }));
+    }
+    this.versionValue = version;
+    return ok(undefined);
+  }
+
+  isProvisionPending(): boolean {
+    return this.provisionPendingValue;
+  }
+
+  setProvisionPending(pending: boolean): void {
+    this.provisionPendingValue = pending;
   }
 
   aiConfig(): unknown | null | undefined {

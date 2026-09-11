@@ -264,6 +264,8 @@ export const aiConfigVoSchema = aiConfigSchema.extend({
   enable: z.boolean().optional(),
 });
 
+export type IAIConfigVo = z.infer<typeof aiConfigVoSchema>;
+
 export const appAuthGoogleConfigSchema = z.object({
   clientId: z.string().optional(),
   clientSecret: z.string().optional(),

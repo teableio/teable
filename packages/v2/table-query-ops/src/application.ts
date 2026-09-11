@@ -82,7 +82,8 @@ export type AnalyzeAndRecommendTableQueryResult = {
 export class AcceptTableQueryRecommendationCommand extends PublicCommand {
   constructor(
     readonly recommendationId: string,
-    readonly kind?: ExecutablePhase1RemediationKind
+    readonly kind?: ExecutablePhase1RemediationKind,
+    readonly manualAuthorization = false
   ) {
     super();
   }
@@ -332,20 +333,23 @@ export class AcceptTableQueryRecommendationHandler
             })
           );
         }
-        const accepted = yield* recommendation.accept(this.clock.now());
-        const savedRecommendation = yield* await this.recommendationRepository.save(
-          context,
-          accepted
-        );
+        const accepted =
+          snapshot.status === 'accepted'
+            ? recommendation
+            : yield* recommendation.accept(this.clock.now());
         const task = yield* TableQueryRemediationTask.createQueued({
-          recommendation: savedRecommendation,
+          recommendation: accepted,
           tableId: snapshot.tableId,
           baseId: snapshot.baseId,
           kind,
-          payload: firstCandidate ?? { kind },
+          payload: {
+            ...(firstCandidate ?? { kind }),
+            ...(command.manualAuthorization ? { trigger: 'admin_index' } : {}),
+          },
           now: this.clock.now(),
         });
         const savedTask = yield* await this.taskRepository.save(context, task);
+        yield* await this.recommendationRepository.save(context, accepted);
         return ok(savedTask);
       }.bind(this)
     );
@@ -512,10 +516,18 @@ export class RunTableQueryRemediationTaskHandler
         const task = yield* await this.taskRepository.findById(context, command.taskId);
         const running = yield* task.start(command.workerId, this.clock.now());
         const savedRunning = yield* await this.taskRepository.save(context, running);
-        const executed = await this.remediationExecutor.execute(context, {
-          task: savedRunning,
-          allowManualIndexExecution: command.allowManualIndexExecution,
-        });
+        const executed = await this.remediationExecutor
+          .execute(context, {
+            task: savedRunning,
+            allowManualIndexExecution: command.allowManualIndexExecution,
+          })
+          .catch((error: unknown) =>
+            err(
+              domainError.infrastructure({
+                message: error instanceof Error ? error.message : String(error),
+              })
+            )
+          );
         if (executed.isErr()) {
           const failed = yield* savedRunning.fail(executed.error.message, this.clock.now());
           const savedFailed = yield* await this.taskRepository.save(context, failed);
@@ -618,10 +630,18 @@ export class RunTableQueryRecommendedIndexHandler
           this.clock.now()
         );
         const savedRunning = yield* await this.taskRepository.save(context, running);
-        const executed = await this.remediationExecutor.execute(context, {
-          task: savedRunning,
-          allowManualIndexExecution: command.input.allowManualIndexExecution ?? false,
-        });
+        const executed = await this.remediationExecutor
+          .execute(context, {
+            task: savedRunning,
+            allowManualIndexExecution: command.input.allowManualIndexExecution ?? false,
+          })
+          .catch((error: unknown) =>
+            err(
+              domainError.infrastructure({
+                message: error instanceof Error ? error.message : String(error),
+              })
+            )
+          );
         if (executed.isErr()) {
           const failed = yield* savedRunning.fail(executed.error.message, this.clock.now());
           const savedFailed = yield* await this.taskRepository.save(context, failed);

@@ -62,6 +62,9 @@ export interface IClsStore extends ClsStore {
     // The actor identity (e.g. which app) lives in payload.appId, not here —
     // origin describes how the request arrived, not who performed it.
     via?: 'ai' | 'automation' | 'app';
+    // First-party non-browser client from `X-Teable-Client` (`mobile/<version>`); browsers
+    // never send it. Queries: `WHERE origin->>'client' LIKE 'mobile/%'`.
+    client?: string;
   };
   // Affiliate token from the first-party teable_affiliate_via cookie (NOT origin.via
   // above) — see apps/nextjs-app/src/lib/affiliate-cookie.ts for the contract.
@@ -116,6 +119,7 @@ export interface IClsStore extends ClsStore {
     }[];
   };
   tempAuthBaseId?: string; // for automation robot
+  authSource?: 'sandbox'; // temp user token minted for an AI sandbox
   appId?: string; // for app internal call
   // Active audit operation attribution. Outer-wins: the first withOperation() call sets
   // rootAction/operationId; downstream atomic audit rows keep their own `action` and copy

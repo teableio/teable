@@ -17,6 +17,7 @@ import { FieldId as FieldIdVO } from '../FieldId';
 import { FieldCondition, type FieldConditionDTO } from './FieldCondition';
 
 const conditionalLookupOptionsSchema = z.object({
+  isUnique: z.boolean().optional(),
   baseId: optionalForeignBaseIdSchema,
   foreignTableId: z.string().min(1),
   lookupFieldId: z.string().min(1),
@@ -24,6 +25,7 @@ const conditionalLookupOptionsSchema = z.object({
 });
 
 export type ConditionalLookupOptionsValue = {
+  isUnique?: boolean;
   baseId?: string;
   foreignTableId: string;
   lookupFieldId: string;
@@ -50,7 +52,8 @@ export class ConditionalLookupOptions extends ValueObject {
     private readonly baseIdValue: BaseId | undefined,
     private readonly foreignTableIdValue: TableId,
     private readonly lookupFieldIdValue: FieldId,
-    private readonly conditionValue: FieldCondition
+    private readonly conditionValue: FieldCondition,
+    private readonly isUniqueValue?: boolean
   ) {
     super();
   }
@@ -70,7 +73,7 @@ export class ConditionalLookupOptions extends ValueObject {
       );
     }
 
-    const { baseId, foreignTableId, lookupFieldId, condition } = parseResult.data;
+    const { baseId, foreignTableId, lookupFieldId, condition, isUnique } = parseResult.data;
     return parseOptionalForeignBaseId(baseId).andThen((parsedBaseId) =>
       FieldIdVO.create(lookupFieldId).andThen((lookupId) =>
         TableIdVO.create(foreignTableId).andThen((tableId) =>
@@ -84,7 +87,9 @@ export class ConditionalLookupOptions extends ValueObject {
                 })
               );
             }
-            return ok(new ConditionalLookupOptions(parsedBaseId, tableId, lookupId, cond));
+            return ok(
+              new ConditionalLookupOptions(parsedBaseId, tableId, lookupId, cond, isUnique)
+            );
           })
         )
       )
@@ -118,6 +123,7 @@ export class ConditionalLookupOptions extends ValueObject {
 
   toDto(): ConditionalLookupOptionsValue {
     return {
+      ...(this.isUniqueValue !== undefined ? { isUnique: this.isUniqueValue } : {}),
       ...(this.baseIdValue ? { baseId: this.baseIdValue.toString() } : {}),
       foreignTableId: this.foreignTableIdValue.toString(),
       lookupFieldId: this.lookupFieldIdValue.toString(),
@@ -127,10 +133,15 @@ export class ConditionalLookupOptions extends ValueObject {
 
   equals(other: ConditionalLookupOptions): boolean {
     return (
+      this.isUnique() === other.isUnique() &&
       optionalBaseIdsEqual(this.baseIdValue, other.baseIdValue) &&
       this.foreignTableIdValue.equals(other.foreignTableIdValue) &&
       this.lookupFieldIdValue.equals(other.lookupFieldIdValue) &&
       this.conditionValue.equals(other.conditionValue)
     );
+  }
+
+  isUnique(): boolean {
+    return this.isUniqueValue === true;
   }
 }

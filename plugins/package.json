@@ -13,7 +13,7 @@
     "test": "echo \"Error: no test specified\""
   },
   "dependencies": {
-    "@hookform/resolvers": "3.3.4",
+    "@hookform/resolvers": "5.9.1",
     "@tanstack/react-query": "5.90.16",
     "@teable/common-i18n": "workspace:^",
     "@teable/core": "workspace:^",
@@ -45,7 +45,7 @@
     "qrcode.react": "3.1.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "react-hook-form": "7.51.1",
+    "react-hook-form": "7.87.0",
     "react-i18next": "14.1.0",
     "react-use": "17.5.1",
     "recharts": "2.12.3",
@@ -53,7 +53,7 @@
   },
   "devDependencies": {
     "@types/lodash": "4.17.0",
-    "@types/node": "22.18.0",
+    "@types/node": "24.13.2",
     "@types/react": "18.3.18",
     "@types/react-dom": "18.3.5",
     "@univerjs/webpack-plugin": "0.5.1",

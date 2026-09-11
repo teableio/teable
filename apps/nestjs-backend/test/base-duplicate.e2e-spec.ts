@@ -1656,23 +1656,29 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
         resourceType: BaseNodeResourceType.Folder,
         name: 'Orders Folder',
       }).then((res) => res.data);
+      // The API no longer seeds default records (T6947); the link/lookup setup
+      // below reads records[0] of each table.
+      const seedRecords = [{ fields: {} }, { fields: {} }, { fields: {} }];
       const ordersNode = await createBaseNode(base.id, {
         resourceType: BaseNodeResourceType.Table,
         name: 'Orders',
         fields: [{ name: 'Order', type: FieldType.SingleLineText }],
         views: [{ name: 'Grid view', type: ViewType.Grid }],
+        records: seedRecords,
       }).then((res) => res.data);
       const customersNode = await createBaseNode(base.id, {
         resourceType: BaseNodeResourceType.Table,
         name: 'Customers',
         fields: [{ name: 'Customer', type: FieldType.SingleLineText }],
         views: [{ name: 'Grid view', type: ViewType.Grid }],
+        records: seedRecords,
       }).then((res) => res.data);
       const productsNode = await createBaseNode(base.id, {
         resourceType: BaseNodeResourceType.Table,
         name: 'Products',
         fields: [{ name: 'Product', type: FieldType.SingleLineText }],
         views: [{ name: 'Grid view', type: ViewType.Grid }],
+        records: seedRecords,
       }).then((res) => res.data);
       await moveBaseNode(base.id, ordersNode.id, { parentId: folderNode.id });
       const productPrimaryField = (await getFields(productsNode.resourceId)).data.find(

@@ -9,6 +9,7 @@ interface ITimePickerProps {
   onOpenChange: (open: boolean) => void;
   onChange: (value: string) => void;
   className?: string;
+  disabled?: boolean;
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
@@ -22,6 +23,7 @@ export const TimePicker = ({
   onOpenChange,
   onChange,
   className,
+  disabled,
 }: ITimePickerProps) => {
   const hourRef = useRef<HTMLDivElement>(null);
   const minuteRef = useRef<HTMLDivElement>(null);
@@ -65,6 +67,7 @@ export const TimePicker = ({
     <div role="presentation" className="relative" onMouseDown={(e) => e.stopPropagation()}>
       <Button
         variant="outline"
+        disabled={disabled}
         className={cn('h-8 gap-1.5 px-2 text-sm', !value && 'text-muted-foreground', className)}
         onClick={() => onOpenChange(!open)}
       >

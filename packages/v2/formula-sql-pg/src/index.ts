@@ -1,5 +1,6 @@
 export { FormulaSqlPgTranslator } from './FormulaSqlPgTranslator';
 export type { FormulaSqlPgTranslatorOptions, FieldSqlResolver } from './FormulaSqlPgTranslator';
+export type { FormulaExpressionNode } from './FormulaExpressionGraph';
 export { FormulaSqlPgVisitor } from './FormulaSqlPgVisitor';
 export { buildFieldSqlMetadata, type FieldSqlMetadata } from './FieldSqlCoercionVisitor';
 export {
@@ -25,3 +26,6 @@ export {
 export type { IPgTypeValidationStrategy, PgValidationType } from './PgTypeValidationStrategy';
 export { Pg16TypeValidationStrategy, PgLegacyTypeValidationStrategy } from './strategies';
 export { formulaSqlPgTokens } from './tokens';
+
+export { analyzeDeterministicScalarFormula } from './DeterministicScalarFormula';
+export type { DeterministicScalarFormula } from './DeterministicScalarFormula';

@@ -11,17 +11,17 @@ import {
   isAnonymous,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import {
-  getBaseCached,
-  getSpaceCached,
-  getTableMetaWithBaseCached,
-} from '../../utils/meta-ancestry-cache';
 import { CollaboratorType } from '@teable/openapi';
 import { intersection, union } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException, TemplateAppTokenNotAllowedException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
+import {
+  getBaseCached,
+  getSpaceCached,
+  getTableMetaWithBaseCached,
+} from '../../utils/meta-ancestry-cache';
 import { CollaboratorModel } from '../model/collaborator';
 import { TemplateModel } from '../model/template';
 import { TeableJwtService } from './jwt/teable-jwt.service';
@@ -683,6 +683,8 @@ export class PermissionService {
         return this.checkFieldBelongsToShare(resourceId, baseId, nodeId);
       case IdPrefix.App:
         return this.checkAppBelongsToShare(resourceId, baseId, nodeId);
+      case IdPrefix.Routine:
+        return this.checkRoutineBelongsToShare(resourceId, baseId, nodeId);
       default:
         return false;
     }
@@ -852,6 +854,31 @@ export class PermissionService {
     const result = await this.isNodeAllowedByNodeId(baseId, appNode.id, nodeId);
     this.logger.debug(`[BaseShare] App belongs check: nodeId=${nodeId}, result=${result}`);
     return result;
+  }
+
+  private async checkRoutineBelongsToShare(
+    routineId: string,
+    baseId: string,
+    nodeId: string | null
+  ): Promise<boolean> {
+    const routineNode = await this.prismaService.baseNode.findFirst({
+      where: {
+        baseId,
+        resourceType: { equals: 'routine', mode: 'insensitive' },
+        resourceId: routineId,
+      },
+    });
+
+    if (!routineNode) {
+      return false;
+    }
+
+    // Whole-base share: any routine within the shared base is accessible.
+    if (!nodeId) {
+      return true;
+    }
+
+    return this.isNodeAllowedByNodeId(baseId, routineNode.id, nodeId);
   }
 
   /**

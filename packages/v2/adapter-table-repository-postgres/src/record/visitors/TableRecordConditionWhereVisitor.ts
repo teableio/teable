@@ -1,5 +1,6 @@
 import * as core from '@teable/v2-core';
 import type { DomainError } from '@teable/v2-core';
+import type { IPgTypeValidationStrategy } from '@teable/v2-formula-sql-pg';
 import dayjs, { type Dayjs, type ManipulateType } from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
@@ -134,7 +135,8 @@ const buildArrayLikeFieldReferenceIsCondition = (
   leftField: core.Field,
   leftColumnRef: RecordConditionWhere,
   rightField: core.Field,
-  rightColumnRef: RecordConditionWhere
+  rightColumnRef: RecordConditionWhere,
+  typeValidationStrategy?: IPgTypeValidationStrategy
 ): Result<RecordConditionWhere | undefined, DomainError> => {
   return safeTry<RecordConditionWhere | undefined, DomainError>(function* () {
     const leftIsArrayLike = isArrayLikeOutputField(leftField, yield* fieldIsMultiple(leftField));
@@ -160,6 +162,34 @@ const buildArrayLikeFieldReferenceIsCondition = (
     }
 
     if (fieldIsJson(leftField)) return ok(undefined);
+    // The foreign scalar must stay bare so a small dirty host batch can probe
+    // its btree. EXISTS with scalar::text scans the foreign relation for each
+    // host. ANY also keeps duplicate host values from multiplying aggregates.
+    const castType = resolveSargableFieldReferenceCast(leftField);
+    if (typeValidationStrategy && (castType === 'text' || castType === 'double precision')) {
+      const element = sql`__membership.value`;
+      const array = normalizeToJsonArray(rightColumnRef);
+      const textValues = sql`array_remove(ARRAY(SELECT ${element}
+        FROM jsonb_array_elements_text(${array}) AS __membership(value)), NULL)`;
+      const typedValues =
+        castType === 'text'
+          ? textValues
+          : sql`array_remove(ARRAY(SELECT CASE
+        WHEN ${sql.raw(typeValidationStrategy.isValidForType('__membership.value', 'double precision'))}
+          THEN ${element}::double precision END
+        FROM jsonb_array_elements_text(${array}) AS __membership(value)), NULL)`;
+      const candidateMatch = sql`(${leftColumnRef} IS NOT NULL) AND (${leftColumnRef} = ANY(${typedValues}))`;
+      // Numeric equality is an index prefilter, not a replacement for textual
+      // equality: "042", "42.0", and even IEEE -0 must retain their old meaning.
+      // Only index candidates need this exact text check. NULL-free arrays and
+      // the scalar guard also retain EXISTS's two-valued result under NOT.
+      return ok(
+        castType === 'text'
+          ? candidateMatch
+          : sql`(${candidateMatch}) AND
+        ((${leftColumnRef})::text = ANY(${textValues}))`
+      );
+    }
     return ok(sql`EXISTS (
       SELECT 1
       FROM jsonb_array_elements_text(${normalizeToJsonArray(rightColumnRef)}) AS elem
@@ -223,6 +253,11 @@ export interface TableRecordConditionWhereVisitorOptions {
    * This generates SQL like: "f"."Status" = "t"."StatusFilter"
    */
   hostTableAlias?: string;
+  /**
+   * Enables typed array membership in a computed join whose numeric branch is
+   * guarded by extra_float_digits > 0 (roundtrip float output).
+   */
+  typeValidationStrategy?: IPgTypeValidationStrategy;
 }
 
 export class DateUtil {
@@ -805,7 +840,8 @@ const buildIsCondition = (
   field: core.Field,
   value: core.RecordConditionValue | undefined,
   tableAlias?: string,
-  hostTableAlias?: string
+  hostTableAlias?: string,
+  typeValidationStrategy?: IPgTypeValidationStrategy
 ): Result<RecordConditionWhere, DomainError> => {
   return safeTry<RecordConditionWhere, DomainError>(function* () {
     if (!value)
@@ -898,7 +934,8 @@ const buildIsCondition = (
         field,
         columnRef,
         referenceField,
-        rightColumnRef
+        rightColumnRef,
+        typeValidationStrategy
       );
       if (arrayLikeMatch) {
         return ok(arrayLikeMatch);
@@ -1499,17 +1536,20 @@ export class TableRecordConditionWhereVisitor
 {
   private readonly tableAlias: string | undefined;
   private readonly hostTableAlias: string | undefined;
+  private readonly typeValidationStrategy: IPgTypeValidationStrategy | undefined;
 
   constructor(options?: TableRecordConditionWhereVisitorOptions) {
     super();
     this.tableAlias = options?.tableAlias;
     this.hostTableAlias = options?.hostTableAlias;
+    this.typeValidationStrategy = options?.typeValidationStrategy;
   }
 
   clone(): this {
     return new TableRecordConditionWhereVisitor({
       tableAlias: this.tableAlias,
       hostTableAlias: this.hostTableAlias,
+      typeValidationStrategy: this.typeValidationStrategy,
     }) as this;
   }
 
@@ -2470,7 +2510,13 @@ export class TableRecordConditionWhereVisitor
     value: core.RecordConditionValue | undefined
   ): Result<RecordConditionWhere, DomainError> {
     return this.addConditionResult(
-      buildIsCondition(field, value, this.tableAlias, this.hostTableAlias)
+      buildIsCondition(
+        field,
+        value,
+        this.tableAlias,
+        this.hostTableAlias,
+        this.typeValidationStrategy
+      )
     );
   }
 

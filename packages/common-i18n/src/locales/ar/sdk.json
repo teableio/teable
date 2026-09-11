@@ -49,7 +49,8 @@
     "previewFileLimit": "حد حجم ملف المعاينة: {{size}} ميغابايت، يُرجى تنزيله للاطلاع عليه.",
     "loadFileError": "فشل تحميل الملف",
     "previousAttachment": "السابق",
-    "nextAttachment": "التالي"
+    "nextAttachment": "التالي",
+    "deleteAttachment": "حذف"
   },
   "undoRedo": {
     "undo": "تراجع",
@@ -455,6 +456,10 @@
       "automationDelete": "حذف أتمتة",
       "automationRead": "قراءة الأتمتة",
       "automationUpdate": "تحديث الأتمتة",
+      "routineCreate": "إنشاء روتين",
+      "routineDelete": "حذف روتين",
+      "routineRead": "قراءة روتين",
+      "routineUpdate": "تحديث روتين",
       "appCreate": "إنشاء تطبيق",
       "appDelete": "حذف تطبيق",
       "appRead": "قراءة التطبيق",
@@ -477,6 +482,7 @@
     "field": "حقل",
     "record": "سجل",
     "automation": "أتمتة",
+    "routine": "روتين",
     "app": "تطبيق",
     "user": "مستخدم",
     "recordHistory": "سجل تغييرات السجل",
@@ -1096,6 +1102,8 @@
       "unsupportedCategory": "فئة غير مدعومة",
       "unknownConnectionType": "نوع اتصال بريد غير معروف",
       "imapPasswordNotConfigured": "لم يتم إعداد كلمة مرور IMAP",
+      "secretNotGranted": "السر {{alias}} غير ممنوح لهذه الأتمتة",
+      "credentialMustBeSecret": "يجب أن تكون بيانات الاعتماد أسرارًا ممنوحة لهذه الأتمتة",
       "integrationNotFound": "التكامل غير موجود أو لا يحتوي على بيانات اعتماد",
       "webhookTriggerNotFound": "مُشغِّل Webhook غير موجود",
       "emailReceivedTriggerNotFound": "مُشغِّل استقبال البريد غير موجود",
@@ -1107,12 +1115,15 @@
       "apiKeyNotConfigured": "لم يتم إعداد خدمة استخراج البيانات",
       "triggerFailed": "فشل تشغيل الاستخراج: {{detail}}",
       "snapshotError": "خطأ في لقطة الاستخراج: {{detail}}",
-      "timeout": "انتهت مهلة الاستخراج بعد {{seconds}} ثانية"
+      "timeout": "انتهت مهلة الاستخراج بعد {{seconds}} ثانية",
+      "catalogFailed": "فشل طلب فهرس الاستخراج: {{detail}}",
+      "discoverByOnCatalogDataset": "discoverBy ينطبق فقط على معرّفات مجموعات البيانات الخام، وليس على {{datasetId}}"
     },
     "integration": {
       "oauthCodeExchangeFailed": "فشل تبادل رمز OAuth: {{detail}}",
       "oauthTokenRefreshFailed": "فشل تحديث رمز OAuth: {{detail}}",
-      "userInfoFetchFailed": "فشل الحصول على معلومات المستخدم: {{detail}}"
+      "userInfoFetchFailed": "فشل الحصول على معلومات المستخدم: {{detail}}",
+      "providerUnsupported": "لم تعد اتصالات {{provider}} مدعومة ولا يمكن منحها"
     },
     "space": {
       "notFound": "المساحة غير موجودة",
@@ -1153,6 +1164,22 @@
       "folderNotFound": "المجلد غير موجود",
       "anchorNotFound": "عقدة المرساة غير موجودة",
       "nameAlreadyExists": "الاسم موجود بالفعل"
+    },
+    "routine": {
+      "notFound": "الروتين غير موجود",
+      "runNotFound": "عملية تشغيل الروتين غير موجودة",
+      "configRequiredToActivate": "لا يمكن تفعيل الروتين بدون تكوين محفوظ",
+      "noFutureOccurrence": "لا يحتوي الجدول على أي تكرار مستقبلي",
+      "onlyActiveCanDeactivate": "يمكن إيقاف الروتين النشط مؤقتًا فقط",
+      "configRequiredToRun": "لا يمكن تشغيل الروتين بدون تكوين محفوظ",
+      "runAlreadyInFlight": "هناك تشغيل جارٍ بالفعل لهذا الروتين",
+      "invalidRunCursor": "مؤشر قائمة التشغيلات غير صالح",
+      "invalidSchedule": "جدول الروتين غير صالح: {{reason}}"
+    },
+    "chat": {
+      "notFound": "المحادثة غير موجودة",
+      "accessDenied": "غير مسموح لك بالوصول إلى هذه المحادثة",
+      "serverAuthoredType": "المحادثات من النوع {{type}} ينشئها الخادم"
     },
     "dashboard": {
       "notFound": "لوحة المعلومات غير موجودة"
@@ -1358,7 +1385,10 @@
       "exceedMaxAutomationRunLimit": "تم تجاوز الحد الأقصى لعمليات تشغيل الأتمتة",
       "manualSubscriptionNotSupported": "الاشتراك الذاتي غير متاح لهذه المساحة. للترقية أو التخفيض أو أي تغييرات أخرى في الاشتراك، يُرجى التواصل مع دعم Teable.",
       "appSumoSubscriptionNotSupported": "لا يمكن تعديل اشتراكات AppSumo من هذه الواجهة. يُرجى إدارة اشتراكك على AppSumo.",
-      "customerNotFound": "لم يتم العثور على سجل عميل للفوترة لهذه المساحة."
+      "customerNotFound": "لم يتم العثور على سجل عميل للفوترة لهذه المساحة.",
+      "planNotAvailable": "خيار الخطة هذا لم يعد متاحًا للاشتراكات الجديدة.",
+      "seatLimitExceeded": "المقاعد المشتراة غير كافية. أضف مقاعد لدعوة المزيد من المتعاونين.",
+      "creditAddOnRetired": "تمت إزالة إضافة الأرصدة المتكررة. اختر بدلًا من ذلك مستوى أرصدة أكبر في خطتك."
     },
     "aggregation": {
       "searchQueryRequired": "استعلام البحث مطلوب",
@@ -1611,7 +1641,8 @@
       "titleIncrement": "يضيف هذا الإجراء {{increment}} صف، متجاوزًا حد خطتك البالغ {{limit}}",
       "titleBatch": "ستتجاوز هذه العملية حد خطتك البالغ {{limit}} صف",
       "description": "لا يمكنك إضافة المزيد من السجلات. رقِّ خطتك لرفع الحد فورًا، أو حرّر مساحة بحذف بعض السجلات.",
-      "unit": "صف"
+      "unit": "صف",
+      "constraint": "لا يمكن إضافة مزيد من السجلات في الخطة الحالية. حرّر مساحة بحذف بعض السجلات."
     },
     "credit": {
       "unit": "رصيد"
@@ -1621,6 +1652,12 @@
     },
     "generic": {
       "description": "رقِّ خطتك لرفع هذا الحد."
+    },
+    "neutral": {
+      "title": "يتجاوز هذا الإجراء أحد حدود الخطة الحالية للمساحة"
+    },
+    "seats": {
+      "unit": "مقاعد"
     }
   }
 }

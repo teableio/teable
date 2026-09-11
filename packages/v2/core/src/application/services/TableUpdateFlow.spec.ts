@@ -185,6 +185,8 @@ class FakeEventBus implements IEventBus {
 }
 
 class FakeUnitOfWork implements IUnitOfWork {
+  topLevelMetaStarts = 0;
+
   async withTransaction<T>(
     context: IExecutionContext,
     work: UnitOfWorkOperation<T>,
@@ -194,6 +196,9 @@ class FakeUnitOfWork implements IUnitOfWork {
     const existing = context.transactions?.[scope];
     if (existing) {
       return work({ ...context, transaction: existing });
+    }
+    if (scope === 'meta') {
+      this.topLevelMetaStarts += 1;
     }
     const afterCommitHandlers: Array<() => Promise<void> | void> = [];
     const afterRollbackHandlers: Array<() => Promise<void> | void> = [];
@@ -921,7 +926,35 @@ describe('TableUpdateFlow', () => {
     ]);
   });
 
-  it('resets early pending state when physical schema prepare validation fails', async () => {
+  it('does not commit physical-repair pending before the meta transaction (T7114)', async () => {
+    const table = buildTable();
+    const unitOfWork = new FakeUnitOfWork();
+    let metaStartsAtSchemaUpdate = 0;
+    const flow = new TableUpdateFlow(
+      new FakeTableRepository(),
+      {
+        insert: async () => ok(undefined),
+        insertMany: async () => ok(undefined),
+        update: async (_context, nextTable) => {
+          metaStartsAtSchemaUpdate = unitOfWork.topLevelMetaStarts;
+          return ok(nextTable);
+        },
+        delete: async () => ok(undefined),
+      },
+      new FakeEventBus(),
+      unitOfWork
+    );
+
+    const addedField = buildTextField('c', 'Added Field');
+    const result = await flow.execute(createContext(), { table }, (tableToUpdate) =>
+      tableToUpdate.update((mutator) => mutator.addField(addedField))
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(metaStartsAtSchemaUpdate).toBe(1);
+  });
+
+  it('does not mark pending when physical schema prepare validation fails', async () => {
     const table = buildTable();
     const repository = new FakeTableRepository();
     const flow = new TableUpdateFlow(
@@ -944,11 +977,7 @@ describe('TableUpdateFlow', () => {
     );
 
     expect(result._unsafeUnwrapErr().message).toBe('prepare failed');
-    expect(repository.provisionStateChanges).toEqual(['pending', 'ready']);
-    expect(repository.provisionOperations.map((operation) => operation?.status)).toEqual([
-      'pending',
-      undefined,
-    ]);
+    expect(repository.provisionStateChanges).toEqual([]);
   });
 
   it('keeps tables available when an outer transaction rolls back after deferring ready', async () => {

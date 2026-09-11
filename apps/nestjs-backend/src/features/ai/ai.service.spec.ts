@@ -185,6 +185,137 @@ describe('AiService.isInstanceAIModelByConfig', () => {
   });
 });
 
+describe('AiService space model resolution', () => {
+  const spaceModelKey = `${LLMProviderType.OPENAI}@space-model@space-provider`;
+  const instanceModelKey = `${LLMProviderType.ANTHROPIC}@instance-model@teable`;
+  const spaceProvider: LLMProvider = {
+    type: LLMProviderType.OPENAI,
+    name: 'space-provider',
+    models: 'space-model',
+    apiKey: 'space-key',
+    baseUrl: 'https://space.example.com',
+  };
+  const instanceProvider: LLMProvider = {
+    type: LLMProviderType.ANTHROPIC,
+    name: 'teable',
+    models: 'instance-model',
+    apiKey: 'instance-key',
+    baseUrl: 'https://instance.example.com',
+  };
+
+  const createConfigService = (
+    spaceConfig: Record<string, unknown>,
+    instanceConfig?: Record<string, unknown>
+  ) => {
+    const service = Object.create(AiService.prototype) as AiService;
+    setBaseConfig(service, false);
+    (service as unknown as { prismaService: unknown }).prismaService = {
+      integration: {
+        findFirst: vi
+          .fn()
+          .mockResolvedValue({ id: 'int-space', config: JSON.stringify(spaceConfig) }),
+      },
+    };
+    (service as unknown as { settingService: unknown }).settingService = {
+      getSetting: vi.fn().mockResolvedValue({ aiConfig: instanceConfig }),
+    };
+    vi.spyOn(service, 'getModelTags').mockResolvedValue([]);
+    return service;
+  };
+
+  it.each([
+    { name: 'Admin AI config is missing', config: undefined },
+    { name: 'Admin providers are empty', config: { llmProviders: [] } },
+    {
+      name: 'Admin provider was deleted',
+      config: {
+        llmProviders: [],
+        chatModel: { lg: instanceModelKey, sm: instanceModelKey, md: instanceModelKey },
+      },
+    },
+    {
+      name: 'Admin model was removed from its provider',
+      config: {
+        llmProviders: [{ ...instanceProvider, models: 'another-model' }],
+        chatModel: { lg: instanceModelKey },
+      },
+    },
+    {
+      name: 'Admin lg was cleared but other tiers remain',
+      config: {
+        llmProviders: [],
+        chatModel: { sm: instanceModelKey, md: instanceModelKey, ability: { toolCall: true } },
+      },
+    },
+  ])('uses the Space model for every tier when $name', async ({ config: instanceConfig }) => {
+    const service = createConfigService({ llmProviders: [spaceProvider] }, instanceConfig);
+
+    const config = await service.getAIConfigBySpaceId('spc-test');
+
+    expect(config.chatModel).toEqual({
+      lg: spaceModelKey,
+      md: spaceModelKey,
+      sm: spaceModelKey,
+    });
+
+    const resolved = await service.getChatModelInstanceBySpaceId('spc-test');
+
+    expect(resolved).toMatchObject({
+      lg: { modelId: 'space-model' },
+      md: { modelId: 'space-model' },
+      sm: { modelId: 'space-model' },
+      isInstance: false,
+      lgModelKey: spaceModelKey,
+      mdModelKey: spaceModelKey,
+      smModelKey: spaceModelKey,
+    });
+  });
+
+  it('keeps the Admin default when Space providers and legacy chatModel data exist', async () => {
+    const service = createConfigService(
+      { llmProviders: [spaceProvider], chatModel: { lg: spaceModelKey } },
+      {
+        llmProviders: [instanceProvider],
+        chatModel: { lg: instanceModelKey, ability: { toolCall: true } },
+        gatewayModels: [{ id: 'anthropic/instance-model', enabled: true }],
+      }
+    );
+
+    const config = await service.getAIConfigBySpaceId('spc-test');
+
+    expect(config.chatModel?.lg).toBe(instanceModelKey);
+    expect(config.chatModel?.sm).toBe(instanceModelKey);
+    expect(config.chatModel?.md).toBe(instanceModelKey);
+    expect(config.chatModel?.ability).toEqual({ toolCall: true });
+    expect(config.llmProviders).toEqual([spaceProvider, { ...instanceProvider, isInstance: true }]);
+    expect(config.gatewayModels).toEqual([{ id: 'anthropic/instance-model', enabled: true }]);
+  });
+
+  it('keeps the Admin Gateway default without requiring a custom provider entry', async () => {
+    const gatewayModelKey = `${LLMProviderType.AI_GATEWAY}@openai/gpt-4o@teable`;
+    const service = createConfigService(
+      { llmProviders: [spaceProvider] },
+      { chatModel: { lg: gatewayModelKey }, aiGatewayApiKey: 'gateway-test-key' }
+    );
+
+    const config = await service.getAIConfigBySpaceId('spc-test');
+
+    expect(config.chatModel).toMatchObject({
+      lg: gatewayModelKey,
+      md: gatewayModelKey,
+      sm: gatewayModelKey,
+    });
+  });
+
+  it('uses the existing configuration error when neither level has a model', async () => {
+    const service = createConfigService({ llmProviders: [] });
+
+    await expect(service.getChatModelInstanceBySpaceId('spc-test')).rejects.toThrow(
+      'AI chat model lg is not set'
+    );
+  });
+});
+
 describe('AiService.getSimplifiedAIConfig', () => {
   const spaceProvider = {
     type: LLMProviderType.OPENAI,

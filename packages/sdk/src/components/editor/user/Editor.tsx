@@ -1,7 +1,7 @@
 import type { IUserFieldOptions, IUserCellValue } from '@teable/core';
 import { X } from '@teable/icons';
 import { Button, Popover, PopoverContent, PopoverTrigger, cn } from '@teable/ui-lib';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { UserTag } from '../../cell-value';
 import type { IUserEditorMainProps } from './EditorMain';
 import { UserEditorMain } from './EditorMain';
@@ -14,6 +14,22 @@ export const UserEditor = (props: IUserEditorProps) => {
   const { value, options, onChange, className, style, readonly, ...reset } = props;
   const [open, setOpen] = useState(false);
   const selectRef = useRef<HTMLButtonElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // See SelectEditor: nested modal Popover traps expand-record pointer events (T7102).
+  useEffect(() => {
+    if (!open) return;
+
+    const handlePointerDown = (e: PointerEvent) => {
+      const target = e.target as Node | null;
+      if (target && !contentRef.current?.contains(target) && !selectRef.current?.contains(target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () => document.removeEventListener('pointerdown', handlePointerDown, true);
+  }, [open]);
 
   const { isMultiple } = options;
   const arrayValue = (isMultiple ? value : value ? [value] : null) as IUserCellValue[];
@@ -65,11 +81,15 @@ export const UserEditor = (props: IUserEditorProps) => {
       {readonly ? (
         triggerContent
       ) : (
-        <Popover open={open} onOpenChange={setOpen} modal>
+        <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger ref={selectRef} asChild>
             {triggerContent}
           </PopoverTrigger>
-          <PopoverContent className="p-0" style={{ width: selectRef.current?.offsetWidth || 0 }}>
+          <PopoverContent
+            ref={contentRef}
+            className="p-0"
+            style={{ width: selectRef.current?.offsetWidth || 0 }}
+          >
             <UserEditorMain
               {...reset}
               value={value}

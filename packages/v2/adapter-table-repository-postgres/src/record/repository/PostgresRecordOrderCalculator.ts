@@ -1,4 +1,3 @@
-import { domainError } from '@teable/v2-core';
 import type {
   DomainError,
   IExecutionContext,
@@ -7,6 +6,7 @@ import type {
   Table,
   ViewId,
 } from '@teable/v2-core';
+import { domainError } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { sql, type Kysely } from 'kysely';
@@ -14,10 +14,7 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { resolvePostgresDbOrTx } from '../../shared/db';
-import {
-  splitSchemaQualifiedTableName,
-  toPostgresIdentifierWithHash,
-} from '../../shared/sqlIdentifiers';
+import { ensureRowOrderColumns } from '../../shared/ensureRowOrderColumnOnline';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB } from '../query-builder';
 
@@ -120,49 +117,21 @@ export class PostgresRecordOrderCalculator implements IRecordOrderCalculator {
     );
   }
 
-  private async checkOrderColumnExists(
-    db: Kysely<DynamicDB>,
-    tableName: string,
-    orderColumnName: string
-  ): Promise<boolean> {
-    const [schemaName, tableNameOnly] = tableName.split('.');
-    const result = await sql<{ column_name: string }>`
-      SELECT column_name
-      FROM information_schema.columns
-      WHERE table_schema = ${schemaName}
-      AND table_name = ${tableNameOnly}
-      AND column_name = ${orderColumnName}
-    `.execute(db);
-
-    return result.rows.length > 0;
-  }
-
+  /**
+   * T7251: the fast-path existence check runs on the request db, but any
+   * actual creation (ADD COLUMN + backfill + index) must run on the global
+   * non-transactional handle — inside the caller's transaction the
+   * AccessExclusiveLock from ADD COLUMN is held until commit while the
+   * full-table backfill runs, blocking the whole table (CN prod incident
+   * 2026-09-09). Runs before this method takes any lock on the table.
+   */
   private async ensureOrderColumnExists(
     db: Kysely<DynamicDB>,
     tableName: string,
     viewId: string
   ): Promise<void> {
-    const orderColumnName = `__row_${viewId}`;
-    const exists = await this.checkOrderColumnExists(db, tableName, orderColumnName);
-
-    if (!exists) {
-      await sql`
-        ALTER TABLE ${sql.table(tableName)}
-        ADD COLUMN ${sql.id(orderColumnName)} double precision
-      `.execute(db);
-
-      await sql`
-        UPDATE ${sql.table(tableName)}
-        SET ${sql.id(orderColumnName)} = __auto_number
-      `.execute(db);
-
-      const { plainTableName } = splitSchemaQualifiedTableName(tableName);
-      const indexName = toPostgresIdentifierWithHash(`idx_${plainTableName}_${orderColumnName}`);
-      await sql`
-        CREATE INDEX IF NOT EXISTS ${sql.id(indexName)}
-        ON ${sql.table(tableName)} (${sql.id(orderColumnName)})
-      `.execute(db);
-    }
+    const nonTxDb = this.db as unknown as Kysely<DynamicDB>;
+    await ensureRowOrderColumns(db, nonTxDb, tableName, [viewId]);
   }
 
   private async shuffleRecords(

@@ -114,6 +114,8 @@ const ResourceSummary = ({
         return t('table:baseNode.info.automationId');
       case BaseNodeResourceType.App:
         return t('table:baseNode.info.appId');
+      case BaseNodeResourceType.Routine:
+        return t('common:noun.routine');
       default:
         return 'ID';
     }

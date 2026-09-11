@@ -310,6 +310,120 @@ describe('v2 rollup expressions (e2e)', () => {
         if (foreignTableId) await ctx.deleteTable(foreignTableId).catch(() => undefined);
       }
     });
+
+    it('refreshes a formula over a filtered rollup after a later source update T7075', async () => {
+      const foreignNameFieldId = createFieldId();
+      const foreignAmountFieldId = createFieldId();
+      const foreignKindFieldId = createFieldId();
+      const hostNameFieldId = createFieldId();
+      const hostLinkFieldId = createFieldId();
+      const hostRollupFieldId = createFieldId();
+      const hostFormulaFieldId = createFieldId();
+      let foreignTableId: string | undefined;
+      let hostTableId: string | undefined;
+
+      try {
+        const foreign = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: 'FilteredRollupFormula Foreign',
+          fields: [
+            {
+              type: 'singleLineText',
+              id: foreignNameFieldId,
+              name: 'Name',
+              isPrimary: true,
+            },
+            { type: 'number', id: foreignAmountFieldId, name: 'Amount' },
+            { type: 'singleLineText', id: foreignKindFieldId, name: 'Kind' },
+          ],
+        });
+        foreignTableId = foreign.id;
+
+        const host = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: 'FilteredRollupFormula Host',
+          fields: [{ type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true }],
+        });
+        hostTableId = host.id;
+        await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: host.id,
+          field: {
+            type: 'link',
+            id: hostLinkFieldId,
+            name: 'Lines',
+            options: {
+              relationship: 'oneMany',
+              foreignTableId: foreign.id,
+              lookupFieldId: foreignNameFieldId,
+            },
+          },
+        });
+        await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: host.id,
+          field: {
+            type: 'rollup',
+            id: hostRollupFieldId,
+            name: 'Debit total',
+            options: { expression: 'sum({values})' },
+            config: {
+              linkFieldId: hostLinkFieldId,
+              foreignTableId: foreign.id,
+              lookupFieldId: foreignAmountFieldId,
+              filter: {
+                conjunction: 'and',
+                filterSet: [{ fieldId: foreignKindFieldId, operator: 'is', value: 'debit' }],
+              },
+            },
+          },
+        });
+        await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: host.id,
+          field: {
+            type: 'formula',
+            id: hostFormulaFieldId,
+            name: 'Debit display',
+            options: { expression: `{${hostRollupFieldId}}` },
+          },
+        });
+
+        const hostRecord = await ctx.createRecord(host.id, { [hostNameFieldId]: 'Project' });
+        await drainOutbox();
+
+        const debit = await ctx.createRecord(foreign.id, {
+          [foreignNameFieldId]: 'Debit line',
+          [foreignAmountFieldId]: 10,
+          [foreignKindFieldId]: 'debit',
+        });
+        await ctx.createRecord(foreign.id, {
+          [foreignNameFieldId]: 'Credit line',
+          [foreignAmountFieldId]: 99,
+          [foreignKindFieldId]: 'credit',
+        });
+        await ctx.updateRecord(host.id, hostRecord.id, {
+          [hostLinkFieldId]: [{ id: debit.id }],
+        });
+        await drainOutbox();
+
+        let records = await ctx.listRecords(host.id);
+        const afterLink = records.find((record) => record.id === hostRecord.id);
+        expect(afterLink?.fields[hostRollupFieldId]).toBe(10);
+        expect(afterLink?.fields[hostFormulaFieldId]).toBe(10);
+
+        await ctx.updateRecord(foreign.id, debit.id, { [foreignAmountFieldId]: 15 });
+        await drainOutbox();
+
+        records = await ctx.listRecords(host.id);
+        const afterUpdate = records.find((record) => record.id === hostRecord.id);
+        expect(afterUpdate?.fields[hostRollupFieldId]).toBe(15);
+        expect(afterUpdate?.fields[hostFormulaFieldId]).toBe(15);
+      } finally {
+        if (hostTableId) await ctx.deleteTable(hostTableId).catch(() => undefined);
+        if (foreignTableId) await ctx.deleteTable(foreignTableId).catch(() => undefined);
+      }
+    });
   });
 
   describe('rolling up a link field', () => {

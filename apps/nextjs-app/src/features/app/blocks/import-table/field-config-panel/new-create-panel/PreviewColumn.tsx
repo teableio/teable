@@ -25,7 +25,7 @@ interface IPreviewColumnProps {
 export const PreviewColumn = (props: IPreviewColumnProps) => {
   const { columns, onChange } = props;
   const getFieldStatic = useFieldStaticGetter();
-  const { t } = useTranslation(['table']);
+  const { t } = useTranslation(['table', 'common']);
   const candidates = useMemo(
     () =>
       IMPORT_SUPPORTED_TYPES.map<{ value: FieldType; label: string; icon: JSX.Element }>((type) => {
@@ -47,18 +47,23 @@ export const PreviewColumn = (props: IPreviewColumnProps) => {
   };
 
   return (
-    <Table className="scroll-smooth">
+    <Table className="table-fixed scroll-smooth">
+      <colgroup>
+        <col style={{ width: 'calc((100% - 3rem) / 2)' }} />
+        <col style={{ width: 'calc((100% - 3rem) / 2)' }} />
+        <col className="w-12" />
+      </colgroup>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-56">{t('table:field.fieldName')}</TableHead>
-          <TableHead>{t('table:field.fieldType')}</TableHead>
+          <TableHead className="ps-4">{t('table:field.fieldName')}</TableHead>
+          <TableHead className="ps-4">{t('table:field.fieldType')}</TableHead>
           <TableHead className="text-end"></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {columns.map((column, index) => (
-          <TableRow key={index}>
-            <TableCell className="relative min-w-56 font-medium">
+          <TableRow key={index} className="h-14">
+            <TableCell className="relative ps-4 font-medium">
               <Input
                 placeholder="fieldName"
                 value={column.name}
@@ -69,12 +74,12 @@ export const PreviewColumn = (props: IPreviewColumnProps) => {
                 }}
               />
             </TableCell>
-            <TableCell className="w-full max-w-md">
+            <TableCell className="ps-4">
               <BaseSingleSelect
                 modal
-                className="m-1 w-full"
+                className="w-full"
                 options={candidates}
-                popoverClassName="w-96 truncate"
+                popoverClassName="max-w-[calc(100vw-2rem)] w-96 truncate"
                 value={column.type}
                 onSelect={(value) => {
                   const newColumns = [...columns];
@@ -91,7 +96,7 @@ export const PreviewColumn = (props: IPreviewColumnProps) => {
                 }}
               ></BaseSingleSelect>
             </TableCell>
-            <TableCell className="text-end">
+            <TableCell className="w-12 text-end">
               <Button
                 variant="ghost"
                 size="xs"
@@ -103,6 +108,9 @@ export const PreviewColumn = (props: IPreviewColumnProps) => {
                 }}
               >
                 {index === 0 ? <Lock className="size-4" /> : <Trash2 className="size-4" />}
+                <span className="sr-only">
+                  {index === 0 ? t('table:import.title.primaryField') : t('common:actions.delete')}
+                </span>
               </Button>
             </TableCell>
           </TableRow>

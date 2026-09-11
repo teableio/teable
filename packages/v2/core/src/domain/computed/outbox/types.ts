@@ -1,5 +1,10 @@
 export const computedOutboxPauseScopeTypes = ['space', 'base', 'table'] as const;
 export type ComputedOutboxPauseScopeType = (typeof computedOutboxPauseScopeTypes)[number];
+export const computedOutboxPauseWritePolicies = ['allow_bounded', 'block'] as const;
+export type ComputedOutboxPauseWritePolicy = (typeof computedOutboxPauseWritePolicies)[number];
+
+/** Writes that require computed propagation while a pause lease uses `block`. Never map this to 503. */
+export const COMPUTE_PAUSED_WRITE_BLOCKED_CODE = 'COMPUTE_PAUSED_WRITE_BLOCKED';
 
 export const computedOutboxStorageKinds = ['default', 'byodb'] as const;
 export type ComputedOutboxStorageKind = (typeof computedOutboxStorageKinds)[number];
@@ -69,6 +74,7 @@ export type ComputedOutboxPauseScope = {
   pausedBy: string | null;
   resumeAt: string | null;
   reason: string | null;
+  writePolicy: ComputedOutboxPauseWritePolicy;
   updatedAt: string;
   updatedBy: string | null;
 };

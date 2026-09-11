@@ -311,6 +311,17 @@ export class SameTableBatchQueryBuilder {
       function* (this: SameTableBatchQueryBuilder) {
         const ctes: CteLevelSqlPlan[] = [];
         const levels = [...fieldsByLevel.keys()].sort((a, b) => a - b);
+        // A computed dependency is carried forward AND consumed by later fields.
+        // Ordinary CTEs are inlined by PostgreSQL, duplicating that computation
+        // even when the formula-local expression graph shares its own nodes.
+        const consumedFieldIds = new Set<string>();
+        for (const fields of fieldsByLevel.values()) {
+          for (const field of fields) {
+            if (!field.type().equals(FieldType.formula())) continue;
+            const references = yield* (field as FormulaField).expression().getReferencedFieldIds();
+            for (const reference of references) consumedFieldIds.add(reference.toString());
+          }
+        }
 
         // Track which columns are available from previous CTEs
         const previousCteColumns = new Map<
@@ -350,12 +361,16 @@ export class SameTableBatchQueryBuilder {
             errorColumnName?: string;
           }> = [];
           let materialized = false;
+          const formulaGroups = yield* this.buildFormulaGroups(table, fields, previousCteColumns);
 
           // Build select expressions for each field in this level
           for (const field of fields) {
             const columnName = yield* this.getColumnName(field);
-            materialized ||= this.isJsonBackedField(field);
-            const expr = yield* this.buildFieldExpression(table, field, previousCteColumns);
+            materialized ||=
+              this.isJsonBackedField(field) || consumedFieldIds.has(field.id().toString());
+            const expr =
+              formulaGroups.expressions.get(field.id().toString()) ??
+              (yield* this.buildFieldExpression(table, field, previousCteColumns));
 
             computedFragments.push(
               FormulaFieldSqlFragment.create({
@@ -363,7 +378,9 @@ export class SameTableBatchQueryBuilder {
                 columnAlias: columnName,
                 expressionSql: expr.value.compile(this.db).sql,
                 ...(expr.errorConditionSql ? { errorConditionSql: expr.errorConditionSql } : {}),
-                cseEligible: field.type().equals(FieldType.formula()),
+                cseEligible:
+                  field.type().equals(FieldType.formula()) &&
+                  !formulaGroups.expressions.has(field.id().toString()),
               })
             );
             computedColumns.push({
@@ -380,6 +397,7 @@ export class SameTableBatchQueryBuilder {
               fragments: [...carryForwardFragments, ...computedFragments],
               previousCteName: ctes.length > 0 ? ctes[ctes.length - 1].name : undefined,
               materialized,
+              formulaGroupJoins: formulaGroups.joins,
             })
           );
 
@@ -404,6 +422,95 @@ export class SameTableBatchQueryBuilder {
           ctes,
           previousCteColumns,
         });
+      }.bind(this)
+    );
+  }
+
+  /** Compile independent formula roots together, preserving shared subexpressions
+   * across different fields. Time zones are compilation semantics, so formulas
+   * with different zones must not share a graph. */
+  private buildFormulaGroups(
+    table: Table,
+    fields: ReadonlyArray<Field>,
+    previousCteColumns: Map<
+      string,
+      { cteName: string; columnName: string; errorColumnName?: string }
+    >
+  ): Result<
+    {
+      expressions: Map<string, { value: RawBuilder<unknown>; errorConditionSql?: string }>;
+      joins: string[];
+    },
+    DomainError
+  > {
+    return safeTry(
+      function* (this: SameTableBatchQueryBuilder) {
+        const expressions = new Map<
+          string,
+          { value: RawBuilder<unknown>; errorConditionSql?: string }
+        >();
+        const joins: string[] = [];
+        const byTimeZone = new Map<string, FormulaField[]>();
+        for (const field of fields) {
+          if (!field.type().equals(FieldType.formula())) continue;
+          const formula = field as FormulaField;
+          const zone = formula.timeZone()?.toString() ?? 'UTC';
+          const group = byTimeZone.get(zone) ?? [];
+          group.push(formula);
+          byTimeZone.set(zone, group);
+        }
+        for (const [timeZone, formulas] of byTimeZone) {
+          if (formulas.length < 2) continue;
+          const translator = new FormulaSqlPgTranslator({
+            table,
+            tableAlias: T,
+            skipFormulaExpansion: true,
+            timeZone,
+            resolveFieldSql: (field: Field) =>
+              this.resolveFieldSqlWithCte(field, previousCteColumns),
+            typeValidationStrategy: this.typeValidationStrategy,
+          });
+          const translated = translator.translateExpressions(
+            formulas.map((field) => field.expression().toString())
+          );
+          // Preserve the existing per-field invalid-formula fallback.
+          if (translated.isErr()) continue;
+          const alias = `__formula_group_${joins.length}`;
+          const columns: string[] = [];
+          for (const formula of formulas) columns.push(yield* this.getColumnName(formula));
+          const groupSql = translator.renderExpressions(
+            translated.value,
+            (raw) =>
+              `${raw
+                .flatMap((expression, index) => {
+                  const column = columns[index];
+                  const value = guardValueSql(
+                    this.normalizeFormulaValueSql(formulas[index], expression),
+                    expression.errorConditionSql
+                  );
+                  return [
+                    `${value} AS ${quoteIdentifier(column)}`,
+                    ...(expression.errorConditionSql
+                      ? [
+                          `(${expression.errorConditionSql}) AS ${quoteIdentifier(errorColumnAlias(column))}`,
+                        ]
+                      : []),
+                  ];
+                })
+                .join(', ')} OFFSET 0`
+          );
+          joins.push(` CROSS JOIN LATERAL ${groupSql} AS ${quoteIdentifier(alias)}`);
+          formulas.forEach((formula, index) => {
+            const column = columns[index];
+            expressions.set(formula.id().toString(), {
+              value: sql.raw(quoteRef(alias, column)),
+              ...(translated.value[index].errorConditionSql
+                ? { errorConditionSql: quoteRef(alias, errorColumnAlias(column)) }
+                : {}),
+            });
+          });
+        }
+        return ok({ expressions, joins });
       }.bind(this)
     );
   }
@@ -448,8 +555,9 @@ export class SameTableBatchQueryBuilder {
     }
 
     const expr = translated.value;
-    const valueSql = this.normalizeFormulaValueSql(formulaField, expr);
-    const typedSql = guardValueSql(valueSql, expr.errorConditionSql);
+    const typedSql = translator.renderExpression(expr, (value) =>
+      guardValueSql(this.normalizeFormulaValueSql(formulaField, value), value.errorConditionSql)
+    );
     return ok({
       value: sql.raw(typedSql),
       ...(expr.errorConditionSql ? { errorConditionSql: expr.errorConditionSql } : {}),
@@ -792,7 +900,7 @@ export class SameTableBatchQueryBuilder {
 
     // Build final SELECT from the last CTE only (earlier levels are carried forward).
     const cteNames = ctes.map((c) => c.name);
-    const finalSelectCols = [quoteRef('u', '__id')];
+    const finalSelectCols = [quoteRef(lastCte.name, '__id')];
     for (const mapping of fieldMappings) {
       finalSelectCols.push(
         `${quoteRef(mapping.cteName, mapping.columnName)} as ${quoteIdentifier(mapping.columnName)}`
@@ -801,7 +909,9 @@ export class SameTableBatchQueryBuilder {
 
     const cteClause = `WITH ${cteDefinitions.join(', ')}`;
     const selectClause = `SELECT ${finalSelectCols.join(', ')}`;
-    const fromClause = `FROM ${qualifiedTableName} AS ${quoteIdentifier('u')} JOIN ${quoteIdentifier(lastCte.name)} ON ${quoteRef('u', '__id')} = ${quoteRef(lastCte.name, '__id')}`;
+    // Every CTE row already originates from the filtered base table in this statement.
+    // Rejoining that table here only repeats the primary-key lookup.
+    const fromClause = `FROM ${quoteIdentifier(lastCte.name)}`;
     const fullSql = `${cteClause} ${selectClause} ${fromClause}`;
     // Wrap WITH query as a derived table source; callers use selectQuery.as(...)
     // and PostgreSQL requires WITH to be inside parentheses in that position.

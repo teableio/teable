@@ -49,7 +49,8 @@
     "previewFileLimit": "Лимит размера файла для предварительного просмотра: {{size}} МБ, пожалуйста, скачайте файл для просмотра.",
     "loadFileError": "Не удалось загрузить файл",
     "previousAttachment": "Предыдущая",
-    "nextAttachment": "Следующая"
+    "nextAttachment": "Следующая",
+    "deleteAttachment": "Удалить"
   },
   "undoRedo": {
     "undo": "Отменить",
@@ -444,6 +445,10 @@
       "automationDelete": "Удалить автоматизацию",
       "automationRead": "Читать автоматизацию",
       "automationUpdate": "Обновить автоматизацию",
+      "routineCreate": "Создать рутину",
+      "routineDelete": "Удалить рутину",
+      "routineRead": "Читать рутину",
+      "routineUpdate": "Обновить рутину",
       "appCreate": "Создать приложение",
       "appDelete": "Удалить приложение",
       "appRead": "Читать приложение",
@@ -466,6 +471,7 @@
     "field": "Поле",
     "record": "Запись",
     "automation": "Автоматизация",
+    "routine": "Рутина",
     "app": "Приложение",
     "user": "Пользователь",
     "recordHistory": "История записей",
@@ -1085,6 +1091,8 @@
       "unsupportedCategory": "Неподдерживаемая категория",
       "unknownConnectionType": "Неизвестный тип подключения электронной почты",
       "imapPasswordNotConfigured": "Пароль IMAP не настроен",
+      "secretNotGranted": "Секрет {{alias}} не предоставлен этой автоматизации",
+      "credentialMustBeSecret": "Учетные данные должны быть секретами, предоставленными этой автоматизации",
       "integrationNotFound": "Интеграция не найдена или не имеет учётных данных",
       "webhookTriggerNotFound": "Триггер вебхука не найден",
       "emailReceivedTriggerNotFound": "Триггер получения электронной почты не найден",
@@ -1096,12 +1104,15 @@
       "apiKeyNotConfigured": "Сервис скрейпинга не настроен",
       "triggerFailed": "Ошибка запуска скрейпинга: {{detail}}",
       "snapshotError": "Ошибка снимка скрейпинга: {{detail}}",
-      "timeout": "Таймаут скрейпинга после {{seconds}}с"
+      "timeout": "Таймаут скрейпинга после {{seconds}}с",
+      "catalogFailed": "Ошибка запроса каталога скрейпинга: {{detail}}",
+      "discoverByOnCatalogDataset": "discoverBy применим только к сырым id датасетов, не к {{datasetId}}"
     },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
       "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
-      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}",
+      "providerUnsupported": "Подключения {{provider}} больше не поддерживаются и не могут быть предоставлены"
     },
     "space": {
       "notFound": "Пространство не найдено",
@@ -1142,6 +1153,22 @@
       "folderNotFound": "Папка не найдена",
       "anchorNotFound": "Якорный узел не найден",
       "nameAlreadyExists": "Имя уже существует"
+    },
+    "routine": {
+      "notFound": "Рутина не найдена",
+      "runNotFound": "Выполнение рутины не найдено",
+      "configRequiredToActivate": "Невозможно активировать рутину без сохранённой конфигурации",
+      "noFutureOccurrence": "У расписания нет будущих запусков",
+      "onlyActiveCanDeactivate": "Приостановить можно только активную рутину",
+      "configRequiredToRun": "Невозможно запустить рутину без сохранённой конфигурации",
+      "runAlreadyInFlight": "Запуск этой рутины уже выполняется",
+      "invalidRunCursor": "Недопустимый курсор списка запусков",
+      "invalidSchedule": "Недопустимое расписание рутины: {{reason}}"
+    },
+    "chat": {
+      "notFound": "Чат не найден",
+      "accessDenied": "У вас нет доступа к этому чату",
+      "serverAuthoredType": "Чаты типа {{type}} создаёт сервер"
     },
     "dashboard": {
       "notFound": "Панель управления не найдена"
@@ -1347,7 +1374,10 @@
       "exceedMaxAutomationRunLimit": "Достигнут максимальный месячный лимит запусков автоматизации",
       "manualSubscriptionNotSupported": "Самостоятельное управление подпиской недоступно для этого пространства. Для повышения, понижения или других изменений подписки обратитесь в службу поддержки Teable.",
       "appSumoSubscriptionNotSupported": "Подписки AppSumo не могут быть изменены через этот интерфейс. Пожалуйста, управляйте подпиской на AppSumo.",
-      "customerNotFound": "Запись клиента для выставления счетов для этого пространства не найдена."
+      "planNotAvailable": "Этот план больше недоступен для новых подписок.",
+      "seatLimitExceeded": "Недостаточно купленных мест. Добавьте места, чтобы пригласить больше участников.",
+      "customerNotFound": "Запись клиента для выставления счетов для этого пространства не найдена.",
+      "creditAddOnRetired": "Регулярное дополнение кредитов больше недоступно. Вместо этого выберите более крупный уровень кредитов в вашем тарифе."
     },
     "aggregation": {
       "searchQueryRequired": "Требуется поисковой запрос",
@@ -1600,7 +1630,8 @@
       "titleIncrement": "Это действие добавит {{increment}} строк и превысит лимит вашего тарифа — {{limit}}",
       "titleBatch": "Эта операция превысит лимит вашего тарифа — {{limit}} строк",
       "description": "Больше записей добавить нельзя. Повысьте тариф, чтобы сразу снять ограничение, или освободите место, удалив записи.",
-      "unit": "строк"
+      "unit": "строк",
+      "constraint": "На текущем тарифе больше нельзя добавлять записи. Освободите место, удалив записи."
     },
     "credit": {
       "unit": "кредитов"
@@ -1610,6 +1641,12 @@
     },
     "generic": {
       "description": "Повысьте тариф, чтобы снять это ограничение."
+    },
+    "neutral": {
+      "title": "Это действие превышает лимит текущего тарифа пространства"
+    },
+    "seats": {
+      "unit": "мест"
     }
   }
 }

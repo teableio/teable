@@ -14,6 +14,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `computed-outbox/` - Computed-update outbox maintenance queries (overview, pauses, anomalies, queue jobs, task lineage).
 - `GetTableByIdHandler.ts` - Role: query handler; Purpose: find a table by spec.
 - `GetTableByIdQuery.ts` - Role: query DTO; Purpose: validate baseId/tableId and convert to value objects.
+- `GetFieldSnapshotsQuery.ts` - Role: query DTO; Purpose: validate Table/Field IDs for ShareDB field snapshots.
+- `GetFieldSnapshotsHandler.ts` - Role: query handler; Purpose: load requested Field children with persisted versions, omitting missing ids like v1 snapshot-bulk.
 - `GetViewHandler.ts` - Role: query handler; Purpose: load a Table aggregate with one selected View child.
 - `GetViewQuery.ts` - Role: query DTO; Purpose: validate Table/View IDs.
 - `ListViewsHandler.ts` - Role: query handler; Purpose: project all active View children from a Table aggregate.

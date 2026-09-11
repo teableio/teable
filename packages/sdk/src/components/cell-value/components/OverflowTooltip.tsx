@@ -11,6 +11,8 @@ import { useContentDir } from '../../../hooks/use-content-dir';
 
 interface IOverflowTooltipProps {
   text?: string;
+  // Rendered in place of text inline; the tooltip itself always shows text
+  content?: React.ReactNode;
   ellipsis?: boolean;
   className?: string;
   tooltipClassName?: string;
@@ -19,7 +21,7 @@ interface IOverflowTooltipProps {
 }
 
 export const OverflowTooltip = (props: IOverflowTooltipProps) => {
-  const { text = '', ellipsis = false, className, tooltipClassName, onClick } = props;
+  const { text = '', content, ellipsis = false, className, tooltipClassName, onClick } = props;
   const contentDir = useContentDir();
   const [isOverflow, setOverflow] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -72,7 +74,7 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
       tabIndex={onClick ? 0 : undefined}
       title={text}
     >
-      {text}
+      {content ?? text}
     </div>
   );
 
@@ -100,7 +102,7 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
               whiteSpace: 'nowrap',
             }}
           >
-            {text}
+            {content ?? text}
           </div>
         </TooltipTrigger>
         <TooltipPortal>

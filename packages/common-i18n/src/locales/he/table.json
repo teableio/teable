@@ -276,7 +276,6 @@
       "bar": "פס",
       "text": "טקסט",
       "markdown": "Markdown",
-      "url": "URL",
       "email": "אימייל",
       "phone": "טלפון",
       "maxNumber": "מספר מקסימלי",
@@ -338,6 +337,7 @@
       "filterByView": "סינון רשומות לפי תצוגה",
       "filter": "סינון רשומות",
       "hideFields": "הסתרת שדות",
+      "removeDuplicateValues": "הסרת ערכים כפולים",
       "moreOptions": "אפשרויות נוספות",
       "allowNewOptionsWhenEditing": "לאפשר אפשרויות חדשות בעת עריכה",
       "deleteField": {
@@ -921,6 +921,9 @@
   },
   "import": {
     "title": {
+      "createTable": "יצירת טבלה",
+      "importFromCsv": "ייבוא מ-CSV",
+      "importFromExcel": "ייבוא מ-Excel",
       "upload": "העלאה",
       "import": "ייבוא",
       "localFile": "קבצים מקומיים",
@@ -1385,6 +1388,96 @@
     "action": {
       "locateResource": "איתור"
     },
+    "resourceOperations": {
+      "title": "השינויים בסבב הזה",
+      "items_one": "{{count}} פריט",
+      "items_two": "{{count}} פריטים",
+      "items_other": "{{count}} פריטים",
+      "expandRemaining": "הצגת עוד {{count}}",
+      "collapse": "הצגת פחות",
+      "create": "נוצר",
+      "update": "עודכן",
+      "delete": "נמחק",
+      "import": "ייבוא",
+      "publication": {
+        "published": "פורסם",
+        "unpublished": "הפרסום בוטל"
+      },
+      "structureTitles": {
+        "field": "שינויים בשדות",
+        "view": "שינויים בתצוגות"
+      },
+      "structureStats": {
+        "field": {
+          "create_one": "נוסף {{count}} שדה",
+          "create_two": "נוספו {{count}} שדות",
+          "create_other": "נוספו {{count}} שדות",
+          "update_one": "שונה {{count}} שדה",
+          "update_two": "שונו {{count}} שדות",
+          "update_other": "שונו {{count}} שדות",
+          "delete_one": "נמחק {{count}} שדה",
+          "delete_two": "נמחקו {{count}} שדות",
+          "delete_other": "נמחקו {{count}} שדות",
+          "import_one": "יובא {{count}} שדה",
+          "import_two": "יובאו {{count}} שדות",
+          "import_other": "יובאו {{count}} שדות"
+        },
+        "view": {
+          "create_one": "נוספה {{count}} תצוגה",
+          "create_two": "נוספו {{count}} תצוגות",
+          "create_other": "נוספו {{count}} תצוגות",
+          "update_one": "שונתה {{count}} תצוגה",
+          "update_two": "שונו {{count}} תצוגות",
+          "update_other": "שונו {{count}} תצוגות",
+          "delete_one": "נמחקה {{count}} תצוגה",
+          "delete_two": "נמחקו {{count}} תצוגות",
+          "delete_other": "נמחקו {{count}} תצוגות",
+          "import_one": "יובאה {{count}} תצוגה",
+          "import_two": "יובאו {{count}} תצוגות",
+          "import_other": "יובאו {{count}} תצוגות"
+        }
+      },
+      "workflow": {
+        "activate": "האוטומציה הופעלה",
+        "deactivate": "האוטומציה הושבתה",
+        "discard": "השינויים בטיוטה בוטלו"
+      },
+      "routine": {
+        "activate": "הרוטינה הופעלה",
+        "deactivate": "הרוטינה הושבתה",
+        "run": "ההרצה החלה"
+      },
+      "records": {
+        "create": "נוספו רשומות",
+        "createCount_one": "נוספה {{count}} רשומה",
+        "createCount_two": "נוספו {{count}} רשומות",
+        "createCount_other": "נוספו {{count}} רשומות",
+        "update": "הרשומות עודכנו",
+        "updateCount_one": "עודכנה {{count}} רשומה",
+        "updateCount_two": "עודכנו {{count}} רשומות",
+        "updateCount_other": "עודכנו {{count}} רשומות",
+        "delete": "הרשומות נמחקו",
+        "deleteCount_one": "נמחקה {{count}} רשומה",
+        "deleteCount_two": "נמחקו {{count}} רשומות",
+        "deleteCount_other": "נמחקו {{count}} רשומות",
+        "import": "הרשומות יובאו",
+        "importCount_one": "יובאה {{count}} רשומה",
+        "importCount_two": "יובאו {{count}} רשומות",
+        "importCount_other": "יובאו {{count}} רשומות"
+      },
+      "types": {
+        "base": "בסיס",
+        "table": "טבלה",
+        "field": "שדה",
+        "view": "תצוגה",
+        "record": "רשומות",
+        "app": "אפליקציה",
+        "workflow": "אוטומציה",
+        "routine": "רוטינה",
+        "folder": "תיקייה",
+        "artifact": "ארטיפקט"
+      }
+    },
     "showUI": {
       "skip": "דילוג",
       "next": "הבא",
@@ -1425,7 +1518,13 @@
     "addAttachment": "הוספת קובץ מצורף",
     "noHistory": "אין היסטוריית צ'אט",
     "noFoundHistory": "לא נמצאה היסטוריית צ'אט, אפשר להתחיל שיחה חדשה",
+    "pin": "הצמדה",
+    "unpin": "ביטול הצמדה",
+    "archive": "העברה לארכיון",
+    "archivedToast": "השיחה הועברה לארכיון. אפשר למצוא אותה בהגדרות › שיחות בארכיון.",
+    "unread": "לא נקרא",
     "timeGroup": {
+      "pinned": "מוצמדות",
       "today": "היום",
       "oneWeek": "שבוע",
       "twoWeek": "שבועיים",
@@ -1444,6 +1543,7 @@
       "tables": "טבלאות",
       "apps": "אפליקציות",
       "workflows": "אוטומציות",
+      "routines": "רוטינות",
       "folders": "תיקיות",
       "envs": "סודות"
     },
@@ -1604,6 +1704,11 @@
       "searchPlaceholder": "חיפוש ארטיפקטים",
       "fixWithAi": "תיקון בעזרת AI",
       "noPermission": "אין הרשאת גישה לארטיפקט הזה"
+    },
+    "status": {
+      "running": "יוצר…",
+      "waitingInput": "ממתין לתשובתך",
+      "failed": "התשובה נכשלה"
     }
   },
   "upload": {

@@ -57,6 +57,7 @@ const stripUndefinedDeep = (value: unknown): unknown => {
 // canonical create-field input accepted by `lookupOptionsSchema` (.strict()), so we keep only the
 // input keys rather than stripping a denylist that can drift as enrichment grows.
 const LOOKUP_INPUT_OPTION_KEYS = [
+  'isUnique',
   'linkFieldId',
   'foreignTableId',
   'lookupFieldId',

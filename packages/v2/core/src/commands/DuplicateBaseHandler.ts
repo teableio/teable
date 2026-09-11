@@ -444,6 +444,7 @@ export class DuplicateBaseHandler
       baseId: params.baseId.toString(),
       name: params.tableName,
       dbTableName: `${params.baseId.toString()}.${params.tableId}`,
+      searchIndex: undefined,
       fields: remapped.fields,
       views: remapped.views.map(resetDuplicatedViewIdentity),
     };

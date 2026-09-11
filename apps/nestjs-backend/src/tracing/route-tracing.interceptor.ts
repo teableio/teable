@@ -59,6 +59,8 @@ export class RouteTracingInterceptor implements NestInterceptor {
         'teable.user.id': userId || 'anonymous',
         'teable.user.is_api': origin?.byApi || false,
         'teable.user.is_app': !!appId,
+        // First-party client (`X-Teable-Client`, e.g. mobile/0.1.0); empty for browsers.
+        'teable.client': origin?.client || '',
         'teable.app.id': appId || '',
       });
 

@@ -15,7 +15,7 @@ exports[`array functions > 'ArrayCompact' with 'attachment' 1`] = `
     },
   },
   "result": "["{\\"id\\": \\"att_1\\", \\"name\\": \\"10\\", \\"path\\": \\"/tmp/10\\", \\"size\\": 10, \\"token\\": \\"tok_1\\", \\"mimetype\\": \\"text/plain\\"}", "{\\"id\\": \\"att_2\\", \\"name\\": \\"20\\", \\"path\\": \\"/tmp/20\\", \\"size\\": 20, \\"token\\": \\"tok_2\\", \\"mimetype\\": \\"text/plain\\"}", "{\\"id\\": \\"att_1\\", \\"name\\": \\"10\\", \\"path\\": \\"/tmp/10\\", \\"size\\": 10, \\"token\\": \\"tok_1\\", \\"mimetype\\": \\"text/plain\\"}", "{\\"id\\": \\"att_2\\", \\"name\\": \\"20\\", \\"path\\": \\"/tmp/20\\", \\"size\\": 20, \\"token\\": \\"tok_2\\", \\"mimetype\\": \\"text/plain\\"}"]",
-  "sql": "(
+  "sql": "(WITH "__formula_1" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -26,7 +26,7 @@ exports[`array functions > 'ArrayCompact' with 'attachment' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -45,7 +45,7 @@ exports[`array functions > 'ArrayCompact' with 'autoNumber' 1`] = `
     },
   },
   "result": "["1", "1"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -62,7 +62,7 @@ exports[`array functions > 'ArrayCompact' with 'autoNumber' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -81,7 +81,7 @@ exports[`array functions > 'ArrayCompact' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') AS value), "__formula_1" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -92,16 +92,16 @@ exports[`array functions > 'ArrayCompact' with 'button' 1`] = `
     WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
     ELSE jsonb_build_array(_cj.v)
   END FROM (SELECT (CASE
-    WHEN (COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+    WHEN ((SELECT value FROM "__formula_0")) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'jsonb'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'json'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
-        WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
-        WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)
+        WHEN NULLIF(BTRIM((((SELECT value FROM "__formula_0")))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((((SELECT value FROM "__formula_0")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid((((SELECT value FROM "__formula_0")))::text, 'jsonb') THEN ((((SELECT value FROM "__formula_0")))::text)::jsonb
+        ELSE to_jsonb((((SELECT value FROM "__formula_0")))::text)
       END
-    ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    ELSE to_jsonb(((SELECT value FROM "__formula_0")))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)
           WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
           FROM jsonb_array_elements_text((SELECT CASE
@@ -110,21 +110,21 @@ exports[`array functions > 'ArrayCompact' with 'button' 1`] = `
     WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
     ELSE jsonb_build_array(_cj.v)
   END FROM (SELECT (CASE
-    WHEN (COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+    WHEN ((SELECT value FROM "__formula_0")) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'jsonb'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'json'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
-        WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
-        WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)
+        WHEN NULLIF(BTRIM((((SELECT value FROM "__formula_0")))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((((SELECT value FROM "__formula_0")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid((((SELECT value FROM "__formula_0")))::text, 'jsonb') THEN ((((SELECT value FROM "__formula_0")))::text)::jsonb
+        ELSE to_jsonb((((SELECT value FROM "__formula_0")))::text)
       END
-    ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    ELSE to_jsonb(((SELECT value FROM "__formula_0")))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -143,7 +143,7 @@ exports[`array functions > 'ArrayCompact' with 'checkbox' 1`] = `
     },
   },
   "result": "["true", "true"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -160,7 +160,7 @@ exports[`array functions > 'ArrayCompact' with 'checkbox' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -189,7 +189,7 @@ exports[`array functions > 'ArrayCompact' with 'conditionalLookup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -232,7 +232,7 @@ exports[`array functions > 'ArrayCompact' with 'conditionalLookup' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -254,7 +254,7 @@ exports[`array functions > 'ArrayCompact' with 'conditionalRollup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -271,7 +271,7 @@ exports[`array functions > 'ArrayCompact' with 'conditionalRollup' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -290,7 +290,7 @@ exports[`array functions > 'ArrayCompact' with 'createdBy' 1`] = `
     },
   },
   "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -311,7 +311,7 @@ exports[`array functions > 'ArrayCompact' with 'createdBy' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -334,7 +334,7 @@ exports[`array functions > 'ArrayCompact' with 'createdTime' 1`] = `
     },
   },
   "result": "["0000-00-00T00:00:00.000+00:00", "0000-00-00T00:00:00.000+00:00"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -351,7 +351,7 @@ exports[`array functions > 'ArrayCompact' with 'createdTime' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -374,7 +374,7 @@ exports[`array functions > 'ArrayCompact' with 'date' 1`] = `
     },
   },
   "result": "["2024-02-03T00:00:00+00:00", "2024-02-03T00:00:00+00:00"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -391,7 +391,7 @@ exports[`array functions > 'ArrayCompact' with 'date' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -413,7 +413,7 @@ exports[`array functions > 'ArrayCompact' with 'formula' 1`] = `
     },
   },
   "result": "["10", "10"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -430,7 +430,7 @@ exports[`array functions > 'ArrayCompact' with 'formula' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -449,7 +449,7 @@ exports[`array functions > 'ArrayCompact' with 'lastModifiedBy' 1`] = `
     },
   },
   "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -470,7 +470,7 @@ exports[`array functions > 'ArrayCompact' with 'lastModifiedBy' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -493,7 +493,7 @@ exports[`array functions > 'ArrayCompact' with 'lastModifiedTime' 1`] = `
     },
   },
   "result": "["0000-00-00T00:00:00.000+00:00", "0000-00-00T00:00:00.000+00:00"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -510,7 +510,7 @@ exports[`array functions > 'ArrayCompact' with 'lastModifiedTime' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -529,7 +529,7 @@ exports[`array functions > 'ArrayCompact' with 'link' 1`] = `
     },
   },
   "result": "["10", "10"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS value), "__formula_1" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -540,16 +540,16 @@ exports[`array functions > 'ArrayCompact' with 'link' 1`] = `
     WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
     ELSE jsonb_build_array(_cj.v)
   END FROM (SELECT (CASE
-    WHEN (COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
-    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+    WHEN ((SELECT value FROM "__formula_0")) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'jsonb'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'json'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
-        WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
-        WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)
+        WHEN NULLIF(BTRIM((((SELECT value FROM "__formula_0")))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((((SELECT value FROM "__formula_0")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid((((SELECT value FROM "__formula_0")))::text, 'jsonb') THEN ((((SELECT value FROM "__formula_0")))::text)::jsonb
+        ELSE to_jsonb((((SELECT value FROM "__formula_0")))::text)
       END
-    ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    ELSE to_jsonb(((SELECT value FROM "__formula_0")))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)
           WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
           FROM jsonb_array_elements_text((SELECT CASE
@@ -558,21 +558,21 @@ exports[`array functions > 'ArrayCompact' with 'link' 1`] = `
     WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
     ELSE jsonb_build_array(_cj.v)
   END FROM (SELECT (CASE
-    WHEN (COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
-    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+    WHEN ((SELECT value FROM "__formula_0")) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'jsonb'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'json'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
-        WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
-        WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)
+        WHEN NULLIF(BTRIM((((SELECT value FROM "__formula_0")))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((((SELECT value FROM "__formula_0")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid((((SELECT value FROM "__formula_0")))::text, 'jsonb') THEN ((((SELECT value FROM "__formula_0")))::text)::jsonb
+        ELSE to_jsonb((((SELECT value FROM "__formula_0")))::text)
       END
-    ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    ELSE to_jsonb(((SELECT value FROM "__formula_0")))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -591,7 +591,7 @@ exports[`array functions > 'ArrayCompact' with 'longText' 1`] = `
     },
   },
   "result": "["10", "10"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -608,7 +608,7 @@ exports[`array functions > 'ArrayCompact' with 'longText' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -634,7 +634,7 @@ exports[`array functions > 'ArrayCompact' with 'lookup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -677,7 +677,7 @@ exports[`array functions > 'ArrayCompact' with 'lookup' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -696,7 +696,7 @@ exports[`array functions > 'ArrayCompact' with 'multipleSelect' 1`] = `
     },
   },
   "result": "["10", "20", "10", "20"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -707,7 +707,7 @@ exports[`array functions > 'ArrayCompact' with 'multipleSelect' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -729,7 +729,7 @@ exports[`array functions > 'ArrayCompact' with 'number' 1`] = `
     },
   },
   "result": "["10", "10"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -746,7 +746,7 @@ exports[`array functions > 'ArrayCompact' with 'number' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -765,7 +765,7 @@ exports[`array functions > 'ArrayCompact' with 'rating' 1`] = `
     },
   },
   "result": "["4", "4"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -782,7 +782,7 @@ exports[`array functions > 'ArrayCompact' with 'rating' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -804,7 +804,7 @@ exports[`array functions > 'ArrayCompact' with 'rollup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -821,7 +821,7 @@ exports[`array functions > 'ArrayCompact' with 'rollup' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -840,7 +840,7 @@ exports[`array functions > 'ArrayCompact' with 'singleLineText' 1`] = `
     },
   },
   "result": "["10", "10"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -857,7 +857,7 @@ exports[`array functions > 'ArrayCompact' with 'singleLineText' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -876,7 +876,7 @@ exports[`array functions > 'ArrayCompact' with 'singleSelect' 1`] = `
     },
   },
   "result": "["10", "10"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -893,7 +893,7 @@ exports[`array functions > 'ArrayCompact' with 'singleSelect' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -912,7 +912,7 @@ exports[`array functions > 'ArrayCompact' with 'user' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -923,7 +923,7 @@ exports[`array functions > 'ArrayCompact' with 'user' 1`] = `
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS compacted
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -942,7 +942,7 @@ exports[`array functions > 'ArrayFlatten' with 'attachment' 1`] = `
     },
   },
   "result": "["{\\"id\\": \\"att_1\\", \\"name\\": \\"10\\", \\"path\\": \\"/tmp/10\\", \\"size\\": 10, \\"token\\": \\"tok_1\\", \\"mimetype\\": \\"text/plain\\"}", "{\\"id\\": \\"att_2\\", \\"name\\": \\"20\\", \\"path\\": \\"/tmp/20\\", \\"size\\": 20, \\"token\\": \\"tok_2\\", \\"mimetype\\": \\"text/plain\\"}", "{\\"id\\": \\"att_1\\", \\"name\\": \\"10\\", \\"path\\": \\"/tmp/10\\", \\"size\\": 10, \\"token\\": \\"tok_1\\", \\"mimetype\\": \\"text/plain\\"}", "{\\"id\\": \\"att_2\\", \\"name\\": \\"20\\", \\"path\\": \\"/tmp/20\\", \\"size\\": 20, \\"token\\": \\"tok_2\\", \\"mimetype\\": \\"text/plain\\"}"]",
-  "sql": "(
+  "sql": "(WITH "__formula_1" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -951,7 +951,7 @@ exports[`array functions > 'ArrayFlatten' with 'attachment' 1`] = `
           FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -970,7 +970,7 @@ exports[`array functions > 'ArrayFlatten' with 'autoNumber' 1`] = `
     },
   },
   "result": "["1", "1"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -985,7 +985,7 @@ exports[`array functions > 'ArrayFlatten' with 'autoNumber' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1004,7 +1004,7 @@ exports[`array functions > 'ArrayFlatten' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') AS value), "__formula_1" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1015,16 +1015,16 @@ exports[`array functions > 'ArrayFlatten' with 'button' 1`] = `
     WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
     ELSE jsonb_build_array(_cj.v)
   END FROM (SELECT (CASE
-    WHEN (COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+    WHEN ((SELECT value FROM "__formula_0")) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'jsonb'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'json'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
-        WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
-        WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)
+        WHEN NULLIF(BTRIM((((SELECT value FROM "__formula_0")))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((((SELECT value FROM "__formula_0")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid((((SELECT value FROM "__formula_0")))::text, 'jsonb') THEN ((((SELECT value FROM "__formula_0")))::text)::jsonb
+        ELSE to_jsonb((((SELECT value FROM "__formula_0")))::text)
       END
-    ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    ELSE to_jsonb(((SELECT value FROM "__formula_0")))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
           FROM jsonb_array_elements_text((SELECT CASE
     WHEN _cj.v IS NULL THEN '[]'::jsonb
@@ -1032,20 +1032,20 @@ exports[`array functions > 'ArrayFlatten' with 'button' 1`] = `
     WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
     ELSE jsonb_build_array(_cj.v)
   END FROM (SELECT (CASE
-    WHEN (COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+    WHEN ((SELECT value FROM "__formula_0")) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'jsonb'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'json'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
-        WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
-        WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)
+        WHEN NULLIF(BTRIM((((SELECT value FROM "__formula_0")))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((((SELECT value FROM "__formula_0")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid((((SELECT value FROM "__formula_0")))::text, 'jsonb') THEN ((((SELECT value FROM "__formula_0")))::text)::jsonb
+        ELSE to_jsonb((((SELECT value FROM "__formula_0")))::text)
       END
-    ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    ELSE to_jsonb(((SELECT value FROM "__formula_0")))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -1064,7 +1064,7 @@ exports[`array functions > 'ArrayFlatten' with 'checkbox' 1`] = `
     },
   },
   "result": "["true", "true"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1079,7 +1079,7 @@ exports[`array functions > 'ArrayFlatten' with 'checkbox' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1108,7 +1108,7 @@ exports[`array functions > 'ArrayFlatten' with 'conditionalLookup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1149,7 +1149,7 @@ exports[`array functions > 'ArrayFlatten' with 'conditionalLookup' 1`] = `
   END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1171,7 +1171,7 @@ exports[`array functions > 'ArrayFlatten' with 'conditionalRollup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1186,7 +1186,7 @@ exports[`array functions > 'ArrayFlatten' with 'conditionalRollup' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1205,7 +1205,7 @@ exports[`array functions > 'ArrayFlatten' with 'createdBy' 1`] = `
     },
   },
   "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1224,7 +1224,7 @@ exports[`array functions > 'ArrayFlatten' with 'createdBy' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1247,7 +1247,7 @@ exports[`array functions > 'ArrayFlatten' with 'createdTime' 1`] = `
     },
   },
   "result": "["0000-00-00T00:00:00.000+00:00", "0000-00-00T00:00:00.000+00:00"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1262,7 +1262,7 @@ exports[`array functions > 'ArrayFlatten' with 'createdTime' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1285,7 +1285,7 @@ exports[`array functions > 'ArrayFlatten' with 'date' 1`] = `
     },
   },
   "result": "["2024-02-03T00:00:00+00:00", "2024-02-03T00:00:00+00:00"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1300,7 +1300,7 @@ exports[`array functions > 'ArrayFlatten' with 'date' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1322,7 +1322,7 @@ exports[`array functions > 'ArrayFlatten' with 'formula' 1`] = `
     },
   },
   "result": "["10", "10"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1337,7 +1337,7 @@ exports[`array functions > 'ArrayFlatten' with 'formula' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1356,7 +1356,7 @@ exports[`array functions > 'ArrayFlatten' with 'lastModifiedBy' 1`] = `
     },
   },
   "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1375,7 +1375,7 @@ exports[`array functions > 'ArrayFlatten' with 'lastModifiedBy' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1398,7 +1398,7 @@ exports[`array functions > 'ArrayFlatten' with 'lastModifiedTime' 1`] = `
     },
   },
   "result": "["0000-00-00T00:00:00.000+00:00", "0000-00-00T00:00:00.000+00:00"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1413,7 +1413,7 @@ exports[`array functions > 'ArrayFlatten' with 'lastModifiedTime' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1432,7 +1432,7 @@ exports[`array functions > 'ArrayFlatten' with 'link' 1`] = `
     },
   },
   "result": "["10", "10"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS value), "__formula_1" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1443,16 +1443,16 @@ exports[`array functions > 'ArrayFlatten' with 'link' 1`] = `
     WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
     ELSE jsonb_build_array(_cj.v)
   END FROM (SELECT (CASE
-    WHEN (COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
-    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+    WHEN ((SELECT value FROM "__formula_0")) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'jsonb'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'json'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
-        WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
-        WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)
+        WHEN NULLIF(BTRIM((((SELECT value FROM "__formula_0")))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((((SELECT value FROM "__formula_0")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid((((SELECT value FROM "__formula_0")))::text, 'jsonb') THEN ((((SELECT value FROM "__formula_0")))::text)::jsonb
+        ELSE to_jsonb((((SELECT value FROM "__formula_0")))::text)
       END
-    ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    ELSE to_jsonb(((SELECT value FROM "__formula_0")))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
           FROM jsonb_array_elements_text((SELECT CASE
     WHEN _cj.v IS NULL THEN '[]'::jsonb
@@ -1460,20 +1460,20 @@ exports[`array functions > 'ArrayFlatten' with 'link' 1`] = `
     WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
     ELSE jsonb_build_array(_cj.v)
   END FROM (SELECT (CASE
-    WHEN (COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
-    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+    WHEN ((SELECT value FROM "__formula_0")) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'jsonb'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'json'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
-        WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
-        WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)
+        WHEN NULLIF(BTRIM((((SELECT value FROM "__formula_0")))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((((SELECT value FROM "__formula_0")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid((((SELECT value FROM "__formula_0")))::text, 'jsonb') THEN ((((SELECT value FROM "__formula_0")))::text)::jsonb
+        ELSE to_jsonb((((SELECT value FROM "__formula_0")))::text)
       END
-    ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    ELSE to_jsonb(((SELECT value FROM "__formula_0")))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -1492,7 +1492,7 @@ exports[`array functions > 'ArrayFlatten' with 'longText' 1`] = `
     },
   },
   "result": "["10", "10"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1507,7 +1507,7 @@ exports[`array functions > 'ArrayFlatten' with 'longText' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1533,7 +1533,7 @@ exports[`array functions > 'ArrayFlatten' with 'lookup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1574,7 +1574,7 @@ exports[`array functions > 'ArrayFlatten' with 'lookup' 1`] = `
   END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1593,7 +1593,7 @@ exports[`array functions > 'ArrayFlatten' with 'multipleSelect' 1`] = `
     },
   },
   "result": "["10", "20", "10", "20"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1602,7 +1602,7 @@ exports[`array functions > 'ArrayFlatten' with 'multipleSelect' 1`] = `
           FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1624,7 +1624,7 @@ exports[`array functions > 'ArrayFlatten' with 'number' 1`] = `
     },
   },
   "result": "["10", "10"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1639,7 +1639,7 @@ exports[`array functions > 'ArrayFlatten' with 'number' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1658,7 +1658,7 @@ exports[`array functions > 'ArrayFlatten' with 'rating' 1`] = `
     },
   },
   "result": "["4", "4"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1673,7 +1673,7 @@ exports[`array functions > 'ArrayFlatten' with 'rating' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1695,7 +1695,7 @@ exports[`array functions > 'ArrayFlatten' with 'rollup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1710,7 +1710,7 @@ exports[`array functions > 'ArrayFlatten' with 'rollup' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1729,7 +1729,7 @@ exports[`array functions > 'ArrayFlatten' with 'singleLineText' 1`] = `
     },
   },
   "result": "["10", "10"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1744,7 +1744,7 @@ exports[`array functions > 'ArrayFlatten' with 'singleLineText' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1763,7 +1763,7 @@ exports[`array functions > 'ArrayFlatten' with 'singleSelect' 1`] = `
     },
   },
   "result": "["10", "10"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1778,7 +1778,7 @@ exports[`array functions > 'ArrayFlatten' with 'singleSelect' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1797,7 +1797,7 @@ exports[`array functions > 'ArrayFlatten' with 'user' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT value
@@ -1806,7 +1806,7 @@ exports[`array functions > 'ArrayFlatten' with 'user' 1`] = `
           FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1825,14 +1825,14 @@ exports[`array functions > 'ArrayJoin' with 'attachment' 1`] = `
     },
   },
   "result": "10|20",
-  "sql": "(
+  "sql": "(WITH "__formula_1" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
     ELSE elem #>> '{}'
   END), '|')
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -1851,7 +1851,7 @@ exports[`array functions > 'ArrayJoin' with 'autoNumber' 1`] = `
     },
   },
   "result": "1",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
@@ -1861,7 +1861,7 @@ exports[`array functions > 'ArrayJoin' with 'autoNumber' 1`] = `
         WHEN "t"."AutoNumber" IS NULL THEN '[]'::jsonb
         ELSE jsonb_build_array(to_jsonb("t"."AutoNumber"))
       END)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1880,7 +1880,7 @@ exports[`array functions > 'ArrayJoin' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
@@ -1903,7 +1903,7 @@ exports[`array functions > 'ArrayJoin' with 'button' 1`] = `
       END
     ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
   END) AS v) AS _cj)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1922,7 +1922,7 @@ exports[`array functions > 'ArrayJoin' with 'checkbox' 1`] = `
     },
   },
   "result": "true",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
@@ -1932,7 +1932,7 @@ exports[`array functions > 'ArrayJoin' with 'checkbox' 1`] = `
         WHEN "t"."Checkbox" IS NULL THEN '[]'::jsonb
         ELSE jsonb_build_array(to_jsonb("t"."Checkbox"))
       END)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1961,7 +1961,7 @@ exports[`array functions > 'ArrayJoin' with 'conditionalLookup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
@@ -1984,7 +1984,7 @@ exports[`array functions > 'ArrayJoin' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2006,7 +2006,7 @@ exports[`array functions > 'ArrayJoin' with 'conditionalRollup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
@@ -2016,7 +2016,7 @@ exports[`array functions > 'ArrayJoin' with 'conditionalRollup' 1`] = `
         WHEN "t"."ConditionalRollupType" IS NULL THEN '[]'::jsonb
         ELSE jsonb_build_array(to_jsonb("t"."ConditionalRollupType"))
       END)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2035,7 +2035,7 @@ exports[`array functions > 'ArrayJoin' with 'createdBy' 1`] = `
     },
   },
   "result": "System",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
@@ -2047,7 +2047,7 @@ exports[`array functions > 'ArrayJoin' with 'createdBy' 1`] = `
         WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'null' THEN '[]'::jsonb
         ELSE jsonb_build_array(("t"."CreatedBy")::jsonb)
       END)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2070,7 +2070,7 @@ exports[`array functions > 'ArrayJoin' with 'createdTime' 1`] = `
     },
   },
   "result": "0000-00-00T00:00:00.000+00:00",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
@@ -2080,7 +2080,7 @@ exports[`array functions > 'ArrayJoin' with 'createdTime' 1`] = `
         WHEN "t"."CreatedTime" IS NULL THEN '[]'::jsonb
         ELSE jsonb_build_array(to_jsonb("t"."CreatedTime"))
       END)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2103,7 +2103,7 @@ exports[`array functions > 'ArrayJoin' with 'date' 1`] = `
     },
   },
   "result": "2024-02-03T00:00:00+00:00",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
@@ -2113,7 +2113,7 @@ exports[`array functions > 'ArrayJoin' with 'date' 1`] = `
         WHEN "t"."Date" IS NULL THEN '[]'::jsonb
         ELSE jsonb_build_array(to_jsonb("t"."Date"))
       END)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2135,7 +2135,7 @@ exports[`array functions > 'ArrayJoin' with 'formula' 1`] = `
     },
   },
   "result": "10",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
@@ -2145,7 +2145,7 @@ exports[`array functions > 'ArrayJoin' with 'formula' 1`] = `
         WHEN 10 IS NULL THEN '[]'::jsonb
         ELSE jsonb_build_array(to_jsonb(10))
       END)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2164,7 +2164,7 @@ exports[`array functions > 'ArrayJoin' with 'lastModifiedBy' 1`] = `
     },
   },
   "result": "System",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
@@ -2176,7 +2176,7 @@ exports[`array functions > 'ArrayJoin' with 'lastModifiedBy' 1`] = `
         WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'null' THEN '[]'::jsonb
         ELSE jsonb_build_array(("t"."LastModifiedBy")::jsonb)
       END)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2199,7 +2199,7 @@ exports[`array functions > 'ArrayJoin' with 'lastModifiedTime' 1`] = `
     },
   },
   "result": "0000-00-00T00:00:00.000+00:00",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
@@ -2209,7 +2209,7 @@ exports[`array functions > 'ArrayJoin' with 'lastModifiedTime' 1`] = `
         WHEN "t"."LastModifiedTime" IS NULL THEN '[]'::jsonb
         ELSE jsonb_build_array(to_jsonb("t"."LastModifiedTime"))
       END)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2228,7 +2228,7 @@ exports[`array functions > 'ArrayJoin' with 'link' 1`] = `
     },
   },
   "result": "10",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
@@ -2251,7 +2251,7 @@ exports[`array functions > 'ArrayJoin' with 'link' 1`] = `
       END
     ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
   END) AS v) AS _cj)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2270,7 +2270,7 @@ exports[`array functions > 'ArrayJoin' with 'longText' 1`] = `
     },
   },
   "result": "10",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
@@ -2280,7 +2280,7 @@ exports[`array functions > 'ArrayJoin' with 'longText' 1`] = `
         WHEN "t"."LongText" IS NULL THEN '[]'::jsonb
         ELSE jsonb_build_array(to_jsonb("t"."LongText"))
       END)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2306,7 +2306,7 @@ exports[`array functions > 'ArrayJoin' with 'lookup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
@@ -2329,7 +2329,7 @@ exports[`array functions > 'ArrayJoin' with 'lookup' 1`] = `
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2348,14 +2348,14 @@ exports[`array functions > 'ArrayJoin' with 'multipleSelect' 1`] = `
     },
   },
   "result": "10|20",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
     ELSE elem #>> '{}'
   END), '|')
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2377,7 +2377,7 @@ exports[`array functions > 'ArrayJoin' with 'number' 1`] = `
     },
   },
   "result": "10",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
@@ -2387,7 +2387,7 @@ exports[`array functions > 'ArrayJoin' with 'number' 1`] = `
         WHEN "t"."Number" IS NULL THEN '[]'::jsonb
         ELSE jsonb_build_array(to_jsonb("t"."Number"))
       END)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2406,7 +2406,7 @@ exports[`array functions > 'ArrayJoin' with 'rating' 1`] = `
     },
   },
   "result": "4",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
@@ -2416,7 +2416,7 @@ exports[`array functions > 'ArrayJoin' with 'rating' 1`] = `
         WHEN "t"."Rating" IS NULL THEN '[]'::jsonb
         ELSE jsonb_build_array(to_jsonb("t"."Rating"))
       END)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2438,7 +2438,7 @@ exports[`array functions > 'ArrayJoin' with 'rollup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
@@ -2448,7 +2448,7 @@ exports[`array functions > 'ArrayJoin' with 'rollup' 1`] = `
         WHEN "t"."RollupType" IS NULL THEN '[]'::jsonb
         ELSE jsonb_build_array(to_jsonb("t"."RollupType"))
       END)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2467,7 +2467,7 @@ exports[`array functions > 'ArrayJoin' with 'singleLineText' 1`] = `
     },
   },
   "result": "10",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
@@ -2477,7 +2477,7 @@ exports[`array functions > 'ArrayJoin' with 'singleLineText' 1`] = `
         WHEN "t"."SingleLineText" IS NULL THEN '[]'::jsonb
         ELSE jsonb_build_array(to_jsonb("t"."SingleLineText"))
       END)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2496,7 +2496,7 @@ exports[`array functions > 'ArrayJoin' with 'singleSelect' 1`] = `
     },
   },
   "result": "10",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
@@ -2506,7 +2506,7 @@ exports[`array functions > 'ArrayJoin' with 'singleSelect' 1`] = `
         WHEN "t"."SingleSelect" IS NULL THEN '[]'::jsonb
         ELSE jsonb_build_array(to_jsonb("t"."SingleSelect"))
       END)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2525,14 +2525,14 @@ exports[`array functions > 'ArrayJoin' with 'user' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
     ELSE elem #>> '{}'
   END), '|')
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2551,7 +2551,7 @@ exports[`array functions > 'ArrayUnique' with 'attachment' 1`] = `
     },
   },
   "result": "["{\\"id\\": \\"att_1\\", \\"name\\": \\"10\\", \\"path\\": \\"/tmp/10\\", \\"size\\": 10, \\"token\\": \\"tok_1\\", \\"mimetype\\": \\"text/plain\\"}", "{\\"id\\": \\"att_2\\", \\"name\\": \\"20\\", \\"path\\": \\"/tmp/20\\", \\"size\\": 20, \\"token\\": \\"tok_2\\", \\"mimetype\\": \\"text/plain\\"}"]",
-  "sql": "(
+  "sql": "(WITH "__formula_1" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -2560,7 +2560,7 @@ exports[`array functions > 'ArrayUnique' with 'attachment' 1`] = `
           FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -2579,7 +2579,7 @@ exports[`array functions > 'ArrayUnique' with 'autoNumber' 1`] = `
     },
   },
   "result": "["1"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -2594,7 +2594,7 @@ exports[`array functions > 'ArrayUnique' with 'autoNumber' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2613,7 +2613,7 @@ exports[`array functions > 'ArrayUnique' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') AS value), "__formula_1" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -2624,16 +2624,16 @@ exports[`array functions > 'ArrayUnique' with 'button' 1`] = `
     WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
     ELSE jsonb_build_array(_cj.v)
   END FROM (SELECT (CASE
-    WHEN (COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+    WHEN ((SELECT value FROM "__formula_0")) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'jsonb'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'json'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
-        WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
-        WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)
+        WHEN NULLIF(BTRIM((((SELECT value FROM "__formula_0")))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((((SELECT value FROM "__formula_0")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid((((SELECT value FROM "__formula_0")))::text, 'jsonb') THEN ((((SELECT value FROM "__formula_0")))::text)::jsonb
+        ELSE to_jsonb((((SELECT value FROM "__formula_0")))::text)
       END
-    ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    ELSE to_jsonb(((SELECT value FROM "__formula_0")))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
           FROM jsonb_array_elements_text((SELECT CASE
     WHEN _cj.v IS NULL THEN '[]'::jsonb
@@ -2641,20 +2641,20 @@ exports[`array functions > 'ArrayUnique' with 'button' 1`] = `
     WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
     ELSE jsonb_build_array(_cj.v)
   END FROM (SELECT (CASE
-    WHEN (COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+    WHEN ((SELECT value FROM "__formula_0")) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'jsonb'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'json'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
-        WHEN NULLIF(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
-        WHEN (LEFT(BTRIM(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))::text)
+        WHEN NULLIF(BTRIM((((SELECT value FROM "__formula_0")))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((((SELECT value FROM "__formula_0")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid((((SELECT value FROM "__formula_0")))::text, 'jsonb') THEN ((((SELECT value FROM "__formula_0")))::text)::jsonb
+        ELSE to_jsonb((((SELECT value FROM "__formula_0")))::text)
       END
-    ELSE to_jsonb((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))
+    ELSE to_jsonb(((SELECT value FROM "__formula_0")))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -2673,7 +2673,7 @@ exports[`array functions > 'ArrayUnique' with 'checkbox' 1`] = `
     },
   },
   "result": "["true"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -2688,7 +2688,7 @@ exports[`array functions > 'ArrayUnique' with 'checkbox' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2717,7 +2717,7 @@ exports[`array functions > 'ArrayUnique' with 'conditionalLookup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -2758,7 +2758,7 @@ exports[`array functions > 'ArrayUnique' with 'conditionalLookup' 1`] = `
   END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2780,7 +2780,7 @@ exports[`array functions > 'ArrayUnique' with 'conditionalRollup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -2795,7 +2795,7 @@ exports[`array functions > 'ArrayUnique' with 'conditionalRollup' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2814,7 +2814,7 @@ exports[`array functions > 'ArrayUnique' with 'createdBy' 1`] = `
     },
   },
   "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -2833,7 +2833,7 @@ exports[`array functions > 'ArrayUnique' with 'createdBy' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2856,7 +2856,7 @@ exports[`array functions > 'ArrayUnique' with 'createdTime' 1`] = `
     },
   },
   "result": "["0000-00-00T00:00:00.000+00:00"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -2871,7 +2871,7 @@ exports[`array functions > 'ArrayUnique' with 'createdTime' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2894,7 +2894,7 @@ exports[`array functions > 'ArrayUnique' with 'date' 1`] = `
     },
   },
   "result": "["2024-02-03T00:00:00+00:00"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -2909,7 +2909,7 @@ exports[`array functions > 'ArrayUnique' with 'date' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2931,7 +2931,7 @@ exports[`array functions > 'ArrayUnique' with 'formula' 1`] = `
     },
   },
   "result": "["10"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -2946,7 +2946,7 @@ exports[`array functions > 'ArrayUnique' with 'formula' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2965,7 +2965,7 @@ exports[`array functions > 'ArrayUnique' with 'lastModifiedBy' 1`] = `
     },
   },
   "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\", \\"avatarUrl\\": \\"/api/attachments/read/public/avatar/system\\"}"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -2984,7 +2984,7 @@ exports[`array functions > 'ArrayUnique' with 'lastModifiedBy' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3007,7 +3007,7 @@ exports[`array functions > 'ArrayUnique' with 'lastModifiedTime' 1`] = `
     },
   },
   "result": "["0000-00-00T00:00:00.000+00:00"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -3022,7 +3022,7 @@ exports[`array functions > 'ArrayUnique' with 'lastModifiedTime' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3041,7 +3041,7 @@ exports[`array functions > 'ArrayUnique' with 'link' 1`] = `
     },
   },
   "result": "["10"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') AS value), "__formula_1" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -3052,16 +3052,16 @@ exports[`array functions > 'ArrayUnique' with 'link' 1`] = `
     WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
     ELSE jsonb_build_array(_cj.v)
   END FROM (SELECT (CASE
-    WHEN (COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
-    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+    WHEN ((SELECT value FROM "__formula_0")) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'jsonb'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'json'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
-        WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
-        WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)
+        WHEN NULLIF(BTRIM((((SELECT value FROM "__formula_0")))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((((SELECT value FROM "__formula_0")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid((((SELECT value FROM "__formula_0")))::text, 'jsonb') THEN ((((SELECT value FROM "__formula_0")))::text)::jsonb
+        ELSE to_jsonb((((SELECT value FROM "__formula_0")))::text)
       END
-    ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    ELSE to_jsonb(((SELECT value FROM "__formula_0")))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
           FROM jsonb_array_elements_text((SELECT CASE
     WHEN _cj.v IS NULL THEN '[]'::jsonb
@@ -3069,20 +3069,20 @@ exports[`array functions > 'ArrayUnique' with 'link' 1`] = `
     WHEN jsonb_typeof(_cj.v) = 'array' THEN _cj.v
     ELSE jsonb_build_array(_cj.v)
   END FROM (SELECT (CASE
-    WHEN (COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) IS NULL THEN '[]'::jsonb
-    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'jsonb'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) = 'json'::regtype THEN to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
-    WHEN pg_typeof((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+    WHEN ((SELECT value FROM "__formula_0")) IS NULL THEN '[]'::jsonb
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'jsonb'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) = 'json'::regtype THEN to_jsonb(((SELECT value FROM "__formula_0")))
+    WHEN pg_typeof(((SELECT value FROM "__formula_0"))) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
       CASE
-        WHEN NULLIF(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), '') IS NULL THEN '[]'::jsonb
-        WHEN (LEFT(BTRIM(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text), 1) IN ('[', '{')) AND __teable_input_is_valid(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text, 'jsonb') THEN (((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)::jsonb
-        ELSE to_jsonb(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))::text)
+        WHEN NULLIF(BTRIM((((SELECT value FROM "__formula_0")))::text), '') IS NULL THEN '[]'::jsonb
+        WHEN (LEFT(BTRIM((((SELECT value FROM "__formula_0")))::text), 1) IN ('[', '{')) AND __teable_input_is_valid((((SELECT value FROM "__formula_0")))::text, 'jsonb') THEN ((((SELECT value FROM "__formula_0")))::text)::jsonb
+        ELSE to_jsonb((((SELECT value FROM "__formula_0")))::text)
       END
-    ELSE to_jsonb((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')))
+    ELSE to_jsonb(((SELECT value FROM "__formula_0")))
   END) AS v) AS _cj)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -3101,7 +3101,7 @@ exports[`array functions > 'ArrayUnique' with 'longText' 1`] = `
     },
   },
   "result": "["10"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -3116,7 +3116,7 @@ exports[`array functions > 'ArrayUnique' with 'longText' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3142,7 +3142,7 @@ exports[`array functions > 'ArrayUnique' with 'lookup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -3183,7 +3183,7 @@ exports[`array functions > 'ArrayUnique' with 'lookup' 1`] = `
   END) AS v) AS _lkp)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3202,7 +3202,7 @@ exports[`array functions > 'ArrayUnique' with 'multipleSelect' 1`] = `
     },
   },
   "result": "["10", "20"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -3211,7 +3211,7 @@ exports[`array functions > 'ArrayUnique' with 'multipleSelect' 1`] = `
           FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3233,7 +3233,7 @@ exports[`array functions > 'ArrayUnique' with 'number' 1`] = `
     },
   },
   "result": "["10"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -3248,7 +3248,7 @@ exports[`array functions > 'ArrayUnique' with 'number' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3267,7 +3267,7 @@ exports[`array functions > 'ArrayUnique' with 'rating' 1`] = `
     },
   },
   "result": "["4"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -3282,7 +3282,7 @@ exports[`array functions > 'ArrayUnique' with 'rating' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3304,7 +3304,7 @@ exports[`array functions > 'ArrayUnique' with 'rollup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -3319,7 +3319,7 @@ exports[`array functions > 'ArrayUnique' with 'rollup' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3338,7 +3338,7 @@ exports[`array functions > 'ArrayUnique' with 'singleLineText' 1`] = `
     },
   },
   "result": "["10"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -3353,7 +3353,7 @@ exports[`array functions > 'ArrayUnique' with 'singleLineText' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3372,7 +3372,7 @@ exports[`array functions > 'ArrayUnique' with 'singleSelect' 1`] = `
     },
   },
   "result": "["10"]",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -3387,7 +3387,7 @@ exports[`array functions > 'ArrayUnique' with 'singleSelect' 1`] = `
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3406,7 +3406,7 @@ exports[`array functions > 'ArrayUnique' with 'user' 1`] = `
     },
   },
   "result": null,
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT jsonb_agg(value)
       FROM (
         SELECT DISTINCT ON (value) value
@@ -3415,7 +3415,7 @@ exports[`array functions > 'ArrayUnique' with 'user' 1`] = `
           FROM jsonb_array_elements_text(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3524,7 +3524,7 @@ exports[`array functions > 'Count' with 'conditionalLookup' 1`] = `
     },
   },
   "result": "0",
-  "sql": "((
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((
           SELECT COUNT(*)
           FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -3544,7 +3544,7 @@ exports[`array functions > 'Count' with 'conditionalLookup' 1`] = `
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) AS elem
           WHERE elem IS NOT NULL AND elem <> 'null'::jsonb
-        ))",
+        )) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3759,7 +3759,7 @@ exports[`array functions > 'Count' with 'lookup' 1`] = `
     },
   },
   "result": "0",
-  "sql": "((
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((
           SELECT COUNT(*)
           FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -3779,7 +3779,7 @@ exports[`array functions > 'Count' with 'lookup' 1`] = `
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) AS elem
           WHERE elem IS NOT NULL AND elem <> 'null'::jsonb
-        ))",
+        )) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3945,7 +3945,7 @@ exports[`array functions > 'CountA' with 'attachment' 1`] = `
     },
   },
   "result": "2",
-  "sql": "((
+  "sql": "(WITH "__formula_1" AS MATERIALIZED (SELECT ((
           SELECT COUNT(*)
           FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) AS elem
           WHERE elem IS NOT NULL AND elem <> 'null'::jsonb AND ((CASE
@@ -3953,7 +3953,7 @@ exports[`array functions > 'CountA' with 'attachment' 1`] = `
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
     ELSE elem #>> '{}'
   END)) <> ''
-        ))",
+        )) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -3991,7 +3991,7 @@ exports[`array functions > 'CountA' with 'button' 1`] = `
     },
   },
   "result": "0",
-  "sql": "(CASE WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL OR (COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text = '' THEN 0 ELSE 1 END)",
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL OR (COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text = '' THEN 0 ELSE 1 END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -4039,7 +4039,7 @@ exports[`array functions > 'CountA' with 'conditionalLookup' 1`] = `
     },
   },
   "result": "0",
-  "sql": "((
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((
           SELECT COUNT(*)
           FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -4063,7 +4063,7 @@ exports[`array functions > 'CountA' with 'conditionalLookup' 1`] = `
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
     ELSE elem #>> '{}'
   END)) <> ''
-        ))",
+        )) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -4233,7 +4233,7 @@ exports[`array functions > 'CountA' with 'link' 1`] = `
     },
   },
   "result": "1",
-  "sql": "(CASE WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NULL OR (COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))::text = '' THEN 0 ELSE 1 END)",
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NULL OR (COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))::text = '' THEN 0 ELSE 1 END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -4278,7 +4278,7 @@ exports[`array functions > 'CountA' with 'lookup' 1`] = `
     },
   },
   "result": "0",
-  "sql": "((
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((
           SELECT COUNT(*)
           FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -4302,7 +4302,7 @@ exports[`array functions > 'CountA' with 'lookup' 1`] = `
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
     ELSE elem #>> '{}'
   END)) <> ''
-        ))",
+        )) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -4321,7 +4321,7 @@ exports[`array functions > 'CountA' with 'multipleSelect' 1`] = `
     },
   },
   "result": "2",
-  "sql": "((
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((
           SELECT COUNT(*)
           FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) AS elem
           WHERE elem IS NOT NULL AND elem <> 'null'::jsonb AND ((CASE
@@ -4329,7 +4329,7 @@ exports[`array functions > 'CountA' with 'multipleSelect' 1`] = `
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
     ELSE elem #>> '{}'
   END)) <> ''
-        ))",
+        )) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -4449,7 +4449,7 @@ exports[`array functions > 'CountA' with 'user' 1`] = `
     },
   },
   "result": "0",
-  "sql": "((
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((
           SELECT COUNT(*)
           FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) AS elem
           WHERE elem IS NOT NULL AND elem <> 'null'::jsonb AND ((CASE
@@ -4457,7 +4457,7 @@ exports[`array functions > 'CountA' with 'user' 1`] = `
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
     ELSE elem #>> '{}'
   END)) <> ''
-        ))",
+        )) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -4562,7 +4562,7 @@ exports[`array functions > 'CountAll' with 'conditionalLookup' 1`] = `
     },
   },
   "result": "0",
-  "sql": "COALESCE(jsonb_array_length((SELECT CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(jsonb_array_length((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -4578,7 +4578,7 @@ exports[`array functions > 'CountAll' with 'conditionalLookup' 1`] = `
         ELSE to_jsonb(((("t"."ConditionalLookupType")))::text)
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
-  END) AS v) AS _lkp)), 0)",
+  END) AS v) AS _lkp)), 0) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -4793,7 +4793,7 @@ exports[`array functions > 'CountAll' with 'lookup' 1`] = `
     },
   },
   "result": "0",
-  "sql": "COALESCE(jsonb_array_length((SELECT CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(jsonb_array_length((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'array' THEN _lkp.v
@@ -4809,7 +4809,7 @@ exports[`array functions > 'CountAll' with 'lookup' 1`] = `
         ELSE to_jsonb(((("t"."LookupType")))::text)
       END
     ELSE to_jsonb((("t"."LookupType")))
-  END) AS v) AS _lkp)), 0)",
+  END) AS v) AS _lkp)), 0) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -4966,13 +4966,13 @@ exports[`array functions > ArrayJoinNoSeparator uses default separator 1`] = `
     },
   },
   "result": "10, 20",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT string_agg((CASE
     WHEN jsonb_typeof(elem) = 'object' THEN COALESCE(elem->>'title', elem->>'name', elem #>> '{}')
     WHEN jsonb_typeof(elem) = 'array' THEN NULL
     ELSE elem #>> '{}'
   END), ', ')
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) AS elem
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;

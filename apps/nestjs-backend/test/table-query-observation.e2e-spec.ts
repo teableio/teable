@@ -11,12 +11,18 @@ describe('table query observation isolation T7019 (e2e)', () => {
   let table: ITableFullVo;
   let previousForceV2All: string | undefined;
   let previousFlushInterval: string | undefined;
+  let previousEnabled: string | undefined;
+  let previousMinWindowRequests: string | undefined;
   const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     previousForceV2All = process.env.FORCE_V2_ALL;
     previousFlushInterval = process.env.V2_TABLE_QUERY_OPS_FLUSH_INTERVAL_MS;
+    previousEnabled = process.env.V2_TABLE_QUERY_OPS_ENABLED;
+    previousMinWindowRequests = process.env.V2_TABLE_QUERY_OPS_MIN_WINDOW_REQUESTS;
     process.env.FORCE_V2_ALL = 'true';
+    process.env.V2_TABLE_QUERY_OPS_ENABLED = 'true';
+    process.env.V2_TABLE_QUERY_OPS_MIN_WINDOW_REQUESTS = '1';
     process.env.V2_TABLE_QUERY_OPS_FLUSH_INTERVAL_MS = '1';
     const appContext = await initApp();
     app = appContext.app;
@@ -40,6 +46,16 @@ describe('table query observation isolation T7019 (e2e)', () => {
       delete process.env.V2_TABLE_QUERY_OPS_FLUSH_INTERVAL_MS;
     } else {
       process.env.V2_TABLE_QUERY_OPS_FLUSH_INTERVAL_MS = previousFlushInterval;
+    }
+    if (previousEnabled == null) {
+      delete process.env.V2_TABLE_QUERY_OPS_ENABLED;
+    } else {
+      process.env.V2_TABLE_QUERY_OPS_ENABLED = previousEnabled;
+    }
+    if (previousMinWindowRequests == null) {
+      delete process.env.V2_TABLE_QUERY_OPS_MIN_WINDOW_REQUESTS;
+    } else {
+      process.env.V2_TABLE_QUERY_OPS_MIN_WINDOW_REQUESTS = previousMinWindowRequests;
     }
   });
 

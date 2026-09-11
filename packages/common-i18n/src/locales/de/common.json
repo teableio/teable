@@ -390,10 +390,6 @@
           "user": "Slack-Benutzer",
           "workspace": "Slack-Arbeitsbereich"
         },
-        "email": {
-          "user": "Benutzer",
-          "email": "E-Mail"
-        },
         "deleteTitle": "Verbundenes Konto entfernen",
         "deleteDesc": "Möchten Sie {{name}} wirklich entfernen?",
         "create": "Neues Konto verbinden",
@@ -437,6 +433,8 @@
     "webSearch": "Websuche",
     "folder": "Ordner",
     "newAutomation": "Neue Automatisierung",
+    "routine": "Routine",
+    "newRoutine": "Neue Routine",
     "newApp": "Neue App",
     "newFolder": "Neuer Ordner",
     "template": "Vorlage"
@@ -566,18 +564,13 @@
     "billable": "Abrechenbar",
     "billableByAuthorityMatrix": "Abrechnung durch Berechtigungsmatrix generiert",
     "seatConfirm": {
-      "title": "Diese Einladung erhöht Ihre Abonnementkosten",
-      "roleChangeTitle": "Diese Rollenänderung erhöht Ihre Abonnementkosten",
       "matrixTitle": "Das Hinzufügen von Mitgliedern erhöht Ihre Abonnementkosten",
-      "inviteDesc_one": "Das eingeladene Mitglied tritt mit der Rolle {{role}} bei und belegt 1 Abonnement-Platz; Ihre Kosten steigen entsprechend. Wenn nur Ansehen oder Kommentieren nötig ist, wählen Sie einfach die kostenlose Rolle „Betrachter“ oder „Kommentator“.",
-      "inviteDesc_other": "Die {{count}} eingeladenen Mitglieder treten mit der Rolle {{role}} bei und belegen {{count}} Abonnement-Plätze; Ihre Kosten steigen entsprechend. Wenn nur Ansehen oder Kommentieren nötig ist, wählen Sie einfach die kostenlose Rolle „Betrachter“ oder „Kommentator“.",
-      "linkDesc": "Mitglieder, die über diesen Link beitreten, erhalten die Rolle {{role}} und belegen je 1 Abonnement-Platz; Ihre Kosten steigen mit jeder beitretenden Person. Für reines Ansehen oder Kommentieren wählen Sie einfach die kostenlose Rolle „Betrachter“ oder „Kommentator“.",
-      "roleChangeDesc": "Nach der Änderung auf {{role}} belegt dieses Mitglied 1 Abonnement-Platz; Ihre Kosten steigen entsprechend.",
       "matrixDesc": "Dieses Mitglied hat derzeit eine kostenlose Rolle (Betrachter/Kommentator). Nach dem Hinzufügen zur Berechtigungsmatrix belegt es 1 Abonnement-Platz; Ihre Kosten steigen entsprechend.",
       "seatLimitTitle": "Nicht genügend Lizenzplätze",
       "seatLimitDesc": "Diese Instanz nutzt {{seats}} von {{seatLimit}} lizenzierten Plätzen; für diese Aktion reichen die verbleibenden Plätze nicht aus. Bitte wenden Sie sich an Ihren Administrator, um weitere Plätze zu erwerben. Wenn nur Ansehen oder Kommentieren nötig ist, können Sie stattdessen die kostenlose Rolle „Betrachter“ oder „Kommentator“ verwenden.",
       "seatLimitConfirm": "Verstanden",
-      "confirmInvite": "Bestätigen und einladen"
+      "fixedSeatTitle": "Nicht genügend Plätze in Ihrem Tarif",
+      "fixedSeatDesc": "Ihr Tarif umfasst {{quantity}} Plätze, von denen bereits {{seats}} belegt sind. Wenn Sie fortfahren, wird das Platzlimit überschritten und der Space nach einer 7-tägigen Übergangsfrist auf den kostenlosen Tarif herabgestuft. Wenn nur Ansehen oder Kommentieren nötig ist, können Sie stattdessen die kostenlose Rolle „Betrachter“ oder „Kommentator“ verwenden."
     },
     "licenseExpiredGracePeriod": "Ihre Self-Hosted-Lizenz ist abgelaufen und wird am {{expiredTime}} auf den kostenlosen Plan herabgestuft. Bitte aktualisieren Sie Ihre Lizenz umgehend, um Zugriff auf Premium-Funktionen zu behalten.",
     "licenseAutoFetchFailed": "Automatische Lizenzverlängerung fehlgeschlagen. Noch {{days}} Tag(e) Kulanzzeitraum bis zur Herabstufung.",
@@ -1296,6 +1289,24 @@
             "message": "Ihre Automatisierung {{name}} hat {{failCount}} aufeinanderfolgende Fehler angesammelt. Öffnen Sie den Ausführungsverlauf, um Details anzuzeigen."
           }
         },
+        "routine": {
+          "failed": {
+            "title": "Routine {{name}}: Ausführung fehlgeschlagen",
+            "message": "Ihre Routine {{name}} ist bei der Ausführung auf einen Fehler gestoßen. Öffnen Sie den Ausführungsverlauf für Details."
+          },
+          "failedSummary": {
+            "title": "Routine {{name}} ist {{failCount}} Mal fehlgeschlagen",
+            "message": "Ihre Routine {{name}} ist {{failCount}} Mal in Folge fehlgeschlagen. Öffnen Sie den Ausführungsverlauf für Details."
+          },
+          "insufficientCredit": {
+            "title": "Routine {{name}} wurde wegen unzureichender AI-Credits übersprungen",
+            "message": "Ihre Routine {{name}} wurde nicht ausgeführt, da die AI-Credits nicht ausreichen. Bitte laden Sie Credits auf oder upgraden Sie Ihren Tarif."
+          },
+          "autoDeactivated": {
+            "title": "Routine {{name}} wurde nach {{failCount}} aufeinanderfolgenden Fehlschlägen pausiert",
+            "message": "Ihre Routine {{name}} ist {{failCount}} Mal in Folge fehlgeschlagen und wurde automatisch pausiert. Beheben Sie das Problem und aktivieren Sie sie erneut."
+          }
+        },
         "billing": {
           "title": "Abrechnungsbenachrichtigung",
           "credit": {
@@ -1362,6 +1373,7 @@
               "title": "KI-Aufgabe abgebrochen",
               "rateLimit": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde aufgrund einer Ratenbegrenzung (429) abgebrochen. Bitte versuchen Sie es später erneut.",
               "creditExhausted": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde abgebrochen, da das Guthaben erschöpft ist. Bitte aktualisieren Sie Ihr Abonnement oder warten Sie auf die Guthabenerneuerung.",
+              "providerBilling": "Die KI-Aufgabe für die Tabelle \"{{tableName}}\" wurde abgebrochen, weil der Modellanbieter die Anfrage aus Abrechnungsgründen abgelehnt hat. Bitte prüfen Sie Guthaben und Abrechnungsstatus des Kontos hinter dem für dieses Modell konfigurierten API-Schlüssel. Fehler: {{errorMessage}}",
               "authFailed": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde aufgrund eines Authentifizierungsfehlers abgebrochen. Bitte überprüfen Sie Ihre API-Schlüssel-Konfiguration.",
               "serviceUnavailable": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde abgebrochen, da der KI-Dienst vorübergehend nicht verfügbar ist. Bitte versuchen Sie es später erneut.",
               "unknown": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde abgebrochen. Fehler: {{errorMessage}}"
@@ -1452,6 +1464,7 @@
     "minFollowerCount": "Konto muss mindestens {{count}} Follower haben",
     "mustMention": "Beitrag muss {{mention}} erwähnen",
     "fetchSnapshotFailed": "Fehler beim Abrufen des Beitrags-Snapshots",
+    "snapshotTimeout": "Zeitüberschreitung beim Warten auf den Beitrags-Snapshot, bitte später erneut versuchen",
     "alreadyClaimedThisWeek": "Sie haben diese Woche bereits eine Belohnung für dieses Konto beansprucht",
     "maxClaimsReached": "Sie haben die maximale Anzahl an Belohnungsansprüchen (2) für diese Woche erreicht",
     "postTooOld": "Der Beitrag muss innerhalb der letzten {{hours}} Stunde(n) veröffentlicht worden sein",
@@ -1591,7 +1604,8 @@
       "copyToBase": "In Base kopieren",
       "copyToSpace": "In Space kopieren",
       "copyToPersonal": "In persönlichen Bereich kopieren",
-      "copyToApp": "In App kopieren"
+      "copyToApp": "In App kopieren",
+      "copyToRoutine": "In Routine kopieren"
     },
     "import": {
       "title": "Fähigkeit importieren",
@@ -1632,7 +1646,9 @@
       "app": "App",
       "appDescription": "Nur in dieser App verfügbar",
       "cuppyclaw": "Bot",
-      "cuppyclawDescription": "Nur für diesen Bot verfügbar"
+      "cuppyclawDescription": "Nur für diesen Bot verfügbar",
+      "routine": "Routine",
+      "routineDescription": "Nur für diese Routine verfügbar"
     },
     "source": {
       "github": "GitHub",
@@ -1679,5 +1695,22 @@
     "collapse": "Weniger anzeigen",
     "more_one": "{{count}} weitere Ankündigung",
     "more_other": "{{count}} weitere Ankündigungen"
+  },
+  "mobileEmbed": {
+    "pickFromDirectory": "Wähle etwas aus dem Verzeichnis",
+    "pickFromDirectoryHint": "Öffne eine Tabelle, ein Dashboard oder eine Automatisierung aus dem Verzeichnis, dann erscheint sie hier.",
+    "limitReachedTitle": "Tariflimit erreicht",
+    "limitReachedDescription": "Dieser Space hat ein Limit seines aktuellen Tarifs erreicht.",
+    "creditsExhaustedTitle": "KI-Credits aufgebraucht",
+    "creditsExhaustedDescription": "Dieser Space hat alle im aktuellen Tarif enthaltenen KI-Credits verbraucht.",
+    "seatLimitTitle": "Keine Plätze mehr frei",
+    "seatLimitDescription": "In diesem Space sind keine Plätze für weitere Mitarbeitende frei.",
+    "ownerManagesPlan": "Nur der Inhaber des Space kann dessen Tarif verwalten. Wenden Sie sich an ihn, um das zu klären.",
+    "featureUnavailableTitle": "In diesem Tarif nicht verfügbar",
+    "billingUnavailable": "Tarif- und Abrechnungsverwaltung ist in der App nicht verfügbar.",
+    "featureUnavailableDescription": "Diese Funktion ist im aktuellen Tarif dieses Space nicht verfügbar.",
+    "importRowLimitReached": "Das Zeilenlimit des aktuellen Tarifs wurde erreicht; die restlichen Datensätze wurden nicht importiert.",
+    "userCapTitle": "Benutzerlimit erreicht",
+    "userCapDescription": "Diese Instanz hat die von ihrer Lizenz erlaubte Benutzeranzahl erreicht. Wenden Sie sich an Ihren Administrator."
   }
 }

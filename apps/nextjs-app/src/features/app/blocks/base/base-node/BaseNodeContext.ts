@@ -4,6 +4,8 @@ import type { TreeItemData } from './hooks';
 
 export const BaseNodeContext = createContext<{
   isLoading: boolean;
+  /** The tree query has resolved, so a resource absent from treeItems does not exist. */
+  isLoaded: boolean;
   maxFolderDepth: number;
   treeItems: Record<string, TreeItemData>;
   setTreeItems: (
@@ -12,6 +14,7 @@ export const BaseNodeContext = createContext<{
   invalidateMenu: () => void;
 }>({
   isLoading: false,
+  isLoaded: false,
   maxFolderDepth: 2,
   treeItems: {},
   setTreeItems: noop,

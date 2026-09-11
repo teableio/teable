@@ -2,9 +2,15 @@ import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullm
 import { Injectable, Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
 import { Queue } from 'bullmq';
+import { RedisNativeService } from '../../cache/redis-native.service';
 import { chainCatchupFlush } from '../cold-archive/catchup-chain';
+import { runCompactionScan } from '../cold-archive/compaction-pending';
+import { COLD_WORKER_OPTIONS } from '../cold-archive/worker-options';
 import { RecordHistoryColdStorageService } from './record-history-cold-storage.service';
-import { recordHistoryColdConfig } from './record-history-cold.config';
+import {
+  RECORD_HISTORY_COMPACT_PENDING_KEY,
+  recordHistoryColdConfig,
+} from './record-history-cold.config';
 import type { ICompactMonthResult } from './record-history-compactor.service';
 import { RecordHistoryCompactorService } from './record-history-compactor.service';
 import type { IColdFlushRunResult } from './record-history-flusher.service';
@@ -28,7 +34,7 @@ const CATCHUP_JOB_ID_PREFIX = 'record-history-cold-flush-catchup';
  * deployments that opted in run them.
  */
 @Injectable()
-@Processor(RECORD_HISTORY_COLD_QUEUE)
+@Processor(RECORD_HISTORY_COLD_QUEUE, COLD_WORKER_OPTIONS)
 export class RecordHistoryColdProcessor extends WorkerHost {
   private readonly logger = new Logger(RecordHistoryColdProcessor.name);
 
@@ -36,7 +42,8 @@ export class RecordHistoryColdProcessor extends WorkerHost {
     private readonly flusher: RecordHistoryFlusherService,
     private readonly compactor: RecordHistoryCompactorService,
     private readonly coldStorage: RecordHistoryColdStorageService,
-    @InjectQueue(RECORD_HISTORY_COLD_QUEUE) private readonly queue: Queue
+    @InjectQueue(RECORD_HISTORY_COLD_QUEUE) private readonly queue: Queue,
+    private readonly redis: RedisNativeService
   ) {
     super();
   }
@@ -164,24 +171,26 @@ export class RecordHistoryColdProcessor extends WorkerHost {
     });
   }
 
-  /** compact every cold table's closed months (day parts → month parts) */
+  /**
+   * compact the closed months (day parts → month parts) of every table the
+   * flusher marked pending, or of every cold table until the pending set is
+   * bootstrapped (or without redis)
+   */
   private async runCompaction(): Promise<ICompactMonthResult[]> {
-    const tables = await this.coldStorage.listTables();
-    const results: ICompactMonthResult[] = [];
-    for (const tableId of tables) {
-      try {
-        results.push(...(await this.compactor.compactTable(tableId)));
-      } catch (error) {
-        this.logger.error(
-          `record-history compaction failed for ${tableId}: ${error instanceof Error ? error.stack : error}`
-        );
-      }
-    }
-    const merged = results.filter((result) => !result.skippedReason);
+    const scan = await runCompactionScan<ICompactMonthResult>({
+      redis: this.redis,
+      key: RECORD_HISTORY_COMPACT_PENDING_KEY,
+      subsystem: 'record-history',
+      logger: this.logger,
+      listAll: () => this.coldStorage.listTables(),
+      compact: (tableId) => this.compactor.compactTable(tableId),
+    });
+    const merged = scan.results.filter((result) => !result.skippedReason);
     this.logger.log(
-      `record-history cold compaction: tables=${tables.length} monthsMerged=${merged.length} ` +
+      `record-history cold compaction: mode=${scan.mode} pending=${scan.pending} ` +
+        `tables=${scan.candidates} deferred=${scan.deferred} monthsMerged=${merged.length} ` +
         `rows=${merged.reduce((sum, item) => sum + item.rows, 0)}`
     );
-    return results;
+    return scan.results;
   }
 }

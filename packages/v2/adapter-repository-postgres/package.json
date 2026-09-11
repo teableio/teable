@@ -47,7 +47,7 @@
     "@teable/eslint-config-bases": "workspace:^",
     "@teable/v2-tsdown-config": "workspace:*",
     "@testcontainers/postgresql": "11.10.0",
-    "@types/node": "22.18.0",
+    "@types/node": "24.13.2",
     "@types/pg": "8.16.0",
     "@vitest/coverage-v8": "4.0.17",
     "eslint": "8.57.0",

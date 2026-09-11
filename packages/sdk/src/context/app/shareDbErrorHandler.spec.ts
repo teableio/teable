@@ -1,7 +1,8 @@
 import { HttpErrorCode } from '@teable/core';
+import { Connection } from 'sharedb/lib/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ILocaleFunction } from './i18n';
-import { handleShareDbError } from './shareDbErrorHandler';
+import { handleShareDbError, handleShareDbReceive } from './shareDbErrorHandler';
 
 vi.mock('@teable/ui-lib', () => ({
   sonner: { toast: { error: vi.fn(), warning: vi.fn() } },
@@ -65,6 +66,18 @@ describe('handleShareDbError', () => {
     expect(reload).not.toHaveBeenCalled();
   });
 
+  it('does not toast private computed activity aggregate denials', () => {
+    handleShareDbError(
+      {
+        code: HttpErrorCode.RESTRICTED_RESOURCE,
+        message: 'Computed activity aggregate is private',
+      },
+      t
+    );
+
+    expect(toastError).not.toHaveBeenCalled();
+  });
+
   it('reloads on unauthorized share instead of redirecting to signup', () => {
     handleShareDbError(
       { code: HttpErrorCode.UNAUTHORIZED_SHARE, message: 'Unauthorized share' },
@@ -80,5 +93,66 @@ describe('handleShareDbError', () => {
 
     expect(window.location.href).toContain('/auth/signup?redirect=');
     expect(toastError).not.toHaveBeenCalled();
+  });
+});
+
+class FakeShareDbSocket {
+  readyState = 0;
+  onmessage: ((event: { data: string }) => void) | null = null;
+  onopen: (() => void) | null = null;
+  onerror: ((err: unknown) => void) | null = null;
+  onclose: ((reason?: string) => void) | null = null;
+  send() {}
+  close() {}
+}
+
+const inject = (socket: FakeShareDbSocket, data: unknown) => {
+  socket.onmessage?.({ data: JSON.stringify(data) });
+};
+
+const handshake = (socket: FakeShareDbSocket) => {
+  socket.readyState = 1;
+  socket.onopen?.();
+  inject(socket, {
+    a: 'hs',
+    protocol: 1,
+    protocolMinor: 2,
+    type: 'http://sharejs.org/types/JSONv0',
+    id: 'test-agent',
+  });
+};
+
+describe('handleShareDbReceive', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let toastError: any;
+
+  beforeEach(async () => {
+    const { sonner } = await import('@teable/ui-lib');
+    toastError = sonner.toast.error;
+    toastError.mockClear();
+    vi.stubGlobal('location', {
+      href: 'https://app.teable.ai/base/bseTest/table/tblTest',
+      reload: vi.fn(),
+    });
+  });
+
+  it('still toasts ordinary record-channel ShareDB errors', () => {
+    const socket = new FakeShareDbSocket();
+    const connection = new Connection(socket as never);
+    connection.on('receive', (request) => handleShareDbReceive(request, t));
+    handshake(socket);
+
+    inject(socket, {
+      a: 's',
+      c: 'tblTest',
+      d: 'recOne',
+      error: { code: HttpErrorCode.RESTRICTED_RESOURCE, message: 'record denied' },
+    });
+
+    expect(toastError).toHaveBeenCalledTimes(1);
+    expect(toastError).toHaveBeenCalledWith(
+      'httpErrors.restrictedResource',
+      expect.objectContaining({ description: 'record denied' })
+    );
   });
 });

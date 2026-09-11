@@ -93,7 +93,10 @@ export const BaseTrashPage = () => {
   );
 
   const canReset =
-    permission?.['table|delete'] && permission?.['app|delete'] && permission?.['automation|delete'];
+    permission?.['table|delete'] &&
+    permission?.['app|delete'] &&
+    permission?.['automation|delete'] &&
+    permission?.['routine|delete'];
 
   const canRestore = useCallback(
     (resourceType: string) => {
@@ -104,6 +107,8 @@ export const BaseTrashPage = () => {
           return permission?.['app|create'];
         case TrashType.Workflow:
           return permission?.['automation|create'];
+        case TrashType.Routine:
+          return permission?.['routine|create'];
         default:
           return false;
       }
@@ -147,6 +152,8 @@ export const BaseTrashPage = () => {
                 return t('common:noun.app');
               case TrashType.Workflow:
                 return t('common:noun.automation');
+              case TrashType.Routine:
+                return t('common:noun.routine');
               default:
                 return '';
             }

@@ -12,6 +12,7 @@ import type {
   FormulaField,
   IFieldVisitor,
   ITableRepository,
+  ITableSearchIndex,
   IUnitOfWorkTransaction,
   LastModifiedByField,
   LastModifiedTimeField,
@@ -279,6 +280,99 @@ describe('PostgresTableRepository (pg)', () => {
 
   afterAll(async () => {
     await pgContainer.stop();
+  });
+
+  it('loads serving metadata in single and multi-table reads and ignores malformed snapshots', async () => {
+    const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, { db, ensureSchema: true });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseId = BaseId.create(`bse${getRandomString(16)}`)._unsafeUnwrap();
+      const spaceId = `spc${getRandomString(16)}`;
+      const context = { actorId: ActorId.create('system')._unsafeUnwrap() };
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Search metadata', created_by: 'system' })
+        .execute();
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Search metadata',
+          order: 1,
+          created_by: 'system',
+        })
+        .execute();
+      const builder = Table.builder()
+        .withBaseId(baseId)
+        .withName(TableName.create('Search metadata')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder.view().defaultGrid().done();
+      const inserted = (
+        await repo.insert(context, builder.build()._unsafeUnwrap())
+      )._unsafeUnwrap();
+      const spec = TableByIdSpec.create(inserted.id());
+      expect((await repo.findOne(context, spec))._unsafeUnwrap().searchIndex()).toBeUndefined();
+
+      const snapshot: ITableSearchIndex = {
+        version: 1,
+        dbTableName: inserted
+          .dbTableName()
+          .andThen((name) => name.value())
+          ._unsafeUnwrap(),
+        generatedColumnName: '__search_document',
+        indexName: 'idx_search_document',
+        provider: 'pg_trgm',
+        searchScope: 'selected_fields',
+        definitionKey: 'validated-definition',
+        indexUsable: false,
+        fields: [
+          {
+            fieldId: inserted.primaryFieldId().toString(),
+            fieldDbName: inserted
+              .primaryField()
+              .andThen((field) => field.dbFieldName())
+              .andThen((name) => name.value())
+              ._unsafeUnwrap(),
+            textProjection: { kind: 'plain' },
+          },
+        ],
+      };
+      await db
+        .updateTable('table_meta')
+        .set({ search_index: snapshot })
+        .where('id', '=', inserted.id().toString())
+        .execute();
+      expect((await repo.findOne(context, spec))._unsafeUnwrap().searchIndex()).toEqual(snapshot);
+      expect(
+        (await repo.find(context, spec))._unsafeUnwrap().map((table) => table.searchIndex())
+      ).toEqual([snapshot]);
+
+      await db
+        .updateTable('table_meta')
+        .set({ search_index: { ...snapshot, version: 2 } })
+        .where('id', '=', inserted.id().toString())
+        .execute();
+      expect((await repo.findOne(context, spec))._unsafeUnwrap().searchIndex()).toBeUndefined();
+      await db
+        .updateTable('table_meta')
+        .set({ search_index: { ...snapshot, fields: 'malformed' } })
+        .where('id', '=', inserted.id().toString())
+        .execute();
+      expect(
+        (await repo.find(context, spec))._unsafeUnwrap().map((table) => table.searchIndex())
+      ).toEqual([undefined]);
+    } finally {
+      await db.destroy();
+    }
   });
 
   it('saves and loads a table by specs', async () => {

@@ -176,6 +176,7 @@ class FakeRealtimeEngine implements IRealtimeEngine {
   deletes: RealtimeDocId[] = [];
   deleteOptions: Array<RealtimeApplyChangeOptions | undefined> = [];
   invalidations: Array<{ collection: string; change: RealtimeChange }> = [];
+  computeActivityNotifications: string[] = [];
 
   async ensure(_context: IExecutionContext, docId: RealtimeDocId, initial: unknown) {
     this.ensures.push({ docId, initial });
@@ -208,6 +209,11 @@ class FakeRealtimeEngine implements IRealtimeEngine {
     change: RealtimeChange
   ) {
     this.invalidations.push({ collection, change });
+    return ok(undefined);
+  }
+
+  async notifyTableComputeActivity(_context: IExecutionContext, tableId: string) {
+    this.computeActivityNotifications.push(tableId);
     return ok(undefined);
   }
 }
@@ -739,6 +745,7 @@ describe('Realtime projections', () => {
       applyChange: async () => ok(undefined),
       delete: async () => ok(undefined),
       invalidateCollection: async () => ok(undefined),
+      notifyTableComputeActivity: async () => ok(undefined),
     };
     const projection = new RecordsBatchCreatedRealtimeProjection(engine);
 
@@ -795,6 +802,7 @@ describe('Realtime projections', () => {
       applyChange: async () => ok(undefined),
       delete: async () => ok(undefined),
       invalidateCollection: async () => ok(undefined),
+      notifyTableComputeActivity: async () => ok(undefined),
     };
     const projection = new RecordsBatchCreatedRealtimeProjection(engine);
 
@@ -922,6 +930,7 @@ describe('Realtime projections', () => {
         return ok(undefined);
       },
       invalidateCollection: async () => ok(undefined),
+      notifyTableComputeActivity: async () => ok(undefined),
     };
     const projection = new RecordsDeletedRealtimeProjection(engine);
 
@@ -979,6 +988,7 @@ describe('Realtime projections', () => {
         return ok(undefined);
       },
       invalidateCollection: async () => ok(undefined),
+      notifyTableComputeActivity: async () => ok(undefined),
     };
     const projection = new RecordsBatchUpdatedRealtimeProjection(engine);
 
@@ -2878,6 +2888,52 @@ describe('Realtime projections', () => {
     expect(engine.changes).toHaveLength(1);
     expect(engine.changes[0]?.change).toEqual([
       { type: 'set', path: ['type'], value: 'singleSelect', oldValue: 'singleLineText' },
+    ]);
+  });
+
+  it('publishes the derived multiplicity flag with a user field options change', async () => {
+    const table = buildTable('q', 'r', 's');
+    const fieldId = table.primaryFieldId();
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    const mapper = new FakeTableMapper((candidate) => ({
+      ...buildTableDto(candidate),
+      fields: [
+        {
+          id: fieldId.toString(),
+          name: 'Owner',
+          type: 'user',
+          cellValueType: 'string',
+          options: { isMultiple: false, shouldNotify: true },
+        },
+      ],
+    }));
+    const projection = new FieldUpdatedRealtimeProjection(engine, repository, mapper);
+
+    const event = FieldUpdated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      fieldId,
+      updatedProperties: ['isMultiple'],
+      changes: {
+        isMultiple: { oldValue: true, newValue: false },
+      },
+      propertySemantics: {
+        isMultiple: fieldUpdateSemantics.options,
+      },
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.changes).toHaveLength(1);
+    expect(engine.changes[0]?.change).toEqual([
+      {
+        type: 'set',
+        path: ['options'],
+        value: { isMultiple: false, shouldNotify: true },
+      },
+      { type: 'set', path: ['isMultipleCellValue'], value: false },
     ]);
   });
 

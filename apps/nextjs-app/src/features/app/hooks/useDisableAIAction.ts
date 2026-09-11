@@ -7,7 +7,11 @@ import { AIActions } from '../blocks/admin/setting/components/ai-config/AIContro
 export const useDisableAIAction = () => {
   const baseId = useBaseId();
   const isReadOnlyPreview = useIsReadOnlyPreview();
-  const { data: { disableActions } = {} } = useQuery({
+  const {
+    data: { disableActions } = {},
+    isFetched,
+    isError,
+  } = useQuery({
     queryKey: ['disable-ai-actions', baseId],
     queryFn: () => getAIDisableActions(baseId!).then((res) => res.data),
     enabled: !!baseId && !isReadOnlyPreview,
@@ -18,11 +22,15 @@ export const useDisableAIAction = () => {
       return {
         aiField: !disableActions.includes(AIActions.AIField),
         aiChat: !disableActions.includes(AIActions.AIChat),
+        isSettled: isFetched || !baseId || isReadOnlyPreview,
+        isReady: isFetched && !isError,
       };
     }
     return {
       aiField: true,
       aiChat: true,
+      isSettled: isFetched || !baseId || isReadOnlyPreview,
+      isReady: isFetched && !isError,
     };
-  }, [disableActions]);
+  }, [baseId, disableActions, isError, isFetched, isReadOnlyPreview]);
 };

@@ -23,23 +23,29 @@ import {
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
 
+import type { IComputeActivitySignalConfig } from '../ComputeActivitySignal';
+import type { IShareDbPresencePublisher } from '../ShareDbPresencePublisher';
 import type { IShareDbOpPublisher } from '../ShareDbPublisher';
 import { ShareDbRealtimeEngine } from '../ShareDbRealtimeEngine';
 import { v2ShareDbTokens } from './tokens';
 
 export interface IV2ShareDbRealtimeConfig {
   publisher: IShareDbOpPublisher;
+  presence: IShareDbPresencePublisher;
+  computeActivitySignal: IComputeActivitySignalConfig;
 }
 
 export const registerV2ShareDbRealtime = (
   c: DependencyContainer = container,
   config: IV2ShareDbRealtimeConfig
 ): DependencyContainer => {
-  if (!config.publisher) {
+  if (!config.publisher || !config.presence || !config.computeActivitySignal) {
     throw new Error('Invalid v2 ShareDB realtime config');
   }
 
   c.registerInstance(v2ShareDbTokens.publisher, config.publisher);
+  c.registerInstance(v2ShareDbTokens.presence, config.presence);
+  c.registerInstance(v2ShareDbTokens.computeActivitySignal, config.computeActivitySignal);
   c.register(v2CoreTokens.realtimeEngine, ShareDbRealtimeEngine, {
     lifecycle: Lifecycle.Singleton,
   });

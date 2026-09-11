@@ -627,7 +627,11 @@ export class BaseImportService {
     // Restore edition-specific resources (apps / workflows / authority matrix) through the v2
     // extension hook and collect their id maps so matching base_node rows can be remapped below.
     // Community has none, so the hook is a no-op; EE overrides it for imported and duplicated bases.
-    const { workflowIdMap = {}, appIdMap = {} } = await this.restoreExtraBaseResourcesV2(
+    const {
+      workflowIdMap = {},
+      appIdMap = {},
+      routineIdMap = {},
+    } = await this.restoreExtraBaseResourcesV2(
       db,
       baseId,
       structure,
@@ -661,6 +665,7 @@ export class BaseImportService {
           dashboardIdMap,
           workflowIdMap,
           appIdMap,
+          routineIdMap,
         },
         { updateExistingNodes: true, copyToExistingBase }
       );
@@ -686,7 +691,11 @@ export class BaseImportService {
     },
     _duplicateMode: BaseDuplicateMode,
     _onProgress?: BaseImportProgressCallback
-  ): Promise<{ workflowIdMap?: Record<string, string>; appIdMap?: Record<string, string> }> {
+  ): Promise<{
+    workflowIdMap?: Record<string, string>;
+    appIdMap?: Record<string, string>;
+    routineIdMap?: Record<string, string>;
+  }> {
     return {};
   }
 
@@ -742,6 +751,7 @@ export class BaseImportService {
       dashboardIdMap?: Record<string, string>;
       workflowIdMap?: Record<string, string>;
       appIdMap?: Record<string, string>;
+      routineIdMap?: Record<string, string>;
     },
     options?: {
       updateExistingNodes?: boolean;
@@ -759,6 +769,7 @@ export class BaseImportService {
       dashboardIdMap = {},
       workflowIdMap = {},
       appIdMap = {},
+      routineIdMap = {},
     } = idMapContext;
     const allNodeIdMap = nodes.reduce(
       (acc, cur) => {
@@ -774,6 +785,7 @@ export class BaseImportService {
       dashboardIdMap,
       workflowIdMap,
       appIdMap,
+      routineIdMap,
     });
     const sortedNodes = this.sortBaseNodesByParent(nodes);
     const createdResourceKeys = new Set<string>();
@@ -879,8 +891,17 @@ export class BaseImportService {
     dashboardIdMap: Record<string, string>;
     workflowIdMap: Record<string, string>;
     appIdMap: Record<string, string>;
+    routineIdMap: Record<string, string>;
   }) {
-    const { nodes, folderIdMap, tableIdMap, dashboardIdMap, workflowIdMap, appIdMap } = params;
+    const {
+      nodes,
+      folderIdMap,
+      tableIdMap,
+      dashboardIdMap,
+      workflowIdMap,
+      appIdMap,
+      routineIdMap,
+    } = params;
     return nodes.reduce(
       (acc, cur) => {
         const { resourceType, resourceId } = cur;
@@ -900,6 +921,9 @@ export class BaseImportService {
             break;
           case BaseNodeResourceType.App:
             acc[resourceType][resourceId] = appIdMap[resourceId];
+            break;
+          case BaseNodeResourceType.Routine:
+            acc[resourceType][resourceId] = routineIdMap[resourceId];
             break;
           default:
             break;
@@ -2742,6 +2766,7 @@ export class BaseImportService {
       dashboardIdMap?: Record<string, string>;
       workflowIdMap?: Record<string, string>;
       appIdMap?: Record<string, string>;
+      routineIdMap?: Record<string, string>;
     },
     copyToExistingBase: boolean = false,
     options?: {
@@ -2760,6 +2785,7 @@ export class BaseImportService {
       dashboardIdMap = {},
       workflowIdMap = {},
       appIdMap = {},
+      routineIdMap = {},
     } = idMapContext;
 
     const allNodeIdMap = nodes.reduce(
@@ -2789,6 +2815,9 @@ export class BaseImportService {
             break;
           case BaseNodeResourceType.App:
             acc[resourceType][resourceId] = appIdMap[resourceId];
+            break;
+          case BaseNodeResourceType.Routine:
+            acc[resourceType][resourceId] = routineIdMap?.[resourceId];
             break;
           default:
             break;

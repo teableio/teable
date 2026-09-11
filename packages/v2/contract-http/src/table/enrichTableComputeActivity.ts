@@ -1,3 +1,4 @@
+import { publicComputeError } from '@teable/v2-core';
 import type {
   FieldComputeMetaDto,
   TableComputeActivitySnapshot,
@@ -8,11 +9,12 @@ import type { IFieldDto, ITableDto } from './dto';
 
 const toPublicFieldComputeMeta = (field: FieldComputeMetaDto) => ({
   status: field.status,
+  ...(field.reliability ? { reliability: field.reliability } : {}),
   ...(field.estimatedComplexity ? { estimatedComplexity: field.estimatedComplexity } : {}),
   ...(field.estimatedDirtyRecords ? { estimatedDirtyRecords: field.estimatedDirtyRecords } : {}),
   ...(field.startedAt ? { startedAt: field.startedAt } : {}),
   ...(field.lastDurationMs != null ? { lastDurationMs: field.lastDurationMs } : {}),
-  ...(field.lastError !== undefined ? { lastError: field.lastError } : {}),
+  ...(field.lastError !== undefined ? { lastError: publicComputeError(field.lastError) } : {}),
 });
 
 const toPublicTableComputeMeta = (
@@ -62,11 +64,13 @@ export const enrichTableDtoWithComputeActivity = (
   if (!activity) {
     return {
       ...table,
-      computeMeta: table.computeMeta ?? {
+      fields: table.fields.map((field) => ({ ...field, computeMeta: undefined })),
+      computeMeta: {
         status: 'idle',
         calculatingFieldCount: 0,
         queuedFieldCount: 0,
         computeMode: 'server',
+        observationState: 'unavailable',
       },
     };
   }
@@ -74,7 +78,7 @@ export const enrichTableDtoWithComputeActivity = (
   const byFieldId = new Map(activity.fields.map((field) => [field.fieldId, field]));
   const fields = table.fields.map((field): IFieldDto => {
     const meta = byFieldId.get(field.id);
-    if (!meta) return field;
+    if (!meta) return { ...field, computeMeta: undefined };
     return {
       ...field,
       computeMeta: toPublicFieldComputeMeta(meta),
@@ -84,6 +88,9 @@ export const enrichTableDtoWithComputeActivity = (
   return {
     ...table,
     fields,
-    computeMeta: toPublicTableComputeMeta(activity.table, activity.fields),
+    computeMeta: {
+      ...toPublicTableComputeMeta(activity.table, activity.fields)!,
+      observationState: activity.observationState ?? 'available',
+    },
   };
 };

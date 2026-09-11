@@ -403,11 +403,10 @@ const mapField = (field: IAirtableField, fieldNameById: Map<string, string>): IF
   const { type, options } = field;
   switch (type) {
     case 'singleLineText':
+    case 'url':
       return textMapping();
     case 'email':
       return textMapping(SingleLineTextDisplayType.Email);
-    case 'url':
-      return textMapping(SingleLineTextDisplayType.Url);
     case 'phoneNumber':
       return textMapping(SingleLineTextDisplayType.Phone);
     case 'multilineText':

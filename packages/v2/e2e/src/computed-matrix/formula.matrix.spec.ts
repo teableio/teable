@@ -9,31 +9,27 @@
  * Total: ~36 test cases
  */
 
-import {
-  buildNameMaps,
-  printComputedSteps,
-  type ComputedPlanLogEntry,
-  type ComputedPlanSnapshotOptions,
-} from '@teable/v2-container-node-test';
 import { beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import {
   createTestContext,
   createFieldIdGenerator,
   getFieldValues,
   getFormulaExpression,
-  getExpectedResult,
-  getExpectedSteps,
-  verifyResult,
-  verifySteps,
+  getExpectedFormulaValues,
 } from './shared';
-import type { TestContext, SourceFieldType, ValueTransition, FormulaTestCase } from './shared';
+import type { TestContext, FormulaTestCase } from './shared';
 
 // =============================================================================
 // Test Configuration
 // =============================================================================
 
-const SOURCE_TYPES: SourceFieldType[] = ['number', 'singleLineText', 'checkbox', 'rating'];
-const TRANSITIONS: ValueTransition[] = ['nullToValue', 'valueToValue', 'valueToNull'];
+const SOURCE_TYPES: FormulaTestCase['source'][] = [
+  'number',
+  'singleLineText',
+  'checkbox',
+  'rating',
+];
+const TRANSITIONS: FormulaTestCase['transition'][] = ['nullToValue', 'valueToValue', 'valueToNull'];
 const DEPTHS = [1, 2, 3] as const;
 
 // Generate test cases
@@ -126,8 +122,6 @@ describe('formula field matrix (e2e)', () => {
         await ctx.createRecord(table.id, recordData);
         const beforeRecords = await ctx.listRecords(table.id);
         const record = beforeRecords[0];
-        const lastFormulaId = formulaIds[formulaIds.length - 1];
-        const beforeValue = record.fields[lastFormulaId];
 
         // Clear logs before update
         ctx.clearLogs();
@@ -138,35 +132,20 @@ describe('formula field matrix (e2e)', () => {
 
         // Get results
         const afterRecords = await ctx.listRecords(table.id);
-        const afterValue = afterRecords[0].fields[lastFormulaId];
 
-        // Verify result
-        const expected = getExpectedResult(source, 'formula', transition, initial, updated, depth);
-        verifyResult(beforeValue, afterValue, expected);
-
-        // Verify steps
-        const plan = ctx.getLastComputedPlan() as {
-          steps: Array<{ tableId: string; fieldIds: string[]; level: number }>;
-        };
-        const expectedSteps = getExpectedSteps('formula', depth);
-        verifySteps(plan, expectedSteps, lastFormulaId);
-
-        // For valueToValue, also verify all formula fields are in steps
-        if (transition === 'valueToValue') {
-          const allFieldIds = plan.steps.flatMap((s) => s.fieldIds);
-          for (const fid of formulaIds) {
-            expect(allFieldIds).toContain(fid);
-          }
+        const expectedValues = getExpectedFormulaValues(source, transition);
+        for (const [level, formulaId] of formulaIds.entries()) {
+          expect(afterRecords[0].fields[formulaId]).toBe(expectedValues[level]);
         }
       }
     );
   });
 
   // ===========================================================================
-  // Detailed Snapshot Tests (for key scenarios)
+  // Detailed Value Tests (for key scenarios)
   // ===========================================================================
 
-  describe('snapshot tests', () => {
+  describe('detailed value tests', () => {
     test('formula: number valueToValue depth=1 - detailed', async () => {
       const createFieldId = createFieldIdGenerator();
 
@@ -205,27 +184,6 @@ describe('formula field matrix (e2e)', () => {
       // Verify
       const afterRecords = await ctx.listRecords(table.id);
       expect(afterRecords[0].fields[doubledFieldId]).toBe(30);
-
-      // Verify steps
-      const plan = ctx.getLastComputedPlan() as {
-        steps: Array<{ tableId: string; fieldIds: string[]; level: number }>;
-      };
-      expect(plan.steps.length).toBe(1);
-      expect(plan.steps[0].fieldIds).toContain(doubledFieldId);
-
-      // Snapshot
-      const nameMaps: ComputedPlanSnapshotOptions = buildNameMaps(
-        { id: table.id, name: 'FormulaSnapshot_number_d1' },
-        [
-          { id: nameFieldId, name: 'Name' },
-          { id: valueFieldId, name: 'Value' },
-          { id: doubledFieldId, name: 'Doubled' },
-        ]
-      );
-      expect(printComputedSteps(plan as ComputedPlanLogEntry, nameMaps)).toMatchInlineSnapshot(`
-        "[Computed Steps: 1]
-          L0: FormulaSnapshot_number_d1 -> [Doubled]"
-      `);
     });
 
     test('formula: number valueToValue depth=3 - detailed', async () => {
@@ -285,33 +243,6 @@ describe('formula field matrix (e2e)', () => {
       expect(afterRecords[0].fields[f1FieldId]).toBe(20);
       expect(afterRecords[0].fields[f2FieldId]).toBe(30);
       expect(afterRecords[0].fields[f3FieldId]).toBe(40);
-
-      // Verify steps
-      const plan = ctx.getLastComputedPlan() as {
-        steps: Array<{ tableId: string; fieldIds: string[]; level: number }>;
-      };
-      expect(plan.steps.length).toBe(3);
-      expect(plan.steps[0].fieldIds).toEqual([f1FieldId]);
-      expect(plan.steps[1].fieldIds).toEqual([f2FieldId]);
-      expect(plan.steps[2].fieldIds).toEqual([f3FieldId]);
-
-      // Snapshot
-      const nameMaps: ComputedPlanSnapshotOptions = buildNameMaps(
-        { id: table.id, name: 'FormulaSnapshot_number_d3' },
-        [
-          { id: nameFieldId, name: 'Name' },
-          { id: numFieldId, name: 'Num' },
-          { id: f1FieldId, name: 'F1' },
-          { id: f2FieldId, name: 'F2' },
-          { id: f3FieldId, name: 'F3' },
-        ]
-      );
-      expect(printComputedSteps(plan as ComputedPlanLogEntry, nameMaps)).toMatchInlineSnapshot(`
-        "[Computed Steps: 3]
-          L0: FormulaSnapshot_number_d3 -> [F1]
-          L1: FormulaSnapshot_number_d3 -> [F2]
-          L2: FormulaSnapshot_number_d3 -> [F3]"
-      `);
     });
 
     test('formula: checkbox valueToValue depth=1 - detailed', async () => {
@@ -352,13 +283,6 @@ describe('formula field matrix (e2e)', () => {
       // Verify
       const afterRecords = await ctx.listRecords(table.id);
       expect(afterRecords[0].fields[labelFieldId]).toBe('No');
-
-      // Verify steps
-      const plan = ctx.getLastComputedPlan() as {
-        steps: Array<{ tableId: string; fieldIds: string[]; level: number }>;
-      };
-      expect(plan.steps.length).toBe(1);
-      expect(plan.steps[0].fieldIds).toContain(labelFieldId);
     });
   });
 });

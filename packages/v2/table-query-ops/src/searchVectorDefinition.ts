@@ -5,7 +5,7 @@ import {
   type DomainError,
   type SearchDocumentFieldContribution,
   type SearchFieldTextProjection,
-  type Table,
+  type ITableReadModel,
 } from '@teable/v2-core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -82,7 +82,7 @@ const skippedContribution = (
 });
 
 const collectSearchDocumentFields = (
-  table: Table,
+  table: ITableReadModel,
   selectedIds: ReadonlySet<string> | undefined
 ): Result<CollectedDocumentFields, DomainError> => {
   const visitor = new SearchDocumentFieldContributionVisitor();
@@ -157,7 +157,7 @@ const resolveIndexKind = (
 };
 
 export const buildTableSearchAccessPathDefinition = (
-  table: Table,
+  table: ITableReadModel,
   options: BuildTableSearchAccessPathDefinitionOptions = {}
 ): Result<TableSearchAccessPathDefinition, DomainError> => {
   const resolvedOptions = resolveDefinitionOptions(options);

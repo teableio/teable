@@ -8,7 +8,7 @@ import { useFields, useView } from '../../../hooks';
 import type { IFieldInstance } from '../../../model';
 import { normalizeCellValueForDisplay } from '../../../utils/normalize-cell-value';
 import { getDisplayChoiceMap } from '../../../utils/select-color';
-import { getFileCover, isSystemFileIcon } from '../../editor';
+import { getFieldIconString, getFileCover, isSystemFileIcon } from '../../editor';
 import { GRID_DEFAULT } from '../../grid/configs';
 import type { IGridColumn } from '../../grid/interface';
 import type { ChartType, ICell, INumberShowAs as IGridNumberShowAs } from '../../grid/renderers';
@@ -232,10 +232,12 @@ const useGenerateGroupCellFn = () => {
           case FieldType.Attachment: {
             const cv = (cellValue ?? []) as IAttachmentCellValue;
             const data = cv.map(({ id, mimetype, presignedUrl, smThumbnailUrl, width, height }) => {
-              const url = getFileCover(mimetype, presignedUrl, resolvedTheme as 'light' | 'dark');
+              const theme = resolvedTheme as 'light' | 'dark';
+              const url = getFileCover(mimetype, presignedUrl, theme);
               return {
                 id,
                 url: isSystemFileIcon(mimetype) ? url : smThumbnailUrl ?? url,
+                fallbackUrl: getFieldIconString(mimetype, theme),
                 width,
                 height,
               };

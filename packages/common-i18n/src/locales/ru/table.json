@@ -281,7 +281,6 @@
       "bar": "Полоса",
       "text": "Текст",
       "markdown": "Markdown",
-      "url": "URL",
       "email": "Email",
       "phone": "Телефон",
       "maxNumber": "Максимальное число",
@@ -343,6 +342,7 @@
       "filterByView": "Фильтровать записи по представлению",
       "filter": "Фильтровать записи",
       "hideFields": "Скрыть поля",
+      "removeDuplicateValues": "Удалить повторяющиеся значения",
       "moreOptions": "Дополнительные параметры",
       "allowNewOptionsWhenEditing": "Разрешить новые варианты при редактировании",
       "deleteField": {
@@ -926,6 +926,9 @@
   },
   "import": {
     "title": {
+      "createTable": "Создать таблицу",
+      "importFromCsv": "Импорт из CSV",
+      "importFromExcel": "Импорт из Excel",
       "upload": "Загрузить",
       "import": "Импорт",
       "localFile": "Локальные файлы",
@@ -1394,6 +1397,109 @@
     "action": {
       "locateResource": "Найти"
     },
+    "resourceOperations": {
+      "title": "Изменения за этот ответ",
+      "items_one": "{{count}} элемент",
+      "items_few": "{{count}} элемента",
+      "items_many": "{{count}} элементов",
+      "items_other": "{{count}} элемента",
+      "expandRemaining": "Показать ещё {{count}}",
+      "collapse": "Свернуть",
+      "create": "Создано",
+      "update": "Обновлено",
+      "delete": "Удалено",
+      "import": "Импорт",
+      "publication": {
+        "published": "Опубликовано",
+        "unpublished": "Публикация отменена"
+      },
+      "structureTitles": {
+        "field": "Изменения полей",
+        "view": "Изменения представлений"
+      },
+      "structureStats": {
+        "field": {
+          "create_one": "Добавлено {{count}} поле",
+          "create_few": "Добавлено {{count}} поля",
+          "create_many": "Добавлено {{count}} полей",
+          "create_other": "Добавлено {{count}} поля",
+          "update_one": "Изменено {{count}} поле",
+          "update_few": "Изменено {{count}} поля",
+          "update_many": "Изменено {{count}} полей",
+          "update_other": "Изменено {{count}} поля",
+          "delete_one": "Удалено {{count}} поле",
+          "delete_few": "Удалено {{count}} поля",
+          "delete_many": "Удалено {{count}} полей",
+          "delete_other": "Удалено {{count}} поля",
+          "import_one": "Импортировано {{count}} поле",
+          "import_few": "Импортировано {{count}} поля",
+          "import_many": "Импортировано {{count}} полей",
+          "import_other": "Импортировано {{count}} поля"
+        },
+        "view": {
+          "create_one": "Добавлено {{count}} представление",
+          "create_few": "Добавлено {{count}} представления",
+          "create_many": "Добавлено {{count}} представлений",
+          "create_other": "Добавлено {{count}} представления",
+          "update_one": "Изменено {{count}} представление",
+          "update_few": "Изменено {{count}} представления",
+          "update_many": "Изменено {{count}} представлений",
+          "update_other": "Изменено {{count}} представления",
+          "delete_one": "Удалено {{count}} представление",
+          "delete_few": "Удалено {{count}} представления",
+          "delete_many": "Удалено {{count}} представлений",
+          "delete_other": "Удалено {{count}} представления",
+          "import_one": "Импортировано {{count}} представление",
+          "import_few": "Импортировано {{count}} представления",
+          "import_many": "Импортировано {{count}} представлений",
+          "import_other": "Импортировано {{count}} представления"
+        }
+      },
+      "workflow": {
+        "activate": "Автоматизация включена",
+        "deactivate": "Автоматизация отключена",
+        "discard": "Изменения черновика отменены"
+      },
+      "routine": {
+        "activate": "Рутина включена",
+        "deactivate": "Рутина отключена",
+        "run": "Запуск начат"
+      },
+      "records": {
+        "create": "Записи добавлены",
+        "createCount_one": "Добавлена {{count}} запись",
+        "createCount_few": "Добавлены {{count}} записи",
+        "createCount_many": "Добавлено {{count}} записей",
+        "createCount_other": "Добавлено {{count}} записи",
+        "update": "Записи обновлены",
+        "updateCount_one": "Обновлена {{count}} запись",
+        "updateCount_few": "Обновлены {{count}} записи",
+        "updateCount_many": "Обновлено {{count}} записей",
+        "updateCount_other": "Обновлено {{count}} записи",
+        "delete": "Записи удалены",
+        "deleteCount_one": "Удалена {{count}} запись",
+        "deleteCount_few": "Удалены {{count}} записи",
+        "deleteCount_many": "Удалено {{count}} записей",
+        "deleteCount_other": "Удалено {{count}} записи",
+        "import": "Записи импортированы",
+        "importCount_one": "Импортирована {{count}} запись",
+        "importCount_few": "Импортированы {{count}} записи",
+        "importCount_many": "Импортировано {{count}} записей",
+        "importCount_other": "Импортировано {{count}} записи"
+      },
+      "types": {
+        "base": "База",
+        "table": "Таблица",
+        "field": "Поле",
+        "view": "Представление",
+        "record": "Записи",
+        "app": "Приложение",
+        "workflow": "Автоматизация",
+        "routine": "Рутина",
+        "folder": "Папка",
+        "artifact": "Артефакт"
+      }
+    },
     "showUI": {
       "skip": "Пропустить",
       "next": "Далее",
@@ -1435,7 +1541,13 @@
     "addAttachment": "Добавить вложение",
     "noHistory": "Нет истории чата",
     "noFoundHistory": "Нет истории чата, пожалуйста, начните новую беседу",
+    "pin": "Закрепить",
+    "unpin": "Открепить",
+    "archive": "В архив",
+    "archivedToast": "Чат перенесён в архив. Найти его можно в «Настройки › Архив чатов».",
+    "unread": "Непрочитано",
     "timeGroup": {
+      "pinned": "Закреплённые",
       "today": "Сегодня",
       "oneWeek": "Одна неделя",
       "twoWeek": "Две недели",
@@ -1454,6 +1566,7 @@
       "tables": "Таблицы",
       "apps": "Приложения",
       "workflows": "Автоматизации",
+      "routines": "Рутины",
       "folders": "Папки",
       "envs": "Секреты"
     },
@@ -1613,6 +1726,11 @@
         "upstreamBadRequest": "Голосовой эндпоинт недействителен.",
         "upstreamUnavailable": "Голосовая функция недоступна."
       }
+    },
+    "status": {
+      "running": "Генерация…",
+      "waitingInput": "Ожидает вашего ответа",
+      "failed": "Ответ не удался"
     }
   },
   "upload": {

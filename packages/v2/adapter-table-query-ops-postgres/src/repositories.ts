@@ -34,6 +34,8 @@ const defaultObservationRepositoryOptions = {
   readStatementTimeoutMs: 2_000,
   statementTimeoutMs: 500,
 } as const;
+const PHYSICAL_STATS_STATEMENT_TIMEOUT_MS = 2_000;
+
 type TableQueryObservationRow = Omit<
   TableQueryObservationDatabase['table_query_observation_shard'],
   'writer_id'
@@ -88,6 +90,7 @@ export class PostgresTableQueryObservationRepository implements TableQueryObserv
             input.observations.map((observation) => {
               const snapshot = observation.snapshot();
               const queryKind = observation.shape().queryKind();
+              const sampledDiagnostics = snapshot.sqlDiagnostics?.filter((item) => item.sampled);
               return {
                 space_id: snapshot.spaceId ?? null,
                 base_id: snapshot.baseId,
@@ -106,7 +109,10 @@ export class PostgresTableQueryObservationRepository implements TableQueryObserv
                 total_db_duration_ms: snapshot.totalDbDurationMs ?? null,
                 max_db_duration_ms: snapshot.maxDbDurationMs ?? null,
                 shape: toJsonb(snapshot.shape),
-                sql_diagnostics: snapshot.sqlDiagnostics ? toJsonb(snapshot.sqlDiagnostics) : null,
+                sql_diagnostics:
+                  sampledDiagnostics && sampledDiagnostics.length > 0
+                    ? toJsonb(sampledDiagnostics)
+                    : null,
               };
             })
           )
@@ -368,36 +374,33 @@ export class PostgresTablePhysicalStatsReader {
     const physical = getTablePhysicalName(table);
     if (physical.isErr()) return err(physical.error);
     try {
-      const result = await sql<{
-        estimated_rows: string | number | null;
-        total_bytes: string | number | null;
-        seq_scan_count: string | number | null;
-        index_scan_count: string | number | null;
-        last_analyze_at: Date | null;
-      }>`
-        SELECT
-          coalesce(c.reltuples, 0) AS estimated_rows,
-          pg_total_relation_size(c.oid) AS total_bytes,
-          coalesce(s.seq_scan, 0) AS seq_scan_count,
-          coalesce(s.idx_scan, 0) AS index_scan_count,
-          s.last_analyze AS last_analyze_at
-        FROM pg_class c
-        JOIN pg_namespace n ON n.oid = c.relnamespace
-        LEFT JOIN pg_stat_user_tables s ON s.relid = c.oid
-        WHERE n.nspname = ${physical.value.schema}
-          AND c.relname = ${physical.value.tableName}
-        LIMIT 1
-      `.execute(this.dataDb);
+      const result = await this.dataDb.transaction().execute(async (trx) => {
+        await sql`
+          SELECT set_config('statement_timeout', ${`${PHYSICAL_STATS_STATEMENT_TIMEOUT_MS}ms`}, true)
+        `.execute(trx);
+        return sql<{
+          estimated_rows: string | number | null;
+          total_bytes: string | number | null;
+        }>`
+          SELECT
+            c.reltuples AS estimated_rows,
+            coalesce(c.relpages, 0)::bigint * current_setting('block_size')::bigint AS total_bytes
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = ${physical.value.schema}
+            AND c.relname = ${physical.value.tableName}
+          LIMIT 1
+        `.execute(trx);
+      });
       const row = result.rows[0];
       if (!row) {
         return err(domainError.notFound({ message: 'Physical table stats not found' }));
       }
+      const estimatedRows = Number(row.estimated_rows);
+      const totalBytes = Number(row.total_bytes);
       return TablePhysicalStats.create({
-        estimatedRows: Number(row.estimated_rows ?? 0),
-        totalBytes: Number(row.total_bytes ?? 0),
-        seqScanCount: Number(row.seq_scan_count ?? 0),
-        indexScanCount: Number(row.index_scan_count ?? 0),
-        lastAnalyzeAt: row.last_analyze_at ?? undefined,
+        estimatedRows: Number.isFinite(estimatedRows) && estimatedRows >= 0 ? estimatedRows : null,
+        totalBytes: Number.isFinite(totalBytes) && totalBytes > 0 ? totalBytes : 0,
       });
     } catch (error) {
       return err(toInfrastructureError(error, 'Failed to read table physical stats'));
@@ -615,39 +618,72 @@ export class PostgresTableQueryRemediationTaskRepository {
   ): Promise<Result<TableQueryRemediationTask, DomainError>> {
     const snapshot = task.snapshot();
     try {
-      await this.db
-        .insertInto('table_query_remediation_task')
-        .values({
-          id: snapshot.id,
-          recommendation_id: snapshot.recommendationId ?? null,
-          base_id: snapshot.baseId,
-          table_id: snapshot.tableId,
-          kind: snapshot.kind,
-          status: snapshot.status,
-          payload: toJsonb(snapshot.payload),
-          result: snapshot.result == null ? null : toJsonb(snapshot.result),
-          attempts: snapshot.attempts,
-          max_attempts: snapshot.maxAttempts,
-          locked_at: snapshot.lockedAt ?? null,
-          locked_by: snapshot.lockedBy ?? null,
-          last_error: snapshot.lastError ?? null,
-          created_time: snapshot.createdTime,
-          last_modified_time: snapshot.lastModifiedTime ?? null,
-        })
-        .onConflict((oc) =>
-          oc.column('id').doUpdateSet({
+      return await this.db.transaction().execute(async (trx) => {
+        await sql`SELECT pg_advisory_xact_lock(hashtextextended(${`table-query-ops:submit:${snapshot.tableId}`}, 0))`.execute(
+          trx
+        );
+        if (snapshot.status === 'queued' && snapshot.attempts === 0) {
+          const existing = await trx
+            .selectFrom('table_query_remediation_task')
+            .selectAll()
+            .where((eb) =>
+              snapshot.recommendationId
+                ? eb.or([
+                    eb('id', '=', snapshot.id),
+                    eb('recommendation_id', '=', snapshot.recommendationId),
+                  ])
+                : eb('id', '=', snapshot.id)
+            )
+            .executeTakeFirst();
+          if (existing) return rowToTask(existing);
+          const active = await trx
+            .selectFrom('table_query_remediation_task')
+            .select('id')
+            .where('table_id', '=', snapshot.tableId)
+            .where('status', 'in', ['queued', 'running'])
+            .executeTakeFirst();
+          if (active)
+            return err(
+              domainError.conflict({
+                code: 'table_query_ops.table_task_conflict',
+                message: `Table already has an active task: ${active.id}`,
+              })
+            );
+        }
+        await trx
+          .insertInto('table_query_remediation_task')
+          .values({
+            id: snapshot.id,
+            recommendation_id: snapshot.recommendationId ?? null,
+            base_id: snapshot.baseId,
+            table_id: snapshot.tableId,
+            kind: snapshot.kind,
             status: snapshot.status,
             payload: toJsonb(snapshot.payload),
             result: snapshot.result == null ? null : toJsonb(snapshot.result),
             attempts: snapshot.attempts,
+            max_attempts: snapshot.maxAttempts,
             locked_at: snapshot.lockedAt ?? null,
             locked_by: snapshot.lockedBy ?? null,
             last_error: snapshot.lastError ?? null,
-            last_modified_time: snapshot.lastModifiedTime ?? new Date(),
+            created_time: snapshot.createdTime,
+            last_modified_time: snapshot.lastModifiedTime ?? null,
           })
-        )
-        .execute();
-      return ok(task);
+          .onConflict((oc) =>
+            oc.column('id').doUpdateSet({
+              status: snapshot.status,
+              payload: toJsonb(snapshot.payload),
+              result: snapshot.result == null ? null : toJsonb(snapshot.result),
+              attempts: snapshot.attempts,
+              locked_at: snapshot.lockedAt ?? null,
+              locked_by: snapshot.lockedBy ?? null,
+              last_error: snapshot.lastError ?? null,
+              last_modified_time: snapshot.lastModifiedTime ?? new Date(),
+            })
+          )
+          .execute();
+        return ok(task);
+      });
     } catch (error) {
       return err(toInfrastructureError(error, 'Failed to save table query remediation task'));
     }
@@ -697,7 +733,11 @@ export class PostgresTableQueryRemediationTaskRepository {
     }
   ): Promise<Result<TableQueryRemediationTask | undefined, DomainError>> {
     try {
-      const result = await sql<TableQueryOpsDatabase['table_query_remediation_task']>`
+      const result = await this.db.transaction().execute(async (trx) => {
+        await sql`SELECT pg_advisory_xact_lock(hashtextextended('table-query-ops:claim', 0))`.execute(
+          trx
+        );
+        return sql<TableQueryOpsDatabase['table_query_remediation_task']>`
         UPDATE table_query_remediation_task
         SET locked_by = ${input.workerId},
             locked_at = ${input.now},
@@ -706,7 +746,15 @@ export class PostgresTableQueryRemediationTaskRepository {
           SELECT id
           FROM table_query_remediation_task
           WHERE status IN ('queued', 'failed')
-            AND kind = ANY(${input.allowedKinds})
+            AND NOT EXISTS (
+              SELECT 1 FROM table_query_remediation_task AS active
+              WHERE active.table_id = table_query_remediation_task.table_id
+                AND active.id <> table_query_remediation_task.id
+                AND (active.status = 'running' OR (active.status = 'queued' AND active.locked_at >= ${new Date(input.now.getTime() - 60_000)}))
+            )
+            AND (SELECT count(*) FROM table_query_remediation_task AS active
+              WHERE active.status = 'running' OR (active.status = 'queued' AND active.locked_at >= ${new Date(input.now.getTime() - 60_000)})) < 2
+            AND (kind = ANY(${input.allowedKinds}) OR payload ->> 'trigger' IN ('admin_search_access_path', 'admin_index'))
             AND (
               ${input.allowManualIndexExecution}
               OR (
@@ -720,7 +768,7 @@ export class PostgresTableQueryRemediationTaskRepository {
                     AND decision.outcome = 'pending'
                 )
               )
-              OR payload ->> 'trigger' IN ('schema_change', 'reclaim')
+              OR payload ->> 'trigger' IN ('schema_change', 'reclaim', 'admin_search_access_path', 'admin_index')
             )
             AND attempts < max_attempts
             AND (locked_at IS NULL OR locked_at < ${new Date(input.now.getTime() - 60_000)})
@@ -729,7 +777,8 @@ export class PostgresTableQueryRemediationTaskRepository {
           LIMIT 1
         )
         RETURNING *
-      `.execute(this.db);
+        `.execute(trx);
+      });
       const row = result.rows[0];
       if (!row) return ok(undefined);
       return rowToTask(row);

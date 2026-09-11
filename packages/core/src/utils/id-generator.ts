@@ -16,6 +16,7 @@ export enum IdPrefix {
   Choice = 'cho',
 
   Workflow = 'wfl',
+  CredentialGrant = 'grt',
   WorkflowTrigger = 'wtr',
   WorkflowAction = 'wac',
   WorkflowDecision = 'wde',
@@ -72,6 +73,10 @@ export enum IdPrefix {
   App = 'app',
 
   AiProxyToken = 'apt',
+
+  Routine = 'rtn',
+  RoutineSnapshot = 'rsn',
+  RoutineRun = 'rrn',
 }
 
 export enum RandomType {
@@ -130,6 +135,10 @@ export function generateAttachmentId() {
 
 export function generateWorkflowId() {
   return IdPrefix.Workflow + getRandomString(16);
+}
+
+export function generateCredentialGrantId() {
+  return IdPrefix.CredentialGrant + getRandomString(16);
 }
 
 export function generateWorkflowTriggerId() {
@@ -285,6 +294,18 @@ export function generateAppId() {
 
 export function generateAiProxyTokenId() {
   return IdPrefix.AiProxyToken + getRandomString(24);
+}
+
+export function generateRoutineId() {
+  return IdPrefix.Routine + getRandomString(16);
+}
+
+export function generateRoutineSnapshotId() {
+  return IdPrefix.RoutineSnapshot + getRandomString(16);
+}
+
+export function generateRoutineRunId() {
+  return IdPrefix.RoutineRun + getRandomString(16);
 }
 
 /**

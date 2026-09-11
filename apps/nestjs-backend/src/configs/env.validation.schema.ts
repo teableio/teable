@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import Joi from 'joi';
 
+import { DEFAULT_COMPUTED_OUTBOX_WORKER_CONCURRENCY } from './computed-outbox-trigger.config';
+
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('test', 'development', 'production').default('development'),
   PORT: Joi.number().default(3000),
@@ -67,10 +69,15 @@ export const envValidationSchema = Joi.object({
 
   V2_COMPUTED_OUTBOX_TRIGGER_PRODUCER_ENABLED: Joi.boolean().optional(),
   V2_COMPUTED_OUTBOX_TRIGGER_CONSUMER_ENABLED: Joi.boolean().optional(),
-  V2_COMPUTED_OUTBOX_TRIGGER_CONCURRENCY: Joi.number().integer().positive().default(8),
+  V2_COMPUTED_OUTBOX_TRIGGER_CONCURRENCY: Joi.number()
+    .integer()
+    .positive()
+    .default(DEFAULT_COMPUTED_OUTBOX_WORKER_CONCURRENCY),
   V2_COMPUTED_OUTBOX_TRIGGER_PUBLISH_TIMEOUT_MS: Joi.number().integer().positive().default(1000),
   V2_COMPUTED_OUTBOX_MONITOR_CONCURRENCY: Joi.number().integer().positive().default(4),
   V2_COMPUTED_OUTBOX_MONITOR_INTERVAL_MS: Joi.number().integer().positive().default(30000),
+  V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_BASE: Joi.number().integer().positive().default(2),
+  V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_SEED_TABLE: Joi.number().integer().positive().default(1),
   V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS: Joi.number().integer().min(0).default(60000),
   V2_COMPUTED_INLINE_STATEMENT_TIMEOUT_MS: Joi.number().integer().min(0).default(60000),
   V2_COMPUTED_OUTBOX_FIELD_BACKFILL_BATCH_SIZE: Joi.number().integer().positive().default(500),
@@ -80,6 +87,7 @@ export const envValidationSchema = Joi.object({
   // per-space scheduling concurrency limits (default and ceiling per resource)
   SPACE_AI_FIELD_GENERATION_DEFAULT_LIMIT: Joi.number().integer().positive().optional(),
   SPACE_WORKFLOW_RUN_DEFAULT_LIMIT: Joi.number().integer().positive().optional(),
+  SPACE_ROUTINE_RUN_DEFAULT_LIMIT: Joi.number().integer().positive().optional(),
   // github auth
   BACKEND_GITHUB_CLIENT_ID: Joi.when('SOCIAL_AUTH_PROVIDERS', {
     is: Joi.string()

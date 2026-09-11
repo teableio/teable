@@ -8,7 +8,7 @@ import { AccessTokenList } from '@/features/app/blocks/setting/access-token/Acce
 import type { IFormType } from '@/features/app/blocks/setting/access-token/form/AccessTokenForm';
 import { PersonAccessTokenForm } from '@/features/app/blocks/setting/access-token/PersonAccessTokenForm';
 import { personalAccessTokenConfig } from '@/features/i18n/personal-access-token.config';
-import { SettingTabHeader, SettingTabShell } from '../SettingTabShell';
+import { SettingTabShell } from '../SettingTabShell';
 
 interface IViewState {
   formType?: IFormType;
@@ -52,54 +52,50 @@ export const PersonalAccessTokenSection = () => {
 
   return (
     <SettingTabShell
-      header={
-        <SettingTabHeader
-          leading={
-            formType ? (
-              <Button variant="ghost" size="icon-xs" onClick={onBack}>
-                <ChevronLeft className="size-4 shrink-0" />
-              </Button>
-            ) : undefined
-          }
-          title={title}
-          description={
-            !formType ? (
-              <Trans
-                ns="token"
-                i18nKey="list.description"
-                components={{
-                  a: (
-                    <Link
-                      href={t('token:help.link')}
-                      className="text-violet-500 underline underline-offset-4"
-                      target="_blank"
-                    />
-                  ),
-                }}
-              />
-            ) : undefined
-          }
-          actions={
-            !formType ? (
-              <>
-                <Button size="xs" variant="ghost" asChild>
-                  <Link href="/developer/tool/query-builder" target="_blank" className="gap-1">
-                    <ArrowUpRight className="size-4" />
-                    {t('developer:apiQueryBuilder')}
-                  </Link>
-                </Button>
-                <Button size="xs" onClick={() => setViewState({ formType: 'new' })}>
-                  <Plus className="size-4 shrink-0" />
-                  {t('token:new.button')}
-                </Button>
-              </>
-            ) : undefined
-          }
-        />
+      leading={
+        formType ? (
+          <Button variant="ghost" size="icon-xs" onClick={onBack}>
+            <ChevronLeft className="size-4 shrink-0" />
+          </Button>
+        ) : undefined
       }
-      contentClassName="py-0"
+      title={title}
+      description={
+        !formType ? (
+          <Trans
+            ns="token"
+            i18nKey="list.description"
+            components={{
+              a: (
+                <Link
+                  href={t('token:help.link')}
+                  className="text-violet-500 underline underline-offset-4"
+                  target="_blank"
+                />
+              ),
+            }}
+          />
+        ) : undefined
+      }
+      actions={
+        !formType ? (
+          <>
+            <Button size="xs" variant="ghost" asChild>
+              <Link href="/developer/tool/query-builder" target="_blank" className="gap-1">
+                <ArrowUpRight className="size-4" />
+                {t('developer:apiQueryBuilder')}
+              </Link>
+            </Button>
+            <Button size="xs" onClick={() => setViewState({ formType: 'new' })}>
+              <Plus className="size-4 shrink-0" />
+              {t('token:new.button')}
+            </Button>
+          </>
+        ) : undefined
+      }
+      mobileNavigation={!formType}
     >
-      <div className="flex-1 py-4">
+      <div className="flex-1">
         {formType ? (
           <PersonAccessTokenForm
             formType={formType}

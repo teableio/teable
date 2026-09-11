@@ -133,6 +133,13 @@ type IMetaRoutingClient = PrismaService | NonNullable<IClsStore['tx']['client']>
 const isBoundToDataDb = <T extends { mode: string }>(binding: T | null): binding is T =>
   binding !== null && binding.mode !== 'default';
 
+export class DataDbBaseNotFoundError extends Error {
+  constructor(readonly baseId: string) {
+    super(`Base ${baseId} not found`);
+    this.name = 'DataDbBaseNotFoundError';
+  }
+}
+
 export class DataDbBindingNotReadyError extends CustomHttpException {
   readonly spaceId: string;
 
@@ -462,7 +469,7 @@ export class DataDbClientManager {
         select: { spaceId: true },
       });
       if (!base) {
-        throw new Error(`Base ${baseId} not found`);
+        throw new DataDbBaseNotFoundError(baseId);
       }
       return base.spaceId;
     });
@@ -582,7 +589,9 @@ export class DataDbClientManager {
    * Bases whose space currently has a BYODB binding, including bindings whose
    * connection is disabled/unready and therefore absent from the queryable
    * maintenance inventory. Used to hide leftover default-storage anomalies
-   * that must not be recovered onto the meta database.
+   * that must not be recovered onto the meta database. Complements
+   * buildComputedOutboxRoutedFilter, which also treats deleted BYODB-bound
+   * bases as routed away so the admin badge matches the list.
    */
   async listByodbBoundBaseIds(): Promise<string[]> {
     const bases = await this.prismaService.base.findMany({

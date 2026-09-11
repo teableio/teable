@@ -1,6 +1,13 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
-import { createReadStream, createWriteStream, unlinkSync, existsSync, rmSync } from 'fs';
+import {
+  createReadStream,
+  createWriteStream,
+  unlinkSync,
+  existsSync,
+  rmSync,
+  promises as fsp,
+} from 'fs';
 import { type Readable as ReadableStream } from 'node:stream';
 import { join, resolve } from 'path';
 import { Injectable, Logger } from '@nestjs/common';
@@ -382,7 +389,10 @@ export class LocalStorage implements StorageAdapter {
   }
 
   async downloadFile(bucket: string, path: string): Promise<ReadableStream> {
-    return createReadStream(resolve(this.storageDir, bucket, path));
+    const filePath = resolve(this.storageDir, bucket, path);
+    // reject up front with the fs error (ENOENT) instead of returning a stream that errors
+    await fsp.access(filePath);
+    return createReadStream(filePath);
   }
 
   async listObjects(

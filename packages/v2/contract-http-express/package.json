@@ -47,7 +47,7 @@
     "@teable/v2-tsdown-config": "workspace:*",
     "@teable/eslint-config-bases": "workspace:^",
     "@types/express": "4.17.21",
-    "@types/node": "22.18.0",
+    "@types/node": "24.13.2",
     "@vitest/coverage-v8": "4.0.17",
     "eslint": "8.57.0",
     "prettier": "3.2.5",

@@ -184,6 +184,7 @@ const rewriteDuplicatedDto = (
     id: context.duplicatedTableId,
     name: params.newName.toString(),
     dbTableName: undefined,
+    searchIndex: undefined,
     primaryFieldId: context.fieldIdMap.get(dto.primaryFieldId) ?? dto.primaryFieldId,
     fields: remapped.fields.map((field) =>
       field.type === 'link'

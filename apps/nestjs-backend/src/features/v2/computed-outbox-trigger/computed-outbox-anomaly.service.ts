@@ -239,6 +239,13 @@ export class ComputedOutboxAnomalyService {
     }
   }
 
+  async assertWritableTarget(baseId: string, targetId: string): Promise<void> {
+    await this.spaceDataDbMigrationGuard.assertBaseWritable(baseId);
+    const current = await this.resolveCurrentStorageTarget(baseId);
+    if (current.cacheKey !== targetId)
+      throw new ConflictException('Computed outbox Base no longer routes to this storage target');
+  }
+
   async recover(input: { targetId: string; taskId: string; kind: 'dead' | 'stale' }): Promise<{
     taskId: string;
     kind: 'dead' | 'stale';

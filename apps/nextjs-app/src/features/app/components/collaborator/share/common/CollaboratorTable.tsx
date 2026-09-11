@@ -267,8 +267,8 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
 
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col gap-4', className)}>
-      <div className="min-h-0 flex-1 overflow-y-auto rounded-md border">
-        <Table className="table-fixed">
+      <div className="min-h-0 flex-1 overflow-auto rounded-md border">
+        <Table className={cn('table-fixed', groupByPrincipal && 'min-w-[700px]')}>
           <TableHeader className="sticky top-0 z-10 bg-background [&_th]:shadow-[inset_0_-1px_0_hsl(var(--border))] [&_tr]:border-0">
             <TableRow className="hover:bg-background">
               <TableHead className="px-4 font-normal">{t('invite.table.collaborator')}</TableHead>

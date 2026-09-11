@@ -1,7 +1,12 @@
 /**
  * PostgreSQL type validation types supported by the strategy.
  */
-export type PgValidationType = 'timestamptz' | 'timestamp' | 'numeric' | 'jsonb';
+export type PgValidationType =
+  | 'timestamptz'
+  | 'timestamp'
+  | 'numeric'
+  | 'double precision'
+  | 'jsonb';
 
 /**
  * Strategy interface for PostgreSQL type validation.

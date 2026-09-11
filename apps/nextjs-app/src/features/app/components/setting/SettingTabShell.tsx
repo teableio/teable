@@ -1,14 +1,16 @@
 import { cn } from '@teable/ui-lib/shadcn';
 import type { ReactNode } from 'react';
+import { MobileSettingNavigationTitle } from './MobileSettingNavigation';
 
 type SettingTabShellProps = {
-  header?: ReactNode;
+  title: ReactNode;
+  description?: ReactNode;
+  actions?: ReactNode;
+  leading?: ReactNode;
+  mobileNavigation?: boolean;
   children: ReactNode;
   footer?: ReactNode;
   className?: string;
-  headerClassName?: string;
-  contentClassName?: string;
-  footerClassName?: string;
 };
 
 type SettingTabHeaderProps = {
@@ -16,38 +18,22 @@ type SettingTabHeaderProps = {
   description?: ReactNode;
   actions?: ReactNode;
   leading?: ReactNode;
-  className?: string;
-  titleClassName?: string;
-  descriptionClassName?: string;
 };
 
-export const SettingTabHeader = ({
-  title,
-  description,
-  actions,
-  leading,
-  className,
-  titleClassName,
-  descriptionClassName,
-}: SettingTabHeaderProps) => {
+const SettingTabHeader = ({ title, description, actions, leading }: SettingTabHeaderProps) => {
   const hasDescription = Boolean(description);
   return (
     <div
       className={cn(
         'flex w-full justify-between gap-6',
-        hasDescription ? 'items-start' : 'items-center',
-        className
+        hasDescription ? 'items-start' : 'items-center'
       )}
     >
       <div className={cn('flex flex-1 gap-3', hasDescription ? 'items-start' : 'items-center')}>
         {leading}
         <div className="flex flex-col gap-1.5">
-          <div className={cn('text-lg font-semibold leading-7', titleClassName)}>{title}</div>
-          {description && (
-            <div className={cn('text-sm text-muted-foreground', descriptionClassName)}>
-              {description}
-            </div>
-          )}
+          <div className="text-lg font-semibold leading-7">{title}</div>
+          {description && <div className="text-sm text-muted-foreground">{description}</div>}
         </div>
       </div>
       {actions && (
@@ -58,36 +44,48 @@ export const SettingTabHeader = ({
 };
 
 export const SettingTabShell = ({
-  header,
+  title,
+  description,
+  actions,
+  leading,
+  mobileNavigation = true,
   children,
   footer,
   className,
-  headerClassName,
-  contentClassName,
-  footerClassName,
 }: SettingTabShellProps) => {
+  const hasMobileDetails = Boolean(description || actions);
+
   return (
     <div className={cn('teable-setting-tab-shell flex h-full flex-col bg-background', className)}>
-      {header && (
-        <div
-          className={cn(
-            'teable-setting-tab-shell__header flex items-start justify-between gap-3 px-4 pb-4 pt-4 pe-16 sm:px-6 sm:pb-6 sm:pt-6 sm:pe-12',
-            headerClassName
-          )}
-        >
-          {header}
+      <div className="teable-setting-tab-shell__mobile-header flex shrink-0 items-center gap-3 border-b px-4 py-3 pe-14 sm:hidden">
+        {leading}
+        <div className="min-w-0 flex-1 text-lg font-semibold leading-7">
+          <MobileSettingNavigationTitle enabled={mobileNavigation}>
+            {title}
+          </MobileSettingNavigationTitle>
         </div>
-      )}
-      <div
-        className={cn(
-          'teable-setting-tab-shell__content flex-1 overflow-y-auto px-4 sm:px-6',
-          contentClassName
+      </div>
+      <div className="teable-setting-tab-shell__header hidden items-start justify-between gap-3 p-6 pe-12 sm:flex">
+        <SettingTabHeader
+          title={title}
+          description={description}
+          actions={actions}
+          leading={leading}
+        />
+      </div>
+      <div className="teable-setting-tab-shell__content flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 sm:gap-6 sm:p-6 sm:pt-0">
+        {hasMobileDetails && (
+          <div className="flex shrink-0 flex-col gap-3 sm:hidden">
+            {description && <div className="text-sm text-muted-foreground">{description}</div>}
+            {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+          </div>
         )}
-      >
-        {children}
+        <div className="min-h-0 flex-1">{children}</div>
       </div>
       {footer && (
-        <div className={cn('px-4 pb-4 pt-4 sm:px-6 sm:pb-6', footerClassName)}>{footer}</div>
+        <div className="px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:pb-6">
+          {footer}
+        </div>
       )}
     </div>
   );

@@ -2,16 +2,19 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { RecordQueryPluginRunner } from '../application/services/RecordQueryPluginRunner';
 import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import { Table } from '../domain/table/Table';
-import { IComputedActivityReader } from '../ports/ComputedActivityReader';
 import type { TableComputeActivitySnapshot } from '../ports/ComputedActivityReader';
+import * as ComputeActivityReaderPort from '../ports/ComputedActivityReader';
 import type { IExecutionContext } from '../ports/ExecutionContext';
-import { ILogger } from '../ports/Logger';
+import * as LoggerPort from '../ports/Logger';
+import { RecordQueryOperationKind } from '../ports/RecordQueryPlugin';
 import { TableOperationKind } from '../ports/TableOperationPlugin';
-import { ITableRepository } from '../ports/TableRepository';
+import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
+import { filterComputeActivitySnapshot } from './filterComputeActivitySnapshot';
 import { GetComputeActivityQuery } from './GetComputeActivityQuery';
 import { QueryHandler, type IQueryHandler } from './QueryHandler';
 
@@ -30,13 +33,15 @@ export class GetComputeActivityHandler
 {
   constructor(
     @inject(v2CoreTokens.tableRepository)
-    private readonly tableRepository: ITableRepository,
+    private readonly tableRepository: TableRepositoryPort.ITableRepository,
     @inject(v2CoreTokens.computedActivityReader)
-    private readonly activityReader: IComputedActivityReader,
+    private readonly activityReader: ComputeActivityReaderPort.IComputedActivityReader,
     @inject(v2CoreTokens.logger)
-    private readonly logger: ILogger,
+    private readonly logger: LoggerPort.ILogger,
     @inject(v2CoreTokens.tableOperationPluginRunner)
-    private readonly tableOperationPluginRunner: TableOperationPluginRunner
+    private readonly tableOperationPluginRunner: TableOperationPluginRunner,
+    @inject(v2CoreTokens.recordQueryPluginRunner)
+    private readonly recordQueryPluginRunner: RecordQueryPluginRunner
   ) {}
 
   async handle(
@@ -74,10 +79,42 @@ export class GetComputeActivityHandler
     const guardResult = await pluginExecutionResult.value.guard();
     if (guardResult.isErr()) return err(guardResult.error);
 
+    const readExecution = await this.recordQueryPluginRunner.prepare({
+      kind: RecordQueryOperationKind.list,
+      executionContext: context,
+      table: tableResult.value,
+      payload: {},
+    });
+    if (readExecution.isErr()) return err(readExecution.error);
+    const readGuard = await readExecution.value.guard();
+    if (readGuard.isErr()) return err(readGuard.error);
+    const scope = readExecution.value.getScope();
+    if (scope.isErr()) return err(scope.error);
+
+    const readScope = scope.value;
+    const restricted =
+      readScope?.readableFieldIds || readScope?.fieldMasks?.length || readScope?.recordSpec;
+    const masked = new Set(readScope?.fieldMasks?.map(({ fieldId }) => fieldId));
+    const readableFieldIds = restricted
+      ? tableResult.value
+          .getFields()
+          .map((field) => field.id().toString())
+          .filter(
+            (fieldId) =>
+              !readScope?.recordSpec &&
+              !masked.has(fieldId) &&
+              (readScope?.readableFieldIds?.has(fieldId) ?? true)
+          )
+      : undefined;
     const result = await this.activityReader.getByTableId(
       context,
       query.tableId.toString(),
-      query.baseId.toString()
+      query.baseId.toString(),
+      {
+        budgetMs: 2000,
+        includePauseDiagnostics: true,
+        ...(readableFieldIds === undefined ? {} : { readableFieldIds }),
+      }
     );
     if (result.isErr()) return err(result.error);
 
@@ -91,6 +128,8 @@ export class GetComputeActivityHandler
       fieldCount: snapshot.fields.length,
       activeFieldCount: snapshot.diagnostics.activeFieldCount,
     });
-    return ok(GetComputeActivityResult.create(snapshot));
+    return ok(
+      GetComputeActivityResult.create(filterComputeActivitySnapshot(snapshot, scope.value))
+    );
   }
 }

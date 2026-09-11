@@ -394,6 +394,7 @@ export class TableFieldPersistenceBuilder {
         ...(typeof opts.baseId === 'string' && opts.baseId ? { baseId: opts.baseId } : {}),
         foreignTableId: opts.foreignTableId,
         lookupFieldId: opts.lookupFieldId,
+        isUnique: opts.isUnique,
         filter: condition?.filter ?? null,
         sort: condition?.sort,
         limit: condition?.limit,

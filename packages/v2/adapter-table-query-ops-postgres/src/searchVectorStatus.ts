@@ -1,9 +1,8 @@
 import { FieldId, type IExecutionContext, type IRecordSearchAccessPath } from '@teable/v2-core';
-import type {
-  TableSearchAccessPathResolver,
-  TableSearchVectorStatus,
-  TableSearchVectorStatusReader,
-  TableSearchVectorStatusState,
+import {
+  type TableSearchVectorStatus,
+  type TableSearchVectorStatusReader,
+  type TableSearchVectorStatusState,
 } from '@teable/v2-table-query-ops';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
@@ -77,7 +76,7 @@ export const toRecordSearchAccessPathFromConfig = (
     return undefined;
   }
 
-  if (row.status !== 'ready') {
+  if (!knownStates.has(row.status as TableSearchVectorStatusState)) {
     return undefined;
   }
 
@@ -104,7 +103,7 @@ export const toRecordSearchAccessPathFromConfig = (
     };
   }
 
-  if (!row.languageConfig) return undefined;
+  if (row.status !== 'ready' || !row.languageConfig) return undefined;
 
   return {
     kind: 'generated_tsvector',
@@ -114,40 +113,6 @@ export const toRecordSearchAccessPathFromConfig = (
     coveredFieldIds,
   };
 };
-
-export class PostgresTableSearchAccessPathResolver implements TableSearchAccessPathResolver {
-  constructor(private readonly metaDb: Kysely<UnknownPostgresDatabase>) {}
-
-  async resolve(_context: IExecutionContext, tableId: string) {
-    try {
-      const relation = await sql<{ relation_name: string | null }>`
-        SELECT to_regclass('public.table_query_search_vector_config')::text AS relation_name
-      `.execute(this.metaDb);
-      if (!relation.rows[0]?.relation_name) return ok(undefined);
-
-      const result = await sql<SearchAccessPathConfigRow>`
-        SELECT
-          generated_column_name AS "generatedColumnName",
-          semantics,
-          access_path AS "accessPath",
-          provider,
-          language_config AS "languageConfig",
-          field_ids AS "fieldIds",
-          search_scope AS "searchScope",
-          status
-        FROM table_query_search_vector_config
-        WHERE table_id = ${tableId}
-          AND status IN ('ready', 'rebuild_pending', 'stale')
-        ORDER BY last_modified_time DESC NULLS LAST, created_time DESC NULLS LAST
-        LIMIT 1
-      `.execute(this.metaDb);
-
-      return ok(toRecordSearchAccessPathFromConfig(result.rows[0]));
-    } catch (error) {
-      return err(toInfrastructureError(error, 'Failed to resolve table search access path'));
-    }
-  }
-}
 
 export class PostgresTableSearchVectorStatusReader implements TableSearchVectorStatusReader {
   constructor(private readonly metaDb: Kysely<UnknownPostgresDatabase>) {}

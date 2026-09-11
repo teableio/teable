@@ -55,11 +55,13 @@ import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
 import { PermissionService } from '../auth/permission.service';
+import { buildBaseNodeUrl, buildTableUrl } from '../base-node/base-node-url.helper';
 import { CanaryService } from '../canary';
 import type { IV2Decision } from '../canary';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { GraphService } from '../graph/graph.service';
+import { invalidateSearchIndexesForDataDbRouting } from '../space/search-index-routing-invalidation';
 import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
 import { BaseDataDbMoveService } from './base-data-db-move.service';
@@ -702,6 +704,7 @@ export class BaseService {
           resourceType: LastVisitResourceType.Base,
           resourceId: baseId,
           parentResourceId: spaceId,
+          lastVisitTime: new Date().toISOString(),
         },
       })
       .catch((error) => {
@@ -883,6 +886,7 @@ export class BaseService {
       ...actionPrefixMap[ActionPrefix.Table],
       ...actionPrefixMap[ActionPrefix.Base],
       ...actionPrefixMap[ActionPrefix.Automation],
+      ...actionPrefixMap[ActionPrefix.Routine],
       ...actionPrefixMap[ActionPrefix.App],
       ...actionPrefixMap[ActionPrefix.TableRecordHistory],
     ].reduce((acc, action) => {
@@ -1049,6 +1053,7 @@ export class BaseService {
       const executor = this.getDataPrismaExecutor(scopedDataPrisma);
       const byBaseStatements = [
         `delete from "computed_update_outbox_seed" where "task_id" in (select "id" from "computed_update_outbox" where "base_id" = $1)`,
+        `delete from "computed_update_change_frontier" where "scope_id" in (select coalesce(case when jsonb_typeof("dirty_stats") = 'object' then "dirty_stats"->>'ledgerScopeId' end, "id") from "computed_update_outbox" where "base_id" = $1)`,
         `delete from "computed_update_stage_ledger" where "scope_id" in (select coalesce(case when jsonb_typeof("dirty_stats") = 'object' then "dirty_stats"->>'ledgerScopeId' end, "id") from "computed_update_outbox" where "base_id" = $1)`,
         `delete from "computed_update_outbox" where "base_id" = $1`,
         `delete from "computed_update_dead_letter" where "base_id" = $1`,
@@ -1136,7 +1141,11 @@ export class BaseService {
    * Safe only when source and target spaces share the same data database,
    * or after physical base schema/shared rows have already been copied.
    */
-  async applyMetaMoveBase(baseId: string, targetSpaceId: string) {
+  async applyMetaMoveBase(
+    baseId: string,
+    targetSpaceId: string,
+    options?: { dataDbChanged: boolean }
+  ) {
     const { affected, levels } = await this.computeMoveBaseCrossSpaceImpact(baseId, targetSpaceId);
     // Deepest-first: dependent lookup/rollup fields convert first via the
     // regular convertField path so their values are snapshotted by
@@ -1192,10 +1201,16 @@ export class BaseService {
             });
           }
         }
+        if (options?.dataDbChanged) {
+          await invalidateSearchIndexesForDataDbRouting(this.prismaService.txClient(), { baseId });
+        }
         await this.prismaService.txClient().base.update({
           where: { id: baseId },
           data: { spaceId: targetSpaceId },
         });
+        // Personal positions are per space (T7235): in the target space the base is new to
+        // everyone, so drop the rows rather than carrying over positions from another scale.
+        await this.prismaService.txClient().userBaseOrder.deleteMany({ where: { baseId } });
         await this.afterMetaMoveBase(baseId, targetSpaceId);
       });
     } catch (error) {
@@ -1449,36 +1464,14 @@ export class BaseService {
       return null;
     }
 
-    const { resourceType, resourceId } = node;
+    const resourceType = node.resourceType as BaseNodeResourceType;
+    const { resourceId } = node;
 
-    switch (resourceType) {
-      case BaseNodeResourceType.Table: {
-        const table = await prisma.tableMeta.findFirst({
-          where: { id: resourceId, deletedTime: null },
-          select: { id: true },
-        });
-        if (!table) {
-          return `/base/${snapshotBaseId}`;
-        }
-        const defaultView = await prisma.view.findFirst({
-          where: { tableId: resourceId, deletedTime: null },
-          orderBy: { order: 'asc' },
-          select: { id: true },
-        });
-        if (defaultView) {
-          return `/base/${snapshotBaseId}/table/${resourceId}/${defaultView.id}`;
-        }
-        return `/base/${snapshotBaseId}/table/${resourceId}`;
-      }
-      case BaseNodeResourceType.Dashboard:
-        return `/base/${snapshotBaseId}/dashboard/${resourceId}`;
-      case BaseNodeResourceType.Workflow:
-        return `/base/${snapshotBaseId}/automation/${resourceId}`;
-      case BaseNodeResourceType.App:
-        return `/base/${snapshotBaseId}/app/${resourceId}`;
-      default:
-        return `/base/${snapshotBaseId}`;
-    }
+    const url =
+      resourceType === BaseNodeResourceType.Table
+        ? await buildTableUrl(prisma, snapshotBaseId, resourceId)
+        : buildBaseNodeUrl(snapshotBaseId, resourceType, resourceId);
+    return url ?? `/base/${snapshotBaseId}`;
   }
 
   async publishBase(baseId: string, publishBaseRo: IPublishBaseRo) {
@@ -1586,6 +1579,7 @@ export class BaseService {
     const { id: templateSpaceId } = await prisma.space.findFirstOrThrow({
       where: {
         isTemplate: true,
+        deletedTime: null,
       },
       select: {
         id: true,

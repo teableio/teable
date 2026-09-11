@@ -276,7 +276,6 @@
       "bar": "Barre",
       "text": "Texte",
       "markdown": "Markdown",
-      "url": "Url",
       "email": "Email",
       "phone": "Téléphone",
       "maxNumber": "Nombre maximum",
@@ -338,6 +337,7 @@
       "filterByView": "Filtrer les enregistrements par vue",
       "filter": "Filtrer les enregistrements",
       "hideFields": "Masquer les champs",
+      "removeDuplicateValues": "Supprimer les valeurs en double",
       "moreOptions": "Plus d'options",
       "allowNewOptionsWhenEditing": "Autoriser de nouvelles options lors de l'édition",
       "deleteField": {
@@ -921,6 +921,9 @@
   },
   "import": {
     "title": {
+      "createTable": "Créer une table",
+      "importFromCsv": "Importer depuis un fichier CSV",
+      "importFromExcel": "Importer depuis Excel",
       "upload": "Télécharger",
       "import": "Importer",
       "localFile": "Fichiers locaux",
@@ -1388,6 +1391,96 @@
     "action": {
       "locateResource": "Localiser"
     },
+    "resourceOperations": {
+      "title": "Modifications de cet échange",
+      "items_one": "{{count}} élément",
+      "items_many": "{{count}} éléments",
+      "items_other": "{{count}} éléments",
+      "expandRemaining": "Afficher la suite ({{count}})",
+      "collapse": "Afficher moins",
+      "create": "Créé",
+      "update": "Mis à jour",
+      "delete": "Supprimé",
+      "import": "Importer",
+      "publication": {
+        "published": "Publié",
+        "unpublished": "Publication annulée"
+      },
+      "structureTitles": {
+        "field": "Modifications des champs",
+        "view": "Modifications des vues"
+      },
+      "structureStats": {
+        "field": {
+          "create_one": "{{count}} champ ajouté",
+          "create_many": "{{count}} champs ajoutés",
+          "create_other": "{{count}} champs ajoutés",
+          "update_one": "{{count}} champ modifié",
+          "update_many": "{{count}} champs modifiés",
+          "update_other": "{{count}} champs modifiés",
+          "delete_one": "{{count}} champ supprimé",
+          "delete_many": "{{count}} champs supprimés",
+          "delete_other": "{{count}} champs supprimés",
+          "import_one": "{{count}} champ importé",
+          "import_many": "{{count}} champs importés",
+          "import_other": "{{count}} champs importés"
+        },
+        "view": {
+          "create_one": "{{count}} vue ajoutée",
+          "create_many": "{{count}} vues ajoutées",
+          "create_other": "{{count}} vues ajoutées",
+          "update_one": "{{count}} vue modifiée",
+          "update_many": "{{count}} vues modifiées",
+          "update_other": "{{count}} vues modifiées",
+          "delete_one": "{{count}} vue supprimée",
+          "delete_many": "{{count}} vues supprimées",
+          "delete_other": "{{count}} vues supprimées",
+          "import_one": "{{count}} vue importée",
+          "import_many": "{{count}} vues importées",
+          "import_other": "{{count}} vues importées"
+        }
+      },
+      "workflow": {
+        "activate": "Automatisation activée",
+        "deactivate": "Automatisation désactivée",
+        "discard": "Modifications du brouillon abandonnées"
+      },
+      "routine": {
+        "activate": "Routine activée",
+        "deactivate": "Routine désactivée",
+        "run": "Exécution lancée"
+      },
+      "records": {
+        "create": "Enregistrements ajoutés",
+        "createCount_one": "{{count}} enregistrement ajouté",
+        "createCount_many": "{{count}} enregistrements ajoutés",
+        "createCount_other": "{{count}} enregistrements ajoutés",
+        "update": "Enregistrements mis à jour",
+        "updateCount_one": "{{count}} enregistrement mis à jour",
+        "updateCount_many": "{{count}} enregistrements mis à jour",
+        "updateCount_other": "{{count}} enregistrements mis à jour",
+        "delete": "Enregistrements supprimés",
+        "deleteCount_one": "{{count}} enregistrement supprimé",
+        "deleteCount_many": "{{count}} enregistrements supprimés",
+        "deleteCount_other": "{{count}} enregistrements supprimés",
+        "import": "Enregistrements importés",
+        "importCount_one": "{{count}} enregistrement importé",
+        "importCount_many": "{{count}} enregistrements importés",
+        "importCount_other": "{{count}} enregistrements importés"
+      },
+      "types": {
+        "base": "Base",
+        "table": "Table",
+        "field": "Champ",
+        "view": "Vue",
+        "record": "Enregistrements",
+        "app": "Application",
+        "workflow": "Automatisation",
+        "routine": "Routine",
+        "folder": "Dossier",
+        "artifact": "Artifact"
+      }
+    },
     "showUI": {
       "skip": "Passer",
       "next": "Suivant",
@@ -1428,7 +1521,13 @@
     "addAttachment": "Ajouter une pièce jointe",
     "noHistory": "Aucun historique de chat",
     "noFoundHistory": "Aucun historique de chat trouvé, veuillez commencer une nouvelle conversation",
+    "pin": "Épingler",
+    "unpin": "Désépingler",
+    "archive": "Archiver",
+    "archivedToast": "Conversation archivée. Retrouvez-la dans Paramètres › Conversations archivées.",
+    "unread": "Non lu",
     "timeGroup": {
+      "pinned": "Épinglées",
       "today": "Aujourd'hui",
       "oneWeek": "Une semaine",
       "twoWeek": "Deux semaines",
@@ -1447,6 +1546,7 @@
       "tables": "Tables",
       "apps": "Applications",
       "workflows": "Automatisations",
+      "routines": "Routines",
       "folders": "Dossiers",
       "envs": "Secrets"
     },
@@ -1604,6 +1704,11 @@
         "upstreamBadRequest": "Le point de terminaison vocal n’est pas valide.",
         "upstreamUnavailable": "La fonction vocale est indisponible."
       }
+    },
+    "status": {
+      "running": "Génération en cours…",
+      "waitingInput": "En attente de votre réponse",
+      "failed": "Réponse échouée"
     }
   },
   "upload": {

@@ -527,6 +527,7 @@ export class BaseDuplicateService {
       includedDashboardIds,
       includedWorkflowIds,
       includedAppIds,
+      includedRoutineIds,
       excludedTableIds,
     } = await this.collectNodesAndResourceIds(fromBaseId, nodes, skipParentNodes);
     const rootNodeIds = skipParentNodes ? [...(nodes || [])] : undefined;
@@ -556,6 +557,7 @@ export class BaseDuplicateService {
       includedDashboardIds,
       includedWorkflowIds,
       includedAppIds,
+      includedRoutineIds,
       excludedTableIds,
       rootNodeIds,
       destSpaceId,
@@ -780,6 +782,7 @@ export class BaseDuplicateService {
       includedDashboardIds,
       includedWorkflowIds,
       includedAppIds,
+      includedRoutineIds,
       excludedTableIds,
     } = await this.collectNodesAndResourceIds(fromBaseId, nodes, skipParentNodes);
 
@@ -827,6 +830,7 @@ export class BaseDuplicateService {
       includedDashboardIds,
       includedWorkflowIds,
       includedAppIds,
+      includedRoutineIds,
       excludedTableIds,
       rootNodeIds,
       destSpaceId: spaceId,
@@ -874,6 +878,7 @@ export class BaseDuplicateService {
     let includedFolderIds: string[] | undefined;
     let includedDashboardIds: string[] | undefined;
     let includedWorkflowIds: string[] | undefined;
+    let includedRoutineIds: string[] | undefined;
     let includedAppIds: string[] | undefined;
     let finalIncludeNodes: string[] | undefined;
 
@@ -962,6 +967,10 @@ export class BaseDuplicateService {
         .filter((node) => node.resourceType === 'app')
         .map((node) => node.resourceId);
 
+      includedRoutineIds = includedNodeDetails
+        .filter((node) => node.resourceType === 'routine')
+        .map((node) => node.resourceId);
+
       excludedTableIds = allNodes
         .filter((node) => !allIncludedNodeIds.has(node.id))
         .map((node) => node.resourceId);
@@ -986,6 +995,7 @@ export class BaseDuplicateService {
       includedDashboardIds,
       includedWorkflowIds,
       includedAppIds,
+      includedRoutineIds,
 
       excludedTableIds,
       excludedFolderIds,

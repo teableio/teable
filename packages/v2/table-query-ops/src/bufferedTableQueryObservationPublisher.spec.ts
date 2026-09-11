@@ -116,7 +116,7 @@ describe('BufferedTableQueryObservationPublisher', () => {
       .mockResolvedValue(ok(undefined));
     publisher = new BufferedTableQueryObservationPublisher(
       { recordBatch },
-      { writerId: 'writer-a', batchSize: 1 }
+      { writerId: 'writer-a', batchSize: 1, minRequestCount: 1 }
     );
 
     publisher.publish(context, observation({ tableId: 'tbl-a' }));
@@ -140,7 +140,7 @@ describe('BufferedTableQueryObservationPublisher', () => {
     const recordBatch = vi.fn().mockResolvedValue(ok(undefined));
     publisher = new BufferedTableQueryObservationPublisher(
       { recordBatch },
-      { writerId: 'writer-a', maxPendingKeys: 2 }
+      { writerId: 'writer-a', maxPendingKeys: 2, minRequestCount: 1 }
     );
 
     publisher.publish(context, observation({ tableId: 'tbl-hot', requestCount: 10 }));
@@ -168,7 +168,7 @@ describe('BufferedTableQueryObservationPublisher', () => {
       .mockResolvedValue(ok(undefined));
     publisher = new BufferedTableQueryObservationPublisher(
       { recordBatch },
-      { writerId: 'writer-a', batchSize: 1 }
+      { writerId: 'writer-a', batchSize: 1, minRequestCount: 1 }
     );
 
     publisher.publish(context, observation({ tableId: 'tbl-a' }));
@@ -191,7 +191,7 @@ describe('BufferedTableQueryObservationPublisher', () => {
       .mockResolvedValue(ok(undefined));
     publisher = new BufferedTableQueryObservationPublisher(
       { recordBatch },
-      { writerId: 'writer-a' }
+      { writerId: 'writer-a', minRequestCount: 1 }
     );
 
     publisher.publish(context, observation({ tableId: 'tbl-a' }));
@@ -214,7 +214,7 @@ describe('BufferedTableQueryObservationPublisher', () => {
     );
     publisher = new BufferedTableQueryObservationPublisher(
       { recordBatch },
-      { writerId: 'writer-a', batchSize: 1 }
+      { writerId: 'writer-a', batchSize: 1, minRequestCount: 1 }
     );
 
     publisher.publish(context, observation({ tableId: 'tbl-a' }));
@@ -230,5 +230,49 @@ describe('BufferedTableQueryObservationPublisher', () => {
     await publisher.flush();
 
     expect(recordBatch).toHaveBeenCalledOnce();
+  });
+
+  it('keeps an open quiet window then persists after it reaches the request threshold', async () => {
+    const recordBatch = vi.fn().mockResolvedValue(ok(undefined));
+    const now = vi.fn(() => new Date('2026-08-27T12:00:10.000Z'));
+    publisher = new BufferedTableQueryObservationPublisher({ recordBatch }, { now });
+
+    publisher.publish(context, observation({ tableId: 'tbl-quiet', requestCount: 2 }));
+    await publisher.flush();
+    expect(recordBatch).not.toHaveBeenCalled();
+
+    publisher.publish(context, observation({ tableId: 'tbl-quiet', requestCount: 8 }));
+    await publisher.flush();
+
+    expect(recordBatch).toHaveBeenCalledOnce();
+    expect(recordBatch.mock.calls[0]?.[1].observations[0].requestCount()).toBe(10);
+  });
+
+  it('drops a previously kept quiet window once it closes', async () => {
+    const recordBatch = vi.fn().mockResolvedValue(ok(undefined));
+    const now = vi.fn(() => new Date('2026-08-27T12:00:10.000Z'));
+    publisher = new BufferedTableQueryObservationPublisher({ recordBatch }, { now });
+
+    publisher.publish(context, observation({ tableId: 'tbl-quiet', requestCount: 2 }));
+    await publisher.flush();
+    expect(recordBatch).not.toHaveBeenCalled();
+
+    now.mockReturnValue(new Date('2026-08-27T12:05:00.000Z'));
+    await publisher.flush();
+    expect(recordBatch).not.toHaveBeenCalled();
+
+    publisher.publish(context, observation({ tableId: 'tbl-quiet', requestCount: 8 }));
+    await publisher.flush();
+    expect(recordBatch).not.toHaveBeenCalled();
+  });
+
+  it('writes under the shared cluster writer id by default', async () => {
+    const recordBatch = vi.fn().mockResolvedValue(ok(undefined));
+    publisher = new BufferedTableQueryObservationPublisher({ recordBatch });
+
+    publisher.publish(context, observation({ tableId: 'tbl-a', slowCount: 1 }));
+    await publisher.flush();
+
+    expect(recordBatch.mock.calls[0]?.[1].writerId).toBe('cluster');
   });
 });

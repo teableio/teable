@@ -33,6 +33,7 @@ import type { Socket } from 'sharedb/lib/sharedb';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
+import { createShareDbRealtimeConfig } from './shared/shareDbRealtimeConfig';
 
 /**
  * NOTE: This test cannot use the shared test context because it requires
@@ -312,7 +313,7 @@ describe('v2 realtime sharedb (e2e)', () => {
 
   const registerRealtime = (container: DependencyContainer, runtime: ShareDbRuntime): void => {
     publisher = new ShareDbBackendPublisher(runtime.backend, logger);
-    registerV2ShareDbRealtime(container, { publisher });
+    registerV2ShareDbRealtime(container, createShareDbRealtimeConfig(runtime.backend, publisher));
   };
 
   beforeAll(async () => {
@@ -599,7 +600,11 @@ describe('v2 realtime sharedb (e2e)', () => {
         return basePublisher.publish(channels, op);
       },
     };
-    registerV2ShareDbRealtime(testContainer.container, { publisher: recordingPublisher });
+    if (!shareDbRuntime) return;
+    registerV2ShareDbRealtime(
+      testContainer.container,
+      createShareDbRealtimeConfig(shareDbRuntime.backend, recordingPublisher)
+    );
 
     const socket = new WebSocket(shareDbUrl);
     const connection = new Connection(socket as Socket);
@@ -705,7 +710,12 @@ describe('v2 realtime sharedb (e2e)', () => {
       }
       expect(instructionlessComponents).toEqual([]);
     } finally {
-      registerV2ShareDbRealtime(testContainer.container, { publisher: basePublisher });
+      if (shareDbRuntime) {
+        registerV2ShareDbRealtime(
+          testContainer.container,
+          createShareDbRealtimeConfig(shareDbRuntime.backend, basePublisher)
+        );
+      }
       doc.destroy();
       connection.close();
       socket.close();

@@ -305,14 +305,17 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     onReset,
     recordMap,
     groupPoints,
-    recordsQuery,
     searchHitIndex,
     allGroupHeaderRefs,
   } = useGridAsyncRecords(ssrRecords, undefined, viewQuery, groupPointsServerData ?? undefined);
 
   const isSelectionLoaded = useIsSelectionLoaded();
 
-  const commentCountMap = useCommentCountMap(recordsQuery);
+  const commentRecordIds = useMemo(
+    () => [...new Set(Object.values(recordMap).map((record) => record.id))].sort(),
+    [recordMap]
+  );
+  const commentCountMap = useCommentCountMap(commentRecordIds);
 
   const { onRowOrdered, setDraggingRecordIds } = useGridRowOrder(recordMap);
 

@@ -948,6 +948,9 @@ describe('TableSchemaUpdateVisitor', () => {
       expect(result.isOk()).toBe(true);
       const sqls = result._unsafeUnwrap().map((statement) => statement.compile(db).sql);
       expect(sqls[0]).toContain("status = 'rebuild_pending'");
+      expect(sqls[0]).toContain(`WHERE table_id = '${table.id().toString()}'`);
+      expect(sqls[0]).toContain("AND status IN ('ready', 'rebuild_pending')");
+      expect(sqls[0]).not.toContain('LIMIT 1');
       expect(sqls[1]).toContain("a.attgenerated = 's'");
       expect(sqls[1]).toContain("a.attname LIKE '\\_\\_tqops\\_tsv\\_%' ESCAPE '\\'");
       expect(sqls[1]).toContain('ALTER TABLE %I.%I %s');
@@ -1231,7 +1234,7 @@ describe('TableSchemaUpdateVisitor', () => {
       expect(result.isOk()).toBe(true);
 
       const sqls = result._unsafeUnwrap().map((statement) => statement.compile(db).sql);
-      expect(sqls[0]).toContain("status = 'rebuild_pending'");
+      expect(sqls.some((text) => text.includes("status = 'rebuild_pending'"))).toBe(false);
       expect(sqls.some((text) => text.includes("indexname LIKE 'idx_trgm%'"))).toBe(true);
       expect(sqls.some((text) => text.includes('CREATE INDEX IF NOT EXISTS'))).toBe(true);
     });
@@ -1290,6 +1293,7 @@ describe('TableSchemaUpdateVisitor', () => {
       expect(sqls.some((text) => text.includes(unsupportedDbFieldName))).toBe(true);
       expect(sqls.some((text) => text.includes("indexname LIKE 'idx_trgm%'"))).toBe(true);
       expect(sqls.some((text) => text.includes('CREATE INDEX IF NOT EXISTS'))).toBe(true);
+      expect(sqls.some((text) => text.includes("status = 'rebuild_pending'"))).toBe(false);
     });
   });
 

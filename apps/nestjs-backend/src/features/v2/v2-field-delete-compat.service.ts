@@ -145,6 +145,7 @@ const conditionalLookupLegacyOptions = (
 ): IFieldVo['lookupOptions'] => {
   const condition = isRecord(options.condition) ? options.condition : undefined;
   const lookupOptions = {
+    ...(typeof options.isUnique === 'boolean' ? { isUnique: options.isUnique } : {}),
     ...(typeof options.foreignTableId === 'string'
       ? { foreignTableId: options.foreignTableId }
       : {}),

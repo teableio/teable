@@ -16,6 +16,8 @@ node_modules
 # next.js
 /.next/
 /out/
+# generated after `next build` by scripts/build-mobile-precache.mjs
+/public/mobile-sw.js
 
 # production
 /build

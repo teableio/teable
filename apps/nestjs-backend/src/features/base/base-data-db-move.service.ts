@@ -359,7 +359,9 @@ export class BaseDataDbMoveService {
       // Meta switch while base still routes to source until spaceId updates.
       await this.cls.run(async () => {
         this.cls.set('user.id', job.createdBy);
-        await this.baseService.applyMetaMoveBase(inventory.baseId, inventory.targetSpaceId);
+        await this.baseService.applyMetaMoveBase(inventory.baseId, inventory.targetSpaceId, {
+          dataDbChanged: true,
+        });
       });
 
       await this.cleanupSourceArtifacts(sourceUrl, inventory).catch((error) => {

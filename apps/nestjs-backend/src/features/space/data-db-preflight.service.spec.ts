@@ -113,9 +113,12 @@ const BASELINE_TABLES = [
   'computed_update_run_history',
   'computed_update_pause_scope',
   'computed_update_stage_ledger',
+  'computed_update_change_frontier',
   'computed_field_activity',
   'computed_table_activity',
   'computed_task_field_ref',
+  'computed_reliability_issue',
+  'computed_reliability_scope',
   'record_history',
   'table_trash',
   'record_trash',
@@ -258,6 +261,35 @@ describe('DataDbPreflightService', () => {
     expect(result.ok).toBe(true);
     expect(result.classification).toBe('teable-managed-compatible');
     expect(result.errors).toEqual([]);
+  });
+
+  it('accepts a complete older data DB before the additive reliability migration', async () => {
+    const tables = BASELINE_TABLES.filter((table) => !table.startsWith('computed_reliability_'));
+    const result = await createService({
+      schemas: ['public', internalSchema],
+      tables: [...tables, DATA_SCHEMA_MIGRATION_TABLE].map((table_name) => ({
+        table_schema: internalSchema,
+        table_name,
+      })),
+      functions: ['__teable_capture_undo_row'],
+    }).preflight({ url: DATA_URL, targetMode: 'initialize-empty', internalSchema });
+    expect(result.ok).toBe(true);
+    expect(result.classification).toBe('teable-managed-compatible');
+  });
+
+  it('rejects an incomplete additive reliability migration on a complete baseline', async () => {
+    const tables = BASELINE_TABLES.filter((table) => table !== 'computed_reliability_scope');
+    const result = await createService({
+      schemas: ['public', internalSchema],
+      tables: [...tables, DATA_SCHEMA_MIGRATION_TABLE].map((table_name) => ({
+        table_schema: internalSchema,
+        table_name,
+      })),
+      functions: ['__teable_capture_undo_row'],
+    }).preflight({ url: DATA_URL, targetMode: 'initialize-empty', internalSchema });
+    expect(result.ok).toBe(false);
+    expect(result.classification).toBe('teable-managed-incompatible');
+    expect(result.errors.map((error) => error.code)).toContain('INCOMPATIBLE_TEABLE_DATABASE');
   });
 
   it('rejects a partial Teable data database as incompatible', async () => {

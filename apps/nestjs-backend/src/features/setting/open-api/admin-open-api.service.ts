@@ -7,7 +7,7 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
-import { NotificationSeverityEnum, NotificationTypeEnum } from '@teable/core';
+import { heicMimetypes, NotificationSeverityEnum, NotificationTypeEnum } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IAdminSendNotificationRo } from '@teable/openapi';
 import { PluginStatus, UploadType } from '@teable/openapi';
@@ -69,6 +69,8 @@ export class AdminOpenApiService {
                 .whereNotNull('attachments.height')
             )
             .orWhereIn('attachments.mimetype', ['application/pdf', 'application/x-pdf'])
+            // HEIC rows have no height (sharp cannot read HEVC metadata)
+            .orWhereIn('attachments.mimetype', heicMimetypes)
         )
         .whereNull('attachments.deleted_time')
         .whereNull('attachments.thumbnail_path')

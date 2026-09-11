@@ -833,6 +833,15 @@ export class RecordBulkUpdateService {
         });
       }
 
+      if (input.order) {
+        yield* await service.recordReorderService.prepareOrders(
+          context,
+          input.table,
+          input.order,
+          authorizedUpdates.length
+        );
+      }
+
       const transactionResult = yield* await service.unitOfWork.withTransaction(
         context,
         async (transactionContext) =>

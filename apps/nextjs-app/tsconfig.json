@@ -27,6 +27,7 @@
       ],
       "@overridable/WorkFlowPanel": ["./features/app/automation/workflow-panel/WorkFlowPanel"],
       "@overridable/TableArchiveDialog": ["./features/app/blocks/archive/TableArchiveDialog"],
+      "@overridable/TableImport": ["./features/app/blocks/import-table/TableImport"],
       "@overridable/SettingDialog": ["./features/app/components/setting/SettingDialog"],
       "@teable/common-i18n": ["../../../packages/common-i18n/src/index"],
       "@teable/common-i18n/locales/*": ["../../../packages/common-i18n/src/locales/*"],
