@@ -126,7 +126,7 @@ import { ConfirmNewRecords } from './components/ConfirmNewRecords';
 import { ResetClickCountButton } from './components/ResetClickCountButton';
 import { GIRD_FIELD_NAME_HEIGHT_DEFINITIONS, GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
-import { useCollaborate, useSelectionOperation } from './hooks';
+import { useCollaborate, useGridScrollPosition, useSelectionOperation } from './hooks';
 import { useIsSelectionLoaded } from './hooks/useIsSelectionLoaded';
 import { useGridSearchStore } from './useGridSearchStore';
 import {
@@ -1445,11 +1445,25 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     [permission]
   );
 
-  const onGridScrollChanged = useCallback((sl?: number, _st?: number) => {
-    prefillingGridRef.current?.scrollTo(sl, undefined);
-    aiGenerateButtonRef.current?.onScrollHandler();
-    resetClickCountButtonRef.current?.onScrollHandler();
-  }, []);
+  const persistScrollTop = useGridScrollPosition({
+    gridRef,
+    containerRef,
+    userId: user.id,
+    viewId: activeViewId,
+    rowCount: realRowCount,
+    rowHeight,
+    ready: realRowCount > 0,
+  });
+
+  const onGridScrollChanged = useCallback(
+    (sl?: number, st?: number) => {
+      prefillingGridRef.current?.scrollTo(sl, undefined);
+      aiGenerateButtonRef.current?.onScrollHandler();
+      resetClickCountButtonRef.current?.onScrollHandler();
+      if (st != null) persistScrollTop(st);
+    },
+    [persistScrollTop]
+  );
 
   const onPrefillingGridScrollChanged = useCallback((sl?: number, _st?: number) => {
     gridRef.current?.scrollTo(sl, undefined);
