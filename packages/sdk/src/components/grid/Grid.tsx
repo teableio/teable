@@ -52,6 +52,9 @@ export interface IGridExternalProps {
   scrollBufferX?: number;
   scrollBufferY?: number;
   scrollBarVisible?: boolean;
+  // Scroll position to render at on mount (and on every re-mount). Lets a caller restore a
+  // remembered position without an imperative scrollTo that the async layout would race.
+  initialScrollState?: IScrollState;
   rowIndexVisible?: boolean;
   collaborators?: ICollaborator;
   // [rowIndex, colIndex]
@@ -228,6 +231,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     scrollBufferX = scrollBuffer,
     scrollBufferY = scrollBuffer,
     scrollBarVisible = true,
+    initialScrollState,
     rowIndexVisible = true,
     isMultiSelectionEnable = true,
     isRowClickSelectionEnabled = true,
@@ -356,7 +360,9 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
 
   const [forceRenderFlag, setForceRenderFlag] = useState(uniqueId('grid_'));
   const [mouseState, setMouseState] = useState<IMouseState>(DEFAULT_MOUSE_STATE);
-  const [scrollState, setScrollState] = useState<IScrollState>(DEFAULT_SCROLL_STATE);
+  const [scrollState, setScrollState] = useState<IScrollState>(
+    () => initialScrollState ?? DEFAULT_SCROLL_STATE
+  );
   const [activeCell, setActiveCell] = useRafState<ICellItem | null>(null);
   const [cellLoadings, setCellLoadings] = useState<ICellItem[]>([]);
   const [columnLoadings, setColumnLoadings] = useState<IColumnLoading[]>([]);
