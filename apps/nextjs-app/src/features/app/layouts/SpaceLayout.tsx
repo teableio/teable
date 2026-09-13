@@ -28,7 +28,7 @@ export const SpaceLayout: React.FC<{
         <SessionProvider user={user}>
           <NotificationProvider>
             <LicenseExpiryBanner />
-            <div id="portal" className="relative flex h-screen w-full items-start">
+            <div id="portal" className="relative flex h-dvh w-full items-start">
               <Sidebar headerLeft={<SidebarHeaderLeft />}>
                 <Fragment>
                   <div className="flex flex-1 flex-col gap-2 divide-y divide-solid overflow-hidden">
