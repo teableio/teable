@@ -33,7 +33,7 @@ export const SettingLayout: React.FC<{
     <AppLayout>
       <AppProvider lang={i18n.language} locale={sdkLocale} dehydratedState={dehydratedState}>
         <SessionProvider user={user}>
-          <div id="portal" className="relative flex h-screen w-full items-start">
+          <div id="portal" className="relative flex h-dvh w-full items-start">
             <Sidebar
               headerLeft={<SidebarHeaderLeft title={t('common:settings.title')} onBack={onBack} />}
             >

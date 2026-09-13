@@ -85,7 +85,7 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
 
   return (
     <ScrollArea className="h-screen">
-      <div className="flex min-h-screen">
+      <div className="flex min-h-dvh">
         <NextSeo title={signType === 'signin' ? t('auth:page.signin') : t('auth:page.signup')} />
         <DescContent />
         <div className="relative flex flex-1 shrink-0 flex-col items-center justify-start sm:justify-center">
