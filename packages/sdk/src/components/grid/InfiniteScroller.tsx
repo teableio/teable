@@ -41,6 +41,18 @@ export interface ScrollerRef {
   scrollBy: (deltaX: number, deltaY: number) => void;
 }
 
+// Maps a virtual (unclamped) vertical offset to the real DOM scrollTop of the scrollbar element,
+// which is capped for very tall grids (the placeholder is chunked). Shared by the imperative
+// scrollTo and the initial-position sync so both stay in agreement.
+const getVerticalDomScrollTop = (el: HTMLElement, virtualScrollHeight: number, st: number) => {
+  const scrollableHeight = el.scrollHeight - el.clientHeight;
+  if (scrollableHeight > 0 && virtualScrollHeight > el.scrollHeight + 5) {
+    const prog = st / (virtualScrollHeight - el.clientHeight);
+    return scrollableHeight * prog;
+  }
+  return st;
+};
+
 const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps> = (props, ref) => {
   const {
     coordInstance,
@@ -68,15 +80,11 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
         horizontalScrollRef.current.scrollLeft = sl;
       }
       if (verticalScrollRef.current && st != null) {
-        const el = verticalScrollRef.current;
-        const scrollableHeight = el.scrollHeight - el.clientHeight;
-        let virtaulOffsetY = 0;
-        if (scrollableHeight > 0 && scrollHeight > el.scrollHeight + 5) {
-          const prog = st / (scrollHeight - el.clientHeight);
-          const actualScrollTop = scrollableHeight * prog;
-          virtaulOffsetY = actualScrollTop - st;
-        }
-        verticalScrollRef.current.scrollTop = st + virtaulOffsetY;
+        verticalScrollRef.current.scrollTop = getVerticalDomScrollTop(
+          verticalScrollRef.current,
+          scrollHeight,
+          st
+        );
       }
     },
     scrollBy: (deltaX: number, deltaY: number) => {
@@ -93,6 +101,13 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
   const resetScrollingTimeoutID = useRef<ITimeoutID | null>(null);
   const offsetY = useRef(0);
   const lastScrollTop = useRef(0);
+  // The mount scroll offset (from Grid's initialScrollState) and whether we've synced the DOM
+  // scrollbar to it yet. The canvas already paints from scrollState; this only aligns the
+  // scrollbar thumb / wheel baseline once the element is actually scrollable.
+  const initialScrollTop = useRef(scrollState.scrollTop);
+  const initialScrollLeft = useRef(scrollState.scrollLeft);
+  const didSyncInitialScrollTop = useRef(false);
+  const didSyncInitialScrollLeft = useRef(false);
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
   const onScroll = (e: UIEvent<HTMLDivElement>, direction: 'horizontal' | 'vertical') => {
@@ -216,6 +231,14 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
 
   const onTouchStart = useCallback((e: TouchEvent) => {
     if (scrollerRef.current) {
+      // The touch scroller tracks its own offset; start the gesture from where the grid actually
+      // is (a restored position, a wheel/scrollbar scroll), otherwise it jumps back to its stale one.
+      if (horizontalScrollRef.current && verticalScrollRef.current) {
+        scrollerRef.current.scrollTo(
+          horizontalScrollRef.current.scrollLeft,
+          verticalScrollRef.current.scrollTop
+        );
+      }
       scrollerRef.current.doTouchStart(e.changedTouches, e.timeStamp);
     }
   }, []);
@@ -257,6 +280,59 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
       scrollerRef.current.setDimensions(containerWidth, containerHeight, scrollWidth, scrollHeight);
     }
   }, [containerHeight, containerWidth, scrollWidth, scrollHeight]);
+
+  // Align the DOM scrollbar with the initial scroll offset once the grid has laid out enough to
+  // be scrollable. Re-runs as the layout settles (dimensions change) until it lands, then stops.
+  useEffect(() => {
+    if (didSyncInitialScrollTop.current) return;
+    const st = initialScrollTop.current;
+    if (st <= 0) {
+      didSyncInitialScrollTop.current = true;
+      return;
+    }
+    const el = verticalScrollRef.current;
+    if (el == null || el.scrollHeight - el.clientHeight <= 0) return;
+    el.scrollTop = getVerticalDomScrollTop(el, scrollHeight, st);
+    lastScrollTop.current = el.scrollTop;
+    // On touch devices the scroller republishes its own offset on every resize, so it must start
+    // from the restored position too, or it would drag the scrollbar back to the top.
+    scrollerRef.current?.scrollTo(horizontalScrollRef.current?.scrollLeft ?? 0, el.scrollTop);
+    didSyncInitialScrollTop.current = true;
+  }, [containerHeight, scrollHeight]);
+
+  // Same for the horizontal scrollbar.
+  useEffect(() => {
+    if (didSyncInitialScrollLeft.current) return;
+    const sl = initialScrollLeft.current;
+    if (sl <= 0) {
+      didSyncInitialScrollLeft.current = true;
+      return;
+    }
+    const el = horizontalScrollRef.current;
+    // Wait until the scrollbar has its real width: before layout it's 0 wide and looks scrollable.
+    if (el == null || el.clientWidth <= 0 || el.scrollWidth - el.clientWidth <= 0) return;
+    el.scrollLeft = sl;
+    scrollerRef.current?.scrollTo(el.scrollLeft, verticalScrollRef.current?.scrollTop ?? 0);
+    didSyncInitialScrollLeft.current = true;
+  }, [containerWidth, scrollWidth]);
+
+  // A layout change (resize, data load, a restored offset seeded into a view that now fits on
+  // screen) can leave the content no longer overflowing the viewport while the virtual position
+  // is still non-zero. With nothing scrollable, there's no scrollbar to bring it back and the
+  // first rows get stranded above the top, so snap the position back to the top in that case.
+  // The scrollable case self-corrects: the browser clamps the DOM scrollbar and onScroll follows.
+  useEffect(() => {
+    if (coordInstance.totalHeight - containerHeight <= 0 && scrollState.scrollTop > 0) {
+      setScrollState((prev) => ({ ...prev, scrollTop: 0 }));
+    }
+  }, [coordInstance, containerHeight, scrollState.scrollTop, setScrollState]);
+
+  // Same for columns: if they no longer overflow horizontally, snap back to the left edge.
+  useEffect(() => {
+    if (scrollWidth - containerWidth <= 0 && scrollState.scrollLeft > 0) {
+      setScrollState((prev) => ({ ...prev, scrollLeft: 0 }));
+    }
+  }, [scrollWidth, containerWidth, scrollState.scrollLeft, setScrollState]);
 
   const placeholderElements: ReactNode[] = useMemo(() => {
     let h = 0;
