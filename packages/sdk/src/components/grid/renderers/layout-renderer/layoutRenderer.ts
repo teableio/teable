@@ -15,6 +15,7 @@ import {
   getRowControlCheckboxOffsetX,
   getRowControlOffsetX,
   hexToRGBA,
+  blendCssColors,
 } from '../../utils';
 import type { ISingleLineTextProps } from '../base-renderer';
 import {
@@ -141,6 +142,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
     imageManager,
     spriteManager,
     groupCollection,
+    getRowBackgroundColor,
     getLinearRow,
     getCellContent,
   } = props;
@@ -165,6 +167,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
   const groupRowList: IGroupRowDrawerProps[] = [];
   const groupRowHeaderList: IGroupRowHeaderDrawerProps[] = [];
   const appendRowList: IAppendRowDrawerProps[] = [];
+  const rowBackgroundColorMap = new Map<number, string | undefined>();
 
   if (!rowCount) {
     return {
@@ -191,7 +194,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
     const isFirstColumn = columnIndex === 0;
     const isColumnHovered = hoverColumnIndex === columnIndex;
     const finalTheme = column?.customTheme ? { ...theme, ...column.customTheme } : theme;
-    const { cellBg, cellBgHovered, cellBgSelected } = finalTheme;
+    const { cellBg, cellHoverOverlay, cellSelectedOverlay } = finalTheme;
 
     for (let rowIndex = startRowIndex; rowIndex <= stopRowIndex; rowIndex++) {
       const linearRow = getLinearRow(rowIndex);
@@ -258,6 +261,10 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
       }
 
       const { displayIndex, realIndex: realRowIndex } = linearRow;
+      if (!rowBackgroundColorMap.has(realRowIndex)) {
+        rowBackgroundColorMap.set(realRowIndex, getRowBackgroundColor?.(realRowIndex, theme));
+      }
+      const baseFill = rowBackgroundColorMap.get(realRowIndex) ?? cellBg;
       const isRowHovered =
         !isOutOfBounds &&
         !isSelecting &&
@@ -276,9 +283,9 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
       let fill;
 
       if (isCellSelected || isRowSelected || isColumnActive) {
-        fill = cellBgSelected;
+        fill = blendCssColors(baseFill, cellSelectedOverlay);
       } else if (isRowHovered || isRowActive) {
-        fill = cellBgHovered;
+        fill = blendCssColors(baseFill, cellHoverOverlay);
       }
 
       if (isFirstColumn) {
@@ -296,6 +303,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
           theme,
           spriteManager,
           commentCount: recordId ? commentCountMap?.[recordId] : undefined,
+          fill: baseFill,
         });
       }
 
@@ -313,7 +321,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
         imageManager,
         spriteManager,
         theme: finalTheme,
-        fill: isCellActive ? cellBg : fill ?? cellBg,
+        fill: isCellActive ? baseFill : fill ?? baseFill,
       });
     }
   }
@@ -1186,24 +1194,25 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
     spriteManager,
     rowIndexVisible,
     commentCount,
+    fill: baseFill,
   } = props;
 
   const {
     cellBg,
-    cellBgHovered,
-    cellBgSelected,
+    cellHoverOverlay,
+    cellSelectedOverlay,
     cellLineColor,
     rowHeaderTextColor,
     iconSizeXS,
     staticWhite,
     iconBgSelected,
   } = theme;
-  let fill = cellBg;
+  let fill = baseFill ?? cellBg;
 
   if (isChecked) {
-    fill = cellBgSelected;
+    fill = blendCssColors(fill, cellSelectedOverlay);
   } else if (isHover) {
-    fill = cellBgHovered;
+    fill = blendCssColors(fill, cellHoverOverlay);
   }
 
   drawRect(ctx, {
@@ -2089,6 +2098,7 @@ export const computeShouldRerender = (current: ILayoutDrawerProps, last?: ILayou
     current.getLinearRow === last.getLinearRow &&
     current.real2RowIndex === last.real2RowIndex &&
     current.getCellContent === last.getCellContent &&
+    current.getRowBackgroundColor === last.getRowBackgroundColor &&
     current.coordInstance === last.coordInstance &&
     current.visibleRegion === last.visibleRegion &&
     current.forceRenderFlag === last.forceRenderFlag &&

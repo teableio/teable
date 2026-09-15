@@ -1022,7 +1022,34 @@
   "grid": {
     "prefillingRowTitle": "Aggiungi nuovo record",
     "prefillingRowTooltip": "Inserisci i dati del nuovo record qui sotto. Il record verrà salvato automaticamente una volta che clicchi fuori da questa riga.",
-    "presortRowTitle": "Questo record è stato filtrato o spostato a causa delle regole di ordinamento"
+    "presortRowTitle": "Questo record è stato filtrato o spostato a causa delle regole di ordinamento",
+    "style": {
+      "title": "Stile",
+      "tableStyle": "Stile tabella",
+      "stripedRows": "Righe alternate",
+      "recordColoring": "Colorazione record",
+      "none": "Nessuna",
+      "colorBySelectField": "Colora per campo di selezione",
+      "selectField": "Seleziona campo",
+      "noSelectFields": "Nessun campo di selezione disponibile",
+      "coloredChoices": "Opzioni colorate",
+      "noChoices": "Nessuna opzione disponibile",
+      "conditionalColoring": "Colora per condizioni",
+      "manageColorRules": "Gestisci regole colore",
+      "conditionalColoringDescription": "Applica uno sfondo alla riga per i record corrispondenti. Le regole sono valutate dall’alto verso il basso.",
+      "ruleColor": "Colore regola",
+      "ruleName": "Regola {{number}}",
+      "enableRule": "Abilita regola",
+      "moveRuleUp": "Sposta regola su",
+      "moveRuleDown": "Sposta regola giù",
+      "deleteRule": "Elimina regola",
+      "whenConditionsMatch": "Quando il record corrisponde",
+      "noColorRules": "Nessuna regola colore",
+      "noColorRulesDescription": "Aggiungi una regola per evidenziare i record importanti.",
+      "firstMatchingRuleWins": "Se corrispondono più regole, viene usata la prima.",
+      "addColorRule": "Aggiungi regola",
+      "applyColorRules": "Applica"
+    }
   },
   "form": {
     "fieldsManagement": "Campi",

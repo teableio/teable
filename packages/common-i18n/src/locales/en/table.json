@@ -1017,7 +1017,34 @@
   "grid": {
     "prefillingRowTitle": "Add new record",
     "prefillingRowTooltip": "Please enter the new record data below. The record will be saved automatically once you click outside this row.",
-    "presortRowTitle": "This record has been filtered or moved due to sorting rules"
+    "presortRowTitle": "This record has been filtered or moved due to sorting rules",
+    "style": {
+      "title": "Style",
+      "tableStyle": "Table style",
+      "stripedRows": "Alternating rows",
+      "recordColoring": "Record coloring",
+      "none": "None",
+      "colorBySelectField": "Color by select field",
+      "selectField": "Select field",
+      "noSelectFields": "No select fields available",
+      "coloredChoices": "Colored choices",
+      "noChoices": "No choices available",
+      "conditionalColoring": "Color by conditions",
+      "manageColorRules": "Manage color rules",
+      "conditionalColoringDescription": "Apply a row background to records that match your conditions. Rules are evaluated from top to bottom.",
+      "ruleColor": "Rule color",
+      "ruleName": "Rule {{number}}",
+      "enableRule": "Enable rule",
+      "moveRuleUp": "Move rule up",
+      "moveRuleDown": "Move rule down",
+      "deleteRule": "Delete rule",
+      "whenConditionsMatch": "When the record matches",
+      "noColorRules": "No color rules yet",
+      "noColorRulesDescription": "Add a rule to highlight records that need attention.",
+      "firstMatchingRuleWins": "When multiple rules match, the first rule wins.",
+      "addColorRule": "Add rule",
+      "applyColorRules": "Apply"
+    }
   },
   "form": {
     "fieldsManagement": "Fields",

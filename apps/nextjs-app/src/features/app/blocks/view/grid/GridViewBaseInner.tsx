@@ -1,5 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { IAttachmentItem, IFieldVo, IGridViewOptions } from '@teable/core';
+import type {
+  IAttachmentItem,
+  IFieldVo,
+  IGridViewOptions,
+  ISelectFieldOptions,
+} from '@teable/core';
 import {
   FieldKeyType,
   FieldType,
@@ -129,6 +134,7 @@ import { DomBox } from './DomBox';
 import { useCollaborate, useSelectionOperation } from './hooks';
 import { useIsSelectionLoaded } from './hooks/useIsSelectionLoaded';
 import { useGridSearchStore } from './useGridSearchStore';
+import { useGridStyleStore } from './useGridStyleStore';
 import {
   buildFillSelectionPaste,
   getEffectRows,
@@ -142,6 +148,12 @@ import {
   cacheSelectionForChat,
   isSingleCellSelection,
 } from './utils/gridSelectionChat';
+import {
+  getChoiceRowTint,
+  getFirstMatchedChoiceColor,
+  getFirstMatchedRuleColor,
+  getRowColorRuleFieldIds,
+} from './utils/row-coloring';
 
 interface IGridViewBaseInnerProps {
   groupPointsServerData?: IGroupPointsVo | null;
@@ -231,6 +243,21 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   }, [isAutoSort, sort, group]);
   const { frozenFieldId, frozenColumnCount: frozenColumnCountOption } = (view?.options ??
     {}) as IGridViewOptions;
+  const persistedGridStyle = (view?.options as IGridViewOptions | undefined)?.style;
+  const optimisticGridStyle = useGridStyleStore((state) =>
+    activeViewId ? state.styleByViewId[activeViewId] : undefined
+  );
+  const clearOptimisticGridStyle = useGridStyleStore((state) => state.clearStyle);
+  const persistedGridStyleKey = JSON.stringify(persistedGridStyle);
+  useEffect(() => {
+    if (!activeViewId || !optimisticGridStyle) return;
+    const persistedCaughtUp = isEqual(persistedGridStyle, optimisticGridStyle.style);
+    const persistedChangedElsewhere = !isEqual(persistedGridStyle, optimisticGridStyle.baseStyle);
+    if (persistedCaughtUp || persistedChangedElsewhere) clearOptimisticGridStyle(activeViewId);
+  }, [activeViewId, clearOptimisticGridStyle, optimisticGridStyle, persistedGridStyleKey]);
+  const gridStyle = optimisticGridStyle?.style ?? persistedGridStyle;
+  const stripedRows = Boolean(gridStyle?.stripedRows);
+  const rowColor = gridStyle?.rowColor;
   const frozenColumnCount = useMemo(() => {
     return computeFrozenColumnCount({
       isTouchDevice,
@@ -280,6 +307,39 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     generateLocalId(tableId, activeViewId),
     personalViewCommonQuery
   );
+  const rowColorField =
+    rowColor?.mode === 'selectField' && rowColor.selectField?.fieldId
+      ? allFields.find(
+          (field) =>
+            field.id === rowColor.selectField?.fieldId &&
+            (field.type === FieldType.SingleSelect || field.type === FieldType.MultipleSelect) &&
+            !field.isLookup &&
+            !field.isConditionalLookup
+        )
+      : undefined;
+  const rowColorRules = rowColor?.mode === 'rules' ? rowColor.rules : undefined;
+  const rowColorConfigKey = JSON.stringify({
+    mode: rowColor?.mode,
+    fieldId: rowColor?.selectField?.fieldId,
+    enabledChoiceIds: rowColor?.selectField?.enabledChoiceIds,
+    choices: (rowColorField?.options as ISelectFieldOptions | undefined)?.choices,
+    rules: rowColorRules,
+  });
+  const rowColorRuleFieldIds = useMemo(
+    () => getRowColorRuleFieldIds(rowColorRules),
+    [rowColorConfigKey]
+  );
+  const recordsViewQuery = useMemo(() => {
+    const requiredFieldIds = new Set(rowColorRuleFieldIds);
+    if (rowColorField) requiredFieldIds.add(rowColorField.id);
+    const visibleFieldIds = new Set(fields.map((field) => field.id));
+    const hiddenRequiredFieldIds = allFields
+      .filter((field) => requiredFieldIds.has(field.id) && !visibleFieldIds.has(field.id))
+      .map((field) => field.id);
+    if (!hiddenRequiredFieldIds.length) return viewQuery;
+    const projection = viewQuery?.projection ?? fields.map((field) => field.id);
+    return { ...viewQuery, projection: [...new Set([...projection, ...hiddenRequiredFieldIds])] };
+  }, [allFields, fields, rowColorField, rowColorRuleFieldIds, viewQuery]);
   const { filteringSearchQuery } = useSearch();
 
   useEffect(() => {
@@ -308,7 +368,49 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     recordsQuery,
     searchHitIndex,
     allGroupHeaderRefs,
-  } = useGridAsyncRecords(ssrRecords, undefined, viewQuery, groupPointsServerData ?? undefined);
+  } = useGridAsyncRecords(
+    ssrRecords,
+    undefined,
+    recordsViewQuery,
+    groupPointsServerData ?? undefined
+  );
+
+  const getRowBackgroundColor = useCallback(
+    // eslint-disable-next-line sonarjs/cognitive-complexity
+    (rowIndex: number, gridTheme: typeof theme) => {
+      if (rowColor?.mode === 'selectField' && rowColorField) {
+        const record = recordMap[rowIndex];
+        const choices = (rowColorField.options as ISelectFieldOptions).choices;
+        const choiceColor = getFirstMatchedChoiceColor(
+          record?.getCellValue(rowColorField.id),
+          choices,
+          rowColor.selectField?.enabledChoiceIds
+        );
+        const rowTint = choiceColor
+          ? getChoiceRowTint(choiceColor, gridTheme.cellBg, gridTheme.themeKey)
+          : undefined;
+        if (rowTint) return rowTint;
+      }
+      if (rowColor?.mode === 'rules' && rowColorRules?.length) {
+        const record = recordMap[rowIndex];
+        const ruleColor = record
+          ? getFirstMatchedRuleColor(
+              rowColorRules,
+              (fieldId) => record.getCellValue(fieldId),
+              allFields
+            )
+          : undefined;
+        const rowTint = ruleColor
+          ? getChoiceRowTint(ruleColor, gridTheme.cellBg, gridTheme.themeKey)
+          : undefined;
+        if (rowTint) return rowTint;
+      }
+      return stripedRows && rowIndex % 2 === 1 ? gridTheme.cellBgStriped : undefined;
+    },
+    // SharedDB mutates view options in place, so the serialized key must invalidate this callback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allFields, recordMap, rowColor, rowColorConfigKey, rowColorField, rowColorRules, stripedRows]
+  );
 
   const isSelectionLoaded = useIsSelectionLoaded();
 
@@ -1701,6 +1803,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         collaborators={collaborators}
         searchCursor={searchCursor}
         searchHitIndex={searchHitIndex}
+        getRowBackgroundColor={getRowBackgroundColor}
         getCellContent={getCellContent}
         onDelete={getAuthorizedFunction(onDelete, 'record|update')}
         onDragStart={onDragStart}

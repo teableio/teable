@@ -1012,7 +1012,34 @@
   "grid": {
     "prefillingRowTitle": "新しいレコードを追加",
     "prefillingRowTooltip": "以下に新しいレコードデータを入力してください。この行の外側をクリックすると、レコードは自動的に保存されます。",
-    "presortRowTitle": "このレコードはフィルタリングまたは並べ替えルールにより変更されました"
+    "presortRowTitle": "このレコードはフィルタリングまたは並べ替えルールにより変更されました",
+    "style": {
+      "title": "スタイル",
+      "tableStyle": "テーブルスタイル",
+      "stripedRows": "交互の行",
+      "recordColoring": "レコードの色分け",
+      "none": "なし",
+      "colorBySelectField": "選択フィールドで色分け",
+      "selectField": "フィールドを選択",
+      "noSelectFields": "利用可能な選択フィールドがありません",
+      "coloredChoices": "色を付ける選択肢",
+      "noChoices": "選択肢がありません",
+      "conditionalColoring": "条件で色付け",
+      "manageColorRules": "色付けルールを管理",
+      "conditionalColoringDescription": "条件に一致するレコードの行背景を変更します。ルールは上から順に評価されます。",
+      "ruleColor": "ルールの色",
+      "ruleName": "ルール {{number}}",
+      "enableRule": "ルールを有効化",
+      "moveRuleUp": "ルールを上へ移動",
+      "moveRuleDown": "ルールを下へ移動",
+      "deleteRule": "ルールを削除",
+      "whenConditionsMatch": "レコードが次の条件に一致する場合",
+      "noColorRules": "色付けルールはありません",
+      "noColorRulesDescription": "重要なレコードを強調するルールを追加します。",
+      "firstMatchingRuleWins": "複数のルールに一致する場合、最初のルールが適用されます。",
+      "addColorRule": "ルールを追加",
+      "applyColorRules": "適用"
+    }
   },
   "form": {
     "fieldsManagement": "フィールド",

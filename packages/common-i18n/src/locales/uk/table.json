@@ -1027,7 +1027,34 @@
   "grid": {
     "prefillingRowTitle": "Додати новий запис",
     "prefillingRowTooltip": "Пожалуйста, введіть дані нового запису нижче. Запис буде збережено автоматично, як тільки ви клацнете в цьому рядку.",
-    "presortRowTitle": "Цей запис був відфільтрований або переміщений із-за правил сортування"
+    "presortRowTitle": "Цей запис був відфільтрований або переміщений із-за правил сортування",
+    "style": {
+      "title": "Стиль",
+      "tableStyle": "Стиль таблиці",
+      "stripedRows": "Чергування рядків",
+      "recordColoring": "Забарвлення записів",
+      "none": "Немає",
+      "colorBySelectField": "Колір за полем вибору",
+      "selectField": "Виберіть поле",
+      "noSelectFields": "Немає доступних полів вибору",
+      "coloredChoices": "Забарвлені варіанти",
+      "noChoices": "Немає доступних варіантів",
+      "conditionalColoring": "Фарбування за умовами",
+      "manageColorRules": "Керування правилами кольору",
+      "conditionalColoringDescription": "Застосовує фон рядка до записів, що відповідають умовам. Правила перевіряються зверху вниз.",
+      "ruleColor": "Колір правила",
+      "ruleName": "Правило {{number}}",
+      "enableRule": "Увімкнути правило",
+      "moveRuleUp": "Перемістити правило вгору",
+      "moveRuleDown": "Перемістити правило вниз",
+      "deleteRule": "Видалити правило",
+      "whenConditionsMatch": "Коли запис відповідає умовам",
+      "noColorRules": "Правил кольору ще немає",
+      "noColorRulesDescription": "Додайте правило, щоб виділити важливі записи.",
+      "firstMatchingRuleWins": "Якщо відповідає кілька правил, використовується перше.",
+      "addColorRule": "Додати правило",
+      "applyColorRules": "Застосувати"
+    }
   },
   "form": {
     "fieldsManagement": "Поля",

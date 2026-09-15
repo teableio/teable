@@ -168,6 +168,7 @@ export interface IGridProps extends IGridExternalProps {
   isTouchDevice?: boolean;
   columnHeaderHeight?: number;
   columnStatistics?: IColumnStatistics;
+  getRowBackgroundColor?: (rowIndex: number, theme: IGridTheme) => string | undefined;
   getCellContent: (cell: ICellItem) => ICell;
 }
 
@@ -239,6 +240,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     searchHitIndex,
     groupPoints,
     columnHeaderHeight = defaultColumnHeaderHeight,
+    getRowBackgroundColor,
     getCellContent,
     onUndo,
     onRedo,
@@ -706,6 +708,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             forceRenderFlag={forceRenderFlag}
             rowIndexVisible={rowIndexVisible}
             groupCollection={groupCollection}
+            getRowBackgroundColor={getRowBackgroundColor}
             getLinearRow={getLinearRow}
             real2RowIndex={real2RowIndex}
             getCellContent={getCellContent}
@@ -753,6 +756,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             forceRenderFlag={forceRenderFlag}
             rowIndexVisible={rowIndexVisible}
             groupCollection={groupCollection}
+            getRowBackgroundColor={getRowBackgroundColor}
             getLinearRow={getLinearRow}
             real2RowIndex={real2RowIndex}
             getCellContent={getCellContent}

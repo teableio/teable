@@ -21,4 +21,76 @@ describe('view option validate', () => {
 
     expect(() => validateOptionsType(ViewType.Grid, formOption)).toThrow();
   });
+
+  test('should parse grid style options', () => {
+    const gridOption: IViewOptions = {
+      style: {
+        stripedRows: true,
+        rowColor: {
+          mode: 'selectField',
+          selectField: {
+            fieldId: 'fldStatus',
+            enabledChoiceIds: ['choOpen'],
+            strategy: 'firstMatched',
+          },
+        },
+      },
+    };
+
+    expect(validateOptionsType(ViewType.Grid, gridOption)).toBeUndefined();
+    expect(viewOptionsSchema.parse(gridOption)).toEqual(gridOption);
+  });
+
+  test('should reject unknown grid style options', () => {
+    expect(() =>
+      validateOptionsType(ViewType.Grid, {
+        style: {
+          stripedRows: true,
+          unknown: true,
+        },
+      } as IViewOptions)
+    ).toThrow();
+  });
+
+  test('should parse ordered row color rules', () => {
+    const gridOption: IViewOptions = {
+      style: {
+        rowColor: {
+          mode: 'rules',
+          rules: [
+            {
+              id: 'rule-blocked',
+              enabled: true,
+              color: 'redBright',
+              target: 'row',
+              filter: {
+                conjunction: 'and',
+                filterSet: [{ fieldId: 'fldStatus', operator: 'is', value: 'Blocked' }],
+              },
+            },
+          ],
+        },
+      },
+    };
+
+    expect(validateOptionsType(ViewType.Grid, gridOption)).toBeUndefined();
+    expect(viewOptionsSchema.parse(gridOption)).toEqual(gridOption);
+  });
+
+  test('should limit row color rules to 20', () => {
+    expect(() =>
+      validateOptionsType(ViewType.Grid, {
+        style: {
+          rowColor: {
+            mode: 'rules',
+            rules: Array.from({ length: 21 }, (_, index) => ({
+              id: `rule-${index}`,
+              color: 'redBright',
+              filter: null,
+            })),
+          },
+        },
+      })
+    ).toThrow();
+  });
 });

@@ -142,6 +142,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     scrollToItem,
     scrollBy,
     getCellContent,
+    getRowBackgroundColor,
     onUndo,
     onRedo,
     onCopy,
@@ -883,6 +884,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           isInteracting={isInteracting}
           isMultiSelectionEnable={isMultiSelectionEnable}
           getCellContent={getCellContent}
+          getRowBackgroundColor={getRowBackgroundColor}
           real2RowIndex={real2RowIndex}
           getLinearRow={getLinearRow}
           isFilling={isFillingRef.current}

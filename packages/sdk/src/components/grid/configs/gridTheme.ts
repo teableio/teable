@@ -21,8 +21,11 @@ export interface IGridTheme {
   fontSizeLG: number;
   fontFamily: string;
   cellBg: string;
+  cellBgStriped: string;
   cellBgHovered: string;
   cellBgSelected: string;
+  cellHoverOverlay: string;
+  cellSelectedOverlay: string;
   cellBgLoading: string;
   cellLineColor: string;
   cellLineColorActived: string;
@@ -86,8 +89,11 @@ export const gridTheme: IGridTheme = {
 
   // Cell
   cellBg: colors.white,
+  cellBgStriped: '#F7F8FA',
   cellBgHovered: '#F7F7F7',
   cellBgSelected: '#F0F0F0',
+  cellHoverOverlay: 'rgba(0,0,0,0.035)',
+  cellSelectedOverlay: 'rgba(0,0,0,0.075)',
   // cellBgSelected: colors.zinc[100],
   cellBgLoading: hexToRGBA(colors.black, 0.04),
   cellLineColor: colors.zinc[200],

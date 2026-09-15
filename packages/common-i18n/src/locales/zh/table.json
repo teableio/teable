@@ -1012,7 +1012,34 @@
   "grid": {
     "prefillingRowTitle": "新建记录",
     "prefillingRowTooltip": "请在下方输入新记录的数据。当焦点离开当前行后，数据将自动保存。",
-    "presortRowTitle": "此记录已经被过滤或因排序规则改变位置"
+    "presortRowTitle": "此记录已经被过滤或因排序规则改变位置",
+    "style": {
+      "title": "样式",
+      "tableStyle": "表格样式",
+      "stripedRows": "斑马纹",
+      "recordColoring": "记录着色",
+      "none": "关闭",
+      "colorBySelectField": "按选项着色",
+      "selectField": "选择字段",
+      "noSelectFields": "没有可用的单选或多选字段",
+      "coloredChoices": "参与着色的选项",
+      "noChoices": "暂无选项",
+      "conditionalColoring": "按条件着色",
+      "manageColorRules": "管理着色规则",
+      "conditionalColoringDescription": "为满足条件的记录设置整行背景色。规则按从上到下的顺序匹配。",
+      "ruleColor": "规则颜色",
+      "ruleName": "规则 {{number}}",
+      "enableRule": "启用规则",
+      "moveRuleUp": "上移规则",
+      "moveRuleDown": "下移规则",
+      "deleteRule": "删除规则",
+      "whenConditionsMatch": "当记录满足以下条件",
+      "noColorRules": "还没有着色规则",
+      "noColorRulesDescription": "添加规则，突出显示需要优先关注的记录。",
+      "firstMatchingRuleWins": "记录同时满足多条规则时，使用最上方规则的颜色。",
+      "addColorRule": "添加规则",
+      "applyColorRules": "应用"
+    }
   },
   "form": {
     "fieldsManagement": "字段管理",

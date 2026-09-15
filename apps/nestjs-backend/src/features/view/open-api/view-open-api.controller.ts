@@ -10,6 +10,8 @@ import {
   Put,
   Query,
   Headers,
+  HttpCode,
+  HttpStatus,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
@@ -368,6 +370,7 @@ export class ViewOpenApiController {
 
   @Permissions('view|update')
   @Patch('/:viewId/options')
+  @HttpCode(HttpStatus.NO_CONTENT)
   @UseV2Feature('updateViewOptions')
   @UseGuards(V2FeatureGuard)
   @UseInterceptors(V2IndicatorInterceptor)

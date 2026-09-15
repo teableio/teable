@@ -5197,6 +5197,33 @@ export type I18nTranslations = {
             "prefillingRowTitle": string;
             "prefillingRowTooltip": string;
             "presortRowTitle": string;
+            "style": {
+                "title": string;
+                "tableStyle": string;
+                "stripedRows": string;
+                "recordColoring": string;
+                "none": string;
+                "colorBySelectField": string;
+                "selectField": string;
+                "noSelectFields": string;
+                "coloredChoices": string;
+                "noChoices": string;
+                "conditionalColoring": string;
+                "manageColorRules": string;
+                "conditionalColoringDescription": string;
+                "ruleColor": string;
+                "ruleName": string;
+                "enableRule": string;
+                "moveRuleUp": string;
+                "moveRuleDown": string;
+                "deleteRule": string;
+                "whenConditionsMatch": string;
+                "noColorRules": string;
+                "noColorRulesDescription": string;
+                "firstMatchingRuleWins": string;
+                "addColorRule": string;
+                "applyColorRules": string;
+            };
         };
         "form": {
             "fieldsManagement": string;
