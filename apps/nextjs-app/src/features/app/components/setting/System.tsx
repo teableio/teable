@@ -5,7 +5,7 @@ import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { LanguagePicker } from '../LanguagePicker';
 import { InteractionSelect } from './InteractionSelect';
-import { SettingTabHeader, SettingTabShell } from './SettingTabShell';
+import { SettingTabShell } from './SettingTabShell';
 
 export const System: React.FC = () => {
   const { t } = useTranslation('common');
@@ -26,7 +26,7 @@ export const System: React.FC = () => {
   }, []);
 
   return (
-    <SettingTabShell header={<SettingTabHeader title={t('settings.setting.title')} />}>
+    <SettingTabShell title={t('settings.setting.title')}>
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
@@ -34,7 +34,7 @@ export const System: React.FC = () => {
             <p className="text-xs text-muted-foreground">{t('settings.setting.themeDesc')}</p>
           </div>
           <RadioGroup
-            className="flex w-full justify-evenly"
+            className="grid w-full grid-cols-3 gap-2 sm:flex sm:justify-evenly"
             defaultValue={theme}
             onValueChange={(value) => {
               setTheme(value);

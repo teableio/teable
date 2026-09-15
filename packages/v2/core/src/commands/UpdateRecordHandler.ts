@@ -255,6 +255,22 @@ export class UpdateRecordHandler
         }
       }
 
+      // T7251: create a missing row-order column on the non-tx handle
+      // before this request transaction takes table locks. calculateOrders
+      // inside the transaction would either hang on CIC or 55P03-fail ADD COLUMN.
+      let nextOrder: number | undefined;
+      if (command.order) {
+        const orderValues = yield* await handler.recordOrderCalculator.calculateOrders(
+          context,
+          tableForUpdate,
+          command.order.viewId,
+          command.order.anchorId,
+          command.order.position,
+          1
+        );
+        nextOrder = orderValues[0];
+      }
+
       const mutationResult = yield* await handler.unitOfWork.withTransaction(
         context,
         async (transactionContext) => {
@@ -296,26 +312,10 @@ export class UpdateRecordHandler
             );
 
             let previousOrder: number | undefined;
-            let nextOrder: number | undefined;
-
-            if (command.order) {
+            if (command.order && nextOrder !== undefined) {
               const viewId = command.order.viewId;
               const viewIdText = viewId.toString();
               previousOrder = currentRecord.orders?.[viewIdText] ?? currentRecord.autoNumber;
-
-              const orderValuesResult = await handler.recordOrderCalculator.calculateOrders(
-                transactionContext,
-                tableForUpdate,
-                viewId,
-                command.order.anchorId,
-                command.order.position,
-                1
-              );
-              if (orderValuesResult.isErr()) {
-                return err(orderValuesResult.error);
-              }
-
-              nextOrder = orderValuesResult.value[0];
               if (previousOrder !== nextOrder) {
                 const orderOnlyRecord = yield* TableRecord.create({
                   id: command.recordId,

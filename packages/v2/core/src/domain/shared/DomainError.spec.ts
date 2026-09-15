@@ -9,6 +9,7 @@ describe('DomainError diagnostics', () => {
       details: { tableId: 'tbl1', error: 'relation does not exist' },
     });
 
+    expect(String(error)).toBe('Failed to load compute activity');
     expect(error.stack).toEqual(expect.stringContaining('DomainError.spec.ts'));
     expect(error.stack).not.toEqual(expect.stringContaining('at withTags'));
     expect(Object.keys(error)).not.toContain('stack');

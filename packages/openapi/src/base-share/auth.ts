@@ -15,7 +15,8 @@ export type IBaseShareAuthVo = z.infer<typeof baseShareAuthVoSchema>;
 export const BaseShareAuthRoute: RouteConfig = registerRoute({
   method: 'post',
   path: BASE_SHARE_AUTH,
-  description: 'Authenticate with password to access shared base',
+  title: 'Authenticate shared project',
+  description: 'Authenticate with a password to access a shared project.',
   request: {
     params: z.object({
       shareId: z.string(),

@@ -1,5 +1,6 @@
 import type { DomainError, IDomainErrorLocalization } from '@teable/v2-core';
 import {
+  COMPUTE_PAUSED_WRITE_BLOCKED_CODE,
   domainErrorTagValues,
   isConflictError,
   isForbiddenError,
@@ -39,7 +40,16 @@ export interface IEndpointResult<TBody, TStatus extends number = number> {
   body: TBody;
 }
 
-export type HttpErrorStatus = 400 | 401 | 403 | 404 | 500 | 501;
+export type HttpErrorStatus = 400 | 401 | 403 | 404 | 409 | 500 | 501 | 504;
+
+/**
+ * SQLSTATE 57014 as surfaced by the PostgreSQL record-query adapter
+ * (`buildUnexpectedQueryError`). The statement outran its configured budget, so
+ * the database did not answer in time: that is a dependency timeout a client can
+ * retry, not the internal failure (500) an unclassified error gets. The domain
+ * code and `details.pgCode` travel with the response either way.
+ */
+const DB_STATEMENT_TIMEOUT_CODE = 'db.statement_timeout';
 
 export const apiErrorResponseDtoSchema = z.object({
   ok: z.literal(false),
@@ -91,6 +101,8 @@ export const mapDomainErrorToHttpStatus = (error: DomainError): HttpErrorStatus 
   if (isUnauthorizedError(error)) return 401;
   if (isForbiddenError(error)) return 403;
   if (isNotImplementedError(error)) return 501;
+  if (error.code === COMPUTE_PAUSED_WRITE_BLOCKED_CODE) return 409;
+  if (error.code === DB_STATEMENT_TIMEOUT_CODE) return 504;
   if (isValidationError(error) || isConflictError(error) || isInvariantError(error)) return 400;
   return 500;
 };

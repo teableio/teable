@@ -1,4 +1,4 @@
-import { Database } from '@teable/icons';
+import { LayoutGrid } from '@teable/icons';
 import { useBase } from '@teable/sdk/hooks';
 import { useTranslation } from 'next-i18next';
 import { useEnv } from '@/features/app/hooks/useEnv';
@@ -12,7 +12,7 @@ export const BaseDetail = () => {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <Database className="size-4" />
+        <LayoutGrid className="size-4" />
         <h2 className="font-semibold">{t('table:table.baseInfo')}</h2>
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">

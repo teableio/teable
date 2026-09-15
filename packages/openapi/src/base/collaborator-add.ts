@@ -17,7 +17,8 @@ export type AddBaseCollaboratorRo = z.infer<typeof addBaseCollaboratorRoSchema>;
 export const AddBaseCollaboratorRoute: RouteConfig = registerRoute({
   method: 'post',
   path: ADD_BASE_COLLABORATOR,
-  description: 'Add a collaborator to a base',
+  title: 'Add project collaborator',
+  description: 'Add a collaborator to a project with the specified role.',
   request: {
     params: z.object({ baseId: z.string() }),
     body: {

@@ -44,7 +44,8 @@ export default defineConfig({
         target: 'es2022',
       },
     }),
-    tsconfigPaths(),
+    // The mobile app's tsconfig extends expo's, which is not installed here; skip it.
+    tsconfigPaths({ ignoreConfigErrors: true }),
   ],
   cacheDir: '../../.cache/vitest/nestjs-backend/e2e',
   test: {

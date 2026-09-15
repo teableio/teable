@@ -96,6 +96,17 @@ export interface IV2TableRepositoryPostgresConfig {
     fieldBackfillConfig?: Partial<FieldBackfillConfig>;
   };
   tableDataSafetyLimits?: TableDataSafetyLimitConfig;
+  /**
+   * Statement budget for the record count/aggregate statements, in ms.
+   *
+   * A positive value runs those statements inside a dedicated transaction whose
+   * `statement_timeout` is set to the budget, so a pathological count fails fast
+   * instead of holding a pooled connection. 0/undefined (default) leaves them
+   * unbudgeted. Transaction-local, so it is safe behind a transaction pooler.
+   */
+  recordQuery?: {
+    statementBudgetMs?: number;
+  };
 }
 
 /**
@@ -146,6 +157,15 @@ export const registerV2TableRepositoryPostgresAdapter = (
   // Register record (DML) components
   c.registerInstance(v2RecordRepositoryPostgresTokens.db, config.db);
   c.registerInstance(v2RecordRepositoryPostgresTokens.metaDb, config.metaDb ?? config.db);
+  const statementBudgetMs = config.recordQuery?.statementBudgetMs;
+  c.registerInstance(v2RecordRepositoryPostgresTokens.recordQueryConfig, {
+    statementBudgetMs:
+      typeof statementBudgetMs === 'number' &&
+      Number.isFinite(statementBudgetMs) &&
+      statementBudgetMs > 0
+        ? Math.floor(statementBudgetMs)
+        : 0,
+  });
 
   c.register(v2CoreTokens.baseDataBulkCopier, PostgresBaseDataBulkCopier, {
     lifecycle: Lifecycle.Singleton,

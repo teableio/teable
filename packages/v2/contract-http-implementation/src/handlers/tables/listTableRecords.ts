@@ -12,6 +12,7 @@ import type {
   IRecordSearchAccessPath,
   ListTableRecordsResult,
   RecordQueryPluginScope,
+  Table,
 } from '@teable/v2-core';
 
 export interface IListTableRecordsEndpointOptions {
@@ -19,6 +20,7 @@ export interface IListTableRecordsEndpointOptions {
   /** @deprecated Prefer queryScope */
   readonly recordReadQuerySource?: IRecordReadQuerySource;
   readonly recordSearchAccessPath?: IRecordSearchAccessPath;
+  readonly table?: Table;
 }
 
 export const executeListTableRecordsEndpoint = async (

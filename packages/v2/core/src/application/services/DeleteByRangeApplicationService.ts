@@ -844,6 +844,7 @@ export class DeleteByRangeApplicationService {
           pagination: countPagination,
           orderBy: options.orderBy,
           search: options.search,
+          includeTotal: true,
         }
       );
       if (countResult.isErr()) {
@@ -942,6 +943,7 @@ export class DeleteByRangeApplicationService {
       pagination: OffsetPagination.create(countLimitResult.value, PageOffset.zero()),
       orderBy,
       search,
+      includeTotal: true,
     });
     if (countResult.isErr()) {
       return err(countResult.error);

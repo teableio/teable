@@ -1,6 +1,6 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { Role, getPermissions } from '@teable/core';
+import { APP_ROBOT_ID, Role, getPermissions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType, PrincipalType } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
@@ -13,6 +13,7 @@ import { CollaboratorService } from './collaborator.service';
 describe('CollaboratorService', () => {
   const mockUser = { id: 'usr1', name: 'John', email: 'john@example.com' };
   const mockSpace = { id: 'spcxxxxxxxx', name: 'Test Space' };
+  const robotCollaborators = [{ principalId: APP_ROBOT_ID, principalType: PrincipalType.User }];
   const prismaService = mockDeep<PrismaService>();
 
   let collaboratorService: CollaboratorService;
@@ -101,5 +102,28 @@ describe('CollaboratorService', () => {
         })
       ).rejects.toThrow('Collaborator has already existed in space');
     });
+  });
+
+  it.each([
+    [
+      'space',
+      () =>
+        collaboratorService.createSpaceCollaborator({
+          collaborators: robotCollaborators,
+          role: Role.Owner,
+          spaceId: mockSpace.id,
+        }),
+    ],
+    [
+      'base',
+      () =>
+        collaboratorService.createBaseCollaborator({
+          collaborators: robotCollaborators,
+          role: Role.Creator,
+          baseId: 'bsexxxxxxxx',
+        }),
+    ],
+  ])('should reject robot principals on %s collaborators', async (_name, call) => {
+    await expect(call()).rejects.toThrow('Robot identities cannot be collaborators');
   });
 });

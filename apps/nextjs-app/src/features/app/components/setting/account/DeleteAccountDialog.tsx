@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import type { HttpError } from '@teable/core';
-import { HttpErrorCode } from '@teable/core';
+import { HttpErrorCode, Role } from '@teable/core';
 import type { IDeleteUserErrorData } from '@teable/openapi';
-import { deleteUser, deleteUserErrorDataSchema } from '@teable/openapi';
+import { deleteUser, deleteUserErrorDataSchema, updateSpaceCollaborator } from '@teable/openapi';
 import {
   Button,
   Dialog,
@@ -17,30 +17,61 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { Alert, AlertDescription } from '@teable/ui-lib/shadcn/ui/alert';
 import { AlertTriangle, X, Loader2 } from 'lucide-react';
-import Link from 'next/link';
 import { Trans, useTranslation } from 'next-i18next';
 import { useEffect, useState } from 'react';
+import type { ISpaceTransfers } from './delete-account/BlockingSpaceList';
+import { BlockingSpaceList } from './delete-account/BlockingSpaceList';
 
 export const DeleteAccountDialog = () => {
   const { t } = useTranslation(['common']);
   const [open, setOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
-  const [deleteError, setDeleteError] = useState<IDeleteUserErrorData | string | null>(null);
+  const [message, setMessage] = useState<string>();
+  // Sole-owner spaces reported by the last attempt. On the next attempt each
+  // one is handed over to the chosen member, or trashed together with the
+  // account when no member was chosen.
+  const [blockingSpaces, setBlockingSpaces] = useState<IDeleteUserErrorData['spaces']>([]);
+  const [transfers, setTransfers] = useState<ISpaceTransfers>({});
+  // A subscribed space only blocks while nobody takes it over: handed over,
+  // it keeps its subscription under the new owner.
+  const hasSubscribedSpace = blockingSpaces.some(
+    (space) => space.subscribed && !transfers[space.id]
+  );
 
-  const { mutate: deleteAccountMutation, isPending: isLoading } = useMutation({
-    mutationFn: (confirm: string) => deleteUser(confirm),
+  const { mutate: deleteAccount, isPending } = useMutation({
+    mutationFn: async () => {
+      const toTrash: string[] = [];
+      for (const space of blockingSpaces) {
+        const member = transfers[space.id];
+        if (!member) {
+          if (!space.subscribed) toTrash.push(space.id);
+          continue;
+        }
+        await updateSpaceCollaborator({
+          spaceId: space.id,
+          updateSpaceCollaborateRo: {
+            principalId: member.principalId,
+            principalType: member.principalType,
+            role: Role.Owner,
+          },
+        });
+      }
+      return deleteUser(confirmText, toTrash);
+    },
     meta: {
       preventGlobalError: true,
     },
     onError: (error: HttpError) => {
-      if (
+      const parsed =
         error.code === HttpErrorCode.VALIDATION_ERROR &&
-        error.data &&
-        deleteUserErrorDataSchema.safeParse(error.data).success
-      ) {
-        setDeleteError(error.data as IDeleteUserErrorData);
+        deleteUserErrorDataSchema.safeParse(error.data);
+      if (parsed && parsed.success) {
+        setMessage(undefined);
+        setBlockingSpaces(parsed.data.spaces);
+        setTransfers({});
       } else {
-        setDeleteError(error.message);
+        setMessage(error.message);
+        setBlockingSpaces([]);
       }
     },
     onSuccess: () => {
@@ -48,14 +79,12 @@ export const DeleteAccountDialog = () => {
     },
   });
 
-  const handleDelete = () => {
-    deleteAccountMutation(confirmText);
-  };
-
   useEffect(() => {
     setConfirmText('');
-    setDeleteError(null);
-  }, [open, setConfirmText]);
+    setMessage(undefined);
+    setBlockingSpaces([]);
+    setTransfers({});
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -68,7 +97,7 @@ export const DeleteAccountDialog = () => {
           {t('settings.account.deleteAccount.title')}
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md md:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base font-semibold">
             <AlertTriangle className="size-5 text-destructive" />
@@ -79,48 +108,20 @@ export const DeleteAccountDialog = () => {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {typeof deleteError === 'string' && (
+        <div className="min-w-0 space-y-4">
+          {message && (
             <Alert variant="destructive">
               <X className="size-4" />
-              <AlertDescription>{deleteError}</AlertDescription>
+              <AlertDescription>{message}</AlertDescription>
             </Alert>
           )}
-          {deleteError &&
-            typeof deleteError === 'object' &&
-            Object.keys(deleteError).map((key) => {
-              const errorKey = key as keyof IDeleteUserErrorData;
-              const error = deleteError[errorKey];
-              if (!Array.isArray(error)) {
-                return <></>;
-              }
-              return (
-                <Alert variant="destructive" key={key}>
-                  <X className="size-4" />
-                  <AlertDescription className="text-[13px]">
-                    <strong>{t('settings.account.deleteAccount.error.title')}</strong>
-                    <p className="mt-1">{t('settings.account.deleteAccount.error.desc')}</p>
-                    <ul className="ms-4 mt-2 flex list-disc flex-col gap-2">
-                      {error.map((item, index) => (
-                        <li key={index}>
-                          <Button variant="secondary" asChild size="xs">
-                            <Link
-                              href={item.deletedTime ? `/space/trash` : `/space/${item.id}`}
-                              target="_blank"
-                            >
-                              {item.name}
-                            </Link>
-                          </Button>
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="mt-2">
-                      {t(`settings.account.deleteAccount.error.${errorKey}Error`)}
-                    </p>
-                  </AlertDescription>
-                </Alert>
-              );
-            })}
+          {blockingSpaces.length > 0 && (
+            <BlockingSpaceList
+              spaces={blockingSpaces}
+              transfers={transfers}
+              onTransfersChange={setTransfers}
+            />
+          )}
           <div className="space-y-2">
             <Label htmlFor="confirm" className="text-[13px]">
               <Trans
@@ -135,23 +136,23 @@ export const DeleteAccountDialog = () => {
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder={t('settings.account.deleteAccount.confirm.placeholder')}
-              disabled={isLoading}
+              disabled={isPending}
             />
           </div>
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" size="sm" onClick={() => setOpen(false)} disabled={isLoading}>
+          <Button variant="outline" size="sm" onClick={() => setOpen(false)} disabled={isPending}>
             {t('common:actions.cancel')}
           </Button>
           <Button
             variant="destructive"
             size="sm"
-            onClick={handleDelete}
-            disabled={confirmText !== 'DELETE'}
+            onClick={() => deleteAccount()}
+            disabled={confirmText !== 'DELETE' || hasSubscribedSpace}
           >
-            {isLoading && <Loader2 className="me-2 size-4 animate-spin" />}
-            {isLoading ? t('settings.account.deleteAccount.loading') : t('common:actions.delete')}
+            {isPending && <Loader2 className="me-2 size-4 animate-spin" />}
+            {isPending ? t('settings.account.deleteAccount.loading') : t('common:actions.delete')}
           </Button>
         </DialogFooter>
       </DialogContent>

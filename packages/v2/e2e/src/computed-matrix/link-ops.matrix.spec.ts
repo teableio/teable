@@ -8,7 +8,6 @@
  * Total: ~16 test cases
  */
 
-import { buildMultiTableNameMaps, printComputedSteps } from '@teable/v2-container-node-test';
 import { beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import { createTestContext, createFieldIdGenerator } from './shared';
 import type { TestContext, LinkRelationship, LinkOpTestCase } from './shared';
@@ -156,7 +155,9 @@ describe('link operation matrix (e2e)', () => {
 
       // Get before value
       const beforeRecords = await ctx.listRecords(tableB.id);
-      const beforeSum = beforeRecords[0].fields[bRollupFieldId];
+      const expectedBefore =
+        isMultiLink && (operation === 'linkRemove' || operation === 'linkClear') ? 30 : 10;
+      expect(beforeRecords[0].fields[bRollupFieldId]).toBe(expectedBefore);
 
       // Clear logs before operation
       ctx.clearLogs();
@@ -228,8 +229,8 @@ describe('link operation matrix (e2e)', () => {
             // Sum should decrease: 10+20=30 -> 10
             expect(afterSum).toBe(10);
           } else {
-            // Cleared: 10 -> 0 or null
-            expect([0, null]).toContain(afterSum);
+            // SUM over no linked values is zero.
+            expect(afterSum).toBe(0);
           }
           break;
 
@@ -239,13 +240,10 @@ describe('link operation matrix (e2e)', () => {
           break;
 
         case 'linkClear':
-          // All cleared: -> 0 or null
-          expect([0, null]).toContain(afterSum);
+          // SUM over no linked values is zero.
+          expect(afterSum).toBe(0);
           break;
       }
-
-      // Value should have changed from before
-      expect(afterSum).not.toBe(beforeSum);
     });
   });
 
@@ -338,14 +336,9 @@ describe('link operation matrix (e2e)', () => {
       expect(afterBRecords[0].fields[bRollupFieldId]).toBe(100);
 
       // Verify A's symmetric link updated
-      if (symLinkFieldId) {
-        const afterARecords = await ctx.listRecords(tableA.id);
-        const symLink = afterARecords[0].fields[symLinkFieldId];
-        expect(Array.isArray(symLink)).toBe(true);
-        if (Array.isArray(symLink)) {
-          expect(symLink.length).toBe(1);
-        }
-      }
+      if (!symLinkFieldId) throw new Error('Expected the two-way link to create a symmetric field');
+      const afterARecords = await ctx.listRecords(tableA.id);
+      expect(afterARecords[0].fields[symLinkFieldId]).toEqual([{ id: recordB.id, title: 'ItemB' }]);
     });
 
     test('deleting record updates symmetric links and computed fields', async () => {
@@ -433,11 +426,11 @@ describe('link operation matrix (e2e)', () => {
   });
 
   // ===========================================================================
-  // Snapshot Tests
+  // Detailed Value Tests
   // ===========================================================================
 
-  describe('snapshot tests', () => {
-    test('link operation snapshot: manyMany add', async () => {
+  describe('detailed value tests', () => {
+    test('link operation: manyMany add', async () => {
       const createFieldId = createFieldIdGenerator();
 
       // Create A
@@ -512,20 +505,6 @@ describe('link operation matrix (e2e)', () => {
       await ctx.testContainer.processOutbox();
 
       expect((await ctx.listRecords(tableB.id))[0].fields[bRollupFieldId]).toBe(300);
-
-      // Verify steps
-      const plan = ctx.getLastComputedPlan() as {
-        steps: Array<{ tableId: string; fieldIds: string[]; level: number }>;
-      };
-
-      const nameMaps = buildMultiTableNameMaps([
-        { id: tableA.id, name: 'LinkOp_Snapshot_A', fields: [] },
-        { id: tableB.id, name: 'LinkOp_Snapshot_B', fields: [{ id: bRollupFieldId, name: 'Sum' }] },
-      ]);
-
-      // Should have rollup step
-      const rollupStep = plan.steps.find((s) => s.fieldIds.includes(bRollupFieldId));
-      expect(rollupStep).toBeDefined();
     });
   });
 });

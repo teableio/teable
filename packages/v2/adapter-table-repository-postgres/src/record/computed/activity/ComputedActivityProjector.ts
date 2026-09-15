@@ -8,6 +8,7 @@ import {
   ComputedActivity,
   ComputedActivityBatchChanged,
   domainError,
+  emptyComputeReliability,
   FieldId,
   getUnitOfWorkTransaction,
   registerAfterCommit,
@@ -30,6 +31,8 @@ import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
 import type { DynamicDB } from '../../query-builder';
 import { buildTryAdvisoryLockQuery } from '../ComputedUpdateLock';
 import { pushAll } from '../pushAll';
+import { isComputedReliabilityVisible } from '../reliability/config';
+import { PostgresComputedReliabilityStore } from '../reliability/PostgresComputedReliabilityStore';
 import {
   fieldActivityRowToDto,
   tableActivityRowToDto,
@@ -882,13 +885,26 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
         // folding these in, the running work would stay invisible forever: the
         // drift detector joins FROM the activity table and cannot see them.
         const activityFieldIds = new Set(fieldRows.map((row) => String(row.field_id)));
+        const reliabilityStore = new PostgresComputedReliabilityStore(trx);
+        const reliabilityVisible = isComputedReliabilityVisible(params.baseId);
+        const failureTargets = reliabilityVisible
+          ? await reliabilityStore.getFieldSummaries(tableId.toString())
+          : [];
         const orphanRefRows = (
           await trx
             .selectFrom(TASK_FIELD_REF_TABLE)
             .select(['field_id', 'table_id', 'base_id'])
             .where('table_id', '=', tableId.toString())
             .execute()
-        ).filter((row) => !activityFieldIds.has(String(row.field_id)));
+        )
+          .concat(
+            failureTargets.map((item) => ({
+              field_id: item.fieldId,
+              table_id: tableId.toString(),
+              base_id: item.baseId,
+            }))
+          )
+          .filter((row) => !activityFieldIds.has(String(row.field_id)));
 
         if (fieldRows.length === 0 && !tableRow && orphanRefRows.length === 0) return ok(null);
 
@@ -934,7 +950,13 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
         }
 
         if (targets.length > 0) {
-          const synced = await this.syncActivityFromTaskRefs(trx, activity, targets, now);
+          const synced = await this.syncActivityFromTaskRefs(
+            trx,
+            activity,
+            targets,
+            now,
+            reliabilityVisible ? new Map([[tableId.toString(), failureTargets]]) : undefined
+          );
           if (synced.isErr()) return err(synced.error);
         } else {
           // Force table aggregate back to idle from empty field set.
@@ -1541,7 +1563,11 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
     trx: DbLike,
     activity: ComputedActivity,
     targets: ReadonlyArray<FieldComputeTarget & { baseId?: BaseId }>,
-    now: Date
+    now: Date,
+    loadedReliability?: ReadonlyMap<
+      string,
+      Awaited<ReturnType<PostgresComputedReliabilityStore['getFieldSummaries']>>
+    >
   ): Promise<Result<void, DomainError>> {
     if (targets.length === 0) return ok(undefined);
 
@@ -1584,6 +1610,27 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
     }
 
     activity.syncFromTaskRefs({ targets: resolved, now });
+    const store = new PostgresComputedReliabilityStore(trx);
+    if (
+      resolved.some((target) => isComputedReliabilityVisible(target.baseId.toString())) &&
+      (loadedReliability || (await store.isReady()))
+    ) {
+      for (const tableId of new Set(resolved.map((target) => target.tableId.toString()))) {
+        const summaries = new Map(
+          (loadedReliability?.get(tableId) ?? (await store.getFieldSummaries(tableId, true))).map(
+            (item) => [item.fieldId, item.reliability]
+          )
+        );
+        for (const target of resolved.filter((item) => item.tableId.toString() === tableId)) {
+          activity
+            .getField(target.fieldId)
+            ?.syncReliability(
+              summaries.get(target.fieldId.toString()) ?? emptyComputeReliability(),
+              now
+            );
+        }
+      }
+    }
     return ok(undefined);
   }
 
@@ -1734,7 +1781,9 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
     if (baseIdResult.isErr()) return;
     const event = ComputedActivityBatchChanged.create({
       baseId: baseIdResult.value,
-      fields: projection.fields,
+      fields: isComputedReliabilityVisible(projection.baseId)
+        ? projection.fields
+        : projection.fields.map((field) => ({ ...field, reliability: undefined })),
       tables: projection.tables,
     });
     const publishContext = this.resolvePublishContext(context);

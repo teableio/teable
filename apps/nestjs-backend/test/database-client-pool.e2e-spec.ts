@@ -8,13 +8,21 @@ import { initApp } from './utils/init-app';
 
 describe('database client pool topology (e2e)', () => {
   let app: INestApplication;
+  let previousEnabled: string | undefined;
 
   beforeAll(async () => {
+    previousEnabled = process.env.V2_TABLE_QUERY_OPS_ENABLED;
+    process.env.V2_TABLE_QUERY_OPS_ENABLED = 'true';
     app = (await initApp()).app;
   });
 
   afterAll(async () => {
     await app.close();
+    if (previousEnabled == null) {
+      delete process.env.V2_TABLE_QUERY_OPS_ENABLED;
+    } else {
+      process.env.V2_TABLE_QUERY_OPS_ENABLED = previousEnabled;
+    }
   });
 
   it('bulkheads observations from the shared Prisma, V2 Kysely, and Knex pool', async () => {

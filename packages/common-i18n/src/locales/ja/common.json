@@ -67,7 +67,7 @@
     "copyLink": "リンクをコピー",
     "openLink": "リンクを開く",
     "backToSpace": "スペースに戻る",
-    "switchBase": "ベースを切り替え",
+    "switchBase": "プロジェクトを切り替え",
     "collapse": "折りたたむ",
     "viewDetails": "詳細を表示",
     "getMore": "もっと取得",
@@ -92,7 +92,7 @@
     "guideTitle": "シナリオから始める",
     "watchVideo": "動画を見る",
     "title": "テンプレート",
-    "description": "テンプレートから新しいベースを作成",
+    "description": "テンプレートから新しいプロジェクトを作成",
     "browseAll": "すべて閲覧",
     "templateTitle": "テンプレートで始める",
     "loadMore": "さらに読み込む",
@@ -130,7 +130,7 @@
     "enterPassword": "パスワードを入力",
     "passwordTitle": "パスワードを設定",
     "deleteConfirmTitle": "共有リンクを削除",
-    "deleteConfirmDescription": "この操作は元に戻せません。このリンクを持つ人は共有ベースにアクセスできなくなります。",
+    "deleteConfirmDescription": "この操作は元に戻せません。このリンクを持つ人は共有プロジェクトにアクセスできなくなります。",
     "createSuccess": "共有リンクが作成されました",
     "createFailed": "共有リンクの作成に失敗しました",
     "updateFailed": "共有設定の更新に失敗しました",
@@ -142,19 +142,19 @@
   "share": {
     "copyToSpaceDialog": {
       "title": "スペースにコピー",
-      "description": "このベースをコピーするスペースを選択してください",
-      "baseName": "ベース名",
-      "baseNamePlaceholder": "ベース名を入力",
+      "description": "このプロジェクトをコピーするスペースを選択してください",
+      "baseName": "プロジェクト名",
+      "baseNamePlaceholder": "プロジェクト名を入力",
       "selectSpace": "スペースを選択",
       "noSpaceDescription": "管理可能なスペースがありません。続行するには新規スペースを作成してください。",
       "newSpacePlaceholder": "Space name",
       "createSpace": "Create",
       "copyTarget": "Copy to",
-      "createNewBase": "New base",
-      "copyToExistingBase": "Existing base",
-      "selectBase": "Select base",
-      "selectBasePlaceholder": "Select a base",
-      "noBaseInSpace": "このスペースに管理可能なベースがありません。「新規ベース」を選択してください。"
+      "createNewBase": "新しいプロジェクト",
+      "copyToExistingBase": "既存のプロジェクト",
+      "selectBase": "プロジェクトを選択",
+      "selectBasePlaceholder": "プロジェクトを選択",
+      "noBaseInSpace": "このスペースに管理可能なプロジェクトがありません。「新規プロジェクト」を選択してください。"
     }
   },
   "settings": {
@@ -175,7 +175,7 @@
         "errorCategoryName": "カテゴリが存在しないか削除されています",
         "needSnapshot": "公開前にスナップショットを作成してください。テンプレート名と説明は空にできません",
         "needPublish": "おすすめに設定する前にテンプレートを公開してください",
-        "needBaseSource": "スナップショットを作成する前にベースソースを選択してください",
+        "needBaseSource": "スナップショットを作成する前にプロジェクトソースを選択してください",
         "forbiddenUpdateSystemTemplate": "システムテンプレートは変更できません",
         "addCategoryTips": "検索入力欄にカテゴリ名を先に入力してください",
         "categoryNamePlaceholder": "カテゴリ名を入力",
@@ -225,13 +225,13 @@
       "noImage": "画像なし",
       "baseSelectPanel": {
         "title": "テンプレートソースを選択",
-        "description": "テンプレートとしてベースを選択",
+        "description": "テンプレートとしてプロジェクトを選択",
         "confirm": "確認",
         "search": "検索...",
         "cancel": "キャンセル",
-        "selectBase": "ベースを選択",
+        "selectBase": "プロジェクトを選択",
         "createTemplate": "テンプレートを作成",
-        "abnormalBase": "ベースが存在しないか削除されています"
+        "abnormalBase": "プロジェクトが存在しないか削除されています"
       }
     },
     "back": "ホームに戻る",
@@ -298,8 +298,13 @@
         "desc": "このアクションは元に戻せません。アカウントとすべての関連データが完全に削除されます。",
         "error": {
           "title": "アカウントを削除できません",
-          "desc": "まず以下の依存関係を処理する必要があります：",
-          "spacesError": "アカウントを削除する前に、まずスペースを退出（または削除してゴミ箱に移動）する必要があります。"
+          "spacesError": "あなたは以下のスペースの唯一のオーナーです。有効なサブスクリプションがあるスペースは先にキャンセルが必要です。残したいスペースは受け取るメンバーを選んでください。削除をクリックした時点で自動的に移譲され、それ以外はアカウントと一緒にゴミ箱へ移動します。",
+          "willTrash": "ゴミ箱へ移動",
+          "willTransfer": "移譲されます",
+          "subscribedHint": "このスペースにはまだ有効なサブスクリプションがあります。キャンセルしてから、アカウントの削除に戻ってください。",
+          "cancelSubscription": "サブスクリプションを管理",
+          "transferTo": "移譲先のメンバーを選択（未選択ならゴミ箱へ）",
+          "transferToSubscribed": "または移譲先のメンバーを選択（サブスクリプションはスペースに残ります）"
         },
         "confirm": {
           "title": "確認するには<code>DELETE</code>と入力してください",
@@ -331,7 +336,7 @@
       "teableSkill": "Teable スキル"
     },
     "teableSkill": {
-      "intro": "AI Agent を Base に接続し、データの検索、テーブル・フィールド・ビューの管理、レコードのインポートや更新、自動化やアプリの作成を支援します。",
+      "intro": "AI Agent をプロジェクトに接続し、データの検索、テーブル・フィールド・ビューの管理、レコードのインポートや更新、自動化やアプリの作成を支援します。",
       "worksWith": "主要なすべての Agent に対応",
       "more": "+ さらに表示",
       "copy": "コピー",
@@ -344,7 +349,7 @@
       "step3Description": "スキルのインストール後、以下のプロンプトを試してください。",
       "tryPrompts": {
         "schema": {
-          "prompt": "この base にシンプルな CRM テーブルを作成してください。",
+          "prompt": "このプロジェクトにシンプルな CRM テーブルを作成してください。",
           "note": "シンプルなスタータープロンプト"
         },
         "template": {
@@ -390,10 +395,6 @@
           "user": "Slackユーザー",
           "workspace": "Slackワークスペース"
         },
-        "email": {
-          "user": "ユーザー",
-          "email": "メール"
-        },
         "deleteTitle": "接続されたアカウントを削除",
         "deleteDesc": "{{name}}を削除してもよろしいですか？",
         "create": "新しいアカウントを接続",
@@ -412,7 +413,7 @@
     "table": "テーブル",
     "view": "ビュー",
     "space": "スペース",
-    "base": "ベース",
+    "base": "プロジェクト",
     "field": "フィールド",
     "record": "レコード",
     "dashboard": "ダッシュボード",
@@ -437,6 +438,8 @@
     "webSearch": "ウェブ検索",
     "folder": "フォルダ",
     "newAutomation": "新しいオートメーション",
+    "routine": "ルーティン",
+    "newRoutine": "新しいルーティン",
     "newApp": "新しいアプリ",
     "newFolder": "新しいフォルダ",
     "template": "テンプレート"
@@ -463,9 +466,9 @@
     "done": "決定",
     "skip": "スキップ",
     "createSpaceTooltipTitle": "スペースの作成",
-    "createSpaceTooltipContent": "Teableはスペースで構成されており、各スペースではユーザーが共同作業を行うことができます。<br></br>Teableのスペースはメニューバー内の主要なナビゲーション要素として機能し、ユーザーが必要に応じてデータベースを追加および管理するための基本的なプラットフォームを提供します。",
-    "createBaseTooltipTitle": "ベースの作成",
-    "createBaseTooltipContent": "ベース (「データベース」の略) は、重要なデータとそれに依存するワークフローを保存する場所です。",
+    "createSpaceTooltipContent": "Teableはスペースで構成されており、各スペースではユーザーが共同作業を行うことができます。<br></br>Teableのスペースはメニューバー内の主要なナビゲーション要素として機能し、ユーザーが必要に応じてプロジェクトを追加および管理するための基本的なプラットフォームを提供します。",
+    "createBaseTooltipTitle": "プロジェクトの作成",
+    "createBaseTooltipContent": "プロジェクトはデータを保存し、自動化とアプリのダッシュボードへのアクセスを提供します。",
     "createTableTooltipTitle": "テーブルの作成",
     "createTableTooltipContent": "テーブルは、多様なデータセットを効率的に処理できるように設計されており、さまざまなデータ型による情報を多様に表示できます。",
     "createViewTooltipTitle": "ビューの作成",
@@ -494,14 +497,14 @@
       "linkSend": "リンクの作成",
       "spaceTitle": "スペースの共同作業者",
       "spaceTitleWithCount": "スペースのコラボレーター（{{count}}）",
-      "baseTitle": "ベースのコラボレーター",
-      "allCollaboratorsTitle": "すべてのコラボレーター（スペースとベース）",
-      "baseOnly": "ベースのみ",
+      "baseTitle": "プロジェクトのコラボレーター",
+      "allCollaboratorsTitle": "すべてのコラボレーター（スペースとプロジェクト）",
+      "baseOnly": "プロジェクトのみ",
       "collaboratorSearchPlaceholder": "名前またはメールアドレスでスペースの共同作業者を探す",
       "collaboratorJoin": "{{joinTime}}に参加",
       "collaboratorRemove": "共同作業者の削除",
-      "basePermissionRemove": "ベースへのアクセス権を削除",
-      "goToBase": "ベースに移動",
+      "basePermissionRemove": "プロジェクトへのアクセス権を削除",
+      "goToBase": "プロジェクトに移動",
       "linkTitle": "招待リンク",
       "linkCreatedTime": "{{createdTime}}に作成",
       "linkCopySuccess": "リンクをコピーしました",
@@ -512,10 +515,10 @@
     },
     "base": {
       "title": "{{baseName}}共有",
-      "desc_other": "このベースは{{count}}人の共同作業者と共有されています。",
-      "baseTitle": "ベースの共同作業者",
-      "collaboratorSearchPlaceholder": "名前またはメールアドレスでベースの共同作業者を探す",
-      "baseTitleWithCount": "ベースのコラボレーター（{{count}}）"
+      "desc_other": "このプロジェクトは{{count}}人の共同作業者と共有されています。",
+      "baseTitle": "プロジェクトの共同作業者",
+      "collaboratorSearchPlaceholder": "名前またはメールアドレスでプロジェクトの共同作業者を探す",
+      "baseTitleWithCount": "プロジェクトのコラボレーター（{{count}}）"
     },
     "addOrgCollaborator": {
       "title": "組織の共同作業者を追加",
@@ -530,8 +533,8 @@
       "lastLogin": "最終ログイン",
       "expandPermissions": "{{name}}の権限を展開",
       "collapsePermissions": "{{name}}の権限を折りたたむ",
-      "basePermissionsOnly": "選択したベースにのみアクセスできます",
-      "basePermissionCount": "ベース権限:{{count}}件"
+      "basePermissionsOnly": "選択したプロジェクトにのみアクセスできます",
+      "basePermissionCount": "プロジェクト権限:{{count}}件"
     },
     "authority": {
       "title": "権限マトリクスが有効です",
@@ -564,17 +567,13 @@
     "billable": "課金対象",
     "billableByAuthorityMatrix": "権限マトリックスによって生成された課金",
     "seatConfirm": {
-      "title": "この招待によりサブスクリプション料金が増加します",
-      "roleChangeTitle": "このロール変更によりサブスクリプション料金が増加します",
       "matrixTitle": "メンバーの追加によりサブスクリプション料金が増加します",
-      "inviteDesc_other": "招待した {{count}} 人のメンバーは {{role}} ロールで参加し、サブスクリプションの {{count}} 席を使用するため、料金がその分増加します。閲覧やコメントのみでよい場合は、無料の「閲覧者」または「解説者」ロールをお選びください。",
-      "linkDesc": "このリンクから参加したメンバーには {{role}} ロールが付与され、1 人につき 1 席を使用するため、参加人数に応じて料金が増加します。閲覧やコメントのみでよい場合は、無料の「閲覧者」または「解説者」ロールをお選びください。",
-      "roleChangeDesc": "{{role}} に変更すると、このメンバーはサブスクリプションの 1 席を使用し、料金がその分増加します。",
       "matrixDesc": "このメンバーは現在無料ロール（閲覧者/解説者）です。権限マトリックスに追加するとサブスクリプションの 1 席を使用し、料金がその分増加します。",
       "seatLimitTitle": "ライセンスシートが不足しています",
       "seatLimitDesc": "このインスタンスはライセンスシート {{seatLimit}} 席中 {{seats}} 席を使用しており、この操作に必要な残りシートがありません。管理者に連絡して追加シートを購入してください。閲覧やコメントのみでよい場合は、無料の「閲覧者」または「解説者」ロールをご利用ください。",
       "seatLimitConfirm": "わかりました",
-      "confirmInvite": "確認して招待"
+      "fixedSeatTitle": "プランのシートが不足しています",
+      "fixedSeatDesc": "現在のプランにはシートが {{quantity}} 席含まれており、すでに {{seats}} 席を使用しています。続行するとシート上限を超え、7日間の猶予期間の後にスペースは無料プランにダウングレードされます。閲覧やコメントのみでよい場合は、無料の「閲覧者」または「解説者」ロールをご利用ください。"
     },
     "licenseExpiredGracePeriod": "セルフホスト版ライセンスの有効期限が切れました。{{expiredTime}}に無料プランへダウングレードされ、プレミアム機能が利用できなくなります。完全な機能を維持するため、速やかにライセンスを更新してください。",
     "licenseAutoFetchFailed": "ライセンスの自動更新に失敗しました。ダウングレードまでの猶予期間は残り {{days}} 日です。",
@@ -668,7 +667,14 @@
           "modelTiers": "モデルの階層",
           "modelTiersDescription": "中程度のタスクと軽いタスクに別々のモデルを割り当てます。未設定の階層は上記の既定のメインモデルを使用します。",
           "allInheriting": "すべての階層が既定のメインモデルを使用します",
-          "customized": "{{count}} 件をカスタマイズ済み"
+          "customized": "{{count}} 件をカスタマイズ済み",
+          "tiersIntro": "ユーザーはチャットのモデルメニューでこれらの階層から選択します。既定の階層が初期選択となり、クレジット倍率 1x の基準になります。各階層のモデルはいつでも変更できます。",
+          "defaultTier": "既定",
+          "setDefault": "既定に設定",
+          "notOffered": "提供しない",
+          "lgBackground": "AI フィールドなど他の機能のメインモデルでもあります",
+          "mdBackground": "中程度のバックグラウンドタスクにも使用されます",
+          "smBackground": "チャットタイトルの生成などの軽量なバックグラウンドタスクにも使用されます"
         },
         "actions": {
           "title": "AI機能",
@@ -938,8 +944,8 @@
           "quickSetup": "クイックセットアップ",
           "useRecommended": "おすすめを使用",
           "useRecommendedDesc": "ワンクリックで {{model}} をすべてのチャットシナリオの既定に設定します",
-          "chatModels": "既定のメインモデル",
-          "chatModelTip": "サイドバーの AI チャット用の既定のメインモデルです。管理者が設定し、ユーザーは変更できません。独自のモデルを持たないタスク階層もこれを使用します",
+          "chatModels": "チャットモデルの階層",
+          "chatModelTip": "Smart がメインモデルです。AI フィールド、バックグラウンドタスク、独自のモデルを持たない階層はこれを使用します。既定の階層はチャットユーザーの初期選択です。",
           "selectChatModel": "チャットモデルを選択...",
           "lgDesc": "複雑なタスク、深い分析",
           "mdDesc": "日常的な会話、一般的なタスク",
@@ -1108,8 +1114,8 @@
       "viewer": "閲覧者"
     },
     "description": {
-      "owner": "ベース、アプリ、オートメーション、権限マトリックスをすべて設定し、スペース設定と課金を管理できます。",
-      "creator": "ベース、アプリ、オートメーション、権限マトリックスをすべて設定できます",
+      "owner": "プロジェクト、アプリ、オートメーション、権限マトリックスをすべて設定し、スペース設定と課金を管理できます。",
+      "creator": "プロジェクト、アプリ、オートメーション、権限マトリックスをすべて設定できます",
       "editor": "レコードとビューを編集できますが、テーブルやフィールドを設定することはできません",
       "commenter": "レコードにコメントできます",
       "viewer": "編集もコメントもできません"
@@ -1127,8 +1133,8 @@
     "addToTrash": "ゴミ箱に移動",
     "description": "ゴミ箱のデータは依然としてレコード使用量と添付ファイル使用量を占めています。",
     "spaceDescription": "過去{{retentionDays}}日以内に削除されたスペースを復元",
-    "spaceInnerDescription": "過去{{retentionDays}}日以内にこのスペースから削除されたベースを復元",
-    "baseDescription": "過去{{retentionDays}}日以内にこのベースから削除されたリソースを復元"
+    "spaceInnerDescription": "過去{{retentionDays}}日以内にこのスペースから削除されたプロジェクトを復元",
+    "baseDescription": "過去{{retentionDays}}日以内にこのプロジェクトから削除されたリソースを復元"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "プラグインにURLがありません",
@@ -1181,7 +1187,7 @@
     "unsubscribeH2": "今後のTeable のプロモーションや製品アップデート情報の配信を解除しようとしています。登録解除してもよろしいですか？",
     "subscribeH1": "登録を確認しますか？",
     "subscribeH2": "今後のTeable のプロモーションや製品アップデート情報の配信を登録しようとしています。登録してもよろしいですか？",
-    "unsubscribeListTip": "現在のベースの以下のユーザーが購読を解除しました。これらのユーザーにはメールを送信できなくなります。メールをインポートする際は、メールアドレスを最初の列に配置し、ヘッダーに「email」という名前を付けてください。",
+    "unsubscribeListTip": "現在のプロジェクトの以下のユーザーが購読を解除しました。これらのユーザーにはメールを送信できなくなります。メールをインポートする際は、メールアドレスを最初の列に配置し、ヘッダーに「email」という名前を付けてください。",
     "templates": {
       "resetPassword": {
         "subject": "パスワードをリセット - {{brandName}}",
@@ -1194,6 +1200,11 @@
           "subject": "登録確認 - {{brandName}}",
           "title": "登録確認",
           "message": "確認コードは{{code}}です。{{expiresIn}}分以内に使用してください。"
+        },
+        "signinVerification": {
+          "subject": "ログイン認証 - {{brandName}}",
+          "title": "ログイン認証",
+          "message": "ログイン認証コードは {{code}} です。{{expiresIn}} 分以内にご使用ください。心当たりがない場合は、このメールを無視してください。"
         },
         "domainVerification": {
           "subject": "ドメイン確認 - {{brandName}}",
@@ -1272,7 +1283,7 @@
         },
         "collaboratorInvite": {
           "space": "{{fromUserName}}があなたをスペース {{resourceName}} に招待しました",
-          "base": "{{fromUserName}}があなたをベース {{resourceName}} に招待しました"
+          "base": "{{fromUserName}}があなたをプロジェクト {{resourceName}} に招待しました"
         },
         "automation": {
           "title": "自動化通知",
@@ -1291,6 +1302,24 @@
           "failedSummary": {
             "title": "自動化{{name}}が{{failCount}}回連続で失敗しました",
             "message": "自動化{{name}}が{{failCount}}回連続で失敗しています。実行履歴を開いて詳細をご確認ください。"
+          }
+        },
+        "routine": {
+          "failed": {
+            "title": "ルーチン {{name}} の実行に失敗しました",
+            "message": "ルーチン {{name}} の実行中にエラーが発生しました。実行履歴で詳細をご確認ください。"
+          },
+          "failedSummary": {
+            "title": "ルーチン {{name}} が {{failCount}} 回失敗しました",
+            "message": "ルーチン {{name}} が連続で {{failCount}} 回失敗しています。実行履歴で詳細をご確認ください。"
+          },
+          "insufficientCredit": {
+            "title": "AI クレジット不足のためルーチン {{name}} はスキップされました",
+            "message": "AI クレジットが不足しているため、ルーチン {{name}} は実行されませんでした。クレジットを追加するかプランをアップグレードしてください。"
+          },
+          "autoDeactivated": {
+            "title": "ルーチン {{name}} は連続 {{failCount}} 回の失敗により一時停止されました",
+            "message": "ルーチン {{name}} が連続で {{failCount}} 回失敗したため、自動的に一時停止しました。問題を解決してから再度有効にしてください。"
           }
         },
         "billing": {
@@ -1341,7 +1370,7 @@
           }
         },
         "exportBase": {
-          "title": "ベースエクスポート結果通知",
+          "title": "プロジェクトエクスポート結果通知",
           "success": {
             "message": "{{baseName}}が正常にエクスポートされました：<a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
           },
@@ -1359,6 +1388,7 @@
               "title": "AIタスクがキャンセルされました",
               "rateLimit": "テーブル \"{{tableName}}\" のAIタスクは、レート制限（429）によりキャンセルされました。後でもう一度お試しください。",
               "creditExhausted": "テーブル \"{{tableName}}\" のAIタスクは、クレジットが使い切られたためキャンセルされました。サブスクリプションをアップグレードするか、クレジットの更新をお待ちください。",
+              "providerBilling": "モデルプロバイダーが課金上の理由でリクエストを拒否したため、テーブル \"{{tableName}}\" の AI タスクはキャンセルされました。このモデルに設定された API キーのアカウントの残高と課金状況を確認してください。エラー：{{errorMessage}}",
               "authFailed": "テーブル \"{{tableName}}\" のAIタスクは、認証エラーによりキャンセルされました。APIキーの設定をご確認ください。",
               "serviceUnavailable": "テーブル \"{{tableName}}\" のAIタスクは、AIサービスが一時的に利用できないためキャンセルされました。後でもう一度お試しください。",
               "unknown": "テーブル \"{{tableName}}\" のAIタスクがキャンセルされました。エラー：{{errorMessage}}"
@@ -1402,9 +1432,9 @@
     "code": "招待コード",
     "inviteSuccess": "招待成功"
   },
-  "noPermissionToCreateBase": "どのスペースにもベースを作成する権限がありません",
+  "noPermissionToCreateBase": "どのスペースにもプロジェクトを作成する権限がありません",
   "base": {
-    "deleteTip": "「{{name}}」ベースを削除してもよろしいですか？",
+    "deleteTip": "「{{name}}」プロジェクトを削除してもよろしいですか？",
     "createResource": "リソースを作成",
     "noPermissionToCreateResource": "リソースを作成する権限がありません"
   },
@@ -1449,6 +1479,7 @@
     "minFollowerCount": "アカウントには少なくとも{{count}}人のフォロワーが必要です",
     "mustMention": "投稿は{{mention}}をメンションする必要があります",
     "fetchSnapshotFailed": "投稿スナップショットの取得に失敗しました",
+    "snapshotTimeout": "投稿スナップショットの待機がタイムアウトしました。しばらくしてからもう一度お試しください",
     "alreadyClaimedThisWeek": "今週すでにこのアカウントの報酬を請求しています",
     "maxClaimsReached": "今週のリワード請求上限（2回）に達しました",
     "postTooOld": "投稿は過去{{hours}}時間以内に公開されたものである必要があります",
@@ -1514,8 +1545,8 @@
     "responseInterrupted": "応答が中断されました",
     "serverError": "サーバーエラーが発生しました",
     "serverErrorHint": "新しい会話を開始してもう一度お試しください。",
-    "modelNotSupported": "選択したモデルはエージェントモードに対応していません。最適な体験のために Claude Opus 4.6 に切り替えてください。",
-    "byokModelNotSupported": "カスタムモデルはエージェントモードに対応していません。最適な体験のために Claude Opus 4.6 に切り替えてください。",
+    "modelNotSupported": "選択したモデルはエージェントモードに対応していません。最適な体験のために GPT-6 Astra に切り替えてください。",
+    "byokModelNotSupported": "カスタムモデルはエージェントモードに対応していません。最適な体験のために GPT-6 Astra に切り替えてください。",
     "modelServiceUnavailable": "モデルサービスが一時的に利用できません。しばらくしてからお試しください。",
     "modelServiceError": "モデルサービスでエラーが発生しました。もう一度お試しいただくか、別のモデルに切り替えてください。",
     "imageProcessingFailed": "画像の処理に失敗しました",
@@ -1535,6 +1566,26 @@
       "working": "AIが処理中です",
       "completed": "AIタスクが完了しました",
       "failed": "AIタスクに失敗しました"
+    }
+  },
+  "modelTier": {
+    "title": "モデル",
+    "uses": "{{model}} を使用",
+    "xl": {
+      "label": "Ultra",
+      "description": "要求の厳しい重要な作業向けの最高性能。"
+    },
+    "lg": {
+      "label": "Smart",
+      "description": "日常業務向けの高い推論能力。"
+    },
+    "md": {
+      "label": "Standard",
+      "description": "定型業務向けの高速かつ低コストなモデル。"
+    },
+    "sm": {
+      "label": "Lite",
+      "description": "低コストで大量の定型業務向けの軽量モデル。"
     }
   },
   "system": {
@@ -1585,10 +1636,11 @@
       "replace": "置き換え",
       "download": "ダウンロード",
       "uninstall": "アンインストール",
-      "copyToBase": "ベースにコピー",
+      "copyToBase": "プロジェクトにコピー",
       "copyToSpace": "スペースにコピー",
       "copyToPersonal": "個人にコピー",
-      "copyToApp": "アプリにコピー"
+      "copyToApp": "アプリにコピー",
+      "copyToRoutine": "ルーティンにコピー"
     },
     "import": {
       "title": "スキルをインポート",
@@ -1620,16 +1672,18 @@
       "label": "スコープ",
       "system": "システム",
       "builtin": "組み込み",
-      "base": "ベース",
+      "base": "プロジェクト",
       "user": "個人",
       "userDescription": "自分のみ利用可能",
-      "baseDescription": "この Base の共同作業者と共有",
+      "baseDescription": "このプロジェクトの共同作業者と共有",
       "space": "スペース",
       "spaceDescription": "このスペースの全メンバーと共有",
       "app": "App",
       "appDescription": "このアプリでのみ利用可能",
       "cuppyclaw": "ボット",
-      "cuppyclawDescription": "このボットでのみ利用可能"
+      "cuppyclawDescription": "このボットでのみ利用可能",
+      "routine": "ルーティン",
+      "routineDescription": "このルーティンでのみ利用可能"
     },
     "source": {
       "github": "GitHub",
@@ -1675,5 +1729,40 @@
     "acknowledge": "了解しました",
     "collapse": "折りたたむ",
     "more_other": "他 {{count}} 件のお知らせ"
+  },
+  "mobileEmbed": {
+    "pickFromDirectory": "ディレクトリから項目を選択",
+    "pickFromDirectoryHint": "ディレクトリからテーブル、ダッシュボード、オートメーションを開くと、ここに表示されます。",
+    "limitReachedTitle": "プランの上限に達しました",
+    "limitReachedDescription": "このスペースは現在のプランの上限に達しています。",
+    "creditsExhaustedTitle": "AI クレジットを使い切りました",
+    "creditsExhaustedDescription": "このスペースは現在のプランに含まれる AI クレジットをすべて使い切りました。",
+    "seatLimitTitle": "空きシートがありません",
+    "seatLimitDescription": "このスペースには、これ以上コラボレーターを追加できるシートがありません。",
+    "ownerManagesPlan": "このスペースのプランを管理できるのはスペースのオーナーのみです。オーナーに連絡して解決してください。",
+    "featureUnavailableTitle": "このプランでは利用できません",
+    "billingUnavailable": "プランと請求の管理はアプリでは利用できません。",
+    "featureUnavailableDescription": "この機能は、このスペースの現在のプランでは利用できません。",
+    "importRowLimitReached": "現在のプランの行数上限に達したため、残りのレコードはインポートされませんでした。",
+    "userCapTitle": "ユーザー数の上限に達しました",
+    "userCapDescription": "このインスタンスはライセンスで許可されたユーザー数に達しています。管理者に連絡してください。"
+  },
+  "push": {
+    "gate": {
+      "askUserQuestion": "Cuppy から質問があります。",
+      "permission": "Cuppy が続行の確認を待っています。",
+      "connectIntegration": "続けるにはアプリの接続が必要です。",
+      "pickGoogleSheet": "使用するシートを選んでください。",
+      "requestCredential": "続けるにはアクセス権限が必要です。"
+    },
+    "result": {
+      "done": "完了しました。",
+      "failed": "実行に失敗しました。",
+      "creditExhausted": "AI クレジットが不足したため停止しました。",
+      "skippedNoCredit": "AI クレジットが不足したため、今回はスキップしました。",
+      "autoDeactivated": "5 回連続で失敗したため停止しました。",
+      "summaryTitle": "Teable",
+      "summary": "{{count}} 件の会話に新しい結果があります。"
+    }
   }
 }

@@ -30,7 +30,7 @@ export interface IListTableRecordsPaginationDto {
   limit: number;
   /** Whether there are more records after this page */
   hasMore: boolean;
-  /** Keyset cursor for the next page when order is `__auto_number` asc */
+  /** Opaque keyset cursor for the next page when the current order supports one */
   nextCursor?: string;
 }
 

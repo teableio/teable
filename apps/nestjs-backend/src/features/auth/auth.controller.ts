@@ -68,7 +68,7 @@ export class AuthController {
         },
       });
     }
-    await this.deleteUserService.deleteUser();
+    await this.deleteUserService.deleteUser(query.spaceIds);
     await this.sessionService.signout(req);
     res.clearCookie(AUTH_SESSION_COOKIE_NAME);
   }

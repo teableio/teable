@@ -8,6 +8,12 @@ export const UPDATE_USER_NOTIFY_META = '/user/notify-meta';
 export const userNotifyMetaSchema = z.object({
   email: z.boolean().optional(),
   appBuilderChatIntroDismissed: z.boolean().optional(),
+  /**
+   * The two mobile push switches. Absent means on: someone who granted the system
+   * permission has already said they want these, and an untouched setting is not a refusal.
+   */
+  pushGate: z.boolean().optional(),
+  pushResult: z.boolean().optional(),
 });
 
 export type IUserNotifyMeta = z.infer<typeof userNotifyMetaSchema>;

@@ -1,7 +1,13 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { computedUpdateLockKeyForRecord } from '@teable/v2-adapter-table-repository-postgres';
+import {
+  computedUpdateLockKeyForRecord,
+  v2RecordRepositoryPostgresTokens,
+  type ComputedUpdateWorker,
+  type ComputedUpdateOutboxTaskInput,
+  type IComputedUpdateOutbox,
+} from '@teable/v2-adapter-table-repository-postgres';
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
   createRecordOkResponseSchema,
@@ -10,9 +16,10 @@ import {
   updateRecordOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
-import { getRandomString } from '@teable/v2-core';
+import { domainError, getRandomString, v2CoreTokens, type IUnitOfWork } from '@teable/v2-core';
 import express from 'express';
 import { sql } from 'kysely';
+import { err } from 'neverthrow';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
 
@@ -333,16 +340,208 @@ const prepareLockContentionScenario = async (harness: TestHarness) => {
 
   return {
     sourceTableId: sourceTable.id,
+    sourceNameFieldId,
     sourceRecordId: sourceRecord.id,
     sourceValueFieldId,
     targetTableId: targetTable.id,
     targetNameFieldId,
     linkFieldId,
+    lookupFieldId,
+    formulaFieldIds,
     finalFormulaFieldId: formulaFieldIds[formulaFieldIds.length - 1],
   };
 };
 
 describe('computed outbox recovery (e2e)', () => {
+  it.each(['before commit', 'after commit'] as const)(
+    'recovers exact staged values after failure %s and duplicate continuation delivery',
+    async (failureBoundary) => {
+      const computedUpdate = {
+        hybridConfig: { dispatchMode: 'external' as const, syncPolicy: 'none' as const },
+        outboxConfig: {
+          stageMaxSteps: 1,
+          stageMaxDirtyRecords: 2,
+          stageSmallRunComplexityThreshold: 0,
+          continuationRelayClaimEnabled: false,
+          baseBackoffMs: 0,
+          maxBackoffMs: 0,
+        },
+      };
+      const writer = await createHarness({ computedUpdate });
+      const scenario = await prepareLockContentionScenario(writer);
+      const target = await createRecord(writer, scenario.targetTableId, {
+        [scenario.targetNameFieldId]: 'Changed target',
+        [scenario.linkFieldId]: { id: scenario.sourceRecordId },
+      });
+      const unrelatedSource = await createRecord(writer, scenario.sourceTableId, {
+        [scenario.sourceNameFieldId]: 'Unrelated source',
+        [scenario.sourceValueFieldId]: 7,
+      });
+      const unrelatedTarget = await createRecord(writer, scenario.targetTableId, {
+        [scenario.targetNameFieldId]: 'Unrelated target',
+        [scenario.linkFieldId]: { id: unrelatedSource.id },
+      });
+      await writer.testContainer.processOutbox();
+
+      const assertValues = async (harness: TestHarness, expected: number) => {
+        const records = await listRecordsWithoutDrain(harness, scenario.targetTableId);
+        for (const [id, value] of [
+          [target.id, expected],
+          [unrelatedTarget.id, 7],
+        ] as const) {
+          const row = records.find((record) => record.id === id);
+          expect(row).toBeDefined();
+          expect(parseArrayCell(row?.fields[scenario.lookupFieldId])).toEqual([value]);
+          expect(scenario.formulaFieldIds.map((fieldId) => row?.fields[fieldId])).toEqual([
+            value,
+            value + 1,
+            value + 2,
+            value + 3,
+            value + 4,
+          ]);
+        }
+      };
+      await assertValues(writer, 100);
+      await updateRecord(writer, scenario.sourceTableId, scenario.sourceRecordId, {
+        [scenario.sourceValueFieldId]: 200,
+      });
+      const originalTasks = await pendingOutboxStatuses(writer);
+      expect(originalTasks.some((task) => task.status === 'pending')).toBe(true);
+
+      const outbox = writer.testContainer.container.resolve<IComputedUpdateOutbox>(
+        v2RecordRepositoryPostgresTokens.computedUpdateOutbox
+      );
+      const unitOfWork = writer.testContainer.container.resolve<IUnitOfWork>(
+        v2CoreTokens.unitOfWork
+      );
+      const worker = writer.testContainer.container.resolve<ComputedUpdateWorker>(
+        v2RecordRepositoryPostgresTokens.computedUpdateWorker
+      );
+      const realEnqueue = outbox.enqueueOrMerge;
+      const realTransaction = unitOfWork.withTransaction;
+      const transact = realTransaction.bind(unitOfWork);
+      const captured: {
+        input?: ComputedUpdateOutboxTaskInput;
+        taskId?: string;
+      } = {};
+      let injected = false;
+      const crash = new Error('Injected worker loss after durable stage commit');
+      outbox.enqueueOrMerge = async function (input, context, options) {
+        const result = await realEnqueue.call(this, input, context, options);
+        if (!captured.input && input.predecessorTaskId && result.isOk()) {
+          captured.input = input;
+          captured.taskId = result.value.taskId;
+        }
+        return result;
+      };
+      unitOfWork.withTransaction = async (context, work, options) => {
+        let injectAfterCommit = false;
+        const result = await transact(
+          context,
+          async (txContext) => {
+            const stage = await work(txContext);
+            if (!injected && captured.input && stage.isOk()) {
+              injected = true;
+              if (failureBoundary === 'before commit') {
+                // Real updates, enqueue and predecessor settlement have executed;
+                // returning an error here must roll ALL of them back together.
+                return err(
+                  domainError.infrastructure({ message: 'Injected stage transaction failure' })
+                );
+              }
+              injectAfterCommit = true;
+            }
+            return stage;
+          },
+          options
+        );
+        // Deliberately outside the real UoW: committed data must remain durable
+        // even though this worker never gets to claim its next continuation.
+        if (injectAfterCommit && result.isOk()) throw crash;
+        return result;
+      };
+      try {
+        const run = worker.runOnce({ workerId: 'recovery-boundary-worker', limit: 1 });
+        if (failureBoundary === 'after commit') await expect(run).rejects.toBe(crash);
+        else await run;
+      } finally {
+        unitOfWork.withTransaction = realTransaction;
+        outbox.enqueueOrMerge = realEnqueue;
+      }
+      expect(injected).toBe(true);
+      if (!captured.input || !captured.taskId)
+        throw new Error('No stage continuation was produced');
+
+      const persisted = await pendingOutboxStatuses(writer);
+      if (failureBoundary === 'before commit') {
+        await assertValues(writer, 100);
+        expect(persisted.find((task) => task.id === captured.taskId)).toBeUndefined();
+        expect(persisted.map((task) => task.id).sort()).toEqual(
+          originalTasks.map((task) => task.id).sort()
+        );
+        expect(persisted.every((task) => task.status === 'pending')).toBe(true);
+      } else {
+        expect(persisted.find((task) => task.id === captured.taskId)?.status).toBe('pending');
+        expect(
+          persisted.find((task) => task.id === captured.input?.predecessorTaskId)
+        ).toBeUndefined();
+        const rows = await listRecordsWithoutDrain(writer, scenario.targetTableId);
+        expect(
+          parseArrayCell(rows.find((row) => row.id === target.id)?.fields[scenario.lookupFieldId])
+        ).toEqual([200]);
+        expect(rows.find((row) => row.id === target.id)?.fields[scenario.finalFormulaFieldId]).toBe(
+          104
+        );
+      }
+
+      // A separate DI graph and connection pool represent a restarted worker.
+      const reader = await createHarness({
+        connectionString: writer.testContainer.connectionString,
+        seedBase: false,
+        // Deployment changes must not expand a partially committed partition.
+        computedUpdate: {
+          ...computedUpdate,
+          outboxConfig: {
+            ...computedUpdate.outboxConfig,
+            stageMaxSteps: 0,
+            stageMaxDirtyRecords: 0,
+          },
+        },
+      });
+      if (failureBoundary === 'after commit') {
+        const freshOutbox = reader.testContainer.container.resolve<IComputedUpdateOutbox>(
+          v2RecordRepositoryPostgresTokens.computedUpdateOutbox
+        );
+        // The public API permits replaying a pending continuation. The same
+        // lineage must merge instead of producing a second independently runnable task.
+        const duplicate = await freshOutbox.enqueueOrMerge(captured.input);
+        expect(duplicate.isOk()).toBe(true);
+        if (duplicate.isErr()) throw new Error(duplicate.error.message);
+        expect(duplicate.value.taskId).toBe(captured.taskId);
+        expect(duplicate.value.merged).toBe(true);
+      }
+      await reader.testContainer.processOutbox();
+      await assertValues(reader, 200);
+      const sources = await listRecordsWithoutDrain(reader, scenario.sourceTableId);
+      expect(
+        sources.find((row) => row.id === scenario.sourceRecordId)?.fields[
+          scenario.sourceValueFieldId
+        ]
+      ).toBe(200);
+      expect(
+        sources.find((row) => row.id === unrelatedSource.id)?.fields[scenario.sourceValueFieldId]
+      ).toBe(7);
+      expect(await pendingOutboxStatuses(reader)).toEqual([]);
+      expect(
+        await reader.testContainer.db
+          .selectFrom('computed_update_dead_letter')
+          .select('id')
+          .execute()
+      ).toEqual([]);
+    },
+    120_000
+  );
+
   it('retries transient computed lock contention without the generic failure backoff', async () => {
     const harness = await createHarness({
       computedUpdate: {

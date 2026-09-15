@@ -360,6 +360,130 @@ export class LocalAuthService {
     );
   }
 
+  /**
+   * Email-code sign-in, step 1: mail a one-time code to an already registered
+   * account. Deliberately captcha-free (the point of this flow is browsers
+   * that cannot pass the captcha), so it only ever mails registered users and
+   * is throttled per email like the other code mails.
+   */
+  async sendSigninVerificationCode(email: string) {
+    return await this.mailSenderService.checkSendMailRateLimit(
+      {
+        email,
+        rateLimitKey: 'signin-verification',
+        rateLimit: this.thresholdConfig.signupVerificationSendCodeMailRate,
+      },
+      async () => {
+        const user = await this.userService.getUserByEmail(email);
+        this.assertSigninWithCodeAllowed(email, user);
+
+        const code = getRandomString(6, RandomType.Number);
+        const expiresIn = this.authConfig.signinVerificationExpiresIn;
+        // A fresh code replaces the previous one and resets its guess budget.
+        await this.cacheService.set(`auth:signin-code:${email}`, { code }, second(expiresIn));
+        await this.cacheService.del(`auth:signin-code-attempts:${email}`);
+
+        this.logger.log(
+          `Sending signin verification code - email: ${email}, timestamp: ${new Date().toISOString()}`
+        );
+
+        const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
+          code,
+          expiresIn,
+          type: EmailVerifyCodeType.Signin,
+        });
+
+        await this.mailSenderService.sendMail(
+          {
+            to: user.email,
+            ...emailOptions,
+          },
+          {
+            type: MailType.VerifyCode,
+            transporterName: MailTransporterType.Notify,
+          }
+        );
+        return {
+          expiresTime: new Date(ms(expiresIn) + Date.now()).toISOString(),
+        };
+      }
+    );
+  }
+
+  /**
+   * Email-code sign-in, step 2: consume the code. Every wrong guess counts
+   * against a small budget; exhausting it discards the code so a 6-digit code
+   * cannot be brute-forced within its lifetime.
+   */
+  async signinWithCode(email: string, code: string) {
+    const codeKey = `auth:signin-code:${email}` as const;
+    const attemptsKey = `auth:signin-code-attempts:${email}` as const;
+    const invalidCode = () =>
+      new CustomHttpException('Verification code is invalid', HttpErrorCode.INVALID_CAPTCHA, {
+        localization: {
+          i18nKey: 'httpErrors.auth.verificationCodeInvalid',
+        },
+      });
+
+    const cached = await this.cacheService.get(codeKey);
+    if (!cached) {
+      throw invalidCode();
+    }
+    if (cached.code !== code) {
+      const attempts = await this.cacheService.incr(
+        attemptsKey,
+        second(this.authConfig.signinVerificationExpiresIn)
+      );
+      if (attempts >= this.authConfig.signinVerificationMaxAttempts) {
+        await this.cacheService.del(codeKey);
+      }
+      throw invalidCode();
+    }
+    // Consume the one-time code atomically so concurrent requests carrying the
+    // same code cannot both sign in.
+    const consumed = await this.cacheService.del(codeKey);
+    if (!consumed) {
+      throw invalidCode();
+    }
+    await this.cacheService.del(attemptsKey);
+
+    const user = await this.userService.getUserByEmail(email);
+    this.assertSigninWithCodeAllowed(email, user);
+    await this.userService.refreshLastSignTime(user.id);
+    return user;
+  }
+
+  private assertSigninWithCodeAllowed(
+    email: string,
+    user: Awaited<ReturnType<UserService['getUserByEmail']>>
+  ): asserts user is NonNullable<Awaited<ReturnType<UserService['getUserByEmail']>>> {
+    if (!user || (user.accounts.length === 0 && user.password == null)) {
+      throw new CustomHttpException(`${email} not registered`, HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.auth.emailNotRegistered',
+        },
+      });
+    }
+    if (user.isSystem) {
+      throw new CustomHttpException(`User is system user`, HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.auth.systemUser',
+        },
+      });
+    }
+    if (user.deactivatedTime) {
+      throw new CustomHttpException(
+        `Your account has been deactivated by the administrator`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.auth.accountDeactivated',
+          },
+        }
+      );
+    }
+  }
+
   async changePassword({ password, newPassword }: IChangePasswordRo) {
     const userId = this.cls.get('user.id');
     const user = await this.getUserByIdOrThrow(userId);

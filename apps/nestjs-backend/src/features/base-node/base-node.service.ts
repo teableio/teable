@@ -41,6 +41,7 @@ import type { IPerformanceCacheStore } from '../../performance-cache/types';
 import { ShareDbService } from '../../share-db/share-db.service';
 import type { IClsStore } from '../../types/cls';
 import { updateOrder } from '../../utils/update-order';
+import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import type { IV2Decision } from '../canary/canary.service';
 import { CanaryService } from '../canary/canary.service';
 import { DashboardService } from '../dashboard/dashboard.service';
@@ -49,6 +50,7 @@ import { TableOpenApiV2Service } from '../table/open-api/table-open-api-v2.servi
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
 import { prepareCreateTableRo } from '../table/open-api/table.pipe.helper';
 import { TableDuplicateService } from '../table/table-duplicate.service';
+import { buildBaseNodeUrl } from './base-node-url.helper';
 import { BaseNodeFolderService } from './folder/base-node-folder.service';
 import { buildBatchUpdateSql, presenceHandler } from './helper';
 
@@ -269,26 +271,11 @@ export class BaseNodeService {
     resourceId: string,
     resourceMeta?: IBaseNodeResourceMeta
   ): string {
-    switch (resourceType) {
-      case BaseNodeResourceType.Table: {
-        const tableMeta = resourceMeta as IBaseNodeTableResourceMeta | undefined;
-        const viewId = tableMeta?.defaultViewId;
-        if (viewId) {
-          return `/base/${baseId}/table/${resourceId}/${viewId}`;
-        }
-        return `/base/${baseId}/table/${resourceId}`;
-      }
-      case BaseNodeResourceType.Dashboard:
-        return `/base/${baseId}/dashboard/${resourceId}`;
-      case BaseNodeResourceType.Workflow:
-        return `/base/${baseId}/automation/${resourceId}`;
-      case BaseNodeResourceType.App:
-        return `/base/${baseId}/app/${resourceId}`;
-      case BaseNodeResourceType.Folder:
-        return `/base/${baseId}`;
-      default:
-        return `/base/${baseId}`;
-    }
+    const viewId =
+      resourceType === BaseNodeResourceType.Table
+        ? (resourceMeta as IBaseNodeTableResourceMeta | undefined)?.defaultViewId
+        : undefined;
+    return buildBaseNodeUrl(baseId, resourceType, resourceId, viewId) ?? `/base/${baseId}`;
   }
 
   private async entry2vo(
@@ -355,7 +342,12 @@ export class BaseNodeService {
       },
     });
 
-    return new Map(users.map((user) => [user.id, user]));
+    return new Map(
+      users.map((user) => [
+        user.id,
+        { ...user, avatar: user.avatar && getPublicFullStorageUrl(user.avatar) },
+      ])
+    );
   }
 
   protected async getTableResources(baseId: string, ids?: string[]) {
@@ -566,7 +558,7 @@ export class BaseNodeService {
         select: this.getSelect(),
       })
       .catch(() => {
-        throw new CustomHttpException(`Base node ${nodeId} not found`, HttpErrorCode.NOT_FOUND, {
+        throw new CustomHttpException(`Project node ${nodeId} not found`, HttpErrorCode.NOT_FOUND, {
           localization: {
             i18nKey: 'httpErrors.baseNode.notFound',
           },
@@ -1253,7 +1245,7 @@ export class BaseNodeService {
       },
     });
     if (!entry) {
-      throw new CustomHttpException('Base node not found', HttpErrorCode.NOT_FOUND, {
+      throw new CustomHttpException('Project node not found', HttpErrorCode.NOT_FOUND, {
         localization: {
           i18nKey: 'httpErrors.baseNode.notFound',
         },

@@ -27,6 +27,7 @@ import type { FieldKeyMapping } from '../domain/table/records/RecordCreateResult
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { BatchRecordMutationResult } from '../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
@@ -90,7 +91,9 @@ export class CreateRecordsHandler
     @inject(v2CoreTokens.unitOfWork)
     private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
     @inject(v2CoreTokens.foreignTableLoaderService)
-    private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService()
+    private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService(),
+    @inject(v2CoreTokens.recordOrderCalculator)
+    private readonly recordOrderCalculator?: IRecordOrderCalculator
   ) {}
 
   @TraceSpan()
@@ -189,6 +192,17 @@ export class CreateRecordsHandler
           const key = FieldKeyResolverService.getFieldKey(field, command.fieldKeyType);
           extendedFieldKeyMapping.set(fieldIdStr, key);
         }
+      }
+
+      if (command.order && handler.recordOrderCalculator) {
+        yield* await handler.recordOrderCalculator.calculateOrders(
+          context,
+          tableForCreate,
+          command.order.viewId,
+          command.order.anchorId,
+          command.order.position,
+          records.length
+        );
       }
 
       // 4. Persist all records within a transaction

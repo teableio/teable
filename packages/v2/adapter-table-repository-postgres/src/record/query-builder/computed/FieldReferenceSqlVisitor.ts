@@ -458,6 +458,7 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
         colAlias,
         {
           type: 'lookup',
+          isUnique: field.lookupOptions().isUnique(),
           foreignFieldId: field.lookupFieldId(),
           condition,
           orderBy: orderByResult.value,
@@ -532,6 +533,7 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
         colAlias,
         {
           type: 'conditionalLookup',
+          isUnique: options.isUnique(),
           foreignFieldId: options.lookupFieldId(),
           condition: options.condition(),
           isMultiValue: exprOptions.isArray,

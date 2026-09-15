@@ -98,6 +98,8 @@ const triggerSignatureRows = (
 
 describe('SpaceDataDbMigrationService', () => {
   const txClient = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    $executeRawUnsafe: vi.fn(),
     dataDbConnection: {
       upsert: vi.fn(),
       update: vi.fn(),

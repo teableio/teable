@@ -256,7 +256,7 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
             context,
             table,
             filterSpec,
-            { mode: 'stored', pagination, search: visibleRowSearch }
+            { mode: 'stored', pagination, search: visibleRowSearch, includeTotal: true }
           );
           totalRows = countResult.total;
         }
@@ -1031,6 +1031,7 @@ export class ClearStreamApplicationService extends ClearHandler {
           mode: 'stored',
           pagination,
           search: resolveVisibleRowSearch(command.search, orderedFieldIdsResult.value),
+          includeTotal: true,
         });
         if (countResult.isErr()) {
           return err(countResult.error);

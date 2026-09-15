@@ -4,6 +4,7 @@ import { DbFieldName } from './DbFieldName';
 import { FieldId } from './FieldId';
 import { FieldName } from './FieldName';
 import { FieldType } from './FieldType';
+import { FieldVersion } from './FieldVersion';
 import { CreatedTimeField } from './types/CreatedTimeField';
 import { FieldNotNull } from './types/FieldNotNull';
 import { FieldUnique } from './types/FieldUnique';
@@ -134,5 +135,28 @@ describe('Field', () => {
 
     expect(computed.setNotNull(FieldNotNull.required()).isErr()).toBe(true);
     expect(computed.setUnique(FieldUnique.enabled()).isErr()).toBe(true);
+  });
+});
+
+describe('FieldVersion', () => {
+  it('rehydrates a non-negative integer and rejects invalid values', () => {
+    expect(FieldVersion.rehydrate(0)._unsafeUnwrap().toNumber()).toBe(0);
+    expect(FieldVersion.rehydrate(7)._unsafeUnwrap().toNumber()).toBe(7);
+    expect(FieldVersion.rehydrate(-1).isErr()).toBe(true);
+    expect(FieldVersion.rehydrate(1.5).isErr()).toBe(true);
+  });
+
+  it('sets once on a Field and compares by value', () => {
+    const field = SingleLineTextField.create({
+      id: createFieldId('d')._unsafeUnwrap(),
+      name: FieldName.create('Title')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    const version = FieldVersion.rehydrate(4)._unsafeUnwrap();
+
+    expect(field.version().isErr()).toBe(true);
+    field.setVersion(version)._unsafeUnwrap();
+    expect(field.version()._unsafeUnwrap().equals(version)).toBe(true);
+    field.setVersion(version)._unsafeUnwrap();
+    expect(field.setVersion(FieldVersion.rehydrate(5)._unsafeUnwrap()).isErr()).toBe(true);
   });
 });

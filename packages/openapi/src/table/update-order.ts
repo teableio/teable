@@ -12,7 +12,7 @@ export const updateTableOrderRoute: RouteConfig = registerRoute({
   path: TABLE_ORDER,
   summary: 'Update table order',
   description:
-    'Update the display order of a table in the base. This affects the order in which tables are shown in the UI.',
+    'Update the display order of a table in the project. This affects the order in which tables are shown in the UI.',
   request: {
     params: z.object({
       baseId: z.string(),

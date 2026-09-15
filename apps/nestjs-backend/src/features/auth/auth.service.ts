@@ -39,10 +39,19 @@ export class AuthService {
     }
   }
 
-  async getTempToken(expiresIn: string = '10m', userId?: string, allowSystemUser?: boolean) {
+  async getTempToken(
+    expiresIn: string = '10m',
+    userId?: string,
+    allowSystemUser?: boolean,
+    source?: IJwtAuthInfo['source']
+  ) {
+    // A token minted by a sandbox stays a sandbox token: the marker must not be shed by
+    // asking for a fresh temp token.
+    const effectiveSource = source ?? this.cls.get('authSource');
     const payload: IJwtAuthInfo = {
       userId: userId ?? this.cls.get('user.id'),
       ...(allowSystemUser ? { allowSystemUser: true } : {}),
+      ...(effectiveSource ? { source: effectiveSource } : {}),
     };
     return {
       accessToken: await this.jwtService.signAsync(payload, { expiresIn }),

@@ -296,6 +296,7 @@ describe('FieldUndoRedoSnapshotService', () => {
           linkFieldId: linkFieldId.toString(),
           foreignTableId: foreignTableId.toString(),
           lookupFieldId: foreignTargetFieldId.toString(),
+          isUnique: true,
         })._unsafeUnwrap()
       )
       .withIsMultipleCellValue(false)
@@ -318,6 +319,7 @@ describe('FieldUndoRedoSnapshotService', () => {
       linkFieldId: linkFieldId.toString(),
       foreignTableId: foreignTableId.toString(),
       lookupFieldId: foreignTargetFieldId.toString(),
+      isUnique: true,
     });
     expect(options).not.toHaveProperty('fkHostTableName');
     expect(options).not.toHaveProperty('relationship');

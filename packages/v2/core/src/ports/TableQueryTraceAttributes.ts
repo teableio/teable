@@ -17,6 +17,7 @@ export type TableQuerySource =
   | 'v2.list_records'
   | 'repository.record_find'
   | 'repository.record_count'
+  | 'repository.record_aggregate'
   | 'admin.table_query_ops'
   | 'devtools.table_query_ops'
   | 'runtime_observation';
@@ -134,6 +135,7 @@ const metricQuerySources = new Set<string>([
   'v2.list_records',
   'repository.record_find',
   'repository.record_count',
+  'repository.record_aggregate',
   'admin.table_query_ops',
   'devtools.table_query_ops',
   'runtime_observation',
@@ -156,6 +158,9 @@ const metricFallbackReasons = new Set<string>([
   'generated_tsvector_unavailable',
   'generated_text_unavailable',
   'generated_text_probe_too_short',
+  'generated_text_coverage_mismatch',
+  'generated_text_unsupported_projection',
+  'generated_text_invalid_config',
 ]);
 const metricErrorKinds = new Set<string>([
   'timeout',

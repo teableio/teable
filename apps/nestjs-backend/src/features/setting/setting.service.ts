@@ -115,6 +115,7 @@ export class SettingService {
       if (!aiConfig?.aiGatewayApiKey) {
         res[SettingKey.AI_CONFIG] = {
           ...aiConfig,
+          llmProviders: Array.isArray(aiConfig?.llmProviders) ? aiConfig.llmProviders : [],
           aiGatewayApiKey: envAiGatewayApiKey,
         };
       }

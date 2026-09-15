@@ -133,13 +133,13 @@ export class IntegrityV2Controller {
         this.createCheckLifecycleEvent(
           'connect',
           'connection',
-          'Base schema integrity check stream connected'
+          'Project schema integrity check stream connected'
         ),
       createCompleteEvent: () =>
         this.createCheckLifecycleEvent(
           'complete',
           'completion',
-          'Base schema integrity check completed'
+          'Project schema integrity check completed'
         ),
       createErrorEvent: (message) => this.createCheckErrorResult(message),
     });
@@ -190,13 +190,13 @@ export class IntegrityV2Controller {
         this.createRepairLifecycleEvent(
           'connect',
           'connection',
-          'Base schema integrity repair stream connected'
+          'Project schema integrity repair stream connected'
         ),
       createCompleteEvent: () =>
         this.createRepairLifecycleEvent(
           'complete',
           'completion',
-          'Base schema integrity repair completed'
+          'Project schema integrity repair completed'
         ),
       createErrorEvent: (message) => this.createRepairErrorResult(message),
     });

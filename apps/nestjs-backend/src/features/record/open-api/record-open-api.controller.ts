@@ -67,6 +67,7 @@ import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.i
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { RecordService } from '../record.service';
 import { ShareViewScopeService } from '../share-view-scope.service';
+import { AccessTokenTakeLimitPipe } from './access-token-take-limit.pipe';
 import { FieldKeyPipe } from './field-key.pipe';
 import { RecordOpenApiV2Service } from './record-open-api-v2.service';
 import { RecordOpenApiService } from './record-open-api.service';
@@ -130,7 +131,13 @@ export class RecordOpenApiController {
   @Get()
   async getRecords(
     @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(getRecordsRoSchema), TqlPipe, FieldKeyPipe) query: IGetRecordsRo
+    @Query(
+      new ZodValidationPipe(getRecordsRoSchema),
+      AccessTokenTakeLimitPipe,
+      TqlPipe,
+      FieldKeyPipe
+    )
+    query: IGetRecordsRo
   ): Promise<IRecordsVo> {
     await this.spaceDataDbMigrationGuardService.assertTableRecordSearchReadable(tableId, query);
 

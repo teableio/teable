@@ -18,6 +18,7 @@ import { FieldCondition, type FieldConditionDTO } from './FieldCondition';
  */
 
 export type LookupOptionsValue = {
+  isUnique?: boolean;
   linkFieldId: string;
   lookupFieldId: string;
   foreignTableId: string;
@@ -27,6 +28,7 @@ export type LookupOptionsValue = {
 };
 
 const lookupOptionsSchema = z.object({
+  isUnique: z.boolean().optional(),
   linkFieldId: z.string().min(1),
   lookupFieldId: z.string().min(1),
   foreignTableId: z.string().min(1),
@@ -40,7 +42,8 @@ export class LookupOptions extends ValueObject {
     private readonly linkFieldIdValue: FieldId,
     private readonly lookupFieldIdValue: FieldId,
     private readonly foreignTableIdValue: TableId,
-    private readonly conditionValue?: FieldCondition
+    private readonly conditionValue?: FieldCondition,
+    private readonly isUniqueValue?: boolean
   ) {
     super();
   }
@@ -57,7 +60,8 @@ export class LookupOptions extends ValueObject {
       );
     }
 
-    const { linkFieldId, lookupFieldId, foreignTableId, filter, sort, limit } = parseResult.data;
+    const { linkFieldId, lookupFieldId, foreignTableId, filter, sort, limit, isUnique } =
+      parseResult.data;
 
     return FieldIdVO.create(linkFieldId).andThen((linkId) =>
       FieldIdVO.create(lookupFieldId).andThen((lookupId) =>
@@ -68,7 +72,7 @@ export class LookupOptions extends ValueObject {
             : ok(undefined);
 
           return conditionResult.map(
-            (condition) => new LookupOptions(linkId, lookupId, tableId, condition)
+            (condition) => new LookupOptions(linkId, lookupId, tableId, condition, isUnique)
           );
         })
       )
@@ -103,8 +107,13 @@ export class LookupOptions extends ValueObject {
     return this.conditionValue;
   }
 
+  isUnique(): boolean {
+    return this.isUniqueValue === true;
+  }
+
   toDto(): LookupOptionsValue {
     const base = {
+      ...(this.isUniqueValue !== undefined ? { isUnique: this.isUniqueValue } : {}),
       linkFieldId: this.linkFieldIdValue.toString(),
       lookupFieldId: this.lookupFieldIdValue.toString(),
       foreignTableId: this.foreignTableIdValue.toString(),
@@ -123,6 +132,7 @@ export class LookupOptions extends ValueObject {
 
   equals(other: LookupOptions): boolean {
     return (
+      this.isUnique() === other.isUnique() &&
       this.linkFieldIdValue.equals(other.linkFieldIdValue) &&
       this.lookupFieldIdValue.equals(other.lookupFieldIdValue) &&
       this.foreignTableIdValue.equals(other.foreignTableIdValue) &&

@@ -7,25 +7,25 @@
   },
   "initialSpaceName": "המרחב של {{name}}",
   "action": {
-    "createBase": "יצירת בסיס",
+    "createBase": "יצירת פרויקט",
     "createSpace": "יצירת מרחב",
     "invite": "הזמנה",
     "startFromScratch": "התחלה מאפס"
   },
   "allSpaces": "כל המרחבים",
-  "emptySpaceTitle": "אין בסיסים במרחב הזה",
-  "spaceIsEmpty": "יצירת הבסיס הראשון כדי להתחיל",
+  "emptySpaceTitle": "אין פרויקטים במרחב הזה",
+  "spaceIsEmpty": "יצירת הפרויקט הראשון כדי להתחיל",
   "baseModal": {
     "copy": "העתקה",
     "duplicate": "שכפול \"{{baseName}}\"",
-    "createBaseFromTemplate": "יצירת בסיס מתבנית",
+    "createBaseFromTemplate": "יצירת פרויקט מתבנית",
     "duplicateRecords": "שכפול רשומות",
     "duplicateRecordsTip": "היסטוריית השינויים ומשתפי הפעולה לא ישוכפלו.",
     "toSpace": "אל המרחב",
     "copyToSpace": "העתקה למרחב",
-    "duplicateBase": "שכפול בסיס",
-    "missTargetTip": "יש לבחור מרחב לשכפול הבסיס.",
-    "copying": "הבסיס בשכפול, זה עשוי לקחת זמן...",
+    "duplicateBase": "שכפול פרויקט",
+    "missTargetTip": "יש לבחור מרחב לשכפול הפרויקט.",
+    "copying": "הפרויקט בשכפול, זה עשוי לקחת זמן...",
     "howToCreate": "איך להתחיל?",
     "fromScratch": "מאפס",
     "fromTemplate": "מתבנית",
@@ -48,29 +48,29 @@
     "add": "הוספה למוצמדים",
     "remove": "הסרה מהמוצמדים",
     "pin": "מוצמדים",
-    "empty": "הבסיסים והמרחבים המוצמדים שלך יופיעו כאן"
+    "empty": "הפרויקטים והמרחבים המוצמדים שלך יופיעו כאן"
   },
   "tooltip": {
-    "noPermissionToCreateBase": "אין הרשאה ליצירת בסיס"
+    "noPermissionToCreateBase": "אין הרשאה ליצירת פרויקט"
   },
   "tip": {
     "delete": "האם למחוק את <0/>?",
     "exportTips2": "ניתן לייבא את קובץ ה-.tea דרך מרחב ← עוד ← ייבוא",
-    "exportTips3": "שדות קישור בין בסיסים יומרו לטקסט בשורה אחת.",
+    "exportTips3": "שדות קישור בין פרויקטים יומרו לטקסט בשורה אחת.",
     "exportIncludeDataLabel": "כולל רשומות",
     "exportIncludeDataDescription": "בכיבוי האפשרות ייוצאו רק המבנה והתצורה",
     "exportTitle": "ייצוא",
-    "exportDescription": "ייצוא מסד הנתונים הנוכחי לקובץ .tea, פעולה שעשויה לקחת זמן.",
+    "exportDescription": "ייצוא הפרויקט הנוכחי לקובץ .tea, פעולה שעשויה לקחת זמן.",
     "exportStartButton": "התחלת הייצוא",
     "exportSlowTip": "נפח הנתונים גדול. הייצוא עשוי להימשך זמן מה. אפשר לצאת בינתיים.",
     "exportReadyDescription": "יש להוריד את קובץ ה-.tea, {{importHint}}",
-    "moveBaseSuccessTitle": "הבסיס הועבר",
+    "moveBaseSuccessTitle": "הפרויקט הועבר",
     "moveBaseSuccessDescription": "{{baseName}} הועבר אל {{spaceName}}",
     "moveBaseCrossSpaceTitle": "לתשומת לב",
     "moveBaseCrossSpaceDataLossWarning": "אין תמיכה בהפניות בין מרחבים. שדות הקישור יומרו לשדות טקסט. לא ניתן לבטל פעולה זו.",
     "moveBaseCrossDataDbTitle": "העברה בין מסדי נתונים",
-    "moveBaseCrossDataDbWarning": "מרחב המקור ומרחב היעד משתמשים במסדי נתונים שונים. ההעברה תעתיק את נתוני הבסיס אל מסד הנתונים ביעד ועשויה להימשך זמן מה. הכתיבה לבסיס הזה מושהית במהלך ההעברה.",
-    "moveBaseProgressTitle": "הבסיס בהעברה…",
+    "moveBaseCrossDataDbWarning": "מרחב המקור ומרחב היעד משתמשים במסדי נתונים שונים. ההעברה תעתיק את נתוני הפרויקט אל מסד הנתונים ביעד ועשויה להימשך זמן מה. הכתיבה לפרויקט הזה מושהית במהלך ההעברה.",
+    "moveBaseProgressTitle": "הפרויקט בהעברה…",
     "moveBaseProgressPhase": "שלב: {{phase}}",
     "moveBaseProgressPercent": "{{percent}}%",
     "moveBaseFailedTitle": "ההעברה נכשלה",
@@ -85,8 +85,8 @@
   },
   "sharedBase": {
     "title": "שיתפו איתי",
-    "description": "כל הבסיסים שהוזמנתי אליהם",
-    "empty": "עדיין לא שיתפו איתי בסיסים"
+    "description": "כל הפרויקטים שהוזמנתי אליהם",
+    "empty": "עדיין לא שיתפו איתי פרויקטים"
   },
   "aiSetting": {
     "title": "הגדרות AI",
@@ -100,7 +100,7 @@
     "phase": {
       "importingV2": "בייבוא",
       "parsingStructure": "בניתוח המבנה",
-      "creatingBase": "ביצירת בסיס: {{detail}}",
+      "creatingBase": "ביצירת פרויקט: {{detail}}",
       "creatingTable": "ביצירת טבלה: {{detail}}",
       "tableStructureStarted": "בהכנת מבנה הטבלה: {{tableName}} ({{tableIndex}}/{{totalTables}})",
       "tableStructureValidating": "באימות קשרי הטבלאות",
@@ -164,7 +164,7 @@
   },
   "template": {
     "title": "תבנית",
-    "description": "יצירה מהירה של בסיס חדש מתוך תבנית",
+    "description": "יצירה מהירה של פרויקט חדש מתוך תבנית",
     "noTemplatesAvailable": "אין תבניות זמינות",
     "noTemplatesDescription": "אין כאן כלום כרגע"
   },
@@ -173,26 +173,26 @@
   },
   "noBases": {
     "title": "היי {{userName}}!",
-    "description": "נתחיל לנהל את העבודה שלך עם הבסיס הראשון."
+    "description": "נתחיל לנהל את העבודה שלך עם הפרויקט הראשון."
   },
   "noSpaces": {
     "title": "היי {{userName}}!",
     "description": "כדאי ליצור מרחב ראשון ולהתחיל לשתף פעולה על הנתונים."
   },
   "baseList": {
-    "allBases": "כל הבסיסים",
+    "allBases": "כל הפרויקטים",
     "creator": "יוצר",
     "createdTime": "מועד יצירה",
     "lastOpened": "נפתח לאחרונה",
     "enter": "כניסה",
     "noTables": "אין טבלאות",
-    "empty": "אין עדיין בסיסים",
+    "empty": "אין עדיין פרויקטים",
     "recent": "אחרונים",
     "manual": "סדר ידני"
   },
   "publishBase": {
     "title": "פרסום במרכז התבניות",
-    "description": "פרסום הבסיס במרכז התבניות בלחיצה אחת! כך עוד אנשים יוכלו לראות את היצירה שלך, להשתמש בה ולהתאים אותה לעצמם, ויחד נבנה עסק חזק יותר",
+    "description": "פרסום הפרויקט במרכז התבניות בלחיצה אחת! כך עוד אנשים יוכלו לראות את היצירה שלך, להשתמש בה ולהתאים אותה לעצמם, ויחד נבנה עסק חזק יותר",
     "infoTitle": "פרטים בסיסיים",
     "form": {
       "title": "שם היצירה",
@@ -211,9 +211,9 @@
     "previewTips": "שהעולם יראה את היצירה שלך",
     "update": "עדכון",
     "unPublish": "ביטול פרסום",
-    "unPublishSuccess": "פרסום הבסיס בוטל בהצלחה!",
+    "unPublishSuccess": "פרסום הפרויקט בוטל בהצלחה!",
     "unPublishConfirmTitle": "אישור ביטול הפרסום",
-    "unPublishConfirmDescription": "האם לבטל את פרסום הבסיס? הוא לא יופיע יותר במרכז התבניות.",
+    "unPublishConfirmDescription": "האם לבטל את פרסום הפרויקט? הוא לא יופיע יותר במרכז התבניות.",
     "uploadCover": "לחיצה להעלאת תמונת שער",
     "changeCover": "לחיצה להחלפת תמונת השער",
     "uploading": "התמונה בהעלאה...",
@@ -252,7 +252,7 @@
   "dataDb": {
     "create": {
       "title": "מסד נתונים",
-      "description": "בחירת המקום שבו המרחב הזה יאחסן את סכימות הבסיסים ואת הרשומות.",
+      "description": "בחירת המקום שבו המרחב הזה יאחסן את סכימות הפרויקטים ואת הרשומות.",
       "defaultHint": "מומלץ לרוב המרחבים.",
       "byodbOption": "שימוש במסד הנתונים PostgreSQL שלי",
       "byodbHint": "אתחול המרחב הזה בסכימה פנימית של Teable בתוך מסד הנתונים שבניהולך.",
@@ -323,7 +323,7 @@
     "import": "התחלת הייבוא",
     "done": "הייבוא הושלם",
     "failed": "הייבוא נכשל",
-    "openBase": "פתיחת הבסיס",
+    "openBase": "פתיחת הפרויקט",
     "issuesSummary": "{{count}} פריטים הותאמו במהלך הייבוא:",
     "issuesMore": "+{{count}} נוספים",
     "issue": {
@@ -335,7 +335,7 @@
     },
     "phase": {
       "fetchingSchema": "בקריאת סכימת הבסיס ב-Airtable",
-      "creatingBase": "ביצירת בסיס: {{detail}}",
+      "creatingBase": "ביצירת פרויקט: {{detail}}",
       "creatingTable": "ביצירת טבלה: {{tableName}} ({{tableIndex}}/{{totalTables}})",
       "creatingLinks": "ביצירת שדות קישור",
       "fillingLinks": "{{tableName}} (קישורים)",
@@ -378,7 +378,7 @@
     "import": "התחלת הייבוא",
     "done": "הייבוא הושלם",
     "failed": "הייבוא נכשל",
-    "openBase": "פתיחת הבסיס",
+    "openBase": "פתיחת הפרויקט",
     "issuesSummary": "{{count}} פריטים הותאמו במהלך הייבוא:",
     "issuesMore": "+{{count}} נוספים",
     "recordsImported": "{{tableName}}: יובאו {{count}} רשומות",
@@ -390,7 +390,7 @@
     },
     "phase": {
       "fetchingSchema": "בקריאת מבנה הגיליון",
-      "creatingBase": "ביצירת בסיס: {{detail}}",
+      "creatingBase": "ביצירת פרויקט: {{detail}}",
       "creatingTable": "ביצירת טבלה: {{tableName}} ({{tableIndex}}/{{totalTables}})"
     },
     "detecting": "בבדיקת החיבור ל-Google…",
@@ -403,9 +403,9 @@
     "title": "איך להתחיל?"
   },
   "importBaseDialog": {
-    "title": "ייבוא בסיס",
+    "title": "ייבוא פרויקט",
     "fromFile": "ייבוא מקובץ",
-    "fromFileDesc": "העלאת קובץ מסד נתונים מסוג .tea",
+    "fromFileDesc": "העלאת קובץ פרויקט מסוג .tea",
     "fromAirtableDesc": "חיבור חשבון ה-Airtable שלך",
     "fromGoogleSheetDesc": "בחירת גיליון מתוך Google Drive שלך"
   }

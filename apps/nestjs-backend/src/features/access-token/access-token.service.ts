@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import type { Action } from '@teable/core';
 import { generateAccessTokenId, getRandomString } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -139,6 +139,20 @@ export class AccessTokenService {
     return list.map(this.transformAccessTokenEntity);
   }
 
+  /**
+   * A token minted for an agent sandbox carries the user's identity but not their consent:
+   * letting it mint a personal access token would launder that marker away (the PAT
+   * strategy sets no `authSource`), so everything gated on "the user did this themselves"
+   * would open up to the sandbox.
+   */
+  private assertNotSandboxCaller() {
+    if (this.cls.get('authSource') === 'sandbox') {
+      throw new ForbiddenException(
+        'Personal access tokens cannot be created from a sandbox session'
+      );
+    }
+  }
+
   @Audit({
     action: Events.ACCESS_TOKEN_CREATE,
     resourceId: (input: { userId?: string }, ctx) => input.userId ?? ctx.cls.get('user.id')!,
@@ -162,6 +176,7 @@ export class AccessTokenService {
   async createAccessToken(
     createAccessToken: CreateAccessTokenRo & { clientId?: string; userId?: string }
   ) {
+    this.assertNotSandboxCaller();
     const userId = createAccessToken.userId ?? this.cls.get('user.id')!;
     const { name, description, scopes, spaceIds, baseIds, expiredTime, clientId, hasFullAccess } =
       createAccessToken;
@@ -213,6 +228,7 @@ export class AccessTokenService {
   }
 
   async refreshAccessToken(id: string, refreshAccessTokenRo?: RefreshAccessTokenRo) {
+    this.assertNotSandboxCaller();
     const userId = this.cls.get('user.id');
 
     const sign = getRandomString(16);

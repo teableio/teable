@@ -235,7 +235,7 @@ export class LinkIntegrityService {
         fieldId: f.id,
         tableId: f.tableId,
         type,
-        message: `Primary field "${f.name}" in table "${f.table.name}" ${reason}, which breaks base duplication. Fixing will demote it and promote an existing eligible field as primary; if no candidate qualifies, a new formula field mirroring the current value is added and the bad primary is renamed with a "(before-fix)" suffix.`,
+        message: `Primary field "${f.name}" in table "${f.table.name}" ${reason}, which breaks project duplication. Fixing will demote it and promote an existing eligible field as primary; if no candidate qualifies, a new formula field mirroring the current value is added and the bad primary is renamed with a "(before-fix)" suffix.`,
       };
     });
   }
@@ -259,7 +259,7 @@ export class LinkIntegrityService {
       fieldId: t.id,
       tableId: t.id,
       type: IntegrityIssueType.MissingPrimary,
-      message: `Table "${t.name}" has no primary field, which breaks base duplication. Fixing will promote the first existing eligible field as primary, or add a new "Name" text field if none qualifies.`,
+      message: `Table "${t.name}" has no primary field, which breaks project duplication. Fixing will promote the first existing eligible field as primary, or add a new "Name" text field if none qualifies.`,
     }));
   }
 

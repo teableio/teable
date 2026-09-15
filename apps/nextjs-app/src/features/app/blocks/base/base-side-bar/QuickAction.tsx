@@ -103,6 +103,8 @@ export const QuickAction = () => {
                   return t('common:noun.app');
                 case BaseNodeResourceType.Workflow:
                   return t('common:noun.automation');
+                case BaseNodeResourceType.Routine:
+                  return t('common:noun.routine');
                 default:
                   return '';
               }

@@ -48,6 +48,8 @@ import {
   LinkForeignTableReferenceVisitor,
   type LinkForeignTableReference,
 } from './fields/visitors/LinkForeignTableReferenceVisitor';
+import type { ITableReadModel } from './ITableReadModel';
+import { isTableSearchIndex, type ITableSearchIndex } from './ITableSearchIndex';
 import {
   applyViewManualSort as applyViewManualSortMethod,
   type ApplyViewManualSortMethodResult,
@@ -302,8 +304,9 @@ const deriveDbFieldTypeFromResolvedField = (field: Field): string | undefined =>
   }
 };
 
-export class Table extends AggregateRoot<TableId> {
+export class Table extends AggregateRoot<TableId> implements ITableReadModel {
   private dbTableNameValue: DbTableName;
+  private searchIndexValue: ITableSearchIndex | undefined;
 
   private constructor(
     id: TableId,
@@ -379,6 +382,14 @@ export class Table extends AggregateRoot<TableId> {
       const setResult = table.setDbTableName(props.dbTableName);
       if (setResult.isErr()) return err(setResult.error);
     }
+    const dbTableName = props.dbTableName?.value();
+    if (
+      isTableSearchIndex(props.searchIndex) &&
+      dbTableName?.isOk() &&
+      dbTableName.value === props.searchIndex.dbTableName
+    ) {
+      table.searchIndexValue = props.searchIndex;
+    }
 
     return ok(table);
   }
@@ -407,6 +418,10 @@ export class Table extends AggregateRoot<TableId> {
     const valueResult = this.dbTableNameValue.value();
     if (valueResult.isErr()) return err(valueResult.error);
     return ok(this.dbTableNameValue);
+  }
+
+  searchIndex(): ITableSearchIndex | undefined {
+    return this.searchIndexValue;
   }
 
   clone(mapper: ITableMapper): Result<Table, DomainError> {
@@ -1307,6 +1322,7 @@ export class Table extends AggregateRoot<TableId> {
       fields: nextFields,
       views: nextViewsResult.value,
       primaryFieldId: this.primaryFieldIdValue,
+      searchIndex: this.searchIndexValue,
     };
 
     if (this.dbTableNameValue.isRehydrated()) {
@@ -1345,6 +1361,7 @@ export class Table extends AggregateRoot<TableId> {
       fields: this.fieldsValue,
       views: [...this.viewsValue, view],
       primaryFieldId: this.primaryFieldIdValue,
+      searchIndex: this.searchIndexValue,
     };
     if (this.dbTableNameValue.isRehydrated()) props.dbTableName = this.dbTableNameValue;
     return Table.rehydrate(props);
@@ -1378,6 +1395,7 @@ export class Table extends AggregateRoot<TableId> {
       fields: this.fieldsValue,
       views: this.viewsValue.filter((view) => !view.id().equals(viewId)),
       primaryFieldId: this.primaryFieldIdValue,
+      searchIndex: this.searchIndexValue,
     };
     if (this.dbTableNameValue.isRehydrated()) props.dbTableName = this.dbTableNameValue;
     return Table.rehydrate(props);
@@ -1411,6 +1429,7 @@ export class Table extends AggregateRoot<TableId> {
       fields: nextFields,
       views: nextViewsResult.value,
       primaryFieldId: this.primaryFieldIdValue,
+      searchIndex: this.searchIndexValue,
     };
 
     if (this.dbTableNameValue.isRehydrated()) {
@@ -1521,6 +1540,7 @@ export class Table extends AggregateRoot<TableId> {
       fields: nextFields,
       views: this.viewsValue,
       primaryFieldId: this.primaryFieldIdValue,
+      searchIndex: this.searchIndexValue,
     };
 
     if (this.dbTableNameValue.isRehydrated()) {
@@ -1584,6 +1604,7 @@ export class Table extends AggregateRoot<TableId> {
       fields: nextFields,
       views: this.viewsValue,
       primaryFieldId: this.primaryFieldIdValue,
+      searchIndex: this.searchIndexValue,
     };
 
     if (this.dbTableNameValue.isRehydrated()) {
@@ -1720,6 +1741,7 @@ export class Table extends AggregateRoot<TableId> {
       fields: nextFields,
       views: this.viewsValue,
       primaryFieldId: this.primaryFieldIdValue,
+      searchIndex: this.searchIndexValue,
     };
 
     if (this.dbTableNameValue.isRehydrated()) {

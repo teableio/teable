@@ -16,13 +16,14 @@ export type IGetBasesListRo = z.infer<typeof getBaseListRoSchema>;
 export const GetBaseListRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_BASE_LIST,
-  description: 'Get base list by query',
+  title: 'List projects in space',
+  description: 'List projects in the specified space using the supplied query.',
   request: {
     params: getBaseListRoSchema,
   },
   responses: {
     200: {
-      description: 'Returns the list of base.',
+      description: 'Returns the list of project.',
       content: {
         'application/json': {
           schema: z.array(getBaseItemSchema),

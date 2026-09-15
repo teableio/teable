@@ -122,7 +122,7 @@ export type ITrashVo = z.infer<typeof trashVoSchema>;
 export const GetTrashRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_TRASH,
-  description: 'Get trash list for spaces or bases',
+  description: 'Get trash list for spaces or projects',
   request: {
     query: trashRoSchema,
   },

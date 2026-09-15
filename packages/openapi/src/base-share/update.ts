@@ -9,7 +9,8 @@ export const UPDATE_BASE_SHARE = '/base/{baseId}/share/{shareId}';
 export const UpdateBaseShareRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: UPDATE_BASE_SHARE,
-  description: 'Update a base share link',
+  title: 'Update project share link',
+  description: 'Update the settings of a project share link.',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -25,7 +26,7 @@ export const UpdateBaseShareRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Returns the updated base share',
+      description: 'Returns the updated project share',
       content: {
         'application/json': {
           schema: baseShareVoSchema,

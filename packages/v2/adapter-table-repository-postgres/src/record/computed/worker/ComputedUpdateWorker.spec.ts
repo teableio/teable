@@ -27,6 +27,7 @@ import type { ComputedUpdateOutboxItem } from '../outbox/ComputedUpdateOutboxPay
 import {
   defaultComputedUpdateOutboxConfig,
   normalizeComputedUpdateOutboxConfig,
+  type FieldBackfillOutboxItem,
   type SeedOutboxItem,
   type IComputedUpdateOutbox,
 } from '../outbox/IComputedUpdateOutbox';
@@ -98,6 +99,7 @@ const createUpdaterStub = (overrides: Record<string, unknown> = {}) =>
       .fn()
       .mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
     clearTaskStageLedger: vi.fn().mockResolvedValue(ok(0)),
+    cleanupValueFrontierOrphans: vi.fn().mockResolvedValue(ok({ afterScope: '', deleted: 0 })),
     ...overrides,
   }) as unknown as ComputedFieldUpdater;
 
@@ -597,7 +599,7 @@ describe('ComputedUpdateWorker', () => {
       );
     });
 
-    it('forces statement-timeout failures into dead letter', async () => {
+    it('retries statement-timeout failures instead of dead-lettering immediately', async () => {
       const task = createMockTask({ attempts: 1, maxAttempts: 8 });
       const markFailed = vi.fn().mockResolvedValue(ok(true));
 
@@ -644,17 +646,17 @@ describe('ComputedUpdateWorker', () => {
         expect.objectContaining({
           failureKind: 'statement_timeout',
           failureReason: 'statement_timeout',
-          retryable: false,
-          directDeadLetter: true,
+          retryable: true,
           diagnostics: expect.objectContaining({
             version: 1,
             failure: expect.objectContaining({
-              directDeadLetter: true,
+              directDeadLetter: false,
               phase: 'execute_plan',
             }),
           }),
         })
       );
+      expect(markFailed.mock.calls[0]?.[3]?.directDeadLetter).toBeUndefined();
     });
 
     it('persists DomainError details on dead-letter diagnostics', async () => {
@@ -1648,6 +1650,87 @@ describe('ComputedUpdateWorker', () => {
       expect(markDone).toHaveBeenCalledTimes(3);
     });
 
+    it.each(['none', 'result', 'throw'])(
+      'yields the remaining claimed batch after one slow committed task (handoff failure: %s)',
+      async (handoffFailure) => {
+        let now = 0;
+        const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+        const releaseForRetry = vi.fn().mockResolvedValue(ok(true));
+        if (handoffFailure === 'result') {
+          releaseForRetry.mockResolvedValueOnce(
+            err(domainError.infrastructure({ message: 'handoff unavailable' }))
+          );
+        } else if (handoffFailure === 'throw') {
+          releaseForRetry.mockRejectedValueOnce(new Error('handoff unavailable'));
+        }
+        const task1 = createMockTask({ id: 'cuo1' });
+        const task2 = createMockTask({ id: 'cuo2' });
+        const task3 = createMockTask({ id: 'cuo3' });
+        const markDone = vi.fn().mockResolvedValue(ok(true));
+
+        const outbox = createOutboxStub({
+          releaseForRetry,
+          claimBatch: vi.fn().mockResolvedValue(ok([task1, task2, task3])),
+          markDone,
+        });
+
+        const updater = createUpdaterStub({
+          execute: vi.fn().mockImplementation(async () => {
+            now += 5001;
+            return ok({ changesByStep: [] });
+          }),
+          collectDirtySeedGroups: vi
+            .fn()
+            .mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
+        });
+
+        const planner = {
+          planStage: vi.fn().mockResolvedValue(ok({ steps: [], edges: [] })),
+        } as unknown as ComputedUpdatePlanner;
+
+        const logger = createLogger();
+        const hasher = createHasher();
+        const unitOfWork: IUnitOfWork = {
+          withTransaction: vi.fn().mockImplementation(async (_ctx, fn) => {
+            return fn(_ctx);
+          }),
+        };
+
+        const worker = new ComputedUpdateWorker(
+          outbox,
+          defaultComputedUpdateOutboxConfig,
+          updater,
+          planner,
+          unitOfWork,
+          logger,
+          hasher,
+          createTableRepository(),
+          createBackfillService(),
+          createEventBus()
+        );
+
+        let result;
+        try {
+          result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+        } finally {
+          clock.mockRestore();
+        }
+
+        expect(result.isOk()).toBe(true);
+        expect(result._unsafeUnwrap()).toBe(1);
+        expect(markDone).toHaveBeenCalledTimes(1);
+        expect(releaseForRetry.mock.calls.map(([params]) => params.task.id)).toEqual([
+          task2.id,
+          task3.id,
+        ]);
+        expect(releaseForRetry).toHaveBeenCalledWith(
+          { task: task2, reason: 'worker_time_budget_exhausted', retryDelayMs: 0 },
+          expect.anything()
+        );
+        expect(outbox.markFailed).not.toHaveBeenCalled();
+      }
+    );
+
     it('downgrades insert changeType to update when planning next async stage', async () => {
       // Next-stage planning is only needed when the current stage has cross-record propagation
       // edges. If edges are empty (pure same-record work like same-table formula chains),
@@ -2340,14 +2423,67 @@ describe('ComputedUpdateWorker stage budget', () => {
     expect(executedPlan.steps.map((step: { level: number }) => step.level)).toEqual([0, 1]);
     expect(executedPlan.edges).toHaveLength(1);
 
-    const collectParams = collectStageOutputSeedGroups.mock.calls[0][1];
-    expect(collectParams.tableIds.map((id: { toString(): string }) => id.toString())).toEqual([
-      TABLE_ID,
-      TABLE_ID_B,
+    expect(enqueueOrMerge).toHaveBeenCalledTimes(1);
+    const continuation = enqueueOrMerge.mock.calls[0][0];
+    expect(continuation.steps).toEqual([threeStepTaskFields.steps[2]]);
+    expect(continuation.edges.map((e: { toTableId: string }) => e.toTableId)).toEqual([TABLE_ID_C]);
+    expect(continuation.runTotalSteps).toBe(3);
+    expect(continuation.runCompletedStepsBefore).toBe(2);
+    expect(continuation.stageDepth).toBe(0);
+    // Seeds narrow to tables the deferred work reads from: only tableB remains.
+    expect(continuation.seedRecordIds).toEqual([]);
+    expect(continuation.extraSeedRecords).toEqual([
+      { tableId: TABLE_ID_B, recordIds: [RECORD_ID_B] },
     ]);
-    expect(collectParams.exactIdsTotalCap).toBe(
-      defaultComputedUpdateOutboxConfig.stageMaxCollectedSeedIds
+    // Lineage-scoped idempotency key: same-shape continuations from other runs,
+    // stages, or predecessor tasks must not merge.
+    expect(continuation.planHash).toBe('hash123:run:run123:stage:2:from:cuo123456789012345');
+    expect(markDone).toHaveBeenCalledWith(task, expect.anything(), expect.anything());
+  });
+
+  it('does not multiply transaction stage caps for small-seed cross-table computations', async () => {
+    const task = createMockTask({
+      ...threeStepTaskFields,
+      estimatedComplexity: 10,
+      dirtyStats: [{ tableId: TABLE_ID, recordCount: 1 }],
+    });
+    const execute = vi.fn().mockResolvedValue(ok({ changesByStep: [] }));
+    const dirtyTableId = TableId.create(TABLE_ID_B)._unsafeUnwrap();
+    const dirtyRecordId = RecordId.create(RECORD_ID_B)._unsafeUnwrap();
+    const collectStageOutputSeedGroups = vi
+      .fn()
+      .mockResolvedValue(
+        ok({ groups: [{ tableId: dirtyTableId, recordIds: [dirtyRecordId] }], seedAllTableIds: [] })
+      );
+    const enqueueOrMerge = vi.fn().mockResolvedValue(ok({ taskId: 'cont', merged: false }));
+    const markDone = vi.fn().mockResolvedValue(ok(true));
+    const outbox = createOutboxStub({
+      claimBatch: vi.fn().mockResolvedValue(ok([task])),
+      enqueueOrMerge,
+      markDone,
+    });
+    const worker = new ComputedUpdateWorker(
+      outbox,
+      { ...stagedConfig, stageSmallRunComplexityThreshold: 512 },
+      createUpdaterStub({ execute, collectStageOutputSeedGroups }),
+      // planner must stay untouched: budget continuations do not replan
+      {} as ComputedUpdatePlanner,
+      createUnitOfWork(),
+      createLogger(),
+      createHasher(),
+      createTableRepository(),
+      createBackfillService(),
+      createEventBus()
     );
+
+    const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBe(1);
+
+    const executedPlan = execute.mock.calls[0][0];
+    expect(executedPlan.steps.map((step: { level: number }) => step.level)).toEqual([0, 1]);
+    expect(executedPlan.edges).toHaveLength(1);
 
     expect(enqueueOrMerge).toHaveBeenCalledTimes(1);
     const continuation = enqueueOrMerge.mock.calls[0][0];
@@ -2361,6 +2497,64 @@ describe('ComputedUpdateWorker stage budget', () => {
     expect(continuation.extraSeedRecords).toEqual([
       { tableId: TABLE_ID_B, recordIds: [RECORD_ID_B] },
     ]);
+    // Lineage-scoped idempotency key: same-shape continuations from other runs,
+    // stages, or predecessor tasks must not merge.
+    expect(continuation.planHash).toBe('hash123:run:run123:stage:2:from:cuo123456789012345');
+    expect(markDone).toHaveBeenCalledWith(task, expect.anything(), expect.anything());
+  });
+
+  it('keeps transaction caps for edge-free targets whose field types are unknown', async () => {
+    const task = createMockTask({
+      ...threeStepTaskFields,
+      edges: [],
+      estimatedComplexity: 10,
+      dirtyStats: [{ tableId: TABLE_ID, recordCount: 1 }],
+    });
+    const execute = vi.fn().mockResolvedValue(ok({ changesByStep: [] }));
+    const dirtyTableId = TableId.create(TABLE_ID_B)._unsafeUnwrap();
+    const dirtyRecordId = RecordId.create(RECORD_ID_B)._unsafeUnwrap();
+    const collectStageOutputSeedGroups = vi
+      .fn()
+      .mockResolvedValue(
+        ok({ groups: [{ tableId: dirtyTableId, recordIds: [dirtyRecordId] }], seedAllTableIds: [] })
+      );
+    const enqueueOrMerge = vi.fn().mockResolvedValue(ok({ taskId: 'cont', merged: false }));
+    const markDone = vi.fn().mockResolvedValue(ok(true));
+    const outbox = createOutboxStub({
+      claimBatch: vi.fn().mockResolvedValue(ok([task])),
+      enqueueOrMerge,
+      markDone,
+    });
+    const worker = new ComputedUpdateWorker(
+      outbox,
+      { ...stagedConfig, stageSmallRunComplexityThreshold: 512 },
+      createUpdaterStub({ execute, collectStageOutputSeedGroups }),
+      // planner must stay untouched: budget continuations do not replan
+      {} as ComputedUpdatePlanner,
+      createUnitOfWork(),
+      createLogger(),
+      createHasher(),
+      createTableRepository(),
+      createBackfillService(),
+      createEventBus()
+    );
+
+    const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBe(1);
+
+    const executedPlan = execute.mock.calls[0][0];
+    expect(executedPlan.steps.map((step: { level: number }) => step.level)).toEqual([0, 1]);
+    expect(executedPlan.edges).toHaveLength(0);
+
+    expect(enqueueOrMerge).toHaveBeenCalledTimes(1);
+    const continuation = enqueueOrMerge.mock.calls[0][0];
+    expect(continuation.steps).toEqual([threeStepTaskFields.steps[2]]);
+    expect(continuation.edges).toEqual([]);
+    expect(continuation.runTotalSteps).toBe(3);
+    expect(continuation.runCompletedStepsBefore).toBe(2);
+    expect(continuation.stageDepth).toBe(0);
     // Lineage-scoped idempotency key: same-shape continuations from other runs,
     // stages, or predecessor tasks must not merge.
     expect(continuation.planHash).toBe('hash123:run:run123:stage:2:from:cuo123456789012345');
@@ -2429,6 +2623,277 @@ describe('ComputedUpdateWorker stage budget', () => {
       typeof call[0] === 'string' ? call[0] : call[0].id
     );
     expect(markedDoneIds).toEqual(expect.arrayContaining([task.id, 'cuo-relay-next']));
+  });
+
+  it.each([true, false])(
+    'hands a slow committed stage continuation back to the durable wakeup (relay claimed: %s)',
+    async (relayClaimed) => {
+      const task = createMockTask(threeStepTaskFields);
+      const relayClaimedContinuation = createMockTask({
+        id: 'cuo-relay-next',
+        steps: [],
+        edges: [],
+        lockedBy: 'worker-1:cuc-relay',
+      });
+      let now = 0;
+      const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+      const execute = vi.fn().mockImplementation(async () => {
+        now += 5001;
+        return ok({ changesByStep: [] });
+      });
+      const dirtyTableId = TableId.create(TABLE_ID_B)._unsafeUnwrap();
+      const dirtyRecordId = RecordId.create(RECORD_ID_B)._unsafeUnwrap();
+      const collectStageOutputSeedGroups = vi.fn().mockResolvedValue(
+        ok({
+          groups: [{ tableId: dirtyTableId, recordIds: [dirtyRecordId] }],
+          seedAllTableIds: [],
+        })
+      );
+      const enqueueOrMerge = vi.fn().mockResolvedValue(
+        ok({
+          taskId: 'cuo-relay-next',
+          merged: false,
+          ...(relayClaimed ? { claimed: relayClaimedContinuation } : {}),
+        })
+      );
+      const claimById = vi.fn().mockResolvedValue(ok(null));
+      const markDone = vi.fn().mockResolvedValue(ok(true));
+      const releaseForRetry = vi.fn().mockResolvedValue(ok(true));
+      const outbox = createOutboxStub({
+        releaseForRetry,
+        claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        enqueueOrMerge,
+        claimById,
+        markDone,
+      });
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        stagedConfig,
+        createUpdaterStub({ execute, collectStageOutputSeedGroups }),
+        {} as ComputedUpdatePlanner,
+        createUnitOfWork(),
+        createLogger(),
+        createHasher(),
+        createTableRepository(),
+        createBackfillService(),
+        createEventBus()
+      );
+
+      let result;
+      try {
+        result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+      } finally {
+        clock.mockRestore();
+      }
+
+      expect(result.isOk()).toBe(true);
+      // The first transaction completed; its continuation remains durable and retryable.
+      expect(result._unsafeUnwrap()).toBe(1);
+      if (relayClaimed) {
+        expect(releaseForRetry).toHaveBeenCalledWith(
+          {
+            task: relayClaimedContinuation,
+            reason: 'relay_claim_continuation_time_budget_exhausted',
+            retryDelayMs: 0,
+          },
+          expect.anything()
+        );
+        expect(releaseForRetry.mock.invocationCallOrder[0]).toBeGreaterThan(
+          markDone.mock.invocationCallOrder[0]
+        );
+      } else {
+        expect(releaseForRetry).not.toHaveBeenCalled();
+      }
+      // The stage continuation requests a relay claim naming this worker and the
+      // predecessor being marked done in the same transaction.
+      expect(enqueueOrMerge).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({
+          relayClaim: { workerId: 'worker-1', predecessorTaskId: task.id },
+        })
+      );
+      // The relay-claimed continuation is queued directly — no claimById hop.
+      expect(claimById).not.toHaveBeenCalled();
+      const markedDoneIds = markDone.mock.calls.map((call) =>
+        typeof call[0] === 'string' ? call[0] : call[0].id
+      );
+      expect(markedDoneIds).toEqual([task.id]);
+      expect(outbox.markFailed).not.toHaveBeenCalled();
+    }
+  );
+
+  it('relay-claims field-backfill cursor continuations without a separate claimById round trip', async () => {
+    const fieldId = FieldId.create(FIELD_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const field = { id: () => fieldId };
+    const table = {
+      id: () => tableId,
+      baseId: () => baseId,
+      getField: () => ok(field),
+    } as unknown as Table;
+    const tableRepository: ITableRepository = {
+      ...createTableRepository(),
+      findOne: vi.fn().mockResolvedValue(ok(table)),
+    };
+
+    const task: FieldBackfillOutboxItem = {
+      id: 'cuo-backfill-1',
+      taskType: 'field-backfill',
+      baseId: BASE_ID,
+      tableId: TABLE_ID,
+      fieldIds: [FIELD_ID],
+      runId: 'bfr123456789012345',
+      planHash: 'backfill-hash',
+      status: 'processing',
+      attempts: 0,
+      maxAttempts: 8,
+      nextRunAt: new Date(),
+      lockedAt: new Date(),
+      lockedBy: 'worker-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const relayClaimedContinuation: FieldBackfillOutboxItem = {
+      ...task,
+      id: 'cuo-backfill-2',
+      cursor: RECORD_ID,
+      lockedBy: 'worker-1:cuc-relay',
+    };
+    const executeSyncMany = vi
+      .fn()
+      .mockResolvedValueOnce(
+        ok({
+          fields: [field],
+          batch: { recordCount: 500, lastRecordId: RECORD_ID, hasMore: true },
+        })
+      )
+      .mockResolvedValueOnce(
+        ok({
+          fields: [field],
+          batch: { recordCount: 167, lastRecordId: `rec${'e'.repeat(16)}`, hasMore: false },
+        })
+      );
+    const enqueueFieldBackfill = vi
+      .fn()
+      .mockResolvedValue(
+        ok({ taskId: 'cuo-backfill-2', merged: false, claimed: relayClaimedContinuation })
+      );
+    const claimById = vi.fn().mockResolvedValue(ok(null));
+    const markDone = vi.fn().mockResolvedValue(ok(true));
+    const outbox = createOutboxStub({
+      claimBatch: vi.fn().mockResolvedValue(ok([task])),
+      enqueueFieldBackfill,
+      claimById,
+      markDone,
+    });
+    const worker = new ComputedUpdateWorker(
+      outbox,
+      defaultComputedUpdateOutboxConfig,
+      createUpdaterStub(),
+      {} as ComputedUpdatePlanner,
+      createUnitOfWork(),
+      createLogger(),
+      createHasher(),
+      tableRepository,
+      { executeSyncMany } as unknown as ComputedFieldBackfillService,
+      createEventBus()
+    );
+
+    const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBe(2);
+    expect(enqueueFieldBackfill).toHaveBeenCalledWith(
+      expect.objectContaining({ cursor: RECORD_ID }),
+      expect.anything(),
+      expect.objectContaining({
+        relayClaim: { workerId: 'worker-1', predecessorTaskId: task.id },
+      })
+    );
+    expect(claimById).not.toHaveBeenCalled();
+    const markedDoneIds = markDone.mock.calls.map((call) =>
+      typeof call[0] === 'string' ? call[0] : call[0].id
+    );
+    expect(markedDoneIds).toEqual(expect.arrayContaining([task.id, 'cuo-backfill-2']));
+  });
+
+  it('does not chase a field-backfill continuation when predecessor markDone loses ownership', async () => {
+    const fieldId = FieldId.create(FIELD_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const field = { id: () => fieldId };
+    const table = {
+      id: () => tableId,
+      baseId: () => baseId,
+      getField: () => ok(field),
+    } as unknown as Table;
+    const tableRepository: ITableRepository = {
+      ...createTableRepository(),
+      findOne: vi.fn().mockResolvedValue(ok(table)),
+    };
+
+    const task: FieldBackfillOutboxItem = {
+      id: 'cuo-backfill-1',
+      taskType: 'field-backfill',
+      baseId: BASE_ID,
+      tableId: TABLE_ID,
+      fieldIds: [FIELD_ID],
+      runId: 'bfr123456789012345',
+      planHash: 'backfill-hash',
+      status: 'processing',
+      attempts: 0,
+      maxAttempts: 8,
+      nextRunAt: new Date(),
+      lockedAt: new Date(),
+      lockedBy: 'worker-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const executeSyncMany = vi.fn().mockResolvedValue(
+      ok({
+        fields: [field],
+        batch: { recordCount: 500, lastRecordId: RECORD_ID, hasMore: true },
+      })
+    );
+    const enqueueFieldBackfill = vi.fn().mockResolvedValue(
+      ok({
+        taskId: 'cuo-backfill-2',
+        merged: false,
+        claimed: { ...task, id: 'cuo-backfill-2', cursor: RECORD_ID },
+      })
+    );
+    const claimById = vi.fn().mockResolvedValue(ok(null));
+    const markDone = vi.fn().mockResolvedValue(ok(false));
+    const markFailed = vi.fn().mockResolvedValue(ok(true));
+    const outbox = createOutboxStub({
+      claimBatch: vi.fn().mockResolvedValue(ok([task])),
+      enqueueFieldBackfill,
+      claimById,
+      markDone,
+      markFailed,
+    });
+    const worker = new ComputedUpdateWorker(
+      outbox,
+      defaultComputedUpdateOutboxConfig,
+      createUpdaterStub(),
+      {} as ComputedUpdatePlanner,
+      createUnitOfWork(),
+      createLogger(),
+      createHasher(),
+      tableRepository,
+      { executeSyncMany } as unknown as ComputedFieldBackfillService,
+      createEventBus()
+    );
+
+    const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBe(0);
+    expect(executeSyncMany).toHaveBeenCalledTimes(1);
+    expect(claimById).not.toHaveBeenCalled();
+    expect(markFailed).not.toHaveBeenCalled();
   });
 
   it('splits seed task plans and defers the remainder without replanning', async () => {

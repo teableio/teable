@@ -8,6 +8,7 @@ export const DELETE_DB_CONNECTION = '/base/{baseId}/connection';
 export const DeleteDbConnectionRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: DELETE_DB_CONNECTION,
+  title: 'Delete project connection',
   description: 'Delete a db connection',
   request: {
     params: z.object({

@@ -56,6 +56,8 @@ export class NextController {
     '__nextjs*',
     'images/*',
     'streamsaver/*',
+    // The mobile app's Service Worker (`public/mobile-sw.js`, built by the app's postbuild).
+    'mobile-sw.js',
     'home',
     '404/*',
     '403/?*',

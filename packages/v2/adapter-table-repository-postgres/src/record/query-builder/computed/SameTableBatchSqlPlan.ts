@@ -12,6 +12,7 @@ type CteLevelSqlPlanParams = {
   previousCteName?: string;
   fragments: ReadonlyArray<FormulaFieldSqlFragment>;
   materialized: boolean;
+  formulaGroupJoins?: ReadonlyArray<string>;
 };
 
 const normalizeExpressionKey = (sqlText: string): string => sqlText.replace(/\s+/g, ' ').trim();
@@ -64,6 +65,7 @@ export class CteLevelSqlPlan {
   readonly previousCteName?: string;
   readonly fragments: ReadonlyArray<FormulaFieldSqlFragment>;
   readonly materialized: boolean;
+  readonly formulaGroupJoins: ReadonlyArray<string>;
   readonly cseBindings: ReadonlyArray<FormulaCseBinding>;
   private readonly cseBindingsByKey: ReadonlyMap<string, FormulaCseBinding>;
 
@@ -76,6 +78,7 @@ export class CteLevelSqlPlan {
     this.previousCteName = params.previousCteName;
     this.fragments = params.fragments;
     this.materialized = params.materialized;
+    this.formulaGroupJoins = params.formulaGroupJoins ?? [];
     this.cseBindings = cseBindings;
     this.cseBindingsByKey = new Map(cseBindings.map((binding) => [binding.normalizedKey, binding]));
   }
@@ -135,13 +138,16 @@ export class CteLevelSqlPlan {
   buildCseJoinSql(): string {
     if (this.cseBindings.length === 0) return '';
     const selectItems = this.cseBindings.map((binding) => binding.selectItemSql()).join(', ');
-    return ` CROSS JOIN LATERAL (SELECT ${selectItems}) AS "__cse"`;
+    // The lateral alias alone is not a computation boundary: PostgreSQL pulls
+    // it up and copies expensive subplans into every referencing output column.
+    // OFFSET 0 preserves this per-row projection without materializing the batch.
+    return ` CROSS JOIN LATERAL (SELECT ${selectItems} OFFSET 0) AS "__cse"`;
   }
 
   buildCteSql(fromClause: string): string {
     const selectColumns = this.buildSelectColumnsSql();
     const cseJoin = this.buildCseJoinSql();
     const materialized = this.materialized ? ' MATERIALIZED' : '';
-    return `${quoteIdentifier(this.name)} AS${materialized} (SELECT ${quoteRef('t', '__id')}, ${selectColumns} ${fromClause}${cseJoin})`;
+    return `${quoteIdentifier(this.name)} AS${materialized} (SELECT ${quoteRef('t', '__id')}, ${selectColumns} ${fromClause}${this.formulaGroupJoins.join('')}${cseJoin})`;
   }
 }

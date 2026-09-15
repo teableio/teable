@@ -67,7 +67,7 @@
     "copyLink": "Link kopieren",
     "openLink": "Link öffnen",
     "backToSpace": "Zurück zum Space",
-    "switchBase": "Base wechseln",
+    "switchBase": "Projekt wechseln",
     "collapse": "Einklappen",
     "viewDetails": "Details anzeigen",
     "getMore": "Mehr erhalten",
@@ -92,7 +92,7 @@
     "guideTitle": "Beginnen Sie mit Ihrem Szenario",
     "watchVideo": "Video ansehen",
     "title": "Vorlage",
-    "description": "Erstellen Sie eine neue Datenbank aus einer Vorlage",
+    "description": "Erstellen Sie ein neues Projekt aus einer Vorlage",
     "browseAll": "Alle durchsuchen",
     "templateTitle": "Mit Vorlage beginnen",
     "loadMore": "Mehr laden",
@@ -130,7 +130,7 @@
     "enterPassword": "Passwort eingeben",
     "passwordTitle": "Passwort festlegen",
     "deleteConfirmTitle": "Freigabelink löschen",
-    "deleteConfirmDescription": "Diese Aktion kann nicht rückgängig gemacht werden. Personen mit diesem Link können nicht mehr auf die freigegebene Base zugreifen.",
+    "deleteConfirmDescription": "Diese Aktion kann nicht rückgängig gemacht werden. Personen mit diesem Link können nicht mehr auf das freigegebene Projekt zugreifen.",
     "createSuccess": "Freigabelink erstellt",
     "createFailed": "Freigabelink konnte nicht erstellt werden",
     "updateFailed": "Freigabeeinstellungen konnten nicht aktualisiert werden",
@@ -142,19 +142,19 @@
   "share": {
     "copyToSpaceDialog": {
       "title": "In Bereich kopieren",
-      "description": "Bitte wählen Sie einen Bereich aus, in den diese Basis kopiert werden soll",
-      "baseName": "Basisname",
-      "baseNamePlaceholder": "Basisname eingeben",
+      "description": "Bitte wählen Sie einen Bereich aus, in den dieses Projekt kopiert werden soll",
+      "baseName": "Projektname",
+      "baseNamePlaceholder": "Projektname eingeben",
       "selectSpace": "Bereich auswählen",
       "noSpaceDescription": "Keine verwaltbaren Bereiche. Bitte erstellen Sie einen neuen Bereich.",
       "newSpacePlaceholder": "Space name",
       "createSpace": "Create",
       "copyTarget": "Copy to",
-      "createNewBase": "New base",
-      "copyToExistingBase": "Existing base",
-      "selectBase": "Select base",
-      "selectBasePlaceholder": "Select a base",
-      "noBaseInSpace": "In diesem Bereich gibt es keine verwaltbaren Basen. Bitte wählen Sie \"Neue Basis\"."
+      "createNewBase": "Neues Projekt",
+      "copyToExistingBase": "Vorhandenes Projekt",
+      "selectBase": "Projekt auswählen",
+      "selectBasePlaceholder": "Projekt auswählen",
+      "noBaseInSpace": "In diesem Bereich gibt es keine verwaltbaren Projekte. Bitte wählen Sie \"Neues Projekt\"."
     }
   },
   "settings": {
@@ -175,7 +175,7 @@
         "errorCategoryName": "Kategorie existiert nicht oder wurde gelöscht",
         "needSnapshot": "Bitte erstellen Sie einen Snapshot vor der Veröffentlichung, und der Vorlagenname und die Beschreibung dürfen nicht leer sein",
         "needPublish": "Bitte veröffentlichen Sie die Vorlage, bevor Sie sie hervorheben",
-        "needBaseSource": "Bitte wählen Sie eine Base-Quelle, bevor Sie einen Snapshot erstellen",
+        "needBaseSource": "Bitte wählen Sie eine Projekt-Quelle, bevor Sie einen Snapshot erstellen",
         "forbiddenUpdateSystemTemplate": "Systemvorlagen können nicht geändert werden",
         "addCategoryTips": "Bitte geben Sie zuerst einen Kategorienamen in das Suchfeld ein.",
         "categoryNamePlaceholder": "Kategorienamen eingeben",
@@ -225,13 +225,13 @@
       "noImage": "Kein Bild",
       "baseSelectPanel": {
         "title": "Vorlagenquelle auswählen",
-        "description": "Wählen Sie eine Base als Vorlage",
+        "description": "Wählen Sie ein Projekt als Vorlage",
         "confirm": "Bestätigen",
         "search": "Suchen...",
         "cancel": "Abbrechen",
-        "selectBase": "Base auswählen",
+        "selectBase": "Projekt auswählen",
         "createTemplate": "Vorlage erstellen",
-        "abnormalBase": "Base existiert nicht oder wurde gelöscht"
+        "abnormalBase": "Projekt existiert nicht oder wurde gelöscht"
       }
     },
     "back": "Zurück zum Start",
@@ -298,8 +298,13 @@
         "desc": "Diese Aktion ist unwiderruflich. Es wird Ihr Konto und alle zugehörigen Daten dauerhaft löschen.",
         "error": {
           "title": "Konto kann nicht gelöscht werden",
-          "desc": "Sie müssen zuerst die folgenden Abhängigkeiten behandeln:",
-          "spacesError": "Bevor Sie Ihr Konto löschen, müssen Sie zuerst Ihre Spaces verlassen (oder löschen und dann in den Papierkorb verschieben)."
+          "spacesError": "Sie sind der einzige Eigentümer dieser Spaces. Bei einem Space mit aktivem Abonnement muss das Abonnement zuerst gekündigt werden. Wählen Sie ein Mitglied, an das ein Space beim Klick auf Löschen übertragen wird; die übrigen werden zusammen mit Ihrem Konto in den Papierkorb verschoben.",
+          "willTrash": "Wird in den Papierkorb verschoben",
+          "willTransfer": "Wird übertragen",
+          "subscribedHint": "Dieser Space hat noch ein aktives Abonnement. Kündigen Sie es und kommen Sie dann zurück, um Ihr Konto zu löschen.",
+          "cancelSubscription": "Abonnement verwalten",
+          "transferTo": "Mitglied zum Übertragen wählen, sonst Papierkorb",
+          "transferToSubscribed": "Oder ein Mitglied zum Übertragen wählen; das Abonnement bleibt beim Space"
         },
         "confirm": {
           "title": "Bitte geben Sie <code>DELETE</code> zur Bestätigung ein",
@@ -331,7 +336,7 @@
       "teableSkill": "Teable-Fähigkeit"
     },
     "teableSkill": {
-      "intro": "Lass deinen AI Agent eine Verbindung zu deiner Base herstellen, um Daten abzufragen, Tabellen, Felder und Ansichten zu verwalten, Datensätze zu importieren oder zu aktualisieren sowie Automationen und Apps zu erstellen.",
+      "intro": "Lass deinen AI Agent eine Verbindung zu deinem Projekt herstellen, um Daten abzufragen, Tabellen, Felder und Ansichten zu verwalten, Datensätze zu importieren oder zu aktualisieren sowie Automationen und Apps zu erstellen.",
       "worksWith": "Funktioniert mit allen gängigen Agents",
       "more": "+ mehr",
       "copy": "Kopieren",
@@ -344,7 +349,7 @@
       "step3Description": "Nach der Installation des Skills kannst du diese Prompts ausprobieren.",
       "tryPrompts": {
         "schema": {
-          "prompt": "Erstelle eine einfache CRM-Tabelle in dieser Base.",
+          "prompt": "Erstelle eine einfache CRM-Tabelle in diesem Projekt.",
           "note": "Einfache Starter-Prompts"
         },
         "template": {
@@ -390,10 +395,6 @@
           "user": "Slack-Benutzer",
           "workspace": "Slack-Arbeitsbereich"
         },
-        "email": {
-          "user": "Benutzer",
-          "email": "E-Mail"
-        },
         "deleteTitle": "Verbundenes Konto entfernen",
         "deleteDesc": "Möchten Sie {{name}} wirklich entfernen?",
         "create": "Neues Konto verbinden",
@@ -412,7 +413,7 @@
     "table": "Tabelle",
     "view": "Ansicht",
     "space": "Space",
-    "base": "Base",
+    "base": "Projekt",
     "field": "Feld",
     "record": "Datensatz",
     "dashboard": "Dashboard",
@@ -437,6 +438,8 @@
     "webSearch": "Websuche",
     "folder": "Ordner",
     "newAutomation": "Neue Automatisierung",
+    "routine": "Routine",
+    "newRoutine": "Neue Routine",
     "newApp": "Neue App",
     "newFolder": "Neuer Ordner",
     "template": "Vorlage"
@@ -463,9 +466,9 @@
     "done": "Erledigt",
     "skip": "Überspringen",
     "createSpaceTooltipTitle": "Einen Space erstellen",
-    "createSpaceTooltipContent": "Teable ist in Spaces gegliedert, die zur Zusammenarbeit einladen.<br></br>Die Spaces in Teable dienen als primäres Navigationselement in der Menüleiste und bieten eine grundlegende Plattform für Benutzer, die Datenbanken nach Bedarf hinzufügen und verwalten möchten.",
-    "createBaseTooltipTitle": "Eine Base erstellen",
-    "createBaseTooltipContent": "Eine Base (kurz für \"database\") ist ein Ort, an dem wichtige Daten und die davon abhängigen Arbeitsabläufe gespeichert werden.",
+    "createSpaceTooltipContent": "Teable ist in Spaces gegliedert, die zur Zusammenarbeit einladen.<br></br>Die Spaces in Teable dienen als primäres Navigationselement in der Menüleiste und bieten eine grundlegende Plattform für Benutzer, die Projekte nach Bedarf hinzufügen und verwalten möchten.",
+    "createBaseTooltipTitle": "Ein Projekt erstellen",
+    "createBaseTooltipContent": "Ein Projekt speichert Ihre Daten und bietet Zugriff auf Automatisierungen und das App-Dashboard.",
     "createTableTooltipTitle": "Eine Tabelle erstellen",
     "createTableTooltipContent": "Tabellen sind für den effizienten Umgang mit verschiedenen Datensätzen konzipiert und bieten eine vielseitige Anzeige von Informationen durch verschiedene Datentypen.",
     "createViewTooltipTitle": "Eine Ansicht erstellen",
@@ -484,8 +487,8 @@
   "invite": {
     "dialog": {
       "title": "{{spaceName}} Space teilen",
-      "desc_one": "Dieser Space hat <b>{{count}} Kollaborateure</b>. Das Hinzufügen eines Space Kollaborateurs gibt ihm Zugang zu allen Bases in diesem Space.",
-      "desc_other": "Dieser Space hat <b>{{count}} Kollaborateure</b>. Das Hinzufügen eines Space Kollaborateurs gibt ihm Zugang zu allen Bases in diesem Space.",
+      "desc_one": "Dieser Space hat <b>{{count}} Kollaborateure</b>. Das Hinzufügen eines Space Kollaborateurs gibt ihm Zugang zu allen Projekten in diesem Space.",
+      "desc_other": "Dieser Space hat <b>{{count}} Kollaborateure</b>. Das Hinzufügen eines Space Kollaborateurs gibt ihm Zugang zu allen Projekten in diesem Space.",
       "tabEmail": "Per E-Mail einladen",
       "emailPlaceholder": "Weitere Kollaborateure per E-Mail einladen",
       "tabLink": "Per Link einladen",
@@ -495,14 +498,14 @@
       "linkSend": "Link erstellen",
       "spaceTitle": "Space Kollaborateure",
       "spaceTitleWithCount": "Space-Mitarbeitende ({{count}})",
-      "baseTitle": "Base-Mitarbeitende",
-      "allCollaboratorsTitle": "Alle Mitarbeitenden (Space & Base)",
-      "baseOnly": "Nur Base",
+      "baseTitle": "Projekt-Mitarbeitende",
+      "allCollaboratorsTitle": "Alle Mitarbeitenden (Space & Projekt)",
+      "baseOnly": "Nur Projekt",
       "collaboratorSearchPlaceholder": "Finde einen Space Kollaborateur via Name oder E-Mail",
       "collaboratorJoin": "beigetreten am {{joinTime}}",
       "collaboratorRemove": "Kollaborateur entfernen",
-      "basePermissionRemove": "Datenbankzugriff entfernen",
-      "goToBase": "Zur Datenbank",
+      "basePermissionRemove": "Projektzugriff entfernen",
+      "goToBase": "Zum Projekt",
       "linkTitle": "Einladungslinks",
       "linkCreatedTime": "erstellt am {{createdTime}}",
       "linkCopySuccess": "Link kopiert",
@@ -513,11 +516,11 @@
     },
     "base": {
       "title": "{{baseName}} teilen",
-      "desc_one": "Diese Base wird mit {{count}} Kollaborateur geteilt.",
-      "desc_other": "Diese Base wird mit {{count}} Kollaborateuren geteilt.",
-      "baseTitle": "Base Kollaborateure",
-      "collaboratorSearchPlaceholder": "Finde einen Base Kollaborateur via Name oder E-Mail",
-      "baseTitleWithCount": "Base-Mitarbeitende ({{count}})"
+      "desc_one": "Dieses Projekt wird mit {{count}} Kollaborateur geteilt.",
+      "desc_other": "Dieses Projekt wird mit {{count}} Kollaborateuren geteilt.",
+      "baseTitle": "Projekt Kollaborateure",
+      "collaboratorSearchPlaceholder": "Finde einen Projekt Kollaborateur via Name oder E-Mail",
+      "baseTitleWithCount": "Projekt-Mitarbeitende ({{count}})"
     },
     "addOrgCollaborator": {
       "title": "Organisationskollaborateur hinzufügen",
@@ -532,8 +535,8 @@
       "lastLogin": "Letzter Login",
       "expandPermissions": "Berechtigungen für {{name}} erweitern",
       "collapsePermissions": "Berechtigungen für {{name}} reduzieren",
-      "basePermissionsOnly": "Hat nur Zugriff auf ausgewählte Bases",
-      "basePermissionCount": "Base-Berechtigungen: {{count}}"
+      "basePermissionsOnly": "Hat nur Zugriff auf ausgewählte Projekte",
+      "basePermissionCount": "Projekt-Berechtigungen: {{count}}"
     },
     "authority": {
       "title": "Die Berechtigungsmatrix ist aktiviert",
@@ -566,18 +569,13 @@
     "billable": "Abrechenbar",
     "billableByAuthorityMatrix": "Abrechnung durch Berechtigungsmatrix generiert",
     "seatConfirm": {
-      "title": "Diese Einladung erhöht Ihre Abonnementkosten",
-      "roleChangeTitle": "Diese Rollenänderung erhöht Ihre Abonnementkosten",
       "matrixTitle": "Das Hinzufügen von Mitgliedern erhöht Ihre Abonnementkosten",
-      "inviteDesc_one": "Das eingeladene Mitglied tritt mit der Rolle {{role}} bei und belegt 1 Abonnement-Platz; Ihre Kosten steigen entsprechend. Wenn nur Ansehen oder Kommentieren nötig ist, wählen Sie einfach die kostenlose Rolle „Betrachter“ oder „Kommentator“.",
-      "inviteDesc_other": "Die {{count}} eingeladenen Mitglieder treten mit der Rolle {{role}} bei und belegen {{count}} Abonnement-Plätze; Ihre Kosten steigen entsprechend. Wenn nur Ansehen oder Kommentieren nötig ist, wählen Sie einfach die kostenlose Rolle „Betrachter“ oder „Kommentator“.",
-      "linkDesc": "Mitglieder, die über diesen Link beitreten, erhalten die Rolle {{role}} und belegen je 1 Abonnement-Platz; Ihre Kosten steigen mit jeder beitretenden Person. Für reines Ansehen oder Kommentieren wählen Sie einfach die kostenlose Rolle „Betrachter“ oder „Kommentator“.",
-      "roleChangeDesc": "Nach der Änderung auf {{role}} belegt dieses Mitglied 1 Abonnement-Platz; Ihre Kosten steigen entsprechend.",
       "matrixDesc": "Dieses Mitglied hat derzeit eine kostenlose Rolle (Betrachter/Kommentator). Nach dem Hinzufügen zur Berechtigungsmatrix belegt es 1 Abonnement-Platz; Ihre Kosten steigen entsprechend.",
       "seatLimitTitle": "Nicht genügend Lizenzplätze",
       "seatLimitDesc": "Diese Instanz nutzt {{seats}} von {{seatLimit}} lizenzierten Plätzen; für diese Aktion reichen die verbleibenden Plätze nicht aus. Bitte wenden Sie sich an Ihren Administrator, um weitere Plätze zu erwerben. Wenn nur Ansehen oder Kommentieren nötig ist, können Sie stattdessen die kostenlose Rolle „Betrachter“ oder „Kommentator“ verwenden.",
       "seatLimitConfirm": "Verstanden",
-      "confirmInvite": "Bestätigen und einladen"
+      "fixedSeatTitle": "Nicht genügend Plätze in Ihrem Tarif",
+      "fixedSeatDesc": "Ihr Tarif umfasst {{quantity}} Plätze, von denen bereits {{seats}} belegt sind. Wenn Sie fortfahren, wird das Platzlimit überschritten und der Space nach einer 7-tägigen Übergangsfrist auf den kostenlosen Tarif herabgestuft. Wenn nur Ansehen oder Kommentieren nötig ist, können Sie stattdessen die kostenlose Rolle „Betrachter“ oder „Kommentator“ verwenden."
     },
     "licenseExpiredGracePeriod": "Ihre Self-Hosted-Lizenz ist abgelaufen und wird am {{expiredTime}} auf den kostenlosen Plan herabgestuft. Bitte aktualisieren Sie Ihre Lizenz umgehend, um Zugriff auf Premium-Funktionen zu behalten.",
     "licenseAutoFetchFailed": "Automatische Lizenzverlängerung fehlgeschlagen. Noch {{days}} Tag(e) Kulanzzeitraum bis zur Herabstufung.",
@@ -671,7 +669,14 @@
           "modelTiers": "Modellstufen",
           "modelTiersDescription": "Weisen Sie mittleren und leichten Aufgaben unterschiedliche Modelle zu; nicht gesetzte Stufen verwenden das obige Standard-Hauptmodell.",
           "allInheriting": "Alle Stufen verwenden das Standard-Hauptmodell",
-          "customized": "{{count}} angepasst"
+          "customized": "{{count}} angepasst",
+          "tiersIntro": "Nutzer wählen im Chat-Modellmenü eine dieser Stufen; die Standardstufe ist ihre Ausgangswahl und die 1x-Credit-Basis. Jede Stufe lässt sich jederzeit neu zuordnen.",
+          "defaultTier": "Standard",
+          "setDefault": "Als Standard festlegen",
+          "notOffered": "Nicht angeboten",
+          "lgBackground": "zugleich Hauptmodell für KI-Felder und weitere Funktionen",
+          "mdBackground": "übernimmt auch mittlere Hintergrundaufgaben",
+          "smBackground": "übernimmt auch leichte Hintergrundaufgaben wie Chat-Titel"
         },
         "actions": {
           "title": "KI-Fähigkeiten",
@@ -941,8 +946,8 @@
           "quickSetup": "Schnelleinrichtung",
           "useRecommended": "Empfehlung übernehmen",
           "useRecommendedDesc": "{{model}} mit einem Klick als Standard für alle Chat-Szenarien festlegen",
-          "chatModels": "Standard-Hauptmodell",
-          "chatModelTip": "Das Standard-Hauptmodell für den KI-Chat in der Seitenleiste; wird vom Administrator festgelegt und ist für Benutzer nicht änderbar. Aufgabenstufen ohne eigenes Modell verwenden es ebenfalls",
+          "chatModels": "Chat-Modellstufen",
+          "chatModelTip": "Smart ist das Hauptmodell: KI-Felder, Hintergrundaufgaben und Stufen ohne eigenes Modell nutzen es. Die Standardstufe ist die Ausgangswahl der Chat-Nutzer.",
           "selectChatModel": "Chatmodell auswählen...",
           "lgDesc": "Komplexe Aufgaben, tiefgehende Analysen",
           "mdDesc": "Alltägliche Unterhaltungen, allgemeine Aufgaben",
@@ -1111,8 +1116,8 @@
       "viewer": "Betrachter"
     },
     "description": {
-      "owner": "Kann Bases, Apps, Automatisierungen und Authority-Matrizen vollständig konfigurieren sowie Space-Einstellungen und Abrechnung verwalten",
-      "creator": "Kann Bases, Apps, Automatisierungen und Authority-Matrizen vollständig konfigurieren",
+      "owner": "Kann Projekte, Apps, Automatisierungen und Authority-Matrizen vollständig konfigurieren sowie Space-Einstellungen und Abrechnung verwalten",
+      "creator": "Kann Projekte, Apps, Automatisierungen und Authority-Matrizen vollständig konfigurieren",
       "editor": "Kann Datensätze und Ansichten bearbeiten, aber keine Tabellen oder Felder konfigurieren",
       "commenter": "Kann Datensätze kommentieren",
       "viewer": "Kann nicht bearbeiten oder kommentieren"
@@ -1130,8 +1135,8 @@
     "addToTrash": "Zum Papierkorb verschieben",
     "description": "Daten im Papierkorb belegen immer noch Speicherplatz für Datensätze und Anhänge.",
     "spaceDescription": "Stellen Sie Spaces wieder her, die in den letzten {{retentionDays}} Tagen gelöscht wurden",
-    "spaceInnerDescription": "Stellen Sie Bases wieder her, die in den letzten {{retentionDays}} Tagen aus diesem Space gelöscht wurden",
-    "baseDescription": "Stellen Sie Ressourcen wieder her, die in den letzten {{retentionDays}} Tagen aus dieser Base gelöscht wurden"
+    "spaceInnerDescription": "Stellen Sie Projekte wieder her, die in den letzten {{retentionDays}} Tagen aus diesem Space gelöscht wurden",
+    "baseDescription": "Stellen Sie Ressourcen wieder her, die in den letzten {{retentionDays}} Tagen aus diesem Projekt gelöscht wurden"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Plugin hat keine Url",
@@ -1184,7 +1189,7 @@
     "unsubscribeH2": "Sie sind dabei, sich von zukünftigen Teable-Werbeaktionen und Produktaktualisierungen abzumelden. Möchten Sie sich wirklich abmelden?",
     "subscribeH1": "Abonnement bestätigen?",
     "subscribeH2": "Sie sind dabei, zukünftige Teable-Werbeaktionen und Produktaktualisierungen zu abonnieren. Möchten Sie wirklich abonnieren?",
-    "unsubscribeListTip": "Die folgenden Benutzer in der aktuellen Basis haben sich abgemeldet, Sie können ihnen keine E-Mails mehr senden. Beim Importieren von E-Mails platzieren Sie bitte die E-Mail-Adressen in der ersten Spalte und benennen Sie die Kopfzeile \"email\".",
+    "unsubscribeListTip": "Die folgenden Benutzer im aktuellen Projekt haben sich abgemeldet, Sie können ihnen keine E-Mails mehr senden. Beim Importieren von E-Mails platzieren Sie bitte die E-Mail-Adressen in der ersten Spalte und benennen Sie die Kopfzeile \"email\".",
     "templates": {
       "resetPassword": {
         "subject": "Passwort zurücksetzen - {{brandName}}",
@@ -1197,6 +1202,11 @@
           "subject": "Registrierungsbestätigung - {{brandName}}",
           "title": "Registrierungsbestätigung",
           "message": "Ihr Bestätigungscode lautet {{code}}. Bitte verwenden Sie ihn innerhalb von {{expiresIn}} Minuten."
+        },
+        "signinVerification": {
+          "subject": "Anmeldebestätigung - {{brandName}}",
+          "title": "Anmeldebestätigung",
+          "message": "Ihr Anmeldecode lautet {{code}}. Bitte verwenden Sie ihn innerhalb von {{expiresIn}} Minuten. Wenn Sie ihn nicht angefordert haben, können Sie diese E-Mail ignorieren."
         },
         "domainVerification": {
           "subject": "Domain-Verifizierung - {{brandName}}",
@@ -1275,7 +1285,7 @@
         },
         "collaboratorInvite": {
           "space": "{{fromUserName}} hat dich eingeladen, dem Space {{resourceName}} beizutreten",
-          "base": "{{fromUserName}} hat dich eingeladen, der Base {{resourceName}} beizutreten"
+          "base": "{{fromUserName}} hat dich eingeladen, dem Projekt {{resourceName}} beizutreten"
         },
         "automation": {
           "title": "Automatisierungs-Benachrichtigung",
@@ -1294,6 +1304,24 @@
           "failedSummary": {
             "title": "Automatisierung {{name}} ist {{failCount}} Mal fehlgeschlagen",
             "message": "Ihre Automatisierung {{name}} hat {{failCount}} aufeinanderfolgende Fehler angesammelt. Öffnen Sie den Ausführungsverlauf, um Details anzuzeigen."
+          }
+        },
+        "routine": {
+          "failed": {
+            "title": "Routine {{name}}: Ausführung fehlgeschlagen",
+            "message": "Ihre Routine {{name}} ist bei der Ausführung auf einen Fehler gestoßen. Öffnen Sie den Ausführungsverlauf für Details."
+          },
+          "failedSummary": {
+            "title": "Routine {{name}} ist {{failCount}} Mal fehlgeschlagen",
+            "message": "Ihre Routine {{name}} ist {{failCount}} Mal in Folge fehlgeschlagen. Öffnen Sie den Ausführungsverlauf für Details."
+          },
+          "insufficientCredit": {
+            "title": "Routine {{name}} wurde wegen unzureichender AI-Credits übersprungen",
+            "message": "Ihre Routine {{name}} wurde nicht ausgeführt, da die AI-Credits nicht ausreichen. Bitte laden Sie Credits auf oder upgraden Sie Ihren Tarif."
+          },
+          "autoDeactivated": {
+            "title": "Routine {{name}} wurde nach {{failCount}} aufeinanderfolgenden Fehlschlägen pausiert",
+            "message": "Ihre Routine {{name}} ist {{failCount}} Mal in Folge fehlgeschlagen und wurde automatisch pausiert. Beheben Sie das Problem und aktivieren Sie sie erneut."
           }
         },
         "billing": {
@@ -1344,7 +1372,7 @@
           }
         },
         "exportBase": {
-          "title": "Export-Base-Ergebnis-Benachrichtigung",
+          "title": "Export-Projekt-Ergebnis-Benachrichtigung",
           "success": {
             "message": "{{baseName}} erfolgreich exportiert: <a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
           },
@@ -1362,6 +1390,7 @@
               "title": "KI-Aufgabe abgebrochen",
               "rateLimit": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde aufgrund einer Ratenbegrenzung (429) abgebrochen. Bitte versuchen Sie es später erneut.",
               "creditExhausted": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde abgebrochen, da das Guthaben erschöpft ist. Bitte aktualisieren Sie Ihr Abonnement oder warten Sie auf die Guthabenerneuerung.",
+              "providerBilling": "Die KI-Aufgabe für die Tabelle \"{{tableName}}\" wurde abgebrochen, weil der Modellanbieter die Anfrage aus Abrechnungsgründen abgelehnt hat. Bitte prüfen Sie Guthaben und Abrechnungsstatus des Kontos hinter dem für dieses Modell konfigurierten API-Schlüssel. Fehler: {{errorMessage}}",
               "authFailed": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde aufgrund eines Authentifizierungsfehlers abgebrochen. Bitte überprüfen Sie Ihre API-Schlüssel-Konfiguration.",
               "serviceUnavailable": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde abgebrochen, da der KI-Dienst vorübergehend nicht verfügbar ist. Bitte versuchen Sie es später erneut.",
               "unknown": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde abgebrochen. Fehler: {{errorMessage}}"
@@ -1405,9 +1434,9 @@
     "code": "Einladungscode",
     "inviteSuccess": "Einladung erfolgreich"
   },
-  "noPermissionToCreateBase": "Keine Berechtigung, in einem Space eine Base zu erstellen",
+  "noPermissionToCreateBase": "Keine Berechtigung, in einem Space ein Projekt zu erstellen",
   "base": {
-    "deleteTip": "Sind Sie sicher, dass Sie \"{{name}}\" Base löschen möchten?",
+    "deleteTip": "Sind Sie sicher, dass Sie \"{{name}}\" Projekt löschen möchten?",
     "createResource": "Ressource erstellen",
     "noPermissionToCreateResource": "Sie haben keine Berechtigung, eine Ressource zu erstellen"
   },
@@ -1452,6 +1481,7 @@
     "minFollowerCount": "Konto muss mindestens {{count}} Follower haben",
     "mustMention": "Beitrag muss {{mention}} erwähnen",
     "fetchSnapshotFailed": "Fehler beim Abrufen des Beitrags-Snapshots",
+    "snapshotTimeout": "Zeitüberschreitung beim Warten auf den Beitrags-Snapshot, bitte später erneut versuchen",
     "alreadyClaimedThisWeek": "Sie haben diese Woche bereits eine Belohnung für dieses Konto beansprucht",
     "maxClaimsReached": "Sie haben die maximale Anzahl an Belohnungsansprüchen (2) für diese Woche erreicht",
     "postTooOld": "Der Beitrag muss innerhalb der letzten {{hours}} Stunde(n) veröffentlicht worden sein",
@@ -1517,8 +1547,8 @@
     "responseInterrupted": "Antwort unterbrochen",
     "serverError": "Ein Serverfehler ist aufgetreten",
     "serverErrorHint": "Bitte starten Sie eine neue Unterhaltung und versuchen Sie es erneut.",
-    "modelNotSupported": "Das ausgewählte Modell wird im Agent-Modus nicht unterstützt. Wechseln Sie für die beste Erfahrung zu Claude Opus 4.6.",
-    "byokModelNotSupported": "Ihr benutzerdefiniertes Modell ist nicht mit dem Agent-Modus kompatibel. Wechseln Sie für die beste Erfahrung zu Claude Opus 4.6.",
+    "modelNotSupported": "Das ausgewählte Modell wird im Agent-Modus nicht unterstützt. Wechseln Sie für die beste Erfahrung zu GPT-6 Astra.",
+    "byokModelNotSupported": "Ihr benutzerdefiniertes Modell ist nicht mit dem Agent-Modus kompatibel. Wechseln Sie für die beste Erfahrung zu GPT-6 Astra.",
     "modelServiceUnavailable": "Der Modelldienst ist vorübergehend nicht verfügbar. Bitte versuchen Sie es später erneut.",
     "modelServiceError": "Beim Modelldienst ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut oder wechseln Sie das Modell.",
     "imageProcessingFailed": "Bildverarbeitung fehlgeschlagen",
@@ -1538,6 +1568,26 @@
       "working": "KI arbeitet",
       "completed": "KI-Aufgabe abgeschlossen",
       "failed": "KI-Aufgabe fehlgeschlagen"
+    }
+  },
+  "modelTier": {
+    "title": "Modell",
+    "uses": "Verwendet {{model}}",
+    "xl": {
+      "label": "Ultra",
+      "description": "Höchste Leistung für anspruchsvolle, kritische Aufgaben."
+    },
+    "lg": {
+      "label": "Smart",
+      "description": "Starkes Schlussfolgern für die tägliche Arbeit."
+    },
+    "md": {
+      "label": "Standard",
+      "description": "Schnell und kosteneffizient für Routineaufgaben."
+    },
+    "sm": {
+      "label": "Lite",
+      "description": "Leichtgewichtiges Modell für günstige Routineaufgaben in großer Zahl."
     }
   },
   "system": {
@@ -1588,10 +1638,11 @@
       "replace": "Ersetzen",
       "download": "Herunterladen",
       "uninstall": "Deinstallieren",
-      "copyToBase": "In Base kopieren",
+      "copyToBase": "In Projekt kopieren",
       "copyToSpace": "In Space kopieren",
       "copyToPersonal": "In persönlichen Bereich kopieren",
-      "copyToApp": "In App kopieren"
+      "copyToApp": "In App kopieren",
+      "copyToRoutine": "In Routine kopieren"
     },
     "import": {
       "title": "Fähigkeit importieren",
@@ -1623,16 +1674,18 @@
       "label": "Bereich",
       "system": "System",
       "builtin": "Integriert",
-      "base": "Base",
+      "base": "Projekt",
       "user": "Persönlich",
       "userDescription": "Nur für Sie verfügbar",
-      "baseDescription": "Mit Kollaborateuren dieser Base geteilt",
+      "baseDescription": "Mit Kollaborateuren dieses Projekts geteilt",
       "space": "Space",
       "spaceDescription": "Für alle Mitglieder dieses Spaces freigegeben",
       "app": "App",
       "appDescription": "Nur in dieser App verfügbar",
       "cuppyclaw": "Bot",
-      "cuppyclawDescription": "Nur für diesen Bot verfügbar"
+      "cuppyclawDescription": "Nur für diesen Bot verfügbar",
+      "routine": "Routine",
+      "routineDescription": "Nur für diese Routine verfügbar"
     },
     "source": {
       "github": "GitHub",
@@ -1679,5 +1732,40 @@
     "collapse": "Weniger anzeigen",
     "more_one": "{{count}} weitere Ankündigung",
     "more_other": "{{count}} weitere Ankündigungen"
+  },
+  "mobileEmbed": {
+    "pickFromDirectory": "Wähle etwas aus dem Verzeichnis",
+    "pickFromDirectoryHint": "Öffne eine Tabelle, ein Dashboard oder eine Automatisierung aus dem Verzeichnis, dann erscheint sie hier.",
+    "limitReachedTitle": "Tariflimit erreicht",
+    "limitReachedDescription": "Dieser Space hat ein Limit seines aktuellen Tarifs erreicht.",
+    "creditsExhaustedTitle": "KI-Credits aufgebraucht",
+    "creditsExhaustedDescription": "Dieser Space hat alle im aktuellen Tarif enthaltenen KI-Credits verbraucht.",
+    "seatLimitTitle": "Keine Plätze mehr frei",
+    "seatLimitDescription": "In diesem Space sind keine Plätze für weitere Mitarbeitende frei.",
+    "ownerManagesPlan": "Nur der Inhaber des Space kann dessen Tarif verwalten. Wenden Sie sich an ihn, um das zu klären.",
+    "featureUnavailableTitle": "In diesem Tarif nicht verfügbar",
+    "billingUnavailable": "Tarif- und Abrechnungsverwaltung ist in der App nicht verfügbar.",
+    "featureUnavailableDescription": "Diese Funktion ist im aktuellen Tarif dieses Space nicht verfügbar.",
+    "importRowLimitReached": "Das Zeilenlimit des aktuellen Tarifs wurde erreicht; die restlichen Datensätze wurden nicht importiert.",
+    "userCapTitle": "Benutzerlimit erreicht",
+    "userCapDescription": "Diese Instanz hat die von ihrer Lizenz erlaubte Benutzeranzahl erreicht. Wenden Sie sich an Ihren Administrator."
+  },
+  "push": {
+    "gate": {
+      "askUserQuestion": "Cuppy hat eine Frage an dich.",
+      "permission": "Cuppy wartet auf deine Bestätigung.",
+      "connectIntegration": "Cuppy braucht eine verbundene App, um weiterzumachen.",
+      "pickGoogleSheet": "Cuppy braucht die Auswahl einer Tabelle.",
+      "requestCredential": "Cuppy braucht Zugriff, um weiterzumachen."
+    },
+    "result": {
+      "done": "Fertig.",
+      "failed": "Der Lauf ist fehlgeschlagen.",
+      "creditExhausted": "Gestoppt: keine AI-Credits mehr.",
+      "skippedNoCredit": "Diesmal übersprungen: keine AI-Credits mehr.",
+      "autoDeactivated": "Nach fünf Fehlläufen in Folge abgeschaltet.",
+      "summaryTitle": "Teable",
+      "summary": "{{count}} Unterhaltungen haben Neuigkeiten."
+    }
   }
 }

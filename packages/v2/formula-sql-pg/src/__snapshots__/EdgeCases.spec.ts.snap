@@ -206,9 +206,25 @@ exports[`edge cases > 'WorkdayNegative': 'Workday with negative days' 1`] = `
   "funcId": "WorkdayNegative",
   "inputs": {},
   "result": "0000-00-00 00:00:00",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT CASE
         WHEN p.day_count = 0 THEN p.start_date::timestamp
+        -- Anchor weekend starts on the preceding Friday (forward) or following
+        -- Monday (backward). Whole work weeks then cost seven calendar days.
+        WHEN BTRIM(p.holiday_text) = '' THEN (
+          SELECT (a.anchor_date + CASE WHEN p.day_count > 0
+            THEN ABS(p.day_count) + 2 * ((a.weekday - 1 + ABS(p.day_count)) / 5)
+            ELSE -(ABS(p.day_count) + 2 * ((5 - a.weekday + ABS(p.day_count)) / 5))
+          END)::timestamp
+          FROM (
+            SELECT
+              p.start_date + CASE WHEN p.day_count > 0 THEN -GREATEST(d.dow - 5, 0)
+                WHEN d.dow > 5 THEN 8 - d.dow ELSE 0 END AS anchor_date,
+              CASE WHEN p.day_count > 0 THEN LEAST(d.dow, 5)
+                WHEN d.dow > 5 THEN 1 ELSE d.dow END AS weekday
+            FROM (SELECT EXTRACT(ISODOW FROM p.start_date)::integer AS dow) d
+          ) a
+        )
         ELSE (
           SELECT c.candidate_date::timestamp
           FROM (
@@ -237,7 +253,7 @@ exports[`edge cases > 'WorkdayNegative': 'Workday with negative days' 1`] = `
       FROM (
         SELECT (((NOW())::timestamptz) AT TIME ZONE 'UTC')::date AS start_date, COALESCE((((-((1)::double precision)))::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
       ) p
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -248,9 +264,25 @@ exports[`edge cases > 'WorkdayZero': 'Workday with zero days' 1`] = `
   "funcId": "WorkdayZero",
   "inputs": {},
   "result": "0000-00-00 00:00:00",
-  "sql": "(
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
       SELECT CASE
         WHEN p.day_count = 0 THEN p.start_date::timestamp
+        -- Anchor weekend starts on the preceding Friday (forward) or following
+        -- Monday (backward). Whole work weeks then cost seven calendar days.
+        WHEN BTRIM(p.holiday_text) = '' THEN (
+          SELECT (a.anchor_date + CASE WHEN p.day_count > 0
+            THEN ABS(p.day_count) + 2 * ((a.weekday - 1 + ABS(p.day_count)) / 5)
+            ELSE -(ABS(p.day_count) + 2 * ((5 - a.weekday + ABS(p.day_count)) / 5))
+          END)::timestamp
+          FROM (
+            SELECT
+              p.start_date + CASE WHEN p.day_count > 0 THEN -GREATEST(d.dow - 5, 0)
+                WHEN d.dow > 5 THEN 8 - d.dow ELSE 0 END AS anchor_date,
+              CASE WHEN p.day_count > 0 THEN LEAST(d.dow, 5)
+                WHEN d.dow > 5 THEN 1 ELSE d.dow END AS weekday
+            FROM (SELECT EXTRACT(ISODOW FROM p.start_date)::integer AS dow) d
+          ) a
+        )
         ELSE (
           SELECT c.candidate_date::timestamp
           FROM (
@@ -279,6 +311,6 @@ exports[`edge cases > 'WorkdayZero': 'Workday with zero days' 1`] = `
       FROM (
         SELECT (((NOW())::timestamptz) AT TIME ZONE 'UTC')::date AS start_date, COALESCE(((0)::double precision)::integer, 0) AS day_count, COALESCE('', '') AS holiday_text
       ) p
-    )",
+    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;

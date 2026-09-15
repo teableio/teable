@@ -16,6 +16,8 @@ describe('relaxOAuthPopupCoop', () => {
     '/api/auth/github/callback',
     '/api/auth/google',
     '/api/auth/google/callback',
+    '/api/auth/apple',
+    '/api/auth/apple/callback',
     '/api/auth/oidc',
     '/api/auth/oidc/callback',
     '/api/auth/authentication/prv123',

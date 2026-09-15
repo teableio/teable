@@ -23,6 +23,7 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { resolvePostgresDbOrTx } from '../../shared/db';
+import { ensureRowOrderColumns } from '../../shared/ensureRowOrderColumnOnline';
 import {
   describeError,
   extractForeignKeyFieldId,
@@ -31,7 +32,6 @@ import {
 } from '../../shared/errors';
 import {
   splitSchemaQualifiedTableName,
-  toPostgresIdentifierWithHash,
   toQualifiedIdentifierLiteral,
 } from '../../shared/sqlIdentifiers';
 import type { UndoLogRow } from '../../shared/undoCapture';
@@ -40,11 +40,12 @@ import type {
   ComputedFieldUpdater,
   ComputedUpdatePlanner,
   ComputedUpdateResult,
+  IComputedUpdateOutbox,
+  IComputedUpdatePauseRegistry,
   IUpdateStrategy,
   UpdateImpactHint,
-  IComputedUpdateOutbox,
 } from '../computed';
-import { buildSeedTaskInput } from '../computed';
+import { buildSeedTaskInput, noopComputedUpdatePauseRegistry } from '../computed';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import { normalizeStoredLinkItems } from '../normalizeLinkItems';
 import type { DynamicDB } from '../query-builder';
@@ -435,23 +436,6 @@ function buildSnapshotViewOrderValues(
   return values;
 }
 
-async function checkOrderColumnExists(
-  db: Kysely<DynamicDB>,
-  tableName: string,
-  orderColumnName: string
-): Promise<boolean> {
-  const { schemaName, plainTableName } = splitSchemaQualifiedTableName(tableName);
-  const result = await sql<{ column_name: string }>`
-    SELECT column_name
-    FROM information_schema.columns
-    WHERE table_schema = ${schemaName ?? 'public'}
-    AND table_name = ${plainTableName}
-    AND column_name = ${orderColumnName}
-  `.execute(db);
-
-  return result.rows.length > 0;
-}
-
 /**
  * Collect db field names for system audit fields that may still be physical
  * GENERATED ALWAYS columns on legacy tables (meta can drift).
@@ -533,37 +517,19 @@ async function listPhysicalColumnNames(
   return result.rows.map((row) => row.column_name);
 }
 
+/**
+ * T7251: lazily create missing `__row_<viewId>` columns. Existence check
+ * runs on `db`; creation is online on `nonTxDb` for committed tables, or
+ * in-transaction only when the table was created by the current transaction.
+ * Never falls back to in-transaction DDL on a table other sessions can see.
+ */
 async function ensureViewOrderColumnsExist(
   db: Kysely<DynamicDB>,
+  nonTxDb: Kysely<DynamicDB>,
   tableName: string,
   viewIds: ReadonlyArray<string>
 ): Promise<void> {
-  const { plainTableName } = splitSchemaQualifiedTableName(tableName);
-  const uniqueViewIds = [...new Set(viewIds.filter(Boolean))];
-
-  for (const viewId of uniqueViewIds) {
-    const orderColumnName = `__row_${viewId}`;
-    const exists = await checkOrderColumnExists(db, tableName, orderColumnName);
-
-    if (!exists) {
-      await sql`
-        ALTER TABLE ${sql.table(tableName)}
-        ADD COLUMN ${sql.id(orderColumnName)} double precision
-      `.execute(db);
-
-      await sql`
-        UPDATE ${sql.table(tableName)}
-        SET ${sql.id(orderColumnName)} = __auto_number
-        WHERE ${sql.id(orderColumnName)} IS NULL
-      `.execute(db);
-
-      const indexName = toPostgresIdentifierWithHash(`idx_${plainTableName}_${orderColumnName}`);
-      await sql`
-        CREATE INDEX IF NOT EXISTS ${sql.id(indexName)}
-        ON ${sql.table(tableName)} (${sql.id(orderColumnName)})
-      `.execute(db);
-    }
-  }
+  await ensureRowOrderColumns(db, nonTxDb, tableName, viewIds);
 }
 const toSqlTableRef = (tableName: string) => {
   const { schemaName, plainTableName } = splitSchemaQualifiedTableName(tableName);
@@ -1063,8 +1029,26 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     @inject(v2CoreTokens.hasher)
     private readonly hasher: IHasher,
     @inject(v2RecordRepositoryPostgresTokens.metaDb)
-    private readonly metaDb: Kysely<V1TeableDatabase> = db
+    private readonly metaDb: Kysely<V1TeableDatabase> = db,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdatePauseRegistry)
+    private readonly pauseRegistry: IComputedUpdatePauseRegistry = noopComputedUpdatePauseRegistry
   ) {}
+
+  private async enqueueAdmittedSeedTask(
+    context: core.IExecutionContext,
+    table: core.Table,
+    seedTask: Parameters<IComputedUpdateOutbox['enqueueSeedTask']>[0]
+  ) {
+    const admitted = await this.pauseRegistry.admitComputedWrite(
+      {
+        tableId: table.id().toString(),
+        baseId: table.baseId().toString(),
+      },
+      context
+    );
+    if (admitted.isErr()) return admitted;
+    return this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+  }
 
   private async resolveBeforeImageCapturePlan(
     context: core.IExecutionContext,
@@ -1156,6 +1140,23 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const actorLookupDb = this.metaDb as unknown as Kysely<DynamicDB>;
         const actorIdentity = await this.resolveActorIdentity(actorLookupDb, actorId, actorContext);
         const restoreValues = options?.restoreRecordsById?.get(record.id().toString());
+        // T7251: lazily create missing view row-order columns BEFORE this
+        // transaction touches the physical table (getViewOrderInfo / the
+        // insert below take locks held until commit). Missing-column creation
+        // runs online on the non-transactional handle inside
+        // ensureViewOrderColumnsExist — never in this transaction.
+        const ensureOrderViewIds = [
+          ...Object.keys(restoreValues?.orders ?? {}),
+          ...(options?.order ? [options.order.viewId.toString()] : []),
+        ];
+        if (ensureOrderViewIds.length > 0) {
+          await ensureViewOrderColumnsExist(
+            db,
+            this.db as unknown as Kysely<DynamicDB>,
+            tableName,
+            ensureOrderViewIds
+          );
+        }
         const createdByIdentity = await this.resolveRestoreActorIdentity(
           actorLookupDb,
           restoreValues?.createdBy,
@@ -1228,9 +1229,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         });
 
         // Add view order columns (default: append to end).
-        if (restoreValues?.orders) {
-          await ensureViewOrderColumnsExist(db, tableName, Object.keys(restoreValues.orders));
-        }
+        // (Missing row-order columns were ensured up front — see T7251.)
         let viewOrderValues = restoreValues?.orders
           ? buildSnapshotViewOrderValues(restoreValues.orders)
           : {};
@@ -1418,6 +1417,27 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           actorEmail?: string;
         };
         const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+        // T7251: lazily create missing view row-order columns BEFORE this
+        // transaction touches the physical table (tableHasExistingRows /
+        // getViewOrderInfo / the inserts below take locks held until commit).
+        // Missing-column creation runs online on the non-transactional handle
+        // inside ensureViewOrderColumnsExist — never in this transaction.
+        const restoreViewIds = options?.restoreRecordsById
+          ? [...options.restoreRecordsById.values()].flatMap((value) =>
+              Object.keys(value.orders ?? {})
+            )
+          : [];
+        const ensureOrderViewIds = options?.order
+          ? [...restoreViewIds, options.order.viewId.toString()]
+          : restoreViewIds;
+        if (ensureOrderViewIds.length > 0) {
+          await ensureViewOrderColumnsExist(
+            db,
+            this.db as unknown as Kysely<DynamicDB>,
+            tableName,
+            ensureOrderViewIds
+          );
+        }
         const shouldCaptureSnapshot = !options?.skipSnapshotCapture && !options?.restoreRecordsById;
         const tableWasEmpty = !(await tableHasExistingRows(db, tableName));
         // Resolve actor identity outside transaction-scoped connection to avoid
@@ -1449,14 +1469,6 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         // a connection-level self-deadlock (T6657).
         const views = table.views();
         const viewOrderInfo = await getViewOrderInfo(db, tableName, views);
-        const restoreViewIds = options?.restoreRecordsById
-          ? [...options.restoreRecordsById.values()].flatMap((value) =>
-              Object.keys(value.orders ?? {})
-            )
-          : [];
-        if (restoreViewIds.length > 0) {
-          await ensureViewOrderColumnsExist(db, tableName, restoreViewIds);
-        }
 
         // Pre-calculate order values if ordering is specified
         let calculatedOrderValues: number[] | undefined;
@@ -1804,8 +1816,13 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
         if (plan.ensureTargetOrderColumns.length > 0) {
+          // T7251: the duplicate-table flow creates the target table in this
+          // same transaction, so ensureViewOrderColumnsExist detects that
+          // (invisible to other connections) and keeps creation
+          // in-transaction; only pre-existing committed tables go online.
           await ensureViewOrderColumnsExist(
             db,
+            this.db as unknown as Kysely<DynamicDB>,
             plan.targetTableName,
             plan.ensureTargetOrderColumns
           );
@@ -2086,7 +2103,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       orchestration: resolveComputedRealtimeOrchestration(context, recordIds.length, orchestration),
     });
 
-    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    const enqueueResult = await this.enqueueAdmittedSeedTask(context, table, seedTask);
     if (enqueueResult.isErr()) {
       return err(enqueueResult.error);
     }
@@ -3011,7 +3028,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       ),
     });
 
-    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    const enqueueResult = await this.enqueueAdmittedSeedTask(context, table, seedTask);
     if (enqueueResult.isErr()) {
       this.logger.warn('computed:seed:enqueue_batch_update_failed', {
         error: enqueueResult.error.message,
@@ -3763,7 +3780,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
-    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    const enqueueResult = await this.enqueueAdmittedSeedTask(context, table, seedTask);
     if (enqueueResult.isErr()) {
       this.logger.warn('computed:seed:enqueue_failed', {
         error: enqueueResult.error.message,
@@ -3932,7 +3949,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
-    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    const enqueueResult = await this.enqueueAdmittedSeedTask(context, table, seedTask);
     if (enqueueResult.isErr()) {
       this.logger.warn('computed:seed:enqueue_many_failed', {
         error: enqueueResult.error.message,
@@ -4080,7 +4097,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
-    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    const enqueueResult = await this.enqueueAdmittedSeedTask(context, table, seedTask);
     if (enqueueResult.isErr()) {
       this.logger.warn('computed:seed:enqueue_failed', {
         error: enqueueResult.error.message,
@@ -4333,7 +4350,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
-    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    const enqueueResult = await this.enqueueAdmittedSeedTask(context, table, seedTask);
     if (enqueueResult.isErr()) {
       this.logger.warn('computed:seed:enqueue_delete_many_failed', {
         error: enqueueResult.error.message,
@@ -4517,6 +4534,36 @@ const checkTableExists = async (db: Kysely<DynamicDB>, tableName: string): Promi
   return result.rows[0]?.exists === true;
 };
 
+const catalogHasTableAndColumns = async (
+  db: Kysely<DynamicDB>,
+  tableName: string,
+  columnNames: ReadonlyArray<string>
+): Promise<boolean> => {
+  const tableExists = await checkTableExists(db, tableName);
+  if (!tableExists) {
+    return false;
+  }
+
+  const { schemaName, plainTableName } = splitSchemaQualifiedTableName(tableName);
+  const uniqueColumns = [...new Set(columnNames.filter((columnName) => columnName.length > 0))];
+  for (const columnName of uniqueColumns) {
+    const result = await sql<{ exists: boolean }>`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = ${schemaName ?? 'public'}
+          AND table_name = ${plainTableName}
+          AND column_name = ${columnName}
+      ) AS exists
+    `.execute(db);
+    if (result.rows[0]?.exists !== true) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
 const isMissingRelationError = (error: unknown): boolean => {
   if (!error || typeof error !== 'object') {
     return false;
@@ -4627,33 +4674,53 @@ const warnMissingLinkHostTable = (
   });
 };
 
+type LinkHostPreflightStorage = {
+  hostTableName: string;
+  columnNames: ReadonlyArray<string>;
+  operationType: OutgoingLinkDeleteOp['type'];
+};
+
 const preflightExternalLinkHostTable = async (
   db: Kysely<DynamicDB>,
   field: core.LinkField,
   logger: ILogger,
   phase: 'load-existing' | 'cleanup-outgoing',
-  recordCount: number
+  recordCount: number,
+  storage?: LinkHostPreflightStorage
 ): Promise<Result<boolean, DomainError>> => {
-  const hostPlanResult = resolveExternalLinkHostPlan(field);
-  if (hostPlanResult.isErr()) {
-    return err(hostPlanResult.error);
-  }
+  let hostTableName: string;
+  let operationType: OutgoingLinkDeleteOp['type'];
+  let columnNames: ReadonlyArray<string>;
 
-  const hostPlan = hostPlanResult.value;
-  if (!hostPlan) {
-    return ok(true);
+  if (storage) {
+    hostTableName = storage.hostTableName;
+    operationType = storage.operationType;
+    columnNames = storage.columnNames;
+  } else {
+    const hostPlanResult = resolveExternalLinkHostPlan(field);
+    if (hostPlanResult.isErr()) {
+      return err(hostPlanResult.error);
+    }
+
+    const hostPlan = hostPlanResult.value;
+    if (!hostPlan) {
+      return ok(true);
+    }
+    hostTableName = hostPlan.hostTableName;
+    operationType = hostPlan.operationType;
+    columnNames = [];
   }
 
   try {
-    const exists = await checkTableExists(db, hostPlan.hostTableName);
+    const exists = await catalogHasTableAndColumns(db, hostTableName, columnNames);
     if (!exists) {
       warnMissingLinkHostTable(logger, {
         phase,
         field,
-        hostTableName: hostPlan.hostTableName,
-        operationType: hostPlan.operationType,
+        hostTableName,
+        operationType,
         recordCount,
-        error: 'preflight: link host table missing',
+        error: 'preflight: link host table or column missing',
       });
     }
     return ok(exists);
@@ -4684,7 +4751,15 @@ const executeOutgoingLinkDeleteOp = async (
     field,
     logger,
     'cleanup-outgoing',
-    recordIds.length
+    recordIds.length,
+    {
+      hostTableName: operation.tableName,
+      columnNames:
+        operation.type === 'fk-nullify' && operation.orderColumnName
+          ? [operation.selfKeyName, operation.orderColumnName]
+          : [operation.selfKeyName],
+      operationType: operation.type,
+    }
   );
   if (hostCheckResult.isErr()) {
     return err(hostCheckResult.error);
@@ -4754,12 +4829,46 @@ const loadExistingLinkRecordIdsBatch = async (
   }
 
   const relationship = field.relationship().toString();
+  let loadExistingStorage: LinkHostPreflightStorage | undefined;
+  if (relationship === 'manyMany' || (relationship === 'oneMany' && field.isOneWay())) {
+    const junctionTableResult = resolveFkHostTableName(field);
+    if (junctionTableResult.isErr()) return err(junctionTableResult.error);
+    const selfKeyResult = field.selfKeyNameString();
+    if (selfKeyResult.isErr()) return err(selfKeyResult.error);
+    const foreignKeyResult = field.foreignKeyNameString();
+    if (foreignKeyResult.isErr()) return err(foreignKeyResult.error);
+    loadExistingStorage = {
+      hostTableName: junctionTableResult.value,
+      columnNames: [selfKeyResult.value, foreignKeyResult.value],
+      operationType: 'junction-delete',
+    };
+  } else if (relationship === 'manyOne' || relationship === 'oneOne') {
+    const foreignKeyResult = field.foreignKeyNameString();
+    if (foreignKeyResult.isErr()) return err(foreignKeyResult.error);
+    loadExistingStorage = {
+      hostTableName: tableName,
+      columnNames: [foreignKeyResult.value],
+      operationType: 'fk-nullify',
+    };
+  } else if (relationship === 'oneMany') {
+    const foreignTableResult = resolveFkHostTableName(field);
+    if (foreignTableResult.isErr()) return err(foreignTableResult.error);
+    const selfKeyResult = field.selfKeyNameString();
+    if (selfKeyResult.isErr()) return err(selfKeyResult.error);
+    loadExistingStorage = {
+      hostTableName: foreignTableResult.value,
+      columnNames: [selfKeyResult.value],
+      operationType: 'fk-nullify',
+    };
+  }
+
   const hostCheckResult = await preflightExternalLinkHostTable(
     db,
     field,
     logger,
     'load-existing',
-    recordIds.length
+    recordIds.length,
+    loadExistingStorage
   );
   if (hostCheckResult.isErr()) {
     return err(hostCheckResult.error);
@@ -5588,7 +5697,34 @@ const loadIncomingLinkDeleteError = async (
  * Cleanup is skipped when the FK column lives on the table being deleted (the FK rows
  * disappear with the records), but a required incoming link still rejects the delete
  * whenever it would leave a surviving host row with an emptied link.
+ *
+ * Preflight table+columns before emitting SQL. SAVEPOINT remains only to keep the
+ * outer transaction usable if Postgres still raises 42P01/42703 (25P02 defense),
+ * not as the primary skip path.
  */
+const incomingCleanupColumnNames = (field: IncomingLinkFieldInfo): string[] => {
+  const columnNames: string[] = [];
+  if (field.foreignKeyName && field.foreignKeyName !== '__id') {
+    columnNames.push(field.foreignKeyName);
+  }
+  if (field.selfKeyName) {
+    columnNames.push(field.selfKeyName);
+  }
+  const usesJunctionHost =
+    field.relationship === 'manyMany' || (field.relationship === 'oneMany' && field.isOneWay);
+  // JSONB display / order columns live on the source table. Junction hosts and
+  // two-way oneMany hosts (FK on the deleted table) do not have them.
+  if (!usesJunctionHost && (field.relationship === 'manyOne' || field.relationship === 'oneOne')) {
+    if (field.orderColumnName) {
+      columnNames.push(field.orderColumnName);
+    }
+    if (field.dbFieldName && field.dbFieldName !== field.foreignKeyName) {
+      columnNames.push(field.dbFieldName);
+    }
+  }
+  return columnNames;
+};
+
 const executeIncomingLinkCleanup = async (
   db: Kysely<DynamicDB>,
   recordIds: ReadonlyArray<string>,
@@ -5600,6 +5736,17 @@ const executeIncomingLinkCleanup = async (
 
   try {
     for (const [index, field] of incomingFields.entries()) {
+      const physicalExists = await catalogHasTableAndColumns(
+        db,
+        field.fkHostTableName,
+        incomingCleanupColumnNames(field)
+      );
+      if (!physicalExists) {
+        // Skip SQL when the host table/columns are already gone. Deleted fields
+        // still clean up when the physical FK may still exist.
+        continue;
+      }
+
       const savepointIdentifier = await beginIncomingLinkSavepoint(db, field.fieldId, index);
       let restoreSavepoint = false;
       try {
@@ -5766,6 +5913,12 @@ const collectIncomingLinkExtraSeedRecords = async (
   try {
     for (const [index, field] of incomingFields.entries()) {
       if (field.fieldDeleted || field.tableDeleted) continue;
+      const physicalExists = await catalogHasTableAndColumns(
+        db,
+        field.fkHostTableName,
+        incomingCleanupColumnNames(field)
+      );
+      if (!physicalExists) continue;
       const savepointIdentifier = await beginIncomingLinkSavepoint(db, field.fieldId, index);
       let restoreSavepoint = false;
       try {

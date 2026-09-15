@@ -6,6 +6,7 @@ export enum TrashType {
   Table = ResourceType.Table,
   App = ResourceType.App,
   Workflow = ResourceType.Workflow,
+  Routine = ResourceType.Routine,
 }
 
 export enum TableTrashType {

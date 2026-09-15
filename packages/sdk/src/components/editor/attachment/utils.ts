@@ -9,9 +9,18 @@ export const getFileCover = (mimetype: string, url?: string, theme?: 'light' | '
   return getFieldIconString(mimetype, theme);
 };
 
+// Rendering an icon to a data url is comparatively expensive and is hit once
+// per attachment on every grid draw, so cache it per icon component.
+const iconStringCache = new Map<ReturnType<typeof getFileIcon>, string>();
+
 export const getFieldIconString = (mimetype: string, theme?: 'light' | 'dark') => {
   const FileIcon = getFileIcon(mimetype, theme);
-  return 'data:image/svg+xml,' + encodeURIComponent(renderToString(FileIcon({})));
+  let iconString = iconStringCache.get(FileIcon);
+  if (!iconString) {
+    iconString = 'data:image/svg+xml,' + encodeURIComponent(renderToString(FileIcon({})));
+    iconStringCache.set(FileIcon, iconString);
+  }
+  return iconString;
 };
 
 export const isSystemFileIcon = (mimetype: string) => {

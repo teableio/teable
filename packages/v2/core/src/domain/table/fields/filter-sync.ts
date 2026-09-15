@@ -4,6 +4,7 @@ import type { ITableSpecVisitor } from '../specs/ITableSpecVisitor';
 import { TableUpdateFieldTypeSpec } from '../specs/TableUpdateFieldTypeSpec';
 import { UpdateMultipleSelectOptionsSpec } from '../specs/field-updates/UpdateMultipleSelectOptionsSpec';
 import { UpdateSingleSelectOptionsSpec } from '../specs/field-updates/UpdateSingleSelectOptionsSpec';
+import { UpdateUserMultiplicitySpec } from '../specs/field-updates/UpdateUserMultiplicitySpec';
 import type { Field } from './Field';
 import type { FieldId } from './FieldId';
 import { FieldCondition } from './types/FieldCondition';
@@ -13,6 +14,12 @@ import type {
   RecordFilterNode,
   RecordFilterValue,
 } from '../../../queries/RecordFilterDto';
+import {
+  remapUserFilterOperator,
+  type UserFilterMultiplicityChange,
+} from './user-filter-operator-remap';
+
+export type { UserFilterMultiplicityChange } from './user-filter-operator-remap';
 
 type FilterGroup = {
   conjunction: 'and' | 'or';
@@ -55,6 +62,7 @@ export type FieldFilterSyncPlan = {
   readonly removeReferencedFilterItems: boolean;
   readonly renamedSelectOptionValues: ReadonlyMap<string, string>;
   readonly removedSelectOptionValues: ReadonlySet<string>;
+  readonly userMultiplicityChange?: UserFilterMultiplicityChange;
 };
 
 export const buildFieldFilterSyncPlan = (
@@ -64,7 +72,7 @@ export const buildFieldFilterSyncPlan = (
   const renamedSelectOptionValues = new Map<string, string>();
   const removedSelectOptionValues = new Set<string>();
   let removeReferencedFilterItems = false;
-
+  let userMultiplicityChange: UserFilterMultiplicityChange | undefined;
   for (const spec of updateSpecs) {
     if (
       spec instanceof TableUpdateFieldTypeSpec &&
@@ -115,6 +123,15 @@ export const buildFieldFilterSyncPlan = (
       for (const removed of spec.removedOptions()) {
         removedSelectOptionValues.add(removed.name().toString());
       }
+      continue;
+    }
+
+    if (spec instanceof UpdateUserMultiplicitySpec && spec.fieldId().equals(updatedField.id())) {
+      if (spec.isSingleToMultiple()) {
+        userMultiplicityChange = 'singleToMultiple';
+      } else if (spec.isMultipleToSingle()) {
+        userMultiplicityChange = 'multipleToSingle';
+      }
     }
   }
 
@@ -122,6 +139,7 @@ export const buildFieldFilterSyncPlan = (
     removeReferencedFilterItems,
     renamedSelectOptionValues,
     removedSelectOptionValues,
+    ...(userMultiplicityChange ? { userMultiplicityChange } : {}),
   };
 };
 
@@ -161,7 +179,8 @@ export const hasFieldFilterSyncPlanChanges = (plan: FieldFilterSyncPlan): boolea
   return (
     plan.removeReferencedFilterItems ||
     plan.renamedSelectOptionValues.size > 0 ||
-    plan.removedSelectOptionValues.size > 0
+    plan.removedSelectOptionValues.size > 0 ||
+    plan.userMultiplicityChange != null
   );
 };
 
@@ -206,13 +225,26 @@ export const syncFilterByFieldChangesWithId = (
       if (node.fieldId !== fieldId) {
         return { ...node };
       }
-
       if (plan.removeReferencedFilterItems) {
         return null;
       }
 
+      const operator = typeof node.operator === 'string' ? node.operator : undefined;
+      let nextOperator = operator;
+      let nextValue = node.value;
+      let operatorChanged = false;
+      if (operator && plan.userMultiplicityChange) {
+        const remapped = remapUserFilterOperator(operator, nextValue, plan.userMultiplicityChange);
+        if (!remapped) {
+          return null;
+        }
+        operatorChanged = remapped.changed;
+        nextOperator = remapped.operator;
+        nextValue = remapped.value;
+      }
+
       const valueResult = transformSelectFilterValue(
-        node.value,
+        nextValue,
         plan.renamedSelectOptionValues,
         plan.removedSelectOptionValues
       );
@@ -220,11 +252,14 @@ export const syncFilterByFieldChangesWithId = (
         return null;
       }
 
-      if (!valueResult.changed) {
+      if (!valueResult.changed && !operatorChanged) {
         return { ...node };
       }
 
       const nextItem: FilterItem = { ...node };
+      if (nextOperator) {
+        nextItem.operator = nextOperator;
+      }
       if (valueResult.value === undefined) {
         delete nextItem.value;
       } else {
@@ -284,13 +319,29 @@ export const syncRecordFilterByFieldChanges = (
       if (node.fieldId !== fieldId) {
         return { ...node };
       }
-
       if (plan.removeReferencedFilterItems) {
         return null;
       }
 
+      let nextOperator = node.operator;
+      let nextValue: unknown = node.value;
+      let operatorChanged = false;
+      if (plan.userMultiplicityChange) {
+        const remapped = remapUserFilterOperator(
+          node.operator,
+          nextValue,
+          plan.userMultiplicityChange
+        );
+        if (!remapped) {
+          return null;
+        }
+        operatorChanged = remapped.changed;
+        nextOperator = remapped.operator as RecordFilterCondition['operator'];
+        nextValue = remapped.value;
+      }
+
       const valueResult = transformSelectFilterValue(
-        node.value,
+        nextValue,
         plan.renamedSelectOptionValues,
         plan.removedSelectOptionValues
       );
@@ -298,12 +349,13 @@ export const syncRecordFilterByFieldChanges = (
         return null;
       }
 
-      if (!valueResult.changed) {
+      if (!valueResult.changed && !operatorChanged) {
         return { ...node };
       }
 
       return {
         ...node,
+        operator: nextOperator,
         value: (valueResult.value ?? null) as RecordFilterValue,
       } as RecordFilterCondition;
     }

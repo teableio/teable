@@ -243,7 +243,13 @@ export async function getTableIndexService(app: INestApplication) {
 
 export async function createTable(baseId: string, tableVo: ICreateTableRo, expectStatus = 201) {
   try {
-    const res = await apiCreateTable(baseId, tableVo);
+    // The create-table API no longer generates 3 empty records by default (T6947).
+    // Inject them here (like the UI does) so existing specs keep their fixtures;
+    // pass an explicit `records: []` to create an empty table.
+    const res = await apiCreateTable(baseId, {
+      records: [{ fields: {} }, { fields: {} }, { fields: {} }],
+      ...tableVo,
+    });
     expect(res.status).toEqual(expectStatus);
 
     return res.data;

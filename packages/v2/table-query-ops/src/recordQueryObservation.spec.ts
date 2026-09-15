@@ -86,6 +86,51 @@ describe('ObservedTableRecordQueryRepository', () => {
     });
   });
 
+  // T7339: a requested access path the planner did not use must not be reported as the
+  // predicate that ran - the read reports which one it used.
+  it('records the access path the read used when the request fell back', async () => {
+    const { table, titleId } = makeTable();
+    const observations: TableQueryObservationWindow[] = [];
+    const inner = {
+      find: vi.fn().mockResolvedValue(
+        ok({
+          records: [],
+          total: 0,
+          offset: 0,
+          limit: 100,
+          searchAccessPath: {
+            requested: 'generated_text',
+            used: 'default',
+          },
+        })
+      ),
+    };
+    const publisher = {
+      publish: vi.fn().mockImplementation((_context, item: TableQueryObservationWindow) => {
+        observations.push(item);
+      }),
+    };
+    const repository = new ObservedTableRecordQueryRepository(inner as never, publisher);
+
+    await repository.find({} as never, table, undefined, {
+      search: {
+        search: RecordSearch.fromTuple(['cu', titleId.toString(), true]),
+      },
+      searchAccessPath: {
+        kind: 'generated_text',
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_trgm',
+        searchScope: 'selected_fields',
+        coveredFieldIds: [titleId],
+      },
+    });
+
+    expect(observations).toHaveLength(1);
+    expect(observations[0]?.shape().snapshot().searchShape).toMatchObject({
+      searchMode: 'ilike',
+    });
+  });
+
   it('publishes an observation without persistence knowledge', async () => {
     const { table } = makeTable();
     const publish = vi.fn();

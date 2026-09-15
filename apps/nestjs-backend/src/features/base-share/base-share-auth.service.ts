@@ -69,7 +69,7 @@ export class BaseShareAuthService {
     });
 
     if (!share || !share.enabled) {
-      throw new CustomHttpException('Base share not found', HttpErrorCode.NOT_FOUND, {
+      throw new CustomHttpException('Project share not found', HttpErrorCode.NOT_FOUND, {
         localization: {
           i18nKey: 'httpErrors.baseShare.notFound',
         },

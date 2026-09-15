@@ -134,7 +134,7 @@ export const DatabasePgliteLive = Layer.effect(
     let baseId: string;
 
     if (existingBase) {
-      // Reuse existing base
+      // Reuse existing project
       baseId = existingBase;
     } else {
       // Create new space and base

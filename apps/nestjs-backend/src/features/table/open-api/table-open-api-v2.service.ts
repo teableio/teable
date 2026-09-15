@@ -99,6 +99,16 @@ export class TableOpenApiV2Service {
       );
   }
 
+  /**
+   * the v2 command only drops rows on the data DB; comments live on the meta
+   * DB keyed by table id and have no cascade, so purge them here.
+   */
+  private async cleanupCommentsAfterPermanentDelete(tableId: string): Promise<void> {
+    const metaPrisma = this.prismaService.txClient();
+    await metaPrisma.comment.deleteMany({ where: { tableId } });
+    await metaPrisma.commentSubscription.deleteMany({ where: { tableId } });
+  }
+
   private async assertBaseWritable(baseId: string) {
     await this.spaceDataDbMigrationGuard?.assertBaseWritable(baseId);
   }
@@ -441,6 +451,7 @@ export class TableOpenApiV2Service {
     if (result.status === 200 && result.body.ok) {
       if (mode === 'permanent') {
         await this.cleanupRecordHistoryAfterPermanentDelete(baseId, tableId);
+        await this.cleanupCommentsAfterPermanentDelete(tableId);
       }
       return;
     }

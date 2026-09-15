@@ -115,7 +115,7 @@ export type ComputedUpdateOutboxConfig = {
   stageMaxEdges: number;
   /**
    * Small runs (estimated complexity at or below this threshold, no whole-table
-   * seeds) multiply the three stage budgets above by
+   * seeds) may explicitly opt into multiplying the stage budgets above by
    * stageSmallRunBudgetMultiplier, so trivial cascades do not pay per-task
    * pipeline overhead for a dozen tiny slices. Volume misestimates degrade
    * gracefully: the dirty budget still aborts an over-budget stage before any
@@ -189,7 +189,7 @@ export const defaultComputedUpdateOutboxConfig: ComputedUpdateOutboxConfig = {
   fanoutDirtyRecordsThreshold: 2000,
   fanoutSeedSplitMaxSeeds: 5,
   maxConcurrentProcessingPerBase: 2,
-  maxConcurrentProcessingPerSeedTable: 2,
+  maxConcurrentProcessingPerSeedTable: 1,
   taskStatementTimeoutMs: 60 * 1000,
   fieldBackfillBatchSize: 500,
   // Wide dependency graphs (hub tables with hundreds of computed fields) must not run
@@ -198,7 +198,10 @@ export const defaultComputedUpdateOutboxConfig: ComputedUpdateOutboxConfig = {
   stageMaxFields: 32,
   stageMaxEdges: 12,
   stageSmallRunComplexityThreshold: 512,
-  stageSmallRunBudgetMultiplier: 4,
+  // Seed/dirty estimates bound output volume, not the cost of a lookup scan.
+  // Keep transaction caps strict by default, including edge-free forced recomputes.
+  // Operators can opt into adaptivity once their workload is known to be cheap.
+  stageSmallRunBudgetMultiplier: 1,
   stageMaxDirtyRecords: 5000,
   stageMaxCollectedSeedIds: 25_000,
   stageSeedAllThreshold: 5000,
@@ -474,8 +477,11 @@ export interface IComputedUpdateOutbox {
    */
   enqueueFieldBackfill(
     task: FieldBackfillOutboxTaskInput,
-    context?: IExecutionContext
-  ): Promise<Result<{ taskId: string; merged: boolean }, DomainError>>;
+    context?: IExecutionContext,
+    options?: Pick<EnqueueOrMergeOptions, 'relayClaim'>
+  ): Promise<
+    Result<{ taskId: string; merged: boolean; claimed?: AnyOutboxItem | null }, DomainError>
+  >;
 
   claimBatch(
     params: ClaimBatchParams,

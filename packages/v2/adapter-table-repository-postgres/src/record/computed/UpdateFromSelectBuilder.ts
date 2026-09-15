@@ -136,7 +136,12 @@ export class UpdateFromSelectBuilder {
     );
   }
 
-  build(params: UpdateFromSelectParams): Result<CompiledQuery, DomainError> {
+  build(
+    params: UpdateFromSelectParams & {
+      /** Preserve the version increments of separate single-field backfill statements. */
+      countChangedFieldsForVersion?: boolean;
+    }
+  ): Result<CompiledQuery, DomainError> {
     const tableAlias = params.tableAlias ?? 'u';
     const selectAlias = params.selectAlias ?? 'c';
     const fieldIds = params.fieldIds;
@@ -161,7 +166,13 @@ export class UpdateFromSelectBuilder {
         let query = this.db
           .updateTable(`${tableName} as ${tableAlias}`)
           .from(typedSelectQuery.as(selectAlias))
-          .set((eb) => projectionPlan.buildSetValues(tableAlias, { incrementVersion })(eb))
+          .set((eb) =>
+            projectionPlan.buildSetValues(tableAlias, {
+              incrementVersion,
+              countChangedFieldsForVersion: params.countChangedFieldsForVersion,
+              skipDistinctFilter: params.skipDistinctFilter,
+            })(eb)
+          )
           .whereRef(`${tableAlias}.__id`, '=', `${selectAlias}.__id`);
 
         if (params.recordFilter) {
@@ -841,13 +852,27 @@ class UpdateAssignmentProjectionPlan {
 
   buildSetValues(
     tableAlias: string,
-    options?: { incrementVersion?: boolean }
+    options?: {
+      incrementVersion?: boolean;
+      countChangedFieldsForVersion?: boolean;
+      skipDistinctFilter?: boolean;
+    }
   ): (eb: ExpressionBuilder<DynamicDB, string>) => Record<string, unknown> {
     return (eb) => {
       const values: Record<string, unknown> = {};
       if (options?.incrementVersion ?? true) {
         // Increment __version for computed updates (like V1 does)
-        values['__version'] = sql.raw(`${quoteRef(tableAlias, '__version')} + 1`);
+        const increment = options?.countChangedFieldsForVersion
+          ? sql.join(
+              this.assignmentPlans.map((plan) =>
+                options.skipDistinctFilter
+                  ? sql`1`
+                  : sql`CASE WHEN ${plan.buildDistinctCondition(eb, tableAlias, this.projectionAlias)} THEN 1 ELSE 0 END`
+              ),
+              sql` + `
+            )
+          : sql`1`;
+        values['__version'] = sql`${sql.raw(quoteRef(tableAlias, '__version'))} + ${increment}`;
       }
       for (const plan of this.assignmentPlans) {
         const assigned = plan.buildSetAssignment(eb, this.projectionAlias);

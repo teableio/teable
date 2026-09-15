@@ -71,7 +71,7 @@
         "generatingToken": "ביצירה...",
         "generateToken": "יצירת אסימון",
         "confirmTitle": "יצירת אסימון API",
-        "confirmDescription": "פעולה זו תיצור אסימון API חדש עם ההרשאות הבאות לבסיס זה:",
+        "confirmDescription": "פעולה זו תיצור אסימון API חדש עם ההרשאות הבאות לפרויקט זה:",
         "scopeTableRead": "קריאת פרטי הטבלה",
         "scopeFieldRead": "קריאת שדות",
         "scopeRead": "קריאת רשומות",
@@ -104,7 +104,7 @@
   },
   "welcome": {
     "title": "ברוכים הבאים",
-    "emptyTitle": "בניית הבסיס שלך מתחילה כאן",
+    "emptyTitle": "בניית הפרויקט שלך מתחילה כאן",
     "description": "יש ללחוץ על כפתור \"+\" בסרגל הצד כדי להוסיף משאבים",
     "help": "למידע נוסף אפשר לבקר ב<HelpCenter />",
     "helpCenter": "מרכז העזרה"
@@ -276,7 +276,6 @@
       "bar": "פס",
       "text": "טקסט",
       "markdown": "Markdown",
-      "url": "URL",
       "email": "אימייל",
       "phone": "טלפון",
       "maxNumber": "מספר מקסימלי",
@@ -292,8 +291,8 @@
       "manyToMany": "רבים-לרבים",
       "self": "עצמי",
       "selectTable": "בחירת טבלה...",
-      "selectBase": "בחירת בסיס...",
-      "linkFromAnotherBase": "קישור מבסיס אחר",
+      "selectBase": "בחירת פרויקט...",
+      "linkFromAnotherBase": "קישור מפרויקט אחר",
       "inSelfLink": "בקישור עצמי",
       "betweenTwoTables": "בין שתי טבלאות",
       "tips": "טיפים",
@@ -325,9 +324,9 @@
         "sortMissingWarningDescription": "השדה ששימש למיון זה נמחק. התוצאות מתעלמות מהמיון ואוכפות רק את המגבלה."
       },
       "linkTable": "טבלת הקישור",
-      "linkBase": "בסיס הקישור",
+      "linkBase": "פרויקט הקישור",
       "tableNoPermission": "טבלה ללא הרשאה",
-      "baseNoPermission": "בסיס ללא הרשאה",
+      "baseNoPermission": "פרויקט ללא הרשאה",
       "noLinkTip": "אין רשומות מקושרות לשליפה. יש להוסיף שדה קישור לרשומה אחרת ואז להגדיר את השליפה מחדש.",
       "fieldValidationRules": "כללי אימות לערך השדה",
       "enableValidateFieldUnique": "ערכים ייחודיים בלבד",
@@ -338,6 +337,7 @@
       "filterByView": "סינון רשומות לפי תצוגה",
       "filter": "סינון רשומות",
       "hideFields": "הסתרת שדות",
+      "removeDuplicateValues": "הסרת ערכים כפולים",
       "moreOptions": "אפשרויות נוספות",
       "allowNewOptionsWhenEditing": "לאפשר אפשרויות חדשות בעת עריכה",
       "deleteField": {
@@ -483,7 +483,7 @@
     "deleteConfirm": "למחוק את \"{{tableName}}\"?",
     "dbTableName": "שם הטבלה במסד הנתונים הפיזי",
     "schemaName": "שם הסכימה במסד הנתונים הפיזי",
-    "baseInfo": "פרטי הבסיס",
+    "baseInfo": "פרטי הפרויקט",
     "loginUserTable": "התחברות לאפליקציה",
     "linkedApps": "אפליקציות מקושרות",
     "typeOfDatabase": "סוג מסד הנתונים",
@@ -635,9 +635,9 @@
         "noPermission": "אין הרשאה להעתקת רשומות"
       },
       "crossBaseCopyTitle": "להעתיק כטקסט רגיל?",
-      "crossBaseCopyDescription": "הבחירה כוללת שדה קישור בין בסיסים. כדי לשמור את הנתונים בבסיס המקורי שלהם, השדה יועתק כטקסט רגיל ויאבד את קשרי הקישור שלו.",
+      "crossBaseCopyDescription": "הבחירה כוללת שדה קישור בין פרויקטים. כדי לשמור את הנתונים בפרויקט המקורי שלהם, השדה יועתק כטקסט רגיל ויאבד את קשרי הקישור שלו.",
       "crossBaseCopyConfirm": "העתקה כטקסט רגיל",
-      "crossBaseCopyLoadFirst": "יש לגלול כדי לטעון את כל השורות שנבחרו לפני העתקת שדות קישור בין בסיסים."
+      "crossBaseCopyLoadFirst": "יש לגלול כדי לטעון את כל השורות שנבחרו לפני העתקת שדות קישור בין פרויקטים."
     },
     "graph": {
       "effectCells": "תאים שעשויים להיות מושפעים",
@@ -655,7 +655,7 @@
       "v2": {
         "dialogTitle": "תקינות הסכימה",
         "dialogDescription": "הרצת בודק הסכימה ותהליך התיקון של v2 עבור {{tableName}}.",
-        "dialogDescriptionNoTable": "הרצת בודק הסכימה ותהליך התיקון של v2 עבור הבסיס הנוכחי.",
+        "dialogDescriptionNoTable": "הרצת בודק הסכימה ותהליך התיקון של v2 עבור הפרויקט הנוכחי.",
         "runCheck": "הרצת בדיקה",
         "recheck": "בדיקה חוזרת",
         "repair": "תיקון",
@@ -707,13 +707,13 @@
           "noRepairStatements": "אין פקודות תיקון זמינות",
           "skippedDependencies": "דולג משום שהתלויות אינן מתקיימות",
           "checkStreamConnected": "זרם בדיקת תקינות הסכימה מחובר",
-          "baseCheckStreamConnected": "זרם בדיקת תקינות הסכימה של הבסיס מחובר",
+          "baseCheckStreamConnected": "זרם בדיקת תקינות הסכימה של הפרויקט מחובר",
           "repairStreamConnected": "זרם תיקון תקינות הסכימה מחובר",
-          "baseRepairStreamConnected": "זרם תיקון תקינות הסכימה של הבסיס מחובר",
+          "baseRepairStreamConnected": "זרם תיקון תקינות הסכימה של הפרויקט מחובר",
           "checkCompleted": "בדיקת תקינות הסכימה הושלמה",
-          "baseCheckCompleted": "בדיקת תקינות הסכימה של הבסיס הושלמה",
+          "baseCheckCompleted": "בדיקת תקינות הסכימה של הפרויקט הושלמה",
           "repairCompleted": "תיקון תקינות הסכימה הושלם",
-          "baseRepairCompleted": "תיקון תקינות הסכימה של הבסיס הושלם",
+          "baseRepairCompleted": "תיקון תקינות הסכימה של הפרויקט הושלם",
           "skippedStatusNotSelected": "דולג משום שרמת סטטוס זו לא נבחרה לתיקון",
           "skippedRepairUnavailable": "דולג משום שתיקון אוטומטי אינו זמין במצב הנוכחי"
         },
@@ -916,11 +916,14 @@
     "deletedRecovered": {
       "title": "הטבלה שנפתחה נמחקה",
       "description": "מוצגת כעת \"{{tableName}}\"",
-      "descriptionEmpty": "חזרה לדף הבסיס"
+      "descriptionEmpty": "חזרה לדף הפרויקט"
     }
   },
   "import": {
     "title": {
+      "createTable": "יצירת טבלה",
+      "importFromCsv": "ייבוא מ-CSV",
+      "importFromExcel": "ייבוא מ-Excel",
       "upload": "העלאה",
       "import": "ייבוא",
       "localFile": "קבצים מקומיים",
@@ -1121,7 +1124,7 @@
   },
   "connection": {
     "title": "חיבור למסד הנתונים",
-    "description": "ניתן לגשת ישירות למסד הנתונים דרך חיבור מסד הנתונים, כולל כל הטבלאות שבבסיס הנוכחי",
+    "description": "ניתן לגשת ישירות למסד הנתונים דרך חיבור מסד הנתונים, כולל כל הטבלאות שבפרויקט הנוכחי",
     "noPermission": "אין הרשאה לגשת למסד הנתונים",
     "connectionCountTip": "המספר המרבי של חיבורים למסד הנתונים הוא <b>{{max}}</b>, ומספר החיבורים הנוכחי הוא <b>{{current}}</b>",
     "createFailed": "יש לוודא שמשתנה הסביבה PUBLIC_DATABASE_PROXY מוגדר כראוי",
@@ -1245,7 +1248,7 @@
     "shareToWeb": "שיתוף לאינטרנט",
     "refreshLink": "יצירת קישור מחדש",
     "deleteConfirmTitle": "מחיקת קישור השיתוף",
-    "deleteConfirmDescription": "לא ניתן לבטל פעולה זו. בעלי הקישור לא יוכלו עוד לגשת לבסיס המשותף.",
+    "deleteConfirmDescription": "לא ניתן לבטל פעולה זו. בעלי הקישור לא יוכלו עוד לגשת לפרויקט המשותף.",
     "createSuccess": "קישור השיתוף נוצר",
     "createFailed": "יצירת קישור השיתוף נכשלה",
     "updateFailed": "עדכון הגדרות השיתוף נכשל",
@@ -1385,6 +1388,96 @@
     "action": {
       "locateResource": "איתור"
     },
+    "resourceOperations": {
+      "title": "השינויים בסבב הזה",
+      "items_one": "{{count}} פריט",
+      "items_two": "{{count}} פריטים",
+      "items_other": "{{count}} פריטים",
+      "expandRemaining": "הצגת עוד {{count}}",
+      "collapse": "הצגת פחות",
+      "create": "נוצר",
+      "update": "עודכן",
+      "delete": "נמחק",
+      "import": "ייבוא",
+      "publication": {
+        "published": "פורסם",
+        "unpublished": "הפרסום בוטל"
+      },
+      "structureTitles": {
+        "field": "שינויים בשדות",
+        "view": "שינויים בתצוגות"
+      },
+      "structureStats": {
+        "field": {
+          "create_one": "נוסף {{count}} שדה",
+          "create_two": "נוספו {{count}} שדות",
+          "create_other": "נוספו {{count}} שדות",
+          "update_one": "שונה {{count}} שדה",
+          "update_two": "שונו {{count}} שדות",
+          "update_other": "שונו {{count}} שדות",
+          "delete_one": "נמחק {{count}} שדה",
+          "delete_two": "נמחקו {{count}} שדות",
+          "delete_other": "נמחקו {{count}} שדות",
+          "import_one": "יובא {{count}} שדה",
+          "import_two": "יובאו {{count}} שדות",
+          "import_other": "יובאו {{count}} שדות"
+        },
+        "view": {
+          "create_one": "נוספה {{count}} תצוגה",
+          "create_two": "נוספו {{count}} תצוגות",
+          "create_other": "נוספו {{count}} תצוגות",
+          "update_one": "שונתה {{count}} תצוגה",
+          "update_two": "שונו {{count}} תצוגות",
+          "update_other": "שונו {{count}} תצוגות",
+          "delete_one": "נמחקה {{count}} תצוגה",
+          "delete_two": "נמחקו {{count}} תצוגות",
+          "delete_other": "נמחקו {{count}} תצוגות",
+          "import_one": "יובאה {{count}} תצוגה",
+          "import_two": "יובאו {{count}} תצוגות",
+          "import_other": "יובאו {{count}} תצוגות"
+        }
+      },
+      "workflow": {
+        "activate": "האוטומציה הופעלה",
+        "deactivate": "האוטומציה הושבתה",
+        "discard": "השינויים בטיוטה בוטלו"
+      },
+      "routine": {
+        "activate": "הרוטינה הופעלה",
+        "deactivate": "הרוטינה הושבתה",
+        "run": "ההרצה החלה"
+      },
+      "records": {
+        "create": "נוספו רשומות",
+        "createCount_one": "נוספה {{count}} רשומה",
+        "createCount_two": "נוספו {{count}} רשומות",
+        "createCount_other": "נוספו {{count}} רשומות",
+        "update": "הרשומות עודכנו",
+        "updateCount_one": "עודכנה {{count}} רשומה",
+        "updateCount_two": "עודכנו {{count}} רשומות",
+        "updateCount_other": "עודכנו {{count}} רשומות",
+        "delete": "הרשומות נמחקו",
+        "deleteCount_one": "נמחקה {{count}} רשומה",
+        "deleteCount_two": "נמחקו {{count}} רשומות",
+        "deleteCount_other": "נמחקו {{count}} רשומות",
+        "import": "הרשומות יובאו",
+        "importCount_one": "יובאה {{count}} רשומה",
+        "importCount_two": "יובאו {{count}} רשומות",
+        "importCount_other": "יובאו {{count}} רשומות"
+      },
+      "types": {
+        "base": "פרויקט",
+        "table": "טבלה",
+        "field": "שדה",
+        "view": "תצוגה",
+        "record": "רשומות",
+        "app": "אפליקציה",
+        "workflow": "אוטומציה",
+        "routine": "רוטינה",
+        "folder": "תיקייה",
+        "artifact": "ארטיפקט"
+      }
+    },
     "showUI": {
       "skip": "דילוג",
       "next": "הבא",
@@ -1425,7 +1518,13 @@
     "addAttachment": "הוספת קובץ מצורף",
     "noHistory": "אין היסטוריית צ'אט",
     "noFoundHistory": "לא נמצאה היסטוריית צ'אט, אפשר להתחיל שיחה חדשה",
+    "pin": "הצמדה",
+    "unpin": "ביטול הצמדה",
+    "archive": "העברה לארכיון",
+    "archivedToast": "השיחה הועברה לארכיון. אפשר למצוא אותה בהגדרות › שיחות בארכיון.",
+    "unread": "לא נקרא",
     "timeGroup": {
+      "pinned": "מוצמדות",
       "today": "היום",
       "oneWeek": "שבוע",
       "twoWeek": "שבועיים",
@@ -1444,6 +1543,7 @@
       "tables": "טבלאות",
       "apps": "אפליקציות",
       "workflows": "אוטומציות",
+      "routines": "רוטינות",
       "folders": "תיקיות",
       "envs": "סודות"
     },
@@ -1472,7 +1572,7 @@
     "suggestions": {
       "title": "איך אפשר לעזור?",
       "whatCanIDo": "מה אפשר לעשות?",
-      "createOrModifyDatabase": "יצירה או שינוי של מסד נתונים",
+      "createOrModifyDatabase": "יצירה או שינוי של פרויקט",
       "buildAutomations": "בניית אוטומציות",
       "buildApps": "בניית אפליקציות",
       "buildMeCRM": "בניית CRM בשבילי",
@@ -1604,6 +1704,11 @@
       "searchPlaceholder": "חיפוש ארטיפקטים",
       "fixWithAi": "תיקון בעזרת AI",
       "noPermission": "אין הרשאת גישה לארטיפקט הזה"
+    },
+    "status": {
+      "running": "יוצר…",
+      "waitingInput": "ממתין לתשובתך",
+      "failed": "התשובה נכשלה"
     }
   },
   "upload": {

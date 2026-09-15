@@ -1,3 +1,4 @@
+import { ComputedReliabilityReconciliationService } from './computed-outbox-trigger/computed-reliability-reconciliation.service';
 import { Module } from '@nestjs/common';
 import { DiscoveryService } from '@nestjs/core';
 import { ORPCModule } from '@orpc/nest';
@@ -141,6 +142,7 @@ const toErrorMessage = (body: unknown): string => {
     V2ViewShareSideEffectService,
     UndoRedoStackService,
     ComputedOutboxRedriveService,
+    ComputedReliabilityReconciliationService,
     ComputedOutboxMonitorService,
     ComputedOutboxAnomalyService,
     ComputedOutboxLineageService,

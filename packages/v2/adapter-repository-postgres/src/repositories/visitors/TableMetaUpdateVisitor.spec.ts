@@ -1010,6 +1010,7 @@ describe('TableMetaUpdateVisitor', () => {
         'visitTableWithPrimaryField',
         'TableWithPrimaryFieldSpec is not supported for table updates',
       ],
+      ['visitTableWithFieldIds', 'TableWithFieldIdsSpec is not supported for table updates'],
       [
         'visitTableByIncomingReferenceToTable',
         'TableByIncomingReferenceToTableSpec is not supported for table updates',

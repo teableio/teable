@@ -9,9 +9,13 @@
  * Total: ~9 test cases
  */
 
-import { buildMultiTableNameMaps, printComputedSteps } from '@teable/v2-container-node-test';
 import { beforeAll, beforeEach, describe, expect, test } from 'vitest';
-import { createTestContext, createFieldIdGenerator, getFieldValues } from './shared';
+import {
+  createTestContext,
+  createFieldIdGenerator,
+  getFieldValues,
+  verifyLookupValue,
+} from './shared';
 import type { TestContext, ValueTransition, ChainTestCase } from './shared';
 
 // =============================================================================
@@ -224,10 +228,6 @@ describe('cross-table chain matrix (e2e)', () => {
         finalFieldId = dLookupFieldId;
       }
 
-      // Get before value
-      const beforeRecords = await ctx.listRecords(finalTableId);
-      const beforeValue = beforeRecords[0].fields[finalFieldId];
-
       // Clear logs before update
       ctx.clearLogs();
 
@@ -249,19 +249,8 @@ describe('cross-table chain matrix (e2e)', () => {
       // Verify Results
       // =====================================================================
 
-      if (transition === 'valueToNull') {
-        // Should be null or array of nulls
-        if (Array.isArray(afterValue)) {
-          expect(
-            afterValue.every((v) => v === null || (Array.isArray(v) && v.every((x) => x === null)))
-          ).toBe(true);
-        } else {
-          expect(afterValue).toBeNull();
-        }
-      } else {
-        // Value should have changed
-        expect(afterValue).not.toEqual(beforeValue);
-      }
+      // Nested lookups flatten their source arrays and omit null source cells.
+      verifyLookupValue(afterValue, updated === null ? null : [updated]);
     });
   });
 

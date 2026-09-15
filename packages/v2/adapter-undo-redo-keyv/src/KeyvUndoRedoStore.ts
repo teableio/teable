@@ -377,11 +377,7 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
     );
   }
 
-  private async markProgressUnlocked(
-    scope: UndoScope,
-    token: string,
-    executedLeafIndex: number
-  ) {
+  private async markProgressUnlocked(scope: UndoScope, token: string, executedLeafIndex: number) {
     const state = await this.loadState(scope);
     if (!state.reservation || state.reservation.token !== token) {
       return err(
@@ -497,9 +493,7 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
   ): UndoRedoReservation {
     const storedEntry =
       reservation.mode === 'undo'
-        ? this.composeGroupedEntry(
-            this.resolveUndoGroup(state.entries, state.cursor - 1).entries
-          )
+        ? this.composeGroupedEntry(this.resolveUndoGroup(state.entries, state.cursor - 1).entries)
         : this.composeGroupedEntry(this.resolveRedoGroup(state.entries, state.cursor).entries);
     return {
       token: reservation.token,

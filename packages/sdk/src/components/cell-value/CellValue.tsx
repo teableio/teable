@@ -8,11 +8,11 @@ import type {
   IDatetimeFormatting,
   ILinkCellValue,
   ISelectFieldOptions,
-  SingleLineTextDisplayType,
+  ISingleLineTextShowAs,
   IButtonFieldCellValue,
   IButtonFieldOptions,
 } from '@teable/core';
-import { CellValueType, FieldType } from '@teable/core';
+import { CellValueType, FieldType, getTextActionType } from '@teable/core';
 import { useTheme } from '@teable/next-themes';
 import type { IFieldInstance } from '../../model';
 import { isMarkdownShowAs, normalizeMarkdownValue, stripMarkdown } from '../editor/long-text/utils';
@@ -77,12 +77,13 @@ const renderLongText: RenderFn = ({ value, className, plainLongText, options }) 
   return <CellText value={strValue} className={className} />;
 };
 
-const renderSingleLineText: RenderFn = ({ value, className, ellipsis, options }) => (
+// Multi-value lookups arrive as arrays; the field joins them the same way the grid does
+const renderSingleLineText: RenderFn = ({ value, className, ellipsis, options, field }) => (
   <CellText
-    value={value as string}
+    value={field.cellValue2String(value)}
     className={className}
     ellipsis={ellipsis}
-    displayType={(options as { showAs?: { type?: SingleLineTextDisplayType } })?.showAs?.type}
+    actionType={getTextActionType((options as { showAs?: ISingleLineTextShowAs })?.showAs)}
   />
 );
 
@@ -212,10 +213,10 @@ const renderFormulaLike: RenderFn = ({ value, className, ellipsis, options, fiel
 
   return (
     <CellText
-      value={value as string}
+      value={field.cellValue2String(value)}
       className={className}
       ellipsis={ellipsis}
-      displayType={(options as { showAs?: { type?: SingleLineTextDisplayType } })?.showAs?.type}
+      actionType={getTextActionType((options as { showAs?: ISingleLineTextShowAs })?.showAs)}
     />
   );
 };
