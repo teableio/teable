@@ -6,6 +6,7 @@ import {
   LayoutList,
   Share2,
   AlertTriangle,
+  PaintBucket,
 } from '@teable/icons';
 import { HideFields, RowHeight, Sort, Group, ViewFilter } from '@teable/sdk';
 import { useFields } from '@teable/sdk/hooks';
@@ -18,6 +19,7 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { useGridSearchStore } from '../../grid/useGridSearchStore';
 import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { ToolBarButton } from '../ToolBarButton';
+import { GridStylePanel } from './GridStylePanel';
 import { ScrollableToolbarGroup } from './ScrollableToolbarGroup';
 import { useToolBarStore } from './useToolBarStore';
 
@@ -33,6 +35,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
     onFieldNameDisplayLinesChange,
     onSortChange,
     onGroupChange,
+    onGridStyleChange,
   } = useToolbarChange();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { setFilterRef, setSortRef, setGroupRef } = useToolBarStore();
@@ -178,6 +181,22 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
           </ToolBarButton>
         )}
       </RowHeight>
+      <GridStylePanel
+        style={(view.options as IGridViewOptions)?.style}
+        onChange={onGridStyleChange}
+      >
+        <ToolBarButton
+          disabled={disabled}
+          isActive={Boolean(
+            (view.options as IGridViewOptions)?.style?.stripedRows ||
+              (view.options as IGridViewOptions)?.style?.rowColor?.mode === 'selectField'
+          )}
+          text={t('table:grid.style.title')}
+          textClassName="@2xl/toolbar:inline"
+        >
+          <PaintBucket className="size-4 text-sm" />
+        </ToolBarButton>
+      </GridStylePanel>
     </ScrollableToolbarGroup>
   );
 };

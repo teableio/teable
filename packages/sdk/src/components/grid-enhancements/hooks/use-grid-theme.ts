@@ -11,8 +11,11 @@ const darkTheme = {
 
   // Cell
   cellBg: '#121314',
+  cellBgStriped: '#17181A',
   cellBgHovered: '#1C1E1F',
   cellBgSelected: '#242426',
+  cellHoverOverlay: 'rgba(255,255,255,0.055)',
+  cellSelectedOverlay: 'rgba(255,255,255,0.11)',
   cellBgLoading: hexToRGBA(colors.white, 0.08),
   cellLineColor: hexToRGBA(colors.white, 0.1),
   cellLineColorActived: colors.zinc[400],

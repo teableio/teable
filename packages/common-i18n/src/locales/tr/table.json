@@ -1017,7 +1017,34 @@
   "grid": {
     "prefillingRowTitle": "Yeni kayıt ekle",
     "prefillingRowTooltip": "Lütfen yeni kayıt verilerini aşağıya girin. Bu satırın dışına tıkladığınızda kayıt otomatik olarak kaydedilecektir.",
-    "presortRowTitle": "Bu kayıt sıralama kuralları nedeniyle filtrelendi veya taşındı"
+    "presortRowTitle": "Bu kayıt sıralama kuralları nedeniyle filtrelendi veya taşındı",
+    "style": {
+      "title": "Stil",
+      "tableStyle": "Tablo stili",
+      "stripedRows": "Alternatif satırlar",
+      "recordColoring": "Kayıt renklendirme",
+      "none": "Yok",
+      "colorBySelectField": "Seçim alanına göre renklendir",
+      "selectField": "Alan seç",
+      "noSelectFields": "Kullanılabilir seçim alanı yok",
+      "coloredChoices": "Renklendirilen seçenekler",
+      "noChoices": "Kullanılabilir seçenek yok",
+      "conditionalColoring": "Koşullara göre renklendir",
+      "manageColorRules": "Renk kurallarını yönet",
+      "conditionalColoringDescription": "Koşullarla eşleşen kayıtlara satır arka planı uygular. Kurallar yukarıdan aşağı değerlendirilir.",
+      "ruleColor": "Kural rengi",
+      "ruleName": "Kural {{number}}",
+      "enableRule": "Kuralı etkinleştir",
+      "moveRuleUp": "Kuralı yukarı taşı",
+      "moveRuleDown": "Kuralı aşağı taşı",
+      "deleteRule": "Kuralı sil",
+      "whenConditionsMatch": "Kayıt koşullarla eşleştiğinde",
+      "noColorRules": "Henüz renk kuralı yok",
+      "noColorRulesDescription": "Önemli kayıtları vurgulamak için bir kural ekleyin.",
+      "firstMatchingRuleWins": "Birden fazla kural eşleşirse ilk kural kullanılır.",
+      "addColorRule": "Kural ekle",
+      "applyColorRules": "Uygula"
+    }
   },
   "form": {
     "fieldsManagement": "Alanlar",

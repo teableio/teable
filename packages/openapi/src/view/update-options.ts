@@ -30,7 +30,7 @@ export const UpdateViewOptionsRoute: RouteConfig = registerRoute({
     },
   },
   responses: {
-    200: {
+    204: {
       description: 'Successfully update.',
     },
   },

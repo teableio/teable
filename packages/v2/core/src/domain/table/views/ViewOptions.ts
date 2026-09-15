@@ -11,6 +11,27 @@ const gridViewOptionsSchema = z
     fieldNameDisplayLines: z.number().min(1).max(3).optional(),
     frozenColumnCount: z.number().min(0).optional(),
     frozenFieldId: z.string().optional(),
+    style: z
+      .object({
+        stripedRows: z.boolean().optional(),
+        rowColor: z
+          .object({
+            mode: z.enum(['none', 'selectField', 'rules']).optional(),
+            selectField: z
+              .object({
+                fieldId: z.string(),
+                enabledChoiceIds: z.array(z.string()).optional(),
+                strategy: z.literal('firstMatched').optional(),
+              })
+              .strict()
+              .optional(),
+            rules: z.array(z.record(z.string(), z.unknown())).max(20).optional(),
+          })
+          .strict()
+          .optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 

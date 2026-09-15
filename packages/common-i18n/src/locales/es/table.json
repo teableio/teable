@@ -1022,7 +1022,34 @@
   "grid": {
     "prefillingRowTitle": "Agregar nuevo registro",
     "prefillingRowTooltip": "Por favor, ingresa los datos del nuevo registro a continuación. El registro se guardará automáticamente cuando hagas clic fuera de esta fila.",
-    "presortRowTitle": "Este registro ha sido filtrado o movido debido a reglas de ordenamiento"
+    "presortRowTitle": "Este registro ha sido filtrado o movido debido a reglas de ordenamiento",
+    "style": {
+      "title": "Estilo",
+      "tableStyle": "Estilo de tabla",
+      "stripedRows": "Filas alternas",
+      "recordColoring": "Coloración de registros",
+      "none": "Ninguno",
+      "colorBySelectField": "Colorear por campo de selección",
+      "selectField": "Seleccionar campo",
+      "noSelectFields": "No hay campos de selección disponibles",
+      "coloredChoices": "Opciones coloreadas",
+      "noChoices": "No hay opciones disponibles",
+      "conditionalColoring": "Colorear por condiciones",
+      "manageColorRules": "Administrar reglas de color",
+      "conditionalColoringDescription": "Aplica un fondo de fila a los registros que cumplen las condiciones. Las reglas se evalúan de arriba abajo.",
+      "ruleColor": "Color de la regla",
+      "ruleName": "Regla {{number}}",
+      "enableRule": "Activar regla",
+      "moveRuleUp": "Subir regla",
+      "moveRuleDown": "Bajar regla",
+      "deleteRule": "Eliminar regla",
+      "whenConditionsMatch": "Cuando el registro coincida",
+      "noColorRules": "Aún no hay reglas de color",
+      "noColorRulesDescription": "Añade una regla para destacar los registros importantes.",
+      "firstMatchingRuleWins": "Si coinciden varias reglas, se usa la primera.",
+      "addColorRule": "Añadir regla",
+      "applyColorRules": "Aplicar"
+    }
   },
   "form": {
     "fieldsManagement": "Campos",

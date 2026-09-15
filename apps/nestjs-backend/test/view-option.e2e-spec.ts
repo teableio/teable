@@ -25,8 +25,7 @@ afterAll(async () => {
 });
 
 async function updateViewOptions(tableId: string, viewId: string, viewOptionRo: IViewOptions) {
-  const result = await apiSetViewOption(tableId, viewId, { options: viewOptionRo });
-  return result.data;
+  return await apiSetViewOption(tableId, viewId, { options: viewOptionRo });
 }
 
 describe('OpenAPI ViewController (e2e) option (PUT) update grid view option', () => {
@@ -51,6 +50,30 @@ describe('OpenAPI ViewController (e2e) option (PUT) update grid view option', ()
     const updatedView = await getView(tableId, viewId);
     const rowHeight = (updatedView.options as IGridView['options']).rowHeight;
     expect(rowHeight).toBe(RowHeightLevel.Short);
+  });
+
+  it(`/table/{tableId}/view/{viewId}/option (PUT) update grid style without replacing other options`, async () => {
+    await updateViewOptions(tableId, viewId, { rowHeight: RowHeightLevel.Medium });
+    const response = await updateViewOptions(tableId, viewId, {
+      style: {
+        stripedRows: true,
+        rowColor: {
+          mode: 'selectField',
+          selectField: {
+            fieldId: 'fldStatus',
+            enabledChoiceIds: ['choOpen'],
+            strategy: 'firstMatched',
+          },
+        },
+      },
+    });
+    const updatedView = await getView(tableId, viewId);
+    const options = updatedView.options as IGridView['options'];
+
+    expect(response.status).toBe(204);
+    expect(options.style?.stripedRows).toBe(true);
+    expect(options.style?.rowColor?.selectField?.enabledChoiceIds).toEqual(['choOpen']);
+    expect(options.rowHeight).toBe(RowHeightLevel.Medium);
   });
 
   it(`/table/{tableId}/view/{viewId}/option (PUT) update other type options should return 400`, async () => {

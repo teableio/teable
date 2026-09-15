@@ -1,12 +1,23 @@
-import type { IGroup, IFilter, ISort, RowHeightLevel } from '@teable/core';
+import type {
+  IGroup,
+  IFilter,
+  ISort,
+  RowHeightLevel,
+  IGridStyleOptions,
+  IGridViewOptions,
+} from '@teable/core';
 import { generateLocalId, useGridCollapsedGroupStore } from '@teable/sdk/components';
 import { useTableId, useView } from '@teable/sdk/hooks';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
+import { useGridStyleStore } from '../grid/useGridStyleStore';
 
 export const useToolbarChange = () => {
   const tableId = useTableId();
   const view = useView();
   const { setCollapsedGroupMap } = useGridCollapsedGroupStore();
+  const setOptimisticGridStyle = useGridStyleStore((state) => state.setStyle);
+  const clearOptimisticGridStyle = useGridStyleStore((state) => state.clearStyle);
+  const gridStyleUpdateQueueRef = useRef<Promise<unknown>>(Promise.resolve());
 
   return useMemo(() => {
     const onFilterChange = async (value: IFilter) => {
@@ -25,12 +36,23 @@ export const useToolbarChange = () => {
     const onFieldNameDisplayLinesChange = async (fieldNameDisplayLines: number) => {
       await view?.updateOption({ fieldNameDisplayLines });
     };
+    const onGridStyleChange = (style: IGridStyleOptions) => {
+      if (!view?.id) return Promise.resolve();
+      const viewId = view.id;
+      const baseStyle = (view.options as IGridViewOptions | undefined)?.style;
+      setOptimisticGridStyle(viewId, style, baseStyle);
+      const update = gridStyleUpdateQueueRef.current.then(() => view?.updateOption({ style }));
+      gridStyleUpdateQueueRef.current = update.catch(() => undefined);
+      void update.catch(() => clearOptimisticGridStyle(viewId, style));
+      return update;
+    };
     return {
       onFilterChange,
       onSortChange,
       onGroupChange,
       onRowHeightChange,
       onFieldNameDisplayLinesChange,
+      onGridStyleChange,
     };
-  }, [setCollapsedGroupMap, tableId, view]);
+  }, [clearOptimisticGridStyle, setCollapsedGroupMap, setOptimisticGridStyle, tableId, view]);
 };

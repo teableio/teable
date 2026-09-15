@@ -86,6 +86,7 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
     collapsedGroupIds,
     columnHeaderHeight,
     getCellContent,
+    getRowBackgroundColor,
     getLinearRow,
     real2RowIndex,
     setActiveCell,
@@ -290,6 +291,7 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
           isRowAppendEnable={hasAppendRow}
           isColumnAppendEnable={hasAppendColumn}
           getCellContent={getCellContent}
+          getRowBackgroundColor={getRowBackgroundColor}
           real2RowIndex={real2RowIndex}
           getLinearRow={getLinearRow}
         />

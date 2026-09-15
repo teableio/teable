@@ -39,6 +39,7 @@ export interface IRenderLayerProps
     | 'collaborators'
     | 'columnHeaderHeight'
     | 'isMultiSelectionEnable'
+    | 'getRowBackgroundColor'
     | 'getCellContent'
   > {
   isEditing?: boolean;
@@ -107,6 +108,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     isMultiSelectionEnable,
     isColumnHeaderMenuVisible,
     getCellContent,
+    getRowBackgroundColor,
     real2RowIndex,
     getLinearRow,
     isFilling,
@@ -188,6 +190,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       isColumnHeaderMenuVisible,
       isMultiSelectionEnable,
       getCellContent,
+      getRowBackgroundColor,
       real2RowIndex,
       getLinearRow,
     };
@@ -237,6 +240,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     isMultiSelectionEnable,
     cacheCanvas,
     getCellContent,
+    getRowBackgroundColor,
     real2RowIndex,
     getLinearRow,
   ]);

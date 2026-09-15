@@ -1022,7 +1022,34 @@
   "grid": {
     "prefillingRowTitle": "Ajouter un nouvel enregistrement",
     "prefillingRowTooltip": "Veuillez entrer les données du nouvel enregistrement ci-dessous. L'enregistrement sera sauvegardé automatiquement une fois que vous cliquerez en dehors de cette ligne.",
-    "presortRowTitle": "Cet enregistrement a été filtré ou déplacé en raison des règles de tri"
+    "presortRowTitle": "Cet enregistrement a été filtré ou déplacé en raison des règles de tri",
+    "style": {
+      "title": "Style",
+      "tableStyle": "Style du tableau",
+      "stripedRows": "Lignes alternées",
+      "recordColoring": "Coloration des enregistrements",
+      "none": "Aucune",
+      "colorBySelectField": "Colorer par champ de sélection",
+      "selectField": "Sélectionner un champ",
+      "noSelectFields": "Aucun champ de sélection disponible",
+      "coloredChoices": "Options colorées",
+      "noChoices": "Aucune option disponible",
+      "conditionalColoring": "Colorer selon des conditions",
+      "manageColorRules": "Gérer les règles de couleur",
+      "conditionalColoringDescription": "Applique une couleur de ligne aux enregistrements correspondants. Les règles sont évaluées de haut en bas.",
+      "ruleColor": "Couleur de la règle",
+      "ruleName": "Règle {{number}}",
+      "enableRule": "Activer la règle",
+      "moveRuleUp": "Monter la règle",
+      "moveRuleDown": "Descendre la règle",
+      "deleteRule": "Supprimer la règle",
+      "whenConditionsMatch": "Lorsque l’enregistrement correspond",
+      "noColorRules": "Aucune règle de couleur",
+      "noColorRulesDescription": "Ajoutez une règle pour mettre en évidence les enregistrements importants.",
+      "firstMatchingRuleWins": "Si plusieurs règles correspondent, la première est utilisée.",
+      "addColorRule": "Ajouter une règle",
+      "applyColorRules": "Appliquer"
+    }
   },
   "form": {
     "fieldsManagement": "Champs",

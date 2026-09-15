@@ -1017,7 +1017,34 @@
   "grid": {
     "prefillingRowTitle": "Neuen Datensatz hinzufügen",
     "prefillingRowTooltip": "Bitte geben Sie die Daten des neuen Datensatzes unten ein. Der Datensatz wird automatisch gespeichert, sobald Sie außerhalb dieser Zeile klicken.",
-    "presortRowTitle": "Dieser Datensatz wurde aufgrund von Sortierregeln gefiltert oder verschoben"
+    "presortRowTitle": "Dieser Datensatz wurde aufgrund von Sortierregeln gefiltert oder verschoben",
+    "style": {
+      "title": "Stil",
+      "tableStyle": "Tabellenstil",
+      "stripedRows": "Abwechselnde Zeilen",
+      "recordColoring": "Datensatzfärbung",
+      "none": "Keine",
+      "colorBySelectField": "Nach Auswahlfeld färben",
+      "selectField": "Feld auswählen",
+      "noSelectFields": "Keine Auswahlfelder verfügbar",
+      "coloredChoices": "Farbige Optionen",
+      "noChoices": "Keine Optionen verfügbar",
+      "conditionalColoring": "Nach Bedingungen färben",
+      "manageColorRules": "Farbregeln verwalten",
+      "conditionalColoringDescription": "Wendet eine Zeilenfarbe auf passende Datensätze an. Regeln werden von oben nach unten ausgewertet.",
+      "ruleColor": "Regelfarbe",
+      "ruleName": "Regel {{number}}",
+      "enableRule": "Regel aktivieren",
+      "moveRuleUp": "Regel nach oben",
+      "moveRuleDown": "Regel nach unten",
+      "deleteRule": "Regel löschen",
+      "whenConditionsMatch": "Wenn der Datensatz übereinstimmt",
+      "noColorRules": "Noch keine Farbregeln",
+      "noColorRulesDescription": "Fügen Sie eine Regel hinzu, um wichtige Datensätze hervorzuheben.",
+      "firstMatchingRuleWins": "Bei mehreren Treffern gilt die erste Regel.",
+      "addColorRule": "Regel hinzufügen",
+      "applyColorRules": "Anwenden"
+    }
   },
   "form": {
     "fieldsManagement": "Felder",
