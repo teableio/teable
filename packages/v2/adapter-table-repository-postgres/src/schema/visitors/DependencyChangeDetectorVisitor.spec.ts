@@ -92,6 +92,7 @@ describe('DependencyChangeDetectorVisitor', () => {
       'visitTableByViewId',
       'visitTableWithViewIds',
       'visitTableWithPrimaryField',
+      'visitTableWithFieldIds',
       'visitTableByIncomingReferenceToTable',
       'visitTableByIds',
       'visitTableByName',

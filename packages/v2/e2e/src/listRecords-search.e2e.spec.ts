@@ -51,6 +51,9 @@ describe('v2 listRecords search (e2e)', () => {
       search?: [string] | [string, string] | [string, string, boolean];
       filter?: unknown;
       sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+      viewId?: string;
+      ignoreViewQuery?: boolean;
+      projection?: string[];
     } = {}
   ) => {
     await drainOutbox();
@@ -59,6 +62,11 @@ describe('v2 listRecords search (e2e)', () => {
     if (options.search) params.set('search', JSON.stringify(options.search));
     if (options.filter) params.set('filter', JSON.stringify(options.filter));
     if (options.sort) params.set('sort', JSON.stringify(options.sort));
+    if (options.viewId) params.set('viewId', options.viewId);
+    if (options.ignoreViewQuery !== undefined) {
+      params.set('ignoreViewQuery', String(options.ignoreViewQuery));
+    }
+    if (options.projection) params.set('projection', JSON.stringify(options.projection));
 
     const response = await fetch(`${ctx.baseUrl}/tables/listRecords?${params.toString()}`, {
       method: 'GET',
@@ -606,6 +614,87 @@ describe('v2 listRecords search (e2e)', () => {
         filter: multiFilter,
       });
       expect(records.map((record) => record.fields[nameFieldId])).toEqual(['today-match']);
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // View field visibility
+  //
+  // A grid client inlines the persisted view filter/sort and sends
+  // ignoreViewQuery=true together with a projection of the columns it renders.
+  // Field-level visibility is not a query default: a field hidden in the view
+  // must stay out of the search row scope, matching v1 getSearchFields, which
+  // drops view-hidden fields for the very same request shape.
+  // ------------------------------------------------------------------
+  describe('view field visibility', () => {
+    let tableId: string;
+    let viewId: string;
+    let nameFieldId: string;
+    let notesFieldId: string;
+
+    const hideColumn = async (targetTableId: string, targetViewId: string, fieldId: string) => {
+      const response = await fetch(`${ctx.baseUrl}/tables/updateViewColumnMeta`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: targetTableId,
+          viewId: targetViewId,
+          columnMeta: [{ fieldId, columnMeta: { hidden: true } }],
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(`updateViewColumnMeta failed: ${await response.text()}`);
+      }
+    };
+
+    beforeAll(async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'Search View Visibility',
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Notes', type: 'singleLineText' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      tableId = table.id;
+      viewId = table.views[0]?.id ?? '';
+      nameFieldId = table.fields.find((field) => field.name === 'Name')?.id ?? '';
+      notesFieldId = table.fields.find((field) => field.name === 'Notes')?.id ?? '';
+
+      await hideColumn(tableId, viewId, notesFieldId);
+      await ctx.createRecords(tableId, [
+        { fields: { [nameFieldId]: 'alpha row', [notesFieldId]: 'plain note' } },
+        { fields: { [nameFieldId]: 'beta row', [notesFieldId]: 'hidden probe value' } },
+      ]);
+    }, 60000);
+
+    it('does not match a field hidden in the view when the client inlines the view query', async () => {
+      const renderedColumns = await listWithSearch(tableId, {
+        viewId,
+        ignoreViewQuery: true,
+        projection: [nameFieldId],
+        search: ['hidden probe', '', true],
+      });
+      // ShareDB doc-id reads carry an empty projection and resolve ids only.
+      const docIds = await listWithSearch(tableId, {
+        viewId,
+        ignoreViewQuery: true,
+        projection: [],
+        search: ['hidden probe', '', true],
+      });
+      expect(renderedColumns).toHaveLength(0);
+      expect(docIds).toHaveLength(0);
+    });
+
+    it('still matches visible fields in the same request shape', async () => {
+      const records = await listWithSearch(tableId, {
+        viewId,
+        ignoreViewQuery: true,
+        projection: [nameFieldId],
+        search: ['alpha', '', true],
+      });
+      expect(records.map((record) => record.fields[nameFieldId])).toEqual(['alpha row']);
     });
   });
 });

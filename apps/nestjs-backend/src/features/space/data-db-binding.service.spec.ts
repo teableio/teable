@@ -17,7 +17,7 @@ vi.mock('@teable/db-data-prisma', () => ({
   DataPrismaModule: class DataPrismaModule {},
   DataPrismaService: class DataPrismaService {},
   PrismaClient: class PrismaClient {},
-  getMetaDatabaseUrl: vi.fn(),
+  getMetaDatabaseUrl: vi.fn(() => 'postgresql://test@localhost/metadata'),
 }));
 vi.mock('@prisma/client', () => ({
   Prisma: {},
@@ -40,6 +40,8 @@ const capabilities = {
 
 describe('DataDbBindingService', () => {
   const txClient = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    $executeRawUnsafe: vi.fn(),
     dataDbConnection: {
       upsert: vi.fn(),
       update: vi.fn(),
@@ -98,6 +100,7 @@ describe('DataDbBindingService', () => {
   };
 
   beforeEach(() => {
+    vi.stubEnv('PRISMA_DATABASE_URL', 'postgresql://source.example/teable');
     txClient.dataDbConnection.upsert.mockReset().mockResolvedValue({ id: 'dcnxxx' });
     txClient.dataDbConnection.update.mockReset();
     txClient.spaceDataDbBinding.create.mockReset();

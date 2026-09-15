@@ -6,7 +6,7 @@
   "fieldKeyType": "Type de clé du champ",
   "chooseSource": "Choisissez une source de données",
   "action": {
-    "selectBase": "Sélectionnez une base de données...",
+    "selectBase": "Sélectionnez un projet...",
     "selectTable": "Sélectionnez une table..."
   },
   "pickParams": "Sélectionnez et configurez les paramètres",

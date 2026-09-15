@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { DriverClient, generateAccountId, HttpErrorCode } from '@teable/core';
+import { DriverClient, generateAccountId, HttpErrorCode, Role } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   CreateAccessTokenVo,
@@ -16,6 +16,7 @@ import type {
 } from '@teable/openapi';
 import {
   ADD_PIN,
+  axios as openApiAxios,
   CHANGE_EMAIL,
   CommentNodeType,
   CREATE_ACCESS_TOKEN,
@@ -26,25 +27,33 @@ import {
   CREATE_SPACE,
   CREATE_SPACE_INVITATION_LINK,
   CREATE_TABLE,
+  createSpace,
   createAxios,
   DELETE_BASE,
   DELETE_SPACE,
   DELETE_USER,
+  EMAIL_SPACE_INVITATION,
+  emailSpaceInvitation,
   GET_TEMP_TOKEN,
-  PERMANENT_DELETE_SPACE,
+  permanentDeleteSpace,
+  PrincipalType,
   PinType,
   PluginPosition,
   PluginStatus,
   SEND_CHANGE_EMAIL_CODE,
   sendSignupVerificationCode,
+  sendSigninVerificationCode,
   SIGN_IN,
+  SIGN_IN_WITH_CODE,
   signup,
   urlBuilder,
+  UPDATE_SPACE_COLLABORATE,
   USER_ME,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import axios from 'axios';
 import { vi } from 'vitest';
+import { CacheService } from '../src/cache/cache.service';
 import { AUTH_SESSION_COOKIE_NAME } from '../src/const';
 import { TeableJwtService } from '../src/features/auth/jwt/teable-jwt.service';
 import { SettingService } from '../src/features/setting/setting.service';
@@ -64,6 +73,7 @@ describe('Auth Controller (e2e)', () => {
     process.env.BACKEND_CHANGE_EMAIL_SEND_CODE_MAIL_RATE = '0';
     process.env.BACKEND_SIGNUP_VERIFICATION_SEND_CODE_MAIL_RATE = '0';
     process.env.BACKEND_RESET_PASSWORD_SEND_MAIL_RATE = '0';
+    process.env.BACKEND_SIGNIN_VERIFICATION_MAX_ATTEMPTS = '3';
 
     const appCtx = await initApp();
     app = appCtx.app;
@@ -284,6 +294,97 @@ describe('Auth Controller (e2e)', () => {
     });
   });
 
+  describe('sign in with email code', () => {
+    const codeEmail = 'signin-code@test-auth.com';
+    let cacheService: CacheService;
+
+    const getCode = async () => {
+      const cached = await cacheService.get(`auth:signin-code:${codeEmail}`);
+      expect(cached?.code).toMatch(/^\d{6}$/);
+      return cached!.code;
+    };
+
+    const anonymousAxios = () => {
+      const instance = createAxios();
+      instance.defaults.baseURL = openApiAxios.defaults.baseURL;
+      return instance;
+    };
+
+    beforeAll(async () => {
+      cacheService = app.get(CacheService);
+      await createNewUserAxios({ email: codeEmail, password: '12345678a' });
+    });
+
+    afterAll(async () => {
+      await prismaService.user.deleteMany({ where: { email: codeEmail } });
+    });
+
+    it('api/auth/send-signin-verification-code - not registered', async () => {
+      const error = await getError(() =>
+        sendSigninVerificationCode('nobody@test-signin-code-not-registered.com')
+      );
+      expect(error?.status).toBe(400);
+    });
+
+    it('api/auth/send-signin-verification-code - system email', async () => {
+      const error = await getError(() => sendSigninVerificationCode('anonymous@system.teable.ai'));
+      expect(error?.status).toBe(400);
+    });
+
+    it('api/auth/signin-with-code - signs in once and consumes the code', async () => {
+      const sent = await sendSigninVerificationCode(codeEmail);
+      expect(sent.data.expiresTime).not.toBeUndefined();
+      const code = await getCode();
+
+      const res = await anonymousAxios().post<IUserMeVo>(SIGN_IN_WITH_CODE, {
+        email: codeEmail,
+        code,
+      });
+      expect(res.status).toBe(200);
+      expect(res.data.email).toBe(codeEmail);
+      expect(res.headers['set-cookie']?.join(';')).toContain(AUTH_SESSION_COOKIE_NAME);
+
+      const sessionAxios = anonymousAxios();
+      sessionAxios.defaults.headers.Cookie = res.headers['set-cookie'] as unknown as string;
+      const me = await sessionAxios.get<IUserMeVo>(USER_ME);
+      expect(me.data.email).toBe(codeEmail);
+
+      // One-time: the same code is rejected on replay.
+      const replay = await getError(() =>
+        anonymousAxios().post(SIGN_IN_WITH_CODE, { email: codeEmail, code })
+      );
+      expect(replay?.status).toBe(400);
+      expect(replay?.code).toBe(HttpErrorCode.INVALID_CAPTCHA);
+    });
+
+    it('api/auth/signin-with-code - too many wrong guesses discard the code', async () => {
+      await sendSigninVerificationCode(codeEmail);
+      const code = await getCode();
+      const wrong = code === '000000' ? '111111' : '000000';
+
+      for (let i = 0; i < 3; i++) {
+        const error = await getError(() =>
+          anonymousAxios().post(SIGN_IN_WITH_CODE, { email: codeEmail, code: wrong })
+        );
+        expect(error?.status).toBe(400);
+      }
+      // The correct code no longer works after the guess budget is spent.
+      const error = await getError(() =>
+        anonymousAxios().post(SIGN_IN_WITH_CODE, { email: codeEmail, code })
+      );
+      expect(error?.status).toBe(400);
+
+      // A fresh code resets the budget.
+      await sendSigninVerificationCode(codeEmail);
+      const fresh = await getCode();
+      const res = await anonymousAxios().post<IUserMeVo>(SIGN_IN_WITH_CODE, {
+        email: codeEmail,
+        code: fresh,
+      });
+      expect(res.status).toBe(200);
+    });
+  });
+
   describe('change email', () => {
     const changeEmail = 'change-email@test-change-email.com';
     const changedEmail = 'changed-email@test-changed-email.com';
@@ -451,6 +552,8 @@ describe('Auth Controller (e2e)', () => {
       }),
       {
         name: 'test-delete-user-table',
+        // The API no longer seeds default records (T6947); the comment below needs a row.
+        records: [{ fields: {} }, { fields: {} }, { fields: {} }],
       }
     );
     const tableId = table.data.id;
@@ -628,32 +731,87 @@ describe('Auth Controller (e2e)', () => {
       password: '12345678',
     });
     const testData = await createTestDataForDeleteUser(userAxios, prismaService);
+    // membership in someone else's space must not block deletion
+    const otherSpace = await createSpace({ name: 'test-delete-user-other-space' });
+    await emailSpaceInvitation({
+      spaceId: otherSpace.data.id,
+      emailSpaceInvitationRo: {
+        emails: ['delete-user@test-delete-user.com'],
+        role: Role.Editor,
+      },
+    });
+    // a space the user owns alone: it is trashed together with the account
+    const soloSpace = await userAxios.post(CREATE_SPACE, { name: 'test-delete-user-solo-space' });
+    // the main space has another member: the user may hand it over instead
+    await userAxios.post(urlBuilder(EMAIL_SPACE_INVITATION, { spaceId: testData.spaceId }), {
+      emails: [globalThis.testConfig.email],
+      role: Role.Editor,
+    });
+
     const error = await getError(() =>
       userAxios.delete(DELETE_USER, { params: { confirm: 'DELETE' } })
     );
     expect(error?.status).toBe(400);
     const errorData = error?.data as IDeleteUserErrorData;
-    expect(errorData.spaces.length).toBe(2);
+    expect(errorData.spaces).toHaveLength(2);
     expect(errorData.spaces).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          id: testData.deleteSpaceId,
-          deletedTime: expect.any(String),
-        }),
-        expect.objectContaining({
-          id: testData.spaceId,
-          deletedTime: null,
-        }),
+        { id: testData.spaceId, name: 'test-delete-user-space', hasOtherMembers: true },
+        { id: soloSpace.data.id, name: 'test-delete-user-solo-space', hasOtherMembers: false },
       ])
     );
-    for (const space of errorData.spaces) {
-      const spaceRes = await userAxios.delete(
-        urlBuilder(PERMANENT_DELETE_SPACE, { spaceId: space.id })
-      );
-      expect(spaceRes.status).toBe(200);
-    }
-    const res = await userAxios.delete(DELETE_USER, { params: { confirm: 'DELETE' } });
+    // nothing is touched on the user's behalf
+    const soloBefore = await prismaService.space.findUniqueOrThrow({
+      where: { id: soloSpace.data.id },
+    });
+    expect(soloBefore.deletedTime).toBeNull();
+
+    // the user keeps the main space by handing it over, and acknowledges
+    // that the solo space goes to trash together with the account
+    await userAxios.patch(urlBuilder(UPDATE_SPACE_COLLABORATE, { spaceId: testData.spaceId }), {
+      principalId: globalThis.testConfig.userId,
+      principalType: PrincipalType.User,
+      role: Role.Owner,
+    });
+    const res = await userAxios.delete(DELETE_USER, {
+      params: { confirm: 'DELETE', spaceIds: [soloSpace.data.id] },
+    });
     expect(res.status).toBe(200);
+    // the handed-over and foreign spaces stay live, the solo one joins the
+    // already trashed one to wait for the retention cleanup
+    const spaces = await prismaService.space.findMany({
+      where: {
+        id: {
+          in: [testData.spaceId, testData.deleteSpaceId, otherSpace.data.id, soloSpace.data.id],
+        },
+      },
+      select: { id: true, deletedTime: true },
+    });
+    expect(spaces).toEqual(
+      expect.arrayContaining([
+        { id: testData.spaceId, deletedTime: null },
+        { id: otherSpace.data.id, deletedTime: null },
+        { id: testData.deleteSpaceId, deletedTime: expect.any(Date) },
+        { id: soloSpace.data.id, deletedTime: expect.any(Date) },
+      ])
+    );
+    const soloTrash = await prismaService.trash.findUnique({
+      where: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        resourceType_resourceId: { resourceType: 'space', resourceId: soloSpace.data.id },
+      },
+    });
+    expect(soloTrash?.deletedBy).toBe(testData.userId);
+    const collaborators = await prismaService.collaborator.findMany({
+      where: { principalId: testData.userId },
+    });
+    expect(collaborators).toEqual([]);
+    await permanentDeleteSpace(testData.spaceId);
+    await permanentDeleteSpace(otherSpace.data.id);
+    // the trashed spaces lost their only owner, so clean them up directly
+    const trashedSpaceIds = [testData.deleteSpaceId, soloSpace.data.id];
+    await prismaService.trash.deleteMany({ where: { resourceId: { in: trashedSpaceIds } } });
+    await prismaService.space.deleteMany({ where: { id: { in: trashedSpaceIds } } });
     // validate data
     // token
     const tokenRes = await prismaService.accessToken.findFirst({

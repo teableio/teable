@@ -37,4 +37,11 @@ export class NoopRealtimeEngine implements IRealtimeEngine {
   ): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
+
+  async notifyTableComputeActivity(
+    _context: IExecutionContext,
+    _tableId: string
+  ): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
 }

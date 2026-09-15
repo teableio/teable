@@ -686,7 +686,9 @@ export class PostgresTableRepository implements core.ITableRepository {
       }
       const fieldWhere = visitor.fieldWhere();
       if (fieldWhere) {
-        attributes['teable.table_fields'] = 'primary';
+        attributes['teable.table_fields'] = specInfo.fieldIds?.length
+          ? specInfo.fieldIds.join(',')
+          : 'primary';
       }
       activeSpan.setAttributes(attributes);
     }
@@ -729,6 +731,8 @@ export class PostgresTableRepository implements core.ITableRepository {
                   'lookup_options',
                   'db_field_name',
                   'db_field_type',
+                  'version',
+                  'is_pending',
                 ])
                 .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
                 // Keep the hydrated field array aligned with the existing field list API.
@@ -821,6 +825,7 @@ export class PostgresTableRepository implements core.ITableRepository {
           'table_meta.icon',
           'table_meta.base_id',
           'table_meta.db_table_name',
+          'table_meta.search_index',
           'fields.fields',
           'views.views',
           outboundReferenceExistsExpr.as('has_outbound_reference'),
@@ -879,9 +884,9 @@ export class PostgresTableRepository implements core.ITableRepository {
    * Load a table row for the default 'active' (ready-only) state, absorbing
    * the short provisioning window of a concurrent schema update.
    *
-   * A physical-repair schema update commits provision_state='pending' before
-   * its meta transaction and flips back to 'ready' after commit. A read that
-   * lands inside that window must wait briefly instead of reporting
+   * A physical-repair schema update commits provision_state='pending' with
+   * its meta transaction and flips back to 'ready' after commit (T7114). A
+   * read that lands inside that window must wait briefly instead of reporting
    * "Table not found" (T6660); a table that is missing, deleted, or in
    * 'error'/'deleting' state still misses immediately.
    *
@@ -1008,12 +1013,18 @@ export class PostgresTableRepository implements core.ITableRepository {
                   'lookup_options',
                   'db_field_name',
                   'db_field_type',
+                  'version',
+                  'is_pending',
                 ])
                 .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
                 .orderBy(sql`${sql.ref('is_primary')} is null`, 'asc')
                 .orderBy('is_primary')
                 .orderBy('order')
                 .orderBy('created_time');
+              const fieldWhere = visitor.fieldWhere();
+              if (fieldWhere) {
+                query = query.where((eb) => fieldWhere(eb));
+              }
               if (shouldFilterDeletedChildren(effectiveState)) {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {
@@ -1086,6 +1097,7 @@ export class PostgresTableRepository implements core.ITableRepository {
           'table_meta.icon',
           'table_meta.base_id',
           'table_meta.db_table_name',
+          'table_meta.search_index',
           'fields.fields',
           'views.views',
           outboundReferenceExistsExpr.as('has_outbound_reference'),
@@ -1823,6 +1835,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     icon: string | null;
     base_id: string;
     db_table_name: string | null;
+    search_index?: unknown;
     fields: unknown;
     views: unknown;
     has_outbound_reference?: boolean | null;
@@ -1849,6 +1862,8 @@ export class PostgresTableRepository implements core.ITableRepository {
           db_field_name: string | null;
           db_field_type: string | null;
           has_error: boolean | null;
+          version: number | null;
+          is_pending: boolean | null;
         }>)
       : [];
 
@@ -1889,6 +1904,7 @@ export class PostgresTableRepository implements core.ITableRepository {
       ...(row.description !== null ? { description: row.description } : {}),
       ...(row.icon !== null ? { icon: row.icon } : {}),
       dbTableName: row.db_table_name ?? undefined,
+      searchIndex: core.isTableSearchIndex(row.search_index) ? row.search_index : undefined,
       primaryFieldId,
       fields: fieldRows.map((f) => this.deserializeFieldDto(f)),
       views: [...viewsResult.value],
@@ -1928,6 +1944,8 @@ export class PostgresTableRepository implements core.ITableRepository {
     lookup_options: string | null;
     db_field_name: string | null;
     db_field_type: string | null;
+    version?: number | null;
+    is_pending?: boolean | null;
   }): core.ITableFieldPersistenceDTO {
     const parsed = this.parseOptions(row.options);
     const hasOptions = Object.keys(parsed).length > 0;
@@ -1949,6 +1967,7 @@ export class PostgresTableRepository implements core.ITableRepository {
             : row.lookup_linked_field_id || '',
         lookupFieldId: typeof source.lookupFieldId === 'string' ? source.lookupFieldId : '',
         foreignTableId: typeof source.foreignTableId === 'string' ? source.foreignTableId : '',
+        ...(typeof source.isUnique === 'boolean' ? { isUnique: source.isUnique } : {}),
         ...(source.filter !== undefined
           ? { filter: source.filter as core.ILookupOptionsDTO['filter'] }
           : {}),
@@ -1999,6 +2018,7 @@ export class PostgresTableRepository implements core.ITableRepository {
         ...(typeof value.baseId === 'string' && value.baseId ? { baseId: value.baseId } : {}),
         foreignTableId,
         lookupFieldId,
+        ...(typeof value.isUnique === 'boolean' ? { isUnique: value.isUnique } : {}),
         condition,
       };
     };
@@ -2009,6 +2029,8 @@ export class PostgresTableRepository implements core.ITableRepository {
     const baseCommon = {
       id: row.id,
       name: row.name,
+      ...(row.version != null ? { version: Number(row.version) } : {}),
+      ...(row.is_pending ? { isPending: true } : {}),
       ...(row.description !== null ? { description: row.description } : { description: null }),
       ...(row.ai_config !== null ? { aiConfig } : {}),
       dbFieldName,

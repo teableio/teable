@@ -1,3 +1,4 @@
+import { computedReliabilitySchemaSql } from '@teable/v2-postgres-schema';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
@@ -57,6 +58,7 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .addColumn('icon', 'text')
     .addColumn('db_table_name', 'text', (col) => col.notNull())
     .addColumn('db_view_name', 'text')
+    .addColumn('search_index', 'jsonb')
     .addColumn('provision_state', 'text', (col) => col.notNull().defaultTo('ready'))
     .addColumn('version', 'integer', (col) => col.notNull())
     .addColumn('order', 'double precision', (col) => col.notNull())
@@ -214,6 +216,28 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .execute();
 
   await db.schema
+    .createTable('comment')
+    .ifNotExists()
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('table_id', 'text', (col) => col.notNull())
+    .addColumn('record_id', 'text', (col) => col.notNull())
+    .addColumn('quote_Id', 'text')
+    .addColumn('content', 'text')
+    .addColumn('reaction', 'text')
+    .addColumn('deleted_time', 'timestamptz')
+    .addColumn('created_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .addColumn('created_by', 'text', (col) => col.notNull())
+    .addColumn('last_modified_time', 'timestamptz')
+    .execute();
+
+  await db.schema
+    .createIndex('comment_table_id_record_id_idx')
+    .ifNotExists()
+    .on('comment')
+    .columns(['table_id', 'record_id'])
+    .execute();
+
+  await db.schema
     .createTable('trash')
     .ifNotExists()
     .addColumn('id', 'text', (col) => col.primaryKey())
@@ -345,6 +369,30 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .execute();
 
   await db.schema
+    .createIndex('computed_update_outbox_ledger_scope_idx')
+    .ifNotExists()
+    .on('computed_update_outbox')
+    .expression(sql`(dirty_stats->>'ledgerScopeId')`)
+    .execute();
+
+  await db.schema
+    .createTable('computed_update_change_frontier')
+    .ifNotExists()
+    .addColumn('scope_id', 'text', (col) => col.notNull())
+    .addColumn('kind', 'text', (col) => col.notNull())
+    .addColumn('table_id', 'text', (col) => col.notNull())
+    .addColumn('record_id', 'text', (col) => col.notNull())
+    .addColumn('field_id', 'text', (col) => col.notNull())
+    .addPrimaryKeyConstraint('computed_update_change_frontier_pkey', [
+      'scope_id',
+      'kind',
+      'table_id',
+      'record_id',
+      'field_id',
+    ])
+    .execute();
+
+  await db.schema
     .createTable('computed_update_stage_ledger')
     .ifNotExists()
     .addColumn('scope_id', 'text', (col) => col.notNull())
@@ -370,6 +418,7 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .addColumn('paused_by', 'text')
     .addColumn('resume_at', 'timestamptz')
     .addColumn('reason', 'text')
+    .addColumn('write_policy', 'text', (col) => col.notNull().defaultTo('allow_bounded'))
     .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn('updated_by', 'text')
     .execute();
@@ -542,6 +591,11 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .column('resume_at')
     .execute();
 
+  await sql`
+    ALTER TABLE computed_update_pause_scope
+    ADD COLUMN IF NOT EXISTS write_policy text NOT NULL DEFAULT 'allow_bounded'
+  `.execute(db);
+
   await db.schema
     .createIndex('computed_update_dead_letter_base_id_seed_table_id_idx')
     .ifNotExists()
@@ -620,6 +674,10 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .on('computed_table_activity')
     .columns(['base_id', 'status'])
     .execute();
+
+  for (const statement of computedReliabilitySchemaSql.split(';').filter((part) => part.trim())) {
+    await sql.raw(statement).execute(db);
+  }
 
   await db.schema
     .createTable('computed_task_field_ref')

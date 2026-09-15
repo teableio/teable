@@ -7,25 +7,25 @@
   },
   "initialSpaceName": "{{name}}'in alanı",
   "action": {
-    "createBase": "Veritabanı oluştur",
+    "createBase": "Proje oluştur",
     "createSpace": "Alan oluştur",
     "invite": "Davet et",
     "startFromScratch": "Sıfırdan başla"
   },
   "allSpaces": "Tüm alanlar",
-  "emptySpaceTitle": "Bu alanda base yok",
-  "spaceIsEmpty": "Başlamak için ilk base'inizi oluşturun",
+  "emptySpaceTitle": "Bu alanda proje yok",
+  "spaceIsEmpty": "Başlamak için ilk projenizi oluşturun",
   "baseModal": {
     "copy": "Kopyala",
     "duplicate": "\"{{baseName}}\" çoğalt",
-    "createBaseFromTemplate": "Şablondan veritabanı oluştur",
+    "createBaseFromTemplate": "Şablondan proje oluştur",
     "duplicateRecords": "Kayıtları çoğalt",
     "duplicateRecordsTip": "Revizyon geçmişiniz ve işbirlikçileriniz çoğaltılmayacak.",
     "toSpace": "Alana",
     "copyToSpace": "Alana kopyala",
-    "duplicateBase": "Veritabanını çoğalt",
-    "missTargetTip": "Lütfen veritabanını çoğaltmak için bir alan seçin.",
-    "copying": "Veritabanı çoğaltılıyor, bu biraz zaman alabilir...",
+    "duplicateBase": "Projeyi çoğalt",
+    "missTargetTip": "Lütfen projeyi çoğaltmak için bir alan seçin.",
+    "copying": "Proje çoğaltılıyor, bu biraz zaman alabilir...",
     "howToCreate": "Nasıl başlamak istersiniz?",
     "fromScratch": "Sıfırdan",
     "fromTemplate": "Şablondan",
@@ -48,19 +48,19 @@
     "add": "Sabitlemelere ekle",
     "remove": "Sabitlemeleri kaldır",
     "pin": "Sabitle",
-    "empty": "Sabitlediğiniz veritabanları ve alanlar burada görünecek"
+    "empty": "Sabitlediğiniz projeler ve alanlar burada görünecek"
   },
   "tooltip": {
-    "noPermissionToCreateBase": "Veritabanı oluşturma izniniz yok"
+    "noPermissionToCreateBase": "Proje oluşturma izniniz yok"
   },
   "tip": {
     "delete": "<0/> silmek istediğinizden emin misiniz?",
     "exportTips2": "Alan -> daha fazla -> içe aktar yolundan .tea dosyasını içe aktarabilirsiniz",
-    "exportTips3": "Veritabanları arası ilişki alanları tek satır metne dönüştürülecektir.",
+    "exportTips3": "Projeler arası ilişki alanları tek satır metne dönüştürülecektir.",
     "exportIncludeDataLabel": "Kayıtları dahil et",
     "exportIncludeDataDescription": "Kapatıldığında yalnızca yapı ve yapılandırma dışa aktarılır",
     "exportTitle": "Dışa Aktar",
-    "exportDescription": "Mevcut veritabanını .tea dosyası olarak dışa aktarın, bu biraz zaman alabilir.",
+    "exportDescription": "Mevcut projeyi .tea dosyası olarak dışa aktarın, bu biraz zaman alabilir.",
     "exportStartButton": "Dışa aktarmayı başlat",
     "exportSlowTip": "Veri hacmi büyük. Dışa aktarma biraz zaman alabilir. Geçici olarak ayrılabilirsiniz.",
     "exportReadyDescription": "Lütfen .tea dosyasını indirin, {{importHint}}",
@@ -69,8 +69,8 @@
     "moveBaseCrossSpaceTitle": "Bildirim",
     "moveBaseCrossSpaceDataLossWarning": "Alanlar arası referanslar desteklenmiyor. İlgili alanlar metin alanlarına dönüştürülecek. Bu işlem geri alınamaz.",
     "moveBaseCrossDataDbTitle": "Veri tabanları arası taşıma",
-    "moveBaseCrossDataDbWarning": "Kaynak ve hedef alanlar farklı veri tabanları kullanıyor. Bu taşıma, taban verilerini hedef veri tabanına kopyalar ve biraz zaman alabilir. Aktarım sırasında bu tabana yazma işlemleri duraklatılır.",
-    "moveBaseProgressTitle": "Taban taşınıyor…",
+    "moveBaseCrossDataDbWarning": "Kaynak ve hedef alanlar farklı veri tabanları kullanıyor. Bu taşıma, proje verilerini hedef veri tabanına kopyalar ve biraz zaman alabilir. Aktarım sırasında bu projeye yazma işlemleri duraklatılır.",
+    "moveBaseProgressTitle": "Proje taşınıyor…",
     "moveBaseProgressPhase": "Aşama: {{phase}}",
     "moveBaseProgressPercent": "%{{percent}}",
     "moveBaseFailedTitle": "Taşıma başarısız",
@@ -84,9 +84,9 @@
     "blockedDesc": "Bu alanın aktif bir aboneliği var. Lütfen alanı silmeden önce aboneliği iptal edin."
   },
   "sharedBase": {
-    "title": "Paylaşılan veritabanları",
-    "description": "Katılmaya davet edildiğim tüm veritabanları",
-    "empty": "Henüz paylaşılan veritabanı yok"
+    "title": "Paylaşılan projeler",
+    "description": "Katılmaya davet edildiğim tüm projeler",
+    "empty": "Henüz paylaşılan proje yok"
   },
   "aiSetting": {
     "title": "AI ayarları",
@@ -100,7 +100,7 @@
     "phase": {
       "importingV2": "İçe aktarılıyor",
       "parsingStructure": "Parsing structure",
-      "creatingBase": "Creating base: {{detail}}",
+      "creatingBase": "Proje oluşturuluyor: {{detail}}",
       "creatingTable": "Creating table: {{detail}}",
       "tableStructureStarted": "Tablo yapısı hazırlanıyor: {{tableName}} ({{tableIndex}}/{{totalTables}})",
       "tableStructureValidating": "Tablo ilişkileri doğrulanıyor",
@@ -164,7 +164,7 @@
   },
   "template": {
     "title": "Şablon",
-    "description": "Bir şablondan hızlıca yeni bir üs (base) oluşturun",
+    "description": "Bir şablondan hızlıca yeni bir proje oluşturun",
     "noTemplatesAvailable": "Kullanılabilir şablon yok",
     "noTemplatesDescription": "Şu anda burada hiçbir şey yok"
   },
@@ -173,26 +173,26 @@
   },
   "noBases": {
     "title": "Merhaba {{userName}}!",
-    "description": "İlk üssünüzle (base) işlerinizi yönetmeye başlayalım."
+    "description": "İlk projenizle işlerinizi yönetmeye başlayalım."
   },
   "noSpaces": {
     "title": "Merhaba {{userName}}!",
     "description": "Veri işbirliği yolculuğunuza başlamak için ilk alanınızı oluşturun."
   },
   "baseList": {
-    "allBases": "Tüm üsler",
+    "allBases": "Tüm projeler",
     "creator": "Oluşturan",
     "createdTime": "Oluşturulma",
     "lastOpened": "Son açılan",
     "enter": "Giriş",
     "noTables": "Tablo yok",
-    "empty": "Henüz üs yok",
+    "empty": "Henüz proje yok",
     "recent": "Son kullanılanlar",
     "manual": "Elle sıralama"
   },
   "publishBase": {
     "title": "Şablon Merkezinde Yayınla",
-    "description": "Tek tıkla üssünüzü şablon merkezinde yayınlayın! Yaratıcılığınızı daha fazla kişinin görmesine, kullanmasına ve Remix yapmasına izin verin ve birlikte daha güçlü bir iş kurun",
+    "description": "Tek tıkla projenizi şablon merkezinde yayınlayın! Yaratıcılığınızı daha fazla kişinin görmesine, kullanmasına ve Remix yapmasına izin verin ve birlikte daha güçlü bir iş kurun",
     "infoTitle": "Temel bilgiler",
     "form": {
       "title": "Başlık",
@@ -211,9 +211,9 @@
     "previewTips": "Dünyanın çalışmanızı görmesine izin verin",
     "update": "Güncelle",
     "unPublish": "Yayından kaldır",
-    "unPublishSuccess": "Üs başarıyla yayından kaldırıldı!",
+    "unPublishSuccess": "Proje başarıyla yayından kaldırıldı!",
     "unPublishConfirmTitle": "Yayından kaldırmayı onayla",
-    "unPublishConfirmDescription": "Bu üssü yayından kaldırmak istediğinizden emin misiniz? Artık şablon merkezinde görünmeyecek.",
+    "unPublishConfirmDescription": "Bu projeyi yayından kaldırmak istediğinizden emin misiniz? Artık şablon merkezinde görünmeyecek.",
     "uploadCover": "Kapak resmi yüklemek için tıklayın",
     "changeCover": "Kapağı değiştirmek için tıklayın",
     "uploading": "Resim yükleniyor...",
@@ -252,7 +252,7 @@
   "dataDb": {
     "create": {
       "title": "Veri veritabanı",
-      "description": "Bu alanın taban şemalarını ve kayıtlarını nerede depolayacağını seçin.",
+      "description": "Bu alanın proje şemalarını ve kayıtlarını nerede depolayacağını seçin.",
       "defaultHint": "Çoğu alan için önerilir.",
       "byodbOption": "Kendi PostgreSQL veritabanımı kullan",
       "byodbHint": "Bu alanı, müşteri tarafından yönetilen veritabanınızdaki bir Teable dahili şemasında başlatır.",
@@ -323,7 +323,7 @@
     "import": "İçe aktarmayı başlat",
     "done": "İçe aktarma tamamlandı",
     "failed": "İçe aktarma başarısız",
-    "openBase": "Base'i aç",
+    "openBase": "Projeyi aç",
     "issuesSummary": "İçe aktarma sırasında {{count}} öğe uyarlandı:",
     "issuesMore": "+{{count}} öğe daha",
     "issue": {
@@ -335,7 +335,7 @@
     },
     "phase": {
       "fetchingSchema": "Airtable base yapısı okunuyor",
-      "creatingBase": "Base oluşturuluyor: {{detail}}",
+      "creatingBase": "Proje oluşturuluyor: {{detail}}",
       "creatingTable": "Tablo oluşturuluyor: {{tableName}} ({{tableIndex}}/{{totalTables}})",
       "creatingLinks": "Bağlantı alanları oluşturuluyor",
       "fillingLinks": "{{tableName}} (bağlantılar)",
@@ -378,7 +378,7 @@
     "import": "İçe aktarmayı başlat",
     "done": "İçe aktarma tamamlandı",
     "failed": "İçe aktarma başarısız",
-    "openBase": "Base'i aç",
+    "openBase": "Projeyi aç",
     "issuesSummary": "İçe aktarma sırasında {{count}} öğe uyarlandı:",
     "issuesMore": "+{{count}} öğe daha",
     "recordsImported": "{{tableName}}: {{count}} kayıt içe aktarıldı",
@@ -390,7 +390,7 @@
     },
     "phase": {
       "fetchingSchema": "E-tablo yapısı okunuyor",
-      "creatingBase": "Base oluşturuluyor: {{detail}}",
+      "creatingBase": "Proje oluşturuluyor: {{detail}}",
       "creatingTable": "Tablo oluşturuluyor: {{tableName}} ({{tableIndex}}/{{totalTables}})"
     },
     "detecting": "Google bağlantısı denetleniyor…",
@@ -403,9 +403,9 @@
     "title": "Nasıl başlamak istersiniz?"
   },
   "importBaseDialog": {
-    "title": "Veritabanını içe aktar",
+    "title": "Projeyi içe aktar",
     "fromFile": "Dosyadan içe aktar",
-    "fromFileDesc": ".tea veritabanı dosyası yükleyin",
+    "fromFileDesc": ".tea proje dosyası yükleyin",
     "fromAirtableDesc": "Airtable hesabınızı bağlayın",
     "fromGoogleSheetDesc": "Google Drive'ınızdan bir e-tablo seçin"
   }

@@ -85,6 +85,7 @@ export interface IDomainErrorLocalization {
  * - Plain data object (not extending Error) to remain serializable across boundaries.
  * - No throw/exception semantics; errors are returned via Result<T, DomainError>.
  * - Immutable (all fields readonly) for predictable behavior.
+ * - `toString` is non-enumerable: log serializers must receive data, not methods.
  * - Diagnostic `stack`/`cause` are non-enumerable so JSON/HTTP DTO paths stay clean,
  *   while Sentry and log boundaries can still attribute the creation site.
  *
@@ -165,8 +166,8 @@ function createError(
     tags: input.tags,
     details: input.details,
     localization: input.localization,
-    toString: () => input.message,
   };
+  defineNonEnumerable(error, 'toString', () => input.message);
 
   if (input.stack) {
     defineNonEnumerable(error, 'stack', input.stack);

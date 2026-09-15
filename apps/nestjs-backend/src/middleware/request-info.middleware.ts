@@ -12,6 +12,7 @@ import cookie from 'cookie';
 import type { Request, Response, NextFunction } from 'express';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../types/cls';
+import { formatClientHeader } from '../utils/client-header';
 
 const automationRobotUserId = 'automationRobot';
 
@@ -122,6 +123,7 @@ export class RequestInfoMiddleware implements NestMiddleware {
 
   use(req: Request, res: Response, next: NextFunction) {
     const userAgent = req.headers['user-agent'] || '';
+    const client = formatClientHeader(req.headers['x-teable-client']);
     const referer = req.headers.referer || '';
     const authHeader = req.headers.authorization || '';
     const byApi = authHeader.toLowerCase().startsWith('bearer ');
@@ -158,6 +160,7 @@ export class RequestInfoMiddleware implements NestMiddleware {
       // (/table/:tableId/...) isn't available — the concrete path is more useful anyway.
       path: requestPath(req),
       ...(via ? { via } : {}),
+      ...(client ? { client } : {}),
     });
 
     // Automation runs under a dedicated robot identity (no real user is "logged in").

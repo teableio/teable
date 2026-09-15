@@ -10,7 +10,7 @@ import {
 
 import { formatFieldValueAsStringSql } from './FieldFormattingSql';
 import { buildFieldSqlMetadata } from './FieldSqlCoercionVisitor';
-
+import type { FormulaSqlPgBindings } from './FormulaSqlPgBindings';
 import type { FormulaSqlPgTranslator } from './FormulaSqlPgTranslator';
 import {
   buildErrorLiteral,
@@ -29,6 +29,7 @@ import {
   makeExpr,
   type SqlExpr,
   type SqlValueType,
+  type SqlStorageKind,
 } from './SqlExpression';
 import { mapTimeZoneToPg } from './TimeZonePgMapping';
 
@@ -187,8 +188,17 @@ export const IS_SAME_UNIT_SQL = Object.keys(IS_SAME_UNIT_ALIASES)
 export class FormulaSqlPgExpressionBuilder {
   protected readonly typeValidation: IPgTypeValidationStrategy;
 
-  constructor(protected readonly translator: FormulaSqlPgTranslator) {
+  constructor(
+    protected readonly translator: FormulaSqlPgTranslator,
+    private readonly bindings?: FormulaSqlPgBindings
+  ) {
     this.typeValidation = translator.typeValidationStrategy;
+  }
+
+  private internScalarExtract(expr: SqlExpr, buildExtractSql: () => string): string {
+    // Field extracts are correlated with the input row. Element-local extracts
+    // inside an aggregate must remain in that aggregate's scope.
+    return this.bindings && expr.field ? this.bindings.bind(buildExtractSql()) : buildExtractSql();
   }
 
   protected formulaTimeZone(): string {
@@ -600,7 +610,11 @@ export class FormulaSqlPgExpressionBuilder {
     // Nested ARRAY_* results already produce jsonb arrays. Re-running
     // normalizeToJsonArrayWithStrategy inlines the inner SQL through
     // pg_typeof / pg_input_is_valid and explodes statement size.
-    if (expr.isArray && expr.storageKind === 'json' && expr.field == null) {
+    if (
+      expr.isArray &&
+      expr.storageKind === 'json' &&
+      (expr.field == null || expr.field.type().equals(FieldType.formula()))
+    ) {
       return `COALESCE((${expr.valueSql}), '[]'::jsonb)`;
     }
 
@@ -659,6 +673,10 @@ export class FormulaSqlPgExpressionBuilder {
   }
 
   protected extractArrayScalarText(expr: SqlExpr): string {
+    return this.internScalarExtract(expr, () => this.buildArrayScalarTextSql(expr));
+  }
+
+  private buildArrayScalarTextSql(expr: SqlExpr): string {
     if (expr.storageKind === 'array' || expr.storageKind === 'json') {
       const normalized = this.normalizeArrayExpr(expr);
 
@@ -987,9 +1005,11 @@ export class FormulaSqlPgExpressionBuilder {
     }
     if (expr.storageKind === 'json') {
       const jsonbValue = `to_jsonb(${expr.valueSql})`;
-      const valueSql = this.isStructuredJsonField(expr)
-        ? this.buildJsonObjectText(jsonbValue)
-        : extractJsonScalarText(jsonbValue);
+      const valueSql = this.internScalarExtract(expr, () =>
+        this.isStructuredJsonField(expr)
+          ? this.buildJsonObjectText(jsonbValue)
+          : extractJsonScalarText(jsonbValue)
+      );
       return makeExpr(
         valueSql,
         'string',
@@ -1157,6 +1177,16 @@ export class FormulaSqlPgExpressionBuilder {
     }
 
     if (base.valueType === 'number') {
+      if (this.isNullSqlLiteral(base.valueSql) || base.valueSql.trim() === "''") {
+        return makeExpr(
+          'NULL::double precision',
+          'number',
+          false,
+          base.errorConditionSql,
+          base.errorMessageSql,
+          base.field
+        );
+      }
       if (base.storageKind === 'json') {
         return makeExpr(
           this.jsonScalarNumber(base.valueSql),
@@ -1514,7 +1544,8 @@ export class FormulaSqlPgExpressionBuilder {
 
   protected isBlankStringLiteral(expr: SqlExpr | undefined): boolean {
     if (!expr) return false;
-    return this.getStringLiteralValue(expr) === '';
+    if (this.getStringLiteralValue(expr) === '') return true;
+    return expr.valueType === 'string' && !expr.isArray && this.isNullSqlLiteral(expr.valueSql);
   }
 
   private nullIfBlankText(expr: SqlExpr): SqlExpr {
@@ -2005,7 +2036,7 @@ export class FormulaSqlPgExpressionBuilder {
       [scalarNumber, arrayExpr],
       buildErrorLiteral('TYPE', 'cannot_cast_to_number')
     );
-    return makeExpr(valueSql, 'number', true, errorCondition, errorMessage);
+    return makeExpr(valueSql, 'number', true, errorCondition, errorMessage, undefined, 'json');
   }
 
   protected vectorizeUnaryNumeric(expr: SqlExpr, op: (valueSql: string) => string): SqlExpr {
@@ -2029,23 +2060,84 @@ export class FormulaSqlPgExpressionBuilder {
       [expr, elementNumber],
       buildErrorLiteral('TYPE', 'cannot_cast_to_number')
     );
-    return makeExpr(valueSql, 'number', true, errorCondition, errorMessage);
+    return makeExpr(valueSql, 'number', true, errorCondition, errorMessage, undefined, 'json');
+  }
+
+  private normalizeArrayBranch(expr: SqlExpr): SqlExpr {
+    // CASE branches must agree on their physical SQL type, not just their
+    // logical element type. Normalize before dropping the source field metadata.
+    if (expr.storageKind === 'json' && expr.field == null) {
+      return expr;
+    }
+    const valueSql =
+      expr.storageKind === 'array' && expr.field == null
+        ? `to_jsonb(${expr.valueSql})`
+        : `(CASE WHEN ${expr.valueSql} IS NULL THEN NULL ELSE ${this.normalizeArrayExpr(expr)} END)`;
+    return makeExpr(
+      valueSql,
+      expr.valueType,
+      true,
+      expr.errorConditionSql,
+      expr.errorMessageSql,
+      undefined,
+      'json'
+    );
   }
 
   protected coerceBranches(
     left: SqlExpr,
     right: SqlExpr
-  ): { left: SqlExpr; right: SqlExpr; type: SqlValueType; isArray: boolean } {
+  ): {
+    left: SqlExpr;
+    right: SqlExpr;
+    type: SqlValueType;
+    isArray: boolean;
+    storageKind?: SqlStorageKind;
+  } {
     const leftBlank = this.isBlankStringLiteral(left);
     const rightBlank = this.isBlankStringLiteral(right);
 
+    if (left.isArray && right.isArray && left.valueType === right.valueType) {
+      return {
+        left: this.normalizeArrayBranch(left),
+        right: this.normalizeArrayBranch(right),
+        type: left.valueType,
+        isArray: true,
+        storageKind: 'json',
+      };
+    }
+
     if (leftBlank && !rightBlank && right.valueType !== 'string') {
-      const blankExpr = makeExpr('NULL', right.valueType, right.isArray, undefined, undefined);
-      return { left: blankExpr, right, type: right.valueType, isArray: right.isArray };
+      const blankExpr = makeExpr(
+        'NULL',
+        right.valueType,
+        right.isArray,
+        left.errorConditionSql,
+        left.errorMessageSql
+      );
+      return {
+        left: blankExpr,
+        right: right.isArray ? this.normalizeArrayBranch(right) : right,
+        type: right.valueType,
+        isArray: right.isArray,
+        storageKind: right.isArray ? 'json' : right.storageKind,
+      };
     }
     if (rightBlank && !leftBlank && left.valueType !== 'string') {
-      const blankExpr = makeExpr('NULL', left.valueType, left.isArray, undefined, undefined);
-      return { left, right: blankExpr, type: left.valueType, isArray: left.isArray };
+      const blankExpr = makeExpr(
+        'NULL',
+        left.valueType,
+        left.isArray,
+        right.errorConditionSql,
+        right.errorMessageSql
+      );
+      return {
+        left: left.isArray ? this.normalizeArrayBranch(left) : left,
+        right: blankExpr,
+        type: left.valueType,
+        isArray: left.isArray,
+        storageKind: left.isArray ? 'json' : left.storageKind,
+      };
     }
 
     const needsJsonScalarCoercion =
@@ -2141,7 +2233,13 @@ export class FormulaSqlPgExpressionBuilder {
   protected coerceSwitchResults(
     results: SqlExpr[],
     defaultResult?: SqlExpr
-  ): { results: SqlExpr[]; defaultValueSql?: string; type: SqlValueType; isArray: boolean } {
+  ): {
+    results: SqlExpr[];
+    defaultValueSql?: string;
+    type: SqlValueType;
+    isArray: boolean;
+    storageKind?: SqlStorageKind;
+  } {
     if (results.length === 0) {
       return { results, type: 'string', isArray: false };
     }
@@ -2168,6 +2266,25 @@ export class FormulaSqlPgExpressionBuilder {
       !defaultResult ||
       this.isBlankStringLiteral(defaultResult) ||
       (defaultResult.valueType === type && defaultResult.isArray === isArray);
+
+    if (
+      isArray &&
+      nonBlankConsistent &&
+      defaultConsistent &&
+      (type !== 'string' || results.every((result) => result.isArray))
+    ) {
+      const normalize = (result: SqlExpr): SqlExpr =>
+        this.isBlankStringLiteral(result)
+          ? makeExpr('NULL', type, true, undefined, undefined, undefined, 'json')
+          : this.normalizeArrayBranch(result);
+      return {
+        results: results.map(normalize),
+        defaultValueSql: defaultResult ? normalize(defaultResult).valueSql : undefined,
+        type,
+        isArray: true,
+        storageKind: 'json',
+      };
+    }
 
     // Mirror IF branch normalization (coerceBranches): a scalar branch carrying
     // JSON storage (single-value lookup refs emit jsonb even for number/date inner

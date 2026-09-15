@@ -413,7 +413,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
             context,
             persistedTable,
             filterSpec,
-            { mode: 'stored', pagination, search: visibleRowSearch }
+            { mode: 'stored', pagination, search: visibleRowSearch, includeTotal: true }
           );
           totalRows = countResult.total;
         }
@@ -2657,7 +2657,7 @@ export class PasteStreamApplicationService extends PasteHandler {
           context,
           persistedTable,
           filterSpec,
-          { mode: 'stored', pagination, search: visibleRowSearch }
+          { mode: 'stored', pagination, search: visibleRowSearch, includeTotal: true }
         );
         if (countResult.isErr()) {
           return err(countResult.error);

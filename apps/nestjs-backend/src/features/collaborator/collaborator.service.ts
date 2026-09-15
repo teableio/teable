@@ -5,6 +5,7 @@ import {
   canManageRole,
   getRandomString,
   HttpErrorCode,
+  isRobot,
   Role,
   type IBaseRole,
   type IRole,
@@ -68,6 +69,21 @@ export class CollaboratorService {
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
+  // Robot identities never hold collaborator rows (see PermissionService.getSpaceCollaborators).
+  private assertNoRobotPrincipal(collaborators: { principalId: string }[]) {
+    if (collaborators.some((collaborator) => isRobot(collaborator.principalId))) {
+      throw new CustomHttpException(
+        'Robot identities cannot be collaborators',
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.notAllowedOperation',
+          },
+        }
+      );
+    }
+  }
+
   async createSpaceCollaborator({
     collaborators,
     spaceId,
@@ -84,6 +100,7 @@ export class CollaboratorService {
     createdBy?: string;
     skipEvent?: boolean;
   }) {
+    this.assertNoRobotPrincipal(collaborators);
     const currentUserId = createdBy || this.cls.get('user.id');
     const exist = await this.prismaService.txClient().collaborator.count({
       where: {
@@ -1010,6 +1027,7 @@ export class CollaboratorService {
     createdBy?: string;
     skipEvent?: boolean;
   }) {
+    this.assertNoRobotPrincipal(collaborators);
     const currentUserId = createdBy || this.cls.get('user.id');
     const base = await this.prismaService.txClient().base.findUniqueOrThrow({
       where: { id: baseId },
@@ -1026,7 +1044,7 @@ export class CollaboratorService {
     // if has exist space collaborator
     if (exist) {
       throw new CustomHttpException(
-        'Collaborator has already existed in base',
+        'Collaborator has already existed in project',
         HttpErrorCode.VALIDATION_ERROR,
         {
           localization: {
@@ -1236,7 +1254,7 @@ export class CollaboratorService {
           },
         })
         .catch(() => {
-          throw new CustomHttpException('Base not found', HttpErrorCode.VALIDATION_ERROR, {
+          throw new CustomHttpException('Project not found', HttpErrorCode.VALIDATION_ERROR, {
             localization: {
               i18nKey: 'httpErrors.collaborator.baseNotFound',
             },

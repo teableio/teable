@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { ArrowUpRight, Database, Table2 } from '@teable/icons';
+import { ArrowUpRight, LayoutGrid, Table2 } from '@teable/icons';
 import { getBaseAll } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { AnchorContext, TableProvider } from '@teable/sdk/context';
@@ -167,7 +167,7 @@ const BasePicker = ({ baseId, onChange }: IBasePickerProps) => {
       candidates={bases?.map((base) => ({
         id: base.id,
         name: base.name,
-        icon: base.icon || <Database className="size-4 shrink-0" />,
+        icon: base.icon || <LayoutGrid className="size-4 shrink-0" />,
       }))}
       placeholder={t('table:field.editor.selectBase')}
     />

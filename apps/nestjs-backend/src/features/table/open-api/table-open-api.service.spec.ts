@@ -311,12 +311,15 @@ describe('TableOpenApiService.cleanTablesRelatedData', () => {
     const metaTxClient = {
       field: { deleteMany: vi.fn().mockResolvedValue(undefined) },
       view: { deleteMany: vi.fn().mockResolvedValue(undefined) },
+      comment: { deleteMany: vi.fn().mockResolvedValue(undefined) },
+      commentSubscription: { deleteMany: vi.fn().mockResolvedValue(undefined) },
       attachmentsTable: { deleteMany: vi.fn().mockResolvedValue(undefined) },
       ops: { deleteMany: vi.fn().mockResolvedValue(undefined) },
       tableMeta: { deleteMany: vi.fn().mockResolvedValue(undefined) },
       trash: { deleteMany: vi.fn().mockResolvedValue(undefined) },
     };
     const dataTxClient = {
+      attachmentsTable: { deleteMany: vi.fn().mockResolvedValue(undefined) },
       recordHistory: { deleteMany: vi.fn().mockResolvedValue(undefined) },
       tableTrash: { deleteMany: vi.fn().mockResolvedValue(undefined) },
       recordTrash: { deleteMany: vi.fn().mockResolvedValue(undefined) },
@@ -326,6 +329,7 @@ describe('TableOpenApiService.cleanTablesRelatedData', () => {
     };
     const databaseRouter = {
       dataPrismaForBase: vi.fn().mockResolvedValue(dataTxClient),
+      isMetaFallbackForBase: vi.fn().mockResolvedValue(false),
     };
 
     const service = new TableOpenApiService(
@@ -356,11 +360,20 @@ describe('TableOpenApiService.cleanTablesRelatedData', () => {
     expect(metaTxClient.field.deleteMany).toHaveBeenCalledWith({
       where: { tableId: { in: ['tblA', 'tblB'] } },
     });
+    expect(metaTxClient.comment.deleteMany).toHaveBeenCalledWith({
+      where: { tableId: { in: ['tblA', 'tblB'] } },
+    });
+    expect(metaTxClient.commentSubscription.deleteMany).toHaveBeenCalledWith({
+      where: { tableId: { in: ['tblA', 'tblB'] } },
+    });
     expect(metaTxClient.trash.deleteMany).toHaveBeenCalledWith({
       where: {
         resourceId: { in: ['tblA', 'tblB'] },
         resourceType: 'table',
       },
+    });
+    expect(dataTxClient.attachmentsTable.deleteMany).toHaveBeenCalledWith({
+      where: { tableId: { in: ['tblA', 'tblB'] } },
     });
     expect(dataTxClient.recordHistory.deleteMany).toHaveBeenCalledWith({
       where: { tableId: { in: ['tblA', 'tblB'] } },
@@ -378,18 +391,22 @@ describe('TableOpenApiService.cleanTablesRelatedData', () => {
     const metaTxClient = {
       field: { deleteMany: vi.fn().mockResolvedValue(undefined) },
       view: { deleteMany: vi.fn().mockResolvedValue(undefined) },
+      comment: { deleteMany: vi.fn().mockResolvedValue(undefined) },
+      commentSubscription: { deleteMany: vi.fn().mockResolvedValue(undefined) },
       attachmentsTable: { deleteMany: vi.fn().mockResolvedValue(undefined) },
       ops: { deleteMany: vi.fn().mockResolvedValue(undefined) },
       tableMeta: { deleteMany: vi.fn().mockResolvedValue(undefined) },
       trash: { deleteMany: vi.fn().mockResolvedValue(undefined) },
     };
     const dataTxClient = {
+      attachmentsTable: { deleteMany: vi.fn().mockResolvedValue(undefined) },
       recordHistory: { deleteMany: vi.fn().mockResolvedValue(undefined) },
       tableTrash: { deleteMany: vi.fn().mockResolvedValue(undefined) },
       recordTrash: { deleteMany: vi.fn().mockResolvedValue(undefined) },
     };
     const dataRootClient = {
       txClient: vi.fn().mockReturnValue(dataTxClient),
+      attachmentsTable: { deleteMany: vi.fn() },
       recordHistory: { deleteMany: vi.fn() },
       tableTrash: { deleteMany: vi.fn() },
       recordTrash: { deleteMany: vi.fn() },
@@ -399,6 +416,7 @@ describe('TableOpenApiService.cleanTablesRelatedData', () => {
     };
     const databaseRouter = {
       dataPrismaForBase: vi.fn().mockResolvedValue(dataRootClient),
+      isMetaFallbackForBase: vi.fn().mockResolvedValue(false),
     };
 
     const service = new TableOpenApiService(
@@ -601,12 +619,15 @@ describe('TableOpenApiService.cleanTablesRelatedData', () => {
     const metaTxClient = {
       field: { deleteMany: deleteMany() },
       view: { deleteMany: deleteMany() },
+      comment: { deleteMany: deleteMany() },
+      commentSubscription: { deleteMany: deleteMany() },
       attachmentsTable: { deleteMany: deleteMany() },
       ops: { deleteMany: deleteMany() },
       tableMeta: { deleteMany: deleteMany() },
       trash: { deleteMany: deleteMany() },
     };
     const dataPrisma = {
+      attachmentsTable: { deleteMany: deleteMany() },
       recordHistory: { deleteMany: deleteMany() },
       tableTrash: {
         deleteMany: tableTrashError ? vi.fn().mockRejectedValue(tableTrashError) : deleteMany(),

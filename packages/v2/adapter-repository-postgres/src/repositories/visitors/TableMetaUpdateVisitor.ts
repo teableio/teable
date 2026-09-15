@@ -13,6 +13,7 @@ import {
   TableByViewIdSpec,
   TableWithViewIdsSpec,
   TableWithPrimaryFieldSpec,
+  TableWithFieldIdsSpec,
   TableByIncomingReferenceToTableSpec,
   TableByIdsSpec,
   TableByNameLikeSpec,
@@ -710,6 +711,16 @@ export class TableMetaUpdateVisitor
     return err(
       domainError.validation({
         message: 'TableWithPrimaryFieldSpec is not supported for table updates',
+      })
+    );
+  }
+
+  visitTableWithFieldIds(
+    _: TableWithFieldIdsSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableWithFieldIdsSpec is not supported for table updates',
       })
     );
   }

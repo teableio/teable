@@ -104,7 +104,7 @@ export class BaseDataDbMoveService {
 
     if (base.spaceId === targetSpaceId) {
       throw new CustomHttpException(
-        'Base is already in the target space',
+        'Project is already in the target space',
         HttpErrorCode.VALIDATION_ERROR
       );
     }
@@ -121,7 +121,7 @@ export class BaseDataDbMoveService {
     ]);
     if (source.cacheKey === target.cacheKey) {
       throw new CustomHttpException(
-        'Physical base move is only required across different data databases',
+        'Physical project move is only required across different data databases',
         HttpErrorCode.VALIDATION_ERROR
       );
     }
@@ -359,7 +359,9 @@ export class BaseDataDbMoveService {
       // Meta switch while base still routes to source until spaceId updates.
       await this.cls.run(async () => {
         this.cls.set('user.id', job.createdBy);
-        await this.baseService.applyMetaMoveBase(inventory.baseId, inventory.targetSpaceId);
+        await this.baseService.applyMetaMoveBase(inventory.baseId, inventory.targetSpaceId, {
+          dataDbChanged: true,
+        });
       });
 
       await this.cleanupSourceArtifacts(sourceUrl, inventory).catch((error) => {
@@ -466,7 +468,10 @@ export class BaseDataDbMoveService {
   private readInventory(raw: unknown): IBaseMoveInventory {
     const inv = asRecord(raw);
     if (!inv || typeof inv.baseId !== 'string') {
-      throw new CustomHttpException('Invalid base move inventory', HttpErrorCode.VALIDATION_ERROR);
+      throw new CustomHttpException(
+        'Invalid project move inventory',
+        HttpErrorCode.VALIDATION_ERROR
+      );
     }
     return {
       baseId: inv.baseId as string,
@@ -571,7 +576,7 @@ export class BaseDataDbMoveService {
     const active = await this.hasActiveMoveForBase(baseId);
     if (active) {
       throw new CustomHttpException(
-        'A base data database move is already in progress',
+        'A project data database move is already in progress',
         HttpErrorCode.CONFLICT,
         {
           errorCode: baseDataDbMovingErrorCode,

@@ -2,6 +2,7 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { FunctionName } from '@teable/v2-core';
 
+import type { FormulaSqlPgBindings } from './FormulaSqlPgBindings';
 import {
   DATE_ADD_UNIT_ALIASES,
   DATE_ADD_UNIT_SQL,
@@ -34,8 +35,8 @@ const NULL_TIMESTAMPTZ = 'NULL::timestamptz';
 export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
   private readonly functionHandlers: Partial<Record<FunctionName, (params: SqlExpr[]) => SqlExpr>>;
 
-  constructor(translator: FormulaSqlPgTranslator) {
-    super(translator);
+  constructor(translator: FormulaSqlPgTranslator, bindings?: FormulaSqlPgBindings) {
+    super(translator, bindings);
     this.functionHandlers = {
       [FunctionName.Sum]: (params) => this.sum(params),
       [FunctionName.Average]: (params) => this.average(params),
@@ -367,7 +368,9 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       'number',
       true,
       arrayExpr.errorConditionSql,
-      arrayExpr.errorMessageSql
+      arrayExpr.errorMessageSql,
+      undefined,
+      'json'
     );
   }
 
@@ -1014,7 +1017,8 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
   private textSplit(params: SqlExpr[]): SqlExpr {
     const textExpr = params[0];
     const delimiterExpr = params[1];
-    if (!textExpr || !delimiterExpr) return makeExpr('NULL', 'string', true);
+    if (!textExpr || !delimiterExpr)
+      return makeExpr('NULL::jsonb', 'string', true, undefined, undefined, undefined, 'json');
     const text = this.coerceToString(textExpr, false);
     const delimiter = this.coerceToString(delimiterExpr);
     const errorCondition = combineErrorConditions([text, delimiter]);
@@ -1028,7 +1032,9 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       'string',
       true,
       errorCondition,
-      errorMessage
+      errorMessage,
+      undefined,
+      'json'
     );
   }
 
@@ -1167,16 +1173,37 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     }
     const condBool = this.coerceToBoolean(condition);
     const merged = this.coerceBranches(trueExpr, falseExpr);
-    const errorCondition = combineErrorConditions([condBool, merged.left, merged.right]);
-    const errorMessage = buildErrorMessageSql(
-      [condBool, merged.left, merged.right],
-      buildErrorLiteral('TYPE', 'if_branch_mismatch')
-    );
+    const trueErr = merged.left.errorConditionSql;
+    const falseErr = merged.right.errorConditionSql;
+    // Error metadata follows the same lazy branch selection as the value.
+    // A flat OR loses selected ERROR() values or observes errors in dead arms.
+    const branchError =
+      trueErr || falseErr
+        ? `(CASE WHEN ${condBool.valueSql} THEN COALESCE(${trueErr ?? 'FALSE'}, FALSE) ELSE COALESCE(${falseErr ?? 'FALSE'}, FALSE) END)`
+        : undefined;
+    const errorCondition = condBool.errorConditionSql
+      ? `(CASE WHEN ${condBool.errorConditionSql} THEN TRUE ELSE ${branchError ?? 'FALSE'} END)`
+      : branchError;
+    const fallbackMessage = buildErrorLiteral('TYPE', 'if_branch_mismatch');
+    const branchMessage = `(CASE WHEN ${condBool.valueSql} THEN ${merged.left.errorMessageSql ?? fallbackMessage} ELSE ${merged.right.errorMessageSql ?? fallbackMessage} END)`;
+    const errorMessage = errorCondition
+      ? condBool.errorConditionSql
+        ? `(CASE WHEN ${condBool.errorConditionSql} THEN ${condBool.errorMessageSql ?? fallbackMessage} ELSE ${branchMessage} END)`
+        : branchMessage
+      : undefined;
     const valueSql = guardValueSql(
       `(CASE WHEN ${condBool.valueSql} THEN ${merged.left.valueSql} ELSE ${merged.right.valueSql} END)`,
-      errorCondition
+      condBool.errorConditionSql
     );
-    return makeExpr(valueSql, merged.type, merged.isArray, errorCondition, errorMessage);
+    return makeExpr(
+      valueSql,
+      merged.type,
+      merged.isArray,
+      errorCondition,
+      errorMessage,
+      undefined,
+      merged.storageKind
+    );
   }
 
   private switchFunc(params: SqlExpr[]): SqlExpr {
@@ -1229,7 +1256,9 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       mergedResults.type,
       mergedResults.isArray,
       errorCondition,
-      errorMessage
+      errorMessage,
+      undefined,
+      mergedResults.storageKind
     );
   }
 
@@ -1316,7 +1345,7 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const valueSql = value.errorConditionSql
       ? `(${value.errorConditionSql} OR ${likeCondition})`
       : likeCondition;
-    return makeExpr(valueSql, 'boolean', false);
+    return makeExpr(`COALESCE(${valueSql}, FALSE)`, 'boolean', false);
   }
 
   private applyWeekdayStartDay(weekdaySql: string, startDayOfWeek?: SqlExpr): string {
@@ -1609,6 +1638,22 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     const valueSql = `(
       SELECT CASE
         WHEN p.day_count = 0 THEN p.start_date::timestamp
+        -- Anchor weekend starts on the preceding Friday (forward) or following
+        -- Monday (backward). Whole work weeks then cost seven calendar days.
+        WHEN BTRIM(p.holiday_text) = '' THEN (
+          SELECT (a.anchor_date + CASE WHEN p.day_count > 0
+            THEN ABS(p.day_count) + 2 * ((a.weekday - 1 + ABS(p.day_count)) / 5)
+            ELSE -(ABS(p.day_count) + 2 * ((5 - a.weekday + ABS(p.day_count)) / 5))
+          END)::timestamp
+          FROM (
+            SELECT
+              p.start_date + CASE WHEN p.day_count > 0 THEN -GREATEST(d.dow - 5, 0)
+                WHEN d.dow > 5 THEN 8 - d.dow ELSE 0 END AS anchor_date,
+              CASE WHEN p.day_count > 0 THEN LEAST(d.dow, 5)
+                WHEN d.dow > 5 THEN 1 ELSE d.dow END AS weekday
+            FROM (SELECT EXTRACT(ISODOW FROM p.start_date)::integer AS dow) d
+          ) a
+        )
         ELSE (
           SELECT c.candidate_date::timestamp
           FROM (
@@ -1698,20 +1743,28 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
           CASE WHEN p.end_date >= p.start_date THEN 1 ELSE -1 END AS direction
         FROM params p
       ),
-      candidates AS (
-        SELECT d::date AS candidate_date
+      span AS (
+        SELECT b.*, COALESCE(b.max_date - b.min_date, 0) AS days
         FROM bounds b
-        CROSS JOIN LATERAL generate_series(b.min_date + 1, b.max_date, INTERVAL '1 day') AS d
       ),
-      workdays AS (
-        SELECT c.candidate_date
-        FROM candidates c
-        LEFT JOIN holiday_dates h ON h.holiday_date = c.candidate_date
-        WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
-          AND h.holiday_date IS NULL
+      weekday_counts AS (
+        -- Whole weeks contribute five days; at most six remainder dates are scanned.
+        SELECT b.*, (b.days / 7) * 5 + (
+          SELECT COUNT(*) FROM generate_series(1, b.days % 7) AS r(n)
+          WHERE EXTRACT(ISODOW FROM b.min_date + r.n)::integer <= 5
+        ) AS weekday_count
+        FROM span b
       )
-      SELECT (b.direction * (SELECT COUNT(*) FROM workdays))::integer
-      FROM bounds b
+      -- With no weekday candidates, the old enumeration never evaluated holiday
+      -- casts. Preserve that laziness, including malformed calendar dates.
+      SELECT CASE WHEN b.weekday_count = 0 THEN 0 ELSE (b.direction * (
+        b.weekday_count - (
+          SELECT COUNT(*) FROM holiday_dates h
+          WHERE h.holiday_date > b.min_date AND h.holiday_date <= b.max_date
+            AND EXTRACT(ISODOW FROM h.holiday_date)::integer <= 5
+        )
+      ))::integer END
+      FROM weekday_counts b
     )`;
     return makeExpr(
       guardValueSql(valueSql, errorCondition),

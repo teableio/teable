@@ -66,7 +66,7 @@
         "generatingToken": "Wird generiert...",
         "generateToken": "Token generieren",
         "confirmTitle": "API-Token erstellen",
-        "confirmDescription": "Dadurch wird ein neues API-Token mit den folgenden Berechtigungen für diese Base erstellt:",
+        "confirmDescription": "Dadurch wird ein neues API-Token mit den folgenden Berechtigungen für dieses Projekt erstellt:",
         "scopeTableRead": "Tabelleninformationen lesen",
         "scopeFieldRead": "Felder lesen",
         "scopeRead": "Datensätze lesen",
@@ -99,7 +99,7 @@
   },
   "welcome": {
     "title": "Willkommen",
-    "emptyTitle": "Beginnen Sie mit dem Aufbau Ihrer Datenbank",
+    "emptyTitle": "Beginnen Sie mit dem Aufbau Ihres Projekts",
     "description": "Klicken Sie auf den „+“-Knopf in der Seitenleiste, um Ressourcen hinzuzufügen",
     "help": "Weitere Informationen finden Sie im <HelpCenter />.",
     "helpCenter": "Hilfe-Center"
@@ -271,7 +271,6 @@
       "bar": "Balken",
       "text": "Text",
       "markdown": "Markdown",
-      "url": "Url",
       "email": "E-Mail",
       "phone": "Telfonnummer",
       "maxNumber": "Maximale Nummer",
@@ -287,8 +286,8 @@
       "manyToMany": "many-to-many",
       "self": "Selbst",
       "selectTable": "Tabelle auswählen...",
-      "selectBase": "Base auswählen...",
-      "linkFromAnotherBase": "Link von externer Base",
+      "selectBase": "Projekt auswählen...",
+      "linkFromAnotherBase": "Link von externem Projekt",
       "inSelfLink": "in Selbstverknüpfung",
       "betweenTwoTables": "zwischen zwei Tabellen",
       "tips": "Tipps",
@@ -320,9 +319,9 @@
         "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
       },
       "linkTable": "Tabelle verlinken",
-      "linkBase": "Base verlinken",
+      "linkBase": "Projekt verlinken",
       "tableNoPermission": "Keine Berechtigung für Tabelle",
-      "baseNoPermission": "Keine Berechtigung für Base",
+      "baseNoPermission": "Keine Berechtigung für Projekt",
       "noLinkTip": "Keine verknüpften Datensätze zum Nachschlagen. Fügen Sie einen Link zu einem anderen Datensatzfeld hinzu und versuchen Sie dann erneut, die Suche zu konfigurieren.",
       "fieldValidationRules": "Regeln für die Validierung von Feldwerten",
       "enableValidateFieldUnique": "Doppelte Werte verbieten",
@@ -333,6 +332,7 @@
       "filterByView": "Datensätze nach Ansicht filtern",
       "filter": "Datensätze filtern",
       "hideFields": "Felder verstecken",
+      "removeDuplicateValues": "Doppelte Werte entfernen",
       "moreOptions": "Mehr Optionen",
       "allowNewOptionsWhenEditing": "Neue Optionen bei der Bearbeitung zulassen",
       "deleteField": {
@@ -478,7 +478,7 @@
     "deleteConfirm": "Sind Sie sicher, dass Sie \"{{tableName}}\" löschen möchten?",
     "dbTableName": "Tabelle Name in der physischen Datenbank",
     "schemaName": "Schema Name in der physischen Datenbank",
-    "baseInfo": "Base Info",
+    "baseInfo": "Projekt Info",
     "loginUserTable": "App-Anmeldung",
     "linkedApps": "Verknüpfte Apps",
     "typeOfDatabase": "Typ der Databank",
@@ -630,9 +630,9 @@
         "noPermission": "Sie haben keine Berechtigung, Datensätze zu kopieren"
       },
       "crossBaseCopyTitle": "Als Klartext kopieren?",
-      "crossBaseCopyDescription": "Die Auswahl enthält ein basenübergreifendes Verknüpfungsfeld. Damit die Daten in ihrer ursprünglichen Base bleiben, wird das Feld als Klartext kopiert und verliert seine Verknüpfungen.",
+      "crossBaseCopyDescription": "Diese Auswahl enthält ein projektübergreifendes Verknüpfungsfeld. Damit die Daten in ihrem ursprünglichen Projekt bleiben, wird das Feld als Klartext kopiert und verliert seine Verknüpfungen.",
       "crossBaseCopyConfirm": "Als Klartext kopieren",
-      "crossBaseCopyLoadFirst": "Bitte scrollen Sie, um alle ausgewählten Zeilen zu laden, bevor Sie basenübergreifende Felder kopieren."
+      "crossBaseCopyLoadFirst": "Bitte scrollen Sie, um alle ausgewählten Zeilen zu laden, bevor Sie projektübergreifende Felder kopieren."
     },
     "graph": {
       "effectCells": "Kann sich auf Zellen auswirken",
@@ -650,7 +650,7 @@
       "v2": {
         "dialogTitle": "Schema-Integrität",
         "dialogDescription": "Führe den v2-Schema-Check und die Reparatur für {{tableName}} aus.",
-        "dialogDescriptionNoTable": "Führe den v2-Schema-Check und die Reparatur für die aktuelle Base aus.",
+        "dialogDescriptionNoTable": "Führe den v2-Schema-Check und die Reparatur für das aktuelle Projekt aus.",
         "runCheck": "Prüfung starten",
         "recheck": "Erneut prüfen",
         "repair": "Reparieren",
@@ -702,13 +702,13 @@
           "noRepairStatements": "No repair statements available",
           "skippedDependencies": "Skipped because dependencies are not satisfied",
           "checkStreamConnected": "Schema integrity check stream connected",
-          "baseCheckStreamConnected": "Base schema integrity check stream connected",
+          "baseCheckStreamConnected": "Verbindung zur Prüfung des Projektschemas hergestellt",
           "repairStreamConnected": "Schema integrity repair stream connected",
-          "baseRepairStreamConnected": "Base schema integrity repair stream connected",
+          "baseRepairStreamConnected": "Verbindung zur Reparatur des Projektschemas hergestellt",
           "checkCompleted": "Schema integrity check completed",
-          "baseCheckCompleted": "Base schema integrity check completed",
+          "baseCheckCompleted": "Prüfung des Projektschemas abgeschlossen",
           "repairCompleted": "Schema integrity repair completed",
-          "baseRepairCompleted": "Base schema integrity repair completed",
+          "baseRepairCompleted": "Reparatur des Projektschemas abgeschlossen",
           "skippedStatusNotSelected": "Übersprungen, weil diese Statusstufe nicht zur Reparatur ausgewählt war",
           "skippedRepairUnavailable": "Übersprungen, weil die automatische Reparatur im aktuellen Zustand nicht verfügbar ist"
         },
@@ -911,11 +911,14 @@
     "deletedRecovered": {
       "title": "Die aufgerufene Tabelle wurde gelöscht",
       "description": "Zu „{{tableName}}“ gewechselt",
-      "descriptionEmpty": "Zur Base-Seite zurückgekehrt"
+      "descriptionEmpty": "Zur Projekt-Seite zurückgekehrt"
     }
   },
   "import": {
     "title": {
+      "createTable": "Tabelle erstellen",
+      "importFromCsv": "Aus CSV importieren",
+      "importFromExcel": "Aus Excel importieren",
       "upload": "Hochladen",
       "import": "Importieren",
       "localFile": "Lokale Dateien",
@@ -1116,7 +1119,7 @@
   },
   "connection": {
     "title": "Datenbankverbindung",
-    "description": "Sie können über die Datenbankverbindung direkt auf die Datenbank zugreifen, einschließlich aller Tabellen unter der aktuellen Base",
+    "description": "Sie können über die Datenbankverbindung direkt auf die Datenbank zugreifen, einschließlich aller Tabellen im aktuellen Projekt",
     "noPermission": "Sie haben keine Berechtigung zum Zugriff auf die Datenbank",
     "connectionCountTip": "Die maximale Anzahl von Datenbankverbindungen beträgt <b>{{max}}</b> und die aktuellen Verbindungen sind <b>{{current}}</b>",
     "createFailed": "Bitte stellen Sie sicher, dass die Umgebungsvariable PUBLIC_DATABASE_PROXY korrekt gesetzt ist",
@@ -1239,7 +1242,7 @@
     "shareToWeb": "Im Web teilen",
     "refreshLink": "Link erneuern",
     "deleteConfirmTitle": "Freigabelink löschen",
-    "deleteConfirmDescription": "Diese Aktion kann nicht rückgängig gemacht werden. Personen mit diesem Link können nicht mehr auf die geteilte Base zugreifen.",
+    "deleteConfirmDescription": "Diese Aktion kann nicht rückgängig gemacht werden. Personen mit diesem Link können nicht mehr auf das geteilte Projekt zugreifen.",
     "createSuccess": "Freigabelink erstellt",
     "createFailed": "Freigabelink konnte nicht erstellt werden",
     "updateFailed": "Freigabeeinstellungen konnten nicht aktualisiert werden",
@@ -1382,6 +1385,83 @@
     "action": {
       "locateResource": "Suchen"
     },
+    "resourceOperations": {
+      "title": "Änderungen dieser Antwort",
+      "items_one": "{{count}} Element",
+      "items_other": "{{count}} Elemente",
+      "expandRemaining": "Weitere anzeigen ({{count}})",
+      "collapse": "Weniger anzeigen",
+      "create": "Erstellt",
+      "update": "Aktualisiert",
+      "delete": "Gelöscht",
+      "import": "Importieren",
+      "publication": {
+        "published": "Veröffentlicht",
+        "unpublished": "Veröffentlichung aufgehoben"
+      },
+      "structureTitles": {
+        "field": "Feldänderungen",
+        "view": "Ansichtsänderungen"
+      },
+      "structureStats": {
+        "field": {
+          "create_one": "{{count}} Feld hinzugefügt",
+          "create_other": "{{count}} Felder hinzugefügt",
+          "update_one": "{{count}} Feld geändert",
+          "update_other": "{{count}} Felder geändert",
+          "delete_one": "{{count}} Feld gelöscht",
+          "delete_other": "{{count}} Felder gelöscht",
+          "import_one": "{{count}} Feld importiert",
+          "import_other": "{{count}} Felder importiert"
+        },
+        "view": {
+          "create_one": "{{count}} Ansicht hinzugefügt",
+          "create_other": "{{count}} Ansichten hinzugefügt",
+          "update_one": "{{count}} Ansicht geändert",
+          "update_other": "{{count}} Ansichten geändert",
+          "delete_one": "{{count}} Ansicht gelöscht",
+          "delete_other": "{{count}} Ansichten gelöscht",
+          "import_one": "{{count}} Ansicht importiert",
+          "import_other": "{{count}} Ansichten importiert"
+        }
+      },
+      "workflow": {
+        "activate": "Automatisierung aktiviert",
+        "deactivate": "Automatisierung deaktiviert",
+        "discard": "Entwurfsänderungen verworfen"
+      },
+      "routine": {
+        "activate": "Routine aktiviert",
+        "deactivate": "Routine deaktiviert",
+        "run": "Ausführung gestartet"
+      },
+      "records": {
+        "create": "Datensätze hinzugefügt",
+        "createCount_one": "{{count}} Datensatz hinzugefügt",
+        "createCount_other": "{{count}} Datensätze hinzugefügt",
+        "update": "Datensätze aktualisiert",
+        "updateCount_one": "{{count}} Datensatz aktualisiert",
+        "updateCount_other": "{{count}} Datensätze aktualisiert",
+        "delete": "Datensätze gelöscht",
+        "deleteCount_one": "{{count}} Datensatz gelöscht",
+        "deleteCount_other": "{{count}} Datensätze gelöscht",
+        "import": "Datensätze importiert",
+        "importCount_one": "{{count}} Datensatz importiert",
+        "importCount_other": "{{count}} Datensätze importiert"
+      },
+      "types": {
+        "base": "Projekt",
+        "table": "Tabelle",
+        "field": "Feld",
+        "view": "Ansicht",
+        "record": "Datensätze",
+        "app": "App",
+        "workflow": "Automatisierung",
+        "routine": "Routine",
+        "folder": "Ordner",
+        "artifact": "Artifact"
+      }
+    },
     "showUI": {
       "skip": "Überspringen",
       "next": "Nächste",
@@ -1421,7 +1501,13 @@
     "addAttachment": "Anhang hinzufügen",
     "noHistory": "Keine Chat-Verlauf",
     "noFoundHistory": "Keine passenden Chat-Verlauf gefunden, starten Sie einen neuen Chat",
+    "pin": "Anheften",
+    "unpin": "Loslösen",
+    "archive": "Archivieren",
+    "archivedToast": "Chat archiviert. Zu finden unter Einstellungen › Archivierte Chats.",
+    "unread": "Ungelesen",
     "timeGroup": {
+      "pinned": "Angeheftet",
       "today": "Heute",
       "oneWeek": "Eine Woche",
       "twoWeek": "Zwei Wochen",
@@ -1440,6 +1526,7 @@
       "tables": "Tabellen",
       "apps": "Apps",
       "workflows": "Automatisierungen",
+      "routines": "Routinen",
       "folders": "Ordner",
       "envs": "Secrets"
     },
@@ -1468,7 +1555,7 @@
     "suggestions": {
       "title": "Wie kann ich helfen?",
       "whatCanIDo": "Was kann ich tun?",
-      "createOrModifyDatabase": "Datenbank erstellen oder ändern",
+      "createOrModifyDatabase": "Projekt erstellen oder ändern",
       "buildAutomations": "Automatisierungen erstellen",
       "buildApps": "Apps erstellen",
       "buildMeCRM": "Erstellen Sie mir ein CRM",
@@ -1595,6 +1682,11 @@
         "upstreamBadRequest": "Der Sprach-Endpunkt ist ungültig.",
         "upstreamUnavailable": "Die Sprachfunktion ist nicht verfügbar."
       }
+    },
+    "status": {
+      "running": "Wird generiert …",
+      "waitingInput": "Wartet auf Ihre Antwort",
+      "failed": "Antwort fehlgeschlagen"
     }
   },
   "upload": {

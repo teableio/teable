@@ -52,7 +52,7 @@ describe('classifyComputedTaskFailure', () => {
     });
   });
 
-  it('classifies statement timeouts separately as non-retryable', () => {
+  it('classifies statement timeouts separately as retryable', () => {
     const failure = classifyComputedTaskFailure(
       domainError.infrastructure({
         message: 'canceling statement due to statement timeout',
@@ -62,7 +62,7 @@ describe('classifyComputedTaskFailure', () => {
     expect(failure).toEqual({
       failureKind: 'statement_timeout',
       failureReason: 'statement_timeout',
-      retryable: false,
+      retryable: true,
     });
   });
 

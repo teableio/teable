@@ -112,7 +112,7 @@ export const ViewFilter = (props: IViewFilterProps) => {
         open={popoverOpen}
         onOpenChange={setPopoverOpen}
         title={t('filter.label')}
-        popoverClassName="flex max-h-96 w-min min-w-[498px] max-w-screen-md flex-col overflow-hidden rounded-lg p-4 pe-2 relative"
+        popoverClassName="relative flex max-h-96 w-min min-w-[468px] max-w-screen-md flex-col overflow-hidden rounded-lg p-4 pe-2 [&_[data-filter-condition-controls]]:flex-nowrap [&_[data-filter-condition-item]]:flex-nowrap"
         bodyClassName="flex flex-col overflow-hidden p-4"
         overlay={<ReadOnlyTip />}
         content={

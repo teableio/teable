@@ -1,6 +1,10 @@
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import type { ICustomHttpExceptionData, IHttpError, ILocalization } from '@teable/core';
-import { HttpErrorCode } from '@teable/core';
+import {
+  getUnauthenticatedAuthPath,
+  HttpErrorCode,
+  RETURNING_USER_COOKIE_NAME,
+} from '@teable/core';
 import { sonner } from '@teable/ui-lib';
 import { openUsageLimitModalFromError } from '../../components/billing/store/usage-limit-modal';
 import type { ILocaleFunction, TKey } from './i18n';
@@ -84,7 +88,10 @@ const dedupeValidationError = (message: string): boolean => {
 const handleStatusRedirect = (error: unknown): boolean => {
   const { status } = error as IHttpError;
   if (status === 401) {
-    window.location.href = `/auth/signup?redirect=${encodeURIComponent(window.location.href)}`;
+    const isReturning = document.cookie
+      .split(';')
+      .some((part) => part.trim().startsWith(`${RETURNING_USER_COOKIE_NAME}=`));
+    window.location.href = getUnauthenticatedAuthPath(isReturning, window.location.href);
     return true;
   }
   return openUsageLimitModalFromError(error);

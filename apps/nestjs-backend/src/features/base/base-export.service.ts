@@ -464,6 +464,7 @@ export class BaseExportService {
     // for enterprise version, do not delete these properties
     includedAppIds,
     includedWorkflowIds,
+    includedRoutineIds,
     // Root node IDs - nodes that should have their parentId set to null
     rootNodeIds,
     // When set, fields whose foreign base lives in a different space are also
@@ -481,6 +482,7 @@ export class BaseExportService {
     includedDashboardIds?: string[];
     includedAppIds?: string[];
     includedWorkflowIds?: string[];
+    includedRoutineIds?: string[];
     excludedTableIds?: string[];
     rootNodeIds?: string[];
     destSpaceId?: string;

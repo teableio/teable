@@ -7,25 +7,25 @@
   },
   "initialSpaceName": "{{name}}' Space",
   "action": {
-    "createBase": "Base erstellen",
-    "createSpace": "Eine Base erstellen",
+    "createBase": "Projekt erstellen",
+    "createSpace": "Space erstellen",
     "invite": "Einladen",
     "startFromScratch": "Von Grund auf neu beginnen"
   },
   "allSpaces": "Alle Spaces",
-  "emptySpaceTitle": "Keine Bases in diesem Space",
-  "spaceIsEmpty": "Erstellen Sie Ihre erste Base, um zu starten",
+  "emptySpaceTitle": "Keine Projekte in diesem Space",
+  "spaceIsEmpty": "Erstellen Sie Ihr erstes Projekt, um zu starten",
   "baseModal": {
     "copy": "Kopieren",
     "duplicate": "Dupliziere \"{{baseName}}\"",
-    "createBaseFromTemplate": "Eine Basis aus einer Vorlage erstellen",
+    "createBaseFromTemplate": "Ein Projekt aus einer Vorlage erstellen",
     "duplicateRecords": "Dupliziere Einträge",
     "duplicateRecordsTip": "Ihre Änderungshistorie wird nicht dupliziert.",
     "toSpace": "Zu Space",
     "copyToSpace": "Kopiere zu Space",
-    "duplicateBase": "Dupliziere Base",
-    "missTargetTip": "Bitte wählen Sie ein Feld, um die Base zu duplizieren.",
-    "copying": "Duplizieren der Base, das kann eine Weile dauern...",
+    "duplicateBase": "Dupliziere Projekt",
+    "missTargetTip": "Bitte wählen Sie ein Feld, um das Projekt zu duplizieren.",
+    "copying": "Duplizieren des Projekts, das kann eine Weile dauern...",
     "howToCreate": "Wie wollen Sie beginnen?",
     "fromScratch": "Von Grund auf neu",
     "fromTemplate": "Aus Vorlage",
@@ -48,19 +48,19 @@
     "add": "Anpinnen",
     "remove": "Pin entfernen",
     "pin": "Pin",
-    "empty": "Ihre gepinnten Bases und Spaces werden hier erscheinen"
+    "empty": "Ihre gepinnten Projekte und Spaces werden hier erscheinen"
   },
   "tooltip": {
-    "noPermissionToCreateBase": "Sie haben keine Berechtigung, eine Base zu erstellen"
+    "noPermissionToCreateBase": "Sie haben keine Berechtigung, ein Projekt zu erstellen"
   },
   "tip": {
     "delete": "Sind Sie sicher, dass Sie <0/> löschen wollen?",
     "exportTips2": "Sie können die .tea-Datei in Space -> mehr -> Import importieren",
-    "exportTips3": "Base-übergreifende Beziehungsfelder werden in einzeiligen Text umgewandelt.",
+    "exportTips3": "Projektübergreifende Beziehungsfelder werden in einzeiligen Text umgewandelt.",
     "exportIncludeDataLabel": "Datensätze einschließen",
     "exportIncludeDataDescription": "Beim Deaktivieren nur Struktur und Konfiguration exportieren",
     "exportTitle": "Exportieren",
-    "exportDescription": "Die aktuelle Datenbank als .tea-Datei exportieren, dies kann einige Zeit dauern.",
+    "exportDescription": "Das aktuelle Projekt als .tea-Datei exportieren, dies kann einige Zeit dauern.",
     "exportStartButton": "Export starten",
     "exportSlowTip": "Die Datenmenge ist groß. Der Export kann eine Weile dauern. Sie können vorübergehend die Seite verlassen.",
     "exportReadyDescription": "Bitte laden Sie die .tea-Datei herunter, {{importHint}}",
@@ -69,8 +69,8 @@
     "moveBaseCrossSpaceTitle": "Hinweis",
     "moveBaseCrossSpaceDataLossWarning": "Bereichsübergreifende Verweise werden nicht unterstützt. Die betroffenen Felder werden in Textfelder umgewandelt. Diese Aktion kann nicht rückgängig gemacht werden.",
     "moveBaseCrossDataDbTitle": "Verschieben zwischen Datenbanken",
-    "moveBaseCrossDataDbWarning": "Der Quell- und der Ziel-Space verwenden unterschiedliche Datenbanken. Bei diesem Verschieben werden die Base-Daten in die Zieldatenbank kopiert, was eine Weile dauern kann. Schreibvorgänge auf diese Base sind während der Übertragung pausiert.",
-    "moveBaseProgressTitle": "Base wird verschoben…",
+    "moveBaseCrossDataDbWarning": "Der Quell- und der Ziel-Space verwenden unterschiedliche Datenbanken. Bei diesem Verschieben werden die Projektdaten in die Zieldatenbank kopiert, was eine Weile dauern kann. Schreibvorgänge auf dieses Projekt sind während der Übertragung pausiert.",
+    "moveBaseProgressTitle": "Projekt wird verschoben…",
     "moveBaseProgressPhase": "Phase: {{phase}}",
     "moveBaseProgressPercent": "{{percent}} %",
     "moveBaseFailedTitle": "Verschieben fehlgeschlagen",
@@ -84,9 +84,9 @@
     "blockedDesc": "Dieser Space hat ein aktives Abonnement. Bitte kündigen Sie das Abonnement, bevor Sie den Space löschen."
   },
   "sharedBase": {
-    "title": "Geteilte Bases",
-    "description": "Alle Bases, zu denen ich eingeladen wurde",
-    "empty": "Noch keine geteilten Bases"
+    "title": "Geteilte Projekte",
+    "description": "Alle Projekte, zu denen ich eingeladen wurde",
+    "empty": "Noch keine geteilten Projekte"
   },
   "aiSetting": {
     "title": "KI-Einstellungen",
@@ -100,7 +100,7 @@
     "phase": {
       "importingV2": "Wird importiert",
       "parsingStructure": "Parsing structure",
-      "creatingBase": "Creating base: {{detail}}",
+      "creatingBase": "Projekt wird erstellt: {{detail}}",
       "creatingTable": "Creating table: {{detail}}",
       "tableStructureStarted": "Tabellenstruktur wird vorbereitet: {{tableName}} ({{tableIndex}}/{{totalTables}})",
       "tableStructureValidating": "Tabellenbeziehungen werden geprüft",
@@ -164,7 +164,7 @@
   },
   "template": {
     "title": "Vorlage",
-    "description": "Erstellen Sie schnell eine neue Base aus einer Vorlage",
+    "description": "Erstellen Sie schnell ein neues Projekt aus einer Vorlage",
     "noTemplatesAvailable": "Keine Vorlagen verfügbar",
     "noTemplatesDescription": "Hier gibt es derzeit nichts"
   },
@@ -173,26 +173,26 @@
   },
   "noBases": {
     "title": "Hallo {{userName}}!",
-    "description": "Lassen Sie uns mit der Verwaltung Ihrer Arbeit in Ihrer ersten Base beginnen."
+    "description": "Lassen Sie uns mit der Verwaltung Ihrer Arbeit in Ihrem ersten Projekt beginnen."
   },
   "noSpaces": {
     "title": "Hallo {{userName}}!",
     "description": "Erstellen Sie Ihren ersten Space, um Ihre Reise der Datenzusammenarbeit zu beginnen."
   },
   "baseList": {
-    "allBases": "Alle Bases",
+    "allBases": "Alle Projekte",
     "creator": "Ersteller",
     "createdTime": "Erstellt",
     "lastOpened": "Zuletzt geöffnet",
     "enter": "Eintreten",
     "noTables": "Keine Tabellen",
-    "empty": "Noch keine Bases",
+    "empty": "Noch keine Projekte",
     "recent": "Zuletzt verwendet",
     "manual": "Manuelle Reihenfolge"
   },
   "publishBase": {
     "title": "Im Vorlagenzentrum veröffentlichen",
-    "description": "Veröffentlichen Sie Ihre Base mit einem Klick im Vorlagenzentrum! Lassen Sie mehr Menschen Ihre Kreativität sehen, nutzen und remixen, und bauen Sie gemeinsam ein leistungsstärkeres Geschäft auf",
+    "description": "Veröffentlichen Sie Ihr Projekt mit einem Klick im Vorlagenzentrum! Lassen Sie mehr Menschen Ihre Kreativität sehen, nutzen und remixen, und bauen Sie gemeinsam ein leistungsstärkeres Geschäft auf",
     "infoTitle": "Basisinformationen",
     "form": {
       "title": "Titel",
@@ -211,9 +211,9 @@
     "previewTips": "Zeigen Sie der Welt Ihre Arbeit",
     "update": "Aktualisieren",
     "unPublish": "Veröffentlichung aufheben",
-    "unPublishSuccess": "Veröffentlichung der Base erfolgreich aufgehoben!",
+    "unPublishSuccess": "Veröffentlichung des Projekts erfolgreich aufgehoben!",
     "unPublishConfirmTitle": "Veröffentlichung aufheben bestätigen",
-    "unPublishConfirmDescription": "Sind Sie sicher, dass Sie die Veröffentlichung dieser Base aufheben möchten? Sie wird nicht mehr im Vorlagenzentrum sichtbar sein.",
+    "unPublishConfirmDescription": "Sind Sie sicher, dass Sie die Veröffentlichung dieses Projekts aufheben möchten? Das Projekt wird nicht mehr im Vorlagenzentrum sichtbar sein.",
     "uploadCover": "Klicken, um Titelbild hochzuladen",
     "changeCover": "Klicken, um Titelbild zu ändern",
     "uploading": "Bild wird hochgeladen...",
@@ -252,7 +252,7 @@
   "dataDb": {
     "create": {
       "title": "Datenbank für Daten",
-      "description": "Wählen Sie, wo dieser Space Base-Schemas und Datensätze speichert.",
+      "description": "Wählen Sie, wo dieser Space Projekt-Schemas und Datensätze speichert.",
       "defaultHint": "Für die meisten Spaces empfohlen.",
       "byodbOption": "Meine PostgreSQL-Datenbank verwenden",
       "byodbHint": "Initialisiert diesen Space in einem internen Teable-Schema innerhalb Ihrer selbst verwalteten Datenbank.",
@@ -323,7 +323,7 @@
     "import": "Import starten",
     "done": "Import abgeschlossen",
     "failed": "Import fehlgeschlagen",
-    "openBase": "Base öffnen",
+    "openBase": "Projekt öffnen",
     "issuesSummary": "{{count}} Elemente wurden beim Import angepasst:",
     "issuesMore": "+{{count}} weitere",
     "issue": {
@@ -335,7 +335,7 @@
     },
     "phase": {
       "fetchingSchema": "Airtable-Base-Struktur wird gelesen",
-      "creatingBase": "Base wird erstellt: {{detail}}",
+      "creatingBase": "Projekt wird erstellt: {{detail}}",
       "creatingTable": "Tabelle wird erstellt: {{tableName}} ({{tableIndex}}/{{totalTables}})",
       "creatingLinks": "Verknüpfungsfelder werden erstellt",
       "fillingLinks": "{{tableName}} (Verknüpfungen)",
@@ -378,7 +378,7 @@
     "import": "Import starten",
     "done": "Import abgeschlossen",
     "failed": "Import fehlgeschlagen",
-    "openBase": "Base öffnen",
+    "openBase": "Projekt öffnen",
     "issuesSummary": "{{count}} Elemente wurden beim Import angepasst:",
     "issuesMore": "+{{count}} weitere",
     "recordsImported": "{{tableName}}: {{count}} Datensätze importiert",
@@ -390,7 +390,7 @@
     },
     "phase": {
       "fetchingSchema": "Struktur der Tabelle wird gelesen",
-      "creatingBase": "Base wird erstellt: {{detail}}",
+      "creatingBase": "Projekt wird erstellt: {{detail}}",
       "creatingTable": "Tabelle wird erstellt: {{tableName}} ({{tableIndex}}/{{totalTables}})"
     },
     "detecting": "Google-Verbindung wird geprüft…",
@@ -403,9 +403,9 @@
     "title": "Wie möchtest du beginnen?"
   },
   "importBaseDialog": {
-    "title": "Base importieren",
+    "title": "Projekt importieren",
     "fromFile": "Aus Datei importieren",
-    "fromFileDesc": "Eine .tea-Datenbankdatei hochladen",
+    "fromFileDesc": "Eine .tea-Projektdatei hochladen",
     "fromAirtableDesc": "Airtable-Konto verbinden",
     "fromGoogleSheetDesc": "Eine Tabelle aus Ihrem Google Drive auswählen"
   }

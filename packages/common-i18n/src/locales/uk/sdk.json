@@ -49,7 +49,8 @@
     "previewFileLimit": "Обмеження розміру файлу попереднього перегляду: {{size}} МБ, будь ласка, завантажте для перегляду.",
     "loadFileError": "Не вдалося завантажити файл",
     "previousAttachment": "Попередня",
-    "nextAttachment": "Наступна"
+    "nextAttachment": "Наступна",
+    "deleteAttachment": "Видалити"
   },
   "undoRedo": {
     "undo": "Скасувати",
@@ -404,13 +405,13 @@
       "spaceInviteEmail": "Запросити електронною поштою в космос",
       "spaceInviteLink": "Запросити за посиланням у просторі",
       "spaceGrantRole": "Надати роль у просторі",
-      "baseCreate": "Створити базу",
-      "baseDelete": "Видалити базу",
-      "baseRead": "Читати базу",
-      "baseReadAll": "Читати всі бази",
-      "baseUpdate": "Оновити базу",
-      "baseInviteEmail": "Запросити електронною поштою в базі",
-      "baseInviteLink": "Запросити за посиланням у базі",
+      "baseCreate": "Створити проєкт",
+      "baseDelete": "Видалити проєкт",
+      "baseRead": "Читати проєкт",
+      "baseReadAll": "Читати всі проєкти",
+      "baseUpdate": "Оновити проєкт",
+      "baseInviteEmail": "Запросити електронною поштою в проєкті",
+      "baseInviteLink": "Запросити за посиланням у проєкті",
       "baseAuthorityMatrixConfig": "Налаштувати матрицю повноважень",
       "baseDbConnect": "Підключитися до бази даних",
       "tableCreate": "Створити таблицю",
@@ -444,6 +445,10 @@
       "automationDelete": "Видалити автоматизацію",
       "automationRead": "Автоматизація читання",
       "automationUpdate": "Оновити автоматизацію",
+      "routineCreate": "Створити рутину",
+      "routineDelete": "Видалити рутину",
+      "routineRead": "Читати рутину",
+      "routineUpdate": "Оновити рутину",
       "appCreate": "Створити додаток",
       "appDelete": "Видалити додаток",
       "appRead": "Читати додаток",
@@ -451,7 +456,7 @@
       "userEmailRead": "Прочитати електронну адресу поточного користувача",
       "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Читати історію записів",
-      "baseQuery": "База запитів",
+      "baseQuery": "Запит до проєкту",
       "instanceRead": "Прочитати екземпляр",
       "instanceUpdate": "Оновити екземпляр",
       "enterpriseRead": "Читати конфігурацію підприємства",
@@ -462,10 +467,11 @@
     "table": "Таблиця",
     "view": "Перегляд",
     "space": "Простір",
-    "base": "База",
+    "base": "Проєкт",
     "field": "Поле",
     "record": "Запис",
     "automation": "Автоматизація",
+    "routine": "Рутина",
     "app": "Додаток",
     "user": "Користувач",
     "recordHistory": "Історія записів",
@@ -960,7 +966,7 @@
       "recordsPerMutationMax": "Ця операція змінює забагато записів. Максимум — {{max}} записів за раз.",
       "computedCellValueMaxBytes": "Обчислене значення клітинки завелике. Максимум — {{max}} байтів.",
       "formulaMaxLength": "Формула задовга. Максимум — {{max}} символів.",
-      "tablesPerBaseMax": "Ця base досягла ліміту таблиць. Максимум — {{max}} таблиць.",
+      "tablesPerBaseMax": "Цей проєкт досяг ліміту таблиць. Максимум — {{max}} таблиць.",
       "fieldsPerTableMax": "У цій таблиці забагато полів. Максимум — {{max}} полів.",
       "rowsPerTableMax": "У цій таблиці забагато записів. Максимум — {{max}} записів.",
       "viewsPerTableMax": "Ця таблиця досягла ліміту подань. Максимум — {{max}} подань.",
@@ -1061,7 +1067,7 @@
       "runNotFound": "Виконання автоматизації не знайдено",
       "anchorNotFound": "Опорну автоматизацію не знайдено",
       "validationError": "Помилка валідації конфігурації автоматизації",
-      "tableNotInBase": "Ви можете підписатися лише на таблицю в межах вашої бази даних",
+      "tableNotInBase": "Ви можете підписатися лише на таблицю в межах вашого проєкту",
       "alreadyActiveAndNotDraft": "Автоматизація вже активна і не є чернеткою",
       "noActiveSnapshot": "У автоматизації немає активного знімка",
       "onlyFailedRunsCanRerun": "Повторно запустити можна лише невдалі виконання",
@@ -1085,6 +1091,8 @@
       "unsupportedCategory": "Непідтримувана категорія",
       "unknownConnectionType": "Невідомий тип підключення електронної пошти",
       "imapPasswordNotConfigured": "Пароль IMAP не налаштовано",
+      "secretNotGranted": "Секрет {{alias}} не надано цій автоматизації",
+      "credentialMustBeSecret": "Облікові дані мають бути секретами, наданими цій автоматизації",
       "integrationNotFound": "Інтеграцію не знайдено або вона не має облікових даних",
       "webhookTriggerNotFound": "Тригер вебхука не знайдено",
       "emailReceivedTriggerNotFound": "Тригер отримання електронної пошти не знайдено",
@@ -1096,12 +1104,15 @@
       "apiKeyNotConfigured": "Сервіс скрейпінгу не налаштовано",
       "triggerFailed": "Помилка запуску скрейпінгу: {{detail}}",
       "snapshotError": "Помилка знімка скрейпінгу: {{detail}}",
-      "timeout": "Час очікування скрейпінгу вичерпано після {{seconds}}с"
+      "timeout": "Час очікування скрейпінгу вичерпано після {{seconds}}с",
+      "catalogFailed": "Помилка запиту каталогу скрейпінгу: {{detail}}",
+      "discoverByOnCatalogDataset": "discoverBy застосовується лише до сирих id датасетів, не до {{datasetId}}"
     },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
       "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
-      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}",
+      "providerUnsupported": "Підключення {{provider}} більше не підтримуються і не можуть бути надані"
     },
     "space": {
       "notFound": "Простір не знайдено",
@@ -1117,17 +1128,17 @@
       "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
     },
     "base": {
-      "notFound": "База не знайдена",
-      "cannotAccess": "У вас немає дозволу на доступ до бази {{baseId}}",
-      "anchorNotFound": "Якірна база {{anchorId}} не знайдена",
-      "baseAndSpaceMismatch": "База {{baseId}} та простір {{spaceId}} не співпадають",
+      "notFound": "Проєкт не знайдено",
+      "cannotAccess": "У вас немає дозволу на доступ до проєкту {{baseId}}",
+      "anchorNotFound": "Опорний проєкт {{anchorId}} не знайдено",
+      "baseAndSpaceMismatch": "Проєкт {{baseId}} та простір {{spaceId}} не співпадають",
       "templateNotFound": "Шаблон {{templateId}} не знайдено"
     },
     "baseNode": {
-      "baseIdIsRequired": "Базова ID обов'язкова",
+      "baseIdIsRequired": "ID проєкту обов'язковий",
       "nodeIdIsRequired": "Вузол ID обов'язковий",
       "invalidResourceType": "Недійсний тип ресурсу",
-      "notFound": "Базовий вузол не знайдено",
+      "notFound": "Вузол проєкту не знайдено",
       "parentMustBeFolder": "Батьківський елемент має бути папкою",
       "cannotDuplicateFolder": "Неможливо дублювати папку",
       "cannotDeleteEmptyFolder": "Неможливо видалити папку, оскільки вона не порожня",
@@ -1142,6 +1153,22 @@
       "folderNotFound": "Папку не знайдено",
       "anchorNotFound": "Якірний вузол не знайдено",
       "nameAlreadyExists": "Ім'я вже існує"
+    },
+    "routine": {
+      "notFound": "Рутина не знайдена",
+      "runNotFound": "Виконання рутини не знайдено",
+      "configRequiredToActivate": "Неможливо активувати рутину без збереженої конфігурації",
+      "noFutureOccurrence": "У розкладу немає майбутніх запусків",
+      "onlyActiveCanDeactivate": "Призупинити можна лише активну рутину",
+      "configRequiredToRun": "Неможливо запустити рутину без збереженої конфігурації",
+      "runAlreadyInFlight": "Виконання цієї рутини вже триває",
+      "invalidRunCursor": "Недійсний курсор списку запусків",
+      "invalidSchedule": "Недійсний розклад рутини: {{reason}}"
+    },
+    "chat": {
+      "notFound": "Чат не знайдено",
+      "accessDenied": "У вас немає доступу до цього чату",
+      "serverAuthoredType": "Чати типу {{type}} створює сервер"
     },
     "dashboard": {
       "notFound": "Панель управління не знайдена"
@@ -1181,7 +1208,7 @@
       "loginRequired": "Увійдіть, щоб редагувати це спільне подання"
     },
     "baseShare": {
-      "notFound": "Спільний доступ до бази не знайдено або вимкнено",
+      "notFound": "Спільний доступ до проєкту не знайдено або вимкнено",
       "alreadyExists": "Спільний доступ для цього вузла вже існує",
       "copyNotAllowed": "Цей спільний доступ не дозволяє копіювання"
     },
@@ -1199,14 +1226,14 @@
     },
     "dbConnection": {
       "unsupportedDriver": "Непідтримуваний драйвер бази даних: {{driver}}",
-      "onlyOwnerCanRemove": "Тільки власник бази може видалити підключення до бази даних для бази {{baseId}}",
-      "onlyOwnerCanCreate": "Тільки власник бази може створити підключення до бази даних для бази {{baseId}}",
+      "onlyOwnerCanRemove": "Тільки власник проєкту може видалити підключення до бази даних для проєкту {{baseId}}",
+      "onlyOwnerCanCreate": "Тільки власник проєкту може створити підключення до бази даних для проєкту {{baseId}}",
       "roleNotExist": "Роль бази даних {{role}} не існує"
     },
     "baseQuery": {
       "queryFailed": "Запит не виконано: {{message}}",
       "invalidJoinType": "Недопустимий тип об'єднання: {{joinType}}",
-      "tableNotFound": "Таблиця {{tableId}} не знайдена в базі {{baseId}}"
+      "tableNotFound": "Таблиця {{tableId}} не знайдена в проєкті {{baseId}}"
     },
     "baseSqlExecutor": {
       "notAllowedToExecuteSqlWithKeyword": "Не дозволено виконувати SQL з ключовим словом {{keyword}}",
@@ -1226,7 +1253,7 @@
       "accessTokenNoPermission": "Токен доступу не має необхідного дозволу",
       "invalidResource": "Ресурс недійсний",
       "notAllowedSpace": "У вас немає дозволу на доступ до цього простору",
-      "notAllowedBase": "У вас немає дозволу на доступ до цієї бази",
+      "notAllowedBase": "У вас немає дозволу на доступ до цього проєкту",
       "notAllowedTables": "У вас немає дозволу на доступ до таблиц({{tableIds}})",
       "notAllowedOperationTable": "У вас немає дозволу на операції з цією таблицею",
       "notAllowedOperationRecord": "У вас немає дозволу на операції з цим записом",
@@ -1246,7 +1273,7 @@
       "primaryFieldCannotBeDisabledForRead": "Основне поле не може бути вимкнене для читання",
       "fieldDuplicated": "Поле дублюється в конфігурації дозволів",
       "cannotSetRecordPermissionGroup": "Неможливо встановити цю комбінацію дозволів запису({{actions}})",
-      "notFoundBaseAndTable": "ID бази та ID таблиці не знайдено",
+      "notFoundBaseAndTable": "ID проєкту та ID таблиці не знайдено",
       "roleTablesShouldNotBeEmpty": "Таблиці ролей матриці повноважень не повинні бути порожніми"
     },
     "selection": {
@@ -1347,7 +1374,10 @@
       "exceedMaxAutomationRunLimit": "Досягнуто максимального місячного ліміту запусків автоматизації",
       "manualSubscriptionNotSupported": "Самостійне керування підпискою недоступне для цього простору. Для оновлення, зниження або інших змін підписки зверніться до служби підтримки Teable.",
       "appSumoSubscriptionNotSupported": "Підписки AppSumo не можуть бути змінені через цей інтерфейс. Будь ласка, керуйте підпискою на AppSumo.",
-      "customerNotFound": "Запис клієнта для виставлення рахунків для цього простору не знайдено."
+      "planNotAvailable": "Цей план більше недоступний для нових підписок.",
+      "seatLimitExceeded": "Недостатньо куплених місць. Додайте місця, щоб запросити більше співробітників.",
+      "customerNotFound": "Запис клієнта для виставлення рахунків для цього простору не знайдено.",
+      "creditAddOnRetired": "Регулярне доповнення кредитів більше недоступне. Натомість оберіть більший рівень кредитів у вашому тарифі."
     },
     "aggregation": {
       "searchQueryRequired": "Пошуковий запит є обов'язковим",
@@ -1429,9 +1459,9 @@
       "noPermissionToDelete": "У вас немає дозволу на видалення цього співавтора",
       "noPermissionToUpdate": "У вас немає дозволу на оновлення цього співавтора",
       "noPermissionToOperateRole": "У вас немає дозволу на управління цією роллю",
-      "alreadyExistedInBase": "Співавтор вже існує в базі даних",
+      "alreadyExistedInBase": "Співавтор вже існує в проєкті",
       "userNotFound": "Користувача не знайдено: {{userIds}}",
-      "baseNotFound": "Базу даних не знайдено",
+      "baseNotFound": "Проєкт не знайдено",
       "noPermissionToAddRole": "У вас немає дозволу на додавання співавтора з цією роллю",
       "departmentNotFound": "Відділ не знайдено"
     },
@@ -1469,9 +1499,9 @@
     "trash": {
       "invalidResourceType": "Недійсний тип ресурсу",
       "notFound": "Елемент кошика не знайдено",
-      "parentSpaceTrashed": "Неможливо відновити цю базу, оскільки її батьківський простір також знаходиться в кошику",
-      "parentBaseOrSpaceTrashed": "Неможливо відновити цю таблицю, оскільки її батьківська база або простір також знаходиться в кошику",
-      "parentBaseTrashed": "Неможливо відновити цей елемент, оскільки його батьківська база також знаходиться в кошику",
+      "parentSpaceTrashed": "Неможливо відновити цей проєкт, оскільки його батьківський простір також у кошику",
+      "parentBaseOrSpaceTrashed": "Неможливо відновити цю таблицю, оскільки її батьківський проєкт або простір також знаходиться в кошику",
+      "parentBaseTrashed": "Неможливо відновити цей елемент, оскільки його батьківський проєкт також знаходиться в кошику",
       "parentNotFound": "Батьківський ресурс не знайдено",
       "tableNotFound": "Елемент кошика таблиці не знайдено"
     },
@@ -1503,7 +1533,7 @@
       "waitlistInviteCodeRequired": "Список очікування увімкнено, потрібен код запрошення",
       "waitlistInviteCodeInvalid": "Список очікування увімкнено, код запрошення недійсний",
       "systemUser": "Користувач є системним користувачем",
-      "collaboratorsInSpaces": "Користувач має співробітників у просторах (або видалені простори в кошику)",
+      "soleOwnerOfSpaces": "Користувач є єдиним власником просторів, які потрібно підтвердити або передати перед видаленням облікового запису",
       "notFound": "Користувача не знайдено",
       "cannotDeleteAdmin": "Неможливо видалити користувача-адміністратора",
       "cannotDeactivateAdmin": "Неможливо вимкнути користувача-адміністратора",
@@ -1600,7 +1630,8 @@
       "titleIncrement": "Ця дія додасть {{increment}} рядків і перевищить ліміт вашого тарифу — {{limit}}",
       "titleBatch": "Ця операція перевищить ліміт вашого тарифу — {{limit}} рядків",
       "description": "Більше записів додати не можна. Підвищте тариф, щоб одразу зняти обмеження, або звільніть місце, видаливши записи.",
-      "unit": "рядків"
+      "unit": "рядків",
+      "constraint": "На поточному тарифі більше не можна додавати записи. Звільніть місце, видаливши записи."
     },
     "credit": {
       "unit": "кредитів"
@@ -1610,6 +1641,12 @@
     },
     "generic": {
       "description": "Підвищте тариф, щоб зняти це обмеження."
+    },
+    "neutral": {
+      "title": "Ця дія перевищує ліміт поточного тарифу простору"
+    },
+    "seats": {
+      "unit": "місць"
     }
   }
 }

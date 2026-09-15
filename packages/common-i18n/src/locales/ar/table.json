@@ -86,7 +86,7 @@
         "generatingToken": "جارٍ التوليد...",
         "generateToken": "توليد رمز",
         "confirmTitle": "إنشاء رمز API",
-        "confirmDescription": "سيؤدي هذا إلى إنشاء رمز API جديد بالصلاحيات التالية على هذه القاعدة:",
+        "confirmDescription": "سيؤدي هذا إلى إنشاء رمز API جديد بالصلاحيات التالية على هذا المشروع:",
         "scopeTableRead": "قراءة معلومات الجدول",
         "scopeFieldRead": "قراءة الحقول",
         "scopeRead": "قراءة السجلات",
@@ -119,7 +119,7 @@
   },
   "welcome": {
     "title": "أهلًا بك",
-    "emptyTitle": "ابدأ ببناء قاعدتك",
+    "emptyTitle": "ابدأ ببناء مشروعك",
     "description": "انقر على زر \"+\" في الشريط الجانبي لإضافة موارد",
     "help": "زر <HelpCenter /> لمزيد من المعلومات",
     "helpCenter": "مركز المساعدة"
@@ -291,7 +291,6 @@
       "bar": "شريط",
       "text": "نص",
       "markdown": "Markdown",
-      "url": "رابط",
       "email": "بريد إلكتروني",
       "phone": "هاتف",
       "maxNumber": "الحد الأقصى للرقم",
@@ -307,8 +306,8 @@
       "manyToMany": "متعدد إلى متعدد",
       "self": "ذاتي",
       "selectTable": "اختر جدولًا...",
-      "selectBase": "اختر قاعدة بيانات...",
-      "linkFromAnotherBase": "الربط من قاعدة بيانات أخرى",
+      "selectBase": "اختر مشروع...",
+      "linkFromAnotherBase": "الربط من مشروع آخر",
       "inSelfLink": "في رابط ذاتي",
       "betweenTwoTables": "بين جدولين",
       "tips": "تلميحات",
@@ -340,9 +339,9 @@
         "sortMissingWarningDescription": "حُذف الحقل الذي كان يعتمد عليه هذا الفرز. لذا تتجاهل النتائج الفرز وتلتزم بالحد الأقصى فقط."
       },
       "linkTable": "الجدول المرتبط",
-      "linkBase": "قاعدة بيانات الربط",
+      "linkBase": "مشروع الربط",
       "tableNoPermission": "جدول بلا صلاحية",
-      "baseNoPermission": "قاعدة بيانات بلا صلاحية",
+      "baseNoPermission": "مشروع بلا صلاحية",
       "noLinkTip": "لا توجد سجلات مرتبطة للبحث فيها. أضف حقل ربط بسجل آخر، ثم أعد إعداد البحث.",
       "fieldValidationRules": "قواعد التحقق من قيمة الحقل",
       "enableValidateFieldUnique": "قيم فريدة فقط",
@@ -353,6 +352,7 @@
       "filterByView": "تصفية السجلات حسب العرض",
       "filter": "تصفية السجلات",
       "hideFields": "إخفاء الحقول",
+      "removeDuplicateValues": "إزالة القيم المكررة",
       "moreOptions": "خيارات إضافية",
       "allowNewOptionsWhenEditing": "السماح بخيارات جديدة أثناء التعديل",
       "deleteField": {
@@ -498,7 +498,7 @@
     "deleteConfirm": "هل أنت متأكد من حذف \"{{tableName}}\"؟",
     "dbTableName": "اسم الجدول في قاعدة البيانات الفعلية",
     "schemaName": "اسم المخطط في قاعدة البيانات الفعلية",
-    "baseInfo": "معلومات قاعدة البيانات",
+    "baseInfo": "معلومات المشروع",
     "loginUserTable": "تسجيل الدخول إلى التطبيق",
     "linkedApps": "التطبيقات المرتبطة",
     "typeOfDatabase": "نوع قاعدة البيانات",
@@ -650,9 +650,9 @@
         "noPermission": "ليست لديك صلاحية نسخ السجلات"
       },
       "crossBaseCopyTitle": "النسخ كنص عادي؟",
-      "crossBaseCopyDescription": "يتضمن هذا التحديد حقل ربط عبر القواعد. وللإبقاء على البيانات داخل قاعدتها الأصلية، سيُنسخ الحقل كنص عادي وستُفقد علاقات الربط.",
+      "crossBaseCopyDescription": "يتضمن هذا التحديد حقل ربط عبر المشاريع. وللإبقاء على البيانات داخل مشروعها الأصلي، سيُنسخ الحقل كنص عادي وستُفقد علاقات الربط.",
       "crossBaseCopyConfirm": "النسخ كنص عادي",
-      "crossBaseCopyLoadFirst": "يرجى التمرير لتحميل كل الصفوف المحددة قبل نسخ الحقول العابرة للقواعد."
+      "crossBaseCopyLoadFirst": "يرجى التمرير لتحميل كل الصفوف المحددة قبل نسخ الحقول العابرة للمشاريع."
     },
     "graph": {
       "effectCells": "قد يؤثر في خلايا",
@@ -670,7 +670,7 @@
       "v2": {
         "dialogTitle": "سلامة المخطط",
         "dialogDescription": "شغّل فاحص المخطط v2 ومسار الإصلاح لـ {{tableName}}.",
-        "dialogDescriptionNoTable": "شغّل فاحص المخطط v2 ومسار الإصلاح للقاعدة الحالية.",
+        "dialogDescriptionNoTable": "شغّل فاحص المخطط v2 ومسار الإصلاح للمشروع الحالية.",
         "runCheck": "تشغيل الفحص",
         "recheck": "إعادة الفحص",
         "repair": "إصلاح",
@@ -722,13 +722,13 @@
           "noRepairStatements": "لا تتوفر عبارات إصلاح",
           "skippedDependencies": "تم التخطي لعدم استيفاء التبعيات",
           "checkStreamConnected": "اتّصل بث فحص سلامة المخطط",
-          "baseCheckStreamConnected": "اتّصل بث فحص سلامة مخطط القاعدة",
+          "baseCheckStreamConnected": "اتّصل بث فحص سلامة مخطط المشروع",
           "repairStreamConnected": "اتّصل بث إصلاح سلامة المخطط",
-          "baseRepairStreamConnected": "اتّصل بث إصلاح سلامة مخطط القاعدة",
+          "baseRepairStreamConnected": "اتّصل بث إصلاح سلامة مخطط المشروع",
           "checkCompleted": "اكتمل فحص سلامة المخطط",
-          "baseCheckCompleted": "اكتمل فحص سلامة مخطط القاعدة",
+          "baseCheckCompleted": "اكتمل فحص سلامة مخطط المشروع",
           "repairCompleted": "اكتمل إصلاح سلامة المخطط",
-          "baseRepairCompleted": "اكتمل إصلاح سلامة مخطط القاعدة",
+          "baseRepairCompleted": "اكتمل إصلاح سلامة مخطط المشروع",
           "skippedStatusNotSelected": "تم التخطي لأن مستوى الحالة هذا لم يُحدَّد للإصلاح",
           "skippedRepairUnavailable": "تم التخطي لأن الإصلاح التلقائي غير متاح في الحالة الراهنة"
         },
@@ -931,11 +931,14 @@
     "deletedRecovered": {
       "title": "تم حذف الجدول الذي فتحته",
       "description": "تم التبديل إلى «{{tableName}}»",
-      "descriptionEmpty": "تمت العودة إلى صفحة Base"
+      "descriptionEmpty": "تمت العودة إلى صفحة مشروع"
     }
   },
   "import": {
     "title": {
+      "createTable": "إنشاء جدول",
+      "importFromCsv": "الاستيراد من CSV",
+      "importFromExcel": "الاستيراد من Excel",
       "upload": "رفع",
       "import": "استيراد",
       "localFile": "ملفات محلية",
@@ -1136,7 +1139,7 @@
   },
   "connection": {
     "title": "الاتصال بقاعدة البيانات",
-    "description": "يمكنك الوصول إلى قاعدة البيانات مباشرةً عبر اتصال قاعدة البيانات، بما في ذلك كل الجداول ضمن القاعدة الحالية",
+    "description": "يمكنك الوصول إلى قاعدة البيانات مباشرةً عبر اتصال قاعدة البيانات، بما في ذلك كل الجداول ضمن المشروع الحالي",
     "noPermission": "ليس لديك صلاحية الوصول إلى قاعدة البيانات",
     "connectionCountTip": "الحد الأقصى لعدد اتصالات قاعدة البيانات هو <b>{{max}}</b> وعدد الاتصالات الحالية <b>{{current}}</b>",
     "createFailed": "يرجى التأكد من ضبط متغير البيئة PUBLIC_DATABASE_PROXY بشكل صحيح",
@@ -1263,7 +1266,7 @@
     "shareToWeb": "المشاركة على الويب",
     "refreshLink": "إعادة توليد الرابط",
     "deleteConfirmTitle": "حذف رابط المشاركة",
-    "deleteConfirmDescription": "لا يمكن التراجع عن هذا الإجراء. ولن يتمكن من لديهم هذا الرابط من الوصول إلى القاعدة المشتركة بعد الآن.",
+    "deleteConfirmDescription": "لا يمكن التراجع عن هذا الإجراء. ولن يتمكن من لديهم هذا الرابط من الوصول إلى المشروع المشترك بعد الآن.",
     "createSuccess": "تم إنشاء رابط المشاركة",
     "createFailed": "فشل إنشاء رابط المشاركة",
     "updateFailed": "فشل تحديث إعدادات المشاركة",
@@ -1394,6 +1397,135 @@
     "action": {
       "locateResource": "تحديد الموقع"
     },
+    "resourceOperations": {
+      "title": "تغييرات هذه الجولة",
+      "items_zero": "لا عناصر",
+      "items_one": "عنصر واحد",
+      "items_two": "عنصران",
+      "items_few": "{{count}} عناصر",
+      "items_many": "{{count}} عنصرًا",
+      "items_other": "{{count}} عنصر",
+      "expandRemaining": "عرض المزيد ({{count}})",
+      "collapse": "عرض أقل",
+      "create": "تم الإنشاء",
+      "update": "تم التحديث",
+      "delete": "تم الحذف",
+      "import": "استيراد",
+      "publication": {
+        "published": "تم النشر",
+        "unpublished": "تم إلغاء النشر"
+      },
+      "structureTitles": {
+        "field": "تغييرات الحقول",
+        "view": "تغييرات العروض"
+      },
+      "structureStats": {
+        "field": {
+          "create_zero": "لم تتم إضافة أي حقول",
+          "create_one": "تمت إضافة حقل واحد",
+          "create_two": "تمت إضافة حقلين",
+          "create_few": "تمت إضافة {{count}} حقول",
+          "create_many": "تمت إضافة {{count}} حقلًا",
+          "create_other": "تمت إضافة {{count}} حقل",
+          "update_zero": "لم يتم تعديل أي حقول",
+          "update_one": "تم تعديل حقل واحد",
+          "update_two": "تم تعديل حقلين",
+          "update_few": "تم تعديل {{count}} حقول",
+          "update_many": "تم تعديل {{count}} حقلًا",
+          "update_other": "تم تعديل {{count}} حقل",
+          "delete_zero": "لم يتم حذف أي حقول",
+          "delete_one": "تم حذف حقل واحد",
+          "delete_two": "تم حذف حقلين",
+          "delete_few": "تم حذف {{count}} حقول",
+          "delete_many": "تم حذف {{count}} حقلًا",
+          "delete_other": "تم حذف {{count}} حقل",
+          "import_zero": "لم يتم استيراد أي حقول",
+          "import_one": "تم استيراد حقل واحد",
+          "import_two": "تم استيراد حقلين",
+          "import_few": "تم استيراد {{count}} حقول",
+          "import_many": "تم استيراد {{count}} حقلًا",
+          "import_other": "تم استيراد {{count}} حقل"
+        },
+        "view": {
+          "create_zero": "لم تتم إضافة أي عروض",
+          "create_one": "تمت إضافة عرض واحد",
+          "create_two": "تمت إضافة عرضين",
+          "create_few": "تمت إضافة {{count}} عروض",
+          "create_many": "تمت إضافة {{count}} عرضًا",
+          "create_other": "تمت إضافة {{count}} عرض",
+          "update_zero": "لم يتم تعديل أي عروض",
+          "update_one": "تم تعديل عرض واحد",
+          "update_two": "تم تعديل عرضين",
+          "update_few": "تم تعديل {{count}} عروض",
+          "update_many": "تم تعديل {{count}} عرضًا",
+          "update_other": "تم تعديل {{count}} عرض",
+          "delete_zero": "لم يتم حذف أي عروض",
+          "delete_one": "تم حذف عرض واحد",
+          "delete_two": "تم حذف عرضين",
+          "delete_few": "تم حذف {{count}} عروض",
+          "delete_many": "تم حذف {{count}} عرضًا",
+          "delete_other": "تم حذف {{count}} عرض",
+          "import_zero": "لم يتم استيراد أي عروض",
+          "import_one": "تم استيراد عرض واحد",
+          "import_two": "تم استيراد عرضين",
+          "import_few": "تم استيراد {{count}} عروض",
+          "import_many": "تم استيراد {{count}} عرضًا",
+          "import_other": "تم استيراد {{count}} عرض"
+        }
+      },
+      "workflow": {
+        "activate": "تم تفعيل الأتمتة",
+        "deactivate": "تم تعطيل الأتمتة",
+        "discard": "تم إلغاء تغييرات المسودة"
+      },
+      "routine": {
+        "activate": "تم تفعيل الروتين",
+        "deactivate": "تم إيقاف الروتين",
+        "run": "بدأ التشغيل"
+      },
+      "records": {
+        "create": "تمت إضافة سجلات",
+        "createCount_zero": "لم تتم إضافة أي سجلات",
+        "createCount_one": "تمت إضافة سجل واحد",
+        "createCount_two": "تمت إضافة سجلين",
+        "createCount_few": "تمت إضافة {{count}} سجلات",
+        "createCount_many": "تمت إضافة {{count}} سجلًا",
+        "createCount_other": "تمت إضافة {{count}} سجل",
+        "update": "تم تحديث السجلات",
+        "updateCount_zero": "لم يتم تحديث أي سجلات",
+        "updateCount_one": "تم تحديث سجل واحد",
+        "updateCount_two": "تم تحديث سجلين",
+        "updateCount_few": "تم تحديث {{count}} سجلات",
+        "updateCount_many": "تم تحديث {{count}} سجلًا",
+        "updateCount_other": "تم تحديث {{count}} سجل",
+        "delete": "تم حذف السجلات",
+        "deleteCount_zero": "لم يتم حذف أي سجلات",
+        "deleteCount_one": "تم حذف سجل واحد",
+        "deleteCount_two": "تم حذف سجلين",
+        "deleteCount_few": "تم حذف {{count}} سجلات",
+        "deleteCount_many": "تم حذف {{count}} سجلًا",
+        "deleteCount_other": "تم حذف {{count}} سجل",
+        "import": "تم استيراد السجلات",
+        "importCount_zero": "لم يتم استيراد أي سجلات",
+        "importCount_one": "تم استيراد سجل واحد",
+        "importCount_two": "تم استيراد سجلين",
+        "importCount_few": "تم استيراد {{count}} سجلات",
+        "importCount_many": "تم استيراد {{count}} سجلًا",
+        "importCount_other": "تم استيراد {{count}} سجل"
+      },
+      "types": {
+        "base": "مشروع",
+        "table": "جدول",
+        "field": "حقل",
+        "view": "عرض",
+        "record": "سجلات",
+        "app": "تطبيق",
+        "workflow": "أتمتة",
+        "routine": "روتين",
+        "folder": "مجلد",
+        "artifact": "Artifact"
+      }
+    },
     "showUI": {
       "skip": "تخطي",
       "next": "التالي",
@@ -1437,7 +1569,13 @@
     "addAttachment": "إضافة مرفق",
     "noHistory": "لا يوجد سجل محادثات",
     "noFoundHistory": "لم يتم العثور على سجل محادثات، يُرجى بدء محادثة جديدة",
+    "pin": "تثبيت",
+    "unpin": "إلغاء التثبيت",
+    "archive": "أرشفة",
+    "archivedToast": "تمت أرشفة المحادثة. ستجدها في الإعدادات › المحادثات المؤرشفة.",
+    "unread": "غير مقروء",
     "timeGroup": {
+      "pinned": "المثبّتة",
       "today": "اليوم",
       "oneWeek": "أسبوع واحد",
       "twoWeek": "أسبوعان",
@@ -1456,6 +1594,7 @@
       "tables": "الجداول",
       "apps": "التطبيقات",
       "workflows": "الأتمتة",
+      "routines": "روتينات",
       "folders": "المجلدات",
       "envs": "الأسرار"
     },
@@ -1484,7 +1623,7 @@
     "suggestions": {
       "title": "كيف يمكنني المساعدة؟",
       "whatCanIDo": "ما الذي يمكنني فعله؟",
-      "createOrModifyDatabase": "إنشاء قاعدة بيانات أو تعديلها",
+      "createOrModifyDatabase": "إنشاء مشروع أو تعديله",
       "buildAutomations": "بناء أتمتة",
       "buildApps": "بناء تطبيقات",
       "buildMeCRM": "ابنِ لي نظام CRM",
@@ -1632,6 +1771,11 @@
       "searchPlaceholder": "البحث في الـ Artifacts",
       "fixWithAi": "الإصلاح بالذكاء الاصطناعي",
       "noPermission": "ليس لديك حق الوصول إلى هذا الـ Artifact"
+    },
+    "status": {
+      "running": "جارٍ التوليد…",
+      "waitingInput": "بانتظار ردّك",
+      "failed": "فشل الرد"
     }
   },
   "upload": {

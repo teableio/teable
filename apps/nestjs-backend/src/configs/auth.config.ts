@@ -16,6 +16,32 @@ const getCookieSecure = (value: string | undefined) => {
   return value === 'true';
 };
 
+/**
+ * The Sign in with Apple `.p8` key is multi-line PEM. Env files usually carry it
+ * either with `\n` escapes or base64-encoded on a single line; accept all three.
+ */
+export const normalizePemPrivateKey = (value: string | undefined) => {
+  const raw = value?.trim();
+  if (!raw) {
+    return undefined;
+  }
+  const unescaped = raw.replace(/\\n/g, '\n');
+  if (unescaped.includes('-----BEGIN')) {
+    return unescaped;
+  }
+  return Buffer.from(unescaped, 'base64').toString('utf8');
+};
+
+/** `BACKEND_APPLE_CLIENT` is `<Services ID>:<Team ID>:<Key ID>`; the shape is enforced by env validation. */
+export const parseAppleClient = (value: string | undefined) => {
+  const [clientID, teamID, keyID] = (value ?? '').split(':').map((part) => part.trim());
+  return {
+    clientID: clientID || undefined,
+    teamID: teamID || undefined,
+    keyID: keyID || undefined,
+  };
+};
+
 // Secret resolution and policy live in ./secrets (secret-specs.ts is the
 // single source of truth; secrets-policy.ts enforces production policy).
 export const authConfig = registerAs('auth', () => ({
@@ -59,6 +85,12 @@ export const authConfig = registerAs('auth', () => ({
     process.env.BACKEND_EMAIL_CODE_EXPIRES_IN ??
     process.env.BACKEND_SIGNUP_VERIFICATION_EXPIRES_IN ??
     '30m',
+  signinVerificationExpiresIn:
+    process.env.BACKEND_EMAIL_CODE_EXPIRES_IN ??
+    process.env.BACKEND_SIGNIN_VERIFICATION_EXPIRES_IN ??
+    '10m',
+  // Wrong guesses allowed per sign-in code before it is discarded.
+  signinVerificationMaxAttempts: Number(process.env.BACKEND_SIGNIN_VERIFICATION_MAX_ATTEMPTS ?? 5),
   socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(',') ?? [],
   // Same switch that gates LocalAuthModule registration in auth.module.ts
   passwordLoginDisabled: process.env.PASSWORD_LOGIN_DISABLED === 'true',
@@ -72,6 +104,14 @@ export const authConfig = registerAs('auth', () => ({
     clientSecret: process.env.BACKEND_GOOGLE_CLIENT_SECRET,
     callbackURL: process.env.BACKEND_GOOGLE_CALLBACK_URL,
   },
+  apple: {
+    // Sign in with Apple, web flow. The Services ID (not the app bundle id) is the OAuth
+    // client id; Team ID and Key ID belong to the .p8 key in BACKEND_APPLE_PRIVATE_KEY.
+    // The callback is `${PUBLIC_ORIGIN}/api/auth/apple/callback` (see AppleStrategy),
+    // registered with Apple as a Return URL of the Services ID.
+    ...parseAppleClient(process.env.BACKEND_APPLE_CLIENT),
+    privateKey: normalizePemPrivateKey(process.env.BACKEND_APPLE_PRIVATE_KEY),
+  },
   oidc: {
     issuer: process.env.BACKEND_OIDC_ISSUER,
     authorizationURL: process.env.BACKEND_OIDC_AUTHORIZATION_URL,
@@ -81,6 +121,16 @@ export const authConfig = registerAs('auth', () => ({
     clientSecret: process.env.BACKEND_OIDC_CLIENT_SECRET,
     callbackURL: process.env.BACKEND_OIDC_CALLBACK_URL,
     other: process.env.BACKEND_OIDC_OTHER ? JSON.parse(process.env.BACKEND_OIDC_OTHER) : {},
+  },
+  mobileAuth: {
+    // URL schemes the mobile sign-in may hand a code to (`teable://auth/callback`). The
+    // official app registers `teable`; a fork with its own scheme lists it here.
+    redirectSchemes: (process.env.MOBILE_AUTH_REDIRECT_SCHEMES ?? 'teable')
+      .split(',')
+      .map((scheme) => scheme.trim().toLowerCase())
+      .filter(Boolean),
+    codeExpiresInSeconds: 5 * 60,
+    webSessionCodeExpiresInSeconds: 2 * 60,
   },
   signin: {
     maxLoginAttempts: process.env.SIGNIN_MAX_LOGIN_ATTEMPTS

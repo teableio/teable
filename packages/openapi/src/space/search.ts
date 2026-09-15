@@ -44,7 +44,7 @@ export type ISpaceSearchVo = z.infer<typeof spaceSearchVoSchema>;
 export const SpaceSearchRoute: RouteConfig = registerRoute({
   method: 'get',
   path: SPACE_SEARCH,
-  description: 'Search bases and nodes within a space',
+  description: 'Search projects and nodes within a space',
   request: {
     params: z.object({
       spaceId: z.string(),

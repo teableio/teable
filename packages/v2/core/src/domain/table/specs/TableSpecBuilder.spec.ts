@@ -206,6 +206,17 @@ describe('TableSpecBuilder', () => {
     expect(spec.isSatisfiedBy(otherTable)).toBe(true);
   });
 
+  it('supports narrowing hydrated Fields to requested Field ids', () => {
+    const baseId = BaseId.create(`bse${'f'.repeat(16)}`)._unsafeUnwrap();
+    const table = buildTable(baseId, TableName.create('Fields')._unsafeUnwrap());
+    const otherTable = buildTable(baseId, TableName.create('Other fields')._unsafeUnwrap());
+
+    const spec = table.specs().withFieldIds([table.primaryFieldId()]).build()._unsafeUnwrap();
+
+    expect(spec.isSatisfiedBy(table)).toBe(true);
+    expect(spec.isSatisfiedBy(otherTable)).toBe(true);
+  });
+
   it('supports incoming-reference specs across bases', () => {
     const foreignBaseId = BaseId.create(`bse${'i'.repeat(16)}`)._unsafeUnwrap();
     const hostBaseId = BaseId.create(`bse${'j'.repeat(16)}`)._unsafeUnwrap();

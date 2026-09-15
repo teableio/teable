@@ -164,8 +164,12 @@ export interface IRecordQueryDialectProvider {
     cteName: string,
     fieldId: string,
     isMultiple: boolean,
-    dbFieldType: DbFieldType
+    dbFieldType: DbFieldType,
+    isUnique?: boolean
   ): string | null;
+
+  /** Remove duplicate lookup values, retaining the first full value and its position. */
+  uniqueLookupArray(expression: string): string;
 
   // JSON aggregation helpers
 

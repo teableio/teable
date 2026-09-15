@@ -22,7 +22,15 @@ import {
   domainError,
   ok,
 } from '@teable/v2-core';
-import type { IExecutionContext, ILogger, ITableRepository } from '@teable/v2-core';
+import type {
+  IExecutionContext,
+  ILogger,
+  ISpan,
+  ITableRepository,
+  ITracer,
+  SpanAttributes,
+  SpanAttributeValue,
+} from '@teable/v2-core';
 import { Pg16TypeValidationStrategy } from '@teable/v2-formula-sql-pg';
 import type { IPgTypeValidationStrategy } from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -53,11 +61,18 @@ class RecordingConnection implements DatabaseConnection {
   constructor(
     private readonly queries: CompiledQuery[],
     private readonly returningRows: unknown[][],
-    private readonly propagationAffectedRows: bigint[]
+    private readonly propagationAffectedRows: bigint[],
+    private readonly dirtyCounts: number[]
   ) {}
 
   async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
     this.queries.push(compiledQuery);
+    if (
+      compiledQuery.sql.startsWith('select count(*) as "count" from "pg_temp"."tmp_computed_dirty"')
+    ) {
+      // SQL-generation fixtures model nonempty targets unless a test specifies a count.
+      return { rows: [{ count: this.dirtyCounts.shift() ?? 1 }] as R[] };
+    }
     if (compiledQuery.sql.includes(' RETURNING ') && this.returningRows.length > 0) {
       return { rows: this.returningRows.shift() as R[], numAffectedRows: BigInt(0) };
     }
@@ -78,6 +93,7 @@ class RecordingConnection implements DatabaseConnection {
 
 class RecordingDriver implements Driver {
   readonly queries: CompiledQuery[] = [];
+  readonly dirtyCounts: number[] = [];
 
   constructor(
     private readonly returningRows: unknown[][] = [],
@@ -89,7 +105,12 @@ class RecordingDriver implements Driver {
   }
 
   async acquireConnection(): Promise<DatabaseConnection> {
-    return new RecordingConnection(this.queries, this.returningRows, this.propagationAffectedRows);
+    return new RecordingConnection(
+      this.queries,
+      this.returningRows,
+      this.propagationAffectedRows,
+      this.dirtyCounts
+    );
   }
 
   async beginTransaction(): Promise<void> {
@@ -146,18 +167,15 @@ const createLogger = (): ILogger => {
   return logger;
 };
 
-type RecordedSpan = {
+type RecordedSpan = ISpan & {
   name: string;
-  attributes: Record<string, string | number>;
-  setAttribute: (key: string, value: string | number) => void;
-  setAttributes: (attrs: Record<string, string | number>) => void;
-  end: () => void;
+  attributes: Record<string, SpanAttributeValue>;
 };
 
 const createTracerRecorder = () => {
   const spans: RecordedSpan[] = [];
-  const tracer = {
-    startSpan: (name: string, attrs?: Record<string, string | number>) => {
+  const tracer: ITracer = {
+    startSpan: (name: string, attrs?: SpanAttributes) => {
       const span: RecordedSpan = {
         name,
         attributes: { ...(attrs ?? {}) },
@@ -167,12 +185,14 @@ const createTracerRecorder = () => {
         setAttributes: (nextAttrs) => {
           Object.assign(span.attributes, nextAttrs);
         },
+        recordError: () => undefined,
         end: () => undefined,
       };
       spans.push(span);
       return span;
     },
-    withSpan: async <T>(_span: RecordedSpan, work: () => Promise<T>) => await work(),
+    withSpan: async <T>(_span: ISpan, work: () => Promise<T>) => await work(),
+    getActiveSpan: () => undefined,
   };
 
   return { tracer, spans };
@@ -193,6 +213,8 @@ const createTableRepository = (tables: ReadonlyArray<Table>): ITableRepository =
     err(domainError.notImplemented({ message: 'ITableRepository.updateOne not used in tests' })),
   delete: async () =>
     err(domainError.notImplemented({ message: 'ITableRepository.delete not used in tests' })),
+  restore: async () =>
+    err(domainError.notImplemented({ message: 'ITableRepository.restore not used in tests' })),
 });
 
 const createFilteringTableRepository = (tables: ReadonlyArray<Table>): ITableRepository => ({
@@ -827,6 +849,38 @@ const createSequentialRecordIds = (count: number): RecordId[] =>
 // =============================================================================
 
 describe('ComputedFieldUpdater', () => {
+  it('invalidates an untracked scope before empty-stage return', async () => {
+    const { baseId, table } = createSameTableFormulaChainTable();
+    const { db, driver } = createRecordingDb();
+    const updater = new ComputedFieldUpdater(
+      createTableRepository([table]),
+      createLogger(),
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy()
+    );
+    const result = await updater.execute(
+      {
+        baseId,
+        seedTableId: table.id(),
+        seedRecordIds: [],
+        extraSeedRecords: [],
+        steps: [],
+        edges: [],
+        estimatedComplexity: 0,
+        changeType: 'update',
+        sameTableBatches: [],
+      },
+      { actorId: ActorId.create(ACTOR_ID)._unsafeUnwrap() },
+      undefined,
+      { ledgerScopeId: 'scope', valueFrontier: { tableIds: [] } }
+    );
+    expect(result.isOk()).toBe(true);
+    expect(driver.queries).toHaveLength(1);
+    expect(driver.queries[0].sql).toContain('delete from "computed_update_change_frontier"');
+    expect(driver.queries[0].parameters).toContain('scope');
+  });
+
   it('uses try advisory locks when the caller requests non-blocking lock acquisition', async () => {
     const { baseId, table, plusOneFieldId } = createSameTableFormulaChainTable();
     const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
@@ -2520,6 +2574,277 @@ describe('ComputedFieldUpdater', () => {
     `);
   });
 
+  it('returns an error when counting dirty records fails instead of completing an empty step', async () => {
+    const { baseId, table, plusOneFieldId } = createSameTableFormulaChainTable();
+    const data = await createPGliteDb();
+    try {
+      const plan: ComputedUpdatePlan = {
+        baseId,
+        seedTableId: table.id(),
+        seedRecordIds: [RecordId.create(RECORD_ID)._unsafeUnwrap()],
+        extraSeedRecords: [],
+        steps: [{ tableId: table.id(), fieldIds: [plusOneFieldId], level: 0 }],
+        edges: [],
+        estimatedComplexity: 1,
+        changeType: 'update',
+        sameTableBatches: [],
+      };
+      const updater = new ComputedFieldUpdater(
+        createTableRepository([table]),
+        createLogger(),
+        data.db,
+        undefined,
+        createTypeValidationStrategy()
+      );
+      // Simulate a lost temporary dirty table. A failed COUNT is not evidence of zero rows.
+      const result = await updater.executePreparedSteps(
+        plan,
+        { actorId: ActorId.create(ACTOR_ID)._unsafeUnwrap() },
+        {
+          db: data.db as unknown as Kysely<DynamicDB>,
+          tableById: new Map([[table.id().toString(), table]]),
+          dirtyStats: [],
+          totalDirtyRecords: 0,
+          propagationStats: {
+            plannedAllTargetReasonCounts: {},
+            runtimeAllTargetFallbackReasonCounts: {},
+          },
+        }
+      );
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().tags).toContain('infrastructure');
+    } finally {
+      await data.db.destroy();
+    }
+  });
+
+  it('completes empty steps without issuing updates and recomputes when the dirty set changes', async () => {
+    const { baseId, table, plusOneFieldId, doubleFieldId } = createSameTableFormulaChainTable();
+    const data = await createPGliteDb();
+    try {
+      await data.pglite.exec(`
+        CREATE SCHEMA "${BASE_ID}";
+        CREATE TABLE "${BASE_ID}"."${SAME_TABLE_FORMULA_TABLE_ID}" (
+          __id text PRIMARY KEY, __version integer NOT NULL,
+          col_value double precision, col_plus_one double precision,
+          col_plus_one_double double precision
+        );
+        INSERT INTO "${BASE_ID}"."${SAME_TABLE_FORMULA_TABLE_ID}"
+          VALUES ('${RECORD_ID}', 1, 10, NULL, NULL);
+        CREATE TEMPORARY TABLE tmp_computed_dirty (
+          table_id text NOT NULL, record_id text NOT NULL,
+          generation integer NOT NULL DEFAULT 0, PRIMARY KEY (table_id, record_id)
+        );
+        CREATE TABLE update_statements (executed boolean NOT NULL);
+        CREATE FUNCTION record_update_statement() RETURNS trigger LANGUAGE plpgsql AS $$
+          BEGIN
+            INSERT INTO update_statements VALUES (true);
+            RETURN NULL;
+          END;
+        $$;
+        CREATE TRIGGER track_update_statement
+          AFTER UPDATE ON "${BASE_ID}"."${SAME_TABLE_FORMULA_TABLE_ID}"
+          FOR EACH STATEMENT EXECUTE FUNCTION record_update_statement();
+      `);
+      const plan: ComputedUpdatePlan = {
+        baseId,
+        seedTableId: table.id(),
+        seedRecordIds: [RecordId.create(RECORD_ID)._unsafeUnwrap()],
+        extraSeedRecords: [],
+        steps: [
+          { tableId: table.id(), fieldIds: [plusOneFieldId], level: 0 },
+          { tableId: table.id(), fieldIds: [doubleFieldId], level: 1 },
+        ],
+        edges: [],
+        estimatedComplexity: 2,
+        changeType: 'update',
+        sameTableBatches: [],
+      };
+      const updater = new ComputedFieldUpdater(
+        createTableRepository([table]),
+        createLogger(),
+        data.db,
+        undefined,
+        createTypeValidationStrategy()
+      );
+      const prepared = {
+        db: data.db as unknown as Kysely<DynamicDB>,
+        tableById: new Map([[table.id().toString(), table]]),
+        // Deliberately stale: execution must inspect the current temporary dirty set.
+        dirtyStats: [{ tableId: table.id().toString(), recordCount: 1 }],
+        totalDirtyRecords: 1,
+        propagationStats: {
+          plannedAllTargetReasonCounts: {},
+          runtimeAllTargetFallbackReasonCounts: {},
+        },
+      };
+      const { tracer, spans } = createTracerRecorder();
+      const context = { actorId: ActorId.create(ACTOR_ID)._unsafeUnwrap(), tracer };
+      const empty = (
+        await updater.executePreparedSteps(
+          plan,
+          context,
+          prepared,
+          plan.steps,
+          {
+            runId: 'empty-stage-run',
+            originRunIds: ['empty-stage-run'],
+            phase: 'async',
+            totalSteps: 4,
+            completedStepsBefore: 2,
+          },
+          true
+        )
+      )._unsafeUnwrap();
+      // A statement trigger fires even for a zero-row UPDATE, exposing empty SQL work.
+      expect((await data.pglite.query('SELECT * FROM update_statements')).rows).toEqual([]);
+      expect(empty.changesByStep).toEqual([]);
+      expect(empty.traceInfos.map((trace) => trace.fieldIds)).toEqual([
+        [plusOneFieldId.toString()],
+        [doubleFieldId.toString()],
+      ]);
+      expect(
+        spans
+          .filter((span) => span.name === 'teable.ComputedFieldUpdater.step')
+          .map((span) => [span.attributes['step.position'], span.attributes['step.pending']])
+      ).toEqual([
+        [3, 1],
+        [4, 0],
+      ]);
+
+      await data.pglite.exec(`
+        INSERT INTO tmp_computed_dirty (table_id, record_id)
+          VALUES ('${table.id().toString()}', '${RECORD_ID}');
+      `);
+      // Reuse the prepared state after an empty execution, splitting the formula chain
+      // across calls as a continuation does. A cached zero must not suppress either step.
+      for (const step of plan.steps) {
+        (
+          await updater.executePreparedSteps(plan, context, prepared, [step], undefined, true)
+        )._unsafeUnwrap();
+      }
+      expect(
+        (
+          await data.pglite.query(`
+            SELECT __version, col_plus_one, col_plus_one_double
+            FROM "${BASE_ID}"."${SAME_TABLE_FORMULA_TABLE_ID}"
+          `)
+        ).rows
+      ).toEqual([{ __version: 3, col_plus_one: 11, col_plus_one_double: 22 }]);
+      expect((await data.pglite.query('SELECT * FROM update_statements')).rows).toEqual([
+        { executed: true },
+        { executed: true },
+      ]);
+    } finally {
+      await data.db.destroy();
+    }
+  });
+
+  it('counts dirty rows once per table in an execution and recounts on the next execution', async () => {
+    const { baseId, table, plusOneFieldId, doubleFieldId } = createSameTableFormulaChainTable();
+    const { table: otherTable, formulaFieldIds } = createWideSameLevelFormulaTable(1);
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: table.id(),
+      seedRecordIds: [RecordId.create(RECORD_ID)._unsafeUnwrap()],
+      extraSeedRecords: [],
+      steps: Array.from({ length: 8 }, (_, level) => ({
+        tableId: level === 3 || level === 6 ? otherTable.id() : table.id(),
+        fieldIds: [
+          level === 3 || level === 6
+            ? formulaFieldIds[0]
+            : level % 2
+              ? doubleFieldId
+              : plusOneFieldId,
+        ],
+        level,
+      })),
+      edges: [],
+      estimatedComplexity: 8,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+    const { db, driver } = createRecordingDb();
+    const updater = new ComputedFieldUpdater(
+      createTableRepository([table, otherTable]),
+      createLogger(),
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy()
+    );
+    driver.dirtyCounts.push(42, 17, 43, 18);
+    const { tracer, spans } = createTracerRecorder();
+    const context = { actorId: ActorId.create(ACTOR_ID)._unsafeUnwrap(), tracer };
+    const counts = () =>
+      driver.queries.filter((query) =>
+        query.sql.startsWith('select count(*) as "count" from "pg_temp"."tmp_computed_dirty"')
+      );
+    expect((await updater.execute(plan, context)).isOk()).toBe(true);
+    expect(counts()).toHaveLength(2);
+    expect(driver.queries.filter((query) => query.sql.startsWith('update '))).toHaveLength(8);
+    expect((await updater.execute(plan, context)).isOk()).toBe(true);
+    expect(counts()).toHaveLength(4);
+    expect(
+      spans
+        .filter((span) => span.name === 'teable.ComputedFieldUpdater.step')
+        .map((span) => span.attributes['step.dirtyRecordCount'])
+    ).toEqual([42, 42, 42, 17, 42, 42, 17, 42, 43, 43, 43, 18, 43, 43, 18, 43]);
+  });
+
+  it('recounts dirty rows after oversized-cell restoration before the next step', async () => {
+    const { baseId, table, plusOneFieldId, doubleFieldId } = createSameTableFormulaChainTable();
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: table.id(),
+      seedRecordIds: [RecordId.create(RECORD_ID)._unsafeUnwrap()],
+      extraSeedRecords: [],
+      steps: [
+        { tableId: table.id(), fieldIds: [plusOneFieldId], level: 0 },
+        { tableId: table.id(), fieldIds: [doubleFieldId], level: 1 },
+      ],
+      edges: [],
+      estimatedComplexity: 2,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+    const { db, driver } = createRecordingDb([
+      [{ __id: RECORD_ID, __old_version: 1, col_plus_one: 'oversized' }],
+    ]);
+    const updater = new ComputedFieldUpdater(
+      createTableRepository([table]),
+      createLogger(),
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy(),
+      new TableDataSafetyLimitComposer([
+        new StaticTableDataSafetyLimitPlugin({ computed: { maxComputedCellValueBytes: 1 } }),
+      ])
+    );
+    driver.dirtyCounts.push(42, 43);
+    const { tracer, spans } = createTracerRecorder();
+    const result = await updater.execute(
+      plan,
+      { actorId: ActorId.create(ACTOR_ID)._unsafeUnwrap(), tracer },
+      undefined,
+      {
+        collectChanges: true,
+        isolateOversizedComputedCells: true,
+      }
+    );
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().rejectedCells).toHaveLength(1);
+    expect(
+      spans
+        .filter((span) => span.name === 'teable.ComputedFieldUpdater.step')
+        .map((span) => span.attributes['step.dirtyRecordCount'])
+    ).toEqual([42, 43]);
+    expect(
+      driver.queries.filter((query) =>
+        query.sql.startsWith('select count(*) as "count" from "pg_temp"."tmp_computed_dirty"')
+      )
+    ).toHaveLength(2);
+  });
+
   it('chunks same-table CTE batch updates when dirty records exceed threshold', async () => {
     const { baseId, table, plusOneFieldId, doubleFieldId } = createSameTableFormulaChainTable();
     const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
@@ -2578,10 +2903,9 @@ describe('ComputedFieldUpdater', () => {
       typeValidationStrategy
     );
     const updaterInternal = updater as unknown as {
-      getDirtyCountForTable: () => Promise<number>;
       getDirtyRecordIdChunks: () => Promise<ReadonlyArray<ReadonlyArray<string>>>;
     };
-    updaterInternal.getDirtyCountForTable = async () => 1001;
+    driver.dirtyCounts.push(1001);
     updaterInternal.getDirtyRecordIdChunks = async () => [
       Array.from({ length: 500 }, (_, i) => `rec${i.toString().padStart(16, '0')}`),
       Array.from({ length: 500 }, (_, i) => `rec${(i + 500).toString().padStart(16, '0')}`),
@@ -2599,7 +2923,10 @@ describe('ComputedFieldUpdater', () => {
     expect(updateQueries).toHaveLength(3);
     for (const query of updateQueries) {
       expect(query.sql).toMatch(/with "level_0" as/i);
-      expect(query.sql).toMatch(/join "level_1" on "u"\."__id" = "level_1"\."__id"/i);
+      // The last CTE already has the record ID and all output columns. Project
+      // directly from it instead of joining the base table a second time.
+      expect(query.sql).toMatch(/from "level_1"\) as "c_src"/i);
+      expect(query.sql).not.toMatch(/join "level_1" on "u"\."__id"/i);
       expect(query.sql).toContain(
         'AS "__record_ids"("__id") ON "t"."__id" = "__record_ids"."__id"'
       );
@@ -2651,7 +2978,6 @@ describe('ComputedFieldUpdater', () => {
       createTypeValidationStrategy()
     );
     const updaterInternal = updater as unknown as {
-      getDirtyCountForTable: () => Promise<number>;
       getDirtyRecordIdChunks: (
         db: unknown,
         tableId: unknown,
@@ -2659,7 +2985,7 @@ describe('ComputedFieldUpdater', () => {
         includeSingleton?: boolean
       ) => Promise<ReadonlyArray<ReadonlyArray<string>>>;
     };
-    updaterInternal.getDirtyCountForTable = async () => 265;
+    driver.dirtyCounts.push(265);
     updaterInternal.getDirtyRecordIdChunks = async (_db, _tableId, chunkSize, includeSingleton) => {
       expect(chunkSize).toBe(25);
       expect(includeSingleton).toBe(true);
@@ -2738,10 +3064,9 @@ describe('ComputedFieldUpdater', () => {
       typeValidationStrategy
     );
     const updaterInternal = updater as unknown as {
-      getDirtyCountForTable: () => Promise<number>;
       getDirtyRecordIdChunks: () => Promise<ReadonlyArray<ReadonlyArray<string>>>;
     };
-    updaterInternal.getDirtyCountForTable = async () => 1001;
+    driver.dirtyCounts.push(1001);
     updaterInternal.getDirtyRecordIdChunks = async () => [
       Array.from({ length: 500 }, (_, i) => `rec${i.toString().padStart(16, '0')}`),
       Array.from({ length: 500 }, (_, i) => `rec${(i + 500).toString().padStart(16, '0')}`),
@@ -2804,7 +3129,6 @@ describe('ComputedFieldUpdater', () => {
       createTypeValidationStrategy()
     );
     const updaterInternal = updater as unknown as {
-      getDirtyCountForTable: () => Promise<number>;
       getDirtyRecordIdChunks: () => Promise<ReadonlyArray<ReadonlyArray<string>>>;
     };
     const recordIdChunks = [
@@ -2812,7 +3136,7 @@ describe('ComputedFieldUpdater', () => {
       Array.from({ length: 500 }, (_, index) => `rec${(index + 500).toString().padStart(16, '0')}`),
       [`rec${'1000'.padStart(16, '0')}`],
     ];
-    updaterInternal.getDirtyCountForTable = async () => 1001;
+    driver.dirtyCounts.push(1001);
     updaterInternal.getDirtyRecordIdChunks = async () => recordIdChunks;
 
     const result = await updater.execute(plan, { actorId });
@@ -2838,11 +3162,10 @@ describe('ComputedFieldUpdater', () => {
       createTypeValidationStrategy()
     );
     const fallbackInternal = fallbackUpdater as unknown as {
-      getDirtyCountForTable: () => Promise<number>;
       getDirtyRecordIdChunks: () => Promise<ReadonlyArray<ReadonlyArray<string>>>;
       hasBoundedDistinctHostKeys: () => Promise<unknown>;
     };
-    fallbackInternal.getDirtyCountForTable = async () => 1001;
+    fallbackDb.driver.dirtyCounts.push(1001);
     fallbackInternal.getDirtyRecordIdChunks = async () => recordIdChunks;
     fallbackInternal.hasBoundedDistinctHostKeys = async () => ok(false);
 

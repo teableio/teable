@@ -31,7 +31,7 @@ export class RunComputedTaskByIdCommand extends InternalCommand {
       return err(
         domainError.validation({
           message: 'Invalid RunComputedTaskByIdCommand input',
-          details: parsed.error.format(),
+          details: z.formatError(parsed.error),
         })
       );
     }

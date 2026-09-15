@@ -16,6 +16,7 @@ export enum IdPrefix {
   Choice = 'cho',
 
   Workflow = 'wfl',
+  CredentialGrant = 'grt',
   WorkflowTrigger = 'wtr',
   WorkflowAction = 'wac',
   WorkflowDecision = 'wde',
@@ -72,6 +73,13 @@ export enum IdPrefix {
   App = 'app',
 
   AiProxyToken = 'apt',
+
+  Routine = 'rtn',
+  RoutineSnapshot = 'rsn',
+  RoutineRun = 'rrn',
+
+  MediaTask = 'mgt',
+  MediaTaskItem = 'mgi',
 }
 
 export enum RandomType {
@@ -130,6 +138,10 @@ export function generateAttachmentId() {
 
 export function generateWorkflowId() {
   return IdPrefix.Workflow + getRandomString(16);
+}
+
+export function generateCredentialGrantId() {
+  return IdPrefix.CredentialGrant + getRandomString(16);
 }
 
 export function generateWorkflowTriggerId() {
@@ -287,6 +299,18 @@ export function generateAiProxyTokenId() {
   return IdPrefix.AiProxyToken + getRandomString(24);
 }
 
+export function generateRoutineId() {
+  return IdPrefix.Routine + getRandomString(16);
+}
+
+export function generateRoutineSnapshotId() {
+  return IdPrefix.RoutineSnapshot + getRandomString(16);
+}
+
+export function generateRoutineRunId() {
+  return IdPrefix.RoutineRun + getRandomString(16);
+}
+
 /**
  * Generate a cryptographically random signing secret for AI Proxy Token JWTs.
  * 48 chars of base62 ≈ 285 bits of entropy — sufficient for HMAC-SHA256.
@@ -297,4 +321,12 @@ export function generateAiProxyTokenSign() {
 
 export function generateLogId() {
   return getRandomString(25);
+}
+
+export function generateMediaTaskId() {
+  return IdPrefix.MediaTask + getRandomString(16);
+}
+
+export function generateMediaTaskItemId() {
+  return IdPrefix.MediaTaskItem + getRandomString(16);
 }

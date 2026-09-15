@@ -2,7 +2,12 @@ import { ErrorCodeToStatusMap, HttpError, HttpErrorCode } from '@teable/core';
 import type { ILocaleFunction } from './i18n';
 import { errorRequestHandler } from './queryClient';
 
+type ShareDbReceiveData = {
+  error?: unknown;
+};
+
 const ignoreErrorCodes = [HttpErrorCode.VIEW_NOT_FOUND];
+const ignoreErrorMessages = ['Computed activity aggregate is private'];
 const httpErrorCodes = new Set<string>(Object.values(HttpErrorCode));
 
 const isHttpErrorCode = (code: unknown): code is HttpErrorCode =>
@@ -43,9 +48,23 @@ export const handleShareDbError = (error: unknown, t?: ILocaleFunction) => {
     return;
   }
 
-  if (ignoreErrorCodes.includes(httpError.code)) {
+  if (
+    ignoreErrorCodes.includes(httpError.code) ||
+    ignoreErrorMessages.includes(httpError.message)
+  ) {
     return;
   }
 
   errorRequestHandler(httpError, t);
+};
+
+export const handleShareDbReceive = (
+  request: { data?: ShareDbReceiveData },
+  t?: ILocaleFunction
+) => {
+  const data = request.data;
+  if (!data?.error) {
+    return;
+  }
+  handleShareDbError(data.error, t);
 };

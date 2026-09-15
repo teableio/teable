@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { useContext, useEffect, useRef } from 'react';
+import { useCallback, useContext, useEffect, useRef } from 'react';
 import { cn } from '../../../shadcn';
 import { FilePreviewContext, type IFileItem } from './FilePreviewContext';
 import { genFileId } from './genFileId';
@@ -12,27 +12,36 @@ interface IFilePreviewItem extends IFileItem {
 }
 
 export const FilePreviewItem = (props: IFilePreviewItem) => {
-  const { children, className, style, onBeforeOpen, ...fileItem } = props;
-  const { openPreview, mergeFiles, onDelete } = useContext(FilePreviewContext);
+  const { children, className, style, onBeforeOpen, onDelete, ...fileItem } = props;
+  const { openPreview, mergeFiles, removeFile } = useContext(FilePreviewContext);
 
   const fileIdRef = useRef<number>(genFileId());
   const oldFileItemRef = useRef<IFileItem>();
+  const onDeleteRef = useRef(onDelete);
+  const hasDelete = Boolean(onDelete);
+
+  useEffect(() => {
+    onDeleteRef.current = onDelete;
+  }, [onDelete]);
+
+  // Stable wrapper: the registered item must not churn when the host re-creates its callback.
+  const deleteFile = useCallback(() => onDeleteRef.current?.(), []);
 
   useEffect(() => {
     const fileId = fileIdRef.current;
     const isItemChange = fileItem !== oldFileItemRef.current;
     if (isItemChange) {
       oldFileItemRef.current = fileItem;
-      mergeFiles({ ...fileItem, fileId });
+      mergeFiles({ ...fileItem, fileId, onDelete: hasDelete ? deleteFile : undefined });
     }
-  }, [fileItem, mergeFiles]);
+  }, [fileItem, mergeFiles, hasDelete, deleteFile]);
 
   useEffect(() => {
     const fileId = fileIdRef.current;
     return () => {
-      fileId && onDelete(fileId);
+      fileId && removeFile(fileId);
     };
-  }, [onDelete]);
+  }, [removeFile]);
 
   return (
     <div

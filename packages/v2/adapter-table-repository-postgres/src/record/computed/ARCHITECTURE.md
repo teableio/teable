@@ -26,6 +26,33 @@ Scope constraints (as requested)
 
 ---
 
+## Stage continuation integrity
+
+- Initial INSERT extras can be lock-only inputs. A completed stage's deferred plan
+  uses UPDATE semantics for its actual dirty outputs; it must not promote untouched
+  lock-only rows. DELETE retains its original semantics and before-images.
+- A partial floor batch persists `partialStageBudget` with its ledger scope and
+  whole-table cursors. Later batches must use the same partition even if worker
+  configuration changes. Only a completed stage can reset that boundary.
+- Ledger settlement retains sources for deferred edges **and** pending same-record
+  steps. Consuming a sibling table's frontier does not prove its formulas ran.
+- Whole-table seed promotion covers surviving rows, not deleted sources. Retain
+  relevant before-image IDs alongside whole-table markers through enqueue and
+  retry merging, so later edges can still match deleted rows' old values.
+
+The convergence gate checks command-input-derived values against raw stored cells
+for every fixture row, including unrelated rows and link titles. It does not use
+the computed query path as an oracle or treat an empty queue as correctness proof.
+Shared HTTP scenarios run across bounded/unbounded PGlite execution profiles;
+recovery and competing-worker tests use real PostgreSQL. CI runs those PostgreSQL
+contracts on versions 16 and 17. Nightly/manual jobs expand seeded properties and
+run isolated source mutations; only the intended value assertion counts as a kill.
+Property failures print seed, shrink path, scenario and a replay command, and CI
+uploads those details with test logs. Stable fixture ID ordering makes shrinking
+and replay independent of random sibling-stage and frontier ordering.
+
+---
+
 ## Goals
 
 ### G1. “Plan executed?” answerable via OTel

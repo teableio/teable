@@ -5,7 +5,7 @@ export type IPlugin18nJsonType = {
   [key: string]: string | IPlugin18nJsonType;
 };
 
-export const pluginI18nJsonSchema: z.ZodType<IPlugin18nJsonType> = z.lazy(() =>
+export const pluginI18nJsonSchema: z.ZodType<IPlugin18nJsonType, IPlugin18nJsonType> = z.lazy(() =>
   z.record(z.string(), z.union([z.string(), pluginI18nJsonSchema]))
 );
 

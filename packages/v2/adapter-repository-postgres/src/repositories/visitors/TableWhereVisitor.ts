@@ -26,6 +26,7 @@ import {
   TableByViewIdSpec,
   TableWithViewIdsSpec,
   TableWithPrimaryFieldSpec,
+  TableWithFieldIdsSpec,
   TableByIncomingReferenceToTableSpec,
   TableByIdsSpec,
   TableByNameLikeSpec,
@@ -106,6 +107,7 @@ export type TableWhereSpecInfo = {
   readonly tableIds?: ReadonlyArray<string>;
   readonly tableName?: string;
   readonly nameLike?: string;
+  readonly fieldIds?: ReadonlyArray<string>;
 };
 
 export class TableWhereVisitor
@@ -356,6 +358,31 @@ export class TableWhereVisitor
     this.addFieldCond((eb) => eb.eb('is_primary', '=', true));
     const cond: ITableMetaWhere = () => sql<boolean>`true`;
     this.mergeSpecInfo({ specName: 'TableWithPrimaryFieldSpec' });
+    return this.addCond(cond).map(() => cond);
+  }
+
+  visitTableWithFieldIds(spec: TableWithFieldIdsSpec): Result<ITableMetaWhere, DomainError> {
+    const fieldIds = spec.fieldIds().map((fieldId) => fieldId.toString());
+    this.addFieldCond((eb) => {
+      const primary = eb.eb('is_primary', '=', true);
+      if (fieldIds.length === 0) {
+        return primary;
+      }
+      const requestedIds = sql.join(fieldIds.map((fieldId) => sql`${fieldId}`));
+      return eb.or([
+        eb.eb('id', 'in', fieldIds),
+        primary,
+        sql<boolean>`"id" in (
+          select "lookup_src"."lookup_linked_field_id"
+          from "field" as "lookup_src"
+          where "lookup_src"."table_id" = "field"."table_id"
+            and "lookup_src"."id" in (${requestedIds})
+            and "lookup_src"."lookup_linked_field_id" is not null
+        )`,
+      ]);
+    });
+    const cond: ITableMetaWhere = () => sql<boolean>`true`;
+    this.mergeSpecInfo({ specName: 'TableWithFieldIdsSpec', fieldIds });
     return this.addCond(cond).map(() => cond);
   }
 

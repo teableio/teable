@@ -19,6 +19,11 @@ export interface ICacheStore {
   // read-modify-write on the per-user session map".
   [key: `auth:session-user-cleared:${string}`]: number;
   [key: `oauth2:${string}`]: IOauth2State;
+  // Mobile app sign-in (PKCE): keyed by the SHA-256 of the one-time code.
+  [key: `auth:mobile-code:${string}`]: IMobileAuthCodeState;
+  [key: `auth:mobile-web-session:${string}`]: IMobileWebSessionState;
+  // WebView sessions signed in through a web-session code, keyed by the native session id.
+  [key: `auth:mobile-children:${string}`]: string[];
   [key: `reset-password-email:${string}`]: IResetPasswordEmailCache;
   [key: `workflow:running:${string}`]: string;
   [key: `workflow:repeatKey:${string}`]: string;
@@ -41,6 +46,10 @@ export interface ICacheStore {
   [key: `plugin:auth-code:${string}`]: IPluginAuthStore;
   [key: `signin:attempts:${string}`]: number;
   [key: `signin:lockout:${string}`]: boolean;
+  // Email-code sign-in: the active one-time code per email, and the wrong-guess
+  // counter that discards it after too many attempts.
+  [key: `auth:signin-code:${string}`]: ISigninCodeCache;
+  [key: `auth:signin-code-attempts:${string}`]: number;
   [key: `query-params:${string}`]: Record<string, unknown>;
   [key: `mail-sender:notify-mail-merge:${string}`]: (ISendMailOptions & {
     mailType: MailType;
@@ -54,6 +63,25 @@ export interface ICacheStore {
   // Watchdog round-robin scan cursor per status (staleAt stored as ISO string).
   [key: `automation:orphan-cursor:${string}`]: { staleAt: string; key: string };
   [key: `task:watchdog-cursor:${string}`]: { staleAt: string; key: string };
+  [key: `computed-reliability:snapshot:${string}`]: {
+    count: number;
+    oldestAt: number | null;
+    sampledAt: number;
+  };
+  [key: `routine:watchdog-cursor:${string}`]: { staleAt: string; key: string };
+  [key: `routine:fail-notify-count:${string}`]: number;
+  // Push: where the app is right now, so nothing is pushed to a screen its owner is
+  // already reading. Written by the app on foreground / chat open / a slow heartbeat.
+  [key: `push:presence:${string}:${string}`]: { chatId?: string };
+  // Push: the gate a turn is parked on, so only the transition into one is announced and
+  // only a gate that *was* announced is withdrawn. Keyed by the assistant message.
+  // `announced: false` records a gate that was seen and deliberately not sent (the switch
+  // is off, the owner is looking at it); it is kept briefly so the decision is revisited
+  // while the gate still stands, rather than once and for all.
+  [key: `push:gate:${string}`]: { toolName: string; announced: boolean };
+  // Push: results sent to a user inside the current window. Past the cap the individual
+  // cards give way to one "N conversations have news" summary.
+  [key: `push:burst:${string}`]: number;
   // Distributed lock keys
   [key: `lock:${string}`]: string;
   [key: `import:result:manifest:${string}`]: {
@@ -105,8 +133,26 @@ export interface IOauth2State {
   redirectUri?: string;
 }
 
+export interface IMobileAuthCodeState {
+  userId: string;
+  codeChallenge: string;
+  redirectUri: string;
+  createdAt: number;
+}
+
+export interface IMobileWebSessionState {
+  userId: string;
+  /** The native (cookie) session that minted the code. */
+  parentSessionId: string;
+  createdAt: number;
+}
+
 export interface IResetPasswordEmailCache {
   userId: string;
+}
+
+export interface ISigninCodeCache {
+  code: string;
 }
 
 export interface IOAuthCodeState {

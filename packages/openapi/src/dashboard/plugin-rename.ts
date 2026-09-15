@@ -23,6 +23,7 @@ export type IDashboardPluginRenameVo = z.infer<typeof dashboardPluginRenameVoSch
 export const DashboardPluginRenameRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: DASHBOARD_PLUGIN_RENAME,
+  title: 'Patch project dashboard plugin rename',
   description: 'Rename a plugin in a dashboard',
   request: {
     params: z.object({

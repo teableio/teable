@@ -40,6 +40,7 @@ import {
   updateSetting,
   updateSpaceDataDb,
   UploadType,
+  uploadAttachment,
   uploadFile as apiUploadFile,
   X_CANARY_HEADER,
   type ITableFullVo,
@@ -49,6 +50,7 @@ import Knex from 'knex';
 import type { Knex as KnexType } from 'knex';
 import type { ClsStore } from 'nestjs-cls';
 import { ClsService } from 'nestjs-cls';
+import * as unzipper from 'unzipper';
 import type { IBaseConfig } from '../src/configs/base.config';
 import { baseConfig } from '../src/configs/base.config';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
@@ -118,9 +120,13 @@ const dataPlaneSystemTables = [
   'computed_update_run_history',
   'computed_update_pause_scope',
   'computed_update_stage_ledger',
+  'computed_update_change_frontier',
   'computed_field_activity',
   'computed_table_activity',
   'computed_task_field_ref',
+  'computed_reliability_issue',
+  'computed_reliability_scope',
+
   'record_history',
   'table_trash',
   'record_trash',
@@ -553,7 +559,7 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
     await app?.close();
   }, 60_000);
 
-  const uploadExportedBase = async (targetBaseId: string) => {
+  const downloadExportedBaseZip = async (targetBaseId: string) => {
     const awaitExportWithPreview = createAwaitWithEventWithResult<{
       status?: 'success' | 'failed';
       previewUrl: string;
@@ -569,6 +575,20 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
     if (status === 'failed') {
       throw new Error(`Exported base is not available: ${errorMessage ?? 'unknown error'}`);
     }
+    if (!attachment) {
+      throw new Error(`Missing exported base attachment payload for ${previewUrl}`);
+    }
+
+    const storageAdapter = app.get<StorageAdapter>(Symbol.for('ObjectStorage'));
+    const exportStream = await storageAdapter.downloadFile(
+      StorageAdapter.getBucket(UploadType.ExportBase),
+      attachment.path
+    );
+    return streamToBuffer(exportStream);
+  };
+
+  const uploadExportedBase = async (targetBaseId: string) => {
+    const exportBuffer = await downloadExportedBaseZip(targetBaseId);
 
     return await app.get(ClsService).runWith<Promise<INotifyVo>>(
       {
@@ -580,16 +600,6 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
         },
       } as unknown as ClsStore,
       async () => {
-        if (!attachment) {
-          throw new Error(`Missing exported base attachment payload for ${previewUrl}`);
-        }
-
-        const storageAdapter = app.get<StorageAdapter>(Symbol.for('ObjectStorage'));
-        const exportStream = await storageAdapter.downloadFile(
-          StorageAdapter.getBucket(UploadType.ExportBase),
-          attachment.path
-        );
-        const exportBuffer = await streamToBuffer(exportStream);
         const { token, requestHeaders } = (
           await apiGetSignature({
             type: UploadType.Import,
@@ -599,7 +609,7 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
         ).data;
         await apiUploadFile(token, exportBuffer, requestHeaders);
 
-        return (await apiNotify(token, undefined, attachment.name)).data;
+        return (await apiNotify(token, undefined, `${targetBaseId}.tea`)).data;
       }
     );
   };
@@ -883,6 +893,97 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
     await assertImportedTableRouting(base.id);
     await assertDotTeaBaseImportRouting(space.id);
     await assertComputedSideEffectsStayOutOfMetaDb(base.id, mainTable.id, recordId);
+  }, 240_000);
+
+  it('exports cell attachments written to the bound data db after BYODB bind', async () => {
+    const attachmentInternalSchema = `byodb_att_${Date.now().toString(36)}`;
+    let attachmentSpaceId: string | undefined;
+    let attachmentBaseId: string | undefined;
+    const filePath = path.join(StorageAdapter.TEMPORARY_DIR, `byodb-export-${Date.now()}.txt`);
+    fs.mkdirSync(StorageAdapter.TEMPORARY_DIR, { recursive: true });
+    fs.writeFileSync(filePath, 'byodb cell attachment for export');
+
+    try {
+      const space = await createSpace({
+        name: 'BYODB attachment export e2e',
+        dataDb: {
+          mode: 'byodb',
+          url: byodbDataDatabaseUrl!,
+          targetMode: 'initialize-empty',
+          internalSchema: attachmentInternalSchema,
+        },
+      });
+      attachmentSpaceId = space.id;
+      const base = await createBase({ spaceId: space.id, name: 'BYODB attachment export base' });
+      attachmentBaseId = base.id;
+      const table = await createTable(base.id, {
+        name: 'BYODB attachment export table',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          { name: 'Files', type: FieldType.Attachment },
+        ],
+      });
+      const attachmentFieldId = table.fields.find((field) => field.name === 'Files')?.id;
+      const recordId = table.records[0]?.id;
+      if (!attachmentFieldId || !recordId) {
+        throw new Error('Expected attachment field and seed record');
+      }
+
+      const uploaded = await uploadAttachment(
+        table.id,
+        recordId,
+        attachmentFieldId,
+        fs.createReadStream(filePath),
+        { filename: 'export-me.txt' }
+      );
+      expect(uploaded.status).toBe(201);
+      const token = (uploaded.data.fields[attachmentFieldId] as Array<{ token: string }>)[0]?.token;
+      expect(token).toBeTruthy();
+
+      await expect(
+        waitForCount(
+          () =>
+            countRows(
+              dataDb,
+              attachmentInternalSchema,
+              'attachments_table',
+              `${quoteIdent('table_id')} = ? AND ${quoteIdent('record_id')} = ?`,
+              [table.id, recordId]
+            ),
+          1
+        )
+      ).resolves.toBe(1);
+      await expect(
+        countRows(
+          metaDb,
+          'public',
+          'attachments_table',
+          `${quoteIdent('table_id')} = ? AND ${quoteIdent('record_id')} = ?`,
+          [table.id, recordId]
+        )
+      ).resolves.toBe(0);
+
+      const exportBuffer = await downloadExportedBaseZip(base.id);
+      const zip = await unzipper.Open.buffer(exportBuffer);
+      const entryNames = zip.files.map((file) => file.path);
+      expect(entryNames.some((name) => name === `attachments/${token}.txt`)).toBe(true);
+      const csvEntry = zip.files.find((file) => file.path === 'attachments/attachments.csv');
+      expect(csvEntry).toBeDefined();
+      const csv = (await csvEntry!.buffer()).toString('utf8');
+      expect(csv).toContain(token);
+    } finally {
+      fs.unlinkSync(filePath);
+      if (attachmentBaseId) {
+        await permanentDeleteBase(attachmentBaseId).catch(() => undefined);
+      }
+      if (attachmentSpaceId) {
+        await permanentDeleteSpace(attachmentSpaceId).catch(() => undefined);
+      }
+      await safeDropSchema(dataDb, attachmentBaseId);
+      await safeDropSchema(metaDb, attachmentBaseId);
+      await safeDropSchema(dataDb, attachmentInternalSchema);
+      await safeDropSchema(metaDb, attachmentInternalSchema);
+    }
   }, 240_000);
 
   it('opens BYODB tables through poolers that reject search_path startup parameters', async () => {

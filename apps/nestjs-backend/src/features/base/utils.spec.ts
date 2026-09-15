@@ -291,6 +291,42 @@ describe('adaptStructureTimeZone', () => {
     expect(workflows[0].nodes[0].testResult.response.timeZone).toBe('America/New_York');
   });
 
+  it('should adapt routine schedule zones in EE structures when present', () => {
+    const structure = {
+      id: 'bseTest',
+      name: 'Test',
+      icon: null,
+      tables: [],
+      folders: [],
+      nodes: [],
+      plugins: {},
+      version: '1',
+      routines: [
+        {
+          id: 'rtnTest',
+          name: 'Digest',
+          config: {
+            prompt: 'p',
+            trigger: {
+              type: 'schedule',
+              rrule: 'FREQ=DAILY;BYHOUR=9;BYMINUTE=0',
+              timezone: 'America/New_York',
+              starting: '2026-01-01T09:00:00-05:00',
+            },
+          },
+        },
+        { id: 'rtnBare', name: 'Bare', config: null },
+      ],
+    } as unknown as IBaseJson;
+
+    const result = adaptStructureTimeZone(structure, 'Asia/Shanghai');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const routines = (result as any).routines;
+    expect(routines[0].config.trigger.timezone).toBe('Asia/Shanghai');
+    expect(routines[0].config.trigger.starting).toBe('2026-01-01T09:00:00-05:00');
+    expect(routines[1].config).toBeNull();
+  });
+
   it('should adapt field options and view filters without touching other parts', () => {
     const structure = {
       id: 'bseTest',

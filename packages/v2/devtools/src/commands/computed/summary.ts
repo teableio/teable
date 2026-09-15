@@ -99,6 +99,6 @@ export const computedSummary = Command.make(
   handler
 ).pipe(
   Command.withDescription(
-    'Summarize live computed backlog and dead-letter counts by base and seed table'
+    'Summarize live computed backlog and dead-letter counts by project and seed table'
   )
 );

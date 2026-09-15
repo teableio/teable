@@ -367,6 +367,29 @@ describe('useGridAsyncRecords', () => {
     });
   });
 
+  it('keeps the current page when hide-not-match is enabled without a search value', async () => {
+    const searchState: {
+      searchQuery: [string, string, boolean] | undefined;
+      hideNotMatchRow: boolean;
+    } = { searchQuery: undefined, hideNotMatchRow: false };
+    const records = [createRecord('recDefault')];
+    mockedUseSearch.mockImplementation(() => searchState as ReturnType<typeof useSearch>);
+    mockedUseRecords.mockImplementation(() => mockUseRecordsResult(records));
+    mockedUseView.mockReturnValue({ id: 'viwTest', filter: null } as unknown as ReturnType<
+      typeof useView
+    >);
+
+    const { result, rerender } = renderHook(() => useGridAsyncRecords());
+    expect(result.current.recordMap[0]?.id).toBe('recDefault');
+
+    searchState.hideNotMatchRow = true;
+    rerender();
+
+    await waitFor(() => {
+      expect(result.current.recordMap[0]?.id).toBe('recDefault');
+    });
+  });
+
   it('wipes the cache when the record query scope and the view query change together', async () => {
     const records = [createRecord('recOld')];
     mockedUseRecords.mockReturnValue(mockUseRecordsResult(records));

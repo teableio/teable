@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BaseId } from '../../../domain/base/BaseId';
 import { FieldId } from '../../../domain/table/fields/FieldId';
 import { FieldName } from '../../../domain/table/fields/FieldName';
+import { FieldVersion } from '../../../domain/table/fields/FieldVersion';
 import { AttachmentField } from '../../../domain/table/fields/types/AttachmentField';
 import { ButtonConfirm } from '../../../domain/table/fields/types/ButtonConfirm';
 import { ButtonField } from '../../../domain/table/fields/types/ButtonField';
@@ -468,6 +469,19 @@ describe('DefaultTableMapper', () => {
     expect(dto.views[0]?.version).toBe(7);
     expect(mapped.views()[0].auditMetadata()._unsafeUnwrap().toDto()).toEqual(metadata);
     expect(mapped.views()[0].version()._unsafeUnwrap().toNumber()).toBe(7);
+  });
+
+  it('round-trips persisted version on Field child entities', () => {
+    const table = buildTable();
+    const field = table.getFields()[0]!;
+    field.setVersion(FieldVersion.rehydrate(9)._unsafeUnwrap())._unsafeUnwrap();
+    const mapper = new DefaultTableMapper();
+
+    const dto = mapper.toDTO(table)._unsafeUnwrap();
+    const mapped = mapper.toDomain(dto)._unsafeUnwrap();
+
+    expect(dto.fields[0]?.version).toBe(9);
+    expect(mapped.getFields()[0]!.version()._unsafeUnwrap().toNumber()).toBe(9);
   });
 
   it('maps a single View without serializing sibling fields', () => {

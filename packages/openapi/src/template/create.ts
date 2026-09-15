@@ -3,6 +3,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 import type { ITemplateVo } from './get';
+import { templateKindSchema } from './kind';
 
 export const CREATE_TEMPLATE = '/template/create';
 
@@ -10,6 +11,7 @@ export const createTemplateRoSchema = z.object({
   name: z.string().optional(),
   description: z.string().optional(),
   category: z.string().optional(),
+  kind: templateKindSchema.optional(),
 });
 
 export type ICreateTemplateRo = z.infer<typeof createTemplateRoSchema>;

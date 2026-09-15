@@ -81,12 +81,15 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children, query })
     enabled: Boolean(tableId && isHydrated && visible),
     common: {
       queryKey: commonRowCountQueryKey,
-      queryFn: () => getRowCount(tableId as string, rowCountQuery).then((data) => data.data),
+      queryFn: ({ signal }) =>
+        getRowCount(tableId as string, rowCountQuery, { signal }).then((data) => data.data),
     },
     share: {
       queryKey: shareRowCountQueryKey,
-      queryFn: () =>
-        getShareViewRowCount(shareId as string, rowCountQuery).then((data) => data.data),
+      queryFn: ({ signal }) =>
+        getShareViewRowCount(shareId as string, rowCountQuery, { signal }).then(
+          (data) => data.data
+        ),
     },
     options: { placeholderData: keepPreviousData },
   });

@@ -259,6 +259,74 @@ describe('v2 listRecords filter operator matrix (e2e)', () => {
   });
 
   // ------------------------------------------------------------------
+  // T7305: the jsonpath of a contains filter must be bound as a parameter.
+  // Inlining it into the SQL text made a value holding a single quote
+  // terminate the string literal around the jsonpath expression (T7305).
+  // ------------------------------------------------------------------
+  describe('T7305 jsonpath contains single quote', () => {
+    let tableId: string;
+    let linkFieldId: string;
+
+    beforeAll(async () => {
+      const peerTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'Filter Matrix Jsonpath Quote Peer',
+        fields: [{ name: 'Title', type: 'singleLineText', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+      const peerTitleFieldId = peerTable.fields.find((f) => f.isPrimary)?.id ?? '';
+      const [quotedPeer, plainPeer, doubleQuotedPeer, backslashPeer] = await ctx.createRecords(
+        peerTable.id,
+        [
+          { fields: { [peerTitleFieldId]: "O'Brien" } },
+          { fields: { [peerTitleFieldId]: 'Plain peer' } },
+          { fields: { [peerTitleFieldId]: 'Say "hi"' } },
+          { fields: { [peerTitleFieldId]: 'back\\slash' } },
+        ]
+      );
+
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'Filter Matrix Jsonpath Quote Host',
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: 'Peer',
+            type: 'link',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: peerTable.id,
+              lookupFieldId: peerTitleFieldId,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      tableId = table.id;
+      linkFieldId = table.fields.find((f) => f.name === 'Peer')?.id ?? '';
+
+      await ctx.createRecords(tableId, [
+        { fields: { [linkFieldId]: { id: quotedPeer.id } } },
+        { fields: { [linkFieldId]: { id: plainPeer.id } } },
+        { fields: { [linkFieldId]: { id: doubleQuotedPeer.id } } },
+        { fields: { [linkFieldId]: { id: backslashPeer.id } } },
+      ]);
+    }, 60000);
+
+    it.each([
+      { op: 'contains', value: "O'Brien", expected: 1 },
+      { op: 'contains', value: "'", expected: 1 },
+      { op: 'contains', value: '"hi"', expected: 1 },
+      { op: 'contains', value: '\\', expected: 1 },
+      { op: 'contains', value: "doesn't exist", expected: 0 },
+      { op: 'doesNotContain', value: "'", expected: 3 },
+    ])('$op "$value" -> $expected records', async ({ op, value, expected }) => {
+      await expectFilterCount(tableId, { fieldId: linkFieldId, operator: op, value }, expected);
+    });
+  });
+
+  // ------------------------------------------------------------------
   // Number
   // v1: Number Field Filters / NUMBER_FIELD_CASES
   // ------------------------------------------------------------------

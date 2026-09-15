@@ -11,7 +11,7 @@ export const sheetFormConfig = {
   i18n: {
     zh: {
       name: 'Sheet 表单',
-      helpUrl: 'https://help.teable.cn/zh/basic/plugin/sheet-form',
+      helpUrl: 'https://help.teable.ai/zh/basic/plugin/sheet-form',
       description: '使用表格设计表单，并将数据收集到您的多维表格中',
       detailDesc:
         '使用熟悉的表格界面创建强大而灵活的表单。\n\n使用表格表单插件，您可以： \n\n - 在表格中设计表单模板。 \n\n - 轻松分享您的表格表单。 \n\n - 将数据直接收集到您的多维表格中。 \n\n非常适合问卷调查、数据收集和自定义表单需求。\n\n[了解更多](https://teable.cn)',

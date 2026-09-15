@@ -11,6 +11,7 @@ import type {
 import { SsrApi } from '@/backend/api/rest/ssr-api';
 import { systemConfig } from '@/features/i18n/system.config';
 import { getTranslationsProps } from '@/lib/i18n/getTranslationsProps';
+import { getUnauthenticatedRedirect } from '@/lib/returning-user-cookie';
 
 export type SSRHttpError = { httpError: IHttpError };
 
@@ -48,8 +49,7 @@ export default function withAuthSSR<
       if (error.status === 401) {
         return {
           redirect: {
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            destination: `/auth/signup?redirect=${encodeURIComponent(req.url!)}`,
+            destination: getUnauthenticatedRedirect(req),
             permanent: false,
           },
         };

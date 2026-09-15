@@ -10,6 +10,8 @@ interface SendVerificationButtonProps {
   disabled: boolean;
   loading?: boolean;
   countdown?: number;
+  /** Text shown before the first send; falls back to "Resend". */
+  label?: string;
 }
 
 export const SendVerificationButton = ({
@@ -17,6 +19,7 @@ export const SendVerificationButton = ({
   onClick,
   loading,
   countdown = 0,
+  label,
 }: SendVerificationButtonProps) => {
   const { t } = useTranslation(authConfig.i18nNamespaces);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -43,11 +46,13 @@ export const SendVerificationButton = ({
     if (countdown > 0) {
       return `${t('auth:button.resend')} (${countdown}s)`;
     }
-    return t('auth:button.resend');
+    return label ?? t('auth:button.resend');
   };
 
   return (
     <Button
+      // Not the form's submit button: Enter in the code input must sign in, not resend.
+      type="button"
       variant={'outline'}
       className="mt-4 w-full"
       disabled={disabled}

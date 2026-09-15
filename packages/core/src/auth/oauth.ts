@@ -1,4 +1,5 @@
 import type {
+  RoutineAction,
   AppAction,
   AutomationAction,
   BaseAction,
@@ -10,6 +11,7 @@ import type {
 } from './actions';
 
 export const OAUTH_ACTIONS: (
+  | RoutineAction
   | AppAction
   | BaseAction
   | TableAction
@@ -61,6 +63,10 @@ export const OAUTH_ACTIONS: (
   'automation|delete',
   'automation|read',
   'automation|update',
+  'routine|create',
+  'routine|delete',
+  'routine|read',
+  'routine|update',
   'user|email_read',
   'user|integrations',
 ];
@@ -80,7 +86,7 @@ export const cliOAuthApp = {
   name: 'Teable CLI',
   homepage: 'https://www.npmjs.com/package/@teable/cli',
   description:
-    'Official Teable AI Tools CLI — operate bases, tables, fields, views and records from your terminal.',
+    'Official Teable AI Tools CLI — operate projects, tables, fields, views and records from your terminal.',
   /** Storage path of the logo asset shown on the OAuth consent screen. */
   logo: 'logo/email-logo',
   /**

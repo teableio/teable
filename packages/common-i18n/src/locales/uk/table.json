@@ -76,7 +76,7 @@
         "generatingToken": "Генерується...",
         "generateToken": "Створити токен",
         "confirmTitle": "Створити API-токен",
-        "confirmDescription": "Буде створено новий API-токен із такими дозволами для цієї бази:",
+        "confirmDescription": "Буде створено новий API-токен із такими дозволами для цього проєкту:",
         "scopeTableRead": "Читати інформацію про таблицю",
         "scopeFieldRead": "Читати поля",
         "scopeRead": "Читати записи",
@@ -109,7 +109,7 @@
   },
   "welcome": {
     "title": "Ласкаво просимо",
-    "emptyTitle": "Почніть створювати свою базу даних",
+    "emptyTitle": "Почніть створювати свій проєкт",
     "description": "Натисніть кнопку «+» на бічній панелі, щоб додати ресурси",
     "help": "Відвідайте <HelpCenter /> для отримання додаткової інформації",
     "helpCenter": "Центр допомоги"
@@ -281,7 +281,6 @@
       "bar": "Бар",
       "text": "Текст",
       "markdown": "Markdown",
-      "url": "URL",
       "email": "Електронна пошта",
       "phone": "Телефон",
       "maxNumber": "Максимальна кількість",
@@ -297,8 +296,8 @@
       "manyToMany": "багато до багатьох",
       "self": "Я",
       "selectTable": "Виберіть таблицю...",
-      "selectBase": "Виберіть базу...",
-      "linkFromAnotherBase": "Посилання із зовнішньої бази",
+      "selectBase": "Виберіть проєкт...",
+      "linkFromAnotherBase": "Посилання із зовнішнього проєкту",
       "inSelfLink": "у власному посиланні",
       "betweenTwoTables": "між двома столами",
       "tips": "Поради",
@@ -330,9 +329,9 @@
         "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
       },
       "linkTable": "Таблиця посилань",
-      "linkBase": "База посилань",
+      "linkBase": "Проєкт посилань",
       "tableNoPermission": "Немає таблиці дозволів",
-      "baseNoPermission": "Немає бази дозволів",
+      "baseNoPermission": "Немає доступу до проєкту",
       "noLinkTip": "Немає зв'язаних записів для пошуку. Додайте посилання на інше поле запису, а потім спробуйте налаштувати пошук знову.",
       "fieldValidationRules": "Правила перевірки значення поля",
       "enableValidateFieldUnique": "Заборонити повторювані значення",
@@ -343,6 +342,7 @@
       "filterByView": "Фільтрувати записи за переглядом",
       "filter": "Фільтрувати записи",
       "hideFields": "Приховати поля",
+      "removeDuplicateValues": "Видалити повторювані значення",
       "moreOptions": "Більше параметрів",
       "allowNewOptionsWhenEditing": "Дозволити нові параметри під час редагування",
       "deleteField": {
@@ -488,7 +488,7 @@
     "deleteConfirm": "Ви впевнені, що хочете видалити \"{{tableName}}\" ?",
     "dbTableName": "Ім'я таблиці у фізичній базі даних",
     "schemaName": "Назва схеми у фізичній базі даних",
-    "baseInfo": "Базова інформація",
+    "baseInfo": "Інформація про проєкт",
     "loginUserTable": "Вхід у додаток",
     "linkedApps": "Пов'язані додатки",
     "typeOfDatabase": "Тип бази даних",
@@ -640,9 +640,9 @@
         "noPermission": "У вас немає дозволу копіювати записи"
       },
       "crossBaseCopyTitle": "Скопіювати як звичайний текст?",
-      "crossBaseCopyDescription": "Виділення містить поле-посилання між базами. Щоб дані залишалися у своїй базі, поле буде скопійовано як звичайний текст і втратить зв’язки.",
+      "crossBaseCopyDescription": "Виділення містить поле-посилання між проєктами. Щоб дані залишалися у своєму проєкті, поле буде скопійовано як звичайний текст і втратить зв’язки.",
       "crossBaseCopyConfirm": "Скопіювати як звичайний текст",
-      "crossBaseCopyLoadFirst": "Прокрутіть, щоб завантажити всі вибрані рядки, перш ніж копіювати поля між базами."
+      "crossBaseCopyLoadFirst": "Прокрутіть, щоб завантажити всі вибрані рядки, перш ніж копіювати поля між проєктами."
     },
     "graph": {
       "effectCells": "Може впливати на клітини",
@@ -660,7 +660,7 @@
       "v2": {
         "dialogTitle": "Цілісність схеми",
         "dialogDescription": "Запустіть перевірку та відновлення схеми v2 для {{tableName}}.",
-        "dialogDescriptionNoTable": "Запустіть перевірку та відновлення схеми v2 для поточної бази.",
+        "dialogDescriptionNoTable": "Запустіть перевірку та відновлення схеми v2 для поточного проєкту.",
         "runCheck": "Запустити перевірку",
         "recheck": "Перевірити знову",
         "repair": "Виправити",
@@ -712,13 +712,13 @@
           "noRepairStatements": "No repair statements available",
           "skippedDependencies": "Skipped because dependencies are not satisfied",
           "checkStreamConnected": "Schema integrity check stream connected",
-          "baseCheckStreamConnected": "Base schema integrity check stream connected",
+          "baseCheckStreamConnected": "Підключено до потоку перевірки цілісності схеми проєкту",
           "repairStreamConnected": "Schema integrity repair stream connected",
-          "baseRepairStreamConnected": "Base schema integrity repair stream connected",
+          "baseRepairStreamConnected": "Підключено до потоку відновлення цілісності схеми проєкту",
           "checkCompleted": "Schema integrity check completed",
-          "baseCheckCompleted": "Base schema integrity check completed",
+          "baseCheckCompleted": "Перевірку цілісності схеми проєкту завершено",
           "repairCompleted": "Schema integrity repair completed",
-          "baseRepairCompleted": "Base schema integrity repair completed",
+          "baseRepairCompleted": "Відновлення цілісності схеми проєкту завершено",
           "skippedStatusNotSelected": "Пропущено, оскільки цей рівень статусу не було вибрано для відновлення",
           "skippedRepairUnavailable": "Пропущено, оскільки автоматичне відновлення недоступне в поточному стані"
         },
@@ -921,11 +921,14 @@
     "deletedRecovered": {
       "title": "Таблицю, яку ви відкрили, було видалено",
       "description": "Здійснено перехід до таблиці «{{tableName}}»",
-      "descriptionEmpty": "Здійснено повернення на сторінку Base"
+      "descriptionEmpty": "Здійснено повернення на сторінку проєкту"
     }
   },
   "import": {
     "title": {
+      "createTable": "Створити таблицю",
+      "importFromCsv": "Імпорт із CSV",
+      "importFromExcel": "Імпорт із Excel",
       "upload": "Завантажити",
       "import": "Імпорт",
       "localFile": "Локальні файли",
@@ -1126,7 +1129,7 @@
   },
   "connection": {
     "title": "Підключення до бази даних",
-    "description": "Ви можете отримати прямий доступ до бази даних через підключення до бази даних, включаючи всі таблиці в поточній базі",
+    "description": "Ви можете отримати прямий доступ до бази даних через підключення до бази даних, включаючи всі таблиці в поточному проєкті",
     "noPermission": "У вас немає дозволів на доступ до бази даних",
     "connectionCountTip": "Максимальна кількість підключень до бази даних - <b>{{max}}</b>, поточна кількість підключень - <b>{{current}}</b>",
     "createFailed": "Пожалуйста, переконайтеся, що змінне середовище PUBLIC_DATABASE_PROXY встановлено правильно",
@@ -1251,7 +1254,7 @@
     "shareToWeb": "Поділитися в Інтернеті",
     "refreshLink": "Оновити посилання",
     "deleteConfirmTitle": "Видалити посилання для спільного доступу",
-    "deleteConfirmDescription": "Цю дію не можна скасувати. Люди з цим посиланням більше не матимуть доступу до спільної бази.",
+    "deleteConfirmDescription": "Цю дію не можна скасувати. Люди з цим посиланням більше не матимуть доступу до спільного проєкту.",
     "createSuccess": "Посилання для спільного доступу створено",
     "createFailed": "Не вдалося створити посилання для спільного доступу",
     "updateFailed": "Не вдалося оновити налаштування спільного доступу",
@@ -1394,6 +1397,109 @@
     "action": {
       "locateResource": "Знайти"
     },
+    "resourceOperations": {
+      "title": "Зміни за цю відповідь",
+      "items_one": "{{count}} елемент",
+      "items_few": "{{count}} елементи",
+      "items_many": "{{count}} елементів",
+      "items_other": "{{count}} елемента",
+      "expandRemaining": "Показати ще {{count}}",
+      "collapse": "Згорнути",
+      "create": "Створено",
+      "update": "Оновлено",
+      "delete": "Видалено",
+      "import": "Імпорт",
+      "publication": {
+        "published": "Опубліковано",
+        "unpublished": "Публікацію скасовано"
+      },
+      "structureTitles": {
+        "field": "Зміни полів",
+        "view": "Зміни переглядів"
+      },
+      "structureStats": {
+        "field": {
+          "create_one": "Додано {{count}} поле",
+          "create_few": "Додано {{count}} поля",
+          "create_many": "Додано {{count}} полів",
+          "create_other": "Додано {{count}} поля",
+          "update_one": "Змінено {{count}} поле",
+          "update_few": "Змінено {{count}} поля",
+          "update_many": "Змінено {{count}} полів",
+          "update_other": "Змінено {{count}} поля",
+          "delete_one": "Видалено {{count}} поле",
+          "delete_few": "Видалено {{count}} поля",
+          "delete_many": "Видалено {{count}} полів",
+          "delete_other": "Видалено {{count}} поля",
+          "import_one": "Імпортовано {{count}} поле",
+          "import_few": "Імпортовано {{count}} поля",
+          "import_many": "Імпортовано {{count}} полів",
+          "import_other": "Імпортовано {{count}} поля"
+        },
+        "view": {
+          "create_one": "Додано {{count}} перегляд",
+          "create_few": "Додано {{count}} перегляди",
+          "create_many": "Додано {{count}} переглядів",
+          "create_other": "Додано {{count}} перегляду",
+          "update_one": "Змінено {{count}} перегляд",
+          "update_few": "Змінено {{count}} перегляди",
+          "update_many": "Змінено {{count}} переглядів",
+          "update_other": "Змінено {{count}} перегляду",
+          "delete_one": "Видалено {{count}} перегляд",
+          "delete_few": "Видалено {{count}} перегляди",
+          "delete_many": "Видалено {{count}} переглядів",
+          "delete_other": "Видалено {{count}} перегляду",
+          "import_one": "Імпортовано {{count}} перегляд",
+          "import_few": "Імпортовано {{count}} перегляди",
+          "import_many": "Імпортовано {{count}} переглядів",
+          "import_other": "Імпортовано {{count}} перегляду"
+        }
+      },
+      "workflow": {
+        "activate": "Автоматизацію ввімкнено",
+        "deactivate": "Автоматизацію вимкнено",
+        "discard": "Зміни чернетки скасовано"
+      },
+      "routine": {
+        "activate": "Рутину ввімкнено",
+        "deactivate": "Рутину вимкнено",
+        "run": "Запуск розпочато"
+      },
+      "records": {
+        "create": "Записи додано",
+        "createCount_one": "Додано {{count}} запис",
+        "createCount_few": "Додано {{count}} записи",
+        "createCount_many": "Додано {{count}} записів",
+        "createCount_other": "Додано {{count}} запису",
+        "update": "Записи оновлено",
+        "updateCount_one": "Оновлено {{count}} запис",
+        "updateCount_few": "Оновлено {{count}} записи",
+        "updateCount_many": "Оновлено {{count}} записів",
+        "updateCount_other": "Оновлено {{count}} запису",
+        "delete": "Записи видалено",
+        "deleteCount_one": "Видалено {{count}} запис",
+        "deleteCount_few": "Видалено {{count}} записи",
+        "deleteCount_many": "Видалено {{count}} записів",
+        "deleteCount_other": "Видалено {{count}} запису",
+        "import": "Записи імпортовано",
+        "importCount_one": "Імпортовано {{count}} запис",
+        "importCount_few": "Імпортовано {{count}} записи",
+        "importCount_many": "Імпортовано {{count}} записів",
+        "importCount_other": "Імпортовано {{count}} запису"
+      },
+      "types": {
+        "base": "Проєкт",
+        "table": "Таблиця",
+        "field": "Поле",
+        "view": "Перегляд",
+        "record": "Записи",
+        "app": "Додаток",
+        "workflow": "Автоматизація",
+        "routine": "Рутина",
+        "folder": "Папка",
+        "artifact": "Артефакт"
+      }
+    },
     "showUI": {
       "skip": "Пропустити",
       "next": "Наступний",
@@ -1435,7 +1541,13 @@
     "addAttachment": "Додати вкладення",
     "noHistory": "Немає історії чату",
     "noFoundHistory": "Немає історії чату, будь ласка, почати нову розмову",
+    "pin": "Закріпити",
+    "unpin": "Відкріпити",
+    "archive": "В архів",
+    "archivedToast": "Чат перенесено в архів. Знайти його можна в «Налаштування › Архів чатів».",
+    "unread": "Непрочитано",
     "timeGroup": {
+      "pinned": "Закріплені",
       "today": "Сьогодні",
       "oneWeek": "Одна тиждень",
       "twoWeek": "Дві тижні",
@@ -1454,6 +1566,7 @@
       "tables": "Таблиці",
       "apps": "Програми",
       "workflows": "Автоматизації",
+      "routines": "Рутини",
       "folders": "Папки",
       "envs": "Секрети"
     },
@@ -1482,7 +1595,7 @@
     "suggestions": {
       "title": "Як я можу допомогти?",
       "whatCanIDo": "Що я можу зробити?",
-      "createOrModifyDatabase": "Створити або змінити базу даних",
+      "createOrModifyDatabase": "Створити або змінити проєкт",
       "buildAutomations": "Побудувати автоматизації",
       "buildApps": "Побудувати додатки",
       "buildMeCRM": "Створити CRM",
@@ -1613,6 +1726,11 @@
         "upstreamBadRequest": "Голосовий ендпоінт недійсний.",
         "upstreamUnavailable": "Голосова функція недоступна."
       }
+    },
+    "status": {
+      "running": "Генерація…",
+      "waitingInput": "Очікує вашої відповіді",
+      "failed": "Відповідь не вдалася"
     }
   },
   "upload": {

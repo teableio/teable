@@ -156,7 +156,7 @@ export class DbConnectionService {
           })
           .catch(() => {
             throw new CustomHttpException(
-              'Only the base owner can remove a db connection',
+              'Only the project owner can remove a db connection',
               HttpErrorCode.RESTRICTED_RESOURCE,
               {
                 localization: {
@@ -319,7 +319,7 @@ export class DbConnectionService {
             })
             .catch(() => {
               throw new CustomHttpException(
-                'Only base owner can create db connection',
+                'Only project owner can create db connection',
                 HttpErrorCode.RESTRICTED_RESOURCE,
                 {
                   localization: {

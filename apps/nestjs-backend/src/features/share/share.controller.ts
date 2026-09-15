@@ -344,7 +344,9 @@ export class ShareController {
   }
 
   @ShareLinkView()
-  @UseGuards(ShareAuthGuard)
+  @UseV2Feature('getFields')
+  @UseGuards(V2FeatureGuard, ShareAuthGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
   @AllowAnonymous()
   @Get('/:shareId/socket/field/snapshot-bulk')
   async getFieldSnapshotBulk(@Request() req: any, @Query('ids') ids: string[]) {
@@ -353,7 +355,9 @@ export class ShareController {
   }
 
   @ShareLinkView()
-  @UseGuards(ShareAuthGuard)
+  @UseV2Feature('getFields')
+  @UseGuards(V2FeatureGuard, ShareAuthGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
   @AllowAnonymous()
   @Get('/:shareId/socket/field/doc-ids')
   async getFieldDocIds(
@@ -363,18 +367,6 @@ export class ShareController {
     const shareInfo = req.shareInfo as IShareViewInfo;
 
     return this.shareSocketService.getFieldDocIdsByQuery(shareInfo, query);
-  }
-
-  @ShareLinkView()
-  @UseGuards(ShareAuthGuard)
-  @AllowAnonymous()
-  @Get('/:shareId/socket/computed-activity/authorize')
-  authorizeComputedActivityRead(
-    @Request() req: { shareInfo: IShareViewInfo },
-    @Query('tableId') tableId: string
-  ): void {
-    const { shareInfo } = req;
-    this.shareSocketService.authorizeComputedActivityRead(shareInfo, tableId);
   }
 
   @ShareLinkView()

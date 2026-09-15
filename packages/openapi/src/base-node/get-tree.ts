@@ -16,7 +16,8 @@ export type IBaseNodeTreeVo = z.infer<typeof baseNodeTreeVoSchema>;
 export const GetBaseNodeTreeRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_BASE_NODE_TREE,
-  description: 'Get tree nodes for a base',
+  title: 'Get project node tree',
+  description: 'Retrieve the node hierarchy and maximum folder depth for a project.',
   request: {
     params: z.object({
       baseId: z.string(),

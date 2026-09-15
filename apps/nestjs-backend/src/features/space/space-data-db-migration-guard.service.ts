@@ -207,7 +207,7 @@ export class SpaceDataDbMigrationGuardService {
       select: { spaceId: true },
     });
     if (!base) {
-      throw new CustomHttpException(`Base ${baseId} not found`, HttpErrorCode.NOT_FOUND);
+      throw new CustomHttpException(`Project ${baseId} not found`, HttpErrorCode.NOT_FOUND);
     }
     await this.assertActiveBaseMove(baseId);
     await this.assertSpaceSchemaWritable(base.spaceId);
@@ -219,7 +219,7 @@ export class SpaceDataDbMigrationGuardService {
       select: { spaceId: true },
     });
     if (!base) {
-      throw new CustomHttpException(`Base ${baseId} not found`, HttpErrorCode.NOT_FOUND);
+      throw new CustomHttpException(`Project ${baseId} not found`, HttpErrorCode.NOT_FOUND);
     }
     await this.assertActiveBaseMove(baseId, [...baseMoveRecordWriteBlockingStates]);
     await this.assertSpaceRecordWritable(base.spaceId);
@@ -234,7 +234,7 @@ export class SpaceDataDbMigrationGuardService {
       return;
     }
     throw new CustomHttpException(
-      'Base data database move is in progress',
+      'Project data database move is in progress',
       HttpErrorCode.CONFLICT,
       {
         errorCode: baseDataDbMovingErrorCode,

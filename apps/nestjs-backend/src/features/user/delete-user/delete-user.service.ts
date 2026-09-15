@@ -3,7 +3,14 @@ import { join } from 'path';
 import { Injectable } from '@nestjs/common';
 import { getRandomString, HttpErrorCode, Role } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { PluginStatus, PrincipalType, UploadType } from '@teable/openapi';
+import type { IDeleteUserBlockingSpace } from '@teable/openapi';
+import {
+  CollaboratorType,
+  PluginStatus,
+  PrincipalType,
+  ResourceType,
+  UploadType,
+} from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
@@ -167,65 +174,134 @@ export class DeleteUserService {
     });
   }
 
-  private async validateDeleteUser(userId: string) {
-    const collaboratorSpaces = await this.prismaService.txClient().$queryRawUnsafe<
+  /**
+   * Editions can annotate the spaces the user still has to settle, e.g. flag
+   * the ones whose subscription must be cancelled before they can be deleted.
+   */
+  protected async describeSoleOwnerSpaces(
+    spaces: IDeleteUserBlockingSpace[]
+  ): Promise<IDeleteUserBlockingSpace[]> {
+    return spaces;
+  }
+
+  private async settleOwnedSpaces(userId: string, acknowledgedSpaceIds: string[]) {
+    // Only live spaces where this user is the sole owner need attention: they
+    // go to trash together with the account once the user has seen the list,
+    // unless the user handed them over to another member first. Every other
+    // membership is dropped by clearUserData, and spaces already in trash wait
+    // for the retention cleanup.
+    const soleOwnerSpaces = await this.prismaService.txClient().$queryRawUnsafe<
       {
         id: string;
         name: string;
-        deletedTime: string | null;
+        hasOtherMembers: boolean | number;
       }[]
     >(
       this.knex
-        .queryBuilder()
         .select({
           id: 'space.id',
           name: 'space.name',
-          deletedTime: 'space.deleted_time',
         })
+        .select(
+          this.knex.raw('exists ? as ??', [
+            this.knex
+              .select(this.knex.raw('1'))
+              .from('collaborator as member')
+              .whereRaw('member.resource_id = space.id')
+              .where('member.resource_type', CollaboratorType.Space)
+              .whereNot((d) =>
+                d
+                  .where('member.principal_id', userId)
+                  .where('member.principal_type', PrincipalType.User)
+              ),
+            'hasOtherMembers',
+          ])
+        )
         .from('collaborator')
         .innerJoin('space', 'collaborator.resource_id', 'space.id')
-        .where('principal_id', userId)
-        .where('principal_type', PrincipalType.User)
-        .where((d1) =>
-          d1
-            .where((d2) =>
-              d2
-                .whereIn('collaborator.role_name', [Role.Owner, Role.Creator])
-                .whereNotNull('space.deleted_time')
+        .where('collaborator.principal_id', userId)
+        .where('collaborator.principal_type', PrincipalType.User)
+        .where('collaborator.resource_type', CollaboratorType.Space)
+        .where('collaborator.role_name', Role.Owner)
+        .whereNull('space.deleted_time')
+        .whereNotExists(
+          this.knex
+            .select(this.knex.raw('1'))
+            .from('collaborator as other')
+            .whereRaw('other.resource_id = space.id')
+            .where('other.resource_type', CollaboratorType.Space)
+            .where('other.role_name', Role.Owner)
+            .whereNot((d) =>
+              d
+                .where('other.principal_id', userId)
+                .where('other.principal_type', PrincipalType.User)
             )
-            .orWhereNull('space.deleted_time')
         )
         .toQuery()
     );
-    if (collaboratorSpaces.length > 0) {
+    if (soleOwnerSpaces.length === 0) {
+      return;
+    }
+
+    const spaces = await this.describeSoleOwnerSpaces(
+      soleOwnerSpaces.map(({ id, name, hasOtherMembers }) => ({
+        id,
+        name,
+        hasOtherMembers: Boolean(hasOtherMembers),
+      }))
+    );
+    // A subscribed space cannot be trashed at all; the others need the user's
+    // acknowledgement before they are trashed on the user's behalf.
+    const acknowledged = new Set(acknowledgedSpaceIds);
+    const pending = spaces.filter((space) => space.subscribed || !acknowledged.has(space.id));
+    if (pending.length > 0) {
       throw new CustomHttpException(
-        'User has collaborators in spaces (or deleted spaces in trash): ' +
-          collaboratorSpaces.map((space) => space.name).join(', '),
+        'User is the only owner of spaces that must be acknowledged or handed over first: ' +
+          pending.map((space) => space.name).join(', '),
         HttpErrorCode.VALIDATION_ERROR,
         {
-          spaces: collaboratorSpaces.map((space) => ({
-            id: space.id,
-            name: space.name,
-            deletedTime: space.deletedTime ? new Date(space.deletedTime).toISOString() : null,
-          })),
+          spaces,
           localization: {
-            i18nKey: 'httpErrors.user.collaboratorsInSpaces',
+            i18nKey: 'httpErrors.user.soleOwnerOfSpaces',
           },
         }
       );
     }
+
+    // Same as a manual delete: the space is soft deleted and recorded in
+    // trash, so the retention cleanup removes it later.
+    const deletedTime = new Date();
+    for (const space of spaces) {
+      await this.prismaService.txClient().space.update({
+        where: { id: space.id, deletedTime: null },
+        data: { deletedTime, lastModifiedBy: userId },
+      });
+      await this.prismaService.txClient().trash.upsert({
+        where: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          resourceType_resourceId: { resourceType: ResourceType.Space, resourceId: space.id },
+        },
+        create: {
+          resourceId: space.id,
+          resourceType: ResourceType.Space,
+          deletedTime,
+          deletedBy: userId,
+        },
+        update: { deletedTime, deletedBy: userId },
+      });
+    }
   }
 
-  async deleteUserById(userId: string) {
+  async deleteUserById(userId: string, acknowledgedSpaceIds: string[] = []) {
     await this.prismaService.$tx(async () => {
-      await this.validateDeleteUser(userId);
+      await this.settleOwnedSpaces(userId, acknowledgedSpaceIds);
       await this.clearUserData(userId);
       await this.permanentlyDeleteUser(userId);
     });
   }
 
-  async deleteUser() {
+  async deleteUser(acknowledgedSpaceIds: string[] = []) {
     const userId = this.cls.get('user.id');
-    await this.deleteUserById(userId);
+    await this.deleteUserById(userId, acknowledgedSpaceIds);
   }
 }

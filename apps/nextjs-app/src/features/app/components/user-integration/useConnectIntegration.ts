@@ -13,11 +13,11 @@ const CONNECT_POLL_MS = 2000; // poll the integration list every 2s while connec
 // covers it anyway unless PUBLIC_ORIGIN differs from the app origin — not worth
 // ~150 requests behind a window the user did in fact close.
 const DISMISSED_POLL_MS = 6000;
-const CONNECT_TIMEOUT_MS = 5 * 60 * 1000; // give up on a connect that never lands
+const CONNECT_TIMEOUT_MS = 10 * 60 * 1000; // give up on a connect that never lands
 // How often to check whether the popup is still there. Closing it is the only
 // trace a user leaves when they abandon the consent screen — nothing is
 // broadcast — so this watch is what keeps that case from holding the caller's
-// "connecting" state for the poll's full 5 minutes.
+// "connecting" state for the poll's full 10 minutes.
 const POPUP_WATCH_MS = 800;
 
 // Providers with a connect poll already running. Module-level (not a ref) so a
@@ -199,7 +199,7 @@ export const useConnectIntegration = (options?: IUseConnectIntegrationOptions) =
       // state — the broadcast and poll listeners stay armed, so an
       // authorization the user is still working through resolves as usual.
       // Without this a consent screen closed on the first step spins the
-      // caller's button for the poll's full ~5 minutes.
+      // caller's button for the poll's full ~10 minutes.
       const dismiss = () => {
         if (settled || dismissed) return;
         dismissed = true;

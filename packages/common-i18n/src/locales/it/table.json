@@ -71,7 +71,7 @@
         "generatingToken": "Generazione...",
         "generateToken": "Genera token",
         "confirmTitle": "Crea token API",
-        "confirmDescription": "Questo creerà un nuovo token API con le seguenti autorizzazioni per questa base:",
+        "confirmDescription": "Questo creerà un nuovo token API con le seguenti autorizzazioni per questo progetto:",
         "scopeTableRead": "Leggi informazioni tabella",
         "scopeFieldRead": "Leggi campi",
         "scopeRead": "Leggi record",
@@ -104,7 +104,7 @@
   },
   "welcome": {
     "title": "Benvenuto",
-    "emptyTitle": "Inizia a costruire il tuo database",
+    "emptyTitle": "Inizia a costruire il tuo progetto",
     "description": "Fai clic sul pulsante \"+\" nella barra laterale per aggiungere risorse",
     "help": "Visita il <HelpCenter /> per maggiori informazioni.",
     "helpCenter": "Centro Assistenza"
@@ -276,7 +276,6 @@
       "bar": "Barra",
       "text": "Testo",
       "markdown": "Markdown",
-      "url": "Url",
       "email": "Email",
       "phone": "Telefono",
       "maxNumber": "Numero massimo",
@@ -292,8 +291,8 @@
       "manyToMany": "molti-a-molti",
       "self": "Se stesso",
       "selectTable": "Seleziona tabella...",
-      "selectBase": "Seleziona una base...",
-      "linkFromAnotherBase": "Collega da base esterna",
+      "selectBase": "Seleziona un progetto...",
+      "linkFromAnotherBase": "Collega da progetto esterno",
       "inSelfLink": "in auto-collegamento",
       "betweenTwoTables": "tra due tabelle",
       "tips": "Suggerimenti",
@@ -325,9 +324,9 @@
         "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
       },
       "linkTable": "Collega tabella",
-      "linkBase": "Collega base",
+      "linkBase": "Collega progetto",
       "tableNoPermission": "Nessun permesso tabella",
-      "baseNoPermission": "Nessun permesso base",
+      "baseNoPermission": "Nessun permesso progetto",
       "noLinkTip": "Nessun record collegato da cercare. Aggiungi un campo di collegamento a un altro record, quindi prova a configurare di nuovo la tua ricerca.",
       "fieldValidationRules": "Regole di validazione del valore del campo",
       "enableValidateFieldUnique": "Vieta valori duplicati",
@@ -338,6 +337,7 @@
       "filterByView": "Filtra record per vista",
       "filter": "Filtra record",
       "hideFields": "Nascondi campi",
+      "removeDuplicateValues": "Rimuovi valori duplicati",
       "moreOptions": "Altre opzioni",
       "allowNewOptionsWhenEditing": "Consenti nuove opzioni durante la modifica",
       "deleteField": {
@@ -483,7 +483,7 @@
     "deleteConfirm": "Sei sicuro di voler eliminare \"{{tableName}}\"?",
     "dbTableName": "Nome della tabella nel database fisico",
     "schemaName": "Nome dello schema nel database fisico",
-    "baseInfo": "Informazioni di Base",
+    "baseInfo": "Informazioni di Progetto",
     "loginUserTable": "Login app",
     "linkedApps": "App collegate",
     "typeOfDatabase": "Tipo di database",
@@ -635,9 +635,9 @@
         "noPermission": "Non hai l’autorizzazione per copiare i record"
       },
       "crossBaseCopyTitle": "Copiare come testo semplice?",
-      "crossBaseCopyDescription": "Questa selezione include un campo di collegamento tra basi. Per mantenere i dati all'interno della loro base originale, il campo verrà copiato come testo semplice e perderà le sue relazioni di collegamento.",
+      "crossBaseCopyDescription": "Questa selezione include un campo di collegamento tra progetti. Per mantenere i dati all'interno del loro progetto originale, il campo verrà copiato come testo semplice e perderà le sue relazioni di collegamento.",
       "crossBaseCopyConfirm": "Copia come testo semplice",
-      "crossBaseCopyLoadFirst": "Scorri per caricare tutte le righe selezionate prima di copiare i campi tra basi."
+      "crossBaseCopyLoadFirst": "Scorri per caricare tutte le righe selezionate prima di copiare i campi tra progetti."
     },
     "graph": {
       "effectCells": "Può influire sulle celle",
@@ -655,7 +655,7 @@
       "v2": {
         "dialogTitle": "Integrità dello schema",
         "dialogDescription": "Esegui il controllo e la riparazione dello schema v2 per {{tableName}}.",
-        "dialogDescriptionNoTable": "Esegui il controllo e la riparazione dello schema v2 per la base corrente.",
+        "dialogDescriptionNoTable": "Esegui il controllo e la riparazione dello schema v2 per il progetto corrente.",
         "runCheck": "Avvia controllo",
         "recheck": "Controlla di nuovo",
         "repair": "Ripara",
@@ -707,13 +707,13 @@
           "noRepairStatements": "No repair statements available",
           "skippedDependencies": "Skipped because dependencies are not satisfied",
           "checkStreamConnected": "Schema integrity check stream connected",
-          "baseCheckStreamConnected": "Base schema integrity check stream connected",
+          "baseCheckStreamConnected": "Connessione al flusso di verifica dello schema del progetto stabilita",
           "repairStreamConnected": "Schema integrity repair stream connected",
-          "baseRepairStreamConnected": "Base schema integrity repair stream connected",
+          "baseRepairStreamConnected": "Connessione al flusso di riparazione dello schema del progetto stabilita",
           "checkCompleted": "Schema integrity check completed",
-          "baseCheckCompleted": "Base schema integrity check completed",
+          "baseCheckCompleted": "Verifica dello schema del progetto completata",
           "repairCompleted": "Schema integrity repair completed",
-          "baseRepairCompleted": "Base schema integrity repair completed",
+          "baseRepairCompleted": "Riparazione dello schema del progetto completata",
           "skippedStatusNotSelected": "Ignorato perché questo livello di stato non è stato selezionato per la riparazione",
           "skippedRepairUnavailable": "Ignorato perché la riparazione automatica non è disponibile nello stato attuale"
         },
@@ -916,11 +916,14 @@
     "deletedRecovered": {
       "title": "La tabella che hai aperto è stata eliminata",
       "description": "Passaggio a \"{{tableName}}\"",
-      "descriptionEmpty": "Ritorno alla pagina della Base"
+      "descriptionEmpty": "Ritorno alla pagina del progetto"
     }
   },
   "import": {
     "title": {
+      "createTable": "Crea tabella",
+      "importFromCsv": "Importa da CSV",
+      "importFromExcel": "Importa da Excel",
       "upload": "Carica",
       "import": "Importa",
       "localFile": "File Locali",
@@ -1121,7 +1124,7 @@
   },
   "connection": {
     "title": "Connessione al Database",
-    "description": "Puoi accedere direttamente al database tramite la connessione al database, inclusi tutti i tavoli sotto la base corrente",
+    "description": "Puoi accedere direttamente al database tramite la connessione al database, inclusi tutti i tavoli sotto il progetto corrente",
     "noPermission": "Non hai il permesso di accedere al database",
     "connectionCountTip": "Il numero massimo di connessioni al database è <b>{{max}}</b> e le connessioni attuali sono <b>{{current}}</b>",
     "createFailed": "Assicurati che la variabile d'ambiente PUBLIC_DATABASE_PROXY sia impostata correttamente",
@@ -1245,7 +1248,7 @@
     "shareToWeb": "Condividi sul web",
     "refreshLink": "Rigenera link",
     "deleteConfirmTitle": "Elimina link di condivisione",
-    "deleteConfirmDescription": "Questa azione non può essere annullata. Le persone con questo link non potranno più accedere alla base condivisa.",
+    "deleteConfirmDescription": "Questa azione non può essere annullata. Le persone con questo link non potranno più accedere al progetto condiviso.",
     "createSuccess": "Link di condivisione creato",
     "createFailed": "Impossibile creare il link di condivisione",
     "updateFailed": "Impossibile aggiornare le impostazioni di condivisione",
@@ -1388,6 +1391,96 @@
     "action": {
       "locateResource": "Localizza"
     },
+    "resourceOperations": {
+      "title": "Modifiche di questo turno",
+      "items_one": "{{count}} elemento",
+      "items_many": "{{count}} elementi",
+      "items_other": "{{count}} elementi",
+      "expandRemaining": "Mostra altro ({{count}})",
+      "collapse": "Mostra meno",
+      "create": "Creato",
+      "update": "Aggiornato",
+      "delete": "Eliminato",
+      "import": "Importa",
+      "publication": {
+        "published": "Pubblicato",
+        "unpublished": "Pubblicazione annullata"
+      },
+      "structureTitles": {
+        "field": "Modifiche ai campi",
+        "view": "Modifiche alle viste"
+      },
+      "structureStats": {
+        "field": {
+          "create_one": "Aggiunto {{count}} campo",
+          "create_many": "Aggiunti {{count}} campi",
+          "create_other": "Aggiunti {{count}} campi",
+          "update_one": "Modificato {{count}} campo",
+          "update_many": "Modificati {{count}} campi",
+          "update_other": "Modificati {{count}} campi",
+          "delete_one": "Eliminato {{count}} campo",
+          "delete_many": "Eliminati {{count}} campi",
+          "delete_other": "Eliminati {{count}} campi",
+          "import_one": "Importato {{count}} campo",
+          "import_many": "Importati {{count}} campi",
+          "import_other": "Importati {{count}} campi"
+        },
+        "view": {
+          "create_one": "Aggiunta {{count}} vista",
+          "create_many": "Aggiunte {{count}} viste",
+          "create_other": "Aggiunte {{count}} viste",
+          "update_one": "Modificata {{count}} vista",
+          "update_many": "Modificate {{count}} viste",
+          "update_other": "Modificate {{count}} viste",
+          "delete_one": "Eliminata {{count}} vista",
+          "delete_many": "Eliminate {{count}} viste",
+          "delete_other": "Eliminate {{count}} viste",
+          "import_one": "Importata {{count}} vista",
+          "import_many": "Importate {{count}} viste",
+          "import_other": "Importate {{count}} viste"
+        }
+      },
+      "workflow": {
+        "activate": "Automazione attivata",
+        "deactivate": "Automazione disattivata",
+        "discard": "Modifiche alla bozza scartate"
+      },
+      "routine": {
+        "activate": "Routine attivata",
+        "deactivate": "Routine disattivata",
+        "run": "Esecuzione avviata"
+      },
+      "records": {
+        "create": "Record aggiunti",
+        "createCount_one": "Aggiunto {{count}} record",
+        "createCount_many": "Aggiunti {{count}} record",
+        "createCount_other": "Aggiunti {{count}} record",
+        "update": "Record aggiornati",
+        "updateCount_one": "Aggiornato {{count}} record",
+        "updateCount_many": "Aggiornati {{count}} record",
+        "updateCount_other": "Aggiornati {{count}} record",
+        "delete": "Record eliminati",
+        "deleteCount_one": "Eliminato {{count}} record",
+        "deleteCount_many": "Eliminati {{count}} record",
+        "deleteCount_other": "Eliminati {{count}} record",
+        "import": "Record importati",
+        "importCount_one": "Importato {{count}} record",
+        "importCount_many": "Importati {{count}} record",
+        "importCount_other": "Importati {{count}} record"
+      },
+      "types": {
+        "base": "Progetto",
+        "table": "Tabella",
+        "field": "Campo",
+        "view": "Vista",
+        "record": "Record",
+        "app": "App",
+        "workflow": "Automazione",
+        "routine": "Routine",
+        "folder": "Cartella",
+        "artifact": "Artifact"
+      }
+    },
     "showUI": {
       "skip": "Salta",
       "next": "Successivo",
@@ -1428,7 +1521,13 @@
     "addAttachment": "Aggiungi allegato",
     "noHistory": "Nessun chat history",
     "noFoundHistory": "Nessun chat history trovato, per favore inizia una nuova conversazione",
+    "pin": "Fissa in alto",
+    "unpin": "Rimuovi dai fissati",
+    "archive": "Archivia",
+    "archivedToast": "Chat archiviata. La trovi in Impostazioni › Chat archiviate.",
+    "unread": "Non letto",
     "timeGroup": {
+      "pinned": "In evidenza",
       "today": "Oggi",
       "oneWeek": "Una settimana",
       "twoWeek": "Due settimane",
@@ -1447,6 +1546,7 @@
       "tables": "Tabelle",
       "apps": "App",
       "workflows": "Automazioni",
+      "routines": "Routine",
       "folders": "Cartelle",
       "envs": "Segreti"
     },
@@ -1475,7 +1575,7 @@
     "suggestions": {
       "title": "Come posso aiutarti?",
       "whatCanIDo": "Cosa posso fare?",
-      "createOrModifyDatabase": "Crea o modifica database",
+      "createOrModifyDatabase": "Crea o modifica progetto",
       "buildAutomations": "Costruisci automazioni",
       "buildApps": "Costruisci app",
       "buildMeCRM": "Costruiscimi un CRM",
@@ -1604,6 +1704,11 @@
         "upstreamBadRequest": "L’endpoint vocale non è valido.",
         "upstreamUnavailable": "La funzione vocale non è disponibile."
       }
+    },
+    "status": {
+      "running": "Generazione in corso…",
+      "waitingInput": "In attesa della tua risposta",
+      "failed": "Risposta non riuscita"
     }
   },
   "upload": {

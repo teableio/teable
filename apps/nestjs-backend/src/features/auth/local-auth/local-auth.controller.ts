@@ -19,6 +19,10 @@ import {
   sendSignupVerificationCodeRoSchema,
   signupSchema,
   ISendSignupVerificationCodeRo,
+  sendSigninVerificationCodeRoSchema,
+  ISendSigninVerificationCodeRo,
+  signinWithCodeSchema,
+  ISigninWithCode,
   changeEmailRoSchema,
   IChangeEmailRo,
   sendChangeEmailCodeRoSchema,
@@ -53,6 +57,31 @@ export class LocalAuthController {
   @Post('signin')
   async signin(@Req() req: Request): Promise<IUserMeVo> {
     return req.user as IUserMeVo;
+  }
+
+  @Public()
+  @HttpCode(200)
+  @Post('signin-with-code')
+  async signinWithCode(
+    @Body(new ZodValidationPipe(signinWithCodeSchema)) body: ISigninWithCode,
+    @Req() req: Request
+  ): Promise<IUserMeVo> {
+    const user = pickUserMe(await this.authService.signinWithCode(body.email, body.code));
+    // set cookie, passport login
+    await new Promise<void>((resolve, reject) => {
+      req.login(user, (err) => (err ? reject(err) : resolve()));
+    });
+    return user;
+  }
+
+  @Public()
+  @Post('send-signin-verification-code')
+  @HttpCode(200)
+  async sendSigninVerificationCode(
+    @Body(new ZodValidationPipe(sendSigninVerificationCodeRoSchema))
+    body: ISendSigninVerificationCodeRo
+  ) {
+    return this.authService.sendSigninVerificationCode(body.email);
   }
 
   @Public()

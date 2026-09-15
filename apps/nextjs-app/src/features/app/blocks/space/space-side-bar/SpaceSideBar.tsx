@@ -1,4 +1,4 @@
-import { Database, Home, Trash2, ShieldUser } from '@teable/icons';
+import { LayoutGrid, Home, Trash2, ShieldUser } from '@teable/icons';
 import { useSession } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
@@ -31,7 +31,7 @@ export const SpaceSideBar = (props: { isAdmin?: boolean | null }) => {
     {
       href: '/space/shared-base',
       text: t('space:sharedBase.title'),
-      Icon: Database,
+      Icon: LayoutGrid,
     },
     {
       href: `/enterprise/${organization?.id}`,

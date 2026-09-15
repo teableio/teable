@@ -10,60 +10,58 @@ export function useGridColumnResize<T extends { id: string }>(_columns: T[]) {
   const view = useView();
   const viewId = useViewId();
   const [newSize, setNewSize] = useState<number>();
-  const [index, setIndex] = useState<number>();
+  const [fieldId, setFieldId] = useState<string>();
   const [columns, setColumns] = useState(_columns);
 
   useEffect(() => setColumns(_columns), [_columns]);
 
   useDebounce(
     () => {
-      if (!view) {
+      if (!view || fieldId == null || newSize == null) {
         return;
       }
-
-      if (index == null || newSize == null) {
+      if (!fields.some((field) => field.id === fieldId)) {
         return;
       }
       view.updateColumnMeta([
         {
-          fieldId: fields[index].id,
+          fieldId,
           columnMeta: { width: newSize },
         },
       ]);
     },
     300,
-    [index, newSize]
+    [fieldId, newSize]
   );
 
   const onColumnResize = useCallback(
-    (column: IGridColumn, newSize: number, colIndex: number) => {
-      const fieldId = column.id;
-      const field = fields[colIndex];
+    (column: IGridColumn, newSize: number, _colIndex: number) => {
+      const columnId = column.id;
+      if (!columnId || !viewId) {
+        return;
+      }
+
+      const field = fields.find((item) => item.id === columnId);
       if (!field) {
-        throw new Error('Can not find field by id: ' + fieldId);
+        return;
       }
 
-      if (field.id !== column.id) {
-        throw new Error('field id not match column id');
+      const index = columns.findIndex((ci) => ci.id === columnId);
+      if (index < 0) {
+        return;
       }
 
-      if (!viewId) {
-        throw new Error('Can not find view id');
-      }
-
-      const index = columns.findIndex((ci) => ci.id === column.id);
       const newColumns = [...columns];
-      const newColumn = {
+      newColumns.splice(index, 1, {
         ...columns[index],
         width: newSize,
-      };
-      newColumns.splice(index, 1, newColumn);
+      });
 
       setColumns(newColumns);
       setNewSize(newSize);
-      setIndex(colIndex);
+      setFieldId(columnId);
     },
-    [columns, fields, setColumns, viewId]
+    [columns, fields, viewId]
   );
 
   return { columns, onColumnResize };

@@ -3,10 +3,13 @@ import { UploadType } from '@teable/openapi';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { coldStorageRead } from '../cold-archive/cold-errors';
+import { groupPartsByMonth } from '../cold-archive/compaction';
 import { ColdPartByteCache } from '../cold-archive/part-byte-cache';
 import { ColdStatsCache } from '../cold-archive/stats-cache';
+import type { ListedColdPart } from '../cold-archive/storage-ops';
 import {
   deleteColdKeys,
+  listColdParts,
   partStoreFor,
   readColdStats,
   readColdStatsCached,
@@ -90,25 +93,24 @@ export class RecordHistoryColdStorageService {
       .reverse();
   }
 
-  async listMonthParts(
-    tableId: string,
-    yyyymm: string
-  ): Promise<Array<IParsedPartKey & { size: number; etag?: string }>> {
-    const { objects } = await coldStorageRead(() =>
-      this.storageAdapter.listObjects(this.bucket, monthPrefix(this.rootDir, tableId, yyyymm))
+  async listMonthParts(tableId: string, yyyymm: string): Promise<ListedColdPart<IParsedPartKey>[]> {
+    return listColdParts(
+      this.storageAdapter,
+      this.bucket,
+      monthPrefix(this.rootDir, tableId, yyyymm),
+      (key) => parsePartKey(this.rootDir, key)
     );
-    const parts: Array<IParsedPartKey & { size: number; etag?: string }> = [];
-    for (const object of objects) {
-      const parsed = parsePartKey(this.rootDir, object.key);
-      if (!parsed) continue;
-      const part: IParsedPartKey & { size: number; etag?: string } = {
-        ...parsed,
-        size: object.size,
-      };
-      if (object.etag !== undefined) part.etag = object.etag;
-      parts.push(part);
-    }
-    return parts;
+  }
+
+  /** every part of a table grouped by month, newest first, from one recursive LIST */
+  async listTableParts(tableId: string): Promise<Map<string, ListedColdPart<IParsedPartKey>[]>> {
+    const parts = await listColdParts(
+      this.storageAdapter,
+      this.bucket,
+      tablePrefix(this.rootDir, tableId),
+      (key) => parsePartKey(this.rootDir, key)
+    );
+    return groupPartsByMonth(parts);
   }
 
   // maintenance-path variant: only a missing shard reads as undefined, a

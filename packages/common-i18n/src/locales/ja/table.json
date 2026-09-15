@@ -61,7 +61,7 @@
         "generatingToken": "生成中...",
         "generateToken": "トークンを生成",
         "confirmTitle": "API トークンを作成",
-        "confirmDescription": "このベース用に次の権限を持つ新しい API トークンを作成します：",
+        "confirmDescription": "このプロジェクト用に次の権限を持つ新しい API トークンを作成します：",
         "scopeTableRead": "テーブル情報を読み取り",
         "scopeFieldRead": "フィールドを読み取り",
         "scopeRead": "レコードを読み取り",
@@ -94,7 +94,7 @@
   },
   "welcome": {
     "title": "ようこそ",
-    "emptyTitle": "データベースの構築を始めましょう",
+    "emptyTitle": "プロジェクトの構築を始めましょう",
     "description": "サイドバーの「+」ボタンをクリックしてリソースを追加",
     "help": "詳細については、<HelpCenter /> をご覧ください",
     "helpCenter": "ヘルプセンター"
@@ -266,7 +266,6 @@
       "bar": "棒",
       "text": "テキスト",
       "markdown": "Markdown",
-      "url": "Url",
       "email": "メール",
       "phone": "電話",
       "maxNumber": "最大数",
@@ -282,8 +281,8 @@
       "manyToMany": "複数 対 複数",
       "self": "自分",
       "selectTable": "テーブルを選択...",
-      "selectBase": "ベースを選択...",
-      "linkFromAnotherBase": "別のベースからリンク",
+      "selectBase": "プロジェクトを選択...",
+      "linkFromAnotherBase": "別のプロジェクトからリンク",
       "inSelfLink": "セルフリンク",
       "betweenTwoTables": "2つのテーブルの間",
       "tips": "ヒント",
@@ -315,9 +314,9 @@
         "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
       },
       "linkTable": "リンクテーブル",
-      "linkBase": "リンク先ベース",
+      "linkBase": "リンク先プロジェクト",
       "tableNoPermission": "権限のないテーブル",
-      "baseNoPermission": "権限のないベース",
+      "baseNoPermission": "権限のないプロジェクト",
       "noLinkTip": "参照するリンクされたレコードがありません。別のレコードへのリンクフィールドを追加して、参照を再度構成してください。",
       "fieldValidationRules": "フィールド値の検証ルール",
       "enableValidateFieldUnique": "一意の値のみ",
@@ -328,6 +327,7 @@
       "filterByView": "ビューでレコードをフィルターする",
       "filter": "レコードをフィルターする",
       "hideFields": "フィールドを非表示にする",
+      "removeDuplicateValues": "重複する値を削除",
       "moreOptions": "オプションを表示",
       "allowNewOptionsWhenEditing": "編集時に新しいオプションを許可",
       "deleteField": {
@@ -473,7 +473,7 @@
     "deleteConfirm": "本当に \"{{tableName}}\" を削除してもよろしいですか?",
     "dbTableName": "物理データベース内のテーブル名",
     "schemaName": "物理データベースのスキーマ名",
-    "baseInfo": "ベース情報",
+    "baseInfo": "プロジェクト情報",
     "loginUserTable": "アプリログイン",
     "linkedApps": "関連アプリ",
     "typeOfDatabase": "データベースの種類",
@@ -625,9 +625,9 @@
         "noPermission": "レコードをコピーする権限がありません"
       },
       "crossBaseCopyTitle": "プレーンテキストとしてコピーしますか？",
-      "crossBaseCopyDescription": "この選択範囲にはベース間のリンクフィールドが含まれています。データを元のベース内に留めるため、フィールドはプレーンテキストとしてコピーされ、リンク関係は失われます。",
+      "crossBaseCopyDescription": "この選択範囲にはプロジェクト間のリンクフィールドが含まれています。データを元のプロジェクト内に留めるため、フィールドはプレーンテキストとしてコピーされ、リンク関係は失われます。",
       "crossBaseCopyConfirm": "プレーンテキストとしてコピー",
-      "crossBaseCopyLoadFirst": "ベース間のフィールドをコピーする前に、選択したすべての行を読み込むためにスクロールしてください。"
+      "crossBaseCopyLoadFirst": "プロジェクト間のフィールドをコピーする前に、選択したすべての行を読み込むためにスクロールしてください。"
     },
     "graph": {
       "effectCells": "セルに影響を与える可能性があります",
@@ -645,7 +645,7 @@
       "v2": {
         "dialogTitle": "スキーマ整合性",
         "dialogDescription": "{{tableName}} に対して v2 のスキーマチェックと修復を実行します。",
-        "dialogDescriptionNoTable": "現在のベースに対して v2 スキーマチェックと修復を実行します。",
+        "dialogDescriptionNoTable": "現在のプロジェクトに対して v2 スキーマチェックと修復を実行します。",
         "runCheck": "チェック開始",
         "recheck": "再チェック",
         "repair": "修復",
@@ -697,13 +697,13 @@
           "noRepairStatements": "No repair statements available",
           "skippedDependencies": "Skipped because dependencies are not satisfied",
           "checkStreamConnected": "Schema integrity check stream connected",
-          "baseCheckStreamConnected": "Base schema integrity check stream connected",
+          "baseCheckStreamConnected": "プロジェクトのスキーマ整合性チェックストリームに接続しました",
           "repairStreamConnected": "Schema integrity repair stream connected",
-          "baseRepairStreamConnected": "Base schema integrity repair stream connected",
+          "baseRepairStreamConnected": "プロジェクトのスキーマ整合性修復ストリームに接続しました",
           "checkCompleted": "Schema integrity check completed",
-          "baseCheckCompleted": "Base schema integrity check completed",
+          "baseCheckCompleted": "プロジェクトのスキーマ整合性チェックが完了しました",
           "repairCompleted": "Schema integrity repair completed",
-          "baseRepairCompleted": "Base schema integrity repair completed",
+          "baseRepairCompleted": "プロジェクトのスキーマ整合性修復が完了しました",
           "skippedStatusNotSelected": "このステータスレベルが修復対象として選択されていないためスキップされました",
           "skippedRepairUnavailable": "現在の状態では自動修復が利用できないためスキップされました"
         },
@@ -906,11 +906,14 @@
     "deletedRecovered": {
       "title": "開こうとしたテーブルは削除されています",
       "description": "「{{tableName}}」に切り替えました",
-      "descriptionEmpty": "Base ページに戻りました"
+      "descriptionEmpty": "プロジェクトページに戻りました"
     }
   },
   "import": {
     "title": {
+      "createTable": "テーブルを作成",
+      "importFromCsv": "CSV からインポート",
+      "importFromExcel": "Excel からインポート",
       "upload": "アップロード",
       "import": "インポート",
       "localFile": "ローカルファイル",
@@ -1111,7 +1114,7 @@
   },
   "connection": {
     "title": "データベース接続",
-    "description": "データベース接続を介して、現在のベースにあるすべてのテーブルを含むデータベースに直接アクセスできます。",
+    "description": "データベース接続を介して、現在のプロジェクトにあるすべてのテーブルを含むデータベースに直接アクセスできます。",
     "noPermission": "データベースにアクセスする権限がありません",
     "connectionCountTip": "データベース接続の最大数は <b>{{max}}</b> で、現在の接続数は <b>{{current}}</b> です",
     "createFailed": "PUBLIC_DATABASE_PROXY 環境変数が正しく設定されていることを確認してください",
@@ -1233,7 +1236,7 @@
     "shareToWeb": "ウェブに共有",
     "refreshLink": "リンクを再生成",
     "deleteConfirmTitle": "共有リンクを削除",
-    "deleteConfirmDescription": "この操作は元に戻せません。このリンクを持つ人は共有ベースにアクセスできなくなります。",
+    "deleteConfirmDescription": "この操作は元に戻せません。このリンクを持つ人は共有プロジェクトにアクセスできなくなります。",
     "createSuccess": "共有リンクが作成されました",
     "createFailed": "共有リンクの作成に失敗しました",
     "updateFailed": "共有設定の更新に失敗しました",
@@ -1376,6 +1379,70 @@
     "action": {
       "locateResource": "検索"
     },
+    "resourceOperations": {
+      "title": "今回の変更",
+      "items_other": "{{count}}件",
+      "expandRemaining": "残り{{count}}件を表示",
+      "collapse": "折りたたむ",
+      "create": "作成済み",
+      "update": "更新済み",
+      "delete": "削除済み",
+      "import": "インポート",
+      "publication": {
+        "published": "公開済み",
+        "unpublished": "公開を取り消しました"
+      },
+      "structureTitles": {
+        "field": "フィールドの変更",
+        "view": "ビューの変更"
+      },
+      "structureStats": {
+        "field": {
+          "create_other": "フィールドを{{count}}個追加",
+          "update_other": "フィールドを{{count}}個変更",
+          "delete_other": "フィールドを{{count}}個削除",
+          "import_other": "フィールドを{{count}}個インポート"
+        },
+        "view": {
+          "create_other": "ビューを{{count}}個追加",
+          "update_other": "ビューを{{count}}個変更",
+          "delete_other": "ビューを{{count}}個削除",
+          "import_other": "ビューを{{count}}個インポート"
+        }
+      },
+      "workflow": {
+        "activate": "オートメーションを有効化しました",
+        "deactivate": "オートメーションを無効化しました",
+        "discard": "下書きの変更を破棄しました"
+      },
+      "routine": {
+        "activate": "ルーティンを有効化しました",
+        "deactivate": "ルーティンを無効化しました",
+        "run": "実行を開始しました"
+      },
+      "records": {
+        "create": "レコードを追加",
+        "createCount_other": "レコードを{{count}}件追加",
+        "update": "レコードを更新",
+        "updateCount_other": "レコードを{{count}}件更新",
+        "delete": "レコードを削除",
+        "deleteCount_other": "レコードを{{count}}件削除",
+        "import": "レコードをインポート",
+        "importCount_other": "レコードを{{count}}件インポート"
+      },
+      "types": {
+        "base": "プロジェクト",
+        "table": "テーブル",
+        "field": "フィールド",
+        "view": "ビュー",
+        "record": "レコード",
+        "app": "アプリ",
+        "workflow": "オートメーション",
+        "routine": "ルーティン",
+        "folder": "フォルダ",
+        "artifact": "アーティファクト"
+      }
+    },
     "showUI": {
       "skip": "スキップ",
       "next": "次へ",
@@ -1414,7 +1481,13 @@
     "addAttachment": "添付ファイルを追加",
     "noHistory": "チャット履歴がありません",
     "noFoundHistory": "チャット履歴が見つかりません。新しいチャットを開始してください",
+    "pin": "ピン留め",
+    "unpin": "ピン留めを解除",
+    "archive": "アーカイブ",
+    "archivedToast": "チャットをアーカイブしました。「設定 › アーカイブ済みチャット」で確認できます。",
+    "unread": "未読",
     "timeGroup": {
+      "pinned": "ピン留め",
       "today": "今日",
       "oneWeek": "1週間",
       "twoWeek": "2週間",
@@ -1433,6 +1506,7 @@
       "tables": "テーブル",
       "apps": "アプリ",
       "workflows": "自動化",
+      "routines": "ルーティン",
       "folders": "フォルダ",
       "envs": "シークレット"
     },
@@ -1461,7 +1535,7 @@
     "suggestions": {
       "title": "何をお手伝いしましょうか？",
       "whatCanIDo": "何ができますか？",
-      "createOrModifyDatabase": "データベースを作成または変更",
+      "createOrModifyDatabase": "プロジェクトを作成または変更",
       "buildAutomations": "オートメーションを構築",
       "buildApps": "アプリを構築",
       "buildMeCRM": "CRMを構築",
@@ -1586,6 +1660,11 @@
         "upstreamBadRequest": "音声エンドポイントが無効です。",
         "upstreamUnavailable": "音声機能を利用できません。"
       }
+    },
+    "status": {
+      "running": "生成中…",
+      "waitingInput": "あなたの返信を待っています",
+      "failed": "返信に失敗しました"
     }
   },
   "upload": {

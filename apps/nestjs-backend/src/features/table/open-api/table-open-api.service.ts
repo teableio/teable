@@ -673,6 +673,14 @@ export class TableOpenApiService {
       where: { tableId: { in: tableIds } },
     });
 
+    // comments live on the meta DB keyed by table id, with no cascade from tableMeta
+    await metaPrisma.comment.deleteMany({
+      where: { tableId: { in: tableIds } },
+    });
+    await metaPrisma.commentSubscription.deleteMany({
+      where: { tableId: { in: tableIds } },
+    });
+
     // clean attachment for table
     await metaPrisma.attachmentsTable.deleteMany({
       where: { tableId: { in: tableIds } },
@@ -716,6 +724,9 @@ export class TableOpenApiService {
           : routedDataPrisma;
       const where = { tableId: { in: tableIds } };
 
+      await bestEffort(`attachment refs for tables ${tables}`, () =>
+        dataPrisma.attachmentsTable.deleteMany({ where })
+      );
       await bestEffort(`record history for tables ${tables}`, () =>
         dataPrisma.recordHistory.deleteMany({ where })
       );

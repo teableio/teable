@@ -1,6 +1,5 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { z } from 'zod';
 
 import { domainError, type DomainError } from '../../shared/DomainError';
 import { generatePrefixedId } from '../../shared/IdGenerator';
@@ -12,7 +11,6 @@ const legacyFieldIdMaxBodyLength = 64;
 const fieldIdPattern = new RegExp(
   `^${fieldIdPrefix}[0-9a-zA-Z]{1,${legacyFieldIdMaxBodyLength}}(?:_\\d+)?$`
 );
-const fieldIdSchema = z.string().regex(fieldIdPattern);
 
 export class FieldId extends ValueObject {
   private constructor(private readonly value: string) {
@@ -20,9 +18,10 @@ export class FieldId extends ValueObject {
   }
 
   static create(raw: unknown): Result<FieldId, DomainError> {
-    const parsed = fieldIdSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.validation({ message: 'Invalid FieldId' }));
-    return ok(new FieldId(parsed.data));
+    if (typeof raw !== 'string' || !fieldIdPattern.test(raw)) {
+      return err(domainError.validation({ message: 'Invalid FieldId' }));
+    }
+    return ok(new FieldId(raw));
   }
 
   static generate(): Result<FieldId, DomainError> {

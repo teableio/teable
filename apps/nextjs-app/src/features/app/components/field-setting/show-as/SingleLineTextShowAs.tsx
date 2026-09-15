@@ -1,4 +1,4 @@
-import { SingleLineTextDisplayType } from '@teable/core';
+import { SingleLineTextDisplayType, getTextActionType } from '@teable/core';
 import type { ISingleLineTextShowAs } from '@teable/core';
 import { Label } from '@teable/ui-lib/shadcn/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@teable/ui-lib/shadcn/ui/tabs';
@@ -14,8 +14,8 @@ interface ISingleNumberShowAsProps {
 
 export const SingleTextLineShowAs: React.FC<ISingleNumberShowAsProps> = (props) => {
   const { showAs, onChange } = props;
-  const { type } = (showAs || {}) as ISingleLineTextShowAs;
-  const selectedType = showAs == null ? textFlag : type;
+  // Legacy "url" show-as is no longer selectable: URLs are auto-detected in text
+  const selectedType = getTextActionType(showAs) ?? textFlag;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const updateDisplayType = (type: string) => {
@@ -33,10 +33,6 @@ export const SingleTextLineShowAs: React.FC<ISingleNumberShowAsProps> = (props) 
     {
       type: textFlag,
       text: t('table:field.editor.text'),
-    },
-    {
-      type: SingleLineTextDisplayType.Url,
-      text: t('table:field.editor.url'),
     },
     {
       type: SingleLineTextDisplayType.Email,

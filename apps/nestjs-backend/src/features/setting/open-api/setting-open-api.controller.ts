@@ -38,8 +38,12 @@ import {
   ITestApiKeyRo,
   updateAiConfigRoSchema,
   updateAppConfigRoSchema,
+  SettingKey,
 } from '@teable/openapi';
+import { AuthConfig, IAuthConfig } from '../../../configs/auth.config';
+import { IMailConfig, MailConfig } from '../../../configs/mail.config';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
+import { resolveBuildVersion } from '../../../utils/build-version';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { Public } from '../../auth/decorators/public.decorator';
@@ -51,8 +55,29 @@ export class SettingOpenApiController {
   constructor(
     private readonly settingOpenApiService: SettingOpenApiService,
     private readonly turnstileService: TurnstileService,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
+    @AuthConfig() private readonly authConfig: IAuthConfig,
+    @MailConfig() private readonly mailConfig: IMailConfig
   ) {}
+
+  /**
+   * Email-code sign-in lives in LocalAuthModule (gone when password login is
+   * disabled) and is only useful when the notify mail actually goes out:
+   * either the env SMTP config or the admin-set notify transport.
+   */
+  private async isEmailCodeSigninEnabled(): Promise<boolean> {
+    if (this.authConfig.passwordLoginDisabled) {
+      return false;
+    }
+    if (this.mailConfig.isConfigured) {
+      return true;
+    }
+    const setting = await this.settingOpenApiService.getSetting([
+      SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG,
+    ]);
+    const notify = setting[SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG];
+    return Boolean(notify?.host && notify.auth?.user && notify.auth?.pass);
+  }
 
   /**
    * Get the instance settings, now we have config for AI, there are some sensitive fields, we need check the permission before return.
@@ -73,9 +98,14 @@ export class SettingOpenApiController {
     return {
       ...setting,
       turnstileSiteKey: this.turnstileService.getTurnstileSiteKey(),
+      mobileAuthExchange: true,
+      socialAuthProviders: this.authConfig.socialAuthProviders,
+      passwordLoginDisabled: this.authConfig.passwordLoginDisabled || undefined,
       changeEmailSendCodeMailRate: this.thresholdConfig.changeEmailSendCodeMailRate,
       resetPasswordSendMailRate: this.thresholdConfig.resetPasswordSendMailRate,
       signupVerificationSendCodeMailRate: this.thresholdConfig.signupVerificationSendCodeMailRate,
+      emailCodeSigninEnabled: await this.isEmailCodeSigninEnabled(),
+      buildVersion: resolveBuildVersion() || undefined,
     };
   }
 

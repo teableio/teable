@@ -1,6 +1,19 @@
 export const isImage = (mimetype: string) => {
   return mimetype.startsWith('image/');
 };
+
+// HEVC-encoded stills (typically iPhone photos). Browsers cannot render these,
+// so thumbnails are decoded server-side into PNG instead of served as-is.
+export const heicMimetypes = [
+  'image/heic',
+  'image/heif',
+  'image/heic-sequence',
+  'image/heif-sequence',
+];
+
+export const isHeic = (mimetype: string) => {
+  return heicMimetypes.includes(mimetype);
+};
 export const isVideo = (mimetype: string) => {
   return mimetype.startsWith('video/');
 };

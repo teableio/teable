@@ -49,7 +49,7 @@ export const NoBasesPlaceholder: FC<INoBasesPlaceholderProps> = ({ space }) => {
     <div className="flex h-full min-h-[60vh] flex-col items-center justify-center px-8">
       <Image
         src={isDark ? '/images/layout/welcome-dark.png' : '/images/layout/welcome-light.png'}
-        alt="no bases"
+        alt="no projects"
         width={240}
         height={240}
       />

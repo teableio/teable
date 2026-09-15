@@ -643,11 +643,8 @@ export class TableQueryObservationWindow {
 }
 
 export type TablePhysicalStatsInput = {
-  readonly estimatedRows: number;
+  readonly estimatedRows: number | null;
   readonly totalBytes: number;
-  readonly seqScanCount?: number;
-  readonly indexScanCount?: number;
-  readonly lastAnalyzeAt?: Date;
 };
 
 export class TablePhysicalStats {
@@ -656,11 +653,8 @@ export class TablePhysicalStats {
   static create(raw: TablePhysicalStatsInput): Result<TablePhysicalStats, DomainError> {
     const parsed = z
       .object({
-        estimatedRows: z.number().nonnegative(),
+        estimatedRows: z.number().nonnegative().nullable(),
         totalBytes: z.number().nonnegative(),
-        seqScanCount: z.number().nonnegative().optional(),
-        indexScanCount: z.number().nonnegative().optional(),
-        lastAnalyzeAt: z.date().optional(),
       })
       .safeParse(raw);
     if (!parsed.success) {
@@ -669,7 +663,7 @@ export class TablePhysicalStats {
     return ok(new TablePhysicalStats(parsed.data));
   }
 
-  estimatedRows(): number {
+  estimatedRows(): number | null {
     return this.props.estimatedRows;
   }
 
@@ -1006,6 +1000,7 @@ export class TableQueryRiskPolicy {
     readonly planValidation?: TableQueryPlanValidation;
   }): Result<TableQueryRiskReport, DomainError> {
     const shape = input.observation.shape().snapshot();
+    const estimatedRows = input.physicalStats.estimatedRows();
     const sortFieldCount =
       shape.orderShape?.fields.filter((field) => field.source !== 'tieBreaker').length ?? 0;
     const matchedRules = [
@@ -1026,7 +1021,7 @@ export class TableQueryRiskPolicy {
         25
       ),
       riskRule(
-        input.physicalStats.estimatedRows() >= this.config.largeTableEstimatedRows,
+        estimatedRows != null && estimatedRows >= this.config.largeTableEstimatedRows,
         'large_table',
         15
       ),

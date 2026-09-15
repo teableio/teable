@@ -9,6 +9,7 @@ import type {
 import { getUserMe } from '@/backend/api/rest/get-user';
 import { providersAll } from '@/features/auth/components/SocialAuth';
 import { isValidRedirectPath } from './isValidRedirectPath';
+import { getUnauthenticatedRedirect, markReturningUser } from './returning-user-cookie';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type GetServerSideProps<
@@ -32,6 +33,9 @@ export default function ensureLogin<P extends { [key: string]: any }>(
     try {
       const user = await getUserMe(req?.headers.cookie);
       props['user'] = user;
+      if (!isAnonymous(user?.id)) {
+        markReturningUser(context);
+      }
       // User is logged in, redirect to home page if on login page
       if (!isAnonymous(user?.id) && isLoginPage) {
         const redirect = context.query.redirect;
@@ -62,12 +66,10 @@ export default function ensureLogin<P extends { [key: string]: any }>(
           return redirectSocialAuth(req) || handler(context);
         }
         if (error.status < 500 && error.status >= 400) {
-          // User is not logged in, redirect to sign up by default
-          const redirect = encodeURIComponent(req?.url || '');
-          const query = redirect ? `redirect=${redirect}` : '';
+          // User is not logged in: sign-in for returning browsers, sign-up otherwise
           return {
             redirect: {
-              destination: `/auth/signup?${query}`,
+              destination: getUnauthenticatedRedirect(req),
               permanent: false,
             },
           };
@@ -110,14 +112,15 @@ async function ensureLoginParallel<P extends { [key: string]: any }>(
 
   if (userResult.status === 'fulfilled') {
     props['user'] = userResult.value;
+    if (!isAnonymous(userResult.value?.id)) {
+      markReturningUser(context);
+    }
   } else {
     const error = userResult.reason;
     if (error instanceof HttpError && error.status < 500 && error.status >= 400) {
-      const redirect = encodeURIComponent(req?.url || '');
-      const query = redirect ? `redirect=${redirect}` : '';
       return {
         redirect: {
-          destination: `/auth/signup?${query}`,
+          destination: getUnauthenticatedRedirect(req),
           permanent: false,
         },
       };

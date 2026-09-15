@@ -360,4 +360,38 @@ describe('v2 http list records cursor pagination (e2e)', () => {
       `filter/group/sort HTTP median cursor=${cursorMedian.toFixed(2)}ms offset=${offsetMedian.toFixed(2)}ms samples cursor=${cursorSamples.join(',')} offset=${offsetSamples.join(',')}`
     ).toBeLessThan(offsetMedian);
   }, 180_000);
+
+  it('reports hasMore instead of ending the list when a cursor would be oversized', async () => {
+    const table = await createTable({
+      baseId: ctx.baseId,
+      name: 'List Cursor Oversized Value',
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        { type: 'longText', name: 'Notes' },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const notesFieldId = table.fields.find((field) => field.name === 'Notes')?.id;
+    expect(notesFieldId).toBeTruthy();
+    const longNote = 'L'.repeat(3100);
+
+    await createRecords(
+      table.id,
+      Array.from({ length: 3 }, (_, index) => ({
+        fields: { [notesFieldId!]: `${longNote}${index}` },
+      }))
+    );
+
+    const sort = JSON.stringify([{ fieldId: notesFieldId, order: 'asc' }]);
+    const firstPage = await listRecords(table.id, { limit: '1', sort });
+    expect(firstPage.records).toHaveLength(1);
+    // The sort value does not fit the cursor contract, so no cursor is handed out — but
+    // the page came back full and the client has to keep paging by offset.
+    expect(firstPage.pagination.nextCursor).toBeUndefined();
+    expect(firstPage.pagination.hasMore).toBe(true);
+
+    const secondPage = await listRecords(table.id, { limit: '1', offset: '1', sort });
+    expect(secondPage.records).toHaveLength(1);
+    expect(secondPage.records[0]!.id).not.toBe(firstPage.records[0]!.id);
+  });
 });

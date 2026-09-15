@@ -70,7 +70,18 @@ export class UserFieldCore extends UserAbstractCore {
     if (this.validateCellValue(value).success) {
       return value;
     }
-    return null;
+
+    // An isMultiple toggle leaves record docs holding the previous shape until the
+    // next fetch. Mirror the storage migration (single → [single], array → first)
+    // so display paths keep the value instead of blanking it.
+    if (this.isMultipleCellValue) {
+      const wrapped = this.validateCellValue(Array.isArray(value) ? value : [value]);
+      return wrapped.success ? wrapped.data : null;
+    }
+
+    const first = Array.isArray(value) ? value[0] : null;
+    const unwrapped = this.validateCellValue(first);
+    return unwrapped.success ? unwrapped.data : null;
   }
 
   validateOptions() {

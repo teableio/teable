@@ -49,7 +49,8 @@
     "previewFileLimit": "Limite dimensione file di anteprima: {{size}}MB, per favore scarica per visualizzare.",
     "loadFileError": "Caricamento file fallito",
     "previousAttachment": "Precedente",
-    "nextAttachment": "Successivo"
+    "nextAttachment": "Successivo",
+    "deleteAttachment": "Elimina"
   },
   "undoRedo": {
     "undo": "Annulla",
@@ -400,13 +401,13 @@
       "spaceInviteEmail": "Invita via email nello spazio",
       "spaceInviteLink": "Invita tramite link nello spazio",
       "spaceGrantRole": "Concedi ruolo nello spazio",
-      "baseCreate": "Crea base",
-      "baseDelete": "Elimina base",
-      "baseRead": "Leggi base",
-      "baseReadAll": "Leggi tutte le basi",
-      "baseUpdate": "Aggiorna base",
-      "baseInviteEmail": "Invita via email nella base",
-      "baseInviteLink": "Invita tramite link nella base",
+      "baseCreate": "Crea progetto",
+      "baseDelete": "Elimina progetto",
+      "baseRead": "Leggi progetto",
+      "baseReadAll": "Leggi tutti i progetti",
+      "baseUpdate": "Aggiorna progetto",
+      "baseInviteEmail": "Invita via email nel progetto",
+      "baseInviteLink": "Invita tramite link nel progetto",
       "baseAuthorityMatrixConfig": "Configura matrice di autorità",
       "baseDbConnect": "Connetti al database",
       "tableCreate": "Crea tabella",
@@ -440,6 +441,10 @@
       "automationDelete": "Elimina automazione",
       "automationRead": "Leggi automazione",
       "automationUpdate": "Aggiorna automazione",
+      "routineCreate": "Crea routine",
+      "routineDelete": "Elimina routine",
+      "routineRead": "Leggi routine",
+      "routineUpdate": "Aggiorna routine",
       "appCreate": "Crea app",
       "appDelete": "Elimina app",
       "appRead": "Leggi app",
@@ -447,7 +452,7 @@
       "userEmailRead": "Leggi email utente corrente",
       "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Leggi cronologia record",
-      "baseQuery": "Interroga base",
+      "baseQuery": "Interroga progetto",
       "instanceRead": "Leggi istanza",
       "instanceUpdate": "Aggiorna istanza",
       "enterpriseRead": "Leggi configurazione enterprise",
@@ -458,10 +463,11 @@
     "table": "Tabella",
     "view": "Vista",
     "space": "Spazio",
-    "base": "Base",
+    "base": "Progetto",
     "field": "Campo",
     "record": "Record",
     "automation": "Automazione",
+    "routine": "Routine",
     "app": "App",
     "user": "Utente",
     "recordHistory": "Cronologia Record",
@@ -956,7 +962,7 @@
       "recordsPerMutationMax": "Questa operazione modifica troppi record. Il massimo è {{max}} record alla volta.",
       "computedCellValueMaxBytes": "Il valore calcolato della cella è troppo grande. Il massimo è {{max}} byte.",
       "formulaMaxLength": "La formula è troppo lunga. Il massimo è {{max}} caratteri.",
-      "tablesPerBaseMax": "Questa base ha raggiunto il limite di tabelle. Il massimo è {{max}} tabelle.",
+      "tablesPerBaseMax": "Questo progetto ha raggiunto il limite di tabelle. Il massimo è {{max}} tabelle.",
       "fieldsPerTableMax": "Questa tabella ha troppi campi. Il massimo è {{max}} campi.",
       "rowsPerTableMax": "Questa tabella ha troppi record. Il massimo è {{max}} record.",
       "viewsPerTableMax": "Questa tabella ha raggiunto il limite di viste. Il massimo è {{max}} viste.",
@@ -1057,7 +1063,7 @@
       "runNotFound": "Esecuzione dell'automazione non trovata",
       "anchorNotFound": "Automazione di ancoraggio non trovata",
       "validationError": "Errore di validazione della configurazione dell'automazione",
-      "tableNotInBase": "Puoi abbonarti solo a una tabella all'interno del tuo database",
+      "tableNotInBase": "Puoi abbonarti solo a una tabella all'interno del tuo progetto",
       "alreadyActiveAndNotDraft": "L'automazione è già attiva e non è una bozza",
       "noActiveSnapshot": "L'automazione non ha un'istantanea attiva",
       "onlyFailedRunsCanRerun": "Solo le esecuzioni fallite possono essere rieseguite",
@@ -1081,6 +1087,8 @@
       "unsupportedCategory": "Categoria non supportata",
       "unknownConnectionType": "Tipo di connessione e-mail sconosciuto",
       "imapPasswordNotConfigured": "Password IMAP non configurata",
+      "secretNotGranted": "Il secret {{alias}} non è concesso all'automazione",
+      "credentialMustBeSecret": "Le credenziali devono essere secret concessi all'automazione",
       "integrationNotFound": "Integrazione non trovata o senza credenziali",
       "webhookTriggerNotFound": "Trigger webhook non trovato",
       "emailReceivedTriggerNotFound": "Trigger di ricezione e-mail non trovato",
@@ -1092,12 +1100,15 @@
       "apiKeyNotConfigured": "Il servizio di scraping non è configurato",
       "triggerFailed": "Attivazione scraping fallita: {{detail}}",
       "snapshotError": "Errore snapshot scraping: {{detail}}",
-      "timeout": "Timeout scraping dopo {{seconds}}s"
+      "timeout": "Timeout scraping dopo {{seconds}}s",
+      "catalogFailed": "Richiesta del catalogo di scraping non riuscita: {{detail}}",
+      "discoverByOnCatalogDataset": "discoverBy si applica solo agli id di dataset grezzi, non a {{datasetId}}"
     },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
       "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
-      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}",
+      "providerUnsupported": "Le connessioni {{provider}} non sono più supportate e non possono essere concesse"
     },
     "space": {
       "notFound": "Spazio non trovato",
@@ -1113,17 +1124,17 @@
       "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
     },
     "base": {
-      "notFound": "Base non trovata",
-      "cannotAccess": "Non hai il permesso di accedere alla base {{baseId}}",
-      "anchorNotFound": "Base di ancoraggio {{anchorId}} non trovata",
-      "baseAndSpaceMismatch": "Base {{baseId}} e spazio {{spaceId}} non corrispondono",
+      "notFound": "Progetto non trovato",
+      "cannotAccess": "Non hai il permesso di accedere al progetto {{baseId}}",
+      "anchorNotFound": "Progetto di riferimento {{anchorId}} non trovato",
+      "baseAndSpaceMismatch": "Progetto {{baseId}} e spazio {{spaceId}} non corrispondono",
       "templateNotFound": "Modello {{templateId}} non trovato"
     },
     "baseNode": {
-      "baseIdIsRequired": "ID base richiesto",
+      "baseIdIsRequired": "ID progetto richiesto",
       "nodeIdIsRequired": "ID nodo richiesto",
       "invalidResourceType": "Tipo di risorsa non valido",
-      "notFound": "Nodo base non trovato",
+      "notFound": "Nodo progetto non trovato",
       "parentMustBeFolder": "Il genitore deve essere una cartella",
       "cannotDuplicateFolder": "Impossibile duplicare la cartella",
       "cannotDeleteEmptyFolder": "Impossibile eliminare la cartella perché non è vuota",
@@ -1138,6 +1149,22 @@
       "folderNotFound": "Cartella non trovata",
       "anchorNotFound": "Nodo di ancoraggio non trovato",
       "nameAlreadyExists": "Il nome esiste già"
+    },
+    "routine": {
+      "notFound": "Routine non trovata",
+      "runNotFound": "Esecuzione della routine non trovata",
+      "configRequiredToActivate": "Impossibile attivare una routine senza una configurazione salvata",
+      "noFutureOccurrence": "La pianificazione non ha occorrenze future",
+      "onlyActiveCanDeactivate": "Solo una routine attiva può essere messa in pausa",
+      "configRequiredToRun": "Impossibile eseguire una routine senza una configurazione salvata",
+      "runAlreadyInFlight": "Un'esecuzione di questa routine è già in corso",
+      "invalidRunCursor": "Cursore dell'elenco delle esecuzioni non valido",
+      "invalidSchedule": "Pianificazione della routine non valida: {{reason}}"
+    },
+    "chat": {
+      "notFound": "Chat non trovata",
+      "accessDenied": "Non sei autorizzato ad accedere a questa chat",
+      "serverAuthoredType": "Le chat di tipo {{type}} vengono create dal server"
     },
     "dashboard": {
       "notFound": "Dashboard non trovato"
@@ -1177,7 +1204,7 @@
       "loginRequired": "Accedi per modificare questa vista condivisa"
     },
     "baseShare": {
-      "notFound": "Condivisione base non trovata o la condivisione è disabilitata",
+      "notFound": "Condivisione del progetto non trovata o condivisione disattivata",
       "alreadyExists": "Esiste già una condivisione per questo nodo",
       "copyNotAllowed": "Questa condivisione non consente la copia"
     },
@@ -1195,14 +1222,14 @@
     },
     "dbConnection": {
       "unsupportedDriver": "Driver di database non supportato: {{driver}}",
-      "onlyOwnerCanRemove": "Solo il proprietario della base può rimuovere la connessione al database per la base {{baseId}}",
-      "onlyOwnerCanCreate": "Solo il proprietario della base può creare una connessione al database per la base {{baseId}}",
+      "onlyOwnerCanRemove": "Solo il proprietario del progetto può rimuovere la connessione al database per il progetto {{baseId}}",
+      "onlyOwnerCanCreate": "Solo il proprietario del progetto può creare una connessione al database per il progetto {{baseId}}",
       "roleNotExist": "Il ruolo del database {{role}} non esiste"
     },
     "baseQuery": {
       "queryFailed": "Query fallita: {{message}}",
       "invalidJoinType": "Tipo di join non valido: {{joinType}}",
-      "tableNotFound": "Tabella {{tableId}} non trovata nella base {{baseId}}"
+      "tableNotFound": "Tabella {{tableId}} non trovata nel progetto {{baseId}}"
     },
     "baseSqlExecutor": {
       "notAllowedToExecuteSqlWithKeyword": "Non è consentito eseguire SQL con la parola chiave {{keyword}}",
@@ -1222,7 +1249,7 @@
       "accessTokenNoPermission": "Il token di accesso non ha il permesso richiesto",
       "invalidResource": "La risorsa non è valida",
       "notAllowedSpace": "Non hai il permesso di accedere a questo spazio",
-      "notAllowedBase": "Non hai il permesso di accedere a questa base",
+      "notAllowedBase": "Non hai il permesso di accedere a questo progetto",
       "notAllowedTables": "Non hai il permesso di accedere a tabelle({{tableIds}})",
       "notAllowedOperationTable": "Non hai il permesso di operare su questa tabella",
       "notAllowedOperationRecord": "Non hai il permesso di operare su questo record",
@@ -1242,7 +1269,7 @@
       "primaryFieldCannotBeDisabledForRead": "Il campo primario non può essere disabilitato per l'accesso in lettura",
       "fieldDuplicated": "Il campo è duplicato nella configurazione dei permessi",
       "cannotSetRecordPermissionGroup": "Impossibile impostare questa combinazione di permessi di record({{actions}})",
-      "notFoundBaseAndTable": "ID base e ID tabella non trovati",
+      "notFoundBaseAndTable": "ID progetto e ID tabella non trovati",
       "roleTablesShouldNotBeEmpty": "Le tabelle dei ruoli della matrice di autorità non devono essere vuote"
     },
     "selection": {
@@ -1343,7 +1370,10 @@
       "exceedMaxAutomationRunLimit": "Raggiunto il numero massimo mensile di esecuzioni di automazione",
       "manualSubscriptionNotSupported": "L'abbonamento self-service non è disponibile per questo spazio. Per upgrade, downgrade o altre modifiche all'abbonamento, contattare il supporto Teable.",
       "appSumoSubscriptionNotSupported": "Gli abbonamenti AppSumo non possono essere modificati tramite questa interfaccia. Si prega di gestire l'abbonamento su AppSumo.",
-      "customerNotFound": "Nessun record cliente di fatturazione trovato per questo spazio."
+      "planNotAvailable": "Questo piano non è più disponibile per nuovi abbonamenti.",
+      "seatLimitExceeded": "Posti acquistati insufficienti. Aggiungi posti per invitare altri collaboratori.",
+      "customerNotFound": "Nessun record cliente di fatturazione trovato per questo spazio.",
+      "creditAddOnRetired": "Il componente aggiuntivo ricorrente di crediti è stato ritirato. Scegli invece un livello di crediti superiore nel tuo piano."
     },
     "aggregation": {
       "searchQueryRequired": "È richiesta una query di ricerca",
@@ -1425,9 +1455,9 @@
       "noPermissionToDelete": "Non hai il permesso di eliminare questo collaboratore",
       "noPermissionToUpdate": "Non hai il permesso di aggiornare questo collaboratore",
       "noPermissionToOperateRole": "Non hai il permesso di operare questo ruolo",
-      "alreadyExistedInBase": "Il collaboratore esiste già nella base",
+      "alreadyExistedInBase": "Il collaboratore esiste già nel progetto",
       "userNotFound": "Utente non trovato: {{userIds}}",
-      "baseNotFound": "Base non trovata",
+      "baseNotFound": "Progetto non trovato",
       "noPermissionToAddRole": "Non hai il permesso di aggiungere un collaboratore con questo ruolo",
       "departmentNotFound": "Dipartimento non trovato"
     },
@@ -1465,9 +1495,9 @@
     "trash": {
       "invalidResourceType": "Tipo di risorsa non valido",
       "notFound": "Elemento del cestino non trovato",
-      "parentSpaceTrashed": "Impossibile ripristinare questa base perché il suo spazio padre è anche nel cestino",
-      "parentBaseOrSpaceTrashed": "Impossibile ripristinare questa tabella perché la sua base o spazio padre è anche nel cestino",
-      "parentBaseTrashed": "Impossibile ripristinare questo elemento perché la sua base padre è anche nel cestino",
+      "parentSpaceTrashed": "Impossibile ripristinare questo progetto perché il suo spazio padre è anche nel cestino",
+      "parentBaseOrSpaceTrashed": "Impossibile ripristinare questa tabella perché il suo progetto o spazio padre è anche nel cestino",
+      "parentBaseTrashed": "Impossibile ripristinare questo elemento perché il suo progetto padre è anche nel cestino",
       "parentNotFound": "Risorsa padre non trovata",
       "tableNotFound": "Elemento del cestino della tabella non trovato"
     },
@@ -1499,7 +1529,7 @@
       "waitlistInviteCodeRequired": "La lista d'attesa è abilitata, è richiesto un codice di invito",
       "waitlistInviteCodeInvalid": "La lista d'attesa è abilitata, il codice di invito non è valido",
       "systemUser": "L'utente è un utente di sistema",
-      "collaboratorsInSpaces": "L'utente ha collaboratori negli spazi (o spazi eliminati nel cestino)",
+      "soleOwnerOfSpaces": "L'utente è l'unico proprietario di spazi che devono essere confermati o trasferiti prima di eliminare l'account",
       "notFound": "Utente non trovato",
       "cannotDeleteAdmin": "Impossibile eliminare l'utente amministratore",
       "cannotDeactivateAdmin": "Impossibile disattivare l'utente amministratore",
@@ -1596,7 +1626,8 @@
       "titleIncrement": "Questa azione aggiunge {{increment}} righe e supera il limite di {{limit}} del tuo piano",
       "titleBatch": "Questa operazione supererebbe il limite di {{limit}} righe del tuo piano",
       "description": "Non puoi aggiungere altri record. Passa a un piano superiore per rimuovere subito il limite oppure libera spazio eliminando dei record.",
-      "unit": "righe"
+      "unit": "righe",
+      "constraint": "Con il piano attuale non è possibile aggiungere altri record. Libera spazio eliminando dei record."
     },
     "credit": {
       "unit": "crediti"
@@ -1606,6 +1637,12 @@
     },
     "generic": {
       "description": "Passa a un piano superiore per rimuovere questo limite."
+    },
+    "neutral": {
+      "title": "Questa azione supera un limite del piano attuale dello spazio"
+    },
+    "seats": {
+      "unit": "posti"
     }
   }
 }

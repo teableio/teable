@@ -1,15 +1,6 @@
 import type { Response } from 'express';
 import type { IOauth2State } from '../../../cache/types';
-
-function isValidRedirectPath(path: string): boolean {
-  try {
-    const base = 'http://placeholder.local';
-    const url = new URL(path, base);
-    return url.origin === base && (url.protocol === 'http:' || url.protocol === 'https:');
-  } catch {
-    return false;
-  }
-}
+import { isValidRedirectPath } from '../utils';
 
 export class ControllerAdapter {
   // eslint-disable-next-line @typescript-eslint/no-empty-function

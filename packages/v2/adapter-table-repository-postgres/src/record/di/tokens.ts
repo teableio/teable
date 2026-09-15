@@ -7,6 +7,7 @@ export const v2RecordRepositoryPostgresTokens = {
   tableRecordQueryBuilderManager: Symbol(
     'v2.adapter.recordRepositoryPostgres.tableRecordQueryBuilderManager'
   ),
+  recordQueryConfig: Symbol('v2.adapter.recordRepositoryPostgres.recordQueryConfig'),
   computedDependencyGraph: Symbol('v2.adapter.recordRepositoryPostgres.computedDependencyGraph'),
   computedUpdatePlanner: Symbol('v2.adapter.recordRepositoryPostgres.computedUpdatePlanner'),
   computedFieldUpdater: Symbol('v2.adapter.recordRepositoryPostgres.computedFieldUpdater'),

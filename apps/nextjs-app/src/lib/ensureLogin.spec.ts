@@ -14,10 +14,10 @@ vi.mock('@/features/auth/components/SocialAuth', () => ({
 
 const mockedGetUserMe = vi.mocked(getUserMe);
 
-const createContext = (url = '/base/bse123/table/tbl123') =>
+const createContext = (url = '/base/bse123/table/tbl123', cookies: Record<string, string> = {}) =>
   ({
-    req: { headers: { cookie: 'session=1' }, url },
-    res: {},
+    req: { headers: { cookie: 'session=1' }, url, cookies },
+    res: { getHeader: vi.fn(), setHeader: vi.fn() },
     query: {},
   }) as unknown as GetServerSidePropsContext;
 
@@ -100,6 +100,43 @@ describe('ensureLogin parallel handler mode', () => {
 describe('ensureLogin serial mode (default)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('redirects returning browsers to login instead of signup', async () => {
+    mockedGetUserMe.mockRejectedValue(new HttpError('Unauthorized', 401));
+    const handler = vi.fn().mockResolvedValue({ props: { foo: 1 } });
+    const url = '/base/bse123/table/tbl123?viewId=viw123';
+
+    const result = await ensureLogin(handler)(createContext(url, { teable_returning: '1' }));
+
+    expect(result).toEqual({
+      redirect: {
+        destination: `/auth/login?redirect=${encodeURIComponent(url)}`,
+        permanent: false,
+      },
+    });
+  });
+
+  it('stamps the returning-user cookie once a signed-in user is observed', async () => {
+    mockedGetUserMe.mockResolvedValue(user as never);
+    const handler = vi.fn().mockResolvedValue({ props: {} });
+    const context = createContext();
+
+    await ensureLogin(handler)(context);
+
+    expect(context.res.setHeader).toHaveBeenCalledWith('Set-Cookie', [
+      expect.stringMatching(/^teable_returning=1; Max-Age=\d+; Path=\/; SameSite=Lax$/),
+    ]);
+  });
+
+  it('does not re-stamp the cookie when the browser already carries it', async () => {
+    mockedGetUserMe.mockResolvedValue(user as never);
+    const handler = vi.fn().mockResolvedValue({ props: {} });
+    const context = createContext(undefined, { teable_returning: '1' });
+
+    await ensureLogin(handler)(context);
+
+    expect(context.res.setHeader).not.toHaveBeenCalled();
   });
 
   it('does not invoke the handler when the user lookup fails with 4xx', async () => {

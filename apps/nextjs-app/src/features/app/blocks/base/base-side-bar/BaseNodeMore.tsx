@@ -482,6 +482,28 @@ export const WorkflowOperation = (props: IBaseNodeMoreProps) => {
   );
 };
 
+export const RoutineOperation = (props: IBaseNodeMoreProps) => {
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const permission = useBasePermission();
+  const canRename = Boolean(permission?.['routine|update']);
+  const canDelete = Boolean(permission?.['routine|delete']);
+  const canPermanentDelete = false;
+  const canDuplicate = Boolean(permission?.['routine|create']);
+  const canShare = Boolean(permission?.['base|update']);
+
+  return (
+    <CommonOperation
+      {...props}
+      nodeTypeLabel={t('common:noun.routine')}
+      canRename={canRename}
+      canDelete={canDelete}
+      canPermanentDelete={canPermanentDelete}
+      canDuplicate={canDuplicate}
+      canShare={canShare}
+    />
+  );
+};
+
 export const AppOperation = (props: IBaseNodeMoreProps) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const permission = useBasePermission();
@@ -816,7 +838,7 @@ export const TableOperation = (props: ITableOperationProps) => {
       )}
 
       {apiDialogOpen && (
-        <APIDialog open={apiDialogOpen} setOpen={setApiDialogOpen}>
+        <APIDialog tableId={resourceId} open={apiDialogOpen} setOpen={setApiDialogOpen}>
           <span className="hidden text-sm">API</span>
         </APIDialog>
       )}
@@ -1172,6 +1194,8 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
         return baseResource.dashboardId;
       case BaseNodeResourceType.Workflow:
         return baseResource.workflowId;
+      case BaseNodeResourceType.Routine:
+        return baseResource.routineId;
       case BaseNodeResourceType.App:
         return baseResource.appId;
       default:
@@ -1300,6 +1324,11 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
             queryKey: ReactQueryKeys.workflowItem(baseId, resourceId),
           });
           break;
+        case BaseNodeResourceType.Routine:
+          queryClient.invalidateQueries({
+            queryKey: ReactQueryKeys.routineItem(baseId, resourceId),
+          });
+          break;
         case BaseNodeResourceType.App:
           queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getApp(baseId, resourceId) });
           break;
@@ -1346,6 +1375,8 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
       return <DashboardOperation {...mergedProps}>{children}</DashboardOperation>;
     case BaseNodeResourceType.Workflow:
       return <WorkflowOperation {...mergedProps}>{children}</WorkflowOperation>;
+    case BaseNodeResourceType.Routine:
+      return <RoutineOperation {...mergedProps}>{children}</RoutineOperation>;
     case BaseNodeResourceType.App:
       return <AppOperation {...mergedProps}>{children}</AppOperation>;
     case BaseNodeResourceType.Folder:

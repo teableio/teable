@@ -2,6 +2,7 @@ import type { IButtonFieldCellValue, IButtonFieldOptions } from '@teable/core';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import type { IButtonClickStatusHook } from '../../../../hooks';
 import type { Record as IRecord } from '../../../../model';
+import type { IUrlMatch } from '../../../../utils/find-urls';
 import type { IEditorProps, IEditorRef } from '../../components';
 import type { IGridTheme } from '../../configs';
 import type { IActiveCellBound, ICellPosition, IRectangle } from '../../interface';
@@ -56,6 +57,9 @@ export interface ITextCell extends IEditableCell {
   data: string;
   displayData: string;
   isWrap?: boolean;
+  // URL ranges inside displayData, drawn and clickable as links
+  links?: IUrlMatch[];
+  onLinkClick?: (url: string) => void;
 }
 
 export interface ILinkCell extends IEditableCell {
@@ -139,6 +143,8 @@ export interface ISelectCell extends IEditableCell {
 export interface IImageData {
   id: string;
   url: string;
+  /** Drawn in place of `url` once loading it has failed. */
+  fallbackUrl?: string;
   width?: number;
   height?: number;
 }
@@ -254,7 +260,9 @@ export interface IBaseCellRenderer<T extends ICell> {
   type: T['type'];
   draw: (cell: T, props: ICellRenderProps) => void;
   needsHover?: boolean;
-  needsHoverPosition?: boolean;
+  // A function lets a renderer opt in per cell, so only cells that have
+  // clickable parts pay for hover-position tracking
+  needsHoverPosition?: boolean | ((cell: T) => boolean);
   needsHoverWhenActive?: boolean;
   needsHoverPositionWhenActive?: boolean;
   measure?: (cell: T, props: ICellMeasureProps) => ICellMeasureResult;

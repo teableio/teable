@@ -18,6 +18,7 @@ export type IGetDashboardVo = z.infer<typeof getDashboardVoSchema>;
 export const GetDashboardRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_DASHBOARD,
+  title: 'Get project dashboard 1',
   description: 'Get a dashboard by id',
   request: {
     params: z.object({

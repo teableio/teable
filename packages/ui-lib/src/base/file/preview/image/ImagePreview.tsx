@@ -1,10 +1,12 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { ZoomIn, ZoomOut, RotateCw, RefreshCcw } from '@teable/icons';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsMobile } from '../../../../hooks/use-is-mobile';
 import { cn } from '../../../../shadcn';
 import type { IFileItemInner } from '../FilePreviewContext';
+import { getFileIcon } from '../getFileIcon';
+import { isHeic } from '../utils';
 
 interface IImagePreviewProps extends IFileItemInner {}
 
@@ -69,8 +71,14 @@ const constrainPosition = (
 };
 
 export const ImagePreview = (props: IImagePreviewProps) => {
-  const { src, name, onClose } = props;
+  const { src, mimetype, name, onClose } = props;
   const isMobile = useIsMobile(640);
+  const [renderFailed, setRenderFailed] = useState(false);
+  const FileIcon = useMemo(() => getFileIcon(mimetype), [mimetype]);
+  // Most browsers cannot render HEVC-encoded HEIC, so its fullscreen preview
+  // is always the placeholder icon (the file stays downloadable). Other
+  // images fall back to the same placeholder when they fail to load.
+  const showPlaceholder = isHeic(mimetype) || renderFailed;
   const [scale, setScale] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -153,6 +161,7 @@ export const ImagePreview = (props: IImagePreviewProps) => {
     setPosition({ x: 0, y: 0 });
     setIsDragging(false);
     setInitialPinchDistance(null);
+    setRenderFailed(false);
   }, [cancelScheduledUpdates, src]);
 
   useEffect(() => {
@@ -291,6 +300,24 @@ export const ImagePreview = (props: IImagePreviewProps) => {
 
   const isInteracting = isDragging || initialPinchDistance !== null;
 
+  const renderBody = () => {
+    if (showPlaceholder) return <FileIcon className="text-9xl max-h-max max-w-max" />;
+    return (
+      <img
+        ref={imageRef}
+        className="max-h-full max-w-[calc(100%-2rem)] select-none sm:max-w-full"
+        src={src}
+        alt={name}
+        style={{
+          transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)`,
+          transition: isInteracting ? 'none' : 'transform 0.2s ease-out',
+        }}
+        draggable={false}
+        onError={() => setRenderFailed(true)}
+      />
+    );
+  };
+
   return (
     <div ref={containerRef} className="relative flex size-full items-center justify-center">
       <div
@@ -313,66 +340,60 @@ export const ImagePreview = (props: IImagePreviewProps) => {
           }
         }}
       >
-        <img
-          ref={imageRef}
-          className="max-h-full max-w-[calc(100%-2rem)] select-none sm:max-w-full"
-          src={src}
-          alt={name}
-          style={{
-            transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)`,
-            transition: isInteracting ? 'none' : 'transform 0.2s ease-out',
-          }}
-          draggable={false}
-        />
+        {renderBody()}
       </div>
 
-      <div className="pointer-events-auto absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-lg bg-black/60 px-2 py-2 sm:gap-2 sm:px-3">
-        <button
-          type="button"
-          className="rounded p-2 transition-colors hover:bg-white/10 disabled:opacity-40"
-          onClick={handleZoomOut}
-          disabled={scale <= minScale}
-          title="Zoom Out"
-        >
-          <ZoomOut className="size-5" />
-        </button>
-        <span className="min-w-12 text-center text-sm font-medium">{Math.round(scale * 100)}%</span>
-        <button
-          type="button"
-          className="rounded p-2 transition-colors hover:bg-white/10 disabled:opacity-40"
-          onClick={handleZoomIn}
-          disabled={scale >= MAX_SCALE}
-          title="Zoom In"
-        >
-          <ZoomIn className="size-5" />
-        </button>
-        <div className="mx-0.5 h-6 w-px bg-white/20 sm:mx-1" />
-        <button
-          type="button"
-          className="rounded p-2 transition-colors hover:bg-white/10"
-          onClick={handleRotateCounterClockwise}
-          title="Rotate Counter-Clockwise"
-        >
-          <RotateCw className="size-5 scale-x-[-1]" />
-        </button>
-        <button
-          type="button"
-          className="rounded p-2 transition-colors hover:bg-white/10"
-          onClick={handleRotateClockwise}
-          title="Rotate Clockwise"
-        >
-          <RotateCw className="size-5" />
-        </button>
-        <div className="mx-0.5 h-6 w-px bg-white/20 sm:mx-1" />
-        <button
-          type="button"
-          className="rounded p-2 transition-colors hover:bg-white/10"
-          onClick={handleReset}
-          title="Reset"
-        >
-          <RefreshCcw className="size-5" />
-        </button>
-      </div>
+      {showPlaceholder ? null : (
+        <div className="pointer-events-auto absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-lg bg-black/60 px-2 py-2 sm:gap-2 sm:px-3">
+          <button
+            type="button"
+            className="rounded p-2 transition-colors hover:bg-white/10 disabled:opacity-40"
+            onClick={handleZoomOut}
+            disabled={scale <= minScale}
+            title="Zoom Out"
+          >
+            <ZoomOut className="size-5" />
+          </button>
+          <span className="min-w-12 text-center text-sm font-medium">
+            {Math.round(scale * 100)}%
+          </span>
+          <button
+            type="button"
+            className="rounded p-2 transition-colors hover:bg-white/10 disabled:opacity-40"
+            onClick={handleZoomIn}
+            disabled={scale >= MAX_SCALE}
+            title="Zoom In"
+          >
+            <ZoomIn className="size-5" />
+          </button>
+          <div className="mx-0.5 h-6 w-px bg-white/20 sm:mx-1" />
+          <button
+            type="button"
+            className="rounded p-2 transition-colors hover:bg-white/10"
+            onClick={handleRotateCounterClockwise}
+            title="Rotate Counter-Clockwise"
+          >
+            <RotateCw className="size-5 scale-x-[-1]" />
+          </button>
+          <button
+            type="button"
+            className="rounded p-2 transition-colors hover:bg-white/10"
+            onClick={handleRotateClockwise}
+            title="Rotate Clockwise"
+          >
+            <RotateCw className="size-5" />
+          </button>
+          <div className="mx-0.5 h-6 w-px bg-white/20 sm:mx-1" />
+          <button
+            type="button"
+            className="rounded p-2 transition-colors hover:bg-white/10"
+            onClick={handleReset}
+            title="Reset"
+          >
+            <RefreshCcw className="size-5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

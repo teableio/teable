@@ -11,6 +11,7 @@ import { useEnv } from '@/features/app/hooks/useEnv';
 import { useInitializationZodI18n } from '@/features/app/hooks/useInitializationZodI18n';
 import { authConfig } from '@/features/i18n/auth.config';
 import { isValidRedirectPath } from '@/lib/isValidRedirectPath';
+import { AppleAuthError } from '../components/AppleAuthError';
 import { DescContent } from '../components/DescContent';
 import { SignForm } from '../components/SignForm';
 import { SocialAuth } from '../components/SocialAuth';
@@ -114,6 +115,7 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
                 {t('auth:button.signin')}
               </Link>
             </nav>
+            <AppleAuthError />
             {!passwordLoginDisabled && <SignForm type={signType} onSuccess={onSuccess} />}
             <SocialAuth />
             {children}
