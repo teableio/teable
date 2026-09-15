@@ -97,6 +97,20 @@ describe('Table.updateViewOptions', () => {
     expect(noOp.updateResult).toBeUndefined();
   });
 
+  it('accepts grid style options used by row coloring', () => {
+    const created = createView(buildTable(), 'grid');
+    const patch = {
+      style: {
+        stripedRows: true,
+        rowColor: { mode: 'none' as const },
+      },
+    };
+    const result = created.updateResult.table
+      .updateViewOptions(created.view.id(), patch)
+      ._unsafeUnwrap();
+    expect(result.nextOptions).toEqual(patch);
+  });
+
   it('rejects subtype mismatches, invalid values, and incomplete plugin patches', () => {
     const grid = createView(buildTable(), 'grid');
     expect(
