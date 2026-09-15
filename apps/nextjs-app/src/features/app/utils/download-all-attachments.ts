@@ -36,6 +36,8 @@ export interface IDownloadAllAttachmentsOptions {
   tableId: string;
   fieldId: string;
   fieldName: string;
+  fieldIds?: string[];
+  fieldNames?: Record<string, string>;
   viewId?: string;
   shareId?: string;
   personalViewCommonQuery?: IGetRecordsRo;
@@ -95,6 +97,7 @@ interface IAttachmentWithRowIndex {
   attachment: IAttachmentCellValue[number];
   namingValue?: string;
   rowAttachmentCount: number; // Total attachments in this row (for groupByRow feature)
+  fieldIndex?: number;
 }
 
 const PAGE_SIZE = 100;
@@ -162,10 +165,40 @@ async function loadAllAttachments(
   totalAttachments: number;
   totalSize: number;
 }> {
+  return loadAllAttachmentsForFields(
+    tableId,
+    [fieldId],
+    viewId,
+    shareId,
+    personalViewCommonQuery,
+    abortSignal,
+    namingField
+  );
+}
+
+async function loadAllAttachmentsForFields(
+  tableId: string,
+  fieldIds: string[],
+  viewId?: string,
+  shareId?: string,
+  personalViewCommonQuery?: IGetRecordsRo,
+  abortSignal?: AbortSignal,
+  namingField?: IFieldInstance
+): Promise<{
+  attachments: IAttachmentWithRowIndex[];
+  rowsWithAttachments: number;
+  totalAttachments: number;
+  totalSize: number;
+}> {
   const { ignoreViewQuery, filter, orderBy, groupBy, search } = personalViewCommonQuery ?? {};
 
   // 1. Create filter with non-empty attachment condition
-  const attachmentFilter = createAttachmentFilter(fieldId, filter as IFilter | undefined);
+  const nonEmptyFilter: IFilter = {
+    conjunction: 'or',
+    filterSet: fieldIds.map((fieldId) => ({ fieldId, operator: 'isNotEmpty', value: null })),
+  };
+  const attachmentFilter =
+    mergeFilter(filter as IFilter | undefined, nonEmptyFilter, 'and') ?? nonEmptyFilter;
 
   // 2. Get total row count with the filter (use share view API if shareId is provided)
   const rowCountData = shareId
@@ -191,7 +224,9 @@ async function loadAllAttachments(
   }
 
   // 3. Build projection - include naming field if specified
-  const projection = namingField ? [fieldId, namingField.id] : [fieldId];
+  const projection = [...fieldIds, ...(namingField ? [namingField.id] : [])].filter(
+    (id, index, all) => all.indexOf(id) === index
+  );
 
   // 4. Load all records with pagination
   const attachments: IAttachmentWithRowIndex[] = [];
@@ -227,16 +262,25 @@ async function loadAllAttachments(
     if (!records?.length) break;
 
     for (const record of records) {
-      const cellValue = record.fields[fieldId] as IAttachmentCellValue | undefined;
-      if (cellValue && Array.isArray(cellValue) && cellValue.length > 0) {
+      const rowAttachments = fieldIds.flatMap((id, fieldIndex) => {
+        const value = record.fields[id] as IAttachmentCellValue | undefined;
+        if (!Array.isArray(value)) return [];
+        return value
+          .filter(
+            (a) => a.presignedUrl && typeof a.presignedUrl === 'string' && a.presignedUrl.trim()
+          )
+          .map((attachment) => ({ attachment, fieldIndex }));
+      });
+      if (rowAttachments.length > 0) {
         // Filter attachments with valid presignedUrl (non-empty string)
-        const downloadableAttachments = cellValue.filter(
-          (a) => a.presignedUrl && typeof a.presignedUrl === 'string' && a.presignedUrl.trim()
-        );
+        const downloadableAttachments = rowAttachments;
         if (downloadableAttachments.length > 0) {
           rowsWithAttachments++;
           totalAttachments += downloadableAttachments.length;
-          totalSize += downloadableAttachments.reduce((sum, a) => sum + (a.size || 0), 0);
+          totalSize += downloadableAttachments.reduce(
+            (sum, { attachment: a }) => sum + (a.size || 0),
+            0
+          );
 
           // Get naming value using field's cellValue2String method
           let namingValue: string | undefined;
@@ -247,13 +291,14 @@ async function loadAllAttachments(
           }
 
           const rowAttachmentCount = downloadableAttachments.length;
-          downloadableAttachments.forEach((attachment, attachmentIndex) => {
+          downloadableAttachments.forEach(({ attachment, fieldIndex }, attachmentIndex) => {
             attachments.push({
               rowIndex,
               attachmentIndex,
               attachment,
               namingValue,
               rowAttachmentCount,
+              fieldIndex,
             });
           });
         }
@@ -275,14 +320,15 @@ async function loadAllAttachments(
  */
 export async function getAttachmentPreview(
   tableId: string,
-  fieldId: string,
+  fieldId: string | string[],
   viewId?: string,
   shareId?: string,
   personalViewCommonQuery?: IGetRecordsRo
 ): Promise<IAttachmentPreview> {
-  const { rowsWithAttachments, totalAttachments, totalSize } = await loadAllAttachments(
+  const fieldIds = Array.isArray(fieldId) ? fieldId : [fieldId];
+  const { rowsWithAttachments, totalAttachments, totalSize } = await loadAllAttachmentsForFields(
     tableId,
-    fieldId,
+    fieldIds,
     viewId,
     shareId,
     personalViewCommonQuery
@@ -407,10 +453,11 @@ export async function downloadAllAttachments(
   const failedFiles: string[] = [];
 
   try {
+    const selectedFieldIds = options.fieldIds?.length ? options.fieldIds : [fieldId];
     // 1. Load all attachments
-    const { attachments: attachmentList, totalSize } = await loadAllAttachments(
+    const { attachments: attachmentList, totalSize } = await loadAllAttachmentsForFields(
       tableId,
-      fieldId,
+      selectedFieldIds,
       viewId,
       shareId,
       personalViewCommonQuery,
@@ -486,6 +533,7 @@ export async function downloadAllAttachments(
       attachment,
       namingValue,
       rowAttachmentCount: attachmentCountInRow,
+      fieldIndex,
     } of attachmentList) {
       if (abortSignal?.aborted) {
         zip.end();
@@ -504,6 +552,9 @@ export async function downloadAllAttachments(
         groupByRow,
         noPrefix
       );
+      if (selectedFieldIds.length > 1 && !groupByRow) {
+        fileName = `${fieldIndex! + 1}_${fileName}`;
+      }
       if (noPrefix) {
         fileName = generateUniqueFileName(fileName, usedZipPaths);
       }
