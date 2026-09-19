@@ -223,6 +223,18 @@ const nextConfig = {
   // Note: eslint configuration is no longer supported in next.config.js
   // Use ESLint CLI directly: npx eslint .
 
+  async redirects() {
+    return [
+      {
+        source: '/public/template',
+        has: [{ type: 'host', value: 'app\\.teable\\.ai' }],
+        destination: 'https://teable.ai/templates',
+        // Return 301 explicitly; permanent: true uses 308 in Next.js.
+        statusCode: 301,
+      },
+    ];
+  },
+
   // @link https://nextjs.org/docs/api-reference/next.config.js/rewrites
   async rewrites() {
     const socketProxy = {
