@@ -88,7 +88,7 @@ const DatePickerInput = memo(function DatePickerInput({
       options={fieldOptions}
       disableTimePicker={true}
       modal={modal}
-      className={cn('h-8 w-40 text-xs', className)}
+      className={cn('h-8 w-36 text-xs', className)}
     />
   );
 });

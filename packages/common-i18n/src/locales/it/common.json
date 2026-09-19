@@ -67,7 +67,7 @@
     "copyLink": "Copia link",
     "openLink": "Apri link",
     "backToSpace": "Torna allo Spazio",
-    "switchBase": "Cambia Base",
+    "switchBase": "Cambia Progetto",
     "collapse": "Comprimi",
     "viewDetails": "Visualizza dettagli",
     "getMore": "Ottieni di più",
@@ -92,7 +92,7 @@
     "guideTitle": "Inizia dal tuo scenario",
     "watchVideo": "Guarda il video",
     "title": "Modello",
-    "description": "Crea un nuovo database da un modello",
+    "description": "Crea un nuovo progetto da un modello",
     "browseAll": "Sfoglia Tutti",
     "templateTitle": "Inizia con modello",
     "loadMore": "Carica Altro",
@@ -106,7 +106,8 @@
       "description": "Seleziona uno spazio per il modello",
       "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
       "newSpacePlaceholder": "Space name",
-      "createSpace": "Create"
+      "createSpace": "Create",
+      "loadFailed": "Impossibile caricare i dettagli del modello."
     }
   },
   "baseShare": {
@@ -130,7 +131,7 @@
     "enterPassword": "Inserisci password",
     "passwordTitle": "Imposta password",
     "deleteConfirmTitle": "Elimina link di condivisione",
-    "deleteConfirmDescription": "Questa azione non può essere annullata. Le persone con questo link non potranno più accedere alla base condivisa.",
+    "deleteConfirmDescription": "Questa azione non può essere annullata. Le persone con questo link non potranno più accedere al progetto condiviso.",
     "createSuccess": "Link di condivisione creato",
     "createFailed": "Impossibile creare il link di condivisione",
     "updateFailed": "Impossibile aggiornare le impostazioni di condivisione",
@@ -142,19 +143,19 @@
   "share": {
     "copyToSpaceDialog": {
       "title": "Copia nello spazio",
-      "description": "Seleziona uno spazio in cui copiare questo database",
-      "baseName": "Nome database",
-      "baseNamePlaceholder": "Inserisci nome database",
+      "description": "Seleziona uno spazio in cui copiare questo progetto",
+      "baseName": "Nome progetto",
+      "baseNamePlaceholder": "Inserisci nome progetto",
       "selectSpace": "Seleziona spazio",
       "noSpaceDescription": "Nessuno spazio gestibile. Crea un nuovo spazio per continuare.",
       "newSpacePlaceholder": "Space name",
       "createSpace": "Create",
       "copyTarget": "Copy to",
-      "createNewBase": "New base",
-      "copyToExistingBase": "Existing base",
-      "selectBase": "Select base",
-      "selectBasePlaceholder": "Select a base",
-      "noBaseInSpace": "Nessuna base gestibile in questo spazio. Seleziona \"Nuova base\"."
+      "createNewBase": "Nuovo progetto",
+      "copyToExistingBase": "Progetto esistente",
+      "selectBase": "Seleziona un progetto",
+      "selectBasePlaceholder": "Seleziona un progetto",
+      "noBaseInSpace": "Nessun progetto gestibile in questo spazio. Seleziona \"Nuovo progetto\"."
     }
   },
   "settings": {
@@ -175,7 +176,7 @@
         "errorCategoryName": "La categoria non esiste o è stata eliminata",
         "needSnapshot": "Prima di pubblicare, crea uno snapshot, il nome e la descrizione del modello non possono essere vuoti",
         "needPublish": "Pubblica il modello prima di impostarlo come in evidenza",
-        "needBaseSource": "Seleziona una base sorgente prima di creare uno snapshot",
+        "needBaseSource": "Seleziona un progetto sorgente prima di creare uno snapshot",
         "forbiddenUpdateSystemTemplate": "Il modello di sistema non può essere modificato",
         "addCategoryTips": "Inserisci prima un nome categoria nell'input di ricerca.",
         "categoryNamePlaceholder": "Inserisci nome categoria",
@@ -225,13 +226,13 @@
       "noImage": "Nessuna immagine",
       "baseSelectPanel": {
         "title": "Seleziona fonte modello",
-        "description": "Seleziona una base come modello",
+        "description": "Seleziona un progetto come modello",
         "confirm": "Conferma",
         "search": "Cerca...",
         "cancel": "Annulla",
-        "selectBase": "Seleziona base",
+        "selectBase": "Seleziona progetto",
         "createTemplate": "Crea modello",
-        "abnormalBase": "La base non esiste o è stata eliminata"
+        "abnormalBase": "Il progetto non esiste o è stato eliminato"
       }
     },
     "back": "Torna alla home",
@@ -295,11 +296,18 @@
       },
       "deleteAccount": {
         "title": "Elimina account",
-        "desc": "Questa azione è irreversibile. Eliminerà permanentemente il tuo account e tutti i dati associati.",
-        "error": {
-          "title": "Impossibile eliminare l'account",
-          "desc": "Devi prima gestire le seguenti dipendenze:",
-          "spacesError": "Prima di eliminare il tuo account, devi prima uscire (o eliminare, poi spostare nel cestino) dai tuoi Spazi."
+        "desc": "Una volta eliminato, il tuo account non potrà essere ripristinato. Procedi con cautela.",
+        "spaces": {
+          "title": "Spazi di cui sei l'unico proprietario",
+          "body": "Finiranno nel cestino insieme al tuo account. Per conservarne uno, cedilo prima a un membro.",
+          "loading": "Controllo di quali spazi sei l'unico proprietario…",
+          "blockedHint": "Annulla quell'abbonamento, o cedi lo spazio, per continuare.",
+          "willTrash": "Verrà spostato nel cestino",
+          "willTransfer": "Verrà trasferito",
+          "subscribedHint": "Questo spazio ha ancora un abbonamento attivo. Annullalo, poi torna a eliminare l'account.",
+          "cancelSubscription": "Gestisci abbonamento",
+          "transferTo": "Scegli un membro a cui trasferire, altrimenti va nel cestino",
+          "transferToSubscribed": "Oppure scegli un membro a cui trasferire; l'abbonamento resta con lo spazio"
         },
         "confirm": {
           "title": "Digita <code>DELETE</code> per confermare",
@@ -331,7 +339,7 @@
       "teableSkill": "Competenza Teable"
     },
     "teableSkill": {
-      "intro": "Consenti al tuo AI Agent di connettersi alla tua Base per interrogare dati, gestire tabelle, campi e viste, importare o aggiornare record e creare automazioni e app.",
+      "intro": "Consenti al tuo AI Agent di connettersi al tuo Progetto per interrogare dati, gestire tabelle, campi e viste, importare o aggiornare record e creare automazioni e app.",
       "worksWith": "Compatibile con tutti gli agent principali",
       "more": "+ altro",
       "copy": "Copia",
@@ -344,7 +352,7 @@
       "step3Description": "Dopo aver installato lo skill, prova questi prompt.",
       "tryPrompts": {
         "schema": {
-          "prompt": "Crea una semplice tabella CRM in questa base.",
+          "prompt": "Crea una semplice tabella CRM in questo progetto.",
           "note": "Prompt semplici per iniziare"
         },
         "template": {
@@ -390,10 +398,6 @@
           "user": "Utente Slack",
           "workspace": "Area di lavoro Slack"
         },
-        "email": {
-          "user": "Utente",
-          "email": "Email"
-        },
         "deleteTitle": "Rimuovi account connesso",
         "deleteDesc": "Sei sicuro di voler rimuovere {{name}}?",
         "create": "Connetti nuovo account",
@@ -412,7 +416,7 @@
     "table": "Tabella",
     "view": "Vista",
     "space": "Spazio",
-    "base": "Base",
+    "base": "Progetto",
     "field": "Campo",
     "record": "Record",
     "dashboard": "Dashboard",
@@ -437,6 +441,8 @@
     "webSearch": "Ricerca web",
     "folder": "Cartella",
     "newAutomation": "Nuova automazione",
+    "routine": "Routine",
+    "newRoutine": "Nuova routine",
     "newApp": "Nuova applicazione",
     "newFolder": "Nuova cartella",
     "template": "Modello"
@@ -463,9 +469,9 @@
     "done": "Fatto",
     "skip": "Salta",
     "createSpaceTooltipTitle": "Crea uno spazio",
-    "createSpaceTooltipContent": "Teable è organizzato in spazi, dove ogni spazio invita gli utenti a collaborare. <br></br>Gli spazi in Teable servono come elemento di navigazione principale all'interno della barra dei menu, offrendo una piattaforma fondamentale per gli utenti per aggiungere e gestire database secondo necessità.",
-    "createBaseTooltipTitle": "Crea una base",
-    "createBaseTooltipContent": "Una base (abbreviazione di \"database\") è un luogo per memorizzare dati importanti e i flussi di lavoro che ne dipendono.",
+    "createSpaceTooltipContent": "Teable è organizzato in spazi, dove ogni spazio invita gli utenti a collaborare. <br></br>Gli spazi in Teable servono come elemento di navigazione principale all'interno della barra dei menu, offrendo una piattaforma fondamentale per gli utenti per aggiungere e gestire progetti secondo necessità.",
+    "createBaseTooltipTitle": "Crea un progetto",
+    "createBaseTooltipContent": "Un progetto archivia i tuoi dati e offre accesso alle automazioni e alla dashboard delle app.",
     "createTableTooltipTitle": "Crea una tabella",
     "createTableTooltipContent": "Le tabelle sono progettate per gestire in modo efficiente set di dati diversi, offrendo una visualizzazione versatile delle informazioni attraverso vari tipi di dati.",
     "createViewTooltipTitle": "Crea una vista",
@@ -484,9 +490,9 @@
   "invite": {
     "dialog": {
       "title": "Condivisione dello spazio {{spaceName}}",
-      "desc_one": "Questo spazio ha <b>{{count}} collaboratore</b>. Aggiungere un collaboratore dello spazio darà loro accesso a tutte le basi all'interno di questo spazio.",
-      "desc_many": "Questo spazio ha <b>{{count}} collaboratori</b>. Aggiungere un collaboratore dello spazio darà loro accesso a tutte le basi all'interno di questo spazio.",
-      "desc_other": "Questo spazio ha <b>{{count}} collaboratori</b>. Aggiungere un collaboratore dello spazio darà loro accesso a tutte le basi all'interno di questo spazio.",
+      "desc_one": "Questo spazio ha <b>{{count}} collaboratore</b>. Aggiungere un collaboratore dello spazio darà loro accesso a tutti i progetti all'interno di questo spazio.",
+      "desc_many": "Questo spazio ha <b>{{count}} collaboratori</b>. Aggiungere un collaboratore dello spazio darà loro accesso a tutti i progetti all'interno di questo spazio.",
+      "desc_other": "Questo spazio ha <b>{{count}} collaboratori</b>. Aggiungere un collaboratore dello spazio darà loro accesso a tutti i progetti all'interno di questo spazio.",
       "tabEmail": "Invita via email",
       "emailPlaceholder": "Inserisci gli indirizzi email, separandoli con Invio",
       "tabLink": "Invita tramite link",
@@ -496,14 +502,14 @@
       "linkSend": "Crea link",
       "spaceTitle": "Collaboratori dello spazio",
       "spaceTitleWithCount": "Collaboratori dello spazio ({{count}})",
-      "baseTitle": "Collaboratori della base",
-      "allCollaboratorsTitle": "Tutti i collaboratori (spazio e base)",
-      "baseOnly": "Solo base",
+      "baseTitle": "Collaboratori del progetto",
+      "allCollaboratorsTitle": "Tutti i collaboratori (spazio e progetto)",
+      "baseOnly": "Solo progetto",
       "collaboratorSearchPlaceholder": "Trova un collaboratore dello spazio per nome o email",
       "collaboratorJoin": "si è unito {{joinTime}}",
       "collaboratorRemove": "Rimuovi collaboratore",
-      "basePermissionRemove": "Rimuovi accesso al database",
-      "goToBase": "Vai alla base",
+      "basePermissionRemove": "Rimuovi accesso al progetto",
+      "goToBase": "Vai al progetto",
       "linkTitle": "Link di invito",
       "linkCreatedTime": "creato {{createdTime}}",
       "linkCopySuccess": "Link copiato",
@@ -514,12 +520,12 @@
     },
     "base": {
       "title": "Condividi {{baseName}}",
-      "desc_one": "Questa base è condivisa con {{count}} collaboratore.",
-      "desc_many": "Questa base è condivisa con {{count}} collaboratori.",
-      "desc_other": "Questa base è condivisa con {{count}} collaboratori.",
-      "baseTitle": "Collaboratori della base",
-      "collaboratorSearchPlaceholder": "Trova un collaboratore della base per nome o email",
-      "baseTitleWithCount": "Collaboratori della base ({{count}})"
+      "desc_one": "Questo progetto è condiviso con {{count}} collaboratore.",
+      "desc_many": "Questo progetto è condiviso con {{count}} collaboratori.",
+      "desc_other": "Questo progetto è condiviso con {{count}} collaboratori.",
+      "baseTitle": "Collaboratori del progetto",
+      "collaboratorSearchPlaceholder": "Trova un collaboratore del progetto per nome o email",
+      "baseTitleWithCount": "Collaboratori del progetto ({{count}})"
     },
     "addOrgCollaborator": {
       "title": "Aggiungi collaboratore dell'organizzazione",
@@ -534,8 +540,8 @@
       "lastLogin": "Ultimo accesso",
       "expandPermissions": "Espandi le autorizzazioni di {{name}}",
       "collapsePermissions": "Comprimi le autorizzazioni di {{name}}",
-      "basePermissionsOnly": "Ha accesso solo alle basi selezionate",
-      "basePermissionCount": "Permessi delle basi: {{count}}"
+      "basePermissionsOnly": "Ha accesso solo ai progetti selezionati",
+      "basePermissionCount": "Permessi dei progetti: {{count}}"
     },
     "authority": {
       "title": "La matrice dei permessi è abilitata",
@@ -568,19 +574,13 @@
     "billable": "Fatturabile",
     "billableByAuthorityMatrix": "Fatturazione generata dalla matrice dei permessi",
     "seatConfirm": {
-      "title": "Questo invito aumenterà il costo del tuo abbonamento",
-      "roleChangeTitle": "Questa modifica di ruolo aumenterà il costo del tuo abbonamento",
       "matrixTitle": "L'aggiunta di membri aumenterà il costo del tuo abbonamento",
-      "inviteDesc_one": "Il membro che stai invitando entrerà con il ruolo {{role}} e occuperà 1 posto dell'abbonamento; il costo aumenterà di conseguenza. Se deve solo visualizzare o commentare, scegli semplicemente il ruolo gratuito Visualizzatore o Commentatore.",
-      "inviteDesc_many": "I {{count}} membri che stai invitando entreranno con il ruolo {{role}} e occuperanno {{count}} posti dell'abbonamento; il costo aumenterà di conseguenza. Se devono solo visualizzare o commentare, scegli semplicemente il ruolo gratuito Visualizzatore o Commentatore.",
-      "inviteDesc_other": "I {{count}} membri che stai invitando entreranno con il ruolo {{role}} e occuperanno {{count}} posti dell'abbonamento; il costo aumenterà di conseguenza. Se devono solo visualizzare o commentare, scegli semplicemente il ruolo gratuito Visualizzatore o Commentatore.",
-      "linkDesc": "I membri che si uniscono tramite questo link riceveranno il ruolo {{role}} e ognuno occuperà 1 posto dell'abbonamento; il costo crescerà man mano che le persone si uniscono. Per sola visualizzazione o commenti, scegli semplicemente il ruolo gratuito Visualizzatore o Commentatore.",
-      "roleChangeDesc": "Dopo il passaggio a {{role}}, questo membro occuperà 1 posto dell'abbonamento e il costo aumenterà di conseguenza.",
       "matrixDesc": "Questo membro ha attualmente un ruolo gratuito (Visualizzatore/Commentatore). Aggiungendolo alla matrice delle autorizzazioni occuperà 1 posto dell'abbonamento e il costo aumenterà di conseguenza.",
       "seatLimitTitle": "Posti della licenza insufficienti",
       "seatLimitDesc": "Questa istanza sta usando {{seats}} di {{seatLimit}} posti con licenza e quelli rimanenti non bastano per questa azione. Contatta il tuo amministratore per acquistare più posti. Se deve solo visualizzare o commentare, puoi usare il ruolo gratuito Visualizzatore o Commentatore.",
       "seatLimitConfirm": "Ho capito",
-      "confirmInvite": "Conferma e invita"
+      "fixedSeatTitle": "Posti insufficienti nel tuo piano",
+      "fixedSeatDesc": "Il tuo piano include {{quantity}} posti e {{seats}} sono già in uso. Continuando, il limite di posti verrà superato e lo spazio verrà riportato al piano gratuito dopo un periodo di tolleranza di 7 giorni. Se deve solo visualizzare o commentare, puoi usare il ruolo gratuito Visualizzatore o Commentatore."
     },
     "licenseExpiredGracePeriod": "La tua licenza self-hosted è scaduta e verrà declassata al piano gratuito il {{expiredTime}}. Aggiorna la tua licenza tempestivamente per mantenere l'accesso alle funzionalità premium.",
     "licenseAutoFetchFailed": "Rinnovo automatico della licenza non riuscito. Restano {{days}} giorno/i del periodo di tolleranza prima del downgrade.",
@@ -674,7 +674,14 @@
           "modelTiers": "Livelli di modello",
           "modelTiersDescription": "Assegna modelli diversi ad attività medie e leggere; i livelli non impostati usano il modello principale predefinito sopra.",
           "allInheriting": "Tutti i livelli usano il modello principale predefinito",
-          "customized": "{{count}} personalizzati"
+          "customized": "{{count}} personalizzati",
+          "tiersIntro": "Gli utenti scelgono uno di questi livelli nel menu dei modelli della chat; il livello predefinito è il loro punto di partenza e la base 1x dei crediti. Riassegna qualsiasi livello in qualsiasi momento.",
+          "defaultTier": "Predefinito",
+          "setDefault": "Imposta come predefinito",
+          "notOffered": "Non disponibile",
+          "lgBackground": "è anche il modello principale per i campi IA e altre funzionalità",
+          "mdBackground": "esegue anche le attività in background di livello medio",
+          "smBackground": "esegue anche le attività in background leggere, come i titoli delle chat"
         },
         "actions": {
           "title": "Capacità IA",
@@ -944,8 +951,8 @@
           "quickSetup": "Configurazione rapida",
           "useRecommended": "Usa consigliato",
           "useRecommendedDesc": "Imposta {{model}} come predefinito per tutti gli scenari di chat con un clic",
-          "chatModels": "Modello principale predefinito",
-          "chatModelTip": "Il modello principale predefinito per la chat IA nella barra laterale; impostato dall’amministratore e non modificabile dagli utenti. Anche i livelli di attività senza un modello proprio lo usano",
+          "chatModels": "Livelli del modello di chat",
+          "chatModelTip": "Smart è il modello principale: lo usano i campi IA, le attività in background e i livelli senza un modello proprio. Il livello predefinito è il punto di partenza degli utenti della chat.",
           "selectChatModel": "Seleziona un modello di chat...",
           "lgDesc": "Attività complesse, analisi approfondite",
           "mdDesc": "Conversazioni quotidiane, attività generali",
@@ -1114,8 +1121,8 @@
       "viewer": "Visualizzatore"
     },
     "description": {
-      "owner": "Può configurare completamente basi, app, automazioni e matrici di autorità e gestire le impostazioni e la fatturazione dello spazio",
-      "creator": "Può configurare completamente basi, app, automazioni e matrici di autorità",
+      "owner": "Può configurare completamente progetti, app, automazioni e matrici di autorità e gestire le impostazioni e la fatturazione dello spazio",
+      "creator": "Può configurare completamente progetti, app, automazioni e matrici di autorità",
       "editor": "Può modificare record e viste, ma non può configurare tabelle o campi",
       "commenter": "Può commentare i record",
       "viewer": "Non può modificare o commentare"
@@ -1133,8 +1140,8 @@
     "addToTrash": "Muovi nel cestino",
     "description": "I dati nel cestino occupano ancora spazio di utilizzo di record e di utilizzo di allegati.",
     "spaceDescription": "Ripristina gli spazi eliminati negli ultimi {{retentionDays}} giorni",
-    "spaceInnerDescription": "Ripristina le basi eliminate da questo spazio negli ultimi {{retentionDays}} giorni",
-    "baseDescription": "Ripristina le risorse eliminate da questa base negli ultimi {{retentionDays}} giorni"
+    "spaceInnerDescription": "Ripristina i progetti eliminati da questo spazio negli ultimi {{retentionDays}} giorni",
+    "baseDescription": "Ripristina le risorse eliminate da questo progetto negli ultimi {{retentionDays}} giorni"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Plugin non impostato URL",
@@ -1187,7 +1194,7 @@
     "unsubscribeH2": "Stai per annullare l'iscrizione alle future promozioni e aggiornamenti dei prodotti Teable. Sei sicuro di voler annullare l'iscrizione?",
     "subscribeH1": "Confermare l'iscrizione?",
     "subscribeH2": "Stai per iscriverti alle future promozioni e aggiornamenti dei prodotti Teable. Sei sicuro di volerti iscrivere?",
-    "unsubscribeListTip": "I seguenti utenti nella base corrente si sono disiscritti, non potrai più inviare loro e-mail. Durante l'importazione delle e-mail, posizionare gli indirizzi e-mail nella prima colonna e nominare l'intestazione \"email\".",
+    "unsubscribeListTip": "I seguenti utenti nel progetto corrente si sono disiscritti, non potrai più inviare loro e-mail. Durante l'importazione delle e-mail, posizionare gli indirizzi e-mail nella prima colonna e nominare l'intestazione \"email\".",
     "templates": {
       "resetPassword": {
         "subject": "Reimposta password - {{brandName}}",
@@ -1200,6 +1207,11 @@
           "subject": "Verifica registrazione - {{brandName}}",
           "title": "Verifica registrazione",
           "message": "Il tuo codice di verifica è {{code}}, usalo entro {{expiresIn}} minuti."
+        },
+        "signinVerification": {
+          "subject": "Verifica di accesso - {{brandName}}",
+          "title": "Verifica di accesso",
+          "message": "Il tuo codice di accesso è {{code}}, usalo entro {{expiresIn}} minuti. Se non l'hai richiesto, puoi ignorare questa email."
         },
         "domainVerification": {
           "subject": "Verifica dominio - {{brandName}}",
@@ -1220,7 +1232,8 @@
       "collaboratorMultiRowTag": {
         "subject": "{{fromUserName}} ti ha aggiunto a {{refLength}} record in {{tableName}}",
         "title": "<strong>{{fromUserName}}</strong> ti ha aggiunto a <strong>{{refLength}}</strong> record in <strong>{{tableName}}</strong>",
-        "buttonText": "Visualizza record"
+        "buttonText": "Visualizza record",
+        "more": "e altri {{remaining}}"
       },
       "invite": {
         "subject": "{{name}} ({{email}}) ti ha invitato al loro {{resourceAlias}} {{resourceName}} - {{brandName}}",
@@ -1278,7 +1291,7 @@
         },
         "collaboratorInvite": {
           "space": "{{fromUserName}} ti ha invitato a unirti allo spazio {{resourceName}}",
-          "base": "{{fromUserName}} ti ha invitato a unirti alla base {{resourceName}}"
+          "base": "{{fromUserName}} ti ha invitato a unirti al progetto {{resourceName}}"
         },
         "automation": {
           "title": "Notifica automazione",
@@ -1297,6 +1310,24 @@
           "failedSummary": {
             "title": "L'automazione {{name}} ha fallito {{failCount}} volte",
             "message": "La tua automazione {{name}} ha accumulato {{failCount}} errori consecutivi. Apri la cronologia delle esecuzioni per visualizzare i dettagli."
+          }
+        },
+        "routine": {
+          "failed": {
+            "title": "Esecuzione della routine {{name}} non riuscita",
+            "message": "La tua routine {{name}} ha riscontrato un errore di esecuzione. Apri la cronologia delle esecuzioni per i dettagli."
+          },
+          "failedSummary": {
+            "title": "La routine {{name}} è fallita {{failCount}} volte",
+            "message": "La tua routine {{name}} ha accumulato {{failCount}} errori consecutivi. Apri la cronologia delle esecuzioni per i dettagli."
+          },
+          "insufficientCredit": {
+            "title": "La routine {{name}} è stata saltata per crediti AI insufficienti",
+            "message": "La tua routine {{name}} non è stata eseguita perché i crediti AI sono insufficienti. Aggiungi crediti o aggiorna il piano."
+          },
+          "autoDeactivated": {
+            "title": "La routine {{name}} è stata sospesa dopo {{failCount}} errori consecutivi",
+            "message": "La tua routine {{name}} è fallita {{failCount}} volte di seguito ed è stata sospesa automaticamente. Risolvi il problema e riattivala."
           }
         },
         "billing": {
@@ -1347,7 +1378,7 @@
           }
         },
         "exportBase": {
-          "title": "Notifica risultato esportazione base",
+          "title": "Notifica risultato esportazione progetto",
           "success": {
             "message": "{{baseName}} esportato con successo: <a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
           },
@@ -1365,6 +1396,7 @@
               "title": "Attività IA annullata",
               "rateLimit": "L'attività IA per la tabella \"{{tableName}}\" è stata annullata a causa del limite di velocità (429). Si prega di riprovare più tardi.",
               "creditExhausted": "L'attività IA per la tabella \"{{tableName}}\" è stata annullata perché i crediti sono esauriti. Si prega di aggiornare l'abbonamento o attendere il rinnovo dei crediti.",
+              "providerBilling": "L'attività IA della tabella \"{{tableName}}\" è stata annullata perché il provider del modello ha rifiutato la richiesta per motivi di fatturazione. Controlla il saldo e lo stato di fatturazione dell'account associato alla chiave API configurata per questo modello. Errore: {{errorMessage}}",
               "authFailed": "L'attività IA per la tabella \"{{tableName}}\" è stata annullata a causa di un errore di autenticazione. Si prega di verificare la configurazione della chiave API.",
               "serviceUnavailable": "L'attività IA per la tabella \"{{tableName}}\" è stata annullata perché il servizio IA è temporaneamente non disponibile. Si prega di riprovare più tardi.",
               "unknown": "L'attività IA per la tabella \"{{tableName}}\" è stata annullata. Errore: {{errorMessage}}"
@@ -1408,9 +1440,9 @@
     "code": "Codice di invito",
     "inviteSuccess": "Invito riuscito"
   },
-  "noPermissionToCreateBase": "Nessuna autorizzazione per creare una base in alcuno spazio",
+  "noPermissionToCreateBase": "Nessuna autorizzazione per creare un progetto in alcuno spazio",
   "base": {
-    "deleteTip": "Sei sicuro di voler eliminare \"{{name}}\" base?",
+    "deleteTip": "Sei sicuro di voler eliminare \"{{name}}\" progetto?",
     "createResource": "Crea risorsa",
     "noPermissionToCreateResource": "Non hai il permesso di creare una risorsa"
   },
@@ -1455,6 +1487,7 @@
     "minFollowerCount": "L'account deve avere almeno {{count}} follower",
     "mustMention": "Il post deve menzionare {{mention}}",
     "fetchSnapshotFailed": "Impossibile recuperare lo snapshot del post",
+    "snapshotTimeout": "Tempo scaduto in attesa dello snapshot del post, riprova più tardi",
     "alreadyClaimedThisWeek": "Hai già richiesto una ricompensa per questo account questa settimana",
     "maxClaimsReached": "Hai raggiunto il massimo di richieste premio (2) per questa settimana",
     "postTooOld": "Il post deve essere stato pubblicato nelle ultime {{hours}} ore",
@@ -1520,8 +1553,8 @@
     "responseInterrupted": "Risposta interrotta",
     "serverError": "Si è verificato un errore del server",
     "serverErrorHint": "Avvia una nuova conversazione e riprova.",
-    "modelNotSupported": "Il modello selezionato non è supportato in modalità agente. Passa a Claude Opus 4.6 per un’esperienza ottimale.",
-    "byokModelNotSupported": "Il tuo modello personalizzato non è compatibile con la modalità agente. Passa a Claude Opus 4.6 per un’esperienza ottimale.",
+    "modelNotSupported": "Il modello selezionato non è supportato in modalità agente. Passa a GPT-6 Astra per un’esperienza ottimale.",
+    "byokModelNotSupported": "Il tuo modello personalizzato non è compatibile con la modalità agente. Passa a GPT-6 Astra per un’esperienza ottimale.",
     "modelServiceUnavailable": "Il servizio del modello è temporaneamente non disponibile. Riprova più tardi.",
     "modelServiceError": "Si è verificato un errore con il servizio del modello. Riprova o passa a un altro modello.",
     "imageProcessingFailed": "Elaborazione dell’immagine non riuscita",
@@ -1536,11 +1569,37 @@
     "idleTimeout": "L’esecuzione del comando ha superato il limite di tempo ({{seconds}} s). Riprova.",
     "danglingToolUse": "La sessione precedente è stata interrotta ed è stata riparata automaticamente. Riprova a inviare il messaggio.",
     "contextImportFailed": "Impossibile ripristinare i dati della sessione precedente. Riprova per continuare senza il contesto precedente.",
+    "versionSaveFailed": "Salvataggio della versione non riuscito",
+    "versionSaveFailedDescription": "Questa versione non è stata salvata. Le modifiche rimangono nel sandbox e potrebbero andare perse alla sua scadenza.",
+    "versionPushTooLarge": "Modifiche troppo grandi per il salvataggio",
+    "versionPushTooLargeDescription": "Queste modifiche superano il limite di dimensione per il salvataggio e non è stato possibile salvarle come nuova versione.",
+    "versionPushTooLargeAction": "Invia all’IA",
+    "versionPushTooLargePrompt": "Non è stato possibile salvare la versione dell’applicazione perché Git push ha superato il limite di dimensione. Controlla prima se il progetto contiene artefatti di test, file di debug o allegati troppo grandi. Verifica la causa prima di rimuovere i contenuti non necessari e conserva il codice dell’applicazione e le risorse necessarie. I file di grandi dimensioni potrebbero già essere presenti nella cronologia dei commit non ancora inviati, quindi eliminarli o aggiungerli a .gitignore potrebbe non bastare. Se occorre ripulire la cronologia, modifica solo i commit non ancora inviati.\nDettagli dell’errore: {{error}}",
     "collapsedStatus": {
       "open": "Apri chat AI",
       "working": "L’AI è al lavoro",
       "completed": "Attività AI completata",
       "failed": "Attività AI non riuscita"
+    }
+  },
+  "modelTier": {
+    "title": "Modello",
+    "uses": "Usa {{model}}",
+    "xl": {
+      "label": "Ultra",
+      "description": "Capacità massima per lavori impegnativi e ad alto rischio."
+    },
+    "lg": {
+      "label": "Smart",
+      "description": "Ragionamento solido per il lavoro quotidiano."
+    },
+    "md": {
+      "label": "Standard",
+      "description": "Veloce ed economico per le attività di routine."
+    },
+    "sm": {
+      "label": "Lite",
+      "description": "Modello leggero per attività di routine economiche e ad alto volume."
     }
   },
   "system": {
@@ -1591,10 +1650,11 @@
       "replace": "Sostituisci",
       "download": "Scarica",
       "uninstall": "Disinstalla",
-      "copyToBase": "Copia in Base",
+      "copyToBase": "Copia in Progetto",
       "copyToSpace": "Copia nello spazio",
       "copyToPersonal": "Copia in personale",
-      "copyToApp": "Copia nell'app"
+      "copyToApp": "Copia nell'app",
+      "copyToRoutine": "Copia nella routine"
     },
     "import": {
       "title": "Importa competenza",
@@ -1626,16 +1686,18 @@
       "label": "Ambito",
       "system": "Sistema",
       "builtin": "Integrate",
-      "base": "Base",
+      "base": "Progetto",
       "user": "Personale",
       "userDescription": "Disponibile solo per te",
-      "baseDescription": "Condivisa con i collaboratori di questa base",
+      "baseDescription": "Condivisa con i collaboratori di questo progetto",
       "space": "Spazio",
       "spaceDescription": "Condiviso con tutti i membri di questo spazio",
       "app": "App",
       "appDescription": "Disponibile solo per questa app",
       "cuppyclaw": "Bot",
-      "cuppyclawDescription": "Disponibile solo per questo bot"
+      "cuppyclawDescription": "Disponibile solo per questo bot",
+      "routine": "Routine",
+      "routineDescription": "Disponibile solo per questa routine"
     },
     "source": {
       "github": "GitHub",
@@ -1683,5 +1745,40 @@
     "more_one": "{{count}} altro annuncio",
     "more_many": "{{count}} altri annunci",
     "more_other": "{{count}} altri annunci"
+  },
+  "mobileEmbed": {
+    "pickFromDirectory": "Scegli qualcosa dalla directory",
+    "pickFromDirectoryHint": "Apri una tabella, una dashboard o un'automazione dalla directory e comparirà qui.",
+    "limitReachedTitle": "Limite del piano raggiunto",
+    "limitReachedDescription": "Questo spazio ha raggiunto un limite del suo piano attuale.",
+    "creditsExhaustedTitle": "Crediti IA esauriti",
+    "creditsExhaustedDescription": "Questo spazio ha usato tutti i crediti IA inclusi nel suo piano attuale.",
+    "seatLimitTitle": "Nessun posto disponibile",
+    "seatLimitDescription": "Questo spazio non ha più posti per altri collaboratori.",
+    "ownerManagesPlan": "Solo il proprietario dello spazio può gestirne il piano. Contattalo per risolvere il problema.",
+    "featureUnavailableTitle": "Non disponibile con questo piano",
+    "billingUnavailable": "La gestione del piano e della fatturazione non è disponibile nell'app.",
+    "featureUnavailableDescription": "Questa funzione non è disponibile con il piano attuale di questo spazio.",
+    "importRowLimitReached": "È stato raggiunto il limite di righe del piano attuale; i record rimanenti non sono stati importati.",
+    "userCapTitle": "Limite di utenti raggiunto",
+    "userCapDescription": "Questa istanza ha raggiunto il numero di utenti consentito dalla sua licenza. Contatta il tuo amministratore."
+  },
+  "push": {
+    "gate": {
+      "askUserQuestion": "Cuppy ha una domanda per te.",
+      "permission": "Cuppy aspetta la tua conferma per continuare.",
+      "connectIntegration": "Cuppy ha bisogno che tu colleghi un'app.",
+      "pickGoogleSheet": "Cuppy ha bisogno che tu scelga un foglio.",
+      "requestCredential": "Cuppy ha bisogno dell'accesso per continuare."
+    },
+    "result": {
+      "done": "Fatto.",
+      "failed": "L'esecuzione non è riuscita.",
+      "creditExhausted": "Interrotto: crediti AI esauriti.",
+      "skippedNoCredit": "Saltato questa volta: crediti AI esauriti.",
+      "autoDeactivated": "Disattivato dopo cinque esecuzioni fallite di fila.",
+      "summaryTitle": "Teable",
+      "summary": "{{count}} conversazioni hanno novità."
+    }
   }
 }

@@ -67,6 +67,7 @@ import {
   ShortLinkType,
   submitPlugin,
 } from '@teable/openapi';
+import { type ITableRepository, v2CoreTokens } from '@teable/v2-core';
 import { sample } from 'lodash';
 import { vi } from 'vitest';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
@@ -76,6 +77,7 @@ import {
   X_TEABLE_V2_HEADER,
   X_TEABLE_V2_REASON_HEADER,
 } from '../src/features/canary/interceptors/v2-indicator.interceptor';
+import { V2ContainerService } from '../src/features/v2/v2-container.service';
 import { ViewOpenApiService } from '../src/features/view/open-api/view-open-api.service';
 import { ViewService } from '../src/features/view/view.service';
 import { x_20 } from './data-helpers/20x';
@@ -4169,11 +4171,44 @@ describe('OpenAPI ViewController (e2e)', () => {
         where: { id: view.id },
         select: { version: true },
       });
+      const container = await app.get(V2ContainerService).getContainerForTable(table.id);
+      const tableRepository = container.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+      const findOne = tableRepository.findOne.bind(tableRepository);
+      const runConcurrent = async <T>(mutate: () => Promise<T>) => {
+        let loaded = 0;
+        let release!: () => void;
+        const bothLoaded = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        const findOneSpy = vi
+          .spyOn(tableRepository, 'findOne')
+          .mockImplementation(async (...args) => {
+            const result = await findOne(...args);
+            if (result.isOk() && result.value.id().toString() === table.id && loaded < 2) {
+              // Hold each real aggregate after hydration, before either handler can mutate it.
+              // Both requests must carry the same View version into the real persistence CAS.
+              loaded += 1;
+              if (loaded === 2) release();
+              await bothLoaded;
+            }
+            return result;
+          });
 
-      const enableResults = await Promise.allSettled([
-        enableShareView({ tableId: table.id, viewId: view.id }),
-        enableShareView({ tableId: table.id, viewId: view.id }),
-      ]);
+        try {
+          return await Promise.allSettled([
+            Promise.resolve().then(mutate).finally(release),
+            Promise.resolve().then(mutate).finally(release),
+          ]);
+        } finally {
+          // A request failing before hydration must also unblock its peer.
+          release();
+          findOneSpy.mockRestore();
+        }
+      };
+
+      const enableResults = await runConcurrent(() =>
+        enableShareView({ tableId: table.id, viewId: view.id })
+      );
       const enabled = enableResults.filter(
         (result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof enableShareView>>> =>
           result.status === 'fulfilled'
@@ -4207,10 +4242,7 @@ describe('OpenAPI ViewController (e2e)', () => {
         where: { id: view.id },
         select: { version: true },
       });
-      const refreshResults = await Promise.allSettled([
-        refreshViewShareId(table.id, view.id),
-        refreshViewShareId(table.id, view.id),
-      ]);
+      const refreshResults = await runConcurrent(() => refreshViewShareId(table.id, view.id));
       const refreshed = refreshResults.filter(
         (
           result

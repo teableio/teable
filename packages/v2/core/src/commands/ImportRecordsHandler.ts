@@ -17,7 +17,7 @@ import type { TableRecord } from '../domain/table/records/TableRecord';
 import { TableByIdSpec } from '../domain/table/specs/TableByIdSpec';
 import type { Table } from '../domain/table/Table';
 import type { TableId } from '../domain/table/TableId';
-import * as EventBusPort from '../ports/EventBus';
+import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import type { IImportParseResult, SourceColumnMap } from '../ports/import/IImportSource';
 import * as IImportSourceRegistryPort from '../ports/import/IImportSourceRegistry';
@@ -30,7 +30,6 @@ import {
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
-import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { ImportRecordsCommand } from './ImportRecordsCommand';
 import { toAsyncIterable } from './shared/toAsyncIterable';
@@ -100,10 +99,8 @@ export class ImportRecordsHandler
     private readonly recordWriteSideEffectService: RecordWriteSideEffectService,
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,
-    @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus,
-    @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    @inject(v2CoreTokens.domainWriteTransaction)
+    private readonly domainWriteTransaction: IDomainWriteTransaction
   ) {}
 
   async handle(
@@ -190,8 +187,9 @@ export class ImportRecordsHandler
 
       // 6. Stream insert via insertManyStream.
       // Row batches stay an AsyncIterable: parse → field values → records → insert.
-      const insertResult: TableRecordRepositoryPort.InsertManyStreamResult =
-        yield* await handler.unitOfWork.withTransaction(context, async (transactionContext) => {
+      const committed = yield* await handler.domainWriteTransaction.execute(
+        context,
+        async (transactionContext) => {
           try {
             const recordBatches = handler.createRecordBatchesStream(
               transactionContext,
@@ -205,7 +203,7 @@ export class ImportRecordsHandler
               ),
               typecast
             );
-            return await handler.tableRecordRepository.insertManyStream(
+            const insertResult = await handler.tableRecordRepository.insertManyStream(
               transactionContext,
               state.table,
               recordBatches,
@@ -222,6 +220,10 @@ export class ImportRecordsHandler
                 },
               }
             );
+            if (insertResult.isErr()) {
+              return err(insertResult.error);
+            }
+            return ok(domainWrite.fromEvents(insertResult.value, state.events));
           } catch (error) {
             if (isDomainError(error)) {
               return err(error);
@@ -232,12 +234,9 @@ export class ImportRecordsHandler
               })
             );
           }
-        });
-
-      // 8. Publish all collected events
-      if (state.events.length > 0) {
-        yield* await handler.eventBus.publishMany(context, state.events);
-      }
+        }
+      );
+      const insertResult = committed.value;
 
       onProgress?.({
         phase: 'completed',
@@ -247,7 +246,7 @@ export class ImportRecordsHandler
       });
       await state.previousPluginExecution.afterCommit();
 
-      return ok(ImportRecordsResult.create(insertResult.totalInserted, state.events));
+      return ok(ImportRecordsResult.create(insertResult.totalInserted, committed.events));
     });
   }
 

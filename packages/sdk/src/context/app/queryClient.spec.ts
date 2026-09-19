@@ -26,10 +26,15 @@ import { HttpErrorCode } from '@teable/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { sdkErrorI18nKeys, tableI18nKeys } from '../../../../i18n-keys/src';
 import type { ILocaleFunction } from './i18n';
-import { errorRequestHandler, getHttpErrorMessage, toCamelCaseErrorCode } from './queryClient';
+import {
+  createQueryClient,
+  errorRequestHandler,
+  getHttpErrorMessage,
+  toCamelCaseErrorCode,
+} from './queryClient';
 
 vi.mock('@teable/ui-lib', () => ({
-  sonner: { toast: { error: vi.fn(), warning: vi.fn() } },
+  sonner: { toast: { error: vi.fn(), warning: vi.fn(), info: vi.fn() } },
 }));
 
 const collectLeafKeys = (value: unknown, prefix = ''): string[] => {
@@ -314,4 +319,19 @@ describe('errorRequestHandler dedup', () => {
     expect(toastError).toHaveBeenCalledTimes(1);
     expect(errorCallOptions()[0].id).toBeTruthy();
   });
+});
+
+it('retries only pending reads with a finite budget and never configures mutation retries', () => {
+  const client = createQueryClient();
+  const options = client.getDefaultOptions();
+  const retry = options.queries?.retry;
+  if (typeof retry !== 'function') throw new Error('Expected query retry classifier');
+  const pending = Object.assign(new Error('Updating'), {
+    data: { domainCode: 'table.provision_pending' },
+  });
+  expect(retry(0, pending)).toBe(true);
+  expect(retry(3, pending)).toBe(false);
+  expect(retry(0, new Error('Query is busy'))).toBe(false);
+  expect(options.mutations?.retry).toBeFalsy();
+  client.clear();
 });

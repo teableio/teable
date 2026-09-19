@@ -75,6 +75,7 @@ import type { UserDefaultValue } from './fields/types/UserDefaultValue';
 import { UserField } from './fields/types/UserField';
 import { UserMultiplicity } from './fields/types/UserMultiplicity';
 import { UserNotification } from './fields/types/UserNotification';
+import type { ITableSearchIndex } from './ITableSearchIndex';
 import { resolveFormulaFields } from './resolveFormulaFields';
 import type { Table } from './Table';
 import { TableId } from './TableId';
@@ -101,6 +102,7 @@ export interface ITableBuildProps {
   views: ReadonlyArray<View>;
   primaryFieldId: FieldId;
   dbTableName?: DbTableName;
+  searchIndex?: ITableSearchIndex;
 }
 
 export type TableBuildOptions = {

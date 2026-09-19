@@ -16,7 +16,7 @@ export const PersonAccessTokenPage = () => {
   const router = useRouter();
   const accessTokenId = router.query.id as string;
   const formType = router.query.form as IFormType;
-  const newTokenRef = useRef<string>();
+  const newTokenRef = useRef<string>(undefined);
   const { t } = useTranslation(personalAccessTokenConfig.i18nNamespaces);
 
   const backList = () => {

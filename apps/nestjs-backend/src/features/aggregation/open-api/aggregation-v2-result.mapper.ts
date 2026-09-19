@@ -10,8 +10,11 @@ import { ListFieldsQuery } from '@teable/v2-core';
 import type {
   AggregateTableRecordsResult,
   AttachmentValueDecoratorService,
+  Field,
+  FieldId,
   IQueryBus,
   ListFieldsResult,
+  ITableReadModel,
 } from '@teable/v2-core';
 import { convertValueToStringify, string2Hash } from '../../../utils';
 import {
@@ -43,25 +46,35 @@ export async function normalizeLegacyFilterViaQueryBus(
   rawFilter: unknown,
   actorId: string,
   queryBus: IQueryBus,
-  context: IV2QueryExecutionContext
+  context: IV2QueryExecutionContext,
+  table?: ITableReadModel
 ) {
   if (rawFilter == null) return rawFilter;
 
-  const queryResult = ListFieldsQuery.create({ tableId });
-  if (queryResult.isErr()) {
-    throwV2QueryDomainError(queryResult.error);
-  }
-  const fieldsResult = await queryBus.execute<ListFieldsQuery, ListFieldsResult>(
-    context,
-    queryResult.value
-  );
-  if (fieldsResult.isErr()) {
-    throwV2QueryDomainError(fieldsResult.error);
+  let fields: ReadonlyArray<Field>;
+  let primaryFieldId: FieldId;
+  if (table) {
+    fields = table.getFields();
+    primaryFieldId = table.primaryFieldId();
+  } else {
+    const queryResult = ListFieldsQuery.create({ tableId });
+    if (queryResult.isErr()) {
+      throwV2QueryDomainError(queryResult.error);
+    }
+    const fieldsResult = await queryBus.execute<ListFieldsQuery, ListFieldsResult>(
+      context,
+      queryResult.value
+    );
+    if (fieldsResult.isErr()) {
+      throwV2QueryDomainError(fieldsResult.error);
+    }
+    fields = fieldsResult.value.fields;
+    primaryFieldId = fieldsResult.value.primaryFieldId;
   }
 
   const fieldMetaById = new Map<string, IRecordFilterFieldMeta>();
-  for (const field of fieldsResult.value.fields) {
-    const fieldDto = mapFieldToDto(field, fieldsResult.value.primaryFieldId);
+  for (const field of fields) {
+    const fieldDto = mapFieldToDto(field, primaryFieldId);
     if (fieldDto.isErr()) {
       throwV2QueryDomainError(fieldDto.error);
     }

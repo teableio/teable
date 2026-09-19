@@ -2,9 +2,10 @@
 import { FieldKeyType } from '@teable/core';
 import type { IRecord } from '@teable/core';
 import { getRecords } from '@teable/openapi';
-import { act, renderHook } from '@testing-library/react';
-import type { Connection, Query } from 'sharedb/lib/client';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { Connection, type Doc, type Query } from 'sharedb/lib/client';
 import { vi } from 'vitest';
+import { Record as RecordInstance } from '../../model/record/record';
 import { createAppContext } from '../__tests__/createAppContext';
 import { createConnectionContext } from '../__tests__/createConnectionContext';
 import { createSessionContext } from '../__tests__/createSessionContext';
@@ -178,6 +179,47 @@ describe('useInstances hook', () => {
     };
   };
 
+  // Keep the real query registry, event dispatch, and nextTick destroy callback.
+  // Only the server transport is controlled so replies can arrive after release.
+  const createQueryConnection = () => {
+    const messages: Array<{ a: string; id: number; q?: unknown }> = [];
+    const socket = {
+      readyState: 1,
+      send: (message: string) => messages.push(JSON.parse(message)),
+      close: vi.fn(),
+      onmessage: undefined as ((event: { data: unknown }) => void) | undefined,
+      onclose: undefined as (() => void) | undefined,
+      onopen: undefined as (() => void) | undefined,
+    };
+    // ShareDB only uses these socket members; no browser WebSocket is opened.
+    const transport = socket as unknown as ConstructorParameters<typeof Connection>[0];
+    // ShareDB exposes this non-creating lookup at runtime, but omits its declaration.
+    const connection = new Connection(transport) as Connection & {
+      getExisting(collection: string, id: string): Doc | undefined;
+    };
+    const receive = (message: unknown) => socket.onmessage?.({ data: message });
+    const handshake = () =>
+      receive({ a: 'hs', protocol: 1, type: 'json0', id: 'sdk-query-cancellation' });
+    handshake();
+    return {
+      connection,
+      messages,
+      receive,
+      subscriptions: () => messages.filter((message) => message.a === 'qs'),
+      reply: (id: number, recordId: string, name: string) =>
+        receive({
+          a: 'qs',
+          id,
+          data: [{ d: recordId, v: 1, type: 'json0', data: { id: recordId, name } }],
+        }),
+      reconnect: () => {
+        socket.onclose?.();
+        socket.onopen?.();
+        handshake();
+      },
+    };
+  };
+
   const initData = [
     createMockDoc({
       data: { id: '1', name: 'Instance 1' },
@@ -214,6 +256,151 @@ describe('useInstances hook', () => {
   afterEach(() => {
     vi.clearAllMocks();
     vi.mocked(getRecords).mockReset();
+  });
+
+  it('switches a pending query without waiting for ready and ignores its late results', async () => {
+    const client = createQueryConnection();
+    const { result, rerender, unmount } = renderHook(
+      ({ viewId }) =>
+        useInstances({ ...mockProps, collection: 'rec_tblPendingSwitch', queryParams: { viewId } }),
+      {
+        wrapper: createUseInstancesWrap({ connection: client.connection, connected: true }),
+        initialProps: { viewId: 'old' },
+      }
+    );
+    const oldId = client.subscriptions()[0].id;
+
+    rerender({ viewId: 'new' });
+
+    expect(client.messages).toContainEqual({ a: 'qu', id: oldId });
+    await waitFor(() => expect(client.subscriptions()).toHaveLength(2));
+    const newId = client.subscriptions()[1].id;
+    expect(client.subscriptions()[1].q).toEqual({ viewId: 'new' });
+
+    await act(async () => client.reply(newId, 'new-record', 'Current view'));
+    expect(result.current.instances.map(({ name }) => name)).toEqual(['Current view']);
+
+    await act(async () => {
+      client.reply(oldId, 'old-record', 'Obsolete view');
+      client.receive({ a: 'q', id: oldId, diff: [{ type: 'remove', index: 0, howMany: 1 }] });
+    });
+    expect(result.current.instances.map(({ name }) => name)).toEqual(['Current view']);
+    expect(client.connection.getExisting('rec_tblPendingSwitch', 'old-record')).toBeUndefined();
+    unmount();
+  });
+
+  it('waits for pending metadata before unsubscribing and releases its late documents', async () => {
+    const client = createQueryConnection();
+    const collection = 'fld_tblPendingMetadata';
+    const { unmount } = renderHook(() => useInstances({ ...mockProps, collection }), {
+      wrapper: createUseInstancesWrap({ connection: client.connection, connected: true }),
+    });
+    const id = client.subscriptions()[0].id;
+    unmount();
+    expect(client.messages.filter((message) => message.a === 'qu')).toEqual([]);
+
+    await act(async () => client.reply(id, 'field', 'Late field'));
+    expect(client.messages.filter((message) => message.a === 'qu')).toEqual([{ a: 'qu', id }]);
+    await waitFor(() => expect(client.connection.getExisting(collection, 'field')).toBeUndefined());
+  });
+
+  it('keeps shared live doc updates until the last ready owner leaves', async () => {
+    const client = createQueryConnection();
+    const wrapper = createUseInstancesWrap({ connection: client.connection, connected: true });
+    const props = { ...mockProps, collection: 'sharedReadyRelease' };
+    const first = renderHook(() => useInstances(props), { wrapper });
+    const second = renderHook(() => useInstances(props), { wrapper });
+    const id = client.subscriptions()[0].id;
+    expect(client.subscriptions()).toHaveLength(1);
+    await act(async () => client.reply(id, 'shared-record', 'Initial'));
+    expect(first.result.current.instances.map(({ name }) => name)).toEqual(['Initial']);
+
+    first.unmount();
+    expect(client.messages.filter((message) => message.a === 'qu')).toEqual([]);
+
+    expect(second.result.current.instances.map(({ name }) => name)).toEqual(['Initial']);
+    await act(async () => {
+      client.receive({
+        a: 'op',
+        c: props.collection,
+        d: 'shared-record',
+        v: 1,
+        op: [{ p: ['name'], od: 'Initial', oi: 'Live update' }],
+      });
+    });
+    expect(second.result.current.instances.map(({ name }) => name)).toEqual(['Live update']);
+    expect(client.connection.getExisting(props.collection, 'shared-record')).toBeDefined();
+
+    second.unmount();
+    expect(client.messages.filter((message) => message.a === 'qu')).toEqual([{ a: 'qu', id }]);
+    await waitFor(() =>
+      expect(client.connection.getExisting(props.collection, 'shared-record')).toBeUndefined()
+    );
+  });
+
+  it('releases the last pending owner immediately and remounts a fresh subscription', async () => {
+    const client = createQueryConnection();
+    const wrapper = createUseInstancesWrap({ connection: client.connection, connected: true });
+    const props = { ...mockProps, collection: 'rec_tblSharedPendingRelease' };
+    const first = renderHook(() => useInstances(props), { wrapper });
+    const second = renderHook(() => useInstances(props), { wrapper });
+    const oldId = client.subscriptions()[0].id;
+
+    first.unmount();
+    expect(client.messages.filter((message) => message.a === 'qu')).toEqual([]);
+    second.unmount();
+    expect(client.messages.filter((message) => message.a === 'qu')).toEqual([
+      { a: 'qu', id: oldId },
+    ]);
+
+    const remounted = renderHook(() => useInstances(props), { wrapper });
+    const newId = client.subscriptions()[1].id;
+    expect(newId).not.toBe(oldId);
+    await act(async () => {
+      client.reply(oldId, 'old-record', 'Released');
+      client.reply(newId, 'new-record', 'Remounted');
+    });
+    expect(remounted.result.current.instances.map(({ name }) => name)).toEqual(['Remounted']);
+    remounted.unmount();
+  });
+
+  it('retains the current subscription across StrictMode replay and reconnect', async () => {
+    const client = createQueryConnection();
+    const Provider = createUseInstancesWrap({ connection: client.connection, connected: true });
+    const collection = 'rec_tblStrictReconnectRelease';
+    // React 19 only replays effects for a StrictMode boundary at the root, so let
+    // testing-library mount the root in StrictMode instead of nesting it in the wrapper.
+    const { result, unmount } = renderHook(() => useInstances({ ...mockProps, collection }), {
+      wrapper: Provider,
+      reactStrictMode: true,
+    });
+    const subscriptions = client.subscriptions();
+    expect(subscriptions).toHaveLength(2);
+    const oldId = subscriptions[0].id;
+    const currentId = subscriptions[1].id;
+    expect(client.messages).toContainEqual({ a: 'qu', id: oldId });
+
+    // Let the old query's local destroy callback run before the live reply.
+    await act(async () => {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      setTimeout(resolve, 0);
+      await promise;
+      client.reply(currentId, 'current-record', 'Before reconnect');
+    });
+    expect(result.current.instances.map(({ name }) => name)).toEqual(['Before reconnect']);
+
+    await act(async () => client.reconnect());
+    expect(client.subscriptions().map(({ id }) => id)).toEqual([oldId, currentId, currentId]);
+    await act(async () => {
+      client.reply(currentId, 'reconnected-record', 'After reconnect');
+      client.reply(oldId, 'old-record', 'Obsolete StrictMode mount');
+    });
+    expect(result.current.instances.map(({ name }) => name)).toEqual(['After reconnect']);
+    unmount();
+    expect(client.messages.filter((message) => message.a === 'qu')).toEqual([
+      { a: 'qu', id: oldId },
+      { a: 'qu', id: currentId },
+    ]);
   });
 
   it('should initialize with initData when connected is false', () => {
@@ -1688,5 +1875,170 @@ describe('useInstances hook', () => {
     });
 
     expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns false when a fill is superseded by a newer fill', async () => {
+    const docs = [
+      createMockDoc({
+        data: { id: 'rec1', fields: {} },
+        collection: 'rec_tblFillCancel',
+        id: 'rec1',
+      }),
+    ];
+    const createSubscribeQuery = vi.fn((collection: string, queryParams: unknown) => {
+      return {
+        collection,
+        query: queryParams,
+        results: docs,
+        ready: true,
+        sent: true,
+        ...mockQueryMethods,
+      } as unknown as Query<any>;
+    });
+    const connection = {
+      createSubscribeQuery,
+      getPresence: vi.fn(() => createMockPresence().presence),
+    } as any;
+
+    let resolveFirst: ((value: unknown) => void) | undefined;
+    const firstResponse = new Promise((resolve) => {
+      resolveFirst = resolve;
+    });
+    vi.mocked(getRecords)
+      .mockImplementationOnce(() => firstResponse as never)
+      .mockResolvedValueOnce({
+        data: { records: [{ id: 'rec1', fields: { fldB: 'new' } }] },
+      } as never);
+
+    const { result } = renderHook(
+      () =>
+        useInstances({
+          ...mockProps,
+          collection: 'rec_tblFillCancel',
+          queryParams: {},
+        }),
+      {
+        wrapper: createUseInstancesWrap({ ...mockAppContext, connection }),
+      }
+    );
+
+    let firstResult: boolean | undefined;
+    let secondResult: boolean | undefined;
+    await act(async () => {
+      const firstFill = result.current.fillProjectedRecordFields(['fldA']);
+      const secondFill = result.current.fillProjectedRecordFields(['fldB']);
+      resolveFirst?.({
+        data: { records: [{ id: 'rec1', fields: { fldA: 'stale' } }] },
+      });
+      firstResult = await firstFill;
+      secondResult = await secondFill;
+    });
+
+    expect(firstResult).toBe(false);
+    expect(secondResult).toBe(true);
+    expect(docs[0].data.fields.fldA).toBeUndefined();
+    expect(docs[0].data.fields.fldB).toBe('new');
+  });
+
+  it('returns false when fill runs before subscribe docs exist', async () => {
+    const createSubscribeQuery = vi.fn((collection: string, queryParams: unknown) => {
+      return {
+        collection,
+        query: queryParams,
+        results: [],
+        ready: true,
+        sent: true,
+        ...mockQueryMethods,
+      } as unknown as Query<any>;
+    });
+    const connection = {
+      createSubscribeQuery,
+      getPresence: vi.fn(() => createMockPresence().presence),
+    } as any;
+
+    vi.mocked(getRecords).mockResolvedValue({
+      data: { records: [{ id: 'rec1', fields: { fldA: 'value' } }] },
+    } as never);
+
+    const { result } = renderHook(
+      () =>
+        useInstances({
+          ...mockProps,
+          collection: 'rec_tblFillEmpty',
+          queryParams: {},
+        }),
+      {
+        wrapper: createUseInstancesWrap({ ...mockAppContext, connection }),
+      }
+    );
+
+    let fillResult: boolean | undefined;
+    await act(async () => {
+      fillResult = await result.current.fillProjectedRecordFields(['fldA']);
+    });
+
+    expect(fillResult).toBe(false);
+  });
+
+  it('fills the field permissions a late viewport column needs to stay readable and editable', async () => {
+    const docs = [
+      createMockDoc({
+        data: {
+          id: 'rec1',
+          fields: { fldPrefix: 'prefix' },
+          permissions: { read: { fldPrefix: true }, update: { fldPrefix: true } },
+        },
+        collection: 'rec_tblFillPermissions',
+        id: 'rec1',
+      }),
+    ];
+    const createSubscribeQuery = vi.fn((collection: string, queryParams: unknown) => {
+      return {
+        collection,
+        query: queryParams,
+        results: docs,
+        ready: true,
+        sent: true,
+        ...mockQueryMethods,
+      } as unknown as Query<any>;
+    });
+    const connection = {
+      createSubscribeQuery,
+      getPresence: vi.fn(() => createMockPresence().presence),
+    } as any;
+
+    vi.mocked(getRecords).mockResolvedValue({
+      data: {
+        records: [
+          {
+            id: 'rec1',
+            fields: { fldLate: 'late' },
+            permissions: { read: { fldLate: true }, update: { fldLate: true } },
+          },
+        ],
+      },
+    } as never);
+
+    const { result } = renderHook(
+      () =>
+        useInstances({
+          ...mockProps,
+          collection: 'rec_tblFillPermissions',
+          queryParams: {},
+        }),
+      {
+        wrapper: createUseInstancesWrap({ ...mockAppContext, connection }),
+      }
+    );
+
+    await act(async () => {
+      await result.current.fillProjectedRecordFields(['fldLate']);
+    });
+
+    const permissions = docs[0].data.permissions;
+    expect(permissions.read.fldLate).toBe(true);
+    expect(permissions.update.fldLate).toBe(true);
+    expect(RecordInstance.isHidden(permissions, 'fldLate')).toBe(false);
+    expect(RecordInstance.isLocked(permissions, 'fldLate')).toBe(false);
   });
 });

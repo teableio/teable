@@ -9,6 +9,9 @@ import {
   generateWorkflowTriggerId,
   generateWorkflowActionId,
   generateWorkflowDecisionId,
+  generateRoutineId,
+  generateRoutineSnapshotId,
+  generateRoutineRunId,
   identify,
   IdPrefix,
 } from './id-generator';
@@ -71,6 +74,24 @@ describe('ID Generators', () => {
     const workflowDecisionId = generateWorkflowDecisionId();
     expect(workflowDecisionId.startsWith(IdPrefix.WorkflowDecision)).toBe(true);
     expect(workflowDecisionId.length).toBe(IdPrefix.WorkflowDecision.length + 16);
+  });
+
+  it('generates a routine ID with correct prefix and length', () => {
+    const routineId = generateRoutineId();
+    expect(routineId.startsWith(IdPrefix.Routine)).toBe(true);
+    expect(routineId.length).toBe(IdPrefix.Routine.length + 16);
+  });
+
+  it('generates a routineSnapshot ID with correct prefix and length', () => {
+    const routineSnapshotId = generateRoutineSnapshotId();
+    expect(routineSnapshotId.startsWith(IdPrefix.RoutineSnapshot)).toBe(true);
+    expect(routineSnapshotId.length).toBe(IdPrefix.RoutineSnapshot.length + 16);
+  });
+
+  it('generates a routineRun ID with correct prefix and length', () => {
+    const routineRunId = generateRoutineRunId();
+    expect(routineRunId.startsWith(IdPrefix.RoutineRun)).toBe(true);
+    expect(routineRunId.length).toBe(IdPrefix.RoutineRun.length + 16);
   });
 
   it('identifies an ID prefix', () => {

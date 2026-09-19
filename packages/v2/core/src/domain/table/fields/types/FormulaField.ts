@@ -29,7 +29,7 @@ import type { DateTimeFormatting } from './DateTimeFormatting';
 import { DateTimeFormatting as DateTimeFormattingValue } from './DateTimeFormatting';
 import { FieldComputed } from './FieldComputed';
 import { FormulaExpression } from './FormulaExpression';
-import type { FormulaMeta } from './FormulaMeta';
+import { FormulaMeta } from './FormulaMeta';
 import type { NumberFormatting } from './NumberFormatting';
 import { NumberFormatting as NumberFormattingValue } from './NumberFormatting';
 import { NumberShowAs as NumberShowAsValue } from './NumberShowAs';
@@ -54,7 +54,7 @@ export class FormulaField extends Field implements OnTeableFieldUpdated, OnTeabl
     private readonly timeZoneValue: TimeZone | undefined,
     private formattingValue: FormulaFormatting | undefined,
     private readonly showAsValue: FormulaShowAs | undefined,
-    private readonly metaValue: FormulaMeta | undefined,
+    private metaValue: FormulaMeta | undefined,
     private cellValueTypeValue: CellValueType | undefined,
     private isMultipleCellValueValue: CellValueMultiplicity | undefined,
     dependencies: ReadonlyArray<FieldId>
@@ -166,6 +166,28 @@ export class FormulaField extends Field implements OnTeableFieldUpdated, OnTeabl
   isPersistedAsGeneratedColumn(): Result<boolean, DomainError> {
     if (!this.metaValue) return ok(false);
     return this.metaValue.persistedAsGeneratedColumn();
+  }
+
+  formulaSafetyVersion(): Result<number | undefined, DomainError> {
+    return this.metaValue ? this.metaValue.formulaSafetyVersion() : ok(undefined);
+  }
+
+  enableFormulaSafety(version: 1): Result<void, DomainError> {
+    return this.formulaSafetyVersion().andThen((currentVersion) => {
+      if (version !== 1 || (currentVersion !== undefined && currentVersion !== version)) {
+        return err(
+          domainError.validation({ message: 'Unsupported formula safety policy version' })
+        );
+      }
+      if (currentVersion === version) return ok(undefined);
+      return this.isPersistedAsGeneratedColumn().andThen((persistedAsGeneratedColumn) =>
+        FormulaMeta.rehydrate({ persistedAsGeneratedColumn, formulaSafetyVersion: version }).map(
+          (meta) => {
+            this.metaValue = meta;
+          }
+        )
+      );
+    });
   }
 
   cellValueType(): Result<CellValueType, DomainError> {

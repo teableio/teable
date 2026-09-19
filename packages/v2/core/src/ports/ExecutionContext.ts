@@ -1,8 +1,10 @@
+import { defaultFormulaSourceBudgetLimits } from '@teable/formula';
 import type { TableI18nKey } from '@teable/i18n-keys';
 
 import type { ActorId } from '../domain/shared/ActorId';
 import type { IDomainContext, IDomainContextConfig } from '../domain/shared/DomainContext';
 import type { TableDataSafetyLimitConfig } from '../domain/shared/TableDataSafetyLimits';
+import type { FormulaSourceBudget } from '../domain/table/fields/types/FormulaExpression';
 import type { ITracer } from './Tracer';
 
 export interface IUnitOfWorkTransaction {
@@ -14,6 +16,16 @@ export interface IUnitOfWorkTransaction {
   afterCommit?(handler: UnitOfWorkAfterCommitHandler): void;
   afterRollback?(handler: UnitOfWorkAfterCommitHandler): void;
 }
+
+export type SameTxHistoryRowBudget = {
+  remaining: number;
+};
+
+export type SameTxProjectionContext = Readonly<{
+  eventId: string;
+  tables: ReadonlyMap<string, { id(): { toString(): string } }>;
+  historyRowBudget?: SameTxHistoryRowBudget;
+}>;
 
 export type UnitOfWorkAfterCommitHandler = () => Promise<void> | void;
 export type UnitOfWorkScope = 'meta' | 'data';
@@ -35,7 +47,11 @@ export interface IExecutionContext {
   windowId?: string;
   scheduleBackgroundTask?: ExecutionContextBackgroundTaskScheduler;
   undoRedo?: { mode: 'undo' | 'redo' | 'normal'; operationId?: string };
+  sameTxProjection?: SameTxProjectionContext;
   config?: {
+    formulaSourceBudget?: FormulaSourceBudget;
+    /** Read callers holding an external lock must disable provisioning waits. */
+    tableProvisionWaitMs?: number;
     tableLimits?: TableDataSafetyLimitConfig;
     /** @deprecated Use `tableLimits.fieldOptions.maxSelectChoices`. */
     selectFieldOptions?: IDomainContextConfig['selectFieldOptions'];
@@ -45,9 +61,8 @@ export interface IExecutionContext {
   $t?: (key: TableI18nKey, options?: Record<string, unknown>) => string;
 }
 
-export const isUndoRedoReplay = (
-  context: Pick<IExecutionContext, 'undoRedo'>
-): boolean => context.undoRedo?.mode === 'undo' || context.undoRedo?.mode === 'redo';
+export const isUndoRedoReplay = (context: Pick<IExecutionContext, 'undoRedo'>): boolean =>
+  context.undoRedo?.mode === 'undo' || context.undoRedo?.mode === 'redo';
 
 export const getUnitOfWorkTransaction = (
   context: IExecutionContext | undefined,
@@ -157,11 +172,16 @@ export const scheduleExecutionContextBackgroundTask = (
   void task();
 };
 
+/** Commands admit new sources even before a DI-backed command bus is available. */
+export const getFormulaSourceBudget = (context?: IExecutionContext): FormulaSourceBudget =>
+  context?.config?.formulaSourceBudget ?? { ...defaultFormulaSourceBudgetLimits, policyVersion: 1 };
+
 export const getDomainContext = (context?: IExecutionContext): IDomainContext | undefined => {
   const tableLimits = context?.config?.tableLimits;
   const selectFieldOptions = context?.config?.selectFieldOptions;
   const tableFields = context?.config?.tableFields;
-  if (!context?.$t && !tableLimits && !selectFieldOptions && !tableFields) {
+  const formulaSourceBudget = context?.config?.formulaSourceBudget;
+  if (!context?.$t && !tableLimits && !selectFieldOptions && !tableFields && !formulaSourceBudget) {
     return undefined;
   }
 
@@ -170,8 +190,9 @@ export const getDomainContext = (context?: IExecutionContext): IDomainContext | 
   return {
     t: translate,
     config:
-      tableLimits || selectFieldOptions || tableFields
+      tableLimits || selectFieldOptions || tableFields || formulaSourceBudget
         ? {
+            ...(formulaSourceBudget ? { formulaSourceBudget } : {}),
             ...(tableLimits ? { tableLimits } : {}),
             ...(selectFieldOptions ? { selectFieldOptions } : {}),
             ...(tableFields ? { tableFields } : {}),

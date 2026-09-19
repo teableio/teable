@@ -1321,7 +1321,7 @@ export class TrashService {
     const accessTokenId = this.cls.get('accessTokenId');
     await this.permissionService.validPermissions(
       baseId,
-      ['table|delete', 'app|delete', 'automation|delete'],
+      ['table|delete', 'app|delete', 'automation|delete', 'routine|delete'],
       accessTokenId,
       true
     );
@@ -1392,7 +1392,7 @@ export class TrashService {
 
     if (trashedSpace != null) {
       throw new CustomHttpException(
-        'Unable to restore this base because its parent space is also trashed',
+        'Unable to restore this project because its parent space is also trashed',
         HttpErrorCode.VALIDATION_ERROR,
         {
           localization: {
@@ -2252,7 +2252,7 @@ export class TrashService {
     const accessTokenId = this.cls.get('accessTokenId');
     await this.permissionService.validPermissions(
       resourceId,
-      ['table|delete', 'app|delete', 'automation|delete'],
+      ['table|delete', 'app|delete', 'automation|delete', 'routine|delete'],
       accessTokenId,
       true
     );
@@ -2423,7 +2423,7 @@ export class TrashService {
         const baseId = parentId ?? '';
         if (!baseId) {
           throw new CustomHttpException(
-            'Base ID is required for deleting table resources',
+            'Project ID is required for deleting table resources',
             HttpErrorCode.VALIDATION_ERROR,
             {
               localization: {

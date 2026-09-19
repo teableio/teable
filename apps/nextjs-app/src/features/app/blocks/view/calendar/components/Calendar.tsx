@@ -18,11 +18,11 @@ import interactionPlugin from '@fullcalendar/interaction';
 import FullCalendar from '@fullcalendar/react';
 import { FieldKeyType } from '@teable/core';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Loader2 } from '@teable/icons';
-import { useTheme } from '@teable/next-themes';
 import { updateRecord } from '@teable/openapi';
 import { AppContext, CalendarDailyCollectionContext } from '@teable/sdk/context';
 import { useTableId, useRecordOperations } from '@teable/sdk/hooks';
 import type { Record } from '@teable/sdk/model';
+import { useTheme } from '@teable/ui-lib';
 import {
   Button,
   Dialog,

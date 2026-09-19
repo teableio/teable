@@ -1,5 +1,7 @@
 import {
   getFieldComputeBatchProgress,
+  computeReliabilitySchema,
+  publicComputeError,
   type DomainError,
   type IGetComputeActivityQueryInput,
   type TableComputeActivitySnapshot,
@@ -28,6 +30,7 @@ export const computeActivityAnomalySchema = z.object({
 });
 
 export const computeActivityDiagnosticsSchema = z.object({
+  reliability: computeReliabilitySchema.optional(),
   computeMode: z.literal('server'),
   executionState: z.enum(['running', 'paused']).optional(),
   activeFieldCount: z.number(),
@@ -57,6 +60,8 @@ export const computeActivityDiagnosticsSchema = z.object({
 });
 
 export const getComputeActivityResponseDataSchema = z.object({
+  observedAt: z.string().datetime().optional(),
+  observationState: z.enum(['available', 'syncing', 'unavailable']).optional(),
   tableId: z.string(),
   baseId: z.string(),
   table: tableComputeMetaDtoSchema
@@ -110,6 +115,8 @@ export const mapComputeActivitySnapshotToDto = (
   snapshot: TableComputeActivitySnapshot
 ): Result<IGetComputeActivityResponseDataDto, DomainError> => {
   return ok({
+    observedAt: snapshot.observedAt,
+    observationState: snapshot.observationState,
     tableId: snapshot.tableId,
     baseId: snapshot.baseId,
     table: snapshot.table
@@ -133,7 +140,8 @@ export const mapComputeActivitySnapshotToDto = (
       estimatedDirtyRecords: field.estimatedDirtyRecords || undefined,
       startedAt: field.startedAt ?? undefined,
       lastDurationMs: field.lastDurationMs ?? undefined,
-      lastError: field.lastError,
+      lastError: publicComputeError(field.lastError),
+      reliability: field.reliability,
       activeTaskCount: field.activeTaskCount,
       processingTaskCount: field.processingTaskCount,
       generation: field.generation,
@@ -145,6 +153,11 @@ export const mapComputeActivitySnapshotToDto = (
     })),
     diagnostics: {
       ...snapshot.diagnostics,
+      anomalies: snapshot.diagnostics.anomalies.map((item) =>
+        item.kind === 'failed'
+          ? { ...item, message: 'Computed results have not been updated' }
+          : item
+      ),
       executionState: snapshot.diagnostics.executionState,
       pause: snapshot.diagnostics.pause,
     },

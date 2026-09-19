@@ -49,7 +49,8 @@
     "previewFileLimit": "Preview file size limit: {{size}}MB, please download to view instead.",
     "loadFileError": "Failed to load file",
     "previousAttachment": "Previous",
-    "nextAttachment": "Next"
+    "nextAttachment": "Next",
+    "deleteAttachment": "Delete"
   },
   "undoRedo": {
     "undo": "Undo",
@@ -397,13 +398,13 @@
       "spaceInviteEmail": "Invite via email in space",
       "spaceInviteLink": "Invite via link in space",
       "spaceGrantRole": "Grant role in space",
-      "baseCreate": "Create base",
-      "baseDelete": "Delete base",
-      "baseRead": "Read base",
-      "baseReadAll": "Read all bases",
-      "baseUpdate": "Update base",
-      "baseInviteEmail": "Invite via email in base",
-      "baseInviteLink": "Invite via link in base",
+      "baseCreate": "Create project",
+      "baseDelete": "Delete project",
+      "baseRead": "Read project",
+      "baseReadAll": "Read all projects",
+      "baseUpdate": "Update project",
+      "baseInviteEmail": "Invite via email in project",
+      "baseInviteLink": "Invite via link in project",
       "baseAuthorityMatrixConfig": "Configure authority matrix",
       "baseDbConnect": "Connect to database",
       "tableCreate": "Create table",
@@ -437,6 +438,10 @@
       "automationDelete": "Delete automation",
       "automationRead": "Read automation",
       "automationUpdate": "Update automation",
+      "routineCreate": "Create routine",
+      "routineDelete": "Delete routine",
+      "routineRead": "Read routine",
+      "routineUpdate": "Update routine",
       "appCreate": "Create app",
       "appDelete": "Delete app",
       "appRead": "Read app",
@@ -444,7 +449,7 @@
       "userEmailRead": "Read current user email",
       "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Read record history",
-      "baseQuery": "Query base",
+      "baseQuery": "Query project",
       "instanceRead": "Read instance",
       "instanceUpdate": "Update instance",
       "enterpriseRead": "Read enterprise configuration",
@@ -455,10 +460,11 @@
     "table": "Table",
     "view": "View",
     "space": "Space",
-    "base": "Base",
+    "base": "Project",
     "field": "Field",
     "record": "Record",
     "automation": "Automation",
+    "routine": "Routine",
     "app": "App",
     "user": "User",
     "recordHistory": "Record history",
@@ -953,7 +959,13 @@
       "recordsPerMutationMax": "This operation changes too many records. Maximum is {{max}} records at a time.",
       "computedCellValueMaxBytes": "Computed cell value is too large. Maximum is {{max}} bytes.",
       "formulaMaxLength": "Formula is too long. Maximum is {{max}} characters.",
-      "tablesPerBaseMax": "This base has reached the table limit. Maximum is {{max}} tables.",
+      "formulaCompileNodesMax": "The formula's expanded structure exceeds the compilation limit of {{max}} nodes. Reduce repeated references or complex branches. This change was not saved.",
+      "formulaCompileDepthMax": "The formula's calculation structure exceeds the nesting limit of {{max}} levels. Reduce nested functions or chained operations. This change was not saved.",
+      "formulaReferenceDepthMax": "The formula exceeds the reference depth limit of {{max}} levels. Shorten chains of references between formulas. This change was not saved.",
+      "formulaBindingsMax": "Compiling the formula requires more than {{max}} intermediate calculation bindings. Simplify the formula's branches and referenced calculations. This change was not saved.",
+      "formulaCompileBytesMax": "The formula's intermediate compilation fragments exceed the total limit of {{max}} bytes. Reduce large literals, repeated references or complex branches. This change was not saved.",
+      "formulaSqlBytesMax": "The database query generated for the formula exceeds the limit of {{max}} bytes. Simplify the formula and its referenced calculations. This change was not saved.",
+      "tablesPerBaseMax": "This project has reached the table limit. Maximum is {{max}} tables.",
       "fieldsPerTableMax": "This table has too many fields. Maximum is {{max}} fields.",
       "rowsPerTableMax": "This table has too many records. Maximum is {{max}} records.",
       "viewsPerTableMax": "This table has reached the view limit. Maximum is {{max}} views.",
@@ -1054,7 +1066,7 @@
       "runNotFound": "Automation run not found",
       "anchorNotFound": "Anchor automation not found",
       "validationError": "Automation configuration validation error",
-      "tableNotInBase": "You can only subscribe to a table within your base",
+      "tableNotInBase": "You can only subscribe to a table within your project",
       "alreadyActiveAndNotDraft": "Automation already active and not draft",
       "noActiveSnapshot": "Automation has no active snapshot",
       "onlyFailedRunsCanRerun": "Only failed runs can be rerun",
@@ -1078,6 +1090,8 @@
       "unsupportedCategory": "Unsupported category",
       "unknownConnectionType": "Unknown email connection type",
       "imapPasswordNotConfigured": "IMAP password not configured",
+      "secretNotGranted": "Secret {{alias}} is not granted to the automation",
+      "credentialMustBeSecret": "Credentials must be secrets granted to the automation",
       "integrationNotFound": "Integration not found or has no credentials",
       "webhookTriggerNotFound": "Webhook trigger not found",
       "emailReceivedTriggerNotFound": "EmailReceived trigger not found",
@@ -1089,12 +1103,15 @@
       "apiKeyNotConfigured": "Scrape service is not configured",
       "triggerFailed": "Scrape trigger failed: {{detail}}",
       "snapshotError": "Scrape snapshot error: {{detail}}",
-      "timeout": "Scrape timed out after {{seconds}}s"
+      "timeout": "Scrape timed out after {{seconds}}s",
+      "catalogFailed": "Scrape catalog request failed: {{detail}}",
+      "discoverByOnCatalogDataset": "discoverBy applies only to raw dataset ids, not to {{datasetId}}"
     },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
       "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
-      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}",
+      "providerUnsupported": "{{provider}} connections are no longer supported and cannot be granted"
     },
     "space": {
       "notFound": "Space not found",
@@ -1110,17 +1127,17 @@
       "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
     },
     "base": {
-      "notFound": "Base not found",
-      "cannotAccess": "You don't have permission to access base {{baseId}}",
-      "anchorNotFound": "Anchor base {{anchorId}} not found",
-      "baseAndSpaceMismatch": "Base {{baseId}} and space {{spaceId}} mismatch",
+      "notFound": "Project not found",
+      "cannotAccess": "You don't have permission to access project {{baseId}}",
+      "anchorNotFound": "Anchor project {{anchorId}} not found",
+      "baseAndSpaceMismatch": "Project {{baseId}} and space {{spaceId}} mismatch",
       "templateNotFound": "Template {{templateId}} not found"
     },
     "baseNode": {
-      "baseIdIsRequired": "Base ID is required",
+      "baseIdIsRequired": "Project ID is required",
       "nodeIdIsRequired": "Node ID is required",
       "invalidResourceType": "Invalid resource type",
-      "notFound": "Base node not found",
+      "notFound": "Project node not found",
       "parentMustBeFolder": "Parent must be a folder",
       "cannotDuplicateFolder": "Cannot duplicate folder",
       "cannotDeleteEmptyFolder": "Cannot delete folder because it is not empty",
@@ -1135,6 +1152,22 @@
       "folderNotFound": "Folder not found",
       "anchorNotFound": "Anchor node not found",
       "nameAlreadyExists": "Name already exists"
+    },
+    "routine": {
+      "notFound": "Routine not found",
+      "runNotFound": "Routine run not found",
+      "configRequiredToActivate": "Cannot activate a routine without a saved config",
+      "noFutureOccurrence": "The schedule has no future occurrence",
+      "onlyActiveCanDeactivate": "Only an active routine can be deactivated",
+      "configRequiredToRun": "Cannot run a routine without a saved config",
+      "runAlreadyInFlight": "A run of this routine is already in flight",
+      "invalidRunCursor": "Invalid run list cursor",
+      "invalidSchedule": "Invalid routine schedule: {{reason}}"
+    },
+    "chat": {
+      "notFound": "Chat not found",
+      "accessDenied": "You are not allowed to access this chat",
+      "serverAuthoredType": "Chats of type {{type}} are created by the server"
     },
     "dashboard": {
       "notFound": "Dashboard not found"
@@ -1174,7 +1207,7 @@
       "loginRequired": "Sign in to edit this shared view"
     },
     "baseShare": {
-      "notFound": "Base share not found or sharing is disabled",
+      "notFound": "Project share not found or sharing is disabled",
       "alreadyExists": "A share already exists for this node",
       "copyNotAllowed": "This share does not allow copying"
     },
@@ -1192,14 +1225,14 @@
     },
     "dbConnection": {
       "unsupportedDriver": "Unsupported database driver: {{driver}}",
-      "onlyOwnerCanRemove": "Only the base owner can remove database connection for base {{baseId}}",
-      "onlyOwnerCanCreate": "Only the base owner can create database connection for base {{baseId}}",
+      "onlyOwnerCanRemove": "Only the project owner can remove database connection for project {{baseId}}",
+      "onlyOwnerCanCreate": "Only the project owner can create database connection for project {{baseId}}",
       "roleNotExist": "Database role {{role}} does not exist"
     },
     "baseQuery": {
       "queryFailed": "Query failed: {{message}}",
       "invalidJoinType": "Invalid join type: {{joinType}}",
-      "tableNotFound": "Table {{tableId}} not found in base {{baseId}}"
+      "tableNotFound": "Table {{tableId}} not found in project {{baseId}}"
     },
     "baseSqlExecutor": {
       "notAllowedToExecuteSqlWithKeyword": "Not allowed to execute sql with keyword {{keyword}}",
@@ -1219,7 +1252,7 @@
       "accessTokenNoPermission": "Access token does not have the required permission",
       "invalidResource": "Resource is not valid",
       "notAllowedSpace": "You don't have permission to access this space",
-      "notAllowedBase": "You don't have permission to access this base",
+      "notAllowedBase": "You don't have permission to access this project",
       "notAllowedTables": "You don't have permission to access tables({{tableIds}})",
       "notAllowedOperationTable": "You don't have permission to operate on this table",
       "notAllowedOperationRecord": "You don't have permission to operate on this record",
@@ -1239,7 +1272,7 @@
       "primaryFieldCannotBeDisabledForRead": "Primary field cannot be disabled for read access",
       "fieldDuplicated": "Field is duplicated in permission configuration",
       "cannotSetRecordPermissionGroup": "Cannot set this combination of record permissions({{actions}})",
-      "notFoundBaseAndTable": "Base ID and Table ID not found",
+      "notFoundBaseAndTable": "Project ID and Table ID not found",
       "roleTablesShouldNotBeEmpty": "Authority matrix role tables should not be empty"
     },
     "selection": {
@@ -1340,7 +1373,10 @@
       "exceedMaxAutomationRunLimit": "Maximum automation run limit exceeded",
       "manualSubscriptionNotSupported": "Self-service subscription is not available for this space. For upgrades, downgrades, or other subscription changes, please contact Teable support.",
       "appSumoSubscriptionNotSupported": "AppSumo subscriptions cannot be modified through this interface. Please manage your subscription on AppSumo.",
-      "customerNotFound": "No billing customer record found for this space."
+      "planNotAvailable": "This plan option is no longer available for new subscriptions.",
+      "seatLimitExceeded": "Not enough purchased seats. Add seats to invite more collaborators.",
+      "customerNotFound": "No billing customer record found for this space.",
+      "creditAddOnRetired": "The recurring credit add-on has been retired. Choose a larger credit tier on your plan instead."
     },
     "aggregation": {
       "searchQueryRequired": "Search query is required",
@@ -1422,9 +1458,9 @@
       "noPermissionToDelete": "You do not have permission to delete this collaborator",
       "noPermissionToUpdate": "You do not have permission to update this collaborator",
       "noPermissionToOperateRole": "You do not have permission to operate this role",
-      "alreadyExistedInBase": "Collaborator has already existed in base",
+      "alreadyExistedInBase": "Collaborator has already existed in project",
       "userNotFound": "User not found: {{userIds}}",
-      "baseNotFound": "Base not found",
+      "baseNotFound": "Project not found",
       "noPermissionToAddRole": "You do not have permission to add this role collaborator",
       "departmentNotFound": "Department not found"
     },
@@ -1462,9 +1498,9 @@
     "trash": {
       "invalidResourceType": "Invalid resource type",
       "notFound": "Trash item not found",
-      "parentSpaceTrashed": "Unable to restore this base because its parent space is also in trash",
-      "parentBaseOrSpaceTrashed": "Unable to restore this table because its parent base or space is also in trash",
-      "parentBaseTrashed": "Unable to restore this item because its parent base is also in trash",
+      "parentSpaceTrashed": "Unable to restore this project because its parent space is also in trash",
+      "parentBaseOrSpaceTrashed": "Unable to restore this table because its parent project or space is also in trash",
+      "parentBaseTrashed": "Unable to restore this item because its parent project is also in trash",
       "parentNotFound": "Parent resource not found",
       "tableNotFound": "Table trash item not found"
     },
@@ -1496,7 +1532,7 @@
       "waitlistInviteCodeRequired": "Waitlist is enabled, invite code is required",
       "waitlistInviteCodeInvalid": "Waitlist is enabled, invite code is invalid",
       "systemUser": "User is a system user",
-      "collaboratorsInSpaces": "User has collaborators in spaces (or deleted spaces in trash)",
+      "soleOwnerOfSpaces": "User is the only owner of spaces that must be acknowledged or handed over before the account can be deleted",
       "notFound": "User not found",
       "cannotDeleteAdmin": "Cannot delete admin user",
       "cannotDeactivateAdmin": "Cannot deactivate admin user",
@@ -1584,7 +1620,8 @@
       "linkedInPostNotFound": "LinkedIn post not found: {{postId}}",
       "linkedInAuthorNotFound": "LinkedIn author not found: {{postId}}",
       "fetchLinkedInUserFailed": "Failed to fetch LinkedIn user: {{error}}"
-    }
+    },
+    "tableProvisionPending": "Table structure is updating. Please try again shortly."
   },
   "usageLimitBanner": {
     "viewDetail": "View details",
@@ -1593,7 +1630,8 @@
       "titleIncrement": "This action adds {{increment}} rows, exceeding your plan limit of {{limit}}",
       "titleBatch": "This operation would exceed your plan limit of {{limit}} rows",
       "description": "You can't add more records. Upgrade to lift the limit instantly, or free up space by deleting records.",
-      "unit": "rows"
+      "unit": "rows",
+      "constraint": "No more records can be added on the current plan. Free up space by deleting records."
     },
     "credit": {
       "unit": "credits"
@@ -1603,6 +1641,12 @@
     },
     "generic": {
       "description": "Upgrade your plan to lift this limit."
+    },
+    "neutral": {
+      "title": "This action exceeds a limit of the space's current plan"
+    },
+    "seats": {
+      "unit": "seats"
     }
   }
 }

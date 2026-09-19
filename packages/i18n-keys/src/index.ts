@@ -32,6 +32,12 @@ export const sdkErrorI18nKeys = {
     recordsPerMutationMax: 'httpErrors.limit.recordsPerMutationMax',
     computedCellValueMaxBytes: 'httpErrors.limit.computedCellValueMaxBytes',
     formulaMaxLength: 'httpErrors.limit.formulaMaxLength',
+    formulaCompileNodesMax: 'httpErrors.limit.formulaCompileNodesMax',
+    formulaCompileDepthMax: 'httpErrors.limit.formulaCompileDepthMax',
+    formulaReferenceDepthMax: 'httpErrors.limit.formulaReferenceDepthMax',
+    formulaBindingsMax: 'httpErrors.limit.formulaBindingsMax',
+    formulaCompileBytesMax: 'httpErrors.limit.formulaCompileBytesMax',
+    formulaSqlBytesMax: 'httpErrors.limit.formulaSqlBytesMax',
     tablesPerBaseMax: 'httpErrors.limit.tablesPerBaseMax',
     fieldsPerTableMax: 'httpErrors.limit.fieldsPerTableMax',
     rowsPerTableMax: 'httpErrors.limit.rowsPerTableMax',
@@ -71,6 +77,12 @@ export type SdkErrorI18nKey =
   | 'httpErrors.limit.recordsPerMutationMax'
   | 'httpErrors.limit.computedCellValueMaxBytes'
   | 'httpErrors.limit.formulaMaxLength'
+  | 'httpErrors.limit.formulaCompileNodesMax'
+  | 'httpErrors.limit.formulaCompileDepthMax'
+  | 'httpErrors.limit.formulaReferenceDepthMax'
+  | 'httpErrors.limit.formulaBindingsMax'
+  | 'httpErrors.limit.formulaCompileBytesMax'
+  | 'httpErrors.limit.formulaSqlBytesMax'
   | 'httpErrors.limit.tablesPerBaseMax'
   | 'httpErrors.limit.fieldsPerTableMax'
   | 'httpErrors.limit.rowsPerTableMax'

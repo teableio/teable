@@ -1,6 +1,31 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import Joi from 'joi';
 
+import { DEFAULT_COMPUTED_OUTBOX_WORKER_CONCURRENCY } from './computed-outbox-trigger.config';
+
+/** `envName` becomes required once `SOCIAL_AUTH_PROVIDERS` lists `provider`. */
+const requiredForSocialProvider = (
+  provider: string,
+  envName: string,
+  schema: Joi.StringSchema = Joi.string()
+) =>
+  Joi.when('SOCIAL_AUTH_PROVIDERS', {
+    is: Joi.string()
+      .regex(new RegExp(`(^|,)(${provider})(,|$)`))
+      .required(),
+    then: schema.required().messages({
+      'any.required': `The \`${envName}\` is required when \`SOCIAL_AUTH_PROVIDERS\` includes \`${provider}\``,
+    }),
+  });
+
+// `<Services ID>:<Team ID>:<Key ID>`: a reverse-DNS Services ID and two 10-character Apple ids.
+const appleClientSchema = Joi.string()
+  .pattern(/^[^:\s]+:[A-Z0-9]{10}:[A-Z0-9]{10}$/)
+  .messages({
+    'string.pattern.base':
+      'The `BACKEND_APPLE_CLIENT` must be `<Services ID>:<Team ID>:<Key ID>`, e.g. `ai.example.signin:ABCDE12345:FGHIJ67890`',
+  });
+
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('test', 'development', 'production').default('development'),
   PORT: Joi.number().default(3000),
@@ -67,10 +92,15 @@ export const envValidationSchema = Joi.object({
 
   V2_COMPUTED_OUTBOX_TRIGGER_PRODUCER_ENABLED: Joi.boolean().optional(),
   V2_COMPUTED_OUTBOX_TRIGGER_CONSUMER_ENABLED: Joi.boolean().optional(),
-  V2_COMPUTED_OUTBOX_TRIGGER_CONCURRENCY: Joi.number().integer().positive().default(8),
+  V2_COMPUTED_OUTBOX_TRIGGER_CONCURRENCY: Joi.number()
+    .integer()
+    .positive()
+    .default(DEFAULT_COMPUTED_OUTBOX_WORKER_CONCURRENCY),
   V2_COMPUTED_OUTBOX_TRIGGER_PUBLISH_TIMEOUT_MS: Joi.number().integer().positive().default(1000),
   V2_COMPUTED_OUTBOX_MONITOR_CONCURRENCY: Joi.number().integer().positive().default(4),
   V2_COMPUTED_OUTBOX_MONITOR_INTERVAL_MS: Joi.number().integer().positive().default(30000),
+  V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_BASE: Joi.number().integer().positive().default(2),
+  V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_SEED_TABLE: Joi.number().integer().positive().default(1),
   V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS: Joi.number().integer().min(0).default(60000),
   V2_COMPUTED_INLINE_STATEMENT_TIMEOUT_MS: Joi.number().integer().min(0).default(60000),
   V2_COMPUTED_OUTBOX_FIELD_BACKFILL_BATCH_SIZE: Joi.number().integer().positive().default(500),
@@ -80,25 +110,17 @@ export const envValidationSchema = Joi.object({
   // per-space scheduling concurrency limits (default and ceiling per resource)
   SPACE_AI_FIELD_GENERATION_DEFAULT_LIMIT: Joi.number().integer().positive().optional(),
   SPACE_WORKFLOW_RUN_DEFAULT_LIMIT: Joi.number().integer().positive().optional(),
+  SPACE_ROUTINE_RUN_DEFAULT_LIMIT: Joi.number().integer().positive().optional(),
   // github auth
-  BACKEND_GITHUB_CLIENT_ID: Joi.when('SOCIAL_AUTH_PROVIDERS', {
-    is: Joi.string()
-      .regex(/(^|,)(github)(,|$)/)
-      .required(),
-    then: Joi.string().required().messages({
-      'any.required':
-        'The `BACKEND_GITHUB_CLIENT_ID` is required when `SOCIAL_AUTH_PROVIDERS` includes `github`',
-    }),
-  }),
-  BACKEND_GITHUB_CLIENT_SECRET: Joi.when('SOCIAL_AUTH_PROVIDERS', {
-    is: Joi.string()
-      .regex(/(^|,)(github)(,|$)/)
-      .required(),
-    then: Joi.string().required().messages({
-      'any.required':
-        'The `BACKEND_GITHUB_CLIENT_SECRET` is required when `SOCIAL_AUTH_PROVIDERS` includes `github`',
-    }),
-  }),
+  BACKEND_GITHUB_CLIENT_ID: requiredForSocialProvider('github', 'BACKEND_GITHUB_CLIENT_ID'),
+  BACKEND_GITHUB_CLIENT_SECRET: requiredForSocialProvider('github', 'BACKEND_GITHUB_CLIENT_SECRET'),
+  // apple auth (Sign in with Apple, web flow)
+  BACKEND_APPLE_CLIENT: requiredForSocialProvider(
+    'apple',
+    'BACKEND_APPLE_CLIENT',
+    appleClientSchema
+  ),
+  BACKEND_APPLE_PRIVATE_KEY: requiredForSocialProvider('apple', 'BACKEND_APPLE_PRIVATE_KEY'),
 
   PASSWORD_LOGIN_DISABLED: Joi.string().equal('true').optional(),
 })

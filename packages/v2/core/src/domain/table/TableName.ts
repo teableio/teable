@@ -1,11 +1,8 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { z } from 'zod';
 
 import { domainError, type DomainError } from '../shared/DomainError';
 import { ValueObject } from '../shared/ValueObject';
-
-const tableNameSchema = z.string().trim().min(1);
 
 export class TableName extends ValueObject {
   private constructor(private readonly value: string) {
@@ -13,9 +10,14 @@ export class TableName extends ValueObject {
   }
 
   static create(raw: unknown): Result<TableName, DomainError> {
-    const parsed = tableNameSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.validation({ message: 'Invalid TableName' }));
-    return ok(new TableName(parsed.data));
+    if (typeof raw !== 'string') {
+      return err(domainError.validation({ message: 'Invalid TableName' }));
+    }
+    const value = raw.trim();
+    if (value.length === 0) {
+      return err(domainError.validation({ message: 'Invalid TableName' }));
+    }
+    return ok(new TableName(value));
   }
 
   equals(other: TableName): boolean {

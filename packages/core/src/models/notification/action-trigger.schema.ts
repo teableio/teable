@@ -1,5 +1,12 @@
 import { z } from 'zod';
 
+/**
+ * Presence signal emitted when a table's derived compute activity changes.
+ * The payload is a refetch hint; authoritative values come from
+ * `GET /v2/tables/getComputeActivity`.
+ */
+export const COMPUTE_ACTIVITY_CHANGED = 'computeActivityChanged';
+
 export const tableActionKeys = z.enum([
   'addRecord',
   'setRecord',
@@ -11,6 +18,7 @@ export const tableActionKeys = z.enum([
   'taskCompleted',
   'taskCancelled',
   'taskFailed',
+  COMPUTE_ACTIVITY_CHANGED,
 ]);
 
 export const viewActionKeys = z.enum([

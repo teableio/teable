@@ -53,7 +53,7 @@ export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTr
     setSettingModalOpen(true);
   }, [setOpen, setSettingModalOpen]);
 
-  if (!showDelete && !showRename && !showSettings) {
+  if (!showDelete && !showRename && !showSettings && !showImportBase) {
     return null;
   }
 

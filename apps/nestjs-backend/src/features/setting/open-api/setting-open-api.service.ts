@@ -140,6 +140,7 @@ export class SettingOpenApiService {
       ...(aiConfig ?? {}),
       ...patch,
     } as IAIConfig;
+    nextAiConfig.llmProviders ??= [];
 
     this.normalizeInstanceProviderNames(nextAiConfig as Record<string, unknown>);
 
@@ -188,7 +189,7 @@ export class SettingOpenApiService {
     }
     const chatModel = aiConfig.chatModel as Record<string, string | undefined> | undefined;
     if (chatModel) {
-      for (const tier of ['lg', 'md', 'sm']) {
+      for (const tier of ['xl', 'lg', 'md', 'sm']) {
         const key = chatModel[tier];
         if (key && key.includes('@')) {
           const parts = key.split('@');
@@ -279,8 +280,6 @@ export class SettingOpenApiService {
 
   private getAvailableIntegrationProviders(): string[] {
     return [
-      ...(process.env.GMAIL_CLIENT_ID ? ['gmail'] : []),
-      ...(process.env.OUTLOOK_CLIENT_ID ? ['outlook'] : []),
       ...(process.env.AIRTABLE_CLIENT_ID ? ['airtable'] : []),
       // The OAuth client is shared with Google sign-in, so the Picker key is
       // the variable that actually expresses "this instance opted into Sheets

@@ -9,6 +9,10 @@ import { CellValueType } from '../../fields/types/CellValueType';
 import type { ConditionalLookupField } from '../../fields/types/ConditionalLookupField';
 import type { LookupField } from '../../fields/types/LookupField';
 import type { SingleLineTextField } from '../../fields/types/SingleLineTextField';
+import {
+  isFieldReferenceFilterValue,
+  remapUserFilterOperator,
+} from '../../fields/user-filter-operator-remap';
 import { FieldValueTypeVisitor } from '../../fields/visitors/FieldValueTypeVisitor';
 import { AttachmentConditionSpec } from './AttachmentConditionSpec';
 import { ButtonConditionSpec } from './ButtonConditionSpec';
@@ -32,6 +36,7 @@ import {
   linkConditionOperatorSchema,
   multipleSelectConditionOperatorSchema,
   numberConditionOperatorSchema,
+  recordConditionOperatorSchema,
   recordConditionOperatorsExpectingArray,
   recordConditionOperatorsExpectingNull,
   singleSelectConditionOperatorSchema,
@@ -42,6 +47,8 @@ import type { RecordConditionSpec } from './RecordConditionSpec';
 import {
   isRecordConditionFieldReferenceValue,
   isRecordConditionLiteralListValue,
+  isRecordConditionLiteralValue,
+  RecordConditionLiteralListValue,
   RecordConditionLiteralValue,
   type RecordConditionValue,
 } from './RecordConditionValues';
@@ -53,6 +60,65 @@ import { UserConditionSpec } from './UserConditionSpec';
 export type FieldConditionSpecInput = {
   operator: RecordConditionOperator;
   value?: RecordConditionValue;
+};
+
+const adaptStaleUserConditionInput = (
+  field: Field,
+  isMultiple: boolean,
+  input: FieldConditionSpecInput
+): FieldConditionSpecInput | undefined => {
+  const type = field.type();
+  if (
+    !type.equals(FieldType.user()) &&
+    !type.equals(FieldType.createdBy()) &&
+    !type.equals(FieldType.lastModifiedBy())
+  ) {
+    return undefined;
+  }
+
+  let rawValue: unknown;
+  if (!input.value) {
+    rawValue = undefined;
+  } else if (isRecordConditionLiteralListValue(input.value)) {
+    rawValue = [...input.value.toValues()];
+  } else if (isRecordConditionLiteralValue(input.value)) {
+    rawValue = input.value.toValue();
+  } else if (isRecordConditionFieldReferenceValue(input.value)) {
+    rawValue = { type: 'field', fieldId: input.value.field().id().toString() };
+  } else {
+    return undefined;
+  }
+
+  const remapped = remapUserFilterOperator(
+    input.operator,
+    rawValue,
+    isMultiple ? 'singleToMultiple' : 'multipleToSingle'
+  );
+  if (!remapped || !remapped.changed) {
+    return undefined;
+  }
+
+  const parsedOperator = recordConditionOperatorSchema.safeParse(remapped.operator);
+  if (!parsedOperator.success) {
+    return undefined;
+  }
+
+  if (remapped.value == null) {
+    return { operator: parsedOperator.data };
+  }
+  if (
+    isRecordConditionFieldReferenceValue(input.value) &&
+    isFieldReferenceFilterValue(remapped.value)
+  ) {
+    return { operator: parsedOperator.data, value: input.value };
+  }
+  const nextValue = Array.isArray(remapped.value)
+    ? RecordConditionLiteralListValue.create(remapped.value)
+    : RecordConditionLiteralValue.create(remapped.value);
+  if (nextValue.isErr()) {
+    return undefined;
+  }
+  return { operator: parsedOperator.data, value: nextValue.value };
 };
 
 const parseOperator = <T>(
@@ -117,9 +183,17 @@ export class FieldConditionSpecBuilder {
 
     const validOperators = getValidRecordConditionOperators(operatorField, valueTypeResult.value);
     if (!validOperators.includes(input.operator)) {
-      return err(
-        domainError.validation({ message: 'Invalid record condition operator for field' })
+      const adapted = adaptStaleUserConditionInput(
+        operatorField,
+        valueTypeResult.value.isMultipleCellValue.isMultiple(),
+        input
       );
+      if (!adapted || !validOperators.includes(adapted.operator)) {
+        return err(
+          domainError.validation({ message: 'Invalid record condition operator for field' })
+        );
+      }
+      input = adapted;
     }
 
     if (recordConditionOperatorsExpectingNull.includes(input.operator)) {

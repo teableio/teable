@@ -24,6 +24,7 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type {
   IImportParseResult,
@@ -360,8 +361,7 @@ describe('ImportRecordsHandler', () => {
           throw new Error('tableUpdateFlow should not be called');
         },
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const command = ImportRecordsCommand.create({
@@ -418,8 +418,7 @@ describe('ImportRecordsHandler', () => {
           throw new Error('tableUpdateFlow should not be called');
         },
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const command = ImportRecordsCommand.create({
@@ -485,8 +484,7 @@ describe('ImportRecordsHandler', () => {
       {
         execute: async () => ok({ table, events: [] }),
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const result = await handler.handle(
@@ -549,8 +547,7 @@ describe('ImportRecordsHandler', () => {
       {
         execute: async () => ok({ table, events: [] }),
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const result = await handler.handle(
@@ -622,8 +619,7 @@ describe('ImportRecordsHandler', () => {
       {
         execute: async () => ok({ table, events: [] }),
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const result = await handler.handle(
@@ -681,8 +677,7 @@ describe('ImportRecordsHandler', () => {
       {
         execute: async () => ok({ table, events: [] }),
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const result = await handler.handle(
@@ -736,8 +731,7 @@ describe('ImportRecordsHandler', () => {
           return ok({ table, events: [event] });
         },
       } as unknown as TableUpdateFlow,
-      eventBus,
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus)
     );
 
     const result = await handler.handle(
@@ -812,8 +806,7 @@ describe('ImportRecordsHandler', () => {
       {
         execute: async () => ok({ table, events: [] }),
       } as unknown as TableUpdateFlow,
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const result = await handler.handle(

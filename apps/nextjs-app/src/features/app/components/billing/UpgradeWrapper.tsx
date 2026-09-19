@@ -14,6 +14,7 @@ import { useAppSumoTierConfig, useBillingLevelConfig } from '../../hooks/useBill
 import { useIsCloud } from '../../hooks/useIsCloud';
 import { useIsCommunity } from '../../hooks/useIsCommunity';
 import { useIsEE } from '../../hooks/useIsEE';
+import { useUpgradeCtaEnabled } from '../../hooks/useUpgradeCtaEnabled';
 import { PRICING_URL } from './constant';
 
 interface IUpgradeWrapperRenderProps {
@@ -21,6 +22,11 @@ interface IUpgradeWrapperRenderProps {
   needsUpgrade: boolean;
   isCommunity: boolean;
   currentLevel?: BillingProductLevel;
+}
+
+// React 19 types ReactElement props as unknown, so cloneElement needs the injected prop shape spelled out
+interface IClickCaptureProps {
+  onClickCapture?: (e: Event) => void;
 }
 
 interface IUpgradeWrapperProps {
@@ -63,6 +69,7 @@ export const useUpgradeAction = (props: {
   const isCommunity = useIsCommunity();
   const isEE = useIsEE();
   const isReadOnlyPreview = useIsReadOnlyPreview();
+  const upgradeCtaEnabled = useUpgradeCtaEnabled();
   const base = useBase() as Base | undefined;
   const { t } = useTranslation('common');
   const { openModal } = useUsageLimitModalStore();
@@ -129,6 +136,13 @@ export const useUpgradeAction = (props: {
     !isCommunity;
 
   const handleUpgradeClick = useCallback(() => {
+    // Native mobile WebView: the feature stays gated, but the click states the
+    // constraint instead of steering to a purchase (App Store 3.1.3).
+    if (!upgradeCtaEnabled) {
+      toast.warning(t('billing.unavailableInPlanTips'));
+      return;
+    }
+
     if (onUpgradeClick) {
       onUpgradeClick();
       return;
@@ -142,7 +156,7 @@ export const useUpgradeAction = (props: {
 
     if (isCloud) {
       if (!spaceId) {
-        toast.error('Base ID is required for billing upgrade');
+        toast.error('Space ID is required for billing upgrade');
         return;
       }
 
@@ -155,12 +169,13 @@ export const useUpgradeAction = (props: {
     } else {
       window.open(PRICING_URL, '_blank');
     }
-  }, [isCloud, isAppSumo, spaceId, isSpaceOwner, t, openModal, onUpgradeClick]);
+  }, [upgradeCtaEnabled, isCloud, isAppSumo, spaceId, isSpaceOwner, t, openModal, onUpgradeClick]);
 
   const billingConfig = useBillingLevelConfig(targetBillingLevel);
 
   const badge = useMemo(() => {
-    if (!needsUpgrade) {
+    // The badge is an "Upgrade to X" affordance, so it has no place in embed mode.
+    if (!needsUpgrade || !upgradeCtaEnabled) {
       return null;
     }
 
@@ -188,7 +203,14 @@ export const useUpgradeAction = (props: {
         {badgeName}
       </span>
     );
-  }, [needsUpgrade, isAppSumo, targetAppSumoTierConfig, billingConfig, handleUpgradeClick]);
+  }, [
+    needsUpgrade,
+    upgradeCtaEnabled,
+    isAppSumo,
+    targetAppSumoTierConfig,
+    billingConfig,
+    handleUpgradeClick,
+  ]);
 
   return {
     badge,
@@ -198,6 +220,7 @@ export const useUpgradeAction = (props: {
     currentLevel,
     isLevelSufficient: isLevelSufficientMemo,
     handleUpgradeClick,
+    upgradeCtaEnabled,
   };
 };
 
@@ -224,7 +247,7 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
       isCommunity,
       currentLevel,
     });
-    return cloneElement(element, {
+    return cloneElement(element as ReactElement<IClickCaptureProps>, {
       onClickCapture: (e: Event) => {
         if (!needsUpgrade) return;
         e.preventDefault();
@@ -251,7 +274,7 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
     return children;
   }
 
-  return cloneElement(children, {
+  return cloneElement(children as ReactElement<IClickCaptureProps>, {
     onClickCapture: (e: Event) => {
       if (!needsUpgrade) return;
       e.preventDefault();

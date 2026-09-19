@@ -218,7 +218,7 @@ describe('InvitationService', () => {
           emails: ['notfound@example.com'],
           role: Role.Creator,
         })
-      ).rejects.toThrow('Base not found');
+      ).rejects.toThrow('Project not found');
     });
 
     it('should send invitation email correctly', async () => {

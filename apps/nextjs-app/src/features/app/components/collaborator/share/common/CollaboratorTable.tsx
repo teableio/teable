@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { IRole } from '@teable/core';
-import { Database } from '@teable/icons';
+import { LayoutGrid } from '@teable/icons';
 import { CollaboratorType, getSpaceCollaboratorList, PrincipalType } from '@teable/openapi';
 import type { CollaboratorItem, UniqueCollaboratorItem } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -108,7 +108,7 @@ const PrincipalPermissionRows = (props: IPrincipalPermissionRowsProps) => {
             <div className="flex min-w-0 items-center gap-1">
               <span className="size-8 shrink-0" aria-hidden="true" />
               <div className="ms-10 flex min-w-0 flex-1 items-center">
-                <Database className="size-4 text-muted-foreground" aria-hidden="true" />
+                <LayoutGrid className="size-4 text-muted-foreground" aria-hidden="true" />
                 <div className="ms-2 flex min-w-0 flex-1 items-center gap-2">
                   <span className="truncate text-sm" title={item.base?.name}>
                     {item.base?.name}
@@ -267,8 +267,8 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
 
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col gap-4', className)}>
-      <div className="min-h-0 flex-1 overflow-y-auto rounded-md border">
-        <Table className="table-fixed">
+      <div className="min-h-0 flex-1 overflow-auto rounded-md border">
+        <Table className={cn('table-fixed', groupByPrincipal && 'min-w-[700px]')}>
           <TableHeader className="sticky top-0 z-10 bg-background [&_th]:shadow-[inset_0_-1px_0_hsl(var(--border))] [&_tr]:border-0">
             <TableRow className="hover:bg-background">
               <TableHead className="px-4 font-normal">{t('invite.table.collaborator')}</TableHead>

@@ -2,6 +2,7 @@
 import { useBase } from '@teable/sdk/hooks';
 import { BaseNodeTree } from './BaseNodeTree';
 import { BasePageRouter } from './BasePageRouter';
+import { FailedTableProvisions } from './FailedTableProvisions';
 
 export const BaseSideBar = (props: {
   renderWinFreeCredit?: (spaceId: string) => React.ReactNode;
@@ -12,6 +13,7 @@ export const BaseSideBar = (props: {
   return (
     <>
       <BasePageRouter />
+      <FailedTableProvisions />
       {/* <TableList /> */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <BaseNodeTree />

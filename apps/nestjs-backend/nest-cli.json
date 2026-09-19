@@ -5,6 +5,11 @@
   "entryFile": "index",
   "flat": true,
   "compilerOptions": {
-    "builder": "webpack"
+    "builder": {
+      "type": "rspack",
+      "options": {
+        "configPath": "./rspack.config.js"
+      }
+    }
   }
 }

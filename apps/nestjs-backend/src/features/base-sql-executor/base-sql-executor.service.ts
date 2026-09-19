@@ -5,7 +5,6 @@ import { DriverClient, HttpErrorCode, parseDsn } from '@teable/core';
 import { PrismaService, getDatabaseUrl } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
-import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
 import {
   DatabaseRouter,
@@ -14,6 +13,9 @@ import {
 import { DATA_KNEX } from '../../global/knex';
 import { BASE_READ_ONLY_ROLE_PREFIX } from './const';
 import { checkTableAccess, validateRoleOperations } from './utils';
+
+/** Room reserved inside the transaction budget for the `SET` round trips and the COMMIT. */
+const STATEMENT_TIMEOUT_MARGIN_MS = 1_000;
 
 @Injectable()
 export class BaseSqlExecutorService {
@@ -24,8 +26,7 @@ export class BaseSqlExecutorService {
     private readonly prismaService: PrismaService,
     private readonly databaseRouter: DatabaseRouter,
     private readonly configService: ConfigService,
-    @InjectModel(DATA_KNEX) private readonly knex: Knex,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @InjectModel(DATA_KNEX) private readonly knex: Knex
   ) {
     this.dsn = parseDsn(this.getDatabaseUrl());
     this.driver = this.dsn.driver as DriverClient;
@@ -168,10 +169,26 @@ export class BaseSqlExecutorService {
   private async setLocalStatementTimeout(prisma: {
     $executeRawUnsafe(query: string): Promise<unknown>;
   }) {
-    const timeoutMs = this.thresholdConfig.searchTimeout;
+    const timeoutMs = this.getQueryStatementTimeout();
     await prisma.$executeRawUnsafe(
       this.knex.raw(`SET LOCAL statement_timeout = ?`, [timeoutMs]).toQuery()
     );
+  }
+
+  /**
+   * Postgres has to cancel the statement before Prisma abandons the transaction it
+   * runs in, otherwise the statement keeps burning server time with nobody waiting
+   * for its result and the connection stays pinned. So the guard is derived from the
+   * transaction budget rather than set independently, leaving room for the `SET`
+   * round trips and the COMMIT. The floor keeps a deliberately small budget usable
+   * instead of collapsing the statement timeout to zero.
+   *
+   * The query runs against the data database, whose budget is deliberately kept in
+   * step with the meta one, so reading it off either service is equivalent.
+   */
+  private getQueryStatementTimeout() {
+    const txTimeout = this.prismaService['defaultTxTimeout'];
+    return Math.max(txTimeout - STATEMENT_TIMEOUT_MARGIN_MS, Math.ceil(txTimeout / 2));
   }
 
   /**

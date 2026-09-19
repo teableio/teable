@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { FieldKeyType, HttpErrorCode } from '@teable/core';
 import type { IFieldVo } from '@teable/core';
 import type {
@@ -45,8 +45,13 @@ import {
   type ListTableRecordsResult,
   MAX_RECORDS_LIMIT,
   type IQueryBus,
+  type ITableRepository,
+  type Table,
+  TableByIdSpec,
+  TableId,
   v2CoreTokens,
 } from '@teable/v2-core';
+import type { DependencyContainer } from '@teable/v2-di';
 import { CacheService } from '../../cache/cache.service';
 import type { ICacheStore } from '../../cache/types';
 import { type IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
@@ -56,6 +61,7 @@ import {
   mapGroupPointsResult,
   normalizeLegacyFilterViaQueryBus,
 } from '../aggregation/open-api/aggregation-v2-result.mapper';
+import { TableQuerySearchVectorRuntimeService } from '../v2/table-query-search-vector-runtime.service';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 import type { IShareViewInfo } from './share-auth.service';
@@ -67,7 +73,9 @@ export class SharedViewRecordQueryV2Service {
     private readonly v2ContainerService: V2ContainerService,
     private readonly v2ContextFactory: V2ExecutionContextFactory,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
-    private readonly cacheService: CacheService<ICacheStore>
+    private readonly cacheService: CacheService<ICacheStore>,
+    @Optional()
+    private readonly tableQuerySearchVectorRuntimeService?: TableQuerySearchVectorRuntimeService
   ) {}
 
   async getAggregations(
@@ -84,12 +92,14 @@ export class SharedViewRecordQueryV2Service {
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const context = await this.v2ContextFactory.createContext(container);
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const table = await this.loadTable(tableId, container, context);
     const filter = await this.normalizeFilter(
       tableId,
       query.filter,
       context.actorId.toString(),
       queryBus,
-      context
+      context,
+      table
     );
     const requestedFields = query.field
       ? Object.entries(query.field).flatMap(([statisticFunc, fieldIds]) =>
@@ -97,6 +107,11 @@ export class SharedViewRecordQueryV2Service {
         )
       : undefined;
     const fields = requestedFields?.length ? requestedFields : undefined;
+    const recordSearchAccessPath =
+      this.tableQuerySearchVectorRuntimeService?.resolveForRecordSearch({
+        table,
+        search: query.search,
+      });
     const aggregationQuery = AggregateTableRecordsQuery.create(
       {
         tableId,
@@ -107,7 +122,7 @@ export class SharedViewRecordQueryV2Service {
         groupBy: query.groupBy,
         includeHiddenFields: Boolean(shareInfo.shareMeta.includeHiddenField),
       },
-      { maxGroupPoints: this.thresholdConfig.maxGroupPoints }
+      { maxGroupPoints: this.thresholdConfig.maxGroupPoints, recordSearchAccessPath, table }
     );
     if (aggregationQuery.isErr()) this.throwDomainError(aggregationQuery.error);
     const result = await queryBus.execute<AggregateTableRecordsQuery, AggregateTableRecordsResult>(
@@ -132,13 +147,20 @@ export class SharedViewRecordQueryV2Service {
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const context = await this.v2ContextFactory.createContext(container);
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const table = await this.loadTable(tableId, container, context);
     const filter = await this.normalizeFilter(
       tableId,
       query.filter,
       context.actorId.toString(),
       queryBus,
-      context
+      context,
+      table
     );
+    const recordSearchAccessPath =
+      this.tableQuerySearchVectorRuntimeService?.resolveForRecordSearch({
+        table,
+        search: query.search,
+      });
     const aggregationQuery = AggregateTableRecordsQuery.create(
       {
         tableId,
@@ -149,7 +171,7 @@ export class SharedViewRecordQueryV2Service {
         groupBy,
         includeHiddenFields: Boolean(shareInfo.shareMeta.includeHiddenField),
       },
-      { maxGroupPoints: this.thresholdConfig.maxGroupPoints }
+      { maxGroupPoints: this.thresholdConfig.maxGroupPoints, recordSearchAccessPath, table }
     );
     if (aggregationQuery.isErr()) this.throwDomainError(aggregationQuery.error);
     const result = await queryBus.execute<AggregateTableRecordsQuery, AggregateTableRecordsResult>(
@@ -379,6 +401,7 @@ export class SharedViewRecordQueryV2Service {
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const context = await this.v2ContextFactory.createContext(container);
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const table = await this.loadTable(tableId, container, context);
     const isLinkSelectionQuery = Boolean(linkOptions) && isLinkRecordSelectionQuery(query);
     const viewId = isLinkSelectionQuery ? view?.id : linkOptions?.filterByViewId ?? view?.id;
     const rawFilter = isLinkSelectionQuery ? undefined : query.filter ?? linkOptions?.filter;
@@ -387,7 +410,8 @@ export class SharedViewRecordQueryV2Service {
       rawFilter,
       context.actorId.toString(),
       queryBus,
-      context
+      context,
+      table
     );
     const sort = [...(query.groupBy ?? []), ...(query.orderBy ?? [])].map((item) => ({
       fieldId: item.fieldId,
@@ -414,6 +438,11 @@ export class SharedViewRecordQueryV2Service {
       {
         includeSearchFieldMatches: true,
         searchIndexMode: hideNotMatchRow ? 'matched' : 'view',
+        table,
+        recordSearchAccessPath: this.tableQuerySearchVectorRuntimeService?.resolveForRecordSearch({
+          table,
+          search: query.search,
+        }),
       }
     );
     if (listQuery.isErr()) this.throwDomainError(listQuery.error);
@@ -468,6 +497,7 @@ export class SharedViewRecordQueryV2Service {
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const context = await this.v2ContextFactory.createContext(container);
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const table = await this.loadTable(tableId, container, context);
 
     const isLinkSelectionQuery = Boolean(linkOptions) && isLinkRecordSelectionQuery(query);
     const viewId = isLinkSelectionQuery ? view?.id : linkOptions?.filterByViewId ?? view?.id;
@@ -477,24 +507,33 @@ export class SharedViewRecordQueryV2Service {
       rawFilter,
       context.actorId.toString(),
       queryBus,
-      context
+      context,
+      table
     );
 
-    const countQuery = CountTableRecordsQuery.create({
-      tableId,
-      fieldKeyType: FieldKeyType.Id,
-      ...(viewId ? { viewId } : {}),
-      ...(isLinkSelectionQuery ? { ignoreViewQuery: true } : {}),
-      ...(filter ? { filter } : {}),
-      ...(query.search ? { search: query.search } : {}),
-      ...(query.filterLinkCellSelected
-        ? { filterLinkCellSelected: query.filterLinkCellSelected }
-        : {}),
-      ...(query.filterLinkCellCandidate
-        ? { filterLinkCellCandidate: query.filterLinkCellCandidate }
-        : {}),
-      ...(query.selectedRecordIds?.length ? { selectedRecordIds: query.selectedRecordIds } : {}),
-    });
+    const recordSearchAccessPath =
+      this.tableQuerySearchVectorRuntimeService?.resolveForRecordSearch({
+        table,
+        search: query.search,
+      });
+    const countQuery = CountTableRecordsQuery.create(
+      {
+        tableId,
+        fieldKeyType: FieldKeyType.Id,
+        ...(viewId ? { viewId } : {}),
+        ...(isLinkSelectionQuery ? { ignoreViewQuery: true } : {}),
+        ...(filter ? { filter } : {}),
+        ...(query.search ? { search: query.search } : {}),
+        ...(query.filterLinkCellSelected
+          ? { filterLinkCellSelected: query.filterLinkCellSelected }
+          : {}),
+        ...(query.filterLinkCellCandidate
+          ? { filterLinkCellCandidate: query.filterLinkCellCandidate }
+          : {}),
+        ...(query.selectedRecordIds?.length ? { selectedRecordIds: query.selectedRecordIds } : {}),
+      },
+      { recordSearchAccessPath, table }
+    );
     if (countQuery.isErr()) this.throwDomainError(countQuery.error);
     const result = await queryBus.execute<CountTableRecordsQuery, CountTableRecordsResult>(
       context,
@@ -504,14 +543,28 @@ export class SharedViewRecordQueryV2Service {
     return { rowCount: result.value.count };
   }
 
+  private async loadTable(
+    tableId: string,
+    container: DependencyContainer,
+    context: Parameters<IQueryBus['execute']>[0]
+  ): Promise<Table> {
+    const id = TableId.create(tableId);
+    if (id.isErr()) this.throwDomainError(id.error);
+    const repository = container.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+    const result = await repository.findOne(context, TableByIdSpec.create(id.value));
+    if (result.isErr()) this.throwDomainError(result.error);
+    return result.value;
+  }
+
   private async normalizeFilter(
     tableId: string,
     rawFilter: unknown,
     actorId: string,
     queryBus: IQueryBus,
-    context: Parameters<IQueryBus['execute']>[0]
+    context: Parameters<IQueryBus['execute']>[0],
+    table?: Table
   ) {
-    return normalizeLegacyFilterViaQueryBus(tableId, rawFilter, actorId, queryBus, context);
+    return normalizeLegacyFilterViaQueryBus(tableId, rawFilter, actorId, queryBus, context, table);
   }
 
   private throwDomainError(error: Parameters<typeof mapDomainErrorToHttpError>[0]): never {

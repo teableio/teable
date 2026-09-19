@@ -9,10 +9,10 @@ import { createBaseVoSchema } from './create';
 export const CREATE_BASE_FROM_TEMPLATE = '/base/create-from-template';
 
 export const createBaseFromTemplateRoSchema = z.object({
-  spaceId: z.string().describe('The space id to create a base from'),
-  templateId: z.string().describe('The template id to create a base from'),
+  spaceId: z.string().describe('The space id to create a project from'),
+  templateId: z.string().describe('The template id to create a project from'),
   withRecords: z.boolean().optional().describe('Whether to create records from the template'),
-  baseId: z.string().optional().describe('The base id to apply the template to'),
+  baseId: z.string().optional().describe('The project id to apply the template to'),
   timeZone: timeZoneStringSchema
     .optional()
     .describe(
@@ -31,8 +31,9 @@ export type ICreateBaseFromTemplateVo = z.infer<typeof createBaseFromTemplateVoS
 export const CreateBaseFromTemplateRoute: RouteConfig = registerRoute({
   method: 'post',
   path: CREATE_BASE_FROM_TEMPLATE,
-  summary: 'Create a base from template or apply a template to a base',
-  description: 'Create a base from template or apply a template to a base',
+  title: 'Create or update project from template',
+  summary: 'Create a project from template or apply a template to a project',
+  description: 'Create a project from a template or apply a template to an existing project.',
   request: {
     body: {
       content: {
@@ -44,7 +45,7 @@ export const CreateBaseFromTemplateRoute: RouteConfig = registerRoute({
   },
   responses: {
     201: {
-      description: 'Returns information about a successfully created base.',
+      description: 'Returns information about a successfully created project.',
       content: {
         'application/json': {
           schema: createBaseFromTemplateVoSchema,

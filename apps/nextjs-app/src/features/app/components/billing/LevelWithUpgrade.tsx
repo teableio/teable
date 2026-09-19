@@ -11,6 +11,7 @@ import { useTranslation } from 'next-i18next';
 import type { ReactNode } from 'react';
 import type { AppSumoTier } from '../../hooks/useBillingLevelConfig';
 import { useAppSumoTierConfig, useBillingLevelConfig } from '../../hooks/useBillingLevelConfig';
+import { useUpgradeCtaEnabled } from '../../hooks/useUpgradeCtaEnabled';
 import { Level } from './Level';
 import { Status } from './Status';
 
@@ -46,6 +47,7 @@ export const LevelWithUpgrade = (props: ILevelWithUpgradeProps) => {
   const levelConfig = useBillingLevelConfig(level);
   const appSumoConfig = useAppSumoTierConfig(appSumoTier);
   const router = useRouter();
+  const upgradeCtaEnabled = useUpgradeCtaEnabled();
 
   // Use AppSumo description if applicable, otherwise use level description
   const description = appSumoConfig?.description ?? levelConfig.description;
@@ -80,7 +82,8 @@ export const LevelWithUpgrade = (props: ILevelWithUpgradeProps) => {
         <span className="text-xs text-muted-foreground">{organization.name}</span>
       )}
       <Status status={status} />
-      {withUpgrade && !isEnterprise && !isAppSumo && (
+      {/* The plan badge stays (it states the constraint); the button is a purchase CTA. */}
+      {withUpgrade && upgradeCtaEnabled && !isEnterprise && !isAppSumo && (
         <Button
           size="xs"
           variant="ghost"

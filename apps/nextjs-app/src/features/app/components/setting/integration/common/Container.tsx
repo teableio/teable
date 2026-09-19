@@ -1,4 +1,4 @@
-import { useTheme } from '@teable/next-themes';
+import { useTheme } from '@teable/ui-lib';
 import { cn, Skeleton } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 export const IntegrationContainer = (props: {

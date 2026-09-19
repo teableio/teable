@@ -56,4 +56,27 @@ describe('getSyncCopyData', () => {
       expect(content).toBe('a\nb\nc');
     });
   });
+
+  describe('Rows selection', () => {
+    it('emits empty cells for omitted field keys, which is why unloaded columns must not sync-copy', () => {
+      const loaded = { ...textField, id: 'fldLoaded', name: 'Loaded' } as unknown as Field;
+      const offscreen = { ...textField, id: 'fldOffscreen', name: 'Offscreen' } as unknown as Field;
+      const recordMap = {
+        0: {
+          id: 'rec0',
+          fields: { fldLoaded: 'kept' },
+        },
+      } as unknown as IRecordIndexMap;
+
+      const { content, rawContent } = getSyncCopyData({
+        recordMap,
+        fields: [loaded, offscreen],
+        selection: new CombinedSelection(SelectionRegionType.Rows, [[0, 0]]),
+        rowCount: 1,
+      });
+
+      expect(content).toBe('kept\t');
+      expect(rawContent).toEqual([['kept', undefined]]);
+    });
+  });
 });

@@ -24,6 +24,7 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
@@ -376,9 +377,11 @@ const createHandler = (args: {
     createRecordWritePluginRunner(args.plugins),
     args.recordRepository ?? new FakeTableRecordRepository(args.queryRepository),
     args.queryRepository,
-    args.eventBus ?? new FakeEventBus(),
     noopUndoRedoService,
-    args.unitOfWork ?? new FakeUnitOfWork()
+    new EventBusDomainWriteTransaction(
+      args.unitOfWork ?? new FakeUnitOfWork(),
+      args.eventBus ?? new FakeEventBus()
+    )
   );
 
   return new DeleteByRangeHandler(deleteByRangeApplicationService);

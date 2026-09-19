@@ -1,29 +1,25 @@
 'use client';
 
 import { Zap, MessageSquare, Star, HelpCircle } from '@teable/icons';
+import { DEFAULT_MODEL_TIER, getDefaultModelTier, MODEL_TIER_IDS } from '@teable/openapi';
+import type { IAIConfig, IModelTierId } from '@teable/openapi';
 import {
   Button,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  cn,
+  RadioGroup,
+  RadioGroupItem,
+  Switch,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
-import { ChevronRight } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import type { ReactNode } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { IModelOption } from './AiModelSelect';
 import { AIModelSelect } from './AiModelSelect';
 
-interface IChatModel {
-  lg?: string;
-  md?: string;
-  sm?: string;
-}
+export type IChatModel = NonNullable<IAIConfig['chatModel']>;
 
 interface IDefaultModelsStepProps {
   chatModel?: IChatModel;
@@ -41,18 +37,6 @@ export function DefaultModelsStep({
   agentRoutingSlot,
 }: IDefaultModelsStepProps) {
   const { t } = useTranslation('common');
-  const [tiersOpen, setTiersOpen] = useState(
-    () =>
-      Boolean(chatModel?.md && chatModel.md !== chatModel?.lg) ||
-      Boolean(chatModel?.sm && chatModel.sm !== chatModel?.lg)
-  );
-
-  const customizedCount = useMemo(() => {
-    let count = 0;
-    if (chatModel?.md && chatModel.md !== chatModel?.lg) count++;
-    if (chatModel?.sm && chatModel.sm !== chatModel?.lg) count++;
-    return count;
-  }, [chatModel?.lg, chatModel?.md, chatModel?.sm]);
 
   // Filter to only text models (not image models)
   const textModels = models.filter((m) => !m.isImageModel);
@@ -80,30 +64,45 @@ export function DefaultModelsStep({
     }
   }, [recommendedDefault, chatModel, onChange]);
 
-  const handleLgChange = useCallback(
-    (value: string) => {
-      const next: IChatModel = { ...chatModel, lg: value };
+  const handleTierChange = useCallback(
+    (tier: IModelTierId, value: string) => {
+      const next: IChatModel = {
+        ...chatModel,
+        [tier]: tier === DEFAULT_MODEL_TIER ? value : value || undefined,
+      };
       // Clear md/sm if they were inheriting from the old lg
-      if (chatModel?.md === chatModel?.lg) next.md = undefined;
-      if (chatModel?.sm === chatModel?.lg) next.sm = undefined;
+      if (tier === DEFAULT_MODEL_TIER) {
+        if (chatModel?.md === chatModel?.lg) next.md = undefined;
+        if (chatModel?.sm === chatModel?.lg) next.sm = undefined;
+      }
+      // An unset Ultra is not offered, so it cannot stay the default
+      if (tier === 'xl' && !value && chatModel?.defaultTier === tier) next.defaultTier = undefined;
       onChange(next);
     },
     [chatModel, onChange]
   );
 
-  const handleMdChange = useCallback(
-    (value: string) => {
-      onChange({ ...chatModel, md: value || undefined });
+  const handleToggleHidden = useCallback(
+    (tier: IModelTierId, hidden: boolean) => {
+      const others = (chatModel?.hiddenTiers ?? []).filter((id) => id !== tier);
+      onChange({ ...chatModel, hiddenTiers: hidden ? [...others, tier] : others });
     },
     [chatModel, onChange]
   );
 
-  const handleSmChange = useCallback(
-    (value: string) => {
-      onChange({ ...chatModel, sm: value || undefined });
+  // The default tier is always offered, so it leaves the hidden list
+  const handleDefaultChange = useCallback(
+    (tier: IModelTierId) => {
+      onChange({
+        ...chatModel,
+        defaultTier: tier,
+        hiddenTiers: (chatModel?.hiddenTiers ?? []).filter((id) => id !== tier),
+      });
     },
     [chatModel, onChange]
   );
+
+  const defaultTier = getDefaultModelTier(chatModel);
 
   if (disabled) {
     return (
@@ -149,7 +148,7 @@ export function DefaultModelsStep({
         </div>
       )}
 
-      {/* Model Selection */}
+      {/* Model tiers: the size slots users pick from in chat */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
           <MessageSquare className="size-4" />
@@ -165,73 +164,67 @@ export function DefaultModelsStep({
             </Tooltip>
           </TooltipProvider>
         </div>
+        <p className="text-xs text-muted-foreground">
+          {t('admin.setting.ai.chatModels.tiersIntro')}
+        </p>
 
-        <AIModelSelect
-          value={chatModel?.lg || ''}
-          onValueChange={handleLgChange}
-          options={textModels}
-          className="w-full"
-        />
-
-        {/* Model tiers - collapsible */}
-        {chatModel?.lg && (
-          <Collapsible open={tiersOpen} onOpenChange={setTiersOpen}>
-            <CollapsibleTrigger className="flex w-full items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-              <ChevronRight
-                className={cn('size-4 shrink-0 transition-transform', tiersOpen && 'rotate-90')}
-              />
-              <span>{t('admin.setting.ai.chatModels.modelTiers')}</span>
-              {!tiersOpen && (
-                <span className="ms-1 text-xs opacity-60">
-                  {customizedCount > 0
-                    ? t('admin.setting.ai.chatModels.customized', { count: customizedCount })
-                    : t('admin.setting.ai.chatModels.allInheriting')}
-                </span>
-              )}
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="mt-2 text-xs text-muted-foreground">
-                {t('admin.setting.ai.chatModels.modelTiersDescription')}
-              </div>
-              <div className="mt-3 flex flex-col gap-4 rounded-md border bg-muted/30 p-4">
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-sm font-medium">
-                      {t('admin.setting.ai.chatModels.md')}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {t('admin.setting.ai.chatModels.mdDescription')}
-                    </span>
-                  </div>
-                  <AIModelSelect
-                    value={chatModel?.md || ''}
-                    onValueChange={handleMdChange}
-                    options={textModels}
-                    className="w-full"
-                    placeholder={inheritPlaceholder}
-                  />
+        <RadioGroup
+          value={defaultTier}
+          onValueChange={(tier) => handleDefaultChange(tier as IModelTierId)}
+          className="flex flex-col gap-4 rounded-md border bg-muted/30 p-4"
+        >
+          {MODEL_TIER_IDS.map((tier) => {
+            const isMain = tier === DEFAULT_MODEL_TIER;
+            const isDefault = tier === defaultTier;
+            const hidden = chatModel?.hiddenTiers?.includes(tier) ?? false;
+            // lg / md / sm also serve other features; say so next to the tier name
+            const backgroundNote =
+              tier === 'lg'
+                ? t('admin.setting.ai.chatModels.lgBackground')
+                : tier === 'md'
+                  ? t('admin.setting.ai.chatModels.mdBackground')
+                  : tier === 'sm'
+                    ? t('admin.setting.ai.chatModels.smBackground')
+                    : undefined;
+            return (
+              <div key={tier} className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{t(`modelTier.${tier}.label`)}</span>
+                  {backgroundNote && (
+                    <span className="truncate text-xs text-muted-foreground">{backgroundNote}</span>
+                  )}
+                  <label className="ms-auto flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                    <RadioGroupItem value={tier} disabled={tier === 'xl' && !chatModel?.xl} />
+                    {isDefault
+                      ? t('admin.setting.ai.chatModels.defaultTier')
+                      : t('admin.setting.ai.chatModels.setDefault')}
+                  </label>
+                  <label className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                    {t('admin.setting.ai.enabled')}
+                    <Switch
+                      checked={!hidden}
+                      disabled={isDefault}
+                      onCheckedChange={(checked) => handleToggleHidden(tier, !checked)}
+                    />
+                  </label>
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-sm font-medium">
-                      {t('admin.setting.ai.chatModels.sm')}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {t('admin.setting.ai.chatModels.smDescription')}
-                    </span>
-                  </div>
-                  <AIModelSelect
-                    value={chatModel?.sm || ''}
-                    onValueChange={handleSmChange}
-                    options={textModels}
-                    className="w-full"
-                    placeholder={inheritPlaceholder}
-                  />
-                </div>
+                <AIModelSelect
+                  value={chatModel?.[tier] || ''}
+                  onValueChange={(value) => handleTierChange(tier, value)}
+                  options={textModels}
+                  className="w-full"
+                  placeholder={
+                    tier === 'xl'
+                      ? t('admin.setting.ai.chatModels.notOffered')
+                      : isMain
+                        ? undefined
+                        : inheritPlaceholder
+                  }
+                />
               </div>
-            </CollapsibleContent>
-          </Collapsible>
-        )}
+            );
+          })}
+        </RadioGroup>
       </div>
 
       {/* Status */}

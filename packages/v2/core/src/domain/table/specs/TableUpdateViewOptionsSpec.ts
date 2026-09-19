@@ -64,7 +64,8 @@ export class TableUpdateViewOptionsSpec<
     }
 
     if (!found) return ok(table);
-    const nextTableResult = Table.rehydrate({
+    const dbTableNameResult = table.dbTableName();
+    return Table.rehydrate({
       id: table.id(),
       baseId: table.baseId(),
       name: table.name(),
@@ -72,14 +73,9 @@ export class TableUpdateViewOptionsSpec<
       fields: table.getFields(),
       views: nextViews,
       primaryFieldId: table.primaryFieldId(),
+      searchIndex: table.searchIndex(),
+      dbTableName: dbTableNameResult.isOk() ? dbTableNameResult.value : undefined,
     });
-    if (nextTableResult.isErr()) return nextTableResult;
-
-    const dbTableNameResult = table.dbTableName();
-    if (dbTableNameResult.isErr()) return ok(nextTableResult.value);
-    return nextTableResult.value
-      .setDbTableName(dbTableNameResult.value)
-      .map(() => nextTableResult.value);
   }
 
   accept(visitor: V): Result<void, DomainError> {

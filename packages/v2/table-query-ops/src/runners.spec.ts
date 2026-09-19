@@ -1,13 +1,16 @@
 import { v2CoreTokens, type IExecutionContext } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { ok } from 'neverthrow';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TableQueryDecisionPolicy } from './decisionPolicy';
+import { TableQueryRemediationTask } from './domain';
 import {
   reclaimDropTaskId,
   runReclaimSweepOnce,
   runSearchAccessPathRecommendSweepOnce,
+  startTableQueryOpsTaskWorkerIfEnabled,
+  startTableQueryOpsAnalyzerIfEnabled,
 } from './runners';
 import { v2TableOpsTokens } from './tokens';
 
@@ -217,5 +220,110 @@ describe('runSearchAccessPathRecommendSweepOnce', () => {
       })
     );
     expect(findSearchHeatByTable).not.toHaveBeenCalled();
+  });
+});
+
+describe('table-scoped task routing', () => {
+  it('persists a failed task when its target database cannot be resolved', async () => {
+    const queued = TableQueryRemediationTask.createQueued({
+      tableId: 'tblRoutingTarget',
+      baseId: 'bseRoutingTarget',
+      kind: 'create_search_access_path',
+      payload: {},
+      now: NOW,
+    })._unsafeUnwrap();
+    let stored = queued;
+    const values = new Map<symbol, unknown>([
+      [
+        v2TableOpsTokens.taskWorkerConfig,
+        {
+          enabled: true,
+          intervalMs: 60_000,
+          workerId: 'routing-test',
+          allowManualIndexExecution: true,
+        },
+      ],
+      [v2TableOpsTokens.clock, { now: () => NOW }],
+      [
+        v2TableOpsTokens.taskRepository,
+        {
+          claimNextAccepted: async () => ok(queued),
+          save: async (_context: IExecutionContext, task: TableQueryRemediationTask) => {
+            stored = task;
+            return ok(undefined);
+          },
+        },
+      ],
+    ]);
+    const container = {
+      isRegistered: () => false,
+      resolve: (token: symbol) => values.get(token),
+    } as DependencyContainer;
+    const handle = startTableQueryOpsTaskWorkerIfEnabled(
+      container,
+      {} as IExecutionContext,
+      async () => {
+        throw new Error('Target database is unavailable');
+      }
+    );
+    try {
+      await vi.waitFor(() =>
+        expect(stored.snapshot()).toMatchObject({
+          status: 'failed',
+          attempts: 1,
+          lastError: expect.stringContaining('Target database is unavailable'),
+        })
+      );
+    } finally {
+      handle?.stop();
+    }
+  });
+});
+
+describe('startTableQueryOpsAnalyzerIfEnabled', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('does not overlap analyzer ticks while a run is in flight', async () => {
+    vi.useFakeTimers();
+    const findRecentGate = Promise.withResolvers<unknown>();
+    const findRecent = vi.fn(() => findRecentGate.promise);
+    const values = new Map<symbol, unknown>([
+      [
+        v2TableOpsTokens.analyzerConfig,
+        {
+          enabled: true,
+          intervalMs: 60_000,
+          lookbackMs: 15 * 60_000,
+          batchSize: 100,
+          workerId: 'analyzer-1',
+        },
+      ],
+      [v2TableOpsTokens.observationReader, { findRecent }],
+      [v2TableOpsTokens.clock, { now: () => NOW }],
+      [v2CoreTokens.commandBus, { execute: vi.fn() }],
+    ]);
+    const container = {
+      isRegistered: () => false,
+      resolve: (token: symbol) => {
+        const value = values.get(token);
+        if (value === undefined) {
+          throw new Error(`unregistered ${String(token)}`);
+        }
+        return value;
+      },
+    } as DependencyContainer;
+
+    const handle = startTableQueryOpsAnalyzerIfEnabled(container, {} as IExecutionContext);
+    await Promise.resolve();
+    expect(findRecent).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(findRecent).toHaveBeenCalledTimes(1);
+
+    findRecentGate.resolve(ok([]));
+    await Promise.resolve();
+    handle?.stop();
   });
 });

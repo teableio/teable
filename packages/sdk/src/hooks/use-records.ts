@@ -11,8 +11,12 @@ import { useCallback, useContext, useMemo } from 'react';
 import type { Doc } from 'sharedb/lib/client';
 import { ShareViewContext } from '../context/table/ShareViewContext';
 import { TablePermissionContext } from '../context/table-permission';
-import { useInstances } from '../context/use-instances';
+import { useInstances, makeQueryScopeKey } from '../context/use-instances';
 import { createRecordInstance, recordInstanceFieldMap } from '../model';
+import {
+  frozenFieldIdsFromView,
+  resolveRecordSubscribeProjection,
+} from '../utils/column-projection';
 import { useDeepCompareMemoize } from './use-deep-compare-memoize';
 import { useFields } from './use-fields';
 import { useSearch } from './use-search';
@@ -20,7 +24,11 @@ import { useTableId } from './use-table-id';
 import { useView } from './use-view';
 import { useViewId } from './use-view-id';
 
-export const useRecords = (query?: IGetRecordsRo, initData?: IRecord[]) => {
+export const useRecords = (
+  query?: IGetRecordsRo,
+  initData?: IRecord[],
+  options?: { sparseColumnFill?: boolean }
+) => {
   const tableId = useTableId();
 
   const viewId = useViewId();
@@ -49,9 +57,28 @@ export const useRecords = (query?: IGetRecordsRo, initData?: IRecord[]) => {
   const { recordReadFilter } = useContext(TablePermissionContext);
   const view = useView();
 
-  // visible (and readable) field ids; sorted so the subscription identity is
-  // insensitive to column order changes
-  const visibleFieldIds = useDeepCompareMemoize(fields.map((field) => field.id).sort()) as string[];
+  // Sparse subscribe projection is Grid-only: Gallery/Kanban have no viewport
+  // fill, so truncating them drops cells (cover fields, extra columns).
+  // Explicit projection keeps hidden-but-readable fields the caller asked for.
+  const orderedVisibleFieldIds = fields.map((field) => field.id);
+  const requestedProjection = query?.projection;
+  const viewOptions = view?.options as
+    | { frozenFieldId?: string; frozenColumnCount?: number }
+    | undefined;
+  const subscribeProjection = useDeepCompareMemoize(
+    resolveRecordSubscribeProjection({
+      sparseColumnFill: options?.sparseColumnFill === true,
+      requestedProjection,
+      orderedVisibleFieldIds,
+      frozenFieldIds: frozenFieldIdsFromView({
+        orderedVisibleFieldIds,
+        frozenFieldId: viewOptions?.frozenFieldId,
+        frozenColumnCount: viewOptions?.frozenColumnCount,
+      }),
+      primaryFieldId: fields.find((field) => field.isPrimary)?.id,
+      readableFieldIds,
+    })
+  ) as string[];
 
   // the subscription identity must follow the condition content, not the view
   // instance identity, which changes on every view op
@@ -79,7 +106,11 @@ export const useRecords = (query?: IGetRecordsRo, initData?: IRecord[]) => {
       type: IdPrefix.Record,
     };
     if (query?.ignoreViewQuery) {
-      return base;
+      return {
+        ...base,
+        projection:
+          requestedProjection && requestedProjection.length === 0 ? [] : subscribeProjection,
+      };
     }
     // inline the view filter/sort (the same merge the server applies to a
     // plain viewId query) and set ignoreViewQuery, so the server-side skipPoll
@@ -102,9 +133,10 @@ export const useRecords = (query?: IGetRecordsRo, initData?: IRecord[]) => {
           query?.orderBy
         )
       ),
-      // search must only hit the fields displayed in this view, the same
-      // contract the personal-view query expresses with its own projection
-      projection: query?.projection ?? visibleFieldIds,
+      // search still uses view-visible fields server-side (searchFieldScope).
+      // this projection is the subscribe snapshot allow-list, not the viewport.
+      projection:
+        requestedProjection && requestedProjection.length === 0 ? [] : subscribeProjection,
     };
   }, [
     query,
@@ -115,7 +147,8 @@ export const useRecords = (query?: IGetRecordsRo, initData?: IRecord[]) => {
     viewSort,
     shareViewFilter,
     shareViewSort,
-    visibleFieldIds,
+    subscribeProjection,
+    requestedProjection,
     readableFieldIds,
   ]);
   const factory = useCallback(
@@ -131,17 +164,34 @@ export const useRecords = (query?: IGetRecordsRo, initData?: IRecord[]) => {
     [tableId]
   );
 
-  const { instances, extra } = useInstances({
+  const { instances, extra, fillProjectedRecordFields } = useInstances({
     collection: `${IdPrefix.Record}_${tableId}`,
     factory,
     queryParams,
     initData,
   });
-  return useMemo(() => {
+  // Identity of the live record subscription. A query params object that
+  // normalizes to this same key reuses the running ShareDB query, so the server
+  // pushes no second `ready` snapshot — consumers that reset local state on a
+  // query change must compare this key, not the params object.
+  const queryScopeKey = useMemo(
+    () => makeQueryScopeKey(`${IdPrefix.Record}_${tableId}`, queryParams),
+    [tableId, queryParams]
+  );
+  // A new pagination query changes the fill callback before its subscription
+  // delivers. Do not make the grid treat those previous-window rows as new data.
+  const records = useMemo(() => {
     const fieldMap = keyBy(fields, 'id');
+    return instances.map((instance) => recordInstanceFieldMap(instance, fieldMap));
+  }, [instances, fields]);
+
+  return useMemo(() => {
     return {
-      records: instances.map((instance) => recordInstanceFieldMap(instance, fieldMap)),
+      records,
       extra,
+      fillProjectedRecordFields,
+      subscribeProjection,
+      queryScopeKey,
     };
-  }, [instances, fields, extra]);
+  }, [records, extra, fillProjectedRecordFields, subscribeProjection, queryScopeKey]);
 };

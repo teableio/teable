@@ -76,8 +76,8 @@ export const ReactQueryKeys = {
 
   commentList: (tableId: string, recordId: string) => ['comment-list', tableId, recordId] as const,
 
-  commentCount: (tableId: string, query?: IGetRecordsRo) =>
-    ['comment-count', tableId, query] as const,
+  commentCount: (tableId: string, recordIds: string[]) =>
+    ['comment-count', tableId, recordIds] as const,
 
   commentDetail: (tableId: string, recordId: string, commentId: string) =>
     ['comment-detail', tableId, recordId, commentId] as const,
@@ -279,6 +279,7 @@ export const ReactQueryKeys = {
   getTaskStatusCollection: (tableId: string) => ['task-status-collection', tableId] as const,
 
   chatHistory: (baseId: string) => ['chat-history', baseId] as const,
+  chatArchivedList: () => ['chat-archived-list'] as const,
 
   chatMessage: (chatId: string) => ['chat-message', chatId] as const,
 
@@ -299,6 +300,8 @@ export const ReactQueryKeys = {
 
   workflowItem: (baseId: string, workflowId: string) =>
     ['workflow-item', baseId, workflowId] as const,
+
+  routineItem: (baseId: string, routineId: string) => ['routine', baseId, routineId] as const,
 
   getApp: (baseId: string, appId: string) => ['app', baseId, appId] as const,
 

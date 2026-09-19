@@ -16,6 +16,7 @@ import type { ISecurityWebConfig, IApiDocConfig } from './configs/bootstrap.conf
 import { GlobalExceptionFilter } from './filter/global-exception.filter';
 import { setupSwagger } from './swagger';
 import type { IClsStore } from './types/cls';
+import { nestModuleIdOptions, nestRouteDiagnosticsOptions } from './utils/nest-module-id-options';
 import { relaxOAuthPopupCoop } from './utils/oauth-popup-coop';
 
 const host = 'localhost';
@@ -53,7 +54,11 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
 }
 
 export async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+    ...nestModuleIdOptions,
+    ...nestRouteDiagnosticsOptions,
+  });
   const configService = app.get(ConfigService);
 
   const logger = app.get(Logger);

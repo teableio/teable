@@ -17,6 +17,6 @@ export class SessionModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(this.sessionHandleService.sessionMiddleware, passport.initialize())
-      .forRoutes('/api/*');
+      .forRoutes('/api/{*splat}');
   }
 }

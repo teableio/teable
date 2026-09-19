@@ -4,12 +4,13 @@ import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 import { integrityIssueSchema } from './link-check';
 
-export const FIX_BASE_INTEGRITY = '/integrity/base/{baseId}/link-fix?tableId={tableId}';
+export const FIX_BASE_INTEGRITY = '/integrity/base/{baseId}/link-fix';
 
 export const IntegrityFixRoute: RouteConfig = registerRoute({
   method: 'post',
   path: FIX_BASE_INTEGRITY,
-  description: 'Fix integrity of link fields in a base',
+  title: 'Post integrityproject link fix',
+  description: 'Fix integrity of link fields in a project',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -32,10 +33,7 @@ export const IntegrityFixRoute: RouteConfig = registerRoute({
 });
 
 export const fixBaseIntegrity = async (baseId: string, tableId: string) => {
-  return axios.post(
-    urlBuilder(FIX_BASE_INTEGRITY, {
-      baseId,
-      tableId,
-    })
-  );
+  return axios.post(urlBuilder(FIX_BASE_INTEGRITY, { baseId }), undefined, {
+    params: { tableId },
+  });
 };

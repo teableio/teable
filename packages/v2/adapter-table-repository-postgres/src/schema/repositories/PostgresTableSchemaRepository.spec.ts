@@ -7,6 +7,11 @@ import {
   createSingleLineTextField,
   DbTableName,
   FieldId,
+  FormulaExpression,
+  FormulaField,
+  CellValueType,
+  CellValueMultiplicity,
+  UpdateFormulaExpressionSpec,
   LinkFieldConfig,
   LinkFieldMeta,
   LinkRelationship,
@@ -18,6 +23,11 @@ import {
   TableName,
   type TableByIdSpec,
 } from '@teable/v2-core';
+import {
+  createFormulaCompileBudgetPolicy,
+  defaultFormulaCompileBudgetLimits,
+  Pg16TypeValidationStrategy,
+} from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import {
   CompiledQuery,
@@ -279,6 +289,129 @@ describe('PostgresTableSchemaRepository', () => {
 
   afterAll(async () => {
     await db.destroy();
+  });
+
+  it('rejects an empty-table import batch before creating even its valid sibling schema', async () => {
+    const baseId = BaseId.generate()._unsafeUnwrap();
+    const build = (expression: string) => {
+      const builder = Table.builder()
+        .withBaseId(baseId)
+        .withName(TableName.create('Budget')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder
+        .field()
+        .formula()
+        .withName(FieldName.create('Formula')._unsafeUnwrap())
+        .withExpression(FormulaExpression.create(expression)._unsafeUnwrap())
+        .withResultType({
+          cellValueType: CellValueType.number(),
+          isMultipleCellValue: CellValueMultiplicity.single(),
+        })
+        .done();
+      builder.view().defaultGrid().done();
+      return builder.build()._unsafeUnwrap();
+    };
+    const valid = build('1');
+    const rejected = build('ABS(ABS(ABS(1)))');
+    const backfill = new FakeComputedFieldBackfillService();
+    const repository = new PostgresTableSchemaRepository(
+      db,
+      new FakeTableRepository([valid, rejected]) as never,
+      backfill,
+      new FakeComputedFieldCascadeService(),
+      new FakeComputedUpdatePlanner() as never,
+      new FakeFieldDependencyGraph() as never,
+      db,
+      new Pg16TypeValidationStrategy(),
+      undefined,
+      {
+        policyVersion: 1,
+        policy: createFormulaCompileBudgetPolicy({
+          ...defaultFormulaCompileBudgetLimits,
+          astDepth: 2,
+        }),
+      }
+    );
+    const context = { actorId: ActorId.create('system')._unsafeUnwrap() };
+    const single = await repository.insert(context, rejected);
+    expect(single._unsafeUnwrapErr().code).toBe('validation.limit.formula_compile_depth_max');
+    const batch = await repository.insertMany(context, [valid, rejected], {
+      optimizeForEmptyTables: true,
+    });
+    expect(batch._unsafeUnwrapErr().code).toBe('validation.limit.formula_compile_depth_max');
+    const rows = await sql<{
+      count: string;
+    }>`select count(*)::text as count from information_schema.tables where table_schema = ${baseId.toString()}`.execute(
+      db
+    );
+    expect(rows.rows[0].count).toBe('0');
+    expect(backfill.calls).toEqual([]);
+  });
+
+  it('rejects a changed formula before DDL or asynchronous backfill', async () => {
+    const baseId = BaseId.generate()._unsafeUnwrap();
+    const builder = Table.builder()
+      .withBaseId(baseId)
+      .withName(TableName.create('Update budget')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .formula()
+      .withName(FieldName.create('Formula')._unsafeUnwrap())
+      .withExpression(FormulaExpression.create('1')._unsafeUnwrap())
+      .withResultType({
+        cellValueType: CellValueType.number(),
+        isMultipleCellValue: CellValueMultiplicity.single(),
+      })
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+    const backfill = new FakeComputedFieldBackfillService();
+    const repository = new PostgresTableSchemaRepository(
+      db,
+      new FakeTableRepository([table]) as never,
+      backfill,
+      new FakeComputedFieldCascadeService(),
+      new FakeComputedUpdatePlanner() as never,
+      new FakeFieldDependencyGraph() as never,
+      db,
+      new Pg16TypeValidationStrategy(),
+      undefined,
+      {
+        policyVersion: 1,
+        policy: createFormulaCompileBudgetPolicy({
+          ...defaultFormulaCompileBudgetLimits,
+          astDepth: 2,
+        }),
+      }
+    );
+    const field = table
+      .getFields()
+      .find((field): field is FormulaField => field instanceof FormulaField)!;
+    const spec = UpdateFormulaExpressionSpec.create(
+      field.id(),
+      field.expression(),
+      FormulaExpression.create('ABS(ABS(ABS(1)))')._unsafeUnwrap()
+    );
+    const candidate = spec.mutate(table)._unsafeUnwrap();
+    const result = await repository.update(
+      { actorId: ActorId.create('system')._unsafeUnwrap() },
+      candidate,
+      spec
+    );
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.formula_compile_depth_max');
+    expect(backfill.calls).toEqual([]);
+    expect(field.expression().toString()).toBe('1');
   });
 
   it('triggers computed backfill after adding fields', async () => {

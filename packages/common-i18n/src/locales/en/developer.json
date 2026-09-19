@@ -6,7 +6,7 @@
   "fieldKeyType": "Field key type",
   "chooseSource": "Choose a data source",
   "action": {
-    "selectBase": "Select a database...",
+    "selectBase": "Select a project...",
     "selectTable": "Select a table..."
   },
   "pickParams": "Select and configure the parameters",

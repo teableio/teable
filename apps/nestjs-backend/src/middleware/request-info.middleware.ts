@@ -8,10 +8,12 @@ import {
   parseSignupAttributionCookies,
 } from '@teable/core';
 import { X_CANARY_HEADER } from '@teable/openapi';
+import { runWithPostgresQueryCancellation } from '@teable/v2-adapter-db-postgres-pg';
 import cookie from 'cookie';
 import type { Request, Response, NextFunction } from 'express';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../types/cls';
+import { formatClientHeader } from '../utils/client-header';
 
 const automationRobotUserId = 'automationRobot';
 
@@ -36,7 +38,13 @@ const requestPath = (req: Request): string =>
 const fallbackScheduleV2BackgroundTask: NonNullable<IClsStore['scheduleV2BackgroundTask']> = (
   task
 ) => {
-  const handle = setTimeout(() => void task(), 0);
+  const handle = setTimeout(
+    () =>
+      void runWithPostgresQueryCancellation(undefined, async () => {
+        await task();
+      }),
+    0
+  );
   handle.unref?.();
 };
 
@@ -55,7 +63,9 @@ const createAfterResponseScheduler = (
   async function runTask(task: () => Promise<void> | void) {
     activeTasks += 1;
     try {
-      await task();
+      await runWithPostgresQueryCancellation(undefined, async () => {
+        await task();
+      });
     } catch (error) {
       backgroundTaskLogger.error(
         `V2 background task failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -104,9 +114,11 @@ const createAfterResponseScheduler = (
 
   return (task) => {
     const store = cls.get();
+    const backgroundStore = store ? { ...store } : undefined;
+    if (backgroundStore) delete backgroundStore.interactiveQueryAbort;
     pendingTasks.push(() => {
-      if (store) {
-        return cls.runWith(store, task);
+      if (backgroundStore) {
+        return cls.runWith(backgroundStore, task);
       }
       return task();
     });
@@ -122,6 +134,7 @@ export class RequestInfoMiddleware implements NestMiddleware {
 
   use(req: Request, res: Response, next: NextFunction) {
     const userAgent = req.headers['user-agent'] || '';
+    const client = formatClientHeader(req.headers['x-teable-client']);
     const referer = req.headers.referer || '';
     const authHeader = req.headers.authorization || '';
     const byApi = authHeader.toLowerCase().startsWith('bearer ');
@@ -158,6 +171,7 @@ export class RequestInfoMiddleware implements NestMiddleware {
       // (/table/:tableId/...) isn't available — the concrete path is more useful anyway.
       path: requestPath(req),
       ...(via ? { via } : {}),
+      ...(client ? { client } : {}),
     });
 
     // Automation runs under a dedicated robot identity (no real user is "logged in").

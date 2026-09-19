@@ -7,7 +7,7 @@ export const useEventListener = <K extends keyof HTMLElementEventMap>(
   passive: boolean,
   capture = false
 ) => {
-  const savedHandler = useRef<(this: HTMLElement, ev: HTMLElementEventMap[K]) => void>();
+  const savedHandler = useRef<(this: HTMLElement, ev: HTMLElementEventMap[K]) => void>(undefined);
 
   savedHandler.current = handler;
   useEffect(() => {

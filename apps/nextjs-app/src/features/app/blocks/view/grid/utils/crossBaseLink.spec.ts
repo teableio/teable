@@ -46,4 +46,22 @@ describe('downgradeCrossBaseHeaders', () => {
     expect(result.headers[0]).toBe(headers[0]);
     expect(result.headers[1]).toBe(headers[1]);
   });
+
+  it('downgrades explicit foreign-base headers when currentBaseId is missing', () => {
+    const headers: IFieldVo[] = [
+      buildField({ id: 'fldText', name: 'Notes' }),
+      buildField({
+        id: 'fldLink',
+        name: 'Linked',
+        type: FieldType.Link,
+        options: { baseId: foreignBaseId, foreignTableId: 'tblOther' } as IFieldVo['options'],
+      }),
+    ];
+
+    const { headers: next, downgradedIndices } = downgradeCrossBaseHeaders(headers, undefined);
+
+    expect(downgradedIndices).toEqual(new Set([1]));
+    expect(next[1].type).toBe(FieldType.SingleLineText);
+    expect(next[1].options).toEqual({});
+  });
 });

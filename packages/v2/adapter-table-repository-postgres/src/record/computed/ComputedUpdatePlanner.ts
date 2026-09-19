@@ -1,3 +1,4 @@
+import { getTableComputedDownstreamHint } from '@teable/v2-adapter-db-postgres-shared';
 import {
   createTeableSpanAttributes,
   domainError,
@@ -15,13 +16,13 @@ import type {
   RecordId,
   Table,
 } from '@teable/v2-core';
-import { getTableComputedDownstreamHint } from '@teable/v2-adapter-db-postgres-shared';
 import { inject, injectable } from '@teable/v2-di';
 import { extractConditionFieldIds } from '@teable/v2-field-dependency-core';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
+import type { ComputedActivityFieldError } from './activity/IComputedActivityProjector';
 import type {
   FieldDependencyEdge,
   FieldDependencyGraph,
@@ -153,6 +154,9 @@ export type ConditionalFilterCondition = {
 export type ComputedDependencyEdge = {
   fromFieldId: FieldId;
   toFieldId: FieldId;
+  /** Complete source provenance for a deduplicated path. Missing on legacy
+   * payloads: fromFieldId alone cannot prove which changes trigger the path. */
+  propagationSourceFieldIds?: ReadonlyArray<FieldId>;
   /**
    * Target computed fields covered by this propagation edge. Planner-level deduplication
    * may collapse multiple target fields that share the same dirty-propagation path.
@@ -169,6 +173,12 @@ export type ComputedDependencyEdge = {
   allTargetRecordsReasons?: ReadonlyArray<AllTargetRecordsReason>;
   /** Filter condition for conditionalFiltered mode */
   filterCondition?: ConditionalFilterCondition;
+  /**
+   * When set, this edge's dirty scan is restricted to these source record ids.
+   * Empty array skips the edge. Absent means unrestricted (other edges in the
+   * same call may still be table-filtered via propagate options).
+   */
+  restrictDirtySourceRecordIds?: ReadonlyArray<string>;
   order: number;
 };
 
@@ -222,6 +232,10 @@ export type ComputedUpdatePlan = {
    * same run get distinct scopes.
    */
   ledgerScopeId?: string;
+  /** Exact floor partition whose cursors/exclusions are already committed. */
+  partialStageBudget?: { maxSteps: number; maxFields: number; maxEdges: number };
+  /** Terminal fields stay excluded while a partial stage drains its original partition. */
+  terminalFieldErrors?: ReadonlyArray<ComputedActivityFieldError>;
 };
 
 const emptyComputedUpdatePlan = (
@@ -1746,12 +1760,17 @@ const buildPropagationEdges = (
           edge.allTargetRecordsReasons
         ),
         propagationTargetFieldIds: [edge.toFieldId],
+        propagationSourceFieldIds: [edge.fromFieldId],
       });
       edgeIndexByKey.set(key, result.length - 1);
       return;
     }
 
     const existing = result[existingIndex];
+    const sourceFieldIds = existing.propagationSourceFieldIds ?? [existing.fromFieldId];
+    if (!sourceFieldIds.some((fieldId) => fieldId.equals(edge.fromFieldId))) {
+      existing.propagationSourceFieldIds = [...sourceFieldIds, edge.fromFieldId];
+    }
     const targetFieldIds = existing.propagationTargetFieldIds ?? [existing.toFieldId];
     if (!targetFieldIds.some((fieldId) => fieldId.equals(edge.toFieldId))) {
       existing.propagationTargetFieldIds = [...targetFieldIds, edge.toFieldId];

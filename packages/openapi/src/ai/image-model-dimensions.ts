@@ -59,6 +59,44 @@ export const ALL_IMAGE_SIZES = [
   '1024x2048',
   '720x1280',
   '2160x3840',
+  // Recraft V4/V4.1 and Pro presets.
+  '1536x768',
+  '768x1536',
+  '1280x832',
+  '832x1280',
+  '1216x896',
+  '896x1216',
+  '832x1344',
+  '1280x896',
+  '896x1280',
+  '3072x1536',
+  '1536x3072',
+  '2560x1664',
+  '1664x2560',
+  '2432x1792',
+  '1792x2432',
+  '2304x1792',
+  '1792x2304',
+  '1664x2688',
+  '2560x1792',
+  '1792x2560',
+  '2688x1536',
+  '1536x2688',
+  // Seedream 5.0 Pro 1K/2K presets.
+  '1152x864',
+  '864x1152',
+  '1424x800',
+  '800x1424',
+  '1248x832',
+  '832x1248',
+  '1568x672',
+  '2368x1776',
+  '1776x2368',
+  '2816x1584',
+  '1584x2816',
+  '2496x1664',
+  '1664x2496',
+  '3136x1344',
 ] as const;
 
 export const imageSizeSchema = z.enum(ALL_IMAGE_SIZES);
@@ -94,6 +132,7 @@ export const ALL_ASPECT_RATIOS = [
   '4:1',
   '3:7',
   '7:3',
+  '5:2',
 ] as const;
 
 export const aspectRatioSchema = z.enum(ALL_ASPECT_RATIOS);
@@ -351,6 +390,32 @@ export const XAI_GROK_ASPECT_RATIOS = [
   '9:20',
 ] satisfies IAspectRatio[];
 
+export const XAI_GROK_2_ASPECT_RATIOS = [
+  ...XAI_GROK_ASPECT_RATIOS,
+  '21:9',
+  '5:2',
+] satisfies IAspectRatio[];
+
+// https://docs.byteplus.com/api/docs/ModelArk/1824121
+export const SEEDREAM_5_PRO_SIZES = [
+  '1024x1024',
+  '1152x864',
+  '864x1152',
+  '1424x800',
+  '800x1424',
+  '1248x832',
+  '832x1248',
+  '1568x672',
+  '2048x2048',
+  '2368x1776',
+  '1776x2368',
+  '2816x1584',
+  '1584x2816',
+  '2496x1664',
+  '1664x2496',
+  '3136x1344',
+] satisfies IImageSize[];
+
 export const DEEPINFRA_STABILITY_ASPECT_RATIOS = [
   '1:1',
   '16:9',
@@ -396,6 +461,41 @@ export const REPLICATE_RECRAFT_SIZES = [
   '1280x1024',
   '1024x1707',
   '1707x1024',
+] satisfies IImageSize[];
+
+// https://www.recraft.ai/docs/api-reference/appendix
+export const RECRAFT_V4_SIZES = [
+  '1024x1024',
+  '1536x768',
+  '768x1536',
+  '1280x832',
+  '832x1280',
+  '1216x896',
+  '896x1216',
+  '1152x896',
+  '896x1152',
+  '832x1344',
+  '1280x896',
+  '896x1280',
+  '1344x768',
+  '768x1344',
+] satisfies IImageSize[];
+
+export const RECRAFT_V4_PRO_SIZES = [
+  '2048x2048',
+  '3072x1536',
+  '1536x3072',
+  '2560x1664',
+  '1664x2560',
+  '2432x1792',
+  '1792x2432',
+  '2304x1792',
+  '1792x2304',
+  '1664x2688',
+  '2560x1792',
+  '1792x2560',
+  '2688x1536',
+  '1536x2688',
 ] satisfies IImageSize[];
 
 export const FIREWORKS_FLUX_ASPECT_RATIOS = FLUX_ASPECT_RATIOS;

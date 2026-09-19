@@ -72,27 +72,6 @@ abstract class ViewShareStateRealtimeProjection<TEvent extends ViewShareStateEve
             { type: 'set' as const, path: ['shareId'] as const, value: viewDto.shareId },
             { type: 'set' as const, path: ['shareMeta'] as const, value: viewDto.shareMeta },
           ];
-
-          const tableDocId = yield* RealtimeDocId.fromParts(
-            `tbl_${event.baseId.toString()}`,
-            event.tableId.toString()
-          ).safeUnwrap();
-          yield* (await realtimeEngine.ensure(context, tableDocId, snapshot)).safeUnwrap();
-          yield* (
-            await realtimeEngine.applyChange(
-              context,
-              tableDocId,
-              withPersistedViewAuditChanges(
-                viewDto,
-                changes.map((change) => ({
-                  ...change,
-                  path: ['views', viewIndex, ...change.path],
-                })),
-                ['views', viewIndex]
-              )
-            )
-          ).safeUnwrap();
-
           const viewDocId = yield* RealtimeDocId.fromParts(
             `viw_${event.tableId.toString()}`,
             event.viewId.toString()
@@ -101,7 +80,8 @@ abstract class ViewShareStateRealtimeProjection<TEvent extends ViewShareStateEve
             await realtimeEngine.ensure(
               context,
               viewDocId,
-              toStandaloneViewRealtimeSnapshot(viewDto)
+              toStandaloneViewRealtimeSnapshot(viewDto),
+              { expectExisting: true }
             )
           ).safeUnwrap();
           return realtimeEngine.applyChange(

@@ -45,7 +45,7 @@ export const KanbanStackHeader = (props: IKanbanStackHeaderProps) => {
   const choices = (options as ISelectFieldOptions)?.choices ?? [];
 
   const choiceRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement | null>();
+  const inputRef = useRef<HTMLInputElement>(null);
   const [renamingChoice, setRenamingChoice] = useState<ISelectFieldChoice | null>();
 
   const onStackRename = () => {

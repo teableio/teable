@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { domainError, isDomainError, toError } from './DomainError';
+import {
+  domainError,
+  isDomainError,
+  isNotFoundError,
+  isTableProvisionPendingError,
+  tableProvisionPendingError,
+  toError,
+} from './DomainError';
 
 describe('DomainError diagnostics', () => {
   it('captures a non-enumerable creation-site stack', () => {
@@ -9,6 +16,7 @@ describe('DomainError diagnostics', () => {
       details: { tableId: 'tbl1', error: 'relation does not exist' },
     });
 
+    expect(String(error)).toBe('Failed to load compute activity');
     expect(error.stack).toEqual(expect.stringContaining('DomainError.spec.ts'));
     expect(error.stack).not.toEqual(expect.stringContaining('at withTags'));
     expect(Object.keys(error)).not.toContain('stack');
@@ -58,5 +66,27 @@ describe('DomainError diagnostics', () => {
     // toError -> fromUnknown round trip is lossless: the original DomainError
     // is unwrapped, preserving code/tags/details.
     expect(domainError.fromUnknown(exception)).toBe(domain);
+  });
+});
+
+describe('provisioning error classification', () => {
+  it('never treats pending as missing, including legacy not-found tags', () => {
+    const pending = tableProvisionPendingError();
+    const legacy = domainError.notFound({ code: pending.code, message: pending.message });
+    for (const error of [pending, legacy]) {
+      expect(isTableProvisionPendingError(error)).toBe(true);
+      expect(isNotFoundError(error)).toBe(false);
+    }
+    expect(pending.tags).toEqual(['infrastructure']);
+    expect(pending.message).not.toContain('Table not found');
+    expect(isNotFoundError(domainError.notFound({ message: 'Missing' }))).toBe(true);
+  });
+
+  it('classifies by code, without treating diagnostic text as a domain contract', () => {
+    expect(isTableProvisionPendingError({ code: 'table.not_found' })).toBe(false);
+    expect(isTableProvisionPendingError({})).toBe(false);
+    expect(isTableProvisionPendingError({ code: { value: 'table.provision_pending' } })).toBe(
+      false
+    );
   });
 });

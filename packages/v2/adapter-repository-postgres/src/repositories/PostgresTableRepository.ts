@@ -80,6 +80,9 @@ const META_INSERT_BATCH_SIZE = 500;
 // flap into "Table not found" (T6660). Wait briefly for provisioning to finish
 // before declaring the table missing. Values resolve per call so tests and
 // deployments can tune them via env.
+// Process counters only; deliberately no per-table cardinality.
+export const provisionWaitCounters = { probe: 0, load: 0, ready: 0, missing: 0, expired: 0 };
+
 const DEFAULT_PROVISION_READY_WAIT_MS = 10_000;
 const DEFAULT_PROVISION_READY_POLL_MS = 100;
 
@@ -162,7 +165,9 @@ export class PostgresTableRepository implements core.ITableRepository {
     @inject(v2PostgresStateTokens.db)
     private readonly db: Kysely<V1TeableDatabase>,
     @inject(v2PostgresStateTokens.tableMapper)
-    private readonly tableMapper: core.ITableMapper
+    private readonly tableMapper: core.ITableMapper,
+    @inject(core.v2CoreTokens.formulaAdmissionService, { isOptional: true })
+    private readonly formulaAdmission?: core.IFormulaAdmissionService
   ) {}
 
   @core.TraceSpan()
@@ -170,6 +175,10 @@ export class PostgresTableRepository implements core.ITableRepository {
     context: core.IExecutionContext,
     table: core.Table
   ): Promise<Result<core.Table, DomainError>> {
+    if (!this.formulaAdmission)
+      return err(domainError.infrastructure({ message: 'Formula admission is not configured' }));
+    const admission = this.formulaAdmission.admitNew(table);
+    if (admission.isErr()) return err(admission.error);
     const now = new Date();
     const actorId = context.actorId.toString();
     const baseId = table.baseId().toString();
@@ -480,6 +489,12 @@ export class PostgresTableRepository implements core.ITableRepository {
     tables: ReadonlyArray<core.Table>
   ): Promise<Result<ReadonlyArray<core.Table>, DomainError>> {
     if (tables.length === 0) return ok([]);
+    if (!this.formulaAdmission)
+      return err(domainError.infrastructure({ message: 'Formula admission is not configured' }));
+    for (const table of tables) {
+      const admission = this.formulaAdmission.admitNew(table);
+      if (admission.isErr()) return err(admission.error);
+    }
 
     const now = new Date();
     const actorId = context.actorId.toString();
@@ -686,7 +701,9 @@ export class PostgresTableRepository implements core.ITableRepository {
       }
       const fieldWhere = visitor.fieldWhere();
       if (fieldWhere) {
-        attributes['teable.table_fields'] = 'primary';
+        attributes['teable.table_fields'] = specInfo.fieldIds?.length
+          ? specInfo.fieldIds.join(',')
+          : 'primary';
       }
       activeSpan.setAttributes(attributes);
     }
@@ -729,6 +746,8 @@ export class PostgresTableRepository implements core.ITableRepository {
                   'lookup_options',
                   'db_field_name',
                   'db_field_type',
+                  'version',
+                  'is_pending',
                 ])
                 .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
                 // Keep the hydrated field array aligned with the existing field list API.
@@ -821,6 +840,7 @@ export class PostgresTableRepository implements core.ITableRepository {
           'table_meta.icon',
           'table_meta.base_id',
           'table_meta.db_table_name',
+          'table_meta.search_index',
           'fields.fields',
           'views.views',
           outboundReferenceExistsExpr.as('has_outbound_reference'),
@@ -842,24 +862,17 @@ export class PostgresTableRepository implements core.ITableRepository {
         const specName = specInfo.specName ?? spec.constructor?.name ?? 'unknown';
         const details = formatSpecDetails(specInfo);
         const detailsSuffix = details.length > 0 ? ` ${details}` : '';
-        // A table still pending after the full wait budget is stuck (or its
-        // schema update is unusually slow) — say so in the error, which read
-        // paths already surface to logs, instead of looking genuinely missing.
-        // Transactional callers skip the wait; they still need a distinguishable
-        // code so computed workers can retry instead of obsolete-planning.
-        const provisionSuffix =
-          pendingWaitExpiredMs != null
-            ? ` (provision_state=pending after ${pendingWaitExpiredMs}ms wait)`
-            : provisionPending
-              ? ' (provision_state=pending)'
-              : '';
+        if (pendingWaitExpiredMs != null || provisionPending) {
+          return err(
+            core.tableProvisionPendingError(
+              `Table schema is updating (${specName})${detailsSuffix} (provision_state=pending${pendingWaitExpiredMs != null ? ` after ${pendingWaitExpiredMs}ms wait` : ''})`
+            )
+          );
+        }
         return err(
           domainError.notFound({
-            code:
-              pendingWaitExpiredMs != null || provisionPending
-                ? 'table.provision_pending'
-                : 'table.not_found',
-            message: `Table not found (${specName})${detailsSuffix}${provisionSuffix}`,
+            code: 'table.not_found',
+            message: `Table not found (${specName})${detailsSuffix}`,
           })
         );
       }
@@ -879,9 +892,9 @@ export class PostgresTableRepository implements core.ITableRepository {
    * Load a table row for the default 'active' (ready-only) state, absorbing
    * the short provisioning window of a concurrent schema update.
    *
-   * A physical-repair schema update commits provision_state='pending' before
-   * its meta transaction and flips back to 'ready' after commit. A read that
-   * lands inside that window must wait briefly instead of reporting
+   * A physical-repair schema update commits provision_state='pending' with
+   * its meta transaction and flips back to 'ready' after commit (T7114). A
+   * read that lands inside that window must wait briefly instead of reporting
    * "Table not found" (T6660); a table that is missing, deleted, or in
    * 'error'/'deleting' state still misses immediately.
    *
@@ -902,6 +915,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     pendingWaitExpiredMs?: number;
     provisionPending?: boolean;
   }> {
+    provisionWaitCounters.load++;
     const firstRow = await loadRow();
     if (firstRow) return { row: firstRow };
     if (effectiveState !== 'active' || options?.lock === 'forUpdate') return { row: undefined };
@@ -913,31 +927,84 @@ export class PostgresTableRepository implements core.ITableRepository {
       getPostgresTransaction(context, 'meta') != null ||
       getPostgresTransaction(context, 'data') != null;
     if (inTransaction) {
-      const probe = await this.probeActiveTableProvisionState(probeWhereFactory);
+      const probe = await this.probeActiveTableProvisionState(context, probeWhereFactory);
       return probe === 'pending' ? { row: undefined, provisionPending: true } : { row: undefined };
     }
 
-    const waitMs = provisionReadyWaitMs();
-    if (waitMs <= 0) return { row: undefined };
-
-    // Waiting only happens outside transactions (guarded above), so the probe
-    // always reads through the pool and sees other transactions' commits.
-    const pollMs = Math.max(1, provisionReadyPollMs());
+    const waitMs = Math.max(
+      0,
+      options?.provisionWaitMs ?? context.config?.tableProvisionWaitMs ?? provisionReadyWaitMs()
+    );
     const deadline = Date.now() + waitMs;
-    while (Date.now() < deadline) {
-      const probe = await this.probeActiveTableProvisionState(probeWhereFactory);
-      // No ready/pending row: genuinely missing, deleted, or terminally broken.
-      if (probe === 'missing') return { row: undefined };
-      if (probe !== 'pending') {
-        // The ready flip landed between the missed load and this probe —
-        // reload once instead of reporting a table that now exists as missing.
-        return { row: await loadRow() };
+    const pollMs = Math.max(1, provisionReadyPollMs());
+    for (;;) {
+      const probe = await this.probeActiveTableProvisionState(context, probeWhereFactory);
+      if (probe === 'missing') {
+        provisionWaitCounters.missing++;
+        return { row: undefined };
       }
-      await sleep(pollMs);
-      const row = await loadRow();
-      if (row) return { row };
+      if (probe === 'ready') {
+        provisionWaitCounters.load++;
+        const row = await loadRow();
+        if (row) {
+          provisionWaitCounters.ready++;
+          return { row };
+        }
+        // A new operation may have started since the probe. Never turn that
+        // race into not-found, and never grant it a fresh wait budget.
+        const next = await this.probeActiveTableProvisionState(context, probeWhereFactory);
+        if (next === 'missing') return { row: undefined };
+      }
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        provisionWaitCounters.expired++;
+        return { row: undefined, pendingWaitExpiredMs: waitMs, provisionPending: true };
+      }
+      await sleep(Math.min(pollMs, remaining));
     }
-    return { row: undefined, pendingWaitExpiredMs: waitMs, provisionPending: true };
+  }
+
+  async waitForReady(
+    context: core.IExecutionContext,
+    spec: core.ISpecification<core.Table, core.ITableSpecVisitor>,
+    options?: Pick<core.TableFindOneOptions, 'provisionWaitMs'>
+  ): Promise<Result<void, DomainError>> {
+    const where = this.activeProvisionProbeWhere(spec);
+    if (!where)
+      return err(domainError.validation({ message: 'Invalid table readiness specification' }));
+    const inTransaction =
+      getPostgresTransaction(context, 'meta') != null ||
+      getPostgresTransaction(context, 'data') != null;
+    const waitMs = inTransaction
+      ? 0
+      : Math.max(
+          0,
+          options?.provisionWaitMs ?? context.config?.tableProvisionWaitMs ?? provisionReadyWaitMs()
+        );
+    const deadline = Date.now() + waitMs;
+    try {
+      for (;;) {
+        const state = await this.probeActiveTableProvisionState(context, where);
+        if (state === 'ready') {
+          provisionWaitCounters.ready++;
+          return ok(undefined);
+        }
+        if (state === 'missing') {
+          provisionWaitCounters.missing++;
+          return err(domainError.notFound({ code: 'table.not_found', message: 'Table not found' }));
+        }
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) {
+          provisionWaitCounters.expired++;
+          return err(core.tableProvisionPendingError());
+        }
+        await sleep(Math.min(Math.max(1, provisionReadyPollMs()), remaining));
+      }
+    } catch (error) {
+      return err(
+        domainError.infrastructure({ message: `Failed to probe table: ${describeError(error)}` })
+      );
+    }
   }
 
   private activeProvisionProbeWhere(
@@ -952,14 +1019,17 @@ export class PostgresTableRepository implements core.ITableRepository {
   }
 
   private async probeActiveTableProvisionState(
+    context: core.IExecutionContext,
     probeWhereFactory: ITableMetaWhere
   ): Promise<'pending' | 'ready' | 'missing'> {
-    const probe = await this.db
+    provisionWaitCounters.probe++;
+    const probe = await resolvePostgresDbOrTx(this.db, context, 'meta')
       .selectFrom('table_meta')
       .select('provision_state')
       .where((eb) => probeWhereFactory(eb))
       .executeTakeFirst();
-    if (!probe) return 'missing';
+    if (!probe || (probe.provision_state !== 'pending' && probe.provision_state !== 'ready'))
+      return 'missing';
     return probe.provision_state === 'pending' ? 'pending' : 'ready';
   }
 
@@ -1008,12 +1078,18 @@ export class PostgresTableRepository implements core.ITableRepository {
                   'lookup_options',
                   'db_field_name',
                   'db_field_type',
+                  'version',
+                  'is_pending',
                 ])
                 .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
                 .orderBy(sql`${sql.ref('is_primary')} is null`, 'asc')
                 .orderBy('is_primary')
                 .orderBy('order')
                 .orderBy('created_time');
+              const fieldWhere = visitor.fieldWhere();
+              if (fieldWhere) {
+                query = query.where((eb) => fieldWhere(eb));
+              }
               if (shouldFilterDeletedChildren(effectiveState)) {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {
@@ -1086,6 +1162,7 @@ export class PostgresTableRepository implements core.ITableRepository {
           'table_meta.icon',
           'table_meta.base_id',
           'table_meta.db_table_name',
+          'table_meta.search_index',
           'fields.fields',
           'views.views',
           outboundReferenceExistsExpr.as('has_outbound_reference'),
@@ -1210,6 +1287,10 @@ export class PostgresTableRepository implements core.ITableRepository {
     table: core.Table,
     mutateSpec: core.ISpecification<core.Table, core.ITableSpecVisitor>
   ): Promise<Result<core.TableUpdatePersistResult | void, DomainError>> {
+    if (!this.formulaAdmission)
+      return err(domainError.infrastructure({ message: 'Formula admission is not configured' }));
+    const admission = this.formulaAdmission.admitUpdate(table, mutateSpec);
+    if (admission.isErr()) return err(admission.error);
     const now = new Date();
     const actorId = context.actorId.toString();
     const tableId = table.id().toString();
@@ -1823,6 +1904,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     icon: string | null;
     base_id: string;
     db_table_name: string | null;
+    search_index?: unknown;
     fields: unknown;
     views: unknown;
     has_outbound_reference?: boolean | null;
@@ -1849,6 +1931,8 @@ export class PostgresTableRepository implements core.ITableRepository {
           db_field_name: string | null;
           db_field_type: string | null;
           has_error: boolean | null;
+          version: number | null;
+          is_pending: boolean | null;
         }>)
       : [];
 
@@ -1889,6 +1973,7 @@ export class PostgresTableRepository implements core.ITableRepository {
       ...(row.description !== null ? { description: row.description } : {}),
       ...(row.icon !== null ? { icon: row.icon } : {}),
       dbTableName: row.db_table_name ?? undefined,
+      searchIndex: core.isTableSearchIndex(row.search_index) ? row.search_index : undefined,
       primaryFieldId,
       fields: fieldRows.map((f) => this.deserializeFieldDto(f)),
       views: [...viewsResult.value],
@@ -1928,6 +2013,8 @@ export class PostgresTableRepository implements core.ITableRepository {
     lookup_options: string | null;
     db_field_name: string | null;
     db_field_type: string | null;
+    version?: number | null;
+    is_pending?: boolean | null;
   }): core.ITableFieldPersistenceDTO {
     const parsed = this.parseOptions(row.options);
     const hasOptions = Object.keys(parsed).length > 0;
@@ -1949,6 +2036,7 @@ export class PostgresTableRepository implements core.ITableRepository {
             : row.lookup_linked_field_id || '',
         lookupFieldId: typeof source.lookupFieldId === 'string' ? source.lookupFieldId : '',
         foreignTableId: typeof source.foreignTableId === 'string' ? source.foreignTableId : '',
+        ...(typeof source.isUnique === 'boolean' ? { isUnique: source.isUnique } : {}),
         ...(source.filter !== undefined
           ? { filter: source.filter as core.ILookupOptionsDTO['filter'] }
           : {}),
@@ -1999,6 +2087,7 @@ export class PostgresTableRepository implements core.ITableRepository {
         ...(typeof value.baseId === 'string' && value.baseId ? { baseId: value.baseId } : {}),
         foreignTableId,
         lookupFieldId,
+        ...(typeof value.isUnique === 'boolean' ? { isUnique: value.isUnique } : {}),
         condition,
       };
     };
@@ -2009,6 +2098,8 @@ export class PostgresTableRepository implements core.ITableRepository {
     const baseCommon = {
       id: row.id,
       name: row.name,
+      ...(row.version != null ? { version: Number(row.version) } : {}),
+      ...(row.is_pending ? { isPending: true } : {}),
       ...(row.description !== null ? { description: row.description } : { description: null }),
       ...(row.ai_config !== null ? { aiConfig } : {}),
       dbFieldName,

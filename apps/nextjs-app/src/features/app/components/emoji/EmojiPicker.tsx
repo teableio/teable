@@ -1,7 +1,6 @@
 import emojiData from '@emoji-mart/data';
 import EmojiPickerCom from '@emoji-mart/react';
-import { useTheme } from '@teable/next-themes';
-import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
+import { useTheme, Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
 import type { CSSProperties, FC, PropsWithChildren } from 'react';
 import { useEffect, useRef, useState } from 'react';

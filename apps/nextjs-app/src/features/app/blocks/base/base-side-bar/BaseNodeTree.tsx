@@ -5,6 +5,7 @@ import { MoreHorizontal } from '@teable/icons';
 import type {
   IBaseNodeVo,
   IBaseNodeWorkflowResourceMeta,
+  IBaseNodeRoutineResourceMeta,
   IBaseNodeAppResourceMeta,
   IBaseNodeTableResourceMeta,
 } from '@teable/openapi';
@@ -162,6 +163,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const canCreateTable = Boolean(permission?.['table|create']);
   const canCreateDashboard = Boolean(permission?.['base|update'] && !disallowDashboard);
   const canCreateWorkflow = !isCommunity && Boolean(permission?.['automation|create']);
+  const canCreateRoutine = !isCommunity && Boolean(permission?.['routine|create']);
   const canCreateApp = !isCommunity && Boolean(aiChatEnabled && permission?.['app|create']);
   const canCreateFolder = Boolean(permission?.['base|update']);
   const canUpdateTable = Boolean(permission?.['table|update']);
@@ -169,7 +171,12 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const canCreateResource =
     isEditMode &&
     Boolean(
-      canCreateTable || canCreateDashboard || canCreateWorkflow || canCreateApp || canCreateFolder
+      canCreateTable ||
+        canCreateDashboard ||
+        canCreateWorkflow ||
+        canCreateRoutine ||
+        canCreateApp ||
+        canCreateFolder
     );
   const canMoveNode = isEditMode && Boolean(permission?.['base|update']);
   const { sharedNodeIds } = useSharedNodeIds();
@@ -419,6 +426,11 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
             queryKey: ReactQueryKeys.workflowItem(baseId, resourceId),
           });
           break;
+        case BaseNodeResourceType.Routine:
+          queryClient.invalidateQueries({
+            queryKey: ReactQueryKeys.routineItem(baseId, resourceId),
+          });
+          break;
         case BaseNodeResourceType.App:
           queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getApp(baseId, resourceId) });
           break;
@@ -454,6 +466,8 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         return baseResource.dashboardId;
       case BaseNodeResourceType.Workflow:
         return baseResource.workflowId;
+      case BaseNodeResourceType.Routine:
+        return baseResource.routineId;
       case BaseNodeResourceType.App:
         return baseResource.appId;
       default:
@@ -616,10 +630,13 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     const isWorkflowActive =
       resourceType === BaseNodeResourceType.Workflow &&
       (resourceMeta as IBaseNodeWorkflowResourceMeta)?.isActive;
+    const isRoutineActive =
+      resourceType === BaseNodeResourceType.Routine &&
+      (resourceMeta as IBaseNodeRoutineResourceMeta)?.status === 'active';
     const isAppPublished =
       resourceType === BaseNodeResourceType.App &&
       (resourceMeta as IBaseNodeAppResourceMeta)?.publicUrl;
-    if (isWorkflowActive || isAppPublished) {
+    if (isWorkflowActive || isRoutineActive || isAppPublished) {
       return <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />;
     }
     return null;
@@ -844,6 +861,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                     canCreateTable={canCreateTable}
                                     canCreateDashboard={canCreateDashboard}
                                     canCreateWorkflow={canCreateWorkflow}
+                                    canCreateRoutine={canCreateRoutine}
                                     canCreateApp={canCreateApp}
                                   >
                                     <Button
@@ -958,6 +976,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                     canCreateTable={canCreateTable}
                     canCreateDashboard={canCreateDashboard}
                     canCreateWorkflow={canCreateWorkflow}
+                    canCreateRoutine={canCreateRoutine}
                     canCreateApp={canCreateApp}
                   >
                     <Button

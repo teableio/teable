@@ -54,9 +54,11 @@ export const resolveFieldTargetsFromOutboxItem = (
     return ok([]);
   }
 
+  const terminalFields = new Set(task.terminalFieldErrors?.map((entry) => entry.fieldId));
   const byField = new Map<string, string>();
   for (const step of task.steps ?? []) {
     for (const fieldId of step.fieldIds ?? []) {
+      if (terminalFields.has(fieldId)) continue;
       if (!byField.has(fieldId)) {
         byField.set(fieldId, step.tableId);
       }
@@ -70,10 +72,9 @@ export const resolveFieldTargetsFromOutboxItem = (
   }
 
   return resolveTargets(
-    (task.affectedFieldIds ?? []).map((fieldId) => ({
-      fieldId,
-      tableId: task.seedTableId,
-    }))
+    (task.affectedFieldIds ?? [])
+      .filter((fieldId) => !terminalFields.has(fieldId))
+      .map((fieldId) => ({ fieldId, tableId: task.seedTableId }))
   );
 };
 export const sumDirtyRecordCount = (

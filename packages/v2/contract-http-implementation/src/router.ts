@@ -9,6 +9,7 @@ import type {
 import { v2Contract } from '@teable/v2-contract-http';
 import {
   ActorId,
+  isTableProvisionPendingError,
   type ICommandBus,
   type IComputedActivityReader,
   type IDomainErrorLocalization,
@@ -141,7 +142,12 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
    * Domain error code and tags are passed in the data property for extraction by the OpenAPI handler.
    */
   const throwDomainError = (
-    orpcCode: 'BAD_REQUEST' | 'FORBIDDEN' | 'NOT_FOUND' | 'INTERNAL_SERVER_ERROR',
+    orpcCode:
+      | 'BAD_REQUEST'
+      | 'FORBIDDEN'
+      | 'NOT_FOUND'
+      | 'GATEWAY_TIMEOUT'
+      | 'INTERNAL_SERVER_ERROR',
     errorBody: {
       message: string;
       code: string;
@@ -150,15 +156,18 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
       localization?: IDomainErrorLocalization;
     }
   ): never => {
-    throw new ORPCError(orpcCode, {
-      message: errorBody.message,
-      data: {
-        domainCode: errorBody.code,
-        domainTags: errorBody.tags,
-        details: errorBody.details,
-        localization: errorBody.localization,
-      },
-    });
+    throw new ORPCError(
+      isTableProvisionPendingError(errorBody) ? 'SERVICE_UNAVAILABLE' : orpcCode,
+      {
+        message: errorBody.message,
+        data: {
+          domainCode: errorBody.code,
+          domainTags: errorBody.tags,
+          details: errorBody.details,
+          localization: errorBody.localization,
+        },
+      }
+    );
   };
 
   const os = implement(v2Contract);
@@ -172,6 +181,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 400) throwDomainError('BAD_REQUEST', result.body.error);
     if (result.status === 403) throwDomainError('FORBIDDEN', result.body.error);
     if (result.status === 404) throwDomainError('NOT_FOUND', result.body.error);
+    // A read that outran its budget is a dependency timeout, not an internal failure.
+    if (result.status === 504) throwDomainError('GATEWAY_TIMEOUT', result.body.error);
     return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
   };
 
@@ -1070,6 +1081,11 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
 
     if (result.status === 404) {
       throwDomainError('NOT_FOUND', result.body.error);
+    }
+
+    // A read that outran its budget is a dependency timeout, not an internal failure.
+    if (result.status === 504) {
+      throwDomainError('GATEWAY_TIMEOUT', result.body.error);
     }
 
     throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);

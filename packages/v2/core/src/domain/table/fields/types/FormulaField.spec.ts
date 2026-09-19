@@ -243,6 +243,43 @@ describe('FormulaField', () => {
     expect(notPersisted._unsafeUnwrap()).toBe(false);
   });
 
+  it('enables safety monotonically while retaining generated-column storage', () => {
+    const field = buildFormulaField('s', {
+      meta: FormulaMeta.rehydrate({ persistedAsGeneratedColumn: true })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    expect(field.formulaSafetyVersion()._unsafeUnwrap()).toBeUndefined();
+    field.enableFormulaSafety(1)._unsafeUnwrap();
+    field.enableFormulaSafety(1)._unsafeUnwrap();
+    expect(field.formulaSafetyVersion()._unsafeUnwrap()).toBe(1);
+    expect(field.isPersistedAsGeneratedColumn()._unsafeUnwrap()).toBe(true);
+
+    const future = buildFormulaField('t', {
+      meta: FormulaMeta.rehydrate({ formulaSafetyVersion: 2 })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    expect(future.enableFormulaSafety(1).isErr()).toBe(true);
+    expect(future.formulaSafetyVersion()._unsafeUnwrap()).toBe(2);
+  });
+
+  it('does not promote legacy definitions on a no-op and preserves ownership on duplication', () => {
+    const field = buildFormulaField('u')._unsafeUnwrap();
+    field.setExpression(FormulaExpression.create('1')._unsafeUnwrap())._unsafeUnwrap();
+    expect(field.formulaSafetyVersion()._unsafeUnwrap()).toBeUndefined();
+
+    field.enableFormulaSafety(1)._unsafeUnwrap();
+    const duplicate = field
+      .duplicate({
+        newId: createFieldId('v')._unsafeUnwrap(),
+        newName: FieldName.create('Copy')._unsafeUnwrap(),
+        baseId: BaseId.create(`bse${'u'.repeat(16)}`)._unsafeUnwrap(),
+        tableId: TableId.create(`tbl${'u'.repeat(16)}`)._unsafeUnwrap(),
+      })
+      ._unsafeUnwrap();
+    if (!(duplicate instanceof FormulaField)) throw new Error('Expected formula duplicate');
+    expect(duplicate.formulaSafetyVersion()._unsafeUnwrap()).toBe(1);
+    expect(duplicate.id().equals(field.id())).toBe(false);
+    expect(duplicate.expression().equals(field.expression())).toBe(true);
+  });
+
   it('returns field deletion reaction metadata when a dependency is deleted', () => {
     const baseId = BaseId.create(`bse${'q'.repeat(16)}`)._unsafeUnwrap();
     const tableId = TableId.create(`tbl${'r'.repeat(16)}`)._unsafeUnwrap();

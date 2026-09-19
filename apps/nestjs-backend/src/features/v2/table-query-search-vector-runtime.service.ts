@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ActorId, type IExecutionContext, type IRecordSearchAccessPath } from '@teable/v2-core';
-import type { DependencyContainer } from '@teable/v2-di';
-import { v2TableOpsTokens, type TableSearchAccessPathResolver } from '@teable/v2-table-query-ops';
+import type { IRecordSearchAccessPath, ITableReadModel } from '@teable/v2-core';
+import { resolveTableSearchAccessPath } from '@teable/v2-table-query-ops';
 
 export type TableQuerySearchVectorRuntimeMode = 'off' | 'auto';
 
@@ -12,6 +11,10 @@ export const tableQuerySearchAccessPathRuntimeEnv = 'V2_TABLE_QUERY_OPS_SEARCH_A
 export const resolveTableQuerySearchVectorRuntimeMode = (
   value: unknown
 ): TableQuerySearchVectorRuntimeMode => {
+  if (value == null) {
+    return 'off';
+  }
+
   if (typeof value === 'boolean') {
     return value ? 'auto' : 'off';
   }
@@ -41,29 +44,15 @@ export const hasSearchValueForSearchVectorRuntime = (search: unknown): boolean =
 export class TableQuerySearchVectorRuntimeService {
   constructor(private readonly configService: ConfigService) {}
 
-  async resolveForRecordSearch(input: {
-    readonly container: DependencyContainer;
-    readonly tableId: string;
+  resolveForRecordSearch(input: {
+    readonly table: ITableReadModel;
     readonly search: unknown;
-  }): Promise<IRecordSearchAccessPath | undefined> {
+  }): IRecordSearchAccessPath | undefined {
     if (!hasSearchValueForSearchVectorRuntime(input.search) || this.mode() !== 'auto') {
       return undefined;
     }
 
-    try {
-      // The config storage is owned by the table-query-ops adapter; read it
-      // through its resolver port instead of issuing SQL from the app layer.
-      if (!input.container.isRegistered(v2TableOpsTokens.searchAccessPathResolver)) {
-        return undefined;
-      }
-      const resolver = input.container.resolve<TableSearchAccessPathResolver>(
-        v2TableOpsTokens.searchAccessPathResolver
-      );
-      const resolved = await resolver.resolve(this.systemContext(), input.tableId);
-      return resolved.isOk() ? resolved.value : undefined;
-    } catch {
-      return undefined;
-    }
+    return resolveTableSearchAccessPath(input.table);
   }
 
   private mode(): TableQuerySearchVectorRuntimeMode {
@@ -71,12 +60,5 @@ export class TableQuerySearchVectorRuntimeService {
       this.configService.get(tableQuerySearchAccessPathRuntimeEnv) ??
         this.configService.get(tableQuerySearchVectorRuntimeEnv)
     );
-  }
-
-  private systemContext(): IExecutionContext {
-    return {
-      actorId: ActorId.create('system')._unsafeUnwrap(),
-      requestId: 'table-query-search-vector-runtime',
-    };
   }
 }

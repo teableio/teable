@@ -35,7 +35,7 @@ export const OAuthAppForm = forwardRef<IOAuthAppFormRef, IOAuthAppFormProps>((pr
   const { showBasicTitle, value, onChange } = props;
 
   const validateRefs = useRef<Partial<{ [key in keyof OAuthCreateRo]: IFormItemRef | null }>>({});
-  const errorRef = useRef<IFormItemRef | null>();
+  const errorRef = useRef<IFormItemRef | null>(undefined);
 
   const [form, setForm] = useState<OAuthCreateRo>(
     value ?? {

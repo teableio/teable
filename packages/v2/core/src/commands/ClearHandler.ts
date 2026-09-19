@@ -37,7 +37,7 @@ import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
 import type { IBatchMutationOrchestration } from '../ports/BatchMutationOrchestration';
-import * as EventBusPort from '../ports/EventBus';
+import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { AsyncIterableQueue } from '../ports/memory/AsyncIterableQueue';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
@@ -48,7 +48,6 @@ import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { createUndoRedoCommand, type UndoRedoCommandLeafData } from '../ports/UndoRedoStore';
-import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import {
   buildSanitizedRecordConditionSpec,
   replaceCurrentUserTagInFilter,
@@ -197,12 +196,10 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
     protected readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
     @inject(v2CoreTokens.tableRecordQueryRepository)
     protected readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
-    @inject(v2CoreTokens.eventBus)
-    protected readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.undoRedoService)
     protected readonly undoRedoStackService: UndoRedoStackService,
-    @inject(v2CoreTokens.unitOfWork)
-    protected readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    @inject(v2CoreTokens.domainWriteTransaction)
+    protected readonly domainWriteTransaction: IDomainWriteTransaction
   ) {}
 
   @TraceSpan()
@@ -256,7 +253,7 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
             context,
             table,
             filterSpec,
-            { mode: 'stored', pagination, search: visibleRowSearch }
+            { mode: 'stored', pagination, search: visibleRowSearch, includeTotal: true }
           );
           totalRows = countResult.total;
         }
@@ -454,30 +451,49 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
 
       const batchMutation = buildOperationBatchMutation(context.requestId, updateItems.length);
 
-      // 11. Execute updates within transaction
-      const updateResult = yield* await handler.unitOfWork.withTransaction(
+      const committed = yield* await handler.domainWriteTransaction.execute(
         context,
         async (txContext) => {
           const beforePersistResult = await pluginExecution.beforePersist(txContext);
           if (beforePersistResult.isErr()) {
             return err(beforePersistResult.error);
           }
-          return handler.executeUpdates(txContext, table, updateItems, batchMutation);
+          const updateResult = await handler.executeUpdates(
+            txContext,
+            table,
+            updateItems,
+            batchMutation
+          );
+          if (updateResult.isErr()) {
+            return err(updateResult.error);
+          }
+          const persistedEventData = reconcilePersistedUpdateEvents(eventData, updateResult.value);
+          const events =
+            persistedEventData.length > 0
+              ? [
+                  RecordsBatchUpdated.create({
+                    tableId: table.id(),
+                    baseId: table.baseId(),
+                    updates: persistedEventData,
+                    source: 'user',
+                    orchestration: batchMutation,
+                  }),
+                ]
+              : [];
+          return ok(
+            domainWrite.fromEvents(
+              {
+                updateResult: updateResult.value,
+                persistedEventData,
+              },
+              events,
+              { tables: [table] }
+            )
+          );
         }
       );
-      const persistedEventData = reconcilePersistedUpdateEvents(eventData, updateResult);
-
-      // 12. Publish events after transaction commits
-      if (persistedEventData.length > 0) {
-        const event = RecordsBatchUpdated.create({
-          tableId: table.id(),
-          baseId: table.baseId(),
-          updates: persistedEventData,
-          source: 'user',
-          orchestration: batchMutation,
-        });
-        yield* await handler.eventBus.publishMany(context, [event]);
-      }
+      const updateResult = committed.value.updateResult;
+      const persistedEventData = committed.value.persistedEventData;
 
       if (persistedEventData.length > 0) {
         const tableIdText = table.id().toString();
@@ -792,24 +808,53 @@ export class ClearStreamApplicationService extends ClearHandler {
 
         let chunkClearedCount = 0;
         if (chunkBuild.updateItems.length > 0) {
-          const persistResult = await this.unitOfWork.withTransaction(
+          const committed = await this.domainWriteTransaction.execute(
             context,
             async (txContext) => {
               const beforePersistResult = await chunkPluginExecution.beforePersist(txContext);
               if (beforePersistResult.isErr()) {
                 return err(beforePersistResult.error);
               }
-              return this.executeUpdates(
+              const updateResult = await this.executeUpdates(
                 txContext,
                 plan.table,
                 chunkBuild.updateItems,
                 batchMutation
               );
+              if (updateResult.isErr()) {
+                return err(updateResult.error);
+              }
+              const persistedEventData = reconcilePersistedUpdateEvents(
+                chunkBuild.eventData,
+                updateResult.value
+              );
+              const events =
+                persistedEventData.length > 0
+                  ? [
+                      RecordsBatchUpdated.create({
+                        tableId: plan.table.id(),
+                        baseId: plan.table.baseId(),
+                        updates: persistedEventData,
+                        source: 'user',
+                        orchestration: batchMutation,
+                      }),
+                    ]
+                  : [];
+              return ok(
+                domainWrite.fromEvents(
+                  {
+                    updateResult: updateResult.value,
+                    persistedEventData,
+                  },
+                  events,
+                  { tables: [plan.table] }
+                )
+              );
             }
           );
-          if (persistResult.isErr()) {
+          if (committed.isErr()) {
             queue.push(
-              this.createErrorEvent(persistResult.error, {
+              this.createErrorEvent(committed.error, {
                 phase: 'clearing',
                 batchIndex: chunkPlan.batchIndex,
                 totalCount: plan.totalCount,
@@ -822,34 +867,7 @@ export class ClearStreamApplicationService extends ClearHandler {
             continue;
           }
 
-          const persistedEventData = reconcilePersistedUpdateEvents(
-            chunkBuild.eventData,
-            persistResult.value
-          );
-
-          if (persistedEventData.length > 0) {
-            const publishResult = await this.eventBus.publishMany(context, [
-              RecordsBatchUpdated.create({
-                tableId: plan.table.id(),
-                baseId: plan.table.baseId(),
-                updates: persistedEventData,
-                source: 'user',
-                orchestration: batchMutation,
-              }),
-            ]);
-            if (publishResult.isErr()) {
-              queue.push(
-                this.createErrorEvent(publishResult.error, {
-                  phase: 'publishing',
-                  batchIndex: chunkPlan.batchIndex,
-                  totalCount: plan.totalCount,
-                  processedCount,
-                  clearedCount,
-                  recordIds: chunkBuild.recordIds.map((recordId) => recordId.toString()),
-                })
-              );
-            }
-          }
+          const persistedEventData = committed.value.value.persistedEventData;
 
           if (persistedEventData.length > 0) {
             const tableIdText = plan.table.id().toString();
@@ -884,7 +902,7 @@ export class ClearStreamApplicationService extends ClearHandler {
             }
           }
 
-          chunkClearedCount = persistResult.value.totalUpdated;
+          chunkClearedCount = committed.value.value.updateResult.totalUpdated;
           clearedCount += chunkClearedCount;
           clearedRecordIds.push(...persistedEventData.map((update) => update.recordId));
         }
@@ -1031,6 +1049,7 @@ export class ClearStreamApplicationService extends ClearHandler {
           mode: 'stored',
           pagination,
           search: resolveVisibleRowSearch(command.search, orderedFieldIdsResult.value),
+          includeTotal: true,
         });
         if (countResult.isErr()) {
           return err(countResult.error);
@@ -1380,12 +1399,10 @@ export class ClearStreamHandler implements ICommandHandler<ClearStreamCommand, C
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
     @inject(v2CoreTokens.tableRecordQueryRepository)
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
-    @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoStackService: UndoRedoStackService,
-    @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    @inject(v2CoreTokens.domainWriteTransaction)
+    private readonly domainWriteTransaction: IDomainWriteTransaction
   ) {}
 
   @TraceSpan()
@@ -1399,9 +1416,8 @@ export class ClearStreamHandler implements ICommandHandler<ClearStreamCommand, C
         this.recordWritePluginRunner,
         this.tableRecordRepository,
         this.tableRecordQueryRepository,
-        this.eventBus,
         this.undoRedoStackService,
-        this.unitOfWork
+        this.domainWriteTransaction
       ).createStream(context, command)
     );
   }

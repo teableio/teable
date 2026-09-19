@@ -32,7 +32,6 @@ import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { TableId } from '../../domain/table/TableId';
 import type { ViewId } from '../../domain/table/views/ViewId';
-import * as EventBusPort from '../../ports/EventBus';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { AsyncIterableQueue } from '../../ports/memory/AsyncIterableQueue';
 import {
@@ -47,9 +46,9 @@ import type {
   BatchRecordMutationResult,
   RecordStoredSnapshot,
 } from '../../ports/TableRecordRepository';
+import { domainWrite, type IDomainWriteTransaction } from '../../ports/DomainWriteTransaction';
 import { v2CoreTokens } from '../../ports/tokens';
 import type { SpanAttributes } from '../../ports/Tracer';
-import * as UnitOfWorkPort from '../../ports/UnitOfWork';
 import type { RecordSortValue } from '../../queries/ListTableRecordsQuery';
 import type { RecordFilter } from '../../queries/RecordFilterDto';
 import {
@@ -177,12 +176,10 @@ export class DuplicateRecordsApplicationService {
     private readonly tableRecordQueryRepository: ITableRecordQueryRepository,
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,
-    @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus,
+    @inject(v2CoreTokens.domainWriteTransaction)
+    private readonly domainWriteTransaction: IDomainWriteTransaction,
     @inject(v2CoreTokens.undoRedoService)
-    private readonly undoRedoStackService: UndoRedoStackService,
-    @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    private readonly undoRedoStackService: UndoRedoStackService
   ) {}
 
   createStream(
@@ -449,6 +446,7 @@ export class DuplicateRecordsApplicationService {
       pagination: OffsetPagination.create(countLimitResult.value, PageOffset.zero()),
       orderBy,
       search,
+      includeTotal: true,
     });
     if (countResult.isErr()) {
       return err(countResult.error);
@@ -747,12 +745,12 @@ export class DuplicateRecordsApplicationService {
         }
       : buildOperationBatchMutation(context.requestId, chunk.sourceRecords.length);
 
-    const transactionResult = await this.runInSpan(
+    const committedResult = await this.runInSpan(
       context,
       'teable.DuplicateRecordsApplicationService.persistDuplicateChunkMutation',
       traceAttributes,
       () =>
-        this.unitOfWork.withTransaction(context, async (transactionContext) => {
+        this.domainWriteTransaction.execute(context, async (transactionContext) => {
           let tableEvents: ReadonlyArray<IDomainEvent> = [];
           const updateResult = sideEffectResult.value.updateResult;
           if (updateResult) {
@@ -788,53 +786,59 @@ export class DuplicateRecordsApplicationService {
             return err(insertResult.error);
           }
 
-          return ok({
-            tableEvents,
-            mutationResult: insertResult.value,
-            records: createResult.value.records,
-          });
+          const storedSnapshotsResult = await this.buildStoredSnapshots(
+            context,
+            table,
+            createResult.value.records,
+            insertResult.value
+          );
+          if (storedSnapshotsResult.isErr()) {
+            return err(storedSnapshotsResult.error);
+          }
+
+          const events = await this.runInSpan(
+            context,
+            'teable.DuplicateRecordsApplicationService.aggregateDuplicateChunkEvents',
+            traceAttributes,
+            async () => [
+              ...tableEvents,
+              ...this.aggregateCreatedEvents(
+                table,
+                insertResult.value,
+                createResult.value.records,
+                orchestration
+                  ? batchMutation
+                  : {
+                      totalRecordCount: createResult.value.records.length,
+                      totalChunkCount: 1,
+                      chunkIndex: 0,
+                      scope: 'chunk',
+                    }
+              ),
+            ]
+          );
+
+          return ok(
+            domainWrite.fromEvents(
+              {
+                mutationResult: insertResult.value,
+                records: createResult.value.records,
+                storedSnapshots: storedSnapshotsResult.value,
+              },
+              events
+            )
+          );
         })
     );
-    if (transactionResult.isErr()) {
-      return err(transactionResult.error);
+    if (committedResult.isErr()) {
+      return err(committedResult.error);
     }
 
-    const persisted = transactionResult.value;
-    const events = await this.runInSpan(
-      context,
-      'teable.DuplicateRecordsApplicationService.aggregateDuplicateChunkEvents',
-      traceAttributes,
-      async () => [
-        ...persisted.tableEvents,
-        ...this.aggregateCreatedEvents(
-          table,
-          persisted.mutationResult,
-          persisted.records,
-          orchestration
-            ? batchMutation
-            : {
-                totalRecordCount: persisted.records.length,
-                totalChunkCount: 1,
-                chunkIndex: 0,
-                scope: 'chunk',
-              }
-        ),
-      ]
-    );
-    const storedSnapshotsResult = await this.buildStoredSnapshots(
-      context,
-      table,
-      persisted.records,
-      persisted.mutationResult
-    );
-    if (storedSnapshotsResult.isErr()) {
-      return err(storedSnapshotsResult.error);
-    }
-
+    const persisted = committedResult.value.value;
     return ok({
       duplicatedRecordIds: persisted.records.map((record) => record.id().toString()),
-      storedSnapshots: storedSnapshotsResult.value,
-      events,
+      storedSnapshots: persisted.storedSnapshots,
+      events: committedResult.value.events,
     });
   }
 
@@ -1074,29 +1078,6 @@ export class DuplicateRecordsApplicationService {
             chunk.batchIndex
           )
         );
-
-        const publishResult = await this.runInSpan(
-          context,
-          'teable.DuplicateRecordsApplicationService.publishDuplicateChunkEvents',
-          {
-            'teable.batch_index': chunk.batchIndex,
-            'teable.chunk_record_count': persisted.duplicatedRecordIds.length,
-            'teable.total_record_count': plan.totalCount,
-            'teable.table_id': plan.table.id().toString(),
-          },
-          () => this.eventBus.publishMany(context, persisted.events)
-        );
-        if (publishResult.isErr()) {
-          queue.push(
-            this.createErrorEvent(publishResult.error, {
-              phase: 'publishing',
-              batchIndex: chunk.batchIndex,
-              totalCount: plan.totalCount,
-              duplicatedCount,
-              recordIds: [...persisted.duplicatedRecordIds],
-            })
-          );
-        }
 
         const undoRedoResult = await this.runInSpan(
           context,

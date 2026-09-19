@@ -10,6 +10,7 @@ import {
 import { noop } from 'lodash';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { ForwardRefRenderFunction } from 'react';
+import { useIsTouchDevice } from '../../../../hooks/use-is-touch-device';
 import type { ISelectCell } from '../../renderers';
 import type { IEditorProps, IEditorRef } from './EditorContainer';
 
@@ -22,9 +23,14 @@ const SelectEditorBase: ForwardRefRenderFunction<
   const [values, setValues] = useState(data);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const { cellOptionBg, cellOptionTextColor } = theme;
+  // Under a finger the list opens without its search field taking focus (and the
+  // keyboard with it); the field is there to be tapped.
+  const isTouchDevice = useIsTouchDevice();
 
   useImperativeHandle(ref, () => ({
-    focus: () => inputRef.current?.focus(),
+    focus: () => {
+      if (!isTouchDevice) inputRef.current?.focus();
+    },
     setValue: (data: ISelectCell['data']) => setValues(data),
     saveValue: noop,
   }));

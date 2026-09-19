@@ -19,7 +19,6 @@ import {
   scheduleRealtimeProjection,
 } from './scheduleRealtimeProjection';
 
-const tableCollectionPrefix = 'tbl';
 const fieldCollectionPrefix = 'fld';
 
 @ProjectionHandler(FieldCreated)
@@ -57,14 +56,6 @@ export class FieldCreatedRealtimeProjection implements IEventHandler<FieldCreate
                 candidate.fields.some((field) => field.id === event.fieldId.toString()),
             })
           ).safeUnwrap();
-
-          // Ensure table document exists (for tables created before realtime was enabled)
-          const tableCollection = `${tableCollectionPrefix}_${event.baseId.toString()}`;
-          const tableDocId = yield* RealtimeDocId.fromParts(
-            tableCollection,
-            event.tableId.toString()
-          ).safeUnwrap();
-          yield* (await realtimeEngine.ensure(context, tableDocId, snapshot)).safeUnwrap();
 
           // Create field document
           const fieldDto = snapshot.fields.find((field) => field.id === event.fieldId.toString());

@@ -128,10 +128,11 @@ export interface ITableRecordQueryBuilder {
    * Set ordering for the query.
    * @param column - The column to order by (FieldId or system column like '__auto_number')
    * @param direction - Sort direction ('asc' or 'desc')
-   * @param options - groupIdentityCollation: collate a user field the way its
-   * group buckets collate ({id, title} identity) so grouped record pages and
-   * offset-addressed range reads line up with the group row blocks; without
-   * it plain sorts keep the v1 raw-cell collation
+   * @param options - groupIdentityCollation: collate a key the way its group
+   * buckets collate (user fields by {id, title} identity, date-like fields by
+   * their formatting bucket) so grouped record pages and offset-addressed range
+   * reads line up with the group row blocks; without it plain sorts keep the v1
+   * raw-cell collation
    */
   orderBy(
     column: OrderByColumn,

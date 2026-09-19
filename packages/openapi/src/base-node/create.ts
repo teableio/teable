@@ -55,12 +55,20 @@ const createBaseAppNodeRoSchema = z.object({
 
 export type ICreateAppNodeRo = z.infer<typeof createBaseAppNodeRoSchema>;
 
+const createBaseRoutineNodeRoSchema = z.object({
+  ...createBaseNodeSchema.shape,
+  resourceType: z.literal(BaseNodeResourceType.Routine),
+});
+
+export type ICreateRoutineNodeRo = z.infer<typeof createBaseRoutineNodeRoSchema>;
+
 export const createBaseNodeRoSchema = z.discriminatedUnion('resourceType', [
   createBaseFolderNodeRoSchema,
   createBaseTableNodeRoSchema,
   createBaseDashboardNodeRoSchema,
   createBaseWorkflowNodeRoSchema,
   createBaseAppNodeRoSchema,
+  createBaseRoutineNodeRoSchema,
 ]);
 
 export type ICreateBaseNodeRo = z.infer<typeof createBaseNodeRoSchema>;
@@ -68,7 +76,8 @@ export type ICreateBaseNodeRo = z.infer<typeof createBaseNodeRoSchema>;
 export const CreateBaseNodeRoute: RouteConfig = registerRoute({
   method: 'post',
   path: CREATE_BASE_NODE,
-  description: 'Create a hierarchical node for a base',
+  title: 'Create project node',
+  description: 'Create a node in a project hierarchy.',
   request: {
     params: z.object({
       baseId: z.string(),

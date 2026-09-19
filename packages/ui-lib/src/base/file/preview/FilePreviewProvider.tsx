@@ -9,6 +9,15 @@ interface IFilePreviewProvider {
   i18nMap?: Record<string, string>;
 }
 
+// Items carry callbacks, so compare fields by identity instead of serializing.
+const isSameFileItem = (a: IFileItemInner, b: IFileItemInner) => {
+  const aEntries = Object.entries(a);
+  return (
+    aEntries.length === Object.keys(b).length &&
+    aEntries.every(([key, value]) => b[key as keyof IFileItemInner] === value)
+  );
+};
+
 export const FilePreviewProvider = (props: IFilePreviewProvider) => {
   const { children, container, i18nMap } = props;
   const [current, setCurrent] = useState<number | string>();
@@ -33,7 +42,7 @@ export const FilePreviewProvider = (props: IFilePreviewProvider) => {
       if (index === -1) {
         return [...pre, item];
       }
-      if (JSON.stringify(pre[index]) === JSON.stringify(item)) {
+      if (isSameFileItem(pre[index], item)) {
         return pre;
       }
       const newFiles = [...pre];
@@ -46,16 +55,19 @@ export const FilePreviewProvider = (props: IFilePreviewProvider) => {
     setFiles(files ?? []);
   }, []);
 
-  const onDelete = useCallback((fileId: IFileId) => {
+  const removeFile = useCallback((fileId: IFileId) => {
     setFiles((pre) => {
       const index = pre.findIndex((file) => file.fileId === fileId);
-      if (index > -1) {
-        setCurrent((preCurrent) =>
-          preCurrent === fileId ? pre[index > 0 ? index - 1 : 0].fileId : preCurrent
-        );
-        return pre.filter((file) => file.fileId !== fileId);
+      if (index === -1) {
+        return pre;
       }
-      return pre;
+      const rest = pre.filter((file) => file.fileId !== fileId);
+      // Keep the preview open on the file that took the removed slot, falling
+      // back to the new last file. With nothing left the preview closes.
+      setCurrent((preCurrent) =>
+        preCurrent === fileId ? rest[Math.min(index, rest.length - 1)]?.fileId : preCurrent
+      );
+      return rest;
     });
   }, []);
 
@@ -90,7 +102,7 @@ export const FilePreviewProvider = (props: IFilePreviewProvider) => {
         files,
         mergeFiles,
         resetFiles,
-        onDelete,
+        removeFile,
         openPreview,
         closePreview,
         onPrev,

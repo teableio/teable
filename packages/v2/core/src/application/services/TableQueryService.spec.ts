@@ -1,5 +1,5 @@
 import { err, ok } from 'neverthrow';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
@@ -130,4 +130,24 @@ describe('TableQueryService', () => {
 
     expect(result._unsafeUnwrapErr().message).toBe('lookup failed');
   });
+});
+
+it('preserves pending across getById, getByIdInBase and exists, even for legacy tags', async () => {
+  const table = buildTable('a', 'b');
+  const repo = new MemoryTableRepository();
+  const service = new TableQueryService(repo);
+  for (const factory of [domainError.infrastructure, domainError.notFound]) {
+    const pending = factory({
+      code: 'table.provision_pending',
+      message: 'Table schema is updating (provision_state=pending)',
+    });
+    vi.spyOn(repo, 'findOne').mockResolvedValue(err(pending));
+    for (const result of [
+      await service.getById(createContext(), table.id()),
+      await service.getByIdInBase(createContext(), table.baseId(), table.id()),
+      await service.exists(createContext(), table.id()),
+    ]) {
+      expect(result._unsafeUnwrapErr()).toBe(pending);
+    }
+  }
 });

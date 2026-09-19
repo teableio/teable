@@ -53,12 +53,13 @@ export class RecordRestoreService {
 
   async restoreRecordSnapshots(
     tableId: string,
-    records: IRestorableRecordSnapshot[]
+    records: IRestorableRecordSnapshot[],
+    options?: { cleanupAttachmentRefs?: boolean }
   ): Promise<void> {
     records = await this.stripDanglingLinks(tableId, records);
 
     if (await this.shouldRestoreRecordsWithV2(tableId)) {
-      await this.restoreRecordsV2(tableId, records);
+      await this.restoreRecordsV2(tableId, records, options);
       return;
     }
 
@@ -122,25 +123,12 @@ export class RecordRestoreService {
     );
 
     const batchIds = new Set(records.map((record) => record.id));
-    const liveIdsByTable = new Map<string, Set<string>>();
-    const PROBE_CHUNK_SIZE = 5000;
-    for (const [foreignTableId, targetIds] of targetIdsByTable) {
-      const live = new Set<string>();
-      if (liveForeignTables.has(foreignTableId)) {
-        const ids = [...targetIds];
-        for (let i = 0; i < ids.length; i += PROBE_CHUNK_SIZE) {
-          const rows = await this.recordService.getRecordsHeadWithIds(
-            foreignTableId,
-            ids.slice(i, i + PROBE_CHUNK_SIZE)
-          );
-          rows.forEach((row) => live.add(row.id));
-        }
-      }
-      if (foreignTableId === tableId) {
-        batchIds.forEach((id) => live.add(id));
-      }
-      liveIdsByTable.set(foreignTableId, live);
-    }
+    const liveIdsByTable = await this.probeLiveLinkTargetIds(
+      tableId,
+      batchIds,
+      liveForeignTables,
+      targetIdsByTable
+    );
 
     return records.map((record) => {
       let changed = false;
@@ -162,6 +150,34 @@ export class RecordRestoreService {
       }
       return changed ? { ...record, fields } : record;
     });
+  }
+
+  private async probeLiveLinkTargetIds(
+    tableId: string,
+    batchIds: ReadonlySet<string>,
+    liveForeignTables: ReadonlySet<string>,
+    targetIdsByTable: ReadonlyMap<string, Set<string>>
+  ): Promise<Map<string, Set<string>>> {
+    const liveIdsByTable = new Map<string, Set<string>>();
+    const probeChunkSize = 5000;
+    for (const [foreignTableId, targetIds] of targetIdsByTable) {
+      const live = new Set<string>();
+      if (liveForeignTables.has(foreignTableId)) {
+        const ids = [...targetIds];
+        for (let i = 0; i < ids.length; i += probeChunkSize) {
+          const rows = await this.recordService.getRecordsHeadWithIds(
+            foreignTableId,
+            ids.slice(i, i + probeChunkSize)
+          );
+          rows.forEach((row) => live.add(row.id));
+        }
+      }
+      if (foreignTableId === tableId) {
+        batchIds.forEach((id) => live.add(id));
+      }
+      liveIdsByTable.set(foreignTableId, live);
+    }
+    return liveIdsByTable;
   }
 
   toV2RestoreRecord(record: IRestorableRecordSnapshot): RestoreRecordInput {
@@ -204,7 +220,8 @@ export class RecordRestoreService {
 
   private async restoreRecordsV2(
     tableId: string,
-    records: IRestorableRecordSnapshot[]
+    records: IRestorableRecordSnapshot[],
+    options?: { cleanupAttachmentRefs?: boolean }
   ): Promise<void> {
     if (records.length === 0) {
       return;
@@ -214,10 +231,13 @@ export class RecordRestoreService {
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ExecutionContextFactory.createContext(container);
 
-    const commandResult = RestoreRecordsCommand.create({
-      tableId,
-      records: records.map((record) => this.toV2RestoreRecord(record)),
-    });
+    const commandResult = RestoreRecordsCommand.create(
+      {
+        tableId,
+        records: records.map((record) => this.toV2RestoreRecord(record)),
+      },
+      { cleanupAttachmentRefs: options?.cleanupAttachmentRefs }
+    );
 
     if (commandResult.isErr()) {
       throw new CustomHttpException(commandResult.error.message, HttpErrorCode.VALIDATION_ERROR);

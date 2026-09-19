@@ -251,7 +251,7 @@ export const buildBaseSchemaDumpRestorePlan = (input: {
 }): ISpaceDataDbDumpRestorePlan => {
   const schemaNames = [...input.schemaNames].sort();
   if (!schemaNames.length) {
-    throw new Error('At least one base schema is required for pg_dump planning');
+    throw new Error('At least one project schema is required for pg_dump planning');
   }
 
   const dumpFile = path.join(input.workDir, 'base-schemas.dump');
@@ -290,7 +290,7 @@ export const buildBaseSchemaDumpStreamRestorePlan = (input: {
 }): ISpaceDataDbDumpStreamRestorePlan => {
   const schemaNames = [...input.schemaNames].sort();
   if (!schemaNames.length) {
-    throw new Error('At least one base schema is required for pg_dump planning');
+    throw new Error('At least one project schema is required for pg_dump planning');
   }
 
   const schemaArgs = schemaNames.flatMap((schemaName) => ['--schema', quoteIdent(schemaName)]);
@@ -327,7 +327,7 @@ export const buildBaseSchemaPgcopydbPlan = (input: {
 }): ISpaceDataDbPgcopydbPlan => {
   const schemaNames = [...input.schemaNames].sort();
   if (!schemaNames.length) {
-    throw new Error('At least one base schema is required for pgcopydb planning');
+    throw new Error('At least one project schema is required for pgcopydb planning');
   }
 
   const jobs = String(normalizeJobs(input.jobs));
@@ -644,6 +644,23 @@ const buildMigrationSharedTableDefinitions = (input: {
       ],
       whereSql: tablePredicate,
     },
+    {
+      // Cell attachment refs are written with records on dataDb. Copy leftover
+      // pre-bind rows from the source meta db so export/usage see a complete index.
+      table: 'attachments_table',
+      columns: [
+        'id',
+        'attachment_id',
+        'token',
+        'name',
+        'table_id',
+        'record_id',
+        'field_id',
+        'created_time',
+        'created_by',
+      ],
+      whereSql: tablePredicate,
+    },
   ];
 
   if (input.includePauseScopes === true) {
@@ -673,6 +690,8 @@ const buildMigrationSharedTableDefinitions = (input: {
     });
   }
 
+  const reliabilityIssuePredicate = (schema: string) =>
+    `"issue_id" IN (SELECT "id" FROM ${qualify(schema, 'computed_reliability_issue')} WHERE ${basePredicate})`;
   definitions.push(
     {
       table: 'computed_update_outbox',
@@ -713,10 +732,110 @@ const buildMigrationSharedTableDefinitions = (input: {
       table: 'record_removal_tombstone',
       columns: ['id', 'table_id', 'record_id', 'type', 'created_time'],
       whereSql: tablePredicate,
+    },
+    {
+      table: 'domain_event_outbox',
+      columns: [
+        'id',
+        'base_id',
+        'table_id',
+        'message_name',
+        'schema_version',
+        'aggregate_id',
+        'payload',
+        'payload_bytes',
+        'catalog_generation',
+        'required_consumers',
+        'binding_id',
+        'storage_epoch',
+        'unpublished',
+        'settled',
+        'settled_at',
+        'created_at',
+      ],
+      whereSql: basePredicate,
+    },
+    {
+      table: 'domain_event_delivery',
+      columns: [
+        'id',
+        'event_id',
+        'consumer_id',
+        'status',
+        'attempts',
+        'max_attempts',
+        'lease_token',
+        'lease_expires_at',
+        'next_attempt_at',
+        'last_error',
+        'created_at',
+      ],
+      whereSql: `"event_id" IN (SELECT "id" FROM ${qualify(input.sourceSchema, 'domain_event_outbox')} WHERE ${basePredicate})`,
+      targetWhereSql: `"event_id" IN (SELECT "id" FROM ${qualify(input.targetSchema, 'domain_event_outbox')} WHERE ${basePredicate})`,
+    },
+    {
+      table: 'domain_event_inbox',
+      columns: ['consumer_id', 'event_id', 'created_at'],
+      whereSql: `"event_id" IN (SELECT "id" FROM ${qualify(input.sourceSchema, 'domain_event_outbox')} WHERE ${basePredicate})`,
+      targetWhereSql: `"event_id" IN (SELECT "id" FROM ${qualify(input.targetSchema, 'domain_event_outbox')} WHERE ${basePredicate})`,
+    }
+  );
+
+  definitions.push(
+    {
+      table: 'computed_reliability_issue',
+      columns: [
+        'failure_kind',
+        'failure_phase',
+        'error_code',
+        'id',
+        'task_id',
+        'base_id',
+        'source_table_id',
+        'error',
+        'status',
+        'scope_complete',
+        'occurrences',
+        'first_seen_at',
+        'last_seen_at',
+        'closed_at',
+        'confirmed_by',
+        'confirmation_reason',
+      ],
+      whereSql: basePredicate,
+    },
+    {
+      table: 'computed_reliability_scope',
+      columns: ['issue_id', 'table_id', 'field_id'],
+      whereSql: reliabilityIssuePredicate(input.sourceSchema),
+      targetWhereSql: reliabilityIssuePredicate(input.targetSchema),
     }
   );
 
   return definitions;
+};
+
+export const buildMigrationSharedTableSqlCopyPlans = (input: {
+  sourceSchema: string;
+  targetSchema: string;
+  spaceId: string;
+  spaceIds?: string[];
+  baseIds: string[];
+  tableIds: string[];
+  sharedTableIds?: string[];
+  includePauseScopes?: boolean;
+  includeSpacePauseScopes?: boolean;
+}): Array<{ table: string; resetSql: string; copySql: string }> => {
+  return buildMigrationSharedTableDefinitions(input).map((item) => {
+    const columns = item.columns.map(quoteIdent).join(', ');
+    const targetTable = qualify(input.targetSchema, item.table);
+    const sourceTable = qualify(input.sourceSchema, item.table);
+    return {
+      table: item.table,
+      resetSql: `DELETE FROM ${targetTable} WHERE ${item.targetWhereSql ?? item.whereSql}`,
+      copySql: `INSERT INTO ${targetTable} (${columns}) SELECT ${columns} FROM ${sourceTable} WHERE ${item.whereSql}`,
+    };
+  });
 };
 
 export const buildMigrationSharedTablePsqlCopyPlans = (input: {

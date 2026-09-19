@@ -3,7 +3,7 @@ import { formatFieldValueAsStringSql } from '@teable/v2-formula-sql-pg';
 import { sql, type RawBuilder } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 
-import { buildDateLikeOrderExpression } from '../dateLikeOrderBy';
+import { buildDateLikeGroupExpression } from '../dateLikeOrderBy';
 import { applyV1NullsOrder } from '../systemOrderColumns';
 import {
   buildUserGroupIdentityExpr,
@@ -240,11 +240,13 @@ export const buildStoredFieldOrderByClauses = (
     return ok(withNullOrdering(titleExpression, direction));
   }
 
-  // An explicit columnExpression (error fallback, grouped date bucket) is
-  // already the value to order by; rebuilding from the raw column would
-  // reference an ungrouped column in grouped queries.
-  const dateExpression = columnExpression
-    ? null
-    : buildDateLikeOrderExpression(field, tableAlias, column);
-  return ok(withNullOrdering(dateExpression ?? sql`${columnRef}`, direction));
+  // Group-derived keys (groupIdentityCollation) must order by the same bucket
+  // their group blocks use, so every nested group block stays contiguous inside
+  // its parent bucket. A plain sort follows the stored value instead: display
+  // formatting must never decide the order (T7404).
+  const groupBucketExpression =
+    !columnExpression && options?.groupIdentityCollation
+      ? buildDateLikeGroupExpression(field, tableAlias, column)
+      : null;
+  return ok(withNullOrdering(groupBucketExpression ?? columnRef, direction));
 };

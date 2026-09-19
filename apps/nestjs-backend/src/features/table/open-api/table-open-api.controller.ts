@@ -75,6 +75,23 @@ export class TableController {
   ) {}
 
   @Permissions('table|read')
+  @Get('failed-provision/list')
+  async getFailedProvisions(@Param('baseId') baseId: string) {
+    if (this.cls.get('template') || this.cls.get('baseShare') || this.cls.get('shareViewId'))
+      return [];
+    const allowed = await this.tablePermissionService.getProjectionTableIds(baseId);
+    const tables = await this.tableOpenApiV2Service.getFailedProvisions(baseId);
+    return allowed ? tables.filter((table) => allowed.includes(table.id)) : tables;
+  }
+
+  @Permissions('table|delete')
+  @Delete(':tableId/failed-provision')
+  async cleanupFailedProvision(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
+    await this.tableOpenApiV2Service.cleanupFailedProvision(baseId, tableId);
+    return { success: true };
+  }
+
+  @Permissions('table|read')
   @UseV2Feature('getDefaultViewId')
   @Get(':tableId/default-view-id')
   async getDefaultViewId(@Param('tableId') tableId: string): Promise<{ id: string }> {

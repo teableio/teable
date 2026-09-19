@@ -6,6 +6,7 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { FieldService } from '../field/field.service';
+import { FieldOpenApiV2Service } from '../field/open-api/field-open-api-v2.service';
 import { RecordOpenApiV2Service } from '../record/open-api/record-open-api-v2.service';
 import { RecordService } from '../record/record.service';
 import { ViewOpenApiV2Service } from '../view/open-api/view-open-api-v2.service';
@@ -21,7 +22,8 @@ export class ShareSocketService {
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly recordOpenApiV2Service: RecordOpenApiV2Service
+    private readonly recordOpenApiV2Service: RecordOpenApiV2Service,
+    private readonly fieldOpenApiV2Service: FieldOpenApiV2Service
   ) {}
 
   async getViewDocIdsByQuery(shareInfo: IShareViewInfo) {
@@ -73,29 +75,36 @@ export class ShareSocketService {
     const { tableId, view, linkOptions } = shareInfo;
     const { filterByViewId, visibleFieldIds } = linkOptions ?? {};
     const viewId = filterByViewId ?? view?.id;
-    const filterHidden = !view?.shareMeta?.includeHiddenField;
-
-    const fields = await this.fieldService.getFieldsByQuery(tableId, {
-      ...query,
-      viewId,
-      filterHidden: Boolean(filterByViewId) || filterHidden,
-    });
-    const fieldIds = fields.map((field) => field.id);
+    const filterHidden = Boolean(filterByViewId) || !view?.shareMeta?.includeHiddenField;
+    const fields = this.cls.get('useV2')
+      ? await this.fieldOpenApiV2Service.getFields(tableId, {
+          ...query,
+          viewId,
+          filterHidden,
+        })
+      : await this.fieldService.getFieldsByQuery(tableId, {
+          ...query,
+          viewId,
+          filterHidden,
+        });
 
     if (visibleFieldIds?.length) {
       return {
         ids: fields
-          .filter((f) => visibleFieldIds?.includes(f.id) || f.isPrimary)
+          .filter((field) => visibleFieldIds.includes(field.id) || field.isPrimary)
           .map((field) => field.id),
       };
     }
-    return { ids: fieldIds };
+    return { ids: fields.map((field) => field.id) };
   }
 
   async getFieldSnapshotBulk(shareInfo: IShareViewInfo, ids: string[]) {
     const { tableId } = shareInfo;
     await this.validFieldSnapshotPermission(shareInfo, ids);
     const { ids: fieldIds } = await this.getFieldDocIdsByQuery(shareInfo);
+    if (this.cls.get('useV2')) {
+      return this.fieldOpenApiV2Service.getSnapshotBulk(tableId, fieldIds);
+    }
     return this.fieldService.getSnapshotBulk(tableId, fieldIds);
   }
 
@@ -213,18 +222,5 @@ export class ShareSocketService {
         }
       );
     }
-  }
-  authorizeComputedActivityRead(shareInfo: IShareViewInfo, tableId: string): void {
-    if (shareInfo.tableId === tableId) return;
-
-    throw new CustomHttpException(
-      `Table(${tableId}) permission not allowed: read`,
-      HttpErrorCode.RESTRICTED_RESOURCE,
-      {
-        localization: {
-          i18nKey: 'httpErrors.permission.notAllowedTables',
-        },
-      }
-    );
   }
 }

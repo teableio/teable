@@ -102,6 +102,10 @@ export enum Events {
   APP_DELETE = 'app.delete',
   APP_UPDATE = 'app.update',
 
+  ROUTINE_CREATE = 'agent.routine.create',
+  ROUTINE_DELETE = 'agent.routine.delete',
+  ROUTINE_UPDATE = 'agent.routine.update',
+
   CROP_IMAGE = 'crop.image',
   CROP_IMAGE_COMPLETE = 'crop.image.complete',
 

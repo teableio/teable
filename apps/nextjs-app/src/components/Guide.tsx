@@ -57,7 +57,7 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { completedGuideMap, setCompletedGuideMap } = useCompletedGuideMapStore();
 
-  const helpers = useRef<StoreHelpers>();
+  const helpers = useRef<StoreHelpers>(undefined);
   const [run, setRun] = useState(false);
   const [steps, setSteps] = useState<Step[]>([]);
   const [stepIndex, setStepIndex] = useState(0);

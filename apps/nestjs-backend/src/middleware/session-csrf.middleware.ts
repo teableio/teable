@@ -9,6 +9,13 @@ import { AUTH_SESSION_COOKIE_NAME } from '../const';
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
+// Identity providers that answer with a cross-site form POST instead of a redirect
+// (Sign in with Apple's `response_mode=form_post`). The OAuth `state` round-trip
+// through OauthStoreService is what binds those callbacks to the request that
+// started them, so the origin check must not turn them away.
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const CROSS_SITE_FORM_POST_CALLBACKS = new Set(['/api/auth/apple/callback']);
+
 @Injectable()
 export class SessionCsrfMiddleware implements NestMiddleware {
   constructor(
@@ -41,6 +48,9 @@ export class SessionCsrfMiddleware implements NestMiddleware {
       return false;
     }
     if (!req.originalUrl.startsWith('/api/')) {
+      return false;
+    }
+    if (CROSS_SITE_FORM_POST_CALLBACKS.has(req.originalUrl.split('?')[0])) {
       return false;
     }
     if (!this.hasSessionCookie(req)) {

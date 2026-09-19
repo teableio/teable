@@ -84,7 +84,7 @@ import type { Table } from '../domain/table/Table';
 import type { TableBuilder } from '../domain/table/TableBuilder';
 import { TableId } from '../domain/table/TableId';
 import type { IExecutionContext } from '../ports/ExecutionContext';
-import { getDomainContext } from '../ports/ExecutionContext';
+import { getFormulaSourceBudget, getDomainContext } from '../ports/ExecutionContext';
 import { trackedFieldIdsSchema, validateFieldAiConfig } from '../schemas/field';
 import type { ITableFieldInput, ResolvedTableFieldInput } from '../schemas/field';
 import {
@@ -1217,6 +1217,7 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
     private readonly filter: unknown,
     private readonly sort: unknown,
     private readonly limit: number | undefined,
+    private readonly isUnique: boolean | undefined,
     private readonly innerOptionsPatch: Readonly<Record<string, unknown>> | undefined,
     private readonly legacyMultiplicityDerivation: boolean,
     private readonly isMultipleCellValue: boolean | undefined,
@@ -1235,6 +1236,7 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
       filter?: unknown;
       sort?: unknown;
       limit?: number;
+      isUnique?: boolean;
       innerOptionsPatch?: Readonly<Record<string, unknown>>;
       legacyMultiplicityDerivation?: boolean;
       isMultipleCellValue?: boolean;
@@ -1251,6 +1253,7 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
       options.filter,
       options.sort,
       options.limit,
+      options.isUnique,
       options.innerOptionsPatch,
       options.legacyMultiplicityDerivation === true,
       options.isMultipleCellValue,
@@ -1278,6 +1281,7 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
         filter: this.filter,
         sort: this.sort,
         limit: this.limit,
+        isUnique: this.isUnique,
       }).andThen((lookupOptions) =>
         createLookupFieldPending({
           id,
@@ -2535,7 +2539,10 @@ export const parseTableFieldSpec = (
             );
           })
           .with({ type: 'formula' }, (field) =>
-            FormulaExpression.create(field.options.expression).andThen((expression) =>
+            FormulaExpression.create(
+              field.options.expression,
+              getFormulaSourceBudget(options.executionContext)
+            ).andThen((expression) =>
               parseFieldResultType({
                 cellValueType: (field as { cellValueType?: string }).cellValueType,
                 isMultipleCellValue: (field as { isMultipleCellValue?: boolean })
@@ -2611,6 +2618,7 @@ export const parseTableFieldSpec = (
                 filter: field.options.filter,
                 sort: field.options.sort,
                 limit: field.options.limit,
+                isUnique: field.options.isUnique,
                 innerOptionsPatch:
                   field.innerOptions &&
                   typeof field.innerOptions === 'object' &&

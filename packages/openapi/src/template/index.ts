@@ -1,5 +1,6 @@
 export * from './create';
 export * from './get';
+export * from './kind';
 export * from './get-published';
 export * from './delete';
 export * from './update';

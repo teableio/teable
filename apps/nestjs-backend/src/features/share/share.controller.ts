@@ -63,6 +63,7 @@ import { V2FeatureGuard } from '../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../canary/interceptors/v2-indicator.interceptor';
 import { TqlPipe } from '../record/open-api/tql.pipe';
 import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
+import { InteractiveQueryCancellation } from '../v2/interactive-query-cancellation.interceptor';
 import { ShareAuthGuard } from './guard/auth.guard';
 import { ShareLinkView } from './guard/link-view.decorator';
 import { ShareAuthLocalGuard } from './guard/share-auth-local.guard';
@@ -90,7 +91,7 @@ export class ShareController {
   async auth(@Request() req: any, @Res({ passthrough: true }) res: Response) {
     const shareId = req.shareId;
     const password = req.password;
-    const token = await this.shareAuthService.authToken({ shareId, password });
+    const token = await this.shareAuthService.authToken(shareId, password);
     res.cookie(shareId, token, {
       httpOnly: true,
       maxAge: 1000 * 60 * 60 * 24 * 7,
@@ -112,6 +113,7 @@ export class ShareController {
     return this.shareService.getShareView(shareInfo);
   }
 
+  @InteractiveQueryCancellation()
   @ShareLinkView()
   @UseV2Feature('getSharedViewAggregations')
   @UseGuards(V2FeatureGuard, ShareAuthGuard)
@@ -130,6 +132,7 @@ export class ShareController {
     return this.shareService.getViewAggregations(shareInfo, query);
   }
 
+  @InteractiveQueryCancellation()
   @ShareLinkView()
   @UseV2Feature('getSharedViewRowCount')
   @UseGuards(V2FeatureGuard, ShareAuthGuard)
@@ -148,6 +151,7 @@ export class ShareController {
     return this.shareService.getViewRowCount(shareInfo, query);
   }
 
+  @InteractiveQueryCancellation()
   @ShareLinkView()
   @UseV2Feature('getSharedViewRecords')
   @UseGuards(V2FeatureGuard, ShareAuthGuard)
@@ -197,6 +201,7 @@ export class ShareController {
     return this.shareService.copy(shareInfo, shareViewCopyRo);
   }
 
+  @InteractiveQueryCancellation()
   @ShareLinkView()
   @UseV2Feature('getSharedViewGroupPoints')
   @UseGuards(V2FeatureGuard, ShareAuthGuard)
@@ -215,6 +220,7 @@ export class ShareController {
     return this.shareService.getViewGroupPoints(shareInfo, query);
   }
 
+  @InteractiveQueryCancellation()
   @ShareLinkView()
   @UseV2Feature('getSharedViewCalendarDailyCollection')
   @UseGuards(V2FeatureGuard, ShareAuthGuard)
@@ -265,6 +271,7 @@ export class ShareController {
     return this.shareService.getViewCollaborators(shareInfo, query);
   }
 
+  @InteractiveQueryCancellation()
   @UseV2Feature('getSharedViewSearchCount')
   @UseGuards(V2FeatureGuard, ShareAuthGuard)
   @UseInterceptors(V2IndicatorInterceptor)
@@ -286,6 +293,7 @@ export class ShareController {
     return this.shareService.getShareSearchCount(tableId, { ...queryRo, viewId: view?.id });
   }
 
+  @InteractiveQueryCancellation()
   @UseV2Feature('getSharedViewSearchIndex')
   @UseGuards(V2FeatureGuard, ShareAuthGuard)
   @UseInterceptors(V2IndicatorInterceptor)
@@ -344,7 +352,9 @@ export class ShareController {
   }
 
   @ShareLinkView()
-  @UseGuards(ShareAuthGuard)
+  @UseV2Feature('getFields')
+  @UseGuards(V2FeatureGuard, ShareAuthGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
   @AllowAnonymous()
   @Get('/:shareId/socket/field/snapshot-bulk')
   async getFieldSnapshotBulk(@Request() req: any, @Query('ids') ids: string[]) {
@@ -353,7 +363,9 @@ export class ShareController {
   }
 
   @ShareLinkView()
-  @UseGuards(ShareAuthGuard)
+  @UseV2Feature('getFields')
+  @UseGuards(V2FeatureGuard, ShareAuthGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
   @AllowAnonymous()
   @Get('/:shareId/socket/field/doc-ids')
   async getFieldDocIds(
@@ -365,18 +377,7 @@ export class ShareController {
     return this.shareSocketService.getFieldDocIdsByQuery(shareInfo, query);
   }
 
-  @ShareLinkView()
-  @UseGuards(ShareAuthGuard)
-  @AllowAnonymous()
-  @Get('/:shareId/socket/computed-activity/authorize')
-  authorizeComputedActivityRead(
-    @Request() req: { shareInfo: IShareViewInfo },
-    @Query('tableId') tableId: string
-  ): void {
-    const { shareInfo } = req;
-    this.shareSocketService.authorizeComputedActivityRead(shareInfo, tableId);
-  }
-
+  @InteractiveQueryCancellation()
   @ShareLinkView()
   @UseV2Feature('getSharedViewRecords')
   @UseGuards(V2FeatureGuard, ShareAuthGuard)
@@ -392,6 +393,7 @@ export class ShareController {
     return this.shareSocketService.getRecordSnapshotBulk(shareInfo, ids, true, projection);
   }
 
+  @InteractiveQueryCancellation()
   @ShareLinkView()
   @UseV2Feature('getSharedViewRecords')
   @UseGuards(V2FeatureGuard, ShareAuthGuard)

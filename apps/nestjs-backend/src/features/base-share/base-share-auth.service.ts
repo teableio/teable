@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CustomHttpException } from '../../custom.exception';
+import { hashSharePassword } from '../../utils/share-password-hash';
 import { TeableJwtService } from '../auth/jwt/teable-jwt.service';
 
 export interface IBaseShareInfo {
@@ -15,7 +16,8 @@ export interface IBaseShareInfo {
 
 export interface IJwtBaseShareInfo {
   shareId: string;
-  password: string;
+  // sha256 over shareId + password (see hashSharePassword); never the password.
+  pwHash: string;
 }
 
 @Injectable()
@@ -33,7 +35,7 @@ export class BaseShareAuthService {
     }
   }
 
-  async authBaseShare(shareId: string, pass: string): Promise<string | null> {
+  private async getSharePassword(shareId: string): Promise<string | null> {
     const share = await this.prismaService.baseShare.findUnique({
       where: { shareId },
       select: { shareId: true, password: true, enabled: true },
@@ -55,12 +57,24 @@ export class BaseShareAuthService {
         }
       );
     }
-    return pass === password ? shareId : null;
+    return password;
   }
 
-  async authToken(jwtShareInfo: IJwtBaseShareInfo) {
+  async authBaseShare(shareId: string, pass: string): Promise<string | null> {
+    const password = await this.getSharePassword(shareId);
+    return password !== null && pass === password ? shareId : null;
+  }
+
+  /** Cookie counterpart of authBaseShare: compares the hash the cookie carries. */
+  async authBaseShareByHash(shareId: string, pwHash: string): Promise<string | null> {
+    const password = await this.getSharePassword(shareId);
+    return password !== null && hashSharePassword(shareId, password) === pwHash ? shareId : null;
+  }
+
+  async authToken(shareId: string, password: string) {
+    const payload: IJwtBaseShareInfo = { shareId, pwHash: hashSharePassword(shareId, password) };
     // Same lifetime the BaseShareModule JwtModule registration used to apply.
-    return await this.jwtService.signAsync(jwtShareInfo, { expiresIn: '7d' });
+    return await this.jwtService.signAsync(payload, { expiresIn: '7d' });
   }
 
   async getBaseShareInfo(shareId: string): Promise<IBaseShareInfo> {
@@ -69,7 +83,7 @@ export class BaseShareAuthService {
     });
 
     if (!share || !share.enabled) {
-      throw new CustomHttpException('Base share not found', HttpErrorCode.NOT_FOUND, {
+      throw new CustomHttpException('Project share not found', HttpErrorCode.NOT_FOUND, {
         localization: {
           i18nKey: 'httpErrors.baseShare.notFound',
         },

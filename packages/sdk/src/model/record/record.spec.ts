@@ -30,6 +30,20 @@ const createSelectField = (type: FieldType.SingleSelect | FieldType.MultipleSele
   dbFieldType: type === FieldType.MultipleSelect ? DbFieldType.Json : DbFieldType.Text,
 });
 
+const createUserField = (isMultiple: boolean): IFieldVo => ({
+  id: 'fldStatus0000000001',
+  name: 'Owner',
+  dbFieldName: 'Owner',
+  type: FieldType.User,
+  options: { isMultiple, shouldNotify: true },
+  unique: false,
+  cellValueType: CellValueType.String,
+  isMultipleCellValue: isMultiple,
+  dbFieldType: DbFieldType.Json,
+});
+
+const parker = { id: 'usrParker0000001', title: 'parker', email: 'parker@teable.ai' };
+
 const createTextField = (
   overrides: Partial<Pick<IFieldVo, 'id' | 'name' | 'dbFieldName' | 'isPrimary'>> = {}
 ): IFieldVo => ({
@@ -121,6 +135,28 @@ describe('sdk Record cell value normalization', () => {
     });
 
     expect(record.getCellValue(field.id)).toEqual(['Open']);
+  });
+
+  it('T7257 repairs a stale single user value for multiple user fields', () => {
+    const field = createFieldInstance(createUserField(true));
+    const record = recordInstanceFieldMap(createRecordInstance(createRecord(parker)), {
+      [field.id]: field,
+    });
+
+    expect(record.getCellValue(field.id)).toEqual([parker]);
+    expect(record.getCellValueAsString(field.id)).toBe('parker');
+    expect(record.fields[field.id]).toEqual(parker);
+  });
+
+  it('T7257 repairs a stale multiple user array value for single user fields', () => {
+    const field = createFieldInstance(createUserField(false));
+    const record = recordInstanceFieldMap(createRecordInstance(createRecord([parker])), {
+      [field.id]: field,
+    });
+
+    expect(record.getCellValue(field.id)).toEqual(parker);
+    expect(record.getCellValueAsString(field.id)).toBe('parker');
+    expect(record.fields[field.id]).toEqual([parker]);
   });
 
   it('keeps displaying select values when realtime mutates field options', () => {

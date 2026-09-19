@@ -66,8 +66,9 @@ export type IImportBaseSSEEvent =
 export const ImportBaseRoute: RouteConfig = registerRoute({
   method: 'post',
   path: IMPORT_BASE,
-  description: 'import a base',
-  summary: 'import a base',
+  title: 'Import project',
+  description: 'Import a project into the target space.',
+  summary: 'import a project',
   request: {
     body: {
       content: {
@@ -88,8 +89,9 @@ export const ImportBaseRoute: RouteConfig = registerRoute({
 export const ImportBaseStreamRoute: RouteConfig = registerRoute({
   method: 'post',
   path: IMPORT_BASE_STREAM,
-  description: 'import a base with SSE progress stream',
-  summary: 'import a base with SSE progress events',
+  title: 'Import project with progress',
+  description: 'Import a project and receive progress updates through server-sent events.',
+  summary: 'import a project with SSE progress events',
   request: {
     body: {
       content: {
@@ -146,7 +148,7 @@ const handleSSEEvent = (
     case 'error':
       throw new HttpError(
         {
-          message: event.message.trim() || 'Import base failed',
+          message: event.message.trim() || 'Import project failed',
           ...(event.code ? { code: event.code } : {}),
           data: {
             ...(event.localization ? { localization: event.localization } : {}),
@@ -249,7 +251,7 @@ export const importBaseStream = async (
 
   const result = await readSSEStream(reader, onProgress);
   if (!result) {
-    throw new Error('Import base stream ended without result');
+    throw new Error('Import project stream ended without result');
   }
 
   return { data: result };

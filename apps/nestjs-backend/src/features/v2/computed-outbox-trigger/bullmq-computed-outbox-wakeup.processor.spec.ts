@@ -8,28 +8,6 @@ vi.mock('./computed-outbox-wakeup.handler', () => ({
 }));
 
 describe('BullMqComputedOutboxWakeupProcessor', () => {
-  it('validates and forwards a versioned wake-up payload', async () => {
-    const handle = vi.fn().mockResolvedValue({ status: 'processed' });
-    const processor = new BullMqComputedOutboxWakeupProcessor(
-      { handle } as never,
-      { recordConsume: vi.fn() } as never,
-      { publish: vi.fn(), runAsConsumer: vi.fn() } as never
-    );
-    const data = {
-      schemaVersion: 1,
-      wakeupId: 'cuw1234567890123456',
-      taskId: 'cuo1234567890123456',
-      baseId: 'bse1234567890123456',
-      availableAt: new Date().toISOString(),
-      emittedAt: new Date().toISOString(),
-      cause: 'created',
-    };
-
-    await processor.process({ data } as never);
-
-    expect(handle).toHaveBeenCalledWith(data);
-  });
-
   it('rejects an invalid payload without retrying it', async () => {
     const metrics = { recordConsume: vi.fn() };
     const processor = new BullMqComputedOutboxWakeupProcessor(

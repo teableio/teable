@@ -319,6 +319,46 @@ describe('splitComputedPlanForStageBudget', () => {
 });
 
 describe('buildDeferredStagePlan', () => {
+  it('continues inserts from stage outputs without promoting untouched linked records', () => {
+    const plan = createPlan({
+      changeType: 'insert',
+      extraSeedRecords: [{ tableId: tableB, recordIds: [recordB1] }],
+    });
+    const split = splitComputedPlanForStageBudget(plan, budget({ maxSteps: 2 }));
+
+    const continuation = buildDeferredStagePlan({
+      plan,
+      deferred: split.deferred!,
+      dirtySeedGroups: [{ tableId: tableB, recordIds: [recordB2] }],
+      dirtySeedAllTableIds: [],
+    });
+
+    // B1 was only locked for the insertion. Only B2 actually feeds the next stage.
+    expect(continuation.extraSeedRecords).toEqual([{ tableId: tableB, recordIds: [recordB2] }]);
+    expect(continuation.changeType).toBe('update');
+  });
+
+  it('retains insert extra seeds that were active alongside whole-table seeds', () => {
+    const plan = createPlan({
+      changeType: 'insert',
+      seedAllTableIds: [tableC],
+      extraSeedRecords: [{ tableId: tableB, recordIds: [recordB1] }],
+    });
+    const split = splitComputedPlanForStageBudget(plan, budget({ maxSteps: 2 }));
+
+    const continuation = buildDeferredStagePlan({
+      plan,
+      deferred: split.deferred!,
+      dirtySeedGroups: [{ tableId: tableB, recordIds: [recordB2] }],
+      dirtySeedAllTableIds: [],
+    });
+
+    expect(continuation.extraSeedRecords).toEqual([
+      { tableId: tableB, recordIds: [recordB1, recordB2] },
+    ]);
+    expect(continuation.seedAllTableIds).toEqual([tableC]);
+  });
+
   it('narrows seeds to tables the deferred work reads from', () => {
     const plan = createPlan();
     const split = splitComputedPlanForStageBudget(plan, budget({ maxSteps: 2 }));

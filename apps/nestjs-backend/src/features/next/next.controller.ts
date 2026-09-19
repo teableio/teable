@@ -52,31 +52,33 @@ export class NextController {
   @Get([
     '/',
     'favicon.ico',
-    '_next/*',
-    '__nextjs*',
-    'images/*',
-    'streamsaver/*',
+    '_next/{*splat}',
+    '__nextjs{*splat}',
+    'images/{*splat}',
+    'streamsaver/{*splat}',
+    // The mobile app's Service Worker (`public/mobile-sw.js`, built by the app's postbuild).
+    'mobile-sw.js',
     'home',
-    '404/*',
-    '403/?*',
-    '402/?*',
-    'space/?*',
-    'auth/?*',
-    'waitlist/?*',
-    'base/?*',
-    'invite/?*',
-    'share/?*',
-    'setting/?*',
-    'admin/?*',
-    'oauth/?*',
-    'developer/?*',
-    'public/?*',
-    'enterprise/?*',
-    'unsubscribe/?*',
-    'integrations/authorize/?*',
-    't/?*',
-    's/?*',
-    'artifact/?*',
+    '404/{*splat}',
+    '403{/*splat}',
+    '402{/*splat}',
+    'space{/*splat}',
+    'auth{/*splat}',
+    'waitlist{/*splat}',
+    'base{/*splat}',
+    'invite{/*splat}',
+    'share{/*splat}',
+    'setting{/*splat}',
+    'admin{/*splat}',
+    'oauth{/*splat}',
+    'developer{/*splat}',
+    'public{/*splat}',
+    'enterprise{/*splat}',
+    'unsubscribe{/*splat}',
+    'integrations/authorize{/*splat}',
+    't{/*splat}',
+    's{/*splat}',
+    'artifact{/*splat}',
   ])
   public async home(@Req() req: Request, @Res() res: Response) {
     if (!this.nextService.server) {
@@ -87,7 +89,7 @@ export class NextController {
 
   @ApiExcludeEndpoint()
   @Public()
-  @All(['socket', 'socket/*'])
+  @All(['socket', 'socket/{*splat}'])
   public async socket(@Req() req: Request, @Res() res: Response, @Next() next: NextFunction) {
     if (!this.nextService.server) {
       return next();

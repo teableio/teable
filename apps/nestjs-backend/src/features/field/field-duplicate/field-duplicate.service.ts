@@ -1251,6 +1251,7 @@ export class FieldDuplicateService {
             filter: remappedLookupOptions?.filter ?? conditionalOptions?.filter ?? null,
             sort: remappedLookupOptions?.sort ?? conditionalOptions?.sort ?? undefined,
             limit: remappedLookupOptions?.limit ?? conditionalOptions?.limit ?? undefined,
+            isUnique: remappedLookupOptions?.isUnique ?? conditionalOptions?.isUnique,
           },
         },
         undefined,
@@ -1284,7 +1285,7 @@ export class FieldDuplicateService {
         );
       }
 
-      const { foreignTableId, linkFieldId, lookupFieldId } = lookupOptionsRo;
+      const { foreignTableId, linkFieldId, lookupFieldId, isUnique } = lookupOptionsRo;
       const isSelfLink = foreignTableId === sourceTableId;
 
       newField = await this.fieldOpenApiService.createField(
@@ -1295,6 +1296,7 @@ export class FieldDuplicateService {
           description,
           isLookup: true,
           lookupOptions: {
+            isUnique,
             foreignTableId:
               (isSelfLink ? targetTableId : tableIdMap[foreignTableId]) || foreignTableId,
             linkFieldId: sourceToTargetFieldMap[linkFieldId],

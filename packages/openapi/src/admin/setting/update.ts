@@ -19,6 +19,7 @@ import {
   imageModelAbilitySchema,
   modelAbilitySchema,
 } from './model-ability';
+import { modelTierIdSchema } from './model-tier';
 import { pricingSchema } from './pricing';
 
 export enum LLMProviderType {
@@ -127,10 +128,17 @@ export const modelKeySchema = z.string().refine(
 );
 
 export const chatModelSchema = z.object({
+  // Top tier (Ultra): only ever user-picked, never a background default
+  xl: modelKeySchema.optional(),
   lg: modelKeySchema.optional(),
   md: modelKeySchema.optional(),
   sm: modelKeySchema.optional(),
   ability: chatModelAbilitySchema.optional(),
+  // Tiers left out of the chat model menu (the default tier is always offered)
+  hiddenTiers: z.array(modelTierIdSchema).optional(),
+  // Tier chat users land on; lg when unset. Only chat surfaces honour it: lg
+  // stays the main model for AI fields, background tasks and bots.
+  defaultTier: modelTierIdSchema.optional(),
 });
 
 // Attachment transfer mode test result for a single mode
@@ -263,6 +271,8 @@ export type IAIConfig = z.infer<typeof aiConfigSchema>;
 export const aiConfigVoSchema = aiConfigSchema.extend({
   enable: z.boolean().optional(),
 });
+
+export type IAIConfigVo = z.infer<typeof aiConfigVoSchema>;
 
 export const appAuthGoogleConfigSchema = z.object({
   clientId: z.string().optional(),

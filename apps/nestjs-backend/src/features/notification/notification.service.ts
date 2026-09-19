@@ -20,9 +20,13 @@ import {
   type INotificationVo,
   type IUpdateNotifyStatusRo,
 } from '@teable/openapi';
-import { keyBy } from 'lodash';
+import { keyBy, uniq } from 'lodash';
+import ms from 'ms';
 import { I18nContext, I18nService } from 'nestjs-i18n';
+import { CacheService } from '../../cache/cache.service';
+import type { ICacheStore } from '../../cache/types';
 import { IMailConfig, MailConfig } from '../../configs/mail.config';
+import { DistributedLockService } from '../../distributed-lock';
 import { ShareDbService } from '../../share-db/share-db.service';
 import type { I18nPath, I18nTranslations } from '../../types/i18n.generated';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
@@ -43,6 +47,36 @@ function toArray<T>(value?: T | T[]): T[] {
 
 const notificationListLimit = 10;
 
+// Collaborator notifies from one actor to one user in one table coalesce: a notify with
+// no open window is sent at once and opens one, later ones buffer in the shared cache and
+// go out as one notification once writes stay quiet. Every pod that touched a window runs
+// its own flush timer, so a buffer outlives the pod that filled it.
+const defaultCollaboratorNotifyQuietMs = ms('10s');
+export const maxCollaboratorNotifyRecordTitles = 10;
+
+const resolveCollaboratorNotifyQuietMs = (): number => {
+  const raw = process.env.USER_FIELD_NOTIFY_BATCH_WINDOW_MS;
+  // Number('') is 0, so only an explicit 0 disables coalescing.
+  if (!raw?.trim()) {
+    return defaultCollaboratorNotifyQuietMs;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : defaultCollaboratorNotifyQuietMs;
+};
+
+type ICollaboratorNotifyParams = {
+  fromUserId: string;
+  toUserId: string;
+  refRecord: {
+    baseId: string;
+    tableId: string;
+    tableName: string;
+    fieldName: string;
+    recordIds: string[];
+    recordTitles: { id: string; title: string }[];
+  };
+};
+
 const notificationListSelect = {
   id: true,
   fromUserId: true,
@@ -62,6 +96,7 @@ type INotificationListRecord = Prisma.NotificationGetPayload<{
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
+  private readonly collaboratorNotifyTimers = new Set<string>();
   private readonly mailTypeMap: Record<NotificationTypeEnum, MailType> = {
     [NotificationTypeEnum.System]: MailType.System,
     [NotificationTypeEnum.CollaboratorCellTag]: MailType.CollaboratorCellTag,
@@ -77,7 +112,9 @@ export class NotificationService {
     private readonly mailSenderService: MailSenderService,
     private readonly userService: UserService,
     @MailConfig() private readonly mailConfig: IMailConfig,
-    private readonly i18n: I18nService<I18nTranslations>
+    private readonly i18n: I18nService<I18nTranslations>,
+    private readonly cacheService: CacheService<ICacheStore>,
+    private readonly distributedLockService: DistributedLockService
   ) {}
 
   getUserLang(lang?: string | null) {
@@ -107,18 +144,121 @@ export class NotificationService {
         });
   }
 
-  async sendCollaboratorNotify(params: {
-    fromUserId: string;
-    toUserId: string;
-    refRecord: {
-      baseId: string;
-      tableId: string;
-      tableName: string;
-      fieldName: string;
-      recordIds: string[];
-      recordTitles: { id: string; title: string }[];
-    };
-  }): Promise<boolean> {
+  async sendCollaboratorNotify(params: ICollaboratorNotifyParams): Promise<void> {
+    const { fromUserId, toUserId, refRecord } = params;
+    if (fromUserId === toUserId) {
+      return;
+    }
+    const quietMs = resolveCollaboratorNotifyQuietMs();
+    if (quietMs <= 0) {
+      await this.createCollaboratorNotify(params);
+      return;
+    }
+
+    // The window lapses on its own once writes stay quiet.
+    const windowTtlSeconds = Math.ceil(quietMs / 1000);
+    const key = `${fromUserId}:${toUserId}:${refRecord.tableId}`;
+    const buffered = await this.withCollaboratorNotifyLock(key, async () => {
+      // Records still waiting to go out, e.g. left by a dead pod, keep this notify buffered too.
+      const current = await this.cacheService.get(`collaborator-notify:pending:${key}`);
+      if (!current && !(await this.cacheService.get(`collaborator-notify:window:${key}`))) {
+        // Reserve the window before sending, so notifies arriving mid-send buffer behind it.
+        await this.cacheService.setDetail(
+          `collaborator-notify:window:${key}`,
+          true,
+          windowTtlSeconds
+        );
+        return false;
+      }
+      const pending = current ?? {
+        ...params,
+        refRecord: { ...refRecord, recordIds: [], recordTitles: [] },
+        lastAt: 0,
+      };
+      pending.refRecord.recordIds = uniq([...pending.refRecord.recordIds, ...refRecord.recordIds]);
+      pending.refRecord.recordTitles = [
+        ...pending.refRecord.recordTitles,
+        ...refRecord.recordTitles.filter(
+          (title) => !pending.refRecord.recordTitles.some(({ id }) => id === title.id)
+        ),
+      ].slice(0, maxCollaboratorNotifyRecordTitles);
+      pending.lastAt = Date.now();
+      await this.cacheService.setDetail(
+        `collaborator-notify:pending:${key}`,
+        pending,
+        windowTtlSeconds + ms('1m') / 1000
+      );
+      await this.cacheService.setDetail(
+        `collaborator-notify:window:${key}`,
+        true,
+        windowTtlSeconds
+      );
+      return true;
+    });
+
+    this.scheduleCollaboratorNotifyFlush(key, quietMs);
+    if (!buffered) {
+      await this.createCollaboratorNotify(params);
+    }
+  }
+
+  private scheduleCollaboratorNotifyFlush(key: string, delayMs: number) {
+    if (this.collaboratorNotifyTimers.has(key)) {
+      return;
+    }
+    this.collaboratorNotifyTimers.add(key);
+    const timer = setTimeout(() => void this.flushCollaboratorNotify(key), delayMs);
+    timer.unref?.();
+  }
+
+  private async flushCollaboratorNotify(key: string): Promise<void> {
+    this.collaboratorNotifyTimers.delete(key);
+    const quietMs = resolveCollaboratorNotifyQuietMs();
+    try {
+      const now = Date.now();
+      const pending = await this.withCollaboratorNotifyLock(key, async () => {
+        const current = await this.cacheService.get(`collaborator-notify:pending:${key}`);
+        if (current && now >= current.lastAt + quietMs) {
+          await this.cacheService.del(`collaborator-notify:pending:${key}`);
+        }
+        return current;
+      });
+      if (!pending) {
+        return;
+      }
+      const { lastAt, ...params } = pending;
+      if (now < lastAt + quietMs) {
+        this.scheduleCollaboratorNotifyFlush(key, lastAt + quietMs - now);
+        return;
+      }
+      await this.createCollaboratorNotify(params);
+    } catch (error) {
+      this.logger.error(
+        `Error flushing collaborator notifications: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined
+      );
+    }
+  }
+
+  private async withCollaboratorNotifyLock<T>(key: string, task: () => Promise<T>): Promise<T> {
+    let result!: T;
+    while (
+      !(await this.distributedLockService.runExclusive(
+        `collaborator-notify:${key}`,
+        10,
+        async () => {
+          result = await task();
+        }
+      ))
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    return result;
+  }
+
+  private async createCollaboratorNotify(params: ICollaboratorNotifyParams): Promise<boolean> {
     const { fromUserId, toUserId, refRecord } = params;
     const [fromUser, toUser] = await Promise.all([
       this.userService.getUserById(fromUserId),

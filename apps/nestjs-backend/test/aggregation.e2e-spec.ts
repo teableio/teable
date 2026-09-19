@@ -5,6 +5,7 @@ import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, IFilter, IGroup, ILinkFieldOptions } from '@teable/core';
 import {
   Colors,
+  DateFormattingPreset,
   FieldKeyType,
   FieldType,
   Relationship,
@@ -14,6 +15,7 @@ import {
   isGreaterEqual,
   SortFunc,
   StatisticsFunc,
+  TimeFormatting,
   ViewType,
   NumberFormattingType,
 } from '@teable/core';
@@ -1873,6 +1875,136 @@ describe('OpenAPI AggregationController (e2e)', () => {
         expect(findAgg(data, qtyField.id, StatisticsFunc.Sum)).toBe(300);
         expect(findAgg(data, qtyField.id, StatisticsFunc.Filled)).toBe(2);
       });
+    });
+  });
+
+  describe('date group header statistics', () => {
+    const previousForceV2All = process.env.FORCE_V2_ALL;
+
+    beforeAll(() => {
+      process.env.FORCE_V2_ALL = 'true';
+    });
+
+    afterAll(() => {
+      if (previousForceV2All == null) {
+        delete process.env.FORCE_V2_ALL;
+      } else {
+        process.env.FORCE_V2_ALL = previousForceV2All;
+      }
+    });
+
+    it('sums every record that shares a date-only calendar day', async () => {
+      const table = await createTable(baseId, {
+        name: 'agg_date_day_groups',
+        fields: [
+          { name: 'title', type: FieldType.SingleLineText },
+          { name: 'amount', type: FieldType.Number },
+          {
+            name: 'day',
+            type: FieldType.Date,
+            options: {
+              formatting: {
+                date: DateFormattingPreset.ISO,
+                time: TimeFormatting.None,
+                timeZone: 'Asia/Shanghai',
+              },
+            },
+          },
+        ],
+        records: [
+          { fields: { title: 'morning', amount: 10, day: '2026-08-06T02:00:00.000Z' } },
+          { fields: { title: 'evening', amount: 20, day: '2026-08-06T10:00:00.000Z' } },
+          { fields: { title: 'next-day', amount: 5, day: '2026-08-07T02:00:00.000Z' } },
+        ],
+      });
+
+      try {
+        const amountField = table.fields.find((field) => field.name === 'amount')!;
+        const dayField = table.fields.find((field) => field.name === 'day')!;
+        const groupBy: IGroup = [{ fieldId: dayField.id, order: SortFunc.Asc }];
+
+        const grouped = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          groupBy,
+        });
+        const headers = (grouped.extra?.groupPoints ?? []).filter(
+          (point): point is IGroupHeaderPoint =>
+            point.type === GroupPointType.Header && point.depth === 0
+        );
+        expect(headers).toHaveLength(2);
+
+        const result = await getViewAggregations(
+          table.id,
+          table.views[0].id,
+          StatisticsFunc.Sum,
+          [amountField.id],
+          groupBy
+        );
+        const aggregation = result.aggregations?.find((item) => item.fieldId === amountField.id);
+        expect(aggregation?.total?.value).toBe(35);
+
+        const groupedSums = headers.map((header) => aggregation?.group?.[header.id]?.value);
+        expect(groupedSums.sort((left, right) => Number(left) - Number(right))).toEqual([5, 30]);
+      } finally {
+        await permanentDeleteTable(baseId, table.id);
+      }
+    });
+
+    it('sums every record that shares a YYYY-MM calendar month', async () => {
+      const table = await createTable(baseId, {
+        name: 'agg_date_month_groups',
+        fields: [
+          { name: 'title', type: FieldType.SingleLineText },
+          { name: 'amount', type: FieldType.Number },
+          {
+            name: 'month',
+            type: FieldType.Date,
+            options: {
+              formatting: {
+                date: DateFormattingPreset.YM,
+                time: TimeFormatting.None,
+                timeZone: 'Asia/Shanghai',
+              },
+            },
+          },
+        ],
+        records: [
+          { fields: { title: 'early', amount: 100, month: '2025-04-01T16:00:00.000Z' } },
+          { fields: { title: 'mid', amount: 100, month: '2025-04-15T16:00:00.000Z' } },
+          { fields: { title: 'next-month', amount: 50, month: '2025-05-01T16:00:00.000Z' } },
+        ],
+      });
+
+      try {
+        const amountField = table.fields.find((field) => field.name === 'amount')!;
+        const monthField = table.fields.find((field) => field.name === 'month')!;
+        const groupBy: IGroup = [{ fieldId: monthField.id, order: SortFunc.Asc }];
+
+        const grouped = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          groupBy,
+        });
+        const headers = (grouped.extra?.groupPoints ?? []).filter(
+          (point): point is IGroupHeaderPoint =>
+            point.type === GroupPointType.Header && point.depth === 0
+        );
+        expect(headers).toHaveLength(2);
+
+        const result = await getViewAggregations(
+          table.id,
+          table.views[0].id,
+          StatisticsFunc.Sum,
+          [amountField.id],
+          groupBy
+        );
+        const aggregation = result.aggregations?.find((item) => item.fieldId === amountField.id);
+        expect(aggregation?.total?.value).toBe(250);
+
+        const groupedSums = headers.map((header) => aggregation?.group?.[header.id]?.value);
+        expect(groupedSums.sort((left, right) => Number(left) - Number(right))).toEqual([50, 200]);
+      } finally {
+        await permanentDeleteTable(baseId, table.id);
+      }
     });
   });
 });

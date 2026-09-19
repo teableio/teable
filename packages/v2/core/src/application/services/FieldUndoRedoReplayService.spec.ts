@@ -45,6 +45,7 @@ import {
 } from '../../ports/TableRecordRepository';
 import type { ITableRepository, TableUpdatePersistResult } from '../../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../../ports/UnitOfWork';
+import { EventBusDomainWriteTransaction } from '../../ports/memory/EventBusDomainWriteTransaction';
 
 import { FieldUndoRedoReplayService } from './FieldUndoRedoReplayService';
 import type { TableUpdateFlow } from './TableUpdateFlow';
@@ -374,8 +375,7 @@ describe('FieldUndoRedoReplayService', () => {
       commandBus,
       new FakeTableRecordQueryRepository(),
       new FakeTableRecordRepository(),
-      new FakeEventBus(),
-      new FakeUnitOfWork(),
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus()),
       asTableUpdateFlow(tableUpdateFlow)
     );
 
@@ -443,8 +443,7 @@ describe('FieldUndoRedoReplayService', () => {
       commandBus,
       queryRepository,
       recordRepository,
-      eventBus,
-      new FakeUnitOfWork(),
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus),
       asTableUpdateFlow(tableUpdateFlow)
     );
 
@@ -503,8 +502,7 @@ describe('FieldUndoRedoReplayService', () => {
       new FakeCommandBus(),
       queryRepository,
       recordRepository,
-      eventBus,
-      new FakeUnitOfWork(),
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus),
       asTableUpdateFlow(new FakeTableUpdateFlow())
     );
 
@@ -555,8 +553,7 @@ describe('FieldUndoRedoReplayService', () => {
       new FakeCommandBus(),
       queryRepository,
       recordRepository,
-      eventBus,
-      new FakeUnitOfWork(),
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus),
       asTableUpdateFlow(new FakeTableUpdateFlow())
     );
 

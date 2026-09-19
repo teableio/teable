@@ -10,8 +10,8 @@ import type { DomainError } from '../domain/shared/DomainError';
 import { domainError } from '../domain/shared/DomainError';
 import * as CsvParserPort from '../ports/CsvParser';
 import { NoopLogger } from '../ports/defaults/NoopLogger';
-import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import type { IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import * as TableRepositoryPort from '../ports/TableRepository';
@@ -48,8 +48,8 @@ export class ImportCsvHandler
     tableSchemaRepository: TableSchemaRepositoryPort.ITableSchemaRepository,
     @inject(v2CoreTokens.tableRecordRepository)
     tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
-    @inject(v2CoreTokens.eventBus)
-    eventBus: EventBusPort.IEventBus,
+    @inject(v2CoreTokens.domainWriteTransaction)
+    domainWriteTransaction: IDomainWriteTransaction,
     @inject(v2CoreTokens.unitOfWork)
     unitOfWork: UnitOfWorkPort.IUnitOfWork,
     @inject(v2CoreTokens.recordWritePluginRunner)
@@ -68,7 +68,7 @@ export class ImportCsvHandler
       tableRepository,
       tableSchemaRepository,
       tableRecordRepository,
-      eventBus,
+      domainWriteTransaction,
       unitOfWork,
       recordWritePluginRunner,
       tableOperationPluginRunner

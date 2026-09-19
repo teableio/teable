@@ -60,6 +60,9 @@ const sanitizeLinkLookupOptions = (options: ILookupLinkOptions): ILookupOptionsR
   if (options.filter != null) {
     sanitized.filter = options.filter;
   }
+  if (typeof options.isUnique === 'boolean') {
+    sanitized.isUnique = options.isUnique;
+  }
   return sanitized;
 };
 
@@ -91,6 +94,9 @@ const sanitizeConditionalLookupOptions = (
     sanitized.limit = options.limit;
   }
 
+  if (typeof options.isUnique === 'boolean') {
+    sanitized.isUnique = options.isUnique;
+  }
   return sanitized;
 };
 

@@ -16,268 +16,215 @@ import type {
   FormulaVisitor,
 } from '@teable/formula';
 import { AbstractParseTreeVisitor, extractFieldReferenceId } from '@teable/formula';
-import {
-  ConditionalLookupField,
-  FieldType,
-  FunctionName,
-  LookupField,
-  normalizeFunctionNameAlias,
-  type Field,
-} from '@teable/v2-core';
+import { normalizeFunctionNameAlias } from '@teable/v2-core';
 
-import { FormulaSqlPgFunctions } from './FormulaSqlPgFunctions';
+import { FormulaExpressionGraph, type FormulaExpressionNode } from './FormulaExpressionGraph';
 import type { FormulaSqlPgTranslator } from './FormulaSqlPgTranslator';
 import { buildErrorLiteral, sqlStringLiteral } from './PgSqlHelpers';
 import { makeExpr, type SqlExpr } from './SqlExpression';
 
 const DEFAULT_ERROR = buildErrorLiteral('INTERNAL', 'unexpected');
-const buildJsonObjectText = (ref: string): string =>
-  `COALESCE(${ref}->>'title', ${ref}->>'name', ${ref} #>> '{}')`;
-
-const resolveLookupInnerField = (field: Field): Field | null => {
-  if (field.type().equals(FieldType.lookup())) {
-    const lookupField = field as LookupField;
-    const innerFieldResult = lookupField.innerField();
-    return innerFieldResult.isOk() ? innerFieldResult.value : null;
+export class FormulaSqlPgVisitor
+  extends AbstractParseTreeVisitor<FormulaExpressionNode>
+  implements FormulaVisitor<FormulaExpressionNode>
+{
+  constructor(
+    private readonly translator: FormulaSqlPgTranslator,
+    private readonly graph: FormulaExpressionGraph = new FormulaExpressionGraph()
+  ) {
+    super();
   }
-  if (field.type().equals(FieldType.conditionalLookup())) {
-    const conditionalLookupField = field as ConditionalLookupField;
-    const innerFieldResult = conditionalLookupField.innerField();
-    return innerFieldResult.isOk() ? innerFieldResult.value : null;
+  private readonly resolved = new Map<ExprContext, FormulaExpressionNode>();
+
+  private leaf(expression: SqlExpr): FormulaExpressionNode {
+    return this.graph.intern({ kind: 'leaf', expression });
   }
-  return null;
-};
 
-const normalizeJsonArraySql = (expr: SqlExpr): string => {
-  const baseJson =
-    expr.storageKind === 'array' ? `to_jsonb(${expr.valueSql})` : `(${expr.valueSql})::jsonb`;
-  return `(CASE
-    WHEN ${expr.valueSql} IS NULL THEN '[]'::jsonb
-    WHEN jsonb_typeof(${baseJson}) = 'array' THEN ${baseJson}
-    WHEN jsonb_typeof(${baseJson}) = 'null' THEN '[]'::jsonb
-    ELSE jsonb_build_array(${baseJson})
-  END)`;
-};
+  protected defaultResult(): FormulaExpressionNode {
+    return this.leaf(makeExpr('NULL', 'unknown', false, 'TRUE', DEFAULT_ERROR));
+  }
 
-const normalizeLookupLinkTitles = (expr: SqlExpr): SqlExpr => {
-  if (expr.isArray) {
-    const normalizedArray = normalizeJsonArraySql(expr);
-    return makeExpr(
-      `COALESCE((SELECT jsonb_agg(${buildJsonObjectText('elem')}) FROM jsonb_array_elements(${normalizedArray}) AS arr(elem)), '[]'::jsonb)`,
-      'string',
-      true,
-      expr.errorConditionSql,
-      expr.errorMessageSql,
-      expr.field,
-      'json'
+  visitRoot(ctx: RootContext): FormulaExpressionNode {
+    const pending: Array<{ context: ExprContext; expanded: boolean }> = [
+      { context: ctx.expr(), expanded: false },
+    ];
+    while (pending.length) {
+      const entry = pending.pop()!;
+      if (this.resolved.has(entry.context)) continue;
+      if (!entry.expanded) {
+        pending.push({ context: entry.context, expanded: true });
+        const children = (
+          entry.context as ExprContext & { expr?: () => ExprContext | ExprContext[] }
+        ).expr?.();
+        if (Array.isArray(children)) {
+          for (let index = children.length - 1; index >= 0; index--)
+            pending.push({ context: children[index], expanded: false });
+        } else if (children) pending.push({ context: children, expanded: false });
+      } else {
+        this.resolved.set(entry.context, entry.context.accept(this));
+      }
+    }
+    return this.resolved.get(ctx.expr())!;
+  }
+
+  visitStringLiteral(ctx: StringLiteralContext): FormulaExpressionNode {
+    const cached = this.resolved.get(ctx);
+    if (cached) return cached;
+    const quotedString = ctx.text;
+    this.graph.budget.allocate(Math.max(0, this.graph.budget.bytes(quotedString) - 2));
+    const rawString = quotedString.slice(1, -1);
+    const unescapedString = this.unescapeString(rawString);
+    return this.leaf(
+      makeExpr(sqlStringLiteral(unescapedString, this.graph.budget), 'string', false)
     );
   }
 
-  // Leftover TEXT lookup-of-link titles are marked scalar. Use to_jsonb()
-  // once instead of ::jsonb so 'Peer A' stays a JSON string, not invalid json.
-  const jsonbValue =
-    expr.storageKind === 'json' ? `(${expr.valueSql})::jsonb` : `to_jsonb(${expr.valueSql})`;
-  const titleSql =
-    expr.storageKind === 'json'
-      ? buildJsonObjectText(jsonbValue)
-      : `(SELECT ${buildJsonObjectText('j')} FROM (SELECT ${jsonbValue} AS j) s)`;
-  return makeExpr(
-    titleSql,
-    'string',
-    false,
-    expr.errorConditionSql,
-    expr.errorMessageSql,
-    expr.field,
-    'scalar'
-  );
-};
-
-export class FormulaSqlPgVisitor
-  extends AbstractParseTreeVisitor<SqlExpr>
-  implements FormulaVisitor<SqlExpr>
-{
-  private readonly functions: FormulaSqlPgFunctions;
-  private readonly functionHandlers: Partial<Record<FunctionName, (params: SqlExpr[]) => SqlExpr>>;
-
-  constructor(private readonly translator: FormulaSqlPgTranslator) {
-    super();
-    this.functions = new FormulaSqlPgFunctions(translator);
-    this.functionHandlers = this.functions.getHandlers();
-  }
-
-  protected defaultResult(): SqlExpr {
-    return makeExpr('NULL', 'unknown', false, 'TRUE', DEFAULT_ERROR);
-  }
-
-  visitRoot(ctx: RootContext): SqlExpr {
-    return ctx.expr().accept(this);
-  }
-
-  visitStringLiteral(ctx: StringLiteralContext): SqlExpr {
-    const quotedString = ctx.text;
-    const rawString = quotedString.slice(1, -1);
-    const unescapedString = this.unescapeString(rawString);
-    return makeExpr(sqlStringLiteral(unescapedString), 'string', false);
-  }
-
-  visitIntegerLiteral(ctx: IntegerLiteralContext): SqlExpr {
+  visitIntegerLiteral(ctx: IntegerLiteralContext): FormulaExpressionNode {
+    const cached = this.resolved.get(ctx);
+    if (cached) return cached;
     const value = parseInt(ctx.text, 10);
-    return makeExpr(Number.isFinite(value) ? value.toString() : '0', 'number', false);
+    return this.leaf(makeExpr(Number.isFinite(value) ? value.toString() : '0', 'number', false));
   }
 
-  visitDecimalLiteral(ctx: DecimalLiteralContext): SqlExpr {
+  visitDecimalLiteral(ctx: DecimalLiteralContext): FormulaExpressionNode {
+    const cached = this.resolved.get(ctx);
+    if (cached) return cached;
     const value = Number(ctx.text);
-    return makeExpr(Number.isFinite(value) ? value.toString() : '0', 'number', false);
+    return this.leaf(makeExpr(Number.isFinite(value) ? value.toString() : '0', 'number', false));
   }
 
-  visitBooleanLiteral(ctx: BooleanLiteralContext): SqlExpr {
+  visitBooleanLiteral(ctx: BooleanLiteralContext): FormulaExpressionNode {
+    const cached = this.resolved.get(ctx);
+    if (cached) return cached;
     const value = ctx.text.toUpperCase() === 'TRUE' ? 'TRUE' : 'FALSE';
-    return makeExpr(value, 'boolean', false);
+    return this.leaf(makeExpr(value, 'boolean', false));
   }
 
-  visitLeftWhitespaceOrComments(ctx: LeftWhitespaceOrCommentsContext): SqlExpr {
-    return ctx.expr().accept(this);
+  visitLeftWhitespaceOrComments(ctx: LeftWhitespaceOrCommentsContext): FormulaExpressionNode {
+    return this.visitWrappedExpression(ctx);
   }
 
-  visitRightWhitespaceOrComments(ctx: RightWhitespaceOrCommentsContext): SqlExpr {
-    return ctx.expr().accept(this);
+  visitRightWhitespaceOrComments(ctx: RightWhitespaceOrCommentsContext): FormulaExpressionNode {
+    return this.visitWrappedExpression(ctx);
   }
 
-  visitBrackets(ctx: BracketsContext): SqlExpr {
-    const inner = ctx.expr().accept(this);
-    return { ...inner, valueSql: `(${inner.valueSql})` };
+  visitBrackets(ctx: BracketsContext): FormulaExpressionNode {
+    return this.visitWrappedExpression(ctx);
   }
 
-  visitUnaryOp(ctx: UnaryOpContext): SqlExpr {
+  private visitWrappedExpression(
+    ctx: LeftWhitespaceOrCommentsContext | RightWhitespaceOrCommentsContext | BracketsContext
+  ): FormulaExpressionNode {
+    return this.resolved.get(ctx) ?? ctx.expr().accept(this);
+  }
+
+  visitUnaryOp(ctx: UnaryOpContext): FormulaExpressionNode {
+    const cached = this.resolved.get(ctx);
+    if (cached) return cached;
     const operand = ctx.expr().accept(this);
     if (ctx.MINUS()) {
-      return this.functions.applyUnaryOp('minus', operand);
+      return this.graph.intern({ kind: 'unary', operator: 'minus', operand });
     }
-    return makeExpr('NULL', 'unknown', false, 'TRUE', DEFAULT_ERROR);
+    return this.leaf(makeExpr('NULL', 'unknown', false, 'TRUE', DEFAULT_ERROR));
   }
 
-  visitBinaryOp(ctx: BinaryOpContext): SqlExpr {
+  visitBinaryOp(ctx: BinaryOpContext): FormulaExpressionNode {
+    const cached = this.resolved.get(ctx);
+    if (cached) return cached;
     const left = ctx.expr(0).accept(this);
     const right = ctx.expr(1).accept(this);
 
     if (ctx.PLUS()) {
-      return this.functions.applyBinaryOp('+', left, right);
+      return this.graph.intern({ kind: 'binary', operator: '+', left, right });
     }
     if (ctx.MINUS()) {
-      return this.functions.applyBinaryOp('-', left, right);
+      return this.graph.intern({ kind: 'binary', operator: '-', left, right });
     }
     if (ctx.STAR()) {
-      return this.functions.applyBinaryOp('*', left, right);
+      return this.graph.intern({ kind: 'binary', operator: '*', left, right });
     }
     if (ctx.SLASH()) {
-      return this.functions.applyBinaryOp('/', left, right);
+      return this.graph.intern({ kind: 'binary', operator: '/', left, right });
     }
     if (ctx.PERCENT()) {
-      return this.functions.applyBinaryOp('%', left, right);
+      return this.graph.intern({ kind: 'binary', operator: '%', left, right });
     }
     if (ctx.EQUAL()) {
-      return this.functions.applyBinaryOp('=', left, right);
+      return this.graph.intern({ kind: 'binary', operator: '=', left, right });
     }
     if (ctx.BANG_EQUAL()) {
-      return this.functions.applyBinaryOp('<>', left, right);
+      return this.graph.intern({ kind: 'binary', operator: '<>', left, right });
     }
     if (ctx.GT()) {
-      return this.functions.applyBinaryOp('>', left, right);
+      return this.graph.intern({ kind: 'binary', operator: '>', left, right });
     }
     if (ctx.GTE()) {
-      return this.functions.applyBinaryOp('>=', left, right);
+      return this.graph.intern({ kind: 'binary', operator: '>=', left, right });
     }
     if (ctx.LT()) {
-      return this.functions.applyBinaryOp('<', left, right);
+      return this.graph.intern({ kind: 'binary', operator: '<', left, right });
     }
     if (ctx.LTE()) {
-      return this.functions.applyBinaryOp('<=', left, right);
+      return this.graph.intern({ kind: 'binary', operator: '<=', left, right });
     }
     if (ctx.PIPE_PIPE()) {
-      return this.functions.applyBinaryOp('OR', left, right);
+      return this.graph.intern({ kind: 'binary', operator: 'OR', left, right });
     }
     if (ctx.AMP_AMP()) {
-      return this.functions.applyBinaryOp('AND', left, right);
+      return this.graph.intern({ kind: 'binary', operator: 'AND', left, right });
     }
     if (ctx.AMP()) {
-      return this.functions.applyBinaryOp('&', left, right);
+      return this.graph.intern({ kind: 'binary', operator: '&', left, right });
     }
 
-    return makeExpr('NULL', 'unknown', false, 'TRUE', DEFAULT_ERROR);
+    return this.leaf(makeExpr('NULL', 'unknown', false, 'TRUE', DEFAULT_ERROR));
   }
 
-  visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): SqlExpr {
+  visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): FormulaExpressionNode {
+    const cached = this.resolved.get(ctx);
+    if (cached) return cached;
     const normalizedFieldId = extractFieldReferenceId(ctx);
     const rawToken = ctx.text;
     const fallback = rawToken?.slice(1, -1)?.trim() ?? '';
     const fieldId = normalizedFieldId ?? fallback;
     if (!fieldId) {
-      return makeExpr('NULL', 'unknown', false, 'TRUE', buildErrorLiteral('REF', 'invalid_field'));
-    }
-
-    const resolved = this.translator.resolveFieldById(fieldId);
-    if (resolved.isErr()) {
-      return makeExpr('NULL', 'unknown', false, 'TRUE', buildErrorLiteral('REF', 'missing_field'));
-    }
-
-    const expr = resolved.value;
-    const innerField = expr.field ? resolveLookupInnerField(expr.field) : null;
-
-    if (innerField?.type().equals(FieldType.link())) {
-      return normalizeLookupLinkTitles(expr);
-    }
-
-    if (
-      expr.storageKind === 'json' &&
-      expr.isArray &&
-      expr.field?.type().equals(FieldType.attachment())
-    ) {
-      const normalizedArray = normalizeJsonArraySql(expr);
-      return {
-        ...expr,
-        displayValueSql: `(
-      SELECT string_agg(${buildJsonObjectText('elem')}, ', ' ORDER BY ord)
-      FROM jsonb_array_elements(${normalizedArray}) WITH ORDINALITY AS arr(elem, ord)
-    )`,
-      };
-    }
-
-    // For JSON object fields (button, link), extract the display value (title/name)
-    // when directly referenced in a formula. This ensures that {Button} and {LinkField}
-    // return the human-readable title instead of the raw JSON object.
-    if (expr.storageKind === 'json' && !expr.isArray && expr.field) {
-      const fieldType = expr.field.type();
-      if (fieldType.equals(FieldType.button()) || fieldType.equals(FieldType.link())) {
-        const jsonbValue = `(${expr.valueSql})::jsonb`;
-        const valueSql = `COALESCE(${jsonbValue}->>'title', ${jsonbValue}->>'name', ${jsonbValue} #>> '{}')`;
-        return makeExpr(
-          valueSql,
-          'string',
+      return this.leaf(
+        makeExpr(
+          'NULL',
+          'unknown',
           false,
-          expr.errorConditionSql,
-          expr.errorMessageSql,
-          expr.field,
-          'scalar'
-        );
-      }
+          'TRUE',
+          buildErrorLiteral('REF', 'invalid_field', this.graph.budget)
+        )
+      );
     }
 
-    return expr;
+    const resolved = this.translator.resolveFieldNode(fieldId, this.graph);
+    if (resolved.isErr()) {
+      return this.leaf(
+        makeExpr(
+          'NULL',
+          'unknown',
+          false,
+          'TRUE',
+          buildErrorLiteral('REF', 'missing_field', this.graph.budget)
+        )
+      );
+    }
+    return resolved.value;
   }
 
-  visitFunctionCall(ctx: FunctionCallContext): SqlExpr {
+  visitFunctionCall(ctx: FunctionCallContext): FormulaExpressionNode {
+    const cached = this.resolved.get(ctx);
+    if (cached) return cached;
     const rawName = ctx.func_name().text.toUpperCase();
     const normalized = normalizeFunctionNameAlias(rawName);
-    const functionName = normalized as FunctionName;
-    const params = ctx.expr().map((exprCtx: ExprContext) => exprCtx.accept(this));
-    const handler = this.functionHandlers[functionName];
-    if (handler) {
-      return handler(params);
-    }
-    return makeExpr('NULL', 'unknown', false, 'TRUE', buildErrorLiteral('NOT_IMPL', rawName));
+    const args = ctx.expr().map((exprCtx: ExprContext) => exprCtx.accept(this));
+    return this.graph.intern({ kind: 'call', name: normalized, args });
   }
 
   private unescapeString(str: string): string {
+    this.graph.budget.allocate(this.graph.budget.bytes(str));
     return str.replace(/\\(.)/g, (_match, char: string) => {
       switch (char) {
         case 'n':
@@ -299,7 +246,7 @@ export class FormulaSqlPgVisitor
         case "'":
           return "'";
         default:
-          return `\\${char}`;
+          return this.graph.budget.sql`\\${char}`;
       }
     });
   }

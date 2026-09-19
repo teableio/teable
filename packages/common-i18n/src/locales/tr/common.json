@@ -67,7 +67,7 @@
     "copyLink": "Bağlantıyı kopyala",
     "openLink": "Bağlantıyı aç",
     "backToSpace": "Alana Dön",
-    "switchBase": "Veritabanı Değiştir",
+    "switchBase": "Proje Değiştir",
     "collapse": "Daralt",
     "viewDetails": "Ayrıntıları görüntüle",
     "getMore": "Daha fazla al",
@@ -92,7 +92,7 @@
     "guideTitle": "Senaryonuzdan başlayın",
     "watchVideo": "Video izle",
     "title": "Şablon",
-    "description": "Şablondan yeni bir veritabanı oluştur",
+    "description": "Bir şablondan hızlıca yeni bir proje oluşturun",
     "browseAll": "Tümüne Göz At",
     "templateTitle": "Şablonla başla",
     "loadMore": "Daha Fazla Yükle",
@@ -106,7 +106,8 @@
       "description": "Şablon için bir alan seçin",
       "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
       "newSpacePlaceholder": "Space name",
-      "createSpace": "Create"
+      "createSpace": "Create",
+      "loadFailed": "Şablon ayrıntıları yüklenemedi."
     }
   },
   "baseShare": {
@@ -130,7 +131,7 @@
     "enterPassword": "Şifre girin",
     "passwordTitle": "Şifre belirle",
     "deleteConfirmTitle": "Paylaşım bağlantısını sil",
-    "deleteConfirmDescription": "Bu işlem geri alınamaz. Bu bağlantıya sahip kişiler artık paylaşılan tabana erişemeyecektir.",
+    "deleteConfirmDescription": "Bu işlem geri alınamaz. Bu bağlantıya sahip kişiler artık paylaşılan projeye erişemeyecektir.",
     "createSuccess": "Paylaşım bağlantısı oluşturuldu",
     "createFailed": "Paylaşım bağlantısı oluşturulamadı",
     "updateFailed": "Paylaşım ayarları güncellenemedi",
@@ -142,19 +143,19 @@
   "share": {
     "copyToSpaceDialog": {
       "title": "Alana kopyala",
-      "description": "Bu veritabanını kopyalamak için bir alan seçin",
-      "baseName": "Veritabanı adı",
-      "baseNamePlaceholder": "Veritabanı adını girin",
+      "description": "Bu projeyi kopyalamak için bir alan seçin",
+      "baseName": "Proje adı",
+      "baseNamePlaceholder": "Proje adını girin",
       "selectSpace": "Alan seç",
       "noSpaceDescription": "Yönetilebilir alan yok. Devam etmek için yeni bir alan oluşturun.",
       "newSpacePlaceholder": "Space name",
       "createSpace": "Create",
       "copyTarget": "Copy to",
-      "createNewBase": "New base",
-      "copyToExistingBase": "Existing base",
-      "selectBase": "Select base",
-      "selectBasePlaceholder": "Select a base",
-      "noBaseInSpace": "Bu alanda yönetilebilir veritabanı yok. \"Yeni veritabanı\"nı seçin."
+      "createNewBase": "Yeni proje",
+      "copyToExistingBase": "Mevcut proje",
+      "selectBase": "Proje seç",
+      "selectBasePlaceholder": "Proje seç",
+      "noBaseInSpace": "Bu alanda yönetilebilir proje yok. \"Yeni proje\" seçeneğini seçin."
     }
   },
   "settings": {
@@ -175,7 +176,7 @@
         "errorCategoryName": "Kategori mevcut değil veya silindi",
         "needSnapshot": "Yayınlamadan önce bir anlık görüntü oluşturun, şablon adı ve açıklaması boş olamaz",
         "needPublish": "Öne çıkan olarak ayarlamadan önce şablonu yayınlayın",
-        "needBaseSource": "Anlık görüntü oluşturmadan önce bir kaynak veritabanı seçin",
+        "needBaseSource": "Anlık görüntü oluşturmadan önce bir kaynak proje seçin",
         "forbiddenUpdateSystemTemplate": "Sistem şablonu değiştirilemez",
         "addCategoryTips": "Lütfen önce arama kutusuna bir kategori adı girin.",
         "categoryNamePlaceholder": "Kategori adını girin",
@@ -225,13 +226,13 @@
       "noImage": "Resim yok",
       "baseSelectPanel": {
         "title": "Şablon kaynağını seçin",
-        "description": "Şablon olarak bir veritabanı seçin",
+        "description": "Şablon olarak bir proje seçin",
         "confirm": "Onayla",
         "search": "Ara...",
         "cancel": "İptal",
-        "selectBase": "Veritabanı seç",
+        "selectBase": "Proje seç",
         "createTemplate": "Şablon oluştur",
-        "abnormalBase": "Veritabanı mevcut değil veya silindi"
+        "abnormalBase": "Proje mevcut değil veya silindi"
       }
     },
     "back": "Ana sayfaya dön",
@@ -295,11 +296,18 @@
       },
       "deleteAccount": {
         "title": "Hesabı Sil",
-        "desc": "Bu işlem geri alınamaz. Hesabınız ve tüm ilişkili veriler kalıcı olarak silinecektir.",
-        "error": {
-          "title": "Hesap silinemedi",
-          "desc": "Önce aşağıdaki bağımlılıkları çözmeniz gerekiyor:",
-          "spacesError": "Hesabınızı silmeden önce, Alanlarınızdan çıkmanız (veya silip çöp kutusuna taşımanız) gerekiyor."
+        "desc": "Hesabınız silindikten sonra geri yüklenemez. Lütfen dikkatli olun.",
+        "spaces": {
+          "title": "Yalnızca size ait alanlar",
+          "body": "Hesabınızla birlikte çöp kutusuna taşınır. Birini korumak için önce bir üyeye devredin.",
+          "loading": "Yalnızca size ait olan alanlar kontrol ediliyor…",
+          "blockedHint": "Devam etmek için bu aboneliği iptal edin ya da alanı devredin.",
+          "willTrash": "Çöp kutusuna taşınacak",
+          "willTransfer": "Devredilecek",
+          "subscribedHint": "Bu alanın hâlâ etkin bir aboneliği var. Aboneliği iptal edin, ardından hesabınızı silmek için geri dönün.",
+          "cancelSubscription": "Aboneliği yönet",
+          "transferTo": "Devretmek için üye seçin, yoksa çöp kutusuna gider",
+          "transferToSubscribed": "Ya da devretmek için üye seçin; abonelik alanda kalır"
         },
         "confirm": {
           "title": "Onaylamak için <code>DELETE</code> yazın",
@@ -331,7 +339,7 @@
       "teableSkill": "Teable becerisi"
     },
     "teableSkill": {
-      "intro": "AI Agent modelinizin Base’inize bağlanarak verileri sorgulamasına, tabloları, alanları ve görünümleri yönetmesine, kayıtları içe aktarmasına veya güncellemesine, otomasyonlar ve uygulamalar oluşturmasına yardımcı olun.",
+      "intro": "AI Agent modelinizin Projenize bağlanarak verileri sorgulamasına, tabloları, alanları ve görünümleri yönetmesine, kayıtları içe aktarmasına veya güncellemesine, otomasyonlar ve uygulamalar oluşturmasına yardımcı olun.",
       "worksWith": "Tüm yaygın agent modelleriyle çalışır",
       "more": "+ daha fazla",
       "copy": "Kopyala",
@@ -344,7 +352,7 @@
       "step3Description": "Beceri kurulduktan sonra bu promptları deneyin.",
       "tryPrompts": {
         "schema": {
-          "prompt": "Bu base içinde basit bir CRM tablosu oluştur.",
+          "prompt": "Bu proje içinde basit bir CRM tablosu oluştur.",
           "note": "Basit başlangıç promptları"
         },
         "template": {
@@ -390,10 +398,6 @@
           "user": "Slack kullanıcısı",
           "workspace": "Slack çalışma alanı"
         },
-        "email": {
-          "user": "Kullanıcı",
-          "email": "E-posta"
-        },
         "deleteTitle": "Bağlı hesabı kaldır",
         "deleteDesc": "{{name}} kaldırılsın mı?",
         "create": "Yeni hesap bağla",
@@ -412,7 +416,7 @@
     "table": "Tablo",
     "view": "Görünüm",
     "space": "Alan",
-    "base": "Veritabanı",
+    "base": "Proje",
     "field": "Alan",
     "record": "Kayıt",
     "dashboard": "Gösterge Paneli",
@@ -437,6 +441,8 @@
     "webSearch": "Web araması",
     "folder": "Klasör",
     "newAutomation": "Yeni otomasyon",
+    "routine": "Rutin",
+    "newRoutine": "Yeni rutin",
     "newApp": "Yeni uygulama",
     "newFolder": "Yeni klasör",
     "template": "Şablon"
@@ -463,9 +469,9 @@
     "done": "Tamam",
     "skip": "Atla",
     "createSpaceTooltipTitle": "Alan oluştur",
-    "createSpaceTooltipContent": "Teable alanlar halinde düzenlenmiştir, her alan kullanıcıları işbirliği yapmaya davet eder. <br></br>Teable'daki alanlar, menü çubuğunda birincil gezinme öğesi olarak hizmet verir ve kullanıcılara gerektiğinde veritabanı ekleme ve yönetme için temel bir platform sunar.",
-    "createBaseTooltipTitle": "Veritabanı oluştur",
-    "createBaseTooltipContent": "Veritabanı, önemli verileri ve bunlara bağlı iş akışlarını depolamak için bir yerdir.",
+    "createSpaceTooltipContent": "Teable alanlar halinde düzenlenmiştir, her alan kullanıcıları işbirliği yapmaya davet eder. <br></br>Teable'daki alanlar, menü çubuğunda birincil gezinme öğesi olarak hizmet verir ve kullanıcılara gerektiğinde proje ekleme ve yönetme için temel bir platform sunar.",
+    "createBaseTooltipTitle": "Proje oluştur",
+    "createBaseTooltipContent": "Bir proje verilerinizi saklar ve otomasyonlara ve uygulama panosuna erişim sağlar.",
     "createTableTooltipTitle": "Tablo oluştur",
     "createTableTooltipContent": "Tablolar, çeşitli veri türleri aracılığıyla bilgilerin çok yönlü görüntülenmesini sağlayarak farklı veri kümelerini verimli bir şekilde işlemek için tasarlanmıştır.",
     "createViewTooltipTitle": "Görünüm oluştur",
@@ -484,8 +490,8 @@
   "invite": {
     "dialog": {
       "title": "{{spaceName}} alanı paylaşımı",
-      "desc_one": "Bu alanda <b>{{count}} işbirlikçi</b> var. Bir alan işbirlikçisi eklemek, onlara bu alandaki tüm veritabanlarına erişim izni verecektir.",
-      "desc_other": "Bu alanda <b>{{count}} işbirlikçi</b> var. Bir alan işbirlikçisi eklemek, onlara bu alandaki tüm veritabanlarına erişim izni verecektir.",
+      "desc_one": "Bu alanda <b>{{count}} işbirlikçi</b> var. Bir alan işbirlikçisi eklemek, onlara bu alandaki tüm projelere erişim izni verecektir.",
+      "desc_other": "Bu alanda <b>{{count}} işbirlikçi</b> var. Bir alan işbirlikçisi eklemek, onlara bu alandaki tüm projelere erişim izni verecektir.",
       "tabEmail": "E-posta ile davet et",
       "emailPlaceholder": "E-posta adreslerini girin ve Enter tuşu ile ayırın",
       "tabLink": "Bağlantı ile davet et",
@@ -495,14 +501,14 @@
       "linkSend": "Bağlantı oluştur",
       "spaceTitle": "Alan işbirlikçileri",
       "spaceTitleWithCount": "Alan iş birlikçileri ({{count}})",
-      "baseTitle": "Taban iş birlikçileri",
-      "allCollaboratorsTitle": "Tüm iş birlikçiler (Alan ve Taban)",
-      "baseOnly": "Yalnızca taban",
+      "baseTitle": "Proje iş birlikçileri",
+      "allCollaboratorsTitle": "Tüm iş birlikçiler (Alan ve Proje)",
+      "baseOnly": "Yalnızca proje",
       "collaboratorSearchPlaceholder": "İsim veya e-posta ile alan işbirlikçisi bul",
       "collaboratorJoin": "{{joinTime}} tarihinde katıldı",
       "collaboratorRemove": "İşbirlikçiyi kaldır",
-      "basePermissionRemove": "Veritabanı erişimini kaldır",
-      "goToBase": "Veritabanına git",
+      "basePermissionRemove": "Proje erişimini kaldır",
+      "goToBase": "Projeye git",
       "linkTitle": "Davet bağlantıları",
       "linkCreatedTime": "{{createdTime}} tarihinde oluşturuldu",
       "linkCopySuccess": "Bağlantı kopyalandı",
@@ -513,11 +519,11 @@
     },
     "base": {
       "title": "{{baseName}} paylaş",
-      "desc_one": "Bu veritabanı {{count}} işbirlikçi ile paylaşılıyor.",
-      "desc_other": "Bu veritabanı {{count}} işbirlikçi ile paylaşılıyor.",
-      "baseTitle": "Veritabanı işbirlikçileri",
-      "collaboratorSearchPlaceholder": "İsim veya e-posta ile veritabanı işbirlikçisi bul",
-      "baseTitleWithCount": "Taban iş birlikçileri ({{count}})"
+      "desc_one": "Bu proje {{count}} işbirlikçi ile paylaşılıyor.",
+      "desc_other": "Bu proje {{count}} işbirlikçi ile paylaşılıyor.",
+      "baseTitle": "Proje işbirlikçileri",
+      "collaboratorSearchPlaceholder": "İsim veya e-posta ile proje işbirlikçisi bul",
+      "baseTitleWithCount": "Proje iş birlikçileri ({{count}})"
     },
     "addOrgCollaborator": {
       "title": "Kuruluş iş birlikçisi ekle",
@@ -532,8 +538,8 @@
       "lastLogin": "Son giriş",
       "expandPermissions": "{{name}} izinlerini genişlet",
       "collapsePermissions": "{{name}} izinlerini daralt",
-      "basePermissionsOnly": "Yalnızca seçili veritabanlarına erişebilir",
-      "basePermissionCount": "Veritabanı izinleri: {{count}}"
+      "basePermissionsOnly": "Yalnızca seçili projelere erişebilir",
+      "basePermissionCount": "Proje izinleri: {{count}}"
     },
     "authority": {
       "title": "Yetki matrisi etkin",
@@ -566,18 +572,13 @@
     "billable": "Faturalandırılabilir",
     "billableByAuthorityMatrix": "Yetki matrisi tarafından oluşturulan faturalandırma",
     "seatConfirm": {
-      "title": "Bu davet abonelik ücretinizi artıracak",
-      "roleChangeTitle": "Bu rol değişikliği abonelik ücretinizi artıracak",
       "matrixTitle": "Üye eklemek abonelik ücretinizi artıracak",
-      "inviteDesc_one": "Davet ettiğiniz üye {{role}} rolüyle katılacak ve 1 abonelik koltuğu kullanacak; ücretiniz buna göre artacak. Yalnızca görüntüleme veya yorum gerekiyorsa ücretsiz İzleyici veya Yorumcu rolünü seçmeniz yeterli.",
-      "inviteDesc_other": "Davet ettiğiniz {{count}} üye {{role}} rolüyle katılacak ve {{count}} abonelik koltuğu kullanacak; ücretiniz buna göre artacak. Yalnızca görüntüleme veya yorum gerekiyorsa ücretsiz İzleyici veya Yorumcu rolünü seçmeniz yeterli.",
-      "linkDesc": "Bu bağlantıyla katılan üyeler {{role}} rolünü alır ve her biri 1 abonelik koltuğu kullanır; katılan kişi sayısıyla ücretiniz artar. Yalnızca görüntüleme veya yorum için ücretsiz İzleyici veya Yorumcu rolünü seçmeniz yeterli.",
-      "roleChangeDesc": "{{role}} rolüne geçtikten sonra bu üye 1 abonelik koltuğu kullanacak ve ücretiniz buna göre artacak.",
       "matrixDesc": "Bu üye şu anda ücretsiz bir role sahip (İzleyici/Yorumcu). Yetki matrisine eklendiğinde 1 abonelik koltuğu kullanacak ve ücretiniz buna göre artacak.",
       "seatLimitTitle": "Lisans koltuğu yetersiz",
       "seatLimitDesc": "Bu örnek, lisanslı {{seatLimit}} koltuğun {{seats}} tanesini kullanıyor ve kalan koltuklar bu işlem için yeterli değil. Ek koltuk satın almak için lütfen yöneticinizle iletişime geçin. Yalnızca görüntüleme veya yorum gerekiyorsa ücretsiz İzleyici veya Yorumcu rolünü kullanabilirsiniz.",
       "seatLimitConfirm": "Anladım",
-      "confirmInvite": "Onayla ve davet et"
+      "fixedSeatTitle": "Planınızdaki koltuklar yetersiz",
+      "fixedSeatDesc": "Planınız {{quantity}} koltuk içeriyor ve {{seats}} koltuk zaten kullanımda. Devam ederseniz koltuk sınırı aşılacak ve alan 7 günlük ek sürenin ardından ücretsiz plana düşürülecek. Yalnızca görüntüleme veya yorum gerekiyorsa ücretsiz İzleyici veya Yorumcu rolünü kullanabilirsiniz."
     },
     "licenseExpiredGracePeriod": "Kendi sunucunuzda barındırma lisansınızın süresi doldu ve {{expiredTime}} tarihinde ücretsiz plana düşürülecek. Premium özelliklere erişimi korumak için lütfen lisansınızı hemen güncelleyin.",
     "licenseAutoFetchFailed": "Lisansın otomatik yenilenmesi başarısız oldu. Sürüm düşürülmeden önce {{days}} gün ek süre kaldı.",
@@ -671,7 +672,14 @@
           "modelTiers": "Model katmanları",
           "modelTiersDescription": "Orta ve hafif görevlere farklı modeller atayın; ayarlanmamış katmanlar yukarıdaki varsayılan ana modeli kullanır.",
           "allInheriting": "Tüm katmanlar varsayılan ana modeli kullanıyor",
-          "customized": "{{count}} özelleştirildi"
+          "customized": "{{count}} özelleştirildi",
+          "tiersIntro": "Kullanıcılar sohbet model menüsünde bu katmanlardan birini seçer; varsayılan katman başlangıç seçimidir ve 1x kredi tabanıdır. Herhangi bir katmanı istediğiniz zaman yeniden atayabilirsiniz.",
+          "defaultTier": "Varsayılan",
+          "setDefault": "Varsayılan yap",
+          "notOffered": "Sunulmuyor",
+          "lgBackground": "aynı zamanda yapay zekâ alanları ve diğer özellikler için ana modeldir",
+          "mdBackground": "orta düzey arka plan görevlerini de çalıştırır",
+          "smBackground": "sohbet başlıkları gibi hafif arka plan görevlerini de çalıştırır"
         },
         "actions": {
           "title": "AI Yetenekleri",
@@ -941,8 +949,8 @@
           "quickSetup": "Hızlı kurulum",
           "useRecommended": "Öneriyi kullan",
           "useRecommendedDesc": "Tek tıkla {{model}} modelini tüm sohbet senaryoları için varsayılan yapın",
-          "chatModels": "Varsayılan ana model",
-          "chatModelTip": "Kenar çubuğundaki yapay zekâ sohbeti için varsayılan ana model; yönetici tarafından ayarlanır ve kullanıcılar değiştiremez. Kendi modeli olmayan görev katmanları da bunu kullanır",
+          "chatModels": "Sohbet modeli katmanları",
+          "chatModelTip": "Smart ana modeldir: yapay zekâ alanları, arka plan görevleri ve kendi modeli olmayan katmanlar onu kullanır. Varsayılan katman, sohbet kullanıcılarının başlangıç seçimidir.",
           "selectChatModel": "Sohbet modeli seçin...",
           "lgDesc": "Karmaşık görevler, derin analiz",
           "mdDesc": "Günlük konuşmalar, genel görevler",
@@ -1111,8 +1119,8 @@
       "viewer": "İzleyici"
     },
     "description": {
-      "owner": "Veritabanlarını, uygulamaları, otomasyonları ve yetki matrislerini tamamen yapılandırabilir; alan ayarlarını ve faturalandırmayı yönetebilir",
-      "creator": "Veritabanlarını, uygulamaları, otomasyonları ve yetki matrislerini tamamen yapılandırabilir",
+      "owner": "Projeleri, uygulamaları, otomasyonları ve yetki matrislerini tamamen yapılandırabilir; alan ayarlarını ve faturalandırmayı yönetebilir",
+      "creator": "Projeleri, uygulamaları, otomasyonları ve yetki matrislerini tamamen yapılandırabilir",
       "editor": "Kayıtları ve görünümleri düzenleyebilir, ancak tabloları veya alanları yapılandıramaz",
       "commenter": "Kayıtlara yorum yapabilir",
       "viewer": "Düzenleyemez veya yorum yapamaz"
@@ -1130,8 +1138,8 @@
     "addToTrash": "Çöp kutusuna taşı",
     "description": "Çöp kutusundaki veriler hala kayıt kullanımı ve ekli dosya kullanımı kaplar.",
     "spaceDescription": "Son {{retentionDays}} gün içinde silinen alanları geri yükle",
-    "spaceInnerDescription": "Son {{retentionDays}} gün içinde bu alandan silinen veritabanlarını geri yükle",
-    "baseDescription": "Son {{retentionDays}} gün içinde bu veritabanından silinen kaynakları geri yükle"
+    "spaceInnerDescription": "Son {{retentionDays}} gün içinde bu alandan silinen projeleri geri yükle",
+    "baseDescription": "Son {{retentionDays}} gün içinde bu projeden silinen kaynakları geri yükle"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Eklenti URL'si Ayarlanmamış",
@@ -1184,7 +1192,7 @@
     "unsubscribeH2": "Gelecekteki Teable promosyonları ve ürün güncellemelerinden aboneliğinizi iptal etmek üzeresiniz. Abonelikten çıkmak istediğinizden emin misiniz?",
     "subscribeH1": "Aboneliği onaylıyor musunuz?",
     "subscribeH2": "Gelecekteki Teable promosyonları ve ürün güncellemelerine abone olmak üzeresiniz. Abone olmak istediğinizden emin misiniz?",
-    "unsubscribeListTip": "Mevcut tabanındaki aşağıdaki kullanıcılar abonelikten çıkmıştır, artık onlara e-posta gönderemeyeceksiniz. E-postaları içe aktarırken, lütfen e-posta adreslerini ilk sütuna yerleştirin ve başlığı \"email\" olarak adlandırın.",
+    "unsubscribeListTip": "Mevcut projedeki aşağıdaki kullanıcılar abonelikten çıkmıştır, artık onlara e-posta gönderemeyeceksiniz. E-postaları içe aktarırken, lütfen e-posta adreslerini ilk sütuna yerleştirin ve başlığı \"email\" olarak adlandırın.",
     "templates": {
       "resetPassword": {
         "subject": "Şifreyi Sıfırla - {{brandName}}",
@@ -1197,6 +1205,11 @@
           "subject": "Kayıt Doğrulama - {{brandName}}",
           "title": "Kayıt Doğrulama",
           "message": "Doğrulama kodunuz {{code}}, lütfen {{expiresIn}} dakika içinde kullanın."
+        },
+        "signinVerification": {
+          "subject": "Giriş Doğrulaması - {{brandName}}",
+          "title": "Giriş doğrulaması",
+          "message": "Giriş doğrulama kodunuz {{code}}, lütfen {{expiresIn}} dakika içinde kullanın. Bu isteği siz yapmadıysanız bu e-postayı yok sayabilirsiniz."
         },
         "domainVerification": {
           "subject": "Alan Adı Doğrulama - {{brandName}}",
@@ -1217,7 +1230,8 @@
       "collaboratorMultiRowTag": {
         "subject": "{{fromUserName}} sizi {{tableName}} tablosundaki {{refLength}} kayda ekledi",
         "title": "<strong>{{fromUserName}}</strong> sizi <strong>{{tableName}}</strong> tablosundaki <strong>{{refLength}}</strong> kayda ekledi",
-        "buttonText": "Kayıtları görüntüle"
+        "buttonText": "Kayıtları görüntüle",
+        "more": "ve {{remaining}} tane daha"
       },
       "invite": {
         "subject": "{{name}} ({{email}}) sizi {{resourceAlias}} {{resourceName}}'e davet etti - {{brandName}}",
@@ -1275,7 +1289,7 @@
         },
         "collaboratorInvite": {
           "space": "{{fromUserName}} sizi {{resourceName}} alanına davet etti",
-          "base": "{{fromUserName}} sizi {{resourceName}} veritabanına davet etti"
+          "base": "{{fromUserName}} sizi {{resourceName}} adlı projeye davet etti"
         },
         "automation": {
           "title": "Otomasyon Bildirimi",
@@ -1294,6 +1308,24 @@
           "failedSummary": {
             "title": "Otomasyon {{name}} {{failCount}} kez başarısız oldu",
             "message": "Otomasyonunuz {{name}} art arda {{failCount}} kez başarısız oldu. Ayrıntıları görmek için çalıştırma geçmişini açın."
+          }
+        },
+        "routine": {
+          "failed": {
+            "title": "{{name}} rutini çalıştırılamadı",
+            "message": "{{name}} rutininiz çalışırken bir hatayla karşılaştı. Ayrıntılar için çalıştırma geçmişini açın."
+          },
+          "failedSummary": {
+            "title": "{{name}} rutini {{failCount}} kez başarısız oldu",
+            "message": "{{name}} rutininiz art arda {{failCount}} kez başarısız oldu. Ayrıntılar için çalıştırma geçmişini açın."
+          },
+          "insufficientCredit": {
+            "title": "AI kredisi yetersiz olduğundan {{name}} rutini atlandı",
+            "message": "AI kredileri yetersiz olduğu için {{name}} rutininiz çalıştırılmadı. Lütfen kredi ekleyin veya planınızı yükseltin."
+          },
+          "autoDeactivated": {
+            "title": "{{name}} rutini art arda {{failCount}} başarısızlık sonrası duraklatıldı",
+            "message": "{{name}} rutininiz art arda {{failCount}} kez başarısız olduğu için otomatik olarak duraklatıldı. Sorunu giderip yeniden etkinleştirin."
           }
         },
         "billing": {
@@ -1344,7 +1376,7 @@
           }
         },
         "exportBase": {
-          "title": "Veritabanı Dışa Aktarma Sonuç Bildirimi",
+          "title": "Proje Dışa Aktarma Sonuç Bildirimi",
           "success": {
             "message": "{{baseName}} başarıyla dışa aktarıldı: <a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
           },
@@ -1362,6 +1394,7 @@
               "title": "AI görevi iptal edildi",
               "rateLimit": "\"{{tableName}}\" tablosu için AI görevi, hız sınırlaması (429) nedeniyle iptal edildi. Lütfen daha sonra tekrar deneyin.",
               "creditExhausted": "\"{{tableName}}\" tablosu için AI görevi, krediler tükendiği için iptal edildi. Lütfen aboneliğinizi yükseltin veya kredilerin yenilenmesini bekleyin.",
+              "providerBilling": "Model sağlayıcısı isteği faturalandırma nedeniyle reddettiği için \"{{tableName}}\" tablosunun yapay zeka görevi iptal edildi. Lütfen bu model için yapılandırılan API anahtarına ait hesabın bakiyesini ve faturalandırma durumunu kontrol edin. Hata: {{errorMessage}}",
               "authFailed": "\"{{tableName}}\" tablosu için AI görevi, kimlik doğrulama hatası nedeniyle iptal edildi. Lütfen API anahtarı yapılandırmanızı kontrol edin.",
               "serviceUnavailable": "\"{{tableName}}\" tablosu için AI görevi, AI hizmeti geçici olarak kullanılamadığı için iptal edildi. Lütfen daha sonra tekrar deneyin.",
               "unknown": "\"{{tableName}}\" tablosu için AI görevi iptal edildi. Hata: {{errorMessage}}"
@@ -1405,9 +1438,9 @@
     "code": "Davet kodu",
     "inviteSuccess": "Davet başarılı"
   },
-  "noPermissionToCreateBase": "Hiçbir alanda taban oluşturma izniniz yok",
+  "noPermissionToCreateBase": "Hiçbir alanda proje oluşturma izniniz yok",
   "base": {
-    "deleteTip": "\"{{name}}\" veritabanını silmek istediğinizden emin misiniz?",
+    "deleteTip": "\"{{name}}\" projesini silmek istediğinizden emin misiniz?",
     "createResource": "Kaynak oluştur",
     "noPermissionToCreateResource": "Kaynak oluşturma izniniz yok"
   },
@@ -1452,6 +1485,7 @@
     "minFollowerCount": "Hesapta en az {{count}} takipçi olmalıdır",
     "mustMention": "Gönderi {{mention}}'dan bahsetmelidir",
     "fetchSnapshotFailed": "Gönderi anlık görüntüsü alınamadı",
+    "snapshotTimeout": "Gönderi anlık görüntüsü beklenirken zaman aşımı oluştu, lütfen daha sonra tekrar deneyin",
     "alreadyClaimedThisWeek": "Bu hesap için bu hafta zaten bir ödül talep ettiniz",
     "maxClaimsReached": "Bu hafta için maksimum ödül talebine (2) ulaştınız",
     "postTooOld": "Gönderi son {{hours}} saat içinde yayınlanmış olmalıdır",
@@ -1517,8 +1551,8 @@
     "responseInterrupted": "Yanıt kesildi",
     "serverError": "Sunucu hatası oluştu",
     "serverErrorHint": "Lütfen yeni bir konuşma başlatıp tekrar deneyin.",
-    "modelNotSupported": "Seçilen model aracı modunda desteklenmiyor. En iyi deneyim için Claude Opus 4.6'ya geçin.",
-    "byokModelNotSupported": "Özel modeliniz aracı moduyla uyumlu değil. En iyi deneyim için Claude Opus 4.6'ya geçin.",
+    "modelNotSupported": "Seçilen model aracı modunda desteklenmiyor. En iyi deneyim için GPT-6 Astra'ya geçin.",
+    "byokModelNotSupported": "Özel modeliniz aracı moduyla uyumlu değil. En iyi deneyim için GPT-6 Astra'ya geçin.",
     "modelServiceUnavailable": "Model hizmeti geçici olarak kullanılamıyor. Lütfen daha sonra tekrar deneyin.",
     "modelServiceError": "Model hizmetinde bir hata oluştu. Lütfen tekrar deneyin veya farklı bir modele geçin.",
     "imageProcessingFailed": "Görsel işleme başarısız",
@@ -1533,11 +1567,37 @@
     "idleTimeout": "Komut yürütmesi zaman sınırını ({{seconds}} sn) aştı. Lütfen tekrar deneyin.",
     "danglingToolUse": "Önceki oturum kesildi ve otomatik olarak onarıldı. Lütfen mesajınızı yeniden gönderin.",
     "contextImportFailed": "Önceki oturum verileri geri yüklenemedi. Önceki bağlam olmadan devam etmek için tekrar deneyin.",
+    "versionSaveFailed": "Sürüm kaydedilemedi",
+    "versionSaveFailedDescription": "Bu sürüm kaydedilmedi. Değişiklikler sanal alanda kalır ve sanal alanın süresi dolduğunda kaybolabilir.",
+    "versionPushTooLarge": "Değişiklikler kaydedilemeyecek kadar büyük",
+    "versionPushTooLargeDescription": "Bu değişiklikler kayıt boyutu sınırını aştığı için yeni bir sürüm olarak kaydedilemedi.",
+    "versionPushTooLargeAction": "Yapay zekaya gönder",
+    "versionPushTooLargePrompt": "Git push boyut sınırını aştığı için uygulama sürümü kaydedilemedi. Önce projede aşırı büyük test çıktıları, hata ayıklama dosyaları veya ekler olup olmadığını kontrol et. Gereksiz içeriği kaldırmadan önce nedeni doğrula; uygulama kodunu ve gerekli kaynakları koru. Büyük dosyalar henüz gönderilmemiş commit geçmişinde bulunuyor olabilir; bu nedenle dosyaları silmek veya .gitignore dosyasına eklemek yeterli olmayabilir. Geçmişi temizlemek gerekiyorsa yalnızca henüz gönderilmemiş commitleri değiştir.\nHata ayrıntıları: {{error}}",
     "collapsedStatus": {
       "open": "AI sohbetini aç",
       "working": "AI çalışıyor",
       "completed": "AI görevi tamamlandı",
       "failed": "AI görevi başarısız oldu"
+    }
+  },
+  "modelTier": {
+    "title": "Model",
+    "uses": "{{model}} kullanır",
+    "xl": {
+      "label": "Ultra",
+      "description": "Zorlu ve kritik işler için en üst düzey yetenek."
+    },
+    "lg": {
+      "label": "Smart",
+      "description": "Günlük işler için güçlü akıl yürütme."
+    },
+    "md": {
+      "label": "Standard",
+      "description": "Rutin işler için hızlı ve uygun maliyetli."
+    },
+    "sm": {
+      "label": "Lite",
+      "description": "Düşük maliyetli, yüksek hacimli rutin işler için hafif model."
     }
   },
   "system": {
@@ -1588,10 +1648,11 @@
       "replace": "Değiştir",
       "download": "İndir",
       "uninstall": "Kaldır",
-      "copyToBase": "Veritabanına kopyala",
+      "copyToBase": "Projeye kopyala",
       "copyToSpace": "Alana kopyala",
       "copyToPersonal": "Kişisele kopyala",
-      "copyToApp": "Uygulamaya kopyala"
+      "copyToApp": "Uygulamaya kopyala",
+      "copyToRoutine": "Rutine kopyala"
     },
     "import": {
       "title": "Beceri İçe Aktar",
@@ -1623,16 +1684,18 @@
       "label": "Kapsam",
       "system": "Sistem",
       "builtin": "Yerleşik",
-      "base": "Veritabanı",
+      "base": "Proje",
       "user": "Kişisel",
       "userDescription": "Yalnızca size açık",
-      "baseDescription": "Bu Base'deki işbirlikçilerle paylaşılır",
+      "baseDescription": "Bu Projedeki işbirlikçilerle paylaşılır",
       "space": "Alan",
       "spaceDescription": "Bu alandaki tüm üyelerle paylaşılır",
       "app": "App",
       "appDescription": "Yalnızca bu uygulamada kullanılabilir",
       "cuppyclaw": "Bot",
-      "cuppyclawDescription": "Yalnızca bu bot için kullanılabilir"
+      "cuppyclawDescription": "Yalnızca bu bot için kullanılabilir",
+      "routine": "Rutin",
+      "routineDescription": "Yalnızca bu rutin için kullanılabilir"
     },
     "source": {
       "github": "GitHub",
@@ -1679,5 +1742,40 @@
     "collapse": "Daha az göster",
     "more_one": "{{count}} duyuru daha",
     "more_other": "{{count}} duyuru daha"
+  },
+  "mobileEmbed": {
+    "pickFromDirectory": "Dizinden bir öğe seçin",
+    "pickFromDirectoryHint": "Dizinden bir tablo, pano veya otomasyon açın; burada görünecek.",
+    "limitReachedTitle": "Plan sınırına ulaşıldı",
+    "limitReachedDescription": "Bu alan, mevcut planının bir sınırına ulaştı.",
+    "creditsExhaustedTitle": "Yapay zeka kredileri tükendi",
+    "creditsExhaustedDescription": "Bu alan, mevcut planına dahil olan tüm yapay zeka kredilerini kullandı.",
+    "seatLimitTitle": "Boş koltuk kalmadı",
+    "seatLimitDescription": "Bu alanda daha fazla ortak çalışan için boş koltuk kalmadı.",
+    "ownerManagesPlan": "Bu alanın planını yalnızca alan sahibi yönetebilir. Çözüm için onunla iletişime geçin.",
+    "featureUnavailableTitle": "Bu planda kullanılamaz",
+    "billingUnavailable": "Plan ve faturalama yönetimi uygulamada kullanılamaz.",
+    "featureUnavailableDescription": "Bu özellik, bu alanın mevcut planında kullanılamaz.",
+    "importRowLimitReached": "Mevcut planın satır sınırına ulaşıldı; kalan kayıtlar içe aktarılmadı.",
+    "userCapTitle": "Kullanıcı sınırına ulaşıldı",
+    "userCapDescription": "Bu örnek, lisansının izin verdiği kullanıcı sayısına ulaştı. Yöneticinizle iletişime geçin."
+  },
+  "push": {
+    "gate": {
+      "askUserQuestion": "Cuppy'nin sana bir sorusu var.",
+      "permission": "Cuppy devam etmek için onayını bekliyor.",
+      "connectIntegration": "Cuppy'nin devam etmesi için bir uygulama bağlaman gerekiyor.",
+      "pickGoogleSheet": "Cuppy bir sayfa seçmeni bekliyor.",
+      "requestCredential": "Cuppy devam etmek için erişim istiyor."
+    },
+    "result": {
+      "done": "Tamamlandı.",
+      "failed": "Çalıştırma başarısız oldu.",
+      "creditExhausted": "Durduruldu: AI kredisi kalmadı.",
+      "skippedNoCredit": "Bu sefer atlandı: AI kredisi kalmadı.",
+      "autoDeactivated": "Arka arkaya beş başarısız çalıştırmadan sonra kapatıldı.",
+      "summaryTitle": "Teable",
+      "summary": "{{count}} sohbette yeni sonuç var."
+    }
   }
 }

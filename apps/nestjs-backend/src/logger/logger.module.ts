@@ -25,7 +25,10 @@ export class LoggerModule {
           pinoHttp: {
             serializers: {
               req(req) {
+                // Keep the first-party client tag (mobile app) after the headers are dropped.
+                const client = req.headers?.['x-teable-client'];
                 delete req.headers;
+                if (typeof client === 'string' && client) req.client = client;
                 return req;
               },
               res(res) {

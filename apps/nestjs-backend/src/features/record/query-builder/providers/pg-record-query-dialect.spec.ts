@@ -26,6 +26,28 @@ describe('PgRecordQueryDialect#flattenLookupCteValue', () => {
     const sql = dialect.flattenLookupCteValue('cte_lookup', 'fld_scalar', true, DbFieldType.Text);
     expect(sql).toContain('to_jsonb("cte_lookup"."lookup_fld_scalar")');
   });
+
+  it('deduplicates only when enabled, after flattening the lookup array', () => {
+    const ordinary = dialect.flattenLookupCteValue(
+      'cte_lookup',
+      'fld_json',
+      true,
+      DbFieldType.Json
+    );
+    const unique = dialect.flattenLookupCteValue(
+      'cte_lookup',
+      'fld_json',
+      true,
+      DbFieldType.Json,
+      true
+    );
+
+    expect(ordinary).not.toContain('DISTINCT ON');
+    expect(unique).toContain(ordinary);
+    expect(unique).toContain('WITH ORDINALITY');
+    expect(unique).toContain("COALESCE(value->'id', value)");
+    expect(unique).toContain('jsonb_agg(value ORDER BY ordinal)');
+  });
 });
 
 describe('PgRecordQueryDialect#linkExtractTitles', () => {

@@ -142,7 +142,7 @@ export class PasteCommandAnalyzer implements ICommandAnalyzer<PasteCommand> {
           context,
           table,
           filterSpec,
-          { mode: 'stored', pagination }
+          { mode: 'stored', pagination, includeTotal: true }
         );
         totalRows = countResult.total;
       }

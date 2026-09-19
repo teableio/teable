@@ -20,6 +20,7 @@ import type { TableSortKey } from '../domain/table/TableSortKey';
 import { NoopTableRecordRepository } from '../ports/defaults/NoopTableRecordRepository';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import { type IFindOptions } from '../ports/RepositoryQuery';
 import type { InsertOptions } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
@@ -187,8 +188,7 @@ describe('RestoreRecordsHandler', () => {
     const handler = new RestoreRecordsHandler(
       new TableQueryService(tableRepository),
       recordRepository,
-      eventBus,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const command = RestoreRecordsCommand.create({
@@ -244,8 +244,7 @@ describe('RestoreRecordsHandler', () => {
     const handler = new RestoreRecordsHandler(
       new TableQueryService(tableRepository),
       recordRepository,
-      eventBus,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const records = Array.from({ length: 1001 }, (_, index) => ({
@@ -324,8 +323,7 @@ describe('RestoreRecordsHandler', () => {
     const handler = new RestoreRecordsHandler(
       new TableQueryService(tableRepository),
       recordRepository,
-      eventBus,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const totalRecords = 11_000;
@@ -373,8 +371,7 @@ describe('RestoreRecordsHandler', () => {
     const handler = new RestoreRecordsHandler(
       new TableQueryService(tableRepository),
       recordRepository,
-      eventBus,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const command = RestoreRecordsCommand.create({

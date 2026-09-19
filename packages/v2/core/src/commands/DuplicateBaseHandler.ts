@@ -11,6 +11,10 @@ import { domainError, isDomainError, type DomainError } from '../domain/shared/D
 import { TableCreated } from '../domain/table/events/TableCreated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { validateForeignTablesForFields } from '../domain/table/fields/ForeignTableRelatedField';
+import {
+  FormulaExpression,
+  type FormulaSourceBudget,
+} from '../domain/table/fields/types/FormulaExpression';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { calculateBatchSize } from '../domain/table/methods/records/calculateBatchSize';
 import { RecordId } from '../domain/table/records/RecordId';
@@ -32,6 +36,7 @@ import { NoopBaseDataBulkCopier } from '../ports/defaults/NoopBaseDataBulkCopier
 import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { NormalizedDotTeaStructure } from '../ports/DotTeaParser';
 import * as EventBusPort from '../ports/EventBus';
+import { getFormulaSourceBudget } from '../ports/ExecutionContext';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import { ITableMapper } from '../ports/mappers/TableMapper';
@@ -317,6 +322,7 @@ export class DuplicateBaseHandler
               tableId,
               tableName,
               replacements,
+              sourceBudget: getFormulaSourceBudget(context),
             });
           }
           return buildTableFromInput(
@@ -435,6 +441,7 @@ export class DuplicateBaseHandler
       tableId: string;
       tableName: string;
       replacements: ReadonlyMap<string, string>;
+      sourceBudget: FormulaSourceBudget;
     }
   ) {
     const remapped = replaceMappedIds(snapshot, params.replacements);
@@ -444,12 +451,18 @@ export class DuplicateBaseHandler
       baseId: params.baseId.toString(),
       name: params.tableName,
       dbTableName: `${params.baseId.toString()}.${params.tableId}`,
+      searchIndex: undefined,
       fields: remapped.fields,
       views: remapped.views.map(resetDuplicatedViewIdentity),
     };
+    for (const field of dto.fields) {
+      if (field.type !== 'formula') continue;
+      const source = FormulaExpression.create(field.options.expression, params.sourceBudget);
+      if (source.isErr()) return err(source.error);
+    }
 
     return this.tableMapper.toDomain(dto).andThen((table) =>
-      resolveFormulaFields(table).andThen(() =>
+      resolveFormulaFields(table, { sourceBudget: params.sourceBudget }).andThen(() =>
         table.foreignTableReferences().map((foreignTableReferences) => {
           table.addDomainEvent(
             TableCreated.create({
