@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Database, Trash2 } from '@teable/icons';
+import { LayoutGrid, Trash2 } from '@teable/icons';
 import type { ITrashItemVo, ITrashVo } from '@teable/openapi';
 import { getTrash, TrashType, restoreTrash, deleteTrash, PrincipalType } from '@teable/openapi';
 import { InfiniteTable } from '@teable/sdk/components';
@@ -111,7 +111,7 @@ export const SpaceInnerTrashModal = (props: ISpaceInnerTrashModalProps) => {
           const { name } = resourceInfo;
           return (
             <div className="flex min-w-0 items-center gap-2">
-              <Database className="size-6 rounded-md border p-1" />
+              <LayoutGrid className="size-6 rounded-md border p-1" />
               <span className="truncate text-sm ">{name}</span>
             </div>
           );

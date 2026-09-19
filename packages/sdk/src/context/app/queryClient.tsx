@@ -1,9 +1,15 @@
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import type { ICustomHttpExceptionData, IHttpError, ILocalization } from '@teable/core';
-import { HttpErrorCode } from '@teable/core';
+import {
+  getUnauthenticatedAuthPath,
+  HttpErrorCode,
+  RETURNING_USER_COOKIE_NAME,
+} from '@teable/core';
 import { sonner } from '@teable/ui-lib';
 import { openUsageLimitModalFromError } from '../../components/billing/store/usage-limit-modal';
 import type { ILocaleFunction, TKey } from './i18n';
+
+import { isTableProvisionPending } from './tableProvisionError';
 
 const { toast } = sonner;
 
@@ -84,7 +90,10 @@ const dedupeValidationError = (message: string): boolean => {
 const handleStatusRedirect = (error: unknown): boolean => {
   const { status } = error as IHttpError;
   if (status === 401) {
-    window.location.href = `/auth/signup?redirect=${encodeURIComponent(window.location.href)}`;
+    const isReturning = document.cookie
+      .split(';')
+      .some((part) => part.trim().startsWith(`${RETURNING_USER_COOKIE_NAME}=`));
+    window.location.href = getUnauthenticatedAuthPath(isReturning, window.location.href);
     return true;
   }
   return openUsageLimitModalFromError(error);
@@ -95,6 +104,17 @@ export const errorRequestHandler = (
   t?: ILocaleFunction,
   options?: { isQuery?: boolean }
 ) => {
+  if (isTableProvisionPending(error)) {
+    toast.info(
+      t
+        ? t('httpErrors.tableProvisionPending' as TKey)
+        : 'Table structure is updating. Please try again shortly.',
+      {
+        id: 'table-provision-pending',
+      }
+    );
+    return;
+  }
   const { code, message, status } = error as IHttpError;
 
   if (code === HttpErrorCode.NETWORK_ERROR) {
@@ -147,7 +167,8 @@ export const createQueryClient = (t?: ILocaleFunction) => {
         // With SSR, we usually want to set some default staleTime
         // above 0 to avoid refetching immediately on the client
         staleTime: 10 * 1000,
-        retry: false,
+        retry: (failureCount, error) => isTableProvisionPending(error) && failureCount < 3,
+        retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 4000),
         networkMode: 'always',
       },
       mutations: {

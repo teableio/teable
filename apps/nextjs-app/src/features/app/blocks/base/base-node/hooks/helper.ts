@@ -3,7 +3,13 @@ import { Table2 } from '@teable/icons';
 import type { IBaseNodeResourceMeta, IBaseNodeVo } from '@teable/openapi';
 import { BaseNodeResourceType, LastVisitResourceType, ResourceType } from '@teable/openapi';
 import { keyBy } from 'lodash';
-import { AppWindowMacIcon, BotIcon, CircleGaugeIcon, FolderClosedIcon } from 'lucide-react';
+import {
+  AppWindowMacIcon,
+  BotIcon,
+  CalendarClockIcon,
+  CircleGaugeIcon,
+  FolderClosedIcon,
+} from 'lucide-react';
 import type { TreeItemData } from './useBaseNode';
 
 type TreeRootItem = {
@@ -22,6 +28,7 @@ export const BaseNodeResourceIconMap = {
   [BaseNodeResourceType.Workflow]: BotIcon,
   [BaseNodeResourceType.App]: AppWindowMacIcon,
   [BaseNodeResourceType.Table]: Table2,
+  [BaseNodeResourceType.Routine]: CalendarClockIcon,
 };
 
 export const BaseNodeResourceLastVisitMap = {
@@ -29,6 +36,7 @@ export const BaseNodeResourceLastVisitMap = {
   [BaseNodeResourceType.Dashboard]: LastVisitResourceType.Dashboard,
   [BaseNodeResourceType.Workflow]: LastVisitResourceType.Workflow,
   [BaseNodeResourceType.App]: LastVisitResourceType.App,
+  [BaseNodeResourceType.Routine]: LastVisitResourceType.Routine,
 };
 
 export const getNodeName = (node: { resourceMeta?: IBaseNodeResourceMeta }): string => {
@@ -71,6 +79,10 @@ export const getNodeUrl = (props: {
       return {
         pathname: `${urlPrefix}/base/${baseId}/app/${resourceId}`,
       };
+    case ResourceType.Routine:
+      return {
+        pathname: `${urlPrefix}/base/${baseId}/routine/${resourceId}`,
+      };
     case ResourceType.Base:
       return {
         pathname: `/base/${resourceId}`,
@@ -86,12 +98,13 @@ export const parseNodeUrl = (props: {
   urlParams: {
     dashboardId?: string;
     automationId?: string;
+    routineId?: string;
     appId?: string;
     tableId?: string;
   };
 }) => {
   const { baseId, url, urlParams } = props;
-  const { dashboardId, automationId, appId, tableId } = urlParams;
+  const { dashboardId, automationId, routineId, appId, tableId } = urlParams;
   if (url.includes(`/base/${baseId}/dashboard/${dashboardId}`)) {
     return {
       resourceType: BaseNodeResourceType.Dashboard,
@@ -102,6 +115,12 @@ export const parseNodeUrl = (props: {
     return {
       resourceType: BaseNodeResourceType.Workflow,
       resourceId: automationId,
+    };
+  }
+  if (url.includes(`/base/${baseId}/routine/${routineId}`)) {
+    return {
+      resourceType: BaseNodeResourceType.Routine,
+      resourceId: routineId,
     };
   }
   if (url.includes(`/base/${baseId}/app/${appId}`)) {

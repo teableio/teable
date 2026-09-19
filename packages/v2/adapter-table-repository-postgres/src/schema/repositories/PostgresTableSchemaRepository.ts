@@ -35,6 +35,8 @@ import {
   formulaSqlPgTokens,
   Pg16TypeValidationStrategy,
   type IPgTypeValidationStrategy,
+  defaultFormulaCompileBudgetConfig,
+  type FormulaCompileBudgetConfig,
 } from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { sql } from 'kysely';
@@ -68,6 +70,7 @@ import {
   ensureUndoCaptureInfrastructure,
   invalidateUndoCaptureTableCache,
 } from '../../shared/undoCapture';
+import { FormulaAdmissionService } from '../admission/FormulaAdmissionService';
 import { v2PostgresDdlTokens } from '../di/tokens';
 import { detectCircularDependency } from '../helpers/detectCircularDependency';
 import {
@@ -161,8 +164,14 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     private readonly computedUpdateOutbox: Pick<
       IComputedUpdateOutbox,
       'discardBySeedTable'
-    > = noopComputedUpdateOutbox
+    > = noopComputedUpdateOutbox,
+    @inject(formulaSqlPgTokens.compileBudget)
+    private readonly formulaCompileBudget: FormulaCompileBudgetConfig = defaultFormulaCompileBudgetConfig
   ) {}
+
+  private get formulaAdmission(): FormulaAdmissionService {
+    return new FormulaAdmissionService(this.typeValidationStrategy, this.formulaCompileBudget);
+  }
 
   private resolveMetaDb(
     context: IExecutionContext
@@ -569,6 +578,15 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
 
   @TraceSpan()
   async insert(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
+    const admission = this.formulaAdmission.admitNew(table);
+    if (admission.isErr()) return err(admission.error);
+    return this.insertAdmittedTableSchema(context, table);
+  }
+
+  private async insertAdmittedTableSchema(
+    context: IExecutionContext,
+    table: Table
+  ): Promise<Result<void, DomainError>> {
     const result = await this.insertTableSchema(context, table);
     if (result.isErr()) {
       return err(result.error);
@@ -604,6 +622,10 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     tables: ReadonlyArray<Table>,
     options?: TableSchemaInsertManyOptions
   ): Promise<Result<void, DomainError>> {
+    for (const table of tables) {
+      const admission = this.formulaAdmission.admitNew(table);
+      if (admission.isErr()) return err(admission.error);
+    }
     const knownTables = options?.knownTables ?? tables;
     const fieldStatementGroups: Array<{
       table: Table;
@@ -690,7 +712,12 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       if (exists) {
         return ok(undefined);
       }
-      yield* await repository.insert(context, table);
+      yield* repository.formulaAdmission.admitRoots(
+        table,
+        new Set(),
+        new Set(table.fieldIds().map((id) => id.toString()))
+      );
+      yield* await repository.insertAdmittedTableSchema(context, table);
       return ok(undefined);
     });
   }
@@ -703,6 +730,11 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     const repository = this;
     return await safeTry<void, DomainError>(async function* () {
       yield* ensureDbFieldNames(table.getFields());
+      yield* repository.formulaAdmission.admitRoots(
+        table,
+        new Set(),
+        new Set(table.fieldIds().map((id) => id.toString()))
+      );
 
       const { schema, tableName } = yield* table
         .dbTableName()
@@ -712,7 +744,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       const exists = yield* await introspector.tableExists(schema, tableName);
 
       if (!exists) {
-        yield* await repository.insert(context, table);
+        yield* await repository.insertAdmittedTableSchema(context, table);
         return ok(undefined);
       }
 
@@ -748,6 +780,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     const repository = this;
     return await safeTry<Table, DomainError>(async function* () {
       yield* ensureDbFieldNames(table.getFields());
+      yield* repository.formulaAdmission.admitUpdate(table, mutateSpec);
 
       const { schema, tableName } = yield* table
         .dbTableName()

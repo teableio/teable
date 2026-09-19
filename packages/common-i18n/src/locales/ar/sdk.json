@@ -49,7 +49,8 @@
     "previewFileLimit": "حد حجم ملف المعاينة: {{size}} ميغابايت، يُرجى تنزيله للاطلاع عليه.",
     "loadFileError": "فشل تحميل الملف",
     "previousAttachment": "السابق",
-    "nextAttachment": "التالي"
+    "nextAttachment": "التالي",
+    "deleteAttachment": "حذف"
   },
   "undoRedo": {
     "undo": "تراجع",
@@ -415,13 +416,13 @@
       "spaceInviteEmail": "الدعوة عبر البريد الإلكتروني في المساحة",
       "spaceInviteLink": "الدعوة عبر رابط في المساحة",
       "spaceGrantRole": "منح دور في المساحة",
-      "baseCreate": "إنشاء قاعدة بيانات",
-      "baseDelete": "حذف قاعدة بيانات",
-      "baseRead": "قراءة قاعدة البيانات",
-      "baseReadAll": "قراءة جميع قواعد البيانات",
-      "baseUpdate": "تحديث قاعدة البيانات",
-      "baseInviteEmail": "الدعوة عبر البريد الإلكتروني في قاعدة البيانات",
-      "baseInviteLink": "الدعوة عبر رابط في قاعدة البيانات",
+      "baseCreate": "إنشاء مشروع",
+      "baseDelete": "حذف مشروع",
+      "baseRead": "قراءة المشروع",
+      "baseReadAll": "قراءة جميع المشاريع",
+      "baseUpdate": "تحديث المشروع",
+      "baseInviteEmail": "الدعوة عبر البريد الإلكتروني في المشروع",
+      "baseInviteLink": "الدعوة عبر رابط في المشروع",
       "baseAuthorityMatrixConfig": "إعداد مصفوفة الصلاحيات",
       "baseDbConnect": "الاتصال بقاعدة البيانات",
       "tableCreate": "إنشاء جدول",
@@ -455,6 +456,10 @@
       "automationDelete": "حذف أتمتة",
       "automationRead": "قراءة الأتمتة",
       "automationUpdate": "تحديث الأتمتة",
+      "routineCreate": "إنشاء روتين",
+      "routineDelete": "حذف روتين",
+      "routineRead": "قراءة روتين",
+      "routineUpdate": "تحديث روتين",
       "appCreate": "إنشاء تطبيق",
       "appDelete": "حذف تطبيق",
       "appRead": "قراءة التطبيق",
@@ -462,7 +467,7 @@
       "userEmailRead": "قراءة البريد الإلكتروني للمستخدم الحالي",
       "userIntegrations": "إدارة تكاملات المستخدم",
       "recordHistoryRead": "قراءة سجل تغييرات السجل",
-      "baseQuery": "الاستعلام في قاعدة البيانات",
+      "baseQuery": "الاستعلام في المشروع",
       "instanceRead": "قراءة النسخة",
       "instanceUpdate": "تحديث النسخة",
       "enterpriseRead": "قراءة إعدادات المؤسسة",
@@ -473,10 +478,11 @@
     "table": "جدول",
     "view": "طريقة عرض",
     "space": "مساحة",
-    "base": "قاعدة بيانات",
+    "base": "مشروع",
     "field": "حقل",
     "record": "سجل",
     "automation": "أتمتة",
+    "routine": "روتين",
     "app": "تطبيق",
     "user": "مستخدم",
     "recordHistory": "سجل تغييرات السجل",
@@ -971,7 +977,13 @@
       "recordsPerMutationMax": "تُغيّر هذه العملية سجلات كثيرة جدًا. الحد الأقصى {{max}} سجل في المرة الواحدة.",
       "computedCellValueMaxBytes": "قيمة الخلية المحسوبة كبيرة جدًا. الحد الأقصى {{max}} بايت.",
       "formulaMaxLength": "الصيغة طويلة جدًا. الحد الأقصى {{max}} حرف.",
-      "tablesPerBaseMax": "بلغت قاعدة البيانات هذه حد عدد الجداول. الحد الأقصى {{max}} جدول.",
+      "formulaCompileNodesMax": "تتجاوز البنية الموسّعة للصيغة حد الترجمة البالغ {{max}} عقدة. قلّل المراجع المتكررة أو الفروع المعقدة. لم يُحفظ هذا التغيير.",
+      "formulaCompileDepthMax": "تتجاوز بنية حساب الصيغة حد التداخل البالغ {{max}} مستوى. قلّل الدوال المتداخلة أو العمليات المتسلسلة. لم يُحفظ هذا التغيير.",
+      "formulaReferenceDepthMax": "تتجاوز الصيغة حد عمق المراجع البالغ {{max}} مستوى. قصّر سلاسل المراجع بين الصيغ. لم يُحفظ هذا التغيير.",
+      "formulaBindingsMax": "تتطلب ترجمة الصيغة أكثر من {{max}} ارتباط للحسابات الوسيطة. بسّط فروع الصيغة والحسابات التي تشير إليها. لم يُحفظ هذا التغيير.",
+      "formulaCompileBytesMax": "تتجاوز الأجزاء الوسيطة لترجمة الصيغة الحد الإجمالي البالغ {{max}} بايت. قلّل الثوابت الكبيرة أو المراجع المتكررة أو الفروع المعقدة. لم يُحفظ هذا التغيير.",
+      "formulaSqlBytesMax": "يتجاوز استعلام قاعدة البيانات الذي تم إنشاؤه للصيغة الحد البالغ {{max}} بايت. بسّط الصيغة والحسابات التي تشير إليها. لم يُحفظ هذا التغيير.",
+      "tablesPerBaseMax": "بلغ هذا المشروع الحد الأقصى لعدد الجداول، وهو {{max}} جدول.",
       "fieldsPerTableMax": "يحتوي هذا الجدول على حقول كثيرة جدًا. الحد الأقصى {{max}} حقل.",
       "rowsPerTableMax": "يحتوي هذا الجدول على سجلات كثيرة جدًا. الحد الأقصى {{max}} سجل.",
       "viewsPerTableMax": "بلغ هذا الجدول حد عدد طرق العرض. الحد الأقصى {{max}} طريقة عرض.",
@@ -1072,7 +1084,7 @@
       "runNotFound": "عملية تشغيل الأتمتة غير موجودة",
       "anchorNotFound": "أتمتة المرساة غير موجودة",
       "validationError": "خطأ في التحقق من إعدادات الأتمتة",
-      "tableNotInBase": "لا يمكنك الاشتراك إلا في جدول داخل قاعدة بياناتك",
+      "tableNotInBase": "لا يمكنك الاشتراك إلا في جدول داخل مشروعك",
       "alreadyActiveAndNotDraft": "الأتمتة مفعّلة بالفعل وليست مسودة",
       "noActiveSnapshot": "لا توجد لقطة نشطة للأتمتة",
       "onlyFailedRunsCanRerun": "لا يمكن إعادة تشغيل سوى عمليات التشغيل الفاشلة",
@@ -1096,6 +1108,8 @@
       "unsupportedCategory": "فئة غير مدعومة",
       "unknownConnectionType": "نوع اتصال بريد غير معروف",
       "imapPasswordNotConfigured": "لم يتم إعداد كلمة مرور IMAP",
+      "secretNotGranted": "السر {{alias}} غير ممنوح لهذه الأتمتة",
+      "credentialMustBeSecret": "يجب أن تكون بيانات الاعتماد أسرارًا ممنوحة لهذه الأتمتة",
       "integrationNotFound": "التكامل غير موجود أو لا يحتوي على بيانات اعتماد",
       "webhookTriggerNotFound": "مُشغِّل Webhook غير موجود",
       "emailReceivedTriggerNotFound": "مُشغِّل استقبال البريد غير موجود",
@@ -1107,12 +1121,15 @@
       "apiKeyNotConfigured": "لم يتم إعداد خدمة استخراج البيانات",
       "triggerFailed": "فشل تشغيل الاستخراج: {{detail}}",
       "snapshotError": "خطأ في لقطة الاستخراج: {{detail}}",
-      "timeout": "انتهت مهلة الاستخراج بعد {{seconds}} ثانية"
+      "timeout": "انتهت مهلة الاستخراج بعد {{seconds}} ثانية",
+      "catalogFailed": "فشل طلب فهرس الاستخراج: {{detail}}",
+      "discoverByOnCatalogDataset": "discoverBy ينطبق فقط على معرّفات مجموعات البيانات الخام، وليس على {{datasetId}}"
     },
     "integration": {
       "oauthCodeExchangeFailed": "فشل تبادل رمز OAuth: {{detail}}",
       "oauthTokenRefreshFailed": "فشل تحديث رمز OAuth: {{detail}}",
-      "userInfoFetchFailed": "فشل الحصول على معلومات المستخدم: {{detail}}"
+      "userInfoFetchFailed": "فشل الحصول على معلومات المستخدم: {{detail}}",
+      "providerUnsupported": "لم تعد اتصالات {{provider}} مدعومة ولا يمكن منحها"
     },
     "space": {
       "notFound": "المساحة غير موجودة",
@@ -1128,17 +1145,17 @@
       "freeOwnedSpaceLimitExceededOther": "بلغ {{name}} الحد الأقصى لعدد المساحات المجانية التي يمكنه امتلاكها ({{max}})."
     },
     "base": {
-      "notFound": "قاعدة البيانات غير موجودة",
-      "cannotAccess": "ليست لديك صلاحية الوصول إلى قاعدة البيانات {{baseId}}",
-      "anchorNotFound": "قاعدة بيانات المرساة {{anchorId}} غير موجودة",
-      "baseAndSpaceMismatch": "عدم تطابق بين قاعدة البيانات {{baseId}} والمساحة {{spaceId}}",
+      "notFound": "المشروع غير موجود",
+      "cannotAccess": "ليست لديك صلاحية الوصول إلى المشروع {{baseId}}",
+      "anchorNotFound": "المشروع المرجعي {{anchorId}} غير موجود",
+      "baseAndSpaceMismatch": "عدم تطابق بين المشروع {{baseId}} والمساحة {{spaceId}}",
       "templateNotFound": "القالب {{templateId}} غير موجود"
     },
     "baseNode": {
-      "baseIdIsRequired": "معرّف قاعدة البيانات مطلوب",
+      "baseIdIsRequired": "معرّف المشروع مطلوب",
       "nodeIdIsRequired": "معرّف العقدة مطلوب",
       "invalidResourceType": "نوع مورد غير صالح",
-      "notFound": "عقدة قاعدة البيانات غير موجودة",
+      "notFound": "عقدة المشروع غير موجود",
       "parentMustBeFolder": "يجب أن يكون العنصر الأب مجلدًا",
       "cannotDuplicateFolder": "لا يمكن تكرار المجلد",
       "cannotDeleteEmptyFolder": "تعذّر حذف المجلد لأنه ليس فارغًا",
@@ -1153,6 +1170,22 @@
       "folderNotFound": "المجلد غير موجود",
       "anchorNotFound": "عقدة المرساة غير موجودة",
       "nameAlreadyExists": "الاسم موجود بالفعل"
+    },
+    "routine": {
+      "notFound": "الروتين غير موجود",
+      "runNotFound": "عملية تشغيل الروتين غير موجودة",
+      "configRequiredToActivate": "لا يمكن تفعيل الروتين بدون تكوين محفوظ",
+      "noFutureOccurrence": "لا يحتوي الجدول على أي تكرار مستقبلي",
+      "onlyActiveCanDeactivate": "يمكن إيقاف الروتين النشط مؤقتًا فقط",
+      "configRequiredToRun": "لا يمكن تشغيل الروتين بدون تكوين محفوظ",
+      "runAlreadyInFlight": "هناك تشغيل جارٍ بالفعل لهذا الروتين",
+      "invalidRunCursor": "مؤشر قائمة التشغيلات غير صالح",
+      "invalidSchedule": "جدول الروتين غير صالح: {{reason}}"
+    },
+    "chat": {
+      "notFound": "المحادثة غير موجودة",
+      "accessDenied": "غير مسموح لك بالوصول إلى هذه المحادثة",
+      "serverAuthoredType": "المحادثات من النوع {{type}} ينشئها الخادم"
     },
     "dashboard": {
       "notFound": "لوحة المعلومات غير موجودة"
@@ -1192,7 +1225,7 @@
       "loginRequired": "سجّل الدخول لتعديل طريقة العرض المشتركة هذه"
     },
     "baseShare": {
-      "notFound": "مشاركة قاعدة البيانات غير موجودة أو المشاركة معطّلة",
+      "notFound": "مشاركة المشروع غير موجود أو المشاركة معطّلة",
       "alreadyExists": "توجد مشاركة لهذه العقدة بالفعل",
       "copyNotAllowed": "لا تسمح هذه المشاركة بالنسخ"
     },
@@ -1210,14 +1243,14 @@
     },
     "dbConnection": {
       "unsupportedDriver": "مشغّل قاعدة بيانات غير مدعوم: {{driver}}",
-      "onlyOwnerCanRemove": "لا يمكن إلا لمالك قاعدة البيانات إزالة اتصال قاعدة البيانات لـ {{baseId}}",
-      "onlyOwnerCanCreate": "لا يمكن إلا لمالك قاعدة البيانات إنشاء اتصال قاعدة البيانات لـ {{baseId}}",
+      "onlyOwnerCanRemove": "لا يمكن إلا لمالك المشروع إزالة اتصال قاعدة البيانات لـ {{baseId}}",
+      "onlyOwnerCanCreate": "لا يمكن إلا لمالك المشروع إنشاء اتصال قاعدة البيانات لـ {{baseId}}",
       "roleNotExist": "دور قاعدة البيانات {{role}} غير موجود"
     },
     "baseQuery": {
       "queryFailed": "فشل الاستعلام: {{message}}",
       "invalidJoinType": "نوع ضم غير صالح: {{joinType}}",
-      "tableNotFound": "الجدول {{tableId}} غير موجود في قاعدة البيانات {{baseId}}"
+      "tableNotFound": "الجدول {{tableId}} غير موجود في المشروع {{baseId}}"
     },
     "baseSqlExecutor": {
       "notAllowedToExecuteSqlWithKeyword": "غير مسموح بتنفيذ SQL يتضمن الكلمة المفتاحية {{keyword}}",
@@ -1237,7 +1270,7 @@
       "accessTokenNoPermission": "رمز الوصول لا يملك الصلاحية المطلوبة",
       "invalidResource": "المورد غير صالح",
       "notAllowedSpace": "ليست لديك صلاحية الوصول إلى هذه المساحة",
-      "notAllowedBase": "ليست لديك صلاحية الوصول إلى قاعدة البيانات هذه",
+      "notAllowedBase": "ليست لديك صلاحية الوصول إلى هذا المشروع",
       "notAllowedTables": "ليست لديك صلاحية الوصول إلى الجداول ({{tableIds}})",
       "notAllowedOperationTable": "ليست لديك صلاحية العمل على هذا الجدول",
       "notAllowedOperationRecord": "ليست لديك صلاحية العمل على هذا السجل",
@@ -1257,7 +1290,7 @@
       "primaryFieldCannotBeDisabledForRead": "لا يمكن تعطيل صلاحية قراءة الحقل الأساسي",
       "fieldDuplicated": "الحقل مكرر في إعدادات الصلاحيات",
       "cannotSetRecordPermissionGroup": "لا يمكن تعيين هذه التركيبة من صلاحيات السجلات ({{actions}})",
-      "notFoundBaseAndTable": "لم يتم العثور على معرّف قاعدة البيانات ومعرّف الجدول",
+      "notFoundBaseAndTable": "لم يتم العثور على معرّف المشروع ومعرّف الجدول",
       "roleTablesShouldNotBeEmpty": "يجب ألا تكون جداول دور مصفوفة الصلاحيات فارغة"
     },
     "selection": {
@@ -1358,7 +1391,10 @@
       "exceedMaxAutomationRunLimit": "تم تجاوز الحد الأقصى لعمليات تشغيل الأتمتة",
       "manualSubscriptionNotSupported": "الاشتراك الذاتي غير متاح لهذه المساحة. للترقية أو التخفيض أو أي تغييرات أخرى في الاشتراك، يُرجى التواصل مع دعم Teable.",
       "appSumoSubscriptionNotSupported": "لا يمكن تعديل اشتراكات AppSumo من هذه الواجهة. يُرجى إدارة اشتراكك على AppSumo.",
-      "customerNotFound": "لم يتم العثور على سجل عميل للفوترة لهذه المساحة."
+      "customerNotFound": "لم يتم العثور على سجل عميل للفوترة لهذه المساحة.",
+      "planNotAvailable": "خيار الخطة هذا لم يعد متاحًا للاشتراكات الجديدة.",
+      "seatLimitExceeded": "المقاعد المشتراة غير كافية. أضف مقاعد لدعوة المزيد من المتعاونين.",
+      "creditAddOnRetired": "تمت إزالة إضافة الأرصدة المتكررة. اختر بدلًا من ذلك مستوى أرصدة أكبر في خطتك."
     },
     "aggregation": {
       "searchQueryRequired": "استعلام البحث مطلوب",
@@ -1440,9 +1476,9 @@
       "noPermissionToDelete": "ليست لديك صلاحية حذف هذا المتعاون",
       "noPermissionToUpdate": "ليست لديك صلاحية تحديث هذا المتعاون",
       "noPermissionToOperateRole": "ليست لديك صلاحية التعامل مع هذا الدور",
-      "alreadyExistedInBase": "المتعاون موجود بالفعل في قاعدة البيانات",
+      "alreadyExistedInBase": "المتعاون موجود بالفعل في المشروع",
       "userNotFound": "المستخدم غير موجود: {{userIds}}",
-      "baseNotFound": "قاعدة البيانات غير موجودة",
+      "baseNotFound": "المشروع غير موجود",
       "noPermissionToAddRole": "ليست لديك صلاحية إضافة متعاون بهذا الدور",
       "departmentNotFound": "القسم غير موجود"
     },
@@ -1480,9 +1516,9 @@
     "trash": {
       "invalidResourceType": "نوع مورد غير صالح",
       "notFound": "عنصر سلة المهملات غير موجود",
-      "parentSpaceTrashed": "تعذّر استعادة قاعدة البيانات هذه لأن المساحة الأم موجودة أيضًا في سلة المهملات",
-      "parentBaseOrSpaceTrashed": "تعذّر استعادة هذا الجدول لأن قاعدة البيانات أو المساحة الأم موجودة أيضًا في سلة المهملات",
-      "parentBaseTrashed": "تعذّر استعادة هذا العنصر لأن قاعدة البيانات الأم موجودة أيضًا في سلة المهملات",
+      "parentSpaceTrashed": "تعذّر استعادة هذا المشروع لأن المساحة الأم موجودة أيضًا في سلة المهملات",
+      "parentBaseOrSpaceTrashed": "تعذّر استعادة هذا الجدول لأن المشروع أو المساحة الأم موجودة أيضًا في سلة المهملات",
+      "parentBaseTrashed": "تعذّر استعادة هذا العنصر لأن المشروع الأصلي موجود أيضًا في سلة المهملات",
       "parentNotFound": "المورد الأب غير موجود",
       "tableNotFound": "عنصر سلة مهملات الجدول غير موجود"
     },
@@ -1514,7 +1550,7 @@
       "waitlistInviteCodeRequired": "قائمة الانتظار مفعّلة، ورمز الدعوة مطلوب",
       "waitlistInviteCodeInvalid": "قائمة الانتظار مفعّلة، ورمز الدعوة غير صالح",
       "systemUser": "المستخدم هو مستخدم نظام",
-      "collaboratorsInSpaces": "للمستخدم متعاونون في مساحات (أو مساحات محذوفة في سلة المهملات)",
+      "soleOwnerOfSpaces": "المستخدم هو المالك الوحيد لمساحات يجب تأكيدها أو نقلها قبل حذف الحساب",
       "notFound": "المستخدم غير موجود",
       "cannotDeleteAdmin": "لا يمكن حذف مستخدم مسؤول",
       "cannotDeactivateAdmin": "لا يمكن إلغاء تنشيط مستخدم مسؤول",
@@ -1611,7 +1647,8 @@
       "titleIncrement": "يضيف هذا الإجراء {{increment}} صف، متجاوزًا حد خطتك البالغ {{limit}}",
       "titleBatch": "ستتجاوز هذه العملية حد خطتك البالغ {{limit}} صف",
       "description": "لا يمكنك إضافة المزيد من السجلات. رقِّ خطتك لرفع الحد فورًا، أو حرّر مساحة بحذف بعض السجلات.",
-      "unit": "صف"
+      "unit": "صف",
+      "constraint": "لا يمكن إضافة مزيد من السجلات في الخطة الحالية. حرّر مساحة بحذف بعض السجلات."
     },
     "credit": {
       "unit": "رصيد"
@@ -1621,6 +1658,12 @@
     },
     "generic": {
       "description": "رقِّ خطتك لرفع هذا الحد."
+    },
+    "neutral": {
+      "title": "يتجاوز هذا الإجراء أحد حدود الخطة الحالية للمساحة"
+    },
+    "seats": {
+      "unit": "مقاعد"
     }
   }
 }

@@ -48,6 +48,18 @@ describe('field Schema Test', () => {
     }
   });
 
+  it('ignores forged formula safety metadata in ordinary create and convert requests', () => {
+    for (const schema of [createFieldRoSchema, convertFieldRoSchema]) {
+      const result = schema.parse({
+        type: FieldType.Formula,
+        options: { expression: '1' },
+        meta: { persistedAsGeneratedColumn: true, formulaSafetyVersion: 1 },
+      });
+      expect(result).not.toHaveProperty('meta');
+      expect(result.options).toEqual({ expression: '1' });
+    }
+  });
+
   it('should parse lastModifiedTime options without requiring expression', () => {
     const result = unionFieldOptionsRoSchema.safeParse({
       formatting: {

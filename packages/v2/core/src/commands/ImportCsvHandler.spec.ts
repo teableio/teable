@@ -19,6 +19,7 @@ import type { Table } from '../domain/table/Table';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { ICsvParser, CsvParseResult, CsvSource } from '../ports/CsvParser';
 import type { IEventBus } from '../ports/EventBus';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type {
   IExecutionContext,
   IUnitOfWorkTransaction,
@@ -336,7 +337,7 @@ describe('ImportCsvHandler', () => {
       tableRepository,
       tableSchemaRepository,
       tableRecordRepository,
-      eventBus,
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
       unitOfWork,
       undefined,
       createTableLimitPluginRunner(tableRepository)
@@ -406,7 +407,7 @@ describe('ImportCsvHandler', () => {
       tableRepository,
       tableSchemaRepository,
       tableRecordRepository,
-      eventBus,
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
       unitOfWork,
       undefined,
       createTableLimitPluginRunner(tableRepository)
@@ -459,7 +460,7 @@ describe('ImportCsvHandler', () => {
       tableRepository,
       new FakeTableSchemaRepository(),
       tableRecordRepository,
-      new FakeEventBus(),
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus()),
       new FakeUnitOfWork(),
       undefined,
       createTableLimitPluginRunner(tableRepository)
@@ -523,7 +524,7 @@ describe('ImportCsvHandler', () => {
       tableRepository,
       new FakeTableSchemaRepository(),
       new FakeTableRecordRepository(),
-      new FakeEventBus(),
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus()),
       new FakeUnitOfWork(),
       undefined,
       createTableLimitPluginRunner(tableRepository)
@@ -565,7 +566,7 @@ describe('ImportCsvHandler', () => {
       tableRepository,
       new FakeTableSchemaRepository(),
       new FakeTableRecordRepository(),
-      new FakeEventBus(),
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus()),
       new FakeUnitOfWork(),
       undefined,
       createTableLimitPluginRunner(tableRepository)
@@ -596,7 +597,7 @@ describe('ImportCsvHandler', () => {
       tableRepository,
       new FakeTableSchemaRepository(),
       new FakeTableRecordRepository(),
-      new FakeEventBus(),
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus()),
       new FakeUnitOfWork(),
       undefined,
       createTableLimitPluginRunner(tableRepository)
@@ -632,7 +633,7 @@ describe('ImportCsvHandler', () => {
       tableRepository,
       new FakeTableSchemaRepository(),
       new FakeTableRecordRepository(),
-      new FakeEventBus(),
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus()),
       new FakeUnitOfWork(),
       undefined,
       createTableLimitPluginRunner(tableRepository)
@@ -690,7 +691,7 @@ describe('ImportCsvHandler', () => {
       tableRepository,
       new FakeTableSchemaRepository(),
       tableRecordRepository,
-      new FakeEventBus(),
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus()),
       new FakeUnitOfWork(),
       undefined,
       createTableLimitPluginRunner(tableRepository)

@@ -5,13 +5,16 @@ import type {
   RealtimeApplyChangeOptions,
   RealtimeChange,
   RealtimeDocId,
+  RealtimeEnsureOptions,
 } from '@teable/v2-core';
 import { domainError, RealtimeDocId as RealtimeDocIdValue } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { IComputeActivitySignalConfig } from './ComputeActivitySignal';
 import { v2ShareDbTokens } from './di/tokens';
+import type { IShareDbPresencePublisher } from './ShareDbPresencePublisher';
 import type { IShareDbOpPublisher, ShareDbOp } from './ShareDbPublisher';
 
 const v2ProjectionOpSourcePrefix = '@@v2-projection:';
@@ -20,13 +23,18 @@ const v2ProjectionOpSourcePrefix = '@@v2-projection:';
 export class ShareDbRealtimeEngine implements IRealtimeEngine {
   constructor(
     @inject(v2ShareDbTokens.publisher)
-    private readonly publisher: IShareDbOpPublisher
+    private readonly publisher: IShareDbOpPublisher,
+    @inject(v2ShareDbTokens.presence)
+    private readonly presence: IShareDbPresencePublisher,
+    @inject(v2ShareDbTokens.computeActivitySignal)
+    private readonly computeActivitySignal: IComputeActivitySignalConfig
   ) {}
 
   async ensure(
     context: IExecutionContext,
     docId: RealtimeDocId,
-    initial: unknown
+    initial: unknown,
+    options?: RealtimeEnsureOptions
   ): Promise<Result<void, DomainError>> {
     const docIdResult = RealtimeDocIdValue.parse(docId);
     if (docIdResult.isErr()) return err(docIdResult.error);
@@ -49,7 +57,14 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
       d: documentId,
     };
 
-    const channels = [collection, `${collection}.${documentId}`];
+    // An already persisted document cannot become a new member of any
+    // collection query, so the collection channel (query subscriptions, one
+    // getDocIdsByQuery poll per subscriber) has nothing to learn from this
+    // create; only doc subscribers still receive it, which lets a client that
+    // holds an empty doc heal itself.
+    const channels = options?.expectExisting
+      ? [`${collection}.${documentId}`]
+      : [collection, `${collection}.${documentId}`];
     return this.publisher.publish(channels, op);
   }
 
@@ -166,6 +181,14 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
       c: collection,
     };
     return this.publisher.publish([collection], op);
+  }
+
+  async notifyTableComputeActivity(
+    _context: IExecutionContext,
+    tableId: string
+  ): Promise<Result<void, DomainError>> {
+    const channel = this.computeActivitySignal.resolveChannel(tableId);
+    return this.presence.publish(channel, [{ actionKey: this.computeActivitySignal.actionKey }]);
   }
 
   private toProjectionSource(requestId: string | undefined): string {

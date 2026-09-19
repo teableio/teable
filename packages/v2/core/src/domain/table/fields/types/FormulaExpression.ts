@@ -1,11 +1,3 @@
-import type {
-  ANTLRErrorListener,
-  ATNSimulator,
-  ExprContext,
-  Recognizer,
-  RecognitionException,
-  Token,
-} from '@teable/formula';
 import {
   CharStreams,
   CommonTokenStream,
@@ -13,6 +5,17 @@ import {
   FunctionCallCollectorVisitor,
   Formula,
   FormulaLexer,
+  inspectFormulaAst,
+  inspectFormulaStructure,
+} from '@teable/formula';
+import type {
+  ANTLRErrorListener,
+  ATNSimulator,
+  ExprContext,
+  Recognizer,
+  RecognitionException,
+  Token,
+  FormulaStructureCheck,
 } from '@teable/formula';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -22,6 +25,10 @@ import type { CellValueType as FormulaCellValueType } from '../../../formula/Cel
 import type { FormulaFieldReference } from '../../../formula/FormulaFieldReference';
 import { FormulaTypeVisitor } from '../../../formula/visitor';
 import { domainError, type DomainError } from '../../../shared/DomainError';
+import {
+  ensureWithinTableDataSafetyLimit,
+  tableDataSafetyLimitErrors,
+} from '../../../shared/TableDataSafetyLimits';
 import { ValueObject } from '../../../shared/ValueObject';
 import { FieldId } from '../FieldId';
 import type { FieldValueType } from '../visitors/FieldValueTypeVisitor';
@@ -29,6 +36,23 @@ import { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
 
 const formulaExpressionSchema = z.string();
+
+export type FormulaSourceBudget = Readonly<{
+  astDepth: number;
+  visitedNodes: number;
+  policyVersion: number;
+  referenceDepth?: number;
+  check?: (
+    metric: 'astDepth' | 'visitedNodes' | 'referenceDepth',
+    attempted: number
+  ) => { max: number } | undefined;
+}>;
+
+class FormulaSourceBudgetExceeded extends Error {
+  constructor(readonly domainError: DomainError) {
+    super(domainError.message);
+  }
+}
 
 class FormulaErrorCollector implements ANTLRErrorListener<Token> {
   private readonly errors: string[] = [];
@@ -50,15 +74,41 @@ class FormulaErrorCollector implements ANTLRErrorListener<Token> {
 }
 
 export class FormulaExpression extends ValueObject {
-  private constructor(private readonly value: string) {
+  private constructor(
+    private readonly value: string,
+    private readonly sourceBudget?: FormulaSourceBudget
+  ) {
     super();
   }
 
-  static create(raw: unknown): Result<FormulaExpression, DomainError> {
+  static create(
+    raw: unknown,
+    sourceBudget?: FormulaSourceBudget
+  ): Result<FormulaExpression, DomainError> {
     const parsed = formulaExpressionSchema.safeParse(raw);
     if (!parsed.success)
       return err(domainError.validation({ message: 'Invalid FormulaExpression' }));
-    return ok(new FormulaExpression(parsed.data));
+    if (
+      sourceBudget &&
+      [sourceBudget.astDepth, sourceBudget.visitedNodes, sourceBudget.policyVersion].some(
+        (value) => !Number.isSafeInteger(value) || value < 1
+      )
+    ) {
+      return err(domainError.validation({ message: 'Invalid formula source budget' }));
+    }
+    // Rehydration and retained definitions omit the budget. Admission supplies
+    // it only for a new/effectively changed definition, never merely a rename.
+    const expression = new FormulaExpression(
+      parsed.data,
+      sourceBudget ? Object.freeze({ ...sourceBudget }) : undefined
+    );
+    return expression
+      .inspectStructure((check) => inspectFormulaStructure(parsed.data, check))
+      .map(() => expression);
+  }
+
+  admissionBudget(): FormulaSourceBudget | undefined {
+    return this.sourceBudget;
   }
 
   equals(other: FormulaExpression): boolean {
@@ -67,13 +117,7 @@ export class FormulaExpression extends ValueObject {
 
   getReferencedFieldIds(): Result<ReadonlyArray<FieldId>, DomainError> {
     const parseResult = this.parseTree();
-    if (parseResult.isErr()) {
-      return err(
-        domainError.validation({
-          message: `Formula expression ${this.value} parse error: ${parseResult.error}`,
-        })
-      );
-    }
+    if (parseResult.isErr()) return err(parseResult.error);
     const visitor = new FieldReferenceVisitor();
     const rawRefs = Array.from(new Set(visitor.visit(parseResult.value))).map((ref) => String(ref));
     const invalidRefs: string[] = [];
@@ -103,13 +147,7 @@ export class FormulaExpression extends ValueObject {
 
   hasLastModifiedTimeParams(): Result<boolean, DomainError> {
     const parseResult = this.parseTree();
-    if (parseResult.isErr()) {
-      return err(
-        domainError.validation({
-          message: `Formula expression ${this.value} parse error: ${parseResult.error}`,
-        })
-      );
-    }
+    if (parseResult.isErr()) return err(parseResult.error);
 
     const calls = parseResult.value.accept(new FunctionCallCollectorVisitor());
     return ok(calls.some((call) => call.name === 'LAST_MODIFIED_TIME' && call.paramCount > 0));
@@ -164,7 +202,35 @@ export class FormulaExpression extends ValueObject {
     const tree = parser.root();
     const error = errorCollector.firstError();
     if (error) return err(domainError.validation({ message: error }));
-    return ok(tree);
+    return this.inspectStructure((check) => inspectFormulaAst(tree, check)).map(() => tree);
+  }
+
+  private inspectStructure(
+    inspect: (check: FormulaStructureCheck) => void
+  ): Result<void, DomainError> {
+    const budget = this.sourceBudget;
+    if (!budget) return ok(undefined);
+    try {
+      inspect((metric, attempted) => {
+        const violation = budget.check?.(metric, attempted);
+        if (budget.check && !violation) return;
+        const result = ensureWithinTableDataSafetyLimit(
+          metric === 'astDepth'
+            ? tableDataSafetyLimitErrors.formulaCompileDepthMax
+            : tableDataSafetyLimitErrors.formulaCompileNodesMax,
+          attempted,
+          violation?.max ?? budget[metric],
+          { metric, policyVersion: budget.policyVersion }
+        );
+        // Stop the iterative inspector immediately; only this private signal
+        // is converted to a DomainError, never unknown parser/program errors.
+        if (result.isErr()) throw new FormulaSourceBudgetExceeded(result.error);
+      });
+      return ok(undefined);
+    } catch (error) {
+      if (error instanceof FormulaSourceBudgetExceeded) return err(error.domainError);
+      throw error;
+    }
   }
 
   private toFormulaValueType(valueType: CellValueType): FormulaCellValueType {

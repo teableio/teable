@@ -16,7 +16,7 @@ import { Table } from '../../domain/table/Table';
 import { TableName } from '../../domain/table/TableName';
 import type { CsvParseResult } from '../../ports/CsvParser';
 import { NoopLogger } from '../../ports/defaults/NoopLogger';
-import type * as EventBusPort from '../../ports/EventBus';
+import { domainWrite, type IDomainWriteTransaction } from '../../ports/DomainWriteTransaction';
 import type * as ExecutionContextPort from '../../ports/ExecutionContext';
 import type { IImportProgress } from '../../ports/import/IImportSource';
 import { DefaultTableMapper } from '../../ports/mappers/defaults/DefaultTableMapper';
@@ -144,7 +144,7 @@ export class ImportTabularTableService {
     private readonly tableRepository: TableRepositoryPort.ITableRepository,
     private readonly tableSchemaRepository: TableSchemaRepositoryPort.ITableSchemaRepository,
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
-    private readonly eventBus: EventBusPort.IEventBus,
+    private readonly domainWriteTransaction: IDomainWriteTransaction,
     private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
     private readonly recordWritePluginRunner: RecordWritePluginRunner = new RecordWritePluginRunner(
       [],
@@ -241,133 +241,133 @@ export class ImportTabularTableService {
         { scope: 'meta' }
       );
 
-      const importResult = await handler.unitOfWork.withTransaction(
+      const importResult = await handler.domainWriteTransaction.execute(
         context,
         async (dataTransactionContext) => {
-          return safeTry<{ totalImported: number; events: IDomainEvent[] }, DomainError>(
-            async function* () {
-              yield* await handler.tableSchemaRepository.insert(
-                dataTransactionContext,
-                persistedTable
-              );
-              if (!command.importData) {
-                command.onProgress?.({
-                  phase: 'completed',
-                  processedRows: 0,
-                  currentBatch: 0,
-                  totalRows: 0,
-                });
-                return ok({ totalImported: 0, events: [] });
-              }
-
-              const totalRecordCount = capImportRecordCount(
-                knownRowCount ?? 0,
-                command.maxRowCount
-              );
-              command.onProgress?.({
-                phase: 'inserting',
-                processedRows: 0,
-                currentBatch: 0,
-                totalRows: knownRowCount,
-              });
-              const operationId = `import-${source}:${persistedTable.id().toString()}`;
-              const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
-                kind: RecordWriteOperationKind.createStream,
-                executionContext: dataTransactionContext,
-                table: persistedTable,
-                payload: {
-                  recordsFieldValues: [],
-                  batchSize: command.batchSize,
-                  recordCount: totalRecordCount,
-                },
-                orchestration: {
-                  mode: 'stream',
-                  scope: 'operation',
-                  operationId,
-                  totalRecordCount,
-                },
-                isTransactionBound: true,
-              });
-              yield* await pluginExecution.guard();
-
-              const exceedsRowLimit =
-                command.maxRowCount !== undefined &&
-                (sampledRows.sampleRows.length > command.maxRowCount ||
-                  (knownRowCount !== undefined && knownRowCount > command.maxRowCount));
-              if (exceedsRowLimit && !command.truncateOnRowLimit) {
-                return err(
-                  domainError.validation({
-                    code: tableDataSafetyLimitErrors.rowsPerTableMax.code,
-                    message: `Exceed max row limit: ${command.maxRowCount}`,
-                    details: {
-                      max: command.maxRowCount,
-                      maxRowCount: command.maxRowCount,
-                      rowCount: Math.max(sampledRows.sampleRows.length, knownRowCount ?? 0),
-                    },
-                    localization: {
-                      i18nKey: tableDataSafetyLimitErrors.rowsPerTableMax.i18nKey,
-                      context: { max: command.maxRowCount },
-                    },
-                  })
-                );
-              }
-
-              const fieldIdMap = handler.buildFieldIdMap(
-                persistedTable,
-                parseResult.headers,
-                importColumns
-              );
-              const recordEvents: IDomainEvent[] = [];
-              const recordsIterable = handler.createRecordsIterableAsync(
-                rowsAsync,
-                fieldIdMap,
-                command.maxRowCount,
-                command.truncateOnRowLimit === true
-              );
-              const batchGenerator = persistedTable.createRecordsStreamAsync(recordsIterable, {
-                batchSize: command.batchSize,
-                typecast: true,
-              });
-
-              const insertResult = yield* await handler.tableRecordRepository.insertManyStream(
-                dataTransactionContext,
-                persistedTable,
-                handler.consumeBatchesAsync(
-                  batchGenerator,
-                  pluginExecution,
-                  dataTransactionContext,
-                  {
-                    table: persistedTable,
-                    batchSize: command.batchSize,
-                    operationId,
-                    totalRecordCount,
-                    events: recordEvents,
-                  }
-                ),
-                {
-                  deferComputedUpdates: true,
-                  enqueueDeferredComputedUpdates: true,
-                  onBatchInserted: (progress) => {
-                    command.onProgress?.({
-                      phase: 'inserting',
-                      processedRows: progress.totalInserted,
-                      currentBatch: progress.batchIndex + 1,
-                      totalRows: knownRowCount,
-                    });
-                  },
-                }
-              );
-
+          return safeTry(async function* () {
+            yield* await handler.tableSchemaRepository.insert(
+              dataTransactionContext,
+              persistedTable
+            );
+            if (!command.importData) {
               command.onProgress?.({
                 phase: 'completed',
-                processedRows: insertResult.totalInserted,
+                processedRows: 0,
                 currentBatch: 0,
-                totalRows: insertResult.totalInserted,
+                totalRows: 0,
               });
-
-              return ok({ totalImported: insertResult.totalInserted, events: recordEvents });
+              return ok(
+                domainWrite.fromEvents({ totalImported: 0 }, [...table.pullDomainEvents()], {
+                  tables: [persistedTable],
+                })
+              );
             }
-          );
+
+            const totalRecordCount = capImportRecordCount(knownRowCount ?? 0, command.maxRowCount);
+            command.onProgress?.({
+              phase: 'inserting',
+              processedRows: 0,
+              currentBatch: 0,
+              totalRows: knownRowCount,
+            });
+            const operationId = `import-${source}:${persistedTable.id().toString()}`;
+            const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+              kind: RecordWriteOperationKind.createStream,
+              executionContext: dataTransactionContext,
+              table: persistedTable,
+              payload: {
+                recordsFieldValues: [],
+                batchSize: command.batchSize,
+                recordCount: totalRecordCount,
+              },
+              orchestration: {
+                mode: 'stream',
+                scope: 'operation',
+                operationId,
+                totalRecordCount,
+              },
+              isTransactionBound: true,
+            });
+            yield* await pluginExecution.guard();
+
+            const exceedsRowLimit =
+              command.maxRowCount !== undefined &&
+              (sampledRows.sampleRows.length > command.maxRowCount ||
+                (knownRowCount !== undefined && knownRowCount > command.maxRowCount));
+            if (exceedsRowLimit && !command.truncateOnRowLimit) {
+              return err(
+                domainError.validation({
+                  code: tableDataSafetyLimitErrors.rowsPerTableMax.code,
+                  message: `Exceed max row limit: ${command.maxRowCount}`,
+                  details: {
+                    max: command.maxRowCount,
+                    maxRowCount: command.maxRowCount,
+                    rowCount: Math.max(sampledRows.sampleRows.length, knownRowCount ?? 0),
+                  },
+                  localization: {
+                    i18nKey: tableDataSafetyLimitErrors.rowsPerTableMax.i18nKey,
+                    context: { max: command.maxRowCount },
+                  },
+                })
+              );
+            }
+
+            const fieldIdMap = handler.buildFieldIdMap(
+              persistedTable,
+              parseResult.headers,
+              importColumns
+            );
+            const recordEvents: IDomainEvent[] = [];
+            const recordsIterable = handler.createRecordsIterableAsync(
+              rowsAsync,
+              fieldIdMap,
+              command.maxRowCount,
+              command.truncateOnRowLimit === true
+            );
+            const batchGenerator = persistedTable.createRecordsStreamAsync(recordsIterable, {
+              batchSize: command.batchSize,
+              typecast: true,
+            });
+
+            const insertResult = yield* await handler.tableRecordRepository.insertManyStream(
+              dataTransactionContext,
+              persistedTable,
+              handler.consumeBatchesAsync(batchGenerator, pluginExecution, dataTransactionContext, {
+                table: persistedTable,
+                batchSize: command.batchSize,
+                operationId,
+                totalRecordCount,
+                events: recordEvents,
+              }),
+              {
+                deferComputedUpdates: true,
+                enqueueDeferredComputedUpdates: true,
+                onBatchInserted: (progress) => {
+                  command.onProgress?.({
+                    phase: 'inserting',
+                    processedRows: progress.totalInserted,
+                    currentBatch: progress.batchIndex + 1,
+                    totalRows: knownRowCount,
+                  });
+                },
+              }
+            );
+
+            command.onProgress?.({
+              phase: 'completed',
+              processedRows: insertResult.totalInserted,
+              currentBatch: 0,
+              totalRows: insertResult.totalInserted,
+            });
+
+            return ok(
+              domainWrite.fromEvents(
+                { totalImported: insertResult.totalInserted },
+                [...table.pullDomainEvents(), ...recordEvents],
+                { tables: [persistedTable] }
+              )
+            );
+          });
         },
         { scope: 'data' }
       );
@@ -431,12 +431,12 @@ export class ImportTabularTableService {
         { type: 'table.import' }
       );
 
-      // 5. 发布事件
-      const events = [...table.pullDomainEvents(), ...importResult.value.events];
-      yield* await handler.eventBus.publishMany(context, events);
-
       return ok(
-        ImportTabularTableResult.create(persistedTable, importResult.value.totalImported, events)
+        ImportTabularTableResult.create(
+          persistedTable,
+          importResult.value.value.totalImported,
+          importResult.value.events
+        )
       );
     });
   }

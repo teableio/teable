@@ -7,6 +7,7 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { isNotHiddenField } from '../../utils/is-not-hidden-field';
+import { hashSharePassword } from '../../utils/share-password-hash';
 import { TeableJwtService } from '../auth/jwt/teable-jwt.service';
 import { PermissionService } from '../auth/permission.service';
 import { createFieldInstanceByRaw, type IFieldInstance } from '../field/model/factory';
@@ -23,7 +24,8 @@ export interface IShareViewInfo {
 
 export interface IJwtShareInfo {
   shareId: string;
-  password: string;
+  // sha256 over shareId + password (see hashSharePassword); never the password.
+  pwHash: string;
 }
 
 @Injectable()
@@ -44,7 +46,7 @@ export class ShareAuthService {
     }
   }
 
-  async authShareView(shareId: string, pass: string, useV2 = false): Promise<string | null> {
+  private async getSharePassword(shareId: string, useV2: boolean): Promise<string | null> {
     const shareInfo = await this.findShareViewInfo(shareId, useV2);
     if (!shareInfo) {
       return null;
@@ -61,11 +63,23 @@ export class ShareAuthService {
         }
       );
     }
-    return pass === password ? shareId : null;
+    return password;
   }
 
-  async authToken(jwtShareInfo: IJwtShareInfo) {
-    return await this.jwtService.signAsync(jwtShareInfo);
+  async authShareView(shareId: string, pass: string, useV2 = false): Promise<string | null> {
+    const password = await this.getSharePassword(shareId, useV2);
+    return password !== null && pass === password ? shareId : null;
+  }
+
+  /** Cookie counterpart of authShareView: compares the hash the cookie carries. */
+  async authShareViewByHash(shareId: string, pwHash: string, useV2 = false) {
+    const password = await this.getSharePassword(shareId, useV2);
+    return password !== null && hashSharePassword(shareId, password) === pwHash ? shareId : null;
+  }
+
+  async authToken(shareId: string, password: string) {
+    const payload: IJwtShareInfo = { shareId, pwHash: hashSharePassword(shareId, password) };
+    return await this.jwtService.signAsync(payload);
   }
 
   async getShareViewInfo(shareId: string, useV2 = false): Promise<IShareViewInfo> {

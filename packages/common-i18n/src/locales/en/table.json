@@ -8,6 +8,9 @@
     "failed": "Failed",
     "calculationFailed": "Calculation failed",
     "cellValueTooLarge": "Computed cell value is too large ({{attempted}} / {{max}} bytes). Shorten the source data or change the formula.",
+    "formulaLimit": "Formula compilation exceeds the computation limit; results have not been updated",
+    "resourceLimit": "Computed results have not been updated due to a resource limit",
+    "stageDepthExhausted": "Computation did not finish; some results were not updated",
     "calculatingSummary": "Calculating ({{count}})",
     "failedSummary": "Failed ({{count}})",
     "fieldsCalculating_one": "{{count}} field calculating",
@@ -21,7 +24,17 @@
     "records_one": "{{formattedCount}} record",
     "records_other": "{{formattedCount}} records",
     "batchesComplete": "Completed batches {{completed}}/{{total}}",
-    "progressAriaLabel": "{{fieldName}} calculation progress"
+    "progressAriaLabel": "{{fieldName}} calculation progress",
+    "statusUnavailable": "Calculation status is temporarily unavailable",
+    "statusSyncing": "Checking calculation status",
+    "statusSyncingDescription": "We are checking the latest calculation status. This does not mean calculations are running.",
+    "statusUnavailableDescription": "The latest calculation status could not be loaded. Refresh the status to try again; this will not restart calculations.",
+    "refreshStatus": "Refresh status",
+    "paused": "Calculations are paused",
+    "resultsNotUpdated": "Some calculation results have not been updated",
+    "delayed": "Calculation update delayed · {{seconds}}s",
+    "snapshotMayBeStale": "The last known status is shown and may be out of date.",
+    "unknownImpact": "Some calculation results have not been updated; affected fields are being identified"
   },
   "crossSpace": {
     "duplicateFieldTitle": "Notice",
@@ -66,7 +79,7 @@
         "generatingToken": "Generating...",
         "generateToken": "Generate token",
         "confirmTitle": "Create API Token",
-        "confirmDescription": "This will create a new API token with the following permissions for this base:",
+        "confirmDescription": "This will create a new API token with the following permissions for this project:",
         "scopeTableRead": "Read table info",
         "scopeFieldRead": "Read fields",
         "scopeRead": "Read records",
@@ -99,7 +112,7 @@
   },
   "welcome": {
     "title": "Welcome",
-    "emptyTitle": "Start building your base",
+    "emptyTitle": "Start building your project",
     "description": "Click the \"+\" button in the sidebar to add resources",
     "help": "Visit the <HelpCenter /> for more information",
     "helpCenter": "Help center"
@@ -271,7 +284,6 @@
       "bar": "Bar",
       "text": "Text",
       "markdown": "Markdown",
-      "url": "Url",
       "email": "Email",
       "phone": "Phone",
       "maxNumber": "Max number",
@@ -287,8 +299,8 @@
       "manyToMany": "many-to-many",
       "self": "Self",
       "selectTable": "Select table...",
-      "selectBase": "Select a base...",
-      "linkFromAnotherBase": "Link from another base",
+      "selectBase": "Select a project...",
+      "linkFromAnotherBase": "Link from another project",
       "inSelfLink": "in self-link",
       "betweenTwoTables": "between two tables",
       "tips": "Tips",
@@ -320,9 +332,9 @@
         "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
       },
       "linkTable": "Link table",
-      "linkBase": "Link base",
+      "linkBase": "Link project",
       "tableNoPermission": "No permission table",
-      "baseNoPermission": "No permission base",
+      "baseNoPermission": "No permission project",
       "noLinkTip": "No linked records to look up. Add a Link to another record field, then try to configure your lookup again.",
       "fieldValidationRules": "Field value validation rules",
       "enableValidateFieldUnique": "Unique values only",
@@ -333,6 +345,7 @@
       "filterByView": "Filter records by view",
       "filter": "Filter records",
       "hideFields": "Hide fields",
+      "removeDuplicateValues": "Remove duplicate values",
       "moreOptions": "More options",
       "allowNewOptionsWhenEditing": "Allow new options when editing",
       "deleteField": {
@@ -478,7 +491,7 @@
     "deleteConfirm": "Are you sure you want to delete \"{{tableName}}\" ?",
     "dbTableName": "Table name in physical database",
     "schemaName": "Schema name in physical database",
-    "baseInfo": "Base info",
+    "baseInfo": "Project info",
     "loginUserTable": "App Login",
     "linkedApps": "Linked apps",
     "typeOfDatabase": "Type of database",
@@ -630,9 +643,9 @@
         "noPermission": "You don't have permission to copy records"
       },
       "crossBaseCopyTitle": "Copy as plain text?",
-      "crossBaseCopyDescription": "This selection includes a cross-base link field. To keep data inside its original base, the field will be copied as plain text and lose its link relationships.",
+      "crossBaseCopyDescription": "This selection includes a cross-project link field. To keep data inside its original project, the field will be copied as plain text and lose its link relationships.",
       "crossBaseCopyConfirm": "Copy as plain text",
-      "crossBaseCopyLoadFirst": "Please scroll to load all selected rows before copying cross-base fields."
+      "crossBaseCopyLoadFirst": "Please scroll to load all selected rows before copying cross-project fields."
     },
     "graph": {
       "effectCells": "May effect cells",
@@ -650,7 +663,7 @@
       "v2": {
         "dialogTitle": "Schema Integrity",
         "dialogDescription": "Run the v2 schema checker and repair flow for {{tableName}}.",
-        "dialogDescriptionNoTable": "Run the v2 schema checker and repair flow for the current base.",
+        "dialogDescriptionNoTable": "Run the v2 schema checker and repair flow for the current project.",
         "runCheck": "Run Check",
         "recheck": "Re-check",
         "repair": "Repair",
@@ -702,13 +715,13 @@
           "noRepairStatements": "No repair statements available",
           "skippedDependencies": "Skipped because dependencies are not satisfied",
           "checkStreamConnected": "Schema integrity check stream connected",
-          "baseCheckStreamConnected": "Base schema integrity check stream connected",
+          "baseCheckStreamConnected": "Project schema integrity check stream connected",
           "repairStreamConnected": "Schema integrity repair stream connected",
-          "baseRepairStreamConnected": "Base schema integrity repair stream connected",
+          "baseRepairStreamConnected": "Project schema integrity repair stream connected",
           "checkCompleted": "Schema integrity check completed",
-          "baseCheckCompleted": "Base schema integrity check completed",
+          "baseCheckCompleted": "Project schema integrity check completed",
           "repairCompleted": "Schema integrity repair completed",
-          "baseRepairCompleted": "Base schema integrity repair completed",
+          "baseRepairCompleted": "Project schema integrity repair completed",
           "skippedStatusNotSelected": "Skipped because this status level was not selected for repair",
           "skippedRepairUnavailable": "Skipped because automatic repair is unavailable in the current state"
         },
@@ -911,11 +924,14 @@
     "deletedRecovered": {
       "title": "The table you opened has been deleted",
       "description": "Switched to \"{{tableName}}\"",
-      "descriptionEmpty": "Returned to the base page"
+      "descriptionEmpty": "Returned to the project page"
     }
   },
   "import": {
     "title": {
+      "createTable": "Create table",
+      "importFromCsv": "Import from CSV",
+      "importFromExcel": "Import from Excel",
       "upload": "Upload",
       "import": "Import",
       "localFile": "Local files",
@@ -1116,7 +1132,7 @@
   },
   "connection": {
     "title": "Database connection",
-    "description": "You can access the database directly through the database connection, including all the tables under the current base",
+    "description": "You can access the database directly through the database connection, including all the tables under the current project",
     "noPermission": "You don't have permission to access the database",
     "connectionCountTip": "The maximum number of database connections is <b>{{max}}</b> and the current connections is <b>{{current}}</b>",
     "createFailed": "Please ensure that the PUBLIC_DATABASE_PROXY environment variable is set correctly",
@@ -1239,7 +1255,7 @@
     "shareToWeb": "Share to web",
     "refreshLink": "Regenerate Link",
     "deleteConfirmTitle": "Delete Share Link",
-    "deleteConfirmDescription": "This action cannot be undone. People with this link will no longer be able to access the shared base.",
+    "deleteConfirmDescription": "This action cannot be undone. People with this link will no longer be able to access the shared project.",
     "createSuccess": "Share link created",
     "createFailed": "Failed to create share link",
     "updateFailed": "Failed to update share settings",
@@ -1296,6 +1312,9 @@
         "cancelled": "Skipped",
         "failed": "Failed"
       }
+    },
+    "gateCard": {
+      "header": "Authorization required for this task"
     },
     "googleSheetPick": {
       "title": "Pick Google spreadsheets",
@@ -1379,6 +1398,83 @@
     "action": {
       "locateResource": "Locate"
     },
+    "resourceOperations": {
+      "title": "Changes this turn",
+      "items_one": "{{count}} item",
+      "items_other": "{{count}} items",
+      "expandRemaining": "Show {{count}} more",
+      "collapse": "Show less",
+      "create": "Created",
+      "update": "Updated",
+      "delete": "Deleted",
+      "import": "Import",
+      "publication": {
+        "published": "Published",
+        "unpublished": "Unpublished"
+      },
+      "structureTitles": {
+        "field": "Field changes",
+        "view": "View changes"
+      },
+      "structureStats": {
+        "field": {
+          "create_one": "Added {{count}} field",
+          "create_other": "Added {{count}} fields",
+          "update_one": "Modified {{count}} field",
+          "update_other": "Modified {{count}} fields",
+          "delete_one": "Deleted {{count}} field",
+          "delete_other": "Deleted {{count}} fields",
+          "import_one": "Imported {{count}} field",
+          "import_other": "Imported {{count}} fields"
+        },
+        "view": {
+          "create_one": "Added {{count}} view",
+          "create_other": "Added {{count}} views",
+          "update_one": "Modified {{count}} view",
+          "update_other": "Modified {{count}} views",
+          "delete_one": "Deleted {{count}} view",
+          "delete_other": "Deleted {{count}} views",
+          "import_one": "Imported {{count}} view",
+          "import_other": "Imported {{count}} views"
+        }
+      },
+      "workflow": {
+        "activate": "Automation enabled",
+        "deactivate": "Automation disabled",
+        "discard": "Draft changes discarded"
+      },
+      "routine": {
+        "activate": "Routine activated",
+        "deactivate": "Routine deactivated",
+        "run": "Run started"
+      },
+      "records": {
+        "create": "Records added",
+        "createCount_one": "Added {{count}} record",
+        "createCount_other": "Added {{count}} records",
+        "update": "Records updated",
+        "updateCount_one": "Updated {{count}} record",
+        "updateCount_other": "Updated {{count}} records",
+        "delete": "Records deleted",
+        "deleteCount_one": "Deleted {{count}} record",
+        "deleteCount_other": "Deleted {{count}} records",
+        "import": "Records imported",
+        "importCount_one": "Imported {{count}} record",
+        "importCount_other": "Imported {{count}} records"
+      },
+      "types": {
+        "base": "Project",
+        "table": "Table",
+        "field": "Field",
+        "view": "View",
+        "record": "Records",
+        "app": "App",
+        "workflow": "Automation",
+        "routine": "Routine",
+        "folder": "Folder",
+        "artifact": "Artifact"
+      }
+    },
     "showUI": {
       "skip": "Skip",
       "next": "Next",
@@ -1418,7 +1514,13 @@
     "addAttachment": "Add attachment",
     "noHistory": "No chat history",
     "noFoundHistory": "No chat history found, please start a new conversation",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "archive": "Archive",
+    "archivedToast": "Chat archived. Find it under Settings › Archived chats.",
+    "unread": "Unread",
     "timeGroup": {
+      "pinned": "Pinned",
       "today": "Today",
       "oneWeek": "One week",
       "twoWeek": "Two week",
@@ -1437,6 +1539,7 @@
       "tables": "Tables",
       "apps": "Apps",
       "workflows": "Automations",
+      "routines": "Routines",
       "folders": "Folders",
       "envs": "Secrets"
     },
@@ -1465,7 +1568,7 @@
     "suggestions": {
       "title": "How can I help?",
       "whatCanIDo": "What can I do?",
-      "createOrModifyDatabase": "Create or modify database",
+      "createOrModifyDatabase": "Create or modify project",
       "buildAutomations": "Build automations",
       "buildApps": "Build apps",
       "buildMeCRM": "Build me a CRM",
@@ -1595,6 +1698,11 @@
       "searchPlaceholder": "Search artifacts",
       "fixWithAi": "Fix with AI",
       "noPermission": "You do not have access to this artifact"
+    },
+    "status": {
+      "running": "Generating…",
+      "waitingInput": "Waiting for your reply",
+      "failed": "Reply failed"
     }
   },
   "upload": {
@@ -1627,5 +1735,13 @@
         "unknown": "Unknown"
       }
     }
+  },
+  "failedProvision": {
+    "title": "Failed tables",
+    "reason": "Setup failed and could not be repaired automatically. Import the original source again to retry.",
+    "reimport": "Import again",
+    "cleanup": "Clean up empty import",
+    "confirmCleanup": "Confirm permanent cleanup",
+    "cleanupFailed": "This import could not be cleaned up safely."
   }
 }

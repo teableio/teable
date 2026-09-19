@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Kysely, PostgresDialect } from 'kysely';
-import type { IV2PostgresDbConfig } from './config';
 import type { Pool as PgPool } from 'pg';
+import { createCancellablePool } from './cancellablePool';
+import type { PostgresProtocolConnectionConstructor } from './cancelRequest';
+import type { IV2PostgresDbConfig } from './config';
 
 // Use webpack's special require that bypasses bundling, falling back to dynamic import
 // This is needed because webpack transforms dynamic imports in ways that bypass
@@ -24,12 +26,6 @@ export interface IV2PostgresDbDependencies {
   pool?: PgPool;
 }
 
-const borrowPool = (pool: PgPool): PgPool =>
-  ({
-    connect: () => pool.connect(),
-    end: () => Promise.resolve(),
-  }) as PgPool;
-
 const createPgDb = async <DB>(
   config: IV2PostgresDbConfig,
   dependencies: IV2PostgresDbDependencies
@@ -51,7 +47,13 @@ const createPgDb = async <DB>(
   if (!dependencies.pool) {
     pool.on('error', handlePgPoolError);
   }
-  const dialectPool = dependencies.pool ? borrowPool(pool) : pool;
+  const Connection = pg.Connection ?? (hasPgDefault(pg) ? pg.default.Connection : undefined);
+  if (!Connection) throw new Error('Missing pg.Connection');
+  const dialectPool = createCancellablePool(
+    pool,
+    Connection as unknown as PostgresProtocolConnectionConstructor,
+    !dependencies.pool
+  );
 
   const db = new Kysely<DB>({
     dialect: new PostgresDialect({
@@ -68,7 +70,10 @@ export const createV2PostgresDb = async <DB = unknown>(
   return createPgDb<DB>(config, dependencies);
 };
 
-type PgDefaultExport = { Pool: typeof import('pg').Pool };
+type PgDefaultExport = {
+  Pool: typeof import('pg').Pool;
+  Connection: typeof import('pg').Connection;
+};
 
 const hasPgDefault = (
   value: typeof import('pg')

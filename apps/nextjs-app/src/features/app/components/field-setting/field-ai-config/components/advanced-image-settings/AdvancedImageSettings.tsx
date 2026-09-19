@@ -1,4 +1,4 @@
-import type { IAttachmentFieldGenerateImageAIConfig } from '@teable/core';
+import type { IAttachmentFieldGenerateImageAIConfig, IImageResolution } from '@teable/core';
 import { IMAGE_RESOLUTIONS, ImageQuality } from '@teable/core';
 import { ChevronDown, ChevronRight, HelpCircle, Settings } from '@teable/icons';
 import { DEFAULT_ASPECT_RATIO_CANDIDATES, getOpenAIGptImage2SizeMeta } from '@teable/openapi';
@@ -23,7 +23,12 @@ type TRatioLabel = (typeof sizeRatioLabels)[number]['label'];
 type TSizeTier = IOpenAIGptImage2SizeTier;
 type TRatioSelectorId = TRatioLabel | typeof AUTO_SELECTOR_ID;
 
-const GPT_IMAGE_2_MODEL_ID = 'gpt-image-2';
+const GPT_IMAGE_RATIO_RESOLUTION_MODELS = [
+  'gpt-image-2',
+  'gpt-image-2.5-flare',
+  'gpt-image-2.5-sunburst',
+];
+const DEFAULT_QUALITY_VALUES = [ImageQuality.Low, ImageQuality.Medium, ImageQuality.High];
 const AUTO_SELECTOR_ID = '__auto__';
 
 const sizeRatioLabels = [
@@ -50,6 +55,8 @@ interface IAdvancedImageSettingsProps {
   supportsCount: boolean;
   imageSizeValues: IImageSize[];
   aspectRatioValues: IAspectRatio[];
+  resolutionValues?: readonly IImageResolution[];
+  qualityValues?: readonly ImageQuality[];
   currentSize: string;
   currentQuality: ImageQuality;
   currentAspectRatio?: string;
@@ -73,6 +80,8 @@ export const AdvancedImageSettings = (props: IAdvancedImageSettingsProps) => {
     supportsCount,
     imageSizeValues,
     aspectRatioValues,
+    resolutionValues = IMAGE_RESOLUTIONS,
+    qualityValues = DEFAULT_QUALITY_VALUES,
     currentSize,
     currentQuality,
     currentAspectRatio,
@@ -83,7 +92,8 @@ export const AdvancedImageSettings = (props: IAdvancedImageSettingsProps) => {
     onChange,
   } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const isGptImage2RatioResolutionMode = imageModelId === GPT_IMAGE_2_MODEL_ID && supportsSize;
+  const isGptImage2RatioResolutionMode =
+    GPT_IMAGE_RATIO_RESOLUTION_MODELS.includes(imageModelId ?? '') && supportsSize;
   const autoCandidate = { id: AUTO_SELECTOR_ID, name: t('table:field.aiConfig.auto') };
   const currentSizeMeta = getOpenAIGptImage2SizeMeta(currentSize);
   const currentRatioId: TRatioSelectorId = currentSizeMeta?.ratio ?? AUTO_SELECTOR_ID;
@@ -150,12 +160,12 @@ export const AdvancedImageSettings = (props: IAdvancedImageSettingsProps) => {
   const selectedResolutionId = currentTierId || currentResolutionCandidates[0]?.id || '';
 
   const qualityCandidates = useMemo(
-    () => [
-      { id: ImageQuality.Low, name: t('table:field.aiConfig.imageQuality.low') },
-      { id: ImageQuality.Medium, name: t('table:field.aiConfig.imageQuality.medium') },
-      { id: ImageQuality.High, name: t('table:field.aiConfig.imageQuality.high') },
-    ],
-    [t]
+    () =>
+      qualityValues.map((quality) => ({
+        id: quality,
+        name: t(`table:field.aiConfig.imageQuality.${quality}`),
+      })),
+    [qualityValues, t]
   );
 
   const aspectRatioCandidates = useMemo(() => {
@@ -173,12 +183,12 @@ export const AdvancedImageSettings = (props: IAdvancedImageSettingsProps) => {
   const resolutionCandidates = useMemo(
     () => [
       autoCandidate,
-      ...IMAGE_RESOLUTIONS.map((resolution) => ({
+      ...resolutionValues.map((resolution) => ({
         id: resolution,
         name: t(`table:field.aiConfig.resolution.${resolution}`),
       })),
     ],
-    [autoCandidate, t]
+    [autoCandidate, resolutionValues, t]
   );
 
   return (

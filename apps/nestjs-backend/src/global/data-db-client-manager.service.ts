@@ -15,6 +15,7 @@ import { withDataDbInternalSchemaParam } from '../features/space/data-db-interna
 import { DataDbMigrationService } from '../features/space/data-db-migration.service';
 import { decryptDataDbUrl } from '../features/space/data-db-url-secret';
 import type { IClsStore } from '../types/cls';
+import { getBaseCached, getTableMetaWithBaseCached } from '../utils/meta-ancestry-cache';
 import {
   buildComputedOutboxActivePauseExclusion,
   buildComputedOutboxAnomalyListQuery,
@@ -132,6 +133,13 @@ type IMetaRoutingClient = PrismaService | NonNullable<IClsStore['tx']['client']>
  */
 const isBoundToDataDb = <T extends { mode: string }>(binding: T | null): binding is T =>
   binding !== null && binding.mode !== 'default';
+
+export class DataDbBaseNotFoundError extends Error {
+  constructor(readonly baseId: string) {
+    super(`Base ${baseId} not found`);
+    this.name = 'DataDbBaseNotFoundError';
+  }
+}
 
 export class DataDbBindingNotReadyError extends CustomHttpException {
   readonly spaceId: string;
@@ -417,6 +425,38 @@ export class DataDbClientManager {
     return value;
   }
 
+  /**
+   * base → spaceId for every base-scoped entry point. Outside a transaction the
+   * row comes from the request-scoped ancestry cache the guards already
+   * populated, so routing, permission checks and authz share one meta-db read
+   * per request. Transactional lookups read through the transaction client
+   * uncached — they may need to observe uncommitted meta rows.
+   */
+  private async findSpaceIdByBaseId(baseId: string, options?: IDataDbRoutingOptions) {
+    if (options?.useTransaction) {
+      const base = await this.prismaService.txClient().base.findUnique({
+        where: { id: baseId },
+        select: { spaceId: true },
+      });
+      return base?.spaceId;
+    }
+    const base = await getBaseCached(this.cls, this.prismaService, baseId);
+    return base?.spaceId;
+  }
+
+  /** table → spaceId, sharing the same request-scoped ancestry cache. */
+  private async findSpaceIdByTableId(tableId: string, options?: IDataDbRoutingOptions) {
+    if (options?.useTransaction) {
+      const table = await this.prismaService.txClient().tableMeta.findUnique({
+        where: { id: tableId },
+        select: { base: { select: { spaceId: true } } },
+      });
+      return table?.base.spaceId;
+    }
+    const table = await getTableMetaWithBaseCached(this.cls, this.prismaService, tableId);
+    return table?.base.spaceId;
+  }
+
   async getDataDatabaseForSpace(
     spaceId: string,
     options?: IDataDbRoutingOptions
@@ -456,16 +496,10 @@ export class DataDbClientManager {
   }
 
   async getDataDatabaseForBase(baseId: string, options?: IDataDbRoutingOptions) {
-    const spaceId = await this.withRoutingCache(`base:${baseId}`, options, async () => {
-      const base = await this.getMetaRoutingClient(options).base.findUnique({
-        where: { id: baseId },
-        select: { spaceId: true },
-      });
-      if (!base) {
-        throw new Error(`Base ${baseId} not found`);
-      }
-      return base.spaceId;
-    });
+    const spaceId = await this.findSpaceIdByBaseId(baseId, options);
+    if (!spaceId) {
+      throw new DataDbBaseNotFoundError(baseId);
+    }
     return await this.getDataDatabaseForSpace(spaceId, options);
   }
 
@@ -474,16 +508,10 @@ export class DataDbClientManager {
   }
 
   async getDataDatabaseForTable(tableId: string, options?: IDataDbRoutingOptions) {
-    const spaceId = await this.withRoutingCache(`table:${tableId}`, options, async () => {
-      const table = await this.getMetaRoutingClient(options).tableMeta.findUnique({
-        where: { id: tableId },
-        select: { base: { select: { spaceId: true } } },
-      });
-      if (!table) {
-        throw new Error(`Table ${tableId} not found`);
-      }
-      return table.base.spaceId;
-    });
+    const spaceId = await this.findSpaceIdByTableId(tableId, options);
+    if (!spaceId) {
+      throw new Error(`Table ${tableId} not found`);
+    }
     return await this.getDataDatabaseForSpace(spaceId, options);
   }
 
@@ -493,21 +521,23 @@ export class DataDbClientManager {
    * failed cleanup needs this answer.
    */
   async isMetaFallbackForBase(baseId: string, options?: IDataDbRoutingOptions) {
-    const base = await this.getMetaRoutingClient(options).base.findUnique({
-      where: { id: baseId },
-      select: { spaceId: true },
-    });
-    if (!base) {
-      throw new Error(`Base ${baseId} not found`);
+    const spaceId = await this.findSpaceIdByBaseId(baseId, options);
+    if (!spaceId) {
+      throw new Error(`Project ${baseId} not found`);
     }
-    return !isBoundToDataDb(await this.findSpaceDataDbBinding(base.spaceId, options));
+    return !isBoundToDataDb(await this.findSpaceDataDbBinding(spaceId, options));
   }
 
   private async findSpaceDataDbBinding(spaceId: string, options?: IDataDbRoutingOptions) {
-    return await this.getMetaRoutingClient(options).spaceDataDbBinding.findUnique({
-      where: { spaceId },
-      include: { dataDbConnection: true },
-    });
+    // Every base/table-scoped routing call ends here. The binding is stable for
+    // the duration of a request, and `getDataDatabaseForSpace` already caches
+    // the resolved database over the same window, so dedupe the read too.
+    return await this.withRoutingCache(`binding:${spaceId}`, options, () =>
+      this.getMetaRoutingClient(options).spaceDataDbBinding.findUnique({
+        where: { spaceId },
+        include: { dataDbConnection: true },
+      })
+    );
   }
 
   async listComputedOutboxMaintenanceTargets(): Promise<
@@ -578,11 +608,33 @@ export class DataDbClientManager {
     ];
   }
 
+  async peekDueDomainEventWork(target: IComputedOutboxMaintenanceTarget): Promise<boolean> {
+    const knex = createComputedOutboxMaintenanceKnex(target);
+    try {
+      const unpublished = await computedOutboxKnexTable(knex, target, 'domain_event_outbox')
+        .select(knex.raw('1'))
+        .where('unpublished', true)
+        .limit(1);
+      if (unpublished.length > 0) {
+        return true;
+      }
+      const due = await computedOutboxKnexTable(knex, target, 'domain_event_delivery')
+        .select(knex.raw('1'))
+        .whereIn('status', ['pending', 'processing'])
+        .andWhere('next_attempt_at', '<=', knex.fn.now())
+        .limit(1);
+      return due.length > 0;
+    } finally {
+      await knex.destroy().catch(() => undefined);
+    }
+  }
   /**
    * Bases whose space currently has a BYODB binding, including bindings whose
    * connection is disabled/unready and therefore absent from the queryable
    * maintenance inventory. Used to hide leftover default-storage anomalies
-   * that must not be recovered onto the meta database.
+   * that must not be recovered onto the meta database. Complements
+   * buildComputedOutboxRoutedFilter, which also treats deleted BYODB-bound
+   * bases as routed away so the admin badge matches the list.
    */
   async listByodbBoundBaseIds(): Promise<string[]> {
     const bases = await this.prismaService.base.findMany({
@@ -1188,14 +1240,11 @@ export class DataDbClientManager {
 
   /** Returns a compiler-only Knex handle. Execute queries through withDataKnexConnectionForBase. */
   async dataKnexForBase(baseId: string, options?: IDataDbRoutingOptions) {
-    const base = await this.getMetaRoutingClient(options).base.findUnique({
-      where: { id: baseId },
-      select: { spaceId: true },
-    });
-    if (!base) {
-      throw new Error(`Base ${baseId} not found`);
+    const spaceId = await this.findSpaceIdByBaseId(baseId, options);
+    if (!spaceId) {
+      throw new Error(`Project ${baseId} not found`);
     }
-    return await this.dataKnexForSpace(base.spaceId, options);
+    return await this.dataKnexForSpace(spaceId, options);
   }
 
   async withDataKnexConnectionForBase<T>(
@@ -1203,26 +1252,20 @@ export class DataDbClientManager {
     fn: (knex: Knex, connection: PoolClient) => Promise<T>,
     options?: IDataDbRoutingOptions
   ): Promise<T> {
-    const base = await this.getMetaRoutingClient(options).base.findUnique({
-      where: { id: baseId },
-      select: { spaceId: true },
-    });
-    if (!base) {
-      throw new Error(`Base ${baseId} not found`);
+    const spaceId = await this.findSpaceIdByBaseId(baseId, options);
+    if (!spaceId) {
+      throw new Error(`Project ${baseId} not found`);
     }
-    return this.withDataKnexConnectionForSpace(base.spaceId, fn, options);
+    return this.withDataKnexConnectionForSpace(spaceId, fn, options);
   }
 
   /** Returns a compiler-only Knex handle. Execute queries through withDataKnexConnectionForTable. */
   async dataKnexForTable(tableId: string, options?: IDataDbRoutingOptions) {
-    const table = await this.getMetaRoutingClient(options).tableMeta.findUnique({
-      where: { id: tableId },
-      select: { base: { select: { spaceId: true } } },
-    });
-    if (!table) {
+    const spaceId = await this.findSpaceIdByTableId(tableId, options);
+    if (!spaceId) {
       throw new Error(`Table ${tableId} not found`);
     }
-    return await this.dataKnexForSpace(table.base.spaceId, options);
+    return await this.dataKnexForSpace(spaceId, options);
   }
 
   async withDataKnexConnectionForTable<T>(
@@ -1230,36 +1273,27 @@ export class DataDbClientManager {
     fn: (knex: Knex, connection: PoolClient) => Promise<T>,
     options?: IDataDbRoutingOptions
   ): Promise<T> {
-    const table = await this.getMetaRoutingClient(options).tableMeta.findUnique({
-      where: { id: tableId },
-      select: { base: { select: { spaceId: true } } },
-    });
-    if (!table) {
+    const spaceId = await this.findSpaceIdByTableId(tableId, options);
+    if (!spaceId) {
       throw new Error(`Table ${tableId} not found`);
     }
-    return this.withDataKnexConnectionForSpace(table.base.spaceId, fn, options);
+    return this.withDataKnexConnectionForSpace(spaceId, fn, options);
   }
 
   async dataPrismaForTable(tableId: string, options?: IDataDbRoutingOptions) {
-    const table = await this.getMetaRoutingClient(options).tableMeta.findUnique({
-      where: { id: tableId },
-      select: { base: { select: { spaceId: true } } },
-    });
-    if (!table) {
+    const spaceId = await this.findSpaceIdByTableId(tableId, options);
+    if (!spaceId) {
       throw new Error(`Table ${tableId} not found`);
     }
-    return await this.dataPrismaForSpace(table.base.spaceId, options);
+    return await this.dataPrismaForSpace(spaceId, options);
   }
 
   async dataPrismaForBase(baseId: string, options?: IDataDbRoutingOptions) {
-    const base = await this.getMetaRoutingClient(options).base.findUnique({
-      where: { id: baseId },
-      select: { spaceId: true },
-    });
-    if (!base) {
-      throw new Error(`Base ${baseId} not found`);
+    const spaceId = await this.findSpaceIdByBaseId(baseId, options);
+    if (!spaceId) {
+      throw new Error(`Project ${baseId} not found`);
     }
-    return await this.dataPrismaForSpace(base.spaceId, options);
+    return await this.dataPrismaForSpace(spaceId, options);
   }
 
   async invalidateConnection(connectionId: string) {

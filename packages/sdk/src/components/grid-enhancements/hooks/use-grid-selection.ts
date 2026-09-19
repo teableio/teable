@@ -20,7 +20,7 @@ interface IUseGridSelectionProps {
     id: string;
   })[];
   viewQuery?: Pick<IGetRecordsRo, 'filter' | 'orderBy' | 'groupBy' | 'collapsedGroupIds'>;
-  gridRef: React.RefObject<IGridRef>;
+  gridRef: React.RefObject<IGridRef | null>;
 }
 
 export interface IActiveCell {

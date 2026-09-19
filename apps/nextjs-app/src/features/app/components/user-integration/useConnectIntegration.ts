@@ -1,5 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { getUserIntegrationList, type UserIntegrationProvider } from '@teable/openapi';
+import {
+  findChangedUserIntegration,
+  getUserIntegrationList,
+  userIntegrationBaseline,
+  type IUserIntegrationBaseline,
+  type UserIntegrationProvider,
+} from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import React from 'react';
 import { openConnectIntegration } from './utils';
@@ -13,11 +19,11 @@ const CONNECT_POLL_MS = 2000; // poll the integration list every 2s while connec
 // covers it anyway unless PUBLIC_ORIGIN differs from the app origin — not worth
 // ~150 requests behind a window the user did in fact close.
 const DISMISSED_POLL_MS = 6000;
-const CONNECT_TIMEOUT_MS = 5 * 60 * 1000; // give up on a connect that never lands
+const CONNECT_TIMEOUT_MS = 10 * 60 * 1000; // give up on a connect that never lands
 // How often to check whether the popup is still there. Closing it is the only
 // trace a user leaves when they abandon the consent screen — nothing is
 // broadcast — so this watch is what keeps that case from holding the caller's
-// "connecting" state for the poll's full 5 minutes.
+// "connecting" state for the poll's full 10 minutes.
 const POPUP_WATCH_MS = 800;
 
 // Providers with a connect poll already running. Module-level (not a ref) so a
@@ -107,16 +113,11 @@ export const useConnectIntegration = (options?: IUseConnectIntegrationOptions) =
         });
 
       // Snapshot this provider's grants before connecting so the poll can detect
-      // a *change* rather than "any grant exists" — the latter is already true
-      // when adding a second account of a connected provider or reconnecting,
-      // which would false-positive and close the popup mid-OAuth.
-      let baseline: Record<string, number> | null = null;
+      // a *change* rather than "any grant exists" — see userIntegrationBaseline for why
+      // the latter false-positives and closes the popup mid-OAuth.
+      let baseline: IUserIntegrationBaseline | null = null;
       void fetchIntegrations().then((data) => {
-        baseline = Object.fromEntries(
-          (data?.integrations ?? [])
-            .filter((item) => item.provider === provider)
-            .map((item) => [item.id, item.connectedTime ? Date.parse(item.connectedTime) : 0])
-        );
+        baseline = userIntegrationBaseline(data?.integrations ?? [], provider);
       });
 
       // A deadline, not a tick count: the poll changes cadence on dismissal and
@@ -134,19 +135,12 @@ export const useConnectIntegration = (options?: IUseConnectIntegrationOptions) =
         }
       })();
 
-      // A grant is "changed" when it is new or its connectedTime advanced
-      // (reconnect) relative to the pre-connect baseline.
       const findChangedIntegrationId = (
         data: Awaited<ReturnType<typeof fetchIntegrations>>
-      ): string | undefined => {
-        if (!baseline) return undefined;
-        return (data?.integrations ?? []).find((item) => {
-          if (item.provider !== provider || !item.hasSecret) return false;
-          const previous = baseline?.[item.id];
-          const current = item.connectedTime ? Date.parse(item.connectedTime) : 0;
-          return previous === undefined || current > previous;
-        })?.id;
-      };
+      ): string | undefined =>
+        baseline
+          ? findChangedUserIntegration(data?.integrations ?? [], provider, baseline)?.id
+          : undefined;
 
       // Hand the caller's "connecting" state back. Separate from teardown: a
       // dismissed connect releases the UI while its listeners stay armed.
@@ -199,7 +193,7 @@ export const useConnectIntegration = (options?: IUseConnectIntegrationOptions) =
       // state — the broadcast and poll listeners stay armed, so an
       // authorization the user is still working through resolves as usual.
       // Without this a consent screen closed on the first step spins the
-      // caller's button for the poll's full ~5 minutes.
+      // caller's button for the poll's full ~10 minutes.
       const dismiss = () => {
         if (settled || dismissed) return;
         dismissed = true;

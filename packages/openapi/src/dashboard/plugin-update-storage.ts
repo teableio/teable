@@ -26,6 +26,7 @@ export type IDashboardPluginUpdateStorageVo = z.infer<typeof dashboardPluginUpda
 export const DashboardPluginUpdateStorageRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: DASHBOARD_PLUGIN_UPDATE_STORAGE,
+  title: 'Patch project dashboard plugin update storage',
   description: 'Update storage of a plugin in a dashboard',
   request: {
     params: z.object({

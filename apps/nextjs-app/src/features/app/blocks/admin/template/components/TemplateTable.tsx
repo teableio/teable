@@ -2,8 +2,9 @@ import type { DropResult } from '@hello-pangea/dnd';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MoreHorizontal, Trash2, ArrowUp, DraggableHandle, Link } from '@teable/icons';
-import type { ITemplateCoverRo, IUpdateTemplateRo } from '@teable/openapi';
+import type { ITemplateCoverRo, ITemplateVo, IUpdateTemplateRo } from '@teable/openapi';
 import {
+  TemplateKind,
   deleteTemplate,
   getTemplateList,
   pinTopTemplate,
@@ -49,7 +50,11 @@ import { TextEditorDialog } from './TextEditorDialog';
 
 const PAGE_SIZE = 20;
 
-export const TemplateTable = () => {
+export const TemplateTable = ({
+  renderRequirements,
+}: {
+  renderRequirements?: (template: ITemplateVo) => React.ReactNode;
+}) => {
   const { t } = useTranslation(['common']);
 
   const isHydrated = useIsHydrated();
@@ -103,6 +108,13 @@ export const TemplateTable = () => {
 
   const handleFeaturedTemplate = (templateId: string, featured: boolean) => {
     updateTemplateFn({ templateId, updateRo: { featured } });
+  };
+
+  const handleSolutionTemplate = (templateId: string, isSolution: boolean) => {
+    updateTemplateFn({
+      templateId,
+      updateRo: { kind: isSolution ? TemplateKind.Solution : TemplateKind.Template },
+    });
   };
 
   const onChangeTemplateName = (templateId: string, name: string) => {
@@ -243,6 +255,18 @@ export const TemplateTable = () => {
               />
             </div>
           </TemplateTooltips>
+        </TableCell>
+        <TableCell className="align-middle">{renderRequirements?.(row)}</TableCell>
+        <TableCell className="text-center align-middle">
+          <div title={t('settings.templateAdmin.tips.solution')}>
+            <Switch
+              className="scale-80"
+              defaultChecked={row.kind === TemplateKind.Solution}
+              onCheckedChange={(checked: boolean) => {
+                handleSolutionTemplate(row.id, checked);
+              }}
+            />
+          </div>
         </TableCell>
         <TableCell className="text-center align-middle">
           <TemplateTooltips
@@ -408,6 +432,12 @@ export const TemplateTable = () => {
             </TableHead>
             <TableHead className="min-w-24 text-center">
               {t('settings.templateAdmin.header.featured')}
+            </TableHead>
+            <TableHead className="min-w-32">
+              {t('settings.templateAdmin.header.requirements')}
+            </TableHead>
+            <TableHead className="min-w-24 text-center">
+              {t('settings.templateAdmin.header.solution')}
             </TableHead>
             <TableHead className="min-w-24 text-center">
               {t('settings.templateAdmin.header.status')}

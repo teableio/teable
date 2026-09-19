@@ -44,6 +44,7 @@ import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.i
 import { markUnsupportedV2FeatureFallback } from '../../canary/v2-attribution';
 import { TqlPipe } from '../../record/open-api/tql.pipe';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
+import { InteractiveQueryCancellation } from '../../v2/interactive-query-cancellation.interceptor';
 import { AggregationOpenApiV2Service } from './aggregation-open-api-v2.service';
 import { AggregationOpenApiService } from './aggregation-open-api.service';
 
@@ -67,49 +68,64 @@ export class AggregationOpenApiController {
     query: { filter?: IFilter; viewId?: string } | undefined,
     fn: () => Promise<T>
   ) {
-    const table = await this.prismaService.tableMeta.findUniqueOrThrow({
-      where: {
-        id: tableId,
-      },
-      select: {
-        lastModifiedTime: true,
-      },
-    });
-    const viewId = query?.viewId;
-    let viewFilter: string | null = null;
-    if (viewId) {
-      const view = await this.prismaService.view.findUniqueOrThrow({
+    const getCacheKey = async () => {
+      const table = await this.prismaService.tableMeta.findUniqueOrThrow({
         where: {
-          id: viewId,
+          id: tableId,
         },
         select: {
-          filter: true,
+          lastModifiedTime: true,
         },
       });
-      viewFilter = view.filter;
-    }
-    const cacheQuery =
-      filterHasMe(query?.filter) || filterHasMe(viewFilter)
-        ? { ...query, currentUserId: this.cls.get('user.id') }
-        : query;
-
-    const cacheKey = generateAggCacheKey(
-      cacheKeyPrefix,
-      tableId,
-      table.lastModifiedTime?.getTime().toString() ?? '0',
-      cacheQuery
-    );
-    return this.performanceCacheService.wrap(
-      cacheKey,
-      () => {
-        return fn();
-      },
-      {
-        ttl: 60 * 60, // 1 hour
+      const viewId = query?.viewId;
+      let viewFilter: string | null = null;
+      if (viewId) {
+        const view = await this.prismaService.view.findUniqueOrThrow({
+          where: {
+            id: viewId,
+          },
+          select: {
+            filter: true,
+          },
+        });
+        viewFilter = view.filter;
       }
+      const cacheQuery =
+        filterHasMe(query?.filter) || filterHasMe(viewFilter)
+          ? { ...query, currentUserId: this.cls.get('user.id') }
+          : query;
+
+      return generateAggCacheKey(
+        cacheKeyPrefix,
+        tableId,
+        table.lastModifiedTime?.getTime().toString() ?? '0',
+        cacheQuery
+      );
+    };
+    const load = async () => {
+      const cacheKey = await getCacheKey();
+      return this.performanceCacheService.wrap(
+        cacheKey,
+        () => {
+          return fn();
+        },
+        {
+          ttl: 60 * 60, // 1 hour
+        }
+      );
+    };
+    if (!this.cls.get('useV2')) return load();
+    return this.aggregationOpenApiV2Service.withProvisionReadyCache<T>(
+      tableId,
+      async () => {
+        const cached = await this.performanceCacheService.get(await getCacheKey());
+        return cached === null ? null : { data: cached.data as T };
+      },
+      load
     );
   }
 
+  @InteractiveQueryCancellation()
   @Get()
   @Permissions('table|read')
   @UseV2Feature('getAggregation')
@@ -126,6 +142,7 @@ export class AggregationOpenApiController {
     });
   }
 
+  @InteractiveQueryCancellation()
   @Get('/row-count')
   @Permissions('table|read')
   @UseV2Feature('getRowCount')
@@ -153,6 +170,7 @@ export class AggregationOpenApiController {
     );
   }
 
+  @InteractiveQueryCancellation()
   @Get('/search-count')
   @Permissions('table|read')
   @UseV2Feature('getSearchCount')
@@ -171,6 +189,7 @@ export class AggregationOpenApiController {
     });
   }
 
+  @InteractiveQueryCancellation()
   @Get('/search-index')
   @Permissions('table|read')
   @UseV2Feature('getSearchIndex')
@@ -189,6 +208,7 @@ export class AggregationOpenApiController {
     });
   }
 
+  @InteractiveQueryCancellation()
   @Get('/group-points')
   @Permissions('table|read')
   @UseV2Feature('getGroupPoints')
@@ -205,6 +225,7 @@ export class AggregationOpenApiController {
     });
   }
 
+  @InteractiveQueryCancellation()
   @Get('/calendar-daily-collection')
   @Permissions('table|read')
   @UseV2Feature('getCalendarDailyCollection')
@@ -230,6 +251,7 @@ export class AggregationOpenApiController {
     );
   }
 
+  @InteractiveQueryCancellation()
   @Get('/selection')
   @Permissions('table|read')
   @UseV2Feature('getAggregation')

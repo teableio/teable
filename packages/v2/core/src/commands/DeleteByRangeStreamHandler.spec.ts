@@ -25,6 +25,7 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   ITableRecordQueryRepository,
@@ -416,9 +417,8 @@ const createHandler = (args: {
     createRecordWritePluginRunner(args.plugins),
     args.recordRepository ?? new FakeTableRecordRepository(args.queryRepository),
     args.queryRepository,
-    eventBus,
     undoRedoService as unknown as UndoRedoStackService,
-    new FakeUnitOfWork()
+    new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus)
   );
 
   return { handler: new DeleteByRangeStreamHandler(applicationService), eventBus, undoRedoService };
@@ -646,7 +646,6 @@ describe('DeleteByRangeStreamHandler', () => {
         'teable.DeleteByRangeApplicationService.prepareDeleteChunkPlugins',
         'teable.DeleteByRangeApplicationService.validateDeleteChunkPluginScope',
         'teable.DeleteByRangeApplicationService.deleteChunk',
-        'teable.DeleteByRangeApplicationService.publishDeleteChunkEvents',
         'teable.DeleteByRangeApplicationService.recordDeleteChunkUndoRedo',
       ])
     );
@@ -987,7 +986,7 @@ describe('DeleteByRangeStreamHandler', () => {
     expect(undoRedoService.recordEntryCalls).toHaveLength(0);
   });
 
-  it('emits publishing errors without dropping the successful delete result', async () => {
+  it('keeps the successful delete result when event publish fails', async () => {
     const { table, tableId, viewId } = buildTable();
     const tableRepository = new FakeTableRepository();
     tableRepository.tables.push(table);
@@ -1025,22 +1024,7 @@ describe('DeleteByRangeStreamHandler', () => {
       events.push(event);
     }
 
-    expect(events.map((event) => event.id)).toEqual([
-      'progress',
-      'progress',
-      'progress',
-      'error',
-      'done',
-    ]);
-    expect(events.find((event) => event.id === 'error')).toMatchObject({
-      id: 'error',
-      phase: 'publishing',
-      batchIndex: 0,
-      totalCount: 1,
-      deletedCount: 1,
-      recordIds: [originalRecordId],
-      message: 'publish failed',
-    });
+    expect(events.map((event) => event.id)).toEqual(['progress', 'progress', 'progress', 'done']);
     expect(events.at(-1)).toMatchObject({
       id: 'done',
       totalCount: 1,
@@ -1050,6 +1034,7 @@ describe('DeleteByRangeStreamHandler', () => {
         deletedRecordIds: [originalRecordId],
       },
     });
+    expect(eventBus.publishManyCalls).toHaveLength(1);
     expect(undoRedoService.recordEntryCalls).toHaveLength(1);
   });
 });

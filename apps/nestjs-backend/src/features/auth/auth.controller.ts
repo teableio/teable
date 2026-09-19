@@ -3,6 +3,7 @@ import { HttpErrorCode } from '@teable/core';
 import {
   deleteUserSchemaRo,
   IDeleteUserSchema,
+  type IDeleteUserSpacesVo,
   type IGetTempTokenVo,
   type IUserMeVo,
 } from '@teable/openapi';
@@ -68,8 +69,18 @@ export class AuthController {
         },
       });
     }
-    await this.deleteUserService.deleteUser();
+    await this.deleteUserService.deleteUser(query.spaceIds);
     await this.sessionService.signout(req);
     res.clearCookie(AUTH_SESSION_COOKIE_NAME);
+  }
+
+  /**
+   * What leaves with the account, before anything is pressed: the spaces this user alone
+   * owns. The deletion page lists them first and asks for the word, so the press that
+   * follows is the last one, not the one that discovers them.
+   */
+  @Get('user/sole-owner-spaces')
+  async getSoleOwnerSpaces(): Promise<IDeleteUserSpacesVo> {
+    return { spaces: await this.deleteUserService.listSoleOwnerSpaces() };
   }
 }

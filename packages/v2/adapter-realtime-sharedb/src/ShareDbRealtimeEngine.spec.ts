@@ -5,11 +5,14 @@ import ShareDb from 'sharedb';
 import type { Doc } from 'sharedb/lib/client';
 import { Connection } from 'sharedb/lib/client';
 import type { Socket } from 'sharedb/lib/sharedb';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 
+import type { IComputeActivitySignalConfig } from './ComputeActivitySignal';
 import { ShareDbBackendPublisher } from './ShareDbBackendPublisher';
+import type { IShareDbPresencePublisher } from './ShareDbPresencePublisher';
 import type { ShareDbOp } from './ShareDbPublisher';
+import type { IShareDbOpPublisher } from './ShareDbPublisher';
 import { ShareDbPubSubPublisher } from './ShareDbPubSubPublisher';
 import { ShareDbRealtimeEngine } from './ShareDbRealtimeEngine';
 import { ShareDbWebSocketServer } from './ShareDbWebSocketServer';
@@ -319,6 +322,20 @@ const waitDocDeleted = <T>(doc: Doc<T>, timeoutMs = 5000): Promise<void> =>
     }
   });
 
+const computeActivitySignal: IComputeActivitySignalConfig = {
+  resolveChannel: (tableId) => `__action_trigger_${tableId}`,
+  actionKey: 'computeActivityChanged',
+};
+
+const createPresencePublisher = (): IShareDbPresencePublisher => ({
+  publish: vi.fn().mockResolvedValue(ok(undefined)),
+});
+
+const createEngine = (
+  publisher: IShareDbOpPublisher,
+  presence: IShareDbPresencePublisher = createPresencePublisher()
+): ShareDbRealtimeEngine => new ShareDbRealtimeEngine(publisher, presence, computeActivitySignal);
+
 describe('ShareDbRealtimeEngine', () => {
   let runtime: ShareDbRuntime | undefined;
 
@@ -328,6 +345,19 @@ describe('ShareDbRealtimeEngine', () => {
 
   afterAll(async () => {
     await stopShareDbRuntime(runtime);
+  });
+
+  it('notifies the table action-trigger channel with a payload-free signal', async () => {
+    const actorId = ActorId.create('test-actor')._unsafeUnwrap();
+    const presence = createPresencePublisher();
+    const engine = createEngine({ publish: vi.fn().mockResolvedValue(ok(undefined)) }, presence);
+
+    const result = await engine.notifyTableComputeActivity({ actorId }, 'tbl_signal');
+
+    expect(result.isOk()).toBe(true);
+    expect(presence.publish).toHaveBeenCalledWith('__action_trigger_tbl_signal', [
+      { actionKey: 'computeActivityChanged' },
+    ]);
   });
 
   it('delivers create ops to subscribed clients', async () => {
@@ -340,7 +370,7 @@ describe('ShareDbRealtimeEngine', () => {
     const docId = RealtimeDocId.fromParts(collection, documentId)._unsafeUnwrap();
     const initial = { id: documentId, name: 'Realtime Table' };
 
-    const engine = new ShareDbRealtimeEngine(new ShareDbBackendPublisher(runtime.backend));
+    const engine = createEngine(new ShareDbBackendPublisher(runtime.backend));
     const subscription = subscribeShareDbDoc<typeof initial>({
       url: runtime.url,
       collection,
@@ -370,7 +400,7 @@ describe('ShareDbRealtimeEngine', () => {
     const docId = RealtimeDocId.fromParts(collection, documentId)._unsafeUnwrap();
     const initial = { title: 'Hi' };
 
-    const engine = new ShareDbRealtimeEngine(new ShareDbBackendPublisher(runtime.backend));
+    const engine = createEngine(new ShareDbBackendPublisher(runtime.backend));
     const ensureResult = await engine.ensure(context, docId, initial);
     expect(ensureResult.isOk()).toBe(true);
     if (ensureResult.isErr()) return;
@@ -417,7 +447,7 @@ describe('ShareDbRealtimeEngine', () => {
       options: {},
     };
 
-    const engine = new ShareDbRealtimeEngine(new ShareDbBackendPublisher(runtime.backend));
+    const engine = createEngine(new ShareDbBackendPublisher(runtime.backend));
     const ensureResult = await engine.ensure(context, docId, initial);
     expect(ensureResult.isOk()).toBe(true);
     if (ensureResult.isErr()) return;
@@ -474,7 +504,7 @@ describe('ShareDbRealtimeEngine', () => {
 
     const actorId = ActorId.create('test-actor')._unsafeUnwrap();
     const context = { actorId };
-    const engine = new ShareDbRealtimeEngine(new ShareDbBackendPublisher(runtime.backend));
+    const engine = createEngine(new ShareDbBackendPublisher(runtime.backend));
     const docId = RealtimeDocId.fromParts(collection, documentId)._unsafeUnwrap();
 
     const ensureResult = await engine.ensure(context, docId, {
@@ -513,7 +543,7 @@ describe('ShareDbRealtimeEngine', () => {
         return ok(undefined);
       },
     };
-    const engine = new ShareDbRealtimeEngine(publisher as unknown as ShareDbBackendPublisher);
+    const engine = createEngine(publisher as unknown as ShareDbBackendPublisher);
 
     const result = await engine.applyChange(context, docId, {
       type: 'set',
@@ -540,7 +570,7 @@ describe('ShareDbRealtimeEngine', () => {
         return ok(undefined);
       },
     };
-    const engine = new ShareDbRealtimeEngine(publisher as unknown as ShareDbBackendPublisher);
+    const engine = createEngine(publisher as unknown as ShareDbBackendPublisher);
 
     const result = await engine.applyChange(context, docId, [
       { type: 'set', path: ['query'], value: {} },
@@ -558,6 +588,31 @@ describe('ShareDbRealtimeEngine', () => {
     ]);
   });
 
+  it('publishes an expected-existing ensure to doc subscribers only', async () => {
+    const actorId = ActorId.create('test-actor')._unsafeUnwrap();
+    const context = { actorId, requestId: 'ensure-request' };
+    const published: Array<{ channels: ReadonlyArray<string>; op: ShareDbOp }> = [];
+    const publisher = {
+      publish: async (channels: ReadonlyArray<string>, op: ShareDbOp) => {
+        published.push({ channels, op });
+        return ok(undefined);
+      },
+    };
+    const engine = createEngine(publisher as unknown as ShareDbBackendPublisher);
+    const docId = RealtimeDocId.fromParts('viw_tbl_test', 'viw_test')._unsafeUnwrap();
+
+    (await engine.ensure(context, docId, { id: 'viw_test' }))._unsafeUnwrap();
+    (
+      await engine.ensure(context, docId, { id: 'viw_test' }, { expectExisting: true })
+    )._unsafeUnwrap();
+
+    // a genuine create reaches collection query subscriptions and doc subscribers
+    expect(published[0]?.channels).toEqual(['viw_tbl_test', 'viw_tbl_test.viw_test']);
+    // an existing doc cannot join any collection query, so query pollers stay quiet
+    expect(published[1]?.channels).toEqual(['viw_tbl_test.viw_test']);
+    expect(published[1]?.op).toMatchObject({ create: { type: 'json0' }, v: 0 });
+  });
+
   it('publishes collection-only invalidation without a synthetic document', async () => {
     const actorId = ActorId.create('test-actor')._unsafeUnwrap();
     const context = { actorId, requestId: 'manual-sort-request' };
@@ -570,7 +625,7 @@ describe('ShareDbRealtimeEngine', () => {
         return ok(undefined);
       },
     };
-    const engine = new ShareDbRealtimeEngine(publisher as unknown as ShareDbBackendPublisher);
+    const engine = createEngine(publisher as unknown as ShareDbBackendPublisher);
 
     const result = await engine.invalidateCollection(context, 'rec_tbl_test', {
       type: 'set',
@@ -599,7 +654,7 @@ describe('ShareDbRealtimeEngine', () => {
     const docId = RealtimeDocId.fromParts(collection, documentId)._unsafeUnwrap();
     const initial = { id: documentId, name: 'To Delete' };
 
-    const engine = new ShareDbRealtimeEngine(new ShareDbBackendPublisher(runtime.backend));
+    const engine = createEngine(new ShareDbBackendPublisher(runtime.backend));
     const ensureResult = await engine.ensure(context, docId, initial);
     expect(ensureResult.isOk()).toBe(true);
     if (ensureResult.isErr()) return;
@@ -633,7 +688,7 @@ describe('ShareDbRealtimeEngine', () => {
     const documentId = 'view_delete_after_update';
     const docId = RealtimeDocId.fromParts(collection, documentId)._unsafeUnwrap();
     const initial = { id: documentId, name: 'Updated before delete' };
-    const backendEngine = new ShareDbRealtimeEngine(new ShareDbBackendPublisher(runtime.backend));
+    const backendEngine = createEngine(new ShareDbBackendPublisher(runtime.backend));
     (await backendEngine.ensure(context, docId, initial))._unsafeUnwrap();
 
     const client = createShareDbClientDoc<typeof initial>({
@@ -644,9 +699,7 @@ describe('ShareDbRealtimeEngine', () => {
 
     try {
       await client.ready;
-      const pubsubEngine = new ShareDbRealtimeEngine(
-        new ShareDbPubSubPublisher(runtime.backend.pubsub)
-      );
+      const pubsubEngine = createEngine(new ShareDbPubSubPublisher(runtime.backend.pubsub));
       const updated = waitNextRemoteOp(client.doc);
       (
         await pubsubEngine.applyChange(
@@ -682,14 +735,12 @@ describe('ShareDbRealtimeEngine', () => {
 
       // Create the doc in the backend store so the subscribing client fetches a
       // baseline snapshot at version 1, matching the broadcast op version below.
-      const backendEngine = new ShareDbRealtimeEngine(new ShareDbBackendPublisher(runtime.backend));
+      const backendEngine = createEngine(new ShareDbBackendPublisher(runtime.backend));
       const ensureResult = await backendEngine.ensure(context, docId, initial);
       expect(ensureResult.isOk()).toBe(true);
 
       // The projection broadcasts via the pub/sub publisher in production.
-      const pubsubEngine = new ShareDbRealtimeEngine(
-        new ShareDbPubSubPublisher(runtime.backend.pubsub)
-      );
+      const pubsubEngine = createEngine(new ShareDbPubSubPublisher(runtime.backend.pubsub));
 
       const client = createShareDbClientDoc<typeof initial>({
         url: runtime.url,

@@ -15,6 +15,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { useIsCloud } from '../../hooks/useIsCloud';
+import { useUpgradeCtaEnabled } from '../../hooks/useUpgradeCtaEnabled';
 import { PersonalSettingTab, useSettingStore } from '../setting/useSettingStore';
 
 export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
@@ -27,6 +28,7 @@ export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
     mutationFn: signout,
   });
   const isCloud = useIsCloud();
+  const upgradeCtaEnabled = useUpgradeCtaEnabled();
 
   const loginOutClick = async () => {
     await loginOut();
@@ -68,7 +70,8 @@ export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
             {t('settings.nav.contactSupport')}
           </a>
         </DropdownMenuItem>
-        {isCloud && (
+        {/* License purchase: not inside the native mobile WebView */}
+        {isCloud && upgradeCtaEnabled && (
           <DropdownMenuItem
             className="flex gap-2"
             onClick={() => {

@@ -1,10 +1,10 @@
 import { Colors, FieldType } from '@teable/core';
 import type { IButtonFieldOptions } from '@teable/core';
 import { Plus } from '@teable/icons';
-import { useTheme } from '@teable/next-themes';
 import { getSelectColorPairs } from '@teable/sdk';
 import { FieldSelector } from '@teable/sdk/components';
 import { useFields } from '@teable/sdk/hooks';
+import { useTheme } from '@teable/ui-lib';
 import {
   Button,
   Input,

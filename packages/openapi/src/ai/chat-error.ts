@@ -42,6 +42,10 @@ export enum ChatErrorCode {
   DANGLING_TOOL_USE = 'dangling_tool_use',
   CONTEXT_IMPORT_FAILED = 'context_import_failed',
 
+  // App Builder version save (the turn finished, the changes were not saved as a version)
+  VERSION_SAVE_FAILED = 'version_save_failed',
+  VERSION_PUSH_TOO_LARGE = 'version_push_too_large',
+
   // Generic
   UNKNOWN = 'unknown',
 }

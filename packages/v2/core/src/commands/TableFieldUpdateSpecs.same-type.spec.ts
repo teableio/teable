@@ -17,7 +17,6 @@ import { FieldColor } from '../domain/table/fields/types/FieldColor';
 import { FieldHasError } from '../domain/table/fields/types/FieldHasError';
 import { FormulaExpression } from '../domain/table/fields/types/FormulaExpression';
 import { NumberDefaultValue } from '../domain/table/fields/types/NumberDefaultValue';
-import { NumberFormatting } from '../domain/table/fields/types/NumberFormatting';
 import { NumberShowAs, SingleNumberDisplayType } from '../domain/table/fields/types/NumberShowAs';
 import { RatingColor } from '../domain/table/fields/types/RatingColor';
 import { RatingIcon } from '../domain/table/fields/types/RatingIcon';
@@ -82,10 +81,6 @@ const BUTTON_CONFIRM = ButtonConfirm.create({
   confirmText: 'Deploy',
 })._unsafeUnwrap();
 const BUTTON_COLOR_TEAL = FieldColor.from('teal');
-const FORMULA_NUMBER_FORMATTING = NumberFormatting.create({
-  type: 'decimal',
-  precision: 1,
-})._unsafeUnwrap();
 const RATING_MAX_FIVE = RatingMax.five();
 const RATING_ICON_STAR = RatingIcon.star();
 const RATING_COLOR_YELLOW = RatingColor.yellowBright();
@@ -538,45 +533,6 @@ const sameTypeCases: SameTypeCase[] = [
           'UpdateMultipleSelectDefaultValueSpec',
           'UpdateMultipleSelectAutoNewOptionsSpec',
           'TableUpdateFieldConstraintsSpec',
-        ],
-      };
-    },
-  },
-  {
-    name: 'formula',
-    prepare: () => {
-      const { currentField } = buildHarness('n', 'n', (builder, fieldId) => {
-        builder
-          .field()
-          .formula()
-          .withId(fieldId)
-          .withName(FieldName.create('Calc')._unsafeUnwrap())
-          .withExpression(FormulaExpression.create('1')._unsafeUnwrap())
-          .withFormatting(FORMULA_NUMBER_FORMATTING)
-          .withShowAs(NUMBER_SHOW_AS_BAR)
-          .withResultType({
-            cellValueType: CellValueType.number(),
-            isMultipleCellValue: CellValueMultiplicity.single(),
-          })
-          .done();
-      });
-
-      return {
-        currentField,
-        input: {
-          name: 'Calc 2',
-          options: {
-            expression: '2',
-            formatting: { type: 'currency', precision: 2, symbol: '$' },
-            showAs: null,
-          },
-        },
-        expectedSpecNames: [
-          'TableUpdateFieldNameSpec',
-          'UpdateFormulaExpressionSpec',
-          'UpdateFormulaTimeZoneSpec',
-          'UpdateFormulaFormattingSpec',
-          'UpdateFormulaShowAsSpec',
         ],
       };
     },

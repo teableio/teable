@@ -39,6 +39,8 @@ export const renderSearchTextProjectionSql = (
       );
     case 'plain_list':
       return joinJsonArrayTextSql(normalizeToJsonArraySql(columnSql));
+    case 'rounded_number_list':
+      return `(SELECT string_agg(round(elem.value::numeric, ${sanitizePrecision(projection.precision)})::text, ', ' ORDER BY elem.ordinality) FROM jsonb_array_elements_text(${normalizeToJsonArraySql(columnSql)}) WITH ORDINALITY AS elem(value, ordinality))`;
     case 'rounded_number':
       return `round((${columnSql})::numeric, ${sanitizePrecision(projection.precision)})::text`;
     case 'plain':
@@ -54,6 +56,7 @@ const projectionKinds: ReadonlySet<string> = new Set([
   'structured_title',
   'structured_title_list',
   'rounded_number',
+  'rounded_number_list',
 ]);
 
 const sanitizePrecision = (value: unknown): number => {
@@ -70,7 +73,7 @@ export const sanitizeSearchTextProjection = (value: unknown): SearchFieldTextPro
   if (typeof value !== 'object' || value === null) return { kind: 'plain' };
   const kind = (value as { kind?: unknown }).kind;
   if (typeof kind !== 'string' || !projectionKinds.has(kind)) return { kind: 'plain' };
-  if (kind === 'rounded_number') {
+  if (kind === 'rounded_number' || kind === 'rounded_number_list') {
     return {
       kind,
       precision: sanitizePrecision((value as { precision?: unknown }).precision),
@@ -81,7 +84,38 @@ export const sanitizeSearchTextProjection = (value: unknown): SearchFieldTextPro
 
 export const searchTextProjectionKey = (projection?: SearchFieldTextProjection): string => {
   if (!projection) return 'plain';
-  return projection.kind === 'rounded_number'
-    ? `rounded_number(${sanitizePrecision(projection.precision)})`
+  return 'precision' in projection
+    ? `${projection.kind}(${sanitizePrecision(projection.precision)})`
     : projection.kind;
 };
+
+/** Install only during explicitly writable search-document maintenance. Version
+ * the name instead of replacing a function used by existing stored columns. */
+export const roundedNumberListSearchFunctionBody = `
+  SELECT string_agg(round(elem.value::numeric, precision_digits)::text, ', ' ORDER BY elem.ordinality)
+  FROM jsonb_array_elements_text(
+    CASE WHEN jsonb_typeof(cell) = 'array' THEN cell
+      WHEN cell IS NULL THEN '[]'::jsonb
+      ELSE ('[' || cell::text || ']')::jsonb END
+  ) WITH ORDINALITY AS elem(value, ordinality)
+`;
+
+export const roundedNumberListSearchFunctionSql = `CREATE FUNCTION public.teable_search_rounded_number_list_v1(cell jsonb, precision_digits integer)
+RETURNS text
+LANGUAGE sql IMMUTABLE PARALLEL SAFE
+SET search_path = pg_catalog
+AS $teable_search$${roundedNumberListSearchFunctionBody}$teable_search$`;
+
+export const requiresRoundedNumberListSearchFunction = (
+  projections: ReadonlyArray<SearchFieldTextProjection | undefined>
+): boolean => projections.some((projection) => projection?.kind === 'rounded_number_list');
+
+/** Generated columns disallow subqueries; ordinary queries keep the inline
+ * expression so read-only analysis and legacy reads need no helper install. */
+export const renderGeneratedSearchTextProjectionSql = (
+  columnSql: string,
+  projection?: SearchFieldTextProjection
+): string =>
+  projection?.kind === 'rounded_number_list'
+    ? `public.teable_search_rounded_number_list_v1((${columnSql})::jsonb, ${sanitizePrecision(projection.precision)})`
+    : renderSearchTextProjectionSql(columnSql, projection);

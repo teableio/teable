@@ -24,7 +24,6 @@ import { validateSecret } from './utils';
 
 interface IRefreshTokenInput {
   pluginId: string;
-  secret: string;
   accessTokenId: string;
 }
 
@@ -71,10 +70,11 @@ export class PluginAuthService {
     });
   }
 
-  private async generateRefreshToken({ pluginId, secret, accessTokenId }: IRefreshTokenInput) {
+  // The plugin secret is presented (and bcrypt-checked) on every refresh, so
+  // it has no place in the token: a JWT payload is readable by its holder.
+  private async generateRefreshToken({ pluginId, accessTokenId }: IRefreshTokenInput) {
     return this.jwtService.signAsync(
       {
-        secret,
         accessTokenId,
         pluginId,
         authorizationVersion,
@@ -245,7 +245,6 @@ export class PluginAuthService {
 
     const refreshToken = await this.generateRefreshToken({
       pluginId,
-      secret,
       accessTokenId: accessToken.id,
     });
 
@@ -271,7 +270,6 @@ export class PluginAuthService {
 
     if (
       payload.pluginId !== pluginId ||
-      payload.secret !== secret ||
       payload.accessTokenId === undefined ||
       payload.authorizationVersion !== authorizationVersion
     ) {
@@ -324,7 +322,6 @@ export class PluginAuthService {
 
       const refreshToken = await this.generateRefreshToken({
         pluginId,
-        secret,
         accessTokenId: accessToken.id,
       });
       return {

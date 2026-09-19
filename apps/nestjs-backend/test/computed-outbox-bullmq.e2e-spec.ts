@@ -1,20 +1,31 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { getQueueToken } from '@nestjs/bullmq';
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo } from '@teable/core';
 import { FieldType, Relationship } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import {
+  createComputedOutboxWakeup,
   v2RecordRepositoryPostgresTokens,
   type ComputedUpdateWorker,
+  type IComputedOutboxWakeupPublisher,
 } from '@teable/v2-adapter-table-repository-postgres';
+import type { Queue } from 'bullmq';
 import { vi } from 'vitest';
 
 import { ComputedOutboxWakeupHandler } from '../src/features/v2/computed-outbox-trigger/computed-outbox-wakeup.handler';
+import {
+  COMPUTED_OUTBOX_WAKEUP_PUBLISHER,
+  COMPUTED_OUTBOX_WAKEUP_QUEUE,
+} from '../src/features/v2/computed-outbox-trigger/constants';
 import { V2ContainerService } from '../src/features/v2/v2-container.service';
 import {
+  createBase,
   createField,
   createTable,
   getRecord,
   initApp,
+  permanentDeleteBase,
   permanentDeleteTable,
   updateRecordByApi,
 } from './utils/init-app';
@@ -49,6 +60,35 @@ describeBullMq('BullMQ computed outbox (e2e)', () => {
     await app?.close();
   }, 120_000);
 
+  it('completes a wakeup for a permanently deleted base without creating a replay', async () => {
+    const base = await createBase({
+      spaceId: globalThis.testConfig.spaceId,
+      name: 'Deleted wakeup base',
+    });
+    await permanentDeleteBase(base.id);
+    const prisma = app.get(PrismaService);
+    expect(await prisma.base.findUnique({ where: { id: base.id } })).toBeNull();
+
+    const wakeup = createComputedOutboxWakeup({
+      taskId: `cuo${base.id.slice(3)}`,
+      baseId: base.id,
+      availableAt: new Date(),
+      cause: 'replay',
+    });
+    const queue = app.get<Queue>(getQueueToken(COMPUTED_OUTBOX_WAKEUP_QUEUE));
+    const publisher = app.get<IComputedOutboxWakeupPublisher>(COMPUTED_OUTBOX_WAKEUP_PUBLISHER);
+    await publisher.publish(wakeup);
+
+    await waitFor(async () => {
+      const job = await queue.getJob(wakeup.wakeupId);
+      expect(await job?.getState()).toBe('completed');
+      expect(job?.returnvalue).toEqual({ status: 'noop' });
+    }, 8000);
+    const deliveries = await queue.getJobs(['waiting', 'active', 'delayed', 'failed', 'completed']);
+    expect(
+      deliveries.filter((job) => job.data.taskId === wakeup.taskId).map((job) => job.id)
+    ).toEqual([wakeup.wakeupId]);
+  });
   it(
     'runs a committed cross-table update through BullMQ wake-up delivery',
     { timeout: 180_000 },

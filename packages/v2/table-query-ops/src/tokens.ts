@@ -14,7 +14,6 @@ export const v2TableOpsTokens = {
   searchVectorReconciler: Symbol('v2.tableOps.searchVectorReconciler'),
   searchAccessPathReconciler: Symbol('v2.tableOps.searchAccessPathReconciler'),
   searchVectorStatusReader: Symbol('v2.tableOps.searchVectorStatusReader'),
-  searchAccessPathResolver: Symbol('v2.tableOps.searchAccessPathResolver'),
   searchAccessPathCapabilityReader: Symbol('v2.tableOps.searchAccessPathCapabilityReader'),
   searchVectorSchemaMaintenanceScheduler: Symbol(
     'v2.tableOps.searchVectorSchemaMaintenanceScheduler'

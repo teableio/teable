@@ -14,6 +14,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `computed-outbox/` - Computed-update outbox maintenance queries (overview, pauses, anomalies, queue jobs, task lineage).
 - `GetTableByIdHandler.ts` - Role: query handler; Purpose: find a table by spec.
 - `GetTableByIdQuery.ts` - Role: query DTO; Purpose: validate baseId/tableId and convert to value objects.
+- `GetFieldSnapshotsQuery.ts` - Role: query DTO; Purpose: validate Table/Field IDs for ShareDB field snapshots.
+- `GetFieldSnapshotsHandler.ts` - Role: query handler; Purpose: load requested Field children with persisted versions, omitting missing ids like v1 snapshot-bulk.
 - `GetViewHandler.ts` - Role: query handler; Purpose: load a Table aggregate with one selected View child.
 - `GetViewQuery.ts` - Role: query DTO; Purpose: validate Table/View IDs.
 - `ListViewsHandler.ts` - Role: query handler; Purpose: project all active View children from a Table aggregate.
@@ -44,7 +46,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
   Table aggregate, execute its copy plan through the existing Table Record repository, and format
   the selected v2 Field values as clipboard text.
 - `ListTableRecordsHandler.ts` - Role: query handler; Purpose: load records for a table.
-- `ListTableRecordsQuery.ts` - Role: query DTO; Purpose: validate tableId, filter, offset/cursor pagination, and projection. `includeTotal` defaults off; `cursor` is keyset on `__auto_number` asc and cannot mix with offset.
+- `ListTableRecordsQuery.ts` - Role: query DTO; Purpose: validate tableId, filter, offset/cursor pagination, and projection. `includeTotal` defaults off; `cursor` is an opaque keyset token carrying the previous page's order-key values, and cannot mix with offset.
 - `CountTableRecordsHandler.ts` - Role: query handler; Purpose: count rows for a table without fetching records.
 - `CountTableRecordsQuery.ts` - Role: query DTO; Purpose: validate table/view/filter/search/link inputs for row counts.
 - `GetRecordStatusQuery.ts` - Role: query DTO; Purpose: validate Table/Record IDs plus the

@@ -1,6 +1,6 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { isEqual } from 'lodash';
-import type { Dispatch, ForwardRefRenderFunction, SetStateAction } from 'react';
+import type { Dispatch, ForwardRefRenderFunction, RefObject, SetStateAction } from 'react';
 import {
   useState,
   useRef,
@@ -57,6 +57,7 @@ import {
   SelectableType,
 } from './interface';
 import type { CoordinateManager, ImageManager, SpriteManager, CombinedSelection } from './managers';
+import type { IBaseCellRenderer, ICell } from './renderers';
 import { CellRegionType, getCellRenderer } from './renderers';
 import { RenderLayer } from './RenderLayer';
 import type { IRegionData } from './utils';
@@ -101,6 +102,18 @@ export interface IInteractionLayerRef {
   resetState: () => void;
   setSelection: (selection: CombinedSelection) => void;
 }
+
+// Renderers may opt into hover-position tracking per cell, so only cells with
+// clickable parts (e.g. text containing links) trigger repaints on mouse move
+const needsHoverPositionFor = (
+  renderer: Pick<IBaseCellRenderer<never>, 'needsHoverPosition'>,
+  cell: ICell
+) => {
+  const { needsHoverPosition } = renderer;
+  return typeof needsHoverPosition === 'function'
+    ? needsHoverPosition(cell as never)
+    : Boolean(needsHoverPosition);
+};
 
 export const InteractionLayerBase: ForwardRefRenderFunction<
   IInteractionLayerRef,
@@ -211,7 +224,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const isFillingRef = useRef(false);
   const fillSelectionRef = useRef<CombinedSelection | null>(null);
 
-  const mousePosition = useMouse(stageRef);
+  // react-use types the ref as non-nullable while React 19 useRef(null) yields RefObject<T | null>
+  const mousePosition = useMouse(stageRef as RefObject<Element>);
   const [cellScrollTop, setCellScrollTop] = useState(0);
   const [hoverCellPosition, setHoverCellPosition] = useState<ICellPosition | null>(null);
   const [cursor, setCursor] = useState('default');
@@ -303,7 +317,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       const cellRenderer = getCellRenderer(cell.type);
 
       if (
-        cellRenderer.needsHoverPosition ||
+        needsHoverPositionFor(cellRenderer, cell) ||
         (cellRenderer.needsHoverPositionWhenActive &&
           activeCell &&
           isEqual(activeCell, [columnIndex, realIndex]))
@@ -616,8 +630,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     const { realIndex } = getLinearRow(rowIndex);
     const cell = getCellContent([columnIndex, realIndex]);
     const cellRenderer = getCellRenderer(cell.type);
-    const { needsHover, needsHoverPosition, needsHoverWhenActive, needsHoverPositionWhenActive } =
-      cellRenderer;
+    const { needsHover, needsHoverWhenActive, needsHoverPositionWhenActive } = cellRenderer;
+    const needsHoverPosition = needsHoverPositionFor(cellRenderer, cell);
     const isActive = type === RegionType.ActiveCell;
     if ((needsHoverPosition || (needsHoverPositionWhenActive && isActive)) && hoverCellPosition) {
       const region = cellRenderer.checkRegion?.(cell as never, {
@@ -785,6 +799,11 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     }
   };
 
+  const onEditorContextMenu = () => {
+    const { x, y } = getPosition();
+    onContextMenu?.(selection, { x, y });
+  };
+
   const resetState = () => {
     setActiveCell(null);
     setDragState(DEFAULT_DRAG_STATE);
@@ -923,6 +942,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         onDelete={onDelete}
         onChange={onCellEdited}
         onRowExpand={onRowExpand}
+        onContextMenu={onEditorContextMenu}
         setEditing={setEditing}
         setSelection={setSelection}
         setActiveCell={setActiveCell}

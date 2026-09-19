@@ -3,19 +3,17 @@ import type { Result } from 'neverthrow';
 
 import { TableQueryService } from '../application/services/TableQueryService';
 import type { DomainError } from '../domain/shared/DomainError';
-import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { RecordReordered } from '../domain/table/events/RecordReordered';
 import { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import { SetRowOrderValueSpec } from '../domain/table/records/specs/values/SetRowOrderValueSpec';
 import { TableRecord } from '../domain/table/records/TableRecord';
-import * as EventBusPort from '../ports/EventBus';
+import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
-import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { inject, injectable } from '@teable/v2-di';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { ApplyRecordOrdersCommand } from './ApplyRecordOrdersCommand';
@@ -50,10 +48,8 @@ export class ApplyRecordOrdersHandler
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
     @inject(v2CoreTokens.tableRecordQueryRepository)
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
-    @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus,
-    @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    @inject(v2CoreTokens.domainWriteTransaction)
+    private readonly domainWriteTransaction: IDomainWriteTransaction
   ) {}
 
   @TraceSpan()
@@ -94,60 +90,67 @@ export class ApplyRecordOrdersHandler
         }
       }
 
-      yield* await handler.unitOfWork.withTransaction(context, async (transactionContext) =>
-        safeTry<void, DomainError>(async function* () {
-          const updates = recordsWithOrder.map((item) =>
-            TableRecord.create({
-              id: item.recordId,
-              tableId: table.id(),
-              fieldValues: [],
-            }).map((record) =>
-              RecordUpdateResult.create(
-                record,
-                new SetRowOrderValueSpec(command.viewId, item.order)
+      const committed = yield* await handler.domainWriteTransaction.execute(
+        context,
+        async (transactionContext) =>
+          safeTry(async function* () {
+            const updates = recordsWithOrder.map((item) =>
+              TableRecord.create({
+                id: item.recordId,
+                tableId: table.id(),
+                fieldValues: [],
+              }).map((record) =>
+                RecordUpdateResult.create(
+                  record,
+                  new SetRowOrderValueSpec(command.viewId, item.order)
+                )
               )
-            )
-          );
+            );
 
-          const resolvedUpdates: RecordUpdateResult[] = [];
-          for (const updateResult of updates) {
-            const update = yield* updateResult;
-            resolvedUpdates.push(update);
-          }
+            const resolvedUpdates: RecordUpdateResult[] = [];
+            for (const updateResult of updates) {
+              const update = yield* updateResult;
+              resolvedUpdates.push(update);
+            }
 
-          const persistResult = await handler.tableRecordRepository.updateManyStream(
-            transactionContext,
-            table,
-            ApplyRecordOrdersHandler.buildBatches(resolvedUpdates)
-          );
-          if (persistResult.isErr()) {
-            return err(persistResult.error);
-          }
+            const persistResult = await handler.tableRecordRepository.updateManyStream(
+              transactionContext,
+              table,
+              ApplyRecordOrdersHandler.buildBatches(resolvedUpdates)
+            );
+            if (persistResult.isErr()) {
+              return err(persistResult.error);
+            }
 
-          return ok(undefined);
-        })
+            const ordersByRecordId = recordsWithOrder.reduce<Record<string, number>>(
+              (acc, item) => {
+                acc[item.recordId.toString()] = item.order;
+                return acc;
+              },
+              {}
+            );
+
+            return ok(
+              domainWrite.fromEvents(
+                ApplyRecordOrdersResult.create(
+                  recordsWithOrder.map((item) => item.recordId.toString())
+                ),
+                [
+                  RecordReordered.create({
+                    tableId: table.id(),
+                    baseId: table.baseId(),
+                    viewId: command.viewId,
+                    recordIds: recordsWithOrder.map((item) => item.recordId),
+                    ordersByRecordId,
+                    previousOrdersByRecordId,
+                  }),
+                ]
+              )
+            );
+          })
       );
 
-      const ordersByRecordId = recordsWithOrder.reduce<Record<string, number>>((acc, item) => {
-        acc[item.recordId.toString()] = item.order;
-        return acc;
-      }, {});
-
-      const events: IDomainEvent[] = [
-        RecordReordered.create({
-          tableId: table.id(),
-          baseId: table.baseId(),
-          viewId: command.viewId,
-          recordIds: recordsWithOrder.map((item) => item.recordId),
-          ordersByRecordId,
-          previousOrdersByRecordId,
-        }),
-      ];
-      yield* await handler.eventBus.publishMany(context, events);
-
-      return ok(
-        ApplyRecordOrdersResult.create(recordsWithOrder.map((item) => item.recordId.toString()))
-      );
+      return ok(committed.value);
     });
   }
 }

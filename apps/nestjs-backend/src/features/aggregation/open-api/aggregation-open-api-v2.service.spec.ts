@@ -1,3 +1,4 @@
+import { SortFunc } from '@teable/core';
 import {
   AggregateTableRecordsQuery,
   AggregateTableRecordsResult,
@@ -14,6 +15,8 @@ import {
 import { ok } from 'neverthrow';
 import { vi } from 'vitest';
 import { string2Hash } from '../../../utils';
+import { TableQuerySearchVectorRuntimeService } from '../../v2/table-query-search-vector-runtime.service';
+import { createSearchIndexTable } from '../../v2/table-query-search-vector-runtime.test-fixture';
 import { AggregationOpenApiV2Service } from './aggregation-open-api-v2.service';
 
 describe('AggregationOpenApiV2Service', () => {
@@ -80,8 +83,10 @@ describe('AggregationOpenApiV2Service', () => {
         })
       ),
     };
+    const table = createSearchIndexTable(tableId, fieldId);
     const tableRepository = {
-      findOne: vi.fn(async () => ok({ id: () => ({ toString: () => tableId }) })),
+      waitForReady: vi.fn(async () => ok(undefined)),
+      findOne: vi.fn(async () => ok(table)),
     };
     const hasPluginRunner = options?.pluginScope !== undefined;
     const container = {
@@ -99,14 +104,94 @@ describe('AggregationOpenApiV2Service', () => {
     const createContext = vi.fn().mockResolvedValue({
       actorId: { toString: () => `usr${'u'.repeat(16)}` },
     });
+    const runtime = new TableQuerySearchVectorRuntimeService({ get: () => 'auto' } as never);
+    const resolveForRecordSearch = vi.spyOn(runtime, 'resolveForRecordSearch');
     const service = new AggregationOpenApiV2Service(
       { getContainerForTable } as never,
       { createContext } as never,
-      { maxGroupPoints: 5_000 } as never
+      { maxGroupPoints: 5_000 } as never,
+      runtime
     );
 
-    return { service, queries, queryBus, getContainerForTable, pluginRunner };
+    return {
+      service,
+      queries,
+      queryBus,
+      getContainerForTable,
+      pluginRunner,
+      tableRepository,
+      resolveForRecordSearch,
+    };
   };
+
+  it('passes no-wait through cached query contexts without changing uncached reads', async () => {
+    const fixture = createFixture();
+    await fixture.service.withProvisionReadyCache(
+      tableId,
+      async () => null,
+      () => fixture.service.tryGetRowCount(tableId, {})
+    );
+    expect(fixture.tableRepository.waitForReady).toHaveBeenCalledTimes(1);
+    expect(fixture.tableRepository.findOne).toHaveBeenLastCalledWith(
+      expect.objectContaining({ config: { tableProvisionWaitMs: 0 } }),
+      expect.anything(),
+      { provisionWaitMs: 0 }
+    );
+    fixture.tableRepository.findOne.mockClear();
+    await fixture.service.tryGetRowCount(tableId, {});
+    expect(fixture.tableRepository.findOne).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ config: { tableProvisionWaitMs: 0 } }),
+      expect.anything(),
+      { provisionWaitMs: undefined }
+    );
+  });
+
+  it.each(['count', 'aggregation', 'groups', 'search-index'] as const)(
+    'resolves the trusted runtime search path for %s',
+    async (kind) => {
+      const fixture = createFixture();
+      const accessPath = {
+        kind: 'generated_text',
+        generatedColumnName: '__search_document',
+        provider: 'pg_trgm',
+        searchScope: 'all_fields',
+        coveredFieldIds: [primaryFieldId],
+      };
+      const search: [string, string, boolean] = ['order', '', true];
+      if (kind === 'count') {
+        await fixture.service.tryGetRowCount(tableId, { viewId, search });
+      } else if (kind === 'aggregation') {
+        await fixture.service.tryGetAggregation(tableId, { viewId, search });
+      } else if (kind === 'search-index') {
+        await fixture.service.tryGetSearchIndex(tableId, { viewId, search, take: 10 });
+      } else {
+        await fixture.service.tryGetGroupPoints(tableId, {
+          viewId,
+          search,
+          groupBy: [{ fieldId, order: SortFunc.Asc }],
+        });
+      }
+      const query = fixture.queries.find(
+        (item) =>
+          item instanceof CountTableRecordsQuery ||
+          item instanceof AggregateTableRecordsQuery ||
+          item instanceof ListTableRecordsQuery
+      );
+      expect(query).toHaveProperty('recordSearchAccessPath', expect.objectContaining(accessPath));
+      expect(fixture.tableRepository.findOne).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it('does not resolve an aggregate access path before the plugin scope fallback', async () => {
+    const fixture = createFixture({ pluginScope: { fieldMasks: [{}] } });
+    await expect(
+      fixture.service.tryGetAggregation(tableId, {
+        viewId,
+        search: ['order', '', true],
+      })
+    ).resolves.toBeUndefined();
+    expect(fixture.resolveForRecordSearch).not.toHaveBeenCalled();
+  });
 
   it('falls back for aggregation without a viewId', async () => {
     const fixture = createFixture();
@@ -273,8 +358,8 @@ describe('AggregationOpenApiV2Service', () => {
       skip: 1,
       take: 2,
       field: { sum: [fieldId] },
-      orderBy: [{ fieldId, order: 'asc' }],
-      groupBy: [{ fieldId, order: 'desc' }],
+      orderBy: [{ fieldId, order: SortFunc.Asc }],
+      groupBy: [{ fieldId, order: SortFunc.Desc }],
     });
 
     expect(result).toEqual({
@@ -285,8 +370,8 @@ describe('AggregationOpenApiV2Service', () => {
     );
     expect(aggregateQuery?.skip).toBe(1);
     expect(aggregateQuery?.take).toBe(2);
-    expect(aggregateQuery?.groupBy).toEqual([{ fieldId, order: 'desc' }]);
-    expect(aggregateQuery?.orderBy).toEqual([{ fieldId, order: 'asc' }]);
+    expect(aggregateQuery?.groupBy).toEqual([{ fieldId, order: SortFunc.Desc }]);
+    expect(aggregateQuery?.orderBy).toEqual([{ fieldId, order: SortFunc.Asc }]);
   });
 
   it('passes collapsed groups through the v2 aggregate query', async () => {
@@ -298,7 +383,7 @@ describe('AggregationOpenApiV2Service', () => {
       viewId,
       skip: 0,
       take: 5,
-      groupBy: [{ fieldId, order: 'asc' }],
+      groupBy: [{ fieldId, order: SortFunc.Asc }],
       collapsedGroupIds: ['group-a'],
       field: { sum: [fieldId] },
     });
@@ -310,7 +395,7 @@ describe('AggregationOpenApiV2Service', () => {
       (query): query is AggregateTableRecordsQuery => query instanceof AggregateTableRecordsQuery
     );
     expect(aggregateQuery?.collapsedGroupIds).toEqual(['group-a']);
-    expect(aggregateQuery?.groupBy).toEqual([{ fieldId, order: 'asc' }]);
+    expect(aggregateQuery?.groupBy).toEqual([{ fieldId, order: SortFunc.Asc }]);
   });
 
   it('passes ignoreViewQuery through the v2 aggregate query', async () => {
@@ -343,12 +428,14 @@ describe('AggregationOpenApiV2Service', () => {
         { fieldId: primaryFieldId, statisticFunc: 'count', value: 2, groupValues: ['A'] },
         { fieldId: primaryFieldId, statisticFunc: 'count', value: 1, groupValues: ['B'] },
       ],
-      aggregateGroups: [{ fieldId: primaryFieldId, fieldType: 'singleLineText', order: 'asc' }],
+      aggregateGroups: [
+        { fieldId: primaryFieldId, fieldType: 'singleLineText', order: SortFunc.Asc },
+      ],
     });
 
     const result = await fixture.service.tryGetGroupPoints(tableId, {
       viewId,
-      groupBy: [{ fieldId, order: 'asc' as never }],
+      groupBy: [{ fieldId, order: SortFunc.Asc as never }],
     });
 
     expect(result?.[0]).toMatchObject({ id: firstGroupId, depth: 0, value: 'A' });

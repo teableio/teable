@@ -10,6 +10,7 @@ import {
 } from '@udecode/plate-media/react';
 import { cva } from 'class-variance-authority';
 import { ArrowLeft, ArrowRight, Download, Minus, Plus, X } from 'lucide-react';
+import type { JSX } from 'react';
 import { createPortal } from 'react-dom';
 import { useModalRefElement } from '../../expand-record/useModalRefElement';
 

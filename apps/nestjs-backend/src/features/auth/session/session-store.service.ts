@@ -7,7 +7,7 @@ import { AuthConfig, IAuthConfig } from '../../../configs/auth.config';
 import type { ISessionData } from '../../../types/session';
 import { second } from '../../../utils/second';
 
-const SESSION_STORE_KEYS = ['passport', 'cookie'] as const;
+const SESSION_STORE_KEYS = ['passport', 'cookie', 'client'] as const;
 
 @Injectable()
 export class SessionStoreService extends Store {

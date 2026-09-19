@@ -16,6 +16,7 @@ import {
   DashboardEventFactory,
   AppEventFactory,
   WorkflowEventFactory,
+  RoutineEventFactory,
 } from '../events';
 import { BaseNodeEventFactory } from '../events/base/base-node.event';
 
@@ -50,7 +51,9 @@ export class EventMiddleware implements NestInterceptor {
     return {
       reqUser: req?.user as any,
       reqHeaders: req?.headers,
-      reqParams: req?.params,
+      // Express 5 types params as string | string[] (arrays only for named wildcards); these
+      // routes only declare plain :id params.
+      reqParams: req?.params as Record<string, string>,
       reqQuery: req?.query,
       reqBody: req?.body,
       resolveData,
@@ -125,6 +128,16 @@ export class EventMiddleware implements NestInterceptor {
           WorkflowEventFactory.create(
             eventName,
             { baseId: reqParams.baseId, workflow: resolveData, ...reqParams },
+            eventContext
+          )
+        )
+        .with(Events.ROUTINE_DELETE, () =>
+          RoutineEventFactory.create(eventName, { ...resolveData, ...reqParams }, eventContext)
+        )
+        .with(P.union(Events.ROUTINE_CREATE, Events.ROUTINE_UPDATE), () =>
+          RoutineEventFactory.create(
+            eventName,
+            { baseId: reqParams.baseId, routine: resolveData, ...reqParams },
             eventContext
           )
         )

@@ -261,18 +261,44 @@ export class ViewService implements IReadonlyAdapterService {
 
   async restoreView(tableId: string, viewId: string) {
     await this.assertTableWritable(tableId);
-    await this.prismaService.$tx(async () => {
-      await this.prismaService.txClient().view.update({
+    // Callers such as operation-id trash restores and undo/redo run outside a
+    // transaction; raw ops are only flushed to ShareDB by the outermost $tx
+    await this.prismaService.$tx(async (prisma) => {
+      const viewRaw = await prisma.view.findFirst({
+        where: { id: viewId, tableId, deletedTime: { not: null } },
+        select: { version: true },
+      });
+
+      if (!viewRaw) {
+        throw new CustomHttpException(
+          `View not found with id: ${viewId} and tableId: ${tableId}`,
+          HttpErrorCode.NOT_FOUND,
+          {
+            localization: {
+              i18nKey: 'httpErrors.view.notFound',
+            },
+          }
+        );
+      }
+
+      const { version } = viewRaw;
+      await prisma.view.update({
         where: { id: viewId },
         data: {
+          version: version + 1,
           deletedTime: null,
+          lastModifiedBy: this.cls.get('user.id'),
+          lastModifiedTime: new Date().toISOString(),
         },
       });
-      const ops = ViewOpBuilder.editor.setViewProperty.build({
-        key: 'lastModifiedTime',
-        newValue: new Date().toISOString(),
-      });
-      await this.updateViewByOps(tableId, viewId, [ops]);
+
+      // deleteView removed the doc with a del op, so the restore must be a
+      // create op (mirrors TableService.restoreTable): an edit op on the
+      // revived doc is skipped by DocListQueryPollSkipStrategy and would leave
+      // view list subscriptions without the restored view
+      await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.View, [
+        { docId: viewId, version },
+      ]);
     });
   }
 

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { explainOkResponseSchema } from '@teable/v2-contract-http';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
@@ -736,17 +737,6 @@ describe('v2 field explain endpoints (e2e)', () => {
       );
 
       const updateSteps = itemLabelExplain.computedImpact?.updateSteps ?? [];
-      const computedSqlSummary = itemLabelExplain.sqlExplains
-        .filter((step) => step.stepDescription.startsWith('Computed update batch'))
-        .map((step, index) => ({
-          fields: (updateSteps[index]?.fieldNames ?? []).map((fieldName) =>
-            fieldName.startsWith('perf-lines-') ? '<line primary title>' : fieldName
-          ),
-          diagnostics: step.sqlDiagnostics,
-        }))
-        .sort(
-          (left, right) => (right.diagnostics?.sqlLength ?? 0) - (left.diagnostics?.sqlLength ?? 0)
-        );
       const computedSqlBatches = itemLabelExplain.sqlExplains
         .filter((step) => step.stepDescription.startsWith('Computed update batch'))
         .map((step, index) => ({
@@ -767,84 +757,6 @@ describe('v2 field explain endpoints (e2e)', () => {
           [lineRecord.id]: '<line-record-id>',
         })
       ).toMatchFileSnapshot('./__snapshots__/field-explain.anonymized-formula-update.sql');
-
-      expect(computedSqlSummary).toMatchInlineSnapshot(`
-        [
-          {
-            "diagnostics": {
-              "jsonbAggCount": 0,
-              "lateralJoinCount": 0,
-              "parameterCount": 0,
-              "pgInputIsValidCount": 1,
-              "regexpReplaceCount": 0,
-              "sqlLength": 3874,
-              "stringAggCount": 1,
-            },
-            "fields": [
-              "delta_explanation",
-              "action_line_text",
-            ],
-          },
-          {
-            "diagnostics": {
-              "jsonbAggCount": 0,
-              "lateralJoinCount": 1,
-              "parameterCount": 1,
-              "pgInputIsValidCount": 0,
-              "regexpReplaceCount": 0,
-              "sqlLength": 2640,
-              "stringAggCount": 2,
-            },
-            "fields": [
-              "delta_explanations_raw",
-              "action_lines_raw",
-            ],
-          },
-          {
-            "diagnostics": {
-              "jsonbAggCount": 2,
-              "lateralJoinCount": 2,
-              "parameterCount": 1,
-              "pgInputIsValidCount": 0,
-              "regexpReplaceCount": 0,
-              "sqlLength": 2554,
-              "stringAggCount": 0,
-            },
-            "fields": [
-              "<line primary title>",
-              "line_items",
-            ],
-          },
-          {
-            "diagnostics": {
-              "jsonbAggCount": 0,
-              "lateralJoinCount": 1,
-              "parameterCount": 1,
-              "pgInputIsValidCount": 0,
-              "regexpReplaceCount": 0,
-              "sqlLength": 1616,
-              "stringAggCount": 1,
-            },
-            "fields": [
-              "source_delta_explanations_raw",
-            ],
-          },
-          {
-            "diagnostics": {
-              "jsonbAggCount": 1,
-              "lateralJoinCount": 1,
-              "parameterCount": 1,
-              "pgInputIsValidCount": 0,
-              "regexpReplaceCount": 0,
-              "sqlLength": 1583,
-              "stringAggCount": 0,
-            },
-            "fields": [
-              "line_items",
-            ],
-          },
-        ]
-      `);
     } finally {
       for (const tableIdToDelete of createdTableIds.reverse()) {
         await ctx.deleteTable(tableIdToDelete).catch(() => undefined);

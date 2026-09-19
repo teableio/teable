@@ -6,7 +6,7 @@ import type {
   LLMProvider,
   IChatModelAbility,
   IImageModelAbility,
-  IAIIntegrationConfig,
+  IAIConfigVo,
   IAttachmentTestResult,
   ITestLLMRo,
 } from '@teable/openapi';
@@ -33,7 +33,7 @@ interface ILLMApiConfigStepProps {
   // Custom provider config
   llmProviders: LLMProvider[];
   onProvidersChange: (providers: LLMProvider[]) => void;
-  control: Control<IAIIntegrationConfig>;
+  control: Control<IAIConfigVo>;
   modelTestResults: Map<string, IModelTestResult>;
   onModelTestResultsChange: (results: Map<string, IModelTestResult>) => void;
   testingProviders: Set<string>;
@@ -56,6 +56,7 @@ interface ILLMApiConfigStepProps {
   onSave?: () => Promise<void>;
   isSaving?: boolean;
   isDirty?: boolean;
+  hasClearedProviders?: boolean;
   onResetGateway?: () => void;
 }
 
@@ -82,6 +83,7 @@ export function LLMApiConfigStep({
   onSave,
   isSaving,
   isDirty,
+  hasClearedProviders,
   onResetGateway,
 }: ILLMApiConfigStepProps) {
   const { t } = useTranslation('common');
@@ -116,7 +118,10 @@ export function LLMApiConfigStep({
     testResult === 'success' ||
     (testResult !== 'error' && Boolean(savedGatewayKey) && isCurrentGatewayConfig);
 
-  const canProceed = mode === 'gateway' ? isGatewayKeyVerified || !localGatewayKey : hasProviders;
+  const canProceed =
+    mode === 'gateway'
+      ? isGatewayKeyVerified || !localGatewayKey
+      : hasProviders || Boolean(hasClearedProviders);
 
   // Get saved attachment test from aiConfig
   const savedAttachmentTest = useMemo(() => aiConfig?.attachmentTest, [aiConfig?.attachmentTest]);

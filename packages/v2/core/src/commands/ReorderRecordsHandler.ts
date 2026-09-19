@@ -14,7 +14,7 @@ import { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import { SetRowOrderValueSpec } from '../domain/table/records/specs/values/SetRowOrderValueSpec';
 import { TableRecord } from '../domain/table/records/TableRecord';
-import * as EventBusPort from '../ports/EventBus';
+import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
@@ -22,7 +22,6 @@ import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { createUndoRedoCommand } from '../ports/UndoRedoStore';
-import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { ReorderRecordsCommand } from './ReorderRecordsCommand';
 
@@ -57,12 +56,10 @@ export class ReorderRecordsHandler
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.recordOrderCalculator)
     private readonly recordOrderCalculator: IRecordOrderCalculator,
-    @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoStackService: UndoRedoStackService,
-    @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    @inject(v2CoreTokens.domainWriteTransaction)
+    private readonly domainWriteTransaction: IDomainWriteTransaction
   ) {}
 
   @TraceSpan()
@@ -76,8 +73,6 @@ export class ReorderRecordsHandler
       // Validate view exists
       yield* table.getView(command.order.viewId);
 
-      let orderValues: ReadonlyArray<number> = [];
-      const ordersByRecordId: Record<string, number> = {};
       const previousOrdersByRecordId: Record<string, number> = {};
 
       const viewIdStr = command.order.viewId.toString();
@@ -94,7 +89,7 @@ export class ReorderRecordsHandler
         return err(orderResult.error);
       }
 
-      orderValues = orderResult.value;
+      const orderValues = orderResult.value;
 
       const previousOrdersResult = await handler.tableRecordQueryRepository.find(
         context,
@@ -121,55 +116,59 @@ export class ReorderRecordsHandler
         }
       }
 
-      yield* await handler.unitOfWork.withTransaction(context, async (transactionContext) => {
-        try {
-          const updateResults: RecordUpdateResult[] = [];
+      const committed = yield* await handler.domainWriteTransaction.execute(
+        context,
+        async (transactionContext) => {
+          try {
+            const updateResults: RecordUpdateResult[] = [];
+            const ordersByRecordId: Record<string, number> = {};
 
-          for (let i = 0; i < command.recordIds.length; i++) {
-            const recordId = command.recordIds[i]!;
-            const orderValue = orderValues[i]!;
-            ordersByRecordId[recordId.toString()] = orderValue;
+            for (let i = 0; i < command.recordIds.length; i++) {
+              const recordId = command.recordIds[i]!;
+              const orderValue = orderValues[i]!;
+              ordersByRecordId[recordId.toString()] = orderValue;
 
-            const mutateSpec = new SetRowOrderValueSpec(command.order.viewId, orderValue);
-            const recordResult = TableRecord.create({
-              id: recordId,
-              tableId: table.id(),
-              fieldValues: [],
-            });
-            if (recordResult.isErr()) return err(recordResult.error);
-            updateResults.push(RecordUpdateResult.create(recordResult.value, mutateSpec));
+              const mutateSpec = new SetRowOrderValueSpec(command.order.viewId, orderValue);
+              const recordResult = TableRecord.create({
+                id: recordId,
+                tableId: table.id(),
+                fieldValues: [],
+              });
+              if (recordResult.isErr()) return err(recordResult.error);
+              updateResults.push(RecordUpdateResult.create(recordResult.value, mutateSpec));
+            }
+
+            const updateResult = await handler.tableRecordRepository.updateManyStream(
+              transactionContext,
+              table,
+              ReorderRecordsHandler.buildBatches(updateResults)
+            );
+            if (updateResult.isErr()) return err(updateResult.error);
+
+            const events: IDomainEvent[] = [
+              RecordReordered.create({
+                tableId: table.id(),
+                baseId: table.baseId(),
+                viewId: command.order.viewId,
+                recordIds: command.recordIds,
+                ordersByRecordId,
+                previousOrdersByRecordId,
+              }),
+            ];
+
+            return ok(domainWrite.fromEvents({ ordersByRecordId }, events));
+          } catch (error) {
+            return err(
+              domainError.unexpected({
+                message: error instanceof Error ? error.message : 'Failed to reorder records',
+                code: 'record.reorder_failed',
+              })
+            );
           }
-
-          const updateResult = await handler.tableRecordRepository.updateManyStream(
-            transactionContext,
-            table,
-            ReorderRecordsHandler.buildBatches(updateResults)
-          );
-          if (updateResult.isErr()) return err(updateResult.error);
-
-          return ok(undefined);
-        } catch (error) {
-          return err(
-            domainError.unexpected({
-              message: error instanceof Error ? error.message : 'Failed to reorder records',
-              code: 'record.reorder_failed',
-            })
-          );
         }
-      });
+      );
 
-      const events: IDomainEvent[] = [
-        RecordReordered.create({
-          tableId: table.id(),
-          baseId: table.baseId(),
-          viewId: command.order.viewId,
-          recordIds: command.recordIds,
-          ordersByRecordId,
-          previousOrdersByRecordId,
-        }),
-      ];
-      yield* await handler.eventBus.publishMany(context, events);
-
+      const ordersByRecordId = committed.value.ordersByRecordId;
       const changedOrders = command.recordIds.flatMap((recordId) => {
         const recordIdText = recordId.toString();
         const previousOrder = previousOrdersByRecordId[recordIdText];

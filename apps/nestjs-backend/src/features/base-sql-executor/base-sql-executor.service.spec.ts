@@ -20,15 +20,24 @@ const createService = ({
     {
       get: vi.fn().mockReturnValue('postgresql://teable:secret@localhost:5432/teable'),
     } as unknown as ConfigService,
-    knex({ client: 'pg' }) as never,
-    { searchTimeout: 30_000 } as never
+    knex({ client: 'pg' }) as never
   );
 
+const txTimeout = 20_000;
+
 const createPrismaService = () => ({
+  defaultTxTimeout: txTimeout,
   tableMeta: {
     findMany: vi.fn().mockResolvedValue([{ dbTableName: tableDbName }]),
   },
 });
+
+const readStatementTimeout = (calls: unknown[][]) => {
+  const call = calls.find(([query]) =>
+    String(query).includes('SET LOCAL statement_timeout')
+  ) as string[];
+  return Number(call[0].split('=')[1].trim().replace(/'/g, ''));
+};
 
 describe('BaseSqlExecutorService', () => {
   it('executes BYODB sql-query without creating or setting a read-only role', async () => {
@@ -56,6 +65,11 @@ describe('BaseSqlExecutorService', () => {
     expect(transactionPrisma.$executeRawUnsafe).toHaveBeenCalledWith('SET TRANSACTION READ ONLY');
     expect(transactionPrisma.$executeRawUnsafe.mock.calls).toEqual(
       expect.not.arrayContaining([[expect.stringContaining('SET LOCAL ROLE')]])
+    );
+    // Postgres must cancel the statement before Prisma abandons the transaction,
+    // or the query keeps running on the server with nobody waiting for its result.
+    expect(readStatementTimeout(transactionPrisma.$executeRawUnsafe.mock.calls)).toBeLessThan(
+      txTimeout
     );
   });
 

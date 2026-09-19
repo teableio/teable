@@ -1,6 +1,6 @@
 import type { ISelectFieldChoice } from '@teable/core';
-import { useTheme } from '@teable/next-themes';
 import { getSelectColorPairs } from '@teable/sdk';
+import { useTheme } from '@teable/ui-lib';
 import { Popover, PopoverTrigger, Button, PopoverContent, Input } from '@teable/ui-lib/shadcn';
 import { useState, useEffect, useRef } from 'react';
 import { ColorPicker } from './ColorPicker';

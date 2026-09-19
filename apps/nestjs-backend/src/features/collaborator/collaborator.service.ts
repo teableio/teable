@@ -5,6 +5,7 @@ import {
   canManageRole,
   getRandomString,
   HttpErrorCode,
+  isRobot,
   Role,
   type IBaseRole,
   type IRole,
@@ -38,6 +39,7 @@ import {
 } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
+import { getBaseCached } from '../../utils/meta-ancestry-cache';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
@@ -68,6 +70,21 @@ export class CollaboratorService {
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
+  // Robot identities never hold collaborator rows (see PermissionService.getSpaceCollaborators).
+  private assertNoRobotPrincipal(collaborators: { principalId: string }[]) {
+    if (collaborators.some((collaborator) => isRobot(collaborator.principalId))) {
+      throw new CustomHttpException(
+        'Robot identities cannot be collaborators',
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.notAllowedOperation',
+          },
+        }
+      );
+    }
+  }
+
   async createSpaceCollaborator({
     collaborators,
     spaceId,
@@ -84,6 +101,7 @@ export class CollaboratorService {
     createdBy?: string;
     skipEvent?: boolean;
   }) {
+    this.assertNoRobotPrincipal(collaborators);
     const currentUserId = createdBy || this.cls.get('user.id');
     const exist = await this.prismaService.txClient().collaborator.count({
       where: {
@@ -163,9 +181,12 @@ export class CollaboratorService {
       searchByEmail?: boolean;
     }
   ) {
-    const base = await this.prismaService
-      .txClient()
-      .base.findUniqueOrThrow({ select: { spaceId: true }, where: { id: baseId } });
+    const base = await getBaseCached(this.cls, this.prismaService.txClient(), baseId);
+    if (!base) {
+      throw new CustomHttpException('Project not found', HttpErrorCode.NOT_FOUND, {
+        localization: { i18nKey: 'httpErrors.base.notFound' },
+      });
+    }
 
     const builder = knex
       .from('collaborator')
@@ -1010,6 +1031,7 @@ export class CollaboratorService {
     createdBy?: string;
     skipEvent?: boolean;
   }) {
+    this.assertNoRobotPrincipal(collaborators);
     const currentUserId = createdBy || this.cls.get('user.id');
     const base = await this.prismaService.txClient().base.findUniqueOrThrow({
       where: { id: baseId },
@@ -1026,7 +1048,7 @@ export class CollaboratorService {
     // if has exist space collaborator
     if (exist) {
       throw new CustomHttpException(
-        'Collaborator has already existed in base',
+        'Collaborator has already existed in project',
         HttpErrorCode.VALIDATION_ERROR,
         {
           localization: {
@@ -1236,7 +1258,7 @@ export class CollaboratorService {
           },
         })
         .catch(() => {
-          throw new CustomHttpException('Base not found', HttpErrorCode.VALIDATION_ERROR, {
+          throw new CustomHttpException('Project not found', HttpErrorCode.VALIDATION_ERROR, {
             localization: {
               i18nKey: 'httpErrors.collaborator.baseNotFound',
             },

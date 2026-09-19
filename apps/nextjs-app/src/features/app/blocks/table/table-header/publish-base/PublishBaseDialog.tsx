@@ -555,7 +555,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                         <img
                           src={screenshotUrl}
                           className="size-full object-cover"
-                          alt="published base preview"
+                          alt="published project preview"
                         />
                         <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
                           <div className="flex flex-col items-center gap-2">

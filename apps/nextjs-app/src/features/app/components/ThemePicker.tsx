@@ -1,4 +1,4 @@
-import { useTheme } from '@teable/next-themes';
+import { useTheme } from '@teable/ui-lib';
 import { cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import {

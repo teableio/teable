@@ -49,7 +49,8 @@
     "previewFileLimit": "プレビュー可能なファイルサイズの上限: {{size}}MB、ダウンロードしてご覧ください。",
     "loadFileError": "ファイルの読み込みに失敗しました",
     "previousAttachment": "前へ",
-    "nextAttachment": "次へ"
+    "nextAttachment": "次へ",
+    "deleteAttachment": "削除"
   },
   "undoRedo": {
     "undo": "Undo",
@@ -392,13 +393,13 @@
       "spaceInviteEmail": "スペースにメールで招待",
       "spaceInviteLink": "スペースにリンクで招待",
       "spaceGrantRole": "スペースでの役割",
-      "baseCreate": "ベースの作成",
-      "baseDelete": "ベースの削除",
-      "baseRead": "ベースを読み取り",
-      "baseReadAll": "すべてのベースを読み取り",
-      "baseUpdate": "ベースの更新",
-      "baseInviteEmail": "ベースにメールで招待",
-      "baseInviteLink": "ベースにリンクで招待",
+      "baseCreate": "プロジェクトの作成",
+      "baseDelete": "プロジェクトの削除",
+      "baseRead": "プロジェクトを読み取り",
+      "baseReadAll": "すべてのプロジェクトを読み取り",
+      "baseUpdate": "プロジェクトの更新",
+      "baseInviteEmail": "プロジェクトにメールで招待",
+      "baseInviteLink": "プロジェクトにリンクで招待",
       "baseAuthorityMatrixConfig": "権限マトリックスを構成する",
       "baseDbConnect": "データベースに接続",
       "tableCreate": "テーブルの作成",
@@ -432,6 +433,10 @@
       "automationDelete": "オートメーションの削除",
       "automationRead": "オートメーションの読み取り",
       "automationUpdate": "オートメーションの更新",
+      "routineCreate": "ルーティンを作成",
+      "routineDelete": "ルーティンを削除",
+      "routineRead": "ルーティンを読み取り",
+      "routineUpdate": "ルーティンを更新",
       "appCreate": "アプリを作成",
       "appDelete": "アプリを削除",
       "appRead": "アプリを読み取り",
@@ -439,7 +444,7 @@
       "userEmailRead": "ユーザーメールの読み取り",
       "userIntegrations": "ユーザー統合の管理",
       "recordHistoryRead": "レコード履歴の読み取り",
-      "baseQuery": "クエリベース",
+      "baseQuery": "クエリプロジェクト",
       "instanceRead": "インスタンスの読み取り",
       "instanceUpdate": "インスタンスの更新",
       "enterpriseRead": "Read enterprise configuration",
@@ -450,10 +455,11 @@
     "table": "テーブル",
     "view": "ビュー",
     "space": "スペース",
-    "base": "ベース",
+    "base": "プロジェクト",
     "field": "フィールド",
     "record": "レコード",
     "automation": "オートメーション",
+    "routine": "ルーティン",
     "app": "アプリ",
     "user": "ユーザー",
     "recordHistory": "レコード履歴",
@@ -948,7 +954,13 @@
       "recordsPerMutationMax": "この操作で変更するレコード数が多すぎます。一度に最大 {{max}} 件までです。",
       "computedCellValueMaxBytes": "計算セル値が大きすぎます。最大 {{max}} バイトです。",
       "formulaMaxLength": "数式が長すぎます。最大 {{max}} 文字です。",
-      "tablesPerBaseMax": "このベースはテーブル数の上限に達しました。最大 {{max}} 個です。",
+      "formulaCompileNodesMax": "展開後の数式構造がコンパイル上限の {{max}} ノードを超えています。重複する参照や複雑な分岐を減らしてください。この変更は保存されていません。",
+      "formulaCompileDepthMax": "数式の計算構造が入れ子の上限である {{max}} 階層を超えています。関数の入れ子や連続する演算を減らしてください。この変更は保存されていません。",
+      "formulaReferenceDepthMax": "数式の参照が上限の {{max}} 階層を超えています。数式間の参照の連鎖を短くしてください。この変更は保存されていません。",
+      "formulaBindingsMax": "数式のコンパイルに必要な中間計算のバインディングが {{max}} 個を超えています。数式の分岐や参照先の計算を簡略化してください。この変更は保存されていません。",
+      "formulaCompileBytesMax": "数式のコンパイル中に生成される中間断片の合計が上限の {{max}} バイトを超えています。大きな定数、重複する参照、複雑な分岐を減らしてください。この変更は保存されていません。",
+      "formulaSqlBytesMax": "数式から生成されたデータベースクエリが上限の {{max}} バイトを超えています。数式と参照先の計算を簡略化してください。この変更は保存されていません。",
+      "tablesPerBaseMax": "このプロジェクトはテーブル数の上限に達しました。最大 {{max}} 個です。",
       "fieldsPerTableMax": "このテーブルのフィールド数が多すぎます。最大 {{max}} 個です。",
       "rowsPerTableMax": "このテーブルのレコード数が多すぎます。最大 {{max}} 件です。",
       "viewsPerTableMax": "このテーブルはビュー数の上限に達しました。最大 {{max}} 個です。",
@@ -1049,7 +1061,7 @@
       "runNotFound": "自動化の実行が見つかりません",
       "anchorNotFound": "アンカー自動化が見つかりません",
       "validationError": "自動化設定の検証エラー",
-      "tableNotInBase": "あなたのデータベース内のテーブルのみを購読できます",
+      "tableNotInBase": "あなたのプロジェクト内のテーブルのみを購読できます",
       "alreadyActiveAndNotDraft": "自動化は既にアクティブでドラフトではありません",
       "noActiveSnapshot": "自動化にアクティブなスナップショットがありません",
       "onlyFailedRunsCanRerun": "失敗した実行のみ再実行できます",
@@ -1073,6 +1085,8 @@
       "unsupportedCategory": "サポートされていないカテゴリ",
       "unknownConnectionType": "不明なメール接続タイプ",
       "imapPasswordNotConfigured": "IMAPパスワードが設定されていません",
+      "secretNotGranted": "シークレット {{alias}} はこの自動化に付与されていません",
+      "credentialMustBeSecret": "認証情報はこの自動化に付与されたシークレットである必要があります",
       "integrationNotFound": "インテグレーションが見つからないか、資格情報がありません",
       "webhookTriggerNotFound": "Webhookトリガーが見つかりません",
       "emailReceivedTriggerNotFound": "メール受信トリガーが見つかりません",
@@ -1084,12 +1098,15 @@
       "apiKeyNotConfigured": "スクレイプサービスが設定されていません",
       "triggerFailed": "スクレイプトリガーに失敗しました：{{detail}}",
       "snapshotError": "スクレイプスナップショットエラー：{{detail}}",
-      "timeout": "スクレイプが{{seconds}}秒後にタイムアウトしました"
+      "timeout": "スクレイプが{{seconds}}秒後にタイムアウトしました",
+      "catalogFailed": "スクレイプカタログのリクエストに失敗しました：{{detail}}",
+      "discoverByOnCatalogDataset": "discoverBy は生のデータセット ID にのみ適用され、{{datasetId}} には使えません"
     },
     "integration": {
       "oauthCodeExchangeFailed": "OAuthコードの交換に失敗しました：{{detail}}",
       "oauthTokenRefreshFailed": "OAuthトークンの更新に失敗しました：{{detail}}",
-      "userInfoFetchFailed": "ユーザー情報の取得に失敗しました：{{detail}}"
+      "userInfoFetchFailed": "ユーザー情報の取得に失敗しました：{{detail}}",
+      "providerUnsupported": "{{provider}} 接続はサポートが終了したため付与できません"
     },
     "space": {
       "notFound": "スペースが見つかりません",
@@ -1105,17 +1122,17 @@
       "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
     },
     "base": {
-      "notFound": "ベース が見つかりません",
-      "cannotAccess": "ベース {{baseId}} にアクセスする権限がありません",
-      "anchorNotFound": "アンカーベース {{anchorId}} が見つかりません",
-      "baseAndSpaceMismatch": "ベース {{baseId}} とスペース {{spaceId}} が一致しません",
+      "notFound": "プロジェクトが見つかりません",
+      "cannotAccess": "プロジェクト {{baseId}} にアクセスする権限がありません",
+      "anchorNotFound": "アンカープロジェクト {{anchorId}} が見つかりません",
+      "baseAndSpaceMismatch": "プロジェクト {{baseId}} とスペース {{spaceId}} が一致しません",
       "templateNotFound": "テンプレート {{templateId}} が見つかりません"
     },
     "baseNode": {
-      "baseIdIsRequired": "ベースIDが必要です",
+      "baseIdIsRequired": "プロジェクトIDが必要です",
       "nodeIdIsRequired": "ノードIDが必要です",
       "invalidResourceType": "無効なリソースタイプ",
-      "notFound": "ベースノードが見つかりません",
+      "notFound": "プロジェクトノードが見つかりません",
       "parentMustBeFolder": "親はフォルダーである必要があります",
       "cannotDuplicateFolder": "フォルダーを複製できません",
       "cannotDeleteEmptyFolder": "フォルダーが空ではないため削除できません",
@@ -1130,6 +1147,22 @@
       "folderNotFound": "フォルダーが見つかりません",
       "anchorNotFound": "アンカーノードが見つかりません",
       "nameAlreadyExists": "名前がすでに存在します"
+    },
+    "routine": {
+      "notFound": "ルーティンが見つかりません",
+      "runNotFound": "ルーティンの実行が見つかりません",
+      "configRequiredToActivate": "保存された設定がないルーティンは有効化できません",
+      "noFutureOccurrence": "このスケジュールには今後の実行予定がありません",
+      "onlyActiveCanDeactivate": "アクティブなルーティンのみ一時停止できます",
+      "configRequiredToRun": "保存された設定がないルーティンは実行できません",
+      "runAlreadyInFlight": "このルーティンはすでに実行中です",
+      "invalidRunCursor": "実行履歴の無効なカーソルです",
+      "invalidSchedule": "無効なルーティンのスケジュールです: {{reason}}"
+    },
+    "chat": {
+      "notFound": "チャットが見つかりません",
+      "accessDenied": "このチャットにアクセスする権限がありません",
+      "serverAuthoredType": "{{type}} タイプのチャットはサーバーが作成します"
     },
     "dashboard": {
       "notFound": "ダッシュボードが見つかりません"
@@ -1169,7 +1202,7 @@
       "loginRequired": "この共有ビューを編集するにはサインインしてください"
     },
     "baseShare": {
-      "notFound": "ベース共有が見つからないか、共有が無効になっています",
+      "notFound": "プロジェクト共有が見つからないか、共有が無効になっています",
       "alreadyExists": "このノードには既に共有が存在します",
       "copyNotAllowed": "この共有ではコピーが許可されていません"
     },
@@ -1187,14 +1220,14 @@
     },
     "dbConnection": {
       "unsupportedDriver": "サポートされていないデータベースドライバー: {{driver}}",
-      "onlyOwnerCanRemove": "ベース {{baseId}} のデータベース接続を削除できるのはベース所有者のみです",
-      "onlyOwnerCanCreate": "ベース {{baseId}} のデータベース接続を作成できるのはベース所有者のみです",
+      "onlyOwnerCanRemove": "プロジェクト {{baseId}} のデータベース接続を削除できるのはプロジェクト所有者のみです",
+      "onlyOwnerCanCreate": "プロジェクト {{baseId}} のデータベース接続を作成できるのはプロジェクト所有者のみです",
       "roleNotExist": "データベースロール {{role}} は存在しません"
     },
     "baseQuery": {
       "queryFailed": "クエリが失敗しました: {{message}}",
       "invalidJoinType": "無効な結合タイプ: {{joinType}}",
-      "tableNotFound": "ベース {{baseId}} にテーブル {{tableId}} が見つかりません"
+      "tableNotFound": "プロジェクト {{baseId}} にテーブル {{tableId}} が見つかりません"
     },
     "baseSqlExecutor": {
       "notAllowedToExecuteSqlWithKeyword": "キーワード {{keyword}} を含むSQLの実行は許可されていません",
@@ -1214,7 +1247,7 @@
       "accessTokenNoPermission": "アクセストークンには必要な権限がありません",
       "invalidResource": "リソースが無効です",
       "notAllowedSpace": "このスペースにアクセスする権限がありません",
-      "notAllowedBase": "このベースにアクセスする権限がありません",
+      "notAllowedBase": "このプロジェクトにアクセスする権限がありません",
       "notAllowedTables": "このテーブル({{tableIds}})にアクセスする権限がありません",
       "notAllowedOperationTable": "このテーブルを操作する権限がありません",
       "notAllowedOperationRecord": "このレコードを操作する権限がありません",
@@ -1234,7 +1267,7 @@
       "primaryFieldCannotBeDisabledForRead": "主フィールドは読み取りアクセスを無効にできません",
       "fieldDuplicated": "権限設定でフィールドが重複しています",
       "cannotSetRecordPermissionGroup": "このレコード権限の組み合わせ({{actions}})を設定できません",
-      "notFoundBaseAndTable": "ベースIDとテーブルIDが見つかりません",
+      "notFoundBaseAndTable": "プロジェクトIDとテーブルIDが見つかりません",
       "roleTablesShouldNotBeEmpty": "権限マトリックスのロールテーブルは空にできません"
     },
     "selection": {
@@ -1335,7 +1368,10 @@
       "exceedMaxAutomationRunLimit": "自動化の月間最大実行回数に達しました",
       "manualSubscriptionNotSupported": "このスペースではセルフサービスのサブスクリプション操作をご利用いただけません。アップグレード、ダウングレード、その他のサブスクリプション変更については、Teableサポートまでお問い合わせください。",
       "appSumoSubscriptionNotSupported": "AppSumoのサブスクリプションはこのインターフェースから変更できません。AppSumoでサブスクリプションを管理してください。",
-      "customerNotFound": "このスペースの請求顧客レコードが見つかりません。"
+      "planNotAvailable": "このプランは新規サブスクリプションではご利用いただけません。",
+      "seatLimitExceeded": "購入済みシートが不足しています。シートを追加してからコラボレーターを招待してください。",
+      "customerNotFound": "このスペースの請求顧客レコードが見つかりません。",
+      "creditAddOnRetired": "クレジットの定期アドオンは提供終了しました。代わりにプランでより大きなクレジット枠をお選びください。"
     },
     "aggregation": {
       "searchQueryRequired": "検索クエリが必要です",
@@ -1417,9 +1453,9 @@
       "noPermissionToDelete": "このコラボレーターを削除する権限がありません",
       "noPermissionToUpdate": "このコラボレーターを更新する権限がありません",
       "noPermissionToOperateRole": "この役割を操作する権限がありません",
-      "alreadyExistedInBase": "コラボレーターは既にデータベースに存在しています",
+      "alreadyExistedInBase": "コラボレーターは既にプロジェクトに存在しています",
       "userNotFound": "ユーザーが見つかりません：{{userIds}}",
-      "baseNotFound": "データベースが見つかりません",
+      "baseNotFound": "プロジェクトが見つかりません",
       "noPermissionToAddRole": "この役割のコラボレーターを追加する権限がありません",
       "departmentNotFound": "部署が見つかりません"
     },
@@ -1457,9 +1493,9 @@
     "trash": {
       "invalidResourceType": "無効なリソースタイプ",
       "notFound": "ゴミ箱のアイテムが見つかりません",
-      "parentSpaceTrashed": "親スペースもゴミ箱にあるため、このベースを復元できません",
-      "parentBaseOrSpaceTrashed": "親ベースまたはスペースもゴミ箱にあるため、このテーブルを復元できません",
-      "parentBaseTrashed": "親ベースもゴミ箱にあるため、このアイテムを復元できません",
+      "parentSpaceTrashed": "親スペースもゴミ箱にあるため、このプロジェクトを復元できません",
+      "parentBaseOrSpaceTrashed": "親プロジェクトまたはスペースもゴミ箱にあるため、このテーブルを復元できません",
+      "parentBaseTrashed": "親プロジェクトもゴミ箱にあるため、このアイテムを復元できません",
       "parentNotFound": "親リソースが見つかりません",
       "tableNotFound": "テーブルのゴミ箱アイテムが見つかりません"
     },
@@ -1491,7 +1527,7 @@
       "waitlistInviteCodeRequired": "待機リストが有効になっています、招待コードが必要です",
       "waitlistInviteCodeInvalid": "待機リストが有効になっています、招待コードが無効です",
       "systemUser": "ユーザーはシステムユーザーです",
-      "collaboratorsInSpaces": "ユーザーはスペース内に協力者がいます（またはゴミ箱内に削除されたスペース）",
+      "soleOwnerOfSpaces": "ユーザーはスペースの唯一のオーナーであり、アカウントを削除する前にそれらを確認または移譲する必要があります",
       "notFound": "ユーザーが見つかりません",
       "cannotDeleteAdmin": "管理者ユーザーを削除できません",
       "cannotDeactivateAdmin": "管理者ユーザーを無効化できません",
@@ -1588,7 +1624,8 @@
       "titleIncrement": "この操作で {{increment}} 行が追加され、プランの上限 {{limit}} 行を超えます",
       "titleBatch": "この操作はプランの上限 {{limit}} 行を超えます",
       "description": "これ以上レコードを追加できません。アップグレードすると上限がすぐに解除されます。レコードを削除して空きを作ることもできます。",
-      "unit": "行"
+      "unit": "行",
+      "constraint": "現在のプランではこれ以上レコードを追加できません。レコードを削除して空きを確保してください。"
     },
     "credit": {
       "unit": "クレジット"
@@ -1598,6 +1635,12 @@
     },
     "generic": {
       "description": "プランをアップグレードすると、この制限が解除されます。"
+    },
+    "neutral": {
+      "title": "この操作はスペースの現在のプランの上限を超えています"
+    },
+    "seats": {
+      "unit": "シート"
     }
   }
 }

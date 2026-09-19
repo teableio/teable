@@ -59,6 +59,28 @@ export class RecordReorderService {
     private readonly recordOrderCalculator: IRecordOrderCalculator
   ) {}
 
+  /**
+   * T7251: run calculateOrders on the caller's non-transactional context so
+   * a missing `__row_` column is created online before withTransaction.
+   */
+  async prepareOrders(
+    context: IExecutionContext,
+    table: Table,
+    order: RecordInsertOrder,
+    count: number
+  ): Promise<Result<ReadonlyArray<number>, DomainError>> {
+    if (count <= 0) {
+      return ok([]);
+    }
+    return this.recordOrderCalculator.calculateOrders(
+      context,
+      table,
+      order.viewId,
+      order.anchorId,
+      order.position,
+      count
+    );
+  }
   async reorder(
     context: IExecutionContext,
     input: IRecordReorderInput

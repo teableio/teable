@@ -869,8 +869,10 @@ describe('v2 listRecords sort (e2e)', () => {
   });
 
   // ------------------------------------------------------------------
-  // Date formatting sort precision (time: None)
-  // v1: sort.e2e-spec "OpenAPI Sort (e2e) Date Formatting"
+  // Date formatting must not change the sort key (T7404)
+  // The date preset (YYYY / YYYY-MM / YYYY-MM-DD) only controls display; every
+  // date field sorts by its stored timestamp, so same-day rows keep hour/minute
+  // order instead of collapsing into one key.
   // ------------------------------------------------------------------
   describe('date formatting sort precision', () => {
     let tableId: string;
@@ -933,31 +935,37 @@ describe('v2 listRecords sort (e2e)', () => {
       );
     }, 60000);
 
-    const namesFor = async (fieldId: string, order: 'asc' | 'desc') => {
-      const records = await listOrdered(tableId, { sort: [{ fieldId, order }] });
-      return records.map((record) => record.fields[nameFieldId]);
-    };
+    it('sorts every date preset by the stored timestamp', async () => {
+      for (const fieldId of [yearFieldId, monthFieldId, dayFieldId]) {
+        const asc = await listOrdered(tableId, { sort: [{ fieldId, order: 'asc' }] });
+        const desc = await listOrdered(tableId, { sort: [{ fieldId, order: 'desc' }] });
 
-    it('YYYY preset sorts at year precision with __auto_number tie-break', async () => {
-      expect(await namesFor(yearFieldId, 'asc')).toEqual(['r4', 'r5', 'r3', 'r1', 'r2', 'r6']);
-      expect(await namesFor(yearFieldId, 'desc')).toEqual(['r1', 'r2', 'r6', 'r3', 'r4', 'r5']);
-    });
-
-    it('YYYY-MM preset sorts at month precision with __auto_number tie-break', async () => {
-      expect(await namesFor(monthFieldId, 'asc')).toEqual(['r5', 'r4', 'r3', 'r1', 'r2', 'r6']);
-      expect(await namesFor(monthFieldId, 'desc')).toEqual(['r1', 'r2', 'r6', 'r3', 'r4', 'r5']);
-    });
-
-    it('YYYY-MM-DD preset sorts at day precision (same-day rows keep insert order in both directions)', async () => {
-      expect(await namesFor(dayFieldId, 'asc')).toEqual(['r5', 'r4', 'r3', 'r6', 'r1', 'r2']);
-      expect(await namesFor(dayFieldId, 'desc')).toEqual(['r1', 'r2', 'r6', 'r3', 'r4', 'r5']);
+        // r2 (2024-01-10T02:00Z) and r1 (2024-01-10T04:00Z) share a display day
+        // in every preset, so only the stored timestamp can order them.
+        expect(asc.map((record) => record.fields[nameFieldId])).toEqual([
+          'r5',
+          'r4',
+          'r3',
+          'r6',
+          'r2',
+          'r1',
+        ]);
+        expect(desc.map((record) => record.fields[nameFieldId])).toEqual([
+          'r1',
+          'r2',
+          'r6',
+          'r3',
+          'r4',
+          'r5',
+        ]);
+      }
     });
   });
 
   // ------------------------------------------------------------------
-  // Created time precision
-  // v1: sort.e2e-spec "sort date should always use a second precision when
-  // formatting time is not none" / "precision should be day when time is none"
+  // Created time precision (T7404)
+  // A Created time field sorts by its stored timestamp whether or not the field
+  // displays the time.
   // ------------------------------------------------------------------
   describe('created time sort precision', () => {
     let tableId: string;
@@ -1009,11 +1017,11 @@ describe('v2 listRecords sort (e2e)', () => {
       expect(desc.map((record) => record.fields[nameFieldId])).toEqual(['second', 'first']);
     });
 
-    it('uses day precision when time formatting is None (desc equals asc via tie-break)', async () => {
+    it('uses the stored timestamp when time formatting is None', async () => {
       const asc = await listOrdered(tableId, { sort: [{ fieldId: dayFieldId, order: 'asc' }] });
       const desc = await listOrdered(tableId, { sort: [{ fieldId: dayFieldId, order: 'desc' }] });
       expect(asc.map((record) => record.fields[nameFieldId])).toEqual(['first', 'second']);
-      expect(desc.map((record) => record.fields[nameFieldId])).toEqual(['first', 'second']);
+      expect(desc.map((record) => record.fields[nameFieldId])).toEqual(['second', 'first']);
     });
   });
 

@@ -13,7 +13,7 @@ const capability = (
   provider,
   extensionName: provider,
   operatorClass: provider === 'pg_bigm' ? 'gin_bigm_ops' : 'gin_trgm_ops',
-  minimumProbeLength: provider === 'pg_bigm' ? 2 : 3,
+  minimumProbeLength: provider === 'pg_bigm' ? 1 : 3,
   state,
   installed: state === 'ready',
   available: state !== 'unavailable',

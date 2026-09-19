@@ -10,6 +10,7 @@ import type { Kysely } from 'kysely';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { listAttachmentTableRefs } from '../attachments/attachmentTableQueries';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB } from '../query-builder';
 
@@ -36,27 +37,16 @@ type AttachmentLookupByTokenRow = {
   thumbnailPath?: string | null;
 };
 
-type AttachmentLookupByAttachmentIdRow = {
-  attachmentId: string;
-  name: string;
-  token: string;
-  path: string;
-  size: string | number;
-  mimetype: string;
-  width?: string | number | null;
-  height?: string | number | null;
-  thumbnailPath?: string | null;
-};
-
 @injectable()
 export class PostgresAttachmentLookupService implements IAttachmentLookupService {
-  // Attachment metadata (`attachments` / `attachments_table`) lives in the meta
-  // database, not the data-plane database. In BYODB spaces the data db is the
-  // customer-owned database and has no attachment tables, so this lookup must run
-  // against the meta db to avoid spurious "Attachment(<token>) not found" errors.
+  // File metadata (`attachments`) is written by the upload API on the meta db.
+  // Cell reference rows (`attachments_table`) are written with the record SQL on
+  // dataDb. BYODB spaces therefore split those tables across two connections.
   constructor(
+    @inject(v2RecordRepositoryPostgresTokens.db)
+    private readonly dataDb: Kysely<V1TeableDatabase>,
     @inject(v2RecordRepositoryPostgresTokens.metaDb)
-    private readonly db: Kysely<V1TeableDatabase>
+    private readonly metaDb: Kysely<V1TeableDatabase>
   ) {}
 
   async listAttachmentsByTokens(
@@ -67,7 +57,7 @@ export class PostgresAttachmentLookupService implements IAttachmentLookupService
       return ok([]);
     }
 
-    const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
+    const dynamicDb = this.metaDb as unknown as Kysely<DynamicDB>;
     try {
       const rows = await this.queryAttachmentsByTokens(dynamicDb, unique);
 
@@ -101,23 +91,45 @@ export class PostgresAttachmentLookupService implements IAttachmentLookupService
       return ok([]);
     }
 
-    const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
     try {
-      const rows = await this.queryAttachmentsByAttachmentIds(dynamicDb, unique);
+      const refs = await listAttachmentTableRefs(
+        this.dataDb as unknown as Kysely<DynamicDB>,
+        this.metaDb as unknown as Kysely<DynamicDB>,
+        { attachmentIds: unique }
+      );
+      if (refs.length === 0) {
+        return ok([]);
+      }
 
+      const attachmentsResult = await this.listAttachmentsByTokens(refs.map((ref) => ref.token));
+      if (attachmentsResult.isErr()) {
+        return attachmentsResult;
+      }
+
+      const attachmentsByToken = new Map(
+        attachmentsResult.value.map((attachment) => [attachment.token, attachment])
+      );
       return ok(
-        rows.map((row: AttachmentLookupByAttachmentIdRow) => ({
-          id: String(row.attachmentId),
-          attachmentId: String(row.attachmentId),
-          name: String(row.name),
-          token: String(row.token),
-          path: String(row.path),
-          size: Number(row.size),
-          mimetype: String(row.mimetype),
-          width: row.width == null ? undefined : Number(row.width),
-          height: row.height == null ? undefined : Number(row.height),
-          thumbnailPath: parseThumbnailPath(row.thumbnailPath),
-        }))
+        refs.flatMap((ref) => {
+          const attachment = attachmentsByToken.get(ref.token);
+          if (!attachment) {
+            return [];
+          }
+          return [
+            {
+              id: ref.attachmentId,
+              attachmentId: ref.attachmentId,
+              name: ref.name,
+              token: ref.token,
+              path: attachment.path,
+              size: attachment.size,
+              mimetype: attachment.mimetype,
+              width: attachment.width,
+              height: attachment.height,
+              thumbnailPath: attachment.thumbnailPath,
+            },
+          ];
+        })
       );
     } catch (error) {
       return err(
@@ -159,49 +171,6 @@ export class PostgresAttachmentLookupService implements IAttachmentLookupService
         return this.queryAttachmentsByTokens(
           db,
           tokens,
-          new Set([...excludedColumns, missingColumn])
-        );
-      }
-      throw error;
-    }
-  }
-
-  private async queryAttachmentsByAttachmentIds(
-    db: Kysely<DynamicDB>,
-    attachmentIds: ReadonlyArray<string>,
-    excludedColumns: ReadonlySet<string> = new Set()
-  ): Promise<AttachmentLookupByAttachmentIdRow[]> {
-    try {
-      return (await db
-        .selectFrom('attachments_table as attachmentsTable')
-        .innerJoin('attachments as attachments', 'attachments.token', 'attachmentsTable.token')
-        .select([
-          'attachmentsTable.attachment_id as attachmentId',
-          'attachmentsTable.name as name',
-          'attachmentsTable.token as token',
-          'attachments.path as path',
-          'attachments.size as size',
-          'attachments.mimetype as mimetype',
-          ...OPTIONAL_ATTACHMENT_COLUMNS.filter(
-            ({ dbColumn }) => !excludedColumns.has(dbColumn)
-          ).map(({ dbColumn, select }) =>
-            dbColumn === 'thumbnail_path'
-              ? `attachments.${select}`
-              : `attachments.${dbColumn} as ${dbColumn}`
-          ),
-        ])
-        .where('attachmentsTable.attachment_id', 'in', attachmentIds)
-        .execute()) as AttachmentLookupByAttachmentIdRow[];
-    } catch (error) {
-      const missingColumn = extractMissingColumn(error);
-      if (
-        missingColumn &&
-        OPTIONAL_ATTACHMENT_COLUMNS.some(({ dbColumn }) => dbColumn === missingColumn) &&
-        !excludedColumns.has(missingColumn)
-      ) {
-        return this.queryAttachmentsByAttachmentIds(
-          db,
-          attachmentIds,
           new Set([...excludedColumns, missingColumn])
         );
       }

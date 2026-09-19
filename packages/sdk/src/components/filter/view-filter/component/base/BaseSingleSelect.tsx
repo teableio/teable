@@ -74,7 +74,7 @@ interface ISelectCommandListProps {
   groupHeading?: string;
   filter?: (value: string, search: string) => number;
   shouldFilter: boolean;
-  listRef: React.RefObject<HTMLDivElement>;
+  listRef: React.RefObject<HTMLDivElement | null>;
   highlighted: string | null;
   onHighlightedChange: (value: string) => void;
   onCompositionStart: () => void;

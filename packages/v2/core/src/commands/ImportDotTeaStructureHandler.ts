@@ -262,6 +262,7 @@ export class ImportDotTeaStructureHandler
               id: tablePlan.fieldIds[fieldIndex]!,
               options: replaceMappedIds(field.options, replacements),
               config: replaceMappedIds(field.config, replacements),
+              aiConfig: replaceMappedIds(field.aiConfig, replacements),
             })),
             views: table.views?.map((view, viewIndex) => ({
               ...view,

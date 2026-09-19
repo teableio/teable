@@ -399,10 +399,9 @@ export class RecordOpenApiV2Service {
       order: item.order,
     }));
     const normalizedGroupBy = effectiveQuery.groupBy?.map((item) => item.fieldId);
-    const recordSearchAccessPath = await this.resolveRecordSearchAccessPath(
+    const recordSearchAccessPath = this.resolveRecordSearchAccessPath(
       context,
-      tableId,
-      container,
+      table,
       effectiveQuery.search
     );
     const shouldExposeGroupMetadata =
@@ -509,7 +508,9 @@ export class RecordOpenApiV2Service {
       'teable.RecordOpenApiV2Service.queryExtra',
       {
         'record.read.query_extra_enabled': shouldLoadSearchHitIndex,
-        'record.read.include_query_extra': query.includeQueryExtra !== false,
+        // T7339: the raw request flag, so an omitted option must not read as a request.
+        // Whether the extra was actually loaded is the attribute above.
+        'record.read.include_query_extra': query.includeQueryExtra === true,
         'record.read.has_search': Boolean(effectiveQuery.search),
         'record.read.search_access_path': recordSearchAccessPath?.kind ?? 'default',
         'record.read.query_extra_match_count': listResult.searchMatches?.length ?? 0,
@@ -2406,18 +2407,17 @@ export class RecordOpenApiV2Service {
     return field.name().toString();
   }
 
-  private async resolveRecordSearchAccessPath(
+  private resolveRecordSearchAccessPath(
     context: IExecutionContext,
-    tableId: string,
-    container: DependencyContainer,
+    table: Table,
     search: IGetRecordsRo['search']
-  ): Promise<IRecordSearchAccessPath | undefined> {
+  ): IRecordSearchAccessPath | undefined {
     const runtimeService = this.tableQuerySearchVectorRuntimeService;
     if (!runtimeService) {
       return undefined;
     }
 
-    return await this.withRecordReadSpan(
+    return this.withRecordReadSyncSpan(
       context,
       'teable.RecordOpenApiV2Service.resolveRecordSearchAccessPath',
       {
@@ -2425,8 +2425,7 @@ export class RecordOpenApiV2Service {
       },
       () =>
         runtimeService.resolveForRecordSearch({
-          container,
-          tableId,
+          table,
           search,
         })
     );

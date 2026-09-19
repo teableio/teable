@@ -35,6 +35,7 @@ describe('FieldValueChangeCollectorVisitor coverage', () => {
       'visitTableByViewId',
       'visitTableWithViewIds',
       'visitTableWithPrimaryField',
+      'visitTableWithFieldIds',
       'visitTableByIncomingReferenceToTable',
       'visitTableByIds',
       'visitTableByName',

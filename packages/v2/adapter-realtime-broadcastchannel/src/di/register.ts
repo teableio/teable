@@ -2,6 +2,7 @@ import {
   FieldCreatedRealtimeProjection,
   FieldDeletedRealtimeProjection,
   TableCreatedRealtimeProjection,
+  TableProvisionReadyRealtimeProjection,
   ViewColumnMetaUpdatedRealtimeProjection,
   ViewDeletedRealtimeProjection,
   ViewRenamedRealtimeProjection,
@@ -55,6 +56,9 @@ export const registerV2BroadcastChannelRealtime = (
     );
   }
   c.register(TableCreatedRealtimeProjection, TableCreatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(TableProvisionReadyRealtimeProjection, TableProvisionReadyRealtimeProjection, {
     lifecycle: Lifecycle.Singleton,
   });
   c.register(FieldCreatedRealtimeProjection, FieldCreatedRealtimeProjection, {

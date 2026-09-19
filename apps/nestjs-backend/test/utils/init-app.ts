@@ -77,6 +77,10 @@ import { NextService } from '../../src/features/next/next.service';
 import { TableIndexService } from '../../src/features/table/table-index.service';
 import { GlobalExceptionFilter } from '../../src/filter/global-exception.filter';
 import type { IClsStore } from '../../src/types/cls';
+import {
+  nestModuleIdOptions,
+  nestRouteDiagnosticsOptions,
+} from '../../src/utils/nest-module-id-options';
 import { WsGateway } from '../../src/ws/ws.gateway';
 import { DevWsGateway } from '../../src/ws/ws.gateway.dev';
 import { acquireApp, getSharedBundle } from './e2e-shared';
@@ -108,9 +112,12 @@ async function bootApp() {
     // eslint-disable-next-line no-console
     console.log(`[e2e-probe] BOOT community pool=${process.env.VITEST_POOL_ID}`);
   }
-  const moduleFixture: TestingModule = await Test.createTestingModule({
-    imports: [AppModule, BaseSqlExecutorModule],
-  })
+  const moduleFixture: TestingModule = await Test.createTestingModule(
+    {
+      imports: [AppModule, BaseSqlExecutorModule],
+    },
+    nestModuleIdOptions
+  )
     .overrideProvider(NextService)
     .useValue({
       onModuleInit: () => {
@@ -129,6 +136,7 @@ async function bootApp() {
 
   const app = moduleFixture.createNestApplication({
     logger: new TestingLogger(),
+    ...nestRouteDiagnosticsOptions,
   });
 
   const configService = app.get(ConfigService);
@@ -243,7 +251,13 @@ export async function getTableIndexService(app: INestApplication) {
 
 export async function createTable(baseId: string, tableVo: ICreateTableRo, expectStatus = 201) {
   try {
-    const res = await apiCreateTable(baseId, tableVo);
+    // The create-table API no longer generates 3 empty records by default (T6947).
+    // Inject them here (like the UI does) so existing specs keep their fixtures;
+    // pass an explicit `records: []` to create an empty table.
+    const res = await apiCreateTable(baseId, {
+      records: [{ fields: {} }, { fields: {} }, { fields: {} }],
+      ...tableVo,
+    });
     expect(res.status).toEqual(expectStatus);
 
     return res.data;

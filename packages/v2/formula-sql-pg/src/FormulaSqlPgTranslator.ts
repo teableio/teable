@@ -1,11 +1,9 @@
-import type {
-  ANTLRErrorListener,
-  ATNSimulator,
-  Recognizer,
-  RootContext,
-  Token,
+import {
+  FunctionCallCollectorVisitor,
+  inspectFormulaStructure,
+  inspectFormulaAst,
+  type RootContext,
 } from '@teable/formula';
-import { CharStreams, CommonTokenStream, Formula, FormulaLexer } from '@teable/formula';
 import {
   domainError,
   type DomainError,
@@ -19,6 +17,15 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { buildFieldSqlMetadata } from './FieldSqlCoercionVisitor';
+import {
+  assertFormulaCompileBudgetOptions,
+  FormulaCompileBudget,
+  type FormulaCompileBudgetOptions,
+} from './FormulaCompileBudget';
+import { FormulaExpressionGraph, type FormulaExpressionNode } from './FormulaExpressionGraph';
+import { formulaParseCache } from './FormulaParseCache';
+import type { FormulaSqlPgBindings } from './FormulaSqlPgBindings';
+import { FormulaSqlPgLowering } from './FormulaSqlPgLowering';
 import { FormulaSqlPgVisitor } from './FormulaSqlPgVisitor';
 import { buildErrorLiteral } from './PgSqlHelpers';
 import type { IPgTypeValidationStrategy } from './PgTypeValidationStrategy';
@@ -44,6 +51,9 @@ const resolveFieldStorageKind = (
 
 export type FormulaSqlPgTranslatorOptions = {
   table: Table;
+  compileBudget?: FormulaCompileBudgetOptions;
+  /** Share only within one host statement (for example, a multi-level CTE batch). */
+  budget?: FormulaCompileBudget;
   tableAlias: string;
   resolveFieldSql: FieldSqlResolver;
   timeZone?: string;
@@ -69,24 +79,6 @@ export type FormulaSqlPgTranslatorOptions = {
   typeValidationStrategy: IPgTypeValidationStrategy;
 };
 
-class FormulaParseErrorCollector implements ANTLRErrorListener<Token> {
-  private readonly errors: string[] = [];
-
-  syntaxError<T extends Token>(
-    _recognizer: Recognizer<T, ATNSimulator>,
-    _offendingSymbol: T | undefined,
-    _line: number,
-    _charPositionInLine: number,
-    msg: string
-  ): void {
-    this.errors.push(msg.split('expecting')[0].trim());
-  }
-
-  firstError(): string | undefined {
-    return this.errors[0];
-  }
-}
-
 export class FormulaSqlPgTranslator {
   readonly tableAlias: string;
   readonly typeValidationStrategy: IPgTypeValidationStrategy;
@@ -96,10 +88,22 @@ export class FormulaSqlPgTranslator {
   private readonly resolveFieldSql: FieldSqlResolver;
   private readonly allowNameFallback: boolean;
   private readonly skipFormulaExpansion: boolean;
-  private readonly formulaCache = new Map<string, Result<SqlExpr, DomainError>>();
-  private readonly visiting = new Set<string>();
+  private readonly compileBudgetOptions: FormulaCompileBudgetOptions | undefined;
+  private readonly budget?: FormulaCompileBudget;
 
   constructor(options: FormulaSqlPgTranslatorOptions) {
+    if (options.compileBudget) assertFormulaCompileBudgetOptions(options.compileBudget);
+    if (
+      options.budget &&
+      options.compileBudget &&
+      (options.budget.options.mode !== options.compileBudget.mode ||
+        options.budget.options.policyVersion !== options.compileBudget.policyVersion ||
+        options.budget.options.policy !== options.compileBudget.policy)
+    )
+      throw new Error('Formula compilation meter does not match configured policy');
+    this.budget = options.budget;
+    const compileBudget = options.compileBudget ?? options.budget?.options;
+    this.compileBudgetOptions = compileBudget ? Object.freeze({ ...compileBudget }) : undefined;
     this.tableAlias = options.tableAlias;
     this.resolveFieldSql = options.resolveFieldSql;
     this.allowNameFallback = options.allowFieldNameFallback ?? true;
@@ -113,49 +117,214 @@ export class FormulaSqlPgTranslator {
     );
   }
 
+  private readonly compiled = new WeakMap<
+    SqlExpr,
+    { expression: SqlExpr; bindings: FormulaSqlPgBindings; renderedSql?: string }
+  >();
+
   translateExpression(expression: string): Result<SqlExpr, DomainError> {
-    return this.parseExpression(expression).map((tree) =>
-      tree.accept(new FormulaSqlPgVisitor(this))
-    );
+    return this.translateExpressions([expression]).map((expressions) => expressions[0]);
+  }
+  /** Metrics from the original compilation and explicit renders, without recompiling. */
+  getCompileBudgetMetrics(expression: SqlExpr) {
+    return this.compiled.get(expression)?.bindings.budget.snapshot();
   }
 
-  renderSql(expr: SqlExpr): string {
+  /** Compile independent outputs together to share their common subexpressions. */
+  translateExpressions(
+    expressions: ReadonlyArray<string>
+  ): Result<ReadonlyArray<SqlExpr>, DomainError> {
+    const budget = this.budget ?? new FormulaCompileBudget(this.compileBudgetOptions);
+    return budget
+      .boundary(() => {
+        const graph = new FormulaExpressionGraph(budget);
+        const nodes: FormulaExpressionNode[] = [];
+        for (const expression of expressions) {
+          const parsed = this.parseExpression(expression, budget);
+          if (parsed.isErr()) return err(parsed.error);
+          nodes.push(parsed.value.accept(new FormulaSqlPgVisitor(this, graph)));
+        }
+        const lowering = new FormulaSqlPgLowering(this, budget);
+        const bindings = lowering.bindings;
+        return ok(
+          lowering.lowerAll(nodes).map((raw) => {
+            const render = (sql: string | undefined) =>
+              sql === undefined ? undefined : bindings.render(sql);
+            const result: SqlExpr = {
+              ...raw,
+              valueSql: bindings.render(raw.valueSql),
+              displayValueSql: render(raw.displayValueSql),
+              errorConditionSql: render(raw.errorConditionSql),
+              errorMessageSql: render(raw.errorMessageSql),
+            };
+            this.compiled.set(result, { expression: raw, bindings });
+            return result;
+          })
+        );
+      })
+      .andThen((result) => result);
+  }
+
+  buildExpressionGraph(expression: string): Result<FormulaExpressionNode, DomainError> {
+    const budget = this.budget ?? new FormulaCompileBudget(this.compileBudgetOptions);
+    return budget
+      .boundary(() => {
+        const graph = new FormulaExpressionGraph(budget);
+        return this.parseExpression(expression, budget).map((tree) =>
+          tree.accept(new FormulaSqlPgVisitor(this, graph))
+        );
+      })
+      .andThen((result) => result);
+  }
+
+  resolveFieldNode(
+    fieldIdOrName: string,
+    graph: FormulaExpressionGraph
+  ): Result<FormulaExpressionNode, DomainError> {
+    const field = this.findField(fieldIdOrName);
+    if (!field) return err(domainError.notFound({ message: `Field not found: ${fieldIdOrName}` }));
+    const id = field.id().toString();
+    const cached = graph.fields.get(id);
+    if (cached) {
+      graph.budget.check(
+        'referenceDepth',
+        graph.visitingFields.size + (graph.referenceDepths.get(id) ?? 0)
+      );
+      return ok(cached);
+    }
+    if (graph.visitingFields.has(id))
+      return err(domainError.invariant({ message: `Formula dependency cycle detected at ${id}` }));
+    const formula = field.type().equals(FieldType.formula()) ? (field as FormulaField) : undefined;
+    const parsed =
+      formula && !this.skipFormulaExpansion
+        ? this.parseExpression(formula.expression().toString(), graph.budget)
+        : undefined;
+    if (parsed?.isErr()) return err(parsed.error);
+    const useStored =
+      parsed?.isOk() &&
+      parsed.value
+        .accept(new FunctionCallCollectorVisitor())
+        .some((call) => call.name === 'LAST_MODIFIED_TIME' && call.paramCount > 0);
+    if (formula && parsed && !useStored) {
+      graph.budget.check('referenceDepth', graph.visitingFields.size + 1);
+      graph.visitingFields.add(id);
+    }
+    const result =
+      formula && parsed && !useStored
+        ? parsed.map((tree) =>
+            graph.intern({
+              kind: 'field',
+              field,
+              value: tree.accept(new FormulaSqlPgVisitor(this, graph)),
+            })
+          )
+        : this.resolveField(field, false).map((expression) =>
+            graph.intern({ kind: 'leaf', expression })
+          );
+    graph.visitingFields.delete(id);
+    if (result.isOk()) {
+      graph.fields.set(id, result.value);
+      graph.referenceDepths.set(id, graph.nodeReferenceDepths.get(result.value.id) ?? 0);
+    }
+    return result;
+  }
+
+  /** Compose host casts/error guards before rendering, sharing one binding scope. */
+  renderExpression(
+    expr: SqlExpr,
+    select: (expression: SqlExpr, budget: FormulaCompileBudget) => string
+  ): Result<string, DomainError> {
+    const compiled = this.compiled.get(expr);
+    const budget =
+      compiled?.bindings.budget ??
+      this.budget ??
+      new FormulaCompileBudget(this.compileBudgetOptions);
+    return budget.boundary(() => {
+      const sql = select(compiled?.expression ?? expr, budget);
+      if (compiled) return compiled.bindings.render(sql);
+      budget.check('sqlBytes', budget.bytes(sql));
+      return sql;
+    });
+  }
+
+  /** A one-row SELECT for a lateral projection of a jointly compiled program. */
+  renderExpressions(
+    expressions: ReadonlyArray<SqlExpr>,
+    select: (raw: ReadonlyArray<SqlExpr>, budget: FormulaCompileBudget) => string
+  ): Result<string, DomainError> {
+    const compiled = expressions.map((expression) => this.compiled.get(expression));
+    const bindings = compiled[0]?.bindings;
+    const budget =
+      bindings?.budget ?? this.budget ?? new FormulaCompileBudget(this.compileBudgetOptions);
+    return budget.boundary(() => {
+      if (!bindings || compiled.some((entry) => entry?.bindings !== bindings)) {
+        const sql = select(expressions, budget);
+        budget.check('sqlBytes', budget.bytes(sql) + 9);
+        return budget.sql`(SELECT ${sql})`;
+      }
+      return bindings.render(
+        select(
+          compiled.map((entry) => entry!.expression),
+          budget
+        ),
+        true
+      );
+    });
+  }
+
+  renderSql(expr: SqlExpr): Result<string, DomainError> {
+    const compiled = this.compiled.get(expr);
+    if (compiled?.renderedSql !== undefined) return ok(compiled.renderedSql);
+    const rendered = this.renderExpression(expr, (value, budget) =>
+      this.renderValueSql(value, budget)
+    );
+    if (compiled && rendered.isOk()) compiled.renderedSql = rendered.value;
+    return rendered;
+  }
+
+  private renderValueSql(expr: SqlExpr, budget: FormulaCompileBudget): string {
     const renderedValueSql = expr.displayValueSql ?? expr.valueSql;
     if (!expr.errorConditionSql) return renderedValueSql;
-    const errorMessage = expr.errorMessageSql ?? buildErrorLiteral('INTERNAL', 'unknown_error');
+    const errorMessage =
+      expr.errorMessageSql ?? buildErrorLiteral('INTERNAL', 'unknown_error', budget);
     if (expr.displayValueSql) {
-      return `CASE WHEN ${expr.errorConditionSql} THEN ${errorMessage} ELSE ${renderedValueSql} END`;
+      return budget.sql`CASE WHEN ${expr.errorConditionSql} THEN ${errorMessage} ELSE ${renderedValueSql} END`;
     }
     if (expr.isArray) {
-      return `CASE WHEN ${expr.errorConditionSql} THEN jsonb_build_array(${errorMessage}) ELSE ${expr.valueSql} END`;
+      return budget.sql`CASE WHEN ${expr.errorConditionSql} THEN jsonb_build_array(${errorMessage}) ELSE ${expr.valueSql} END`;
     }
-    const valueSql = expr.valueType === 'string' ? expr.valueSql : `(${expr.valueSql})::text`;
-    return `CASE WHEN ${expr.errorConditionSql} THEN ${errorMessage} ELSE ${valueSql} END`;
+    const valueSql =
+      expr.valueType === 'string' ? expr.valueSql : budget.sql`(${expr.valueSql})::text`;
+    return budget.sql`CASE WHEN ${expr.errorConditionSql} THEN ${errorMessage} ELSE ${valueSql} END`;
   }
 
   resolveFieldById(fieldIdOrName: string): Result<SqlExpr, DomainError> {
-    const field = this.fieldById.get(fieldIdOrName);
-    if (field) return this.resolveField(field);
-    if (!this.allowNameFallback) {
-      return err(domainError.notFound({ message: `Field not found: ${fieldIdOrName}` }));
-    }
-    const fallback = this.fieldByName.get(fieldIdOrName.trim().toLowerCase());
-    if (!fallback) {
-      return err(domainError.notFound({ message: `Field not found: ${fieldIdOrName}` }));
-    }
-    return this.resolveField(fallback);
+    const field = this.findField(fieldIdOrName);
+    if (!field) return err(domainError.notFound({ message: `Field not found: ${fieldIdOrName}` }));
+    return this.resolveField(field);
   }
 
-  private resolveField(field: Field): Result<SqlExpr, DomainError> {
-    if (field.type().equals(FieldType.formula())) {
+  private findField(fieldIdOrName: string): Field | undefined {
+    return (
+      this.fieldById.get(fieldIdOrName) ??
+      (this.allowNameFallback
+        ? this.fieldByName.get(fieldIdOrName.trim().toLowerCase())
+        : undefined)
+    );
+  }
+
+  private resolveField(field: Field, expandFormula = true): Result<SqlExpr, DomainError> {
+    if (field.type().equals(FieldType.formula()) && expandFormula) {
       // When skipFormulaExpansion is true, use resolveFieldSql for formula fields
       // instead of recursively translating. This is used for CTE batch updates
       // where the formula value is already computed in a previous CTE.
       if (this.skipFormulaExpansion) {
         return this.resolveFieldSql(field);
       }
-      return this.resolveFormulaField(field as FormulaField);
+      return this.translateExpression(`{${field.id().toString()}}`);
     }
+    if (field.type().equals(FieldType.formula()) && this.skipFormulaExpansion)
+      return this.resolveFieldSql(field);
     // For lookup fields, proxy to innerField's SQL generation logic
     if (field.type().equals(FieldType.lookup())) {
       return this.resolveLookupField(field as LookupField);
@@ -167,12 +336,18 @@ export class FormulaSqlPgTranslator {
             expr.valueSql,
             // Prefer the resolved expression type when resolveFieldSql already coerced
             // JSON snapshots (createdBy/lastModifiedBy titles) into string scalars.
-            expr.valueType === 'string' && !expr.isArray ? 'string' : metadata.valueType,
+            field.type().equals(FieldType.formula())
+              ? metadata.valueType
+              : expr.valueType === 'string' && !expr.isArray
+                ? 'string'
+                : metadata.valueType,
             metadata.isArray,
             expr.errorConditionSql,
             expr.errorMessageSql,
             field,
-            resolveFieldStorageKind(expr, metadata.storageKind)
+            field.type().equals(FieldType.formula())
+              ? metadata.storageKind
+              : resolveFieldStorageKind(expr, metadata.storageKind)
           )
         )
         .orElse(() =>
@@ -291,95 +466,15 @@ export class FormulaSqlPgTranslator {
       );
   }
 
-  private resolveFormulaField(field: FormulaField): Result<SqlExpr, DomainError> {
-    const fieldId = field.id().toString();
-    const cached = this.formulaCache.get(fieldId);
-    if (cached) return cached;
-    if (this.visiting.has(fieldId)) {
-      return err(
-        domainError.invariant({ message: `Formula dependency cycle detected at ${fieldId}` })
-      );
-    }
-    this.visiting.add(fieldId);
-    const useStoredResult = field.expression().hasLastModifiedTimeParams();
-    if (useStoredResult.isOk() && useStoredResult.value) {
-      const storedResult = this.resolveFieldSql(field).andThen((expr) =>
-        buildFieldSqlMetadata(field)
-          .map((metadata) =>
-            makeExpr(
-              expr.valueSql,
-              metadata.valueType,
-              metadata.isArray,
-              expr.errorConditionSql,
-              expr.errorMessageSql,
-              field,
-              metadata.storageKind
-            )
-          )
-          .orElse(() =>
-            ok(
-              makeExpr(
-                expr.valueSql,
-                expr.valueType ?? 'unknown',
-                expr.isArray ?? false,
-                expr.errorConditionSql,
-                expr.errorMessageSql,
-                field,
-                expr.storageKind
-              )
-            )
-          )
-      );
-      this.visiting.delete(fieldId);
-      this.formulaCache.set(fieldId, storedResult);
-      return storedResult;
-    }
-
-    const result = this.translateExpression(field.expression().toString()).andThen((expr) =>
-      buildFieldSqlMetadata(field)
-        .map((metadata) =>
-          makeExpr(
-            expr.valueSql,
-            metadata.valueType,
-            metadata.isArray,
-            expr.errorConditionSql,
-            expr.errorMessageSql,
-            field,
-            metadata.storageKind
-          )
-        )
-        .orElse(() =>
-          ok(
-            makeExpr(
-              expr.valueSql,
-              expr.valueType ?? 'unknown',
-              expr.isArray ?? false,
-              expr.errorConditionSql,
-              expr.errorMessageSql,
-              field,
-              expr.storageKind
-            )
-          )
-        )
-    );
-    this.visiting.delete(fieldId);
-    this.formulaCache.set(fieldId, result);
-    return result;
-  }
-
-  private parseExpression(expression: string): Result<RootContext, DomainError> {
-    const inputStream = CharStreams.fromString(expression);
-    const lexer = new FormulaLexer(inputStream);
-    const tokenStream = new CommonTokenStream(lexer);
-    const parser = new Formula(tokenStream);
-    parser.removeErrorListeners();
-    const collector = new FormulaParseErrorCollector();
-    parser.addErrorListener(collector);
-    const tree = parser.root();
-    const error = collector.firstError();
-    if (error) {
-      return err(domainError.validation({ message: error }));
-    }
-    return ok(tree);
+  private parseExpression(
+    expression: string,
+    budget = this.budget ?? new FormulaCompileBudget(this.compileBudgetOptions)
+  ): Result<RootContext, DomainError> {
+    budget.allocate(budget.bytes(expression));
+    budget.inspectTree((check) => inspectFormulaStructure(expression, check), false);
+    return formulaParseCache.parse(expression).map((tree) => {
+      budget.inspectTree((check) => inspectFormulaAst(tree, check), true);
+      return tree;
+    });
   }
 }

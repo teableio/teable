@@ -61,7 +61,7 @@ export const TurnstileWidget: React.FC<TurnstileWidgetProps> = ({
   className,
 }) => {
   const widgetRef = useRef<HTMLDivElement>(null);
-  const widgetIdRef = useRef<string>();
+  const widgetIdRef = useRef<string>(undefined);
   const scriptLoadedRef = useRef<boolean>(false);
 
   const loadTurnstileScript = (): Promise<void> => {

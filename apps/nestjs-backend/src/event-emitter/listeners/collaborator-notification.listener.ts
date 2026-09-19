@@ -6,7 +6,10 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { has, intersection, isEmpty, keyBy, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
-import { NotificationService } from '../../features/notification/notification.service';
+import {
+  maxCollaboratorNotifyRecordTitles,
+  NotificationService,
+} from '../../features/notification/notification.service';
 import { RecordService } from '../../features/record/record.service';
 import type { IChangeRecord, IChangeValue, RecordCreateEvent, RecordUpdateEvent } from '../events';
 import { Events } from '../events';
@@ -20,9 +23,6 @@ type IUserField = {
   fieldName: string;
   fieldOptions: string;
 };
-
-// Maximum number of record titles to fetch for notification display
-const maxRecordTitles = 10;
 
 @Injectable()
 export class CollaboratorNotificationListener {
@@ -83,9 +83,11 @@ export class CollaboratorNotificationListener {
 
     const notificationData = this.extractNotificationData(recordSets, userFieldIds);
 
-    // Collect record IDs that need titles (limited to maxRecordTitles per user)
+    // Collect record IDs that need titles (limited to maxCollaboratorNotifyRecordTitles per user)
     const recordIdsNeedingTitles = uniq(
-      Object.values(notificationData).flatMap((data) => data.recordIds.slice(0, maxRecordTitles))
+      Object.values(notificationData).flatMap((data) =>
+        data.recordIds.slice(0, maxCollaboratorNotifyRecordTitles)
+      )
     );
     const recordTitles =
       recordIdsNeedingTitles.length > 0
@@ -96,7 +98,7 @@ export class CollaboratorNotificationListener {
     for (const userId in notificationData) {
       const { fieldId, recordIds } = notificationData[userId];
       const field = userFields[fieldId];
-      const recordIdsForTitles = recordIds.slice(0, maxRecordTitles);
+      const recordIdsForTitles = recordIds.slice(0, maxCollaboratorNotifyRecordTitles);
 
       await this.notificationService.sendCollaboratorNotify({
         fromUserId: user?.id || '',

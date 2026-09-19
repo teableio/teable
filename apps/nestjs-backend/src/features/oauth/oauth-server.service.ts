@@ -384,10 +384,13 @@ export class OAuthServerService {
   }
 
   private getRefreshToken(client: ITokenClient, accessTokenId: string, sign: string) {
+    // Confidential clients are bound to the secret row, not to the secret hash:
+    // a JWT payload is readable by whoever holds the refresh token. Deleting
+    // that secret still invalidates every refresh token issued under it.
     const payload =
       client.type === 'pkce'
         ? { clientId: client.clientId, accessTokenId, sign }
-        : { clientId: client.clientId, secret: client.clientSecret, accessTokenId, sign };
+        : { clientId: client.clientId, secretId: client.secretId, accessTokenId, sign };
     return this.jwtService.signAsync(payload, {
       expiresIn: this.oauth2Config.refreshTokenExpireIn,
     });
@@ -594,6 +597,9 @@ export class OAuthServerService {
       .$tx(async () => {
         const decoded = await this.jwtService.verifyAsync<{
           clientId: string;
+          secretId?: string;
+          // Refresh tokens issued before `secretId` carry the secret hash; they
+          // stay valid until they expire (refreshTokenExpireIn).
           secret?: string;
           accessTokenId: string;
           sign: string;
@@ -602,7 +608,13 @@ export class OAuthServerService {
         if (client.clientId !== decoded.clientId) {
           return () => done(new UnauthorizedException('Invalid client'));
         }
-        if ((client as ITokenClient & { clientSecret?: string })?.clientSecret !== decoded.secret) {
+        // PKCE tokens carry neither field and must only be honored by a PKCE
+        // client (whose clientSecret is undefined), and vice versa.
+        const boundToClient =
+          decoded.secretId !== undefined
+            ? decoded.secretId === client.secretId
+            : decoded.secret === (client as { clientSecret?: string }).clientSecret;
+        if (!boundToClient) {
           return () => done(new UnauthorizedException('Invalid secret'));
         }
 
@@ -670,6 +682,8 @@ export class OAuthServerService {
   };
 
   async getDecisionInfo(req: Request, transactionId: string) {
+    // Express 5 leaves req.body undefined on GET requests (no body parser ran).
+    req.body ??= {};
     req.body['transaction_id'] = transactionId;
     return new Promise<DecisionInfoGetVo>((resolve, reject) => {
       this.oauthTxStore.load(req, async (err, txn) => {

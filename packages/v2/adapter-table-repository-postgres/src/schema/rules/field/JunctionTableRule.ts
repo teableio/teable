@@ -57,7 +57,7 @@ export interface JunctionTableConfig {
   foreignTable: TableIdentifier;
   /** The logical table id for resolving the foreign physical table name */
   foreignTableMetaId?: string;
-  /** Whether to add indexes (default: true for ManyMany, false for OneWay) */
+  /** Whether to add directional indexes (default: true) */
   withIndexes?: boolean;
 }
 
@@ -234,15 +234,18 @@ export class JunctionTableExistsRule implements ISchemaRule {
   createIndexRules(): JunctionTableIndexRule[] {
     const rules: JunctionTableIndexRule[] = [];
 
-    rules.push(
-      new JunctionTableIndexRule(
-        this.field,
-        this.config.junctionTable,
-        this.config.selfKeyName,
-        'self',
-        this
-      )
-    );
+    // One-way oneMany already has a self-leading UNIQUE(self, foreign) index.
+    if (this.field.relationship().toString() === 'manyMany') {
+      rules.push(
+        new JunctionTableIndexRule(
+          this.field,
+          this.config.junctionTable,
+          this.config.selfKeyName,
+          'self',
+          this
+        )
+      );
+    }
     rules.push(
       new JunctionTableIndexRule(
         this.field,

@@ -5,9 +5,9 @@ import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
 import { EditorState, StateField, StateEffect } from '@codemirror/state';
 import type { DecorationSet } from '@codemirror/view';
 import { EditorView, keymap, Decoration, placeholder as cmPlaceholder } from '@codemirror/view';
-import { useTheme } from '@teable/next-themes';
 import { useFields, useFieldStaticGetter } from '@teable/sdk/hooks';
 import type { IFieldInstance } from '@teable/sdk/model';
+import { useTheme } from '@teable/ui-lib';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';

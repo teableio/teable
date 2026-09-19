@@ -5,6 +5,7 @@ import { Resizable } from 're-resizable';
 import type { FC, PropsWithChildren, ReactNode } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
+import { useEmbedMode } from '../../hooks/useEmbedMode';
 import { preventContextMenuUnlessText } from '../../utils/prevent-context-menu';
 import {
   MAX_SIDE_BAR_WIDTH,
@@ -54,6 +55,7 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
     onTemporaryExpand,
   } = props;
   const isMobile = useIsMobile();
+  const isEmbedded = useEmbedMode();
   // `re-resizable` handles are physical. The sidebar docks to the inline-start
   // edge, so under an RTL interface it sits on the right and the edge the user
   // drags is its LEFT one. Taken from the shared direction context rather than
@@ -112,6 +114,10 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
       </SheetWrapper>
     );
   }
+
+  // Collapsed inside the native shell: nothing. The app carries its own navigation, and the
+  // Web's re-open affordance only ever floated over the page it was embedded in.
+  if (!isActuallyVisible && isEmbedded) return null;
 
   // Collapsed state: show trigger button with hover panel
   if (!isActuallyVisible) {

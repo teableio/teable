@@ -10,6 +10,7 @@ export const GET_DB_CONNECTION = '/base/{baseId}/connection';
 export const GetDbConnectionRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_DB_CONNECTION,
+  title: 'Get project connection',
   description: 'Get db connection info',
   request: {
     params: z.object({

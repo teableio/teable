@@ -1,11 +1,16 @@
 import { FieldKeyType, IdPrefix, type IRecord, getActionTriggerChannel } from '@teable/core';
 import type { IGetRecordsRo } from '@teable/openapi';
 import { getRecords } from '@teable/openapi';
-import { isEqual } from 'lodash';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { Doc, Query } from 'sharedb/lib/client';
 import type { Presence } from 'sharedb/lib/sharedb';
 import { useConnection } from '../../hooks/use-connection';
+import type { ProjectedFieldMergeMode } from './mergeProjectedRecordFields';
+import {
+  docsForProjectedFill,
+  mergeProjectedFieldsIntoDocs,
+  refreshDocsMatchFetch,
+} from './mergeProjectedRecordFields';
 import { OpListenersManager } from './opListener';
 import type { IInstanceAction, IInstanceState } from './reducer';
 import { instanceReducer } from './reducer';
@@ -17,25 +22,26 @@ export interface IUseInstancesProps<T, R> {
   queryParams: unknown;
 }
 
+export type IUseInstancesResult<R> = IInstanceState<R> & {
+  fillProjectedRecordFields: (fieldIds: string[]) => Promise<boolean>;
+};
+
 const queryDestroy = (query: Query | undefined, cb?: () => void) => {
   if (!query) {
     return;
   }
-  if (!query.sent || query.ready) {
-    query?.destroy(() => {
-      query.removeAllListeners();
-      cb?.();
-      query.results?.forEach((doc) => doc.listenerCount('op batch') === 0 && doc.destroy());
-    });
-    return;
-  }
-  query.once('ready', () => {
+  const destroy = () =>
     query.destroy(() => {
       query.removeAllListeners();
       cb?.();
       query.results?.forEach((doc) => doc.listenerCount('op batch') === 0 && doc.destroy());
     });
-  });
+  // Only record subscriptions have server-side pending-query cancellation ownership.
+  if (query.collection?.startsWith(`${IdPrefix.Record}_`) || !query.sent || query.ready) {
+    destroy();
+  } else {
+    query.once('ready', destroy);
+  }
 };
 
 // Global cache to dedupe identical subscribe queries across hook instances
@@ -109,7 +115,13 @@ const normalizeForKey = (value: any): any => {
   return value;
 };
 
-const makeQueryScopeKey = (collection: string, queryParams: unknown) =>
+/**
+ * Identity of a subscription: two query params objects with the same scope key
+ * share the same live ShareDB query, so the server delivers a `ready` snapshot
+ * for the first one only. Consumers that need to know whether a fresh delivery
+ * is coming must compare this key rather than the raw query params.
+ */
+export const makeQueryScopeKey = (collection: string, queryParams: unknown) =>
   `${collection}|${JSON.stringify(normalizeForKey(queryParams))}`;
 
 const makeQueryKey = (collection: string, queryParams: unknown, refreshToken = 0) =>
@@ -409,13 +421,13 @@ export function useInstances<T, R extends { id: string }>({
   factory,
   queryParams,
   initData,
-}: IUseInstancesProps<T, R>): IInstanceState<R> {
+}: IUseInstancesProps<T, R>): IUseInstancesResult<R> {
   const { connection, connected } = useConnection();
   const schemaRefreshCollectionTableId = getSchemaRefreshCollectionTableId(collection);
   const [query, setQuery] = useState<Query<T>>();
   const [schemaRefreshToken, setSchemaRefreshToken] = useState(0);
-  const currentKeyRef = useRef<string>();
-  const currentScopeKeyRef = useRef<string>();
+  const currentKeyRef = useRef<string>(undefined);
+  const currentScopeKeyRef = useRef<string>(undefined);
   const [instances, dispatch] = useReducer(
     (state: IInstanceState<R>, action: IInstanceAction<T>) =>
       instanceReducer(state, action, factory),
@@ -425,22 +437,24 @@ export function useInstances<T, R extends { id: string }>({
     }
   );
   const opListeners = useRef<OpListenersManager<T>>(new OpListenersManager<T>(collection));
-  const preQueryRef = useRef<Query<T>>();
-  const lastConnectionRef = useRef<typeof connection>();
+  const preQueryRef = useRef<Query<T>>(undefined);
+  const lastConnectionRef = useRef<typeof connection>(undefined);
   const projectedRefreshSeqRef = useRef(0);
+  const projectedFillSeqRef = useRef(0);
   // whether initData may still seed the instances: true until the current
   // subscription delivers live (doc-backed) results, reset on scope change
   const seedableRef = useRef(true);
 
-  const refreshProjectedRecordFields = useCallback(
-    async (fieldIds: string[]) => {
-      if (!schemaRefreshCollectionTableId || !isRecordCollection(collection)) {
+  const applyProjectedRecordFields = useCallback(
+    async (fieldIds: string[], mode: ProjectedFieldMergeMode) => {
+      if (!fieldIds.length || !schemaRefreshCollectionTableId || !isRecordCollection(collection)) {
         return false;
       }
 
       const currentDocs = (preQueryRef.current?.results ?? []) as Doc<IRecord>[];
       const currentDocIds = currentDocs.map((doc) => doc.id);
-      const refreshSeq = ++projectedRefreshSeqRef.current;
+      const seqRef = mode === 'fill' ? projectedFillSeqRef : projectedRefreshSeqRef;
+      const requestSeq = ++seqRef.current;
 
       const { type: _type, ...restQueryParams } = (queryParams ?? {}) as Record<string, unknown>;
 
@@ -451,55 +465,33 @@ export function useInstances<T, R extends { id: string }>({
           projection: fieldIds,
         });
 
-        if (refreshSeq !== projectedRefreshSeqRef.current) {
-          return true;
+        if (requestSeq !== seqRef.current) {
+          return false;
         }
 
         const fetchedRecords = data.records ?? [];
-        const fetchedRecordIds = fetchedRecords.map((record) => record.id);
+        if (mode === 'refresh' && !refreshDocsMatchFetch(currentDocIds, fetchedRecords)) {
+          return false;
+        }
 
-        if (
-          currentDocIds.length !== fetchedRecordIds.length ||
-          currentDocIds.some((id, index) => id !== fetchedRecordIds[index])
-        ) {
+        const docsForMerge =
+          mode === 'fill'
+            ? docsForProjectedFill(
+                (preQueryRef.current?.results ?? []) as Doc<IRecord>[],
+                fetchedRecords
+              )
+            : currentDocs;
+        if (!docsForMerge) {
           return false;
         }
 
         const fetchedRecordMap = new Map(fetchedRecords.map((record) => [record.id, record]));
-        const changedDocs: Doc<T>[] = [];
-
-        currentDocs.forEach((doc) => {
-          const fetchedRecord = fetchedRecordMap.get(doc.id);
-          if (!fetchedRecord) {
-            return;
-          }
-
-          let changed = false;
-          const docFields = doc.data.fields ?? {};
-          const nextFields = fetchedRecord.fields ?? {};
-
-          fieldIds.forEach((fieldId) => {
-            const currentValue = docFields[fieldId];
-            const nextValue = nextFields[fieldId];
-
-            // getRecords omits null/empty fields. During temporaryPaste +
-            // updateCell races, setField presence can refresh before the new
-            // select value is persisted; treat missing keys as "unchanged"
-            // so optimistic local values are not wiped.
-            if (nextValue === undefined || isEqual(currentValue, nextValue)) {
-              return;
-            }
-
-            changed = true;
-            doc.data.fields ??= {};
-            doc.data.fields[fieldId] = nextValue;
-          });
-
-          if (changed) {
-            changedDocs.push(doc as unknown as Doc<T>);
-          }
-        });
-
+        const changedDocs = mergeProjectedFieldsIntoDocs<T>(
+          docsForMerge,
+          fetchedRecordMap,
+          fieldIds,
+          mode
+        );
         changedDocs.forEach((doc) => notifyProjectedRecordDocUpdate(doc, dispatch));
         return true;
       } catch {
@@ -507,6 +499,16 @@ export function useInstances<T, R extends { id: string }>({
       }
     },
     [collection, queryParams, schemaRefreshCollectionTableId]
+  );
+
+  const refreshProjectedRecordFields = useCallback(
+    (fieldIds: string[]) => applyProjectedRecordFields(fieldIds, 'refresh'),
+    [applyProjectedRecordFields]
+  );
+
+  const fillProjectedRecordFields = useCallback(
+    (fieldIds: string[]) => applyProjectedRecordFields(fieldIds, 'fill'),
+    [applyProjectedRecordFields]
   );
 
   const removeProjectedRecordsByIds = useCallback(
@@ -832,5 +834,5 @@ export function useInstances<T, R extends { id: string }>({
     dispatch({ type: 'seed', data: initData });
   }, [initData]);
 
-  return instances;
+  return { ...instances, fillProjectedRecordFields };
 }

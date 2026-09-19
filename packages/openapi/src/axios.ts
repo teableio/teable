@@ -74,6 +74,10 @@ export const createAxios = () => {
       return response;
     },
     (error) => {
+      // Cancellation is a transport lifecycle signal, not an HTTP 500. Keep its
+      // identity so ShareDB and browser callers can finish abandoned reads quietly.
+      if (axiosInstance.isCancel(error)) throw error;
+
       // Any status codes that falls outside the range of 2xx cause this function to trigger
       const { data, status } = error?.response || {};
 

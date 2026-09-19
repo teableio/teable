@@ -1,6 +1,6 @@
 import type { ISelectFieldOptions } from '@teable/core';
-import { useTheme } from '@teable/next-themes';
 import { SelectEditor, transformSelectOptions } from '@teable/sdk/components';
+import { useTheme } from '@teable/ui-lib';
 import { DefaultValue } from '../../DefaultValue';
 
 interface ISelectDefaultValue {

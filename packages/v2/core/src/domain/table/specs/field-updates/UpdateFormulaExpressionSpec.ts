@@ -4,8 +4,8 @@ import type { Result } from 'neverthrow';
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import { MutateOnlySpec } from '../../../shared/specification/MutateOnlySpec';
 import type { FieldId } from '../../fields/FieldId';
-import { FormulaField } from '../../fields/types/FormulaField';
 import type { FormulaExpression } from '../../fields/types/FormulaExpression';
+import { FormulaField } from '../../fields/types/FormulaField';
 import { FieldValueTypeVisitor } from '../../fields/visitors/FieldValueTypeVisitor';
 import type { Table } from '../../Table';
 import type { ITableSpecVisitor } from '../ITableSpecVisitor';
@@ -72,6 +72,7 @@ export class UpdateFormulaExpressionSpec<
         timeZone: field.timeZone(),
         formatting: clearStyle ? undefined : field.formatting(),
         showAs: clearStyle ? undefined : field.showAs(),
+        meta: field.meta(),
       });
 
     let updatedFieldResult = buildUpdatedField(false);
@@ -100,6 +101,7 @@ export class UpdateFormulaExpressionSpec<
         timeZone: field.timeZone(),
         formatting: field.formatting(),
         showAs: field.showAs(),
+        meta: field.meta(),
         resultType: inferredType.value,
       });
 

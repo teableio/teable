@@ -24,7 +24,6 @@ import {
   withPersistedViewAuditChanges,
 } from './ViewRealtimeProjectionUtils';
 
-const tableCollectionPrefix = 'tbl';
 const viewCollectionPrefix = 'viw';
 
 const canUseColumnMetaSnapshot = (
@@ -111,38 +110,6 @@ export class ViewColumnMetaUpdatedRealtimeProjection
 
             const viewDto = snapshot.views[viewIndex];
 
-            const collection = `${tableCollectionPrefix}_${event.baseId.toString()}`;
-            const docId = yield* RealtimeDocId.fromParts(
-              collection,
-              event.tableId.toString()
-            ).safeUnwrap();
-
-            // Ensure table document exists first (for tables created before realtime was enabled)
-            yield* (await realtimeEngine.ensure(context, docId, snapshot)).safeUnwrap();
-
-            // Keep the table snapshot in sync for table-level consumers.
-            const tableChanges: RealtimeChange[] = [
-              {
-                type: 'set',
-                path: ['views', viewIndex, 'columnMeta'],
-                value: viewDto.columnMeta,
-              },
-            ];
-            if (event.optionsChange) {
-              tableChanges.push({
-                type: 'set',
-                path: ['views', viewIndex, 'options'],
-                value: viewDto.options,
-              });
-            }
-            yield* (
-              await realtimeEngine.applyChange(
-                context,
-                docId,
-                withPersistedViewAuditChanges(viewDto, tableChanges, ['views', viewIndex])
-              )
-            ).safeUnwrap();
-
             // Keep the standalone view document in sync for ShareDB/SDK view subscriptions.
             const viewCollection = `${viewCollectionPrefix}_${event.tableId.toString()}`;
             const viewDocId = yield* RealtimeDocId.fromParts(
@@ -153,7 +120,8 @@ export class ViewColumnMetaUpdatedRealtimeProjection
               await realtimeEngine.ensure(
                 context,
                 viewDocId,
-                toStandaloneViewRealtimeSnapshot(viewDto)
+                toStandaloneViewRealtimeSnapshot(viewDto),
+                { expectExisting: true }
               )
             ).safeUnwrap();
 

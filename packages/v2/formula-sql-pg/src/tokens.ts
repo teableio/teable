@@ -7,4 +7,6 @@
 export const formulaSqlPgTokens = {
   /** Type validation strategy - injected by adapter layer */
   typeValidationStrategy: Symbol.for('formula-sql-pg.typeValidationStrategy'),
+  /** Server policy shared by definition admission and runtime compilation. */
+  compileBudget: Symbol.for('formula-sql-pg.compileBudget'),
 } as const;

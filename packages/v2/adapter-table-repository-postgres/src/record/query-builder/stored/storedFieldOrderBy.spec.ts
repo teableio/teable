@@ -139,6 +139,49 @@ describe('storedFieldOrderBy', () => {
     expect(sql).toContain('WITH ORDINALITY AS lookup_values(lookup_element, lookup_ordinality)');
   });
 
+  test('orders a time-hidden date field by its stored value for a plain sort', () => {
+    const field = createDateField({
+      id: FieldId.create(`fld${'d'.repeat(16)}`)._unsafeUnwrap(),
+      name: FieldName.create('Due')._unsafeUnwrap(),
+      formatting: DateTimeFormatting.create({
+        date: 'YYYY-MM-DD',
+        time: TimeFormatting.None,
+        timeZone: 'utc',
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const result = buildStoredFieldOrderByClauses(field, 'col_due', 'desc', 't');
+    expect(result.isOk()).toBe(true);
+    const sql = compileOrderBy(result._unsafeUnwrap());
+
+    expect(sql).toContain('order by "t"."col_due" desc nulls last');
+    expect(sql).not.toContain('to_char');
+  });
+
+  test('orders a group-derived date key by its formatting bucket', () => {
+    const field = createDateField({
+      id: FieldId.create(`fld${'d'.repeat(16)}`)._unsafeUnwrap(),
+      name: FieldName.create('Due')._unsafeUnwrap(),
+      formatting: DateTimeFormatting.create({
+        date: 'YYYY-MM-DD',
+        time: TimeFormatting.None,
+        timeZone: 'Asia/Shanghai',
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const result = buildStoredFieldOrderByClauses(field, 'col_due', 'asc', 't', {
+      groupIdentityCollation: true,
+    });
+    expect(result.isOk()).toBe(true);
+    const sql = compileOrderBy(result._unsafeUnwrap());
+
+    // Same bucket expression the group metadata query builds, so nested group
+    // blocks stay contiguous inside their parent bucket.
+    expect(sql).toContain(
+      `order by timezone('Asia/Shanghai', date_trunc('day', timezone('Asia/Shanghai', "t"."col_due"))) asc nulls first`
+    );
+  });
+
   test('collates lookup-of-user group sorts by identity instead of the raw snapshot', () => {
     const innerField = createUserField({
       id: FieldId.create(`fld${'i'.repeat(16)}`)._unsafeUnwrap(),

@@ -109,10 +109,12 @@ export class MailSenderService implements OnModuleDestroy {
     if (_rateLimit <= 0) {
       return await fn();
     }
-    const rateLimit = _rateLimit - 2; // 2 seconds for network latency
+    const rateLimit = Math.max(_rateLimit - 2, 1); // 2 seconds for network latency
     const rateLimitKey = `send-mail-rate-limit:${_rateLimitKey}:${email}` as const;
-    const existingRateLimit = await this.cacheService.get(rateLimitKey);
-    if (existingRateLimit) {
+    // Reserve the cooldown before sending: writing it only after delivery let
+    // every concurrent request for the same email reach the mailer.
+    const reserved = await this.cacheService.setnx(rateLimitKey, true, rateLimit);
+    if (!reserved) {
       throw new CustomHttpException(
         `Reached the rate limit of sending mail, please try again after ${rateLimit} seconds`,
         HttpErrorCode.TOO_MANY_REQUESTS,
@@ -121,9 +123,13 @@ export class MailSenderService implements OnModuleDestroy {
         }
       );
     }
-    const result = await fn();
-    await this.cacheService.setDetail(rateLimitKey, true, rateLimit);
-    return result;
+    try {
+      return await fn();
+    } catch (error) {
+      // Nothing was sent (unknown email, mailer failure): let the caller retry at once.
+      await this.cacheService.del(rateLimitKey);
+      throw error;
+    }
   }
 
   // https://nodemailer.com/smtp#connection-options
@@ -351,7 +357,7 @@ export class MailSenderService implements OnModuleDestroy {
   }) {
     const { name, email, inviteUrl, resourceName, resourceType } = info;
     const { brandName, brandLogo } = await this.settingOpenApiService.getServerBrand();
-    const resourceAlias = resourceType === CollaboratorType.Space ? 'Space' : 'Base';
+    const resourceAlias = resourceType === CollaboratorType.Space ? 'Space' : 'Project';
     const { userNameMaxLength, spaceNameMaxLength } = this.mailConfig.invite;
 
     return {
@@ -400,7 +406,7 @@ export class MailSenderService implements OnModuleDestroy {
       fromUserName,
       refRecord: { baseId, tableId, fieldName, tableName, recordIds, recordTitles },
     } = info;
-    let subject, partialBody;
+    let subject, title, buttonText, moreText, partialBody;
     const refLength = recordIds.length;
 
     const viewRecordUrlPrefix = `${this.mailConfig.origin}/base/${baseId}/table/${tableId}`;
@@ -409,11 +415,24 @@ export class MailSenderService implements OnModuleDestroy {
       subject = this.i18n.t('common.email.templates.collaboratorCellTag.subject', {
         args: { fromUserName, fieldName, tableName },
       });
+      title = this.i18n.t('common.email.templates.collaboratorCellTag.title', {
+        args: { fromUserName, fieldName, tableName },
+      });
+      buttonText = this.i18n.t('common.email.templates.collaboratorCellTag.buttonText');
       partialBody = 'collaborator-cell-tag';
     } else {
       subject = this.i18n.t('common.email.templates.collaboratorMultiRowTag.subject', {
         args: { fromUserName, refLength, tableName },
       });
+      title = this.i18n.t('common.email.templates.collaboratorMultiRowTag.title', {
+        args: { fromUserName, refLength, tableName },
+      });
+      buttonText = this.i18n.t('common.email.templates.collaboratorMultiRowTag.buttonText');
+      if (refLength > recordTitles.length) {
+        moreText = this.i18n.t('common.email.templates.collaboratorMultiRowTag.more', {
+          args: { remaining: refLength - recordTitles.length },
+        });
+      }
       partialBody = 'collaborator-multi-row-tag';
     }
 
@@ -438,10 +457,9 @@ export class MailSenderService implements OnModuleDestroy {
         partialBody,
         brandName,
         brandLogo,
-        title: this.i18n.t('common.email.templates.collaboratorCellTag.title', {
-          args: { fromUserName, fieldName, tableName },
-        }),
-        buttonText: this.i18n.t('common.email.templates.collaboratorCellTag.buttonText'),
+        title,
+        buttonText,
+        moreText,
       },
     };
   }
@@ -565,7 +583,10 @@ export class MailSenderService implements OnModuleDestroy {
       | {
           code: string;
           expiresIn: string;
-          type: EmailVerifyCodeType.Signup | EmailVerifyCodeType.ChangeEmail;
+          type:
+            | EmailVerifyCodeType.Signup
+            | EmailVerifyCodeType.Signin
+            | EmailVerifyCodeType.ChangeEmail;
         }
       | {
           domain: string;
@@ -582,6 +603,8 @@ export class MailSenderService implements OnModuleDestroy {
     switch (type) {
       case EmailVerifyCodeType.Signup:
         return this.sendSignupVerificationEmailOptions(payload);
+      case EmailVerifyCodeType.Signin:
+        return this.sendSigninVerificationEmailOptions(payload);
       case EmailVerifyCodeType.ChangeEmail:
         return this.sendChangeEmailCodeEmailOptions(payload);
       case EmailVerifyCodeType.DomainVerification:
@@ -605,6 +628,31 @@ export class MailSenderService implements OnModuleDestroy {
         brandLogo,
         title: this.i18n.t('common.email.templates.emailVerifyCode.signupVerification.title'),
         message: this.i18n.t('common.email.templates.emailVerifyCode.signupVerification.message', {
+          args: {
+            code,
+            expiresIn: parseInt(expiresIn),
+          },
+        }),
+      },
+    };
+  }
+
+  private async sendSigninVerificationEmailOptions(payload: { code: string; expiresIn: string }) {
+    const { code, expiresIn } = payload;
+    const { brandName, brandLogo } = await this.settingOpenApiService.getServerBrand();
+    return {
+      subject: this.i18n.t('common.email.templates.emailVerifyCode.signinVerification.subject', {
+        args: {
+          brandName,
+        },
+      }),
+      template: 'normal',
+      context: {
+        partialBody: 'email-verify-code',
+        brandName,
+        brandLogo,
+        title: this.i18n.t('common.email.templates.emailVerifyCode.signinVerification.title'),
+        message: this.i18n.t('common.email.templates.emailVerifyCode.signinVerification.message', {
           args: {
             code,
             expiresIn: parseInt(expiresIn),

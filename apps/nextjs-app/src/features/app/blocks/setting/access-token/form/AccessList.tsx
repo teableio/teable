@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Component, Database, X } from '@teable/icons';
+import { Component, LayoutGrid, X } from '@teable/icons';
 import type { IGetBaseVo, IGetSpaceVo } from '@teable/openapi';
 import { getBaseAll, getSpaceList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -124,7 +124,7 @@ export const AccessList = (props: IAccessListProps) => {
                     {base.icon ? (
                       <Emoji className="w-4 shrink-0" emoji={base.icon} size={16} />
                     ) : (
-                      <Database className="size-4 shrink-0" />
+                      <LayoutGrid className="size-4 shrink-0" />
                     )}
                     <span dir={contentDir}>{base.name}</span>
                   </div>

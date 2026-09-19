@@ -646,8 +646,12 @@ export class TableOpenApiService {
   }
 
   async cleanReferenceFieldIds(tableIds: string[]) {
+    // Every dependency edge that touches a dropped table dangles once its field rows go,
+    // so the endpoint list must not be pre-filtered by type: a lookup field keeps only its
+    // inner type, which hid a number-typed lookup and its plain source from a
+    // Link/Formula filter and left the edge behind after a permanent wipe (T7365).
     const fields = await this.prismaService.txClient().field.findMany({
-      where: { tableId: { in: tableIds }, type: { in: [FieldType.Link, FieldType.Formula] } },
+      where: { tableId: { in: tableIds } },
       select: { id: true },
     });
     const fieldIds = fields.map((field) => field.id);
@@ -670,6 +674,14 @@ export class TableOpenApiService {
 
     // delete view for table
     await metaPrisma.view.deleteMany({
+      where: { tableId: { in: tableIds } },
+    });
+
+    // comments live on the meta DB keyed by table id, with no cascade from tableMeta
+    await metaPrisma.comment.deleteMany({
+      where: { tableId: { in: tableIds } },
+    });
+    await metaPrisma.commentSubscription.deleteMany({
       where: { tableId: { in: tableIds } },
     });
 
@@ -716,6 +728,9 @@ export class TableOpenApiService {
           : routedDataPrisma;
       const where = { tableId: { in: tableIds } };
 
+      await bestEffort(`attachment refs for tables ${tables}`, () =>
+        dataPrisma.attachmentsTable.deleteMany({ where })
+      );
       await bestEffort(`record history for tables ${tables}`, () =>
         dataPrisma.recordHistory.deleteMany({ where })
       );

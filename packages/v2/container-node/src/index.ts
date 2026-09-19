@@ -17,22 +17,43 @@ import {
 } from '@teable/v2-adapter-repository-postgres';
 import {
   registerV2TableOpsPostgresAdapter,
+  registerV2TableSearchAccessPathPostgresAdapter,
   type RegisterV2TableOpsPostgresAdapterOptions,
   type TableQueryObservationDatabase,
 } from '@teable/v2-adapter-table-query-ops-postgres';
 import {
   createTypeValidationStrategy,
+  DomainEventOutboxWorker,
   registerV2TableRepositoryPostgresAdapter,
+  ValidationInboxDurableProjection,
+  v2RecordRepositoryPostgresTokens,
   type IV2TableRepositoryPostgresConfig,
+  FormulaSourceBudgetCommandBusMiddleware,
 } from '@teable/v2-adapter-table-repository-postgres';
 import { registerCommandExplainModule } from '@teable/v2-command-explain';
 import {
   AsyncMemoryEventBus,
+  DomainWriteTransaction,
+  FieldCreated,
+  FieldUpdated,
   MemoryCommandBus,
   MemoryQueryBus,
   NoopLogger,
+  NoopProjectionMessageJournal,
   NoopRealtimeEngine,
   NoopTracer,
+  ProjectionMessageCodecRegistry,
+  RecordCreated,
+  RecordReordered,
+  RecordsBatchCreated,
+  RecordsBatchUpdated,
+  RecordsDeleted,
+  RecordUpdated,
+  SameTxProjectionDispatcher,
+  TableCreated,
+  TargetedLegacyEventDispatcher,
+  compileDurableSubscriptionCatalog,
+  recordProjectionCodecs,
   registerV2CoreServices,
   StaticTableDataSafetyLimitPlugin,
   TableDataSafetyLimitCommandBusMiddleware,
@@ -77,6 +98,11 @@ export interface IV2NodePgContainerOptions {
   seed?: Partial<IV2PostgresStateAdapterConfig['seed']>;
   tableMaxRowLimit?: number;
   tableDataSafetyLimits?: TableDataSafetyLimitConfig;
+  /**
+   * Statement budget for record count/aggregate statements, in ms. Falls back to
+   * `V2_RECORD_QUERY_STATEMENT_BUDGET_MS`; 0 or unset keeps them unbudgeted.
+   */
+  recordQueryStatementBudgetMs?: number;
   /** @deprecated Use `tableMaxRowLimit`. */
   maxFreeRowLimit?: number;
   logger?: ILogger;
@@ -85,7 +111,9 @@ export interface IV2NodePgContainerOptions {
   commandBusMiddlewares?: ReadonlyArray<ICommandBusMiddleware>;
   queryBusMiddlewares?: ReadonlyArray<IQueryBusMiddleware>;
   computedUpdate?: IV2TableRepositoryPostgresConfig['computedUpdate'];
+  formulaCompileBudget?: IV2TableRepositoryPostgresConfig['formulaCompileBudget'];
   computedOutboxAdmin?: IComputedOutboxAdmin;
+  domainEventWakeupPublisher?: IV2TableRepositoryPostgresConfig['domainEventWakeupPublisher'];
   /**
    * Enable the delete-undo purge guard. Only turn this on when the hosting app
    * writes record_trash markers for v2 deletes (postgres adapter inside the
@@ -196,7 +224,10 @@ const registerTableQueryOpsDependencies = async (
   // puts TableSearchVectorSchemaMaintenanceProjection into the global event registry
   // via @ProjectionHandler; without these registrations every Field* event fails DI.
   registerV2TableOps(c, tableQueryOps);
-  if (!tableQueryOps) return;
+  if (!tableQueryOps) {
+    registerV2TableSearchAccessPathPostgresAdapter(c, { metaDb, dataDb });
+    return;
+  }
 
   await registerV2TableOpsPostgresAdapter(c, {
     metaDb,
@@ -244,8 +275,16 @@ export const registerV2NodePgDependencies = async (
     db: dataDb,
     metaDb,
     computedUpdate: options.computedUpdate,
+    formulaCompileBudget: options.formulaCompileBudget,
     typeValidationStrategy,
     tableDataSafetyLimits,
+    domainEventWakeupPublisher: options.domainEventWakeupPublisher,
+    recordQuery: {
+      statementBudgetMs:
+        options.recordQueryStatementBudgetMs ??
+        parsePositiveInteger(process.env.V2_RECORD_QUERY_STATEMENT_BUDGET_MS) ??
+        0,
+    },
   });
 
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
@@ -256,6 +295,7 @@ export const registerV2NodePgDependencies = async (
   c.registerInstance(v2CoreTokens.logger, logger);
 
   const commandBusMiddlewares = [
+    new FormulaSourceBudgetCommandBusMiddleware(options.formulaCompileBudget),
     new TableDataSafetyLimitCommandBusMiddleware(
       new StaticTableDataSafetyLimitPlugin(tableDataSafetyLimits)
     ),
@@ -279,6 +319,54 @@ export const registerV2NodePgDependencies = async (
         });
       },
     })
+  );
+
+  const catalogResult = compileDurableSubscriptionCatalog([
+    RecordCreated,
+    RecordsBatchCreated,
+    RecordUpdated,
+    RecordsBatchUpdated,
+    RecordsDeleted,
+    RecordReordered,
+    TableCreated,
+    FieldCreated,
+    FieldUpdated,
+  ]);
+  if (catalogResult.isErr()) {
+    throw new Error(catalogResult.error.message);
+  }
+  const codecResult = ProjectionMessageCodecRegistry.create(recordProjectionCodecs);
+  if (codecResult.isErr()) {
+    throw new Error(codecResult.error.message);
+  }
+  c.registerInstance(v2CoreTokens.durableSubscriptionCatalog, catalogResult.value);
+  if (!c.isRegistered(v2CoreTokens.projectionMessageJournal)) {
+    c.registerInstance(v2CoreTokens.projectionMessageJournal, new NoopProjectionMessageJournal());
+  }
+  c.registerInstance(
+    v2CoreTokens.domainWriteTransaction,
+    new DomainWriteTransaction(
+      c.resolve(v2CoreTokens.unitOfWork),
+      codecResult.value,
+      catalogResult.value,
+      c.resolve(v2CoreTokens.projectionMessageJournal),
+      new TargetedLegacyEventDispatcher(c, logger),
+      new SameTxProjectionDispatcher(c),
+      logger,
+      undefined,
+      c.resolve(v2CoreTokens.eventBus)
+    )
+  );
+  const validationConsumer = new ValidationInboxDurableProjection(dataDb, options.dataSchema);
+  c.registerInstance(
+    v2RecordRepositoryPostgresTokens.domainEventOutboxWorker,
+    new DomainEventOutboxWorker(
+      dataDb,
+      new Map([[validationConsumer.consumerId, validationConsumer]]),
+      codecResult.value,
+      logger,
+      options.dataSchema
+    )
   );
 
   if (options.tracer) {

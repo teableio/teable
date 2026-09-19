@@ -38,6 +38,11 @@ export class Record extends RecordCore {
     super(fieldMap);
   }
 
+  /** ShareDB doc identity for viewport fill invalidation. */
+  get docSource(): object | undefined {
+    return this.doc;
+  }
+
   get title() {
     if (!this.fieldMap) {
       return undefined;

@@ -318,6 +318,7 @@ const localizeSystemDetail = (t: Translate, detail: string) => {
   return detail;
 };
 
+// Keep legacy Base messages compatible while backend and frontend releases roll independently.
 const localizedMessageKeys: Record<string, string> = {
   'Schema is valid': 'table:table.integrity.v2.message.schemaValid',
   'Schema element missing': 'table:table.integrity.v2.message.schemaElementMissing',
@@ -330,14 +331,21 @@ const localizedMessageKeys: Record<string, string> = {
     'table:table.integrity.v2.message.checkStreamConnected',
   'Base schema integrity check stream connected':
     'table:table.integrity.v2.message.baseCheckStreamConnected',
+  'Project schema integrity check stream connected':
+    'table:table.integrity.v2.message.baseCheckStreamConnected',
   'Schema integrity repair stream connected':
     'table:table.integrity.v2.message.repairStreamConnected',
   'Base schema integrity repair stream connected':
     'table:table.integrity.v2.message.baseRepairStreamConnected',
+  'Project schema integrity repair stream connected':
+    'table:table.integrity.v2.message.baseRepairStreamConnected',
   'Schema integrity check completed': 'table:table.integrity.v2.message.checkCompleted',
   'Base schema integrity check completed': 'table:table.integrity.v2.message.baseCheckCompleted',
+  'Project schema integrity check completed': 'table:table.integrity.v2.message.baseCheckCompleted',
   'Schema integrity repair completed': 'table:table.integrity.v2.message.repairCompleted',
   'Base schema integrity repair completed': 'table:table.integrity.v2.message.baseRepairCompleted',
+  'Project schema integrity repair completed':
+    'table:table.integrity.v2.message.baseRepairCompleted',
   'Skipped: status not selected for repair':
     'table:table.integrity.v2.message.skippedStatusNotSelected',
   'Skipped: repair unavailable': 'table:table.integrity.v2.message.skippedRepairUnavailable',

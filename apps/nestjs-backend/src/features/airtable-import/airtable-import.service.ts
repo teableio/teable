@@ -241,7 +241,7 @@ export class AirtableImportService {
       progress({ phase: 'creating_base', detail: ro.baseName });
       base = await this.baseService.createBase({
         spaceId: ro.spaceId,
-        name: ro.baseName ?? 'Imported base',
+        name: ro.baseName ?? 'Imported project',
       });
     }
     const aiModelKey = await this.resolveAiModelKey(base.id);

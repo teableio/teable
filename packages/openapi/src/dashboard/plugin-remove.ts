@@ -9,6 +9,7 @@ export const DASHBOARD_REMOVE_PLUGIN =
 export const DashboardRemovePluginRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: DASHBOARD_REMOVE_PLUGIN,
+  title: 'Delete project dashboard plugin',
   description: 'Remove a plugin from a dashboard',
   request: {
     params: z.object({

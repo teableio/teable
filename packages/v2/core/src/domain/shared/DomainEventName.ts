@@ -34,6 +34,10 @@ export class DomainEventName extends ValueObject {
     return new DomainEventName('TableRestored');
   }
 
+  static tableProvisionReady(): DomainEventName {
+    return new DomainEventName('TableProvisionReady');
+  }
+
   static tableRenamed(): DomainEventName {
     return new DomainEventName('TableRenamed');
   }

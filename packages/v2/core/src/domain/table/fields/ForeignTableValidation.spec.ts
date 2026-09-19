@@ -11,6 +11,8 @@ import { FieldName } from './FieldName';
 import { validateForeignTablesForFields } from './ForeignTableRelatedField';
 import { CellValueMultiplicity } from './types/CellValueMultiplicity';
 import { CellValueType } from './types/CellValueType';
+import { ConditionalRollupConfig } from './types/ConditionalRollupConfig';
+import { ConditionalRollupField } from './types/ConditionalRollupField';
 import { LinkFieldConfig } from './types/LinkFieldConfig';
 import { RollupExpression } from './types/RollupExpression';
 import { RollupField } from './types/RollupField';
@@ -364,6 +366,168 @@ describe('ForeignTableValidation (rollup create-time compatibility T7046)', () =
           })
         ),
         expression: unwrap(RollupExpression.create('countall({values})')),
+        resultType: {
+          cellValueType: CellValueType.number(),
+          isMultipleCellValue: CellValueMultiplicity.single(),
+        },
+      })
+    );
+
+    unwrap(host.addField(rollup, { foreignTables: [foreign] }));
+  });
+});
+
+describe('ForeignTableValidation (conditional rollup create-time compatibility T7087)', () => {
+  const buildHost = (baseId: BaseId) => {
+    const builder = Table.builder()
+      .withBaseId(baseId)
+      .withName(unwrap(TableName.create('Host')));
+    builder
+      .field()
+      .singleLineText()
+      .withName(unwrap(FieldName.create('Label')))
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+    return unwrap(builder.build());
+  };
+
+  const addPendingConditionalRollup = (params: {
+    host: Table;
+    foreign: Table;
+    lookupFieldId: FieldId;
+    expression: string;
+  }) => {
+    const rollup = unwrap(
+      ConditionalRollupField.createPending({
+        id: unwrap(FieldId.generate()),
+        name: unwrap(FieldName.create('Conditional Rollup')),
+        config: unwrap(
+          ConditionalRollupConfig.create({
+            foreignTableId: params.foreign.id().toString(),
+            lookupFieldId: params.lookupFieldId.toString(),
+            condition: { filter: null },
+          })
+        ),
+        expression: unwrap(RollupExpression.create(params.expression)),
+      })
+    );
+    return params.host.addField(rollup, { foreignTables: [params.foreign] });
+  };
+
+  it('rejects number source with and({values}) instead of creating hasError', () => {
+    const baseId = unwrap(BaseId.generate());
+    const foreign = buildForeignTable(baseId);
+    const host = buildHost(baseId);
+
+    const error = addPendingConditionalRollup({
+      host,
+      foreign: foreign.table,
+      lookupFieldId: foreign.lookupFieldId,
+      expression: 'and({values})',
+    })._unsafeUnwrapErr();
+
+    expect(error.message).toBe('Invalid RollupExpression for ConditionalRollupField value type');
+  });
+
+  it('rejects checkbox source with sum({values}) instead of creating hasError', () => {
+    const baseId = unwrap(BaseId.generate());
+    const lookupFieldId = unwrap(FieldId.generate());
+    const foreignBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withName(unwrap(TableName.create('Foreign')));
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withName(unwrap(FieldName.create('Title')))
+      .primary()
+      .done();
+    foreignBuilder
+      .field()
+      .checkbox()
+      .withName(unwrap(FieldName.create('Flag')))
+      .withId(lookupFieldId)
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreign = unwrap(foreignBuilder.build());
+    const host = buildHost(baseId);
+
+    const error = addPendingConditionalRollup({
+      host,
+      foreign,
+      lookupFieldId,
+      expression: 'sum({values})',
+    })._unsafeUnwrapErr();
+
+    expect(error.message).toBe('Invalid RollupExpression for ConditionalRollupField value type');
+  });
+
+  it('rejects button source even with counta({values})', () => {
+    const baseId = unwrap(BaseId.generate());
+    const lookupFieldId = unwrap(FieldId.generate());
+    const foreignBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withName(unwrap(TableName.create('Foreign')));
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withName(unwrap(FieldName.create('Title')))
+      .primary()
+      .done();
+    foreignBuilder
+      .field()
+      .button()
+      .withName(unwrap(FieldName.create('Action')))
+      .withId(lookupFieldId)
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreign = unwrap(foreignBuilder.build());
+    const host = buildHost(baseId);
+
+    const error = addPendingConditionalRollup({
+      host,
+      foreign,
+      lookupFieldId,
+      expression: 'counta({values})',
+    })._unsafeUnwrapErr();
+
+    expect(error.message).toBe('Button fields cannot be used as a rollup source');
+  });
+
+  it('still loads a rehydrated button conditional rollup so existing fields are not blocked', () => {
+    const baseId = unwrap(BaseId.generate());
+    const lookupFieldId = unwrap(FieldId.generate());
+    const foreignBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withName(unwrap(TableName.create('Foreign')));
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withName(unwrap(FieldName.create('Title')))
+      .primary()
+      .done();
+    foreignBuilder
+      .field()
+      .button()
+      .withName(unwrap(FieldName.create('Action')))
+      .withId(lookupFieldId)
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreign = unwrap(foreignBuilder.build());
+    const host = buildHost(baseId);
+
+    const rollup = unwrap(
+      ConditionalRollupField.createPending({
+        id: unwrap(FieldId.generate()),
+        name: unwrap(FieldName.create('Existing Conditional Rollup')),
+        config: unwrap(
+          ConditionalRollupConfig.create({
+            foreignTableId: foreign.id().toString(),
+            lookupFieldId: lookupFieldId.toString(),
+            condition: { filter: null },
+          })
+        ),
+        expression: unwrap(RollupExpression.create('counta({values})')),
         resultType: {
           cellValueType: CellValueType.number(),
           isMultipleCellValue: CellValueMultiplicity.single(),

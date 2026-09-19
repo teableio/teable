@@ -28,6 +28,8 @@ export interface IServerEnv {
   };
   edition?: string;
   passwordLoginDisabled?: boolean;
+  /** The request came from the native mobile app's WebView (embed mode). */
+  embedMode?: boolean;
   // global settings
   globalSettings?: {
     disallowSignUp?: boolean;

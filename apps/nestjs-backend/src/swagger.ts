@@ -3,11 +3,13 @@ import 'dayjs/plugin/utc';
 import fs from 'fs';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import type { OpenAPIObject } from '@nestjs/swagger';
 import { SwaggerModule } from '@nestjs/swagger';
-import { getOpenApiDocumentation } from '@teable/openapi';
+import { generateCodeSamples, getOpenApiDocumentation } from '@teable/openapi';
 import type { RedocOptions } from 'nestjs-redoc';
 import { RedocModule } from 'nestjs-redoc';
+import { annotateAppOpenApiTokenAccess } from './features/auth/openapi-token-access';
 
 export async function setupSwagger(
   app: INestApplication,
@@ -16,8 +18,27 @@ export async function setupSwagger(
 ) {
   const openApiDocumentation = await getOpenApiDocumentation({
     origin: publicOrigin,
-    snippet: enabledSnippet,
+    snippet: false,
   });
+
+  // Mark every operation with how it authenticates (bearer token with scopes,
+  // session cookie only + x-excluded, or public) so one document serves the
+  // frontend type generation, /docs and the public docs site alike.
+  const stats = annotateAppOpenApiTokenAccess(app, openApiDocumentation as OpenAPIObject);
+  const logger = new Logger('OpenApiDocs');
+  logger.log(
+    `OpenAPI auth annotation: token ${stats.token}, cookie-only ${stats.cookieOnly}, public ${stats.public}, unmatched ${stats.unmatched.length}`
+  );
+  if (stats.unmatched.length) {
+    logger.debug(`OpenAPI routes without a serving controller: ${stats.unmatched.join(', ')}`);
+  }
+
+  // Code samples take their auth header from each operation's `security`, so
+  // they must be generated after the annotation above — otherwise public and
+  // session-only operations would show a bearer token they do not accept.
+  if (enabledSnippet) {
+    await generateCodeSamples(openApiDocumentation);
+  }
 
   const jsonString = JSON.stringify(openApiDocumentation);
   fs.writeFileSync(path.join(__dirname, '/openapi.json'), jsonString);

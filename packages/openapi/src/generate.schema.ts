@@ -1,4 +1,3 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
 import type { OpenAPIObject } from 'openapi3-ts/oas30';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -8,7 +7,7 @@ import { getRoutes } from './utils';
 
 function registerRoutes(filters?: { tags?: string[]; paths?: string[]; methods?: string[] }) {
   const registry = new OpenAPIRegistry();
-  const routeObjList: RouteConfig[] = getRoutes();
+  const routeObjList = getRoutes();
 
   let filteredRoutes = routeObjList;
 
@@ -40,12 +39,30 @@ function registerRoutes(filters?: { tags?: string[]; paths?: string[]; methods?:
       throw new Error('Path should start with /: ' + routeObj.path);
     }
 
-    registry.registerPath({ ...routeObj, security: [{ [bearerAuth.name]: [] }] });
+    const { title, sidebarTitle, ...operation } = routeObj;
+    if (title) {
+      operation['x-mint'] = {
+        ...operation['x-mint'],
+        metadata: {
+          ...operation['x-mint']?.metadata,
+          title,
+          sidebarTitle: sidebarTitle ?? title,
+          description: operation.description,
+        },
+      };
+    }
+
+    registry.registerPath({ ...operation, security: [{ [bearerAuth.name]: [] }] });
   }
   return registry;
 }
 
-async function generateCodeSamples(document: OpenAPIObject) {
+/**
+ * Attach `x-codeSamples` to every operation. Samples derive their auth header
+ * from the operation's `security`, so call this after any per-operation
+ * security annotation (see the backend swagger setup).
+ */
+export async function generateCodeSamples(document: OpenAPIObject) {
   const routes = getRoutes();
   const langs = ['shell', 'javascript_fetch', 'node', 'python'];
   const targetTitle: Record<string, string> = {
@@ -86,6 +103,15 @@ export async function getOpenApiDocumentation(config: {
 
   const registry = registerRoutes({ tags, paths, methods });
   const generator = new OpenApiGeneratorV3(registry.definitions);
+  const displayTags = [
+    { name: 'base', 'x-group': 'project' },
+    { name: 'base node', 'x-group': 'project node' },
+    { name: 'base-share', 'x-group': 'project-share' },
+  ].filter(({ name }) =>
+    registry.definitions.some(
+      (definition) => definition.type === 'route' && definition.route.tags?.includes(name)
+    )
+  );
 
   let document;
   try {
@@ -97,6 +123,7 @@ export async function getOpenApiDocumentation(config: {
         description: `Manage Data as easy as drink a cup of tea`,
       },
       servers: [{ url: origin + '/api' }],
+      ...(displayTags.length ? { tags: displayTags } : {}),
     });
   } catch (error: unknown) {
     if ((error as Error).message?.includes('Unknown zod object type')) {

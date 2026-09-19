@@ -15,7 +15,6 @@ import {
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
 import type { IAttachmentItem, IAttachmentCellValue } from '@teable/core';
-import { useTheme } from '@teable/next-themes';
 import { Button, FilePreviewProvider, ScrollArea, cn } from '@teable/ui-lib';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
@@ -23,7 +22,6 @@ import { useIsMobile } from '../../../../hooks';
 import { useDownloadAttachmentsStore } from '../../../../store';
 import { useAttachmentPreviewI18Map } from '../../../hooks';
 import { FileZone } from '../../../upload/FileZone';
-import { getFileCover } from '../utils';
 import AttachmentItem from './AttachmentItem';
 import type { UploadAttachmentViewProps, UploadAttachmentViewRef } from './types';
 import { UploadingFile } from './UploadingFile';
@@ -42,7 +40,6 @@ export const UploadAttachmentView = forwardRef<UploadAttachmentViewRef, UploadAt
       onCancelUpload,
     } = props;
     const triggerCellDownload = useDownloadAttachmentsStore((state) => state.triggerCellDownload);
-    const { resolvedTheme } = useTheme();
     const [sortData, setSortData] = useState<IAttachmentCellValue>(attachments);
     const listRef = useRef<HTMLDivElement>(null);
     const { t } = useTranslation();
@@ -124,20 +121,6 @@ export const UploadAttachmentView = forwardRef<UploadAttachmentViewRef, UploadAt
         scheduleScrollBottom();
       },
       [onUpload, scheduleScrollBottom]
-    );
-
-    const fileCover = useCallback(
-      ({
-        mimetype,
-        presignedUrl,
-        lgThumbnailUrl,
-      }: Pick<IAttachmentItem, 'mimetype' | 'presignedUrl' | 'lgThumbnailUrl'>) => {
-        if (!presignedUrl) return '';
-        return (
-          lgThumbnailUrl ?? getFileCover(mimetype, presignedUrl, resolvedTheme as 'light' | 'dark')
-        );
-      },
-      [resolvedTheme]
     );
 
     const handleDragEnd = useCallback(
@@ -236,7 +219,6 @@ export const UploadAttachmentView = forwardRef<UploadAttachmentViewRef, UploadAt
                             onDelete={onDelete}
                             onRename={onRename}
                             downloadFile={downloadFile}
-                            fileCover={fileCover}
                             readonly={readonly}
                           />
                         ))}

@@ -9,19 +9,21 @@ import {
   ViewType,
   getPermissions,
   isAnonymous,
+  isRobot,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import {
-  getBaseCached,
-  getSpaceCached,
-  getTableMetaWithBaseCached,
-} from '../../utils/meta-ancestry-cache';
 import { CollaboratorType } from '@teable/openapi';
 import { intersection, union } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException, TemplateAppTokenNotAllowedException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
+import {
+  getBaseCached,
+  getSpaceCached,
+  getTableMetaWithBaseCached,
+} from '../../utils/meta-ancestry-cache';
+import { hashSharePassword } from '../../utils/share-password-hash';
 import { CollaboratorModel } from '../model/collaborator';
 import { TemplateModel } from '../model/template';
 import { TeableJwtService } from './jwt/teable-jwt.service';
@@ -70,14 +72,23 @@ export class PermissionService {
     return departments?.map((department) => department.id) || [];
   }
 
+  // Robot identities are shared by every app/automation token, so a collaborator
+  // row for them would grant every tenant at once and never counts here; their
+  // only authority is the tempAuthBaseId handled in getPermissionByBaseId.
   async getSpaceCollaborators(spaceId: string, principalId: string[]) {
     const collaborators = await this.collaboratorModel.getCollaboratorRawByResourceId(spaceId);
-    return collaborators.filter((collaborator) => principalId.includes(collaborator.principalId));
+    return collaborators.filter(
+      (collaborator) =>
+        principalId.includes(collaborator.principalId) && !isRobot(collaborator.principalId)
+    );
   }
 
   async getBaseCollaborators(baseId: string, principalId: string[]) {
     const collaborators = await this.collaboratorModel.getCollaboratorRawByResourceId(baseId);
-    return collaborators.filter((collaborator) => principalId.includes(collaborator.principalId));
+    return collaborators.filter(
+      (collaborator) =>
+        principalId.includes(collaborator.principalId) && !isRobot(collaborator.principalId)
+    );
   }
 
   async getRoleBySpaceId(spaceId: string, includeInactiveResource?: boolean) {
@@ -219,7 +230,7 @@ export class PermissionService {
       cachedBase && (includeInactiveResource || !cachedBase.deletedTime) ? cachedBase : null;
     const spaceId = base?.spaceId;
     if (!spaceId) {
-      throw new CustomHttpException('Base not found', HttpErrorCode.NOT_FOUND, {
+      throw new CustomHttpException('Project not found', HttpErrorCode.NOT_FOUND, {
         localization: {
           i18nKey: 'httpErrors.base.notFound',
         },
@@ -302,7 +313,7 @@ export class PermissionService {
       ))
     ) {
       throw new CustomHttpException(
-        `You are not allowed to access base ${resourceId}`,
+        `You are not allowed to access project ${resourceId}`,
         HttpErrorCode.RESTRICTED_RESOURCE,
         {
           localization: {
@@ -376,7 +387,7 @@ export class PermissionService {
     );
     if (!role && !spaceRole) {
       throw new CustomHttpException(
-        `you have no permission to access this base`,
+        `you have no permission to access this project`,
         HttpErrorCode.RESTRICTED_RESOURCE,
         {
           localization: {
@@ -584,9 +595,7 @@ export class PermissionService {
 
   async validateBaseSharePasswordToken(shareId: string, token: string) {
     try {
-      const payload = await this.jwtService.verifyAsync<{ shareId: string; password: string }>(
-        token
-      );
+      const payload = await this.jwtService.verifyAsync<{ shareId: string; pwHash: string }>(token);
       if (payload.shareId !== shareId) {
         return false;
       }
@@ -597,7 +606,7 @@ export class PermissionService {
       if (!baseShare?.password) {
         return false;
       }
-      return payload.password === baseShare.password;
+      return payload.pwHash === hashSharePassword(shareId, baseShare.password);
     } catch {
       return false;
     }
@@ -607,7 +616,7 @@ export class PermissionService {
     const baseShare = await this.getBaseShareInfo(shareId);
     if (!baseShare) {
       throw new CustomHttpException(
-        `Base share ${shareId} is not found`,
+        `Project share ${shareId} is not found`,
         HttpErrorCode.RESTRICTED_RESOURCE
       );
     }
@@ -683,6 +692,8 @@ export class PermissionService {
         return this.checkFieldBelongsToShare(resourceId, baseId, nodeId);
       case IdPrefix.App:
         return this.checkAppBelongsToShare(resourceId, baseId, nodeId);
+      case IdPrefix.Routine:
+        return this.checkRoutineBelongsToShare(resourceId, baseId, nodeId);
       default:
         return false;
     }
@@ -854,6 +865,31 @@ export class PermissionService {
     return result;
   }
 
+  private async checkRoutineBelongsToShare(
+    routineId: string,
+    baseId: string,
+    nodeId: string | null
+  ): Promise<boolean> {
+    const routineNode = await this.prismaService.baseNode.findFirst({
+      where: {
+        baseId,
+        resourceType: { equals: 'routine', mode: 'insensitive' },
+        resourceId: routineId,
+      },
+    });
+
+    if (!routineNode) {
+      return false;
+    }
+
+    // Whole-base share: any routine within the shared base is accessible.
+    if (!nodeId) {
+      return true;
+    }
+
+    return this.isNodeAllowedByNodeId(baseId, routineNode.id, nodeId);
+  }
+
   /**
    * Get base nodes with caching within the same request cycle.
    * Uses cls to cache node data to avoid repeated database queries.
@@ -989,7 +1025,7 @@ export class PermissionService {
       return sharePermissions;
     }
     throw new CustomHttpException(
-      `Base share access denied, not allowed to operate ${permissions.join(', ')} on ${resourceId}`,
+      `Project share access denied, not allowed to operate ${permissions.join(', ')} on ${resourceId}`,
       HttpErrorCode.RESTRICTED_RESOURCE,
       {
         localization: {
@@ -1005,10 +1041,11 @@ export class PermissionService {
    *
    * Note: Password authentication is handled separately via JWT cookie:
    * - When a share has a password, the user authenticates via POST /share/:shareId/base/auth
-   * - A JWT cookie containing { shareId, password } is set for 7 days
+   * - A JWT cookie containing { shareId, pwHash } is set for 7 days (a hash bound to the
+   *   share, never the password itself — a JWT payload is readable by the browser)
    * - On subsequent requests, ensureBaseShareAuth validates the cookie by comparing the
-   *   password in the JWT with the current DB password (see validateBaseSharePasswordToken).
-   * - If the admin changes the password, the old JWT cookie's password won't match,
+   *   hash in the JWT with the current DB password (see validateBaseSharePasswordToken).
+   * - If the admin changes the password, the old JWT cookie's hash won't match,
    *   causing the user to be redirected to the auth page automatically.
    */
   getBaseShareIdByHeader(shareHeader: string): string | null {
@@ -1048,9 +1085,7 @@ export class PermissionService {
 
   async validateShareViewPasswordToken(shareId: string, token: string) {
     try {
-      const payload = await this.jwtService.verifyAsync<{ shareId: string; password: string }>(
-        token
-      );
+      const payload = await this.jwtService.verifyAsync<{ shareId: string; pwHash: string }>(token);
       if (payload.shareId !== shareId) {
         return false;
       }
@@ -1058,7 +1093,7 @@ export class PermissionService {
       if (!info?.shareMeta?.password) {
         return false;
       }
-      return payload.password === info.shareMeta.password;
+      return payload.pwHash === hashSharePassword(shareId, info.shareMeta.password);
     } catch {
       return false;
     }

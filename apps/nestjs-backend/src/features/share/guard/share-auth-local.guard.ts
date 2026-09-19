@@ -11,7 +11,7 @@ export class ShareAuthLocalGuard implements CanActivate {
   async canActivate(context: ExecutionContext) {
     const req = context.switchToHttp().getRequest();
     const shareId = req.params.shareId;
-    const password = req.body.password;
+    const password = req.body?.password;
     const authShareId = await this.shareAuthService.authShareView(
       shareId,
       password,

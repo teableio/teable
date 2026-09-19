@@ -13,6 +13,7 @@ import {
   BaseDuplicateMode,
   MAX_TEMPLATE_CATEGORY_COUNT,
   ShortLinkType,
+  TemplateKind,
 } from '@teable/openapi';
 import { isNumber } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -94,6 +95,7 @@ export class TemplateOpenApiService {
         markdownDescription: true,
         publishInfo: true,
         visitCount: true,
+        kind: true,
       },
     });
 
@@ -106,17 +108,27 @@ export class TemplateOpenApiService {
     const featured = templateQuery?.featured;
     const categoryId = templateQuery?.categoryId;
     const search = templateQuery?.search;
+    const kind = templateQuery?.kind;
 
     this.validateTakeCount(take);
 
     const res = await prisma.template.findMany({
       where: {
         isPublished: true,
-        ...(featured === true
-          ? { featured: true }
-          : featured === false
-            ? { OR: [{ featured: false }, { featured: null }] }
-            : {}),
+        AND: [
+          // The catalogue lists every kind together; `kind` only narrows it. Rows
+          // published before the column existed carry no kind and are plain templates.
+          !kind
+            ? {}
+            : kind === TemplateKind.Template
+              ? { OR: [{ kind: null }, { kind: TemplateKind.Template }] }
+              : { kind },
+          featured === true
+            ? { featured: true }
+            : featured === false
+              ? { OR: [{ featured: false }, { featured: null }] }
+              : {},
+        ],
         categoryId: categoryId ? { has: categoryId } : undefined,
         name: search ? { contains: search, mode: 'insensitive' } : undefined,
       },
@@ -259,6 +271,7 @@ export class TemplateOpenApiService {
     const templateSpaceId = await prisma.space.findFirstOrThrow({
       where: {
         isTemplate: true,
+        deletedTime: null,
       },
       select: {
         id: true,
@@ -572,6 +585,7 @@ export class TemplateOpenApiService {
         markdownDescription: true,
         publishInfo: true,
         visitCount: true,
+        kind: true,
         createdBy: true,
         snapshot: true,
       },

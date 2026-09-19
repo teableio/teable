@@ -36,7 +36,7 @@ import { TableUpdateResult } from '../../domain/table/TableMutator';
 import { ViewColumnMeta } from '../../domain/table/views/ViewColumnMeta';
 import { ViewQueryDefaults } from '../../domain/table/views/ViewQueryDefaults';
 import * as CommandBusPort from '../../ports/CommandBus';
-import * as EventBusPort from '../../ports/EventBus';
+import { domainWrite, type IDomainWriteTransaction } from '../../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../../ports/ExecutionContext';
 import * as TableRecordQueryRepositoryPort from '../../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
@@ -46,7 +46,6 @@ import { v2CoreTokens } from '../../ports/tokens';
 import { TeableSpanAttributes } from '../../ports/Tracer';
 import { TraceSpan } from '../../ports/TraceSpan';
 import type { UndoRedoFieldSnapshot, UndoRedoFieldViewSnapshot } from '../../ports/UndoRedoStore';
-import * as UnitOfWorkPort from '../../ports/UnitOfWork';
 import { areRecordFieldValuesEqual } from './RecordFieldValueEquality';
 import { TableUpdateFlow } from './TableUpdateFlow';
 
@@ -160,10 +159,8 @@ export class FieldUndoRedoReplayService {
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.tableRecordRepository)
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
-    @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus,
-    @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.domainWriteTransaction)
+    private readonly domainWriteTransaction: IDomainWriteTransaction,
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow
   ) {}
@@ -668,25 +665,21 @@ export class FieldUndoRedoReplayService {
         }
       }
 
-      const updateResult = yield* await service.unitOfWork.withTransaction(
-        context,
-        async (transactionContext) => {
-          const persistResult = await service.tableRecordRepository.updateManyStream(
-            transactionContext,
-            params.table,
-            syncBatchesGenerator()
-          );
-          return persistResult;
+      yield* await service.domainWriteTransaction.execute(context, async (transactionContext) => {
+        const persistResult = await service.tableRecordRepository.updateManyStream(
+          transactionContext,
+          params.table,
+          syncBatchesGenerator()
+        );
+        if (persistResult.isErr()) {
+          return err(persistResult.error);
         }
-      );
-
-      const events = service.buildRecordsBatchUpdatedEvents(
-        params.table,
-        service.reconcilePersistedUpdateEvents(updates, updateResult)
-      );
-      if (events.length > 0) {
-        yield* await service.eventBus.publishMany(context, events);
-      }
+        const events = service.buildRecordsBatchUpdatedEvents(
+          params.table,
+          service.reconcilePersistedUpdateEvents(updates, persistResult.value)
+        );
+        return ok(domainWrite.fromEvents(undefined, events));
+      });
 
       return ok(undefined);
     });

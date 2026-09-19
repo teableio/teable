@@ -12,18 +12,6 @@ type DateLikeField = {
   formatting?: () => DateTimeFormattingLike;
 };
 
-const getPostgresDateSortFormatString = (date: string): string => {
-  switch (date) {
-    case DateFormattingPreset.Y:
-      return 'YYYY';
-    case DateFormattingPreset.M:
-    case DateFormattingPreset.YM:
-      return 'YYYY-MM';
-    default:
-      return 'YYYY-MM-DD';
-  }
-};
-
 const resolveDateLikeFormatting = (
   field: unknown
 ): {
@@ -44,22 +32,6 @@ const resolveDateLikeFormatting = (
     fieldType.equals(FieldType.lastModifiedTime());
 
   return isDateLike ? { fieldType, formatting } : null;
-};
-
-export const buildDateLikeOrderExpression = (
-  field: unknown,
-  tableAlias: string,
-  column: string
-): RawBuilder<unknown> | null => {
-  const dateLike = resolveDateLikeFormatting(field);
-  if (!dateLike || dateLike.formatting.time() !== TimeFormatting.None) {
-    return null;
-  }
-
-  const columnRef = sql.ref(`${tableAlias}.${column}`);
-  const localizedExpr = sql`timezone(${dateLike.formatting.timeZone().toString()}, ${columnRef})`;
-
-  return sql`to_char(${localizedExpr}, ${getPostgresDateSortFormatString(dateLike.formatting.date())})`;
 };
 
 const resolveDateTruncUnit = (date: string, time: string): 'year' | 'month' | 'day' | 'minute' => {

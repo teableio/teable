@@ -113,7 +113,7 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
       const foreignTableReferences = yield* await withCreateFieldSpan(
         context,
         'resolveForeignTableReferences',
-        async () => command.foreignTableReferences(),
+        async () => command.foreignTableReferences(context),
         spanAttrs
       );
       const foreignTables = yield* await withCreateFieldSpan(

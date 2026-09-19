@@ -87,6 +87,17 @@ export class UserService {
     });
   }
 
+  /**
+   * The user an OAuth account is linked to, by the provider's own subject id. The identity
+   * an identity provider guarantees is this pair; an email is an optional profile field.
+   */
+  async getUserByAccount(provider: string, providerId: string) {
+    const account = await this.prismaService.txClient().account.findFirst({
+      where: { provider, providerId },
+    });
+    return account ? await this.getUserById(account.userId) : undefined;
+  }
+
   async createSpaceBySignup(createSpaceRo: ICreateSpaceRo) {
     const userId = this.cls.get('user.id');
     const uniqName = createSpaceRo.name ?? 'Space';

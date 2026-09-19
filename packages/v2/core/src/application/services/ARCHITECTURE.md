@@ -31,7 +31,9 @@ Declaration: If the folder I belong to changes, please update me, especially cor
   (getById, getByIdInBase, exists) used across CommandHandlers and QueryHandlers.
 - `TableUpdateFlow.ts` - Role: application service; Purpose: shared table update workflow (mutate +
   persist + publish), including mapping one persisted View query-default version touch to its
-  filter/group/sort semantic events without consuming later mutation versions.
+  filter/group/sort semantic events without consuming later mutation versions. Physical schema
+  completion publishes `TableProvisionReady` after ready is committed, even when mutation events
+  are deferred with `publishEvents: false`; outer transactions own this notification after commit.
 - `ViewPluginCreationService.ts` - Role: application service; Purpose: resolve external Plugin
   definitions and prepare/install Plugin View integrations around aggregate creation.
 - `ViewManualSortService.ts` - Role: application service; Purpose: execute aggregate-declared

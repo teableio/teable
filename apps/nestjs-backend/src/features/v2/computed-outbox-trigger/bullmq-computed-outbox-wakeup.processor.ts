@@ -9,6 +9,7 @@ import {
 import { createComputedOutboxWakeup } from '@teable/v2-adapter-table-repository-postgres';
 import { UnrecoverableError, type Job } from 'bullmq';
 
+import { resolveComputedOutboxWorkerConcurrency } from '../../../configs/computed-outbox-trigger.config';
 import { ComputedOutboxTriggerMetrics } from './computed-outbox-trigger.metrics';
 import type { ComputedOutboxWakeupHandlerOutcome } from './computed-outbox-wakeup.handler';
 import { ComputedOutboxWakeupHandler } from './computed-outbox-wakeup.handler';
@@ -20,12 +21,11 @@ import {
 import { ComputedOutboxWorkerConcurrencyService } from './computed-outbox-worker-concurrency.service';
 import { COMPUTED_OUTBOX_WAKEUP_PUBLISHER, COMPUTED_OUTBOX_WAKEUP_QUEUE } from './constants';
 
-const concurrency = Number(process.env.V2_COMPUTED_OUTBOX_TRIGGER_CONCURRENCY ?? 8);
 /** How often each consumer checks Redis for a runtime concurrency override. */
 const CONCURRENCY_POLL_INTERVAL_MS = 15_000;
 
 @Processor(COMPUTED_OUTBOX_WAKEUP_QUEUE, {
-  concurrency: Number.isInteger(concurrency) && concurrency > 0 ? concurrency : 8,
+  concurrency: resolveComputedOutboxWorkerConcurrency(),
 })
 export class BullMqComputedOutboxWakeupProcessor
   extends WorkerHost

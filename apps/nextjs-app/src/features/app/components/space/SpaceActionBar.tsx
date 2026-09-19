@@ -128,7 +128,7 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
         showRename={false}
         showSettings={hasPermission(space.role, 'space|update')}
         showDelete={hasPermission(space.role, 'space|delete')}
-        showImportBase={hasPermission(space.role, 'space|update')}
+        showImportBase={hasPermission(space.role, 'base|create')}
         onDelete={onDelete}
         onPermanentDelete={onPermanentDelete}
         onRename={onRename}

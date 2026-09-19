@@ -1,3 +1,4 @@
+import { ComputedReliabilityReconciliationService } from './computed-outbox-trigger/computed-reliability-reconciliation.service';
 import { Module } from '@nestjs/common';
 import { DiscoveryService } from '@nestjs/core';
 import { ORPCModule } from '@orpc/nest';
@@ -17,6 +18,7 @@ import { ComputedOutboxClaimConcurrencyService } from './computed-outbox-trigger
 import { ComputedOutboxMonitorService } from './computed-outbox-trigger/computed-outbox-monitor.service';
 import { ComputedOutboxRedriveService } from './computed-outbox-trigger/computed-outbox-redrive.service';
 import { ComputedOutboxWakeupProducerModule } from './computed-outbox-trigger/computed-outbox-wakeup-producer.module';
+import { DomainEventWakeupProducerModule } from './domain-event-outbox-trigger/domain-event-wakeup-producer.module';
 import { ComputedOutboxWorkerConcurrencyService } from './computed-outbox-trigger/computed-outbox-worker-concurrency.service';
 import { TableQueryObservationRuntimeService } from './table-query-observation-runtime.service';
 import { V2ActionTriggerService } from './v2-action-trigger.service';
@@ -121,6 +123,7 @@ const toErrorMessage = (body: unknown): string => {
     ViewModule,
     SpaceDataDbMigrationGuardModule,
     ComputedOutboxWakeupProducerModule.register(),
+    DomainEventWakeupProducerModule,
   ],
   controllers: [V2Controller, V2OpenApiController],
   providers: [
@@ -141,6 +144,7 @@ const toErrorMessage = (body: unknown): string => {
     V2ViewShareSideEffectService,
     UndoRedoStackService,
     ComputedOutboxRedriveService,
+    ComputedReliabilityReconciliationService,
     ComputedOutboxMonitorService,
     ComputedOutboxAnomalyService,
     ComputedOutboxLineageService,

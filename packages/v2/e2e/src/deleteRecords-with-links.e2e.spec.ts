@@ -21,6 +21,62 @@ describe('v2 http deleteRecords with links (e2e)', () => {
     ctx = await getSharedTestContext();
   }, 120_000);
 
+  const createStorageFixture = async (relationship: 'manyOne' | 'manyMany' | 'oneMany') => {
+    const targets = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: `StorageTargets_${relationship}`,
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        { type: 'number', name: 'Value' },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const targetNameId = targets.fields.find((field) => field.isPrimary)?.id ?? '';
+    const targetValueId = targets.fields.find((field) => field.name === 'Value')?.id ?? '';
+    const target = await ctx.createRecord(targets.id, {
+      [targetNameId]: 'Target',
+      [targetValueId]: 10,
+    });
+    const hosts = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: `StorageHosts_${relationship}`,
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        {
+          type: 'link',
+          name: 'Targets',
+          options: {
+            relationship,
+            foreignTableId: targets.id,
+            lookupFieldId: targetNameId,
+            isOneWay: relationship !== 'oneMany',
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const link = hosts.fields.find((field) => field.type === 'link');
+    if (!link || link.type !== 'link') throw new Error('Missing fixture link');
+    const { fkHostTableName, foreignKeyName } = link.options;
+    if (!fkHostTableName || !foreignKeyName) throw new Error('Missing fixture link storage');
+    const source = await ctx.createRecord(hosts.id, {
+      [hosts.fields.find((field) => field.isPrimary)?.id ?? '']: 'Source',
+      [link.id]: relationship === 'manyOne' ? { id: target.id } : [{ id: target.id }],
+    });
+    await ctx.testContainer.processOutbox();
+    return {
+      targets,
+      hosts,
+      target,
+      source,
+      link,
+      fkHostTableName,
+      foreignKeyName,
+      targetNameId,
+      targetValueId,
+    };
+  };
+
   // ===========================================================================
   // Outgoing Links - Delete record that has links to other tables
   // ===========================================================================
@@ -656,6 +712,71 @@ describe('v2 http deleteRecords with links (e2e)', () => {
   // Computed Fields Update on Delete
   // ===========================================================================
 
+  describe('missing and deleted link storage T7445', () => {
+    it('clears a deleted optional link FK before deleting its target', async () => {
+      const fixture = await createStorageFixture('manyOne');
+      const { targets, hosts, target, source, link, fkHostTableName, foreignKeyName } = fixture;
+      const before = await sql<{ linked_id: string | null }>`
+        SELECT ${sql.ref(foreignKeyName)} AS linked_id
+        FROM ${sql.table(fkHostTableName)} WHERE "__id" = ${source.id}
+      `.execute(ctx.testContainer.db);
+      expect(before.rows).toEqual([{ linked_id: target.id }]);
+      await ctx.testContainer.db
+        .updateTable('field')
+        .set({ deleted_time: new Date() })
+        .where('id', '=', link.id)
+        .execute();
+
+      await ctx.deleteRecords(targets.id, [target.id]);
+
+      const after = await sql<{ linked_id: string | null }>`
+        SELECT ${sql.ref(foreignKeyName)} AS linked_id
+        FROM ${sql.table(fkHostTableName)} WHERE "__id" = ${source.id}
+      `.execute(ctx.testContainer.db);
+      expect(after.rows).toEqual([{ linked_id: null }]);
+      expect(await ctx.listRecords(targets.id)).toEqual([]);
+      expect((await ctx.listRecords(hosts.id)).map((row) => row.id)).toEqual([source.id]);
+    });
+
+    it('deletes the target when a deleted link FK column is already absent', async () => {
+      const { targets, hosts, target, source, link, fkHostTableName, foreignKeyName } =
+        await createStorageFixture('manyOne');
+      await ctx.testContainer.db
+        .updateTable('field')
+        .set({ deleted_time: new Date() })
+        .where('id', '=', link.id)
+        .execute();
+      await sql`ALTER TABLE ${sql.table(fkHostTableName)} DROP COLUMN ${sql.ref(foreignKeyName)}`.execute(
+        ctx.testContainer.db
+      );
+
+      await ctx.deleteRecords(targets.id, [target.id]);
+
+      expect(await ctx.listRecords(targets.id)).toEqual([]);
+      expect((await ctx.listRecords(hosts.id)).map((row) => row.id)).toEqual([source.id]);
+    });
+
+    it('deletes the source when its outgoing junction table is absent', async () => {
+      const { targets, hosts, target, source, fkHostTableName } =
+        await createStorageFixture('manyMany');
+      await sql`DROP TABLE ${sql.table(fkHostTableName)}`.execute(ctx.testContainer.db);
+
+      await ctx.deleteRecords(hosts.id, [source.id]);
+
+      expect(await ctx.listRecords(hosts.id)).toEqual([]);
+      expect((await ctx.listRecords(targets.id)).map((row) => row.id)).toEqual([target.id]);
+    });
+
+    it('deletes the source when its outgoing reverse-FK table is absent', async () => {
+      const { hosts, source, fkHostTableName } = await createStorageFixture('oneMany');
+      await sql`DROP TABLE ${sql.table(fkHostTableName)}`.execute(ctx.testContainer.db);
+
+      await ctx.deleteRecords(hosts.id, [source.id]);
+
+      expect(await ctx.listRecords(hosts.id)).toEqual([]);
+    });
+  });
+
   describe('computed fields update on delete', () => {
     it('updates rollup when linked record is deleted', async () => {
       const tableB = await ctx.createTable({
@@ -739,6 +860,140 @@ describe('v2 http deleteRecords with links (e2e)', () => {
       // Verify rollup updated to only B2's value = 20
       const afterRecords = await ctx.listRecords(tableA.id);
       expect(afterRecords[0].fields[aRollupFieldId]).toBe(20);
+    });
+
+    it('recomputes every one-way junction host after deleting shared targets in a batch T7445', async () => {
+      const targets = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'BatchSeedTargets',
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'number', name: 'Value' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const targetNameId = targets.fields.find((field) => field.isPrimary)?.id ?? '';
+      const targetValueId = targets.fields.find((field) => field.name === 'Value')?.id ?? '';
+      const first = await ctx.createRecord(targets.id, {
+        [targetNameId]: 'First',
+        [targetValueId]: 10,
+      });
+      const second = await ctx.createRecord(targets.id, {
+        [targetNameId]: 'Second',
+        [targetValueId]: 20,
+      });
+      const survivor = await ctx.createRecord(targets.id, {
+        [targetNameId]: 'Survivor',
+        [targetValueId]: 40,
+      });
+      const hosts = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'BatchSeedHosts',
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            name: 'Targets',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: targets.id,
+              lookupFieldId: targetNameId,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const hostNameId = hosts.fields.find((field) => field.isPrimary)?.id ?? '';
+      const linkId = hosts.fields.find((field) => field.type === 'link')?.id ?? '';
+      const withRollup = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hosts.id,
+        field: {
+          type: 'rollup',
+          name: 'Total',
+          options: { expression: 'sum({values})' },
+          config: {
+            linkFieldId: linkId,
+            foreignTableId: targets.id,
+            lookupFieldId: targetValueId,
+          },
+        },
+      });
+      const rollupId = withRollup.fields.find((field) => field.name === 'Total')?.id ?? '';
+      const partlyLinked = await ctx.createRecord(hosts.id, {
+        [hostNameId]: 'Partly linked',
+        [linkId]: [{ id: first.id }, { id: second.id }, { id: survivor.id }],
+      });
+      const emptied = await ctx.createRecord(hosts.id, {
+        [hostNameId]: 'Emptied',
+        [linkId]: [{ id: first.id }, { id: second.id }],
+      });
+      const unchanged = await ctx.createRecord(hosts.id, {
+        [hostNameId]: 'Unchanged',
+        [linkId]: [{ id: survivor.id }],
+      });
+      await ctx.testContainer.processOutbox();
+      const before = new Map((await ctx.listRecords(hosts.id)).map((row) => [row.id, row.fields]));
+      expect(before.get(partlyLinked.id)?.[rollupId]).toBe(70);
+      expect(before.get(emptied.id)?.[rollupId]).toBe(30);
+      expect(before.get(unchanged.id)?.[rollupId]).toBe(40);
+      await ctx.testContainer.db
+        .updateTable('field')
+        .set({ is_lookup: false })
+        .where('id', '=', linkId)
+        .execute();
+
+      await ctx.deleteRecords(targets.id, [first.id, second.id]);
+      await ctx.testContainer.processOutbox();
+
+      const after = new Map((await ctx.listRecords(hosts.id)).map((row) => [row.id, row.fields]));
+      expect([...after.keys()].sort()).toEqual([partlyLinked.id, emptied.id, unchanged.id].sort());
+      expect(after.get(partlyLinked.id)?.[rollupId]).toBe(40);
+      expect(after.get(partlyLinked.id)?.[linkId]).toEqual([
+        expect.objectContaining({ id: survivor.id }),
+      ]);
+      expect(after.get(emptied.id)?.[rollupId] ?? 0).toBe(0);
+      expect(after.get(emptied.id)?.[linkId] ?? []).toEqual([]);
+      expect(after.get(unchanged.id)).toEqual(before.get(unchanged.id));
+      expect((await ctx.listRecords(targets.id)).map((row) => row.id)).toEqual([survivor.id]);
+    });
+
+    it('recomputes a two-way oneMany rollup from the deleted target FK seed T7445', async () => {
+      const { targets, hosts, target, source, link, targetNameId, targetValueId } =
+        await createStorageFixture('oneMany');
+      const symmetricFieldId = link.options.symmetricFieldId;
+      if (!symmetricFieldId) throw new Error('Missing fixture symmetric link');
+      const survivor = await ctx.createRecord(targets.id, {
+        [targetNameId]: 'Survivor',
+        [targetValueId]: 20,
+        [symmetricFieldId]: { id: source.id },
+      });
+      const withRollup = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: hosts.id,
+        field: {
+          type: 'rollup',
+          name: 'Total',
+          options: { expression: 'sum({values})' },
+          config: {
+            linkFieldId: link.id,
+            foreignTableId: targets.id,
+            lookupFieldId: targetValueId,
+          },
+        },
+      });
+      const rollupId = withRollup.fields.find((field) => field.type === 'rollup')?.id ?? '';
+      await ctx.testContainer.processOutbox();
+      expect((await ctx.listRecords(hosts.id))[0].fields[rollupId]).toBe(30);
+
+      await ctx.deleteRecords(targets.id, [target.id]);
+      await ctx.testContainer.processOutbox();
+
+      const rows = await ctx.listRecords(hosts.id);
+      expect(rows.map((row) => row.id)).toEqual([source.id]);
+      expect(rows[0].fields[rollupId]).toBe(20);
+      expect(rows[0].fields[link.id]).toEqual([expect.objectContaining({ id: survivor.id })]);
     });
   });
 
