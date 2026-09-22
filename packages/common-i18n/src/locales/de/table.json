@@ -455,7 +455,7 @@
       },
       "autoFillConfirm": {
         "title": "Gesamte Spalte generieren?",
-        "description": "Dabei werden {{rowCount}} Zeilen aktualisiert. Dieser Vorgang kann viele KI-Ressourcen verbrauchen.",
+        "description": "Dabei werden {{count}} Zeilen aktualisiert. Dieser Vorgang kann viele KI-Ressourcen verbrauchen.",
         "emptyOnlyMode": "Nur leere Zellen füllen",
         "emptyOnlyModeDesc": "Nur für leere Zellen generieren, vorhandene Inhalte werden nicht überschrieben",
         "allMode": "Gesamte Spalte generieren",

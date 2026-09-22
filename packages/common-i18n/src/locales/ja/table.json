@@ -450,7 +450,7 @@
       },
       "autoFillConfirm": {
         "title": "列全体を生成しますか？",
-        "description": "列全体を生成すると {{rowCount}} 行が更新されます。この操作は大量の AI リソースを消費する可能性があります。",
+        "description": "列全体を生成すると {{count}} 行が更新されます。この操作は大量の AI リソースを消費する可能性があります。",
         "emptyOnlyMode": "空のセルのみ入力",
         "emptyOnlyModeDesc": "空のセルのみ生成し、既存の内容は上書きしません",
         "allMode": "列全体を生成",
