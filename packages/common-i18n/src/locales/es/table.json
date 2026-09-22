@@ -460,7 +460,7 @@
       },
       "autoFillConfirm": {
         "title": "¿Generar toda la columna?",
-        "description": "Generar toda la columna actualizará {{rowCount}} filas. Esta operación puede consumir muchos recursos de IA.",
+        "description": "Generar toda la columna actualizará {{count}} filas. Esta operación puede consumir muchos recursos de IA.",
         "emptyOnlyMode": "Rellenar solo celdas vacías",
         "emptyOnlyModeDesc": "Generar solo para celdas vacías; el contenido existente no se sobrescribirá",
         "allMode": "Generar toda la columna",

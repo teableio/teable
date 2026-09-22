@@ -460,7 +460,7 @@
       },
       "autoFillConfirm": {
         "title": "Générer toute la colonne ?",
-        "description": "La génération de la colonne mettra à jour {{rowCount}} lignes. Cette opération peut consommer beaucoup de ressources d'IA.",
+        "description": "La génération de la colonne mettra à jour {{count}} lignes. Cette opération peut consommer beaucoup de ressources d'IA.",
         "emptyOnlyMode": "Remplir uniquement les cellules vides",
         "emptyOnlyModeDesc": "Générer uniquement pour les cellules vides ; le contenu existant ne sera pas écrasé",
         "allMode": "Générer toute la colonne",
