@@ -31,9 +31,12 @@
   "scripts": {
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/common-i18n.eslintcache",
+    "lint:i18n": "eloqnt lint",
     "typecheck": "tsc --project ./tsconfig.json --noEmit"
   },
   "devDependencies": {
+    "@eloqnt/cli": "0.6.32",
+    "@eloqnt/format-i18next-json": "0.0.10",
     "@teable/eslint-config-bases": "workspace:^",
     "@types/node": "22.18.0",
     "cross-env": "7.0.3",
