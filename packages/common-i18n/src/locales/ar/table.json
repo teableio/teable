@@ -1380,14 +1380,10 @@
         "code": "الكود",
         "download": "تنزيل",
         "downloadHtml": "HTML",
-        "downloadImage": "صورة (PNG)",
         "copy": "نسخ",
         "copied": "تم النسخ!",
         "fullscreen": "ملء الشاشة",
         "exitFullscreen": "إنهاء ملء الشاشة",
-        "downloadSuccess": "تم تنزيل الصورة بنجاح",
-        "downloadFailed": "فشل التقاط الصورة",
-        "iframeFailed": "فشل الالتقاط: يتعذّر الوصول إلى الإطار المضمّن",
         "iframeTitle": "معاينة HTML"
       }
     },
@@ -1509,7 +1505,6 @@
       "nQueued": "{{count}} في الانتظار",
       "edit": "تعديل",
       "steerNow": "توجيه المحادثة دون مقاطعتها",
-      "steerFailed": "تعذّر توجيه المحادثة. وبقيت الرسالة في قائمة الانتظار.",
       "conversationInputMarker": "تم توجيه المحادثة",
       "removeFromQueue": "إزالة"
     },

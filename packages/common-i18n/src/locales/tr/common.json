@@ -463,7 +463,7 @@
     "done": "Tamam",
     "skip": "Atla",
     "createSpaceTooltipTitle": "Alan oluştur",
-    "createSpaceTooltipContent": "Teable alanlar halinde düzenlenmiştir, her alan kullanıcıları işbirliği yapmaya davet eder. <br></br>Teable'daki alanlar, menü çubuğunda birincil gezinme öğesi olarak hizmet verir ve kullanıcılara gerektiğinde veritabanı ekleme ve yönetme için temel bir platform sunar.",
+    "createSpaceTooltipContent": "Ekibinizle işbirliği yapmak için bir alan oluşturun.",
     "createBaseTooltipTitle": "Veritabanı oluştur",
     "createBaseTooltipContent": "Veritabanı, önemli verileri ve bunlara bağlı iş akışlarını depolamak için bir yerdir.",
     "createTableTooltipTitle": "Tablo oluştur",
@@ -1012,7 +1012,7 @@
       "list": {
         "publicOrigin": {
           "title": "PUBLIC_ORIGIN ortam değişkeni",
-          "description": "<strong>PUBLIC_ORIGIN</strong> ortam değişkeni yapılandırmanız mevcut erişim adresi <underline>https://example.com</underline> ile eşleşmiyor, xlsx, csv içe aktarma ve ek alanı işlevleri normal çalışmayabilir, <underline>https://example.com</underline> olarak ayarlanması önerilir"
+          "description": "<strong>{{envPublicOrigin}}</strong> ortam değişkeni yapılandırmanız mevcut erişim adresi <underline>{{currentPublicOrigin}}</underline> ile eşleşmiyor, xlsx, csv içe aktarma ve ek alanı işlevleri normal çalışmayabilir, <underline>{{envPublicOrigin}}</underline> olarak ayarlanması önerilir"
         },
         "https": {
           "title": "HTTPS'yi etkinleştir",
@@ -1356,7 +1356,7 @@
           "ai": {
             "failed": {
               "title": "AI görevi {{tableName}} tablosunda başarısız oldu",
-              "message": "{{tableName}} tablosundaki {{fieldName}} alanı için AI görevi (Kayıt ID: {{recordId}}) başarısız oldu.\n\n{{errorMsg}}\n\nAyrıntıları görmek için aşağıdaki düğmeye tıklayın."
+              "message": "\"{{tableName}}\" tablosundaki \"{{fieldName}}\" alanı için AI görevi başarısız oldu: {{errorMsg}}"
             },
             "cancelled": {
               "title": "AI görevi iptal edildi",

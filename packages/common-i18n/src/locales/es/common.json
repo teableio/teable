@@ -469,11 +469,11 @@
     "createTableTooltipTitle": "Crear una mesa",
     "createTableTooltipContent": "Las tablas están diseñadas para manejar eficientemente diversos conjuntos de datos, ofreciendo una visualización versátil de información a través de varios tipos de datos.",
     "createViewTooltipTitle": "Crear una vista",
-    "createViewTooltipContent": "Actualmente, los usuarios pueden crear vistas de cuadrícula, galería, kanban y formulario, con vistas de calendario planificadas para futuros lanzamientos. ",
+    "createViewTooltipContent": "Crea vistas de Cuadrícula, Galería, Kanban y Formulario. Las vistas de Calendario llegarán muy pronto. <br></br>Elige la vista que mejor se adapte a tu forma de gestionar los datos.",
     "viewFilteringTooltipTitle": "Registros filtrantes",
-    "viewFilteringTooltipContent": "Una de las características centrales de las vistas es la capacidad de filtrar registros desde una vista de acuerdo con las condiciones que establece. ",
+    "viewFilteringTooltipContent": "Filtra los registros estableciendo condiciones. Los registros filtrados se ocultan, no se eliminan. <br></br>Esto solo afecta a la vista actual, no a tus datos reales.",
     "viewSortingTooltipTitle": "Clasificación de registros",
-    "viewSortingTooltipContent": "Mientras esté en una vista, puede ordenar sus registros para que aparezcan en un orden particular de acuerdo con los valores en campos específicos. ",
+    "viewSortingTooltipContent": "Ordena los registros por los valores de los campos para organizarlos como prefieras. <br></br>La ordenación solo afecta a la vista actual, no a las demás vistas de la misma tabla.",
     "viewGroupingTooltipTitle": "Grupos de registros",
     "viewGroupingTooltipContent": "Los registros de agrupación permiten a los creadores construir un conjunto de una o más condiciones que ayuden a clasificar el conjunto de datos que se presenta dentro de una vista particular.",
     "apiButtonTooltipTitle": "API",
@@ -1015,7 +1015,7 @@
       "list": {
         "publicOrigin": {
           "title": "Variable de entorno PUBLIC_ORIGIN",
-          "description": "Su configuración de variable de entorno <strong>PUBLIC_ORIGIN</strong> no coincide con la dirección de acceso actual <underline>https://example.com</underline>, las funciones de importación xlsx, csv y campo de adjunto pueden no funcionar normalmente, se recomienda configurar a <underline>https://example.com</underline>"
+          "description": "Su configuración de variable de entorno <strong>{{envPublicOrigin}}</strong> no coincide con la dirección de acceso actual <underline>{{currentPublicOrigin}}</underline>, las funciones de importación xlsx, csv y campo de adjunto pueden no funcionar normalmente, se recomienda configurar a <underline>{{envPublicOrigin}}</underline>"
         },
         "https": {
           "title": "Habilitar HTTPS",
@@ -1359,7 +1359,7 @@
           "ai": {
             "failed": {
               "title": "Tarea de IA falló en la tabla {{tableName}}",
-              "message": "La tarea de IA para el campo {{fieldName}} en la tabla {{tableName}} (ID de registro: {{recordId}}) ha fallado.\n\n{{errorMsg}}\n\nHaz clic en el botón a continuación para ver los detalles."
+              "message": "La tarea de IA falló para el campo «{{fieldName}}» de la tabla «{{tableName}}»: {{errorMsg}}"
             },
             "cancelled": {
               "title": "Tarea de IA cancelada",

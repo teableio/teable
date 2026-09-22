@@ -451,11 +451,11 @@
       },
       "autoFillFieldDialog": {
         "title": "Alle Datensätze aktualisieren",
-        "description": "Alle Datensätze in der aktuellen Ansicht werden aktualisiert, einschließlich aller mit dem Feld generierten verknüpften Datensätze"
+        "description": "Wird für {{count}} Zeilen in der aktuellen Ansicht generiert. Die Aufgabe läuft im Hintergrund."
       },
       "autoFillConfirm": {
         "title": "Gesamte Spalte generieren?",
-        "description": "Dabei werden {{rowCount}} Zeilen aktualisiert. Dieser Vorgang kann viele KI-Ressourcen verbrauchen.",
+        "description": "Dabei werden {{count}} Zeilen aktualisiert. Dieser Vorgang kann viele KI-Ressourcen verbrauchen.",
         "emptyOnlyMode": "Nur leere Zellen füllen",
         "emptyOnlyModeDesc": "Nur für leere Zellen generieren, vorhandene Inhalte werden nicht überschrieben",
         "allMode": "Gesamte Spalte generieren",
@@ -1373,9 +1373,6 @@
         "copied": "Kopiert!",
         "fullscreen": "Vollbild",
         "exitFullscreen": "Vollbild beenden",
-        "downloadSuccess": "Bild erfolgreich heruntergeladen",
-        "downloadFailed": "Bild konnte nicht aufgenommen werden",
-        "iframeFailed": "Aufnahme fehlgeschlagen: iframe nicht zugänglich",
         "iframeTitle": "HTML-Vorschau"
       }
     },
@@ -1527,7 +1524,6 @@
       "nQueued": "{{count}} in Warteschlange",
       "edit": "Bearbeiten",
       "steerNow": "Unterhaltung lenken, ohne sie zu unterbrechen",
-      "steerFailed": "Unterhaltung konnte nicht gelenkt werden. Nachricht bleibt in der Warteschlange.",
       "conversationInputMarker": "Unterhaltung gelenkt",
       "removeFromQueue": "Entfernen"
     },

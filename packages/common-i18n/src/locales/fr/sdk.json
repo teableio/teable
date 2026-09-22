@@ -165,7 +165,7 @@
     "displayLabel_other": "Filtrer par {{fieldName}} et {{count}} autres champs",
     "addCondition": "Ajouter une condition",
     "addConditionGroup": "Ajouter un groupe de conditions",
-    "nestedLimitTip": "Les conditions de filtrage ne peuvent être imbriquées que jusqu'à 3 niveaux",
+    "nestedLimitTip": "Les conditions de filtrage ne peuvent être imbriquées que jusqu'à {{depth}} niveaux",
     "linkInputPlaceholder": "Entrez une valeur",
     "currentUser": "Moi (utilisateur actuel)",
     "invalidateSelected": "Invalid value",

@@ -463,7 +463,7 @@
     "done": "Готово",
     "skip": "Пропустити",
     "createSpaceTooltipTitle": "Створити простір",
-    "createSpaceTooltipContent": "Teable організована в простори, де кожна область запрошує користувачів до співпраці. <br></br>Простори в Teable служать основним навігаційним елементом у рядку меню, пропонуючи базову платформу для користувачів, щоб додавати та керувати базами даних за потреби.",
+    "createSpaceTooltipContent": "Створіть простір, щоб співпрацювати зі своєю командою.",
     "createBaseTooltipTitle": "Створити базу",
     "createBaseTooltipContent": "База (скорочення від \"база даних\") — це місце для зберігання важливих даних і робочих процесів, які від них залежать.",
     "createTableTooltipTitle": "Створити таблицю",
@@ -1018,7 +1018,7 @@
       "list": {
         "publicOrigin": {
           "title": "Змінна середовища PUBLIC_ORIGIN",
-          "description": "Налаштування змінної середовища <strong>PUBLIC_ORIGIN</strong> не відповідає поточній адресі доступу <underline>https://example.com</underline>, імпорт xlsx, csv та функції поля вкладень можуть працювати неправильно, рекомендується встановити на <underline>https://example.com</underline>"
+          "description": "Налаштування змінної середовища <strong>{{envPublicOrigin}}</strong> не відповідає поточній адресі доступу <underline>{{currentPublicOrigin}}</underline>, імпорт xlsx, csv та функції поля вкладень можуть працювати неправильно, рекомендується встановити на <underline>{{envPublicOrigin}}</underline>"
         },
         "https": {
           "title": "Увімкнути HTTPS",
@@ -1362,7 +1362,7 @@
           "ai": {
             "failed": {
               "title": "Завдання ШІ не вдалося в таблиці {{tableName}}",
-              "message": "Завдання ШІ для поля {{fieldName}} в таблиці {{tableName}} (ID запису: {{recordId}}) не вдалося.\n\n{{errorMsg}}\n\nНатисніть кнопку нижче, щоб переглянути деталі."
+              "message": "Не вдалося виконати ШІ-завдання для поля «{{fieldName}}» у таблиці «{{tableName}}»: {{errorMsg}}"
             },
             "cancelled": {
               "title": "Завдання ШІ скасовано",

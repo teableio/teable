@@ -463,7 +463,7 @@
     "done": "Готово",
     "skip": "Пропустить",
     "createSpaceTooltipTitle": "Создать пространство",
-    "createSpaceTooltipContent": "Teable организован в пространства, где каждый может приглашать пользователей для совместной работы. <br></br> Пространства в Teable служат основным элементом навигации в меню, предоставляя платформу для добавления и управления базами данных по мере необходимости.",
+    "createSpaceTooltipContent": "Создайте пространство для совместной работы с вашей командой.",
     "createBaseTooltipTitle": "Создать базу",
     "createBaseTooltipContent": "База данных — это место для хранения важных данных и рабочих процессов, которые зависят от них.",
     "createTableTooltipTitle": "Создать таблицу",
@@ -1018,7 +1018,7 @@
       "list": {
         "publicOrigin": {
           "title": "Переменная окружения PUBLIC_ORIGIN",
-          "description": "Ваша конфигурация переменной окружения <strong>PUBLIC_ORIGIN</strong> не соответствует текущему адресу доступа <underline>https://example.com</underline>, функции импорта xlsx, csv и поля вложений могут работать неправильно, рекомендуется установить на <underline>https://example.com</underline>"
+          "description": "Ваша конфигурация переменной окружения <strong>{{envPublicOrigin}}</strong> не соответствует текущему адресу доступа <underline>{{currentPublicOrigin}}</underline>, функции импорта xlsx, csv и поля вложений могут работать неправильно, рекомендуется установить на <underline>{{envPublicOrigin}}</underline>"
         },
         "https": {
           "title": "Включить HTTPS",
@@ -1362,7 +1362,7 @@
           "ai": {
             "failed": {
               "title": "Задача ИИ не удалась в таблице {{tableName}}",
-              "message": "Задача ИИ для поля {{fieldName}} в таблице {{tableName}} (ID записи: {{recordId}}) не удалась.\n\n{{errorMsg}}\n\nНажмите кнопку ниже, чтобы просмотреть детали."
+              "message": "Не удалось выполнить задачу ИИ для поля «{{fieldName}}» в таблице «{{tableName}}»: {{errorMsg}}"
             },
             "cancelled": {
               "title": "Задача ИИ отменена",

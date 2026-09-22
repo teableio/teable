@@ -463,7 +463,7 @@
     "done": "Erledigt",
     "skip": "Überspringen",
     "createSpaceTooltipTitle": "Einen Space erstellen",
-    "createSpaceTooltipContent": "Teable ist in Spaces gegliedert, die zur Zusammenarbeit einladen.<br></br>Die Spaces in Teable dienen als primäres Navigationselement in der Menüleiste und bieten eine grundlegende Plattform für Benutzer, die Datenbanken nach Bedarf hinzufügen und verwalten möchten.",
+    "createSpaceTooltipContent": "Erstellen Sie einen Space, um mit Ihrem Team zusammenzuarbeiten.",
     "createBaseTooltipTitle": "Eine Base erstellen",
     "createBaseTooltipContent": "Eine Base (kurz für \"database\") ist ein Ort, an dem wichtige Daten und die davon abhängigen Arbeitsabläufe gespeichert werden.",
     "createTableTooltipTitle": "Eine Tabelle erstellen",
@@ -1012,7 +1012,7 @@
       "list": {
         "publicOrigin": {
           "title": "PUBLIC_ORIGIN Umgebungsvariable",
-          "description": "Ihre <strong>PUBLIC_ORIGIN</strong> Umgebungsvariablenkonfiguration stimmt nicht mit der aktuellen Zugriffsadresse <underline>https://example.com</underline> überein. Import von xlsx, csv und Anhangfeldfunktionen funktionieren möglicherweise nicht ordnungsgemäß. Es wird empfohlen, sie auf <underline>https://example.com</underline> zu setzen"
+          "description": "Ihre <strong>{{envPublicOrigin}}</strong> Umgebungsvariablenkonfiguration stimmt nicht mit der aktuellen Zugriffsadresse <underline>{{currentPublicOrigin}}</underline> überein. Import von xlsx, csv und Anhangfeldfunktionen funktionieren möglicherweise nicht ordnungsgemäß. Es wird empfohlen, sie auf <underline>{{envPublicOrigin}}</underline> zu setzen"
         },
         "https": {
           "title": "HTTPS aktivieren",
@@ -1356,7 +1356,7 @@
           "ai": {
             "failed": {
               "title": "KI-Aufgabe in Tabelle {{tableName}} fehlgeschlagen",
-              "message": "Die KI-Aufgabe für Feld {{fieldName}} in Tabelle {{tableName}} (Datensatz-ID: {{recordId}}) ist fehlgeschlagen.\n\n{{errorMsg}}\n\nKlicken Sie auf die Schaltfläche unten, um Details anzuzeigen."
+              "message": "KI-Aufgabe für Feld „{{fieldName}}“ in Tabelle „{{tableName}}“ fehlgeschlagen: {{errorMsg}}"
             },
             "cancelled": {
               "title": "KI-Aufgabe abgebrochen",

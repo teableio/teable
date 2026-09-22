@@ -463,7 +463,7 @@
     "done": "決定",
     "skip": "スキップ",
     "createSpaceTooltipTitle": "スペースの作成",
-    "createSpaceTooltipContent": "Teableはスペースで構成されており、各スペースではユーザーが共同作業を行うことができます。<br></br>Teableのスペースはメニューバー内の主要なナビゲーション要素として機能し、ユーザーが必要に応じてデータベースを追加および管理するための基本的なプラットフォームを提供します。",
+    "createSpaceTooltipContent": "スペースを作成して、チームで共同作業しましょう。",
     "createBaseTooltipTitle": "ベースの作成",
     "createBaseTooltipContent": "ベース (「データベース」の略) は、重要なデータとそれに依存するワークフローを保存する場所です。",
     "createTableTooltipTitle": "テーブルの作成",
@@ -1009,7 +1009,7 @@
       "list": {
         "publicOrigin": {
           "title": "PUBLIC_ORIGIN環境変数",
-          "description": "<strong>PUBLIC_ORIGIN</strong>環境変数設定が現在のアクセスアドレス<underline>https://example.com</underline>と一致しません。xlsx、csvインポートおよび添付ファイルフィールド機能が正常に動作しない可能性があります。<underline>https://example.com</underline>に設定することをお勧めします"
+          "description": "<strong>{{envPublicOrigin}}</strong>環境変数設定が現在のアクセスアドレス<underline>{{currentPublicOrigin}}</underline>と一致しません。xlsx、csvインポートおよび添付ファイルフィールド機能が正常に動作しない可能性があります。<underline>{{envPublicOrigin}}</underline>に設定することをお勧めします"
         },
         "https": {
           "title": "HTTPSを有効にする",
@@ -1353,7 +1353,7 @@
           "ai": {
             "failed": {
               "title": "テーブル{{tableName}}でAIタスクが失敗しました",
-              "message": "テーブル{{tableName}}のフィールド{{fieldName}}のAIタスク（レコードID：{{recordId}}）が失敗しました。\n\n{{errorMsg}}\n\n下のボタンをクリックして詳細を表示してください。"
+              "message": "テーブル「{{tableName}}」のフィールド「{{fieldName}}」のAIタスクが失敗しました：{{errorMsg}}"
             },
             "cancelled": {
               "title": "AIタスクがキャンセルされました",

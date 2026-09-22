@@ -446,11 +446,11 @@
       },
       "autoFillFieldDialog": {
         "title": "すべてのレコードを更新",
-        "description": "現在のビューのすべてのレコードが更新され、フィールドによって生成されたすべての関連データが含まれます"
+        "description": "現在のビューの{{count}}行に対して生成します。タスクはバックグラウンドで実行されます。"
       },
       "autoFillConfirm": {
         "title": "列全体を生成しますか？",
-        "description": "列全体を生成すると {{rowCount}} 行が更新されます。この操作は大量の AI リソースを消費する可能性があります。",
+        "description": "列全体を生成すると {{count}} 行が更新されます。この操作は大量の AI リソースを消費する可能性があります。",
         "emptyOnlyMode": "空のセルのみ入力",
         "emptyOnlyModeDesc": "空のセルのみ生成し、既存の内容は上書きしません",
         "allMode": "列全体を生成",
@@ -1367,9 +1367,6 @@
         "copied": "コピーしました！",
         "fullscreen": "全画面",
         "exitFullscreen": "全画面を終了",
-        "downloadSuccess": "画像を正常にダウンロードしました",
-        "downloadFailed": "画像のキャプチャに失敗しました",
-        "iframeFailed": "キャプチャに失敗：iframe にアクセスできません",
         "iframeTitle": "HTML プレビュー"
       }
     },
@@ -1520,7 +1517,6 @@
       "nQueued": "{{count}} 件待機中",
       "edit": "編集",
       "steerNow": "中断せずに会話の方向を調整",
-      "steerFailed": "会話の方向を調整できませんでした。メッセージはキューに残ります。",
       "conversationInputMarker": "会話の方向を調整しました",
       "removeFromQueue": "削除"
     },

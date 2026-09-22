@@ -463,7 +463,7 @@
     "done": "Terminé",
     "skip": "Passer",
     "createSpaceTooltipTitle": "Créer un espace",
-    "createSpaceTooltipContent": "Teable est organisé en espaces, où chaque espace invite les utilisateurs à collaborer. <br></br>Les espaces dans Teable servent d'élément de navigation principal dans la barre de menu, offrant une plateforme fondamentale pour que les utilisateurs ajoutent et gèrent des bases de données selon leurs besoins.",
+    "createSpaceTooltipContent": "Créez un espace pour collaborer avec votre équipe.",
     "createBaseTooltipTitle": "Créer une base",
     "createBaseTooltipContent": "Une base (abrégé de \"base de données\") est un endroit pour stocker des données importantes et les flux de travail qui en dépendent.",
     "createTableTooltipTitle": "Créer une table",
@@ -1015,7 +1015,7 @@
       "list": {
         "publicOrigin": {
           "title": "Variable d'environnement PUBLIC_ORIGIN",
-          "description": "Votre configuration de variable d'environnement <strong>PUBLIC_ORIGIN</strong> ne correspond pas à l'adresse d'accès actuelle <underline>https://example.com</underline>, les fonctions d'importation xlsx, csv et de champ de pièce jointe peuvent ne pas fonctionner normalement, il est recommandé de la définir sur <underline>https://example.com</underline>"
+          "description": "Votre configuration de variable d'environnement <strong>{{envPublicOrigin}}</strong> ne correspond pas à l'adresse d'accès actuelle <underline>{{currentPublicOrigin}}</underline>, les fonctions d'importation xlsx, csv et de champ de pièce jointe peuvent ne pas fonctionner normalement, il est recommandé de la définir sur <underline>{{envPublicOrigin}}</underline>"
         },
         "https": {
           "title": "Activer HTTPS",
@@ -1359,7 +1359,7 @@
           "ai": {
             "failed": {
               "title": "Tâche IA échouée dans la table {{tableName}}",
-              "message": "La tâche IA pour le champ {{fieldName}} dans la table {{tableName}} (ID d'enregistrement: {{recordId}}) a échoué.\n\n{{errorMsg}}\n\nCliquez sur le bouton ci-dessous pour voir les détails."
+              "message": "Échec de la tâche IA pour le champ « {{fieldName}} » dans la table « {{tableName}} » : {{errorMsg}}"
             },
             "cancelled": {
               "title": "Tâche IA annulée",
