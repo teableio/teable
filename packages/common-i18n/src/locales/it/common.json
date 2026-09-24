@@ -463,7 +463,7 @@
     "done": "Fatto",
     "skip": "Salta",
     "createSpaceTooltipTitle": "Crea uno spazio",
-    "createSpaceTooltipContent": "Teable è organizzato in spazi, dove ogni spazio invita gli utenti a collaborare. <br></br>Gli spazi in Teable servono come elemento di navigazione principale all'interno della barra dei menu, offrendo una piattaforma fondamentale per gli utenti per aggiungere e gestire database secondo necessità.",
+    "createSpaceTooltipContent": "Crea uno spazio per collaborare con il tuo team.",
     "createBaseTooltipTitle": "Crea una base",
     "createBaseTooltipContent": "Una base (abbreviazione di \"database\") è un luogo per memorizzare dati importanti e i flussi di lavoro che ne dipendono.",
     "createTableTooltipTitle": "Crea una tabella",
@@ -1015,7 +1015,7 @@
       "list": {
         "publicOrigin": {
           "title": "Variabile d'ambiente PUBLIC_ORIGIN",
-          "description": "La configurazione della variabile d'ambiente <strong>PUBLIC_ORIGIN</strong> non corrisponde all'indirizzo di accesso corrente <underline>https://example.com</underline>, le funzioni di importazione xlsx, csv e campo allegato potrebbero non funzionare normalmente, si consiglia di impostarla su <underline>https://example.com</underline>"
+          "description": "La configurazione della variabile d'ambiente <strong>{{envPublicOrigin}}</strong> non corrisponde all'indirizzo di accesso corrente <underline>{{currentPublicOrigin}}</underline>, le funzioni di importazione xlsx, csv e campo allegato potrebbero non funzionare normalmente, si consiglia di impostarla su <underline>{{envPublicOrigin}}</underline>"
         },
         "https": {
           "title": "Abilita HTTPS",
@@ -1359,7 +1359,7 @@
           "ai": {
             "failed": {
               "title": "Attività AI fallita nella tabella {{tableName}}",
-              "message": "L'attività AI per il campo {{fieldName}} nella tabella {{tableName}} (ID record: {{recordId}}) è fallita.\n\n{{errorMsg}}\n\nFai clic sul pulsante qui sotto per visualizzare i dettagli."
+              "message": "Attività IA non riuscita per il campo \"{{fieldName}}\" nella tabella \"{{tableName}}\": {{errorMsg}}"
             },
             "cancelled": {
               "title": "Attività IA annullata",

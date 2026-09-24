@@ -1217,7 +1217,7 @@
         "buttonText": "查看记录"
       },
       "invite": {
-        "subject": "{{name}} ({{email}}) 邀请您到他们的 {{resourceAlias}} {{resourceName}}",
+        "subject": "{{name}} ({{email}}) 邀请您到他们的 {{resourceAlias}} {{resourceName}} - {{brandName}}",
         "title": "邀请您协作",
         "message": "<strong>{{name}}</strong> ({{email}}) 邀请您到他们的 {{resourceAlias}} <strong>{{resourceName}}</strong>。",
         "buttonText": "接受邀请"

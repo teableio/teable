@@ -456,11 +456,11 @@
       },
       "autoFillFieldDialog": {
         "title": "Aggiorna tutti i record",
-        "description": "Tutti i record nella vista corrente verranno aggiornati, incluso tutti i dati generati dal campo"
+        "description": "Verranno generati valori per {{count}} righe nella vista corrente. L'attività verrà eseguita in background."
       },
       "autoFillConfirm": {
         "title": "Generare l'intera colonna?",
-        "description": "La generazione dell'intera colonna aggiornerà {{rowCount}} righe. Questa operazione può consumare molte risorse di IA.",
+        "description": "La generazione dell'intera colonna aggiornerà {{count}} righe. Questa operazione può consumare molte risorse di IA.",
         "emptyOnlyMode": "Compila solo le celle vuote",
         "emptyOnlyModeDesc": "Genera solo per le celle vuote; il contenuto esistente non verrà sovrascritto",
         "allMode": "Genera l’intera colonna",
@@ -1379,9 +1379,6 @@
         "copied": "Copiato!",
         "fullscreen": "Schermo intero",
         "exitFullscreen": "Esci da schermo intero",
-        "downloadSuccess": "Immagine scaricata con successo",
-        "downloadFailed": "Cattura immagine fallita",
-        "iframeFailed": "Cattura fallita: iframe non accessibile",
         "iframeTitle": "Anteprima HTML"
       }
     },
@@ -1534,7 +1531,6 @@
       "nQueued": "{{count}} in coda",
       "edit": "Modifica",
       "steerNow": "Indirizza la conversazione senza interromperla",
-      "steerFailed": "Impossibile indirizzare la conversazione. Il messaggio resta in coda.",
       "conversationInputMarker": "Conversazione indirizzata",
       "removeFromQueue": "Rimuovi"
     },

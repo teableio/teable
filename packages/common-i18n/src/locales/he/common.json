@@ -337,7 +337,7 @@
       "copy": "העתקה",
       "installPromptLabel": "פרומפט להתקנת המיומנות",
       "installCommandLabel": "פקודה להתקנת המיומנות",
-      "installPrompt": "יש לקרוא את https://github.com/teableio/agent-skills, לפעול לפי המדריך כדי להתקין עבורי את מיומנות הסוכן של Teable, ולהשלים את האימות ב-Teable CLI.",
+      "installPrompt": "יש לקרוא את https://github.com/teableio/agent-skills, לפעול לפי המדריך כדי לסייע לי להתקין את מיומנות הסוכן של Teable, ולהשלים את האימות ב-Teable CLI. מופע ה-Teable שלי הוא {{origin}}; יש לבצע מולו אימות באמצעות `teable auth login --endpoint {{origin}}`.",
       "step1Title": "התקנת המיומנות",
       "step1Description": "יש להעתיק את הפרומפט הזה לסוכן ה-AI שלך. הוא יתקין את מיומנות Teable ויפתח את הדפדפן להשלמת האימות ב-Teable CLI.",
       "step3Title": "התנסות במיומנות Teable",

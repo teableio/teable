@@ -451,11 +451,11 @@
       },
       "autoFillFieldDialog": {
         "title": "Tüm kayıtları güncelle",
-        "description": "Mevcut görünümdeki tüm kayıtlar güncellenecektir, mevcut alanın oluşturduğu tüm ilgili verileri içerecektir"
+        "description": "Mevcut görünümdeki {{count}} satır için oluşturulacak. Görev arka planda çalışacak."
       },
       "autoFillConfirm": {
         "title": "Tüm sütunu oluşturulsun mu?",
-        "description": "Tüm sütunu oluşturmak {{rowCount}} satırı güncelleyecektir. Bu işlem çok sayıda yapay zeka kaynağı tüketebilir.",
+        "description": "Tüm sütunu oluşturmak {{count}} satırı güncelleyecektir. Bu işlem çok sayıda yapay zeka kaynağı tüketebilir.",
         "emptyOnlyMode": "Yalnızca boş hücreleri doldur",
         "emptyOnlyModeDesc": "Yalnızca boş hücreler için üret; mevcut içerik üzerine yazılmaz",
         "allMode": "Tüm sütunu üret",
@@ -1369,14 +1369,10 @@
         "code": "Kod",
         "download": "İndir",
         "downloadHtml": "HTML",
-        "downloadImage": "Görsel (PNG)",
         "copy": "Kopyala",
         "copied": "Kopyalandı!",
         "fullscreen": "Tam ekran",
         "exitFullscreen": "Tam ekrandan çık",
-        "downloadSuccess": "Görsel başarıyla indirildi",
-        "downloadFailed": "Görsel yakalanamadı",
-        "iframeFailed": "Yakalanamadı: iframe erişilebilir değil",
         "iframeTitle": "HTML önizleme"
       }
     },
@@ -1528,7 +1524,6 @@
       "nQueued": "{{count}} kuyrukta",
       "edit": "Düzenle",
       "steerNow": "Kesintiye uğratmadan konuşmayı yönlendir",
-      "steerFailed": "Konuşma yönlendirilemedi. Mesaj kuyrukta kaldı.",
       "conversationInputMarker": "Konuşma yönlendirildi",
       "removeFromQueue": "Kaldır"
     },
