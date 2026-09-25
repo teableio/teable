@@ -4462,8 +4462,8 @@ importers:
         specifier: 2.2.0
         version: 2.2.0
       request-filtering-agent:
-        specifier: 3.2.0
-        version: 3.2.0
+        specifier: 3.2.1
+        version: 3.2.1
       undici:
         specifier: 7.20.0
         version: 7.20.0
@@ -21429,8 +21429,8 @@ packages:
     resolution: {integrity: sha512-PV0dzCYDNfRi1jCDbJzpW7jNNDRuCOG/jI5ctQcGKt/clZD+YcPS3yIlWuTJMmESC8aevCFmWJy5wjAFgNqN6w==}
     engines: {node: '>=0.10'}
 
-  request-filtering-agent@3.2.0:
-    resolution: {integrity: sha512-tKPrKdsmTFuGG1/pBEpzTB66mDZ2lZLW8kjW4N6jj4QjnxUTKrIfv5p2zuJRfztOos86jRPD41lRaGjh+1QqDw==}
+  request-filtering-agent@3.2.1:
+    resolution: {integrity: sha512-NUz5G9n6GRSgB9JNurHCeeJX60s+qxL/DKTPjC6+fXrQ20w7iQy+ST6h4hKjeu1AjfH7FtIV+uw5eOq4CqWe8Q==}
     engines: {node: '>=20.0.0'}
 
   require-directory@2.1.1:
@@ -45712,7 +45712,7 @@ snapshots:
 
   repeat-string@1.6.1: {}
 
-  request-filtering-agent@3.2.0:
+  request-filtering-agent@3.2.1:
     dependencies:
       ipaddr.js: 2.2.0
 
