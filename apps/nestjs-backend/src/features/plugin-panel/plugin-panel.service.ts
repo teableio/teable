@@ -26,6 +26,7 @@ import type {
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
+import { AuditScope } from '../audit/audit-scope';
 import { BaseImportService } from '../base/base-import.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 
@@ -35,7 +36,8 @@ export class PluginPanelService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
-    private readonly baseImportService: BaseImportService
+    private readonly baseImportService: BaseImportService,
+    private readonly audit: AuditScope
   ) {}
 
   createPluginPanel(tableId: string, createPluginPanelRo: IPluginPanelCreateRo) {
@@ -193,7 +195,7 @@ export class PluginPanelService {
     const { pluginId, name } = installPluginPanelRo;
     const currentUser = this.cls.get('user.id');
     const baseId = await this.getBaseId(tableId);
-    return this.prismaService.$tx(async (prisma) => {
+    const installed = await this.prismaService.$tx(async (prisma) => {
       const plugin = await prisma.plugin.findUnique({
         where: {
           id: pluginId,
@@ -285,12 +287,25 @@ export class PluginPanelService {
         pluginInstallId: pluginInstall.id,
       };
     });
+    await this.audit.emitAtomic({
+      action: 'plugin.install',
+      resourceId: installed.pluginInstallId,
+      params: {
+        pluginId,
+        name: installed.name,
+        location: PluginPosition.Panel,
+        baseId,
+        tableId,
+        pluginPanelId,
+      },
+    });
+    return installed;
   }
 
   async removePluginPanelPlugin(tableId: string, pluginPanelId: string, pluginInstallId: string) {
     const baseId = await this.getBaseId(tableId);
-    await this.prismaService.$tx(async (prisma) => {
-      await prisma.pluginInstall.delete({
+    const removed = await this.prismaService.$tx(async (prisma) => {
+      const pluginInstall = await prisma.pluginInstall.delete({
         where: { id: pluginInstallId, positionId: pluginPanelId, baseId },
       });
 
@@ -320,6 +335,19 @@ export class PluginPanelService {
           },
         });
       }
+      return pluginInstall;
+    });
+    await this.audit.emitAtomic({
+      action: 'plugin.uninstall',
+      resourceId: pluginInstallId,
+      params: {
+        pluginId: removed.pluginId,
+        name: removed.name,
+        location: PluginPosition.Panel,
+        baseId,
+        tableId,
+        pluginPanelId,
+      },
     });
   }
 

@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { FieldType, type IRecord } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { concatMap, lastValueFrom, map, range, toArray } from 'rxjs';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
@@ -49,7 +48,9 @@ export class FieldCalculationService {
     const directedGraph = customGraph || (await this.referenceService.getFieldGraphItems(fieldIds));
 
     // get all related field by undirected graph
-    const rawAllFieldIds = uniq(this.referenceService.flatGraph(directedGraph).concat(fieldIds));
+    const rawAllFieldIds = [
+      ...new Set(this.referenceService.flatGraph(directedGraph).concat(fieldIds)),
+    ];
 
     // prepare all related data
     const {
@@ -67,7 +68,9 @@ export class FieldCalculationService {
       ({ fromFieldId, toFieldId }) => validFieldIds.has(fromFieldId) && validFieldIds.has(toFieldId)
     );
     const startFieldIds = fieldIds.filter((fieldId) => validFieldIds.has(fieldId));
-    const allFieldIds = uniq(this.referenceService.flatGraph(filteredGraph).concat(startFieldIds));
+    const allFieldIds = [
+      ...new Set(this.referenceService.flatGraph(filteredGraph).concat(startFieldIds)),
+    ];
 
     // topological sorting
     const topoOrders = prependStartFieldIds(getTopoOrders(filteredGraph), startFieldIds);

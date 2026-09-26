@@ -20,7 +20,7 @@ const buildLinkRecordLockSql = (keys: string[]): { sql: string; parameters: stri
     return { sql: '', parameters: [] };
   }
 
-  const arrayLiteral = `ARRAY[${keys.map((k) => `'${k.replace(/'/g, "''")}'`).join(',')}]`;
+  const arrayLiteral = `ARRAY[${keys.map((k) => `'${k.replaceAll("'", "''")}'`).join(',')}]`;
   const sql = `SELECT pg_advisory_xact_lock(('x' || substr(md5(k), 1, 16))::bit(64)::bigint)
         FROM unnest(${arrayLiteral}::text[]) AS k
         ORDER BY k`;

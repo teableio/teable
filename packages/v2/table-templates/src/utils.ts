@@ -18,21 +18,24 @@ export const createFieldId = (): string => FieldId.mustGenerate().toString();
 export const createRecordId = (): string => {
   const idResult = RecordId.generate();
   if (idResult.isOk()) return idResult.value.toString();
-  const fallback = Math.random().toString(36).slice(2).padEnd(16, '0').slice(0, 16);
+  // Only reached when the CSPRNG-backed generator failed; ids only need to be unique here.
+  const fallback = Math.random().toString(36).slice(2).padEnd(16, '0').slice(0, 16); // NOSONAR typescript:S2245
   return `rec${fallback}`;
 };
 
 export const createTableId = (): string => {
   const idResult = TableId.generate();
   if (idResult.isOk()) return idResult.value.toString();
-  const fallback = Math.random().toString(36).slice(2).padEnd(16, '0').slice(0, 16);
+  // Only reached when the CSPRNG-backed generator failed; ids only need to be unique here.
+  const fallback = Math.random().toString(36).slice(2).padEnd(16, '0').slice(0, 16); // NOSONAR typescript:S2245
   return `tbl${fallback}`;
 };
 
 export const createSelectOptionId = (): string => {
   const idResult = SelectOptionId.generate();
   if (idResult.isOk()) return idResult.value.toString();
-  const fallback = Math.random().toString(36).slice(2, 10).padEnd(8, '0').slice(0, 8);
+  // Only reached when the CSPRNG-backed generator failed; ids only need to be unique here.
+  const fallback = Math.random().toString(36).slice(2, 10).padEnd(8, '0').slice(0, 8); // NOSONAR typescript:S2245
   return `cho${fallback}`;
 };
 

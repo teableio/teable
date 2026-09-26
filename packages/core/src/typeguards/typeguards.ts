@@ -6,7 +6,7 @@ export const isIsoDateString = (dateStr: unknown): dateStr is IIsoDateString => 
   try {
     const d = new Date(dateStr);
     return d.toISOString() === dateStr;
-  } catch (e: unknown) {
+  } catch {
     return false;
   }
 };

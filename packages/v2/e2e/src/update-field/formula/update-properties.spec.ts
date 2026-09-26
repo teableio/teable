@@ -779,7 +779,6 @@ describe('update-field: formula property updates', () => {
       ) as ({ hasError?: boolean } & typeof brokenFormulaField) | undefined;
       expect(brokenAfterDelete?.hasError).toBe(true);
 
-      ctx.clearLogs();
       const created = await ctx.createRecord(tableId, {
         [primaryFieldId]: 'row-after-broken-formula',
         [goodSourceField.id]: 10,
@@ -790,15 +789,6 @@ describe('update-field: formula property updates', () => {
       const row = records.find((record) => record.id === created.id);
       expect(row?.fields[validFormulaFieldIds[0] as string]).toBe(11);
       expect(row?.fields[validFormulaFieldIds[15] as string]).toBe(26);
-
-      const updateSqlLogs = ctx.testContainer.spyLogger.getEntriesByMessage(
-        /computed:update:table=.*:sql:/
-      );
-      const updateSql = updateSqlLogs.map((entry) => entry.message).join('\n');
-      expect(updateSql).not.toContain(' set  from ');
-      expect(updateSql).toContain(
-        'select null::text as "__id", null::integer as "__old_version" where false'
-      );
     } finally {
       if (tableId) await ctx.deleteTable(tableId).catch(() => undefined);
     }

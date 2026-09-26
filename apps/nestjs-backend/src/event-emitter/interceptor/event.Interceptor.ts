@@ -12,10 +12,12 @@ import type { IEventContext } from '../events';
 import {
   Events,
   BaseEventFactory,
+  BaseFolderEventFactory,
   SpaceEventFactory,
   DashboardEventFactory,
   AppEventFactory,
   WorkflowEventFactory,
+  RoutineEventFactory,
 } from '../events';
 import { BaseNodeEventFactory } from '../events/base/base-node.event';
 
@@ -50,7 +52,9 @@ export class EventMiddleware implements NestInterceptor {
     return {
       reqUser: req?.user as any,
       reqHeaders: req?.headers,
-      reqParams: req?.params,
+      // Express 5 types params as string | string[] (arrays only for named wildcards); these
+      // routes only declare plain :id params.
+      reqParams: req?.params as Record<string, string>,
       reqQuery: req?.query,
       reqBody: req?.body,
       resolveData,
@@ -128,23 +132,58 @@ export class EventMiddleware implements NestInterceptor {
             eventContext
           )
         )
-        .with(Events.APP_DELETE, () =>
-          AppEventFactory.create(eventName, { ...resolveData, ...reqParams }, eventContext)
+        .with(Events.ROUTINE_DELETE, () =>
+          RoutineEventFactory.create(eventName, { ...resolveData, ...reqParams }, eventContext)
         )
-        .with(P.union(Events.APP_CREATE, Events.APP_UPDATE), () =>
-          AppEventFactory.create(
+        .with(P.union(Events.ROUTINE_CREATE, Events.ROUTINE_UPDATE), () =>
+          RoutineEventFactory.create(
             eventName,
-            { baseId: reqParams.baseId, app: resolveData, ...reqParams },
+            { baseId: reqParams.baseId, routine: resolveData, ...reqParams },
             eventContext
           )
         )
+        .with(Events.APP_DELETE, () =>
+          AppEventFactory.create(eventName, { ...resolveData, ...reqParams }, eventContext)
+        )
+        // The site-info route resolves to `{ version }` alone — keep the app id from the route.
+        .with(P.union(Events.APP_CREATE, Events.APP_UPDATE), () =>
+          AppEventFactory.create(
+            eventName,
+            {
+              baseId: reqParams.baseId,
+              app: { id: reqParams.appId, ...resolveData },
+              ...reqParams,
+            },
+            eventContext
+          )
+        )
+        // The dashboard route names its id `:id`; the event carries it as `dashboardId`.
         .with(Events.DASHBOARD_DELETE, () =>
-          DashboardEventFactory.create(eventName, { ...resolveData, ...reqParams }, eventContext)
+          DashboardEventFactory.create(
+            eventName,
+            { ...resolveData, ...reqParams, dashboardId: reqParams.dashboardId ?? reqParams.id },
+            eventContext
+          )
         )
         .with(P.union(Events.DASHBOARD_CREATE, Events.DASHBOARD_UPDATE), () =>
           DashboardEventFactory.create(
             eventName,
             { baseId: reqParams.baseId, dashboard: resolveData, ...reqParams },
+            eventContext
+          )
+        )
+        // The folder routes (`/node/folder`) resolve to the folder; delete resolves to nothing.
+        .with(P.union(Events.BASE_FOLDER_CREATE, Events.BASE_FOLDER_UPDATE), () =>
+          BaseFolderEventFactory.create(
+            eventName,
+            { baseId: reqParams.baseId, folder: resolveData },
+            eventContext
+          )
+        )
+        .with(Events.BASE_FOLDER_DELETE, () =>
+          BaseFolderEventFactory.create(
+            eventName,
+            { baseId: reqParams.baseId, folderId: reqParams.folderId },
             eventContext
           )
         )

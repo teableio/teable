@@ -3,7 +3,7 @@ import { formatFieldValueAsStringSql } from '@teable/v2-formula-sql-pg';
 import { sql, type RawBuilder } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 
-import { buildDateLikeOrderExpression } from '../dateLikeOrderBy';
+import { buildDateLikeGroupExpression } from '../dateLikeOrderBy';
 import { applyV1NullsOrder } from '../systemOrderColumns';
 import {
   buildUserGroupIdentityExpr,
@@ -115,8 +115,18 @@ const buildMultipleLookupOrderExpression = (
         return sql`${normalizedArray} ->> 0`;
       }
 
-      // v1 compares number and date lookups by the complete display string.
-      if (innerType.equals(FieldType.number()) || innerType.equals(FieldType.date())) {
+      // Preserve value order, but compare each number numerically rather than
+      // comparing a rounded display string or jsonb's array-length-first order.
+      if (innerType.equals(FieldType.number())) {
+        return sql`(
+          SELECT array_agg((lookup_element #>> '{}')::numeric ORDER BY lookup_ordinality)
+          FROM jsonb_array_elements(${normalizedArray})
+            WITH ORDINALITY AS lookup_values(lookup_element, lookup_ordinality)
+        )`;
+      }
+
+      // Keep the existing display-string ordering for date lookups.
+      if (innerType.equals(FieldType.date())) {
         const elementSql = `lookup_element #>> '{}'`;
         const formattedElementSql = formatFieldValueAsStringSql(innerField, elementSql);
         const elementExpression = formattedElementSql
@@ -140,9 +150,9 @@ export const buildStoredFieldOrderByClauses = (
   direction: 'asc' | 'desc',
   tableAlias: string,
   options?: {
-    /** Grouped value expression to order by instead of the raw column. */
+    /** Masked value or grouped alias to order by instead of the raw column. */
     readonly columnExpression?: RawBuilder<unknown>;
-    /** Collate a user field like its group buckets ({id, title} identity). */
+    /** Keep group buckets with equal display titles contiguous by identity. */
     readonly groupIdentityCollation?: boolean;
   }
 ): Result<ReadonlyArray<StoredFieldOrderByClause>, DomainError> => {
@@ -205,9 +215,16 @@ export const buildStoredFieldOrderByClauses = (
     ]);
   }
 
+  const lookupInnerField = fieldType.equals(FieldType.lookup())
+    ? (field as LookupField).innerField()
+    : undefined;
+  const isLinkLookup =
+    lookupInnerField?.isOk() && lookupInnerField.value.type().equals(FieldType.link());
+
   const isUserLike =
     fieldType.equals(FieldType.user()) ||
     fieldType.equals(FieldType.link()) ||
+    isLinkLookup ||
     fieldType.equals(FieldType.createdBy()) ||
     fieldType.equals(FieldType.lastModifiedBy());
   if (isUserLike) {
@@ -237,14 +254,27 @@ export const buildStoredFieldOrderByClauses = (
       : source === 'field'
         ? sql`${columnJson} ->> 'title'`
         : sql`coalesce(${columnJson} ->> 'title', ${columnJson} ->> 'name', ${columnJson} #>> '{}')`;
-    return ok(withNullOrdering(titleExpression, direction));
+    const orderExpression =
+      isLinkLookup && multiplicityResult.value.isMultiple()
+        ? sql`NULLIF(${titleExpression}, '[]')`
+        : titleExpression;
+    const clauses = withNullOrdering(orderExpression, direction);
+    // Equal titles still belong to distinct link buckets. Keep those buckets
+    // contiguous, but leave ordinary sort ties to the existing row order.
+    return ok(
+      isLinkLookup && options?.groupIdentityCollation
+        ? [...clauses, { expression: columnJson, direction }]
+        : clauses
+    );
   }
 
-  // An explicit columnExpression (error fallback, grouped date bucket) is
-  // already the value to order by; rebuilding from the raw column would
-  // reference an ungrouped column in grouped queries.
-  const dateExpression = columnExpression
-    ? null
-    : buildDateLikeOrderExpression(field, tableAlias, column);
-  return ok(withNullOrdering(dateExpression ?? sql`${columnRef}`, direction));
+  // Group-derived keys (groupIdentityCollation) must order by the same bucket
+  // their group blocks use, so every nested group block stays contiguous inside
+  // its parent bucket. A plain sort follows the stored value instead: display
+  // formatting must never decide the order (T7404).
+  const groupBucketExpression =
+    !columnExpression && options?.groupIdentityCollation
+      ? buildDateLikeGroupExpression(field, tableAlias, column)
+      : null;
+  return ok(withNullOrdering(groupBucketExpression ?? columnRef, direction));
 };

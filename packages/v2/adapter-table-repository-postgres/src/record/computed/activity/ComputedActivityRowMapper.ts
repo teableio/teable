@@ -1,3 +1,4 @@
+import { computeReliabilitySchema } from '@teable/v2-core';
 import type { FieldComputeMetaDto, TableComputeMetaDto } from '@teable/v2-core';
 
 export const toNumber = (value: unknown): number => {
@@ -94,6 +95,10 @@ export const fieldActivityRowToDto = (row: Record<string, unknown>): FieldComput
   lastDurationMs: row.last_duration_ms == null ? null : toNumber(row.last_duration_ms),
   lastError: parseLastError(row.last_error),
   extensions: parseExtensions(row.extensions),
+  reliability: (() => {
+    const result = computeReliabilitySchema.safeParse(parseExtensions(row.extensions)?.reliability);
+    return result.success ? result.data : undefined;
+  })(),
 });
 
 export const tableActivityRowToDto = (row: Record<string, unknown>): TableComputeMetaDto => ({

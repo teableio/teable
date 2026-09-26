@@ -23,9 +23,9 @@ import type { Doc } from 'sharedb/lib/client';
 import { requestWrap } from '../../utils/requestWrap';
 
 export class Table extends TableCore {
-  static getAggregations = requestWrap(getAggregation);
+  static readonly getAggregations = requestWrap(getAggregation);
 
-  static getRowCount = requestWrap(getRowCount);
+  static readonly getRowCount = requestWrap(getRowCount);
 
   protected doc!: Doc<ITableVo>;
 

@@ -110,7 +110,7 @@ export const GeneralPage = ({ spaceId: spaceIdProp }: { spaceId?: string } = {})
         description={t('space:spaceSetting.generalDescription')}
       >
         {!!space && (
-          <div className="flex h-full flex-col justify-between">
+          <div className="flex min-h-0 flex-1 flex-col justify-between">
             <div className="flex flex-col gap-y-4">
               {/* Avatar */}
               <div className="group relative size-14">

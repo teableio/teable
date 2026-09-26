@@ -1,9 +1,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { PrismaService } from '@teable/db-main-prisma';
-import type { ITableFullVo } from '@teable/openapi';
 import type { IDateFieldOptions } from '@teable/core';
 import { DateFormattingPreset, FieldType, TimeFormatting } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import type { ITableFullVo } from '@teable/openapi';
 import {
   createBase,
   createBaseFromTemplate,
@@ -473,7 +473,9 @@ describe('Template Open API Controller (e2e)', () => {
       expect(new Set(paginatedIds).size).toBe(5);
 
       // Verify pagination results cover all templates
-      expect(paginatedIds.sort()).toEqual(allTemplateIds.sort());
+      expect(paginatedIds.sort((a, b) => Number(a > b) - Number(a < b))).toEqual(
+        allTemplateIds.sort((a, b) => Number(a > b) - Number(a < b))
+      );
     });
 
     it('should handle skip beyond total count', async () => {
@@ -915,8 +917,8 @@ describe('Template Open API Controller (e2e)', () => {
       const table2Fields = (await getFields(tables[1].id)).data?.map((f) => omit(f, ['id']));
 
       // fields
-      const originalTable1Fields = table1.fields.map((f) => omit(f, ['id']));
-      const originalTable2Fields = table2.fields.map((f) => omit(f, ['id']));
+      const originalTable1Fields = (await getFields(table1.id)).data.map((f) => omit(f, ['id']));
+      const originalTable2Fields = (await getFields(table2.id)).data.map((f) => omit(f, ['id']));
       expect(table1Fields).toEqual(originalTable1Fields);
       expect(table2Fields).toEqual(originalTable2Fields);
     });
@@ -951,8 +953,8 @@ describe('Template Open API Controller (e2e)', () => {
       const table2Fields = (await getFields(tables[2].id)).data?.map((f) => omit(f, ['id']));
 
       // fields
-      const originalTable1Fields = table1.fields.map((f) => omit(f, ['id']));
-      const originalTable2Fields = table2.fields.map((f) => omit(f, ['id']));
+      const originalTable1Fields = (await getFields(table1.id)).data.map((f) => omit(f, ['id']));
+      const originalTable2Fields = (await getFields(table2.id)).data.map((f) => omit(f, ['id']));
       expect(table1Fields).toEqual(originalTable1Fields);
       expect(table2Fields).toEqual(originalTable2Fields);
 

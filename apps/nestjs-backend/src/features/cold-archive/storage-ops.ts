@@ -128,8 +128,35 @@ export const listMonthDirs = async (
   return prefixes
     .map((prefix) => /\/(\d{6})\/$/.exec(prefix)?.[1])
     .filter((month): month is string => Boolean(month))
-    .sort()
+    .sort((a, b) => Number(a > b) - Number(a < b))
     .reverse();
+};
+
+/** a listed part: the parsed key plus the object metadata the read path keys its caches on */
+export type ListedColdPart<TPart> = TPart & { size: number; etag?: string };
+
+/**
+ * Every part under a prefix in ONE recursive LIST (the adapter paginates),
+ * whatever depth the keys sit at. `parse` returning undefined drops the
+ * non-part keys the prefix also holds (`_stats.json`), so a table-wide prefix
+ * is as valid an input as a month prefix.
+ */
+export const listColdParts = async <TPart extends { key: string }>(
+  adapter: StorageAdapter,
+  bucket: string,
+  prefix: string,
+  parse: (key: string) => TPart | undefined
+): Promise<ListedColdPart<TPart>[]> => {
+  const { objects } = await coldStorageRead(() => adapter.listObjects(bucket, prefix));
+  const parts: ListedColdPart<TPart>[] = [];
+  for (const object of objects) {
+    const parsed = parse(object.key);
+    if (!parsed) continue;
+    const part: ListedColdPart<TPart> = { ...parsed, size: object.size };
+    if (object.etag !== undefined) part.etag = object.etag;
+    parts.push(part);
+  }
+  return parts;
 };
 
 /**

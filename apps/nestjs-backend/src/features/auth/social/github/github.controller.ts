@@ -19,6 +19,6 @@ export class GithubController extends ControllerAdapter {
   @Public()
   @UseGuards(SocialGuard, GithubGuard)
   async githubCallback(@Req() req: Express.Request, @Res({ passthrough: true }) res: Response) {
-    return super.callback(req, res);
+    return super.callback(req, res, 'github');
   }
 }

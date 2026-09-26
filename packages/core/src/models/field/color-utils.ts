@@ -1,6 +1,7 @@
 /** @module @teable/sdk: colorUtils */ /** */
 import Color from 'color';
 import { getEnumValueIfExists, has } from '../../utils/enum';
+import { getRandomFloat } from '../../utils/get-random-int';
 import { Colors, rgbTuplesByColor } from './colors';
 
 /** A red/green/blue color object. Each property is a number from 0 to 255. */
@@ -146,7 +147,7 @@ export const ColorUtils: IColorUtils = {
     const result: Colors[] = [];
     for (let i = 0; i < num; i++) {
       const colorsToChooseFrom = availableColors.length > 0 ? availableColors : allColors;
-      const randomIndex = Math.floor(Math.random() * colorsToChooseFrom.length);
+      const randomIndex = Math.floor(getRandomFloat() * colorsToChooseFrom.length);
       result.push(colorsToChooseFrom[randomIndex]);
 
       if (availableColors.length > 0) {
@@ -180,8 +181,10 @@ export const contractColorForTheme = (color: string, theme: string | undefined) 
 function getSeed(str: string) {
   let seed = 0;
   for (let i = 0; i < str.length; i++) {
-    seed = (seed << 5) - seed + str.charCodeAt(i);
-    seed |= 0; // Convert seed to a 32-bit integer
+    seed = (seed << 5) - seed + str.charCodeAt(i); // NOSONAR typescript:S7758 -- the hash is defined over UTF-16 code units; switching to code points would change persisted/compared values
+    // NOSONAR typescript:S7767 -- the bitwise OR deliberately wraps to a 32-bit integer (hash step);
+    // Math.trunc would not wrap and would change the colours already assigned to existing data.
+    seed |= 0; // NOSONAR
   }
   return Math.abs(seed);
 }

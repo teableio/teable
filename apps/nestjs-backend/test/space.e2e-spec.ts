@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { getPluginEmail, IdPrefix, Role } from '@teable/core';

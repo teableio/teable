@@ -17,7 +17,7 @@ interface ISortProps {
   onChange: (sort?: NonNullable<ISort>['sortObjs']) => void;
 }
 
-export function SortContent(props: ISortProps) {
+export function SortContent(props: Readonly<ISortProps>) {
   const { onChange, sortValues = [], addBtnText, limitTip, limit = Infinity } = props;
   const inDrawer = useInDrawer();
 

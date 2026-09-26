@@ -9,7 +9,8 @@ export const CREATE_BASE_SHARE = '/base/{baseId}/share';
 export const CreateBaseShareRoute: RouteConfig = registerRoute({
   method: 'post',
   path: CREATE_BASE_SHARE,
-  description: 'Create a base share link',
+  title: 'Create project share link',
+  description: 'Create a project share link.',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -24,7 +25,7 @@ export const CreateBaseShareRoute: RouteConfig = registerRoute({
   },
   responses: {
     201: {
-      description: 'Returns the created base share',
+      description: 'Returns the created project share',
       content: {
         'application/json': {
           schema: baseShareVoSchema,

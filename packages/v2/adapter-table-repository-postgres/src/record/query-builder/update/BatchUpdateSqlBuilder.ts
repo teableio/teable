@@ -25,6 +25,7 @@ export interface BuildBatchUpdateSqlParams {
   table: Table;
   db: Kysely<DynamicDB>;
   returnedOldFields?: ReadonlyArray<BatchUpdateReturnedOldField>;
+  returnedNewFields?: ReadonlyArray<{ dbFieldName: string; alias: string }>;
 }
 
 export interface BatchUpdateReturnedOldFieldInput {
@@ -112,8 +113,7 @@ export function buildBatchUpdateSql(
 ): Result<CompiledQuery, DomainError> {
   const { tableName, columnUpdateData, systemColumns, table, db } = params;
 
-  // eslint-disable-next-line require-yield
-  return safeTry<CompiledQuery, DomainError>(function* () {
+  return ((): Result<CompiledQuery, DomainError> => {
     // Early return for empty batch
     if (columnUpdateData.size === 0) {
       return err(
@@ -200,6 +200,10 @@ export function buildBatchUpdateSql(
     const returningOldValueSelects = returnedOldFields.map(
       ({ alias }) => `matched.${escapeSqlIdentifier(alias)} AS ${escapeSqlIdentifier(alias)}`
     );
+    const returningNewValueSelects = (params.returnedNewFields ?? []).map(
+      ({ dbFieldName, alias }) =>
+        `t.${escapeSqlIdentifier(dbFieldName)} AS ${escapeSqlIdentifier(alias)}`
+    );
 
     // Build SET clauses
     const setClauses: string[] = [];
@@ -213,9 +217,7 @@ export function buildBatchUpdateSql(
     if (varyingColumnFields.length === 0) {
       // System column SET clauses
       setClauses.push(
-        `${escapeSqlIdentifier('__last_modified_time')} = ${escapeAndQuoteSqlValue(systemColumns.lastModifiedTime)}::timestamptz`
-      );
-      setClauses.push(
+        `${escapeSqlIdentifier('__last_modified_time')} = ${escapeAndQuoteSqlValue(systemColumns.lastModifiedTime)}::timestamptz`,
         `${escapeSqlIdentifier('__last_modified_by')} = ${escapeAndQuoteSqlValue(systemColumns.lastModifiedBy)}`
       );
       if (systemColumns.versionIncrement) {
@@ -244,7 +246,7 @@ FROM matched
 WHERE t.${escapeSqlIdentifier('__id')} = matched.${escapeSqlIdentifier('matched_id')}${distinctWhereClause}
 RETURNING t.${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('record_id')},
   t.${escapeSqlIdentifier('__version')} AS ${escapeSqlIdentifier('new_version')},
-  matched.${escapeSqlIdentifier('old_version')} AS ${escapeSqlIdentifier('old_version')}${returningOldValueSelects.length > 0 ? `,\n  ${returningOldValueSelects.join(',\n  ')}` : ''}
+  matched.${escapeSqlIdentifier('old_version')} AS ${escapeSqlIdentifier('old_version')}${returningOldValueSelects.length > 0 ? `,\n  ${returningOldValueSelects.join(',\n  ')}` : ''}${returningNewValueSelects.length > 0 ? `,\n  ${returningNewValueSelects.join(',\n  ')}` : ''}
       `.trim();
 
       return ok(CompiledQuery.raw(updateSql));
@@ -262,11 +264,9 @@ RETURNING t.${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('record_id')
     // [__id, presence/value pairs..., __last_modified_time, __last_modified_by]
     const columns: string[] = ['__id'];
     for (const { name, presenceAlias } of varyingColumns) {
-      columns.push(presenceAlias);
-      columns.push(name);
+      columns.push(presenceAlias, name);
     }
-    columns.push('__last_modified_time');
-    columns.push('__last_modified_by');
+    columns.push('__last_modified_time', '__last_modified_by');
 
     // Build VALUES rows
     const parameters: unknown[] = [];
@@ -306,8 +306,10 @@ RETURNING t.${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('record_id')
       }
 
       // Add system columns
-      rowValues.push(`${escapeAndQuoteSqlValue(systemColumns.lastModifiedTime)}::timestamptz`);
-      rowValues.push(escapeAndQuoteSqlValue(systemColumns.lastModifiedBy));
+      rowValues.push(
+        `${escapeAndQuoteSqlValue(systemColumns.lastModifiedTime)}::timestamptz`,
+        escapeAndQuoteSqlValue(systemColumns.lastModifiedBy)
+      );
 
       valueRows.push(`(${rowValues.join(', ')})`);
     }
@@ -326,9 +328,7 @@ RETURNING t.${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('record_id')
 
     // Add system column SET clauses
     setClauses.push(
-      `${escapeSqlIdentifier('__last_modified_time')} = v.${escapeSqlIdentifier('__last_modified_time')}`
-    );
-    setClauses.push(
+      `${escapeSqlIdentifier('__last_modified_time')} = v.${escapeSqlIdentifier('__last_modified_time')}`,
       `${escapeSqlIdentifier('__last_modified_by')} = v.${escapeSqlIdentifier('__last_modified_by')}`
     );
     if (systemColumns.versionIncrement) {
@@ -361,12 +361,12 @@ WHERE t.${escapeSqlIdentifier('__id')} = v.${escapeSqlIdentifier('__id')}
   AND t.${escapeSqlIdentifier('__id')} = matched.${escapeSqlIdentifier('matched_id')}${distinctWhereClause}
 RETURNING t.${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('record_id')},
   t.${escapeSqlIdentifier('__version')} AS ${escapeSqlIdentifier('new_version')},
-  matched.${escapeSqlIdentifier('old_version')} AS ${escapeSqlIdentifier('old_version')}${returningOldValueSelects.length > 0 ? `,\n  ${returningOldValueSelects.join(',\n  ')}` : ''}
+  matched.${escapeSqlIdentifier('old_version')} AS ${escapeSqlIdentifier('old_version')}${returningOldValueSelects.length > 0 ? `,\n  ${returningOldValueSelects.join(',\n  ')}` : ''}${returningNewValueSelects.length > 0 ? `,\n  ${returningNewValueSelects.join(',\n  ')}` : ''}
     `.trim();
 
     // Compile using kysely's sql tag for proper parameter handling
     return ok(CompiledQuery.raw(updateSql, parameters));
-  });
+  })();
 }
 
 type BatchColumnField = { name: string; field: Field | null };
@@ -461,7 +461,7 @@ function escapeAndQuoteSqlValue(value: unknown): string {
     return 'NULL';
   }
   // Convert to string and escape single quotes
-  const str = String(value).replace(/'/g, "''");
+  const str = String(value).replaceAll("'", "''");
   return `'${str}'`;
 }
 
@@ -484,7 +484,7 @@ function formatRowOrderLiteral(value: unknown): string {
  */
 function escapeSqlIdentifier(identifier: string): string {
   // Double quotes to escape them, then wrap in quotes
-  return `"${identifier.replace(/"/g, '""')}"`;
+  return `"${identifier.replaceAll('"', '""')}"`;
 }
 
 /**

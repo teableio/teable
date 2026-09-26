@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { DynamicModule } from '@nestjs/common';
 import { Logger, Module } from '@nestjs/common';
 import { ConfigModule as BaseConfigModule } from '@nestjs/config';
@@ -50,9 +50,9 @@ const resolveEnvFileDir = (): string => {
 
 @Module({})
 export class ConfigModule {
-  static register(): DynamicModule {
+  static async register(): Promise<DynamicModule> {
     const envDir = resolveEnvFileDir();
-    const dynamicModule = BaseConfigModule.forRoot({
+    const dynamicModule = await BaseConfigModule.forRoot({
       isGlobal: true,
       cache: true,
       expandVariables: true,
@@ -67,8 +67,9 @@ export class ConfigModule {
       }),
       validationSchema: envValidationSchema,
     });
-    // forRoot has synchronously merged the env files into process.env; enforce
-    // the secrets policy now, before any config factory resolves a secret.
+    // forRoot has merged the env files into process.env (@nestjs/config 12 does so only
+    // after its async Standard Schema validation, hence the await); enforce the secrets
+    // policy now, before any config factory resolves a secret.
     enforceSecretsPolicy();
     return dynamicModule;
   }

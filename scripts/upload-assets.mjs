@@ -74,7 +74,7 @@ const tempSyncStaticDir = async () => {
 await tempSyncStaticDir();
 
 const syncStaticDir = async (list) => {
-  for (const [name, _, __, ___, bucket] of list) {
+  for (const [name, , , , bucket] of list) {
     const cp = await $`${mcPath} cp --recursive ~/temp/static ${name}/${bucket}/_next/`;
     console.log('cp: ', cp.stdout);
   }

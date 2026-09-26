@@ -289,7 +289,7 @@ export class RecordInsertBuilder {
     context: RecordInsertBuilderContext;
   }): Result<RecordInsertDataResult, DomainError> {
     const { table, fieldValues, context } = params;
-    const builder = this;
+    const builder = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<RecordInsertDataResult, DomainError>(function* () {
       const createdTime = context.createdTime ?? context.now;
@@ -469,7 +469,7 @@ export class RecordInsertBuilder {
     context: RecordInsertBuilderContext;
   }): Result<RecordInsertSqlResult, DomainError> {
     const { table, tableName, fieldValues, context } = params;
-    const builder = this;
+    const builder = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<RecordInsertSqlResult, DomainError>(function* () {
       const { values, additionalStatements, linkedRecordLocks } = yield* builder.buildInsertData({
@@ -514,7 +514,7 @@ export class RecordInsertBuilder {
     rawValue: unknown,
     recordId: string
   ): Result<LinkFieldSqlsResult, DomainError> {
-    const builder = this;
+    const builder = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<LinkFieldSqlsResult, DomainError>(function* () {
       const statements: CompiledSqlStatement[] = [];

@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import type { Type } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import type { Profile } from 'passport-github2';
@@ -10,10 +11,13 @@ import { OauthStoreService } from '../oauth/oauth.store';
 import { pickUserMe } from '../utils';
 
 @Injectable()
-export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
+// `@nestjs/passport` 12 checks the constructor arguments against `@types/passport-github2`, which
+// models `state` as a string and `store` with stricter callbacks than passport-oauth2 accepts
+// at runtime. Widen the strategy type so the options keep their runtime shape.
+export class GithubStrategy extends PassportStrategy(Strategy as Type<Strategy>, 'github') {
   constructor(
     @AuthConfig() readonly config: ConfigType<typeof authConfig>,
-    private userService: UserService,
+    private readonly userService: UserService,
     oauthStoreService: OauthStoreService
   ) {
     const { clientID, clientSecret, callbackURL } = config.github;

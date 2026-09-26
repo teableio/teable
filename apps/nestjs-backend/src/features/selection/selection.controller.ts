@@ -82,7 +82,7 @@ import { SelectionService } from './selection.service';
 @Controller('api/table/:tableId/selection')
 export class SelectionController {
   constructor(
-    private selectionService: SelectionService,
+    private readonly selectionService: SelectionService,
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly recordOpenApiV2Service: RecordOpenApiV2Service,
     private readonly fieldOpenApiV2Service: FieldOpenApiV2Service,
@@ -542,10 +542,9 @@ export class SelectionController {
         { recordIds }
       );
       await this.recordOpenApiV2Service.updateRecords(tableId, payload);
-      return null;
+    } else {
+      await this.selectionService.clearById(tableId, clearRo, { windowId });
     }
-
-    await this.selectionService.clearById(tableId, clearRo, { windowId });
     return null;
   }
 

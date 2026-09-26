@@ -19,6 +19,6 @@ export class GoogleController extends ControllerAdapter {
   @Public()
   @UseGuards(SocialGuard, GoogleGuard)
   async googleCallback(@Req() req: Express.Request, @Res({ passthrough: true }) res: Response) {
-    return super.callback(req, res);
+    return super.callback(req, res, 'google');
   }
 }

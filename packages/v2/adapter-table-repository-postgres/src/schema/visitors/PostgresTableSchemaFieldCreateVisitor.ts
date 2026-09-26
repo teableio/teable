@@ -151,7 +151,7 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
   apply(
     tableOrFields: Table | ReadonlyArray<Field>
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const fields = PostgresTableSchemaFieldCreateVisitor.isFieldArray(tableOrFields)
         ? tableOrFields

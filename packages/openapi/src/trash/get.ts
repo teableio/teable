@@ -2,7 +2,6 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { FieldType, IdPrefix, ViewType } from '@teable/core';
 import { axios } from '../axios';
 import { userCollaboratorItem } from '../space';
-import { ResourceType } from '../types';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
 import { TrashType, TableTrashType } from './types';
@@ -94,6 +93,7 @@ export const trashItemVoSchema = z.object({
   resourceType: z.enum(TrashType),
   deletedTime: z.string(),
   deletedBy: z.string(),
+  isByodb: z.boolean().optional(),
 });
 
 export const tableTrashItemVoSchema = z.object({
@@ -122,7 +122,7 @@ export type ITrashVo = z.infer<typeof trashVoSchema>;
 export const GetTrashRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_TRASH,
-  description: 'Get trash list for spaces or bases',
+  description: 'Get trash list for spaces or projects',
   request: {
     query: trashRoSchema,
   },

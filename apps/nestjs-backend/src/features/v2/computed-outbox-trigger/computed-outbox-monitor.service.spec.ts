@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ComputedOutboxMonitorService } from './computed-outbox-monitor.service';
@@ -794,5 +795,101 @@ describe('ComputedOutboxMonitorService', () => {
     expect(result.reasons).toContain('target_unavailable');
     expect(result.outbox.error).not.toContain('secret');
     expect(metrics.recordMonitor).toHaveBeenCalledWith('partial');
+  });
+
+  it('warns once for an overdue backlog or a lock convoy, then logs recovery', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const idle = {
+      duePending: 0,
+      scheduledPending: 0,
+      pausedPending: 0,
+      activeProcessing: 0,
+      staleProcessing: 0,
+      dead: 0,
+      anomalyGroups: 0,
+      oldestDueAgeMs: 0,
+      oldestPausedAgeMs: 0,
+      activePauseScopeCount: 0,
+    };
+    const inspectLock = vi.fn().mockResolvedValue({
+      lockWaiters: 4,
+      idleTransactions: 1,
+      oldestIdleTransactionMs: 120_000,
+      sampleQuery: 'select 1',
+    });
+    const dataDb = {
+      listComputedOutboxMaintenanceTargets: vi.fn().mockResolvedValue([targets[0]]),
+      inspectComputedOutboxMaintenanceTarget: vi.fn().mockResolvedValue({
+        ...idle,
+        duePending: 1,
+        oldestDueAgeMs: 1_000,
+      }),
+      inspectComputedOutboxLockConvoy: inspectLock,
+    };
+    const service = new ComputedOutboxMonitorService(
+      bullConfig,
+      dataDb as never,
+      createMetrics() as never,
+      {
+        getJobCounts: vi.fn().mockResolvedValue({ failed: 0 }),
+        getWorkersCount: vi.fn().mockResolvedValue(1),
+        getCompleted: vi.fn().mockResolvedValue([]),
+        getFailed: vi.fn().mockResolvedValue([]),
+        isPaused: vi.fn().mockResolvedValue(false),
+      } as never
+    );
+
+    try {
+      const quiet = await service.getOverview({ force: true });
+      expect(quiet.reasons).not.toContain('overdue_pending');
+      expect(warn).not.toHaveBeenCalled();
+
+      dataDb.inspectComputedOutboxMaintenanceTarget.mockResolvedValue({
+        ...idle,
+        duePending: 4,
+        oldestDueAgeMs: 7 * 60_000,
+      });
+      inspectLock.mockResolvedValue({
+        lockWaiters: 8,
+        idleTransactions: 1,
+        oldestIdleTransactionMs: 120_000,
+        sampleQuery: 'WITH matched AS (SELECT __id)',
+      });
+      const congested = await service.getOverview({ force: true });
+      expect(congested.reasons).toContain('overdue_pending');
+      expect(warn).toHaveBeenCalledWith(
+        'computed:outbox:backlog_aged',
+        expect.objectContaining({ duePending: 4, oldestDueAgeMs: 7 * 60_000 })
+      );
+      expect(warn).toHaveBeenCalledWith(
+        'computed:outbox:lock_convoy',
+        expect.objectContaining({ cacheKey: 'default', lockWaiters: 8, idleTransactions: 1 })
+      );
+
+      warn.mockClear();
+      await service.getOverview({ force: true });
+      expect(warn).not.toHaveBeenCalled();
+
+      dataDb.inspectComputedOutboxMaintenanceTarget.mockResolvedValue(idle);
+      inspectLock.mockResolvedValue({
+        lockWaiters: 0,
+        idleTransactions: 0,
+        oldestIdleTransactionMs: 0,
+        sampleQuery: null,
+      });
+      await service.getOverview({ force: true });
+      expect(log).toHaveBeenCalledWith(
+        'computed:outbox:backlog_recovered',
+        expect.objectContaining({ duePending: 0 })
+      );
+      expect(log).toHaveBeenCalledWith(
+        'computed:outbox:lock_convoy_cleared',
+        expect.objectContaining({ cacheKey: 'default', lockWaiters: 0 })
+      );
+    } finally {
+      warn.mockRestore();
+      log.mockRestore();
+    }
   });
 });

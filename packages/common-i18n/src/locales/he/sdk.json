@@ -49,7 +49,8 @@
     "previewFileLimit": "מגבלת גודל לתצוגה מקדימה: {{size}}MB, יש להוריד את הקובץ כדי לצפות בו.",
     "loadFileError": "טעינת הקובץ נכשלה",
     "previousAttachment": "הקודם",
-    "nextAttachment": "הבא"
+    "nextAttachment": "הבא",
+    "deleteAttachment": "מחיקה"
   },
   "undoRedo": {
     "undo": "ביטול פעולה",
@@ -400,13 +401,13 @@
       "spaceInviteEmail": "הזמנה באימייל במרחב",
       "spaceInviteLink": "הזמנה בקישור במרחב",
       "spaceGrantRole": "הענקת תפקיד במרחב",
-      "baseCreate": "יצירת בסיס",
-      "baseDelete": "מחיקת בסיס",
-      "baseRead": "קריאת בסיס",
-      "baseReadAll": "קריאת כל הבסיסים",
-      "baseUpdate": "עדכון בסיס",
-      "baseInviteEmail": "הזמנה באימייל בבסיס",
-      "baseInviteLink": "הזמנה בקישור בבסיס",
+      "baseCreate": "יצירת פרויקט",
+      "baseDelete": "מחיקת פרויקט",
+      "baseRead": "קריאת פרויקט",
+      "baseReadAll": "קריאת כל הפרויקטים",
+      "baseUpdate": "עדכון פרויקט",
+      "baseInviteEmail": "הזמנה באימייל בפרויקט",
+      "baseInviteLink": "הזמנה בקישור בפרויקט",
       "baseAuthorityMatrixConfig": "הגדרת מטריצת ההרשאות",
       "baseDbConnect": "חיבור למסד הנתונים",
       "tableCreate": "יצירת טבלה",
@@ -440,14 +441,21 @@
       "automationDelete": "מחיקת אוטומציה",
       "automationRead": "קריאת אוטומציה",
       "automationUpdate": "עדכון אוטומציה",
+      "routineCreate": "יצירת רוטינה",
+      "routineDelete": "מחיקת רוטינה",
+      "routineRead": "קריאת רוטינה",
+      "routineUpdate": "עדכון רוטינה",
       "appCreate": "יצירת אפליקציה",
       "appDelete": "מחיקת אפליקציה",
       "appRead": "קריאת אפליקציה",
       "appUpdate": "עדכון אפליקציה",
       "userEmailRead": "קריאת האימייל של המשתמש הנוכחי",
       "userIntegrations": "ניהול האינטגרציות של המשתמש",
+      "userSpacesRead": "קריאת המרחבים של המשתמש הנוכחי (שם, תוכנית ומושבים)",
+      "userSelfHostedLicensesRead": "קריאת רישיונות האירוח העצמי שהמשתמש הנוכחי רכש (תוכנית ומושבים)",
+      "userNotificationsSend": "שליחת התראות למשתמש הנוכחי",
       "recordHistoryRead": "קריאת היסטוריית הרשומה",
-      "baseQuery": "הרצת שאילתה על הבסיס",
+      "baseQuery": "הרצת שאילתה על הפרויקט",
       "instanceRead": "קריאת המופע",
       "instanceUpdate": "עדכון המופע",
       "enterpriseRead": "קריאת תצורת הארגון",
@@ -458,10 +466,11 @@
     "table": "טבלה",
     "view": "תצוגה",
     "space": "מרחב",
-    "base": "בסיס",
+    "base": "פרויקט",
     "field": "שדה",
     "record": "רשומה",
     "automation": "אוטומציה",
+    "routine": "רוטינה",
     "app": "אפליקציה",
     "user": "משתמש",
     "recordHistory": "היסטוריית רשומה",
@@ -956,7 +965,13 @@
       "recordsPerMutationMax": "הפעולה משנה יותר מדי רשומות. המקסימום הוא {{max}} רשומות בכל פעם.",
       "computedCellValueMaxBytes": "ערך התא המחושב גדול מדי. המקסימום הוא {{max}} בתים.",
       "formulaMaxLength": "הנוסחה ארוכה מדי. המקסימום הוא {{max}} תווים.",
-      "tablesPerBaseMax": "הבסיס הזה הגיע למגבלת הטבלאות. המקסימום הוא {{max}} טבלאות.",
+      "formulaCompileNodesMax": "המבנה המורחב של הנוסחה חורג ממגבלת ההידור של {{max}} צמתים. יש לצמצם הפניות חוזרות או הסתעפויות מורכבות. השינוי הזה לא נשמר.",
+      "formulaCompileDepthMax": "מבנה החישוב של הנוסחה חורג ממגבלת הקינון של {{max}} רמות. יש לצמצם פונקציות מקוננות או שרשראות פעולות. השינוי הזה לא נשמר.",
+      "formulaReferenceDepthMax": "הנוסחה חורגת ממגבלת עומק ההפניות של {{max}} רמות. יש לקצר שרשראות הפניות בין נוסחאות. השינוי הזה לא נשמר.",
+      "formulaBindingsMax": "הידור הנוסחה דורש יותר מ־{{max}} קישורים לחישובי ביניים. יש לפשט את הסתעפויות הנוסחה ואת החישובים שאליהם היא מפנה. השינוי הזה לא נשמר.",
+      "formulaCompileBytesMax": "מקטעי הביניים של הידור הנוסחה חורגים מהמגבלה הכוללת של {{max}} בתים. יש לצמצם קבועים גדולים, הפניות חוזרות או הסתעפויות מורכבות. השינוי הזה לא נשמר.",
+      "formulaSqlBytesMax": "שאילתת מסד הנתונים שנוצרה עבור הנוסחה חורגת מהמגבלה של {{max}} בתים. יש לפשט את הנוסחה ואת החישובים שאליהם היא מפנה. השינוי הזה לא נשמר.",
+      "tablesPerBaseMax": "הפרויקט הזה הגיע למגבלת הטבלאות. המקסימום הוא {{max}} טבלאות.",
       "fieldsPerTableMax": "לטבלה הזו יש יותר מדי שדות. המקסימום הוא {{max}} שדות.",
       "rowsPerTableMax": "לטבלה הזו יש יותר מדי רשומות. המקסימום הוא {{max}} רשומות.",
       "viewsPerTableMax": "הטבלה הזו הגיעה למגבלת התצוגות. המקסימום הוא {{max}} תצוגות.",
@@ -1049,6 +1064,7 @@
       "triggerTestFailed": "בדיקת הטריגר נכשלה, יש לבדוק את תצורת הטריגר",
       "testFailed": "בדיקת האוטומציה נכשלה, יש לבדוק את תצורת האוטומציה",
       "runFailed": "הרצת האוטומציה נכשלה",
+      "activatorDeactivated": "החשבון שהפעיל אוטומציה זו הושבת",
       "nodeParseError": "תצורת הצומת {{name}} חסרה או שגויה, יש לבדוק את תצורת הצומת",
       "nodeNeedTest": "יש לבדוק את הצומת {{name}}",
       "nodeTestOutdated": "בדיקת הצומת {{name}} אינה מעודכנת",
@@ -1057,7 +1073,7 @@
       "runNotFound": "הרצת האוטומציה לא נמצאה",
       "anchorNotFound": "אוטומציית העוגן לא נמצאה",
       "validationError": "שגיאת אימות בתצורת האוטומציה",
-      "tableNotInBase": "ניתן להירשם רק לטבלה שנמצאת בתוך הבסיס",
+      "tableNotInBase": "ניתן להירשם רק לטבלה שנמצאת בתוך הפרויקט",
       "alreadyActiveAndNotDraft": "האוטומציה כבר פעילה ואינה טיוטה",
       "noActiveSnapshot": "לאוטומציה אין תמונת מצב פעילה",
       "onlyFailedRunsCanRerun": "ניתן להריץ מחדש רק הרצות שנכשלו",
@@ -1081,6 +1097,8 @@
       "unsupportedCategory": "הקטגוריה אינה נתמכת",
       "unknownConnectionType": "סוג חיבור אימייל לא ידוע",
       "imapPasswordNotConfigured": "סיסמת ה-IMAP אינה מוגדרת",
+      "secretNotGranted": "הסוד {{alias}} לא הוענק לאוטומציה זו",
+      "credentialMustBeSecret": "פרטי ההתחברות חייבים להיות סודות שהוענקו לאוטומציה זו",
       "integrationNotFound": "האינטגרציה לא נמצאה או שאין לה פרטי התחברות",
       "webhookTriggerNotFound": "טריגר ה-webhook לא נמצא",
       "emailReceivedTriggerNotFound": "הטריגר EmailReceived לא נמצא",
@@ -1092,12 +1110,17 @@
       "apiKeyNotConfigured": "שירות גריפת הנתונים אינו מוגדר",
       "triggerFailed": "הפעלת גריפת הנתונים נכשלה: {{detail}}",
       "snapshotError": "שגיאה בתמונת המצב של גריפת הנתונים: {{detail}}",
-      "timeout": "פג הזמן הקצוב לגריפת הנתונים לאחר {{seconds}}s"
+      "timeout": "פג הזמן הקצוב לגריפת הנתונים לאחר {{seconds}}s",
+      "catalogFailed": "בקשת קטלוג הגריפה נכשלה: {{detail}}",
+      "discoverByOnCatalogDataset": "discoverBy חל רק על מזהי מערכי נתונים גולמיים, לא על {{datasetId}}",
+      "tooManyRecords": "הגריפה תחזיר עד {{estimated}} רשומות, מעל המגבלה של {{max}} לכל הפעלה",
+      "creditEstimateExceeded": "הקרדיטים המשוערים לגריפה זו עולים על הזמין כרגע"
     },
     "integration": {
       "oauthCodeExchangeFailed": "החלפת קוד ה-OAuth נכשלה: {{detail}}",
       "oauthTokenRefreshFailed": "רענון אסימון ה-OAuth נכשל: {{detail}}",
-      "userInfoFetchFailed": "קבלת פרטי המשתמש נכשלה: {{detail}}"
+      "userInfoFetchFailed": "קבלת פרטי המשתמש נכשלה: {{detail}}",
+      "providerUnsupported": "חיבורי {{provider}} אינם נתמכים עוד ולא ניתן להעניק אותם"
     },
     "space": {
       "notFound": "המרחב לא נמצא",
@@ -1113,17 +1136,17 @@
       "freeOwnedSpaceLimitExceededOther": "עבור {{name}} הושג המספר המרבי של מרחבים חינמיים בבעלות ({{max}})."
     },
     "base": {
-      "notFound": "הבסיס לא נמצא",
-      "cannotAccess": "אין הרשאה לגשת לבסיס {{baseId}}",
-      "anchorNotFound": "בסיס העוגן {{anchorId}} לא נמצא",
-      "baseAndSpaceMismatch": "הבסיס {{baseId}} והמרחב {{spaceId}} אינם תואמים",
+      "notFound": "הפרויקט לא נמצא",
+      "cannotAccess": "אין הרשאה לגשת לפרויקט {{baseId}}",
+      "anchorNotFound": "פרויקט העוגן {{anchorId}} לא נמצא",
+      "baseAndSpaceMismatch": "הפרויקט {{baseId}} והמרחב {{spaceId}} אינם תואמים",
       "templateNotFound": "התבנית {{templateId}} לא נמצאה"
     },
     "baseNode": {
-      "baseIdIsRequired": "נדרש מזהה בסיס",
+      "baseIdIsRequired": "נדרש מזהה פרויקט",
       "nodeIdIsRequired": "נדרש מזהה פריט",
       "invalidResourceType": "סוג המשאב אינו חוקי",
-      "notFound": "פריט הבסיס לא נמצא",
+      "notFound": "פריט הפרויקט לא נמצא",
       "parentMustBeFolder": "פריט האב חייב להיות תיקייה",
       "cannotDuplicateFolder": "לא ניתן לשכפל תיקייה",
       "cannotDeleteEmptyFolder": "לא ניתן למחוק את התיקייה מכיוון שאינה ריקה",
@@ -1138,6 +1161,23 @@
       "folderNotFound": "התיקייה לא נמצאה",
       "anchorNotFound": "פריט העוגן לא נמצא",
       "nameAlreadyExists": "השם כבר קיים"
+    },
+    "routine": {
+      "notFound": "רוטינה לא נמצאה",
+      "runNotFound": "הרצת הרוטינה לא נמצאה",
+      "configRequiredToActivate": "לא ניתן להפעיל רוטינה ללא תצורה שמורה",
+      "noFutureOccurrence": "ללוח הזמנים אין הופעה עתידית",
+      "onlyActiveCanDeactivate": "ניתן להשהות רק רוטינה פעילה",
+      "configRequiredToRun": "לא ניתן להריץ רוטינה ללא תצורה שמורה",
+      "runAlreadyInFlight": "כבר יש הרצה פעילה של רוטינה זו",
+      "runNowWhileActiveEvent": "השגרה פעילה וכבר מקבלת את האירועים שלה; הפעילו אירוע כדי לראות אותה רצה",
+      "invalidRunCursor": "מצביע רשימת הרצות לא תקין",
+      "invalidSchedule": "לוח הזמנים של הרוטינה אינו תקין: {{reason}}"
+    },
+    "chat": {
+      "notFound": "הצ'אט לא נמצא",
+      "accessDenied": "אין לך הרשאה לגשת לצ'אט הזה",
+      "serverAuthoredType": "צ'אטים מסוג {{type}} נוצרים על ידי השרת"
     },
     "dashboard": {
       "notFound": "לוח הבקרה לא נמצא"
@@ -1177,7 +1217,7 @@
       "loginRequired": "יש להיכנס כדי לערוך את התצוגה המשותפת הזו"
     },
     "baseShare": {
-      "notFound": "שיתוף הבסיס לא נמצא או שהשיתוף מושבת",
+      "notFound": "שיתוף הפרויקט לא נמצא או שהשיתוף מושבת",
       "alreadyExists": "כבר קיים שיתוף עבור הפריט הזה",
       "copyNotAllowed": "השיתוף הזה אינו מאפשר העתקה"
     },
@@ -1195,14 +1235,14 @@
     },
     "dbConnection": {
       "unsupportedDriver": "מנהל ההתקן של מסד הנתונים אינו נתמך: {{driver}}",
-      "onlyOwnerCanRemove": "רק הבעלים של הבסיס יכולים להסיר את החיבור למסד הנתונים של הבסיס {{baseId}}",
-      "onlyOwnerCanCreate": "רק הבעלים של הבסיס יכולים ליצור חיבור למסד הנתונים של הבסיס {{baseId}}",
+      "onlyOwnerCanRemove": "רק הבעלים של הפרויקט יכולים להסיר את החיבור למסד הנתונים של הפרויקט {{baseId}}",
+      "onlyOwnerCanCreate": "רק הבעלים של הפרויקט יכולים ליצור חיבור למסד הנתונים של הפרויקט {{baseId}}",
       "roleNotExist": "התפקיד {{role}} אינו קיים במסד הנתונים"
     },
     "baseQuery": {
       "queryFailed": "השאילתה נכשלה: {{message}}",
       "invalidJoinType": "סוג הצירוף אינו חוקי: {{joinType}}",
-      "tableNotFound": "הטבלה {{tableId}} לא נמצאה בבסיס {{baseId}}"
+      "tableNotFound": "הטבלה {{tableId}} לא נמצאה בפרויקט {{baseId}}"
     },
     "baseSqlExecutor": {
       "notAllowedToExecuteSqlWithKeyword": "לא ניתן להריץ SQL שמכיל את מילת המפתח {{keyword}}",
@@ -1222,7 +1262,7 @@
       "accessTokenNoPermission": "לאסימון הגישה אין את ההרשאה הנדרשת",
       "invalidResource": "המשאב אינו חוקי",
       "notAllowedSpace": "אין הרשאה לגשת למרחב הזה",
-      "notAllowedBase": "אין הרשאה לגשת לבסיס הזה",
+      "notAllowedBase": "אין הרשאה לגשת לפרויקט הזה",
       "notAllowedTables": "אין הרשאה לגשת לטבלאות({{tableIds}})",
       "notAllowedOperationTable": "אין הרשאה לבצע פעולות בטבלה הזו",
       "notAllowedOperationRecord": "אין הרשאה לבצע פעולות ברשומה הזו",
@@ -1242,7 +1282,7 @@
       "primaryFieldCannotBeDisabledForRead": "לא ניתן להשבית גישת קריאה לשדה הראשי",
       "fieldDuplicated": "השדה מופיע יותר מפעם אחת בתצורת ההרשאות",
       "cannotSetRecordPermissionGroup": "לא ניתן להגדיר שילוב זה של הרשאות רשומה({{actions}})",
-      "notFoundBaseAndTable": "מזהה הבסיס ומזהה הטבלה לא נמצאו",
+      "notFoundBaseAndTable": "מזהה הפרויקט ומזהה הטבלה לא נמצאו",
       "roleTablesShouldNotBeEmpty": "טבלאות התפקיד במטריצת ההרשאות אינן יכולות להיות ריקות"
     },
     "selection": {
@@ -1364,6 +1404,7 @@
       "configurationNotSet": "תצורת ה-AI אינה מוגדרת",
       "unsupportedProvider": "ספק ה-AI {{type}} אינו נתמך",
       "providerConfigurationNotSet": "תצורת ספק ה-AI אינה מוגדרת",
+      "providerModelDuplicated": "המודל {{model}} מופיע גם ב\"{{first}}\" וגם ב\"{{second}}\"; מודל יכול להופיע רק אצל ספק אחד מאותו סוג",
       "gatewayApiKeyNotSet": "מפתח ה-API של AI Gateway אינו מוגדר",
       "testLLMFailed": "בדיקת החיבור ל-LLM נכשלה",
       "audioNotSupported": "קלט אודיו אינו נתמך במודל {{model}}",
@@ -1425,9 +1466,9 @@
       "noPermissionToDelete": "אין הרשאה למחוק את משתף הפעולה הזה",
       "noPermissionToUpdate": "אין הרשאה לעדכן את משתף הפעולה הזה",
       "noPermissionToOperateRole": "אין הרשאה לבצע פעולות על התפקיד הזה",
-      "alreadyExistedInBase": "משתף הפעולה כבר קיים בבסיס",
+      "alreadyExistedInBase": "משתף הפעולה כבר קיים בפרויקט",
       "userNotFound": "המשתמש לא נמצא: {{userIds}}",
-      "baseNotFound": "הבסיס לא נמצא",
+      "baseNotFound": "הפרויקט לא נמצא",
       "noPermissionToAddRole": "אין הרשאה להוסיף משתף פעולה בתפקיד הזה",
       "departmentNotFound": "המחלקה לא נמצאה"
     },
@@ -1465,9 +1506,9 @@
     "trash": {
       "invalidResourceType": "סוג המשאב אינו חוקי",
       "notFound": "הפריט לא נמצא באשפה",
-      "parentSpaceTrashed": "לא ניתן לשחזר את הבסיס הזה מכיוון שגם המרחב שמכיל אותו נמצא באשפה",
-      "parentBaseOrSpaceTrashed": "לא ניתן לשחזר את הטבלה הזו מכיוון שגם הבסיס או המרחב שמכיל אותה נמצא באשפה",
-      "parentBaseTrashed": "לא ניתן לשחזר את הפריט הזה מכיוון שגם הבסיס שמכיל אותו נמצא באשפה",
+      "parentSpaceTrashed": "לא ניתן לשחזר את הפרויקט הזה מכיוון שגם המרחב שמכיל אותו נמצא באשפה",
+      "parentBaseOrSpaceTrashed": "לא ניתן לשחזר את הטבלה הזו מכיוון שגם הפרויקט או המרחב שמכיל אותה נמצא באשפה",
+      "parentBaseTrashed": "לא ניתן לשחזר את הפריט הזה מכיוון שגם הפרויקט שמכיל אותו נמצא באשפה",
       "parentNotFound": "משאב האב לא נמצא",
       "tableNotFound": "פריט הטבלה לא נמצא באשפה"
     },
@@ -1480,6 +1521,7 @@
     "domainVerification": {
       "notFound": "לא נמצא קוד אימות לדומיין",
       "invalidCode": "קוד האימות אינו חוקי",
+      "tooManyAttempts": "יותר מדי קודים שגויים. יש לבקש קוד אימות חדש",
       "resendCooldown": "יש להמתין דקה אחת לפני בקשת קוד חדש",
       "alreadyVerified": "הדומיין כבר אומת"
     },
@@ -1499,7 +1541,7 @@
       "waitlistInviteCodeRequired": "רשימת ההמתנה פעילה, ולכן נדרש קוד הזמנה",
       "waitlistInviteCodeInvalid": "רשימת ההמתנה פעילה, וקוד ההזמנה אינו חוקי",
       "systemUser": "המשתמש הוא משתמש מערכת",
-      "collaboratorsInSpaces": "למשתמש יש שיתופי פעולה במרחבים (או במרחבים שנמחקו ונמצאים באשפה)",
+      "soleOwnerOfSpaces": "המשתמש הוא הבעלים היחיד של מרחבים שיש לאשר או להעביר לפני מחיקת החשבון",
       "notFound": "המשתמש לא נמצא",
       "cannotDeleteAdmin": "לא ניתן למחוק משתמש מנהל",
       "cannotDeactivateAdmin": "לא ניתן להשבית משתמש מנהל",
@@ -1587,6 +1629,10 @@
       "linkedInPostNotFound": "הפוסט ב-LinkedIn לא נמצא: {{postId}}",
       "linkedInAuthorNotFound": "מחבר הפוסט ב-LinkedIn לא נמצא: {{postId}}",
       "fetchLinkedInUserFailed": "שליפת המשתמש מ-LinkedIn נכשלה: {{error}}"
+    },
+    "connectorEvent": {
+      "accountNotGranted": "טריגר אירוע המחבר זקוק לחשבון מחובר שהוענק למשאב זה",
+      "notEnabled": "אירועי מחבר אינם מופעלים בפריסה זו"
     }
   },
   "usageLimitBanner": {
@@ -1596,7 +1642,8 @@
       "titleIncrement": "הפעולה הזו מוסיפה {{increment}} שורות, מעבר למגבלת התוכנית שלך שהיא {{limit}}",
       "titleBatch": "הפעולה הזו תחרוג ממגבלת התוכנית שלך של {{limit}} שורות",
       "description": "לא ניתן להוסיף רשומות נוספות. שדרוג יסיר את המגבלה מיד, ואפשר גם לפנות מקום על ידי מחיקת רשומות.",
-      "unit": "שורות"
+      "unit": "שורות",
+      "constraint": "בתוכנית הנוכחית לא ניתן להוסיף עוד רשומות. פנו מקום על ידי מחיקת רשומות."
     },
     "credit": {
       "unit": "קרדיטים"
@@ -1606,6 +1653,12 @@
     },
     "generic": {
       "description": "שדרוג התוכנית יסיר את המגבלה הזו."
+    },
+    "neutral": {
+      "title": "הפעולה הזו חורגת ממגבלה של התוכנית הנוכחית של המרחב"
+    },
+    "seats": {
+      "unit": "מושבים"
     }
   }
 }

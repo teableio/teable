@@ -49,7 +49,8 @@
     "previewFileLimit": "Önizleme dosya boyutu sınırı: {{size}}MB, lütfen görüntülemek için indirin.",
     "loadFileError": "Dosya yüklenemedi",
     "previousAttachment": "Önceki",
-    "nextAttachment": "Sonraki"
+    "nextAttachment": "Sonraki",
+    "deleteAttachment": "Sil"
   },
   "undoRedo": {
     "undo": "Geri Al",
@@ -396,13 +397,13 @@
       "spaceInviteEmail": "Alanda e-posta ile davet et",
       "spaceInviteLink": "Alanda bağlantı ile davet et",
       "spaceGrantRole": "Alanda rol ata",
-      "baseCreate": "Veritabanı oluştur",
-      "baseDelete": "Veritabanı sil",
-      "baseRead": "Veritabanı oku",
-      "baseReadAll": "Read all bases",
-      "baseUpdate": "Veritabanı güncelle",
-      "baseInviteEmail": "Veritabanında e-posta ile davet et",
-      "baseInviteLink": "Veritabanında bağlantı ile davet et",
+      "baseCreate": "Proje oluştur",
+      "baseDelete": "Proje sil",
+      "baseRead": "Proje oku",
+      "baseReadAll": "Tüm projeleri oku",
+      "baseUpdate": "Proje güncelle",
+      "baseInviteEmail": "Projede e-posta ile davet et",
+      "baseInviteLink": "Projede bağlantı ile davet et",
       "baseAuthorityMatrixConfig": "Yetki matrisini yapılandır",
       "baseDbConnect": "Veritabanına bağlan",
       "tableCreate": "Tablo oluştur",
@@ -436,14 +437,21 @@
       "automationDelete": "Otomasyon sil",
       "automationRead": "Otomasyon oku",
       "automationUpdate": "Otomasyon güncelle",
+      "routineCreate": "Rutin oluştur",
+      "routineDelete": "Rutin sil",
+      "routineRead": "Rutin oku",
+      "routineUpdate": "Rutin güncelle",
       "appCreate": "Uygulama oluştur",
       "appDelete": "Uygulama sil",
       "appRead": "Uygulama oku",
       "appUpdate": "Uygulama güncelle",
       "userEmailRead": "Kullanıcı e-postası oku",
       "userIntegrations": "Manage user integrations",
+      "userSpacesRead": "Kullanıcının alanlarını oku (ad, plan ve kullanıcı sayısı)",
+      "userSelfHostedLicensesRead": "Kullanıcının satın aldığı self-hosted lisansları oku (plan ve kullanıcı sayısı)",
+      "userNotificationsSend": "Kullanıcıya bildirim gönder",
       "recordHistoryRead": "Kayıt geçmişi oku",
-      "baseQuery": "Veritabanı sorgula",
+      "baseQuery": "Proje sorgula",
       "instanceRead": "Örnek oku",
       "instanceUpdate": "Örnek güncelle",
       "enterpriseRead": "Read enterprise configuration",
@@ -454,10 +462,11 @@
     "table": "Tablo",
     "view": "Görünüm",
     "space": "Alan",
-    "base": "Veritabanı",
+    "base": "Proje",
     "field": "Alan",
     "record": "Kayıt",
     "automation": "Otomasyon",
+    "routine": "Rutin",
     "app": "Uygulama",
     "user": "Kullanıcı",
     "recordHistory": "Kayıt geçmişi",
@@ -952,7 +961,13 @@
       "recordsPerMutationMax": "Bu işlem çok fazla kaydı değiştiriyor. Tek seferde en fazla {{max}} kayıt olabilir.",
       "computedCellValueMaxBytes": "Hesaplanan hücre değeri çok büyük. En fazla {{max}} bayt olabilir.",
       "formulaMaxLength": "Formül çok uzun. En fazla {{max}} karakter olabilir.",
-      "tablesPerBaseMax": "Bu base tablo sınırına ulaştı. En fazla {{max}} tablo olabilir.",
+      "formulaCompileNodesMax": "Formülün genişletilmiş yapısı {{max}} düğümlük derleme sınırını aşıyor. Yinelenen başvuruları veya karmaşık dalları azaltın. Bu değişiklik kaydedilmedi.",
+      "formulaCompileDepthMax": "Formülün hesaplama yapısı {{max}} düzeylik iç içe geçme sınırını aşıyor. İç içe işlevleri veya zincirleme işlemleri azaltın. Bu değişiklik kaydedilmedi.",
+      "formulaReferenceDepthMax": "Formül {{max}} düzeylik başvuru derinliği sınırını aşıyor. Formüller arasındaki başvuru zincirlerini kısaltın. Bu değişiklik kaydedilmedi.",
+      "formulaBindingsMax": "Formülün derlenmesi {{max}} adetten fazla ara hesaplama bağlaması gerektiriyor. Formülün dallarını ve başvurduğu hesaplamaları basitleştirin. Bu değişiklik kaydedilmedi.",
+      "formulaCompileBytesMax": "Formülün ara derleme parçaları toplam {{max}} bayt sınırını aşıyor. Büyük sabitleri, yinelenen başvuruları veya karmaşık dalları azaltın. Bu değişiklik kaydedilmedi.",
+      "formulaSqlBytesMax": "Formül için oluşturulan veritabanı sorgusu {{max}} bayt sınırını aşıyor. Formülü ve başvurduğu hesaplamaları basitleştirin. Bu değişiklik kaydedilmedi.",
+      "tablesPerBaseMax": "Bu proje tablo sınırına ulaştı. En fazla {{max}} tablo olabilir.",
       "fieldsPerTableMax": "Bu tabloda çok fazla alan var. En fazla {{max}} alan olabilir.",
       "rowsPerTableMax": "Bu tabloda çok fazla kayıt var. En fazla {{max}} kayıt olabilir.",
       "viewsPerTableMax": "Bu tablo görünüm sınırına ulaştı. En fazla {{max}} görünüm olabilir.",
@@ -1045,6 +1060,7 @@
       "triggerTestFailed": "Tetikleyici testi başarısız, lütfen tetikleyici yapılandırmasını kontrol edin",
       "testFailed": "Otomasyon testi başarısız, otomasyon yapılandırmasını kontrol edin",
       "runFailed": "Otomasyon çalıştırması başarısız oldu",
+      "activatorDeactivated": "Bu otomasyonu etkinleştiren hesap devre dışı bırakıldı",
       "nodeParseError": "{{name}} düğüm yapılandırması eksik veya hatalı, lütfen düğüm yapılandırmasını kontrol edin",
       "nodeNeedTest": "{{name}} düğümün test edilmesi gerekiyor",
       "nodeTestOutdated": "{{name}} düğüm testi güncel değil",
@@ -1053,7 +1069,7 @@
       "runNotFound": "Otomasyon çalıştırması bulunamadı",
       "anchorNotFound": "Bağlantı otomasyonu bulunamadı",
       "validationError": "Otomasyon yapılandırması doğrulama hatası",
-      "tableNotInBase": "Yalnızca veritabanınızdaki bir tabloya abone olabilirsiniz",
+      "tableNotInBase": "Yalnızca projenizdeki bir tabloya abone olabilirsiniz",
       "alreadyActiveAndNotDraft": "Otomasyon zaten aktif ve taslak değil",
       "noActiveSnapshot": "Otomasyonun aktif anlık görüntüsü yok",
       "onlyFailedRunsCanRerun": "Yalnızca başarısız çalıştırmalar yeniden çalıştırılabilir",
@@ -1077,6 +1093,8 @@
       "unsupportedCategory": "Desteklenmeyen kategori",
       "unknownConnectionType": "Bilinmeyen e-posta bağlantı türü",
       "imapPasswordNotConfigured": "IMAP şifresi yapılandırılmamış",
+      "secretNotGranted": "{{alias}} gizli anahtarı bu otomasyona verilmemiş",
+      "credentialMustBeSecret": "Kimlik bilgileri bu otomasyona verilmiş gizli anahtarlar olmalıdır",
       "integrationNotFound": "Entegrasyon bulunamadı veya kimlik bilgileri yok",
       "webhookTriggerNotFound": "Webhook tetikleyicisi bulunamadı",
       "emailReceivedTriggerNotFound": "E-posta alım tetikleyicisi bulunamadı",
@@ -1088,12 +1106,17 @@
       "apiKeyNotConfigured": "Kazıma servisi yapılandırılmamış",
       "triggerFailed": "Kazıma tetiklemesi başarısız: {{detail}}",
       "snapshotError": "Kazıma anlık görüntü hatası: {{detail}}",
-      "timeout": "Kazıma {{seconds}}s sonra zaman aşımına uğradı"
+      "timeout": "Kazıma {{seconds}}s sonra zaman aşımına uğradı",
+      "catalogFailed": "Kazıma kataloğu isteği başarısız oldu: {{detail}}",
+      "discoverByOnCatalogDataset": "discoverBy yalnızca ham veri kümesi kimlikleri için geçerlidir, {{datasetId}} için değil",
+      "tooManyRecords": "Bu tarama en fazla {{estimated}} kayıt döndürür ve tetikleme başına izin verilen {{max}} sınırını aşıyor",
+      "creditEstimateExceeded": "Bu taramanın tahmini kredisi şu anda kullanılabilir olanı aşıyor"
     },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
       "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
-      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}",
+      "providerUnsupported": "{{provider}} bağlantıları artık desteklenmiyor ve yetkilendirilemez"
     },
     "space": {
       "notFound": "Alan bulunamadı",
@@ -1109,14 +1132,14 @@
       "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
     },
     "base": {
-      "notFound": "Base bulunamadı",
-      "cannotAccess": "Base {{baseId}} erişim izniniz yok",
-      "anchorNotFound": "Bağlantı base'i {{anchorId}} bulunamadı",
-      "baseAndSpaceMismatch": "Base {{baseId}} ve alan {{spaceId}} eşleşmiyor",
+      "notFound": "Proje bulunamadı",
+      "cannotAccess": "Proje {{baseId}} erişim izniniz yok",
+      "anchorNotFound": "Referans proje {{anchorId}} bulunamadı",
+      "baseAndSpaceMismatch": "Proje {{baseId}} ve alan {{spaceId}} eşleşmiyor",
       "templateNotFound": "Şablon {{templateId}} bulunamadı"
     },
     "baseNode": {
-      "baseIdIsRequired": "Base ID gereklidir",
+      "baseIdIsRequired": "Proje ID gereklidir",
       "nodeIdIsRequired": "Node ID gereklidir",
       "invalidResourceType": "Geçersiz kaynak türü",
       "notFound": "Temel düğüm bulunamadı",
@@ -1134,6 +1157,23 @@
       "folderNotFound": "Klasör bulunamadı",
       "anchorNotFound": "Bağlantı düğümü bulunamadı",
       "nameAlreadyExists": "İsim zaten mevcut"
+    },
+    "routine": {
+      "notFound": "Rutin bulunamadı",
+      "runNotFound": "Rutin çalıştırması bulunamadı",
+      "configRequiredToActivate": "Kaydedilmiş bir yapılandırma olmadan rutin etkinleştirilemez",
+      "noFutureOccurrence": "Zamanlamanın gelecekte gerçekleşecek bir tekrarı yok",
+      "onlyActiveCanDeactivate": "Yalnızca etkin bir rutin duraklatılabilir",
+      "configRequiredToRun": "Kaydedilmiş bir yapılandırma olmadan rutin çalıştırılamaz",
+      "runAlreadyInFlight": "Bu rutinin bir çalıştırması zaten devam ediyor",
+      "runNowWhileActiveEvent": "Bu rutin etkin ve olaylarını zaten alıyor; çalıştığını görmek için bir olay tetikleyin",
+      "invalidRunCursor": "Geçersiz çalıştırma listesi imleci",
+      "invalidSchedule": "Geçersiz rutin zamanlaması: {{reason}}"
+    },
+    "chat": {
+      "notFound": "Sohbet bulunamadı",
+      "accessDenied": "Bu sohbete erişim izniniz yok",
+      "serverAuthoredType": "{{type}} türündeki sohbetler sunucu tarafından oluşturulur"
     },
     "dashboard": {
       "notFound": "Gösterge paneli bulunamadı"
@@ -1173,7 +1213,7 @@
       "loginRequired": "Bu paylaşılan görünümü düzenlemek için oturum açın"
     },
     "baseShare": {
-      "notFound": "Taban paylaşımı bulunamadı veya paylaşım devre dışı",
+      "notFound": "Proje paylaşımı bulunamadı veya paylaşım devre dışı",
       "alreadyExists": "Bu düğüm için zaten bir paylaşım mevcut",
       "copyNotAllowed": "Bu paylaşım kopyalamaya izin vermiyor"
     },
@@ -1191,14 +1231,14 @@
     },
     "dbConnection": {
       "unsupportedDriver": "Desteklenmeyen veritabanı sürücüsü: {{driver}}",
-      "onlyOwnerCanRemove": "Yalnızca base sahibi, base {{baseId}} için veritabanı bağlantısını kaldırabilir",
-      "onlyOwnerCanCreate": "Yalnızca base sahibi, base {{baseId}} için veritabanı bağlantısı oluşturabilir",
+      "onlyOwnerCanRemove": "Yalnızca proje sahibi, proje {{baseId}} için veritabanı bağlantısını kaldırabilir",
+      "onlyOwnerCanCreate": "Yalnızca proje sahibi, proje {{baseId}} için veritabanı bağlantısı oluşturabilir",
       "roleNotExist": "Veritabanı rolü {{role}} mevcut değil"
     },
     "baseQuery": {
       "queryFailed": "Sorgu başarısız: {{message}}",
       "invalidJoinType": "Geçersiz birleştirme türü: {{joinType}}",
-      "tableNotFound": "Tablo {{tableId}}, base {{baseId}} içinde bulunamadı"
+      "tableNotFound": "Tablo {{tableId}}, proje {{baseId}} içinde bulunamadı"
     },
     "baseSqlExecutor": {
       "notAllowedToExecuteSqlWithKeyword": "{{keyword}} anahtar kelimesiyle SQL çalıştırılmasına izin verilmiyor",
@@ -1218,7 +1258,7 @@
       "accessTokenNoPermission": "Erişim jetonu gerekli izne sahip değil",
       "invalidResource": "Kaynak geçerli değil",
       "notAllowedSpace": "Bu alana erişim izniniz yok",
-      "notAllowedBase": "Bu tabana erişim izniniz yok",
+      "notAllowedBase": "Bu projeye erişim izniniz yok",
       "notAllowedTables": "Bu tablolar({{tableIds}}) erişim izniniz yok",
       "notAllowedOperationTable": "Bu tablo üzerinde işlem yapma izniniz yok",
       "notAllowedOperationRecord": "Bu kayıt üzerinde işlem yapma izniniz yok",
@@ -1238,7 +1278,7 @@
       "primaryFieldCannotBeDisabledForRead": "Birincil alan okuma erişimi için devre dışı bırakılamaz",
       "fieldDuplicated": "Alan izin yapılandırmasında yineleniyor",
       "cannotSetRecordPermissionGroup": "Bu kayıt izinleri kombinasyonu({{actions}}) ayarlanamıyor",
-      "notFoundBaseAndTable": "Taban kimliği ve tablo kimliği bulunamadı",
+      "notFoundBaseAndTable": "Proje kimliği ve tablo kimliği bulunamadı",
       "roleTablesShouldNotBeEmpty": "Yetki matrisi rol tabloları boş olmamalı"
     },
     "selection": {
@@ -1339,7 +1379,10 @@
       "exceedMaxAutomationRunLimit": "Aylık maksimum otomasyon çalıştırma sayısına ulaşıldı",
       "manualSubscriptionNotSupported": "Bu alan için self-servis abonelik kullanılamamaktadır. Yükseltme, düşürme veya diğer abonelik değişiklikleri için lütfen Teable desteğiyle iletişime geçin.",
       "appSumoSubscriptionNotSupported": "AppSumo abonelikleri bu arayüz üzerinden değiştirilemez. Lütfen aboneliğinizi AppSumo'da yönetin.",
-      "customerNotFound": "Bu alan için fatura müşteri kaydı bulunamadı."
+      "planNotAvailable": "Bu plan artık yeni abonelikler için mevcut değildir.",
+      "seatLimitExceeded": "Satın alınan koltuk sayısı yetersiz. Daha fazla iş ortağı davet etmek için koltuk ekleyin.",
+      "customerNotFound": "Bu alan için fatura müşteri kaydı bulunamadı.",
+      "creditAddOnRetired": "Yinelenen kredi eklentisi kaldırıldı. Bunun yerine planınızda daha büyük bir kredi kademesi seçin."
     },
     "aggregation": {
       "searchQueryRequired": "Arama sorgusu gereklidir",
@@ -1360,6 +1403,7 @@
       "configurationNotSet": "AI yapılandırması ayarlanmamış",
       "unsupportedProvider": "Desteklenmeyen AI sağlayıcısı {{type}}",
       "providerConfigurationNotSet": "AI sağlayıcı yapılandırması ayarlanmamış",
+      "providerModelDuplicated": "{{model}} modeli hem \"{{first}}\" hem de \"{{second}}\" altında listelenmiş; bir model, her tür için yalnızca tek bir sağlayıcıda yer alabilir",
       "gatewayApiKeyNotSet": "AI Gateway API anahtarı yapılandırılmamış",
       "testLLMFailed": "LLM bağlantı testi başarısız oldu",
       "audioNotSupported": "Bu model {{model}} ses girişini desteklemiyor",
@@ -1421,9 +1465,9 @@
       "noPermissionToDelete": "Bu işbirlikçiyi silme izniniz yok",
       "noPermissionToUpdate": "Bu işbirlikçiyi güncelleme izniniz yok",
       "noPermissionToOperateRole": "Bu rolü yönetme izniniz yok",
-      "alreadyExistedInBase": "İşbirlikçi zaten veritabanında mevcut",
+      "alreadyExistedInBase": "İşbirlikçi zaten projede mevcut",
       "userNotFound": "Kullanıcı bulunamadı: {{userIds}}",
-      "baseNotFound": "Veritabanı bulunamadı",
+      "baseNotFound": "Proje bulunamadı",
       "noPermissionToAddRole": "Bu rolle işbirlikçi ekleme izniniz yok",
       "departmentNotFound": "Departman bulunamadı"
     },
@@ -1461,9 +1505,9 @@
     "trash": {
       "invalidResourceType": "Geçersiz kaynak türü",
       "notFound": "Çöp kutusu öğesi bulunamadı",
-      "parentSpaceTrashed": "Üst alan da çöp kutusunda olduğu için bu taban geri yüklenemiyor",
-      "parentBaseOrSpaceTrashed": "Üst taban veya alan da çöp kutusunda olduğu için bu tablo geri yüklenemiyor",
-      "parentBaseTrashed": "Üst taban da çöp kutusunda olduğu için bu öğe geri yüklenemiyor",
+      "parentSpaceTrashed": "Üst alan da çöp kutusunda olduğu için bu proje geri yüklenemiyor",
+      "parentBaseOrSpaceTrashed": "Üst proje veya alan da çöp kutusunda olduğu için bu tablo geri yüklenemiyor",
+      "parentBaseTrashed": "Üst proje de çöp kutusunda olduğu için bu öğe geri yüklenemiyor",
       "parentNotFound": "Üst kaynak bulunamadı",
       "tableNotFound": "Tablo çöp kutusu öğesi bulunamadı"
     },
@@ -1476,6 +1520,7 @@
     "domainVerification": {
       "notFound": "Domain doğrulama kodu bulunamadı",
       "invalidCode": "Geçersiz doğrulama kodu",
+      "tooManyAttempts": "Çok fazla hatalı kod girildi. Lütfen yeni bir doğrulama kodu isteyin",
       "resendCooldown": "Yeni bir kod istemeden önce lütfen 1 dakika bekleyin",
       "alreadyVerified": "Alan adı zaten doğrulanmış"
     },
@@ -1495,7 +1540,7 @@
       "waitlistInviteCodeRequired": "Bekleme listesi etkin, davetiye kodu gerekli",
       "waitlistInviteCodeInvalid": "Bekleme listesi etkin, davetiye kodu geçersiz",
       "systemUser": "Kullanıcı bir sistem kullanıcısıdır",
-      "collaboratorsInSpaces": "Kullanıcının alanlarda işbirlikçileri var (veya çöp kutusunda silinmiş alanlar)",
+      "soleOwnerOfSpaces": "Kullanıcı, hesap silinmeden önce onaylanması veya devredilmesi gereken alanların tek sahibidir",
       "notFound": "Kullanıcı bulunamadı",
       "cannotDeleteAdmin": "Yönetici kullanıcı silinemez",
       "cannotDeactivateAdmin": "Yönetici kullanıcı devre dışı bırakılamaz",
@@ -1583,6 +1628,10 @@
       "linkedInPostNotFound": "LinkedIn gönderisi bulunamadı: {{postId}}",
       "linkedInAuthorNotFound": "LinkedIn yazarı bulunamadı: {{postId}}",
       "fetchLinkedInUserFailed": "LinkedIn kullanıcısı alınamadı: {{error}}"
+    },
+    "connectorEvent": {
+      "accountNotGranted": "Bağlayıcı olay tetikleyicisi için bu kaynağa verilmiş bağlı bir hesap gerekir",
+      "notEnabled": "Bu dağıtımda bağlayıcı olayları etkin değil"
     }
   },
   "usageLimitBanner": {
@@ -1592,7 +1641,8 @@
       "titleIncrement": "Bu işlem {{increment}} satır ekleyerek planınızın {{limit}} satır sınırını aşıyor",
       "titleBatch": "Bu işlem planınızın {{limit}} satır sınırını aşar",
       "description": "Daha fazla kayıt ekleyemezsiniz. Sınırı hemen kaldırmak için planınızı yükseltin veya kayıt silerek yer açın.",
-      "unit": "satır"
+      "unit": "satır",
+      "constraint": "Mevcut planda daha fazla kayıt eklenemez. Kayıt silerek yer açın."
     },
     "credit": {
       "unit": "kredi"
@@ -1602,6 +1652,12 @@
     },
     "generic": {
       "description": "Bu sınırı kaldırmak için planınızı yükseltin."
+    },
+    "neutral": {
+      "title": "Bu işlem, alanın mevcut planının bir sınırını aşıyor"
+    },
+    "seats": {
+      "unit": "koltuk"
     }
   }
 }

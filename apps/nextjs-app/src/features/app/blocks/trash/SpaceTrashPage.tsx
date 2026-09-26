@@ -1,13 +1,13 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { ChevronLeft, Trash2 } from '@teable/icons';
-import type { ITrashItemVo, ITrashVo } from '@teable/openapi';
+import type { IDeleteTrashQuery, ITrashItemVo, ITrashVo } from '@teable/openapi';
 import { getTrash, restoreTrash, deleteTrash, PrincipalType, TrashType } from '@teable/openapi';
 import { InfiniteTable } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useIsHydrated } from '@teable/sdk/hooks';
 import { ConfirmDialog } from '@teable/ui-lib/base';
-import { Button } from '@teable/ui-lib/shadcn';
+import { Button, Checkbox, Label } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
 import { IterationCcwIcon } from 'lucide-react';
@@ -40,8 +40,9 @@ export const SpaceTrashPage = () => {
   const [resourceMap, setResourceMap] = useState<ITrashVo['resourceMap']>({});
   const [nextCursor, setNextCursor] = useState<string | null | undefined>();
   const [isConfirmVisible, setConfirmVisible] = useState(false);
+  const [forceRemove, setForceRemove] = useState(false);
   const [deletingResource, setDeletingResource] = useState<
-    { trashId: string; name: string } | undefined
+    { trashId: string; name: string; isByodb: boolean } | undefined
   >();
 
   const queryFn = async () => {
@@ -73,18 +74,30 @@ export const SpaceTrashPage = () => {
     },
   });
 
-  const { mutateAsync: mutatePermanentDelete } = useMutation({
-    mutationFn: (props: { trashId: string }) => deleteTrash(props.trashId),
-    onSuccess: () => {
+  const { mutate: mutatePermanentDelete, isPending: isDeleting } = useMutation({
+    mutationFn: (props: { trashId: string; query?: IDeleteTrashQuery }) =>
+      deleteTrash(props.trashId, props.query),
+    onSuccess: (_data, { query }) => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getSpaceTrash(resourceType) });
-      toast.success(t('actions.deleteSucceed'));
+      toast.success(
+        query?.force ? t('space:trash.forceRemoveSuccess') : t('actions.deleteSucceed')
+      );
+      setConfirmVisible(false);
+      setForceRemove(false);
+      setDeletingResource(undefined);
     },
   });
 
-  const allRows = useMemo(
-    () => (data ? (data.pages.flatMap((d) => d) as ITrashItemVo[]) : []),
-    [data]
-  );
+  const onConfirmOpenChange = (open: boolean) => {
+    if (isDeleting) return;
+    setConfirmVisible(open);
+    if (!open) {
+      setForceRemove(false);
+      setDeletingResource(undefined);
+    }
+  };
+
+  const allRows = useMemo(() => (data ? (data.pages.flat() as ITrashItemVo[]) : []), [data]);
 
   const columns: ColumnDef<ITrashItemVo>[] = useMemo(() => {
     const tableColumns: ColumnDef<ITrashItemVo>[] = [
@@ -167,10 +180,12 @@ export const SpaceTrashPage = () => {
                 className="size-8 p-0"
                 title={t('actions.permanentDelete')}
                 onClick={() => {
+                  setForceRemove(false);
                   setConfirmVisible(true);
                   setDeletingResource({
                     trashId,
                     name: resourceInfo.name,
+                    isByodb: row.original.isByodb === true,
                   });
                 }}
               >
@@ -217,20 +232,52 @@ export const SpaceTrashPage = () => {
       <InfiniteTable rows={allRows} columns={columns} fetchNextPage={fetchNextPageInner} />
       <ConfirmDialog
         open={isConfirmVisible}
-        onOpenChange={setConfirmVisible}
-        title={t('trash.permanentDeleteTips', {
-          name: deletingResource?.name,
-          resource: t('noun.space'),
-        })}
+        onOpenChange={onConfirmOpenChange}
+        closeable={!isDeleting}
+        title={
+          forceRemove
+            ? t('space:trash.forceRemoveTitle', { name: deletingResource?.name })
+            : t('trash.permanentDeleteTips', {
+                name: deletingResource?.name,
+                resource: t('noun.space'),
+              })
+        }
+        content={
+          deletingResource?.isByodb === true && (
+            <div className="space-y-4">
+              <p
+                id="force-remove-space-warning"
+                className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
+              >
+                {t('space:trash.forceRemoveWarning', { brandName })}
+              </p>
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="force-remove-space"
+                  className="mt-0.5"
+                  checked={forceRemove}
+                  disabled={isDeleting}
+                  aria-describedby="force-remove-space-warning"
+                  onCheckedChange={(checked) => setForceRemove(checked === true)}
+                />
+                <Label htmlFor="force-remove-space" className="leading-normal">
+                  {t('space:trash.forceRemoveLabel')}
+                </Label>
+              </div>
+            </div>
+          )
+        }
         cancelText={t('actions.cancel')}
-        confirmText={t('actions.confirm')}
-        onCancel={() => setConfirmVisible(false)}
+        confirmText={forceRemove ? t('space:trash.forceRemove') : t('actions.permanentDelete')}
+        confirmButtonVariant="destructive"
+        confirmLoading={isDeleting}
+        confirmDisabled={isDeleting}
+        onCancel={() => onConfirmOpenChange(false)}
         onConfirm={() => {
-          if (deletingResource == null) return;
-          const { trashId } = deletingResource;
-          setConfirmVisible(false);
+          if (deletingResource == null || isDeleting) return;
           mutatePermanentDelete({
-            trashId,
+            trashId: deletingResource.trashId,
+            query: forceRemove && deletingResource.isByodb ? { force: true } : undefined,
           });
         }}
       />

@@ -1,6 +1,12 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import type { IExecutionContext, ITracer } from '@teable/v2-core';
-import { ActorId, v2CoreTokens, type TableDataSafetyLimitConfig } from '@teable/v2-core';
+import {
+  ActorId,
+  v2CoreTokens,
+  type FormulaSourceBudget,
+  type IExecutionContext,
+  type ITracer,
+  type TableDataSafetyLimitConfig,
+} from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { ClsService } from 'nestjs-cls';
 import { I18nContext, I18nService } from 'nestjs-i18n';
@@ -31,6 +37,9 @@ export class V2ExecutionContextFactory {
     const tableLimits = container.isRegistered(v2CoreTokens.tableDataSafetyLimits)
       ? container.resolve<TableDataSafetyLimitConfig>(v2CoreTokens.tableDataSafetyLimits)
       : undefined;
+    const formulaSourceBudget = container.resolve<FormulaSourceBudget>(
+      v2CoreTokens.formulaSourceBudget
+    );
 
     const userId = this.cls.get('user.id');
     if (!userId) {
@@ -65,6 +74,7 @@ export class V2ExecutionContextFactory {
       windowId,
       scheduleBackgroundTask,
       config: {
+        formulaSourceBudget,
         ...(tableLimits ? { tableLimits } : {}),
       },
       $t: t,

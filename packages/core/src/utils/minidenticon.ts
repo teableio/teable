@@ -9,7 +9,7 @@ function simpleHash(str: string): number {
   return (
     str
       .split('')
-      .reduce((hash, char) => (hash ^ char.charCodeAt(0)) * -MAGIC_NUMBER, MAGIC_NUMBER) >>> 2
+      .reduce((hash, char) => (hash ^ char.charCodeAt(0)) * -MAGIC_NUMBER, MAGIC_NUMBER) >>> 2 // NOSONAR typescript:S7758 -- the hash is defined over UTF-16 code units; switching to code points would change persisted/compared values
   );
 }
 
@@ -31,11 +31,11 @@ const minidenticon: MinidenticonFunction = function (
   const hash = hashFn(seed);
   const hue = (hash % COLORS_NB) * (360 / COLORS_NB);
   return (
-    [...Array(seed ? 25 : 0)].reduce(
+    [...new Array(seed ? 25 : 0)].reduce(
       (acc, _, i) =>
         hash & (1 << i % 15)
           ? acc +
-            `<rect x="${i > 14 ? 7 - ~~(i / 5) : ~~(i / 5)}" y="${i % 5}" width="1" height="1"/>`
+            `<rect x="${i > 14 ? 7 - Math.trunc(i / 5) : Math.trunc(i / 5)}" y="${i % 5}" width="1" height="1"/>`
           : acc,
       `<svg viewBox="-1.5 -1.5 8 8" xmlns="http://www.w3.org/2000/svg" fill="hsl(${hue} ${saturation}% ${lightness}%)">`
     ) + '</svg>'

@@ -62,7 +62,7 @@ export class LinkFieldValueDuplicateVisitor {
    * Used for ManyMany and one-way OneMany relationships.
    */
   private generateJunctionTableCopy(): Result<ReadonlyArray<CompiledQuery>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<CompiledQuery>, DomainError>(function* () {
       const sourceJunctionTable = yield* visitor.getJunctionTableName(visitor.ctx.sourceField);
       const newJunctionTable = yield* visitor.getJunctionTableName(visitor.ctx.newField);
@@ -98,7 +98,7 @@ export class LinkFieldValueDuplicateVisitor {
    * Used for ManyOne, OneOne, and two-way OneMany relationships where FK is in main table.
    */
   private generateFkColumnCopy(): Result<ReadonlyArray<CompiledQuery>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<CompiledQuery>, DomainError>(function* () {
       const sourceFkName = yield* visitor.ctx.sourceField.selfKeyNameString();
       const newFkName = yield* visitor.ctx.newField.selfKeyNameString();

@@ -6,12 +6,22 @@ import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
 import { OAuthLogo } from '../../../oauth/OAuthLogo';
 import { OAuthScope } from '../../../oauth/OAuthScope';
+import { NotificationsSwitch } from './NotificationsSwitch';
 import { RevokeButton } from './RevokeButton';
 
 export const Detail = (props: { detail?: AuthorizedVo; onBack: () => void }) => {
   const { detail, onBack } = props;
-  const { logo, name, lastUsedTime, createdUser, homepage, description, scopes, clientId } =
-    detail || {};
+  const {
+    logo,
+    name,
+    lastUsedTime,
+    createdUser,
+    homepage,
+    description,
+    scopes,
+    clientId,
+    notificationsMuted,
+  } = detail || {};
   const dayjs = useLanDayjs();
   const { t } = useTranslation('common');
   return (
@@ -46,6 +56,16 @@ export const Detail = (props: { detail?: AuthorizedVo; onBack: () => void }) => 
       </div>
       <Separator className="my-4" />
       <div className="text-sm">{description}</div>
+      {clientId && scopes?.includes('user|notifications_send') && (
+        <div className="mt-8">
+          <NotificationsSwitch
+            key={clientId}
+            clientId={clientId}
+            name={name || ''}
+            muted={notificationsMuted}
+          />
+        </div>
+      )}
       <div className="mt-8 flex items-center justify-between">
         <div>{t('settings.integration.thirdPartyIntegrations.scopeTitle')}</div>
         <RevokeButton clientId={clientId || ''} name={name || ''} onSuccess={onBack} />

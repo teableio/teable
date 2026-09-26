@@ -15,7 +15,7 @@ import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
-import { TableRecord } from '../domain/table/records/TableRecord';
+import type { TableRecord } from '../domain/table/records/TableRecord';
 import { TableByIdSpec } from '../domain/table/specs/TableByIdSpec';
 import type { Table } from '../domain/table/Table';
 import type { ViewQueryGroupItem } from '../domain/table/views/ViewQueryDefaults';
@@ -41,7 +41,12 @@ import { ListTableRecordsQuery, type RecordSortValue } from './ListTableRecordsQ
 import { QueryHandler, type IQueryHandler } from './QueryHandler';
 import type { RecordFilter } from './RecordFilterDto';
 import { replaceCurrentUserTagInFilter, sanitizeRecordFilter } from './RecordFilterMapper';
-import { RecordSearch, resolveVisibleRowSearch } from './RecordSearch';
+import {
+  RecordSearch,
+  resolveSearchRowScopeFieldIds,
+  resolveVisibleRowSearch,
+} from './RecordSearch';
+import { applyFieldMasksToRecords, collectMaskDependencyFieldIds } from './tableRecordFieldMasks';
 import {
   buildLinkCandidatePlan,
   buildTableRecordConditionPlan,
@@ -65,7 +70,8 @@ export class ListTableRecordsResult {
     readonly searchMatches?: ReadonlyArray<TableRecordQueryRepositoryPort.ITableRecordSearchMatch>,
     readonly appliedGroup?: ReadonlyArray<ViewQueryGroupItem>,
     readonly nextCursor?: string,
-    readonly hasMore?: boolean
+    readonly hasMore?: boolean,
+    readonly recordIndex?: number | null
   ) {}
 
   static create(
@@ -77,7 +83,8 @@ export class ListTableRecordsResult {
     searchMatches?: ReadonlyArray<TableRecordQueryRepositoryPort.ITableRecordSearchMatch>,
     appliedGroup?: ReadonlyArray<ViewQueryGroupItem>,
     nextCursor?: string,
-    hasMore?: boolean
+    hasMore?: boolean,
+    recordIndex?: number | null
   ): ListTableRecordsResult {
     return new ListTableRecordsResult(
       records,
@@ -88,150 +95,19 @@ export class ListTableRecordsResult {
       searchMatches,
       appliedGroup,
       nextCursor,
-      hasMore
+      hasMore,
+      recordIndex
     );
   }
 }
 
 /**
- * Collect field ids referenced by a condition specification tree
- * (left/right field of conditions + field-reference values).
- * Used so mask evaluation can load dependency columns that are not returned.
- */
-const collectFieldIdsFromSpec = (spec: unknown): ReadonlySet<string> => {
-  const ids = new Set<string>();
-  const walk = (node: unknown): void => {
-    if (!node || typeof node !== 'object') {
-      return;
-    }
-    const candidate = node as {
-      leftSpec?: () => unknown;
-      rightSpec?: () => unknown;
-      innerSpec?: () => unknown;
-      field?: () => { id: () => { toString: () => string } };
-      value?: () => unknown;
-    };
-    if (typeof candidate.leftSpec === 'function' && typeof candidate.rightSpec === 'function') {
-      walk(candidate.leftSpec());
-      walk(candidate.rightSpec());
-      return;
-    }
-    if (typeof candidate.innerSpec === 'function') {
-      walk(candidate.innerSpec());
-      return;
-    }
-    if (typeof candidate.field === 'function') {
-      try {
-        ids.add(candidate.field().id().toString());
-      } catch {
-        // ignore non-field specs
-      }
-    }
-    if (typeof candidate.value === 'function') {
-      const value = candidate.value();
-      if (
-        value &&
-        typeof value === 'object' &&
-        typeof (value as { field?: unknown }).field === 'function'
-      ) {
-        try {
-          ids.add(
-            (value as { field: () => { id: () => { toString: () => string } } })
-              .field()
-              .id()
-              .toString()
-          );
-        } catch {
-          // ignore
-        }
-      }
-    }
-  };
-  walk(spec);
-  return ids;
-};
-
-const collectMaskDependencyFieldIds = (
-  fieldMasks: ReadonlyArray<RecordQueryFieldMask> | undefined
-): ReadonlySet<string> => {
-  const ids = new Set<string>();
-  for (const mask of fieldMasks ?? []) {
-    for (const fieldId of collectFieldIdsFromSpec(mask.visibleWhen)) {
-      ids.add(fieldId);
-    }
-  }
-  return ids;
-};
-
-/**
- * Apply conditional field masks (visibleWhen) after read.
- * Fields that fail the mask are omitted from the result payload (null-out).
- *
- * Fail-closed: if a mask dependency field was not loaded into the evaluation
- * projection, the masked field is stripped (never fail-open on missing deps).
- */
-const applyFieldMasksToRecords = (
-  table: Table,
-  records: ReadonlyArray<TableRecordReadModel>,
-  fieldMasks: ReadonlyArray<RecordQueryFieldMask> | undefined,
-  evaluationFieldIds?: ReadonlySet<string>
-): ReadonlyArray<TableRecordReadModel> => {
-  if (!fieldMasks?.length || !records.length) {
-    return records;
-  }
-
-  const maskDepsByFieldId = new Map(
-    fieldMasks.map((mask) => [mask.fieldId, collectFieldIdsFromSpec(mask.visibleWhen)] as const)
-  );
-
-  return records.map((record) => {
-    const domainRecordResult = TableRecord.fromRawFieldValues({
-      id: record.id,
-      tableId: table.id(),
-      fields: record.fields,
-    });
-    // Fail-closed: if we cannot evaluate masks, strip all masked fields.
-    if (domainRecordResult.isErr()) {
-      const nextFields = { ...record.fields };
-      for (const mask of fieldMasks) {
-        delete nextFields[mask.fieldId];
-      }
-      return { ...record, fields: nextFields };
-    }
-    const domainRecord = domainRecordResult.value;
-    let changed = false;
-    const nextFields = { ...record.fields };
-    for (const mask of fieldMasks) {
-      if (!Object.prototype.hasOwnProperty.call(nextFields, mask.fieldId)) {
-        continue;
-      }
-      const deps = maskDepsByFieldId.get(mask.fieldId);
-      // Fail-closed when a dependency was never loaded into the evaluation
-      // projection. (isEmpty/isNot on undefined fail-open — do not evaluate.)
-      // Null values that were projected still evaluate normally.
-      const missingFromProjection =
-        evaluationFieldIds != null &&
-        deps != null &&
-        [...deps].some((depId) => !evaluationFieldIds.has(depId));
-      if (missingFromProjection) {
-        delete nextFields[mask.fieldId];
-        changed = true;
-        continue;
-      }
-      if (!mask.visibleWhen.isSatisfiedBy(domainRecord)) {
-        delete nextFields[mask.fieldId];
-        changed = true;
-      }
-    }
-    return changed ? { ...record, fields: nextFields } : record;
-  });
-};
-
-/**
  * Search may keep conditionally masked fields in the row filter (otherwise
  * all-fields search compiles to SQL `false`). Search-index hits are
- * cell-level: drop matches whose field was stripped for that record, and in
- * matched mode reindex so rows that only hit hidden cells do not leave gaps.
+ * cell-level: drop matches whose *masked* field was stripped for that record,
+ * and in matched mode reindex so rows that only hit hidden cells do not leave
+ * gaps. Unmasked field hits stay even when the SQL projection omitted that
+ * cell (empty-projection ShareDB doc-ids, T7105).
  */
 const filterSearchMatchesByVisibleCells = (
   searchMatches: ReadonlyArray<TableRecordQueryRepositoryPort.ITableRecordSearchMatch> | undefined,
@@ -244,12 +120,14 @@ const filterSearchMatchesByVisibleCells = (
     return searchMatches;
   }
   const fieldsByRecordId = new Map(maskedRecords.map((record) => [record.id, record.fields]));
-  const visibleMatches = searchMatches.filter((match) =>
-    Object.prototype.hasOwnProperty.call(
-      fieldsByRecordId.get(match.recordId.toString()) ?? {},
-      match.fieldId.toString()
-    )
-  );
+  const maskedFieldIds = new Set(fieldMasks.map((mask) => mask.fieldId));
+  const visibleMatches = searchMatches.filter((match) => {
+    const fieldId = match.fieldId.toString();
+    if (!maskedFieldIds.has(fieldId)) {
+      return true;
+    }
+    return Object.hasOwn(fieldsByRecordId.get(match.recordId.toString()) ?? {}, fieldId);
+  });
   if (mode !== 'matched' || visibleMatches.length === searchMatches.length) {
     return visibleMatches;
   }
@@ -422,7 +300,10 @@ const createListRecordsObservabilityEvent = (
     hasFilter: input?.hasFilter ?? Boolean(query.filter),
     hasSort: input?.hasSort ?? Boolean(query.sort?.length),
     hasGroup: input?.hasGroup ?? Boolean(query.groupBy?.length),
-    includeTotal: query.includeTotal !== false,
+    // T7334: the count statement is issued only for an explicit `includeTotal: true`
+    // (`ListTableRecordsHandler.ts` find options and `PostgresTableRecordQueryRepository`),
+    // so the observation must report that same decision instead of "not false".
+    includeTotal: query.includeTotal === true,
     searchValue: visibleRowSearch?.search.value,
     fieldCount: visibleRowSearch?.visibleFieldIds?.length,
     allFields: visibleRowSearch?.search.searchesAllFields(),
@@ -792,13 +673,15 @@ export class ListTableRecordsHandler
               query.fieldKeyType,
               enabledFieldIds
             );
-            // Expand projection with static readable fields + mask dependency
-            // fields so visibleWhen evaluation is not fail-open on missing columns.
+            // Expand the already-resolved SQL projection with mask evaluation
+            // columns only. Do not union every readable field back in: that
+            // re-selects the full wide row on authority-matrix tables (T7105).
+            // Masks for fields that are not in the SQL projection are skipped —
+            // their visibleWhen deps must not widen the select.
             // Visible-scope search matches also need the mask target cell so
             // hidden hits can be removed after masking. Internal fields are
             // never returned — they are stripped after mask apply.
             if (query.queryScope?.fieldMasks?.length) {
-              const maskDeps = collectMaskDependencyFieldIds(query.queryScope.fieldMasks);
               const searchMatchMaskTargets =
                 query.includeSearchFieldMatches && query.searchFieldScope === 'visible'
                   ? query.queryScope.fieldMasks.map((mask) => mask.fieldId)
@@ -806,12 +689,14 @@ export class ListTableRecordsHandler
               // No projection + no allow-list means "all columns" — seed with
               // every table field so expansion cannot collapse to mask deps.
               const baseFieldIds =
-                projectionFieldIds == null && enabledFieldIds == null
-                  ? table.fieldIds().map((id) => id.toString())
-                  : [
-                      ...(projectionFieldIds?.map((id) => id.toString()) ?? []),
-                      ...(enabledFieldIds ?? []),
-                    ];
+                projectionFieldIds != null
+                  ? projectionFieldIds.map((id) => id.toString())
+                  : table.fieldIds().map((id) => id.toString());
+              const relevantMaskFieldIds = new Set([...baseFieldIds, ...searchMatchMaskTargets]);
+              const relevantMasks = query.queryScope.fieldMasks.filter((mask) =>
+                relevantMaskFieldIds.has(mask.fieldId)
+              );
+              const maskDeps = collectMaskDependencyFieldIds(relevantMasks);
               const expanded = new Set([...baseFieldIds, ...maskDeps, ...searchMatchMaskTargets]);
               const expandedIds: FieldId[] = [];
               for (const fieldIdText of expanded) {
@@ -871,10 +756,11 @@ export class ListTableRecordsHandler
               }
             }
           }
-          const orderedSearchFieldIds =
-            query.viewId && !query.ignoreViewQuery
-              ? yield* table.getOrderedVisibleFieldIds(query.viewId)
-              : table.fieldIds();
+          const orderedSearchFieldIds = yield* resolveSearchRowScopeFieldIds(
+            table,
+            query.viewId,
+            query.ignoreViewQuery
+          );
           const searchVisibleFieldIds = filterFieldIdsByQueryAccess(
             orderedSearchFieldIds,
             enabledFieldIds,
@@ -944,6 +830,7 @@ export class ListTableRecordsHandler
                 searchIndexMode: query.searchIndexMode,
                 fieldMasks: query.queryScope?.fieldMasks,
                 idsOnly: query.idsOnly,
+                recordIndexId: query.recordIndexId,
                 ...(query.includeGroupMetadata && effectiveGroup?.length
                   ? {
                       groupBy: ((yield* resolveGroupByToOrderBy(effectiveGroup!)) ?? []).filter(
@@ -1074,7 +961,8 @@ export class ListTableRecordsHandler
               searchMatches,
               effectiveGroup?.length ? effectiveGroup : undefined,
               queryResult.nextCursor,
-              Boolean(queryResult.nextCursor)
+              queryResult.hasMore ?? Boolean(queryResult.nextCursor),
+              queryResult.recordIndex
             )
           );
         }.bind(this)

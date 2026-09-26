@@ -239,6 +239,7 @@ describeNonBlocking('ComputedUpdateOutbox non-blocking locks (pg integration)', 
       .addColumn('paused_by', 'text')
       .addColumn('resume_at', 'timestamptz')
       .addColumn('reason', 'text')
+      .addColumn('write_policy', 'text', (col) => col.notNull().defaultTo('allow_bounded'))
       .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
       .addColumn('updated_by', 'text')
       .execute();

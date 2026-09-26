@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
-import { readFile } from 'fs/promises';
-import { join, resolve } from 'path';
+import { readFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import type { OpenAIProvider } from '@ai-sdk/openai';
 import { Injectable, Logger } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
@@ -35,6 +35,7 @@ import {
   DEFAULT_REALTIME_TRANSCRIPTION_MODEL,
   getImageModelConfig,
   getImageModelConfigByGatewayId,
+  INSTANCE_PROVIDER_NAME,
   UploadType,
   LLMProviderType,
   resolveOpenAITranscriptionEndpoint,
@@ -43,7 +44,6 @@ import {
 import { createGateway, generateText, tool, generateImage } from 'ai';
 import type { LanguageModel, TextPart, FilePart } from 'ai';
 import axios from 'axios';
-import { uniq } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { z } from 'zod';
 import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
@@ -51,17 +51,27 @@ import { type IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { resolveBuildVersion } from '../../../utils/build-version';
-import { INSTANCE_PROVIDER_NAME } from '../../ai/ai.service';
+import { assertUniqueProviderModels } from '../../ai/ai.service';
 import { getAdaptedProviderOptions, modelProviders } from '../../ai/util';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../../attachments/plugins/utils';
+import { AuditScope } from '../../audit/audit-scope';
 import { EMAIL_LOGO_TOKEN } from '../../builtin-assets-init';
 import { verifyTransport } from '../../mail-sender/mail-helpers';
+import { collectChangedKeys, collectChangedPatchKeys } from '../changed-setting-keys';
 import { SettingService } from '../setting.service';
 
 const unknownErrorMsg = 'unknown error';
+
+// Audit rows about instance settings are instance-scoped: no space/base, one fixed resource.
+const INSTANCE_AUDIT_RESOURCE_ID = 'instance';
+// Settings whose values are shown in the audit row (booleans are shown too): nothing secret.
+const SETTING_KEYS_WITH_AUDITED_VALUES = new Set<string>([
+  SettingKey.BRAND_NAME,
+  SettingKey.BANNED_EMAIL_DOMAINS,
+]);
 
 // Test file tokens from builtin-assets-init
 const actTestImageToken = 'actTestImage';
@@ -117,7 +127,8 @@ export class SettingOpenApiService {
     @InjectStorageAdapter() readonly storageAdapter: StorageAdapter,
     private readonly cls: ClsService<IClsStore>,
     private readonly settingService: SettingService,
-    protected readonly attachmentsStorageService: AttachmentsStorageService
+    protected readonly attachmentsStorageService: AttachmentsStorageService,
+    protected readonly audit: AuditScope
   ) {}
 
   async getSetting(names?: string[]): Promise<ISettingVo> {
@@ -129,23 +140,67 @@ export class SettingOpenApiService {
     // allowing a simple suffix check to distinguish instance vs BYOK models.
     if (updateSettingRo.aiConfig) {
       this.normalizeInstanceProviderNames(updateSettingRo.aiConfig as Record<string, unknown>);
+      assertUniqueProviderModels(updateSettingRo.aiConfig.llmProviders);
     }
-    return this.settingService.updateSetting(updateSettingRo);
+    const patch = updateSettingRo as Record<string, unknown>;
+    const keys = Object.keys(patch).filter((key) => patch[key] !== undefined);
+    const before = keys.length
+      ? ((await this.settingService.getSetting(keys)) as Record<string, unknown>)
+      : {};
+    const result = await this.settingService.updateSetting(updateSettingRo);
+    const changedKeys = collectChangedPatchKeys(before, patch);
+    if (changedKeys.length) {
+      // Values only for flags and plain display settings; the rest (AI keys, SMTP, IM) by key only.
+      const shownKeys = [...new Set(changedKeys.map((path) => path.split('.')[0]))].filter(
+        (key) => typeof patch[key] === 'boolean' || SETTING_KEYS_WITH_AUDITED_VALUES.has(key)
+      );
+      await this.audit.emitAtomic({
+        action: 'admin.setting.update',
+        resourceId: INSTANCE_AUDIT_RESOURCE_ID,
+        params: {
+          changedKeys,
+          ...(shownKeys.length
+            ? {
+                before: Object.fromEntries(shownKeys.map((key) => [key, before[key] ?? null])),
+                after: Object.fromEntries(shownKeys.map((key) => [key, patch[key] ?? null])),
+              }
+            : {}),
+        },
+      });
+    }
+    return result;
   }
 
   async updateAiConfig(updateAiConfigRo: IUpdateAiConfigRo): Promise<IUpdateAiConfigVo> {
     const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
     const patch = clearUndefinedPatchValues(updateAiConfigRo.patch);
     const nextAiConfig = {
-      ...(aiConfig ?? {}),
+      ...aiConfig,
       ...patch,
     } as IAIConfig;
+    nextAiConfig.llmProviders ??= [];
 
     this.normalizeInstanceProviderNames(nextAiConfig as Record<string, unknown>);
+    assertUniqueProviderModels(nextAiConfig.llmProviders);
 
     await this.settingService.updateSetting({
       [SettingKey.AI_CONFIG]: nextAiConfig,
     } as Partial<ISettingVo>);
+    // Provider entries carry API keys: the row names the changed keys, never their values.
+    const changedKeys = Object.keys(patch).flatMap((key) =>
+      collectChangedKeys(
+        (aiConfig as Record<string, unknown> | undefined)?.[key],
+        nextAiConfig[key as keyof IAIConfig],
+        key
+      )
+    );
+    if (changedKeys.length) {
+      await this.audit.emitAtomic({
+        action: 'admin.setting.update-ai-config',
+        resourceId: INSTANCE_AUDIT_RESOURCE_ID,
+        params: { changedKeys },
+      });
+    }
 
     return {
       aiConfig: Object.fromEntries(
@@ -158,13 +213,28 @@ export class SettingOpenApiService {
     const { appConfig } = await this.settingService.getSetting([SettingKey.APP_CONFIG]);
     const patch = clearUndefinedPatchValues(updateAppConfigRo.patch);
     const nextAppConfig = {
-      ...(appConfig ?? {}),
+      ...appConfig,
       ...patch,
     } as IAppConfig;
 
     await this.settingService.updateSetting({
       [SettingKey.APP_CONFIG]: nextAppConfig,
     } as Partial<ISettingVo>);
+    // The app builder config holds deploy tokens: keys only, never values.
+    const changedKeys = Object.keys(patch).flatMap((key) =>
+      collectChangedKeys(
+        (appConfig as Record<string, unknown> | undefined)?.[key],
+        nextAppConfig[key as keyof IAppConfig],
+        key
+      )
+    );
+    if (changedKeys.length) {
+      await this.audit.emitAtomic({
+        action: 'admin.setting.update-app-config',
+        resourceId: INSTANCE_AUDIT_RESOURCE_ID,
+        params: { changedKeys },
+      });
+    }
 
     return {
       appConfig: Object.fromEntries(
@@ -188,7 +258,7 @@ export class SettingOpenApiService {
     }
     const chatModel = aiConfig.chatModel as Record<string, string | undefined> | undefined;
     if (chatModel) {
-      for (const tier of ['lg', 'md', 'sm']) {
+      for (const tier of ['xl', 'lg', 'md', 'sm']) {
         const key = chatModel[tier];
         if (key && key.includes('@')) {
           const parts = key.split('@');
@@ -279,8 +349,6 @@ export class SettingOpenApiService {
 
   private getAvailableIntegrationProviders(): string[] {
     return [
-      ...(process.env.GMAIL_CLIENT_ID ? ['gmail'] : []),
-      ...(process.env.OUTLOOK_CLIENT_ID ? ['outlook'] : []),
       ...(process.env.AIRTABLE_CLIENT_ID ? ['airtable'] : []),
       // The OAuth client is shared with Google sign-in, so the Picker key is
       // the variable that actually expresses "this instance opted into Sheets
@@ -327,7 +395,13 @@ export class SettingOpenApiService {
       },
     });
 
-    await this.updateSetting({ brandLogo: path });
+    // Straight to the store: the logo gets its own audit row, not an `admin.setting.update` one.
+    await this.settingService.updateSetting({ brandLogo: path });
+    await this.audit.emitAtomic({
+      action: 'admin.setting.update-logo',
+      resourceId: INSTANCE_AUDIT_RESOURCE_ID,
+      params: { mimetype, size },
+    });
 
     return {
       url: getPublicFullStorageUrl(path),
@@ -379,7 +453,7 @@ export class SettingOpenApiService {
       );
 
       // Strict validation: expect exactly "K" or "k" in quotes
-      const quotedLetterMatch = responseText.match(/"([^"]+)"/);
+      const quotedLetterMatch = /"([^"]+)"/.exec(responseText);
       const letterInQuotes = quotedLetterMatch ? quotedLetterMatch[1].toLowerCase() : null;
       const containsExpectedInQuotes = letterInQuotes === expectedLetter;
 
@@ -553,7 +627,7 @@ export class SettingOpenApiService {
       return {};
     }
 
-    const testAbilities = uniq(ability);
+    const testAbilities = [...new Set(ability)];
     const result: IChatModelAbility = {};
 
     // Run all tests in parallel for better performance
@@ -874,9 +948,22 @@ export class SettingOpenApiService {
   async setMailTransportConfig(setMailTransportConfigRo: ISetSettingMailTransportConfigRo) {
     const { name, transportConfig } = setMailTransportConfigRo;
     await verifyTransport(transportConfig);
+    const before = await this.settingService.getSetting([name]);
     await this.settingService.updateSetting({
       [name]: transportConfig,
     });
+    // SMTP credentials: which fields changed (e.g. `auth.pass`), never their values.
+    const changedKeys = collectChangedKeys(
+      (before as Record<string, unknown>)[name],
+      transportConfig
+    );
+    if (changedKeys.length) {
+      await this.audit.emitAtomic({
+        action: 'admin.setting.update-mail-transport',
+        resourceId: INSTANCE_AUDIT_RESOURCE_ID,
+        params: { transporter: name, changedKeys },
+      });
+    }
   }
 
   /**

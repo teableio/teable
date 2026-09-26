@@ -36,7 +36,7 @@ export class SessionHandleService {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this.sessionMiddleware(request, {} as any, (err) => {
         if (err) {
-          return reject(err);
+          return reject(err instanceof Error ? err : new Error(String(err)));
         }
         resolve(request.sessionID);
       });
@@ -47,7 +47,7 @@ export class SessionHandleService {
     return new Promise<string | undefined>((resolve, reject) => {
       this.sessionStoreService.get(sessionId, (err, session) => {
         if (err) {
-          return reject(err);
+          return reject(err instanceof Error ? err : new Error(String(err)));
         }
         if (!session) {
           return resolve(undefined);

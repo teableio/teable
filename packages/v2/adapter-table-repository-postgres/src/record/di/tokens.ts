@@ -7,6 +7,7 @@ export const v2RecordRepositoryPostgresTokens = {
   tableRecordQueryBuilderManager: Symbol(
     'v2.adapter.recordRepositoryPostgres.tableRecordQueryBuilderManager'
   ),
+  recordQueryConfig: Symbol('v2.adapter.recordRepositoryPostgres.recordQueryConfig'),
   computedDependencyGraph: Symbol('v2.adapter.recordRepositoryPostgres.computedDependencyGraph'),
   computedUpdatePlanner: Symbol('v2.adapter.recordRepositoryPostgres.computedUpdatePlanner'),
   computedFieldUpdater: Symbol('v2.adapter.recordRepositoryPostgres.computedFieldUpdater'),
@@ -39,4 +40,8 @@ export const v2RecordRepositoryPostgresTokens = {
   computedFieldCascadeService: Symbol(
     'v2.adapter.recordRepositoryPostgres.computedFieldCascadeService'
   ),
+  domainEventWakeupPublisher: Symbol(
+    'v2.adapter.recordRepositoryPostgres.domainEventWakeupPublisher'
+  ),
+  domainEventOutboxWorker: Symbol('v2.adapter.recordRepositoryPostgres.domainEventOutboxWorker'),
 } as const;

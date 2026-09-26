@@ -1,4 +1,4 @@
-import { isAbsolute, resolve } from 'path';
+import { isAbsolute, resolve } from 'node:path';
 import { HttpErrorCode } from '@teable/core';
 import { READ_PATH } from '@teable/openapi';
 import { CustomHttpException } from '../../../custom.exception';

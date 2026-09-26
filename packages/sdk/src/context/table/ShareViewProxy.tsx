@@ -94,7 +94,7 @@ export const ShareViewProxy = (props: IViewProxyProps) => {
       setViewData({
         ...viewData,
         options: {
-          ...(viewData?.options ?? {}),
+          ...viewData?.options,
           ...option,
         },
       });

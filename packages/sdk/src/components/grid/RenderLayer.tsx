@@ -117,7 +117,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
   const isInteracting = _isInteracting || type === RegionType.ColumnFreezeHandler;
 
   const mainCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const lastPropsRef = useRef<IRenderLayerProps>();
+  const lastPropsRef = useRef<IRenderLayerProps>(undefined);
 
   const cacheCanvas = useMemo(() => {
     const canvas = document.createElement('canvas');

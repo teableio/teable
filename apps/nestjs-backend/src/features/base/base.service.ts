@@ -35,7 +35,7 @@ import type {
   IUpdateBaseRo,
   IUpdateOrderRo,
 } from '@teable/openapi';
-import { isNumber, keyBy, pick, uniq } from 'lodash';
+import { isNumber, keyBy, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
@@ -55,13 +55,16 @@ import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
 import { PermissionService } from '../auth/permission.service';
+import { buildBaseNodeUrl, buildTableUrl } from '../base-node/base-node-url.helper';
 import { CanaryService } from '../canary';
 import type { IV2Decision } from '../canary';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { GraphService } from '../graph/graph.service';
+import { invalidateSearchIndexesForDataDbRouting } from '../space/search-index-routing-invalidation';
 import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
+import { auditBaseCreated } from './base-create-audit';
 import { BaseDataDbMoveService } from './base-data-db-move.service';
 import { BaseDuplicateV2Service } from './base-duplicate-v2.service';
 import { BaseDuplicateService } from './base-duplicate.service';
@@ -73,6 +76,9 @@ import {
   sortByConversionDepth,
 } from './cross-space-detection.util';
 import { replaceDefaultUrl } from './utils';
+
+// Publishing a base as a public template (the owner's "publish to template center").
+const BASE_PUBLISH_ACTION = 'base.publish';
 
 type IDataPrismaExecutor = {
   $executeRawUnsafe(query: string, ...values: unknown[]): PromiseLike<number>;
@@ -129,7 +135,7 @@ type IDataPrismaScopedClient = IDataPrismaExecutor & {
 
 @Injectable()
 export class BaseService {
-  private logger = new Logger(BaseService.name);
+  private readonly logger = new Logger(BaseService.name);
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -167,7 +173,7 @@ export class BaseService {
   }
 
   private async buildBaseListV2Context(baseList: IBaseListV2Source[]) {
-    const spaceIds = uniq(baseList.map((base) => base.spaceId));
+    const spaceIds = [...new Set(baseList.map((base) => base.spaceId))];
     const [spaceDecisionEntries, canarySpaceEntries] = await Promise.all([
       Promise.all(
         spaceIds.map(async (spaceId) => {
@@ -232,7 +238,7 @@ export class BaseService {
     });
 
     if (!collaborators.length) {
-      throw new CustomHttpException('Cannot access base', HttpErrorCode.RESTRICTED_RESOURCE, {
+      throw new CustomHttpException('Cannot access project', HttpErrorCode.RESTRICTED_RESOURCE, {
         localization: {
           i18nKey: 'httpErrors.base.cannotAccess',
           context: {
@@ -283,7 +289,7 @@ export class BaseService {
         },
       })
       .catch(() => {
-        throw new CustomHttpException('Base not found', HttpErrorCode.NOT_FOUND, {
+        throw new CustomHttpException('Project not found', HttpErrorCode.NOT_FOUND, {
           localization: {
             i18nKey: 'httpErrors.base.notFound',
           },
@@ -374,11 +380,13 @@ export class BaseService {
       return [];
     }
 
-    const baseSpaceIds = uniq(baseList.map((base) => base.spaceId));
+    const baseSpaceIds = [...new Set(baseList.map((base) => base.spaceId))];
     const { spaceOwnerMap } = await this.collaboratorService.buildSpaceOwnerContext(baseSpaceIds);
 
     const allBaseIds = baseList.map((base) => base.id);
-    const allUserIds = uniq([...baseList.map((base) => base.createdBy), ...spaceOwnerMap.values()]);
+    const allUserIds = [
+      ...new Set([...baseList.map((base) => base.createdBy), ...spaceOwnerMap.values()]),
+    ];
     const [userList, sharedBaseList, baseListWithV2Status] = await Promise.all([
       this.prismaService.user.findMany({
         where: { id: { in: allUserIds } },
@@ -436,7 +444,7 @@ export class BaseService {
     const base = await this.prismaService.base.create({
       data: {
         id: generateBaseId(),
-        name: name || 'Untitled Base',
+        name: name || 'Untitled Project',
         spaceId,
         order,
         icon,
@@ -538,7 +546,7 @@ export class BaseService {
         where: { id: baseId, deletedTime: null },
       })
       .catch(() => {
-        throw new CustomHttpException('Base not found', HttpErrorCode.NOT_FOUND, {
+        throw new CustomHttpException('Project not found', HttpErrorCode.NOT_FOUND, {
           localization: {
             i18nKey: 'httpErrors.base.notFound',
           },
@@ -551,7 +559,7 @@ export class BaseService {
         where: { spaceId: base.spaceId, id: anchorId, deletedTime: null },
       })
       .catch(() => {
-        throw new CustomHttpException('Anchor base not found', HttpErrorCode.NOT_FOUND, {
+        throw new CustomHttpException('Anchor project not found', HttpErrorCode.NOT_FOUND, {
           localization: {
             i18nKey: 'httpErrors.base.anchorNotFound',
             context: {
@@ -601,12 +609,20 @@ export class BaseService {
     });
   }
 
+  /**
+   * `auditBaseCreate`: the caller has no controller BASE_CREATE event to record the new base (the
+   * duplicate-stream route answers over SSE), so its `base.create` row is written here, inside the
+   * `base.duplicate` operation. The plain duplicate route leaves it unset: its event writes the row.
+   */
   @Audit({
     rootAction: CreateRecordAction.BaseDuplicate,
     resourceId: (ro: IDuplicateBaseRo) => ro.fromBaseId,
     params: (ro: IDuplicateBaseRo) => ro as unknown as Record<string, unknown>,
   })
-  async duplicateBase(duplicateBaseRo: IDuplicateBaseRo) {
+  async duplicateBase(
+    duplicateBaseRo: IDuplicateBaseRo,
+    options: { auditBaseCreate?: boolean } = {}
+  ) {
     const { fromBaseId, spaceId } = duplicateBaseRo;
     await this.assertBaseWritable(fromBaseId);
     await this.assertSpaceWritable(spaceId);
@@ -626,7 +642,10 @@ export class BaseService {
     // Terminal signal: transaction committed, operation scope closed. Per-row audit emits
     // inside duplicateBase are fire-and-forget; subscribers needing all audit rows
     // in DB should briefly poll after this event.
-    await this.eventEmitterService.emit(Events.BASE_DUPLICATE_COMPLETE, {
+    if (options.auditBaseCreate) {
+      await auditBaseCreated(this.audit, base);
+    }
+    this.eventEmitterService.emit(Events.BASE_DUPLICATE_COMPLETE, {
       baseId: base.id,
       fromBaseId,
     });
@@ -652,7 +671,7 @@ export class BaseService {
     const result = await this.baseDuplicateV2Service.duplicateBase(duplicateBaseRo);
     // Terminal signal mirroring v1 duplicateBase(): subscribers (and e2e tests) poll
     // on this event so they wake up only after the duplicate is fully committed.
-    await this.eventEmitterService.emit(Events.BASE_DUPLICATE_COMPLETE, {
+    this.eventEmitterService.emit(Events.BASE_DUPLICATE_COMPLETE, {
       baseId: result.base.id,
       fromBaseId,
     });
@@ -660,7 +679,26 @@ export class BaseService {
     return result.base;
   }
 
+  /**
+   * The duplicate-stream route (v2): same `base.duplicate` operation as duplicateBaseV2, and, as the
+   * route answers over SSE with no controller BASE_CREATE event, the new base's `base.create` row.
+   * (The operation is opened by hand: a decorated method would need its callback type at runtime.)
+   */
   async duplicateBaseV2WithProgress(
+    duplicateBaseRo: IDuplicateBaseRo,
+    onProgress?: BaseImportProgressCallback
+  ) {
+    return this.audit.withOperation(
+      {
+        rootAction: CreateRecordAction.BaseDuplicate,
+        resourceId: duplicateBaseRo.fromBaseId,
+        params: duplicateBaseRo as unknown as Record<string, unknown>,
+      },
+      () => this.runDuplicateBaseV2WithProgress(duplicateBaseRo, onProgress)
+    );
+  }
+
+  private async runDuplicateBaseV2WithProgress(
     duplicateBaseRo: IDuplicateBaseRo,
     onProgress?: BaseImportProgressCallback
   ) {
@@ -678,6 +716,7 @@ export class BaseService {
       BaseDuplicateMode.Normal,
       onProgress
     );
+    await auditBaseCreated(this.audit, result.base);
     await this.markBaseVisited(result.base.id, spaceId);
     return result;
   }
@@ -702,6 +741,7 @@ export class BaseService {
           resourceType: LastVisitResourceType.Base,
           resourceId: baseId,
           parentResourceId: spaceId,
+          lastVisitTime: new Date().toISOString(),
         },
       })
       .catch((error) => {
@@ -861,7 +901,7 @@ export class BaseService {
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
     // Terminal signal: see BASE_DUPLICATE_COMPLETE note above for semantics.
-    await this.eventEmitterService.emit(Events.BASE_TEMPLATE_APPLY_COMPLETE, {
+    this.eventEmitterService.emit(Events.BASE_TEMPLATE_APPLY_COMPLETE, {
       baseId: result.id,
       templateId,
       fromBaseId,
@@ -883,6 +923,7 @@ export class BaseService {
       ...actionPrefixMap[ActionPrefix.Table],
       ...actionPrefixMap[ActionPrefix.Base],
       ...actionPrefixMap[ActionPrefix.Automation],
+      ...actionPrefixMap[ActionPrefix.Routine],
       ...actionPrefixMap[ActionPrefix.App],
       ...actionPrefixMap[ActionPrefix.TableRecordHistory],
     ].reduce((acc, action) => {
@@ -891,8 +932,12 @@ export class BaseService {
     }, {} as IGetBasePermissionVo);
   }
 
-  async permanentDeleteBase(baseId: string, ignorePermissionCheck: boolean = false) {
-    await this.assertBaseWritable(baseId);
+  async permanentDeleteBase(
+    baseId: string,
+    ignorePermissionCheck: boolean = false,
+    options?: { skipExternalDataDbCleanup?: boolean }
+  ) {
+    if (!options?.skipExternalDataDbCleanup) await this.assertBaseWritable(baseId);
     if (!ignorePermissionCheck) {
       const accessTokenId = this.cls.get('accessTokenId');
       await this.permissionService.validPermissions(baseId, ['base|delete'], accessTokenId, true);
@@ -901,6 +946,18 @@ export class BaseService {
     let purgedTableIds: string[] = [];
     const result = await this.prismaService.$tx(
       async (prisma) => {
+        // Only an explicitly forced, validated BYODB space supplies this option.
+        // Resolve from metadata before any client acquisition: that would migrate/connect.
+        const skipDataDbCleanup =
+          options?.skipExternalDataDbCleanup &&
+          !(await this.dataDbClientManager.isMetaFallbackForBase(baseId, {
+            useTransaction: true,
+          }));
+        if (options?.skipExternalDataDbCleanup) {
+          await this.spaceDataDbMigrationGuard?.assertBaseWritable(baseId, {
+            metadataOnly: Boolean(skipDataDbCleanup),
+          });
+        }
         const tables = await prisma.tableMeta.findMany({
           where: { baseId },
           select: { id: true },
@@ -908,13 +965,18 @@ export class BaseService {
         const tableIds = tables.map(({ id }) => id);
         purgedTableIds = tableIds;
 
-        await this.dropBase(baseId, tableIds);
-        await this.purgeComputedOutboxForBase(baseId, tableIds);
+        if (!skipDataDbCleanup) {
+          await this.dropBase(baseId, tableIds);
+          await this.purgeComputedOutboxForBase(baseId, tableIds);
+        }
         await this.tableOpenApiService.cleanReferenceFieldIds(tableIds);
         await this.tableOpenApiService.cleanTaskRelatedData(tableIds);
-        await this.tableOpenApiService.cleanTablesRelatedData(baseId, tableIds, {
-          useTransaction: true,
-        });
+        await this.tableOpenApiService.cleanTablesRelatedData(
+          baseId,
+          tableIds,
+          { useTransaction: true },
+          skipDataDbCleanup ? options : undefined
+        );
         await this.cleanBaseRelatedData(baseId);
       },
       {
@@ -1049,6 +1111,7 @@ export class BaseService {
       const executor = this.getDataPrismaExecutor(scopedDataPrisma);
       const byBaseStatements = [
         `delete from "computed_update_outbox_seed" where "task_id" in (select "id" from "computed_update_outbox" where "base_id" = $1)`,
+        `delete from "computed_update_change_frontier" where "scope_id" in (select coalesce(case when jsonb_typeof("dirty_stats") = 'object' then "dirty_stats"->>'ledgerScopeId' end, "id") from "computed_update_outbox" where "base_id" = $1)`,
         `delete from "computed_update_stage_ledger" where "scope_id" in (select coalesce(case when jsonb_typeof("dirty_stats") = 'object' then "dirty_stats"->>'ledgerScopeId' end, "id") from "computed_update_outbox" where "base_id" = $1)`,
         `delete from "computed_update_outbox" where "base_id" = $1`,
         `delete from "computed_update_dead_letter" where "base_id" = $1`,
@@ -1115,20 +1178,52 @@ export class BaseService {
     await this.assertSpaceWritable(targetSpaceId);
     // check if has the permission to create base in the target space
     await this.checkBaseCreatePermission(targetSpaceId);
+    const source = await this.prismaService.base.findUnique({
+      where: { id: baseId },
+      select: { name: true, spaceId: true },
+    });
 
     const dataDbCheck = await this.baseDataDbMoveService?.resolveDataDbCheck(baseId, targetSpaceId);
     if (dataDbCheck?.requiresPhysicalMove) {
       if (!this.baseDataDbMoveService) {
         throw new CustomHttpException(
-          'Cross data-database base move is not available',
+          'Cross data-database project move is not available',
           HttpErrorCode.VALIDATION_ERROR
         );
       }
-      return this.baseDataDbMoveService.startPhysicalMove(baseId, targetSpaceId);
+      const job = await this.baseDataDbMoveService.startPhysicalMove(baseId, targetSpaceId);
+      await this.auditMoveBase(baseId, source, targetSpaceId, job);
+      return job;
     }
 
     await this.applyMetaMoveBase(baseId, targetSpaceId);
+    await this.auditMoveBase(baseId, source, targetSpaceId);
     return {};
+  }
+
+  /**
+   * One `base.move` row per request. Moving a base changes who can reach it (the target space's
+   * members, not the source's), so both spaces are kept; the row is scoped to the source space it
+   * left. A cross data-database move is a job: the row records that it was started (`jobId`).
+   */
+  private async auditMoveBase(
+    baseId: string,
+    source: { name: string; spaceId: string } | null,
+    toSpaceId: string,
+    job?: IMoveBaseVo
+  ) {
+    await this.audit.emitAtomic({
+      action: 'base.move',
+      resourceId: baseId,
+      params: {
+        baseId,
+        ...(source ? { spaceId: source.spaceId } : {}),
+        name: source?.name,
+        fromSpaceId: source?.spaceId ?? null,
+        toSpaceId,
+        ...(job?.jobId ? { dataDbMoveJobId: job.jobId } : {}),
+      },
+    });
   }
 
   /**
@@ -1136,7 +1231,11 @@ export class BaseService {
    * Safe only when source and target spaces share the same data database,
    * or after physical base schema/shared rows have already been copied.
    */
-  async applyMetaMoveBase(baseId: string, targetSpaceId: string) {
+  async applyMetaMoveBase(
+    baseId: string,
+    targetSpaceId: string,
+    options?: { dataDbChanged: boolean }
+  ) {
     const { affected, levels } = await this.computeMoveBaseCrossSpaceImpact(baseId, targetSpaceId);
     // Deepest-first: dependent lookup/rollup fields convert first via the
     // regular convertField path so their values are snapshotted by
@@ -1192,10 +1291,16 @@ export class BaseService {
             });
           }
         }
+        if (options?.dataDbChanged) {
+          await invalidateSearchIndexesForDataDbRouting(this.prismaService.txClient(), { baseId });
+        }
         await this.prismaService.txClient().base.update({
           where: { id: baseId },
           data: { spaceId: targetSpaceId },
         });
+        // Personal positions are per space (T7235): in the target space the base is new to
+        // everyone, so drop the rows rather than carrying over positions from another scale.
+        await this.prismaService.txClient().userBaseOrder.deleteMany({ where: { baseId } });
         await this.afterMetaMoveBase(baseId, targetSpaceId);
       });
     } catch (error) {
@@ -1250,7 +1355,7 @@ export class BaseService {
   async getBaseDataDbMoveJob(baseId: string, jobId: string) {
     if (!this.baseDataDbMoveService) {
       throw new CustomHttpException(
-        'Cross data-database base move is not available',
+        'Cross data-database project move is not available',
         HttpErrorCode.VALIDATION_ERROR
       );
     }
@@ -1260,7 +1365,7 @@ export class BaseService {
   async cancelBaseDataDbMoveJob(baseId: string, jobId: string) {
     if (!this.baseDataDbMoveService) {
       throw new CustomHttpException(
-        'Cross data-database base move is not available',
+        'Cross data-database project move is not available',
         HttpErrorCode.VALIDATION_ERROR
       );
     }
@@ -1270,7 +1375,7 @@ export class BaseService {
   async retryBaseDataDbMoveJob(baseId: string, jobId: string) {
     if (!this.baseDataDbMoveService) {
       throw new CustomHttpException(
-        'Cross data-database base move is not available',
+        'Cross data-database project move is not available',
         HttpErrorCode.VALIDATION_ERROR
       );
     }
@@ -1317,11 +1422,13 @@ export class BaseService {
       select: fieldSelect,
     });
 
-    const outgoingForeignIds = uniq(
-      outgoingFields
-        .map((f) => extractForeignTableId(f))
-        .filter((ft): ft is string => !!ft && !myTableSet.has(ft))
-    );
+    const outgoingForeignIds = [
+      ...new Set(
+        outgoingFields
+          .map((f) => extractForeignTableId(f))
+          .filter((ft): ft is string => !!ft && !myTableSet.has(ft))
+      ),
+    ];
     const outgoingForeignSpaceMap = outgoingForeignIds.length
       ? new Map(
           (
@@ -1357,12 +1464,14 @@ export class BaseService {
       },
       select: fieldSelect,
     });
-    const incomingSourceTableIds = uniq(
-      incomingDirect.flatMap((f) => {
-        const ft = extractForeignTableId(f);
-        return ft && myTableSet.has(ft) ? [f.tableId] : [];
-      })
-    );
+    const incomingSourceTableIds = [
+      ...new Set(
+        incomingDirect.flatMap((f) => {
+          const ft = extractForeignTableId(f);
+          return ft && myTableSet.has(ft) ? [f.tableId] : [];
+        })
+      ),
+    ];
     const incomingSourceTables = incomingSourceTableIds.length
       ? await prisma.tableMeta.findMany({
           where: { id: { in: incomingSourceTableIds }, deletedTime: null },
@@ -1449,41 +1558,32 @@ export class BaseService {
       return null;
     }
 
-    const { resourceType, resourceId } = node;
+    const resourceType = node.resourceType as BaseNodeResourceType;
+    const { resourceId } = node;
 
-    switch (resourceType) {
-      case BaseNodeResourceType.Table: {
-        const table = await prisma.tableMeta.findFirst({
-          where: { id: resourceId, deletedTime: null },
-          select: { id: true },
-        });
-        if (!table) {
-          return `/base/${snapshotBaseId}`;
-        }
-        const defaultView = await prisma.view.findFirst({
-          where: { tableId: resourceId, deletedTime: null },
-          orderBy: { order: 'asc' },
-          select: { id: true },
-        });
-        if (defaultView) {
-          return `/base/${snapshotBaseId}/table/${resourceId}/${defaultView.id}`;
-        }
-        return `/base/${snapshotBaseId}/table/${resourceId}`;
-      }
-      case BaseNodeResourceType.Dashboard:
-        return `/base/${snapshotBaseId}/dashboard/${resourceId}`;
-      case BaseNodeResourceType.Workflow:
-        return `/base/${snapshotBaseId}/automation/${resourceId}`;
-      case BaseNodeResourceType.App:
-        return `/base/${snapshotBaseId}/app/${resourceId}`;
-      default:
-        return `/base/${snapshotBaseId}`;
-    }
+    const url =
+      resourceType === BaseNodeResourceType.Table
+        ? await buildTableUrl(prisma, snapshotBaseId, resourceId)
+        : buildBaseNodeUrl(snapshotBaseId, resourceType, resourceId);
+    return url ?? `/base/${snapshotBaseId}`;
   }
 
+  /**
+   * Snapshots the base (with its records when `includeData`) into the template space as a public
+   * template. The snapshot copy runs inside a `base.publish` operation, so the rows it produces for
+   * the snapshot base are attributed to it; the `base.publish` row itself is written after commit.
+   */
   async publishBase(baseId: string, publishBaseRo: IPublishBaseRo) {
     await this.assertBaseWritable(baseId);
-    return await this.prismaService.$tx(
+    return this.audit.withOperation({ rootAction: BASE_PUBLISH_ACTION, resourceId: baseId }, () =>
+      this.publishBaseInOperation(baseId, publishBaseRo)
+    );
+  }
+
+  private async publishBaseInOperation(baseId: string, publishBaseRo: IPublishBaseRo) {
+    let templateId: string | undefined;
+    let republished = false;
+    const result = await this.prismaService.$tx(
       async (prisma) => {
         const template = await prisma.template.findFirst({
           where: { baseId },
@@ -1547,6 +1647,8 @@ export class BaseService {
               id: true,
             },
           });
+          templateId = updatedTemplate.id;
+          republished = true;
 
           return {
             baseId: snapshot.baseId,
@@ -1563,6 +1665,7 @@ export class BaseService {
           publishBaseRo,
           publishInfo
         );
+        templateId = newTemplate.id;
 
         return {
           baseId: snapshot.baseId,
@@ -1574,6 +1677,20 @@ export class BaseService {
         timeout: this.thresholdConfig.bigTransactionTimeout,
       }
     );
+    await this.audit.emitAtomic({
+      action: BASE_PUBLISH_ACTION,
+      resourceId: baseId,
+      params: {
+        baseId,
+        templateId,
+        snapshotBaseId: result.baseId,
+        title: publishBaseRo.title,
+        includeData: publishBaseRo.includeData ?? true,
+        ...(publishBaseRo.nodes ? { nodeCount: publishBaseRo.nodes.length } : {}),
+        ...(republished ? { republished } : {}),
+      },
+    });
+    return result;
   }
 
   private async createSnapshot(
@@ -1586,6 +1703,7 @@ export class BaseService {
     const { id: templateSpaceId } = await prisma.space.findFirstOrThrow({
       where: {
         isTemplate: true,
+        deletedTime: null,
       },
       select: {
         id: true,

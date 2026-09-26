@@ -1,4 +1,4 @@
-import { exec, execSync } from 'child_process';
+import { execSync } from 'node:child_process';
 
 const packages = [
   '@teable/sdk',
@@ -25,9 +25,9 @@ execSync(buildCommand, { stdio: 'inherit' });
 execSync(publishCommand, { stdio: 'inherit' });
 
 // commit version update
-const result = execSync('pnpm version --json', { encoding: 'utf-8' });
+const result = execSync('pnpm version --json', { encoding: 'utf-8' }); // NOSONAR typescript:S4036 -- developer/CLI script on a trusted machine; the executable is resolved through PATH by design
 
-execSync('git add .', { stdio: 'inherit' });
+execSync('git add .', { stdio: 'inherit' }); // NOSONAR typescript:S4036 -- developer/CLI script on a trusted machine; the executable is resolved through PATH by design
 
 execSync(
   `git commit -m "chore: publish ${JSON.parse(result)['@teable/teable']} release" --no-verify`,

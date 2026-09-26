@@ -1,8 +1,16 @@
 import type { INestApplication } from '@nestjs/common';
-import { FieldKeyType, FieldType, SortFunc, StatisticsFunc, ViewType } from '@teable/core';
+import {
+  FieldKeyType,
+  FieldType,
+  SortFunc,
+  StatisticsFunc,
+  ViewType,
+  isGreaterEqual,
+} from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
   getAggregation,
+  GroupPointType,
   getSearchCount,
   getSearchIndex,
   createField,
@@ -227,8 +235,10 @@ describe('OpenAPI AggregationController (e2e)', () => {
     let indexTable: ITableFullVo;
     let viewId: string;
     let numberFieldId: string;
+    const previousForceV2All = process.env.FORCE_V2_ALL;
 
     beforeAll(async () => {
+      process.env.FORCE_V2_ALL = 'true';
       indexTable = await createTable(baseId, {
         name: 'agg_record_index',
         fields: [
@@ -256,7 +266,12 @@ describe('OpenAPI AggregationController (e2e)', () => {
     });
 
     afterAll(async () => {
-      await permanentDeleteTable(baseId, indexTable.id);
+      try {
+        await permanentDeleteTable(baseId, indexTable.id);
+      } finally {
+        if (previousForceV2All == null) delete process.env.FORCE_V2_ALL;
+        else process.env.FORCE_V2_ALL = previousForceV2All;
+      }
     });
 
     it('should return correct index with view sort', async () => {
@@ -271,6 +286,90 @@ describe('OpenAPI AggregationController (e2e)', () => {
       const aliceResult = await getRecordIndex(indexTable.id, { recordId: alice.id, viewId });
       expect(bobResult.data).toEqual({ index: 0 });
       expect(aliceResult.data).toEqual({ index: 2 });
+    });
+
+    it('numbers the native filtered and searched sequence before locating the target', async () => {
+      const nameFieldId = indexTable.fields.find((field) => field.name === 'Name')!.id;
+      const alice = indexTable.records[0];
+      const matched = await getRecordIndex(indexTable.id, {
+        recordId: alice.id,
+        viewId,
+        search: ['li', nameFieldId, true],
+      });
+      const highlighted = await getRecordIndex(indexTable.id, {
+        recordId: alice.id,
+        viewId,
+        search: ['li', nameFieldId, false],
+      });
+      const filtered = await getRecordIndex(indexTable.id, {
+        recordId: alice.id,
+        viewId,
+        search: ['li', nameFieldId, true],
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: numberFieldId, operator: isGreaterEqual.value, value: 25 }],
+        },
+      });
+
+      expect(matched.headers['x-teable-v2']).toBe('true');
+      expect(highlighted.headers['x-teable-v2']).toBe('true');
+      expect(filtered.headers['x-teable-v2']).toBe('true');
+      expect(matched.data).toEqual({ index: 1 });
+      expect(highlighted.data).toEqual({ index: 2 });
+      expect(filtered.data).toEqual({ index: 0 });
+    });
+
+    it('returns no native index when a target is outside the selected record scope', async () => {
+      const recordId = indexTable.records[0].id;
+      const excluded = await getRecordIndex(indexTable.id, {
+        recordId,
+        viewId,
+        selectedRecordIds: [indexTable.records[1].id],
+      });
+      const filtered = await getRecordIndex(indexTable.id, {
+        recordId,
+        viewId,
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: numberFieldId, operator: isGreaterEqual.value, value: 100 }],
+        },
+      });
+
+      expect(filtered.headers['x-teable-v2']).toBe('true');
+      expect(excluded.headers['x-teable-v2']).toBe('true');
+      expect(filtered.data || null).toBeNull();
+      expect(excluded.data || null).toBeNull();
+    });
+
+    it('combines explicit filters with collapsed groups before locating a record', async () => {
+      const nameFieldId = indexTable.fields.find((field) => field.name === 'Name')!.id;
+      const groupBy = [{ fieldId: nameFieldId, order: SortFunc.Asc }];
+      const grouped = await getRecords(indexTable.id, { viewId, groupBy });
+      const aliceHeader = grouped.extra?.groupPoints?.find(
+        (point) => point.type === GroupPointType.Header && point.value === 'Alice'
+      );
+      expect(aliceHeader?.type).toBe(GroupPointType.Header);
+      if (aliceHeader?.type !== GroupPointType.Header) throw new Error('Missing Alice group');
+      const query = {
+        viewId,
+        groupBy,
+        collapsedGroupIds: [aliceHeader.id],
+        filter: {
+          conjunction: 'and' as const,
+          filterSet: [{ fieldId: numberFieldId, operator: isGreaterEqual.value, value: 20 }],
+        },
+      };
+      const visible = await getRecordIndex(indexTable.id, {
+        ...query,
+        recordId: indexTable.records[2].id,
+      });
+      const collapsed = await getRecordIndex(indexTable.id, {
+        ...query,
+        recordId: indexTable.records[0].id,
+      });
+      expect(visible.headers['x-teable-v2']).toBe('true');
+      expect(visible.data).toEqual({ index: 0 });
+      expect(collapsed.data || null).toBeNull();
     });
 
     it('should return correct index for newly created record in sorted view', async () => {

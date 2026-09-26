@@ -29,8 +29,8 @@ const notifyFieldsChange = (fields: IFieldInstance[] | null) => {
 };
 
 interface IGridRefState {
-  gridRef: React.RefObject<IGridRef> | null;
-  setGridRef: (ref: React.RefObject<IGridRef>) => void;
+  gridRef: React.RefObject<IGridRef | null> | null;
+  setGridRef: (ref: React.RefObject<IGridRef | null>) => void;
   searchCursor: [number, number] | null;
   setSearchCursor: (cell: [number, number] | null) => void;
   highlightedFieldId: string | null;
@@ -64,7 +64,7 @@ export const useGridSearchStore = create<IGridRefState>((set) => ({
       };
     });
   },
-  setGridRef: (ref: React.RefObject<IGridRef>) => {
+  setGridRef: (ref: React.RefObject<IGridRef | null>) => {
     set((state) => {
       return {
         ...state,

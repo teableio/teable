@@ -11,7 +11,7 @@ interface ISortProps {
   onChange: (orderBy?: NonNullable<ISort>['sortObjs']) => void;
 }
 
-export function OrderByBuilder(props: ISortProps) {
+export function OrderByBuilder(props: Readonly<ISortProps>) {
   const { onChange, orderBy = [] } = props;
   const { t } = useTranslation(developerConfig.i18nNamespaces);
 

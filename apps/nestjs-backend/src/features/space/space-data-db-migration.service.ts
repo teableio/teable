@@ -1,11 +1,11 @@
-import { mkdir, statfs as nodeStatfs } from 'fs/promises';
-import { tmpdir } from 'os';
-import path from 'path';
+import { mkdir, statfs as nodeStatfs } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import { getMetaDatabaseUrl } from '@teable/db-data-prisma';
-import { PrismaService, ProvisionState, type Prisma } from '@teable/db-main-prisma';
+import { PrismaService, ProvisionState, Prisma } from '@teable/db-main-prisma';
 import type {
   IDataDbMigrationJobStatusVo,
   IDataDbPreflightRo,
@@ -36,6 +36,10 @@ import {
   DataDbPreflightService,
 } from './data-db-preflight.service';
 import { decryptDataDbUrl, encryptDataDbUrl } from './data-db-url-secret';
+import {
+  invalidateSearchIndexesForDataDbRouting,
+  type ISearchIndexRoutingTransaction,
+} from './search-index-routing-invalidation';
 import {
   buildMigrationSharedTablePostgresFdwCopyPlans,
   buildMigrationSharedTablePsqlCopyPlans,
@@ -633,6 +637,11 @@ type IDeltaReplayStats = {
 type IDeltaCaptureScope = {
   column: string;
   ids: string[];
+  existsIn?: {
+    table: string;
+    foreignColumn: string;
+    scopeColumn: string;
+  };
 };
 
 type IDeltaCaptureRelation = {
@@ -663,7 +672,7 @@ type IMigrationJobClient = {
   };
 };
 
-type IPrismaTransactionClient = {
+type IPrismaTransactionClient = ISearchIndexRoutingTransaction & {
   dataDbConnection: {
     upsert(args: unknown): Promise<{ id: string }>;
     update(args: unknown): Promise<unknown>;
@@ -695,6 +704,9 @@ const sharedTables = {
   computedUpdateDeadLetter: 'computed_update_dead_letter',
   computedUpdateOutboxSeed: 'computed_update_outbox_seed',
   computedUpdatePauseScope: 'computed_update_pause_scope',
+  domainEventOutbox: 'domain_event_outbox',
+  domainEventDelivery: 'domain_event_delivery',
+  domainEventInbox: 'domain_event_inbox',
   undoLog: '__undo_log',
 };
 const relationKindsWithRows = new Set(['table', 'partitioned_table', 'foreign_table']);
@@ -905,7 +917,7 @@ const sortJsonValue = (value: unknown): unknown => {
   }
 
   return Object.keys(value as Record<string, unknown>)
-    .sort()
+    .sort((a, b) => Number(a > b) - Number(a < b))
     .reduce<Record<string, unknown>>((acc, key) => {
       acc[key] = sortJsonValue((value as Record<string, unknown>)[key]);
       return acc;
@@ -951,13 +963,13 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, message: s
   }
 };
 
-const quoteIdent = (identifier: string) => `"${identifier.replace(/"/g, '""')}"`;
+const quoteIdent = (identifier: string) => `"${identifier.replaceAll('"', '""')}"`;
 
 const qualify = (schema: string, table: string) => `${quoteIdent(schema)}.${quoteIdent(table)}`;
 
-const sqlLiteral = (value: string) => `'${value.replace(/'/g, "''")}'`;
+const sqlLiteral = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
-const shellQuote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
+const shellQuote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`;
 
 const buildPreflightErrorMessage = (preflight: IDataDbPreflightVo) => {
   const errorCodes = preflight.errors.map((error) => error.code).join(', ');
@@ -1279,7 +1291,7 @@ export class SpaceDataDbMigrationService {
         claimedAt: now.toISOString(),
       };
       const recoveryCopyStats = {
-        ...(this.asRecord(job.copyStats) ?? {}),
+        ...this.asRecord(job.copyStats),
         staleRecovery,
       };
 
@@ -1689,7 +1701,7 @@ export class SpaceDataDbMigrationService {
       await client.raw(`CREATE TEMP TABLE IF NOT EXISTS __teable_target_disk_capacity(line text)`);
       await client.raw(`TRUNCATE __teable_target_disk_capacity`);
       await client.raw(
-        `COPY __teable_target_disk_capacity FROM PROGRAM '${command.replace(/'/g, "''")}'`
+        `COPY __teable_target_disk_capacity FROM PROGRAM '${command.replaceAll("'", "''")}'`
       );
       const rows = normalizeRawRows<{ line: string }>(
         await client.raw(`SELECT line FROM __teable_target_disk_capacity LIMIT 1`)
@@ -2160,7 +2172,7 @@ export class SpaceDataDbMigrationService {
         data: {
           state: 'freezing_writes',
           copyStats: {
-            ...(this.asRecord(job.copyStats) ?? {}),
+            ...this.asRecord(job.copyStats),
             phase: 'source_snapshot_exported',
             progress: this.buildMigrationProgress(
               job,
@@ -2183,7 +2195,7 @@ export class SpaceDataDbMigrationService {
         data: {
           state: 'copying',
           copyStats: {
-            ...(this.asRecord(jobAfterDeltaInstall.copyStats) ?? {}),
+            ...this.asRecord(jobAfterDeltaInstall.copyStats),
             phase: 'source_delta_capture_installed',
             progress: this.buildMigrationProgress(
               job,
@@ -2227,7 +2239,7 @@ export class SpaceDataDbMigrationService {
           data: {
             state: 'freezing_writes',
             copyStats: {
-              ...(this.asRecord(jobBeforeFinalGate.copyStats) ?? {}),
+              ...this.asRecord(jobBeforeFinalGate.copyStats),
               phase: 'final_writes_frozen',
               progress: this.buildMigrationProgress(
                 job,
@@ -2282,7 +2294,7 @@ export class SpaceDataDbMigrationService {
                 state: 'switching',
                 lastError,
                 copyStats: {
-                  ...(this.asRecord(job.copyStats) ?? {}),
+                  ...this.asRecord(job.copyStats),
                   finalizing: {
                     routeSwitched: true,
                     retryable: true,
@@ -2329,7 +2341,7 @@ export class SpaceDataDbMigrationService {
               ...cleanupErrors,
             ].join('; '),
             copyStats: {
-              ...(this.asRecord(job.copyStats) ?? {}),
+              ...this.asRecord(job.copyStats),
               finalizing: {
                 routeSwitched: false,
                 retryable: true,
@@ -2375,6 +2387,10 @@ export class SpaceDataDbMigrationService {
 
   private deltaTriggerName(jobId: string) {
     return `${deltaTriggerNamePrefix}${jobId.replace(/\W/g, '_').slice(-32)}`;
+  }
+
+  private deltaCaptureFunctionName(jobId: string) {
+    return `${deltaCaptureFunction}_${jobId.replace(/\W/g, '_').slice(-32)}`;
   }
 
   private deltaDeleteTriggerName(jobId: string) {
@@ -2436,6 +2452,29 @@ export class SpaceDataDbMigrationService {
       [sharedTables.computedUpdateOutbox]: scoped('base_id', inventory.baseIds),
       [sharedTables.computedUpdateDeadLetter]: scoped('base_id', inventory.baseIds),
       [sharedTables.computedUpdateOutboxSeed]: scoped('table_id', inventory.tableIds),
+      [sharedTables.domainEventOutbox]: scoped('base_id', inventory.baseIds),
+      [sharedTables.domainEventDelivery]: inventory.baseIds.length
+        ? {
+            column: 'event_id',
+            ids: inventory.baseIds,
+            existsIn: {
+              table: sharedTables.domainEventOutbox,
+              foreignColumn: 'id',
+              scopeColumn: 'base_id',
+            },
+          }
+        : undefined,
+      [sharedTables.domainEventInbox]: inventory.baseIds.length
+        ? {
+            column: 'event_id',
+            ids: inventory.baseIds,
+            existsIn: {
+              table: sharedTables.domainEventOutbox,
+              foreignColumn: 'id',
+              scopeColumn: 'base_id',
+            },
+          }
+        : undefined,
       // __undo_log keys its scope on a derived value that a trigger WHEN clause
       // cannot express cheaply; keep capturing it unscoped and filter at replay time.
     };
@@ -2486,6 +2525,7 @@ export class SpaceDataDbMigrationService {
     const inventory = this.normalizeInventory(job.inventory, job.spaceId);
     const sourceSchema = this.getSourceSchema(sourceDataDb);
     const triggerName = this.deltaTriggerName(job.id);
+    const captureFunctionName = this.deltaCaptureFunctionName(job.id);
     const client = this.clientFactory(sourceDataDb.url);
     try {
       await client.raw(`
@@ -2503,7 +2543,7 @@ export class SpaceDataDbMigrationService {
         );
         CREATE INDEX IF NOT EXISTS ${quoteIdent(`${deltaLogTable}_job_seq_idx`)}
           ON ${qualify(sourceSchema, deltaLogTable)} ("job_id", "seq");
-        CREATE OR REPLACE FUNCTION ${qualify(sourceSchema, deltaCaptureFunction)}()
+        CREATE OR REPLACE FUNCTION ${qualify(sourceSchema, captureFunctionName)}()
         RETURNS trigger
         LANGUAGE plpgsql
         AS $$
@@ -2521,13 +2561,27 @@ export class SpaceDataDbMigrationService {
             old_payload := to_jsonb(OLD);
           END IF;
 
+          IF TG_TABLE_NAME IN ('domain_event_delivery', 'domain_event_inbox') THEN
+            IF NOT EXISTS (
+              SELECT 1
+              FROM ${qualify(sourceSchema, sharedTables.domainEventOutbox)} AS outbox
+              WHERE outbox.id = COALESCE(new_payload ->> 'event_id', old_payload ->> 'event_id')
+                AND outbox.base_id = ANY (${
+                  inventory.baseIds.length
+                    ? `ARRAY[${inventory.baseIds.map((id) => sqlLiteral(id)).join(', ')}]::text[]`
+                    : 'ARRAY[]::text[]'
+                })
+            ) THEN
+              RETURN NULL;
+            END IF;
+          END IF;
+
           pk_text := COALESCE(
             new_payload ->> '__id',
             old_payload ->> '__id',
             new_payload ->> 'id',
             old_payload ->> 'id'
           );
-
           INSERT INTO ${qualify(sourceSchema, deltaLogTable)} (
             "job_id",
             "txid",
@@ -2557,7 +2611,7 @@ export class SpaceDataDbMigrationService {
       const deleteTriggerName = this.deltaDeleteTriggerName(job.id);
       for (const relation of this.getDeltaCaptureRelations(inventory, sourceSchema)) {
         const qualifiedRelation = qualify(relation.schemaName, relation.tableName);
-        if (!relation.scope) {
+        if (!relation.scope || relation.scope.existsIn) {
           await client.raw(
             `
               DROP TRIGGER IF EXISTS ${quoteIdent(triggerName)} ON ${qualifiedRelation};
@@ -2565,15 +2619,16 @@ export class SpaceDataDbMigrationService {
               CREATE TRIGGER ${quoteIdent(triggerName)}
               AFTER INSERT OR UPDATE OR DELETE ON ${qualifiedRelation}
               FOR EACH ROW
-              EXECUTE FUNCTION ${qualify(sourceSchema, deltaCaptureFunction)}(${sqlLiteral(job.id)});
+              EXECUTE FUNCTION ${qualify(sourceSchema, captureFunctionName)}(${sqlLiteral(job.id)});
             `
           );
           continue;
         }
         // A single multi-event trigger cannot reference NEW and OLD in one WHEN
         // clause, so scoped relations get an INSERT/UPDATE trigger filtered on
-        // NEW and a DELETE trigger filtered on OLD. The WHEN clause runs before
-        // the function call, so out-of-scope rows cost almost nothing.
+        // NEW and a DELETE trigger filtered on OLD. Child tables that can only
+        // be scoped via a subquery are installed unscoped above; the capture
+        // function filters them.
         const scopeArray = `ARRAY[${relation.scope.ids.map((id) => sqlLiteral(id)).join(', ')}]::text[]`;
         const scopeColumn = quoteIdent(relation.scope.column);
         await client.raw(
@@ -2584,12 +2639,12 @@ export class SpaceDataDbMigrationService {
             AFTER INSERT OR UPDATE ON ${qualifiedRelation}
             FOR EACH ROW
             WHEN (NEW.${scopeColumn} = ANY (${scopeArray}))
-            EXECUTE FUNCTION ${qualify(sourceSchema, deltaCaptureFunction)}(${sqlLiteral(job.id)});
+            EXECUTE FUNCTION ${qualify(sourceSchema, captureFunctionName)}(${sqlLiteral(job.id)});
             CREATE TRIGGER ${quoteIdent(deleteTriggerName)}
             AFTER DELETE ON ${qualifiedRelation}
             FOR EACH ROW
             WHEN (OLD.${scopeColumn} = ANY (${scopeArray}))
-            EXECUTE FUNCTION ${qualify(sourceSchema, deltaCaptureFunction)}(${sqlLiteral(job.id)});
+            EXECUTE FUNCTION ${qualify(sourceSchema, captureFunctionName)}(${sqlLiteral(job.id)});
           `
         );
       }
@@ -2598,7 +2653,7 @@ export class SpaceDataDbMigrationService {
         where: { id: job.id },
         data: {
           copyStats: {
-            ...(this.asRecord(job.copyStats) ?? {}),
+            ...this.asRecord(job.copyStats),
             phase: 'source_delta_capture_installed',
             progress: this.buildMigrationProgress(job, inventory, 'source_delta_capture_installed'),
             delta: {
@@ -2624,6 +2679,7 @@ export class SpaceDataDbMigrationService {
     const inventory = this.normalizeInventory(job.inventory, job.spaceId);
     const sourceSchema = this.getSourceSchema(sourceDataDb);
     const triggerName = this.deltaTriggerName(job.id);
+    const captureFunctionName = this.deltaCaptureFunctionName(job.id);
     const client = this.clientFactory(sourceDataDb.url);
     try {
       const deleteTriggerName = this.deltaDeleteTriggerName(job.id);
@@ -2645,6 +2701,9 @@ export class SpaceDataDbMigrationService {
           )
           .catch(() => undefined);
       }
+      await client
+        .raw(`DROP FUNCTION IF EXISTS ${qualify(sourceSchema, captureFunctionName)}()`)
+        .catch(() => undefined);
       await client
         .raw(`DELETE FROM ${qualify(sourceSchema, deltaLogTable)} WHERE "job_id" = ?`, [job.id])
         .catch(() => undefined);
@@ -2776,12 +2835,19 @@ export class SpaceDataDbMigrationService {
     }
     if (
       row.tableName === sharedTables.computedUpdateOutbox ||
-      row.tableName === sharedTables.computedUpdateDeadLetter
+      row.tableName === sharedTables.computedUpdateDeadLetter ||
+      row.tableName === sharedTables.domainEventOutbox
     ) {
       return typeof payload.base_id === 'string' && baseIds.has(payload.base_id);
     }
     if (row.tableName === sharedTables.computedUpdateOutboxSeed) {
       return typeof payload.table_id === 'string' && inventory.tableIds.includes(payload.table_id);
+    }
+    if (
+      row.tableName === sharedTables.domainEventDelivery ||
+      row.tableName === sharedTables.domainEventInbox
+    ) {
+      return typeof payload.event_id === 'string' && baseIds.size > 0;
     }
     if (row.tableName === sharedTables.computedUpdatePauseScope) {
       // Pause scopes are intentionally not mirrored during space migration.
@@ -2803,12 +2869,17 @@ export class SpaceDataDbMigrationService {
     return row.schemaName === sourceSchema ? targetSchema : row.schemaName;
   }
 
-  private primaryKeyColumn(payload: Record<string, unknown>) {
-    if (Object.prototype.hasOwnProperty.call(payload, '__id')) {
-      return '__id';
+  private primaryKeyColumns(tableName: string, payload: Record<string, unknown>): string[] | null {
+    if (tableName === sharedTables.domainEventInbox) {
+      return typeof payload.consumer_id === 'string' && typeof payload.event_id === 'string'
+        ? ['consumer_id', 'event_id']
+        : null;
     }
-    if (Object.prototype.hasOwnProperty.call(payload, 'id')) {
-      return 'id';
+    if (Object.hasOwn(payload, '__id')) {
+      return ['__id'];
+    }
+    if (Object.hasOwn(payload, 'id')) {
+      return ['id'];
     }
     return null;
   }
@@ -2824,20 +2895,19 @@ export class SpaceDataDbMigrationService {
     if (!payload) {
       return false;
     }
-    const pkColumn = this.primaryKeyColumn(payload);
-    if (!pkColumn) {
+    const pkColumns = this.primaryKeyColumns(input.row.tableName, payload);
+    if (!pkColumns) {
       return false;
     }
-    const pkValue = payload[pkColumn];
     const qualified = qualify(
       this.targetSchemaForDeltaRow(input.row, input.sourceSchema, input.targetSchema),
       input.row.tableName
     );
+    const pkPredicate = pkColumns.map((column) => `${quoteIdent(column)} = ?`).join(' AND ');
+    const pkValues = pkColumns.map((column) => payload[column]);
 
     if (input.row.op === 'DELETE') {
-      await input.targetClient.raw(`DELETE FROM ${qualified} WHERE ${quoteIdent(pkColumn)} = ?`, [
-        pkValue,
-      ]);
+      await input.targetClient.raw(`DELETE FROM ${qualified} WHERE ${pkPredicate}`, pkValues);
       return true;
     }
 
@@ -2858,11 +2928,12 @@ export class SpaceDataDbMigrationService {
     if (!columns.length) {
       return false;
     }
-    const updateColumns = columns.filter((column) => column !== pkColumn);
+    const pkColumnSet = new Set(pkColumns);
+    const updateColumns = columns.filter((column) => !pkColumnSet.has(column));
     const insertSql = [
       `INSERT INTO ${qualified} (${columns.map(quoteIdent).join(', ')})`,
       `VALUES (${columns.map(() => '?').join(', ')})`,
-      `ON CONFLICT (${quoteIdent(pkColumn)})`,
+      `ON CONFLICT (${pkColumns.map(quoteIdent).join(', ')})`,
       updateColumns.length
         ? `DO UPDATE SET ${updateColumns
             .map((column) => `${quoteIdent(column)} = EXCLUDED.${quoteIdent(column)}`)
@@ -2932,7 +3003,7 @@ export class SpaceDataDbMigrationService {
         where: { id: job.id },
         data: {
           copyStats: {
-            ...(this.asRecord(job.copyStats) ?? {}),
+            ...this.asRecord(job.copyStats),
             phase: stats.phase,
             progress: this.buildMigrationProgress(
               job,
@@ -3033,7 +3104,7 @@ export class SpaceDataDbMigrationService {
     // this job's rows start wherever earlier jobs left the sequence. Floor the
     // cursor at the job's own first row so lag and progress never report the
     // ranges burned by previous migrations as pending catch-up work.
-    const existingBaselineSeq = Number(existingDeltaStats?.baselineSeq ?? NaN);
+    const existingBaselineSeq = Number(existingDeltaStats?.baselineSeq ?? Number.NaN);
     const jobMinSeq = await this.getSourceDeltaMinSeq(sourceClient, sourceSchema, jobId);
     const computedBaselineSeq = jobMinSeq === null ? lastCapturedSeq : jobMinSeq - 1;
     const baselineSeq = Math.max(
@@ -4615,6 +4686,7 @@ export class SpaceDataDbMigrationService {
         fn: (prisma: IPrismaTransactionClient) => Promise<T>
       ) => Promise<T>;
       await runTransaction(async (prisma) => {
+        await invalidateSearchIndexesForDataDbRouting(prisma, { spaceIds });
         for (const relatedSpaceId of spaceIds) {
           await prisma.spaceDataDbBinding.upsert({
             where: { spaceId: relatedSpaceId },
@@ -4668,7 +4740,7 @@ export class SpaceDataDbMigrationService {
             ...(releaseRetryable
               ? {
                   copyStats: {
-                    ...(this.asRecord(job.copyStats) ?? {}),
+                    ...this.asRecord(job.copyStats),
                     finalizing: {
                       routeSwitched: true,
                       retryable: true,
@@ -5091,12 +5163,12 @@ export class SpaceDataDbMigrationService {
   private buildPhysicalRelationKeysFromRelations(relations: ISpaceDataDbPhysicalRelation[]) {
     return relations
       .map((relation) => `${relation.schemaName}.${relation.relationName}:${relation.relationKind}`)
-      .sort();
+      .sort((a, b) => Number(a > b) - Number(a < b));
   }
 
   private mergeValidationStats(validationStats: unknown, next: Record<string, unknown>) {
     return {
-      ...(this.asRecord(validationStats) ?? {}),
+      ...this.asRecord(validationStats),
       ...next,
     };
   }
@@ -5465,7 +5537,7 @@ export class SpaceDataDbMigrationService {
           ? `signal ${result.signal}`
           : '';
     const output = (result.stderr || result.stdout || '').trim();
-    const outputTail = output.length > 800 ? output.slice(output.length - 800) : output;
+    const outputTail = output.length > 800 ? output.slice(-800) : output;
     return [result.command, exitOrSignal, outputTail].filter(Boolean).join(' - ');
   }
 
@@ -5541,6 +5613,7 @@ export class SpaceDataDbMigrationService {
         switchedAt: switchedAt.toISOString(),
       };
       await runTransaction(async (prisma) => {
+        await invalidateSearchIndexesForDataDbRouting(prisma, { spaceIds });
         await prisma.dataDbConnection.update({
           where: { id: job.targetConnectionId },
           data: {
@@ -5598,7 +5671,7 @@ export class SpaceDataDbMigrationService {
         state: 'switching',
         validationStats: completedValidationStats,
         copyStats: {
-          ...(this.asRecord(job.copyStats) ?? {}),
+          ...this.asRecord(job.copyStats),
           finalizing: {
             routeSwitched: true,
             retryable: true,
@@ -5629,7 +5702,7 @@ export class SpaceDataDbMigrationService {
           state: 'switching',
           validationStats: completedValidationStats,
           copyStats: {
-            ...(this.asRecord(job.copyStats) ?? {}),
+            ...this.asRecord(job.copyStats),
             finalizing: {
               routeSwitched: true,
               retryable: true,
@@ -5651,7 +5724,7 @@ export class SpaceDataDbMigrationService {
         completedAt: switchedAt ?? new Date(),
         lastError: null,
         copyStats: {
-          ...(this.asRecord(job.copyStats) ?? {}),
+          ...this.asRecord(job.copyStats),
           finalizing: {
             routeSwitched: true,
             retryable: false,
@@ -5972,7 +6045,7 @@ export class SpaceDataDbMigrationService {
             ...releaseErrors,
           ].join('; '),
           copyStats: {
-            ...(this.asRecord(current.copyStats) ?? {}),
+            ...this.asRecord(current.copyStats),
             finalizing: {
               routeSwitched: false,
               retryable: true,
@@ -6035,7 +6108,9 @@ export class SpaceDataDbMigrationService {
   }
 
   private getRelatedSpaceIds(relatedSpaces: ISpaceDataDbRelatedSpaces) {
-    return relatedSpaces.spaces.map((space) => space.spaceId).sort();
+    return relatedSpaces.spaces
+      .map((space) => space.spaceId)
+      .sort((a, b) => Number(a > b) - Number(a < b));
   }
 
   private getInventorySpaceIds(inventory: ISpaceDataDbInventory) {
@@ -6060,7 +6135,7 @@ export class SpaceDataDbMigrationService {
           space.dataDbMode !== 'byodb' || space.dataDbUrlFingerprint !== targetUrlFingerprint
       )
       .map((space) => space.spaceId)
-      .sort();
+      .sort((a, b) => Number(a > b) - Number(a < b));
   }
 
   private assertRequestedSpaceIsCopySource(spaceId: string, copySpaceIds: string[]) {
@@ -6101,7 +6176,7 @@ export class SpaceDataDbMigrationService {
           )
           .map((space) => space.dataDbInternalSchema as string)
       )
-    ).sort();
+    ).sort((a, b) => Number(a > b) - Number(a < b));
 
     if (relatedTargetSchemas.length <= 1) {
       return relatedTargetSchemas[0] ?? requested;
@@ -6241,10 +6316,18 @@ export class SpaceDataDbMigrationService {
     const copySpaces = resolvedRelatedSpaces.spaces.filter((space) =>
       copySpaceIdSet.has(space.spaceId)
     );
-    const copySpaceIds = copySpaces.map((space) => space.spaceId).sort();
-    const baseIds = copySpaces.flatMap((space) => space.baseIds).sort();
-    const tableIds = copySpaces.flatMap((space) => space.tableIds).sort();
-    const relatedBaseIds = resolvedRelatedSpaces.spaces.flatMap((space) => space.baseIds).sort();
+    const copySpaceIds = copySpaces
+      .map((space) => space.spaceId)
+      .sort((a, b) => Number(a > b) - Number(a < b));
+    const baseIds = copySpaces
+      .flatMap((space) => space.baseIds)
+      .sort((a, b) => Number(a > b) - Number(a < b));
+    const tableIds = copySpaces
+      .flatMap((space) => space.tableIds)
+      .sort((a, b) => Number(a > b) - Number(a < b));
+    const relatedBaseIds = resolvedRelatedSpaces.spaces
+      .flatMap((space) => space.baseIds)
+      .sort((a, b) => Number(a > b) - Number(a < b));
     const [tables, sharedTableIds, relatedSharedTableIds] = await Promise.all([
       this.prismaService.tableMeta.findMany({
         where: { id: { in: tableIds }, deletedTime: null },
@@ -6395,7 +6478,9 @@ export class SpaceDataDbMigrationService {
     if (!relatedSpaces.spaces.length) {
       return sharedTableIds;
     }
-    return [...new Set(relatedSpaces.spaces.flatMap((space) => space.tableIds ?? []))].sort();
+    return [...new Set(relatedSpaces.spaces.flatMap((space) => space.tableIds ?? []))].sort(
+      (a, b) => Number(a > b) - Number(a < b)
+    );
   }
 
   private buildMigrationProgress(
@@ -6540,8 +6625,8 @@ export class SpaceDataDbMigrationService {
     expected: string[],
     actual: string[]
   ) {
-    const sortedExpected = [...expected].sort();
-    const sortedActual = [...actual].sort();
+    const sortedExpected = [...expected].sort((a, b) => Number(a > b) - Number(a < b));
+    const sortedActual = [...actual].sort((a, b) => Number(a > b) - Number(a < b));
     if (JSON.stringify(sortedExpected) === JSON.stringify(sortedActual)) {
       return;
     }
@@ -6565,7 +6650,7 @@ export class SpaceDataDbMigrationService {
           (relation) => `${relation.schemaName}.${relation.relationName}:${relation.relationKind}`
         )
       )
-      .sort();
+      .sort((a, b) => Number(a > b) - Number(a < b));
   }
 
   private async findSharedTableIdsForBases(baseIds: string[]): Promise<string[]> {
@@ -6579,7 +6664,7 @@ export class SpaceDataDbMigrationService {
       orderBy: { id: 'asc' },
     });
 
-    return [...new Set(rows.map((row) => row.id))].sort();
+    return [...new Set(rows.map((row) => row.id))].sort((a, b) => Number(a > b) - Number(a < b));
   }
 
   private buildSourceDataDbInventory(
@@ -6751,7 +6836,9 @@ export class SpaceDataDbMigrationService {
     return Array.from(dependencyMap.values())
       .map((dependency) => ({
         ...dependency,
-        sourceObjects: [...dependency.sourceObjects].sort().slice(0, 20),
+        sourceObjects: [...dependency.sourceObjects]
+          .sort((a, b) => Number(a > b) - Number(a < b))
+          .slice(0, 20),
       }))
       .sort((left, right) =>
         buildPostgresExtensionDependencyKey(left).localeCompare(
@@ -6993,7 +7080,7 @@ export class SpaceDataDbMigrationService {
       return {
         extensionName,
         schemaName,
-        message: message.length > 500 ? message.slice(message.length - 500) : message,
+        message: message.length > 500 ? message.slice(-500) : message,
       };
     }
   }
@@ -7147,6 +7234,40 @@ export class SpaceDataDbMigrationService {
       [spaceIds, inventory.baseIds, inventory.sharedTableIds].filter((value) =>
         Array.isArray(value) ? value.length > 0 : Boolean(value)
       )
+    );
+    await this.pushConflictCount(
+      client,
+      conflicts,
+      internalSchema,
+      sharedTables.domainEventOutbox,
+      inventory.baseIds.length ? `"base_id" = ANY(?::text[])` : '',
+      [inventory.baseIds]
+    );
+    await this.pushConflictCount(
+      client,
+      conflicts,
+      internalSchema,
+      sharedTables.domainEventDelivery,
+      inventory.baseIds.length
+        ? `"event_id" IN (SELECT "id" FROM ${qualify(
+            internalSchema,
+            sharedTables.domainEventOutbox
+          )} WHERE "base_id" = ANY(?::text[]))`
+        : '',
+      [inventory.baseIds]
+    );
+    await this.pushConflictCount(
+      client,
+      conflicts,
+      internalSchema,
+      sharedTables.domainEventInbox,
+      inventory.baseIds.length
+        ? `"event_id" IN (SELECT "id" FROM ${qualify(
+            internalSchema,
+            sharedTables.domainEventOutbox
+          )} WHERE "base_id" = ANY(?::text[]))`
+        : '',
+      [inventory.baseIds]
     );
     await this.pushConflictCount(
       client,
@@ -7324,7 +7445,7 @@ export class SpaceDataDbMigrationService {
     const existing = new Set(rows.map((row) => row.schemaName));
     const stats: ITargetArtifactCleanupStats['baseSchemas'] = [];
 
-    for (const schemaName of [...baseIds].sort()) {
+    for (const schemaName of [...baseIds].sort((a, b) => Number(a > b) - Number(a < b))) {
       if (existing.has(schemaName)) {
         await client.raw(`DROP SCHEMA IF EXISTS ${quoteIdent(schemaName)} CASCADE`);
       }
@@ -7402,6 +7523,8 @@ export class SpaceDataDbMigrationService {
     const plans = this.buildSharedTableCountPlans(inventory, spaceId);
     const priority = new Map<string, number>([
       [sharedTables.computedUpdateOutboxSeed, 0],
+      [sharedTables.domainEventDelivery, 0],
+      [sharedTables.domainEventInbox, 0],
       [sharedTables.recordHistory, 1],
       [sharedTables.tableTrash, 2],
       [sharedTables.recordTrash, 3],
@@ -7410,6 +7533,7 @@ export class SpaceDataDbMigrationService {
       [sharedTables.computedUpdatePauseScope, 6],
       [sharedTables.undoLog, 7],
       [sharedTables.recordRemovalTombstone, 8],
+      [sharedTables.domainEventOutbox, 9],
     ]);
     return [...plans].sort((left, right) => {
       const leftPriority = priority.get(left.table) ?? Number.MAX_SAFE_INTEGER;
@@ -7893,8 +8017,8 @@ export class SpaceDataDbMigrationService {
       inventory,
       spaceId,
       this.getInventorySpaceIds(inventory),
-      relatedBaseIds.sort(),
-      relatedTableIds.sort(),
+      [...relatedBaseIds].sort((a, b) => Number(a > b) - Number(a < b)),
+      [...relatedTableIds].sort((a, b) => Number(a > b) - Number(a < b)),
       inventory.relatedSharedTableIds
     );
   }
@@ -7934,6 +8058,7 @@ export class SpaceDataDbMigrationService {
     pushTableScoped(sharedTables.recordRemovalTombstone);
     pushBaseScoped(sharedTables.computedUpdateOutbox);
     pushBaseScoped(sharedTables.computedUpdateDeadLetter);
+    pushBaseScoped(sharedTables.domainEventOutbox);
 
     if (tableIds.length && baseIds.length) {
       plans.push({
@@ -7951,11 +8076,31 @@ export class SpaceDataDbMigrationService {
     }
 
     if (baseIds.length) {
-      plans.push({
-        table: sharedTables.undoLog,
-        whereSql: () => `split_part("table_name", '.', 1) = ANY(?::text[])`,
-        bindings: [baseIds],
-      });
+      plans.push(
+        {
+          table: sharedTables.domainEventDelivery,
+          whereSql: (schema) =>
+            `"event_id" IN (SELECT "id" FROM ${qualify(
+              schema,
+              sharedTables.domainEventOutbox
+            )} WHERE "base_id" = ANY(?::text[]))`,
+          bindings: [baseIds],
+        },
+        {
+          table: sharedTables.domainEventInbox,
+          whereSql: (schema) =>
+            `"event_id" IN (SELECT "id" FROM ${qualify(
+              schema,
+              sharedTables.domainEventOutbox
+            )} WHERE "base_id" = ANY(?::text[]))`,
+          bindings: [baseIds],
+        },
+        {
+          table: sharedTables.undoLog,
+          whereSql: () => `split_part("table_name", '.', 1) = ANY(?::text[])`,
+          bindings: [baseIds],
+        }
+      );
     }
 
     return plans;

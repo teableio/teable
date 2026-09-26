@@ -22,7 +22,7 @@ export const FieldCreator = (props: IFieldCreatorProps) => {
   const onOptionChange = (checked: boolean, key: string) => {
     setField({
       ...field,
-      options: { ...(options ?? {}), [key]: checked },
+      options: { ...options, [key]: checked },
     });
   };
 

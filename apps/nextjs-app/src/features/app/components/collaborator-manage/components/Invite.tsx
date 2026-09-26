@@ -54,7 +54,7 @@ export const Invite = (props: IInvite) => {
 
   const emailInputChange = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.code === 'Backspace' && !email?.length) {
-      setInviteEmails(inviteEmails.slice(0, inviteEmails.length - 1));
+      setInviteEmails(inviteEmails.slice(0, -1));
       return;
     }
     if (['Space', 'Enter'].includes(e.code) && email && addEmail(email)) {

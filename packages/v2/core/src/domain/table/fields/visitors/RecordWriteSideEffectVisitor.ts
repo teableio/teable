@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../../shared/DomainError';
+import { getRandomIndex } from '../../../shared/IdGenerator';
 import type { Table } from '../../Table';
 import type { FieldId } from '../FieldId';
 import type { AttachmentField } from '../types/AttachmentField';
@@ -54,7 +55,7 @@ const randomColors = (exists: string[], num: number): FieldColorValue[] => {
 
   for (let i = 0; i < num; i += 1) {
     const colorsToChooseFrom = availableColors.length > 0 ? availableColors : allColors;
-    const randomIndex = Math.floor(Math.random() * colorsToChooseFrom.length);
+    const randomIndex = getRandomIndex(colorsToChooseFrom.length);
     result.push(colorsToChooseFrom[randomIndex]!);
     if (availableColors.length > 0) {
       availableColors.splice(randomIndex, 1);

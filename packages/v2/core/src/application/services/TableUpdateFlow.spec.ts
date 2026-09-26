@@ -123,6 +123,10 @@ class FakeTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  async restore(): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
   async setProvisionState(
     _: IExecutionContext,
     __: Table,
@@ -185,6 +189,8 @@ class FakeEventBus implements IEventBus {
 }
 
 class FakeUnitOfWork implements IUnitOfWork {
+  topLevelMetaStarts = 0;
+
   async withTransaction<T>(
     context: IExecutionContext,
     work: UnitOfWorkOperation<T>,
@@ -194,6 +200,9 @@ class FakeUnitOfWork implements IUnitOfWork {
     const existing = context.transactions?.[scope];
     if (existing) {
       return work({ ...context, transaction: existing });
+    }
+    if (scope === 'meta') {
+      this.topLevelMetaStarts += 1;
     }
     const afterCommitHandlers: Array<() => Promise<void> | void> = [];
     const afterRollbackHandlers: Array<() => Promise<void> | void> = [];
@@ -248,6 +257,7 @@ describe('TableUpdateFlow', () => {
     expect(responseEventNames).not.toContain('TableActionTriggerRequested');
     expect(publishedEventNames).toContain('TableRenamed');
     expect(publishedEventNames).toContain('TableActionTriggerRequested');
+    expect(publishedEventNames).not.toContain('TableProvisionReady');
     expect(repository.provisionStateChanges).toEqual(['ready', 'ready']);
     expect(repository.provisionOperations.map((operation) => operation?.status)).toEqual([
       'pending',
@@ -294,6 +304,38 @@ describe('TableUpdateFlow', () => {
 
     expect(result.isOk()).toBe(true);
     expect(order).toEqual(['schema-update', 'after-persist', 'deferred-task']);
+  });
+
+  it('does not prepare row-order storage when adding a grid view', async () => {
+    const table = buildTable();
+    const order: string[] = [];
+    const flow = new TableUpdateFlow(
+      new FakeTableRepository(),
+      {
+        insert: async () => ok(undefined),
+        insertMany: async () => ok(undefined),
+        prepareViewRowOrderStorage: async () => {
+          order.push('prepare-row-order');
+          return ok(undefined);
+        },
+        update: async (_context, nextTable) => {
+          order.push('schema-update');
+          return ok(nextTable);
+        },
+        delete: async () => ok(undefined),
+      },
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+
+    const result = await flow.execute(createContext(), { table }, (tableToUpdate) =>
+      tableToUpdate
+        .createView({ type: 'grid', name: 'Copy' })
+        .map((created) => created.updateResult)
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(order).toEqual(['schema-update']);
   });
 
   it('does not change provision state when prepare validation fails before persistence', async () => {
@@ -921,7 +963,136 @@ describe('TableUpdateFlow', () => {
     ]);
   });
 
-  it('resets early pending state when physical schema prepare validation fails', async () => {
+  it('publishes ready only after outer commit while mutation events are deferred', async () => {
+    const table = buildTable();
+    const repository = new FakeTableRepository();
+    const unitOfWork = new FakeUnitOfWork();
+    const eventBus = new FakeEventBus();
+    const readyStates: Array<TableProvisionState | undefined> = [];
+    eventBus.publishMany = async (_context, events) => {
+      for (const event of events) {
+        if (event.name.toString() === 'TableProvisionReady') {
+          readyStates.push(repository.provisionStateChanges.at(-1));
+        }
+      }
+      eventBus.published.push(...events);
+      return ok(undefined);
+    };
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      eventBus,
+      unitOfWork
+    );
+    const context = createContext();
+    const addedField = buildTextField('e', 'Deferred Field');
+
+    const outerResult = await unitOfWork.withTransaction(
+      context,
+      async (outerContext) => {
+        const result = await flow.execute(
+          outerContext,
+          { table },
+          (tableToUpdate) => tableToUpdate.update((mutator) => mutator.addField(addedField)),
+          { publishEvents: false }
+        );
+        expect(result.isOk()).toBe(true);
+        expect(repository.provisionStateChanges).toEqual(['pending']);
+        expect(eventBus.published).toEqual([]);
+        return result;
+      },
+      { scope: 'data' }
+    );
+
+    const payload = outerResult._unsafeUnwrap();
+    expect(repository.provisionStateChanges).toEqual(['pending', 'ready']);
+    expect(eventBus.published.map((event) => event.name.toString())).toEqual([
+      'TableProvisionReady',
+    ]);
+    const replayResult = await eventBus.publishMany(context, [
+      ...payload.events,
+      ...payload.postPersistEvents,
+    ]);
+    replayResult._unsafeUnwrap();
+    const publishedNames = eventBus.published.map((event) => event.name.toString());
+    expect(publishedNames.filter((name) => name === 'FieldCreated')).toEqual(['FieldCreated']);
+    expect(readyStates).toEqual(['ready']);
+  });
+
+  it('publishes ready after persistence without an outer transaction when mutation events are deferred', async () => {
+    const table = buildTable();
+    const repository = new FakeTableRepository();
+    const eventBus = new FakeEventBus();
+    const readyStates: Array<TableProvisionState | undefined> = [];
+    eventBus.publishMany = async (_context, events) => {
+      for (const event of events) {
+        if (event.name.toString() === 'TableProvisionReady') {
+          readyStates.push(repository.provisionStateChanges.at(-1));
+        }
+      }
+      eventBus.published.push(...events);
+      return ok(undefined);
+    };
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      eventBus,
+      new FakeUnitOfWork()
+    );
+    const context = createContext();
+    const addedField = buildTextField('f', 'Deferred Field');
+
+    const result = await flow.execute(
+      context,
+      { table },
+      (tableToUpdate) => tableToUpdate.update((mutator) => mutator.addField(addedField)),
+      { publishEvents: false }
+    );
+
+    const payload = result._unsafeUnwrap();
+    expect(repository.provisionStateChanges).toEqual(['pending', 'ready']);
+    expect(eventBus.published.map((event) => event.name.toString())).toEqual([
+      'TableProvisionReady',
+    ]);
+    const replayResult = await eventBus.publishMany(context, [
+      ...payload.events,
+      ...payload.postPersistEvents,
+    ]);
+    replayResult._unsafeUnwrap();
+    const publishedNames = eventBus.published.map((event) => event.name.toString());
+    expect(publishedNames.filter((name) => name === 'FieldCreated')).toEqual(['FieldCreated']);
+    expect(readyStates).toEqual(['ready']);
+  });
+
+  it('does not commit physical-repair pending before the meta transaction (T7114)', async () => {
+    const table = buildTable();
+    const unitOfWork = new FakeUnitOfWork();
+    let metaStartsAtSchemaUpdate = 0;
+    const flow = new TableUpdateFlow(
+      new FakeTableRepository(),
+      {
+        insert: async () => ok(undefined),
+        insertMany: async () => ok(undefined),
+        update: async (_context, nextTable) => {
+          metaStartsAtSchemaUpdate = unitOfWork.topLevelMetaStarts;
+          return ok(nextTable);
+        },
+        delete: async () => ok(undefined),
+      },
+      new FakeEventBus(),
+      unitOfWork
+    );
+
+    const addedField = buildTextField('c', 'Added Field');
+    const result = await flow.execute(createContext(), { table }, (tableToUpdate) =>
+      tableToUpdate.update((mutator) => mutator.addField(addedField))
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(metaStartsAtSchemaUpdate).toBe(1);
+  });
+
+  it('does not mark pending when physical schema prepare validation fails', async () => {
     const table = buildTable();
     const repository = new FakeTableRepository();
     const flow = new TableUpdateFlow(
@@ -944,11 +1115,7 @@ describe('TableUpdateFlow', () => {
     );
 
     expect(result._unsafeUnwrapErr().message).toBe('prepare failed');
-    expect(repository.provisionStateChanges).toEqual(['pending', 'ready']);
-    expect(repository.provisionOperations.map((operation) => operation?.status)).toEqual([
-      'pending',
-      undefined,
-    ]);
+    expect(repository.provisionStateChanges).toEqual([]);
   });
 
   it('keeps tables available when an outer transaction rolls back after deferring ready', async () => {
@@ -1045,10 +1212,11 @@ describe('TableUpdateFlow', () => {
     const table = buildTable();
     const repository = new FakeTableRepository();
     const unitOfWork = new FakeUnitOfWork();
+    const eventBus = new FakeEventBus();
     const flow = new TableUpdateFlow(
       repository,
       new FakeTableSchemaRepository(),
-      new FakeEventBus(),
+      eventBus,
       unitOfWork
     );
 
@@ -1056,10 +1224,14 @@ describe('TableUpdateFlow', () => {
     const outerResult = await unitOfWork.withTransaction(
       createContext(),
       async (outerContext) => {
-        const innerResult = await flow.execute(outerContext, { table }, (tableToUpdate) =>
-          tableToUpdate.update((mutator) => mutator.addField(addedField))
+        const innerResult = await flow.execute(
+          outerContext,
+          { table },
+          (tableToUpdate) => tableToUpdate.update((mutator) => mutator.addField(addedField)),
+          { publishEvents: false }
         );
         expect(innerResult.isOk()).toBe(true);
+        expect(eventBus.published).toEqual([]);
         return err(domainError.unexpected({ message: 'outer rollback' }));
       },
       { scope: 'data' }
@@ -1071,5 +1243,6 @@ describe('TableUpdateFlow', () => {
       'pending',
       'error',
     ]);
+    expect(eventBus.published).toEqual([]);
   });
 });

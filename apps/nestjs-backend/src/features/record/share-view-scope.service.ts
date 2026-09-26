@@ -11,7 +11,6 @@ import type {
   IUpdateRecordRo,
   IUpdateRecordsRo,
 } from '@teable/openapi';
-import { uniq } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
@@ -164,7 +163,7 @@ export class ShareViewScopeService {
         .map((field) => field[key])
         .filter((fieldKey): fieldKey is string => Boolean(fieldKey))
     );
-    const deniedKeys = uniq(fieldKeys).filter((fieldKey) => !writableKeys.has(fieldKey));
+    const deniedKeys = [...new Set(fieldKeys)].filter((fieldKey) => !writableKeys.has(fieldKey));
     if (deniedKeys.length) {
       throw this.restricted(
         `Field(${deniedKeys.join(',')}) is not writable through share view ${scope.shareId}`
@@ -180,7 +179,7 @@ export class ShareViewScopeService {
   }
 
   private async assertRecordIdsVisible(scope: IShareViewScope, recordIds: string[]) {
-    const ids = uniq(recordIds.filter(Boolean));
+    const ids = [...new Set(recordIds.filter(Boolean))];
     if (!ids.length) {
       return;
     }

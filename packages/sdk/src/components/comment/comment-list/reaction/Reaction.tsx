@@ -72,10 +72,10 @@ export const Reaction = (props: ICommentReactionProps) => {
   };
 
   const reactionUsersInfoRender = (
-    users: { id: string; name: string; avatar?: string | undefined }[],
+    users: { id: string; name: string; avatar?: string }[],
     reaction: string
   ) => {
-    const getUserName = (user: { id: string; name: string; avatar?: string | undefined }) => {
+    const getUserName = (user: { id: string; name: string; avatar?: string }) => {
       return user.id === sessionUser.id ? t('comment.tip.me') : user.name;
     };
 
@@ -102,8 +102,9 @@ export const Reaction = (props: ICommentReactionProps) => {
                   'flex items-center gap-2 rounded-full border px-1.5 py-0.5 text-xs min-w-12 max-w-16',
                   commentWritable ? 'cursor-pointer' : 'cursor-default',
                   {
-                    'bg-blue-100/20 border-blue-200':
-                      user.findIndex((item) => item?.id === sessionUser?.id) > -1,
+                    'bg-blue-100/20 border-blue-200': user.some(
+                      (item) => item?.id === sessionUser?.id
+                    ),
                   }
                 )}
                 onClick={(e) => {

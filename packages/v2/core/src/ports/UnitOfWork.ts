@@ -10,6 +10,8 @@ export type UnitOfWorkOperation<T> = (
 
 export interface IUnitOfWorkOptions {
   scope?: UnitOfWorkScope;
+  /** Disable automatic retries when work consumes a non-replayable source. Defaults to true. */
+  retry?: boolean;
 }
 
 export interface IUnitOfWork {

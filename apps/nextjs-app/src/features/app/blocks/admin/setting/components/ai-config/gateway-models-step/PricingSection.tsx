@@ -29,7 +29,7 @@ export function PricingSection({
   pricing,
   modelType,
   onPricingChange,
-}: IPricingSectionProps) {
+}: Readonly<IPricingSectionProps>) {
   return (
     <Collapsible open={expanded} onOpenChange={onExpandedChange}>
       <CollapsibleTrigger asChild>

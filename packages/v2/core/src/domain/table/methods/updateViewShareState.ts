@@ -33,7 +33,7 @@ export function enableViewShare(
   this: Table,
   viewId: ViewId
 ): Result<TableEnableViewShareResult, DomainError> {
-  const table = this;
+  const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   return safeTry<TableEnableViewShareResult, DomainError>(function* () {
     const view = yield* table.getView(viewId);
     if (view.enableShare() === true) {
@@ -66,7 +66,7 @@ export function disableViewShare(
   this: Table,
   viewId: ViewId
 ): Result<TableDisableViewShareResult, DomainError> {
-  const table = this;
+  const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   return safeTry<TableDisableViewShareResult, DomainError>(function* () {
     const view = yield* table.getView(viewId);
     if (view.enableShare() !== true) {

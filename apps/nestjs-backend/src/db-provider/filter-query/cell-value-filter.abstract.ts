@@ -207,7 +207,9 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
   ): Knex.QueryBuilder {
     this.ensureLiteralValue(value, contains.value);
     const escapedValue = escapeLikeWildcards(String(value));
-    builderClient.whereRaw(`${this.tableColumnRef} LIKE ? ESCAPE '\\'`, [`%${escapedValue}%`]);
+    builderClient.whereRaw(String.raw`${this.tableColumnRef} LIKE ? ESCAPE '\'`, [
+      `%${escapedValue}%`,
+    ]);
     return builderClient;
   }
 

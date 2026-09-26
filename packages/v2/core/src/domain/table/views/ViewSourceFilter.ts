@@ -154,7 +154,7 @@ const normalizeUnaryOperatorValue = (input: unknown): unknown => {
   if (
     typeof value.operator !== 'string' ||
     !recordConditionOperatorsExpectingNull.includes(value.operator as never) ||
-    Object.prototype.hasOwnProperty.call(value, 'value')
+    Object.hasOwn(value, 'value')
   ) {
     return input;
   }

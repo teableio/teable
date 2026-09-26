@@ -4,7 +4,6 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type HttpErrorStatus,
   type IApiErrorResponseDto,
@@ -39,7 +38,7 @@ export const updateRecordsOkResponseSchema = apiOkResponseDtoSchema(
   updateRecordsResponseDataSchema
 );
 
-export const updateRecordsErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as updateRecordsErrorResponseSchema } from '../shared/http';
 
 export const mapUpdateRecordsResultToDto = (
   result: UpdateRecordsResult

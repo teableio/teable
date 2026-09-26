@@ -1,7 +1,7 @@
 import { Buffer as NodeBuffer } from 'node:buffer';
 import http from 'node:http';
 import { createRequire } from 'node:module';
-import path from 'path';
+import path from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import { DriverClient, parseDsn } from '@teable/core';
 import dotenv from 'dotenv-flow';
@@ -13,7 +13,7 @@ import { buildSync } from 'esbuild';
 http.globalAgent = new http.Agent({ keepAlive: false });
 
 const require = createRequire(import.meta.url);
-const bufferModule = require('buffer') as Record<string, unknown>;
+const bufferModule = require('node:buffer') as Record<string, unknown>;
 bufferModule['SlowBuffer'] ??= bufferModule['Buffer'] ?? NodeBuffer;
 
 // Handle ConditionalModule timeout errors that occur sporadically in CI
@@ -83,6 +83,7 @@ function compileWorkerFile() {
     entryPoints: [entryFile],
     outdir: outFile,
     bundle: true,
+    conditions: ['@teable/source'],
     platform: 'node',
     target: 'node20',
   });

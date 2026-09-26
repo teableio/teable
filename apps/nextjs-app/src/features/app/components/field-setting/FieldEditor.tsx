@@ -151,7 +151,7 @@ export const FieldEditor = (props: {
       setFieldFn({
         ...field,
         options: {
-          ...(field.options || {}),
+          ...field.options,
           ...options,
         } as IFieldVo['options'],
       });
@@ -209,6 +209,7 @@ export const FieldEditor = (props: {
           <LookupOptions
             fieldId={field.id}
             options={field.lookupOptions}
+            enableUniqueValues
             onChange={updateLookupOptions}
           />
           <FieldOptions field={field} onChange={updateFieldOptions} onSave={onSave} />

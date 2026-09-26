@@ -51,7 +51,9 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
   ): Knex.QueryBuilder {
     this.ensureLiteralValue(value, _operator);
     const escapedValue = escapeLikeWildcards(String(value));
-    builderClient.whereRaw(`${this.tableColumnRef} iLIKE ? ESCAPE '\\'`, [`%${escapedValue}%`]);
+    builderClient.whereRaw(String.raw`${this.tableColumnRef} iLIKE ? ESCAPE '\'`, [
+      `%${escapedValue}%`,
+    ]);
     return builderClient;
   }
 
@@ -64,7 +66,7 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
     this.ensureLiteralValue(value, _operator);
     const escapedValue = escapeLikeWildcards(String(value));
     builderClient.whereRaw(
-      `LOWER(COALESCE(${this.tableColumnRef}, '')) NOT LIKE LOWER(?) ESCAPE '\\'`,
+      String.raw`LOWER(COALESCE(${this.tableColumnRef}, '')) NOT LIKE LOWER(?) ESCAPE '\'`,
       [`%${escapedValue}%`]
     );
     return builderClient;

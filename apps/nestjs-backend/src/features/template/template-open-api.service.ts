@@ -13,8 +13,9 @@ import {
   BaseDuplicateMode,
   MAX_TEMPLATE_CATEGORY_COUNT,
   ShortLinkType,
+  TemplateKind,
 } from '@teable/openapi';
-import { isNumber } from 'lodash';
+import { isEqual, isNumber } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
@@ -28,12 +29,29 @@ import type { IClsStore } from '../../types/cls';
 import { updateOrder } from '../../utils/update-order';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
+import { AuditScope } from '../audit/audit-scope';
 import { BaseDuplicateService } from '../base/base-duplicate.service';
 import { ShortLinkService } from '../short-link/short-link.service';
 
+// Snapshotting a template's source base (with its records) into the template space.
+const TEMPLATE_SNAPSHOT_ACTION = 'template.snapshot.create';
+
+/** Template fields an update may change, other than the publish flag (its own row). */
+const TEMPLATE_UPDATE_KEYS = [
+  'name',
+  'description',
+  'markdownDescription',
+  'categoryId',
+  'cover',
+  'featured',
+  'isSystem',
+  'baseId',
+  'kind',
+] as const;
+
 @Injectable()
 export class TemplateOpenApiService {
-  private logger = new Logger(TemplateOpenApiService.name);
+  private readonly logger = new Logger(TemplateOpenApiService.name);
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -42,7 +60,8 @@ export class TemplateOpenApiService {
     private readonly attachmentsStorageService: AttachmentsStorageService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly performanceCacheService: PerformanceCacheService,
-    private readonly shortLinkService: ShortLinkService
+    private readonly shortLinkService: ShortLinkService,
+    private readonly audit: AuditScope
   ) {}
 
   async createTemplate(createTemplateRo: ICreateTemplateRo) {
@@ -56,7 +75,7 @@ export class TemplateOpenApiService {
     });
     const finalOrder = isNumber(order._max.order) ? order._max.order + 1 : 1;
 
-    return await prisma.template.create({
+    const template = await prisma.template.create({
       data: {
         id: templateId,
         ...createTemplateRo,
@@ -64,6 +83,16 @@ export class TemplateOpenApiService {
         order: finalOrder,
       },
     });
+    await this.audit.emitAtomic({
+      action: 'template.create',
+      resourceId: templateId,
+      params: {
+        templateId,
+        name: createTemplateRo.name,
+        ...(createTemplateRo.kind ? { kind: createTemplateRo.kind } : {}),
+      },
+    });
+    return template;
   }
 
   async getAllTemplateList(query?: ITemplateListQueryRo) {
@@ -94,6 +123,7 @@ export class TemplateOpenApiService {
         markdownDescription: true,
         publishInfo: true,
         visitCount: true,
+        kind: true,
       },
     });
 
@@ -106,17 +136,27 @@ export class TemplateOpenApiService {
     const featured = templateQuery?.featured;
     const categoryId = templateQuery?.categoryId;
     const search = templateQuery?.search;
+    const kind = templateQuery?.kind;
 
     this.validateTakeCount(take);
 
     const res = await prisma.template.findMany({
       where: {
         isPublished: true,
-        ...(featured === true
-          ? { featured: true }
-          : featured === false
-            ? { OR: [{ featured: false }, { featured: null }] }
-            : {}),
+        AND: [
+          // The catalogue lists every kind together; `kind` only narrows it. Rows
+          // published before the column existed carry no kind and are plain templates.
+          !kind
+            ? {}
+            : kind === TemplateKind.Template
+              ? { OR: [{ kind: null }, { kind: TemplateKind.Template }] }
+              : { kind },
+          featured === true
+            ? { featured: true }
+            : featured === false
+              ? { OR: [{ featured: false }, { featured: null }] }
+              : {},
+        ],
         categoryId: categoryId ? { has: categoryId } : undefined,
         name: search ? { contains: search, mode: 'insensitive' } : undefined,
       },
@@ -192,6 +232,17 @@ export class TemplateOpenApiService {
         await this.performanceCacheService.del(generateTemplatePermalinkCacheKey(templateId));
         // The template is hard-deleted, so its short links are dead for good
         await this.shortLinkService.markDeletedByResource(ShortLinkType.Template, templateId);
+        // Also the owner's "unpublish" route, which removes the template the same way.
+        await this.audit.emitAtomic({
+          action: 'template.delete',
+          resourceId: templateId,
+          params: {
+            templateId,
+            name: res.name,
+            ...(res.baseId ? { baseId: res.baseId } : {}),
+            ...(res.isPublished ? { wasPublished: true } : {}),
+          },
+        });
         return res;
       });
   }
@@ -235,9 +286,95 @@ export class TemplateOpenApiService {
         await this.performanceCacheService.del(generateTemplatePermalinkCacheKey(templateId));
         return res;
       });
+    await this.auditTemplateUpdate(
+      originalTemplate,
+      updateTemplateRo,
+      newCover as string | null | undefined
+    );
   }
 
+  /**
+   * Publishing to (or withdrawing from) the public template gallery is its own row; any other field
+   * the request changed is one `template.update` row listing the keys. Fields sent unchanged write
+   * nothing.
+   */
+  private async auditTemplateUpdate(
+    original: {
+      id: string;
+      name: string | null;
+      baseId: string | null;
+      isPublished: boolean | null;
+    },
+    ro: IUpdateTemplateRo,
+    newCover: string | null | undefined
+  ): Promise<void> {
+    const templateId = original.id;
+    const scope = {
+      templateId,
+      name: ro.name ?? original.name,
+      ...(ro.baseId ?? original.baseId ? { baseId: ro.baseId ?? original.baseId } : {}),
+    };
+    const next: Record<string, unknown> = { ...ro, cover: newCover };
+    const changedKeys = TEMPLATE_UPDATE_KEYS.filter(
+      (key) =>
+        ro[key] !== undefined &&
+        !isEqual(next[key] ?? null, (original as Record<string, unknown>)[key] ?? null)
+    );
+    if (changedKeys.length) {
+      await this.audit.emitAtomic({
+        action: 'template.update',
+        resourceId: templateId,
+        params: {
+          ...scope,
+          changedKeys,
+          ...(changedKeys.includes('baseId') ? { previousBaseId: original.baseId ?? null } : {}),
+        },
+      });
+    }
+    if (ro.isPublished === undefined || ro.isPublished === Boolean(original.isPublished)) return;
+    if (ro.isPublished) {
+      await this.audit.emitAtomic({
+        action: 'template.publish',
+        resourceId: templateId,
+        params: scope,
+      });
+      return;
+    }
+    await this.audit.emitAtomic({
+      action: 'template.unpublish',
+      resourceId: templateId,
+      params: scope,
+    });
+  }
+
+  /**
+   * Copies the template's source base, records included, into the template space. The copy runs in
+   * a `template.snapshot.create` operation, so the rows it writes for the snapshot base are
+   * attributed to it; the row itself is written once the snapshot committed.
+   */
   async createTemplateSnapshot(templateId: string) {
+    return this.audit.withOperation(
+      { rootAction: TEMPLATE_SNAPSHOT_ACTION, resourceId: templateId },
+      async () => {
+        const template = await this.snapshotTemplate(templateId);
+        const snapshot = JSON.parse(template.snapshot ?? '{}') as { baseId?: string };
+        await this.audit.emitAtomic({
+          action: TEMPLATE_SNAPSHOT_ACTION,
+          resourceId: templateId,
+          params: {
+            templateId,
+            name: template.name,
+            ...(template.baseId ? { baseId: template.baseId } : {}),
+            snapshotBaseId: snapshot.baseId,
+            withRecords: true,
+          },
+        });
+        return template;
+      }
+    );
+  }
+
+  private async snapshotTemplate(templateId: string) {
     const prisma = this.prismaService.txClient();
     const templateRaw = await prisma.template.findUniqueOrThrow({
       where: { id: templateId },
@@ -259,6 +396,7 @@ export class TemplateOpenApiService {
     const templateSpaceId = await prisma.space.findFirstOrThrow({
       where: {
         isTemplate: true,
+        deletedTime: null,
       },
       select: {
         id: true,
@@ -572,6 +710,7 @@ export class TemplateOpenApiService {
         markdownDescription: true,
         publishInfo: true,
         visitCount: true,
+        kind: true,
         createdBy: true,
         snapshot: true,
       },

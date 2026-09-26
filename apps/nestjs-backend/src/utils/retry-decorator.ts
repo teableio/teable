@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { HttpErrorCode } from '@teable/core';
+import { getRandomFloat, HttpErrorCode } from '@teable/core';
 import { thresholdConfig } from '../configs/threshold.config';
 import { CustomHttpException } from '../custom.exception';
 
@@ -32,7 +32,7 @@ function createRetryDecorator(config: IRetryConfig) {
 
       descriptor.value = async function (...args: unknown[]) {
         let retries = 0;
-        let backoff = initialBackoff + Math.random() * jitter;
+        let backoff = initialBackoff + getRandomFloat() * jitter;
 
         while (retries <= maxRetries) {
           try {
@@ -49,7 +49,7 @@ function createRetryDecorator(config: IRetryConfig) {
                 throw new CustomHttpException(errorMessage, errorCode);
               }
               await new Promise((resolve) => setTimeout(resolve, backoff));
-              backoff *= 1.5 + Math.random() * jitter;
+              backoff *= 1.5 + getRandomFloat() * jitter;
             } else {
               throw error;
             }

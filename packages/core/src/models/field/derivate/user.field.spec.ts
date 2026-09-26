@@ -131,10 +131,13 @@ describe('UserFieldCore', () => {
       email: 'anonymous@teable.ai',
     };
     expect(field.repair(cellValue)).toEqual(cellValue);
+    expect(field.repair([cellValue])).toEqual(cellValue);
     expect(field.repair([{ id: 'usr' }])).toEqual(null);
 
     expect(multipleField.repair([cellValue])).toEqual([cellValue]);
-    expect(multipleField.repair(cellValue)).toEqual(null);
+    expect(multipleField.repair(cellValue)).toEqual([cellValue]);
+    expect(multipleField.repair([cellValue, cellValue])).toEqual([cellValue, cellValue]);
+    expect(multipleField.repair([{ id: 'usr' }])).toEqual(null);
 
     expect(lookupField.repair(cellValue)).toEqual(null);
     expect(lookupField.repair({ id: 'usr' })).toEqual(null);

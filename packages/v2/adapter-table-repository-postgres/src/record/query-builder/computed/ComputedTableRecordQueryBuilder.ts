@@ -8,6 +8,7 @@ import {
   FieldValueTypeVisitor,
   LinkForeignTableReferenceVisitor,
   LinkRelationship,
+  RecordByIdsSpec,
   type LookupField,
   type DomainError,
   type Field,
@@ -24,6 +25,8 @@ import {
   extractJsonScalarText,
   formatFieldValueAsStringSql,
   type IPgTypeValidationStrategy,
+  type FormulaCompileBudgetConfig,
+  defaultFormulaCompileBudgetConfig,
 } from '@teable/v2-formula-sql-pg';
 import {
   sql,
@@ -39,12 +42,6 @@ import { err, ok, safeTry } from 'neverthrow';
 import { match } from 'ts-pattern';
 
 import { TableRecordConditionWhereVisitor } from '../../visitors';
-import { buildDateLikeOrderExpression } from '../dateLikeOrderBy';
-import {
-  applyV1NullsOrder,
-  isNeverNullSystemOrderColumn,
-  uniqueOrderByEntries,
-} from '../systemOrderColumns';
 import type {
   DynamicDB,
   IQueryBuilderDeps,
@@ -52,6 +49,11 @@ import type {
   OrderByColumn,
   QB,
 } from '../ITableRecordQueryBuilder';
+import {
+  applyV1NullsOrder,
+  isNeverNullSystemOrderColumn,
+  uniqueOrderByEntries,
+} from '../systemOrderColumns';
 import type { QueryMode } from '../TableRecordQueryBuilderManager';
 import {
   buildUserJsonObjectFromSnapshotExpr,
@@ -321,8 +323,12 @@ const sameResidualFilterItems = (
   if (left.length !== right.length) {
     return false;
   }
-  const leftKeys = left.map(residualFilterItemFingerprint).sort();
-  const rightKeys = right.map(residualFilterItemFingerprint).sort();
+  const leftKeys = left
+    .map(residualFilterItemFingerprint)
+    .sort((a, b) => Number(a > b) - Number(a < b));
+  const rightKeys = right
+    .map(residualFilterItemFingerprint)
+    .sort((a, b) => Number(a > b) - Number(a < b));
   return leftKeys.every((key, index) => key === rightKeys[index]);
 };
 
@@ -378,6 +384,13 @@ const splitFieldReferenceAndResiduals = (
   residualFilterItems: IFilterItemDTO[];
 } | null => {
   if (!filter || filter.conjunction !== 'and') {
+    return null;
+  }
+  if (
+    filter.filterSet.some(
+      (item) => Boolean(item) && typeof item === 'object' && 'filterSet' in item
+    )
+  ) {
     return null;
   }
 
@@ -729,6 +742,7 @@ export interface IDanglingComputedFieldReference {
 }
 
 export interface IComputedQueryBuilderOptions {
+  readonly formulaCompileBudget?: FormulaCompileBudgetConfig;
   /** Foreign tables for link/lookup/rollup - can be pre-set (for tests) or loaded via prepare() */
   readonly foreignTables?: ReadonlyMap<string, Table>;
   /** Type validation strategy for PostgreSQL version compatibility */
@@ -752,13 +766,16 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private projection: ReadonlyArray<FieldId> | null = null;
   private limitValue: number | null = null;
   private offsetValue: number | null = null;
-  private orderByValues: Array<{ column: OrderByColumn; direction: 'asc' | 'desc' }> = [];
+  private readonly orderByValues: Array<{ column: OrderByColumn; direction: 'asc' | 'desc' }> = [];
   private foreignTables: ReadonlyMap<string, Table>;
   private missingForeignTableIds: ReadonlySet<string> = new Set();
-  private whereSpecs: Array<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>> = [];
-  private whereExpressions: Array<Expression<SqlBool>> = [];
+  private readonly whereSpecs: Array<
+    ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
+  > = [];
+  private readonly whereExpressions: Array<Expression<SqlBool>> = [];
   private dirtyFilterConfig: IDirtyFilterConfig | null = null;
   private readonly typeValidationStrategy: IPgTypeValidationStrategy;
+  private readonly formulaCompileBudget: FormulaCompileBudgetConfig;
   private readonly preferStoredLastModifiedFormula: boolean;
   private readonly erroredLookupReferenceMode: 'stored' | 'error';
   private readonly forceLookupArrayOutput: boolean;
@@ -776,6 +793,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   ) {
     this.foreignTables = options.foreignTables ?? new Map();
     this.typeValidationStrategy = options.typeValidationStrategy;
+    this.formulaCompileBudget = options.formulaCompileBudget ?? defaultFormulaCompileBudgetConfig;
     this.preferStoredLastModifiedFormula = options.preferStoredLastModifiedFormula ?? false;
     this.erroredLookupReferenceMode = options.erroredLookupReferenceMode ?? 'stored';
     this.forceLookupArrayOutput = options.forceLookupArrayOutput ?? true;
@@ -1088,9 +1106,47 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     return sql<SqlBool>`${sql.ref(`${alias}.${recordIdColumn}`)} = ANY(${recordIds}::text[])`;
   }
 
+  /**
+   * A top-level RecordByIdsSpec is safe to push into set-based host sources.
+   * Other record predicates may depend on computed joins or table aliases, so
+   * they remain on the outer query. Multiple id specs are combined with their
+   * existing AND semantics.
+   */
+  private explicitHostRecordIds(): ReadonlyArray<string> | null {
+    const recordIdSpecs = this.whereSpecs.filter(
+      (spec): spec is RecordByIdsSpec => spec instanceof RecordByIdsSpec
+    );
+    if (recordIdSpecs.length === 0) return null;
+
+    const [firstSpec, ...restSpecs] = recordIdSpecs;
+    if (!firstSpec) return null;
+    const firstIds = [...new Set(firstSpec.recordIds().map((recordId) => recordId.toString()))];
+    const restIdSets = restSpecs.map(
+      (spec) => new Set(spec.recordIds().map((recordId) => recordId.toString()))
+    );
+    return firstIds.filter((recordId) => restIdSets.every((ids) => ids.has(recordId)));
+  }
+
+  private buildExplicitHostRecordIdPredicate(alias: string): Expression<SqlBool> | null {
+    const recordIds = this.explicitHostRecordIds();
+    if (recordIds === null) return null;
+    if (recordIds.length === 0) return sql<SqlBool>`false`;
+
+    return sql<SqlBool>`${sql.ref(`${alias}.__id`)} = ANY(${recordIds}::text[])`;
+  }
+
   private buildConditionalHostSource(hostTableName: string) {
     const dirtyConfig = this.dirtyFilterConfig;
-    if (!dirtyConfig) return `${hostTableName} as ${H}` as const;
+    const explicitRecordIdPredicate = this.buildExplicitHostRecordIdPredicate(H);
+    if (!dirtyConfig) {
+      if (!explicitRecordIdPredicate) return `${hostTableName} as ${H}` as const;
+
+      return this.db
+        .selectFrom(`${hostTableName} as ${H}`)
+        .selectAll(H)
+        .where(explicitRecordIdPredicate)
+        .as(H);
+    }
 
     const {
       dirtyTableName = 'tmp_computed_dirty',
@@ -1111,6 +1167,9 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     if (recordIdPredicate) {
       query = query.where(recordIdPredicate);
     }
+    if (explicitRecordIdPredicate) {
+      query = query.where(explicitRecordIdPredicate);
+    }
 
     return query.as(H);
   }
@@ -1118,13 +1177,17 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private buildConditionalHostKeySource(hostTableName: string, hostKeyColumn: string) {
     const dirtyConfig = this.dirtyFilterConfig;
     const hostKeySelection = sql`${sql.ref(`${H}.${hostKeyColumn}`)}`.as(hostKeyColumn);
+    const explicitRecordIdPredicate = this.buildExplicitHostRecordIdPredicate(H);
 
     if (!dirtyConfig) {
-      return this.db
+      let query = this.db
         .selectFrom(`${hostTableName} as ${H}`)
         .select(hostKeySelection)
-        .distinct()
-        .as(H);
+        .distinct();
+      if (explicitRecordIdPredicate) {
+        query = query.where(explicitRecordIdPredicate);
+      }
+      return query.as(H);
     }
 
     const {
@@ -1146,6 +1209,9 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
     if (recordIdPredicate) {
       query = query.where(recordIdPredicate);
+    }
+    if (explicitRecordIdPredicate) {
+      query = query.where(explicitRecordIdPredicate);
     }
 
     return query.as(H);
@@ -1180,7 +1246,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       if (!value) return '0';
       let hash = 5381;
       for (let i = 0; i < value.length; i += 1) {
-        hash = (hash << 5) + hash + value.charCodeAt(i);
+        hash = (hash << 5) + hash + value.charCodeAt(i); // NOSONAR typescript:S7758 -- the hash is defined over UTF-16 code units; switching to code points would change persisted/compared values
       }
       return Math.abs(hash).toString(36);
     };
@@ -1216,8 +1282,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           group.limit ?? 'none',
           group.orderInsensitive ? 'orderless' : 'ordered',
           group.sort ? `${group.sort.fieldId}:${group.sort.order}` : 'nosort',
-          group.residualFilterItems.map(residualFilterItemFingerprint).sort().join('&') ||
-            'noresidual',
+          group.residualFilterItems
+            .map(residualFilterItemFingerprint)
+            .sort((a, b) => Number(a > b) - Number(a < b))
+            .join('&') || 'noresidual',
         ].join('|');
 
       const setBasedRollupGroup = conditionalRollupSetBasedFieldReferenceGroup(columnType);
@@ -1324,6 +1392,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           lateralCtx,
           this.typeValidationStrategy,
           {
+            formulaCompileBudget: this.formulaCompileBudget,
             preferStoredLastModifiedFormula: this.preferStoredLastModifiedFormula,
             missingForeignTableIds: this.missingForeignTableIds,
             erroredLookupReferenceMode: this.erroredLookupReferenceMode,
@@ -1427,7 +1496,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
                 foreignTableName,
                 linkField,
                 lateral.alias,
-                lateral.columns
+                lateral.columns,
+                lateral.condition
               ),
               joinMode: 'hostLeft',
             });
@@ -1534,9 +1604,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   }
 
   /**
-   * Bulk computed backfills can share one grouped relationship scan when neither row
-   * order nor a per-field filter/limit affects their result. Ordinary reads keep the
-   * indexed per-host lateral because their outer filter/limit is not available here.
+   * Bulk computed backfills can share one grouped relationship scan when row
+   * order and per-host limits do not affect the result. A shared filter is
+   * applied on the foreign join so empty hosts still keep COUNT/SUM/null
+   * semantics. Ordinary reads keep the indexed per-host lateral because their
+   * outer filter/limit is not available here.
    */
   private isSetBasedLinkRollupGroup(
     table: Table,
@@ -1581,9 +1653,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       }
 
       const condition = columnType.condition;
-      return (
-        !condition || (!condition.hasFilter() && !condition.hasSort() && !condition.hasLimit())
-      );
+      return !condition || (!condition.hasSort() && !condition.hasLimit());
     });
   }
 
@@ -1597,7 +1667,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     foreignTableName: string,
     linkField: LinkField,
     alias: string,
-    columns: Array<{ outputAlias: string; columnType: LateralColumnType }>
+    columns: Array<{ outputAlias: string; columnType: LateralColumnType }>,
+    condition?: FieldCondition
   ): Result<AliasedExpression<Record<string, unknown>, string>, DomainError> {
     return safeTry<AliasedExpression<Record<string, unknown>, string>, DomainError>(
       function* (this: ComputedTableRecordQueryBuilder) {
@@ -1625,6 +1696,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           );
         }
 
+        const filterWhere = yield* this.buildFilterConditionWhere(foreignTable, condition, H);
         const relationship = linkField.relationship();
         if (
           relationship.equals(LinkRelationship.manyMany()) ||
@@ -1640,9 +1712,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               .leftJoin(`${junctionTableName} as j`, (join) =>
                 join.onRef(`j.${selfKey}`, '=', hostId)
               )
-              .leftJoin(`${foreignTableName} as ${F}`, (join) =>
-                join.onRef(`${F}.__id`, '=', `j.${foreignKey}`)
-              )
+              .leftJoin(`${foreignTableName} as ${F}`, (join) => {
+                const onForeign = join.onRef(`${F}.__id`, '=', `j.${foreignKey}`);
+                return filterWhere ? onForeign.on(sql<SqlBool>`(${filterWhere})`) : onForeign;
+              })
               .select([sql`${sql.ref(hostId)}`.as('__host_id'), ...selectExprs])
               .groupBy(sql.ref(hostId))
               .as(alias)
@@ -1653,9 +1726,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         return ok(
           this.db
             .selectFrom(hostSource)
-            .leftJoin(`${foreignTableName} as ${F}`, (join) =>
-              join.onRef(`${F}.${foreignHostKey}`, '=', hostId)
-            )
+            .leftJoin(`${foreignTableName} as ${F}`, (join) => {
+              const onForeign = join.onRef(`${F}.${foreignHostKey}`, '=', hostId);
+              return filterWhere ? onForeign.on(sql<SqlBool>`(${filterWhere})`) : onForeign;
+            })
             .select([sql`${sql.ref(hostId)}`.as('__host_id'), ...selectExprs])
             .groupBy(sql.ref(hostId))
             .as(alias)
@@ -2078,7 +2152,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private buildFieldReferenceConditionWhere(
     foreignTable: Table,
     group: ConditionalFieldReferenceGroup,
-    hostTableAlias = T
+    hostTableAlias = T,
+    optimizeArrayMembership = false
   ): Result<Expression<SqlBool> | null, DomainError> {
     return FieldCondition.create({
       filter: {
@@ -2086,7 +2161,13 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         filterSet: [group.filterItem, ...group.residualFilterItems],
       },
     }).andThen((condition) =>
-      this.buildFilterConditionWhere(foreignTable, condition, hostTableAlias)
+      this.buildFilterConditionWhere(
+        foreignTable,
+        condition,
+        hostTableAlias,
+        F,
+        optimizeArrayMembership
+      )
     );
   }
 
@@ -2350,14 +2431,49 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           );
         }
 
-        return ok(
+        const buildAggregate = (condition: Expression<SqlBool>) =>
           this.db
             .selectFrom(buildHostSource())
-            .leftJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
+            .leftJoin(`${foreignTableName} as ${F}`, (join) => join.on(condition))
             .select([sql`${sql.ref(hostIdentity)}`.as(hostIdentityAlias), ...selectExprs])
-            .groupBy(sql.ref(hostIdentity))
-            .as(alias)
+            .groupBy(sql.ref(hostIdentity));
+
+        const foreignKey = yield* foreignTable.getField(
+          (field) => field.id().toString() === group.foreignFieldId
         );
+        const hostKey = yield* hostTable.getField(
+          (field) => field.id().toString() === group.hostFieldId
+        );
+        const hostValueType = yield* hostKey.accept(new FieldValueTypeVisitor());
+        const hasArrayHost =
+          hostValueType.isMultipleCellValue.isMultiple() ||
+          hostKey.type().toString() === 'lookup' ||
+          hostKey.type().toString() === 'conditionalLookup';
+        if (foreignKey.type().toString() === 'number' && hasArrayHost) {
+          const indexedCondition = yield* this.buildFieldReferenceConditionWhere(
+            foreignTable,
+            group,
+            H,
+            true
+          );
+          if (indexedCondition) {
+            // PostgreSQL's positive extra_float_digits guarantees roundtrip float
+            // text. Rounded sessions can equate different floats as text, so they
+            // must retain the original predicate. Separate one-time-filtered
+            // branches keep that fallback from destroying the default btree plan.
+            return ok(
+              buildAggregate(indexedCondition)
+                .where(sql<SqlBool>`current_setting('extra_float_digits')::integer > 0`)
+                .unionAll(
+                  buildAggregate(whereClause).where(
+                    sql<SqlBool>`current_setting('extra_float_digits')::integer <= 0`
+                  )
+                )
+                .as(alias)
+            );
+          }
+        }
+        return ok(buildAggregate(whereClause).as(alias));
       }.bind(this)
     );
   }
@@ -2366,13 +2482,17 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     foreignTable: Table,
     condition?: FieldCondition,
     hostTableAlias = T,
-    foreignTableAlias = F
+    foreignTableAlias = F,
+    optimizeArrayMembership = false
   ): Result<Expression<SqlBool> | null, DomainError> {
     if (!condition || !condition.hasFilter()) {
       return ok(null);
     }
 
     const hostTable = this.table ?? undefined;
+    const typeValidationStrategy = optimizeArrayMembership
+      ? this.typeValidationStrategy
+      : undefined;
     return safeTry<Expression<SqlBool> | null, DomainError>(function* () {
       // For conditional lookups, pass the host table to resolve field references (isSymbol)
       const conditionSpecResult = yield* ok(
@@ -2392,6 +2512,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       const visitor = new TableRecordConditionWhereVisitor({
         tableAlias: foreignTableAlias,
         hostTableAlias,
+        typeValidationStrategy,
       });
       const acceptResult = spec.accept(visitor);
       if (acceptResult.isErr()) {
@@ -2452,7 +2573,9 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     if (whereResult.isErr()) {
       return err(whereResult.error);
     }
-    return ok(whereResult.value as unknown as Expression<SqlBool>);
+    // The visitor may emit a top-level `a or b`; whereExpression conditions are
+    // ANDed after it, so it must stay one operand.
+    return ok(sql<SqlBool>`(${whereResult.value})`);
   }
 
   /**
@@ -2471,7 +2594,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     const tableAlias = options?.tableAlias ?? F;
     return (
       match(columnType)
-        .with({ type: 'conditionalLookup' }, ({ foreignFieldId, isMultiValue }) => {
+        .with({ type: 'conditionalLookup' }, ({ foreignFieldId, isMultiValue, isUnique }) => {
           // For conditional lookup, aggregate all matching values as a JSONB array.
           // Default to __auto_number ordering to preserve insertion order deterministically.
           const orderBy = options?.orderBy ?? DEFAULT_CONDITIONAL_ORDER_BY;
@@ -2479,6 +2602,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             tableAlias,
             orderBy,
             isMultiValue,
+            isUnique,
           });
         })
         .with({ type: 'conditionalRollup' }, ({ foreignFieldId, expression }) => {
@@ -2632,10 +2756,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               });
           })
         )
-        .with({ type: 'lookup' }, ({ foreignFieldId, orderBy, isMultiValue }) =>
+        .with({ type: 'lookup' }, ({ foreignFieldId, orderBy, isMultiValue, isUnique }) =>
           this.buildLookupAggExpr(foreignTable, foreignFieldId, outputAlias, {
             orderBy: options?.orderByOverride ?? orderBy,
             isMultiValue,
+            isUnique,
           })
         )
         .with({ type: 'rollup' }, ({ foreignFieldId, expression, orderBy }) =>
@@ -2674,7 +2799,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   }
 
   private buildQualifiedRef(tableAlias: string, columnName: string): string {
-    const escapeIdentifier = (value: string): string => value.replace(/"/g, '""');
+    const escapeIdentifier = (value: string): string => value.replaceAll('"', '""');
     return `"${escapeIdentifier(tableAlias)}"."${escapeIdentifier(columnName)}"`;
   }
 
@@ -2754,21 +2879,62 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   }
 
   /**
+   * Flatten nested jsonb arrays, drop null/empty, and keep typed scalars in order
+   * with duplicates. Only link/user-like objects become display text.
+   */
+  private buildNestedJsonArrayExpr(baseAggregate: RawBuilder<unknown>): RawBuilder<unknown> {
+    const leafValue = sql`CASE
+      WHEN jsonb_typeof(leaf) = 'object' THEN to_jsonb(${sql.raw(extractJsonScalarText('leaf'))})
+      WHEN jsonb_typeof(leaf) <> 'array' THEN leaf
+    END`;
+    return sql`(
+      SELECT jsonb_agg(v.val ORDER BY v.outer_ord, v.inner_ord)
+      FROM (
+        SELECT
+          ${leafValue} AS val,
+          row_elem.outer_ord,
+          leaf_elem.inner_ord
+        FROM jsonb_array_elements(COALESCE(${baseAggregate}, '[]'::jsonb))
+          WITH ORDINALITY AS row_elem(elem, outer_ord)
+        CROSS JOIN LATERAL jsonb_array_elements(
+          CASE
+            WHEN jsonb_typeof(row_elem.elem) = 'array' THEN row_elem.elem
+            ELSE jsonb_build_array(row_elem.elem)
+          END
+        ) WITH ORDINALITY AS leaf_elem(leaf, inner_ord)
+      ) AS v
+      WHERE v.val IS NOT NULL AND v.val <> 'null'::jsonb AND v.val <> '""'::jsonb
+    )`;
+  }
+
+  /**
    * Deduplicate a pre-ordered jsonb array while keeping first-occurrence order.
+   * Objects with an `id` (link/user-like) unique by that id; scalars by typed value.
    * `json_agg(DISTINCT x)` / `SELECT DISTINCT val ORDER BY val` sort by value and
    * cannot preserve link/source order.
    */
-  private buildDistinctNestedJsonTextArrayExpr(
+  private buildDistinctNestedJsonArrayExpr(
     baseAggregate: RawBuilder<unknown>
   ): RawBuilder<unknown> {
+    const leafValue = sql`CASE
+      WHEN jsonb_typeof(leaf) = 'object' THEN to_jsonb(${sql.raw(extractJsonScalarText('leaf'))})
+      WHEN jsonb_typeof(leaf) <> 'array' THEN leaf
+    END`;
     return sql`(
-      SELECT jsonb_agg(to_jsonb(v.val) ORDER BY v.outer_ord, v.inner_ord)
+      SELECT jsonb_agg(v.val ORDER BY v.outer_ord, v.inner_ord)
       FROM (
-        SELECT DISTINCT ON (flattened.val) flattened.val, flattened.outer_ord, flattened.inner_ord
+        SELECT DISTINCT ON (flattened.identity) flattened.val, flattened.outer_ord, flattened.inner_ord
         FROM (
-          SELECT ${sql.raw(extractJsonScalarText('leaf'))} AS val,
-                 row_elem.outer_ord,
-                 leaf_elem.inner_ord
+          SELECT
+            CASE
+              WHEN jsonb_typeof(leaf) = 'object'
+                AND NULLIF(leaf->>'id', '') IS NOT NULL
+              THEN leaf->'id'
+              ELSE ${leafValue}
+            END AS identity,
+            ${leafValue} AS val,
+            row_elem.outer_ord,
+            leaf_elem.inner_ord
           FROM jsonb_array_elements(COALESCE(${baseAggregate}, '[]'::jsonb))
             WITH ORDINALITY AS row_elem(elem, outer_ord)
           CROSS JOIN LATERAL jsonb_array_elements(
@@ -2778,8 +2944,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             END
           ) WITH ORDINALITY AS leaf_elem(leaf, inner_ord)
         ) AS flattened
-        WHERE val IS NOT NULL AND val <> ''
-        ORDER BY flattened.val, flattened.outer_ord, flattened.inner_ord
+        WHERE val IS NOT NULL AND val <> 'null'::jsonb AND val <> '""'::jsonb
+        ORDER BY flattened.identity, flattened.outer_ord, flattened.inner_ord
       ) AS v
     )`;
   }
@@ -2901,6 +3067,19 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     )`;
   }
 
+  private buildUniqueLookupArrayExpr(values: RawBuilder<unknown>): RawBuilder<unknown> {
+    // Preserve typed values and the first object's payload; people and links are
+    // identified by ID even when their display names or snapshots differ.
+    return sql`(
+      SELECT jsonb_agg(items.value ORDER BY items.ordinality)
+      FROM (
+        SELECT DISTINCT ON (COALESCE(value -> 'id', value)) value, ordinality
+        FROM jsonb_array_elements(${values}) WITH ORDINALITY AS elements(value, ordinality)
+        ORDER BY COALESCE(value -> 'id', value), ordinality
+      ) AS items
+    )`;
+  }
+
   /**
    * Build lookup aggregation expression.
    *
@@ -2924,6 +3103,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       tableAlias?: string;
       orderBy?: LinkOrderBy | ResolvedConditionalOrderBy;
       isMultiValue?: boolean;
+      isUnique?: boolean;
     }
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
     const tableAlias = options?.tableAlias ?? F;
@@ -2983,10 +3163,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
                     SELECT jsonb_agg(e) FILTER (WHERE jsonb_typeof(e) <> 'array') FROM __flat
                   )`;
 
+            const resultExpr = options?.isUnique
+              ? this.buildUniqueLookupArrayExpr(flattenedExpr)
+              : flattenedExpr;
             return ok(
-              isMultiValue
-                ? sql`${flattenedExpr}`.as(outputAlias)
-                : sql`${flattenedExpr} -> 0`.as(outputAlias)
+              isMultiValue ? resultExpr.as(outputAlias) : sql`${resultExpr} -> 0`.as(outputAlias)
             );
           }
 
@@ -3000,7 +3181,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               ? sql`to_jsonb(to_char(${colRef} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))`
               : sql`to_jsonb(${colRef})`;
           const aggExpr = sql`jsonb_agg(${lookupValueExpr}${orderByRef}) FILTER (WHERE ${colRef} IS NOT NULL)`;
-          return ok(isMultiValue ? aggExpr.as(outputAlias) : sql`${aggExpr} -> 0`.as(outputAlias));
+          const resultExpr = options?.isUnique ? this.buildUniqueLookupArrayExpr(aggExpr) : aggExpr;
+          return ok(
+            isMultiValue ? resultExpr.as(outputAlias) : sql`${resultExpr} -> 0`.as(outputAlias)
+          );
         }
       )
     );
@@ -3102,33 +3286,50 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               );
             }
             return ok(this.castAgg(sql`COALESCE(${filterAgg(sql`COUNT(${colRef})`)}, 0)`));
-          case 'max({values})': {
-            const aggregate = filterAgg(sql`MAX(${colRef})`);
-            return ok(
-              valueType.cellValueType.equals(CellValueType.dateTime())
-                ? aggregate
-                : this.castAgg(aggregate)
-            );
-          }
+          case 'max({values})':
           case 'min({values})': {
-            const aggregate = filterAgg(sql`MIN(${colRef})`);
-            return ok(
-              valueType.cellValueType.equals(CellValueType.dateTime())
-                ? aggregate
-                : this.castAgg(aggregate)
-            );
+            const isDateTime = valueType.cellValueType.equals(CellValueType.dateTime());
+            const extremum = expression === 'max({values})' ? 'max' : 'min';
+            const perRow = isMultipleValue
+              ? isNumericTarget
+                ? this.buildJsonNumericExtremumExpression(colRef, extremum)
+                : isDateTime
+                  ? this.buildJsonDateTimeExtremumExpression(colRef, extremum)
+                  : this.buildJsonTextExtremumExpression(colRef, extremum)
+              : colRef;
+            const aggregate =
+              extremum === 'max' ? filterAgg(sql`MAX(${perRow})`) : filterAgg(sql`MIN(${perRow})`);
+            return ok(isDateTime ? aggregate : this.castAgg(aggregate));
           }
           case 'and({values})':
-            return ok(filterAgg(sql`BOOL_AND(${colRef}::boolean)`));
+            return ok(
+              filterAgg(
+                isMultipleValue
+                  ? sql`BOOL_AND(${this.buildJsonBooleanExpression(colRef, 'and')})`
+                  : sql`BOOL_AND(${colRef}::boolean)`
+              )
+            );
           case 'or({values})':
-            return ok(filterAgg(sql`BOOL_OR(${colRef}::boolean)`));
+            return ok(
+              filterAgg(
+                isMultipleValue
+                  ? sql`BOOL_OR(${this.buildJsonBooleanExpression(colRef, 'or')})`
+                  : sql`BOOL_OR(${colRef}::boolean)`
+              )
+            );
           case 'xor({values})':
             return ok(
-              sql`(${filterAgg(sql`COUNT(CASE WHEN ${colRef}::boolean THEN 1 END)`)} % 2 = 1)`
+              isMultipleValue
+                ? sql`(${filterAgg(sql`COALESCE(SUM(${this.buildJsonBooleanTrueCountExpression(colRef)}), 0)`)} % 2 = 1)`
+                : sql`(${filterAgg(sql`COUNT(CASE WHEN ${colRef}::boolean THEN 1 END)`)} % 2 = 1)`
             );
           case 'array_join({values})':
           case 'concatenate({values})': {
-            if (foreignField.type().equals(FieldType.link())) {
+            if (
+              foreignField.type().equals(FieldType.link()) ||
+              foreignField.type().equals(FieldType.lookup()) ||
+              foreignField.type().equals(FieldType.conditionalLookup())
+            ) {
               const rowTextExpr = this.buildPerRowNestedJsonTextExpr(colRef);
               return ok(sql`STRING_AGG(${rowTextExpr}, ', '${orderBySql})`);
             }
@@ -3154,11 +3355,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             const uniqueOrderExpr = orderByExpr ?? sql.ref(`${tableAlias}.__auto_number`);
             if (foreignField.type().equals(FieldType.link())) {
               const baseAggregate = sql`jsonb_agg(to_jsonb(${colRef}) ORDER BY ${uniqueOrderExpr}) FILTER (WHERE ${colRef} IS NOT NULL)`;
-              return ok(this.buildDistinctNestedJsonTextArrayExpr(baseAggregate));
+              return ok(this.buildDistinctNestedJsonArrayExpr(baseAggregate));
             }
             if (isMultipleValue) {
               const baseAggregate = sql`jsonb_agg(${colRef} ORDER BY ${uniqueOrderExpr}) FILTER (WHERE ${colRef} IS NOT NULL)`;
-              return ok(this.buildDistinctNestedJsonTextArrayExpr(baseAggregate));
+              return ok(this.buildDistinctNestedJsonArrayExpr(baseAggregate));
             }
             if (options?.uniqueScan && !options.filterWhere) {
               const scanJoin = yield* this.getJoinCondition(
@@ -3194,30 +3395,18 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             );
           }
           case 'array_compact({values})': {
+            const compactOrderExpr = orderByExpr ?? sql.ref(`${tableAlias}.__auto_number`);
+            if (foreignField.type().equals(FieldType.link())) {
+              const baseAggregate = sql`jsonb_agg(to_jsonb(${colRef}) ORDER BY ${compactOrderExpr}) FILTER (WHERE ${colRef} IS NOT NULL)`;
+              return ok(this.buildNestedJsonArrayExpr(baseAggregate));
+            }
+            if (isMultipleValue) {
+              const baseAggregate = sql`jsonb_agg(${colRef} ORDER BY ${compactOrderExpr}) FILTER (WHERE ${colRef} IS NOT NULL)`;
+              return ok(this.buildNestedJsonArrayExpr(baseAggregate));
+            }
             const baseAggregate = orderByExpr
               ? sql`jsonb_agg(${colRef} ORDER BY ${orderByExpr}) FILTER (WHERE (${colRef}) IS NOT NULL AND (${colRef})::text <> '')`
               : sql`jsonb_agg(${colRef}) FILTER (WHERE (${colRef}) IS NOT NULL AND (${colRef})::text <> '')`;
-            if (isMultipleValue) {
-              return ok(sql`(
-              WITH RECURSIVE flattened(val) AS (
-                SELECT COALESCE(${baseAggregate}, '[]'::jsonb)
-                UNION ALL
-                SELECT elem
-                FROM flattened
-                CROSS JOIN LATERAL jsonb_array_elements(
-                  CASE
-                    WHEN jsonb_typeof(flattened.val) = 'array' THEN flattened.val
-                    ELSE '[]'::jsonb
-                  END
-                ) AS elem
-              )
-              SELECT jsonb_agg(val) FILTER (
-                WHERE jsonb_typeof(val) <> 'array'
-                  AND jsonb_typeof(val) <> 'null'
-                  AND val <> '""'::jsonb
-              ) FROM flattened
-            )`);
-            }
             return ok(baseAggregate);
           }
           default:
@@ -3285,6 +3474,122 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       WHEN ${expr} IS NULL THEN 0
       WHEN jsonb_typeof(${expr}::jsonb) = 'array' THEN COALESCE(${elementCount}, 0)
       ELSE ${scalarCount}
+    END)`;
+  }
+
+  private buildJsonTypedArrayExpr(expr: RawBuilder<unknown>): RawBuilder<unknown> {
+    return sql`(CASE
+      WHEN jsonb_typeof(${expr}::jsonb) = 'array' THEN ${expr}::jsonb
+      ELSE '[]'::jsonb
+    END)`;
+  }
+
+  private buildJsonNumericExtremumExpression(
+    expr: RawBuilder<unknown>,
+    fn: 'max' | 'min'
+  ): RawBuilder<unknown> {
+    const scalarValue = this.sanitizeNumericTextExpression(expr);
+    const safeArrayExpr = this.buildJsonTypedArrayExpr(expr);
+    const leaf = this.sanitizeNumericTextExpression(sql`elem.value`);
+    const arrayExt =
+      fn === 'max'
+        ? sql`(
+            SELECT MAX(${leaf})
+            FROM jsonb_array_elements_text(${safeArrayExpr}) AS elem(value)
+          )`
+        : sql`(
+            SELECT MIN(${leaf})
+            FROM jsonb_array_elements_text(${safeArrayExpr}) AS elem(value)
+          )`;
+    return sql`(CASE
+      WHEN ${expr} IS NULL THEN NULL
+      WHEN jsonb_typeof(${expr}::jsonb) = 'array' THEN ${arrayExt}
+      ELSE ${scalarValue}
+    END)`;
+  }
+
+  private buildJsonDateTimeExtremumExpression(
+    expr: RawBuilder<unknown>,
+    fn: 'max' | 'min'
+  ): RawBuilder<unknown> {
+    const safeArrayExpr = this.buildJsonTypedArrayExpr(expr);
+    const leaf = sql`NULLIF(elem.value, '')::timestamptz`;
+    const arrayExt =
+      fn === 'max'
+        ? sql`(
+            SELECT MAX(${leaf})
+            FROM jsonb_array_elements_text(${safeArrayExpr}) AS elem(value)
+          )`
+        : sql`(
+            SELECT MIN(${leaf})
+            FROM jsonb_array_elements_text(${safeArrayExpr}) AS elem(value)
+          )`;
+    return sql`(CASE
+      WHEN ${expr} IS NULL THEN NULL
+      WHEN jsonb_typeof(${expr}::jsonb) = 'array' THEN ${arrayExt}
+      ELSE NULLIF(${expr}::text, '')::timestamptz
+    END)`;
+  }
+
+  private buildJsonTextExtremumExpression(
+    expr: RawBuilder<unknown>,
+    fn: 'max' | 'min'
+  ): RawBuilder<unknown> {
+    const safeArrayExpr = this.buildJsonTypedArrayExpr(expr);
+    const arrayExt =
+      fn === 'max'
+        ? sql`(
+            SELECT MAX(elem.value)
+            FROM jsonb_array_elements_text(${safeArrayExpr}) AS elem(value)
+            WHERE elem.value IS NOT NULL AND elem.value <> ''
+          )`
+        : sql`(
+            SELECT MIN(elem.value)
+            FROM jsonb_array_elements_text(${safeArrayExpr}) AS elem(value)
+            WHERE elem.value IS NOT NULL AND elem.value <> ''
+          )`;
+    return sql`(CASE
+      WHEN ${expr} IS NULL THEN NULL
+      WHEN jsonb_typeof(${expr}::jsonb) = 'array' THEN ${arrayExt}
+      ELSE ${expr}::text
+    END)`;
+  }
+
+  private buildJsonBooleanExpression(
+    expr: RawBuilder<unknown>,
+    fn: 'and' | 'or'
+  ): RawBuilder<unknown> {
+    const safeArrayExpr = this.buildJsonTypedArrayExpr(expr);
+    const leaf = sql`(elem.value)::boolean`;
+    const arrayAgg =
+      fn === 'and'
+        ? sql`(
+            SELECT BOOL_AND(${leaf})
+            FROM jsonb_array_elements_text(${safeArrayExpr}) AS elem(value)
+            WHERE elem.value IS NOT NULL
+          )`
+        : sql`(
+            SELECT BOOL_OR(${leaf})
+            FROM jsonb_array_elements_text(${safeArrayExpr}) AS elem(value)
+            WHERE elem.value IS NOT NULL
+          )`;
+    return sql`(CASE
+      WHEN ${expr} IS NULL THEN NULL
+      WHEN jsonb_typeof(${expr}::jsonb) = 'array' THEN ${arrayAgg}
+      ELSE ${expr}::boolean
+    END)`;
+  }
+
+  private buildJsonBooleanTrueCountExpression(expr: RawBuilder<unknown>): RawBuilder<unknown> {
+    const safeArrayExpr = this.buildJsonTypedArrayExpr(expr);
+    const arrayCount = sql`(
+      SELECT COUNT(*) FILTER (WHERE (elem.value)::boolean IS TRUE)
+      FROM jsonb_array_elements_text(${safeArrayExpr}) AS elem(value)
+    )`;
+    return sql`(CASE
+      WHEN ${expr} IS NULL THEN 0
+      WHEN jsonb_typeof(${expr}::jsonb) = 'array' THEN COALESCE(${arrayCount}, 0)
+      ELSE CASE WHEN ${expr}::boolean THEN 1 ELSE 0 END
     END)`;
   }
 
@@ -3396,13 +3701,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             fieldType.equals(FieldType.link()) ||
             fieldType.equals(FieldType.createdBy()) ||
             fieldType.equals(FieldType.lastModifiedBy());
-          const resolveDateLikeOrderBy = (column: string) => {
-            const expression = buildDateLikeOrderExpression(field, T, column);
-            return ok(expression ? { column, expression } : { column });
-          };
-
           if (fieldType.equals(FieldType.createdTime())) {
-            return resolveDateLikeOrderBy('__created_time');
+            return ok({ column: '__created_time' });
           }
           const isTrackAll =
             'isTrackAll' in field && typeof field.isTrackAll === 'function'
@@ -3410,12 +3710,12 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               : true;
           if (fieldType.equals(FieldType.lastModifiedTime())) {
             if (isTrackAll) {
-              return resolveDateLikeOrderBy('__last_modified_time');
+              return ok({ column: '__last_modified_time' });
             }
             return field
               .dbFieldName()
               .andThen((dbFieldName) => dbFieldName.value())
-              .andThen((column) => resolveDateLikeOrderBy(column));
+              .map((column) => ({ column }));
           }
           if (fieldType.equals(FieldType.createdBy())) {
             return ok({
@@ -3440,7 +3740,6 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           return field.dbFieldName().andThen((dbFieldName) =>
             dbFieldName.value().map((column) => ({
               column,
-              expression: buildDateLikeOrderExpression(field, T, column) ?? undefined,
               ...(isUserLike
                 ? {
                     userLikeMode: (multiplicity?.isMultiple() ? 'multiple' : 'single') as Exclude<

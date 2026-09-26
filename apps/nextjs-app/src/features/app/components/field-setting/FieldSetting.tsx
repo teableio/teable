@@ -60,6 +60,9 @@ const sanitizeLinkLookupOptions = (options: ILookupLinkOptions): ILookupOptionsR
   if (options.filter != null) {
     sanitized.filter = options.filter;
   }
+  if (typeof options.isUnique === 'boolean') {
+    sanitized.isUnique = options.isUnique;
+  }
   return sanitized;
 };
 
@@ -91,6 +94,9 @@ const sanitizeConditionalLookupOptions = (
     sanitized.limit = options.limit;
   }
 
+  if (typeof options.isUnique === 'boolean') {
+    sanitized.isUnique = options.isUnique;
+  }
   return sanitized;
 };
 
@@ -204,7 +210,7 @@ export const FieldSetting = (props: IFieldSetting) => {
       if (aggregations && aggregations.length > 0) {
         const parseValue = (value: string | number | null | undefined): number | undefined => {
           if (value == null) return undefined;
-          return typeof value === 'string' ? parseInt(value, 10) : value;
+          return typeof value === 'string' ? Number.parseInt(value, 10) : value;
         };
 
         // Find empty and filled stats from aggregations
@@ -571,7 +577,7 @@ export const FieldSettingBase = (props: IFieldSettingBase) => {
           ...(result.data as IFieldRo),
           options: (result.data as IFieldRo).options ?? undefined,
         };
-        await onConfirm?.(confirmField);
+        onConfirm?.(confirmField);
       } finally {
         setIsSaving(false);
       }

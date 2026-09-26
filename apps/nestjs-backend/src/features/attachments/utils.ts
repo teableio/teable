@@ -1,4 +1,4 @@
-import { isImage } from '@teable/core';
+import { isHeic, isImage, isSvg } from '@teable/core';
 import { ATTACHMENT_THUMBNAIL_DEFAULT_MIMETYPE } from './constant';
 
 export const getExtensionPreview = (contentType: string) => {
@@ -49,5 +49,9 @@ export const getExtensionPreview = (contentType: string) => {
 };
 
 export const resolveThumbnailMimetype = (mimetype: string) => {
-  return isImage(mimetype) ? mimetype : ATTACHMENT_THUMBNAIL_DEFAULT_MIMETYPE;
+  // Image thumbnails keep the source format (cropImage preserves it), except
+  // HEIC (decoded server-side) and SVG (sharp cannot write it), both rendered as PNG.
+  return isImage(mimetype) && !isHeic(mimetype) && !isSvg(mimetype)
+    ? mimetype
+    : ATTACHMENT_THUMBNAIL_DEFAULT_MIMETYPE;
 };

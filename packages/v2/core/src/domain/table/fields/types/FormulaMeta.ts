@@ -7,6 +7,7 @@ import { RehydratedValueObject } from '../../../shared/RehydratedValueObject';
 
 const formulaMetaSchema = z.object({
   persistedAsGeneratedColumn: z.boolean().optional().default(false),
+  formulaSafetyVersion: z.number().int().positive().optional(),
 });
 
 export type FormulaMetaValue = z.infer<typeof formulaMetaSchema>;
@@ -42,9 +43,16 @@ export class FormulaMeta extends RehydratedValueObject {
     return this.value().map((value) => value.persistedAsGeneratedColumn ?? false);
   }
 
+  formulaSafetyVersion(): Result<number | undefined, DomainError> {
+    return this.value().map((value) => value.formulaSafetyVersion);
+  }
+
   toDto(): Result<FormulaMetaValue, DomainError> {
     return this.value().map((value) => ({
       persistedAsGeneratedColumn: value.persistedAsGeneratedColumn ?? false,
+      ...(value.formulaSafetyVersion !== undefined
+        ? { formulaSafetyVersion: value.formulaSafetyVersion }
+        : {}),
     }));
   }
 }

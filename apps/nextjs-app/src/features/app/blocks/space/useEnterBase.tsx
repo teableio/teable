@@ -1,4 +1,4 @@
-import type { UrlObject } from 'url';
+import type { UrlObject } from 'node:url';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronsLeft } from '@teable/icons';
 import type { IBaseEntryMapVo } from '@teable/openapi';

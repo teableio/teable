@@ -77,7 +77,7 @@ const parseDateComponents = (value: string): DateComponents | undefined => {
 };
 
 const isExactUtcDate = (date: Date, components: DateComponents): boolean =>
-  !isNaN(date.getTime()) &&
+  !Number.isNaN(date.getTime()) &&
   date.getUTCFullYear() === components.year &&
   date.getUTCMonth() === components.month - 1 &&
   date.getUTCDate() === components.day &&
@@ -111,17 +111,17 @@ const parseDateStringWithTimeZone = (value: string, timeZone: string): string | 
   const components = parseDateComponents(trimmed);
   if (!components) {
     const parsed = new Date(trimmed);
-    return isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
   }
 
   if (!isValidCalendarComponents(components)) {
     return undefined;
   }
 
-  const hasTimeZoneSuffix = /[zZ]|[+-]\d{2}:\d{2}$/.test(trimmed);
+  const hasTimeZoneSuffix = /(?:z|[+-]\d{2}:\d{2})$/i.test(trimmed);
   if (hasTimeZoneSuffix) {
     const parsed = new Date(trimmed);
-    return isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
   }
 
   const utcBase = new Date(
@@ -148,12 +148,12 @@ export const parseDateValue = (field: DateField, value: unknown): string | null 
   if (value == null) return null;
 
   if (value instanceof Date) {
-    return isNaN(value.getTime()) ? undefined : value.toISOString();
+    return Number.isNaN(value.getTime()) ? undefined : value.toISOString();
   }
 
   if (typeof value === 'number') {
     const parsed = new Date(value);
-    return isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
   }
 
   if (typeof value !== 'string') return undefined;
@@ -169,7 +169,7 @@ export const parseDateValue = (field: DateField, value: unknown): string | null 
   // Round-trip equality rejects rolled-over invalid dates (2026-02-30 → March).
   if (CANONICAL_ISO_UTC_PATTERN.test(trimmed)) {
     const parsed = new Date(trimmed);
-    if (!isNaN(parsed.getTime()) && parsed.toISOString() === trimmed) {
+    if (!Number.isNaN(parsed.getTime()) && parsed.toISOString() === trimmed) {
       return trimmed;
     }
   }

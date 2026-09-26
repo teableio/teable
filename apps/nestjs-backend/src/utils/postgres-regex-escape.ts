@@ -58,7 +58,7 @@ export function escapeJsonbRegex(input: string): string {
  * the SQL string.
  */
 export function escapeJsonPathStringLiteral(input: string): string {
-  return String(input).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return String(input).replaceAll('\\', '\\\\').replaceAll('"', '\\"');
 }
 
 /**

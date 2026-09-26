@@ -22,14 +22,15 @@ export class BaseShareJwtStrategy extends PassportStrategy(Strategy, BASE_SHARE_
   }
 
   public static fromAuthCookieAsToken(req: Request): string | null {
-    const shareId = req.params.shareId || (req.headers['tea-share-id'] as string);
+    const shareId =
+      (req.params.shareId as string | undefined) || (req.headers['tea-share-id'] as string);
     const cookieObj = cookie.parse(req.headers.cookie ?? '');
     return cookieObj?.[shareId] ?? null;
   }
 
   async validate(payload: IJwtBaseShareInfo) {
-    const { shareId, password } = payload;
-    const authShareId = await this.baseShareAuthService.authBaseShare(shareId, password);
+    const { shareId, pwHash } = payload;
+    const authShareId = await this.baseShareAuthService.authBaseShareByHash(shareId, pwHash);
     if (!authShareId) {
       throw new UnauthorizedException();
     }

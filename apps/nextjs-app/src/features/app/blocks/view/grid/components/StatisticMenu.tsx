@@ -51,15 +51,14 @@ export const StatisticMenu = () => {
 
   const onSelect = (type: NoneFunc | StatisticsFunc) => {
     closeStatisticMenu();
-    view &&
-      view.updateColumnMeta([
-        {
-          fieldId,
-          columnMeta: {
-            statisticFunc: type === NoneFunc.None ? null : type,
-          },
+    view?.updateColumnMeta([
+      {
+        fieldId,
+        columnMeta: {
+          statisticFunc: type === NoneFunc.None ? null : type,
         },
-      ]);
+      },
+    ]);
   };
 
   return (

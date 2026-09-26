@@ -22,7 +22,7 @@ export type TableQueryObservationDatabase = {
     total_db_duration_ms: number | null;
     max_db_duration_ms: number | null;
     shape: unknown;
-    sql_diagnostics: unknown | null;
+    sql_diagnostics: unknown;
     created_time?: Date;
     last_modified_time?: Date | null;
   };
@@ -53,7 +53,7 @@ export type TableQueryOpsDatabase = {
     kind: string;
     status: string;
     payload: unknown;
-    result: unknown | null;
+    result: unknown;
     attempts: number;
     max_attempts: number;
     locked_at?: Date | null;
@@ -101,7 +101,7 @@ export type TableQueryOpsDatabase = {
     field_db_names: unknown;
     search_scope: string;
     status: string;
-    last_inspection: unknown | null;
+    last_inspection: unknown;
     reclaim_idx_scan_baseline: number | null;
     reclaim_sampled_at: Date | null;
     reclaim_disabled_at: Date | null;

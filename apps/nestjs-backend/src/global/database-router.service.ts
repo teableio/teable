@@ -174,7 +174,7 @@ export class DatabaseRouter {
   async queryDataPrismaForTable<T = unknown>(
     tableId: string,
     query: string,
-    optionsOrFirstValue?: IDataDbRoutingOptions | unknown,
+    optionsOrFirstValue?: unknown,
     ...values: unknown[]
   ): Promise<T> {
     const { options, queryValues } = this.normalizeRoutingOptions(optionsOrFirstValue, values);
@@ -190,7 +190,7 @@ export class DatabaseRouter {
   async executeDataPrismaForTable(
     tableId: string,
     query: string,
-    optionsOrFirstValue?: IDataDbRoutingOptions | unknown,
+    optionsOrFirstValue?: unknown,
     ...values: unknown[]
   ): Promise<number> {
     const { options, queryValues } = this.normalizeRoutingOptions(optionsOrFirstValue, values);
@@ -201,7 +201,7 @@ export class DatabaseRouter {
   async queryDataPrismaForBase<T = unknown>(
     baseId: string,
     query: string,
-    optionsOrFirstValue?: IDataDbRoutingOptions | unknown,
+    optionsOrFirstValue?: unknown,
     ...values: unknown[]
   ): Promise<T> {
     const { options, queryValues } = this.normalizeRoutingOptions(optionsOrFirstValue, values);
@@ -217,7 +217,7 @@ export class DatabaseRouter {
   async executeDataPrismaForBase(
     baseId: string,
     query: string,
-    optionsOrFirstValue?: IDataDbRoutingOptions | unknown,
+    optionsOrFirstValue?: unknown,
     ...values: unknown[]
   ): Promise<number> {
     const { options, queryValues } = this.normalizeRoutingOptions(optionsOrFirstValue, values);
@@ -288,7 +288,7 @@ export class DatabaseRouter {
   }
 
   private normalizeRoutingOptions(
-    optionsOrFirstValue: IDataDbRoutingOptions | unknown,
+    optionsOrFirstValue: unknown,
     values: unknown[]
   ): { options?: IDataDbRoutingOptions; queryValues: unknown[] } {
     if (this.isRoutingOptions(optionsOrFirstValue)) {

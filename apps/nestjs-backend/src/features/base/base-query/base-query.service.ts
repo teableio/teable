@@ -29,7 +29,7 @@ import { getQueryColumnTypeByFieldInstance } from './parse/utils';
 
 @Injectable()
 export class BaseQueryService {
-  private logger = new Logger(BaseQueryService.name);
+  private readonly logger = new Logger(BaseQueryService.name);
 
   constructor(
     @InjectModel(DATA_KNEX) private readonly knex: Knex,
@@ -56,8 +56,8 @@ export class BaseQueryService {
         .map((part) => this.quoteIdentifier(part))
         .join('.');
     }
-    const trimmed = name.replace(/^"+|"+$/g, '');
-    const escaped = trimmed.replace(/"/g, '""');
+    const trimmed = name.replace(/^"+|(?<!")"+$/g, '');
+    const escaped = trimmed.replaceAll('"', '""');
     return `"${escaped}"`;
   }
 
@@ -299,7 +299,7 @@ export class BaseQueryService {
     const { baseId, fieldMap, queryBuilder } = context;
     let resFieldMap = { ...fieldMap };
 
-    const unquotePath = (ref: string) => ref.replace(/"/g, '');
+    const unquotePath = (ref: string) => ref.replaceAll('"', '');
     for (const join of joins) {
       const joinTable = join.table;
       const joinDbTableName = await this.getDbTableName(baseId, joinTable);
@@ -367,7 +367,7 @@ export class BaseQueryService {
           const rawFieldName = field.dbFieldName ?? '';
           const columnSegment = rawFieldName.split('.').pop() ?? rawFieldName;
           const isSimpleIdentifier =
-            !!columnSegment && /^[\w"]+$/.test(columnSegment.replace(/^"+|"+$/g, ''));
+            !!columnSegment && /^[\w"]+$/.test(columnSegment.replace(/^"+|(?<!")"+$/g, ''));
           field.dbFieldName =
             columnSegment && isSimpleIdentifier
               ? `${qualifiedTable}.${this.quoteIdentifier(columnSegment)}`

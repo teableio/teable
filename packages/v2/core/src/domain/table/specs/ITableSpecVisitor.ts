@@ -80,6 +80,7 @@ import type { TableUpdateViewShareMetaSpec } from './TableUpdateViewShareMetaSpe
 import type { TableUpdateViewShareStateSpec } from './TableUpdateViewShareStateSpec';
 import type { TableWithViewIdsSpec } from './TableWithViewIdsSpec';
 import type { TableWithPrimaryFieldSpec } from './TableWithPrimaryFieldSpec';
+import type { TableWithFieldIdsSpec } from './TableWithFieldIdsSpec';
 
 export interface ITableSpecVisitor<TResult = unknown> extends ISpecVisitor {
   // ============ Existing specs ============
@@ -112,6 +113,7 @@ export interface ITableSpecVisitor<TResult = unknown> extends ISpecVisitor {
   visitTableByViewId(spec: TableByViewIdSpec): Result<TResult, DomainError>;
   visitTableWithViewIds(spec: TableWithViewIdsSpec): Result<TResult, DomainError>;
   visitTableWithPrimaryField(spec: TableWithPrimaryFieldSpec): Result<TResult, DomainError>;
+  visitTableWithFieldIds(spec: TableWithFieldIdsSpec): Result<TResult, DomainError>;
   visitTableByIncomingReferenceToTable(
     spec: TableByIncomingReferenceToTableSpec
   ): Result<TResult, DomainError>;

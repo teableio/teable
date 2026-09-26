@@ -18,7 +18,7 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
     // Bind the jsonpath as a parameter; never concatenate the raw value into the
     // SQL string (a single quote would otherwise break out and inject SQL).
     const jsonPath = `$[*] ? (@ == "${escapeJsonPathStringLiteral(String(value))}")`;
-    builderClient.whereRaw(`${this.tableColumnRef}::jsonb @\\? ?`, [jsonPath]);
+    builderClient.whereRaw(String.raw`${this.tableColumnRef}::jsonb @\? ?`, [jsonPath]);
     return builderClient;
   }
 
@@ -29,7 +29,9 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const jsonPath = `$[*] ? (@ == "${escapeJsonPathStringLiteral(String(value))}")`;
-    builderClient.whereRaw(`NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb @\\? ?`, [jsonPath]);
+    builderClient.whereRaw(String.raw`NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb @\? ?`, [
+      jsonPath,
+    ]);
     return builderClient;
   }
 
@@ -41,7 +43,7 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
   ): Knex.QueryBuilder {
     this.ensureLiteralValue(value, _operator);
     const jsonPath = `$[*] ? (@ like_regex "${escapeJsonPathRegexLiteral(String(value))}" flag "i")`;
-    builderClient.whereRaw(`${this.tableColumnRef}::jsonb @\\? ?`, [jsonPath]);
+    builderClient.whereRaw(String.raw`${this.tableColumnRef}::jsonb @\? ?`, [jsonPath]);
     return builderClient;
   }
 
@@ -53,7 +55,9 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
   ): Knex.QueryBuilder {
     this.ensureLiteralValue(value, _operator);
     const jsonPath = `$[*] ? (@ like_regex "${escapeJsonPathRegexLiteral(String(value))}" flag "i")`;
-    builderClient.whereRaw(`NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb @\\? ?`, [jsonPath]);
+    builderClient.whereRaw(String.raw`NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb @\? ?`, [
+      jsonPath,
+    ]);
     return builderClient;
   }
 }

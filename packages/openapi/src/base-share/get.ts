@@ -18,7 +18,8 @@ export type IGetBaseShareVo = z.infer<typeof getBaseShareVoSchema>;
 export const GetBaseShareRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_BASE_SHARE,
-  description: 'Get shared base information',
+  title: 'Get shared project',
+  description: 'Retrieve shared project information using a share link ID.',
   request: {
     params: z.object({
       shareId: z.string(),
@@ -26,7 +27,7 @@ export const GetBaseShareRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Returns the shared base information',
+      description: 'Returns the shared project information',
       content: {
         'application/json': {
           schema: getBaseShareVoSchema,
@@ -60,7 +61,8 @@ export type IBaseShareByNodeIdVo = z.infer<typeof baseShareByNodeIdVoSchema>;
 export const GetBaseShareByNodeIdRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_BASE_SHARE_BY_NODE_ID,
-  description: 'Get a base share by node ID',
+  title: 'Get project share by node',
+  description: 'Retrieve the share link settings for a node in a project.',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -69,7 +71,7 @@ export const GetBaseShareByNodeIdRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Returns the base share for the specified node',
+      description: 'Returns the project share for the specified node',
       content: {
         'application/json': {
           schema: baseShareByNodeIdVoSchema,

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
 import { Controller, Get, Header, Req, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { generateV2OpenApiDocument } from '@teable/v2-contract-http-openapi';

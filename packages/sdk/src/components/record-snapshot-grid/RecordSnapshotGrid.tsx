@@ -67,7 +67,9 @@ export interface IRecordSnapshotGridProps<TItem extends object> {
   gridRef?: MutableRefObject<IGridRef | null>;
 }
 
-export function RecordSnapshotGrid<TItem extends object>(props: IRecordSnapshotGridProps<TItem>) {
+export function RecordSnapshotGrid<TItem extends object>(
+  props: Readonly<IRecordSnapshotGridProps<TItem>>
+) {
   const {
     fields,
     rowCount,

@@ -299,7 +299,7 @@ export class ColdRowSorter<TRow extends { id: string }> implements IEvictable {
   async cleanup(): Promise<void> {
     // settle first, or an in-flight spill's file leaks into tmpdir once
     // runFiles is cleared
-    await Promise.allSettled([...this.pendingSpills]);
+    await Promise.allSettled(this.pendingSpills);
     this.budget?.release(this.runBytes);
     this.runBytes = 0;
     this.run = [];
@@ -345,7 +345,7 @@ export class ColdRowSorter<TRow extends { id: string }> implements IEvictable {
   }
 
   private async settleSpills(): Promise<void> {
-    await Promise.allSettled([...this.pendingSpills]);
+    await Promise.allSettled(this.pendingSpills);
     if (this.spillError) throw this.spillError;
   }
 

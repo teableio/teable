@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { setContentDirectionEnabled } from '../../../../utils/text-direction';
-import { drawSingleLineText } from './baseRenderer';
+import { drawMultiLineText, drawSingleLineText } from './baseRenderer';
 
 // Deterministic additive measureText: CJK 12px, '.' 4px, other ascii 6px
 const measure = (text: string) => {
@@ -144,5 +144,47 @@ describe('drawSingleLineText content direction', () => {
     });
 
     expect(text).toMatch(/\.{3}$/);
+  });
+});
+
+describe('drawMultiLineText line offsets', () => {
+  const wrap = (text: string, maxWidth: number, maxLines = Infinity) =>
+    drawMultiLineText(ctx, { text, maxWidth, maxLines, needRender: false });
+
+  it('reports where each wrapped line starts in the source text', () => {
+    const text = 'aaaa bbbb cccc dddd';
+    const lines = wrap(text, 60);
+    expect(lines.length).toBeGreaterThan(1);
+    lines.forEach(({ text: lineText, start }) => {
+      expect(text.slice(start, start + lineText.length)).toBe(lineText);
+    });
+    expect(lines[0].start).toBe(0);
+  });
+
+  it('skips newline characters between lines', () => {
+    const lines = wrap('ab\ncd\n\nef', 1000);
+    expect(lines.map(({ text, start }) => [text, start])).toEqual([
+      ['ab', 0],
+      ['cd', 3],
+      ['', 6],
+      ['ef', 7],
+    ]);
+  });
+
+  it('breaks an oversized word per grapheme and keeps offsets contiguous', () => {
+    const text = 'abcdefghij';
+    const lines = wrap(text, 30);
+    expect(lines.map(({ text: lineText }) => lineText).join('')).toBe(text);
+    lines.forEach(({ text: lineText, start }) => {
+      expect(text.slice(start, start + lineText.length)).toBe(lineText);
+    });
+  });
+
+  it('keeps the offset of a truncated last line', () => {
+    const text = 'aaaa bbbb cccc dddd eeee';
+    const [first, last] = wrap(text, 60, 2);
+    expect(last.text).toMatch(/\.{3}$/);
+    expect(last.start).toBe(first.text.length);
+    expect(text.startsWith(last.text.slice(0, -3), last.start)).toBe(true);
   });
 });

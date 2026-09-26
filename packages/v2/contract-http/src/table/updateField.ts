@@ -11,7 +11,6 @@ import { z } from 'zod';
 
 import { domainEventDtoSchema, mapDomainEventToDto } from '../shared/domainEvent';
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type HttpErrorStatus,
   type IApiErrorResponseDto,
@@ -60,7 +59,7 @@ export const updateFieldResponseDataSchema = z.object({
 
 export const updateFieldOkResponseSchema = apiOkResponseDtoSchema(updateFieldResponseDataSchema);
 
-export const updateFieldErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as updateFieldErrorResponseSchema } from '../shared/http';
 
 export const mapUpdateFieldResultToDto = (
   result: UpdateFieldResult

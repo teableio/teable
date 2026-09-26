@@ -73,7 +73,7 @@ export const PersonalViewProvider = ({ children }: IPersonalViewProviderProps) =
         : (group as IGroup),
       // projection is a field-id set, not a sequence: keep it order-stable so
       // downstream cache keys don't churn when columns are reordered
-      projection: [...visibleFieldIds].sort(),
+      projection: [...visibleFieldIds].sort((a, b) => Number(a > b) - Number(a < b)),
     } as IGetRecordsRo;
     const aggregationQuery = {
       ...commonQuery,

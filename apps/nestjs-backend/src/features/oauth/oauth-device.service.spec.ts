@@ -303,6 +303,7 @@ describe('OAuthDeviceService', () => {
       // The code is untouched and the real decision can still land.
       await expect(service.decide({ userCode, approve: true, user: USER })).resolves.toEqual({
         clientId: CLIENT_ID,
+        scopes: APP_SCOPES,
       });
     });
   });

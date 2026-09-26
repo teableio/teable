@@ -289,7 +289,7 @@ export class CreateTablesHandler
     context: ExecutionContextPort.IExecutionContext,
     command: CreateTablesCommand
   ): Promise<Result<CreateTablesResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<CreateTablesResult, DomainError>(async function* () {
       const tableCommands = command.tables;
 

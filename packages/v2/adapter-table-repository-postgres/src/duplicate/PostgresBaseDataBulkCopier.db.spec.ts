@@ -263,4 +263,31 @@ describe('PostgresBaseDataBulkCopier (db)', () => {
     const supported = await copier.isSupported(context, unreachablePlan);
     expect(supported._unsafeUnwrap()).toBe(false);
   });
+
+  it('rejects an empty source schema left behind after a database move', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const db = container.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const copier = container.resolve<IBaseDataBulkCopier>(v2CoreTokens.baseDataBulkCopier);
+    const context = { actorId: ActorId.create('system')._unsafeUnwrap() };
+    const schema = baseId.toString();
+    await sql.raw(`CREATE SCHEMA IF NOT EXISTS ${quoteIdentifier(schema)}`).execute(db);
+
+    const supported = await copier.isSupported(context, buildPlan(schema));
+
+    expect(supported._unsafeUnwrap()).toBe(false);
+  });
+
+  it('rejects a plan whose source tables exist but source junction is absent', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const db = container.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const copier = container.resolve<IBaseDataBulkCopier>(v2CoreTokens.baseDataBulkCopier);
+    const context = { actorId: ActorId.create('system')._unsafeUnwrap() };
+    const schema = baseId.toString();
+    await createDataTables(db, schema);
+    await sql.raw(`DROP TABLE ${qualified(`${schema}.junction_bulk_old`)}`).execute(db);
+
+    const supported = await copier.isSupported(context, buildPlan(schema));
+
+    expect(supported._unsafeUnwrap()).toBe(false);
+  });
 });

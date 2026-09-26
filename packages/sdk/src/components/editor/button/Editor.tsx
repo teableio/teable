@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { IButtonFieldCellValue } from '@teable/core';
 import { checkButtonClickable, Colors } from '@teable/core';
-import { useTheme } from '@teable/next-themes';
 import {
+  useTheme,
   Button,
   cn,
   Tooltip,

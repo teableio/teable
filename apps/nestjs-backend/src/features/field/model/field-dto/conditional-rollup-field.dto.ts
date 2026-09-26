@@ -10,7 +10,7 @@ export class ConditionalRollupFieldDto extends ConditionalRollupFieldCore implem
     if (this.isMultipleCellValue) {
       return value == null ? value : JSON.stringify(value);
     }
-    if (typeof value === 'number' && (isNaN(value) || !isFinite(value))) {
+    if (typeof value === 'number' && (Number.isNaN(value) || !Number.isFinite(value))) {
       return null;
     }
     return value;

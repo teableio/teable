@@ -73,7 +73,7 @@ export function AddModelDialog({
   testState,
   onAddModel,
   t,
-}: IAddModelDialogProps) {
+}: Readonly<IAddModelDialogProps>) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">

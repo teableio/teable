@@ -33,6 +33,11 @@ export default defineConfig({
     mockReset: true,
     restoreMocks: true,
     include: testFiles,
-    exclude: [...configDefaults.exclude, '**/.next/**'],
+    exclude: [
+      ...configDefaults.exclude,
+      '**/.next/**',
+      '**/*.pg-plan.spec.ts',
+      '**/*.pg-benchmark.spec.ts',
+    ],
   },
 });

@@ -359,7 +359,7 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
 
       const notify = await clsService.runWith<Promise<IAttachmentItem>>(
         {
-          // eslint-disable-next-line
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           user: {
             id: userId,
             name: 'Test User',
@@ -722,9 +722,9 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       importedBaseId = importedBase.id;
 
       const tableList = (await getTableList(importedBase.id)).data;
-      expect(tableList.map(({ name }) => name).sort()).toEqual(
-        [hostTable.name, lookupTable.name].sort()
-      );
+      expect(
+        tableList.map(({ name }) => name).sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual([hostTable.name, lookupTable.name].sort((a, b) => Number(a > b) - Number(a < b)));
 
       const importedLookupMeta = tableList.find(
         (tableMeta) => tableMeta.name === lookupTable.name
@@ -876,8 +876,10 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
         importedBaseId = importedBase.id;
 
         const tableList = (await getTableList(importedBase.id)).data;
-        expect(tableList.map(({ name }) => name).sort()).toEqual(
-          [hostTable.name, foreignTable.name].sort()
+        expect(
+          tableList.map(({ name }) => name).sort((a, b) => Number(a > b) - Number(a < b))
+        ).toEqual(
+          [hostTable.name, foreignTable.name].sort((a, b) => Number(a > b) - Number(a < b))
         );
 
         const importedHostMeta = tableList.find((tableMeta) => tableMeta.name === hostTable.name)!;
@@ -1434,8 +1436,10 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       expect(integrityDecision.data.useV2).toBe(true);
 
       const importedTables = await getTableList(importedCanaryBaseId).then((res) => res.data);
-      expect(importedTables.map(({ name }) => name).sort()).toEqual(
-        [projectsTable.name, tasksTable.name].sort()
+      expect(
+        importedTables.map(({ name }) => name).sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(
+        [projectsTable.name, tasksTable.name].sort((a, b) => Number(a > b) - Number(a < b))
       );
       const importedProjects = importedTables.find(({ name }) => name === projectsTable.name)!;
       const importedTasks = importedTables.find(({ name }) => name === tasksTable.name)!;
@@ -1782,9 +1786,9 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       const importedBaseId = result.base.id;
 
       const tableList = (await getTableList(importedBaseId)).data;
-      expect(tableList.map((table) => table.name).sort()).toEqual(
-        [mainTable.name, subTable.name].sort()
-      );
+      expect(
+        tableList.map((table) => table.name).sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual([mainTable.name, subTable.name].sort((a, b) => Number(a > b) - Number(a < b)));
 
       const importedMainTable = tableList.find((table) => table.name === mainTable.name)!;
       const importedFields = (await getFields(importedMainTable.id)).data;
@@ -1792,9 +1796,9 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
 
       const importedViews = (await getViewList(importedMainTable.id)).data;
       const importedPluginViews = importedViews.filter((view) => view.type === ViewType.Plugin);
-      expect(importedPluginViews.map((view) => view.name).sort()).toEqual(
-        ['sheetView1', 'sheetView2'].sort()
-      );
+      expect(
+        importedPluginViews.map((view) => view.name).sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(['sheetView1', 'sheetView2'].sort((a, b) => Number(a > b) - Number(a < b)));
       for (const sourceView of sourcePluginViews) {
         const importedView = importedPluginViews.find(({ name }) => name === sourceView.name)!;
         const importedInstall = (await getViewInstallPlugin(importedMainTable.id, importedView.id))
@@ -2300,11 +2304,11 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       // Verify resource types distribution
       const sourceResourceTypes = updatedSourceNodes
         .map((n) => n.resourceType)
-        .sort()
+        .sort((a, b) => Number(a > b) - Number(a < b))
         .join(',');
       const importedResourceTypes = importedNodes
         .map((n) => n.resourceType)
-        .sort()
+        .sort((a, b) => Number(a > b) - Number(a < b))
         .join(',');
       expect(importedResourceTypes).toBe(sourceResourceTypes);
 
@@ -2341,8 +2345,12 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       expect(importedNodesWithParent.length).toBe(sourceNodesWithParent.length);
 
       // Verify folder names are preserved
-      const sourceFolderNames = sourceFolders.map((f) => f.resourceMeta?.name).sort();
-      const importedFolderNames = importedFolders.map((f) => f.resourceMeta?.name).sort();
+      const sourceFolderNames = sourceFolders
+        .map((f) => f.resourceMeta?.name)
+        .sort((a, b) => Number(a > b) - Number(a < b));
+      const importedFolderNames = importedFolders
+        .map((f) => f.resourceMeta?.name)
+        .sort((a, b) => Number(a > b) - Number(a < b));
       expect(importedFolderNames).toEqual(sourceFolderNames);
 
       // Verify that table inside folder1 exists in imported base
@@ -2370,8 +2378,12 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       // Verify tables are accessible
       const importedTableList = await getTableList(importedNodeBaseId).then((res) => res.data);
       expect(importedTableList.length).toBe(2);
-      expect(importedTableList.map((t) => t.name).sort()).toEqual(
-        [table1Node.resourceMeta?.name, table2Node.resourceMeta?.name].sort()
+      expect(
+        importedTableList.map((t) => t.name).sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(
+        [table1Node.resourceMeta?.name, table2Node.resourceMeta?.name].sort(
+          (a, b) => Number(a > b) - Number(a < b)
+        )
       );
 
       // Verify dashboards are accessible
@@ -2379,8 +2391,12 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
         (res) => res.data
       );
       expect(importedDashboardList.length).toBe(2);
-      expect(importedDashboardList.map((d) => d.name).sort()).toEqual(
-        [dashboard1Node.resourceMeta?.name, dashboard2Node.resourceMeta?.name].sort()
+      expect(
+        importedDashboardList.map((d) => d.name).sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(
+        [dashboard1Node.resourceMeta?.name, dashboard2Node.resourceMeta?.name].sort(
+          (a, b) => Number(a > b) - Number(a < b)
+        )
       );
     });
   });

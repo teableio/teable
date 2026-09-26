@@ -21,10 +21,15 @@ for (let index = 0; index < rawArgs.length; index += 1) {
   passthroughArgs.push(arg);
 }
 
-const child = spawn('storybook', ['dev', '--host', '127.0.0.1', '-p', port, ...passthroughArgs], {
-  stdio: 'inherit',
-  shell: process.platform === 'win32',
-});
+// Sonar S4036 (reported on the command-name argument): developer/CLI script on a trusted machine; the executable is resolved through PATH by design
+const child = spawn(
+  'storybook', // NOSONAR javascript:S4036 -- executable resolved through PATH by design (see above)
+  ['dev', '--host', '127.0.0.1', '-p', port, ...passthroughArgs],
+  {
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+  }
+);
 
 child.on('exit', (code, signal) => {
   if (signal) {

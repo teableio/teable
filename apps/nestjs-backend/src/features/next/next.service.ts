@@ -9,10 +9,10 @@ import type { ICacheStore } from '../../cache/types';
 
 @Injectable()
 export class NextService implements OnModuleInit, OnModuleDestroy {
-  private logger = new Logger(NextService.name);
+  private readonly logger = new Logger(NextService.name);
   public server!: ReturnType<typeof createServer>;
   constructor(
-    private configService: ConfigService,
+    private readonly configService: ConfigService,
     private readonly cacheService: CacheService<ICacheStore>
   ) {}
 

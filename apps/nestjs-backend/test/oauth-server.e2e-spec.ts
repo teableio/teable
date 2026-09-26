@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { cliOAuthApp, HttpError } from '@teable/core';
 import {
@@ -16,6 +16,7 @@ import {
   generateOAuthSecret,
   oauthCreate,
   oauthDelete,
+  oauthUpdate,
   revokeAccess,
   urlBuilder,
 } from '@teable/openapi';
@@ -142,6 +143,34 @@ describe('OpenAPI OAuthController (e2e)', () => {
     await app.close();
   });
 
+  const exchange = async (target: OAuthCreateVo, code: string) => {
+    const secret = await generateOAuthSecret(target.clientId);
+    return anonymousAxios.post(
+      `/oauth/access_token`,
+      new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        client_id: target.clientId,
+        client_secret: secret.data.secret,
+        redirect_uri: target.redirectUris[0],
+      }),
+      {
+        maxRedirects: 0,
+        headers: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+  };
+
+  // The user approves on the consent screen and the app exchanges the code: it holds a token.
+  const approve = async (target: OAuthCreateVo) => {
+    const { transactionID } = await getAuthorize(axios, target);
+    const res = await decision(axios, transactionID!);
+    return exchange(target, new URL(res.headers.location).searchParams.get('code')!);
+  };
+
   it('/api/oauth/authorize (GET)', async () => {
     const res = await axios.get(
       `/oauth/authorize?response_type=code&client_id=${oauth.clientId}&redirect_uri=${oauth.redirectUris[0]}&scope=${oauth.scopes?.join(' ')}`,
@@ -176,7 +205,8 @@ describe('OpenAPI OAuthController (e2e)', () => {
     const ensure = await decision(axios, transactionID!);
     expect(ensure.status).toBe(302);
     expect(ensure.headers.location).toContain(`${oauth.redirectUris[0]}?code=`);
-    // Trust Authorized
+    // Trust Authorized, once the app holds a token from the approval
+    await exchange(oauth, new URL(ensure.headers.location).searchParams.get('code')!);
     const { code } = await getAuthorize(axios, oauth);
     expect(code).not.toBeNull();
   });
@@ -324,28 +354,12 @@ describe('OpenAPI OAuthController (e2e)', () => {
   });
 
   it('/api/oauth/access_token (POST) - has decision', async () => {
-    const { transactionID } = await getAuthorize(axios, oauth);
-    await decision(axios, transactionID!);
+    await approve(oauth);
+    // approved, and the app holds a token for it: no consent screen this time
     const { code } = await getAuthorize(axios, oauth);
-    const secret = await generateOAuthSecret(oauth.clientId);
+    expect(code).not.toBeNull();
 
-    const tokenRes = await anonymousAxios.post(
-      `/oauth/access_token`,
-      new URLSearchParams({
-        grant_type: 'authorization_code',
-        code: code ?? '',
-        client_id: oauth.clientId,
-        client_secret: secret.data.secret,
-        redirect_uri: oauth.redirectUris[0],
-      }),
-      {
-        maxRedirects: 0,
-        headers: {
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      }
-    );
+    const tokenRes = await exchange(oauth, code!);
     expect(tokenRes.status).toBe(201);
     expect(tokenRes.data).toEqual({
       token_type: 'Bearer',
@@ -355,6 +369,55 @@ describe('OpenAPI OAuthController (e2e)', () => {
       expires_in: expect.any(Number),
       refresh_expires_in: expect.any(Number),
     });
+  });
+
+  it('/api/oauth/authorize (GET) - asks again when the app got no token from the approval', async () => {
+    const { transactionID } = await getAuthorize(axios, oauth);
+    await decision(axios, transactionID!);
+    expect((await getAuthorize(axios, oauth)).code).toBeNull();
+  });
+
+  it('/api/oauth/authorize (GET) - asks again for scopes the app does not hold', async () => {
+    await approve(oauth);
+    // the same scopes again: the app holds them, no consent screen
+    expect((await getAuthorize(axios, oauth)).code).not.toBeNull();
+
+    // the app now asks for more: the user is shown the consent screen again
+    const moreScopes = ['user|email_read', 'user|spaces_read'];
+    await oauthUpdate(oauth.clientId, { ...oauthData, scopes: moreScopes });
+    const asksMore = { ...oauth, scopes: moreScopes };
+    const again = await getAuthorize(axios, asksMore);
+    expect(again.code).toBeNull();
+    const info = await axios.get(`/oauth/decision/${again.transactionID}`);
+    expect(info.data.scopes).toEqual(moreScopes);
+
+    const approved = await decision(axios, again.transactionID!);
+    await exchange(asksMore, new URL(approved.headers.location).searchParams.get('code')!);
+    expect((await getAuthorize(axios, asksMore)).code).not.toBeNull();
+    // asking for less than the app holds needs no new approval
+    expect((await getAuthorize(axios, oauth)).code).not.toBeNull();
+  });
+
+  it('/api/oauth/authorize (GET) - counts every token the app holds, approved one scope at a time', async () => {
+    await oauthUpdate(oauth.clientId, {
+      ...oauthData,
+      scopes: ['user|email_read', 'user|spaces_read'],
+    });
+    const emailOnly = { ...oauth, scopes: ['user|email_read'] };
+    const spacesOnly = { ...oauth, scopes: ['user|spaces_read'] };
+    await approve(emailOnly);
+
+    const spaces = await getAuthorize(axios, spacesOnly);
+    expect(spaces.code).toBeNull();
+    const approved = await decision(axios, spaces.transactionID!);
+    await exchange(spacesOnly, new URL(approved.headers.location).searchParams.get('code')!);
+
+    // both approved now, one at a time: neither asks again
+    expect((await getAuthorize(axios, emailOnly)).code).not.toBeNull();
+    expect(
+      (await getAuthorize(axios, { ...oauth, scopes: ['user|email_read', 'user|spaces_read'] }))
+        .code
+    ).not.toBeNull();
   });
 
   it('/api/oauth/access_token (POST) - scope [no email]', async () => {
@@ -861,7 +924,25 @@ describe('OpenAPI OAuthController (e2e)', () => {
         'S256',
         '123456'
       );
-      await decision(axios, transactionID!);
+      const approved = await decision(axios, transactionID!);
+      // the app exchanges the code: it now holds a token with the approved scopes
+      await anonymousAxios.post(
+        `/oauth/access_token`,
+        new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: new URL(approved.headers.location).searchParams.get('code') ?? '',
+          client_id: oauth.clientId,
+          code_verifier: codeVerifier1,
+          redirect_uri: oauth.redirectUris[0],
+        }),
+        {
+          maxRedirects: 0,
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
 
       // Second authorization - should be trusted (immediate)
       const codeVerifier2 = generateCodeVerifier();

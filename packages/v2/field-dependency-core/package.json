@@ -34,9 +34,10 @@
     "neverthrow": "8.2.0"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "4.0.17",
     "@teable/v2-tsdown-config": "workspace:*",
     "@teable/eslint-config-bases": "workspace:^",
-    "@types/node": "22.18.0",
+    "@types/node": "24.13.2",
     "eslint": "8.57.0",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",

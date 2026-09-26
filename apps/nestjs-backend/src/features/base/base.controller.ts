@@ -25,6 +25,8 @@ import {
   ICreateBaseFromTemplateRo,
   updateOrderRoSchema,
   IUpdateOrderRo,
+  getBaseAllRoSchema,
+  IGetBaseAllRo,
   createBaseInvitationLinkRoSchema,
   CreateBaseInvitationLinkRo,
   updateBaseInvitationLinkRoSchema,
@@ -89,6 +91,7 @@ import { BaseDuplicateService } from './base-duplicate.service';
 import { BaseExportV2Service } from './base-export-v2.service';
 import { BaseExportService } from './base-export.service';
 import { BaseImportService, formatBaseImportError } from './base-import.service';
+import { BasePersonalOrderService } from './base-personal-order.service';
 import { BaseService } from './base.service';
 import { DbConnectionService } from './db-connection.service';
 
@@ -103,7 +106,8 @@ export class BaseController {
     private readonly collaboratorService: CollaboratorService,
     private readonly invitationService: InvitationService,
     private readonly baseDuplicateService: BaseDuplicateService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly basePersonalOrderService: BasePersonalOrderService
   ) {}
 
   @Post()
@@ -254,13 +258,15 @@ export class BaseController {
               );
             }
           )
-        : { base: await this.baseService.duplicateBase(duplicateBaseRo) };
+        : {
+            base: await this.baseService.duplicateBase(duplicateBaseRo, { auditBaseCreate: true }),
+          };
 
       sendEvent({ type: 'done', data: result.base });
     } catch (error) {
       sendEvent({
         type: 'error',
-        message: error instanceof Error ? error.message : 'Unknown duplicate base error',
+        message: error instanceof Error ? error.message : 'Unknown duplicate project error',
       });
     } finally {
       clearInterval(heartbeat);
@@ -313,6 +319,24 @@ export class BaseController {
     return await this.baseService.updateOrder(baseId, updateOrderRo);
   }
 
+  // The caller's own arrangement (T7235): reading the base is enough, nobody else is affected.
+  @Put(':baseId/personal-order')
+  @Permissions('base|read')
+  async updatePersonalOrder(
+    @Param('baseId') baseId: string,
+    @Body(new ZodValidationPipe(updateOrderRoSchema)) updateOrderRo: IUpdateOrderRo
+  ): Promise<void> {
+    await this.basePersonalOrderService.move(baseId, updateOrderRo);
+  }
+
+  // Two segments on purpose: a subclass re-declaring `DELETE :baseId` registers its routes
+  // first, so a single literal segment here would be read as a base id.
+  @Delete('personal-order/:spaceId')
+  @Permissions('base|read_all')
+  async resetPersonalOrder(@Param('spaceId') spaceId: string): Promise<void> {
+    await this.basePersonalOrderService.reset(spaceId);
+  }
+
   @Get('shared-base')
   async getSharedBase(): Promise<IGetSharedBaseVo> {
     return this.collaboratorService.getSharedBase();
@@ -327,8 +351,13 @@ export class BaseController {
 
   @Permissions('base|read_all')
   @Get('access/all')
-  async getAllBase(): Promise<IGetBaseAllVo> {
-    return this.baseService.getAllBaseList();
+  async getAllBase(
+    @Query(new ZodValidationPipe(getBaseAllRoSchema)) query: IGetBaseAllRo
+  ): Promise<IGetBaseAllVo> {
+    const bases = await this.baseService.getAllBaseList();
+    return query.orderBy === 'personal'
+      ? await this.basePersonalOrderService.sortForUser(bases)
+      : bases;
   }
 
   @Delete(':baseId')
@@ -562,7 +591,7 @@ export class BaseController {
         });
       });
       if (!result) {
-        throw new Error('Export base stream ended without result');
+        throw new Error('Export project stream ended without result');
       }
       sendEvent({ type: 'done', data: result });
     } catch (error) {

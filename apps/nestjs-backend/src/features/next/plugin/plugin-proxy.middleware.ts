@@ -6,7 +6,7 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
 
 export class PluginProxyMiddleware implements NestMiddleware {
-  private proxy: RequestHandler;
+  private readonly proxy: RequestHandler;
 
   constructor(@BaseConfig() private readonly baseConfig: IBaseConfig) {
     this.proxy = createProxyMiddleware({

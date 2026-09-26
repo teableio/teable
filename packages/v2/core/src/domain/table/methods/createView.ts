@@ -51,7 +51,7 @@ export const uniqueViewName = (name: string, existingNames: ReadonlyArray<string
   let baseName = name;
   let suffix = 2;
   if (Number.isNaN(Number(name))) {
-    const match = name.match(/^(.*)(\b\d+)$/);
+    const match = /^(.*)(\b\d+)$/.exec(name);
     if (match) {
       baseName = match[1]?.trim() ?? name;
       suffix = Number.parseInt(match[2] ?? `${suffix}`, 10);
@@ -130,7 +130,7 @@ export function createView(
   this: Table,
   input: CreateViewMethodParams
 ): Result<CreateViewMethodResult, DomainError> {
-  const table = this;
+  const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   return safeTry<CreateViewMethodResult, DomainError>(function* () {
     const viewId = yield* ViewId.generate();
     const name = yield* ViewName.create(

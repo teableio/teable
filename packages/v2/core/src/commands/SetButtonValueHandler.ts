@@ -10,14 +10,13 @@ import type { RecordFieldChangeDTO } from '../domain/table/events/RecordFieldVal
 import { RecordUpdated } from '../domain/table/events/RecordUpdated';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import { Table } from '../domain/table/Table';
-import * as EventBusPort from '../ports/EventBus';
+import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
-import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { SetButtonValueCommand } from './SetButtonValueCommand';
 import { toTableRecord } from './shared/toTableRecord';
@@ -44,17 +43,15 @@ export class SetButtonValueHandler
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.recordWritePluginRunner)
     private readonly recordWritePluginRunner: RecordWritePluginRunner,
-    @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus,
-    @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    @inject(v2CoreTokens.domainWriteTransaction)
+    private readonly domainWriteTransaction: IDomainWriteTransaction
   ) {}
 
   async handle(
     context: IExecutionContext,
     command: SetButtonValueCommand
   ): Promise<Result<SetButtonValueResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<SetButtonValueResult, DomainError>(async function* () {
       const tableSpec = yield* Table.specs().byId(command.tableId).build();
       const table = yield* await handler.tableRepository.findOne(context, tableSpec);
@@ -104,10 +101,10 @@ export class SetButtonValueHandler
         );
       }
 
-      const mutation = yield* await handler.unitOfWork.withTransaction(
+      const committed = yield* await handler.domainWriteTransaction.execute(
         context,
         async (transactionContext) =>
-          safeTry<TableRecordRepositoryPort.RecordMutationResult, DomainError>(async function* () {
+          safeTry(async function* () {
             yield* await pluginExecution.beforePersist(transactionContext);
             const result = yield* await handler.tableRecordRepository.updateOne(
               transactionContext,
@@ -124,36 +121,36 @@ export class SetButtonValueHandler
                 })
               );
             }
-            return ok(result);
+            const snapshot = yield* requireRecordUpdateSnapshot(
+              {
+                operation: 'update',
+                tableId: table.id().toString(),
+                recordId: command.recordId.toString(),
+              },
+              result.updateSnapshot
+            );
+            const changes: RecordFieldChangeDTO[] = [
+              {
+                fieldId: command.fieldId.toString(),
+                oldValue: snapshot.previous.fields[command.fieldId.toString()],
+                newValue: snapshot.current.fields[command.fieldId.toString()],
+              },
+            ];
+            const events: IDomainEvent[] = [
+              RecordUpdated.create({
+                tableId: table.id(),
+                baseId: table.baseId(),
+                recordId: command.recordId,
+                oldVersion: snapshot.oldVersion,
+                newVersion: snapshot.newVersion,
+                changes,
+                source: 'user',
+              }),
+            ];
+            return ok(domainWrite.fromEvents({}, events));
           })
       );
-      const snapshot = yield* requireRecordUpdateSnapshot(
-        {
-          operation: 'update',
-          tableId: table.id().toString(),
-          recordId: command.recordId.toString(),
-        },
-        mutation.updateSnapshot
-      );
-      const changes: RecordFieldChangeDTO[] = [
-        {
-          fieldId: command.fieldId.toString(),
-          oldValue: snapshot.previous.fields[command.fieldId.toString()],
-          newValue: snapshot.current.fields[command.fieldId.toString()],
-        },
-      ];
-      const events: IDomainEvent[] = [
-        RecordUpdated.create({
-          tableId: table.id(),
-          baseId: table.baseId(),
-          recordId: command.recordId,
-          oldVersion: snapshot.oldVersion,
-          newVersion: snapshot.newVersion,
-          changes,
-          source: 'user',
-        }),
-      ];
-      yield* await handler.eventBus.publishMany(context, events);
+      const events = committed.events;
       await pluginExecution.afterCommit();
       return ok(SetButtonValueResult.create(events));
     });

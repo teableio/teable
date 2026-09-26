@@ -608,7 +608,7 @@ const buildListCondition = (
       return ok(isNegative ? sql`${columnRef} not in (${list})` : sql`${columnRef} in (${list})`);
     }
 
-    const textValues = values.map((entry) => String(entry));
+    const textValues = values.map(String);
     const textArray = sql`array[${sql.join(textValues.map((entry) => sql`${entry}`))}]`;
     const valueArray = sql`array[${sql.join(values.map((entry) => sql`${entry}`))}]`;
     const jsonbColumn = sql`to_jsonb(${columnRef})`;

@@ -235,7 +235,7 @@ describe('SessionStoreService', () => {
       // Mock the necessary methods
       vitest.spyOn(sessionStoreService as any, 'getCache').mockResolvedValueOnce(sessionData);
 
-      await sessionStoreService.get(sid, callbackMock);
+      await sessionStoreService.getAsync(sid, callbackMock);
 
       // Verify that getCache method was called with the expected parameter
       expect(sessionStoreService['getCache']).toHaveBeenCalledWith(sid);
@@ -249,7 +249,7 @@ describe('SessionStoreService', () => {
       // Mock the necessary methods
       vitest.spyOn(sessionStoreService as any, 'getCache').mockRejectedValueOnce(error);
 
-      await sessionStoreService.get(sid, callbackMock);
+      await sessionStoreService.getAsync(sid, callbackMock);
 
       // Verify that getCache method was called with the expected parameter
       expect(sessionStoreService['getCache']).toHaveBeenCalledWith(sid);
@@ -269,7 +269,7 @@ describe('SessionStoreService', () => {
       // Mock the necessary methods
       vitest.spyOn(sessionStoreService as any, 'setCache').mockResolvedValueOnce(true);
 
-      await sessionStoreService.set(sid, sessionData, callbackMock);
+      await sessionStoreService.setAsync(sid, sessionData, callbackMock);
 
       // Verify that setCache method was called with the expected parameters
       expect(sessionStoreService['setCache']).toHaveBeenCalledWith(sid, sessionData);
@@ -283,12 +283,23 @@ describe('SessionStoreService', () => {
       // Mock the necessary methods
       vitest.spyOn(sessionStoreService as any, 'setCache').mockRejectedValueOnce(error);
 
-      await sessionStoreService.set(sid, sessionData, callbackMock);
+      await sessionStoreService.setAsync(sid, sessionData, callbackMock);
 
       // Verify that setCache method was called with the expected parameters
       expect(sessionStoreService['setCache']).toHaveBeenCalledWith(sid, sessionData);
       // Verify that the callback was called with the error
       expect(callbackMock).toHaveBeenCalledWith(error);
+    });
+
+    it('does not write back a session revoked while its request was in flight', async () => {
+      cacheService.get.mockResolvedValueOnce(true);
+      vitest.spyOn(sessionStoreService as any, 'setCache');
+
+      await sessionStoreService.setAsync(sid, sessionData, callbackMock);
+
+      expect(cacheService.get).toHaveBeenCalledWith(`auth:session-expire:${sid}`);
+      expect(sessionStoreService['setCache']).not.toHaveBeenCalled();
+      expect(callbackMock).toHaveBeenCalledWith();
     });
   });
 
@@ -297,7 +308,7 @@ describe('SessionStoreService', () => {
       // Mock the necessary methods
       cacheService.del.mockResolvedValueOnce(true);
 
-      await sessionStoreService.destroy(sid, callbackMock);
+      await sessionStoreService.destroyAsync(sid, callbackMock);
 
       // Verify that cacheService.del method was called with the expected parameter
       expect(cacheService.del).toHaveBeenCalledWith(`auth:session-store:${sid}`);
@@ -311,7 +322,7 @@ describe('SessionStoreService', () => {
       // Mock the necessary methods
       cacheService.del.mockRejectedValueOnce(error);
 
-      await sessionStoreService.destroy(sid, callbackMock);
+      await sessionStoreService.destroyAsync(sid, callbackMock);
 
       // Verify that cacheService.del method was called with the expected parameter
       expect(cacheService.del).toHaveBeenCalledWith(`auth:session-store:${sid}`);
@@ -325,7 +336,7 @@ describe('SessionStoreService', () => {
       vitest.spyOn(sessionStoreService as any, 'getCache').mockResolvedValueOnce(sessionData);
       vitest.spyOn(sessionStoreService as any, 'setCache').mockResolvedValueOnce(null);
 
-      await sessionStoreService.touch(sid, sessionData, callbackMock);
+      await sessionStoreService.touchAsync(sid, sessionData, callbackMock);
 
       // Verify that getCache and set methods were called with the expected parameters
       expect(sessionStoreService['getCache']).toHaveBeenCalledWith(sid);
@@ -334,13 +345,32 @@ describe('SessionStoreService', () => {
       expect(callbackMock).toHaveBeenCalled();
     });
 
+    it('refreshes the last-active time of a session with device details', async () => {
+      const withMeta = {
+        ...sessionData,
+        meta: {
+          loginMethod: 'password',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          lastActiveAt: '2026-01-01T00:00:00.000Z',
+        },
+      } as ISessionData;
+      vitest.spyOn(sessionStoreService as any, 'getCache').mockResolvedValueOnce(withMeta);
+      vitest.spyOn(sessionStoreService as any, 'setCache').mockResolvedValueOnce(null);
+
+      await sessionStoreService.touchAsync(sid, withMeta, callbackMock);
+
+      const saved = (sessionStoreService['setCache'] as any).mock.calls[0][1] as ISessionData;
+      expect(saved.meta?.createdAt).toBe('2026-01-01T00:00:00.000Z');
+      expect(saved.meta?.lastActiveAt).not.toBe('2026-01-01T00:00:00.000Z');
+    });
+
     it('should handle getCache undefined and call callback with error', async () => {
       const error = new Error('Session not found');
 
       // Mock the necessary methods
       vitest.spyOn(sessionStoreService as any, 'getCache').mockResolvedValueOnce(undefined);
 
-      await sessionStoreService.touch(sid, sessionData, callbackMock);
+      await sessionStoreService.touchAsync(sid, sessionData, callbackMock);
 
       // Verify that getCache method was called with the expected parameter
       expect(sessionStoreService['getCache']).toHaveBeenCalledWith(sid);
@@ -354,7 +384,7 @@ describe('SessionStoreService', () => {
       // Mock the necessary methods
       vitest.spyOn(sessionStoreService as any, 'getCache').mockRejectedValueOnce(error);
 
-      await sessionStoreService.touch(sid, sessionData, callbackMock);
+      await sessionStoreService.touchAsync(sid, sessionData, callbackMock);
 
       // Verify that getCache method was called with the expected parameter
       expect(sessionStoreService['getCache']).toHaveBeenCalledWith(sid);
@@ -389,6 +419,65 @@ describe('SessionStoreService', () => {
 
       // Verify that cacheService.get was called with the expected parameter
       expect(cacheService.get).toHaveBeenCalledWith(`auth:session-user:${userId}`);
+    });
+  });
+
+  describe('listByUserId', () => {
+    const userId = 'user-id';
+    const future = () => Math.floor(Date.now() / 1000) + 3600;
+
+    it('lists live sessions and folds WebView children into their native session', async () => {
+      const native = { passport: { user: { id: userId } } } as ISessionData;
+      const child = { passport: { user: { id: userId } } } as ISessionData;
+      cacheService.get.mockResolvedValueOnce({
+        'sid-native': future(),
+        'sid-child': future(),
+        'sid-expired': 1,
+        'sid-gone': future(),
+      });
+      // store entries, then mobile-children lists, in map order
+      cacheService.getMany
+        .mockResolvedValueOnce([native, child, undefined])
+        .mockResolvedValueOnce([['sid-child'], undefined, undefined]);
+
+      const result = await sessionStoreService.listByUserId(userId);
+
+      expect(cacheService.getMany).toHaveBeenCalledWith([
+        'auth:session-store:sid-native',
+        'auth:session-store:sid-child',
+        'auth:session-store:sid-gone',
+      ]);
+      expect(result).toEqual([{ sid: 'sid-native', session: native, childSids: ['sid-child'] }]);
+    });
+
+    it('returns nothing without touching the store when the user has no sessions', async () => {
+      cacheService.get.mockResolvedValueOnce(undefined);
+
+      expect(await sessionStoreService.listByUserId(userId)).toEqual([]);
+      expect(cacheService.getMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('revokeSession', () => {
+    const userId = 'user-id';
+
+    it('tombstones and deletes the session and its WebView children', async () => {
+      cacheService.get
+        .mockResolvedValueOnce(['sid-child'])
+        .mockResolvedValueOnce({ [sid]: 1, 'sid-child': 1, 'sid-other': 1 });
+
+      await sessionStoreService.revokeSession(userId, sid);
+
+      for (const id of [sid, 'sid-child']) {
+        expect(cacheService.set).toHaveBeenCalledWith(`auth:session-expire:${id}`, true, 60);
+        expect(cacheService.del).toHaveBeenCalledWith(`auth:session-store:${id}`);
+      }
+      expect(cacheService.del).toHaveBeenCalledWith(`auth:mobile-children:${sid}`);
+      expect(cacheService.set).toHaveBeenCalledWith(
+        `auth:session-user:${userId}`,
+        { 'sid-other': 1 },
+        expect.any(Number)
+      );
     });
   });
 });

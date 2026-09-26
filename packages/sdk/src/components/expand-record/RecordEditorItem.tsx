@@ -7,6 +7,7 @@ import type { IButtonClickStatusHook } from '../../hooks';
 import { useFieldStaticGetter } from '../../hooks';
 import { useContentDir } from '../../hooks/use-content-dir';
 import type { Field, Record } from '../../model';
+import { normalizeCellValueForDisplay } from '../../utils/normalize-cell-value';
 import { AiFieldGenerateButton } from './AiFieldGenerateButton';
 import { CellEditorWrap } from './CellEditorWrap';
 import { TooltipWrap } from './TooltipWrap';
@@ -42,7 +43,12 @@ export const RecordEditorItem = (props: {
   const isInTaskQueue =
     taskStatusCollection?.cells?.some((c) => c.recordId === record?.id && c.fieldId === field.id) ??
     false;
-  const cellValue = record?.getCellValue(field.id);
+  // Normalize against the display field, not record.getCellValue: the record's
+  // fieldMap can predate an isMultiple convert while the row's field instance is
+  // already the new shape (T7257), which leaves the editor with the old shape.
+  const cellValue = record
+    ? normalizeCellValueForDisplay(field, record.fields[field.id])
+    : undefined;
   const compact = !vertical;
   const showAiGenerateButton = hasAiConfig && Boolean(field.tableId && record && !readonly);
   const aiGenerateButton = showAiGenerateButton && field.tableId && record && (

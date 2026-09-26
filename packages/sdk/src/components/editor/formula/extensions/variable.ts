@@ -7,8 +7,8 @@ class VariableWidget extends WidgetType {
 
   constructor(text: string) {
     super();
-    let renderText = text[0] === '{' ? text.slice(1) : text;
-    renderText = renderText[renderText.length - 1] === '}' ? renderText.slice(0, -1) : renderText;
+    let renderText = text.startsWith('{') ? text.slice(1) : text;
+    renderText = renderText.endsWith('}') ? renderText.slice(0, -1) : renderText;
     this.text = renderText;
   }
 

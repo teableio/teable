@@ -73,7 +73,7 @@ export class RollupField
   private constructor(
     id: FieldId,
     name: FieldName,
-    private configValue: RollupFieldConfig,
+    private readonly configValue: RollupFieldConfig,
     private expressionValue: RollupExpression,
     private readonly timeZoneValue: TimeZone | undefined,
     private formattingValue: RollupFormatting | undefined,

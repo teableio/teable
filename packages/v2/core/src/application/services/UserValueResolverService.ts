@@ -56,7 +56,7 @@ export class UserValueResolverService
     tableId: TableId,
     specs: ReadonlyArray<SetUserValueSpec | SetUserValueByIdentifierSpec>
   ): Promise<Result<ReadonlyArray<ICellValueSpec>, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<ICellValueSpec>, DomainError>(async function* () {
       const resolveIdentifier = (identifier: string): Result<string, DomainError> => {
         if (identifier !== 'me') return ok(identifier);

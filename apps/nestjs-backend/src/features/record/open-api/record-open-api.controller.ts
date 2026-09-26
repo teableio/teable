@@ -15,7 +15,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { FieldKeyType, HttpErrorCode } from '@teable/core';
+import { FieldKeyType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   createRecordsRoSchema,
@@ -51,7 +51,6 @@ import type {
   IInsertAttachmentRo,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
-import { CustomHttpException } from '../../../custom.exception';
 import { EmitControllerEvent } from '../../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../../event-emitter/events';
 import { PerformanceCacheService } from '../../../performance-cache';
@@ -65,8 +64,10 @@ import { UseV2Feature } from '../../canary/decorators/use-v2-feature.decorator';
 import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
+import { InteractiveQueryCancellation } from '../../v2/interactive-query-cancellation.interceptor';
 import { RecordService } from '../record.service';
 import { ShareViewScopeService } from '../share-view-scope.service';
+import { AccessTokenTakeLimitPipe } from './access-token-take-limit.pipe';
 import { FieldKeyPipe } from './field-key.pipe';
 import { RecordOpenApiV2Service } from './record-open-api-v2.service';
 import { RecordOpenApiService } from './record-open-api.service';
@@ -125,12 +126,19 @@ export class RecordOpenApiController {
     return this.recordService.getRecordsCollaborators(tableId, query);
   }
 
+  @InteractiveQueryCancellation()
   @UseV2Feature('getRecords')
   @Permissions('record|read')
   @Get()
   async getRecords(
     @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(getRecordsRoSchema), TqlPipe, FieldKeyPipe) query: IGetRecordsRo
+    @Query(
+      new ZodValidationPipe(getRecordsRoSchema),
+      AccessTokenTakeLimitPipe,
+      TqlPipe,
+      FieldKeyPipe
+    )
+    query: IGetRecordsRo
   ): Promise<IRecordsVo> {
     await this.spaceDataDbMigrationGuardService.assertTableRecordSearchReadable(tableId, query);
 
@@ -141,6 +149,7 @@ export class RecordOpenApiController {
     return await this.recordService.getRecords(tableId, query, true);
   }
 
+  @InteractiveQueryCancellation()
   @UseV2Feature('getRecords')
   @Permissions('record|read')
   @Get(':recordId')
@@ -378,6 +387,7 @@ export class RecordOpenApiController {
     return await this.recordOpenApiService.deleteRecords(tableId, query.recordIds, windowId);
   }
 
+  @InteractiveQueryCancellation()
   @UseV2Feature('getRecords')
   @Permissions('record|read')
   @Post('/socket/snapshot-bulk')
@@ -400,6 +410,7 @@ export class RecordOpenApiController {
     );
   }
 
+  @InteractiveQueryCancellation()
   @UseV2Feature('getRecords')
   @Permissions('record|read')
   @Post('/socket/doc-ids')

@@ -39,6 +39,7 @@ import { OrgContent } from './common/OrgContent';
 const MEMBERS_PER_PAGE = 50;
 export const ShareBaseContent = ({
   baseId,
+  spaceId,
   baseName,
   role: userRole,
   enabledAuthority,
@@ -46,6 +47,7 @@ export const ShareBaseContent = ({
   onSubPageChange,
 }: {
   baseId: string;
+  spaceId: string;
   baseName: string;
   role: IRole;
   enabledAuthority?: boolean;
@@ -60,7 +62,7 @@ export const ShareBaseContent = ({
   const [tabType, setTabType] = useState<
     'email' | 'link' | 'collaborators' | 'organization' | undefined
   >();
-  const confirmSeat = useSeatConfirm({ baseId });
+  const confirmSeat = useSeatConfirm({ spaceId, baseId });
 
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');

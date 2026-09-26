@@ -1,18 +1,25 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
 import {
+  CompactionSkipReason,
   planMonthCompaction,
   supersededKeys,
   swapCompactedStatsEntries,
 } from '../cold-archive/compaction';
 import { ExternalRowSorter, SortMemoryBudget } from './external-sort';
-import { COLD_REMOVAL_REASONS, truncateRemovalRow } from './part-codec';
+import { truncateRemovalRow } from './part-codec';
 import type { ColdRemovalReason, IParsedPartKey, ITableColdStats } from './part-codec';
 import { PartWriter } from './part-writer';
 import { RecordRemovalColdStorageService } from './record-removal-cold-storage.service';
 import { recordRemovalColdConfig } from './record-removal-cold.config';
 import type { IRemovalTombstoneMap } from './record-removal-tombstone.service';
 import { isTombstonedAt, RecordRemovalTombstoneService } from './record-removal-tombstone.service';
+
+export interface ICompactMonthOptions {
+  force?: boolean;
+  /** the month's parts when the caller already listed them (compactTable); listed here otherwise */
+  parts?: IParsedPartKey[];
+}
 
 export interface ICompactMonthResult {
   tableId: string;
@@ -54,16 +61,29 @@ export class RecordRemovalCompactorService {
   ) {}
 
   // compact every closed month of a table, both reason prefixes; the current
-  // (still-hot) month is skipped
+  // month is reported as open, not compacted
   async compactTable(tableId: string): Promise<ICompactMonthResult[]> {
     const now = new Date();
     const currentMonth = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
     const results: ICompactMonthResult[] = [];
-    for (const reason of COLD_REMOVAL_REASONS) {
-      const months = await this.coldStorage.listMonths(tableId, reason);
-      for (const yyyymm of months) {
-        if (yyyymm >= currentMonth) continue;
-        results.push(await this.compactMonth(tableId, reason, yyyymm));
+    const partsByReason = await this.coldStorage.listTableParts(tableId);
+    for (const [reason, partsByMonth] of partsByReason) {
+      for (const [yyyymm, parts] of partsByMonth) {
+        if (yyyymm >= currentMonth) {
+          results.push({
+            tableId,
+            reason,
+            yyyymm,
+            inputParts: parts.length,
+            outputParts: 0,
+            rows: 0,
+            tombstonedRows: 0,
+            durationMs: 0,
+            skippedReason: CompactionSkipReason.OpenMonth,
+          });
+          continue;
+        }
+        results.push(await this.compactMonth(tableId, reason, yyyymm, { parts }));
       }
     }
     return results;
@@ -73,12 +93,13 @@ export class RecordRemovalCompactorService {
     tableId: string,
     reason: ColdRemovalReason,
     yyyymm: string,
-    options?: { force?: boolean }
+    options?: ICompactMonthOptions
   ): Promise<ICompactMonthResult> {
     const startedAt = Date.now();
     const config = recordRemovalColdConfig();
-    const parts = await this.coldStorage.listMonthParts(tableId, reason, yyyymm);
-    const plan = planMonthCompaction(parts, options);
+    const parts =
+      options?.parts ?? (await this.coldStorage.listMonthParts(tableId, reason, yyyymm));
+    const plan = planMonthCompaction(parts, { force: options?.force });
 
     const base: Omit<ICompactMonthResult, 'skippedReason'> = {
       tableId,

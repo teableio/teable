@@ -6,13 +6,13 @@ import { UpdateViewColumnMetaBuilder } from './update-view-column-meta';
 
 export class ViewOpBuilder {
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  static editor = {
+  static readonly editor = {
     [OpName.SetViewProperty]: new SetViewPropertyBuilder(),
     [OpName.UpdateViewColumnMeta]: new UpdateViewColumnMetaBuilder(),
   };
 
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  static creator = new AddViewBuilder();
+  static readonly creator = new AddViewBuilder();
 
   static ops2Contexts(ops: IOtOperation[]) {
     return ops.map((op) => {

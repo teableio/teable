@@ -53,7 +53,7 @@ export abstract class FormulaAbstractCore extends FieldCore {
 
   cellValueType!: CellValueType;
 
-  declare isMultipleCellValue?: boolean | undefined;
+  declare isMultipleCellValue?: boolean;
 
   protected _tree?: RootContext;
 

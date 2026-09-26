@@ -117,7 +117,7 @@ export abstract class AbstractSortFunction implements ISortFunctionInterface {
     if (identifier.startsWith('"') && identifier.endsWith('"')) {
       return identifier;
     }
-    const escaped = identifier.replace(/"/g, '""');
+    const escaped = identifier.replaceAll('"', '""');
     return `"${escaped}"`;
   }
 

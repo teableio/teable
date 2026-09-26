@@ -124,7 +124,7 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
       );
     } else {
       builderClient.whereRaw(
-        `${this.tableColumnRef}::jsonb \\?| ARRAY[${this.createSqlPlaceholders(value)}]`,
+        String.raw`${this.tableColumnRef}::jsonb \?| ARRAY[${this.createSqlPlaceholders(value)}]`,
         value
       );
     }
@@ -157,7 +157,7 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
       );
     } else {
       builderClient.whereRaw(
-        `NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb \\?| ARRAY[${this.createSqlPlaceholders(value)}]`,
+        String.raw`NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb \?| ARRAY[${this.createSqlPlaceholders(value)}]`,
         value
       );
     }
@@ -174,11 +174,11 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
 
     if (type === FieldType.Link) {
       builderClient.whereRaw(
-        `jsonb_path_exists(${this.tableColumnRef}::jsonb, '$.title \\? (@ like_regex "${escapedValue}" flag "i")'::jsonpath)`
+        String.raw`jsonb_path_exists(${this.tableColumnRef}::jsonb, '$.title \? (@ like_regex "${escapedValue}" flag "i")'::jsonpath)`
       );
     } else {
       builderClient.whereRaw(
-        `jsonb_path_exists(${this.tableColumnRef}::jsonb, '$[*] \\? (@ like_regex "${escapedValue}" flag "i")'::jsonpath)`
+        String.raw`jsonb_path_exists(${this.tableColumnRef}::jsonb, '$[*] \? (@ like_regex "${escapedValue}" flag "i")'::jsonpath)`
       );
     }
     return builderClient;
@@ -194,11 +194,11 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
 
     if (type === FieldType.Link) {
       builderClient.whereRaw(
-        `NOT jsonb_path_exists(COALESCE(${this.tableColumnRef}, '{}')::jsonb, '$.title \\? (@ like_regex "${escapedValue}" flag "i")'::jsonpath)`
+        String.raw`NOT jsonb_path_exists(COALESCE(${this.tableColumnRef}, '{}')::jsonb, '$.title \? (@ like_regex "${escapedValue}" flag "i")'::jsonpath)`
       );
     } else {
       builderClient.whereRaw(
-        `NOT jsonb_path_exists(COALESCE(${this.tableColumnRef}, '[]')::jsonb, '$[*] \\? (@ like_regex "${escapedValue}" flag "i")'::jsonpath)`
+        String.raw`NOT jsonb_path_exists(COALESCE(${this.tableColumnRef}, '[]')::jsonb, '$[*] \? (@ like_regex "${escapedValue}" flag "i")'::jsonpath)`
       );
     }
     return builderClient;

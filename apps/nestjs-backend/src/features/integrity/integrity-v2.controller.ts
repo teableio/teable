@@ -27,6 +27,7 @@ import { ClsService } from 'nestjs-cls';
 import { z } from 'zod';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
+import { AuditScope } from '../audit/audit-scope';
 import { AnyPermissions, Permissions } from '../auth/decorators/permissions.decorator';
 import { PermissionGuard } from '../auth/guard/permission.guard';
 import { UseV2Feature } from '../canary/decorators/use-v2-feature.decorator';
@@ -74,7 +75,8 @@ type IV2SchemaIntegrityFilterQuery = {
 export class IntegrityV2Controller {
   constructor(
     private readonly integrityV2Service: IntegrityV2Service,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly audit: AuditScope
   ) {}
 
   @Get('base/:baseId/decision')
@@ -133,13 +135,13 @@ export class IntegrityV2Controller {
         this.createCheckLifecycleEvent(
           'connect',
           'connection',
-          'Base schema integrity check stream connected'
+          'Project schema integrity check stream connected'
         ),
       createCompleteEvent: () =>
         this.createCheckLifecycleEvent(
           'complete',
           'completion',
-          'Base schema integrity check completed'
+          'Project schema integrity check completed'
         ),
       createErrorEvent: (message) => this.createCheckErrorResult(message),
     });
@@ -157,7 +159,28 @@ export class IntegrityV2Controller {
   ): Promise<void> {
     this.prepareSseResponse(res);
     await this.runSseStream<IV2SchemaIntegrityRepairResult>(res, {
-      createStream: () => this.integrityV2Service.createRepairStream(tableId, repairRo),
+      createStream: async () => {
+        const stream = await this.integrityV2Service.createRepairStream(tableId, repairRo);
+        // One row when the repair opens on a resolved table (never per streamed result); a dry
+        // run only previews, and the chosen manual values stay out of the row.
+        if (!repairRo.dryRun) {
+          await this.audit.emitAtomic({
+            action: 'table.integrity.repair',
+            resourceId: tableId,
+            params: {
+              tableId,
+              mode: 'schema',
+              fieldId: repairRo.fieldId,
+              ruleId: repairRo.ruleId,
+              targetStatuses: repairRo.targetStatuses,
+              manualRepairKeys: repairRo.manualRepairValues
+                ? Object.keys(repairRo.manualRepairValues)
+                : undefined,
+            },
+          });
+        }
+        return stream;
+      },
       createConnectEvent: () =>
         this.createRepairLifecycleEvent(
           'connect',
@@ -185,18 +208,28 @@ export class IntegrityV2Controller {
   ): Promise<void> {
     this.prepareSseResponse(res);
     await this.runSseStream<IV2SchemaIntegrityRepairResult>(res, {
-      createStream: () => this.integrityV2Service.createBaseRepairStream(baseId, repairRo),
+      createStream: async () => {
+        const stream = await this.integrityV2Service.createBaseRepairStream(baseId, repairRo);
+        if (!repairRo.dryRun) {
+          await this.audit.emitAtomic({
+            action: 'base.integrity.repair',
+            resourceId: baseId,
+            params: { baseId, mode: 'schema', targetStatuses: repairRo.targetStatuses },
+          });
+        }
+        return stream;
+      },
       createConnectEvent: () =>
         this.createRepairLifecycleEvent(
           'connect',
           'connection',
-          'Base schema integrity repair stream connected'
+          'Project schema integrity repair stream connected'
         ),
       createCompleteEvent: () =>
         this.createRepairLifecycleEvent(
           'complete',
           'completion',
-          'Base schema integrity repair completed'
+          'Project schema integrity repair completed'
         ),
       createErrorEvent: (message) => this.createRepairErrorResult(message),
     });

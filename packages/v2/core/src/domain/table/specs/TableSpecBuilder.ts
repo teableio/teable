@@ -8,6 +8,7 @@ import type { SpecBuilderMode } from '../../shared/specification/SpecBuilder';
 import type { Table } from '../Table';
 import type { TableId } from '../TableId';
 import type { TableName } from '../TableName';
+import type { FieldId } from '../fields/FieldId';
 import type { ViewId } from '../views/ViewId';
 import type { ITableSpecVisitor } from './ITableSpecVisitor';
 import { TableByBaseIdSpec } from './TableByBaseIdSpec';
@@ -19,6 +20,7 @@ import { TableByNameSpec } from './TableByNameSpec';
 import { TableByViewIdSpec } from './TableByViewIdSpec';
 import { TableWithViewIdsSpec } from './TableWithViewIdsSpec';
 import { TableWithPrimaryFieldSpec } from './TableWithPrimaryFieldSpec';
+import { TableWithFieldIdsSpec } from './TableWithFieldIdsSpec';
 
 export class TableSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, TableSpecBuilder> {
   private includeBaseId = true;
@@ -38,12 +40,12 @@ export class TableSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Tabl
     return new TableSpecBuilder(baseId, 'and');
   }
 
-  withoutBaseId(): TableSpecBuilder {
+  withoutBaseId(): this {
     this.includeBaseId = false;
     return this;
   }
 
-  byBaseId(baseId?: BaseId): TableSpecBuilder {
+  byBaseId(baseId?: BaseId): this {
     const id = baseId ?? this.baseIdValue;
     if (id) {
       this.includeBaseId = false;
@@ -52,57 +54,62 @@ export class TableSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Tabl
     return this;
   }
 
-  byId(tableId: TableId): TableSpecBuilder {
+  byId(tableId: TableId): this {
     this.addSpec(TableByIdSpec.create(tableId));
     return this;
   }
 
-  withViewId(viewId: ViewId): TableSpecBuilder {
+  withViewId(viewId: ViewId): this {
     this.addSpec(TableByViewIdSpec.create(viewId));
     return this;
   }
 
-  withViewIds(viewIds: ReadonlyArray<ViewId>): TableSpecBuilder {
+  withViewIds(viewIds: ReadonlyArray<ViewId>): this {
     this.addSpec(TableWithViewIdsSpec.create(viewIds));
     return this;
   }
 
-  withPrimaryField(): TableSpecBuilder {
+  withPrimaryField(): this {
     this.addSpec(TableWithPrimaryFieldSpec.create());
     return this;
   }
 
-  byIncomingReferenceToTable(tableId: TableId): TableSpecBuilder {
+  withFieldIds(fieldIds: ReadonlyArray<FieldId>): this {
+    this.addSpec(TableWithFieldIdsSpec.create(fieldIds));
+    return this;
+  }
+
+  byIncomingReferenceToTable(tableId: TableId): this {
     this.addSpec(TableByIncomingReferenceToTableSpec.create(tableId));
     return this;
   }
 
-  byIds(tableIds: ReadonlyArray<TableId>): TableSpecBuilder {
+  byIds(tableIds: ReadonlyArray<TableId>): this {
     this.addSpec(TableByIdsSpec.create(tableIds));
     return this;
   }
 
-  byName(tableName: TableName): TableSpecBuilder {
+  byName(tableName: TableName): this {
     this.addSpec(TableByNameSpec.create(tableName));
     return this;
   }
 
-  byNameLike(tableName: TableName): TableSpecBuilder {
+  byNameLike(tableName: TableName): this {
     this.addSpec(TableByNameLikeSpec.create(tableName));
     return this;
   }
 
-  andGroup(build: (builder: TableSpecBuilder) => TableSpecBuilder): TableSpecBuilder {
+  andGroup(build: (builder: TableSpecBuilder) => TableSpecBuilder): this {
     this.addGroup('and', build);
     return this;
   }
 
-  orGroup(build: (builder: TableSpecBuilder) => TableSpecBuilder): TableSpecBuilder {
+  orGroup(build: (builder: TableSpecBuilder) => TableSpecBuilder): this {
     this.addGroup('or', build);
     return this;
   }
 
-  not(build: (builder: TableSpecBuilder) => TableSpecBuilder): TableSpecBuilder {
+  not(build: (builder: TableSpecBuilder) => TableSpecBuilder): this {
     const nested = build(this.createChild('and'));
     const result = nested.build();
     result.match(

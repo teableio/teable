@@ -155,10 +155,18 @@ describe('isCrossBaseField / hasCrossBaseField', () => {
     expect(hasCrossBaseField(fields, currentBaseId)).toBe(true);
   });
 
-  it('returns false when currentBaseId is missing', () => {
+  it('flags an explicit foreign baseId even when currentBaseId is missing', () => {
     const field = {
       type: FieldType.Link,
       options: { baseId: foreignBaseId, foreignTableId: 'tblOther' },
+    } as unknown as IFieldVo;
+    expect(isCrossBaseField(field, undefined)).toBe(true);
+  });
+
+  it('returns false for a same-base link when currentBaseId is missing', () => {
+    const field = {
+      type: FieldType.Link,
+      options: { foreignTableId: 'tblLocal' },
     } as unknown as IFieldVo;
     expect(isCrossBaseField(field, undefined)).toBe(false);
   });

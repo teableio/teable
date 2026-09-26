@@ -43,7 +43,6 @@ export const PluginContextMenuManageDialog = forwardRef<
   IPluginContextMenuManageDialogRef,
   IPluginContextMenuManageDialogProps
 >(({ tableId }, ref) => {
-  ref;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const queryClient = useQueryClient();
   const [name, setName] = useState('');

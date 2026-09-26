@@ -28,9 +28,10 @@ export const UploadingFile = ({ file, progress, onCancel }: IUploadingFileProps)
     <div>
       <li className="group flex h-[132px] w-[104px] flex-col gap-2 rounded-lg p-1">
         <div className="relative flex-1 overflow-hidden rounded-lg">
-          <div className="flex size-full items-center">
+          <div className="flex size-full items-center justify-center">
             <FileCover
               className="size-full object-cover"
+              iconClassName="text-5xl"
               mimetype={file.type}
               url={objectUrl}
               name={file.name}

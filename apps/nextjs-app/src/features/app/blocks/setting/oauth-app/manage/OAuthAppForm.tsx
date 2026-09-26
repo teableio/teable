@@ -35,7 +35,7 @@ export const OAuthAppForm = forwardRef<IOAuthAppFormRef, IOAuthAppFormProps>((pr
   const { showBasicTitle, value, onChange } = props;
 
   const validateRefs = useRef<Partial<{ [key in keyof OAuthCreateRo]: IFormItemRef | null }>>({});
-  const errorRef = useRef<IFormItemRef | null>();
+  const errorRef = useRef<IFormItemRef | null>(undefined);
 
   const [form, setForm] = useState<OAuthCreateRo>(
     value ?? {
@@ -83,7 +83,7 @@ export const OAuthAppForm = forwardRef<IOAuthAppFormRef, IOAuthAppFormProps>((pr
       toast.warning(t('oauth:form.logo.lengthError'));
       return;
     }
-    if (files[0].type.indexOf('image') === -1) {
+    if (!files[0].type.includes('image')) {
       toast.warning(t('oauth:form.logo.typeError'));
       return;
     }

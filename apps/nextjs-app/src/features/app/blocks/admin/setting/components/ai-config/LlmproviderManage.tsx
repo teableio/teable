@@ -1,7 +1,11 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { Check, Loader2, Play, X } from '@teable/icons';
-import { chatModelAbilityType } from '@teable/openapi';
+import {
+  chatModelAbilityType,
+  findDuplicateProviderModel,
+  providerModelIds,
+} from '@teable/openapi';
 import type {
   IChatModelAbility,
   IImageModelAbility,
@@ -91,6 +95,10 @@ export const LLMProviderManage = ({
     onChange(newData);
   };
 
+  // Instance providers all share one name, so a model two cards of one type list has an
+  // ambiguous key; the backend refuses to save it, and the card says so before that.
+  const duplicate = findDuplicateProviderModel(value);
+
   if (value.length === 0) {
     return (
       <NewLLMProviderForm
@@ -115,11 +123,19 @@ export const LLMProviderManage = ({
               .filter(Boolean) || [];
           const providerKey = `${provider.type}@${provider.name}`;
           const isTesting = testingProviders?.has(providerKey);
+          const conflict =
+            duplicate &&
+            duplicate.providers.includes(provider.displayName || provider.name) &&
+            providerModelIds(provider).includes(duplicate.model)
+              ? duplicate
+              : undefined;
 
           return (
             <div
               className="group rounded-lg border p-4 pe-3 hover:border-primary/50"
-              key={provider.name}
+              // Cards of one type share the name: only the position tells them apart.
+              // eslint-disable-next-line react/no-array-index-key
+              key={`${providerKey}#${index}`}
             >
               {/* Provider header */}
               <div className="flex items-center justify-between">
@@ -178,6 +194,16 @@ export const LLMProviderManage = ({
                   </UpdateLLMProviderForm>
                 </div>
               </div>
+
+              {conflict && (
+                <p className="mt-2 text-xs text-destructive">
+                  {t('admin.setting.ai.duplicateModel', {
+                    model: conflict.model,
+                    first: conflict.providers[0],
+                    second: conflict.providers[1],
+                  })}
+                </p>
+              )}
 
               {/* Model rows - each model on its own line with capabilities */}
               {models.length > 0 && (

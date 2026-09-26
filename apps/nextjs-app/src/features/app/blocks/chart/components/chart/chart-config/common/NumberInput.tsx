@@ -23,9 +23,9 @@ export const NumberInput = (props: INumberInputProps) => {
       onBlur={() => value !== props.value && onValueChange?.(value)}
       onChange={(e) => {
         if (decimal) {
-          const number = parseFloat(parseFloat(e.target.value).toFixed(decimal));
+          const number = Number.parseFloat(Number.parseFloat(e.target.value).toFixed(decimal));
           setValue(
-            isNaN(number)
+            Number.isNaN(number)
               ? undefined
               : min && number < min
                 ? min
@@ -35,8 +35,8 @@ export const NumberInput = (props: INumberInputProps) => {
           );
           return;
         }
-        const number = parseInt(e.target.value);
-        setValue(isNaN(number) ? undefined : number);
+        const number = Number.parseInt(e.target.value);
+        setValue(Number.isNaN(number) ? undefined : number);
       }}
     />
   );

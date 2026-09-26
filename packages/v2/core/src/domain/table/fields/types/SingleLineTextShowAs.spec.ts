@@ -4,13 +4,13 @@ import { SingleLineTextShowAs } from './SingleLineTextShowAs';
 
 describe('SingleLineTextShowAs', () => {
   it('accepts supported showAs types', () => {
-    SingleLineTextShowAs.create({ type: 'url' })._unsafeUnwrap();
-    SingleLineTextShowAs.create({ type: 'email' })._unsafeUnwrap();
-    SingleLineTextShowAs.create({ type: 'phone' })._unsafeUnwrap();
+    expect(SingleLineTextShowAs.create({ type: 'url' }).isOk()).toBe(true);
+    expect(SingleLineTextShowAs.create({ type: 'email' }).isOk()).toBe(true);
+    expect(SingleLineTextShowAs.create({ type: 'phone' }).isOk()).toBe(true);
   });
 
   it('rejects unsupported showAs types', () => {
-    SingleLineTextShowAs.create({ type: 'link' })._unsafeUnwrapErr();
+    expect(SingleLineTextShowAs.create({ type: 'link' }).isErr()).toBe(true);
   });
 
   it('compares showAs values and maps to dto', () => {

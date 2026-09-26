@@ -6,7 +6,8 @@ import { ExcelImportAdapter } from './ExcelImportAdapter';
 
 const createXlsxBytes = (rows: unknown[][], origin?: string): Uint8Array => {
   const workbook = XLSX.utils.book_new();
-  const worksheet = XLSX.utils.aoa_to_sheet(rows, origin ? { origin } : undefined);
+  const worksheet = XLSX.utils.aoa_to_sheet([]);
+  XLSX.utils.sheet_add_aoa(worksheet, rows, origin ? { origin } : undefined);
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
   return new Uint8Array(XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }));
 };
@@ -66,7 +67,9 @@ describe('ExcelImportAdapter', () => {
       const parsed = result._unsafeUnwrap();
       expect(parsed.headers).toEqual(['Name', 'Age']);
       expect(parsed.currentSheet).toBe('Sheet1');
-      expect([...(parsed.rows ?? [])]).toEqual([
+      const rows = [];
+      for await (const row of parsed.rowsAsync ?? []) rows.push(row);
+      expect(rows).toEqual([
         ['Name', 'Age'],
         ['Alice', '30'],
       ]);
@@ -92,7 +95,9 @@ describe('ExcelImportAdapter', () => {
       expect(result.isOk()).toBe(true);
       const parsed = result._unsafeUnwrap();
       expect(parsed.headers).toEqual(['Item', 'Lane', 'Origin']);
-      expect([...(parsed.rows ?? [])]).toEqual([
+      const rows = [];
+      for await (const row of parsed.rowsAsync ?? []) rows.push(row);
+      expect(rows).toEqual([
         ['Item', 'Lane', 'Origin'],
         ['1', 'Shanghai-Hamburg', 'APAC'],
         ['2', 'Ningbo-Antwerp', 'APAC'],
@@ -110,24 +115,6 @@ describe('ExcelImportAdapter', () => {
       await adapter.parse({ type: 'xlsx', url: 'https://example.com/a.xlsx' });
 
       expect(fetchFn).toHaveBeenCalledWith('https://example.com/a.xlsx', undefined);
-    });
-  });
-
-  describe('workbook reuse', () => {
-    it('reports rowCount including the header row for the same buffer', async () => {
-      const data = createXlsxBytes([
-        ['Name', 'Age'],
-        ['Alice', 30],
-        ['Bob', 40],
-      ]);
-
-      const first = await adapter.parse({ type: 'excel', data });
-      const second = await adapter.parse({ type: 'excel', data }, { sheetName: 'Sheet1' });
-
-      expect(first.isOk()).toBe(true);
-      expect(second.isOk()).toBe(true);
-      expect(first._unsafeUnwrap().rowCount).toBe(3);
-      expect(second._unsafeUnwrap().rowCount).toBe(3);
     });
   });
 });

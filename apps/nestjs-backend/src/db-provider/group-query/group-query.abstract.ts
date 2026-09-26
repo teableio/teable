@@ -6,7 +6,7 @@ import type { IRecordQueryGroupContext } from '../../features/record/query-build
 import type { IGroupQueryInterface, IGroupQueryExtra } from './group-query.interface';
 
 export abstract class AbstractGroupQuery implements IGroupQueryInterface {
-  private logger = new Logger(AbstractGroupQuery.name);
+  private readonly logger = new Logger(AbstractGroupQuery.name);
 
   constructor(
     protected readonly knex: Knex,
@@ -34,14 +34,14 @@ export abstract class AbstractGroupQuery implements IGroupQueryInterface {
     if (!identifier || (identifier.startsWith('"') && identifier.endsWith('"'))) {
       return identifier;
     }
-    return `"${identifier.replace(/"/g, '""')}"`;
+    return `"${identifier.replaceAll('"', '""')}"`;
   }
 
   private parseGroups(
     queryBuilder: Knex.QueryBuilder,
     groupFieldIds?: string[]
   ): Knex.QueryBuilder {
-    if (!groupFieldIds || !groupFieldIds.length) {
+    if (!groupFieldIds?.length) {
       return queryBuilder;
     }
 

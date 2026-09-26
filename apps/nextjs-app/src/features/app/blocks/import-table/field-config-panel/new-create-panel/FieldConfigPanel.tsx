@@ -1,5 +1,5 @@
 import { FieldType } from '@teable/core';
-import { X } from '@teable/icons';
+import { ArrowLeft, X } from '@teable/icons';
 import type { IImportOption, IImportOptionRo, IImportSheetItem } from '@teable/openapi';
 import { Button, cn } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
@@ -12,15 +12,17 @@ export type ITableImportOptions = IImportOption & {
 };
 
 interface IFieldConfigPanel {
+  className?: string;
   tableId?: string;
   workSheets: IImportOptionRo['worksheets'];
   errorMessage: string;
+  onBack?: () => void;
   onChange: (sheets: IImportOptionRo['worksheets']) => void;
 }
 
 const FieldConfigPanel = (props: IFieldConfigPanel) => {
-  const { onChange, workSheets, errorMessage } = props;
-  const { t } = useTranslation(['table']);
+  const { className, onBack, onChange, workSheets, errorMessage } = props;
+  const { t } = useTranslation(['table', 'common']);
   const [autoSelectTypes, setAutoSelectTypes] = useState<Record<string, boolean>>({});
   const [selectedSheetKey, setSelectedSheetKey] = useState(Object.keys(workSheets)[0]);
   const lastColumnsMap = useRef<Record<string, IImportSheetItem>>(workSheets);
@@ -103,38 +105,54 @@ const FieldConfigPanel = (props: IFieldConfigPanel) => {
   };
 
   return (
-    <div className="flex flex-col">
-      <div>
-        <p className="text-base font-bold">{t('table:import.title.importTitle')}</p>
-      </div>
+    <div className={cn('flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden', className)}>
+      {onBack && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          className="mb-2 w-fit px-1 text-muted-foreground"
+          onClick={onBack}
+        >
+          <ArrowLeft className="size-4 rtl:rotate-180" />
+          {t('common:actions.back')}
+        </Button>
+      )}
 
-      <div className="relative mt-2 flex w-full gap-1 overflow-x-auto">
+      <div className="relative flex w-full gap-2 overflow-x-auto">
         {sheets.map((sheetKey) => (
-          <Button
-            variant={'outline'}
-            key={sheetKey}
-            size="xs"
-            onClick={() => setSelectedSheetKey(sheetKey)}
-            className={cn('group max-w-32 shrink-0 cursor-pointer truncate rounded-sm px-2', {
-              'bg-secondary': sheetKey === selectedSheetKey,
-            })}
-            title={workSheets[sheetKey].name}
-          >
-            <span className="truncate">{workSheets[sheetKey].name}</span>
+          <div key={sheetKey} className="relative flex max-w-32 shrink-0">
+            <Button
+              variant="outline"
+              size="xs"
+              aria-pressed={sheetKey === selectedSheetKey}
+              onClick={() => setSelectedSheetKey(sheetKey)}
+              className={cn(
+                'max-w-32 cursor-pointer truncate rounded-sm px-2',
+                sheets.length !== 1 && 'pe-7',
+                { 'bg-secondary': sheetKey === selectedSheetKey }
+              )}
+              title={workSheets[sheetKey].name}
+            >
+              <span className="truncate">{workSheets[sheetKey].name}</span>
+            </Button>
             {sheets.length !== 1 && (
-              <X
-                className="size-3 shrink-0 rounded-full"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeSheet(sheetKey);
-                }}
-              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="absolute end-0 top-0 size-7 rounded-s-none hover:bg-transparent"
+                aria-label={`${t('common:actions.delete')}: ${workSheets[sheetKey].name}`}
+                onClick={() => removeSheet(sheetKey)}
+              >
+                <X className="size-3" />
+              </Button>
             )}
-          </Button>
+          </div>
         ))}
       </div>
 
-      <div className="my-2 h-[400px] overflow-y-auto rounded-sm border border-secondary">
+      <div className="mb-2 mt-3 min-h-0 flex-1 overflow-y-auto rounded-md border">
         <PreviewColumn columns={data.columns} onChange={columnHandler}></PreviewColumn>
       </div>
 

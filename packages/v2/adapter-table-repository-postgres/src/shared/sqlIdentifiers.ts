@@ -1,3 +1,5 @@
+import { sql, type Kysely } from 'kysely';
+
 export type QualifiedIdentifierLiteral = string & {
   readonly __brand: 'QualifiedIdentifierLiteral';
 };
@@ -9,7 +11,7 @@ const quoteIdentifierName = (identifier: string) => `"${identifier.replaceAll('"
 const hashIdentifier = (identifier: string): string => {
   let hash = 2166136261;
   for (let i = 0; i < identifier.length; i++) {
-    hash ^= identifier.charCodeAt(i);
+    hash ^= identifier.charCodeAt(i); // NOSONAR typescript:S7758 -- the hash is defined over UTF-16 code units; switching to code points would change persisted/compared values
     hash = Math.imul(hash, 16777619);
   }
   return (hash >>> 0).toString(36).padStart(7, '0');
@@ -58,4 +60,11 @@ export const toQualifiedIdentifierLiteral = (
       ? `${quoteIdentifierName(schemaName)}.${quoteIdentifierName(plainTableName)}`
       : quoteIdentifierName(plainTableName)
   ) as QualifiedIdentifierLiteral;
+};
+
+export const resolveTableSql = <DB>(db: Kysely<DB>, name: keyof DB & string) => {
+  // withSchema transforms query table nodes, but not standalone raw fragments.
+  // Compile through the caller's plugins and reuse the escaped table identifier.
+  const query = db.selectFrom(name).selectAll().compile().sql;
+  return sql.raw(query.slice('select * from '.length));
 };

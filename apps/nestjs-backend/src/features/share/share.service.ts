@@ -63,7 +63,8 @@ import { SharedViewRecordQueryV2Service } from './shared-view-record-query-v2.se
 
 export interface IJwtShareInfo {
   shareId: string;
-  password: string;
+  // sha256 over shareId + password (see hashSharePassword); never the password.
+  pwHash: string;
 }
 
 const resolveShareRecordProjection = (
@@ -678,7 +679,7 @@ export class ShareService {
       });
     }
 
-    await this.preCheckFieldHidden(view as IViewVo, fieldId);
+    this.preCheckFieldHidden(view as IViewVo, fieldId);
 
     // user field check
     const field = await this.fieldService.getField(tableId, fieldId);

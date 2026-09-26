@@ -58,10 +58,29 @@ export const publicSettingVoSchema = settingVoSchema
     changeEmailSendCodeMailRate: z.number().optional(),
     resetPasswordSendMailRate: z.number().optional(),
     signupVerificationSendCodeMailRate: z.number().optional(),
+    // Whether the login page offers "sign in with email code": password login is
+    // enabled and the instance has a working notify mail transport.
+    emailCodeSigninEnabled: z.boolean().optional(),
     enableCreditReward: z.boolean().optional(),
     availableIntegrationProviders: z.array(z.string()).optional(),
     // EE cloud: whether the deployment has a GitHub App for app-builder sync.
     githubAppConfigured: z.boolean().optional(),
+    // The server supports the mobile app's PKCE sign-in (`POST /auth/mobile/code` + `exchange`).
+    mobileAuthExchange: z.boolean().optional(),
+    // Which social sign-ins this deployment has configured, in no particular order, and
+    // whether email + password is off. A client that draws its own sign-in screen (the
+    // mobile app) needs both to offer exactly what the server can actually answer.
+    socialAuthProviders: z.array(z.string()).optional(),
+    passwordLoginDisabled: z.boolean().optional(),
+    // EE: whether the deployment has a scraping provider key, gating the chat Scraper entry.
+    scrapeEnabled: z.boolean().optional(),
+    // EE: whether the deployment can subscribe to and receive connector events (Composio key and
+    // webhook secret both set), gating the connector event trigger entries.
+    connectorEventEnabled: z.boolean().optional(),
+    // What this server was built from, the way the Web's own settings page states it. A
+    // client that is not served by this deployment (the mobile app) has no other way to
+    // say which server it is talking to. Empty on a build that carries no version.
+    buildVersion: z.string().optional(),
   });
 export type IPublicSettingVo = z.infer<typeof publicSettingVoSchema>;
 

@@ -57,7 +57,7 @@ const DialogContent = React.forwardRef<
     ref
   ) => (
     <DialogPortal container={container}>
-      {overlay ? overlay : <DialogOverlay className={overlayClassName} style={overlayStyle} />}
+      {overlay || <DialogOverlay className={overlayClassName} style={overlayStyle} />}
       <DialogPrimitive.Content
         ref={ref}
         className={cn(

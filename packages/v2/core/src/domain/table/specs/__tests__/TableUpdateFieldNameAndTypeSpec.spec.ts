@@ -56,7 +56,7 @@ describe('TableUpdateFieldNameSpec', () => {
 
     const spec = TableUpdateFieldNameSpec.create(fieldId, prevName, nextName);
     const visitor = { visitTableUpdateFieldName: () => ok(undefined) };
-    spec.accept(visitor as any)._unsafeUnwrap();
+    expect(spec.accept(visitor as any).isOk()).toBe(true);
   });
 });
 
@@ -82,7 +82,7 @@ describe('TableUpdateFieldDescriptionSpec', () => {
     const fieldId = createFieldId('9');
     const spec = TableUpdateFieldDescriptionSpec.create(fieldId, null, 'desc');
     const visitor = { visitTableUpdateFieldDescription: () => ok(undefined) };
-    spec.accept(visitor as any)._unsafeUnwrap();
+    expect(spec.accept(visitor as any).isOk()).toBe(true);
   });
 });
 
@@ -150,6 +150,6 @@ describe('TableUpdateFieldTypeSpec', () => {
 
     const spec = TableUpdateFieldTypeSpec.create(textField, numberField);
     const visitor = { visitTableUpdateFieldType: () => ok(undefined) };
-    spec.accept(visitor as any)._unsafeUnwrap();
+    expect(spec.accept(visitor as any).isOk()).toBe(true);
   });
 });

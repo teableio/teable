@@ -7,6 +7,7 @@ import {
 import { axios } from '../../axios';
 import { mailTransportConfigSchema } from '../../mail';
 import { registerRoute } from '../../utils';
+import { isFullModelKey } from '../../utils/model-key';
 import { isValidBannedEmailDomain } from './banned-email-domains';
 import {
   gatewayModelProviderSchema,
@@ -19,6 +20,7 @@ import {
   imageModelAbilitySchema,
   modelAbilitySchema,
 } from './model-ability';
+import { modelTierIdSchema } from './model-tier';
 import { pricingSchema } from './pricing';
 
 export enum LLMProviderType {
@@ -77,8 +79,10 @@ export const modelConfigSchema = z.object({
   ownedBy: gatewayModelProviderSchema.optional(), // e.g., "openai", "anthropic", "google"
   modelType: gatewayModelTypeSchema.optional(), // e.g., "language", "image"
   tags: z.array(gatewayModelTagSchema).optional(), // e.g., ["vision", "tool-use", "reasoning"]
-  contextWindow: z.number().optional(), // max input tokens
-  maxTokens: z.number().optional(), // max output tokens
+  /** @deprecated unread: the runtime takes the context window from the model catalog */
+  contextWindow: z.number().optional(),
+  /** @deprecated unread: the runtime takes the output limit from the model catalog */
+  maxTokens: z.number().optional(),
   description: z.string().optional(), // model description
 });
 
@@ -115,22 +119,22 @@ export type LLMProvider = z.infer<typeof llmProviderSchema>;
 // requests to the wrong model — so reject malformed keys at save time.
 // Empty segments (e.g. 'openai@@teable') are equally malformed: parseModelKey
 // would return an empty type/model/name.
-export const modelKeySchema = z.string().refine(
-  (key) => {
-    if (!key) return true;
-    const parts = key.split('@');
-    return parts.length === 3 && parts.every((part) => part.length > 0);
-  },
-  {
-    message: `Model key must be 'type@model@name'`,
-  }
-);
+export const modelKeySchema = z.string().refine((key) => !key || isFullModelKey(key), {
+  message: `Model key must be 'type@model@name'`,
+});
 
 export const chatModelSchema = z.object({
+  // Top tier (Ultra): only ever user-picked, never a background default
+  xl: modelKeySchema.optional(),
   lg: modelKeySchema.optional(),
   md: modelKeySchema.optional(),
   sm: modelKeySchema.optional(),
   ability: chatModelAbilitySchema.optional(),
+  // Tiers left out of the chat model menu (the default tier is always offered)
+  hiddenTiers: z.array(modelTierIdSchema).optional(),
+  // Tier chat users land on; lg when unset. Only chat surfaces honour it: lg
+  // stays the main model for AI fields, background tasks and bots.
+  defaultTier: modelTierIdSchema.optional(),
 });
 
 // Attachment transfer mode test result for a single mode
@@ -264,6 +268,8 @@ export const aiConfigVoSchema = aiConfigSchema.extend({
   enable: z.boolean().optional(),
 });
 
+export type IAIConfigVo = z.infer<typeof aiConfigVoSchema>;
+
 export const appAuthGoogleConfigSchema = z.object({
   clientId: z.string().optional(),
   clientSecret: z.string().optional(),
@@ -382,6 +388,7 @@ export const v2FeatureSchema = z.enum([
   'getGroupPoints',
   'getSearchCount',
   'getSearchIndex',
+  'getRecordIndex',
   'getFields',
   'getTable',
   'updateTable',

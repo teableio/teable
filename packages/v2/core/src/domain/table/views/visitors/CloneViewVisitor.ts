@@ -67,9 +67,7 @@ export class CloneViewVisitor implements IViewVisitor<View> {
     }).andThen((clone) =>
       clone
         .setOptions(
-          Object.prototype.hasOwnProperty.call(this.overrides, 'options')
-            ? this.overrides.options
-            : view.options()
+          Object.hasOwn(this.overrides, 'options') ? this.overrides.options : view.options()
         )
         .andThen(() => {
           const orderResult = this.overrides.order ? ok(this.overrides.order) : view.order();

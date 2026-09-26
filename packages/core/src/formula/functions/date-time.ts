@@ -59,7 +59,7 @@ function isISODateString(dateString: string) {
 }
 
 const normalizeDateTimeParseInput = (isoStr: string) =>
-  isoStr.trim().replace(/\//g, '-').replace('T', ' ');
+  isoStr.trim().replaceAll('/', '-').replace('T', ' ');
 
 const inferDateTimeParseFormat = (isoStr: string) => {
   if (!/^\d{4}-\d{1,2}-\d{1,2}(?: \d{1,2}:\d{1,2}(?::\d{1,2}(?:\.\d{1,3})?)?)?$/.test(isoStr)) {

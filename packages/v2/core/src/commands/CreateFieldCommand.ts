@@ -7,6 +7,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import type { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
+import type { IExecutionContext } from '../ports/ExecutionContext';
 import { tableFieldInputSchema } from '../schemas/field';
 import { parseTableFieldSpec, resolveTableFieldInputName } from './TableFieldSpecs';
 import { TableUpdateCommand } from './TableUpdateCommand';
@@ -81,7 +82,9 @@ export class CreateFieldCommand extends TableUpdateCommand {
     );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
+  foreignTableReferences(
+    executionContext?: IExecutionContext
+  ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     if (this.field.type === 'link') {
       const baseIdRaw = this.field.options.baseId;
       return TableId.create(this.field.options.foreignTableId).andThen((foreignTableId) =>
@@ -92,7 +95,7 @@ export class CreateFieldCommand extends TableUpdateCommand {
     }
 
     return resolveTableFieldInputName(this.field, []).andThen((resolved) =>
-      parseTableFieldSpec(resolved, { isPrimary: false }).andThen((spec) =>
+      parseTableFieldSpec(resolved, { isPrimary: false, executionContext }).andThen((spec) =>
         spec.foreignTableReferences()
       )
     );

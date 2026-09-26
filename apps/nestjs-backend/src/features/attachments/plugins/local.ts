@@ -1,8 +1,15 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
-import { createReadStream, createWriteStream, unlinkSync, existsSync, rmSync } from 'fs';
+import {
+  createReadStream,
+  createWriteStream,
+  unlinkSync,
+  existsSync,
+  rmSync,
+  promises as fsp,
+} from 'node:fs';
+import { join, resolve } from 'node:path';
 import { type Readable as ReadableStream } from 'node:stream';
-import { join, resolve } from 'path';
 import { Injectable, Logger } from '@nestjs/common';
 import { getRandomString, HttpErrorCode, isImage } from '@teable/core';
 import { READ_PATH } from '@teable/openapi';
@@ -37,11 +44,11 @@ interface ITokenEncryptor {
 
 @Injectable()
 export class LocalStorage implements StorageAdapter {
-  private logger = new Logger(LocalStorage.name);
+  private readonly logger = new Logger(LocalStorage.name);
   path: string;
   storageDir: string;
   expireTokenEncryptor: Encryptor<ITokenEncryptor>;
-  static readPath = READ_PATH;
+  static readonly readPath = READ_PATH;
 
   constructor(
     @StorageConfig() readonly config: IStorageConfig,
@@ -174,11 +181,11 @@ export class LocalStorage implements StorageAdapter {
         });
         req.on('error', (err) => {
           fileStream.end();
-          reject(err.message);
+          reject(err);
         });
 
         fileStream.on('error', (err) => {
-          reject(err.message);
+          reject(err);
         });
 
         fileStream.on('finish', () => {
@@ -222,7 +229,7 @@ export class LocalStorage implements StorageAdapter {
     try {
       const info = await sharp(path).metadata();
       return normalizeImageDimensions(info);
-    } catch (error) {
+    } catch {
       return {};
     }
   }
@@ -382,7 +389,10 @@ export class LocalStorage implements StorageAdapter {
   }
 
   async downloadFile(bucket: string, path: string): Promise<ReadableStream> {
-    return createReadStream(resolve(this.storageDir, bucket, path));
+    const filePath = resolve(this.storageDir, bucket, path);
+    // reject up front with the fs error (ENOENT) instead of returning a stream that errors
+    await fsp.access(filePath);
+    return createReadStream(filePath);
   }
 
   async listObjects(
@@ -417,7 +427,7 @@ export class LocalStorage implements StorageAdapter {
     };
     walk(bucketDir, '');
     objects.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
-    return { objects, prefixes: [...prefixes].sort() };
+    return { objects, prefixes: [...prefixes].sort((a, b) => Number(a > b) - Number(a < b)) };
   }
 
   async deleteFile(bucket: string, path: string): Promise<void> {

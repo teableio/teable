@@ -239,11 +239,17 @@ db-migration:		## Reruns the existing migration history in the shadow database i
 	@read -p "Enter name of the migration: " migration_name; \
   	make postgres-db-migration _MIGRATION_NAME=$$migration_name
 
+# The prisma CLI reads its datasource through dotenv-flow. The committed .env files carry no
+# credentials, so default NODE_ENV to development here: that loads .env.development, which
+# `switch.prisma.env` rewrites for the selected database mode. An exported PRISMA_DATABASE_URL
+# (the e2e targets above) still wins, because dotenv never overrides the environment.
 postgres.mode:		## postgres.mode
 	@cd ./packages/db-main-prisma; \
+		export NODE_ENV="$${NODE_ENV:-development}"; \
 		pnpm prisma-generate; \
 		pnpm prisma-migrate deploy --schema ./prisma/postgres/schema.prisma
 	@cd ./packages/db-data-prisma; \
+		export NODE_ENV="$${NODE_ENV:-development}"; \
 		pnpm prisma-generate; \
 		pnpm prisma-migrate deploy --schema ./prisma/schema.prisma
 # Override environment variable files based on variables

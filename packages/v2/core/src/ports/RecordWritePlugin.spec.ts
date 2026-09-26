@@ -23,5 +23,6 @@ describe('recordWriteOperationMayCreateRecords', () => {
     expect(recordWriteOperationMayCreateRecords(RecordWriteOperationKind.updateOne)).toBe(false);
     expect(recordWriteOperationMayCreateRecords(RecordWriteOperationKind.updateMany)).toBe(false);
     expect(recordWriteOperationMayCreateRecords(RecordWriteOperationKind.deleteMany)).toBe(false);
+    expect(recordWriteOperationMayCreateRecords(RecordWriteOperationKind.archiveMany)).toBe(false);
   });
 });

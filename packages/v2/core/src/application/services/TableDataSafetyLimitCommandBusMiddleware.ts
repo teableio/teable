@@ -29,7 +29,7 @@ export class TableDataSafetyLimitCommandBusMiddleware implements ICommandBusMidd
       {
         ...context,
         config: {
-          ...(context.config ?? {}),
+          ...context.config,
           ...(composedResult.value ? { tableLimits: composedResult.value } : {}),
         },
       },

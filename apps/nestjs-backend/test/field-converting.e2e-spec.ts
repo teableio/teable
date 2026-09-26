@@ -4020,8 +4020,12 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           fieldKeyType: FieldKeyType.Id,
         });
         expect(
-          recordsBeforeRename.records.map((record) => record.fields[nestedLookupField.id]).sort()
-        ).toEqual([...values].sort());
+          recordsBeforeRename.records
+            .map((record) => record.fields[nestedLookupField.id])
+            .sort((a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b)))
+        ).toEqual(
+          [...values].sort((a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b)))
+        );
 
         const updated = await convertFieldByCanaryV2(table3.id, nestedLookupField.id, {
           name: 'Renamed Nested Status',
@@ -4041,8 +4045,12 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         expect((persisted.options as ISelectFieldOptions).choices).toEqual(expectedChoices);
 
         const records = await getRecords(table3.id, { fieldKeyType: FieldKeyType.Id });
-        expect(records.records.map((record) => record.fields[nestedLookupField.id]).sort()).toEqual(
-          [...values].sort()
+        expect(
+          records.records
+            .map((record) => record.fields[nestedLookupField.id])
+            .sort((a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b)))
+        ).toEqual(
+          [...values].sort((a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b)))
         );
       }
     );
@@ -5304,12 +5312,24 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       );
       expect(newField.type).toEqual(FieldType.User);
       expect(values[0]).toHaveLength(3);
-      expect((values[0] as IUserCellValue[]).map((u) => u.id).sort()).toEqual(
-        [user1Info.id, user2Info.id, globalThis.testConfig.userId].sort()
+      expect(
+        (values[0] as IUserCellValue[])
+          .map((u) => u.id)
+          .sort((a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b)))
+      ).toEqual(
+        [user1Info.id, user2Info.id, globalThis.testConfig.userId].sort(
+          (a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b))
+        )
       );
       expect(values[1]).toHaveLength(2);
-      expect((values[1] as IUserCellValue[]).map((u) => u.id).sort()).toEqual(
-        [user1Info.id, user2Info.id].sort()
+      expect(
+        (values[1] as IUserCellValue[])
+          .map((u) => u.id)
+          .sort((a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b)))
+      ).toEqual(
+        [user1Info.id, user2Info.id].sort(
+          (a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b))
+        )
       );
 
       // Delete users from collaborators

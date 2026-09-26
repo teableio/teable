@@ -8,7 +8,8 @@ export const DELETE_BASE = '/base/{baseId}';
 export const DeleteBaseRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: DELETE_BASE,
-  description: 'Delete a base by baseId',
+  title: 'Delete project',
+  description: 'Move a project to the trash by its ID.',
   request: {
     params: z.object({
       baseId: z.string(),

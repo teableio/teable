@@ -21,6 +21,10 @@ import {
   TableOpBuilder,
 } from '@teable/core';
 import type { ITableVo } from '@teable/openapi';
+import { isTableProvisionPendingError, TABLE_PROVISION_PENDING_CODE } from '@teable/v2-core';
+// Cancellation classification only; this import does not make HTTP requests.
+// eslint-disable-next-line no-restricted-imports
+import { isCancel } from 'axios';
 import { omit } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
@@ -36,6 +40,7 @@ import {
   type IEditOp,
   type IShareDbReadonlyAdapterService,
 } from './interface';
+import { getQueryCancellationSignal, ShareDbQueryCancelledError } from './query-cancellation';
 import { shouldSkipQueryPoll } from './query-poll-skip';
 import { FieldReadonlyServiceAdapter } from './readonly/field-readonly.service';
 import { RecordReadonlyServiceAdapter } from './readonly/record-readonly.service';
@@ -50,16 +55,21 @@ export interface ICollectionSnapshot {
 
 type IProjection = { [fieldNameOrId: string]: boolean };
 
-const computedActivityCollectionPrefix = 'cmp';
-
-export type ComputedActivitySnapshotLoader = (
-  tableId: string
-) => Promise<Readonly<Record<string, { version: number; data: unknown }>>>;
+/**
+ * Runs a callback-style ShareDB method that is implemented with async/await. ShareDB expects
+ * these methods to return void, so the promise is settled here and an unexpected rejection is
+ * forwarded to the trailing callback instead of becoming an unhandled rejection.
+ */
+const settle = (promise: Promise<unknown>, args: readonly unknown[]): void => {
+  promise.catch((error) => {
+    const callback = args[args.length - 1];
+    if (typeof callback === 'function') callback(error);
+  });
+};
 
 @Injectable()
 export class ShareDbAdapter extends ShareDb.DB {
-  private logger = new Logger(ShareDbAdapter.name);
-  private computedActivitySnapshotLoader?: ComputedActivitySnapshotLoader;
+  private readonly logger = new Logger(ShareDbAdapter.name);
 
   // Read by sharedb QueryEmitter (lib/query-emitter.js): ops arriving while a
   // poll is in flight or within this window are coalesced into a single
@@ -79,10 +89,6 @@ export class ShareDbAdapter extends ShareDb.DB {
   ) {
     super();
     this.closed = false;
-  }
-
-  setComputedActivitySnapshotLoader(loader: ComputedActivitySnapshotLoader): void {
-    this.computedActivitySnapshotLoader = loader;
   }
 
   getReadonlyService(type: IdPrefix): IShareDbReadonlyAdapterService {
@@ -113,7 +119,7 @@ export class ShareDbAdapter extends ShareDb.DB {
     }, {});
   }
 
-  query = async (
+  query = (
     collection: string,
     query: unknown,
     projection: IProjection,
@@ -121,10 +127,15 @@ export class ShareDbAdapter extends ShareDb.DB {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     callback: (err: any, snapshots: Snapshot[], extra?: any) => void
   ) => {
+    const signal = getQueryCancellationSignal(options);
     this.queryPoll(collection, query, options, (error, results, extra) => {
       if (error) {
+        if (signal?.aborted && error instanceof ShareDbQueryCancelledError) {
+          return callback(null, [], undefined);
+        }
         return callback(error, []);
       }
+      if (signal?.aborted) return callback(null, [], undefined);
       if (!results.length) {
         return callback(undefined, [], extra);
       }
@@ -141,8 +152,12 @@ export class ShareDbAdapter extends ShareDb.DB {
         options,
         (error, snapshots) => {
           if (error) {
+            if (signal?.aborted && error instanceof ShareDbQueryCancelledError) {
+              return callback(null, [], undefined);
+            }
             return callback(error, []);
           }
+          if (signal?.aborted) return callback(null, [], undefined);
           callback(
             error,
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -153,6 +168,22 @@ export class ShareDbAdapter extends ShareDb.DB {
       );
     });
   };
+
+  private toShareDbError(error: Error) {
+    const exception = exceptionParse(error);
+    const data = 'data' in error ? error.data : undefined;
+    // ShareDB serializes only code/message. Preserve the pending identity there,
+    // before HTTP normalization discards the domain metadata.
+    if (
+      data &&
+      typeof data === 'object' &&
+      'domainCode' in data &&
+      isTableProvisionPendingError({ code: data.domainCode })
+    ) {
+      exception.code = TABLE_PROVISION_PENDING_CODE;
+    }
+    return exception;
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private getAuthHeaders(options: any) {
@@ -167,20 +198,27 @@ export class ShareDbAdapter extends ShareDb.DB {
     return { cookie, shareViewId: shareId, baseShareId, templateHeader };
   }
 
-  async queryPoll(
+  queryPoll(...args: Parameters<ShareDbAdapter['queryPollAsync']>): void {
+    settle(this.queryPollAsync(...args), args);
+  }
+
+  async queryPollAsync(
     collection: string,
     query: unknown,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     options: any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    callback: (error: any | null, ids: string[], extra?: any) => void
+    callback: (error: any, ids: string[], extra?: any) => void
   ) {
+    const signal = getQueryCancellationSignal(options);
     try {
+      if (signal?.aborted) throw new ShareDbQueryCancelledError();
       const authHeaders = this.getAuthHeaders(options);
       await this.cls.runWith(
         {
           ...this.cls.get(),
           ...authHeaders,
+          interactiveQueryAbort: signal,
         },
         async () => {
           const [docType, collectionId] = collection.split('_');
@@ -188,13 +226,17 @@ export class ShareDbAdapter extends ShareDb.DB {
             collectionId,
             query
           );
+          if (signal?.aborted) throw new ShareDbQueryCancelledError();
           callback(null, queryResult.ids, queryResult.extra);
         }
       );
     } catch (e) {
+      if (signal?.aborted && (e instanceof ShareDbQueryCancelledError || isCancel(e))) {
+        return callback(new ShareDbQueryCancelledError(), []);
+      }
       this.logger.error(e);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      callback(exceptionParse(e as Error), []);
+      callback(this.toShareDbError(e as Error), []);
     }
   }
 
@@ -226,7 +268,7 @@ export class ShareDbAdapter extends ShareDb.DB {
     if (callback) callback();
   }
 
-  async commit() {
+  commit() {
     throw new Error('Method not implemented.');
   }
 
@@ -252,40 +294,28 @@ export class ShareDbAdapter extends ShareDb.DB {
     return this.snapshots2Map(snapshots);
   }
 
-  private async loadComputedActivitySnapshots(
-    tableId: string,
-    ids: string[]
-  ): Promise<ISnapshotBase<unknown>[]> {
-    await this.fieldService.authorizeComputedActivityRead(tableId);
-    if (!this.computedActivitySnapshotLoader) return [];
-
-    const documents = await this.computedActivitySnapshotLoader(tableId);
-    return ids.flatMap((id) => {
-      const document = documents[id];
-      if (!document) return [];
-      return [
-        {
-          id,
-          v: Math.max(1, Math.trunc(document.version)),
-          type: 'json0',
-          data: document.data,
-        },
-      ];
-    });
-  }
-
   // Get the named document from the database. The callback is called with (err,
   // snapshot). A snapshot with a version of zero is returned if the document
   // has never been created in the database.
-  async getSnapshotBulk(
+  getSnapshotBulk(...args: Parameters<ShareDbAdapter['getSnapshotBulkAsync']>): void {
+    settle(this.getSnapshotBulkAsync(...args), args);
+  }
+
+  async getSnapshotBulkAsync(
     collection: string,
     ids: string[],
     projection: IProjection | undefined,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     options: any,
-    callback: (err: unknown | null, data?: Record<string, Snapshot>) => void
+    callback: (err: unknown, data?: Record<string, Snapshot>) => void
   ) {
+    // QueryEmitter's inserted-snapshot path only passes agentCustom. Its callback
+    // runs in queryPoll's CLS child, which still owns this subscription's signal.
+    const signal = collection.startsWith(`${IdPrefix.Record}_`)
+      ? getQueryCancellationSignal(options) ?? this.cls.get('interactiveQueryAbort')
+      : undefined;
     try {
+      if (signal?.aborted) throw new ShareDbQueryCancelledError();
       const [docType, collectionId] = collection.split('_');
       let authHeaders;
       try {
@@ -303,26 +333,31 @@ export class ShareDbAdapter extends ShareDb.DB {
         {
           ...this.cls.get(),
           ...authHeaders,
+          interactiveQueryAbort: signal,
         },
-        async () => {
-          if (docType === computedActivityCollectionPrefix) {
-            return this.loadComputedActivitySnapshots(collectionId, ids);
-          }
-          return this.getReadonlyService(docType as IdPrefix).getSnapshotBulk(
+        () =>
+          this.getReadonlyService(docType as IdPrefix).getSnapshotBulk(
             collectionId,
             ids,
             projection && projection['$submit'] ? undefined : projection
-          );
-        }
+          )
       );
+      if (signal?.aborted) throw new ShareDbQueryCancelledError();
       callback(null, this.snapshots2MapWithMissing(ids, snapshotData));
     } catch (err) {
+      if (signal?.aborted && (err instanceof ShareDbQueryCancelledError || isCancel(err))) {
+        return callback(new ShareDbQueryCancelledError());
+      }
       this.logger.error(err);
-      callback(exceptionParse(err as Error));
+      callback(this.toShareDbError(err as Error));
     }
   }
 
-  async getSnapshot(
+  getSnapshot(...args: Parameters<ShareDbAdapter['getSnapshotAsync']>): void {
+    settle(this.getSnapshotAsync(...args), args);
+  }
+
+  async getSnapshotAsync(
     collection: string,
     id: string,
     projection: IProjection | undefined,
@@ -361,15 +396,7 @@ export class ShareDbAdapter extends ShareDb.DB {
         ...this.cls.get(),
         ...authHeaders,
       },
-      async () => {
-        if (docType === computedActivityCollectionPrefix) {
-          return await this.loadComputedActivitySnapshots(collectionId, ids);
-        }
-        return await this.getReadonlyService(docType as IdPrefix).getSnapshotBulk(
-          collectionId,
-          ids
-        );
-      }
+      () => this.getReadonlyService(docType as IdPrefix).getSnapshotBulk(collectionId, ids)
     );
 
     // Filter out meta field for Field type to prevent it from being sent to frontend
@@ -381,42 +408,6 @@ export class ShareDbAdapter extends ShareDb.DB {
     }
 
     return snapshots;
-  }
-
-  private getComputedActivityVersionAndType(snapshot?: ISnapshotBase<unknown>): {
-    version: number;
-    type: RawOpType;
-  } {
-    if (!snapshot) return { version: 0, type: RawOpType.Del };
-    if (snapshot.v === 1) return { version: 0, type: RawOpType.Create };
-    return { version: snapshot.v - 1, type: RawOpType.Edit };
-  }
-
-  private getComputedActivityCreateReplayOps(
-    snapshot: ISnapshotBase<unknown>,
-    to: number | null
-  ): Array<ICreateOp | IEditOp> {
-    const targetVersion = Math.max(0, Math.min(to ?? snapshot.v, snapshot.v));
-    if (targetVersion === 0) return [];
-
-    const ops = new Array<ICreateOp | IEditOp>(targetVersion);
-    ops[0] = {
-      src: getRandomString(21),
-      seq: 1,
-      v: 0,
-      create: {
-        type: 'json0',
-        data: snapshot.data,
-      },
-    } as ICreateOp;
-    for (let version = 1; version < targetVersion; version += 1) {
-      ops[version] = {
-        src: getRandomString(21),
-        seq: 1,
-        v: version,
-      } as IEditOp;
-    }
-    return ops;
   }
 
   private hasGapVersion({
@@ -533,7 +524,7 @@ export class ShareDbAdapter extends ShareDb.DB {
       callback(null, editOps);
     } catch (err) {
       this.logger.error(err);
-      callback(exceptionParse(err as Error));
+      callback(this.toShareDbError(err as Error));
     }
   }
 
@@ -546,7 +537,11 @@ export class ShareDbAdapter extends ShareDb.DB {
   // The version will be inferred from the parameters if it is missing.
   //
   // Callback should be called as callback(error, [list of ops]);
-  async getOps(
+  getOps(...args: Parameters<ShareDbAdapter['getOpsAsync']>): void {
+    settle(this.getOpsAsync(...args), args);
+  }
+
+  async getOpsAsync(
     collection: string,
     id: string,
     from: number,
@@ -555,30 +550,24 @@ export class ShareDbAdapter extends ShareDb.DB {
     options: any,
     callback: (error: unknown, data?: unknown) => void
   ) {
-    const [docType, collectionId] = collection.split('_');
-    if (docType === computedActivityCollectionPrefix) {
-      const snapshots = await this.getSnapshotData(docType, collectionId, [id], options);
-      const snapshot = snapshots[0];
-      if (snapshot && from === 0) {
-        callback(null, this.getComputedActivityCreateReplayOps(snapshot, to));
-        return;
-      }
-
+    try {
+      const [docType] = collection.split('_');
+      const readonlyService = this.getReadonlyService(docType as IdPrefix);
       await this.internalGetOps(collection, id, from, to, options, callback, {
-        getVersionAndType: async () => this.getComputedActivityVersionAndType(snapshot),
-        getSnapshotData: async () => (snapshot ? [snapshot] : []),
+        getVersionAndType: async (...args) => await readonlyService.getVersionAndType(...args),
+        getSnapshotData: async (...args) => await this.getSnapshotData(...args),
       });
-      return;
+    } catch (err) {
+      this.logger.error(err);
+      callback(this.toShareDbError(err as Error));
     }
-
-    const readonlyService = this.getReadonlyService(docType as IdPrefix);
-    await this.internalGetOps(collection, id, from, to, options, callback, {
-      getVersionAndType: async (...args) => await readonlyService.getVersionAndType(...args),
-      getSnapshotData: async (...args) => await this.getSnapshotData(...args),
-    });
   }
 
-  async getOpsBulk(
+  getOpsBulk(...args: Parameters<ShareDbAdapter['getOpsBulkAsync']>): void {
+    settle(this.getOpsBulkAsync(...args), args);
+  }
+
+  async getOpsBulkAsync(
     collection: string,
     fromMap: Record<string, number>,
     toMap: Record<string, number | null> | undefined,
@@ -586,75 +575,63 @@ export class ShareDbAdapter extends ShareDb.DB {
     options: any,
     callback: (error: unknown, data?: unknown) => void
   ) {
-    const [docType, collectionId] = collection.split('_');
-    const activitySnapshots =
-      docType === computedActivityCollectionPrefix
-        ? await this.getSnapshotData(docType, collectionId, Object.keys(fromMap), options)
-        : null;
-    const versionAndTypeMap = activitySnapshots
-      ? Object.fromEntries(
-          activitySnapshots.map((snapshot) => [
-            snapshot.id,
-            this.getComputedActivityVersionAndType(snapshot),
-          ])
-        )
-      : await this.getReadonlyService(docType as IdPrefix).getVersionAndTypeMap(
-          collectionId,
-          Object.keys(fromMap)
-        );
-    const needGetSnapshotDataIds = this.getIdsWithGapVersion(fromMap, versionAndTypeMap);
+    try {
+      const [docType, collectionId] = collection.split('_');
+      const versionAndTypeMap = await this.getReadonlyService(
+        docType as IdPrefix
+      ).getVersionAndTypeMap(collectionId, Object.keys(fromMap));
+      const needGetSnapshotDataIds = this.getIdsWithGapVersion(fromMap, versionAndTypeMap);
 
-    const snapshots =
-      activitySnapshots ??
-      (await this.getSnapshotData(docType, collectionId, needGetSnapshotDataIds, options));
-    const snapshotDataMap = snapshots.reduce(
-      (acc, snapshot) => {
-        acc[snapshot.id] = snapshot;
-        return acc;
-      },
-      {} as Record<string, ISnapshotBase<unknown>>
-    );
-    const result: Record<string, unknown> = {};
-    for (const [id, from] of Object.entries(fromMap)) {
-      const activitySnapshot = activitySnapshots ? snapshotDataMap[id] : undefined;
-      if (activitySnapshot && from === 0) {
-        result[id] = this.getComputedActivityCreateReplayOps(activitySnapshot, toMap?.[id] ?? null);
-        continue;
-      }
-      let resultError: unknown = null;
-      await this.internalGetOps(
-        collection,
-        id,
-        from,
-        toMap?.[id] ?? null,
-        options,
-        (err, data) => {
-          if (err) {
-            resultError = err;
-          }
-          result[id] = data;
-        },
-        {
-          getVersionAndType: async (_collectionId, id) =>
-            versionAndTypeMap[id] ?? { version: 0, type: RawOpType.Del },
-          getSnapshotData: async (...args) => {
-            const ids = args[2];
-            return ids.map((id) => snapshotDataMap[id]).filter(Boolean);
-          },
-        }
+      const snapshots = await this.getSnapshotData(
+        docType,
+        collectionId,
+        needGetSnapshotDataIds,
+        options
       );
-      if (resultError) {
-        callback(resultError);
-        return;
+      const snapshotDataMap = snapshots.reduce(
+        (acc, snapshot) => {
+          acc[snapshot.id] = snapshot;
+          return acc;
+        },
+        {} as Record<string, ISnapshotBase<unknown>>
+      );
+      const result: Record<string, unknown> = {};
+      for (const [id, from] of Object.entries(fromMap)) {
+        let resultError: unknown = null;
+        await this.internalGetOps(
+          collection,
+          id,
+          from,
+          toMap?.[id] ?? null,
+          options,
+          (err, data) => {
+            if (err) {
+              resultError = err;
+            }
+            result[id] = data;
+          },
+          {
+            getVersionAndType: async (_collectionId, id) =>
+              versionAndTypeMap[id] ?? { version: 0, type: RawOpType.Del },
+            getSnapshotData: async (...args) => {
+              const ids = args[2];
+              return ids.map((id) => snapshotDataMap[id]).filter(Boolean);
+            },
+          }
+        );
+        if (resultError) {
+          callback(resultError);
+          return;
+        }
       }
+      callback(null, result);
+    } catch (err) {
+      this.logger.error(err);
+      callback(this.toShareDbError(err as Error));
     }
-    callback(null, result);
   }
 
   private getOpsFromSnapshot(docType: string, snapshot: unknown): IOtOperation[] {
-    if (docType === computedActivityCollectionPrefix) {
-      return [{ p: [], oi: snapshot }];
-    }
     switch (docType) {
       case IdPrefix.Record:
         return Object.entries((snapshot as IRecord).fields).map(([fieldId, fieldValue]) => {

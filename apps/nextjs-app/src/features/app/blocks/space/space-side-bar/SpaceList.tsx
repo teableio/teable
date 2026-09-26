@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getUniqName, hasPermission } from '@teable/core';
-import { Plus, Database, Component } from '@teable/icons';
+import { Plus, LayoutGrid, Component } from '@teable/icons';
 import { createSpace, createBase, getSpaceList, SPACE_NAME_MAX_LENGTH } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useContentDir } from '@teable/sdk/hooks';
@@ -143,7 +143,7 @@ export const SpaceList: FC = () => {
             <DropdownMenuContent align="start" className="w-48">
               {spacesWithBaseCreatePermission.length > 0 ? (
                 <DropdownMenuItem onClick={handleOpenCreateBaseDialog}>
-                  <Database className="me-2 size-4" />
+                  <LayoutGrid className="me-2 size-4" />
                   {t('actions.create')} {t('noun.base')}
                 </DropdownMenuItem>
               ) : (
@@ -152,7 +152,7 @@ export const SpaceList: FC = () => {
                     <TooltipTrigger asChild>
                       <div>
                         <DropdownMenuItem disabled className="cursor-not-allowed">
-                          <Database className="me-2 size-4" />
+                          <LayoutGrid className="me-2 size-4" />
                           {t('actions.create')} {t('noun.base')}
                         </DropdownMenuItem>
                       </div>

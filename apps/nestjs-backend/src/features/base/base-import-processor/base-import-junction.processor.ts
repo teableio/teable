@@ -47,8 +47,8 @@ export const BASE_IMPORT_JUNCTION_CSV_QUEUE = 'base-import-junction-csv-queue';
 @Injectable()
 @Processor(BASE_IMPORT_JUNCTION_CSV_QUEUE)
 export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
-  private logger = new Logger(BaseImportJunctionCsvQueueProcessor.name);
-  private processedJobs = new Set<string>();
+  private readonly logger = new Logger(BaseImportJunctionCsvQueueProcessor.name);
+  private readonly processedJobs = new Set<string>();
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -96,8 +96,7 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
     );
 
     const sourceLinkFields = structure.tables
-      .map(({ fields }) => fields)
-      .flat()
+      .flatMap(({ fields }) => fields)
       .filter((f) => f.type === FieldType.Link && !f.isLookup);
 
     const linkFieldRaws = await this.prismaService.field.findMany({

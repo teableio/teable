@@ -59,7 +59,7 @@ import type {
 } from '@teable/openapi';
 import { DEFAULT_MAX_SEARCH_FIELD_COUNT, GroupPointType, UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
-import { get, difference, keyBy, orderBy, uniqBy, toNumber } from 'lodash';
+import { chunk, get, difference, keyBy, orderBy, uniq, uniqBy, toNumber } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
@@ -132,7 +132,7 @@ export interface IRecordInnerRo {
 
 @Injectable()
 export class RecordService {
-  private logger = new Logger(RecordService.name);
+  private readonly logger = new Logger(RecordService.name);
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -686,7 +686,7 @@ export class RecordService {
     if (filter || orderBy?.length || groupBy?.length || search) {
       // Always load full field metadata so filters can reference denied fields for read,
       // while projection limits applied later keep them hidden from results.
-      const fields = await this.getFieldsByProjection(tableId, undefined);
+      const fields = await this.getFieldsByProjection(tableId);
       const allowedSet = projection?.length ? new Set(projection) : undefined;
       return fields.reduce(
         (map, field) => {
@@ -1329,6 +1329,27 @@ export class RecordService {
     return Number(result[0]?.max ?? 0) + 1;
   }
 
+  // Ids still present in the physical table; deleted/archived records are absent.
+  async getExistingRecordIds(tableId: string, recordIds: string[]): Promise<Set<string>> {
+    const existingIds = new Set<string>();
+    if (recordIds.length === 0) {
+      return existingIds;
+    }
+    const dbTableName = await this.getDbTableName(tableId);
+    for (const batch of chunk(uniq(recordIds), 1000)) {
+      const nativeQuery = this.knex(dbTableName)
+        .select('__id as id')
+        .whereIn('__id', batch)
+        .toQuery();
+      const rows = await this.databaseRouter.queryDataPrismaForTable<{ id: string }[]>(
+        tableId,
+        nativeQuery
+      );
+      rows.forEach(({ id }) => existingIds.add(id));
+    }
+    return existingIds;
+  }
+
   async batchDeleteRecords(tableId: string, recordIds: string[]) {
     const dbTableName = await this.getDbTableName(tableId);
     // get version by recordIds, __id as id, __version as version
@@ -1362,7 +1383,7 @@ export class RecordService {
       version: recordRawMap[recordId].version,
     }));
 
-    await this.batchService.saveRawOps(tableId, RawOpType.Del, IdPrefix.Record, dataList);
+    this.batchService.saveRawOps(tableId, RawOpType.Del, IdPrefix.Record, dataList);
 
     await this.batchDel(tableId, recordIds);
   }
@@ -1869,8 +1890,10 @@ export class RecordService {
           cellValue.forEach((item) => {
             if (item.mimetype.startsWith('image/') && item.width && item.height) {
               const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(item.path);
-              previewToken.push(getTableThumbnailToken(smThumbnailPath));
-              previewToken.push(getTableThumbnailToken(lgThumbnailPath));
+              previewToken.push(
+                getTableThumbnailToken(smThumbnailPath),
+                getTableThumbnailToken(lgThumbnailPath)
+              );
             }
             previewToken.push(item.token);
           });
@@ -1944,7 +1967,7 @@ export class RecordService {
     context?: IRecordsPresignedUrlContext
   ) {
     try {
-      if (records.length === 0 || fields.findIndex((f) => f.type === FieldType.Attachment) === -1) {
+      if (records.length === 0 || !fields.some((f) => f.type === FieldType.Attachment)) {
         return records;
       }
       const cacheTokenUrlMap = await this.getCachePreviewUrlTokenMap(records, fields, fieldKeyType);
@@ -2079,7 +2102,11 @@ export class RecordService {
       isArray: isArrayValue,
       arrayLength: isArrayValue ? cellValue.length : undefined,
       itemValueType: Array.isArray(sampleValue) ? 'array' : typeof sampleValue,
-      itemKeys: sampleRecord ? Object.keys(sampleRecord).sort().slice(0, 20) : undefined,
+      itemKeys: sampleRecord
+        ? Object.keys(sampleRecord)
+            .sort((a, b) => Number(a > b) - Number(a < b))
+            .slice(0, 20)
+        : undefined,
       hasToken: sampleRecord ? typeof sampleRecord.token === 'string' : undefined,
       hasPath: sampleRecord ? typeof sampleRecord.path === 'string' : undefined,
       hasMimetype: sampleRecord ? typeof sampleRecord.mimetype === 'string' : undefined,
@@ -2118,7 +2145,7 @@ export class RecordService {
         let lgThumbnailUrl: string | undefined;
         const isImg = isImage(mimetype);
         const thumbnailMimetype = resolveThumbnailMimetype(mimetype);
-        if (thumbnailPathTokenMap && thumbnailPathTokenMap[token]) {
+        if (thumbnailPathTokenMap?.[token]) {
           const { sm: smThumbnailPath, lg: lgThumbnailPath } = thumbnailPathTokenMap[token]!;
           if (smThumbnailPath) {
             smThumbnailUrl =

@@ -41,7 +41,7 @@ export class ApplyFieldSnapshotHandler
     context: ExecutionContextPort.IExecutionContext,
     command: ApplyFieldSnapshotCommand
   ): Promise<Result<ApplyFieldSnapshotResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ApplyFieldSnapshotResult, DomainError>(async function* () {
       const table = yield* await handler.fieldUndoRedoReplayService.replay(context, {
         baseId: command.baseId.toString(),

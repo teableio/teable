@@ -41,6 +41,8 @@ type IMigrationJobReader = Pick<
   'spaceDataDbMigrationJob' | 'baseDataDbMoveJob'
 >;
 
+type IWriteGuardOptions = { metadataOnly?: boolean };
+
 @Injectable()
 export class SpaceDataDbMigrationGuardService {
   constructor(
@@ -48,8 +50,9 @@ export class SpaceDataDbMigrationGuardService {
     @Optional() private readonly dataDbHealthService?: DataDbHealthService
   ) {}
 
-  async assertSpaceSchemaWritable(spaceId: string): Promise<void> {
-    await this.assertSpaceDataDbHealthy(spaceId);
+  async assertSpaceSchemaWritable(spaceId: string, options?: IWriteGuardOptions): Promise<void> {
+    // Metadata-only removal still respects migrations, but never writes to the external database.
+    if (!options?.metadataOnly) await this.assertSpaceDataDbHealthy(spaceId);
     const activeJob = await this.findActiveMigrationForSpace(spaceId, [
       ...activeSpaceDataDbMigrationStates,
     ]);
@@ -96,8 +99,8 @@ export class SpaceDataDbMigrationGuardService {
     );
   }
 
-  async assertSpaceWritable(spaceId: string): Promise<void> {
-    await this.assertSpaceSchemaWritable(spaceId);
+  async assertSpaceWritable(spaceId: string, options?: IWriteGuardOptions): Promise<void> {
+    await this.assertSpaceSchemaWritable(spaceId, options);
   }
 
   /**
@@ -127,7 +130,7 @@ export class SpaceDataDbMigrationGuardService {
   private async findActiveMigrationForSpace(
     spaceId: string,
     states: readonly string[],
-    options: { switchOnCompletionOnly?: boolean } = { switchOnCompletionOnly: true }
+    options: { switchOnCompletionOnly?: boolean } = {}
   ) {
     const switchOnCompletionFilter =
       options.switchOnCompletionOnly === false
@@ -197,20 +200,20 @@ export class SpaceDataDbMigrationGuardService {
     );
   }
 
-  async assertBaseWritable(baseId: string): Promise<void> {
-    await this.assertBaseSchemaWritable(baseId);
+  async assertBaseWritable(baseId: string, options?: IWriteGuardOptions): Promise<void> {
+    await this.assertBaseSchemaWritable(baseId, options);
   }
 
-  async assertBaseSchemaWritable(baseId: string): Promise<void> {
+  async assertBaseSchemaWritable(baseId: string, options?: IWriteGuardOptions): Promise<void> {
     const base = await this.prismaClient.base.findUnique({
       where: { id: baseId },
       select: { spaceId: true },
     });
     if (!base) {
-      throw new CustomHttpException(`Base ${baseId} not found`, HttpErrorCode.NOT_FOUND);
+      throw new CustomHttpException(`Project ${baseId} not found`, HttpErrorCode.NOT_FOUND);
     }
     await this.assertActiveBaseMove(baseId);
-    await this.assertSpaceSchemaWritable(base.spaceId);
+    await this.assertSpaceSchemaWritable(base.spaceId, options);
   }
 
   async assertBaseRecordWritable(baseId: string): Promise<void> {
@@ -219,7 +222,7 @@ export class SpaceDataDbMigrationGuardService {
       select: { spaceId: true },
     });
     if (!base) {
-      throw new CustomHttpException(`Base ${baseId} not found`, HttpErrorCode.NOT_FOUND);
+      throw new CustomHttpException(`Project ${baseId} not found`, HttpErrorCode.NOT_FOUND);
     }
     await this.assertActiveBaseMove(baseId, [...baseMoveRecordWriteBlockingStates]);
     await this.assertSpaceRecordWritable(base.spaceId);
@@ -234,7 +237,7 @@ export class SpaceDataDbMigrationGuardService {
       return;
     }
     throw new CustomHttpException(
-      'Base data database move is in progress',
+      'Project data database move is in progress',
       HttpErrorCode.CONFLICT,
       {
         errorCode: baseDataDbMovingErrorCode,

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { Readable } from 'stream';
+import type { Readable } from 'node:stream';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
@@ -84,6 +84,7 @@ import { TableService } from '../table/table.service';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 import { ViewOpenApiService } from '../view/open-api/view-open-api.service';
+import { auditBaseCreated } from './base-create-audit';
 import { BaseImportAttachmentsQueueProcessor } from './base-import-processor/base-import-attachments.processor';
 import { BaseImportCsvQueueProcessor } from './base-import-processor/base-import-csv.processor';
 import { replaceStringByMap } from './utils';
@@ -187,7 +188,7 @@ export const formatBaseImportError = (error: unknown, fallback = 'Import failed'
 
 @Injectable()
 export class BaseImportService {
-  private logger = new Logger(BaseImportService.name);
+  private readonly logger = new Logger(BaseImportService.name);
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -239,7 +240,7 @@ export class BaseImportService {
     const base = await this.prismaService.txClient().base.create({
       data: {
         id: generateBaseId(),
-        name: name || 'Untitled Base',
+        name: name || 'Untitled Project',
         spaceId,
         order,
         icon,
@@ -311,13 +312,13 @@ export class BaseImportService {
       `.execute(db);
       const existing = existingResult.rows[0];
       if (!existing) {
-        throw new Error(`Base not found: ${baseId}`);
+        throw new Error(`Project not found: ${baseId}`);
       }
       if (updateExistingBase) {
         await sql`
           update "base"
           set
-            "name" = ${name || 'Untitled Base'},
+            "name" = ${name || 'Untitled Project'},
             "icon" = ${icon ?? null},
             "last_modified_by" = ${userId},
             "last_modified_time" = ${new Date()}
@@ -325,7 +326,7 @@ export class BaseImportService {
         `.execute(db);
         return {
           id: existing.id,
-          name: name || 'Untitled Base',
+          name: name || 'Untitled Project',
           spaceId: existing.space_id,
         };
       }
@@ -339,7 +340,7 @@ export class BaseImportService {
 
     const base = {
       id: generateBaseId(),
-      name: name || 'Untitled Base',
+      name: name || 'Untitled Project',
       icon: icon ?? null,
       spaceId,
     };
@@ -410,6 +411,10 @@ export class BaseImportService {
           timeout: this.thresholdConfig.bigTransactionTimeout,
         }
       );
+
+    // The import routes answer over SSE or lost the controller BASE_CREATE event (EE override),
+    // so the new base is recorded here, under the `base.import` operation.
+    await auditBaseCreated(this.audit, base);
 
     onProgress?.('structure_created', base.id);
 
@@ -492,6 +497,8 @@ export class BaseImportService {
     const db = container.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
     const context = await this.v2ContextFactory.createContext(container);
     const base = await this.createBaseV2(db, spaceId, structure.name, structure.icon || undefined);
+    // Recorded as soon as it exists: a later failure (or the row-limit truncation below) keeps it.
+    await auditBaseCreated(this.audit, { ...base, icon: structure.icon });
 
     const dotTeaStream = await this.storageAdapter.downloadFile(
       StorageAdapter.getBucket(UploadType.Import),
@@ -627,7 +634,11 @@ export class BaseImportService {
     // Restore edition-specific resources (apps / workflows / authority matrix) through the v2
     // extension hook and collect their id maps so matching base_node rows can be remapped below.
     // Community has none, so the hook is a no-op; EE overrides it for imported and duplicated bases.
-    const { workflowIdMap = {}, appIdMap = {} } = await this.restoreExtraBaseResourcesV2(
+    const {
+      workflowIdMap = {},
+      appIdMap = {},
+      routineIdMap = {},
+    } = await this.restoreExtraBaseResourcesV2(
       db,
       baseId,
       structure,
@@ -661,6 +672,7 @@ export class BaseImportService {
           dashboardIdMap,
           workflowIdMap,
           appIdMap,
+          routineIdMap,
         },
         { updateExistingNodes: true, copyToExistingBase }
       );
@@ -686,7 +698,11 @@ export class BaseImportService {
     },
     _duplicateMode: BaseDuplicateMode,
     _onProgress?: BaseImportProgressCallback
-  ): Promise<{ workflowIdMap?: Record<string, string>; appIdMap?: Record<string, string> }> {
+  ): Promise<{
+    workflowIdMap?: Record<string, string>;
+    appIdMap?: Record<string, string>;
+    routineIdMap?: Record<string, string>;
+  }> {
     return {};
   }
 
@@ -742,6 +758,7 @@ export class BaseImportService {
       dashboardIdMap?: Record<string, string>;
       workflowIdMap?: Record<string, string>;
       appIdMap?: Record<string, string>;
+      routineIdMap?: Record<string, string>;
     },
     options?: {
       updateExistingNodes?: boolean;
@@ -759,6 +776,7 @@ export class BaseImportService {
       dashboardIdMap = {},
       workflowIdMap = {},
       appIdMap = {},
+      routineIdMap = {},
     } = idMapContext;
     const allNodeIdMap = nodes.reduce(
       (acc, cur) => {
@@ -774,6 +792,7 @@ export class BaseImportService {
       dashboardIdMap,
       workflowIdMap,
       appIdMap,
+      routineIdMap,
     });
     const sortedNodes = this.sortBaseNodesByParent(nodes);
     const createdResourceKeys = new Set<string>();
@@ -879,8 +898,17 @@ export class BaseImportService {
     dashboardIdMap: Record<string, string>;
     workflowIdMap: Record<string, string>;
     appIdMap: Record<string, string>;
+    routineIdMap: Record<string, string>;
   }) {
-    const { nodes, folderIdMap, tableIdMap, dashboardIdMap, workflowIdMap, appIdMap } = params;
+    const {
+      nodes,
+      folderIdMap,
+      tableIdMap,
+      dashboardIdMap,
+      workflowIdMap,
+      appIdMap,
+      routineIdMap,
+    } = params;
     return nodes.reduce(
       (acc, cur) => {
         const { resourceType, resourceId } = cur;
@@ -900,6 +928,9 @@ export class BaseImportService {
             break;
           case BaseNodeResourceType.App:
             acc[resourceType][resourceId] = appIdMap[resourceId];
+            break;
+          case BaseNodeResourceType.Routine:
+            acc[resourceType][resourceId] = routineIdMap[resourceId];
             break;
           default:
             break;
@@ -968,7 +999,7 @@ export class BaseImportService {
     const dashboardMap: Record<string, string> = {};
     const pluginInstallMap: Record<string, string> = {};
     const userId = this.cls.get('user.id');
-    const pluginInstalls = plugins.map(({ pluginInstall }) => pluginInstall).flat();
+    const pluginInstalls = plugins.flatMap(({ pluginInstall }) => pluginInstall);
 
     for (const plugin of plugins) {
       const { id, name } = plugin;
@@ -1038,7 +1069,7 @@ export class BaseImportService {
     const userId = this.cls.get('user.id');
     // Panels whose table is outside the imported scope have no table mapping
     const plugins = panelPlugins.filter(({ tableId }) => tableMap[tableId]);
-    const pluginInstalls = plugins.map(({ pluginInstall }) => pluginInstall).flat();
+    const pluginInstalls = plugins.flatMap(({ pluginInstall }) => pluginInstall);
 
     for (const plugin of plugins) {
       const { id, name, tableId } = plugin;
@@ -2235,7 +2266,7 @@ export class BaseImportService {
             })
             .on('end', async () => {
               if (!structureObject) {
-                reject(new Error('import base structure.json resolve error'));
+                reject(new Error('import project structure.json resolve error'));
               }
 
               try {
@@ -2255,7 +2286,7 @@ export class BaseImportService {
             })
             .on('error', (err: Error) => {
               parser.destroy(new Error(`resolve structure.json error: ${err.message}`));
-              reject(Error);
+              reject(new Error(`resolve structure.json error: ${err.message}`));
             });
         } else {
           entry.autodrain();
@@ -2742,6 +2773,7 @@ export class BaseImportService {
       dashboardIdMap?: Record<string, string>;
       workflowIdMap?: Record<string, string>;
       appIdMap?: Record<string, string>;
+      routineIdMap?: Record<string, string>;
     },
     copyToExistingBase: boolean = false,
     options?: {
@@ -2760,6 +2792,7 @@ export class BaseImportService {
       dashboardIdMap = {},
       workflowIdMap = {},
       appIdMap = {},
+      routineIdMap = {},
     } = idMapContext;
 
     const allNodeIdMap = nodes.reduce(
@@ -2789,6 +2822,9 @@ export class BaseImportService {
             break;
           case BaseNodeResourceType.App:
             acc[resourceType][resourceId] = appIdMap[resourceId];
+            break;
+          case BaseNodeResourceType.Routine:
+            acc[resourceType][resourceId] = routineIdMap?.[resourceId];
             break;
           default:
             break;
@@ -2918,7 +2954,7 @@ export class BaseImportService {
     const pluginInstallMap: Record<string, string> = {};
     const userId = this.cls.get('user.id');
     const prisma = this.prismaService.txClient();
-    const pluginInstalls = plugins.map(({ pluginInstall }) => pluginInstall).flat();
+    const pluginInstalls = plugins.flatMap(({ pluginInstall }) => pluginInstall);
 
     for (const plugin of plugins) {
       const { id, name } = plugin;
@@ -2982,7 +3018,7 @@ export class BaseImportService {
     const prisma = this.prismaService.txClient();
     // Panels whose table is outside the imported scope have no table mapping
     const plugins = panelPlugins.filter(({ tableId }) => tableMap[tableId]);
-    const pluginInstalls = plugins.map(({ pluginInstall }) => pluginInstall).flat();
+    const pluginInstalls = plugins.flatMap(({ pluginInstall }) => pluginInstall);
 
     for (const plugin of plugins) {
       const { id, name, tableId } = plugin;

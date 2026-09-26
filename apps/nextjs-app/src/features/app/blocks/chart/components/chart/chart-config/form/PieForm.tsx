@@ -46,7 +46,7 @@ export const PieForm = (props: { config: IPieConfig; onChange: (config: IPieConf
             }}
             columns={yColumns}
           />
-          {config.measure && config.measure.column && (
+          {config.measure?.column && (
             <Popover>
               <PopoverTrigger asChild>
                 <Button size="icon-xs" variant={'outline'}>
@@ -74,8 +74,8 @@ export const PieForm = (props: { config: IPieConfig; onChange: (config: IPieConf
                       setDecimal(newValue);
                     }}
                     onChange={(e) => {
-                      const number = parseInt(e.target.value);
-                      setDecimal(isNaN(number) ? undefined : number);
+                      const number = Number.parseInt(e.target.value);
+                      setDecimal(Number.isNaN(number) ? undefined : number);
                     }}
                   />
                 </ConfigItem>

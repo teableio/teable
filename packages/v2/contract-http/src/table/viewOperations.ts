@@ -15,7 +15,6 @@ import { z } from 'zod';
 
 import { domainEventDtoSchema, mapDomainEventToDto } from '../shared/domainEvent';
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type HttpErrorStatus,
   type IApiErrorResponseDto,
@@ -269,4 +268,4 @@ export const mapUpdateViewPluginStorageResultToDto = (
   ...(result.storage !== undefined ? { storage: { ...result.storage } } : {}),
 });
 
-export const viewOperationsErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as viewOperationsErrorResponseSchema } from '../shared/http';

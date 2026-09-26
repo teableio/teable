@@ -21,14 +21,19 @@ if (requiresDatabaseUrl && !dataDatabaseUrl) {
   process.exit(1);
 }
 
-const result = spawnSync('pnpm', ['prisma', ...process.argv.slice(2)], {
-  stdio: 'inherit',
-  env: {
-    ...process.env,
-    PRISMA_DATABASE_URL: dataDatabaseUrl,
-  },
-  shell: process.platform === 'win32',
-});
+// Sonar S4036 (reported on the command-name argument): developer/CLI script on a trusted machine; the executable is resolved through PATH by design
+const result = spawnSync(
+  'pnpm', // NOSONAR javascript:S4036 -- executable resolved through PATH by design (see above)
+  ['prisma', ...process.argv.slice(2)],
+  {
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      PRISMA_DATABASE_URL: dataDatabaseUrl,
+    },
+    shell: process.platform === 'win32',
+  }
+);
 
 if (result.error) {
   throw result.error;

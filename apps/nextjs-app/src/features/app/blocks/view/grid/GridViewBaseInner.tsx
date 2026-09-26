@@ -304,15 +304,23 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     onVisibleRegionChanged,
     onReset,
     recordMap,
+    loadedFieldsByRecordId,
+    snapshotFieldIds,
     groupPoints,
-    recordsQuery,
     searchHitIndex,
     allGroupHeaderRefs,
   } = useGridAsyncRecords(ssrRecords, undefined, viewQuery, groupPointsServerData ?? undefined);
 
   const isSelectionLoaded = useIsSelectionLoaded();
 
-  const commentCountMap = useCommentCountMap(recordsQuery);
+  const commentRecordIds = useMemo(
+    () =>
+      [...new Set(Object.values(recordMap).map((record) => record.id))].sort(
+        (a, b) => Number(a > b) - Number(a < b)
+      ),
+    [recordMap]
+  );
+  const commentCountMap = useCommentCountMap(commentRecordIds);
 
   const { onRowOrdered, setDraggingRecordIds } = useGridRowOrder(recordMap);
 
@@ -1020,7 +1028,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const selectionIncludesCrossBaseField = useCallback(
     (selection: CombinedSelection) => {
-      if (!baseId) return false;
       switch (selection.type) {
         case SelectionRegionType.Cells: {
           const [[startCol], [endCol]] = selection.serialize();
@@ -1050,10 +1057,20 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
     // Share view guard: cross-base link fields would otherwise leak foreign-base
     // record IDs through the clipboard. Confirm and downgrade them to plain text
-    // before the payload leaves the page.
-    if (shareId && baseId && selectionIncludesCrossBaseField(selection)) {
+    // before the payload leaves the page. Share pages have no AnchorContext
+    // baseId; isCrossBaseField still matches an explicit options.baseId.
+    if (shareId && selectionIncludesCrossBaseField(selection)) {
       e.preventDefault();
-      if (!isSelectionLoaded({ selection, recordMap, rowCount: realRowCount })) {
+      if (
+        !isSelectionLoaded({
+          selection,
+          recordMap,
+          rowCount: realRowCount,
+          loadedFieldsByRecordId,
+          snapshotFieldIds,
+          fields,
+        })
+      ) {
         sonnerToast.warning(t('table:table.actionTips.crossBaseCopyLoadFirst'));
         return;
       }
@@ -1081,7 +1098,16 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       cacheSelectionForChat(queryClient, baseId, selection, false);
     }
 
-    if (isSelectionLoaded({ selection, recordMap, rowCount: realRowCount })) {
+    if (
+      isSelectionLoaded({
+        selection,
+        recordMap,
+        rowCount: realRowCount,
+        loadedFieldsByRecordId,
+        snapshotFieldIds,
+        fields,
+      })
+    ) {
       // sync copy
       syncCopy(e, { selection, recordMap, rowCount: realRowCount });
       return;

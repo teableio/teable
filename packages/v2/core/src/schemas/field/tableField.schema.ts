@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { fieldColorSchema, fieldColorValues } from '../../domain/table/fields/types/FieldColor';
 import { optionalForeignBaseIdSchema } from '../../domain/base/optionalForeignBaseId';
+import { fieldColorSchema, fieldColorValues } from '../../domain/table/fields/types/FieldColor';
 import { timeZoneValueSchema } from '../../domain/table/fields/types/TimeZone';
 import {
   cellValueTypeSchema,
@@ -181,6 +181,7 @@ export const rollupConfigSchema = z
 
 export const lookupOptionsSchema = z
   .object({
+    isUnique: z.boolean().optional(),
     linkFieldId: z.string(),
     foreignTableId: z.string(),
     lookupFieldId: z.string(),
@@ -201,12 +202,7 @@ export const conditionalRollupConfigSchema = z
   .refine(
     (data) => {
       const filter = data.condition?.filter;
-      return (
-        filter !== null &&
-        filter !== undefined &&
-        filter.filterSet !== undefined &&
-        filter.filterSet.length > 0
-      );
+      return filter?.filterSet !== undefined && filter.filterSet.length > 0;
     },
     {
       message: 'ConditionalRollupConfig condition must have at least one filter item',
@@ -225,6 +221,7 @@ export const conditionalRollupOptionsSchema = z
 
 export const conditionalLookupOptionsSchema = z
   .object({
+    isUnique: z.boolean().optional(),
     baseId: optionalForeignBaseIdSchema,
     foreignTableId: z.string(),
     lookupFieldId: z.string(),
@@ -234,12 +231,7 @@ export const conditionalLookupOptionsSchema = z
   .refine(
     (data) => {
       const filter = data.condition?.filter;
-      return (
-        filter !== null &&
-        filter !== undefined &&
-        filter.filterSet !== undefined &&
-        filter.filterSet.length > 0
-      );
+      return filter?.filterSet !== undefined && filter.filterSet.length > 0;
     },
     {
       message: 'ConditionalLookupOptions condition must have at least one filter item',

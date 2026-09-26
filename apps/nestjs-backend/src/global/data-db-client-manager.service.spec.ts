@@ -212,10 +212,7 @@ describe('DataDbClientManager', () => {
 
     await expect(manager.dataPrismaForBase('bsexxx')).resolves.toBe(metaFallbackDataPrisma);
     await expect(manager.dataKnexForBase('bsexxx')).resolves.toBe(metaFallbackDataKnex);
-    expect(prismaService.base.findUnique).toHaveBeenCalledWith({
-      where: { id: 'bsexxx' },
-      select: { spaceId: true },
-    });
+    expect(prismaService.base.findUnique).toHaveBeenCalledWith({ where: { id: 'bsexxx' } });
     expect(prismaService.txClient).not.toHaveBeenCalled();
   });
 
@@ -241,7 +238,7 @@ describe('DataDbClientManager', () => {
     await expect(manager.dataKnexForTable('tblxxx')).resolves.toBe(metaFallbackDataKnex);
     expect(prismaService.tableMeta.findUnique).toHaveBeenCalledWith({
       where: { id: 'tblxxx' },
-      select: { base: { select: { spaceId: true } } },
+      include: { base: true },
     });
     expect(prismaService.txClient).not.toHaveBeenCalled();
   });
@@ -311,12 +308,50 @@ describe('DataDbClientManager', () => {
     expect(txClient.tableMeta.findUnique).not.toHaveBeenCalled();
     expect(prismaService.tableMeta.findUnique).toHaveBeenCalledWith({
       where: { id: 'tbl_after_tx' },
-      select: { base: { select: { spaceId: true } } },
+      include: { base: true },
     });
     expect(prismaService.spaceDataDbBinding.findUnique).toHaveBeenCalledWith({
       where: { spaceId: 'spc_after_tx' },
       include: { dataDbConnection: true },
     });
+  });
+
+  it('resolves a base and a table through the meta db once per request', async () => {
+    const store = new Map<string, unknown>();
+    const cls = {
+      isActive: () => true,
+      get: (key: string) => store.get(key),
+      set: (key: string, value: unknown) => {
+        store.set(key, value);
+      },
+    };
+    const base = { id: 'bsexxx', spaceId: 'spcxxx' };
+    const prismaService = withTxClient({
+      base: { findUnique: vi.fn().mockResolvedValue(base) },
+      tableMeta: { findUnique: vi.fn().mockResolvedValue({ id: 'tblxxx', baseId: base.id, base }) },
+      spaceDataDbBinding: { findUnique: vi.fn().mockResolvedValue(null) },
+    });
+    const metaFallbackDataPrisma = {};
+    const metaFallbackDataKnex = {};
+    const manager = createManager(
+      prismaService as never,
+      metaFallbackDataPrisma as never,
+      metaFallbackDataKnex as never,
+      new DataDbRuntimeCacheService(),
+      undefined,
+      cls as never
+    );
+
+    await manager.getDataDatabaseForBase('bsexxx');
+    await manager.dataPrismaForBase('bsexxx');
+    await manager.dataKnexForBase('bsexxx');
+    await manager.getDataDatabaseForTable('tblxxx');
+    await manager.dataPrismaForTable('tblxxx');
+
+    // The table load carries its base row, so the base key is already warm.
+    expect(prismaService.tableMeta.findUnique).toHaveBeenCalledTimes(1);
+    expect(prismaService.base.findUnique).toHaveBeenCalledTimes(1);
+    expect(prismaService.spaceDataDbBinding.findUnique).toHaveBeenCalledTimes(1);
   });
 
   it('resolves BYODB connection details from a ready space binding', async () => {
@@ -561,43 +596,48 @@ describe('DataDbClientManager', () => {
     });
   });
 
-  it('restores an entire large same-plan dead-letter group without pending-plan conflicts', async () => {
-    const db = await createComputedRecoveryDb();
-    const taskCount = 2000;
-    const rows = Array.from({ length: taskCount }, (_, index) =>
-      createDeadLetterRow(index === 0 ? 'cuo-live' : `cuo-${index}`)
-    );
-    try {
-      await db('computed_update_outbox').insert({
-        id: 'cuo-live',
-        base_id: 'bse1',
-        seed_table_id: 'tbl1',
-        change_type: 'update',
-        status: 'pending',
-        plan_hash: 'same-plan',
-      });
-      await db('computed_update_dead_letter').insert(rows.map(({ taskId }) => ({ id: taskId })));
-
-      const result = await db.transaction(
-        async (trx: Knex.Transaction) => await restoreComputedOutboxDeadLetterRows(trx, rows)
+  it(
+    'restores an entire large same-plan dead-letter group without pending-plan conflicts',
+    async () => {
+      const db = await createComputedRecoveryDb();
+      const taskCount = 2000;
+      const rows = Array.from({ length: taskCount }, (_, index) =>
+        createDeadLetterRow(index === 0 ? 'cuo-live' : `cuo-${index}`)
       );
+      try {
+        await db('computed_update_outbox').insert({
+          id: 'cuo-live',
+          base_id: 'bse1',
+          seed_table_id: 'tbl1',
+          change_type: 'update',
+          status: 'pending',
+          plan_hash: 'same-plan',
+        });
+        await db('computed_update_dead_letter').insert(rows.map(({ taskId }) => ({ id: taskId })));
 
-      expect(result).toMatchObject({ inserted: taskCount - 1, alreadyPending: 1 });
-      expect(result.tasks).toHaveLength(taskCount);
-      await expect(db('computed_update_outbox').count({ count: '*' })).resolves.toEqual([
-        { count: taskCount },
-      ]);
-      await expect(db('computed_update_dead_letter').count({ count: '*' })).resolves.toEqual([
-        { count: 0 },
-      ]);
-      const replayPlanHashes = await db('computed_update_outbox')
-        .whereNot({ id: 'cuo-live' })
-        .pluck('plan_hash');
-      expect(new Set(replayPlanHashes).size).toBe(taskCount - 1);
-    } finally {
-      await db.destroy();
-    }
-  }, 15_000);
+        const result = await db.transaction(
+          async (trx: Knex.Transaction) => await restoreComputedOutboxDeadLetterRows(trx, rows)
+        );
+
+        expect(result).toMatchObject({ inserted: taskCount - 1, alreadyPending: 1 });
+        expect(result.tasks).toHaveLength(taskCount);
+        await expect(db('computed_update_outbox').count({ count: '*' })).resolves.toEqual([
+          { count: taskCount },
+        ]);
+        await expect(db('computed_update_dead_letter').count({ count: '*' })).resolves.toEqual([
+          { count: 0 },
+        ]);
+        const replayPlanHashes = await db('computed_update_outbox')
+          .whereNot({ id: 'cuo-live' })
+          .pluck('plan_hash');
+        expect(new Set(replayPlanHashes).size).toBe(taskCount - 1);
+      } finally {
+        await db.destroy();
+      }
+      // V8 coverage instrumentation (SONAR_COVERAGE_RUN) slows this bulk restore several times over.
+    },
+    process.env.SONAR_COVERAGE_RUN === '1' ? 60_000 : 15_000
+  );
 
   it('lists BYODB-bound bases even when their connection is not queryable', async () => {
     const prismaService = withTxClient({

@@ -13,7 +13,7 @@ import {
 } from 'kysely';
 
 class PGliteDriver implements Driver {
-  #client: PGlite;
+  readonly #client: PGlite;
 
   constructor(client: PGlite) {
     this.#client = client;
@@ -45,7 +45,7 @@ class PGliteDriver implements Driver {
 }
 
 class PGliteConnection implements DatabaseConnection {
-  #client: PGlite;
+  readonly #client: PGlite;
 
   constructor(client: PGlite) {
     this.#client = client;

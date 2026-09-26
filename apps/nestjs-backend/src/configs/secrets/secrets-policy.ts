@@ -80,9 +80,10 @@ export const buildPublicDefaultsWarning = (onDefaults: ISecretSpec[]): string =>
 
 /**
  * The single policy checkpoint for secret configuration. ConfigModule calls it
- * right after BaseConfigModule.forRoot() has synchronously loaded the env
- * files and BEFORE any config factory runs, so the aggregated teaching below
- * is the FIRST thing the operator sees.
+ * right after BaseConfigModule.forRoot() has loaded the env files (awaited,
+ * since @nestjs/config 12 validates asynchronously) and BEFORE any config
+ * factory runs, so the aggregated teaching below is the FIRST thing the
+ * operator sees.
  *
  * The policy never blocks boot — a first-time self-hoster must be able to
  * start with zero secret configuration (resolve-secret.ts falls back to the

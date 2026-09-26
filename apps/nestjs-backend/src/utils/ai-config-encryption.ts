@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'crypto';
+import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
 import { Logger } from '@nestjs/common';
 import { resolveSecret } from '../configs/secrets/resolve-secret';
 import { SECRET_SPECS } from '../configs/secrets/secret-specs';

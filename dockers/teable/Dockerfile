@@ -1,4 +1,4 @@
-ARG NODE_VERSION=22.22.3
+ARG NODE_VERSION=24.19.0
 ARG BUILD_VERSION="1.0.0-alpha"
 
 ###################################################################
@@ -55,7 +55,7 @@ RUN set -ex; \
         if [ -n "$INTEGRATION_TEST" ]; then \
               pnpm -F "./packages/**" run build; \
         else \
-              NODE_OPTIONS=--max-old-space-size=8192 pnpm -r run build; \
+              NEST_BUILD_TYPE_CHECK=0 NODE_OPTIONS=--max-old-space-size=8192 pnpm -r run build; \
         fi
 
 
@@ -155,8 +155,9 @@ COPY --from=post-builder --link --chown=1001:1001 /app/package.json ./package.js
 COPY --from=post-builder --link --chown=1001:1001 /app/plugins/.next/standalone/plugins ./plugins
 COPY --from=post-builder --link --chown=1001:1001 /app/apps/nestjs-backend/static ./static
 
-COPY --chown=1001:1001 scripts/start.sh ./scripts/start.sh
+COPY --chmod=0755 scripts/start.sh ./scripts/start.sh
 COPY --chown=1001:1001 scripts/db-migrate.mjs ./scripts/db-migrate.mjs
+COPY --chown=1001:1001 scripts/postgres-migrate-lock.mjs ./scripts/postgres-migrate-lock.mjs
 COPY --chown=1001:1001 scripts/wait-for ./scripts/wait-for
 
 ENV BUILD_VERSION=$BUILD_VERSION

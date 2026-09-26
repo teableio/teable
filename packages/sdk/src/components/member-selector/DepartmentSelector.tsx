@@ -146,44 +146,42 @@ export const DepartmentSelector = forwardRef<IDepartmentSelectorRef, IDepartment
                     {t('memberSelector.emptyDepartment')}
                   </div>
                 )}
-                <>
-                  {departments?.map((item) => {
-                    const { clickable, selectable } = calcDisabled?.(item) ?? defaultCalcDisabled;
-                    return (
-                      <div className="relative" key={item.id}>
-                        <DepartmentItem
-                          className={cn({
-                            'bg-accent pointer-events-none': !selectable,
-                          })}
-                          name={item.name}
-                          checked={false}
-                          onClick={() => {
-                            if (!selectable) {
-                              return;
-                            }
-                            onSelect(item.id, item);
-                            reset();
-                            setOpen(false);
+                {departments?.map((item) => {
+                  const { clickable, selectable } = calcDisabled?.(item) ?? defaultCalcDisabled;
+                  return (
+                    <div className="relative" key={item.id}>
+                      <DepartmentItem
+                        className={cn({
+                          'bg-accent pointer-events-none': !selectable,
+                        })}
+                        name={item.name}
+                        checked={false}
+                        onClick={() => {
+                          if (!selectable) {
+                            return;
+                          }
+                          onSelect(item.id, item);
+                          reset();
+                          setOpen(false);
+                        }}
+                        showCheckbox={false}
+                      />
+                      {item.hasChildren && clickable && (
+                        <button
+                          className="absolute end-0 top-0 z-10 flex h-full w-8 items-center justify-center rounded-e-lg border bg-background hover:bg-accent"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDepartmentClick(item);
                           }}
-                          showCheckbox={false}
-                        />
-                        {item.hasChildren && clickable && (
-                          <button
-                            className="absolute end-0 top-0 z-10 flex h-full w-8 items-center justify-center rounded-e-lg border bg-background hover:bg-accent"
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDepartmentClick(item);
-                            }}
-                            tabIndex={-1}
-                          >
-                            <ChevronRight className="size-4" />
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </>
+                          tabIndex={-1}
+                        >
+                          <ChevronRight className="size-4" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </ScrollArea>
           </div>

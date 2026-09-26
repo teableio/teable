@@ -4,14 +4,14 @@ import { NumericPrecision } from './NumericPrecision';
 
 describe('NumericPrecision', () => {
   it('accepts valid precision values', () => {
-    NumericPrecision.create(0)._unsafeUnwrap();
-    NumericPrecision.create(5)._unsafeUnwrap();
+    expect(NumericPrecision.create(0).isOk()).toBe(true);
+    expect(NumericPrecision.create(5).isOk()).toBe(true);
   });
 
   it('rejects invalid precision values', () => {
-    NumericPrecision.create(-1)._unsafeUnwrapErr();
-    NumericPrecision.create(6)._unsafeUnwrapErr();
-    NumericPrecision.create('2')._unsafeUnwrapErr();
+    expect(NumericPrecision.create(-1).isErr()).toBe(true);
+    expect(NumericPrecision.create(6).isErr()).toBe(true);
+    expect(NumericPrecision.create('2').isErr()).toBe(true);
   });
 
   it('provides default and integer helpers', () => {

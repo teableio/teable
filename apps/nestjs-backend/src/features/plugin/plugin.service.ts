@@ -28,15 +28,30 @@ import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
+import { AuditScope } from '../audit/audit-scope';
 import { UserService } from '../user/user.service';
 import { generateSecret } from './utils';
+
+// Stored plugin columns an update can change; the audit row lists which of them did.
+const auditedPluginKeys = [
+  'name',
+  'description',
+  'detailDesc',
+  'positions',
+  'helpUrl',
+  'logo',
+  'url',
+  'config',
+  'i18n',
+] as const;
 
 @Injectable()
 export class PluginService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly userService: UserService
+    private readonly userService: UserService,
+    private readonly audit: AuditScope
   ) {}
 
   private logoToVoValue(logo: string) {
@@ -208,6 +223,16 @@ export class PluginService {
           : undefined,
       };
     });
+    await this.audit.emitAtomic({
+      action: 'plugin.create',
+      resourceId: res.id,
+      params: {
+        name,
+        url,
+        positions,
+        pluginUserId: res.pluginUser?.id,
+      },
+    });
     return this.convertToVo(res);
   }
 
@@ -218,7 +243,21 @@ export class PluginService {
     const logoPath = logo?.startsWith('http')
       ? `/${StorageAdapter.getDir(UploadType.Plugin)}/${logo.split('/').pop()}`
       : logo;
-    const res = await this.prismaService.$tx(async (prisma) => {
+    const { res, before } = await this.prismaService.$tx(async (prisma) => {
+      const before = await prisma.plugin.findFirst({
+        where: { id, createdBy: this.manageablePluginCreatedBy() },
+        select: {
+          name: true,
+          description: true,
+          detailDesc: true,
+          positions: true,
+          helpUrl: true,
+          logo: true,
+          url: true,
+          config: true,
+          i18n: true,
+        },
+      });
       const res = await prisma.plugin
         .update({
           select: {
@@ -259,8 +298,21 @@ export class PluginService {
       if (name && res.pluginUser) {
         await this.userService.updateUserName(res.pluginUser, name);
       }
-      return res;
+      return { res, before };
     });
+    const changedKeys = auditedPluginKeys.filter((key) => before?.[key] !== res[key]);
+    if (changedKeys.length) {
+      await this.audit.emitAtomic({
+        action: 'plugin.update',
+        resourceId: id,
+        params: {
+          name: res.name,
+          changedKeys,
+          // The URL decides which code runs inside the plugin frame, so keep both ends of it.
+          ...(changedKeys.includes('url') ? { oldUrl: before?.url, newUrl: res.url } : {}),
+        },
+      });
+    }
     const userMap = res.pluginUser ? await this.getUserMap([res.pluginUser]) : {};
     return this.convertToVo({
       ...omit(res, 'maskedSecret'),
@@ -337,13 +389,19 @@ export class PluginService {
 
   async delete(id: string) {
     const userId = this.cls.get('user.id');
-    await this.prismaService.$tx(async (prisma) => {
+    const deleted = await this.prismaService.$tx(async (prisma) => {
       const res = await prisma.plugin.delete({ where: { id, createdBy: userId } }).catch(() => {
         throw this.pluginNotFoundException();
       });
       if (res.pluginUser) {
         await prisma.user.delete({ where: { id: res.pluginUser } });
       }
+      return res;
+    });
+    await this.audit.emitAtomic({
+      action: 'plugin.delete',
+      resourceId: id,
+      params: { name: deleted.name, pluginUserId: deleted.pluginUser ?? undefined },
     });
   }
 
@@ -365,6 +423,11 @@ export class PluginService {
       .catch(() => {
         throw this.pluginNotFoundException();
       });
+    // Records the rotation only, never the new secret.
+    await this.audit.emitAtomic({
+      action: 'plugin.secret.rotate',
+      resourceId: id,
+    });
     return { secret, id };
   }
 
@@ -432,21 +495,33 @@ export class PluginService {
 
   async submitPlugin(id: string) {
     const userId = this.cls.get('user.id');
-    await this.prismaService.plugin.update({
+    const res = await this.prismaService.plugin.update({
       where: { id, createdBy: userId },
       data: { status: PluginStatus.Reviewing },
+      select: { name: true },
+    });
+    await this.audit.emitAtomic({
+      action: 'plugin.submit',
+      resourceId: id,
+      params: { name: res.name, status: PluginStatus.Reviewing },
     });
   }
 
   async unpublishPlugin(id: string) {
     const userId = this.cls.get('user.id');
-    await this.prismaService.plugin
+    const res = await this.prismaService.plugin
       .update({
         where: { id, createdBy: userId, status: PluginStatus.Published },
         data: { status: PluginStatus.Developing },
+        select: { name: true },
       })
       .catch(() => {
         throw this.pluginNotFoundException();
       });
+    await this.audit.emitAtomic({
+      action: 'plugin.unpublish',
+      resourceId: id,
+      params: { name: res.name, status: PluginStatus.Developing },
+    });
   }
 }

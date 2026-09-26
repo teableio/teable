@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import os from 'os';
-import { PassThrough, Readable } from 'stream';
-import { Worker } from 'worker_threads';
+import os from 'node:os';
+import { PassThrough, Readable } from 'node:stream';
+import { Worker } from 'node:worker_threads';
 import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import type { FieldType, ILocalization } from '@teable/core';
@@ -99,8 +99,8 @@ export const TABLE_IMPORT_CSV_CHUNK_QUEUE_CONCURRENCY = Math.max(
 export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
   public static readonly JOB_ID_PREFIX = 'import-table-csv-chunk';
 
-  private logger = new Logger(ImportTableCsvChunkQueueProcessor.name);
-  private importQueueEvents?: QueueEvents;
+  private readonly logger = new Logger(ImportTableCsvChunkQueueProcessor.name);
+  private readonly importQueueEvents?: QueueEvents;
 
   constructor(
     private readonly notificationService: NotificationService,
@@ -225,7 +225,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
         {
           // Some queue backends reject custom IDs containing ":".
           // Keep it derived from parent jobId, but normalize to safe chars.
-          jobId: `${importJobId.replace(/:/g, '_')}_result`,
+          jobId: `${importJobId.replaceAll(':', '_')}_result`,
           removeOnComplete: 1000,
           removeOnFail: 1000,
         }

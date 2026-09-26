@@ -21,10 +21,10 @@ export const PaddingEditor = (props: {
           value={padding?.top || ''}
           onBlur={() => onChange(padding)}
           onChange={(e) => {
-            const number = parseFloat(e.target.value);
+            const number = Number.parseFloat(e.target.value);
             setPadding({
               ...padding,
-              top: isNaN(number) ? undefined : number,
+              top: Number.isNaN(number) ? undefined : number,
             });
           }}
         />
@@ -38,10 +38,10 @@ export const PaddingEditor = (props: {
           value={padding?.right || ''}
           onBlur={() => onChange(padding)}
           onChange={(e) => {
-            const number = parseFloat(e.target.value);
+            const number = Number.parseFloat(e.target.value);
             setPadding({
               ...padding,
-              right: isNaN(number) ? undefined : number,
+              right: Number.isNaN(number) ? undefined : number,
             });
           }}
         />
@@ -55,10 +55,10 @@ export const PaddingEditor = (props: {
           value={padding?.bottom || ''}
           onBlur={() => onChange(padding)}
           onChange={(e) => {
-            const number = parseFloat(e.target.value);
+            const number = Number.parseFloat(e.target.value);
             setPadding({
               ...padding,
-              bottom: isNaN(number) ? undefined : number,
+              bottom: Number.isNaN(number) ? undefined : number,
             });
           }}
         />
@@ -72,10 +72,10 @@ export const PaddingEditor = (props: {
           value={padding?.left || ''}
           onBlur={() => onChange(padding)}
           onChange={(e) => {
-            const number = parseFloat(e.target.value);
+            const number = Number.parseFloat(e.target.value);
             setPadding({
               ...padding,
-              left: isNaN(number) ? undefined : number,
+              left: Number.isNaN(number) ? undefined : number,
             });
           }}
         />

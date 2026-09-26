@@ -8,6 +8,7 @@ interface IShareBasePopoverProps {
     name: string;
     role: IRole;
     id: string;
+    spaceId: string;
     enabledAuthority?: boolean;
   };
   children: React.ReactNode;
@@ -35,6 +36,7 @@ export const ShareBasePopover = (props: IShareBasePopoverProps) => {
       >
         <ShareBaseContent
           baseId={base.id}
+          spaceId={base.spaceId}
           baseName={base.name}
           role={base.role}
           enabledAuthority={base.enabledAuthority}

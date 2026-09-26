@@ -184,14 +184,12 @@ const QueryBuilderContainer = forwardRef<
           const tableIds = join.map((v) => v.table).filter((v) => !!v) as string[];
           const tablesContext = await getContextWithTableIds(tableIds);
           setJoinContext(
-            tablesContext
-              .map((context, i) =>
-                context.map((v) => ({
-                  ...v,
-                  groupTableId: tableIds[i],
-                }))
-              )
-              .flat()
+            tablesContext.flatMap((context, i) =>
+              context.map((v) => ({
+                ...v,
+                groupTableId: tableIds[i],
+              }))
+            )
           );
         }
         break;

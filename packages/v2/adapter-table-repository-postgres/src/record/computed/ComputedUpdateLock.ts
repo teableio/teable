@@ -203,7 +203,9 @@ export const buildComputedUpdateLockPlan = (
     recordLocks: recordLocks.length,
     batchLocks: batchLocks.length,
     tableLocks: tableLocks.length,
-    tableLockTableIds: [...new Set(tableLockTableIds)].sort(),
+    tableLockTableIds: [...new Set(tableLockTableIds)].sort(
+      (a, b) => Number(a > b) - Number(a < b)
+    ),
     seedRecordCount,
     batchShardCount,
   };
@@ -211,9 +213,9 @@ export const buildComputedUpdateLockPlan = (
   return {
     summary,
     reason: buildLockReason(summary, config),
-    recordLocks: recordLocks.sort((a, b) => a.key.localeCompare(b.key)),
-    batchLocks: batchLocks.sort((a, b) => a.key.localeCompare(b.key)),
-    tableLocks: tableLocks.sort((a, b) => a.key.localeCompare(b.key)),
+    recordLocks: [...recordLocks].sort((a, b) => a.key.localeCompare(b.key)),
+    batchLocks: [...batchLocks].sort((a, b) => a.key.localeCompare(b.key)),
+    tableLocks: [...tableLocks].sort((a, b) => a.key.localeCompare(b.key)),
     statements,
   };
 };

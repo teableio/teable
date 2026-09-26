@@ -192,7 +192,7 @@ export class ImportDotTeaStructureHandler
     context: ExecutionContextPort.IExecutionContext,
     command: ImportDotTeaStructureCommand
   ): Promise<Result<ImportDotTeaStructureResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ImportDotTeaStructureResult, DomainError>(async function* () {
       // Use parseNormalizedStructure() which handles v1→v2 conversion in dottea package
       const normalized = yield* await handler.dotTeaParser.parseNormalizedStructure(command.source);
@@ -262,6 +262,7 @@ export class ImportDotTeaStructureHandler
               id: tablePlan.fieldIds[fieldIndex]!,
               options: replaceMappedIds(field.options, replacements),
               config: replaceMappedIds(field.config, replacements),
+              aiConfig: replaceMappedIds(field.aiConfig, replacements),
             })),
             views: table.views?.map((view, viewIndex) => ({
               ...view,

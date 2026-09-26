@@ -2103,7 +2103,7 @@ describe('Undo Redo (e2e)', () => {
 
       const sourceField = (await createField(table1.id, sourceFieldRo)).data;
 
-      (await convertField(table1.id, sourceField.id, newFieldRo)).data;
+      await convertField(table1.id, sourceField.id, newFieldRo);
 
       await undo(table1.id);
 
@@ -2197,7 +2197,7 @@ describe('Undo Redo (e2e)', () => {
         },
       });
 
-      (await convertField(table1.id, sourceField.id, newFieldRo)).data;
+      await convertField(table1.id, sourceField.id, newFieldRo);
 
       await undo(table1.id);
       const fieldAfterUndo = (await getField(table1.id, sourceField.id)).data;

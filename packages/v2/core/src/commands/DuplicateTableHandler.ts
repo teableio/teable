@@ -2,30 +2,33 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
+import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
+import { TableQueryService } from '../application/services/TableQueryService';
 import {
   beginTableSchemaOperation,
   completeTableSchemaOperation,
   failTableSchemaOperation,
 } from '../application/services/TableSchemaOperationLifecycleService';
-import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
-import { TableQueryService } from '../application/services/TableQueryService';
-import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
+import { isRecordCreatedEvent } from '../domain/table/events/RecordCreated';
+import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
 import type { Field } from '../domain/table/fields/Field';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import { FieldType } from '../domain/table/fields/FieldType';
+import { FormulaExpression } from '../domain/table/fields/types/FormulaExpression';
+import { FormulaField } from '../domain/table/fields/types/FormulaField';
 import { LinkField } from '../domain/table/fields/types/LinkField';
-import { RecordCreated, isRecordCreatedEvent } from '../domain/table/events/RecordCreated';
-import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
 import { RecordId } from '../domain/table/records/RecordId';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
 import { NoopLogger } from '../ports/defaults/NoopLogger';
-import type { ITableMapper } from '../ports/mappers/TableMapper';
-import * as EventBusPort from '../ports/EventBus';
+import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
+import { getFormulaSourceBudget } from '../ports/ExecutionContext';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
+import * as TableMapper from '../ports/mappers/TableMapper';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import { TableOperationKind } from '../ports/TableOperationPlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
@@ -36,11 +39,11 @@ import * as TableSchemaRepositoryPort from '../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
-import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import {
   buildPhysicalTableDuplicatePlan,
   canUsePhysicalTableDuplicate,
 } from './buildPhysicalTableDuplicatePlan';
+import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DuplicateTableCommand } from './DuplicateTableCommand';
 
 export class DuplicateTableResult {
@@ -70,7 +73,7 @@ export class DuplicateTableHandler
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,
     @inject(v2CoreTokens.tableMapper)
-    private readonly tableMapper: ITableMapper,
+    private readonly tableMapper: TableMapper.ITableMapper,
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,
     @inject(v2CoreTokens.tableSchemaRepository)
@@ -79,8 +82,8 @@ export class DuplicateTableHandler
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.tableRecordRepository)
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
-    @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus,
+    @inject(v2CoreTokens.domainWriteTransaction)
+    private readonly domainWriteTransaction: IDomainWriteTransaction,
     @inject(v2CoreTokens.unitOfWork)
     private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
     @inject(v2CoreTokens.recordWritePluginRunner)
@@ -101,13 +104,20 @@ export class DuplicateTableHandler
     context: ExecutionContextPort.IExecutionContext,
     command: DuplicateTableCommand
   ): Promise<Result<DuplicateTableResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<DuplicateTableResult, DomainError>(async function* () {
       const sourceTable = yield* await handler.tableQueryService.getByIdInBase(
         context,
         command.baseId,
         command.tableId
       );
+      for (const field of sourceTable.getFields()) {
+        if (field instanceof FormulaField)
+          yield* FormulaExpression.create(
+            field.expression().toString(),
+            getFormulaSourceBudget(context)
+          );
+      }
       const duplicated = yield* sourceTable.duplicate({
         mapper: handler.tableMapper,
         newName: command.name,
@@ -176,10 +186,10 @@ export class DuplicateTableHandler
         restoreRecordsById = prepared.restoreRecordsById;
       }
 
-      const duplicateResult = await handler.unitOfWork.withTransaction(
+      const duplicateResult = await handler.domainWriteTransaction.execute(
         context,
         async (dataTransactionContext) =>
-          safeTry<void, DomainError>(async function* () {
+          safeTry(async function* () {
             yield* await handler.tableSchemaRepository.insertMany(
               dataTransactionContext,
               [persistedTable],
@@ -197,10 +207,7 @@ export class DuplicateTableHandler
               );
               physicalRecordIds = physical.recordIds;
               usedPhysicalRowCopy = true;
-              return ok(undefined);
-            }
-
-            if (records.length > 0) {
+            } else if (records.length > 0) {
               const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
                 kind: RecordWriteOperationKind.createMany,
                 executionContext: dataTransactionContext,
@@ -226,7 +233,18 @@ export class DuplicateTableHandler
               );
             }
 
-            return ok(undefined);
+            const events = usedPhysicalRowCopy
+              ? aggregatePhysicalDuplicateTableEvents(
+                  [...duplicated.table.pullDomainEvents(), ...persistedTable.pullDomainEvents()],
+                  persistedTable,
+                  physicalRecordIds
+                )
+              : aggregateDuplicateTableEvents(
+                  [...duplicated.table.pullDomainEvents(), ...persistedTable.pullDomainEvents()],
+                  persistedTable,
+                  restoreRecordsById
+                );
+            return ok(domainWrite.fromEvents(undefined, events));
           }),
         { scope: 'data' }
       );
@@ -252,26 +270,12 @@ export class DuplicateTableHandler
         { type: 'table.duplicate' }
       );
 
-      const events = usedPhysicalRowCopy
-        ? aggregatePhysicalDuplicateTableEvents(
-            [...duplicated.table.pullDomainEvents(), ...persistedTable.pullDomainEvents()],
-            persistedTable,
-            physicalRecordIds
-          )
-        : aggregateDuplicateTableEvents(
-            [...duplicated.table.pullDomainEvents(), ...persistedTable.pullDomainEvents()],
-            persistedTable,
-            restoreRecordsById
-          );
-
-      yield* await handler.eventBus.publishMany(context, events);
-
       return ok(
         DuplicateTableResult.create(
           persistedTable,
           duplicated.fieldIdMap,
           duplicated.viewIdMap,
-          events
+          duplicateResult.value.events
         )
       );
     });
@@ -294,7 +298,7 @@ export class DuplicateTableHandler
       DomainError
     >
   > {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<
       {
         records: ReadonlyArray<TableRecord>;

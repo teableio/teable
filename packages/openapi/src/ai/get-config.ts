@@ -5,6 +5,7 @@ import {
   chatModelAbilitySchema,
   gatewayModelSchema,
   gatewayModelTagSchema,
+  modelTierIdSchema,
   simpleLLMProviderSchema,
 } from '../admin';
 import { axios } from '../axios';
@@ -56,12 +57,17 @@ export type IModelDefinationMap = z.infer<typeof modelDefinationMapSchema>;
 
 // Extended chatModel schema for API response (includes tags for frontend capability detection)
 export const chatModelResponseSchema = z.object({
+  xl: z.string().optional(),
   lg: z.string().optional(),
   md: z.string().optional(),
   sm: z.string().optional(),
   ability: chatModelAbilitySchema.optional(),
+  hiddenTiers: z.array(modelTierIdSchema).optional(),
+  defaultTier: modelTierIdSchema.optional(),
   /** Model capability tags for the lg model (e.g., ['vision', 'file-input', 'tool-use']) */
   tags: z.array(gatewayModelTagSchema).optional(),
+  /** Credit ratio of each offered tier against the default tier; see `IModelTierCreditRatio`. */
+  tierCreditRatio: z.partialRecord(modelTierIdSchema, z.number()).optional(),
 });
 
 export const getAIConfigSchema = z.object({
