@@ -14,7 +14,8 @@ vi.mock('../../../context/app/i18n/useTranslation', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-vi.mock('@teable/next-themes', () => ({
+vi.mock('@teable/ui-lib', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   useTheme: () => ({ resolvedTheme: 'light' }),
 }));
 

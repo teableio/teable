@@ -61,6 +61,18 @@ model ComputedUpdateOutboxSeed {
   @@map("computed_update_outbox_seed")
 }
 
+/// Actual output-value evidence; independent from continuation progress.
+model ComputedUpdateChangeFrontier {
+  scopeId  String @map("scope_id")
+  kind     String
+  tableId  String @map("table_id")
+  recordId String @map("record_id")
+  fieldId  String @map("field_id")
+
+  @@id([scopeId, kind, tableId, recordId, fieldId])
+  @@map("computed_update_change_frontier")
+}
+
 /// Durable per-stage state for budget-staged computed updates, keyed by the
 /// continuation chain's root task id (its scope). Rows are written once per
 /// record and never copied between continuation tasks:
@@ -172,6 +184,7 @@ model ComputedUpdatePauseScope {
   pausedBy  String?   @map("paused_by")
   resumeAt  DateTime? @map("resume_at")
   reason    String?
+  writePolicy String  @default("allow_bounded") @map("write_policy")
   updatedAt DateTime  @updatedAt @map("updated_at")
   updatedBy String?   @map("updated_by")
 
@@ -327,4 +340,52 @@ model AttachmentsTable {
   @@index([attachmentId])
   @@index([token])
   @@map("attachments_table")
+}
+
+model DomainEventOutbox {
+  id                 String   @id
+  baseId             String   @map("base_id")
+  tableId            String?  @map("table_id")
+  messageName        String   @map("message_name")
+  schemaVersion      Int      @map("schema_version")
+  aggregateId        String?  @map("aggregate_id")
+  payload            Json
+  payloadBytes       Int      @map("payload_bytes")
+  catalogGeneration  Int      @map("catalog_generation")
+  requiredConsumers  Json     @map("required_consumers")
+  bindingId          String?  @map("binding_id")
+  storageEpoch       Int?     @map("storage_epoch")
+  unpublished        Boolean   @default(true)
+  settled            String?
+  settledAt          DateTime? @map("settled_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  @@index([baseId])
+  @@map("domain_event_outbox")
+}
+
+model DomainEventDelivery {
+  id             String    @id
+  eventId        String    @map("event_id")
+  consumerId     String    @map("consumer_id")
+  status         String
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(12) @map("max_attempts")
+  leaseToken     String?   @map("lease_token")
+  leaseExpiresAt DateTime? @map("lease_expires_at") @db.Timestamptz(3)
+  nextAttemptAt  DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  lastError      String?   @map("last_error")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@unique([eventId, consumerId])
+  @@map("domain_event_delivery")
+}
+
+model DomainEventInbox {
+  consumerId String   @map("consumer_id")
+  eventId    String   @map("event_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@id([consumerId, eventId])
+  @@index([eventId], map: "domain_event_inbox_event_id_idx")
+  @@map("domain_event_inbox")
 }

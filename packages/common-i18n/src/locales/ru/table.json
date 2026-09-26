@@ -8,6 +8,9 @@
     "failed": "Ошибка",
     "calculationFailed": "Ошибка вычисления",
     "cellValueTooLarge": "Вычисленное значение слишком большое ({{attempted}} / {{max}} байт). Сократите исходные данные или измените формулу.",
+    "formulaLimit": "Компиляция формулы превышает лимит вычислений; результаты не обновлены",
+    "resourceLimit": "Результаты не обновлены из-за ограничения ресурсов",
+    "stageDepthExhausted": "Вычисление не завершено; некоторые результаты не обновлены",
     "calculatingSummary": "Вычисление ({{count}})",
     "failedSummary": "Ошибка ({{count}})",
     "fieldsCalculating_one": "Вычисляется {{count}} поле",
@@ -76,7 +79,7 @@
         "generatingToken": "Генерация...",
         "generateToken": "Создать токен",
         "confirmTitle": "Создать API-токен",
-        "confirmDescription": "Будет создан новый API-токен со следующими разрешениями для этой базы:",
+        "confirmDescription": "Будет создан новый API-токен со следующими разрешениями для этого проекта:",
         "scopeTableRead": "Читать информацию о таблице",
         "scopeFieldRead": "Читать поля",
         "scopeRead": "Читать записи",
@@ -109,7 +112,7 @@
   },
   "welcome": {
     "title": "Добро пожаловать",
-    "emptyTitle": "Начните создавать свою базу данных",
+    "emptyTitle": "Начните создавать свой проект",
     "description": "Нажмите кнопку «+» в боковой панели, чтобы добавить ресурсы и начать эффективно управлять своими данными",
     "help": "Посетите <HelpCenter /> для получения дополнительной информации.",
     "helpCenter": "Центр помощи"
@@ -281,7 +284,6 @@
       "bar": "Полоса",
       "text": "Текст",
       "markdown": "Markdown",
-      "url": "URL",
       "email": "Email",
       "phone": "Телефон",
       "maxNumber": "Максимальное число",
@@ -297,8 +299,8 @@
       "manyToMany": "многие-ко-многим",
       "self": "Сам",
       "selectTable": "Выберите таблицу...",
-      "selectBase": "Выберите базу...",
-      "linkFromAnotherBase": "Связать из другой базы",
+      "selectBase": "Выберите проект...",
+      "linkFromAnotherBase": "Связать из другого проекта",
       "inSelfLink": "в самосвязи",
       "betweenTwoTables": "между двумя таблицами",
       "tips": "Подсказка",
@@ -330,9 +332,9 @@
         "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
       },
       "linkTable": "Связать таблицу",
-      "linkBase": "Связанная база",
+      "linkBase": "Связанный проект",
       "tableNoPermission": "Таблица без доступа",
-      "baseNoPermission": "База без доступа",
+      "baseNoPermission": "Проект без доступа",
       "noLinkTip": "Нет связанных записей для поиска. Добавьте поле Ссылка на другую запись, затем попробуйте настроить поиск снова.",
       "fieldValidationRules": "Правила проверки значения поля",
       "enableValidateFieldUnique": "Только уникальные значения",
@@ -343,6 +345,7 @@
       "filterByView": "Фильтровать записи по представлению",
       "filter": "Фильтровать записи",
       "hideFields": "Скрыть поля",
+      "removeDuplicateValues": "Удалить повторяющиеся значения",
       "moreOptions": "Дополнительные параметры",
       "allowNewOptionsWhenEditing": "Разрешить новые варианты при редактировании",
       "deleteField": {
@@ -488,7 +491,7 @@
     "deleteConfirm": "Вы уверены, что хотите удалить \"{{tableName}}\"?",
     "dbTableName": "Имя таблицы в физической базе данных",
     "schemaName": "Имя схемы в физической базе данных",
-    "baseInfo": "Базовая информация",
+    "baseInfo": "Информация о проекте",
     "loginUserTable": "Вход в приложение",
     "linkedApps": "Связанные приложения",
     "typeOfDatabase": "Тип базы данных",
@@ -640,9 +643,9 @@
         "noPermission": "У вас нет прав на копирование записей"
       },
       "crossBaseCopyTitle": "Скопировать как обычный текст?",
-      "crossBaseCopyDescription": "Выделение содержит поле-ссылку между базами. Чтобы данные оставались в своей исходной базе, поле будет скопировано как обычный текст и потеряет связи.",
+      "crossBaseCopyDescription": "Выделение содержит поле-ссылку между проектами. Чтобы данные оставались в своём исходном проекте, поле будет скопировано как обычный текст и потеряет связи.",
       "crossBaseCopyConfirm": "Скопировать как обычный текст",
-      "crossBaseCopyLoadFirst": "Прокрутите, чтобы загрузить все выбранные строки, прежде чем копировать поля между базами."
+      "crossBaseCopyLoadFirst": "Прокрутите, чтобы загрузить все выбранные строки, прежде чем копировать поля между проектами."
     },
     "graph": {
       "effectCells": "Может повлиять на ячейки",
@@ -660,7 +663,7 @@
       "v2": {
         "dialogTitle": "Целостность схемы",
         "dialogDescription": "Запустите проверку и восстановление схемы v2 для {{tableName}}.",
-        "dialogDescriptionNoTable": "Запустите проверку и восстановление схемы v2 для текущей базы.",
+        "dialogDescriptionNoTable": "Запустите проверку и восстановление схемы v2 для текущего проекта.",
         "runCheck": "Запустить проверку",
         "recheck": "Проверить снова",
         "repair": "Исправить",
@@ -712,13 +715,13 @@
           "noRepairStatements": "No repair statements available",
           "skippedDependencies": "Skipped because dependencies are not satisfied",
           "checkStreamConnected": "Schema integrity check stream connected",
-          "baseCheckStreamConnected": "Base schema integrity check stream connected",
+          "baseCheckStreamConnected": "Подключено к потоку проверки целостности схемы проекта",
           "repairStreamConnected": "Schema integrity repair stream connected",
-          "baseRepairStreamConnected": "Base schema integrity repair stream connected",
+          "baseRepairStreamConnected": "Подключено к потоку восстановления целостности схемы проекта",
           "checkCompleted": "Schema integrity check completed",
-          "baseCheckCompleted": "Base schema integrity check completed",
+          "baseCheckCompleted": "Проверка целостности схемы проекта завершена",
           "repairCompleted": "Schema integrity repair completed",
-          "baseRepairCompleted": "Base schema integrity repair completed",
+          "baseRepairCompleted": "Восстановление целостности схемы проекта завершено",
           "skippedStatusNotSelected": "Пропущено, так как этот уровень статуса не был выбран для восстановления",
           "skippedRepairUnavailable": "Пропущено, так как автоматическое восстановление недоступно в текущем состоянии"
         },
@@ -921,11 +924,14 @@
     "deletedRecovered": {
       "title": "Таблица, которую вы пытались открыть, была удалена",
       "description": "Выполнен переход к таблице «{{tableName}}»",
-      "descriptionEmpty": "Выполнен возврат на страницу Base"
+      "descriptionEmpty": "Выполнен возврат на страницу проекта"
     }
   },
   "import": {
     "title": {
+      "createTable": "Создать таблицу",
+      "importFromCsv": "Импорт из CSV",
+      "importFromExcel": "Импорт из Excel",
       "upload": "Загрузить",
       "import": "Импорт",
       "localFile": "Локальные файлы",
@@ -1126,7 +1132,7 @@
   },
   "connection": {
     "title": "Подключение к базе данных",
-    "description": "Вы можете получить прямой доступ к базе данных через подключение к базе данных, включая все таблицы в текущей базе",
+    "description": "Вы можете получить прямой доступ к базе данных через подключение к базе данных, включая все таблицы в текущем проекте",
     "noPermission": "У вас нет разрешения на доступ к базе данных",
     "connectionCountTip": "Максимальное количество подключений к базе данных - <b>{{max}}</b>, текущее количество подключений - <b>{{current}}</b>",
     "createFailed": "Пожалуйста, убедитесь, что переменная окружения PUBLIC_DATABASE_PROXY установлена правильно",
@@ -1251,7 +1257,7 @@
     "shareToWeb": "Поделиться в Интернете",
     "refreshLink": "Обновить ссылку",
     "deleteConfirmTitle": "Удалить ссылку для общего доступа",
-    "deleteConfirmDescription": "Это действие нельзя отменить. Люди с этой ссылкой больше не смогут получить доступ к общей базе.",
+    "deleteConfirmDescription": "Это действие нельзя отменить. Люди с этой ссылкой больше не смогут получить доступ к общему проекту.",
     "createSuccess": "Ссылка для общего доступа создана",
     "createFailed": "Не удалось создать ссылку для общего доступа",
     "updateFailed": "Не удалось обновить настройки общего доступа",
@@ -1309,6 +1315,9 @@
         "failed": "Ошибка"
       }
     },
+    "gateCard": {
+      "header": "Для этой задачи требуется авторизация"
+    },
     "googleSheetPick": {
       "title": "Выберите таблицы Google",
       "defaultReason": "Выберите таблицы в средстве выбора файлов Google, чтобы их можно было прочитать.",
@@ -1316,6 +1325,8 @@
       "opening": "Открытие окна выбора…",
       "failed": "Не удалось открыть окно выбора файлов Google",
       "gateExpired": "Срок действия запроса истёк, но доступ к выбранным файлам сохранён — отправьте агенту новое сообщение, чтобы продолжить.",
+      "notConnected": "Google Sheets ещё не подключён. Подключите его в приложении и попробуйте снова.",
+      "backToChat": "Теперь можно вернуться в чат.",
       "status": {
         "picked": "Разрешено таблиц: {{count}}",
         "cancelled": "Пропущено",
@@ -1394,6 +1405,109 @@
     "action": {
       "locateResource": "Найти"
     },
+    "resourceOperations": {
+      "title": "Изменения за этот ответ",
+      "items_one": "{{count}} элемент",
+      "items_few": "{{count}} элемента",
+      "items_many": "{{count}} элементов",
+      "items_other": "{{count}} элемента",
+      "expandRemaining": "Показать ещё {{count}}",
+      "collapse": "Свернуть",
+      "create": "Создано",
+      "update": "Обновлено",
+      "delete": "Удалено",
+      "import": "Импорт",
+      "publication": {
+        "published": "Опубликовано",
+        "unpublished": "Публикация отменена"
+      },
+      "structureTitles": {
+        "field": "Изменения полей",
+        "view": "Изменения представлений"
+      },
+      "structureStats": {
+        "field": {
+          "create_one": "Добавлено {{count}} поле",
+          "create_few": "Добавлено {{count}} поля",
+          "create_many": "Добавлено {{count}} полей",
+          "create_other": "Добавлено {{count}} поля",
+          "update_one": "Изменено {{count}} поле",
+          "update_few": "Изменено {{count}} поля",
+          "update_many": "Изменено {{count}} полей",
+          "update_other": "Изменено {{count}} поля",
+          "delete_one": "Удалено {{count}} поле",
+          "delete_few": "Удалено {{count}} поля",
+          "delete_many": "Удалено {{count}} полей",
+          "delete_other": "Удалено {{count}} поля",
+          "import_one": "Импортировано {{count}} поле",
+          "import_few": "Импортировано {{count}} поля",
+          "import_many": "Импортировано {{count}} полей",
+          "import_other": "Импортировано {{count}} поля"
+        },
+        "view": {
+          "create_one": "Добавлено {{count}} представление",
+          "create_few": "Добавлено {{count}} представления",
+          "create_many": "Добавлено {{count}} представлений",
+          "create_other": "Добавлено {{count}} представления",
+          "update_one": "Изменено {{count}} представление",
+          "update_few": "Изменено {{count}} представления",
+          "update_many": "Изменено {{count}} представлений",
+          "update_other": "Изменено {{count}} представления",
+          "delete_one": "Удалено {{count}} представление",
+          "delete_few": "Удалено {{count}} представления",
+          "delete_many": "Удалено {{count}} представлений",
+          "delete_other": "Удалено {{count}} представления",
+          "import_one": "Импортировано {{count}} представление",
+          "import_few": "Импортировано {{count}} представления",
+          "import_many": "Импортировано {{count}} представлений",
+          "import_other": "Импортировано {{count}} представления"
+        }
+      },
+      "workflow": {
+        "activate": "Автоматизация включена",
+        "deactivate": "Автоматизация отключена",
+        "discard": "Изменения черновика отменены"
+      },
+      "routine": {
+        "activate": "Рутина включена",
+        "deactivate": "Рутина отключена",
+        "run": "Запуск начат"
+      },
+      "records": {
+        "create": "Записи добавлены",
+        "createCount_one": "Добавлена {{count}} запись",
+        "createCount_few": "Добавлены {{count}} записи",
+        "createCount_many": "Добавлено {{count}} записей",
+        "createCount_other": "Добавлено {{count}} записи",
+        "update": "Записи обновлены",
+        "updateCount_one": "Обновлена {{count}} запись",
+        "updateCount_few": "Обновлены {{count}} записи",
+        "updateCount_many": "Обновлено {{count}} записей",
+        "updateCount_other": "Обновлено {{count}} записи",
+        "delete": "Записи удалены",
+        "deleteCount_one": "Удалена {{count}} запись",
+        "deleteCount_few": "Удалены {{count}} записи",
+        "deleteCount_many": "Удалено {{count}} записей",
+        "deleteCount_other": "Удалено {{count}} записи",
+        "import": "Записи импортированы",
+        "importCount_one": "Импортирована {{count}} запись",
+        "importCount_few": "Импортированы {{count}} записи",
+        "importCount_many": "Импортировано {{count}} записей",
+        "importCount_other": "Импортировано {{count}} записи"
+      },
+      "types": {
+        "base": "Проект",
+        "table": "Таблица",
+        "field": "Поле",
+        "view": "Представление",
+        "record": "Записи",
+        "app": "Приложение",
+        "workflow": "Автоматизация",
+        "routine": "Рутина",
+        "folder": "Папка",
+        "artifact": "Артефакт"
+      }
+    },
     "showUI": {
       "skip": "Пропустить",
       "next": "Далее",
@@ -1408,7 +1522,7 @@
     "clearChatConfirmDesc": "Текущее содержимое чата не будет сохранено. Точно очистить?",
     "dontShowAgain": "Больше не показывать",
     "modelSwitchTitle": "Сменить модель",
-    "modelSwitchHint": "Сейчас работает на {{previous}}. При следующей отправке управление перейдёт к новой модели, которая увидит только последние 3 реплики.",
+    "modelSwitchHint": "Сейчас этот разговор ведёт {{previous}}; при следующей отправке его продолжит новая модель.",
     "effort": {
       "title": "Интеллект",
       "low": "Низкий",
@@ -1435,7 +1549,13 @@
     "addAttachment": "Добавить вложение",
     "noHistory": "Нет истории чата",
     "noFoundHistory": "Нет истории чата, пожалуйста, начните новую беседу",
+    "pin": "Закрепить",
+    "unpin": "Открепить",
+    "archive": "В архив",
+    "archivedToast": "Чат перенесён в архив. Найти его можно в «Настройки › Архив чатов».",
+    "unread": "Непрочитано",
     "timeGroup": {
+      "pinned": "Закреплённые",
       "today": "Сегодня",
       "oneWeek": "Одна неделя",
       "twoWeek": "Две недели",
@@ -1454,6 +1574,7 @@
       "tables": "Таблицы",
       "apps": "Приложения",
       "workflows": "Автоматизации",
+      "routines": "Рутины",
       "folders": "Папки",
       "envs": "Секреты"
     },
@@ -1482,7 +1603,7 @@
     "suggestions": {
       "title": "Чем могу помочь?",
       "whatCanIDo": "Что я могу сделать?",
-      "createOrModifyDatabase": "Создать или изменить базу данных",
+      "createOrModifyDatabase": "Создать или изменить проект",
       "buildAutomations": "Создать автоматизации",
       "buildApps": "Создать приложения",
       "buildMeCRM": "Создайте мне CRM",
@@ -1525,7 +1646,6 @@
       "scopePublic": "Все, у кого есть ссылка",
       "scopeSpace": "Участники пространства",
       "passwordProtect": "Защита паролем",
-      "passwordApply": "Задать",
       "passwordRequired": "Этот артефакт защищён паролем",
       "passwordPlaceholder": "Введите пароль",
       "passwordIncorrect": "Неверный пароль",
@@ -1613,6 +1733,11 @@
         "upstreamBadRequest": "Голосовой эндпоинт недействителен.",
         "upstreamUnavailable": "Голосовая функция недоступна."
       }
+    },
+    "status": {
+      "running": "Генерация…",
+      "waitingInput": "Ожидает вашего ответа",
+      "failed": "Ответ не удался"
     }
   },
   "upload": {

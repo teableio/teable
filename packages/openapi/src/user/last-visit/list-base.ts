@@ -23,9 +23,10 @@ export type IUserLastVisitListBaseVo = z.infer<typeof userLastVisitListBaseVoSch
 export const GetUserLastVisitListBaseRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_USER_LAST_VISIT_LIST_BASE,
+  title: 'Get userlast visitlist project',
   responses: {
     200: {
-      description: 'Returns data about user last visit base.',
+      description: 'Returns data about user last visit project.',
       content: {
         'application/json': {
           schema: userLastVisitListBaseVoSchema,

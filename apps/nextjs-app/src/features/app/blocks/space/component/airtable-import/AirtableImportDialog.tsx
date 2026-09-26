@@ -59,7 +59,7 @@ const BASE_TILE_COLORS = [
 const getBaseTileColor = (baseId: string) => {
   let hash = 0;
   for (let i = 0; i < baseId.length; i++) {
-    hash = (hash + baseId.charCodeAt(i)) % BASE_TILE_COLORS.length;
+    hash = (hash + baseId.charCodeAt(i)) % BASE_TILE_COLORS.length; // NOSONAR typescript:S7758 -- the hash is defined over UTF-16 code units; switching to code points would change persisted/compared values
   }
   return BASE_TILE_COLORS[hash];
 };
@@ -160,7 +160,7 @@ const ISSUE_I18N_MAP: Record<IImportAirtableIssue['code'], string> = {
 
 // Airtable's canonical share URL embeds the base (app) id, letting us flag a
 // mismatched link before the import runs; the server validates authoritatively.
-const parseShareLinkBaseId = (shareLink: string) => shareLink.match(/app[A-Za-z0-9]+/)?.[0];
+const parseShareLinkBaseId = (shareLink: string) => /app[A-Za-z0-9]+/.exec(shareLink)?.[0];
 
 const evaluateShareLink = (
   importViewConfig: boolean,

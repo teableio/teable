@@ -4,6 +4,8 @@ import {
   ProjectionHandler,
   TableCreated,
   TableDeleted,
+  TablePropertiesUpdated,
+  TableRenamed,
   TableRestored,
   TableTrashed,
   ok,
@@ -21,13 +23,24 @@ import type { IClsStore } from '../../types/cls';
 import { presenceHandler } from '../base-node/helper';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from './v2-projection-registrar';
 
+type TableTreeEvent =
+  | TableCreated
+  | TableTrashed
+  | TableDeleted
+  | TableRestored
+  | TableRenamed
+  | TablePropertiesUpdated;
+
+// The directory tree shows a table's name and icon too: a rename or an icon change made
+// through V2 has to reach it the way the legacy path's ops did, or the app's header keeps
+// the old name until the tree is next loaded.
 @ProjectionHandler(TableCreated)
 @ProjectionHandler(TableTrashed)
 @ProjectionHandler(TableDeleted)
 @ProjectionHandler(TableRestored)
-export class V2TableBaseNodeProjection
-  implements IEventHandler<TableCreated | TableTrashed | TableDeleted | TableRestored>
-{
+@ProjectionHandler(TableRenamed)
+@ProjectionHandler(TablePropertiesUpdated)
+export class V2TableBaseNodeProjection implements IEventHandler<TableTreeEvent> {
   constructor(
     private readonly performanceCacheService: PerformanceCacheService,
     private readonly shareDbService: ShareDbService,
@@ -36,7 +49,7 @@ export class V2TableBaseNodeProjection
 
   async handle(
     _context: IExecutionContext,
-    event: TableCreated | TableTrashed | TableDeleted | TableRestored
+    event: TableTreeEvent
   ): Promise<Result<void, DomainError>> {
     const ignoreBaseNodeListener = this.cls.get('ignoreBaseNodeListener');
     if (ignoreBaseNodeListener) {

@@ -19,16 +19,16 @@ export class TableUpdateFieldAiConfigSpec<
 > extends MutateOnlySpec<Table, V> {
   private constructor(
     private readonly fieldIdValue: FieldId,
-    private readonly previousAiConfigValue: unknown | null,
-    private readonly nextAiConfigValue: unknown | null
+    private readonly previousAiConfigValue: unknown,
+    private readonly nextAiConfigValue: unknown
   ) {
     super();
   }
 
   static create(
     fieldId: FieldId,
-    previousAiConfig: unknown | null,
-    nextAiConfig: unknown | null
+    previousAiConfig: unknown,
+    nextAiConfig: unknown
   ): TableUpdateFieldAiConfigSpec {
     return new TableUpdateFieldAiConfigSpec(fieldId, previousAiConfig, nextAiConfig);
   }
@@ -37,11 +37,11 @@ export class TableUpdateFieldAiConfigSpec<
     return this.fieldIdValue;
   }
 
-  nextAiConfig(): unknown | null {
+  nextAiConfig(): unknown {
     return this.nextAiConfigValue;
   }
 
-  previousAiConfig(): unknown | null {
+  previousAiConfig(): unknown {
     return this.previousAiConfigValue;
   }
 

@@ -1,7 +1,6 @@
-import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { domainError, type DomainError } from '../../shared/DomainError';
+import { type DomainError } from '../../shared/DomainError';
 import { MutateOnlySpec } from '../../shared/specification/MutateOnlySpec';
 import type { DbFieldName } from '../fields/DbFieldName';
 import type { FieldId } from '../fields/FieldId';

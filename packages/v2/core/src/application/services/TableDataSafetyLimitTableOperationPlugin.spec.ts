@@ -16,6 +16,7 @@ import type { IExecutionContext } from '../../ports/ExecutionContext';
 import type { IFindOptions } from '../../ports/RepositoryQuery';
 import {
   TableOperationKind,
+  type ITableOperationImportCsvContext,
   type TableOperationPluginContext,
 } from '../../ports/TableOperationPlugin';
 import type { ITableRepository } from '../../ports/TableRepository';
@@ -181,6 +182,39 @@ const createContext = (
   }) as unknown as TableOperationPluginContext;
 
 describe('TableDataSafetyLimitTableOperationPlugin', () => {
+  it('checks cumulative streamed rows against the prepared creation policy only', async () => {
+    const repository = new FakeTableRepository();
+    const limits = { tableSchema: { maxCreateTableRecords: 2, maxTablesPerBase: 1 } };
+    const plugin = new TableDataSafetyLimitTableOperationPlugin(
+      repository,
+      new TableDataSafetyLimitComposer([new StaticTableDataSafetyLimitPlugin(limits)])
+    );
+    const table = createTable('a', 'Import');
+    const context: ITableOperationImportCsvContext = {
+      kind: TableOperationKind.importCsv,
+      executionContext: createExecutionContext(),
+      isTransactionBound: false,
+      payload: {
+        baseId,
+        tableName: table.name(),
+        table,
+        fieldCount: 1,
+        viewCount: 1,
+        recordCount: undefined,
+      },
+    };
+    const prepared = (await plugin.prepare(context))._unsafeUnwrap();
+    expect((await plugin.guard(context, prepared)).isOk()).toBe(true);
+    repository.tables.push(table);
+    limits.tableSchema.maxCreateTableRecords = 10;
+
+    expect(plugin.guardImportRecordCount(context, 2, prepared).isOk()).toBe(true);
+    expect(plugin.guardImportRecordCount(context, 3, prepared)._unsafeUnwrapErr()).toMatchObject({
+      code: 'validation.limit.create_table_records_max',
+      details: { attempted: 3, max: 2 },
+    });
+  });
+
   it('supports all table operation kinds', () => {
     const plugin = createPlugin(new FakeTableRepository());
 

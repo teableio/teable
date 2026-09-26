@@ -10,7 +10,7 @@ export class PluginProxyModule implements NestModule {
   configure(consumer: MiddlewareConsumer): any {
     consumer.apply(PluginProxyMiddleware).forRoutes({
       method: RequestMethod.ALL,
-      path: 'plugin/?*',
+      path: 'plugin{/*splat}',
     });
   }
 }

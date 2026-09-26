@@ -89,13 +89,13 @@ export interface BaseDataBulkCopyResult {
  * model would buy no invariant and cost a full hydrate per record. This port
  * owns the set-based fast path (INSERT…SELECT with an FK drop/rebuild cycle)
  * so the duplicate command handler does not depend on host services. It is
- * only usable when the source schema is reachable from the target base's data
- * connection; callers fall back to row streaming otherwise.
+ * only usable when every source table and junction is reachable from the target
+ * base's data connection; callers fall back to row streaming otherwise.
  */
 export interface IBaseDataBulkCopier {
   /**
-   * Physical preflight: true when every source schema in the plan is reachable
-   * from the current data connection (i.e. source and target share a database).
+   * Physical preflight: true when every source table and junction in the plan
+   * exists on the current data connection. An empty source schema is insufficient.
    */
   isSupported(
     context: IExecutionContext,

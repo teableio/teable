@@ -5,27 +5,34 @@
     "affectedTableSuffix": "({{count}} champ(s))",
     "convertAndDuplicate": "Convertir et dupliquer"
   },
+  "trash": {
+    "forceRemove": "Forcer la suppression de l’espace",
+    "forceRemoveTitle": "Forcer la suppression de « {{name}} » ?",
+    "forceRemoveLabel": "Je comprends les risques et choisis la suppression forcée.",
+    "forceRemoveWarning": "La suppression forcée supprime définitivement les métadonnées de l’espace et les ressources gérées par {{brandName}}, sans connexion à la base de données externe. Des données physiques peuvent subsister dans cette base ; vous devrez les supprimer vous-même. Cette action est irréversible.",
+    "forceRemoveSuccess": "Espace supprimé de force"
+  },
   "initialSpaceName": "Espace de {{name}}",
   "action": {
-    "createBase": "Créer une base",
+    "createBase": "Créer un projet",
     "createSpace": "Créer un espace",
     "invite": "Inviter",
     "startFromScratch": "Partir de zéro"
   },
   "allSpaces": "Tous les espaces",
-  "emptySpaceTitle": "Aucune base dans cet espace",
-  "spaceIsEmpty": "Créez votre première base pour commencer",
+  "emptySpaceTitle": "Aucun projet dans cet espace",
+  "spaceIsEmpty": "Créez votre premier projet pour commencer",
   "baseModal": {
     "copy": "Copier",
     "duplicate": "Dupliquer \"{{baseName}}\"",
-    "createBaseFromTemplate": "Créer une base à partir d'un modèle",
+    "createBaseFromTemplate": "Créer un projet à partir d'un modèle",
     "duplicateRecords": "Dupliquer les enregistrements",
     "duplicateRecordsTip": "Votre historique des révisions et vos collaborateurs ne seront pas dupliqués.",
     "toSpace": "Vers l'espace",
     "copyToSpace": "Copier vers l'espace",
-    "duplicateBase": "Dupliquer la base",
-    "missTargetTip": "Veuillez sélectionner un espace pour dupliquer la base.",
-    "copying": "Duplication de la base, cela peut prendre un certain temps...",
+    "duplicateBase": "Dupliquer le projet",
+    "missTargetTip": "Veuillez sélectionner un espace pour dupliquer le projet.",
+    "copying": "Duplication du projet, cela peut prendre un certain temps...",
     "howToCreate": "Comment souhaitez-vous commencer ?",
     "fromScratch": "À partir de zéro",
     "fromTemplate": "À partir d'un modèle",
@@ -48,19 +55,19 @@
     "add": "Ajouter aux favoris",
     "remove": "Retirer des favoris",
     "pin": "Épingler",
-    "empty": "Vos bases et espaces favoris apparaîtront ici"
+    "empty": "Vos projets et espaces favoris apparaîtront ici"
   },
   "tooltip": {
-    "noPermissionToCreateBase": "Vous n'avez pas la permission de créer une base"
+    "noPermissionToCreateBase": "Vous n'avez pas la permission de créer un projet"
   },
   "tip": {
     "delete": "Êtes-vous sûr de vouloir supprimer <0/> ?",
     "exportTips2": "Vous pouvez importer le fichier .tea dans espace -> plus -> importer",
-    "exportTips3": "Les champs de relation inter-base seront convertis en texte sur une seule ligne.",
+    "exportTips3": "Les champs de relation inter-projet seront convertis en texte sur une seule ligne.",
     "exportIncludeDataLabel": "Inclure les enregistrements",
     "exportIncludeDataDescription": "Exporter uniquement la structure et la configuration lorsque désactivé",
     "exportTitle": "Exporter",
-    "exportDescription": "Exporter la base de données actuelle en fichier .tea, cela peut prendre un certain temps.",
+    "exportDescription": "Exporter le projet actuel en fichier .tea, cela peut prendre un certain temps.",
     "exportStartButton": "Commencer l'exportation",
     "exportSlowTip": "Le volume de données est important. L'exportation peut prendre du temps. Vous pouvez quitter temporairement.",
     "exportReadyDescription": "Veuillez télécharger le fichier .tea, {{importHint}}",
@@ -69,8 +76,8 @@
     "moveBaseCrossSpaceTitle": "Avis",
     "moveBaseCrossSpaceDataLossWarning": "Les références inter-espaces ne sont pas prises en charge. Les champs associés seront convertis en champs de texte. Cette action est irréversible.",
     "moveBaseCrossDataDbTitle": "Déplacement entre bases de données",
-    "moveBaseCrossDataDbWarning": "Les espaces source et cible utilisent des bases de données différentes. Ce déplacement copiera les données de la base vers la base de données cible et peut prendre du temps. Les écritures sur cette base sont suspendues pendant le transfert.",
-    "moveBaseProgressTitle": "Déplacement de la base…",
+    "moveBaseCrossDataDbWarning": "Les espaces source et cible utilisent des bases de données différentes. Ce déplacement copiera les données du projet vers la base de données cible et peut prendre du temps. Les écritures sur ce projet sont suspendues pendant le transfert.",
+    "moveBaseProgressTitle": "Déplacement du projet…",
     "moveBaseProgressPhase": "Étape : {{phase}}",
     "moveBaseProgressPercent": "{{percent}} %",
     "moveBaseFailedTitle": "Échec du déplacement",
@@ -85,8 +92,8 @@
   },
   "sharedBase": {
     "title": "Partagé avec moi",
-    "description": "Toutes les bases auxquelles j'ai été invité à rejoindre",
-    "empty": "Aucune base partagée avec moi pour le moment"
+    "description": "Tous les projets que j'ai été invité à rejoindre",
+    "empty": "Aucun projet partagé avec moi pour le moment"
   },
   "aiSetting": {
     "title": "Paramètres IA",
@@ -100,7 +107,7 @@
     "phase": {
       "importingV2": "Importation",
       "parsingStructure": "Parsing structure",
-      "creatingBase": "Creating base: {{detail}}",
+      "creatingBase": "Création du projet : {{detail}}",
       "creatingTable": "Creating table: {{detail}}",
       "tableStructureStarted": "Préparation de la structure de la table : {{tableName}} ({{tableIndex}}/{{totalTables}})",
       "tableStructureValidating": "Validation des relations entre tables",
@@ -164,7 +171,7 @@
   },
   "template": {
     "title": "Modèle",
-    "description": "Créer rapidement une nouvelle base à partir d'un modèle",
+    "description": "Créer rapidement un nouveau projet à partir d'un modèle",
     "noTemplatesAvailable": "Aucun modèle disponible",
     "noTemplatesDescription": "Il n'y a rien ici pour le moment"
   },
@@ -173,26 +180,26 @@
   },
   "noBases": {
     "title": "Bonjour {{userName}} !",
-    "description": "Commençons à gérer votre travail avec votre première base."
+    "description": "Commençons à gérer votre travail avec votre premier projet."
   },
   "noSpaces": {
     "title": "Bonjour {{userName}} !",
     "description": "Créez votre premier espace pour commencer votre voyage de collaboration de données."
   },
   "baseList": {
-    "allBases": "Toutes les bases",
+    "allBases": "Tous les projets",
     "creator": "Créateur",
     "createdTime": "Créé",
     "lastOpened": "Dernière ouverture",
     "enter": "Entrer",
     "noTables": "Aucun tableau",
-    "empty": "Aucune base pour le moment",
+    "empty": "Aucun projet pour le moment",
     "recent": "Récents",
     "manual": "Ordre manuel"
   },
   "publishBase": {
     "title": "Publier dans le centre de modèles",
-    "description": "Publiez votre base dans le centre de modèles en un clic ! Laissez plus de gens voir, utiliser et remixer votre créativité, et construisez ensemble une entreprise plus puissante",
+    "description": "Publiez votre projet dans le centre de modèles en un clic ! Laissez plus de gens voir, utiliser et remixer votre créativité, et construisez ensemble une entreprise plus puissante",
     "infoTitle": "Infos de base",
     "form": {
       "title": "Titre",
@@ -211,9 +218,9 @@
     "previewTips": "Montrez votre travail au monde",
     "update": "Mettre à jour",
     "unPublish": "Dépublier",
-    "unPublishSuccess": "Base dépubliée avec succès !",
+    "unPublishSuccess": "Projet dépublié avec succès !",
     "unPublishConfirmTitle": "Confirmer la dépublication",
-    "unPublishConfirmDescription": "Êtes-vous sûr de vouloir dépublier cette base ? Elle ne sera plus visible dans le centre de modèles.",
+    "unPublishConfirmDescription": "Êtes-vous sûr de vouloir dépublier ce projet ? Il ne sera plus visible dans le centre de modèles.",
     "uploadCover": "Cliquez pour télécharger l'image de couverture",
     "changeCover": "Cliquez pour changer la couverture",
     "uploading": "Téléchargement de l'image...",
@@ -252,7 +259,7 @@
   "dataDb": {
     "create": {
       "title": "Base de données de données",
-      "description": "Choisissez où cet espace stocke les schémas de bases et les enregistrements.",
+      "description": "Choisissez où cet espace stocke les schémas de projets et les enregistrements.",
       "defaultHint": "Recommandé pour la plupart des espaces.",
       "byodbOption": "Utiliser ma base de données PostgreSQL",
       "byodbHint": "Initialise cet espace dans un schéma interne Teable au sein de votre base de données gérée par le client.",
@@ -323,7 +330,7 @@
     "import": "Lancer l'import",
     "done": "Import terminé",
     "failed": "Échec de l'import",
-    "openBase": "Ouvrir la base",
+    "openBase": "Ouvrir le projet",
     "issuesSummary": "{{count}} éléments ont été ajustés pendant l'import :",
     "issuesMore": "+{{count}} de plus",
     "issue": {
@@ -335,7 +342,7 @@
     },
     "phase": {
       "fetchingSchema": "Lecture de la structure de la base Airtable",
-      "creatingBase": "Création de la base : {{detail}}",
+      "creatingBase": "Création du projet : {{detail}}",
       "creatingTable": "Création de la table : {{tableName}} ({{tableIndex}}/{{totalTables}})",
       "creatingLinks": "Création des champs de lien",
       "fillingLinks": "{{tableName}} (liens)",
@@ -378,7 +385,7 @@
     "import": "Lancer l'import",
     "done": "Import terminé",
     "failed": "Échec de l'import",
-    "openBase": "Ouvrir la base",
+    "openBase": "Ouvrir le projet",
     "issuesSummary": "{{count}} éléments ont été ajustés pendant l'import :",
     "issuesMore": "+{{count}} de plus",
     "recordsImported": "{{tableName}} : {{count}} enregistrements importés",
@@ -390,7 +397,7 @@
     },
     "phase": {
       "fetchingSchema": "Lecture de la structure de la feuille de calcul",
-      "creatingBase": "Création de la base : {{detail}}",
+      "creatingBase": "Création du projet : {{detail}}",
       "creatingTable": "Création de la table : {{tableName}} ({{tableIndex}}/{{totalTables}})"
     },
     "detecting": "Vérification de la connexion Google…",
@@ -403,9 +410,9 @@
     "title": "Comment voulez-vous commencer ?"
   },
   "importBaseDialog": {
-    "title": "Importer une base",
+    "title": "Importer un projet",
     "fromFile": "Importer depuis un fichier",
-    "fromFileDesc": "Téléverser un fichier de base .tea",
+    "fromFileDesc": "Téléverser un fichier de projet .tea",
     "fromAirtableDesc": "Connecter votre compte Airtable",
     "fromGoogleSheetDesc": "Choisir une feuille de calcul dans votre Google Drive"
   }

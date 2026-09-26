@@ -50,7 +50,7 @@ const useSelectInfoMap = (currentDateFormatting: string) => {
   );
 
   // add [Custom] option if currentDateFormatting not in the list
-  if (!dateFormattingPresetOptions.find((option) => option.value === currentDateFormatting)) {
+  if (!dateFormattingPresetOptions.some((option) => option.value === currentDateFormatting)) {
     dateFormattingPresetOptions.push(
       optionsWithExample(t('table:field.default.date.custom'), currentDateFormatting)
     );

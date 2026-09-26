@@ -47,7 +47,7 @@ export class PostgresDebugRecordStore implements IDebugRecordStore {
       const countResult = await sql<{ count: string }>`
         SELECT COUNT(*)::text as count FROM ${sql.ref(dbTableName)}
       `.execute(this.db);
-      const total = parseInt(countResult.rows[0]?.count ?? '0', 10);
+      const total = Number.parseInt(countResult.rows[0]?.count ?? '0', 10);
 
       // Get records
       const records = await sql<DebugRawRecord>`

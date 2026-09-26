@@ -49,7 +49,8 @@
     "previewFileLimit": "预览暂不支持{{size}}MB以上的附件, 请下载后预览",
     "loadFileError": "加载文件失败",
     "previousAttachment": "上一项",
-    "nextAttachment": "下一项"
+    "nextAttachment": "下一项",
+    "deleteAttachment": "删除"
   },
   "undoRedo": {
     "undo": "撤销",
@@ -392,13 +393,13 @@
       "spaceInviteEmail": "通过电子邮件邀请进入空间",
       "spaceInviteLink": "通过链接邀请进入空间",
       "spaceGrantRole": "在空间中授予角色",
-      "baseCreate": "创建数据库",
-      "baseDelete": "删除数据库",
-      "baseRead": "查看数据库",
-      "baseReadAll": "查看所有数据库",
-      "baseUpdate": "更新数据库",
-      "baseInviteEmail": "通过电子邮件邀请进入数据库",
-      "baseInviteLink": "通过链接邀请进入数据库",
+      "baseCreate": "创建项目",
+      "baseDelete": "删除项目",
+      "baseRead": "查看项目",
+      "baseReadAll": "查看所有项目",
+      "baseUpdate": "更新项目",
+      "baseInviteEmail": "通过电子邮件邀请进入项目",
+      "baseInviteLink": "通过链接邀请进入项目",
       "baseAuthorityMatrixConfig": "配置权限矩阵",
       "baseDbConnect": "连接数据库",
       "tableCreate": "创建表格",
@@ -432,14 +433,21 @@
       "automationDelete": "删除自动化",
       "automationRead": "读取自动化",
       "automationUpdate": "更新自动化",
+      "routineCreate": "创建任务",
+      "routineDelete": "删除任务",
+      "routineRead": "读取任务",
+      "routineUpdate": "更新任务",
       "appCreate": "创建应用",
       "appDelete": "删除应用",
       "appRead": "查看应用",
       "appUpdate": "更新应用",
       "userEmailRead": "查看当前用户电子邮件",
       "userIntegrations": "管理用户集成",
+      "userSpacesRead": "查看当前用户所在空间（名称、订阅等级和席位数）",
+      "userSelfHostedLicensesRead": "查看当前用户购买的自托管许可证（订阅等级和席位数）",
+      "userNotificationsSend": "向当前用户发送通知",
       "recordHistoryRead": "查看记录历史",
-      "baseQuery": "查询数据库",
+      "baseQuery": "查询项目",
       "instanceRead": "查看实例",
       "instanceUpdate": "更新实例",
       "enterpriseRead": "查看企业配置",
@@ -450,10 +458,11 @@
     "table": "表格",
     "view": "视图",
     "space": "空间",
-    "base": "数据库",
+    "base": "项目",
     "field": "字段",
     "record": "记录",
     "automation": "自动化",
+    "routine": "任务",
     "app": "应用",
     "user": "用户",
     "recordHistory": "记录历史",
@@ -948,7 +957,13 @@
       "recordsPerMutationMax": "本次操作的记录数过多，最多一次处理 {{max}} 条记录。",
       "computedCellValueMaxBytes": "计算单元格值过大，最大允许 {{max}} 字节。",
       "formulaMaxLength": "公式过长，最多允许 {{max}} 个字符。",
-      "tablesPerBaseMax": "该 base 已达到表数量限制，最多允许 {{max}} 张表。",
+      "formulaCompileNodesMax": "公式展开后的结构超出编译节点上限，最多允许 {{max}} 个节点。请减少重复引用或复杂分支。本次修改未保存。",
+      "formulaCompileDepthMax": "公式计算结构的嵌套深度超出上限，最多允许 {{max}} 层。请减少函数嵌套或连续运算。本次修改未保存。",
+      "formulaReferenceDepthMax": "公式引用层级过多，最多允许 {{max}} 层。请减少公式之间的连续引用。本次修改未保存。",
+      "formulaBindingsMax": "公式编译需要的中间计算绑定过多，最多允许 {{max}} 个。请简化公式分支及其引用的计算。本次修改未保存。",
+      "formulaCompileBytesMax": "公式编译的中间片段累计大小超出上限，最多允许 {{max}} 字节。请减少过大的常量、重复引用或复杂分支。本次修改未保存。",
+      "formulaSqlBytesMax": "公式生成的数据库查询过大，最多允许 {{max}} 字节。请简化公式及其引用的计算。本次修改未保存。",
+      "tablesPerBaseMax": "该项目已达到表数量限制，最多允许 {{max}} 张表。",
       "fieldsPerTableMax": "该表字段过多，最多允许 {{max}} 个字段。",
       "rowsPerTableMax": "该表记录过多，最多允许 {{max}} 条记录。",
       "viewsPerTableMax": "该表已达到视图数量限制，最多允许 {{max}} 个视图。",
@@ -1034,6 +1049,10 @@
       "accountLockedOut": "由于登录失败次数过多，您的账户已被锁定，请稍后再试",
       "passwordLoginDisabled": "密码登录已被禁用"
     },
+    "connectorEvent": {
+      "accountNotGranted": "连接器事件触发器需要一个已授权给该资源的已连接账号",
+      "notEnabled": "当前部署未启用连接器事件"
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "该按钮字段已经和 {{name}}[{{id}}] 这个自动化流程绑定，请选择其他按钮字段",
       "triggerNotFound": "自动化必须有一个触发器节点",
@@ -1041,6 +1060,7 @@
       "triggerTestFailed": "触发器测试失败, 请检查触发器配置",
       "testFailed": "自动化测试失败, 请检查自动化配置",
       "runFailed": "自动化运行失败",
+      "activatorDeactivated": "启用此自动化的账号已被停用",
       "nodeParseError": "{{name}} 节点配置未完成或者有错误，请检查该节点配置",
       "nodeNeedTest": "{{name}} 节点需要测试",
       "nodeTestOutdated": "{{name}} 节点测试已过期",
@@ -1049,7 +1069,7 @@
       "runNotFound": "自动化运行记录未找到",
       "anchorNotFound": "锚点自动化未找到",
       "validationError": "自动化配置验证错误",
-      "tableNotInBase": "您只能订阅当前数据库内的表格",
+      "tableNotInBase": "您只能订阅当前项目内的表格",
       "alreadyActiveAndNotDraft": "自动化已激活且不是草稿状态",
       "noActiveSnapshot": "自动化没有活动快照",
       "onlyFailedRunsCanRerun": "仅失败的运行记录可以重跑",
@@ -1073,6 +1093,8 @@
       "unsupportedCategory": "不支持的类别",
       "unknownConnectionType": "未知的邮件连接类型",
       "imapPasswordNotConfigured": "IMAP 密码未配置",
+      "secretNotGranted": "Secret {{alias}} 未授权给此自动化",
+      "credentialMustBeSecret": "凭据必须使用授权给此自动化的 Secret",
       "integrationNotFound": "集成未找到或没有凭据",
       "webhookTriggerNotFound": "Webhook 触发器未找到",
       "emailReceivedTriggerNotFound": "邮件接收触发器未找到",
@@ -1084,12 +1106,17 @@
       "apiKeyNotConfigured": "抓取服务未配置",
       "triggerFailed": "抓取触发失败：{{detail}}",
       "snapshotError": "抓取快照错误：{{detail}}",
-      "timeout": "抓取超时，已等待 {{seconds}} 秒"
+      "timeout": "抓取超时，已等待 {{seconds}} 秒",
+      "catalogFailed": "抓取目录请求失败：{{detail}}",
+      "discoverByOnCatalogDataset": "discoverBy 只用于原始数据集 id，不适用于 {{datasetId}}",
+      "tooManyRecords": "本次抓取最多返回 {{estimated}} 条记录，超过单次允许的 {{max}} 条",
+      "creditEstimateExceeded": "本次抓取预计消耗的算力超出当前可用额度"
     },
     "integration": {
       "oauthCodeExchangeFailed": "OAuth 授权码交换失败：{{detail}}",
       "oauthTokenRefreshFailed": "OAuth 令牌刷新失败：{{detail}}",
-      "userInfoFetchFailed": "获取用户信息失败：{{detail}}"
+      "userInfoFetchFailed": "获取用户信息失败：{{detail}}",
+      "providerUnsupported": "{{provider}} 连接已不再支持,无法授权"
     },
     "space": {
       "notFound": "空间不存在",
@@ -1105,14 +1132,14 @@
       "freeOwnedSpaceLimitExceededOther": "{{name}} 已达到可拥有的免费空间数量上限（{{max}}）。"
     },
     "base": {
-      "notFound": "数据库不存在",
-      "cannotAccess": "没有权限访问数据库 {{baseId}}",
-      "anchorNotFound": "锚点数据库 {{anchorId}} 不存在",
-      "baseAndSpaceMismatch": "数据库 {{baseId}} 与空间 {{spaceId}} 不匹配",
+      "notFound": "项目不存在",
+      "cannotAccess": "没有权限访问项目 {{baseId}}",
+      "anchorNotFound": "锚点项目 {{anchorId}} 不存在",
+      "baseAndSpaceMismatch": "项目 {{baseId}} 与空间 {{spaceId}} 不匹配",
       "templateNotFound": "模板 {{templateId}} 不存在"
     },
     "baseNode": {
-      "baseIdIsRequired": "数据库ID是必需的",
+      "baseIdIsRequired": "项目ID是必需的",
       "nodeIdIsRequired": "节点ID是必需的",
       "invalidResourceType": "无效的资源类型",
       "notFound": "节点未找到",
@@ -1130,6 +1157,23 @@
       "folderNotFound": "文件夹未找到",
       "anchorNotFound": "锚点节点未找到",
       "nameAlreadyExists": "名称已存在"
+    },
+    "routine": {
+      "notFound": "任务未找到",
+      "runNotFound": "任务运行记录未找到",
+      "configRequiredToActivate": "无法激活没有已保存配置的任务",
+      "noFutureOccurrence": "该任务没有未来的运行时间",
+      "onlyActiveCanDeactivate": "只有已启用的任务才能停用",
+      "configRequiredToRun": "无法运行没有已保存配置的任务",
+      "runAlreadyInFlight": "该任务已有一个正在进行的运行",
+      "runNowWhileActiveEvent": "该任务已激活并在接收事件，触发一次事件即可看到运行",
+      "invalidRunCursor": "无效的运行列表游标",
+      "invalidSchedule": "无效的任务运行安排：{{reason}}"
+    },
+    "chat": {
+      "notFound": "会话不存在",
+      "accessDenied": "你无权访问此会话",
+      "serverAuthoredType": "{{type}} 类型的会话由服务端创建"
     },
     "dashboard": {
       "notFound": "仪表板不存在"
@@ -1169,7 +1213,7 @@
       "loginRequired": "请登录后再编辑此分享视图"
     },
     "baseShare": {
-      "notFound": "Base 分享不存在或分享已禁用",
+      "notFound": "项目分享不存在或分享已禁用",
       "alreadyExists": "此节点已存在分享",
       "copyNotAllowed": "此分享不允许复制"
     },
@@ -1187,14 +1231,14 @@
     },
     "dbConnection": {
       "unsupportedDriver": "不支持的数据库驱动：{{driver}}",
-      "onlyOwnerCanRemove": "只有数据库所有者可以移除数据库 {{baseId}} 的连接",
-      "onlyOwnerCanCreate": "只有数据库所有者可以创建数据库 {{baseId}} 的连接",
+      "onlyOwnerCanRemove": "只有项目所有者可以移除项目 {{baseId}} 的连接",
+      "onlyOwnerCanCreate": "只有项目所有者可以创建项目 {{baseId}} 的连接",
       "roleNotExist": "数据库角色 {{role}} 不存在"
     },
     "baseQuery": {
       "queryFailed": "查询失败：{{message}}",
       "invalidJoinType": "无效的连接类型：{{joinType}}",
-      "tableNotFound": "在数据库 {{baseId}} 中未找到表 {{tableId}}"
+      "tableNotFound": "在项目 {{baseId}} 中未找到表 {{tableId}}"
     },
     "baseSqlExecutor": {
       "notAllowedToExecuteSqlWithKeyword": "不允许执行包含关键字 {{keyword}} 的 SQL",
@@ -1214,7 +1258,7 @@
       "accessTokenNoPermission": "访问令牌没有所需的权限",
       "invalidResource": "资源无效",
       "notAllowedSpace": "您没有权限访问此空间",
-      "notAllowedBase": "您没有权限访问此数据库",
+      "notAllowedBase": "您没有权限访问此项目",
       "notAllowedTables": "您没有权限访问表格({{tableIds}})",
       "notAllowedOperationTable": "您没有权限操作此表格",
       "notAllowedOperationRecord": "您没有权限操作此记录",
@@ -1234,7 +1278,7 @@
       "primaryFieldCannotBeDisabledForRead": "主字段不能禁用读取权限",
       "fieldDuplicated": "权限配置中存在重复字段",
       "cannotSetRecordPermissionGroup": "不能设置此记录权限组合({{actions}})",
-      "notFoundBaseAndTable": "未找到数据库ID和表格ID",
+      "notFoundBaseAndTable": "未找到项目ID和表格ID",
       "roleTablesShouldNotBeEmpty": "权限矩阵角色表不能为空"
     },
     "selection": {
@@ -1335,7 +1379,10 @@
       "exceedMaxAutomationRunLimit": "已触及自动化每月最大运行次数",
       "manualSubscriptionNotSupported": "此空间不支持自助订阅操作，如需升级、降级或其他订阅变更，请联系官方支持。",
       "appSumoSubscriptionNotSupported": "AppSumo 订阅无法通过此界面修改，请前往 AppSumo 管理您的订阅。",
-      "customerNotFound": "未找到此空间的账单客户记录。"
+      "planNotAvailable": "该订阅方案已停止新购。",
+      "seatLimitExceeded": "已购席位不足，请增购席位后再邀请协作者。",
+      "customerNotFound": "未找到此空间的账单客户记录。",
+      "creditAddOnRetired": "按月增购算力包已停售，请改为在套餐中选择更大的算力档位。"
     },
     "aggregation": {
       "searchQueryRequired": "搜索查询是必需的",
@@ -1356,6 +1403,7 @@
       "configurationNotSet": "AI 配置未设置",
       "unsupportedProvider": "不支持的 AI 模型提供商 {{type}}",
       "providerConfigurationNotSet": "AI 模型提供商配置未设置",
+      "providerModelDuplicated": "模型 {{model}} 同时配置在「{{first}}」和「{{second}}」里，同一类型下一个模型只能出现在一个提供商里",
       "gatewayApiKeyNotSet": "AI Gateway API 密钥未配置",
       "testLLMFailed": "LLM 连接测试失败",
       "audioNotSupported": "此模型{{model}}不支持音频输入",
@@ -1417,9 +1465,9 @@
       "noPermissionToDelete": "您没有权限删除此协作者",
       "noPermissionToUpdate": "您没有权限更新此协作者",
       "noPermissionToOperateRole": "您没有权限操作此角色",
-      "alreadyExistedInBase": "协作者已在数据库中存在",
+      "alreadyExistedInBase": "协作者已在项目中存在",
       "userNotFound": "未找到用户：{{userIds}}",
-      "baseNotFound": "未找到数据库",
+      "baseNotFound": "未找到项目",
       "noPermissionToAddRole": "您没有权限添加此角色的协作者",
       "departmentNotFound": "部门未找到"
     },
@@ -1457,9 +1505,9 @@
     "trash": {
       "invalidResourceType": "无效的资源类型",
       "notFound": "回收站项目未找到",
-      "parentSpaceTrashed": "无法恢复此数据库，因为其父空间也在回收站中",
-      "parentBaseOrSpaceTrashed": "无法恢复此表格，因为其父数据库或空间也在回收站中",
-      "parentBaseTrashed": "无法恢复此项目，因为其父数据库也在回收站中",
+      "parentSpaceTrashed": "无法恢复此项目，因为其父空间也在回收站中",
+      "parentBaseOrSpaceTrashed": "无法恢复此表格，因为其父项目或空间也在回收站中",
+      "parentBaseTrashed": "无法恢复此项目，因为其父项目也在回收站中",
       "parentNotFound": "父级资源未找到",
       "tableNotFound": "表格回收站项目未找到"
     },
@@ -1472,6 +1520,7 @@
     "domainVerification": {
       "notFound": "未找到域名验证码",
       "invalidCode": "验证码无效",
+      "tooManyAttempts": "验证码错误次数过多，请重新获取验证码",
       "resendCooldown": "请等待1分钟后再请求新的验证码",
       "alreadyVerified": "域名已验证"
     },
@@ -1491,7 +1540,7 @@
       "waitlistInviteCodeRequired": "已启用等待列表，需要邀请码",
       "waitlistInviteCodeInvalid": "已启用等待列表，邀请码无效",
       "systemUser": "用户是系统用户",
-      "collaboratorsInSpaces": "用户在空间中有协作者（或在回收站中有已删除的空间）",
+      "soleOwnerOfSpaces": "用户是部分空间的唯一所有者，删除账户前需先确认或移交这些空间",
       "notFound": "用户不存在",
       "cannotDeleteAdmin": "无法删除管理员用户",
       "cannotDeactivateAdmin": "无法停用管理员用户",
@@ -1579,7 +1628,8 @@
       "linkedInPostNotFound": "未找到 LinkedIn 帖子：{{postId}}",
       "linkedInAuthorNotFound": "未找到 LinkedIn 作者：{{postId}}",
       "fetchLinkedInUserFailed": "获取 LinkedIn 用户失败：{{error}}"
-    }
+    },
+    "tableProvisionPending": "表结构更新中，请稍后重试。"
   },
   "usageLimitBanner": {
     "viewDetail": "查看明细",
@@ -1588,7 +1638,8 @@
       "titleIncrement": "本次操作需新增 {{increment}} 行，将超出当前套餐上限 {{limit}} 行",
       "titleBatch": "本次操作的行数超出当前套餐上限（{{limit}} 行）",
       "description": "无法继续添加记录。升级套餐立即解除限制，或清理数据后继续。",
-      "unit": "行"
+      "unit": "行",
+      "constraint": "当前套餐下无法再添加记录，可删除部分记录以释放空间。"
     },
     "credit": {
       "unit": "算力"
@@ -1598,6 +1649,12 @@
     },
     "generic": {
       "description": "升级套餐以解除此限制。"
+    },
+    "neutral": {
+      "title": "此操作超出了该空间当前套餐的限制"
+    },
+    "seats": {
+      "unit": "席位"
     }
   }
 }

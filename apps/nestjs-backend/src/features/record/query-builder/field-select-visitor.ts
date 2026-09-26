@@ -262,7 +262,8 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
             cteName,
             field.id,
             !!field.isMultipleCellValue,
-            field.dbFieldType
+            field.dbFieldType,
+            field.lookupOptions.isUnique
           );
           if (flattenedExpr) {
             this.state.setSelection(field.id, flattenedExpr);

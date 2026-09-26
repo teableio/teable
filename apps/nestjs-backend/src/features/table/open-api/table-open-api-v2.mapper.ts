@@ -52,6 +52,7 @@ const pickLookupOptions = (lookupOptions: Record<string, unknown> | undefined) =
     filter: lookupOptions?.filter,
     sort: lookupOptions?.sort,
     limit: lookupOptions?.limit,
+    isUnique: lookupOptions?.isUnique,
   });
 
 const pickCondition = (lookupOptions: Record<string, unknown> | undefined) =>
@@ -183,6 +184,7 @@ const mapLegacyConditionalLookupField = (
     ...baseField,
     type: 'conditionalLookup',
     options: {
+      ...(typeof lookupOptions?.isUnique === 'boolean' ? { isUnique: lookupOptions.isUnique } : {}),
       foreignTableId: foreignTableId ?? '',
       lookupFieldId: lookupFieldId ?? '',
       condition,

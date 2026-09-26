@@ -1,6 +1,6 @@
 import openapiTS from 'openapi-typescript';
-import path from 'path';
-import fs from 'fs';
+import path from 'node:path';
+import fs from 'node:fs';
 
 async function generateTypes() {
   const localPath = path.resolve(process.cwd(), 'apps/nestjs-backend/dist/openapi.json');

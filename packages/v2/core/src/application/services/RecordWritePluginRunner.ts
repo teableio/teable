@@ -616,7 +616,9 @@ export class RecordWritePluginRunner {
     }
 
     return ok(
-      matchedPlugins.sort((left, right) => enforceOrder(left.enforce) - enforceOrder(right.enforce))
+      [...matchedPlugins].sort(
+        (left, right) => enforceOrder(left.enforce) - enforceOrder(right.enforce)
+      )
     );
   }
 

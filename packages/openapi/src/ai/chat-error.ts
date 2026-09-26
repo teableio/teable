@@ -11,6 +11,8 @@ export enum ChatErrorCode {
   SANDBOX_TRANSIENT = 'sandbox_transient',
   SANDBOX_SNAPSHOT_NOT_FOUND = 'sandbox_snapshot_not_found',
   SANDBOX_PROVIDER_ERROR = 'sandbox_provider_error',
+  /** The runtime is not configured or an admin put it into maintenance; the turn never started. */
+  SANDBOX_UNAVAILABLE = 'sandbox_unavailable',
 
   // Model errors
   MODEL_NOT_SUPPORTED = 'model_not_supported',
@@ -40,7 +42,10 @@ export enum ChatErrorCode {
 
   // Session recovery
   DANGLING_TOOL_USE = 'dangling_tool_use',
-  CONTEXT_IMPORT_FAILED = 'context_import_failed',
+
+  // App Builder version save (the turn finished, the changes were not saved as a version)
+  VERSION_SAVE_FAILED = 'version_save_failed',
+  VERSION_PUSH_TOO_LARGE = 'version_push_too_large',
 
   // Generic
   UNKNOWN = 'unknown',

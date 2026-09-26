@@ -1,11 +1,10 @@
 import type { DomainError, ImportCsvResult } from '@teable/v2-core';
-import { err, ok, type Result } from 'neverthrow';
+import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import type { IDomainEventDto } from '../shared/domainEvent';
-import { domainEventDtoSchema, mapDomainEventToDto } from '../shared/domainEvent';
+import { domainEventDtoSchema } from '../shared/domainEvent';
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type HttpErrorStatus,
   type IApiErrorResponseDto,
@@ -30,7 +29,7 @@ export const importCsvResponseDataSchema = z.object({
 });
 
 export const importCsvOkResponseSchema = apiOkResponseDtoSchema(importCsvResponseDataSchema);
-export const importCsvErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as importCsvErrorResponseSchema } from '../shared/http';
 
 export type IImportCsvEndpointResult =
   | { status: 201; body: IImportCsvOkResponseDto }
@@ -42,6 +41,6 @@ export const mapImportCsvResultToDto = (
   return mapTableToDto(result.table).map((table) => ({
     table,
     totalImported: result.totalImported,
-    events: result.events.map(mapDomainEventToDto),
+    events: [...result.events],
   }));
 };

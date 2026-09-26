@@ -43,7 +43,7 @@ const tablePayload = (
   table: Table,
   payload?: TableSchemaOperationPayload
 ): TableSchemaOperationPayload => ({
-  ...(payload ?? {}),
+  ...payload,
   tableId: table.id().toString(),
 });
 
@@ -51,7 +51,7 @@ const tablesPayload = (
   tables: ReadonlyArray<Table>,
   payload?: TableSchemaOperationPayload
 ): TableSchemaOperationPayload => ({
-  ...(payload ?? {}),
+  ...payload,
   tableIds: tables.map((table) => table.id().toString()),
 });
 

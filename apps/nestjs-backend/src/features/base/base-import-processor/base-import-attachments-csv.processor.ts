@@ -21,9 +21,9 @@ export const BASE_IMPORT_ATTACHMENTS_CSV_QUEUE = 'base-import-attachments-csv-qu
 @Injectable()
 @Processor(BASE_IMPORT_ATTACHMENTS_CSV_QUEUE)
 export class BaseImportAttachmentsCsvQueueProcessor extends WorkerHost {
-  private logger = new Logger(BaseImportAttachmentsCsvQueueProcessor.name);
+  private readonly logger = new Logger(BaseImportAttachmentsCsvQueueProcessor.name);
 
-  private processedJobs = new Set<string>();
+  private readonly processedJobs = new Set<string>();
 
   constructor(
     private readonly prismaService: PrismaService,

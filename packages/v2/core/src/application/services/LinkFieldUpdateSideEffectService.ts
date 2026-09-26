@@ -61,7 +61,7 @@ export class LinkFieldUpdateSideEffectService {
     context: ExecutionContextPort.IExecutionContext,
     input: LinkFieldUpdateSideEffectServiceInput
   ): Promise<Result<LinkFieldUpdateSideEffectServiceResult, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return await safeTry<LinkFieldUpdateSideEffectServiceResult, DomainError>(async function* () {
       const { table, updatedField, foreignTables, previousConfig } = input;
 

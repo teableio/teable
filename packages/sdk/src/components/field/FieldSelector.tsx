@@ -30,7 +30,7 @@ interface IFieldSelector {
   drawerTitle?: string;
 }
 
-export function FieldSelector(props: IFieldSelector) {
+export function FieldSelector(props: Readonly<IFieldSelector>) {
   const {
     value,
     className,

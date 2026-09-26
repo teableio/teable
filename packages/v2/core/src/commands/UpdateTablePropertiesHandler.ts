@@ -38,7 +38,7 @@ export class UpdateTablePropertiesHandler
     context: ExecutionContextPort.IExecutionContext,
     command: UpdateTablePropertiesCommand
   ): Promise<Result<UpdateTablePropertiesResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<UpdateTablePropertiesResult, DomainError>(async function* () {
       const updateResult = yield* await handler.tableUpdateFlow.execute(context, command, (table) =>
         table.update((mutator) => mutator.updateProperties(command.patch))

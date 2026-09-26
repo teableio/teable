@@ -1,9 +1,11 @@
+import { createHash } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import type { ILocalization, INotificationBuffer, INotificationUrl } from '@teable/core';
 import {
   assertNever,
   generateNotificationId,
   getUserNotificationChannel,
+  IdPrefix,
   NotificationStatesEnum,
   NotificationSeverityEnum,
   NotificationTypeEnum,
@@ -20,9 +22,13 @@ import {
   type INotificationVo,
   type IUpdateNotifyStatusRo,
 } from '@teable/openapi';
-import { keyBy } from 'lodash';
+import { escape, keyBy, uniq } from 'lodash';
+import ms from 'ms';
 import { I18nContext, I18nService } from 'nestjs-i18n';
+import { CacheService } from '../../cache/cache.service';
+import type { ICacheStore } from '../../cache/types';
 import { IMailConfig, MailConfig } from '../../configs/mail.config';
+import { DistributedLockService } from '../../distributed-lock';
 import { ShareDbService } from '../../share-db/share-db.service';
 import type { I18nPath, I18nTranslations } from '../../types/i18n.generated';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
@@ -43,6 +49,36 @@ function toArray<T>(value?: T | T[]): T[] {
 
 const notificationListLimit = 10;
 
+// Collaborator notifies from one actor to one user in one table coalesce: a notify with
+// no open window is sent at once and opens one, later ones buffer in the shared cache and
+// go out as one notification once writes stay quiet. Every pod that touched a window runs
+// its own flush timer, so a buffer outlives the pod that filled it.
+const defaultCollaboratorNotifyQuietMs = ms('10s');
+export const maxCollaboratorNotifyRecordTitles = 10;
+
+const resolveCollaboratorNotifyQuietMs = (): number => {
+  const raw = process.env.USER_FIELD_NOTIFY_BATCH_WINDOW_MS;
+  // Number('') is 0, so only an explicit 0 disables coalescing.
+  if (!raw?.trim()) {
+    return defaultCollaboratorNotifyQuietMs;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : defaultCollaboratorNotifyQuietMs;
+};
+
+type ICollaboratorNotifyParams = {
+  fromUserId: string;
+  toUserId: string;
+  refRecord: {
+    baseId: string;
+    tableId: string;
+    tableName: string;
+    fieldName: string;
+    recordIds: string[];
+    recordTitles: { id: string; title: string }[];
+  };
+};
+
 const notificationListSelect = {
   id: true,
   fromUserId: true,
@@ -55,6 +91,21 @@ const notificationListSelect = {
   createdTime: true,
 } satisfies Prisma.NotificationSelect;
 
+const systemIconUrl = '/images/favicon/favicon.svg';
+
+// The alphabet generated ids are drawn from (nanoid's, in @teable/core's id generator).
+const idAlphabet = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+/**
+ * The id of the notification an app sends a user under its own `externalId`: the same three
+ * give the same id, in the shape of a generated one ('not' + 16 of nanoid's alphabet).
+ */
+const appNotificationId = (clientId: string, toUserId: string, externalId: string) => {
+  const digest = createHash('sha256').update(`${clientId}\n${toUserId}\n${externalId}`).digest();
+  const chars = Array.from(digest.subarray(0, 16), (byte) => idAlphabet[byte % idAlphabet.length]);
+  return IdPrefix.Notification + chars.join('');
+};
+
 type INotificationListRecord = Prisma.NotificationGetPayload<{
   select: typeof notificationListSelect;
 }>;
@@ -62,6 +113,7 @@ type INotificationListRecord = Prisma.NotificationGetPayload<{
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
+  private readonly collaboratorNotifyTimers = new Set<string>();
   private readonly mailTypeMap: Record<NotificationTypeEnum, MailType> = {
     [NotificationTypeEnum.System]: MailType.System,
     [NotificationTypeEnum.CollaboratorCellTag]: MailType.CollaboratorCellTag,
@@ -70,6 +122,8 @@ export class NotificationService {
     [NotificationTypeEnum.ExportBase]: MailType.ExportBase,
     [NotificationTypeEnum.AdminNotice]: MailType.System,
     [NotificationTypeEnum.CollaboratorInvite]: MailType.Common,
+    // never mailed: the app reaches its users on its own
+    [NotificationTypeEnum.OAuthApp]: MailType.Common,
   };
   constructor(
     private readonly prismaService: PrismaService,
@@ -77,7 +131,9 @@ export class NotificationService {
     private readonly mailSenderService: MailSenderService,
     private readonly userService: UserService,
     @MailConfig() private readonly mailConfig: IMailConfig,
-    private readonly i18n: I18nService<I18nTranslations>
+    private readonly i18n: I18nService<I18nTranslations>,
+    private readonly cacheService: CacheService<ICacheStore>,
+    private readonly distributedLockService: DistributedLockService
   ) {}
 
   getUserLang(lang?: string | null) {
@@ -107,18 +163,121 @@ export class NotificationService {
         });
   }
 
-  async sendCollaboratorNotify(params: {
-    fromUserId: string;
-    toUserId: string;
-    refRecord: {
-      baseId: string;
-      tableId: string;
-      tableName: string;
-      fieldName: string;
-      recordIds: string[];
-      recordTitles: { id: string; title: string }[];
-    };
-  }): Promise<boolean> {
+  async sendCollaboratorNotify(params: ICollaboratorNotifyParams): Promise<void> {
+    const { fromUserId, toUserId, refRecord } = params;
+    if (fromUserId === toUserId) {
+      return;
+    }
+    const quietMs = resolveCollaboratorNotifyQuietMs();
+    if (quietMs <= 0) {
+      await this.createCollaboratorNotify(params);
+      return;
+    }
+
+    // The window lapses on its own once writes stay quiet.
+    const windowTtlSeconds = Math.ceil(quietMs / 1000);
+    const key = `${fromUserId}:${toUserId}:${refRecord.tableId}`;
+    const buffered = await this.withCollaboratorNotifyLock(key, async () => {
+      // Records still waiting to go out, e.g. left by a dead pod, keep this notify buffered too.
+      const current = await this.cacheService.get(`collaborator-notify:pending:${key}`);
+      if (!current && !(await this.cacheService.get(`collaborator-notify:window:${key}`))) {
+        // Reserve the window before sending, so notifies arriving mid-send buffer behind it.
+        await this.cacheService.setDetail(
+          `collaborator-notify:window:${key}`,
+          true,
+          windowTtlSeconds
+        );
+        return false;
+      }
+      const pending = current ?? {
+        ...params,
+        refRecord: { ...refRecord, recordIds: [], recordTitles: [] },
+        lastAt: 0,
+      };
+      pending.refRecord.recordIds = uniq([...pending.refRecord.recordIds, ...refRecord.recordIds]);
+      pending.refRecord.recordTitles = [
+        ...pending.refRecord.recordTitles,
+        ...refRecord.recordTitles.filter(
+          (title) => !pending.refRecord.recordTitles.some(({ id }) => id === title.id)
+        ),
+      ].slice(0, maxCollaboratorNotifyRecordTitles);
+      pending.lastAt = Date.now();
+      await this.cacheService.setDetail(
+        `collaborator-notify:pending:${key}`,
+        pending,
+        windowTtlSeconds + ms('1m') / 1000
+      );
+      await this.cacheService.setDetail(
+        `collaborator-notify:window:${key}`,
+        true,
+        windowTtlSeconds
+      );
+      return true;
+    });
+
+    this.scheduleCollaboratorNotifyFlush(key, quietMs);
+    if (!buffered) {
+      await this.createCollaboratorNotify(params);
+    }
+  }
+
+  private scheduleCollaboratorNotifyFlush(key: string, delayMs: number) {
+    if (this.collaboratorNotifyTimers.has(key)) {
+      return;
+    }
+    this.collaboratorNotifyTimers.add(key);
+    const timer = setTimeout(() => void this.flushCollaboratorNotify(key), delayMs);
+    timer.unref?.();
+  }
+
+  private async flushCollaboratorNotify(key: string): Promise<void> {
+    this.collaboratorNotifyTimers.delete(key);
+    const quietMs = resolveCollaboratorNotifyQuietMs();
+    try {
+      const now = Date.now();
+      const pending = await this.withCollaboratorNotifyLock(key, async () => {
+        const current = await this.cacheService.get(`collaborator-notify:pending:${key}`);
+        if (current && now >= current.lastAt + quietMs) {
+          await this.cacheService.del(`collaborator-notify:pending:${key}`);
+        }
+        return current;
+      });
+      if (!pending) {
+        return;
+      }
+      const { lastAt, ...params } = pending;
+      if (now < lastAt + quietMs) {
+        this.scheduleCollaboratorNotifyFlush(key, lastAt + quietMs - now);
+        return;
+      }
+      await this.createCollaboratorNotify(params);
+    } catch (error) {
+      this.logger.error(
+        `Error flushing collaborator notifications: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined
+      );
+    }
+  }
+
+  private async withCollaboratorNotifyLock<T>(key: string, task: () => Promise<T>): Promise<T> {
+    let result!: T;
+    while (
+      !(await this.distributedLockService.runExclusive(
+        `collaborator-notify:${key}`,
+        10,
+        async () => {
+          result = await task();
+        }
+      ))
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    return result;
+  }
+
+  private async createCollaboratorNotify(params: ICollaboratorNotifyParams): Promise<boolean> {
     const { fromUserId, toUserId, refRecord } = params;
     const [fromUser, toUser] = await Promise.all([
       this.userService.getUserById(fromUserId),
@@ -206,7 +365,7 @@ export class NotificationService {
       fromUserName: fromUser.name,
       refRecord,
     });
-    if (toUser.notifyMeta && toUser.notifyMeta.email) {
+    if (toUser.notifyMeta?.email) {
       this.mailSenderService.sendMail(
         {
           to: toUser.email,
@@ -285,7 +444,7 @@ export class NotificationService {
 
     this.sendNotifyBySocket(toUser.id, socketNotification);
 
-    if (emailConfig && toUser.notifyMeta && toUser.notifyMeta.email) {
+    if (emailConfig && toUser.notifyMeta?.email) {
       const lang = this.getUserLang(toUser.lang);
       const emailOptions = await this.mailSenderService.htmlEmailOptions({
         ...emailConfig,
@@ -308,6 +467,65 @@ export class NotificationService {
         }
       );
     }
+  }
+
+  /**
+   * A notification a third-party OAuth app sends the user who authorized it: sent by the system
+   * on the app's behalf (the app's client id is the sender), shown with the app's logo, linking
+   * out to `url`, and never emailed. Lands at most once per app, user and `externalId`: the id
+   * is derived from the three, so a repeat hits the primary key and changes nothing.
+   */
+  async sendAppNotify(params: {
+    app: { clientId: string; name: string; logo?: string | null };
+    toUserId: string;
+    externalId: string;
+    text: string;
+    url?: string;
+  }): Promise<'created' | 'duplicate'> {
+    const { app, toUserId, externalId, text, url } = params;
+    const type = NotificationTypeEnum.OAuthApp;
+    const localization: ILocalization<I18nPath> = {
+      i18nKey: 'common.notification.oauthApp.message',
+      // the Web renders messages as HTML: whatever the app wrote shows as text
+      context: { app: escape(app.name), text: escape(text) },
+    };
+    const severity = this.getNotificationSeverity(type);
+    const record = {
+      id: appNotificationId(app.clientId, toUserId, externalId),
+      fromUserId: app.clientId,
+      toUserId,
+      type,
+      urlPath: url ?? '',
+      createdBy: app.clientId,
+      message: this.getMessage(localization, 'en'),
+      messageI18n: this.getMessageI18n(localization),
+      severity,
+      createdTime: new Date(),
+    };
+    const { count } = await this.prismaService.notification.createMany({
+      data: [record],
+      skipDuplicates: true,
+    });
+    if (!count) {
+      return 'duplicate';
+    }
+
+    const { unreadCount } = await this.unreadCount(toUserId);
+    this.sendNotifyBySocket(toUserId, {
+      notification: {
+        id: record.id,
+        message: record.message,
+        messageI18n: record.messageI18n,
+        notifyType: type,
+        url: record.urlPath,
+        notifyIcon: this.generateNotifyIcon(type, app.clientId, {}, app.logo),
+        severity,
+        isRead: false,
+        createdTime: record.createdTime.toISOString(),
+      },
+      unreadCount,
+    });
+    return 'created';
   }
 
   async sendCommonNotify(
@@ -398,7 +616,7 @@ export class NotificationService {
         unreadCount,
       });
 
-      if (emailConfig && toUser.notifyMeta && toUser.notifyMeta.email) {
+      if (emailConfig && toUser.notifyMeta?.email) {
         const lang = this.getUserLang(toUser.lang);
         const emailOptions = await this.mailSenderService.commonEmailOptions({
           ...emailConfig,
@@ -597,17 +815,32 @@ export class NotificationService {
 
   private async getNotificationListVos(data: INotificationListRecord[]) {
     const fromUserIds = data.map((v) => v.fromUserId);
-    const rawUsers = await this.prismaService.user.findMany({
-      select: { id: true, name: true, avatar: true },
-      where: { id: { in: fromUserIds } },
-    });
+    // an app's notifications are sent from its client id
+    const clientIds = uniq(
+      data.filter((v) => v.type === NotificationTypeEnum.OAuthApp).map((v) => v.fromUserId)
+    );
+    const [rawUsers, apps] = await Promise.all([
+      this.prismaService.user.findMany({
+        select: { id: true, name: true, avatar: true },
+        where: { id: { in: fromUserIds } },
+      }),
+      clientIds.length
+        ? this.prismaService.oAuthApp.findMany({
+            select: { clientId: true, logo: true },
+            where: { clientId: { in: clientIds } },
+          })
+        : [],
+    ]);
     const fromUserSets = keyBy(rawUsers, 'id');
+    // an app's current logo, so a new one shows on what it sent before too
+    const appLogos = new Map(apps.map((app) => [app.clientId, app.logo]));
 
     return data.map((v) => {
       const notifyIcon = this.generateNotifyIcon(
         v.type as NotificationTypeEnum,
         v.fromUserId,
-        fromUserSets
+        fromUserSets,
+        appLogos.get(v.fromUserId)
       );
       return {
         id: v.id,
@@ -626,13 +859,23 @@ export class NotificationService {
   private generateNotifyIcon(
     notifyType: NotificationTypeEnum,
     fromUserId: string,
-    fromUserSets: Record<string, { id: string; name: string; avatar: string | null }>
+    fromUserSets: Record<string, { id: string; name: string; avatar: string | null }>,
+    appLogo?: string | null
   ) {
     switch (notifyType) {
       case NotificationTypeEnum.System:
       case NotificationTypeEnum.ExportBase:
       case NotificationTypeEnum.AdminNotice:
-        return { iconUrl: '/images/favicon/favicon.svg' };
+        return { iconUrl: systemIconUrl };
+      // the logo the sending app registered, stored like any other upload
+      case NotificationTypeEnum.OAuthApp:
+        return {
+          iconUrl: !appLogo
+            ? systemIconUrl
+            : /^https?:\/\//i.test(appLogo)
+              ? appLogo
+              : getPublicFullStorageUrl(appLogo),
+        };
       case NotificationTypeEnum.Comment:
       case NotificationTypeEnum.CollaboratorCellTag:
       case NotificationTypeEnum.CollaboratorMultiRowTag:
@@ -669,6 +912,7 @@ export class NotificationService {
       case NotificationTypeEnum.System:
       case NotificationTypeEnum.AdminNotice:
       case NotificationTypeEnum.CollaboratorInvite:
+      case NotificationTypeEnum.OAuthApp:
         return NotificationSeverityEnum.Info;
       default:
         throw assertNever(notifyType);
@@ -698,6 +942,7 @@ export class NotificationService {
       }
       case NotificationTypeEnum.AdminNotice:
       case NotificationTypeEnum.CollaboratorInvite:
+      case NotificationTypeEnum.OAuthApp: // its link arrives complete with the notification
         return '';
       default:
         throw assertNever(notifyType);

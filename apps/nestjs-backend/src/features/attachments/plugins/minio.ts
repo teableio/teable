@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { join, resolve } from 'node:path';
 import type { Readable as ReadableStream } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { join, resolve } from 'path';
 import { Injectable } from '@nestjs/common';
 import { getRandomString, HttpErrorCode, isImage } from '@teable/core';
 import * as fse from 'fs-extra';
@@ -11,6 +11,7 @@ import { IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { CustomHttpException } from '../../../custom.exception';
 import { normalizeImageDimensions } from '../../../utils/image-orientation';
 import { second } from '../../../utils/second';
+import { resolveThumbnailMimetype } from '../utils';
 import StorageAdapter from './adapter';
 import type {
   IListObjectsOptions,
@@ -107,7 +108,7 @@ export class MinioStorage implements StorageAdapter {
       const metadata = await sharpReader.metadata();
 
       return normalizeImageDimensions(metadata);
-    } catch (e) {
+    } catch {
       return {};
     } finally {
       stream.removeAllListeners();
@@ -261,7 +262,7 @@ export class MinioStorage implements StorageAdapter {
         .resize(width, height);
       await metaReader.toFile(resizedImagePath);
       const upload = await this.uploadFileWidthPath(bucket, newPath, resizedImagePath, {
-        'Content-Type': mimetype,
+        'Content-Type': resolveThumbnailMimetype(mimetype ?? ''),
       });
       return upload.path;
     } finally {

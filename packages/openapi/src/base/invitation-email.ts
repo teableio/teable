@@ -24,7 +24,8 @@ export const emailBaseInvitationVoSchema = z.record(
 export const EmailBaseInvitationRoute: RouteConfig = registerRoute({
   method: 'post',
   path: EMAIL_BASE_INVITATION,
-  description: 'Send invitations by e-mail',
+  title: 'Invite project collaborators by email',
+  description: 'Send email invitations to join a project.',
   request: {
     params: z.object({
       baseId: z.string(),

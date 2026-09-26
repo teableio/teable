@@ -8,9 +8,9 @@ import {
 } from '@nestjs/common';
 import { getRandomString, HttpErrorCode, nullsToUndefined } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { DecisionInfoGetVo } from '@teable/openapi';
+import type { DecisionInfoGetVo, IUserMeVo } from '@teable/openapi';
 import type { Response, Request } from 'express';
-import { difference, pick } from 'lodash';
+import { difference, pick, union } from 'lodash';
 import ms from 'ms';
 import { ClsService } from 'nestjs-cls';
 import type {
@@ -74,30 +74,46 @@ export class OAuthServerService {
     (this.server as any).exchange(DEVICE_CODE_GRANT_TYPE, this.deviceCodeExchange);
   }
 
-  private async getAuthorizedTime(userId: string, clientId: string) {
-    const authorizedTime = await this.prismaService
-      .txClient()
-      .oAuthAppAuthorized.findUnique({
-        where: {
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          clientId_userId: {
-            clientId,
-            userId,
-          },
+  /**
+   * The scopes the app already holds for the user, while their approval still spares them the
+   * consent screen; undefined once it has lapsed. Every token an app gets for a user (code,
+   * device grant, refresh) carries the scopes the user approved, and a token's row stays for
+   * as long as its refresh token can be used, so the tokens of the last refresh lifetime say
+   * what the app can use without asking.
+   */
+  private async getApprovedScopes(userId: string, clientId: string) {
+    const authorized = await this.prismaService.txClient().oAuthAppAuthorized.findUnique({
+      where: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        clientId_userId: {
+          clientId,
+          userId,
         },
-        select: {
-          authorizedTime: true,
-        },
-      })
-      .then((data) => data?.authorizedTime);
-    // validate authorized time is not expired
-    return (
-      authorizedTime &&
-      new Date(authorizedTime).getTime() + ms(this.oauth2Config.authorizedExpireIn) > Date.now()
-    );
+      },
+      select: {
+        authorizedTime: true,
+      },
+    });
+    if (
+      !authorized ||
+      new Date(authorized.authorizedTime).getTime() + ms(this.oauth2Config.authorizedExpireIn) <=
+        Date.now()
+    ) {
+      return;
+    }
+    const tokens = await this.prismaService.txClient().accessToken.findMany({
+      where: {
+        clientId,
+        userId,
+        createdTime: { gt: new Date(Date.now() - ms(this.oauth2Config.refreshTokenExpireIn)) },
+      },
+      select: { scopes: true },
+      distinct: ['scopes'],
+    });
+    return union(...tokens.map(({ scopes }) => JSON.parse(scopes) as string[]));
   }
 
-  private handleError(error: unknown | undefined) {
+  private handleError(error: unknown) {
     if (error instanceof AuthorizationError) {
       return new HttpException(error.message, Number(error.status));
     }
@@ -139,7 +155,10 @@ export class OAuthServerService {
     throw new UnauthorizedException('Invalid redirectUri');
   }
 
-  private authorizeValidate: ValidateFunctionArity2<IAuthorizeClient> = async (areq, done) => {
+  private readonly authorizeValidate: ValidateFunctionArity2<IAuthorizeClient> = async (
+    areq,
+    done
+  ) => {
     const {
       clientID: clientId,
       redirectURI,
@@ -197,7 +216,7 @@ export class OAuthServerService {
     }
   };
 
-  private authorizeImmediate: ImmediateFunction<IAuthorizeClient> = async (
+  private readonly authorizeImmediate: ImmediateFunction<IAuthorizeClient> = async (
     client,
     user,
     _scope,
@@ -205,9 +224,11 @@ export class OAuthServerService {
     _areq,
     done
   ) => {
-    const isTrusted = await this.getAuthorizedTime(user.id, client.clientId);
-    if (isTrusted) {
-      await this.touchAuthorize(client.clientId, user.id);
+    // Skip the consent screen only for scopes the app already holds for the user: an app that
+    // asks for more is shown to them again.
+    const approvedScopes = await this.getApprovedScopes(user.id, client.clientId);
+    if (approvedScopes && difference(client.scopes, approvedScopes).length === 0) {
+      await this.touchAuthorize(client.clientId, user.id, client.scopes);
       return done(null, true, undefined, undefined);
     }
     return done(null, false, undefined, undefined);
@@ -259,9 +280,13 @@ export class OAuthServerService {
     });
   }
 
-  private decisionComplete = async (_req: unknown, oauth2: OAuth2, cb: (err?: unknown) => void) => {
-    // complete the transaction
-    await this.touchAuthorize(oauth2.req.clientID, oauth2.user.id)
+  private readonly decisionComplete = async (
+    _req: unknown,
+    oauth2: OAuth2<IAuthorizeClient, IUserMeVo>,
+    cb: (err?: unknown) => void
+  ) => {
+    // complete the transaction: the scopes on the client are the ones the consent screen showed
+    await this.touchAuthorize(oauth2.req.clientID, oauth2.user.id, oauth2.client.scopes)
       .then(() => cb())
       .catch(cb);
   };
@@ -273,10 +298,11 @@ export class OAuthServerService {
     action: Events.OAUTH_APP_AUTHORIZE,
     resourceId: (clientId: string) => clientId,
     userId: (_clientId: string, userId: string) => userId,
-    params: (clientId: string) => ({ clientId }),
+    params: (clientId: string, _userId: string, scopes: string[]) => ({ clientId, scopes }),
     emit: true,
   })
-  private async touchAuthorize(clientId: string, userId: string) {
+  // `_scopes`, the ones just approved, is read by @Audit's params.
+  private async touchAuthorize(clientId: string, userId: string, _scopes: string[]) {
     await this.prismaService.oAuthAppAuthorized.upsert({
       where: {
         // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -314,6 +340,11 @@ export class OAuthServerService {
         if (error) {
           return reject(this.handleError(error));
         }
+        // oauth2orize answers a posted `cancel` with access_denied (decisionComplete never runs).
+        const oauth2 = (req as Request & { oauth2?: OAuth2 }).oauth2;
+        if (req.body?.cancel && oauth2?.req?.clientID) {
+          void this.recordAuthorizeDenied(oauth2.req.clientID, 'authorization-code');
+        }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         decisionFn(req as any, res, async (error) => {
           if (error) {
@@ -343,7 +374,13 @@ export class OAuthServerService {
     });
   }
 
-  private codeGrant: IssueGrantCodeFunction = async (client, _redirectUri, user, _ares, done) => {
+  private readonly codeGrant: IssueGrantCodeFunction = async (
+    client,
+    _redirectUri,
+    user,
+    _ares,
+    done
+  ) => {
     const { clientId } = await this.getOAuthApp(client.clientId);
     const code = getRandomString(16);
     // save code
@@ -384,10 +421,13 @@ export class OAuthServerService {
   }
 
   private getRefreshToken(client: ITokenClient, accessTokenId: string, sign: string) {
+    // Confidential clients are bound to the secret row, not to the secret hash:
+    // a JWT payload is readable by whoever holds the refresh token. Deleting
+    // that secret still invalidates every refresh token issued under it.
     const payload =
       client.type === 'pkce'
         ? { clientId: client.clientId, accessTokenId, sign }
-        : { clientId: client.clientId, secret: client.clientSecret, accessTokenId, sign };
+        : { clientId: client.clientId, secretId: client.secretId, accessTokenId, sign };
     return this.jwtService.signAsync(payload, {
       expiresIn: this.oauth2Config.refreshTokenExpireIn,
     });
@@ -439,7 +479,7 @@ export class OAuthServerService {
    * once someone approved the user code in a browser, and with the spec's error
    * codes until then — `authorization_pending` is the normal case, not a fault.
    */
-  private deviceCodeExchange = async (
+  private readonly deviceCodeExchange = async (
     req: Request,
     res: Response,
     next: (err?: unknown) => void
@@ -540,13 +580,34 @@ export class OAuthServerService {
     approve: boolean;
     user: { id: string; name: string; email: string };
   }) {
-    const { clientId } = await this.deviceService.decide(params);
+    const { clientId, scopes } = await this.deviceService.decide(params);
     if (params.approve) {
-      await this.touchAuthorize(clientId, params.user.id);
+      await this.touchAuthorize(clientId, params.user.id, scopes);
+    } else {
+      await this.recordAuthorizeDenied(clientId, 'device', params.user.id);
     }
   }
 
-  private codeExchange: IssueExchangeCodeFunction = async (client, code, redirectUri, done) => {
+  /** The signed-in user refused to grant the app access (consent page or device approval). */
+  private async recordAuthorizeDenied(
+    clientId: string,
+    flow: 'authorization-code' | 'device',
+    userId?: string
+  ) {
+    await this.audit.emitAtomic({
+      action: 'oauth-app.authorize-denied',
+      resourceId: clientId,
+      ...(userId ? { userId } : {}),
+      params: { clientId, flow },
+    });
+  }
+
+  private readonly codeExchange: IssueExchangeCodeFunction = async (
+    client,
+    code,
+    redirectUri,
+    done
+  ) => {
     const completeExchange = await this.prismaService
       .$tx(async () => {
         const codeState = await this.cacheService.get(`oauth:code:${code}`);
@@ -585,7 +646,7 @@ export class OAuthServerService {
     return completeExchange();
   };
 
-  private refreshTokenExchange: (
+  private readonly refreshTokenExchange: (
     client: ITokenClient,
     refreshToken: string,
     issued: ExchangeDoneFunction
@@ -594,6 +655,9 @@ export class OAuthServerService {
       .$tx(async () => {
         const decoded = await this.jwtService.verifyAsync<{
           clientId: string;
+          secretId?: string;
+          // Refresh tokens issued before `secretId` carry the secret hash; they
+          // stay valid until they expire (refreshTokenExpireIn).
           secret?: string;
           accessTokenId: string;
           sign: string;
@@ -602,7 +666,13 @@ export class OAuthServerService {
         if (client.clientId !== decoded.clientId) {
           return () => done(new UnauthorizedException('Invalid client'));
         }
-        if ((client as ITokenClient & { clientSecret?: string })?.clientSecret !== decoded.secret) {
+        // PKCE tokens carry neither field and must only be honored by a PKCE
+        // client (whose clientSecret is undefined), and vice versa.
+        const boundToClient =
+          decoded.secretId !== undefined
+            ? decoded.secretId === client.secretId
+            : decoded.secret === (client as { clientSecret?: string }).clientSecret;
+        if (!boundToClient) {
           return () => done(new UnauthorizedException('Invalid secret'));
         }
 
@@ -670,11 +740,13 @@ export class OAuthServerService {
   };
 
   async getDecisionInfo(req: Request, transactionId: string) {
+    // Express 5 leaves req.body undefined on GET requests (no body parser ran).
+    req.body ??= {};
     req.body['transaction_id'] = transactionId;
     return new Promise<DecisionInfoGetVo>((resolve, reject) => {
       this.oauthTxStore.load(req, async (err, txn) => {
         if (err) {
-          reject(err);
+          reject(err instanceof Error ? err : new Error(String(err)));
         } else {
           const clientId = txn!.req.clientID;
           const oauthApp = await this.getOAuthApp(clientId);

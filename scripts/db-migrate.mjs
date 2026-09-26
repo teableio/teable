@@ -1,5 +1,6 @@
 #!/usr/bin/env zx
-import 'zx/globals'
+import 'zx/globals';
+import { withPostgresMigrateLock } from './postgres-migrate-lock.mjs';
 
 const env = $.env;
 const metaDatabaseUrl = env.PRISMA_META_DATABASE_URL ?? env.PRISMA_DATABASE_URL;
@@ -12,7 +13,7 @@ const parseDsn = (dsn, label) => {
   try {
     const url = new URL(dsn);
     const driver = url.protocol.replace(':', '');
-    
+
     if (!['postgresql', 'postgres'].includes(driver)) {
       throw new Error(`Unsupported database driver: ${driver}`);
     }
@@ -20,7 +21,7 @@ const parseDsn = (dsn, label) => {
     return {
       driver,
       host: url.hostname,
-      port: parseInt(url.port, 10),
+      port: Number.parseInt(url.port, 10),
     };
   } catch (error) {
     throw new Error(`Invalid ${label} database url: ${error.message}`);
@@ -49,7 +50,7 @@ const pgMigrate = async () => {
   });
 };
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const retryOperation = async (operation, maxRetries = 5, delay = 3000) => {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -60,7 +61,7 @@ const retryOperation = async (operation, maxRetries = 5, delay = 3000) => {
       if (attempt === maxRetries) {
         throw error;
       }
-      console.log(`Attempt ${attempt} failed. Retrying in ${delay/1000} seconds...`);
+      console.log(`Attempt ${attempt} failed. Retrying in ${delay / 1000} seconds...`);
       await sleep(delay);
     }
   }
@@ -96,9 +97,14 @@ for (const { label, driver, host, port } of parsedTargets) {
 }
 
 try {
-  await retryOperation(async () => {
-    await adapters[parsedTargets[0].driver]();
-    console.log('database migrations completed successfully.');
+  await withPostgresMigrateLock({
+    connectionString: metaDatabaseUrl,
+    run: async () => {
+      await retryOperation(async () => {
+        await adapters[parsedTargets[0].driver]();
+        console.log('database migrations completed successfully.');
+      });
+    },
   });
 } catch (p) {
   console.error(`Exit code: ${p.exitCode}`);

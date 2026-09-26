@@ -4,7 +4,6 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type HttpErrorStatus,
   type IApiErrorResponseDto,
@@ -34,7 +33,7 @@ export const clearResponseDataSchema = z.object({
 
 export const clearOkResponseSchema = apiOkResponseDtoSchema(clearResponseDataSchema);
 
-export const clearErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as clearErrorResponseSchema } from '../shared/http';
 
 export const mapClearResultToDto = (
   result: ClearResult

@@ -1,4 +1,4 @@
-import type { PassThrough, Readable } from 'stream';
+import type { PassThrough, Readable } from 'node:stream';
 import Papa from 'papaparse';
 
 export interface IImportError {
@@ -181,10 +181,10 @@ export class ImportErrorCollector {
  * S3/MinIO support streaming upload natively - no temp file needed.
  */
 class StreamingErrorReportWriter {
-  private stream: PassThrough;
-  private fieldNames: string[];
-  private maxWidth: number;
-  private startUpload: (stream: PassThrough) => Promise<IUploadResult>;
+  private readonly stream: PassThrough;
+  private readonly fieldNames: string[];
+  private readonly maxWidth: number;
+  private readonly startUpload: (stream: PassThrough) => Promise<IUploadResult>;
   private uploadPromise: Promise<IUploadResult> | null = null;
 
   constructor(

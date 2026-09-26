@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Component, Database, Plus } from '@teable/icons';
+import { Component, LayoutGrid, Plus } from '@teable/icons';
 import type { IGetBaseVo } from '@teable/openapi';
 import { getBaseAll, getSharedBase, getSpaceList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -217,7 +217,7 @@ export const AccessSelect = (props: IFormAccess) => {
                             {base.icon ? (
                               <Emoji className="w-4 shrink-0" emoji={base.icon} size={16} />
                             ) : (
-                              <Database className="size-4 shrink-0" />
+                              <LayoutGrid className="size-4 shrink-0" />
                             )}
                             <div className="truncate">{base.name}</div>
                           </CommandItem>

@@ -10,6 +10,7 @@ import { DbFieldType } from '../../../domain/table/fields/DbFieldType';
 import type { Field } from '../../../domain/table/fields/Field';
 import { FieldId } from '../../../domain/table/fields/FieldId';
 import { FieldName } from '../../../domain/table/fields/FieldName';
+import { FieldVersion } from '../../../domain/table/fields/FieldVersion';
 import {
   extractLookupDisplayOptionsPatch,
   toRegularLookupFormulaOptions,
@@ -111,7 +112,6 @@ import type {
   ICreatedByFieldOptionsDTO,
   ICreatedTimeFieldOptionsDTO,
   IDateFieldOptionsDTO,
-  IFormulaFieldMetaDTO,
   IFormulaFieldOptionsDTO,
   IGeneratedColumnMetaDTO,
   ILastModifiedByFieldOptionsDTO,
@@ -279,7 +279,7 @@ const mergeLookupInnerOptions = (params: {
     !innerOptionsPatch || Object.keys(innerOptionsPatch).length === 0
       ? baseInnerOptions
       : {
-          ...(baseInnerOptions ?? {}),
+          ...baseInnerOptions,
           ...innerOptionsPatch,
         };
 
@@ -304,7 +304,7 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     id: string;
     name: string;
     description?: string | null;
-    aiConfig?: unknown | null;
+    aiConfig?: unknown;
     dbFieldName?: string;
     dbFieldType?: string;
     notNull?: boolean;
@@ -418,12 +418,12 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     if (resultType.isErr()) {
       return (meta ? meta.toDto() : ok(undefined)).map((metaDto) => ({
         ...base,
-        ...(metaDto ? { meta: metaDto as IFormulaFieldMetaDTO } : {}),
+        ...(metaDto ? { meta: metaDto } : {}),
       }));
     }
     return (meta ? meta.toDto() : ok(undefined)).map((metaDto) => ({
       ...base,
-      ...(metaDto ? { meta: metaDto as IFormulaFieldMetaDTO } : {}),
+      ...(metaDto ? { meta: metaDto } : {}),
       cellValueType: resultType.value.cellValueType.toString(),
       isMultipleCellValue: resultType.value.isMultipleCellValue.toBoolean(),
     }));
@@ -914,7 +914,15 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
 const mapFieldToDto = (
   field: Field,
   visitor: FieldToPersistenceVisitor
-): Result<ITableFieldPersistenceDTO, DomainError> => field.accept(visitor);
+): Result<ITableFieldPersistenceDTO, DomainError> =>
+  field.accept(visitor).map((dto) => {
+    const version = field.version();
+    return {
+      ...dto,
+      ...(version.isOk() ? { version: version.value.toNumber() } : {}),
+      ...(field.isProvisionPending() ? { isPending: true } : {}),
+    };
+  });
 
 class ViewToPersistenceVisitor implements IViewVisitor<ITableViewPersistenceDTO> {
   visitGridView(view: GridView): Result<ITableViewPersistenceDTO, DomainError> {
@@ -1009,6 +1017,7 @@ export class DefaultTableMapper implements ITableMapper {
         ...(table.description() !== undefined ? { description: table.description() } : {}),
         ...(table.icon() !== undefined ? { icon: table.icon() } : {}),
         ...(dbTableName ? { dbTableName } : {}),
+        ...(table.searchIndex() ? { searchIndex: table.searchIndex() } : {}),
         primaryFieldId: table.primaryFieldId().toString(),
         fields: [...fields],
         views: [...views],
@@ -1047,6 +1056,7 @@ export class DefaultTableMapper implements ITableMapper {
                       fields,
                       views,
                       ...(dbTableName ? { dbTableName } : {}),
+                      searchIndex: dto.searchIndex,
                     };
                     return TableAggregate.rehydrate(props);
                   })
@@ -1061,11 +1071,13 @@ export class DefaultTableMapper implements ITableMapper {
 
   private mapFieldToDomain(dto: ITableFieldPersistenceDTO): Result<Field, DomainError> {
     // Check if this is a lookup field (v1 format: isLookup flag on the field)
-    if (dto.isLookup && dto.lookupOptions) {
-      return this.mapLookupFieldToDomain(dto);
-    }
-
-    return this.mapBaseFieldToDomain(dto);
+    const mapped =
+      dto.isLookup && dto.lookupOptions
+        ? this.mapLookupFieldToDomain(dto)
+        : this.mapBaseFieldToDomain(dto);
+    return mapped
+      .andThen((field) => this.applyVersion(field, dto.version))
+      .andThen((field) => this.applyProvisionPending(field, dto.isPending));
   }
 
   /**
@@ -1536,12 +1548,24 @@ export class DefaultTableMapper implements ITableMapper {
     return field.setDescription(description).map(() => field);
   }
 
-  private applyAiConfig(
-    field: Field,
-    aiConfig: unknown | null | undefined
-  ): Result<Field, DomainError> {
+  private applyAiConfig(field: Field, aiConfig: unknown): Result<Field, DomainError> {
     if (aiConfig === undefined) return ok(field);
     return field.setAiConfig(aiConfig).map(() => field);
+  }
+
+  private applyVersion(field: Field, version: number | undefined): Result<Field, DomainError> {
+    if (version === undefined) return ok(field);
+    return FieldVersion.rehydrate(version)
+      .andThen((value) => field.setVersion(value))
+      .map(() => field);
+  }
+
+  private applyProvisionPending(
+    field: Field,
+    isPending: boolean | undefined
+  ): Result<Field, DomainError> {
+    field.setProvisionPending(isPending === true);
+    return ok(field);
   }
 
   private mapViewToDomain(dto: ITableViewPersistenceDTO): Result<View, DomainError> {

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { ParsedUrlQuery } from 'querystring';
+import type { ParsedUrlQuery } from 'node:querystring';
 import { parseDsn } from '@teable/core';
 import { isUndefined, omitBy, toNumber } from 'lodash';
 import ms from 'ms';
@@ -10,6 +10,7 @@ import type {
   GetServerSideProps as NextGetServerSideProps,
 } from 'next';
 import { getAppDatabaseUrl } from './database-url';
+import { isEmbedModeRequest } from './embed-mode';
 
 type GetServerSideProps<
   P extends { [key: string]: any } = { [key: string]: any },
@@ -60,7 +61,7 @@ export default function withEnv<P extends { [key: string]: any }>(
         publicDatabaseProxy: process.env.PUBLIC_DATABASE_PROXY,
         // default to Infinity, return undefined causing the value will be transformed to null when json-stringify
         maxSearchFieldCount:
-          isNaN(envMaxSearchFieldCount) || envMaxSearchFieldCount === Infinity
+          Number.isNaN(envMaxSearchFieldCount) || envMaxSearchFieldCount === Infinity
             ? undefined
             : envMaxSearchFieldCount,
         publicOrigin: process.env.PUBLIC_ORIGIN,
@@ -69,6 +70,9 @@ export default function withEnv<P extends { [key: string]: any }>(
         forceV2All: process.env.FORCE_V2_ALL === 'true' ? true : undefined,
         allowCrossSpaceReference:
           process.env.ALLOW_CROSS_SPACE_REFERENCE === 'true' ? true : undefined,
+        // Request from the native mobile shell (`?embed=mobile` / TeableMobile
+        // user agent). Seeded here so SSR and hydration agree; see useEmbedMode().
+        embedMode: isEmbedModeRequest(context) ? true : undefined,
         task,
         trash,
       },

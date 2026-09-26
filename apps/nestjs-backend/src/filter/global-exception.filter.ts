@@ -50,7 +50,7 @@ const dataDbOtelAttribute = {
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
-  private logger = new Logger(GlobalExceptionFilter.name);
+  private readonly logger = new Logger(GlobalExceptionFilter.name);
 
   constructor(
     private readonly configService: ConfigService,

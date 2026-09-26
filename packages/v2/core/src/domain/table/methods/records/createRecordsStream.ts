@@ -11,6 +11,8 @@ export interface CreateRecordsStreamOptions {
   batchSize?: number;
   /** Enable type conversion (e.g., "123" → 123 for number fields) */
   typecast?: boolean;
+  /** Batch event producers disable standalone RecordCreated events. Defaults to true. */
+  emitRecordCreatedEvents?: boolean;
 }
 
 export function* createRecordsStream(
@@ -18,12 +20,15 @@ export function* createRecordsStream(
   recordsFieldValues: Iterable<ReadonlyMap<string, unknown>>,
   options?: CreateRecordsStreamOptions
 ): Generator<Result<ReadonlyArray<TableRecord>, DomainError>> {
-  const { typecast = false } = options ?? {};
+  const { typecast = false, emitRecordCreatedEvents = true } = options ?? {};
   const batchSize = calculateBatchSize(this.getFields().length, options?.batchSize);
   let batch: TableRecord[] = [];
 
   for (const fieldValues of recordsFieldValues) {
-    const recordResult = buildRecord.call(this, fieldValues, undefined, { typecast });
+    const recordResult = buildRecord.call(this, fieldValues, undefined, {
+      typecast,
+      emitRecordCreatedEvent: emitRecordCreatedEvents,
+    });
     if (recordResult.isErr()) {
       yield err(recordResult.error);
       return;

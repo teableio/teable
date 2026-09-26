@@ -421,7 +421,7 @@ export function DateRangePicker({
   className,
   placeholder,
   modal,
-}: IDateRangePickerProps) {
+}: Readonly<IDateRangePickerProps>) {
   const { t } = useTranslation();
   const { lang = 'en' } = useContext(AppContext);
   const locale = LOCALE_MAP[lang] || enUS;

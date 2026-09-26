@@ -1,5 +1,5 @@
+import { resolve } from 'node:path';
 import type { Readable as ReadableStream } from 'node:stream';
-import { resolve } from 'path';
 import { HttpErrorCode } from '@teable/core';
 import { UploadType } from '@teable/openapi';
 import { storageConfig } from '../../../configs/storage';

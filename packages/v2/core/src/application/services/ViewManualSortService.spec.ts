@@ -62,6 +62,44 @@ describe('ViewManualSortService', () => {
     expect(update).toHaveBeenCalledWith(transactionContext, table, storageSpec);
   });
 
+  it('prepares row-order storage on the caller context before the data transaction', async () => {
+    const table = buildTable();
+    const storageSpec = TableEnsureViewRowOrderSpec.create(table.views()[0]!);
+    const transactionContext = { ...context, transaction: {} } as IExecutionContext;
+    const order: string[] = [];
+    const prepare = vi.fn(async (prepareContext: IExecutionContext) => {
+      order.push('prepare');
+      expect(prepareContext).toBe(context);
+      return ok(undefined);
+    });
+    const update = vi.fn(async () => {
+      order.push('update');
+      return ok(table);
+    });
+    const withTransaction = vi.fn(
+      async (
+        _context: IExecutionContext,
+        work: (nextContext: IExecutionContext) => Promise<Result<void, DomainError>>
+      ) => {
+        order.push('transaction');
+        return work(transactionContext);
+      }
+    );
+    const service = new ViewManualSortService(
+      { prepareViewRowOrderStorage: prepare, update } as unknown as ITableSchemaRepository,
+      { withTransaction } as unknown as IUnitOfWork,
+      {} as ITableRecordQueryRepository,
+      {} as ITableRecordRepository
+    );
+
+    const result = await service.prepareStorage(context, table, storageSpec);
+
+    expect(result.isOk()).toBe(true);
+    expect(order).toEqual(['prepare', 'transaction', 'update']);
+    expect(prepare).toHaveBeenCalledWith(context, table, [table.views()[0]!.id().toString()]);
+    expect(update).toHaveBeenCalledWith(transactionContext, table, storageSpec);
+  });
+
   it('uses TableRecord query/write repositories and skips unchanged row orders', async () => {
     const table = buildTable();
     const viewId = table.views()[0]!.id();

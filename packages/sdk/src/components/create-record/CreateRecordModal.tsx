@@ -160,7 +160,7 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
         tableId,
         isAsync: true,
       });
-      newRecord(0, { ...fieldValue, ...(initialFields ?? {}) });
+      newRecord(0, { ...fieldValue, ...initialFields });
     };
     updateDefaultValue();
     // eslint-disable-next-line react-hooks/exhaustive-deps

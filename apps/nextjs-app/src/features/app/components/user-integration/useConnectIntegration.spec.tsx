@@ -34,11 +34,32 @@ const wrapper = ({ children }: { children: React.ReactNode }) => {
 /** A popup whose `closed` we can flip, like the user closing the OAuth window. */
 const fakePopup = () => ({ closed: false, close: vi.fn() }) as unknown as Window;
 
+/** jsdom has no BroadcastChannel; this one delivers what the callback page would post. */
+const channels: FakeChannel[] = [];
+class FakeChannel {
+  onmessage: ((event: { data: unknown }) => void) | null = null;
+  constructor(readonly name: string) {
+    channels.push(this);
+  }
+  postMessage(data: unknown) {
+    channels
+      .filter((c) => c !== this && c.name === this.name)
+      .forEach((c) => c.onmessage?.({ data }));
+  }
+  close() {
+    channels.splice(channels.indexOf(this), 1);
+  }
+}
+/** What the callback page broadcasts once it loads. */
+const pageAnnounces = (data: unknown) => new FakeChannel('teable-oauth').postMessage(data);
+
 describe('useConnectIntegration', () => {
   let popup: Window;
 
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.stubGlobal('BroadcastChannel', FakeChannel);
+    channels.length = 0;
     popup = fakePopup();
     vi.mocked(openConnectIntegration).mockReturnValue(popup);
     listIntegrations.mockResolvedValue(grants([]));
@@ -46,6 +67,7 @@ describe('useConnectIntegration', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
     vi.clearAllMocks();
   });
 
@@ -116,6 +138,83 @@ describe('useConnectIntegration', () => {
       result.current.connect(AIRTABLE);
     });
     expect(openConnectIntegration).toHaveBeenCalledTimes(1);
+    act(() => result.current.cancelConnect(AIRTABLE));
+  });
+
+  it('is not a dismissal when the page closes itself before the grant is resolved', async () => {
+    const { result, onConnected, onDismissed } = setup();
+    act(() => {
+      result.current.connect(AIRTABLE);
+    });
+    // The pre-connect baseline lands first; a fetch in flight would be shared.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    // The page announces success; the fetch that names the grant is slow.
+    let resolveFetch: (value: unknown) => void = () => undefined;
+    listIntegrations.mockReturnValueOnce(new Promise((resolve) => (resolveFetch = resolve)));
+    act(() => pageAnnounces({ ok: true, provider: AIRTABLE }));
+    // Its countdown ends and it closes its own window while that fetch is pending.
+    (popup as unknown as { closed: boolean }).closed = true;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(onDismissed).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveFetch(grants(connected));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(onConnected).toHaveBeenCalledWith(AIRTABLE, 'usi1');
+    expect(onDismissed).not.toHaveBeenCalled();
+  });
+
+  it('leaves the page its countdown, then closes the window as a backstop', async () => {
+    const { result, onConnected } = setup();
+    act(() => {
+      result.current.connect(AIRTABLE);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    listIntegrations.mockResolvedValue(grants(connected));
+    await act(async () => {
+      pageAnnounces({ ok: true, provider: AIRTABLE });
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(onConnected).toHaveBeenCalledWith(AIRTABLE, 'usi1');
+    expect(popup.close).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4000);
+    });
+    expect(popup.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not let a stale close shut the window the next connect reuses', async () => {
+    const { result, onConnected } = setup();
+    act(() => {
+      result.current.connect(AIRTABLE);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    listIntegrations.mockResolvedValue(grants(connected));
+    await act(async () => {
+      pageAnnounces({ ok: true, provider: AIRTABLE });
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(onConnected).toHaveBeenCalledTimes(1);
+
+    // Within the linger window the user connects again: the named window is
+    // reused for the next consent screen.
+    listIntegrations.mockResolvedValue(grants([]));
+    act(() => {
+      result.current.connect(AIRTABLE);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(popup.close).not.toHaveBeenCalled();
     act(() => result.current.cancelConnect(AIRTABLE));
   });
 });

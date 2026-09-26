@@ -7,7 +7,7 @@ import type { ComputedUpdatePlan } from '../ComputedUpdatePlanner';
 export type UpdateStrategyMode = 'sync' | 'hybrid' | 'async';
 
 export type UpdateStrategyExecuteOptions = {
-  readonly orchestration?: IBatchMutationOrchestration | undefined;
+  readonly orchestration?: IBatchMutationOrchestration;
 };
 
 /**

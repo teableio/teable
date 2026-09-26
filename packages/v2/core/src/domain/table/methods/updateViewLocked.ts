@@ -19,7 +19,7 @@ export function updateViewLocked(
   viewId: ViewId,
   nextIsLocked: boolean | undefined
 ): Result<UpdateViewLockedMethodResult, DomainError> {
-  const table = this;
+  const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   return safeTry<UpdateViewLockedMethodResult, DomainError>(function* () {
     const previousView = yield* table.getView(viewId);
     const previousIsLocked = previousView.isLocked();

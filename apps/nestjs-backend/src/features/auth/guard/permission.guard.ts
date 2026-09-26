@@ -1,7 +1,14 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { ForbiddenException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ANONYMOUS_USER_ID, HttpErrorCode, IdPrefix, isAnonymous, type Action } from '@teable/core';
+import {
+  ANONYMOUS_USER_ID,
+  HttpErrorCode,
+  IdPrefix,
+  isAnonymous,
+  isRobot,
+  type Action,
+} from '@teable/core';
 import cookie from 'cookie';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
@@ -72,42 +79,17 @@ export class PermissionGuard {
     }
   }
 
-  /**
-   * Space creation permissions are more specific and only pertain to users,
-   * but tokens can be disallowed from being created.
-   */
-  private async permissionCreateSpace() {
-    const accessTokenId = this.cls.get('accessTokenId');
-    if (accessTokenId) {
-      const { scopes } = await this.permissionService.getAccessToken(accessTokenId);
-      return scopes.includes('space|create');
+  // User-level rights (space creation, cross-tenant listing, user integrations):
+  // any signed-in user holds them, tokens only with the matching scope, and robot
+  // identities never, since their authority is confined to tempAuthBaseId.
+  private async userLevelPermission(action: Action) {
+    if (isRobot(this.cls.get('user.id'))) {
+      return false;
     }
-    return true;
-  }
-
-  private async permissionBaseReadAll() {
     const accessTokenId = this.cls.get('accessTokenId');
     if (accessTokenId) {
       const { scopes } = await this.permissionService.getAccessToken(accessTokenId);
-      return scopes.includes('base|read_all');
-    }
-    return true;
-  }
-
-  private async permissionSpaceRead() {
-    const accessTokenId = this.cls.get('accessTokenId');
-    if (accessTokenId) {
-      const { scopes } = await this.permissionService.getAccessToken(accessTokenId);
-      return scopes.includes('space|read');
-    }
-    return true;
-  }
-
-  private async permissionUserIntegrations() {
-    const accessTokenId = this.cls.get('accessTokenId');
-    if (accessTokenId) {
-      const { scopes } = await this.permissionService.getAccessToken(accessTokenId);
-      return scopes.includes('user|integrations');
+      return scopes.includes(action);
     }
     return true;
   }
@@ -159,7 +141,7 @@ export class PermissionGuard {
     const resourceId = this.getResourceId(context) || this.defaultResourceId(context);
     if (!resourceId) {
       throw new CustomHttpException(
-        `Base share permission check ID does not exist`,
+        `Project share permission check ID does not exist`,
         this.isAnonymous() ? HttpErrorCode.UNAUTHORIZED : HttpErrorCode.RESTRICTED_RESOURCE,
         {
           localization: {
@@ -173,7 +155,7 @@ export class PermissionGuard {
       context.getClass(),
     ]);
     if (!permissions?.length) {
-      throw new ForbiddenException('Base share permissions are required');
+      throw new ForbiddenException('Project share permissions are required');
     }
     const ownPermissions = await this.permissionService.validBaseSharePermissions(
       shareId,
@@ -452,17 +434,21 @@ export class PermissionGuard {
       return this.instancePermissionChecker('instance|read');
     }
     if (permissions?.includes('space|create')) {
-      return await this.permissionCreateSpace();
+      return await this.userLevelPermission('space|create');
     }
     if (permissions?.includes('base|read_all')) {
-      return await this.permissionBaseReadAll();
+      return await this.userLevelPermission('base|read_all');
     }
     if (!resourceId && permissions?.includes('space|read')) {
-      return await this.permissionSpaceRead();
+      return await this.userLevelPermission('space|read');
     }
 
     if (permissions?.includes('user|integrations')) {
-      return await this.permissionUserIntegrations();
+      return await this.userLevelPermission('user|integrations');
+    }
+
+    if (permissions?.includes('user|notifications_send')) {
+      return await this.userLevelPermission('user|notifications_send');
     }
 
     // resource permission check

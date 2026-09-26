@@ -13,33 +13,19 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import type {
-  IViewVo,
-  IManualSortRo,
-  IViewRo,
-  IColumnMetaRo,
-  IFilterRo,
-  IViewGroupRo,
-} from '@teable/core';
 import {
   viewRoSchema,
   manualSortRoSchema,
   columnMetaRoSchema,
   filterRoSchema,
   viewGroupRoSchema,
+  type IViewVo,
+  type IManualSortRo,
+  type IViewRo,
+  type IColumnMetaRo,
+  type IFilterRo,
+  type IViewGroupRo,
 } from '@teable/core';
-import type {
-  IViewNameRo,
-  IViewDescriptionRo,
-  IViewShareMetaRo,
-  IViewSortRo,
-  IViewOptionsRo,
-  IUpdateOrderRo,
-  IUpdateRecordOrdersRo,
-  IViewInstallPluginRo,
-  IViewPluginUpdateStorageRo,
-  IViewLockedRo,
-} from '@teable/openapi';
 import {
   viewNameRoSchema,
   viewDescriptionRoSchema,
@@ -51,13 +37,21 @@ import {
   viewInstallPluginRoSchema,
   viewPluginUpdateStorageRoSchema,
   viewLockedRoSchema,
-} from '@teable/openapi';
-import type {
-  IEnableShareViewVo,
-  IRefreshShareViewVo,
-  IGetViewFilterLinkRecordsVo,
-  IGetViewInstallPluginVo,
-  IViewInstallPluginVo,
+  type IViewNameRo,
+  type IViewDescriptionRo,
+  type IViewShareMetaRo,
+  type IViewSortRo,
+  type IViewOptionsRo,
+  type IUpdateOrderRo,
+  type IUpdateRecordOrdersRo,
+  type IViewInstallPluginRo,
+  type IViewPluginUpdateStorageRo,
+  type IViewLockedRo,
+  type IEnableShareViewVo,
+  type IRefreshShareViewVo,
+  type IGetViewFilterLinkRecordsVo,
+  type IGetViewInstallPluginVo,
+  type IViewInstallPluginVo,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { ZodValidationPipe } from '../../..//zod.validation.pipe';
@@ -517,7 +511,7 @@ export class ViewOpenApiController {
     if (this.cls.get('useV2')) {
       return this.viewOpenApiV2Service.getDocIds(tableId);
     }
-    return this.viewService.getDocIdsByQuery(tableId, undefined);
+    return this.viewService.getDocIdsByQuery(tableId);
   }
 
   @Permissions('view|create')

@@ -5,7 +5,7 @@ import { ANONYMOUS_STRATEGY_NAME } from '../constant';
 
 export class PassportAnonymousStrategy extends Strategy {
   public name: string;
-  private _deserializeUser: DeserializeUserFunction;
+  private readonly _deserializeUser: DeserializeUserFunction;
 
   constructor(deserializeUser?: DeserializeUserFunction) {
     super();

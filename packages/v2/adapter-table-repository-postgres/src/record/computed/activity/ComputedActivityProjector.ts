@@ -8,6 +8,7 @@ import {
   ComputedActivity,
   ComputedActivityBatchChanged,
   domainError,
+  emptyComputeReliability,
   FieldId,
   getUnitOfWorkTransaction,
   registerAfterCommit,
@@ -30,6 +31,8 @@ import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
 import type { DynamicDB } from '../../query-builder';
 import { buildTryAdvisoryLockQuery } from '../ComputedUpdateLock';
 import { pushAll } from '../pushAll';
+import { isComputedReliabilityVisible } from '../reliability/config';
+import { PostgresComputedReliabilityStore } from '../reliability/PostgresComputedReliabilityStore';
 import {
   fieldActivityRowToDto,
   tableActivityRowToDto,
@@ -154,6 +157,13 @@ type PendingActivityEvent =
       at: Date;
     }
   | {
+      kind: 'field_errors';
+      taskId: string;
+      targets: StoredActivityTarget[];
+      fieldErrors: ReadonlyArray<ComputedActivityFieldError>;
+      at: Date;
+    }
+  | {
       kind: 'retry';
       targets: StoredActivityTarget[];
       error: { code?: string; message: string };
@@ -181,6 +191,45 @@ const groupTargetsByTable = <T extends Pick<FieldComputeTarget, 'tableId'>>(
     else groups.set(key, [target]);
   }
   return groups;
+};
+
+const resolveFieldErrorTargets = (
+  errors: ReadonlyArray<ComputedActivityFieldError> | undefined
+): StoredActivityTarget[] => {
+  const targets = new Map<string, StoredActivityTarget>();
+  for (const { fieldId, error } of errors ?? []) {
+    const context = error.context;
+    if (typeof context?.tableId !== 'string' || typeof context.baseId !== 'string') continue;
+    const { tableId: rawTableId, baseId: rawBaseId } = context;
+    const target = FieldId.create(fieldId).andThen((id) =>
+      TableId.create(rawTableId).andThen((tableId) =>
+        BaseId.create(rawBaseId).map((baseId) => ({ fieldId: id, tableId, baseId }))
+      )
+    );
+    if (target.isOk()) targets.set(fieldId, target.value);
+  }
+  return [...targets.values()];
+};
+
+const fieldErrorEvents = (
+  taskId: string,
+  targets: ReadonlyArray<StoredActivityTarget>,
+  errors: ReadonlyArray<ComputedActivityFieldError> | undefined,
+  now: Date,
+  completedTargets: ReadonlyArray<FieldComputeTarget>
+): PendingActivityEvent[] => {
+  const completedFields = new Set(completedTargets.map((target) => target.fieldId.toString()));
+  const unregistered = targets.filter((target) => !completedFields.has(target.fieldId.toString()));
+  return [...groupTargetsByTable(unregistered).values()].map((tableTargets) => {
+    const fieldIds = new Set(tableTargets.map((target) => target.fieldId.toString()));
+    return {
+      kind: 'field_errors',
+      taskId,
+      targets: tableTargets,
+      fieldErrors: (errors ?? []).filter((entry) => fieldIds.has(entry.fieldId)),
+      at: now,
+    };
+  });
 };
 
 class ComputedActivityAbort extends Error {
@@ -212,8 +261,9 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
   private readonly enqueueProjectionTails = new Map<string, Promise<void>>();
   private asyncProjectionEnabled = isAsyncProjectionEnabled();
   private asyncFlushDebounceMs = ACTIVITY_ASYNC_FLUSH_DEBOUNCE_MS;
-  private lockContentionLogThresholdMs = ACTIVITY_ADVISORY_LOCK_CONTENTION_LOG_THRESHOLD_MS;
-  private lockContentionLogIntervalMs = ACTIVITY_ADVISORY_LOCK_CONTENTION_LOG_INTERVAL_MS;
+  private readonly lockContentionLogThresholdMs =
+    ACTIVITY_ADVISORY_LOCK_CONTENTION_LOG_THRESHOLD_MS;
+  private readonly lockContentionLogIntervalMs = ACTIVITY_ADVISORY_LOCK_CONTENTION_LOG_INTERVAL_MS;
   private readonly lockContentionLogLastAt = new Map<string, number>();
   private asyncFlusherDisposed = false;
   private readonly pendingByTable = new Map<string, PendingTableState>();
@@ -595,6 +645,7 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
         );
         if (doneTargetsResult.isErr()) return err(doneTargetsResult.error);
         const doneTargets = doneTargetsResult.value;
+        const errorTargets = resolveFieldErrorTargets(params.done.fieldErrors);
 
         // Claimed ids other than the enqueued task's own id must already have
         // persisted refs (they were enqueued by an earlier transaction); resolve
@@ -668,11 +719,23 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
                 targets: tableTargets,
                 durationMs: params.done.durationMs,
                 error: params.done.error ?? null,
-                fieldErrors: params.done.fieldErrors,
+                fieldErrors: params.done.fieldErrors?.filter((entry) =>
+                  tableTargets.some((target) => target.fieldId.toString() === entry.fieldId)
+                ),
                 at: now,
               });
             }
           }
+          pushAll(
+            events,
+            fieldErrorEvents(
+              params.done.taskId,
+              errorTargets,
+              params.done.fieldErrors,
+              now,
+              doneTargets
+            )
+          );
           return ok(null);
         }
 
@@ -682,6 +745,7 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
           ...doneTargets,
           ...(params.enqueued?.targets ?? []),
           ...externalClaimedTargets,
+          ...errorTargets,
         ];
         const locked = await this.lockTouchedTables(
           trx,
@@ -745,6 +809,7 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
           ...doneTargets,
           ...newEnqueuedTargets,
           ...externalClaimedTargets,
+          ...errorTargets,
         ];
         if (loadTargets.length === 0) return ok(null);
 
@@ -791,13 +856,17 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
             error: params.done.error ?? null,
             now,
           });
-          if (params.done.fieldErrors?.length) {
-            activity.notePersistentFieldErrors({
-              errors: params.done.fieldErrors,
-              now,
-            });
-          }
-          const synced = await this.syncActivityFromTaskRefs(trx, activity, doneTargets, now);
+        }
+        if (params.done.fieldErrors?.length) {
+          activity.notePersistentFieldErrors({ errors: params.done.fieldErrors, now });
+        }
+        if (doneTargets.length > 0 || errorTargets.length > 0) {
+          const synced = await this.syncActivityFromTaskRefs(
+            trx,
+            activity,
+            [...doneTargets, ...errorTargets],
+            now
+          );
           if (synced.isErr()) return err(synced.error);
         }
 
@@ -882,13 +951,26 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
         // folding these in, the running work would stay invisible forever: the
         // drift detector joins FROM the activity table and cannot see them.
         const activityFieldIds = new Set(fieldRows.map((row) => String(row.field_id)));
+        const reliabilityStore = new PostgresComputedReliabilityStore(trx);
+        const reliabilityVisible = isComputedReliabilityVisible(params.baseId);
+        const failureTargets = reliabilityVisible
+          ? await reliabilityStore.getFieldSummaries(tableId.toString())
+          : [];
         const orphanRefRows = (
           await trx
             .selectFrom(TASK_FIELD_REF_TABLE)
             .select(['field_id', 'table_id', 'base_id'])
             .where('table_id', '=', tableId.toString())
             .execute()
-        ).filter((row) => !activityFieldIds.has(String(row.field_id)));
+        )
+          .concat(
+            failureTargets.map((item) => ({
+              field_id: item.fieldId,
+              table_id: tableId.toString(),
+              base_id: item.baseId,
+            }))
+          )
+          .filter((row) => !activityFieldIds.has(String(row.field_id)));
 
         if (fieldRows.length === 0 && !tableRow && orphanRefRows.length === 0) return ok(null);
 
@@ -934,7 +1016,13 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
         }
 
         if (targets.length > 0) {
-          const synced = await this.syncActivityFromTaskRefs(trx, activity, targets, now);
+          const synced = await this.syncActivityFromTaskRefs(
+            trx,
+            activity,
+            targets,
+            now,
+            reliabilityVisible ? new Map([[tableId.toString(), failureTargets]]) : undefined
+          );
           if (synced.isErr()) return err(synced.error);
         } else {
           // Force table aggregate back to idle from empty field set.
@@ -978,7 +1066,8 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
           .selectAll()
           .where('task_id', '=', params.taskId)
           .execute();
-        if (refs.length === 0) return ok(null);
+        const errorTargets = resolveFieldErrorTargets(params.fieldErrors);
+        if (refs.length === 0 && errorTargets.length === 0) return ok(null);
 
         const targetsResult = storedActivityTargets(
           refs as Array<Record<string, unknown>>,
@@ -986,7 +1075,8 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
         );
         if (targetsResult.isErr()) return err(targetsResult.error);
         const targets = targetsResult.value;
-        const baseId = targets[0]!.baseId;
+        const baseId = targets[0]?.baseId ?? errorTargets[0]!.baseId;
+        const loadTargets = [...targets, ...errorTargets];
 
         if (this.asyncProjectionEnabled) {
           await trx.deleteFrom(TASK_FIELD_REF_TABLE).where('task_id', '=', params.taskId).execute();
@@ -998,18 +1088,24 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
               targets: tableTargets,
               durationMs: params.durationMs,
               error: params.error,
-              fieldErrors: params.fieldErrors,
+              fieldErrors: params.fieldErrors?.filter((entry) =>
+                tableTargets.some((target) => target.fieldId.toString() === entry.fieldId)
+              ),
               at: now,
             });
           }
+          pushAll(
+            pendingEvents,
+            fieldErrorEvents(params.taskId, errorTargets, params.fieldErrors, now, targets)
+          );
           return ok(null);
         }
 
-        const locked = await this.lockTouchedTables(trx, targets, operation);
+        const locked = await this.lockTouchedTables(trx, loadTargets, operation);
         if (!locked) return ok(null);
         await trx.deleteFrom(TASK_FIELD_REF_TABLE).where('task_id', '=', params.taskId).execute();
 
-        const activityResult = await this.loadActivity(trx, targets);
+        const activityResult = await this.loadActivity(trx, loadTargets);
         if (activityResult.isErr()) return err(activityResult.error);
         const activity = activityResult.value;
         // A task can fan out to many fields and tables. Keep one task identity on
@@ -1028,7 +1124,7 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
             now,
           });
         }
-        const synced = await this.syncActivityFromTaskRefs(trx, activity, targets, now);
+        const synced = await this.syncActivityFromTaskRefs(trx, activity, loadTargets, now);
         if (synced.isErr()) return err(synced.error);
         return ok(await this.persistSnapshot(trx, activity));
       },
@@ -1198,7 +1294,7 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
       state.retryDelayMs = 0;
       state.consecutiveFailures = 0;
       state.notReadyRetries = 0;
-      if (result) await this.publishActivityChanged(result, undefined);
+      if (result) await this.publishActivityChanged(result);
       if (state.events.length > 0) this.scheduleFlush(tableId, this.asyncFlushDebounceMs);
       else if (!state.timer) this.pendingByTable.delete(tableId);
     } catch (error) {
@@ -1256,8 +1352,10 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
         ...new Set(
           events
             .filter(
-              (event): event is Extract<PendingActivityEvent, { kind: 'finished' }> =>
-                event.kind === 'finished'
+              (
+                event
+              ): event is Extract<PendingActivityEvent, { kind: 'finished' | 'field_errors' }> =>
+                event.kind === 'finished' || event.kind === 'field_errors'
             )
             .map((event) => event.taskId)
         ),
@@ -1336,6 +1434,9 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
                 activity.notePersistentFieldErrors({ errors: event.fieldErrors, now: event.at });
               }
               break;
+            case 'field_errors':
+              activity.notePersistentFieldErrors({ errors: event.fieldErrors, now: event.at });
+              break;
             case 'retry':
               activity.noteRetryScheduled({
                 targets: event.targets,
@@ -1397,7 +1498,9 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
     baseId: BaseId,
     now: Date
   ): Promise<void> {
-    const tableIds = [...new Set(targets.map((target) => target.tableId.toString()))].sort();
+    const tableIds = [...new Set(targets.map((target) => target.tableId.toString()))].sort(
+      (a, b) => Number(a > b) - Number(a < b)
+    );
     const tableRows = tableIds.map((tableId) => ({
       table_id: tableId,
       base_id: baseId.toString(),
@@ -1463,7 +1566,9 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
     operation: string,
     timeoutMs: number = ACTIVITY_ADVISORY_LOCK_TIMEOUT_MS
   ): Promise<boolean> {
-    const tableIds = [...new Set(targets.map((target) => target.tableId.toString()))].sort();
+    const tableIds = [...new Set(targets.map((target) => target.tableId.toString()))].sort(
+      (a, b) => Number(a > b) - Number(a < b)
+    );
     const deadline = Date.now() + timeoutMs;
     for (const tableId of tableIds) {
       let retryDelayMs = ACTIVITY_ADVISORY_LOCK_RETRY_INITIAL_DELAY_MS;
@@ -1541,7 +1646,11 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
     trx: DbLike,
     activity: ComputedActivity,
     targets: ReadonlyArray<FieldComputeTarget & { baseId?: BaseId }>,
-    now: Date
+    now: Date,
+    loadedReliability?: ReadonlyMap<
+      string,
+      Awaited<ReturnType<PostgresComputedReliabilityStore['getFieldSummaries']>>
+    >
   ): Promise<Result<void, DomainError>> {
     if (targets.length === 0) return ok(undefined);
 
@@ -1584,6 +1693,27 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
     }
 
     activity.syncFromTaskRefs({ targets: resolved, now });
+    const store = new PostgresComputedReliabilityStore(trx);
+    if (
+      resolved.some((target) => isComputedReliabilityVisible(target.baseId.toString())) &&
+      (loadedReliability || (await store.isReady()))
+    ) {
+      for (const tableId of new Set(resolved.map((target) => target.tableId.toString()))) {
+        const summaries = new Map(
+          (loadedReliability?.get(tableId) ?? (await store.getFieldSummaries(tableId, true))).map(
+            (item) => [item.fieldId, item.reliability]
+          )
+        );
+        for (const target of resolved.filter((item) => item.tableId.toString() === tableId)) {
+          activity
+            .getField(target.fieldId)
+            ?.syncReliability(
+              summaries.get(target.fieldId.toString()) ?? emptyComputeReliability(),
+              now
+            );
+        }
+      }
+    }
     return ok(undefined);
   }
 
@@ -1734,7 +1864,9 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
     if (baseIdResult.isErr()) return;
     const event = ComputedActivityBatchChanged.create({
       baseId: baseIdResult.value,
-      fields: projection.fields,
+      fields: isComputedReliabilityVisible(projection.baseId)
+        ? projection.fields
+        : projection.fields.map((field) => ({ ...field, reliability: undefined })),
       tables: projection.tables,
     });
     const publishContext = this.resolvePublishContext(context);
@@ -1780,7 +1912,9 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
       tail: Promise<void>;
       release: () => void;
     }> = [];
-    const keys = [...new Set(targets.map((target) => target.tableId.toString()))].sort();
+    const keys = [...new Set(targets.map((target) => target.tableId.toString()))].sort(
+      (a, b) => Number(a > b) - Number(a < b)
+    );
     const deadline = Date.now() + ENQUEUE_PROJECTION_GATE_TIMEOUT_MS;
 
     try {
@@ -1806,7 +1940,7 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
       }
       return await project();
     } finally {
-      for (const reservation of reservations.reverse()) {
+      for (const reservation of [...reservations].reverse()) {
         reservation.release();
         if (this.enqueueProjectionTails.get(reservation.key) === reservation.tail) {
           this.enqueueProjectionTails.delete(reservation.key);

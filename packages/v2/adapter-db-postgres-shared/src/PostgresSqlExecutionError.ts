@@ -72,13 +72,13 @@ const redactSqlLiterals = (sql: string): string =>
 const fingerprint = (value: string): string => {
   let hash = 0xcbf29ce484222325n;
   for (let index = 0; index < value.length; index += 1) {
-    hash ^= BigInt(value.charCodeAt(index));
+    hash ^= BigInt(value.charCodeAt(index)); // NOSONAR typescript:S7758 -- the hash is defined over UTF-16 code units; switching to code points would change persisted/compared values
     hash = BigInt.asUintN(64, hash * 0x100000001b3n);
   }
   return `fnv1a64:${hash.toString(16).padStart(16, '0')}`;
 };
 
-const statementKind = (sql: string): string => sql.match(/^[a-z]+/i)?.[0]?.toLowerCase() ?? 'sql';
+const statementKind = (sql: string): string => /^[a-z]+/i.exec(sql)?.[0]?.toLowerCase() ?? 'sql';
 
 const buildSqlSample = (
   sql: string,

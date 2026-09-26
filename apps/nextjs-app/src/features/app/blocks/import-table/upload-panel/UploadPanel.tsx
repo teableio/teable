@@ -26,7 +26,7 @@ const UploadPanel = (props: IUploadPanelProps) => {
 
   return (
     <div
-      className={cn('relative flex h-96 items-center justify-center', {
+      className={cn('relative flex h-72 items-center justify-center sm:h-80', {
         'pointer-events-none': isImporting,
       })}
     >

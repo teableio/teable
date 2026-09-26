@@ -10,7 +10,7 @@ export class NoopHasher implements IHasher {
     // Simple djb2 hash - not cryptographically secure but works everywhere
     let hash = 5381;
     for (let i = 0; i < input.length; i++) {
-      hash = (hash * 33) ^ input.charCodeAt(i);
+      hash = (hash * 33) ^ input.charCodeAt(i); // NOSONAR typescript:S7758 -- the hash is defined over UTF-16 code units; switching to code points would change persisted/compared values
     }
     // Convert to unsigned 32-bit integer and then to hex
     const unsignedHash = hash >>> 0;

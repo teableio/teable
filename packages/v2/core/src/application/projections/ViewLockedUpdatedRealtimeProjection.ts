@@ -22,7 +22,6 @@ import {
   withPersistedViewAuditChanges,
 } from './ViewRealtimeProjectionUtils';
 
-const tableCollectionPrefix = 'tbl';
 const viewCollectionPrefix = 'viw';
 
 @ProjectionHandler(ViewLockedUpdated)
@@ -70,33 +69,6 @@ export class ViewLockedUpdatedRealtimeProjection implements IEventHandler<ViewLo
             event.previousIsLocked !== undefined || event.nextIsLocked !== undefined;
           const hasAuditChange =
             viewDto.lastModifiedBy !== undefined || viewDto.lastModifiedTime !== undefined;
-
-          const tableDocId = yield* RealtimeDocId.fromParts(
-            `${tableCollectionPrefix}_${event.baseId.toString()}`,
-            event.tableId.toString()
-          ).safeUnwrap();
-          yield* (await realtimeEngine.ensure(context, tableDocId, snapshot)).safeUnwrap();
-          if (hasStateChange || hasAuditChange) {
-            yield* (
-              await realtimeEngine.applyChange(
-                context,
-                tableDocId,
-                withPersistedViewAuditChanges(
-                  viewDto,
-                  hasStateChange
-                    ? {
-                        type: 'set',
-                        path: ['views', viewIndex, 'isLocked'],
-                        value: viewDto.isLocked,
-                        oldValue: event.previousIsLocked,
-                      }
-                    : [],
-                  ['views', viewIndex]
-                )
-              )
-            ).safeUnwrap();
-          }
-
           const viewDocId = yield* RealtimeDocId.fromParts(
             `${viewCollectionPrefix}_${event.tableId.toString()}`,
             event.viewId.toString()
@@ -105,7 +77,8 @@ export class ViewLockedUpdatedRealtimeProjection implements IEventHandler<ViewLo
             await realtimeEngine.ensure(
               context,
               viewDocId,
-              toStandaloneViewRealtimeSnapshot(viewDto)
+              toStandaloneViewRealtimeSnapshot(viewDto),
+              { expectExisting: true }
             )
           ).safeUnwrap();
           return realtimeEngine.applyChange(

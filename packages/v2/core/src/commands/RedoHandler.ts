@@ -42,7 +42,7 @@ export class RedoHandler implements ICommandHandler<RedoCommand, RedoResult> {
     context: ExecutionContextPort.IExecutionContext,
     command: RedoCommand
   ): Promise<Result<RedoResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<RedoResult, DomainError>(async function* () {
       const entry = yield* await handler.undoRedoStackService.applyRedo(
         toUndoRedoStackReplayContext(context),

@@ -351,7 +351,7 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
     const maxShow = 2;
     const selectedNodes = checkedItems
       .map((id) => treeItems[id])
-      .filter((node) => node)
+      .filter(Boolean)
       .slice(0, maxShow);
     const remainingCount = checkedItems.length - maxShow;
 

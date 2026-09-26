@@ -234,7 +234,7 @@ export const translateAirtableFormula = (formula: string): IFormulaTranslation =
         if (closeParen < 0 || tokens[closeParen].raw !== ')') {
           return { ok: false, reason: `${upper}() called with arguments` };
         }
-        k = closeParen;
+        k = closeParen; // NOSONAR typescript:S2310 -- the token cursor deliberately skips the consumed `()` pair
       }
       continue;
     }

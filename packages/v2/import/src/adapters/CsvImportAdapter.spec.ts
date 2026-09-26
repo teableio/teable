@@ -32,6 +32,73 @@ describe('CsvImportAdapter', () => {
   });
 
   describe('parse', () => {
+    it('does not collect stream input and preserves positional cells on early return', async () => {
+      let pulled = 0;
+      let closed = false;
+      async function* chunks() {
+        try {
+          yield ' name ,name,\n';
+          for (let index = 0; index < 10_000; index++) {
+            pulled++;
+            yield ` Alice ${index} ,30, trailing \n`;
+          }
+        } finally {
+          closed = true;
+        }
+      }
+      const result = await adapter.parse({ type: 'csv', stream: chunks() });
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) return;
+      expect(pulled).toBeLessThan(100);
+      expect(result.value.headers).toEqual([' name ', 'name', '']);
+      const rows = [];
+      for await (const row of result.value.rowsAsync ?? result.value.rows ?? []) {
+        rows.push(row);
+        if (rows.length === 2) break;
+      }
+      expect(rows).toEqual([
+        [' name ', 'name', ''],
+        [' Alice 0 ', '30', ' trailing '],
+      ]);
+      expect(closed).toBe(true);
+      expect(pulled).toBeLessThan(100);
+    });
+
+    it('analyzes URL input without downloading the rest and cancels its body', async () => {
+      const cancel = vi.fn();
+      let pulled = 0;
+      const body = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (pulled === 0) {
+            controller.enqueue(new TextEncoder().encode('name\tnote\r\n'));
+          } else {
+            controller.enqueue(
+              new TextEncoder().encode(`Person ${pulled}\t"line 1\r\nline 2"\r\n`)
+            );
+          }
+          pulled++;
+          if (pulled === 10_000) controller.close();
+        },
+        cancel,
+      });
+      setSafeFetch(vi.fn().mockResolvedValue(new Response(body)));
+      try {
+        const result = await adapter.analyze(
+          { type: 'tsv', url: 'https://example.com/synthetic.tsv' },
+          { delimiter: '\t' },
+          1
+        );
+        expect(result.isOk()).toBe(true);
+        if (result.isErr()) return;
+        expect(result.value.sampleRows).toEqual([['Person 1', 'line 1\r\nline 2']]);
+        expect(pulled).toBeLessThan(100);
+        expect(cancel).toHaveBeenCalledOnce();
+        expect(body.locked).toBe(false);
+      } finally {
+        setSafeFetch(undefined);
+      }
+    });
+
     it('parses CSV data string', async () => {
       const source = {
         type: 'csv',
@@ -43,10 +110,9 @@ describe('CsvImportAdapter', () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.headers).toEqual(['name', 'age']);
-        expect(result.value.rows).toBeDefined();
 
         const rows: unknown[][] = [];
-        for (const row of result.value.rows!) {
+        for await (const row of result.value.rowsAsync!) {
           rows.push([...row]);
         }
         expect(rows).toEqual([
@@ -69,7 +135,7 @@ describe('CsvImportAdapter', () => {
       if (result.isOk()) {
         expect(result.value.headers).toEqual(['name', 'age']);
         const rows: unknown[][] = [];
-        for (const row of result.value.rows!) {
+        for await (const row of result.value.rowsAsync!) {
           rows.push([...row]);
         }
         expect(rows).toEqual([
@@ -148,7 +214,7 @@ describe('CsvImportAdapter', () => {
       if (result.isOk()) {
         expect(result.value.headers).toEqual(['name', 'age']);
         const rows: unknown[][] = [];
-        for (const row of result.value.rows!) {
+        for await (const row of result.value.rowsAsync!) {
           rows.push([...row]);
         }
         expect(rows).toEqual([['name', 'age']]);
@@ -200,7 +266,13 @@ describe('CsvImportAdapter', () => {
       const result = await adapter.parse({ type: 'csv', url: 'https://example.com/a.csv' });
 
       expect(result.isOk()).toBe(true);
-      expect(fetchFn).toHaveBeenCalledWith('https://example.com/a.csv', undefined);
+      if (result.isErr()) return;
+      const rows = [];
+      for await (const row of result.value.rowsAsync!) rows.push(row);
+      expect(rows).toEqual([
+        ['a', 'b'],
+        ['1', '2'],
+      ]);
     });
 
     it('keeps quoted newlines as a single CSV row', async () => {
@@ -219,9 +291,10 @@ describe('CsvImportAdapter', () => {
         return;
       }
 
-      expect(result.value.rowCount).toBe(3);
       expect(result.value.headers).toEqual(['name', 'note']);
-      expect([...result.value.rows]).toEqual([
+      const rows = [];
+      for await (const row of result.value.rowsAsync!) rows.push(row);
+      expect(rows).toEqual([
         ['name', 'note'],
         ['Alice', 'hello\nworld'],
         ['Bob', 'ok'],

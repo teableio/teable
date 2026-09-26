@@ -2,13 +2,19 @@ import { ViewType, getUniqName } from '@teable/core';
 import { Plus } from '@teable/icons';
 import { useViews } from '@teable/sdk';
 import { useTablePermission } from '@teable/sdk/hooks';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
+import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { VIEW_ICON_MAP } from '../../view/constant';
 import { useAddView } from '../../view/list/useAddView';
 
-export const AddView: React.FC = () => {
+export interface IAddViewProps {
+  contentClassName?: string;
+  renderExtraSection?: (close: () => void) => ReactNode;
+}
+
+export const AddView: React.FC<IAddViewProps> = ({ contentClassName, renderExtraSection }) => {
   const addView = useAddView();
   const views = useViews();
   const permission = useTablePermission();
@@ -63,7 +69,7 @@ export const AddView: React.FC = () => {
           <Plus className="size-4" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent side="bottom" align="start" className="w-36 p-1">
+      <PopoverContent side="bottom" align="start" className={cn('w-36 p-1', contentClassName)}>
         {viewInfoList.map((item) => {
           const { name, type, Icon } = item;
           return (
@@ -79,6 +85,7 @@ export const AddView: React.FC = () => {
             </Button>
           );
         })}
+        {renderExtraSection?.(() => setOpen(false))}
       </PopoverContent>
     </Popover>
   );

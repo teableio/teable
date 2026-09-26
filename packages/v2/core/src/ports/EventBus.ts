@@ -10,4 +10,5 @@ export interface IEventBus {
     context: IExecutionContext,
     events: ReadonlyArray<IDomainEvent>
   ): Promise<Result<void, DomainError>>;
+  recordPublished?(events: ReadonlyArray<IDomainEvent>): void;
 }

@@ -587,7 +587,7 @@ export class UndoRedoStackService {
     mode: 'undo' | 'redo',
     options?: UndoRedoReplayOptions
   ): Promise<Result<UndoEntry | null, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<UndoEntry | null, DomainError>(async function* () {
       const scope = yield* service.resolveScope(context, tableId, windowId);
       const reserved = yield* await service.runInSpan(
@@ -617,11 +617,13 @@ export class UndoRedoStackService {
           mode,
           reserved.operationId
         );
-        const progressState: UndoRedoReplayProgressState =
-          service.createReplayProgressState(commandData, options) ?? {
-            totalCount: 0,
-            processedCount: 0,
-          };
+        const progressState: UndoRedoReplayProgressState = service.createReplayProgressState(
+          commandData,
+          options
+        ) ?? {
+          totalCount: 0,
+          processedCount: 0,
+        };
         progressState.executedLeafIndex = reserved.executedLeafIndex;
         progressState.skipAlreadyExecuted =
           commandData.type !== 'Batch' && reserved.executedLeafIndex >= 1;
@@ -630,10 +632,8 @@ export class UndoRedoStackService {
           return service.undoRedoStore.markProgress(scope, reserved.token, index);
         };
 
-        const executeResult = await service.withReservationHeartbeat(
-          scope,
-          reserved.token,
-          () => service.executeCommandData(executeContext, commandData, progressState)
+        const executeResult = await service.withReservationHeartbeat(scope, reserved.token, () =>
+          service.executeCommandData(executeContext, commandData, progressState)
         );
         if (executeResult.isErr()) {
           await service.undoRedoStore.abort(scope, reserved.token);
@@ -835,9 +835,7 @@ export class UndoRedoStackService {
       return progressState.onLeafExecuted(index);
     };
 
-    const flushPendingUpdates = async (
-      nextIndex: number
-    ): Promise<Result<void, DomainError>> => {
+    const flushPendingUpdates = async (nextIndex: number): Promise<Result<void, DomainError>> => {
       if (!pendingUpdates.length) {
         return ok(undefined);
       }

@@ -22,7 +22,7 @@ describe('SortDirection', () => {
 describe('Sort', () => {
   it('rejects empty sort', () => {
     const result = Sort.create([]);
-    result._unsafeUnwrapErr();
+    expect(result.isErr()).toBe(true);
   });
 
   it('creates and exposes fields', () => {

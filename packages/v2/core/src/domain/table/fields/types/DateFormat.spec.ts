@@ -4,13 +4,13 @@ import { DateFormat } from './DateFormat';
 
 describe('DateFormat', () => {
   it('accepts valid formats', () => {
-    DateFormat.create('date')._unsafeUnwrap();
-    DateFormat.create('dateTime')._unsafeUnwrap();
+    expect(DateFormat.create('date').isOk()).toBe(true);
+    expect(DateFormat.create('dateTime').isOk()).toBe(true);
   });
 
   it('rejects invalid formats', () => {
-    DateFormat.create('datetime')._unsafeUnwrapErr();
-    DateFormat.create(123)._unsafeUnwrapErr();
+    expect(DateFormat.create('datetime').isErr()).toBe(true);
+    expect(DateFormat.create(123).isErr()).toBe(true);
   });
 
   it('provides helpers', () => {

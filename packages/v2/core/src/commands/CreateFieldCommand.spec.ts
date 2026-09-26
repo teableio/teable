@@ -155,7 +155,7 @@ describe('CreateFieldCommand', () => {
       },
     });
 
-    commandResult._unsafeUnwrap();
+    expect(commandResult.isOk()).toBe(true);
   });
 
   it('generates a default name when input name is blank', () => {
@@ -178,7 +178,7 @@ describe('CreateFieldCommand', () => {
       },
     });
 
-    commandResult._unsafeUnwrapErr();
+    expect(commandResult.isErr()).toBe(true);
   });
 
   it('parses all field types with configured options', () => {

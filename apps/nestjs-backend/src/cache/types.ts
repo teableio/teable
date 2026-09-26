@@ -19,6 +19,11 @@ export interface ICacheStore {
   // read-modify-write on the per-user session map".
   [key: `auth:session-user-cleared:${string}`]: number;
   [key: `oauth2:${string}`]: IOauth2State;
+  // Mobile app sign-in (PKCE): keyed by the SHA-256 of the one-time code.
+  [key: `auth:mobile-code:${string}`]: IMobileAuthCodeState;
+  [key: `auth:mobile-web-session:${string}`]: IMobileWebSessionState;
+  // WebView sessions signed in through a web-session code, keyed by the native session id.
+  [key: `auth:mobile-children:${string}`]: string[];
   [key: `reset-password-email:${string}`]: IResetPasswordEmailCache;
   [key: `workflow:running:${string}`]: string;
   [key: `workflow:repeatKey:${string}`]: string;
@@ -41,19 +46,61 @@ export interface ICacheStore {
   [key: `plugin:auth-code:${string}`]: IPluginAuthStore;
   [key: `signin:attempts:${string}`]: number;
   [key: `signin:lockout:${string}`]: boolean;
+  // Email one-time codes (sign-in / sign-up keyed by email, change-email keyed
+  // by user id): the active code plus the wrong-guess counter that discards it
+  // after too many attempts. The code lives only here — never inside a token
+  // handed to the client, since a JWT is signed, not encrypted.
+  [key: `auth:signin-code:${string}`]: IEmailCodeCache;
+  [key: `auth:signin-code-attempts:${string}`]: number;
+  [key: `auth:signup-code:${string}`]: IEmailCodeCache;
+  [key: `auth:signup-code-attempts:${string}`]: number;
+  [key: `auth:change-email-code:${string}`]: IEmailCodeCache;
+  [key: `auth:change-email-code-attempts:${string}`]: number;
   [key: `query-params:${string}`]: Record<string, unknown>;
+  // Collaborator notify coalescing per `${fromUserId}:${toUserId}:${tableId}`, shared across pods.
+  [key: `collaborator-notify:window:${string}`]: boolean;
+  [key: `collaborator-notify:pending:${string}`]: ICollaboratorNotifyPending;
   [key: `mail-sender:notify-mail-merge:${string}`]: (ISendMailOptions & {
     mailType: MailType;
   })[];
   [key: `waitlist:invite-code:${string}`]: number;
   [key: `send-mail-rate-limit:${string}`]: boolean;
   [key: `oauth:token-rate:${string}:${string}`]: number;
+  // notifications third-party OAuth apps send: per app (and user) per one-minute window
+  [key: `notification:app-rate:${string}`]: number;
   [key: `email:send:rate:${string}:${number}`]: number;
   [key: `automation:email-att:${string}`]: string[];
   [key: `automation:fail-notify-count:${string}`]: number;
   // Watchdog round-robin scan cursor per status (staleAt stored as ISO string).
   [key: `automation:orphan-cursor:${string}`]: { staleAt: string; key: string };
   [key: `task:watchdog-cursor:${string}`]: { staleAt: string; key: string };
+  [key: `computed-reliability:snapshot:${string}`]: {
+    count: number;
+    oldestAt: number | null;
+    sampledAt: number;
+  };
+  [key: `routine:watchdog-cursor:${string}`]: { staleAt: string; key: string };
+  [key: `media:watchdog-cursor:${string}`]: { staleAt: string; key: string };
+  [key: `routine:fail-notify-count:${string}`]: number;
+  // Push: where the app is right now, so nothing is pushed to a screen its owner is
+  // already reading. Written by the app on foreground / chat open / a slow heartbeat.
+  [key: `push:presence:${string}:${string}`]: { chatId?: string };
+  // Push: the gate a turn is parked on, so only the transition into one is announced and
+  // only a gate that *was* announced is withdrawn. Keyed by the assistant message.
+  // `announced: false` records a gate that was seen and deliberately not sent (the switch
+  // is off, the owner is looking at it); it is kept briefly so the decision is revisited
+  // while the gate still stands, rather than once and for all.
+  [key: `push:gate:${string}`]: { toolName: string; announced: boolean };
+  // Push: the gates a person was *not* told about because the app was open, keyed by the
+  // assistant message. Read back when the app leaves the foreground, which is the moment
+  // the reason for the silence lapses — a parked turn does not checkpoint again on its own.
+  [key: `push:gate-shelved:${string}`]: Record<
+    string,
+    { chatId: string; toolName: string; detail?: string }
+  >;
+  // Push: results sent to a user inside the current window. Past the cap the individual
+  // cards give way to one "N conversations have news" summary.
+  [key: `push:burst:${string}`]: number;
   // Distributed lock keys
   [key: `lock:${string}`]: string;
   [key: `import:result:manifest:${string}`]: {
@@ -105,8 +152,28 @@ export interface IOauth2State {
   redirectUri?: string;
 }
 
+export interface IMobileAuthCodeState {
+  userId: string;
+  codeChallenge: string;
+  redirectUri: string;
+  createdAt: number;
+}
+
+export interface IMobileWebSessionState {
+  userId: string;
+  /** The native (cookie) session that minted the code. */
+  parentSessionId: string;
+  createdAt: number;
+}
+
 export interface IResetPasswordEmailCache {
   userId: string;
+}
+
+export interface IEmailCodeCache {
+  code: string;
+  // The address the code was mailed to; consuming it must target the same one.
+  email: string;
 }
 
 export interface IOAuthCodeState {
@@ -350,4 +417,18 @@ export type IUndoRedoOperation =
 export interface IPluginAuthStore {
   baseId: string;
   pluginId: string;
+}
+
+export interface ICollaboratorNotifyPending {
+  fromUserId: string;
+  toUserId: string;
+  refRecord: {
+    baseId: string;
+    tableId: string;
+    tableName: string;
+    fieldName: string;
+    recordIds: string[];
+    recordTitles: { id: string; title: string }[];
+  };
+  lastAt: number;
 }

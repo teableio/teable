@@ -87,22 +87,25 @@ export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
     plan: BaseDataBulkCopyPlan
   ): Promise<Result<boolean, DomainError>> {
     try {
-      const sourceSchemas = [
-        ...new Set(
-          plan.tables.map((table) => splitDbTableName(table.sourceDbTableName).schema ?? 'public')
-        ),
-      ];
-      for (const schema of sourceSchemas) {
-        const result = await sql<{ exists: boolean }>`
-          SELECT EXISTS (
-            SELECT 1 FROM information_schema.schemata WHERE schema_name = ${schema}
-          ) AS "exists"
-        `.execute(this.db);
-        if (!result.rows[0]?.exists) {
-          return ok(false);
-        }
+      const sourceRelations = [
+        ...new Set([
+          ...plan.tables.map((table) => table.sourceDbTableName),
+          ...plan.junctions.map((junction) => junction.sourceJunctionDbTableName),
+        ]),
+      ].map(qualifiedTableName);
+      if (!sourceRelations.length) {
+        return ok(true);
       }
-      return ok(true);
+      // A database move can leave an empty source schema behind. Bulk copying
+      // requires every source relation, not just its schema, on this connection.
+      const result = await sql<{ supported: boolean }>`
+        SELECT NOT EXISTS (
+          SELECT 1
+          FROM unnest(${sourceRelations}::text[]) AS source(relation_name)
+          WHERE to_regclass(source.relation_name) IS NULL
+        ) AS supported
+      `.execute(this.db);
+      return ok(result.rows[0]?.supported ?? false);
     } catch (error) {
       return err(
         domainError.fromUnknown(error, { code: 'duplicate_base.bulk_copy_preflight_failed' })

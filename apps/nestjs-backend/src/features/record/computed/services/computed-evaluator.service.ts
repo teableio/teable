@@ -371,7 +371,7 @@ export class ComputedEvaluatorService {
       .map(({ recordId, version, prevVersion, fields }) => {
         const ops = targetFieldIds
           .map((fid) => {
-            const hasValue = Object.prototype.hasOwnProperty.call(fields, fid);
+            const hasValue = Object.hasOwn(fields, fid);
             const newCellValue = hasValue ? fields[fid] : null;
             return RecordOpBuilder.editor.setRecord.build({
               fieldId: fid,

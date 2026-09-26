@@ -1,4 +1,4 @@
-import type http from 'http';
+import type http from 'node:http';
 import type { AdaptableWebSocket } from '@an-epiphany/websocket-json-stream';
 import { WebSocketJSONStream } from '@an-epiphany/websocket-json-stream';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
@@ -13,7 +13,7 @@ import { createSockjsServerOptions } from './sockjs-options';
 
 @Injectable()
 export class WsGateway implements OnModuleInit, OnModuleDestroy {
-  private logger = new Logger(WsGateway.name);
+  private readonly logger = new Logger(WsGateway.name);
   private sockjsServer: sockjs.Server | null = null;
   private readonly activeConnections = new Set<sockjs.Connection>();
 
@@ -51,7 +51,7 @@ export class WsGateway implements OnModuleInit, OnModuleDestroy {
     this.logger.log('WsGateway (SockJS) initialized');
   }
 
-  private handleConnection = (conn: sockjs.Connection) => {
+  private readonly handleConnection = (conn: sockjs.Connection) => {
     if (!conn) return;
 
     this.activeConnections.add(conn);

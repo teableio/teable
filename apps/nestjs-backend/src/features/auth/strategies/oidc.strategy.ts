@@ -13,7 +13,7 @@ import { pickUserMe } from '../utils';
 export class OIDCStrategy extends PassportStrategy(Strategy, 'openidconnect') {
   constructor(
     @AuthConfig() readonly config: ConfigType<typeof authConfig>,
-    private usersService: UserService,
+    private readonly usersService: UserService,
     oauthStoreService: OauthStoreService
   ) {
     const { other, ...rest } = config.oidc;

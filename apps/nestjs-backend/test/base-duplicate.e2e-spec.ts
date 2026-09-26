@@ -722,11 +722,11 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     // Verify resource types distribution
     const sourceResourceTypes = updatedSourceNodes
       .map((n) => n.resourceType)
-      .sort()
+      .sort((a, b) => Number(a > b) - Number(a < b))
       .join(',');
     const duplicatedResourceTypes = duplicatedNodes
       .map((n) => n.resourceType)
-      .sort()
+      .sort((a, b) => Number(a > b) - Number(a < b))
       .join(',');
     expect(duplicatedResourceTypes).toBe(sourceResourceTypes);
 
@@ -763,8 +763,12 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     expect(duplicatedNodesWithParent.length).toBe(sourceNodesWithParent.length);
 
     // Verify folder names are preserved
-    const sourceFolderNames = sourceFolders.map((f) => f.resourceMeta?.name).sort();
-    const duplicatedFolderNames = duplicatedFolders.map((f) => f.resourceMeta?.name).sort();
+    const sourceFolderNames = sourceFolders
+      .map((f) => f.resourceMeta?.name)
+      .sort((a, b) => Number(a > b) - Number(a < b));
+    const duplicatedFolderNames = duplicatedFolders
+      .map((f) => f.resourceMeta?.name)
+      .sort((a, b) => Number(a > b) - Number(a < b));
     expect(duplicatedFolderNames).toEqual(sourceFolderNames);
 
     // Verify that table inside folder1 exists in imported base
@@ -792,15 +796,23 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     // Verify tables are accessible
     const duplicatedTableList = await getTableList(duplicateBaseId).then((res) => res.data);
     expect(duplicatedTableList.length).toBe(2);
-    expect(duplicatedTableList.map((t) => t.name).sort()).toEqual(
-      [table1Node.resourceMeta?.name, table2Node.resourceMeta?.name].sort()
+    expect(
+      duplicatedTableList.map((t) => t.name).sort((a, b) => Number(a > b) - Number(a < b))
+    ).toEqual(
+      [table1Node.resourceMeta?.name, table2Node.resourceMeta?.name].sort(
+        (a, b) => Number(a > b) - Number(a < b)
+      )
     );
 
     // Verify dashboards are accessible
     const duplicatedDashboardList = await getDashboardList(duplicateBaseId).then((res) => res.data);
     expect(duplicatedDashboardList.length).toBe(2);
-    expect(duplicatedDashboardList.map((d) => d.name).sort()).toEqual(
-      [dashboard1Node.resourceMeta?.name, dashboard2Node.resourceMeta?.name].sort()
+    expect(
+      duplicatedDashboardList.map((d) => d.name).sort((a, b) => Number(a > b) - Number(a < b))
+    ).toEqual(
+      [dashboard1Node.resourceMeta?.name, dashboard2Node.resourceMeta?.name].sort(
+        (a, b) => Number(a > b) - Number(a < b)
+      )
     );
   });
 
@@ -1656,23 +1668,29 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
         resourceType: BaseNodeResourceType.Folder,
         name: 'Orders Folder',
       }).then((res) => res.data);
+      // The API no longer seeds default records (T6947); the link/lookup setup
+      // below reads records[0] of each table.
+      const seedRecords = [{ fields: {} }, { fields: {} }, { fields: {} }];
       const ordersNode = await createBaseNode(base.id, {
         resourceType: BaseNodeResourceType.Table,
         name: 'Orders',
         fields: [{ name: 'Order', type: FieldType.SingleLineText }],
         views: [{ name: 'Grid view', type: ViewType.Grid }],
+        records: seedRecords,
       }).then((res) => res.data);
       const customersNode = await createBaseNode(base.id, {
         resourceType: BaseNodeResourceType.Table,
         name: 'Customers',
         fields: [{ name: 'Customer', type: FieldType.SingleLineText }],
         views: [{ name: 'Grid view', type: ViewType.Grid }],
+        records: seedRecords,
       }).then((res) => res.data);
       const productsNode = await createBaseNode(base.id, {
         resourceType: BaseNodeResourceType.Table,
         name: 'Products',
         fields: [{ name: 'Product', type: FieldType.SingleLineText }],
         views: [{ name: 'Grid view', type: ViewType.Grid }],
+        records: seedRecords,
       }).then((res) => res.data);
       await moveBaseNode(base.id, ordersNode.id, { parentId: folderNode.id });
       const productPrimaryField = (await getFields(productsNode.resourceId)).data.find(
@@ -1742,9 +1760,11 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
       );
       expect(duplicatedFolders).toHaveLength(1);
       expect(duplicatedFolders[0].resourceMeta?.name).toBe(folderNode.resourceMeta?.name);
-      expect(duplicatedTableNodes.map(({ resourceMeta }) => resourceMeta?.name).sort()).toEqual(
-        ['Customers', 'Orders'].sort()
-      );
+      expect(
+        duplicatedTableNodes
+          .map(({ resourceMeta }) => resourceMeta?.name)
+          .sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(['Customers', 'Orders'].sort((a, b) => Number(a > b) - Number(a < b)));
       expect(
         duplicatedTableNodes.find(({ resourceMeta }) => resourceMeta?.name === 'Orders')?.parentId
       ).toBe(duplicatedFolders[0].id);
@@ -1753,7 +1773,9 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
       const duplicatedOrdersTable = duplicatedTables.find(({ name }) => name === 'Orders')!;
       const duplicatedCustomersTable = duplicatedTables.find(({ name }) => name === 'Customers')!;
       const duplicatedOrderFields = (await getFields(duplicatedOrdersTable.id)).data;
-      expect(duplicatedTables.map(({ name }) => name).sort()).toEqual(['Customers', 'Orders']);
+      expect(
+        duplicatedTables.map(({ name }) => name).sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(['Customers', 'Orders']);
       expect(duplicatedOrderFields.find(({ name }) => name === customerLinkField.name)?.type).toBe(
         FieldType.Link
       );
@@ -2119,7 +2141,9 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
 
       const duplicatedTableList = await getTableList(duplicateBaseId).then((res) => res.data);
       expect(duplicatedTableList.length).toBe(2);
-      expect(duplicatedTableList.map((t) => t.name).sort()).toEqual(['table1', 'table2'].sort());
+      expect(
+        duplicatedTableList.map((t) => t.name).sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(['table1', 'table2'].sort((a, b) => Number(a > b) - Number(a < b)));
 
       // Verify link field data is copied
       const duplicatedTable1 = duplicatedTableList.find((t) => t.name === 'table1')!;
@@ -2686,15 +2710,19 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
 
       // Should have both folders
       expect(duplicatedFolders.length).toBe(2);
-      expect(duplicatedFolders.map((f) => f.resourceMeta?.name).sort()).toEqual(
-        ['Folder A', 'Folder B'].sort()
-      );
+      expect(
+        duplicatedFolders
+          .map((f) => f.resourceMeta?.name)
+          .sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(['Folder A', 'Folder B'].sort((a, b) => Number(a > b) - Number(a < b)));
 
       // Should have only 2 tables
       expect(duplicatedTables.length).toBe(2);
-      expect(duplicatedTables.map((t) => t.resourceMeta?.name).sort()).toEqual(
-        ['Table A1', 'Table B1'].sort()
-      );
+      expect(
+        duplicatedTables
+          .map((t) => t.resourceMeta?.name)
+          .sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(['Table A1', 'Table B1'].sort((a, b) => Number(a > b) - Number(a < b)));
 
       // Table B2 should not be included
       const duplicatedTableList = await getTableList(duplicateBaseId).then((res) => res.data);

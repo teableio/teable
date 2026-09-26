@@ -312,7 +312,7 @@ export class BaseShareService {
       where: { shareId },
     });
 
-    if (!share || !share.enabled) {
+    if (!share?.enabled) {
       throw new CustomHttpException(baseShareNotFoundMessage, HttpErrorCode.NOT_FOUND, {
         localization: {
           i18nKey: baseShareNotFoundKey,

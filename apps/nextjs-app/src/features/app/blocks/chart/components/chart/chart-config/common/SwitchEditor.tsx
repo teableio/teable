@@ -1,3 +1,4 @@
+import { getRandomFloat } from '@teable/core';
 import { Switch, Label } from '@teable/ui-lib';
 import { useRef } from 'react';
 
@@ -7,7 +8,7 @@ export const SwitchEditor = (props: {
   onChange: (value?: boolean) => void;
 }) => {
   const { label, value, onChange } = props;
-  const randomRef = useRef(Math.random().toString(36).substring(7));
+  const randomRef = useRef(getRandomFloat().toString(36).substring(7));
   return (
     <div className="flex items-center justify-between">
       <Label className="text-sm font-normal" htmlFor={`${randomRef.current}`}>

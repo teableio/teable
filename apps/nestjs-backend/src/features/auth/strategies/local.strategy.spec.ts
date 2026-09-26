@@ -49,17 +49,21 @@ describe('LocalStrategy', () => {
   it('should throw error when lockout is disabled', async () => {
     authService.validateUserByEmail.mockRejectedValue(new Error());
     localStrategy['authConfig'].signin = {
-      maxLoginAttempts: 0,
-      accountLockoutMinutes: 0,
+      lockoutEnabled: false,
+      maxLoginAttempts: 5,
+      accountLockoutMinutes: 10,
     };
     await expect(localStrategy.validate(mokeReq, testEmail, testPassword)).rejects.toThrow(
       'Email or password is incorrect'
     );
+    expect(cacheService.get).not.toHaveBeenCalled();
+    expect(cacheService.incr).not.toHaveBeenCalled();
   });
 
   it('should throw error when account is already locked', async () => {
     authService.validateUserByEmail.mockRejectedValue(new Error());
     localStrategy['authConfig'].signin = {
+      lockoutEnabled: true,
       maxLoginAttempts: 5,
       accountLockoutMinutes: 10,
     };
@@ -76,6 +80,7 @@ describe('LocalStrategy', () => {
   it('should increment attempt count and throw error', async () => {
     authService.validateUserByEmail.mockRejectedValue(new Error());
     localStrategy['authConfig'].signin = {
+      lockoutEnabled: true,
       maxLoginAttempts: 5,
       accountLockoutMinutes: 10,
     };
@@ -85,12 +90,13 @@ describe('LocalStrategy', () => {
     await expect(localStrategy.validate(mokeReq, testEmail, testPassword)).rejects.toMatchObject({
       response: 'Email or password is incorrect',
     });
-    expect(cacheService.incr).toHaveBeenCalledWith(`signin:attempts:${testEmail}`, 30);
+    expect(cacheService.incr).toHaveBeenCalledWith(`signin:attempts:${testEmail}`, 600);
   });
 
   it('should lock account when max attempts reached', async () => {
     authService.validateUserByEmail.mockRejectedValue(new Error());
     localStrategy['authConfig'].signin = {
+      lockoutEnabled: true,
       maxLoginAttempts: 4,
       accountLockoutMinutes: 10,
     };
@@ -100,13 +106,14 @@ describe('LocalStrategy', () => {
     await expect(localStrategy.validate(mokeReq, testEmail, testPassword)).rejects.toMatchObject({
       response: 'Your account has been locked out, please try again after 10 minutes',
     });
-    expect(cacheService.set).toHaveBeenCalledWith(`signin:lockout:${testEmail}`, true, 10);
+    expect(cacheService.set).toHaveBeenCalledWith(`signin:lockout:${testEmail}`, true, 600);
     expect(cacheService.expire).toHaveBeenCalledWith(`signin:attempts:${testEmail}`, 1);
   });
 
   it('should handle first failed attempt', async () => {
     authService.validateUserByEmail.mockRejectedValue(new Error());
     localStrategy['authConfig'].signin = {
+      lockoutEnabled: true,
       maxLoginAttempts: 5,
       accountLockoutMinutes: 10,
     };
@@ -116,6 +123,6 @@ describe('LocalStrategy', () => {
     await expect(localStrategy.validate(mokeReq, testEmail, testPassword)).rejects.toMatchObject({
       response: 'Email or password is incorrect',
     });
-    expect(cacheService.incr).toHaveBeenCalledWith(`signin:attempts:${testEmail}`, 30);
+    expect(cacheService.incr).toHaveBeenCalledWith(`signin:attempts:${testEmail}`, 600);
   });
 });

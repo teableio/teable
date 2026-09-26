@@ -38,7 +38,7 @@ export function useUploadFile() {
               resolve(result);
             },
             errorCallback: (_, error) => {
-              reject(error);
+              reject(new Error(error ?? 'Upload failed'));
             },
             progressCallback: (_, progress) => {
               setProgress(progress);

@@ -11,8 +11,8 @@ interface IAccessTokenStrategyOptions {
 
 export class PassportAccessTokenStrategy extends Strategy {
   public name: string;
-  private accessTokenFromRequest?: IFromExtractor;
-  private _deserializeUser: DeserializeUserFunction;
+  private readonly accessTokenFromRequest?: IFromExtractor;
+  private readonly _deserializeUser: DeserializeUserFunction;
 
   constructor(options?: IAccessTokenStrategyOptions, deserializeUser?: DeserializeUserFunction) {
     super();

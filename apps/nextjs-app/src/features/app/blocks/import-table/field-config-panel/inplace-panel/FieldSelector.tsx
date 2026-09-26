@@ -27,7 +27,7 @@ interface IFieldSelector {
   disabled?: boolean;
 }
 
-export function FieldSelector(props: IFieldSelector) {
+export function FieldSelector(props: Readonly<IFieldSelector>) {
   const { options, onSelect, value, disabled = false } = props;
   const [open, setOpen] = useState(false);
   const { t } = useTranslation(['table', 'common']);

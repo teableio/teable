@@ -36,7 +36,7 @@ import { TableUpdateResult } from '../../domain/table/TableMutator';
 import { ViewColumnMeta } from '../../domain/table/views/ViewColumnMeta';
 import { ViewQueryDefaults } from '../../domain/table/views/ViewQueryDefaults';
 import * as CommandBusPort from '../../ports/CommandBus';
-import * as EventBusPort from '../../ports/EventBus';
+import { domainWrite, type IDomainWriteTransaction } from '../../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../../ports/ExecutionContext';
 import * as TableRecordQueryRepositoryPort from '../../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
@@ -46,7 +46,6 @@ import { v2CoreTokens } from '../../ports/tokens';
 import { TeableSpanAttributes } from '../../ports/Tracer';
 import { TraceSpan } from '../../ports/TraceSpan';
 import type { UndoRedoFieldSnapshot, UndoRedoFieldViewSnapshot } from '../../ports/UndoRedoStore';
-import * as UnitOfWorkPort from '../../ports/UnitOfWork';
 import { areRecordFieldValuesEqual } from './RecordFieldValueEquality';
 import { TableUpdateFlow } from './TableUpdateFlow';
 
@@ -97,9 +96,7 @@ const toUpdateFieldInput = (
   return stripUndefinedDeep({
     type: field.type,
     ...(field.name !== undefined ? { name: field.name } : {}),
-    ...(Object.prototype.hasOwnProperty.call(field, 'description')
-      ? { description: field.description ?? null }
-      : {}),
+    ...(Object.hasOwn(field, 'description') ? { description: field.description ?? null } : {}),
     ...(field.dbFieldName ? { dbFieldName: field.dbFieldName } : {}),
     ...(!replayOptions?.deferConstraintEnforcement
       ? {
@@ -160,10 +157,8 @@ export class FieldUndoRedoReplayService {
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.tableRecordRepository)
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
-    @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus,
-    @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.domainWriteTransaction)
+    private readonly domainWriteTransaction: IDomainWriteTransaction,
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow
   ) {}
@@ -186,7 +181,7 @@ export class FieldUndoRedoReplayService {
       snapshot: UndoRedoFieldSnapshot;
     }
   ): Promise<Result<Table, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<Table, DomainError>(async function* () {
       const fieldId = yield* FieldId.create(params.snapshot.field.id);
       const table = yield* await service.loadTable(context, params.baseId, params.tableId);
@@ -302,7 +297,7 @@ export class FieldUndoRedoReplayService {
     fieldId: FieldId,
     viewSnapshots: ReadonlyArray<UndoRedoFieldViewSnapshot>
   ): Promise<Result<Table, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<Table, DomainError>(async function* () {
       const spec = yield* service.buildViewSnapshotSpec(table, fieldId, viewSnapshots);
       if (!spec) {
@@ -442,9 +437,7 @@ export class FieldUndoRedoReplayService {
 
       const readModel: TableRecordReadModel = recordResult.value;
       snapshots.set(readModel.id, {
-        value: Object.prototype.hasOwnProperty.call(readModel.fields, fieldIdText)
-          ? readModel.fields[fieldIdText]
-          : null,
+        value: Object.hasOwn(readModel.fields, fieldIdText) ? readModel.fields[fieldIdText] : null,
         version: readModel.version,
       });
     }
@@ -493,10 +486,7 @@ export class FieldUndoRedoReplayService {
       }
       const changes: RecordFieldChangeDTO[] = [];
       for (const change of update.changes) {
-        const oldValue = Object.prototype.hasOwnProperty.call(
-          persistedRecord.oldFieldValues,
-          change.fieldId
-        )
+        const oldValue = Object.hasOwn(persistedRecord.oldFieldValues, change.fieldId)
           ? persistedRecord.oldFieldValues[change.fieldId]
           : change.oldValue;
         if (areRecordFieldValuesEqual(oldValue, change.newValue)) {
@@ -542,7 +532,7 @@ export class FieldUndoRedoReplayService {
       records: NonNullable<UndoRedoFieldSnapshot['records']>;
     }
   ): Promise<Result<void, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<void, DomainError>(async function* () {
       const targetRecordIds: RecordId[] = [];
       const targetRecordIdsByText = new Map<string, RecordId>();
@@ -668,25 +658,21 @@ export class FieldUndoRedoReplayService {
         }
       }
 
-      const updateResult = yield* await service.unitOfWork.withTransaction(
-        context,
-        async (transactionContext) => {
-          const persistResult = await service.tableRecordRepository.updateManyStream(
-            transactionContext,
-            params.table,
-            syncBatchesGenerator()
-          );
-          return persistResult;
+      yield* await service.domainWriteTransaction.execute(context, async (transactionContext) => {
+        const persistResult = await service.tableRecordRepository.updateManyStream(
+          transactionContext,
+          params.table,
+          syncBatchesGenerator()
+        );
+        if (persistResult.isErr()) {
+          return err(persistResult.error);
         }
-      );
-
-      const events = service.buildRecordsBatchUpdatedEvents(
-        params.table,
-        service.reconcilePersistedUpdateEvents(updates, updateResult)
-      );
-      if (events.length > 0) {
-        yield* await service.eventBus.publishMany(context, events);
-      }
+        const events = service.buildRecordsBatchUpdatedEvents(
+          params.table,
+          service.reconcilePersistedUpdateEvents(updates, persistResult.value)
+        );
+        return ok(domainWrite.fromEvents(undefined, events));
+      });
 
       return ok(undefined);
     });
@@ -735,7 +721,7 @@ export class FieldUndoRedoReplayService {
     fieldId: FieldId,
     snapshotField: UndoRedoFieldSnapshot['field']
   ): Promise<Result<Table, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<Table, DomainError>(async function* () {
       const currentField = yield* table.getField((field) => field.id().equals(fieldId));
       const dbFieldName = yield* currentField.dbFieldName();

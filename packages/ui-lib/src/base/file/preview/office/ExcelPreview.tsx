@@ -1,7 +1,7 @@
 import type { GridCell, Item } from '@glideapps/glide-data-grid';
 import { DataEditor, GridCellKind } from '@glideapps/glide-data-grid';
 import React, { useCallback, useEffect, useMemo, useState, useContext } from 'react';
-import * as XLSX from 'xlsx';
+import type { CellObject, WorkSheet } from 'xlsx';
 import { Button, cn, Skeleton } from '../../../../shadcn';
 import { Spin } from '../../../spin/Spin';
 import { FilePreviewContext, type IFileItemInner } from '../FilePreviewContext';
@@ -13,7 +13,7 @@ import {
   letterCoordinate2Number,
 } from './utils';
 
-type ISheetData = XLSX.WorkSheet;
+type ISheetData = WorkSheet;
 
 interface ISheetItem {
   name: string;
@@ -73,6 +73,8 @@ export const ExcelPreview = (props: IExcelPreviewProps) => {
           return;
         }
 
+        // Loaded on demand: SheetJS is the largest dependency behind the file preview.
+        const XLSX = await import('xlsx');
         const workbook = XLSX.read(buffer, { dense: true });
 
         const newSheetList: ISheetItem[] = [];
@@ -104,8 +106,8 @@ export const ExcelPreview = (props: IExcelPreviewProps) => {
       if (setLoading) {
         setLoading(false);
       }
-      // Make sure rowData is a record with number keys and XLSX.CellObject values
-      const rowData = (currentSheetData?.['!data']?.[row] || {}) as Record<number, XLSX.CellObject>;
+      // Make sure rowData is a record with number keys and CellObject values
+      const rowData = (currentSheetData?.['!data']?.[row] || {}) as Record<number, CellObject>;
       const cellData = rowData[col] || {};
 
       const value = (cellData?.w ?? cellData?.v ?? '') as string;

@@ -2,7 +2,7 @@
 
 /* eslint-disable */
 /* prettier-ignore */
-import { Path } from "nestjs-i18n";
+import type { Path } from "nestjs-i18n";
 /* prettier-ignore */
 export type I18nTranslations = {
     "auth": {
@@ -27,12 +27,16 @@ export type I18nTranslations = {
             "signin": string;
             "signup": string;
             "resend": string;
+            "signinWithCode": string;
+            "signinWithPassword": string;
+            "sendCode": string;
         };
         "label": {
             "email": string;
             "password": string;
             "verificationCode": string;
         };
+        "capsLockOn": string;
         "placeholder": {
             "password": string;
             "email": string;
@@ -56,6 +60,14 @@ export type I18nTranslations = {
         };
         "socialAuth": {
             "title": string;
+            "appleError": {
+                "title": string;
+                "emailUnavailable": string;
+                "accountUnavailable": string;
+                "failed": string;
+                "sessionExpired": string;
+                "retry": string;
+            };
             "sso": {
                 "title": string;
                 "description": string;
@@ -88,6 +100,19 @@ export type I18nTranslations = {
                 "title": string;
                 "description": string;
             };
+        };
+        "mobile": {
+            "title": string;
+            "description": string;
+            "authorize": string;
+            "switchAccount": string;
+            "cancel": string;
+            "cancelled": string;
+            "returning": string;
+            "openApp": string;
+            "invalidRequest": string;
+            "failed": string;
+            "switchFailed": string;
         };
     };
     "chart": {
@@ -291,6 +316,7 @@ export type I18nTranslations = {
                 "noSpaceDescription": string;
                 "newSpacePlaceholder": string;
                 "createSpace": string;
+                "loadFailed": string;
             };
         };
         "baseShare": {
@@ -313,6 +339,9 @@ export type I18nTranslations = {
             "copyCode": string;
             "enterPassword": string;
             "passwordTitle": string;
+            "copyLinkAndPassword": string;
+            "linkAndPasswordText": string;
+            "generatePassword": string;
             "deleteConfirmTitle": string;
             "deleteConfirmDescription": string;
             "createSuccess": string;
@@ -364,6 +393,7 @@ export type I18nTranslations = {
                     "addCategoryTips": string;
                     "categoryNamePlaceholder": string;
                     "duplicateCategoryName": string;
+                    "solution": string;
                 };
                 "category": {
                     "menu": {
@@ -391,6 +421,8 @@ export type I18nTranslations = {
                     "preview": string;
                     "usage": string;
                     "visit": string;
+                    "solution": string;
+                    "requirements": string;
                 };
                 "actions": {
                     "title": string;
@@ -480,10 +512,17 @@ export type I18nTranslations = {
                 "deleteAccount": {
                     "title": string;
                     "desc": string;
-                    "error": {
+                    "spaces": {
                         "title": string;
-                        "desc": string;
-                        "spacesError": string;
+                        "body": string;
+                        "loading": string;
+                        "blockedHint": string;
+                        "willTrash": string;
+                        "willTransfer": string;
+                        "subscribedHint": string;
+                        "cancelSubscription": string;
+                        "transferTo": string;
+                        "transferToSubscribed": string;
                     };
                     "confirm": {
                         "title": string;
@@ -562,6 +601,8 @@ export type I18nTranslations = {
                     "revokeDesc": string;
                     "scopeTitle": string;
                     "scopeDesc": string;
+                    "notifications": string;
+                    "notificationsDesc": string;
                 };
                 "userIntegration": {
                     "title": string;
@@ -573,10 +614,6 @@ export type I18nTranslations = {
                     "slack": {
                         "user": string;
                         "workspace": string;
-                    };
-                    "email": {
-                        "user": string;
-                        "email": string;
                     };
                     "deleteTitle": string;
                     "deleteDesc": string;
@@ -621,6 +658,8 @@ export type I18nTranslations = {
             "webSearch": string;
             "folder": string;
             "newAutomation": string;
+            "routine": string;
+            "newRoutine": string;
             "newApp": string;
             "newFolder": string;
             "template": string;
@@ -758,21 +797,20 @@ export type I18nTranslations = {
             "billable": string;
             "billableByAuthorityMatrix": string;
             "seatConfirm": {
-                "title": string;
-                "roleChangeTitle": string;
                 "matrixTitle": string;
-                "inviteDesc_zero": string;
-                "inviteDesc_one": string;
-                "inviteDesc_two": string;
-                "inviteDesc_few": string;
-                "inviteDesc_many": string;
-                "inviteDesc_other": string;
-                "linkDesc": string;
-                "roleChangeDesc": string;
                 "matrixDesc": string;
                 "seatLimitTitle": string;
                 "seatLimitDesc": string;
                 "seatLimitConfirm": string;
+                "fixedSeatTitle": string;
+                "fixedSeatDesc": string;
+                "title": string;
+                "roleChangeTitle": string;
+                "inviteDesc_one": string;
+                "inviteDesc_two": string;
+                "inviteDesc_other": string;
+                "linkDesc": string;
+                "roleChangeDesc": string;
                 "confirmInvite": string;
             };
             "licenseExpiredGracePeriod": string;
@@ -868,6 +906,13 @@ export type I18nTranslations = {
                         "modelTiersDescription": string;
                         "allInheriting": string;
                         "customized": string;
+                        "tiersIntro": string;
+                        "defaultTier": string;
+                        "setDefault": string;
+                        "notOffered": string;
+                        "lgBackground": string;
+                        "mdBackground": string;
+                        "smBackground": string;
                     };
                     "actions": {
                         "title": string;
@@ -977,6 +1022,7 @@ export type I18nTranslations = {
                     "isOpenRouter": string;
                     "modelRates": string;
                     "modelSettings": string;
+                    "duplicateModel": string;
                     "model": string;
                     "inputRate": string;
                     "outputRate": string;
@@ -1021,11 +1067,6 @@ export type I18nTranslations = {
                     "generatedPricingTip": string;
                     "rateExplanationManual": string;
                     "referenceModelLabel": string;
-                    "contextWindowCap": string;
-                    "contextWindowCapTip": string;
-                    "maxOutputTokensCap": string;
-                    "maxOutputTokensCapTip": string;
-                    "rateExplanationCaps": string;
                     "relativeRatioTip": string;
                     "hint": {
                         "title": string;
@@ -1297,6 +1338,9 @@ export type I18nTranslations = {
                 "title": string;
                 "acknowledge": string;
             };
+            "oauthApp": {
+                "message": string;
+            };
         };
         "role": {
             "title": {
@@ -1394,6 +1438,11 @@ export type I18nTranslations = {
                         "title": string;
                         "message": string;
                     };
+                    "signinVerification": {
+                        "subject": string;
+                        "title": string;
+                        "message": string;
+                    };
                     "domainVerification": {
                         "subject": string;
                         "title": string;
@@ -1414,6 +1463,7 @@ export type I18nTranslations = {
                     "subject": string;
                     "title": string;
                     "buttonText": string;
+                    "more": string;
                 };
                 "invite": {
                     "subject": string;
@@ -1491,6 +1541,30 @@ export type I18nTranslations = {
                             "title": string;
                             "message": string;
                         };
+                        "connectorDisconnected": {
+                            "title": string;
+                        };
+                    };
+                    "routine": {
+                        "failed": {
+                            "title": string;
+                            "message": string;
+                        };
+                        "failedSummary": {
+                            "title": string;
+                            "message": string;
+                        };
+                        "insufficientCredit": {
+                            "title": string;
+                            "message": string;
+                        };
+                        "autoDeactivated": {
+                            "title": string;
+                            "message": string;
+                        };
+                        "connectorDisconnected": {
+                            "title": string;
+                        };
                     };
                     "billing": {
                         "title": string;
@@ -1538,6 +1612,16 @@ export type I18nTranslations = {
                                 };
                             };
                         };
+                        "customDomain": {
+                            "expired": {
+                                "title": string;
+                                "message": string;
+                            };
+                            "released": {
+                                "title": string;
+                                "message": string;
+                            };
+                        };
                     };
                     "exportBase": {
                         "title": string;
@@ -1558,6 +1642,7 @@ export type I18nTranslations = {
                                 "title": string;
                                 "rateLimit": string;
                                 "creditExhausted": string;
+                                "providerBilling": string;
                                 "authFailed": string;
                                 "serviceUnavailable": string;
                                 "unknown": string;
@@ -1573,6 +1658,14 @@ export type I18nTranslations = {
                         "title": string;
                         "message": string;
                         "buttonText": string;
+                    };
+                    "connectorEvent": {
+                        "disconnected": {
+                            "grantRevoked": string;
+                            "connectionDeleted": string;
+                            "providerDisabled": string;
+                            "subscribeFailed": string;
+                        };
                     };
                 };
             };
@@ -1648,6 +1741,7 @@ export type I18nTranslations = {
             "minFollowerCount": string;
             "mustMention": string;
             "fetchSnapshotFailed": string;
+            "snapshotTimeout": string;
             "alreadyClaimedThisWeek": string;
             "maxClaimsReached": string;
             "postTooOld": string;
@@ -1725,15 +1819,43 @@ export type I18nTranslations = {
             "sandboxSnapshotNotFound": string;
             "sandboxProviderError": string;
             "sandboxProviderErrorDescription": string;
+            "sandboxUnavailable": string;
+            "sandboxUnavailableMaintenance": string;
+            "sandboxUnavailableNotConfigured": string;
             "agentStartFailed": string;
             "idleTimeout": string;
             "danglingToolUse": string;
-            "contextImportFailed": string;
+            "versionSaveFailed": string;
+            "versionSaveFailedDescription": string;
+            "versionPushTooLarge": string;
+            "versionPushTooLargeDescription": string;
+            "versionPushTooLargeAction": string;
+            "versionPushTooLargePrompt": string;
             "collapsedStatus": {
                 "open": string;
                 "working": string;
                 "completed": string;
                 "failed": string;
+            };
+        };
+        "modelTier": {
+            "title": string;
+            "uses": string;
+            "xl": {
+                "label": string;
+                "description": string;
+            };
+            "lg": {
+                "label": string;
+                "description": string;
+            };
+            "md": {
+                "label": string;
+                "description": string;
+            };
+            "sm": {
+                "label": string;
+                "description": string;
             };
         };
         "system": {
@@ -1788,6 +1910,7 @@ export type I18nTranslations = {
                 "copyToSpace": string;
                 "copyToPersonal": string;
                 "copyToApp": string;
+                "copyToRoutine": string;
             };
             "import": {
                 "title": string;
@@ -1829,6 +1952,8 @@ export type I18nTranslations = {
                 "appDescription": string;
                 "cuppyclaw": string;
                 "cuppyclawDescription": string;
+                "routine": string;
+                "routineDescription": string;
             };
             "source": {
                 "github": string;
@@ -1879,6 +2004,41 @@ export type I18nTranslations = {
             "more_few": string;
             "more_many": string;
             "more_other": string;
+        };
+        "mobileEmbed": {
+            "pickFromDirectory": string;
+            "pickFromDirectoryHint": string;
+            "limitReachedTitle": string;
+            "limitReachedDescription": string;
+            "creditsExhaustedTitle": string;
+            "creditsExhaustedDescription": string;
+            "seatLimitTitle": string;
+            "seatLimitDescription": string;
+            "ownerManagesPlan": string;
+            "featureUnavailableTitle": string;
+            "billingUnavailable": string;
+            "featureUnavailableDescription": string;
+            "importRowLimitReached": string;
+            "userCapTitle": string;
+            "userCapDescription": string;
+        };
+        "push": {
+            "gate": {
+                "askUserQuestion": string;
+                "permission": string;
+                "connectIntegration": string;
+                "pickGoogleSheet": string;
+                "requestCredential": string;
+            };
+            "result": {
+                "done": string;
+                "failed": string;
+                "creditExhausted": string;
+                "skippedNoCredit": string;
+                "autoDeactivated": string;
+                "summaryTitle": string;
+                "summary": string;
+            };
         };
     };
     "dashboard": {
@@ -2145,6 +2305,7 @@ export type I18nTranslations = {
             "loadFileError": string;
             "previousAttachment": string;
             "nextAttachment": string;
+            "deleteAttachment": string;
         };
         "undoRedo": {
             "undo": string;
@@ -2550,12 +2711,19 @@ export type I18nTranslations = {
                 "automationDelete": string;
                 "automationRead": string;
                 "automationUpdate": string;
+                "routineCreate": string;
+                "routineDelete": string;
+                "routineRead": string;
+                "routineUpdate": string;
                 "appCreate": string;
                 "appDelete": string;
                 "appRead": string;
                 "appUpdate": string;
                 "userEmailRead": string;
                 "userIntegrations": string;
+                "userSpacesRead": string;
+                "userSelfHostedLicensesRead": string;
+                "userNotificationsSend": string;
                 "recordHistoryRead": string;
                 "baseQuery": string;
                 "instanceRead": string;
@@ -2572,6 +2740,7 @@ export type I18nTranslations = {
             "field": string;
             "record": string;
             "automation": string;
+            "routine": string;
             "app": string;
             "user": string;
             "recordHistory": string;
@@ -3066,6 +3235,12 @@ export type I18nTranslations = {
                 "recordsPerMutationMax": string;
                 "computedCellValueMaxBytes": string;
                 "formulaMaxLength": string;
+                "formulaCompileNodesMax": string;
+                "formulaCompileDepthMax": string;
+                "formulaReferenceDepthMax": string;
+                "formulaBindingsMax": string;
+                "formulaCompileBytesMax": string;
+                "formulaSqlBytesMax": string;
                 "tablesPerBaseMax": string;
                 "fieldsPerTableMax": string;
                 "rowsPerTableMax": string;
@@ -3159,6 +3334,7 @@ export type I18nTranslations = {
                 "triggerTestFailed": string;
                 "testFailed": string;
                 "runFailed": string;
+                "activatorDeactivated": string;
                 "nodeParseError": string;
                 "nodeNeedTest": string;
                 "nodeTestOutdated": string;
@@ -3191,6 +3367,8 @@ export type I18nTranslations = {
                 "unsupportedCategory": string;
                 "unknownConnectionType": string;
                 "imapPasswordNotConfigured": string;
+                "secretNotGranted": string;
+                "credentialMustBeSecret": string;
                 "integrationNotFound": string;
                 "webhookTriggerNotFound": string;
                 "emailReceivedTriggerNotFound": string;
@@ -3203,11 +3381,16 @@ export type I18nTranslations = {
                 "triggerFailed": string;
                 "snapshotError": string;
                 "timeout": string;
+                "catalogFailed": string;
+                "discoverByOnCatalogDataset": string;
+                "tooManyRecords": string;
+                "creditEstimateExceeded": string;
             };
             "integration": {
                 "oauthCodeExchangeFailed": string;
                 "oauthTokenRefreshFailed": string;
                 "userInfoFetchFailed": string;
+                "providerUnsupported": string;
             };
             "space": {
                 "notFound": string;
@@ -3248,6 +3431,23 @@ export type I18nTranslations = {
                 "folderNotFound": string;
                 "anchorNotFound": string;
                 "nameAlreadyExists": string;
+            };
+            "routine": {
+                "notFound": string;
+                "runNotFound": string;
+                "configRequiredToActivate": string;
+                "noFutureOccurrence": string;
+                "onlyActiveCanDeactivate": string;
+                "configRequiredToRun": string;
+                "runAlreadyInFlight": string;
+                "runNowWhileActiveEvent": string;
+                "invalidRunCursor": string;
+                "invalidSchedule": string;
+            };
+            "chat": {
+                "notFound": string;
+                "accessDenied": string;
+                "serverAuthoredType": string;
             };
             "dashboard": {
                 "notFound": string;
@@ -3454,6 +3654,9 @@ export type I18nTranslations = {
                 "manualSubscriptionNotSupported": string;
                 "appSumoSubscriptionNotSupported": string;
                 "customerNotFound": string;
+                "planNotAvailable": string;
+                "seatLimitExceeded": string;
+                "creditAddOnRetired": string;
             };
             "aggregation": {
                 "searchQueryRequired": string;
@@ -3474,6 +3677,7 @@ export type I18nTranslations = {
                 "configurationNotSet": string;
                 "unsupportedProvider": string;
                 "providerConfigurationNotSet": string;
+                "providerModelDuplicated": string;
                 "gatewayApiKeyNotSet": string;
                 "testLLMFailed": string;
                 "audioNotSupported": string;
@@ -3590,6 +3794,7 @@ export type I18nTranslations = {
             "domainVerification": {
                 "notFound": string;
                 "invalidCode": string;
+                "tooManyAttempts": string;
                 "resendCooldown": string;
                 "alreadyVerified": string;
             };
@@ -3609,7 +3814,7 @@ export type I18nTranslations = {
                 "waitlistInviteCodeRequired": string;
                 "waitlistInviteCodeInvalid": string;
                 "systemUser": string;
-                "collaboratorsInSpaces": string;
+                "soleOwnerOfSpaces": string;
                 "notFound": string;
                 "cannotDeleteAdmin": string;
                 "cannotDeactivateAdmin": string;
@@ -3698,6 +3903,11 @@ export type I18nTranslations = {
                 "linkedInAuthorNotFound": string;
                 "fetchLinkedInUserFailed": string;
             };
+            "connectorEvent": {
+                "accountNotGranted": string;
+                "notEnabled": string;
+            };
+            "tableProvisionPending": string;
         };
         "usageLimitBanner": {
             "viewDetail": string;
@@ -3707,6 +3917,7 @@ export type I18nTranslations = {
                 "titleBatch": string;
                 "description": string;
                 "unit": string;
+                "constraint": string;
             };
             "credit": {
                 "unit": string;
@@ -3716,6 +3927,12 @@ export type I18nTranslations = {
             };
             "generic": {
                 "description": string;
+            };
+            "neutral": {
+                "title": string;
+            };
+            "seats": {
+                "unit": string;
             };
         };
     };
@@ -3750,6 +3967,13 @@ export type I18nTranslations = {
             "duplicateBaseDescription": string;
             "affectedTableSuffix": string;
             "convertAndDuplicate": string;
+        };
+        "trash": {
+            "forceRemove": string;
+            "forceRemoveTitle": string;
+            "forceRemoveLabel": string;
+            "forceRemoveWarning": string;
+            "forceRemoveSuccess": string;
         };
         "initialSpaceName": string;
         "action": {
@@ -4167,6 +4391,9 @@ export type I18nTranslations = {
             "failed": string;
             "calculationFailed": string;
             "cellValueTooLarge": string;
+            "formulaLimit": string;
+            "resourceLimit": string;
+            "stageDepthExhausted": string;
             "calculatingSummary": string;
             "failedSummary": string;
             "fieldsCalculating_zero": string;
@@ -4201,6 +4428,16 @@ export type I18nTranslations = {
             "records_other": string;
             "batchesComplete": string;
             "progressAriaLabel": string;
+            "statusUnavailable": string;
+            "statusSyncing": string;
+            "statusSyncingDescription": string;
+            "statusUnavailableDescription": string;
+            "refreshStatus": string;
+            "paused": string;
+            "resultsNotUpdated": string;
+            "delayed": string;
+            "snapshotMayBeStale": string;
+            "unknownImpact": string;
         };
         "crossSpace": {
             "duplicateFieldTitle": string;
@@ -4450,7 +4687,6 @@ export type I18nTranslations = {
                 "bar": string;
                 "text": string;
                 "markdown": string;
-                "url": string;
                 "email": string;
                 "phone": string;
                 "maxNumber": string;
@@ -4512,6 +4748,7 @@ export type I18nTranslations = {
                 "filterByView": string;
                 "filter": string;
                 "hideFields": string;
+                "removeDuplicateValues": string;
                 "moreOptions": string;
                 "allowNewOptionsWhenEditing": string;
                 "deleteField": {
@@ -5095,6 +5332,9 @@ export type I18nTranslations = {
         };
         "import": {
             "title": {
+                "createTable": string;
+                "importFromCsv": string;
+                "importFromExcel": string;
                 "upload": string;
                 "import": string;
                 "localFile": string;
@@ -5480,6 +5720,9 @@ export type I18nTranslations = {
                     "failed": string;
                 };
             };
+            "gateCard": {
+                "header": string;
+            };
             "agent": {
                 "askUserQuestion": {
                     "otherPlaceholder": string;
@@ -5553,6 +5796,148 @@ export type I18nTranslations = {
             "action": {
                 "locateResource": string;
             };
+            "resourceOperations": {
+                "title": string;
+                "items_zero": string;
+                "items_one": string;
+                "items_two": string;
+                "items_few": string;
+                "items_many": string;
+                "items_other": string;
+                "expandRemaining": string;
+                "collapse": string;
+                "create": string;
+                "update": string;
+                "delete": string;
+                "import": string;
+                "publication": {
+                    "published": string;
+                    "unpublished": string;
+                };
+                "structureTitles": {
+                    "field": string;
+                    "view": string;
+                };
+                "structureStats": {
+                    "field": {
+                        "create_zero": string;
+                        "create_one": string;
+                        "create_two": string;
+                        "create_few": string;
+                        "create_many": string;
+                        "create_other": string;
+                        "update_zero": string;
+                        "update_one": string;
+                        "update_two": string;
+                        "update_few": string;
+                        "update_many": string;
+                        "update_other": string;
+                        "delete_zero": string;
+                        "delete_one": string;
+                        "delete_two": string;
+                        "delete_few": string;
+                        "delete_many": string;
+                        "delete_other": string;
+                        "import_zero": string;
+                        "import_one": string;
+                        "import_two": string;
+                        "import_few": string;
+                        "import_many": string;
+                        "import_other": string;
+                        "create": string;
+                        "update": string;
+                        "delete": string;
+                        "import": string;
+                    };
+                    "view": {
+                        "create_zero": string;
+                        "create_one": string;
+                        "create_two": string;
+                        "create_few": string;
+                        "create_many": string;
+                        "create_other": string;
+                        "update_zero": string;
+                        "update_one": string;
+                        "update_two": string;
+                        "update_few": string;
+                        "update_many": string;
+                        "update_other": string;
+                        "delete_zero": string;
+                        "delete_one": string;
+                        "delete_two": string;
+                        "delete_few": string;
+                        "delete_many": string;
+                        "delete_other": string;
+                        "import_zero": string;
+                        "import_one": string;
+                        "import_two": string;
+                        "import_few": string;
+                        "import_many": string;
+                        "import_other": string;
+                        "create": string;
+                        "update": string;
+                        "delete": string;
+                        "import": string;
+                    };
+                };
+                "workflow": {
+                    "activate": string;
+                    "deactivate": string;
+                    "discard": string;
+                };
+                "routine": {
+                    "activate": string;
+                    "deactivate": string;
+                    "run": string;
+                };
+                "records": {
+                    "create": string;
+                    "createCount_zero": string;
+                    "createCount_one": string;
+                    "createCount_two": string;
+                    "createCount_few": string;
+                    "createCount_many": string;
+                    "createCount_other": string;
+                    "update": string;
+                    "updateCount_zero": string;
+                    "updateCount_one": string;
+                    "updateCount_two": string;
+                    "updateCount_few": string;
+                    "updateCount_many": string;
+                    "updateCount_other": string;
+                    "delete": string;
+                    "deleteCount_zero": string;
+                    "deleteCount_one": string;
+                    "deleteCount_two": string;
+                    "deleteCount_few": string;
+                    "deleteCount_many": string;
+                    "deleteCount_other": string;
+                    "import": string;
+                    "importCount_zero": string;
+                    "importCount_one": string;
+                    "importCount_two": string;
+                    "importCount_few": string;
+                    "importCount_many": string;
+                    "importCount_other": string;
+                    "createCount": string;
+                    "updateCount": string;
+                    "deleteCount": string;
+                    "importCount": string;
+                };
+                "types": {
+                    "base": string;
+                    "table": string;
+                    "field": string;
+                    "view": string;
+                    "record": string;
+                    "app": string;
+                    "workflow": string;
+                    "routine": string;
+                    "folder": string;
+                    "artifact": string;
+                };
+                "items": string;
+            };
             "showUI": {
                 "skip": string;
                 "next": string;
@@ -5596,7 +5981,13 @@ export type I18nTranslations = {
             "addAttachment": string;
             "noHistory": string;
             "noFoundHistory": string;
+            "pin": string;
+            "unpin": string;
+            "archive": string;
+            "archivedToast": string;
+            "unread": string;
             "timeGroup": {
+                "pinned": string;
                 "today": string;
                 "oneWeek": string;
                 "twoWeek": string;
@@ -5615,6 +6006,7 @@ export type I18nTranslations = {
                 "tables": string;
                 "apps": string;
                 "workflows": string;
+                "routines": string;
                 "folders": string;
                 "envs": string;
             };
@@ -5756,6 +6148,8 @@ export type I18nTranslations = {
                 "opening": string;
                 "failed": string;
                 "gateExpired": string;
+                "notConnected": string;
+                "backToChat": string;
                 "status": {
                     "picked": string;
                     "cancelled": string;
@@ -5784,7 +6178,6 @@ export type I18nTranslations = {
                 "scopePublic": string;
                 "scopeSpace": string;
                 "passwordProtect": string;
-                "passwordApply": string;
                 "passwordRequired": string;
                 "passwordPlaceholder": string;
                 "passwordIncorrect": string;
@@ -5795,6 +6188,11 @@ export type I18nTranslations = {
                 "searchPlaceholder": string;
                 "fixWithAi": string;
                 "noPermission": string;
+            };
+            "status": {
+                "running": string;
+                "waitingInput": string;
+                "failed": string;
             };
         };
         "upload": {

@@ -224,9 +224,9 @@ describe('AndSpec/OrSpec/NotSpec', () => {
       () => true,
       (value) => value
     );
-    andSpec(left, right)._unsafeUnwrap();
-    orSpec(left, right)._unsafeUnwrap();
-    notSpec(left)._unsafeUnwrap();
+    expect(andSpec(left, right).isOk()).toBe(true);
+    expect(orSpec(left, right).isOk()).toBe(true);
+    expect(notSpec(left).isOk()).toBe(true);
   });
 });
 
@@ -302,6 +302,6 @@ describe('SpecBuilder', () => {
     );
     const visitor = new NoopSpecVisitor();
     const result = spec.accept(visitor);
-    result._unsafeUnwrap();
+    expect(result.isOk()).toBe(true);
   });
 });

@@ -37,9 +37,9 @@ export class EvalVisitor
 {
   private readonly converter = new TypedValueConverter();
   constructor(
-    private dependencies: { [fieldId: string]: FieldCore },
-    private record?: IRecord,
-    private timeZone = 'UTC'
+    private readonly dependencies: { [fieldId: string]: FieldCore },
+    private readonly record?: IRecord,
+    private readonly timeZone = 'UTC'
   ) {
     super();
   }
@@ -86,13 +86,13 @@ export class EvalVisitor
 
   visitIntegerLiteral(ctx: IntegerLiteralContext): any {
     // Parse and return the integer value
-    const value = parseInt(ctx.text, 10);
+    const value = Number.parseInt(ctx.text, 10);
     return new TypedValue(value, CellValueType.Number);
   }
 
   visitDecimalLiteral(ctx: DecimalLiteralContext): any {
     // Parse and return the decimal value
-    const value = parseFloat(ctx.text);
+    const value = Number.parseFloat(ctx.text);
     return new TypedValue(value, CellValueType.Number);
   }
 
@@ -170,7 +170,7 @@ export class EvalVisitor
       ctx.LTE(),
       ctx.GT(),
       ctx.GTE(),
-    ].some((op) => Boolean(op));
+    ].some(Boolean);
 
     if (field.cellValueType === CellValueType.DateTime && isComparisonOperator) {
       return typedValue;

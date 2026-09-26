@@ -46,157 +46,157 @@ export class FieldSpecBuilder extends SpecBuilder<Field, ISpecVisitor, FieldSpec
     return new FieldSpecBuilder(mode);
   }
 
-  withFieldId(fieldId: FieldId): FieldSpecBuilder {
+  withFieldId(fieldId: FieldId): this {
     this.addSpec(FieldByIdSpec.create(fieldId));
     return this;
   }
 
-  withFieldName(fieldName: FieldName): FieldSpecBuilder {
+  withFieldName(fieldName: FieldName): this {
     this.addSpec(FieldByNameSpec.create(fieldName));
     return this;
   }
 
-  withField(key: string): FieldSpecBuilder {
+  withField(key: string): this {
     this.addSpec(FieldByKeySpec.create(key));
     return this;
   }
 
-  isPrimary(primaryFieldId: FieldId): FieldSpecBuilder {
+  isPrimary(primaryFieldId: FieldId): this {
     this.addSpec(FieldIsPrimarySpec.create(primaryFieldId));
     return this;
   }
 
-  isLink(): FieldSpecBuilder {
+  isLink(): this {
     this.addSpec(FieldIsLinkSpec.create());
     return this;
   }
 
-  isFormula(): FieldSpecBuilder {
+  isFormula(): this {
     this.addSpec(FieldIsFormulaSpec.create());
     return this;
   }
 
-  isRollup(): FieldSpecBuilder {
+  isRollup(): this {
     this.addSpec(FieldIsRollupSpec.create());
     return this;
   }
 
-  isLookup(): FieldSpecBuilder {
+  isLookup(): this {
     this.addSpec(FieldIsLookupSpec.create());
     return this;
   }
 
-  isComputed(): FieldSpecBuilder {
+  isComputed(): this {
     this.addSpec(FieldIsComputedSpec.create());
     return this;
   }
 
-  isSingleText(): FieldSpecBuilder {
+  isSingleText(): this {
     this.addSpec(FieldIsSingleTextSpec.create());
     return this;
   }
 
-  isLongText(): FieldSpecBuilder {
+  isLongText(): this {
     this.addSpec(FieldIsLongTextSpec.create());
     return this;
   }
 
-  isNumber(): FieldSpecBuilder {
+  isNumber(): this {
     this.addSpec(FieldIsNumberSpec.create());
     return this;
   }
 
-  isRating(): FieldSpecBuilder {
+  isRating(): this {
     this.addSpec(FieldIsRatingSpec.create());
     return this;
   }
 
-  isNumberField(): FieldSpecBuilder {
+  isNumberField(): this {
     this.addSpec(FieldIsNumberFieldSpec.create());
     return this;
   }
 
-  isNumberLike(): FieldSpecBuilder {
+  isNumberLike(): this {
     this.addSpec(FieldIsNumberLikeSpec.create());
     return this;
   }
 
-  isNumberValue(): FieldSpecBuilder {
+  isNumberValue(): this {
     this.addSpec(FieldIsNumberValueSpec.create());
     return this;
   }
 
-  isSingleSelect(): FieldSpecBuilder {
+  isSingleSelect(): this {
     this.addSpec(FieldIsSingleSelectSpec.create());
     return this;
   }
 
-  isMultipleSelect(): FieldSpecBuilder {
+  isMultipleSelect(): this {
     this.addSpec(FieldIsMultipleSelectSpec.create());
     return this;
   }
 
-  isCheckbox(): FieldSpecBuilder {
+  isCheckbox(): this {
     this.addSpec(FieldIsCheckboxSpec.create());
     return this;
   }
 
-  isAttachment(): FieldSpecBuilder {
+  isAttachment(): this {
     this.addSpec(FieldIsAttachmentSpec.create());
     return this;
   }
 
-  isDate(): FieldSpecBuilder {
+  isDate(): this {
     this.addSpec(FieldIsDateSpec.create());
     return this;
   }
 
-  isDateLike(): FieldSpecBuilder {
+  isDateLike(): this {
     this.addSpec(FieldIsDateLikeSpec.create());
     return this;
   }
 
-  isDateTimeValue(): FieldSpecBuilder {
+  isDateTimeValue(): this {
     this.addSpec(FieldIsDateTimeValueSpec.create());
     return this;
   }
 
-  isStringValue(): FieldSpecBuilder {
+  isStringValue(): this {
     this.addSpec(FieldIsStringValueSpec.create());
     return this;
   }
 
-  isBooleanValue(): FieldSpecBuilder {
+  isBooleanValue(): this {
     this.addSpec(FieldIsBooleanValueSpec.create());
     return this;
   }
 
-  isJson(): FieldSpecBuilder {
+  isJson(): this {
     this.addSpec(FieldIsJsonSpec.create());
     return this;
   }
 
-  isUser(): FieldSpecBuilder {
+  isUser(): this {
     this.addSpec(FieldIsUserSpec.create());
     return this;
   }
 
-  isButton(): FieldSpecBuilder {
+  isButton(): this {
     this.addSpec(FieldIsButtonSpec.create());
     return this;
   }
 
-  andGroup(build: (builder: FieldSpecBuilder) => FieldSpecBuilder): FieldSpecBuilder {
+  andGroup(build: (builder: FieldSpecBuilder) => FieldSpecBuilder): this {
     this.addGroup('and', build);
     return this;
   }
 
-  orGroup(build: (builder: FieldSpecBuilder) => FieldSpecBuilder): FieldSpecBuilder {
+  orGroup(build: (builder: FieldSpecBuilder) => FieldSpecBuilder): this {
     this.addGroup('or', build);
     return this;
   }
 
-  not(build: (builder: FieldSpecBuilder) => FieldSpecBuilder): FieldSpecBuilder {
+  not(build: (builder: FieldSpecBuilder) => FieldSpecBuilder): this {
     const nested = build(this.createChild('and'));
     const result = nested.build();
     result.match(

@@ -97,6 +97,7 @@ describe('PostgresTableRowLimitPlugin', () => {
     expect(plugin.supports(RecordWriteOperationKind.updateOne)).toBe(false);
     expect(plugin.supports(RecordWriteOperationKind.updateMany)).toBe(false);
     expect(plugin.supports(RecordWriteOperationKind.deleteMany)).toBe(false);
+    expect(plugin.supports(RecordWriteOperationKind.archiveMany)).toBe(false);
   });
 
   it('reads dbTableName from the plugin table context and resolves the configured policy', async () => {

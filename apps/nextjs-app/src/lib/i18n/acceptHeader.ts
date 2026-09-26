@@ -77,7 +77,7 @@ function parse(raw: string, preferences: string[] | undefined, options: IOptions
         throw new Error(`Invalid ${options.type} header`);
       }
 
-      const score = parseFloat(value);
+      const score = Number.parseFloat(value);
       if (score === 0) {
         continue;
       }
@@ -111,7 +111,7 @@ function parse(raw: string, preferences: string[] | undefined, options: IOptions
   });
 
   const values = selections.map((selection) => selection.token);
-  if (!preferences || !preferences.length) {
+  if (!preferences?.length) {
     return values;
   }
 

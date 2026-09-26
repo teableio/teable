@@ -2,7 +2,7 @@
 import { BaseQueryColumnType } from '@teable/openapi';
 import type { IQueryAggregation, IBaseQuerySelect, IBaseQueryGroupBy } from '@teable/openapi';
 import type { Knex } from 'knex';
-import { cloneDeep, isEmpty } from 'lodash';
+import { cloneDeep } from 'lodash';
 import type { IDbProvider } from '../../../../db-provider/db.provider.interface';
 import { isUserOrLink } from '../../../../utils/is-user-or-link';
 import type { IFieldInstance } from '../../../field/model/factory';
@@ -49,7 +49,7 @@ export class QuerySelect {
       select.forEach((cur) => {
         const field = currentFieldMap[cur.column];
         if (field && getQueryColumnTypeByFieldInstance(field) === BaseQueryColumnType.Field) {
-          const alias = (cur.alias ? cur.alias : field.id).replace(/\?/g, '_');
+          const alias = (cur.alias ? cur.alias : field.id).replaceAll('?', '_');
           // Use raw to avoid knex double-quoting an already quoted identifier
           queryBuilder.select(knex.raw(`${field.dbFieldName} as ??`, [alias]));
           currentFieldMap[cur.column].name = alias;
@@ -80,7 +80,7 @@ export class QuerySelect {
     // tips: The current query has an aggregation and cannot be deleted. ( select * count(fld) as fld_count from xxxxx) => fld_count cannot be deleted
     if (select) {
       Object.keys(currentFieldMap).forEach((key) => {
-        if (!select.find((s) => s.column === key)) {
+        if (!select.some((s) => s.column === key)) {
           if (aggregationColumn.includes(key)) {
             // aggregation field id as alias
             currentFieldMap[key].dbFieldName = key;

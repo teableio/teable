@@ -83,7 +83,9 @@ const main = async () => {
     else console.log(`  ${t.padEnd(22)}   — not present in any base`);
   }
   console.log('\n=== All field types seen ===');
-  console.log('  ' + [...typeCount.keys()].sort().join(', '));
+  console.log(
+    '  ' + [...typeCount.keys()].sort((a, b) => Number(a > b) - Number(a < b)).join(', ')
+  );
   console.log('\n=== Link relationship combinations ===');
   console.log(`  single-record links (prefersSingle): ${links.single.size} bases`);
   console.log(`  multi-record links:                  ${links.multi} fields`);

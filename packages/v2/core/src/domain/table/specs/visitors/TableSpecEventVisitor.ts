@@ -107,6 +107,7 @@ import type { TableUpdateViewShareMetaSpec } from '../TableUpdateViewShareMetaSp
 import type { TableUpdateViewShareStateSpec } from '../TableUpdateViewShareStateSpec';
 import type { TableWithViewIdsSpec } from '../TableWithViewIdsSpec';
 import type { TableWithPrimaryFieldSpec } from '../TableWithPrimaryFieldSpec';
+import type { TableWithFieldIdsSpec } from '../TableWithFieldIdsSpec';
 import { FieldUpdateSemanticsVisitor } from './FieldUpdateSemanticsVisitor';
 
 /**
@@ -570,6 +571,13 @@ export class TableSpecEventVisitor implements ITableSpecVisitor<void> {
     return ok(undefined);
   }
 
+  visitTableWithFieldIds(
+    _spec: TableWithFieldIdsSpec<ITableSpecVisitor<void>>
+  ): Result<void, DomainError> {
+    // Query-only child hydration spec, no events generated
+    return ok(undefined);
+  }
+
   visitTableByIncomingReferenceToTable(
     _spec: TableByIncomingReferenceToTableSpec<ITableSpecVisitor<void>>
   ): Result<void, DomainError> {
@@ -582,9 +590,8 @@ export class TableSpecEventVisitor implements ITableSpecVisitor<void> {
     return ok(undefined);
   }
 
-  visitTableByName(spec: TableByNameSpec<ITableSpecVisitor<void>>): Result<void, DomainError> {
+  visitTableByName(_spec: TableByNameSpec<ITableSpecVisitor<void>>): Result<void, DomainError> {
     // Query-only spec, no events generated
-    void spec;
     return ok(undefined);
   }
 

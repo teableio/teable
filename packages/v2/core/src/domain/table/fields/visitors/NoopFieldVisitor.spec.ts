@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { expect, describe, it } from 'vitest';
 
 import { TableId } from '../../TableId';
 import { FieldId } from '../FieldId';
@@ -19,10 +19,10 @@ describe('NoopFieldVisitor', () => {
     [foreignTableIdResult, lookupFieldIdResult, linkFieldIdResult, linkFieldNameResult].forEach(
       (r) => r._unsafeUnwrap()
     );
-    foreignTableIdResult._unsafeUnwrap();
-    lookupFieldIdResult._unsafeUnwrap();
-    linkFieldIdResult._unsafeUnwrap();
-    linkFieldNameResult._unsafeUnwrap();
+    expect(foreignTableIdResult.isOk()).toBe(true);
+    expect(lookupFieldIdResult.isOk()).toBe(true);
+    expect(linkFieldIdResult.isOk()).toBe(true);
+    expect(linkFieldNameResult.isOk()).toBe(true);
 
     const configResult = LinkFieldConfig.create({
       relationship: 'oneOne',
@@ -37,6 +37,6 @@ describe('NoopFieldVisitor', () => {
     })._unsafeUnwrap();
 
     const visitor = new NoopFieldVisitor();
-    linkField.accept(visitor)._unsafeUnwrap();
+    expect(linkField.accept(visitor).isOk()).toBe(true);
   });
 });

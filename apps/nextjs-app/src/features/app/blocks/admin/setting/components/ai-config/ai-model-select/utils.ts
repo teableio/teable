@@ -61,15 +61,15 @@ export const formatPriceToCredits = (
   // Convert USD per token to credits per 1M tokens
   const usdToCredits = (usd: string | undefined) => {
     if (!usd) return 0;
-    const val = parseFloat(usd);
-    if (isNaN(val) || val === 0) return 0;
+    const val = Number.parseFloat(usd);
+    if (Number.isNaN(val) || val === 0) return 0;
     // Convert USD per token to credits per 1M tokens
     return Math.round((val * 1_000_000) / 0.01);
   };
 
   // For image pricing
   if (pricing.image) {
-    const imgCredits = Math.round(parseFloat(pricing.image) / 0.01);
+    const imgCredits = Math.round(Number.parseFloat(pricing.image) / 0.01);
     return `${imgCredits} credits/img`;
   }
 
@@ -92,9 +92,9 @@ export const calculateMultiplier = (
   pricing: { input?: string; output?: string } | undefined
 ): number | undefined => {
   if (!pricing?.input || !pricing?.output) return undefined;
-  const inputPerM = parseFloat(pricing.input) * 1_000_000;
-  const outputPerM = parseFloat(pricing.output) * 1_000_000;
-  if (isNaN(inputPerM) || isNaN(outputPerM)) return undefined;
+  const inputPerM = Number.parseFloat(pricing.input) * 1_000_000;
+  const outputPerM = Number.parseFloat(pricing.output) * 1_000_000;
+  if (Number.isNaN(inputPerM) || Number.isNaN(outputPerM)) return undefined;
   return (inputPerM * INPUT_WEIGHT + outputPerM * OUTPUT_WEIGHT) / BASELINE_WEIGHTED_COST;
 };
 

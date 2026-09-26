@@ -108,7 +108,7 @@ export function formatFileSize(bytes: number): string {
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
 /**
@@ -141,7 +141,7 @@ function sanitizeForFilename(str: string): string {
     .replace(/[<>:"/\\|?*]/g, '_') // Replace illegal characters
     .replace(/\s+/g, '_') // Replace whitespace with underscore
     .replace(/_+/g, '_') // Collapse multiple underscores
-    .replace(/^_+|_+$/g, '') // Trim leading/trailing underscores
+    .replace(/^_+|(?<!_)_+$/g, '') // Trim leading/trailing underscores
     .slice(0, 100); // Limit length to 100 characters
 }
 

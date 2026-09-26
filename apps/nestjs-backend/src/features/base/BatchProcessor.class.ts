@@ -1,17 +1,21 @@
-import type { TransformCallback } from 'stream';
-import { Transform } from 'stream';
+import type { TransformCallback } from 'node:stream';
+import { Transform } from 'node:stream';
 
 export class BatchProcessor<T> extends Transform {
   private buffer: T[] = [];
   private totalProcessed = 0;
-  public static BATCH_SIZE = 1000;
+  public static readonly BATCH_SIZE = 1000;
 
   constructor(private readonly handler: (chunk: T[]) => Promise<void>) {
     super({ objectMode: true });
   }
 
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  async _transform(chunk: T, encoding: BufferEncoding, callback: TransformCallback) {
+  _transform(chunk: T, encoding: BufferEncoding, callback: TransformCallback): void {
+    this.transformAsync(chunk, encoding, callback).catch((error) => callback(error as Error));
+  }
+
+  private async transformAsync(chunk: T, encoding: BufferEncoding, callback: TransformCallback) {
     this.buffer.push(chunk);
     this.totalProcessed++;
 
@@ -32,7 +36,11 @@ export class BatchProcessor<T> extends Transform {
   }
 
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  async _flush(callback: TransformCallback) {
+  _flush(callback: TransformCallback): void {
+    this.flushAsync(callback).catch((error) => callback(error as Error));
+  }
+
+  private async flushAsync(callback: TransformCallback) {
     if (this.buffer.length > 0) {
       try {
         await this.handler(this.buffer);

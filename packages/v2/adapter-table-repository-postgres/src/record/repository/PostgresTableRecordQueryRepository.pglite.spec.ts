@@ -15,6 +15,7 @@ import {
   FormulaExpression,
   LookupOptions,
   OffsetPagination,
+  NoopTracer,
   PageLimit,
   PageOffset,
   RecordSearch,
@@ -28,6 +29,7 @@ import {
   UserMultiplicity,
   createUserField,
   type ILogger,
+  type IRecordSearchAccessPath,
   type ITableRepository,
 } from '@teable/v2-core';
 import { Pg16TypeValidationStrategy } from '@teable/v2-formula-sql-pg';
@@ -41,7 +43,7 @@ import {
   PostgresQueryCompiler,
   sql,
 } from 'kysely';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { TableRecordQueryBuilderManager } from '../query-builder';
 import { PostgresCollaboratorDirectoryService } from './PostgresCollaboratorDirectoryService';
@@ -53,8 +55,54 @@ class RecordingDriver {
   readonly queries: CompiledQuery[] = [];
   readonly rowSnapshots: Array<ReadonlyArray<Record<string, unknown>>> = [];
 
+  /**
+   * Test probe (T7308): records the `statement_timeout` a `count(*)` statement
+   * runs under, or makes that statement fail with the given SQLSTATE.
+   *
+   * PGlite does not enforce `statement_timeout` (the in-process WASM engine
+   * cannot interrupt a running statement), so the budget is asserted where it is
+   * observable here and the cancellation is asserted through its SQLSTATE.
+   */
+  countProbe: { setting: string | null; failWithSqlState: string | null } = {
+    setting: null,
+    failWithSqlState: null,
+  };
+
+  /**
+   * Test probe (T7323): records the `statement_timeout` in force for every
+   * statement, so a test can assert that a budget reached a whole read path
+   * instead of a single query. Off by default: every recorded statement costs an
+   * extra roundtrip.
+   */
+  recordStatements = false;
+  readonly statements: Array<{ sql: string; setting: string }> = [];
+
   async acquireConnection() {
-    return new RecordingConnection(this.client, this.queries, this.rowSnapshots);
+    return new RecordingConnection(this.client, this.queries, this.rowSnapshots, (sql) =>
+      this.beforeStatement(sql)
+    );
+  }
+
+  private async beforeStatement(sql: string): Promise<void> {
+    const isCount = /count\(\*\)/i.test(sql);
+    if (isCount && this.countProbe.failWithSqlState) {
+      const error = new Error('canceling statement due to statement timeout');
+      Object.assign(error, { code: this.countProbe.failWithSqlState });
+      throw error;
+    }
+    if (!this.recordStatements && !isCount) {
+      return;
+    }
+    const result = await this.client.query<{ v: string }>(
+      `select current_setting('statement_timeout') as v`
+    );
+    const setting = result.rows[0]?.v ?? null;
+    if (isCount) {
+      this.countProbe.setting = setting;
+    }
+    if (this.recordStatements) {
+      this.statements.push({ sql, setting: setting ?? '' });
+    }
   }
 
   async beginTransaction(connection: RecordingConnection) {
@@ -82,11 +130,13 @@ class RecordingConnection {
   constructor(
     private readonly client: PGlite,
     private readonly queries: CompiledQuery[],
-    private readonly rowSnapshots: Array<ReadonlyArray<Record<string, unknown>>>
+    private readonly rowSnapshots: Array<ReadonlyArray<Record<string, unknown>>>,
+    private readonly onStatement: (sql: string) => Promise<void> = async () => {}
   ) {}
 
   async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
     this.queries.push(compiledQuery);
+    await this.onStatement(compiledQuery.sql);
     const result = await this.client.query<R>(compiledQuery.sql, [...compiledQuery.parameters]);
     const rows = result.rows as unknown as Record<string, unknown>[];
     this.rowSnapshots.push(rows.map((row) => ({ ...row })));
@@ -135,6 +185,49 @@ const createLogger = (): ILogger => {
     error: () => undefined,
   };
   return logger;
+};
+
+/** Statements that are not reads of user data, so the budget does not cover them. */
+const budgetProbeExcludedSql = /^(?:BEGIN|COMMIT|ROLLBACK)$|set_config\(|information_schema/i;
+
+/** Surfaces the domain error message instead of neverthrow's opaque unwrap failure. */
+const unwrapOrThrow = <T>(result: unknown): T => {
+  const candidate = result as {
+    isErr(): boolean;
+    _unsafeUnwrap(): T;
+    _unsafeUnwrapErr(): { code?: string; message?: string };
+  };
+  if (candidate.isErr()) {
+    const error = candidate._unsafeUnwrapErr();
+    throw new Error(`unexpected Err: ${error?.code ?? ''} ${error?.message ?? ''}`.trim());
+  }
+  return candidate._unsafeUnwrap();
+};
+
+/**
+ * Runs `run` with the statement probe on and returns the `statement_timeout` every
+ * data statement ran under, so a test can assert a whole read path is budgeted
+ * rather than a single query.
+ */
+const probeDataStatements = async <T>(
+  driver: RecordingDriver,
+  run: () => Promise<T>
+): Promise<{ value: T; settings: ReadonlyArray<string>; statements: ReadonlyArray<string> }> => {
+  driver.recordStatements = true;
+  driver.statements.length = 0;
+  try {
+    const value = await run();
+    const data = driver.statements.filter(
+      (statement) => !budgetProbeExcludedSql.test(statement.sql)
+    );
+    return {
+      value,
+      settings: data.map((statement) => statement.setting),
+      statements: data.map((statement) => statement.sql),
+    };
+  } finally {
+    driver.recordStatements = false;
+  }
 };
 
 type SeededRow = {
@@ -341,6 +434,7 @@ const setupRepositoryFixture = async ({
     formulaFieldId,
     dateFieldId,
     insertedRecordIds,
+    fullTableName,
   };
 };
 
@@ -368,6 +462,313 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
 
   afterAll(async () => {
     await db.destroy();
+  });
+
+  // T7306: `includeTotal` defaults off. Omitting it must not add a second
+  // count(*) statement, and the documented fallback is the page length.
+  it('skips the count statement unless includeTotal is requested', async () => {
+    const { repository, context, table } = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'count-default',
+      rows: [
+        { name: 'Alpha', age: 1 },
+        { name: 'Beta', age: 2 },
+        { name: 'Gamma', age: 3 },
+      ],
+    });
+
+    const pagination = OffsetPagination.create(
+      PageLimit.create(1)._unsafeUnwrap(),
+      PageOffset.zero()
+    );
+
+    driver.queries.length = 0;
+    const defaulted = await repository.find(context, table, undefined, {
+      mode: 'stored',
+      pagination,
+    });
+    expect(defaulted.isOk()).toBe(true);
+    if (defaulted.isErr()) return;
+
+    expect(driver.queries).toHaveLength(1);
+    expect(driver.queries[0].sql).not.toContain('count(*)');
+    expect(defaulted.value.records).toHaveLength(1);
+    expect(defaulted.value.total).toBe(1);
+
+    driver.queries.length = 0;
+    const requested = await repository.find(context, table, undefined, {
+      mode: 'stored',
+      pagination,
+      includeTotal: true,
+    });
+    expect(requested.isOk()).toBe(true);
+    if (requested.isErr()) return;
+
+    expect(driver.queries).toHaveLength(2);
+    expect(requested.value.total).toBe(3);
+  });
+
+  // T7339: a standalone count *is* the request for a total, and
+  // `ITableRecordCountOptions` has no `includeTotal` option to report, so both count
+  // spans must say a total was computed instead of echoing the find-only option.
+  it('reports the total it computes rather than the find-only includeTotal option', async () => {
+    const { repository, context, table } = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'count-trace',
+      rows: [
+        { name: 'Alpha', age: 1 },
+        { name: 'Beta', age: 2 },
+        { name: 'Gamma', age: 3 },
+      ],
+    });
+    const tracer = new NoopTracer();
+    const span = {
+      setAttribute: vi.fn(),
+      setAttributes: vi.fn(),
+      recordError: vi.fn(),
+      end: vi.fn(),
+    };
+    vi.spyOn(tracer, 'startSpan').mockReturnValue(span);
+
+    const result = await repository.count({ ...context, tracer }, table);
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap()).toBe(3);
+    for (const spanName of ['teable.repository.record.count', 'teable.table.query.db.count']) {
+      expect(tracer.startSpan).toHaveBeenCalledWith(
+        spanName,
+        expect.objectContaining({
+          'teable.query.source': 'repository.record_count',
+          'teable.query.include_total': true,
+        })
+      );
+    }
+  });
+
+  // T7308: counts are unbudgeted by default. A configured budget runs them in
+  // their own transaction with a transaction-local `statement_timeout`, so a
+  // pathological count fails fast instead of holding a pooled connection.
+  describe('count statement budget', () => {
+    const buildRepository = (statementBudgetMs: number) =>
+      new PostgresTableRecordQueryRepository(
+        new TableRecordQueryBuilderManager(
+          db,
+          {} as unknown as ITableRepository,
+          new Pg16TypeValidationStrategy()
+        ),
+        db,
+        createLogger(),
+        { statementBudgetMs }
+      );
+
+    const runCount = async (seed: string, statementBudgetMs: number, failWithSqlState?: string) => {
+      const { table, context } = await setupRepositoryFixture({
+        db,
+        createdSchemas,
+        seed,
+        rows: [
+          { name: 'Alpha', age: 1 },
+          { name: 'Beta', age: 2 },
+          { name: 'Gamma', age: 3 },
+        ],
+      });
+      driver.countProbe = { setting: null, failWithSqlState: failWithSqlState ?? null };
+      driver.queries.length = 0;
+
+      try {
+        const result = await buildRepository(statementBudgetMs).count(context, table);
+        return { result, setting: driver.countProbe.setting };
+      } finally {
+        driver.countProbe = { setting: null, failWithSqlState: null };
+      }
+    };
+
+    it('leaves the count unbudgeted when no budget is configured', async () => {
+      const { result, setting } = await runCount('budget-off', 0);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) return;
+      expect(result.value).toBe(3);
+      expect(setting).toBe('0');
+      expect(driver.queries.some((query) => query.sql.includes('statement_timeout'))).toBe(false);
+    });
+
+    it('arms the budget for the count statement when one is configured', async () => {
+      const { result, setting } = await runCount('budget-armed', 2_000);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) return;
+      expect(result.value).toBe(3);
+      expect(setting).toMatch(/^(2000ms|2s)$/);
+    });
+
+    it('classifies a cancelled count as a statement timeout', async () => {
+      const { result } = await runCount('budget-exceeded', 2_000, '57014');
+
+      expect(result.isErr()).toBe(true);
+      if (result.isOk()) return;
+      expect(result.error.code).toBe('db.statement_timeout');
+      expect((result.error.details as { pgCode?: string } | undefined)?.pgCode).toBe('57014');
+    });
+  });
+
+  // T7323: the budget is not a count-only knob. Every statement these read paths
+  // issue against user data runs under it, and with no budget configured none of
+  // them opens the extra transaction.
+  describe('statement budget coverage', () => {
+    const budgetedRepository = (statementBudgetMs: number) =>
+      new PostgresTableRecordQueryRepository(
+        new TableRecordQueryBuilderManager(
+          db,
+          {} as unknown as ITableRepository,
+          new Pg16TypeValidationStrategy()
+        ),
+        db,
+        createLogger(),
+        { statementBudgetMs }
+      );
+
+    /**
+     * One call per read path the budget covers: the page query with and without its
+     * companion count, the grouped read, the search match flags, the view index, a
+     * single record, an explicit count and the stream batches. Ids are returned as
+     * fixture row indexes so two runs with different schemas stay comparable.
+     */
+    const runReadPaths = async (seed: string, statementBudgetMs: number) => {
+      const fixture = await setupRepositoryFixture({
+        db,
+        createdSchemas,
+        seed,
+        statusOptions: ['open', 'closed'],
+        rows: [
+          { name: 'Alpha', age: 10, status: 'open' },
+          { name: 'Beta', age: 20, status: 'closed' },
+          { name: 'Gamma', age: 30, status: 'open' },
+        ],
+      });
+      const repository = budgetedRepository(statementBudgetMs);
+      const { context, table } = fixture;
+      const rowIndex = (recordId: string) => fixture.insertedRecordIds.indexOf(recordId);
+      const rowIndexes = (records: ReadonlyArray<{ id: string }>) =>
+        records.map((record) => rowIndex(record.id));
+      const page = () =>
+        OffsetPagination.create(
+          PageLimit.create(2)._unsafeUnwrap(),
+          PageOffset.create(0)._unsafeUnwrap()
+        );
+      const search = {
+        search: RecordSearch.fromTuple(['Alpha', fixture.nameFieldId.toString(), true]),
+        visibleFieldIds: [fixture.nameFieldId],
+      };
+
+      driver.queries.length = 0;
+      const { value, settings, statements } = await probeDataStatements(driver, async () => {
+        const paged = await repository.find(context, table, undefined, {
+          mode: 'stored',
+          pagination: page(),
+          includeTotal: true,
+          orderBy: [{ fieldId: fixture.ageFieldId, direction: 'asc' }],
+        });
+        const grouped = await repository.find(context, table, undefined, {
+          mode: 'stored',
+          includeTotal: false,
+          groupBy: [{ fieldId: fixture.statusFieldId, direction: 'asc' }],
+          groupLimit: 10,
+        });
+        const matched = await repository.find(context, table, undefined, {
+          mode: 'stored',
+          pagination: page(),
+          search,
+          includeSearchFieldMatches: true,
+          searchIndexMode: 'matched',
+        });
+        const viewIndexed = await repository.find(context, table, undefined, {
+          mode: 'stored',
+          pagination: page(),
+          search,
+          includeSearchFieldMatches: true,
+          searchIndexMode: 'view',
+        });
+        const single = await repository.findOne(
+          context,
+          table,
+          RecordId.create(fixture.insertedRecordIds[1]!)._unsafeUnwrap()
+        );
+        const counted = await repository.count(context, table);
+        // Two stream shapes on purpose: the offset strategy reads through find(), the
+        // cursor strategy has its own page statement.
+        const offsetStreamIds: string[] = [];
+        for await (const row of repository.findStream(context, table, undefined, {
+          mode: 'stored',
+          batchSize: 2,
+          pagination: { offset: 0, limit: 3 },
+        })) {
+          offsetStreamIds.push(unwrapOrThrow(row).id);
+        }
+        const cursorStreamIds: string[] = [];
+        for await (const row of repository.findStream(context, table, undefined, {
+          mode: 'stored',
+          pagination: { cursor: '1', limit: 2 },
+        })) {
+          cursorStreamIds.push(unwrapOrThrow(row).id);
+        }
+
+        return {
+          pageIds: rowIndexes(unwrapOrThrow(paged).records),
+          total: unwrapOrThrow(paged).total,
+          groupCounts: unwrapOrThrow(grouped).groups?.map((group) => group.count),
+          matchedIds: rowIndexes(unwrapOrThrow(matched).records),
+          matchedSearchCount: unwrapOrThrow(matched).searchMatches?.length ?? 0,
+          viewIndexedIds: rowIndexes(unwrapOrThrow(viewIndexed).records),
+          singleId: rowIndex(unwrapOrThrow(single).id),
+          counted: unwrapOrThrow(counted),
+          offsetStreamIds: offsetStreamIds.map(rowIndex),
+          cursorStreamIds: cursorStreamIds.map(rowIndex),
+        };
+      });
+
+      return {
+        result: value,
+        settings,
+        statements,
+        setConfigs: driver.queries.filter((query) =>
+          query.sql.includes("set_config('statement_timeout'")
+        ),
+        transactions: driver.queries.filter((query) => query.sql === 'BEGIN'),
+      };
+    };
+
+    it('runs every read path statement under the budget', async () => {
+      const { result, settings, statements } = await runReadPaths('budget-coverage-armed', 1_500);
+
+      expect(result.pageIds).toEqual([0, 1]);
+      expect(result.total).toBe(3);
+      expect(result.counted).toBe(3);
+      expect(result.groupCounts).toEqual([2, 1]);
+      expect(result.matchedSearchCount).toBe(1);
+      expect(result.offsetStreamIds).toEqual([0, 1, 2]);
+      expect(result.cursorStreamIds).toEqual([1, 2]);
+      // 14 data statements: page + companion count, grouped page + group query, search
+      // page + match flags, view page + match flags + row_number, findOne, count, two
+      // offset stream batches, one cursor stream page. An exact count so a path that
+      // stops issuing its query fails here, and settings so one that drops the budget
+      // fails on the line below.
+      expect(statements).toHaveLength(14);
+      expect(new Set(settings)).toEqual(new Set(['1500ms']));
+    });
+
+    it('runs the same paths untouched when no budget is configured', async () => {
+      const armed = await runReadPaths('budget-diff-on', 1_500);
+      const unbudgeted = await runReadPaths('budget-diff-off', 0);
+
+      expect(unbudgeted.setConfigs).toEqual([]);
+      expect(unbudgeted.transactions).toEqual([]);
+      expect(unbudgeted.settings).toEqual(armed.settings.map(() => '0'));
+      expect(unbudgeted.statements).toHaveLength(armed.statements.length);
+      expect(unbudgeted.result).toEqual(armed.result);
+    });
   });
 
   it('selects and returns only projected field columns (plus system columns)', async () => {
@@ -742,7 +1143,25 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
         )._unsafeUnwrap(),
       ].sort()
     ).toEqual(['usr1', 'usr2']);
+
     expect(driver.queries.at(-1)?.sql).toContain('jsonb_array_elements');
+
+    // T7323: this read is budgeted like the rest of the repository's data statements.
+    const withBudget = await probeDataStatements(driver, async () => {
+      const repositoryWithBudget = new PostgresTableRecordQueryRepository(
+        manager,
+        db,
+        createLogger(),
+        { statementBudgetMs: 2_000 }
+      );
+      return unwrapOrThrow(
+        await repositoryWithBudget.findDistinctUserIds(context, table, teamField, firstRecordSpec)
+      );
+    });
+    expect([...withBudget.value].sort()).toEqual(['usr1', 'usr2']);
+    expect(withBudget.settings).toEqual(
+      ['2000ms'].map(() => expect.stringMatching(/^(2000ms|2s)$/))
+    );
   });
 
   it('lists Base/Space collaborators by name only and excludes system users', async () => {
@@ -1072,6 +1491,52 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
       { value: '2026-06-02T16:00:00.000Z', count: 1 },
     ]);
     const groupQuery = driver.queries.find((query) => query.sql.includes('group by'));
+    expect(groupQuery?.sql).toContain('date_trunc');
+  });
+
+  it('aggregates date groups at the same formatting granularity as list grouping', async () => {
+    const fixture = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'agg-date-bucket',
+      dateFieldTimeZone: 'Asia/Shanghai',
+      rows: [
+        { name: 'A', age: 10, date: '2026-06-01T18:00:00.000Z' },
+        { name: 'B', age: 20, date: '2026-06-02T02:00:00.000Z' },
+        { name: 'C', age: 30, date: '2026-06-02T20:00:00.000Z' },
+        { name: 'D', age: 40, date: null },
+      ],
+    });
+    const aggregation = fixture.table
+      .createRecordAggregation({
+        viewId: fixture.table.defaultView()._unsafeUnwrap().id().toString(),
+        fields: [{ fieldId: fixture.ageFieldId.toString(), statisticFunc: 'sum' }],
+        groupBy: [{ fieldId: fixture.dateFieldId.toString(), order: 'asc' }],
+      })
+      ._unsafeUnwrap();
+
+    const result = await fixture.repository.aggregate(fixture.context, fixture.table, aggregation);
+
+    expect(result.isOk()).toBe(true);
+    const grouped = result
+      ._unsafeUnwrap()
+      .filter((value) => value.groupValues !== undefined)
+      .map(({ value, groupValues }) => ({
+        value,
+        groupValue:
+          groupValues?.[0] == null ? null : new Date(groupValues[0] as string).toISOString(),
+      }));
+    expect(grouped).toHaveLength(3);
+    expect(grouped).toEqual(
+      expect.arrayContaining([
+        { value: 40, groupValue: null },
+        { value: 30, groupValue: '2026-06-01T16:00:00.000Z' },
+        { value: 30, groupValue: '2026-06-02T16:00:00.000Z' },
+      ])
+    );
+    const groupQuery = driver.queries.find(
+      (query) => query.sql.includes('date_trunc') && query.sql.includes('record_aggregation_scope')
+    );
     expect(groupQuery?.sql).toContain('date_trunc');
   });
 
@@ -1566,6 +2031,75 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
     ]);
   });
 
+  it('locates a target in the same row-scoped, searched and masked order as record reads', async () => {
+    const fixture = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'record-index-mask',
+      rows: [
+        { name: 'Alpha first', age: 10 },
+        { name: 'Alpha masked', age: 20 },
+        { name: 'Alpha last', age: 30 },
+        { name: 'Alpha hidden', age: 0 },
+        { name: 'Alpha excluded', age: 50 },
+      ],
+    });
+    const ids = fixture.insertedRecordIds.map((id) => RecordId.create(id)._unsafeUnwrap());
+    const scope = RecordByIdsSpec.create(ids.slice(0, 4));
+    const options = {
+      orderBy: [{ fieldId: fixture.ageFieldId, direction: 'asc' as const }],
+      search: {
+        search: RecordSearch.fromTuple(['Alpha', fixture.nameFieldId.toString(), true]),
+        visibleFieldIds: [fixture.nameFieldId],
+      },
+      fieldMasks: [
+        {
+          fieldId: fixture.nameFieldId.toString(),
+          visibleWhen: RecordByIdsSpec.create(ids.slice(0, 3)),
+        },
+        {
+          fieldId: fixture.ageFieldId.toString(),
+          visibleWhen: RecordByIdsSpec.create([ids[0], ids[2]]),
+        },
+      ],
+    };
+    const listed = (
+      await fixture.repository.find(fixture.context, fixture.table, scope, options)
+    )._unsafeUnwrap();
+    const expectedIndex = listed.records.findIndex((record) => record.id === ids[1].toString());
+    expect(expectedIndex).not.toBe(1);
+
+    const indexed = (
+      await fixture.repository.find(fixture.context, fixture.table, scope, {
+        ...options,
+        recordIndexId: ids[1].toString(),
+        pagination: OffsetPagination.create(
+          PageLimit.create(1)._unsafeUnwrap(),
+          PageOffset.create(99)._unsafeUnwrap()
+        ),
+      })
+    )._unsafeUnwrap();
+    expect(indexed.recordIndex).toBe(expectedIndex);
+    expect(indexed.records).toEqual([]);
+
+    const hidden = (
+      await fixture.repository.find(fixture.context, fixture.table, scope, {
+        ...options,
+        recordIndexId: ids[3].toString(),
+      })
+    )._unsafeUnwrap();
+    expect(hidden.recordIndex).toBeNull();
+
+    const linkOrdered = (
+      await fixture.repository.find(fixture.context, fixture.table, scope, {
+        ...options,
+        recordIndexId: ids[0].toString(),
+        recordIdsOrder: [ids[2], ids[1], ids[0]],
+      })
+    )._unsafeUnwrap();
+    expect(linkOrdered.recordIndex).toBe(2);
+  });
+
   it('projects matched fields with search-result row numbering', async () => {
     const fixture = await setupRepositoryFixture({
       db,
@@ -1717,6 +2251,494 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
     }
     expect(cursorPage.value.records.map((record) => record.id.toString())).toEqual(
       offsetPage.value.records.map((record) => record.id.toString())
+    );
+  });
+
+  it('keeps paging when the row the cursor was issued from is deleted', async () => {
+    const fixture = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'cursor-anchor-deleted',
+      rows: [
+        { name: 'a', age: 1 },
+        { name: 'b', age: 2 },
+        { name: 'c', age: 3 },
+        { name: 'd', age: 4 },
+        { name: 'e', age: 5 },
+      ],
+    });
+    const orderBy = [
+      { fieldId: fixture.ageFieldId, direction: 'asc' as const },
+      { column: '__auto_number' as const, direction: 'asc' as const },
+    ];
+    const pageSize = OffsetPagination.create(
+      PageLimit.create(2)._unsafeUnwrap(),
+      PageOffset.zero()
+    );
+    const firstPage = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      orderBy,
+      pagination: pageSize,
+    });
+    expect(firstPage.isOk()).toBe(true);
+    if (firstPage.isErr()) {
+      return;
+    }
+    const cursor = firstPage.value.nextCursor;
+    expect(cursor).toBeTruthy();
+
+    // The cursor points at the last row of page one; a collaborator removes it while the
+    // next page is in flight.
+    await sql`DELETE FROM ${sql.table(fixture.fullTableName)} WHERE __id = ${fixture.insertedRecordIds[1]}`.execute(
+      db
+    );
+
+    const cursorPage = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      orderBy,
+      cursor,
+      pagination: pageSize,
+    });
+    expect(cursorPage.isOk()).toBe(true);
+    if (cursorPage.isErr()) {
+      return;
+    }
+    expect(cursorPage.value.records.map((record) => record.id.toString())).toEqual(
+      fixture.insertedRecordIds.slice(2, 4)
+    );
+  });
+
+  it('matches offset pages with cursor over a nullable order key under v1 null ordering', async () => {
+    const fixture = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'cursor-nulls',
+      rows: [
+        { name: 'a', age: 3 },
+        { name: 'b', age: null as unknown as number },
+        { name: 'c', age: 1 },
+        { name: 'd', age: null as unknown as number },
+        { name: 'e', age: 2 },
+      ],
+    });
+
+    const walkCursorPages = async (
+      orderBy: ReadonlyArray<
+        | { fieldId: typeof fixture.ageFieldId; direction: 'asc' | 'desc' }
+        | {
+            column: '__auto_number';
+            direction: 'asc';
+          }
+      >,
+      pageSize: number
+    ): Promise<string[]> => {
+      const ids: string[] = [];
+      let cursor: string | undefined;
+      for (let page = 0; page < 10; page += 1) {
+        const result = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+          mode: 'stored',
+          includeTotal: false,
+          orderBy: orderBy as never,
+          pagination: OffsetPagination.create(
+            PageLimit.create(pageSize)._unsafeUnwrap(),
+            PageOffset.zero()
+          ),
+          ...(cursor ? { cursor } : {}),
+        });
+        expect(result.isOk()).toBe(true);
+        if (result.isErr()) {
+          return ids;
+        }
+        ids.push(...result.value.records.map((record) => record.id.toString()));
+        cursor = result.value.nextCursor;
+        if (!cursor) {
+          break;
+        }
+      }
+      return ids;
+    };
+
+    for (const direction of ['asc', 'desc'] as const) {
+      const orderBy = [
+        { fieldId: fixture.ageFieldId, direction },
+        { column: '__auto_number' as const, direction: 'asc' as const },
+      ];
+      const baseline = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+        mode: 'stored',
+        includeTotal: false,
+        orderBy,
+        pagination: OffsetPagination.create(
+          PageLimit.create(100)._unsafeUnwrap(),
+          PageOffset.zero()
+        ),
+      });
+      expect(baseline.isOk()).toBe(true);
+      if (baseline.isErr()) {
+        return;
+      }
+      const expected = baseline.value.records.map((record) => record.id.toString());
+      // Independent of the repository's own ORDER BY: v1 puts nulls first on ASC and
+      // last on DESC, tie-broken by __auto_number (rows are a:3, b:null, c:1, d:null, e:2).
+      const expectedByDirection = { asc: [1, 3, 2, 4, 0], desc: [0, 4, 2, 1, 3] } as const;
+      expect(expected).toEqual(
+        expectedByDirection[direction].map((index) => fixture.insertedRecordIds[index])
+      );
+      // 2 walks across the null boundary, 4 lands the first page's boundary on a null row
+      // under DESC NULLS LAST.
+      for (const pageSize of [2, 4]) {
+        expect(await walkCursorPages(orderBy, pageSize)).toEqual(expected);
+      }
+    }
+  });
+
+  it('rejects a cursor that was issued for a different order', async () => {
+    const fixture = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'cursor-stale',
+      rows: [
+        { name: 'a', age: 1 },
+        { name: 'b', age: 2 },
+        { name: 'c', age: 3 },
+      ],
+    });
+    const pageSize = OffsetPagination.create(
+      PageLimit.create(2)._unsafeUnwrap(),
+      PageOffset.zero()
+    );
+    const firstPage = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      orderBy: [
+        { fieldId: fixture.nameFieldId, direction: 'asc' as const },
+        { fieldId: fixture.ageFieldId, direction: 'asc' as const },
+        { column: '__auto_number' as const, direction: 'asc' as const },
+      ],
+      pagination: pageSize,
+    });
+    expect(firstPage.isOk()).toBe(true);
+    if (firstPage.isErr()) {
+      return;
+    }
+    const cursor = firstPage.value.nextCursor;
+    expect(cursor).toBeTruthy();
+
+    const reuse = (
+      orderBy: ReadonlyArray<
+        | {
+            fieldId: typeof fixture.nameFieldId | typeof fixture.ageFieldId;
+            direction: 'asc' | 'desc';
+          }
+        | { column: '__auto_number'; direction: 'asc' }
+      >
+    ) =>
+      fixture.repository.find(fixture.context, fixture.table, undefined, {
+        mode: 'stored',
+        includeTotal: false,
+        orderBy: orderBy as never,
+        cursor,
+        pagination: pageSize,
+      });
+
+    // Both of these orders are cursor-eligible, so the rejection has to come from the
+    // token: another direction, and a narrower order than the one it was issued for.
+    for (const orderBy of [
+      [
+        { fieldId: fixture.nameFieldId, direction: 'asc' as const },
+        { fieldId: fixture.ageFieldId, direction: 'desc' as const },
+        { column: '__auto_number' as const, direction: 'asc' as const },
+      ],
+      [
+        { fieldId: fixture.nameFieldId, direction: 'asc' as const },
+        { column: '__auto_number' as const, direction: 'asc' as const },
+      ],
+    ]) {
+      const reused = await reuse(orderBy);
+      expect(reused.isErr()).toBe(true);
+      expect(reused.isErr() && reused.error.code).toBe('validation.invalid');
+      expect(reused.isErr() && reused.error.message).toContain('different order shape');
+    }
+
+    // An order that cannot seek at all reports the older, distinct error.
+    const unsupported = await reuse([{ fieldId: fixture.nameFieldId, direction: 'desc' as const }]);
+    expect(unsupported.isErr()).toBe(true);
+    expect(unsupported.isErr() && unsupported.error.code).toBe('validation.invalid');
+    expect(unsupported.isErr() && unsupported.error.message).toContain(
+      'Cursor pagination supports stored scalar order keys'
+    );
+  });
+
+  it('does not advertise a cursor it would refuse to parse', async () => {
+    const longName = 'L'.repeat(3100);
+    const fixture = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'cursor-oversized',
+      rows: [
+        { name: longName, age: 1 },
+        { name: longName, age: 2 },
+        { name: longName, age: 3 },
+      ],
+    });
+    const orderBy = [
+      { fieldId: fixture.nameFieldId, direction: 'asc' as const },
+      { fieldId: fixture.ageFieldId, direction: 'asc' as const },
+      { column: '__auto_number' as const, direction: 'asc' as const },
+    ];
+    const pageSize = OffsetPagination.create(
+      PageLimit.create(1)._unsafeUnwrap(),
+      PageOffset.zero()
+    );
+    const firstPage = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      orderBy,
+      pagination: pageSize,
+    });
+    expect(firstPage.isOk()).toBe(true);
+    if (firstPage.isErr()) {
+      return;
+    }
+    // Carrying this sort value would push the token past the size the parser accepts, so
+    // no cursor may be handed out: the client keeps paging by offset instead of following
+    // a cursor that answers "Invalid list records cursor". The page is still full, so
+    // `hasMore` must not report the list as finished.
+    expect(firstPage.value.nextCursor).toBeUndefined();
+    expect(firstPage.value.hasMore).toBe(true);
+
+    const shortPage = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      orderBy,
+      pagination: OffsetPagination.create(PageLimit.create(10)._unsafeUnwrap(), PageOffset.zero()),
+    });
+    expect(shortPage.isOk()).toBe(true);
+    if (shortPage.isErr()) {
+      return;
+    }
+    expect(shortPage.value.records).toHaveLength(3);
+    expect(shortPage.value.hasMore).toBe(false);
+
+    const offsetPage = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      orderBy,
+      pagination: OffsetPagination.create(
+        PageLimit.create(2)._unsafeUnwrap(),
+        PageOffset.create(1)._unsafeUnwrap()
+      ),
+    });
+    expect(offsetPage.isOk()).toBe(true);
+    if (offsetPage.isErr()) {
+      return;
+    }
+    expect(offsetPage.value.records.map((record) => record.id.toString())).toEqual(
+      fixture.insertedRecordIds.slice(1, 3)
+    );
+  });
+
+  it('rejects a cursor when the same keys are ordered differently', async () => {
+    const fixture = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'cursor-reordered',
+      rows: [
+        { name: 'a', age: 3 },
+        { name: 'b', age: 1 },
+        { name: 'c', age: 2 },
+      ],
+    });
+    const pageSize = OffsetPagination.create(
+      PageLimit.create(1)._unsafeUnwrap(),
+      PageOffset.zero()
+    );
+    const firstPage = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      orderBy: [
+        { fieldId: fixture.nameFieldId, direction: 'asc' as const },
+        { fieldId: fixture.ageFieldId, direction: 'asc' as const },
+        { column: '__auto_number' as const, direction: 'asc' as const },
+      ],
+      pagination: pageSize,
+    });
+    expect(firstPage.isOk()).toBe(true);
+    if (firstPage.isErr()) {
+      return;
+    }
+    const cursor = firstPage.value.nextCursor;
+    expect(cursor).toBeTruthy();
+
+    // Same columns, same directions, different precedence: the position the cursor
+    // carries does not exist in this order.
+    const reused = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      orderBy: [
+        { fieldId: fixture.ageFieldId, direction: 'asc' as const },
+        { fieldId: fixture.nameFieldId, direction: 'asc' as const },
+        { column: '__auto_number' as const, direction: 'asc' as const },
+      ],
+      cursor,
+      pagination: pageSize,
+    });
+    expect(reused.isErr()).toBe(true);
+    expect(reused.isErr() && reused.error.code).toBe('validation.invalid');
+    expect(reused.isErr() && reused.error.message).toContain('different order shape');
+  });
+
+  it('keeps the cursor usable when the order key is not projected', async () => {
+    const fixture = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'cursor-projection',
+      rows: [
+        { name: 'a', age: 1 },
+        { name: 'b', age: 2 },
+        { name: 'c', age: 3 },
+        { name: 'd', age: 4 },
+      ],
+    });
+    const orderBy = [
+      { fieldId: fixture.nameFieldId, direction: 'asc' as const },
+      { column: '__auto_number' as const, direction: 'asc' as const },
+    ];
+    const pageSize = OffsetPagination.create(
+      PageLimit.create(2)._unsafeUnwrap(),
+      PageOffset.zero()
+    );
+    const firstPage = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      orderBy,
+      projectionFieldIds: [fixture.ageFieldId],
+      pagination: pageSize,
+    });
+    expect(firstPage.isOk()).toBe(true);
+    if (firstPage.isErr()) {
+      return;
+    }
+    expect(Object.keys(firstPage.value.records[0]!.fields)).toEqual([
+      fixture.ageFieldId.toString(),
+    ]);
+
+    const cursorPage = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      orderBy,
+      projectionFieldIds: [fixture.ageFieldId],
+      cursor: firstPage.value.nextCursor,
+      pagination: pageSize,
+    });
+    expect(cursorPage.isOk()).toBe(true);
+    if (cursorPage.isErr()) {
+      return;
+    }
+    expect(cursorPage.value.records.map((record) => record.id.toString())).toEqual(
+      fixture.insertedRecordIds.slice(2, 4)
+    );
+  });
+
+  it('pages the view row order with a cursor, including after the anchor row is deleted', async () => {
+    const fixture = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'cursor-view-order',
+      rows: [
+        { name: 'a', age: 1 },
+        { name: 'b', age: 2 },
+        { name: 'c', age: 3 },
+        { name: 'd', age: 4 },
+        { name: 'e', age: 5 },
+      ],
+    });
+    const viewId = fixture.table.views()[0]!.id().toString();
+    const orderColumn = `__row_${viewId}` as `__row_${string}`;
+    await sql`ALTER TABLE ${sql.table(fixture.fullTableName)} ADD COLUMN ${sql.id(orderColumn)} double precision`.execute(
+      db
+    );
+    // Fractional manual-order values, as a reorder would write them.
+    const orders = [1, 2.5, 2.6, 3, 4];
+    for (const [index, order] of orders.entries()) {
+      await sql`UPDATE ${sql.table(fixture.fullTableName)} SET ${sql.id(orderColumn)} = ${order} WHERE __id = ${fixture.insertedRecordIds[index]}`.execute(
+        db
+      );
+    }
+
+    const orderBy = [
+      { column: orderColumn, direction: 'asc' as const },
+      { column: '__auto_number' as const, direction: 'asc' as const },
+    ];
+    const baseline = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      orderBy,
+      pagination: OffsetPagination.create(PageLimit.create(100)._unsafeUnwrap(), PageOffset.zero()),
+    });
+    expect(baseline.isOk()).toBe(true);
+    if (baseline.isErr()) {
+      return;
+    }
+    const expected = baseline.value.records.map((record) => record.id.toString());
+    expect(expected).toEqual(fixture.insertedRecordIds);
+
+    const pageSize = OffsetPagination.create(
+      PageLimit.create(2)._unsafeUnwrap(),
+      PageOffset.zero()
+    );
+    const walked: string[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < 5; page += 1) {
+      const result = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+        mode: 'stored',
+        includeTotal: false,
+        orderBy,
+        pagination: pageSize,
+        ...(cursor ? { cursor } : {}),
+      });
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) {
+        return;
+      }
+      walked.push(...result.value.records.map((record) => record.id.toString()));
+      cursor = result.value.nextCursor;
+      if (!cursor) {
+        break;
+      }
+    }
+    expect(walked).toEqual(expected);
+
+    // Re-run page two after the row the cursor points at is gone.
+    const firstPage = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      orderBy,
+      pagination: pageSize,
+    });
+    expect(firstPage.isOk()).toBe(true);
+    if (firstPage.isErr()) {
+      return;
+    }
+    const anchorCursor = firstPage.value.nextCursor;
+    expect(anchorCursor).toBeTruthy();
+    await sql`DELETE FROM ${sql.table(fixture.fullTableName)} WHERE __id = ${fixture.insertedRecordIds[1]}`.execute(
+      db
+    );
+    const cursorPage = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      orderBy,
+      cursor: anchorCursor,
+      pagination: pageSize,
+    });
+    expect(cursorPage.isOk()).toBe(true);
+    if (cursorPage.isErr()) {
+      return;
+    }
+    expect(cursorPage.value.records.map((record) => record.id.toString())).toEqual(
+      fixture.insertedRecordIds.slice(2, 4)
     );
   });
 
@@ -1936,47 +2958,97 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
     ]);
   });
 
-  it('orders group rows and applies visible-row search before aggregation', async () => {
-    const fixture = await setupRepositoryFixture({
-      db,
-      createdSchemas,
-      seed: 'aggregate-search',
-      rows: [
-        { name: 'Alpha', age: 10 },
-        { name: 'Alpine', age: 20 },
-        { name: 'Beta', age: 30 },
-      ],
-    });
-    const aggregation = fixture.table
-      .createRecordAggregation({
-        viewId: fixture.table.defaultView()._unsafeUnwrap().id().toString(),
-        fields: [{ fieldId: fixture.ageFieldId.toString(), statisticFunc: 'count' }],
-        groupBy: [{ fieldId: fixture.nameFieldId.toString(), order: 'desc' }],
-      })
-      ._unsafeUnwrap();
+  it.each(['default', 'generated_text', 'fallback'] as const)(
+    'orders group rows and applies %s search before aggregation',
+    async (accessMode) => {
+      const fixture = await setupRepositoryFixture({
+        db,
+        createdSchemas,
+        seed: 'aggregate-search',
+        rows: [
+          { name: 'Alpha', age: 10 },
+          { name: 'Alpine', age: 20 },
+          { name: 'Beta', age: 30 },
+        ],
+      });
+      const aggregation = fixture.table
+        .createRecordAggregation({
+          viewId: fixture.table.defaultView()._unsafeUnwrap().id().toString(),
+          fields: [{ fieldId: fixture.ageFieldId.toString(), statisticFunc: 'count' }],
+          groupBy: [{ fieldId: fixture.nameFieldId.toString(), order: 'desc' }],
+        })
+        ._unsafeUnwrap();
 
-    const result = await fixture.repository.aggregate(
-      fixture.context,
-      fixture.table,
-      aggregation,
-      undefined,
-      {
-        search: {
-          search: RecordSearch.fromTuple(['Al', fixture.nameFieldId.toString(), true]),
-          visibleFieldIds: [fixture.nameFieldId],
-        },
+      if (accessMode === 'generated_text') {
+        await sql`
+        ALTER TABLE ${sql.table(fixture.fullTableName)}
+        ADD COLUMN __tqops_search_document text GENERATED ALWAYS AS (lower(coalesce(col_name, ''))) STORED
+      `.execute(db);
       }
-    );
+      const searchAccessPath: IRecordSearchAccessPath | undefined =
+        accessMode === 'default'
+          ? undefined
+          : {
+              kind: 'generated_text',
+              generatedColumnName: '__tqops_search_document',
+              provider: 'pg_trgm',
+              searchScope: 'selected_fields',
+              coveredFieldIds: [
+                accessMode === 'fallback' ? fixture.ageFieldId : fixture.nameFieldId,
+              ],
+            };
+      const tracer = new NoopTracer();
+      const span = {
+        setAttribute: vi.fn(),
+        setAttributes: vi.fn(),
+        recordError: vi.fn(),
+        end: vi.fn(),
+      };
+      vi.spyOn(tracer, 'startSpan').mockReturnValue(span);
 
-    expect(
-      result._unsafeUnwrap().map(({ value, groupValues }) => ({ value, groupValues }))
-    ).toEqual([
-      { value: 2, groupValues: undefined },
-      { value: 1, groupValues: ['Alpine'] },
-      { value: 1, groupValues: ['Alpha'] },
-    ]);
-    expect(driver.queries.at(-1)?.sql).toContain('order by "a"."col_name" desc');
-  });
+      const result = await fixture.repository.aggregate(
+        { ...fixture.context, tracer },
+        fixture.table,
+        aggregation,
+        undefined,
+        {
+          search: {
+            search: RecordSearch.fromTuple(['Alp', fixture.nameFieldId.toString(), true]),
+            visibleFieldIds: [fixture.nameFieldId],
+          },
+          searchAccessPath,
+        }
+      );
+
+      expect(
+        result._unsafeUnwrap().map(({ value, groupValues }) => ({ value, groupValues }))
+      ).toEqual([
+        { value: 2, groupValues: undefined },
+        { value: 1, groupValues: ['Alpine'] },
+        { value: 1, groupValues: ['Alpha'] },
+      ]);
+      expect(driver.queries.at(-1)?.sql).toContain('order by "a"."col_name" desc');
+      const compiled = driver.queries.at(-1)?.sql.toLowerCase() ?? '';
+      expect(compiled.includes('"t"."__tqops_search_document" like')).toBe(
+        accessMode === 'generated_text'
+      );
+      expect(compiled).toContain('ilike');
+      expect(span.setAttributes).toHaveBeenCalledWith(
+        expect.objectContaining({
+          'teable.query.source': 'repository.record_aggregate',
+          'teable.search.access_path':
+            accessMode === 'generated_text'
+              ? 'generated_text_trigram'
+              : accessMode === 'fallback'
+                ? 'fallback'
+                : 'default_ilike',
+          ...(accessMode === 'fallback'
+            ? { 'teable.search.fallback_reason': 'generated_text_coverage_mismatch' }
+            : {}),
+        })
+      );
+    }
+  );
 
   it('aggregates flattened multiple values and attachment sizes without a legacy query adapter', async () => {
     const seed = 'aggregate-json';
@@ -2229,7 +3301,99 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
       { date: '2025-01-02', count: 11, recordIds: 10 },
       { date: '2025-01-03', count: 1, recordIds: 1 },
     ]);
-    expect(driver.queries.at(-1)?.sql).toContain('generate_series');
-    expect(driver.queries.at(-1)?.sql).not.toContain('knex');
+    const firstRecordId = RecordId.create(createId('rec', `0-${seed}`))._unsafeUnwrap();
+    const secondRecordId = RecordId.create(createId('rec', `1-${seed}`))._unsafeUnwrap();
+    const calendarRange = {
+      startDate: '2025-01-01T00:00:00+08:00',
+      endDate: '2025-01-03T00:00:00+08:00',
+    };
+    const rowScope = RecordByIdsSpec.create([firstRecordId, secondRecordId]);
+    const startMasked = await repository.calendarDailyCollection(
+      context,
+      table,
+      calendar,
+      calendarRange,
+      rowScope,
+      {
+        fieldMasks: [
+          {
+            fieldId: startFieldId.toString(),
+            visibleWhen: RecordByIdsSpec.create([firstRecordId]),
+          },
+        ],
+      }
+    );
+    expect(startMasked._unsafeUnwrap()).toEqual([
+      { date: '2025-01-01', count: 1, recordIds: [firstRecordId] },
+      { date: '2025-01-02', count: 1, recordIds: [firstRecordId] },
+      { date: '2025-01-03', count: 1, recordIds: [firstRecordId] },
+    ]);
+
+    const endMasked = await repository.calendarDailyCollection(
+      context,
+      table,
+      calendar,
+      calendarRange,
+      rowScope,
+      { fieldMasks: [{ fieldId: endFieldId.toString(), visibleWhen: RecordByIdsSpec.create([]) }] }
+    );
+    expect(endMasked._unsafeUnwrap()).toEqual([
+      { date: '2025-01-01', count: 1, recordIds: [firstRecordId] },
+      { date: '2025-01-02', count: 1, recordIds: [secondRecordId] },
+    ]);
+
+    const searchMasked = await repository.calendarDailyCollection(
+      context,
+      table,
+      calendar,
+      calendarRange,
+      rowScope,
+      {
+        search: {
+          search: RecordSearch.fromTuple(['Alpha', nameFieldId.toString(), true]),
+          visibleFieldIds: [nameFieldId],
+        },
+        fieldMasks: [
+          { fieldId: nameFieldId.toString(), visibleWhen: RecordByIdsSpec.create([firstRecordId]) },
+        ],
+      }
+    );
+    expect(searchMasked._unsafeUnwrap()).toEqual([
+      { date: '2025-01-01', count: 1, recordIds: [firstRecordId] },
+      { date: '2025-01-02', count: 1, recordIds: [firstRecordId] },
+      { date: '2025-01-03', count: 1, recordIds: [firstRecordId] },
+    ]);
+
+    // T7323: this read is budgeted like the rest of the repository's data statements.
+    const withBudget = await probeDataStatements(driver, async () => {
+      const repositoryWithBudget = new PostgresTableRecordQueryRepository(
+        manager,
+        db,
+        createLogger(),
+        { statementBudgetMs: 2_000 }
+      );
+      return unwrapOrThrow(
+        await repositoryWithBudget.calendarDailyCollection(
+          context,
+          table,
+          calendar,
+          {
+            startDate: '2025-01-01T00:00:00+08:00',
+            endDate: '2025-01-03T00:00:00+08:00',
+          },
+          undefined,
+          {
+            search: {
+              search: RecordSearch.fromTuple(['Alpha', nameFieldId.toString(), true]),
+              visibleFieldIds: [nameFieldId],
+            },
+          }
+        )
+      );
+    });
+    expect(withBudget.value).toHaveLength(3);
+    expect(withBudget.settings).toEqual(
+      ['2000ms'].map(() => expect.stringMatching(/^(2000ms|2s)$/))
+    );
   });
 });

@@ -705,7 +705,9 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
       const { doneField } = createTestTable();
       const { doneField: hostDoneField } = createTestTable();
       doneField.setDbFieldType(DbFieldType.rehydrate('BOOLEAN')._unsafeUnwrap())._unsafeUnwrap();
-      hostDoneField.setDbFieldType(DbFieldType.rehydrate('BOOLEAN')._unsafeUnwrap())._unsafeUnwrap();
+      hostDoneField
+        .setDbFieldType(DbFieldType.rehydrate('BOOLEAN')._unsafeUnwrap())
+        ._unsafeUnwrap();
       const value = RecordConditionFieldReferenceValue.create(hostDoneField)._unsafeUnwrap();
       const spec = CheckboxConditionSpec.create(doneField, 'is', value);
 
@@ -846,9 +848,10 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
       if (where.isErr()) return;
 
       const { sql, parameters } = compileWhere(db, where.value);
-      expect(sql).toContain(`'$[*].title ? (@ like_regex "alpha" flag "i")'::jsonpath`);
-      expect(sql).not.toContain(`'$[*] ? (@ like_regex "alpha" flag "i")'::jsonpath`);
-      expect(parameters).toEqual([]);
+      // T7305: the jsonpath travels as a bound parameter, never inlined.
+      expect(sql).toContain('::jsonpath');
+      expect(sql).not.toContain('like_regex');
+      expect(parameters).toEqual([`$[*].title ? (@ like_regex "alpha" flag "i")`]);
     });
 
     test('date isBefore with field reference uses host table alias', () => {
@@ -1204,8 +1207,10 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
         field: tagField,
         value: textValue,
         assert: (sql: string, parameters: unknown[]) => {
-          expect(sql).toContain(`'$.title ? (@ like_regex "alpha" flag "i")'::jsonpath`);
-          expect(parameters).toEqual([]);
+          // T7305: the jsonpath travels as a bound parameter, never inlined.
+          expect(sql).toContain('::jsonpath');
+          expect(sql).not.toContain('like_regex');
+          expect(parameters).toEqual([`$.title ? (@ like_regex "alpha" flag "i")`]);
         },
       },
       {
@@ -1215,8 +1220,10 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
         value: textValue,
         assert: (sql: string, parameters: unknown[]) => {
           expect(sql).toContain('NOT jsonb_path_exists');
-          expect(sql).toContain(`'$.title ? (@ like_regex "alpha" flag "i")'::jsonpath`);
-          expect(parameters).toEqual([]);
+          // T7305: the jsonpath travels as a bound parameter, never inlined.
+          expect(sql).toContain('::jsonpath');
+          expect(sql).not.toContain('like_regex');
+          expect(parameters).toEqual([`$.title ? (@ like_regex "alpha" flag "i")`]);
         },
       },
       {

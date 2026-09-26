@@ -76,14 +76,6 @@ const stringifyCellValue = (value: unknown): string => {
   return JSON.stringify(value);
 };
 
-const getCellValueTooltipText = (field: IFieldVo, value: unknown): string => {
-  try {
-    return createFieldInstance(field).cellValue2String(value);
-  } catch {
-    return stringifyCellValue(value);
-  }
-};
-
 // keep the overflow popover consistent with the chips: a deleted linked record
 // shows the "record deleted" label instead of its stale title
 const getLinkCellTooltipText = (
@@ -466,24 +458,52 @@ const RecordHistoryContent = (props: IRecordHistoryContentProps) => {
     const renderHistoryCell = (
       cell: IRecordHistoryItemVo['before'] | IRecordHistoryItemVo['after']
     ) => {
-      const validatedCellValue = validateCellValue(cell.meta as IFieldVo, cell.data);
+      const fieldVo = {
+        ...(cell.meta as IFieldVo),
+        options: (cell.meta as IFieldVo).options ?? {},
+      };
+      let field: IFieldInstance | undefined;
+      try {
+        field = createFieldInstance(fieldVo);
+      } catch {
+        field = undefined;
+      }
+      const validatedCellValue = validateCellValue(fieldVo, cell.data);
       const cellValue = validatedCellValue.success ? validatedCellValue.data : undefined;
-      const canCopy = SUPPORTED_COPY_FIELD_TYPES.includes(cell.meta.type);
+      const canCopy = SUPPORTED_COPY_FIELD_TYPES.includes(fieldVo.type);
       const copyText = typeof cellValue === 'string' ? cellValue : undefined;
-      const tooltipText = cell.deletedRecordIds?.length
-        ? getLinkCellTooltipText(cellValue, cell.deletedRecordIds, t('common.recordDeleted'))
-        : getCellValueTooltipText(cell.meta as IFieldVo, cellValue);
+      let tooltipText: string;
+      if (cell.deletedRecordIds?.length) {
+        tooltipText = getLinkCellTooltipText(
+          cellValue,
+          cell.deletedRecordIds,
+          t('common.recordDeleted')
+        );
+      } else if (field) {
+        try {
+          tooltipText = field.cellValue2String(cellValue);
+        } catch {
+          tooltipText = stringifyCellValue(cellValue);
+          field = undefined;
+        }
+      } else {
+        tooltipText = stringifyCellValue(cellValue);
+      }
 
       return (
         <Fragment>
           {cellValue != null ? (
-            <CellValueWithTooltip
-              value={cellValue}
-              field={cell.meta as IFieldInstance}
-              tooltipText={tooltipText}
-              copyText={canCopy ? copyText : undefined}
-              deletedRecordIds={cell.deletedRecordIds}
-            />
+            field ? (
+              <CellValueWithTooltip
+                value={cellValue}
+                field={field}
+                tooltipText={tooltipText}
+                copyText={canCopy ? copyText : undefined}
+                deletedRecordIds={cell.deletedRecordIds}
+              />
+            ) : (
+              <div className="line-clamp-6 min-h-6 py-0.5 text-[13px] leading-5">{tooltipText}</div>
+            )
           ) : (
             <span className="flex min-h-6 items-center text-muted-foreground">
               {t('common.empty')}

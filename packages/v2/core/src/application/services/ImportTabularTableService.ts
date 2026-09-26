@@ -6,7 +6,6 @@ import { toAsyncIterable } from '../../commands/shared/toAsyncIterable';
 import type { BaseId } from '../../domain/base/BaseId';
 import type { DomainError } from '../../domain/shared/DomainError';
 import { domainError } from '../../domain/shared/DomainError';
-import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import { tableDataSafetyLimitErrors } from '../../domain/shared/TableDataSafetyLimits';
 import type { RecordValuesDTO } from '../../domain/table/events/RecordFieldValuesDTO';
 import { RecordsBatchCreated } from '../../domain/table/events/RecordsBatchCreated';
@@ -16,7 +15,11 @@ import { Table } from '../../domain/table/Table';
 import { TableName } from '../../domain/table/TableName';
 import type { CsvParseResult } from '../../ports/CsvParser';
 import { NoopLogger } from '../../ports/defaults/NoopLogger';
-import type * as EventBusPort from '../../ports/EventBus';
+import type {
+  DomainEventSummary,
+  IDomainWriteEventWriter,
+  IDomainWriteTransaction,
+} from '../../ports/DomainWriteTransaction';
 import type * as ExecutionContextPort from '../../ports/ExecutionContext';
 import type { IImportProgress } from '../../ports/import/IImportSource';
 import { DefaultTableMapper } from '../../ports/mappers/defaults/DefaultTableMapper';
@@ -31,6 +34,7 @@ import type * as TableSchemaRepositoryPort from '../../ports/TableSchemaReposito
 import type * as UnitOfWorkPort from '../../ports/UnitOfWork';
 import type { RecordWritePluginExecution } from './RecordWritePluginRunner';
 import { RecordWritePluginRunner } from './RecordWritePluginRunner';
+import type { TableOperationPluginExecution } from './TableOperationPluginRunner';
 import { TableOperationPluginRunner } from './TableOperationPluginRunner';
 import {
   abandonTableSchemaOperation,
@@ -44,7 +48,8 @@ type ChunkPluginOptions = {
   readonly batchSize: number;
   readonly operationId: string;
   readonly totalRecordCount: number;
-  readonly events: IDomainEvent[];
+  readonly events: IDomainWriteEventWriter;
+  readonly tablePluginExecution: TableOperationPluginExecution;
 };
 
 type InferredCsvFieldType = 'checkbox' | 'number' | 'date' | 'longText' | 'singleLineText';
@@ -109,15 +114,15 @@ export class ImportTabularTableResult {
   private constructor(
     readonly table: Table,
     readonly totalImported: number,
-    readonly events: ReadonlyArray<IDomainEvent>
+    readonly events: ReadonlyArray<DomainEventSummary>
   ) {}
 
   static create(
     table: Table,
     totalImported: number,
-    events: ReadonlyArray<IDomainEvent>
+    events: ReadonlyArray<DomainEventSummary>
   ): ImportTabularTableResult {
-    return new ImportTabularTableResult(table, totalImported, [...events]);
+    return new ImportTabularTableResult(table, totalImported, events);
   }
 }
 
@@ -144,7 +149,7 @@ export class ImportTabularTableService {
     private readonly tableRepository: TableRepositoryPort.ITableRepository,
     private readonly tableSchemaRepository: TableSchemaRepositoryPort.ITableSchemaRepository,
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
-    private readonly eventBus: EventBusPort.IEventBus,
+    private readonly domainWriteTransaction: IDomainWriteTransaction,
     private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
     private readonly recordWritePluginRunner: RecordWritePluginRunner = new RecordWritePluginRunner(
       [],
@@ -161,95 +166,103 @@ export class ImportTabularTableService {
     context: ExecutionContextPort.IExecutionContext,
     command: ImportTabularTableInput
   ): Promise<Result<ImportTabularTableResult, DomainError>> {
-    const handler = this;
-    return safeTry<ImportTabularTableResult, DomainError>(async function* () {
-      const parseResult = command.parseResult;
-      const sampledRows = await handler.sampleAsyncRows(
-        parseResult.rowsAsync ?? toAsyncIterable(parseResult.rows),
-        csvInferenceSampleSize
-      );
-      const inferenceRows = sampledRows.sampleRows;
-      const rowsAsync = sampledRows.rowsAsync;
-      const knownRowCount =
-        parseResult.rowCount ?? (sampledRows.exhausted ? sampledRows.sampleRows.length : undefined);
-      const source = command.source;
-      const emptyColumnsCode = source === 'excel' ? 'import.excel.no_columns' : 'csv.no_columns';
-      const emptyColumnsMessage =
-        source === 'excel' ? 'Excel sheet has no columns' : 'CSV file has no columns';
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
+    const iterator = (command.parseResult.rowsAsync ?? toAsyncIterable(command.parseResult.rows))[
+      Symbol.asyncIterator
+    ]();
+    try {
+      return await safeTry<ImportTabularTableResult, DomainError>(async function* () {
+        const parseResult = command.parseResult;
+        const sampledRows = await handler.sampleAsyncRows(iterator, csvInferenceSampleSize);
+        const inferenceRows = sampledRows.sampleRows;
+        const rowsAsync = sampledRows.rowsAsync;
+        const knownRowCount =
+          parseResult.rowCount ??
+          (sampledRows.exhausted ? sampledRows.sampleRows.length : undefined);
+        const source = command.source;
+        const emptyColumnsCode = source === 'excel' ? 'import.excel.no_columns' : 'csv.no_columns';
+        const emptyColumnsMessage =
+          source === 'excel' ? 'Excel sheet has no columns' : 'CSV file has no columns';
 
-      if (parseResult.headers.length === 0) {
-        return err(
-          domainError.validation({
-            message: emptyColumnsMessage,
-            code: emptyColumnsCode,
-          })
+        if (parseResult.headers.length === 0) {
+          return err(
+            domainError.validation({
+              message: emptyColumnsMessage,
+              code: emptyColumnsCode,
+            })
+          );
+        }
+
+        const tableName =
+          command.tableName ??
+          (yield* TableName.create(
+            `Import_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')}`
+          ));
+
+        const importColumns = yield* handler.resolveImportColumns(
+          parseResult.headers,
+          inferenceRows,
+          command.columns
         );
-      }
-
-      const tableName =
-        command.tableName ??
-        (yield* TableName.create(
-          `Import_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')}`
-        ));
-
-      const importColumns = yield* handler.resolveImportColumns(
-        parseResult.headers,
-        inferenceRows,
-        command.columns
-      );
-      const table = yield* handler.buildTableFromColumns(command.baseId, tableName, importColumns);
-      const tablePluginExecution = yield* await handler.tableOperationPluginRunner.prepare({
-        kind: TableOperationKind.importCsv,
-        executionContext: context,
-        payload: {
-          baseId: command.baseId,
+        const table = yield* handler.buildTableFromColumns(
+          command.baseId,
           tableName,
-          table,
-          fieldCount: table.getFields().length,
-          viewCount: table.views().length,
-          recordCount: command.importData
-            ? capImportRecordCount(knownRowCount ?? 0, command.maxRowCount)
-            : 0,
-        },
-        isTransactionBound: false,
-      });
-      yield* await tablePluginExecution.guard();
+          importColumns
+        );
+        const tablePluginExecution = yield* await handler.tableOperationPluginRunner.prepare({
+          kind: TableOperationKind.importCsv,
+          executionContext: context,
+          payload: {
+            baseId: command.baseId,
+            tableName,
+            table,
+            fieldCount: table.getFields().length,
+            viewCount: table.views().length,
+            recordCount: !command.importData
+              ? 0
+              : knownRowCount === undefined
+                ? undefined
+                : capImportRecordCount(knownRowCount, command.maxRowCount),
+          },
+          isTransactionBound: false,
+        });
+        yield* await tablePluginExecution.guard();
 
-      const persistedTable = yield* await handler.unitOfWork.withTransaction(
-        context,
-        async (metaTransactionContext) =>
-          safeTry<Table, DomainError>(async function* () {
-            const persistedTable = yield* await handler.tableRepository.insert(
-              metaTransactionContext,
-              table
-            );
-            yield* await beginTableSchemaOperation(
-              handler.unitOfWork,
-              handler.tableRepository,
-              metaTransactionContext,
-              persistedTable,
-              {
-                type: 'table.import',
-                payload: {
-                  source,
-                  durableSource: false,
-                },
-              }
-            );
-            return ok(persistedTable);
-          }),
-        { scope: 'meta' }
-      );
+        const persistedTable = yield* await handler.unitOfWork.withTransaction(
+          context,
+          async (metaTransactionContext) =>
+            safeTry<Table, DomainError>(async function* () {
+              const persistedTable = yield* await handler.tableRepository.insert(
+                metaTransactionContext,
+                table
+              );
+              yield* await beginTableSchemaOperation(
+                handler.unitOfWork,
+                handler.tableRepository,
+                metaTransactionContext,
+                persistedTable,
+                {
+                  type: 'table.import',
+                  payload: {
+                    source,
+                    durableSource: false,
+                  },
+                }
+              );
+              return ok(persistedTable);
+            }),
+          { scope: 'meta' }
+        );
 
-      const importResult = await handler.unitOfWork.withTransaction(
-        context,
-        async (dataTransactionContext) => {
-          return safeTry<{ totalImported: number; events: IDomainEvent[] }, DomainError>(
-            async function* () {
+        const importResult = await handler.domainWriteTransaction.executeStream(
+          context,
+          async (dataTransactionContext, events) => {
+            return safeTry(async function* () {
               yield* await handler.tableSchemaRepository.insert(
                 dataTransactionContext,
                 persistedTable
               );
+              yield* await events.append(table.pullDomainEvents(), [persistedTable]);
               if (!command.importData) {
                 command.onProgress?.({
                   phase: 'completed',
@@ -257,11 +270,13 @@ export class ImportTabularTableService {
                   currentBatch: 0,
                   totalRows: 0,
                 });
-                return ok({ totalImported: 0, events: [] });
+                return ok({ totalImported: 0 });
               }
 
+              // Record-write plugins require a count; unknown streams expose only the
+              // observed lower bound, while table limits are checked cumulatively below.
               const totalRecordCount = capImportRecordCount(
-                knownRowCount ?? 0,
+                knownRowCount ?? sampledRows.sampleRows.length,
                 command.maxRowCount
               );
               command.onProgress?.({
@@ -317,7 +332,6 @@ export class ImportTabularTableService {
                 parseResult.headers,
                 importColumns
               );
-              const recordEvents: IDomainEvent[] = [];
               const recordsIterable = handler.createRecordsIterableAsync(
                 rowsAsync,
                 fieldIdMap,
@@ -327,6 +341,7 @@ export class ImportTabularTableService {
               const batchGenerator = persistedTable.createRecordsStreamAsync(recordsIterable, {
                 batchSize: command.batchSize,
                 typecast: true,
+                emitRecordCreatedEvents: false,
               });
 
               const insertResult = yield* await handler.tableRecordRepository.insertManyStream(
@@ -341,7 +356,8 @@ export class ImportTabularTableService {
                     batchSize: command.batchSize,
                     operationId,
                     totalRecordCount,
-                    events: recordEvents,
+                    events,
+                    tablePluginExecution,
                   }
                 ),
                 {
@@ -365,80 +381,105 @@ export class ImportTabularTableService {
                 totalRows: insertResult.totalInserted,
               });
 
-              return ok({ totalImported: insertResult.totalInserted, events: recordEvents });
-            }
-          );
-        },
-        { scope: 'data' }
-      );
-      if (importResult.isErr()) {
-        // The data-phase transaction (physical table + rows) rolled back, so
-        // drop the meta rows committed in the meta phase as well — otherwise a
-        // ghost table (meta without storage) stays visible in table lists.
-        const cleanupResult = await handler.unitOfWork.withTransaction(
-          context,
-          async (metaTransactionContext) =>
-            handler.tableRepository.delete(metaTransactionContext, persistedTable, {
-              mode: 'permanent',
-            }),
-          { scope: 'meta' }
+              return ok({ totalImported: insertResult.totalInserted });
+            });
+          },
+          {
+            scope: 'data',
+            finalizeAfterCommit: (committedContext) =>
+              completeTableSchemaOperation(
+                handler.unitOfWork,
+                handler.tableRepository,
+                committedContext,
+                persistedTable,
+                { type: 'table.import' }
+              ),
+          }
         );
-        if (cleanupResult.isErr()) {
-          // Could not remove the meta — fall back to the error provision state
-          // so ready-only queries still filter the table out.
-          yield* await failTableSchemaOperation(
-            handler.unitOfWork,
-            handler.tableRepository,
+        if (importResult.isErr()) {
+          // The data-phase transaction (physical table + rows) rolled back, so
+          // drop the meta rows committed in the meta phase as well — otherwise a
+          // ghost table (meta without storage) stays visible in table lists.
+          const cleanupResult = await handler.unitOfWork.withTransaction(
             context,
-            persistedTable,
-            {
-              lastError: importResult.error.message,
-              type: 'table.import',
-              payload: {
-                source,
-                durableSource: false,
-              },
-            }
+            async (metaTransactionContext) =>
+              handler.tableRepository.delete(metaTransactionContext, persistedTable, {
+                mode: 'permanent',
+              }),
+            { scope: 'meta' }
           );
-        } else {
-          // Successful cleanup still leaves the pending table.import row. If it
-          // stays pending, the schema-operation runner claims it after the stale
-          // window and fails with "Only structure-only DotTea imports can be
-          // repaired automatically" even though the original CSV error is gone.
-          yield* await abandonTableSchemaOperation(
-            handler.unitOfWork,
-            handler.tableRepository,
-            context,
-            persistedTable,
-            {
-              lastError: importResult.error.message,
-              type: 'table.import',
-              payload: {
-                source,
-                durableSource: false,
+          if (cleanupResult.isErr()) {
+            // Could not remove the meta — fall back to the error provision state
+            // so ready-only queries still filter the table out.
+            yield* await failTableSchemaOperation(
+              handler.unitOfWork,
+              handler.tableRepository,
+              context,
+              persistedTable,
+              {
+                lastError: importResult.error.message,
+                type: 'table.import',
+                payload: {
+                  source,
+                  durableSource: false,
+                },
+              }
+            );
+          } else {
+            // Successful cleanup still leaves the pending table.import row. If it
+            // stays pending, the schema-operation runner claims it after the stale
+            // window and fails with "Only structure-only DotTea imports can be
+            // repaired automatically" even though the original CSV error is gone.
+            yield* await abandonTableSchemaOperation(
+              handler.unitOfWork,
+              handler.tableRepository,
+              context,
+              persistedTable,
+              {
+                lastError: importResult.error.message,
+                type: 'table.import',
+                payload: {
+                  source,
+                  durableSource: false,
+                },
+              }
+            );
+          }
+          return err(importResult.error);
+        }
+
+        // This is a committed data phase, not a rollback. Keep metadata and records intact
+        // when the independent ready-state transition fails, and expose that distinction.
+        if (importResult.value.finalizationError) {
+          const failure = importResult.value.finalizationError;
+          return err(
+            domainError.infrastructure({
+              code: failure.code,
+              message: failure.message,
+              tags: failure.tags,
+              details: {
+                ...failure.details,
+                committed: true,
+                tableId: persistedTable.id().toString(),
               },
-            }
+              cause: failure,
+            })
           );
         }
-        return err(importResult.error);
-      }
 
-      yield* await completeTableSchemaOperation(
-        handler.unitOfWork,
-        handler.tableRepository,
-        context,
-        persistedTable,
-        { type: 'table.import' }
-      );
-
-      // 5. 发布事件
-      const events = [...table.pullDomainEvents(), ...importResult.value.events];
-      yield* await handler.eventBus.publishMany(context, events);
-
-      return ok(
-        ImportTabularTableResult.create(persistedTable, importResult.value.totalImported, events)
-      );
-    });
+        return ok(
+          ImportTabularTableResult.create(
+            persistedTable,
+            importResult.value.value.totalImported,
+            importResult.value.events
+          )
+        );
+      });
+    } catch (error) {
+      return err(domainError.fromUnknown(error));
+    } finally {
+      await iterator.return?.();
+    }
   }
 
   private resolveImportColumns(
@@ -647,9 +688,18 @@ export class ImportTabularTableService {
     options: ChunkPluginOptions
   ): AsyncGenerator<ReadonlyArray<TableRecord>> {
     let chunkIndex = 0;
+    let recordCount = 0;
     for await (const batchResult of generator) {
       if (batchResult.isErr()) {
         throw batchResult.error;
+      }
+      recordCount += batchResult.value.length;
+      const tableGuardResult = await options.tablePluginExecution.guardImportRecordCount(
+        recordCount,
+        transactionContext
+      );
+      if (tableGuardResult.isErr()) {
+        throw tableGuardResult.error;
       }
       const chunkPluginExecution = await this.prepareChunkPluginExecution(
         transactionContext,
@@ -668,28 +718,39 @@ export class ImportTabularTableService {
       if (beforePersistResult.isErr()) {
         throw beforePersistResult.error;
       }
-      chunkIndex += 1;
-      this.addRecordsBatchCreatedEvent(batchResult.value, options);
       yield batchResult.value;
+      const appended = await this.addRecordsBatchCreatedEvent(batchResult.value, {
+        ...options,
+        chunkIndex,
+      });
+      if (appended.isErr()) throw appended.error;
+      chunkIndex += 1;
     }
   }
 
-  private addRecordsBatchCreatedEvent(
+  private async addRecordsBatchCreatedEvent(
     records: ReadonlyArray<TableRecord>,
-    options: ChunkPluginOptions
-  ): void {
+    options: ChunkPluginOptions & { chunkIndex: number }
+  ): Promise<Result<void, DomainError>> {
     const eventRecords = this.toEventRecords(records);
-    if (eventRecords.length === 0) {
-      return;
-    }
-
-    options.events.push(
-      RecordsBatchCreated.create({
-        tableId: options.table.id(),
-        baseId: options.table.baseId(),
-        records: eventRecords,
-        source: { type: 'import' },
-      })
+    if (eventRecords.length === 0) return ok(undefined);
+    return options.events.append(
+      [
+        RecordsBatchCreated.create({
+          tableId: options.table.id(),
+          baseId: options.table.baseId(),
+          records: eventRecords,
+          source: { type: 'import' },
+          orchestration: {
+            operationId: options.operationId,
+            totalRecordCount: options.totalRecordCount,
+            totalChunkCount: 0,
+            chunkIndex: options.chunkIndex,
+            scope: 'chunk',
+          },
+        }),
+      ],
+      [options.table]
     );
   }
 
@@ -747,14 +808,13 @@ export class ImportTabularTableService {
   }
 
   private async sampleAsyncRows(
-    rowsAsync: AsyncIterable<Record<string, string>>,
+    iterator: AsyncIterator<Record<string, string>>,
     sampleSize: number
   ): Promise<{
     sampleRows: ReadonlyArray<Record<string, string>>;
     rowsAsync: AsyncIterable<Record<string, string>>;
     exhausted: boolean;
   }> {
-    const iterator = rowsAsync[Symbol.asyncIterator]();
     const sampleRows: Record<string, string>[] = [];
     let exhausted = false;
 
@@ -778,16 +838,18 @@ export class ImportTabularTableService {
     rows: ReadonlyArray<Record<string, string>>,
     iterator: AsyncIterator<Record<string, string>>
   ): AsyncIterable<Record<string, string>> {
-    for (const row of rows) {
-      yield row;
-    }
-
-    while (true) {
-      const next = await iterator.next();
-      if (next.done) {
-        return;
+    try {
+      for (const row of rows) {
+        yield row;
       }
-      yield next.value;
+
+      while (true) {
+        const next = await iterator.next();
+        if (next.done) return;
+        yield next.value;
+      }
+    } finally {
+      await iterator.return?.();
     }
   }
 

@@ -1,4 +1,4 @@
-const { join } = require('path');
+const { join } = require('node:path');
 const uiConfig = require('@teable/ui-lib/ui.config.cjs');
 const filePath = join(__dirname, './src/**/*.{js,ts,jsx,tsx}');
 const sdkPath = join(__dirname, '../../packages/sdk/src/**/*.{js,ts,jsx,tsx}');

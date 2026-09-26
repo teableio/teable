@@ -7,7 +7,7 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
-import { NotificationSeverityEnum, NotificationTypeEnum } from '@teable/core';
+import { heicMimetypes, NotificationTypeEnum } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IAdminSendNotificationRo } from '@teable/openapi';
 import { PluginStatus, UploadType } from '@teable/openapi';
@@ -20,6 +20,7 @@ import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { AttachmentsCropQueueProcessor } from '../../attachments/attachments-crop.processor';
 import StorageAdapter from '../../attachments/plugins/adapter';
+import { AuditScope } from '../../audit/audit-scope';
 import { NotificationService } from '../../notification/notification.service';
 
 @Injectable()
@@ -31,7 +32,8 @@ export class AdminOpenApiService {
     private readonly attachmentsCropQueueProcessor: AttachmentsCropQueueProcessor,
     private readonly performanceCacheService: PerformanceCacheService,
     private readonly notificationService: NotificationService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly audit: AuditScope
   ) {}
 
   async publishPlugin(pluginId: string) {
@@ -69,6 +71,8 @@ export class AdminOpenApiService {
                 .whereNotNull('attachments.height')
             )
             .orWhereIn('attachments.mimetype', ['application/pdf', 'application/x-pdf'])
+            // HEIC rows have no height (sharp cannot read HEVC metadata)
+            .orWhereIn('attachments.mimetype', heicMimetypes)
         )
         .whereNull('attachments.deleted_time')
         .whereNull('attachments.thumbnail_path')
@@ -105,6 +109,11 @@ export class AdminOpenApiService {
       this.logger.log(`Processed ${attachments.length} attachments`);
     }
     this.logger.log(`Total processed ${total} attachments`);
+    await this.audit.emitAtomic({
+      action: 'admin.attachment.repair-thumbnail',
+      resourceId: 'instance',
+      params: { queuedCount: total },
+    });
   }
 
   @Timing()
@@ -184,13 +193,18 @@ export class AdminOpenApiService {
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await this.performanceCacheService.del(key as any);
+    await this.audit.emitAtomic({
+      action: 'admin.performance-cache.delete',
+      resourceId: 'instance',
+      params: { key },
+    });
   }
 
   async sendAdminNotification(ro: IAdminSendNotificationRo) {
     const fromUserId = this.cls.get('user.id');
     const { message, severity, userIds, emails } = ro;
 
-    return this.notificationService.sendCommonNotify(
+    const result = await this.notificationService.sendCommonNotify(
       {
         fromUserId,
         toUserId: userIds,
@@ -200,5 +214,17 @@ export class AdminOpenApiService {
       },
       NotificationTypeEnum.AdminNotice
     );
+    await this.audit.emitAtomic({
+      action: 'admin.notification.send',
+      resourceId: 'instance',
+      params: {
+        severity,
+        message,
+        userIds,
+        emails,
+        sentCount: result.sentCount,
+      },
+    });
+    return result;
   }
 }

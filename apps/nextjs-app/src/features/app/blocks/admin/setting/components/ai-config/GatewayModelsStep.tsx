@@ -30,7 +30,7 @@ export function GatewayModelsStep({
   onChange,
   disabled,
   apiKey,
-}: IGatewayModelsStepProps) {
+}: Readonly<IGatewayModelsStepProps>) {
   const { t } = useTranslation('common');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newModel, setNewModel] = useState<Partial<IGatewayModel>>({

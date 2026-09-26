@@ -14,7 +14,7 @@ import type {
   IBaseErdEdge,
 } from '@teable/openapi';
 import { Knex } from 'knex';
-import { groupBy, keyBy, uniq } from 'lodash';
+import { groupBy, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { DatabaseRouter } from '../../global/database-router.service';
@@ -57,7 +57,7 @@ interface IAffectedCountQuery {
 
 @Injectable()
 export class GraphService {
-  private logger = new Logger(GraphService.name);
+  private readonly logger = new Logger(GraphService.name);
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -119,9 +119,9 @@ export class GraphService {
       toFieldId: field.id,
     }));
     directedGraph.push(...fromGraph);
-    const allFieldIds = uniq(
-      directedGraph.map((item) => [item.fromFieldId, item.toFieldId]).flat()
-    );
+    const allFieldIds = [
+      ...new Set(directedGraph.flatMap((item) => [item.fromFieldId, item.toFieldId])),
+    ];
     const fieldRaws = await this.prismaService.field.findMany({
       where: { id: { in: allFieldIds } },
       select: {
@@ -144,7 +144,7 @@ export class GraphService {
     });
 
     const tableRaws = await this.prismaService.tableMeta.findMany({
-      where: { id: { in: uniq(fieldRaws.map((item) => item.tableId)) } },
+      where: { id: { in: [...new Set(fieldRaws.map((item) => item.tableId))] } },
       select: { id: true, name: true, dbTableName: true },
     });
 
@@ -261,9 +261,9 @@ export class GraphService {
           field.options.symmetricFieldId
         );
         lookupGraph.push(
-          ...suplimentLookupRefernce.map((f) => ({ fromFieldId: field.id, toFieldId: f.id }))
+          ...suplimentLookupRefernce.map((f) => ({ fromFieldId: field.id, toFieldId: f.id })),
+          { fromFieldId: field.id, toFieldId: field.options.symmetricFieldId }
         );
-        lookupGraph.push({ fromFieldId: field.id, toFieldId: field.options.symmetricFieldId });
       }
     }
 
@@ -273,7 +273,9 @@ export class GraphService {
     );
     return {
       ...context,
-      allFieldIds: uniq([...context.allFieldIds, ...lookupGraph.map((item) => item.toFieldId)]),
+      allFieldIds: [
+        ...new Set([...context.allFieldIds, ...lookupGraph.map((item) => item.toFieldId)]),
+      ],
       directedGraph: context.directedGraph.concat(lookupGraph),
       fieldMap: {
         ...context.fieldMap,
@@ -780,9 +782,9 @@ export class GraphService {
       },
     });
 
-    const referenceFieldIds = uniq(
-      references.map((ref) => [ref.fromFieldId, ref.toFieldId]).flat()
-    );
+    const referenceFieldIds = [
+      ...new Set(references.flatMap((ref) => [ref.fromFieldId, ref.toFieldId])),
+    ];
 
     const referenceFieldRaws = await this.prismaService.txClient().field.findMany({
       where: {

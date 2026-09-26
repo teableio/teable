@@ -82,12 +82,8 @@ export class InvitationService {
   @Audit({
     action: Events.INVITATION_EMAIL_SEND,
     resourceId: (input: { resourceId: string }) => input.resourceId,
-    // Capture the inviter's user.id at decorator-resolve time (before the method
-    // runs). Inviting a brand-new email path runs `userService.createUser`, which
-    // mutates CLS user.id via runWith(cls.get(), ...) — that bleeds into the
-    // outer scope, and by the time the audit listener reads cls.get('user.id')
-    // it would see the invitee's id instead of the inviter's. Resolving userId
-    // up front pins the row to the inviter.
+    // Pin the row to the inviter, resolved before the method runs: inviting a new email creates
+    // the invitee's account (and signup space) as that invitee inside the method.
     userId: (_input, ctx) => ctx.cls.get('user.id'),
     params: (input: {
       resourceId: string;
@@ -164,7 +160,7 @@ export class InvitationService {
     });
 
     const noExistEmails = invitationEmails.filter(
-      (email) => !sendUsers.find((u) => u.email.toLowerCase() === email.toLowerCase())
+      (email) => !sendUsers.some((u) => u.email.toLowerCase() === email.toLowerCase())
     );
 
     const invitees: ICollaboratorInvitee[] = [];
@@ -275,7 +271,7 @@ export class InvitationService {
       where: { id: baseId, deletedTime: null },
     });
     if (!base) {
-      throw new CustomHttpException('Base not found', HttpErrorCode.NOT_FOUND, {
+      throw new CustomHttpException('Project not found', HttpErrorCode.NOT_FOUND, {
         localization: {
           i18nKey: 'httpErrors.base.notFound',
         },
@@ -374,13 +370,25 @@ export class InvitationService {
     resourceId: string;
     resourceType: CollaboratorType;
   }) {
-    await this.prismaService.invitation.update({
+    const { role } = await this.prismaService.invitation.update({
       where: {
         id: invitationId,
         type: 'link',
         [resourceType === CollaboratorType.Space ? 'spaceId' : 'baseId']: resourceId,
       },
       data: { deletedTime: new Date().toISOString() },
+    });
+    await this.audit.emitAtomic({
+      action: Events.INVITATION_LINK_DELETE,
+      resourceId,
+      params: {
+        resourceType,
+        invitationId,
+        role,
+        ...(resourceType === CollaboratorType.Base
+          ? { baseId: resourceId }
+          : { spaceId: resourceId }),
+      },
     });
   }
 
@@ -403,16 +411,37 @@ export class InvitationService {
       resourceId,
       resourceType,
     });
+    const resourceKey = resourceType === CollaboratorType.Space ? 'spaceId' : 'baseId';
+    const previous = await this.prismaService.invitation.findFirst({
+      where: { id: invitationId, type: 'link', [resourceKey]: resourceId },
+      select: { role: true },
+    });
     const { id } = await this.prismaService.invitation.update({
       where: {
         id: invitationId,
         type: 'link',
-        [resourceType === CollaboratorType.Space ? 'spaceId' : 'baseId']: resourceId,
+        [resourceKey]: resourceId,
       },
       data: {
         role,
       },
     });
+    // Same-role PATCHes change nothing and are not audited.
+    if (previous && previous.role !== role) {
+      await this.audit.emitAtomic({
+        action: Events.INVITATION_LINK_UPDATE,
+        resourceId,
+        params: {
+          resourceType,
+          invitationId: id,
+          oldRole: previous.role,
+          newRole: role,
+          ...(resourceType === CollaboratorType.Base
+            ? { baseId: resourceId }
+            : { spaceId: resourceId }),
+        },
+      });
+    }
     return {
       invitationId: id,
       role,
@@ -498,7 +527,7 @@ export class InvitationService {
           where: { id: baseId, deletedTime: null },
         })
         .catch(() => {
-          throw new CustomHttpException('Base not found', HttpErrorCode.NOT_FOUND, {
+          throw new CustomHttpException('Project not found', HttpErrorCode.NOT_FOUND, {
             localization: {
               i18nKey: 'httpErrors.base.notFound',
             },

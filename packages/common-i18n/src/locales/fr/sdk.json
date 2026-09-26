@@ -49,7 +49,8 @@
     "previewFileLimit": "Limite de taille du fichier en aperçu : {{size}} Mo, veuillez télécharger pour le visualiser.",
     "loadFileError": "Échec du chargement du fichier",
     "previousAttachment": "Précédent",
-    "nextAttachment": "Suivant"
+    "nextAttachment": "Suivant",
+    "deleteAttachment": "Supprimer"
   },
   "undoRedo": {
     "undo": "Undo",
@@ -400,13 +401,13 @@
       "spaceInviteEmail": "Inviter par email dans l'espace",
       "spaceInviteLink": "Inviter par lien dans l'espace",
       "spaceGrantRole": "Accorder un rôle dans l'espace",
-      "baseCreate": "Créer une base",
-      "baseDelete": "Supprimer une base",
-      "baseRead": "Lire une base",
-      "baseReadAll": "Lire toutes les bases",
-      "baseUpdate": "Mettre à jour une base",
-      "baseInviteEmail": "Inviter par email dans la base",
-      "baseInviteLink": "Inviter par lien dans la base",
+      "baseCreate": "Créer un projet",
+      "baseDelete": "Supprimer un projet",
+      "baseRead": "Lire un projet",
+      "baseReadAll": "Lire tous les projets",
+      "baseUpdate": "Mettre à jour un projet",
+      "baseInviteEmail": "Inviter par email dans le projet",
+      "baseInviteLink": "Inviter par lien dans le projet",
       "baseAuthorityMatrixConfig": "Configurer la matrice d'autorité",
       "baseDbConnect": "Se connecter à la base de données",
       "tableCreate": "Créer une table",
@@ -440,14 +441,21 @@
       "automationDelete": "Supprimer une automatisation",
       "automationRead": "Lire une automatisation",
       "automationUpdate": "Mettre à jour une automatisation",
+      "routineCreate": "Créer une routine",
+      "routineDelete": "Supprimer une routine",
+      "routineRead": "Lire une routine",
+      "routineUpdate": "Mettre à jour une routine",
       "appCreate": "Créer une application",
       "appDelete": "Supprimer une application",
       "appRead": "Lire une application",
       "appUpdate": "Mettre à jour une application",
       "userEmailRead": "Lire l'email de l'utilisateur",
       "userIntegrations": "Manage user integrations",
+      "userSpacesRead": "Lire les espaces de l'utilisateur (nom, forfait et sièges)",
+      "userSelfHostedLicensesRead": "Lire les licences auto-hébergées achetées par l'utilisateur (forfait et sièges)",
+      "userNotificationsSend": "Envoyer des notifications à l'utilisateur",
       "recordHistoryRead": "Lire l'historique des enregistrements",
-      "baseQuery": "Interroger la base",
+      "baseQuery": "Interroger le projet",
       "instanceRead": "Lire l'instance",
       "instanceUpdate": "Mettre à jour l'instance",
       "enterpriseRead": "Read enterprise configuration",
@@ -458,10 +466,11 @@
     "table": "Table",
     "view": "Vue",
     "space": "Espace",
-    "base": "Base",
+    "base": "Projet",
     "field": "Champ",
     "record": "Enregistrement",
     "automation": "Automatisation",
+    "routine": "Routine",
     "app": "Application",
     "user": "Utilisateur",
     "recordHistory": "Historique des enregistrements",
@@ -956,7 +965,13 @@
       "recordsPerMutationMax": "Cette opération modifie trop d'enregistrements. Le maximum est de {{max}} enregistrements à la fois.",
       "computedCellValueMaxBytes": "La valeur calculée de cellule est trop volumineuse. Le maximum est de {{max}} octets.",
       "formulaMaxLength": "La formule est trop longue. Le maximum est de {{max}} caractères.",
-      "tablesPerBaseMax": "Cette base a atteint la limite de tables. Le maximum est de {{max}} tables.",
+      "formulaCompileNodesMax": "La structure développée de la formule dépasse la limite de compilation de {{max}} nœuds. Réduisez les références répétées ou les branches complexes. Cette modification n'a pas été enregistrée.",
+      "formulaCompileDepthMax": "La structure de calcul de la formule dépasse la limite d'imbrication de {{max}} niveaux. Réduisez les fonctions imbriquées ou les opérations en chaîne. Cette modification n'a pas été enregistrée.",
+      "formulaReferenceDepthMax": "La formule dépasse la limite de profondeur des références de {{max}} niveaux. Raccourcissez les chaînes de références entre formules. Cette modification n'a pas été enregistrée.",
+      "formulaBindingsMax": "La compilation de la formule nécessite plus de {{max}} liaisons de calcul intermédiaire. Simplifiez les branches de la formule et les calculs référencés. Cette modification n'a pas été enregistrée.",
+      "formulaCompileBytesMax": "Les fragments intermédiaires de compilation de la formule dépassent la limite totale de {{max}} octets. Réduisez les constantes volumineuses, les références répétées ou les branches complexes. Cette modification n'a pas été enregistrée.",
+      "formulaSqlBytesMax": "La requête de base de données générée pour la formule dépasse la limite de {{max}} octets. Simplifiez la formule et les calculs référencés. Cette modification n'a pas été enregistrée.",
+      "tablesPerBaseMax": "Ce projet a atteint la limite de tables. Le maximum est de {{max}} tables.",
       "fieldsPerTableMax": "Cette table contient trop de champs. Le maximum est de {{max}} champs.",
       "rowsPerTableMax": "Cette table contient trop d'enregistrements. Le maximum est de {{max}} enregistrements.",
       "viewsPerTableMax": "Cette table a atteint la limite de vues. Le maximum est de {{max}} vues.",
@@ -1049,6 +1064,7 @@
       "triggerTestFailed": "Test du déclencheur échoué, veuillez vérifier la configuration du déclencheur",
       "testFailed": "Test d'automatisation échoué, veuillez vérifier la configuration d'automatisation",
       "runFailed": "L'exécution de l'automatisation a échoué",
+      "activatorDeactivated": "Le compte qui a activé cette automatisation a été désactivé",
       "nodeParseError": "{{name}} la configuration du nœud est incomplète ou contient des erreurs, veuillez vérifier la configuration du nœud",
       "nodeNeedTest": "{{name}} le nœud doit être testé",
       "nodeTestOutdated": "{{name}} le test du nœud est obsolète",
@@ -1057,7 +1073,7 @@
       "runNotFound": "Exécution d'automatisation non trouvée",
       "anchorNotFound": "Automatisation d'ancrage non trouvée",
       "validationError": "Erreur de validation de la configuration d'automatisation",
-      "tableNotInBase": "Vous ne pouvez vous abonner qu'à une table de votre base de données",
+      "tableNotInBase": "Vous ne pouvez vous abonner qu'à une table de votre projet",
       "alreadyActiveAndNotDraft": "L'automatisation est déjà active et n'est pas un brouillon",
       "noActiveSnapshot": "L'automatisation n'a pas d'instantané actif",
       "onlyFailedRunsCanRerun": "Seules les exécutions échouées peuvent être relancées",
@@ -1081,6 +1097,8 @@
       "unsupportedCategory": "Catégorie non supportée",
       "unknownConnectionType": "Type de connexion e-mail inconnu",
       "imapPasswordNotConfigured": "Mot de passe IMAP non configuré",
+      "secretNotGranted": "Le secret {{alias}} n'est pas accordé à l'automatisation",
+      "credentialMustBeSecret": "Les identifiants doivent être des secrets accordés à l'automatisation",
       "integrationNotFound": "Intégration introuvable ou sans identifiants",
       "webhookTriggerNotFound": "Déclencheur webhook introuvable",
       "emailReceivedTriggerNotFound": "Déclencheur de réception d'e-mail introuvable",
@@ -1092,12 +1110,17 @@
       "apiKeyNotConfigured": "Le service de scraping n'est pas configuré",
       "triggerFailed": "Échec du déclenchement du scraping : {{detail}}",
       "snapshotError": "Erreur de snapshot de scraping : {{detail}}",
-      "timeout": "Délai de scraping dépassé après {{seconds}}s"
+      "timeout": "Délai de scraping dépassé après {{seconds}}s",
+      "catalogFailed": "Échec de la requête du catalogue d'extraction : {{detail}}",
+      "discoverByOnCatalogDataset": "discoverBy ne s'applique qu'aux identifiants de dataset bruts, pas à {{datasetId}}",
+      "tooManyRecords": "Le scraping renverrait jusqu'à {{estimated}} enregistrements, au-delà de la limite de {{max}} par déclenchement",
+      "creditEstimateExceeded": "Les crédits estimés pour ce scraping dépassent ce qui est disponible pour le moment"
     },
     "integration": {
       "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
       "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
-      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}",
+      "providerUnsupported": "Les connexions {{provider}} ne sont plus prises en charge et ne peuvent pas être accordées"
     },
     "space": {
       "notFound": "Espace non trouvé",
@@ -1113,17 +1136,17 @@
       "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
     },
     "base": {
-      "notFound": "Base non trouvée",
-      "cannotAccess": "Vous n'avez pas la permission d'accéder à la base {{baseId}}",
-      "anchorNotFound": "Base d'ancrage {{anchorId}} non trouvée",
-      "baseAndSpaceMismatch": "La base {{baseId}} et l'espace {{spaceId}} ne correspondent pas",
+      "notFound": "Projet non trouvé",
+      "cannotAccess": "Vous n'avez pas la permission d'accéder au projet {{baseId}}",
+      "anchorNotFound": "Projet d'ancrage {{anchorId}} non trouvé",
+      "baseAndSpaceMismatch": "Le projet {{baseId}} et l'espace {{spaceId}} ne correspondent pas",
       "templateNotFound": "Modèle {{templateId}} non trouvé"
     },
     "baseNode": {
-      "baseIdIsRequired": "ID de base requis",
+      "baseIdIsRequired": "ID de projet requis",
       "nodeIdIsRequired": "ID de nœud requis",
       "invalidResourceType": "Type de ressource invalide",
-      "notFound": "Nœud de base non trouvé",
+      "notFound": "Nœud de projet non trouvé",
       "parentMustBeFolder": "Le parent doit être un dossier",
       "cannotDuplicateFolder": "Impossible de dupliquer le dossier",
       "cannotDeleteEmptyFolder": "Impossible de supprimer le dossier car il n'est pas vide",
@@ -1138,6 +1161,23 @@
       "folderNotFound": "Dossier non trouvé",
       "anchorNotFound": "Nœud d'ancrage non trouvé",
       "nameAlreadyExists": "Le nom existe déjà"
+    },
+    "routine": {
+      "notFound": "Routine non trouvée",
+      "runNotFound": "Exécution de routine non trouvée",
+      "configRequiredToActivate": "Impossible d'activer une routine sans configuration enregistrée",
+      "noFutureOccurrence": "La planification n'a aucune occurrence future",
+      "onlyActiveCanDeactivate": "Seule une routine active peut être mise en pause",
+      "configRequiredToRun": "Impossible d'exécuter une routine sans configuration enregistrée",
+      "runAlreadyInFlight": "Une exécution de cette routine est déjà en cours",
+      "runNowWhileActiveEvent": "Cette routine est active et reçoit déjà ses événements ; déclenchez-en un pour la voir s'exécuter",
+      "invalidRunCursor": "Curseur de liste d'exécutions non valide",
+      "invalidSchedule": "Planification de routine non valide : {{reason}}"
+    },
+    "chat": {
+      "notFound": "Conversation introuvable",
+      "accessDenied": "Vous n'êtes pas autorisé à accéder à cette conversation",
+      "serverAuthoredType": "Les conversations de type {{type}} sont créées par le serveur"
     },
     "dashboard": {
       "notFound": "Tableau de bord non trouvé"
@@ -1177,7 +1217,7 @@
       "loginRequired": "Connectez-vous pour modifier cette vue partagée"
     },
     "baseShare": {
-      "notFound": "Partage de base introuvable ou le partage est désactivé",
+      "notFound": "Partage de projet introuvable ou le partage est désactivé",
       "alreadyExists": "Un partage existe déjà pour ce nœud",
       "copyNotAllowed": "Ce partage ne permet pas la copie"
     },
@@ -1195,14 +1235,14 @@
     },
     "dbConnection": {
       "unsupportedDriver": "Pilote de base de données non pris en charge: {{driver}}",
-      "onlyOwnerCanRemove": "Seul le propriétaire de la base peut supprimer la connexion à la base de données pour la base {{baseId}}",
-      "onlyOwnerCanCreate": "Seul le propriétaire de la base peut créer une connexion à la base de données pour la base {{baseId}}",
+      "onlyOwnerCanRemove": "Seul le propriétaire du projet peut supprimer la connexion à la base de données pour le projet {{baseId}}",
+      "onlyOwnerCanCreate": "Seul le propriétaire du projet peut créer une connexion à la base de données pour le projet {{baseId}}",
       "roleNotExist": "Le rôle de base de données {{role}} n'existe pas"
     },
     "baseQuery": {
       "queryFailed": "Échec de la requête: {{message}}",
       "invalidJoinType": "Type de jointure non valide: {{joinType}}",
-      "tableNotFound": "Table {{tableId}} non trouvée dans la base {{baseId}}"
+      "tableNotFound": "Table {{tableId}} non trouvée dans le projet {{baseId}}"
     },
     "baseSqlExecutor": {
       "notAllowedToExecuteSqlWithKeyword": "Non autorisé à exécuter SQL avec le mot-clé {{keyword}}",
@@ -1222,7 +1262,7 @@
       "accessTokenNoPermission": "Le jeton d'accès n'a pas la permission requise",
       "invalidResource": "La ressource n'est pas valide",
       "notAllowedSpace": "Vous n'avez pas la permission d'accéder à cet espace",
-      "notAllowedBase": "Vous n'avez pas la permission d'accéder à cette base",
+      "notAllowedBase": "Vous n'avez pas la permission d'accéder à ce projet",
       "notAllowedTables": "Vous n'avez pas la permission d'accéder à tables({{tableIds}})",
       "notAllowedOperationTable": "Vous n'avez pas la permission d'opérer sur cette table",
       "notAllowedOperationRecord": "Vous n'avez pas la permission d'opérer sur cet enregistrement",
@@ -1242,7 +1282,7 @@
       "primaryFieldCannotBeDisabledForRead": "Le champ principal ne peut pas être désactivé pour l'accès en lecture",
       "fieldDuplicated": "Le champ est dupliqué dans la configuration des permissions",
       "cannotSetRecordPermissionGroup": "Impossible de définir cette combinaison de permissions d'enregistrement({{actions}})",
-      "notFoundBaseAndTable": "ID de base et ID de table introuvables",
+      "notFoundBaseAndTable": "ID de projet et ID de table introuvables",
       "roleTablesShouldNotBeEmpty": "Les tables de rôles de la matrice d'autorité ne doivent pas être vides"
     },
     "selection": {
@@ -1343,7 +1383,10 @@
       "exceedMaxAutomationRunLimit": "Le nombre maximal mensuel d'exécutions d'automatisation est atteint",
       "manualSubscriptionNotSupported": "L'abonnement en libre-service n'est pas disponible pour cet espace. Pour les mises à niveau, les rétrogradations ou d'autres modifications d'abonnement, veuillez contacter le support Teable.",
       "appSumoSubscriptionNotSupported": "Les abonnements AppSumo ne peuvent pas être modifiés via cette interface. Veuillez gérer votre abonnement sur AppSumo.",
-      "customerNotFound": "Aucun enregistrement client de facturation trouvé pour cet espace."
+      "planNotAvailable": "Ce forfait n'est plus disponible pour les nouveaux abonnements.",
+      "seatLimitExceeded": "Sièges achetés insuffisants. Ajoutez des sièges pour inviter plus de collaborateurs.",
+      "customerNotFound": "Aucun enregistrement client de facturation trouvé pour cet espace.",
+      "creditAddOnRetired": "L'extension de crédits récurrente a été retirée. Choisissez plutôt un palier de crédits supérieur dans votre forfait."
     },
     "aggregation": {
       "searchQueryRequired": "La requête de recherche est requise",
@@ -1364,6 +1407,7 @@
       "configurationNotSet": "La configuration IA n'est pas définie",
       "unsupportedProvider": "Fournisseur IA non pris en charge {{type}}",
       "providerConfigurationNotSet": "La configuration du fournisseur IA n'est pas définie",
+      "providerModelDuplicated": "Le modèle {{model}} figure à la fois dans « {{first}} » et « {{second}} » ; un modèle ne peut apparaître que chez un seul fournisseur par type",
       "gatewayApiKeyNotSet": "La clé d’API d’AI Gateway n’est pas configurée",
       "testLLMFailed": "Le test de connexion LLM a échoué",
       "audioNotSupported": "L'entrée audio n'est pas prise en charge par ce modèle {{model}}",
@@ -1425,9 +1469,9 @@
       "noPermissionToDelete": "Vous n'avez pas la permission de supprimer ce collaborateur",
       "noPermissionToUpdate": "Vous n'avez pas la permission de mettre à jour ce collaborateur",
       "noPermissionToOperateRole": "Vous n'avez pas la permission d'opérer ce rôle",
-      "alreadyExistedInBase": "Le collaborateur existe déjà dans la base",
+      "alreadyExistedInBase": "Le collaborateur existe déjà dans le projet",
       "userNotFound": "Utilisateur non trouvé : {{userIds}}",
-      "baseNotFound": "Base non trouvée",
+      "baseNotFound": "Projet non trouvé",
       "noPermissionToAddRole": "Vous n'avez pas la permission d'ajouter un collaborateur avec ce rôle",
       "departmentNotFound": "Département non trouvé"
     },
@@ -1465,9 +1509,9 @@
     "trash": {
       "invalidResourceType": "Type de ressource non valide",
       "notFound": "Élément de la corbeille introuvable",
-      "parentSpaceTrashed": "Impossible de restaurer cette base car son espace parent est également dans la corbeille",
-      "parentBaseOrSpaceTrashed": "Impossible de restaurer cette table car sa base ou son espace parent est également dans la corbeille",
-      "parentBaseTrashed": "Impossible de restaurer cet élément car sa base parente est également dans la corbeille",
+      "parentSpaceTrashed": "Impossible de restaurer ce projet car son espace parent est également dans la corbeille",
+      "parentBaseOrSpaceTrashed": "Impossible de restaurer cette table car son projet ou son espace parent est également dans la corbeille",
+      "parentBaseTrashed": "Impossible de restaurer cet élément car son projet parent est également dans la corbeille",
       "parentNotFound": "Ressource parente non trouvée",
       "tableNotFound": "Élément de corbeille de table introuvable"
     },
@@ -1480,6 +1524,7 @@
     "domainVerification": {
       "notFound": "Aucun code de vérification de domaine trouvé",
       "invalidCode": "Code de vérification invalide",
+      "tooManyAttempts": "Trop de codes incorrects. Veuillez demander un nouveau code de vérification",
       "resendCooldown": "Veuillez attendre 1 minute avant de demander un nouveau code",
       "alreadyVerified": "Le domaine est déjà vérifié"
     },
@@ -1499,7 +1544,7 @@
       "waitlistInviteCodeRequired": "La liste d'attente est activée, un code d'invitation est requis",
       "waitlistInviteCodeInvalid": "La liste d'attente est activée, le code d'invitation n'est pas valide",
       "systemUser": "L'utilisateur est un utilisateur système",
-      "collaboratorsInSpaces": "L'utilisateur a des collaborateurs dans les espaces (ou des espaces supprimés dans la corbeille)",
+      "soleOwnerOfSpaces": "L'utilisateur est le seul propriétaire d'espaces qui doivent être confirmés ou transférés avant la suppression du compte",
       "notFound": "Utilisateur non trouvé",
       "cannotDeleteAdmin": "Impossible de supprimer l'utilisateur administrateur",
       "cannotDeactivateAdmin": "Impossible de désactiver l'utilisateur administrateur",
@@ -1587,6 +1632,10 @@
       "linkedInPostNotFound": "Publication LinkedIn non trouvée : {{postId}}",
       "linkedInAuthorNotFound": "Auteur LinkedIn non trouvé : {{postId}}",
       "fetchLinkedInUserFailed": "Échec de la récupération de l'utilisateur LinkedIn : {{error}}"
+    },
+    "connectorEvent": {
+      "accountNotGranted": "Le déclencheur d'événement du connecteur a besoin d'un compte connecté autorisé pour cette ressource",
+      "notEnabled": "Les événements du connecteur ne sont pas activés sur ce déploiement"
     }
   },
   "usageLimitBanner": {
@@ -1596,7 +1645,8 @@
       "titleIncrement": "Cette action ajoute {{increment}} lignes et dépasse la limite de {{limit}} de votre forfait",
       "titleBatch": "Cette opération dépasserait la limite de {{limit}} lignes de votre forfait",
       "description": "Vous ne pouvez plus ajouter d'enregistrements. Passez à un forfait supérieur pour lever la limite immédiatement, ou libérez de l'espace en supprimant des enregistrements.",
-      "unit": "lignes"
+      "unit": "lignes",
+      "constraint": "Impossible d'ajouter d'autres enregistrements avec le forfait actuel. Libérez de l'espace en supprimant des enregistrements."
     },
     "credit": {
       "unit": "crédits"
@@ -1606,6 +1656,12 @@
     },
     "generic": {
       "description": "Passez à un forfait supérieur pour lever cette limite."
+    },
+    "neutral": {
+      "title": "Cette action dépasse une limite du forfait actuel de l'espace"
+    },
+    "seats": {
+      "unit": "sièges"
     }
   }
 }

@@ -22,10 +22,10 @@ describe('DbTableName', () => {
   });
 
   it('rejects invalid values and empty access', () => {
-    DbTableName.rehydrate('')._unsafeUnwrapErr();
+    expect(DbTableName.rehydrate('').isErr()).toBe(true);
 
     const empty = DbTableName.empty();
     const splitResult = empty.split();
-    splitResult._unsafeUnwrapErr();
+    expect(splitResult.isErr()).toBe(true);
   });
 });

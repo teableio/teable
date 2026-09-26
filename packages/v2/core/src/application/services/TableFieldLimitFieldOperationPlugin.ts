@@ -44,7 +44,7 @@ export class TableFieldLimitFieldOperationPlugin
       domainContext: {
         ...domainContext,
         config: {
-          ...(domainContext?.config ?? {}),
+          ...domainContext?.config,
           tableLimits: contextLimitsResult.value ?? domainContext?.config?.tableLimits,
         },
       },

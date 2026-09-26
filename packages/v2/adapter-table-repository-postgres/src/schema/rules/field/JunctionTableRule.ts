@@ -57,7 +57,7 @@ export interface JunctionTableConfig {
   foreignTable: TableIdentifier;
   /** The logical table id for resolving the foreign physical table name */
   foreignTableMetaId?: string;
-  /** Whether to add indexes (default: true for ManyMany, false for OneWay) */
+  /** Whether to add directional indexes (default: true) */
   withIndexes?: boolean;
 }
 
@@ -234,15 +234,18 @@ export class JunctionTableExistsRule implements ISchemaRule {
   createIndexRules(): JunctionTableIndexRule[] {
     const rules: JunctionTableIndexRule[] = [];
 
-    rules.push(
-      new JunctionTableIndexRule(
-        this.field,
-        this.config.junctionTable,
-        this.config.selfKeyName,
-        'self',
-        this
-      )
-    );
+    // One-way oneMany already has a self-leading UNIQUE(self, foreign) index.
+    if (this.field.relationship().toString() === 'manyMany') {
+      rules.push(
+        new JunctionTableIndexRule(
+          this.field,
+          this.config.junctionTable,
+          this.config.selfKeyName,
+          'self',
+          this
+        )
+      );
+    }
     rules.push(
       new JunctionTableIndexRule(
         this.field,
@@ -270,9 +273,7 @@ export class JunctionTableExistsRule implements ISchemaRule {
         this.config.sourceTable,
         'self',
         this
-      )
-    );
-    rules.push(
+      ),
       new JunctionTableForeignKeyRule(
         this.field,
         this.config.junctionTable,
@@ -309,7 +310,7 @@ export class JunctionTableExistsRule implements ISchemaRule {
   }
 
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
-    const self = this;
+    const self = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const config = this.config;
     const junctionTable = config.junctionTable;
     const schemaName = junctionTable.schema ?? 'public';
@@ -495,7 +496,7 @@ export class JunctionTableExistsRule implements ISchemaRule {
   }
 
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const self = this;
+    const self = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const config = self.config;
       const schemaBuilder = config.junctionTable.schema
@@ -527,16 +528,12 @@ export class JunctionTableExistsRule implements ISchemaRule {
             schemaBuilder
               .alterTable(config.junctionTable.tableName)
               .addColumn('__id', 'serial', (col) => col.ifNotExists())
-          )
-        );
-        statements.push(
+          ),
           dataStatement(
             schemaBuilder
               .alterTable(config.junctionTable.tableName)
               .addColumn(config.selfKeyName, 'text', (col) => col.ifNotExists())
-          )
-        );
-        statements.push(
+          ),
           dataStatement(
             schemaBuilder
               .alterTable(config.junctionTable.tableName)
@@ -675,7 +672,7 @@ export class JunctionTableUniqueConstraintRule implements ISchemaRule {
   }
 
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
-    const self = this;
+    const self = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<SchemaRuleValidationResult, DomainError>(async function* () {
       const constraintResult = await ctx.introspector.constraintExists(
@@ -742,7 +739,7 @@ export class JunctionTableIndexRule implements ISchemaRule {
   }
 
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
-    const self = this;
+    const self = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<SchemaRuleValidationResult, DomainError>(async function* () {
       const indexResult = await ctx.introspector.indexExists(
@@ -855,7 +852,7 @@ export class JunctionTableForeignKeyRule implements ISchemaRule {
   }
 
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
-    const self = this;
+    const self = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const fieldName = this.field.name().toString();
 
     return safeTry<SchemaRuleValidationResult, DomainError>(async function* () {

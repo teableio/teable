@@ -5,27 +5,34 @@
     "affectedTableSuffix": "({{count}} حقل)",
     "convertAndDuplicate": "التحويل والتكرار"
   },
+  "trash": {
+    "forceRemove": "إزالة المساحة قسرًا",
+    "forceRemoveTitle": "إزالة «{{name}}» قسرًا؟",
+    "forceRemoveLabel": "أفهم المخاطر وأختار الإزالة القسرية.",
+    "forceRemoveWarning": "تؤدي الإزالة القسرية إلى إزالة البيانات الوصفية للمساحة والموارد التي تديرها {{brandName}} نهائيًا دون الاتصال بقاعدة البيانات الخارجية. قد تبقى البيانات الفعلية في قاعدة البيانات الخارجية، ويجب عليك تنظيفها بنفسك. لا يمكن التراجع عن هذا الإجراء.",
+    "forceRemoveSuccess": "تمت إزالة المساحة قسرًا"
+  },
   "initialSpaceName": "مساحة {{name}}",
   "action": {
-    "createBase": "إنشاء قاعدة بيانات",
+    "createBase": "إنشاء مشروع",
     "createSpace": "إنشاء مساحة",
     "invite": "دعوة",
     "startFromScratch": "البدء من الصفر"
   },
   "allSpaces": "جميع المساحات",
-  "emptySpaceTitle": "لا توجد قواعد بيانات في هذه المساحة",
-  "spaceIsEmpty": "أنشئ قاعدة بياناتك الأولى للبدء",
+  "emptySpaceTitle": "لا توجد مشاريع في هذه المساحة",
+  "spaceIsEmpty": "أنشئ مشروعك الأول للبدء",
   "baseModal": {
     "copy": "نسخ",
     "duplicate": "تكرار \"{{baseName}}\"",
-    "createBaseFromTemplate": "إنشاء قاعدة بيانات من قالب",
+    "createBaseFromTemplate": "إنشاء مشروع من قالب",
     "duplicateRecords": "تكرار السجلات",
     "duplicateRecordsTip": "لن يُنسخ سجل المراجعات ولا المتعاونون.",
     "toSpace": "إلى المساحة",
     "copyToSpace": "نسخ إلى مساحة",
-    "duplicateBase": "تكرار قاعدة البيانات",
-    "missTargetTip": "يُرجى اختيار مساحة لتكرار قاعدة البيانات فيها.",
-    "copying": "جارٍ تكرار قاعدة البيانات، قد يستغرق ذلك بعض الوقت...",
+    "duplicateBase": "تكرار المشروع",
+    "missTargetTip": "يُرجى اختيار مساحة لتكرار المشروع فيها.",
+    "copying": "جارٍ تكرار المشروع، قد يستغرق ذلك بعض الوقت...",
     "howToCreate": "كيف تريد أن تبدأ؟",
     "fromScratch": "من الصفر",
     "fromTemplate": "من قالب",
@@ -48,29 +55,29 @@
     "add": "تثبيت",
     "remove": "إلغاء التثبيت",
     "pin": "المثبّتة",
-    "empty": "ستظهر هنا قواعد بياناتك ومساحاتك المثبّتة"
+    "empty": "ستظهر هنا مشاريعك ومساحاتك المثبّتة"
   },
   "tooltip": {
-    "noPermissionToCreateBase": "ليست لديك صلاحية إنشاء قاعدة بيانات"
+    "noPermissionToCreateBase": "ليست لديك صلاحية إنشاء مشروع"
   },
   "tip": {
     "delete": "هل أنت متأكد من حذف <0/>؟",
     "exportTips2": "يمكنك استيراد ملف ‎.tea من: المساحة ← المزيد ← استيراد",
-    "exportTips3": "ستُحوَّل حقول العلاقات بين قواعد البيانات إلى نص سطر واحد.",
+    "exportTips3": "ستُحوَّل حقول العلاقات بين المشاريع إلى نص سطر واحد.",
     "exportIncludeDataLabel": "تضمين السجلات",
     "exportIncludeDataDescription": "عند الإيقاف، يُصدَّر الهيكل والإعدادات فقط",
     "exportTitle": "تصدير",
-    "exportDescription": "صدّر قاعدة البيانات الحالية إلى ملف ‎.tea، وقد يستغرق ذلك بعض الوقت.",
+    "exportDescription": "صدّر المشروع الحالي إلى ملف ‎.tea، وقد يستغرق ذلك بعض الوقت.",
     "exportStartButton": "بدء التصدير",
     "exportSlowTip": "حجم البيانات كبير. قد يستغرق التصدير بعض الوقت، ويمكنك المغادرة مؤقتًا.",
     "exportReadyDescription": "يُرجى تنزيل ملف ‎.tea، {{importHint}}",
-    "moveBaseSuccessTitle": "تم نقل قاعدة البيانات بنجاح",
+    "moveBaseSuccessTitle": "تم نقل المشروع بنجاح",
     "moveBaseSuccessDescription": "تم نقل {{baseName}} إلى {{spaceName}}",
     "moveBaseCrossSpaceTitle": "تنبيه",
     "moveBaseCrossSpaceDataLossWarning": "المراجع بين المساحات غير مدعومة. ستُحوَّل الحقول المرتبطة إلى حقول نصية. ولا يمكن التراجع عن هذا الإجراء.",
     "moveBaseCrossDataDbTitle": "نقل بين قاعدتَي بيانات مختلفتين",
-    "moveBaseCrossDataDbWarning": "تستخدم المساحة المصدر والمساحة الهدف قاعدتَي بيانات مختلفتين. سينسخ هذا النقل بيانات قاعدة البيانات إلى القاعدة الهدف وقد يستغرق بعض الوقت. وتتوقف عمليات الكتابة على هذه القاعدة أثناء النقل.",
-    "moveBaseProgressTitle": "جارٍ نقل قاعدة البيانات…",
+    "moveBaseCrossDataDbWarning": "تستخدم المساحة المصدر والمساحة الهدف قاعدتَي بيانات مختلفتين. سينسخ هذا النقل بيانات المشروع إلى القاعدة الهدف وقد يستغرق بعض الوقت. وتتوقف عمليات الكتابة على هذا المشروع أثناء النقل.",
+    "moveBaseProgressTitle": "جارٍ نقل المشروع…",
     "moveBaseProgressPhase": "المرحلة: {{phase}}",
     "moveBaseProgressPercent": "{{percent}}٪",
     "moveBaseFailedTitle": "فشل النقل",
@@ -85,8 +92,8 @@
   },
   "sharedBase": {
     "title": "تمت مشاركتها معي",
-    "description": "جميع قواعد البيانات التي دُعيت للانضمام إليها",
-    "empty": "لم تتم مشاركة أي قاعدة بيانات معك بعد"
+    "description": "جميع المشاريع التي دُعيت للانضمام إليها",
+    "empty": "لم تتم مشاركة أي مشروع معك بعد"
   },
   "aiSetting": {
     "title": "إعدادات الذكاء الاصطناعي",
@@ -100,7 +107,7 @@
     "phase": {
       "importingV2": "جارٍ الاستيراد",
       "parsingStructure": "جارٍ تحليل البنية",
-      "creatingBase": "جارٍ إنشاء قاعدة البيانات: {{detail}}",
+      "creatingBase": "جارٍ إنشاء المشروع: {{detail}}",
       "creatingTable": "جارٍ إنشاء الجدول: {{detail}}",
       "tableStructureStarted": "جارٍ تجهيز بنية الجدول: {{tableName}} ({{tableIndex}}/{{totalTables}})",
       "tableStructureValidating": "جارٍ التحقق من علاقات الجداول",
@@ -164,7 +171,7 @@
   },
   "template": {
     "title": "قالب",
-    "description": "أنشئ قاعدة بيانات جديدة من قالب بسرعة",
+    "description": "أنشئ مشروع جديد من قالب بسرعة",
     "noTemplatesAvailable": "لا توجد قوالب متاحة",
     "noTemplatesDescription": "لا يوجد شيء هنا حاليًا"
   },
@@ -173,26 +180,26 @@
   },
   "noBases": {
     "title": "مرحبًا {{userName}}!",
-    "description": "لنبدأ بإدارة عملك عبر قاعدة بياناتك الأولى."
+    "description": "لنبدأ بإدارة عملك عبر مشروعك الأول."
   },
   "noSpaces": {
     "title": "مرحبًا {{userName}}!",
     "description": "أنشئ مساحتك الأولى لتبدأ رحلة التعاون على البيانات."
   },
   "baseList": {
-    "allBases": "جميع قواعد البيانات",
+    "allBases": "جميع المشاريع",
     "creator": "المُنشِئ",
     "createdTime": "تاريخ الإنشاء",
     "lastOpened": "آخر فتح",
     "enter": "دخول",
     "noTables": "لا توجد جداول",
-    "empty": "لا توجد قواعد بيانات بعد",
+    "empty": "لا توجد مشاريع بعد",
     "recent": "الأحدث",
     "manual": "ترتيب يدوي"
   },
   "publishBase": {
     "title": "النشر في مركز القوالب",
-    "description": "انشر قاعدة بياناتك في مركز القوالب بنقرة واحدة! دع المزيد من الأشخاص يرون إبداعك ويستخدمونه ويعيدون تشكيله، ولنبنِ معًا أعمالًا أقوى",
+    "description": "انشر مشروعك في مركز القوالب بنقرة واحدة! دع المزيد من الأشخاص يرون إبداعك ويستخدمونه ويعيدون تشكيله، ولنبنِ معًا أعمالًا أقوى",
     "infoTitle": "المعلومات الأساسية",
     "form": {
       "title": "عنوان العمل",
@@ -211,9 +218,9 @@
     "previewTips": "دع العالم يرى عملك",
     "update": "تحديث",
     "unPublish": "إلغاء النشر",
-    "unPublishSuccess": "تم إلغاء نشر قاعدة البيانات بنجاح!",
+    "unPublishSuccess": "تم إلغاء نشر المشروع بنجاح!",
     "unPublishConfirmTitle": "تأكيد إلغاء النشر",
-    "unPublishConfirmDescription": "هل أنت متأكد من إلغاء نشر قاعدة البيانات هذه؟ لن تعود ظاهرة في مركز القوالب.",
+    "unPublishConfirmDescription": "هل أنت متأكد من إلغاء نشر هذا المشروع؟ لن يعود ظاهرًا في مركز القوالب.",
     "uploadCover": "انقر لرفع صورة الغلاف",
     "changeCover": "انقر لتغيير الغلاف",
     "uploading": "جارٍ رفع الصورة...",
@@ -252,7 +259,7 @@
   "dataDb": {
     "create": {
       "title": "قاعدة بيانات التخزين",
-      "description": "اختر المكان الذي تخزّن فيه هذه المساحة مخططات قواعد البيانات والسجلات.",
+      "description": "اختر المكان الذي تخزّن فيه هذه المساحة مخططات المشاريع والسجلات.",
       "defaultHint": "موصى به لمعظم المساحات.",
       "byodbOption": "استخدام قاعدة بيانات PostgreSQL الخاصة بي",
       "byodbHint": "يهيّئ هذه المساحة في مخطط Teable داخلي ضمن قاعدة البيانات التي تديرها بنفسك.",
@@ -323,7 +330,7 @@
     "import": "بدء الاستيراد",
     "done": "اكتمل الاستيراد",
     "failed": "فشل الاستيراد",
-    "openBase": "فتح قاعدة البيانات",
+    "openBase": "فتح المشروع",
     "issuesSummary": "تم تعديل {{count}} عنصر أثناء الاستيراد:",
     "issuesMore": "و{{count}} أخرى",
     "issue": {
@@ -335,7 +342,7 @@
     },
     "phase": {
       "fetchingSchema": "جارٍ قراءة مخطط قاعدة Airtable",
-      "creatingBase": "جارٍ إنشاء قاعدة البيانات: {{detail}}",
+      "creatingBase": "جارٍ إنشاء المشروع: {{detail}}",
       "creatingTable": "جارٍ إنشاء الجدول: {{tableName}} ({{tableIndex}}/{{totalTables}})",
       "creatingLinks": "جارٍ إنشاء حقول الربط",
       "fillingLinks": "{{tableName}} (الروابط)",
@@ -369,9 +376,9 @@
     "title": "كيف تريد أن تبدأ؟"
   },
   "importBaseDialog": {
-    "title": "استيراد قاعدة بيانات",
+    "title": "استيراد مشروع",
     "fromFile": "الاستيراد من ملف",
-    "fromFileDesc": "ارفع ملف قاعدة بيانات ‎.tea",
+    "fromFileDesc": "ارفع ملف مشروع ‎.tea",
     "fromAirtableDesc": "اربط حسابك في Airtable",
     "fromGoogleSheetDesc": "اختر جدول بيانات من Google Drive الخاص بك"
   },
@@ -388,7 +395,7 @@
     "import": "بدء الاستيراد",
     "done": "اكتمل الاستيراد",
     "failed": "فشل الاستيراد",
-    "openBase": "فتح قاعدة البيانات",
+    "openBase": "فتح المشروع",
     "issuesSummary": "تم تعديل {{count}} عنصر أثناء الاستيراد:",
     "issuesMore": "+{{count}} أخرى",
     "recordsImported": "{{tableName}}: تم استيراد {{count}} سجل",
@@ -400,7 +407,7 @@
     },
     "phase": {
       "fetchingSchema": "قراءة بنية جدول البيانات",
-      "creatingBase": "إنشاء قاعدة البيانات: {{detail}}",
+      "creatingBase": "إنشاء المشروع: {{detail}}",
       "creatingTable": "إنشاء الجدول: {{tableName}} ({{tableIndex}}/{{totalTables}})"
     },
     "detecting": "جارٍ التحقق من الاتصال بـ Google…",

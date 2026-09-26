@@ -1,7 +1,10 @@
 import { Progress } from '@teable/ui-lib/shadcn';
 import React, { useState, useEffect } from 'react';
 
-export function ProgressBar({ duration, cellCount }: { duration: number; cellCount: number }) {
+export function ProgressBar({
+  duration,
+  cellCount,
+}: Readonly<{ duration: number; cellCount: number }>) {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
@@ -14,7 +17,7 @@ export function ProgressBar({ duration, cellCount }: { duration: number; cellCou
     const intervalId = setInterval(() => {
       setProgress((prevProgress) => {
         const nextProgress = prevProgress + step;
-        return nextProgress > 100 ? 100 : nextProgress;
+        return Math.min(nextProgress, 100);
       });
     }, interval);
 

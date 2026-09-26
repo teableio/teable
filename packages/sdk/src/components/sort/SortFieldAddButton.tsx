@@ -13,7 +13,7 @@ interface ISortFieldSelectProps {
   onSelect: (colum: string) => void;
 }
 
-function SortFieldAddButton(props: ISortFieldSelectProps) {
+function SortFieldAddButton(props: Readonly<ISortFieldSelectProps>) {
   const { selectedFieldIds = [], addBtnText, onSelect } = props;
   const { t } = useTranslation();
   const inDrawer = useInDrawer();

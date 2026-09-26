@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { pipeline } from 'stream/promises';
+import { pipeline } from 'node:stream/promises';
 import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import type { IAttachmentCellValue, ILinkFieldOptions } from '@teable/core';
@@ -61,9 +61,9 @@ export const BASE_IMPORT_CSV_QUEUE = 'base-import-csv-queue';
 @Injectable()
 @Processor(BASE_IMPORT_CSV_QUEUE)
 export class BaseImportCsvQueueProcessor extends WorkerHost {
-  private logger = new Logger(BaseImportCsvQueueProcessor.name);
+  private readonly logger = new Logger(BaseImportCsvQueueProcessor.name);
 
-  private processedJobs = new Set<string>();
+  private readonly processedJobs = new Set<string>();
 
   constructor(
     private readonly prismaService: PrismaService,

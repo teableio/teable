@@ -189,6 +189,7 @@ describeV2('V2 schema operation runner recovery (e2e)', () => {
     options?: { claimNow?: Date; maxRuns?: number }
   ) => {
     const maxRuns = options?.maxRuns ?? 20;
+    let lastRunStatus: string | undefined;
     for (let run = 0; run < maxRuns; run += 1) {
       const operation = await metaPrisma.schemaOperation.findUnique({
         where: { id: operationId },
@@ -196,13 +197,31 @@ describeV2('V2 schema operation runner recovery (e2e)', () => {
       if (operation && (operation.status === 'ready' || operation.status === 'dead')) {
         return operation;
       }
-      await schemaOperationRunner.runNext(runnerContext, {
+      const result = await schemaOperationRunner.runNext(runnerContext, {
         workerId: 'e2e-schema-operation-runner',
         ...(options?.claimNow ? { now: options.claimNow } : {}),
         staleRunningBefore: new Date(Date.now() - 60_000),
       });
+      if (result.isErr()) {
+        throw new Error(
+          `Schema operation runner failed for ${operationId}: ${result.error.message}`
+        );
+      }
+      lastRunStatus = result.value.status;
     }
-    throw new Error(`Schema operation runner did not settle operation ${operationId}`);
+    const lastOperation = await metaPrisma.schemaOperation.findUnique({
+      where: { id: operationId },
+    });
+    throw new Error(
+      `Schema operation runner did not settle operation ${operationId}: ${JSON.stringify({
+        lastRunStatus,
+        status: lastOperation?.status,
+        phase: lastOperation?.phase,
+        attempts: lastOperation?.attempts,
+        nextRunAt: lastOperation?.nextRunAt,
+        lastError: lastOperation?.lastError,
+      })}`
+    );
   };
 
   const waitForTerminalTableUpdate = async (tableId: string, timeoutMs = 8_000) => {
@@ -531,6 +550,81 @@ describeV2('V2 schema operation runner recovery (e2e)', () => {
     await expect(tableExists(dataPrisma, table.dbTableName)).resolves.toBe(true);
   });
 
+  it('settles a payload-less table.update connection timeout as a rolled-back no-op', async () => {
+    const createRes = await apiCreateTable(baseId, {
+      name: 'Connection timeout table update settlement',
+      fields: [
+        { name: 'Name', type: FieldType.SingleLineText, isPrimary: true },
+        { name: 'Amount', type: FieldType.Number },
+      ],
+      records: [],
+    });
+    expect(createRes.status).toBe(201);
+    expect(createRes.headers['x-teable-v2']).toBe('true');
+
+    const table = createRes.data;
+    createdTables.push(table);
+    const amountField = table.fields.find((field) => field.name === 'Amount');
+    expect(amountField?.id).toBeTruthy();
+
+    await updateViewFilter(table.id, table.defaultViewId, {
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: amountField!.id,
+            operator: 'isGreater',
+            value: 1,
+          },
+        ],
+      },
+    });
+
+    const completed = await metaPrisma.schemaOperation.findFirstOrThrow({
+      where: { tableId: table.id, type: 'table.update' },
+      orderBy: { createdTime: 'desc' },
+    });
+    expect(completed.status).toBe('ready');
+
+    // Production shape for BACKEND-AI-1JX / T7104: the table.update unit of work
+    // hit a connection timeout, the begin write rolled back with the parent
+    // transaction (payload null), and the settlement row was left in error.
+    const claimNow = new Date(Date.now() + 3_600_000);
+    const timedOut = await metaPrisma.schemaOperation.update({
+      where: { id: completed.id },
+      data: {
+        status: 'error',
+        phase: 'error',
+        payload: Prisma.DbNull,
+        result: {
+          tableUpdateFailure: { code: 'unexpected' },
+        },
+        attempts: 1,
+        lastError:
+          'Unexpected unit of work error: Error: Connection terminated due to connection timeout',
+        nextRunAt: claimNow,
+        lockedAt: null,
+        lockedBy: null,
+      },
+    });
+
+    const recovered = await runSchemaOperationUntilSettled(timedOut.id, { claimNow });
+    expect(recovered.status).toBe('ready');
+    expect(recovered.phase).toBe('ready');
+    expect(recovered.lastError).toBeNull();
+    expect(recovered.result).toMatchObject({
+      repaired: 'transaction_rollback',
+      tableIds: [table.id],
+    });
+
+    const tableMeta = await metaPrisma.tableMeta.findUniqueOrThrow({
+      where: { id: table.id },
+      select: { provisionState: true },
+    });
+    expect(tableMeta.provisionState).toBe(ProvisionState.ready);
+    await expect(tableExists(dataPrisma, table.dbTableName)).resolves.toBe(true);
+  });
+
   it('repairs a table.update whose data phase failed on a missing physical column', async () => {
     const createRes = await apiCreateTable(baseId, {
       name: 'Missing column update recovery',
@@ -563,7 +657,7 @@ describeV2('V2 schema operation runner recovery (e2e)', () => {
     // in one statement, so the structured failure classification is asserted
     // before any runner pass repairs and rewrites it.
     const pinned = await metaPrisma.$queryRawUnsafe<
-      { id: string; status: string; result: unknown; lastError: string | null }[]
+      { id: string; status: string; result: unknown; lastError: string | null; claimNow: Date }[]
     >(
       `UPDATE "schema_operation"
        SET "next_run_at" = now() + interval '1 hour'
@@ -573,7 +667,8 @@ describeV2('V2 schema operation runner recovery (e2e)', () => {
          ORDER BY "created_time" DESC
          LIMIT 1
        )
-       RETURNING "id", "status", "result", "last_error" AS "lastError"`,
+       RETURNING "id", "status", "result", "last_error" AS "lastError",
+         ("next_run_at" + interval '1 millisecond') AS "claimNow"`,
       table.id
     );
     expect(pinned).toHaveLength(1);
@@ -584,7 +679,9 @@ describeV2('V2 schema operation runner recovery (e2e)', () => {
     });
 
     const recovered = await runSchemaOperationUntilSettled(pinned[0]!.id, {
-      claimNow: new Date(Date.now() + 3_600_000),
+      // Use the database deadline, not another machine's clock. PostgreSQL stores
+      // microseconds; the 1ms SQL offset stays past that deadline after Date truncation.
+      claimNow: pinned[0]!.claimNow,
     });
     expect(recovered.status).toBe('ready');
     expect(recovered.phase).toBe('ready');

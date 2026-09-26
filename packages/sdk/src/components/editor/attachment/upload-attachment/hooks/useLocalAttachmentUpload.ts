@@ -63,7 +63,7 @@ export const useLocalAttachmentUpload = (
         if (batchResult.completed.length > 0) {
           onChange?.([
             ...attachmentsRef.current,
-            ...batchResult.completed.sort(
+            ...[...batchResult.completed].sort(
               (a, b) =>
                 uploadList.findIndex((item) => item.id === a.id) -
                 uploadList.findIndex((item) => item.id === b.id)

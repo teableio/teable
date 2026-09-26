@@ -8,6 +8,7 @@ import type {
   TableDeleteEvent,
   AppDeleteEvent,
   WorkflowDeleteEvent,
+  RoutineDeleteEvent,
 } from '../events';
 import { Events } from '../events';
 
@@ -21,6 +22,7 @@ type EnterpriseTrashResourceDelegate = {
 type EnterprisePrismaService = PrismaService & {
   readonly app: EnterpriseTrashResourceDelegate;
   readonly workflow: EnterpriseTrashResourceDelegate;
+  readonly routine: EnterpriseTrashResourceDelegate;
 };
 
 @Injectable()
@@ -32,6 +34,7 @@ export class TrashListener {
   @OnEvent(Events.TABLE_DELETE, { async: true })
   @OnEvent(Events.APP_DELETE, { async: true })
   @OnEvent(Events.WORKFLOW_DELETE, { async: true })
+  @OnEvent(Events.ROUTINE_DELETE, { async: true })
   async onEvent(
     event:
       | SpaceDeleteEvent
@@ -39,6 +42,7 @@ export class TrashListener {
       | TableDeleteEvent
       | AppDeleteEvent
       | WorkflowDeleteEvent
+      | RoutineDeleteEvent
   ) {
     const { name, payload } = event;
     const { user } = event.context;
@@ -104,6 +108,17 @@ export class TrashListener {
         });
         deletedTime = workflow?.deletedTime;
         parentId = workflow?.baseId;
+        break;
+      }
+      case Events.ROUTINE_DELETE: {
+        resourceId = payload.routineId;
+        resourceType = ResourceType.Routine;
+        const routine = await (this.prismaService as EnterprisePrismaService).routine.findUnique({
+          where: { id: resourceId },
+          select: { id: true, baseId: true, deletedTime: true },
+        });
+        deletedTime = routine?.deletedTime;
+        parentId = routine?.baseId;
         break;
       }
     }

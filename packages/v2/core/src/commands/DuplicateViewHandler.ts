@@ -55,7 +55,7 @@ export class DuplicateViewHandler
     context: ExecutionContextPort.IExecutionContext,
     command: DuplicateViewCommand
   ): Promise<Result<DuplicateViewResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<DuplicateViewResult, DomainError>(async function* () {
       const tableSpec = yield* TableAggregate.specs()
         .byId(command.tableId)

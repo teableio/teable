@@ -140,7 +140,7 @@ const getSystemFieldType = (fieldId: string) => {
 const getRuleType = (ruleId: string) => ruleId.split(':')[0];
 
 const getColumnDataType = (ruleDescription: string) => {
-  const match = ruleDescription.match(/\(([^()]+)\)\s*$/);
+  const match = /\(([^()]+)\)\s*$/.exec(ruleDescription);
   return match?.[1]?.toLowerCase();
 };
 

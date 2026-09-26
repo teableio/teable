@@ -2,7 +2,6 @@ import type { GetViewResult, IGetViewQueryInput } from '@teable/v2-core';
 import { z } from 'zod';
 
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type HttpErrorStatus,
   type IApiErrorResponseDto,
@@ -31,7 +30,7 @@ export const getViewResponseDataSchema = z.object({
 });
 
 export const getViewOkResponseSchema = apiOkResponseDtoSchema(getViewResponseDataSchema);
-export const getViewErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as getViewErrorResponseSchema } from '../shared/http';
 
 export const mapGetViewResultToDto = (result: GetViewResult): IGetViewResponseDataDto => ({
   view: result.view,

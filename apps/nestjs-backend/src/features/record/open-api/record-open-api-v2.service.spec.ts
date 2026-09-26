@@ -50,6 +50,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { convertValueToStringify, string2Hash } from '../../../utils';
 import { createFieldInstanceByVo } from '../../field/model/factory';
+import { TableQuerySearchVectorRuntimeService } from '../../v2/table-query-search-vector-runtime.service';
+import { withSearchIndex } from '../../v2/table-query-search-vector-runtime.test-fixture';
 import { RecordOpenApiV2Service } from './record-open-api-v2.service';
 
 const tableIdText = `tbl${'c'.repeat(16)}`;
@@ -162,7 +164,6 @@ describe('RecordOpenApiV2Service', () => {
   const cacheSetDetail = vi.fn();
   const getDataDatabaseForTable = vi.fn();
   const dataPrismaForTable = vi.fn();
-  const resolveForRecordSearch = vi.fn();
   const assertTableRecordWritable = vi.fn();
   const tableFindOne = vi.fn();
   const uploadFromUrl = vi.fn();
@@ -332,7 +333,6 @@ describe('RecordOpenApiV2Service', () => {
       url: 'postgresql://meta',
       isMetaFallback: true,
     });
-    resolveForRecordSearch.mockResolvedValue(undefined);
     commandExecute.mockResolvedValue({
       isErr: () => false,
       value: UpdateRecordsResult.create(2, []),
@@ -389,7 +389,7 @@ describe('RecordOpenApiV2Service', () => {
       { assertTableRecordWritable } as never,
       { maxCopyCells: 50_000, maxGroupPoints: 5_000 } as never,
       { uploadFromUrl } as never,
-      { resolveForRecordSearch } as never
+      new TableQuerySearchVectorRuntimeService({ get: () => 'auto' } as never)
     );
   });
 
@@ -693,17 +693,20 @@ describe('RecordOpenApiV2Service', () => {
     ]);
   });
 
-  it('passes a meta-backed generated search vector access path into v2 list queries', async () => {
+  it('uses loaded table search metadata in v2 list queries without reloading it', async () => {
     const tableId = `tbl${'c'.repeat(16)}`;
     const search = ['order 123'] as [string];
     const accessPath = {
-      kind: 'generated_tsvector' as const,
-      generatedColumnName: '__tqops_search_vector',
-      languageConfig: 'simple',
+      kind: 'generated_text' as const,
+      generatedColumnName: '__search_document',
+      provider: 'pg_trgm',
       searchScope: 'all_fields' as const,
       coveredFieldIds: [FieldId.create(noteFieldId)._unsafeUnwrap()],
     };
-    resolveForRecordSearch.mockResolvedValueOnce(accessPath);
+    tableFindOne.mockResolvedValue({
+      isErr: () => false,
+      value: withSearchIndex(testTable, [noteFieldId]),
+    });
 
     await service.getRecords(tableId, {
       fieldKeyType: FieldKeyType.Id,
@@ -712,15 +715,11 @@ describe('RecordOpenApiV2Service', () => {
       take: 2,
     });
 
-    expect(resolveForRecordSearch).toHaveBeenCalledWith({
-      container: { resolve, isRegistered },
-      tableId,
-      search,
-    });
     expect(getDocIdsByQuery).not.toHaveBeenCalled();
     const query = execute.mock.calls[0]?.[1];
     expect(query).toBeInstanceOf(ListTableRecordsQuery);
-    expect((query as ListTableRecordsQuery).recordSearchAccessPath).toBe(accessPath);
+    expect((query as ListTableRecordsQuery).recordSearchAccessPath).toMatchObject(accessPath);
+    expect(tableFindOne).toHaveBeenCalledTimes(1);
   });
 
   it('normalizes legacy ISO date filters for v2 date comparisons using table aggregate fields', async () => {
@@ -1073,12 +1072,9 @@ describe('RecordOpenApiV2Service', () => {
   it('keeps projected group metadata on generated-index searches', async () => {
     const tableId = `tbl${'c'.repeat(16)}`;
     const groupBy = [{ fieldId: statusFieldId, order: SortFunc.Asc }];
-    resolveForRecordSearch.mockResolvedValueOnce({
-      kind: 'generated_tsvector',
-      generatedColumnName: '__tqops_search_vector',
-      languageConfig: 'simple',
-      searchScope: 'all_fields',
-      coveredFieldIds: [FieldId.create(statusFieldId)._unsafeUnwrap()],
+    tableFindOne.mockResolvedValue({
+      isErr: () => false,
+      value: withSearchIndex(testTable, [statusFieldId]),
     });
     execute.mockResolvedValueOnce({
       isErr: () => false,

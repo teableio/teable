@@ -1,12 +1,14 @@
 import { Controller, Delete, Get, Param, Post, Query, Res } from '@nestjs/common';
 import { IdPrefix } from '@teable/core';
 import type {
+  IDeleteTrashQuery,
   IGetTrashItemRecordsVo,
   IRestoreFieldTrashStreamEvent,
   ITrashVo,
   V2Feature,
 } from '@teable/openapi';
 import {
+  deleteTrashQuerySchema,
   ITrashRo,
   trashItemsRoSchema,
   trashRoSchema,
@@ -98,8 +100,11 @@ export class TrashController {
 
   @Delete(':trashId')
   @TokenAccess()
-  async delete(@Param('trashId') trashId: string): Promise<void> {
-    return await this.trashService.delete(trashId);
+  async delete(
+    @Param('trashId') trashId: string,
+    @Query(new ZodValidationPipe(deleteTrashQuerySchema)) query: IDeleteTrashQuery
+  ): Promise<void> {
+    return await this.trashService.delete(trashId, false, query);
   }
 
   protected async prepareRestoreTableCanary(

@@ -112,7 +112,7 @@ export const LinkConnectorLine = () => {
       const targetEl = targets[targets.length - 1] || null;
       if (!targetEl) return clearPoints(prevPointsRef, setPoints);
 
-      const tableId = targetEl.getAttribute('data-link-highlight-target');
+      const tableId = targetEl.dataset.linkHighlightTarget;
       const source = tableId
         ? document.querySelector<HTMLElement>(`[data-table-id="${tableId}"]`)
         : null;

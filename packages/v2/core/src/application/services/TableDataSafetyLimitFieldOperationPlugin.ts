@@ -60,7 +60,7 @@ const formulaExpression = (field: FormulaLikeField): string => field.expression(
 
 const rawSelectOptionNames = (options: unknown): ReadonlyArray<string> => {
   if (Array.isArray(options)) {
-    return options.map((value) => String(value));
+    return options.map(String);
   }
 
   if (!options || typeof options !== 'object') {

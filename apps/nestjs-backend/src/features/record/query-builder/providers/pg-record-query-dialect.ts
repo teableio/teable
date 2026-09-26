@@ -166,7 +166,7 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
   }
 
   private escapeLiteral(value: string): string {
-    return value.replace(/'/g, "''");
+    return value.replaceAll("'", "''");
   }
 
   private getDatePattern(date: string): string {
@@ -331,12 +331,13 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
     cteName: string,
     fieldId: string,
     isMultiple: boolean,
-    _dbFieldType: DbFieldType
+    _dbFieldType: DbFieldType,
+    isUnique = false
   ): string | null {
     if (!isMultiple) return null;
     const columnRef = `"${cteName}"."lookup_${fieldId}"`;
     const normalized = `to_jsonb(${columnRef})`;
-    return `(
+    const flattened = `(
             WITH RECURSIVE f(e) AS (
               SELECT ${normalized}
               UNION ALL
@@ -346,6 +347,16 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
             )
             SELECT jsonb_agg(e) FILTER (WHERE jsonb_typeof(e) <> 'array') FROM f
           )`;
+    return isUnique ? this.uniqueLookupArray(flattened) : flattened;
+  }
+
+  uniqueLookupArray(expression: string): string {
+    return `(SELECT jsonb_agg(value ORDER BY ordinal)
+      FROM (
+        SELECT DISTINCT ON (COALESCE(value->'id', value)) value, ordinal
+        FROM jsonb_array_elements((${expression})::jsonb) WITH ORDINALITY AS lookup_values(value, ordinal)
+        ORDER BY COALESCE(value->'id', value), ordinal
+      ) AS unique_lookup_values)`;
   }
 
   jsonAggregateNonNull(expression: string, orderByClause?: string): string {
@@ -412,7 +423,7 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
     castType: 'numeric' | 'double precision'
   ): string {
     const cleaned = this.buildSanitizedNumericText(expression);
-    const numericPattern = `'^[+-]{0,1}(\\d+(\\.\\d+){0,1}|\\.\\d+)$'`;
+    const numericPattern = String.raw`'^[+-]{0,1}(\d+(\.\d+){0,1}|\.\d+)$'`;
     return `(CASE
       WHEN ${cleaned} IS NULL THEN NULL
       WHEN ${cleaned} ~ ${numericPattern} THEN ${cleaned}::${castType}

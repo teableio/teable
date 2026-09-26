@@ -6,9 +6,8 @@ import { keymap } from '@codemirror/view';
 import type { FunctionName } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { FormulaLexer } from '@teable/formula';
-import { useTheme } from '@teable/next-themes';
 import type { IFunctionSchema } from '@teable/openapi';
-import { Button, cn, Tabs, TabsContent, TabsList, TabsTrigger } from '@teable/ui-lib';
+import { useTheme, Button, cn, Tabs, TabsContent, TabsList, TabsTrigger } from '@teable/ui-lib';
 import { CharStreams } from 'antlr4ts';
 import Fuse from 'fuse.js';
 import { cloneDeep, keyBy } from 'lodash';
@@ -69,9 +68,8 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
       keys: ['name'],
     });
     let searchValue = focusToken?.value || '';
-    searchValue = searchValue[0] === '{' ? searchValue.slice(1) : searchValue;
-    searchValue =
-      searchValue[searchValue.length - 1] === '}' ? searchValue.slice(0, -1) : searchValue;
+    searchValue = searchValue.startsWith('{') ? searchValue.slice(1) : searchValue;
+    searchValue = searchValue.endsWith('}') ? searchValue.slice(0, -1) : searchValue;
 
     return searchValue
       ? fuse.search(searchValue)
@@ -84,9 +82,8 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
       keys: ['name'],
     });
     let searchValue = focusToken?.value || '';
-    searchValue = searchValue[0] === '{' ? searchValue.slice(1) : searchValue;
-    searchValue =
-      searchValue[searchValue.length - 1] === '}' ? searchValue.slice(0, -1) : searchValue;
+    searchValue = searchValue.startsWith('{') ? searchValue.slice(1) : searchValue;
+    searchValue = searchValue.endsWith('}') ? searchValue.slice(0, -1) : searchValue;
 
     const orderedFunctionList: IFunctionSchema<FunctionName>[] = [];
     const filteredFunctionList = searchValue
@@ -180,7 +177,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
   const fieldNamesReg = useMemo(() => {
     const fieldNames = fields.map((f) => {
       const name = f.name.replace(/[.*+?^$(){}|[\]\\]/g, '\\$&');
-      return `(\\{${name}\\})`;
+      return String.raw`(\{${name}\})`;
     });
     const regStr = fieldNames.join('|');
     return new RegExp(regStr, 'g');

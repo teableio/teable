@@ -57,51 +57,47 @@ export const FileZone = (props: {
     );
   }
   return (
-    <>
+    <div
+      className={cn('flex size-full min-h-[120px] flex-col relative gap-4', className)}
+      {...bound}
+    >
       <div
-        className={cn('flex size-full min-h-[120px] flex-col relative gap-4', className)}
-        {...bound}
+        ref={boundRef}
+        tabIndex={0}
+        role="button"
+        className={cn(
+          'w-full bg-secondary text-sm text-foreground/60 rounded-md flex items-center justify-center text-center border border-dashed border-border-high hover:border-primary/15 focus:border-primary/50 focus:outline-none',
+          zoneClassName
+        )}
+        onClick={() => fileInput.current?.click()}
       >
-        <div
-          ref={boundRef}
-          tabIndex={0}
-          role="button"
-          className={cn(
-            'w-full bg-secondary text-sm text-foreground/60 rounded-md flex items-center justify-center text-center border border-dashed border-border-high hover:border-primary/15 focus:border-primary/50 focus:outline-none',
-            zoneClassName
-          )}
-          onClick={() => fileInput.current?.click()}
-        >
-          {defaultText}
-          {actions.includes('click') && (
-            <input
-              multiple
-              ref={fileInput}
-              type="file"
-              className="hidden"
-              onChange={(e) => {
-                onChange?.(Array.from(e.target.files || []));
-                e.target.value = '';
-              }}
-            />
-          )}
-        </div>
-        {children}
-        {dragFileEnter && (
-          <div
-            className={cn(
-              'absolute inset-0 text-sm flex size-full items-center justify-center bg-muted border rounded-md border-background',
-              {
-                'border-foreground border-dashed': over,
-              }
-            )}
-          >
-            {over
-              ? t('editor.attachment.uploadDragOver')
-              : t('editor.attachment.uploadDragDefault')}
-          </div>
+        {defaultText}
+        {actions.includes('click') && (
+          <input
+            multiple
+            ref={fileInput}
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              onChange?.(Array.from(e.target.files || []));
+              e.target.value = '';
+            }}
+          />
         )}
       </div>
-    </>
+      {children}
+      {dragFileEnter && (
+        <div
+          className={cn(
+            'absolute inset-0 text-sm flex size-full items-center justify-center bg-muted border rounded-md border-background',
+            {
+              'border-foreground border-dashed': over,
+            }
+          )}
+        >
+          {over ? t('editor.attachment.uploadDragOver') : t('editor.attachment.uploadDragDefault')}
+        </div>
+      )}
+    </div>
   );
 };

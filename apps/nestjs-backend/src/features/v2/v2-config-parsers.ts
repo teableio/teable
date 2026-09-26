@@ -1,6 +1,10 @@
 export const resolvePositiveInteger = (value: unknown): number | undefined => {
   const parsed =
-    typeof value === 'number' ? value : typeof value === 'string' ? Number(value.trim()) : NaN;
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number(value.trim())
+        : Number.NaN;
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 };
 

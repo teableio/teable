@@ -3,10 +3,11 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
-import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { NoopLogger } from '../../ports/defaults/NoopLogger';
+import type { IExecutionContext } from '../../ports/ExecutionContext';
 import * as LoggerPort from '../../ports/Logger';
 import {
+  type ITableOperationImportCsvContext,
   type ITableOperationPlugin,
   type TableOperationPluginContext,
   type TableOperationPluginEnforce,
@@ -76,6 +77,43 @@ export class TableOperationPluginExecution {
     return ok(undefined);
   }
 
+  async guardImportRecordCount(
+    recordCount: number,
+    executionContext: IExecutionContext
+  ): Promise<Result<void, DomainError>> {
+    if (this.context.kind !== 'importCsv') return ok(undefined);
+    const context: ITableOperationImportCsvContext = {
+      ...this.context,
+      executionContext,
+      isTransactionBound: true,
+    };
+
+    for (const group of createEnforceGroups(
+      this.preparedPlugins,
+      (entry) => entry.plugin.enforce
+    )) {
+      const results = await Promise.all(
+        group.map(async ({ plugin, preparedState }) => {
+          if (!plugin.guardImportRecordCount) return ok(undefined);
+          try {
+            return await plugin.guardImportRecordCount(context, recordCount, preparedState);
+          } catch (error) {
+            return err(
+              domainError.fromUnknown(error, {
+                code: 'table_operation_plugin.guard_failed',
+                details: { operation: context.kind, plugin: plugin.name },
+              })
+            );
+          }
+        })
+      );
+      for (const result of results) {
+        if (result.isErr()) return err(result.error);
+      }
+    }
+    return ok(undefined);
+  }
+
   private async invokeGuard(
     context: TableOperationPluginContext,
     entry: PreparedPluginEntry
@@ -86,7 +124,7 @@ export class TableOperationPluginExecution {
     }
 
     try {
-      const result = await plugin.guard.call(plugin, context, entry.preparedState);
+      const result = await plugin.guard(context, entry.preparedState);
       if (result.isErr()) return err(result.error);
       return ok(undefined);
     } catch (error) {
@@ -149,7 +187,7 @@ export class TableOperationPluginRunner {
     }
 
     try {
-      const result = await plugin.prepare.call(plugin, context);
+      const result = await plugin.prepare(context);
       if (result.isErr()) return err(result.error);
       return ok({ plugin, preparedState: result.value });
     } catch (error) {

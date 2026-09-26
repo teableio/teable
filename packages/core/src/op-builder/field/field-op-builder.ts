@@ -7,16 +7,16 @@ import { DeleteColumnMetaBuilder } from './delete-column-meta';
 import { SetFieldPropertyBuilder } from './set-field-property';
 
 export class FieldOpBuilder {
-  static editor = {
+  static readonly editor = {
     [OpName.AddColumnMeta]: new AddColumnMetaBuilder(),
     [OpName.DeleteColumnMeta]: new DeleteColumnMetaBuilder(),
 
     [OpName.SetFieldProperty]: new SetFieldPropertyBuilder(),
   };
 
-  static creator = new AddFieldBuilder();
+  static readonly creator = new AddFieldBuilder();
 
-  static ops2Contexts = OpBuilderAbstract.ops2Contexts;
+  static readonly ops2Contexts = OpBuilderAbstract.ops2Contexts;
 
-  static detect = OpBuilderAbstract.detect;
+  static readonly detect = OpBuilderAbstract.detect;
 }

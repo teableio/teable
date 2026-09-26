@@ -6,7 +6,7 @@
   "fieldKeyType": "סוג מפתח השדה",
   "chooseSource": "בחירת מקור נתונים",
   "action": {
-    "selectBase": "בחירת בסיס...",
+    "selectBase": "בחירת פרויקט...",
     "selectTable": "בחירת טבלה..."
   },
   "pickParams": "בחירה והגדרה של הפרמטרים",

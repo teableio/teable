@@ -22,6 +22,26 @@ describe('FormulaMeta', () => {
     expect(dtoValue.persistedAsGeneratedColumn).toBe(true);
   });
 
+  it('preserves supported and future policy versions across serialized metadata', () => {
+    for (const formulaSafetyVersion of [1, 2]) {
+      const meta = FormulaMeta.rehydrate({
+        persistedAsGeneratedColumn: true,
+        formulaSafetyVersion,
+      })._unsafeUnwrap();
+      const restored = FormulaMeta.rehydrate(
+        JSON.parse(JSON.stringify(meta.toDto()._unsafeUnwrap()))
+      )._unsafeUnwrap();
+      expect(restored.formulaSafetyVersion()._unsafeUnwrap()).toBe(formulaSafetyVersion);
+      expect(restored.persistedAsGeneratedColumn()._unsafeUnwrap()).toBe(true);
+    }
+  });
+
+  it('rejects invalid policy versions instead of silently making them legacy', () => {
+    for (const formulaSafetyVersion of [0, -1, 1.5, '1', null]) {
+      expect(FormulaMeta.rehydrate({ formulaSafetyVersion }).isErr()).toBe(true);
+    }
+  });
+
   it('rejects invalid meta and unhydrated access', () => {
     const invalid = FormulaMeta.rehydrate('bad');
     invalid._unsafeUnwrapErr();

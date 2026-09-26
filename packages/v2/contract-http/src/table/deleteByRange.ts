@@ -6,7 +6,6 @@ import { z } from 'zod';
 import type { IDomainEventDto } from '../shared/domainEvent';
 import { domainEventDtoSchema, mapDomainEventToDto } from '../shared/domainEvent';
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type HttpErrorStatus,
   type IApiErrorResponseDto,
@@ -44,7 +43,7 @@ export const deleteByRangeOkResponseSchema = apiOkResponseDtoSchema(
   deleteByRangeResponseDataSchema
 );
 
-export const deleteByRangeErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as deleteByRangeErrorResponseSchema } from '../shared/http';
 
 export const mapDeleteByRangeResultToDto = (
   result: DeleteByRangeResult

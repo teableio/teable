@@ -19,7 +19,7 @@ export function updateViewShareMeta(
   viewId: ViewId,
   shareMeta: unknown
 ): Result<UpdateViewShareMetaMethodResult, DomainError> {
-  const table = this;
+  const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   return safeTry<UpdateViewShareMetaMethodResult, DomainError>(function* () {
     const view = yield* table.getView(viewId);
     const previousShareMeta = view.shareMeta();

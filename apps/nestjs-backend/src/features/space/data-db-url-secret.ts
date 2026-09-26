@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 import { dedupeCipherEntries } from '../../configs/secrets/resolve-cipher-entries';
 import type { ICipherEntry } from '../../utils/encryptor';
 import { Encryptor } from '../../utils/encryptor';
@@ -70,8 +70,10 @@ export const buildDataDbUrlCipherEntries = (env: IEnv = process.env): ICipherEnt
   const patOldKey = env.BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY_OLD;
   const patOldIv = env.BACKEND_ACCESS_TOKEN_ENCRYPTION_IV_OLD;
   if (patOldKey && patOldIv) {
-    entries.push({ algorithm, key: patOldKey, iv: patOldIv });
-    entries.push({ algorithm, key: patOldKey, iv: primary.iv });
+    entries.push(
+      { algorithm, key: patOldKey, iv: patOldIv },
+      { algorithm, key: patOldKey, iv: primary.iv }
+    );
   }
 
   return dedupeCipherEntries(entries);

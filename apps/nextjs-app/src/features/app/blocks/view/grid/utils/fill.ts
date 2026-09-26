@@ -30,8 +30,8 @@ const shouldGenerateNumberSeries = (values: unknown[]) => {
 const shouldGenerateDateSeries = (values: unknown[]) => {
   if (values.length !== 2) return false;
   const [v1, v2] = values;
-  const d1 = isParsableDate(v1) ? new Date(v1 as never).getTime() : NaN;
-  const d2 = isParsableDate(v2) ? new Date(v2 as never).getTime() : NaN;
+  const d1 = isParsableDate(v1) ? new Date(v1 as never).getTime() : Number.NaN;
+  const d2 = isParsableDate(v2) ? new Date(v2 as never).getTime() : Number.NaN;
   return Number.isFinite(d1) && Number.isFinite(d2) && d1 !== d2;
 };
 

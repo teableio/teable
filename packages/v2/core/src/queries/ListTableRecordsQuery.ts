@@ -130,6 +130,8 @@ export interface IListTableRecordsQueryOptions {
    * column reads and cell mapping. Returned records carry empty fields.
    */
   readonly idsOnly?: boolean;
+  /** Resolve one record's zero-based position instead of loading a page. */
+  readonly recordIndexId?: string;
   /**
    * Trusted host-only page size for {@link idsOnly} sweeps, overriding the
    * request limit. MAX_RECORDS_LIMIT bounds how heavy a response page may be;
@@ -172,7 +174,8 @@ export class ListTableRecordsQuery {
     readonly recordReadQuerySource?: IRecordReadQuerySource,
     readonly recordSearchAccessPath?: IRecordSearchAccessPath,
     readonly table?: Table,
-    readonly cursor?: string
+    readonly cursor?: string,
+    readonly recordIndexId?: string
   ) {}
 
   static create(
@@ -224,7 +227,8 @@ export class ListTableRecordsQuery {
           options?.queryScope ? undefined : options?.recordReadQuerySource,
           options?.recordSearchAccessPath,
           options?.table,
-          parsed.data.cursor
+          parsed.data.cursor,
+          options?.recordIndexId
         );
       })
     );

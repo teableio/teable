@@ -1,5 +1,5 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 // Path to the server.js file - try multiple possible locations for different Next.js versions
 const possiblePaths = [
@@ -21,9 +21,9 @@ let serverJs = fs.readFileSync(serverJsPath, 'utf8');
 
 // Modify the some environment variables and default environment variables
 serverJs = serverJs
-    .replace(/process\.env\.PORT/g, 'process.env.PLUGIN_SERVER_PORT')
-    .replace(/process\.env\.HOSTNAME/g, "'0.0.0.0'")
-    .replace(/3000/g, '3002');
+  .replaceAll('process.env.PORT', 'process.env.PLUGIN_SERVER_PORT')
+  .replaceAll('process.env.HOSTNAME', "'0.0.0.0'")
+  .replaceAll('3000', '3002');
 
 // Write the modified content back to the server.js file
 fs.writeFileSync(serverJsPath, serverJs, 'utf8');

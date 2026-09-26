@@ -94,7 +94,7 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
     options: ExplainOptions,
     startTime: number
   ): Promise<Result<ExplainResult, DomainError>> {
-    const analyzer = this;
+    const analyzer = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const mergedOptions = { ...DEFAULT_EXPLAIN_OPTIONS, ...options };
 
     return safeTry<ExplainResult, DomainError>(async function* () {
@@ -763,37 +763,35 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
     context: IExecutionContext,
     seedTable: Table
   ): Promise<Result<Map<string, Table>, DomainError>> {
-    return safeTry<Map<string, Table>, DomainError>(
-      async function* (this: UpdateRecordAnalyzer) {
-        const tableById = new Map<string, Table>();
-        tableById.set(seedTable.id().toString(), seedTable);
+    return (async (): Promise<Result<Map<string, Table>, DomainError>> => {
+      const tableById = new Map<string, Table>();
+      tableById.set(seedTable.id().toString(), seedTable);
 
-        // Collect unique table IDs from plan (keep as TableId)
-        const tableIdMap = new Map<string, TableId>();
-        for (const step of plan.steps) {
-          tableIdMap.set(step.tableId.toString(), step.tableId);
-        }
-        for (const batch of plan.sameTableBatches) {
-          tableIdMap.set(batch.tableId.toString(), batch.tableId);
-        }
+      // Collect unique table IDs from plan (keep as TableId)
+      const tableIdMap = new Map<string, TableId>();
+      for (const step of plan.steps) {
+        tableIdMap.set(step.tableId.toString(), step.tableId);
+      }
+      for (const batch of plan.sameTableBatches) {
+        tableIdMap.set(batch.tableId.toString(), batch.tableId);
+      }
 
-        // Load tables not yet in map
-        for (const [tableIdStr, tableId] of tableIdMap) {
-          if (!tableById.has(tableIdStr)) {
-            // Try to find by specs
-            const specResult = seedTable.specs().withoutBaseId().byId(tableId).build();
-            if (specResult.isOk()) {
-              const tableResult = await this.tableRepository.findOne(context, specResult.value);
-              if (tableResult.isOk() && tableResult.value) {
-                tableById.set(tableIdStr, tableResult.value);
-              }
+      // Load tables not yet in map
+      for (const [tableIdStr, tableId] of tableIdMap) {
+        if (!tableById.has(tableIdStr)) {
+          // Try to find by specs
+          const specResult = seedTable.specs().withoutBaseId().byId(tableId).build();
+          if (specResult.isOk()) {
+            const tableResult = await this.tableRepository.findOne(context, specResult.value);
+            if (tableResult.isOk() && tableResult.value) {
+              tableById.set(tableIdStr, tableResult.value);
             }
           }
         }
+      }
 
-        return ok(tableById);
-      }.bind(this)
-    );
+      return ok(tableById);
+    })();
   }
 
   private buildComputedImpact(

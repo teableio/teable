@@ -2,7 +2,6 @@ import type { IListViewsQueryInput, ListViewsResult } from '@teable/v2-core';
 import { z } from 'zod';
 
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type HttpErrorStatus,
   type IApiErrorResponseDto,
@@ -31,7 +30,7 @@ export const listViewsResponseDataSchema = z.object({
 });
 
 export const listViewsOkResponseSchema = apiOkResponseDtoSchema(listViewsResponseDataSchema);
-export const listViewsErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as listViewsErrorResponseSchema } from '../shared/http';
 
 export const mapListViewsResultToDto = (result: ListViewsResult): IListViewsResponseDataDto => ({
   views: result.views,

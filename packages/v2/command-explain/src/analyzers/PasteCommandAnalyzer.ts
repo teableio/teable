@@ -84,7 +84,7 @@ export class PasteCommandAnalyzer implements ICommandAnalyzer<PasteCommand> {
     options: ExplainOptions,
     startTime: number
   ): Promise<Result<ExplainResult, DomainError>> {
-    const analyzer = this;
+    const analyzer = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const mergedOptions = { ...DEFAULT_EXPLAIN_OPTIONS, ...options };
 
     return safeTry<ExplainResult, DomainError>(async function* () {
@@ -142,7 +142,7 @@ export class PasteCommandAnalyzer implements ICommandAnalyzer<PasteCommand> {
           context,
           table,
           filterSpec,
-          { mode: 'stored', pagination }
+          { mode: 'stored', pagination, includeTotal: true }
         );
         totalRows = countResult.total;
       }

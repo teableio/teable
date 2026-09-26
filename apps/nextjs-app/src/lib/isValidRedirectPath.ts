@@ -6,7 +6,7 @@
 export function isValidRedirectPath(path: string): boolean {
   try {
     const base =
-      typeof window !== 'undefined' ? window.location.origin : 'http://placeholder.local';
+      typeof window !== 'undefined' ? window.location.origin : 'https://placeholder.local';
     const url = new URL(path, base);
     return url.origin === base && (url.protocol === 'http:' || url.protocol === 'https:');
   } catch {

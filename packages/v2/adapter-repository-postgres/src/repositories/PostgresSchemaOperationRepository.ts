@@ -20,8 +20,8 @@ type SchemaOperationRow = {
   base_id: string | null;
   table_id: string | null;
   idempotency_key: string;
-  payload: unknown | null;
-  result: unknown | null;
+  payload: unknown;
+  result: unknown;
   attempts: number;
   max_attempts: number;
   next_run_at: Date;

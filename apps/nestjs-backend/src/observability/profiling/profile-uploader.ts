@@ -1,4 +1,4 @@
-import path from 'path';
+import path from 'node:path';
 import { Injectable, Logger } from '@nestjs/common';
 import dayjs from 'dayjs';
 import { IStorageConfig, StorageConfig } from '../../configs/storage';

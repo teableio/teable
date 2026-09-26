@@ -155,7 +155,7 @@ export class ConditionalMatchIndexRule implements ISchemaRule {
   }
 
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
-    const rule = this;
+    const rule = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<SchemaRuleValidationResult, DomainError>(async function* () {
       const matchFieldMeta = yield* await rule.resolveMatchFieldMeta(ctx);
       if (!rule.isIndexableMatchField(matchFieldMeta)) {

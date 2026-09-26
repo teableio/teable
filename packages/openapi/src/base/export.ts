@@ -190,7 +190,8 @@ export type IFieldWithTableIdJson = IFieldJson & {
 export const ExportBaseRoute: RouteConfig = registerRoute({
   method: 'get',
   path: EXPORT_BASE,
-  description: 'export a base by baseId',
+  title: 'Export project',
+  description: 'Export a project by its ID.',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -240,7 +241,9 @@ export type IExportBaseSSEEvent =
 export const ExportBaseStreamRoute: RouteConfig = registerRoute({
   method: 'get',
   path: EXPORT_BASE_STREAM,
-  description: 'export a base by baseId with SSE progress stream',
+  title: 'Export project with progress',
+  description:
+    'Export a project by its ID and receive progress updates and the final result through server-sent events.',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -379,7 +382,7 @@ export const exportBaseStream = async (
 
   const result = await readSSEStream(reader, onProgress);
   if (!result) {
-    throw new Error('Export base stream ended without result');
+    throw new Error('Export project stream ended without result');
   }
 
   return { data: result };

@@ -16,7 +16,7 @@ export const numberCoordinate2Letter = (n: number) => {
   let result = '';
   while (n > 0) {
     n -= 1;
-    result = String.fromCharCode((n % 26) + 'A'.charCodeAt(0)) + result;
+    result = String.fromCodePoint((n % 26) + 'A'.charCodeAt(0)) + result; // NOSONAR typescript:S7758 -- UTF-16 code unit is intended: ASCII/byte arithmetic on a binary or Latin string
     n = Math.floor(n / 26);
   }
   return result;
@@ -26,7 +26,7 @@ export const letterCoordinate2Number = (letters: string) => {
   let result = 0;
 
   for (let i = 0; i < letters.length; i++) {
-    const charValue = letters.charCodeAt(i) - 'A'.charCodeAt(0) + 1;
+    const charValue = letters.charCodeAt(i) - 'A'.charCodeAt(0) + 1; // NOSONAR typescript:S7758 -- UTF-16 code unit is intended: ASCII/byte arithmetic on a binary or Latin string
     result = result * 26 + charValue;
   }
 
@@ -34,6 +34,6 @@ export const letterCoordinate2Number = (letters: string) => {
 };
 
 export const getEndColumn = (range: string): string | null => {
-  const match = range.match(/:(\D+)\d+$/);
+  const match = /:([a-z]+)\d+$/i.exec(range);
   return match ? match[1] : `${range}:${range}`;
 };

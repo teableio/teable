@@ -1,7 +1,7 @@
 import type { IRecord } from '@teable/core';
 import { FieldKeyType, IdPrefix } from '@teable/core';
-import { getRecord, getShareViewRecords } from '@teable/openapi';
-import { keyBy } from 'lodash';
+import { getRecords, getShareViewRecords } from '@teable/openapi';
+import { isEmpty, keyBy } from 'lodash';
 import { useContext, useEffect, useMemo, useState } from 'react';
 import type { Doc } from 'sharedb/lib/client';
 import { ShareViewContext } from '../context/table/ShareViewContext';
@@ -13,14 +13,13 @@ import { useTableId } from './use-table-id';
 export const useRecord = (
   recordId: string | undefined,
   initData?: IRecord,
-  // withHidden also exposes fields hidden in the current view: the ShareDB
-  // document is projected to visible fields, so hidden values are hydrated
-  // once over HTTP and merged for display without widening the shared
-  // document. Enable it only when the view actually hides fields — every
-  // recordId change refetches
-  options?: { withHidden?: boolean }
+  // Detail surfaces hydrate independently of the grid's sparse ShareDB projection.
+  // withHidden also includes view-hidden fields in the instance's field map.
+  // HTTP values and permissions stay local to this hook; live document entries win.
+  options?: { withHidden?: boolean; hydrate?: boolean }
 ) => {
   const withHidden = options?.withHidden ?? false;
+  const hydrate = Boolean(options?.hydrate || withHidden);
   const { connection, connected } = useConnection();
   const tableId = useTableId();
   const { shareId, tableId: shareTableId } = useContext(ShareViewContext);
@@ -29,7 +28,7 @@ export const useRecord = (
   const [source, setSource] = useState<{ data: IRecord; doc?: Doc<IRecord> } | undefined>(() => {
     return initData && !connected ? { data: initData } : undefined;
   });
-  const [hydratedFields, setHydratedFields] = useState<IRecord['fields'] | undefined>();
+  const [hydratedRecord, setHydratedRecord] = useState<IRecord | undefined>();
 
   useEffect(() => {
     if (!connection || !recordId) {
@@ -61,8 +60,8 @@ export const useRecord = (
   }, [connection, recordId, tableId]);
 
   useEffect(() => {
-    setHydratedFields(undefined);
-    if (!withHidden || !recordId || !tableId) {
+    setHydratedRecord(undefined);
+    if (!hydrate || !recordId || !tableId) {
       return undefined;
     }
     let canceled = false;
@@ -75,28 +74,31 @@ export const useRecord = (
     if (shareId && tableId !== shareTableId) {
       return undefined;
     }
-    // no projection: the record endpoint returns every readable field and the
-    // share endpoint bounds the result to the share's allowed set. fieldKeyType
-    // must be id (the REST default is name) so the merge keys line up
+    // No projection: fetch all readable fields, including their per-record permissions.
+    // The authenticated list endpoint supplies permissions; the single-record endpoint
+    // does not. The share endpoint always bounds the result to the share's allowed set.
     const request = shareId
       ? getShareViewRecords(shareId, {
           fieldKeyType: FieldKeyType.Id,
           selectedRecordIds: [recordId],
           take: 1,
-        }).then((res) => res.data.records[0]?.fields)
-      : getRecord(tableId, recordId, { fieldKeyType: FieldKeyType.Id }).then(
-          (res) => res.data.fields
-        );
+        }).then((res) => res.data.records[0])
+      : getRecords(tableId, {
+          fieldKeyType: FieldKeyType.Id,
+          selectedRecordIds: [recordId],
+          take: 1,
+          ignoreViewQuery: true,
+        }).then((res) => res.data.records[0]);
     request
-      .then((hydrated) => !canceled && setHydratedFields(hydrated))
-      .catch((error) => console.error('Failed to hydrate hidden fields:', error));
+      .then((hydrated) => !canceled && setHydratedRecord(hydrated))
+      .catch((error) => console.error('Failed to hydrate record fields:', error));
     return () => {
       canceled = true;
     };
-  }, [withHidden, recordId, tableId, shareId, shareTableId]);
+  }, [hydrate, recordId, tableId, shareId, shareTableId]);
 
   return useMemo(() => {
-    if (!source || !fields.length || recordId == null) {
+    if (!source || !fields.length || recordId == null || source.data.id !== recordId) {
       return undefined;
     }
     const { data, doc } = source;
@@ -105,9 +107,19 @@ export const useRecord = (
     // clears arriving as explicit nulls (SetRecordBuilder and the v2 realtime
     // projection both emit oi-carrying set ops, never a key delete), otherwise
     // a remote clear would resurface the stale hydrated value
-    const record = hydratedFields
-      ? { ...data, fields: { ...hydratedFields, ...data.fields } }
+    const hydrated = hydratedRecord?.id === recordId ? hydratedRecord : undefined;
+    const record = hydrated
+      ? {
+          ...data,
+          fields: { ...hydrated.fields, ...data.fields },
+          permissions: isEmpty(data.permissions)
+            ? hydrated.permissions
+            : {
+                read: { ...hydrated.permissions?.read, ...data.permissions?.read },
+                update: { ...hydrated.permissions?.update, ...data.permissions?.update },
+              },
+        }
       : data;
     return recordInstanceFieldMap(createRecordInstance(record, doc), keyBy(fields, 'id'));
-  }, [fields, source, hydratedFields, recordId]);
+  }, [fields, source, hydratedRecord, recordId]);
 };

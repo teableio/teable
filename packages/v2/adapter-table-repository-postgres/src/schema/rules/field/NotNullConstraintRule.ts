@@ -36,7 +36,7 @@ export class NotNullConstraintRule implements ISchemaRule {
   }
 
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
-    const self = this;
+    const self = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<SchemaRuleValidationResult, DomainError>(async function* () {
       const columnName = yield* resolveColumnName(ctx.field);

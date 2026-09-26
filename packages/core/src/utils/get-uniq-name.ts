@@ -6,12 +6,12 @@ export function getUniqName(name: string, existNames: string[]) {
   let baseName = name;
   let num = 2;
 
-  if (isNaN(Number(name))) {
-    const match = name.match(/^(.*)(\b\d+)$/);
+  if (Number.isNaN(Number(name))) {
+    const match = /^(.*)(\b\d+)$/.exec(name);
 
     if (match) {
       baseName = match[1].trim(); // The base part of the name, without the number
-      num = parseInt(match[2], 10); // The number at the end of the name
+      num = Number.parseInt(match[2], 10); // The number at the end of the name
     }
   }
 

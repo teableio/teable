@@ -91,6 +91,16 @@ export const resolveLatestTableInTransactionScope = (
   return state?.latestTablesById.get(tableId.toString()) ?? fallbackTable;
 };
 
+export const listTablesInTransactionScope = (context: IExecutionContext): Table[] => {
+  const transaction = resolveScopeAnchorTransaction(context);
+  if (!transaction) {
+    return [];
+  }
+
+  const state = stateByTransaction.get(transaction);
+  return state ? [...state.latestTablesById.values()] : [];
+};
+
 export const flushTableUpdateTransactionScope = async (
   context: IExecutionContext
 ): Promise<Result<void, DomainError>> => {

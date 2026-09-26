@@ -106,7 +106,7 @@ export class AttachmentValueDecoratorService implements IRecordChangedValueDecor
     changedFields?: ReadonlyMap<string, unknown>,
     previousFields?: Record<string, unknown>
   ): Promise<Result<ReadonlyMap<string, unknown> | undefined, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyMap<string, unknown> | undefined, DomainError>(async function* () {
       if (!changedFields || changedFields.size === 0) {
         return ok(changedFields);
@@ -132,7 +132,7 @@ export class AttachmentValueDecoratorService implements IRecordChangedValueDecor
     changedFieldsByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>,
     previousFieldsByRecord?: ReadonlyMap<string, Record<string, unknown>>
   ): Promise<Result<ReadonlyMap<string, ReadonlyMap<string, unknown>> | undefined, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyMap<string, ReadonlyMap<string, unknown>> | undefined, DomainError>(
       async function* () {
         if (!changedFieldsByRecord || changedFieldsByRecord.size === 0) {
@@ -199,7 +199,7 @@ export class AttachmentValueDecoratorService implements IRecordChangedValueDecor
     value: unknown,
     oldValue?: unknown
   ): Promise<Result<unknown, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<unknown, DomainError>(async function* () {
       const items = asPartialItems(value);
       if (!items) return ok(value);

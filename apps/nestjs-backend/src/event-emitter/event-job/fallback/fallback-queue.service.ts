@@ -9,7 +9,7 @@ export const PROCESSOR_METADATA = 'bullmq:processor_metadata';
 
 @Injectable()
 export class FallbackQueueService implements OnModuleInit {
-  private logger = new Logger(FallbackQueueService.name);
+  private readonly logger = new Logger(FallbackQueueService.name);
   constructor(
     private readonly reflector: Reflector,
     private readonly discoveryService: DiscoveryService
@@ -65,7 +65,7 @@ export class FallbackQueueService implements OnModuleInit {
     }
     try {
       job.state = 'active';
-      const result = await instance[methodName].call(instance, job);
+      const result = await instance[methodName](job);
       job.state = 'completed';
       job.returnvalue = result;
     } catch (error) {

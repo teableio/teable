@@ -88,7 +88,7 @@ export class ConditionalLookupField
    * Override for isMultipleCellValue. When set, this value is used instead of
    * defaulting to multiple. This is important for compatibility with v1.
    */
-  private isMultipleCellValueOverride: boolean | undefined;
+  private readonly isMultipleCellValueOverride: boolean | undefined;
 
   private constructor(
     id: FieldId,
@@ -457,7 +457,7 @@ export class ConditionalLookupField
     context: FieldUpdateContext
   ): Result<ISpecification<Table, ITableSpecVisitor> | undefined, DomainError> {
     const specs: ISpecification<Table, ITableSpecVisitor>[] = [];
-    let currentField: ConditionalLookupField = this;
+    let currentField: ConditionalLookupField = this; // NOSONAR typescript:S7740 -- reassigned below; it is not a plain alias of `this`
 
     const isLookupTargetUpdated = updatedField.id().equals(this.lookupFieldId());
     const hasLookupTargetSelectOptionChanges = hasFieldSelectOptionChanges(

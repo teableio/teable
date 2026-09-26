@@ -42,5 +42,3 @@ if (module.hot) {
     app?.close();
   });
 }
-
-export { app };

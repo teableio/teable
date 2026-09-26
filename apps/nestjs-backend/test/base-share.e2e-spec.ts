@@ -58,6 +58,8 @@ describe('BaseShareController (e2e)', () => {
   let folderNodeId: string;
   let rootTableId: string;
   let childTableId: string;
+  let rootTableDefaultViewId: string;
+  let childTableDefaultViewId: string;
   let rootTableNodeId: string;
   let childTableNodeId: string;
   let anonymousUser: ReturnType<typeof createAnonymousUserAxios>;
@@ -77,6 +79,8 @@ describe('BaseShareController (e2e)', () => {
     const childTable = await createTable(baseId, { name: 'child-table' });
     rootTableId = rootTable.id;
     childTableId = childTable.id;
+    rootTableDefaultViewId = rootTable.defaultViewId!;
+    childTableDefaultViewId = childTable.defaultViewId!;
 
     const folder = await createBaseNode(baseId, {
       resourceType: BaseNodeResourceType.Folder,
@@ -258,9 +262,10 @@ describe('BaseShareController (e2e)', () => {
       const res = await anonymousUser.get<IGetBaseShareVo>(urlBuilder(GET_BASE_SHARE, { shareId }));
       expect(res.status).toEqual(200);
 
-      // Should have defaultUrl for redirect
-      expect(res.data.defaultUrl).toBeDefined();
-      expect(res.data.defaultUrl).toContain(`/base/${baseId}/table/${rootTableId}`);
+      // Should have defaultUrl pointing straight to the final view page (T6802)
+      expect(res.data.defaultUrl).toBe(
+        `/base/${baseId}/table/${rootTableId}/${rootTableDefaultViewId}`
+      );
     });
 
     it('should return nodeId in shareMeta when sharing a folder', async () => {
@@ -272,8 +277,9 @@ describe('BaseShareController (e2e)', () => {
       expect(res.data.shareMeta.nodeId).toEqual(folderNodeId);
 
       // defaultUrl should point to the first table within the shared folder
-      expect(res.data.defaultUrl).toBeDefined();
-      expect(res.data.defaultUrl).toContain(`/base/${baseId}/table/${childTableId}`);
+      expect(res.data.defaultUrl).toBe(
+        `/base/${baseId}/table/${childTableId}/${childTableDefaultViewId}`
+      );
     });
 
     it('should return defaultUrl for shared table node', async () => {
@@ -285,8 +291,9 @@ describe('BaseShareController (e2e)', () => {
       expect(res.status).toEqual(200);
 
       // defaultUrl should point to the shared table
-      expect(res.data.defaultUrl).toBeDefined();
-      expect(res.data.defaultUrl).toContain(`/base/${baseId}/table/${rootTableId}`);
+      expect(res.data.defaultUrl).toBe(
+        `/base/${baseId}/table/${rootTableId}/${rootTableDefaultViewId}`
+      );
     });
 
     it('should include allowSave and allowCopy in shareMeta', async () => {
@@ -818,7 +825,9 @@ describe('BaseShareController (e2e)', () => {
       // Verify only 2 tables are copied
       const tableList = await getTableList(copiedBaseId);
       expect(tableList.data.length).toBe(2);
-      expect(tableList.data.map((t) => t.name).sort()).toEqual(['Customers', 'Orders'].sort());
+      expect(
+        tableList.data.map((t) => t.name).sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(['Customers', 'Orders'].sort((a, b) => Number(a > b) - Number(a < b)));
 
       // Verify link to Customers remains as Link type
       const copiedOrdersTable = tableList.data.find((t) => t.name === 'Orders')!;
@@ -1131,7 +1140,7 @@ describe('BaseShareController (e2e)', () => {
             const folderNames = targetNodes.data
               .filter((node) => node.resourceType === BaseNodeResourceType.Folder)
               .map((node) => node.resourceMeta?.name)
-              .sort();
+              .sort((a, b) => Number(a > b) - Number(a < b));
             expect(folderNames).toEqual(['Shared Folder', 'Shared Folder 2']);
           },
           { timeout: 5000, interval: 200 }
@@ -1708,7 +1717,9 @@ describe('BaseShareController (e2e)', () => {
 
         // Verify all tables from the original base are copied
         const tableList = await getTableList(copiedBaseId);
-        const tableNames = tableList.data.map((t) => t.name).sort();
+        const tableNames = tableList.data
+          .map((t) => t.name)
+          .sort((a, b) => Number(a > b) - Number(a < b));
         expect(tableNames).toContain('root-table');
         expect(tableNames).toContain('child-table');
       } finally {

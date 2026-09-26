@@ -1,5 +1,6 @@
 export type {
   V1BaseTable,
+  V1CommentTable,
   V1ComputedUpdateDeadLetterTable,
   V1ComputedUpdateOutboxSeedTable,
   V1ComputedUpdateOutboxTable,
@@ -13,3 +14,7 @@ export type {
   V1PluginTable,
   V1PluginInstallTable,
 } from './v1/types';
+
+export { computedReliabilitySchemaSql } from './computedReliabilitySchema';
+
+export { computedReliabilityReadinessSql } from './computedReliabilityReadiness';

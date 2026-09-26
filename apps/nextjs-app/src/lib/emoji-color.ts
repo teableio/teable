@@ -61,7 +61,7 @@ export function getEmojiColor(emoji: string, size: number = 64): string {
   try {
     const { r, g, b } = getEmojiAverageColor(emoji, size);
     return rgbToHex(r, g, b);
-  } catch (error) {
+  } catch {
     return '#000000';
   }
 }

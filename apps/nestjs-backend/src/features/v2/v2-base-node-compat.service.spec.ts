@@ -4,6 +4,7 @@ import {
   TableDeleted,
   TableId,
   TableName,
+  TableRenamed,
   TableRestored,
   TableTrashed,
 } from '@teable/v2-core';
@@ -48,6 +49,16 @@ describe('V2TableBaseNodeProjection', () => {
     ['trash', () => createEvent(TableTrashed)],
     ['delete', () => createEvent(TableDeleted)],
     ['restore', () => createEvent(TableRestored)],
+    [
+      'rename',
+      () =>
+        TableRenamed.create({
+          tableId: TableId.create(tableId)._unsafeUnwrap(),
+          baseId: BaseId.create(baseId)._unsafeUnwrap(),
+          previousName: TableName.create('Old')._unsafeUnwrap(),
+          nextName: TableName.create('New')._unsafeUnwrap(),
+        }),
+    ],
   ])('invalidates base-node cache and flushes presence on %s', async (_name, buildEvent) => {
     const localPresence = createLocalPresence();
     const performanceCacheService = {

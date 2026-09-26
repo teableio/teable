@@ -61,7 +61,7 @@ export const LinkViewProvider: React.FC<ILinkViewProvider> = ({
   }, [linkFieldId]);
 
   const appContextValue = useMemo(
-    () => ({ ...(parentAppContext ?? {}), shareId: linkFieldId }) as typeof parentAppContext,
+    () => ({ ...parentAppContext, shareId: linkFieldId }) as typeof parentAppContext,
     [parentAppContext, linkFieldId]
   );
 

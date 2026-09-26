@@ -118,18 +118,16 @@ export const SingleSelectFieldAiConfig = (props: ISingleSelectFieldAiConfigProps
       )}
 
       {type === FieldAIActionType.Customization && (
-        <Fragment>
-          <div className="flex flex-col gap-y-2">
-            <PromptEditorContainer
-              excludedFieldId={id}
-              value={(aiConfig as ISingleSelectFieldCustomizeAIConfig)?.prompt || ''}
-              onChange={(value) => onConfigChange('prompt', value)}
-              label={t('table:field.aiConfig.label.prompt')}
-              placeholder={t('table:field.aiConfig.placeholder.prompt')}
-              required={true}
-            />
-          </div>
-        </Fragment>
+        <div className="flex flex-col gap-y-2">
+          <PromptEditorContainer
+            excludedFieldId={id}
+            value={(aiConfig as ISingleSelectFieldCustomizeAIConfig)?.prompt || ''}
+            onChange={(value) => onConfigChange('prompt', value)}
+            label={t('table:field.aiConfig.label.prompt')}
+            placeholder={t('table:field.aiConfig.placeholder.prompt')}
+            required={true}
+          />
+        </div>
       )}
     </Fragment>
   );

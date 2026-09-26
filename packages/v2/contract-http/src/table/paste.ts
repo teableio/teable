@@ -4,7 +4,6 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type HttpErrorStatus,
   type IApiErrorResponseDto,
@@ -40,7 +39,7 @@ export const pasteResponseDataSchema = z.object({
 
 export const pasteOkResponseSchema = apiOkResponseDtoSchema(pasteResponseDataSchema);
 
-export const pasteErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as pasteErrorResponseSchema } from '../shared/http';
 
 export const mapPasteResultToDto = (
   result: PasteResult

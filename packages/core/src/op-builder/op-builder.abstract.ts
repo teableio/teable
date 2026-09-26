@@ -3,7 +3,7 @@ import type { IOpBuilder } from './interface';
 
 export abstract class OpBuilderAbstract {
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  static editor: { [key: string]: IOpBuilder };
+  static readonly editor: { [key: string]: IOpBuilder };
 
   static ops2Contexts(ops: IOtOperation[]) {
     return ops.map((op) => {

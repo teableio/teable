@@ -42,7 +42,7 @@ export class UndoHandler implements ICommandHandler<UndoCommand, UndoResult> {
     context: ExecutionContextPort.IExecutionContext,
     command: UndoCommand
   ): Promise<Result<UndoResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<UndoResult, DomainError>(async function* () {
       const entry = yield* await handler.undoRedoStackService.applyUndo(
         toUndoRedoStackReplayContext(context),

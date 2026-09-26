@@ -3,7 +3,7 @@ import { UserIntegrationProvider } from '@teable/openapi';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
-import { usePublicSettingQuery } from '@/features/app/hooks/useSetting';
+import { useAvailableIntegrationProviders } from '@/features/app/hooks/useSetting';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { AirtableImportDialog } from '../airtable-import';
 import { GoogleSheetImportDialog } from '../google-sheet-import';
@@ -27,15 +27,15 @@ export const ImportBaseDialog = (props: IImportBaseDialogProps) => {
   const { spaceId, open, onOpenChange } = props;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const [source, setSource] = React.useState<IImportSource | null>(null);
-  const { data: publicSetting } = usePublicSettingQuery();
+  const availableIntegrationProviders = useAvailableIntegrationProviders();
   // Integration imports need their instance-level OAuth app (AIRTABLE_CLIENT_ID /
   // GOOGLE_SHEET_CLIENT_ID); without any of them the card would only lead to a
   // broken connect flow, so the file importer is the sole source and the chooser
   // step is skipped entirely.
-  const airtableImportEnabled = !!publicSetting?.availableIntegrationProviders?.includes(
+  const airtableImportEnabled = availableIntegrationProviders.includes(
     UserIntegrationProvider.Airtable
   );
-  const googleSheetImportEnabled = !!publicSetting?.availableIntegrationProviders?.includes(
+  const googleSheetImportEnabled = availableIntegrationProviders.includes(
     UserIntegrationProvider.GoogleSheet
   );
   const effectiveSource =

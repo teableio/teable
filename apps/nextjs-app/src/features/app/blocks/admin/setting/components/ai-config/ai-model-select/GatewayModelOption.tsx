@@ -35,7 +35,7 @@ export function GatewayModelOption({
   isSelected,
   showPrice,
   onSelect,
-}: IGatewayModelOptionProps) {
+}: Readonly<IGatewayModelOptionProps>) {
   const { i18n } = useTranslation();
   const { modelKey, label, pricing, contextWindow, maxTokens, tags, ownedBy, i18nDescription } =
     option;

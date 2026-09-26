@@ -14,7 +14,9 @@ export const realtimeTranscriptionModelSchema = z.enum([
 ]);
 
 export const resolveOpenAIRealtimeEndpoints = (endpoint?: string | null) => {
-  const value = (endpoint || DEFAULT_OPENAI_REALTIME_API_BASE_URL).trim().replace(/\/+$/, '');
+  const value = (endpoint || DEFAULT_OPENAI_REALTIME_API_BASE_URL)
+    .trim()
+    .replace(/(?<!\/)\/+$/, '');
 
   if (value.endsWith('/realtime/calls')) {
     return {
@@ -44,7 +46,9 @@ export const resolveOpenAIRealtimeEndpoints = (endpoint?: string | null) => {
 };
 
 export const resolveOpenAITranscriptionEndpoint = (endpoint?: string | null) => {
-  let value = (endpoint || DEFAULT_OPENAI_TRANSCRIPTION_API_BASE_URL).trim().replace(/\/+$/, '');
+  let value = (endpoint || DEFAULT_OPENAI_TRANSCRIPTION_API_BASE_URL)
+    .trim()
+    .replace(/(?<!\/)\/+$/, '');
 
   if (value.endsWith('/realtime/calls')) {
     value = value.replace(/\/realtime\/calls$/, '');

@@ -53,7 +53,7 @@ export const I18nProvider = (props: {
   defaultNS?: string;
 }) => {
   const { children, lang = 'en', pageType, ...rest } = props;
-  const instanceRef = useRef<i18n>();
+  const instanceRef = useRef<i18n>(undefined);
 
   const i18n = useMemo(() => {
     let instance = instanceRef.current;

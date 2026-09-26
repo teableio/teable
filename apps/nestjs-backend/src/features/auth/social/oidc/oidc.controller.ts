@@ -19,6 +19,6 @@ export class OIDCController extends ControllerAdapter {
   @Public()
   @UseGuards(SocialGuard, OIDCGuard)
   async oidcCallback(@Req() req: Express.Request, @Res({ passthrough: true }) res: Response) {
-    return super.callback(req, res);
+    return super.callback(req, res, 'oidc');
   }
 }

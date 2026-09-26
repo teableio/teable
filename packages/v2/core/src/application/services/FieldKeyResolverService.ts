@@ -191,11 +191,11 @@ export class FieldKeyResolverService {
         return field.name().toString();
       case FieldKeyType.DbFieldName: {
         const dbFieldNameResult = field.dbFieldName();
-        if (dbFieldNameResult.isErr && dbFieldNameResult.isErr()) {
+        if (dbFieldNameResult.isErr?.()) {
           return field.name().toString();
         }
         const valueResult = dbFieldNameResult.value?.value?.();
-        if (valueResult?.isErr && valueResult.isErr()) {
+        if (valueResult?.isErr?.()) {
           return field.name().toString();
         }
         return valueResult?.value ?? field.name().toString();

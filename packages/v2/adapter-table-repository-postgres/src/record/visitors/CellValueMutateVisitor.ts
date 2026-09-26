@@ -151,7 +151,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
   }
 
   private applyTrackedLastModifiedTimeUpdates(): Result<void, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<void, DomainError>(function* () {
       if (visitor.changedFieldIds.length === 0) return ok(undefined);
 
@@ -184,7 +184,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
   }
 
   private applyTrackedLastModifiedByUpdates(): Result<void, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<void, DomainError>(function* () {
       if (visitor.changedFieldIds.length === 0) return ok(undefined);
 
@@ -309,14 +309,13 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
   private resolveTrackedFieldIds(
     field: LastModifiedByField | LastModifiedTimeField
   ): Result<ReadonlyArray<FieldId>, DomainError> {
-    const visitor = this;
     const trackedFieldIds = field.trackedFieldIds();
     if (trackedFieldIds.length === 0) {
       return ok([]);
     }
 
     const validTracked = trackedFieldIds.filter((tracked) => {
-      const result = visitor.table.getField((candidate) => candidate.id().equals(tracked));
+      const result = this.table.getField((candidate) => candidate.id().equals(tracked));
       return result.isOk();
     });
 
@@ -570,7 +569,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
   // --- Link field ---
 
   visitSetLinkValue(spec: SetLinkValueSpec): Result<void, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<void, DomainError>(function* () {
       const fieldIdStr = spec.fieldId.toString();
@@ -808,7 +807,7 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
    * The recommended approach is to use a dedicated title-to-ID resolution service.
    */
   visitSetLinkValueByTitle(spec: SetLinkValueByTitleSpec): Result<void, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<void, DomainError>(function* () {
       const fieldIdStr = spec.fieldId.toString();

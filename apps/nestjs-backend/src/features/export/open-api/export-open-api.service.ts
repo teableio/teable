@@ -1,4 +1,4 @@
-import { Readable } from 'stream';
+import { Readable } from 'node:stream';
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import type { IAttachmentCellValue, IFieldVo } from '@teable/core';
 import { FieldKeyType, FieldType, HttpErrorCode, ViewType } from '@teable/core';
@@ -23,7 +23,7 @@ import { ExportTracingService } from '../metrics/export-tracing.service';
 
 @Injectable()
 export class ExportOpenApiService {
-  private logger = new Logger(ExportOpenApiService.name);
+  private readonly logger = new Logger(ExportOpenApiService.name);
   constructor(
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
@@ -144,7 +144,7 @@ export class ExportOpenApiService {
     const headerData = Papa.unparse([headers.map((h) => h.name)]);
 
     const projectionNames = projection
-      ? (projection.map((p) => fieldsMap[p]?.name).filter((p) => Boolean(p)) as string[])
+      ? (projection.map((p) => fieldsMap[p]?.name).filter(Boolean) as string[])
       : undefined;
 
     const headersInfoMap = new Map(

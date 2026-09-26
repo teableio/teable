@@ -11,6 +11,7 @@ import { useEnv } from '@/features/app/hooks/useEnv';
 import { useInitializationZodI18n } from '@/features/app/hooks/useInitializationZodI18n';
 import { authConfig } from '@/features/i18n/auth.config';
 import { isValidRedirectPath } from '@/lib/isValidRedirectPath';
+import { AppleAuthError } from '../components/AppleAuthError';
 import { DescContent } from '../components/DescContent';
 import { SignForm } from '../components/SignForm';
 import { SocialAuth } from '../components/SocialAuth';
@@ -25,8 +26,14 @@ const getAuthLinkClassName = (isActive: boolean) =>
       : 'text-xl font-medium text-muted-foreground'
   );
 
-export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[] }) => {
-  const { children } = props;
+interface ILoginPageProps {
+  children?: React.ReactNode | React.ReactNode[];
+  /** What stands beside the form on a wide window, in place of the default description. */
+  aside?: React.ReactNode;
+}
+
+export const LoginPage = (props: ILoginPageProps) => {
+  const { children, aside } = props;
   useInitializationZodI18n();
   const { t } = useTranslation(authConfig.i18nNamespaces);
   const { brandName } = useBrand();
@@ -46,7 +53,7 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
   const hasInvitationRedirect = useMemo(() => {
     try {
       const base =
-        typeof window !== 'undefined' ? window.location.origin : 'http://placeholder.local';
+        typeof window !== 'undefined' ? window.location.origin : 'https://placeholder.local';
       const url = new URL(redirect, base);
       return url.searchParams.has('invitationId') && url.searchParams.has('invitationCode');
     } catch {
@@ -87,7 +94,7 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
     <ScrollArea className="h-screen">
       <div className="flex min-h-screen">
         <NextSeo title={signType === 'signin' ? t('auth:page.signin') : t('auth:page.signup')} />
-        <DescContent />
+        {aside ?? <DescContent />}
         <div className="relative flex flex-1 shrink-0 flex-col items-center justify-start sm:justify-center">
           <div className="mt-5 flex w-[calc(100%-3rem)] flex-wrap items-center justify-start gap-2 text-start text-[22px] font-semibold leading-8 sm:fixed sm:start-5 sm:top-5 sm:mt-0 sm:w-max sm:flex-nowrap sm:text-[20px]">
             <TeableLogo className="size-8 shrink-0" />
@@ -114,6 +121,7 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
                 {t('auth:button.signin')}
               </Link>
             </nav>
+            <AppleAuthError />
             {!passwordLoginDisabled && <SignForm type={signType} onSuccess={onSuccess} />}
             <SocialAuth />
             {children}

@@ -104,7 +104,7 @@ const BaseShareDialogContent = ({
     },
   });
 
-  const { mutate: updateShare } = useMutation({
+  const { mutateAsync: updateShare, isPending: isUpdateLoading } = useMutation({
     mutationFn: (data: IUpdateBaseShareRo) => updateBaseShare(baseId, share!.shareId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -147,14 +147,18 @@ const BaseShareDialogContent = ({
     },
   });
 
-  const handleUpdateSetting = (data: Record<string, unknown>) => {
-    if (!share) return;
-    updateShare(data as IUpdateBaseShareRo);
+  // Resolves whether the update was saved; failures are already toasted by onError
+  const handleUpdateSetting = async (data: Record<string, unknown>) => {
+    if (!share) return false;
+    return updateShare(data as IUpdateBaseShareRo).then(
+      () => true,
+      () => false
+    );
   };
 
   const permissionOptions = useBaseSharePermissionOptions({
     share,
-    onUpdate: handleUpdateSetting,
+    onUpdate: (data) => void handleUpdateSetting(data),
   });
 
   // Show loading for initial fetch, or when refetching after create (share not yet available)
@@ -182,6 +186,7 @@ const BaseShareDialogContent = ({
       isCreateLoading={isCreateLoading}
       isDeleteLoading={isDeleteLoading}
       isRefreshLoading={isRefreshLoading}
+      isUpdateLoading={isUpdateLoading}
       permissionOptions={permissionOptions}
       onToggleShare={() => createShare()}
       onUpdateSetting={handleUpdateSetting}

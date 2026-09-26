@@ -64,7 +64,7 @@ export const ListSpaceUniqueCollaboratorRoute: RouteConfig = registerRoute({
   method: 'get',
   path: SPACE_COLLABORATE_UNIQUE_LIST,
   description:
-    'List space collaborators deduplicated by principal, with space role and base permission count',
+    'List space collaborators deduplicated by principal, with space role and project permission count',
   request: {
     params: z.object({
       spaceId: z.string(),

@@ -1,4 +1,4 @@
-import { TIME_ZONE_LIST } from '@teable/core';
+import { getUTCOffset, TIME_ZONE_LIST } from '@teable/core';
 import { Selector } from '@teable/ui-lib/base';
 import { Label } from '@teable/ui-lib/shadcn';
 import dayjs from 'dayjs';
@@ -8,14 +8,6 @@ import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 dayjs.extend(utc);
 dayjs.extend(timezone);
-
-function getUTCOffset(timeZone: string): string {
-  const offsetMinutes = dayjs().tz(timeZone).utcOffset();
-
-  const offsetHours = offsetMinutes / 60;
-
-  return offsetHours >= 0 ? `UTC+${offsetHours}` : `UTC${offsetHours}`;
-}
 
 const systemTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 

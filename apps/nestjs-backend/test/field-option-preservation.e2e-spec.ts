@@ -50,7 +50,7 @@ const choiceNames = (field: IFieldVo) => {
       );
     })
     .map((choice) => choice.name)
-    .sort();
+    .sort((a, b) => Number(a > b) - Number(a < b));
 };
 type OptionCase = {
   name: string;

@@ -180,16 +180,16 @@ describe('formula basics', () => {
       const visitor = new FormulaTypeVisitor({});
 
       const unaryError = parseRoot(`-{${fieldId}}`).accept(visitor);
-      unaryError._unsafeUnwrapErr();
+      expect(unaryError.isErr()).toBe(true);
 
       const binaryLeftError = parseRoot(`{${fieldId}} + 1`).accept(visitor);
-      binaryLeftError._unsafeUnwrapErr();
+      expect(binaryLeftError.isErr()).toBe(true);
 
       const binaryRightError = parseRoot(`1 + {${fieldId}}`).accept(visitor);
-      binaryRightError._unsafeUnwrapErr();
+      expect(binaryRightError.isErr()).toBe(true);
 
       const returnTypeError = parseRoot('SUM()').accept(visitor);
-      returnTypeError._unsafeUnwrapErr();
+      expect(returnTypeError.isErr()).toBe(true);
     });
 
     it('falls back to string for unsupported binary operators', () => {

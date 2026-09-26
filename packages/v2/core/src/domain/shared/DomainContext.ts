@@ -1,6 +1,8 @@
+import type { FormulaSourceBudget } from '../table/fields/types/FormulaExpression';
 import type { TableDataSafetyLimitConfig } from './TableDataSafetyLimits';
 
 export interface IDomainContextConfig {
+  formulaSourceBudget?: FormulaSourceBudget;
   tableLimits?: TableDataSafetyLimitConfig;
   /** @deprecated Use `tableLimits.fieldOptions.maxSelectChoices`. */
   selectFieldOptions?: {

@@ -7,6 +7,7 @@ import { useState, useRef, useMemo, useCallback } from 'react';
 import { LinkViewProvider, RowCountProvider } from '../../../context';
 import { useTranslation } from '../../../context/app/i18n';
 import { LinkFilterProvider } from '../../../context/query/LinkFilterProvider';
+import { useIsTouchDevice } from '../../../hooks/use-is-touch-device';
 import { ExpandRecorder, isLinkedRecordOpen } from '../../expand-record';
 import type { ILinkEditorMainRef } from './EditorMain';
 import { LinkEditorMain } from './EditorMain';
@@ -46,6 +47,8 @@ export const LinkEditor = (props: ILinkEditorProps) => {
   } = props;
   const listRef = useRef<ILinkListRef>(null);
   const linkEditorMainRef = useRef<ILinkEditorMainRef>(null);
+  const dialogContentRef = useRef<HTMLDivElement>(null);
+  const isTouchDevice = useIsTouchDevice();
   const [isEditing, setEditing] = useState<boolean>(false);
   const [expandRecordId, setExpandRecordId] = useState<string>();
   const { t } = useTranslation();
@@ -159,7 +162,19 @@ export const LinkEditor = (props: ILinkEditorProps) => {
                   {t('editor.link.selectRecord')}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="flex h-[520px] max-w-4xl flex-col p-4">
+              <DialogContent
+                ref={dialogContentRef}
+                tabIndex={-1}
+                className="flex h-[520px] max-w-4xl flex-col p-4"
+                // Under a finger the picker opens onto its list, not its search field:
+                // focusing the field would raise the keyboard over the records to pick.
+                // The dialog itself takes focus, so its keys and dismissal still work.
+                onOpenAutoFocus={(event) => {
+                  if (!isTouchDevice) return;
+                  event.preventDefault();
+                  dialogContentRef.current?.focus({ preventScroll: true });
+                }}
+              >
                 <LinkEditorMain
                   {...props}
                   ref={linkEditorMainRef}
@@ -175,7 +190,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
             recordIds={recordIds}
             isLinkedRecord
             onUpdateRecordIdCallback={updateExpandRecordId}
-            onClose={() => updateExpandRecordId(undefined)}
+            onClose={() => updateExpandRecordId()}
           />
         </>
       )}

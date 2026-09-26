@@ -91,7 +91,7 @@ function generateLabel(modelId: string, apiName?: string): string {
   const modelName = parts[parts.length - 1];
   return modelName
     .replace(/-\d{8}$/, '')
-    .replace(/-/g, ' ')
+    .replaceAll('-', ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
@@ -114,7 +114,7 @@ export function GatewayModelPickerDialog({
   isModelDisabled,
   disabledBadgeText,
   emptyMessage,
-}: IGatewayModelPickerDialogProps) {
+}: Readonly<IGatewayModelPickerDialogProps>) {
   const { t } = useTranslation('common');
   const freeLabel = t('level.free');
   const [searchQuery, setSearchQuery] = useState('');

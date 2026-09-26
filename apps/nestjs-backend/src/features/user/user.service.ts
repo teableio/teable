@@ -1,5 +1,6 @@
-import https from 'https';
-import { join } from 'path';
+import { createHash } from 'node:crypto';
+import https from 'node:https';
+import { join } from 'node:path';
 import { Injectable, Logger } from '@nestjs/common';
 import {
   generateAccountId,
@@ -20,7 +21,7 @@ import { CacheService } from '../../cache/cache.service';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { CustomHttpException } from '../../custom.exception';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
-import { Events } from '../../event-emitter/events';
+import { Events, SpaceSignupCreateEvent } from '../../event-emitter/events';
 import { UserSignUpEvent } from '../../event-emitter/events/user/user.event';
 import type { IClsStore } from '../../types/cls';
 import { AVATAR_OUTPUT_MIMETYPE, AVATAR_SIZE, cropSquareAvatarImage } from '../../utils/avatar';
@@ -33,6 +34,43 @@ import { UserModel } from '../model/user';
 import type { IRiskCheckType } from '../risk-control/risk-control.service';
 import { RiskControlService } from '../risk-control/risk-control.service';
 import { SettingService } from '../setting/setting.service';
+
+/** Why a sign-in attempt failed, as recorded in the `user.signin-failed` audit row. */
+export type ISigninFailedReason =
+  | 'wrong-password'
+  | 'bad-code'
+  | 'not-registered'
+  | 'password-not-set'
+  | 'system-user'
+  | 'deactivated'
+  | 'locked'
+  | 'captcha'
+  | 'error';
+
+export interface ISigninFailure {
+  email: string;
+  method: 'password' | 'email-code';
+  /** Omit when the account's state explains the failure (see `resolveSigninFailedReason`). */
+  reason?: ISigninFailedReason;
+  /** Failures counted so far in the lockout window, when lockout is enabled. */
+  attempts?: number;
+  /** Set when this failure locked the account: the lockout window in minutes. */
+  lockoutMinutes?: number;
+}
+
+type IUserWithAccounts = NonNullable<Awaited<ReturnType<UserService['getUserByEmail']>>>;
+
+/** The account checks of both sign-in methods, in the order they reject an attempt. */
+const resolveSigninFailedReason = (
+  user: IUserWithAccounts | null,
+  method: ISigninFailure['method']
+): ISigninFailedReason => {
+  if (!user || (user.accounts.length === 0 && user.password == null)) return 'not-registered';
+  if (method === 'password' && !user.password) return 'password-not-set';
+  if (user.isSystem) return 'system-user';
+  if (user.deactivatedTime) return 'deactivated';
+  return 'error';
+};
 
 @Injectable()
 export class UserService {
@@ -87,6 +125,17 @@ export class UserService {
     });
   }
 
+  /**
+   * The user an OAuth account is linked to, by the provider's own subject id. The identity
+   * an identity provider guarantees is this pair; an email is an optional profile field.
+   */
+  async getUserByAccount(provider: string, providerId: string) {
+    const account = await this.prismaService.txClient().account.findFirst({
+      where: { provider, providerId },
+    });
+    return account ? await this.getUserById(account.userId) : undefined;
+  }
+
   async createSpaceBySignup(createSpaceRo: ICreateSpaceRo) {
     const userId = this.cls.get('user.id');
     const uniqName = createSpaceRo.name ?? 'Space';
@@ -112,6 +161,11 @@ export class UserService {
         createdBy: userId,
       },
     });
+    // Awaited so synchronous listeners write within the caller's transaction.
+    await this.eventEmitterService.emitAsync(
+      Events.SPACE_SIGNUP_CREATE,
+      new SpaceSignupCreateEvent(space.id, userId)
+    );
     return space;
   }
 
@@ -145,7 +199,7 @@ export class UserService {
     const origin = this.cls.get('origin');
     const attribution = {
       ...(via ? { via } : {}),
-      ...(this.cls.get('signupAttribution') ?? {}),
+      ...this.cls.get('signupAttribution'),
       ...(adConsent ? { adConsent } : {}),
       ...(origin?.ip ? { ip: origin.ip } : {}),
       // UA of the signup request — forwarded to ad platforms as a match key.
@@ -311,10 +365,17 @@ export class UserService {
       });
     }
     if (this.baseConfig.isCloud && autoSpaceCreation) {
-      await this.cls.runWith(this.cls.get(), async () => {
-        this.cls.set('user.id', id);
-        await this.createSpaceBySignup({ name: defaultSpaceName || `${name}'s space` });
-      });
+      // Run the signup space creation as the new user on a COPY of the store: runWith(cls.get())
+      // shares the caller's store object, so setting user.id there leaked the new user's id back
+      // to the caller (e.g. an inviter creating accounts by email), misattributing its audit rows
+      // and createdBy columns.
+      const store = this.cls.get();
+      await this.cls.runWith(
+        { ...store, user: { ...store.user, id } as IClsStore['user'] },
+        async () => {
+          await this.createSpaceBySignup({ name: defaultSpaceName || `${name}'s space` });
+        }
+      );
     }
     return newUser;
   }
@@ -413,6 +474,43 @@ export class UserService {
       await this.prismaService.txClient().user.update({
         data: {
           notifyMeta: JSON.stringify({ ...prevNotifyMeta, ...notifyMetaRo }),
+        },
+        where: { id, deletedTime: null },
+      });
+    });
+  }
+
+  async getNotifyMeta(id: string): Promise<IUserNotifyMeta> {
+    const user = await this.prismaService.txClient().user.findUnique({
+      where: { id },
+      select: { notifyMeta: true },
+    });
+    return this.parseNotifyMeta(user?.notifyMeta);
+  }
+
+  /** Turn one OAuth app's notifications to the user off, or back on. */
+  async setAppNotificationsMuted(id: string, clientId: string, muted: boolean) {
+    await this.prismaService.$tx(async () => {
+      const [user] = await this.prismaService.txClient().$queryRaw<
+        Array<{ notifyMeta: string | null }>
+      >`
+        SELECT "notify_meta" AS "notifyMeta"
+        FROM "users"
+        WHERE "id" = ${id}
+          AND "deleted_time" IS NULL
+        FOR UPDATE
+      `;
+      const prevNotifyMeta = this.parseNotifyMeta(user?.notifyMeta);
+      const mutedApps = new Set(prevNotifyMeta.mutedApps ?? []);
+      if (muted) {
+        mutedApps.add(clientId);
+      } else {
+        mutedApps.delete(clientId);
+      }
+
+      await this.prismaService.txClient().user.update({
+        data: {
+          notifyMeta: JSON.stringify({ ...prevNotifyMeta, mutedApps: [...mutedApps] }),
         },
         where: { id, deletedTime: null },
       });
@@ -580,7 +678,7 @@ export class UserService {
 
       // user exist check
       const existUser = await this.getUserByEmail(email);
-      if (existUser && existUser.isSystem) {
+      if (existUser?.isSystem) {
         throw new CustomHttpException('User is system user', HttpErrorCode.UNAUTHORIZED, {
           localization: {
             i18nKey: 'httpErrors.user.systemUser',
@@ -665,17 +763,55 @@ export class UserService {
     }
   }
 
-  @Audit({
-    action: Events.USER_SIGNIN,
-    resourceId: (userId: string) => userId,
-    userId: (userId: string) => userId,
-    emit: true,
-  })
+  // The `user.signin` audit row is written by SessionService.recordSignin once the session
+  // exists, so it can carry the session id.
   async refreshLastSignTime(userId: string) {
     await this.prismaService.txClient().user.update({
       where: { id: userId, deletedTime: null },
       data: { lastSignTime: new Date().toISOString() },
     });
+  }
+
+  /**
+   * One `user.signin-failed` row per failed attempt, plus `user.lockout` when the attempt locked
+   * the account. Rows belong to the targeted account when it exists; attempts on an address
+   * nobody registered go to 'anonymous' and carry only a SHA-256 of the lowercased email, never
+   * the address itself. Never throws: the caller is failing the sign-in with its own error.
+   */
+  async recordSigninFailure(failure: ISigninFailure): Promise<void> {
+    try {
+      const user = await this.getUserByEmail(failure.email);
+      const actorId = user?.id ?? 'anonymous';
+      const identity = user
+        ? {}
+        : {
+            emailHash: createHash('sha256')
+              .update(failure.email.trim().toLowerCase())
+              .digest('hex'),
+          };
+      const attempts = failure.attempts == null ? {} : { attempts: failure.attempts };
+      await this.audit.emitAtomic({
+        action: 'user.signin-failed',
+        resourceId: actorId,
+        userId: actorId,
+        params: {
+          reason: failure.reason ?? resolveSigninFailedReason(user, failure.method),
+          method: failure.method,
+          ...attempts,
+          ...identity,
+        },
+      });
+      if (failure.lockoutMinutes != null) {
+        await this.audit.emitAtomic({
+          action: 'user.lockout',
+          resourceId: actorId,
+          userId: actorId,
+          params: { lockoutMinutes: failure.lockoutMinutes, ...attempts, ...identity },
+        });
+      }
+    } catch (err) {
+      this.logger.error(`sign-in failure audit failed: ${(err as Error)?.message ?? err}`);
+    }
   }
 
   async getUserInfoList(userIds: string[]) {

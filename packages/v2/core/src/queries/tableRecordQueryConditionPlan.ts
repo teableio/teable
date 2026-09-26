@@ -20,8 +20,8 @@ import type { ILogger } from '../ports/Logger';
 import type { RecordQueryFieldMask } from '../ports/RecordQueryPlugin';
 import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
 import type { ITableRepository } from '../ports/TableRepository';
-import { buildRecordConditionSpec } from './RecordFilterMapper';
 import type { RecordFilter } from './RecordFilterDto';
+import { buildRecordConditionSpec } from './RecordFilterMapper';
 
 export type IncomingLinkSelection = string | [string, string];
 
@@ -174,7 +174,7 @@ export const buildTableRecordConditionPlan = async (
       }
     }
 
-    if (input.selectedRecordIds?.length) {
+    if (input.selectedRecordIds != null) {
       const selectedRecordIds = input.selectedRecordIds.map((recordId) =>
         RecordId.create(recordId)
       );

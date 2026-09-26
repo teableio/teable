@@ -73,7 +73,7 @@ type IStatisticsData = {
  */
 @Injectable()
 export class AggregationService implements IAggregationService {
-  private logger = new Logger(AggregationService.name);
+  private readonly logger = new Logger(AggregationService.name);
   constructor(
     private readonly recordService: RecordService,
     private readonly tableIndexService: TableIndexService,
@@ -159,11 +159,11 @@ export class AggregationService implements IAggregationService {
       useQueryModel,
       skip,
       take,
-      sort: baseSort && baseSort.length ? baseSort : undefined,
+      sort: baseSort?.length ? baseSort : undefined,
       defaultOrderField,
     });
 
-    const aggregationResult = rawAggregationData && rawAggregationData[0];
+    const aggregationResult = rawAggregationData?.[0];
 
     const aggregations: IRawAggregations = [];
     if (aggregationResult) {
@@ -204,7 +204,7 @@ export class AggregationService implements IAggregationService {
     return { aggregations: aggregationsWithGroup };
   }
 
-  private formatConvertValue = (currentValue: unknown, aggFunc?: StatisticsFunc) => {
+  private readonly formatConvertValue = (currentValue: unknown, aggFunc?: StatisticsFunc) => {
     let convertValue = this.convertValueToNumberOrString(currentValue);
 
     if (!aggFunc) {
@@ -476,9 +476,7 @@ export class AggregationService implements IAggregationService {
     });
 
     if (projectionSet.size === 0) {
-      return allowedFieldIds && allowedFieldIds.length
-        ? Array.from(new Set(allowedFieldIds))
-        : undefined;
+      return allowedFieldIds?.length ? Array.from(new Set(allowedFieldIds)) : undefined;
     }
 
     const projectionArray = Array.from(projectionSet);
@@ -797,7 +795,7 @@ export class AggregationService implements IAggregationService {
           ? statisticFuncList
           : statisticFunc && [statisticFunc];
 
-        if (hidden !== true && funcList && funcList.length) {
+        if (hidden !== true && funcList?.length) {
           const statisticFieldList = funcList.map((item) => {
             return {
               fieldId,
@@ -1097,7 +1095,7 @@ export class AggregationService implements IAggregationService {
 
         return result.map((item) => {
           const index = Number(indexResultMap[item.__id]?.row_num);
-          if (isNaN(index)) {
+          if (Number.isNaN(index)) {
             throw new CustomHttpException('Index not found', HttpErrorCode.NOT_FOUND, {
               localization: {
                 i18nKey: 'httpErrors.aggregation.indexNotFound',
@@ -1323,9 +1321,7 @@ export class AggregationService implements IAggregationService {
       },
       {} as Record<string, number>
     );
-    let recordIds = result
-      .map((item) => (isString(item.ids) ? item.ids.split(',') : item.ids))
-      .flat();
+    let recordIds = result.flatMap((item) => (isString(item.ids) ? item.ids.split(',') : item.ids));
     recordIds = Array.from(new Set(recordIds));
 
     if (!recordIds.length) {

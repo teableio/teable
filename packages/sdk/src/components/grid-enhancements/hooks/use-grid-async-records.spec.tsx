@@ -1,18 +1,19 @@
 import { SortFunc, type IRecord } from '@teable/core';
 import type { IGetRecordsRo, IGroupPointsVo } from '@teable/openapi';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useSearch, useView } from '../../../hooks';
+import { useFields, usePersonalView, useSearch, useView } from '../../../hooks';
 import { useRecords } from '../../../hooks/use-records';
+import { viewportFieldIds } from '../../../utils/column-projection';
 import { useGridViewCacheStore } from '../store/useGridViewCacheStore';
 import { useGridAsyncRecords } from './use-grid-async-records';
 
 vi.mock('../../../hooks', () => ({
   useSearch: vi.fn(),
   useView: vi.fn(),
-  useFields: () => [],
+  useFields: vi.fn(() => []),
   useTableId: () => 'tblTest',
-  usePersonalView: () => ({ isPersonalView: false }),
+  usePersonalView: vi.fn(() => ({ isPersonalView: false })),
 }));
 
 vi.mock('../../../hooks/use-records', () => ({
@@ -21,13 +22,50 @@ vi.mock('../../../hooks/use-records', () => ({
 
 const mockedUseSearch = vi.mocked(useSearch);
 const mockedUseView = vi.mocked(useView);
+const mockedUseFields = vi.mocked(useFields);
+const mockedUsePersonalView = vi.mocked(usePersonalView);
 const mockedUseRecords = vi.mocked(useRecords);
 
 const createRecord = (id: string) => ({ id, fields: {} }) as IRecord;
-const mockUseRecordsResult = (records: IRecord[], extra?: unknown): ReturnType<typeof useRecords> =>
+
+const wideFields = (count: number) =>
+  Array.from({ length: count }, (_, i) => ({
+    id: `fld${String(i).padStart(2, '0')}`,
+  }));
+
+const setupViewportFill = (fieldCount = 40) => {
+  const fields = wideFields(fieldCount);
+  const fillProjectedRecordFields = vi.fn(async () => true);
+  const subscribeProjection = fields.slice(0, 24).map((field) => field.id);
+  mockedUseFields.mockReturnValue(fields as never);
+  mockedUseRecords.mockReturnValue({
+    records: [{ id: 'rec1', fields: {} }],
+    extra: undefined,
+    fillProjectedRecordFields,
+    subscribeProjection,
+  } as unknown as ReturnType<typeof useRecords>);
+  return {
+    fillProjectedRecordFields,
+    expectedMissing: (x: number, width: number) =>
+      viewportFieldIds({
+        orderedVisibleFieldIds: fields.map((field) => field.id),
+        startColumnIndex: x,
+        columnSpan: width,
+        freezeCount: 1,
+      }).filter((fieldId) => !subscribeProjection.includes(fieldId)),
+  };
+};
+const mockUseRecordsResult = (
+  records: IRecord[],
+  extra?: unknown,
+  queryScopeKey = 'scope'
+): ReturnType<typeof useRecords> =>
   ({
     records,
     extra,
+    fillProjectedRecordFields: vi.fn(async () => true),
+    subscribeProjection: [],
+    queryScopeKey,
   }) as unknown as ReturnType<typeof useRecords>;
 
 describe('useGridAsyncRecords', () => {
@@ -35,6 +73,8 @@ describe('useGridAsyncRecords', () => {
     mockedUseSearch.mockReturnValue({ searchQuery: undefined } as ReturnType<typeof useSearch>);
     mockedUseView.mockReset();
     mockedUseRecords.mockReset();
+    mockedUsePersonalView.mockReturnValue({ isPersonalView: false } as never);
+    mockedUseFields.mockReturnValue([] as never);
     useGridViewCacheStore.setState({ cacheMap: {} });
   });
 
@@ -53,7 +93,8 @@ describe('useGridAsyncRecords', () => {
   it('clears stale records and group points when the record query scope changes', async () => {
     let records = [createRecord('recOld')];
     let extra = { groupPoints: [{ id: 'grpOld' }] as IGroupPointsVo };
-    mockedUseRecords.mockImplementation(() => mockUseRecordsResult(records, extra));
+    let scopeKey = 'scope-old';
+    mockedUseRecords.mockImplementation(() => mockUseRecordsResult(records, extra, scopeKey));
 
     const initGroupPoints = [{ id: 'grpSsr' }] as IGroupPointsVo;
     const oldQuery = {
@@ -73,6 +114,8 @@ describe('useGridAsyncRecords', () => {
 
     records = [createRecord('recNew')];
     extra = undefined as unknown as typeof extra;
+    // a group change re-creates the subscription, which re-delivers on ready
+    scopeKey = 'scope-new';
     rerender({ outerQuery: newQuery });
 
     await waitFor(() => {
@@ -87,8 +130,10 @@ describe('useGridAsyncRecords', () => {
     let extra: { groupPoints: IGroupPointsVo } | undefined = {
       groupPoints: [{ id: 'grpA' }] as IGroupPointsVo,
     };
+    // subscription identity follows the view, so every switch re-creates it
+    let scopeKey = 'scope-A';
     mockedUseView.mockImplementation(() => currentView as unknown as ReturnType<typeof useView>);
-    mockedUseRecords.mockImplementation(() => mockUseRecordsResult(records, extra));
+    mockedUseRecords.mockImplementation(() => mockUseRecordsResult(records, extra, scopeKey));
 
     const queryA = {
       groupBy: [{ fieldId: 'fldA', order: SortFunc.Asc }],
@@ -108,12 +153,14 @@ describe('useGridAsyncRecords', () => {
     currentView = { id: 'viwB', filter: null };
     records = [];
     extra = undefined;
+    scopeKey = 'scope-B';
     rerender({ outerQuery: queryB });
     await waitFor(() => expect(result.current.groupPoints).toBeNull());
 
     // switch back to view A before the subscription delivers: the first
     // frame already carries A's cached group structure
     currentView = { id: 'viwA', filter: null };
+    scopeKey = 'scope-A';
     rerender({ outerQuery: queryA });
     await waitFor(() => expect(result.current.groupPoints).toEqual([{ id: 'grpA' }]));
   });
@@ -367,9 +414,33 @@ describe('useGridAsyncRecords', () => {
     });
   });
 
+  it('keeps the current page when hide-not-match is enabled without a search value', async () => {
+    const searchState: {
+      searchQuery: [string, string, boolean] | undefined;
+      hideNotMatchRow: boolean;
+    } = { searchQuery: undefined, hideNotMatchRow: false };
+    const records = [createRecord('recDefault')];
+    mockedUseSearch.mockImplementation(() => searchState as ReturnType<typeof useSearch>);
+    mockedUseRecords.mockImplementation(() => mockUseRecordsResult(records));
+    mockedUseView.mockReturnValue({ id: 'viwTest', filter: null } as unknown as ReturnType<
+      typeof useView
+    >);
+
+    const { result, rerender } = renderHook(() => useGridAsyncRecords());
+    expect(result.current.recordMap[0]?.id).toBe('recDefault');
+
+    searchState.hideNotMatchRow = true;
+    rerender();
+
+    await waitFor(() => {
+      expect(result.current.recordMap[0]?.id).toBe('recDefault');
+    });
+  });
+
   it('wipes the cache when the record query scope and the view query change together', async () => {
     const records = [createRecord('recOld')];
-    mockedUseRecords.mockReturnValue(mockUseRecordsResult(records));
+    let scopeKey = 'scope-old';
+    mockedUseRecords.mockImplementation(() => mockUseRecordsResult(records, undefined, scopeKey));
     mockedUseView.mockReturnValue({ id: 'viwTest', filter: null } as unknown as ReturnType<
       typeof useView
     >);
@@ -397,11 +468,90 @@ describe('useGridAsyncRecords', () => {
       filter: null,
       group: [{ fieldId: 'fldNewGroup' }],
     } as unknown as ReturnType<typeof useView>);
+    scopeKey = 'scope-new';
     rerender({ outerQuery: newQuery });
 
     await waitFor(() => {
       expect(result.current.recordMap).toEqual({});
     });
+  });
+
+  it('keeps the loaded rows when the query props change shape but the subscription is reused', async () => {
+    // enabling the personal view re-shapes the records query — explicit
+    // ignoreViewQuery/filter/orderBy props instead of the view-id form, plus its
+    // own group-points cache slot — while the conditions inlined into the
+    // subscription stay the same and the live query is reused. No second ready
+    // snapshot is coming, so wiping the rows would leave placeholders that never
+    // resolve until a remount (T7486).
+    const records = [createRecord('recShared')];
+    const extra = { groupPoints: [{ id: 'grpShared' }] as IGroupPointsVo };
+    mockedUseRecords.mockReturnValue(mockUseRecordsResult(records, extra, 'shared-scope'));
+
+    const groupBy = [{ fieldId: 'fldGroup', order: SortFunc.Asc }];
+    const sharedQuery = { groupBy } as Pick<IGetRecordsRo, 'groupBy'>;
+    const personalQuery = {
+      ignoreViewQuery: true,
+      groupBy,
+      projection: ['fldPrimary'],
+    } as Pick<IGetRecordsRo, 'groupBy' | 'ignoreViewQuery' | 'projection'>;
+
+    const { result, rerender } = renderHook(
+      ({ outerQuery }) => useGridAsyncRecords(undefined, undefined, outerQuery),
+      { initialProps: { outerQuery: sharedQuery } }
+    );
+    expect(result.current.recordMap[0]?.id).toBe('recShared');
+    expect(result.current.groupPoints).toEqual(extra.groupPoints);
+
+    mockedUsePersonalView.mockReturnValue({ isPersonalView: true } as never);
+    rerender({ outerQuery: personalQuery });
+
+    await waitFor(() => {
+      expect(result.current.recordMap[0]?.id).toBe('recShared');
+    });
+    expect(result.current.groupPoints).toEqual(extra.groupPoints);
+  });
+
+  it('wipes and adopts a swapped initQuery for an embedded grid', async () => {
+    // an embedded grid (PreviewTable) initializes its window state from
+    // initQuery on mount only, so a swapped initQuery must take the wipe path:
+    // that reset is what rebuilds the window — and therefore the subscription —
+    // from the new query. Keeping the rows here would leave the grid on the
+    // previous query's result set.
+    const records = [createRecord('recStale')];
+    mockedUseRecords.mockReturnValue(mockUseRecordsResult(records, undefined, 'embedded-scope'));
+
+    const { result, rerender } = renderHook(
+      ({ initQuery }: { initQuery: IGetRecordsRo }) => useGridAsyncRecords(undefined, initQuery),
+      {
+        initialProps: {
+          initQuery: {
+            orderBy: [{ fieldId: 'fldA', order: SortFunc.Asc }],
+          } as IGetRecordsRo,
+        },
+      }
+    );
+
+    // scroll the embedded grid off its initial window, so the reset below has
+    // to rebuild the window instead of leaving the loaded one in place
+    act(() => {
+      result.current.onVisibleRegionChanged({ x: 0, y: 2000, width: 5, height: 600 });
+    });
+    await waitFor(() => {
+      expect(result.current.recordsQuery.skip).toBeGreaterThan(0);
+    });
+    const scrolledWindow = result.current.recordsQuery;
+
+    rerender({
+      initQuery: { orderBy: [{ fieldId: 'fldB', order: SortFunc.Asc }] } as IGetRecordsRo,
+    });
+
+    await waitFor(() => {
+      expect(result.current.recordMap).toEqual({});
+      expect(result.current.recordsQuery.orderBy).toEqual([
+        { fieldId: 'fldB', order: SortFunc.Asc },
+      ]);
+    });
+    expect(result.current.recordsQuery).not.toEqual(scrolledWindow);
   });
 
   // shared two-group fixture for the collapse/expand tests below
@@ -524,5 +674,86 @@ describe('useGridAsyncRecords', () => {
     await waitFor(() => {
       expect(Object.keys(result.current.recordMap)).toEqual(['3300', '3301']);
     });
+  });
+
+  it('does not change the row window when only the column viewport moves', () => {
+    mockedUseRecords.mockReturnValue(mockUseRecordsResult([createRecord('recVisible')]));
+
+    const { result, unmount } = renderHook(() => useGridAsyncRecords());
+    const skip = result.current.recordsQuery.skip ?? 0;
+
+    act(() => {
+      result.current.onVisibleRegionChanged({ x: 12, y: 0, width: 8, height: 20 });
+    });
+
+    expect(result.current.recordsQuery.skip).toBe(skip);
+    unmount();
+  });
+
+  it('does not fill before the grid reports a visible region', async () => {
+    const { fillProjectedRecordFields } = setupViewportFill();
+    const { unmount } = renderHook(() => useGridAsyncRecords());
+
+    await act(async () => {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      setTimeout(resolve, 50);
+      await promise;
+    });
+    expect(fillProjectedRecordFields).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it('fills freeze, viewport, and overscan columns for a one-row region', async () => {
+    const { fillProjectedRecordFields, expectedMissing } = setupViewportFill();
+    const { result, unmount } = renderHook(() => useGridAsyncRecords());
+
+    act(() => {
+      result.current.onVisibleRegionChanged({ x: 30, y: 0, width: 5, height: 0 });
+    });
+    await waitFor(() => {
+      expect(fillProjectedRecordFields).toHaveBeenCalledWith(expectedMissing(30, 5));
+    });
+    unmount();
+  });
+
+  it('fills a single visible column when width is 0', async () => {
+    const { fillProjectedRecordFields, expectedMissing } = setupViewportFill();
+    const { result, unmount } = renderHook(() => useGridAsyncRecords());
+
+    act(() => {
+      result.current.onVisibleRegionChanged({ x: 30, y: 0, width: 0, height: 0 });
+    });
+    await waitFor(() => {
+      expect(fillProjectedRecordFields).toHaveBeenCalledWith(expectedMissing(30, 0));
+    });
+    unmount();
+  });
+
+  it('fills later freeze columns that sit outside the subscribe prefix', async () => {
+    const fields = wideFields(40);
+    const fillProjectedRecordFields = vi.fn(async (_fieldIds: string[]) => true);
+    const subscribeProjection = fields.slice(0, 24).map((field) => field.id);
+    mockedUseFields.mockReturnValue(fields as never);
+    mockedUseView.mockReturnValue({
+      id: 'viwTest',
+      options: { frozenFieldId: 'fld30' },
+    } as never);
+    mockedUseRecords.mockReturnValue({
+      records: [{ id: 'rec1', fields: {} }],
+      extra: undefined,
+      fillProjectedRecordFields,
+      subscribeProjection,
+    } as unknown as ReturnType<typeof useRecords>);
+
+    const { result, unmount } = renderHook(() => useGridAsyncRecords());
+    act(() => {
+      result.current.onVisibleRegionChanged({ x: 35, y: 0, width: 5, height: 0 });
+    });
+    await waitFor(() => {
+      const filled = fillProjectedRecordFields.mock.calls.flatMap(([fieldIds]) => fieldIds);
+      expect(filled).toContain('fld30');
+      expect(filled).toContain('fld39');
+    });
+    unmount();
   });
 });

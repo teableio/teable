@@ -9,6 +9,8 @@ import { ImageGeneration, Pencil } from '@teable/icons';
 import {
   getAIConfig,
   getImageModelConfigByModelKey,
+  getImageQualityCandidates,
+  getSupportedImageResolution,
   isPromptControlledImageGenerationModel,
   supportsImageAspectRatioSelection,
   supportsImageSizeSelection,
@@ -71,8 +73,23 @@ export const sanitizeAttachmentAiConfigForModel = (
 
   if (nextIsPromptControlledModel) {
     delete nextAiConfig.size;
-  } else {
+  }
+
+  if (
+    !getSupportedImageResolution(
+      nextModelConfig,
+      nextAiConfig.resolution as IAttachmentFieldGenerateImageAIConfig['resolution']
+    )
+  ) {
     delete nextAiConfig.resolution;
+  }
+
+  if (
+    !getImageQualityCandidates(nextModelConfig).includes(
+      nextAiConfig.quality as NonNullable<IAttachmentFieldGenerateImageAIConfig['quality']>
+    )
+  ) {
+    delete nextAiConfig.quality;
   }
 
   return nextAiConfig as IAttachmentFieldAIConfig;
@@ -120,6 +137,8 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
     hasAdvancedOptions,
     imageSizeValues,
     aspectRatioValues,
+    resolutionValues,
+    qualityValues,
     currentSize,
     currentQuality,
     currentCount,
@@ -170,7 +189,7 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
     (patch: IAttachmentAiConfigPatch) => {
       onChange?.({
         aiConfig: sanitizeAdvancedImageConfigPatch(
-          { ...(aiConfig ?? {}) } as Record<string, unknown>,
+          { ...aiConfig } as Record<string, unknown>,
           patch
         ),
       });
@@ -202,7 +221,7 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
     if (Object.keys(updates).length > 0) {
       currentOnChange?.({
         aiConfig: sanitizeAdvancedImageConfigPatch(
-          { ...(currentAiConfig ?? {}) } as Record<string, unknown>,
+          { ...currentAiConfig } as Record<string, unknown>,
           updates
         ),
       });
@@ -317,6 +336,8 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
               supportsCount={supportsCount}
               imageSizeValues={imageSizeValues}
               aspectRatioValues={aspectRatioValues}
+              resolutionValues={resolutionValues}
+              qualityValues={qualityValues}
               currentSize={currentSize}
               currentQuality={currentQuality}
               currentAspectRatio={currentAspectRatio}

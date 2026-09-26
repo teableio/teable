@@ -20,7 +20,7 @@ interface IUseGridSelectionProps {
     id: string;
   })[];
   viewQuery?: Pick<IGetRecordsRo, 'filter' | 'orderBy' | 'groupBy' | 'collapsedGroupIds'>;
-  gridRef: React.RefObject<IGridRef>;
+  gridRef: React.RefObject<IGridRef | null>;
 }
 
 export interface IActiveCell {
@@ -194,7 +194,7 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
         setPresortRecordData(undefined);
         const columnIndex = columns.findIndex((column) => column.id === fieldId);
         if (columnIndex < 0) return;
-        const range = [columnIndex, parseInt(entry[0])] as IRange;
+        const range = [columnIndex, Number.parseInt(entry[0])] as IRange;
         gridRef.current?.setSelection(
           new CombinedSelection(SelectionRegionType.Cells, [range, range])
         );

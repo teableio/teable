@@ -209,7 +209,11 @@ describe('Bulk text to link conversion (e2e)', () => {
       const verifyLinkedRecords = async (relationship: Relationship) => {
         console.time(`verify-links-${relationship}`);
         const matchedRecords = new Map<string, (typeof created.records)[number]>();
-        for (let skip = 0; matchedRecords.size < TOTAL_RECORDS; skip += PAGE_SIZE) {
+        for (
+          let skip = 0;
+          skip < TOTAL_RECORDS && matchedRecords.size < TOTAL_RECORDS;
+          skip += PAGE_SIZE
+        ) {
           const { records } = await getRecords(dataTable!.id, {
             fieldKeyType: FieldKeyType.Id,
             take: PAGE_SIZE,

@@ -58,10 +58,10 @@ import type {
   IConditionalLookupOptions,
   INumberFieldOptions,
 } from '@teable/core';
-import { stripLookupFormulaExecutableOptions } from '@teable/v2-core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { stripLookupFormulaExecutableOptions } from '@teable/v2-core';
 import { Knex } from 'knex';
-import { uniq, keyBy, mergeWith } from 'lodash';
+import { keyBy, mergeWith } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import type { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
@@ -1085,7 +1085,7 @@ export class FieldSupplementService {
   // eslint-disable-next-line sonarjs/cognitive-complexity
   private async prepareConditionalRollupField(tableId: string, field: IFieldRo) {
     const rawOptions = field.options as IConditionalRollupFieldOptions | undefined;
-    const options = { ...(rawOptions || {}) } as IConditionalRollupFieldOptions | undefined;
+    const options = { ...rawOptions } as IConditionalRollupFieldOptions | undefined;
     if (!options) {
       throw new CustomHttpException(
         'Conditional rollup field options are required',
@@ -1098,7 +1098,7 @@ export class FieldSupplementService {
       );
     }
 
-    if (!options.sort || options.sort.fieldId == null) {
+    if (options.sort?.fieldId == null) {
       delete options.sort;
     }
     if (options.limit == null) {
@@ -1166,6 +1166,33 @@ export class FieldSupplementService {
     const expression =
       options.expression ??
       ConditionalRollupFieldDto.defaultOptions(lookupField.cellValueType).expression!;
+
+    if (lookupField.type === FieldType.Button) {
+      throw new CustomHttpException(
+        'Button fields cannot be used as a rollup source',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.rollupExpressionParseError',
+          },
+        }
+      );
+    }
+
+    if (
+      expression &&
+      !isRollupFunctionSupportedForCellValueType(expression, lookupField.cellValueType)
+    ) {
+      throw new CustomHttpException(
+        `Parse rollup expression ${expression} error: incompatible with lookup field type`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.rollupExpressionParseError',
+          },
+        }
+      );
+    }
 
     if (!ConditionalRollupFieldCore.supportsOrdering(expression)) {
       delete options.sort;
@@ -1345,6 +1372,7 @@ export class FieldSupplementService {
         filter: conditionalLookup.filter,
         sort: conditionalLookup.sort,
         limit: conditionalLookup.limit,
+        isUnique: conditionalLookup.isUnique,
       },
       isMultipleCellValue: true,
       isComputed: true,
@@ -1424,7 +1452,7 @@ export class FieldSupplementService {
 
     // Handle empty options object - use default if options is null/undefined OR empty object without formatting
     const numberOptions = options as INumberFieldOptions | undefined;
-    const needsDefault = !numberOptions || !numberOptions.formatting;
+    const needsDefault = !numberOptions?.formatting;
     const finalOptions = needsDefault
       ? { ...NumberFieldCore.defaultOptions(), ...numberOptions }
       : numberOptions;
@@ -1622,7 +1650,7 @@ export class FieldSupplementService {
     const { name } = field;
     const options = {
       ...LastModifiedTimeFieldCore.defaultOptions(),
-      ...(field.options ?? {}),
+      ...field.options,
     };
 
     return {
@@ -2428,7 +2456,7 @@ export class FieldSupplementService {
       }
     }
 
-    fieldIds = uniq(fieldIds);
+    fieldIds = [...new Set(fieldIds)];
     fieldIds.forEach((fromFieldId) => {
       graphItems.push({ fromFieldId, toFieldId });
     });

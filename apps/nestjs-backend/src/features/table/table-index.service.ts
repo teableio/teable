@@ -27,7 +27,7 @@ import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 
 @Injectable()
 export class TableIndexService {
-  private logger = new Logger(TableIndexService.name);
+  private readonly logger = new Logger(TableIndexService.name);
 
   constructor(
     private readonly cls: ClsService<IClsStore>,
@@ -318,9 +318,7 @@ export class TableIndexService {
 
     const indexInfo = await this.getIndexInfo(tableId);
 
-    return await this.dbProvider
-      .searchIndex()
-      .getAbnormalIndex(dbTableName, fieldInstances, indexInfo);
+    return this.dbProvider.searchIndex().getAbnormalIndex(dbTableName, fieldInstances, indexInfo);
   }
 
   async repairIndex(tableId: string, type: TableIndex) {

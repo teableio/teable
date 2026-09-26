@@ -8,3 +8,4 @@ export * from './Error';
 export * from './headless-tree';
 export * from './markdown';
 export * from './direction';
+export * from './theme';

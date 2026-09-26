@@ -67,6 +67,7 @@ import {
   ShortLinkType,
   submitPlugin,
 } from '@teable/openapi';
+import { type ITableRepository, v2CoreTokens } from '@teable/v2-core';
 import { sample } from 'lodash';
 import { vi } from 'vitest';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
@@ -76,6 +77,7 @@ import {
   X_TEABLE_V2_HEADER,
   X_TEABLE_V2_REASON_HEADER,
 } from '../src/features/canary/interceptors/v2-indicator.interceptor';
+import { V2ContainerService } from '../src/features/v2/v2-container.service';
 import { ViewOpenApiService } from '../src/features/view/open-api/view-open-api.service';
 import { ViewService } from '../src/features/view/view.service';
 import { x_20 } from './data-helpers/20x';
@@ -1589,18 +1591,7 @@ describe('OpenAPI ViewController (e2e)', () => {
       type: ViewType.Grid,
     };
 
-    const createdView = await createView(table.id, viewRo);
-
-    const { dbTableName } = await prismaService.tableMeta.findUniqueOrThrow({
-      where: { id: table.id },
-      select: { dbTableName: true },
-    });
-    const rowOrderColumn = await viewService.existIndex(
-      dbTableName,
-      createdView.id,
-      prismaService.txClient()
-    );
-    expect(rowOrderColumn).toBe(`__row_${createdView.id}`);
+    await createView(table.id, viewRo);
 
     const result = await getViews(table.id);
     expect(result).toMatchObject([
@@ -1629,7 +1620,7 @@ describe('OpenAPI ViewController (e2e)', () => {
       }
     });
 
-    it('routes a supported Grid payload through v2 and creates its row-order column', async () => {
+    it('routes a supported Grid payload through v2 without creating its row-order column', async () => {
       const eventSpy = vi.spyOn(eventEmitterService, 'emitAsync');
       const response = await createViewApi(table.id, {
         name: 'V2 grid view',
@@ -1653,7 +1644,7 @@ describe('OpenAPI ViewController (e2e)', () => {
       });
       await expect(
         viewService.existIndex(dbTableName, response.data.id, prismaService.txClient())
-      ).resolves.toBe(`__row_${response.data.id}`);
+      ).resolves.toBeUndefined();
       expectNoLegacyViewEvent(eventSpy);
     });
 
@@ -2208,10 +2199,14 @@ describe('OpenAPI ViewController (e2e)', () => {
 
     await createField(table.id, { type: FieldType.SingleLineText });
     const fields = await getFields(table.id);
-    const assertFieldIds = fields.map((field) => field.id).sort();
+    const assertFieldIds = fields
+      .map((field) => field.id)
+      .sort((a, b) => Number(a > b) - Number(a < b));
     const randomViewId = sample(createData.map((data) => data.id));
     const view = await getView(table.id, randomViewId!);
-    const columnMetaFieldIds = Object.keys(view.columnMeta).sort();
+    const columnMetaFieldIds = Object.keys(view.columnMeta).sort(
+      (a, b) => Number(a > b) - Number(a < b)
+    );
     expect(columnMetaFieldIds).toEqual(assertFieldIds);
   });
 
@@ -2242,18 +2237,26 @@ describe('OpenAPI ViewController (e2e)', () => {
       },
     });
 
-    const activeFieldIds = activeFields.map((field) => field.id).sort();
+    const activeFieldIds = activeFields
+      .map((field) => field.id)
+      .sort((a, b) => Number(a > b) - Number(a < b));
     const viewAfter = await getView(table.id, view.id);
     const viewsAfter = await getViews(table.id);
     const viewFromList = viewsAfter.find(({ id }) => id === view.id);
     const [viewSnapshot] = await viewService.getSnapshotBulk(table.id, [view.id]);
 
     expect(viewAfter.columnMeta?.[staleField.id]).toBeUndefined();
-    expect(Object.keys(viewAfter.columnMeta ?? {}).sort()).toEqual(activeFieldIds);
+    expect(
+      Object.keys(viewAfter.columnMeta ?? {}).sort((a, b) => Number(a > b) - Number(a < b))
+    ).toEqual(activeFieldIds);
     expect(viewFromList?.columnMeta?.[staleField.id]).toBeUndefined();
-    expect(Object.keys(viewFromList?.columnMeta ?? {}).sort()).toEqual(activeFieldIds);
+    expect(
+      Object.keys(viewFromList?.columnMeta ?? {}).sort((a, b) => Number(a > b) - Number(a < b))
+    ).toEqual(activeFieldIds);
     expect(viewSnapshot.data.columnMeta?.[staleField.id]).toBeUndefined();
-    expect(Object.keys(viewSnapshot.data.columnMeta ?? {}).sort()).toEqual(activeFieldIds);
+    expect(
+      Object.keys(viewSnapshot.data.columnMeta ?? {}).sort((a, b) => Number(a > b) - Number(a < b))
+    ).toEqual(activeFieldIds);
   });
 
   it('fields in new view should sort by created time and primary field is always first', async () => {
@@ -4169,11 +4172,44 @@ describe('OpenAPI ViewController (e2e)', () => {
         where: { id: view.id },
         select: { version: true },
       });
+      const container = await app.get(V2ContainerService).getContainerForTable(table.id);
+      const tableRepository = container.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+      const findOne = tableRepository.findOne.bind(tableRepository);
+      const runConcurrent = async <T>(mutate: () => Promise<T>) => {
+        let loaded = 0;
+        let release!: () => void;
+        const bothLoaded = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        const findOneSpy = vi
+          .spyOn(tableRepository, 'findOne')
+          .mockImplementation(async (...args) => {
+            const result = await findOne(...args);
+            if (result.isOk() && result.value.id().toString() === table.id && loaded < 2) {
+              // Hold each real aggregate after hydration, before either handler can mutate it.
+              // Both requests must carry the same View version into the real persistence CAS.
+              loaded += 1;
+              if (loaded === 2) release();
+              await bothLoaded;
+            }
+            return result;
+          });
 
-      const enableResults = await Promise.allSettled([
-        enableShareView({ tableId: table.id, viewId: view.id }),
-        enableShareView({ tableId: table.id, viewId: view.id }),
-      ]);
+        try {
+          return await Promise.allSettled([
+            Promise.resolve().then(mutate).finally(release),
+            Promise.resolve().then(mutate).finally(release),
+          ]);
+        } finally {
+          // A request failing before hydration must also unblock its peer.
+          release();
+          findOneSpy.mockRestore();
+        }
+      };
+
+      const enableResults = await runConcurrent(() =>
+        enableShareView({ tableId: table.id, viewId: view.id })
+      );
       const enabled = enableResults.filter(
         (result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof enableShareView>>> =>
           result.status === 'fulfilled'
@@ -4207,10 +4243,7 @@ describe('OpenAPI ViewController (e2e)', () => {
         where: { id: view.id },
         select: { version: true },
       });
-      const refreshResults = await Promise.allSettled([
-        refreshViewShareId(table.id, view.id),
-        refreshViewShareId(table.id, view.id),
-      ]);
+      const refreshResults = await runConcurrent(() => refreshViewShareId(table.id, view.id));
       const refreshed = refreshResults.filter(
         (
           result
@@ -5130,7 +5163,7 @@ describe('OpenAPI ViewController (e2e)', () => {
       expect(duplicatedView.shareId).not.toBe(view.shareId);
       expect(duplicatedView.createdBy).toBeTruthy();
       expect(duplicatedView.createdTime).toBeTruthy();
-      expect(duplicatedRowOrderColumn).toBeDefined();
+      expect(duplicatedRowOrderColumn).toBeUndefined();
       expectDuplicateV2(duplicatedViewResponse);
       expect(legacyDuplicateSpy).not.toHaveBeenCalled();
       expect(legacyCreateSpy).not.toHaveBeenCalled();

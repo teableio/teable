@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import type { IAttachmentCellValue, IAttachmentItem } from '@teable/core';
 import { CellFormat, FieldKeyType, FieldType, getRandomString } from '@teable/core';
@@ -66,10 +66,11 @@ describe('OpenAPI AttachmentController (e2e)', () => {
       UploadType.WorkflowRunCold,
       UploadType.AuditLogCold,
     ]) {
-      const error = await getSignature(
-        { type, contentLength: 10, contentType: 'application/octet-stream' },
-        undefined
-      ).catch((e) => e);
+      const error = await getSignature({
+        type,
+        contentLength: 10,
+        contentType: 'application/octet-stream',
+      }).catch((e) => e);
       expect(error).toMatchObject({ status: 400 });
     }
   });
@@ -207,10 +208,11 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     const stats = fs.statSync(csvPath);
 
     const { token, requestHeaders } = (
-      await getSignature(
-        { type: UploadType.Import, contentLength: stats.size, contentType: 'text/csv' },
-        undefined
-      )
+      await getSignature({
+        type: UploadType.Import,
+        contentLength: stats.size,
+        contentType: 'text/csv',
+      })
     ).data;
     await uploadFile(token, fs.createReadStream(csvPath), requestHeaders);
     const {

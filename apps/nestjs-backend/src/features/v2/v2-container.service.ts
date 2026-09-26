@@ -3,16 +3,21 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DiscoveryService, ModuleRef, Reflector } from '@nestjs/core';
 import type { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
+import { COMPUTE_ACTIVITY_CHANGED, getActionTriggerChannel } from '@teable/core';
 import type { IPgPoolLease } from '@teable/db-main-prisma';
 import { PgPoolRegistry } from '@teable/db-main-prisma';
 import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
+  ShareDbBackendPresencePublisher,
   ShareDbPubSubPublisher,
   registerV2ShareDbRealtime,
+  v2ShareDbTokens,
 } from '@teable/v2-adapter-realtime-sharedb';
 import {
   IComputedOutboxWakeupPublisher,
+  IDomainEventWakeupPublisher,
   noopComputedOutboxWakeupPublisher,
+  noopDomainEventWakeupPublisher,
   v2RecordRepositoryPostgresTokens,
   type ComputedUpdateOutboxConfig,
 } from '@teable/v2-adapter-table-repository-postgres';
@@ -21,16 +26,10 @@ import { createV2NodePgContainer, type IV2NodePgContainerOptions } from '@teable
 import type {
   AttachmentValueDecoratorService,
   IAttachmentLookupService,
-  IComputedActivityReader,
   IComputedOutboxAdmin,
   IExecutionContext,
 } from '@teable/v2-core';
-import {
-  ActorId,
-  mapFieldComputeActivityToRealtime,
-  mapTableComputeActivityToRealtime,
-  v2CoreTokens,
-} from '@teable/v2-core';
+import { ActorId, v2CoreTokens } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { registerV2ImportServices } from '@teable/v2-import';
 import {
@@ -41,6 +40,7 @@ import {
   type TableQueryOpsRunnerHandle,
 } from '@teable/v2-table-query-ops';
 import { createSsrfSafeFetch, setSafeFetch } from '@teable/v2-utils';
+import { ClsService } from 'nestjs-cls';
 import { PinoLogger } from 'nestjs-pino';
 import { CacheService } from '../../cache/cache.service';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
@@ -51,12 +51,14 @@ import {
   V2_CONTAINER_CACHE_NAMESPACE,
 } from '../../global/data-db-runtime-cache.service';
 import { ShareDbService } from '../../share-db/share-db.service';
+import type { IClsStore } from '../../types/cls';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import { ComputedOutboxClaimConcurrencyService } from './computed-outbox-trigger/computed-outbox-claim-concurrency.service';
 import {
   COMPUTED_OUTBOX_ADMIN,
   COMPUTED_OUTBOX_WAKEUP_PUBLISHER,
 } from './computed-outbox-trigger/constants';
+import { DOMAIN_EVENT_OUTBOX_WAKEUP_PUBLISHER } from './domain-event-outbox-trigger/constants';
 import { TableQueryObservationRuntimeService } from './table-query-observation-runtime.service';
 import { TableQuerySearchMetricsService } from './table-query-search-observability';
 import { resolveTableQuerySearchVectorRuntimeMode } from './table-query-search-vector-runtime.service';
@@ -70,13 +72,23 @@ import {
   type IV2ProjectionRegistrar,
 } from './v2-projection-registrar';
 import { QueryBusTracingMiddleware } from './v2-query-bus-tracing.middleware';
+import { V2QueryCancellationMiddleware } from './v2-query-cancellation.middleware';
 import { V2RecordChangedValueDecoratorService } from './v2-record-changed-value-decorator.service';
 import { OpenTelemetryTracer } from './v2-tracer.adapter';
 
 const resolveNonNegativeInteger = (value: unknown): number | undefined => {
   const parsed =
-    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
+};
+
+const resolveTableQueryOpsWorkerId = (configured: unknown): string => {
+  const hostname = process.env.HOSTNAME?.trim();
+  const instanceId = hostname && hostname.length > 0 ? hostname : String(process.pid);
+  if (typeof configured === 'string' && configured.trim().length > 0) {
+    return `${configured.trim()}:${instanceId}`;
+  }
+  return `nestjs-${instanceId}`;
 };
 
 // Default is shadow: decisions and reasons are logged for the admin page without
@@ -167,36 +179,16 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     private readonly runtimeCache: DataDbRuntimeCacheService,
     private readonly pgPoolRegistry: PgPoolRegistry,
     private readonly tableQueryObservationRuntime: TableQueryObservationRuntimeService,
+    private readonly cls: ClsService<IClsStore>,
     @Optional()
     @Inject(COMPUTED_OUTBOX_WAKEUP_PUBLISHER)
     private readonly computedOutboxWakeupPublisher: IComputedOutboxWakeupPublisher = noopComputedOutboxWakeupPublisher,
     @Optional()
+    @Inject(DOMAIN_EVENT_OUTBOX_WAKEUP_PUBLISHER)
+    private readonly domainEventWakeupPublisher: IDomainEventWakeupPublisher = noopDomainEventWakeupPublisher,
+    @Optional()
     private readonly claimConcurrency?: ComputedOutboxClaimConcurrencyService
-  ) {
-    this.shareDbService.setComputedActivitySnapshotLoader(async (tableId) => {
-      const container = await this.getContainerForTable(tableId);
-      const reader = container.resolve<IComputedActivityReader>(
-        v2CoreTokens.computedActivityReader
-      );
-      const result = await reader.getByTableId(undefined, tableId);
-      if (result.isErr()) throw result.error;
-
-      const documents: Record<string, { version: number; data: unknown }> = {};
-      if (result.value.table) {
-        documents.table = {
-          version: result.value.table.generation,
-          data: mapTableComputeActivityToRealtime(result.value.table),
-        };
-      }
-      for (const field of result.value.fields) {
-        documents[field.fieldId] = {
-          version: field.generation,
-          data: mapFieldComputeActivityToRealtime(field),
-        };
-      }
-      return documents;
-    });
-  }
+  ) {}
 
   async onApplicationBootstrap(): Promise<void> {
     await this.getContainer();
@@ -337,7 +329,10 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
       const tracer = new OpenTelemetryTracer();
       const tableQueryObservability = new TableQuerySearchMetricsService();
       const commandBusMiddlewares = [new CommandBusTracingMiddleware()];
-      const queryBusMiddlewares = [new QueryBusTracingMiddleware()];
+      const queryBusMiddlewares = [
+        new QueryBusTracingMiddleware(),
+        new V2QueryCancellationMiddleware(this.cls),
+      ];
       const computedUpdateMode = process.env.V2_COMPUTED_UPDATE_MODE;
       const tableQueryOpsConfig = this.resolveTableQueryOpsOptions();
       const tableQueryObservationRuntime = tableQueryOpsConfig
@@ -400,6 +395,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         queryBusMiddlewares,
         computedUpdate,
         tableQueryOps,
+        domainEventWakeupPublisher: this.domainEventWakeupPublisher,
         // The postgres adapter writes record_trash markers inside the v2 delete
         // transaction, so the delete-undo purge guard is sound here.
         undoRedoRestorePurgeGuard: true,
@@ -411,6 +407,11 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
 
       registerV2ShareDbRealtime(container, {
         publisher: new ShareDbPubSubPublisher(this.shareDbService.pubsub),
+        presence: new ShareDbBackendPresencePublisher(this.shareDbService),
+        computeActivitySignal: {
+          resolveChannel: getActionTriggerChannel,
+          actionKey: COMPUTE_ACTIVITY_CHANGED,
+        },
       });
       const attachmentLookupService = container.resolve<IAttachmentLookupService>(
         v2CoreTokens.attachmentLookupService
@@ -469,12 +470,13 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
   }
 
   private resolveTableQueryOpsOptions(): IV2NodePgContainerOptions['tableQueryOps'] | undefined {
-    if (!resolveBoolean(this.configService.get('V2_TABLE_QUERY_OPS_ENABLED'), true)) {
+    if (!resolveBoolean(this.configService.get('V2_TABLE_QUERY_OPS_ENABLED'), false)) {
       return undefined;
     }
 
-    const workerId =
-      this.configService.get<string>('V2_TABLE_QUERY_OPS_WORKER_ID') ?? `nestjs-${process.pid}`;
+    const workerId = resolveTableQueryOpsWorkerId(
+      this.configService.get('V2_TABLE_QUERY_OPS_WORKER_ID')
+    );
     const allowManualIndexExecution = resolveBoolean(
       this.configService.get('V2_TABLE_QUERY_OPS_ALLOW_MANUAL_INDEX_EXECUTION')
     );
@@ -528,9 +530,12 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         autoAcceptMode,
       },
       analyzerConfig: {
-        enabled: resolveBoolean(this.configService.get('V2_TABLE_QUERY_OPS_ANALYZER_ENABLED')),
+        enabled: resolveBoolean(
+          this.configService.get('V2_TABLE_QUERY_OPS_ANALYZER_ENABLED'),
+          false
+        ),
         workerId: `${workerId}:analyzer`,
-        ...(analyzerIntervalMs ? { intervalMs: analyzerIntervalMs } : {}),
+        intervalMs: analyzerIntervalMs ?? 5 * 60 * 1000,
         ...(analyzerLookbackMs ? { lookbackMs: analyzerLookbackMs } : {}),
         ...(analyzerBatchSize ? { batchSize: analyzerBatchSize } : {}),
       },
@@ -551,10 +556,16 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
   private startTableQueryOpsRunners(container: DependencyContainer): void {
     const context = this.createTableQueryOpsContext(container);
     if (!context) return;
+    const resolveExecution = async (tableId: string) => {
+      const target = await this.getContainerForTable(tableId);
+      const targetContext = this.createTableQueryOpsContext(target);
+      if (!targetContext) throw new Error('Unable to initialize table query task context');
+      return { container: target, context: targetContext };
+    };
 
     const handles = [
-      startTableQueryOpsAnalyzerIfEnabled(container, context),
-      startTableQueryOpsTaskWorkerIfEnabled(container, context),
+      startTableQueryOpsAnalyzerIfEnabled(container, context, resolveExecution),
+      startTableQueryOpsTaskWorkerIfEnabled(container, context, resolveExecution),
     ].filter((handle): handle is TableQueryOpsRunnerHandle => Boolean(handle));
 
     if (handles.length === 0) {
@@ -636,6 +647,15 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         .disposeAsyncFlusher();
     } catch {
       // Container without the record adapter registered — nothing to stop.
+    }
+    try {
+      container
+        .resolve<{
+          dispose(): void;
+        }>(v2ShareDbTokens.presence)
+        .dispose();
+    } catch {
+      // Container without the ShareDB realtime adapter — nothing to release.
     }
     this.claimConcurrencyUnregisters.get(container)?.();
     this.claimConcurrencyUnregisters.delete(container);

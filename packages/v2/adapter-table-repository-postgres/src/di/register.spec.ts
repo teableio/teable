@@ -3,6 +3,7 @@ import {
   formulaSqlPgTokens,
   Pg16TypeValidationStrategy,
   PgLegacyTypeValidationStrategy,
+  defaultFormulaCompileBudgetConfig,
 } from '@teable/v2-formula-sql-pg';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -27,6 +28,11 @@ const createContainer = () => {
     register(token: unknown, implementation: unknown, options: unknown) {
       registrations.push({ token, implementation, options });
       return this;
+    },
+    resolve(token: unknown) {
+      const entry = instances.find((value) => value.token === token);
+      if (!entry) throw new Error('Missing registered dependency');
+      return entry.instance;
     },
     isRegistered(token: unknown) {
       return (
@@ -82,6 +88,18 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     expect(() =>
       registerV2TableRepositoryPostgresAdapter(createContainer() as never, {} as never)
     ).toThrow('Invalid v2 postgres ddl adapter config');
+  });
+
+  it('refuses unsupported safety policy configuration before registration', async () => {
+    const { registerV2TableRepositoryPostgresAdapter } = await loadRegisterModule();
+    const container = createContainer();
+    expect(() =>
+      registerV2TableRepositoryPostgresAdapter(container as never, {
+        db: createDb() as never,
+        formulaCompileBudget: { ...defaultFormulaCompileBudgetConfig, policyVersion: 2 },
+      })
+    ).toThrow();
+    expect(container.instances).toEqual([]);
   });
 
   it('registers default schema, record, and strategy dependencies', async () => {

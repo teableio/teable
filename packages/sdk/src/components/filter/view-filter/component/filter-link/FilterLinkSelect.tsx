@@ -1,6 +1,7 @@
 import { Button, Popover, PopoverContent, PopoverTrigger, cn } from '@teable/ui-lib';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
+import type { JSX } from 'react';
 import { SINGLE_SELECT_OPERATORS } from './constant';
 import { DefaultList } from './DefaultList';
 import { DefaultTrigger } from './DefaultTrigger';

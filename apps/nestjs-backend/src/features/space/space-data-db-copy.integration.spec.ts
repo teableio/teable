@@ -10,21 +10,35 @@ import { Client, Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
 import { DataDbRuntimeCacheService } from '../../global/data-db-runtime-cache.service';
+import { BaseService } from '../base/base.service';
 import { dataDbKnexClientFactory } from './data-db-preflight.service';
 import { encryptDataDbUrl } from './data-db-url-secret';
-import { buildMigrationSharedTablePsqlCopyPlans } from './space-data-db-copy-plan';
+import {
+  invalidateSearchIndexesForDataDbRouting,
+  type ISearchIndexRoutingTransaction,
+} from './search-index-routing-invalidation';
+import { buildMigrationSharedTablePsqlCopyPlans, postgresToolUrl } from './space-data-db-copy-plan';
 import { SpaceDataDbCopyService } from './space-data-db-copy.service';
 import { SpaceDataDbMigrationService } from './space-data-db-migration.service';
 import { SpaceDataDbProcessRunnerService } from './space-data-db-process-runner.service';
 
-const requiredPostgresBins = ['initdb', 'pg_ctl', 'pg_dump', 'pg_restore', 'psql'];
-const hasPostgresBinaries = requiredPostgresBins.every(
-  (command) => spawnSync('which', [command], { stdio: 'ignore' }).status === 0
-);
-const describeWithPostgres = hasPostgresBinaries ? describe : describe.skip;
-const sourceDatabase = 'source_data_db';
-const targetDatabase = 'target_data_db';
-const targetMismatchDatabase = 'target_mismatch_data_db';
+const hasCommand = (command: string) =>
+  spawnSync('which', [command], { stdio: 'ignore' }).status === 0;
+const requiredCopyTools = ['pg_dump', 'pg_restore', 'psql'] as const;
+const hasCopyTools = requiredCopyTools.every(hasCommand);
+const hasEmbeddedPostgres = ['initdb', 'pg_ctl', ...requiredCopyTools].every(hasCommand);
+const databaseUrl = process.env.PRISMA_DATABASE_URL;
+if (process.env.CI && databaseUrl && !hasCopyTools) {
+  throw new Error(
+    'pg_dump, pg_restore, and psql are required in CI for SpaceDataDbCopyService integration'
+  );
+}
+const describeWithPostgres =
+  hasEmbeddedPostgres || (Boolean(databaseUrl) && hasCopyTools) ? describe : describe.skip;
+const clusterSuffix = crypto.randomUUID().replace(/-/g, '').slice(0, 8).toLowerCase();
+const sourceDatabase = `source_data_db_${clusterSuffix}`;
+const targetDatabase = `target_data_db_${clusterSuffix}`;
+const targetMismatchDatabase = `target_mismatch_data_db_${clusterSuffix}`;
 const targetSchema = 'teable_meta_test';
 const targetMismatchSchema = 'teable_meta_mismatch';
 const baseId = 'bsecopy';
@@ -113,8 +127,33 @@ const getFreePort = async () =>
 
 const currentUser = () => encodeURIComponent(process.env.USER || 'postgres');
 
-const pgUrl = (port: number, database: string) =>
-  `postgresql://${currentUser()}@127.0.0.1:${port}/${database}`;
+let pgEndpoint = {
+  userInfo: currentUser(),
+  host: '127.0.0.1',
+  port: 0,
+};
+
+const pgUrl = (_port: number, database: string) =>
+  `postgresql://${pgEndpoint.userInfo}@${pgEndpoint.host}:${pgEndpoint.port}/${database}`;
+
+const adminUrlFrom = (url: string) => {
+  const parsed = new URL(postgresToolUrl(url));
+  parsed.pathname = '/postgres';
+  return parsed.toString();
+};
+
+const endpointFromUrl = (url: string) => {
+  const parsed = new URL(postgresToolUrl(url));
+  const username = decodeURIComponent(parsed.username);
+  const password = parsed.password ? decodeURIComponent(parsed.password) : '';
+  return {
+    userInfo: password
+      ? `${encodeURIComponent(username)}:${encodeURIComponent(password)}`
+      : encodeURIComponent(username),
+    host: parsed.hostname,
+    port: Number(parsed.port || 5432),
+  };
+};
 
 const queryCount = async (client: Client, sql: string, values: unknown[] = []) => {
   const result = await client.query<{ count: string }>(sql, values);
@@ -202,7 +241,7 @@ const createSharedTables = async (client: Client, schema: string) => {
       "status" text,
       "attempts" text,
       "max_attempts" text,
-      "next_run_at" text,
+      "next_run_at" timestamptz DEFAULT now(),
       "locked_at" timestamp,
       "locked_by" text,
       "last_error" text,
@@ -235,7 +274,7 @@ const createSharedTables = async (client: Client, schema: string) => {
       "status" text,
       "attempts" text,
       "max_attempts" text,
-      "next_run_at" text,
+      "next_run_at" timestamptz DEFAULT now(),
       "locked_at" timestamp,
       "locked_by" text,
       "last_error" text,
@@ -309,6 +348,32 @@ const createSharedTables = async (client: Client, schema: string) => {
     )
   `);
   await client.query(`
+    CREATE TABLE "${schema}"."computed_reliability_issue" (
+      "id" text PRIMARY KEY,
+      "task_id" text UNIQUE NOT NULL,
+      "base_id" text NOT NULL,
+      "source_table_id" text NOT NULL,
+      "error" text NOT NULL,
+      "failure_kind" text,
+      "failure_phase" text,
+      "error_code" text,
+      "status" text NOT NULL DEFAULT 'open',
+      "scope_complete" boolean NOT NULL DEFAULT false,
+      "occurrences" integer NOT NULL DEFAULT 1,
+      "first_seen_at" timestamptz NOT NULL DEFAULT now(),
+      "last_seen_at" timestamptz NOT NULL DEFAULT now(),
+      "closed_at" timestamptz,
+      "confirmed_by" text,
+      "confirmation_reason" text
+    );
+    CREATE TABLE "${schema}"."computed_reliability_scope" (
+      "issue_id" text NOT NULL,
+      "table_id" text NOT NULL,
+      "field_id" text NOT NULL,
+      PRIMARY KEY ("issue_id", "table_id", "field_id")
+    )
+  `);
+  await client.query(`
     CREATE TABLE "${schema}"."__undo_log" (
       "id" text PRIMARY KEY,
       "batch_id" text,
@@ -318,6 +383,67 @@ const createSharedTables = async (client: Client, schema: string) => {
       "old_row" jsonb,
       "new_row" jsonb,
       "created_at" timestamp
+    )
+  `);
+
+  await client.query(`
+    CREATE TABLE "${schema}"."domain_event_outbox" (
+      "id" text PRIMARY KEY,
+      "base_id" text NOT NULL,
+      "table_id" text,
+      "message_name" text NOT NULL,
+      "schema_version" integer NOT NULL,
+      "aggregate_id" text,
+      "payload" jsonb NOT NULL,
+      "payload_bytes" integer NOT NULL,
+      "catalog_generation" integer NOT NULL,
+      "required_consumers" jsonb NOT NULL,
+      "binding_id" text,
+      "storage_epoch" integer,
+      "unpublished" boolean NOT NULL,
+      "settled" text,
+      "settled_at" timestamp,
+      "created_at" timestamp
+    )
+  `);
+  await client.query(`
+    CREATE TABLE "${schema}"."domain_event_delivery" (
+      "id" text PRIMARY KEY,
+      "event_id" text NOT NULL,
+      "consumer_id" text NOT NULL,
+      "status" text NOT NULL,
+      "attempts" integer NOT NULL,
+      "max_attempts" integer NOT NULL,
+      "lease_token" text,
+      "lease_expires_at" timestamp,
+      "next_attempt_at" timestamp,
+      "last_error" text,
+      "created_at" timestamp
+    )
+  `);
+  await client.query(`
+    CREATE UNIQUE INDEX "${schema}_domain_event_delivery_event_consumer_idx"
+    ON "${schema}"."domain_event_delivery" ("event_id", "consumer_id")
+  `);
+  await client.query(`
+    CREATE TABLE "${schema}"."domain_event_inbox" (
+      "consumer_id" text NOT NULL,
+      "event_id" text NOT NULL,
+      "created_at" timestamp,
+      PRIMARY KEY ("consumer_id", "event_id")
+    )
+  `);
+  await client.query(`
+    CREATE TABLE "${schema}"."attachments_table" (
+      "id" text PRIMARY KEY,
+      "attachment_id" text NOT NULL,
+      "token" text NOT NULL,
+      "name" text NOT NULL,
+      "table_id" text NOT NULL,
+      "record_id" text NOT NULL,
+      "field_id" text NOT NULL,
+      "created_time" timestamp,
+      "created_by" text NOT NULL
     )
   `);
 };
@@ -461,6 +587,34 @@ const seedSourceData = async (client: Client) => {
       ('undo2', 'batch2', 'update', $2, 'rec9', '{}'::jsonb, '{}'::jsonb, now())`,
     [`${baseId}.${mainRelationName}`, `${otherBaseId}.${mainRelationName}`]
   );
+
+  await client.query(
+    `INSERT INTO "public"."domain_event_outbox"
+      ("id", "base_id", "table_id", "message_name", "schema_version", "aggregate_id",
+       "payload", "payload_bytes", "catalog_generation", "required_consumers",
+       "unpublished", "settled", "created_at")
+     VALUES
+      ('deo-copy', $1, $3, 'table.record.created.v1', 1, 'rec1',
+       '{"recordId":"rec1"}'::jsonb, 18, 1, '["record.validation.v1"]'::jsonb,
+       true, null, now()),
+      ('deo-other', $2, 'tblother', 'table.record.created.v1', 1, 'rec9',
+       '{"recordId":"rec9"}'::jsonb, 18, 1, '["record.validation.v1"]'::jsonb,
+       true, null, now())`,
+    [baseId, otherBaseId, tableId]
+  );
+  await client.query(
+    `INSERT INTO "public"."domain_event_delivery"
+      ("id", "event_id", "consumer_id", "status", "attempts", "max_attempts", "created_at")
+     VALUES
+      ('dlv-copy', 'deo-copy', 'record.validation.v1', 'pending', 0, 12, now()),
+      ('dlv-other', 'deo-other', 'record.validation.v1', 'pending', 0, 12, now())`
+  );
+  await client.query(
+    `INSERT INTO "public"."domain_event_inbox" ("consumer_id", "event_id", "created_at")
+     VALUES
+      ('record.validation.v1', 'deo-copy', now()),
+      ('record.validation.v1', 'deo-other', now())`
+  );
 };
 
 const waitUntil = async (predicate: () => boolean, timeoutMs = 1000, pollMs = 10) => {
@@ -482,25 +636,36 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
   let socketDir: string;
   let port: number;
 
+  let usedEmbeddedPostgres = false;
+
   beforeAll(async () => {
     rootDir = await mkdtemp(path.join(tmpdir(), 'teable-byodb-copy-'));
-    dataDir = path.join(rootDir, 'pgdata');
-    socketDir = path.join(rootDir, 'socket');
-    port = await getFreePort();
-    await mkdir(socketDir);
-    await execFile('initdb', ['-D', dataDir, '--no-instructions', '--auth=trust']);
-    await execFile('pg_ctl', [
-      '-D',
-      dataDir,
-      '-o',
-      `-F -p ${port} -k ${socketDir} -c listen_addresses=127.0.0.1`,
-      '-l',
-      path.join(rootDir, 'postgres.log'),
-      '-w',
-      'start',
-    ]);
+    if (hasEmbeddedPostgres) {
+      usedEmbeddedPostgres = true;
+      dataDir = path.join(rootDir, 'pgdata');
+      socketDir = path.join(rootDir, 'socket');
+      port = await getFreePort();
+      pgEndpoint = { userInfo: currentUser(), host: '127.0.0.1', port };
+      await mkdir(socketDir);
+      await execFile('initdb', ['-D', dataDir, '--no-instructions', '--auth=trust']);
+      await execFile('pg_ctl', [
+        '-D',
+        dataDir,
+        '-o',
+        `-F -p ${port} -k ${socketDir} -c listen_addresses=127.0.0.1`,
+        '-l',
+        path.join(rootDir, 'postgres.log'),
+        '-w',
+        'start',
+      ]);
+    } else {
+      pgEndpoint = endpointFromUrl(databaseUrl!);
+      port = pgEndpoint.port;
+    }
 
-    const admin = new Client({ connectionString: pgUrl(port, 'postgres') });
+    const admin = new Client({
+      connectionString: usedEmbeddedPostgres ? pgUrl(port, 'postgres') : adminUrlFrom(databaseUrl!),
+    });
     await admin.connect();
     try {
       await admin.query(`CREATE DATABASE ${sourceDatabase}`);
@@ -524,13 +689,252 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
   }, 30_000);
 
   afterAll(async () => {
-    if (dataDir) {
+    if (usedEmbeddedPostgres && dataDir) {
       await execFile('pg_ctl', ['-D', dataDir, '-m', 'fast', '-w', 'stop']).catch(() => undefined);
+    } else if (databaseUrl) {
+      const admin = new Client({ connectionString: adminUrlFrom(databaseUrl) });
+      await admin.connect();
+      try {
+        await admin.query(
+          `SELECT pg_terminate_backend(pid)
+           FROM pg_stat_activity
+           WHERE datname = ANY($1::text[])
+             AND pid <> pg_backend_pid()`,
+          [[sourceDatabase, targetDatabase, targetMismatchDatabase]]
+        );
+        await admin.query(`DROP DATABASE IF EXISTS ${sourceDatabase}`);
+        await admin.query(`DROP DATABASE IF EXISTS ${targetDatabase}`);
+        await admin.query(`DROP DATABASE IF EXISTS ${targetMismatchDatabase}`);
+      } finally {
+        await admin.end().catch(() => undefined);
+      }
     }
     if (rootDir) {
       await rm(rootDir, { recursive: true, force: true });
     }
   }, 30_000);
+
+  const withRoutingMetadata = async (
+    run: (client: Client, transaction: ISearchIndexRoutingTransaction) => Promise<void>,
+    withConfig = true
+  ) => {
+    const client = new Client({ connectionString: pgUrl(port, sourceDatabase) });
+    await client.connect();
+    const previousMetaUrl = process.env.PRISMA_META_DATABASE_URL;
+    vi.stubEnv('PRISMA_META_DATABASE_URL', `${pgUrl(port, sourceDatabase)}?schema=pg_temp`);
+    try {
+      await client.query(`
+        CREATE TEMP TABLE base (id text PRIMARY KEY, space_id text);
+        CREATE TEMP TABLE table_meta (
+          id text PRIMARY KEY, base_id text, search_index jsonb, version integer
+        );
+        SET search_path TO pg_temp;
+        INSERT INTO base VALUES
+          ('bsemove', 'spcmove'), ('bsesame', 'spcmove'),
+          ('bserelated', 'spcrelated'), ('bseoutside', 'spcoutside');
+        INSERT INTO table_meta
+          SELECT 'tbl' || id, id, '{"definitionKey":"ready"}'::jsonb, 7 FROM base;
+      `);
+      if (withConfig) {
+        await client.query(`
+          CREATE TEMP TABLE table_query_search_vector_config (
+            table_id text, candidate_key text, status text, last_modified_time timestamptz,
+            reclaim_idx_scan_baseline bigint, reclaim_sampled_at timestamptz,
+            reclaim_disabled_at timestamptz, reclaim_drop_after timestamptz,
+            reclaim_drop_queued_at timestamptz,
+            PRIMARY KEY (table_id, candidate_key)
+          );
+          INSERT INTO table_query_search_vector_config
+            SELECT id, 'ready', 'ready', now() - interval '30 days', 42,
+                   now() - interval '30 days', NULL, NULL, NULL FROM table_meta;
+          INSERT INTO table_query_search_vector_config VALUES (
+            'tblbsemove', 'queued', 'disabled', now() - interval '30 days', 17,
+            now() - interval '30 days', now() - interval '7 days',
+            now() - interval '1 day', now()
+          );
+        `);
+      }
+      await run(client, {
+        $queryRawUnsafe: async <T>(query: string, ...values: unknown[]) =>
+          (await client.query(query, values)).rows as T,
+        $executeRawUnsafe: async (query: string, ...values: unknown[]) =>
+          (await client.query(query, values)).rowCount ?? 0,
+      });
+    } finally {
+      vi.stubEnv('PRISMA_META_DATABASE_URL', previousMetaUrl);
+      await client.end();
+    }
+  };
+
+  it.each([
+    { scope: { baseId: 'bsemove' }, affected: ['tblbsemove'] },
+    {
+      scope: { spaceIds: ['spcmove', 'spcrelated'] },
+      affected: ['tblbsemove', 'tblbsesame', 'tblbserelated'],
+    },
+  ])('fences pre-routing reclaim work only in $scope', async ({ scope, affected }) => {
+    await withRoutingMetadata(async (client, transaction) => {
+      const before = await client.query(
+        'SELECT xmin::text AS config_version, * FROM table_query_search_vector_config'
+      );
+      const startedAt = new Date();
+      await client.query('BEGIN');
+      await invalidateSearchIndexesForDataDbRouting(transaction, scope);
+      await client.query('COMMIT');
+
+      const configs = await client.query(
+        'SELECT xmin::text AS config_version, * FROM table_query_search_vector_config'
+      );
+      for (const config of configs.rows) {
+        const original = before.rows.find(
+          (row) => row.table_id === config.table_id && row.candidate_key === config.candidate_key
+        );
+        if (!affected.includes(config.table_id)) {
+          expect(config).toEqual(original);
+          continue;
+        }
+        expect(config.config_version).not.toBe(original.config_version);
+        expect(config.status).toBe(original.status);
+        expect(config.last_modified_time.getTime()).toBeGreaterThanOrEqual(startedAt.getTime());
+        expect(config).toMatchObject({
+          reclaim_idx_scan_baseline: null,
+          reclaim_sampled_at: null,
+          reclaim_disabled_at: null,
+          reclaim_drop_after: null,
+          reclaim_drop_queued_at: null,
+        });
+      }
+      const tables = await client.query('SELECT * FROM table_meta');
+      for (const table of tables.rows) {
+        expect(table).toMatchObject(
+          affected.includes(table.id)
+            ? { search_index: null, version: 8 }
+            : { search_index: { definitionKey: 'ready' }, version: 7 }
+        );
+      }
+
+      // A refresh can adopt the same copied definition without changing config xmin.
+      await client.query(
+        `UPDATE table_meta SET search_index = '{"definitionKey":"ready"}'
+         WHERE id = 'tblbsemove'`
+      );
+      const staleVersion = before.rows.find(
+        (row) => row.table_id === 'tblbsemove' && row.candidate_key === 'ready'
+      ).config_version;
+      const staleGrace = await client.query(
+        `UPDATE table_query_search_vector_config SET status = 'disabled'
+         WHERE table_id = 'tblbsemove' AND candidate_key = 'ready'
+           AND status = 'ready' AND xmin::text = $1 RETURNING table_id`,
+        [staleVersion]
+      );
+      expect(staleGrace.rowCount).toBe(0);
+      const queuedDrop = await client.query(
+        `SELECT table_id FROM table_query_search_vector_config
+         WHERE table_id = 'tblbsemove' AND candidate_key = 'queued'
+           AND status = 'disabled' AND reclaim_drop_after <= now()`
+      );
+      expect(queuedDrop.rows).toEqual([]);
+    });
+  });
+
+  it('rolls routing invalidation back atomically with the metadata transaction', async () => {
+    await withRoutingMetadata(async (client, transaction) => {
+      const readState = async () => ({
+        tables: (await client.query('SELECT * FROM table_meta ORDER BY id')).rows,
+        configs: (
+          await client.query(
+            `SELECT xmin::text, * FROM table_query_search_vector_config
+             ORDER BY table_id, candidate_key`
+          )
+        ).rows,
+      });
+      const before = await readState();
+      await client.query('BEGIN');
+      await invalidateSearchIndexesForDataDbRouting(transaction, { baseId: 'bsemove' });
+      await client.query('ROLLBACK');
+      expect(await readState()).toEqual(before);
+    });
+  });
+
+  it('unpublishes routing metadata without provisioning absent management tables', async () => {
+    await withRoutingMetadata(async (client, transaction) => {
+      await client.query('BEGIN');
+      await invalidateSearchIndexesForDataDbRouting(transaction, { baseId: 'bsemove' });
+      await client.query('COMMIT');
+      expect(
+        (await client.query(`SELECT * FROM table_meta WHERE id = 'tblbsemove'`)).rows[0]
+      ).toMatchObject({ search_index: null, version: 8 });
+      expect(
+        (await client.query(`SELECT to_regclass('table_query_search_vector_config') AS config`))
+          .rows[0].config
+      ).toBeNull();
+    }, false);
+  });
+
+  it('preserves serving and reclaim state on a same-database metadata-only base move', async () => {
+    await withRoutingMetadata(async (client, transaction) => {
+      const txClient = {
+        ...transaction,
+        base: {
+          update: async ({ where, data }: { where: { id: string }; data: { spaceId: string } }) =>
+            client.query('UPDATE base SET space_id = $1 WHERE id = $2', [data.spaceId, where.id]),
+        },
+        userBaseOrder: {
+          deleteMany: async () => ({ count: 0 }),
+        },
+      };
+      const prisma = {
+        txClient: () => txClient,
+        $tx: async (run: () => Promise<void>) => {
+          await client.query('BEGIN');
+          await run();
+          await client.query('COMMIT');
+        },
+      };
+      const baseService = new BaseService(
+        prisma as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never
+      );
+      vi.spyOn(
+        baseService as unknown as {
+          computeMoveBaseCrossSpaceImpact(): Promise<{
+            affected: never[];
+            levels: Map<string, number>;
+          }>;
+        },
+        'computeMoveBaseCrossSpaceImpact'
+      ).mockResolvedValue({ affected: [], levels: new Map() });
+      const readState = async () => ({
+        tables: (await client.query('SELECT * FROM table_meta ORDER BY id')).rows,
+        configs: (
+          await client.query(
+            `SELECT xmin::text, * FROM table_query_search_vector_config
+             ORDER BY table_id, candidate_key`
+          )
+        ).rows,
+      });
+      const before = await readState();
+      await baseService.applyMetaMoveBase('bsemove', 'spcoutside');
+      expect(
+        (await client.query(`SELECT space_id FROM base WHERE id = 'bsemove'`)).rows[0].space_id
+      ).toBe('spcoutside');
+      expect(await readState()).toEqual(before);
+    });
+  });
 
   it('copies base schemas and validates/switches the migration job through real PostgreSQL tools', async () => {
     const sourceUrl = pgUrl(port, sourceDatabase);
@@ -554,6 +958,8 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
       dataDbConnection: typeof targetConnection;
     } | null = null;
     const txClient = {
+      $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+      $executeRawUnsafe: vi.fn(),
       dataDbConnection: {
         update: vi.fn().mockImplementation(async (args) => {
           if (args.where?.id === targetConnectionId) {
@@ -724,16 +1130,21 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
         { timeoutMs: 30_000 }
       );
 
-      expect(sharedResults).toEqual(
+      expect(sharedResults.map((result) => result.table)).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ table: 'record_history', copiedRows: null }),
-          expect.objectContaining({ table: 'table_trash', copiedRows: null }),
-          expect.objectContaining({ table: 'record_trash', copiedRows: null }),
-          expect.objectContaining({ table: 'record_removal_tombstone', copiedRows: 1 }),
-          expect.objectContaining({ table: 'computed_update_outbox', copiedRows: null }),
-          expect.objectContaining({ table: 'computed_update_dead_letter', copiedRows: null }),
-          expect.objectContaining({ table: 'computed_update_outbox_seed', copiedRows: null }),
-          expect.objectContaining({ table: '__undo_log', copiedRows: null }),
+          'record_history',
+          'table_trash',
+          'record_trash',
+          'record_removal_tombstone',
+          'computed_update_outbox',
+          'computed_update_dead_letter',
+          'computed_update_outbox_seed',
+          '__undo_log',
+          'domain_event_outbox',
+          'domain_event_delivery',
+          'domain_event_inbox',
+          'computed_reliability_issue',
+          'computed_reliability_scope',
         ])
       );
       const historyCopy = sharedResults.find((result) => result.table === 'record_history');
@@ -947,6 +1358,44 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
             [`${otherBaseId}.${mainRelationName}`]
           )
         ).resolves.toBe(0);
+        await expect(
+          queryCount(
+            target,
+            `SELECT COUNT(*) AS count FROM "${targetSchema}"."domain_event_outbox" WHERE "base_id" = $1`,
+            [baseId]
+          )
+        ).resolves.toBe(1);
+        await expect(
+          queryCount(
+            target,
+            `SELECT COUNT(*) AS count FROM "${targetSchema}"."domain_event_outbox" WHERE "base_id" = $1`,
+            [otherBaseId]
+          )
+        ).resolves.toBe(0);
+        await expect(
+          queryCount(
+            target,
+            `SELECT COUNT(*) AS count FROM "${targetSchema}"."domain_event_delivery" WHERE "event_id" = 'deo-copy'`
+          )
+        ).resolves.toBe(1);
+        await expect(
+          queryCount(
+            target,
+            `SELECT COUNT(*) AS count FROM "${targetSchema}"."domain_event_delivery" WHERE "event_id" = 'deo-other'`
+          )
+        ).resolves.toBe(0);
+        await expect(
+          queryCount(
+            target,
+            `SELECT COUNT(*) AS count FROM "${targetSchema}"."domain_event_inbox" WHERE "event_id" = 'deo-copy'`
+          )
+        ).resolves.toBe(1);
+        await expect(
+          queryCount(
+            target,
+            `SELECT COUNT(*) AS count FROM "${targetSchema}"."domain_event_inbox" WHERE "event_id" = 'deo-other'`
+          )
+        ).resolves.toBe(0);
       } finally {
         await target.end();
       }
@@ -1079,6 +1528,8 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
       dataDbConnection: typeof targetConnection;
     } | null = null;
     const txClient = {
+      $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+      $executeRawUnsafe: vi.fn(),
       dataDbConnection: {
         update: vi.fn().mockImplementation(async (args) => {
           if (args.where?.id === mismatchTargetConnectionId) {

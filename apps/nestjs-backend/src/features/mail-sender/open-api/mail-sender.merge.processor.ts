@@ -1,5 +1,4 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import type { NestWorkerOptions } from '@nestjs/bullmq/dist/interfaces/worker-options.interface';
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { MailTransporterType, MailType } from '@teable/openapi';
@@ -8,6 +7,7 @@ import { isUndefined } from 'lodash';
 import { CacheService } from '../../../cache/cache.service';
 import type { ICacheStore } from '../../../cache/types';
 import { Events } from '../../../event-emitter/events';
+import type { NestWorkerOptions } from '../../../utils/nest-worker-options';
 import { SettingOpenApiService } from '../../setting/open-api/setting-open-api.service';
 import { type ISendMailOptions } from '../mail-helpers';
 import { MailSenderService } from '../mail-sender.service';
