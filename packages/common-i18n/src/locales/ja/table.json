@@ -1057,6 +1057,20 @@
       "duplicateCard": "カードを複製"
     }
   },
+  "gallery": {
+    "toolbar": {
+      "present": "プレゼン",
+      "exitPresent": "プレゼンを終了"
+    },
+    "presentation": {
+      "empty": "表示するレコードがありません",
+      "counter": "{{current}} / {{total}}",
+      "previous": "前へ",
+      "next": "次へ",
+      "exit": "プレゼンを終了",
+      "keyboardHint": "← → または J K で移動 · Esc で終了"
+    }
+  },
   "calendar": {
     "toolbar": {
       "config": "カレンダー設定",

@@ -1067,6 +1067,20 @@
       "duplicateCard": "Duplica carta"
     }
   },
+  "gallery": {
+    "toolbar": {
+      "present": "Presenta",
+      "exitPresent": "Esci dalla presentazione"
+    },
+    "presentation": {
+      "empty": "Nessun record da presentare",
+      "counter": "{{current}} di {{total}}",
+      "previous": "Precedente",
+      "next": "Successivo",
+      "exit": "Esci dalla presentazione",
+      "keyboardHint": "← → o J K per navigare · Esc per uscire"
+    }
+  },
   "calendar": {
     "toolbar": {
       "config": "Configurazione Calendario",

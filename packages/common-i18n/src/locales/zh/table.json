@@ -1057,6 +1057,20 @@
       "duplicateCard": "复制卡片"
     }
   },
+  "gallery": {
+    "toolbar": {
+      "present": "演示",
+      "exitPresent": "退出演示"
+    },
+    "presentation": {
+      "empty": "没有可演示的记录",
+      "counter": "{{current}} / {{total}}",
+      "previous": "上一条",
+      "next": "下一条",
+      "exit": "退出演示",
+      "keyboardHint": "← → 或 J K 切换 · Esc 退出"
+    }
+  },
   "calendar": {
     "toolbar": {
       "config": "日历配置",
