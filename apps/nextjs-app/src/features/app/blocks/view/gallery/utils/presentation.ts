@@ -45,5 +45,9 @@ export const shouldIgnorePresentationHotkey = (target: EventTarget | null): bool
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
-  return target.isContentEditable;
+  return (
+    target.isContentEditable ||
+    target.contentEditable === 'true' ||
+    target.getAttribute('contenteditable')?.toLowerCase() === 'true'
+  );
 };

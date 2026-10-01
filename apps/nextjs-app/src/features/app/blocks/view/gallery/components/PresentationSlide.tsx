@@ -76,7 +76,7 @@ export const PresentationSlide = (props: IPresentationSlideProps) => {
   return (
     <article className="flex min-h-0 w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-card shadow-2xl ring-1 ring-border">
       {coverField && <PresentationCover value={coverCellValue} isCoverFit={isCoverFit} />}
-      <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-auto px-10 py-10 md:px-16 md:py-12">
+      <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-auto p-10 md:px-16 md:py-12">
         <h1 className="text-4xl font-semibold leading-tight tracking-tight md:text-5xl">
           {titleComponent}
         </h1>

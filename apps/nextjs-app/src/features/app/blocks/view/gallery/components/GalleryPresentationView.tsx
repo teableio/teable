@@ -124,7 +124,7 @@ export const GalleryPresentationView = () => {
           <ChevronLeft className="size-8" />
         </Button>
 
-        <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto px-4 py-4 md:px-24">
+        <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4 md:px-24 md:py-4">
           {rowCount === 0 ? (
             <p className="text-2xl text-zinc-400">{t('table:gallery.presentation.empty')}</p>
           ) : (
