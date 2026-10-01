@@ -9,6 +9,7 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { ToolBarButton } from '../ToolBarButton';
 import { CoverFieldSelect } from './CoverFieldSelect';
+import { PresentToggle } from './PresentToggle';
 import { ScrollableToolbarGroup } from './ScrollableToolbarGroup';
 
 export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
@@ -135,6 +136,7 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
           </ToolBarButton>
         )}
       </Sort>
+      <PresentToggle />
     </ScrollableToolbarGroup>
   );
 };

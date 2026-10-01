@@ -1072,6 +1072,20 @@
       "duplicateCard": "Дублировать карточку"
     }
   },
+  "gallery": {
+    "toolbar": {
+      "present": "Презентация",
+      "exitPresent": "Выйти из презентации"
+    },
+    "presentation": {
+      "empty": "Нет записей для презентации",
+      "counter": "{{current}} из {{total}}",
+      "previous": "Назад",
+      "next": "Далее",
+      "exit": "Выйти из презентации",
+      "keyboardHint": "← → или J K для навигации · Esc для выхода"
+    }
+  },
   "calendar": {
     "toolbar": {
       "config": "Настройка календаря",

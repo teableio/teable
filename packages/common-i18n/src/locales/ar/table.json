@@ -1082,6 +1082,20 @@
       "duplicateCard": "تكرار البطاقة"
     }
   },
+  "gallery": {
+    "toolbar": {
+      "present": "عرض تقديمي",
+      "exitPresent": "إنهاء العرض"
+    },
+    "presentation": {
+      "empty": "لا توجد سجلات للعرض",
+      "counter": "{{current}} من {{total}}",
+      "previous": "السابق",
+      "next": "التالي",
+      "exit": "إنهاء العرض",
+      "keyboardHint": "← → أو J K للتنقل · Esc للخروج"
+    }
+  },
   "calendar": {
     "toolbar": {
       "config": "إعداد التقويم",

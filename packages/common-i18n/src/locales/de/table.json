@@ -1062,6 +1062,20 @@
       "duplicateCard": "Karte duplizieren"
     }
   },
+  "gallery": {
+    "toolbar": {
+      "present": "Präsentieren",
+      "exitPresent": "Präsentation beenden"
+    },
+    "presentation": {
+      "empty": "Keine Datensätze zum Präsentieren",
+      "counter": "{{current}} von {{total}}",
+      "previous": "Zurück",
+      "next": "Weiter",
+      "exit": "Präsentation beenden",
+      "keyboardHint": "← → oder J K zum Navigieren · Esc zum Beenden"
+    }
+  },
   "calendar": {
     "toolbar": {
       "config": "Kalendar Konfiguration",

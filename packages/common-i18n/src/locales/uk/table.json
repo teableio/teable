@@ -1072,6 +1072,20 @@
       "duplicateCard": "Дублірувати картку"
     }
   },
+  "gallery": {
+    "toolbar": {
+      "present": "Презентація",
+      "exitPresent": "Вийти з презентації"
+    },
+    "presentation": {
+      "empty": "Немає записів для презентації",
+      "counter": "{{current}} з {{total}}",
+      "previous": "Назад",
+      "next": "Далі",
+      "exit": "Вийти з презентації",
+      "keyboardHint": "← → або J K для навігації · Esc для виходу"
+    }
+  },
   "calendar": {
     "toolbar": {
       "config": "Налаштування календаря",

@@ -1,24 +1,25 @@
 import { RecordProvider, RowCountProvider } from '@teable/sdk/context';
 import { SearchProvider } from '@teable/sdk/context/query';
-import { useIsHydrated, usePersonalView } from '@teable/sdk/hooks';
+import { usePersonalView } from '@teable/sdk/hooks';
 import { GalleryToolBar } from '../tool-bar/GalleryToolBar';
-import { GalleryProvider } from './context';
-import { GalleryViewBase } from './GalleryViewBase';
+import { GalleryProvider, PresentationModeProvider } from './context';
+import { GalleryViewContent } from './GalleryViewContent';
 
 export const GalleryView = () => {
-  const isHydrated = useIsHydrated();
   const { personalViewCommonQuery } = usePersonalView();
 
   return (
-    <SearchProvider>
-      <RecordProvider>
-        <RowCountProvider query={personalViewCommonQuery}>
-          <GalleryToolBar />
-          <GalleryProvider>
-            <div className="w-full grow overflow-hidden">{isHydrated && <GalleryViewBase />}</div>
-          </GalleryProvider>
-        </RowCountProvider>
-      </RecordProvider>
-    </SearchProvider>
+    <PresentationModeProvider>
+      <SearchProvider>
+        <RecordProvider>
+          <RowCountProvider query={personalViewCommonQuery}>
+            <GalleryToolBar />
+            <GalleryProvider>
+              <GalleryViewContent />
+            </GalleryProvider>
+          </RowCountProvider>
+        </RecordProvider>
+      </SearchProvider>
+    </PresentationModeProvider>
   );
 };

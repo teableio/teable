@@ -1062,6 +1062,20 @@
       "duplicateCard": "Kartı çoğalt"
     }
   },
+  "gallery": {
+    "toolbar": {
+      "present": "Sunum",
+      "exitPresent": "Sunumdan çık"
+    },
+    "presentation": {
+      "empty": "Sunulacak kayıt yok",
+      "counter": "{{current}} / {{total}}",
+      "previous": "Önceki",
+      "next": "Sonraki",
+      "exit": "Sunumdan çık",
+      "keyboardHint": "← → veya J K ile gezinin · Esc ile çıkın"
+    }
+  },
   "calendar": {
     "toolbar": {
       "config": "Takvim Yapılandırması",

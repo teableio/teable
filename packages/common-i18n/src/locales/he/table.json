@@ -1067,6 +1067,20 @@
       "duplicateCard": "שכפול הכרטיס"
     }
   },
+  "gallery": {
+    "toolbar": {
+      "present": "הצגה",
+      "exitPresent": "יציאה מההצגה"
+    },
+    "presentation": {
+      "empty": "אין רשומות להצגה",
+      "counter": "{{current}} מתוך {{total}}",
+      "previous": "הקודם",
+      "next": "הבא",
+      "exit": "יציאה מההצגה",
+      "keyboardHint": "← → או J K לניווט · Esc ליציאה"
+    }
+  },
   "calendar": {
     "toolbar": {
       "config": "הגדרות לוח השנה",
