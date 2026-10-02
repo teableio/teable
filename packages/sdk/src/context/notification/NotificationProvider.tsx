@@ -1,10 +1,11 @@
 import type { INotificationBuffer } from '@teable/core';
-import { getUserNotificationChannel } from '@teable/core';
+import { getUserNotificationChannel, isSessionRevokedSignal } from '@teable/core';
 import type { FC, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import type { Presence } from 'sharedb/lib/client';
 import { useSession } from '../../hooks';
 import { useConnection } from '../../hooks/use-connection';
+import { redirectToUnauthenticatedAuth } from '../app/queryClient';
 import { NotificationContext } from './NotificationContext';
 
 interface INotificationProviderProps {
@@ -28,6 +29,13 @@ export const NotificationProvider: FC<INotificationProviderProps> = ({ children 
     remotePresence?.subscribe((err) => err && console.error);
 
     const receiveHandler = (_id: string, res: INotificationBuffer) => {
+      // The same channel carries the one message that is not a notification: the account
+      // was deactivated and its sessions revoked. Nothing on this page works from here on,
+      // so it leaves for sign-in now instead of on its next refused request.
+      if (isSessionRevokedSignal(res)) {
+        redirectToUnauthenticatedAuth();
+        return;
+      }
       setNotification(res);
     };
 

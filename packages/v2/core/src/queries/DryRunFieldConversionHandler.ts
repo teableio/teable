@@ -79,7 +79,7 @@ export class DryRunFieldConversionHandler
     context: ExecutionContextPort.IExecutionContext,
     query: DryRunFieldConversionQuery
   ): Promise<Result<FieldConversionDryRunResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<FieldConversionDryRunResult, DomainError>(async function* () {
       const whereSpec = yield* TableAggregate.specs().byId(query.tableId).build();
       const tableResult = await handler.tableRepository.findOne(context, whereSpec);

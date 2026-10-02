@@ -23,6 +23,8 @@ import {
 } from '../ComputedUpdateRuntimeConfig';
 import { withInlineComputedStatementTimeout } from '../ComputedUpdateTransactionSettings';
 import { pushAll } from '../pushAll';
+import type { IComputedUpdatePauseRegistry } from '../pause/IComputedUpdatePauseRegistry';
+import { noopComputedUpdatePauseRegistry } from '../pause/IComputedUpdatePauseRegistry';
 import type {
   IUpdateStrategy,
   UpdateStrategyExecuteOptions,
@@ -41,7 +43,9 @@ export class SyncInTransactionStrategy implements IUpdateStrategy {
     @inject(v2RecordRepositoryPostgresTokens.computedUpdatePlanner)
     private readonly planner: ComputedUpdatePlanner,
     @inject(v2RecordRepositoryPostgresTokens.computedUpdateRuntimeConfig)
-    private readonly runtimeConfig: ComputedUpdateRuntimeConfig = defaultComputedUpdateRuntimeConfig
+    private readonly runtimeConfig: ComputedUpdateRuntimeConfig = defaultComputedUpdateRuntimeConfig,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdatePauseRegistry)
+    private readonly pauseRegistry: IComputedUpdatePauseRegistry = noopComputedUpdatePauseRegistry
   ) {}
 
   async execute(
@@ -72,6 +76,15 @@ export class SyncInTransactionStrategy implements IUpdateStrategy {
     ) {
       return ok(undefined);
     }
+
+    const admitted = await this.pauseRegistry.admitComputedWrite(
+      {
+        tableId: plan.seedTableId.toString(),
+        baseId: plan.baseId.toString(),
+      },
+      context
+    );
+    if (admitted.isErr()) return err(admitted.error);
 
     let currentPlan = plan;
     let completedSteps = 0;

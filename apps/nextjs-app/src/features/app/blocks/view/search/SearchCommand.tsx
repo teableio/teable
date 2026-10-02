@@ -183,7 +183,7 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
         ({ id }) => fieldId.toLocaleLowerCase() === id.toLocaleLowerCase()
       );
       const name = currentField?.name?.toLocaleLowerCase()?.trim() || t('untitled');
-      const containWord = name.indexOf(searchValue.toLowerCase()) > -1;
+      const containWord = name.includes(searchValue.toLowerCase());
       return Number(containWord);
     },
     [fields, t]

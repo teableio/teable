@@ -6,7 +6,7 @@
   "fieldKeyType": "نوع مفتاح الحقل",
   "chooseSource": "اختر مصدر بيانات",
   "action": {
-    "selectBase": "اختر قاعدة بيانات...",
+    "selectBase": "اختر مشروع...",
     "selectTable": "اختر جدولًا..."
   },
   "pickParams": "اختر المعاملات واضبطها",

@@ -1,6 +1,7 @@
 import { createPrismaPgAdapter, type IPgPoolLease } from '@teable/db-main-prisma';
 
 import { Prisma, PrismaClient } from './generated/client';
+import { getDataTransactionMaxWait, getDataTransactionTimeout } from './utils';
 
 const quoteLiteral = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
@@ -43,10 +44,20 @@ export const createScopedDataPrismaClient = (
   `;
 
   const scopedTransaction: ScopedTransaction = (fn, options) =>
-    client.$transaction(async (transaction) => {
-      await transaction.$executeRawUnsafe(setLocalSearchPath);
-      return await fn(transaction);
-    }, options);
+    client.$transaction(
+      async (transaction) => {
+        await transaction.$executeRawUnsafe(setLocalSearchPath);
+        return await fn(transaction);
+      },
+      {
+        // Without these the client falls back to Prisma's built-in 5s budget and
+        // the deployment's PRISMA_TRANSACTION_TIMEOUT is silently ignored — including
+        // for the per-query transactions the raw proxies below open implicitly.
+        ...options,
+        timeout: options?.timeout ?? getDataTransactionTimeout(),
+        maxWait: options?.maxWait ?? getDataTransactionMaxWait(),
+      }
+    );
 
   let proxy: ScopedDataPrismaClient;
   let disconnected = false;

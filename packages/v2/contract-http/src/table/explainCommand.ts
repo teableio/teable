@@ -8,7 +8,6 @@ import { z } from 'zod';
 
 import {
   apiOkResponseDtoSchema,
-  apiErrorResponseDtoSchema,
   type HttpErrorStatus,
   type IApiOkResponseDto,
   type IApiErrorResponseDto,
@@ -404,4 +403,4 @@ export type IExplainEndpointResult =
   | { status: HttpErrorStatus; body: IExplainErrorResponseDto };
 
 export const explainOkResponseSchema = apiOkResponseDtoSchema(explainResultSchema);
-export const explainErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as explainErrorResponseSchema } from '../shared/http';

@@ -722,11 +722,11 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     // Verify resource types distribution
     const sourceResourceTypes = updatedSourceNodes
       .map((n) => n.resourceType)
-      .sort()
+      .sort((a, b) => Number(a > b) - Number(a < b))
       .join(',');
     const duplicatedResourceTypes = duplicatedNodes
       .map((n) => n.resourceType)
-      .sort()
+      .sort((a, b) => Number(a > b) - Number(a < b))
       .join(',');
     expect(duplicatedResourceTypes).toBe(sourceResourceTypes);
 
@@ -763,8 +763,12 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     expect(duplicatedNodesWithParent.length).toBe(sourceNodesWithParent.length);
 
     // Verify folder names are preserved
-    const sourceFolderNames = sourceFolders.map((f) => f.resourceMeta?.name).sort();
-    const duplicatedFolderNames = duplicatedFolders.map((f) => f.resourceMeta?.name).sort();
+    const sourceFolderNames = sourceFolders
+      .map((f) => f.resourceMeta?.name)
+      .sort((a, b) => Number(a > b) - Number(a < b));
+    const duplicatedFolderNames = duplicatedFolders
+      .map((f) => f.resourceMeta?.name)
+      .sort((a, b) => Number(a > b) - Number(a < b));
     expect(duplicatedFolderNames).toEqual(sourceFolderNames);
 
     // Verify that table inside folder1 exists in imported base
@@ -792,15 +796,23 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     // Verify tables are accessible
     const duplicatedTableList = await getTableList(duplicateBaseId).then((res) => res.data);
     expect(duplicatedTableList.length).toBe(2);
-    expect(duplicatedTableList.map((t) => t.name).sort()).toEqual(
-      [table1Node.resourceMeta?.name, table2Node.resourceMeta?.name].sort()
+    expect(
+      duplicatedTableList.map((t) => t.name).sort((a, b) => Number(a > b) - Number(a < b))
+    ).toEqual(
+      [table1Node.resourceMeta?.name, table2Node.resourceMeta?.name].sort(
+        (a, b) => Number(a > b) - Number(a < b)
+      )
     );
 
     // Verify dashboards are accessible
     const duplicatedDashboardList = await getDashboardList(duplicateBaseId).then((res) => res.data);
     expect(duplicatedDashboardList.length).toBe(2);
-    expect(duplicatedDashboardList.map((d) => d.name).sort()).toEqual(
-      [dashboard1Node.resourceMeta?.name, dashboard2Node.resourceMeta?.name].sort()
+    expect(
+      duplicatedDashboardList.map((d) => d.name).sort((a, b) => Number(a > b) - Number(a < b))
+    ).toEqual(
+      [dashboard1Node.resourceMeta?.name, dashboard2Node.resourceMeta?.name].sort(
+        (a, b) => Number(a > b) - Number(a < b)
+      )
     );
   });
 
@@ -1656,23 +1668,29 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
         resourceType: BaseNodeResourceType.Folder,
         name: 'Orders Folder',
       }).then((res) => res.data);
+      // The API no longer seeds default records (T6947); the link/lookup setup
+      // below reads records[0] of each table.
+      const seedRecords = [{ fields: {} }, { fields: {} }, { fields: {} }];
       const ordersNode = await createBaseNode(base.id, {
         resourceType: BaseNodeResourceType.Table,
         name: 'Orders',
         fields: [{ name: 'Order', type: FieldType.SingleLineText }],
         views: [{ name: 'Grid view', type: ViewType.Grid }],
+        records: seedRecords,
       }).then((res) => res.data);
       const customersNode = await createBaseNode(base.id, {
         resourceType: BaseNodeResourceType.Table,
         name: 'Customers',
         fields: [{ name: 'Customer', type: FieldType.SingleLineText }],
         views: [{ name: 'Grid view', type: ViewType.Grid }],
+        records: seedRecords,
       }).then((res) => res.data);
       const productsNode = await createBaseNode(base.id, {
         resourceType: BaseNodeResourceType.Table,
         name: 'Products',
         fields: [{ name: 'Product', type: FieldType.SingleLineText }],
         views: [{ name: 'Grid view', type: ViewType.Grid }],
+        records: seedRecords,
       }).then((res) => res.data);
       await moveBaseNode(base.id, ordersNode.id, { parentId: folderNode.id });
       const productPrimaryField = (await getFields(productsNode.resourceId)).data.find(
@@ -1742,9 +1760,11 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
       );
       expect(duplicatedFolders).toHaveLength(1);
       expect(duplicatedFolders[0].resourceMeta?.name).toBe(folderNode.resourceMeta?.name);
-      expect(duplicatedTableNodes.map(({ resourceMeta }) => resourceMeta?.name).sort()).toEqual(
-        ['Customers', 'Orders'].sort()
-      );
+      expect(
+        duplicatedTableNodes
+          .map(({ resourceMeta }) => resourceMeta?.name)
+          .sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(['Customers', 'Orders'].sort((a, b) => Number(a > b) - Number(a < b)));
       expect(
         duplicatedTableNodes.find(({ resourceMeta }) => resourceMeta?.name === 'Orders')?.parentId
       ).toBe(duplicatedFolders[0].id);
@@ -1753,7 +1773,9 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
       const duplicatedOrdersTable = duplicatedTables.find(({ name }) => name === 'Orders')!;
       const duplicatedCustomersTable = duplicatedTables.find(({ name }) => name === 'Customers')!;
       const duplicatedOrderFields = (await getFields(duplicatedOrdersTable.id)).data;
-      expect(duplicatedTables.map(({ name }) => name).sort()).toEqual(['Customers', 'Orders']);
+      expect(
+        duplicatedTables.map(({ name }) => name).sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(['Customers', 'Orders']);
       expect(duplicatedOrderFields.find(({ name }) => name === customerLinkField.name)?.type).toBe(
         FieldType.Link
       );
@@ -1778,6 +1800,158 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
           duplicatedProductLinkValue === undefined ||
           duplicatedProductLinkValue === ''
       ).toBe(true);
+    });
+
+    it('keeps a NOT VALID link FK and its dangling value through the bulk copy', async () => {
+      // T7655: link FKs created by the import paths are NOT VALID, so a legacy
+      // table may hold link values whose record no longer exists — a NOT VALID
+      // FK never checks pre-existing rows. The v2 bulk copier drops every
+      // main-table FK before the row copy and rebuilds it afterwards; rebuilding
+      // such an FK as a validated one re-checked the source's own dangling rows
+      // and aborted the duplicate with PG 23503.
+      const parent = await createTable(base.id, { name: 'not valid fk parent' });
+      const child = await createTable(base.id, { name: 'not valid fk child' });
+      const parentNameFieldId = parent.fields[0].id;
+      const childNameFieldId = child.fields[0].id;
+
+      const linkField = (
+        await createField(child.id, {
+          name: parent.name,
+          type: FieldType.Link,
+          options: { relationship: Relationship.ManyOne, foreignTableId: parent.id },
+        })
+      ).data;
+
+      const parentRecordId = (
+        await createRecords(parent.id, {
+          records: [{ fields: { [parentNameFieldId]: 'linked parent' } }],
+        })
+      ).records[0].id;
+
+      const childRecords = await createRecords(child.id, {
+        records: [
+          {
+            fields: { [childNameFieldId]: 'linked child', [linkField.id]: { id: parentRecordId } },
+          },
+          {
+            fields: {
+              [childNameFieldId]: 'dangling child',
+              [linkField.id]: { id: parentRecordId },
+            },
+          },
+        ],
+      });
+      const danglingChildRecordId = childRecords.records[1].id;
+
+      const linkFieldVo = (await getFields(child.id)).data.find(
+        (field) => field.id === linkField.id
+      )!;
+      const foreignKeyName = (linkFieldVo.options as ILinkFieldOptions).foreignKeyName!;
+      const sourceConstraintName = `fk_${foreignKeyName}`;
+      const danglingRecordId = 'recDanglingRecord0001';
+
+      const [childSchema, childTable] = child.dbTableName.split('.');
+      const [parentSchema, parentTable] = parent.dbTableName.split('.');
+      await prisma.$executeRawUnsafe(
+        knex
+          .raw('ALTER TABLE ??.?? DROP CONSTRAINT ??', [
+            childSchema,
+            childTable,
+            sourceConstraintName,
+          ])
+          .toQuery()
+      );
+      await prisma.$executeRawUnsafe(
+        knex
+          .raw('UPDATE ??.?? SET ?? = ? WHERE "__id" = ?', [
+            childSchema,
+            childTable,
+            foreignKeyName,
+            danglingRecordId,
+            danglingChildRecordId,
+          ])
+          .toQuery()
+      );
+      await prisma.$executeRawUnsafe(
+        knex
+          .raw(
+            'ALTER TABLE ??.?? ADD CONSTRAINT ?? FOREIGN KEY (??) REFERENCES ??.?? (??) NOT VALID',
+            [
+              childSchema,
+              childTable,
+              sourceConstraintName,
+              foreignKeyName,
+              parentSchema,
+              parentTable,
+              '__id',
+            ]
+          )
+          .toQuery()
+      );
+
+      const { result: duplicated, isV2 } = await duplicateBaseViaSse(appUrl, cookie, {
+        fromBaseId: base.id,
+        spaceId,
+        name: 'not valid fk copy',
+        withRecords: true,
+      });
+      expect(isV2).toBe(true);
+      duplicateBaseId = duplicated.id;
+
+      const copiedChild = (await getTableList(duplicateBaseId!)).data.find(
+        (table) => table.name === child.name
+      )!;
+      const sourceChildRecords = await getRecords(child.id);
+      const copiedChildRecords = await getRecords(copiedChild.id);
+      expect(copiedChildRecords.records.length).toBe(sourceChildRecords.records.length);
+
+      // The bulk copier copies the link storage column verbatim, so the dangling
+      // value survives on the copied row.
+      const copiedLinkFieldVo = (await getFields(copiedChild.id)).data.find(
+        (field) => field.type === FieldType.Link
+      )!;
+      const copiedForeignKeyName = (copiedLinkFieldVo.options as ILinkFieldOptions).foreignKeyName!;
+      const [copiedSchema, copiedTable] = copiedChild.dbTableName.split('.');
+      const copiedRows = await prisma.$queryRawUnsafe<{ fk: string | null }[]>(
+        knex
+          .raw('SELECT ?? AS fk FROM ??.?? WHERE "__id" = ?', [
+            copiedForeignKeyName,
+            copiedSchema,
+            copiedTable,
+            danglingChildRecordId,
+          ])
+          .toQuery()
+      );
+      expect(copiedRows).toEqual([{ fk: danglingRecordId }]);
+
+      // Neither rebuilt FK may end up validated: the source FK never was, and
+      // the target FK covers the dangling row the copy just brought over, so
+      // validating it cannot succeed.
+      const readFkValidation = (
+        schemaName: string,
+        tableName: string,
+        columnName: string
+      ): Promise<{ validated: boolean }[]> =>
+        prisma.$queryRawUnsafe<{ validated: boolean }[]>(
+          knex
+            .raw(
+              `SELECT con.convalidated AS validated
+               FROM pg_constraint con
+               JOIN pg_class rel ON rel.oid = con.conrelid
+               JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+               JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = con.conkey[1]
+               WHERE con.contype = 'f' AND nsp.nspname = ? AND rel.relname = ? AND att.attname = ?`,
+              [schemaName, tableName, columnName]
+            )
+            .toQuery()
+        );
+
+      expect(await readFkValidation(base.id, childTable, foreignKeyName)).toEqual([
+        { validated: false },
+      ]);
+      expect(await readFkValidation(duplicateBaseId, copiedTable, copiedForeignKeyName)).toEqual([
+        { validated: false },
+      ]);
     });
   });
 
@@ -2119,7 +2293,9 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
 
       const duplicatedTableList = await getTableList(duplicateBaseId).then((res) => res.data);
       expect(duplicatedTableList.length).toBe(2);
-      expect(duplicatedTableList.map((t) => t.name).sort()).toEqual(['table1', 'table2'].sort());
+      expect(
+        duplicatedTableList.map((t) => t.name).sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(['table1', 'table2'].sort((a, b) => Number(a > b) - Number(a < b)));
 
       // Verify link field data is copied
       const duplicatedTable1 = duplicatedTableList.find((t) => t.name === 'table1')!;
@@ -2686,15 +2862,19 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
 
       // Should have both folders
       expect(duplicatedFolders.length).toBe(2);
-      expect(duplicatedFolders.map((f) => f.resourceMeta?.name).sort()).toEqual(
-        ['Folder A', 'Folder B'].sort()
-      );
+      expect(
+        duplicatedFolders
+          .map((f) => f.resourceMeta?.name)
+          .sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(['Folder A', 'Folder B'].sort((a, b) => Number(a > b) - Number(a < b)));
 
       // Should have only 2 tables
       expect(duplicatedTables.length).toBe(2);
-      expect(duplicatedTables.map((t) => t.resourceMeta?.name).sort()).toEqual(
-        ['Table A1', 'Table B1'].sort()
-      );
+      expect(
+        duplicatedTables
+          .map((t) => t.resourceMeta?.name)
+          .sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(['Table A1', 'Table B1'].sort((a, b) => Number(a > b) - Number(a < b)));
 
       // Table B2 should not be included
       const duplicatedTableList = await getTableList(duplicateBaseId).then((res) => res.data);

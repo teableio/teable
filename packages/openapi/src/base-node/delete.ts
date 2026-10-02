@@ -16,7 +16,8 @@ export type IDeleteBaseNodeVo = z.infer<typeof deleteBaseNodeVoSchema>;
 export const DeleteBaseNodeRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: DELETE_BASE_NODE,
-  description: 'Delete a node for a base',
+  title: 'Delete project node',
+  description: 'Delete a node from a project by its ID.',
   request: {
     params: z.object({
       baseId: z.string(),

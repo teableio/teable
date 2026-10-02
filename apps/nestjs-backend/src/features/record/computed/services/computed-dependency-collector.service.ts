@@ -73,7 +73,7 @@ const MAX_CONDITIONAL_ROLLUP_SAMPLE = 10_000;
 
 @Injectable()
 export class ComputedDependencyCollectorService {
-  private logger = new Logger(ComputedDependencyCollectorService.name);
+  private readonly logger = new Logger(ComputedDependencyCollectorService.name);
   constructor(
     private readonly prismaService: PrismaService,
     private readonly databaseRouter: DatabaseRouter,
@@ -174,7 +174,7 @@ export class ComputedDependencyCollectorService {
       throw new Error('buildValuesTable requires at least one value');
     }
     const placeholders = values.map(() => '(?)').join(', ');
-    const quotedColumn = `"${columnName.replace(/"/g, '""')}"`;
+    const quotedColumn = `"${columnName.replaceAll('"', '""')}"`;
     return this.dataKnex.raw(`(values ${placeholders}) as ${alias} (${quotedColumn})`, values);
   }
 
@@ -826,7 +826,7 @@ export class ComputedDependencyCollectorService {
         ? this.dataKnex.raw('??.?? as ??', [foreignSchema, foreignTable, foreignAlias])
         : this.dataKnex.raw('?? as ??', [foreignTable, foreignAlias]);
 
-    const quoteIdentifier = (name: string) => name.replace(/"/g, '""');
+    const quoteIdentifier = (name: string) => name.replaceAll('"', '""');
 
     const selectionMap = new Map<string, string>();
     const foreignFieldObj: Record<string, FieldCore> = {};
@@ -887,7 +887,7 @@ export class ComputedDependencyCollectorService {
       }
     }
 
-    if (!changeContextMap || !changeContextMap.size) {
+    if (!changeContextMap?.size) {
       return Array.from(ids);
     }
 
@@ -936,7 +936,7 @@ export class ComputedDependencyCollectorService {
     const updatedRows: Record<string, unknown>[] = [];
     for (const recordId of uniqueForeignIds) {
       const base: Record<string, unknown> = {
-        ...(baseRowById.get(recordId) ?? {}),
+        ...baseRowById.get(recordId),
         __id: recordId,
       };
       const recordContexts = changeContextMap.get(recordId) ?? [];
@@ -983,7 +983,7 @@ export class ComputedDependencyCollectorService {
       });
     });
 
-    if (valuesMatrix.some((row) => row.some((value) => typeof value === 'undefined'))) {
+    if (valuesMatrix.some((row) => row.some((value) => value === undefined))) {
       return ALL_RECORDS;
     }
 

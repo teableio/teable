@@ -105,7 +105,7 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
     context: ExecutionContextPort.IExecutionContext,
     command: CreateFieldCommand
   ): Promise<Result<CreateFieldResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<CreateFieldResult, DomainError>(async function* () {
       const spanAttrs = {
         [TeableSpanAttributes.TABLE_ID]: command.tableId.toString(),
@@ -113,7 +113,7 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
       const foreignTableReferences = yield* await withCreateFieldSpan(
         context,
         'resolveForeignTableReferences',
-        async () => command.foreignTableReferences(),
+        async () => command.foreignTableReferences(context),
         spanAttrs
       );
       const foreignTables = yield* await withCreateFieldSpan(

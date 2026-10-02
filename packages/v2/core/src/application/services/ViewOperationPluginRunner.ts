@@ -82,7 +82,7 @@ export class ViewOperationPluginExecution {
     if (!plugin.guard) return ok(undefined);
 
     try {
-      const result = await plugin.guard.call(plugin, context, entry.preparedState);
+      const result = await plugin.guard(context, entry.preparedState);
       if (result.isErr()) return err(result.error);
       return ok(undefined);
     } catch (error) {
@@ -143,7 +143,7 @@ export class ViewOperationPluginRunner {
     if (!plugin.prepare) return ok({ plugin, preparedState: undefined });
 
     try {
-      const result = await plugin.prepare.call(plugin, context);
+      const result = await plugin.prepare(context);
       if (result.isErr()) return err(result.error);
       return ok({ plugin, preparedState: result.value });
     } catch (error) {

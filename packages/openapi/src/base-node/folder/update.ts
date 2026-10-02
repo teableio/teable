@@ -21,7 +21,8 @@ export type IUpdateBaseNodeFolderVo = z.infer<typeof updateBaseNodeFolderVoSchem
 export const UpdateBaseNodeFolderRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: UPDATE_BASE_NODE_FOLDER,
-  description: 'Rename a node folder',
+  title: 'Rename project folder',
+  description: 'Rename a folder in a project.',
   request: {
     params: z.object({
       baseId: z.string(),

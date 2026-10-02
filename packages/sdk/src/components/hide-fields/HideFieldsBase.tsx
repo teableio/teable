@@ -127,7 +127,7 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
         ({ id }) => fieldId.toLocaleLowerCase() === id.toLocaleLowerCase()
       );
       const name = currentField?.name?.toLocaleLowerCase() || t('common.untitled');
-      const containWord = name.indexOf(searchValue.toLowerCase()) > -1;
+      const containWord = name.includes(searchValue.toLowerCase());
       return Number(containWord);
     },
     [fields, t]

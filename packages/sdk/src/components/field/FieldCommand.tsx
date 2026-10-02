@@ -30,7 +30,7 @@ interface IFieldCommand {
   maxHeight?: number;
 }
 
-export function FieldCommand(props: IFieldCommand) {
+export function FieldCommand(props: Readonly<IFieldCommand>) {
   const {
     className,
     placeholder,

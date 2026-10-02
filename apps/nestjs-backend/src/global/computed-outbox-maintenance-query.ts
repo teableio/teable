@@ -221,6 +221,12 @@ export const COMPUTED_OUTBOX_ERROR_SIGNATURE_SQL =
  * longer authoritative for that base (e.g. after a BYODB migration, or once the
  * base is deleted). Both the anomaly list and the monitoring counts must apply
  * this filter so the admin badge and the list report the same population.
+ *
+ * Default storage treats any mode=byodb binding as routed away, including
+ * disabled/unready connections (absent from the queryable inventory) and
+ * deleted bases that still appear in ready BYODB target mappings. Requiring
+ * connection.status=ready here left those leftovers in overview.anomalyGroups
+ * while the list hid them.
  */
 export const buildComputedOutboxRoutedFilter = (
   target: ComputedOutboxWakeupCandidateQueryTarget
@@ -247,10 +253,8 @@ export const buildComputedOutboxRoutedFilter = (
     cte: `routed_away as (
         select bb."id" as base_id
         from space_data_db_binding as sdb
-        join data_db_connection as dc
-          on dc."id" = sdb.data_db_connection_id and dc.status = 'ready'
         join "base" as bb on bb.space_id = sdb.space_id
-        where sdb.mode = 'byodb' and sdb.state = 'ready'
+        where sdb.mode = 'byodb'
       )`,
     condition: (column: string) => `${column} not in (select base_id from routed_away)`,
     bindings: [],

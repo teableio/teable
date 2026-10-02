@@ -13,6 +13,7 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
+import { getBaseCached } from '../../utils/meta-ancestry-cache';
 
 @Injectable()
 export class TablePermissionService {
@@ -45,18 +46,14 @@ export class TablePermissionService {
     }
     const userId = this.cls.get('user.id');
     const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
-    const base = await this.prismaService
-      .txClient()
-      .base.findUniqueOrThrow({
-        where: { id: baseId },
-      })
-      .catch(() => {
-        throw new CustomHttpException('Base not found', HttpErrorCode.NOT_FOUND, {
-          localization: {
-            i18nKey: 'httpErrors.base.notFound',
-          },
-        });
+    const base = await getBaseCached(this.cls, this.prismaService.txClient(), baseId);
+    if (!base) {
+      throw new CustomHttpException('Project not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.base.notFound',
+        },
       });
+    }
     const collaborators = await this.prismaService.txClient().collaborator.findMany({
       where: {
         principalId: { in: [userId, ...(departmentIds || [])] },

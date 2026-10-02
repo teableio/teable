@@ -30,13 +30,13 @@ export type SearchFieldTextProjection =
   | { readonly kind: 'plain_list' }
   | { readonly kind: 'structured_title' }
   | { readonly kind: 'structured_title_list' }
-  | { readonly kind: 'rounded_number'; readonly precision: number };
+  | { readonly kind: 'rounded_number'; readonly precision: number }
+  | { readonly kind: 'rounded_number_list'; readonly precision: number };
 
 export type SearchFieldTextShape =
   | SearchFieldTextProjection
   | { readonly kind: 'none' }
-  | { readonly kind: 'date_range' }
-  | { readonly kind: 'rounded_number_list'; readonly precision: number };
+  | { readonly kind: 'date_range' };
 
 const projectionKinds: ReadonlySet<string> = new Set([
   'plain',
@@ -45,6 +45,7 @@ const projectionKinds: ReadonlySet<string> = new Set([
   'structured_title',
   'structured_title_list',
   'rounded_number',
+  'rounded_number_list',
 ]);
 
 export const isSearchFieldTextProjection = (
@@ -52,9 +53,7 @@ export const isSearchFieldTextProjection = (
 ): shape is SearchFieldTextProjection => projectionKinds.has(shape.kind);
 
 export const searchFieldTextProjectionKey = (projection: SearchFieldTextProjection): string =>
-  projection.kind === 'rounded_number'
-    ? `rounded_number(${projection.precision})`
-    : projection.kind;
+  'precision' in projection ? `${projection.kind}(${projection.precision})` : projection.kind;
 
 const fieldValueTypeVisitor = new FieldValueTypeVisitor();
 
@@ -169,8 +168,9 @@ export const resolveSearchFieldTextShape = (
 };
 
 /**
- * Substring search documents and new v1 `idx_trgm_*` indexes only cover
+ * New v1 per-field `idx_trgm_*` indexes only cover
  * singleLineText, longText, and string formula/lookup (plain / multiline).
+ * Generated search documents instead include all canonical text projections.
  *
  * Keep in sync with FieldFormatter.getIndexSpec in
  * `search-index-builder.postgres.ts`. Attachment, link JSON, number/rating,

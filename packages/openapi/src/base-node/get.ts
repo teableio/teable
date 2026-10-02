@@ -10,7 +10,8 @@ export const GET_BASE_NODE = '/base/{baseId}/node/{nodeId}';
 export const GetBaseNodeRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_BASE_NODE,
-  description: 'Get nodes for a base',
+  title: 'Get project node',
+  description: 'Retrieve a node in a project by its ID.',
   request: {
     params: z.object({
       baseId: z.string(),

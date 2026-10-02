@@ -12,7 +12,7 @@ export const isTextCommentNode = (element: Descendant) => {
 };
 
 export class EditorTransform {
-  static editorValue2CommentValue = (value: TElement[]): ICommentContent => {
+  static readonly editorValue2CommentValue = (value: TElement[]): ICommentContent => {
     if (
       !value ||
       (value.length === 1 && value[0]?.children.length === 1 && !value[0].children[0].text)
@@ -71,7 +71,7 @@ export class EditorTransform {
     }) as ICommentContent;
   };
 
-  static commentValue2EditorValue = (value: ICommentContent): TElement[] => {
+  static readonly commentValue2EditorValue = (value: ICommentContent): TElement[] => {
     return value.map((element) => {
       const { type: lineType } = element;
       if (lineType === CommentNodeType.Img) {

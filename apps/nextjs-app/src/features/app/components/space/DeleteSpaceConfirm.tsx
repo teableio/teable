@@ -44,48 +44,46 @@ export const DeleteSpaceConfirm: React.FC<IDeleteSpaceConfirmProps> = (props) =>
   };
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onInteractOutside={(e) => e.preventDefault()}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <DialogHeader>
-            <DialogTitle>
-              {isBlocked ? (
-                t('space:deleteSpaceModal.blockedTitle')
-              ) : (
-                <Trans ns="space" i18nKey={'tip.delete'}>
-                  {spaceName}
-                </Trans>
-              )}
-            </DialogTitle>
-          </DialogHeader>
-          {isBlocked ? (
-            <div className="text-sm">{t('space:deleteSpaceModal.blockedDesc')}</div>
-          ) : (
-            <div className="py-1" />
-          )}
-          <DialogFooter>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <DialogHeader>
+          <DialogTitle>
             {isBlocked ? (
-              <Button size={'sm'} onClick={() => onOpenChange(false)}>
-                {t('actions.confirm')}
-              </Button>
+              t('space:deleteSpaceModal.blockedTitle')
             ) : (
-              <>
-                <Button size={'sm'} variant={'ghost'} onClick={() => onOpenChange(false)}>
-                  {t('actions.cancel')}
-                </Button>
-                <Button size={'sm'} onClick={handleAddToTrash}>
-                  {t('common:trash.addToTrash')}
-                </Button>
-              </>
+              <Trans ns="space" i18nKey={'tip.delete'}>
+                {spaceName}
+              </Trans>
             )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+          </DialogTitle>
+        </DialogHeader>
+        {isBlocked ? (
+          <div className="text-sm">{t('space:deleteSpaceModal.blockedDesc')}</div>
+        ) : (
+          <div className="py-1" />
+        )}
+        <DialogFooter>
+          {isBlocked ? (
+            <Button size={'sm'} onClick={() => onOpenChange(false)}>
+              {t('actions.confirm')}
+            </Button>
+          ) : (
+            <>
+              <Button size={'sm'} variant={'ghost'} onClick={() => onOpenChange(false)}>
+                {t('actions.cancel')}
+              </Button>
+              <Button size={'sm'} onClick={handleAddToTrash}>
+                {t('common:trash.addToTrash')}
+              </Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };

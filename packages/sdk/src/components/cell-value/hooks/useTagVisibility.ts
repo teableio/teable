@@ -28,7 +28,7 @@ export const useTagsVisibility = <T extends string | { id: string; title?: strin
         tempSpan.className = className;
         container.appendChild(tempSpan);
         const tagWidth = tempSpan.offsetWidth;
-        container.removeChild(tempSpan);
+        tempSpan.remove();
 
         if (index === 0 && tagWidth > maxWidth - plusTagWidth) {
           visible.push(tag);

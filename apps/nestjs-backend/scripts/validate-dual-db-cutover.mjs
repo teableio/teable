@@ -120,7 +120,7 @@ const getFunctionExists = async (client, functionName) => {
 const compareCountMaps = (source, target) => {
   const mismatches = [];
   const keys = new Set([...source.keys(), ...target.keys()]);
-  for (const key of [...keys].sort()) {
+  for (const key of [...keys].sort((a, b) => Number(a > b) - Number(a < b))) {
     const sourceCount = source.get(key) ?? null;
     const targetCount = target.get(key) ?? null;
     if (sourceCount !== targetCount) {

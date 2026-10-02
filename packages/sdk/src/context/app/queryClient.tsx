@@ -1,9 +1,15 @@
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import type { ICustomHttpExceptionData, IHttpError, ILocalization } from '@teable/core';
-import { HttpErrorCode } from '@teable/core';
+import {
+  getUnauthenticatedAuthPath,
+  HttpErrorCode,
+  RETURNING_USER_COOKIE_NAME,
+} from '@teable/core';
 import { sonner } from '@teable/ui-lib';
 import { openUsageLimitModalFromError } from '../../components/billing/store/usage-limit-modal';
 import type { ILocaleFunction, TKey } from './i18n';
+
+import { isTableProvisionPending } from './tableProvisionError';
 
 const { toast } = sonner;
 
@@ -48,17 +54,16 @@ export const getHttpErrorMessage = (error: unknown, t: ILocaleFunction, prefix?:
   return localization ? getLocalizationMessage(localization, t, prefix) : message;
 };
 
-const handleNetworkError = (t?: ILocaleFunction): boolean => {
+const handleNetworkError = (t?: ILocaleFunction): void => {
   const now = Date.now();
   if (now - lastNetworkErrorTime < NETWORK_ERROR_COOLDOWN_MS) {
-    return true;
+    return;
   }
   lastNetworkErrorTime = now;
   toast.warning(t ? t('httpErrors.networkError') : 'Network connection issue', {
     id: NETWORK_ERROR_TOAST_ID,
     duration: 3000,
   });
-  return true;
 };
 
 const dedupeValidationError = (message: string): boolean => {
@@ -81,10 +86,22 @@ const dedupeValidationError = (message: string): boolean => {
   return false;
 };
 
+/**
+ * Leaves for the sign-in page (or sign-up, for a browser that has never signed in), coming
+ * back here afterwards. What a 401 does; also what a revoked session does the moment the
+ * server says so, without waiting for a request to be refused.
+ */
+export const redirectToUnauthenticatedAuth = () => {
+  const isReturning = document.cookie
+    .split(';')
+    .some((part) => part.trim().startsWith(`${RETURNING_USER_COOKIE_NAME}=`));
+  window.location.href = getUnauthenticatedAuthPath(isReturning, window.location.href);
+};
+
 const handleStatusRedirect = (error: unknown): boolean => {
   const { status } = error as IHttpError;
   if (status === 401) {
-    window.location.href = `/auth/signup?redirect=${encodeURIComponent(window.location.href)}`;
+    redirectToUnauthenticatedAuth();
     return true;
   }
   return openUsageLimitModalFromError(error);
@@ -95,6 +112,17 @@ export const errorRequestHandler = (
   t?: ILocaleFunction,
   options?: { isQuery?: boolean }
 ) => {
+  if (isTableProvisionPending(error)) {
+    toast.info(
+      t
+        ? t('httpErrors.tableProvisionPending' as TKey)
+        : 'Table structure is updating. Please try again shortly.',
+      {
+        id: 'table-provision-pending',
+      }
+    );
+    return;
+  }
   const { code, message, status } = error as IHttpError;
 
   if (code === HttpErrorCode.NETWORK_ERROR) {
@@ -147,7 +175,8 @@ export const createQueryClient = (t?: ILocaleFunction) => {
         // With SSR, we usually want to set some default staleTime
         // above 0 to avoid refetching immediately on the client
         staleTime: 10 * 1000,
-        retry: false,
+        retry: (failureCount, error) => isTableProvisionPending(error) && failureCount < 3,
+        retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 4000),
         networkMode: 'always',
       },
       mutations: {

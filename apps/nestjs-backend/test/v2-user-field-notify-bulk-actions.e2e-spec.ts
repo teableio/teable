@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import type { IRecord } from '@teable/core';
 import {
@@ -222,14 +222,11 @@ describe('V2 user field notification on bulk actions (e2e)', () => {
         const file = fs.createReadStream(tmpPath);
         const stats = fs.statSync(tmpPath);
         const { token, requestHeaders } = (
-          await apiGetSignature(
-            {
-              type: UploadType.Import,
-              contentLength: stats.size,
-              contentType: 'text/csv',
-            },
-            undefined
-          )
+          await apiGetSignature({
+            type: UploadType.Import,
+            contentLength: stats.size,
+            contentType: 'text/csv',
+          })
         ).data;
         await apiUploadFile(token, file, requestHeaders);
         const {

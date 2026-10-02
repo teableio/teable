@@ -12,3 +12,11 @@ export * from './repository';
 
 // Visitors
 export * from './visitors';
+
+export {
+  deleteAttachmentTableRefsByRecordIds,
+  listAttachmentTableRefs,
+  listAttachmentTokensByTableIds,
+  mergeAttachmentTableRefs,
+} from './attachments/attachmentTableQueries';
+export type { AttachmentTableRefRow } from './attachments/attachmentTableQueries';

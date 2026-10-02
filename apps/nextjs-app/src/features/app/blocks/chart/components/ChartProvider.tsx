@@ -31,7 +31,7 @@ export const ChartProvider = (props: {
   const [tab, setTab] = React.useState<'chart' | 'query'>(storage?.query ? 'chart' : 'query');
   const [storageState, setStorageState] = React.useState<IChartStorage | undefined>(storage);
   const [queryError, setQueryError] = React.useState<string | undefined>();
-  const preStorage = useRef<IChartStorage | undefined>();
+  const preStorage = useRef<IChartStorage | undefined>(undefined);
 
   const updateStorage = async (storage: IChartStorage) => {
     try {

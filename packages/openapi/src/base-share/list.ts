@@ -17,7 +17,8 @@ export type IListBaseShareVo = z.infer<typeof listBaseShareVoSchema>;
 export const ListBaseShareRoute: RouteConfig = registerRoute({
   method: 'get',
   path: LIST_BASE_SHARE,
-  description: 'Get all shared node IDs for a base',
+  title: 'List shared project node IDs',
+  description: 'List the IDs of shared nodes in a project.',
   request: {
     params: z.object({
       baseId: z.string(),

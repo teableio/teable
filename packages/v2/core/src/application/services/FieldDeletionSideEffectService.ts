@@ -45,7 +45,7 @@ export class FieldDeletionSideEffectService {
     context: ExecutionContextPort.IExecutionContext,
     input: FieldDeletionSideEffectServiceInput
   ): Promise<Result<FieldDeletionSideEffectServiceResult, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const result = await safeTry<FieldDeletionSideEffectServiceResult, DomainError>(
       async function* () {
         if (input.fields.length === 0) {

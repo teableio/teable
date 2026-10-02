@@ -25,6 +25,7 @@ export * from './access-token';
 export * from './import';
 export * from './export';
 export * from './utils';
+export * from './utils/model-key';
 export * from './pin';
 export * from './billing';
 export * from './admin';

@@ -159,7 +159,7 @@ export function updateViewFilter(
   viewId: ViewId,
   rawFilter: unknown
 ): Result<UpdateViewFilterMethodResult, DomainError> {
-  const table = this;
+  const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   return safeTry<UpdateViewFilterMethodResult, DomainError>(function* () {
     const view = yield* table.getView(viewId);
     const sourceFilter = yield* ViewSourceFilter.create(rawFilter);

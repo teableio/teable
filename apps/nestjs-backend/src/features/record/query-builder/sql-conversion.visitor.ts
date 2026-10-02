@@ -354,12 +354,12 @@ abstract class BaseSqlConversionVisitor<
   }
 
   visitIntegerLiteral(ctx: IntegerLiteralContext): string {
-    const value = parseInt(ctx.text, 10);
+    const value = Number.parseInt(ctx.text, 10);
     return this.formulaQuery.numberLiteral(value);
   }
 
   visitDecimalLiteral(ctx: DecimalLiteralContext): string {
-    const value = parseFloat(ctx.text);
+    const value = Number.parseFloat(ctx.text);
     return this.formulaQuery.numberLiteral(value);
   }
 
@@ -1241,7 +1241,7 @@ abstract class BaseSqlConversionVisitor<
     // For composite expressions (binary ops, comparisons, nested functions), the presence of
     // "link_value"/"lookup_" fragments does not imply the *result* is multi-value.
     if (exprCtx instanceof FieldReferenceCurlyContext && paramSql) {
-      const lookupMatch = paramSql.match(/lookup_(fld[A-Za-z0-9]+)/);
+      const lookupMatch = /lookup_(fld[A-Za-z0-9]+)/.exec(paramSql);
       if (lookupMatch && this.context?.table) {
         const referencedField = this.context.table.getField(lookupMatch[1]);
         if (referencedField) {
@@ -1537,7 +1537,7 @@ abstract class BaseSqlConversionVisitor<
   private coerceCaseBranchToText(expr: string): string {
     const trimmed = expr.trim();
     // eslint-disable-next-line regexp/prefer-w
-    const nullPattern = /^NULL(?:::[a-zA-Z_][a-zA-Z0-9_\s]*)?$/i;
+    const nullPattern = /^NULL(?:::[a-z_][a-z0-9_\s]*)?$/i;
     if (!trimmed || nullPattern.test(trimmed)) {
       return 'NULL::text';
     }
@@ -2069,7 +2069,7 @@ abstract class BaseSqlConversionVisitor<
  * Tracks field dependencies for generated column updates
  */
 export class GeneratedColumnSqlConversionVisitor extends BaseSqlConversionVisitor<IGeneratedColumnQueryInterface> {
-  private dependencies: string[] = [];
+  private readonly dependencies: string[] = [];
 
   /**
    * Get the conversion result with SQL and dependencies

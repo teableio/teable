@@ -57,7 +57,7 @@ export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderP
       // you need to add v to trigger the img tag to be re-requested
       const url = new URL(currentUser.avatar);
       const v = url.searchParams.get('v') ?? '0';
-      url.searchParams.set('v', `${parseInt(v) + 1}`);
+      url.searchParams.set('v', `${Number.parseInt(v) + 1}`);
       setCurrentUser({
         ...currentUser,
         avatar: url.href,
@@ -70,8 +70,8 @@ export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderP
   const value = useMemo(
     () => ({
       user: {
-        ...(userQuery ?? {}),
-        ...(currentUser ?? {}),
+        ...userQuery,
+        ...currentUser,
       } as IUser,
       refresh,
       refreshAvatar,

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AttachmentsTableModule } from '../attachments/attachments-table.module';
 import { BaseModule } from '../base/base.module';
 import { CanaryModule } from '../canary/canary.module';
+import { RecordCommentCleanupModule } from '../comment/record-comment-cleanup.module';
 import { FieldOpenApiModule } from '../field/open-api/field-open-api.module';
 import { RecordOpenApiModule } from '../record/open-api/record-open-api.module';
 import { RecordModule } from '../record/record.module';
@@ -27,6 +28,7 @@ import { V2TableTrashService } from './v2-table-trash.service';
     TableOpenApiModule,
     FieldOpenApiModule,
     RecordRemovalColdCoreModule,
+    RecordCommentCleanupModule,
     RecordOpenApiModule,
     RecordModule,
     V2Module,

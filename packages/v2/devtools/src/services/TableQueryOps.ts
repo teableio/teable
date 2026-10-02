@@ -185,7 +185,7 @@ export interface TableQueryOpsIndexPlanSummary {
   readonly reasonCodes: readonly string[];
   readonly candidateIndexes: readonly TableQueryOpsIndexCandidateSummary[];
   readonly shapeSummary: TableQueryOpsQueryRiskShapeSummary;
-  readonly physicalStats: { readonly estimatedRows: number };
+  readonly physicalStats: { readonly estimatedRows: number | null };
   readonly indexState: string;
   readonly existingIndexStructures: readonly string[];
   readonly candidateIndexStructures: readonly string[];
@@ -384,7 +384,7 @@ export interface TableQueryOpsQueryRiskReportSummary {
   readonly riskScore: number;
   readonly reasonCodes: readonly string[];
   readonly shapeSummary: TableQueryOpsQueryRiskShapeSummary;
-  readonly physicalStats: { readonly estimatedRows: number };
+  readonly physicalStats: { readonly estimatedRows: number | null };
   readonly indexInventory: {
     readonly state: string;
     readonly existingIndexStructures: readonly string[];
@@ -951,6 +951,10 @@ export class TableQueryOps extends Context.Tag('TableQueryOps')<
     readonly executeSearchAccessPath: (
       input: TableQueryOpsExecuteSearchAccessPathInput
     ) => Effect.Effect<TableQueryOpsExecuteSearchAccessPathResult, CliError>;
+    readonly refreshSearchAccessPath: (input: {
+      readonly tableId: string;
+      readonly dataConnection?: string;
+    }) => Effect.Effect<{ tableId: string; published: boolean }, CliError>;
     readonly validateSearchAccessPathTempTable: (
       input: TableQueryOpsValidateSearchAccessPathTempTableInput
     ) => Effect.Effect<TableQueryOpsSearchAccessPathTempTableValidationResult, CliError>;

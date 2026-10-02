@@ -230,6 +230,32 @@ describe('LocalStorage', () => {
     });
   });
 
+  describe('downloadFile', () => {
+    it('should create read stream when file exists', async () => {
+      vi.spyOn(fs.promises, 'access').mockResolvedValueOnce(undefined as never);
+      vi.spyOn(fs, 'createReadStream').mockReturnValueOnce(undefined as any);
+
+      await storage.downloadFile('private', 'chat-file/token');
+
+      expect(fs.createReadStream).toHaveBeenCalledWith(
+        resolve(storage.storageDir, 'private', 'chat-file/token')
+      );
+    });
+
+    it('should reject with the fs error instead of returning an erroring stream when file is missing', async () => {
+      const missing = Object.assign(new Error('ENOENT: no such file or directory'), {
+        code: 'ENOENT',
+      });
+      vi.spyOn(fs.promises, 'access').mockRejectedValueOnce(missing);
+      const createReadStream = vi.spyOn(fs, 'createReadStream').mockClear();
+
+      await expect(storage.downloadFile('private', 'chat-file/token_lg')).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+      expect(createReadStream).not.toHaveBeenCalled();
+    });
+  });
+
   describe('getFileMate', () => {
     it('should get file metadata', async () => {
       const mockPath = '/mock/file/path';

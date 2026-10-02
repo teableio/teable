@@ -9,6 +9,14 @@ import { useRecords } from '../../../hooks/use-records';
 import type { IFieldInstance, Record as IRecordInstance } from '../../../model';
 import { createRecordInstance, recordInstanceFieldMap } from '../../../model';
 import { applyCollapsedGroupChange, collectGroupRowCounts } from '../../../utils/collapsed-group';
+import type { ILoadedRecordFields } from '../../../utils/column-projection';
+import {
+  frozenFieldIdsFromView,
+  markRecordsFieldsLoaded,
+  missingFieldsAcrossRecords,
+  pruneLoadedFieldsToRecordIds,
+  viewportFieldIds,
+} from '../../../utils/column-projection';
 import {
   computeNextWindowQuery,
   INITIAL_LOAD_PAGE_SIZE,
@@ -42,13 +50,26 @@ const RECORD_SNAPSHOT_KEYS = [
   'undeletable',
 ] as const;
 
-const toPlainRecord = (instance: IRecordInstance): { record: IRecord; size: number } => {
+const toPlainRecord = (
+  instance: IRecordInstance,
+  fieldIds?: readonly string[]
+): { record: IRecord; size: number } => {
   const raw = instance as unknown as Record<string, unknown>;
   const picked: Record<string, unknown> = {};
   for (const key of RECORD_SNAPSHOT_KEYS) {
     if (raw[key] !== undefined) {
       picked[key] = raw[key];
     }
+  }
+  if (fieldIds && picked.fields && typeof picked.fields === 'object') {
+    const source = picked.fields as Record<string, unknown>;
+    const slim: Record<string, unknown> = {};
+    for (const fieldId of fieldIds) {
+      if (source[fieldId] !== undefined) {
+        slim[fieldId] = source[fieldId];
+      }
+    }
+    picked.fields = slim;
   }
   const json = JSON.stringify(picked);
   return { record: JSON.parse(json) as IRecord, size: json.length };
@@ -58,13 +79,13 @@ const toPlainRecord = (instance: IRecordInstance): { record: IRecord; size: numb
 // first frame after a switch back, which always starts at the top. Bounded by
 // row count AND serialized size: long-text/attachment heavy rows must not
 // turn the session cache into a memory sink
-const collectFirstScreenRows = (map: IRecordIndexMap): IRecord[] => {
+const collectFirstScreenRows = (map: IRecordIndexMap, fieldIds?: readonly string[]): IRecord[] => {
   const rows: IRecord[] = [];
   let budget = MAX_SNAPSHOT_BYTES;
   for (let i = 0; i < MAX_SNAPSHOT_ROWS; i++) {
     const instance = map[i];
     if (!instance) break;
-    const { record, size } = toPlainRecord(instance);
+    const { record, size } = toPlainRecord(instance, fieldIds);
     budget -= size;
     // a partial snapshot is fine — fewer seeded rows, same stability
     if (budget < 0) break;
@@ -96,6 +117,8 @@ type IRes = {
   groupPoints: IGroupPointsVo | null;
   searchHitIndex?: ISearchHitIndex;
   recordMap: IRecordIndexMap;
+  loadedFieldsByRecordId: ReadonlyMap<string, ILoadedRecordFields>;
+  snapshotFieldIds: ReadonlySet<string>;
   onReset: () => void;
   onForceUpdate: () => void;
   recordsQuery: IGetRecordsRo;
@@ -124,7 +147,8 @@ export const useGridAsyncRecords = (
   const { isPersonalView } = usePersonalView();
   const { searchQuery, hideNotMatchRow } = useSearch();
   const fields = useFields();
-  const { records, extra } = useRecords(recordsQuery, initRecords);
+  const { records, extra, fillProjectedRecordFields, subscribeProjection, queryScopeKey } =
+    useRecords(recordsQuery, initRecords, { sparseColumnFill: true });
   // a personal view queries a different result set than its shared twin, so
   // it gets its own group-points cache slot
   const groupPointsCacheKey = `${generateLocalId(tableId, view?.id)}${isPersonalView ? '-personal' : ''}`;
@@ -233,17 +257,31 @@ export const useGridAsyncRecords = (
         filter: view?.filter,
         sort: view?.sort,
         group: view?.group,
-        search: hideNotMatchRow ? searchQuery : null,
+        // opening the search box enables hide-not-match UI state before any
+        // probe exists; that must not count as a row-set change (T7211)
+        search: hideNotMatchRow && searchQuery ? searchQuery : null,
       }),
     [view, hideNotMatchRow, searchQuery]
   );
   const [visiblePages, setVisiblePages] = useState<IRectangle>(defaultVisiblePages);
+  const [viewportReady, setViewportReady] = useState(false);
   const visiblePagesRef = useRef(visiblePages);
   visiblePagesRef.current = visiblePages;
   const previousRecordsScopeKeyRef = useRef(recordsScopeKey);
   const previousViewQueryScopeKeyRef = useRef(viewQueryScopeKey);
   const previousCollapsedGroupIdsKeyRef = useRef(collapsedGroupIdsKey);
-  const hideNotMatchSearchKey = hideNotMatchRow ? JSON.stringify(searchQuery ?? null) : '';
+  // identity of what the grid's own `query` state derives from: the live record
+  // subscription plus the initQuery that state rebuilds from. An unchanged pair
+  // means the running ShareDB query keeps delivering and no fresh `ready`
+  // snapshot is coming, even if the query props changed their shape — but a
+  // swapped initQuery (an embedded grid, whose state initializes from it only on
+  // mount) must still take the wipe/re-seed path to pick the new query up.
+  const recordsSubscriptionKey = useMemo(
+    () => `${queryScopeKey}|${JSON.stringify(initQuery ?? null)}`,
+    [queryScopeKey, initQuery]
+  );
+  const previousRecordsSubscriptionKeyRef = useRef(recordsSubscriptionKey);
+  const hideNotMatchSearchKey = hideNotMatchRow && searchQuery ? JSON.stringify(searchQuery) : '';
   const previousHideNotMatchSearchKeyRef = useRef(hideNotMatchSearchKey);
   const lastMergedSkipRef = useRef(0);
   const loadedRecordMapRef = useRef(loadedRecordMap);
@@ -270,9 +308,17 @@ export const useGridAsyncRecords = (
   const cacheEnabledRef = useRef(cacheEnabled);
   cacheEnabledRef.current = cacheEnabled;
 
+  const subscribeProjectionRef = useRef(subscribeProjection);
+  subscribeProjectionRef.current = subscribeProjection;
+  const [loadedFieldsByRecordId, setLoadedFieldsByRecordId] = useState<
+    Map<string, ILoadedRecordFields>
+  >(() => new Map());
+  const loadedFieldsByRecordIdRef = useRef(loadedFieldsByRecordId);
+  loadedFieldsByRecordIdRef.current = loadedFieldsByRecordId;
+
   const snapshotRows = useCallback((key: string) => {
     if (!cacheEnabledRef.current) return;
-    const rows = collectFirstScreenRows(loadedRecordMapRef.current);
+    const rows = collectFirstScreenRows(loadedRecordMapRef.current, subscribeProjectionRef.current);
     if (rows.length) {
       useGridViewCacheStore.getState().setRows(key, rows);
     } else if (settledRef.current) {
@@ -322,7 +368,14 @@ export const useGridAsyncRecords = (
           newRecordsState[i] = cachedRecord;
         }
       }
-      return newRecordsState;
+      // keep the previous reference when nothing changed: consumers key effects
+      // on the map's identity, and a re-run updater must not restart them
+      const prevKeys = Object.keys(preLoadedRecords);
+      const nextKeys = Object.keys(newRecordsState);
+      const unchanged =
+        prevKeys.length === nextKeys.length &&
+        nextKeys.every((key) => preLoadedRecords[key] === newRecordsState[key]);
+      return unchanged ? preLoadedRecords : newRecordsState;
     });
 
     if (extra != null) {
@@ -352,11 +405,14 @@ export const useGridAsyncRecords = (
     const searchChanged = previousHideNotMatchSearchKeyRef.current !== hideNotMatchSearchKey;
     const previousCacheKey = previousScopeCacheKeyRef.current;
     const cacheKeyChanged = previousCacheKey !== groupPointsCacheKey;
+    const subscriptionChanged =
+      previousRecordsSubscriptionKeyRef.current !== recordsSubscriptionKey;
     previousRecordsScopeKeyRef.current = recordsScopeKey;
     previousViewQueryScopeKeyRef.current = viewQueryScopeKey;
     previousCollapsedGroupIdsKeyRef.current = collapsedGroupIdsKey;
     previousScopeCacheKeyRef.current = groupPointsCacheKey;
     previousHideNotMatchSearchKeyRef.current = hideNotMatchSearchKey;
+    previousRecordsSubscriptionKeyRef.current = recordsSubscriptionKey;
 
     const keySwitched = cacheEnabled && cacheKeyChanged;
 
@@ -405,8 +461,14 @@ export const useGridAsyncRecords = (
     // ready event. On a view switch, seed the target view's last known rows and
     // group structure (session cache) — the fresh data overwrites them on ready;
     // a same-view scope change (e.g. editing the group config) has no valid
-    // last-known state, so it drops to the loading placeholders
-    if (recordsScopeChanged) {
+    // last-known state, so it drops to the loading placeholders. The wipe is
+    // only safe when the subscription really re-created: enabling the personal
+    // view re-shapes the query props while the live query is reused (it inlines
+    // the same conditions), so no ready event is coming and dropping the rows
+    // would leave placeholders that never resolve — the personal cache slot is
+    // empty — until a remount (T7486). An unchanged subscription falls through
+    // to the in-place paths below, which keep the rows on screen.
+    if (recordsScopeChanged && subscriptionChanged) {
       settledRef.current = false;
       pendingFreshRef.current = true;
       if (keySwitched) {
@@ -417,6 +479,7 @@ export const useGridAsyncRecords = (
         clearCachedGroupRowCounts();
       }
       setVisiblePages(defaultVisiblePages);
+      setViewportReady(false);
       return;
     }
 
@@ -460,6 +523,7 @@ export const useGridAsyncRecords = (
       setGroupPoints(null);
       clearCachedGroupRowCounts();
       setVisiblePages(defaultVisiblePages);
+      setViewportReady(false);
       return;
     }
 
@@ -477,6 +541,7 @@ export const useGridAsyncRecords = (
     );
   }, [
     recordsScopeKey,
+    recordsSubscriptionKey,
     viewQueryScopeKey,
     collapsedGroupIdsKey,
     outerQuery,
@@ -497,16 +562,15 @@ export const useGridAsyncRecords = (
 
       const next = computeNextWindowQuery(cv, y, height, initQuery?.take ?? LOAD_PAGE_SIZE);
       if (next) {
+        if (next.skip === cv.skip && next.take === cv.take) {
+          return cv;
+        }
         return {
           ...initQuery,
           ...next,
         };
       }
-      return {
-        take: cv.take,
-        ...initQuery,
-        skip: cv.skip,
-      };
+      return cv;
     });
   }, [visiblePages, initQuery]);
 
@@ -516,12 +580,109 @@ export const useGridAsyncRecords = (
 
   const onVisibleRegionChanged: NonNullable<IGridProps['onVisibleRegionChanged']> = useCallback(
     (r) => {
-      const { y, height } = visiblePagesRef.current;
-      if (r.y === y && r.height === height) return;
+      const current = visiblePagesRef.current;
+      setViewportReady(true);
+      if (
+        r.y === current.y &&
+        r.height === current.height &&
+        r.x === current.x &&
+        r.width === current.width
+      ) {
+        return;
+      }
       updateVisiblePages(r);
     },
     [updateVisiblePages]
   );
+
+  const subscribeProjectionKey = (subscribeProjection ?? []).join(',');
+  useEffect(() => {
+    loadedFieldsByRecordIdRef.current = new Map();
+    setLoadedFieldsByRecordId((prev) => (prev.size === 0 ? prev : new Map()));
+  }, [subscribeProjectionKey, recordsScopeKey, query.skip, query.take]);
+
+  useEffect(() => {
+    const next = pruneLoadedFieldsToRecordIds(
+      loadedFieldsByRecordIdRef.current,
+      records.map((record) => record.id)
+    );
+    if (!next) {
+      return;
+    }
+    loadedFieldsByRecordIdRef.current = next;
+    setLoadedFieldsByRecordId(next);
+  }, [records]);
+
+  useEffect(() => {
+    if (!viewportReady || !fillProjectedRecordFields) {
+      return;
+    }
+    const orderedVisibleFieldIds = fields.map((field) => field.id);
+    const viewOptions = view?.options as
+      | { frozenFieldId?: string; frozenColumnCount?: number }
+      | undefined;
+    const frozenIds = frozenFieldIdsFromView({
+      orderedVisibleFieldIds,
+      frozenFieldId: viewOptions?.frozenFieldId,
+      frozenColumnCount: viewOptions?.frozenColumnCount,
+    });
+    const needed = [
+      ...viewportFieldIds({
+        orderedVisibleFieldIds,
+        startColumnIndex: visiblePages.x,
+        columnSpan: visiblePages.width,
+        freezeCount: frozenIds.length,
+      }),
+    ];
+    const searchFieldKey =
+      Array.isArray(searchQuery) && typeof searchQuery[1] === 'string' ? searchQuery[1] : undefined;
+    if (searchFieldKey) {
+      for (const fieldId of searchFieldKey.split(',')) {
+        if (fieldId.startsWith('fld')) {
+          needed.push(fieldId);
+        }
+      }
+    }
+    const snapshotFieldIds = new Set(subscribeProjectionRef.current ?? []);
+    const missing = missingFieldsAcrossRecords(
+      records,
+      needed,
+      loadedFieldsByRecordIdRef.current,
+      snapshotFieldIds
+    );
+    if (!missing.length) {
+      return;
+    }
+    let cancelled = false;
+    void fillProjectedRecordFields(missing).then((ok) => {
+      if (cancelled || !ok) {
+        return;
+      }
+      const next = markRecordsFieldsLoaded(
+        loadedFieldsByRecordIdRef.current,
+        records,
+        missing,
+        snapshotFieldIds
+      );
+      loadedFieldsByRecordIdRef.current = next;
+      setLoadedFieldsByRecordId(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    visiblePages.x,
+    visiblePages.width,
+    visiblePages.height,
+    viewportReady,
+    fields,
+    records,
+    fillProjectedRecordFields,
+    view,
+    searchQuery,
+  ]);
+
+  const snapshotFieldIds = useMemo(() => new Set(subscribeProjection ?? []), [subscribeProjection]);
 
   const onReset = useCallback(() => {
     // callers reset on table switches, AFTER the scope effect above has
@@ -536,6 +697,7 @@ export const useGridAsyncRecords = (
       : undefined;
     setLoadedRecordMap(seeded ?? {});
     setVisiblePages(defaultVisiblePages);
+    setViewportReady(false);
   }, []);
 
   // reactive read so cached refs keep group collapse/expand menus functional
@@ -551,6 +713,8 @@ export const useGridAsyncRecords = (
       cachedGroupHeaderRefs ??
       null,
     recordMap: loadedRecordMap,
+    loadedFieldsByRecordId,
+    snapshotFieldIds,
     onVisibleRegionChanged,
     recordsQuery,
     onForceUpdate,

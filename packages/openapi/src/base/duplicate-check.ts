@@ -22,9 +22,10 @@ export type IDuplicateBaseCheckVo = z.infer<typeof duplicateBaseCheckVoSchema>;
 export const DuplicateBaseCheckRoute: RouteConfig = registerRoute({
   method: 'get',
   path: DUPLICATE_BASE_CHECK,
+  title: 'Check project duplication requirements',
   description:
-    'Check the cross-space link/lookup/rollup fields that would be converted if this base were duplicated into the given target space.',
-  summary: 'Check cross-space affected fields for base duplicate',
+    'Check the cross-space link/lookup/rollup fields that would be converted if this project were duplicated into the given target space.',
+  summary: 'Check cross-space affected fields for project duplicate',
   request: {
     params: z.object({
       baseId: z.string(),

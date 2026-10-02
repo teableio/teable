@@ -19,9 +19,7 @@ export enum SchemaType {
  * Convert DbFieldType to Knex SchemaType for field modification operations.
  * For new field creation, use the visitor pattern instead.
  */
-export function dbType2knexFormat(knex: Knex, dbFieldType: DbFieldType) {
-  void knex;
-
+export function dbType2knexFormat(_knex: Knex, dbFieldType: DbFieldType) {
   switch (dbFieldType) {
     case DbFieldType.Blob:
       return SchemaType.Binary;

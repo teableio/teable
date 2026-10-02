@@ -142,4 +142,21 @@ describe('SessionCsrfMiddleware', () => {
 
     expect(next).toHaveBeenCalledWith();
   });
+
+  it("lets Apple's cross-site form POST callback through", () => {
+    const next = callMiddleware(
+      createRequest({
+        path: '/api/auth/apple/callback',
+        originalUrl: '/api/auth/apple/callback?utm=1',
+        headers: {
+          host: '127.0.0.1:3000',
+          cookie: 'auth_session=sid',
+          origin: 'https://appleid.apple.com',
+          'sec-fetch-site': 'cross-site',
+        },
+      })
+    );
+
+    expect(next).toHaveBeenCalledWith();
+  });
 });

@@ -1,4 +1,4 @@
-import type { ReadStream } from 'fs';
+import type { ReadStream } from 'node:fs';
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import type { IRecord } from '@teable/core';
 import { recordSchema } from '@teable/core';

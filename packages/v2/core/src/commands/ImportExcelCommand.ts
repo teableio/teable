@@ -79,6 +79,22 @@ export class ImportExcelCommand {
     );
   }
 
+  withSource(source: IImportSource): ImportExcelCommand {
+    return new ImportExcelCommand(
+      this.baseId,
+      source,
+      this.tableName,
+      this.importData,
+      this.batchSize,
+      this.maxRowCount,
+      this.useFirstRowAsHeader,
+      this.columns,
+      this.sheetName,
+      this.onProgress,
+      this.truncateOnRowLimit
+    );
+  }
+
   withTruncateOnRowLimit(truncateOnRowLimit: boolean): ImportExcelCommand {
     return new ImportExcelCommand(
       this.baseId,

@@ -1,6 +1,14 @@
 export const isImage = (mimetype: string) => {
   return mimetype.startsWith('image/');
 };
+
+// HEVC-encoded stills (typically iPhone photos). Browsers other than Safari
+// cannot render them, so previews should prefer the server-generated PNG thumb.
+export const isHeic = (mimetype: string) => {
+  return ['image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence'].includes(
+    mimetype
+  );
+};
 export const isVideo = (mimetype: string) => {
   return mimetype.startsWith('video/');
 };

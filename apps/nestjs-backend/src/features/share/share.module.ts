@@ -10,6 +10,7 @@ import { RecordOpenApiModule } from '../record/open-api/record-open-api.module';
 import { RecordModule } from '../record/record.module';
 import { SelectionModule } from '../selection/selection.module';
 import { SpaceDataDbMigrationGuardModule } from '../space/space-data-db-migration-guard.module';
+import { TableQuerySearchVectorRuntimeService } from '../v2/table-query-search-vector-runtime.service';
 import { V2Module } from '../v2/v2.module';
 import { ViewOpenApiModule } from '../view/open-api/view-open-api.module';
 import { ViewModule } from '../view/view.module';
@@ -36,7 +37,13 @@ import { SharedViewRecordQueryV2Service } from './shared-view-record-query-v2.se
     SpaceDataDbMigrationGuardModule,
     V2Module,
   ],
-  providers: [ShareService, DbProvider, ShareSocketService, SharedViewRecordQueryV2Service],
+  providers: [
+    ShareService,
+    DbProvider,
+    ShareSocketService,
+    SharedViewRecordQueryV2Service,
+    TableQuerySearchVectorRuntimeService,
+  ],
   controllers: [ShareController],
   exports: [ShareService, ShareSocketService],
 })

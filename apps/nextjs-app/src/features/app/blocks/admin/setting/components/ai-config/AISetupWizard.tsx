@@ -17,7 +17,7 @@ interface IAISetupWizardProps {
   children: ReactNode;
 }
 
-export function AISetupWizard({ children }: IAISetupWizardProps) {
+export function AISetupWizard({ children }: Readonly<IAISetupWizardProps>) {
   // Keep a stable wrapper for future layout needs.
   useMemo(() => children, [children]);
   return <div className="min-w-0">{children}</div>;
@@ -40,7 +40,7 @@ export function useAISetupSteps({
   const { t } = useTranslation('common');
 
   const hasGatewayKey = Boolean(aiConfig?.aiGatewayApiKey);
-  const hasGatewayModels = gatewayModels.filter((m) => m.enabled).length > 0;
+  const hasGatewayModels = gatewayModels.some((m) => m.enabled);
   const hasChatModel = Boolean(aiConfig?.chatModel?.lg);
   const hasProviders = llmProviders.length > 0;
 

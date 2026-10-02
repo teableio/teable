@@ -1,7 +1,19 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Patch,
+  Delete,
+  Query,
+  UseGuards,
+  UseInterceptors,
+  HttpCode,
+} from '@nestjs/common';
 import type { ICommentVo, IGetCommentListVo, ICommentSubscribeVo } from '@teable/openapi';
 import {
-  getRecordsRoSchema,
+  getCommentCountRoSchema,
   createCommentRoSchema,
   ICreateCommentRo,
   IUpdateCommentRo,
@@ -10,15 +22,20 @@ import {
   IUpdateCommentReactionRo,
   getCommentListQueryRoSchema,
   IGetCommentListQueryRo,
-  IGetRecordsRo,
+  IGetCommentCountRo,
   UploadType,
 } from '@teable/openapi';
+import { ClsService } from 'nestjs-cls';
+import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { AllowAnonymous } from '../auth/decorators/allow-anonymous.decorator';
 import { Permissions } from '../auth/decorators/permissions.decorator';
-import { TqlPipe } from '../record/open-api/tql.pipe';
+import { UseV2Feature } from '../canary/decorators/use-v2-feature.decorator';
+import { V2FeatureGuard } from '../canary/guards/v2-feature.guard';
+import { V2IndicatorInterceptor } from '../canary/interceptors/v2-indicator.interceptor';
+import { CommentOpenApiV2Service } from './comment-open-api-v2.service';
 import { CommentOpenApiService } from './comment-open-api.service';
 
 @Controller('api/comment/:tableId')
@@ -26,7 +43,9 @@ import { CommentOpenApiService } from './comment-open-api.service';
 export class CommentOpenApiController {
   constructor(
     private readonly commentOpenApiService: CommentOpenApiService,
-    private readonly attachmentsStorageService: AttachmentsStorageService
+    private readonly attachmentsStorageService: AttachmentsStorageService,
+    private readonly commentOpenApiV2Service: CommentOpenApiV2Service,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   @Get('/:recordId/count')
@@ -39,13 +58,20 @@ export class CommentOpenApiController {
     return this.commentOpenApiService.getRecordCommentCount(tableId, recordId);
   }
 
-  @Get('/count')
-  @Permissions('view|read')
+  @UseV2Feature('getRecords')
+  @UseGuards(V2FeatureGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
+  @Post('/count')
+  @HttpCode(200)
+  @Permissions('record|read')
   async getTableCommentCount(
     @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(getRecordsRoSchema), TqlPipe) query: IGetRecordsRo
+    @Body(new ZodValidationPipe(getCommentCountRoSchema)) ro: IGetCommentCountRo
   ) {
-    return this.commentOpenApiService.getTableCommentCount(tableId, query);
+    if (this.cls.get('useV2')) {
+      return this.commentOpenApiV2Service.getTableCommentCount(tableId, ro.recordIds);
+    }
+    return this.commentOpenApiService.getTableCommentCount(tableId, ro.recordIds);
   }
 
   @Get('/:recordId/attachment/:path')

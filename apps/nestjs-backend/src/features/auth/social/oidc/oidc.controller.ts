@@ -1,11 +1,13 @@
-import { Controller, Get, Req, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Req, Res, UseFilters, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { Public } from '../../decorators/public.decorator';
 import { OIDCGuard } from '../../guard/oidc.guard';
 import { SocialGuard } from '../../guard/social.guard';
+import { AppSignupUnavailableFilter } from '../app-signup-unavailable.filter';
 import { ControllerAdapter } from '../controller.adapter';
 
 @Controller('api/auth')
+@UseFilters(AppSignupUnavailableFilter)
 export class OIDCController extends ControllerAdapter {
   @Get('/oidc')
   @Public()
@@ -19,6 +21,6 @@ export class OIDCController extends ControllerAdapter {
   @Public()
   @UseGuards(SocialGuard, OIDCGuard)
   async oidcCallback(@Req() req: Express.Request, @Res({ passthrough: true }) res: Response) {
-    return super.callback(req, res);
+    return super.callback(req, res, 'oidc');
   }
 }

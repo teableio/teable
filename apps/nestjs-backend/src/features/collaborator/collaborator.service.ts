@@ -5,6 +5,7 @@ import {
   canManageRole,
   getRandomString,
   HttpErrorCode,
+  isRobot,
   Role,
   type IBaseRole,
   type IRole,
@@ -38,9 +39,10 @@ import {
 } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
+import { getBaseCached } from '../../utils/meta-ancestry-cache';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { AuditScope } from '../audit/audit-scope';
-import { Audit } from '../audit/audit.decorator';
+import { Audit, type IAuditCtx } from '../audit/audit.decorator';
 
 export type IUniqueCollaboratorRow = {
   principal_type: PrincipalType;
@@ -68,6 +70,39 @@ export class CollaboratorService {
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
+  // Robot identities never hold collaborator rows (see PermissionService.getSpaceCollaborators).
+  private assertNoRobotPrincipal(collaborators: { principalId: string }[]) {
+    if (collaborators.some((collaborator) => isRobot(collaborator.principalId))) {
+      throw new CustomHttpException(
+        'Robot identities cannot be collaborators',
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.notAllowedOperation',
+          },
+        }
+      );
+    }
+  }
+
+  @Audit({
+    action: Events.SPACE_COLLABORATOR_CREATE,
+    resourceId: (input: { spaceId: string }) => input.spaceId,
+    // Callers without a signed-in user (auto-join on signup) act as the joining principal.
+    userId: (input: { createdBy?: string }, ctx: IAuditCtx) =>
+      ctx.cls.get('user.id') ?? input.createdBy,
+    params: (input: {
+      spaceId: string;
+      role: IRole;
+      collaborators: { principalId: string; principalType: PrincipalType }[];
+    }) => ({
+      spaceId: input.spaceId,
+      role: input.role,
+      collaborators: input.collaborators,
+    }),
+    // The owner row written while creating a space is part of space.create, not a membership change.
+    emit: (_result: unknown, input: { skipAudit?: boolean }) => !input.skipAudit,
+  })
   async createSpaceCollaborator({
     collaborators,
     spaceId,
@@ -83,7 +118,9 @@ export class CollaboratorService {
     role: IRole;
     createdBy?: string;
     skipEvent?: boolean;
+    skipAudit?: boolean;
   }) {
+    this.assertNoRobotPrincipal(collaborators);
     const currentUserId = createdBy || this.cls.get('user.id');
     const exist = await this.prismaService.txClient().collaborator.count({
       where: {
@@ -163,9 +200,12 @@ export class CollaboratorService {
       searchByEmail?: boolean;
     }
   ) {
-    const base = await this.prismaService
-      .txClient()
-      .base.findUniqueOrThrow({ select: { spaceId: true }, where: { id: baseId } });
+    const base = await getBaseCached(this.cls, this.prismaService.txClient(), baseId);
+    if (!base) {
+      throw new CustomHttpException('Project not found', HttpErrorCode.NOT_FOUND, {
+        localization: { i18nKey: 'httpErrors.base.notFound' },
+      });
+    }
 
     const builder = knex
       .from('collaborator')
@@ -817,12 +857,22 @@ export class CollaboratorService {
         .txClient()
         .base.findUniqueOrThrow({ where: { id: resourceId }, select: { spaceId: true } });
       spaceId = space.spaceId;
-      // Base-scope audit (space-scope audit not required by current spec).
       await this.audit.emitAtomic({
         action: Events.BASE_COLLABORATOR_DELETE,
         resourceId,
         params: {
           baseId: resourceId,
+          spaceId,
+          principalId,
+          principalType,
+          oldRole: targetColl.roleName,
+        },
+      });
+    } else if (resourceType === CollaboratorType.Space) {
+      await this.audit.emitAtomic({
+        action: Events.SPACE_COLLABORATOR_DELETE,
+        resourceId,
+        params: {
           spaceId,
           principalId,
           principalType,
@@ -916,7 +966,7 @@ export class CollaboratorService {
         .txClient()
         .base.findUniqueOrThrow({ where: { id: resourceId }, select: { spaceId: true } });
       spaceId = space.spaceId;
-      // Base-scope audit. Only emit when role actually changes — same-role PATCHes
+      // Only emit when role actually changes — same-role PATCHes
       // (e.g. no-op idempotency calls) shouldn't bloat the audit log.
       if (targetColl.roleName !== role) {
         await this.audit.emitAtomic({
@@ -934,6 +984,21 @@ export class CollaboratorService {
       }
     } else if (resourceType === CollaboratorType.Space) {
       spaceId = resourceId;
+      // Also records ownership transfers: there is no dedicated endpoint, the new owner is
+      // promoted through this role update (newRole: owner).
+      if (targetColl.roleName !== role) {
+        await this.audit.emitAtomic({
+          action: Events.SPACE_COLLABORATOR_UPDATE,
+          resourceId,
+          params: {
+            spaceId,
+            principalId,
+            principalType,
+            oldRole: targetColl.roleName,
+            newRole: role,
+          },
+        });
+      }
     }
 
     if (spaceId) {
@@ -1010,6 +1075,7 @@ export class CollaboratorService {
     createdBy?: string;
     skipEvent?: boolean;
   }) {
+    this.assertNoRobotPrincipal(collaborators);
     const currentUserId = createdBy || this.cls.get('user.id');
     const base = await this.prismaService.txClient().base.findUniqueOrThrow({
       where: { id: baseId },
@@ -1026,7 +1092,7 @@ export class CollaboratorService {
     // if has exist space collaborator
     if (exist) {
       throw new CustomHttpException(
-        'Collaborator has already existed in base',
+        'Collaborator has already existed in project',
         HttpErrorCode.VALIDATION_ERROR,
         {
           localization: {
@@ -1112,7 +1178,7 @@ export class CollaboratorService {
       createdTime: base.createdTime?.toISOString(),
       createdBy: base.createdBy,
       createdUser: {
-        ...(createdUserMap[base.createdBy] ?? {}),
+        ...createdUserMap[base.createdBy],
         avatar:
           createdUserMap[base.createdBy]?.avatar &&
           getPublicFullStorageUrl(createdUserMap[base.createdBy]?.avatar ?? ''),
@@ -1236,7 +1302,7 @@ export class CollaboratorService {
           },
         })
         .catch(() => {
-          throw new CustomHttpException('Base not found', HttpErrorCode.VALIDATION_ERROR, {
+          throw new CustomHttpException('Project not found', HttpErrorCode.VALIDATION_ERROR, {
             localization: {
               i18nKey: 'httpErrors.collaborator.baseNotFound',
             },

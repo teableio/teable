@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [22.22.3]
+        node-version: [24.19.0]
         e2e:
           - database-type: postgres
             shard: 1/4

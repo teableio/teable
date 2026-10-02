@@ -11,11 +11,13 @@ export class ShareAuthLocalGuard implements CanActivate {
   async canActivate(context: ExecutionContext) {
     const req = context.switchToHttp().getRequest();
     const shareId = req.params.shareId;
-    const password = req.body.password;
+    const password = req.body?.password;
     const authShareId = await this.shareAuthService.authShareView(
       shareId,
       password,
-      req.useV2 === true
+      req.useV2 === true,
+      // A public route: the session user, when there is one, is only on the raw session.
+      req.session?.passport?.user?.id
     );
     req.shareId = authShareId;
     req.password = password;

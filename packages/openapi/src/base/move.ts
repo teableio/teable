@@ -26,9 +26,10 @@ export type ICrossSpaceAffectedField = z.infer<typeof crossSpaceAffectedFieldSch
 export const MoveBaseRoute: RouteConfig = registerRoute({
   method: 'put',
   path: MOVE_BASE,
+  title: 'Move project',
   description:
-    'Move a base to another space. Same data-DB moves complete synchronously. Cross-data-DB moves return a jobId and run asynchronously.',
-  summary: 'move a base to another space',
+    'Move a project to another space. Same data-DB moves complete synchronously. Cross-data-DB moves return a jobId and run asynchronously.',
+  summary: 'move a project to another space',
   request: {
     params: z.object({
       baseId: z.string(),

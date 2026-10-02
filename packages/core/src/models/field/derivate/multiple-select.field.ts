@@ -7,6 +7,32 @@ export const multipleSelectCelValueSchema = z.array(z.string());
 
 export type IMultipleSelectCellValue = z.infer<typeof multipleSelectCelValueSchema>;
 
+/**
+ * Splits on newlines and commas that are not inside double quotes, dropping one optional
+ * whitespace character after each separator. Same result as the former
+ * `/[\n\r,]\s?(?=(?:[^"]*"[^"]*")*[^"]*$)/` split, but in a single linear pass.
+ */
+function splitOutsideQuotes(value: string): string[] {
+  const parts: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < value.length; i++) {
+    const char = value[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      current += char;
+    } else if (!inQuotes && (char === ',' || char === '\n' || char === '\r')) {
+      parts.push(current);
+      current = '';
+      if (/\s/.test(value[i + 1] ?? '')) i++;
+    } else {
+      current += char;
+    }
+  }
+  parts.push(current);
+  return parts;
+}
+
 export class MultipleSelectFieldCore extends SelectFieldCore {
   type!: FieldType.MultipleSelect;
 
@@ -19,7 +45,7 @@ export class MultipleSelectFieldCore extends SelectFieldCore {
       return null;
     }
 
-    let cellValue = value.split(/[\n\r,]\s?(?=(?:[^"]*"[^"]*")*[^"]*$)/).map((item) => {
+    let cellValue = splitOutsideQuotes(value).map((item) => {
       return item.includes(',') ? item.slice(1, -1).trim() : item.trim();
     });
 

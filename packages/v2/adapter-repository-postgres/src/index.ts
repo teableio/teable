@@ -2,6 +2,7 @@ export * from './config';
 export * from './db/schema';
 export type {
   V1BaseTable,
+  V1CommentTable,
   V1FieldTable,
   V1SpaceTable,
   V1TableMetaTable,
@@ -12,5 +13,6 @@ export * from './di/register';
 export * from './di/tokens';
 export * from './repositories/PostgresTableRowLimitPlugin';
 export * from './repositories/PostgresSchemaOperationRepository';
+export * from './repositories/PostgresTableCommentQueryRepository';
 export * from './repositories/PostgresTableRepository';
 export * from './repositories/PostgresViewPluginRepository';

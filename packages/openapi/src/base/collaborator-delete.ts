@@ -13,7 +13,8 @@ export type DeleteBaseCollaboratorRo = z.infer<typeof deleteBaseCollaboratorRoSc
 export const DeleteBaseCollaboratorRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: DELETE_BASE_COLLABORATOR,
-  description: 'Delete a base collaborators',
+  title: 'Remove project collaborator',
+  description: 'Remove the specified user or department from a project.',
   request: {
     params: z.object({
       baseId: z.string(),

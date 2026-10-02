@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/core';
 import { useSortable, SortableContext, type SortableContextProps } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import React, { useMemo } from 'react';
+import React, { useMemo, type JSX } from 'react';
 import { createPortal } from 'react-dom';
 
 type IProvidedProps = ReturnType<typeof useSortable> & {

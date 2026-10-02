@@ -20,7 +20,7 @@ describe('Auth sign-in lockout (e2e)', () => {
   const password = 'lockout12345A';
 
   beforeAll(async () => {
-    // Lockout is off by default (both values undefined). Customizing the env
+    // Lockout is on by default (5 attempts / 15 minutes). Customizing the env
     // makes initApp boot a private app with this config frozen in, instead of
     // reusing the worker's shared one.
     process.env.SIGNIN_MAX_LOGIN_ATTEMPTS = '3';

@@ -6,7 +6,7 @@ import { FieldType, HttpErrorCode, Relationship } from '@teable/core';
 import type { Field } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { cloneDeep, keyBy, difference, groupBy, isEqual, set, uniq, uniqBy } from 'lodash';
+import { cloneDeep, keyBy, difference, groupBy, isEqual, set, uniqBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
@@ -57,7 +57,7 @@ export interface ILinkCellContext {
 
 @Injectable()
 export class LinkService {
-  private logger = new Logger(LinkService.name);
+  private readonly logger = new Logger(LinkService.name);
   constructor(
     private readonly prismaService: PrismaService,
     private readonly databaseRouter: DatabaseRouter,
@@ -877,16 +877,16 @@ export class LinkService {
       }
 
       const recordIds = cellGroupByFieldId[fieldId].map((ctx) => ctx.recordId);
-      const linkRecordIds = uniq(
-        cellGroupByFieldId[fieldId]
-          .map((ctx) =>
+      const linkRecordIds = [
+        ...new Set(
+          cellGroupByFieldId[fieldId].flatMap((ctx) =>
             [ctx.oldValue, ctx.newValue]
               .flat()
               .filter(Boolean)
               .map((item) => item?.id as string)
           )
-          .flat()
-      );
+        ),
+      ];
 
       const foreignKeys = await this.getForeignKeys(recordIds, linkRecordIds, field.options);
       this.checkForIllegalDuplicateLinks(field, recordIds, indexedCellContext);
@@ -1344,9 +1344,11 @@ export class LinkService {
       newKey && toAdd.push([recordId, newKey]);
     }
 
-    const affectedForeignIds = uniq(
-      toDelete.map(([, foreignId]) => foreignId).concat(toAdd.map(([, foreignId]) => foreignId))
-    );
+    const affectedForeignIds = [
+      ...new Set(
+        toDelete.map(([, foreignId]) => foreignId).concat(toAdd.map(([, foreignId]) => foreignId))
+      ),
+    ];
     await this.lockForeignRecords(field.options.foreignTableId, affectedForeignIds);
 
     if (toDelete.length) {

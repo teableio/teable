@@ -60,7 +60,7 @@ const areValuesEqual = (
   }
 
   for (const key of leftKeys) {
-    if (!Object.prototype.hasOwnProperty.call(rightRecord, key)) {
+    if (!Object.hasOwn(rightRecord, key)) {
       return false;
     }
     if (!areValuesEqual(leftRecord[key], rightRecord[key], visited)) {

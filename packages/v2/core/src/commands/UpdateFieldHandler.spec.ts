@@ -14,6 +14,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldUpdated } from '../domain/table/events/FieldUpdated';
+import { TableProvisionReady } from '../domain/table/events/TableProvisionReady';
 import { DbFieldName } from '../domain/table/fields/DbFieldName';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
@@ -591,8 +592,12 @@ describe('UpdateFieldHandler', () => {
 
     const result = await handler.handle(createContext(), command);
     expect(result.isOk()).toBe(true);
-    expect(eventBus.published).toHaveLength(1);
-    expect(eventBus.published[0]).toBeInstanceOf(FieldUpdated);
+    // a type conversion repairs the physical schema, so the table leaves the
+    // pending provision state after the field update itself
+    expect(eventBus.published.map((event) => event.constructor)).toEqual([
+      FieldUpdated,
+      TableProvisionReady,
+    ]);
   });
 
   it('returns an explicit no-op validation error for normal update commands', async () => {

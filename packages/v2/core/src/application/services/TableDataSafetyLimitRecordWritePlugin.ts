@@ -45,6 +45,7 @@ const recordsFromContext = (
         ...context.payload.createRecordsFieldValues,
       ];
     case RecordWriteOperationKind.deleteMany:
+    case RecordWriteOperationKind.archiveMany:
       return [];
   }
 };
@@ -65,6 +66,7 @@ const recordCountFromContext = (context: RecordWritePluginContext): number => {
     case RecordWriteOperationKind.duplicateStream:
     case RecordWriteOperationKind.importAppend:
     case RecordWriteOperationKind.deleteMany:
+    case RecordWriteOperationKind.archiveMany:
       return context.payload.recordCount;
     case RecordWriteOperationKind.updateMany:
       return context.payload.recordCount ?? recordsFromContext(context).length;
@@ -84,7 +86,10 @@ export class TableDataSafetyLimitRecordWritePlugin
   ) {}
 
   supports(operation: RecordWriteOperationKind): boolean {
-    return operation !== RecordWriteOperationKind.deleteMany;
+    return (
+      operation !== RecordWriteOperationKind.deleteMany &&
+      operation !== RecordWriteOperationKind.archiveMany
+    );
   }
 
   async prepare(

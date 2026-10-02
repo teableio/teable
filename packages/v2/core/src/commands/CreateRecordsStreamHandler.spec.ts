@@ -8,6 +8,7 @@ import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { RecordId } from '../domain/table/records/RecordId';
@@ -22,8 +23,9 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { IFindOptions } from '../ports/RepositoryQuery';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
+import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   BatchRecordMutationResult,
   ITableRecordRepository,
@@ -244,8 +246,7 @@ describe('CreateRecordsStreamHandler', () => {
       new TableQueryService(tableRepository),
       createRecordWritePluginRunner(),
       recordRepository,
-      eventBus,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const commandResult = CreateRecordsStreamCommand.create({
@@ -265,7 +266,82 @@ describe('CreateRecordsStreamHandler', () => {
     expect(recordRepository.records.length).toBe(3);
     expect(recordRepository.lastContext?.transaction?.kind).toBe('unitOfWorkTransaction');
     expect(unitOfWork.transactions.length).toBe(1);
-    expect(eventBus.published.length).toBe(0);
+    expect(payload.events).toHaveLength(1);
+    expect(eventBus.published).toHaveLength(1);
+    expect(eventBus.published[0]).toEqual(
+      expect.objectContaining({
+        orchestration: expect.objectContaining({
+          totalRecordCount: 3,
+          scope: 'chunk',
+        }),
+        records: expect.arrayContaining([
+          expect.objectContaining({
+            fields: expect.arrayContaining([expect.objectContaining({ value: 'First' })]),
+          }),
+        ]),
+      })
+    );
+  });
+
+  it('collects remainder stream-create chunks in one transaction', async () => {
+    const { table, tableId, textFieldId, numberFieldId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = new CreateRecordsStreamHandler(
+      new TableQueryService(tableRepository),
+      createRecordWritePluginRunner(),
+      recordRepository,
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+    );
+
+    const records = Array.from({ length: 201 }, (_, index) => ({
+      fields: {
+        [textFieldId.toString()]: `row-${index + 1}`,
+        [numberFieldId.toString()]: index + 1,
+      },
+    }));
+
+    const result = await handler.handle(
+      createContext(),
+      CreateRecordsStreamCommand.create({
+        tableId: tableId.toString(),
+        batchSize: 100,
+        records,
+      })._unsafeUnwrap()
+    );
+    const payload = result._unsafeUnwrap();
+    const batchEvents = eventBus.published.filter(isRecordsBatchCreatedEvent);
+
+    expect(payload.totalCreated).toBe(201);
+    expect(recordRepository.records).toHaveLength(201);
+    expect(unitOfWork.transactions).toHaveLength(1);
+    expect(batchEvents.map((event) => event.records.length)).toEqual([100, 100, 1]);
+    expect(batchEvents.map((event) => event.orchestration)).toEqual([
+      {
+        totalRecordCount: 201,
+        totalChunkCount: 3,
+        chunkIndex: 0,
+        scope: 'chunk',
+      },
+      {
+        totalRecordCount: 201,
+        totalChunkCount: 3,
+        chunkIndex: 1,
+        scope: 'chunk',
+      },
+      {
+        totalRecordCount: 201,
+        totalChunkCount: 3,
+        chunkIndex: 2,
+        scope: 'chunk',
+      },
+    ]);
+    expect(payload.events).toEqual(eventBus.published);
   });
 
   it('skips plugins that do not support createStream', async () => {
@@ -282,8 +358,7 @@ describe('CreateRecordsStreamHandler', () => {
       new TableQueryService(tableRepository),
       createRecordWritePluginRunner([plugin]),
       recordRepository,
-      eventBus,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const command = CreateRecordsStreamCommand.create({
@@ -313,8 +388,7 @@ describe('CreateRecordsStreamHandler', () => {
       new TableQueryService(tableRepository),
       createRecordWritePluginRunner(),
       recordRepository,
-      eventBus,
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus)
     );
 
     const commandResult = CreateRecordsStreamCommand.create({

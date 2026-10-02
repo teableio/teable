@@ -7,7 +7,7 @@ export const CREATE_ACCESS_TOKEN = '/access-token';
 
 const isValidDateString = (dateString: string) => {
   const date = new Date(dateString);
-  return !isNaN(date.getTime());
+  return !Number.isNaN(date.getTime());
 };
 
 export const createAccessTokenRoSchema = z.object({

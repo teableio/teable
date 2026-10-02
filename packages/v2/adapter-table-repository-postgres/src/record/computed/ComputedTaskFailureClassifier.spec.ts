@@ -5,6 +5,7 @@ import {
   classifyComputedTaskFailure,
   isTableProvisionPendingError,
   TABLE_PROVISION_PENDING_CODE,
+  normalizeComputedTaskError,
 } from './ComputedTaskFailureClassifier';
 
 describe('classifyComputedTaskFailure', () => {
@@ -52,7 +53,7 @@ describe('classifyComputedTaskFailure', () => {
     });
   });
 
-  it('classifies statement timeouts separately as non-retryable', () => {
+  it('classifies statement timeouts separately as retryable', () => {
     const failure = classifyComputedTaskFailure(
       domainError.infrastructure({
         message: 'canceling statement due to statement timeout',
@@ -62,7 +63,7 @@ describe('classifyComputedTaskFailure', () => {
     expect(failure).toEqual({
       failureKind: 'statement_timeout',
       failureReason: 'statement_timeout',
-      retryable: false,
+      retryable: true,
     });
   });
 
@@ -285,5 +286,64 @@ describe('classifyComputedTaskFailure', () => {
       failureReason: 'unknown',
       retryable: true,
     });
+  });
+  it('classifies exact structured formula budget codes without accepting similar text', () => {
+    const budget = domainError.infrastructure({
+      message: 'limit reached',
+      details: { cause: { code: 'validation.limit.formula_compile_nodes_max' } },
+    });
+    expect(classifyComputedTaskFailure(budget)).toMatchObject({
+      failureKind: 'data_safety_limit',
+      failureReason: 'formula_compile_budget',
+      retryable: false,
+    });
+    expect(
+      classifyComputedTaskFailure(
+        domainError.infrastructure({ message: 'validation.limit.formula_compile_nodes_max' })
+      ).failureKind
+    ).toBe('transient');
+  });
+
+  it('classifies stage exhaustion and structured PostgreSQL program limits as non-retryable', () => {
+    expect(
+      classifyComputedTaskFailure(
+        domainError.infrastructure({
+          code: 'computed.stage_depth_exhausted',
+          message: 'incomplete',
+        })
+      )
+    ).toMatchObject({
+      failureKind: 'data_safety_limit',
+      failureReason: 'stage_depth_exhausted',
+      retryable: false,
+    });
+    expect(
+      classifyComputedTaskFailure(
+        domainError.infrastructure({ message: 'resource', cause: { sqlState: '54000' } })
+      )
+    ).toMatchObject({
+      failureKind: 'data_safety_limit',
+      failureReason: 'computed_resource_limit',
+      retryable: false,
+    });
+    expect(
+      classifyComputedTaskFailure(domainError.infrastructure({ message: 'SQLSTATE 54000' }))
+        .failureKind
+    ).toBe('transient');
+  });
+
+  it('normalizes structured PostgreSQL program limits while preserving unrelated errors', () => {
+    const original = domainError.infrastructure({
+      message: 'resource',
+      details: { code: '54001' },
+    });
+    const normalized = normalizeComputedTaskError(original);
+    expect(normalized.code).toBe('computed.resource_limit');
+    expect(normalized.message).not.toContain('54001');
+    const untouched = domainError.infrastructure({ message: 'SQLSTATE 54001' });
+    expect(normalizeComputedTaskError(untouched)).toBe(untouched);
+    expect(
+      normalizeComputedTaskError(domainError.infrastructure({ message: 'ordinary failure' })).code
+    ).toBe('infrastructure');
   });
 });

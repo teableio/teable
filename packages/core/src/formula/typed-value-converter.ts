@@ -14,7 +14,7 @@ export class TypedValueConverter {
       console.log(func);
       throw new TypeError(`function ${func.name} is not accept array value: ${value}`);
     }
-    const transValue = value && value[0];
+    const transValue = value?.[0];
     return new TypedValue(transValue, type);
   }
 

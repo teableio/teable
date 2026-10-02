@@ -26,6 +26,66 @@ Scope constraints (as requested)
 
 ---
 
+## Stage continuation integrity
+
+- Initial INSERT extras can be lock-only inputs. A completed stage's deferred plan
+  uses UPDATE semantics for its actual dirty outputs; it must not promote untouched
+  lock-only rows. DELETE retains its original semantics and before-images.
+- A partial floor batch persists `partialStageBudget` with its ledger scope and
+  whole-table cursors. Later batches must use the same partition even if worker
+  configuration changes. Only a completed stage can reset that boundary.
+- Terminal formula failures persist as `terminalFieldErrors` alongside the partial
+  plan. Keep its original steps and edges until the floor partition drains; the
+  updater skips those fields, while legal siblings commit and advance the ledger.
+  Removing failed fields before draining could move deferred same-table fields
+  into record exclusions belonging to a different partition.
+- Failure fanout includes field/table/base ownership. Activity projection locks,
+  loads and reconciles those targets even without task refs or prior activity
+  rows; a dependency failure is not a successful completion or a synthetic task.
+- Ledger settlement retains sources for deferred edges **and** pending same-record
+  steps. Consuming a sibling table's frontier does not prove its formulas ran.
+- Whole-table seed promotion covers surviving rows, not deleted sources. Retain
+  relevant before-image IDs alongside whole-table markers through enqueue and
+  retry merging, so later edges can still match deleted rows' old values.
+
+The convergence gate checks command-input-derived values against raw stored cells
+for every fixture row, including unrelated rows and link titles. It does not use
+the computed query path as an oracle or treat an empty queue as correctness proof.
+Shared HTTP scenarios run across bounded/unbounded PGlite execution profiles;
+recovery and competing-worker tests use real PostgreSQL. CI runs those PostgreSQL
+contracts on versions 16 and 17. Nightly/manual jobs expand seeded properties and
+run isolated source mutations; only the intended value assertion counts as a kill.
+Property failures print seed, shrink path, scenario and a replay command, and CI
+uploads those details with test logs. Stable fixture ID ordering makes shrinking
+and replay independent of random sibling-stage and frontier ordering.
+
+---
+
+## Same-table formula output types
+
+Each formula CTE level must expose the scalar type declared by the field before
+later levels consume it. A text-typed `IF(condition, ROUND(value), "")` may compile
+to a numeric expression with a NULL branch; cast its output to text at the CTE
+boundary, not only in the final UPDATE assignment. Otherwise a downstream text
+comparison can force `''` to numeric and dead-letter the entire update.
+Keep NULL values intact and retain JSON/array normalization for multi-value fields.
+The same contract applies to individually compiled and grouped formula roots.
+
+## Bounded import seeds
+
+- `../repository/PostgresTableRecordRepository.ts` stages each inserted batch's record and field
+  IDs; it does not retain imported `TableRecord` objects. Outbox seeds share the data transaction.
+- Once seed storage spills to `computed_update_outbox_seed`, later small batches append there.
+  A merge must neither reload all spilled IDs nor switch back to inline JSON and discard old seeds.
+- Seed claims split oversized spilled input with a database cursor before hydrating a task.
+  Child tasks use the existing chunk protocol, preserve before-images and source/run metadata,
+  and roll back with their parent if the claim transaction fails.
+- Insert continuations and their lineage-scoped descendants retain predecessor-scoped hashes;
+  schema-only merging must not recombine bounded import chunks. Ordinary unscoped update/delete
+  plan merging is unchanged.
+- The legacy post-commit path spills only seed IDs to a private temporary file and replays bounded
+  batches through its existing computation strategy. It is not a new durable queue.
+
 ## Goals
 
 ### G1. “Plan executed?” answerable via OTel

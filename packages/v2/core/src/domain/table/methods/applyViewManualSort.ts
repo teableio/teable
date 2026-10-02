@@ -31,7 +31,7 @@ export function applyViewManualSort(
   viewId: ViewId,
   rawSort: unknown
 ): Result<ApplyViewManualSortMethodResult, DomainError> {
-  const table = this;
+  const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   return safeTry<ApplyViewManualSortMethodResult, DomainError>(function* () {
     const view = yield* table.getView(viewId);
     if (!view.type().equals(ViewType.grid())) {

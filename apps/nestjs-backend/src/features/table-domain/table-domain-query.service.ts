@@ -206,7 +206,7 @@ export class TableDomainQueryService {
         }
 
         const fieldProjection =
-          currentId === tableId && projection && projection.length ? projection : undefined;
+          currentId === tableId && projection?.length ? projection : undefined;
 
         const foreignTableIds = domain.getAllForeignTableIds(fieldProjection);
         for (const foreignTableId of foreignTableIds) {

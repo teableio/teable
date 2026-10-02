@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CacheService } from '../cache/cache.service';
@@ -16,7 +17,7 @@ export class DistributedLockService {
   private readonly logger = new Logger(DistributedLockService.name);
 
   /** Unique per process — identifies the locks this instance owns. */
-  private readonly owner = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  private readonly owner = `${process.pid}-${randomUUID()}`;
 
   constructor(
     private readonly cacheService: CacheService,

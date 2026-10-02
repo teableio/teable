@@ -18,10 +18,11 @@ export const publishBaseRoSchema = z.object({
 export type IPublishBaseRo = z.infer<typeof publishBaseRoSchema>;
 
 export const PublishBaseRoute: RouteConfig = registerRoute({
-  method: 'put',
+  method: 'post',
   path: PUBLISH_BASE,
-  description: 'publish or unpublish a base',
-  summary: 'publish or unpublish a base',
+  title: 'Publish or unpublish project',
+  description: 'Change whether a project is published for sharing.',
+  summary: 'publish or unpublish a project',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -36,7 +37,7 @@ export const PublishBaseRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'publish base successfully',
+      description: 'publish project successfully',
     },
   },
   tags: ['base'],

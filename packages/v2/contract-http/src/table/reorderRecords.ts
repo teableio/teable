@@ -8,7 +8,6 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type HttpErrorStatus,
   type IApiErrorResponseDto,
@@ -39,7 +38,7 @@ export const reorderRecordsOkResponseSchema = apiOkResponseDtoSchema(
   reorderRecordsResponseDataSchema
 );
 
-export const reorderRecordsErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as reorderRecordsErrorResponseSchema } from '../shared/http';
 
 export const mapReorderRecordsResultToDto = (
   result: ReorderRecordsResult

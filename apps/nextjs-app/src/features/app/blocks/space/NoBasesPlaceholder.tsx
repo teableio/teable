@@ -1,9 +1,9 @@
 import { useMutation } from '@tanstack/react-query';
 import { getUniqName, hasPermission } from '@teable/core';
-import { useTheme } from '@teable/next-themes';
 import { createBase } from '@teable/openapi';
 import type { IGetSpaceVo } from '@teable/openapi';
 import { useSession } from '@teable/sdk/hooks';
+import { useTheme } from '@teable/ui-lib';
 import { Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
@@ -49,7 +49,7 @@ export const NoBasesPlaceholder: FC<INoBasesPlaceholderProps> = ({ space }) => {
     <div className="flex h-full min-h-[60vh] flex-col items-center justify-center px-8">
       <Image
         src={isDark ? '/images/layout/welcome-dark.png' : '/images/layout/welcome-light.png'}
-        alt="no bases"
+        alt="no projects"
         width={240}
         height={240}
       />

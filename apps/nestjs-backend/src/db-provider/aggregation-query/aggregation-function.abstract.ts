@@ -21,10 +21,15 @@ export abstract class AbstractAggregationFunction implements IAggregationFunctio
     } else if (dbFieldName.startsWith('"')) {
       this.tableColumnRef = dbFieldName;
     } else {
-      const columnRef = this.knex.ref(dbFieldName);
-      const tableAlias = this.tableAlias;
-      this.tableColumnRef = (tableAlias ? columnRef.withSchema(tableAlias) : columnRef).toQuery();
+      this.tableColumnRef = this.buildColumnRef(dbFieldName);
     }
+  }
+
+  /** knex.ref() only builds an identifier reference; nothing is executed or awaited. */
+  private buildColumnRef(dbFieldName: string): string {
+    const columnRef = this.knex.ref(dbFieldName);
+    const tableAlias = this.tableAlias;
+    return (tableAlias ? columnRef.withSchema(tableAlias) : columnRef).toQuery();
   }
 
   get dbTableName() {

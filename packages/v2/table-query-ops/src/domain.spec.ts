@@ -189,6 +189,18 @@ describe('TableSearchVectorPlanEvidence', () => {
   });
 });
 
+describe('TablePhysicalStats', () => {
+  it('keeps planner-unknown row counts distinct from an empty estimate', () => {
+    expect(
+      TablePhysicalStats.create({ estimatedRows: null, totalBytes: 0 })._unsafeUnwrap().snapshot()
+    ).toEqual({ estimatedRows: null, totalBytes: 0 });
+    expect(
+      TablePhysicalStats.create({ estimatedRows: 0, totalBytes: 0 })._unsafeUnwrap().snapshot()
+    ).toEqual({ estimatedRows: 0, totalBytes: 0 });
+    expect(TablePhysicalStats.create({ estimatedRows: -1, totalBytes: 0 }).isErr()).toBe(true);
+  });
+});
+
 describe('TableQueryRiskPolicy', () => {
   it('raises risk and recommends phase 1 index remediation for slow wide search', () => {
     const observation = createObservation();

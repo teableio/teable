@@ -7,7 +7,6 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type IApiErrorResponseDto,
   type IApiOkResponseDto,
@@ -30,7 +29,7 @@ export interface IListTableRecordsPaginationDto {
   limit: number;
   /** Whether there are more records after this page */
   hasMore: boolean;
-  /** Keyset cursor for the next page when order is `__auto_number` asc */
+  /** Opaque keyset cursor for the next page when the current order supports one */
   nextCursor?: string;
 }
 
@@ -94,7 +93,7 @@ export const listTableRecordsOkResponseSchema = apiOkResponseDtoSchema(
   listTableRecordsResponseDataSchema
 );
 
-export const listTableRecordsErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as listTableRecordsErrorResponseSchema } from '../shared/http';
 
 export const mapListTableRecordsResultToDto = (
   result: ListTableRecordsResult

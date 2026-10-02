@@ -173,6 +173,6 @@ describe('TraceSpan', () => {
     const handler = new TestHandler(brokenTracer);
     const context = createContext();
     const result = await handler.handle(context, new PayloadMessage());
-    result._unsafeUnwrap();
+    expect(result.isOk()).toBe(true);
   });
 });

@@ -22,7 +22,8 @@ export type UpdateBaseInvitationLinkVo = z.infer<typeof updateBaseInvitationLink
 export const UpdateBaseInvitationLinkRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: UPDATE_BASE_INVITATION_LINK,
-  description: 'Update a invitation link to your',
+  title: 'Update project invitation link',
+  description: "Update a project's invitation link settings.",
   request: {
     params: z.object({
       invitationId: z.string(),

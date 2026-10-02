@@ -9,7 +9,7 @@ import { TableRecordCalendarDailyCollection } from '../records/TableRecordCalend
 import type { Table } from '../Table';
 
 export type CreateRecordCalendarDailyCollectionParams = {
-  readonly viewId: string;
+  readonly viewId?: string;
   readonly startFieldId: string;
   readonly endFieldId?: string;
   readonly includeHiddenFields?: boolean;
@@ -69,10 +69,11 @@ export function createRecordCalendarDailyCollection(
 ): Result<TableRecordCalendarDailyCollection, DomainError> {
   return safeTry<TableRecordCalendarDailyCollection, DomainError>(
     function* (this: Table) {
-      yield* this.getViewById(params.viewId);
-      const visibleFieldIds = params.includeHiddenFields
-        ? undefined
-        : new Set((yield* this.getOrderedVisibleFieldIds(params.viewId)).map(String));
+      if (params.viewId) yield* this.getViewById(params.viewId);
+      const visibleFieldIds =
+        params.includeHiddenFields || !params.viewId
+          ? undefined
+          : new Set((yield* this.getOrderedVisibleFieldIds(params.viewId)).map(String));
       const startField = yield* resolveCalendarField(
         this,
         params.startFieldId,

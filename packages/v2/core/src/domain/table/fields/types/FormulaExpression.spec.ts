@@ -9,8 +9,8 @@ const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`);
 
 describe('FormulaExpression', () => {
   it('validates expression input', () => {
-    FormulaExpression.create('1 + 1')._unsafeUnwrap();
-    FormulaExpression.create(123)._unsafeUnwrapErr();
+    expect(FormulaExpression.create('1 + 1').isOk()).toBe(true);
+    expect(FormulaExpression.create(123).isErr()).toBe(true);
   });
 
   it('extracts referenced field ids', () => {
@@ -31,7 +31,7 @@ describe('FormulaExpression', () => {
     const expression = FormulaExpression.create('{badField} + 1');
     const expressionValue = expression._unsafeUnwrap();
     const refsResult = expressionValue.getReferencedFieldIds();
-    refsResult._unsafeUnwrapErr();
+    expect(refsResult.isErr()).toBe(true);
   });
 
   it('infers value types from dependencies', () => {

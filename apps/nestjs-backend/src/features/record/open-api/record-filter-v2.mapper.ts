@@ -2,7 +2,6 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { CellValueType, FieldType, isMeTag } from '@teable/core';
 import {
-  domainError,
   type DomainError,
   type RecordFilter,
   type RecordFilterDateValue,

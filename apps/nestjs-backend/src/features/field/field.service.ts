@@ -61,7 +61,7 @@ type IOpContext = ISetFieldPropertyOpContext;
 
 @Injectable()
 export class FieldService implements IReadonlyAdapterService {
-  private logger = new Logger(FieldService.name);
+  private readonly logger = new Logger(FieldService.name);
   constructor(
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
@@ -116,7 +116,7 @@ export class FieldService implements IReadonlyAdapterService {
     const reservedNames = await this.getReservedDbFieldNames(tableId, routingOptions);
     // fallback logic
     if (reservedNames.has(dbFieldName)) {
-      dbFieldName += new Date().getTime();
+      dbFieldName += Date.now();
     }
     return dbFieldName;
   }
@@ -131,7 +131,7 @@ export class FieldService implements IReadonlyAdapterService {
       .map((name) => convertNameToValidCharacter(name, 40))
       .map((dbFieldName) => {
         if (reservedNames.has(dbFieldName)) {
-          dbFieldName += new Date().getTime();
+          dbFieldName += Date.now();
         }
         reservedNames.add(dbFieldName);
         return dbFieldName;
@@ -1211,7 +1211,7 @@ export class FieldService implements IReadonlyAdapterService {
       data: data.ops,
     }));
 
-    await this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Field, dataList);
+    this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Field, dataList);
   }
 
   async batchDeleteFields(
@@ -1246,7 +1246,7 @@ export class FieldService implements IReadonlyAdapterService {
       version: fieldRawMap[fieldId].version,
     }));
 
-    await this.batchService.saveRawOps(tableId, RawOpType.Del, IdPrefix.Field, dataList);
+    this.batchService.saveRawOps(tableId, RawOpType.Del, IdPrefix.Field, dataList);
 
     await this.deleteMany(
       tableId,
@@ -1278,7 +1278,7 @@ export class FieldService implements IReadonlyAdapterService {
     // 2. save field meta in db
     await this.dbCreateMultipleField(tableId, fields);
 
-    await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Field, dataList);
+    this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Field, dataList);
   }
 
   // write field at once database operation
@@ -1300,7 +1300,7 @@ export class FieldService implements IReadonlyAdapterService {
     // 2. save field meta in db
     await this.dbCreateMultipleFields(tableId, fields);
 
-    await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Field, dataList);
+    this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Field, dataList);
   }
 
   async create(tableId: string, snapshot: IFieldVo) {

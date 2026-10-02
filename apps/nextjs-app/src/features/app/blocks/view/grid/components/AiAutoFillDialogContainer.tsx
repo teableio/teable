@@ -67,7 +67,7 @@ export const AiAutoFillDialogContainer = forwardRef<
         if (aggregations && aggregations.length > 0) {
           const parseValue = (value: string | number | null | undefined): number | undefined => {
             if (value == null) return undefined;
-            return typeof value === 'string' ? parseInt(value, 10) : value;
+            return typeof value === 'string' ? Number.parseInt(value, 10) : value;
           };
 
           const emptyAgg = aggregations.find(

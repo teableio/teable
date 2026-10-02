@@ -13,7 +13,8 @@ export type IResetTrashItemsRo = z.infer<typeof resetTrashItemsRoSchema>;
 export const ResetTrashItemsRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: RESET_TRASH_ITEMS,
-  description: 'Reset trash items for a base or table',
+  title: 'Clear project or table trash',
+  description: 'Clear trash items for the specified project or table.',
   request: {
     query: resetTrashItemsRoSchema,
   },

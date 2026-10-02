@@ -5,7 +5,6 @@ import { z } from 'zod';
 import type { IDomainEventDto } from '../shared/domainEvent';
 import { domainEventDtoSchema, mapDomainEventToDto } from '../shared/domainEvent';
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type HttpErrorStatus,
   type IApiErrorResponseDto,
@@ -38,7 +37,7 @@ export const createBaseResponseDataSchema = z.object({
 
 export const createBaseOkResponseSchema = apiOkResponseDtoSchema(createBaseResponseDataSchema);
 
-export const createBaseErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as createBaseErrorResponseSchema } from '../shared/http';
 
 export const mapCreateBaseResultToDto = (
   result: CreateBaseResult

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { PassThrough } from 'stream';
-import { text } from 'stream/consumers';
+import { PassThrough } from 'node:stream';
+import { text } from 'node:stream/consumers';
 import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -84,7 +84,7 @@ export interface IChunkImportResult {
 export class ImportTableCsvQueueProcessor extends WorkerHost {
   public static readonly JOB_ID_PREFIX = 'import-table-csv';
 
-  private logger = new Logger(ImportTableCsvQueueProcessor.name);
+  private readonly logger = new Logger(ImportTableCsvQueueProcessor.name);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private presences: LocalPresence<any>[] = [];
 
@@ -479,7 +479,7 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
     fieldIdToName: Map<string, string>,
     fieldIdToType: Map<string, FieldType>
   ): string[] {
-    const valueMatch = rawMessage.match(/"([^"]+)"/);
+    const valueMatch = /"([^"]+)"/.exec(rawMessage);
     const errorValue = valueMatch?.[1] ?? '';
 
     const dateEntries = Object.entries(recordFields).filter(([fieldId]) =>

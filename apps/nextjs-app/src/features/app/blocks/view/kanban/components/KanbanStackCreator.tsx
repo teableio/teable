@@ -17,7 +17,7 @@ export const KanbanStackCreator = () => {
 
   const [open, setOpen] = useState(false);
   const [choice, setChoice] = useState<ISelectFieldChoice | null>();
-  const inputRef = useRef<HTMLInputElement | null>();
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const onToggle = () => {
     const existColors = choices.map((v) => v.color);

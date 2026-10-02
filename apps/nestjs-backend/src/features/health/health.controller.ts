@@ -6,7 +6,7 @@ import { Public } from '../auth/decorators/public.decorator';
 @Controller('health')
 @Public()
 export class HealthController {
-  private logger = new Logger(HealthController.name);
+  private readonly logger = new Logger(HealthController.name);
   constructor(
     private readonly health: HealthCheckService,
     private readonly db: PrismaHealthIndicator,
@@ -15,9 +15,9 @@ export class HealthController {
 
   @Get()
   @HealthCheck()
-  check() {
+  async check() {
     try {
-      return this.health.check([() => this.db.pingCheck('metaDatabase', this.prismaService)]);
+      return await this.health.check([() => this.db.pingCheck('metaDatabase', this.prismaService)]);
     } catch (error) {
       this.logger.error(error);
       throw error;

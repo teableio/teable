@@ -36,4 +36,27 @@ describe('computedOutboxTriggerConfig', () => {
 
     expect(computedOutboxTriggerConfig().monitorIntervalMs).toBe(45_000);
   });
+
+  it('serializes computed tasks from the same seed table by default', () => {
+    const config = computedOutboxTriggerConfig();
+
+    expect(config.claimConcurrencyPerBase).toBe(2);
+    expect(config.claimConcurrencyPerSeedTable).toBe(1);
+  });
+
+  it('allows an explicit per-seed concurrency override', () => {
+    vi.stubEnv('V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_SEED_TABLE', '2');
+
+    expect(computedOutboxTriggerConfig().claimConcurrencyPerSeedTable).toBe(2);
+  });
+});
+
+it('reserves shared process capacity with two compute workers by default', () => {
+  vi.stubEnv('V2_COMPUTED_OUTBOX_TRIGGER_CONCURRENCY', undefined);
+  expect(computedOutboxTriggerConfig().concurrency).toBe(2);
+});
+
+it('honors an explicit computed worker concurrency', () => {
+  vi.stubEnv('V2_COMPUTED_OUTBOX_TRIGGER_CONCURRENCY', '6');
+  expect(computedOutboxTriggerConfig().concurrency).toBe(6);
 });

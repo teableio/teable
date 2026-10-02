@@ -3,7 +3,7 @@ import { createContext, useContext, useMemo } from 'react';
 
 export type StaticTextRegistry = Record<string, Record<string, string>>;
 
-export type StaticTextResolver = (domain: string, key: string) => unknown | undefined;
+export type StaticTextResolver = (domain: string, key: string) => unknown;
 
 type StaticTextContextValue = {
   registry: StaticTextRegistry;

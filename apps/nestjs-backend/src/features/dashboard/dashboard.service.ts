@@ -26,6 +26,7 @@ import type {
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
+import { AuditScope } from '../audit/audit-scope';
 import { BaseImportService } from '../base/base-import.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 
@@ -35,7 +36,8 @@ export class DashboardService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
-    private readonly baseImportService: BaseImportService
+    private readonly baseImportService: BaseImportService,
+    private readonly audit: AuditScope
   ) {}
 
   async getDashboard(baseId: string): Promise<IGetDashboardListVo> {
@@ -226,7 +228,7 @@ export class DashboardService {
     const userId = this.cls.get('user.id');
     await this.validatePluginPublished(baseId, ro.pluginId);
 
-    return this.prismaService.$tx(async () => {
+    const installed = await this.prismaService.$tx(async () => {
       const newInstallPlugin = await this.prismaService.txClient().pluginInstall.create({
         data: {
           id: generatePluginInstallId(),
@@ -305,6 +307,18 @@ export class DashboardService {
         name: ro.name,
       };
     });
+    await this.audit.emitAtomic({
+      action: 'plugin.install',
+      resourceId: installed.pluginInstallId,
+      params: {
+        pluginId: installed.pluginId,
+        name: installed.name,
+        location: PluginPosition.Dashboard,
+        baseId,
+        dashboardId: id,
+      },
+    });
+    return installed;
   }
 
   private async validateDashboard(baseId: string, dashboardId: string) {
@@ -326,8 +340,8 @@ export class DashboardService {
   }
 
   async removePlugin(baseId: string, dashboardId: string, pluginInstallId: string) {
-    return this.prismaService.$tx(async () => {
-      await this.prismaService
+    const removed = await this.prismaService.$tx(async () => {
+      const pluginInstall = await this.prismaService
         .txClient()
         .pluginInstall.delete({
           where: {
@@ -377,6 +391,18 @@ export class DashboardService {
           },
         });
       }
+      return pluginInstall;
+    });
+    await this.audit.emitAtomic({
+      action: 'plugin.uninstall',
+      resourceId: pluginInstallId,
+      params: {
+        pluginId: removed.pluginId,
+        name: removed.name,
+        location: PluginPosition.Dashboard,
+        baseId,
+        dashboardId,
+      },
     });
   }
 

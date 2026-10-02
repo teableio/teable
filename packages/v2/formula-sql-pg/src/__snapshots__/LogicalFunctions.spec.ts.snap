@@ -15,11 +15,11 @@ exports[`logical functions > 'And' with 'attachment' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_1" AS MATERIALIZED (SELECT ((CASE
           WHEN COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
           WHEN jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
           ELSE TRUE
-        END) AND COALESCE(TRUE, FALSE))",
+        END) AND COALESCE(TRUE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -57,12 +57,12 @@ exports[`logical functions > 'And' with 'button' 1`] = `
     },
   },
   "result": "false",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
       WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
       WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) AND COALESCE(TRUE, FALSE))",
+    END) AND COALESCE(TRUE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -110,7 +110,7 @@ exports[`logical functions > 'And' with 'conditionalLookup' 1`] = `
     },
   },
   "result": "false",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
           WHEN (SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
@@ -178,7 +178,7 @@ exports[`logical functions > 'And' with 'conditionalLookup' 1`] = `
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) > 0
           ELSE TRUE
-        END) AND COALESCE(TRUE, FALSE))",
+        END) AND COALESCE(TRUE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -219,24 +219,16 @@ exports[`logical functions > 'And' with 'createdBy' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
-      WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END) IS NULL THEN FALSE
-      WHEN BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END))::text) = '' THEN FALSE
-      WHEN LOWER(BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END))::text)) IN ('false','0','no','off','null') THEN FALSE
+  END) AS value), "__formula_1" AS MATERIALIZED (SELECT ((CASE
+      WHEN (SELECT value FROM "__formula_0") IS NULL THEN FALSE
+      WHEN BTRIM(((SELECT value FROM "__formula_0"))::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM(((SELECT value FROM "__formula_0"))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) AND COALESCE(TRUE, FALSE))",
+    END) AND COALESCE(TRUE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -259,12 +251,12 @@ exports[`logical functions > 'And' with 'createdTime' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
       WHEN TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
       WHEN BTRIM((TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) AND COALESCE(TRUE, FALSE))",
+    END) AND COALESCE(TRUE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -287,12 +279,12 @@ exports[`logical functions > 'And' with 'date' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
       WHEN TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
       WHEN BTRIM((TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) AND COALESCE(TRUE, FALSE))",
+    END) AND COALESCE(TRUE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -333,24 +325,16 @@ exports[`logical functions > 'And' with 'lastModifiedBy' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
-      WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END) IS NULL THEN FALSE
-      WHEN BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END))::text) = '' THEN FALSE
-      WHEN LOWER(BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END))::text)) IN ('false','0','no','off','null') THEN FALSE
+  END) AS value), "__formula_1" AS MATERIALIZED (SELECT ((CASE
+      WHEN (SELECT value FROM "__formula_0") IS NULL THEN FALSE
+      WHEN BTRIM(((SELECT value FROM "__formula_0"))::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM(((SELECT value FROM "__formula_0"))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) AND COALESCE(TRUE, FALSE))",
+    END) AND COALESCE(TRUE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -373,12 +357,12 @@ exports[`logical functions > 'And' with 'lastModifiedTime' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
       WHEN TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
       WHEN BTRIM((TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) AND COALESCE(TRUE, FALSE))",
+    END) AND COALESCE(TRUE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -397,12 +381,12 @@ exports[`logical functions > 'And' with 'link' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
       WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NULL THEN FALSE
       WHEN BTRIM((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) AND COALESCE(TRUE, FALSE))",
+    END) AND COALESCE(TRUE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -452,7 +436,7 @@ exports[`logical functions > 'And' with 'lookup' 1`] = `
     },
   },
   "result": "false",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
           WHEN (SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
@@ -520,7 +504,7 @@ exports[`logical functions > 'And' with 'lookup' 1`] = `
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) > 0
           ELSE TRUE
-        END) AND COALESCE(TRUE, FALSE))",
+        END) AND COALESCE(TRUE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -539,11 +523,11 @@ exports[`logical functions > 'And' with 'multipleSelect' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
           WHEN COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
           WHEN jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
           ELSE TRUE
-        END) AND COALESCE(TRUE, FALSE))",
+        END) AND COALESCE(TRUE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -625,12 +609,12 @@ exports[`logical functions > 'And' with 'singleLineText' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
       WHEN "t"."SingleLineText" IS NULL THEN FALSE
       WHEN BTRIM(("t"."SingleLineText")::text) = '' THEN FALSE
       WHEN LOWER(BTRIM(("t"."SingleLineText")::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) AND COALESCE(TRUE, FALSE))",
+    END) AND COALESCE(TRUE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -649,12 +633,12 @@ exports[`logical functions > 'And' with 'singleSelect' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
       WHEN "t"."SingleSelect" IS NULL THEN FALSE
       WHEN BTRIM(("t"."SingleSelect")::text) = '' THEN FALSE
       WHEN LOWER(BTRIM(("t"."SingleSelect")::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) AND COALESCE(TRUE, FALSE))",
+    END) AND COALESCE(TRUE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -673,11 +657,11 @@ exports[`logical functions > 'And' with 'user' 1`] = `
     },
   },
   "result": "false",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
           WHEN COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
           WHEN jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
           ELSE TRUE
-        END) AND COALESCE(TRUE, FALSE))",
+        END) AND COALESCE(TRUE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -715,7 +699,7 @@ exports[`logical functions > 'Compare' handles constant formula 1`] = `
     },
   },
   "result": "true",
-  "sql": "(CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE
       WHEN ((SELECT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) FROM (SELECT "t"."SingleLineText" AS val) AS v) OR ("t"."SingleLineText" IS NULL)) AND ((SELECT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) FROM (SELECT ("t"."Number")::text AS val) AS v) OR (("t"."Number")::text IS NULL)) THEN (COALESCE((SELECT (CASE
         WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
         WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
@@ -726,7 +710,7 @@ exports[`logical functions > 'Compare' handles constant formula 1`] = `
         ELSE NULL
       END) FROM (SELECT ("t"."Number")::text AS val) AS v), 0))
       ELSE (COALESCE("t"."SingleLineText", '') = COALESCE(("t"."Number")::text, ''))
-    END)",
+    END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -755,11 +739,11 @@ exports[`logical functions > 'If' with 'attachment' 1`] = `
     },
   },
   "result": "yes",
-  "sql": "(CASE WHEN (CASE
+  "sql": "(WITH "__formula_1" AS MATERIALIZED (SELECT (CASE WHEN (CASE
           WHEN COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
           WHEN jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
           ELSE TRUE
-        END) THEN 'yes' ELSE 'no' END)",
+        END) THEN 'yes' ELSE 'no' END) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -797,12 +781,12 @@ exports[`logical functions > 'If' with 'button' 1`] = `
     },
   },
   "result": "no",
-  "sql": "(CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN (CASE
       WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
       WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 'yes' ELSE 'no' END)",
+    END) THEN 'yes' ELSE 'no' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -850,7 +834,7 @@ exports[`logical functions > 'If' with 'conditionalLookup' 1`] = `
     },
   },
   "result": "no",
-  "sql": "(CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN (CASE
           WHEN (SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
@@ -918,7 +902,7 @@ exports[`logical functions > 'If' with 'conditionalLookup' 1`] = `
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) > 0
           ELSE TRUE
-        END) THEN 'yes' ELSE 'no' END)",
+        END) THEN 'yes' ELSE 'no' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -959,24 +943,16 @@ exports[`logical functions > 'If' with 'createdBy' 1`] = `
     },
   },
   "result": "yes",
-  "sql": "(CASE WHEN (CASE
-      WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END) IS NULL THEN FALSE
-      WHEN BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END))::text) = '' THEN FALSE
-      WHEN LOWER(BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END))::text)) IN ('false','0','no','off','null') THEN FALSE
+  END) AS value), "__formula_1" AS MATERIALIZED (SELECT (CASE WHEN (CASE
+      WHEN (SELECT value FROM "__formula_0") IS NULL THEN FALSE
+      WHEN BTRIM(((SELECT value FROM "__formula_0"))::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM(((SELECT value FROM "__formula_0"))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 'yes' ELSE 'no' END)",
+    END) THEN 'yes' ELSE 'no' END) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -999,12 +975,12 @@ exports[`logical functions > 'If' with 'createdTime' 1`] = `
     },
   },
   "result": "yes",
-  "sql": "(CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN (CASE
       WHEN TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
       WHEN BTRIM((TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 'yes' ELSE 'no' END)",
+    END) THEN 'yes' ELSE 'no' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1027,12 +1003,12 @@ exports[`logical functions > 'If' with 'date' 1`] = `
     },
   },
   "result": "yes",
-  "sql": "(CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN (CASE
       WHEN TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
       WHEN BTRIM((TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 'yes' ELSE 'no' END)",
+    END) THEN 'yes' ELSE 'no' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1073,24 +1049,16 @@ exports[`logical functions > 'If' with 'lastModifiedBy' 1`] = `
     },
   },
   "result": "yes",
-  "sql": "(CASE WHEN (CASE
-      WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END) IS NULL THEN FALSE
-      WHEN BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END))::text) = '' THEN FALSE
-      WHEN LOWER(BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END))::text)) IN ('false','0','no','off','null') THEN FALSE
+  END) AS value), "__formula_1" AS MATERIALIZED (SELECT (CASE WHEN (CASE
+      WHEN (SELECT value FROM "__formula_0") IS NULL THEN FALSE
+      WHEN BTRIM(((SELECT value FROM "__formula_0"))::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM(((SELECT value FROM "__formula_0"))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 'yes' ELSE 'no' END)",
+    END) THEN 'yes' ELSE 'no' END) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -1113,12 +1081,12 @@ exports[`logical functions > 'If' with 'lastModifiedTime' 1`] = `
     },
   },
   "result": "yes",
-  "sql": "(CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN (CASE
       WHEN TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
       WHEN BTRIM((TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 'yes' ELSE 'no' END)",
+    END) THEN 'yes' ELSE 'no' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1137,12 +1105,12 @@ exports[`logical functions > 'If' with 'link' 1`] = `
     },
   },
   "result": "yes",
-  "sql": "(CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN (CASE
       WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NULL THEN FALSE
       WHEN BTRIM((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 'yes' ELSE 'no' END)",
+    END) THEN 'yes' ELSE 'no' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1161,12 +1129,12 @@ exports[`logical functions > 'If' with 'longText' 1`] = `
     },
   },
   "result": "yes",
-  "sql": "(CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN (CASE
       WHEN "t"."LongText" IS NULL THEN FALSE
       WHEN BTRIM(("t"."LongText")::text) = '' THEN FALSE
       WHEN LOWER(BTRIM(("t"."LongText")::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 'yes' ELSE 'no' END)",
+    END) THEN 'yes' ELSE 'no' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1192,7 +1160,7 @@ exports[`logical functions > 'If' with 'lookup' 1`] = `
     },
   },
   "result": "no",
-  "sql": "(CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN (CASE
           WHEN (SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
@@ -1260,7 +1228,7 @@ exports[`logical functions > 'If' with 'lookup' 1`] = `
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) > 0
           ELSE TRUE
-        END) THEN 'yes' ELSE 'no' END)",
+        END) THEN 'yes' ELSE 'no' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1279,11 +1247,11 @@ exports[`logical functions > 'If' with 'multipleSelect' 1`] = `
     },
   },
   "result": "yes",
-  "sql": "(CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN (CASE
           WHEN COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
           WHEN jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
           ELSE TRUE
-        END) THEN 'yes' ELSE 'no' END)",
+        END) THEN 'yes' ELSE 'no' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1365,12 +1333,12 @@ exports[`logical functions > 'If' with 'singleLineText' 1`] = `
     },
   },
   "result": "yes",
-  "sql": "(CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN (CASE
       WHEN "t"."SingleLineText" IS NULL THEN FALSE
       WHEN BTRIM(("t"."SingleLineText")::text) = '' THEN FALSE
       WHEN LOWER(BTRIM(("t"."SingleLineText")::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 'yes' ELSE 'no' END)",
+    END) THEN 'yes' ELSE 'no' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1389,12 +1357,12 @@ exports[`logical functions > 'If' with 'singleSelect' 1`] = `
     },
   },
   "result": "yes",
-  "sql": "(CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN (CASE
       WHEN "t"."SingleSelect" IS NULL THEN FALSE
       WHEN BTRIM(("t"."SingleSelect")::text) = '' THEN FALSE
       WHEN LOWER(BTRIM(("t"."SingleSelect")::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 'yes' ELSE 'no' END)",
+    END) THEN 'yes' ELSE 'no' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1413,11 +1381,11 @@ exports[`logical functions > 'If' with 'user' 1`] = `
     },
   },
   "result": "no",
-  "sql": "(CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN (CASE
           WHEN COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
           WHEN jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
           ELSE TRUE
-        END) THEN 'yes' ELSE 'no' END)",
+        END) THEN 'yes' ELSE 'no' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1436,10 +1404,10 @@ exports[`logical functions > 'IsError' with 'attachment' 1`] = `
     },
   },
   "result": "false",
-  "sql": "((
+  "sql": "(WITH "__formula_1" AS MATERIALIZED (SELECT COALESCE(((
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    ) LIKE '#ERROR:%')",
+    ) LIKE '#ERROR:%'), FALSE) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -1458,7 +1426,7 @@ exports[`logical functions > 'IsError' with 'autoNumber' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(("t"."AutoNumber")::text LIKE '#ERROR:%')",
+  "sql": "COALESCE((("t"."AutoNumber")::text LIKE '#ERROR:%'), FALSE)",
 }
 `;
 
@@ -1476,8 +1444,8 @@ exports[`logical functions > 'IsError' with 'button' 1`] = `
       "rawValue": null,
     },
   },
-  "result": null,
-  "sql": "(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') LIKE '#ERROR:%')",
+  "result": "false",
+  "sql": "COALESCE((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') LIKE '#ERROR:%'), FALSE)",
 }
 `;
 
@@ -1496,7 +1464,7 @@ exports[`logical functions > 'IsError' with 'checkbox' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(("t"."Checkbox")::text LIKE '#ERROR:%')",
+  "sql": "COALESCE((("t"."Checkbox")::text LIKE '#ERROR:%'), FALSE)",
 }
 `;
 
@@ -1524,8 +1492,8 @@ exports[`logical functions > 'IsError' with 'conditionalLookup' 1`] = `
       "rawValue": null,
     },
   },
-  "result": null,
-  "sql": "((
+  "result": "false",
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(((
       SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
       FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -1544,7 +1512,7 @@ exports[`logical functions > 'IsError' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-    ) LIKE '#ERROR:%')",
+    ) LIKE '#ERROR:%'), FALSE) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1565,8 +1533,8 @@ exports[`logical functions > 'IsError' with 'conditionalRollup' 1`] = `
       "rawValue": null,
     },
   },
-  "result": null,
-  "sql": "(trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00')) LIKE '#ERROR:%')",
+  "result": "false",
+  "sql": "COALESCE((trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00')) LIKE '#ERROR:%'), FALSE)",
 }
 `;
 
@@ -1585,11 +1553,11 @@ exports[`logical functions > 'IsError' with 'createdBy' 1`] = `
     },
   },
   "result": "false",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END) LIKE '#ERROR:%')",
+  END) AS value) SELECT COALESCE(((SELECT value FROM "__formula_0") LIKE '#ERROR:%'), FALSE))",
 }
 `;
 
@@ -1612,7 +1580,7 @@ exports[`logical functions > 'IsError' with 'createdTime' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') LIKE '#ERROR:%')",
+  "sql": "COALESCE((TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') LIKE '#ERROR:%'), FALSE)",
 }
 `;
 
@@ -1635,7 +1603,7 @@ exports[`logical functions > 'IsError' with 'date' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') LIKE '#ERROR:%')",
+  "sql": "COALESCE((TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') LIKE '#ERROR:%'), FALSE)",
 }
 `;
 
@@ -1657,7 +1625,7 @@ exports[`logical functions > 'IsError' with 'formula' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(trim(to_char((10)::numeric, '999999990D00')) LIKE '#ERROR:%')",
+  "sql": "COALESCE((trim(to_char((10)::numeric, '999999990D00')) LIKE '#ERROR:%'), FALSE)",
 }
 `;
 
@@ -1676,11 +1644,11 @@ exports[`logical functions > 'IsError' with 'lastModifiedBy' 1`] = `
     },
   },
   "result": "false",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END) LIKE '#ERROR:%')",
+  END) AS value) SELECT COALESCE(((SELECT value FROM "__formula_0") LIKE '#ERROR:%'), FALSE))",
 }
 `;
 
@@ -1703,7 +1671,7 @@ exports[`logical functions > 'IsError' with 'lastModifiedTime' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') LIKE '#ERROR:%')",
+  "sql": "COALESCE((TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') LIKE '#ERROR:%'), FALSE)",
 }
 `;
 
@@ -1722,7 +1690,7 @@ exports[`logical functions > 'IsError' with 'link' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') LIKE '#ERROR:%')",
+  "sql": "COALESCE((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') LIKE '#ERROR:%'), FALSE)",
 }
 `;
 
@@ -1741,7 +1709,7 @@ exports[`logical functions > 'IsError' with 'longText' 1`] = `
     },
   },
   "result": "false",
-  "sql": "("t"."LongText" LIKE '#ERROR:%')",
+  "sql": "COALESCE(("t"."LongText" LIKE '#ERROR:%'), FALSE)",
 }
 `;
 
@@ -1766,8 +1734,8 @@ exports[`logical functions > 'IsError' with 'lookup' 1`] = `
       "rawValue": null,
     },
   },
-  "result": null,
-  "sql": "((
+  "result": "false",
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -1786,7 +1754,7 @@ exports[`logical functions > 'IsError' with 'lookup' 1`] = `
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-    ) LIKE '#ERROR:%')",
+    ) LIKE '#ERROR:%'), FALSE) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1805,10 +1773,10 @@ exports[`logical functions > 'IsError' with 'multipleSelect' 1`] = `
     },
   },
   "result": "false",
-  "sql": "((
+  "sql": "COALESCE(((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    ) LIKE '#ERROR:%')",
+    ) LIKE '#ERROR:%'), FALSE)",
 }
 `;
 
@@ -1830,7 +1798,7 @@ exports[`logical functions > 'IsError' with 'number' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(trim(to_char(("t"."Number")::numeric, '999999990D00')) LIKE '#ERROR:%')",
+  "sql": "COALESCE((trim(to_char(("t"."Number")::numeric, '999999990D00')) LIKE '#ERROR:%'), FALSE)",
 }
 `;
 
@@ -1849,7 +1817,7 @@ exports[`logical functions > 'IsError' with 'rating' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(("t"."Rating")::text LIKE '#ERROR:%')",
+  "sql": "COALESCE((("t"."Rating")::text LIKE '#ERROR:%'), FALSE)",
 }
 `;
 
@@ -1870,8 +1838,8 @@ exports[`logical functions > 'IsError' with 'rollup' 1`] = `
       "rawValue": null,
     },
   },
-  "result": null,
-  "sql": "(trim(to_char(("t"."RollupType")::numeric, '999999990D00')) LIKE '#ERROR:%')",
+  "result": "false",
+  "sql": "COALESCE((trim(to_char(("t"."RollupType")::numeric, '999999990D00')) LIKE '#ERROR:%'), FALSE)",
 }
 `;
 
@@ -1890,7 +1858,7 @@ exports[`logical functions > 'IsError' with 'singleLineText' 1`] = `
     },
   },
   "result": "false",
-  "sql": "("t"."SingleLineText" LIKE '#ERROR:%')",
+  "sql": "COALESCE(("t"."SingleLineText" LIKE '#ERROR:%'), FALSE)",
 }
 `;
 
@@ -1909,7 +1877,7 @@ exports[`logical functions > 'IsError' with 'singleSelect' 1`] = `
     },
   },
   "result": "false",
-  "sql": "("t"."SingleSelect" LIKE '#ERROR:%')",
+  "sql": "COALESCE(("t"."SingleSelect" LIKE '#ERROR:%'), FALSE)",
 }
 `;
 
@@ -1927,11 +1895,11 @@ exports[`logical functions > 'IsError' with 'user' 1`] = `
       "rawValue": null,
     },
   },
-  "result": null,
-  "sql": "((
+  "result": "false",
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT COALESCE(((
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    ) LIKE '#ERROR:%')",
+    ) LIKE '#ERROR:%'), FALSE) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -1950,11 +1918,11 @@ exports[`logical functions > 'Not' with 'attachment' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(NOT (CASE
+  "sql": "(WITH "__formula_1" AS MATERIALIZED (SELECT (NOT (CASE
           WHEN COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
           WHEN jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
           ELSE TRUE
-        END))",
+        END)) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -1992,12 +1960,12 @@ exports[`logical functions > 'Not' with 'button' 1`] = `
     },
   },
   "result": "true",
-  "sql": "(NOT (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (NOT (CASE
       WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
       WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END))",
+    END)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2045,7 +2013,7 @@ exports[`logical functions > 'Not' with 'conditionalLookup' 1`] = `
     },
   },
   "result": "true",
-  "sql": "(NOT (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (NOT (CASE
           WHEN (SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
@@ -2113,7 +2081,7 @@ exports[`logical functions > 'Not' with 'conditionalLookup' 1`] = `
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) > 0
           ELSE TRUE
-        END))",
+        END)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2154,24 +2122,16 @@ exports[`logical functions > 'Not' with 'createdBy' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(NOT (CASE
-      WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END) IS NULL THEN FALSE
-      WHEN BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END))::text) = '' THEN FALSE
-      WHEN LOWER(BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END))::text)) IN ('false','0','no','off','null') THEN FALSE
+  END) AS value), "__formula_1" AS MATERIALIZED (SELECT (NOT (CASE
+      WHEN (SELECT value FROM "__formula_0") IS NULL THEN FALSE
+      WHEN BTRIM(((SELECT value FROM "__formula_0"))::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM(((SELECT value FROM "__formula_0"))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END))",
+    END)) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -2194,12 +2154,12 @@ exports[`logical functions > 'Not' with 'createdTime' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(NOT (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (NOT (CASE
       WHEN TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
       WHEN BTRIM((TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END))",
+    END)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2222,12 +2182,12 @@ exports[`logical functions > 'Not' with 'date' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(NOT (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (NOT (CASE
       WHEN TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
       WHEN BTRIM((TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END))",
+    END)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2268,24 +2228,16 @@ exports[`logical functions > 'Not' with 'lastModifiedBy' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(NOT (CASE
-      WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END) IS NULL THEN FALSE
-      WHEN BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END))::text) = '' THEN FALSE
-      WHEN LOWER(BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END))::text)) IN ('false','0','no','off','null') THEN FALSE
+  END) AS value), "__formula_1" AS MATERIALIZED (SELECT (NOT (CASE
+      WHEN (SELECT value FROM "__formula_0") IS NULL THEN FALSE
+      WHEN BTRIM(((SELECT value FROM "__formula_0"))::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM(((SELECT value FROM "__formula_0"))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END))",
+    END)) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -2308,12 +2260,12 @@ exports[`logical functions > 'Not' with 'lastModifiedTime' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(NOT (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (NOT (CASE
       WHEN TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
       WHEN BTRIM((TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END))",
+    END)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2332,12 +2284,12 @@ exports[`logical functions > 'Not' with 'link' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(NOT (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (NOT (CASE
       WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NULL THEN FALSE
       WHEN BTRIM((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END))",
+    END)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2387,7 +2339,7 @@ exports[`logical functions > 'Not' with 'lookup' 1`] = `
     },
   },
   "result": "true",
-  "sql": "(NOT (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (NOT (CASE
           WHEN (SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
@@ -2455,7 +2407,7 @@ exports[`logical functions > 'Not' with 'lookup' 1`] = `
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) > 0
           ELSE TRUE
-        END))",
+        END)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2474,11 +2426,11 @@ exports[`logical functions > 'Not' with 'multipleSelect' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(NOT (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (NOT (CASE
           WHEN COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
           WHEN jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
           ELSE TRUE
-        END))",
+        END)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2608,11 +2560,11 @@ exports[`logical functions > 'Not' with 'user' 1`] = `
     },
   },
   "result": "true",
-  "sql": "(NOT (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (NOT (CASE
           WHEN COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
           WHEN jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
           ELSE TRUE
-        END))",
+        END)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2631,11 +2583,11 @@ exports[`logical functions > 'Or' with 'attachment' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_1" AS MATERIALIZED (SELECT ((CASE
           WHEN COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
           WHEN jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
           ELSE TRUE
-        END) OR COALESCE(FALSE, FALSE))",
+        END) OR COALESCE(FALSE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -2673,12 +2625,12 @@ exports[`logical functions > 'Or' with 'button' 1`] = `
     },
   },
   "result": "false",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
       WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
       WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) OR COALESCE(FALSE, FALSE))",
+    END) OR COALESCE(FALSE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2726,7 +2678,7 @@ exports[`logical functions > 'Or' with 'conditionalLookup' 1`] = `
     },
   },
   "result": "false",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
           WHEN (SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
@@ -2794,7 +2746,7 @@ exports[`logical functions > 'Or' with 'conditionalLookup' 1`] = `
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) > 0
           ELSE TRUE
-        END) OR COALESCE(FALSE, FALSE))",
+        END) OR COALESCE(FALSE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2835,24 +2787,16 @@ exports[`logical functions > 'Or' with 'createdBy' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
-      WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END) IS NULL THEN FALSE
-      WHEN BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END))::text) = '' THEN FALSE
-      WHEN LOWER(BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END))::text)) IN ('false','0','no','off','null') THEN FALSE
+  END) AS value), "__formula_1" AS MATERIALIZED (SELECT ((CASE
+      WHEN (SELECT value FROM "__formula_0") IS NULL THEN FALSE
+      WHEN BTRIM(((SELECT value FROM "__formula_0"))::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM(((SELECT value FROM "__formula_0"))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) OR COALESCE(FALSE, FALSE))",
+    END) OR COALESCE(FALSE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -2875,12 +2819,12 @@ exports[`logical functions > 'Or' with 'createdTime' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
       WHEN TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
       WHEN BTRIM((TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) OR COALESCE(FALSE, FALSE))",
+    END) OR COALESCE(FALSE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2903,12 +2847,12 @@ exports[`logical functions > 'Or' with 'date' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
       WHEN TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
       WHEN BTRIM((TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) OR COALESCE(FALSE, FALSE))",
+    END) OR COALESCE(FALSE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -2949,24 +2893,16 @@ exports[`logical functions > 'Or' with 'lastModifiedBy' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
-      WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END) IS NULL THEN FALSE
-      WHEN BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END))::text) = '' THEN FALSE
-      WHEN LOWER(BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END))::text)) IN ('false','0','no','off','null') THEN FALSE
+  END) AS value), "__formula_1" AS MATERIALIZED (SELECT ((CASE
+      WHEN (SELECT value FROM "__formula_0") IS NULL THEN FALSE
+      WHEN BTRIM(((SELECT value FROM "__formula_0"))::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM(((SELECT value FROM "__formula_0"))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) OR COALESCE(FALSE, FALSE))",
+    END) OR COALESCE(FALSE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -2989,12 +2925,12 @@ exports[`logical functions > 'Or' with 'lastModifiedTime' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
       WHEN TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
       WHEN BTRIM((TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) OR COALESCE(FALSE, FALSE))",
+    END) OR COALESCE(FALSE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3013,12 +2949,12 @@ exports[`logical functions > 'Or' with 'link' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
       WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NULL THEN FALSE
       WHEN BTRIM((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) OR COALESCE(FALSE, FALSE))",
+    END) OR COALESCE(FALSE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3068,7 +3004,7 @@ exports[`logical functions > 'Or' with 'lookup' 1`] = `
     },
   },
   "result": "false",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
           WHEN (SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
@@ -3136,7 +3072,7 @@ exports[`logical functions > 'Or' with 'lookup' 1`] = `
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) > 0
           ELSE TRUE
-        END) OR COALESCE(FALSE, FALSE))",
+        END) OR COALESCE(FALSE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3155,11 +3091,11 @@ exports[`logical functions > 'Or' with 'multipleSelect' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
           WHEN COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
           WHEN jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
           ELSE TRUE
-        END) OR COALESCE(FALSE, FALSE))",
+        END) OR COALESCE(FALSE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3241,12 +3177,12 @@ exports[`logical functions > 'Or' with 'singleLineText' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
       WHEN "t"."SingleLineText" IS NULL THEN FALSE
       WHEN BTRIM(("t"."SingleLineText")::text) = '' THEN FALSE
       WHEN LOWER(BTRIM(("t"."SingleLineText")::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) OR COALESCE(FALSE, FALSE))",
+    END) OR COALESCE(FALSE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3265,12 +3201,12 @@ exports[`logical functions > 'Or' with 'singleSelect' 1`] = `
     },
   },
   "result": "true",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
       WHEN "t"."SingleSelect" IS NULL THEN FALSE
       WHEN BTRIM(("t"."SingleSelect")::text) = '' THEN FALSE
       WHEN LOWER(BTRIM(("t"."SingleSelect")::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) OR COALESCE(FALSE, FALSE))",
+    END) OR COALESCE(FALSE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3289,11 +3225,11 @@ exports[`logical functions > 'Or' with 'user' 1`] = `
     },
   },
   "result": "false",
-  "sql": "((CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT ((CASE
           WHEN COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
           WHEN jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
           ELSE TRUE
-        END) OR COALESCE(FALSE, FALSE))",
+        END) OR COALESCE(FALSE, FALSE)) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3312,10 +3248,10 @@ exports[`logical functions > 'Switch' with 'attachment' 1`] = `
     },
   },
   "result": "other",
-  "sql": "(CASE WHEN (
+  "sql": "(WITH "__formula_1" AS MATERIALIZED (SELECT (CASE WHEN (
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    ) = (10)::text THEN 'ten' ELSE 'other' END)",
+    ) = (10)::text THEN 'ten' ELSE 'other' END) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -3401,7 +3337,7 @@ exports[`logical functions > 'Switch' with 'conditionalLookup' 1`] = `
     },
   },
   "result": "other",
-  "sql": "(CASE WHEN (
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN (
       SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
       FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -3420,7 +3356,7 @@ exports[`logical functions > 'Switch' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-    ) = (10)::text THEN 'ten' ELSE 'other' END)",
+    ) = (10)::text THEN 'ten' ELSE 'other' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3461,11 +3397,11 @@ exports[`logical functions > 'Switch' with 'createdBy' 1`] = `
     },
   },
   "result": "other",
-  "sql": "(CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END) = (10)::text THEN 'ten' ELSE 'other' END)",
+  END) AS value) SELECT (CASE WHEN (SELECT value FROM "__formula_0") = (10)::text THEN 'ten' ELSE 'other' END))",
 }
 `;
 
@@ -3552,11 +3488,11 @@ exports[`logical functions > 'Switch' with 'lastModifiedBy' 1`] = `
     },
   },
   "result": "other",
-  "sql": "(CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END) = (10)::text THEN 'ten' ELSE 'other' END)",
+  END) AS value) SELECT (CASE WHEN (SELECT value FROM "__formula_0") = (10)::text THEN 'ten' ELSE 'other' END))",
 }
 `;
 
@@ -3643,7 +3579,7 @@ exports[`logical functions > 'Switch' with 'lookup' 1`] = `
     },
   },
   "result": "other",
-  "sql": "(CASE WHEN (
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN (
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -3662,7 +3598,7 @@ exports[`logical functions > 'Switch' with 'lookup' 1`] = `
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-    ) = (10)::text THEN 'ten' ELSE 'other' END)",
+    ) = (10)::text THEN 'ten' ELSE 'other' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3681,10 +3617,10 @@ exports[`logical functions > 'Switch' with 'multipleSelect' 1`] = `
     },
   },
   "result": "other",
-  "sql": "(CASE WHEN (
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN (
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    ) = (10)::text THEN 'ten' ELSE 'other' END)",
+    ) = (10)::text THEN 'ten' ELSE 'other' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3804,10 +3740,10 @@ exports[`logical functions > 'Switch' with 'user' 1`] = `
     },
   },
   "result": "other",
-  "sql": "(CASE WHEN (
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE WHEN (
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    ) = (10)::text THEN 'ten' ELSE 'other' END)",
+    ) = (10)::text THEN 'ten' ELSE 'other' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3826,11 +3762,11 @@ exports[`logical functions > 'Xor' with 'attachment' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(((CASE WHEN (CASE
+  "sql": "(WITH "__formula_1" AS MATERIALIZED (SELECT (((CASE WHEN (CASE
           WHEN COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
           WHEN jsonb_typeof(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
           ELSE TRUE
-        END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+        END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -3868,12 +3804,12 @@ exports[`logical functions > 'Xor' with 'button' 1`] = `
     },
   },
   "result": "true",
-  "sql": "(((CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (((CASE WHEN (CASE
       WHEN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') IS NULL THEN FALSE
       WHEN BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -3921,7 +3857,7 @@ exports[`logical functions > 'Xor' with 'conditionalLookup' 1`] = `
     },
   },
   "result": "true",
-  "sql": "(((CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (((CASE WHEN (CASE
           WHEN (SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
@@ -3989,7 +3925,7 @@ exports[`logical functions > 'Xor' with 'conditionalLookup' 1`] = `
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) > 0
           ELSE TRUE
-        END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+        END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -4030,24 +3966,16 @@ exports[`logical functions > 'Xor' with 'createdBy' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(((CASE WHEN (CASE
-      WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END) IS NULL THEN FALSE
-      WHEN BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END))::text) = '' THEN FALSE
-      WHEN LOWER(BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END))::text)) IN ('false','0','no','off','null') THEN FALSE
+  END) AS value), "__formula_1" AS MATERIALIZED (SELECT (((CASE WHEN (CASE
+      WHEN (SELECT value FROM "__formula_0") IS NULL THEN FALSE
+      WHEN BTRIM(((SELECT value FROM "__formula_0"))::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM(((SELECT value FROM "__formula_0"))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -4070,12 +3998,12 @@ exports[`logical functions > 'Xor' with 'createdTime' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(((CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (((CASE WHEN (CASE
       WHEN TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
       WHEN BTRIM((TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -4098,12 +4026,12 @@ exports[`logical functions > 'Xor' with 'date' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(((CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (((CASE WHEN (CASE
       WHEN TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
       WHEN BTRIM((TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -4144,24 +4072,16 @@ exports[`logical functions > 'Xor' with 'lastModifiedBy' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(((CASE WHEN (CASE
-      WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (CASE
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END) IS NULL THEN FALSE
-      WHEN BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END))::text) = '' THEN FALSE
-      WHEN LOWER(BTRIM(((CASE
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
-    WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
-    ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END))::text)) IN ('false','0','no','off','null') THEN FALSE
+  END) AS value), "__formula_1" AS MATERIALIZED (SELECT (((CASE WHEN (CASE
+      WHEN (SELECT value FROM "__formula_0") IS NULL THEN FALSE
+      WHEN BTRIM(((SELECT value FROM "__formula_0"))::text) = '' THEN FALSE
+      WHEN LOWER(BTRIM(((SELECT value FROM "__formula_0"))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1) AS value) SELECT (SELECT value FROM "__formula_1"))",
 }
 `;
 
@@ -4184,12 +4104,12 @@ exports[`logical functions > 'Xor' with 'lastModifiedTime' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(((CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (((CASE WHEN (CASE
       WHEN TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') IS NULL THEN FALSE
       WHEN BTRIM((TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -4208,12 +4128,12 @@ exports[`logical functions > 'Xor' with 'link' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(((CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (((CASE WHEN (CASE
       WHEN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') IS NULL THEN FALSE
       WHEN BTRIM((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))::text) = '' THEN FALSE
       WHEN LOWER(BTRIM((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -4232,12 +4152,12 @@ exports[`logical functions > 'Xor' with 'longText' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(((CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (((CASE WHEN (CASE
       WHEN "t"."LongText" IS NULL THEN FALSE
       WHEN BTRIM(("t"."LongText")::text) = '' THEN FALSE
       WHEN LOWER(BTRIM(("t"."LongText")::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -4263,7 +4183,7 @@ exports[`logical functions > 'Xor' with 'lookup' 1`] = `
     },
   },
   "result": "true",
-  "sql": "(((CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (((CASE WHEN (CASE
           WHEN (SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
         WHEN jsonb_typeof(_lkp.v) = 'null' THEN '[]'::jsonb
@@ -4331,7 +4251,7 @@ exports[`logical functions > 'Xor' with 'lookup' 1`] = `
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) > 0
           ELSE TRUE
-        END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+        END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -4350,11 +4270,11 @@ exports[`logical functions > 'Xor' with 'multipleSelect' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(((CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (((CASE WHEN (CASE
           WHEN COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
           WHEN jsonb_typeof(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
           ELSE TRUE
-        END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+        END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -4436,12 +4356,12 @@ exports[`logical functions > 'Xor' with 'singleLineText' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(((CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (((CASE WHEN (CASE
       WHEN "t"."SingleLineText" IS NULL THEN FALSE
       WHEN BTRIM(("t"."SingleLineText")::text) = '' THEN FALSE
       WHEN LOWER(BTRIM(("t"."SingleLineText")::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -4460,12 +4380,12 @@ exports[`logical functions > 'Xor' with 'singleSelect' 1`] = `
     },
   },
   "result": "false",
-  "sql": "(((CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (((CASE WHEN (CASE
       WHEN "t"."SingleSelect" IS NULL THEN FALSE
       WHEN BTRIM(("t"."SingleSelect")::text) = '' THEN FALSE
       WHEN LOWER(BTRIM(("t"."SingleSelect")::text)) IN ('false','0','no','off','null') THEN FALSE
       ELSE TRUE
-    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+    END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;
 
@@ -4484,10 +4404,10 @@ exports[`logical functions > 'Xor' with 'user' 1`] = `
     },
   },
   "result": "true",
-  "sql": "(((CASE WHEN (CASE
+  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (((CASE WHEN (CASE
           WHEN COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb) IS NULL OR jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'null' THEN FALSE
           WHEN jsonb_typeof(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) = 'array' THEN jsonb_array_length(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) > 0
           ELSE TRUE
-        END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1)",
+        END) THEN 1 ELSE 0 END) + (CASE WHEN COALESCE(TRUE, FALSE) THEN 1 ELSE 0 END)) % 2 = 1) AS value) SELECT (SELECT value FROM "__formula_0"))",
 }
 `;

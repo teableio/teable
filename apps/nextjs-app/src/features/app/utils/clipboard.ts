@@ -100,7 +100,7 @@ export const extractTableContent = (html: string) => {
     const cells = row.querySelectorAll('td');
     cells.forEach((cell) => {
       const cellText = cell.textContent || '';
-      const cellValue = cell.getAttribute('data-teable-cell-value');
+      const cellValue = cell.dataset.teableCellValue;
       if (!cellValue) {
         rowData.push(cellText);
         return;

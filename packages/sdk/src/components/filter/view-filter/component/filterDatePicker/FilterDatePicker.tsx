@@ -88,7 +88,7 @@ const DatePickerInput = memo(function DatePickerInput({
       options={fieldOptions}
       disableTimePicker={true}
       modal={modal}
-      className={cn('h-8 w-40 text-xs', className)}
+      className={cn('h-8 w-36 text-xs', className)}
     />
   );
 });
@@ -183,7 +183,7 @@ function getFieldDatetimeFormatting(field: DateField) {
   return field.options?.formatting ?? defaultDatetimeFormatting;
 }
 
-function FilterDatePicker(props: IFilerDatePickerProps) {
+function FilterDatePicker(props: Readonly<IFilerDatePickerProps>) {
   const { value: initValue, operator, onSelect, field, modal, className, onModeChange } = props;
   const { t } = useTranslation();
   const inDrawer = useInDrawer();

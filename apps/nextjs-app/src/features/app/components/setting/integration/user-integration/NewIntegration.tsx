@@ -1,8 +1,7 @@
-import { UserIntegrationProvider } from '@teable/openapi';
 import { Popover, PopoverContent, PopoverTrigger, Button } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
-import { usePublicSettingQuery } from '@/features/app/hooks/useSetting';
+import { useAvailableIntegrationProviders } from '@/features/app/hooks/useSetting';
 import { UserIntegrationProviderLogo } from '../../../user-integration/ProviderLogo';
 import { useConnectIntegration } from '../../../user-integration/useConnectIntegration';
 import { getUserIntegrationName } from '../../../user-integration/utils';
@@ -12,12 +11,7 @@ export const NewIntegration = (props: { children: React.ReactNode }) => {
   const [open, setOpen] = useState(false);
   const { t } = useTranslation('common');
   const { connect } = useConnectIntegration();
-  const { data: publicSetting } = usePublicSettingQuery();
-  const availableIntegrationProviders = publicSetting?.availableIntegrationProviders;
-
-  const providers = Object.values(UserIntegrationProvider).filter((provider) =>
-    availableIntegrationProviders?.includes(provider)
-  );
+  const providers = useAvailableIntegrationProviders();
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

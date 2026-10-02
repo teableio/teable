@@ -5,7 +5,7 @@
 const isProd = process.env.NODE_ENV === 'production';
 const supportsIE11 = false;
 const enableCssGrid = false;
-const path = require('path');
+const path = require('node:path');
 
 module.exports = {
   plugins: {

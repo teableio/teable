@@ -1,4 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
 import type {
   FieldCore,
   IAttachmentCellValueRo,
@@ -84,7 +83,7 @@ export class TypeCastAndValidate {
   private readonly field: FieldCore;
   private readonly tableId: string;
   private readonly typecast?: boolean;
-  private cache: Record<string, unknown> = {};
+  private readonly cache: Record<string, unknown> = {};
 
   constructor({
     services,
@@ -238,7 +237,7 @@ export class TypeCastAndValidate {
     );
 
     await this.services.fieldConvertingService.stageAlter(this.tableId, newField, this.field);
-    await this.services.dataLoaderService.field.clear();
+    this.services.dataLoaderService.field.clear();
   }
 
   /**
@@ -459,7 +458,7 @@ export class TypeCastAndValidate {
   private async castToAttachment(cellValues: unknown[]): Promise<unknown[]> {
     const attachmentItemsMap = this.typecast ? await this.getAttachmentItemMap(cellValues) : {};
     const attachmentCvMap = await this.getAttachmentCvMapByCv(cellValues);
-    const unsignedValues = this.mapFieldsCellValuesWithValidate(
+    return this.mapFieldsCellValuesWithValidate(
       cellValues,
       (cellValue: unknown) => {
         const splitValues = typeof cellValue === 'string' ? cellValue.split(',') : cellValue;
@@ -499,17 +498,6 @@ export class TypeCastAndValidate {
         });
       }
     );
-
-    return unsignedValues.map((cellValues) => {
-      const attachmentCellValue = cellValues as (IAttachmentItem & {
-        thumbnailPath?: { sm?: string; lg?: string };
-      })[];
-      if (!attachmentCellValue) {
-        return attachmentCellValue;
-      }
-
-      return attachmentCellValue;
-    });
   }
 
   /**
@@ -520,13 +508,11 @@ export class TypeCastAndValidate {
     const titles = cellValues
       .flat()
       .filter((v) => v != null && typeof v !== 'object')
-      .map((v) =>
+      .flatMap((v) =>
         typeof v === 'string' && this.field.isMultipleCellValue
           ? v.split(',').map((t) => t.trim())
           : (v as string)
-      )
-      .flat();
-
+      );
     if (titles.length === 0) {
       return {};
     }

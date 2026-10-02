@@ -1,7 +1,7 @@
 import {
   BaseId,
   domainError,
-  FieldCreated,
+  FieldDeleted,
   FieldId,
   FieldName,
   Table,
@@ -45,7 +45,7 @@ describe('TableSearchVectorSchemaMaintenanceProjection', () => {
       scheduler as never,
       logger as never
     );
-    const event = FieldCreated.create({
+    const event = FieldDeleted.create({
       tableId: table.id(),
       baseId: table.baseId(),
       fieldId: table.primaryFieldId(),
@@ -57,7 +57,7 @@ describe('TableSearchVectorSchemaMaintenanceProjection', () => {
     expect(repository.findOne).toHaveBeenCalledOnce();
     expect(scheduler.schedule).toHaveBeenCalledWith(context, {
       table,
-      reason: 'field_created',
+      reason: 'field_deleted',
     });
   });
 
@@ -79,7 +79,7 @@ describe('TableSearchVectorSchemaMaintenanceProjection', () => {
 
     const result = await projection.handle(
       context,
-      FieldCreated.create({
+      FieldDeleted.create({
         tableId: table.id(),
         baseId: table.baseId(),
         fieldId: table.primaryFieldId(),

@@ -6,7 +6,7 @@ export const linkFieldOptionsSchema = z
   .object({
     baseId: z.string().optional().meta({
       description:
-        'the base id of the table that this field is linked to, only required for cross base link',
+        'the project id of the table that this field is linked to, only required for cross project link',
     }),
     relationship: z.enum(Relationship).meta({
       description: 'describe the relationship from this table to the foreign table',

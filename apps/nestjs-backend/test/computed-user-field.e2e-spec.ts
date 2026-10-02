@@ -988,6 +988,9 @@ describe('Computed user field (e2e)', () => {
       table1 = (
         await user2Request.post<ITableFullVo>(urlBuilder(CREATE_TABLE, { baseId }), {
           name: 'table1',
+          // The API no longer seeds default records (T6947); the rename tests
+          // below iterate the rows and update records[0].
+          records: [{ fields: {} }, { fields: {} }, { fields: {} }],
         })
       ).data;
     });
@@ -1038,6 +1041,9 @@ describe('Computed user field (e2e)', () => {
       const table = (
         await user3Request.post<ITableFullVo>(urlBuilder(CREATE_TABLE, { baseId }), {
           name: 'table2',
+          // The API no longer seeds default records (T6947); the createdBy
+          // assertion below iterates the rows and would be vacuous on an empty table.
+          records: [{ fields: {} }, { fields: {} }, { fields: {} }],
         })
       ).data;
       const field = await user3Request

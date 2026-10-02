@@ -309,17 +309,28 @@ describe('BaseNodeService', () => {
       provisionState,
     });
 
-    const createReconcileService = (nodes: ReturnType<typeof makeNode>[]) => {
+    const createReconcileService = (
+      nodes: ReturnType<typeof makeNode>[],
+      extraTables: Array<ReturnType<typeof tableRow>> = []
+    ) => {
       // Simulates the real DB: only honors the provisionState filter if the
       // query actually passes it, so a missing filter surfaces the error table.
-      const allTables = [tableRow('tblReady', 'ready'), tableRow('tblError', 'error')];
-      const tableMetaFindMany = vi.fn(({ where }: { where: Record<string, unknown> }) =>
-        Promise.resolve(
-          where.provisionState
-            ? allTables.filter((t) => t.provisionState === where.provisionState)
-            : allTables
-        )
-      );
+      const allTables = [
+        tableRow('tblReady', 'ready'),
+        tableRow('tblError', 'error'),
+        ...extraTables,
+      ];
+      const tableMetaFindMany = vi.fn(({ where }: { where: { provisionState?: unknown } }) => {
+        const filter = where.provisionState;
+        const states = Array.isArray((filter as { in?: string[] } | undefined)?.in)
+          ? (filter as { in: string[] }).in
+          : typeof filter === 'string'
+            ? [filter]
+            : undefined;
+        return Promise.resolve(
+          states ? allTables.filter((t) => states.includes(t.provisionState)) : allTables
+        );
+      });
       const baseNodeDeleteMany = vi.fn().mockResolvedValue({ count: 0 });
       const baseNodeCreateMany = vi.fn().mockResolvedValue({ count: 0 });
       let currentNodes = nodes;
@@ -369,7 +380,9 @@ describe('BaseNodeService', () => {
 
       expect(tableMetaFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ provisionState: 'ready' }),
+          where: expect.objectContaining({
+            provisionState: { in: ['ready', 'deleting'] },
+          }),
         })
       );
     });
@@ -384,6 +397,18 @@ describe('BaseNodeService', () => {
 
       expect(baseNodeDeleteMany).toHaveBeenCalledWith({ where: { id: { in: ['node2'] } } });
       expect(result.map((n) => n.resourceId)).toEqual(['tblReady']);
+    });
+
+    it('keeps the sidebar node of a table that is still deleting', async () => {
+      const { reconcileService, baseNodeDeleteMany } = createReconcileService(
+        [makeNode('node1', 'tblReady', 1), makeNode('node2', 'tblDeleting', 2)],
+        [tableRow('tblDeleting', 'deleting')]
+      );
+
+      const result = await reconcileService.prepareNodeList(baseId);
+
+      expect(baseNodeDeleteMany).not.toHaveBeenCalled();
+      expect(result.map((n) => n.resourceId)).toEqual(['tblReady', 'tblDeleting']);
     });
 
     it('does not backfill sidebar nodes for half-provisioned tables', async () => {

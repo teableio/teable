@@ -29,7 +29,7 @@ export const uploadFiles = async (
           }
         },
         errorCallback: (_file, error?: string) => {
-          reject(error);
+          reject(new Error(error ?? 'Upload failed'));
         },
       },
       baseId

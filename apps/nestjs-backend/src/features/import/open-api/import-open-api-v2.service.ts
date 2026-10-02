@@ -1,3 +1,4 @@
+import type { Readable } from 'node:stream';
 import { Injectable, HttpException, HttpStatus, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -29,15 +30,20 @@ import {
   type DomainError,
   type IImportProgress,
   type IImportSourceRegistry,
-  ok,
+  type IImportSource,
+  type IExecutionContext,
+  type IImportParseResult,
 } from '@teable/v2-core';
+import { prepareExcelImportSource, type PreparedExcelImportSource } from '@teable/v2-import';
 import { difference } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import { err, type Result } from 'neverthrow';
 import { z } from 'zod';
 import { BaseConfig, type IBaseConfig } from '../../../configs/base.config';
 import { CustomHttpException } from '../../../custom.exception';
 import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
+import { safeFetch } from '../../../utils/ssrf-http';
 import { AuditScope } from '../../audit/audit-scope';
 import { Audit } from '../../audit/audit.decorator';
 import { BaseNodeService } from '../../base-node/base-node.service';
@@ -45,7 +51,6 @@ import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migr
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { throwV2Error } from '../../v2/v2-http-error';
-import { safeFetch } from '../../../utils/ssrf-http';
 import {
   getImportRowLimitMax,
   remainingImportRowCount,
@@ -53,6 +58,10 @@ import {
 } from './import-sheet-row-limit';
 
 const maxImportStreamBufferedEvents = 64;
+
+// Zero means no remaining quota; negative legacy sentinels mean unbounded.
+const normalizeImportRowLimit = (limit: number | undefined) =>
+  limit !== undefined && limit >= 0 ? limit : undefined;
 
 /**
  * V2 Import Open API Service
@@ -166,10 +175,7 @@ export class ImportOpenApiV2Service {
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
     const resolvedUrl = this.resolveUrl(importOptions.attachmentUrl);
-    // Keep 0 as a real limit ("no remaining quota") — treating it as undefined
-    // would disable the row-limit check entirely for over-limit spaces.
-    const normalizedMaxRowCount =
-      maxRowCount !== undefined && maxRowCount >= 0 ? maxRowCount : undefined;
+    const normalizedMaxRowCount = normalizeImportRowLimit(maxRowCount);
 
     const commandResult = ImportCsvCommand.createFromUrl({
       baseId,
@@ -236,7 +242,7 @@ export class ImportOpenApiV2Service {
       progress: IImportProgress,
       sheet: { index: number; count: number; name: string; key: string }
     ) => void,
-    prefetchedExcelData?: Uint8Array
+    preparedSource?: IImportSource
   ): Promise<{ tables: ITableFullVo[]; sheets: IImportSheetSummary[] }> {
     await this.spaceDataDbMigrationGuard?.assertBaseWritable(baseId);
 
@@ -255,127 +261,144 @@ export class ImportOpenApiV2Service {
     const container = await this.v2ContainerService.getContainerForBase(baseId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
-    const excelBytes =
-      prefetchedExcelData ?? (await this.fetchAttachmentBytes(importOptions.attachmentUrl));
-    const normalizedMaxRowCount =
-      maxRowCount !== undefined && maxRowCount >= 0 ? maxRowCount : undefined;
+    const prepared = preparedSource
+      ? undefined
+      : await this.prepareExcelSource(importOptions.attachmentUrl);
+    const source = preparedSource ?? prepared!.source;
+    try {
+      const normalizedMaxRowCount = normalizeImportRowLimit(maxRowCount);
 
-    let remaining = normalizedMaxRowCount;
-    const tables: ITableFullVo[] = [];
-    const sheets: IImportSheetSummary[] = [];
-    let firstSheetError: DomainError | undefined;
+      let remaining = normalizedMaxRowCount;
+      const tables: ITableFullVo[] = [];
+      const sheets: IImportSheetSummary[] = [];
+      let firstSheetError: DomainError | undefined;
 
-    for (const [sheetIndex, [sheetKey, worksheet]] of worksheets.entries()) {
-      const skipData = remaining === 0;
-      const sheetMax = skipData ? undefined : remaining;
-      let expectedRows: number | undefined;
-      const sheetMeta = {
-        index: sheetIndex,
-        count: worksheets.length,
-        name: worksheet.name,
-        key: sheetKey,
-      };
+      for (const [sheetIndex, [sheetKey, worksheet]] of worksheets.entries()) {
+        const skipData = remaining === 0;
+        const sheetMax = skipData ? undefined : remaining;
+        let expectedRows: number | undefined;
+        const sheetMeta = {
+          index: sheetIndex,
+          count: worksheets.length,
+          name: worksheet.name,
+          key: sheetKey,
+        };
 
-      const buildCommand = (cap: number | undefined) => {
-        const commandResult = ImportExcelCommand.createFromBuffer({
+        const result = await this.executeExcelSheet({
           baseId,
-          excelData: excelBytes,
-          tableName: worksheet.name,
+          excelUrl: this.resolveUrl(importOptions.attachmentUrl),
+          source,
+          sheetKey,
+          worksheet,
           importData: worksheet.importData && !skipData,
-          useFirstRowAsHeader: worksheet.useFirstRowAsHeader,
-          sheetName: sheetKey,
-          fileType: importOptions.fileType,
-          columns: worksheet.columns.length
-            ? worksheet.columns.map((column) => ({
-                name: column.name,
-                sourceColumnIndex: column.sourceColumnIndex,
-                type: column.type,
-              }))
-            : undefined,
-          batchSize: cap ? Math.min(cap, 500) : 500,
-          maxRowCount: cap,
-        });
-        if (commandResult.isErr()) {
-          return commandResult;
-        }
-        let command = commandResult.value.withTruncateOnRowLimit(true);
-        if (onProgress) {
-          command = command.withOnProgress((progress) => {
-            if (progress.totalRows != null) {
-              expectedRows = progress.totalRows;
-            }
-            onProgress(progress, sheetMeta);
-          });
-        }
-        return ok(command);
-      };
-
-      const runSheet = async (cap: number | undefined) => {
-        const commandResult = buildCommand(cap);
-        if (commandResult.isErr()) {
-          return commandResult;
-        }
-        return commandBus.execute<ImportExcelCommand, ImportExcelResult>(
+          maxRowCount: sheetMax,
+          commandBus,
           context,
-          commandResult.value
-        );
-      };
+          onProgress: (progress) => {
+            expectedRows = progress.totalRows ?? expectedRows;
+            onProgress?.(progress, sheetMeta);
+          },
+        });
 
-      let result = await runSheet(sheetMax);
-      if (result.isErr()) {
-        const errorCap = getImportRowLimitMax(result.error);
-        const retryCap =
-          errorCap != null ? resolveTruncatedSheetRetryCap(sheetMax, errorCap) : undefined;
-        if (retryCap != null) {
-          this.logger.warn(
-            `Excel sheet "${worksheet.name}" exceeded the row limit; retrying with cap ${retryCap}`
-          );
-          result = await runSheet(retryCap);
+        if (result.isErr()) {
+          firstSheetError ??= result.error;
+          this.logger.error(`V2 import Excel sheet "${worksheet.name}" failed`, result.error);
+          this.eventEmitter.emit(Events.V2_TABLE_IMPORT_FINISH, {
+            baseId,
+            status: 'failed',
+            error: result.error.message,
+          });
+          sheets.push({
+            name: worksheet.name,
+            importedCount: 0,
+            truncated: false,
+            error: result.error.message,
+          });
+          continue;
         }
-      }
 
-      if (result.isErr()) {
-        firstSheetError ??= result.error;
-        this.logger.error(`V2 import Excel sheet "${worksheet.name}" failed`, result.error);
+        const importedCount = result.value.totalImported;
+        const tableId = result.value.table.id().toString();
+        await this.attachImportedTableToFolder(baseId, tableId, importOptions.folderId);
+        const table = this.mapImportedTable(result.value.table);
         this.eventEmitter.emit(Events.V2_TABLE_IMPORT_FINISH, {
           baseId,
-          status: 'failed',
-          error: result.error.message,
+          tableId,
+          status: 'completed',
         });
+        tables.push(table);
         sheets.push({
           name: worksheet.name,
-          importedCount: 0,
-          truncated: false,
-          error: result.error.message,
+          importedCount,
+          truncated:
+            skipData ||
+            Boolean(worksheet.importData && expectedRows != null && importedCount < expectedRows),
         });
-        continue;
+        remaining = remainingImportRowCount(remaining, importedCount);
       }
 
-      const importedCount = result.value.totalImported;
-      const tableId = result.value.table.id().toString();
-      await this.attachImportedTableToFolder(baseId, tableId, importOptions.folderId);
-      const table = this.mapImportedTable(result.value.table);
-      this.eventEmitter.emit(Events.V2_TABLE_IMPORT_FINISH, {
-        baseId,
-        tableId,
-        status: 'completed',
-      });
-      tables.push(table);
-      sheets.push({
-        name: worksheet.name,
-        importedCount,
-        truncated:
-          skipData ||
-          Boolean(worksheet.importData && expectedRows != null && importedCount < expectedRows),
-      });
-      remaining = remainingImportRowCount(remaining, importedCount);
-    }
+      if (tables.length === 0 && firstSheetError) {
+        throwV2Error(firstSheetError, mapDomainErrorToHttpStatus(firstSheetError));
+      }
 
-    if (tables.length === 0 && firstSheetError) {
-      throwV2Error(firstSheetError, mapDomainErrorToHttpStatus(firstSheetError));
+      return { tables, sheets };
+    } finally {
+      await this.disposeExcelSource(prepared);
     }
+  }
 
-    return { tables, sheets };
+  private async executeExcelSheet(input: {
+    baseId: string;
+    excelUrl: string;
+    source: IImportSource;
+    sheetKey: string;
+    worksheet: IImportOptionRo['worksheets'][string];
+    importData: boolean;
+    maxRowCount: number | undefined;
+    commandBus: ICommandBus;
+    context: IExecutionContext;
+    onProgress: (progress: IImportProgress) => void;
+  }): Promise<Result<ImportExcelResult, DomainError>> {
+    const run = async (
+      cap: number | undefined
+    ): Promise<Result<ImportExcelResult, DomainError>> => {
+      const command = ImportExcelCommand.createFromUrl({
+        baseId: input.baseId,
+        excelUrl: input.excelUrl,
+        tableName: input.worksheet.name,
+        importData: input.importData,
+        useFirstRowAsHeader: input.worksheet.useFirstRowAsHeader,
+        sheetName: input.sheetKey,
+        fileType: SUPPORTEDTYPE.EXCEL,
+        columns: input.worksheet.columns.length
+          ? input.worksheet.columns.map((column) => ({
+              name: column.name,
+              sourceColumnIndex: column.sourceColumnIndex,
+              type: column.type,
+            }))
+          : undefined,
+        batchSize: cap ? Math.min(cap, 500) : 500,
+        maxRowCount: cap,
+      });
+      if (command.isErr()) return err(command.error);
+      return input.commandBus.execute<ImportExcelCommand, ImportExcelResult>(
+        input.context,
+        command.value
+          .withSource(input.source)
+          .withTruncateOnRowLimit(true)
+          .withOnProgress(input.onProgress)
+      );
+    };
+    const result = await run(input.maxRowCount);
+    if (result.isOk()) return result;
+    const errorCap = getImportRowLimitMax(result.error);
+    const retryCap =
+      errorCap != null ? resolveTruncatedSheetRetryCap(input.maxRowCount, errorCap) : undefined;
+    if (retryCap == null) return result;
+    this.logger.warn(
+      `Excel sheet "${input.worksheet.name}" exceeded the row limit; retrying with cap ${retryCap}`
+    );
+    return run(retryCap);
   }
 
   private mapImportedTable(table: Table): ITableFullVo {
@@ -473,11 +496,7 @@ export class ImportOpenApiV2Service {
     // Resolve relative URL to absolute URL
     const resolvedUrl = this.resolveUrl(attachmentUrl);
 
-    // Align with v1 behavior: treat 0 (or negative) as no limit
-    // Keep 0 as a real limit ("no remaining quota") — treating it as undefined
-    // would disable the row-limit check entirely for over-limit spaces.
-    const normalizedMaxRowCount =
-      maxRowCount !== undefined && maxRowCount >= 0 ? maxRowCount : undefined;
+    const normalizedMaxRowCount = normalizeImportRowLimit(maxRowCount);
 
     // Create command
     const commandResult = ImportRecordsCommand.createFromUrl({
@@ -585,6 +604,7 @@ export class ImportOpenApiV2Service {
     let currentSheetName = worksheets[0]?.[1]?.name;
     let currentSheetTotal = 0;
     let lastBatchIndex = -1;
+    let preparedExcel: PreparedExcelImportSource | undefined;
 
     try {
       await this.spaceDataDbMigrationGuard?.assertBaseWritable(baseId);
@@ -659,13 +679,12 @@ export class ImportOpenApiV2Service {
         );
         importOptions = { ...importOptions, folderId: folderNodeId };
       }
-      let prefetchedExcelData: Uint8Array | undefined;
       if (importOptions.fileType === SUPPORTEDTYPE.EXCEL) {
-        prefetchedExcelData = await this.fetchAttachmentBytes(importOptions.attachmentUrl);
+        preparedExcel = await this.prepareExcelSource(importOptions.attachmentUrl);
         const container = await this.v2ContainerService.getContainerForBase(baseId);
         totalCount = await this.countExcelDataRows(
           container,
-          prefetchedExcelData,
+          preparedExcel.source,
           importOptions.worksheets
         );
         queue.push(
@@ -726,7 +745,7 @@ export class ImportOpenApiV2Service {
                   currentSheetTotal = 0;
                 }
               },
-              prefetchedExcelData
+              preparedExcel?.source
             );
       const tables = importResult.tables;
 
@@ -755,6 +774,7 @@ export class ImportOpenApiV2Service {
         })
       );
     } finally {
+      await this.disposeExcelSource(preparedExcel);
       queue.close();
     }
   }
@@ -865,22 +885,42 @@ export class ImportOpenApiV2Service {
     }
   }
 
-  private async fetchAttachmentBytes(url: string): Promise<Uint8Array> {
-    const resolvedUrl = this.resolveUrl(url);
-    const response = await safeFetch(resolvedUrl);
-    if (!response.ok) {
-      throw new HttpException(
-        `Failed to download import file: ${response.status}`,
-        HttpStatus.BAD_GATEWAY
+  private async prepareExcelSource(url: string): Promise<PreparedExcelImportSource> {
+    // The streaming response can start before a v2 container registers its fetch client.
+    const response = await safeFetch(this.resolveUrl(url));
+    const body = response.body as Readable | null;
+    try {
+      if (!response.ok || !body) {
+        throw new HttpException(
+          `Failed to download import file: ${response.status}`,
+          HttpStatus.BAD_GATEWAY
+        );
+      }
+      const result = await prepareExcelImportSource({ type: 'excel', stream: body });
+      if (result.isErr()) {
+        throwV2Error(result.error, mapDomainErrorToHttpStatus(result.error));
+      }
+      return result.value;
+    } finally {
+      body?.destroy();
+    }
+  }
+
+  private async disposeExcelSource(source: PreparedExcelImportSource | undefined): Promise<void> {
+    try {
+      await source?.dispose();
+    } catch (error) {
+      // Cleanup cannot turn an already committed import into a retryable failure.
+      this.logger.error(
+        'Excel import source cleanup failed',
+        error instanceof Error ? error.stack : String(error)
       );
     }
-    const buffer = await response.buffer();
-    return new Uint8Array(buffer);
   }
 
   private async countExcelDataRows(
     container: Awaited<ReturnType<V2ContainerService['getContainerForBase']>>,
-    excelData: Uint8Array,
+    source: IImportSource,
     worksheets: IImportOptionRo['worksheets']
   ): Promise<number> {
     const registry = container.resolve<IImportSourceRegistry>(v2CoreTokens.importSourceRegistry);
@@ -894,17 +934,33 @@ export class ImportOpenApiV2Service {
       if (!worksheet.importData) {
         continue;
       }
-      const parsed = await adapterResult.value.parse(
-        { type: 'excel', data: excelData },
-        { sheetName: sheetKey }
-      );
+      const parsed = await adapterResult.value.parse(source, { sheetName: sheetKey });
       if (parsed.isErr()) {
         continue;
       }
       const skip = worksheet.useFirstRowAsHeader ? 1 : 0;
-      total += Math.max((parsed.value.rowCount ?? 0) - skip, 0);
+      total += Math.max((await this.countParsedRows(parsed.value)) - skip, 0);
     }
     return total;
+  }
+
+  private async countParsedRows(parsed: IImportParseResult): Promise<number> {
+    const iterator = parsed.rowsAsync
+      ? parsed.rowsAsync[Symbol.asyncIterator]()
+      : parsed.rows?.[Symbol.iterator]();
+    if (!iterator) return parsed.rowCount ?? 0;
+    try {
+      if (parsed.rowCount != null) return parsed.rowCount;
+      let count = 0;
+      let next = await iterator.next();
+      while (!next.done) {
+        count++;
+        next = await iterator.next();
+      }
+      return count;
+    } finally {
+      await iterator.return?.();
+    }
   }
 
   private createImportProgressEvent(

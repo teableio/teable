@@ -1,8 +1,7 @@
 /**
- * E2E: compute activity domain event → ShareDB cmp_* projection.
- *
- * Isolated container + ShareDB (like realtimeShareDb.e2e) so registering ShareDB
- * does not affect the shared test context.
+ * E2E: compute activity changes reach subscribers as a presence invalidation on
+ * the table's action-trigger channel. The authoritative snapshot is read over
+ * HTTP (`getComputeActivity`); the realtime channel only says "changed".
  */
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -17,6 +16,7 @@ import {
   type ComputedUpdatePlan,
   type IComputedUpdateOutbox,
 } from '@teable/v2-adapter-table-repository-postgres';
+import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
   createFieldOkResponseSchema,
   createRecordOkResponseSchema,
@@ -35,13 +35,15 @@ import {
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import express from 'express';
+import type { Result } from 'neverthrow';
 import ShareDb from 'sharedb';
-import type { Doc } from 'sharedb/lib/client';
 import { Connection } from 'sharedb/lib/client';
+import type { Presence } from 'sharedb/lib/sharedb';
 import type { Socket } from 'sharedb/lib/sharedb';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
+import { createShareDbRealtimeConfig } from './shared/shareDbRealtimeConfig';
 
 type ShareDbRuntime = {
   backend: ShareDb;
@@ -50,7 +52,7 @@ type ShareDbRuntime = {
 };
 
 const startShareDbRuntime = async (logger: ILogger): Promise<ShareDbRuntime> => {
-  const backend = new ShareDb();
+  const backend = new ShareDb({ presence: true });
   const wsServer = new WebSocketServer({ port: 0, host: '127.0.0.1', path: '/socket' });
   const shareDbWebSocket = new ShareDbWebSocketServer(backend, logger);
   shareDbWebSocket.attach(wsServer);
@@ -77,11 +79,14 @@ const stopShareDbRuntime = async (runtime: ShareDbRuntime | undefined): Promise<
   await new Promise<void>((resolve) => runtime.wsServer.close(() => resolve()));
 };
 
-const observeDoc = <T>(params: { url: string; collection: string; docId: string }) => {
-  const { url, collection, docId } = params;
+type PresenceMessage = Array<{ actionKey?: string; payload?: Record<string, unknown> }>;
+
+const observePresence = (params: { url: string; channel: string }) => {
+  const { url, channel } = params;
   const socket = new WebSocket(url);
   const connection = new Connection(socket as Socket);
-  const doc = connection.get(collection, docId) as Doc<T>;
+  const presence = connection.getPresence(channel) as Presence;
+  const received: PresenceMessage[] = [];
   let closed = false;
   let resolveSubscribed: () => void;
   let rejectSubscribed: (error: unknown) => void;
@@ -90,7 +95,7 @@ const observeDoc = <T>(params: { url: string; collection: string; docId: string 
     rejectSubscribed = reject;
   });
 
-  doc.subscribe((error) => {
+  presence.subscribe((error?: unknown) => {
     if (error) {
       rejectSubscribed(error);
       return;
@@ -98,30 +103,33 @@ const observeDoc = <T>(params: { url: string; collection: string; docId: string 
     resolveSubscribed();
   });
 
+  const onReceive = (_id: string, data: unknown) => {
+    if (Array.isArray(data)) {
+      received.push(data as PresenceMessage);
+    }
+  };
+  presence.addListener('receive', onReceive);
+
   const waitFor = async (
-    predicate: (data: T | undefined) => boolean,
+    predicate: (messages: PresenceMessage[]) => boolean,
     timeoutMs = 12_000
-  ): Promise<T> => {
+  ): Promise<PresenceMessage[]> => {
     await subscribed;
-    return new Promise<T>((resolve, reject) => {
+    return new Promise<PresenceMessage[]>((resolve, reject) => {
       const cleanup = () => {
         clearTimeout(timer);
-        doc.removeListener('op', check);
-        doc.removeListener('op batch', check);
-        doc.removeListener('create', check);
+        presence.removeListener('receive', check);
       };
       const check = () => {
-        if (!predicate(doc.data)) return;
+        if (!predicate(received)) return;
         cleanup();
-        resolve(doc.data as T);
+        resolve(received);
       };
       const timer = setTimeout(() => {
         cleanup();
-        reject(new Error(`Timeout waiting for ${collection}/${docId}`));
+        reject(new Error(`Timeout waiting for presence on ${channel}`));
       }, timeoutMs);
-      doc.on('op', check);
-      doc.on('op batch', check);
-      doc.on('create', check);
+      presence.addListener('receive', check);
       check();
     });
   };
@@ -129,8 +137,9 @@ const observeDoc = <T>(params: { url: string; collection: string; docId: string 
   const close = () => {
     if (closed) return;
     closed = true;
+    presence.removeListener('receive', onReceive);
     try {
-      doc.destroy();
+      presence.destroy();
     } catch {
       // ignore
     }
@@ -141,16 +150,19 @@ const observeDoc = <T>(params: { url: string; collection: string; docId: string 
     }
   };
 
-  return { subscribed, waitFor, close };
+  return { subscribed, waitFor, close, getReceived: () => received };
 };
 
-const unwrap = <T>(result: { isErr(): boolean; error?: { message: string }; value: T }): T => {
-  if (result.isErr()) throw new Error(result.error?.message ?? 'unwrap failed');
+const unwrap = <T, E extends { message: string }>(result: Result<T, E>): T => {
+  if (result.isErr()) throw new Error(result.error.message);
   return result.value;
 };
 
-describe('computed activity realtime cmp_* (e2e)', () => {
-  let testContainer: Awaited<ReturnType<typeof createE2eTestContainer>>;
+const COMPUTE_ACTIVITY_CHANGED = 'computeActivityChanged';
+const actionTriggerChannel = (tableId: string) => `__action_trigger_${tableId}`;
+
+describe('computed activity realtime presence (e2e)', () => {
+  let testContainer: IV2NodeTestContainer;
   let runtime: ShareDbRuntime | undefined;
   let httpServer: Server | undefined;
   let baseUrl = '';
@@ -163,9 +175,13 @@ describe('computed activity realtime cmp_* (e2e)', () => {
     shareDbUrl = `ws://127.0.0.1:${runtime.port}/socket`;
 
     testContainer = await createE2eTestContainer();
-    registerV2ShareDbRealtime(testContainer.container as DependencyContainer, {
-      publisher: new ShareDbPubSubPublisher(runtime.backend.pubsub),
-    });
+    registerV2ShareDbRealtime(
+      testContainer.container as DependencyContainer,
+      createShareDbRealtimeConfig(
+        runtime.backend,
+        new ShareDbPubSubPublisher(runtime.backend.pubsub)
+      )
+    );
     baseId = testContainer.baseId.toString();
 
     const app = express();
@@ -190,33 +206,7 @@ describe('computed activity realtime cmp_* (e2e)', () => {
     await stopShareDbRuntime(runtime);
   });
 
-  it('delivers versioned projection operations through ShareDB pubsub', async () => {
-    const collection = 'cmp_probe';
-    const docId = 'table';
-    const observer = observeDoc<{ status: string }>({ url: shareDbUrl, collection, docId });
-    try {
-      await observer.subscribed;
-      const received = observer.waitFor((data) => data?.status === 'running');
-      const publisher = new ShareDbPubSubPublisher(runtime!.backend.pubsub);
-      const result = await publisher.publish([collection, `${collection}.${docId}`], {
-        c: collection,
-        d: docId,
-        v: 0,
-        src: '@@v2-projection:probe',
-        seq: 1,
-        create: { type: 'json0', data: { status: 'running' } },
-        del: undefined,
-        op: undefined,
-        m: { ts: Date.now() },
-      });
-      expect(result.isOk()).toBe(true);
-      expect((await received).status).toBe('running');
-    } finally {
-      observer.close();
-    }
-  });
-
-  it('publishes cmp_{tableId} field/table docs on enqueue and idle on done', async () => {
+  it('notifies the table channel on enqueue and on completion instead of publishing cmp_ docs', async () => {
     const createTableRes = await fetch(`${baseUrl}/tables/create`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -310,50 +300,44 @@ describe('computed activity realtime cmp_* (e2e)', () => {
       v2RecordRepositoryPostgresTokens.computedUpdateOutbox
     );
 
-    const collection = `cmp_${tableId}`;
-
-    const fieldObserver = observeDoc<{ status: string }>({
-      url: shareDbUrl,
-      collection,
-      docId: formulaField!.id,
-    });
-    const tableObserver = observeDoc<{ status: string }>({
-      url: shareDbUrl,
-      collection,
-      docId: 'table',
-    });
-
+    const observer = observePresence({ url: shareDbUrl, channel: actionTriggerChannel(tableId) });
     try {
-      await Promise.all([fieldObserver.subscribed, tableObserver.subscribed]);
-      const fieldActivePromise = fieldObserver.waitFor(
-        (data) => data?.status === 'queued' || data?.status === 'running'
+      await observer.subscribed;
+
+      const enqueuedPing = observer.waitFor((messages) =>
+        messages.some((batch) =>
+          batch.some((message) => message.actionKey === COMPUTE_ACTIVITY_CHANGED)
+        )
       );
-      const tableActivePromise = tableObserver.waitFor((data) => data?.status === 'calculating');
 
       const enqueueResult = await outbox.enqueueOrMerge(task);
       if (enqueueResult.isErr()) {
         throw new Error(enqueueResult.error.message);
       }
 
-      const fieldDoc = await fieldActivePromise;
-      expect(['queued', 'running']).toContain(fieldDoc.status);
+      const firstPings = await enqueuedPing;
+      expect(
+        firstPings.some((batch) =>
+          batch.some((message) => message.actionKey === COMPUTE_ACTIVITY_CHANGED)
+        )
+      ).toBe(true);
 
-      const tableDoc = await tableActivePromise;
-      expect(tableDoc.status).toBe('calculating');
+      const completionPing = observer.waitFor(
+        (messages) =>
+          messages.filter((batch) =>
+            batch.some((message) => message.actionKey === COMPUTE_ACTIVITY_CHANGED)
+          ).length >= 2,
+        20_000
+      );
 
-      const idlePromise = fieldObserver.waitFor((data) => data?.status === 'idle', 20_000);
-      const tableIdlePromise = tableObserver.waitFor((data) => data?.status === 'idle', 20_000);
       const processed = await testContainer.processOutbox();
       expect(processed).toBeGreaterThan(0);
       await testContainer.processOutbox();
 
-      const idleDoc = await idlePromise;
-      expect(idleDoc.status).toBe('idle');
-      const idleTableDoc = await tableIdlePromise;
-      expect(idleTableDoc.status).toBe('idle');
+      const pings = await completionPing;
+      expect(pings.length).toBeGreaterThanOrEqual(2);
     } finally {
-      fieldObserver.close();
-      tableObserver.close();
+      observer.close();
     }
   }, 90_000);
 });

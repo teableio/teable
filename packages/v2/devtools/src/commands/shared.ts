@@ -31,12 +31,12 @@ export const fieldIdOption = Options.text('field-id').pipe(Options.withDescripti
 export const ruleIdOption = Options.text('rule-id').pipe(Options.withDescription('Rule ID'));
 
 /**
- * Base ID option
+ * Project ID option
  */
-export const baseIdOption = Options.text('base-id').pipe(Options.withDescription('Base ID'));
+export const baseIdOption = Options.text('base-id').pipe(Options.withDescription('Project ID'));
 
 export const baseIdOptionalOption = Options.text('base-id').pipe(
-  Options.withDescription('Base ID'),
+  Options.withDescription('Project ID'),
   Options.optional
 );
 
@@ -51,7 +51,7 @@ export const spaceIdOptionalOption = Options.text('space-id').pipe(
 );
 
 export const baseIdsOption = Options.text('base-ids').pipe(
-  Options.withDescription('Comma-separated base IDs'),
+  Options.withDescription('Comma-separated project IDs'),
   Options.optional
 );
 
@@ -110,7 +110,7 @@ export const parseManualRepairValues = (
 
   for (const [key, item] of Object.entries(parsed)) {
     if (typeof item !== 'string' && typeof item !== 'boolean') {
-      throw new Error(`manual-repair-values.${key} must be a string or boolean`);
+      throw new TypeError(`manual-repair-values.${key} must be a string or boolean`);
     }
   }
 

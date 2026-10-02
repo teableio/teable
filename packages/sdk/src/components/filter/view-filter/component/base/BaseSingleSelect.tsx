@@ -32,7 +32,7 @@ interface ISelectOptionItemProps<O> {
  * One row of the option list. Extracted so the leading/trailing check-mark
  * split does not thread extra branching through `BaseSingleSelect`.
  */
-function SelectOptionItem<O extends IOption<string>>(props: ISelectOptionItemProps<O>) {
+function SelectOptionItem<O extends IOption<string>>(props: Readonly<ISelectOptionItemProps<O>>) {
   const { option, selected, inDrawer, defaultLabel, optionRender, onSelect } = props;
 
   return (
@@ -74,7 +74,7 @@ interface ISelectCommandListProps {
   groupHeading?: string;
   filter?: (value: string, search: string) => number;
   shouldFilter: boolean;
-  listRef: React.RefObject<HTMLDivElement>;
+  listRef: React.RefObject<HTMLDivElement | null>;
   highlighted: string | null;
   onHighlightedChange: (value: string) => void;
   onCompositionStart: () => void;
@@ -88,7 +88,7 @@ interface ISelectCommandListProps {
  * drawer it sheds the card treatment and its search box becomes the inset
  * field from the drawer list preset.
  */
-function SelectCommandList(props: ISelectCommandListProps) {
+function SelectCommandList(props: Readonly<ISelectCommandListProps>) {
   const {
     inDrawer,
     search,
@@ -134,7 +134,7 @@ function SelectCommandList(props: ISelectCommandListProps) {
 }
 
 function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
-  props: IBaseSelect<V, O>
+  props: Readonly<IBaseSelect<V, O>>
 ) {
   const [searchValue, setSearchValue] = useState('');
   const [isComposing, setIsComposing] = useState(false);

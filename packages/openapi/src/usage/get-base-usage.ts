@@ -10,7 +10,8 @@ export const GET_BASE_USAGE = '/base/{baseId}/usage';
 export const GetBaseUsageRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_BASE_USAGE,
-  description: 'Get usage information for the base',
+  title: 'Get project usage',
+  description: 'Get usage information for the project',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -18,7 +19,7 @@ export const GetBaseUsageRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Returns usage information for the base.',
+      description: 'Returns usage information for the project.',
       content: {
         'application/json': {
           schema: usageVoSchema,

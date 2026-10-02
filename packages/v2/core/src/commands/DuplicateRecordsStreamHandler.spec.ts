@@ -46,6 +46,7 @@ import type {
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ISpan, ITracer, SpanAttributes } from '../ports/Tracer';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import { DuplicateRecordsStreamCommand } from './DuplicateRecordsStreamCommand';
 import { DuplicateRecordsStreamHandler } from './DuplicateRecordsStreamHandler';
 import {
@@ -441,9 +442,8 @@ const createHandler = (args: {
       eventBus,
       new FakeUnitOfWork()
     ),
-    eventBus,
-    undoRedoService as unknown as UndoRedoStackService,
-    new FakeUnitOfWork()
+    new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus),
+    undoRedoService as unknown as UndoRedoStackService
   );
 
   return {
@@ -713,7 +713,6 @@ describe('DuplicateRecordsStreamHandler', () => {
         'teable.DuplicateRecordsApplicationService.buildDuplicateChunkRecords',
         'teable.DuplicateRecordsApplicationService.persistDuplicateChunkMutation',
         'teable.DuplicateRecordsApplicationService.aggregateDuplicateChunkEvents',
-        'teable.DuplicateRecordsApplicationService.publishDuplicateChunkEvents',
         'teable.DuplicateRecordsApplicationService.recordDuplicateChunkUndoRedo',
         'teable.DuplicateRecordsApplicationService.yieldAfterDuplicateChunk',
       ])
@@ -1034,7 +1033,7 @@ describe('DuplicateRecordsStreamHandler', () => {
     expect(undoRedoService.recordEntryCalls).toHaveLength(0);
   });
 
-  it('emits publishing errors without dropping successful duplicate results', async () => {
+  it('keeps successful duplicate results when event publish fails', async () => {
     const { table, tableId, viewId } = buildTable();
     const tableRepository = new FakeTableRepository();
     tableRepository.tables.push(table);
@@ -1068,21 +1067,9 @@ describe('DuplicateRecordsStreamHandler', () => {
       events.push(event);
     }
 
-    expect(events.map((event) => event.id)).toEqual([
-      'progress',
-      'progress',
-      'progress',
-      'error',
-      'done',
-    ]);
-    expect(events.find((event) => event.id === 'error')).toMatchObject({
-      id: 'error',
-      phase: 'publishing',
-      batchIndex: 0,
-      totalCount: 1,
-      duplicatedCount: 1,
-      message: 'publish failed',
-    });
+    expect(events.map((event) => event.id)).toEqual(['progress', 'progress', 'progress', 'done']);
+    expect(eventBus.publishManyCalls).toHaveLength(1);
+    expect(events.find((event) => event.id === 'error')).toBeUndefined();
     expect(events.at(-1)).toMatchObject({
       id: 'done',
       totalCount: 1,
@@ -1091,6 +1078,7 @@ describe('DuplicateRecordsStreamHandler', () => {
         duplicatedCount: 1,
       },
     });
+
     expect(undoRedoService.recordEntryCalls).toHaveLength(1);
   });
 });

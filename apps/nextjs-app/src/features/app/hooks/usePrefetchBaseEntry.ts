@@ -30,16 +30,12 @@ export const usePrefetchBaseEntry = () => {
       warmedUp = true;
       // Warming up is best-effort: swallow every failure (offline, stale chunk
       // hash after a deploy...) so it can never surface on the space page.
-      try {
-        // Same module request as DynamicTable in base-node/TablePage.tsx, so it
-        // resolves to the same chunk.
-        import('@/features/app/blocks/table/Table').catch(() => {
-          warmedUp = false;
-        });
-        router.prefetch('/base/[baseId]/[[...slug]]').catch(() => undefined);
-      } catch {
-        // ignore
-      }
+      // Same module request as DynamicTable in base-node/TablePage.tsx, so it
+      // resolves to the same chunk.
+      import('@/features/app/blocks/table/Table').catch(() => {
+        warmedUp = false;
+      });
+      router.prefetch('/base/[baseId]/[[...slug]]').catch(() => undefined);
     };
 
     if (

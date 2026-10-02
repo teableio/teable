@@ -127,7 +127,7 @@ function getInjectedService<T>(
     }
 
     return null;
-  } catch (error) {
+  } catch {
     return null;
   }
 }

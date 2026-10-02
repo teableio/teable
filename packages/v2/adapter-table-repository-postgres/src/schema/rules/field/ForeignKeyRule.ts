@@ -201,7 +201,7 @@ export class ForeignKeyRule implements ISchemaRule {
   }
 
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
-    const self = this;
+    const self = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const constraintName = this.constraintName;
     const localTable = this.getLocalTable(ctx);
     const fieldName = this.field.name().toString();

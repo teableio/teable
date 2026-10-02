@@ -47,7 +47,7 @@ export class BaseNodePermissionGuard extends PermissionGuard {
 
     const baseId = this.getBaseId(context);
     if (!baseId) {
-      throw new CustomHttpException('Base ID is required', HttpErrorCode.RESTRICTED_RESOURCE, {
+      throw new CustomHttpException('Project ID is required', HttpErrorCode.RESTRICTED_RESOURCE, {
         localization: {
           i18nKey: 'httpErrors.baseNode.baseIdIsRequired',
         },
@@ -124,7 +124,7 @@ export class BaseNodePermissionGuard extends PermissionGuard {
 
   getNodeResourceType(context: ExecutionContext): BaseNodeResourceType {
     const req = context.switchToHttp().getRequest();
-    return req.body.resourceType;
+    return req.body?.resourceType;
   }
 
   async getNode(baseId: string, nodeId?: string) {

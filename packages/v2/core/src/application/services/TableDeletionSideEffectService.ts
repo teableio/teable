@@ -68,7 +68,7 @@ export class TableDeletionSideEffectService {
     context: ExecutionContextPort.IExecutionContext,
     input: TableDeletionSideEffectServiceInput
   ): Promise<Result<TableDeletionSideEffectServiceResult, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<TableDeletionSideEffectServiceResult, DomainError>(async function* () {
       const candidateTables = yield* await service.loadCandidateTables(context, input.table);
       if (candidateTables.length === 0) {

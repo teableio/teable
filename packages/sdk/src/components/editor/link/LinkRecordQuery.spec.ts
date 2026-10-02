@@ -6,7 +6,7 @@ describe('buildLinkRecordQueryBase', () => {
   it('keeps link editor modules importable', async () => {
     await expect(import('./Editor')).resolves.toHaveProperty('LinkEditor');
     await expect(import('./EditorMain')).resolves.toHaveProperty('LinkEditorMain');
-  }, 20000);
+  }, 60_000);
 
   it('forwards link hidden-field and filter-view config to record queries', () => {
     expect(

@@ -17,6 +17,7 @@ import { flattenAndSpecs } from '../../domain/shared/specification/composeAndSpe
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import { FieldOptionsAdded } from '../../domain/table/events/FieldOptionsAdded';
 import { FieldUpdated } from '../../domain/table/events/FieldUpdated';
+import { TableProvisionReady } from '../../domain/table/events/TableProvisionReady';
 import { ViewColumnMetaUpdated } from '../../domain/table/events/ViewColumnMetaUpdated';
 import { ViewCreated } from '../../domain/table/events/ViewCreated';
 import { ViewDescriptionUpdated } from '../../domain/table/events/ViewDescriptionUpdated';
@@ -45,6 +46,7 @@ import { TableRemoveFieldSpec } from '../../domain/table/specs/TableRemoveFieldS
 import { TableUpdateFieldConstraintsSpec } from '../../domain/table/specs/TableUpdateFieldConstraintsSpec';
 import { TableUpdateFieldDbFieldNameSpec } from '../../domain/table/specs/TableUpdateFieldDbFieldNameSpec';
 import { TableUpdateFieldTypeSpec } from '../../domain/table/specs/TableUpdateFieldTypeSpec';
+import { viewIdsNeedingRowOrderStorage } from '../../domain/table/specs/viewRowOrderStorage';
 import type { Table } from '../../domain/table/Table';
 import { Table as TableAggregate } from '../../domain/table/Table';
 import type { TableId } from '../../domain/table/TableId';
@@ -95,6 +97,7 @@ type TableUpdateTarget =
     };
 
 type TableUpdateFlowOptions = {
+  // Defers mutation events, not the provision-ready completion notification.
   publishEvents?: boolean;
   hooks?: TableUpdateFlowHooks;
 };
@@ -176,7 +179,7 @@ export class TableUpdateFlow {
     options?: TableUpdateFlowOptions
   ): Promise<Result<TableUpdateFlowResult, DomainError>> {
     const publishEvents = options?.publishEvents ?? true;
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return await safeTry<TableUpdateFlowResult, DomainError>(async function* () {
       const events: IDomainEvent[] = [];
       const postPersistEvents: IDomainEvent[] = [];
@@ -193,25 +196,18 @@ export class TableUpdateFlow {
 
       const mutateSpec = updated.mutateSpec;
       const requiresPhysicalSchemaRepair = mayRequirePhysicalSchemaRepair(mutateSpec);
+      const rowOrderViewIds = viewIdsNeedingRowOrderStorage(mutateSpec);
+      if (rowOrderViewIds.length > 0 && handler.tableSchemaRepository.prepareViewRowOrderStorage) {
+        yield* await handler.tableSchemaRepository.prepareViewRowOrderStorage(
+          context,
+          latestTable,
+          rowOrderViewIds
+        );
+      }
 
       let transactionContextRef: IExecutionContext | undefined;
       let schemaOperationStarted = false;
       let tableMetadataPersisted = false;
-      if (requiresPhysicalSchemaRepair) {
-        // Split meta/data databases can expose committed DDL before the meta transaction commits.
-        yield* await beginTableSchemaOperation(
-          handler.unitOfWork,
-          handler.tableRepository,
-          context,
-          latestTable,
-          {
-            type: 'table.update',
-            state: 'pending',
-            status: 'pending',
-          }
-        );
-        schemaOperationStarted = true;
-      }
 
       const transactionResult = await handler.unitOfWork.withTransaction(
         context,
@@ -231,20 +227,22 @@ export class TableUpdateFlow {
               latestTable = normalizedResult.table ?? latestTable;
             }
 
-            if (!requiresPhysicalSchemaRepair) {
-              yield* await beginTableSchemaOperation(
-                handler.unitOfWork,
-                handler.tableRepository,
-                metaTransactionContext,
-                latestTable,
-                {
-                  type: 'table.update',
-                  state: 'ready',
-                  status: 'pending',
-                }
-              );
-              schemaOperationStarted = true;
-            }
+            // Commit pending with the meta transaction, not before it. An
+            // aborted formula/field create used to leave provision_state=
+            // pending after rollback, hiding the table from lists and
+            // direct reads until schema-op repair (T7114).
+            yield* await beginTableSchemaOperation(
+              handler.unitOfWork,
+              handler.tableRepository,
+              metaTransactionContext,
+              latestTable,
+              {
+                type: 'table.update',
+                state: requiresPhysicalSchemaRepair ? 'pending' : 'ready',
+                status: 'pending',
+              }
+            );
+            schemaOperationStarted = true;
 
             tableUpdatePersistResult = yield* await handler.tableRepository.updateOne(
               metaTransactionContext,
@@ -343,6 +341,18 @@ export class TableUpdateFlow {
         return err(transactionResult.error);
       }
 
+      // Table list queries exclude pending tables, so once a physical schema
+      // change finishes the Table document is re-ensured to put the table back
+      // for any subscriber whose list polled during the pending window.
+      const provisionReadyEvents = (): IDomainEvent[] =>
+        requiresPhysicalSchemaRepair
+          ? [
+              TableProvisionReady.create({
+                tableId: latestTable.id(),
+                baseId: latestTable.baseId(),
+              }),
+            ]
+          : [];
       const finalizeReady = async (): Promise<void> => {
         const readyResult = await completeTableSchemaOperation(
           handler.unitOfWork,
@@ -354,8 +364,17 @@ export class TableUpdateFlow {
         if (readyResult.isErr()) {
           throw new Error(readyResult.error.message);
         }
+        const readyEvents = provisionReadyEvents();
+        if (readyEvents.length > 0) {
+          const publishResult = await handler.eventBus.publishMany(context, readyEvents);
+          if (publishResult.isErr()) {
+            throw new Error(publishResult.error.message);
+          }
+        }
       };
+      let readyEventsAfterCommit = false;
       if (registerAfterCommit(context, finalizeReady)) {
+        readyEventsAfterCommit = true;
         registerAfterRollback(context, async () => {
           const operationResult = requiresPhysicalSchemaRepair
             ? await failRecoverableTableSchemaOperation(
@@ -415,6 +434,10 @@ export class TableUpdateFlow {
         if (postPersistEvents.length > 0) {
           yield* await handler.eventBus.publishMany(context, postPersistEvents);
         }
+      }
+      const readyEvents = readyEventsAfterCommit ? [] : provisionReadyEvents();
+      if (readyEvents.length > 0) {
+        yield* await handler.eventBus.publishMany(context, readyEvents);
       }
       return ok({ table: latestTable, events: normalizedEvents, postPersistEvents });
     });

@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createSecureHeaders } from 'next-secure-headers';
-import { UniverPlugin } from '@univerjs/webpack-plugin';
 
 const trueEnv = ['true', '1', 'yes'];
 
@@ -37,11 +36,6 @@ const nextConfig = {
   output: 'standalone',
   turbopack: {
     root: workspaceRoot,
-  },
-  // Webpack configuration (use --webpack flag to enable)
-  webpack: (config) => {
-    config.plugins.push(new UniverPlugin());
-    return config;
   },
   async headers() {
     return [

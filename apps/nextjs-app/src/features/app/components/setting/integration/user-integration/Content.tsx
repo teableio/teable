@@ -15,18 +15,16 @@ export const UserIntegrationContent = () => {
   const integrationList = integrationData?.integrations;
   const integrationCount = integrationList?.length;
   return (
-    <>
-      <IntegrationContainer
-        count={integrationCount}
-        isLoading={isLoading}
-        description={
-          <p className="pb-2 text-sm text-muted-foreground">
-            {t('settings.integration.userIntegration.description')}
-          </p>
-        }
-      >
-        <List list={integrationList} />
-      </IntegrationContainer>
-    </>
+    <IntegrationContainer
+      count={integrationCount}
+      isLoading={isLoading}
+      description={
+        <p className="pb-2 text-sm text-muted-foreground">
+          {t('settings.integration.userIntegration.description')}
+        </p>
+      }
+    >
+      <List list={integrationList} />
+    </IntegrationContainer>
   );
 };

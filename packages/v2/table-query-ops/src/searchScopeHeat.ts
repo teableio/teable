@@ -109,7 +109,9 @@ export class SearchScopeHeatPolicy {
       ) {
         continue;
       }
-      const searchedFieldIds = Array.from(new Set(search.searchedFieldIds)).sort();
+      const searchedFieldIds = Array.from(new Set(search.searchedFieldIds)).sort(
+        (a, b) => Number(a > b) - Number(a < b)
+      );
       const searchMode = search.searchMode ?? 'ilike';
       const scopeKey = stableHash({
         tableId,

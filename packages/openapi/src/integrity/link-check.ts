@@ -36,7 +36,7 @@ export const linkFieldCheckItemSchema = z.object({
   baseId: z
     .string()
     .optional()
-    .meta({ description: 'The base id of the link field with is cross-base' }),
+    .meta({ description: 'The project id of the link field with is cross-project' }),
   baseName: z.string().optional(),
   tableId: z.string().optional(),
   tableName: z.string().optional(),
@@ -56,7 +56,8 @@ export type IIntegrityCheckVo = z.infer<typeof integrityCheckVoSchema>;
 export const IntegrityCheckRoute: RouteConfig = registerRoute({
   method: 'get',
   path: CHECK_BASE_INTEGRITY,
-  description: 'Check integrity of link fields in a base',
+  title: 'Get integrityproject link check',
+  description: 'Check integrity of link fields in a project',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -67,7 +68,7 @@ export const IntegrityCheckRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Returns integrity check results for the base',
+      description: 'Returns integrity check results for the project',
       content: {
         'application/json': {
           schema: integrityCheckVoSchema,

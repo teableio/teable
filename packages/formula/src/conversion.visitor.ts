@@ -11,7 +11,7 @@ export class ConversionVisitor extends AbstractParseTreeVisitor<void> {
     return undefined;
   }
 
-  constructor(private conversionMap: { [fieldName: string]: string }) {
+  constructor(private readonly conversionMap: { [fieldName: string]: string }) {
     super();
     this.conversionMap = conversionMap;
   }

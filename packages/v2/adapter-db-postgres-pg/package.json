@@ -36,14 +36,16 @@
     "pg": "8.11.5"
   },
   "devDependencies": {
-    "@teable/v2-tsdown-config": "workspace:*",
     "@teable/eslint-config-bases": "workspace:^",
-    "@types/node": "22.18.0",
+    "@teable/v2-tsdown-config": "workspace:*",
+    "@types/node": "24.13.2",
     "@types/pg": "8.16.0",
+    "@vitest/coverage-v8": "4.0.17",
     "eslint": "8.57.0",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
     "tsdown": "0.18.1",
-    "typescript": "5.4.3"
+    "typescript": "5.4.3",
+    "vitest": "4.0.17"
   }
 }

@@ -36,19 +36,17 @@ export const ConditionItem = <T extends IConditionItemProperty>(props: IConditio
 
   return (
     <div
-      className={cn(
-        'flex items-center gap-2 self-center rounded-md',
-        inDrawer && 'w-full min-w-0 flex-wrap'
-      )}
+      className="flex w-full min-w-0 flex-wrap items-center gap-2 self-center rounded-md"
       data-filter-condition-item
     >
-      {/* The controls wrap in a drawer: field and operator share the first
-          line and the value editor takes a line of its own when 180px will
-          not fit beside them. */}
+      {/* Field-setting sheets are ~400px and are not InDrawer. Without wrap,
+          the field+operator+value cluster forces horizontal scroll, which hides
+          the nested-group + control (T7100). Wrapping is a no-op when the row
+          already fits. */}
       <div
         className={cn(
-          'flex items-center gap-2',
-          inDrawer && 'min-w-0 flex-1 flex-wrap items-stretch'
+          'flex min-w-0 flex-1 flex-wrap items-center gap-2',
+          inDrawer && 'items-stretch'
         )}
         data-filter-condition-controls
       >

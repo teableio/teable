@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import type { Action } from '@teable/core';
 import { generateAccessTokenId, getRandomString } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -7,6 +7,7 @@ import type {
   RefreshAccessTokenRo,
   UpdateAccessTokenRo,
 } from '@teable/openapi';
+import { isEqual } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { Events } from '../../event-emitter/events';
 import { PerformanceCacheService } from '../../performance-cache';
@@ -18,6 +19,16 @@ import { AccessTokenModel } from '../model/access-token';
 import { getAccessToken } from './access-token.encryptor';
 
 const lastUsedTimeUpdateIntervalMs = 5 * 60 * 1000;
+
+// Settings an update can change; the audit row records each one that did, before and after.
+const auditedTokenSettings = [
+  'name',
+  'description',
+  'scopes',
+  'spaceIds',
+  'baseIds',
+  'hasFullAccess',
+] as const;
 
 const shouldUpdateLastUsedTime = (
   lastUsedTime: Date | string | null | undefined,
@@ -139,6 +150,20 @@ export class AccessTokenService {
     return list.map(this.transformAccessTokenEntity);
   }
 
+  /**
+   * A token minted for an agent sandbox carries the user's identity but not their consent:
+   * letting it mint a personal access token would launder that marker away (the PAT
+   * strategy sets no `authSource`), so everything gated on "the user did this themselves"
+   * would open up to the sandbox.
+   */
+  private assertNotSandboxCaller() {
+    if (this.cls.get('authSource') === 'sandbox') {
+      throw new ForbiddenException(
+        'Personal access tokens cannot be created from a sandbox session'
+      );
+    }
+  }
+
   @Audit({
     action: Events.ACCESS_TOKEN_CREATE,
     resourceId: (input: { userId?: string }, ctx) => input.userId ?? ctx.cls.get('user.id')!,
@@ -157,11 +182,17 @@ export class AccessTokenService {
       hasFullAccess: input.hasFullAccess,
       clientId: input.clientId,
     }),
-    emit: true,
+    // Machine tokens are re-minted every 10 minutes for as long as an OAuth app or
+    // plugin session stays alive — the exchange is automatic, not something the user did,
+    // so it is noise in the audit log (it outnumbered real PAT creations 10:1). The user's
+    // consent is already audited once as OAUTH_APP_AUTHORIZE / plugin install; only
+    // user-created PATs get an ACCESS_TOKEN_CREATE row.
+    emit: (_result: unknown, input: { clientId?: string }) => !input.clientId,
   })
   async createAccessToken(
     createAccessToken: CreateAccessTokenRo & { clientId?: string; userId?: string }
   ) {
+    this.assertNotSandboxCaller();
     const userId = createAccessToken.userId ?? this.cls.get('user.id')!;
     const { name, description, scopes, spaceIds, baseIds, expiredTime, clientId, hasFullAccess } =
       createAccessToken;
@@ -203,6 +234,7 @@ export class AccessTokenService {
   @Audit({
     action: Events.ACCESS_TOKEN_DELETE,
     resourceId: (_id: string, ctx) => ctx.cls.get('user.id') as string,
+    params: (id: string) => ({ accessTokenId: id }),
     emit: true,
   })
   async deleteAccessToken(id: string) {
@@ -213,6 +245,7 @@ export class AccessTokenService {
   }
 
   async refreshAccessToken(id: string, refreshAccessTokenRo?: RefreshAccessTokenRo) {
+    this.assertNotSandboxCaller();
     const userId = this.cls.get('user.id');
 
     const sign = getRandomString(16);
@@ -235,6 +268,16 @@ export class AccessTokenService {
       },
     });
     await this.performanceCacheService.del(generateAccessTokenCacheKey(id));
+    // The new expiry only: the regenerated token itself never goes into the audit log.
+    await this.audit.emitAtomic({
+      action: 'access-token.refresh',
+      resourceId: id,
+      params: {
+        accessTokenId: id,
+        name: accessTokenEntity.name,
+        expiredTime: accessTokenEntity.expiredTime?.toISOString(),
+      },
+    });
     return {
       ...this.transformAccessTokenEntity(accessTokenEntity),
       token: getAccessToken(id, sign),
@@ -244,6 +287,17 @@ export class AccessTokenService {
   async updateAccessToken(id: string, updateAccessToken: UpdateAccessTokenRo) {
     const userId = this.cls.get('user.id');
     const { name, description, scopes, spaceIds, baseIds, hasFullAccess } = updateAccessToken;
+    const previous = await this.prismaService.accessToken.findFirst({
+      where: { id, userId },
+      select: {
+        name: true,
+        description: true,
+        scopes: true,
+        spaceIds: true,
+        baseIds: true,
+        hasFullAccess: true,
+      },
+    });
     const accessTokenEntity = await this.prismaService.accessToken.update({
       where: { id, userId },
       data: {
@@ -265,7 +319,33 @@ export class AccessTokenService {
       },
     });
     await this.performanceCacheService.del(generateAccessTokenCacheKey(id));
-    return this.transformAccessTokenEntity(accessTokenEntity);
+    const updated = this.transformAccessTokenEntity(accessTokenEntity);
+    await this.auditAccessTokenUpdate(
+      id,
+      previous && this.transformAccessTokenEntity(previous),
+      updated
+    );
+    return updated;
+  }
+
+  /** One row per update that changed a setting, with each changed setting before and after. */
+  private async auditAccessTokenUpdate(
+    id: string,
+    previous: Record<(typeof auditedTokenSettings)[number], unknown> | null,
+    updated: Record<(typeof auditedTokenSettings)[number], unknown> & { name: string }
+  ) {
+    const changes: Record<string, { before: unknown; after: unknown }> = {};
+    for (const key of auditedTokenSettings) {
+      const before = previous?.[key] ?? null;
+      const after = updated[key] ?? null;
+      if (!isEqual(before, after)) changes[key] = { before, after };
+    }
+    if (Object.keys(changes).length === 0) return;
+    await this.audit.emitAtomic({
+      action: 'access-token.update',
+      resourceId: id,
+      params: { accessTokenId: id, name: updated.name, changes },
+    });
   }
 
   async getAccessToken(accessTokenId: string) {

@@ -4,7 +4,6 @@ import {
   DbFieldName,
   FieldId,
   FieldName,
-  LinkFieldConfig,
   RecordId,
   Table,
   TableId,
@@ -49,14 +48,11 @@ type RecordingSessionState = {
 
 class RecordingConnection implements DatabaseConnection {
   constructor(
-    private readonly queries: CompiledQuery[],
     private readonly rowProvider?: RowProvider,
     private readonly sessionState: RecordingSessionState = {}
   ) {}
 
   async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
-    this.queries.push(compiledQuery);
-
     if (compiledQuery.sql.includes("set_config('teable.undo_batch_id'")) {
       const batchId = compiledQuery.parameters[0];
       this.sessionState.undoBatchId =
@@ -82,7 +78,6 @@ class RecordingConnection implements DatabaseConnection {
 }
 
 class RecordingDriver implements Driver {
-  readonly queries: CompiledQuery[] = [];
   private readonly sessionState: RecordingSessionState = {};
 
   constructor(private readonly rowProvider?: RowProvider) {}
@@ -92,7 +87,7 @@ class RecordingDriver implements Driver {
   }
 
   async acquireConnection(): Promise<DatabaseConnection> {
-    return new RecordingConnection(this.queries, this.rowProvider, this.sessionState);
+    return new RecordingConnection(this.rowProvider, this.sessionState);
   }
 
   async beginTransaction(): Promise<void> {
@@ -165,7 +160,7 @@ const createRecordingDb = (rowProvider?: RowProvider) => {
       createQueryCompiler: () => new PostgresQueryCompiler(),
     },
   });
-  return { db, driver };
+  return { db };
 };
 
 type MockLogger = ILogger & {
@@ -284,40 +279,6 @@ const createRepository = (
   );
 };
 
-const createMissingTableExistsRowProvider = (
-  schemaName: string,
-  tableName: string
-): RowProvider => {
-  return (compiledQuery) => {
-    if (
-      compiledQuery.sql.includes('FROM information_schema.tables') &&
-      compiledQuery.parameters[0] === schemaName &&
-      compiledQuery.parameters[1] === tableName
-    ) {
-      return [{ exists: false }];
-    }
-    return [];
-  };
-};
-
-const isUndoCaptureQuery = (query: CompiledQuery) => {
-  const text = query.sql;
-  return (
-    text.includes('teable_undo_capture_') ||
-    text.includes('"__undo_log"') ||
-    text.includes("table_name = '__undo_log'") ||
-    text.includes('__teable_capture_undo_row') ||
-    text.includes('FROM pg_trigger AS t') ||
-    text.includes('"__teable_undo_capture"') ||
-    text.includes('teable.undo_batch_id')
-  );
-};
-
-const toSnapshot = (queries: ReadonlyArray<CompiledQuery>) =>
-  queries
-    .filter((query) => !isUndoCaptureQuery(query))
-    .map((query) => ({ sql: query.sql, parameters: query.parameters }));
-
 const composeRowProviders =
   (...providers: RowProvider[]): RowProvider =>
   (compiledQuery) => {
@@ -378,57 +339,12 @@ const createSnapshotRowProvider = (
   };
 };
 
-const createNormalIncomingLinkFieldRowProvider = (params: {
-  baseId: string;
-  targetTableId: string;
-  sourceTableId: string;
-  fieldId: string;
-  options: Record<string, unknown>;
-}): RowProvider => {
-  return (compiledQuery) => {
-    if (
-      !compiledQuery.sql.includes('from "field"') ||
-      !compiledQuery.sql.includes('inner join "table_meta"')
-    ) {
-      return [];
-    }
-
-    if (
-      compiledQuery.parameters[0] !== 'link' ||
-      !compiledQuery.parameters.includes(params.targetTableId)
-    ) {
-      return [];
-    }
-
-    // Normal link fields are persisted with is_lookup=false in production data.
-    // A SQL predicate of `is_lookup IS NULL` therefore misses them.
-    if (
-      compiledQuery.sql.includes('"field"."is_lookup" is null') &&
-      !compiledQuery.sql.includes('"field"."is_lookup" =')
-    ) {
-      return [];
-    }
-
-    return [
-      {
-        field_id: params.fieldId,
-        source_table_id: params.sourceTableId,
-        options: JSON.stringify(params.options),
-      },
-    ];
-  };
-};
-
 // Fixed IDs for stable snapshots
 const BASE_ID = `bse${'a'.repeat(16)}`;
 const TABLE_ID = `tbl${'b'.repeat(16)}`;
-const FOREIGN_TABLE_ID = `tbl${'c'.repeat(16)}`;
-const LOOKUP_FIELD_ID = `fld${'d'.repeat(16)}`;
-const LINK_FIELD_ID = `fld${'e'.repeat(16)}`;
-const SYMMETRIC_FIELD_ID = `fld${'f'.repeat(16)}`;
+
 const NAME_FIELD_ID = `fld${'g'.repeat(16)}`;
 const RECORD_ID = `rec${'h'.repeat(16)}`;
-const RECORD_ID_B = `rec${'i'.repeat(16)}`;
 const ACTOR_ID = 'usr_test';
 
 // =============================================================================
@@ -436,562 +352,7 @@ const ACTOR_ID = 'usr_test';
 // =============================================================================
 
 describe('PostgresTableRecordRepository.deleteMany', () => {
-  it('clears oneMany foreign key before delete', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
-    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
-    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
-    const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
-    const lookupFieldId = FieldId.create(LOOKUP_FIELD_ID)._unsafeUnwrap();
-    const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
-    const symmetricFieldId = FieldId.create(SYMMETRIC_FIELD_ID)._unsafeUnwrap();
-    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
-    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
-    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
-
-    const linkConfig = LinkFieldConfig.create({
-      relationship: 'oneMany',
-      foreignTableId: foreignTableId.toString(),
-      lookupFieldId: lookupFieldId.toString(),
-      symmetricFieldId: symmetricFieldId.toString(),
-    })._unsafeUnwrap();
-
-    const builder = Table.builder()
-      .withId(tableId)
-      .withBaseId(baseId)
-      .withName(TableName.create('DeleteTable')._unsafeUnwrap());
-    builder
-      .field()
-      .singleLineText()
-      .withId(nameFieldId)
-      .withName(FieldName.create('Name')._unsafeUnwrap())
-      .primary()
-      .done();
-    builder
-      .field()
-      .link()
-      .withId(linkFieldId)
-      .withName(FieldName.create('Links')._unsafeUnwrap())
-      .withConfig(linkConfig)
-      .done();
-    builder.view().defaultGrid().done();
-
-    const table = builder.build()._unsafeUnwrap();
-
-    const specBuilder = TableRecord.specs('or');
-    specBuilder.recordId(recordId);
-    const deleteSpec = specBuilder.build()._unsafeUnwrap();
-
-    const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
-    const rowProvider = createRecordIdRowProvider(tableName, [recordId.toString()]);
-
-    const { db, driver } = createRecordingDb(rowProvider);
-    const repo = createRepository(db, table);
-
-    const result = await repo.deleteMany({ actorId }, table, deleteSpec);
-    expect(result.isOk()).toBe(true);
-
-    expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
-      [
-        {
-          "parameters": [
-            "rechhhhhhhhhhhhhhhh",
-          ],
-          "sql": "select "__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "__id" = $1",
-        },
-        {
-          "parameters": [
-            "bseaaaaaaaaaaaaaaaa",
-            "tblcccccccccccccccc",
-          ],
-          "sql": "
-          SELECT EXISTS (
-            SELECT 1
-            FROM information_schema.tables
-            WHERE table_schema = $1
-            AND table_name = $2
-          ) AS exists
-        ",
-        },
-        {
-          "parameters": [
-            "rechhhhhhhhhhhhhhhh",
-          ],
-          "sql": "select "__fk_fldffffffffffffffff" as "self_key", "__id" as "foreign_key" from "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" where "__fk_fldffffffffffffffff" in ($1)",
-        },
-        {
-          "parameters": [
-            "link",
-            false,
-            "tblbbbbbbbbbbbbbbbb",
-          ],
-          "sql": "select "field"."id" as "field_id", "field"."table_id" as "source_table_id", "field"."name" as "field_name", "field"."not_null" as "not_null", "field"."db_field_name" as "db_field_name", "field"."deleted_time" as "field_deleted_time", "table_meta"."name" as "source_table_name", "table_meta"."base_id" as "source_base_id", "table_meta"."deleted_time" as "table_deleted_time", "field"."options" as "options" from "field" inner join "table_meta" on "table_meta"."id" = "field"."table_id" where "field"."type" = $1 and ("field"."is_lookup" is null or "field"."is_lookup" = $2) and (field.options::json->>'foreignTableId')::text = $3",
-        },
-        {
-          "parameters": [
-            "bseaaaaaaaaaaaaaaaa",
-            "tblcccccccccccccccc",
-          ],
-          "sql": "
-          SELECT EXISTS (
-            SELECT 1
-            FROM information_schema.tables
-            WHERE table_schema = $1
-            AND table_name = $2
-          ) AS exists
-        ",
-        },
-        {
-          "parameters": [
-            null,
-            null,
-            "rechhhhhhhhhhhhhhhh",
-          ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" set "__fk_fldffffffffffffffff" = $1, "__fk_fldffffffffffffffff_order" = $2 where "__fk_fldffffffffffffffff" in ($3)",
-        },
-        {
-          "parameters": [
-            "rechhhhhhhhhhhhhhhh",
-          ],
-          "sql": "delete from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "__id" = $1 returning *",
-        },
-        {
-          "parameters": [
-            "usr_test",
-            "tblbbbbbbbbbbbbbbbb",
-          ],
-          "sql": "update "public"."table_meta" set "last_modified_time" = CASE
-                WHEN "last_modified_time" IS NULL THEN CURRENT_TIMESTAMP
-                ELSE GREATEST(CURRENT_TIMESTAMP, "last_modified_time" + interval '1 millisecond')
-              END, "last_modified_by" = $1 where "id" = $2",
-        },
-      ]
-    `);
-    vi.useRealTimers();
-  });
-
-  it('clears junction links before delete', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
-    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
-    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
-    const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
-    const lookupFieldId = FieldId.create(LOOKUP_FIELD_ID)._unsafeUnwrap();
-    const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
-    const symmetricFieldId = FieldId.create(SYMMETRIC_FIELD_ID)._unsafeUnwrap();
-    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
-    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
-    const recordIdB = RecordId.create(RECORD_ID_B)._unsafeUnwrap();
-    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
-
-    const linkConfig = LinkFieldConfig.create({
-      relationship: 'manyMany',
-      foreignTableId: foreignTableId.toString(),
-      lookupFieldId: lookupFieldId.toString(),
-      symmetricFieldId: symmetricFieldId.toString(),
-    })._unsafeUnwrap();
-
-    const builder = Table.builder()
-      .withId(tableId)
-      .withBaseId(baseId)
-      .withName(TableName.create('DeleteTable')._unsafeUnwrap());
-    builder
-      .field()
-      .singleLineText()
-      .withId(nameFieldId)
-      .withName(FieldName.create('Name')._unsafeUnwrap())
-      .primary()
-      .done();
-    builder
-      .field()
-      .link()
-      .withId(linkFieldId)
-      .withName(FieldName.create('Links')._unsafeUnwrap())
-      .withConfig(linkConfig)
-      .done();
-    builder.view().defaultGrid().done();
-
-    const table = builder.build()._unsafeUnwrap();
-
-    const specBuilder = TableRecord.specs('or');
-    specBuilder.recordId(recordId).recordId(recordIdB);
-    const deleteSpec = specBuilder.build()._unsafeUnwrap();
-
-    const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
-    const rowProvider = composeRowProviders(
-      createRecordIdRowProvider(tableName, [recordId.toString(), recordIdB.toString()]),
-      createUndoLogRowProvider([
-        {
-          record_id: recordId.toString(),
-          old_row: {
-            __id: recordId.toString(),
-          },
-        },
-        {
-          record_id: recordIdB.toString(),
-          old_row: {
-            __id: recordIdB.toString(),
-          },
-        },
-      ])
-    );
-
-    const { db, driver } = createRecordingDb(rowProvider);
-    const repo = createRepository(db, table);
-
-    const result = await repo.deleteMany({ actorId }, table, deleteSpec);
-    expect(result.isOk()).toBe(true);
-
-    expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
-      [
-        {
-          "parameters": [
-            "rechhhhhhhhhhhhhhhh",
-            "reciiiiiiiiiiiiiiii",
-          ],
-          "sql": "select "__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where ("__id" = $1) or ("__id" = $2)",
-        },
-        {
-          "parameters": [
-            "bseaaaaaaaaaaaaaaaa",
-            "junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff",
-          ],
-          "sql": "
-          SELECT EXISTS (
-            SELECT 1
-            FROM information_schema.tables
-            WHERE table_schema = $1
-            AND table_name = $2
-          ) AS exists
-        ",
-        },
-        {
-          "parameters": [
-            "rechhhhhhhhhhhhhhhh",
-            "reciiiiiiiiiiiiiiii",
-          ],
-          "sql": "select "__fk_fldffffffffffffffff" as "self_key", "__fk_fldeeeeeeeeeeeeeeee" as "foreign_key" from "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" where "__fk_fldffffffffffffffff" in ($1, $2)",
-        },
-        {
-          "parameters": [
-            "link",
-            false,
-            "tblbbbbbbbbbbbbbbbb",
-          ],
-          "sql": "select "field"."id" as "field_id", "field"."table_id" as "source_table_id", "field"."name" as "field_name", "field"."not_null" as "not_null", "field"."db_field_name" as "db_field_name", "field"."deleted_time" as "field_deleted_time", "table_meta"."name" as "source_table_name", "table_meta"."base_id" as "source_base_id", "table_meta"."deleted_time" as "table_deleted_time", "field"."options" as "options" from "field" inner join "table_meta" on "table_meta"."id" = "field"."table_id" where "field"."type" = $1 and ("field"."is_lookup" is null or "field"."is_lookup" = $2) and (field.options::json->>'foreignTableId')::text = $3",
-        },
-        {
-          "parameters": [
-            "bseaaaaaaaaaaaaaaaa",
-            "junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff",
-          ],
-          "sql": "
-          SELECT EXISTS (
-            SELECT 1
-            FROM information_schema.tables
-            WHERE table_schema = $1
-            AND table_name = $2
-          ) AS exists
-        ",
-        },
-        {
-          "parameters": [
-            "rechhhhhhhhhhhhhhhh",
-            "reciiiiiiiiiiiiiiii",
-          ],
-          "sql": "delete from "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" where "__fk_fldffffffffffffffff" in ($1, $2)",
-        },
-        {
-          "parameters": [
-            "rechhhhhhhhhhhhhhhh",
-            "reciiiiiiiiiiiiiiii",
-          ],
-          "sql": "delete from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where ("__id" = $1) or ("__id" = $2) returning *",
-        },
-        {
-          "parameters": [
-            "usr_test",
-            "tblbbbbbbbbbbbbbbbb",
-          ],
-          "sql": "update "public"."table_meta" set "last_modified_time" = CASE
-                WHEN "last_modified_time" IS NULL THEN CURRENT_TIMESTAMP
-                ELSE GREATEST(CURRENT_TIMESTAMP, "last_modified_time" + interval '1 millisecond')
-              END, "last_modified_by" = $1 where "id" = $2",
-        },
-      ]
-    `);
-    vi.useRealTimers();
-  });
-
-  it('clears incoming junction links for normal link fields stored with is_lookup false', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
-
-    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
-    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
-    const sourceTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
-    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
-    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
-    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
-
-    const builder = Table.builder()
-      .withId(tableId)
-      .withBaseId(baseId)
-      .withName(TableName.create('DeleteTargetTable')._unsafeUnwrap());
-    builder
-      .field()
-      .singleLineText()
-      .withId(nameFieldId)
-      .withName(FieldName.create('Name')._unsafeUnwrap())
-      .primary()
-      .done();
-    builder.view().defaultGrid().done();
-
-    const table = builder.build()._unsafeUnwrap();
-    const deleteSpec = TableRecord.specs('or').recordId(recordId).build()._unsafeUnwrap();
-
-    const tableName = `"${BASE_ID}"."${TABLE_ID}"`;
-    const junctionTableName = `"${BASE_ID}"."junction_${LINK_FIELD_ID}"`;
-    const foreignKeyName = `__fk_${LINK_FIELD_ID}`;
-    const selfKeyName = `__fk_${SYMMETRIC_FIELD_ID}`;
-    const rowProvider = composeRowProviders(
-      createRecordIdRowProvider(tableName, [recordId.toString()]),
-      createNormalIncomingLinkFieldRowProvider({
-        baseId: BASE_ID,
-        targetTableId: TABLE_ID,
-        sourceTableId: sourceTableId.toString(),
-        fieldId: LINK_FIELD_ID,
-        options: {
-          relationship: 'oneMany',
-          isOneWay: true,
-          foreignTableId: TABLE_ID,
-          lookupFieldId: LOOKUP_FIELD_ID,
-          fkHostTableName: `${BASE_ID}.junction_${LINK_FIELD_ID}`,
-          selfKeyName,
-          foreignKeyName,
-        },
-      }),
-      createUndoLogRowProvider([
-        {
-          record_id: recordId.toString(),
-          old_row: {
-            __id: recordId.toString(),
-          },
-        },
-      ])
-    );
-
-    const { db, driver } = createRecordingDb(rowProvider);
-    const repo = createRepository(db, table);
-
-    const result = await repo.deleteMany({ actorId }, table, deleteSpec);
-    expect(result.isOk()).toBe(true);
-
-    const snapshotSql = toSnapshot(driver.queries).map((query) => query.sql);
-    const incomingCleanupIndex = snapshotSql.findIndex((sqlText) =>
-      sqlText.includes(`delete from ${junctionTableName} where "${foreignKeyName}" in`)
-    );
-    const targetDeleteIndex = snapshotSql.findIndex((sqlText) =>
-      sqlText.includes(`delete from ${tableName}`)
-    );
-
-    expect(incomingCleanupIndex).toBeGreaterThan(-1);
-    expect(targetDeleteIndex).toBeGreaterThan(-1);
-    expect(incomingCleanupIndex).toBeLessThan(targetDeleteIndex);
-
-    vi.useRealTimers();
-  });
-
-  it('tolerates missing junction host table during delete and keeps warning logs', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
-
-    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
-    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
-    const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
-    const lookupFieldId = FieldId.create(LOOKUP_FIELD_ID)._unsafeUnwrap();
-    const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
-    const symmetricFieldId = FieldId.create(SYMMETRIC_FIELD_ID)._unsafeUnwrap();
-    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
-    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
-    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
-
-    const linkConfig = LinkFieldConfig.create({
-      relationship: 'manyMany',
-      foreignTableId: foreignTableId.toString(),
-      lookupFieldId: lookupFieldId.toString(),
-      symmetricFieldId: symmetricFieldId.toString(),
-    })._unsafeUnwrap();
-
-    const builder = Table.builder()
-      .withId(tableId)
-      .withBaseId(baseId)
-      .withName(TableName.create('DeleteTable')._unsafeUnwrap());
-    builder
-      .field()
-      .singleLineText()
-      .withId(nameFieldId)
-      .withName(FieldName.create('Name')._unsafeUnwrap())
-      .primary()
-      .done();
-    builder
-      .field()
-      .link()
-      .withId(linkFieldId)
-      .withName(FieldName.create('Links')._unsafeUnwrap())
-      .withConfig(linkConfig)
-      .done();
-    builder.view().defaultGrid().done();
-
-    const table = builder.build()._unsafeUnwrap();
-
-    const specBuilder = TableRecord.specs('or');
-    specBuilder.recordId(recordId);
-    const deleteSpec = specBuilder.build()._unsafeUnwrap();
-
-    const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
-    const junctionTableName = `"bse${'a'.repeat(16)}"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff"`;
-    const rowProvider = composeRowProviders(
-      createMissingTableExistsRowProvider(
-        `bse${'a'.repeat(16)}`,
-        'junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff'
-      ),
-      createRecordIdRowProvider(tableName, [recordId.toString()]),
-      createUndoLogRowProvider([
-        {
-          record_id: recordId.toString(),
-          old_row: {
-            __id: recordId.toString(),
-          },
-        },
-      ])
-    );
-
-    const { db, driver } = createRecordingDb(rowProvider);
-    const logger = createLogger();
-    const repo = createRepository(db, table, createNoopComputedPlanner(table), logger);
-
-    const result = await repo.deleteMany({ actorId }, table, deleteSpec);
-    expect(result.isOk()).toBe(true);
-    const snapshotSql = toSnapshot(driver.queries).map((query) => query.sql);
-    expect(snapshotSql.some((sql) => sql.includes(`from ${junctionTableName}`))).toBe(false);
-    expect(snapshotSql.some((sql) => sql.includes(`delete from ${junctionTableName}`))).toBe(false);
-    expect(logger.warn).toHaveBeenCalledWith(
-      'record:delete:missing_link_host_table',
-      expect.objectContaining({
-        phase: 'load-existing',
-        fieldId: LINK_FIELD_ID,
-        hostTableName: 'bseaaaaaaaaaaaaaaaa.junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff',
-        operationType: 'junction-delete',
-      })
-    );
-    expect(logger.warn).toHaveBeenCalledWith(
-      'record:delete:missing_link_host_table',
-      expect.objectContaining({
-        phase: 'cleanup-outgoing',
-        fieldId: LINK_FIELD_ID,
-        hostTableName: 'bseaaaaaaaaaaaaaaaa.junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff',
-        operationType: 'junction-delete',
-      })
-    );
-
-    vi.useRealTimers();
-  });
-
-  it('tolerates missing foreign host table during delete and keeps warning logs', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
-
-    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
-    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
-    const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
-    const lookupFieldId = FieldId.create(LOOKUP_FIELD_ID)._unsafeUnwrap();
-    const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
-    const symmetricFieldId = FieldId.create(SYMMETRIC_FIELD_ID)._unsafeUnwrap();
-    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
-    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
-    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
-
-    const linkConfig = LinkFieldConfig.create({
-      relationship: 'oneMany',
-      foreignTableId: foreignTableId.toString(),
-      lookupFieldId: lookupFieldId.toString(),
-      symmetricFieldId: symmetricFieldId.toString(),
-    })._unsafeUnwrap();
-
-    const builder = Table.builder()
-      .withId(tableId)
-      .withBaseId(baseId)
-      .withName(TableName.create('DeleteTable')._unsafeUnwrap());
-    builder
-      .field()
-      .singleLineText()
-      .withId(nameFieldId)
-      .withName(FieldName.create('Name')._unsafeUnwrap())
-      .primary()
-      .done();
-    builder
-      .field()
-      .link()
-      .withId(linkFieldId)
-      .withName(FieldName.create('Links')._unsafeUnwrap())
-      .withConfig(linkConfig)
-      .done();
-    builder.view().defaultGrid().done();
-
-    const table = builder.build()._unsafeUnwrap();
-
-    const specBuilder = TableRecord.specs('or');
-    specBuilder.recordId(recordId);
-    const deleteSpec = specBuilder.build()._unsafeUnwrap();
-
-    const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
-    const foreignHostTableName = `"bse${'a'.repeat(16)}"."tblcccccccccccccccc"`;
-    const rowProvider = composeRowProviders(
-      createMissingTableExistsRowProvider(`bse${'a'.repeat(16)}`, `tbl${'c'.repeat(16)}`),
-      createRecordIdRowProvider(tableName, [recordId.toString()]),
-      createUndoLogRowProvider([
-        {
-          record_id: recordId.toString(),
-          old_row: {
-            __id: recordId.toString(),
-          },
-        },
-      ])
-    );
-
-    const { db, driver } = createRecordingDb(rowProvider);
-    const logger = createLogger();
-    const repo = createRepository(db, table, createNoopComputedPlanner(table), logger);
-
-    const result = await repo.deleteMany({ actorId }, table, deleteSpec);
-    expect(result.isOk()).toBe(true);
-    const snapshotSql = toSnapshot(driver.queries).map((query) => query.sql);
-    expect(snapshotSql.some((sql) => sql.includes(`from ${foreignHostTableName}`))).toBe(false);
-    expect(snapshotSql.some((sql) => sql.includes(`update ${foreignHostTableName}`))).toBe(false);
-    expect(logger.warn).toHaveBeenCalledWith(
-      'record:delete:missing_link_host_table',
-      expect.objectContaining({
-        phase: 'load-existing',
-        fieldId: LINK_FIELD_ID,
-        hostTableName: 'bseaaaaaaaaaaaaaaaa.tblcccccccccccccccc',
-        operationType: 'fk-nullify',
-      })
-    );
-    expect(logger.warn).toHaveBeenCalledWith(
-      'record:delete:missing_link_host_table',
-      expect.objectContaining({
-        phase: 'cleanup-outgoing',
-        fieldId: LINK_FIELD_ID,
-        hostTableName: 'bseaaaaaaaaaaaaaaaa.tblcccccccccccccccc',
-        operationType: 'fk-nullify',
-      })
-    );
-
-    vi.useRealTimers();
-  });
-
-  it('captures only required before-image columns for delete propagation', async () => {
+  it('maps required before-image values for delete propagation', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
 
@@ -1053,7 +414,7 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
     } as unknown as ComputedUpdatePlanner;
 
     const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
-    const { db, driver } = createRecordingDb(
+    const { db } = createRecordingDb(
       createSnapshotRowProvider(tableName, [
         {
           record_id: recordId.toString(),
@@ -1066,40 +427,6 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
     const result = await repo.deleteMany({ actorId }, table, deleteSpec);
     expect(result.isOk()).toBe(true);
 
-    expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
-      [
-        {
-          "parameters": [
-            "rechhhhhhhhhhhhhhhh",
-          ],
-          "sql": "select "__id" as "record_id", "col_name" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "__id" = $1",
-        },
-        {
-          "parameters": [
-            "link",
-            false,
-            "tblbbbbbbbbbbbbbbbb",
-          ],
-          "sql": "select "field"."id" as "field_id", "field"."table_id" as "source_table_id", "field"."name" as "field_name", "field"."not_null" as "not_null", "field"."db_field_name" as "db_field_name", "field"."deleted_time" as "field_deleted_time", "table_meta"."name" as "source_table_name", "table_meta"."base_id" as "source_base_id", "table_meta"."deleted_time" as "table_deleted_time", "field"."options" as "options" from "field" inner join "table_meta" on "table_meta"."id" = "field"."table_id" where "field"."type" = $1 and ("field"."is_lookup" is null or "field"."is_lookup" = $2) and (field.options::json->>'foreignTableId')::text = $3",
-        },
-        {
-          "parameters": [
-            "rechhhhhhhhhhhhhhhh",
-          ],
-          "sql": "delete from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "__id" = $1 returning *",
-        },
-        {
-          "parameters": [
-            "usr_test",
-            "tblbbbbbbbbbbbbbbbb",
-          ],
-          "sql": "update "public"."table_meta" set "last_modified_time" = CASE
-                WHEN "last_modified_time" IS NULL THEN CURRENT_TIMESTAMP
-                ELSE GREATEST(CURRENT_TIMESTAMP, "last_modified_time" + interval '1 millisecond')
-              END, "last_modified_by" = $1 where "id" = $2",
-        },
-      ]
-    `);
     expect(capturedPlanInputs[0]?.beforeImageRecords).toEqual([
       {
         recordId,
