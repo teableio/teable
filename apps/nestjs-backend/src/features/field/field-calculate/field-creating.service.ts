@@ -11,7 +11,7 @@ import { FieldSupplementService } from './field-supplement.service';
 
 @Injectable()
 export class FieldCreatingService {
-  private logger = new Logger(FieldCreatingService.name);
+  private readonly logger = new Logger(FieldCreatingService.name);
 
   constructor(
     private readonly viewService: ViewService,

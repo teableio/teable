@@ -1,4 +1,4 @@
-import { useTheme } from '@teable/next-themes';
+import { useTheme } from '@teable/ui-lib';
 import Image from 'next/image';
 import { Trans, useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';

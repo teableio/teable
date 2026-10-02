@@ -5,7 +5,11 @@ import { nanoid } from 'nanoid';
 import type { ClsService } from 'nestjs-cls';
 import { isSharedMetaDataDatabase } from './database-url';
 import { Prisma, PrismaClient } from './generated/client';
-import { TimeoutHttpException } from './utils';
+import {
+  getDataTransactionMaxWait,
+  getDataTransactionTimeout,
+  TimeoutHttpException,
+} from './utils';
 
 interface IDataTxStore {
   client?: Prisma.TransactionClient;
@@ -44,8 +48,8 @@ export class DataPrismaService
 
   private afterTxCb?: () => void;
 
-  private readonly defaultTxTimeout = Number(process.env.PRISMA_TRANSACTION_TIMEOUT ?? 5000);
-  private readonly defaultTxMaxWait = Number(process.env.PRISMA_TRANSACTION_MAX_WAIT ?? 2000);
+  private readonly defaultTxTimeout = getDataTransactionTimeout();
+  private readonly defaultTxMaxWait = getDataTransactionMaxWait();
 
   constructor(
     private readonly cls: ClsService<Record<'dataTx', IDataTxStore>>,

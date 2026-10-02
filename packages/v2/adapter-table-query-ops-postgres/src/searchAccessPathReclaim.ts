@@ -152,20 +152,40 @@ export class PostgresTableSearchAccessPathReclaimSource
     }
   ): Promise<Result<boolean, DomainError>> {
     try {
-      const result = await sql<{ id: string }>`
-        UPDATE table_query_search_vector_config
-        SET status = 'disabled',
-            reclaim_disabled_at = ${input.disabledAt},
-            reclaim_drop_after = ${input.dropAfter},
-            reclaim_drop_queued_at = NULL,
-            last_modified_time = ${input.disabledAt}
-        WHERE table_id = ${input.tableId}
-          AND candidate_key = ${input.scopeKey}
-          AND status = 'ready'
-          AND xmin::text = ${input.expectedVersion}
-        RETURNING id
-      `.execute(this.opsMetaDb as unknown as Kysely<UnknownPostgresDatabase>);
-      return ok(result.rows.length === 1);
+      const claimed = await this.opsMetaDb.transaction().execute(async (transaction) => {
+        await sql`
+          SELECT pg_advisory_xact_lock(
+            hashtext('teable.table_query_ops.search_vector'), hashtext(${input.tableId})
+          )
+        `.execute(transaction);
+        // Match publication and field/routing writers before claiming the config row.
+        await sql`
+          SELECT id FROM table_meta WHERE id = ${input.tableId} FOR UPDATE
+        `.execute(transaction);
+        const disabled = await sql<{ id: string }>`
+          UPDATE table_query_search_vector_config
+          SET status = 'disabled',
+              reclaim_disabled_at = ${input.disabledAt},
+              reclaim_drop_after = ${input.dropAfter},
+              reclaim_drop_queued_at = NULL,
+              last_modified_time = ${input.disabledAt}
+          WHERE table_id = ${input.tableId}
+            AND candidate_key = ${input.scopeKey}
+            AND status = 'ready'
+            AND xmin::text = ${input.expectedVersion}
+          RETURNING id
+        `.execute(transaction);
+        if (disabled.rows.length !== 1) return false;
+
+        await sql`
+          UPDATE table_meta
+          SET search_index = NULL, version = version + 1
+          WHERE id = ${input.tableId}
+            AND search_index->>'definitionKey' = ${input.scopeKey}
+        `.execute(transaction);
+        return true;
+      });
+      return ok(claimed);
     } catch (error) {
       return err(toInfrastructureError(error, 'Failed to begin search access path reclaim grace'));
     }

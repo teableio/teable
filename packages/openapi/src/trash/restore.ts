@@ -53,7 +53,7 @@ export type IRestoreFieldTrashStreamEvent = z.infer<typeof restoreFieldTrashStre
 export const RestoreTrashRoute: RouteConfig = registerRoute({
   method: 'post',
   path: RESTORE_TRASH,
-  description: 'restore a space, base, table, etc.',
+  description: 'restore a space, project, table, etc.',
   request: {
     params: z.object({
       trashId: z.string(),

@@ -84,7 +84,7 @@ export abstract class View extends Entity<ViewId> implements OnTeableViewFieldDe
     return ok(this.queryDefaultsValue);
   }
 
-  options(): unknown | undefined {
+  options(): unknown {
     return this.optionsValue;
   }
 

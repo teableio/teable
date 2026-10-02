@@ -556,7 +556,7 @@ WHERE con.contype = 'f'
     if (!normalized.length) {
       return undefined;
     }
-    const ordered = normalized.sort();
+    const ordered = [...normalized].sort((a, b) => Number(a > b) - Number(a < b));
     return this.knex(dbTableName)
       .select(idFieldName)
       .whereIn(idFieldName, ordered)
@@ -943,16 +943,22 @@ ORDER BY
     const newName = `${oldName}_new`;
     const stmts: string[] = [];
     // Clean temp and conflicting indexes
-    stmts.push(`DROP INDEX IF EXISTS "${newName}__id_uidx"`);
-    stmts.push(`DROP INDEX IF EXISTS "${oldName}__id_uidx"`);
-    stmts.push(`DROP MATERIALIZED VIEW IF EXISTS "${newName}"`);
+    stmts.push(
+      `DROP INDEX IF EXISTS "${newName}__id_uidx"`,
+      `DROP INDEX IF EXISTS "${oldName}__id_uidx"`,
+      `DROP MATERIALIZED VIEW IF EXISTS "${newName}"`
+    );
     // Create empty MV and index, then initial non-concurrent populate
-    stmts.push(`CREATE MATERIALIZED VIEW "${newName}" AS ${qb.toQuery()} WITH NO DATA`);
-    stmts.push(`CREATE UNIQUE INDEX "${newName}__id_uidx" ON "${newName}" ("__id")`);
-    stmts.push(`REFRESH MATERIALIZED VIEW "${newName}"`);
+    stmts.push(
+      `CREATE MATERIALIZED VIEW "${newName}" AS ${qb.toQuery()} WITH NO DATA`,
+      `CREATE UNIQUE INDEX "${newName}__id_uidx" ON "${newName}" ("__id")`,
+      `REFRESH MATERIALIZED VIEW "${newName}"`
+    );
     // Swap
-    stmts.push(`DROP MATERIALIZED VIEW IF EXISTS "${oldName}"`);
-    stmts.push(`ALTER MATERIALIZED VIEW "${newName}" RENAME TO "${oldName}"`);
+    stmts.push(
+      `DROP MATERIALIZED VIEW IF EXISTS "${oldName}"`,
+      `ALTER MATERIALIZED VIEW "${newName}" RENAME TO "${oldName}"`
+    );
     // Keep index name stable after swap
     stmts.push(`ALTER INDEX "${newName}__id_uidx" RENAME TO "${oldName}__id_uidx"`);
     // Ensure final MV has data (defensive refresh)

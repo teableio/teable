@@ -78,7 +78,7 @@
     "deniedDescription": "该设备未获得访问权限，可以关闭本页面。"
   },
   "help": {
-    "link": "https://help.teable.cn/zh/api-doc/oauth",
+    "link": "https://help.teable.ai/zh/api-doc/oauth",
     "title": "了解更多"
   },
   "deleteConfirm": {

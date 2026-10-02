@@ -151,7 +151,7 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
     context: ExecutionContextPort.IExecutionContext,
     command: UpdateFieldCommand
   ): Promise<Result<UpdateFieldResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<UpdateFieldResult, DomainError>(async function* () {
       // 1. Load the table first to access existing field config
       const whereSpec = yield* TableAggregate.specs().byId(command.tableId).build();

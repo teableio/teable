@@ -324,6 +324,51 @@ describe('CellValueMutateVisitor', () => {
     );
   });
 
+  it('collapses duplicate ids in one link cell into a single junction row', () => {
+    const linkField = createLinkField({
+      fieldId: 'linkField',
+      dbFieldName: 'link_json',
+      relationship: 'manyMany',
+      hostTableName: 'public.junction_links',
+      selfKeyName: '__fk_source',
+      foreignKeyName: '__fk_foreign',
+      hasOrderColumn: true,
+      orderColumnName: '__order_links',
+    });
+    const visitor = createVisitor(linkField);
+
+    const result = visitor.visitSetLinkValue(
+      new SetLinkValueSpec(
+        linkField.id(),
+        CellValue.fromValidated([
+          { id: mkRecordId('first') },
+          { id: mkRecordId('second') },
+          { id: mkRecordId('first') },
+        ])
+      ) as never
+    );
+
+    expect(result.isOk()).toBe(true);
+    const raw = visitor.getSetClausesRaw();
+    expect(raw.setClauses.link_json).toBe(
+      JSON.stringify([{ id: mkRecordId('first') }, { id: mkRecordId('second') }])
+    );
+
+    const insert = raw.additionalStatements.find((statement) =>
+      normalizeSql(statement.sql).startsWith('insert into "public"."junction_links"')
+    );
+    expect(insert).toBeDefined();
+    // One row per linked record: a repeated id must not insert the pair twice.
+    expect(insert?.parameters).toEqual([
+      mkRecordId('source'),
+      mkRecordId('first'),
+      1,
+      mkRecordId('source'),
+      mkRecordId('second'),
+      2,
+    ]);
+  });
+
   it('returns an error when SetLinkValue targets a non-link field', () => {
     const textField = createField({
       fieldId: 'textField',
@@ -444,7 +489,7 @@ describe('CellValueMutateVisitor', () => {
       }
     );
     const oversizedItems = Array.from({ length: MAX_FILLED_LINK_VALUE_ITEMS + 1 }, (_, index) => ({
-      id: mkRecordId(`foreign${index}`),
+      id: `rec${String(index).padStart(16, '0')}`,
     }));
     const spec = new SetLinkValueSpec(
       linkField.id(),

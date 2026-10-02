@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve, resolve as resolvePath } from 'node:path';
@@ -15,16 +15,22 @@ import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import {
   createTypeValidationStrategy,
+  DomainEventOutboxWorker,
+  NodeImportEventSpoolFactory,
   installUndoCaptureGlobals,
   registerV2TableRepositoryPostgresAdapter,
+  ValidationInboxDurableProjection,
   v2RecordRepositoryPostgresTokens,
   type IV2TableRepositoryPostgresConfig,
+  FormulaSourceBudgetCommandBusMiddleware,
   type ComputedUpdateWorker,
 } from '@teable/v2-adapter-table-repository-postgres';
 import { registerCommandExplainModule } from '@teable/v2-command-explain';
 import {
   BaseId,
+  compileDurableSubscriptionCatalog,
   DefaultTableMapper,
+  DomainWriteTransaction,
   getRandomString,
   MemoryCommandBus,
   MemoryEventBus,
@@ -32,9 +38,22 @@ import {
   MemoryTableRepository,
   NoopRealtimeEngine,
   NoopTracer,
+  ProjectionMessageCodecRegistry,
+  RecordCreated,
+  RecordReordered,
+  RecordsBatchCreated,
+  RecordsBatchUpdated,
+  RecordsDeleted,
+  RecordUpdated,
+  FieldCreated,
+  FieldUpdated,
+  TableCreated,
+  recordProjectionCodecs,
   registerV2CoreServices,
+  SameTxProjectionDispatcher,
   StaticTableDataSafetyLimitPlugin,
   TableDataSafetyLimitCommandBusMiddleware,
+  TargetedLegacyEventDispatcher,
   v2CoreTokens,
 } from '@teable/v2-core';
 import type {
@@ -137,6 +156,7 @@ export interface IV2NodeTestContainerOptions {
   /** @deprecated Use `tableMaxRowLimit`. */
   maxFreeRowLimit?: number;
   computedUpdate?: IV2TableRepositoryPostgresConfig['computedUpdate'];
+  formulaCompileBudget?: IV2TableRepositoryPostgresConfig['formulaCompileBudget'];
   logToConsole?: boolean;
   logLevel?: V2NodeTestContainerLogLevel;
   // Kept for call-site compatibility. Delete now writes id-only record_trash
@@ -343,12 +363,14 @@ export const createV2NodeTestContainer = async (
   await time('register-table-repository-adapter', async () => {
     registerV2TableRepositoryPostgresAdapter(c, {
       db: dataDb,
+      metaDb,
       computedUpdate: {
         hybridConfig: { dispatchMode: 'external' },
         ...options.computedUpdate,
       },
       typeValidationStrategy,
       tableDataSafetyLimits: options.tableDataSafetyLimits,
+      formulaCompileBudget: options.formulaCompileBudget,
     });
   });
 
@@ -380,16 +402,16 @@ export const createV2NodeTestContainer = async (
   }
 
   c.registerInstance(v2CoreTokens.tableDataSafetyLimits, options.tableDataSafetyLimits ?? {});
-  const commandBus = new MemoryCommandBus(
-    c,
-    options.tableDataSafetyLimits
+  const commandBus = new MemoryCommandBus(c, [
+    new FormulaSourceBudgetCommandBusMiddleware(options.formulaCompileBudget),
+    ...(options.tableDataSafetyLimits
       ? [
           new TableDataSafetyLimitCommandBusMiddleware(
             new StaticTableDataSafetyLimitPlugin(options.tableDataSafetyLimits)
           ),
         ]
-      : []
-  );
+      : []),
+  ]);
   const queryBus = new MemoryQueryBus(c);
   // The bus choice must happen here, before the eager singletons resolved below
   // (ComputedUpdateWorker/Outbox) capture it by constructor injection — a
@@ -401,6 +423,50 @@ export const createV2NodeTestContainer = async (
   c.registerInstance(v2CoreTokens.queryBus, queryBus);
   c.registerInstance(v2CoreTokens.eventBus, eventBus);
 
+  const catalogResult = compileDurableSubscriptionCatalog([
+    RecordCreated,
+    RecordsBatchCreated,
+    RecordUpdated,
+    RecordsBatchUpdated,
+    RecordsDeleted,
+    RecordReordered,
+    TableCreated,
+    FieldCreated,
+    FieldUpdated,
+  ]);
+  if (catalogResult.isErr()) {
+    throw new Error(catalogResult.error.message);
+  }
+  const codecResult = ProjectionMessageCodecRegistry.create(recordProjectionCodecs);
+  if (codecResult.isErr()) {
+    throw new Error(codecResult.error.message);
+  }
+  c.registerInstance(v2CoreTokens.durableSubscriptionCatalog, catalogResult.value);
+  c.registerInstance(
+    v2CoreTokens.domainWriteTransaction,
+    new DomainWriteTransaction(
+      c.resolve(v2CoreTokens.unitOfWork),
+      codecResult.value,
+      catalogResult.value,
+      c.resolve(v2CoreTokens.projectionMessageJournal),
+      new TargetedLegacyEventDispatcher(c, spyLogger),
+      new SameTxProjectionDispatcher(c),
+      spyLogger,
+      undefined,
+      c.resolve(v2CoreTokens.eventBus),
+      new NodeImportEventSpoolFactory()
+    )
+  );
+  const validationConsumer = new ValidationInboxDurableProjection(dataDb);
+  c.registerInstance(
+    v2RecordRepositoryPostgresTokens.domainEventOutboxWorker,
+    new DomainEventOutboxWorker(
+      dataDb,
+      new Map([[validationConsumer.consumerId, validationConsumer]]),
+      codecResult.value,
+      spyLogger
+    )
+  );
   // Register core services (uses defaults unless already registered)
   await time('register-core-services', async () => {
     registerV2CoreServices(c, { lifecycle: Lifecycle.Singleton });

@@ -5,7 +5,7 @@ type Props = {
 };
 
 export default function MonitorSentrySsrRoute(
-  _props: InferGetServerSidePropsType<typeof getServerSideProps>
+  _props: Readonly<InferGetServerSidePropsType<typeof getServerSideProps>>
 ) {
   return (
     <div>

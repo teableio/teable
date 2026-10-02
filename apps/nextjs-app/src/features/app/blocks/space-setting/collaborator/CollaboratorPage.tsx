@@ -44,7 +44,7 @@ export const CollaboratorPage = ({ spaceId: spaceIdProp }: { spaceId?: string } 
       className="overflow-hidden"
     >
       {isHydrated && !!space && (
-        <div className="size-full">
+        <div className="min-h-0 flex-1">
           <Collaborators spaceId={space.id} role={space.role}>
             <InviteSpacePopover space={space}>
               <Button size="sm">

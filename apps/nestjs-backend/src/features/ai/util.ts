@@ -27,8 +27,8 @@ const fixStreamText = (text: string): string => {
   // comma followed by role (if last field)
 
   return text
-    .replace(/"role":"",/g, '') // role followed by comma
-    .replace(/,"role":""/g, '');
+    .replaceAll('"role":"",', '') // role followed by comma
+    .replaceAll(',"role":""', '');
 };
 
 /**

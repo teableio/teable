@@ -84,32 +84,34 @@ describe('FormulaField', () => {
 
   it('applies and validates formatting', () => {
     const unsetResult = buildFormulaField('b');
-    unsetResult?._unsafeUnwrap();
+    expect(unsetResult?.isOk()).toBe(true);
 
     const unsetField = unsetResult._unsafeUnwrap();
     const unsetFormatting = unsetField.setFormatting(NumberFormatting.default());
-    unsetFormatting._unsafeUnwrapErr();
+    expect(unsetFormatting.isErr()).toBe(true);
 
     const fieldResult = buildFormulaField('c');
-    fieldResult?._unsafeUnwrap();
+    expect(fieldResult?.isOk()).toBe(true);
 
     const field = fieldResult._unsafeUnwrap();
-    field.setResultType(CellValueType.number(), CellValueMultiplicity.single())._unsafeUnwrap();
+    expect(field.setResultType(CellValueType.number(), CellValueMultiplicity.single()).isOk()).toBe(
+      true
+    );
 
     const setFormatting = field.setFormatting(NumberFormatting.default());
-    setFormatting._unsafeUnwrap();
+    expect(setFormatting.isOk()).toBe(true);
     const setFormattingAgain = field.setFormatting(NumberFormatting.default());
-    setFormattingAgain._unsafeUnwrapErr();
+    expect(setFormattingAgain.isErr()).toBe(true);
 
     const invalidFormattingField = buildFormulaField('d');
-    invalidFormattingField?._unsafeUnwrap();
+    expect(invalidFormattingField?.isOk()).toBe(true);
 
     const invalidField = invalidFormattingField._unsafeUnwrap();
     invalidField
       .setResultType(CellValueType.number(), CellValueMultiplicity.single())
       ._unsafeUnwrap();
     const invalidFormatting = invalidField.setFormatting(DateTimeFormatting.default());
-    invalidFormatting._unsafeUnwrapErr();
+    expect(invalidFormatting.isErr()).toBe(true);
   });
 
   it('validates showAs and cell type combinations', () => {
@@ -135,7 +137,7 @@ describe('FormulaField', () => {
       CellValueType.number(),
       CellValueMultiplicity.multiple()
     );
-    singleResult._unsafeUnwrapErr();
+    expect(singleResult.isErr()).toBe(true);
 
     const multiShowAsField = buildFormulaField('f', { showAs: multiShowAsValue });
     const multiShowAsValueField = multiShowAsField._unsafeUnwrap();
@@ -144,7 +146,7 @@ describe('FormulaField', () => {
       CellValueType.number(),
       CellValueMultiplicity.single()
     );
-    multiResult._unsafeUnwrapErr();
+    expect(multiResult.isErr()).toBe(true);
 
     const okShowAsField = buildFormulaField('g', { showAs: multiShowAsValue });
     const okShowAsValueField = okShowAsField._unsafeUnwrap();
@@ -153,7 +155,7 @@ describe('FormulaField', () => {
       CellValueType.number(),
       CellValueMultiplicity.multiple()
     );
-    okResult._unsafeUnwrap();
+    expect(okResult.isOk()).toBe(true);
 
     const stringWithNumberShowAs = buildFormulaField('h', { showAs: multiShowAsValue });
     const stringWithNumberShowAsField = stringWithNumberShowAs._unsafeUnwrap();
@@ -162,7 +164,7 @@ describe('FormulaField', () => {
       CellValueType.string(),
       CellValueMultiplicity.single()
     );
-    stringShowAsError._unsafeUnwrapErr();
+    expect(stringShowAsError.isErr()).toBe(true);
 
     const stringWithTextShowAs = buildFormulaField('i', { showAs: textShowAsValue });
     const stringWithTextShowAsField = stringWithTextShowAs._unsafeUnwrap();
@@ -171,7 +173,7 @@ describe('FormulaField', () => {
       CellValueType.string(),
       CellValueMultiplicity.single()
     );
-    stringShowAsOk._unsafeUnwrap();
+    expect(stringShowAsOk.isOk()).toBe(true);
 
     const dateTimeWithFormatting = buildFormulaField('j', {
       formatting: DateTimeFormatting.default(),
@@ -182,7 +184,7 @@ describe('FormulaField', () => {
       CellValueType.dateTime(),
       CellValueMultiplicity.single()
     );
-    dateTimeOk._unsafeUnwrap();
+    expect(dateTimeOk.isOk()).toBe(true);
 
     const dateTimeWithShowAs = buildFormulaField('k', { showAs: textShowAsValue });
     const dateTimeWithShowAsField = dateTimeWithShowAs._unsafeUnwrap();
@@ -191,7 +193,7 @@ describe('FormulaField', () => {
       CellValueType.dateTime(),
       CellValueMultiplicity.single()
     );
-    dateTimeShowAsError._unsafeUnwrapErr();
+    expect(dateTimeShowAsError.isErr()).toBe(true);
 
     const booleanWithFormatting = buildFormulaField('l', {
       formatting: NumberFormatting.default(),
@@ -202,7 +204,7 @@ describe('FormulaField', () => {
       CellValueType.boolean(),
       CellValueMultiplicity.single()
     );
-    booleanFormattingError._unsafeUnwrapErr();
+    expect(booleanFormattingError.isErr()).toBe(true);
 
     const booleanOk = buildFormulaField('m');
     const booleanOkField = booleanOk._unsafeUnwrap();
@@ -211,7 +213,7 @@ describe('FormulaField', () => {
       CellValueType.boolean(),
       CellValueMultiplicity.single()
     );
-    booleanResult._unsafeUnwrap();
+    expect(booleanResult.isOk()).toBe(true);
   });
 
   it('provides defaults and meta behavior', () => {
@@ -241,6 +243,43 @@ describe('FormulaField', () => {
 
     const notPersisted = fieldWithoutMetaValue.isPersistedAsGeneratedColumn();
     expect(notPersisted._unsafeUnwrap()).toBe(false);
+  });
+
+  it('enables safety monotonically while retaining generated-column storage', () => {
+    const field = buildFormulaField('s', {
+      meta: FormulaMeta.rehydrate({ persistedAsGeneratedColumn: true })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    expect(field.formulaSafetyVersion()._unsafeUnwrap()).toBeUndefined();
+    field.enableFormulaSafety(1)._unsafeUnwrap();
+    field.enableFormulaSafety(1)._unsafeUnwrap();
+    expect(field.formulaSafetyVersion()._unsafeUnwrap()).toBe(1);
+    expect(field.isPersistedAsGeneratedColumn()._unsafeUnwrap()).toBe(true);
+
+    const future = buildFormulaField('t', {
+      meta: FormulaMeta.rehydrate({ formulaSafetyVersion: 2 })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    expect(future.enableFormulaSafety(1).isErr()).toBe(true);
+    expect(future.formulaSafetyVersion()._unsafeUnwrap()).toBe(2);
+  });
+
+  it('does not promote legacy definitions on a no-op and preserves ownership on duplication', () => {
+    const field = buildFormulaField('u')._unsafeUnwrap();
+    field.setExpression(FormulaExpression.create('1')._unsafeUnwrap())._unsafeUnwrap();
+    expect(field.formulaSafetyVersion()._unsafeUnwrap()).toBeUndefined();
+
+    field.enableFormulaSafety(1)._unsafeUnwrap();
+    const duplicate = field
+      .duplicate({
+        newId: createFieldId('v')._unsafeUnwrap(),
+        newName: FieldName.create('Copy')._unsafeUnwrap(),
+        baseId: BaseId.create(`bse${'u'.repeat(16)}`)._unsafeUnwrap(),
+        tableId: TableId.create(`tbl${'u'.repeat(16)}`)._unsafeUnwrap(),
+      })
+      ._unsafeUnwrap();
+    if (!(duplicate instanceof FormulaField)) throw new Error('Expected formula duplicate');
+    expect(duplicate.formulaSafetyVersion()._unsafeUnwrap()).toBe(1);
+    expect(duplicate.id().equals(field.id())).toBe(false);
+    expect(duplicate.expression().equals(field.expression())).toBe(true);
   });
 
   it('returns field deletion reaction metadata when a dependency is deleted', () => {

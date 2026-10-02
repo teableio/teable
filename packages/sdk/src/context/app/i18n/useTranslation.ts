@@ -20,7 +20,7 @@ export const useTranslation = () => {
         console.warn(`Translation for '${key}' not found.`);
       }
       if (options) {
-        const compiled = template(translation, { interpolate: /\{\{([\s\S]+?)\}\}/g });
+        const compiled = template(translation, { interpolate: /\{\{([^{}]+)\}\}/g });
         return compiled(options);
       }
       return translation;
@@ -37,7 +37,7 @@ export const useTranslation = () => {
       if (!translation) {
         console.warn(`Translation for '${key}_${pluralForm}' not found.`);
       }
-      const compiled = template(translation, { interpolate: /\{\{([\s\S]+?)\}\}/g });
+      const compiled = template(translation, { interpolate: /\{\{([^{}]+)\}\}/g });
       return compiled({ count, ...options });
     },
     [locale, lang]

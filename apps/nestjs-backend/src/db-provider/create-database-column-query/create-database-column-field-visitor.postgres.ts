@@ -42,7 +42,7 @@ import { validateGeneratedColumnSupport } from './create-database-column-field.u
  * PostgreSQL implementation of database column visitor.
  */
 export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<void> {
-  private sql: string[] = [];
+  private readonly sql: string[] = [];
 
   constructor(private readonly context: ICreateDatabaseColumnContext) {}
 

@@ -8,6 +8,9 @@
     "failed": "Başarısız",
     "calculationFailed": "Hesaplama başarısız oldu",
     "cellValueTooLarge": "Hesaplanan hücre değeri çok büyük ({{attempted}} / {{max}} bayt). Kaynak veriyi kısaltın veya formülü değiştirin.",
+    "formulaLimit": "Formül derlemesi hesaplama sınırını aşıyor; sonuçlar güncellenmedi",
+    "resourceLimit": "Kaynak sınırı nedeniyle hesaplama sonuçları güncellenmedi",
+    "stageDepthExhausted": "Hesaplama tamamlanmadı; bazı sonuçlar güncellenmedi",
     "calculatingSummary": "Hesaplanıyor ({{count}})",
     "failedSummary": "Başarısız ({{count}})",
     "fieldsCalculating_one": "{{count}} alan hesaplanıyor",
@@ -66,7 +69,7 @@
         "generatingToken": "Oluşturuluyor...",
         "generateToken": "Token oluştur",
         "confirmTitle": "API token oluştur",
-        "confirmDescription": "Bu base için aşağıdaki izinlere sahip yeni bir API token oluşturur:",
+        "confirmDescription": "Bu proje için aşağıdaki izinlere sahip yeni bir API token oluşturur:",
         "scopeTableRead": "Tablo bilgilerini oku",
         "scopeFieldRead": "Alanları oku",
         "scopeRead": "Kayıtları oku",
@@ -99,7 +102,7 @@
   },
   "welcome": {
     "title": "Hoş Geldiniz",
-    "emptyTitle": "Veritabanınızı Oluşturmaya Başlayın",
+    "emptyTitle": "Projenizi Oluşturmaya Başlayın",
     "description": "Kaynak eklemek için kenar çubuğundaki \"+\" düğmesine tıklayın",
     "help": "Daha fazla bilgi için <HelpCenter /> adresini ziyaret edin",
     "helpCenter": "Yardım Merkezi"
@@ -271,7 +274,6 @@
       "bar": "Çubuk",
       "text": "Metin",
       "markdown": "Markdown",
-      "url": "URL",
       "email": "E-posta",
       "phone": "Telefon",
       "maxNumber": "Maksimum Sayı",
@@ -287,8 +289,8 @@
       "manyToMany": "çoka-çok",
       "self": "Kendisi",
       "selectTable": "Tablo seç...",
-      "selectBase": "Veritabanı seç...",
-      "linkFromAnotherBase": "Harici veritabanından bağlantı",
+      "selectBase": "Proje seç...",
+      "linkFromAnotherBase": "Harici projeden bağlantı",
       "inSelfLink": "kendi içinde bağlantı",
       "betweenTwoTables": "iki tablo arasında",
       "tips": "İpuçları",
@@ -302,8 +304,8 @@
       "calculating": "Hesaplanıyor...",
       "doSaveChanges": "Yaptığınız değişiklikleri kaydetmek istiyor musunuz?",
       "linkFieldToLookup": "Arama için kullanılacak bağlantılı kayıt alanı",
-      "lookupToTable": "Bağlantı veritabanındaki <bold>{{tableName}}</bold> alanı",
-      "rollupToTable": "Bağlantı veritabanındaki <bold>{{tableName}}</bold> alanı",
+      "lookupToTable": "<bold>{{tableName}}</bold> tablosundan aramak istediğiniz alan",
+      "rollupToTable": "<bold>{{tableName}}</bold> tablosundan özetlemek istediğiniz alan",
       "selectField": "Bir alan seç...",
       "lastModifiedScope": "Alanlar",
       "lastModifiedAll": "Tüm düzenlenebilir alanlar",
@@ -320,9 +322,9 @@
         "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
       },
       "linkTable": "Bağlantı tablosu",
-      "linkBase": "Bağlantı veritabanı",
+      "linkBase": "Bağlantı projesi",
       "tableNoPermission": "İzin olmayan tablo",
-      "baseNoPermission": "İzin olmayan veritabanı",
+      "baseNoPermission": "İzin olmayan proje",
       "noLinkTip": "Aranacak bağlantılı kayıt yok. Başka bir kayda bağlantı alanı ekleyin, ardından aramanızı tekrar yapılandırmayı deneyin.",
       "fieldValidationRules": "Alan değeri doğrulama kuralları",
       "enableValidateFieldUnique": "Yinelenen değerleri yasakla",
@@ -333,6 +335,7 @@
       "filterByView": "Görünüme göre kayıtları filtrele",
       "filter": "Kayıtları filtrele",
       "hideFields": "Alanları gizle",
+      "removeDuplicateValues": "Yinelenen değerleri kaldır",
       "moreOptions": "Daha fazla seçenek",
       "allowNewOptionsWhenEditing": "Düzenlerken yeni seçeneklere izin ver",
       "deleteField": {
@@ -478,7 +481,7 @@
     "deleteConfirm": "\"{{tableName}}\" tablosunu silmek istediğinizden emin misiniz?",
     "dbTableName": "Fiziksel veritabanındaki tablo adı",
     "schemaName": "Fiziksel veritabanındaki şema adı",
-    "baseInfo": "Taban bilgisi",
+    "baseInfo": "Proje bilgisi",
     "loginUserTable": "Uygulama girişi",
     "linkedApps": "Bağlı uygulamalar",
     "typeOfDatabase": "Veritabanı türü",
@@ -630,9 +633,9 @@
         "noPermission": "Kayıtları kopyalama izniniz yok"
       },
       "crossBaseCopyTitle": "Düz metin olarak kopyalansın mı?",
-      "crossBaseCopyDescription": "Bu seçim, tabanlar arası bir bağlantı alanı içeriyor. Verileri orijinal tabanı içinde tutmak için alan düz metin olarak kopyalanacak ve bağlantı ilişkilerini kaybedecek.",
+      "crossBaseCopyDescription": "Bu seçim, projeler arası bir bağlantı alanı içeriyor. Verileri orijinal projeyi içinde tutmak için alan düz metin olarak kopyalanacak ve bağlantı ilişkilerini kaybedecek.",
       "crossBaseCopyConfirm": "Düz metin olarak kopyala",
-      "crossBaseCopyLoadFirst": "Tabanlar arası alanları kopyalamadan önce seçili tüm satırları yüklemek için lütfen kaydırın."
+      "crossBaseCopyLoadFirst": "Projeler arası alanları kopyalamadan önce seçili tüm satırları yüklemek için lütfen kaydırın."
     },
     "graph": {
       "effectCells": "Etkilenebilecek hücreler",
@@ -650,7 +653,7 @@
       "v2": {
         "dialogTitle": "Şema Bütünlüğü",
         "dialogDescription": "{{tableName}} için v2 şema denetimi ve onarım akışını çalıştır.",
-        "dialogDescriptionNoTable": "Geçerli base için v2 şema denetimi ve onarım akışını çalıştır.",
+        "dialogDescriptionNoTable": "Geçerli proje için v2 şema denetimi ve onarım akışını çalıştır.",
         "runCheck": "Kontrolü başlat",
         "recheck": "Tekrar kontrol et",
         "repair": "Onar",
@@ -702,13 +705,13 @@
           "noRepairStatements": "No repair statements available",
           "skippedDependencies": "Skipped because dependencies are not satisfied",
           "checkStreamConnected": "Schema integrity check stream connected",
-          "baseCheckStreamConnected": "Base schema integrity check stream connected",
+          "baseCheckStreamConnected": "Proje şeması bütünlük denetimi akışına bağlanıldı",
           "repairStreamConnected": "Schema integrity repair stream connected",
-          "baseRepairStreamConnected": "Base schema integrity repair stream connected",
+          "baseRepairStreamConnected": "Proje şeması bütünlük onarımı akışına bağlanıldı",
           "checkCompleted": "Schema integrity check completed",
-          "baseCheckCompleted": "Base schema integrity check completed",
+          "baseCheckCompleted": "Proje şeması bütünlük denetimi tamamlandı",
           "repairCompleted": "Schema integrity repair completed",
-          "baseRepairCompleted": "Base schema integrity repair completed",
+          "baseRepairCompleted": "Proje şeması bütünlük onarımı tamamlandı",
           "skippedStatusNotSelected": "Bu durum düzeyi onarım için seçilmediğinden atlandı",
           "skippedRepairUnavailable": "Mevcut durumda otomatik onarım kullanılamadığından atlandı"
         },
@@ -911,11 +914,14 @@
     "deletedRecovered": {
       "title": "Açtığınız tablo silindi",
       "description": "\"{{tableName}}\" tablosuna geçildi",
-      "descriptionEmpty": "Base sayfasına dönüldü"
+      "descriptionEmpty": "Proje sayfasına dönüldü"
     }
   },
   "import": {
     "title": {
+      "createTable": "Tablo oluştur",
+      "importFromCsv": "CSV'den içe aktar",
+      "importFromExcel": "Excel'den içe aktar",
       "upload": "Yükle",
       "import": "İçe Aktar",
       "localFile": "Yerel Dosyalar",
@@ -1116,7 +1122,7 @@
   },
   "connection": {
     "title": "Veritabanı Bağlantısı",
-    "description": "Veritabanına doğrudan veritabanı bağlantısı üzerinden erişebilirsiniz, mevcut veritabanı altındaki tüm tablolar dahil",
+    "description": "Veritabanına doğrudan veritabanı bağlantısı üzerinden erişebilirsiniz; mevcut projedeki tüm tablolar buna dahildir.",
     "noPermission": "Veritabanına erişim izniniz yok",
     "connectionCountTip": "Maksimum veritabanı bağlantısı sayısı <b>{{max}}</b> ve mevcut bağlantı sayısı <b>{{current}}</b>",
     "createFailed": "Please ensure that the PUBLIC_DATABASE_PROXY environment variable is set correctly",
@@ -1239,7 +1245,7 @@
     "shareToWeb": "Web'de paylaş",
     "refreshLink": "Bağlantıyı yenile",
     "deleteConfirmTitle": "Paylaşım bağlantısını sil",
-    "deleteConfirmDescription": "Bu işlem geri alınamaz. Bu bağlantıya sahip kişiler artık paylaşılan tabana erişemeyecek.",
+    "deleteConfirmDescription": "Bu işlem geri alınamaz. Bu bağlantıya sahip kişiler artık paylaşılan projeye erişemeyecek.",
     "createSuccess": "Paylaşım bağlantısı oluşturuldu",
     "createFailed": "Paylaşım bağlantısı oluşturulamadı",
     "updateFailed": "Paylaşım ayarları güncellenemedi",
@@ -1297,6 +1303,9 @@
         "failed": "Başarısız"
       }
     },
+    "gateCard": {
+      "header": "Bu görev için yetkilendirme gerekli"
+    },
     "googleSheetPick": {
       "title": "Google e-tablolarını seç",
       "defaultReason": "Okunabilmeleri için e-tabloları Google dosya seçicide seçin.",
@@ -1304,6 +1313,8 @@
       "opening": "Seçici açılıyor…",
       "failed": "Google dosya seçici açılamadı",
       "gateExpired": "Bu isteğin süresi doldu, ancak seçtiğiniz dosyalara erişim izni geçerli — devam etmek için ajana yeni bir mesaj gönderin.",
+      "notConnected": "Google Sheets henüz bağlanmadı. Uygulamada bağlayıp tekrar dene.",
+      "backToChat": "Artık sohbete dönebilirsin.",
       "status": {
         "picked": "{{count}} e-tabloya izin verildi",
         "cancelled": "Atlandı",
@@ -1383,6 +1394,83 @@
     "action": {
       "locateResource": "Konumunu bul"
     },
+    "resourceOperations": {
+      "title": "Bu turdaki değişiklikler",
+      "items_one": "{{count}} öğe",
+      "items_other": "{{count}} öğe",
+      "expandRemaining": "{{count}} öğe daha göster",
+      "collapse": "Daha az göster",
+      "create": "Oluşturuldu",
+      "update": "Güncellendi",
+      "delete": "Silindi",
+      "import": "İçe aktar",
+      "publication": {
+        "published": "Yayımlandı",
+        "unpublished": "Yayımdan kaldırıldı"
+      },
+      "structureTitles": {
+        "field": "Alan değişiklikleri",
+        "view": "Görünüm değişiklikleri"
+      },
+      "structureStats": {
+        "field": {
+          "create_one": "{{count}} alan eklendi",
+          "create_other": "{{count}} alan eklendi",
+          "update_one": "{{count}} alan değiştirildi",
+          "update_other": "{{count}} alan değiştirildi",
+          "delete_one": "{{count}} alan silindi",
+          "delete_other": "{{count}} alan silindi",
+          "import_one": "{{count}} alan içe aktarıldı",
+          "import_other": "{{count}} alan içe aktarıldı"
+        },
+        "view": {
+          "create_one": "{{count}} görünüm eklendi",
+          "create_other": "{{count}} görünüm eklendi",
+          "update_one": "{{count}} görünüm değiştirildi",
+          "update_other": "{{count}} görünüm değiştirildi",
+          "delete_one": "{{count}} görünüm silindi",
+          "delete_other": "{{count}} görünüm silindi",
+          "import_one": "{{count}} görünüm içe aktarıldı",
+          "import_other": "{{count}} görünüm içe aktarıldı"
+        }
+      },
+      "workflow": {
+        "activate": "Otomasyon etkinleştirildi",
+        "deactivate": "Otomasyon devre dışı bırakıldı",
+        "discard": "Taslak değişiklikleri atıldı"
+      },
+      "routine": {
+        "activate": "Rutin etkinleştirildi",
+        "deactivate": "Rutin devre dışı bırakıldı",
+        "run": "Çalıştırma başlatıldı"
+      },
+      "records": {
+        "create": "Kayıtlar eklendi",
+        "createCount_one": "{{count}} kayıt eklendi",
+        "createCount_other": "{{count}} kayıt eklendi",
+        "update": "Kayıtlar güncellendi",
+        "updateCount_one": "{{count}} kayıt güncellendi",
+        "updateCount_other": "{{count}} kayıt güncellendi",
+        "delete": "Kayıtlar silindi",
+        "deleteCount_one": "{{count}} kayıt silindi",
+        "deleteCount_other": "{{count}} kayıt silindi",
+        "import": "Kayıtlar içe aktarıldı",
+        "importCount_one": "{{count}} kayıt içe aktarıldı",
+        "importCount_other": "{{count}} kayıt içe aktarıldı"
+      },
+      "types": {
+        "base": "Proje",
+        "table": "Tablo",
+        "field": "Alan",
+        "view": "Görünüm",
+        "record": "Kayıtlar",
+        "app": "Uygulama",
+        "workflow": "Otomasyon",
+        "routine": "Rutin",
+        "folder": "Klasör",
+        "artifact": "Artifact"
+      }
+    },
     "showUI": {
       "skip": "Atla",
       "next": "Sonraki",
@@ -1397,7 +1485,7 @@
     "clearChatConfirmDesc": "Mevcut sohbet içeriği kaydedilmeyecek. Temizlemek istediğinizden emin misiniz?",
     "dontShowAgain": "Bir daha gösterme",
     "modelSwitchTitle": "Modeli değiştir",
-    "modelSwitchHint": "Şu anda {{previous}} üzerinde çalışıyor. Bir sonraki göndermede yeni model devralır ve yalnızca son 3 turu görür.",
+    "modelSwitchHint": "Bu sohbeti şu anda {{previous}} yürütüyor; bir sonraki göndermede yeni model devralacak.",
     "effort": {
       "title": "Zekâ",
       "low": "Düşük",
@@ -1422,7 +1510,13 @@
     "addAttachment": "Ek ekle",
     "noHistory": "Sohbet geçmişi yok",
     "noFoundHistory": "Sohbet geçmişi bulunamadı, lütfen yeni bir konuşma başlatın",
+    "pin": "Sabitle",
+    "unpin": "Sabitlemeyi kaldır",
+    "archive": "Arşivle",
+    "archivedToast": "Sohbet arşivlendi. Ayarlar › Arşivlenen sohbetler altında bulabilirsiniz.",
+    "unread": "Okunmadı",
     "timeGroup": {
+      "pinned": "Sabitlenenler",
       "today": "Bugün",
       "oneWeek": "Bir hafta",
       "twoWeek": "İki hafta",
@@ -1441,6 +1535,7 @@
       "tables": "Tablolar",
       "apps": "Uygulamalar",
       "workflows": "Otomasyonlar",
+      "routines": "Rutinler",
       "folders": "Klasörler",
       "envs": "Gizli bilgiler"
     },
@@ -1488,7 +1583,6 @@
       "scopePublic": "Bağlantıya sahip herkes",
       "scopeSpace": "Alan üyeleri",
       "passwordProtect": "Parola koruması",
-      "passwordApply": "Ayarla",
       "passwordRequired": "Bu artifact parola korumalı",
       "passwordPlaceholder": "Parolayı girin",
       "passwordIncorrect": "Parola yanlış",
@@ -1503,7 +1597,7 @@
     "suggestions": {
       "title": "Nasıl yardımcı olabilirim?",
       "whatCanIDo": "Neler yapabilirim?",
-      "createOrModifyDatabase": "Veritabanı oluştur veya değiştir",
+      "createOrModifyDatabase": "Proje oluştur veya değiştir",
       "buildAutomations": "Otomasyon oluştur",
       "buildApps": "Uygulama oluştur",
       "buildMeCRM": "Bana bir CRM oluştur",
@@ -1596,6 +1690,11 @@
         "upstreamBadRequest": "Ses uç noktası geçersiz.",
         "upstreamUnavailable": "Ses özelliği kullanılamıyor."
       }
+    },
+    "status": {
+      "running": "Oluşturuluyor…",
+      "waitingInput": "Yanıtınız bekleniyor",
+      "failed": "Yanıt başarısız oldu"
     }
   },
   "upload": {

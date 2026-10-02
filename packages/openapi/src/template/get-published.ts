@@ -4,6 +4,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 import type { ITemplateVo } from './get';
+import { templateKindSchema } from './kind';
 
 export const GET_PUBLISHED_TEMPLATE_LIST = '/template/published';
 
@@ -30,6 +31,11 @@ export const templateQueryRoSchema = z.object({
   search: z.string().optional().meta({
     example: 'template',
     description: 'The search keyword for template name',
+  }),
+  kind: templateKindSchema.optional().meta({
+    example: 'solution',
+    description:
+      'Narrow the list to one kind. Omitted: every kind (rows without a kind count as templates).',
   }),
 });
 

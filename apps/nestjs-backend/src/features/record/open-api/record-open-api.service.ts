@@ -655,7 +655,7 @@ export class RecordOpenApiService {
 
     const fieldInstance = createFieldInstanceByRaw(fieldRaw);
     const options = fieldInstance.options as IButtonFieldOptions;
-    const isActive = options.workflow && options.workflow.id && options.workflow.isActive;
+    const isActive = options.workflow?.id && options.workflow.isActive;
     if (!isActive) {
       throw new CustomHttpException(
         `Button field's workflow ${options.workflow?.id} is not active`,

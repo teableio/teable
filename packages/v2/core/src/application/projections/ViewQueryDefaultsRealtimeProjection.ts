@@ -22,7 +22,6 @@ import {
   withPersistedViewAuditChanges,
 } from './ViewRealtimeProjectionUtils';
 
-const tableCollectionPrefix = 'tbl';
 const viewCollectionPrefix = 'viw';
 
 type QueryProperty = 'filter' | 'group' | 'sort';
@@ -93,29 +92,12 @@ export const scheduleViewQueryDefaultsRealtimeProjection = (
           if (viewIndex === -1) return ok(undefined);
           const viewDto = snapshot.views[viewIndex]!;
 
-          const tableChanges: RealtimeChange[] = [
-            { type: 'set', path: ['views', viewIndex, 'query'], value: viewDto.query },
-          ];
           const standaloneChanges: RealtimeChange[] = [
             { type: 'set', path: ['query'], value: viewDto.query },
           ];
 
           if (pending.previousByProperty.has('filter')) {
             const previousFilter = pending.previousByProperty.get('filter');
-            tableChanges.push(
-              {
-                type: 'set',
-                path: ['views', viewIndex, 'sourceFilter'],
-                value: viewDto.sourceFilter,
-                oldValue: previousFilter,
-              },
-              {
-                type: 'set',
-                path: ['views', viewIndex, 'filter'],
-                value: viewDto.sourceFilter,
-                oldValue: previousFilter,
-              }
-            );
             standaloneChanges.push(
               {
                 type: 'set',
@@ -158,21 +140,6 @@ export const scheduleViewQueryDefaultsRealtimeProjection = (
             });
           }
 
-          const tableDocId = yield* RealtimeDocId.fromParts(
-            `${tableCollectionPrefix}_${event.baseId.toString()}`,
-            event.tableId.toString()
-          ).safeUnwrap();
-          yield* (
-            await dependencies.realtimeEngine.ensure(context, tableDocId, snapshot)
-          ).safeUnwrap();
-          yield* (
-            await dependencies.realtimeEngine.applyChange(
-              context,
-              tableDocId,
-              withPersistedViewAuditChanges(viewDto, tableChanges, ['views', viewIndex])
-            )
-          ).safeUnwrap();
-
           const viewDocId = yield* RealtimeDocId.fromParts(
             `${viewCollectionPrefix}_${event.tableId.toString()}`,
             event.viewId.toString()
@@ -181,7 +148,8 @@ export const scheduleViewQueryDefaultsRealtimeProjection = (
             await dependencies.realtimeEngine.ensure(
               context,
               viewDocId,
-              toStandaloneViewRealtimeSnapshot(viewDto)
+              toStandaloneViewRealtimeSnapshot(viewDto),
+              { expectExisting: true }
             )
           ).safeUnwrap();
           return dependencies.realtimeEngine.applyChange(

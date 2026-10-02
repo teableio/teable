@@ -149,7 +149,7 @@ describe('LinkFieldConfig', () => {
       foreignTableId: `tbl${'k'.repeat(16)}`,
       lookupFieldId: `fld${'l'.repeat(16)}`,
     });
-    configResult._unsafeUnwrap();
+    expect(configResult.isOk()).toBe(true);
 
     const first = configResult
       ._unsafeUnwrap()
@@ -157,10 +157,10 @@ describe('LinkFieldConfig', () => {
     const firstConfig = first._unsafeUnwrap();
 
     const same = firstConfig.withSymmetricFieldId(symmetricIdResult._unsafeUnwrap());
-    same._unsafeUnwrap();
+    expect(same.isOk()).toBe(true);
 
     const different = firstConfig.withSymmetricFieldId(otherIdResult._unsafeUnwrap());
-    different._unsafeUnwrapErr();
+    expect(different.isErr()).toBe(true);
   });
 
   it('handles db config getters and visibility settings', () => {
@@ -211,7 +211,7 @@ describe('LinkFieldConfig', () => {
       selfKeyName: '__self',
       foreignKeyName: '__foreign',
     });
-    configResult._unsafeUnwrap();
+    expect(configResult.isOk()).toBe(true);
 
     const config = configResult._unsafeUnwrap();
     const fkHost = DbTableName.rehydrate('schema.host')._unsafeUnwrap();
@@ -223,29 +223,29 @@ describe('LinkFieldConfig', () => {
       selfKeyName: selfKey,
       foreignKeyName: foreignKey,
     });
-    fkConflict._unsafeUnwrapErr();
+    expect(fkConflict.isErr()).toBe(true);
 
     const selfConflict = config.withDbConfig({
       fkHostTableName: fkHost,
       selfKeyName: DbFieldName.rehydrate('__self_alt')._unsafeUnwrap(),
       foreignKeyName: foreignKey,
     });
-    selfConflict._unsafeUnwrapErr();
+    expect(selfConflict.isErr()).toBe(true);
 
     const foreignConflict = config.withDbConfig({
       fkHostTableName: fkHost,
       selfKeyName: selfKey,
       foreignKeyName: DbFieldName.rehydrate('__foreign_alt')._unsafeUnwrap(),
     });
-    foreignConflict._unsafeUnwrapErr();
+    expect(foreignConflict.isErr()).toBe(true);
   });
 
   it('returns errors for unsupported relationships in buildDbConfig', () => {
     const fkHostResult = DbTableName.rehydrate('schema.unsupported');
     const fieldIdResult = createFieldId('k');
     [fkHostResult, fieldIdResult].forEach((r) => r._unsafeUnwrap());
-    fkHostResult._unsafeUnwrap();
-    fieldIdResult._unsafeUnwrap();
+    expect(fkHostResult.isOk()).toBe(true);
+    expect(fieldIdResult.isOk()).toBe(true);
 
     const fakeRelationship = { toString: () => 'unsupported' } as unknown as LinkRelationship;
     const result = LinkFieldConfig.buildDbConfig({
@@ -255,7 +255,7 @@ describe('LinkFieldConfig', () => {
       symmetricFieldId: undefined,
       isOneWay: false,
     });
-    result._unsafeUnwrapErr();
+    expect(result.isErr()).toBe(true);
   });
 
   it('compares optional, nullable, and array values', () => {

@@ -10,7 +10,11 @@ import type { Table } from '../../domain/table/Table';
 import type { TableSortKey } from '../../domain/table/TableSortKey';
 import type { IExecutionContext } from '../ExecutionContext';
 import type { IFindOptions } from '../RepositoryQuery';
-import type { ITableRepository, TableUpdatePersistResult } from '../TableRepository';
+import type {
+  ITableRepository,
+  TableUpdatePersistResult,
+  TableFindOneOptions,
+} from '../TableRepository';
 
 export class MemoryTableRepository implements ITableRepository {
   private readonly savedTables: Table[] = [];
@@ -46,9 +50,18 @@ export class MemoryTableRepository implements ITableRepository {
     return ok([...tables]);
   }
 
+  async waitForReady(
+    context: IExecutionContext,
+    spec: ISpecification<Table, ITableSpecVisitor>,
+    options?: Pick<TableFindOneOptions, 'provisionWaitMs'>
+  ): Promise<Result<void, DomainError>> {
+    return (await this.findOne(context, spec, options)).map(() => undefined);
+  }
+
   async findOne(
     _: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>
+    spec: ISpecification<Table, ITableSpecVisitor>,
+    _options?: TableFindOneOptions
   ): Promise<Result<Table, DomainError>> {
     const found = this.savedTables.find((t) => spec.isSatisfiedBy(t));
     if (!found) return err(domainError.notFound({ message: 'Not found' }));

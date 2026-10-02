@@ -63,7 +63,8 @@ export type TableOperationImportCsvPayload = {
   readonly table?: Table;
   readonly fieldCount: number;
   readonly viewCount: number;
-  readonly recordCount: number;
+  /** Undefined while a streamed import's total is not yet known. */
+  readonly recordCount: number | undefined;
 };
 
 export type TableOperationRenamePayload = {
@@ -117,6 +118,16 @@ export interface ITableOperationPlugin<TPreparedState = unknown> {
 
   guard?(
     context: TableOperationPluginContext,
+    preparedState: TPreparedState | undefined
+  ): TableOperationPluginHookResult<void>;
+
+  /**
+   * Checks the cumulative records about to be inserted by a streamed table import.
+   * Reuses prepared state without repeating table-creation or table-count guards.
+   */
+  guardImportRecordCount?(
+    context: ITableOperationImportCsvContext,
+    recordCount: number,
     preparedState: TPreparedState | undefined
   ): TableOperationPluginHookResult<void>;
 }

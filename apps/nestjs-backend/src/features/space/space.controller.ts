@@ -65,6 +65,8 @@ import {
   ITestLLMRo,
   spaceSearchRoSchema,
   ISpaceSearchRo,
+  getBaseListQuerySchema,
+  type IGetBaseListQuery,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
@@ -73,6 +75,7 @@ import { Events } from '../../event-emitter/events';
 import { avatarUploadInterceptorOptions } from '../../utils/avatar';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { BasePersonalOrderService } from '../base/base-personal-order.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { InvitationService } from '../invitation/invitation.service';
 import { LastVisitService } from '../user/last-visit/last-visit.service';
@@ -102,7 +105,8 @@ export class SpaceController {
     protected readonly dataDbBindingService: DataDbBindingService,
     protected readonly cls: ClsService,
     protected readonly spaceDataDbMigrationService: SpaceDataDbMigrationService,
-    protected readonly lastVisitService: LastVisitService
+    protected readonly lastVisitService: LastVisitService,
+    protected readonly basePersonalOrderService: BasePersonalOrderService
   ) {}
 
   @Post('data-db/preflight')
@@ -271,8 +275,16 @@ export class SpaceController {
 
   @Permissions('base|read')
   @Get(':spaceId/base')
-  async getBaseList(@Param('spaceId') spaceId: string): Promise<IGetBaseAllVo> {
-    return await this.spaceService.getBaseListBySpaceId(spaceId);
+  async getBaseList(
+    @Param('spaceId') spaceId: string,
+    @Query(new ZodValidationPipe(getBaseListQuerySchema)) query: IGetBaseListQuery
+  ): Promise<IGetBaseAllVo> {
+    const bases = await this.spaceService.getBaseListBySpaceId(spaceId);
+    // The same arrangement `GET /base/access/all` applies, through the same service — a
+    // screen showing one space should not have to download every space to get its order.
+    return query.orderBy === 'personal'
+      ? await this.basePersonalOrderService.sortForUser(bases)
+      : bases;
   }
 
   @Permissions('base|read')

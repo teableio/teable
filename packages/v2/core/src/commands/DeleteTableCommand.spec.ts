@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { expect, describe, it } from 'vitest';
 
 import { BaseId } from '../domain/base/BaseId';
 import { TableId } from '../domain/table/TableId';
@@ -23,7 +23,7 @@ describe('DeleteTableCommand', () => {
   });
 
   it('rejects invalid input', () => {
-    DeleteTableCommand.create({ baseId: 'bad', tableId: 'bad' })._unsafeUnwrapErr();
+    expect(DeleteTableCommand.create({ baseId: 'bad', tableId: 'bad' }).isErr()).toBe(true);
   });
 
   it('accepts an explicit permanent mode', () => {

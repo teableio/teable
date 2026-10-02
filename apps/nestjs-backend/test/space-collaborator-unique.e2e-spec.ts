@@ -126,7 +126,9 @@ describe('OpenAPI space unique collaborator list (e2e)', () => {
           collaborator.type === PrincipalType.User && collaborator.userId === baseOnly!.userId
       )
     ).toBe(true);
-    const baseNames = collaborators.map((collaborator) => collaborator.base?.name).sort();
+    const baseNames = collaborators
+      .map((collaborator) => collaborator.base?.name)
+      .sort((a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b)));
     expect(baseNames).toEqual(['base 1', 'base 2']);
   });
 

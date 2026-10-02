@@ -187,7 +187,7 @@ export class SelectOptionsMetaRule implements ISchemaRule {
   }
 
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const rule = this;
+    const rule = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       if (ctx.optimizeForEmptyTables) {
         // Duplicate/import already persisted field.options from the field aggregate, and there

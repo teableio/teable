@@ -3,6 +3,10 @@ import type { AST } from 'node-sql-parser';
 import { Parser } from 'node-sql-parser';
 import { CustomHttpException } from '../../custom.exception';
 import { allowedFunctions } from './allowed-functions';
+export type SqlAccessCheckResult = {
+  readonly ast: AST | AST[];
+  readonly tableNames: ReadonlyArray<string>;
+};
 
 const whiteListCheckErrorKey = 'httpErrors.baseSqlExecutor.whiteListCheckError';
 
@@ -135,11 +139,13 @@ export const checkTableAccess = (
   {
     tableNames,
     database,
+    collectDetails = false,
   }: {
     tableNames: string[];
     database: DriverClient;
+    collectDetails?: boolean;
   }
-) => {
+): SqlAccessCheckResult => {
   const parser = new Parser();
   const opt = {
     database: databaseTypeMap[database],
@@ -161,6 +167,7 @@ export const checkTableAccess = (
   })();
   validateFunctionCalls(ast);
   const withNames = Array.isArray(ast) ? ast.flatMap(collectWithNames) : collectWithNames(ast);
+  const sqlTableList = collectDetails ? parser.tableList(sql, opt) : undefined;
   const allowedTables = new Set([...withNames, ...tableNames]);
   const whiteColumnList = Array.from(allowedTables).map((table) => {
     const [schema, tableName] = table.includes('.') ? table.split('.') : [null, table];
@@ -187,14 +194,13 @@ export const checkTableAccess = (
   let whiteListError: Error | undefined;
   try {
     whiteListError = parser.whiteListCheck(sql, whiteColumnList, opt);
-    if (!whiteListError) return;
+    if (!whiteListError) return { ast, tableNames: sqlTableList ?? [] };
   } catch (e) {
     whiteListError = e as Error;
   }
 
-  const sqlTableList = parser.tableList(sql, opt);
-
-  if (!sqlTableList.length) {
+  const resolvedTableList = sqlTableList ?? parser.tableList(sql, opt);
+  if (!resolvedTableList.length) {
     throw new CustomHttpException(
       'SQL syntax error or no table accessed, please check your query',
       HttpErrorCode.VALIDATION_ERROR,
@@ -205,7 +211,7 @@ export const checkTableAccess = (
       }
     );
   }
-  const invalidTableNames = sqlTableList
+  const invalidTableNames = resolvedTableList
     .filter((t: string) => !whiteColumnList.includes(t))
     .map((t: string) => t.split('::').pop()!);
 

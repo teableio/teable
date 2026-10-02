@@ -56,7 +56,7 @@ export class TableComputeMeta {
   private readonly initialGeneration: number;
 
   private constructor(
-    private state: TableComputeMetaDto,
+    private readonly state: TableComputeMetaDto,
     private readonly tableIdValue: TableId,
     private readonly baseIdValue: BaseId
   ) {

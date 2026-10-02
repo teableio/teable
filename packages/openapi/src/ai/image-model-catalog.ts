@@ -1,4 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
+import { ImageQuality } from '@teable/core';
+import type { IImageResolution } from '@teable/core';
 import {
   BFL_ASPECT_RATIO_PRESETS,
   BFL_ASPECT_RATIO_RANGE,
@@ -12,11 +14,15 @@ import {
   OPENAI_DALLE3_SIZES,
   OPENAI_GPT_IMAGE_2_SIZES,
   OPENAI_GPT_IMAGE_SIZES,
+  RECRAFT_V4_PRO_SIZES,
+  RECRAFT_V4_SIZES,
   REPLICATE_FLUX_SCHNELL_ASPECT_RATIOS,
   REPLICATE_RECRAFT_SIZES,
+  SEEDREAM_5_PRO_SIZES,
   STANDARD_ASPECT_RATIOS,
   TOGETHERAI_SQUARE_SIZES,
   XAI_GROK_ASPECT_RATIOS,
+  XAI_GROK_2_ASPECT_RATIOS,
 } from './image-model-dimensions';
 import type { IAspectRatio, IImageSize } from './image-model-dimensions';
 import type { IImageModelConfig } from './image-model-types';
@@ -71,12 +77,17 @@ const createOpenAIGptImageModel = (
   tags: ['image-generation'],
 });
 
-const createGeminiImageLanguageModel = (model: string, displayName: string): IImageModelConfig => ({
+const createGeminiImageLanguageModel = (
+  model: string,
+  displayName: string,
+  supportedResolutions: IImageResolution[] = ['1K', '2K', '4K']
+): IImageModelConfig => ({
   provider: 'google',
   model,
   displayName,
   sizeType: 'flexible',
   supportedAspectRatios: GEMINI_IMAGE_ASPECT_RATIOS,
+  supportedResolutions,
   modelType: 'language',
   tags: ['image-generation'],
   notes: 'Multimodal LLM with image generation via generateText',
@@ -107,8 +118,29 @@ const createBflImageModel = (model: string, displayName: string): IImageModelCon
   modelType: 'image',
 });
 
-const createRecraftImageModel = (model: string, displayName: string): IImageModelConfig =>
-  createSizeImageModel('recraft', model, displayName, REPLICATE_RECRAFT_SIZES);
+const createRecraftImageModel = (
+  model: string,
+  displayName: string,
+  supportedSizes: IImageSize[] = REPLICATE_RECRAFT_SIZES
+): IImageModelConfig => createSizeImageModel('recraft', model, displayName, supportedSizes);
+
+const createGrokImageModel = (model: string, displayName: string): IImageModelConfig => ({
+  provider: 'xai',
+  model,
+  displayName,
+  sizeType: 'aspectRatio',
+  supportedAspectRatios:
+    model === 'grok-imagine-image-2.0' ? XAI_GROK_2_ASPECT_RATIOS : XAI_GROK_ASPECT_RATIOS,
+  supportsAutoAspectRatio: true,
+  defaultAspectRatio: '1:1',
+  supportedResolutions: ['1K', '2K'],
+  supportsQuality: model === 'grok-imagine-image-2.0',
+  supportedQualities:
+    model === 'grok-imagine-image-2.0' ? [ImageQuality.Low, ImageQuality.Medium] : undefined,
+  maxImagesPerCall: 10,
+  modelType: 'image',
+  tags: ['image-generation'],
+});
 
 /**
  * Image model configurations by provider
@@ -116,18 +148,17 @@ const createRecraftImageModel = (model: string, displayName: string): IImageMode
  */
 export const IMAGE_MODEL_CONFIGS: IImageModelConfig[] = [
   // xAI Grok
-  {
-    provider: 'xai',
-    model: 'grok-imagine-image',
-    displayName: 'Grok Imagine Image',
-    sizeType: 'aspectRatio',
-    supportedAspectRatios: XAI_GROK_ASPECT_RATIOS,
-    supportsAutoAspectRatio: true,
-    defaultAspectRatio: '1:1',
-    modelType: 'image',
-  },
+  createGrokImageModel('grok-imagine-image', 'Grok Imagine Image'),
+  createGrokImageModel('grok-imagine-image-2.0', 'Grok Imagine Image 2.0'),
 
   // OpenAI
+  // GPT Image 2.5 uses the existing product presets and low/medium/high quality levels.
+  createOpenAIGptImageModel('gpt-image-2.5-flare', 'GPT Image 2.5 Flare', OPENAI_GPT_IMAGE_2_SIZES),
+  createOpenAIGptImageModel(
+    'gpt-image-2.5-sunburst',
+    'GPT Image 2.5 Sunburst',
+    OPENAI_GPT_IMAGE_2_SIZES
+  ),
   createOpenAIGptImageModel('gpt-image-2', 'GPT Image 2', OPENAI_GPT_IMAGE_2_SIZES),
   createOpenAIGptImageModel('gpt-image-1.5', 'GPT Image 1.5', OPENAI_GPT_IMAGE_SIZES, '1024x1024'),
   createOpenAIGptImageModel(
@@ -249,16 +280,21 @@ export const IMAGE_MODEL_CONFIGS: IImageModelConfig[] = [
   createSizeImageModel('replicate', 'recraft-ai/recraft-v3', 'Recraft V3', REPLICATE_RECRAFT_SIZES),
 
   // Google (Multimodal LLMs with image generation capability)
-  createGeminiImageLanguageModel('gemini-2.5-flash-image', 'Gemini 2.5 Flash Image'),
+  createGeminiImageLanguageModel('gemini-2.5-flash-image', 'Gemini 2.5 Flash Image', ['1K']),
   createGeminiImageLanguageModel(
     'gemini-2.5-flash-image-preview',
-    'Gemini 2.5 Flash Image Preview'
+    'Gemini 2.5 Flash Image Preview',
+    ['1K']
   ),
   createGeminiImageLanguageModel('gemini-3-pro-image', 'Gemini 3 Pro Image'),
+  createGeminiImageLanguageModel('gemini-3.1-flash-image', 'Gemini 3.1 Flash Image'),
   createGeminiImageLanguageModel(
     'gemini-3.1-flash-image-preview',
     'Gemini 3.1 Flash Image Preview'
   ),
+  createGeminiImageLanguageModel('gemini-3.1-flash-lite-image', 'Gemini 3.1 Flash Lite Image', [
+    '1K',
+  ]),
 
   // Google Imagen
   createAspectRatioImageModel(
@@ -284,6 +320,37 @@ export const IMAGE_MODEL_CONFIGS: IImageModelConfig[] = [
   createAspectRatioImageModel('bytedance', 'seedream-4.0', 'Seedream 4.0'),
   createAspectRatioImageModel('bytedance', 'seedream-4.5', 'Seedream 4.5'),
   createAspectRatioImageModel('bytedance', 'seedream-5.0-lite', 'Seedream 5.0 Lite'),
+  {
+    ...createSizeImageModel(
+      'bytedance',
+      'seedream-5.0-pro',
+      'Seedream 5.0 Pro',
+      SEEDREAM_5_PRO_SIZES
+    ),
+    maxImagesPerCall: 1,
+    tags: ['image-generation'],
+  },
+
+  // Gateway does not publish a dimension contract for Muse; use provider defaults.
+  {
+    provider: 'meta',
+    model: 'muse-image-1.0',
+    displayName: 'Muse Image 1.0',
+    sizeType: 'flexible',
+    modelType: 'image',
+    tags: ['image-generation', 'vision'],
+  },
+
+  // Arrow produces resolution-independent SVG output.
+  {
+    provider: 'quiverai',
+    model: 'arrow-1.1',
+    displayName: 'Arrow 1.1',
+    sizeType: 'flexible',
+    modelType: 'image',
+    outputMediaType: 'image/svg+xml',
+    tags: ['image-generation'],
+  },
 
   // Google Vertex
   createAspectRatioImageModel(
@@ -459,6 +526,14 @@ export const IMAGE_MODEL_CONFIGS: IImageModelConfig[] = [
   // Recraft
   createRecraftImageModel('recraft-v2', 'Recraft V2'),
   createRecraftImageModel('recraft-v3', 'Recraft V3'),
-  createRecraftImageModel('recraft-v4', 'Recraft V4'),
-  createRecraftImageModel('recraft-v4-pro', 'Recraft V4 Pro'),
+  createRecraftImageModel('recraft-v4', 'Recraft V4', RECRAFT_V4_SIZES),
+  createRecraftImageModel('recraft-v4-pro', 'Recraft V4 Pro', RECRAFT_V4_PRO_SIZES),
+  createRecraftImageModel('recraft-v4.1', 'Recraft V4.1', RECRAFT_V4_SIZES),
+  createRecraftImageModel('recraft-v4.1-pro', 'Recraft V4.1 Pro', RECRAFT_V4_PRO_SIZES),
+  createRecraftImageModel('recraft-v4.1-utility', 'Recraft V4.1 Utility', RECRAFT_V4_SIZES),
+  createRecraftImageModel(
+    'recraft-v4.1-utility-pro',
+    'Recraft V4.1 Utility Pro',
+    RECRAFT_V4_PRO_SIZES
+  ),
 ];

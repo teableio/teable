@@ -1,21 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { FieldType } from '@teable/core';
 import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-pg';
-import type {
-  DomainError,
-  IEventHandler,
-  IExecutionContext,
-  RecordCreateSource,
-  RecordFieldChangeDTO,
-  RecordFieldValueDTO,
-  RecordValuesDTO,
-  Result,
-} from '@teable/v2-core';
 import {
   FieldClipboardValueVisitor,
   ok,
   ListTableRecordsQuery,
-  type ListTableRecordsResult,
   ProjectionHandler,
   RecordCreated,
   RecordsBatchCreated,
@@ -25,15 +14,26 @@ import {
   TableByIdSpec,
   TableId,
   v2CoreTokens,
+  type DomainError,
+  type IEventHandler,
+  type IExecutionContext,
+  type RecordCreateSource,
+  type RecordFieldChangeDTO,
+  type RecordFieldValueDTO,
+  type RecordValuesDTO,
+  type Result,
+  type ListTableRecordsResult,
   type IQueryBus,
   type ITableRepository,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
-import { keyBy, uniq } from 'lodash';
-import ms from 'ms';
-import { NotificationService } from '../notification/notification.service';
+import { keyBy } from 'lodash';
+import {
+  maxCollaboratorNotifyRecordTitles,
+  NotificationService,
+} from '../notification/notification.service';
 import { V2ContainerService } from './v2-container.service';
 import { V2ExecutionContextFactory } from './v2-execution-context.factory';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from './v2-projection-registrar';
@@ -55,33 +55,7 @@ type IUserFieldOptions = {
   shouldNotify?: boolean;
 };
 
-const maxRecordTitles = 10;
 const collaboratorNotificationLogger = new Logger('V2CollaboratorNotificationProjection');
-
-// Debounce window for coalescing successive notifies of the same (actor, table):
-// the first delivering call stays instant, later ones accumulate and flush as one
-// merged notification when the window elapses. Per-process state: pods batch
-// independently and a restart drops an undelivered tail batch — accepted
-// trade-off for staying queue-free.
-const defaultNotifyBatchWindowMs = ms('10s');
-
-const resolveNotifyBatchWindowMs = (): number => {
-  const raw = process.env.USER_FIELD_NOTIFY_BATCH_WINDOW_MS;
-  // Number('') is 0, which would silently disable batching for a merely
-  // present-but-empty env entry; only an explicit 0 disables it.
-  if (!raw?.trim()) {
-    return defaultNotifyBatchWindowMs;
-  }
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : defaultNotifyBatchWindowMs;
-};
-
-type IPendingNotifyBatch = {
-  actorId: string;
-  tableId: string;
-  recordsById: Map<string, IV2ChangedRecord>;
-  timer: ReturnType<typeof setTimeout>;
-};
 
 const scheduleCollaboratorNotificationRun = (
   context: IExecutionContext,
@@ -179,8 +153,6 @@ const hasUserCandidate = (value: unknown): boolean => {
 @Injectable()
 export class V2CollaboratorNotificationDispatcher {
   private readonly logger = new Logger(V2CollaboratorNotificationDispatcher.name);
-  private readonly pendingBatches = new Map<string, IPendingNotifyBatch>();
-
   constructor(
     private readonly v2ContainerService: V2ContainerService,
     private readonly notificationService: NotificationService,
@@ -197,122 +169,26 @@ export class V2CollaboratorNotificationDispatcher {
       return;
     }
 
-    const windowMs = resolveNotifyBatchWindowMs();
-    if (windowMs <= 0) {
-      await this.deliverUserFieldNotifications(actorId, tableId, records);
-      return;
-    }
-
-    const key = `${actorId}:${tableId}`;
-    const pending = this.pendingBatches.get(key);
-    if (pending) {
-      for (const record of records) {
-        const buffered = pending.recordsById.get(record.id);
-        pending.recordsById.set(
-          record.id,
-          buffered ? { id: record.id, fields: { ...buffered.fields, ...record.fields } } : record
-        );
-      }
-      return;
-    }
-
-    // Reserve the window synchronously: the after-response scheduler runs
-    // several projections concurrently, and without the reservation they would
-    // all race past the pending check while the leading delivery awaits.
-    const reserved = this.openBatchWindow(key, actorId, tableId, windowMs);
-    const sentCount = await this.deliverUserFieldNotifications(actorId, tableId, records);
-    if (sentCount === 0) {
-      await this.dismantleDeadWindow(key, reserved);
-    }
-  }
-
-  // A window whose opener created no notification must not delay a later real
-  // assignment. Dismantle only the given window (an elapsed timer may have
-  // replaced it) and re-dispatch whatever buffered behind it.
-  private async dismantleDeadWindow(key: string, window: IPendingNotifyBatch): Promise<void> {
-    if (this.pendingBatches.get(key) !== window) {
-      return;
-    }
-    clearTimeout(window.timer);
-    this.pendingBatches.delete(key);
-    if (window.recordsById.size > 0) {
-      await this.notifyUserFields({
-        actorId: window.actorId,
-        tableId: window.tableId,
-        records: [...window.recordsById.values()],
-      });
-    }
-  }
-
-  private openBatchWindow(
-    key: string,
-    actorId: string,
-    tableId: string,
-    windowMs: number
-  ): IPendingNotifyBatch {
-    const timer = setTimeout(() => void this.flushBatchWindow(key, windowMs), windowMs);
-    timer.unref?.();
-    const entry: IPendingNotifyBatch = { actorId, tableId, recordsById: new Map(), timer };
-    this.pendingBatches.set(key, entry);
-    return entry;
-  }
-
-  private async flushBatchWindow(key: string, windowMs: number): Promise<void> {
-    const pending = this.pendingBatches.get(key);
-    if (!pending) {
-      return;
-    }
-
-    if (pending.recordsById.size === 0) {
-      this.pendingBatches.delete(key);
-      return;
-    }
-
-    const records = [...pending.recordsById.values()];
-    // Re-arm before delivering so a sustained storm keeps batching at window
-    // cadence instead of falling back to per-event sends.
-    const successor = this.openBatchWindow(key, pending.actorId, pending.tableId, windowMs);
-    try {
-      const sentCount = await this.deliverUserFieldNotifications(
-        pending.actorId,
-        pending.tableId,
-        records
-      );
-      if (sentCount === 0) {
-        await this.dismantleDeadWindow(key, successor);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Error flushing batched collaborator notifications: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-        error instanceof Error ? error.stack : undefined
-      );
-    }
-  }
-
-  private async deliverUserFieldNotifications(
-    actorId: string,
-    tableId: string,
-    records: ReadonlyArray<IV2ChangedRecord>
-  ): Promise<number> {
     const db = await getNotificationDb(this.v2ContainerService);
     const userFields = keyBy(await this.fetchUserFields(db, tableId), 'fieldId');
     const userFieldIds = Object.keys(userFields);
     if (userFieldIds.length === 0 || !this.hasRelevantFields(records, userFieldIds)) {
-      return 0;
+      return;
     }
 
     const notificationData = this.extractNotificationData(records, userFieldIds);
-    const recordIdsNeedingTitles = uniq(
-      Object.values(notificationData).flatMap((data) => data.recordIds.slice(0, maxRecordTitles))
-    );
+    const recordIdsNeedingTitles = [
+      ...new Set(
+        Object.values(notificationData).flatMap((data) =>
+          data.recordIds.slice(0, maxCollaboratorNotifyRecordTitles)
+        )
+      ),
+    ];
     const recordTitles =
       recordIdsNeedingTitles.length > 0
         ? await this.loadRecordTitles(tableId, recordIdsNeedingTitles)
         : [];
     const recordTitlesMap = keyBy(recordTitles, 'id');
-    let sentCount = 0;
     for (const userId of Object.keys(notificationData)) {
       const { fieldId, recordIds } = notificationData[userId]!;
       const field = userFields[fieldId];
@@ -320,8 +196,8 @@ export class V2CollaboratorNotificationDispatcher {
         continue;
       }
 
-      const recordIdsForTitles = recordIds.slice(0, maxRecordTitles);
-      const created = await this.notificationService.sendCollaboratorNotify({
+      const recordIdsForTitles = recordIds.slice(0, maxCollaboratorNotifyRecordTitles);
+      await this.notificationService.sendCollaboratorNotify({
         fromUserId: actorId,
         toUserId: userId,
         refRecord: {
@@ -333,11 +209,7 @@ export class V2CollaboratorNotificationDispatcher {
           recordTitles: recordIdsForTitles.map((id) => recordTitlesMap[id]).filter(Boolean),
         },
       });
-      if (created) {
-        sentCount++;
-      }
     }
-    return sentCount;
   }
 
   private async loadRecordTitles(

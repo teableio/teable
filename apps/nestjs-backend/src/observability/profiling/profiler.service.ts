@@ -1,5 +1,5 @@
-import * as inspector from 'inspector';
-import * as os from 'os';
+import * as inspector from 'node:inspector';
+import * as os from 'node:os';
 import { Injectable, Logger } from '@nestjs/common';
 import type { OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -21,10 +21,10 @@ export class ProfilerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ProfilerService.name);
   private session: inspector.Session | null = null;
   private intervalTimer: NodeJS.Timeout | null = null;
-  private saveInterval: number;
+  private readonly saveInterval: number;
   private profileCounter = 0;
   private enabled = false;
-  private profileDirectory: string;
+  private readonly profileDirectory: string;
   private isSaving = false;
   private isShuttingDown = false;
   private readonly hostname = os.hostname();
@@ -39,7 +39,7 @@ export class ProfilerService implements OnModuleInit, OnModuleDestroy {
     this.enabled = this.configService.get('ENABLE_PROFILING') === 'true';
 
     // default 1 hour
-    this.saveInterval = parseInt(
+    this.saveInterval = Number.parseInt(
       this.configService.get('PROFILE_SAVE_INTERVAL') || `${60 * 60 * 1000}`
     );
 
@@ -120,7 +120,7 @@ export class ProfilerService implements OnModuleInit, OnModuleDestroy {
 
   private generateProfileFilename() {
     this.profileCounter++;
-    const timestamp = new Date().getTime();
+    const timestamp = Date.now();
     return `cpu-${this.profileCounter}-${this.hostname}-${timestamp}.cpuprofile`;
   }
 
@@ -134,7 +134,7 @@ export class ProfilerService implements OnModuleInit, OnModuleDestroy {
       const sizeInMB = (buffer.length / 1024 / 1024).toFixed(2);
 
       // Safety check: validate profile size
-      const sizeMBNum = parseFloat(sizeInMB);
+      const sizeMBNum = Number.parseFloat(sizeInMB);
       if (sizeMBNum > this.maxProfileSizeMB) {
         this.logger.warn(
           `Profile size ${sizeInMB}MB exceeds maximum ${this.maxProfileSizeMB}MB, skipping upload`

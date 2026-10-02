@@ -112,6 +112,7 @@ import type { TableUpdateViewShareMetaSpec } from '../TableUpdateViewShareMetaSp
 import type { TableUpdateViewShareStateSpec } from '../TableUpdateViewShareStateSpec';
 import type { TableWithViewIdsSpec } from '../TableWithViewIdsSpec';
 import type { TableWithPrimaryFieldSpec } from '../TableWithPrimaryFieldSpec';
+import type { TableWithFieldIdsSpec } from '../TableWithFieldIdsSpec';
 import { FieldUpdateSemanticsVisitor } from './FieldUpdateSemanticsVisitor';
 
 /**
@@ -515,6 +516,10 @@ export class TableEventGeneratingSpecVisitor implements ITableSpecVisitor<void> 
   }
 
   visitTableWithPrimaryField(_spec: TableWithPrimaryFieldSpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitTableWithFieldIds(_spec: TableWithFieldIdsSpec): Result<void, DomainError> {
     return ok(undefined);
   }
 

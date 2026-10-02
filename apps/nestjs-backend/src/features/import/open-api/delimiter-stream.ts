@@ -1,5 +1,5 @@
-import type { TransformCallback } from 'stream';
-import { Transform } from 'stream';
+import type { TransformCallback } from 'node:stream';
+import { Transform } from 'node:stream';
 
 const defaults = {
   delimiter: '\n',

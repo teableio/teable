@@ -1,3 +1,4 @@
+import { getRandomFloat } from '@teable/core';
 import { cn } from '@teable/ui-lib/shadcn';
 import type { HTMLAttributes } from 'react';
 
@@ -17,9 +18,9 @@ export const Rectangles = ({
   ];
 
   return Array.from({ length: amount }).map((_, index) => {
-    const randomColor = LIGHT_COLORS[Math.floor(Math.random() * LIGHT_COLORS.length)];
+    const randomColor = LIGHT_COLORS[Math.floor(getRandomFloat() * LIGHT_COLORS.length)];
 
-    const randomDuration = Math.random() * 3 + 2;
+    const randomDuration = getRandomFloat() * 3 + 2;
 
     return (
       <div

@@ -1,9 +1,9 @@
 import type { DataPrismaService } from '@teable/db-data-prisma';
 import type { IDeleteFieldsOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
-import { restoreFieldRecordValues } from '../../field/restore-field-record-values';
 import type { DataDbClientManager } from '../../../global/data-db-client-manager.service';
 import type { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
+import { restoreFieldRecordValues } from '../../field/restore-field-record-values';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import type { ICreateFieldsPayload } from './create-fields.operation';
 
@@ -51,18 +51,20 @@ export class DeleteFieldsOperation {
       where: { id: operationId },
     });
 
-    if (operationId && Number(count) === 0) return operation;
-
-    await this.fieldOpenApiService.createFields(tableId, fields, undefined, {
-      restoreViewOrder: true,
-    });
-
-    await restoreFieldRecordValues(tableId, records, this.recordOpenApiService);
-
-    if (operationId) {
-      await dataPrisma.tableTrash.delete({
-        where: { id: operationId },
+    // A trash entry that has already been purged cannot be restored any more.
+    const purged = Boolean(operationId) && Number(count) === 0;
+    if (!purged) {
+      await this.fieldOpenApiService.createFields(tableId, fields, undefined, {
+        restoreViewOrder: true,
       });
+
+      await restoreFieldRecordValues(tableId, records, this.recordOpenApiService);
+
+      if (operationId) {
+        await dataPrisma.tableTrash.delete({
+          where: { id: operationId },
+        });
+      }
     }
     return operation;
   }

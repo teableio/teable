@@ -7,6 +7,7 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ShareViewContext } from '../context/table/ShareViewContext';
 import { useInstances } from '../context/use-instances';
+import { useFields } from './use-fields';
 import { useRecords } from './use-records';
 import { useSearch } from './use-search';
 import { useView } from './use-view';
@@ -20,9 +21,11 @@ const { mockFields } = vi.hoisted(() => ({
   ],
 }));
 
-vi.mock('../context/use-instances', () => ({
-  useInstances: vi.fn(() => ({ instances: [], extra: undefined })),
-}));
+vi.mock('../context/use-instances', async (importOriginal) => {
+  // keep the module's real helpers (e.g. the query scope key) and stub the hook
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return { ...actual, useInstances: vi.fn(() => ({ instances: [], extra: undefined })) };
+});
 vi.mock('./use-fields', () => ({
   useFields: vi.fn((options?: { withDenied?: boolean }) =>
     options?.withDenied
@@ -49,8 +52,12 @@ const visitorFilter: IFilter = {
 };
 const storedSort: ISort = { sortObjs: [{ fieldId: 'fldSorted', order: SortFunc.Asc }] };
 
-const mockView = (view: { id: string; filter?: IFilter | null; sort?: ISort | null }) =>
-  mockedUseView.mockReturnValue(view as unknown as ReturnType<typeof useView>);
+const mockView = (view: {
+  id: string;
+  filter?: IFilter | null;
+  sort?: ISort | null;
+  options?: { frozenFieldId?: string };
+}) => mockedUseView.mockReturnValue(view as unknown as ReturnType<typeof useView>);
 
 const shareWrapper = (view: { id: string; filter?: IFilter | null; sort?: ISort | null }) => {
   const wrapper = ({ children }: { children: ReactNode }) => (
@@ -68,6 +75,7 @@ const getSubscribedQuery = () => {
     filter?: IFilter;
     orderBy?: { fieldId: string }[];
     search?: [string, string, boolean];
+    projection?: string[];
   };
 };
 
@@ -171,5 +179,86 @@ describe('useRecords subscription query', () => {
     const query = getSubscribedQuery();
     expect(extractFieldIdsFromFilter(query.filter, true)).toContain('fldDenied');
     expect(query.orderBy?.map((item) => item.fieldId)).toContain('fldDenied');
+  });
+
+  it('keeps an explicit empty projection for ids-only reads', () => {
+    mockView({ id: 'viwShare', filter: null, sort: null });
+
+    renderHook(() => useRecords({ ignoreViewQuery: true, projection: [] }));
+
+    expect(getSubscribedQuery().projection).toEqual([]);
+  });
+
+  it('does not truncate a wide view unless sparse column fill is enabled', () => {
+    const wide = Array.from({ length: 40 }, (_, i) => ({
+      id: `fld${String(i).padStart(2, '0')}`,
+      canReadFieldRecord: true,
+      isPrimary: i === 0,
+    }));
+    vi.mocked(useFields).mockImplementation(() => wide as unknown as ReturnType<typeof useFields>);
+    mockView({ id: 'viwShare', filter: null, sort: null });
+
+    renderHook(() => useRecords());
+
+    const projection = getSubscribedQuery().projection ?? [];
+    expect(projection).toHaveLength(40);
+    expect(projection).toContain('fld39');
+  });
+
+  it('uses a sorted stable prefix when sparse column fill is enabled', () => {
+    const wide = Array.from({ length: 40 }, (_, i) => ({
+      id: `fld${String(i).padStart(2, '0')}`,
+      canReadFieldRecord: true,
+      isPrimary: i === 0,
+    }));
+    vi.mocked(useFields).mockImplementation(() => wide as unknown as ReturnType<typeof useFields>);
+    mockView({ id: 'viwShare', filter: null, sort: null });
+
+    renderHook(() => useRecords(undefined, undefined, { sparseColumnFill: true }));
+
+    const projection = getSubscribedQuery().projection ?? [];
+    expect(projection).toHaveLength(24);
+    expect(projection).toEqual([...projection].sort());
+    expect(projection).toContain('fld00');
+    expect(projection).not.toContain('fld39');
+  });
+
+  it('keeps a frozen column past the subscribe prefix when sparse fill is on', () => {
+    const wide = Array.from({ length: 40 }, (_, i) => ({
+      id: `fld${String(i).padStart(2, '0')}`,
+      canReadFieldRecord: true,
+      isPrimary: i === 0,
+    }));
+    vi.mocked(useFields).mockImplementation(() => wide as unknown as ReturnType<typeof useFields>);
+    mockView({
+      id: 'viwShare',
+      filter: null,
+      sort: null,
+      options: { frozenFieldId: 'fld30' },
+    });
+
+    renderHook(() => useRecords(undefined, undefined, { sparseColumnFill: true }));
+
+    const projection = getSubscribedQuery().projection ?? [];
+    expect(projection).toContain('fld00');
+    expect(projection).toContain('fld30');
+    expect(projection.length).toBeGreaterThanOrEqual(24);
+    expect(projection).not.toContain('fld39');
+  });
+
+  it('keeps an explicit hidden readable field outside the visible column set', () => {
+    const visible = [{ id: 'fldTitle', canReadFieldRecord: true, isPrimary: true }];
+    const all = [...visible, { id: 'fldCover', canReadFieldRecord: true, isPrimary: false }];
+    vi.mocked(useFields).mockImplementation(
+      (options?: { withDenied?: boolean; withHidden?: boolean }) =>
+        (options?.withDenied || options?.withHidden ? all : visible) as unknown as ReturnType<
+          typeof useFields
+        >
+    );
+    mockView({ id: 'viwShare', filter: null, sort: null });
+
+    renderHook(() => useRecords({ ignoreViewQuery: true, projection: ['fldTitle', 'fldCover'] }));
+
+    expect(getSubscribedQuery().projection).toEqual(['fldCover', 'fldTitle']);
   });
 });

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Info,
   Copy,
-  Database,
+  LayoutGrid,
   Download,
   Export,
   Loader2,
@@ -11,7 +11,6 @@ import {
   Trash2,
   ArrowRight,
 } from '@teable/icons';
-import { useTheme } from '@teable/next-themes';
 import {
   cancelBaseDataDbMoveJob,
   exportBaseStream,
@@ -30,6 +29,7 @@ import type {
   IMoveBaseDataDbCheck,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { useTheme } from '@teable/ui-lib';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
   Accordion,
@@ -456,7 +456,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
           <DialogHeader className="overflow-hidden">
             <DialogTitle className="flex min-w-0 items-center gap-2 pe-6">
               <span className="shrink-0">{t('space:tip.exportTitle')}</span>
-              <Database className="size-5 shrink-0" />
+              <LayoutGrid className="size-5 shrink-0" />
               <span className="truncate">{base.name}</span>
             </DialogTitle>
           </DialogHeader>
@@ -613,7 +613,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
                         className="px-3 py-2 text-xs font-normal transition-colors data-[state=open]:bg-muted/70 hover:bg-muted/60 hover:no-underline"
                       >
                         <span className="flex min-w-0 flex-1 items-center gap-1.5 text-start">
-                          <Database className="size-3.5 shrink-0 text-muted-foreground/70" />
+                          <LayoutGrid className="size-3.5 shrink-0 text-muted-foreground/70" />
                           <span className="truncate font-medium text-foreground">
                             {group.baseName}
                           </span>

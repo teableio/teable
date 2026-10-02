@@ -1,4 +1,4 @@
-import { parentPort, workerData } from 'worker_threads';
+import { parentPort, workerData } from 'node:worker_threads';
 import { getRandomString } from '@teable/core';
 import type { IImportConstructorParams } from '../features/import/open-api/import.class';
 import { importerFactory } from '../features/import/open-api/import.class';

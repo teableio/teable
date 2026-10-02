@@ -1,3 +1,4 @@
+import { computedReliabilitySchemaSql } from '@teable/v2-postgres-schema';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
@@ -57,6 +58,7 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .addColumn('icon', 'text')
     .addColumn('db_table_name', 'text', (col) => col.notNull())
     .addColumn('db_view_name', 'text')
+    .addColumn('search_index', 'jsonb')
     .addColumn('provision_state', 'text', (col) => col.notNull().defaultTo('ready'))
     .addColumn('version', 'integer', (col) => col.notNull())
     .addColumn('order', 'double precision', (col) => col.notNull())
@@ -214,6 +216,28 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .execute();
 
   await db.schema
+    .createTable('comment')
+    .ifNotExists()
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('table_id', 'text', (col) => col.notNull())
+    .addColumn('record_id', 'text', (col) => col.notNull())
+    .addColumn('quote_Id', 'text')
+    .addColumn('content', 'text')
+    .addColumn('reaction', 'text')
+    .addColumn('deleted_time', 'timestamptz')
+    .addColumn('created_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .addColumn('created_by', 'text', (col) => col.notNull())
+    .addColumn('last_modified_time', 'timestamptz')
+    .execute();
+
+  await db.schema
+    .createIndex('comment_table_id_record_id_idx')
+    .ifNotExists()
+    .on('comment')
+    .columns(['table_id', 'record_id'])
+    .execute();
+
+  await db.schema
     .createTable('trash')
     .ifNotExists()
     .addColumn('id', 'text', (col) => col.primaryKey())
@@ -345,6 +369,30 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .execute();
 
   await db.schema
+    .createIndex('computed_update_outbox_ledger_scope_idx')
+    .ifNotExists()
+    .on('computed_update_outbox')
+    .expression(sql`(dirty_stats->>'ledgerScopeId')`)
+    .execute();
+
+  await db.schema
+    .createTable('computed_update_change_frontier')
+    .ifNotExists()
+    .addColumn('scope_id', 'text', (col) => col.notNull())
+    .addColumn('kind', 'text', (col) => col.notNull())
+    .addColumn('table_id', 'text', (col) => col.notNull())
+    .addColumn('record_id', 'text', (col) => col.notNull())
+    .addColumn('field_id', 'text', (col) => col.notNull())
+    .addPrimaryKeyConstraint('computed_update_change_frontier_pkey', [
+      'scope_id',
+      'kind',
+      'table_id',
+      'record_id',
+      'field_id',
+    ])
+    .execute();
+
+  await db.schema
     .createTable('computed_update_stage_ledger')
     .ifNotExists()
     .addColumn('scope_id', 'text', (col) => col.notNull())
@@ -370,6 +418,7 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .addColumn('paused_by', 'text')
     .addColumn('resume_at', 'timestamptz')
     .addColumn('reason', 'text')
+    .addColumn('write_policy', 'text', (col) => col.notNull().defaultTo('allow_bounded'))
     .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn('updated_by', 'text')
     .execute();
@@ -542,6 +591,11 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .column('resume_at')
     .execute();
 
+  await sql`
+    ALTER TABLE computed_update_pause_scope
+    ADD COLUMN IF NOT EXISTS write_policy text NOT NULL DEFAULT 'allow_bounded'
+  `.execute(db);
+
   await db.schema
     .createIndex('computed_update_dead_letter_base_id_seed_table_id_idx')
     .ifNotExists()
@@ -621,6 +675,10 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .columns(['base_id', 'status'])
     .execute();
 
+  for (const statement of computedReliabilitySchemaSql.split(';').filter((part) => part.trim())) {
+    await sql.raw(statement).execute(db);
+  }
+
   await db.schema
     .createTable('computed_task_field_ref')
     .ifNotExists()
@@ -698,4 +756,125 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .on('attachments_table')
     .column('token')
     .execute();
+
+  await db.schema
+    .createTable('domain_event_outbox')
+    .ifNotExists()
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('base_id', 'text', (col) => col.notNull())
+    .addColumn('table_id', 'text')
+    .addColumn('message_name', 'text', (col) => col.notNull())
+    .addColumn('schema_version', 'integer', (col) => col.notNull())
+    .addColumn('aggregate_id', 'text')
+    .addColumn('payload', 'jsonb', (col) => col.notNull())
+    .addColumn('payload_bytes', 'integer', (col) => col.notNull())
+    .addColumn('catalog_generation', 'integer', (col) => col.notNull())
+    .addColumn('required_consumers', 'jsonb', (col) => col.notNull())
+    .addColumn('binding_id', 'text')
+    .addColumn('storage_epoch', 'integer')
+    .addColumn('unpublished', 'boolean', (col) => col.notNull().defaultTo(true))
+    .addColumn('settled', 'text')
+    .addColumn('settled_at', 'timestamptz')
+    .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .execute();
+
+  await sql`
+    ALTER TABLE domain_event_outbox
+    ADD COLUMN IF NOT EXISTS settled_at timestamptz
+  `.execute(db);
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS domain_event_outbox_settled_at_idx
+    ON domain_event_outbox (settled_at)
+    WHERE settled IS NOT NULL
+  `.execute(db);
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS domain_event_outbox_unpublished_idx
+    ON domain_event_outbox (created_at)
+    WHERE unpublished
+  `.execute(db);
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS "domain_event_outbox_unsettled_idx"
+      ON "domain_event_outbox" ("id")
+      WHERE settled IS NULL AND NOT unpublished
+  `.execute(db);
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS "domain_event_outbox_legacy_settled_created_at_idx"
+      ON "domain_event_outbox" ("created_at")
+      WHERE settled IS NOT NULL AND settled_at IS NULL
+  `.execute(db);
+
+  await db.schema
+    .createTable('domain_event_delivery')
+    .ifNotExists()
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('event_id', 'text', (col) => col.notNull())
+    .addColumn('consumer_id', 'text', (col) => col.notNull())
+    .addColumn('status', 'text', (col) => col.notNull())
+    .addColumn('attempts', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('max_attempts', 'integer', (col) => col.notNull().defaultTo(12))
+    .addColumn('lease_token', 'text')
+    .addColumn('lease_expires_at', 'timestamptz')
+    .addColumn('next_attempt_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .addColumn('last_error', 'text')
+    .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .execute();
+
+  await sql`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'domain_event_delivery'
+          AND column_name = 'lease_expires_at'
+          AND udt_name = 'timestamp'
+      ) THEN
+        ALTER TABLE domain_event_delivery
+          ALTER COLUMN lease_expires_at TYPE timestamptz
+          USING lease_expires_at AT TIME ZONE 'UTC';
+      END IF;
+      IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'domain_event_delivery'
+          AND column_name = 'next_attempt_at'
+          AND udt_name = 'timestamp'
+      ) THEN
+        ALTER TABLE domain_event_delivery
+          ALTER COLUMN next_attempt_at TYPE timestamptz
+          USING next_attempt_at AT TIME ZONE 'UTC';
+      END IF;
+    END $$;
+  `.execute(db);
+
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS domain_event_delivery_event_consumer_idx
+    ON domain_event_delivery (event_id, consumer_id)
+  `.execute(db);
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS domain_event_delivery_due_idx
+    ON domain_event_delivery (next_attempt_at)
+    WHERE status IN ('pending', 'processing')
+  `.execute(db);
+
+  await db.schema
+    .createTable('domain_event_inbox')
+    .ifNotExists()
+    .addColumn('consumer_id', 'text', (col) => col.notNull())
+    .addColumn('event_id', 'text', (col) => col.notNull())
+    .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .addPrimaryKeyConstraint('domain_event_inbox_pk', ['consumer_id', 'event_id'])
+    .execute();
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS "domain_event_inbox_event_id_idx"
+      ON "domain_event_inbox" ("event_id")
+  `.execute(db);
 };

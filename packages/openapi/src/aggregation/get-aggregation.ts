@@ -94,8 +94,13 @@ export const GetAggregationRoute: RouteConfig = registerRoute({
   tags: ['aggregation'],
 });
 
-export const getAggregation = async (tableId: string, query?: IAggregationRo) => {
+export const getAggregation = async (
+  tableId: string,
+  query?: IAggregationRo,
+  options?: { signal?: AbortSignal }
+) => {
   return axios.get<IAggregationVo>(urlBuilder(GET_AGGREGATION_LIST, { tableId }), {
+    signal: options?.signal,
     params: {
       ...query,
       filter: JSON.stringify(query?.filter),

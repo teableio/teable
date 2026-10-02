@@ -1,5 +1,5 @@
 import { inject, injectable } from '@teable/v2-di';
-import { err, ok, safeTry } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import {
   DeleteTableCommand,
@@ -58,11 +58,10 @@ export class DeleteTableAnalyzer implements ICommandAnalyzer<DeleteTableCommand>
     options: ExplainOptions,
     startTime: number
   ): Promise<Result<ExplainResult, DomainError>> {
-    const analyzer = this;
     const mergedOptions = { ...DEFAULT_EXPLAIN_OPTIONS, ...options };
 
-    return safeTry<ExplainResult, DomainError>(async function* () {
-      const beforeTableResult = await analyzer.tableRepository.findOne(
+    return (async (): Promise<Result<ExplainResult, DomainError>> => {
+      const beforeTableResult = await this.tableRepository.findOne(
         context,
         TableByIdSpec.create(command.tableId)
       );
@@ -72,10 +71,10 @@ export class DeleteTableAnalyzer implements ICommandAnalyzer<DeleteTableCommand>
       const beforeTable = beforeTableResult.value;
 
       const dryRun = createFieldExplainDryRunEnvironment({
-        db: analyzer.db,
-        tableRepository: analyzer.tableRepository,
-        computedUpdatePlanner: analyzer.computedUpdatePlanner,
-        typeValidationStrategy: analyzer.typeValidationStrategy,
+        db: this.db,
+        tableRepository: this.tableRepository,
+        computedUpdatePlanner: this.computedUpdatePlanner,
+        typeValidationStrategy: this.typeValidationStrategy,
       });
 
       const fieldCrossTableUpdateSideEffectService = new FieldCrossTableUpdateSideEffectService(
@@ -123,15 +122,15 @@ export class DeleteTableAnalyzer implements ICommandAnalyzer<DeleteTableCommand>
       const sqlExplainStartTime = Date.now();
       const sqlExplains = mergedOptions.includeSql
         ? await buildFieldSqlExplains(
-            analyzer.sqlExplainRunner,
-            analyzer.db,
+            this.sqlExplainRunner,
+            this.db,
             dryRun.captureTableSchemaRepository.getStatements(),
             mergedOptions.analyze
           )
         : [];
       const sqlExplainMs = Date.now() - sqlExplainStartTime;
 
-      const complexity = analyzer.complexityCalculator.calculate({
+      const complexity = this.complexityCalculator.calculate({
         commandInfo,
         computedImpact: null,
         sqlExplains,
@@ -151,6 +150,6 @@ export class DeleteTableAnalyzer implements ICommandAnalyzer<DeleteTableCommand>
           sqlExplainMs,
         },
       });
-    });
+    })();
   }
 }

@@ -1,6 +1,6 @@
-import { createHash } from 'crypto';
-import { existsSync, readdirSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { createHash } from 'node:crypto';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import type { OnApplicationBootstrap } from '@nestjs/common';
 import { PrismaService, type DataDbConnection } from '@teable/db-main-prisma';

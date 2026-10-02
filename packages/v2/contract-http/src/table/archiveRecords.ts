@@ -10,7 +10,6 @@ import { z } from 'zod';
 import type { IDomainEventDto } from '../shared/domainEvent';
 import { domainEventDtoSchema, mapDomainEventToDto } from '../shared/domainEvent';
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type HttpErrorStatus,
   type IApiErrorResponseDto,
@@ -43,7 +42,7 @@ export const archiveRecordsOkResponseSchema = apiOkResponseDtoSchema(
   archiveRecordsResponseDataSchema
 );
 
-export const archiveRecordsErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as archiveRecordsErrorResponseSchema } from '../shared/http';
 
 export const mapArchiveRecordsResultToDto = (
   result: ArchiveRecordsResult

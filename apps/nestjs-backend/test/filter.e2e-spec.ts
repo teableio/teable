@@ -187,7 +187,9 @@ describe('View filter with is/isNot null value (e2e)', () => {
       // row5: Done=undefined, Code=undefined ✓
       const records = result.data.records;
       expect(records.length).toBe(3);
-      const names = records.map((r) => r.fields.Name).sort();
+      const names = records
+        .map((r) => r.fields.Name)
+        .sort((a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b)));
       expect(names).toEqual(['row2', 'row3', 'row5']);
     });
   });

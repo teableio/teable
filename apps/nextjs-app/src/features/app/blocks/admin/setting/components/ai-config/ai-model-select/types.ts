@@ -37,7 +37,7 @@ export interface IModelOption {
 export interface IAIModelSelectProps {
   value: string;
   onValueChange: (value: string) => void;
-  size?: 'xs' | 'sm' | 'lg' | 'default' | null | undefined;
+  size?: 'xs' | 'sm' | 'lg' | 'default' | null;
   className?: string;
   options?: IModelOption[];
   disabled?: boolean;

@@ -10,7 +10,7 @@ export * from './range';
 export * from './id';
 export * from './delete';
 export * from './delete-stream';
-export { deleteSelectionByIdStream } from './delete-by-id-stream';
+export { DELETE_BY_ID_STREAM_URL, deleteSelectionByIdStream } from './delete-by-id-stream';
 export * from './duplicate-stream';
 export * from './temporary-paste';
 export * from './id-mutation';

@@ -6,7 +6,7 @@
   "fieldKeyType": "フィールドキータイプ",
   "chooseSource": "データソースを選択",
   "action": {
-    "selectBase": "データベースを選択...",
+    "selectBase": "プロジェクトを選択...",
     "selectTable": "テーブルを選択..."
   },
   "pickParams": "パラメータを選択して設定する",

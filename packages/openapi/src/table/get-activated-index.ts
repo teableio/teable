@@ -8,7 +8,7 @@ import { tableIndexTypeSchema } from './toggle-table-index';
 export const TABLE_ACTIVATED_INDEX = '/base/{baseId}/table/{tableId}/activated-index';
 
 export const TableActivatedIndexRoute: RouteConfig = registerRoute({
-  method: 'post',
+  method: 'get',
   path: TABLE_ACTIVATED_INDEX,
   summary: 'Get activated index',
   description: 'Get the activated index of a table',

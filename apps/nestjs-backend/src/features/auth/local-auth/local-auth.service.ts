@@ -2,8 +2,13 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { generateUserId, getRandomString, HttpErrorCode, RandomType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { EmailVerifyCodeType, MailTransporterType, MailType } from '@teable/openapi';
-import type { IChangePasswordRo, IInviteWaitlistVo, ISignup } from '@teable/openapi';
+import {
+  EmailVerifyCodeType,
+  IChangePasswordRo,
+  MailTransporterType,
+  MailType,
+} from '@teable/openapi';
+import type { IInviteWaitlistVo, ISignup } from '@teable/openapi';
 import * as bcrypt from 'bcrypt';
 import { isEmpty } from 'lodash';
 import ms from 'ms';
@@ -19,12 +24,17 @@ import { Events } from '../../../event-emitter/events';
 import { UserEmailChangeEvent } from '../../../event-emitter/events/user/user.event';
 import type { IClsStore } from '../../../types/cls';
 import { second } from '../../../utils/second';
+import { AuditScope } from '../../audit/audit-scope';
+import { Audit, type IAuditCtx } from '../../audit/audit.decorator';
 import { MailSenderService } from '../../mail-sender/mail-sender.service';
 import { SettingService } from '../../setting/setting.service';
+import type { ISigninFailedReason } from '../../user/user.service';
 import { UserService } from '../../user/user.service';
 import { TeableJwtService } from '../jwt/teable-jwt.service';
 import { SessionStoreService } from '../session/session-store.service';
 import { TurnstileService } from '../turnstile/turnstile.service';
+
+type EmailCodeKind = 'signin' | 'signup' | 'change-email';
 
 @Injectable()
 export class LocalAuthService {
@@ -44,7 +54,9 @@ export class LocalAuthService {
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly jwtService: TeableJwtService,
     private readonly settingService: SettingService,
-    private readonly turnstileService: TurnstileService
+    private readonly turnstileService: TurnstileService,
+    // Host contract of @Audit (it reads this.audit / this.cls).
+    private readonly audit: AuditScope
   ) {}
 
   private async encodePassword(password: string) {
@@ -120,17 +132,80 @@ export class LocalAuthService {
     return this.validateUserByEmail(email, pass);
   }
 
-  private jwtSignupCode(email: string, code: string) {
+  // The signup token only binds the email the code was mailed to. The code
+  // itself never enters a token: a JWT is signed, not encrypted, so whatever
+  // is placed in it is readable by the client that holds it.
+  private jwtSignupToken(email: string) {
     return this.jwtService.signAsync(
-      { email, code },
+      { email },
       { expiresIn: this.authConfig.signupVerificationExpiresIn }
     );
   }
 
-  private jwtVerifySignupCode(token: string) {
-    return this.jwtService.verifyAsync<{ email: string; code: string }>(token).catch(() => {
+  private jwtVerifySignupToken(token: string) {
+    return this.jwtService.verifyAsync<{ email: string }>(token).catch(() => {
       throw new CustomHttpException('Verification code is invalid', HttpErrorCode.INVALID_CAPTCHA);
     });
+  }
+
+  private invalidCodeError() {
+    return new CustomHttpException('Verification code is invalid', HttpErrorCode.INVALID_CAPTCHA, {
+      localization: {
+        i18nKey: 'httpErrors.auth.verificationCodeInvalid',
+      },
+    });
+  }
+
+  private emailCodeKeys(kind: EmailCodeKind, id: string) {
+    return {
+      codeKey: `auth:${kind}-code:${id}` as const,
+      attemptsKey: `auth:${kind}-code-attempts:${id}` as const,
+    };
+  }
+
+  /**
+   * Mint a one-time code and keep it server-side under `id`, bound to the
+   * address it is mailed to. A fresh code replaces the previous one and resets
+   * its guess budget.
+   */
+  private async issueEmailCode(kind: EmailCodeKind, id: string, email: string, expiresIn: string) {
+    const { codeKey, attemptsKey } = this.emailCodeKeys(kind, id);
+    const code = getRandomString(6, RandomType.Number);
+    await this.cacheService.set(codeKey, { code, email }, second(expiresIn));
+    await this.cacheService.del(attemptsKey);
+    return code;
+  }
+
+  /**
+   * Consume a one-time code. Every wrong guess counts against a small budget;
+   * exhausting it discards the code so a 6-digit code cannot be brute-forced
+   * within its lifetime. Consumption is atomic so concurrent requests carrying
+   * the same code cannot both succeed.
+   */
+  private async consumeEmailCode(
+    kind: EmailCodeKind,
+    id: string,
+    email: string,
+    code: string,
+    expiresIn: string
+  ) {
+    const { codeKey, attemptsKey } = this.emailCodeKeys(kind, id);
+    const cached = await this.cacheService.get(codeKey);
+    if (!cached || cached.email !== email) {
+      throw this.invalidCodeError();
+    }
+    if (cached.code !== code) {
+      const attempts = await this.cacheService.incr(attemptsKey, second(expiresIn));
+      if (attempts >= this.authConfig.signinVerificationMaxAttempts) {
+        await this.cacheService.del(codeKey);
+      }
+      throw this.invalidCodeError();
+    }
+    const consumed = await this.cacheService.del(codeKey);
+    if (!consumed) {
+      throw this.invalidCodeError();
+    }
+    await this.cacheService.del(attemptsKey);
   }
 
   private async verifySignup(body: ISignup) {
@@ -150,10 +225,17 @@ export class LocalAuthService {
         }
       );
     }
-    const { code, email: _email } = await this.jwtVerifySignupCode(verification.token);
-    if (_email !== email || code !== verification.code) {
+    const { email: _email } = await this.jwtVerifySignupToken(verification.token);
+    if (_email !== email) {
       throw new CustomHttpException('Verification code is invalid', HttpErrorCode.INVALID_CAPTCHA);
     }
+    await this.consumeEmailCode(
+      'signup',
+      email,
+      email,
+      verification.code,
+      this.authConfig.signupVerificationExpiresIn
+    );
   }
 
   private isRegisteredValidate(user: Awaited<ReturnType<typeof this.userService.getUserByEmail>>) {
@@ -168,7 +250,7 @@ export class LocalAuthService {
         }
       );
     }
-    if (user && user.isSystem) {
+    if (user?.isSystem) {
       throw new CustomHttpException(
         `User ${user.email} is system user`,
         HttpErrorCode.VALIDATION_ERROR,
@@ -322,11 +404,16 @@ export class LocalAuthService {
         rateLimit: this.thresholdConfig.signupVerificationSendCodeMailRate,
       },
       async () => {
-        const code = getRandomString(4, RandomType.Number);
-        const token = await this.jwtSignupCode(email, code);
-
         const user = await this.userService.getUserByEmail(email);
         this.isRegisteredValidate(user);
+
+        const code = await this.issueEmailCode(
+          'signup',
+          email,
+          email,
+          this.authConfig.signupVerificationExpiresIn
+        );
+        const token = await this.jwtSignupToken(email);
 
         // Log verification code sending
         this.logger.log(
@@ -360,6 +447,117 @@ export class LocalAuthService {
     );
   }
 
+  /**
+   * Email-code sign-in, step 1: mail a one-time code to an already registered
+   * account. Guarded by Turnstile like password sign-in and signup, only ever
+   * mails registered users, and is throttled per email like the other code mails.
+   */
+  async sendSigninVerificationCode(email: string, turnstileToken?: string, remoteIp?: string) {
+    await this.validateTurnstileIfEnabled(turnstileToken, remoteIp);
+    return await this.mailSenderService.checkSendMailRateLimit(
+      {
+        email,
+        rateLimitKey: 'signin-verification',
+        rateLimit: this.thresholdConfig.signupVerificationSendCodeMailRate,
+      },
+      async () => {
+        const user = await this.userService.getUserByEmail(email);
+        this.assertSigninWithCodeAllowed(email, user);
+
+        const expiresIn = this.authConfig.signinVerificationExpiresIn;
+        const code = await this.issueEmailCode('signin', email, email, expiresIn);
+
+        this.logger.log(
+          `Sending signin verification code - email: ${email}, timestamp: ${new Date().toISOString()}`
+        );
+
+        const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
+          code,
+          expiresIn,
+          type: EmailVerifyCodeType.Signin,
+        });
+
+        await this.mailSenderService.sendMail(
+          {
+            to: user.email,
+            ...emailOptions,
+          },
+          {
+            type: MailType.VerifyCode,
+            transporterName: MailTransporterType.Notify,
+          }
+        );
+        return {
+          expiresTime: new Date(ms(expiresIn) + Date.now()).toISOString(),
+        };
+      }
+    );
+  }
+
+  /**
+   * Email-code sign-in, step 2: consume the code. No Turnstile here: issuing
+   * the code is already captcha-gated, and every wrong guess counts against a
+   * small budget; exhausting it discards the code so a 6-digit code cannot be
+   * brute-forced within its lifetime.
+   */
+  async signinWithCode(email: string, code: string) {
+    // Past the code, the account's state explains a failure (see recordSigninFailure).
+    let reason: ISigninFailedReason | undefined = 'bad-code';
+    try {
+      await this.consumeEmailCode(
+        'signin',
+        email,
+        email,
+        code,
+        this.authConfig.signinVerificationExpiresIn
+      );
+      reason = undefined;
+      const user = await this.userService.getUserByEmail(email);
+      this.assertSigninWithCodeAllowed(email, user);
+      await this.userService.refreshLastSignTime(user.id);
+      return user;
+    } catch (error) {
+      await this.userService.recordSigninFailure({ email, method: 'email-code', reason });
+      throw error;
+    }
+  }
+
+  private assertSigninWithCodeAllowed(
+    email: string,
+    user: Awaited<ReturnType<UserService['getUserByEmail']>>
+  ): asserts user is NonNullable<Awaited<ReturnType<UserService['getUserByEmail']>>> {
+    if (!user || (user.accounts.length === 0 && user.password == null)) {
+      throw new CustomHttpException(`${email} not registered`, HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.auth.emailNotRegistered',
+        },
+      });
+    }
+    if (user.isSystem) {
+      throw new CustomHttpException(`User is system user`, HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.auth.systemUser',
+        },
+      });
+    }
+    if (user.deactivatedTime) {
+      throw new CustomHttpException(
+        `Your account has been deactivated by the administrator`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.auth.accountDeactivated',
+          },
+        }
+      );
+    }
+  }
+
+  @Audit({
+    action: 'user.password.change',
+    resourceId: (_ro: IChangePasswordRo, ctx: IAuditCtx) => ctx.cls.get('user.id'),
+    emit: true,
+  })
   async changePassword({ password, newPassword }: IChangePasswordRo) {
     const userId = this.cls.get('user.id');
     const user = await this.getUserByIdOrThrow(userId);
@@ -458,8 +656,19 @@ export class LocalAuthService {
     });
     // clear session
     await this.sessionStoreService.clearByUserId(userId);
+    // Signed out and identified only by the emailed code: the row belongs to its owner.
+    await this.audit.emitAtomic({
+      action: 'user.password.reset',
+      resourceId: userId,
+      userId,
+    });
   }
 
+  @Audit({
+    action: 'user.password.create',
+    resourceId: (_newPassword: string, ctx: IAuditCtx) => ctx.cls.get('user.id'),
+    emit: true,
+  })
   async addPassword(newPassword: string) {
     const userId = this.cls.get('user.id');
     const user = await this.getUserByIdOrThrow(userId);
@@ -485,30 +694,25 @@ export class LocalAuthService {
 
   async changeEmail(email: string, token: string, code: string) {
     const currentEmail = this.cls.get('user.email');
-    const {
-      code: _code,
-      email: _currentEmail,
-      newEmail,
-    } = await this.jwtService
-      .verifyAsync<{ email: string; code: string; newEmail: string }>(token)
+    const { email: _currentEmail, newEmail } = await this.jwtService
+      .verifyAsync<{ email: string; newEmail: string }>(token)
       .catch(() => {
         throw new CustomHttpException(
           'Verification code is invalid',
           HttpErrorCode.INVALID_CAPTCHA
         );
       });
-    if (
-      newEmail.toLowerCase() !== email.toLowerCase() ||
-      _currentEmail !== currentEmail ||
-      _code !== code
-    ) {
-      throw new CustomHttpException('Verification code is invalid', HttpErrorCode.INVALID_CAPTCHA, {
-        localization: {
-          i18nKey: 'httpErrors.auth.verificationCodeInvalid',
-        },
-      });
+    if (newEmail.toLowerCase() !== email.toLowerCase() || _currentEmail !== currentEmail) {
+      throw this.invalidCodeError();
     }
     const user = this.cls.get('user');
+    await this.consumeEmailCode(
+      'change-email',
+      user.id,
+      newEmail,
+      code,
+      this.baseConfig.emailCodeExpiresIn
+    );
     const normalizedEmail = newEmail.toLowerCase();
     await this.prismaService.txClient().user.update({
       where: { id: user.id, deletedTime: null, deactivatedTime: null },
@@ -566,9 +770,15 @@ export class LocalAuthService {
             },
           });
         }
-        const code = getRandomString(4, RandomType.Number);
+        const code = await this.issueEmailCode(
+          'change-email',
+          user.id,
+          newEmail,
+          this.baseConfig.emailCodeExpiresIn
+        );
+        // Binds current + new email only; the code stays server-side.
         const token = await this.jwtService.signAsync(
-          { email, newEmail, code },
+          { email, newEmail },
           { expiresIn: this.baseConfig.emailCodeExpiresIn }
         );
         const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({

@@ -1,4 +1,4 @@
-import { getRandomString } from '@teable/core';
+import { getRandomFloat, getRandomString } from '@teable/core';
 import { useEffect, useRef, useState } from 'react';
 import type { Layout } from 'react-grid-layout';
 import { Responsive, WidthProvider } from 'react-grid-layout';
@@ -58,7 +58,7 @@ export const Dashboard = () => {
         h: 12,
         i: i.toString(),
         chartInstance: item.instance,
-        static: Math.random() < 0.05,
+        static: getRandomFloat() < 0.05,
       };
     });
     setLayout(chartLayout);

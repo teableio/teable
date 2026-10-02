@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import path from 'path';
+import path from 'node:path';
 import type { DynamicModule } from '@nestjs/common';
 import { ConfigurableModuleBuilder, Logger, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -24,7 +24,8 @@ export const { ConfigurableModuleClass: MailSenderModuleClass, OPTIONS_TYPE } =
  * that returns a Promise (required by @nestjs-modules/mailer).
  */
 function createNoOpTransport() {
-  const transport = createTransport({
+  // Sonar S5332: jsonTransport never opens a network connection
+  const transport = /* NOSONAR typescript:S5332 */ createTransport({
     jsonTransport: true,
   });
 

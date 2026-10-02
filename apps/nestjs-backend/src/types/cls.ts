@@ -62,6 +62,9 @@ export interface IClsStore extends ClsStore {
     // The actor identity (e.g. which app) lives in payload.appId, not here —
     // origin describes how the request arrived, not who performed it.
     via?: 'ai' | 'automation' | 'app';
+    // First-party non-browser client from `X-Teable-Client` (`mobile/<version>`); browsers
+    // never send it. Queries: `WHERE origin->>'client' LIKE 'mobile/%'`.
+    client?: string;
   };
   // Affiliate token from the first-party teable_affiliate_via cookie (NOT origin.via
   // above) — see apps/nextjs-app/src/lib/affiliate-cookie.ts for the contract.
@@ -116,6 +119,8 @@ export interface IClsStore extends ClsStore {
     }[];
   };
   tempAuthBaseId?: string; // for automation robot
+  authSource?: 'sandbox'; // temp user token minted for an AI sandbox
+  sandboxPrincipal?: { principalType: string; principalId: string }; // whose chat minted the sandbox token; credentials resolve for it
   appId?: string; // for app internal call
   // Active audit operation attribution. Outer-wins: the first withOperation() call sets
   // rootAction/operationId; downstream atomic audit rows keep their own `action` and copy
@@ -127,6 +132,7 @@ export interface IClsStore extends ClsStore {
   canaryHeader?: string; // x-canary header value for canary release override
   scheduleV2BackgroundTask?: ExecutionContextBackgroundTaskScheduler;
   useV2?: boolean; // Flag to indicate if V2 implementation should be used (set by V2FeatureGuard)
+  interactiveQueryAbort?: AbortSignal;
   v2Reason?: IV2Reason; // Reason why V2 was enabled or disabled
   v2Feature?: V2Feature; // The feature name that triggered V2 check
   windowId?: string; // Window ID from x-window-id header for undo/redo tracking

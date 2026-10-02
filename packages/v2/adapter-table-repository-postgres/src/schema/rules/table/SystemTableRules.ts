@@ -8,6 +8,7 @@ import type { ConstraintInfo } from '../context/SchemaIntrospector';
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import type {
   ISchemaRule,
+  SchemaRuleRepairHint,
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
   TableSchemaStatementExecutorProvider,
@@ -22,6 +23,7 @@ import {
 
 export const SYSTEM_RULE_FIELD_ID = '__system__';
 export const SYSTEM_RULE_FIELD_NAME = 'System Columns';
+export const SYSTEM_TABLE_EXISTS_RULE_ID = 'table_exists';
 
 type TableTarget = {
   schema: string | null;
@@ -308,7 +310,7 @@ const createOrphanedLinkStorageRepairStatement = (
     sql.raw(`select 'repair orphaned link storage' as schema_repair`).compile(executorProvider),
   execute: async ({ dataDb, metaDb }) => {
     const defaultSchema = target.schema ?? 'public';
-    const activeRefs = await collectActiveLinkStorageRefs(metaDb, defaultSchema, undefined);
+    const activeRefs = await collectActiveLinkStorageRefs(metaDb, defaultSchema);
     if (!activeRefs) return;
 
     const constraints = await loadOrphanedLinkStorageConstraints(dataDb, target, activeRefs);
@@ -343,18 +345,100 @@ const createOrphanedLinkStorageRepairStatement = (
   },
 });
 
+class SystemTableExistsRule implements ISchemaRule {
+  readonly id = SYSTEM_TABLE_EXISTS_RULE_ID;
+  readonly description = 'Physical table exists for live table meta';
+  readonly dependencies: ReadonlyArray<string> = [];
+  readonly required = true;
+
+  async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
+    const schemaName = ctx.schema ?? 'public';
+    const tableName = ctx.tableName;
+    return safeTry(async function* () {
+      const exists = yield* await ctx.introspector.tableExists(ctx.schema, tableName);
+      if (exists) {
+        return ok({ valid: true });
+      }
+
+      return ok({
+        valid: false,
+        missing: [`table "${schemaName}"."${tableName}" not found`],
+        missingItems: [
+          {
+            code: SYSTEM_TABLE_EXISTS_RULE_ID,
+            message: {
+              key: 'table:table.integrity.v2.detail.tableMissing',
+              values: { schemaName, tableName },
+              fallback: `Physical table "${schemaName}"."${tableName}" does not exist.`,
+            },
+            description: {
+              key: 'table:table.integrity.v2.detail.tableMissingDescription',
+              values: { schemaName, tableName },
+              fallback:
+                'Live table meta has no matching PostgreSQL relation. Repair creates an empty table from current field meta; column, FK, and junction rules run after.',
+            },
+          },
+        ],
+      });
+    });
+  }
+
+  getRepairHint(
+    _ctx: SchemaRuleContext,
+    _validation: SchemaRuleValidationResult
+  ): Result<SchemaRuleRepairHint | undefined, DomainError> {
+    return ok({
+      available: true,
+      mode: 'auto',
+      reason: {
+        fallback: 'Automatic repair will create the missing physical table as an empty relation.',
+      },
+      description: {
+        fallback:
+          'Creates the table with system columns. Current field meta is applied by the existing column, fk_column, and junction_table rules that run after this rule.',
+      },
+    });
+  }
+
+  up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const target = { schema: ctx.schema, tableName: ctx.tableName };
+    const qualifiedTable = toQualifiedTableSql(target);
+    return ok([
+      dataStatement(
+        sql.raw(
+          `CREATE TABLE IF NOT EXISTS ${qualifiedTable} (` +
+            `${quoteIdentifier('__id')} text NOT NULL UNIQUE, ` +
+            `${quoteIdentifier('__auto_number')} serial PRIMARY KEY, ` +
+            `${quoteIdentifier('__created_time')} timestamptz NOT NULL DEFAULT now(), ` +
+            `${quoteIdentifier('__last_modified_time')} timestamptz, ` +
+            `${quoteIdentifier('__created_by')} text NOT NULL, ` +
+            `${quoteIdentifier('__last_modified_by')} text, ` +
+            `${quoteIdentifier('__version')} integer NOT NULL` +
+            `)`
+        )
+      ),
+    ]);
+  }
+
+  down(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    return ok([dropTableStatement({ schema: ctx.schema, tableName: ctx.tableName })]);
+  }
+}
+
 class SystemColumnExistsRule implements ISchemaRule {
   readonly id: string;
   readonly description: string;
-  readonly dependencies: ReadonlyArray<string> = [];
+  readonly dependencies: ReadonlyArray<string>;
   readonly required = true;
 
   constructor(
     private readonly columnName: string,
-    private readonly columnDefinition: string
+    private readonly columnDefinition: string,
+    parent?: ISchemaRule
   ) {
     this.id = `system_column:${columnName}`;
     this.description = `System column "${columnName}" (${columnDefinition})`;
+    this.dependencies = parent ? [parent.id] : [];
   }
 
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
@@ -641,14 +725,14 @@ class OrphanedLinkStorageRule implements ISchemaRule {
     return safeTry(async function* () {
       const target = { schema: ctx.schema, tableName: ctx.tableName };
       const defaultSchema = target.schema ?? 'public';
-      const activeRefs = yield* await ok(
+      const activeRefs = yield* ok(
         await collectActiveLinkStorageRefs(ctx.metaDb, defaultSchema, ctx.sessionCache)
       );
       if (!activeRefs) {
         return ok({ valid: true });
       }
 
-      const constraints = yield* await ok(
+      const constraints = yield* ok(
         await loadOrphanedLinkStorageConstraints(ctx.db, target, activeRefs)
       );
 
@@ -724,15 +808,24 @@ const createAutoNumberDefaultStatements = (
 export const createSystemTableRules = (): ReadonlyArray<ISchemaRule> => {
   const rules: ISchemaRule[] = [];
 
-  const idColumnRule = new SystemColumnExistsRule('__id', 'text');
-  rules.push(idColumnRule);
-  rules.push(new SystemColumnNotNullRule('__id', idColumnRule));
-  rules.push(new SystemUniqueIndexRule('__id', idColumnRule));
+  const tableExistsRule = new SystemTableExistsRule();
+  rules.push(tableExistsRule);
 
-  const autoNumberColumnRule = new SystemColumnExistsRule('__auto_number', 'integer');
-  rules.push(autoNumberColumnRule);
-  rules.push(new SystemPrimaryKeyRule('__auto_number', autoNumberColumnRule));
+  const idColumnRule = new SystemColumnExistsRule('__id', 'text', tableExistsRule);
   rules.push(
+    idColumnRule,
+    new SystemColumnNotNullRule('__id', idColumnRule),
+    new SystemUniqueIndexRule('__id', idColumnRule)
+  );
+
+  const autoNumberColumnRule = new SystemColumnExistsRule(
+    '__auto_number',
+    'integer',
+    tableExistsRule
+  );
+  rules.push(
+    autoNumberColumnRule,
+    new SystemPrimaryKeyRule('__auto_number', autoNumberColumnRule),
     new SystemDefaultRule(
       '__auto_number',
       'Sequence-backed default',
@@ -742,10 +835,14 @@ export const createSystemTableRules = (): ReadonlyArray<ISchemaRule> => {
     )
   );
 
-  const createdTimeColumnRule = new SystemColumnExistsRule('__created_time', 'timestamptz');
-  rules.push(createdTimeColumnRule);
-  rules.push(new SystemColumnNotNullRule('__created_time', createdTimeColumnRule));
+  const createdTimeColumnRule = new SystemColumnExistsRule(
+    '__created_time',
+    'timestamptz',
+    tableExistsRule
+  );
   rules.push(
+    createdTimeColumnRule,
+    new SystemColumnNotNullRule('__created_time', createdTimeColumnRule),
     new SystemDefaultRule(
       '__created_time',
       'Default expression',
@@ -769,17 +866,15 @@ export const createSystemTableRules = (): ReadonlyArray<ISchemaRule> => {
     )
   );
 
-  rules.push(new SystemColumnExistsRule('__last_modified_time', 'timestamptz'));
+  rules.push(new SystemColumnExistsRule('__last_modified_time', 'timestamptz', tableExistsRule));
 
-  const createdByColumnRule = new SystemColumnExistsRule('__created_by', 'text');
-  rules.push(createdByColumnRule);
-  rules.push(new SystemColumnNotNullRule('__created_by', createdByColumnRule));
+  const createdByColumnRule = new SystemColumnExistsRule('__created_by', 'text', tableExistsRule);
+  rules.push(createdByColumnRule, new SystemColumnNotNullRule('__created_by', createdByColumnRule));
 
-  rules.push(new SystemColumnExistsRule('__last_modified_by', 'text'));
+  rules.push(new SystemColumnExistsRule('__last_modified_by', 'text', tableExistsRule));
 
-  const versionColumnRule = new SystemColumnExistsRule('__version', 'integer');
-  rules.push(versionColumnRule);
-  rules.push(new SystemColumnNotNullRule('__version', versionColumnRule));
+  const versionColumnRule = new SystemColumnExistsRule('__version', 'integer', tableExistsRule);
+  rules.push(versionColumnRule, new SystemColumnNotNullRule('__version', versionColumnRule));
 
   rules.push(new OrphanedLinkStorageRule());
 

@@ -1,4 +1,3 @@
-import { hostname } from 'node:os';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { IPgPoolLease } from '@teable/db-main-prisma';
@@ -22,6 +21,10 @@ import type { Kysely } from 'kysely';
 import { ok, type Result } from 'neverthrow';
 import { resolveBoolean, resolvePositiveInteger } from './v2-config-parsers';
 
+const DEFAULT_OBSERVATION_RETENTION_DAYS = 2;
+const OBSERVATION_PRUNE_START_DELAY_MS = 60 * 1_000;
+const OBSERVATION_PRUNE_INTERVAL_MS = 60 * 60 * 1_000;
+
 export type TableQueryObservationRuntime = {
   readonly db: Kysely<TableQueryObservationDatabase>;
   readonly publisher: TableQueryObservationPublisher;
@@ -31,6 +34,7 @@ export type TableQueryObservationRuntime = {
 type OwnedTableQueryObservationRuntime = TableQueryObservationRuntime & {
   readonly buffer: BufferedTableQueryObservationPublisher;
   readonly lease: IPgPoolLease;
+  readonly pruneStartupTimer: NodeJS.Timeout;
   readonly pruneTimer: NodeJS.Timeout;
 };
 
@@ -117,6 +121,7 @@ export class TableQueryObservationRuntimeService
     const runtime = await this.runtimePromise;
     if (!runtime) return;
     this.runtime = undefined;
+    clearTimeout(runtime.pruneStartupTimer);
     clearInterval(runtime.pruneTimer);
     runtime.buffer.stop();
     await Promise.allSettled([runtime.db.destroy(), runtime.lease.release()]);
@@ -162,7 +167,7 @@ export class TableQueryObservationRuntimeService
           ) ?? 500,
       });
       const buffer = new BufferedTableQueryObservationPublisher(repository, {
-        writerId: `${hostname()}:${process.pid}`,
+        writerId: 'cluster',
         flushIntervalMs:
           resolvePositiveInteger(this.configService.get('V2_TABLE_QUERY_OPS_FLUSH_INTERVAL_MS')) ??
           10_000,
@@ -171,28 +176,41 @@ export class TableQueryObservationRuntimeService
           1_000,
         batchSize:
           resolvePositiveInteger(this.configService.get('V2_TABLE_QUERY_OPS_BATCH_SIZE')) ?? 100,
+        minRequestCount:
+          resolvePositiveInteger(
+            this.configService.get('V2_TABLE_QUERY_OPS_MIN_WINDOW_REQUESTS')
+          ) ?? 10,
       });
       const retentionMs =
         (resolvePositiveInteger(this.configService.get('V2_TABLE_QUERY_OPS_RETENTION_DAYS')) ??
-          45) *
+          DEFAULT_OBSERVATION_RETENTION_DAYS) *
         24 *
         60 *
         60 *
         1_000;
-      const pruneTimer = setInterval(
-        () => {
-          void repository.pruneBefore(new Date(Date.now() - retentionMs)).then((result) => {
+      const pruneExpired = () => {
+        void repository
+          .pruneBefore(new Date(Date.now() - retentionMs))
+          .then((result) => {
             if (result.isErr()) {
               this.logger.warn(`Table query observation pruning failed: ${result.error.message}`);
             }
+          })
+          .catch((error: unknown) => {
+            this.logger.warn(
+              `Table query observation pruning failed: ${
+                error instanceof Error ? error.message : String(error)
+              }`
+            );
           });
-        },
-        24 * 60 * 60 * 1_000
-      );
+      };
+      const pruneStartupTimer = setTimeout(pruneExpired, OBSERVATION_PRUNE_START_DELAY_MS);
+      pruneStartupTimer.unref?.();
+      const pruneTimer = setInterval(pruneExpired, OBSERVATION_PRUNE_INTERVAL_MS);
       pruneTimer.unref?.();
 
       this.logger.log('Table query observations use an isolated max=2 PostgreSQL pool');
-      return { db, publisher: buffer, buffer, repository, lease, pruneTimer };
+      return { db, publisher: buffer, buffer, repository, lease, pruneStartupTimer, pruneTimer };
     } catch (error) {
       await Promise.allSettled([
         db?.destroy() ?? Promise.resolve(),

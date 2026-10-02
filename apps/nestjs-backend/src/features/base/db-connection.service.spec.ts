@@ -16,6 +16,8 @@ const byodbHost = 'byodb.example.com';
 const byodbDataUrl = `postgresql://teable:secret@${byodbHost}:5432/byodb_space?schema=internal_byodb`;
 const defaultDataUrl = 'postgresql://teable:secret@default.example.com:5432/teable_data';
 const sqlBuilder = knex({ client: 'pg' });
+const emitAtomic = vi.fn();
+const audit = { emitAtomic };
 
 const createPrismaServiceMock = () => {
   const txPrisma = {
@@ -56,13 +58,15 @@ const createDbConnectionService = ({
       publicDatabaseProxy,
       defaultMaxBaseDBConnections,
       ...baseConfigOverrides,
-    } as never
+    } as never,
+    audit as never
   );
 
 describe('DbConnectionService', () => {
   let service: DbConnectionService;
 
   beforeEach(async () => {
+    emitAtomic.mockReset();
     const module: TestingModule = await Test.createTestingModule({
       imports: [GlobalModule, BaseModule],
     }).compile();
@@ -169,6 +173,16 @@ describe('DbConnectionService', () => {
     expect(executedSql).toContain(
       `ALTER DEFAULT PRIVILEGES IN SCHEMA "${baseId}" GRANT SELECT ON TABLES TO "${readOnlyRole}"`
     );
+
+    expect(emitAtomic).toHaveBeenCalledWith({
+      action: 'base.db-connection.create',
+      resourceId: baseId,
+      params: { baseId, role: readOnlyRole, maxConnections: defaultMaxBaseDBConnections },
+    });
+    // The audit row carries neither the generated password nor the connection string.
+    const auditPayload = JSON.stringify(emitAtomic.mock.calls);
+    expect(auditPayload).not.toContain(String(result?.dsn.pass));
+    expect(auditPayload).not.toContain('postgresql://');
   });
 
   it('creates a BYODB readonly connection with the direct scoped database host when no global proxy is configured', async () => {
@@ -222,6 +236,11 @@ describe('DbConnectionService', () => {
     const executedSql = dataPrisma.$executeRawUnsafe.mock.calls.map(([sql]) => sql).join('\n');
     expect(executedSql).toContain(`REVOKE USAGE ON SCHEMA "${baseId}" FROM "${readOnlyRole}"`);
     expect(executedSql).toContain(`DROP ROLE IF EXISTS "${readOnlyRole}"`);
+    expect(emitAtomic).toHaveBeenCalledWith({
+      action: 'base.db-connection.delete',
+      resourceId: baseId,
+      params: { baseId, role: readOnlyRole },
+    });
   });
 
   it('returns an explicit unavailable error when the scoped data DB cannot create readonly roles', async () => {
@@ -249,6 +268,7 @@ describe('DbConnectionService', () => {
         reason: 'readonly_role_privilege_unavailable',
       },
     });
+    expect(emitAtomic).not.toHaveBeenCalled();
   });
 
   it('rejects readonly connection creation while the base space is migrating', async () => {
@@ -271,6 +291,7 @@ describe('DbConnectionService', () => {
         publicDatabaseProxy: 'db.example.com:5432',
         defaultMaxBaseDBConnections: 10,
       } as never,
+      audit as never,
       migrationGuard as never
     );
 
@@ -301,6 +322,7 @@ describe('DbConnectionService', () => {
         publicDatabaseProxy: 'db.example.com:5432',
         defaultMaxBaseDBConnections: 10,
       } as never,
+      audit as never,
       migrationGuard as never
     );
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { enrichTableDtoWithComputeActivity } from './enrichTableComputeActivity';
 import type { ITableDto } from './dto';
+import { enrichTableDtoWithComputeActivity } from './enrichTableComputeActivity';
 
 const baseTable = (): ITableDto =>
   ({
@@ -83,9 +83,31 @@ describe('enrichTableDtoWithComputeActivity', () => {
     expect(table.fields.find((f) => f.id === 'fldText1')?.computeMeta).toBeUndefined();
   });
 
-  it('returns idle computeMeta when activity is null', () => {
+  it('marks observation unavailable when activity is null', () => {
     const table = enrichTableDtoWithComputeActivity(baseTable(), null);
     expect(table.computeMeta?.status).toBe('idle');
     expect(table.computeMeta?.calculatingFieldCount).toBe(0);
+    expect(table.computeMeta?.observationState).toBe('unavailable');
+  });
+  it('strips old field and aggregate metadata when observation fails', () => {
+    const previous = baseTable();
+    previous.fields[0].computeMeta = {
+      status: 'failed',
+      reliability: { unresolvedCount: 9, oldestUnresolvedAt: null, scopeComplete: true },
+    };
+    previous.computeMeta = {
+      status: 'calculating',
+      calculatingFieldCount: 9,
+      recentCompletions: [
+        { fieldId: 'private', durationMs: 5, completedAt: '2026-09-05T00:00:00.000Z' },
+      ],
+    };
+    const result = enrichTableDtoWithComputeActivity(previous, null);
+    expect(result.fields.every((field) => !field.computeMeta)).toBe(true);
+    expect(result.computeMeta).toMatchObject({
+      observationState: 'unavailable',
+      calculatingFieldCount: 0,
+    });
+    expect(result.computeMeta?.recentCompletions).toBeUndefined();
   });
 });

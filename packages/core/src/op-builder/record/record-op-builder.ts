@@ -5,13 +5,13 @@ import { AddRecordBuilder } from './add-record';
 import { SetRecordBuilder } from './set-record';
 
 export class RecordOpBuilder {
-  static editor = {
+  static readonly editor = {
     [OpName.SetRecord]: new SetRecordBuilder(),
   };
 
-  static creator = new AddRecordBuilder();
+  static readonly creator = new AddRecordBuilder();
 
-  static ops2Contexts = OpBuilderAbstract.ops2Contexts;
+  static readonly ops2Contexts = OpBuilderAbstract.ops2Contexts;
 
-  static detect = OpBuilderAbstract.detect;
+  static readonly detect = OpBuilderAbstract.detect;
 }

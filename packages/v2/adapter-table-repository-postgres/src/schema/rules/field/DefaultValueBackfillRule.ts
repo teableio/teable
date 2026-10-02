@@ -40,7 +40,7 @@ export class DefaultValueBackfillRule implements ISchemaRule {
   }
 
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
-    const self = this;
+    const self = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<SchemaRuleValidationResult, DomainError>(async function* () {
       const columnName = yield* resolveColumnName(ctx.field);
@@ -65,7 +65,7 @@ export class DefaultValueBackfillRule implements ISchemaRule {
   }
 
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const self = this;
+    const self = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const columnName = yield* resolveColumnName(ctx.field);
@@ -89,7 +89,7 @@ export class DefaultValueBackfillRule implements ISchemaRule {
   }
 
   private resolveDefaultLiteral(columnName: string): Result<string | undefined, DomainError> {
-    const self = this;
+    const self = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<string | undefined, DomainError>(function* () {
       const defaultValue = yield* self.field.accept(FieldDefaultValueVisitor.create());

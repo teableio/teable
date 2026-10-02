@@ -130,7 +130,9 @@ describe('Bidirectional Formula Link Fields (e2e)', () => {
 
       // Verify that each linked record has correct title (should show formula result)
       // The formula field references the link field, so it should show the linked groups
-      const titles = group1Links.map((link) => link.title).sort();
+      const titles = group1Links
+        .map((link) => link.title)
+        .sort((a, b) => Number(a > b) - Number(a < b));
       expect(titles).toEqual(['Group1', 'Group1, Group2']); // Item1 links to Group1, Item2 links to Group1,Group2
 
       // Check Group2 record - should be linked to Item2 only

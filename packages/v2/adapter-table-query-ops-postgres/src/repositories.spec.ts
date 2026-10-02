@@ -272,6 +272,84 @@ describeWithPostgres('PostgresTableQueryObservationRepository', () => {
     await db?.destroy();
   });
 
+  it('retains diagnostic fingerprints without persisting unsampled SQL text', async () => {
+    const tableId = `tblTqOpsDiagnostics${process.pid}`;
+    const metadata = {
+      source: 'base_sql_executor',
+      statementKind: 'select',
+      fingerprint: 'neutral-shape',
+      parameterCount: 0,
+      sampled: false,
+    };
+    const sampled = {
+      source: 'sql_sampler',
+      statementKind: 'select',
+      fingerprint: 'sampled-shape',
+      parameterCount: 1,
+      sampled: true,
+      normalizedSql: 'SELECT $1',
+    };
+    const observation = unwrap(
+      TableQueryObservationWindow.create({
+        tableId,
+        baseId: `bseTqOpsDiagnostics${process.pid}`,
+        windowStart: new Date('2026-06-01T00:00:00Z'),
+        windowSizeSeconds: 300,
+        shape: unwrap(
+          TableQueryShape.create({
+            queryKind: 'recordList',
+            executionShape: { durationMs: 10, timedOut: false },
+          }),
+          'shape'
+        ),
+        requestCount: 1,
+        slowCount: 0,
+        timeoutCount: 0,
+        dbErrorCount: 0,
+        totalDurationMs: 10,
+        maxDurationMs: 10,
+        sqlDiagnostics: [{ ...metadata, normalizedSql: "SELECT 'private-sentinel'" }, sampled],
+      }),
+      'observation'
+    );
+    const repository = new PostgresTableQueryObservationRepository(db);
+    try {
+      unwrap(await repository.record({} as never, observation), 'record');
+      const stored = await db
+        .selectFrom('table_query_observation_shard')
+        .select('sql_diagnostics')
+        .where('table_id', '=', tableId)
+        .executeTakeFirstOrThrow();
+      expect(stored.sql_diagnostics).toEqual([metadata, sampled]);
+      const recent = unwrap(
+        await repository.findRecent({} as never, {
+          tableId,
+          since: new Date('2026-06-01T00:00:00Z'),
+          limit: 1,
+        }),
+        'findRecent'
+      );
+      expect(recent[0].snapshot().sqlDiagnostics).toEqual([metadata, sampled]);
+      const metadataOnly = unwrap(
+        TableQueryObservationWindow.create({
+          ...observation.snapshot(),
+          shape: observation.shape(),
+          sqlDiagnostics: [metadata],
+        }),
+        'metadataOnly'
+      );
+      unwrap(await repository.record({} as never, metadataOnly), 'recordMetadataOnly');
+      const retained = await db
+        .selectFrom('table_query_observation_shard')
+        .select('sql_diagnostics')
+        .where('table_id', '=', tableId)
+        .executeTakeFirstOrThrow();
+      expect(retained.sql_diagnostics).toEqual([metadata, sampled]);
+    } finally {
+      await sql`DELETE FROM table_query_observation_shard WHERE table_id = ${tableId}`.execute(db);
+    }
+  });
+
   it('persists batches in writer shards and aggregates them into logical windows', async () => {
     const tableId = `tblTqOpsObservation${process.pid}`;
     const otherTableId = `tblTqOpsObservationBatch${process.pid}`;

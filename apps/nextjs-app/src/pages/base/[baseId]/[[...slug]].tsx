@@ -5,6 +5,7 @@ import { ReactQueryKeys } from '@teable/sdk/config';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { CommunityPage } from '@/features/app/base/CommunityPage';
+import { EmbedBaseHome } from '@/features/app/base/EmbedBaseHome';
 import type { ISSRContext } from '@/features/app/base-node';
 import {
   TablePage,
@@ -18,6 +19,7 @@ import {
 } from '@/features/app/base-node';
 import type { IBaseNodePageProps } from '@/features/app/base-node/types';
 import { parseBaseSlug, useBaseResource } from '@/features/app/hooks/useBaseResource';
+import { useEmbedMode } from '@/features/app/hooks/useEmbedMode';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
 import { baseAllConfig } from '@/features/i18n/base-all.config';
 import ensureLogin from '@/lib/ensureLogin';
@@ -29,6 +31,7 @@ import withEnv from '@/lib/withEnv';
 
 const UnifiedBasePage: NextPageWithLayout<IBaseNodePageProps> = (props: IBaseNodePageProps) => {
   const { resourceType } = useBaseResource();
+  const isEmbed = useEmbedMode();
 
   switch (resourceType) {
     case BaseNodeResourceType.Table:
@@ -39,8 +42,12 @@ const UnifiedBasePage: NextPageWithLayout<IBaseNodePageProps> = (props: IBaseNod
       return <WorkflowPage />;
     case BaseNodeResourceType.App:
       return <div>App Page</div>;
+    case BaseNodeResourceType.Routine:
+      return <div>Routine Page</div>;
     default:
-      return <CommunityPage />;
+      // Base home. Inside the native mobile shell the directory tree page owns
+      // navigation (SSR skips the default-node redirect), so show a placeholder.
+      return isEmbed ? <EmbedBaseHome /> : <CommunityPage />;
   }
 };
 
@@ -111,6 +118,7 @@ export const getServerSideProps: GetServerSideProps<IBaseNodePageProps> = withEn
         case BaseNodeResourceType.Workflow:
           return getWorkflowServerSideProps(ctx, parsed);
         case BaseNodeResourceType.App:
+        case BaseNodeResourceType.Routine:
         default:
           return { notFound: true };
       }

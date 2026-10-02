@@ -8,5 +8,6 @@ export const OAuthActionsPrefixes = [
   ActionPrefix.Field,
   ActionPrefix.Record,
   ActionPrefix.Automation,
+  ActionPrefix.Routine,
   ActionPrefix.User,
 ];

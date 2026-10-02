@@ -56,7 +56,7 @@ import { parseDateValue } from './dateValueParser';
  * ```
  */
 export class SetFieldValueSpecFactoryVisitor extends AbstractFieldVisitor<ICellValueSpec> {
-  private value: unknown;
+  private readonly value: unknown;
 
   constructor(value: unknown) {
     super();

@@ -113,7 +113,7 @@ const normalizeUnaryOperatorValue = (input: unknown): unknown => {
   if (typeof value.operator !== 'string' || !operatorsExpectingNull.includes(value.operator)) {
     return input;
   }
-  if (Object.prototype.hasOwnProperty.call(value, 'value')) return input;
+  if (Object.hasOwn(value, 'value')) return input;
 
   return {
     ...value,

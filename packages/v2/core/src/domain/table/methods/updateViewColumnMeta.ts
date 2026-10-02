@@ -34,7 +34,7 @@ const adjustFrozenFieldOptions = (params: {
   previousColumnMeta: ViewColumnMetaValue;
   nextColumnMeta: ViewColumnMetaValue;
   patchedFieldIds: ReadonlySet<string>;
-}): unknown | undefined => {
+}): unknown => {
   if (params.viewType !== 'grid' || !isRecord(params.options)) return undefined;
   const frozenFieldId = params.options.frozenFieldId;
   if (typeof frozenFieldId !== 'string' || !params.patchedFieldIds.has(frozenFieldId)) {
@@ -83,7 +83,7 @@ export function updateViewColumnMeta(
   viewId: ViewId,
   patches: ReadonlyArray<ViewColumnMetaPatch>
 ): Result<UpdateViewColumnMetaMethodResult, DomainError> {
-  const table = this;
+  const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   return safeTry<UpdateViewColumnMetaMethodResult, DomainError>(function* () {
     const view = yield* table.getView(viewId);
     const missingFieldIds = patches

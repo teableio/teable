@@ -1,8 +1,8 @@
 import { LaptopIcon } from '@radix-ui/react-icons';
 import { Moon, Search, Settings, Sun } from '@teable/icons';
-import { useTheme } from '@teable/next-themes';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { useBaseId, useIsAnonymous, useIsReadOnlyPreview } from '@teable/sdk/hooks';
+import { useTheme } from '@teable/ui-lib';
 import {
   CommandDialog,
   CommandInput,
@@ -103,6 +103,8 @@ export const QuickAction = () => {
                   return t('common:noun.app');
                 case BaseNodeResourceType.Workflow:
                   return t('common:noun.automation');
+                case BaseNodeResourceType.Routine:
+                  return t('common:noun.routine');
                 default:
                   return '';
               }

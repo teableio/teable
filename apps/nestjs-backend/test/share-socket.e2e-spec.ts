@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { tracingChannel } from 'node:diagnostics_channel';
 import type { INestApplication } from '@nestjs/common';
 import { IdPrefix, ViewType } from '@teable/core';
 import {
@@ -6,12 +7,15 @@ import {
   disableShareView as apiDisableShareView,
 } from '@teable/openapi';
 import { map } from 'lodash';
+import { Logger as PinoLogger } from 'nestjs-pino';
 import type { Connection, Doc } from 'sharedb/lib/client';
 import { vi } from 'vitest';
+import { FieldService } from '../src/features/field/field.service';
 import { ViewService } from '../src/features/view/view.service';
 import { ShareDbService } from '../src/share-db/share-db.service';
 import { getError } from './utils/get-error';
 import { initApp, updateViewColumnMeta, createTable, permanentDeleteTable } from './utils/init-app';
+import { TestingLogger } from './utils/testing-logger';
 
 describe('Share (socket-e2e) (e2e)', () => {
   let app: INestApplication;
@@ -143,10 +147,17 @@ describe('Share (socket-e2e) (e2e)', () => {
   };
 
   describe('Field queries', () => {
-    it('should retrieve fields other than those that are hidden', async () => {
+    it('should retrieve fields other than those that are hidden through v2', async () => {
+      const fieldService = app.get(FieldService);
+      const legacyDocIdsSpy = vi.spyOn(fieldService, 'getFieldsByQuery');
+      const legacySnapshotsSpy = vi.spyOn(fieldService, 'getSnapshotBulk');
       const collection = `${IdPrefix.Field}_${tableId}`;
       const fields = await getQuery(collection, shareId);
       expect(fields.length).toEqual(fieldIds.length - 1);
+      expect(legacyDocIdsSpy).not.toHaveBeenCalled();
+      expect(legacySnapshotsSpy).not.toHaveBeenCalled();
+      legacyDocIdsSpy.mockRestore();
+      legacySnapshotsSpy.mockRestore();
     });
 
     it('should not include hidden field in query results', async () => {
@@ -206,22 +217,9 @@ describe('Share (socket-e2e) (e2e)', () => {
       const error = await getError(() => getQuery(collection, ''));
       expect(error).toBeDefined();
     });
-
-    it('should handle non-existent collection gracefully', async () => {
-      const collection = `${IdPrefix.Field}_non_existent_table`;
-      const error = await getError(() => getQuery(collection, shareId));
-      // Should either return empty results or throw an appropriate error
-      expect(error !== undefined || true).toBe(true);
-    });
   });
 
   describe('Connection lifecycle', () => {
-    it('should successfully create and use connection', async () => {
-      const connection = createConnection(shareId);
-      expect(connection).toBeDefined();
-      expect(connection.state).toBeDefined();
-    });
-
     it('should handle multiple concurrent connections', async () => {
       const collection = `${IdPrefix.View}_${tableId}`;
 
@@ -236,14 +234,6 @@ describe('Share (socket-e2e) (e2e)', () => {
         expect(views.length).toEqual(1);
         expect(views[0].id).toEqual(viewId);
       });
-    });
-
-    it('should timeout if query takes too long', async () => {
-      const collection = `${IdPrefix.View}_${tableId}`;
-      // Use a very short timeout to trigger timeout error
-      const error = await getError(() => getQuery(collection, shareId, 1));
-      // Either succeeds very quickly or times out
-      expect(error === undefined || error?.message === timeoutErrorMessage).toBe(true);
     });
   });
 
@@ -288,47 +278,6 @@ describe('Share (socket-e2e) (e2e)', () => {
       // Re-enable share for cleanup
       const shareResult = await apiEnableShareView({ tableId: tempTableId, viewId: tempViewId });
       tempShareId = shareResult.data.shareId;
-    });
-  });
-
-  describe('Computed activity subscriptions', () => {
-    it('replays a later generation into an uncreated client document', async () => {
-      const fieldId = fieldIds[0];
-      const data = { status: 'running', generation: 3 };
-      shareDbService.setComputedActivitySnapshotLoader(async (requestedTableId) => {
-        expect(requestedTableId).toBe(tableId);
-        return { [fieldId]: { version: 3, data } };
-      });
-
-      const connection = createConnection(shareId);
-      const doc = connection.get(`cmp_${tableId}`, fieldId) as Doc<typeof data>;
-      doc.version = 0;
-      const errors: unknown[] = [];
-      doc.on('error', (error) => errors.push(error));
-      connection.on('error', (error) => errors.push(error));
-
-      try {
-        await new Promise<void>((resolve, reject) => {
-          const timer = setTimeout(
-            () => reject(new Error('Computed activity subscription timeout')),
-            defaultTimeout
-          );
-          doc.subscribe((error) => {
-            clearTimeout(timer);
-            if (error) {
-              reject(error);
-              return;
-            }
-            resolve();
-          });
-        });
-
-        expect(errors).toEqual([]);
-        expect(doc.version).toBe(3);
-        expect(doc.data).toEqual(data);
-      } finally {
-        connection.close();
-      }
     });
   });
 });

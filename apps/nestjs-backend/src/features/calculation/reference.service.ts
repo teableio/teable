@@ -3,7 +3,7 @@ import type { IRecord, Relationship } from '@teable/core';
 import { extractFieldIdsFromFilter } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { difference, uniq } from 'lodash';
+import { difference } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
@@ -64,20 +64,17 @@ export class ReferenceService {
   ) {}
 
   private async getLookupFilterFieldMap(fieldMap: IFieldMap) {
-    const fieldIds = Object.keys(fieldMap)
-      .map((fieldId) => {
-        const field = fieldMap[fieldId];
-        if (!field) {
-          return [];
-        }
-        const lookupOptions = field.lookupOptions;
-        if (lookupOptions && lookupOptions.filter) {
-          return extractFieldIdsFromFilter(lookupOptions.filter, true);
-        }
+    const fieldIds = Object.keys(fieldMap).flatMap((fieldId) => {
+      const field = fieldMap[fieldId];
+      if (!field) {
         return [];
-      })
-      .flat();
-
+      }
+      const lookupOptions = field.lookupOptions;
+      if (lookupOptions && lookupOptions.filter) {
+        return extractFieldIdsFromFilter(lookupOptions.filter, true);
+      }
+      return [];
+    });
     const fieldRaws = await this.prismaService.txClient().field.findMany({
       where: { id: { in: fieldIds }, deletedTime: null },
     });
@@ -113,7 +110,7 @@ export class ReferenceService {
       return pre;
     }, {});
 
-    const tableIds = uniq(Object.values(fieldId2TableId));
+    const tableIds = [...new Set(Object.values(fieldId2TableId))];
     const tableMeta = await prisma.tableMeta.findMany({
       where: { id: { in: tableIds } },
       select: { id: true, dbTableName: true },

@@ -223,9 +223,11 @@ export class PartWriter {
       maxRecordCreatedTime: part.maxRecordCreatedTime,
       minRecordLastModifiedTime: part.minRecordLastModifiedTime,
       maxRecordLastModifiedTime: part.maxRecordLastModifiedTime,
-      recordCreatedBys: part.recordCreatedBys ? [...part.recordCreatedBys].sort() : null,
+      recordCreatedBys: part.recordCreatedBys
+        ? [...part.recordCreatedBys].sort((a, b) => Number(a > b) - Number(a < b))
+        : null,
       recordLastModifiedBys: part.recordLastModifiedBys
-        ? [...part.recordLastModifiedBys].sort()
+        ? [...part.recordLastModifiedBys].sort((a, b) => Number(a > b) - Number(a < b))
         : null,
       recordBloom: buildRecordBloom(part.recordIds, part.recordIds.size),
     });

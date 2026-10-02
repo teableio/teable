@@ -1087,9 +1087,7 @@ describe('UndoRedoStackService', () => {
     ]);
 
     const outcomes = [first, second];
-    const succeeded = outcomes.filter(
-      (result) => result.isOk() && result._unsafeUnwrap() !== null
-    );
+    const succeeded = outcomes.filter((result) => result.isOk() && result._unsafeUnwrap() !== null);
     const conflicts = outcomes.filter((result) => result.isErr());
     expect(succeeded).toHaveLength(1);
     expect(conflicts).toHaveLength(1);

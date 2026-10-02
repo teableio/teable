@@ -105,8 +105,8 @@
     "eslint-plugin-mdx": "^2.2.0 || ^3.0.0",
     "eslint-plugin-tailwindcss": "^3.13.0",
     "prettier": "^3.0.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "react": "^18.2.0 || ^19.0.0",
+    "react-dom": "^18.2.0 || ^19.0.0",
     "typescript": "^5.1.6"
   },
   "peerDependenciesMeta": {
@@ -133,17 +133,18 @@
     }
   },
   "devDependencies": {
+    "@testing-library/dom": "10.4.1",
     "@testing-library/jest-dom": "6.4.2",
-    "@testing-library/react": "14.2.2",
-    "@types/node": "22.18.0",
-    "@types/react": "18.3.18",
-    "@types/react-dom": "18.3.5",
+    "@testing-library/react": "16.3.3",
+    "@types/node": "24.13.2",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
     "es-check": "7.1.1",
     "eslint": "8.57.0",
     "eslint-plugin-mdx": "3.1.5",
     "eslint-plugin-tailwindcss": "3.15.1",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
     "rimraf": "5.0.5",
     "tailwindcss": "3.4.1",
     "typescript": "5.4.3"

@@ -129,7 +129,7 @@ export function Audit(config: IAuditConfig): MethodDecorator {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const original = descriptor.value as (...args: any[]) => any;
     if (typeof original !== 'function') {
-      throw new Error('@Audit can only decorate methods.');
+      throw new TypeError('@Audit can only decorate methods.');
     }
 
     descriptor.value = async function (

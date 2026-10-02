@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { listTableRecordsOkResponseSchema } from '@teable/v2-contract-http';
-import { createV2HttpClient } from '@teable/v2-contract-http-client';
+import { createV2HttpClient, type V2HttpClient } from '@teable/v2-contract-http-client';
 import { FieldKeyType } from '@teable/v2-core';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
@@ -29,12 +29,12 @@ import { getSharedTestContext, type SharedTestContext } from './shared/globalTes
  * - view sort PUT round-trip / clear with null → covered by
  *   viewOperations.e2e.spec.ts ("round-trips filter, sort, and group").
  * - x_20 lookup "Multiple CellValueType" oracle tests → covered below with
- *   deterministic multi-element values that distinguish display-key ordering
+ *   deterministic multi-element values that distinguish typed value ordering
  *   from raw jsonb ordering.
  */
 describe('v2 listRecords sort (e2e)', () => {
   let ctx: SharedTestContext;
-  let client: ReturnType<typeof createV2HttpClient>;
+  let client: V2HttpClient;
 
   const drainOutbox = async (rounds = 10) => {
     for (let i = 0; i < rounds; i += 1) {
@@ -624,8 +624,8 @@ describe('v2 listRecords sort (e2e)', () => {
       },
       {
         valueType: 'number' as const,
-        asc: ['t3', 't2', 't1'],
-        desc: ['t1', 't2', 't3'],
+        asc: ['t3', 't1', 't2'],
+        desc: ['t2', 't1', 't3'],
       },
       {
         valueType: 'date' as const,
@@ -800,6 +800,109 @@ describe('v2 listRecords sort (e2e)', () => {
     });
   });
 
+  describe('T7536 numeric lookup saved view sort', () => {
+    it.each([
+      {
+        name: 'orders singleton arrays numerically',
+        values: [[2], [12], [22], [13], [5]],
+        ascending: [[2], [5], [12], [13], [22]],
+      },
+      {
+        name: 'compares every element before array length without rounding or reordering',
+        values: [[2, 12], [3], [2, 9], [2, 1.004], [2, 1.001], [2, 9, 0], [9, 2], [2]],
+        ascending: [[2], [2, 1.001], [2, 1.004], [2, 9], [2, 9, 0], [2, 12], [3], [9, 2]],
+      },
+    ])(
+      '$name',
+      async ({ values, ascending }) => {
+        const sourceTable = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: 'Numeric Sort Source',
+          fields: [
+            { name: 'Title', type: 'singleLineText', isPrimary: true },
+            {
+              name: 'Amount',
+              type: 'number',
+              options: { formatting: { type: 'decimal', precision: 2 } },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+        const titleFieldId = sourceTable.fields.find((field) => field.isPrimary)?.id ?? '';
+        const amountFieldId = sourceTable.fields.find((field) => field.name === 'Amount')?.id ?? '';
+        const sourceValues = [...new Set(values.flat())];
+        const sourceRecords = await ctx.createRecords(
+          sourceTable.id,
+          sourceValues.map((value, index) => ({
+            fields: { [titleFieldId]: `Source ${index + 1}`, [amountFieldId]: value },
+          }))
+        );
+
+        const table = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: 'Numeric Sort Target',
+          fields: [
+            { name: 'Name', type: 'singleLineText', isPrimary: true },
+            {
+              name: 'Sources',
+              type: 'link',
+              options: {
+                relationship: 'manyMany',
+                foreignTableId: sourceTable.id,
+                lookupFieldId: titleFieldId,
+                isOneWay: false,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+        const nameFieldId = table.fields.find((field) => field.isPrimary)?.id ?? '';
+        const linkFieldId = table.fields.find((field) => field.name === 'Sources')?.id ?? '';
+        const withLookup = await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: table.id,
+          field: {
+            name: 'Lookup Amount',
+            type: 'lookup',
+            options: {
+              foreignTableId: sourceTable.id,
+              lookupFieldId: amountFieldId,
+              linkFieldId,
+            },
+          },
+        });
+        const lookupFieldId =
+          withLookup.fields.find((field) => field.name === 'Lookup Amount')?.id ?? '';
+        await ctx.createRecords(
+          table.id,
+          values.map((value, index) => ({
+            fields: {
+              [nameFieldId]: `Row ${index + 1}`,
+              [linkFieldId]: value.map((amount) => ({
+                id: sourceRecords[sourceValues.indexOf(amount)].id,
+              })),
+            },
+          }))
+        );
+
+        const viewId = table.views[0]?.id ?? '';
+        for (const order of ['asc', 'desc'] as const) {
+          const sorted = await client.tables.updateViewSort({
+            tableId: table.id,
+            viewId,
+            sort: { sortObjs: [{ fieldId: lookupFieldId, order }], manualSort: false },
+          });
+          expect(sorted.ok).toBe(true);
+          const records = await listOrdered(table.id, { viewId });
+          expect(records.map((record) => record.fields[lookupFieldId])).toEqual(
+            order === 'asc' ? ascending : [...ascending].reverse()
+          );
+        }
+      },
+      120000
+    );
+  });
+
   // ------------------------------------------------------------------
   // View default sort vs query sort precedence
   // v1: sort.e2e-spec "view sort property should be merged after by
@@ -869,8 +972,10 @@ describe('v2 listRecords sort (e2e)', () => {
   });
 
   // ------------------------------------------------------------------
-  // Date formatting sort precision (time: None)
-  // v1: sort.e2e-spec "OpenAPI Sort (e2e) Date Formatting"
+  // Date formatting must not change the sort key (T7404)
+  // The date preset (YYYY / YYYY-MM / YYYY-MM-DD) only controls display; every
+  // date field sorts by its stored timestamp, so same-day rows keep hour/minute
+  // order instead of collapsing into one key.
   // ------------------------------------------------------------------
   describe('date formatting sort precision', () => {
     let tableId: string;
@@ -933,31 +1038,37 @@ describe('v2 listRecords sort (e2e)', () => {
       );
     }, 60000);
 
-    const namesFor = async (fieldId: string, order: 'asc' | 'desc') => {
-      const records = await listOrdered(tableId, { sort: [{ fieldId, order }] });
-      return records.map((record) => record.fields[nameFieldId]);
-    };
+    it('sorts every date preset by the stored timestamp', async () => {
+      for (const fieldId of [yearFieldId, monthFieldId, dayFieldId]) {
+        const asc = await listOrdered(tableId, { sort: [{ fieldId, order: 'asc' }] });
+        const desc = await listOrdered(tableId, { sort: [{ fieldId, order: 'desc' }] });
 
-    it('YYYY preset sorts at year precision with __auto_number tie-break', async () => {
-      expect(await namesFor(yearFieldId, 'asc')).toEqual(['r4', 'r5', 'r3', 'r1', 'r2', 'r6']);
-      expect(await namesFor(yearFieldId, 'desc')).toEqual(['r1', 'r2', 'r6', 'r3', 'r4', 'r5']);
-    });
-
-    it('YYYY-MM preset sorts at month precision with __auto_number tie-break', async () => {
-      expect(await namesFor(monthFieldId, 'asc')).toEqual(['r5', 'r4', 'r3', 'r1', 'r2', 'r6']);
-      expect(await namesFor(monthFieldId, 'desc')).toEqual(['r1', 'r2', 'r6', 'r3', 'r4', 'r5']);
-    });
-
-    it('YYYY-MM-DD preset sorts at day precision (same-day rows keep insert order in both directions)', async () => {
-      expect(await namesFor(dayFieldId, 'asc')).toEqual(['r5', 'r4', 'r3', 'r6', 'r1', 'r2']);
-      expect(await namesFor(dayFieldId, 'desc')).toEqual(['r1', 'r2', 'r6', 'r3', 'r4', 'r5']);
+        // r2 (2024-01-10T02:00Z) and r1 (2024-01-10T04:00Z) share a display day
+        // in every preset, so only the stored timestamp can order them.
+        expect(asc.map((record) => record.fields[nameFieldId])).toEqual([
+          'r5',
+          'r4',
+          'r3',
+          'r6',
+          'r2',
+          'r1',
+        ]);
+        expect(desc.map((record) => record.fields[nameFieldId])).toEqual([
+          'r1',
+          'r2',
+          'r6',
+          'r3',
+          'r4',
+          'r5',
+        ]);
+      }
     });
   });
 
   // ------------------------------------------------------------------
-  // Created time precision
-  // v1: sort.e2e-spec "sort date should always use a second precision when
-  // formatting time is not none" / "precision should be day when time is none"
+  // Created time precision (T7404)
+  // A Created time field sorts by its stored timestamp whether or not the field
+  // displays the time.
   // ------------------------------------------------------------------
   describe('created time sort precision', () => {
     let tableId: string;
@@ -1009,11 +1120,11 @@ describe('v2 listRecords sort (e2e)', () => {
       expect(desc.map((record) => record.fields[nameFieldId])).toEqual(['second', 'first']);
     });
 
-    it('uses day precision when time formatting is None (desc equals asc via tie-break)', async () => {
+    it('uses the stored timestamp when time formatting is None', async () => {
       const asc = await listOrdered(tableId, { sort: [{ fieldId: dayFieldId, order: 'asc' }] });
       const desc = await listOrdered(tableId, { sort: [{ fieldId: dayFieldId, order: 'desc' }] });
       expect(asc.map((record) => record.fields[nameFieldId])).toEqual(['first', 'second']);
-      expect(desc.map((record) => record.fields[nameFieldId])).toEqual(['first', 'second']);
+      expect(desc.map((record) => record.fields[nameFieldId])).toEqual(['second', 'first']);
     });
   });
 

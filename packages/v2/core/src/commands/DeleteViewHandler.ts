@@ -62,7 +62,7 @@ export class DeleteViewHandler implements ICommandHandler<DeleteViewCommand, Del
     context: ExecutionContextPort.IExecutionContext,
     command: DeleteViewCommand
   ): Promise<Result<DeleteViewResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const transactionResult = await this.unitOfWork.withTransaction(
       context,
       async (transactionContext) =>

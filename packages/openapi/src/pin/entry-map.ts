@@ -20,7 +20,7 @@ export const GetPinEntryMapRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_PIN_ENTRY_MAP,
   description:
-    "Resolve the entry URL of the current user's pinned bases and tables, so pin clicks can navigate straight to the final URL",
+    "Resolve the entry URL of the current user's pinned projects and tables, so pin clicks can navigate straight to the final URL",
   responses: {
     200: {
       description: 'Returns a map of pinned resource id to entry URL pathname.',

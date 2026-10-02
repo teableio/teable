@@ -68,7 +68,7 @@ export const formatDateToString = (
     return dayjs(cellValue).tz(timeZone).format(format);
   } catch {
     // in export service case, crash in dayjs, so use date-fns-tz
-    return formatInTimeZone(cellValue, timeZone, format.replace(/D/g, 'd').replace(/Y/g, 'y'));
+    return formatInTimeZone(cellValue, timeZone, format.replaceAll('D', 'd').replaceAll('Y', 'y'));
   }
 };
 

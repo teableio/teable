@@ -226,6 +226,58 @@ describe('TableSchemaOperationRepairHandler', () => {
     );
   });
 
+  it('repairs a payload-less missing-column update instead of settling it as a rollback', async () => {
+    const table = createTable('m', 'Payloadless Missing Column');
+    const { handler, tableSchemaRepository } = createHandler([table]);
+
+    const result = await handler.run(
+      context(),
+      operation(table, {
+        type: 'table.update',
+        payload: null,
+        result: {
+          tableUpdateFailure: { code: 'transaction.parent_rolled_back' },
+        },
+        lastError: 'Failed to update table schema: error: column "Amount" does not exist',
+      })
+    );
+
+    expect(result._unsafeUnwrap()).toEqual({
+      result: {
+        repaired: 'table_schema',
+        tableIds: [table.id().toString()],
+      },
+    });
+    expect(tableSchemaRepository.ensureInsertedMany).toHaveBeenCalledWith(expect.any(Object), [
+      table,
+    ]);
+  });
+
+  it('settles a payload-less parent rollback without replaying schema', async () => {
+    const table = createTable('n', 'Parent Rollback');
+    const { handler, tableSchemaRepository } = createHandler([table]);
+
+    const result = await handler.run(
+      context(),
+      operation(table, {
+        type: 'table.update',
+        payload: null,
+        result: {
+          tableUpdateFailure: { code: 'transaction.parent_rolled_back' },
+        },
+        lastError: 'Parent transaction rolled back',
+      })
+    );
+
+    expect(result._unsafeUnwrap()).toEqual({
+      result: {
+        repaired: 'transaction_rollback',
+        tableIds: [table.id().toString()],
+      },
+    });
+    expect(tableSchemaRepository.ensureInsertedMany).not.toHaveBeenCalled();
+  });
+
   it('repairs a legacy missing-column table update that only recorded Postgres prose', async () => {
     const table = createTable('j', 'Legacy Repair Update');
     const { handler, tableSchemaRepository } = createHandler([table]);
@@ -389,6 +441,69 @@ describe('TableSchemaOperationRepairHandler', () => {
       })
     );
     expect(tableSchemaRepository.ensureInsertedMany).not.toHaveBeenCalled();
+  });
+
+  it('settles a payload-less table.update connection timeout as a rolled-back no-op', async () => {
+    const table = createTable('t', 'Timeout Update');
+    const { handler, tableSchemaRepository, tableRepository } = createHandler([table]);
+
+    const result = await handler.run(
+      context(),
+      operation(table, {
+        type: 'table.update',
+        payload: null,
+        result: {
+          tableUpdateFailure: { code: 'unexpected' },
+        },
+        lastError:
+          'Unexpected unit of work error: Error: Connection terminated due to connection timeout',
+      })
+    );
+
+    expect(result._unsafeUnwrap()).toEqual({
+      result: {
+        repaired: 'transaction_rollback',
+        tableIds: [table.id().toString()],
+      },
+    });
+    expect(tableSchemaRepository.ensureInsertedMany).not.toHaveBeenCalled();
+    expect(tableRepository.setProvisionState).not.toHaveBeenCalled();
+  });
+
+  it('repairs a payload-less missing-column table.update instead of treating it as a rollback', async () => {
+    const table = createTable('u', 'Payloadless Missing Column');
+    const { handler, tableSchemaRepository, tableRepository } = createHandler([table]);
+
+    const result = await handler.run(
+      context(),
+      operation(table, {
+        type: 'table.update',
+        payload: null,
+        result: {
+          tableUpdateFailure: { code: 'db.undefined_column' },
+        },
+        lastError: 'Failed to update table schema: error: column "Amount" does not exist',
+      })
+    );
+
+    expect(result._unsafeUnwrap()).toEqual({
+      result: {
+        repaired: 'table_schema',
+        tableIds: [table.id().toString()],
+      },
+    });
+    expect(tableSchemaRepository.ensureInsertedMany).toHaveBeenCalledWith(expect.any(Object), [
+      table,
+    ]);
+    expect(tableRepository.setProvisionState).toHaveBeenCalledWith(
+      expect.any(Object),
+      table,
+      'ready',
+      expect.objectContaining({
+        idempotencyKey: `repair-op:table:${table.id().toString()}`,
+        operationType: 'table.update',
+      })
+    );
   });
 
   it('refuses to repair create operations that need record replay', async () => {

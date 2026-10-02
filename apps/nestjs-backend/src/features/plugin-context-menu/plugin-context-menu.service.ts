@@ -17,6 +17,7 @@ import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { updateOrder } from '../../utils/update-order';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
+import { AuditScope } from '../audit/audit-scope';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 
 @Injectable()
@@ -24,7 +25,8 @@ export class PluginContextMenuService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly collaboratorService: CollaboratorService
+    private readonly collaboratorService: CollaboratorService,
+    private readonly audit: AuditScope
   ) {}
 
   private async getMaxOrder(where: Prisma.PluginContextMenuWhereInput) {
@@ -72,7 +74,7 @@ export class PluginContextMenuService {
     const baseId = await this.getBaseId(tableId);
     const pluginName = name || plugin.name;
     const userId = this.cls.get('user.id');
-    return this.prismaService.$tx(async (prisma) => {
+    const installed = await this.prismaService.$tx(async (prisma) => {
       const pluginInstall = await prisma.pluginInstall.create({
         data: {
           id: generatePluginInstallId(),
@@ -131,6 +133,18 @@ export class PluginContextMenuService {
         order: order + 1,
       };
     });
+    await this.audit.emitAtomic({
+      action: 'plugin.install',
+      resourceId: installed.pluginInstallId,
+      params: {
+        pluginId,
+        name: pluginName,
+        location: PluginPosition.ContextMenu,
+        baseId,
+        tableId,
+      },
+    });
+    return installed;
   }
 
   async getPluginContextMenuList(tableId: string) {
@@ -299,11 +313,11 @@ export class PluginContextMenuService {
 
   async deletePluginContextMenu(tableId: string, pluginInstallId: string) {
     const baseId = await this.getBaseId(tableId);
-    await this.prismaService.$tx(async (prisma) => {
+    const removed = await this.prismaService.$tx(async (prisma) => {
       await prisma.pluginContextMenu.deleteMany({
         where: { pluginInstallId, tableId },
       });
-      await prisma.pluginInstall.delete({
+      return prisma.pluginInstall.delete({
         where: {
           id: pluginInstallId,
           baseId,
@@ -311,6 +325,17 @@ export class PluginContextMenuService {
           position: PluginPosition.ContextMenu,
         },
       });
+    });
+    await this.audit.emitAtomic({
+      action: 'plugin.uninstall',
+      resourceId: pluginInstallId,
+      params: {
+        pluginId: removed.pluginId,
+        name: removed.name,
+        location: PluginPosition.ContextMenu,
+        baseId,
+        tableId,
+      },
     });
   }
 

@@ -20,7 +20,7 @@ export const getTablePhysicalName = (
   return ok({ schema: split.value.schema, tableName: split.value.tableName });
 };
 
-export const quoteIdentifier = (value: string): string => `"${value.replace(/"/g, '""')}"`;
+export const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
 
 export const makePhysicalTableSql = (schema: string, tableName: string): string =>
   `${quoteIdentifier(schema)}.${quoteIdentifier(tableName)}`;

@@ -9,3 +9,6 @@
 
 - `src/printTable.ts`: Render domain tables and raw record payloads into readable ASCII tables.
 - `src/index.ts`: Public exports.
+- `src/ssrf/registry.ts`: Shared fetch registry, exported separately as `@teable/v2-utils/fetch`
+  so browser adapters do not load Node-only SSRF transports. The root and subpath use the same
+  registration state; Node hosts still install the guarded fetch implementation.

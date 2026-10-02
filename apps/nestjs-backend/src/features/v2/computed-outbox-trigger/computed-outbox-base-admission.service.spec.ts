@@ -222,7 +222,7 @@ describe('ComputedOutboxBaseAdmissionService', () => {
     await expect(result).rejects.toMatchObject({
       name: 'ComputedOutboxBaseAdmissionLeaseLostError',
       cause: expect.objectContaining({
-        message: 'Computed outbox base admission renewal timed out',
+        message: 'Computed outbox project admission renewal timed out',
       }),
     });
     expect(evalRedis).toHaveBeenCalledTimes(3);

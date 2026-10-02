@@ -75,7 +75,8 @@ export class TableUpdateViewQueryDefaultsSpec<
       nextViews.push(clone);
     }
 
-    const nextTableResult = Table.rehydrate({
+    const dbTableNameResult = t.dbTableName();
+    return Table.rehydrate({
       id: t.id(),
       baseId: t.baseId(),
       name: t.name(),
@@ -83,22 +84,9 @@ export class TableUpdateViewQueryDefaultsSpec<
       fields: t.getFields(),
       views: nextViews,
       primaryFieldId: t.primaryFieldId(),
+      searchIndex: t.searchIndex(),
+      dbTableName: dbTableNameResult.isOk() ? dbTableNameResult.value : undefined,
     });
-    if (nextTableResult.isErr()) {
-      return nextTableResult;
-    }
-
-    const dbTableNameResult = t.dbTableName();
-    if (dbTableNameResult.isErr()) {
-      return ok(nextTableResult.value);
-    }
-
-    const setDbTableNameResult = nextTableResult.value.setDbTableName(dbTableNameResult.value);
-    if (setDbTableNameResult.isErr()) {
-      return err(setDbTableNameResult.error);
-    }
-
-    return ok(nextTableResult.value);
   }
 
   accept(v: V): Result<void, DomainError> {

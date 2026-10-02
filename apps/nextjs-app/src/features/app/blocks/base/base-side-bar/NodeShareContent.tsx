@@ -222,7 +222,7 @@ export const NodeShareContent = ({
     },
   });
 
-  const { mutate: updateShare } = useMutation({
+  const { mutateAsync: updateShare, isPending: isUpdateLoading } = useMutation({
     mutationFn: (data: IUpdateBaseShareRo) => updateBaseShare(baseId, share!.shareId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -264,9 +264,13 @@ export const NodeShareContent = ({
     },
   });
 
-  const handleUpdateSetting = (data: Record<string, unknown>) => {
-    if (!share) return;
-    updateShare(data as IUpdateBaseShareRo);
+  // Resolves whether the update was saved; failures are already toasted by onError
+  const handleUpdateSetting = async (data: Record<string, unknown>) => {
+    if (!share) return false;
+    return updateShare(data as IUpdateBaseShareRo).then(
+      () => true,
+      () => false
+    );
   };
 
   const showEdit =
@@ -275,7 +279,7 @@ export const NodeShareContent = ({
 
   const permissionOptions = useBaseSharePermissionOptions({
     share,
-    onUpdate: handleUpdateSetting,
+    onUpdate: (data) => void handleUpdateSetting(data),
     showEdit,
   });
 
@@ -303,6 +307,7 @@ export const NodeShareContent = ({
       isCreateLoading={isCreateLoading}
       isDeleteLoading={isDeleteLoading}
       isRefreshLoading={isRefreshLoading}
+      isUpdateLoading={isUpdateLoading}
       disabled={!canManageShare}
       permissionOptions={permissionOptions}
       onToggleShare={() => createShare({ nodeId })}

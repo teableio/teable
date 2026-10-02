@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { IHttpError } from '@teable/core';
 import { hasPermission } from '@teable/core';
-import { Check, Database } from '@teable/icons';
+import { Check, LayoutGrid } from '@teable/icons';
 import {
   duplicateBase,
   duplicateBaseCheck,
@@ -203,7 +203,7 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
             <Emoji emoji={base.icon} size={56} />
           </div>
         ) : (
-          <Database className="size-14 min-w-14" />
+          <LayoutGrid className="size-14 min-w-14" />
         )}
         <div>
           <Input value={baseName} onChange={(e) => setBaseName(e.target.value)} />

@@ -1,5 +1,5 @@
 import { inject, injectable } from '@teable/v2-di';
-import { err, ok, safeTry } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import {
   CreateFieldCommand,
@@ -61,32 +61,31 @@ export class CreateFieldAnalyzer implements ICommandAnalyzer<CreateFieldCommand>
     options: ExplainOptions,
     startTime: number
   ): Promise<Result<ExplainResult, DomainError>> {
-    const analyzer = this;
     const mergedOptions = { ...DEFAULT_EXPLAIN_OPTIONS, ...options };
 
-    return safeTry<ExplainResult, DomainError>(async function* () {
+    return (async (): Promise<Result<ExplainResult, DomainError>> => {
       const beforeTableSpec = TableByIdSpec.create(command.tableId);
-      const beforeTableResult = await analyzer.tableRepository.findOne(context, beforeTableSpec);
+      const beforeTableResult = await this.tableRepository.findOne(context, beforeTableSpec);
       if (beforeTableResult.isErr()) {
         return err(beforeTableResult.error);
       }
       const beforeTable = beforeTableResult.value;
 
       const dryRun = createFieldExplainDryRunEnvironment({
-        db: analyzer.db,
-        tableRepository: analyzer.tableRepository,
-        computedUpdatePlanner: analyzer.computedUpdatePlanner,
-        typeValidationStrategy: analyzer.typeValidationStrategy,
+        db: this.db,
+        tableRepository: this.tableRepository,
+        computedUpdatePlanner: this.computedUpdatePlanner,
+        typeValidationStrategy: this.typeValidationStrategy,
       });
 
       const handler = new CreateFieldHandler(
         dryRun.overlayTableRepository,
         dryRun.tableUpdateFlow,
         new FieldCreationSideEffectService(dryRun.tableUpdateFlow),
-        analyzer.foreignTableLoaderService,
+        this.foreignTableLoaderService,
         createNoopFieldOperationPluginRunner(),
         createNoopUndoRedoService() as never,
-        analyzer.fieldUndoRedoSnapshotService
+        this.fieldUndoRedoSnapshotService
       );
 
       const commandResult = await handler.handle(context, command);
@@ -116,15 +115,15 @@ export class CreateFieldAnalyzer implements ICommandAnalyzer<CreateFieldCommand>
       const sqlExplainStartTime = Date.now();
       const sqlExplains = mergedOptions.includeSql
         ? await buildFieldSqlExplains(
-            analyzer.sqlExplainRunner,
-            analyzer.db,
+            this.sqlExplainRunner,
+            this.db,
             dryRun.captureTableSchemaRepository.getStatements(),
             mergedOptions.analyze
           )
         : [];
       const sqlExplainMs = Date.now() - sqlExplainStartTime;
 
-      const complexity = analyzer.complexityCalculator.calculate({
+      const complexity = this.complexityCalculator.calculate({
         commandInfo,
         computedImpact: null,
         sqlExplains,
@@ -144,6 +143,6 @@ export class CreateFieldAnalyzer implements ICommandAnalyzer<CreateFieldCommand>
           sqlExplainMs,
         },
       });
-    });
+    })();
   }
 }

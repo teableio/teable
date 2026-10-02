@@ -16,6 +16,7 @@ import { RecordsDeleted } from '../../domain/table/events/RecordsDeleted';
 import { RecordUpdated } from '../../domain/table/events/RecordUpdated';
 import { TableCreated } from '../../domain/table/events/TableCreated';
 import { TableDeleted } from '../../domain/table/events/TableDeleted';
+import { TableProvisionReady } from '../../domain/table/events/TableProvisionReady';
 import { TableRestored } from '../../domain/table/events/TableRestored';
 import { TableTrashed } from '../../domain/table/events/TableTrashed';
 import { ViewColumnMetaUpdated } from '../../domain/table/events/ViewColumnMetaUpdated';
@@ -78,6 +79,7 @@ import { REALTIME_TASK_CONCURRENCY_LIMIT } from './runRealtimeTasks';
 import { setRealtimeProjectionSchedulerForTest } from './scheduleRealtimeProjection';
 import { TableCreatedRealtimeProjection } from './TableCreatedRealtimeProjection';
 import { TableDeletedRealtimeProjection } from './TableDeletedRealtimeProjection';
+import { TableProvisionReadyRealtimeProjection } from './TableProvisionReadyRealtimeProjection';
 import { buildRecordCollection } from './TableRecordRealtimeDTO';
 import { ViewColumnMetaUpdatedRealtimeProjection } from './ViewColumnMetaUpdatedRealtimeProjection';
 import { ViewCreatedRealtimeProjection } from './ViewCreatedRealtimeProjection';
@@ -176,6 +178,7 @@ class FakeRealtimeEngine implements IRealtimeEngine {
   deletes: RealtimeDocId[] = [];
   deleteOptions: Array<RealtimeApplyChangeOptions | undefined> = [];
   invalidations: Array<{ collection: string; change: RealtimeChange }> = [];
+  computeActivityNotifications: string[] = [];
 
   async ensure(_context: IExecutionContext, docId: RealtimeDocId, initial: unknown) {
     this.ensures.push({ docId, initial });
@@ -208,6 +211,11 @@ class FakeRealtimeEngine implements IRealtimeEngine {
     change: RealtimeChange
   ) {
     this.invalidations.push({ collection, change });
+    return ok(undefined);
+  }
+
+  async notifyTableComputeActivity(_context: IExecutionContext, tableId: string) {
+    this.computeActivityNotifications.push(tableId);
     return ok(undefined);
   }
 }
@@ -739,6 +747,7 @@ describe('Realtime projections', () => {
       applyChange: async () => ok(undefined),
       delete: async () => ok(undefined),
       invalidateCollection: async () => ok(undefined),
+      notifyTableComputeActivity: async () => ok(undefined),
     };
     const projection = new RecordsBatchCreatedRealtimeProjection(engine);
 
@@ -795,6 +804,7 @@ describe('Realtime projections', () => {
       applyChange: async () => ok(undefined),
       delete: async () => ok(undefined),
       invalidateCollection: async () => ok(undefined),
+      notifyTableComputeActivity: async () => ok(undefined),
     };
     const projection = new RecordsBatchCreatedRealtimeProjection(engine);
 
@@ -922,6 +932,7 @@ describe('Realtime projections', () => {
         return ok(undefined);
       },
       invalidateCollection: async () => ok(undefined),
+      notifyTableComputeActivity: async () => ok(undefined),
     };
     const projection = new RecordsDeletedRealtimeProjection(engine);
 
@@ -979,6 +990,7 @@ describe('Realtime projections', () => {
         return ok(undefined);
       },
       invalidateCollection: async () => ok(undefined),
+      notifyTableComputeActivity: async () => ok(undefined),
     };
     const projection = new RecordsBatchUpdatedRealtimeProjection(engine);
 
@@ -1064,6 +1076,29 @@ describe('Realtime projections', () => {
     );
   });
 
+  it('re-ensures only the persisted Table document when provisioning becomes ready', async () => {
+    const table = buildTable('7', '8', '9');
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    const mapper = new FakeTableMapper(buildTableDto);
+    const projection = new TableProvisionReadyRealtimeProjection(repository, mapper, engine);
+    const event = TableProvisionReady.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+    });
+
+    (await projection.handle(createContext(), event))._unsafeUnwrap();
+
+    expect(
+      engine.ensures.map(({ docId, initial }) => ({ docId: docId.toString(), initial }))
+    ).toEqual([
+      {
+        docId: `tbl_${table.baseId().toString()}/${table.id().toString()}`,
+        initial: buildTableDto(table),
+      },
+    ]);
+  });
+
   it('removes the Table document when a table is trashed', async () => {
     const table = buildTable('1', '2', '3');
     const engine = new FakeRealtimeEngine();
@@ -1129,7 +1164,7 @@ describe('Realtime projections', () => {
     expect(realtimeTasks).toHaveLength(1);
     await realtimeTasks[0]!();
 
-    expect(engine.ensures.length).toBe(2);
+    expect(engine.ensures.length).toBe(1);
   });
 
   it('fails when field snapshot is missing', async () => {
@@ -1155,7 +1190,7 @@ describe('Realtime projections', () => {
     expect(realtimeTasks).toHaveLength(1);
     await realtimeTasks[0]!();
 
-    expect(engine.ensures).toHaveLength(1);
+    expect(engine.ensures).toHaveLength(0);
   });
 
   it('projects field deletion', async () => {
@@ -1215,19 +1250,17 @@ describe('Realtime projections', () => {
     )._unsafeUnwrap();
     await realtimeTasks[0]!();
 
-    expect(engine.ensures[1]?.initial).toMatchObject({ filter, sort, group });
+    expect(engine.ensures[0]?.initial).toMatchObject({ filter, sort, group });
   });
 
-  it('projects View deletion to the Table document and removes the View document', async () => {
+  it('removes the View document on View deletion', async () => {
     const originalTable = buildTable('v', 'w', 'x');
     const createResult = originalTable.createView({ type: 'grid', name: 'Temporary' });
     const tableWithView = createResult._unsafeUnwrap().updateResult.table;
     const deletedViewId = createResult._unsafeUnwrap().view.id();
     const table = tableWithView.deleteView(deletedViewId)._unsafeUnwrap().updateResult.table;
     const engine = new FakeRealtimeEngine();
-    const repository = new FakeTableRepository(table);
-    const mapper = new DefaultTableMapper();
-    const projection = new ViewDeletedRealtimeProjection(engine, repository, mapper);
+    const projection = new ViewDeletedRealtimeProjection(engine);
     const realtimeTasks = captureRealtimeTasks();
     const event = ViewDeleted.create({
       baseId: table.baseId(),
@@ -1240,20 +1273,15 @@ describe('Realtime projections', () => {
     expect(realtimeTasks).toHaveLength(1);
     await realtimeTasks[0]!();
 
-    expect(engine.ensures[0]?.docId.toString()).toBe(
-      `tbl_${table.baseId().toString()}/${table.id().toString()}`
-    );
-    expect(engine.changes[0]?.change).toMatchObject({
-      type: 'set',
-      path: ['views'],
-    });
+    expect(engine.ensures).toHaveLength(0);
+    expect(engine.changes).toHaveLength(0);
     expect(engine.deletes[0]?.toString()).toBe(
       `viw_${table.id().toString()}/${deletedViewId.toString()}`
     );
     expect(engine.deleteOptions[0]).toEqual({ version: 7 });
   });
 
-  it('projects View rename to the Table and standalone View documents with persisted version', async () => {
+  it('projects View rename to the standalone View document with persisted version', async () => {
     const originalTable = buildTable('r', 's', 't');
     const targetView = originalTable.views()[0]!;
     const renamed = originalTable
@@ -1279,29 +1307,17 @@ describe('Realtime projections', () => {
     await realtimeTasks[0]!();
 
     expect(engine.ensures.map(({ docId }) => docId.toString())).toEqual([
-      `tbl_${renamed.baseId().toString()}/${renamed.id().toString()}`,
       `viw_${renamed.id().toString()}/${targetView.id().toString()}`,
     ]);
-    expect(engine.changes[0]).toMatchObject({
-      docId: expect.objectContaining({}),
-      change: {
-        type: 'set',
-        path: ['views', 0, 'name'],
-        value: 'Renamed view',
-      },
-    });
     expect(engine.changes[0]?.docId.toString()).toBe(
-      `tbl_${renamed.baseId().toString()}/${renamed.id().toString()}`
-    );
-    expect(engine.changes[1]?.docId.toString()).toBe(
       `viw_${renamed.id().toString()}/${targetView.id().toString()}`
     );
-    expect(engine.changes[1]?.change).toEqual({
+    expect(engine.changes[0]?.change).toEqual({
       type: 'set',
       path: ['name'],
       value: 'Renamed view',
     });
-    expect(engine.changes[1]?.options).toEqual({ version: 11 });
+    expect(engine.changes[0]?.options).toEqual({ version: 11 });
   });
 
   it('projects persisted View audit metadata with a View mutation', async () => {
@@ -1346,26 +1362,14 @@ describe('Realtime projections', () => {
 
     expect(engine.changes[0]?.change).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          path: ['views', 0, 'lastModifiedBy'],
-          value: lastModifiedBy,
-        }),
-        expect.objectContaining({
-          path: ['views', 0, 'lastModifiedTime'],
-          value: lastModifiedTime,
-        }),
-      ])
-    );
-    expect(engine.changes[1]?.change).toEqual(
-      expect.arrayContaining([
         expect.objectContaining({ path: ['lastModifiedBy'], value: lastModifiedBy }),
         expect.objectContaining({ path: ['lastModifiedTime'], value: lastModifiedTime }),
       ])
     );
-    expect(engine.changes[1]?.options).toEqual({ version: 20 });
+    expect(engine.changes[0]?.options).toEqual({ version: 20 });
   });
 
-  it('projects View description to Table and standalone View documents with persisted version', async () => {
+  it('projects View description to the standalone View document with persisted version', async () => {
     const originalTable = buildTable('u', 'v', 'w');
     const targetView = originalTable.views()[0]!;
     const updated = originalTable
@@ -1391,25 +1395,17 @@ describe('Realtime projections', () => {
     await realtimeTasks[0]!();
 
     expect(engine.ensures.map(({ docId }) => docId.toString())).toEqual([
-      `tbl_${updated.baseId().toString()}/${updated.id().toString()}`,
       `viw_${updated.id().toString()}/${targetView.id().toString()}`,
     ]);
-    expect(engine.changes[0]).toMatchObject({
-      change: {
-        type: 'set',
-        path: ['views', 0, 'description'],
-        value: 'Updated description',
-      },
-    });
-    expect(engine.changes[1]?.change).toEqual({
+    expect(engine.changes[0]?.change).toEqual({
       type: 'set',
       path: ['description'],
       value: 'Updated description',
     });
-    expect(engine.changes[1]?.options).toEqual({ version: 12 });
+    expect(engine.changes[0]?.options).toEqual({ version: 12 });
   });
 
-  it('projects View filter query defaults to Table and standalone View documents', async () => {
+  it('projects View filter query defaults to the standalone View document', async () => {
     const originalTable = buildTable('f', 'g', 'h');
     const targetView = originalTable.views()[0]!;
     const filter = {
@@ -1456,29 +1452,9 @@ describe('Realtime projections', () => {
     await realtimeTasks[0]!();
 
     expect(engine.ensures.map(({ docId }) => docId.toString())).toEqual([
-      `tbl_${updated.baseId().toString()}/${updated.id().toString()}`,
       `viw_${updated.id().toString()}/${targetView.id().toString()}`,
     ]);
     expect(engine.changes[0]?.change).toEqual([
-      {
-        type: 'set',
-        path: ['views', 0, 'query'],
-        value: query,
-      },
-      {
-        type: 'set',
-        path: ['views', 0, 'sourceFilter'],
-        value: filter,
-        oldValue: undefined,
-      },
-      {
-        type: 'set',
-        path: ['views', 0, 'filter'],
-        value: filter,
-        oldValue: undefined,
-      },
-    ]);
-    expect(engine.changes[1]?.change).toEqual([
       {
         type: 'set',
         path: ['query'],
@@ -1497,7 +1473,7 @@ describe('Realtime projections', () => {
         oldValue: undefined,
       },
     ]);
-    expect(engine.changes[1]?.options).toEqual({ version: 13 });
+    expect(engine.changes[0]?.options).toEqual({ version: 13 });
   });
 
   it('projects a cleared View filter as a valid object deletion', async () => {
@@ -1547,22 +1523,6 @@ describe('Realtime projections', () => {
 
     expect(engine.changes[0]?.change).toEqual(
       expect.arrayContaining([
-        {
-          type: 'set',
-          path: ['views', 0, 'sourceFilter'],
-          value: undefined,
-          oldValue: filter,
-        },
-        {
-          type: 'set',
-          path: ['views', 0, 'filter'],
-          value: undefined,
-          oldValue: filter,
-        },
-      ])
-    );
-    expect(engine.changes[1]?.change).toEqual(
-      expect.arrayContaining([
         { type: 'set', path: ['sourceFilter'], value: undefined, oldValue: filter },
         { type: 'set', path: ['filter'], value: undefined, oldValue: filter },
       ])
@@ -1599,17 +1559,9 @@ describe('Realtime projections', () => {
 
     const query = { sort: sort.sortObjs, manualSort: false };
     expect(engine.ensures.map(({ docId }) => docId.toString())).toEqual([
-      `tbl_${updated.baseId().toString()}/${updated.id().toString()}`,
       `viw_${updated.id().toString()}/${targetView.id().toString()}`,
     ]);
     expect(engine.changes[0]?.change).toEqual([
-      {
-        type: 'set',
-        path: ['views', 0, 'query'],
-        value: query,
-      },
-    ]);
-    expect(engine.changes[1]?.change).toEqual([
       {
         type: 'set',
         path: ['query'],
@@ -1622,7 +1574,7 @@ describe('Realtime projections', () => {
         oldValue: undefined,
       },
     ]);
-    expect(engine.changes[1]?.options).toEqual({ version: 13 });
+    expect(engine.changes[0]?.options).toEqual({ version: 13 });
   });
 
   it('projects View group query defaults and the legacy standalone View property', async () => {
@@ -1652,17 +1604,9 @@ describe('Realtime projections', () => {
 
     const query = { group };
     expect(engine.ensures.map(({ docId }) => docId.toString())).toEqual([
-      `tbl_${updated.baseId().toString()}/${updated.id().toString()}`,
       `viw_${updated.id().toString()}/${targetView.id().toString()}`,
     ]);
     expect(engine.changes[0]?.change).toEqual([
-      {
-        type: 'set',
-        path: ['views', 0, 'query'],
-        value: query,
-      },
-    ]);
-    expect(engine.changes[1]?.change).toEqual([
       {
         type: 'set',
         path: ['query'],
@@ -1675,7 +1619,7 @@ describe('Realtime projections', () => {
         oldValue: undefined,
       },
     ]);
-    expect(engine.changes[1]?.options).toEqual({ version: 14 });
+    expect(engine.changes[0]?.options).toEqual({ version: 14 });
   });
 
   it('coalesces compound View query-default events into one standalone operation', async () => {
@@ -1803,10 +1747,7 @@ describe('Realtime projections', () => {
     (await projection.handle(createContext(), event))._unsafeUnwrap();
     await realtimeTasks[0]!();
 
-    expect(engine.changes[0]?.change).toEqual([
-      { type: 'set', path: ['views', 0, 'query'], value: {} },
-    ]);
-    expect(engine.changes[1]?.change).toEqual(
+    expect(engine.changes[0]?.change).toEqual(
       expect.arrayContaining([{ type: 'set', path: ['sort'], value: undefined, oldValue: sort }])
     );
   });
@@ -1840,15 +1781,12 @@ describe('Realtime projections', () => {
     (await projection.handle(createContext(), event))._unsafeUnwrap();
     await realtimeTasks[0]!();
 
-    expect(engine.changes[0]?.change).toEqual([
-      { type: 'set', path: ['views', 0, 'query'], value: {} },
-    ]);
-    expect(engine.changes[1]?.change).toEqual(
+    expect(engine.changes[0]?.change).toEqual(
       expect.arrayContaining([{ type: 'set', path: ['group'], value: undefined, oldValue: group }])
     );
   });
 
-  it('projects View options to Table and standalone View documents', async () => {
+  it('projects View options to the standalone View document', async () => {
     const originalTable = buildTable('x', 'y', 'z');
     const targetView = originalTable.views()[0]!;
     const nextOptions = { rowHeight: 'tall', fieldNameDisplayLines: 2 };
@@ -1874,27 +1812,19 @@ describe('Realtime projections', () => {
     await realtimeTasks[0]!();
 
     expect(engine.ensures.map(({ docId }) => docId.toString())).toEqual([
-      `tbl_${updated.baseId().toString()}/${updated.id().toString()}`,
       `viw_${updated.id().toString()}/${targetView.id().toString()}`,
     ]);
     expect(engine.changes[0]?.change).toEqual([
-      {
-        type: 'set',
-        path: ['views', 0, 'options'],
-        value: nextOptions,
-      },
-    ]);
-    expect(engine.changes[1]?.change).toEqual([
       {
         type: 'set',
         path: ['options'],
         value: nextOptions,
       },
     ]);
-    expect(engine.changes[1]?.options).toEqual({ version: 15 });
+    expect(engine.changes[0]?.options).toEqual({ version: 15 });
   });
 
-  it('projects View share metadata to Table and standalone View documents', async () => {
+  it('projects View share metadata to the standalone View document', async () => {
     const originalTable = buildTable('x', 'y', 'z');
     const targetView = originalTable.views()[0]!;
     const nextShareMeta = { allowCopy: true, submit: { requireLogin: true } };
@@ -1922,18 +1852,11 @@ describe('Realtime projections', () => {
     expect(engine.changes[0]?.change).toEqual([
       {
         type: 'set',
-        path: ['views', 0, 'shareMeta'],
-        value: nextShareMeta,
-      },
-    ]);
-    expect(engine.changes[1]?.change).toEqual([
-      {
-        type: 'set',
         path: ['shareMeta'],
         value: nextShareMeta,
       },
     ]);
-    expect(engine.changes[1]?.options).toEqual({ version: 16 });
+    expect(engine.changes[0]?.options).toEqual({ version: 16 });
   });
 
   it('projects only the current View share password metadata after replacement', async () => {
@@ -1968,13 +1891,6 @@ describe('Realtime projections', () => {
     expect(engine.changes[0]?.change).toEqual([
       {
         type: 'set',
-        path: ['views', 0, 'shareMeta'],
-        value: nextShareMeta,
-      },
-    ]);
-    expect(engine.changes[1]?.change).toEqual([
-      {
-        type: 'set',
         path: ['shareMeta'],
         value: nextShareMeta,
       },
@@ -1987,7 +1903,7 @@ describe('Realtime projections', () => {
     ).not.toContain(previousShareMeta.password);
   });
 
-  it('projects a refreshed View share ID to Table and standalone View documents', async () => {
+  it('projects a refreshed View share ID to the standalone View document', async () => {
     const originalTable = buildTable('x', 'y', 'z');
     const targetView = originalTable.views()[0]!;
     const enabled = originalTable.enableViewShare(targetView.id())._unsafeUnwrap();
@@ -2017,18 +1933,11 @@ describe('Realtime projections', () => {
     expect(engine.changes[0]?.change).toEqual([
       {
         type: 'set',
-        path: ['views', 0, 'shareId'],
-        value: nextShareId,
-      },
-    ]);
-    expect(engine.changes[1]?.change).toEqual([
-      {
-        type: 'set',
         path: ['shareId'],
         value: nextShareId,
       },
     ]);
-    expect(engine.changes[1]?.options).toEqual({ version: 17 });
+    expect(engine.changes[0]?.options).toEqual({ version: 17 });
     expect(
       JSON.stringify({
         ensures: engine.ensures.map(({ initial }) => initial),
@@ -2037,7 +1946,7 @@ describe('Realtime projections', () => {
     ).not.toContain(previousShareId);
   });
 
-  it('projects an enabled View share state to Table and standalone View documents', async () => {
+  it('projects an enabled View share state to the standalone View document', async () => {
     const originalTable = buildTable('x', 'y', 'z');
     const targetView = originalTable.views()[0]!;
     const enabled = originalTable.enableViewShare(targetView.id())._unsafeUnwrap();
@@ -2061,28 +1970,11 @@ describe('Realtime projections', () => {
     await realtimeTasks[0]!();
 
     expect(engine.changes[0]?.change).toEqual([
-      {
-        type: 'set',
-        path: ['views', 0, 'enableShare'],
-        value: true,
-      },
-      {
-        type: 'set',
-        path: ['views', 0, 'shareId'],
-        value: enabled.shareId,
-      },
-      {
-        type: 'set',
-        path: ['views', 0, 'shareMeta'],
-        value: { includeRecords: true },
-      },
-    ]);
-    expect(engine.changes[1]?.change).toEqual([
       { type: 'set', path: ['enableShare'], value: true },
       { type: 'set', path: ['shareId'], value: enabled.shareId },
       { type: 'set', path: ['shareMeta'], value: { includeRecords: true } },
     ]);
-    expect(engine.changes[1]?.options).toEqual({ version: 18 });
+    expect(engine.changes[0]?.options).toEqual({ version: 18 });
   });
 
   it('projects only the newly issued credential when re-enabling View sharing', async () => {
@@ -2114,19 +2006,6 @@ describe('Realtime projections', () => {
 
     expect(reenabled.shareId).not.toBe(firstEnabled.shareId);
     expect(engine.changes[0]?.change).toEqual([
-      { type: 'set', path: ['views', 0, 'enableShare'], value: true },
-      {
-        type: 'set',
-        path: ['views', 0, 'shareId'],
-        value: reenabled.shareId,
-      },
-      {
-        type: 'set',
-        path: ['views', 0, 'shareMeta'],
-        value: { includeRecords: true },
-      },
-    ]);
-    expect(engine.changes[1]?.change).toEqual([
       { type: 'set', path: ['enableShare'], value: true },
       { type: 'set', path: ['shareId'], value: reenabled.shareId },
       { type: 'set', path: ['shareMeta'], value: { includeRecords: true } },
@@ -2164,31 +2043,14 @@ describe('Realtime projections', () => {
     await realtimeTasks[0]!();
 
     expect(engine.changes[0]?.change).toEqual([
-      {
-        type: 'set',
-        path: ['views', 0, 'enableShare'],
-        value: false,
-      },
-      {
-        type: 'set',
-        path: ['views', 0, 'shareId'],
-        value: enabled.shareId,
-      },
-      {
-        type: 'set',
-        path: ['views', 0, 'shareMeta'],
-        value: { includeRecords: true },
-      },
-    ]);
-    expect(engine.changes[1]?.change).toEqual([
       { type: 'set', path: ['enableShare'], value: false },
       { type: 'set', path: ['shareId'], value: enabled.shareId },
       { type: 'set', path: ['shareMeta'], value: { includeRecords: true } },
     ]);
-    expect(engine.changes[1]?.options).toEqual({ version: 19 });
+    expect(engine.changes[0]?.options).toEqual({ version: 19 });
   });
 
-  it('projects View locked state to Table and standalone View documents with persisted version', async () => {
+  it('projects View locked state to the standalone View document with persisted version', async () => {
     const originalTable = buildTable('x', 'y', 'z');
     const targetView = originalTable.views()[0]!;
     const updated = originalTable.updateViewLocked(targetView.id(), true)._unsafeUnwrap()
@@ -2213,24 +2075,15 @@ describe('Realtime projections', () => {
     await realtimeTasks[0]!();
 
     expect(engine.ensures.map(({ docId }) => docId.toString())).toEqual([
-      `tbl_${updated.baseId().toString()}/${updated.id().toString()}`,
       `viw_${updated.id().toString()}/${targetView.id().toString()}`,
     ]);
-    expect(engine.changes[0]).toMatchObject({
-      change: {
-        type: 'set',
-        path: ['views', 0, 'isLocked'],
-        value: true,
-        oldValue: undefined,
-      },
-    });
-    expect(engine.changes[1]?.change).toEqual({
+    expect(engine.changes[0]?.change).toEqual({
       type: 'set',
       path: ['isLocked'],
       value: true,
       oldValue: undefined,
     });
-    expect(engine.changes[1]?.options).toEqual({ version: 13 });
+    expect(engine.changes[0]?.options).toEqual({ version: 13 });
   });
 
   it('advances the standalone View version for an unchanged omitted locked state', async () => {
@@ -2264,7 +2117,7 @@ describe('Realtime projections', () => {
     expect(engine.changes[0]?.options).toEqual({ version: 14 });
   });
 
-  it('projects View order to Table and standalone View documents with persisted version', async () => {
+  it('projects View order to the standalone View document with persisted version', async () => {
     const table = buildTable('o', 'p', 'q');
     const targetView = table.views()[0]!;
     targetView.setOrder(ViewOrder.rehydrate(2.5)._unsafeUnwrap())._unsafeUnwrap();
@@ -2288,17 +2141,11 @@ describe('Realtime projections', () => {
 
     expect(engine.changes[0]?.change).toEqual({
       type: 'set',
-      path: ['views', 0, 'order'],
-      value: 2.5,
-      oldValue: 3,
-    });
-    expect(engine.changes[1]?.change).toEqual({
-      type: 'set',
       path: ['order'],
       value: 2.5,
       oldValue: 3,
     });
-    expect(engine.changes[1]?.options).toEqual({ version: 15 });
+    expect(engine.changes[0]?.options).toEqual({ version: 15 });
   });
 
   it('updates view column meta when view exists', async () => {
@@ -2327,28 +2174,22 @@ describe('Realtime projections', () => {
     expect(realtimeTasks).toHaveLength(1);
     await realtimeTasks[0]!();
 
-    expect(engine.ensures).toHaveLength(2);
+    expect(engine.ensures).toHaveLength(1);
     expect(engine.ensures[0]?.docId.toString()).toBe(
-      `tbl_${table.baseId().toString()}/${table.id().toString()}`
-    );
-    expect(engine.ensures[1]?.docId.toString()).toBe(
       `viw_${table.id().toString()}/${viewId.toString()}`
     );
-    expect(engine.changes).toHaveLength(2);
+    expect(engine.changes).toHaveLength(1);
     expect(engine.changes[0]?.docId.toString()).toBe(
-      `tbl_${table.baseId().toString()}/${table.id().toString()}`
-    );
-    expect(engine.changes[1]?.docId.toString()).toBe(
       `viw_${table.id().toString()}/${viewId.toString()}`
     );
-    expect(engine.changes[1]?.change).toEqual([
+    expect(engine.changes[0]?.change).toEqual([
       {
         type: 'set',
         path: ['columnMeta'],
         value: buildTableDto(table).views[0]?.columnMeta,
       },
     ]);
-    expect(engine.changes[1]?.options).toEqual({ version: 7 });
+    expect(engine.changes[0]?.options).toEqual({ version: 7 });
   });
 
   it('coalesces pending view column meta realtime updates for the same view', async () => {
@@ -2394,8 +2235,8 @@ describe('Realtime projections', () => {
     await realtimeTasks[0]!();
 
     expect(repository.findOneCount).toBe(1);
-    expect(engine.changes).toHaveLength(2);
-    expect(engine.changes[1]?.options).toEqual({ version: 7 });
+    expect(engine.changes).toHaveLength(1);
+    expect(engine.changes[0]?.options).toEqual({ version: 7 });
   });
 
   it('reuses a cached snapshot for repeated view column meta updates after a field is deleted', async () => {
@@ -2586,7 +2427,7 @@ describe('Realtime projections', () => {
     await Promise.all(runningTasks);
 
     expect(repository.findOneCount).toBe(1);
-    expect(engine.ensures.length).toBeGreaterThanOrEqual(3);
+    expect(engine.ensures.length).toBeGreaterThanOrEqual(2);
   });
 
   it('refreshes a cached table snapshot when a later field create needs a newer field', async () => {
@@ -2878,6 +2719,52 @@ describe('Realtime projections', () => {
     expect(engine.changes).toHaveLength(1);
     expect(engine.changes[0]?.change).toEqual([
       { type: 'set', path: ['type'], value: 'singleSelect', oldValue: 'singleLineText' },
+    ]);
+  });
+
+  it('publishes the derived multiplicity flag with a user field options change', async () => {
+    const table = buildTable('q', 'r', 's');
+    const fieldId = table.primaryFieldId();
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    const mapper = new FakeTableMapper((candidate) => ({
+      ...buildTableDto(candidate),
+      fields: [
+        {
+          id: fieldId.toString(),
+          name: 'Owner',
+          type: 'user',
+          cellValueType: 'string',
+          options: { isMultiple: false, shouldNotify: true },
+        },
+      ],
+    }));
+    const projection = new FieldUpdatedRealtimeProjection(engine, repository, mapper);
+
+    const event = FieldUpdated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      fieldId,
+      updatedProperties: ['isMultiple'],
+      changes: {
+        isMultiple: { oldValue: true, newValue: false },
+      },
+      propertySemantics: {
+        isMultiple: fieldUpdateSemantics.options,
+      },
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.changes).toHaveLength(1);
+    expect(engine.changes[0]?.change).toEqual([
+      {
+        type: 'set',
+        path: ['options'],
+        value: { isMultiple: false, shouldNotify: true },
+      },
+      { type: 'set', path: ['isMultipleCellValue'], value: false },
     ]);
   });
 

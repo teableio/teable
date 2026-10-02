@@ -35,14 +35,14 @@ export const columnIndexToLetter = (index: number): string => {
   let letter = '';
   while (remaining > 0) {
     const digit = (remaining - 1) % 26;
-    letter = String.fromCharCode(65 + digit) + letter;
+    letter = String.fromCodePoint(65 + digit) + letter;
     remaining = Math.floor((remaining - 1) / 26);
   }
   return letter;
 };
 
 /** Quote a sheet title for A1 notation ('It''s a sheet'!A1:B2). */
-const quoteSheetTitle = (title: string) => `'${title.replace(/'/g, "''")}'`;
+const quoteSheetTitle = (title: string) => `'${title.replaceAll("'", "''")}'`;
 
 /**
  * The token is fetched per request so integration-backed imports keep working

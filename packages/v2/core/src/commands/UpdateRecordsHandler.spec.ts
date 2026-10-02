@@ -38,6 +38,7 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { IEventBus } from '../ports/EventBus';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
@@ -279,6 +280,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   lastMutateSpec: ICellValueSpec | undefined;
   lastUpdateManyStreamBatches: UpdateManyStreamBatchInput[] = [];
   updateManyStreamVersions = new Map<string, number>();
+  updateManyStreamOldVersions = new Map<string, number>();
   updateManyStreamUpdatedRecordIds: Set<string> | undefined;
   updateManyResult: UpdateManyResult = {
     totalUpdated: 0,
@@ -361,12 +363,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
             totalUpdated -= 1;
             continue;
           }
-          updatedRecords.push({
-            recordId,
-            oldVersion: 0,
-            newVersion: this.updateManyStreamVersions.get(recordId.toString()) ?? 1,
-            oldFieldValues: {},
-          });
+          updatedRecords.push(this.createStreamSnapshot(recordId));
         }
       }
     } else {
@@ -390,17 +387,22 @@ class FakeTableRecordRepository implements ITableRecordRepository {
             totalUpdated -= 1;
             continue;
           }
-          updatedRecords.push({
-            recordId,
-            oldVersion: 0,
-            newVersion: this.updateManyStreamVersions.get(recordId.toString()) ?? 1,
-            oldFieldValues: {},
-          });
+          updatedRecords.push(this.createStreamSnapshot(recordId));
         }
       }
     }
 
     return ok({ totalUpdated, updatedRecords });
+  }
+
+  private createStreamSnapshot(recordId: RecordId) {
+    const id = recordId.toString();
+    return {
+      recordId,
+      oldVersion: this.updateManyStreamOldVersions.get(id) ?? 0,
+      newVersion: this.updateManyStreamVersions.get(id) ?? 1,
+      oldFieldValues: {},
+    };
   }
 
   async deleteMany(
@@ -563,10 +565,9 @@ const createHandler = (
     noopRecordWriteUndoRedoPlanService,
     options?.recordChangedValueDecoratorService ?? noopRecordChangedValueDecoratorService,
     createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
-    eventBus,
+    new EventBusDomainWriteTransaction(unitOfWork, eventBus),
     undoRedoService as unknown as UndoRedoStackService,
-    new NoopLogger(),
-    unitOfWork
+    new NoopLogger()
   );
 
   return new UpdateRecordsHandler(new TableQueryService(tableRepository), recordBulkUpdateService);
@@ -1053,7 +1054,8 @@ describe('UpdateRecordsHandler', () => {
     const tableRepository = new FakeTableRepository();
     tableRepository.tables.push(table);
     const recordRepository = new FakeTableRecordRepository();
-    recordRepository.updateManyStreamVersions.set(recordId, 17);
+    recordRepository.updateManyStreamOldVersions.set(recordId, 5);
+    recordRepository.updateManyStreamVersions.set(recordId, 6);
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.records = [
       {
@@ -1090,12 +1092,12 @@ describe('UpdateRecordsHandler', () => {
     const batchEvent = eventBus.published.find(isRecordsBatchUpdatedEvent);
     expect(batchEvent?.updates[0]).toMatchObject({
       recordId,
-      oldVersion: 3,
-      newVersion: 17,
+      oldVersion: 5,
+      newVersion: 6,
     });
   });
 
-  it('records explicit bulk-update undo entry before publishing asynchronous events', async () => {
+  it('publishes committed bulk-update events before recording the undo entry', async () => {
     const { table, tableId, numberFieldId } = buildTable();
     const recordId = `rec${'o'.repeat(16)}`;
     const calls: string[] = [];
@@ -1139,7 +1141,7 @@ describe('UpdateRecordsHandler', () => {
 
     result._unsafeUnwrap();
 
-    expect(calls).toEqual(['undoRedo.append', 'publishMany']);
+    expect(calls).toEqual(['publishMany', 'undoRedo.append']);
     expect(eventBus.published.some(isRecordsBatchUpdatedEvent)).toBe(true);
     expect(undoRedoService.entries).toHaveLength(1);
   });

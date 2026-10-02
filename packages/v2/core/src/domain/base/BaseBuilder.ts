@@ -23,12 +23,12 @@ export class BaseBuilder {
     return new BaseBuilder(factory);
   }
 
-  withId(id: BaseId): BaseBuilder {
+  withId(id: BaseId): this {
     this.baseId = id;
     return this;
   }
 
-  withName(name: BaseName): BaseBuilder {
+  withName(name: BaseName): this {
     this.baseName = name;
     return this;
   }

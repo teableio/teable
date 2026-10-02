@@ -22,6 +22,7 @@ export type IUpdateLayoutDashboardVo = z.infer<typeof updateLayoutDashboardVoSch
 export const UpdateLayoutDashboardRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: UPDATE_LAYOUT_DASHBOARD,
+  title: 'Patch project dashboard layout',
   description: 'Update a dashboard layout by id',
   request: {
     params: z.object({

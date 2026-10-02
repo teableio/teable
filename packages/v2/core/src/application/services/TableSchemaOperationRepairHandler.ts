@@ -140,6 +140,19 @@ const tableUpdateFailureCode = (result: unknown): string | undefined => {
   return typeof code === 'string' && code.length > 0 ? code : undefined;
 };
 
+const isMissingColumnTableUpdate = (operation: SchemaOperationRecord): boolean => {
+  if (operation.type !== 'table.update') return false;
+  const failureCode = tableUpdateFailureCode(operation.result);
+  if (failureCode === 'db.undefined_column') {
+    return true;
+  }
+  if (failureCode && failureCode !== 'transaction.parent_rolled_back') {
+    return false;
+  }
+  const lastError = operation.lastError;
+  return lastError != null && /\bcolumn\b.*\bdoes not exist\b/i.test(lastError);
+};
+
 const isRepairableTableUpdate = (operation: SchemaOperationRecord): boolean => {
   if (operation.type !== 'table.update') return true;
   const lastError = operation.lastError;
@@ -160,16 +173,20 @@ const isRepairableTableUpdate = (operation: SchemaOperationRecord): boolean => {
   }
   // Rows written before failures carried structured codes only have the
   // Postgres prose; keep the message heuristic for those.
-  return /\bcolumn\b.*\bdoes not exist\b/i.test(lastError);
+  return isMissingColumnTableUpdate(operation);
 };
 
-// beginTableSchemaOperation always persists a tableId payload. If the rollback
-// record has no payload, that begin write rolled back with the parent transaction,
-// so its metadata and transactional DDL also rolled back and only settlement remains.
+// beginTableSchemaOperation always persists a tableId payload. If the
+// settlement record has no payload, that begin write rolled back with the
+// parent transaction (connection timeout, parent rollback, etc.), so its
+// metadata and transactional DDL also rolled back and only settlement remains.
+// Missing-column failures are the exception: DROP COLUMN is committed outside
+// the update transaction, so schema ensure must still recreate the column even
+// when the begin payload was lost.
 const isFullyRolledBackTableUpdate = (operation: SchemaOperationRecord): boolean =>
   operation.type === 'table.update' &&
-  tableUpdateFailureCode(operation.result) === 'transaction.parent_rolled_back' &&
-  operation.payload == null;
+  operation.payload == null &&
+  isMissingColumnTableUpdate(operation) === false;
 
 @injectable()
 export class TableSchemaOperationRepairHandler implements ISchemaOperationHandler {
@@ -192,7 +209,7 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
     context: IExecutionContext,
     operation: SchemaOperationRecord
   ): Promise<Result<SchemaOperationHandlerResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<SchemaOperationHandlerResult, DomainError>(async function* () {
       const payload = payloadRecord(operation.payload);
       if (operation.type === 'table.import' && payload.source !== 'dottea') {
@@ -204,6 +221,14 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
         );
       }
       const tableIds = yield* tableIdsFromOperation(operation);
+      if (isFullyRolledBackTableUpdate(operation)) {
+        return ok({
+          result: {
+            repaired: 'transaction_rollback',
+            tableIds: tableIds.map((tableId) => tableId.toString()),
+          },
+        });
+      }
       if (!isRepairableTableUpdate(operation)) {
         const tables = yield* await handler.loadTables(context, tableIds);
         yield* await handler.restoreTableUpdateAvailability(context, operation, tables[0]!);
@@ -214,15 +239,6 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
             lastError: operation.lastError ?? undefined,
           })
         );
-      }
-
-      if (isFullyRolledBackTableUpdate(operation)) {
-        return ok({
-          result: {
-            repaired: 'transaction_rollback',
-            tableIds: tableIds.map((tableId) => tableId.toString()),
-          },
-        });
       }
 
       const recordCount = hasPositiveRecordCount(operation, tableIds);
@@ -331,7 +347,7 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
     context: IExecutionContext,
     tableIds: ReadonlyArray<TableId>
   ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<Table>, DomainError>(async function* () {
       const spec = yield* TableAggregate.specs().byIds(tableIds).build();
       // Schema ensure must not replay soft-deleted children. `state: 'all'` hydrates
@@ -395,7 +411,7 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
     tables: ReadonlyArray<Table>,
     foreignTables: ReadonlyArray<Table>
   ): Promise<Result<void, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<void, DomainError>(async function* () {
       let tableState = new Map<string, Table>(
         [...foreignTables, ...tables].map((table) => [table.id().toString(), table] as const)

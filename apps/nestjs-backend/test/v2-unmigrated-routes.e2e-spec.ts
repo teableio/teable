@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import { FieldType, NumberFormattingType, Relationship } from '@teable/core';
+import { Colors, FieldType, NumberFormattingType, Relationship, type IFieldVo } from '@teable/core';
 import {
   IdReturnType,
   axios,
@@ -23,6 +23,7 @@ import {
   updateTableIcon,
   updateTableName,
 } from '@teable/openapi';
+import { GetFieldSnapshotsHandler, ListFieldsHandler } from '@teable/v2-core';
 import { vi } from 'vitest';
 
 import { thresholdConfig } from '../src/configs/threshold.config';
@@ -31,11 +32,14 @@ import {
   X_TEABLE_V2_HEADER,
   X_TEABLE_V2_REASON_HEADER,
 } from '../src/features/canary/interceptors/v2-indicator.interceptor';
+import { FieldService } from '../src/features/field/field.service';
 import { FieldOpenApiService } from '../src/features/field/open-api/field-open-api.service';
 import { TableOpenApiService } from '../src/features/table/open-api/table-open-api.service';
 import {
+  convertField,
   createBase,
   createField,
+  createFields,
   createTable,
   initApp,
   permanentDeleteBase,
@@ -175,6 +179,71 @@ describe('T6893 remaining table APIs v2 dual-path (e2e)', () => {
     const docIds = await axios.get<{ ids: string[] }>(`/table/${tableId}/field/socket/doc-ids`);
     expect(docIds.headers[X_TEABLE_V2_FEATURE_HEADER]).toBe('getFields');
     expect(docIds.data.ids).toEqual(expect.arrayContaining([fieldId, dateFieldId, amountFieldId]));
+  });
+
+  it('hydrates lookup snapshot choices from the source field with one foreign ListFields read', async () => {
+    const foreignTable = await createTable(baseId, {
+      name: 't7180_lookup_metadata_source',
+      fields: [
+        { name: 'Title', type: FieldType.SingleLineText },
+        {
+          name: 'Status',
+          type: FieldType.SingleSelect,
+          options: { choices: [{ name: 'Before', color: Colors.Blue }] },
+        },
+      ],
+      records: [],
+    });
+    try {
+      const linkField = await createField(tableId, {
+        name: 'Metadata source',
+        type: FieldType.Link,
+        options: { relationship: Relationship.ManyOne, foreignTableId: foreignTable.id },
+      });
+      const lookupFields = await createFields(
+        tableId,
+        Array.from({ length: 22 }, (_, index) => ({
+          name: `Status lookup ${index}`,
+          type: FieldType.SingleSelect,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: foreignTable.id,
+            linkFieldId: linkField.id,
+            lookupFieldId: foreignTable.fields[1].id,
+          },
+        })),
+        app
+      );
+      const listFields = vi.spyOn(ListFieldsHandler.prototype, 'handle');
+      const getFieldSnapshots = vi.spyOn(GetFieldSnapshotsHandler.prototype, 'handle');
+      const getSnapshots = () =>
+        axios.get<Array<{ id: string; data: IFieldVo }>>(
+          `/table/${tableId}/field/socket/snapshot-bulk`,
+          { params: { ids: lookupFields.map(({ id }) => id) } }
+        );
+      const foreignListFieldsCalls = () =>
+        listFields.mock.calls.filter(([, query]) => query.tableId.toString() === foreignTable.id);
+
+      const before = await getSnapshots();
+      expect(before.headers[X_TEABLE_V2_HEADER]).toBe('true');
+      expect(before.data).toHaveLength(22);
+      expect(before.data[0].data.options).toMatchObject({ choices: [{ name: 'Before' }] });
+      expect(getFieldSnapshots).toHaveBeenCalled();
+      expect(foreignListFieldsCalls()).toHaveLength(1);
+
+      await convertField(foreignTable.id, foreignTable.fields[1].id, {
+        type: FieldType.SingleSelect,
+        options: { choices: [{ name: 'After', color: Colors.Green }] },
+      });
+      listFields.mockClear();
+      getFieldSnapshots.mockClear();
+      const after = await getSnapshots();
+      expect(getFieldSnapshots).toHaveBeenCalled();
+      expect(foreignListFieldsCalls()).toHaveLength(1);
+      expect(after.data[0].data.options).toMatchObject({ choices: [{ name: 'After' }] });
+    } finally {
+      await permanentDeleteTable(baseId, foreignTable.id);
+    }
   });
 
   it('reads field filter-link records through v2', async () => {
@@ -452,5 +521,42 @@ describe('T6893 remaining table APIs v2 dual-path (e2e)', () => {
     expect(snapshots.data).toEqual([
       expect.objectContaining({ id: recordId, data: expect.objectContaining({ id: recordId }) }),
     ]);
+  });
+
+  it('reads shared field socket snapshots and doc ids through v2', async () => {
+    const share = await enableShareView({ tableId, viewId });
+    const shareId = share.data.shareId;
+    const fieldService = app.get(FieldService);
+    const legacyDocIds = vi
+      .spyOn(fieldService, 'getFieldsByQuery')
+      .mockRejectedValue(new Error('legacy FieldService.getFieldsByQuery must not be used'));
+    const legacySnapshots = vi
+      .spyOn(fieldService, 'getSnapshotBulk')
+      .mockRejectedValue(new Error('legacy FieldService.getSnapshotBulk must not be used'));
+    const getFieldSnapshots = vi.spyOn(GetFieldSnapshotsHandler.prototype, 'handle');
+
+    const docIds = await axios.get<{ ids: string[] }>(`/share/${shareId}/socket/field/doc-ids`);
+    expect(docIds.headers[X_TEABLE_V2_HEADER]).toBe('true');
+    expect(docIds.headers[X_TEABLE_V2_FEATURE_HEADER]).toBe('getFields');
+    expect(docIds.data.ids).toEqual(expect.arrayContaining([fieldId, dateFieldId, amountFieldId]));
+
+    const snapshots = await axios.get<Array<{ id: string; data: { id: string } }>>(
+      `/share/${shareId}/socket/field/snapshot-bulk`,
+      { params: { ids: [fieldId] } }
+    );
+    expect(snapshots.headers[X_TEABLE_V2_HEADER]).toBe('true');
+    expect(snapshots.headers[X_TEABLE_V2_FEATURE_HEADER]).toBe('getFields');
+    expect(snapshots.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: fieldId,
+          type: 'json0',
+          data: expect.objectContaining({ id: fieldId }),
+        }),
+      ])
+    );
+    expect(getFieldSnapshots).toHaveBeenCalled();
+    expect(legacyDocIds).not.toHaveBeenCalled();
+    expect(legacySnapshots).not.toHaveBeenCalled();
   });
 });

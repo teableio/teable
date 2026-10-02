@@ -3,7 +3,7 @@ import { trace, TraceFlags } from '@opentelemetry/api';
 import type { Response } from 'express';
 
 export const buildTraceLink = (traceId: string, baseUrl?: string) => {
-  const normalizedBaseUrl = baseUrl?.replace(/\/+$/, '');
+  const normalizedBaseUrl = baseUrl?.replace(/(?<!\/)\/+$/, '');
   if (!normalizedBaseUrl) return null;
   return `${normalizedBaseUrl}/trace/${traceId}?uiEmbed=v0`;
 };

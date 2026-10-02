@@ -83,7 +83,7 @@ export class UpdateFieldCommand {
    * For link field updates, returns the foreign table reference from options.
    */
   foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
-    const command = this;
+    const command = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<LinkForeignTableReference>, DomainError>(function* () {
       const references: LinkForeignTableReference[] = [];
 

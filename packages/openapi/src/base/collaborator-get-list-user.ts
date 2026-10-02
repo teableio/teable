@@ -33,8 +33,9 @@ export type IListBaseCollaboratorUserVo = z.infer<typeof listBaseCollaboratorUse
 
 export const ListBaseCollaboratorUserRoute: RouteConfig = registerRoute({
   method: 'get',
-  summary: 'Get base collaborator user list',
-  description: 'Get base collaborator user list',
+  title: 'List project collaborator users',
+  summary: 'Get project collaborator user list',
+  description: 'List the user accounts that collaborate on a project.',
   path: BASE_COLLABORATE_LIST_USER,
   request: {
     params: z.object({
@@ -44,7 +45,7 @@ export const ListBaseCollaboratorUserRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Successful response, return base collaborator user list.',
+      description: 'Successful response, return project collaborator user list.',
       content: {
         'application/json': {
           schema: listBaseCollaboratorUserVoSchema,

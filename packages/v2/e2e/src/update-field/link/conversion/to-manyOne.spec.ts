@@ -281,6 +281,139 @@ describe('update-field: link conversion to manyOne', () => {
     });
   });
 
+  it('should recompute foreign rollups for links dropped by many-many to many-one conversion', async () => {
+    const hostTable = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: nextName('convert-rollup-host'),
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        { type: 'number', name: 'Amount' },
+      ],
+    });
+    const foreignTable = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: nextName('convert-rollup-foreign'),
+      fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+    });
+
+    const hostPrimaryFieldId = hostTable.fields.find((field) => field.isPrimary)?.id;
+    const amountFieldId = hostTable.fields.find((field) => field.name === 'Amount')?.id;
+    const foreignPrimaryFieldId = foreignTable.fields.find((field) => field.isPrimary)?.id;
+    if (!hostPrimaryFieldId || !amountFieldId || !foreignPrimaryFieldId) {
+      throw new Error('Failed to resolve field IDs');
+    }
+
+    const foreignA = await ctx.createRecord(foreignTable.id, { [foreignPrimaryFieldId]: 'A' });
+    const foreignB = await ctx.createRecord(foreignTable.id, { [foreignPrimaryFieldId]: 'B' });
+    const hostMoved = await ctx.createRecord(hostTable.id, {
+      [hostPrimaryFieldId]: 'moved',
+      [amountFieldId]: 30,
+    });
+    const hostStay = await ctx.createRecord(hostTable.id, {
+      [hostPrimaryFieldId]: 'stay',
+      [amountFieldId]: 70,
+    });
+
+    const linkOptions = {
+      foreignTableId: foreignTable.id,
+      lookupFieldId: foreignPrimaryFieldId,
+      isOneWay: false,
+    };
+    const tableWithLink = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: hostTable.id,
+      field: { type: 'link', name: 'Link', options: { relationship: 'manyOne', ...linkOptions } },
+    });
+    const linkField = tableWithLink.fields.find((field) => field.name === 'Link');
+    const symmetricFieldId = (linkField?.options as Record<string, unknown> | undefined)
+      ?.symmetricFieldId;
+    if (!linkField || typeof symmetricFieldId !== 'string') {
+      throw new Error('Failed to resolve manyOne link field');
+    }
+
+    const foreignWithRollup = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: foreignTable.id,
+      field: {
+        type: 'rollup',
+        name: 'Total',
+        options: { expression: 'sum({values})' },
+        config: {
+          linkFieldId: symmetricFieldId,
+          foreignTableId: hostTable.id,
+          lookupFieldId: amountFieldId,
+        },
+      },
+    });
+    const rollupFieldId = foreignWithRollup.fields.find((field) => field.name === 'Total')?.id;
+    if (!rollupFieldId) throw new Error('Rollup field missing');
+
+    await ctx.updateRecord(hostTable.id, hostMoved.id, { [linkField.id]: { id: foreignB.id } });
+    await ctx.updateRecord(hostTable.id, hostStay.id, { [linkField.id]: { id: foreignB.id } });
+    await ctx.drainOutbox();
+
+    await ctx.updateField({
+      tableId: hostTable.id,
+      fieldId: linkField.id,
+      field: { type: 'link', options: { relationship: 'manyMany', ...linkOptions } },
+    });
+    await ctx.drainOutbox();
+
+    await ctx.updateRecord(hostTable.id, hostMoved.id, {
+      [linkField.id]: [{ id: foreignA.id }, { id: foreignB.id }],
+    });
+    await ctx.drainOutbox();
+
+    const rollupsBefore = await ctx.listRecords(foreignTable.id);
+    expect(rollupsBefore.find((r) => r.id === foreignA.id)?.fields[rollupFieldId]).toBe(30);
+    expect(rollupsBefore.find((r) => r.id === foreignB.id)?.fields[rollupFieldId]).toBe(100);
+
+    const beforeEventCount = ctx.testContainer.eventBus.events().length;
+    await ctx.updateField({
+      tableId: hostTable.id,
+      fieldId: linkField.id,
+      field: { type: 'link', options: { relationship: 'manyOne', ...linkOptions } },
+    });
+    await ctx.drainOutbox();
+
+    const foreignRefreshFieldIds = ctx.testContainer.eventBus
+      .events()
+      .slice(beforeEventCount)
+      .map((event) => event as unknown as Record<string, unknown>)
+      .filter(
+        (event) =>
+          String(event['name']) === 'TableActionTriggerRequested' &&
+          String(event['tableId']) === foreignTable.id
+      )
+      .flatMap((event) => {
+        expect(event['actionKey']).toBe('setField');
+        expect(String(event['baseId'])).toBe(ctx.baseId);
+        const payload = event['payload'] as { fieldIds?: string[] } | undefined;
+        return payload?.fieldIds ?? [];
+      });
+    expect(foreignRefreshFieldIds).toEqual(expect.arrayContaining([rollupFieldId]));
+
+    const hostRecords = await ctx.listRecords(hostTable.id);
+    expect(hostRecords.find((r) => r.id === hostMoved.id)?.fields[linkField.id]).toEqual({
+      id: foreignA.id,
+      title: 'A',
+    });
+
+    const foreignRecords = await ctx.listRecords(foreignTable.id);
+    const recordA = foreignRecords.find((r) => r.id === foreignA.id);
+    const recordB = foreignRecords.find((r) => r.id === foreignB.id);
+    expect(recordB?.fields[symmetricFieldId]).toEqual([{ id: hostStay.id, title: 'stay' }]);
+    expect(recordA?.fields[rollupFieldId]).toBe(30);
+    expect(recordB?.fields[rollupFieldId]).toBe(70);
+
+    await ctx.updateRecord(hostTable.id, hostMoved.id, { [amountFieldId]: 25 });
+    await ctx.drainOutbox();
+
+    const afterAmountEdit = await ctx.listRecords(foreignTable.id);
+    expect(afterAmountEdit.find((r) => r.id === foreignA.id)?.fields[rollupFieldId]).toBe(25);
+    expect(afterAmountEdit.find((r) => r.id === foreignB.id)?.fields[rollupFieldId]).toBe(70);
+  });
+
   it('should convert text to many-one link and backfill symmetric field', async () => {
     const table1 = await ctx.createTable({
       baseId: ctx.baseId,

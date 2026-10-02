@@ -149,7 +149,7 @@ describe('buildTableSearchAccessPathDefinition', () => {
     });
   });
 
-  it('excludes attachment, number, and select from the substring document', () => {
+  it('covers attachment titles, rounded numbers, and selects in the substring document', () => {
     const builder = Table.builder()
       .withId(TableId.create('tbl0000000000000001')._unsafeUnwrap())
       .withBaseId(BaseId.create('bse0000000000000001')._unsafeUnwrap())
@@ -190,30 +190,24 @@ describe('buildTableSearchAccessPathDefinition', () => {
     })._unsafeUnwrap();
 
     expect(definition.fields).toEqual([
-      expect.objectContaining({ fieldId: 'fld0000000000000001', fieldType: 'singleLineText' }),
+      expect.objectContaining({
+        fieldId: 'fld0000000000000001',
+        textProjection: { kind: 'plain' },
+      }),
+      expect.objectContaining({
+        fieldId: 'fld0000000000000002',
+        textProjection: { kind: 'rounded_number', precision: 2 },
+      }),
+      expect.objectContaining({
+        fieldId: 'fld0000000000000003',
+        textProjection: { kind: 'structured_title_list' },
+      }),
+      expect.objectContaining({
+        fieldId: 'fld0000000000000004',
+        textProjection: { kind: 'plain' },
+      }),
     ]);
-    expect(definition.skippedFields).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          fieldId: 'fld0000000000000002',
-          fieldType: 'number',
-          included: false,
-          skippedReason: 'unsupported_search_field_type',
-        }),
-        expect.objectContaining({
-          fieldId: 'fld0000000000000003',
-          fieldType: 'attachment',
-          included: false,
-          skippedReason: 'unsupported_search_field_type',
-        }),
-        expect.objectContaining({
-          fieldId: 'fld0000000000000004',
-          fieldType: 'singleSelect',
-          included: false,
-          skippedReason: 'unsupported_search_field_type',
-        }),
-      ])
-    );
+    expect(definition.skippedFields).toEqual([]);
   });
 
   it('refuses all-field documents when field count meets the wide-table threshold', () => {

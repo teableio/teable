@@ -41,6 +41,16 @@ const formatGeneric = (value: unknown, multiple: boolean): string => {
   return String(value);
 };
 
+// Past MAX_SAFE_INTEGER toFixed prints the double's full binary expansion, digits the API never returns.
+const toFixedDigits = (value: number, precision: number): string => {
+  if (!Number.isFinite(value) || Math.abs(value) <= Number.MAX_SAFE_INTEGER) {
+    return value.toFixed(precision);
+  }
+  const digits = String(value);
+  const zeros = digits.includes('e') ? '' : '0'.repeat(precision);
+  return zeros ? `${digits}.${zeros}` : digits;
+};
+
 const formatNumber = (value: unknown, formatting: NumberFormatting): string => {
   if (value == null) return '';
   const number = Number(value);
@@ -54,9 +64,9 @@ const formatNumber = (value: unknown, formatting: NumberFormatting): string => {
     return `${sign}${formatting.symbol() ?? '$'}${formatted}`;
   }
   if (formatting.type() === NumberFormattingType.Percent) {
-    return `${(number * 100).toFixed(precision)}%`;
+    return `${toFixedDigits(number * 100, precision)}%`;
   }
-  return number.toFixed(precision);
+  return toFixedDigits(number, precision);
 };
 
 const formatDate = (value: unknown, formatting: DateTimeFormatting): string => {
@@ -340,7 +350,7 @@ export const stringifyClipboardRows = (rows: ReadonlyArray<ReadonlyArray<string>
     .map((row) =>
       row
         .map((cell) =>
-          cell.includes('\t') || cell.includes('\n') ? `"${cell.replace(/"/g, '""')}"` : cell
+          cell.includes('\t') || cell.includes('\n') ? `"${cell.replaceAll('"', '""')}"` : cell
         )
         .join('\t')
     )

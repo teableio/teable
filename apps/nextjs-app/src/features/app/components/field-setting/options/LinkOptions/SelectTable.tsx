@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { ArrowUpRight, Database, Table2 } from '@teable/icons';
+import { ArrowUpRight, LayoutGrid, Table2 } from '@teable/icons';
 import { getBaseAll } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { AnchorContext, TableProvider } from '@teable/sdk/context';
@@ -29,34 +29,32 @@ export const SelectTable = ({ baseId, tableId, onChange }: ISelectTableProps) =>
   return (
     <div className="flex flex-col gap-4">
       {enableSelectBase && (
-        <>
-          <div className="flex w-full flex-col gap-2">
-            <div className="neutral-content label-text flex h-5 items-center justify-between">
-              {t('table:field.editor.linkBase')}
-              <Button
-                size="xs"
-                variant="link"
-                onClick={() => {
-                  setEnableSelectBase(false);
-                  onChange?.(undefined, undefined);
-                }}
-                className="h-5 text-xs text-muted-foreground decoration-muted-foreground"
-              >
-                {t('common:actions.cancel')}
-              </Button>
-            </div>
-            <BasePicker
-              baseId={selectedBaseId}
-              onChange={(baseId) => {
-                if (baseId === selfBaseId) {
-                  onChange?.(undefined, undefined);
-                } else {
-                  onChange?.(baseId);
-                }
+        <div className="flex w-full flex-col gap-2">
+          <div className="neutral-content label-text flex h-5 items-center justify-between">
+            {t('table:field.editor.linkBase')}
+            <Button
+              size="xs"
+              variant="link"
+              onClick={() => {
+                setEnableSelectBase(false);
+                onChange?.(undefined, undefined);
               }}
-            />
+              className="h-5 text-xs text-muted-foreground decoration-muted-foreground"
+            >
+              {t('common:actions.cancel')}
+            </Button>
           </div>
-        </>
+          <BasePicker
+            baseId={selectedBaseId}
+            onChange={(baseId) => {
+              if (baseId === selfBaseId) {
+                onChange?.(undefined, undefined);
+              } else {
+                onChange?.(baseId);
+              }
+            }}
+          />
+        </div>
       )}
       <AnchorContext.Provider value={{ baseId: selectedBaseId }}>
         <div className="flex w-full flex-col gap-2">
@@ -105,7 +103,7 @@ const TablePicker = ({ tableId, selfTableId, readonly, onChange }: ITablePickerP
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   let tables = useTables() as { id: string; name: string; icon?: string }[];
 
-  if (tableId && !tables.find((table) => table.id === tableId)) {
+  if (tableId && !tables.some((table) => table.id === tableId)) {
     tables = tables.concat({
       id: tableId!,
       name: t('table:field.editor.tableNoPermission'),
@@ -167,7 +165,7 @@ const BasePicker = ({ baseId, onChange }: IBasePickerProps) => {
       candidates={bases?.map((base) => ({
         id: base.id,
         name: base.name,
-        icon: base.icon || <Database className="size-4 shrink-0" />,
+        icon: base.icon || <LayoutGrid className="size-4 shrink-0" />,
       }))}
       placeholder={t('table:field.editor.selectBase')}
     />

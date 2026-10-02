@@ -21,7 +21,7 @@ import type { IOption, IBaseMultipleSelect } from './types';
 import { scrollListByWheel } from './wheel-scroll-list';
 
 function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>(
-  props: IBaseMultipleSelect<V, O>
+  props: Readonly<IBaseMultipleSelect<V, O>>
 ) {
   const { t } = useTranslation();
   const {
@@ -56,7 +56,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
 
   const selectHandler = (name: V) => {
     let newCellValue: null | V[] = null;
-    const existIndex = values.findIndex((item) => item === name);
+    const existIndex = values.indexOf(name);
     if (existIndex > -1) {
       newCellValue = values.slice();
       newCellValue.splice(existIndex, 1);
@@ -91,6 +91,8 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
   const setApplySearchDebounced = useMemo(() => {
     return onSearch ? debounce(onSearch, 200) : undefined;
   }, [onSearch]);
+
+  useEffect(() => () => setApplySearchDebounced?.cancel(), [setApplySearchDebounced]);
 
   useEffect(() => {
     if (!isComposing) {

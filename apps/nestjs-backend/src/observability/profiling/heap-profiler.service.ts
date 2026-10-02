@@ -1,5 +1,5 @@
-import * as inspector from 'inspector';
-import * as os from 'os';
+import * as inspector from 'node:inspector';
+import * as os from 'node:os';
 import { Injectable, Logger } from '@nestjs/common';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -59,7 +59,7 @@ export class HeapProfilerService implements OnModuleInit, OnModuleDestroy {
     this.enabled = this.configService.get('ENABLE_HEAP_PROFILING') === 'true';
 
     // default 1 hour; floor of 1 minute guards against high-frequency dumps
-    const rawSaveInterval = parseInt(
+    const rawSaveInterval = Number.parseInt(
       this.configService.get('HEAP_PROFILE_SAVE_INTERVAL') || `${60 * 60 * 1000}`
     );
     this.saveInterval = Number.isFinite(rawSaveInterval)
@@ -68,7 +68,7 @@ export class HeapProfilerService implements OnModuleInit, OnModuleDestroy {
 
     // Clamp: a tiny interval approaches per-allocation sampling and would bog
     // down the very pod under investigation.
-    const rawSamplingInterval = parseInt(
+    const rawSamplingInterval = Number.parseInt(
       this.configService.get('HEAP_PROFILE_SAMPLING_INTERVAL') || '32768'
     );
     this.samplingInterval = Number.isFinite(rawSamplingInterval)
