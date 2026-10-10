@@ -23,6 +23,7 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { resolvePostgresDbOrTx } from '../../shared/db';
+import { ensureRowOrderColumns } from '../../shared/ensureRowOrderColumnOnline';
 import {
   describeError,
   extractForeignKeyFieldId,
@@ -31,7 +32,6 @@ import {
 } from '../../shared/errors';
 import {
   splitSchemaQualifiedTableName,
-  toPostgresIdentifierWithHash,
   toQualifiedIdentifierLiteral,
 } from '../../shared/sqlIdentifiers';
 import type { UndoLogRow } from '../../shared/undoCapture';
@@ -40,11 +40,16 @@ import type {
   ComputedFieldUpdater,
   ComputedUpdatePlanner,
   ComputedUpdateResult,
+  IComputedUpdateOutbox,
+  IComputedUpdatePauseRegistry,
   IUpdateStrategy,
   UpdateImpactHint,
-  IComputedUpdateOutbox,
 } from '../computed';
-import { buildSeedTaskInput } from '../computed';
+import {
+  buildSeedTaskInput,
+  collapseRecordChangesByRecordId,
+  noopComputedUpdatePauseRegistry,
+} from '../computed';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import { normalizeStoredLinkItems } from '../normalizeLinkItems';
 import type { DynamicDB } from '../query-builder';
@@ -73,6 +78,7 @@ import type {
   IPostgresRecordMutationSnapshotCaptureSession,
   RecordMutationSnapshotTraceContext,
 } from './PostgresRecordMutationSnapshotCaptureService';
+import { DeferredInsertSeedSpool } from './PostgresTableRecordRepository.seed-spool';
 
 // System columns (kept for update operations)
 const RECORD_ID_COLUMN = '__id';
@@ -141,7 +147,7 @@ const buildDistinctUserFieldWhere = (
       const dbFieldNameValue = yield* dbFieldName.value();
       if (
         SYSTEM_UPDATE_COLUMNS.has(dbFieldNameValue) ||
-        !Object.prototype.hasOwnProperty.call(setClauses, dbFieldNameValue)
+        !Object.hasOwn(setClauses, dbFieldNameValue)
       ) {
         continue;
       }
@@ -312,7 +318,6 @@ const cleanupRestoredRecordTrash = async (
 // Mirrors @teable/core generateRecordTrashId ('rtr' + 16 random chars).
 const RECORD_TRASH_ID_PREFIX = 'rtr';
 const RECORD_TRASH_ID_LENGTH = 16;
-const RECORD_TRASH_BATCH_SIZE = 5000;
 
 /**
  * Internal insert options that extend core InsertOptions with PostgreSQL-specific flags.
@@ -320,7 +325,7 @@ const RECORD_TRASH_BATCH_SIZE = 5000;
 interface InternalInsertManyOptions extends core.InsertOptions {
   /**
    * When true, computed field updates are skipped entirely.
-   * Used by insertManyStream with deferComputedUpdates to batch all updates at the end.
+   * insertManyStream persists deferred seeds separately from the current batch write.
    */
   skipComputedUpdates?: boolean;
   /**
@@ -361,6 +366,13 @@ async function getViewOrderInfo(
   const splitIndex = tableName.indexOf('.');
   const schemaName = splitIndex === -1 ? 'public' : tableName.slice(0, splitIndex);
   const plainTableName = splitIndex === -1 ? tableName : tableName.slice(splitIndex + 1);
+
+  // Pin the column list until commit: a row-order column published between
+  // the lookup below and the INSERT would receive NULL (T7570). The publish
+  // takes ACCESS EXCLUSIVE, so it either sweeps this row or precedes it.
+  if (isKyselyTransaction(db)) {
+    await sql`LOCK TABLE ${sql.table(tableName)} IN ROW EXCLUSIVE MODE`.execute(db);
+  }
 
   // First, check which columns actually exist in the table.
   try {
@@ -435,21 +447,19 @@ function buildSnapshotViewOrderValues(
   return values;
 }
 
-async function checkOrderColumnExists(
-  db: Kysely<DynamicDB>,
-  tableName: string,
-  orderColumnName: string
-): Promise<boolean> {
-  const { schemaName, plainTableName } = splitSchemaQualifiedTableName(tableName);
-  const result = await sql<{ column_name: string }>`
-    SELECT column_name
-    FROM information_schema.columns
-    WHERE table_schema = ${schemaName ?? 'public'}
-    AND table_name = ${plainTableName}
-    AND column_name = ${orderColumnName}
-  `.execute(db);
-
-  return result.rows.length > 0;
+/**
+ * Snapshot orders win per view; views whose row-order column was created
+ * after the snapshot append like a fresh insert instead of staying NULL.
+ */
+function buildRestoredViewOrderValues(
+  viewOrderInfo: ViewOrderInfo,
+  recordIndex: number,
+  orders?: Readonly<Record<string, number>>
+): Record<string, number> {
+  return {
+    ...buildViewOrderValues(viewOrderInfo, recordIndex),
+    ...buildSnapshotViewOrderValues(orders),
+  };
 }
 
 /**
@@ -487,7 +497,7 @@ async function stripPhysicallyGeneratedColumnsFromInsertValues(
   }
 
   const presentColumns = candidateColumnNames.filter((name) =>
-    valuesList.some((values) => Object.prototype.hasOwnProperty.call(values, name))
+    valuesList.some((values) => Object.hasOwn(values, name))
   );
   if (!presentColumns.length) {
     return;
@@ -533,37 +543,19 @@ async function listPhysicalColumnNames(
   return result.rows.map((row) => row.column_name);
 }
 
+/**
+ * T7251: lazily create missing `__row_<viewId>` columns. Existence check
+ * runs on `db`; creation is online on `nonTxDb` for committed tables, or
+ * in-transaction only when the table was created by the current transaction.
+ * Never falls back to in-transaction DDL on a table other sessions can see.
+ */
 async function ensureViewOrderColumnsExist(
   db: Kysely<DynamicDB>,
+  nonTxDb: Kysely<DynamicDB>,
   tableName: string,
   viewIds: ReadonlyArray<string>
 ): Promise<void> {
-  const { plainTableName } = splitSchemaQualifiedTableName(tableName);
-  const uniqueViewIds = [...new Set(viewIds.filter(Boolean))];
-
-  for (const viewId of uniqueViewIds) {
-    const orderColumnName = `__row_${viewId}`;
-    const exists = await checkOrderColumnExists(db, tableName, orderColumnName);
-
-    if (!exists) {
-      await sql`
-        ALTER TABLE ${sql.table(tableName)}
-        ADD COLUMN ${sql.id(orderColumnName)} double precision
-      `.execute(db);
-
-      await sql`
-        UPDATE ${sql.table(tableName)}
-        SET ${sql.id(orderColumnName)} = __auto_number
-        WHERE ${sql.id(orderColumnName)} IS NULL
-      `.execute(db);
-
-      const indexName = toPostgresIdentifierWithHash(`idx_${plainTableName}_${orderColumnName}`);
-      await sql`
-        CREATE INDEX IF NOT EXISTS ${sql.id(indexName)}
-        ON ${sql.table(tableName)} (${sql.id(orderColumnName)})
-      `.execute(db);
-    }
-  }
+  await ensureRowOrderColumns(db, nonTxDb, tableName, viewIds);
 }
 const toSqlTableRef = (tableName: string) => {
   const { schemaName, plainTableName } = splitSchemaQualifiedTableName(tableName);
@@ -605,7 +597,7 @@ const buildStoredRecordSnapshotFromRow = (
       }
       const dbFieldName = yield* dbFieldNameResult;
       const dbFieldNameText = yield* dbFieldName.value();
-      if (!Object.prototype.hasOwnProperty.call(row, dbFieldNameText)) {
+      if (!Object.hasOwn(row, dbFieldNameText)) {
         continue;
       }
       fields[field.id().toString()] = row[dbFieldNameText];
@@ -1063,8 +1055,26 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     @inject(v2CoreTokens.hasher)
     private readonly hasher: IHasher,
     @inject(v2RecordRepositoryPostgresTokens.metaDb)
-    private readonly metaDb: Kysely<V1TeableDatabase> = db
+    private readonly metaDb: Kysely<V1TeableDatabase> = db,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdatePauseRegistry)
+    private readonly pauseRegistry: IComputedUpdatePauseRegistry = noopComputedUpdatePauseRegistry
   ) {}
+
+  private async enqueueAdmittedSeedTask(
+    context: core.IExecutionContext,
+    table: core.Table,
+    seedTask: Parameters<IComputedUpdateOutbox['enqueueSeedTask']>[0]
+  ) {
+    const admitted = await this.pauseRegistry.admitComputedWrite(
+      {
+        tableId: table.id().toString(),
+        baseId: table.baseId().toString(),
+      },
+      context
+    );
+    if (admitted.isErr()) return admitted;
+    return this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+  }
 
   private async resolveBeforeImageCapturePlan(
     context: core.IExecutionContext,
@@ -1156,6 +1166,23 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const actorLookupDb = this.metaDb as unknown as Kysely<DynamicDB>;
         const actorIdentity = await this.resolveActorIdentity(actorLookupDb, actorId, actorContext);
         const restoreValues = options?.restoreRecordsById?.get(record.id().toString());
+        // T7251: lazily create missing view row-order columns BEFORE this
+        // transaction touches the physical table (getViewOrderInfo / the
+        // insert below take locks held until commit). Missing-column creation
+        // runs online on the non-transactional handle inside
+        // ensureViewOrderColumnsExist — never in this transaction.
+        const ensureOrderViewIds = [
+          ...Object.keys(restoreValues?.orders ?? {}),
+          ...(options?.order ? [options.order.viewId.toString()] : []),
+        ];
+        if (ensureOrderViewIds.length > 0) {
+          await ensureViewOrderColumnsExist(
+            db,
+            this.db as unknown as Kysely<DynamicDB>,
+            tableName,
+            ensureOrderViewIds
+          );
+        }
         const createdByIdentity = await this.resolveRestoreActorIdentity(
           actorLookupDb,
           restoreValues?.createdBy,
@@ -1228,15 +1255,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         });
 
         // Add view order columns (default: append to end).
-        if (restoreValues?.orders) {
-          await ensureViewOrderColumnsExist(db, tableName, Object.keys(restoreValues.orders));
-        }
-        let viewOrderValues = restoreValues?.orders
-          ? buildSnapshotViewOrderValues(restoreValues.orders)
-          : {};
-        if (Object.keys(viewOrderValues).length === 0) {
-          viewOrderValues = buildViewOrderValues(viewOrderInfo, 0);
-        }
+        // (Missing row-order columns were ensured up front — see T7251.)
+        let viewOrderValues = buildRestoredViewOrderValues(viewOrderInfo, 0, restoreValues?.orders);
 
         // If ordering is specified, calculate order value for the target view
         if (options?.order) {
@@ -1418,6 +1438,27 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           actorEmail?: string;
         };
         const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+        // T7251: lazily create missing view row-order columns BEFORE this
+        // transaction touches the physical table (tableHasExistingRows /
+        // getViewOrderInfo / the inserts below take locks held until commit).
+        // Missing-column creation runs online on the non-transactional handle
+        // inside ensureViewOrderColumnsExist — never in this transaction.
+        const restoreViewIds = options?.restoreRecordsById
+          ? [...options.restoreRecordsById.values()].flatMap((value) =>
+              Object.keys(value.orders ?? {})
+            )
+          : [];
+        const ensureOrderViewIds = options?.order
+          ? [...restoreViewIds, options.order.viewId.toString()]
+          : restoreViewIds;
+        if (ensureOrderViewIds.length > 0) {
+          await ensureViewOrderColumnsExist(
+            db,
+            this.db as unknown as Kysely<DynamicDB>,
+            tableName,
+            ensureOrderViewIds
+          );
+        }
         const shouldCaptureSnapshot = !options?.skipSnapshotCapture && !options?.restoreRecordsById;
         const tableWasEmpty = !(await tableHasExistingRows(db, tableName));
         // Resolve actor identity outside transaction-scoped connection to avoid
@@ -1449,14 +1490,6 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         // a connection-level self-deadlock (T6657).
         const views = table.views();
         const viewOrderInfo = await getViewOrderInfo(db, tableName, views);
-        const restoreViewIds = options?.restoreRecordsById
-          ? [...options.restoreRecordsById.values()].flatMap((value) =>
-              Object.keys(value.orders ?? {})
-            )
-          : [];
-        if (restoreViewIds.length > 0) {
-          await ensureViewOrderColumnsExist(db, tableName, restoreViewIds);
-        }
 
         // Pre-calculate order values if ordering is specified
         let calculatedOrderValues: number[] | undefined;
@@ -1557,12 +1590,11 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           }
 
           // Add view order columns for each view (default: append to end).
-          let viewOrderValues = restoreValues?.orders
-            ? buildSnapshotViewOrderValues(restoreValues.orders)
-            : {};
-          if (Object.keys(viewOrderValues).length === 0) {
-            viewOrderValues = buildViewOrderValues(viewOrderInfo, recordIndex);
-          }
+          let viewOrderValues = buildRestoredViewOrderValues(
+            viewOrderInfo,
+            recordIndex,
+            restoreValues?.orders
+          );
 
           // If ordering is specified, override the target view's order value
           if (calculatedOrderValues && orderColumnName) {
@@ -1574,7 +1606,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
           const valuesWithViewOrder = {
             ...insertDataResult.value.values,
-            ...(restoreValues?.extraColumnValues ?? {}),
+            ...restoreValues?.extraColumnValues,
             ...viewOrderValues,
           };
 
@@ -1795,47 +1827,58 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     context: core.IExecutionContext,
     plan: core.PhysicalTableDuplicatePlan
   ): Promise<Result<core.PhysicalTableDuplicateResult, DomainError>> {
-    return safeTry<core.PhysicalTableDuplicateResult, DomainError>(
-      async function* (this: PostgresTableRecordRepository) {
-        if (plan.columns.length === 0) {
-          return ok({ rowCount: 0, recordIds: [] });
-        }
+    if (plan.columns.length === 0) {
+      return ok({ rowCount: 0, recordIds: [] });
+    }
 
-        const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+    const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
-        if (plan.ensureTargetOrderColumns.length > 0) {
-          await ensureViewOrderColumnsExist(
-            db,
-            plan.targetTableName,
-            plan.ensureTargetOrderColumns
-          );
-        }
+    const sourceColumns = await listPhysicalColumnNames(db, plan.sourceTableName);
+    const sourceColumnSet = new Set(sourceColumns);
 
-        const sourceColumns = await listPhysicalColumnNames(db, plan.sourceTableName);
-        const sourceColumnSet = new Set(sourceColumns);
+    const activeColumns = plan.columns.filter((column) => {
+      // Constants like `1` are not source column references.
+      const sourceColumnMatch = column.sourceSql.match(/^"((?:[^"]|"")*)"$/);
+      if (!sourceColumnMatch) {
+        return true;
+      }
+      const sourceColumn = sourceColumnMatch[1]!.replaceAll('""', '"');
+      return sourceColumnSet.has(sourceColumn);
+    });
 
-        const activeColumns = plan.columns.filter((column) => {
-          // Constants like `1` are not source column references.
-          const sourceColumnMatch = column.sourceSql.match(/^"((?:[^"]|"")*)"$/);
-          if (!sourceColumnMatch) {
-            return true;
-          }
-          const sourceColumn = sourceColumnMatch[1]!.replace(/""/g, '"');
-          return sourceColumnSet.has(sourceColumn);
-        });
+    // A target row-order column whose source column is missing would be
+    // created empty and never backfilled: the lazy path skips existing
+    // columns, so every row would stay NULL and anchored moves would misplace
+    // records. Leave it missing so reads fall back to `__auto_number`.
+    const activeTargetColumns = new Set(activeColumns.map((column) => column.targetColumn));
+    const targetOrderViewIds = plan.ensureTargetOrderColumns.filter((viewId) =>
+      activeTargetColumns.has(`__row_${viewId}`)
+    );
+    if (targetOrderViewIds.length > 0) {
+      // T7251: the duplicate-table flow creates the target table in this
+      // same transaction, so ensureViewOrderColumnsExist detects that
+      // (invisible to other connections) and keeps creation
+      // in-transaction; only pre-existing committed tables go online.
+      await ensureViewOrderColumnsExist(
+        db,
+        this.db as unknown as Kysely<DynamicDB>,
+        plan.targetTableName,
+        targetOrderViewIds
+      );
+    }
 
-        if (activeColumns.length === 0) {
-          return ok({ rowCount: 0, recordIds: [] });
-        }
+    if (activeColumns.length === 0) {
+      return ok({ rowCount: 0, recordIds: [] });
+    }
 
-        const targetCols = activeColumns
-          .map((column) => toQualifiedIdentifierLiteral(column.targetColumn))
-          .join(', ');
-        const sourceExprs = activeColumns.map((column) => column.sourceSql).join(', ');
-        const targetRef = toSqlTableRef(plan.targetTableName);
-        const sourceRef = toSqlTableRef(plan.sourceTableName);
+    const targetCols = activeColumns
+      .map((column) => toQualifiedIdentifierLiteral(column.targetColumn))
+      .join(', ');
+    const sourceExprs = activeColumns.map((column) => column.sourceSql).join(', ');
+    const targetRef = toSqlTableRef(plan.targetTableName);
+    const sourceRef = toSqlTableRef(plan.sourceTableName);
 
-        const result = await sql<{ __id: string }>`
+    const result = await sql<{ __id: string }>`
           INSERT INTO ${targetRef} (${sql.raw(targetCols)})
           SELECT ${sql.raw(sourceExprs)}
           FROM ${sourceRef}
@@ -1843,30 +1886,24 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           RETURNING ${sql.id('__id')}
         `.execute(db);
 
-        const junctionCopies = plan.junctionCopies ?? [];
-        for (const junction of junctionCopies) {
-          const targetJunctionRef = toSqlTableRef(junction.targetJunctionTable);
-          const sourceJunctionRef = toSqlTableRef(junction.sourceJunctionTable);
-          const targetSelf = toQualifiedIdentifierLiteral(junction.targetSelfKey);
-          const targetForeign = toQualifiedIdentifierLiteral(junction.targetForeignKey);
-          const sourceSelf = toQualifiedIdentifierLiteral(junction.sourceSelfKey);
-          const sourceForeign = toQualifiedIdentifierLiteral(junction.sourceForeignKey);
+    const junctionCopies = plan.junctionCopies ?? [];
+    for (const junction of junctionCopies) {
+      const targetJunctionRef = toSqlTableRef(junction.targetJunctionTable);
+      const sourceJunctionRef = toSqlTableRef(junction.sourceJunctionTable);
+      const targetSelf = toQualifiedIdentifierLiteral(junction.targetSelfKey);
+      const targetForeign = toQualifiedIdentifierLiteral(junction.targetForeignKey);
+      const sourceSelf = toQualifiedIdentifierLiteral(junction.sourceSelfKey);
+      const sourceForeign = toQualifiedIdentifierLiteral(junction.sourceForeignKey);
 
-          // Prefer copying __order when both junction tables have it — link reads
-          // may ignore rows with null order for multi-value relationships.
-          const sourceJunctionColumns = await listPhysicalColumnNames(
-            db,
-            junction.sourceJunctionTable
-          );
-          const targetJunctionColumns = await listPhysicalColumnNames(
-            db,
-            junction.targetJunctionTable
-          );
-          const copyOrder =
-            sourceJunctionColumns.includes('__order') && targetJunctionColumns.includes('__order');
+      // Prefer copying __order when both junction tables have it — link reads
+      // may ignore rows with null order for multi-value relationships.
+      const sourceJunctionColumns = await listPhysicalColumnNames(db, junction.sourceJunctionTable);
+      const targetJunctionColumns = await listPhysicalColumnNames(db, junction.targetJunctionTable);
+      const copyOrder =
+        sourceJunctionColumns.includes('__order') && targetJunctionColumns.includes('__order');
 
-          if (copyOrder) {
-            await sql`
+      if (copyOrder) {
+        await sql`
               INSERT INTO ${targetJunctionRef} (
                 ${sql.raw(targetSelf)},
                 ${sql.raw(targetForeign)},
@@ -1878,19 +1915,17 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
                 ${sql.raw(toQualifiedIdentifierLiteral('__order'))}
               FROM ${sourceJunctionRef}
             `.execute(db);
-          } else {
-            await sql`
+      } else {
+        await sql`
               INSERT INTO ${targetJunctionRef} (${sql.raw(targetSelf)}, ${sql.raw(targetForeign)})
               SELECT ${sql.raw(sourceSelf)}, ${sql.raw(sourceForeign)}
               FROM ${sourceJunctionRef}
             `.execute(db);
-          }
-        }
+      }
+    }
 
-        const recordIds = result.rows.map((row) => row.__id);
-        return ok({ rowCount: recordIds.length, recordIds });
-      }.bind(this)
-    );
+    const recordIds = result.rows.map((row) => row.__id);
+    return ok({ rowCount: recordIds.length, recordIds });
   }
 
   async insertManyStream(
@@ -1908,8 +1943,11 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     const enqueueDeferredComputedUpdates =
       deferComputed && (options?.enqueueDeferredComputedUpdates ?? false);
 
-    // When deferring computed updates, collect all records for final batch update
-    const allInsertedRecords: core.TableRecord[] = [];
+    const seedContext = context.requestId ? context : { ...context, requestId: generateUuid() };
+    const deferredTables = new Map<string, core.Table>();
+    let deferredSeeds: DeferredInsertSeedSpool | undefined;
+    let deferredScheduled = false;
+    let hasEnqueuedSeeds = false;
 
     const normalizeBatch = (
       batch: core.InsertManyStreamBatchInput
@@ -1940,9 +1978,36 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         return result;
       }
 
-      // Track records if deferring computed updates
-      if (deferComputed) {
-        allInsertedRecords.push(...records);
+      if (deferComputed && records.length > 0) {
+        const { recordIds, changedFieldIds } = this.collectInsertSeeds(batchTable, records);
+        if (changedFieldIds.length > 0) {
+          if (enqueueDeferredComputedUpdates) {
+            const enqueued = await this.enqueueDeferredInsertSeeds(
+              seedContext,
+              batchTable,
+              recordIds,
+              changedFieldIds,
+              totalInserted + records.length,
+              options?.orchestration
+            );
+            if (enqueued.isErr()) return err(enqueued.error);
+            hasEnqueuedSeeds ||= enqueued.value;
+          } else {
+            if (!deferredSeeds) {
+              deferredSeeds = await DeferredInsertSeedSpool.create();
+              const spool = deferredSeeds;
+              core
+                .getUnitOfWorkTransaction(context, 'data')
+                ?.afterRollback?.(() => spool.dispose());
+            }
+            deferredTables.set(batchTable.id().toString(), batchTable);
+            await deferredSeeds.append({
+              tableId: batchTable.id().toString(),
+              recordIds: recordIds.map((id) => id.toString()),
+              changedFieldIds: changedFieldIds.map((id) => id.toString()),
+            });
+          }
+        }
       }
 
       totalInserted += records.length;
@@ -1972,6 +2037,28 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           }
         }
       }
+
+      if (hasEnqueuedSeeds) {
+        const dispatchContext = core.withoutTransaction(context);
+        const dispatch = () => this.computedUpdateStrategy.scheduleDispatch(dispatchContext);
+        const transaction = core.getUnitOfWorkTransaction(context, 'data');
+        if (transaction?.afterCommit) transaction.afterCommit(dispatch);
+        else if (!transaction) dispatch();
+      }
+
+      if (deferredSeeds) {
+        await deferredSeeds.seal();
+        this.scheduleDeferredInsertSeeds(
+          seedContext,
+          deferredTables,
+          deferredSeeds,
+          totalInserted,
+          options?.orchestration
+        );
+        deferredScheduled = true;
+      }
+
+      return ok({ totalInserted });
     } catch (error) {
       return err(
         core.isDomainError(error)
@@ -1981,68 +2068,66 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               message: `Unexpected insert stream error: ${describeError(error)}`,
             })
       );
+    } finally {
+      if (!deferredScheduled) await deferredSeeds?.dispose();
     }
-
-    if (deferComputed && allInsertedRecords.length > 0) {
-      const computedResult = enqueueDeferredComputedUpdates
-        ? await this.enqueueDeferredComputedUpdateMany(
-            context,
-            table,
-            allInsertedRecords,
-            options?.orchestration
-          )
-        : this.scheduleDeferredComputedUpdateMany(
-            context,
-            table,
-            allInsertedRecords,
-            options?.orchestration
-          );
-      if (computedResult.isErr()) {
-        return err(computedResult.error);
-      }
-    }
-
-    return ok({ totalInserted });
   }
 
-  private scheduleDeferredComputedUpdateMany(
+  private scheduleDeferredInsertSeeds(
     context: core.IExecutionContext,
-    table: core.Table,
-    records: ReadonlyArray<core.TableRecord>,
-    orchestration?: core.IBatchMutationOrchestration | undefined
-  ): Result<void, DomainError> {
-    const computeContext: core.IExecutionContext = { ...context };
-    delete computeContext.transaction;
-    const run = () => {
-      void this.runComputedUpdateMany(computeContext, table, records, 'insert', [], [], {
-        orchestration,
-      }).then((result) => {
-        if (result.isErr()) {
-          this.logger.warn('computed:deferred:failed', {
-            error: result.error.message,
-            tableId: table.id().toString(),
-            recordCount: records.length,
-          });
+    tables: ReadonlyMap<string, core.Table>,
+    spool: DeferredInsertSeedSpool,
+    recordCount: number,
+    orchestration?: core.IBatchMutationOrchestration
+  ): void {
+    const computeContext = core.withoutTransaction(context);
+    const replay = async () => {
+      try {
+        for await (const batch of spool.batches()) {
+          const table = tables.get(batch.tableId);
+          if (!table) throw new Error(`Missing deferred insert table ${batch.tableId}`);
+          const recordIds = batch.recordIds.map((id) => core.RecordId.create(id)._unsafeUnwrap());
+          const changedFieldIds = batch.changedFieldIds.map((id) =>
+            core.FieldId.create(id)._unsafeUnwrap()
+          );
+          const result = await this.runComputedUpdateManySeeds(
+            computeContext,
+            table,
+            recordIds,
+            changedFieldIds,
+            'insert',
+            [],
+            [],
+            { orchestration },
+            recordCount
+          );
+          if (result.isErr()) {
+            this.logger.warn('computed:deferred:failed', {
+              error: result.error.message,
+              tableId: batch.tableId,
+              recordCount,
+            });
+            return;
+          }
         }
+      } finally {
+        await spool.dispose();
+      }
+    };
+    const run = () => {
+      void replay().catch((error) => {
+        this.logger.warn('computed:deferred:failed', { error: describeError(error), recordCount });
       });
     };
-
-    if (context.transaction?.afterCommit) {
-      context.transaction.afterCommit(run);
-    } else {
-      run();
-    }
-
-    return ok(undefined);
+    const transaction = core.getUnitOfWorkTransaction(context, 'data');
+    if (transaction?.afterCommit) transaction.afterCommit(run);
+    else run();
   }
 
-  private async enqueueDeferredComputedUpdateMany(
-    context: core.IExecutionContext,
+  private collectInsertSeeds(
     table: core.Table,
-    records: ReadonlyArray<core.TableRecord>,
-    orchestration?: core.IBatchMutationOrchestration | undefined
-  ): Promise<Result<void, DomainError>> {
-    if (records.length === 0) return ok(undefined);
+    records: ReadonlyArray<core.TableRecord>
+  ): { recordIds: core.RecordId[]; changedFieldIds: core.FieldId[] } {
     const fieldIds = new Map<string, core.FieldId>();
     const recordIds: core.RecordId[] = [];
 
@@ -2061,16 +2146,23 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       fieldIds.set(fieldId.toString(), fieldId);
     }
 
-    const changedFieldIds = this.expandComputedSeedFieldIds(table, [...fieldIds.values()], {
-      includeZeroReferenceFormulas: true,
-    });
-    if (changedFieldIds.length === 0) {
-      return ok(undefined);
-    }
+    return {
+      recordIds,
+      changedFieldIds: this.expandComputedSeedFieldIds(table, [...fieldIds.values()], {
+        includeZeroReferenceFormulas: true,
+      }),
+    };
+  }
 
-    if (!this.shouldEnqueuePlanFreeSeed(table, changedFieldIds, 'insert')) {
-      return ok(undefined);
-    }
+  private async enqueueDeferredInsertSeeds(
+    context: core.IExecutionContext,
+    table: core.Table,
+    recordIds: core.RecordId[],
+    changedFieldIds: core.FieldId[],
+    recordCount: number,
+    orchestration?: core.IBatchMutationOrchestration
+  ): Promise<Result<boolean, DomainError>> {
+    if (!this.shouldEnqueuePlanFreeSeed(table, changedFieldIds, 'insert')) return ok(false);
 
     const seedTask = buildSeedTaskInput({
       baseId: table.baseId(),
@@ -2083,24 +2175,15 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       cyclePolicy: 'skip',
       hasher: this.hasher,
       runId: context.requestId ?? generateUuid(),
-      orchestration: resolveComputedRealtimeOrchestration(context, recordIds.length, orchestration),
+      orchestration: resolveComputedRealtimeOrchestration(context, recordCount, orchestration),
     });
 
-    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    const enqueueResult = await this.enqueueAdmittedSeedTask(context, table, seedTask);
     if (enqueueResult.isErr()) {
       return err(enqueueResult.error);
     }
 
-    const dispatchContext: core.IExecutionContext = { ...context };
-    delete dispatchContext.transaction;
-    const dispatch = () => this.computedUpdateStrategy.scheduleDispatch(dispatchContext);
-    if (context.transaction?.afterCommit) {
-      context.transaction.afterCommit(dispatch);
-    } else {
-      dispatch();
-    }
-
-    return ok(undefined);
+    return ok(true);
   }
 
   async updateOne(
@@ -2364,6 +2447,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           beforeImageCapturePlan.trackedFields
         );
         const distinctUserFieldWhere = yield* buildDistinctUserFieldWhere(table, setClauses);
+        const filledLinkColumns = options?.fillLinkTitles
+          ? yield* toChangedFieldColumns(table, linkFieldIds)
+          : [];
 
         try {
           const matchedSelects = [
@@ -2380,6 +2466,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             sql.ref('matched.old_version').as('old_version'),
             ...trackedFields.map(({ oldValueAlias }) =>
               sql.ref(`matched.${oldValueAlias}`).as(oldValueAlias)
+            ),
+            ...filledLinkColumns.map(({ dbFieldName, alias }) =>
+              sql.ref(`${tableName}.${dbFieldName}`).as(alias)
             ),
           ];
 
@@ -2424,6 +2513,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
                 oldVersion: normalizedOldVersion,
                 newVersion: normalizedNewVersion,
                 oldFieldValues,
+                ...(filledLinkColumns.length > 0
+                  ? { changedFields: toChangedFieldsMap(row, filledLinkColumns) }
+                  : {}),
               });
             }
           }
@@ -2664,6 +2756,23 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
                 dbFieldName,
               }))
             );
+            // SQL title filling happens after domain changes are collected. Return those
+            // stored values in the same statement so events never publish id-only links.
+            const filledLinkFieldIds = options?.fillLinkTitles
+              ? new Set(impact.impactHint.linkFieldIds.map((fieldId) => fieldId.toString()))
+              : undefined;
+            const returnedNewFields = filledLinkFieldIds
+              ? returnedOldFields
+                  .filter(
+                    ({ fieldId, dbFieldName }) =>
+                      filledLinkFieldIds.has(fieldId) && columnUpdateData.has(dbFieldName)
+                  )
+                  .map(({ fieldId, dbFieldName }, index) => ({
+                    fieldId,
+                    dbFieldName,
+                    alias: `new_${index}`,
+                  }))
+              : [];
             const updateSqlResult = buildBatchUpdateSql({
               tableName,
               columnUpdateData,
@@ -2671,6 +2780,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               table: batchTable,
               db,
               returnedOldFields,
+              returnedNewFields,
             });
             if (updateSqlResult.isErr()) {
               return err(updateSqlResult.error);
@@ -2740,6 +2850,19 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
                 oldVersion,
                 newVersion,
                 oldFieldValues,
+                ...(returnedNewFields.length > 0
+                  ? {
+                      changedFields: new Map(
+                        returnedNewFields.map(({ fieldId, alias }) => {
+                          const value = row[alias];
+                          return [
+                            fieldId,
+                            Array.isArray(value) && value.length === 0 ? null : value,
+                          ];
+                        })
+                      ),
+                    }
+                  : {}),
               });
             }
 
@@ -2906,7 +3029,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     options: {
       readonly forceOutbox?: boolean;
       readonly scheduleDispatchAfterCommit?: boolean;
-      readonly orchestration?: core.IBatchMutationOrchestration | undefined;
+      readonly orchestration?: core.IBatchMutationOrchestration;
     } = {}
   ): Promise<Result<void, DomainError>> {
     const changedFieldIds = impact ? [...impact.valueFieldIds, ...impact.linkFieldIds] : [];
@@ -3011,7 +3134,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       ),
     });
 
-    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    const enqueueResult = await this.enqueueAdmittedSeedTask(context, table, seedTask);
     if (enqueueResult.isErr()) {
       this.logger.warn('computed:seed:enqueue_batch_update_failed', {
         error: enqueueResult.error.message,
@@ -3180,7 +3303,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           .distinct()
           .where('table_id', '=', tableId)
           .where('reason', '=', reason)
-          .where('record_id', 'in', [...recordIds.slice(index, index + CHUNK)])
+          .where('record_id', 'in', recordIds.slice(index, index + CHUNK))
           .execute();
         for (const row of rows) {
           if (typeof row.record_id === 'string') {
@@ -3238,7 +3361,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const rows = await db
           .selectFrom(tableName.value)
           .select(RECORD_ID_COLUMN)
-          .where(RECORD_ID_COLUMN, 'in', [...recordIds.slice(index, index + CHUNK)])
+          .where(RECORD_ID_COLUMN, 'in', recordIds.slice(index, index + CHUNK))
           .execute();
         for (const row of rows) {
           const recordId = row[RECORD_ID_COLUMN];
@@ -3343,10 +3466,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           recordIds: recordIdStrings,
         });
 
-        const linkFieldOps: Array<{
-          field: core.LinkField;
-          operation: OutgoingLinkDeleteOp;
-        }> = [];
+        const linkFieldOps: OutgoingLinkDeletePlan[] = [];
 
         for (const field of table.getFields()) {
           const visitResult = field.accept(deleteVisitor);
@@ -3354,53 +3474,74 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
           const { operation } = visitResult.value;
           if (operation && field.type().equals(core.FieldType.link())) {
+            const linkField = field as core.LinkField;
+            const linkedKeyName =
+              operation.type === 'junction-delete'
+                ? yield* linkField.foreignKeyNameString()
+                : RECORD_ID_COLUMN;
             linkFieldOps.push({
-              field: field as core.LinkField,
+              field: linkField,
               operation,
+              linkedKeyName,
+              seedColumns:
+                operation.type === 'junction-delete'
+                  ? [operation.selfKeyName, linkedKeyName]
+                  : [operation.selfKeyName],
+              cleanupColumns:
+                operation.type === 'fk-nullify' && operation.orderColumnName
+                  ? [operation.selfKeyName, operation.orderColumnName]
+                  : [operation.selfKeyName],
             });
           }
         }
 
-        // Collect extraSeedRecords for all link fields using batch query (O(linkFields) queries instead of O(records × linkFields))
-        for (const { field: linkField } of linkFieldOps) {
-          const linkRecordsMap = yield* await loadExistingLinkRecordIdsBatch(
-            db,
-            tableName,
-            recordIdStrings,
-            linkField,
-            this.logger
-          );
-
-          // Flatten all linked record IDs for this field
-          const allLinkedIds: string[] = [];
-          for (const linkedIds of linkRecordsMap.values()) {
-            for (const id of linkedIds) {
-              if (!allLinkedIds.includes(id)) {
-                allLinkedIds.push(id);
-              }
-            }
-          }
-
-          const mergeResult = mergeExtraSeedRecords(
-            extraSeedMap,
-            linkField.foreignTableId(),
-            allLinkedIds
-          );
-          if (mergeResult.isErr()) return err(mergeResult.error);
-        }
-
-        // Load incoming link fields (link fields from OTHER tables that point to THIS table)
+        // Discover every host before reading seeds so seed reads and cleanup share one
+        // operation-local catalog snapshot. Metadata and physical data may use different DBs.
         const metaDb = this.resolveMetaDb(context);
         const incomingFieldsResult = await loadIncomingLinkFields(metaDb, table.id().toString());
         if (incomingFieldsResult.isErr()) return err(incomingFieldsResult.error);
         const incomingFields = incomingFieldsResult.value;
+        const linkHostCatalog = yield* await loadLinkHostCatalog(db, [
+          ...linkFieldOps.map(({ operation, seedColumns, cleanupColumns }) => ({
+            hostTableName: operation.tableName,
+            columnNames: [...seedColumns, ...cleanupColumns],
+          })),
+          ...incomingFields.map((field) => ({
+            hostTableName: field.fkHostTableName,
+            columnNames: incomingCleanupColumnNames(field),
+          })),
+        ]);
+        const returningIncomingFieldIds = incomingReturningSeedFieldIds(
+          incomingFields,
+          tableName,
+          table.id().toString()
+        );
 
-        // Collect extra seed records from incoming links (BEFORE cleanup)
+        // Capture all outgoing seeds before any cleanup can erase a shared/self-link.
+        for (const plan of linkFieldOps) {
+          const linkedIds = yield* await loadOutgoingLinkSeedIds(
+            db,
+            recordIdStrings,
+            plan,
+            linkHostCatalog,
+            this.logger
+          );
+          const mergeResult = mergeExtraSeedRecords(
+            extraSeedMap,
+            plan.field.foreignTableId(),
+            linkedIds
+          );
+          if (mergeResult.isErr()) return err(mergeResult.error);
+        }
+
+        // Shared hosts, required links, and self/symmetric links retain pre-cleanup seeds.
         const incomingSeedsResult = await collectIncomingLinkExtraSeedRecords(
           db,
           recordIdStrings,
           incomingFields,
-          extraSeedMap
+          extraSeedMap,
+          linkHostCatalog,
+          returningIncomingFieldIds
         );
         if (incomingSeedsResult.isErr()) return err(incomingSeedsResult.error);
 
@@ -3410,17 +3551,20 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           recordIdStrings,
           incomingFields,
           tableName, // Pass target table name to skip symmetric link cleanup
-          table.id().toString() // Pass target table ID to detect self-referential links
+          table.id().toString(), // Pass target table ID to detect self-referential links
+          extraSeedMap,
+          linkHostCatalog,
+          returningIncomingFieldIds
         );
         if (incomingCleanupResult.isErr()) return err(incomingCleanupResult.error);
 
         // Execute all outgoing delete operations
-        for (const { field, operation } of linkFieldOps) {
+        for (const plan of linkFieldOps) {
           const outgoingDeleteResult = await executeOutgoingLinkDeleteOp(
             db,
             recordIdStrings,
-            operation,
-            field,
+            plan,
+            linkHostCatalog,
             this.logger
           );
           if (outgoingDeleteResult.isErr()) return err(outgoingDeleteResult.error);
@@ -3763,7 +3907,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
-    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    const enqueueResult = await this.enqueueAdmittedSeedTask(context, table, seedTask);
     if (enqueueResult.isErr()) {
       this.logger.warn('computed:seed:enqueue_failed', {
         error: enqueueResult.error.message,
@@ -3798,7 +3942,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     extraSeedRecords: ReadonlyArray<ExtraSeedRecordGroup> = [],
     beforeImageRecords: ReadonlyArray<ComputedBeforeImageRecord> = [],
     options?: Pick<InsertOptions, 'allowPendingTableProvisionForComputedUpdates'> & {
-      readonly orchestration?: core.IBatchMutationOrchestration | undefined;
+      readonly orchestration?: core.IBatchMutationOrchestration;
     }
   ): Promise<Result<ComputedUpdateResult | undefined, DomainError>> {
     if (records.length === 0) return ok(undefined);
@@ -3830,6 +3974,31 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       includeZeroReferenceFormulas: changeType === 'insert',
     });
 
+    return this.runComputedUpdateManySeeds(
+      context,
+      table,
+      recordIds,
+      changedFieldIds,
+      changeType,
+      extraSeedRecords,
+      beforeImageRecords,
+      options
+    );
+  }
+
+  private async runComputedUpdateManySeeds(
+    context: core.IExecutionContext,
+    table: core.Table,
+    recordIds: core.RecordId[],
+    changedFieldIds: core.FieldId[],
+    changeType: 'insert' | 'update' | 'delete',
+    extraSeedRecords: ReadonlyArray<ExtraSeedRecordGroup>,
+    beforeImageRecords: ReadonlyArray<ComputedBeforeImageRecord>,
+    options?: Pick<InsertOptions, 'allowPendingTableProvisionForComputedUpdates'> & {
+      readonly orchestration?: core.IBatchMutationOrchestration | undefined;
+    },
+    realtimeRecordCount = recordIds.length
+  ): Promise<Result<ComputedUpdateResult | undefined, DomainError>> {
     // If no changed fields, nothing to compute
     if (changedFieldIds.length === 0) {
       return ok(undefined);
@@ -3895,7 +4064,11 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             context,
             table.baseId(),
             executeResult.value,
-            resolveComputedRealtimeOrchestration(context, recordIds.length, options?.orchestration)
+            resolveComputedRealtimeOrchestration(
+              context,
+              realtimeRecordCount,
+              options?.orchestration
+            )
           );
         }
         return ok(executeResult.value);
@@ -3926,13 +4099,13 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       runId: context.requestId ?? generateUuid(),
       orchestration: resolveComputedRealtimeOrchestration(
         context,
-        recordIds.length,
+        realtimeRecordCount,
         options?.orchestration
       ),
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
-    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    const enqueueResult = await this.enqueueAdmittedSeedTask(context, table, seedTask);
     if (enqueueResult.isErr()) {
       this.logger.warn('computed:seed:enqueue_many_failed', {
         error: enqueueResult.error.message,
@@ -4080,7 +4253,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
-    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    const enqueueResult = await this.enqueueAdmittedSeedTask(context, table, seedTask);
     if (enqueueResult.isErr()) {
       this.logger.warn('computed:seed:enqueue_failed', {
         error: enqueueResult.error.message,
@@ -4333,7 +4506,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     });
 
     // Enqueue seed task - plan computation and execution happens asynchronously in the worker
-    const enqueueResult = await this.computedUpdateOutbox.enqueueSeedTask(seedTask, context);
+    const enqueueResult = await this.enqueueAdmittedSeedTask(context, table, seedTask);
     if (enqueueResult.isErr()) {
       this.logger.warn('computed:seed:enqueue_delete_many_failed', {
         error: enqueueResult.error.message,
@@ -4392,16 +4565,19 @@ const buildComputedUpdateEvents = (
       continue;
     }
 
-    const updates = recordChanges.map((change) => ({
+    const updates = collapseRecordChangesByRecordId(recordChanges).map((change) => ({
       recordId: change.recordId,
       oldVersion: change.oldVersion,
-      newVersion: change.oldVersion + 1,
+      newVersion: change.newVersion ?? change.oldVersion + 1,
       changes: change.changes.map((fieldChange) => ({
         fieldId: fieldChange.fieldId,
         oldValue: fieldChange.oldValue,
         newValue: fieldChange.newValue,
       })),
     }));
+    if (updates.length === 0) {
+      continue;
+    }
 
     events.push(
       core.RecordsBatchUpdated.create({
@@ -4470,51 +4646,97 @@ const extractChangesForAllRecords = (
   return changesByRecord.size > 0 ? changesByRecord : undefined;
 };
 
-const resolveFkHostTableName = (field: core.LinkField): Result<string, DomainError> => {
-  return field
-    .fkHostTableName()
-    .split({ defaultSchema: 'public' })
-    .map((split) => (split.schema ? `${split.schema}.${split.tableName}` : split.tableName));
+type OutgoingLinkDeletePlan = {
+  field: core.LinkField;
+  operation: OutgoingLinkDeleteOp;
+  linkedKeyName: string;
+  seedColumns: ReadonlyArray<string>;
+  cleanupColumns: ReadonlyArray<string>;
 };
 
-type ExternalLinkHostPlan = {
-  hostTableName: string;
-  operationType: OutgoingLinkDeleteOp['type'];
-};
+type LinkHostCatalog = ReadonlyMap<string, ReadonlySet<string>>;
 
-const resolveExternalLinkHostPlan = (
-  field: core.LinkField
-): Result<ExternalLinkHostPlan | undefined, DomainError> => {
-  const relationship = field.relationship().toString();
-  if (relationship === 'manyMany' || (relationship === 'oneMany' && field.isOneWay())) {
-    return resolveFkHostTableName(field).map((hostTableName) => ({
-      hostTableName,
-      operationType: 'junction-delete' as const,
-    }));
-  }
-
-  if (relationship === 'oneMany') {
-    return resolveFkHostTableName(field).map((hostTableName) => ({
-      hostTableName,
-      operationType: 'fk-nullify' as const,
-    }));
-  }
-
-  return ok(undefined);
-};
-
-const checkTableExists = async (db: Kysely<DynamicDB>, tableName: string): Promise<boolean> => {
+const linkHostTableKey = (tableName: string): string => {
   const { schemaName, plainTableName } = splitSchemaQualifiedTableName(tableName);
-  const result = await sql<{ exists: boolean }>`
-    SELECT EXISTS (
-      SELECT 1
-      FROM information_schema.tables
-      WHERE table_schema = ${schemaName ?? 'public'}
-      AND table_name = ${plainTableName}
-    ) AS exists
-  `.execute(db);
+  return toQualifiedIdentifierLiteral(schemaName ?? 'public', plainTableName);
+};
 
-  return result.rows[0]?.exists === true;
+/**
+ * Keep information_schema's table/column visibility rules, but fetch every requested
+ * host in one round trip. Each operation still checks its own required columns.
+ */
+const loadLinkHostCatalog = async (
+  db: Kysely<DynamicDB>,
+  storage: ReadonlyArray<{ hostTableName: string; columnNames: ReadonlyArray<string> }>
+): Promise<Result<LinkHostCatalog, DomainError>> => {
+  const requested = new Map<
+    string,
+    { schemaName: string; tableName: string; columnNames: Set<string> }
+  >();
+  for (const { hostTableName, columnNames } of storage) {
+    const key = linkHostTableKey(hostTableName);
+    let host = requested.get(key);
+    if (!host) {
+      const { schemaName, plainTableName } = splitSchemaQualifiedTableName(hostTableName);
+      host = {
+        schemaName: schemaName ?? 'public',
+        tableName: plainTableName,
+        columnNames: new Set(),
+      };
+      requested.set(key, host);
+    }
+    for (const columnName of columnNames) {
+      if (columnName.length > 0) host.columnNames.add(columnName);
+    }
+  }
+
+  const catalog = new Map<string, Set<string>>();
+  if (requested.size === 0) return ok(catalog);
+
+  try {
+    const hosts = [...requested].map(
+      ([key, host]) =>
+        sql`(${key}, ${host.schemaName}, ${host.tableName}, ARRAY[${sql.join(
+          [...host.columnNames].map((columnName) => sql`${columnName}`)
+        )}]::text[])`
+    );
+    const result = await sql<{ host_key: string; column_name: string | null }>`
+      WITH requested(host_key, schema_name, table_name, column_names) AS (
+        VALUES ${sql.join(hosts)}
+      )
+      SELECT requested.host_key, c.column_name
+      FROM requested
+      INNER JOIN information_schema.tables AS t
+        ON t.table_schema = requested.schema_name AND t.table_name = requested.table_name
+      LEFT JOIN information_schema.columns AS c
+        ON c.table_schema = t.table_schema AND c.table_name = t.table_name
+        AND c.column_name = ANY(requested.column_names)
+    `.execute(db);
+    for (const row of result.rows) {
+      let columns = catalog.get(row.host_key);
+      if (!columns) {
+        columns = new Set();
+        catalog.set(row.host_key, columns);
+      }
+      if (row.column_name !== null) columns.add(row.column_name);
+    }
+    return ok(catalog);
+  } catch (error) {
+    return err(
+      domainError.infrastructure({
+        message: `Failed to check link host table existence: ${describeError(error)}`,
+      })
+    );
+  }
+};
+
+const catalogHasTableAndColumns = (
+  catalog: LinkHostCatalog,
+  tableName: string,
+  columnNames: ReadonlyArray<string>
+): boolean => {
+  const columns = catalog.get(linkHostTableKey(tableName));
+  return columns !== undefined && columnNames.every((name) => !name || columns.has(name));
 };
 
 const isMissingRelationError = (error: unknown): boolean => {
@@ -4555,7 +4777,7 @@ const isKyselyTransaction = (db: Kysely<DynamicDB>): boolean =>
   db instanceof Transaction || (db as { isTransaction?: boolean }).isTransaction === true;
 
 const toIncomingLinkSavepointIdentifier = (fieldId: string, index: number): string => {
-  const safeFieldId = fieldId.replaceAll(/[^A-Za-z0-9_]/g, '_').slice(0, 40);
+  const safeFieldId = fieldId.replaceAll(/\W/g, '_').slice(0, 40);
   return `"incoming_link_${index}_${safeFieldId}"`;
 };
 
@@ -4627,73 +4849,52 @@ const warnMissingLinkHostTable = (
   });
 };
 
-const preflightExternalLinkHostTable = async (
-  db: Kysely<DynamicDB>,
-  field: core.LinkField,
+const preflightOutgoingLinkHost = (
+  catalog: LinkHostCatalog,
+  plan: OutgoingLinkDeletePlan,
   logger: ILogger,
   phase: 'load-existing' | 'cleanup-outgoing',
   recordCount: number
-): Promise<Result<boolean, DomainError>> => {
-  const hostPlanResult = resolveExternalLinkHostPlan(field);
-  if (hostPlanResult.isErr()) {
-    return err(hostPlanResult.error);
+): boolean => {
+  const exists = catalogHasTableAndColumns(
+    catalog,
+    plan.operation.tableName,
+    phase === 'load-existing' ? plan.seedColumns : plan.cleanupColumns
+  );
+  if (!exists) {
+    warnMissingLinkHostTable(logger, {
+      phase,
+      field: plan.field,
+      hostTableName: plan.operation.tableName,
+      operationType: plan.operation.type,
+      recordCount,
+      error: 'preflight: link host table or column missing',
+    });
   }
-
-  const hostPlan = hostPlanResult.value;
-  if (!hostPlan) {
-    return ok(true);
-  }
-
-  try {
-    const exists = await checkTableExists(db, hostPlan.hostTableName);
-    if (!exists) {
-      warnMissingLinkHostTable(logger, {
-        phase,
-        field,
-        hostTableName: hostPlan.hostTableName,
-        operationType: hostPlan.operationType,
-        recordCount,
-        error: 'preflight: link host table missing',
-      });
-    }
-    return ok(exists);
-  } catch (error) {
-    return err(
-      domainError.infrastructure({
-        message: `Failed to check link host table existence: ${describeError(error)}`,
-      })
-    );
-  }
+  return exists;
 };
 
 /**
- * Execute an outgoing link delete operation.
- * Takes the operation descriptor from FieldDeleteValueVisitor and executes it.
+ * Execute an outgoing link delete operation described by FieldDeleteValueVisitor.
  */
 const executeOutgoingLinkDeleteOp = async (
   db: Kysely<DynamicDB>,
   recordIds: ReadonlyArray<string>,
-  operation: OutgoingLinkDeleteOp,
-  field: core.LinkField,
+  plan: OutgoingLinkDeletePlan,
+  catalog: LinkHostCatalog,
   logger: ILogger
 ): Promise<Result<void, DomainError>> => {
   if (recordIds.length === 0) return ok(undefined);
-
-  const hostCheckResult = await preflightExternalLinkHostTable(
-    db,
-    field,
-    logger,
-    'cleanup-outgoing',
-    recordIds.length
-  );
-  if (hostCheckResult.isErr()) {
-    return err(hostCheckResult.error);
-  }
-  if (!hostCheckResult.value) {
+  if (!preflightOutgoingLinkHost(catalog, plan, logger, 'cleanup-outgoing', recordIds.length)) {
     return ok(undefined);
   }
 
+  const { operation, field } = plan;
+  let savepointIdentifier: string | undefined;
+  let restoreSavepoint = false;
   try {
+    // A positive catalog snapshot cannot guard against a concurrent DROP.
+    savepointIdentifier = await beginIncomingLinkSavepoint(db, field.id().toString(), 0);
     if (operation.type === 'junction-delete') {
       await db
         .deleteFrom(operation.tableName)
@@ -4714,6 +4915,8 @@ const executeOutgoingLinkDeleteOp = async (
     }
     return ok(undefined);
   } catch (error) {
+    restoreSavepoint = true;
+    await rollbackIncomingLinkSavepoint(db, savepointIdentifier);
     if (isMissingRelationError(error)) {
       warnMissingLinkHostTable(logger, {
         phase: 'cleanup-outgoing',
@@ -4730,149 +4933,67 @@ const executeOutgoingLinkDeleteOp = async (
         message: `Failed to clean outgoing link records: ${describeError(error)}`,
       })
     );
+  } finally {
+    if (!restoreSavepoint) {
+      await releaseIncomingLinkSavepoint(db, savepointIdentifier);
+    }
   }
 };
 
 /**
- * Batch load existing link record IDs for multiple records.
- * Returns a Map<recordId, linkedRecordIds[]> for a single link field.
- * This reduces O(records × linkFields) queries to O(linkFields) queries.
+ * Load only distinct linked IDs for computed seeds; the source-to-target grouping
+ * is irrelevant once all records in the delete batch contribute to the same seed set.
  */
-const loadExistingLinkRecordIdsBatch = async (
+const loadOutgoingLinkSeedIds = async (
   db: Kysely<DynamicDB>,
-  tableName: string,
   recordIds: ReadonlyArray<string>,
-  field: core.LinkField,
+  plan: OutgoingLinkDeletePlan,
+  catalog: LinkHostCatalog,
   logger: ILogger
-): Promise<Result<Map<string, string[]>, DomainError>> => {
-  const result = new Map<string, string[]>();
-  if (recordIds.length === 0) return ok(result);
-
-  // Initialize all records with empty arrays
-  for (const recordId of recordIds) {
-    result.set(recordId, []);
+): Promise<Result<string[], DomainError>> => {
+  if (recordIds.length === 0) return ok([]);
+  if (!preflightOutgoingLinkHost(catalog, plan, logger, 'load-existing', recordIds.length)) {
+    return ok([]);
   }
 
-  const relationship = field.relationship().toString();
-  const hostCheckResult = await preflightExternalLinkHostTable(
-    db,
-    field,
-    logger,
-    'load-existing',
-    recordIds.length
-  );
-  if (hostCheckResult.isErr()) {
-    return err(hostCheckResult.error);
-  }
-  if (!hostCheckResult.value) {
-    return ok(result);
-  }
-
+  const { operation, field, linkedKeyName } = plan;
+  let savepointIdentifier: string | undefined;
+  let restoreSavepoint = false;
   try {
-    if (relationship === 'manyMany' || (relationship === 'oneMany' && field.isOneWay())) {
-      // Junction table: SELECT selfKey, foreignKey FROM junction WHERE selfKey IN (...)
-      const junctionTableResult = resolveFkHostTableName(field);
-      if (junctionTableResult.isErr()) return err(junctionTableResult.error);
-      const selfKeyResult = field.selfKeyNameString();
-      if (selfKeyResult.isErr()) return err(selfKeyResult.error);
-      const foreignKeyResult = field.foreignKeyNameString();
-      if (foreignKeyResult.isErr()) return err(foreignKeyResult.error);
-
-      const rows = await db
-        .selectFrom(junctionTableResult.value)
-        .select([
-          sql.ref(selfKeyResult.value).as('self_key'),
-          sql.ref(foreignKeyResult.value).as('foreign_key'),
-        ])
-        .where(selfKeyResult.value, 'in', recordIds as string[])
-        .execute();
-
-      for (const row of rows) {
-        const selfKey = row.self_key;
-        const foreignKey = row.foreign_key;
-        if (typeof selfKey === 'string' && typeof foreignKey === 'string') {
-          const existing = result.get(selfKey) ?? [];
-          existing.push(foreignKey);
-          result.set(selfKey, existing);
-        }
-      }
-      return ok(result);
-    }
-
-    if (relationship === 'manyOne' || relationship === 'oneOne') {
-      // FK on current table: SELECT __id, fk FROM table WHERE __id IN (...)
-      const foreignKeyResult = field.foreignKeyNameString();
-      if (foreignKeyResult.isErr()) return err(foreignKeyResult.error);
-
-      const rows = await db
-        .selectFrom(tableName)
-        .select([
-          sql.ref(RECORD_ID_COLUMN).as('record_id'),
-          sql.ref(foreignKeyResult.value).as('foreign_key'),
-        ])
-        .where(RECORD_ID_COLUMN, 'in', recordIds as string[])
-        .execute();
-
-      for (const row of rows) {
-        const recordId = row.record_id;
-        const foreignKey = row.foreign_key;
-        if (typeof recordId === 'string' && typeof foreignKey === 'string') {
-          result.set(recordId, [foreignKey]);
-        }
-      }
-      return ok(result);
-    }
-
-    if (relationship === 'oneMany') {
-      // FK on foreign table: SELECT selfKey, __id FROM foreignTable WHERE selfKey IN (...)
-      const foreignTableResult = resolveFkHostTableName(field);
-      if (foreignTableResult.isErr()) return err(foreignTableResult.error);
-      const selfKeyResult = field.selfKeyNameString();
-      if (selfKeyResult.isErr()) return err(selfKeyResult.error);
-
-      const rows = await db
-        .selectFrom(foreignTableResult.value)
-        .select([
-          sql.ref(selfKeyResult.value).as('self_key'),
-          sql.ref(RECORD_ID_COLUMN).as('foreign_key'),
-        ])
-        .where(selfKeyResult.value, 'in', recordIds as string[])
-        .execute();
-
-      for (const row of rows) {
-        const selfKey = row.self_key;
-        const foreignKey = row.foreign_key;
-        if (typeof selfKey === 'string' && typeof foreignKey === 'string') {
-          const existing = result.get(selfKey) ?? [];
-          existing.push(foreignKey);
-          result.set(selfKey, existing);
-        }
-      }
-      return ok(result);
-    }
-
-    return ok(result);
+    savepointIdentifier = await beginIncomingLinkSavepoint(db, field.id().toString(), 0);
+    const rows = await db
+      .selectFrom(operation.tableName)
+      .select(sql.ref(linkedKeyName).as('linked_id'))
+      .distinct()
+      .where(operation.selfKeyName, 'in', recordIds as string[])
+      .where(linkedKeyName, 'is not', null)
+      .execute();
+    return ok(
+      rows.map((row) => row.linked_id).filter((id): id is string => typeof id === 'string')
+    );
   } catch (error) {
+    restoreSavepoint = true;
+    await rollbackIncomingLinkSavepoint(db, savepointIdentifier);
     if (isMissingRelationError(error)) {
-      const hostTableResult = resolveFkHostTableName(field);
       warnMissingLinkHostTable(logger, {
         phase: 'load-existing',
         field,
-        hostTableName: hostTableResult.isOk() ? hostTableResult.value : 'unknown',
-        operationType:
-          relationship === 'manyMany' || (relationship === 'oneMany' && field.isOneWay())
-            ? 'junction-delete'
-            : 'fk-nullify',
+        hostTableName: operation.tableName,
+        operationType: operation.type,
         recordCount: recordIds.length,
         error,
       });
-      return ok(result);
+      return ok([]);
     }
     return err(
       domainError.infrastructure({
-        message: `Failed to batch load existing link records: ${describeError(error)}`,
+        message: `Failed to load outgoing link seed records: ${describeError(error)}`,
       })
     );
+  } finally {
+    if (!restoreSavepoint) {
+      await releaseIncomingLinkSavepoint(db, savepointIdentifier);
+    }
   }
 };
 
@@ -4939,13 +5060,13 @@ const acquireLinkedRecordLocks = async (
   }
 
   // Sort keys to ensure consistent lock ordering across transactions
-  const lockKeys = [...lockKeysSet].sort();
+  const lockKeys = [...lockKeysSet].sort((a, b) => Number(a > b) - Number(a < b));
 
   if (lockKeys.length === 0) return;
 
   // Acquire all locks in a single batch query
   // Format array as PostgreSQL array literal: ARRAY['key1', 'key2', ...]
-  const arrayLiteral = `ARRAY[${lockKeys.map((k) => `'${k.replace(/'/g, "''")}'`).join(',')}]`;
+  const arrayLiteral = `ARRAY[${lockKeys.map((k) => `'${k.replaceAll("'", "''")}'`).join(',')}]`;
   await db.executeQuery(
     sql`SELECT pg_advisory_xact_lock(('x' || substr(md5(k), 1, 16))::bit(64)::bigint)
         FROM unnest(${sql.raw(arrayLiteral)}::text[]) AS k
@@ -5438,9 +5559,9 @@ const loadIncomingLinkFields = async (
         'table_meta.deleted_time as table_deleted_time',
         'field.options as options',
       ])
-      .where('field.type', '=', 'link')
-      .where((eb) => eb.or([eb('field.is_lookup', 'is', null), eb('field.is_lookup', '=', false)]))
-      .where(sql`(field.options::json->>'foreignTableId')::text`, '=', targetTableId)
+      .where(sql<SqlBool>`field.type = 'link'`)
+      .where(sql<SqlBool>`(field.is_lookup IS NULL OR field.is_lookup = false)`)
+      .where(sql`field.options::json->>'foreignTableId'`, '=', targetTableId)
       .execute();
 
     const result: IncomingLinkFieldInfo[] = [];
@@ -5584,22 +5705,105 @@ const loadIncomingLinkDeleteError = async (
 };
 
 /**
- * Execute cleanup for incoming links - clean up FK/junction entries that point TO the deleted records.
- * Cleanup is skipped when the FK column lives on the table being deleted (the FK rows
- * disappear with the records), but a required incoming link still rejects the delete
- * whenever it would leave a surviving host row with an emptied link.
+ * Columns required by both seed reads and incoming cleanup. Junction and reverse
+ * FK hosts do not carry the source table's JSONB display column.
+ */
+const incomingCleanupColumnNames = (field: IncomingLinkFieldInfo): string[] => {
+  const columnNames: string[] = [];
+  if (field.foreignKeyName && field.foreignKeyName !== '__id') {
+    columnNames.push(field.foreignKeyName);
+  }
+  if (field.selfKeyName) {
+    columnNames.push(field.selfKeyName);
+  }
+  const usesJunctionHost =
+    field.relationship === 'manyMany' || (field.relationship === 'oneMany' && field.isOneWay);
+  // JSONB display / order columns live on the source table. Junction hosts and
+  // two-way oneMany hosts (FK on the deleted table) do not have them.
+  if (!usesJunctionHost && (field.relationship === 'manyOne' || field.relationship === 'oneOne')) {
+    if (field.orderColumnName) {
+      columnNames.push(field.orderColumnName);
+    }
+    if (field.dbFieldName && field.dbFieldName !== field.foreignKeyName) {
+      columnNames.push(field.dbFieldName);
+    }
+  }
+  return columnNames;
+};
+
+/**
+ * Only independent, active, optional incoming links can capture seeds while mutating.
+ * Count all descriptors, including tombstones, so an earlier cleanup cannot erase
+ * another descriptor's old links. Self/reverse links keep their pre-cleanup reads.
+ */
+const incomingReturningSeedFieldIds = (
+  incomingFields: ReadonlyArray<IncomingLinkFieldInfo>,
+  targetTableName: string,
+  targetTableId: string
+): ReadonlySet<string> => {
+  const hostCounts = new Map<string, number>();
+  for (const field of incomingFields) {
+    const host = linkHostTableKey(field.fkHostTableName);
+    hostCounts.set(host, (hostCounts.get(host) ?? 0) + 1);
+  }
+
+  const targetHost = linkHostTableKey(targetTableName);
+  const fieldIds = new Set<string>();
+  for (const field of incomingFields) {
+    const host = linkHostTableKey(field.fkHostTableName);
+    if (
+      field.fieldDeleted ||
+      field.tableDeleted ||
+      field.notNull ||
+      field.sourceTableId === targetTableId ||
+      host === targetHost ||
+      hostCounts.get(host) !== 1
+    ) {
+      continue;
+    }
+    const usesJunctionHost =
+      field.relationship === 'manyMany' || (field.relationship === 'oneMany' && field.isOneWay);
+    if (
+      (usesJunctionHost && field.selfKeyName) ||
+      ((field.relationship === 'manyOne' || field.relationship === 'oneOne') &&
+        field.foreignKeyName !== '__id')
+    ) {
+      fieldIds.add(field.fieldId);
+    }
+  }
+  return fieldIds;
+};
+
+/**
+ * Clean incoming FK/junction storage, capturing independent seeds with RETURNING.
+ * Catalog checks skip missing storage; SAVEPOINT still handles concurrent DDL.
+ * Required links retain their surviving-host blocking checks.
  */
 const executeIncomingLinkCleanup = async (
   db: Kysely<DynamicDB>,
   recordIds: ReadonlyArray<string>,
   incomingFields: ReadonlyArray<IncomingLinkFieldInfo>,
   targetTableName: string,
-  targetTableId: string
+  targetTableId: string,
+  extraSeedMap: Map<string, { tableId: core.TableId; recordIds: Map<string, core.RecordId> }>,
+  catalog: LinkHostCatalog,
+  returningFieldIds: ReadonlySet<string>
 ): Promise<Result<void, DomainError>> => {
   if (recordIds.length === 0 || incomingFields.length === 0) return ok(undefined);
 
   try {
     for (const [index, field] of incomingFields.entries()) {
+      const physicalExists = catalogHasTableAndColumns(
+        catalog,
+        field.fkHostTableName,
+        incomingCleanupColumnNames(field)
+      );
+      if (!physicalExists) {
+        // Skip SQL when the host table/columns are already gone. Deleted fields
+        // still clean up when the physical FK may still exist.
+        continue;
+      }
+
       const savepointIdentifier = await beginIncomingLinkSavepoint(db, field.fieldId, index);
       let restoreSavepoint = false;
       try {
@@ -5616,6 +5820,7 @@ const executeIncomingLinkCleanup = async (
 
         const isSelfReferential = sourceTableId === targetTableId;
         const fkOnDeletedTable = fkHostTableName === targetTableName;
+        let seedRows: ReadonlyArray<{ source_id: unknown }> | undefined;
 
         if (relationship === 'manyMany' || (relationship === 'oneMany' && isOneWay)) {
           // Junction table: a required host row must not lose its last link. A host is
@@ -5648,11 +5853,25 @@ const executeIncomingLinkCleanup = async (
             const blockingRow = await blockingQuery.executeTakeFirst();
             if (blockingRow) return err(requiredIncomingLinkViolationError(field));
           }
-          // Delete junction rows where foreignKey matches deleted records
-          await db
-            .deleteFrom(fkHostTableName)
-            .where(foreignKeyName, 'in', recordIds as string[])
-            .execute();
+          if (returningFieldIds.has(field.fieldId) && selfKeyName) {
+            // One source may lose several edges; deduplicate inside Postgres.
+            seedRows = await db
+              .with('deleted_link_rows', (qb) =>
+                qb
+                  .deleteFrom(fkHostTableName)
+                  .where(foreignKeyName, 'in', recordIds as string[])
+                  .returning(sql.ref(selfKeyName).as('source_id'))
+              )
+              .selectFrom('deleted_link_rows')
+              .select('source_id')
+              .distinct()
+              .execute();
+          } else {
+            await db
+              .deleteFrom(fkHostTableName)
+              .where(foreignKeyName, 'in', recordIds as string[])
+              .execute();
+          }
         } else if (
           (relationship === 'manyOne' || relationship === 'oneOne') &&
           foreignKeyName !== '__id' &&
@@ -5686,11 +5905,15 @@ const executeIncomingLinkCleanup = async (
           if (dbFieldName && dbFieldName !== foreignKeyName) {
             updateValues[dbFieldName] = null;
           }
-          await db
+          const updateQuery = db
             .updateTable(fkHostTableName)
             .set(updateValues)
-            .where(foreignKeyName, 'in', recordIds as string[])
-            .execute();
+            .where(foreignKeyName, 'in', recordIds as string[]);
+          if (returningFieldIds.has(field.fieldId)) {
+            seedRows = await updateQuery.returning(sql.ref('__id').as('source_id')).execute();
+          } else {
+            await updateQuery.execute();
+          }
         } else if (fkOnDeletedTable && selfKeyName) {
           // FK column lives on the table being deleted (two-way oneMany, or the
           // non-hosting side of a two-way oneOne): the FK rows disappear with the
@@ -5728,6 +5951,19 @@ const executeIncomingLinkCleanup = async (
         }
         // Remaining cleanup for two-way oneMany FKs is handled by the outgoing link
         // cleanup via FieldDeleteValueVisitor
+        if (seedRows?.length) {
+          const sourceRecordIds = seedRows
+            .map((row) => row.source_id)
+            .filter((id): id is string => typeof id === 'string');
+          const tableIdResult = core.TableId.create(sourceTableId);
+          if (tableIdResult.isErr()) return err(tableIdResult.error);
+          const mergeResult = mergeExtraSeedRecords(
+            extraSeedMap,
+            tableIdResult.value,
+            sourceRecordIds
+          );
+          if (mergeResult.isErr()) return err(mergeResult.error);
+        }
       } catch (error) {
         restoreSavepoint = true;
         await rollbackIncomingLinkSavepoint(db, savepointIdentifier);
@@ -5759,13 +5995,22 @@ const collectIncomingLinkExtraSeedRecords = async (
   db: Kysely<DynamicDB>,
   recordIds: ReadonlyArray<string>,
   incomingFields: ReadonlyArray<IncomingLinkFieldInfo>,
-  extraSeedMap: Map<string, { tableId: core.TableId; recordIds: Map<string, core.RecordId> }>
+  extraSeedMap: Map<string, { tableId: core.TableId; recordIds: Map<string, core.RecordId> }>,
+  catalog: LinkHostCatalog,
+  returningFieldIds: ReadonlySet<string>
 ): Promise<Result<void, DomainError>> => {
   if (recordIds.length === 0 || incomingFields.length === 0) return ok(undefined);
 
   try {
     for (const [index, field] of incomingFields.entries()) {
-      if (field.fieldDeleted || field.tableDeleted) continue;
+      if (field.fieldDeleted || field.tableDeleted || returningFieldIds.has(field.fieldId))
+        continue;
+      const physicalExists = catalogHasTableAndColumns(
+        catalog,
+        field.fkHostTableName,
+        incomingCleanupColumnNames(field)
+      );
+      if (!physicalExists) continue;
       const savepointIdentifier = await beginIncomingLinkSavepoint(db, field.fieldId, index);
       let restoreSavepoint = false;
       try {
@@ -5778,44 +6023,29 @@ const collectIncomingLinkExtraSeedRecords = async (
           selfKeyName,
         } = field;
 
-        let sourceRecordIds: string[] = [];
-
+        let sourceKeyName: string | null = null;
+        let targetKeyName = foreignKeyName;
         if (relationship === 'manyMany' || (relationship === 'oneMany' && isOneWay)) {
-          // Junction table: find source records that link to deleted records
-          if (!selfKeyName) continue;
-          const rows = await db
-            .selectFrom(fkHostTableName)
-            .select(sql.ref(selfKeyName).as('source_id'))
-            .where(foreignKeyName, 'in', recordIds as string[])
-            .execute();
-          sourceRecordIds = rows
-            .map((r) => r.source_id)
-            .filter((id): id is string => typeof id === 'string');
+          sourceKeyName = selfKeyName;
         } else if (relationship === 'manyOne' || relationship === 'oneOne') {
-          // FK on source table: find source records that link to deleted records
-          // The FK host table IS the source table
-          const rows = await db
-            .selectFrom(fkHostTableName)
-            .select(sql.ref('__id').as('source_id'))
-            .where(foreignKeyName, 'in', recordIds as string[])
-            .execute();
-          sourceRecordIds = rows
-            .map((r) => r.source_id)
-            .filter((id): id is string => typeof id === 'string');
+          sourceKeyName = '__id';
         } else if (relationship === 'oneMany' && !isOneWay) {
-          // Two-way oneMany (symmetric link): FK is on the target table (being deleted from)
-          // The deleted records' FK values point to the source table records that need seeding
-          // selfKeyName contains B's record IDs stored in A's FK column
-          if (!selfKeyName) continue;
-          const rows = await db
-            .selectFrom(fkHostTableName)
-            .select(sql.ref(selfKeyName).as('foreign_id'))
-            .where('__id', 'in', recordIds as string[])
-            .execute();
-          sourceRecordIds = rows
-            .map((r) => r.foreign_id)
-            .filter((id): id is string => typeof id === 'string');
+          // Reverse FK: the deleted rows hold the source table's IDs in selfKeyName.
+          sourceKeyName = selfKeyName;
+          targetKeyName = '__id';
         }
+        if (!sourceKeyName) continue;
+
+        const rows = await db
+          .selectFrom(fkHostTableName)
+          .select(sql.ref(sourceKeyName).as('source_id'))
+          .distinct()
+          .where(targetKeyName, 'in', recordIds as string[])
+          .where(sourceKeyName, 'is not', null)
+          .execute();
+        const sourceRecordIds = rows
+          .map((row) => row.source_id)
+          .filter((id): id is string => typeof id === 'string');
 
         // Merge into extraSeedMap
         if (sourceRecordIds.length > 0) {

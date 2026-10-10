@@ -19,45 +19,97 @@ export const LOCALIZED_DATETIME_FORMAT_MAP = {
 
 export type ILocalizedDatetimeFormatToken = keyof typeof LOCALIZED_DATETIME_FORMAT_MAP;
 
-type IDatetimeFormatSqlBuilder = (datetimeSql: string, timezoneOffsetSql: string) => string;
+export interface IDatetimeFormatWriter {
+  sql(parts: TemplateStringsArray, ...values: ReadonlyArray<unknown>): string;
+  join(values: ReadonlyArray<string>, separator: string): string;
+  bytes(value: string): number;
+  allocate(bytes: number): void;
+}
+
+const unmeteredSql = (parts: TemplateStringsArray, ...values: ReadonlyArray<unknown>): string => {
+  let result = parts[0];
+  for (let i = 0; i < values.length; i++) result += String(values[i]) + parts[i + 1];
+  return result;
+};
+
+type IDatetimeFormatSqlBuilder = (
+  datetimeSql: string,
+  timezoneOffsetSql: string,
+  writer?: IDatetimeFormatWriter
+) => string;
 
 export const DATETIME_FORMAT_SQL_BUILDERS = {
-  HH24: (valueSql) => `TO_CHAR(${valueSql}, 'HH24')`,
-  HH12: (valueSql) => `TO_CHAR(${valueSql}, 'HH12')`,
-  MI: (valueSql) => `TO_CHAR(${valueSql}, 'MI')`,
-  MS: (valueSql) => `TO_CHAR(${valueSql}, 'MS')`,
-  SS: (valueSql) => `TO_CHAR(${valueSql}, 'SS')`,
-  Month: (valueSql) => `TO_CHAR(${valueSql}, 'FMMonth')`,
-  MONTH: (valueSql) => `TO_CHAR(${valueSql}, 'FMMONTH')`,
-  month: (valueSql) => `TO_CHAR(${valueSql}, 'FMmonth')`,
-  Day: (valueSql) => `TO_CHAR(${valueSql}, 'FMDay')`,
-  DAY: (valueSql) => `TO_CHAR(${valueSql}, 'FMDAY')`,
-  day: (valueSql) => `TO_CHAR(${valueSql}, 'FMday')`,
-  YYYY: (valueSql) => `TO_CHAR(${valueSql}, 'YYYY')`,
-  MMMM: (valueSql) => `TO_CHAR(${valueSql}, 'FMMonth')`,
-  dddd: (valueSql) => `TO_CHAR(${valueSql}, 'FMDay')`,
-  ddd: (valueSql) => `TO_CHAR(${valueSql}, 'FMDy')`,
-  dd: (valueSql) => `LEFT(TO_CHAR(${valueSql}, 'FMDy'), 2)`,
-  d: (valueSql) => `EXTRACT(DOW FROM ${valueSql})::int::text`,
-  MMM: (valueSql) => `TO_CHAR(${valueSql}, 'FMMon')`,
-  YY: (valueSql) => `TO_CHAR(${valueSql}, 'YY')`,
-  MM: (valueSql) => `TO_CHAR(${valueSql}, 'MM')`,
-  M: (valueSql) => `TO_CHAR(${valueSql}, 'FMMM')`,
-  DD: (valueSql) => `TO_CHAR(${valueSql}, 'DD')`,
-  D: (valueSql) => `TO_CHAR(${valueSql}, 'FMDD')`,
-  HH: (valueSql) => `TO_CHAR(${valueSql}, 'HH24')`,
-  H: (valueSql) => `TO_CHAR(${valueSql}, 'FMHH24')`,
-  hh: (valueSql) => `TO_CHAR(${valueSql}, 'HH12')`,
-  h: (valueSql) => `TO_CHAR(${valueSql}, 'FMHH12')`,
-  mm: (valueSql) => `TO_CHAR(${valueSql}, 'MI')`,
-  m: (valueSql) => `TO_CHAR(${valueSql}, 'FMMI')`,
-  ss: (valueSql) => `TO_CHAR(${valueSql}, 'SS')`,
-  s: (valueSql) => `TO_CHAR(${valueSql}, 'FMSS')`,
-  SSS: (valueSql) => `TO_CHAR(${valueSql}, 'MS')`,
-  ZZ: (_valueSql, timezoneOffsetSql) => `REPLACE(${timezoneOffsetSql}, ':', '')`,
-  Z: (_valueSql, timezoneOffsetSql) => timezoneOffsetSql,
-  A: (valueSql) => `TO_CHAR(${valueSql}, 'AM')`,
-  a: (valueSql) => `LOWER(TO_CHAR(${valueSql}, 'AM'))`,
+  HH24: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'HH24')`,
+  HH12: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'HH12')`,
+  MI: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'MI')`,
+  MS: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'MS')`,
+  SS: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'SS')`,
+  Month: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'FMMonth')`,
+  MONTH: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'FMMONTH')`,
+  month: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'FMmonth')`,
+  Day: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'FMDay')`,
+  DAY: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'FMDAY')`,
+  day: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'FMday')`,
+  YYYY: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'YYYY')`,
+  MMMM: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'FMMonth')`,
+  dddd: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'FMDay')`,
+  ddd: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'FMDy')`,
+  dd: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`LEFT(TO_CHAR(${valueSql}, 'FMDy'), 2)`,
+  d: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`EXTRACT(DOW FROM ${valueSql})::int::text`,
+  MMM: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'FMMon')`,
+  YY: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'YY')`,
+  MM: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'MM')`,
+  M: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'FMMM')`,
+  DD: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'DD')`,
+  D: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'FMDD')`,
+  HH: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'HH24')`,
+  H: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'FMHH24')`,
+  hh: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'HH12')`,
+  h: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'FMHH12')`,
+  mm: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'MI')`,
+  m: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'FMMI')`,
+  ss: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'SS')`,
+  s: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'FMSS')`,
+  SSS: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'MS')`,
+  ZZ: (_valueSql, timezoneOffsetSql, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`REPLACE(${timezoneOffsetSql}, ':', '')`,
+  Z: (_valueSql, timezoneOffsetSql, _writer?: IDatetimeFormatWriter) => timezoneOffsetSql,
+  A: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`TO_CHAR(${valueSql}, 'AM')`,
+  a: (valueSql, _offset?: string, writer?: IDatetimeFormatWriter) =>
+    (writer?.sql ?? unmeteredSql)`LOWER(TO_CHAR(${valueSql}, 'AM'))`,
 } as const satisfies Record<string, IDatetimeFormatSqlBuilder>;
 
 export type ISupportedDatetimeFormatToken = keyof typeof DATETIME_FORMAT_SQL_BUILDERS;
@@ -133,7 +185,15 @@ const optionalDatetimeParseGuardTokens = new Set(['FM', 'TM', 'TH']);
 
 const DEFAULT_TIMEZONE_OFFSET_SQL = "'+00:00'";
 
-const toSqlStringLiteral = (literal: string): string => `'${literal.replace(/'/g, "''")}'`;
+const toSqlStringLiteral = (literal: string, writer?: IDatetimeFormatWriter): string => {
+  if (writer) {
+    let quotes = 0;
+    for (const char of literal) if (char === "'") quotes++;
+    writer.allocate(writer.bytes(literal) + quotes);
+  }
+  const escaped = literal.replaceAll("'", "''");
+  return (writer?.sql ?? unmeteredSql)`'${escaped}'`;
+};
 
 const parseSqlStringLiteral = (expr: string): string | null => {
   const trimmed = expr.trim();
@@ -141,7 +201,7 @@ const parseSqlStringLiteral = (expr: string): string | null => {
     return null;
   }
 
-  return trimmed.slice(1, -1).replace(/''/g, "'");
+  return trimmed.slice(1, -1).replaceAll("''", "'");
 };
 
 const shouldMatchSingleCharToken = (literal: string, index: number): boolean => {
@@ -152,32 +212,27 @@ const shouldMatchSingleCharToken = (literal: string, index: number): boolean => 
   return !prevIsAlpha && !nextIsAlpha;
 };
 
-export const expandLocalizedDatetimeFormat = (literal: string): string => {
-  let result = '';
-
+export const expandLocalizedDatetimeFormat = (
+  literal: string,
+  writer?: IDatetimeFormatWriter
+): string => {
+  const parts: string[] = [];
+  let start = 0;
   for (let i = 0; i < literal.length; ) {
-    const remaining = literal.slice(i);
     const token = sortedLocalizedDatetimeFormatTokens.find((candidate) =>
-      remaining.startsWith(candidate)
+      literal.startsWith(candidate, i)
     );
-
-    if (token) {
-      if (token.length === 1 && !shouldMatchSingleCharToken(literal, i)) {
-        result += literal[i];
-        i += 1;
-        continue;
-      }
-
-      result += LOCALIZED_DATETIME_FORMAT_MAP[token];
+    if (token && (token.length !== 1 || shouldMatchSingleCharToken(literal, i))) {
+      parts.push(literal.slice(start, i), LOCALIZED_DATETIME_FORMAT_MAP[token]);
       i += token.length;
-      continue;
+      start = i;
+    } else {
+      i++;
     }
-
-    result += literal[i];
-    i += 1;
   }
-
-  return result;
+  if (start === 0) return literal;
+  parts.push(literal.slice(start));
+  return writer ? writer.join(parts, '') : parts.join('');
 };
 
 const forEachSupportedDatetimeFormatToken = (
@@ -185,14 +240,14 @@ const forEachSupportedDatetimeFormatToken = (
   options: {
     onToken: (token: ISupportedDatetimeFormatToken) => void;
     onLiteralChar: (char: string) => void;
-  }
+  },
+  writer?: IDatetimeFormatWriter
 ) => {
-  const expandedLiteral = expandLocalizedDatetimeFormat(literal);
+  const expandedLiteral = expandLocalizedDatetimeFormat(literal, writer);
 
   for (let i = 0; i < expandedLiteral.length; ) {
-    const remaining = expandedLiteral.slice(i);
     const token = sortedSupportedDatetimeFormatTokens.find((candidate) =>
-      remaining.startsWith(candidate)
+      expandedLiteral.startsWith(candidate, i)
     );
 
     if (token) {
@@ -207,37 +262,44 @@ const forEachSupportedDatetimeFormatToken = (
       continue;
     }
 
-    options.onLiteralChar(expandedLiteral[i]);
-    i += 1;
+    const width = (expandedLiteral.codePointAt(i) ?? 0) > 0xffff ? 2 : 1;
+    options.onLiteralChar(expandedLiteral.slice(i, i + width));
+    i += width;
   }
 };
 
 const buildDatetimeFormatSqlFromLiteral = (
   datetimeSql: string,
   formatLiteral: string,
-  timezoneOffsetSql: string
+  timezoneOffsetSql: string,
+  writer?: IDatetimeFormatWriter
 ): string => {
   const sqlParts: string[] = [];
-  let literalBuffer = '';
+  const literalParts: string[] = [];
 
   const flushLiteral = () => {
-    if (!literalBuffer) {
+    if (!literalParts.length) {
       return;
     }
 
-    sqlParts.push(toSqlStringLiteral(literalBuffer));
-    literalBuffer = '';
+    const literal = writer ? writer.join(literalParts, '') : literalParts.join('');
+    sqlParts.push(toSqlStringLiteral(literal, writer));
+    literalParts.length = 0;
   };
 
-  forEachSupportedDatetimeFormatToken(formatLiteral, {
-    onToken: (token) => {
-      flushLiteral();
-      sqlParts.push(DATETIME_FORMAT_SQL_BUILDERS[token](datetimeSql, timezoneOffsetSql));
+  forEachSupportedDatetimeFormatToken(
+    formatLiteral,
+    {
+      onToken: (token) => {
+        flushLiteral();
+        sqlParts.push(DATETIME_FORMAT_SQL_BUILDERS[token](datetimeSql, timezoneOffsetSql, writer));
+      },
+      onLiteralChar: (char) => {
+        literalParts.push(char);
+      },
     },
-    onLiteralChar: (char) => {
-      literalBuffer += char;
-    },
-  });
+    writer
+  );
 
   flushLiteral();
 
@@ -245,7 +307,7 @@ const buildDatetimeFormatSqlFromLiteral = (
     return "''";
   }
 
-  return sqlParts.join(' || ');
+  return writer ? writer.join(sqlParts, ' || ') : sqlParts.join(' || ');
 };
 
 const resolveFormatLiteral = (formatExpr?: string | null): string | null => {
@@ -261,37 +323,48 @@ const resolveFormatLiteral = (formatExpr?: string | null): string | null => {
   return parseSqlStringLiteral(trimmed);
 };
 
-const normalizeDatetimeFormatLiteral = (literal: string): string => {
-  let result = '';
+const normalizeDatetimeFormatLiteral = (
+  literal: string,
+  writer?: IDatetimeFormatWriter
+): string => {
+  const parts: string[] = [];
 
-  forEachSupportedDatetimeFormatToken(literal, {
-    onToken: (token) => {
-      result += DATETIME_FORMAT_TOKEN_TO_POSTGRES[token];
+  forEachSupportedDatetimeFormatToken(
+    literal,
+    {
+      onToken: (token) => {
+        parts.push(DATETIME_FORMAT_TOKEN_TO_POSTGRES[token]);
+      },
+      onLiteralChar: (char) => {
+        parts.push(char);
+      },
     },
-    onLiteralChar: (char) => {
-      result += char;
-    },
-  });
+    writer
+  );
 
-  return result;
+  return writer ? writer.join(parts, '') : parts.join('');
 };
 
 export const buildDatetimeFormatSql = (
   datetimeSql: string,
   formatExpr?: string | null,
-  timezoneOffsetSql: string = DEFAULT_TIMEZONE_OFFSET_SQL
+  timezoneOffsetSql: string = DEFAULT_TIMEZONE_OFFSET_SQL,
+  writer?: IDatetimeFormatWriter
 ): string => {
   const formatLiteral = resolveFormatLiteral(formatExpr);
   if (formatLiteral == null) {
-    const normalizedFormatSql = normalizeDatetimeFormatExpression(formatExpr);
-    return `TO_CHAR(${datetimeSql}, ${normalizedFormatSql})`;
+    const normalizedFormatSql = normalizeDatetimeFormatExpression(formatExpr, writer);
+    return (writer?.sql ?? unmeteredSql)`TO_CHAR(${datetimeSql}, ${normalizedFormatSql})`;
   }
 
   const effectiveFormat = formatLiteral || DEFAULT_DATETIME_FORMAT_LITERAL;
-  return buildDatetimeFormatSqlFromLiteral(datetimeSql, effectiveFormat, timezoneOffsetSql);
+  return buildDatetimeFormatSqlFromLiteral(datetimeSql, effectiveFormat, timezoneOffsetSql, writer);
 };
 
-export const normalizeDatetimeFormatExpression = (formatExpr?: string | null): string => {
+export const normalizeDatetimeFormatExpression = (
+  formatExpr?: string | null,
+  writer?: IDatetimeFormatWriter
+): string => {
   if (typeof formatExpr !== 'string') {
     return DEFAULT_DATETIME_FORMAT_EXPR;
   }
@@ -306,12 +379,14 @@ export const normalizeDatetimeFormatExpression = (formatExpr?: string | null): s
   }
 
   const literal = trimmed.slice(1, -1);
-  const normalizedLiteral = normalizeDatetimeFormatLiteral(literal);
-  const escaped = normalizedLiteral.replace(/'/g, "''");
-  return `'${escaped}'`;
+  const normalizedLiteral = normalizeDatetimeFormatLiteral(literal, writer);
+  return toSqlStringLiteral(normalizedLiteral, writer);
 };
 
-export const hasDatetimeTimezoneToken = (formatExpr?: string | null): boolean | null => {
+export const hasDatetimeTimezoneToken = (
+  formatExpr?: string | null,
+  writer?: IDatetimeFormatWriter
+): boolean | null => {
   const formatLiteral = resolveFormatLiteral(formatExpr);
   if (formatLiteral == null) {
     return null;
@@ -319,22 +394,29 @@ export const hasDatetimeTimezoneToken = (formatExpr?: string | null): boolean | 
 
   let hasTimezoneToken = false;
 
-  forEachSupportedDatetimeFormatToken(formatLiteral, {
-    onToken: (token) => {
-      if (timezoneFormatTokens.has(token)) {
-        hasTimezoneToken = true;
-      }
+  forEachSupportedDatetimeFormatToken(
+    formatLiteral,
+    {
+      onToken: (token) => {
+        if (timezoneFormatTokens.has(token)) {
+          hasTimezoneToken = true;
+        }
+      },
+      onLiteralChar: () => {
+        return;
+      },
     },
-    onLiteralChar: () => {
-      return;
-    },
-  });
+    writer
+  );
 
   return hasTimezoneToken;
 };
 
-export const buildDatetimeParseGuardRegex = (formatExpr?: string | null): string | null => {
-  const normalizedFormat = normalizeDatetimeFormatExpression(formatExpr);
+export const buildDatetimeParseGuardRegex = (
+  formatExpr?: string | null,
+  writer?: IDatetimeFormatWriter
+): string | null => {
+  const normalizedFormat = normalizeDatetimeFormatExpression(formatExpr, writer);
   const literal = parseSqlStringLiteral(normalizedFormat);
   if (literal == null) {
     return null;
@@ -344,16 +426,17 @@ export const buildDatetimeParseGuardRegex = (formatExpr?: string | null): string
     Object.keys(DATETIME_PARSE_GUARD_TOKEN_PATTERNS) as IGuardableDatetimeToken[]
   ).sort((a, b) => b.length - a.length);
 
-  let pattern = '^';
+  const parts = ['^'];
 
   for (let i = 0; i < literal.length; ) {
     let matched = false;
-    const remaining = literal.slice(i);
-    const upperRemaining = remaining.toUpperCase();
+    // Tokens are ASCII and bounded in length; avoid copying the entire suffix
+    // for every character of an arbitrary format literal.
+    const upperRemaining = literal.slice(i, i + 4).toUpperCase();
 
     for (const token of guardableTokens) {
       if (upperRemaining.startsWith(token)) {
-        pattern += DATETIME_PARSE_GUARD_TOKEN_PATTERNS[token];
+        parts.push(DATETIME_PARSE_GUARD_TOKEN_PATTERNS[token]);
         i += token.length;
         matched = true;
         break;
@@ -370,16 +453,17 @@ export const buildDatetimeParseGuardRegex = (formatExpr?: string | null): string
       continue;
     }
 
-    const currentChar = literal[i];
+    const width = (literal.codePointAt(i) ?? 0) > 0xffff ? 2 : 1;
+    const currentChar = literal.slice(i, i + width);
     if (/\s/.test(currentChar)) {
-      pattern += '\\s';
+      parts.push('\\s');
     } else {
-      pattern += currentChar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      parts.push(currentChar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     }
-    i += 1;
+    i += width;
   }
 
   // Dayjs custom parsing accepts trailing characters once the expected tokens match.
-  pattern += '.*$';
-  return pattern;
+  parts.push('.*$');
+  return writer ? writer.join(parts, '') : parts.join('');
 };

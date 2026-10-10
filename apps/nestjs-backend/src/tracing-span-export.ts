@@ -45,7 +45,7 @@ export const hashTraceId = (traceId: string): number => {
   // FNV-1a hash for better distribution
   let hash = 2166136261;
   for (let i = 0; i < traceId.length; i++) {
-    hash ^= traceId.charCodeAt(i);
+    hash ^= traceId.charCodeAt(i); // NOSONAR typescript:S7758 -- the hash is defined over UTF-16 code units; switching to code points would change persisted/compared values
     hash = (hash * 16777619) >>> 0;
   }
   return hash % 10000;

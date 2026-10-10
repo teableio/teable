@@ -17,19 +17,37 @@ export class BaseShareJwtStrategy extends PassportStrategy(Strategy, BASE_SHARE_
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([BaseShareJwtStrategy.fromAuthCookieAsToken]),
       ignoreExpiration: false,
+      passReqToCallback: true,
       secretOrKeyProvider: teableJwtService.passportSecretProvider(),
     });
   }
 
+  // The share the request is for: the cookie is looked up under this id, and the
+  // token payload must name the very same share.
+  public static requestedShareId(req: Request): string | undefined {
+    return (
+      (req.params.shareId as string | undefined) ||
+      (req.headers['tea-share-id'] as string | undefined)
+    );
+  }
+
   public static fromAuthCookieAsToken(req: Request): string | null {
-    const shareId = req.params.shareId || (req.headers['tea-share-id'] as string);
+    const shareId = BaseShareJwtStrategy.requestedShareId(req);
+    if (!shareId) {
+      return null;
+    }
     const cookieObj = cookie.parse(req.headers.cookie ?? '');
     return cookieObj?.[shareId] ?? null;
   }
 
-  async validate(payload: IJwtBaseShareInfo) {
-    const { shareId, password } = payload;
-    const authShareId = await this.baseShareAuthService.authBaseShare(shareId, password);
+  async validate(req: Request, payload: IJwtBaseShareInfo) {
+    const { shareId, pwHash } = payload;
+    // A token is minted for one share (GHSA-w677-p6hx-85vw): reject a token that
+    // was issued for a different share than the one the cookie was read for.
+    if (!shareId || shareId !== BaseShareJwtStrategy.requestedShareId(req)) {
+      throw new UnauthorizedException();
+    }
+    const authShareId = await this.baseShareAuthService.authBaseShareByHash(shareId, pwHash);
     if (!authShareId) {
       throw new UnauthorizedException();
     }

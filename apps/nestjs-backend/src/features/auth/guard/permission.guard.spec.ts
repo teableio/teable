@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ExecutionContext } from '@nestjs/common';
 import type { Reflector } from '@nestjs/core';
-import { HttpErrorCode, type Action } from '@teable/core';
+import { APP_ROBOT_ID, HttpErrorCode, type Action } from '@teable/core';
 import type { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
@@ -39,11 +39,13 @@ describe('PermissionGuard', () => {
     primaryPermissions,
     anyPermissions,
     isAdmin = false,
+    userId = 'usrxxxxxxxxxxxx',
     validPermissions,
   }: {
     primaryPermissions: Action[];
     anyPermissions?: Action[][];
     isAdmin?: boolean;
+    userId?: string;
     validPermissions: PermissionService['validPermissions'];
   }) => {
     const reflector = {
@@ -60,7 +62,7 @@ describe('PermissionGuard', () => {
     const cls = {
       get: vi.fn((key: string) => {
         if (key === 'user.id') {
-          return 'usrxxxxxxxxxxxx';
+          return userId;
         }
         if (key === 'user.isAdmin') {
           return isAdmin;
@@ -122,4 +124,28 @@ describe('PermissionGuard', () => {
       `not allowed to operate table|update on ${tableId}`
     );
   });
+
+  it('allows a signed-in user the user-level space|create permission', async () => {
+    const { guard } = createGuard({
+      primaryPermissions: ['space|create'],
+      validPermissions: vi.fn(),
+    });
+
+    await expect(guard.canActivate(createContext())).resolves.toBe(true);
+  });
+
+  it.each<Action>(['space|create', 'base|read_all', 'user|integrations'])(
+    'denies robot identities the user-level permission %s',
+    async (permission) => {
+      const validPermissions = vi.fn();
+      const { guard } = createGuard({
+        primaryPermissions: [permission],
+        userId: APP_ROBOT_ID,
+        validPermissions,
+      });
+
+      await expect(guard.canActivate(createContext())).resolves.toBe(false);
+      expect(validPermissions).not.toHaveBeenCalled();
+    }
+  );
 });

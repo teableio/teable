@@ -25,7 +25,7 @@ export class DateFieldDto extends DateFieldCore implements FieldBase {
         if (v instanceof Date) return v.toISOString();
         if (typeof v === 'number' || typeof v === 'string') {
           const parsed = new Date(v);
-          return isNaN(parsed.getTime()) ? v : parsed.toISOString();
+          return Number.isNaN(parsed.getTime()) ? v : parsed.toISOString();
         }
         return v as unknown;
       });
@@ -36,7 +36,7 @@ export class DateFieldDto extends DateFieldCore implements FieldBase {
 
     if (typeof value === 'string' || typeof value === 'number') {
       const parsed = new Date(value);
-      return isNaN(parsed.getTime()) ? value : parsed.toISOString();
+      return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString();
     }
 
     return value;

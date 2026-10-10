@@ -175,6 +175,15 @@ export async function bootWithPrivateQueues<T>(boot: () => Promise<T>): Promise<
   }
 }
 
+/**
+ * A second shared app in the worker (e.g. the EE-edition app next to CLOUD) uses
+ * the same redis db. Under the same queue prefix it would take the other app's
+ * jobs and fire their completion events (AUTOMATION_COMPLETE) on its own emitter.
+ */
+function bootSharedApp<T>(boot: () => Promise<T>): Promise<T> {
+  return state().registry.size > 0 ? bootWithPrivateQueues(boot) : boot();
+}
+
 export function setPendingMaintenance(promise: Promise<unknown>): void {
   state().pendingMaintenance = promise.catch(() => undefined);
 }
@@ -212,7 +221,7 @@ export async function acquireApp(
     // artifact (e.g. SSL_CERT_FILE) — absorb it into the baseline so later files
     // aren't misclassified as env-customized.
     const preBootEnv = { ...process.env };
-    entryPromise = boot().then(({ bundle, refreshSession }) => {
+    entryPromise = bootSharedApp(boot).then(({ bundle, refreshSession }) => {
       const baseline = st.baselineEnv;
       if (baseline) {
         const keys = new Set([...Object.keys(preBootEnv), ...Object.keys(process.env)]);

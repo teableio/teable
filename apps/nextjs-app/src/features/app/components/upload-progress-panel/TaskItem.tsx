@@ -93,9 +93,6 @@ export const TaskItem = ({ task, onCancel, onRemove, onRetry }: ITaskItemProps) 
     task.attachmentItem?.smThumbnailUrl ??
     (isImage(mimetype) ? task.attachmentItem?.presignedUrl : undefined);
   const previewUrl = isCompleted ? completedPreviewUrl ?? imageUrl : imageUrl;
-  const shouldRenderPreviewImage = Boolean(
-    previewUrl && (isImage(mimetype) || completedPreviewUrl)
-  );
 
   return (
     <div
@@ -104,16 +101,13 @@ export const TaskItem = ({ task, onCancel, onRemove, onRetry }: ITaskItemProps) 
       )}
     >
       <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded bg-muted">
-        {shouldRenderPreviewImage ? (
-          <img className="size-full object-cover" src={previewUrl} alt={task.fileName} />
-        ) : (
-          <FileCover
-            className="size-full object-cover"
-            mimetype={mimetype}
-            url={previewUrl}
-            name={task.fileName}
-          />
-        )}
+        <FileCover
+          className="size-full object-cover"
+          iconClassName="text-2xl"
+          mimetype={mimetype}
+          url={previewUrl}
+          name={task.fileName}
+        />
       </div>
 
       <div className="min-w-0 flex-1 overflow-hidden">

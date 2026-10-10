@@ -74,7 +74,7 @@ import { ViewService } from '../view.service';
 
 @Injectable()
 export class ViewOpenApiService {
-  private logger = new Logger(ViewOpenApiService.name);
+  private readonly logger = new Logger(ViewOpenApiService.name);
 
   constructor(
     private readonly prismaService: PrismaService,

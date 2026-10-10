@@ -3,6 +3,7 @@ import type { IRecord } from '@teable/core';
 import { generateOperationId } from '@teable/core';
 import { ResourceType } from '@teable/openapi';
 import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { deleteAttachmentTableRefsByRecordIds } from '@teable/v2-adapter-table-repository-postgres';
 import {
   ProjectionHandler,
   RecordsDeleted,
@@ -258,17 +259,15 @@ export class V2RecordsDeletedAttachmentProjection implements IEventHandler<Recor
     }
 
     const container = await this.v2ContainerService.getContainer();
-    const db = container.resolve<Kysely<IAttachmentsTableDb>>(v2MetaDbTokens.db);
+    const dataDb = container.resolve<Kysely<IAttachmentsTableDb>>(v2DataDbTokens.db);
+    const metaDb = container.resolve<Kysely<IAttachmentsTableDb>>(v2MetaDbTokens.db);
 
-    await db
-      .deleteFrom('attachments_table')
-      .where('table_id', '=', event.tableId.toString())
-      .where(
-        'record_id',
-        'in',
-        event.recordIds.map((id) => id.toString())
-      )
-      .execute();
+    await deleteAttachmentTableRefsByRecordIds(
+      dataDb as never,
+      metaDb as never,
+      event.tableId.toString(),
+      event.recordIds.map((id) => id.toString())
+    );
 
     return ok(undefined);
   }

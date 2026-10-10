@@ -1,6 +1,6 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import type { IFilter, IGridColumnMeta, ITableActionKey, IViewActionKey } from '@teable/core';
-import type { IAggregationRo, IQueryBaseRo } from '@teable/openapi';
+import type { IAggregationRo, IAggregationVo, IQueryBaseRo } from '@teable/openapi';
 import { getAggregation, getShareViewAggregations } from '@teable/openapi';
 import { throttle } from 'lodash';
 import type { FC, ReactNode } from 'react';
@@ -82,18 +82,20 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children, q
     [shareId, aggQuery]
   );
 
-  const { data: resAggregations, activeQueryKey } = useShareAwareQuery({
+  const { data: resAggregations, activeQueryKey } = useShareAwareQuery<IAggregationVo>({
     shareId,
     enabled: Boolean(tableId && visible),
     common: {
       queryKey: commonQueryKey,
-      queryFn: () => getAggregation(tableId as string, aggQuery).then((data) => data.data),
+      queryFn: ({ signal }) =>
+        getAggregation(tableId as string, aggQuery, { signal }).then((data) => data.data),
     },
     share: {
       queryKey: shareQueryKey,
-      queryFn: () =>
-        getShareViewAggregations(shareId as string, aggQuery).then((data) => data.data),
+      queryFn: ({ signal }) =>
+        getShareViewAggregations(shareId as string, aggQuery, { signal }).then((data) => data.data),
     },
+    options: { placeholderData: keepPreviousData },
   });
 
   const updateAggregations = useCallback(

@@ -97,7 +97,7 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
     context: ExecutionContextPort.IExecutionContext,
     command: CreateTableCommand
   ): Promise<Result<CreateTableResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<CreateTableResult, DomainError>(async function* () {
       const foreignTableReferences = yield* command.foreignTableReferences();
       const selfTableId = command.tableId;

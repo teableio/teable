@@ -1269,7 +1269,7 @@ describe('TableFieldUpdateSpecs', () => {
     expect(nextValueTypeResult.value.isMultipleCellValue.toBoolean()).toBe(true);
   });
 
-  it('derives inner formula result type for pending conditional lookup updates', () => {
+  it('propagates the execution context source budget for pending conditional lookup formulas', () => {
     const baseId = createBaseId('n');
     const hostTableId = createTableId('n');
     const foreignTableId = createTableId('o');
@@ -1382,6 +1382,44 @@ describe('TableFieldUpdateSpecs', () => {
     }
     expect(nextValueTypeResult.value.cellValueType.toString()).toBe('dateTime');
     expect(nextValueTypeResult.value.isMultipleCellValue.toBoolean()).toBe(true);
+
+    const rejectedResult = buildUpdateFieldSpecs(
+      currentField,
+      {
+        type: 'conditionalLookup',
+        options: {
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignPrimaryId.toString(),
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [{ fieldId: hostStatusId.toString(), operator: 'is', value: 'active' }],
+            },
+          },
+          innerType: 'formula',
+          innerOptions: { expression: 'NOW()' },
+        },
+      },
+      {
+        hostTable,
+        foreignTables: [foreignTable],
+        executionContext: {
+          actorId: ActorId.create('system')._unsafeUnwrap(),
+          config: {
+            formulaSourceBudget: {
+              astDepth: 64,
+              visitedNodes: 32768,
+              policyVersion: 99,
+              check: () => ({ max: 0 }),
+            },
+          },
+        },
+      }
+    );
+    expect(rejectedResult.isErr()).toBe(true);
+    if (rejectedResult.isErr()) {
+      expect(rejectedResult.error.code).toBe('validation.limit.formula_compile_depth_max');
+    }
   });
 
   it('returns an error when conditional lookup updates innerOptions without an innerType', () => {

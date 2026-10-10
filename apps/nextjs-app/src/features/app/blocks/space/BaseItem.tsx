@@ -4,7 +4,7 @@ import { hasPermission } from '@teable/core';
 import {
   ChevronDown,
   ChevronRight,
-  Database,
+  LayoutGrid,
   DraggableHandle,
   MoreHorizontal,
   Share2,
@@ -135,7 +135,11 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
             onChange={(icon) => onUpdate?.({ icon })}
             onRemove={() => onUpdate?.({ icon: null })}
           >
-            {base.icon ? <Emoji emoji={base.icon} size="1rem" /> : <Database className="size-4" />}
+            {base.icon ? (
+              <Emoji emoji={base.icon} size="1rem" />
+            ) : (
+              <LayoutGrid className="size-4" />
+            )}
           </EmojiPicker>
         </div>
 

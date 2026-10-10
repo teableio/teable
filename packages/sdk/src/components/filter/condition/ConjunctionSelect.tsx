@@ -20,7 +20,7 @@ interface IConjunctionSelectProps {
   className?: string;
 }
 
-function ConjunctionSelect(props: IConjunctionSelectProps) {
+function ConjunctionSelect(props: Readonly<IConjunctionSelectProps>) {
   const { onSelect, value, className } = props;
   const { t } = useTranslation();
 

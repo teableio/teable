@@ -12,6 +12,7 @@ import {
   type ITableRecordQueryRepository,
   type ITableRecordQueryResult,
   type ITableRecordQueryStreamOptions,
+  type IRecordSearchAccessPathResolution,
   type ISpecification,
   type Table,
   type TableRecord,
@@ -48,6 +49,12 @@ type ObservableTableRecordQueryRepository = ITableRecordQueryRepository &
 type ObservationShapeExtras = {
   readonly queryKind?: TableQueryKind;
   readonly aggregationShape?: TableQueryAggregationShape;
+  /**
+   * T7339: the access path resolution the read itself reported. The requested path is only the
+   * configuration - a probe that was too short, or coverage that did not match, runs a plain
+   * predicate, and the shape has to describe the predicate that ran.
+   */
+  readonly usedSearchAccessPath?: IRecordSearchAccessPathResolution;
 };
 
 export class ObservedTableRecordQueryRepository implements ObservableTableRecordQueryRepository {
@@ -71,7 +78,10 @@ export class ObservedTableRecordQueryRepository implements ObservableTableRecord
       spec,
       options,
       () => this.inner.find(context, table, spec, options),
-      (value) => value.records.length
+      (value) => value.records.length,
+      undefined,
+      // T7339: the read result carries the access path the SQL actually used.
+      (value) => ({ usedSearchAccessPath: value.searchAccessPath })
     );
   }
 
@@ -179,7 +189,8 @@ export class ObservedTableRecordQueryRepository implements ObservableTableRecord
     options: ITableRecordQueryOptions | ITableRecordQueryStreamOptions | undefined,
     run: () => Promise<Result<T, DomainError>>,
     count: (value: T) => number,
-    extras?: ObservationShapeExtras
+    extras?: ObservationShapeExtras,
+    deriveExtras?: (value: T) => ObservationShapeExtras | undefined
   ): Promise<Result<T, DomainError>> {
     const startedAt = Date.now();
     const sqlDiagnostics = attachTableQuerySqlDiagnosticsCollector(
@@ -200,7 +211,7 @@ export class ObservedTableRecordQueryRepository implements ObservableTableRecord
           resultCountBucket: result.isOk() ? bucketResultCount(count(result.value)) : undefined,
         },
         sqlDiagnostics.collector.snapshot(),
-        extras
+        result.isOk() && deriveExtras ? { ...extras, ...deriveExtras(result.value) } : extras
       );
       return result;
     } finally {
@@ -287,10 +298,17 @@ const buildRecordQueryShape = (
     visibleFieldIds: search.visibleFieldIds,
   });
   const searchedFieldIds = searchFieldsResult?.isOk()
-    ? searchFieldsResult.value.map((field) => field.id().toString()).sort()
+    ? searchFieldsResult.value
+        .map((field) => field.id().toString())
+        .sort((a, b) => Number(a > b) - Number(a < b))
     : undefined;
   const searchFieldCount = searchedFieldIds?.length;
   const searchAccessPath = options?.searchAccessPath;
+  // T7339: describe the predicate that ran, not the one that was configured. The read reports
+  // the path it used; the requested configuration is only a fallback for callers that cannot
+  // report what happened.
+  const effectiveSearchAccessPathKind =
+    extras?.usedSearchAccessPath?.used ?? searchAccessPath?.kind;
   const searchesAllFields = search?.search.searchesAllFields() ?? false;
 
   return TableQueryShape.create({
@@ -310,18 +328,19 @@ const buildRecordQueryShape = (
           ...(!searchesAllFields && searchedFieldIds ? { searchedFieldIds } : {}),
           valueLengthBucket: bucketSearchLength(search.search.value.length),
           searchMode:
-            searchAccessPath?.kind === 'generated_tsvector'
+            effectiveSearchAccessPathKind === 'generated_tsvector'
               ? 'full_text'
-              : searchAccessPath?.kind === 'generated_text'
+              : effectiveSearchAccessPathKind === 'generated_text'
                 ? 'substring'
                 : 'ilike',
           searchScope: searchesAllFields ? 'all_fields' : 'selected_fields',
-          ...(searchAccessPath?.kind === 'generated_tsvector'
+          ...(effectiveSearchAccessPathKind === 'generated_tsvector' &&
+          searchAccessPath?.kind === 'generated_tsvector'
             ? {
                 languageConfig: searchAccessPath.languageConfig,
                 coveredFieldIds: searchAccessPath.coveredFieldIds
                   .map((fieldId) => fieldId.toString())
-                  .sort(),
+                  .sort((a, b) => Number(a > b) - Number(a < b)),
               }
             : {}),
         }

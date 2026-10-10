@@ -484,7 +484,9 @@ export class TableQueryShape {
     if (!searchShape?.searchedFieldIds) {
       return ok(new TableQueryShape(parsed.data));
     }
-    const searchedFieldIds = Array.from(new Set(searchShape.searchedFieldIds)).sort();
+    const searchedFieldIds = Array.from(new Set(searchShape.searchedFieldIds)).sort(
+      (a, b) => Number(a > b) - Number(a < b)
+    );
     return ok(
       new TableQueryShape({
         ...parsed.data,
@@ -643,11 +645,8 @@ export class TableQueryObservationWindow {
 }
 
 export type TablePhysicalStatsInput = {
-  readonly estimatedRows: number;
+  readonly estimatedRows: number | null;
   readonly totalBytes: number;
-  readonly seqScanCount?: number;
-  readonly indexScanCount?: number;
-  readonly lastAnalyzeAt?: Date;
 };
 
 export class TablePhysicalStats {
@@ -656,11 +655,8 @@ export class TablePhysicalStats {
   static create(raw: TablePhysicalStatsInput): Result<TablePhysicalStats, DomainError> {
     const parsed = z
       .object({
-        estimatedRows: z.number().nonnegative(),
+        estimatedRows: z.number().nonnegative().nullable(),
         totalBytes: z.number().nonnegative(),
-        seqScanCount: z.number().nonnegative().optional(),
-        indexScanCount: z.number().nonnegative().optional(),
-        lastAnalyzeAt: z.date().optional(),
       })
       .safeParse(raw);
     if (!parsed.success) {
@@ -669,7 +665,7 @@ export class TablePhysicalStats {
     return ok(new TablePhysicalStats(parsed.data));
   }
 
-  estimatedRows(): number {
+  estimatedRows(): number | null {
     return this.props.estimatedRows;
   }
 
@@ -1006,6 +1002,7 @@ export class TableQueryRiskPolicy {
     readonly planValidation?: TableQueryPlanValidation;
   }): Result<TableQueryRiskReport, DomainError> {
     const shape = input.observation.shape().snapshot();
+    const estimatedRows = input.physicalStats.estimatedRows();
     const sortFieldCount =
       shape.orderShape?.fields.filter((field) => field.source !== 'tieBreaker').length ?? 0;
     const matchedRules = [
@@ -1026,7 +1023,7 @@ export class TableQueryRiskPolicy {
         25
       ),
       riskRule(
-        input.physicalStats.estimatedRows() >= this.config.largeTableEstimatedRows,
+        estimatedRows != null && estimatedRows >= this.config.largeTableEstimatedRows,
         'large_table',
         15
       ),
@@ -1314,7 +1311,7 @@ export class TableQueryShapeFactory {
               ? {
                   searchedFieldIds: input.search.fieldIds
                     .map((fieldId) => fieldId.toString())
-                    .sort(),
+                    .sort((a, b) => Number(a > b) - Number(a < b)),
                 }
               : {}),
             valueLengthBucket: bucketSearchValueLength(input.search.valueLength ?? 0),
@@ -1412,10 +1409,13 @@ const appendMissingIndexCandidates = (
 ): void => {
   for (const missing of inspection.snapshot().missingIndexCandidates) {
     if (preferGeneratedText && missing.kind === 'gin_trgm') continue;
+    const isSortCandidate = shape.orderShape?.fields.some(
+      (field) => field.fieldId === missing.fieldId || field.systemColumn === missing.fieldDbName
+    );
     const kind: ExecutablePhase1RemediationKind =
       missing.kind === 'gin_trgm'
         ? 'create_search_index'
-        : shape.orderShape?.fields.some((field) => field.fieldId === missing.fieldId)
+        : isSortCandidate
           ? 'create_sort_index'
           : 'create_filter_index';
     candidates.push({
@@ -1435,7 +1435,7 @@ export const stableHash = (input: unknown): string => {
   const sorted = JSON.stringify(sortDeep(input));
   let hash = 0;
   for (let i = 0; i < sorted.length; i += 1) {
-    hash = (hash * 31 + sorted.charCodeAt(i)) >>> 0;
+    hash = (hash * 31 + sorted.charCodeAt(i)) >>> 0; // NOSONAR typescript:S7758 -- the hash is defined over UTF-16 code units; switching to code points would change persisted/compared values
   }
   return hash.toString(16).padStart(8, '0');
 };

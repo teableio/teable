@@ -78,7 +78,7 @@ const autoNumberFieldName = '__auto_number';
 
 @Injectable()
 export class TableDuplicateService {
-  private logger = new Logger(TableDuplicateService.name);
+  private readonly logger = new Logger(TableDuplicateService.name);
 
   constructor(
     private readonly cls: ClsService<IClsStore>,
@@ -329,7 +329,7 @@ export class TableDuplicateService {
         });
         computedDbFieldNames = computedFields.map((f) => f.dbFieldName);
       }
-    } catch (_e) {
+    } catch {
       // Best effort; if query fails, fallback to existing filters
       computedDbFieldNames = [];
     }

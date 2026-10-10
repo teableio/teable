@@ -80,8 +80,7 @@ export const mixRanges = (ranges: IRange[], newRange: IRange): IRange[] => {
     if (!added && range[0] === newRange[0] && newRange[1] === range[1]) {
       added = true;
     } else if (!added && newRange[0] > range[0] && newRange[1] < range[1]) {
-      result.push([range[0], newRange[0] - 1]);
-      result.push([newRange[1] + 1, range[1]]);
+      result.push([range[0], newRange[0] - 1], [newRange[1] + 1, range[1]]);
       added = true;
     } else if (!added && newRange[0] <= range[1] && newRange[1] >= range[0]) {
       if (newRange[0] > range[0]) {

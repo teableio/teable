@@ -59,7 +59,7 @@ describe('importBaseStream', () => {
     );
 
     await expect(importBaseStream({} as never)).rejects.toThrow(
-      'Import base stream ended without result'
+      'Import project stream ended without result'
     );
   });
 

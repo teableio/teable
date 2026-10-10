@@ -24,7 +24,7 @@ import { useEffect, useState } from 'react';
 import { useCutDown } from '@/features/app/hooks/useCutDown';
 import { usePublicSettingQuery } from '@/features/app/hooks/useSetting';
 
-export function ChangeEmailDialog({ children }: { children: React.ReactNode }) {
+export function ChangeEmailDialog({ children }: Readonly<{ children: React.ReactNode }>) {
   const { t } = useTranslation('common');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newEmail, setNewEmail] = useState('');

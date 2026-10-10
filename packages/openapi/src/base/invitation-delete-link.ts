@@ -8,7 +8,8 @@ export const DELETE_BASE_INVITATION_LINK = '/base/{baseId}/invitation/link/{invi
 export const DeleteBaseInvitationLinkRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: DELETE_BASE_INVITATION_LINK,
-  description: 'Delete a invitation link to your',
+  title: 'Delete project invitation link',
+  description: "Delete a project's invitation link by its ID.",
   request: {
     params: z.object({
       baseId: z.string(),

@@ -3,7 +3,6 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type IApiErrorResponseDto,
   type IApiOkResponseDto,
@@ -34,7 +33,7 @@ export const getRecordByIdOkResponseSchema = apiOkResponseDtoSchema(
   getRecordByIdResponseDataSchema
 );
 
-export const getRecordByIdErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as getRecordByIdErrorResponseSchema } from '../shared/http';
 
 export const mapGetRecordByIdResultToDto = (
   result: GetRecordByIdResult

@@ -4,6 +4,7 @@ import { DbFieldName } from './DbFieldName';
 import { FieldId } from './FieldId';
 import { FieldName } from './FieldName';
 import { FieldType } from './FieldType';
+import { FieldVersion } from './FieldVersion';
 import { CreatedTimeField } from './types/CreatedTimeField';
 import { FieldNotNull } from './types/FieldNotNull';
 import { FieldUnique } from './types/FieldUnique';
@@ -13,8 +14,8 @@ const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`);
 
 describe('FieldName', () => {
   it('validates field names', () => {
-    FieldName.create('Title')._unsafeUnwrap();
-    FieldName.create('')._unsafeUnwrapErr();
+    expect(FieldName.create('Title').isOk()).toBe(true);
+    expect(FieldName.create('').isErr()).toBe(true);
   });
 
   it('compares field names by value', () => {
@@ -40,8 +41,8 @@ describe('FieldId', () => {
 
 describe('DbFieldName', () => {
   it('rehydrates and validates', () => {
-    DbFieldName.rehydrate('db_field')._unsafeUnwrap();
-    DbFieldName.rehydrate('')._unsafeUnwrapErr();
+    expect(DbFieldName.rehydrate('db_field').isOk()).toBe(true);
+    expect(DbFieldName.rehydrate('').isErr()).toBe(true);
   });
 
   it('requires rehydrate before access', () => {
@@ -53,11 +54,11 @@ describe('DbFieldName', () => {
 
 describe('FieldType', () => {
   it('accepts known types and rejects unknown', () => {
-    FieldType.create('singleLineText')._unsafeUnwrap();
-    FieldType.create('link')._unsafeUnwrap();
-    FieldType.create('createdTime')._unsafeUnwrap();
-    FieldType.create('lastModifiedBy')._unsafeUnwrap();
-    FieldType.create('unknown')._unsafeUnwrapErr();
+    expect(FieldType.create('singleLineText').isOk()).toBe(true);
+    expect(FieldType.create('link').isOk()).toBe(true);
+    expect(FieldType.create('createdTime').isOk()).toBe(true);
+    expect(FieldType.create('lastModifiedBy').isOk()).toBe(true);
+    expect(FieldType.create('unknown').isErr()).toBe(true);
   });
 
   it('exposes constructors', () => {
@@ -86,30 +87,30 @@ describe('Field', () => {
     const fieldIdResult = createFieldId('a');
     const fieldNameResult = FieldName.create('Title');
     [fieldIdResult, fieldNameResult].forEach((r) => r._unsafeUnwrap());
-    fieldIdResult._unsafeUnwrap();
-    fieldNameResult._unsafeUnwrap();
+    expect(fieldIdResult.isOk()).toBe(true);
+    expect(fieldNameResult.isOk()).toBe(true);
 
     const fieldResult = SingleLineTextField.create({
       id: fieldIdResult._unsafeUnwrap(),
       name: fieldNameResult._unsafeUnwrap(),
     });
-    fieldResult._unsafeUnwrap();
+    expect(fieldResult.isOk()).toBe(true);
 
     const field = fieldResult._unsafeUnwrap();
 
-    field.dbFieldName()._unsafeUnwrapErr();
-    field.setDbFieldName(DbFieldName.empty())._unsafeUnwrapErr();
+    expect(field.dbFieldName().isErr()).toBe(true);
+    expect(field.setDbFieldName(DbFieldName.empty()).isErr()).toBe(true);
 
     const dbNameResult = DbFieldName.rehydrate('db_field');
     const otherDbNameResult = DbFieldName.rehydrate('db_field_other');
     [dbNameResult, otherDbNameResult].forEach((r) => r._unsafeUnwrap());
-    dbNameResult._unsafeUnwrap();
-    otherDbNameResult._unsafeUnwrap();
+    expect(dbNameResult.isOk()).toBe(true);
+    expect(otherDbNameResult.isOk()).toBe(true);
 
-    field.setDbFieldName(dbNameResult._unsafeUnwrap())._unsafeUnwrap();
-    field.dbFieldName()._unsafeUnwrap();
-    field.setDbFieldName(dbNameResult._unsafeUnwrap())._unsafeUnwrap();
-    field.setDbFieldName(otherDbNameResult._unsafeUnwrap())._unsafeUnwrapErr();
+    expect(field.setDbFieldName(dbNameResult._unsafeUnwrap()).isOk()).toBe(true);
+    expect(field.dbFieldName().isOk()).toBe(true);
+    expect(field.setDbFieldName(dbNameResult._unsafeUnwrap()).isOk()).toBe(true);
+    expect(field.setDbFieldName(otherDbNameResult._unsafeUnwrap()).isErr()).toBe(true);
   });
 
   it('handles notNull/unique flags and blocks computed updates', () => {
@@ -134,5 +135,28 @@ describe('Field', () => {
 
     expect(computed.setNotNull(FieldNotNull.required()).isErr()).toBe(true);
     expect(computed.setUnique(FieldUnique.enabled()).isErr()).toBe(true);
+  });
+});
+
+describe('FieldVersion', () => {
+  it('rehydrates a non-negative integer and rejects invalid values', () => {
+    expect(FieldVersion.rehydrate(0)._unsafeUnwrap().toNumber()).toBe(0);
+    expect(FieldVersion.rehydrate(7)._unsafeUnwrap().toNumber()).toBe(7);
+    expect(FieldVersion.rehydrate(-1).isErr()).toBe(true);
+    expect(FieldVersion.rehydrate(1.5).isErr()).toBe(true);
+  });
+
+  it('sets once on a Field and compares by value', () => {
+    const field = SingleLineTextField.create({
+      id: createFieldId('d')._unsafeUnwrap(),
+      name: FieldName.create('Title')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    const version = FieldVersion.rehydrate(4)._unsafeUnwrap();
+
+    expect(field.version().isErr()).toBe(true);
+    field.setVersion(version)._unsafeUnwrap();
+    expect(field.version()._unsafeUnwrap().equals(version)).toBe(true);
+    field.setVersion(version)._unsafeUnwrap();
+    expect(field.setVersion(FieldVersion.rehydrate(5)._unsafeUnwrap()).isErr()).toBe(true);
   });
 });

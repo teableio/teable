@@ -63,13 +63,15 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
   private projection: ReadonlyArray<FieldId> | null = null;
   private limitValue: number | null = null;
   private offsetValue: number | null = null;
-  private orderByValues: Array<{
+  private readonly orderByValues: Array<{
     column: OrderByColumn;
     direction: 'asc' | 'desc';
     groupIdentityCollation?: boolean;
   }> = [];
-  private whereSpecs: Array<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>> = [];
-  private whereExpressions: Array<Expression<SqlBool>> = [];
+  private readonly whereSpecs: Array<
+    ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
+  > = [];
+  private readonly whereExpressions: Array<Expression<SqlBool>> = [];
   private idsOnlyValue = false;
   private valuesOnlyValue = false;
   private readonly sourceTableName?: string;
@@ -411,6 +413,8 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
     if (whereResult.isErr()) {
       return err(whereResult.error);
     }
-    return ok(whereResult.value as unknown as Expression<SqlBool>);
+    // The visitor may emit a top-level `a or b`; whereExpression conditions are
+    // ANDed after it, so it must stay one operand.
+    return ok(sql<SqlBool>`(${whereResult.value})`);
   }
 }

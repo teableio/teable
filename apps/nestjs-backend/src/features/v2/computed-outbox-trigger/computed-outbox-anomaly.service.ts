@@ -233,10 +233,19 @@ export class ComputedOutboxAnomalyService {
       return await this.dataDbClientManager.getDataDatabaseForBase(baseId);
     } catch (error) {
       if (error instanceof DataDbBindingNotReadyError) {
-        throw new ConflictException('Computed outbox Base data database is not ready');
+        throw new ConflictException('Computed outbox Project data database is not ready');
       }
       throw error;
     }
+  }
+
+  async assertWritableTarget(baseId: string, targetId: string): Promise<void> {
+    await this.spaceDataDbMigrationGuard.assertBaseWritable(baseId);
+    const current = await this.resolveCurrentStorageTarget(baseId);
+    if (current.cacheKey !== targetId)
+      throw new ConflictException(
+        'Computed outbox Project no longer routes to this storage target'
+      );
   }
 
   async recover(input: { targetId: string; taskId: string; kind: 'dead' | 'stale' }): Promise<{
@@ -260,7 +269,9 @@ export class ComputedOutboxAnomalyService {
     await this.spaceDataDbMigrationGuard.assertBaseWritable(baseId);
     const currentTarget = await this.resolveCurrentStorageTarget(baseId);
     if (currentTarget.cacheKey !== target.cacheKey) {
-      throw new ConflictException('Computed outbox Base no longer routes to this storage target');
+      throw new ConflictException(
+        'Computed outbox Project no longer routes to this storage target'
+      );
     }
 
     const recovery = await this.dataDbClientManager.recoverComputedOutboxMaintenanceAnomaly(
@@ -327,7 +338,9 @@ export class ComputedOutboxAnomalyService {
     await this.spaceDataDbMigrationGuard.assertBaseWritable(input.baseId);
     const currentTarget = await this.resolveCurrentStorageTarget(input.baseId);
     if (currentTarget.cacheKey !== target.cacheKey) {
-      throw new ConflictException('Computed outbox Base no longer routes to this storage target');
+      throw new ConflictException(
+        'Computed outbox Project no longer routes to this storage target'
+      );
     }
 
     const recovery = await this.dataDbClientManager.recoverComputedOutboxMaintenanceDeadLetterBatch(

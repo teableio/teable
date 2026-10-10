@@ -40,7 +40,7 @@ export class ConditionalRollupFieldCore extends FormulaAbstractCore {
 
   static supportsOrdering(expression?: string): boolean {
     if (!expression) return false;
-    const match = expression.match(/^(\w+)\(\{values\}\)$/i);
+    const match = /^(\w+)\(\{values\}\)$/i.exec(expression);
     if (!match) return false;
     switch (match[1].toLowerCase()) {
       case 'array_join':

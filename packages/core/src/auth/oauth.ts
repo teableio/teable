@@ -1,4 +1,5 @@
 import type {
+  RoutineAction,
   AppAction,
   AutomationAction,
   BaseAction,
@@ -10,6 +11,7 @@ import type {
 } from './actions';
 
 export const OAUTH_ACTIONS: (
+  | RoutineAction
   | AppAction
   | BaseAction
   | TableAction
@@ -61,8 +63,24 @@ export const OAUTH_ACTIONS: (
   'automation|delete',
   'automation|read',
   'automation|update',
+  'routine|create',
+  'routine|delete',
+  'routine|read',
+  'routine|update',
   'user|email_read',
   'user|integrations',
+  'user|spaces_read',
+  'user|self_hosted_licenses_read',
+  'user|notifications_send',
+];
+
+// For apps that show what a user pays for or send them notifications (the community forum's
+// plan badges and replies). The CLI does neither, and asking would put them on its consent
+// screen.
+const NOT_FOR_CLI_ACTIONS: readonly UserAction[] = [
+  'user|spaces_read',
+  'user|self_hosted_licenses_read',
+  'user|notifications_send',
 ];
 
 /**
@@ -80,7 +98,7 @@ export const cliOAuthApp = {
   name: 'Teable CLI',
   homepage: 'https://www.npmjs.com/package/@teable/cli',
   description:
-    'Official Teable AI Tools CLI — operate bases, tables, fields, views and records from your terminal.',
+    'Official Teable AI Tools CLI — operate projects, tables, fields, views and records from your terminal.',
   /** Storage path of the logo asset shown on the OAuth consent screen. */
   logo: 'logo/email-logo',
   /**
@@ -88,7 +106,7 @@ export const cliOAuthApp = {
    * OAuth PKCE loopback matching ignores the port, so one portless entry is enough.
    */
   redirectUris: ['http://127.0.0.1/callback'],
-  scopes: OAUTH_ACTIONS,
+  scopes: OAUTH_ACTIONS.filter((action) => !NOT_FOR_CLI_ACTIONS.includes(action as UserAction)),
   /**
    * The device grant is per-app opt-in (its approval page is a phishing
    * surface); the CLI is why the flow exists, so it opts in.

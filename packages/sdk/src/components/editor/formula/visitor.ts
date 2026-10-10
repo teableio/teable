@@ -15,8 +15,8 @@ export class FormulaNodePathVisitor
   extends AbstractParseTreeVisitor<void>
   implements FormulaVisitor<void>
 {
-  private pathNodes: ParseTree[] = [];
-  private targetPosition: number;
+  private readonly pathNodes: ParseTree[] = [];
+  private readonly targetPosition: number;
 
   constructor(position: number) {
     super();

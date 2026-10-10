@@ -21,6 +21,7 @@ export type ICreateDashboardVo = z.infer<typeof createDashboardVoSchema>;
 export const CreateDashboardRoute: RouteConfig = registerRoute({
   method: 'post',
   path: CREATE_DASHBOARD,
+  title: 'Post project dashboard',
   description: 'Create a new dashboard',
   request: {
     params: z.object({

@@ -54,32 +54,30 @@ export const UploadProgressBubble = ({
       <div className="flex items-center gap-2.5">
         <div className="relative flex size-5 items-center justify-center">
           {hasActiveUploads ? (
-            <>
-              <div className="-rotate-90">
-                <svg className="size-5" viewBox="0 0 20 20">
-                  <circle
-                    cx="10"
-                    cy="10"
-                    r={CIRCLE_RADIUS}
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    className="text-muted-foreground/30"
-                  />
-                  <circle
-                    cx="10"
-                    cy="10"
-                    r={CIRCLE_RADIUS}
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeDasharray={`${(progress / 100) * CIRCLE_LENGTH} ${CIRCLE_LENGTH}`}
-                    className="text-primary transition-all duration-300"
-                  />
-                </svg>
-              </div>
-            </>
+            <div className="-rotate-90">
+              <svg className="size-5" viewBox="0 0 20 20">
+                <circle
+                  cx="10"
+                  cy="10"
+                  r={CIRCLE_RADIUS}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className="text-muted-foreground/30"
+                />
+                <circle
+                  cx="10"
+                  cy="10"
+                  r={CIRCLE_RADIUS}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeDasharray={`${(progress / 100) * CIRCLE_LENGTH} ${CIRCLE_LENGTH}`}
+                  className="text-primary transition-all duration-300"
+                />
+              </svg>
+            </div>
           ) : hasErrors ? (
             <AlertCircle className="size-5 text-destructive" />
           ) : (

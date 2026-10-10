@@ -37,7 +37,7 @@ const errorMatchers: IErrorMatcher[] = [
     pattern: /time zone displacement out of range|date\/time field value out of range/i,
     i18nKey: 'common.import.error.dateOutOfRange' as I18nPath,
     extractContext: (_match, raw) => {
-      const valueMatch = raw.match(/"([^"]+)"/);
+      const valueMatch = /"([^"]+)"/.exec(raw);
       return { value: valueMatch?.[1] ?? '' };
     },
   },

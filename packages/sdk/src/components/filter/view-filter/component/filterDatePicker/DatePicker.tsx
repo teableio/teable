@@ -12,7 +12,7 @@ interface IFilerDatePickerProps {
   onSelect: (date: string) => void;
 }
 
-function DatePicker(props: IFilerDatePickerProps) {
+function DatePicker(props: Readonly<IFilerDatePickerProps>) {
   const { value, onSelect, field } = props;
   const { t } = useTranslation();
   const [open, setOpen] = React.useState(false);

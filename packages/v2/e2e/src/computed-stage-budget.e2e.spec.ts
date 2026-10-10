@@ -63,6 +63,10 @@ const createHarness = async (
   const server = await new Promise<Server>((resolve) => {
     const s = app.listen(0, '127.0.0.1', () => resolve(s));
   });
+  // Outbox drains run CPU-heavy PGlite work between HTTP requests. Keep the
+  // test connection alive until close() rather than racing an idle timeout
+  // against fetch reusing it after a long drain on a slower runner.
+  server.keepAliveTimeout = 0;
 
   const address = server.address() as AddressInfo;
   const harness: TestHarness = {
@@ -234,6 +238,99 @@ const drainOutbox = async (harness: TestHarness, rounds = 120): Promise<number> 
 };
 
 describe('computed stage budget continuation (e2e)', () => {
+  it('batches async filtered rollup backfills across continuation tasks T7075', async () => {
+    const harness = await createHarness({ fieldBackfillBatchSize: 2 }, { mode: 'async' });
+
+    const sourceNameFieldId = createFieldId();
+    const sourceAmountFieldId = createFieldId();
+    const sourceKindFieldId = createFieldId();
+    const hostNameFieldId = createFieldId();
+    const hostLinkFieldId = createFieldId();
+    const hostRollupFieldId = createFieldId();
+
+    const sourceTable = await createTable(harness, {
+      baseId: harness.baseId,
+      name: 'AsyncRollupSources',
+      fields: [
+        {
+          type: 'singleLineText',
+          id: sourceNameFieldId,
+          name: 'Name',
+          isPrimary: true,
+        },
+        { type: 'number', id: sourceAmountFieldId, name: 'Amount' },
+        { type: 'singleLineText', id: sourceKindFieldId, name: 'Kind' },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const hostTable = await createTable(harness, {
+      baseId: harness.baseId,
+      name: 'AsyncRollupHosts',
+      fields: [
+        { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+        {
+          type: 'link',
+          id: hostLinkFieldId,
+          name: 'Lines',
+          options: {
+            relationship: 'oneMany',
+            foreignTableId: sourceTable.id,
+            lookupFieldId: sourceNameFieldId,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+
+    const expectedByHostId = new Map<string, number>();
+    for (let index = 0; index < 5; index += 1) {
+      const isDebit = index % 2 === 0;
+      const amount = (index + 1) * 10;
+      const source = await createRecord(harness, sourceTable.id, {
+        [sourceNameFieldId]: `Line ${index + 1}`,
+        [sourceAmountFieldId]: amount,
+        [sourceKindFieldId]: isDebit ? 'debit' : 'credit',
+      });
+      const host = await createRecord(harness, hostTable.id, {
+        [hostNameFieldId]: `Host ${index + 1}`,
+        [hostLinkFieldId]: [{ id: source.id }],
+      });
+      expectedByHostId.set(host.id, isDebit ? amount : 0);
+    }
+    await drainOutbox(harness);
+
+    await createField(harness, hostTable.id, {
+      id: hostRollupFieldId,
+      type: 'rollup',
+      name: 'Debit total',
+      options: { expression: 'sum({values})' },
+      config: {
+        linkFieldId: hostLinkFieldId,
+        foreignTableId: sourceTable.id,
+        lookupFieldId: sourceAmountFieldId,
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: sourceKindFieldId, operator: 'is', value: 'debit' }],
+        },
+      },
+    });
+
+    const processed = await drainOutbox(harness);
+    expect(processed).toBe(3);
+
+    const records = await listRecords(harness, hostTable.id);
+    for (const [hostId, expected] of expectedByHostId) {
+      const row = records.find((record) => record.id === hostId);
+      expect(row).toBeDefined();
+      expect(row?.fields[hostRollupFieldId]).toBe(expected);
+    }
+
+    const dead = await sql<{ cnt: number }>`
+      SELECT count(*)::int as cnt FROM computed_update_dead_letter
+    `.execute(harness.testContainer.db);
+    expect(Number(dead.rows[0]?.cnt ?? 0)).toBe(0);
+  }, 120_000);
+
   it('batches async lookup field backfills across continuation tasks', async () => {
     const harness = await createHarness({ fieldBackfillBatchSize: 2 }, { mode: 'async' });
 
@@ -310,107 +407,283 @@ describe('computed stage budget continuation (e2e)', () => {
     expect(Number(dead.rows[0]?.cnt ?? 0)).toBe(0);
   }, 120_000);
 
-  it('converges a lookup + formula chain split across multiple bounded stages', async () => {
-    // Disable small-run scaling so stageMaxSteps=1 actually splits; production
-    // explicit-seed updates may now probe multiple levels in one abort-mode stage.
+  it.each([0, 512])(
+    'converges a lookup + formula chain split across multiple bounded stages (adaptive threshold: %s)',
+    async (stageSmallRunComplexityThreshold) => {
+      // Cross-table work must retain the configured cap at the default small-run threshold;
+      // both paths must durably converge through the public HTTP write/read APIs.
+      const harness = await createHarness({
+        stageMaxSteps: 1,
+        stageSmallRunComplexityThreshold,
+      });
+
+      const parentNameFieldId = createFieldId();
+      const childLinkFieldId = createFieldId();
+      const childLookupFieldId = createFieldId();
+      const childL1FieldId = createFieldId();
+      const childL2FieldId = createFieldId();
+
+      const parentTable = await createTable(harness, {
+        baseId: harness.baseId,
+        name: 'Parents',
+        fields: [{ type: 'singleLineText', id: parentNameFieldId, name: 'Name', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+
+      const childTable = await createTable(harness, {
+        baseId: harness.baseId,
+        name: 'Children',
+        fields: [
+          { type: 'singleLineText', name: 'Title', isPrimary: true },
+          {
+            type: 'link',
+            id: childLinkFieldId,
+            name: 'Parent',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: parentTable.id,
+              lookupFieldId: parentNameFieldId,
+            },
+          },
+          {
+            type: 'lookup',
+            id: childLookupFieldId,
+            name: 'ParentName',
+            options: {
+              linkFieldId: childLinkFieldId,
+              foreignTableId: parentTable.id,
+              lookupFieldId: parentNameFieldId,
+            },
+          },
+          {
+            type: 'formula',
+            id: childL1FieldId,
+            name: 'L1',
+            options: { expression: `CONCATENATE({${childLookupFieldId}}, "-L1")` },
+          },
+          {
+            type: 'formula',
+            id: childL2FieldId,
+            name: 'L2',
+            options: { expression: `CONCATENATE({${childL1FieldId}}, "-L2")` },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const parent = await createRecord(harness, parentTable.id, {
+        [parentNameFieldId]: 'Alpha',
+      });
+      const childA = await createRecord(harness, childTable.id, {
+        Title: 'A',
+        [childLinkFieldId]: { id: parent.id },
+      });
+      const childB = await createRecord(harness, childTable.id, {
+        Title: 'B',
+        [childLinkFieldId]: { id: parent.id },
+      });
+
+      await drainOutbox(harness);
+
+      const assertChildren = async (expected: string) => {
+        const records = await listRecords(harness, childTable.id);
+        for (const childId of [childA.id, childB.id]) {
+          const row = records.find((record) => record.id === childId);
+          expect(row).toBeDefined();
+          const lookup = cellText(
+            parseArrayCell(row?.fields[childLookupFieldId])[0] ?? row?.fields[childLookupFieldId]
+          );
+          expect(lookup).toBe(expected);
+          expect(cellText(row?.fields[childL1FieldId])).toBe(`${expected}-L1`);
+          expect(cellText(row?.fields[childL2FieldId])).toBe(`${expected}-L1-L2`);
+        }
+      };
+
+      await assertChildren('Alpha');
+
+      await updateRecord(harness, parentTable.id, parent.id, {
+        [parentNameFieldId]: 'Alpha-updated',
+      });
+
+      // stageMaxSteps=1 forces the seed task plus at least one deferred continuation.
+      const processed = await drainOutbox(harness);
+      expect(processed).toBeGreaterThanOrEqual(2);
+
+      await assertChildren('Alpha-updated');
+
+      const dead = await sql<{ cnt: number }>`
+      SELECT count(*)::int as cnt FROM computed_update_dead_letter
+    `.execute(harness.testContainer.db);
+      expect(Number(dead.rows[0]?.cnt ?? 0)).toBe(0);
+    },
+    120_000
+  );
+
+  it('fills existing order formulas after staged source INSERT T7152', async () => {
     const harness = await createHarness({
-      stageMaxSteps: 1,
+      stageMaxSteps: 2,
       stageSmallRunComplexityThreshold: 0,
     });
 
-    const parentNameFieldId = createFieldId();
-    const childLinkFieldId = createFieldId();
-    const childLookupFieldId = createFieldId();
-    const childL1FieldId = createFieldId();
-    const childL2FieldId = createFieldId();
+    const detailNameFieldId = createFieldId();
+    const detailProductNameFieldId = createFieldId();
+    const detailOrderKeyFieldId = createFieldId();
+    const orderKeyFieldId = createFieldId();
+    const productNameFieldId = createFieldId();
+    const productNameDisplayFieldId = createFieldId();
+    const orderSummaryFieldId = createFieldId();
 
-    const parentTable = await createTable(harness, {
+    const details = await createTable(harness, {
       baseId: harness.baseId,
-      name: 'Parents',
-      fields: [{ type: 'singleLineText', id: parentNameFieldId, name: 'Name', isPrimary: true }],
+      name: 'T7152 Order Details',
+      fields: [
+        {
+          type: 'singleLineText',
+          id: detailNameFieldId,
+          name: 'product_label',
+          isPrimary: true,
+        },
+        { type: 'singleLineText', id: detailOrderKeyFieldId, name: 'order_key' },
+        {
+          type: 'formula',
+          id: detailProductNameFieldId,
+          name: 'product_name',
+          options: { expression: `CONCATENATE({${detailNameFieldId}})` },
+        },
+      ],
       views: [{ type: 'grid' }],
     });
-
-    const childTable = await createTable(harness, {
+    const orders = await createTable(harness, {
       baseId: harness.baseId,
-      name: 'Children',
+      name: 'T7152 Orders',
       fields: [
-        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        { type: 'singleLineText', id: orderKeyFieldId, name: 'order_key', isPrimary: true },
         {
-          type: 'link',
-          id: childLinkFieldId,
-          name: 'Parent',
+          type: 'conditionalLookup',
+          id: productNameFieldId,
+          name: 'product_name',
           options: {
-            relationship: 'manyOne',
-            foreignTableId: parentTable.id,
-            lookupFieldId: parentNameFieldId,
-          },
-        },
-        {
-          type: 'lookup',
-          id: childLookupFieldId,
-          name: 'ParentName',
-          options: {
-            linkFieldId: childLinkFieldId,
-            foreignTableId: parentTable.id,
-            lookupFieldId: parentNameFieldId,
+            foreignTableId: details.id,
+            lookupFieldId: detailProductNameFieldId,
+            condition: {
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: detailOrderKeyFieldId,
+                    operator: 'is',
+                    value: orderKeyFieldId,
+                    isSymbol: true,
+                  },
+                ],
+              },
+            },
           },
         },
         {
           type: 'formula',
-          id: childL1FieldId,
-          name: 'L1',
-          options: { expression: `CONCATENATE({${childLookupFieldId}}, "-L1")` },
+          id: productNameDisplayFieldId,
+          name: 'product_name_display',
+          options: {
+            expression: `IF(COUNTA({${productNameFieldId}}) > 0, ARRAYJOIN({${productNameFieldId}}, ", "), BLANK())`,
+          },
         },
         {
           type: 'formula',
-          id: childL2FieldId,
-          name: 'L2',
-          options: { expression: `CONCATENATE({${childL1FieldId}}, "-L2")` },
+          id: orderSummaryFieldId,
+          name: 'order_summary',
+          options: {
+            expression: `CONCATENATE({${productNameDisplayFieldId}}, "-summary")`,
+          },
         },
       ],
       views: [{ type: 'grid' }],
     });
 
-    const parent = await createRecord(harness, parentTable.id, {
-      [parentNameFieldId]: 'Alpha',
+    // A second dependent table keeps each clamped dependency level above the
+    // one-step floor, which migrates seeds to the ledger and masks the bug.
+    const peerKeyFieldId = createFieldId();
+    const peerLookupFieldId = createFieldId();
+    const peerDisplayFieldId = createFieldId();
+    const peer = await createTable(harness, {
+      baseId: harness.baseId,
+      name: 'T7152 Order Mirror',
+      fields: [
+        { type: 'singleLineText', id: peerKeyFieldId, name: 'order_key', isPrimary: true },
+        {
+          type: 'conditionalLookup',
+          id: peerLookupFieldId,
+          name: 'product_name',
+          options: {
+            foreignTableId: details.id,
+            lookupFieldId: detailProductNameFieldId,
+            condition: {
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: detailOrderKeyFieldId,
+                    operator: 'is',
+                    value: peerKeyFieldId,
+                    isSymbol: true,
+                  },
+                ],
+              },
+            },
+          },
+        },
+        {
+          type: 'formula',
+          id: peerDisplayFieldId,
+          name: 'product_name_display',
+          options: { expression: `ARRAYJOIN({${peerLookupFieldId}}, ", ")` },
+        },
+      ],
+      views: [{ type: 'grid' }],
     });
-    const childA = await createRecord(harness, childTable.id, {
-      Title: 'A',
-      [childLinkFieldId]: { id: parent.id },
-    });
-    const childB = await createRecord(harness, childTable.id, {
-      Title: 'B',
-      [childLinkFieldId]: { id: parent.id },
-    });
+    const peerRecord = await createRecord(harness, peer.id, { [peerKeyFieldId]: '1001' });
 
+    await createRecord(harness, details.id, {
+      [detailNameFieldId]: 'Unrelated Product',
+      [detailOrderKeyFieldId]: 'OTHER',
+    });
+    await drainOutbox(harness);
+    const target = await createRecord(harness, orders.id, { [orderKeyFieldId]: '1001' });
+    const unrelated = await createRecord(harness, orders.id, { [orderKeyFieldId]: 'OTHER' });
     await drainOutbox(harness);
 
-    const assertChildren = async (expected: string) => {
-      const records = await listRecords(harness, childTable.id);
-      for (const childId of [childA.id, childB.id]) {
-        const row = records.find((record) => record.id === childId);
-        expect(row).toBeDefined();
-        const lookup = cellText(
-          parseArrayCell(row?.fields[childLookupFieldId])[0] ?? row?.fields[childLookupFieldId]
-        );
-        expect(lookup).toBe(expected);
-        expect(cellText(row?.fields[childL1FieldId])).toBe(`${expected}-L1`);
-        expect(cellText(row?.fields[childL2FieldId])).toBe(`${expected}-L1-L2`);
-      }
-    };
-
-    await assertChildren('Alpha');
-
-    await updateRecord(harness, parentTable.id, parent.id, {
-      [parentNameFieldId]: 'Alpha-updated',
+    const before = await listRecords(harness, orders.id);
+    const targetBefore = before.find((record) => record.id === target.id);
+    const unrelatedBefore = before.find((record) => record.id === unrelated.id);
+    expect(targetBefore).toBeDefined();
+    expect(targetBefore?.fields[productNameFieldId] ?? null).toBeNull();
+    expect(targetBefore?.fields[productNameDisplayFieldId] ?? null).toBeNull();
+    expect(unrelatedBefore?.fields).toEqual({
+      [orderKeyFieldId]: 'OTHER',
+      [productNameFieldId]: ['Unrelated Product'],
+      [productNameDisplayFieldId]: 'Unrelated Product',
+      [orderSummaryFieldId]: 'Unrelated Product-summary',
     });
 
-    // stageMaxSteps=1 forces the seed task plus at least one deferred continuation.
-    const processed = await drainOutbox(harness);
-    expect(processed).toBeGreaterThanOrEqual(2);
+    // Both target lookups and then both displays run as multi-step levels.
+    await createRecord(harness, details.id, {
+      [detailNameFieldId]: 'Widget Alpha',
+      [detailOrderKeyFieldId]: '1001',
+    });
+    await drainOutbox(harness);
 
-    await assertChildren('Alpha-updated');
+    const after = await listRecords(harness, orders.id);
+    const targetAfter = after.find((record) => record.id === target.id);
+    expect(targetAfter?.fields[productNameFieldId]).toEqual(['Widget Alpha']);
+    expect(targetAfter?.fields[productNameDisplayFieldId]).toBe('Widget Alpha');
+    const peerAfter = (await listRecords(harness, peer.id)).find(
+      (record) => record.id === peerRecord.id
+    );
+    expect(peerAfter?.fields[peerDisplayFieldId]).toBe('Widget Alpha');
+    expect(targetAfter?.fields[orderSummaryFieldId]).toBe('Widget Alpha-summary');
+    expect(after.find((record) => record.id === unrelated.id)?.fields).toEqual(
+      unrelatedBefore?.fields
+    );
 
     const dead = await sql<{ cnt: number }>`
       SELECT count(*)::int as cnt FROM computed_update_dead_letter
@@ -472,19 +745,18 @@ describe('computed stage budget continuation (e2e)', () => {
   }, 120_000);
 
   it('reaches targets only later edge chunks touch, across partial batches (AJ shape)', async () => {
-    // AJ-shaped lifecycle: one parent field fans out through THREE separate
-    // link/lookup pairs (3 edges into 3 lookup fields) under stageMaxEdges=2,
-    // so the plan chunks; stageMaxDirtyRecords=2 forces floor partial batches,
-    // migrating and retiring the parent seed through the ledger frontier.
-    // Half the children are reachable ONLY via the third link — the edge that
-    // runs in the deferred chunk. Without consumed-source preservation the
-    // deferred chunk would have no parent seeds left and those rows would stay
-    // stale forever.
+    // Two parents share one queued update, so a partial batch retires the first
+    // source while the second remains. A single parent can survive in the final
+    // dirty temp table even if consumed-source preservation is broken.
+    // Three link/lookup pairs exceed the two-edge budget; some children are
+    // reachable only through a deferred edge and need the earlier source again.
     const harness = await createHarness({
       stageMaxSteps: 0,
       stageMaxFields: 0,
       stageMaxEdges: 2,
       stageMaxDirtyRecords: 2,
+      // Otherwise small-run scaling turns two edges into eight: no deferred edge.
+      stageSmallRunComplexityThreshold: 0,
     });
 
     const parentNameFieldId = createFieldId();
@@ -529,40 +801,51 @@ describe('computed stage budget continuation (e2e)', () => {
       views: [{ type: 'grid' }],
     });
 
-    const parent = await createRecord(harness, parentTable.id, {
-      [parentNameFieldId]: 'Fan',
-    });
-    // 3 children linked via ALL links; 3 linked ONLY via the last link.
+    const parents = [];
     const allLinkChildren = [];
-    for (let i = 0; i < 3; i += 1) {
-      allLinkChildren.push(
-        await createRecord(harness, childTable.id, {
-          Title: `All${i}`,
-          [linkFieldIds[0]]: { id: parent.id },
-          [linkFieldIds[1]]: { id: parent.id },
-          [linkFieldIds[2]]: { id: parent.id },
-        })
-      );
-    }
     const lastLinkChildren = [];
-    for (let i = 0; i < 3; i += 1) {
-      lastLinkChildren.push(
-        await createRecord(harness, childTable.id, {
-          Title: `Last${i}`,
-          [linkFieldIds[2]]: { id: parent.id },
-        })
-      );
+    for (const name of ['Fan', 'Other']) {
+      const parent = await createRecord(harness, parentTable.id, {
+        [parentNameFieldId]: name,
+      });
+      parents.push({ id: parent.id, expected: `${name}-updated` });
+      // Per parent: children reached by every edge, and only by the last edge.
+      for (let i = 0; i < 3; i += 1) {
+        allLinkChildren.push({
+          ...(await createRecord(harness, childTable.id, {
+            Title: `${name}-All${i}`,
+            [linkFieldIds[0]]: { id: parent.id },
+            [linkFieldIds[1]]: { id: parent.id },
+            [linkFieldIds[2]]: { id: parent.id },
+          })),
+          expected: `${name}-updated`,
+        });
+        lastLinkChildren.push({
+          ...(await createRecord(harness, childTable.id, {
+            Title: `${name}-Last${i}`,
+            [linkFieldIds[2]]: { id: parent.id },
+          })),
+          expected: `${name}-updated`,
+        });
+      }
     }
-
     await drainOutbox(harness);
 
-    await updateRecord(harness, parentTable.id, parent.id, {
-      [parentNameFieldId]: 'Fan-updated',
+    const updateResponse = await fetch(`${harness.baseUrl}/tables/updateRecords`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tableId: parentTable.id,
+        records: parents.map((parent) => ({
+          id: parent.id,
+          fields: { [parentNameFieldId]: parent.expected },
+        })),
+      }),
     });
-
-    // Chunked edges + floor partial batches: several tasks must run.
-    const processed = await drainOutbox(harness);
-    expect(processed).toBeGreaterThanOrEqual(2);
+    const updateBody = await updateResponse.json();
+    expect(updateResponse.status, JSON.stringify(updateBody)).toBe(200);
+    expect(updateBody.data.updatedCount).toBe(2);
+    await drainOutbox(harness);
 
     const records = await listRecords(harness, childTable.id);
     for (const child of allLinkChildren) {
@@ -572,7 +855,7 @@ describe('computed stage budget continuation (e2e)', () => {
         const lookup = cellText(
           parseArrayCell(row?.fields[lookupFieldId])[0] ?? row?.fields[lookupFieldId]
         );
-        expect(lookup).toBe('Fan-updated');
+        expect(lookup, 'COMPUTED_DEFERRED_EDGE_VALUE').toBe(child.expected);
       }
     }
     // The rows only the deferred chunk's edge reaches must not be stale.
@@ -582,7 +865,7 @@ describe('computed stage budget continuation (e2e)', () => {
       const lookup = cellText(
         parseArrayCell(row?.fields[lookupFieldIds[2]])[0] ?? row?.fields[lookupFieldIds[2]]
       );
-      expect(lookup).toBe('Fan-updated');
+      expect(lookup, 'COMPUTED_DEFERRED_EDGE_VALUE').toBe(child.expected);
     }
 
     const dead = await sql<{ cnt: number }>`

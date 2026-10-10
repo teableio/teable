@@ -32,7 +32,7 @@ import type { Result } from 'neverthrow';
  * PostgreSQL uses '' to escape a single quote within a string.
  */
 function escapeSqlQuotes(value: string): string {
-  return value.replace(/'/g, "''");
+  return value.replaceAll("'", "''");
 }
 
 /**

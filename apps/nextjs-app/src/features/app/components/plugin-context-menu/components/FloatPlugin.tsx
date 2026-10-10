@@ -4,6 +4,7 @@ import { PluginPosition } from '@teable/openapi';
 import { Button, cn } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useEffect, useRef, useState } from 'react';
+import type { JSX } from 'react';
 import { createPortal } from 'react-dom';
 import { Rnd } from 'react-rnd';
 import { PluginContent } from '@/features/app/components/plugin/PluginContent';

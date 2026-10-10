@@ -1,4 +1,5 @@
 export * from './parse-formula';
+export * from './inspect-formula-structure';
 export * from './conversion.visitor';
 export * from './field-reference.visitor';
 export * from './field-reference.util';

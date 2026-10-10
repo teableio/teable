@@ -7,7 +7,10 @@ import type { FieldId } from '../fields/FieldId';
 import { FieldCondition } from '../fields/types/FieldCondition';
 import { LinkField } from '../fields/types/LinkField';
 import { IncomingLinkCandidateSpec } from '../records/specs/IncomingLinkCandidateSpec';
-import { IncomingLinkSelectedSpec } from '../records/specs/IncomingLinkSelectedSpec';
+import {
+  IncomingLinkSelectedSpec,
+  type IncomingLinkHostCondition,
+} from '../records/specs/IncomingLinkSelectedSpec';
 import type { ITableRecordConditionSpecVisitor } from '../records/specs/ITableRecordConditionSpecVisitor';
 import type { TableRecord } from '../records/TableRecord';
 import type { Table } from '../Table';
@@ -88,9 +91,14 @@ export class ViewLinkRecordsQueryPlan {
     );
   }
 
+  /**
+   * `hostCondition` narrows the `selected` mode to foreign records referenced by a
+   * host record that satisfies it (the source view's row filter for shares).
+   */
   selectionSpec(
     sourceTable: Table,
-    targetTable: Table
+    targetTable: Table,
+    options?: { hostCondition?: IncomingLinkHostCondition }
   ): Result<
     ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
     DomainError
@@ -109,17 +117,22 @@ export class ViewLinkRecordsQueryPlan {
         const foreignKeyName = yield* this.linkFieldValue.foreignKeyNameString();
 
         if (this.selectionType === 'selected') {
+          const host = options?.hostCondition
+            ? { hostTableName: hostTableDbName, hostCondition: options.hostCondition }
+            : {};
           return ok(
             fkHostTableName === currentTableDbName || hostTableDbName === currentTableDbName
               ? IncomingLinkSelectedSpec.create({
                   mode: 'currentColumnNotNull',
                   selfKeyName,
+                  ...host,
                 })
               : IncomingLinkSelectedSpec.create({
                   mode: 'hostReferenceExists',
                   selfKeyName,
                   fkHostTableName,
                   foreignKeyName,
+                  ...host,
                 })
           );
         }

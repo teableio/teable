@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  Inject,
   Param,
   Post,
   Query,
@@ -30,14 +31,12 @@ import {
   IShareViewLinkRecordsRo,
   shareViewCollaboratorsRoSchema,
   IShareViewCollaboratorsRo,
-  getRecordsRoSchema,
-  IGetRecordsRo,
   shareViewCalendarDailyCollectionRoSchema,
   IShareViewCalendarDailyCollectionRo,
-  searchCountRoSchema,
-  ISearchCountRo,
-  ISearchIndexByQueryRo,
-  searchIndexByQueryRoSchema,
+  shareViewSearchCountRoSchema,
+  IShareViewSearchCountRo,
+  IShareViewSearchIndexRo,
+  shareViewSearchIndexRoSchema,
 } from '@teable/openapi';
 import type {
   IRecord,
@@ -55,7 +54,10 @@ import type {
   IRecordsVo,
 } from '@teable/openapi';
 import { Response } from 'express';
+import { ClsService } from 'nestjs-cls';
+import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
+import { AuditScope } from '../audit/audit-scope';
 import { AllowAnonymous } from '../auth/decorators/allow-anonymous.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { UseV2Feature } from '../canary/decorators/use-v2-feature.decorator';
@@ -63,6 +65,7 @@ import { V2FeatureGuard } from '../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../canary/interceptors/v2-indicator.interceptor';
 import { TqlPipe } from '../record/open-api/tql.pipe';
 import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
+import { InteractiveQueryCancellation } from '../v2/interactive-query-cancellation.interceptor';
 import { ShareAuthGuard } from './guard/auth.guard';
 import { ShareLinkView } from './guard/link-view.decorator';
 import { ShareAuthLocalGuard } from './guard/share-auth-local.guard';
@@ -75,6 +78,10 @@ import { ShareService } from './share.service';
 @Controller('api/share')
 @Public()
 export class ShareController {
+  // Property-injected: the controller is hand-built in specs.
+  @Inject(AuditScope) protected readonly audit!: AuditScope;
+  @Inject(ClsService) protected readonly cls!: ClsService<IClsStore>;
+
   constructor(
     private readonly shareService: ShareService,
     private readonly shareAuthService: ShareAuthService,
@@ -90,7 +97,7 @@ export class ShareController {
   async auth(@Request() req: any, @Res({ passthrough: true }) res: Response) {
     const shareId = req.shareId;
     const password = req.password;
-    const token = await this.shareAuthService.authToken({ shareId, password });
+    const token = await this.shareAuthService.authToken(shareId, password);
     res.cookie(shareId, token, {
       httpOnly: true,
       maxAge: 1000 * 60 * 60 * 24 * 7,
@@ -112,6 +119,7 @@ export class ShareController {
     return this.shareService.getShareView(shareInfo);
   }
 
+  @InteractiveQueryCancellation()
   @ShareLinkView()
   @UseV2Feature('getSharedViewAggregations')
   @UseGuards(V2FeatureGuard, ShareAuthGuard)
@@ -130,6 +138,7 @@ export class ShareController {
     return this.shareService.getViewAggregations(shareInfo, query);
   }
 
+  @InteractiveQueryCancellation()
   @ShareLinkView()
   @UseV2Feature('getSharedViewRowCount')
   @UseGuards(V2FeatureGuard, ShareAuthGuard)
@@ -148,6 +157,7 @@ export class ShareController {
     return this.shareService.getViewRowCount(shareInfo, query);
   }
 
+  @InteractiveQueryCancellation()
   @ShareLinkView()
   @UseV2Feature('getSharedViewRecords')
   @UseGuards(V2FeatureGuard, ShareAuthGuard)
@@ -191,12 +201,24 @@ export class ShareController {
     shareViewCopyRo: IShareViewCopyQuery
   ): Promise<ICopyVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
-    if (req.useV2) {
-      return this.shareService.copyV2(shareInfo, shareViewCopyRo);
-    }
-    return this.shareService.copy(shareInfo, shareViewCopyRo);
+    const result = req.useV2
+      ? await this.shareService.copyV2(shareInfo, shareViewCopyRo)
+      : await this.shareService.copy(shareInfo, shareViewCopyRo);
+    // Bulk data leaves through a public link, often anonymously: one row per copy.
+    await this.audit.emitAtomic({
+      action: 'shared.view.copy',
+      resourceId: shareInfo.shareId,
+      userId: this.cls.get('user.id') ?? 'anonymous',
+      params: {
+        shareId: shareInfo.shareId,
+        tableId: shareInfo.tableId,
+        viewId: shareInfo.view?.id,
+      },
+    });
+    return result;
   }
 
+  @InteractiveQueryCancellation()
   @ShareLinkView()
   @UseV2Feature('getSharedViewGroupPoints')
   @UseGuards(V2FeatureGuard, ShareAuthGuard)
@@ -215,6 +237,7 @@ export class ShareController {
     return this.shareService.getViewGroupPoints(shareInfo, query);
   }
 
+  @InteractiveQueryCancellation()
   @ShareLinkView()
   @UseV2Feature('getSharedViewCalendarDailyCollection')
   @UseGuards(V2FeatureGuard, ShareAuthGuard)
@@ -265,14 +288,15 @@ export class ShareController {
     return this.shareService.getViewCollaborators(shareInfo, query);
   }
 
+  @InteractiveQueryCancellation()
   @UseV2Feature('getSharedViewSearchCount')
   @UseGuards(V2FeatureGuard, ShareAuthGuard)
   @UseInterceptors(V2IndicatorInterceptor)
   @Get('/:shareId/view/search-count')
   async getSearchCount(
     @Request() req: any,
-    @Query(new ZodValidationPipe(searchCountRoSchema))
-    queryRo: ISearchCountRo
+    @Query(new ZodValidationPipe(shareViewSearchCountRoSchema))
+    queryRo: IShareViewSearchCountRo
   ): Promise<ISearchCountVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
     await this.spaceDataDbMigrationGuardService.assertTableRecordSearchReadable(
@@ -282,18 +306,18 @@ export class ShareController {
     if (req.useV2) {
       return this.shareService.getShareSearchCountV2(shareInfo, queryRo);
     }
-    const { tableId, view } = shareInfo;
-    return this.shareService.getShareSearchCount(tableId, { ...queryRo, viewId: view?.id });
+    return this.shareService.getShareSearchCount(shareInfo, queryRo);
   }
 
+  @InteractiveQueryCancellation()
   @UseV2Feature('getSharedViewSearchIndex')
   @UseGuards(V2FeatureGuard, ShareAuthGuard)
   @UseInterceptors(V2IndicatorInterceptor)
   @Get('/:shareId/view/search-index')
   async getSearchIndex(
     @Request() req: any,
-    @Query(new ZodValidationPipe(searchIndexByQueryRoSchema))
-    queryRo: ISearchIndexByQueryRo
+    @Query(new ZodValidationPipe(shareViewSearchIndexRoSchema))
+    queryRo: IShareViewSearchIndexRo
   ): Promise<ISearchIndexVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
     await this.spaceDataDbMigrationGuardService.assertTableRecordSearchReadable(
@@ -303,8 +327,7 @@ export class ShareController {
     if (req.useV2) {
       return this.shareService.getShareSearchIndexV2(shareInfo, queryRo);
     }
-    const { tableId, view } = shareInfo;
-    return this.shareService.getShareSearchIndex(tableId, { ...queryRo, viewId: view?.id });
+    return this.shareService.getShareSearchIndex(shareInfo, queryRo);
   }
 
   @UseV2Feature('buttonClick')
@@ -344,7 +367,9 @@ export class ShareController {
   }
 
   @ShareLinkView()
-  @UseGuards(ShareAuthGuard)
+  @UseV2Feature('getFields')
+  @UseGuards(V2FeatureGuard, ShareAuthGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
   @AllowAnonymous()
   @Get('/:shareId/socket/field/snapshot-bulk')
   async getFieldSnapshotBulk(@Request() req: any, @Query('ids') ids: string[]) {
@@ -353,7 +378,9 @@ export class ShareController {
   }
 
   @ShareLinkView()
-  @UseGuards(ShareAuthGuard)
+  @UseV2Feature('getFields')
+  @UseGuards(V2FeatureGuard, ShareAuthGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
   @AllowAnonymous()
   @Get('/:shareId/socket/field/doc-ids')
   async getFieldDocIds(
@@ -365,18 +392,7 @@ export class ShareController {
     return this.shareSocketService.getFieldDocIdsByQuery(shareInfo, query);
   }
 
-  @ShareLinkView()
-  @UseGuards(ShareAuthGuard)
-  @AllowAnonymous()
-  @Get('/:shareId/socket/computed-activity/authorize')
-  authorizeComputedActivityRead(
-    @Request() req: { shareInfo: IShareViewInfo },
-    @Query('tableId') tableId: string
-  ): void {
-    const { shareInfo } = req;
-    this.shareSocketService.authorizeComputedActivityRead(shareInfo, tableId);
-  }
-
+  @InteractiveQueryCancellation()
   @ShareLinkView()
   @UseV2Feature('getSharedViewRecords')
   @UseGuards(V2FeatureGuard, ShareAuthGuard)
@@ -392,6 +408,7 @@ export class ShareController {
     return this.shareSocketService.getRecordSnapshotBulk(shareInfo, ids, true, projection);
   }
 
+  @InteractiveQueryCancellation()
   @ShareLinkView()
   @UseV2Feature('getSharedViewRecords')
   @UseGuards(V2FeatureGuard, ShareAuthGuard)
@@ -400,7 +417,9 @@ export class ShareController {
   @Post('/:shareId/socket/record/doc-ids')
   async getRecordDocIds(
     @Request() req: any,
-    @Body(new ZodValidationPipe(getRecordsRoSchema), TqlPipe) query: IGetRecordsRo
+    // The share schema drops viewId/ignoreViewQuery: the socket doc-id query must
+    // stay inside the shared view exactly like the REST records query.
+    @Body(new ZodValidationPipe(shareViewRecordsRoSchema), TqlPipe) query: IShareViewRecordsRo
   ) {
     const shareInfo = req.shareInfo as IShareViewInfo;
     await this.spaceDataDbMigrationGuardService.assertTableRecordSearchReadable(

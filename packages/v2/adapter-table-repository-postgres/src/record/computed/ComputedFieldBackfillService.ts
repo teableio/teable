@@ -2,11 +2,13 @@ import { pgErrorCode } from '@teable/v2-adapter-db-postgres-shared';
 import {
   Field,
   FieldType,
+  FormulaField,
   RecordByIdsSpec,
   RecordId,
   TableByIdSpec,
   domainError,
   generatePrefixedId,
+  hasCode,
   type DomainError,
   type IComputedFieldBackfillService,
   type IExecutionContext,
@@ -19,7 +21,14 @@ import {
   v2CoreTokens,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
-import { formulaSqlPgTokens, type IPgTypeValidationStrategy } from '@teable/v2-formula-sql-pg';
+import {
+  analyzeDeterministicScalarFormula,
+  formulaSqlPgTokens,
+  type IPgTypeValidationStrategy,
+  isFormulaCompileBudgetError,
+  defaultFormulaCompileBudgetConfig,
+  type FormulaCompileBudgetConfig,
+} from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { sql, type Kysely, type Transaction } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
@@ -61,12 +70,77 @@ const hasTrackedFieldIds = (
   return 'trackedFieldIds' in field && typeof field.trackedFieldIds === 'function';
 };
 
-const chunkArray = <T>(items: ReadonlyArray<T>, size: number): ReadonlyArray<ReadonlyArray<T>> => {
-  if (size <= 0 || items.length <= size) return [items];
-  const chunks: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
+/** Fuse bounded deterministic scalar formulas over stored scalar inputs. Clocks,
+ * computed dependencies, arrays, and expensive/unknown calls keep their statement
+ * boundary. The syntax analysis is shared with other safe scalar optimizations.
+ */
+export const planBackfillFieldChunks = (table: Table, fields: ReadonlyArray<Field>): Field[][] => {
+  const chunks: Field[][] = [];
+  let pending: Field[] = [];
+  let expressionBytes = 0;
+  let syntaxCost = 0;
+  const flush = () => {
+    if (pending.length) chunks.push(pending);
+    pending = [];
+    expressionBytes = 0;
+    syntaxCost = 0;
+  };
+  for (const field of fields) {
+    let eligible = false;
+    let length = 0;
+    let cost = 0;
+    if (field instanceof FormulaField) {
+      const expression = field.expression().toString();
+      length = expression.length;
+      const resultType = field.cellValueType();
+      const analysis = analyzeDeterministicScalarFormula(expression, {
+        requireDateResult: resultType.isOk() && resultType.value.toString() === 'dateTime',
+        isStoredDateField: (id) =>
+          table
+            .getFields((candidate) => candidate.id().toString() === id)[0]
+            ?.type()
+            .equals(FieldType.date()) === true,
+      }).unwrapOr(undefined);
+      const multiplicity = field.isMultipleCellValue();
+      eligible =
+        analysis !== undefined &&
+        resultType.isOk() &&
+        multiplicity.isOk() &&
+        !multiplicity.value.toBoolean() &&
+        analysis.fieldReferences.every((id) => {
+          const dependency = table.getFields((candidate) => candidate.id().toString() === id)[0];
+          return (
+            dependency !== undefined &&
+            [
+              FieldType.number(),
+              FieldType.rating(),
+              FieldType.singleLineText(),
+              FieldType.longText(),
+              FieldType.checkbox(),
+              FieldType.date(),
+            ].some((type) => dependency.type().equals(type))
+          );
+        });
+      cost = analysis?.cost ?? 0;
+    }
+    if (!eligible) {
+      flush();
+      chunks.push([field]);
+      continue;
+    }
+    if (
+      pending.length >= 8 ||
+      expressionBytes + length > 1024 ||
+      syntaxCost + cost > 1024 ||
+      pending.some((candidate) => candidate.id().equals(field.id()))
+    ) {
+      flush();
+    }
+    pending.push(field);
+    expressionBytes += length;
+    syntaxCost += cost;
   }
+  flush();
   return chunks;
 };
 
@@ -128,7 +202,7 @@ export const defaultFieldBackfillConfig: FieldBackfillConfig = {
  * Key design decisions:
  * 1. Synchronous callers use set-based SQL; async workers load only one bounded ID batch
  * 2. No dirty table mechanism - updates all records in the table
- * 3. Single column update - new fields have no downstream dependencies
+ * 3. Bounded fusion of independent scalar formulas; other fields update separately
  * 4. Supports sync/async modes for different scale requirements
  *
  * @example
@@ -162,7 +236,9 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
     @inject(v2RecordRepositoryPostgresTokens.fieldBackfillConfig)
     private readonly config: FieldBackfillConfig = defaultFieldBackfillConfig,
     @inject(formulaSqlPgTokens.typeValidationStrategy)
-    private readonly typeValidationStrategy: IPgTypeValidationStrategy
+    private readonly typeValidationStrategy: IPgTypeValidationStrategy,
+    @inject(formulaSqlPgTokens.compileBudget)
+    private readonly formulaCompileBudget: FormulaCompileBudgetConfig = defaultFormulaCompileBudgetConfig
   ) {}
 
   /**
@@ -190,7 +266,12 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
     }
 
     const syncResult = await this.executeSync(context, input);
-    if (syncResult.isOk()) {
+    if (
+      syncResult.isOk() ||
+      isFormulaCompileBudgetError(syncResult.error) ||
+      hasCode(syncResult.error, 'validation.formula_safety_version_unsupported') ||
+      hasCode(syncResult.error, 'db.undefined_column')
+    ) {
       return syncResult;
     }
 
@@ -259,6 +340,13 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
     });
     if (syncResult.isOk()) {
       return syncResult;
+    }
+    if (
+      isFormulaCompileBudgetError(syncResult.error) ||
+      hasCode(syncResult.error, 'validation.formula_safety_version_unsupported') ||
+      hasCode(syncResult.error, 'db.undefined_column')
+    ) {
+      return err(syncResult.error);
     }
 
     const fallbackResult = await this.enqueueManyAfterSyncFailure(
@@ -442,6 +530,7 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
         // This will select all records in the table
         const builder = new ComputedTableRecordQueryBuilder(db, {
           typeValidationStrategy: this.typeValidationStrategy,
+          formulaCompileBudget: this.formulaCompileBudget,
           forceLookupArrayOutput: true,
           resolveSystemUserSnapshotsFromUsers: true,
           allowFullTableSetBasedRollups: true,
@@ -589,13 +678,14 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
           }
         }
 
-        const fieldChunks = chunkArray(filtered, BACKFILL_SYNC_FIELD_CHUNK_SIZE);
+        const fieldChunks = planBackfillFieldChunks(input.table, filtered);
         for (let index = 0; index < fieldChunks.length; index += 1) {
           const fields = fieldChunks[index]!;
           const chunkFieldIds = fields.map((f) => f.id());
 
           const builder = new ComputedTableRecordQueryBuilder(db, {
             typeValidationStrategy: this.typeValidationStrategy,
+            formulaCompileBudget: this.formulaCompileBudget,
             forceLookupArrayOutput: true,
             resolveSystemUserSnapshotsFromUsers: true,
             allowFullTableSetBasedRollups: true,
@@ -623,6 +713,7 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
             fieldIds: chunkFieldIds,
             selectQuery,
             skipDistinctFilter: input.skipDistinctFilter,
+            countChangedFieldsForVersion: fields.length > 1,
           });
 
           this.logger.debug('computed:backfillMany:sql', {
@@ -706,7 +797,7 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
       includeOneManyTwoWay?: boolean;
     }
   ): Promise<Result<Field[], DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<Field[], DomainError>(async function* () {
       const fields: Field[] = [];
       for (const field of input.fields) {
@@ -930,7 +1021,7 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
     const { schema, tableName } = locationResult.value;
     const schemaName = schema ?? 'public';
     const introspector = new PostgresSchemaIntrospector(db as unknown as Kysely<V1TeableDatabase>);
-    const quoteIdent = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const quoteIdent = (value: string) => `"${value.replaceAll('"', '""')}"`;
 
     for (const field of fields) {
       if (!field.type().equals(FieldType.formula())) {

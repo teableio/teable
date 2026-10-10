@@ -1,18 +1,31 @@
 import type { INestApplication } from '@nestjs/common';
-import type { ITableFullVo } from '@teable/openapi';
+import { Role } from '@teable/core';
+import type { ICreatePluginVo, ITableFullVo, IUserMeVo } from '@teable/openapi';
 import {
+  axios,
+  CREATE_PLUGIN,
+  createAxios,
   createPlugin,
   createPluginPanel,
+  DELETE_PLUGIN,
+  deleteBaseCollaborator,
   deletePlugin,
   deletePluginPanel,
   duplicatePluginPanel,
   duplicatePluginPanelInstalledPlugin,
+  emailBaseInvitation,
+  GET_DB_CONNECTION,
+  getBaseCollaboratorList,
   getPluginPanel,
   getPluginPanelPlugin,
   installPluginPanel,
+  PLUGIN_GET_AUTH_CODE,
+  PLUGIN_PANEL_INSTALL,
+  pluginGetToken,
   pluginPanelGetVoSchema,
   pluginPanelPluginGetVoSchema,
   PluginPosition,
+  PrincipalType,
   publishPlugin,
   removePluginPanelPlugin,
   renamePluginPanel,
@@ -20,7 +33,11 @@ import {
   submitPlugin,
   updatePluginPanelLayout,
   updatePluginPanelStorage,
+  urlBuilder,
+  USER_ME,
 } from '@teable/openapi';
+import type { AxiosInstance } from 'axios';
+import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
 import { createTable, initApp, permanentDeleteTable } from './utils/init-app';
 
@@ -319,6 +336,120 @@ describe('plugin panel', () => {
       );
       expect(res.status).toBe(200);
       expect(res.data.storage).toEqual({ test: 'test' });
+    });
+  });
+
+  describe('plugin panel install by a base creator', () => {
+    let creatorUser: AxiosInstance;
+    let creatorPlugin: ICreatePluginVo;
+
+    beforeAll(async () => {
+      creatorUser = await createNewUserAxios({
+        email: `plugin-panel-creator-${Date.now()}@test.com`,
+        password: 'TestPassword123!',
+      });
+      const me = await creatorUser.get<IUserMeVo>(USER_ME);
+      await emailBaseInvitation({
+        baseId,
+        emailBaseInvitationRo: { emails: [me.data.email], role: Role.Creator },
+      });
+    });
+
+    beforeEach(async () => {
+      // A Developing plugin installed by its own author: the published check admits it.
+      const res = await creatorUser.post<ICreatePluginVo>(CREATE_PLUGIN, {
+        name: 'creator plugin',
+        logo: 'https://logo.com',
+        positions: [PluginPosition.Panel],
+        autoCreateMember: true,
+      });
+      creatorPlugin = res.data;
+    });
+
+    afterEach(async () => {
+      await creatorUser
+        .delete(urlBuilder(DELETE_PLUGIN, { id: creatorPlugin.id }))
+        .catch(() => undefined);
+      await deleteBaseCollaborator({
+        baseId,
+        deleteBaseCollaboratorRo: {
+          principalId: creatorPlugin.pluginUser!.id,
+          principalType: PrincipalType.User,
+        },
+      }).catch(() => undefined);
+    });
+
+    const installAsCreator = () =>
+      creatorUser.post<{ pluginInstallId: string }>(
+        urlBuilder(PLUGIN_PANEL_INSTALL, { tableId, pluginPanelId }),
+        { name: 'creator plugin', pluginId: creatorPlugin.id }
+      );
+
+    const getAuthCode = async () => {
+      const res = await creatorUser.post<string>(
+        urlBuilder(PLUGIN_GET_AUTH_CODE, { pluginId: creatorPlugin.id }),
+        { baseId }
+      );
+      return res.data;
+    };
+
+    it('seats the plugin user with the installer role, not owner', async () => {
+      const res = await installAsCreator();
+      expect(res.status).toBe(201);
+
+      const collaborators = await getBaseCollaboratorList(baseId, { includeSystem: true });
+      const pluginCollaborator = collaborators.data.collaborators.find(
+        (item) => item.type === PrincipalType.User && item.userId === creatorPlugin.pluginUser!.id
+      );
+      expect(pluginCollaborator?.role).toBe(Role.Creator);
+    });
+
+    it('never issues a plugin token that can read the database connection', async () => {
+      await installAsCreator();
+
+      const deniedAuthCode = await getAuthCode();
+      const scopeError = await getError(() =>
+        pluginGetToken(creatorPlugin.id, {
+          baseId,
+          secret: creatorPlugin.secret,
+          scopes: ['base|db_connection' as never],
+          authCode: deniedAuthCode,
+        })
+      );
+      expect(scopeError?.status).toBe(400);
+
+      const token = await pluginGetToken(creatorPlugin.id, {
+        baseId,
+        secret: creatorPlugin.secret,
+        scopes: ['base|read'],
+        authCode: await getAuthCode(),
+      });
+      // A clean client: the shared axios carries the owner's session cookie,
+      // which the auth guard would pick before the bearer token.
+      const pluginAxios = createAxios();
+      pluginAxios.defaults.baseURL = axios.defaults.baseURL;
+      const connectionError = await getError(() =>
+        pluginAxios.get(urlBuilder(GET_DB_CONNECTION, { baseId }), {
+          headers: { Authorization: `Bearer ${token.data.accessToken}` },
+        })
+      );
+      expect(connectionError?.status).toBe(403);
+    });
+
+    it('rejects installing an unpublished plugin of another user', async () => {
+      const developingPlugin = await createPlugin({
+        name: 'developing plugin',
+        logo: 'https://logo.com',
+        positions: [PluginPosition.Panel],
+      });
+      const error = await getError(() =>
+        creatorUser.post(urlBuilder(PLUGIN_PANEL_INSTALL, { tableId, pluginPanelId }), {
+          name: 'developing plugin',
+          pluginId: developingPlugin.data.id,
+        })
+      );
+      expect(error?.status).toBe(404);
+      await deletePlugin(developingPlugin.data.id);
     });
   });
 });

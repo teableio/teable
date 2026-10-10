@@ -1,11 +1,9 @@
 import { ColorUtils, Colors, MultiNumberDisplayType } from '@teable/core';
 import type { IMultiNumberShowAs } from '@teable/core';
 import {
-  Button,
   Popover,
   PopoverContent,
   PopoverTrigger,
-  cn,
   Tabs,
   TabsList,
   TabsTrigger,

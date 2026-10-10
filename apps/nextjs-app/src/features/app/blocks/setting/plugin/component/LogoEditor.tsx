@@ -35,7 +35,7 @@ export const LogoEditor = (props: {
       toast.warning(t('plugin:form.logo.lengthError'));
       return;
     }
-    if (files[0].type.indexOf('image') === -1) {
+    if (!files[0].type.includes('image')) {
       toast.warning(t('plugin:form.logo.typeError'));
       return;
     }

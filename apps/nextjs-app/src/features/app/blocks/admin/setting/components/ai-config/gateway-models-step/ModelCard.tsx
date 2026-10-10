@@ -44,7 +44,7 @@ export function ModelCard({
   onRemove,
   onUpdateI18nDescription,
   onUpdateRecommendedDescription,
-}: IModelCardProps) {
+}: Readonly<IModelCardProps>) {
   const { t } = useTranslation('common');
   const isCloud = useIsCloud();
   const [descEn, setDescEn] = useState(model.i18nDescription?.en ?? '');

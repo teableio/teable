@@ -72,4 +72,4 @@ export const dotteaImport = Command.make(
     stdin: stdinOption,
   },
   handler
-).pipe(Command.withDescription('Import .tea structure into an existing base'));
+).pipe(Command.withDescription('Import .tea structure into an existing project'));

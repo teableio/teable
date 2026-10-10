@@ -5,13 +5,13 @@ import { AddTableBuilder } from './add-table';
 import { SetTablePropertyBuilder } from './set-table-property';
 
 export class TableOpBuilder {
-  static editor = {
+  static readonly editor = {
     [OpName.SetTableProperty]: new SetTablePropertyBuilder(),
   };
 
-  static creator = new AddTableBuilder();
+  static readonly creator = new AddTableBuilder();
 
-  static ops2Contexts = OpBuilderAbstract.ops2Contexts;
+  static readonly ops2Contexts = OpBuilderAbstract.ops2Contexts;
 
-  static detect = OpBuilderAbstract.detect;
+  static readonly detect = OpBuilderAbstract.detect;
 }

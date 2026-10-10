@@ -10,7 +10,7 @@ import { tableConfig } from '@/features/i18n/table.config';
 const { toast } = sonner;
 
 interface IResetClickCountButtonProps {
-  gridRef: React.RefObject<IGridRef>;
+  gridRef: React.RefObject<IGridRef | null>;
   activeCell?: IActiveCell;
   recordMap: IRecordIndexMap;
 }

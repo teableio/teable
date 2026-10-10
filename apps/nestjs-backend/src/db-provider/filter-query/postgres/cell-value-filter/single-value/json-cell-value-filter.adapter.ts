@@ -10,7 +10,7 @@ import type {
 import { FieldType, isFieldReferenceValue } from '@teable/core';
 import type { Knex } from 'knex';
 import { isUserOrLink } from '../../../../../utils/is-user-or-link';
-import { escapeJsonbRegex } from '../../../../../utils/postgres-regex-escape';
+import { escapeJsonPathRegexLiteral } from '../../../../../utils/postgres-regex-escape';
 import type { IDbProvider } from '../../../../db.provider.interface';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
@@ -124,7 +124,7 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
       );
     } else {
       builderClient.whereRaw(
-        `${this.tableColumnRef}::jsonb \\?| ARRAY[${this.createSqlPlaceholders(value)}]`,
+        String.raw`${this.tableColumnRef}::jsonb \?| ARRAY[${this.createSqlPlaceholders(value)}]`,
         value
       );
     }
@@ -157,7 +157,7 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
       );
     } else {
       builderClient.whereRaw(
-        `NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb \\?| ARRAY[${this.createSqlPlaceholders(value)}]`,
+        String.raw`NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb \?| ARRAY[${this.createSqlPlaceholders(value)}]`,
         value
       );
     }
@@ -169,18 +169,13 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
     _operator: IFilterOperator,
     value: IFilterValue
   ): Knex.QueryBuilder {
-    const { type } = this.field;
-    const escapedValue = escapeJsonbRegex(String(value));
-
-    if (type === FieldType.Link) {
-      builderClient.whereRaw(
-        `jsonb_path_exists(${this.tableColumnRef}::jsonb, '$.title \\? (@ like_regex "${escapedValue}" flag "i")'::jsonpath)`
-      );
-    } else {
-      builderClient.whereRaw(
-        `jsonb_path_exists(${this.tableColumnRef}::jsonb, '$[*] \\? (@ like_regex "${escapedValue}" flag "i")'::jsonpath)`
-      );
-    }
+    // Bind the whole jsonpath as a parameter; the filter value must never be
+    // spliced into the SQL text (a single quote would close the literal and
+    // inject SQL).
+    const jsonPath = this.buildLikeRegexJsonPath(value);
+    builderClient.whereRaw(`jsonb_path_exists(${this.tableColumnRef}::jsonb, ?::jsonpath)`, [
+      jsonPath,
+    ]);
     return builderClient;
   }
 
@@ -190,18 +185,31 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
     value: IFilterValue
   ): Knex.QueryBuilder {
     const { type } = this.field;
-    const escapedValue = escapeJsonbRegex(String(value));
+    const jsonPath = this.buildLikeRegexJsonPath(value);
 
     if (type === FieldType.Link) {
       builderClient.whereRaw(
-        `NOT jsonb_path_exists(COALESCE(${this.tableColumnRef}, '{}')::jsonb, '$.title \\? (@ like_regex "${escapedValue}" flag "i")'::jsonpath)`
+        `NOT jsonb_path_exists(COALESCE(${this.tableColumnRef}, '{}')::jsonb, ?::jsonpath)`,
+        [jsonPath]
       );
     } else {
       builderClient.whereRaw(
-        `NOT jsonb_path_exists(COALESCE(${this.tableColumnRef}, '[]')::jsonb, '$[*] \\? (@ like_regex "${escapedValue}" flag "i")'::jsonpath)`
+        `NOT jsonb_path_exists(COALESCE(${this.tableColumnRef}, '[]')::jsonb, ?::jsonpath)`,
+        [jsonPath]
       );
     }
     return builderClient;
+  }
+
+  /**
+   * Case-insensitive substring match over the link title (`$.title`) or over
+   * the elements of a JSON array. The value is escaped for the jsonpath string
+   * literal only; the caller binds the returned path as a parameter.
+   */
+  private buildLikeRegexJsonPath(value: IFilterValue): string {
+    const pattern = escapeJsonPathRegexLiteral(String(value));
+    const selector = this.field.type === FieldType.Link ? '$.title' : '$[*]';
+    return `${selector} ? (@ like_regex "${pattern}" flag "i")`;
   }
 
   private buildReferenceJsonArray(value: IFieldReferenceValue): string {

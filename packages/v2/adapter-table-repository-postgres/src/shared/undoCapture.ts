@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { sql, Transaction } from 'kysely';
 import type { Kysely } from 'kysely';
 
@@ -58,7 +59,7 @@ export const invalidateUndoCaptureTableCache = (
 };
 
 const nextSavepointName = () =>
-  `teable_undo_capture_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  `teable_undo_capture_${Date.now().toString(36)}_${randomBytes(4).toString('hex')}`;
 
 const toQuotedSavepointIdentifier = (savepointName: string) =>
   `"${savepointName.replaceAll('"', '""')}"`;

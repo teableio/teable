@@ -1,26 +1,31 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { ChevronLeft, Trash2 } from '@teable/icons';
-import type { ITrashItemVo, ITrashVo } from '@teable/openapi';
+import type { IDeleteTrashQuery, ITrashItemVo, ITrashVo } from '@teable/openapi';
 import { getTrash, restoreTrash, deleteTrash, PrincipalType, TrashType } from '@teable/openapi';
 import { InfiniteTable } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useIsHydrated } from '@teable/sdk/hooks';
 import { ConfirmDialog } from '@teable/ui-lib/base';
-import { Button } from '@teable/ui-lib/shadcn';
+import { Button, Checkbox, Label } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
 import { IterationCcwIcon } from 'lucide-react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useBrand } from '@/features/app/hooks/useBrand';
 import { spaceConfig } from '@/features/i18n/space.config';
+import { useSpaceDeleteCopy } from '@overridable/useSpaceDeleteCopy';
 import { Collaborator } from '../../components/collaborator-manage/components/Collaborator';
 import { SpaceAvatar } from '../../components/space/SpaceAvatar';
 import { useEnv } from '../../hooks/useEnv';
 import { useIsCommunity } from '../../hooks/useIsCommunity';
+
+/** While a handed-over deletion is pending: how often the list is re-read, and for how long. */
+const HANDED_OVER_POLL_MS = 3000;
+const HANDED_OVER_GIVE_UP_MS = 5 * 60 * 1000;
 
 export const SpaceTrashPage = () => {
   const isHydrated = useIsHydrated();
@@ -40,9 +45,18 @@ export const SpaceTrashPage = () => {
   const [resourceMap, setResourceMap] = useState<ITrashVo['resourceMap']>({});
   const [nextCursor, setNextCursor] = useState<string | null | undefined>();
   const [isConfirmVisible, setConfirmVisible] = useState(false);
+  const [forceRemove, setForceRemove] = useState(false);
   const [deletingResource, setDeletingResource] = useState<
-    { trashId: string; name: string } | undefined
+    { trashId: string; spaceId: string; name: string; isByodb: boolean } | undefined
   >();
+  const copy = useSpaceDeleteCopy({
+    spaceId: deletingResource?.spaceId,
+    available: !forceRemove,
+  });
+  // Spaces whose deletion was handed to a background job (a copy is mailed first). They leave
+  // the list at once; the list is polled until the server no longer has them, and one still
+  // there after the wait is shown again — its job did not delete it.
+  const [handedOver, setHandedOver] = useState<Map<string, number>>(new Map());
 
   const queryFn = async () => {
     const res = await getTrash({ resourceType });
@@ -60,6 +74,7 @@ export const SpaceTrashPage = () => {
     queryFn,
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
+    refetchInterval: handedOver.size > 0 ? HANDED_OVER_POLL_MS : false,
     initialPageParam: undefined as string | undefined,
     getNextPageParam: () => nextCursor,
   });
@@ -73,17 +88,67 @@ export const SpaceTrashPage = () => {
     },
   });
 
-  const { mutateAsync: mutatePermanentDelete } = useMutation({
-    mutationFn: (props: { trashId: string }) => deleteTrash(props.trashId),
-    onSuccess: () => {
+  const { mutate: mutatePermanentDelete, isPending: isDeleting } = useMutation({
+    mutationFn: (props: { trashId: string; query?: IDeleteTrashQuery }) =>
+      deleteTrash(props.trashId, props.query),
+    onSuccess: (_data, { query }) => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getSpaceTrash(resourceType) });
-      toast.success(t('actions.deleteSucceed'));
+      toast.success(
+        query?.force ? t('space:trash.forceRemoveSuccess') : t('actions.deleteSucceed')
+      );
+      setConfirmVisible(false);
+      setForceRemove(false);
+      setDeletingResource(undefined);
     },
   });
 
+  const isConfirming = isDeleting || copy.isPending;
+
+  const onConfirmOpenChange = (open: boolean) => {
+    if (isConfirming) return;
+    setConfirmVisible(open);
+    if (!open) {
+      setForceRemove(false);
+      setDeletingResource(undefined);
+    }
+  };
+
+  const onConfirmDelete = async () => {
+    if (deletingResource == null || isConfirming) return;
+    const outcome = await copy.beforeDelete();
+    if (outcome === 'abort') return;
+    if (outcome === 'handed-over') {
+      // The space is deleted once its copy has been mailed; the row goes now and the list
+      // is polled until the server agrees.
+      setHandedOver((prev) => new Map(prev).set(deletingResource.trashId, Date.now()));
+      setConfirmVisible(false);
+      setForceRemove(false);
+      setDeletingResource(undefined);
+      return;
+    }
+    mutatePermanentDelete({
+      trashId: deletingResource.trashId,
+      query: forceRemove && deletingResource.isByodb ? { force: true } : undefined,
+    });
+  };
+
+  const serverRows = useMemo(() => (data ? (data.pages.flat() as ITrashItemVo[]) : []), [data]);
+
+  useEffect(() => {
+    if (handedOver.size === 0) return;
+    const present = new Set(serverRows.map((row) => row.id));
+    const now = Date.now();
+    const next = new Map(
+      [...handedOver].filter(
+        ([trashId, since]) => present.has(trashId) && now - since < HANDED_OVER_GIVE_UP_MS
+      )
+    );
+    if (next.size !== handedOver.size) setHandedOver(next);
+  }, [handedOver, serverRows]);
+
   const allRows = useMemo(
-    () => (data ? (data.pages.flatMap((d) => d) as ITrashItemVo[]) : []),
-    [data]
+    () => serverRows.filter((row) => !handedOver.has(row.id)),
+    [serverRows, handedOver]
   );
 
   const columns: ColumnDef<ITrashItemVo>[] = useMemo(() => {
@@ -167,10 +232,13 @@ export const SpaceTrashPage = () => {
                 className="size-8 p-0"
                 title={t('actions.permanentDelete')}
                 onClick={() => {
+                  setForceRemove(false);
                   setConfirmVisible(true);
                   setDeletingResource({
                     trashId,
+                    spaceId: resourceId,
                     name: resourceInfo.name,
+                    isByodb: row.original.isByodb === true,
                   });
                 }}
               >
@@ -217,22 +285,53 @@ export const SpaceTrashPage = () => {
       <InfiniteTable rows={allRows} columns={columns} fetchNextPage={fetchNextPageInner} />
       <ConfirmDialog
         open={isConfirmVisible}
-        onOpenChange={setConfirmVisible}
-        title={t('trash.permanentDeleteTips', {
-          name: deletingResource?.name,
-          resource: t('noun.space'),
-        })}
+        onOpenChange={onConfirmOpenChange}
+        closeable={!isConfirming}
+        title={
+          forceRemove
+            ? t('space:trash.forceRemoveTitle', { name: deletingResource?.name })
+            : t('trash.permanentDeleteTips', {
+                name: deletingResource?.name,
+                resource: t('noun.space'),
+              })
+        }
+        content={
+          (deletingResource?.isByodb === true || copy.option) && (
+            <div className="space-y-4">
+              {deletingResource?.isByodb === true && (
+                <>
+                  <p
+                    id="force-remove-space-warning"
+                    className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
+                  >
+                    {t('space:trash.forceRemoveWarning', { brandName })}
+                  </p>
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      id="force-remove-space"
+                      className="mt-0.5"
+                      checked={forceRemove}
+                      disabled={isConfirming}
+                      aria-describedby="force-remove-space-warning"
+                      onCheckedChange={(checked) => setForceRemove(checked === true)}
+                    />
+                    <Label htmlFor="force-remove-space" className="leading-normal">
+                      {t('space:trash.forceRemoveLabel')}
+                    </Label>
+                  </div>
+                </>
+              )}
+              {copy.option}
+            </div>
+          )
+        }
         cancelText={t('actions.cancel')}
-        confirmText={t('actions.confirm')}
-        onCancel={() => setConfirmVisible(false)}
-        onConfirm={() => {
-          if (deletingResource == null) return;
-          const { trashId } = deletingResource;
-          setConfirmVisible(false);
-          mutatePermanentDelete({
-            trashId,
-          });
-        }}
+        confirmText={forceRemove ? t('space:trash.forceRemove') : t('actions.permanentDelete')}
+        confirmButtonVariant="destructive"
+        confirmLoading={isConfirming}
+        confirmDisabled={isConfirming}
+        onCancel={() => onConfirmOpenChange(false)}
+        onConfirm={onConfirmDelete}
       />
     </div>
   );

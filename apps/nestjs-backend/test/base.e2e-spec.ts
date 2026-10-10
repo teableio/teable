@@ -600,7 +600,7 @@ describe('OpenAPI BaseController (e2e)', () => {
           const { source, target } = edge;
           return `${source.tableId}.${source.fieldId}-${target.tableId}.${target.fieldId}`;
         })
-        .sort();
+        .sort((a, b) => Number(a > b) - Number(a < b));
     };
 
     const getTypeMap = (edges: IBaseErdEdge[]) => {

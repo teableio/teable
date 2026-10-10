@@ -4,12 +4,11 @@ import { describe, expect, it } from 'vitest';
 import { ActorId } from '../../domain/shared/ActorId';
 import { domainError } from '../../domain/shared/DomainError';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
+import type { ITableReadModel } from '../../domain/table/ITableReadModel';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
-import type { Table } from '../../domain/table/Table';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import type { ILogger, LogContext } from '../../ports/Logger';
-import { DefaultTableMapper } from '../../ports/mappers/defaults/DefaultTableMapper';
 import {
   RecordQueryOperationKind,
   type IRecordQueryPlugin,
@@ -18,15 +17,12 @@ import {
 } from '../../ports/RecordQueryPlugin';
 import { RecordQueryPluginRunner } from './RecordQueryPluginRunner';
 
-const tableMapper = new DefaultTableMapper();
-
-const createTable = (tableId = 'tblTraceRecordQuery'): Table =>
+const createTable = (tableId = 'tblTraceRecordQuery'): ITableReadModel =>
   ({
     id: () => ({
       toString: () => tableId,
     }),
-    clone: () => ok(createTable(tableId)),
-  }) as unknown as Table;
+  }) as unknown as ITableReadModel;
 
 const createListContext = (): RecordQueryPluginContextMap['list'] => ({
   kind: RecordQueryOperationKind.list,
@@ -82,7 +78,7 @@ const createFakeSpec = (
 
 describe('RecordQueryPluginRunner', () => {
   it('returns undefined scope when no plugins are registered', async () => {
-    const runner = new RecordQueryPluginRunner([], new FakeLogger(), tableMapper);
+    const runner = new RecordQueryPluginRunner([], new FakeLogger());
     const execution = (await runner.prepare(createListContext()))._unsafeUnwrap();
 
     await expect(execution.guard()).resolves.toEqual(ok(undefined));
@@ -114,7 +110,7 @@ describe('RecordQueryPluginRunner', () => {
         } satisfies RecordQueryPluginScope),
     };
 
-    const runner = new RecordQueryPluginRunner([pluginA, pluginB], new FakeLogger(), tableMapper);
+    const runner = new RecordQueryPluginRunner([pluginA, pluginB], new FakeLogger());
     const execution = (await runner.prepare(createListContext()))._unsafeUnwrap();
     const scope = execution.getScope()._unsafeUnwrap();
 
@@ -144,11 +140,7 @@ describe('RecordQueryPluginRunner', () => {
         ),
     };
 
-    const runner = new RecordQueryPluginRunner(
-      [allowPlugin, denyPlugin],
-      new FakeLogger(),
-      tableMapper
-    );
+    const runner = new RecordQueryPluginRunner([allowPlugin, denyPlugin], new FakeLogger());
     const execution = (await runner.prepare(createListContext()))._unsafeUnwrap();
     const guardResult = await execution.guard();
 
@@ -176,7 +168,7 @@ describe('RecordQueryPluginRunner', () => {
         }),
     };
 
-    const runner = new RecordQueryPluginRunner([skipped, kept], new FakeLogger(), tableMapper);
+    const runner = new RecordQueryPluginRunner([skipped, kept], new FakeLogger());
     const execution = (
       await runner.prepare(createListContext(), {
         runnerOptions: { skipPluginNames: new Set(['skipped']) },
@@ -207,7 +199,7 @@ describe('RecordQueryPluginRunner', () => {
         }),
     };
 
-    const runner = new RecordQueryPluginRunner([pluginA, pluginB], new FakeLogger(), tableMapper);
+    const runner = new RecordQueryPluginRunner([pluginA, pluginB], new FakeLogger());
     const scope = (await runner.prepare(createListContext()))
       ._unsafeUnwrap()
       .getScope()
@@ -239,7 +231,7 @@ describe('RecordQueryPluginRunner', () => {
     };
 
     const compatibleScope = (
-      await new RecordQueryPluginRunner([compatiblePlugin], new FakeLogger(), tableMapper).prepare(
+      await new RecordQueryPluginRunner([compatiblePlugin], new FakeLogger()).prepare(
         createListContext()
       )
     )
@@ -249,8 +241,7 @@ describe('RecordQueryPluginRunner', () => {
     const mixedScope = (
       await new RecordQueryPluginRunner(
         [compatiblePlugin, incompatiblePlugin],
-        new FakeLogger(),
-        tableMapper
+        new FakeLogger()
       ).prepare(createListContext())
     )
       ._unsafeUnwrap()
@@ -271,7 +262,7 @@ describe('RecordQueryPluginRunner', () => {
         }),
     };
 
-    const runner = new RecordQueryPluginRunner([plugin], new FakeLogger(), tableMapper);
+    const runner = new RecordQueryPluginRunner([plugin], new FakeLogger());
     const scope = (await runner.prepare(createListContext()))
       ._unsafeUnwrap()
       .getScope()
@@ -293,7 +284,7 @@ describe('RecordQueryPluginRunner', () => {
       scope: () => ok({ readableFieldIds: new Set(['fldA', 'fldB']) }),
     };
 
-    const runner = new RecordQueryPluginRunner([empty, partial], new FakeLogger(), tableMapper);
+    const runner = new RecordQueryPluginRunner([empty, partial], new FakeLogger());
     const scope = (await runner.prepare(createListContext()))
       ._unsafeUnwrap()
       .getScope()
@@ -313,7 +304,7 @@ describe('RecordQueryPluginRunner', () => {
         }),
     };
 
-    const runner = new RecordQueryPluginRunner([plugin], new FakeLogger(), tableMapper);
+    const runner = new RecordQueryPluginRunner([plugin], new FakeLogger());
     const scope = (await runner.prepare(createListContext()))
       ._unsafeUnwrap()
       .getScope()
@@ -344,11 +335,7 @@ describe('RecordQueryPluginRunner', () => {
         }),
     };
 
-    const runner = new RecordQueryPluginRunner(
-      [uxPlugin, tenantPlugin],
-      new FakeLogger(),
-      tableMapper
-    );
+    const runner = new RecordQueryPluginRunner([uxPlugin, tenantPlugin], new FakeLogger());
     const scope = (await runner.prepare(createListContext()))
       ._unsafeUnwrap()
       .getScope()
@@ -378,11 +365,7 @@ describe('RecordQueryPluginRunner', () => {
         }),
     };
 
-    const runner = new RecordQueryPluginRunner(
-      [forcePlugin, denyPlugin],
-      new FakeLogger(),
-      tableMapper
-    );
+    const runner = new RecordQueryPluginRunner([forcePlugin, denyPlugin], new FakeLogger());
     const scope = (await runner.prepare(createListContext()))
       ._unsafeUnwrap()
       .getScope()
@@ -407,7 +390,7 @@ describe('RecordQueryPluginRunner', () => {
         }),
     };
 
-    const runner = new RecordQueryPluginRunner([plugin], new FakeLogger(), tableMapper);
+    const runner = new RecordQueryPluginRunner([plugin], new FakeLogger());
     const scope = (await runner.prepare(createListContext()))
       ._unsafeUnwrap()
       .getScope()
@@ -428,11 +411,7 @@ describe('RecordQueryPluginRunner', () => {
       scope: () => ok({ readableFieldIds: new Set(['fldGetOne']) }),
     };
 
-    const runner = new RecordQueryPluginRunner(
-      [listOnly, getOneOnly],
-      new FakeLogger(),
-      tableMapper
-    );
+    const runner = new RecordQueryPluginRunner([listOnly, getOneOnly], new FakeLogger());
     const scope = (await runner.prepare(createListContext()))
       ._unsafeUnwrap()
       .getScope()
@@ -441,31 +420,30 @@ describe('RecordQueryPluginRunner', () => {
     expect(scope?.readableFieldIds).toEqual(new Set(['fldList']));
   });
 
-  it('rehydrates a detached table snapshot once per runner execution', async () => {
+  it('does not clone the table aggregate when preparing plugins', async () => {
     const table = createTable();
-    let cloneCount = 0;
-    const originalClone = table.clone.bind(table);
-    table.clone = ((mapper: DefaultTableMapper) => {
-      cloneCount += 1;
-      return originalClone(mapper);
-    }) as Table['clone'];
-
+    const seenTables: ITableReadModel[] = [];
     const runner = new RecordQueryPluginRunner(
       [
         {
           name: 'first',
           supports: () => true,
-          prepare: async () => ok(undefined),
+          prepare: async (context) => {
+            seenTables.push(context.table);
+            return ok(undefined);
+          },
         },
         {
           name: 'second',
           supports: () => true,
-          prepare: async () => ok(undefined),
+          prepare: async (context) => {
+            seenTables.push(context.table);
+            return ok(undefined);
+          },
           guard: async () => ok(undefined),
         },
       ],
-      new FakeLogger(),
-      tableMapper
+      new FakeLogger()
     );
 
     const execution = (
@@ -476,6 +454,7 @@ describe('RecordQueryPluginRunner', () => {
     )._unsafeUnwrap();
     expect(execution.getScope().isOk()).toBe(true);
 
-    expect(cloneCount).toBe(1);
+    expect(seenTables).toEqual([table, table]);
+    expect(seenTables[0]).toBe(table);
   });
 });

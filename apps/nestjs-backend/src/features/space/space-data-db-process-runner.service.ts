@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { SpawnOptions } from 'child_process';
-import { spawn as nodeSpawn } from 'child_process';
+import type { SpawnOptions } from 'node:child_process';
+import { spawn as nodeSpawn } from 'node:child_process';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import type {
   ISpaceDataDbProcessPipelinePlan,

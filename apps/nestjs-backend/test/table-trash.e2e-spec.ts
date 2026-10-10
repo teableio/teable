@@ -40,6 +40,7 @@ import { vi } from 'vitest';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import { RecordOpenApiService } from '../src/features/record/open-api/record-open-api.service';
+import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { createAwaitWithEvent } from './utils/event-promise';
 import { getError } from './utils/get-error';
 import {
@@ -746,6 +747,38 @@ describe('Trash (e2e)', () => {
 
     afterEach(async () => {
       await permanentDeleteTable(baseId, tableId);
+    });
+
+    it('should reject restoring a field trash item without table|trash_update', async () => {
+      const outsider = await createNewUserAxios({
+        email: 'trash-outsider@example.com',
+        password: '12345678',
+      });
+      const field = await createField(tableId, {
+        name: 'outsider-restore',
+        type: FieldType.SingleLineText,
+      });
+      await awaitWithFieldDeleteSync(async () => deleteFields(tableId, [field.id]));
+      const trashId = (await waitForTableTrashItems(tableId)).data.trashItems[0].id;
+
+      const restoreError = await getError(() =>
+        outsider.post(urlBuilder('/trash/restore/{trashId}', { trashId }), undefined, {
+          params: { tableId },
+        })
+      );
+      expect(restoreError?.status).toBe(403);
+
+      const streamError = await getError(() =>
+        outsider.post(urlBuilder('/trash/restore-field/{trashId}/stream', { trashId }), undefined, {
+          params: { tableId },
+          headers: { Accept: 'text/event-stream' },
+        })
+      );
+      expect(streamError?.status).toBe(403);
+
+      // the item stays restorable by a collaborator
+      const restored = await restoreTrash(trashId, tableId);
+      expect(restored.status).toBe(201);
     });
 
     // [V2-BUG] v2 has no view trash/restore at all: no ViewDeleted->table_trash projection,

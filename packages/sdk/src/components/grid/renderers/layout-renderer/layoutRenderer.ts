@@ -680,9 +680,11 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
     height,
     rowIndex: activeRowIndex,
     columnIndex,
+    // The content is translated by contentScrollTop above, so the pointer is
+    // shifted into content space for renderers that hit-test while drawing
     hoverCellPosition:
-      hoverRowIndex === activeRowIndex && hoverColumnIndex === columnIndex
-        ? hoverCellPosition
+      hoverRowIndex === activeRowIndex && hoverColumnIndex === columnIndex && hoverCellPosition
+        ? [hoverCellPosition[0], hoverCellPosition[1] + contentScrollTop]
         : null,
     getCellContent,
     isActive: true,

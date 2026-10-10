@@ -16,7 +16,7 @@ import type { FormulaFieldDto } from '../../../field/model/field-dto/formula-fie
 
 @Injectable()
 export class RecordComputedUpdateService {
-  private logger = new Logger(RecordComputedUpdateService.name);
+  private readonly logger = new Logger(RecordComputedUpdateService.name);
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -152,10 +152,9 @@ export class RecordComputedUpdateService {
     const restrictRecordIdsRaw = opts?.restrictRecordIds?.filter(
       (id): id is string => typeof id === 'string' && id.length > 0
     );
-    const restrictRecordIds =
-      restrictRecordIdsRaw && restrictRecordIdsRaw.length
-        ? Array.from(new Set(restrictRecordIdsRaw))
-        : undefined;
+    const restrictRecordIds = restrictRecordIdsRaw?.length
+      ? Array.from(new Set(restrictRecordIdsRaw))
+      : undefined;
 
     // Acquire row-level locks in a deterministic order to avoid deadlocks when multiple
     // computed updates touch the same set of records concurrently.

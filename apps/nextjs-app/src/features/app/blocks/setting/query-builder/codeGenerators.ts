@@ -77,11 +77,11 @@ export const toPythonLiteral = (value: unknown): string => {
   if (typeof value === 'number') return String(value);
   if (typeof value === 'string') {
     const escaped = value
-      .replace(/\\/g, '\\\\')
-      .replace(/'/g, "\\'")
-      .replace(/\n/g, '\\n')
-      .replace(/\r/g, '\\r')
-      .replace(/\t/g, '\\t');
+      .replaceAll('\\', '\\\\')
+      .replaceAll("'", "\\'")
+      .replaceAll('\n', '\\n')
+      .replaceAll('\r', '\\r')
+      .replaceAll('\t', '\\t');
     return `'${escaped}'`;
   }
   if (Array.isArray(value)) return `[${value.map(toPythonLiteral).join(', ')}]`;

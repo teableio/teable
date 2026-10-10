@@ -4,21 +4,25 @@ import { MultiNumberDisplayType, NumberShowAs, SingleNumberDisplayType } from '.
 
 describe('NumberShowAs', () => {
   it('accepts single and multi showAs shapes', () => {
-    NumberShowAs.create({
-      type: SingleNumberDisplayType.Bar,
-      color: 'blue',
-      showValue: true,
-      maxValue: 100,
-    })._unsafeUnwrap();
+    expect(
+      NumberShowAs.create({
+        type: SingleNumberDisplayType.Bar,
+        color: 'blue',
+        showValue: true,
+        maxValue: 100,
+      }).isOk()
+    ).toBe(true);
 
-    NumberShowAs.create({
-      type: MultiNumberDisplayType.Line,
-      color: 'green',
-    })._unsafeUnwrap();
+    expect(
+      NumberShowAs.create({
+        type: MultiNumberDisplayType.Line,
+        color: 'green',
+      }).isOk()
+    ).toBe(true);
   });
 
   it('rejects invalid showAs shape', () => {
-    NumberShowAs.create({ type: 'pie', color: 'blue' })._unsafeUnwrapErr();
+    expect(NumberShowAs.create({ type: 'pie', color: 'blue' }).isErr()).toBe(true);
   });
 
   it('compares showAs values and maps to dto', () => {

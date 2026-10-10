@@ -2,6 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { gatewayModelSchema } from './gateway-model';
 
 describe('gateway model schemas', () => {
+  it.each([
+    ['spacexai', 'grok-imagine-image'],
+    ['spacexai', 'grok-imagine-image-2.0'],
+    ['quiverai', 'arrow-1.1'],
+  ])('accepts image model metadata from %s/%s', (ownedBy, model) => {
+    expect(
+      gatewayModelSchema.parse({
+        id: `${ownedBy}/${model}`,
+        label: model,
+        ownedBy,
+        modelType: 'image',
+        tags: ['image-generation'],
+      }).ownedBy
+    ).toBe(ownedBy);
+  });
+
   it('accepts providers recently added to the pi registry as ownedBy', () => {
     for (const ownedBy of ['interfaze', 'sakana', 'stepfun']) {
       const parsed = gatewayModelSchema.parse({

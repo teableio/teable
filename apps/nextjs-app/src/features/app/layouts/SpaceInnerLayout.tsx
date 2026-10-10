@@ -15,6 +15,7 @@ import { SpaceQuickSearch } from '../blocks/space/space-side-bar/SpaceQuickSearc
 import { SpaceSwitcher } from '../blocks/space/space-side-bar/SpaceSwitcher';
 import { Sidebar } from '../components/sidebar/Sidebar';
 import { SideBarFooter } from '../components/SideBarFooter';
+import { useEmbedMode } from '../hooks/useEmbedMode';
 import { usePrefetchBaseEntry } from '../hooks/usePrefetchBaseEntry';
 import { useSdkLocale } from '../hooks/useSdkLocale';
 import { SpacePageTitle } from './SpacePageTitle';
@@ -27,6 +28,7 @@ export const SpaceInnerLayout: React.FC<{
   const sdkLocale = useSdkLocale();
   const { i18n } = useTranslation();
   const { spaceId } = useParams<{ spaceId: string }>();
+  const isEmbed = useEmbedMode();
 
   usePrefetchBaseEntry();
 
@@ -53,18 +55,21 @@ export const SpaceInnerLayout: React.FC<{
           <NotificationProvider>
             <LicenseExpiryBanner />
             <div id="portal" className="relative flex h-screen w-full items-start">
-              <Sidebar
-                headerLeft={<SpaceSwitcher />}
-                headerRight={<SpaceQuickSearch spaceId={spaceId} />}
-                mobileTriggerTopOffset="3rem"
-              >
-                <Fragment>
-                  <div className="flex flex-1 flex-col gap-1 divide-y divide-solid overflow-hidden">
-                    <SpaceInnerSideBar renderSettingModal={renderSettingModal} />
-                  </div>
-                  <SideBarFooter />
-                </Fragment>
-              </Sidebar>
+              {/* The native mobile shell has its own navigation: no sidebar in embed mode */}
+              {!isEmbed && (
+                <Sidebar
+                  headerLeft={<SpaceSwitcher />}
+                  headerRight={<SpaceQuickSearch spaceId={spaceId} />}
+                  mobileTriggerTopOffset="3rem"
+                >
+                  <Fragment>
+                    <div className="flex flex-1 flex-col gap-1 divide-y divide-solid overflow-hidden">
+                      <SpaceInnerSideBar renderSettingModal={renderSettingModal} />
+                    </div>
+                    <SideBarFooter />
+                  </Fragment>
+                </Sidebar>
+              )}
               {children}
             </div>
           </NotificationProvider>

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { pick, pullAll, uniq } from 'lodash';
+import { pick, pullAll } from 'lodash';
 import { z } from 'zod';
 import { CellValueType, FieldType } from '../../field/constant';
 
@@ -469,7 +469,7 @@ export function getValidFilterOperators(field: {
     }
   }
 
-  return uniq(operationSet);
+  return [...new Set(operationSet)];
 }
 
 export function getValidFilterSubOperators(

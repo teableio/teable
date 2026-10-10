@@ -5,27 +5,34 @@
     "affectedTableSuffix": "({{count}} field(s))",
     "convertAndDuplicate": "Convert & duplicate"
   },
+  "trash": {
+    "forceRemove": "Force remove space",
+    "forceRemoveTitle": "Force remove \"{{name}}\"?",
+    "forceRemoveLabel": "I understand the risks and choose force removal.",
+    "forceRemoveWarning": "Force removal permanently removes the space metadata and resources managed by {{brandName}} without connecting to the external database. Physical data in the external database may remain and must be cleaned up by you. This cannot be undone.",
+    "forceRemoveSuccess": "Space force removed"
+  },
   "initialSpaceName": "{{name}}'s space",
   "action": {
-    "createBase": "Create a base",
+    "createBase": "Create a project",
     "createSpace": "Create a space",
     "invite": "Invite",
     "startFromScratch": "Start from scratch"
   },
   "allSpaces": "All spaces",
-  "emptySpaceTitle": "No bases in this space",
-  "spaceIsEmpty": "Create your first base to start",
+  "emptySpaceTitle": "No projects in this space",
+  "spaceIsEmpty": "Create your first project to start",
   "baseModal": {
     "copy": "Copy",
     "duplicate": "Duplicate \"{{baseName}}\"",
-    "createBaseFromTemplate": "Create base from template",
+    "createBaseFromTemplate": "Create project from template",
     "duplicateRecords": "Duplicate records",
     "duplicateRecordsTip": "Your revision history and collaborators will not be duplicated.",
     "toSpace": "To space",
     "copyToSpace": "Copy to space",
-    "duplicateBase": "Duplicate base",
-    "missTargetTip": "Please select a space to duplicate the base.",
-    "copying": "Duplicating base, it may take a while...",
+    "duplicateBase": "Duplicate project",
+    "missTargetTip": "Please select a space to duplicate the project.",
+    "copying": "Duplicating project, it may take a while...",
     "howToCreate": "How do you want to start?",
     "fromScratch": "From scratch",
     "fromTemplate": "From template",
@@ -48,29 +55,29 @@
     "add": "Add to pin",
     "remove": "Remove from pin",
     "pin": "Pin",
-    "empty": "Your pined bases and space will appear here"
+    "empty": "Your pined projects and space will appear here"
   },
   "tooltip": {
-    "noPermissionToCreateBase": "You don't have permission to create base"
+    "noPermissionToCreateBase": "You don't have permission to create project"
   },
   "tip": {
     "delete": "Are you sure you want to delete <0/>?",
     "exportTips2": "You can import the .tea file in space -> more -> import",
-    "exportTips3": "Cross-base relation fields will be converted to single line text.",
+    "exportTips3": "Cross-project relation fields will be converted to single line text.",
     "exportIncludeDataLabel": "Include records",
     "exportIncludeDataDescription": "Export only structure and configuration when closing",
     "exportTitle": "Export",
-    "exportDescription": "Export the current database to a .tea file, which may take some time.",
+    "exportDescription": "Export the current project to a .tea file, which may take some time.",
     "exportStartButton": "Start exporting",
     "exportSlowTip": "The data volume is large. Export may take a while. You can leave temporarily.",
     "exportReadyDescription": "Please download the .tea file, {{importHint}}",
-    "moveBaseSuccessTitle": "Move base success",
+    "moveBaseSuccessTitle": "Move project success",
     "moveBaseSuccessDescription": "{{baseName}} has been moved to {{spaceName}}",
     "moveBaseCrossSpaceTitle": "Notice",
     "moveBaseCrossSpaceDataLossWarning": "Cross-space references aren't supported. The related fields will be converted to text fields. This action cannot be undone.",
     "moveBaseCrossDataDbTitle": "Cross data-database move",
-    "moveBaseCrossDataDbWarning": "The source and target spaces use different data databases. This move will copy base data to the target database and may take a while. Writes to this base are paused during the transfer.",
-    "moveBaseProgressTitle": "Moving base…",
+    "moveBaseCrossDataDbWarning": "The source and target spaces use different data databases. This move will copy project data to the target database and may take a while. Writes to this project are paused during the transfer.",
+    "moveBaseProgressTitle": "Moving project…",
     "moveBaseProgressPhase": "Stage: {{phase}}",
     "moveBaseProgressPercent": "{{percent}}%",
     "moveBaseFailedTitle": "Move failed",
@@ -85,8 +92,8 @@
   },
   "sharedBase": {
     "title": "Shared with me",
-    "description": "All the bases that invited me to join",
-    "empty": "No bases shared with me yet"
+    "description": "All the projects that invited me to join",
+    "empty": "No projects shared with me yet"
   },
   "integration": {},
   "aiSetting": {
@@ -101,7 +108,7 @@
     "phase": {
       "importingV2": "Importing",
       "parsingStructure": "Parsing structure",
-      "creatingBase": "Creating base: {{detail}}",
+      "creatingBase": "Creating project: {{detail}}",
       "creatingTable": "Creating table: {{detail}}",
       "tableStructureStarted": "Preparing table structure: {{tableName}} ({{tableIndex}}/{{totalTables}})",
       "tableStructureValidating": "Validating table relations",
@@ -165,7 +172,7 @@
   },
   "template": {
     "title": "Template",
-    "description": "Create a new base from a template quickly",
+    "description": "Create a new project from a template quickly",
     "noTemplatesAvailable": "No templates available",
     "noTemplatesDescription": "There is nothing here right now"
   },
@@ -174,26 +181,26 @@
   },
   "noBases": {
     "title": "Hi {{userName}}!",
-    "description": "Let's start managing your work with your first base."
+    "description": "Let's start managing your work with your first project."
   },
   "noSpaces": {
     "title": "Hi {{userName}}!",
     "description": "Create your first space to start your data collaboration journey."
   },
   "baseList": {
-    "allBases": "All bases",
+    "allBases": "All projects",
     "creator": "Creator",
     "createdTime": "Created",
     "lastOpened": "Last opened",
     "enter": "Enter",
     "noTables": "No tables",
-    "empty": "No bases yet",
+    "empty": "No projects yet",
     "recent": "Recent",
     "manual": "Manual order"
   },
   "publishBase": {
     "title": "Publish to Template Center",
-    "description": "One-click publish base to the Template Center! Let more people see, use, and Remix your creativity, and build a more powerful business together",
+    "description": "One-click publish project to the Template Center! Let more people see, use, and Remix your creativity, and build a more powerful business together",
     "infoTitle": "Basic info",
     "form": {
       "title": "Work title",
@@ -212,9 +219,9 @@
     "previewTips": "Let the world see your work",
     "update": "Update",
     "unPublish": "Unpublish",
-    "unPublishSuccess": "Base unpublished successfully!",
+    "unPublishSuccess": "Project unpublished successfully!",
     "unPublishConfirmTitle": "Confirm unpublish",
-    "unPublishConfirmDescription": "Are you sure you want to unpublish this base? It will no longer be visible in the Template Center.",
+    "unPublishConfirmDescription": "Are you sure you want to unpublish this project? It will no longer be visible in the Template Center.",
     "uploadCover": "Click to upload cover image",
     "changeCover": "Click to change cover",
     "uploading": "Uploading image...",
@@ -253,7 +260,7 @@
   "dataDb": {
     "create": {
       "title": "Data database",
-      "description": "Choose where this space stores base schemas and records.",
+      "description": "Choose where this space stores project schemas and records.",
       "defaultHint": "Recommended for most spaces.",
       "byodbOption": "Use my PostgreSQL database",
       "byodbHint": "Initialize this space in a Teable internal schema inside your customer-managed database.",
@@ -324,7 +331,7 @@
     "import": "Start import",
     "done": "Import completed",
     "failed": "Import failed",
-    "openBase": "Open base",
+    "openBase": "Open project",
     "issuesSummary": "{{count}} items were adjusted during import:",
     "issuesMore": "+{{count}} more",
     "issue": {
@@ -336,7 +343,7 @@
     },
     "phase": {
       "fetchingSchema": "Reading Airtable base schema",
-      "creatingBase": "Creating base: {{detail}}",
+      "creatingBase": "Creating project: {{detail}}",
       "creatingTable": "Creating table: {{tableName}} ({{tableIndex}}/{{totalTables}})",
       "creatingLinks": "Creating link fields",
       "fillingLinks": "{{tableName}} (links)",
@@ -379,7 +386,7 @@
     "import": "Start import",
     "done": "Import completed",
     "failed": "Import failed",
-    "openBase": "Open base",
+    "openBase": "Open project",
     "issuesSummary": "{{count}} items were adjusted during import:",
     "issuesMore": "+{{count}} more",
     "recordsImported": "{{tableName}}: {{count}} records imported",
@@ -391,7 +398,7 @@
     },
     "phase": {
       "fetchingSchema": "Reading spreadsheet structure",
-      "creatingBase": "Creating base: {{detail}}",
+      "creatingBase": "Creating project: {{detail}}",
       "creatingTable": "Creating table: {{tableName}} ({{tableIndex}}/{{totalTables}})"
     },
     "detecting": "Checking Google connection…",
@@ -404,9 +411,9 @@
     "title": "How do you want to start?"
   },
   "importBaseDialog": {
-    "title": "Import base",
+    "title": "Import project",
     "fromFile": "Import from file",
-    "fromFileDesc": "Upload a .tea database file",
+    "fromFileDesc": "Upload a .tea project file",
     "fromAirtableDesc": "Connect your Airtable account",
     "fromGoogleSheetDesc": "Pick a spreadsheet from your Google Drive"
   }

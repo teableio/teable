@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 import type { OnModuleDestroy } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
@@ -12,7 +12,7 @@ import {
   MailTransporterType,
   EmailVerifyCodeType,
 } from '@teable/openapi';
-import { isString } from 'lodash';
+import { escape, isString } from 'lodash';
 import { LRUCache } from 'lru-cache';
 import ms from 'ms';
 import { I18nService } from 'nestjs-i18n';
@@ -37,7 +37,7 @@ interface IPooledTransporter {
 
 @Injectable()
 export class MailSenderService implements OnModuleDestroy {
-  private logger = new Logger(MailSenderService.name);
+  private readonly logger = new Logger(MailSenderService.name);
   private readonly defaultTransportConfig: IMailTransportConfig;
   private readonly isMailConfigured: boolean;
   private destroyed = false;
@@ -109,10 +109,12 @@ export class MailSenderService implements OnModuleDestroy {
     if (_rateLimit <= 0) {
       return await fn();
     }
-    const rateLimit = _rateLimit - 2; // 2 seconds for network latency
+    const rateLimit = Math.max(_rateLimit - 2, 1); // 2 seconds for network latency
     const rateLimitKey = `send-mail-rate-limit:${_rateLimitKey}:${email}` as const;
-    const existingRateLimit = await this.cacheService.get(rateLimitKey);
-    if (existingRateLimit) {
+    // Reserve the cooldown before sending: writing it only after delivery let
+    // every concurrent request for the same email reach the mailer.
+    const reserved = await this.cacheService.setnx(rateLimitKey, true, rateLimit);
+    if (!reserved) {
       throw new CustomHttpException(
         `Reached the rate limit of sending mail, please try again after ${rateLimit} seconds`,
         HttpErrorCode.TOO_MANY_REQUESTS,
@@ -121,15 +123,21 @@ export class MailSenderService implements OnModuleDestroy {
         }
       );
     }
-    const result = await fn();
-    await this.cacheService.setDetail(rateLimitKey, true, rateLimit);
-    return result;
+    try {
+      return await fn();
+    } catch (error) {
+      // Nothing was sent (unknown email, mailer failure): let the caller retry at once.
+      await this.cacheService.del(rateLimitKey);
+      throw error;
+    }
   }
 
   // https://nodemailer.com/smtp#connection-options
   async createTransporter(config: IMailTransportConfig) {
     const { connectionTimeout, greetingTimeout, dnsTimeout } = this.mailConfig;
-    const transporter = createTransport({
+    // Sonar S5332: STARTTLS/TLS comes from the SMTP config: the instance setting, or the custom SMTP a base
+    // editor or automation supplies for its own mail server; the owner of that server decides its TLS mode
+    const transporter = /* NOSONAR typescript:S5332 */ createTransport({
       ...config,
       pool: true,
       connectionTimeout,
@@ -351,7 +359,7 @@ export class MailSenderService implements OnModuleDestroy {
   }) {
     const { name, email, inviteUrl, resourceName, resourceType } = info;
     const { brandName, brandLogo } = await this.settingOpenApiService.getServerBrand();
-    const resourceAlias = resourceType === CollaboratorType.Space ? 'Space' : 'Base';
+    const resourceAlias = resourceType === CollaboratorType.Space ? 'Space' : 'Project';
     const { userNameMaxLength, spaceNameMaxLength } = this.mailConfig.invite;
 
     return {
@@ -375,8 +383,15 @@ export class MailSenderService implements OnModuleDestroy {
         brandName,
         brandLogo,
         title: this.i18n.t('common.email.templates.invite.title'),
+        // the partial renders the message unescaped to keep the template's own
+        // markup, so the user-controlled values must not carry markup of their own
         message: this.i18n.t('common.email.templates.invite.message', {
-          args: { name, email, resourceAlias, resourceName },
+          args: {
+            name: escape(name),
+            email: escape(email),
+            resourceAlias,
+            resourceName: escape(resourceName),
+          },
         }),
         buttonText: this.i18n.t('common.email.templates.invite.buttonText'),
       },
@@ -400,7 +415,7 @@ export class MailSenderService implements OnModuleDestroy {
       fromUserName,
       refRecord: { baseId, tableId, fieldName, tableName, recordIds, recordTitles },
     } = info;
-    let subject, partialBody;
+    let subject, title, buttonText, moreText, partialBody;
     const refLength = recordIds.length;
 
     const viewRecordUrlPrefix = `${this.mailConfig.origin}/base/${baseId}/table/${tableId}`;
@@ -409,11 +424,29 @@ export class MailSenderService implements OnModuleDestroy {
       subject = this.i18n.t('common.email.templates.collaboratorCellTag.subject', {
         args: { fromUserName, fieldName, tableName },
       });
+      // title lands in an unescaped template slot; the subject is plain text
+      title = this.i18n.t('common.email.templates.collaboratorCellTag.title', {
+        args: {
+          fromUserName: escape(fromUserName),
+          fieldName: escape(fieldName),
+          tableName: escape(tableName),
+        },
+      });
+      buttonText = this.i18n.t('common.email.templates.collaboratorCellTag.buttonText');
       partialBody = 'collaborator-cell-tag';
     } else {
       subject = this.i18n.t('common.email.templates.collaboratorMultiRowTag.subject', {
         args: { fromUserName, refLength, tableName },
       });
+      title = this.i18n.t('common.email.templates.collaboratorMultiRowTag.title', {
+        args: { fromUserName: escape(fromUserName), refLength, tableName: escape(tableName) },
+      });
+      buttonText = this.i18n.t('common.email.templates.collaboratorMultiRowTag.buttonText');
+      if (refLength > recordTitles.length) {
+        moreText = this.i18n.t('common.email.templates.collaboratorMultiRowTag.more', {
+          args: { remaining: refLength - recordTitles.length },
+        });
+      }
       partialBody = 'collaborator-multi-row-tag';
     }
 
@@ -438,10 +471,9 @@ export class MailSenderService implements OnModuleDestroy {
         partialBody,
         brandName,
         brandLogo,
-        title: this.i18n.t('common.email.templates.collaboratorCellTag.title', {
-          args: { fromUserName, fieldName, tableName },
-        }),
-        buttonText: this.i18n.t('common.email.templates.collaboratorCellTag.buttonText'),
+        title,
+        buttonText,
+        moreText,
       },
     };
   }
@@ -565,7 +597,10 @@ export class MailSenderService implements OnModuleDestroy {
       | {
           code: string;
           expiresIn: string;
-          type: EmailVerifyCodeType.Signup | EmailVerifyCodeType.ChangeEmail;
+          type:
+            | EmailVerifyCodeType.Signup
+            | EmailVerifyCodeType.Signin
+            | EmailVerifyCodeType.ChangeEmail;
         }
       | {
           domain: string;
@@ -582,6 +617,8 @@ export class MailSenderService implements OnModuleDestroy {
     switch (type) {
       case EmailVerifyCodeType.Signup:
         return this.sendSignupVerificationEmailOptions(payload);
+      case EmailVerifyCodeType.Signin:
+        return this.sendSigninVerificationEmailOptions(payload);
       case EmailVerifyCodeType.ChangeEmail:
         return this.sendChangeEmailCodeEmailOptions(payload);
       case EmailVerifyCodeType.DomainVerification:
@@ -607,7 +644,32 @@ export class MailSenderService implements OnModuleDestroy {
         message: this.i18n.t('common.email.templates.emailVerifyCode.signupVerification.message', {
           args: {
             code,
-            expiresIn: parseInt(expiresIn),
+            expiresIn: Number.parseInt(expiresIn),
+          },
+        }),
+      },
+    };
+  }
+
+  private async sendSigninVerificationEmailOptions(payload: { code: string; expiresIn: string }) {
+    const { code, expiresIn } = payload;
+    const { brandName, brandLogo } = await this.settingOpenApiService.getServerBrand();
+    return {
+      subject: this.i18n.t('common.email.templates.emailVerifyCode.signinVerification.subject', {
+        args: {
+          brandName,
+        },
+      }),
+      template: 'normal',
+      context: {
+        partialBody: 'email-verify-code',
+        brandName,
+        brandLogo,
+        title: this.i18n.t('common.email.templates.emailVerifyCode.signinVerification.title'),
+        message: this.i18n.t('common.email.templates.emailVerifyCode.signinVerification.message', {
+          args: {
+            code,
+            expiresIn: Number.parseInt(expiresIn),
           },
         }),
       },
@@ -635,7 +697,7 @@ export class MailSenderService implements OnModuleDestroy {
           {
             args: {
               code,
-              expiresIn: parseInt(expiresIn),
+              expiresIn: Number.parseInt(expiresIn),
             },
           }
         ),
@@ -663,12 +725,12 @@ export class MailSenderService implements OnModuleDestroy {
         brandName,
         brandLogo,
         title: this.i18n.t('common.email.templates.emailVerifyCode.domainVerification.title', {
-          args: { domain, name },
+          args: { domain: escape(domain), name: escape(name) },
         }),
         message: this.i18n.t('common.email.templates.emailVerifyCode.domainVerification.message', {
           args: {
             code,
-            expiresIn: parseInt(expiresIn),
+            expiresIn: Number.parseInt(expiresIn),
           },
         }),
       },

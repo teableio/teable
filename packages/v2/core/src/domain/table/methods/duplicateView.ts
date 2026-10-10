@@ -39,7 +39,7 @@ export function duplicateView(
   sourceViewId: ViewId,
   input: DuplicateViewMethodOptions = {}
 ): Result<DuplicateViewMethodResult, DomainError> {
-  const table = this;
+  const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   return safeTry<DuplicateViewMethodResult, DomainError>(function* () {
     const source = yield* table.getView(sourceViewId);
     const sourceType = source.type().toString();

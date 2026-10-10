@@ -4,6 +4,10 @@ import { FieldKeyType, HttpError, ViewType } from '@teable/core';
 import type { IRecordsVo } from '@teable/openapi';
 import { getFields, getRecords, getViewList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk';
+import {
+  buildSubscribeProjection,
+  frozenFieldIdsFromView,
+} from '@teable/sdk/utils/column-projection';
 import { INITIAL_LOAD_PAGE_SIZE } from '@teable/sdk/utils/record-window';
 
 /**
@@ -31,12 +35,7 @@ export const useTableSeed = (tableId: string, viewId: string, enabled: boolean) 
     queryFn: async () => {
       // take must equal the grid's first window size — the seeded rows back
       // that query verbatim, and any gap renders as blank rows
-      const recordsQuery = {
-        viewId,
-        fieldKeyType: FieldKeyType.Id,
-        take: INITIAL_LOAD_PAGE_SIZE,
-      } as const;
-      const [fields, views, plainRecords] = await Promise.all([
+      const [fields, views] = await Promise.all([
         // a dead anchor view (deleted while this window was elsewhere) 404s
         // the field query, but the view list is exactly what stale-view
         // recovery needs to escape that anchor — tolerate only that case;
@@ -51,19 +50,39 @@ export const useTableSeed = (tableId: string, viewId: string, enabled: boolean) 
           }
         ),
         getViewList(tableId).then((res) => res.data),
-        // mirror the SSR behavior: a records failure (e.g. corrupted view
-        // filter) must not block fields/views from seeding
-        getRecords(tableId, recordsQuery).then(
-          (res) => res.data,
-          () => undefined as IRecordsVo | undefined
-        ),
       ]);
 
-      // grouped grid views lay rows out from groupPoints, which only come
-      // back when groupBy is sent — refetch with it once the view config is
-      // known. Other view types never consume seeded records, so skip them.
-      let records = plainRecords;
       const targetView = views.find((view) => view.id === viewId);
+      const orderedVisibleFieldIds = (fields ?? []).map((field) => field.id);
+      const viewOptions = targetView?.options as
+        | { frozenFieldId?: string; frozenColumnCount?: number }
+        | undefined;
+      const isGridView = targetView?.type === ViewType.Grid;
+      const projection = isGridView
+        ? buildSubscribeProjection({
+            orderedVisibleFieldIds,
+            frozenFieldIds: frozenFieldIdsFromView({
+              orderedVisibleFieldIds,
+              frozenFieldId: viewOptions?.frozenFieldId,
+              frozenColumnCount: viewOptions?.frozenColumnCount,
+            }),
+            primaryFieldId: fields?.find((field) => field.isPrimary)?.id,
+          })
+        : undefined;
+      const recordsQuery = {
+        viewId,
+        fieldKeyType: FieldKeyType.Id,
+        take: INITIAL_LOAD_PAGE_SIZE,
+        ...(projection?.length ? { projection } : {}),
+      };
+
+      // mirror the SSR behavior: a records failure (e.g. corrupted view
+      // filter) must not block fields/views from seeding
+      let records = await getRecords(tableId, recordsQuery).then(
+        (res) => res.data,
+        () => undefined as IRecordsVo | undefined
+      );
+
       const group = targetView?.type === ViewType.Grid ? targetView.group : undefined;
       if (group?.length) {
         records = await getRecords(tableId, { ...recordsQuery, groupBy: group }).then(

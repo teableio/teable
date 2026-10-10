@@ -10,4 +10,4 @@ dist
 *.pem
 .assets
 .temporary
-.webpack-cache
+.rspack-cache

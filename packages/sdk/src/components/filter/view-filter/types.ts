@@ -1,4 +1,5 @@
 import type { FieldType, IFilterItem } from '@teable/core';
+import type { JSX } from 'react';
 import type {
   IFieldInstance,
   LinkField,

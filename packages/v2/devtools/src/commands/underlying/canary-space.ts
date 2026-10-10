@@ -58,7 +58,7 @@ const handler = (args: {
       yield* output.empty(
         'underlying.canary-space',
         input,
-        `Base "${baseId}" not found. Check if the base ID is correct.`
+        `Project "${baseId}" not found. Check if the project ID is correct.`
       );
       return;
     }

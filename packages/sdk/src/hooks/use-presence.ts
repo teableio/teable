@@ -11,7 +11,7 @@ export interface IActionData {
 export const usePresence = (channel: string | undefined) => {
   const { connection } = useConnection();
   const [presence, setPresence] = useState<Presence>();
-  const cleanupTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const cleanupTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     if (connection == null || channel == null) return;
@@ -63,6 +63,11 @@ export const useActionListener = <T extends IActionData>(
     // a batch may carry several entries of the same actionKey with different
     // payloads (e.g. setRecord with distinct fieldIds), deliver every match
     const cb = (_id: string, res: T[]) => {
+      // A presence removal (a publisher disconnecting or evicting its local
+      // presence) delivers `null`; it is not an action batch.
+      if (!Array.isArray(res)) {
+        return;
+      }
       for (const result of res) {
         if (relevantProps.has(result.actionKey)) {
           callback(result.actionKey, result.payload);

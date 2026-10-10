@@ -135,8 +135,8 @@ export const AiAutoFillDialog = (props: IAiAutoFillDialogProps) => {
 
   // Replace {{count}} or {{rowCount}} in description with actual count
   const dynamicDescription = labels.description
-    .replace(/\{\{count\}\}/g, formatCount(getDisplayCount()) ?? '0')
-    .replace(/\{\{rowCount\}\}/g, formatCount(getDisplayCount()) ?? '0');
+    .replaceAll('{{count}}', formatCount(getDisplayCount()) ?? '0')
+    .replaceAll('{{rowCount}}', formatCount(getDisplayCount()) ?? '0');
 
   return (
     <Dialog open={open} onOpenChange={(val) => !val && onClose()}>

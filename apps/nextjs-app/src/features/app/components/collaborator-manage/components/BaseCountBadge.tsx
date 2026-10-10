@@ -1,4 +1,4 @@
-import { Database } from '@teable/icons';
+import { LayoutGrid } from '@teable/icons';
 import {
   Badge,
   Tooltip,
@@ -25,7 +25,7 @@ export const BaseCountBadge = ({
   const { t } = useTranslation('common');
   const content = compact ? (
     <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-normal text-muted-foreground">
-      <Database className="size-3.5" aria-hidden="true" />
+      <LayoutGrid className="size-3.5" aria-hidden="true" />
       {count}
     </span>
   ) : (
@@ -34,7 +34,7 @@ export const BaseCountBadge = ({
         variant="outline"
         className="h-5 gap-1 rounded-sm border px-1.5 py-0 text-xs font-normal leading-5 text-muted-foreground"
       >
-        <Database className="size-3.5" aria-hidden="true" />
+        <LayoutGrid className="size-3.5" aria-hidden="true" />
         {t('noun.base')} · {count}
       </Badge>
     </span>

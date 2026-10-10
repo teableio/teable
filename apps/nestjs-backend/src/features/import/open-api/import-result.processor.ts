@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import os from 'os';
-import { join } from 'path';
-import { PassThrough, type Readable } from 'stream';
+import os from 'node:os';
+import { join } from 'node:path';
+import { PassThrough, type Readable } from 'node:stream';
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { UploadType } from '@teable/openapi';

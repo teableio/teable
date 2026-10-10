@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BaseId } from '../../../domain/base/BaseId';
 import { FieldId } from '../../../domain/table/fields/FieldId';
 import { FieldName } from '../../../domain/table/fields/FieldName';
+import { FieldVersion } from '../../../domain/table/fields/FieldVersion';
 import { AttachmentField } from '../../../domain/table/fields/types/AttachmentField';
 import { ButtonConfirm } from '../../../domain/table/fields/types/ButtonConfirm';
 import { ButtonField } from '../../../domain/table/fields/types/ButtonField';
@@ -47,6 +48,7 @@ import { UserDefaultValue } from '../../../domain/table/fields/types/UserDefault
 import { UserField } from '../../../domain/table/fields/types/UserField';
 import { UserMultiplicity } from '../../../domain/table/fields/types/UserMultiplicity';
 import { UserNotification } from '../../../domain/table/fields/types/UserNotification';
+import { UpdateFormulaExpressionSpec } from '../../../domain/table/specs/field-updates/UpdateFormulaExpressionSpec';
 import { Table } from '../../../domain/table/Table';
 import { TableId } from '../../../domain/table/TableId';
 import { TableName } from '../../../domain/table/TableName';
@@ -470,6 +472,19 @@ describe('DefaultTableMapper', () => {
     expect(mapped.views()[0].version()._unsafeUnwrap().toNumber()).toBe(7);
   });
 
+  it('round-trips persisted version on Field child entities', () => {
+    const table = buildTable();
+    const field = table.getFields()[0]!;
+    field.setVersion(FieldVersion.rehydrate(9)._unsafeUnwrap())._unsafeUnwrap();
+    const mapper = new DefaultTableMapper();
+
+    const dto = mapper.toDTO(table)._unsafeUnwrap();
+    const mapped = mapper.toDomain(dto)._unsafeUnwrap();
+
+    expect(dto.fields[0]?.version).toBe(9);
+    expect(mapped.getFields()[0]!.version()._unsafeUnwrap().toNumber()).toBe(9);
+  });
+
   it('maps a single View without serializing sibling fields', () => {
     const table = buildTable();
     const mapper = new DefaultTableMapper();
@@ -577,6 +592,85 @@ describe('DefaultTableMapper', () => {
     const formulaField = dtoResult._unsafeUnwrap().fields[0];
     expect(formulaField?.type).toBe('formula');
     expect(formulaField?.isComputed).toBe(true);
+  });
+
+  it('roundtrips enforced and future formula ownership through persistence snapshots', () => {
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(buildFormulaTable())._unsafeUnwrap();
+    for (const formulaSafetyVersion of [1, 2]) {
+      const restored = mapper
+        .toDomain({
+          ...dto,
+          fields: dto.fields.map((field) =>
+            field.type === 'formula'
+              ? { ...field, meta: { persistedAsGeneratedColumn: true, formulaSafetyVersion } }
+              : field
+          ),
+        })
+        ._unsafeUnwrap();
+      const formula = restored.getFields()[0];
+      if (!(formula instanceof FormulaField)) throw new Error('Expected formula');
+      expect(formula.formulaSafetyVersion()._unsafeUnwrap()).toBe(formulaSafetyVersion);
+      const persisted = mapper.toDTO(restored)._unsafeUnwrap().fields[0];
+      expect(persisted).toMatchObject({
+        meta: { persistedAsGeneratedColumn: true, formulaSafetyVersion },
+      });
+    }
+  });
+
+  it('retains safety and generated storage when expression conversion clears incompatible formatting', () => {
+    const mapper = new DefaultTableMapper();
+    const table = buildFormulaTable();
+    const formula = table.getFields()[0];
+    if (!(formula instanceof FormulaField)) throw new Error('Expected formula');
+    formula.enableFormulaSafety(1)._unsafeUnwrap();
+    const dto = mapper.toDTO(table)._unsafeUnwrap();
+    const restored = mapper
+      .toDomain({
+        ...dto,
+        fields: dto.fields.map((field) =>
+          field.type === 'formula'
+            ? {
+                ...field,
+                meta: { persistedAsGeneratedColumn: true, formulaSafetyVersion: 2 },
+                options: {
+                  ...field.options,
+                  formatting: { type: 'decimal' as const, precision: 2 },
+                },
+              }
+            : field
+        ),
+      })
+      ._unsafeUnwrap();
+    const changed = UpdateFormulaExpressionSpec.create(
+      formula.id(),
+      formula.expression(),
+      FormulaExpression.create('"text"')._unsafeUnwrap()
+    )
+      .mutate(restored)
+      ._unsafeUnwrap();
+    const changedFormula = changed.getFields()[0];
+    if (!(changedFormula instanceof FormulaField)) throw new Error('Expected formula');
+    expect(changedFormula.expression().toString()).toBe('"text"');
+    expect(changedFormula.formatting()).toBeUndefined();
+    expect(changedFormula.formulaSafetyVersion()._unsafeUnwrap()).toBe(2);
+    expect(changedFormula.isPersistedAsGeneratedColumn()._unsafeUnwrap()).toBe(true);
+  });
+
+  it('keeps a renamed legacy formula in observe ownership', () => {
+    const mapper = new DefaultTableMapper();
+    const table = mapper
+      .toDomain(mapper.toDTO(buildFormulaTable())._unsafeUnwrap())
+      ._unsafeUnwrap();
+    const restored = table
+      .updateFieldName(table.primaryFieldId(), FieldName.create('Renamed formula')._unsafeUnwrap())
+      ._unsafeUnwrap();
+    const formula = restored.getFields()[0];
+    if (!(formula instanceof FormulaField)) throw new Error('Expected formula');
+    expect(formula.formulaSafetyVersion()._unsafeUnwrap()).toBeUndefined();
+    expect(mapper.toDTO(restored)._unsafeUnwrap().fields[0]).not.toHaveProperty(
+      'meta.formulaSafetyVersion'
+    );
   });
 
   it('rehydrates conditional lookup inner field from innerType and innerOptions', () => {

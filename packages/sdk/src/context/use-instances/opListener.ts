@@ -1,8 +1,8 @@
 import type { Doc } from 'sharedb/lib/client';
 
 export class OpListenersManager<T> {
-  private opListeners: Map<string, () => void> = new Map();
-  private collection: string;
+  private readonly opListeners: Map<string, () => void> = new Map();
+  private readonly collection: string;
 
   constructor(collection: string) {
     this.collection = collection;

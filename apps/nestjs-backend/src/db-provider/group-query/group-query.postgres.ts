@@ -74,7 +74,7 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     const { options } = field;
     const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
     const unit = this.resolveDateTruncUnit(date as DateFormattingPreset, time);
-    const dbFieldAlias = field.dbFieldName.replace(/"/g, '""');
+    const dbFieldAlias = field.dbFieldName.replaceAll('"', '""');
 
     // Use timestamptz group keys:
     // 1) Convert to local timestamp via TIMEZONE(tz, timestamptz)
@@ -147,7 +147,7 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     const { options } = field;
     const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
     const unit = this.resolveDateTruncUnit(date as DateFormattingPreset, time);
-    const dbFieldAlias = field.dbFieldName.replace(/"/g, '""');
+    const dbFieldAlias = field.dbFieldName.replaceAll('"', '""');
 
     const elemExpr = `TIMEZONE(?, DATE_TRUNC(?, TIMEZONE(?, CAST(elem AS timestamp with time zone))))`;
     const elemBindings = [timeZone, unit, timeZone] as const;

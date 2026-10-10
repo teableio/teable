@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer';
 
 import {
+  dbFieldNameInputSchema,
   domainError,
   type DomainError,
   type DotTeaStructure,
@@ -8,18 +9,19 @@ import {
   type IDotTeaParser,
   type NormalizedDotTeaStructure,
 } from '@teable/v2-core';
-import { normalizeFields } from './normalizer';
 import { injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import unzipper from 'unzipper';
 import { z } from 'zod';
+import { normalizeFields } from './normalizer';
 
 const dotTeaFieldSchema = z
   .object({
     id: z.string().optional(),
     name: z.string().optional(),
-    dbFieldName: z.string().optional(),
+    // structure.json is user-supplied; the name becomes a SQL identifier.
+    dbFieldName: dbFieldNameInputSchema.optional(),
     type: z.string(),
     isPrimary: z.boolean().optional(),
     isLookup: z.boolean().optional(),

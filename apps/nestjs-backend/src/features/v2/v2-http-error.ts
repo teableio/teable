@@ -1,4 +1,4 @@
-import type { IDomainErrorLocalization } from '@teable/v2-core';
+import { isTableProvisionPendingError, type IDomainErrorLocalization } from '@teable/v2-core';
 import { CustomHttpException, getDefaultCodeByStatus } from '../../custom.exception';
 
 export interface IV2DomainErrorLike {
@@ -25,12 +25,16 @@ export interface IV2DomainErrorLike {
  * instead of this adapter frame.
  */
 export function throwV2Error(error: IV2DomainErrorLike, status: number): never {
-  const exception = new CustomHttpException(error.message, getDefaultCodeByStatus(status), {
-    domainCode: error.code,
-    domainTags: error.tags,
-    details: error.details,
-    localization: error.localization,
-  });
+  const exception = new CustomHttpException(
+    error.message,
+    getDefaultCodeByStatus(isTableProvisionPendingError(error) ? 503 : status),
+    {
+      domainCode: error.code,
+      domainTags: error.tags,
+      details: error.details,
+      localization: error.localization,
+    }
+  );
   if (error.stack) {
     exception.stack = error.stack;
   }

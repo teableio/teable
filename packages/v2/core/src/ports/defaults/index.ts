@@ -16,3 +16,4 @@ export * from './NoopTableQueryObservability';
 export * from './NoopTracer';
 export * from './NoopUndoRedoStore';
 export * from './NoopUnitOfWork';
+export * from './NoopProjectionMessageJournal';

@@ -18,6 +18,7 @@ import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import {
   beginTableSchemaOperation,
   completeTableSchemaOperation,
+  failRecoverableTableSchemaOperation,
   failTableSchemaOperation,
 } from '../application/services/TableSchemaOperationLifecycleService';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
@@ -127,13 +128,18 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
         { scope: 'data' }
       );
       if (dataPhaseResult.isErr()) {
-        const failResult = await failTableSchemaOperation(
+        // The data transaction rolled back, so the table and its rows are
+        // unchanged. Leaving provision_state=error hides it from the sidebar
+        // and from integrity repair, with no table.delete retry handler.
+        const failResult = await failRecoverableTableSchemaOperation(
           unitOfWork,
           tableRepository,
           context,
           table,
           {
             type: 'table.delete',
+            status: 'dead',
+            nextRunAt: new Date(),
             lastError: dataPhaseResult.error.message,
           }
         );
@@ -155,16 +161,28 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
         { scope: 'meta' }
       );
       if (finalizeMetaResult.isErr()) {
-        const failResult = await failTableSchemaOperation(
-          unitOfWork,
-          tableRepository,
-          context,
-          table,
-          {
-            type: 'table.delete',
-            lastError: finalizeMetaResult.error.message,
-          }
-        );
+        // Soft delete's data phase only converts inbound links; the rows stay.
+        // Leaving provision_state=error hides that still-present table. Permanent
+        // delete has already dropped the physical table in the data phase, so
+        // that failure stays error.
+        const failResult =
+          command.mode === 'soft'
+            ? await failRecoverableTableSchemaOperation(
+                unitOfWork,
+                tableRepository,
+                context,
+                table,
+                {
+                  type: 'table.delete',
+                  status: 'dead',
+                  nextRunAt: new Date(),
+                  lastError: finalizeMetaResult.error.message,
+                }
+              )
+            : await failTableSchemaOperation(unitOfWork, tableRepository, context, table, {
+                type: 'table.delete',
+                lastError: finalizeMetaResult.error.message,
+              });
         if (failResult.isErr()) {
           logger.warn('DeleteTableHandler.failStateUpdateFailed', {
             error: failResult.error.message,

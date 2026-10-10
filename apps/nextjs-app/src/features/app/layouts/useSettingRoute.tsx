@@ -1,4 +1,4 @@
-import { Code2, Key, Link, Toolbox } from '@teable/icons';
+import { Code2, Key, Link, Toolbox, User } from '@teable/icons';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
@@ -22,6 +22,12 @@ export const useSettingRoute = (): ISidebarContentRoute[] => {
     }
 
     return [
+      {
+        Icon: User,
+        label: t('common:settings.account.title'),
+        route: '/setting/account',
+        pathTo: '/setting/account',
+      },
       {
         Icon: Key,
         label: t('setting:personalAccessToken'),

@@ -108,7 +108,7 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
     }
 
     if (typeof this.value === 'number') {
-      if (isNaN(this.value)) {
+      if (Number.isNaN(this.value)) {
         return ok(new SetNumberValueSpec(field.id(), CellValue.null()));
       }
       return ok(new SetNumberValueSpec(field.id(), CellValue.fromValidated(this.value)));
@@ -116,7 +116,7 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
 
     if (this.typecast) {
       const parsed = this.parseNumberValue(this.value, field);
-      const finalValue = isNaN(parsed) ? null : parsed;
+      const finalValue = Number.isNaN(parsed) ? null : parsed;
       return ok(new SetNumberValueSpec(field.id(), CellValue.fromValidated(finalValue)));
     }
 
@@ -140,10 +140,10 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
       field.formatting().type() === NumberFormattingType.Percent || raw.includes('%');
     const numberReg = /[^\d.+-]/g;
     const symbolReg = /([+\-.])+/g;
-    const parsed = parseFloat(raw.replace(numberReg, '').replace(symbolReg, '$1'));
+    const parsed = Number.parseFloat(raw.replace(numberReg, '').replace(symbolReg, '$1'));
 
     if (Number.isNaN(parsed)) {
-      return NaN;
+      return Number.NaN;
     }
     return isPercent ? parsed / 100 : parsed;
   }
@@ -160,7 +160,7 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
       rawNumber = this.value;
     } else if (this.typecast) {
       // Share the same numeric path as number inputs so "2.7" and 2.7 converge.
-      const parsed = parseFloat(String(this.value));
+      const parsed = Number.parseFloat(String(this.value));
       rawNumber = Number.isFinite(parsed) ? parsed : null;
     } else {
       return err(
@@ -697,7 +697,7 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
     // Otherwise treat as titles
     return {
       type: 'titles',
-      value: arr.map((v) => String(v)),
+      value: arr.map(String),
     };
   }
 

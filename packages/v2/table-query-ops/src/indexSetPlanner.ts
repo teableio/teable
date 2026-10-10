@@ -78,9 +78,14 @@ const fieldIdentity = (field: IndexSetPlannerField): string =>
   field.fieldDbName ?? field.fieldId ?? 'unknown_field';
 
 const canonicalFieldSetKey = (candidate: IndexSetPlannerCandidate): string =>
-  [candidate.indexKind, candidate.fields.map(fieldIdentity).filter(Boolean).sort().join('|')].join(
-    ':'
-  );
+  [
+    candidate.indexKind,
+    candidate.fields
+      .map(fieldIdentity)
+      .filter(Boolean)
+      .sort((a, b) => Number(a > b) - Number(a < b))
+      .join('|'),
+  ].join(':');
 
 const costDelta = (candidate: IndexSetPlannerCandidate): number | undefined => {
   if (isFiniteNumber(candidate.explainCostDelta)) return candidate.explainCostDelta;
@@ -227,8 +232,8 @@ export const planRecommendedIndexSet = (
   }
 
   return {
-    recommendedIndexSet: recommended.sort(compareCandidates),
-    rejectedCandidates: rejected.sort((left, right) =>
+    recommendedIndexSet: [...recommended].sort(compareCandidates),
+    rejectedCandidates: [...rejected].sort((left, right) =>
       left.candidate.candidateId.localeCompare(right.candidate.candidateId)
     ),
   };

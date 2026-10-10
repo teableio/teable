@@ -28,7 +28,10 @@ export type IQueryPollDecisionReason =
   | 'fields_relevant'
   | 'fields_irrelevant'
   | 'field_options_relevant'
-  | 'field_options_irrelevant';
+  | 'field_options_irrelevant'
+  // table / view doc list strategy reasons
+  | 'order_relevant'
+  | 'order_irrelevant';
 
 export const recordQueryPollDecision = (
   skip: boolean,

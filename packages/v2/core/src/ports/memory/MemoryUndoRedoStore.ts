@@ -156,7 +156,6 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
     return ok(this.toPublicReservation(state, state.reservation));
   }
 
-
   async renew(scope: UndoScope, token: string): Promise<Result<void, DomainError>> {
     const state = this.getState(scope);
     if (!state.reservation || state.reservation.token !== token) {
@@ -294,16 +293,13 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
     return created;
   }
 
-
   private toPublicReservation(
     state: UndoRedoState,
     reservation: StoredReservation
   ): UndoRedoReservation {
     const entry =
       reservation.mode === 'undo'
-        ? this.composeGroupedEntry(
-            this.resolveUndoGroup(state.entries, state.cursor - 1).entries
-          )
+        ? this.composeGroupedEntry(this.resolveUndoGroup(state.entries, state.cursor - 1).entries)
         : this.composeGroupedEntry(this.resolveRedoGroup(state.entries, state.cursor).entries);
     return {
       token: reservation.token,

@@ -1,6 +1,6 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { Role } from '@teable/core';
+import { HttpErrorCode, Role } from '@teable/core';
 import { GlobalModule } from '../../global/global.module';
 import { SpaceModule } from './space.module';
 import { SpaceService } from './space.service';
@@ -87,6 +87,72 @@ describe('SpaceService', () => {
         v2Status: { useV2: true, reason: 'space_feature' },
       });
       expect(result[0]).not.toHaveProperty('v2Enabled');
+    });
+  });
+
+  describe('integrations of another space', () => {
+    const createService = (integrationSpaceId: string) => {
+      const row = { id: 'int1', resourceId: integrationSpaceId, type: 'AI', config: '{}' };
+      const prismaService = {
+        integration: {
+          findFirst: vi.fn(async ({ where }: { where: { id: string; resourceId: string } }) =>
+            where.id === row.id && where.resourceId === row.resourceId ? { id: row.id } : null
+          ),
+          update: vi.fn().mockResolvedValue(row),
+          delete: vi.fn().mockResolvedValue(row),
+        },
+      };
+      const performanceCacheService = { del: vi.fn() };
+      const testService = new SpaceService(
+        prismaService as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        performanceCacheService as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never
+      );
+      return { testService, prismaService, performanceCacheService };
+    };
+
+    it('refuses to update an integration that belongs to a different space', async () => {
+      const { testService, prismaService } = createService('spcVictim');
+
+      await expect(
+        testService.updateIntegration('int1', { enable: false }, 'spcAttacker')
+      ).rejects.toMatchObject({ code: HttpErrorCode.NOT_FOUND });
+      expect(prismaService.integration.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses to delete an integration that belongs to a different space', async () => {
+      const { testService, prismaService } = createService('spcVictim');
+
+      await expect(testService.deleteIntegration('int1', 'spcAttacker')).rejects.toMatchObject({
+        code: HttpErrorCode.NOT_FOUND,
+      });
+      expect(prismaService.integration.delete).not.toHaveBeenCalled();
+    });
+
+    it('updates and deletes an integration of the same space, scoped to that space', async () => {
+      const { testService, prismaService, performanceCacheService } = createService('spcOwn');
+
+      await testService.updateIntegration('int1', { enable: false }, 'spcOwn');
+      await testService.deleteIntegration('int1', 'spcOwn');
+
+      expect(prismaService.integration.update).toHaveBeenCalledWith({
+        where: { id: 'int1', resourceId: 'spcOwn' },
+        data: { enable: false },
+      });
+      expect(prismaService.integration.delete).toHaveBeenCalledWith({
+        where: { id: 'int1', resourceId: 'spcOwn' },
+      });
+      expect(performanceCacheService.del).toHaveBeenCalledTimes(2);
     });
   });
 });

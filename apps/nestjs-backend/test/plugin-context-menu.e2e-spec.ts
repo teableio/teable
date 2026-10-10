@@ -1,22 +1,36 @@
 import type { INestApplication } from '@nestjs/common';
+import { Role } from '@teable/core';
+import type { ICreatePluginVo, IUserMeVo } from '@teable/openapi';
 import {
+  CREATE_PLUGIN,
   createPlugin,
+  DELETE_PLUGIN,
+  deleteBaseCollaborator,
   deletePlugin,
+  emailBaseInvitation,
+  getBaseCollaboratorList,
   getPluginContextMenu,
   getPluginContextMenuList,
   installPluginContextMenu,
   movePluginContextMenu,
+  PLUGIN_CONTEXT_MENU_INSTALL,
   pluginContextMenuGetItemSchema,
   pluginContextMenuGetVoSchema,
   pluginContextMenuInstallVoSchema,
   PluginPosition,
+  PrincipalType,
   publishPlugin,
   removePluginContextMenu,
   renamePluginContextMenu,
   submitPlugin,
   updatePluginContextMenuStorage,
+  urlBuilder,
+  USER_ME,
   z,
 } from '@teable/openapi';
+import type { AxiosInstance } from 'axios';
+import { createNewUserAxios } from './utils/axios-instance/new-user';
+import { getError } from './utils/get-error';
 import { createTable, initApp, permanentDeleteTable } from './utils/init-app';
 
 describe('Plugin Context Menu', () => {
@@ -140,6 +154,77 @@ describe('Plugin Context Menu', () => {
         pluginInstallId3,
         pluginInstallId2,
       ]);
+    });
+  });
+
+  describe('install by a base creator', () => {
+    let creatorUser: AxiosInstance;
+    let creatorPlugin: ICreatePluginVo;
+
+    beforeAll(async () => {
+      creatorUser = await createNewUserAxios({
+        email: `plugin-context-menu-creator-${Date.now()}@test.com`,
+        password: 'TestPassword123!',
+      });
+      const me = await creatorUser.get<IUserMeVo>(USER_ME);
+      await emailBaseInvitation({
+        baseId,
+        emailBaseInvitationRo: { emails: [me.data.email], role: Role.Creator },
+      });
+    });
+
+    beforeEach(async () => {
+      // A Developing plugin installed by its own author: the published check admits it.
+      const res = await creatorUser.post<ICreatePluginVo>(CREATE_PLUGIN, {
+        name: 'creator plugin',
+        logo: 'https://logo.com',
+        positions: [PluginPosition.ContextMenu],
+        autoCreateMember: true,
+      });
+      creatorPlugin = res.data;
+    });
+
+    afterEach(async () => {
+      await creatorUser
+        .delete(urlBuilder(DELETE_PLUGIN, { id: creatorPlugin.id }))
+        .catch(() => undefined);
+      await deleteBaseCollaborator({
+        baseId,
+        deleteBaseCollaboratorRo: {
+          principalId: creatorPlugin.pluginUser!.id,
+          principalType: PrincipalType.User,
+        },
+      }).catch(() => undefined);
+    });
+
+    it('seats the plugin user with the installer role, not owner', async () => {
+      const res = await creatorUser.post(urlBuilder(PLUGIN_CONTEXT_MENU_INSTALL, { tableId }), {
+        name: 'creator plugin',
+        pluginId: creatorPlugin.id,
+      });
+      expect(res.status).toBe(201);
+
+      const collaborators = await getBaseCollaboratorList(baseId, { includeSystem: true });
+      const pluginCollaborator = collaborators.data.collaborators.find(
+        (item) => item.type === PrincipalType.User && item.userId === creatorPlugin.pluginUser!.id
+      );
+      expect(pluginCollaborator?.role).toBe(Role.Creator);
+    });
+
+    it('rejects installing an unpublished plugin of another user', async () => {
+      const developingPlugin = await createPlugin({
+        name: 'developing plugin',
+        logo: 'https://logo.com',
+        positions: [PluginPosition.ContextMenu],
+      });
+      const error = await getError(() =>
+        creatorUser.post(urlBuilder(PLUGIN_CONTEXT_MENU_INSTALL, { tableId }), {
+          name: 'developing plugin',
+          pluginId: developingPlugin.data.id,
+        })
+      );
+      expect(error?.status).toBe(404);
+      await deletePlugin(developingPlugin.data.id);
     });
   });
 });

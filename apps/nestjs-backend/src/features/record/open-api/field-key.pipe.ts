@@ -21,7 +21,7 @@ export class FieldKeyPipe<T extends IGetRecordsRo> implements PipeTransform {
   ) {}
 
   async transform(value: T) {
-    const tableId = (this.request as Request).params.tableId;
+    const tableId = (this.request as Request).params.tableId as string | undefined;
     if (!tableId) {
       return value;
     }

@@ -187,7 +187,7 @@ export class RestoreFieldStreamApplicationService {
       DomainError
     >
   > {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry(async function* () {
       const table = yield* await service.tableQueryService.getById(context, command.tableId);
       const trash = yield* await service.fieldTrashRepository.getFieldTrash(
@@ -256,9 +256,7 @@ export class RestoreFieldStreamApplicationService {
     table: Table,
     records: ReadonlyArray<FieldTrashRepositoryPort.FieldTrashRecordSnapshot>,
     queue: AsyncIterableQueue<RestoreFieldStreamEvent>
-  ): Promise<
-    Result<{ updatedCount: number }, RestoreRecordValuesFailure>
-  > {
+  ): Promise<Result<{ updatedCount: number }, RestoreRecordValuesFailure>> {
     let updatedCount = 0;
     let processedCount = 0;
     let batchIndex = 0;
@@ -270,25 +268,27 @@ export class RestoreFieldStreamApplicationService {
         return err({ error: batchResult.error, batchIndex, processedCount, updatedCount });
       }
 
-      const streamResult = await this.unitOfWork.withTransaction(context, async (transactionContext) =>
-        this.tableRecordRepository.updateManyStream(transactionContext, table, [batchResult], {
-          deferComputedUpdates: command.deferComputedUpdates,
-          enqueueDeferredComputedUpdates: command.enqueueDeferredComputedUpdates,
-          skipComputedUpdates: command.skipComputedUpdates,
-          onBatchUpdated: (progress) => {
-            updatedCount += progress.updatedCount;
-            processedCount += chunk.length;
-            queue.push(
-              this.createProgressEvent(
-                'restoring',
-                records.length,
-                processedCount,
-                updatedCount,
-                batchIndex
-              )
-            );
-          },
-        })
+      const streamResult = await this.unitOfWork.withTransaction(
+        context,
+        async (transactionContext) =>
+          this.tableRecordRepository.updateManyStream(transactionContext, table, [batchResult], {
+            deferComputedUpdates: command.deferComputedUpdates,
+            enqueueDeferredComputedUpdates: command.enqueueDeferredComputedUpdates,
+            skipComputedUpdates: command.skipComputedUpdates,
+            onBatchUpdated: (progress) => {
+              updatedCount += progress.updatedCount;
+              processedCount += chunk.length;
+              queue.push(
+                this.createProgressEvent(
+                  'restoring',
+                  records.length,
+                  processedCount,
+                  updatedCount,
+                  batchIndex
+                )
+              );
+            },
+          })
       );
       if (streamResult.isErr()) {
         return err({ error: streamResult.error, batchIndex, processedCount, updatedCount });
@@ -304,7 +304,9 @@ export class RestoreFieldStreamApplicationService {
     context: ExecutionContextPort.IExecutionContext,
     table: Table,
     records: ReadonlyArray<FieldTrashRepositoryPort.FieldTrashRecordSnapshot>
-  ): Promise<Result<ReadonlyArray<FieldTrashRepositoryPort.FieldTrashRecordSnapshot>, DomainError>> {
+  ): Promise<
+    Result<ReadonlyArray<FieldTrashRepositoryPort.FieldTrashRecordSnapshot>, DomainError>
+  > {
     const recordIds = records.map((record) => RecordId.create(record.id));
     const invalidRecordId = recordIds.find((result) => result.isErr());
     if (invalidRecordId?.isErr()) {

@@ -1,6 +1,7 @@
 import { Controller, Headers, Param, Post, Res } from '@nestjs/common';
 import type { IRedoVo, IUndoRedoStreamEvent, IUndoVo } from '@teable/openapi';
 import type { Response } from 'express';
+import { CustomHttpException } from '../../../custom.exception';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { UndoRedoService, X_TEABLE_UNDO_REDO_ENGINE_HEADER } from './undo-redo.service';
 
@@ -119,6 +120,9 @@ export class UndoRedoController {
         id: 'error',
         mode,
         message: error instanceof Error ? error.message : 'Undo/redo stream failed',
+        // A refused v1 replay surfaces here (the stream already answered 200):
+        // keep the http error code so the client can tell a 403 from a failure.
+        ...(error instanceof CustomHttpException ? { code: error.code } : {}),
       });
     } finally {
       clearInterval(heartbeat);

@@ -58,7 +58,7 @@ export const resolveSearchAccessPathCapability = (
     operatorClass: provider === 'pg_bigm' ? 'gin_bigm_ops' : 'gin_trgm_ops',
     ...(row.operator_class_schema ? { operatorClassSchema: row.operator_class_schema } : {}),
     operatorClassInstalled,
-    minimumProbeLength: provider === 'pg_bigm' ? 2 : 3,
+    minimumProbeLength: provider === 'pg_bigm' ? 1 : 3,
     state: status.state,
     installed: row.installed,
     available: row.available,

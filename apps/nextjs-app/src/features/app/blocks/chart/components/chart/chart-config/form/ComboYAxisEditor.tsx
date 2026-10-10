@@ -132,8 +132,8 @@ const YAxisConfigEditor = (props: {
               setDecimal(newValue);
             }}
             onChange={(e) => {
-              const number = parseInt(e.target.value);
-              setDecimal(isNaN(number) ? undefined : number);
+              const number = Number.parseInt(e.target.value);
+              setDecimal(Number.isNaN(number) ? undefined : number);
             }}
           />
         </ConfigItem>

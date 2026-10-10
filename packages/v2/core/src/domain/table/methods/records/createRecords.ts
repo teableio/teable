@@ -27,7 +27,7 @@ export function createRecords(
     source?: RecordCreateSource;
   }
 ): Result<CreateRecordsMethodResult, DomainError> {
-  const table = this;
+  const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   const {
     typecast = false,
     valuesAreValidated = false,

@@ -22,7 +22,7 @@ describe('RecordInsertOrder', () => {
       anchorId: `rec${'d'.repeat(16)}`,
       position: 'after',
     });
-    result._unsafeUnwrap();
+    expect(result.isOk()).toBe(true);
   });
 
   it('rejects invalid position', () => {
@@ -31,19 +31,19 @@ describe('RecordInsertOrder', () => {
       anchorId: `rec${'b'.repeat(16)}`,
       position: 'middle',
     });
-    result._unsafeUnwrapErr();
+    expect(result.isErr()).toBe(true);
   });
 
   it('rejects missing fields', () => {
     const result = RecordInsertOrder.create({
       viewId: `viw${'a'.repeat(16)}`,
     });
-    result._unsafeUnwrapErr();
+    expect(result.isErr()).toBe(true);
   });
 
   it('rejects empty input', () => {
     const result = RecordInsertOrder.create({});
-    result._unsafeUnwrapErr();
+    expect(result.isErr()).toBe(true);
   });
 
   it('equality check works for same values', () => {

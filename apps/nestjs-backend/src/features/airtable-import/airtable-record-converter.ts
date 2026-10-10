@@ -11,7 +11,7 @@ const isErrorValue = (value: unknown): boolean =>
   !Array.isArray(value) &&
   ('error' in value || 'specialValue' in value);
 
-const sanitizeString = (value: string) => value.replace(/\0/g, '');
+const sanitizeString = (value: string) => value.replaceAll('\0', '');
 
 const toDisplayString = (value: unknown): string | undefined => {
   if (value == null || isErrorValue(value)) return undefined;

@@ -115,7 +115,7 @@ export class FkColumnRule implements ISchemaRule {
   }
 
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const self = this;
+    const self = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const target = self.getTargetTable(ctx);
       const columnName = self.columnName;

@@ -685,8 +685,7 @@ export class SelectionService {
         : createPayload;
       const result = await this.recordOpenApiService.createRecords(
         tableId,
-        filteredCreatePayload as ICreateRecordsRo,
-        undefined
+        filteredCreatePayload as ICreateRecordsRo
       );
       createdRecordIds.push(...result.records.map((record) => record.id));
     }
@@ -1474,7 +1473,7 @@ export class SelectionService {
     resourceId: (tableId: string) => tableId,
   })
   private async runPasteCreate(tableId: string, ro: ICreateRecordsRo): Promise<IRecord[]> {
-    const result = await this.recordOpenApiService.createRecords(tableId, ro, undefined);
+    const result = await this.recordOpenApiService.createRecords(tableId, ro);
     return result.records;
   }
 }

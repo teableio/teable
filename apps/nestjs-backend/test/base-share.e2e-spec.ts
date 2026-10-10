@@ -1,7 +1,12 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ILookupOptionsRo } from '@teable/core';
 import { FieldType, Relationship } from '@teable/core';
-import type { IBaseNodeVo, IGetBaseShareVo, ITablePermissionVo } from '@teable/openapi';
+import type {
+  IBaseNodeVo,
+  IGetBaseShareVo,
+  IGetDashboardListVo,
+  ITablePermissionVo,
+} from '@teable/openapi';
 import {
   BASE_SHARE_AUTH,
   BASE_SHARE_ID_HEADER,
@@ -11,28 +16,40 @@ import {
   createBase,
   createBaseNode,
   createBaseShare,
+  createDashboard,
+  createPlugin,
   CREATE_RECORD,
   createField,
   createPluginPanel,
   createSpace,
   DELETE_RECORD_URL,
   deleteBaseShare,
+  deleteDashboard,
+  deletePlugin,
   deletePluginPanel,
   deleteSpace,
   EXPORT_BASE,
   GET_BASE_NODE_LIST,
   GET_BASE_NODE_TREE,
   GET_BASE_SHARE,
+  GET_DASHBOARD,
+  GET_DASHBOARD_INSTALL_PLUGIN,
+  GET_DASHBOARD_LIST,
+  GET_RECORDS_URL,
   GET_TABLE_PERMISSION,
   getBaseNodeList,
   getBaseShareByNodeId,
   getFields,
   getTableList,
   getBaseLevelShare,
+  installPlugin,
   listBaseShare,
   listPluginPanels,
   moveBaseNode,
+  PluginPosition,
+  publishPlugin,
   refreshBaseShare,
+  submitPlugin,
   UPDATE_RECORD,
   updateBaseShare,
   urlBuilder,
@@ -58,6 +75,8 @@ describe('BaseShareController (e2e)', () => {
   let folderNodeId: string;
   let rootTableId: string;
   let childTableId: string;
+  let rootTableDefaultViewId: string;
+  let childTableDefaultViewId: string;
   let rootTableNodeId: string;
   let childTableNodeId: string;
   let anonymousUser: ReturnType<typeof createAnonymousUserAxios>;
@@ -77,6 +96,8 @@ describe('BaseShareController (e2e)', () => {
     const childTable = await createTable(baseId, { name: 'child-table' });
     rootTableId = rootTable.id;
     childTableId = childTable.id;
+    rootTableDefaultViewId = rootTable.defaultViewId!;
+    childTableDefaultViewId = childTable.defaultViewId!;
 
     const folder = await createBaseNode(baseId, {
       resourceType: BaseNodeResourceType.Folder,
@@ -258,9 +279,10 @@ describe('BaseShareController (e2e)', () => {
       const res = await anonymousUser.get<IGetBaseShareVo>(urlBuilder(GET_BASE_SHARE, { shareId }));
       expect(res.status).toEqual(200);
 
-      // Should have defaultUrl for redirect
-      expect(res.data.defaultUrl).toBeDefined();
-      expect(res.data.defaultUrl).toContain(`/base/${baseId}/table/${rootTableId}`);
+      // Should have defaultUrl pointing straight to the final view page (T6802)
+      expect(res.data.defaultUrl).toBe(
+        `/base/${baseId}/table/${rootTableId}/${rootTableDefaultViewId}`
+      );
     });
 
     it('should return nodeId in shareMeta when sharing a folder', async () => {
@@ -272,8 +294,9 @@ describe('BaseShareController (e2e)', () => {
       expect(res.data.shareMeta.nodeId).toEqual(folderNodeId);
 
       // defaultUrl should point to the first table within the shared folder
-      expect(res.data.defaultUrl).toBeDefined();
-      expect(res.data.defaultUrl).toContain(`/base/${baseId}/table/${childTableId}`);
+      expect(res.data.defaultUrl).toBe(
+        `/base/${baseId}/table/${childTableId}/${childTableDefaultViewId}`
+      );
     });
 
     it('should return defaultUrl for shared table node', async () => {
@@ -285,8 +308,9 @@ describe('BaseShareController (e2e)', () => {
       expect(res.status).toEqual(200);
 
       // defaultUrl should point to the shared table
-      expect(res.data.defaultUrl).toBeDefined();
-      expect(res.data.defaultUrl).toContain(`/base/${baseId}/table/${rootTableId}`);
+      expect(res.data.defaultUrl).toBe(
+        `/base/${baseId}/table/${rootTableId}/${rootTableDefaultViewId}`
+      );
     });
 
     it('should include allowSave and allowCopy in shareMeta', async () => {
@@ -327,6 +351,36 @@ describe('BaseShareController (e2e)', () => {
       expect(authRes.status).toEqual(200);
       expect(authRes.data.token).toBeDefined();
       expect(authRes.headers[setCookieHeader]).toBeDefined();
+    });
+
+    it('rejects a password token presented for another share', async () => {
+      // one share per node: the victim share lives on another node
+      const own = await createBaseShare(baseId, { nodeId: rootTableNodeId });
+      createdShareIds.push(own.data.shareId);
+      const victim = await createBaseShare(baseId, { nodeId: childTableNodeId });
+      createdShareIds.push(victim.data.shareId);
+      await updateBaseShare(baseId, own.data.shareId, { password: 'attacker-pass' });
+      await updateBaseShare(baseId, victim.data.shareId, { password: 'victim-secret' });
+
+      const authRes = await anonymousUser.post(
+        urlBuilder(BASE_SHARE_AUTH, { shareId: own.data.shareId }),
+        { password: 'attacker-pass' }
+      );
+      const ownToken = authRes.data.token as string;
+
+      const ownRes = await anonymousUser.get(
+        urlBuilder(GET_BASE_SHARE, { shareId: own.data.shareId }),
+        { headers: { cookie: `${own.data.shareId}=${ownToken}` } }
+      );
+      expect(ownRes.status).toEqual(200);
+
+      // the cookie is looked up under the requested share, but the token names another one
+      const error = await getError(() =>
+        anonymousUser.get(urlBuilder(GET_BASE_SHARE, { shareId: victim.data.shareId }), {
+          headers: { cookie: `${victim.data.shareId}=${ownToken}` },
+        })
+      );
+      expect(error?.status).toEqual(401);
     });
 
     it('should reject authentication with wrong password', async () => {
@@ -818,7 +872,9 @@ describe('BaseShareController (e2e)', () => {
       // Verify only 2 tables are copied
       const tableList = await getTableList(copiedBaseId);
       expect(tableList.data.length).toBe(2);
-      expect(tableList.data.map((t) => t.name).sort()).toEqual(['Customers', 'Orders'].sort());
+      expect(
+        tableList.data.map((t) => t.name).sort((a, b) => Number(a > b) - Number(a < b))
+      ).toEqual(['Customers', 'Orders'].sort((a, b) => Number(a > b) - Number(a < b)));
 
       // Verify link to Customers remains as Link type
       const copiedOrdersTable = tableList.data.find((t) => t.name === 'Orders')!;
@@ -1131,7 +1187,7 @@ describe('BaseShareController (e2e)', () => {
             const folderNames = targetNodes.data
               .filter((node) => node.resourceType === BaseNodeResourceType.Folder)
               .map((node) => node.resourceMeta?.name)
-              .sort();
+              .sort((a, b) => Number(a > b) - Number(a < b));
             expect(folderNames).toEqual(['Shared Folder', 'Shared Folder 2']);
           },
           { timeout: 5000, interval: 200 }
@@ -1708,7 +1764,9 @@ describe('BaseShareController (e2e)', () => {
 
         // Verify all tables from the original base are copied
         const tableList = await getTableList(copiedBaseId);
-        const tableNames = tableList.data.map((t) => t.name).sort();
+        const tableNames = tableList.data
+          .map((t) => t.name)
+          .sort((a, b) => Number(a > b) - Number(a < b));
         expect(tableNames).toContain('root-table');
         expect(tableNames).toContain('child-table');
       } finally {
@@ -1854,6 +1912,242 @@ describe('BaseShareController (e2e)', () => {
         }
         await deleteBaseShare(baseId, allowSaveShare.data.shareId).catch(() => undefined);
       }
+    });
+  });
+
+  describe('BaseShare - node scoped dashboards', () => {
+    const createdShareIds: string[] = [];
+    let dashboardId: string;
+    let dashboardNodeId: string;
+    let pluginId: string;
+    let pluginInstallId: string;
+
+    const shareHeaders = (shareId: string) => ({
+      headers: { [BASE_SHARE_ID_HEADER]: shareId },
+    });
+
+    // The dashboard node is written by an event listener after the create call returns.
+    const findDashboardNode = async () => {
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const nodeList = await getBaseNodeList(baseId);
+        const node = nodeList.data.find((item) => item.resourceId === dashboardId);
+        if (node) return node;
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+      throw new Error('Dashboard node not found in base node list');
+    };
+
+    beforeAll(async () => {
+      const dashboard = await createDashboard(baseId, { name: 'share-dashboard' });
+      dashboardId = dashboard.data.id;
+
+      const plugin = await createPlugin({
+        name: 'share-dash-plugin',
+        logo: 'https://logo.com',
+        positions: [PluginPosition.Dashboard],
+      });
+      pluginId = plugin.data.id;
+      await submitPlugin(pluginId);
+      await publishPlugin(pluginId);
+      const installed = await installPlugin(baseId, dashboardId, {
+        name: 'share-dash-plugin',
+        pluginId,
+      });
+      pluginInstallId = installed.data.pluginInstallId;
+
+      dashboardNodeId = (await findDashboardNode()).id;
+    });
+
+    afterAll(async () => {
+      await deleteDashboard(baseId, dashboardId).catch(() => undefined);
+      await deletePlugin(pluginId).catch(() => undefined);
+    });
+
+    afterEach(async () => {
+      for (const shareId of createdShareIds) {
+        await deleteBaseShare(baseId, shareId).catch(() => undefined);
+      }
+      createdShareIds.length = 0;
+    });
+
+    const expectDashboardVisible = async (shareId: string) => {
+      const listRes = await anonymousUser.get<IGetDashboardListVo>(
+        urlBuilder(GET_DASHBOARD_LIST, { baseId }),
+        shareHeaders(shareId)
+      );
+      expect(listRes.status).toEqual(200);
+      expect(listRes.data.map((item) => item.id)).toContain(dashboardId);
+
+      const getRes = await anonymousUser.get(
+        urlBuilder(GET_DASHBOARD, { baseId, id: dashboardId }),
+        shareHeaders(shareId)
+      );
+      expect(getRes.status).toEqual(200);
+
+      const pluginRes = await anonymousUser.get(
+        urlBuilder(GET_DASHBOARD_INSTALL_PLUGIN, { baseId, dashboardId, pluginInstallId }),
+        shareHeaders(shareId)
+      );
+      expect(pluginRes.status).toEqual(200);
+    };
+
+    it('hides dashboards outside a table-scoped share', async () => {
+      const share = await createBaseShare(baseId, { nodeId: rootTableNodeId });
+      createdShareIds.push(share.data.shareId);
+      const shareId = share.data.shareId;
+
+      const listRes = await anonymousUser.get<IGetDashboardListVo>(
+        urlBuilder(GET_DASHBOARD_LIST, { baseId }),
+        shareHeaders(shareId)
+      );
+      expect(listRes.status).toEqual(200);
+      expect(listRes.data.map((item) => item.id)).not.toContain(dashboardId);
+
+      const getDashboardError = await getError(() =>
+        anonymousUser.get(
+          urlBuilder(GET_DASHBOARD, { baseId, id: dashboardId }),
+          shareHeaders(shareId)
+        )
+      );
+      expect(getDashboardError?.status).toEqual(403);
+
+      const pluginError = await getError(() =>
+        anonymousUser.get(
+          urlBuilder(GET_DASHBOARD_INSTALL_PLUGIN, { baseId, dashboardId, pluginInstallId }),
+          shareHeaders(shareId)
+        )
+      );
+      expect(pluginError?.status).toEqual(403);
+    });
+
+    it('exposes dashboards through a whole-base share', async () => {
+      const share = await createBaseShare(baseId, {});
+      createdShareIds.push(share.data.shareId);
+      await expectDashboardVisible(share.data.shareId);
+    });
+
+    it('exposes a dashboard inside a shared folder', async () => {
+      await moveBaseNode(baseId, dashboardNodeId, { parentId: folderNodeId });
+      const share = await createBaseShare(baseId, { nodeId: folderNodeId });
+      createdShareIds.push(share.data.shareId);
+      await expectDashboardVisible(share.data.shareId);
+    });
+  });
+
+  describe('BaseShare - linked table is read-only', () => {
+    const createdShareIds: string[] = [];
+    let linkBaseId: string;
+    let ordersTableId: string;
+    let customersTableId: string;
+    let unlinkedTableId: string;
+    let ordersNodeId: string;
+    let customerRecordId: string;
+    let customerPrimaryFieldId: string;
+    let loggedInUser: AxiosInstance;
+
+    beforeAll(async () => {
+      const base = await createBase({
+        name: 'base-share-link-readonly',
+        spaceId: globalThis.testConfig.spaceId,
+      }).then((res) => res.data);
+      linkBaseId = base.id;
+
+      const orders = await createTable(linkBaseId, { name: 'Orders' });
+      const customers = await createTable(linkBaseId, { name: 'Customers' });
+      const unlinked = await createTable(linkBaseId, { name: 'Unlinked' });
+      ordersTableId = orders.id;
+      customersTableId = customers.id;
+      unlinkedTableId = unlinked.id;
+      customerPrimaryFieldId = customers.fields[0].id;
+      customerRecordId = customers.records[0].id;
+
+      await createField(ordersTableId, {
+        name: 'customer',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: customersTableId,
+        },
+      });
+
+      const nodeList = await getBaseNodeList(linkBaseId);
+      const ordersNode = nodeList.data.find((node) => node.resourceId === ordersTableId);
+      if (!ordersNode) throw new Error('Orders node not found');
+      ordersNodeId = ordersNode.id;
+
+      loggedInUser = await createNewUserAxios({
+        email: `link-readonly-e2e-${Date.now()}@test.com`,
+        password: 'TestPassword123!',
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteBase(linkBaseId);
+    });
+
+    afterEach(async () => {
+      for (const shareId of createdShareIds) {
+        await deleteBaseShare(linkBaseId, shareId).catch(() => undefined);
+      }
+      createdShareIds.length = 0;
+    });
+
+    it('lets an allowEdit share reader see but not change a linked table', async () => {
+      const share = await createBaseShare(linkBaseId, { nodeId: ordersNodeId });
+      createdShareIds.push(share.data.shareId);
+      await updateBaseShare(linkBaseId, share.data.shareId, { allowEdit: true });
+      const options = { headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId } };
+
+      // the shared table itself stays editable
+      const ordersCreate = await loggedInUser.post(
+        urlBuilder(CREATE_RECORD, { tableId: ordersTableId }),
+        { records: [{ fields: {} }], fieldKeyType: 'id' },
+        options
+      );
+      expect(ordersCreate.status).toEqual(201);
+
+      // the linked table can be read so link cells resolve...
+      const customersRead = await loggedInUser.get(
+        urlBuilder(GET_RECORDS_URL, { tableId: customersTableId }),
+        options
+      );
+      expect(customersRead.status).toEqual(200);
+
+      // ...but never written
+      const createError = await getError(() =>
+        loggedInUser.post(
+          urlBuilder(CREATE_RECORD, { tableId: customersTableId }),
+          {
+            records: [{ fields: { [customerPrimaryFieldId]: 'new-customer' } }],
+            fieldKeyType: 'id',
+          },
+          options
+        )
+      );
+      expect(createError?.status).toEqual(403);
+
+      const updateError = await getError(() =>
+        loggedInUser.patch(
+          urlBuilder(UPDATE_RECORD, { tableId: customersTableId, recordId: customerRecordId }),
+          { record: { fields: { [customerPrimaryFieldId]: 'renamed' } }, fieldKeyType: 'id' },
+          options
+        )
+      );
+      expect(updateError?.status).toEqual(403);
+
+      const deleteError = await getError(() =>
+        loggedInUser.delete(
+          urlBuilder(DELETE_RECORD_URL, { tableId: customersTableId, recordId: customerRecordId }),
+          options
+        )
+      );
+      expect(deleteError?.status).toEqual(403);
+
+      // a table neither shared nor linked is not reachable at all
+      const unlinkedError = await getError(() =>
+        loggedInUser.get(urlBuilder(GET_RECORDS_URL, { tableId: unlinkedTableId }), options)
+      );
+      expect(unlinkedError?.status).toEqual(403);
     });
   });
 });

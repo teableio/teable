@@ -7,10 +7,7 @@ const tailwindColors = require('tailwindcss/colors');
  * @type {Record<string, string | Record<string, string>>}
  */
 const tailwindV3Colors = Object.entries(Object.getOwnPropertyDescriptors(tailwindColors))
-  .filter(
-    ([, desc]) =>
-      Object.prototype.hasOwnProperty.call(desc, 'value') && typeof desc.value !== 'function'
-  )
+  .filter(([, desc]) => Object.hasOwn(desc, 'value') && typeof desc.value !== 'function')
   .reduce((acc, [key]) => {
     if (!['coolGray', 'lightBlue', 'warmGray', 'trueGray', 'blueGray'].includes(key)) {
       acc[key] = tailwindColors[key];

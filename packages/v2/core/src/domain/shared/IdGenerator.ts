@@ -32,6 +32,15 @@ export const generatePrefixedId = (prefix: string, length: number): string => {
   return `${prefix}${getRandomString(length)}`;
 };
 
+/** Uniform integer in [0, maxExclusive) from the platform CSPRNG; non-security fallback without Web Crypto. */
+export const getRandomIndex = (maxExclusive: number): number => {
+  if (maxExclusive <= 0) return 0;
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    return crypto.getRandomValues(new Uint32Array(1))[0] % maxExclusive;
+  }
+  return Math.floor(Math.random() * maxExclusive); // NOSONAR typescript:S2245 -- fallback without Web Crypto
+};
+
 export const generateUuid = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();

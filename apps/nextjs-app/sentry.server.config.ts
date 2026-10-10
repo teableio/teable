@@ -9,7 +9,14 @@ Sentry.init({
   tracesSampleRate: 1,
   debug: false,
   // Use Next.js built-in OTEL instead of Sentry's
-  skipOpenTelemetrySetup: true,
+  enableOpenTelemetrySetup: false,
+  // Sentry 11 collects user IP, AI prompts and every HTTP body by default; keep what v10
+  // sent without sendDefaultPii.
+  dataCollection: {
+    userInfo: false,
+    httpBodies: ['incomingRequest'],
+    genAI: { inputs: false, outputs: false },
+  },
   // Disable HttpServer to avoid conflict with Next.js OTEL (causes stack overflow)
   integrations: (defaults) => defaults.filter((i) => i.name !== 'HttpServer'),
 });

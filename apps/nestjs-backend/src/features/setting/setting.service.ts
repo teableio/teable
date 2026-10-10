@@ -18,7 +18,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import { SettingKey } from '@teable/openapi';
 import type { ISettingVo } from '@teable/openapi';
-import { isArray } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { PerformanceCacheService } from '../../performance-cache';
 import type { IClsStore } from '../../types/cls';
@@ -43,7 +42,7 @@ export class SettingService {
     const res: Record<string, unknown> = {
       instanceId: '',
     };
-    if (!isArray(settings)) {
+    if (!Array.isArray(settings)) {
       return res as ISettingVo;
     }
 
@@ -115,6 +114,7 @@ export class SettingService {
       if (!aiConfig?.aiGatewayApiKey) {
         res[SettingKey.AI_CONFIG] = {
           ...aiConfig,
+          llmProviders: Array.isArray(aiConfig?.llmProviders) ? aiConfig.llmProviders : [],
           aiGatewayApiKey: envAiGatewayApiKey,
         };
       }

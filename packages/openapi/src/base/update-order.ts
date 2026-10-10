@@ -10,7 +10,9 @@ export const BASE_ORDER = '/base/{baseId}/order';
 export const updateBaseOrderRoute: RouteConfig = registerRoute({
   method: 'put',
   path: BASE_ORDER,
-  description: 'Update base order',
+  title: 'Put project order',
+  sidebarTitle: 'Update project order',
+  description: "Change a project's position in its space.",
   request: {
     params: z.object({
       baseId: z.string(),

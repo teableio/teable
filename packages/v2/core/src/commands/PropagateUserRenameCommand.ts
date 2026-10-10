@@ -1,4 +1,4 @@
-import { err, ok } from 'neverthrow';
+import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 

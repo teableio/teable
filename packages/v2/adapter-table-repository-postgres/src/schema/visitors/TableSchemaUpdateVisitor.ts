@@ -35,6 +35,7 @@ import type {
   TableByViewIdSpec,
   TableWithViewIdsSpec,
   TableWithPrimaryFieldSpec,
+  TableWithFieldIdsSpec,
   TableByIncomingReferenceToTableSpec,
   TableByIdsSpec,
   TableByNameLikeSpec,
@@ -143,8 +144,7 @@ type SelectOptionRecordUpdateRow = {
   newValue: unknown;
 };
 
-const toRecordVersionNumber = (value: number | string | bigint): number =>
-  typeof value === 'bigint' ? Number(value) : Number(value);
+const toRecordVersionNumber: (value: number | string | bigint) => number = Number;
 
 const quoteSqlLiteral = (value: string): string => `'${value.replaceAll("'", "''")}'`;
 
@@ -186,8 +186,7 @@ export class TableSchemaUpdateVisitor
     const maxLen = 63;
     const delimiterLen = 3; // three underscores between parts
     const maxTableDbNameLen = maxLen - fieldId.length - prefix.length - delimiterLen;
-    const tableDbNameLen =
-      maxTableDbNameLen < tableName.length ? maxTableDbNameLen : tableName.length;
+    const tableDbNameLen = Math.min(maxTableDbNameLen, tableName.length);
     const dbFieldNameLen =
       maxTableDbNameLen < tableName.length
         ? 0
@@ -290,7 +289,7 @@ export class TableSchemaUpdateVisitor
             ${managedSearchDocumentColumnPrefixes
               .map(
                 (prefix) =>
-                  `a.attname LIKE ${quoteSqlLiteral(managedSearchPrefixLikePattern(prefix))} ESCAPE '\\'`
+                  String.raw`a.attname LIKE ${quoteSqlLiteral(managedSearchPrefixLikePattern(prefix))} ESCAPE '\'`
               )
               .join('\n            OR ')}
           );
@@ -318,6 +317,10 @@ export class TableSchemaUpdateVisitor
     const statement = `
       DO $teable_search_vector$
       BEGIN
+        UPDATE table_meta
+        SET search_index = NULL, version = version + 1
+        WHERE id = ${quoteSqlLiteral(tableId)};
+
         IF to_regclass('public.table_query_search_vector_config') IS NOT NULL THEN
           UPDATE table_query_search_vector_config
           SET status = 'rebuild_pending',
@@ -326,14 +329,8 @@ export class TableSchemaUpdateVisitor
                 'staleReasons', jsonb_build_array(${quoteSqlLiteral(reason)})
               ),
               last_modified_time = now()
-          WHERE id = (
-            SELECT id
-            FROM table_query_search_vector_config
-            WHERE table_id = ${quoteSqlLiteral(tableId)}
-              AND status IN ('ready', 'rebuild_pending')
-            ORDER BY last_modified_time DESC NULLS LAST, created_time DESC
-            LIMIT 1
-          );
+          WHERE table_id = ${quoteSqlLiteral(tableId)}
+            AND status IN ('ready', 'rebuild_pending');
         END IF;
       END
       $teable_search_vector$;
@@ -400,7 +397,7 @@ export class TableSchemaUpdateVisitor
             AND tablename = '${tableName}'
             AND indexname LIKE 'idx_trgm%'
         ) THEN
-          EXECUTE 'CREATE INDEX IF NOT EXISTS "${indexName}" ON "${pgSchema}"."${tableName}" ${useBtree ? `USING btree (${expression.replace(/'/g, "''")})` : `USING gin ((${expression.replace(/'/g, "''")}) gin_trgm_ops)`}';
+          EXECUTE 'CREATE INDEX IF NOT EXISTS "${indexName}" ON "${pgSchema}"."${tableName}" ${useBtree ? `USING btree (${expression.replaceAll("'", "''")})` : `USING gin ((${expression.replaceAll("'", "''")}) gin_trgm_ops)`}';
         END IF;
       END
       $$;
@@ -627,9 +624,16 @@ export class TableSchemaUpdateVisitor
     if (previousFieldResult.isErr()) return err(previousFieldResult.error);
     const nextFieldResult = this.buildFormulaFieldWithExpression(field, spec.nextExpression());
     if (nextFieldResult.isErr()) return err(nextFieldResult.error);
-    spec.markDbStorageTypeChanged(
-      formulaStorageTypeChanged(previousFieldResult.value, nextFieldResult.value)
+    const storageTypeChanged = formulaStorageTypeChanged(
+      previousFieldResult.value,
+      nextFieldResult.value
     );
+    spec.markDbStorageTypeChanged(storageTypeChanged);
+    const generated = field.isPersistedAsGeneratedColumn();
+    if (generated.isErr()) return err(generated.error);
+    if (!storageTypeChanged && !generated.value) {
+      return this.regenerateFieldReferences(previousFieldResult.value, nextFieldResult.value);
+    }
 
     const dbFieldNameResult = this.resolveDbFieldNameText(field);
     if (dbFieldNameResult.isErr()) return err(dbFieldNameResult.error);
@@ -717,14 +721,14 @@ export class TableSchemaUpdateVisitor
   visitTableAddField(
     spec: TableAddFieldSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const fieldVisitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate(this.params);
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const statements = [
-        visitor.markSearchVectorConfigRebuildPendingStatement('source_field_added'),
-        ...(yield* spec.field().accept(fieldVisitor)),
-      ];
+      // Existing generated-text documents intentionally keep their configured
+      // field set when a new field is added. The new field becomes searchable
+      // only after an explicit search access-path reconfiguration.
+      const statements = [...(yield* spec.field().accept(fieldVisitor))];
       const dbFieldName = yield* visitor.resolveDbFieldNameText(spec.field());
       const createSearchIdx = visitor.createSearchIndexStatement(spec.field(), dbFieldName);
       if (createSearchIdx) {
@@ -738,13 +742,11 @@ export class TableSchemaUpdateVisitor
   visitTableAddFields(
     spec: TableAddFieldsSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const fieldVisitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate(this.params);
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const statements: TableSchemaStatementBuilder[] = [
-        visitor.markSearchVectorConfigRebuildPendingStatement('source_fields_added'),
-      ];
+      const statements: TableSchemaStatementBuilder[] = [];
       for (const field of spec.fields()) {
         statements.push(...(yield* field.accept(fieldVisitor)));
         const dbFieldName = yield* visitor.resolveDbFieldNameText(field);
@@ -759,43 +761,16 @@ export class TableSchemaUpdateVisitor
   }
 
   visitTableAddView(
-    spec: TableAddViewSpec
+    _spec: TableAddViewSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    if (spec.view().type().toString() !== 'grid') {
-      const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
-      return this.addCond(statements).map(() => statements);
-    }
-
-    const { db, schema, tableName } = this.params;
-    const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
-    const fullTableName = schema
-      ? `${quoteIdentifier(schema)}.${quoteIdentifier(tableName)}`
-      : quoteIdentifier(tableName);
-    const columnName = spec.view().id().toRowOrderColumnName();
-    const indexName = `idx_${columnName}`;
-    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [
-      {
-        scope: 'data',
-        compile: () =>
-          sql`ALTER TABLE ${sql.raw(fullTableName)} ADD COLUMN IF NOT EXISTS ${sql.ref(columnName)} double precision`.compile(
-            db
-          ),
-      },
-      {
-        scope: 'data',
-        compile: () =>
-          sql`UPDATE ${sql.raw(fullTableName)} SET ${sql.ref(columnName)} = "__auto_number" WHERE ${sql.ref(columnName)} IS NULL`.compile(
-            db
-          ),
-      },
-      {
-        scope: 'data',
-        compile: () =>
-          sql`CREATE INDEX IF NOT EXISTS ${sql.raw(quoteIdentifier(indexName))} ON ${sql.raw(fullTableName)} (${sql.ref(columnName)})`.compile(
-            db
-          ),
-      },
-    ];
+    // Adding a view creates no `__row_<viewId>` storage (T7569): a missing
+    // column reads as `__auto_number` order. Writes that need a manual order
+    // create it online before their transaction (ensureRowOrderColumnOnline,
+    // or ITableSchemaRepository.prepareViewRowOrderStorage for
+    // TableEnsureViewRowOrderSpec). Emitting ALTER/UPDATE/CREATE INDEX here
+    // would hold AccessExclusiveLock through a full-table backfill until the
+    // request transaction commits (T7251, T7541).
+    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
     return this.addCond(statements).map(() => statements);
   }
 
@@ -843,7 +818,7 @@ export class TableSchemaUpdateVisitor
   visitTableRemoveField(
     spec: TableRemoveFieldSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       // Another live field can map to the same physical column when db field
@@ -922,7 +897,7 @@ export class TableSchemaUpdateVisitor
   visitTableDuplicateField(
     spec: TableDuplicateFieldSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const fieldVisitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate(this.params);
     const addCond = this.addCond.bind(this);
 
@@ -1011,6 +986,16 @@ export class TableSchemaUpdateVisitor
     );
   }
 
+  visitTableWithFieldIds(
+    _: TableWithFieldIdsSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'TableWithFieldIdsSpec is not supported for table schema updates',
+      })
+    );
+  }
+
   visitTableByIncomingReferenceToTable(
     _: TableByIncomingReferenceToTableSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
@@ -1064,7 +1049,7 @@ export class TableSchemaUpdateVisitor
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const { db, schema, tableName } = this.params;
     const addCond = this.addCond.bind(this);
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const previousName = yield* spec.previousDbFieldName().value();
@@ -1092,7 +1077,7 @@ export class TableSchemaUpdateVisitor
   visitTableUpdateFieldType(
     spec: TableUpdateFieldTypeSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const addCond = this.addCond.bind(this);
 
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
@@ -1130,18 +1115,20 @@ export class TableSchemaUpdateVisitor
       if (oldField.unique().toBoolean() && !newField.unique().toBoolean()) {
         const constraintName = `${tableName}_${dbFieldName}_unique`;
         const quotedIndexName = schema ? `"${schema}"."${constraintName}"` : `"${constraintName}"`;
-        constraintCleanupStatements.push({
-          scope: 'data',
-          compile: () =>
-            sql`ALTER TABLE ${sql.raw(fullTableName)} DROP CONSTRAINT IF EXISTS ${sql.ref(constraintName)}`.compile(
-              visitor.params.db
-            ),
-        });
-        constraintCleanupStatements.push({
-          scope: 'data',
-          compile: () =>
-            sql`DROP INDEX IF EXISTS ${sql.raw(quotedIndexName)}`.compile(visitor.params.db),
-        });
+        constraintCleanupStatements.push(
+          {
+            scope: 'data',
+            compile: () =>
+              sql`ALTER TABLE ${sql.raw(fullTableName)} DROP CONSTRAINT IF EXISTS ${sql.ref(constraintName)}`.compile(
+                visitor.params.db
+              ),
+          },
+          {
+            scope: 'data',
+            compile: () =>
+              sql`DROP INDEX IF EXISTS ${sql.raw(quotedIndexName)}`.compile(visitor.params.db),
+          }
+        );
       }
       if (oldField.notNull().toBoolean() && !newField.notNull().toBoolean()) {
         constraintCleanupStatements.push({
@@ -1213,7 +1200,7 @@ export class TableSchemaUpdateVisitor
   visitTableUpdateFieldConstraints(
     spec: TableUpdateFieldConstraintsSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const { db, schema, tableName } = this.params;
     const addCond = this.addCond.bind(this);
 
@@ -1289,8 +1276,7 @@ export class TableSchemaUpdateVisitor
             });
             for (const rule of rules) {
               if (!(rule instanceof ForeignKeyRule)) continue;
-              statements.push(...(yield* rule.down(ruleCtx)));
-              statements.push(...(yield* rule.up(ruleCtx)));
+              statements.push(...(yield* rule.down(ruleCtx)), ...(yield* rule.up(ruleCtx)));
             }
           }
         }
@@ -1312,18 +1298,20 @@ export class TableSchemaUpdateVisitor
           });
         } else {
           // Remove UNIQUE constraint
-          statements.push({
-            scope: 'data',
-            compile: () =>
-              sql`ALTER TABLE ${sql.raw(fullTableName)} DROP CONSTRAINT IF EXISTS ${sql.ref(constraintName)}`.compile(
-                db
-              ),
-          });
-          statements.push({
-            scope: 'data',
-            compile: () =>
-              sql`DROP INDEX IF EXISTS ${sql.raw(quoteIndexName(constraintName))}`.compile(db),
-          });
+          statements.push(
+            {
+              scope: 'data',
+              compile: () =>
+                sql`ALTER TABLE ${sql.raw(fullTableName)} DROP CONSTRAINT IF EXISTS ${sql.ref(constraintName)}`.compile(
+                  db
+                ),
+            },
+            {
+              scope: 'data',
+              compile: () =>
+                sql`DROP INDEX IF EXISTS ${sql.raw(quoteIndexName(constraintName))}`.compile(db),
+            }
+          );
         }
       }
 
@@ -1335,7 +1323,7 @@ export class TableSchemaUpdateVisitor
   visitTableUpdateFieldHasError(
     spec: TableUpdateFieldHasErrorSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const statements: TableSchemaStatementBuilder[] = [];
@@ -1502,7 +1490,7 @@ export class TableSchemaUpdateVisitor
       return this.addCond(statements).map(() => statements);
     }
 
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const { db, schema, tableName } = this.params;
     const addCond = this.addCond.bind(this);
 
@@ -1557,7 +1545,7 @@ export class TableSchemaUpdateVisitor
       return this.addCond(statements).map(() => statements);
     }
 
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const { db, schema, tableName } = this.params;
     const addCond = this.addCond.bind(this);
 
@@ -1644,7 +1632,7 @@ export class TableSchemaUpdateVisitor
   visitUpdateButtonWorkflow(
     spec: UpdateButtonWorkflowSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const addCond = this.addCond.bind(this);
 
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
@@ -1682,7 +1670,7 @@ export class TableSchemaUpdateVisitor
   visitUpdateSingleSelectOptions(
     spec: UpdateSingleSelectOptionsSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const { db, schema, tableName } = this.params;
     const addCond = this.addCond.bind(this);
 
@@ -1758,7 +1746,7 @@ export class TableSchemaUpdateVisitor
   visitUpdateMultipleSelectOptions(
     spec: UpdateMultipleSelectOptionsSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const { db, schema, tableName } = this.params;
     const addCond = this.addCond.bind(this);
 
@@ -1854,7 +1842,7 @@ export class TableSchemaUpdateVisitor
   visitUpdateFormulaExpression(
     spec: UpdateFormulaExpressionSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const statements = yield* visitor.buildFormulaConversionStatements(spec);
@@ -2214,20 +2202,22 @@ export class TableSchemaUpdateVisitor
         const statements: TableSchemaStatementBuilder[] = [];
 
         // 1. Create FK columns on the new host table.
-        statements.push({
-          scope: 'data',
-          compile: () =>
-            sql`ALTER TABLE ${sql.raw(fullNewHostTableName)} ADD COLUMN IF NOT EXISTS ${sql.ref(newFkColumnName)} text`.compile(
-              db
-            ),
-        });
-        statements.push({
-          scope: 'data',
-          compile: () =>
-            sql`ALTER TABLE ${sql.raw(fullNewHostTableName)} ADD COLUMN IF NOT EXISTS ${sql.ref(newOrderColumnName)} double precision`.compile(
-              db
-            ),
-        });
+        statements.push(
+          {
+            scope: 'data',
+            compile: () =>
+              sql`ALTER TABLE ${sql.raw(fullNewHostTableName)} ADD COLUMN IF NOT EXISTS ${sql.ref(newFkColumnName)} text`.compile(
+                db
+              ),
+          },
+          {
+            scope: 'data',
+            compile: () =>
+              sql`ALTER TABLE ${sql.raw(fullNewHostTableName)} ADD COLUMN IF NOT EXISTS ${sql.ref(newOrderColumnName)} double precision`.compile(
+                db
+              ),
+          }
+        );
 
         // 2. Move relationships from old host FK to new host FK.
         statements.push({
@@ -2249,20 +2239,22 @@ export class TableSchemaUpdateVisitor
         });
 
         // 3. Drop old FK columns from the old host table.
-        statements.push({
-          scope: 'data',
-          compile: () =>
-            sql`ALTER TABLE ${sql.raw(fullOldHostTableName)} DROP COLUMN IF EXISTS ${sql.ref(oldFkColumnName)}`.compile(
-              db
-            ),
-        });
-        statements.push({
-          scope: 'data',
-          compile: () =>
-            sql`ALTER TABLE ${sql.raw(fullOldHostTableName)} DROP COLUMN IF EXISTS ${sql.ref(oldOrderColumnName)}`.compile(
-              db
-            ),
-        });
+        statements.push(
+          {
+            scope: 'data',
+            compile: () =>
+              sql`ALTER TABLE ${sql.raw(fullOldHostTableName)} DROP COLUMN IF EXISTS ${sql.ref(oldFkColumnName)}`.compile(
+                db
+              ),
+          },
+          {
+            scope: 'data',
+            compile: () =>
+              sql`ALTER TABLE ${sql.raw(fullOldHostTableName)} DROP COLUMN IF EXISTS ${sql.ref(oldOrderColumnName)}`.compile(
+                db
+              ),
+          }
+        );
 
         statements.push(...buildLinkValueShapeRewriteStatements());
 
@@ -2727,7 +2719,7 @@ $v2_link_trim$;`;
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const { db, schema, tableName } = this.params;
     const addCond = this.addCond.bind(this);
-    const visitor = this;
+    const visitor = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const field = spec.field();

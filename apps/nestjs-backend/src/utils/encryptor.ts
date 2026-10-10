@@ -1,4 +1,4 @@
-import * as crypto from 'crypto';
+import * as crypto from 'node:crypto';
 
 /**
  * One symmetric cipher configuration. `algorithm` + `key` + `iv` always travel
@@ -41,7 +41,7 @@ export class Encryptor<T> {
       const cipher = crypto.createCipheriv(algorithm, key, iv);
       const encrypted = cipher.update(JSON.stringify(data), 'utf-8', this.encoding);
       return encrypted + cipher.final(this.encoding);
-    } catch (error) {
+    } catch {
       throw new Error('Encryption failed');
     }
   }

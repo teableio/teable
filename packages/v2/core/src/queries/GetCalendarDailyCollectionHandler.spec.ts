@@ -7,15 +7,24 @@ import { domainError } from '../domain/shared/DomainError';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import { RecordId } from '../domain/table/records/RecordId';
+import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
+import { TableRecord } from '../domain/table/records/TableRecord';
+import { TableUpdateViewQueryDefaultsSpec } from '../domain/table/specs/TableUpdateViewQueryDefaultsSpec';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
+import { ViewQueryDefaults } from '../domain/table/views/ViewQueryDefaults';
 import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import { MemoryTableRepository } from '../ports/memory/MemoryTableRepository';
 import type { ITableRecordCalendarQueryRepository } from '../ports/TableRecordQueryRepository';
+import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import { GetCalendarDailyCollectionHandler } from './GetCalendarDailyCollectionHandler';
-import { GetCalendarDailyCollectionQuery } from './GetCalendarDailyCollectionQuery';
+import {
+  GetCalendarDailyCollectionQuery,
+  type IGetCalendarDailyCollectionQueryOptions,
+} from './GetCalendarDailyCollectionQuery';
+import { buildRecordConditionSpec } from './RecordFilterMapper';
 
 const context: IExecutionContext = {
   actorId: ActorId.create('usr_current')._unsafeUnwrap(),
@@ -45,17 +54,77 @@ const buildTable = () => {
 
 const buildQuery = (
   fixture: ReturnType<typeof buildTable>,
-  overrides: Record<string, unknown> = {}
+  overrides: Record<string, unknown> = {},
+  options?: IGetCalendarDailyCollectionQueryOptions
 ) =>
-  GetCalendarDailyCollectionQuery.create({
-    tableId: fixture.table.id().toString(),
-    viewId: fixture.viewId.toString(),
-    startDate: '2025-01-01T00:00:00.000Z',
-    endDate: '2025-01-03T00:00:00.000Z',
-    startDateFieldId: fixture.startId.toString(),
-    endDateFieldId: fixture.endId.toString(),
-    ...overrides,
-  })._unsafeUnwrap();
+  GetCalendarDailyCollectionQuery.create(
+    {
+      tableId: fixture.table.id().toString(),
+      viewId: fixture.viewId.toString(),
+      startDate: '2025-01-01T00:00:00.000Z',
+      endDate: '2025-01-03T00:00:00.000Z',
+      startDateFieldId: fixture.startId.toString(),
+      endDateFieldId: fixture.endId.toString(),
+      ...overrides,
+    },
+    options
+  )._unsafeUnwrap();
+
+const createRecordRepository = (
+  records: ReadonlyArray<TableRecordReadModel>
+): ITableRecordCalendarQueryRepository => ({
+  calendarDailyCollection: async (_context, table, _calendar, _range, spec) => {
+    const matching = records.filter(
+      (record) =>
+        !spec ||
+        spec.isSatisfiedBy(
+          TableRecord.fromRawFieldValues({
+            id: record.id,
+            tableId: table.id(),
+            fields: record.fields,
+          })._unsafeUnwrap()
+        )
+    );
+    return ok(
+      matching.length
+        ? [
+            {
+              date: '2025-01-01',
+              count: matching.length,
+              recordIds: matching.map((record) => RecordId.create(record.id)._unsafeUnwrap()),
+            },
+          ]
+        : []
+    );
+  },
+  find: async (_context, table, spec, options) => {
+    const projection = options?.projectionFieldIds?.map(String);
+    const matching = records.filter(
+      (record) =>
+        !spec ||
+        spec.isSatisfiedBy(
+          TableRecord.fromRawFieldValues({
+            id: record.id,
+            tableId: table.id(),
+            fields: record.fields,
+          })._unsafeUnwrap()
+        )
+    );
+    return ok({
+      records: matching.map((record) => ({
+        ...record,
+        fields: Object.fromEntries(
+          Object.entries(record.fields).filter(([id]) => !projection || projection.includes(id))
+        ),
+      })),
+      total: matching.length,
+    });
+  },
+  findOne: async () => err(domainError.notFound({ message: 'Not found' })),
+  async *findStream() {
+    yield* [];
+  },
+});
 
 describe('GetCalendarDailyCollectionQuery', () => {
   it.each([
@@ -75,6 +144,142 @@ describe('GetCalendarDailyCollectionQuery', () => {
 });
 
 describe('GetCalendarDailyCollectionHandler', () => {
+  it.each([
+    { shape: 'no view', includeView: false, ignoreViewQuery: false, expectedCount: 2 },
+    { shape: 'ignored view', includeView: true, ignoreViewQuery: true, expectedCount: 2 },
+    { shape: 'applied view', includeView: true, ignoreViewQuery: false, expectedCount: 1 },
+  ])(
+    'applies request filters with $shape',
+    async ({ includeView, ignoreViewQuery, expectedCount }) => {
+      const fixture = buildTable();
+      const table = TableUpdateViewQueryDefaultsSpec.create([
+        {
+          viewId: fixture.viewId,
+          queryDefaults: ViewQueryDefaults.create({
+            filter: { fieldId: fixture.nameId.toString(), operator: 'is', value: 'Alpha' },
+          })._unsafeUnwrap(),
+        },
+      ])
+        .mutate(fixture.table)
+        ._unsafeUnwrap();
+      const records = ['Alpha', 'Beta', 'Gamma'].map((name, index) => ({
+        id: `rec${String(index).repeat(16)}`,
+        version: 1,
+        fields: {
+          [fixture.nameId.toString()]: name,
+          [fixture.startId.toString()]: '2025-01-01T00:00:00.000Z',
+        },
+      }));
+      const handler = new GetCalendarDailyCollectionHandler(
+        new MemoryTableRepository(),
+        createRecordRepository(records),
+        new NoopLogger()
+      );
+      const result = (
+        await handler.handle(
+          context,
+          buildQuery(
+            fixture,
+            {
+              viewId: includeView ? fixture.viewId.toString() : undefined,
+              ignoreViewQuery,
+              filter: { fieldId: fixture.nameId.toString(), operator: 'isNot', value: 'Gamma' },
+            },
+            { table }
+          )
+        )
+      )._unsafeUnwrap();
+
+      expect(result.countMap).toEqual({ '2025-01-01': expectedCount });
+      expect(result.records.map((record) => record.fields[fixture.nameId.toString()])).toEqual(
+        expectedCount === 1 ? ['Alpha'] : ['Alpha', 'Beta']
+      );
+    }
+  );
+
+  it('scopes bucket membership and masks returned fields without leaking mask dependencies', async () => {
+    const fixture = buildTable();
+    const firstId = RecordId.create(`rec${'a'.repeat(16)}`)._unsafeUnwrap();
+    const secondId = RecordId.create(`rec${'b'.repeat(16)}`)._unsafeUnwrap();
+    const deniedId = RecordId.create(`rec${'c'.repeat(16)}`)._unsafeUnwrap();
+    const nameId = fixture.nameId.toString();
+    const startId = fixture.startId.toString();
+    const endId = fixture.endId.toString();
+    const records = [firstId, secondId, deniedId].map((id, index) => ({
+      id: id.toString(),
+      version: 1,
+      fields: {
+        [nameId]: `Name ${index}`,
+        [startId]: '2025-01-01T00:00:00.000Z',
+        [endId]: index === 0 ? null : '2025-01-02T00:00:00.000Z',
+      },
+    }));
+    const visibleWhen = buildRecordConditionSpec(fixture.table, {
+      fieldId: endId,
+      operator: 'isEmpty',
+      value: null,
+    })._unsafeUnwrap();
+    const handler = new GetCalendarDailyCollectionHandler(
+      new MemoryTableRepository(),
+      createRecordRepository(records),
+      new NoopLogger()
+    );
+    const result = (
+      await handler.handle(
+        context,
+        buildQuery(
+          fixture,
+          {
+            viewId: undefined,
+            endDateFieldId: undefined,
+          },
+          {
+            table: fixture.table,
+            queryScope: {
+              readableFieldIds: new Set([nameId, startId]),
+              recordSpec: RecordByIdsSpec.create([firstId, secondId]),
+              fieldMasks: [{ fieldId: nameId, visibleWhen }],
+            },
+          }
+        )
+      )
+    )._unsafeUnwrap();
+
+    expect(result.countMap).toEqual({ '2025-01-01': 2 });
+    expect(result.records.map((record) => record.id)).toEqual([
+      firstId.toString(),
+      secondId.toString(),
+    ]);
+    expect(result.records.map((record) => record.fields)).toEqual([
+      { [nameId]: 'Name 0', [startId]: '2025-01-01T00:00:00.000Z' },
+      { [startId]: '2025-01-01T00:00:00.000Z' },
+    ]);
+  });
+
+  it('rejects an unreadable date field even when includeHiddenFields is requested', async () => {
+    const fixture = buildTable();
+    const handler = new GetCalendarDailyCollectionHandler(
+      new MemoryTableRepository(),
+      createRecordRepository([]),
+      new NoopLogger()
+    );
+    const result = await handler.handle(
+      context,
+      buildQuery(
+        fixture,
+        {
+          includeHiddenFields: true,
+        },
+        {
+          table: fixture.table,
+          queryScope: { readableFieldIds: new Set([fixture.nameId.toString()]) },
+        }
+      )
+    );
+
+    expect(result._unsafeUnwrapErr()).toMatchObject({ code: 'calendar.field_unreadable' });
+  });
+
   it('uses the Table aggregate plan, merges filter/search, and reads deduplicated records in bucket order', async () => {
     const fixture = buildTable();
     const tableRepository = new MemoryTableRepository();
@@ -186,7 +391,7 @@ describe('GetCalendarDailyCollectionHandler', () => {
     );
     expect(
       (await missingHandler.handle(context, buildQuery(fixture)))._unsafeUnwrapErr()
-    ).toMatchObject({ code: 'view.not_found' });
+    ).toMatchObject({ code: 'table.not_found' });
     expect(calendarDailyCollection).not.toHaveBeenCalled();
 
     const tableRepository = new MemoryTableRepository();

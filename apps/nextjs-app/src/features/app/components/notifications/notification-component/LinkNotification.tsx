@@ -4,6 +4,7 @@ import { type INotificationVo } from '@teable/openapi';
 import type { ILocaleFunction } from '@teable/sdk/context/app/i18n';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
+import { isExternalNotificationUrl } from './external-url';
 import { getShowMessage } from './get-show-message';
 
 interface LinkNotificationProps {
@@ -61,14 +62,26 @@ export const LinkNotification = (props: LinkNotificationProps) => {
     );
   }
 
+  const body = (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div
+      className={messageClassName}
+      dangerouslySetInnerHTML={{ __html: message }}
+      onClick={handleContentClick}
+    />
+  );
+
+  if (isExternalNotificationUrl(url)) {
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer" className="min-w-0 max-w-full flex-1">
+        {body}
+      </a>
+    );
+  }
+
   return (
     <Link href={url} className="min-w-0 max-w-full flex-1">
-      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
-      <div
-        className={messageClassName}
-        dangerouslySetInnerHTML={{ __html: message }}
-        onClick={handleContentClick}
-      />
+      {body}
     </Link>
   );
 };

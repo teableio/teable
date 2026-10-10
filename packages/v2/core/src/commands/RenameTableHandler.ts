@@ -44,7 +44,7 @@ export class RenameTableHandler implements ICommandHandler<RenameTableCommand, R
     context: ExecutionContextPort.IExecutionContext,
     command: RenameTableCommand
   ): Promise<Result<RenameTableResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<RenameTableResult, DomainError>(async function* () {
       const tablePluginExecution = yield* await handler.tableOperationPluginRunner.prepare({
         kind: TableOperationKind.rename,

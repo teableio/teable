@@ -4,6 +4,7 @@ import {
   createFieldOkResponseSchema,
   createTableOkResponseSchema,
   getTableByIdOkResponseSchema,
+  submitRecordOkResponseSchema,
 } from '@teable/v2-contract-http';
 import type { ITableFieldInput } from '@teable/v2-core';
 import {
@@ -14,7 +15,11 @@ import {
 } from '@teable/v2-core';
 import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it, test } from 'vitest';
-import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
+import {
+  getSharedTestContext,
+  TEST_USER,
+  type SharedTestContext,
+} from './shared/globalTestContext';
 
 describe('v2 http createField (e2e)', () => {
   const getSearchIndexName = (tableName: string, dbFieldName: string, fieldId: string) => {
@@ -435,6 +440,191 @@ describe('v2 http createField (e2e)', () => {
       await ctx.deleteTable(table.id).catch(() => undefined);
     }
   });
+
+  describe.each(['form', 'gallery', 'kanban', 'calendar'] as const)(
+    '%s field visibility',
+    (viewType) => {
+      it.each(['grid', 'same-type', 'none'] as const)(
+        'keeps new fields out of customized views when created from %s',
+        async (source) => {
+          const titleFieldId = createFieldId();
+          const notesFieldId = createFieldId();
+          const newFieldId = createFieldId();
+          const table = await createTable({
+            baseId: ctx.baseId,
+            name: 'New Field Visibility',
+            fields: [
+              { type: 'singleLineText', id: titleFieldId, name: 'Name', isPrimary: true },
+              { type: 'singleLineText', id: notesFieldId, name: 'Notes' },
+            ],
+            views: [
+              { type: 'grid', name: 'Grid' },
+              { type: viewType, name: 'Customized' },
+              { type: viewType, name: 'All Fields' },
+              { type: viewType, name: 'Current' },
+            ],
+          });
+
+          try {
+            const [grid, customized, allFields, current] = table.views;
+            for (const view of [customized, current]) {
+              const patched = await fetch(`${ctx.baseUrl}/tables/updateViewColumnMeta`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                  tableId: table.id,
+                  viewId: view.id,
+                  columnMeta: [{ fieldId: notesFieldId, columnMeta: { visible: false } }],
+                }),
+              });
+              expect(patched.status).toBe(200);
+            }
+
+            await ctx.createField({
+              baseId: ctx.baseId,
+              tableId: table.id,
+              field: { id: newFieldId, type: 'singleLineText', name: 'Additional' },
+              ...(source === 'grid' ? { order: { viewId: grid.id, orderIndex: 2 } } : {}),
+              ...(source === 'same-type' ? { viewId: current.id } : {}),
+            });
+
+            const fetchedTable = await getTableById(table.id);
+            const customizedView = fetchedTable.views.find((view) => view.id === customized.id);
+            const allFieldsView = fetchedTable.views.find((view) => view.id === allFields.id);
+            const currentView = fetchedTable.views.find((view) => view.id === current.id);
+            expect(customizedView?.columnMeta?.[newFieldId]?.visible).toBe(false);
+            expect(customizedView?.columnMeta?.[notesFieldId]?.visible).toBe(false);
+            expect(allFieldsView?.columnMeta?.[newFieldId]?.visible).not.toBe(false);
+            if (viewType === 'form') {
+              expect(allFieldsView?.columnMeta?.[newFieldId]?.visible).toBe(true);
+            }
+            if (source === 'same-type') {
+              expect(currentView?.columnMeta?.[newFieldId]?.visible).not.toBe(false);
+              if (viewType === 'form') {
+                expect(currentView?.columnMeta?.[newFieldId]?.visible).toBe(true);
+              }
+            } else {
+              expect(currentView?.columnMeta?.[newFieldId]?.visible).toBe(false);
+            }
+          } finally {
+            await ctx.deleteTable(table.id, { mode: 'permanent' });
+          }
+        }
+      );
+    }
+  );
+
+  it.each([
+    { label: 'no default', field: { type: 'singleLineText' }, visible: true, value: 'Required' },
+    {
+      label: 'empty text default',
+      field: { type: 'singleLineText', options: { defaultValue: '' } },
+      visible: true,
+      value: 'Required',
+    },
+    {
+      label: 'empty user default',
+      field: { type: 'user', options: { defaultValue: [], isMultiple: false } },
+      visible: true,
+      value: { id: TEST_USER.id, title: TEST_USER.name },
+    },
+    {
+      label: 'unique default',
+      field: { type: 'singleLineText', unique: true, options: { defaultValue: 'Default' } },
+      visible: true,
+      value: 'Distinct',
+    },
+    {
+      label: 'optional unique default',
+      field: {
+        type: 'singleLineText',
+        notNull: false,
+        unique: true,
+        options: { defaultValue: 'Default' },
+      },
+      visible: true,
+      value: 'Distinct',
+    },
+    {
+      label: 'text default',
+      field: { type: 'singleLineText', options: { defaultValue: 'Default' } },
+      visible: false,
+      value: 'Default',
+    },
+    {
+      label: 'zero default',
+      field: { type: 'number', options: { defaultValue: 0 } },
+      visible: false,
+      value: 0,
+    },
+  ] as const)(
+    'keeps customized forms submittable after adding a constrained field with $label',
+    async ({ field, visible, value }) => {
+      const titleFieldId = createFieldId();
+      const hiddenFieldId = createFieldId();
+      const requiredFieldId = createFieldId();
+      const table = await createTable({
+        baseId: ctx.baseId,
+        name: 'Required Field Form Visibility',
+        fields: [
+          { type: 'singleLineText', id: titleFieldId, name: 'Title', isPrimary: true },
+          { type: 'singleLineText', id: hiddenFieldId, name: 'Internal' },
+        ],
+        views: [
+          { type: 'grid', name: 'Grid' },
+          { type: 'form', name: 'Form' },
+        ],
+      });
+
+      try {
+        const [grid, form] = table.views;
+        const patched = await fetch(`${ctx.baseUrl}/tables/updateViewColumnMeta`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            tableId: table.id,
+            viewId: form.id,
+            columnMeta: [{ fieldId: hiddenFieldId, columnMeta: { visible: false } }],
+          }),
+        });
+        expect(patched.status).toBe(200);
+        await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: table.id,
+          viewId: grid.id,
+          field: { id: requiredFieldId, name: 'Required', notNull: true, ...field },
+        });
+
+        const inputValues = 'unique' in field && field.unique ? [undefined, value] : [value];
+        for (const inputValue of inputValues) {
+          const response = await fetch(`${ctx.baseUrl}/tables/submitRecord`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              tableId: table.id,
+              formId: form.id,
+              fields: {
+                [titleFieldId]: 'Submitted',
+                ...(visible && inputValue !== undefined ? { [requiredFieldId]: inputValue } : {}),
+              },
+            }),
+          });
+          expect(response.status).toBe(201);
+          const submitted = submitRecordOkResponseSchema.parse(await response.json());
+          if (typeof inputValue === 'object') {
+            expect(submitted.data.record.fields[requiredFieldId]).toMatchObject(inputValue);
+          } else {
+            expect(submitted.data.record.fields[requiredFieldId]).toBe(inputValue ?? 'Default');
+          }
+        }
+        const fetchedTable = await getTableById(table.id);
+        const fetchedForm = fetchedTable.views.find((view) => view.id === form.id);
+        expect(fetchedForm?.columnMeta?.[requiredFieldId]?.visible).toBe(visible);
+      } finally {
+        await ctx.deleteTable(table.id, { mode: 'permanent' });
+      }
+    }
+  );
 
   it('creates search index for new searchable field when table search indexing is enabled', async () => {
     const trgmAvailable = await sql<{ available: boolean }>`

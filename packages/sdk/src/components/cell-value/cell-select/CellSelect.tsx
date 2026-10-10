@@ -1,6 +1,5 @@
 import type { Colors, ISelectFieldOptions } from '@teable/core';
-import { useTheme } from '@teable/next-themes';
-import { cn } from '@teable/ui-lib';
+import { useTheme, cn } from '@teable/ui-lib';
 import { keyBy } from 'lodash';
 import { useMemo } from 'react';
 import { getSelectColorPairs } from '../../../utils/select-color';

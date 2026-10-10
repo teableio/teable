@@ -1,10 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
+import { RedisNativeService } from '../../cache/redis-native.service';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { mapWithConcurrency } from '../../utils/map-with-concurrency';
 import { bucketRange, groupStatsByBucket, isBucketCovered } from '../cold-archive/bucket-coverage';
+import { markCompactionPending, wroteAnyPart } from '../cold-archive/compaction-pending';
 import { nextReadBatchLimit, READ_BATCH_PROBE_ROWS } from '../cold-archive/read-batch';
 import { BucketMergeFeeder } from './bucket-merge-feeder';
 import { approxColdRowBytes, SortMemoryBudget } from './external-sort';
@@ -12,7 +14,10 @@ import type { IColdHistoryRow, IPartBucket, IPartStatsEntry, ITableColdStats } f
 import { bucketId, bucketOfDate, parsePartKey } from './part-codec';
 import { PartWriter } from './part-writer';
 import { RecordHistoryColdStorageService } from './record-history-cold-storage.service';
-import { recordHistoryColdConfig } from './record-history-cold.config';
+import {
+  RECORD_HISTORY_COMPACT_PENDING_KEY,
+  recordHistoryColdConfig,
+} from './record-history-cold.config';
 
 export interface IColdFlushOptions {
   mode: 'incremental' | 'backfill';
@@ -88,7 +93,7 @@ interface ITouchedBucket {
   consumedKeys: Set<string>;
 }
 
-const quoteIdent = (name: string) => `"${name.replace(/"/g, '""')}"`;
+const quoteIdent = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
 export { nextReadBatchLimit } from '../cold-archive/read-batch';
 
@@ -110,7 +115,8 @@ export class RecordHistoryFlusherService {
     private readonly metaFallbackDataPrismaService: DataPrismaService,
     private readonly dataDbClientManager: DataDbClientManager,
     private readonly databaseRouter: DatabaseRouter,
-    private readonly coldStorage: RecordHistoryColdStorageService
+    private readonly coldStorage: RecordHistoryColdStorageService,
+    private readonly redis: RedisNativeService
   ) {}
 
   async runFlush(options: IColdFlushOptions): Promise<IColdFlushRunResult> {
@@ -647,7 +653,7 @@ export class RecordHistoryFlusherService {
           truncatedValues += built.truncatedCount;
           // drop the source row's reference as we go: with multi-MB rows the
           // whole batch array would otherwise stay live until the loop ends
-          (batch as unknown as (unknown | undefined)[])[i] = undefined;
+          (batch as unknown as unknown[])[i] = undefined;
           await (await feederFor(built.row.createdTime)).push(built.row);
           flushedRows += 1;
         }
@@ -687,6 +693,15 @@ export class RecordHistoryFlusherService {
     if (touched.size > 0) {
       await this.healStaleParts(tableId, touched);
       await this.updateStats(tableId, touched, allEntries);
+      if (wroteAnyPart(touched.values())) {
+        await markCompactionPending({
+          redis: this.redis,
+          key: RECORD_HISTORY_COMPACT_PENDING_KEY,
+          subsystem: 'record-history',
+          logger: this.logger,
+          id: tableId,
+        });
+      }
     }
 
     let deletedRows = 0;

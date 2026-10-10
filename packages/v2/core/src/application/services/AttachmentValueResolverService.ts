@@ -79,7 +79,7 @@ export class AttachmentValueResolverService
     _tableId: TableId,
     specs: ReadonlyArray<SetAttachmentValueSpec>
   ): Promise<Result<ReadonlyArray<ICellValueSpec>, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<ICellValueSpec>, DomainError>(async function* () {
       if (specs.length === 0) {
         return ok([]);

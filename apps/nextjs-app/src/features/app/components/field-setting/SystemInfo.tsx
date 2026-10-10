@@ -10,20 +10,18 @@ export const DbFieldName: React.FC<{
 }> = ({ field, updateFieldProps }) => {
   const { t } = useTranslation(['table']);
   return (
-    <>
-      <div className="mt-2 flex flex-col space-y-2">
-        <p className="text-sm font-medium">{t('table:field.editor.dbFieldName')}</p>
-        <Input
-          placeholder={t('table:field.editor.dbFieldName')}
-          type="text"
-          size="lg"
-          value={field['dbFieldName'] || ''}
-          data-1p-ignore="true"
-          autoComplete="off"
-          onChange={(e) => updateFieldProps({ dbFieldName: e.target.value || undefined })}
-        />
-      </div>
-    </>
+    <div className="mt-2 flex flex-col space-y-2">
+      <p className="text-sm font-medium">{t('table:field.editor.dbFieldName')}</p>
+      <Input
+        placeholder={t('table:field.editor.dbFieldName')}
+        type="text"
+        size="lg"
+        value={field['dbFieldName'] || ''}
+        data-1p-ignore="true"
+        autoComplete="off"
+        onChange={(e) => updateFieldProps({ dbFieldName: e.target.value || undefined })}
+      />
+    </div>
   );
 };
 

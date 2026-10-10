@@ -11,7 +11,9 @@ import type {
   DateField,
   FormulaField,
   IFieldVisitor,
+  IFormulaAdmissionService,
   ITableRepository,
+  ITableSearchIndex,
   IUnitOfWorkTransaction,
   LastModifiedByField,
   LastModifiedTimeField,
@@ -78,7 +80,21 @@ type StartedPostgreSqlContainer = Awaited<ReturnType<PostgreSqlContainer['start'
 import { registerV2PostgresStateAdapter } from '../di/register';
 import { convertNameToValidCharacter, joinDbTableName } from '../naming';
 
-const createPgDb = async (connectionString: string): Promise<Kysely<V1TeableDatabase>> => {
+// This suite isolates metadata persistence. Formula admission is exercised with the real
+// compiler and schema repositories in FormulaAdmission.pglite.spec.ts.
+const createRepositoryContainer = () => {
+  const c = container.createChildContainer();
+  c.registerInstance<IFormulaAdmissionService>(v2CoreTokens.formulaAdmissionService, {
+    admitNew: () => ok(undefined),
+    admitUpdate: () => ok(undefined),
+  });
+  return c;
+};
+
+const createPgDb = async (
+  connectionString: string,
+  max?: number
+): Promise<Kysely<V1TeableDatabase>> => {
   const pg = (await import('pg')) as typeof import('pg') & { default?: typeof import('pg') };
   const Pool = pg.Pool ?? pg.default?.Pool;
   if (!Pool) {
@@ -87,7 +103,11 @@ const createPgDb = async (connectionString: string): Promise<Kysely<V1TeableData
 
   return new Kysely<V1TeableDatabase>({
     dialect: new PostgresDialect({
-      pool: new Pool({ connectionString }),
+      pool: new Pool({
+        connectionString,
+        max,
+        ...(max === 1 ? { connectionTimeoutMillis: 1000 } : {}),
+      }),
     }),
   });
 };
@@ -281,8 +301,101 @@ describe('PostgresTableRepository (pg)', () => {
     await pgContainer.stop();
   });
 
+  it('loads serving metadata in single and multi-table reads and ignores malformed snapshots', async () => {
+    const c = createRepositoryContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, { db, ensureSchema: true });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseId = BaseId.create(`bse${getRandomString(16)}`)._unsafeUnwrap();
+      const spaceId = `spc${getRandomString(16)}`;
+      const context = { actorId: ActorId.create('system')._unsafeUnwrap() };
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Search metadata', created_by: 'system' })
+        .execute();
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Search metadata',
+          order: 1,
+          created_by: 'system',
+        })
+        .execute();
+      const builder = Table.builder()
+        .withBaseId(baseId)
+        .withName(TableName.create('Search metadata')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder.view().defaultGrid().done();
+      const inserted = (
+        await repo.insert(context, builder.build()._unsafeUnwrap())
+      )._unsafeUnwrap();
+      const spec = TableByIdSpec.create(inserted.id());
+      expect((await repo.findOne(context, spec))._unsafeUnwrap().searchIndex()).toBeUndefined();
+
+      const snapshot: ITableSearchIndex = {
+        version: 1,
+        dbTableName: inserted
+          .dbTableName()
+          .andThen((name) => name.value())
+          ._unsafeUnwrap(),
+        generatedColumnName: '__search_document',
+        indexName: 'idx_search_document',
+        provider: 'pg_trgm',
+        searchScope: 'selected_fields',
+        definitionKey: 'validated-definition',
+        indexUsable: false,
+        fields: [
+          {
+            fieldId: inserted.primaryFieldId().toString(),
+            fieldDbName: inserted
+              .primaryField()
+              .andThen((field) => field.dbFieldName())
+              .andThen((name) => name.value())
+              ._unsafeUnwrap(),
+            textProjection: { kind: 'plain' },
+          },
+        ],
+      };
+      await db
+        .updateTable('table_meta')
+        .set({ search_index: snapshot })
+        .where('id', '=', inserted.id().toString())
+        .execute();
+      expect((await repo.findOne(context, spec))._unsafeUnwrap().searchIndex()).toEqual(snapshot);
+      expect(
+        (await repo.find(context, spec))._unsafeUnwrap().map((table) => table.searchIndex())
+      ).toEqual([snapshot]);
+
+      await db
+        .updateTable('table_meta')
+        .set({ search_index: { ...snapshot, version: 2 } })
+        .where('id', '=', inserted.id().toString())
+        .execute();
+      expect((await repo.findOne(context, spec))._unsafeUnwrap().searchIndex()).toBeUndefined();
+      await db
+        .updateTable('table_meta')
+        .set({ search_index: { ...snapshot, fields: 'malformed' } })
+        .where('id', '=', inserted.id().toString())
+        .execute();
+      expect(
+        (await repo.find(context, spec))._unsafeUnwrap().map((table) => table.searchIndex())
+      ).toEqual([undefined]);
+    } finally {
+      await db.destroy();
+    }
+  });
+
   it('saves and loads a table by specs', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -535,7 +648,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('records schema operation state when table provision state changes', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -627,7 +740,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('writes a trash row in the same transaction as a soft delete', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -695,7 +808,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('waits for a pending table to become ready instead of reporting not found', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -752,28 +865,18 @@ describe('PostgresTableRepository (pg)', () => {
           .execute();
       };
 
-      // A read landing inside a concurrent schema update's pending window must
-      // wait for the ready flip instead of failing with table.not_found.
+      // Wait-loop sequencing is covered by the deterministic provision unit tests.
+      // Here verify actual DB state and error classification without real sleeps.
       await setProvisionState('pending');
-      const flipToReady = setTimeout(() => {
-        void setProvisionState('ready');
-      }, 150);
+      const stuckResult = await repo.findOne(context, TableByIdSpec.create(persistedTable.id()), {
+        provisionWaitMs: 0,
+      });
+      expect(stuckResult._unsafeUnwrapErr().code).toBe('table.provision_pending');
+      expect(stuckResult._unsafeUnwrapErr().tags).not.toContain('not-found');
+      expect(stuckResult._unsafeUnwrapErr().message).not.toContain('Table not found');
+      await setProvisionState('ready');
       const foundResult = await repo.findOne(context, TableByIdSpec.create(persistedTable.id()));
-      clearTimeout(flipToReady);
-      expect(foundResult.isOk()).toBe(true);
       expect(foundResult._unsafeUnwrap().id().toString()).toBe(tableId);
-
-      // A table that never becomes ready still reports not found, but only
-      // after the bounded wait — it is indistinguishable from a slow schema
-      // update until the budget expires.
-      await setProvisionState('pending');
-      const startedAt = Date.now();
-      const stuckResult = await repo.findOne(context, TableByIdSpec.create(persistedTable.id()));
-      expect(stuckResult.isErr()).toBe(true);
-      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(1000);
-      // A stuck table must be distinguishable from a genuinely missing one in
-      // logs: the not-found error carries the exhausted provisioning wait.
-      expect(stuckResult._unsafeUnwrapErr().message).toContain('provision_state=pending after');
       await setProvisionState('ready');
     } finally {
       if (previousWait == null) {
@@ -790,9 +893,9 @@ describe('PostgresTableRepository (pg)', () => {
     }
   });
 
-  it('fails fast on a pending table inside an active transaction instead of sleeping', async () => {
-    const c = container.createChildContainer();
-    const db = await createPgDb(pgContainer.getConnectionUri());
+  it('probes uncommitted pending on the meta transaction without borrowing another connection', async () => {
+    const c = createRepositoryContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri(), 1);
     await registerV2PostgresStateAdapter(c, {
       db,
       ensureSchema: true,
@@ -838,15 +941,9 @@ describe('PostgresTableRepository (pg)', () => {
       const persistedTable = (await repo.insert(context, table))._unsafeUnwrap();
       const tableId = persistedTable.id().toString();
 
-      await db
-        .updateTable('table_meta')
-        .set({ provision_state: 'pending' })
-        .where('id', '=', tableId)
-        .execute();
-
       // Waiting inside a transaction would park its connection (and any locks
       // it holds) for the whole budget; transactional callers must keep the
-      // original fail-fast not-found behavior.
+      // fail-fast pending behavior without acquiring a second pool connection.
       await db.transaction().execute(async (trx) => {
         const transaction = {
           kind: 'unitOfWorkTransaction',
@@ -855,12 +952,30 @@ describe('PostgresTableRepository (pg)', () => {
           db: trx,
         } as IUnitOfWorkTransaction;
         const txContext = { actorId, requestId: 'req-provision-tx-test', transaction };
+        await trx
+          .updateTable('table_meta')
+          .set({ provision_state: 'pending' })
+          .where('id', '=', tableId)
+          .execute();
         const startedAt = Date.now();
         const txResult = await repo.findOne(txContext, TableByIdSpec.create(persistedTable.id()));
         expect(txResult.isErr()).toBe(true);
         expect(txResult._unsafeUnwrapErr().code).toBe('table.provision_pending');
         expect(txResult._unsafeUnwrapErr().message).toContain('provision_state=pending');
+        const readyResult = await repo.waitForReady!(
+          txContext,
+          TableByIdSpec.create(persistedTable.id())
+        );
+        expect(readyResult._unsafeUnwrapErr().code).toBe('table.provision_pending');
         expect(Date.now() - startedAt).toBeLessThan(1000);
+        await trx
+          .updateTable('table_meta')
+          .set({ provision_state: 'ready' })
+          .where('id', '=', tableId)
+          .execute();
+        expect(
+          (await repo.waitForReady!(txContext, TableByIdSpec.create(persistedTable.id()))).isOk()
+        ).toBe(true);
       });
 
       await db
@@ -879,7 +994,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('reloads once when the table turns ready between the missed read and the probe', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -975,7 +1090,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('hydrates fields in the same fallback visible order as the field list API', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -1080,7 +1195,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('preserves explicit db table and field names on insert', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -1166,7 +1281,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('normalizes v1 view filter list operators with null value', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -1244,7 +1359,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('finds host tables by incoming references across bases', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -1362,7 +1477,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('normalizes legacy dateRange filter values in view filters', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -1474,7 +1589,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('drops empty array values for v2 list operators in view filters', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -1554,7 +1669,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('rehydrates generated column meta for system fields', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -1632,7 +1747,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('persists and rehydrates aiConfig on create', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -1703,7 +1818,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('rejects duplicate db table names within a base', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -1771,7 +1886,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('finds tables with sort and pagination', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -1873,7 +1988,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('initializes column meta for all view types', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -2085,7 +2200,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('filters tables by name like spec', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -2162,7 +2277,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('persists rollup lookup options with link metadata', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -2329,7 +2444,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('rehydrates lookup fields with db names and validation flags', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -2486,7 +2601,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('updates table name with mutate spec', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -2559,7 +2674,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('increments field version on repeated field metadata updates', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -2653,7 +2768,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('increments view version on view column meta updates', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,
@@ -2749,7 +2864,7 @@ describe('PostgresTableRepository (pg)', () => {
   });
 
   it('rejects an update made from a stale Table aggregate View version', async () => {
-    const c = container.createChildContainer();
+    const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
       db,

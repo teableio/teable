@@ -87,6 +87,7 @@ import type { TableUpdateViewShareMetaSpec } from './TableUpdateViewShareMetaSpe
 import type { TableUpdateViewShareStateSpec } from './TableUpdateViewShareStateSpec';
 import { TableWithViewIdsSpec } from './TableWithViewIdsSpec';
 import { TableWithPrimaryFieldSpec } from './TableWithPrimaryFieldSpec';
+import { TableWithFieldIdsSpec } from './TableWithFieldIdsSpec';
 
 class SpyVisitor implements ITableSpecVisitor {
   readonly calls: string[] = [];
@@ -241,6 +242,13 @@ class SpyVisitor implements ITableSpecVisitor {
     _: TableWithPrimaryFieldSpec
   ): ReturnType<ITableSpecVisitor['visitTableWithPrimaryField']> {
     this.calls.push('TableWithPrimaryFieldSpec');
+    return ok(undefined);
+  }
+
+  visitTableWithFieldIds(
+    _: TableWithFieldIdsSpec
+  ): ReturnType<ITableSpecVisitor['visitTableWithFieldIds']> {
+    this.calls.push('TableWithFieldIdsSpec');
     return ok(undefined);
   }
 
@@ -771,6 +779,22 @@ describe('Table specs', () => {
     const visitor = new SpyVisitor();
     spec.accept(visitor)._unsafeUnwrap();
     expect(visitor.calls).toContain('TableWithPrimaryFieldSpec');
+  });
+
+  it('narrows Field hydration to requested Field ids without changing the Table match', () => {
+    const table = buildTable(
+      BaseId.create(`bse${'q'.repeat(16)}`)._unsafeUnwrap(),
+      TableName.create('Field projection')._unsafeUnwrap()
+    );
+    const spec = TableWithFieldIdsSpec.create([table.primaryFieldId()]);
+
+    expect(spec.fieldIds()).toEqual([table.primaryFieldId()]);
+    expect(spec.isSatisfiedBy(table)).toBe(true);
+    expect(spec.mutate(table)._unsafeUnwrap()).toBe(table);
+
+    const visitor = new SpyVisitor();
+    spec.accept(visitor)._unsafeUnwrap();
+    expect(visitor.calls).toContain('TableWithFieldIdsSpec');
   });
 
   it('evaluates name like specs', () => {

@@ -30,7 +30,7 @@ const defaultVisiblePages = { x: 0, y: 0, width: 0, height: 0 };
 
 const getRecordSearchHitIndex = (extra: unknown) => {
   const searchHitIndex = get(extra, 'searchHitIndex') as ISearchHits | undefined;
-  if (!searchHitIndex || !searchHitIndex.length) {
+  if (!searchHitIndex?.length) {
     return [] as IRecordSearchHitIndex;
   }
 

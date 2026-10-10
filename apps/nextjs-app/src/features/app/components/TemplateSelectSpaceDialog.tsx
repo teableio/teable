@@ -6,6 +6,7 @@ import {
   getUserLastVisit,
   LastVisitResourceType,
 } from '@teable/openapi';
+import type { ITemplateVo } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import {
   Button,
@@ -25,8 +26,9 @@ import {
 import { ChevronDown, Loader, Plus } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import React, { useEffect, useImperativeHandle, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { SpaceAvatar } from './space/SpaceAvatar';
+import { TemplateHostContext } from './space/template/host-context';
 
 export interface ITemplateSelectSpaceDialogRef {
   setOpen: (open: boolean) => void;
@@ -34,13 +36,23 @@ export interface ITemplateSelectSpaceDialogRef {
 
 interface ITemplateSelectSpaceDialogProps {
   templateId: string;
+  /**
+   * Full detail, once loaded: lets the host decide how this template is applied.
+   * The confirm waits for it, so a solution is never applied as a plain copy.
+   */
+  template?: ITemplateVo;
+  /** The detail request failed; the dialog offers a retry instead of a fallback. */
+  templateError?: boolean;
+  onRetryTemplate?: () => void;
 }
 
 export const TemplateSelectSpaceDialog = React.forwardRef<
   ITemplateSelectSpaceDialogRef,
   ITemplateSelectSpaceDialogProps
->(({ templateId }, ref) => {
+>(({ templateId, template, templateError, onRetryTemplate }, ref) => {
   const { t } = useTranslation(['common']);
+  const host = useContext(TemplateHostContext);
+  const useOptions = template ? host.useOptions?.(template) : undefined;
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>();
   const [newSpaceName, setNewSpaceName] = useState('');
   const router = useRouter();
@@ -58,12 +70,19 @@ export const TemplateSelectSpaceDialog = React.forwardRef<
       createBaseFromTemplate({
         spaceId,
         templateId,
-        withRecords: true,
+        withRecords: useOptions?.withRecords ?? true,
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       }),
     onSuccess: ({ data }) => {
       setOpen(false);
       const { id: baseId, defaultUrl } = data;
+
+      // The host may own the landing (EE: a solution goes to its setup flow first)
+      const hostUrl = useOptions?.redirect?.(data);
+      if (hostUrl) {
+        window.location.href = hostUrl;
+        return;
+      }
 
       // If defaultUrl is provided, navigate to it directly (e.g., to a default node)
       if (defaultUrl) {
@@ -138,9 +157,22 @@ export const TemplateSelectSpaceDialog = React.forwardRef<
           <DialogTitle>{t('common:template.useTemplateDialog.title')}</DialogTitle>
         </DialogHeader>
         <DialogDescription>{t('common:template.useTemplateDialog.description')}</DialogDescription>
+        {templateError && (
+          <p className="text-xs text-destructive">
+            {t('common:template.useTemplateDialog.loadFailed')}{' '}
+            <Button
+              variant="link"
+              size="xs"
+              className="h-auto p-0 text-xs"
+              onClick={onRetryTemplate}
+            >
+              {t('common:actions.retry')}
+            </Button>
+          </p>
+        )}
         {hasNoSpaces ? (
           <div className="flex flex-col gap-2">
-            <p className="text-muted-foreground text-sm">
+            <p className="text-sm text-muted-foreground">
               {t('common:template.useTemplateDialog.noSpaceDescription')}
             </p>
             <div className="flex items-center gap-2">
@@ -202,7 +234,7 @@ export const TemplateSelectSpaceDialog = React.forwardRef<
             className="relative min-w-16"
             size="sm"
             onClick={useTemplateHandler}
-            disabled={!selectedSpaceId || applyTemplateLoading}
+            disabled={!selectedSpaceId || applyTemplateLoading || !template}
           >
             {applyTemplateLoading ? (
               <Loader className="size-4 animate-spin " />

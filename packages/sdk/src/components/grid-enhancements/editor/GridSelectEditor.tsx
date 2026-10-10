@@ -4,8 +4,8 @@ import type {
   IMultipleSelectCellValue,
 } from '@teable/core';
 import { FieldType } from '@teable/core';
-import { useTheme } from '@teable/next-themes';
 import { temporaryPaste } from '@teable/openapi';
+import { useTheme } from '@teable/ui-lib';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { useTranslation } from '../../../context/app/i18n';

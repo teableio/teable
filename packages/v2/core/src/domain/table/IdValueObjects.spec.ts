@@ -20,8 +20,8 @@ describe('TableId', () => {
   it('validates ids against the v1 format', () => {
     const valid = `tbl${'a'.repeat(16)}`;
     const invalidLegacy = `tbl${'a'.repeat(15)}_`;
-    TableId.create(valid)._unsafeUnwrap();
-    TableId.create(invalidLegacy)._unsafeUnwrapErr();
+    expect(TableId.create(valid).isOk()).toBe(true);
+    expect(TableId.create(invalidLegacy).isErr()).toBe(true);
   });
 });
 
@@ -35,15 +35,15 @@ describe('FieldId', () => {
   it('validates ids against the v1 format', () => {
     const valid = `fld${'b'.repeat(16)}`;
     const invalidLegacy = `fld${'b'.repeat(15)}_`;
-    FieldId.create(valid)._unsafeUnwrap();
-    FieldId.create(invalidLegacy)._unsafeUnwrapErr();
+    expect(FieldId.create(valid).isOk()).toBe(true);
+    expect(FieldId.create(invalidLegacy).isErr()).toBe(true);
   });
 
   it('accepts legacy duplicated field ids without accepting composite storage tokens', () => {
     const duplicatedFieldId = `fld${'b'.repeat(16)}_1`;
     const compositeStorageToken = `fld${'b'.repeat(16)}_fld${'c'.repeat(16)}`;
-    FieldId.create(duplicatedFieldId)._unsafeUnwrap();
-    FieldId.create(compositeStorageToken)._unsafeUnwrapErr();
+    expect(FieldId.create(duplicatedFieldId).isOk()).toBe(true);
+    expect(FieldId.create(compositeStorageToken).isErr()).toBe(true);
   });
 });
 
@@ -57,8 +57,8 @@ describe('RecordId', () => {
   it('validates ids against the v1 format', () => {
     const valid = `rec${'d'.repeat(16)}`;
     const invalidLegacy = `rec${'d'.repeat(15)}_`;
-    RecordId.create(valid)._unsafeUnwrap();
-    RecordId.create(invalidLegacy)._unsafeUnwrapErr();
+    expect(RecordId.create(valid).isOk()).toBe(true);
+    expect(RecordId.create(invalidLegacy).isErr()).toBe(true);
   });
 
   it('accepts legacy variable-length record ids without accepting other prefixes or charsets', () => {
@@ -68,12 +68,12 @@ describe('RecordId', () => {
     const tooLong = `rec${'d'.repeat(65)}`;
     const emptyBody = 'rec';
     const wrongPrefix = `fld${'d'.repeat(16)}`;
-    RecordId.create(legacyLonger)._unsafeUnwrap();
-    RecordId.create(legacyShorter)._unsafeUnwrap();
-    RecordId.create(maxLength)._unsafeUnwrap();
-    RecordId.create(tooLong)._unsafeUnwrapErr();
-    RecordId.create(emptyBody)._unsafeUnwrapErr();
-    RecordId.create(wrongPrefix)._unsafeUnwrapErr();
+    expect(RecordId.create(legacyLonger).isOk()).toBe(true);
+    expect(RecordId.create(legacyShorter).isOk()).toBe(true);
+    expect(RecordId.create(maxLength).isOk()).toBe(true);
+    expect(RecordId.create(tooLong).isErr()).toBe(true);
+    expect(RecordId.create(emptyBody).isErr()).toBe(true);
+    expect(RecordId.create(wrongPrefix).isErr()).toBe(true);
   });
 
   it('only treats generated-format ids as canonical', () => {
@@ -94,7 +94,7 @@ describe('ViewId', () => {
   it('validates ids against the v1 format', () => {
     const valid = `viw${'c'.repeat(16)}`;
     const invalidLegacy = `viw${'c'.repeat(15)}_`;
-    ViewId.create(valid)._unsafeUnwrap();
-    ViewId.create(invalidLegacy)._unsafeUnwrapErr();
+    expect(ViewId.create(valid).isOk()).toBe(true);
+    expect(ViewId.create(invalidLegacy).isErr()).toBe(true);
   });
 });

@@ -42,21 +42,44 @@ import {
   upsertResult,
 } from './integrityV2Utils';
 
+export type IntegrityV2Streams = {
+  checkBase?: typeof streamV2BaseSchemaIntegrityCheck;
+  checkTable?: typeof streamV2TableSchemaIntegrityCheck;
+  repairBase?: typeof streamV2BaseSchemaIntegrityRepair;
+  repairTable?: typeof streamV2TableSchemaIntegrityRepair;
+};
+
 export const IntegrityV2Dialog = ({
   baseId,
   baseName,
   tableId,
   tableName,
+  open: openProp,
+  onOpenChange,
+  showTrigger = true,
+  streams,
 }: {
   baseId?: string;
   baseName?: string;
   tableId?: string;
   tableName?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  showTrigger?: boolean;
+  streams?: IntegrityV2Streams;
 }) => {
   type ManualRepairValues = Record<string, string | boolean>;
   const { t } = useTranslation(['table', 'common']);
   const scope: IntegrityScope = tableId ? 'table' : 'base';
-  const [open, setOpen] = useState(false);
+  const isControlled = openProp !== undefined;
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = isControlled ? openProp : uncontrolledOpen;
+  const setOpen = (nextOpen: boolean) => {
+    if (!isControlled) {
+      setUncontrolledOpen(nextOpen);
+    }
+    onOpenChange?.(nextOpen);
+  };
   const [phase, setPhase] = useState<IntegrityPhase>('check');
   const [isRunning, setIsRunning] = useState(false);
   const [hasRun, setHasRun] = useState(false);
@@ -98,12 +121,12 @@ export const IntegrityV2Dialog = ({
       };
 
       if (scope === 'table' && tableId) {
-        await streamV2TableSchemaIntegrityCheck(tableId, {
+        await (streams?.checkTable ?? streamV2TableSchemaIntegrityCheck)(tableId, {
           signal: controller.signal,
           onResult,
         });
       } else {
-        await streamV2BaseSchemaIntegrityCheck(baseId, {
+        await (streams?.checkBase ?? streamV2BaseSchemaIntegrityCheck)(baseId, {
           signal: controller.signal,
           onResult,
         });
@@ -120,7 +143,7 @@ export const IntegrityV2Dialog = ({
         setIsRunning(false);
       }
     }
-  }, [baseId, scope, stopStream, t, tableId]);
+  }, [baseId, scope, stopStream, streams, t, tableId]);
 
   const runRepair = useCallback(
     async (targetStatuses: Array<'warn' | 'error'> = ['warn']) => {
@@ -145,7 +168,7 @@ export const IntegrityV2Dialog = ({
         };
 
         if (scope === 'table' && tableId) {
-          await streamV2TableSchemaIntegrityRepair(
+          await (streams?.repairTable ?? streamV2TableSchemaIntegrityRepair)(
             tableId,
             { targetStatuses },
             {
@@ -154,7 +177,7 @@ export const IntegrityV2Dialog = ({
             }
           );
         } else {
-          await streamV2BaseSchemaIntegrityRepair(
+          await (streams?.repairBase ?? streamV2BaseSchemaIntegrityRepair)(
             baseId,
             { targetStatuses },
             {
@@ -177,7 +200,7 @@ export const IntegrityV2Dialog = ({
         }
       }
     },
-    [baseId, scope, stopStream, t, tableId]
+    [baseId, scope, stopStream, streams, t, tableId]
   );
 
   const runRuleRepair = useCallback(
@@ -201,7 +224,7 @@ export const IntegrityV2Dialog = ({
           setResults((currentResults) => upsertResult(currentResults, nextResult));
         };
 
-        await streamV2TableSchemaIntegrityRepair(
+        await (streams?.repairTable ?? streamV2TableSchemaIntegrityRepair)(
           result.tableId,
           {
             fieldId: result.fieldId,
@@ -231,7 +254,7 @@ export const IntegrityV2Dialog = ({
 
       return true;
     },
-    [stopStream, t]
+    [stopStream, streams, t]
   );
 
   const runRuleRepairDryRun = useCallback(
@@ -251,7 +274,7 @@ export const IntegrityV2Dialog = ({
       const dryRunResults: IntegrityResult[] = [];
 
       try {
-        await streamV2TableSchemaIntegrityRepair(
+        await (streams?.repairTable ?? streamV2TableSchemaIntegrityRepair)(
           result.tableId,
           {
             fieldId: result.fieldId || undefined,
@@ -283,7 +306,7 @@ export const IntegrityV2Dialog = ({
 
       return dryRunResults;
     },
-    [stopStream, t]
+    [stopStream, streams, t]
   );
 
   useEffect(() => {
@@ -338,9 +361,11 @@ export const IntegrityV2Dialog = ({
         setOpen(nextOpen);
       }}
     >
-      <Button size="xs" variant="outline" onClick={() => setOpen(true)}>
-        {t('table:table.integrity.check')}
-      </Button>
+      {showTrigger ? (
+        <Button size="xs" variant="outline" onClick={() => setOpen(true)}>
+          {t('table:table.integrity.check')}
+        </Button>
+      ) : null}
       <DialogContent
         className="flex max-w-6xl flex-col gap-0 p-0"
         style={{ width: 'calc(100% - 40px)', height: 'calc(100% - 80px)' }}

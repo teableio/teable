@@ -129,7 +129,7 @@ export class SchemaRuleResolver implements ISchemaRuleResolver {
     rules: ReadonlyArray<ISchemaRule>,
     ctx: SchemaRuleContext
   ): Promise<Result<Map<string, SchemaRuleValidationResult>, DomainError>> {
-    const resolver = this;
+    const resolver = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<Map<string, SchemaRuleValidationResult>, DomainError>(async function* () {
       const resolution = yield* resolver.resolve(rules);
       const results = new Map<string, SchemaRuleValidationResult>();
@@ -147,7 +147,7 @@ export class SchemaRuleResolver implements ISchemaRuleResolver {
     rules: ReadonlyArray<ISchemaRule>,
     ctx: SchemaRuleContext
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const resolver = this;
+    const resolver = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const resolution = yield* resolver.resolve(rules);
       const statements: TableSchemaStatementBuilder[] = [];
@@ -165,7 +165,7 @@ export class SchemaRuleResolver implements ISchemaRuleResolver {
     rules: ReadonlyArray<ISchemaRule>,
     ctx: SchemaRuleContext
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const resolver = this;
+    const resolver = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const resolution = yield* resolver.resolve(rules);
       // Reverse order for dropping

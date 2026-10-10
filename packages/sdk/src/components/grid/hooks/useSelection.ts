@@ -29,9 +29,9 @@ export const useSelection = (props: IUseSelectionProps) => {
     onRowControlClick,
     onRowRangeSelected,
   } = props;
-  const onSelectionChangedRef = useRef<IGridProps['onSelectionChanged'] | undefined>();
-  const onRowControlClickRef = useRef<IGridProps['onRowControlClick'] | undefined>();
-  const onRowRangeSelectedRef = useRef<IGridProps['onRowRangeSelected'] | undefined>();
+  const onSelectionChangedRef = useRef<IGridProps['onSelectionChanged'] | undefined>(undefined);
+  const onRowControlClickRef = useRef<IGridProps['onRowControlClick'] | undefined>(undefined);
+  const onRowRangeSelectedRef = useRef<IGridProps['onRowRangeSelected'] | undefined>(undefined);
   const prevSelectedRowIndex = useRef<number | null>(null);
   const [isSelecting, setSelecting] = useState(false);
   const [selection, setSelection] = useState(() => new CombinedSelection());

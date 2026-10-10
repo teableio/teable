@@ -5,6 +5,7 @@ import { MoreHorizontal } from '@teable/icons';
 import type {
   IBaseNodeVo,
   IBaseNodeWorkflowResourceMeta,
+  IBaseNodeRoutineResourceMeta,
   IBaseNodeAppResourceMeta,
   IBaseNodeTableResourceMeta,
 } from '@teable/openapi';
@@ -162,6 +163,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const canCreateTable = Boolean(permission?.['table|create']);
   const canCreateDashboard = Boolean(permission?.['base|update'] && !disallowDashboard);
   const canCreateWorkflow = !isCommunity && Boolean(permission?.['automation|create']);
+  const canCreateRoutine = !isCommunity && Boolean(permission?.['routine|create']);
   const canCreateApp = !isCommunity && Boolean(aiChatEnabled && permission?.['app|create']);
   const canCreateFolder = Boolean(permission?.['base|update']);
   const canUpdateTable = Boolean(permission?.['table|update']);
@@ -169,7 +171,12 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const canCreateResource =
     isEditMode &&
     Boolean(
-      canCreateTable || canCreateDashboard || canCreateWorkflow || canCreateApp || canCreateFolder
+      canCreateTable ||
+        canCreateDashboard ||
+        canCreateWorkflow ||
+        canCreateRoutine ||
+        canCreateApp ||
+        canCreateFolder
     );
   const canMoveNode = isEditMode && Boolean(permission?.['base|update']);
   const { sharedNodeIds } = useSharedNodeIds();
@@ -284,6 +291,10 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   );
 
   const handleDrop = (items: ItemInstance<TreeItemData>[], target: DragTarget<TreeItemData>) => {
+    if (!canMoveNode) return Promise.resolve();
+    draggedItemsRef.current = items;
+    // Effects that run between the drop's remove and insert steps can clear draggedItemsRef
+    const draggedNodeId = items[0].getId();
     const handler = createOnDropHandler<TreeItemData>((parentItem, newChildrenIds) => {
       setTreeItems((prevItems) => ({
         ...prevItems,
@@ -293,33 +304,26 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         },
       }));
 
-      if (draggedItemsRef.current.length > 0) {
-        const draggedItem = draggedItemsRef.current[0];
-        const draggedNodeId = draggedItem.getId();
-        const newIndex = newChildrenIds.indexOf(draggedNodeId);
+      const newIndex = newChildrenIds.indexOf(draggedNodeId);
+      if (newIndex === -1) return;
 
-        if (newIndex !== -1) {
-          const parentId = parentItem.getId() === ROOT_ID ? null : parentItem.getId();
-          let anchorId: string | undefined;
-          let position: 'before' | 'after' | undefined;
+      const parentId = parentItem.getId() === ROOT_ID ? null : parentItem.getId();
+      let anchorId: string | undefined;
+      let position: 'before' | 'after' | undefined;
 
-          if (newIndex > 0 && newChildrenIds[newIndex - 1]) {
-            anchorId = newChildrenIds[newIndex - 1];
-            position = 'after';
-          } else if (newChildrenIds[newIndex + 1]) {
-            anchorId = newChildrenIds[newIndex + 1];
-            position = 'before';
-          }
-          curdHooks.moveNode(draggedNodeId, {
-            parentId: anchorId ? undefined : parentId,
-            anchorId,
-            position,
-          });
-        }
+      if (newIndex > 0 && newChildrenIds[newIndex - 1]) {
+        anchorId = newChildrenIds[newIndex - 1];
+        position = 'after';
+      } else if (newChildrenIds[newIndex + 1]) {
+        anchorId = newChildrenIds[newIndex + 1];
+        position = 'before';
       }
+      curdHooks.moveNode(draggedNodeId, {
+        parentId: anchorId ? undefined : parentId,
+        anchorId,
+        position,
+      });
     });
-    if (!canMoveNode) return Promise.resolve();
-    draggedItemsRef.current = items;
     return handler(items, target);
   };
 
@@ -419,6 +423,11 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
             queryKey: ReactQueryKeys.workflowItem(baseId, resourceId),
           });
           break;
+        case BaseNodeResourceType.Routine:
+          queryClient.invalidateQueries({
+            queryKey: ReactQueryKeys.routineItem(baseId, resourceId),
+          });
+          break;
         case BaseNodeResourceType.App:
           queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getApp(baseId, resourceId) });
           break;
@@ -454,6 +463,8 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         return baseResource.dashboardId;
       case BaseNodeResourceType.Workflow:
         return baseResource.workflowId;
+      case BaseNodeResourceType.Routine:
+        return baseResource.routineId;
       case BaseNodeResourceType.App:
         return baseResource.appId;
       default:
@@ -616,10 +627,13 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     const isWorkflowActive =
       resourceType === BaseNodeResourceType.Workflow &&
       (resourceMeta as IBaseNodeWorkflowResourceMeta)?.isActive;
+    const isRoutineActive =
+      resourceType === BaseNodeResourceType.Routine &&
+      (resourceMeta as IBaseNodeRoutineResourceMeta)?.status === 'active';
     const isAppPublished =
       resourceType === BaseNodeResourceType.App &&
       (resourceMeta as IBaseNodeAppResourceMeta)?.publicUrl;
-    if (isWorkflowActive || isAppPublished) {
+    if (isWorkflowActive || isRoutineActive || isAppPublished) {
       return <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />;
     }
     return null;
@@ -844,6 +858,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                     canCreateTable={canCreateTable}
                                     canCreateDashboard={canCreateDashboard}
                                     canCreateWorkflow={canCreateWorkflow}
+                                    canCreateRoutine={canCreateRoutine}
                                     canCreateApp={canCreateApp}
                                   >
                                     <Button
@@ -958,6 +973,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                     canCreateTable={canCreateTable}
                     canCreateDashboard={canCreateDashboard}
                     canCreateWorkflow={canCreateWorkflow}
+                    canCreateRoutine={canCreateRoutine}
                     canCreateApp={canCreateApp}
                   >
                     <Button

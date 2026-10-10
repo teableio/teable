@@ -969,7 +969,7 @@ describe('OpenAPI RecordController (e2e)', () => {
         notNull: true,
       });
 
-      const textField = await table2.fields[0];
+      const textField = table2.fields[0];
       await createField(table.id, {
         dbFieldName: 'lookup_field',
         type: textField.type,

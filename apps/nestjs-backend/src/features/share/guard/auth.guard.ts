@@ -105,7 +105,7 @@ export class ShareAuthGuard extends PassportAuthGuard([SHARE_JWT_STRATEGY]) {
         return (await super.canActivate(context)) as boolean;
       }
       return true;
-    } catch (err) {
+    } catch {
       throw new CustomHttpException('Unauthorized', HttpErrorCode.UNAUTHORIZED_SHARE);
     }
   }

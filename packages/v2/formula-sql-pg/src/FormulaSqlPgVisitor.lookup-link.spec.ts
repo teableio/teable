@@ -1,3 +1,4 @@
+import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
   BaseId,
   createLinkField,
@@ -20,7 +21,6 @@ import { FormulaSqlPgTranslator } from './FormulaSqlPgTranslator';
 import { makeExpr } from './SqlExpression';
 import { Pg16TypeValidationStrategy } from './strategies';
 import { createFormulaTestContainer } from './testkit/FormulaSqlPgTestkit';
-import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
 
 const unwrap = <T>(result: { isErr(): boolean; value?: T; error?: unknown }): T => {
   if (result.isErr()) {
@@ -110,7 +110,7 @@ describe('formula lookup-of-link leftover TEXT titles', () => {
     expect(translated.isOk()).toBe(true);
     if (translated.isErr()) return;
 
-    const rendered = translator.renderSql(translated.value);
+    const rendered = translator.renderSql(translated.value)._unsafeUnwrap();
     expect(rendered).toContain('to_jsonb("t"."Framework_Key")');
     expect(rendered).not.toMatch(/"Framework_Key"\)::jsonb/);
     expect((rendered.match(/to_jsonb\("t"\."Framework_Key"\)/g) ?? []).length).toBe(1);

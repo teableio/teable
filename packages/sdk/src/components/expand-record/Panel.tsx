@@ -30,7 +30,7 @@ export const Panel: FC<
   );
   const [sashSize, setSashSize] = useState<number>(0);
   const sashRef = useRef<HTMLDivElement>(null);
-  const draggingRef = useRef<boolean>();
+  const draggingRef = useRef<boolean>(undefined);
   const isTouchDevice = useIsTouchDevice();
 
   useEffect(() => {

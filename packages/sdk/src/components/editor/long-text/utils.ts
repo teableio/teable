@@ -4,7 +4,7 @@ import removeMd from 'remove-markdown';
 
 const escapedAutolinkRegExp = /\\<(https?\\?:\/\/[^>]+)>/g;
 
-const normalizeEscapedAutolinkUrl = (url: string) => url.replace(/\\:/g, ':');
+const normalizeEscapedAutolinkUrl = (url: string) => url.replaceAll('\\:', ':');
 
 export const isMarkdownShowAs = (options: unknown): boolean =>
   (options as { showAs?: { type?: string } } | undefined)?.showAs?.type === 'markdown';
@@ -26,7 +26,7 @@ export const stripMarkdown = (text: string): string => {
   const normalized = text
     .replace(/\\?<(\[[^\]]*\]\([^)]+\))>/g, '$1')
     .replace(escapedAutolinkRegExp, (_, url) => normalizeEscapedAutolinkUrl(url))
-    .replace(/\[([^\]]*)\]\(([^)]+)\)/g, (_, label, url) =>
+    .replace(/\[([^[\]]*)\]\(([^()]+)\)/g, (_, label, url) =>
       label.trim() ? `[${label}](${url})` : url
     )
     .replace(/<(https?:\/\/[^>]+)>/g, '$1');
@@ -56,7 +56,7 @@ export const getEditorMarkdown = (editor: Editor): string | undefined => {
  */
 export const sanitizeMarkdownBreaks = (markdown: string): string =>
   markdown
-    .replace(/\\\n/g, '\n\n')
+    .replaceAll('\\\n', '\n\n')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/\n{3,}/g, '\n\n')
     // Convert autolinks <url> to explicit [url](url) syntax

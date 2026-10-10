@@ -50,3 +50,7 @@ export const setContentDirectionEnabled = (enabled: boolean) => {
 };
 
 export const isContentDirectionEnabled = () => contentDirectionEnabled;
+
+// Direction the content asks for, or null while the gate is off
+export const resolveContentDirection = (text: string) =>
+  isContentDirectionEnabled() ? detectTextDirection(text) : null;

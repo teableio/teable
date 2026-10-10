@@ -1,7 +1,13 @@
+import type { FormulaCompileBudget } from './FormulaCompileBudget';
 /**
  * PostgreSQL type validation types supported by the strategy.
  */
-export type PgValidationType = 'timestamptz' | 'timestamp' | 'numeric' | 'jsonb';
+export type PgValidationType =
+  | 'timestamptz'
+  | 'timestamp'
+  | 'numeric'
+  | 'double precision'
+  | 'jsonb';
 
 /**
  * Strategy interface for PostgreSQL type validation.
@@ -21,5 +27,9 @@ export interface IPgTypeValidationStrategy {
    * @param typeName - Target PostgreSQL type to validate against
    * @returns SQL string expression that evaluates to a boolean
    */
-  isValidForType(valueSql: string, typeName: PgValidationType): string;
+  isValidForType(
+    valueSql: string,
+    typeName: PgValidationType,
+    budget?: FormulaCompileBudget
+  ): string;
 }
