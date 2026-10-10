@@ -386,8 +386,7 @@ export function createSelectionToolbarPlugin(options?: SelectionToolbarOptions):
     props: {
       handleDOMEvents: {
         blur() {
-          if (linkMode) return false;
-          if (tooltip) {
+          if (!linkMode && tooltip) {
             tooltip.classList.add('hidden');
           }
           return false;
@@ -431,12 +430,10 @@ export function createSelectionToolbarPlugin(options?: SelectionToolbarOptions):
           window.removeEventListener('resize', onViewportChange);
           removeWindowListeners = null;
         };
-      } else {
+      } else if (containerEl) {
         // Absolute positioning: append inside editor wrapper
-        if (containerEl) {
-          containerEl.style.position = 'relative';
-          containerEl.appendChild(tooltip);
-        }
+        containerEl.style.position = 'relative';
+        containerEl.appendChild(tooltip);
       }
 
       updateTooltip(editorView);

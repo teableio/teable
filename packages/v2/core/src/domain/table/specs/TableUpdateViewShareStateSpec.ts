@@ -107,6 +107,7 @@ export class TableUpdateViewShareStateSpec<
       fields: table.getFields(),
       views: nextViews,
       primaryFieldId: table.primaryFieldId(),
+      searchIndex: table.searchIndex(),
     };
     const dbTableNameResult = table.dbTableName();
     if (dbTableNameResult.isOk()) props.dbTableName = dbTableNameResult.value;

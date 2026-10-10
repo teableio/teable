@@ -6,6 +6,22 @@ const prismaTextCompatibleTypeOids = new Set([
 ]);
 const postgresTextTypeOid = 25;
 
+/** pg Client/pool emit these only while acquiring a connection, before SQL is sent. */
+const withPgConnectTimeoutRetry = async <T>(operation: () => Promise<T>): Promise<T> => {
+  try {
+    return await operation();
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      (error.message !== 'Connection terminated due to connection timeout' &&
+        error.message !== 'timeout exceeded when trying to connect')
+    ) {
+      throw error;
+    }
+    return operation();
+  }
+};
+
 const normalizeQueryResult = <T extends QueryResult | QueryResult[]>(result: T): T => {
   if (Array.isArray(result)) {
     return result.map((item) => normalizeQueryResult(item)) as T;
@@ -49,11 +65,13 @@ export const createPrismaPgAdapter = (pool: Pool, schema?: string): PrismaPg => 
   const prismaPool = new Proxy(pool, {
     get(target, property, receiver) {
       if (property === 'connect') {
-        return async () => wrapQueryable(await target.connect());
+        return async () => wrapQueryable(await withPgConnectTimeoutRetry(() => target.connect()));
       }
       if (property === 'query') {
         return async (...args: unknown[]) => {
-          const result = await Reflect.apply(target.query, target, args);
+          const result = await withPgConnectTimeoutRetry(
+            () => Reflect.apply(target.query, target, args) as Promise<QueryResult | QueryResult[]>
+          );
           return normalizeQueryResult(result);
         };
       }

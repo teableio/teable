@@ -77,6 +77,34 @@ export const resolveVisibleRowSearch = (
   };
 };
 
+/**
+ * Field ids a search row filter may match.
+ *
+ * View field visibility is not a query default: `ignoreViewQuery` only marks a
+ * request whose client already inlined the view's filter/sort, so a request
+ * that still carries `viewId` keeps the view's visible-field scope and never
+ * matches a cell of a field hidden in that view (v1 `getSearchFields` drops
+ * view-hidden fields for the same request shape). No `viewId` means the whole
+ * table, and an unresolvable view id degrades to it the same way the inlined
+ * view query defaults are ignored.
+ */
+export const resolveSearchRowScopeFieldIds = (
+  table: Table,
+  viewId: string | undefined,
+  ignoreViewQuery: boolean | undefined
+): Result<ReadonlyArray<FieldId>, DomainError> => {
+  if (!viewId) {
+    return ok(table.fieldIds());
+  }
+
+  const orderedVisibleFieldIds = table.getOrderedVisibleFieldIds(viewId);
+  if (orderedVisibleFieldIds.isErr()) {
+    return ignoreViewQuery ? ok(table.fieldIds()) : err(orderedVisibleFieldIds.error);
+  }
+
+  return ok(orderedVisibleFieldIds.value);
+};
+
 export class RecordSearch {
   private readonly fieldKeysValue: ReadonlyArray<string> | undefined;
 

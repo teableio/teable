@@ -4,8 +4,9 @@ import {
   PostgresUnitOfWorkTransaction,
 } from '@teable/v2-adapter-db-postgres-shared';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '@teable/v2-core';
+import { domainError } from '@teable/v2-core';
 import type { Transaction } from 'kysely';
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 const createContext = (transaction?: IUnitOfWorkTransaction): IExecutionContext => ({
@@ -118,6 +119,43 @@ describe('shared Postgres unit of work helpers', () => {
     expect(observedContext?.transaction).toBe(transaction);
     expect(observedContext?.transactions?.meta).toBe(transaction);
     expect(getPostgresTransaction(observedContext, 'meta')).toBe(db);
+  });
+
+  it('preserves automatic deadlock retry for ordinary replayable writes', async () => {
+    let writes = 0;
+    let calls = 0;
+    let rollbacks = 0;
+    const db = {
+      transaction: () => ({
+        execute: async <T>(work: (trx: Transaction<unknown>) => Promise<T>) => {
+          const originalWrites = writes;
+          try {
+            return await work({} as Transaction<unknown>);
+          } catch (error) {
+            writes = originalWrites;
+            rollbacks++;
+            throw error;
+          }
+        },
+      }),
+    };
+    const unitOfWork = new PostgresUnitOfWork(
+      db as never,
+      db as never,
+      { pg: { connectionString: 'postgresql://local/teable' } },
+      { pg: { connectionString: 'postgresql://local/teable' } }
+    );
+    const result = await unitOfWork.withTransaction(createContext(), async () => {
+      writes++;
+      calls++;
+      return calls === 1
+        ? err(domainError.infrastructure({ message: 'deadlock detected' }))
+        : ok('committed');
+    });
+    expect(result._unsafeUnwrap()).toBe('committed');
+    expect(calls).toBe(2);
+    expect(writes).toBe(1);
+    expect(rollbacks).toBe(1);
   });
 
   it('binds a new transaction to both scopes when meta and data share one database', async () => {

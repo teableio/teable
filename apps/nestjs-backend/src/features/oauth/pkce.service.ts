@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 
 const pkceMethod = 'S256' as const;

@@ -226,7 +226,7 @@ export const getRecordsRoSchema = getRecordQuerySchema.extend(contentQueryBaseSc
     }),
   cursor: z.string().min(1).optional().meta({
     description:
-      'Keyset cursor for the next page when records are ordered by __auto_number ascending. Cannot be combined with skip > 0.',
+      'Opaque keyset cursor for the next page. Use the nextCursor returned by the previous page; it encodes the last row position for the current order. Cannot be combined with skip > 0.',
   }),
 });
 export type IGetRecordsRo = z.infer<typeof getRecordsRoSchema>;

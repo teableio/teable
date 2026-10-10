@@ -1,4 +1,10 @@
-import type { DomainError } from '@teable/v2-core';
+import {
+  domainError,
+  type DomainError,
+  isTableProvisionPendingError as hasProvisionPendingCode,
+} from '@teable/v2-core';
+
+export { TABLE_PROVISION_PENDING_CODE } from '@teable/v2-core';
 
 const POSTGRES_STATEMENT_TIMEOUT_CODE = '57014';
 const POSTGRES_READ_ONLY_TRANSACTION_CODE = '25006';
@@ -21,6 +27,9 @@ export type ComputedTaskFailureReason =
   | 'postgres_sql_generation_error'
   | 'call_stack_overflow'
   | 'computed_cell_value_max_bytes'
+  | 'formula_compile_budget'
+  | 'computed_resource_limit'
+  | 'stage_depth_exhausted'
   | 'integrity_constraint_violation'
   | 'stale_field_reference'
   | 'stale_table_reference'
@@ -33,6 +42,74 @@ export type ComputedTaskFailureClassification = {
   failureKind: ComputedTaskFailureKind;
   failureReason: ComputedTaskFailureReason;
   retryable: boolean;
+};
+
+const FORMULA_COMPILE_BUDGET_CODES: Readonly<Record<string, true>> = {
+  'validation.limit.formula_compile_nodes_max': true,
+  'validation.limit.formula_compile_depth_max': true,
+  'validation.limit.formula_reference_depth_max': true,
+  'validation.limit.formula_bindings_max': true,
+  'validation.limit.formula_compile_bytes_max': true,
+  'validation.limit.formula_sql_bytes_max': true,
+};
+const COMPUTED_RESOURCE_LIMIT_CODE = 'computed.resource_limit';
+const STAGE_DEPTH_EXHAUSTED_CODE = 'computed.stage_depth_exhausted';
+const POSTGRES_PROGRAM_LIMIT_CODES: Readonly<Record<string, true>> = {
+  '54000': true,
+  '54001': true,
+};
+
+type StructuredError = {
+  code?: unknown;
+  sqlState?: unknown;
+  sqlstate?: unknown;
+  pgCode?: unknown;
+  details?: unknown;
+  cause?: unknown;
+  postgresSql?: unknown;
+  postgres?: unknown;
+};
+
+/** Inspect only bounded structured metadata; messages are intentionally excluded. */
+const hasStructuredCode = (error: DomainError, codes: Readonly<Record<string, true>>): boolean => {
+  const queue: Array<{ value: unknown; depth: number }> = [{ value: error, depth: 0 }];
+  let visited = 0;
+  while (queue.length && visited++ < 64) {
+    const item = queue.shift();
+    if (!item || item.depth > 4 || typeof item.value !== 'object' || item.value === null) continue;
+    const value = item.value as StructuredError;
+    if (typeof value.code === 'string' && Object.hasOwn(codes, value.code)) return true;
+    for (const key of ['details', 'cause'] as const) {
+      const child = value[key];
+      if (child && typeof child === 'object') queue.push({ value: child, depth: item.depth + 1 });
+    }
+  }
+  return false;
+};
+
+const hasProgramLimitSqlState = (error: DomainError): boolean => {
+  const queue: Array<{ value: unknown; depth: number }> = [{ value: error, depth: 0 }];
+  let visited = 0;
+  while (queue.length && visited++ < 64) {
+    const item = queue.shift();
+    if (!item || item.depth > 4 || typeof item.value !== 'object' || item.value === null) continue;
+    const value = item.value as StructuredError;
+    if (
+      (typeof value.code === 'string' && Object.hasOwn(POSTGRES_PROGRAM_LIMIT_CODES, value.code)) ||
+      (typeof value.pgCode === 'string' &&
+        Object.hasOwn(POSTGRES_PROGRAM_LIMIT_CODES, value.pgCode)) ||
+      (typeof value.sqlState === 'string' &&
+        Object.hasOwn(POSTGRES_PROGRAM_LIMIT_CODES, value.sqlState)) ||
+      (typeof value.sqlstate === 'string' &&
+        Object.hasOwn(POSTGRES_PROGRAM_LIMIT_CODES, value.sqlstate))
+    )
+      return true;
+    for (const key of ['details', 'cause', 'postgresSql', 'postgres'] as const) {
+      const child = value[key];
+      if (child && typeof child === 'object') queue.push({ value: child, depth: item.depth + 1 });
+    }
+  }
+  return false;
 };
 
 const SQL_GENERATION_BUG_PATTERNS: ReadonlyArray<RegExp> = [
@@ -110,11 +187,8 @@ const isReadOnlyDatabaseMessage = (message: string): boolean =>
 const isCallStackOverflowMessage = (message: string): boolean =>
   /maximum call stack size exceeded/i.test(message);
 
-export const TABLE_PROVISION_PENDING_CODE = 'table.provision_pending';
-
 export const isTableProvisionPendingError = (error: { code?: string; message?: string }): boolean =>
-  error.code === TABLE_PROVISION_PENDING_CODE ||
-  /provision_state=pending/i.test(error.message ?? '');
+  hasProvisionPendingCode(error) || /provision_state=pending/i.test(error.message ?? '');
 
 export const classifyComputedTaskFailure = (
   error: DomainError
@@ -149,10 +223,38 @@ export const classifyComputedTaskFailure = (
     };
   }
 
+  // Timeouts are load-dependent, not deterministic: the same SQL can succeed
+  // once contention drops. Treating them like SQL-generation bugs dead-letters
+  // on the first attempt and leaves computed values permanently stale.
   if (isStatementTimeoutMessage(message)) {
     return {
       failureKind: 'statement_timeout',
       failureReason: 'statement_timeout',
+      retryable: true,
+    };
+  }
+
+  if (hasStructuredCode(error, FORMULA_COMPILE_BUDGET_CODES)) {
+    return {
+      failureKind: 'data_safety_limit',
+      failureReason: 'formula_compile_budget',
+      retryable: false,
+    };
+  }
+  if (
+    hasStructuredCode(error, { [COMPUTED_RESOURCE_LIMIT_CODE]: true }) ||
+    hasProgramLimitSqlState(error)
+  ) {
+    return {
+      failureKind: 'data_safety_limit',
+      failureReason: 'computed_resource_limit',
+      retryable: false,
+    };
+  }
+  if (hasStructuredCode(error, { [STAGE_DEPTH_EXHAUSTED_CODE]: true })) {
+    return {
+      failureKind: 'data_safety_limit',
+      failureReason: 'stage_depth_exhausted',
       retryable: false,
     };
   }
@@ -218,4 +320,14 @@ export const classifyComputedTaskFailure = (
     failureReason: 'unknown',
     retryable: true,
   };
+};
+/** Map only structured PostgreSQL program-limit metadata to a safe generic error. */
+export const normalizeComputedTaskError = (error: DomainError): DomainError => {
+  if (!hasProgramLimitSqlState(error)) return error;
+  return domainError.infrastructure({
+    code: COMPUTED_RESOURCE_LIMIT_CODE,
+    message: 'Computed calculation exceeded a resource limit.',
+    cause: error,
+    details: error.details,
+  });
 };

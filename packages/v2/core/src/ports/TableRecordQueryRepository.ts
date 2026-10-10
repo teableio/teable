@@ -55,6 +55,8 @@ export type IRecordSearchAccessPath =
       readonly provider: 'pg_trgm' | 'pg_bigm';
       readonly searchScope: 'all_fields' | 'selected_fields';
       readonly coveredFieldIds: ReadonlyArray<FieldId>;
+      /** False preserves configured coverage while the physical document/index is unavailable. */
+      readonly indexUsable?: boolean;
     }
   | {
       /** Explicit lexical search. This is not substring-compatible. */
@@ -70,6 +72,9 @@ export type RecordSearchAccessPathKind = 'default' | 'generated_text' | 'generat
 export type RecordSearchAccessPathFallbackReason =
   | 'generated_text_unavailable'
   | 'generated_text_probe_too_short'
+  | 'generated_text_coverage_mismatch'
+  | 'generated_text_unsupported_projection'
+  | 'generated_text_invalid_config'
   | 'generated_tsvector_unavailable';
 
 export interface IRecordSearchAccessPathResolution {
@@ -91,8 +96,8 @@ export interface ITableRecordQueryOptions {
   readonly pagination?: OffsetPagination;
 
   /**
-   * Keyset cursor for `__auto_number` ascending order. When set, the repository
-   * must not apply OFFSET.
+   * Opaque keyset cursor for the next page: it carries the order-key values of the
+   * previous page's last row. When set, the repository must not apply OFFSET.
    */
   readonly cursor?: string;
 
@@ -192,6 +197,9 @@ export interface ITableRecordQueryOptions {
    * chunk loading — where per-row read models are pure overhead.
    */
   readonly idsOnly?: boolean;
+
+  /** Index-only read: return the target's position in the complete query, ignoring pagination. */
+  readonly recordIndexId?: string;
 
   /**
    * Snapshot-style field-value reads: select `__id` plus the projected field
@@ -303,10 +311,19 @@ export interface ITableRecordQueryResult {
   readonly searchAccessPath?: IRecordSearchAccessPathResolution;
   /** Exact per-field search hits, present only when explicitly requested. */
   readonly searchMatches?: ReadonlyArray<ITableRecordSearchMatch>;
+  /** Zero-based query position for index-only reads; null when the target does not match. */
+  readonly recordIndex?: number | null;
   /** Ordered leaf group buckets for compatibility presentation layers. */
   readonly groups?: ReadonlyArray<ITableRecordGroup>;
   /** Opaque keyset cursor for the next page when order supports it. */
   readonly nextCursor?: string;
+  /**
+   * Whether the page filled its limit, i.e. more rows may follow. Independent of
+   * `nextCursor`: a page can have more rows without a cursor to hand out (an unsupported
+   * order, or a cursor that would exceed the token size limit), and callers must keep
+   * paging by offset in that case.
+   */
+  readonly hasMore?: boolean;
 }
 
 export interface ITableRecordGroup {
@@ -415,8 +432,11 @@ export interface ITableRecordCountQueryRepository extends ITableRecordQueryRepos
 export type ITableRecordAggregationOptions = {
   readonly maxGroupPoints?: number;
   readonly search?: RecordQuerySearch;
+  readonly searchAccessPath?: IRecordSearchAccessPath;
   readonly pagination?: OffsetPagination;
   readonly orderBy?: ReadonlyArray<TableRecordOrderBy>;
+  readonly fieldMasks?: ReadonlyArray<RecordQueryFieldMask>;
+  readonly recordIdsOrder?: ReadonlyArray<RecordId>;
 };
 
 export interface ITableRecordAggregationQueryRepository extends ITableRecordQueryRepository {
@@ -453,6 +473,8 @@ export interface ITableRecordCalendarQueryRepository extends ITableRecordQueryRe
     spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
     options?: {
       readonly search?: RecordQuerySearch;
+      readonly searchAccessPath?: IRecordSearchAccessPath;
+      readonly fieldMasks?: ReadonlyArray<RecordQueryFieldMask>;
     }
   ): Promise<Result<ReadonlyArray<TableRecordCalendarDailyCollectionEntry>, DomainError>>;
 }

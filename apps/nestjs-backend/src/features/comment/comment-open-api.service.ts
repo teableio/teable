@@ -13,7 +13,6 @@ import type {
   IUpdateCommentRo,
   IGetCommentListQueryRo,
   ICommentContent,
-  IGetRecordsRo,
   IParagraphCommentContent,
   ICommentReaction,
 } from '@teable/openapi';
@@ -32,12 +31,14 @@ import {
   getPreviewCacheKey,
   getPublicFullStorageUrl,
 } from '../attachments/plugins/utils';
+import { AuditScope } from '../audit/audit-scope';
+import { CollaboratorService } from '../collaborator/collaborator.service';
 import { NotificationService } from '../notification/notification.service';
 import { RecordService } from '../record/record.service';
 
 @Injectable()
 export class CommentOpenApiService {
-  private logger = new Logger(CommentOpenApiService.name);
+  private readonly logger = new Logger(CommentOpenApiService.name);
   constructor(
     private readonly notificationService: NotificationService,
     private readonly recordService: RecordService,
@@ -45,7 +46,9 @@ export class CommentOpenApiService {
     private readonly cls: ClsService<IClsStore>,
     private readonly shareDbService: ShareDbService,
     private readonly cacheService: CacheService,
-    private readonly attachmentsStorageService: AttachmentsStorageService
+    private readonly attachmentsStorageService: AttachmentsStorageService,
+    private readonly audit: AuditScope,
+    private readonly collaboratorService: CollaboratorService
   ) {}
 
   private async collectionsContext(comment: ICommentContent | null) {
@@ -191,6 +194,23 @@ export class CommentOpenApiService {
     throw new CustomHttpException('Comment not found', HttpErrorCode.NOT_FOUND);
   }
 
+  // Comments outlive a deleted/archived record so a restore brings them back; until
+  // then the thread is unreachable, like the record itself.
+  private async isRecordAlive(tableId: string, recordId: string) {
+    const existingIds = await this.recordService.getExistingRecordIds(tableId, [recordId]);
+    return existingIds.has(recordId);
+  }
+
+  private async assertRecordAlive(tableId: string, recordId: string) {
+    if (!(await this.isRecordAlive(tableId, recordId))) {
+      throw new CustomHttpException('Record not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.record.notFound',
+        },
+      });
+    }
+  }
+
   private async validateQuoteId(tableId: string, recordId: string, quoteId?: string | null) {
     if (!quoteId) {
       return;
@@ -213,6 +233,10 @@ export class CommentOpenApiService {
     recordId: string,
     commentId: string
   ): Promise<ICommentVo | null> {
+    if (!(await this.isRecordAlive(tableId, recordId))) {
+      return null;
+    }
+
     const rawComment = await this.prismaService.comment.findFirst({
       where: this.getCommentScopeWhere(tableId, recordId, commentId),
       select: {
@@ -279,6 +303,10 @@ export class CommentOpenApiService {
           },
         }
       );
+    }
+
+    if (!(await this.isRecordAlive(tableId, recordId))) {
+      return { comments: [], nextCursor: null };
     }
 
     const takeWithDirection = direction === 'forward' ? -(take + 1) : take + 1;
@@ -388,6 +416,7 @@ export class CommentOpenApiService {
   }
 
   async createComment(tableId: string, recordId: string, createCommentRo: ICreateCommentRo) {
+    await this.assertRecordAlive(tableId, recordId);
     await this.validateQuoteId(tableId, recordId, createCommentRo.quoteId);
 
     const id = generateCommentId();
@@ -411,6 +440,17 @@ export class CommentOpenApiService {
 
     this.sendCommentPatch(tableId, recordId, CommentPatchType.CreateComment, result);
     this.sendTableCommentPatch(tableId, recordId, CommentPatchType.CreateComment);
+    // Comment rows name the comment, never its text.
+    await this.audit.emitAtomic({
+      action: 'table.record.comment.create',
+      resourceId: id,
+      params: {
+        tableId,
+        recordId,
+        commentId: id,
+        ...(createCommentRo.quoteId ? { quoteId: createCommentRo.quoteId } : {}),
+      },
+    });
 
     return {
       ...result,
@@ -424,6 +464,7 @@ export class CommentOpenApiService {
     commentId: string,
     updateCommentRo: IUpdateCommentRo
   ) {
+    await this.assertRecordAlive(tableId, recordId);
     const updateResult = await this.prismaService.comment.updateMany({
       where: {
         ...this.getCommentScopeWhere(tableId, recordId, commentId),
@@ -457,6 +498,11 @@ export class CommentOpenApiService {
       quoteId: result.quoteId,
       content: result.content,
     });
+    await this.audit.emitAtomic({
+      action: 'table.record.comment.update',
+      resourceId: commentId,
+      params: { tableId, recordId, commentId },
+    });
   }
 
   async deleteComment(tableId: string, recordId: string, commentId: string) {
@@ -476,6 +522,11 @@ export class CommentOpenApiService {
 
     this.sendCommentPatch(tableId, recordId, CommentPatchType.DeleteComment, { id: commentId });
     this.sendTableCommentPatch(tableId, recordId, CommentPatchType.DeleteComment);
+    await this.audit.emitAtomic({
+      action: 'table.record.comment.delete',
+      resourceId: commentId,
+      params: { tableId, recordId, commentId },
+    });
   }
 
   async deleteCommentReaction(
@@ -530,6 +581,7 @@ export class CommentOpenApiService {
     commentId: string,
     reactionRo: { reaction: string }
   ) {
+    await this.assertRecordAlive(tableId, recordId);
     const commentRaw = await this.getCommentReactionById(tableId, recordId, commentId);
     if (!commentRaw) {
       this.throwCommentNotFound();
@@ -544,7 +596,8 @@ export class CommentOpenApiService {
       if (index > -1) {
         emojis.splice(index, 1, {
           reaction,
-          user: uniq([...emojis[index].user, this.cls.get('user.id')]),
+          // Sonar S8907: lodash's uniq typing keeps this union assignable to the reaction user list
+          user: uniq([...emojis[index].user, this.cls.get('user.id')]), // NOSONAR typescript:S8907
         });
       } else {
         emojis.push({
@@ -584,9 +637,13 @@ export class CommentOpenApiService {
   }
 
   async getSubscribeDetail(tableId: string, recordId: string) {
+    if (!(await this.isRecordAlive(tableId, recordId))) {
+      return null;
+    }
+
     return this.prismaService.commentSubscription.findUnique({
       where: {
-        // eslint-disable-next-line
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         tableId_recordId: {
           tableId,
           recordId,
@@ -601,6 +658,7 @@ export class CommentOpenApiService {
   }
 
   async subscribeComment(tableId: string, recordId: string) {
+    await this.assertRecordAlive(tableId, recordId);
     await this.prismaService.commentSubscription.create({
       data: {
         tableId,
@@ -613,7 +671,7 @@ export class CommentOpenApiService {
   async unsubscribeComment(tableId: string, recordId: string) {
     await this.prismaService.commentSubscription.delete({
       where: {
-        // eslint-disable-next-line
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         tableId_recordId: {
           tableId,
           recordId,
@@ -622,15 +680,16 @@ export class CommentOpenApiService {
     });
   }
 
-  async getTableCommentCount(tableId: string, query: IGetRecordsRo) {
-    const docResult = await this.recordService.getDocIdsByQuery(tableId, query, true);
-    const recordsId = docResult.ids;
+  async getTableCommentCount(tableId: string, recordIds: string[]) {
+    if (!recordIds.length) {
+      return [];
+    }
 
     const result = await this.prismaService.comment.groupBy({
       by: ['recordId'],
       where: {
         recordId: {
-          in: recordsId,
+          in: recordIds,
         },
         tableId,
         deletedTime: null,
@@ -647,6 +706,10 @@ export class CommentOpenApiService {
   }
 
   async getRecordCommentCount(tableId: string, recordId: string) {
+    if (!(await this.isRecordAlive(tableId, recordId))) {
+      return { count: 0 };
+    }
+
     const result = await this.prismaService.comment.count({
       where: {
         tableId,
@@ -746,9 +809,22 @@ export class CommentOpenApiService {
       },
     });
 
-    const subscribeUsersIds = Array.from(
+    const candidateUserIds = Array.from(
       new Set([...notifyUsers.map(({ createdBy }) => createdBy), ...relativeUsers])
     ).filter((userId) => userId !== fromUserId);
+
+    if (!candidateUserIds.length) {
+      return;
+    }
+
+    // Mentions carry raw user ids from the client and the message embeds the
+    // record's primary value, so only people who can see the record (base or
+    // space collaborators) may be notified.
+    const collaborators = await this.collaboratorService.getUserCollaboratorsByTableId(tableId, {
+      containsIn: { keys: ['id'], values: candidateUserIds },
+    });
+    const collaboratorIds = new Set(collaborators.map(({ id }) => id));
+    const subscribeUsersIds = candidateUserIds.filter((userId) => collaboratorIds.has(userId));
 
     const message: ILocalization<I18nPath> = {
       i18nKey: 'common.email.templates.notify.recordComment.message',

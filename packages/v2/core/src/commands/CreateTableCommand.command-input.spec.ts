@@ -32,7 +32,7 @@ describe('CreateTableCommand', () => {
 
   it('rejects invalid input', () => {
     const result = CreateTableCommand.create({ name: 'Bad' });
-    result._unsafeUnwrapErr();
+    expect(result.isErr()).toBe(true);
   });
 
   it('rejects multiple primary fields', () => {
@@ -44,6 +44,6 @@ describe('CreateTableCommand', () => {
         { type: 'longText', name: 'Notes', isPrimary: true },
       ],
     });
-    result._unsafeUnwrapErr();
+    expect(result.isErr()).toBe(true);
   });
 });

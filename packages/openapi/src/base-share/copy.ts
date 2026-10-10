@@ -8,17 +8,17 @@ export const COPY_BASE_SHARE = '/share/{shareId}/base/copy';
 
 export const copyBaseShareRoSchema = z.object({
   spaceId: z.string().meta({
-    description: 'The target space ID to copy the base to',
+    description: 'The target space ID to copy the project to',
   }),
   name: z.string().optional().meta({
-    description: 'The name of the copied base',
+    description: 'The name of the copied project',
   }),
   withRecords: z.boolean().optional().default(true).meta({
     description: 'Whether to copy records',
   }),
   baseId: z.string().optional().meta({
     description:
-      'The target base ID to copy into. If provided, tables will be added to the existing base instead of creating a new one.',
+      'The target project ID to copy into. If provided, tables will be added to the existing project instead of creating a new one.',
   }),
 });
 
@@ -35,7 +35,8 @@ export type ICopyBaseShareVo = z.infer<typeof copyBaseShareVoSchema>;
 export const copyBaseShareRoute: RouteConfig = registerRoute({
   method: 'post',
   path: COPY_BASE_SHARE,
-  description: 'Copy a shared base to a target space',
+  title: 'Copy shared project',
+  description: 'Copy a shared project to the target space.',
   request: {
     params: z.object({
       shareId: z.string(),
@@ -50,7 +51,7 @@ export const copyBaseShareRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Returns the copied base',
+      description: 'Returns the copied project',
       content: {
         'application/json': {
           schema: copyBaseShareVoSchema,

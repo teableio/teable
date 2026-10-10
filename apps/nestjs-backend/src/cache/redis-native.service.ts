@@ -1,4 +1,4 @@
-import { hash } from 'crypto';
+import { hash } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 import { LRUCache } from 'lru-cache';
@@ -29,6 +29,11 @@ export class RedisNativeService {
     if (!this.redis) {
       this.logger.warn('Redis client not available — RedisNativeService disabled');
     }
+  }
+
+  /** false when the cache provider is not redis; every command below then throws */
+  get available(): boolean {
+    return this.redis !== undefined;
   }
 
   private get client(): Redis {
@@ -212,6 +217,17 @@ export class RedisNativeService {
   async srem(key: string, ...members: string[]): Promise<number> {
     if (members.length === 0) return 0;
     return this.client.srem(key, ...members);
+  }
+
+  /**
+   * Iterate a set one page at a time (SSCAN command).
+   * @param key - Redis set key
+   * @param cursor - Cursor from the previous page, '0' to start
+   * @param count - Page size hint
+   * @returns Next cursor ('0' once exhausted) and the page's members, which may repeat across pages
+   */
+  async sscan(key: string, cursor: string, count: number): Promise<[string, string[]]> {
+    return this.client.sscan(key, cursor, 'COUNT', count);
   }
 
   /**

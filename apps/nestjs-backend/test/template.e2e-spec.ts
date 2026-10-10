@@ -1,9 +1,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
+import type { IDateFieldOptions } from '@teable/core';
+import { DateFormattingPreset, FieldType, Role, TimeFormatting } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableFullVo } from '@teable/openapi';
-import type { IDateFieldOptions } from '@teable/core';
-import { DateFormattingPreset, FieldType, TimeFormatting } from '@teable/core';
 import {
   createBase,
   createBaseFromTemplate,
@@ -16,20 +16,30 @@ import {
   deleteBase,
   deleteTemplate,
   deleteTemplateCategory,
+  emailBaseInvitation,
+  GET_TEMPLATE_BY_BASE_ID,
+  GET_TEMPLATE_DETAIL,
   getBaseById,
   getFields,
   getPublishedTemplateList,
   getTableList,
+  getTemplateByBaseId,
   getTemplateCategoryList,
   getTemplateList,
   getTemplatePermalink,
   pinTopTemplate,
+  UNPUBLISH_TEMPLATE,
+  unpublishTemplate,
   updateTemplate,
   updateTemplateCategory,
   updateTemplateCategoryOrder,
   updateTemplateOrder,
+  urlBuilder,
 } from '@teable/openapi';
+import type { AxiosInstance } from 'axios';
 import { omit } from 'lodash';
+import { createNewUserAxios } from './utils/axios-instance/new-user';
+import { getError } from './utils/get-error';
 import { deleteSpace, initApp } from './utils/init-app';
 
 describe('Template Open API Controller (e2e)', () => {
@@ -473,7 +483,9 @@ describe('Template Open API Controller (e2e)', () => {
       expect(new Set(paginatedIds).size).toBe(5);
 
       // Verify pagination results cover all templates
-      expect(paginatedIds.sort()).toEqual(allTemplateIds.sort());
+      expect(paginatedIds.sort((a, b) => Number(a > b) - Number(a < b))).toEqual(
+        allTemplateIds.sort((a, b) => Number(a > b) - Number(a < b))
+      );
     });
 
     it('should handle skip beyond total count', async () => {
@@ -915,8 +927,8 @@ describe('Template Open API Controller (e2e)', () => {
       const table2Fields = (await getFields(tables[1].id)).data?.map((f) => omit(f, ['id']));
 
       // fields
-      const originalTable1Fields = table1.fields.map((f) => omit(f, ['id']));
-      const originalTable2Fields = table2.fields.map((f) => omit(f, ['id']));
+      const originalTable1Fields = (await getFields(table1.id)).data.map((f) => omit(f, ['id']));
+      const originalTable2Fields = (await getFields(table2.id)).data.map((f) => omit(f, ['id']));
       expect(table1Fields).toEqual(originalTable1Fields);
       expect(table2Fields).toEqual(originalTable2Fields);
     });
@@ -951,8 +963,8 @@ describe('Template Open API Controller (e2e)', () => {
       const table2Fields = (await getFields(tables[2].id)).data?.map((f) => omit(f, ['id']));
 
       // fields
-      const originalTable1Fields = table1.fields.map((f) => omit(f, ['id']));
-      const originalTable2Fields = table2.fields.map((f) => omit(f, ['id']));
+      const originalTable1Fields = (await getFields(table1.id)).data.map((f) => omit(f, ['id']));
+      const originalTable2Fields = (await getFields(table2.id)).data.map((f) => omit(f, ['id']));
       expect(table1Fields).toEqual(originalTable1Fields);
       expect(table2Fields).toEqual(originalTable2Fields);
 
@@ -1187,6 +1199,119 @@ describe('Template Open API Controller (e2e)', () => {
 
       // Cleanup
       await deleteBase(simpleBase.data.id);
+    });
+  });
+
+  describe('Unpublish Template', () => {
+    // Unpublish mirrors publish (`base|update`), which only Owner/Creator hold
+    let creatorAxios: AxiosInstance;
+    let editorAxios: AxiosInstance;
+    let outsiderAxios: AxiosInstance;
+    const creatorEmail = 'template-unpublish-creator@example.com';
+    const editorEmail = 'template-unpublish-editor@example.com';
+
+    const unpublishAs = (userAxios: AxiosInstance, templateId: string) =>
+      userAxios.delete(urlBuilder(UNPUBLISH_TEMPLATE, { templateId }));
+
+    const createBaseTemplate = async () => {
+      const template = (await createTemplate({})).data;
+      await updateTemplate(template.id, { baseId });
+      await emailBaseInvitation({
+        baseId,
+        emailBaseInvitationRo: { emails: [creatorEmail], role: Role.Creator },
+      });
+      await emailBaseInvitation({
+        baseId,
+        emailBaseInvitationRo: { emails: [editorEmail], role: Role.Editor },
+      });
+      return template;
+    };
+
+    const templateExists = async (templateId: string) =>
+      Boolean(await prismaService.template.findUnique({ where: { id: templateId } }));
+
+    beforeAll(async () => {
+      creatorAxios = await createNewUserAxios({ email: creatorEmail, password: '12345678' });
+      editorAxios = await createNewUserAxios({ email: editorEmail, password: '12345678' });
+      outsiderAxios = await createNewUserAxios({
+        email: 'template-unpublish-outsider@example.com',
+        password: '12345678',
+      });
+    });
+
+    it('should reject users who are not collaborators of the source base', async () => {
+      const template = await createBaseTemplate();
+      const error = await unpublishAs(outsiderAxios, template.id).catch((e) => e);
+      expect(error.status).toBe(403);
+      expect(await templateExists(template.id)).toBe(true);
+    });
+
+    it('should reject collaborators without base update permission', async () => {
+      const template = await createBaseTemplate();
+      const error = await unpublishAs(editorAxios, template.id).catch((e) => e);
+      expect(error.status).toBe(403);
+      expect(await templateExists(template.id)).toBe(true);
+    });
+
+    it('should allow collaborators with base update permission to unpublish', async () => {
+      const template = await createBaseTemplate();
+      const res = await unpublishAs(creatorAxios, template.id);
+      expect(res.status).toBe(200);
+      expect(await templateExists(template.id)).toBe(false);
+    });
+
+    it('should keep templates without a source base admin-only', async () => {
+      const template = (await createTemplate({})).data;
+      const error = await unpublishAs(creatorAxios, template.id).catch((e) => e);
+      expect(error.status).toBe(403);
+      expect(await templateExists(template.id)).toBe(true);
+
+      const res = await unpublishTemplate(template.id);
+      expect(res.status).toBe(200);
+      expect(await templateExists(template.id)).toBe(false);
+    });
+  });
+
+  describe('Template read authorization', () => {
+    // A signed-in user who is neither an instance admin nor a base collaborator
+    let outsider: AxiosInstance;
+
+    beforeAll(async () => {
+      outsider = await createNewUserAxios({
+        email: 'template-read-outsider@example.com',
+        password: '12345678',
+      });
+    });
+
+    it('should require base access to read the template of a base', async () => {
+      const template = await createTemplate({ name: 'by base template' });
+      await updateTemplate(template.data.id, { baseId });
+
+      const owned = await getTemplateByBaseId(baseId);
+      expect(owned.data?.id).toBe(template.data.id);
+
+      const error = await getError(() =>
+        outsider.get(urlBuilder(GET_TEMPLATE_BY_BASE_ID, { baseId }))
+      );
+      expect(error?.status).toBe(403);
+    });
+
+    it('should hide an unpublished template detail on the public route', async () => {
+      await createTable(baseId, { name: 'draft table' });
+      const template = await createTemplate({ name: 'draft template' });
+      await updateTemplate(template.data.id, { baseId });
+      await createTemplateSnapshot(template.data.id);
+
+      const error = await getError(() =>
+        outsider.get(urlBuilder(GET_TEMPLATE_DETAIL, { templateId: template.data.id }))
+      );
+      expect(error?.status).toBe(404);
+
+      await updateTemplate(template.data.id, { isPublished: true });
+      const published = await outsider.get(
+        urlBuilder(GET_TEMPLATE_DETAIL, { templateId: template.data.id })
+      );
+      expect(published.data.id).toBe(template.data.id);
     });
   });
 });

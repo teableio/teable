@@ -122,7 +122,7 @@ export class DuplicateBaseByIdHandler
     context: IExecutionContext,
     command: DuplicateBaseByIdCommand
   ): Promise<Result<DuplicateBaseByIdResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<DuplicateBaseByIdResult, DomainError>(async function* () {
       const sourceBase = yield* await handler.baseRepository.findOne(context, command.sourceBaseId);
       if (!sourceBase) {
@@ -193,7 +193,7 @@ export class DuplicateBaseByIdHandler
     source: DuplicateBaseSource,
     command: DuplicateBaseByIdCommand
   ): Promise<Result<DuplicateBaseDoneEvent, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<DuplicateBaseDoneEvent, DomainError>(async function* () {
       const duplicateCommand = yield* DuplicateBaseCommand.createFromSource({
         baseId: targetBase.id().toString(),
@@ -227,7 +227,7 @@ export class DuplicateBaseByIdHandler
     context: IExecutionContext,
     targetBase: Base
   ): Promise<Result<void, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<void, DomainError>(async function* () {
       const tables = yield* await handler.tableRepository.find(
         context,

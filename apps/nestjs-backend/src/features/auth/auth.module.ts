@@ -9,6 +9,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './guard/auth.guard';
 import { LocalAuthModule } from './local-auth/local-auth.module';
+import { MobileAuthModule } from './mobile-auth/mobile-auth.module';
 import { PermissionModule } from './permission.module';
 import { SessionStoreService } from './session/session-store.service';
 import { SessionModule } from './session/session.module';
@@ -36,6 +37,7 @@ const CONDITIONAL_MODULE_TIMEOUT = process.env.CI ? 30000 : 5000;
       { timeout: CONDITIONAL_MODULE_TIMEOUT }
     ),
     SocialModule,
+    MobileAuthModule,
     PermissionModule,
     TurnstileModule,
     DeleteUserModule,

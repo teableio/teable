@@ -115,6 +115,26 @@ describe('Table.createRecordCalendarDailyCollection', () => {
     expect(calendar.endFieldId.equals(startId)).toBe(true);
   });
 
+  it('plans requested dates without a view and preserves their timezone and scalar requirement', () => {
+    const { table, hiddenDateId, nameId } = createTable();
+    const calendar = table
+      .createRecordCalendarDailyCollection({
+        startFieldId: hiddenDateId.toString(),
+      })
+      ._unsafeUnwrap();
+
+    expect(calendar.startFieldId.equals(hiddenDateId)).toBe(true);
+    expect(calendar.endFieldId.equals(hiddenDateId)).toBe(true);
+    expect(calendar.timeZone.toString()).toBe('Asia/Singapore');
+    expect(
+      table
+        .createRecordCalendarDailyCollection({
+          startFieldId: nameId.toString(),
+        })
+        ._unsafeUnwrapErr()
+    ).toMatchObject({ code: 'calendar.invalid_start_field' });
+  });
+
   it('rejects hidden, missing, and non-date target fields without includeHiddenFields', () => {
     const { table, viewId, nameId, startId, hiddenDateId } = createTable();
 

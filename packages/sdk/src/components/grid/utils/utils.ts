@@ -11,7 +11,7 @@ export const requestTimeout = (callback: () => void, delay: number): ITimeoutID 
 
   function tick() {
     if (Date.now() - start >= delay) {
-      callback.call(null);
+      callback();
     } else {
       timeoutID.id = requestAnimationFrame(tick);
     }

@@ -17,8 +17,8 @@ import type {
   IUserFieldOptions,
 } from '@teable/core';
 import { FieldType } from '@teable/core';
-import { useTheme } from '@teable/next-themes';
 import { temporaryPaste } from '@teable/openapi';
+import { useTheme } from '@teable/ui-lib';
 import { useCallback, useEffect, useRef } from 'react';
 import { useTableId, useTablePermission } from '../../hooks';
 import type { ButtonField } from '../../model/field/button.field';

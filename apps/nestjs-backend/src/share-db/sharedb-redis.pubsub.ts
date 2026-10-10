@@ -138,7 +138,7 @@ export class RedisPubSub extends PubSub {
     }, callback);
   }
 
-  async _publish(channels: string[], data: unknown, callback: (err: ShareDBError | null) => void) {
+  _publish(channels: string[], data: unknown, callback: (err: ShareDBError | null) => void) {
     const message = JSON.stringify(data);
     const args = [message].concat(channels);
     this.client.eval(PUBLISH_SCRIPT, 0, ...args).then(function () {

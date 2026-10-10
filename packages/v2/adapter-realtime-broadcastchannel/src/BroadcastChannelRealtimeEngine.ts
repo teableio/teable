@@ -7,6 +7,7 @@ import type {
   DomainError,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
+import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { BroadcastChannelRealtimeHub } from './BroadcastChannelRealtimeHub';
@@ -49,5 +50,16 @@ export class BroadcastChannelRealtimeEngine implements IRealtimeEngine {
     _change: RealtimeChange
   ): Promise<Result<void, DomainError>> {
     return this.hub.invalidateCollection(collection);
+  }
+
+  /**
+   * The broadcast-channel transport only carries document changes; table
+   * compute activity falls back to the client's HTTP polling interval.
+   */
+  async notifyTableComputeActivity(
+    _context: IExecutionContext,
+    _tableId: string
+  ): Promise<Result<void, DomainError>> {
+    return ok(undefined);
   }
 }

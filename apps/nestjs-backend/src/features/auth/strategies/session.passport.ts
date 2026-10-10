@@ -5,8 +5,8 @@ import pause from 'pause';
 
 export class PassportSessionStrategy extends Strategy {
   public name: string;
-  private _key: string;
-  private _deserializeUser: DeserializeUserFunction;
+  private readonly _key: string;
+  private readonly _deserializeUser: DeserializeUserFunction;
 
   constructor(options?: SessionStrategyOptions, deserializeUser?: DeserializeUserFunction) {
     if (typeof options === 'function') {

@@ -18,6 +18,13 @@ export class MemoryEventBus implements IEventBus {
     return [...this.publishedEvents];
   }
 
+  recordPublished(events: ReadonlyArray<IDomainEvent>): void {
+    if (!events.length) {
+      return;
+    }
+    this.publishedEvents.push(...events);
+  }
+
   async publish(
     context: IExecutionContext,
     event: IDomainEvent

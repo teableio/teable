@@ -5,6 +5,8 @@ import type { Result } from 'neverthrow';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import type { Field } from '../domain/table/fields/Field';
 import type { FieldId } from '../domain/table/fields/FieldId';
+import { LookupField } from '../domain/table/fields/types/LookupField';
+import { RollupField } from '../domain/table/fields/types/RollupField';
 import { Table } from '../domain/table/Table';
 import type { View } from '../domain/table/views/View';
 import type { IExecutionContext } from '../ports/ExecutionContext';
@@ -30,6 +32,20 @@ export class ListFieldsResult {
   }
 }
 
+export const collectHydratedFieldIds = (
+  table: Table,
+  requestedFieldIds: ReadonlySet<string>
+): ReadonlySet<string> => {
+  const keep = new Set(requestedFieldIds);
+  for (const field of table.getFields()) {
+    if (!requestedFieldIds.has(field.id().toString())) continue;
+    if (field instanceof LookupField || field instanceof RollupField) {
+      keep.add(field.linkFieldId().toString());
+    }
+  }
+  return keep;
+};
+
 @QueryHandler(ListFieldsQuery)
 @injectable()
 export class ListFieldsHandler implements IQueryHandler<ListFieldsQuery, ListFieldsResult> {
@@ -51,6 +67,7 @@ export class ListFieldsHandler implements IQueryHandler<ListFieldsQuery, ListFie
 
     const specBuilder = Table.specs().byId(query.tableId);
     if (query.viewId) specBuilder.withViewId(query.viewId);
+    if (query.fieldIds) specBuilder.withFieldIds(query.fieldIds);
     const specResult = specBuilder.build();
     if (specResult.isErr()) return err(specResult.error);
 
@@ -70,7 +87,17 @@ export class ListFieldsHandler implements IQueryHandler<ListFieldsQuery, ListFie
       return err(tableResult.error);
     }
 
-    const fields = tableResult.value.getFields();
+    const requestedFieldIds = query.fieldIds
+      ? new Set(query.fieldIds.map((fieldId) => fieldId.toString()))
+      : undefined;
+    const hydratedFieldIds =
+      requestedFieldIds == null
+        ? undefined
+        : collectHydratedFieldIds(tableResult.value, requestedFieldIds);
+    const fields =
+      hydratedFieldIds == null
+        ? tableResult.value.getFields()
+        : tableResult.value.getFields((field) => hydratedFieldIds.has(field.id().toString()));
     const viewResult = query.viewId ? tableResult.value.getView(query.viewId) : undefined;
     if (viewResult?.isErr()) return err(viewResult.error);
     logger.debug('ListFieldsHandler.success', { count: fields.length });

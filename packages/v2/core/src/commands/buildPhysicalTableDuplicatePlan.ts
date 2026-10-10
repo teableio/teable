@@ -13,7 +13,7 @@ import type {
   PhysicalTableDuplicatePlan,
 } from '../ports/TableRecordRepository';
 
-const quoteIdent = (name: string): string => `"${name.replace(/"/g, '""')}"`;
+const quoteIdent = (name: string): string => `"${name.replaceAll('"', '""')}"`;
 
 const isLinkField = (field: Field): field is LinkField => field instanceof LinkField;
 

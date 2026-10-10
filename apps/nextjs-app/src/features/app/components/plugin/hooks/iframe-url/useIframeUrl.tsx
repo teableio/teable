@@ -1,5 +1,5 @@
-import { useTheme } from '@teable/next-themes';
 import { PluginPosition } from '@teable/openapi';
+import { useTheme } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useRef } from 'react';
 import { useEnv } from '@/features/app/hooks/useEnv';

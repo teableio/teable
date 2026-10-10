@@ -19,7 +19,6 @@ import {
 } from './scheduleRealtimeProjection';
 import { toStandaloneViewRealtimeSnapshot } from './ViewRealtimeProjectionUtils';
 
-const tableCollectionPrefix = 'tbl';
 const viewCollectionPrefix = 'viw';
 
 @ProjectionHandler(ViewCreated)
@@ -64,20 +63,6 @@ export class ViewCreatedRealtimeProjection implements IEventHandler<ViewCreated>
               })
             );
           }
-
-          const tableDocId = yield* RealtimeDocId.fromParts(
-            `${tableCollectionPrefix}_${event.baseId.toString()}`,
-            event.tableId.toString()
-          ).safeUnwrap();
-          yield* (await realtimeEngine.ensure(context, tableDocId, snapshot)).safeUnwrap();
-          yield* (
-            await realtimeEngine.applyChange(context, tableDocId, {
-              type: 'set',
-              path: ['views'],
-              value: snapshot.views,
-            })
-          ).safeUnwrap();
-
           const viewDocId = yield* RealtimeDocId.fromParts(
             `${viewCollectionPrefix}_${event.tableId.toString()}`,
             event.viewId.toString()

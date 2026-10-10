@@ -210,7 +210,7 @@ export class FormulaSupportGeneratedColumnValidator {
 
   private checkNumericFunctions(funcName: string, paramCount: number): boolean {
     const dummyParam = 'dummy';
-    const dummyParams = Array(paramCount).fill(dummyParam);
+    const dummyParams = new Array(paramCount).fill(dummyParam);
 
     return match(funcName)
       .with('SUM', () => this.supportValidator.sum(dummyParams))
@@ -245,7 +245,7 @@ export class FormulaSupportGeneratedColumnValidator {
 
   private checkTextFunctions(funcName: string, paramCount: number): boolean {
     const dummyParam = 'dummy';
-    const dummyParams = Array(paramCount).fill(dummyParam);
+    const dummyParams = new Array(paramCount).fill(dummyParam);
 
     return match(funcName)
       .with('CONCATENATE', () => this.supportValidator.concatenate(dummyParams))
@@ -346,7 +346,7 @@ export class FormulaSupportGeneratedColumnValidator {
 
   private checkLogicalFunctions(funcName: string, paramCount: number): boolean {
     const dummyParam = 'dummy';
-    const dummyParams = Array(paramCount).fill(dummyParam);
+    const dummyParams = new Array(paramCount).fill(dummyParam);
 
     return match(funcName)
       .with('IF', () => this.supportValidator.if(dummyParam, dummyParam, dummyParam))
@@ -363,7 +363,7 @@ export class FormulaSupportGeneratedColumnValidator {
 
   private checkArrayFunctions(funcName: string, paramCount: number): boolean {
     const dummyParam = 'dummy';
-    const dummyParams = Array(paramCount).fill(dummyParam);
+    const dummyParams = new Array(paramCount).fill(dummyParam);
 
     return match(funcName)
       .with('COUNT', () => this.supportValidator.count(dummyParams))
@@ -597,7 +597,7 @@ export class FormulaSupportGeneratedColumnValidator {
 
   private hasDatetimeStringConcatenation(tree: ExprContext): boolean {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const self = this;
+    const self = this; // NOSONAR typescript:S7740 -- captured for use inside a nested class where `this` differs
     class DatetimeConcatDetector extends AbstractParseTreeVisitor<boolean> {
       protected defaultResult(): boolean {
         return false;
@@ -651,7 +651,7 @@ export class FormulaSupportGeneratedColumnValidator {
 
   private hasDatetimeTextSlicing(tree: ExprContext): boolean {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const self = this;
+    const self = this; // NOSONAR typescript:S7740 -- captured for use inside a nested class where `this` differs
     class DatetimeTextSliceDetector extends AbstractParseTreeVisitor<boolean> {
       protected defaultResult(): boolean {
         return false;
@@ -695,7 +695,7 @@ export class FormulaSupportGeneratedColumnValidator {
 
   private hasLogicalNonBooleanArgs(tree: ExprContext): boolean {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const self = this;
+    const self = this; // NOSONAR typescript:S7740 -- captured for use inside a nested class where `this` differs
     class LogicalArgumentDetector extends AbstractParseTreeVisitor<boolean> {
       protected defaultResult(): boolean {
         return false;
@@ -740,7 +740,7 @@ export class FormulaSupportGeneratedColumnValidator {
 
   private hasNumericFunctionWithNonNumericArgs(tree: ExprContext): boolean {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const self = this;
+    const self = this; // NOSONAR typescript:S7740 -- captured for use inside a nested class where `this` differs
     const numericFunctions = new Set<FunctionName>([
       FunctionName.Sum,
       FunctionName.Average,

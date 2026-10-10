@@ -1,4 +1,4 @@
-import { GithubLogo, GoogleLogo } from '@teable/icons';
+import { AppleLogo, GithubLogo, GoogleLogo } from '@teable/icons';
 import { Button } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -7,18 +7,25 @@ import { useEnv } from '@/features/app/hooks/useEnv';
 import { authConfig } from '@/features/i18n/auth.config';
 import { isValidRedirectPath } from '@/lib/isValidRedirectPath';
 
+// Rendered in this order on the sign-in page.
 export const providersAll = [
-  {
-    id: 'github',
-    text: 'Github',
-    Icon: GithubLogo,
-    authUrl: '/api/auth/github',
-  },
   {
     id: 'google',
     text: 'Google',
     Icon: GoogleLogo,
     authUrl: '/api/auth/google',
+  },
+  {
+    id: 'apple',
+    text: 'Apple',
+    Icon: AppleLogo,
+    authUrl: '/api/auth/apple',
+  },
+  {
+    id: 'github',
+    text: 'Github',
+    Icon: GithubLogo,
+    authUrl: '/api/auth/github',
   },
   {
     id: 'oidc',
@@ -67,7 +74,16 @@ export const SocialAuth = () => {
         {providers.map(({ id, text, Icon, authUrl }) => (
           <Button key={id} className="w-full" variant="outline" onClick={() => onClick(authUrl)}>
             {Icon && <Icon className="size-4" />}
-            {text}
+            {id === 'apple' &&
+            typeof router.query.authError === 'string' &&
+            [
+              'apple_email_unavailable',
+              'apple_account_unavailable',
+              'apple_signin_failed',
+              'apple_session_expired',
+            ].includes(router.query.authError)
+              ? t('auth:socialAuth.appleError.retry')
+              : text}
           </Button>
         ))}
       </div>

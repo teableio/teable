@@ -16,7 +16,7 @@ export function useUpdateLookupOptions(
     ) => {
       const newLookupOptions = {
         ...field.lookupOptions,
-        ...(lookupOptions || {}),
+        ...lookupOptions,
       } as ILookupOptionsRo;
       if (!field.isLookup && field.type !== FieldType.Rollup) {
         setFieldFn({

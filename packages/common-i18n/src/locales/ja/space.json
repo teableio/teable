@@ -5,27 +5,34 @@
     "affectedTableSuffix": "（{{count}} 個のフィールド）",
     "convertAndDuplicate": "変換して複製"
   },
+  "trash": {
+    "forceRemove": "スペースを強制削除",
+    "forceRemoveTitle": "「{{name}}」を強制削除しますか？",
+    "forceRemoveLabel": "リスクを理解したうえで、強制削除を選択します。",
+    "forceRemoveWarning": "強制削除では外部データベースには接続せず、スペースのメタデータと {{brandName}} が管理するリソースを完全に削除します。外部データベースに物理データが残る場合は、ご自身で削除する必要があります。この操作は取り消せません。",
+    "forceRemoveSuccess": "スペースを強制削除しました"
+  },
   "initialSpaceName": "{{name}}のスペース",
   "action": {
-    "createBase": "ベースの作成",
+    "createBase": "プロジェクトの作成",
     "createSpace": "スペースの作成",
     "invite": "招待",
     "startFromScratch": "最初から作成"
   },
   "allSpaces": "すべてのスペース",
-  "emptySpaceTitle": "このスペースにはベースがありません",
-  "spaceIsEmpty": "最初のベースを作成して始めましょう",
+  "emptySpaceTitle": "このスペースにはプロジェクトがありません",
+  "spaceIsEmpty": "最初のプロジェクトを作成して始めましょう",
   "baseModal": {
     "copy": "コピー",
     "duplicate": "\"{{baseName}}\" の複製",
-    "createBaseFromTemplate": "テンプレートからベースを作成する",
+    "createBaseFromTemplate": "テンプレートからプロジェクトを作成する",
     "duplicateRecords": "レコードの複製",
     "duplicateRecordsTip": "変更履歴と共同作業者は複製しません。",
     "toSpace": "スペースへ",
     "copyToSpace": "スペースにコピー",
-    "duplicateBase": "ベースを複製",
-    "missTargetTip": "ベースを複製するスペースを選択してください。",
-    "copying": "ベースを複製しています。時間がかかる場合があります...",
+    "duplicateBase": "プロジェクトを複製",
+    "missTargetTip": "プロジェクトを複製するスペースを選択してください。",
+    "copying": "プロジェクトを複製しています。時間がかかる場合があります...",
     "howToCreate": "どのように始めますか？",
     "fromScratch": "最初から",
     "fromTemplate": "テンプレートから",
@@ -48,19 +55,19 @@
     "add": "ピンに追加",
     "remove": "ピンから削除",
     "pin": "ピン",
-    "empty": "ピン留めしたベースとスペースがここに表示されます"
+    "empty": "ピン留めしたプロジェクトとスペースがここに表示されます"
   },
   "tooltip": {
-    "noPermissionToCreateBase": "ベースを作成する権限がありません"
+    "noPermissionToCreateBase": "プロジェクトを作成する権限がありません"
   },
   "tip": {
     "delete": "<0/> を削除してもよろしいですか?",
     "exportTips2": "スペース -> その他 -> インポートから.teaファイルをインポートできます",
-    "exportTips3": "ベース間の関連フィールドは単一行テキストに変換されます。",
+    "exportTips3": "プロジェクト間の関連フィールドは単一行テキストに変換されます。",
     "exportIncludeDataLabel": "レコードを含める",
     "exportIncludeDataDescription": "オフにすると構造と設定のみエクスポートします",
     "exportTitle": "エクスポート",
-    "exportDescription": "現在のデータベースを .tea ファイルにエクスポートします。時間がかかる場合があります。",
+    "exportDescription": "現在のプロジェクトを .tea ファイルにエクスポートします。時間がかかる場合があります。",
     "exportStartButton": "エクスポート開始",
     "exportSlowTip": "データ量が多いため、エクスポートに時間がかかる場合があります。一時的にページを離れても構いません。",
     "exportReadyDescription": ".tea ファイルをダウンロードしてください。{{importHint}}",
@@ -69,8 +76,8 @@
     "moveBaseCrossSpaceTitle": "ご注意",
     "moveBaseCrossSpaceDataLossWarning": "クロススペース参照はサポートされていません。関連するフィールドはテキストフィールドに変換されます。この操作は取り消せません。",
     "moveBaseCrossDataDbTitle": "データベース間の移動",
-    "moveBaseCrossDataDbWarning": "移動元と移動先のスペースは異なるデータベースを使用しています。この移動ではベースのデータを移動先のデータベースにコピーするため、時間がかかる場合があります。転送中、このベースへの書き込みは一時停止されます。",
-    "moveBaseProgressTitle": "ベースを移動中…",
+    "moveBaseCrossDataDbWarning": "移動元と移動先のスペースは異なるデータベースを使用しています。この移動ではプロジェクトのデータを移動先のデータベースにコピーするため、時間がかかる場合があります。転送中、このプロジェクトへの書き込みは一時停止されます。",
+    "moveBaseProgressTitle": "プロジェクトを移動中…",
     "moveBaseProgressPhase": "段階：{{phase}}",
     "moveBaseProgressPercent": "{{percent}}%",
     "moveBaseFailedTitle": "移動に失敗しました",
@@ -84,9 +91,9 @@
     "blockedDesc": "このスペースにはアクティブなサブスクリプションがあります。スペースを削除する前にサブスクリプションをキャンセルしてください。"
   },
   "sharedBase": {
-    "title": "共有ベース",
-    "description": "参加を招待されたすべてのベース",
-    "empty": "共有ベースはまだありません"
+    "title": "共有プロジェクト",
+    "description": "参加を招待されたすべてのプロジェクト",
+    "empty": "共有プロジェクトはまだありません"
   },
   "aiSetting": {
     "title": "AI設定",
@@ -100,7 +107,7 @@
     "phase": {
       "importingV2": "インポート中",
       "parsingStructure": "Parsing structure",
-      "creatingBase": "Creating base: {{detail}}",
+      "creatingBase": "プロジェクトを作成中: {{detail}}",
       "creatingTable": "Creating table: {{detail}}",
       "tableStructureStarted": "テーブル構造を準備中：{{tableName}}（{{tableIndex}}/{{totalTables}}）",
       "tableStructureValidating": "テーブル間のリレーションを検証中",
@@ -164,7 +171,7 @@
   },
   "template": {
     "title": "テンプレート",
-    "description": "テンプレートから新しいBaseを素早く作成します",
+    "description": "テンプレートから新しいプロジェクトを素早く作成します",
     "noTemplatesAvailable": "テンプレートがありません",
     "noTemplatesDescription": "現在、ここには何もありません"
   },
@@ -173,26 +180,26 @@
   },
   "noBases": {
     "title": "こんにちは、{{userName}}さん！",
-    "description": "最初のBaseで仕事の管理を始めましょう。"
+    "description": "最初のプロジェクトで仕事の管理を始めましょう。"
   },
   "noSpaces": {
     "title": "こんにちは、{{userName}}さん！",
     "description": "最初のスペースを作成して、データコラボレーションの旅を始めましょう。"
   },
   "baseList": {
-    "allBases": "すべてのBase",
+    "allBases": "すべてのプロジェクト",
     "creator": "作成者",
     "createdTime": "作成日時",
     "lastOpened": "最終閲覧",
     "enter": "入る",
     "noTables": "テーブルなし",
-    "empty": "まだBaseがありません",
+    "empty": "まだプロジェクトがありません",
     "recent": "最近",
     "manual": "手動の並び順"
   },
   "publishBase": {
     "title": "テンプレートセンターに公開",
-    "description": "ワンクリックでテンプレートセンターにBaseを公開！あなたの創造性をより多くの人に見てもらい、利用してもらい、Remixしてもらい、共により強力なビジネスを築きましょう。",
+    "description": "ワンクリックでテンプレートセンターにプロジェクトを公開！あなたの創造性をより多くの人に見てもらい、利用してもらい、Remixしてもらい、共により強力なビジネスを築きましょう。",
     "infoTitle": "基本情報",
     "form": {
       "title": "タイトル",
@@ -211,9 +218,9 @@
     "previewTips": "あなたの作品を世界に見せましょう",
     "update": "更新",
     "unPublish": "公開停止",
-    "unPublishSuccess": "Baseの公開を停止しました！",
+    "unPublishSuccess": "プロジェクトの公開を停止しました！",
     "unPublishConfirmTitle": "公開停止の確認",
-    "unPublishConfirmDescription": "本当にこのBaseの公開を停止しますか？テンプレートセンターに表示されなくなります。",
+    "unPublishConfirmDescription": "本当にこのプロジェクトの公開を停止しますか？テンプレートセンターに表示されなくなります。",
     "uploadCover": "クリックしてカバー画像をアップロード",
     "changeCover": "クリックしてカバーを変更",
     "uploading": "画像をアップロード中...",
@@ -252,7 +259,7 @@
   "dataDb": {
     "create": {
       "title": "データ用データベース",
-      "description": "このスペースがベースのスキーマとレコードを保存する場所を選択します。",
+      "description": "このスペースがプロジェクトのスキーマとレコードを保存する場所を選択します。",
       "defaultHint": "ほとんどのスペースにおすすめです。",
       "byodbOption": "自分の PostgreSQL データベースを使用",
       "byodbHint": "お客様が管理するデータベース内の Teable 内部スキーマにこのスペースを初期化します。",
@@ -323,7 +330,7 @@
     "import": "インポート開始",
     "done": "インポートが完了しました",
     "failed": "インポートに失敗しました",
-    "openBase": "ベースを開く",
+    "openBase": "プロジェクトを開く",
     "issuesSummary": "インポート中に {{count}} 件の調整がありました：",
     "issuesMore": "他 {{count}} 件…",
     "issue": {
@@ -335,7 +342,7 @@
     },
     "phase": {
       "fetchingSchema": "Airtable のベース構造を読み込み中",
-      "creatingBase": "ベースを作成中：{{detail}}",
+      "creatingBase": "プロジェクトを作成中：{{detail}}",
       "creatingTable": "テーブルを作成中：{{tableName}}（{{tableIndex}}/{{totalTables}}）",
       "creatingLinks": "リンクフィールドを作成中",
       "fillingLinks": "{{tableName}}（リンク）",
@@ -378,7 +385,7 @@
     "import": "インポート開始",
     "done": "インポートが完了しました",
     "failed": "インポートに失敗しました",
-    "openBase": "ベースを開く",
+    "openBase": "プロジェクトを開く",
     "issuesSummary": "インポート中に {{count}} 件の調整がありました：",
     "issuesMore": "他 {{count}} 件…",
     "recordsImported": "{{tableName}}：{{count}} 件のレコードをインポートしました",
@@ -390,7 +397,7 @@
     },
     "phase": {
       "fetchingSchema": "スプレッドシートの構造を読み込み中",
-      "creatingBase": "ベースを作成中：{{detail}}",
+      "creatingBase": "プロジェクトを作成中：{{detail}}",
       "creatingTable": "テーブルを作成中：{{tableName}}（{{tableIndex}}/{{totalTables}}）"
     },
     "detecting": "Google 連携を確認しています…",
@@ -403,9 +410,9 @@
     "title": "どのように始めますか？"
   },
   "importBaseDialog": {
-    "title": "ベースをインポート",
+    "title": "プロジェクトをインポート",
     "fromFile": "ファイルからインポート",
-    "fromFileDesc": ".tea データベースファイルをアップロード",
+    "fromFileDesc": ".tea プロジェクトファイルをアップロード",
     "fromAirtableDesc": "Airtable アカウントを接続",
     "fromGoogleSheetDesc": "Google Drive のスプレッドシートを選択"
   }

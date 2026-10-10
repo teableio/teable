@@ -6,7 +6,7 @@ interface ITooltipsProps {
   disabled?: boolean;
 }
 
-export function TemplateTooltips(props: ITooltipsProps) {
+export function TemplateTooltips(props: Readonly<ITooltipsProps>) {
   const { children, content, disabled } = props;
   return (
     <TooltipProvider>

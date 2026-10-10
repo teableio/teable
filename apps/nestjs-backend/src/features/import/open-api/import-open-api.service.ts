@@ -54,7 +54,7 @@ const maxWaitingImports = Number(process.env.IMPORT_MAX_WAITING_JOBS ?? Infinity
 
 @Injectable()
 export class ImportOpenApiService {
-  private logger = new Logger(ImportOpenApiService.name);
+  private readonly logger = new Logger(ImportOpenApiService.name);
   constructor(
     private readonly tableOpenApiService: TableOpenApiService,
     private readonly cls: ClsService<IClsStore>,
@@ -164,7 +164,7 @@ export class ImportOpenApiService {
         return result;
       });
 
-      const table = await this.audit.withOperation(
+      await this.audit.withOperation(
         {
           rootAction: CreateRecordAction.Import,
           resourceId: baseId,
@@ -235,7 +235,6 @@ export class ImportOpenApiService {
           return created;
         }
       );
-      void table;
     }
 
     return tableResult;

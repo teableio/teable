@@ -3,7 +3,6 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type IApiErrorResponseDto,
   type IApiOkResponseDto,
@@ -48,7 +47,7 @@ export const listBasesResponseDataSchema = z.object({
 
 export const listBasesOkResponseSchema = apiOkResponseDtoSchema(listBasesResponseDataSchema);
 
-export const listBasesErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as listBasesErrorResponseSchema } from '../shared/http';
 
 export const mapListBasesResultToDto = (
   result: ListBasesResult

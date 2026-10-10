@@ -47,14 +47,13 @@ export class UpdateViewPluginStorageHandler
     context: IExecutionContext,
     command: UpdateViewPluginStorageCommand
   ): Promise<Result<UpdateViewPluginStorageResult, DomainError>> {
-    const handler = this;
     return this.unitOfWork.withTransaction(
       context,
       async (transactionContext) => {
         const specResult = Table.specs().byId(command.tableId).withViewId(command.viewId).build();
         if (specResult.isErr()) return err(specResult.error);
 
-        const tableResult = await handler.tableRepository.findOne(
+        const tableResult = await this.tableRepository.findOne(
           transactionContext,
           specResult.value,
           { lock: 'forUpdate' }
@@ -81,7 +80,7 @@ export class UpdateViewPluginStorageHandler
           );
         }
 
-        const updateResult = await handler.viewPluginRepository.updateViewPluginStorage(
+        const updateResult = await this.viewPluginRepository.updateViewPluginStorage(
           transactionContext,
           {
             baseId: tableResult.value.baseId().toString(),

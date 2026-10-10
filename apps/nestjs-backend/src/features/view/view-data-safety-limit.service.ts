@@ -63,7 +63,7 @@ export class ViewDataSafetyLimitService {
   private getPositiveInteger(key: string): number | undefined {
     const value = this.configService.get<unknown>(key);
     const parsed =
-      typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+      typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
     return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
   }
 

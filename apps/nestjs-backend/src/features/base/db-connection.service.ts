@@ -14,6 +14,7 @@ import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex';
+import { AuditScope } from '../audit/audit-scope';
 import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 
 const readonlyCapabilityErrorCodes = new Set(['0A000', '42501']);
@@ -40,6 +41,7 @@ export class DbConnectionService {
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @BaseConfig() private readonly baseConfig: IBaseConfig,
+    private readonly audit: AuditScope,
     @Optional()
     private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
@@ -148,7 +150,7 @@ export class DbConnectionService {
     const readOnlyRole = `read_only_role_${baseId}`;
     const schemaName = baseId;
     try {
-      return await this.prismaService.$tx(async (prisma) => {
+      await this.prismaService.$tx(async (prisma) => {
         // Verify if the base exists and if the user is the owner
         await prisma.base
           .findFirstOrThrow({
@@ -156,7 +158,7 @@ export class DbConnectionService {
           })
           .catch(() => {
             throw new CustomHttpException(
-              'Only the base owner can remove a db connection',
+              'Only the project owner can remove a db connection',
               HttpErrorCode.RESTRICTED_RESOURCE,
               {
                 localization: {
@@ -210,6 +212,11 @@ export class DbConnectionService {
     } catch (error) {
       this.throwReadonlyUnavailable(error, 'remove');
     }
+    await this.audit.emitAtomic({
+      action: 'base.db-connection.delete',
+      resourceId: baseId,
+      params: { baseId, role: readOnlyRole },
+    });
   }
 
   private async roleExits(baseId: string, role: string): Promise<boolean> {
@@ -312,14 +319,14 @@ export class DbConnectionService {
       }
 
       try {
-        return await this.prismaService.$tx(async (prisma) => {
+        const connection = await this.prismaService.$tx(async (prisma) => {
           await prisma.base
             .findFirstOrThrow({
               where: { id: baseId, deletedTime: null },
             })
             .catch(() => {
               throw new CustomHttpException(
-                'Only base owner can create db connection',
+                'Only project owner can create db connection',
                 HttpErrorCode.RESTRICTED_RESOURCE,
                 {
                   localization: {
@@ -391,6 +398,17 @@ export class DbConnectionService {
             url: this.getUrlFromDsn(dsn),
           };
         });
+        // The role and its limit only: the password, DSN and URL are credentials.
+        await this.audit.emitAtomic({
+          action: 'base.db-connection.create',
+          resourceId: baseId,
+          params: {
+            baseId,
+            role: readOnlyRole,
+            maxConnections: connection.connection.max,
+          },
+        });
+        return connection;
       } catch (error) {
         this.throwReadonlyUnavailable(error, 'create');
       }

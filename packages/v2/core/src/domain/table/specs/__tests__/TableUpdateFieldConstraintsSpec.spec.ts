@@ -115,7 +115,7 @@ describe('TableUpdateFieldConstraintsSpec', () => {
     });
 
     const result = spec.mutate(table);
-    result._unsafeUnwrap();
+    expect(result.isOk()).toBe(true);
   });
 
   it('accepts visitor', () => {
@@ -134,6 +134,6 @@ describe('TableUpdateFieldConstraintsSpec', () => {
     const visitor = {
       visitTableUpdateFieldConstraints: () => ok(undefined),
     };
-    spec.accept(visitor as any)._unsafeUnwrap();
+    expect(spec.accept(visitor as any).isOk()).toBe(true);
   });
 });

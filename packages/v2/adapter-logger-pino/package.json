@@ -32,12 +32,12 @@
   },
   "dependencies": {
     "@teable/v2-core": "workspace:*",
-    "pino": "10.1.0"
+    "pino": "10.3.1"
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",
     "@teable/v2-tsdown-config": "workspace:*",
-    "@types/node": "22.18.0",
+    "@types/node": "24.13.2",
     "@vitest/coverage-v8": "4.0.17",
     "eslint": "8.57.0",
     "prettier": "3.2.5",

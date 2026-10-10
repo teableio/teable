@@ -21,6 +21,7 @@ export function updateProperties(
     fields: this.getFields(),
     views: this.views(),
     primaryFieldId: this.primaryFieldId(),
+    searchIndex: this.searchIndex(),
   };
   const dbTableNameResult = this.dbTableName();
   if (dbTableNameResult.isOk()) props.dbTableName = dbTableNameResult.value;

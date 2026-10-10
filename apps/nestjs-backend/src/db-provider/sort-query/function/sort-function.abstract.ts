@@ -5,6 +5,9 @@ import type { Knex } from 'knex';
 import type { IRecordQuerySortContext } from '../../../features/record/query-builder/record-query-builder.interface';
 import type { ISortFunctionInterface } from './sort-function.interface';
 
+// One or more double-quoted identifiers joined by dots, inner quotes doubled.
+const QUOTED_IDENTIFIER_CHAIN = /^"(?:[^"]|"")+"(?:\."(?:[^"]|"")+")*$/;
+
 export abstract class AbstractSortFunction implements ISortFunctionInterface {
   protected columnName?: string;
 
@@ -114,10 +117,14 @@ export abstract class AbstractSortFunction implements ISortFunctionInterface {
     if (!identifier) {
       return identifier;
     }
-    if (identifier.startsWith('"') && identifier.endsWith('"')) {
+    // Base SQL queries hand in an already-quoted, schema-qualified column
+    // (`"bse"."tbl"."col"`). Only a well-formed chain of quoted identifiers
+    // passes through — it cannot leave identifier context; anything else
+    // merely wrapped in quotes is escaped like a bare name.
+    if (QUOTED_IDENTIFIER_CHAIN.test(identifier)) {
       return identifier;
     }
-    const escaped = identifier.replace(/"/g, '""');
+    const escaped = identifier.replaceAll('"', '""');
     return `"${escaped}"`;
   }
 

@@ -1,4 +1,4 @@
-import { Readable } from 'stream';
+import { Readable } from 'node:stream';
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import type { IAttachmentCellValue, IFieldVo } from '@teable/core';
 import { FieldKeyType, FieldType, HttpErrorCode, ViewType } from '@teable/core';
@@ -21,9 +21,17 @@ import { RecordService } from '../../record/record.service';
 import { ExportMetricsService } from '../metrics/export-metrics.service';
 import { ExportTracingService } from '../metrics/export-tracing.service';
 
+export interface ITableCsvExport {
+  /** The table's name, with the view's appended when one was asked for; not URL-encoded. */
+  fileName: string;
+  stream: Readable;
+  /** Fetches the rows into `stream`; resolves once the stream has ended. */
+  run: () => Promise<void>;
+}
+
 @Injectable()
 export class ExportOpenApiService {
-  private logger = new Logger(ExportOpenApiService.name);
+  private readonly logger = new Logger(ExportOpenApiService.name);
   constructor(
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
@@ -44,6 +52,26 @@ export class ExportOpenApiService {
     emit: true,
   })
   async exportCsvFromTable(response: Response, tableId: string, query?: IExportCsvRo) {
+    const { fileName, stream, run } = await this.prepareCsvExport(tableId, query);
+
+    response.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename=${encodeURIComponent(fileName)}.csv`
+    );
+
+    stream.pipe(response);
+    await run();
+  }
+
+  /**
+   * The CSV of a table as a stream plus the work that fills it, with no HTTP response
+   * attached: the export route pipes the stream to the client, an archive builder appends it
+   * as one entry among many. Everything that can refuse (missing table, unsupported view)
+   * has done so by the time this returns; `run` is where the rows are fetched, and it
+   * resolves once the stream has ended.
+   */
+  async prepareCsvExport(tableId: string, query?: IExportCsvRo): Promise<ITableCsvExport> {
     const exportStartTime = Date.now();
     this.exportMetrics?.recordExportStart('csv');
     const {
@@ -111,13 +139,8 @@ export class ExportOpenApiService {
     }
 
     const fileName = tableRaw?.name
-      ? encodeURIComponent(`${tableRaw?.name}${viewRaw?.name ? `_${viewRaw.name}` : ''}`)
+      ? `${tableRaw.name}${viewRaw?.name ? `_${viewRaw.name}` : ''}`
       : 'export';
-
-    response.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    response.setHeader('Content-Disposition', `attachment; filename=${fileName}.csv`);
-
-    csvStream.pipe(response);
 
     // set headers as first row
     const viewIdForQuery = ignoreViewQuery ? undefined : viewRaw?.id;
@@ -144,7 +167,7 @@ export class ExportOpenApiService {
     const headerData = Papa.unparse([headers.map((h) => h.name)]);
 
     const projectionNames = projection
-      ? (projection.map((p) => fieldsMap[p]?.name).filter((p) => Boolean(p)) as string[])
+      ? (projection.map((p) => fieldsMap[p]?.name).filter(Boolean) as string[])
       : undefined;
 
     const headersInfoMap = new Map(
@@ -158,27 +181,15 @@ export class ExportOpenApiService {
       ])
     );
 
-    // add BOM to make sure the csv file can be opened correctly in excel
-    csvStream.push('\uFEFF');
-    csvStream.push(headerData);
+    const run = async () => {
+      // add BOM to make sure the csv file can be opened correctly in excel
+      csvStream.push('\uFEFF');
+      csvStream.push(headerData);
 
-    try {
-      while (!isOver) {
-        const { records } = useV2
-          ? await this.recordOpenApiV2Service.getRecords(tableId, {
-              take: 1000,
-              skip: count,
-              viewId: viewIdForQuery,
-              filter: queryFilter,
-              orderBy: queryOrderBy,
-              groupBy: queryGroupBy,
-              ignoreViewQuery,
-              fieldKeyType: FieldKeyType.Name,
-              projection: projectionNames,
-            })
-          : await this.recordService.getRecords(
-              tableId,
-              {
+      try {
+        while (!isOver) {
+          const { records } = useV2
+            ? await this.recordOpenApiV2Service.getRecords(tableId, {
                 take: 1000,
                 skip: count,
                 viewId: viewIdForQuery,
@@ -186,56 +197,73 @@ export class ExportOpenApiService {
                 orderBy: queryOrderBy,
                 groupBy: queryGroupBy,
                 ignoreViewQuery,
+                fieldKeyType: FieldKeyType.Name,
                 projection: projectionNames,
-              },
-              true
-            );
+              })
+            : await this.recordService.getRecords(
+                tableId,
+                {
+                  take: 1000,
+                  skip: count,
+                  viewId: viewIdForQuery,
+                  filter: queryFilter,
+                  orderBy: queryOrderBy,
+                  groupBy: queryGroupBy,
+                  ignoreViewQuery,
+                  projection: projectionNames,
+                },
+                true
+              );
 
-        if (records.length === 0) {
-          isOver = true;
-          // end the stream
-          csvStream.push(null);
-          this.exportTracing?.setExportAttributes({ rows: count });
-          this.exportMetrics?.recordExportComplete({
-            format: 'csv',
-            durationMs: Date.now() - exportStartTime,
-          });
-          break;
-        }
+          if (records.length === 0) {
+            isOver = true;
+            // end the stream
+            csvStream.push(null);
+            this.exportTracing?.setExportAttributes({ rows: count });
+            this.exportMetrics?.recordExportComplete({
+              format: 'csv',
+              durationMs: Date.now() - exportStartTime,
+            });
+            break;
+          }
 
-        const csvData = Papa.unparse(
-          records.map((r) => {
-            const { fields } = r;
-            const recordsArr = Array.from({ length: headers.length });
-            for (const [key, value] of Object.entries(fields)) {
-              const { index: hIndex, type, fieldInstance } = headersInfoMap.get(key) ?? {};
-              if (hIndex !== undefined && type !== undefined) {
-                const finalValue =
-                  type === FieldType.Attachment
-                    ? (value as IAttachmentCellValue)
-                        .map((v) => `${v.name} ${v.presignedUrl}`)
-                        .join(',')
-                    : fieldInstance?.cellValue2String(value);
-                recordsArr[hIndex] = finalValue;
+          const csvData = Papa.unparse(
+            records.map((r) => {
+              const { fields } = r;
+              const recordsArr = Array.from({ length: headers.length });
+              for (const [key, value] of Object.entries(fields)) {
+                const { index: hIndex, type, fieldInstance } = headersInfoMap.get(key) ?? {};
+                if (hIndex !== undefined && type !== undefined) {
+                  const finalValue =
+                    type === FieldType.Attachment
+                      ? (value as IAttachmentCellValue)
+                          .map((v) => `${v.name} ${v.presignedUrl}`)
+                          .join(',')
+                      : fieldInstance?.cellValue2String(value);
+                  recordsArr[hIndex] = finalValue;
+                }
               }
-            }
-            return recordsArr;
-          })
-        );
+              return recordsArr;
+            })
+          );
 
+          csvStream.push('\r\n');
+          csvStream.push(csvData);
+          count += records.length;
+        }
+      } catch (e) {
         csvStream.push('\r\n');
-        csvStream.push(csvData);
-        count += records.length;
+        csvStream.push(`Export fail reason:, ${(e as Error)?.message}`);
+        this.logger.error((e as Error)?.message, `ExportCsv: ${tableId}`);
+        this.exportMetrics?.recordExportError({
+          format: 'csv',
+          errorType: (e as Error)?.name ?? 'unknown',
+        });
+        csvStream.push(null);
       }
-    } catch (e) {
-      csvStream.push('\r\n');
-      csvStream.push(`Export fail reason:, ${(e as Error)?.message}`);
-      this.logger.error((e as Error)?.message, `ExportCsv: ${tableId}`);
-      this.exportMetrics?.recordExportError({
-        format: 'csv',
-        errorType: (e as Error)?.name ?? 'unknown',
-      });
-    }
+    };
+
+    return { fileName, stream: csvStream, run };
   }
 
   /**

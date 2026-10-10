@@ -8,7 +8,14 @@ import {
   LLMProviderType,
   SettingKey,
   Task,
+  MODEL_TIER_IDS,
+  findDuplicateProviderModel,
+  findProviderForModelKey,
   getChatModelTagsFromAbility,
+  INSTANCE_PROVIDER_NAME,
+  getDefaultModelTier,
+  getOfferedTierModelKey,
+  isModelTierId,
   normalizeGatewayPricing,
   supportsImageInputForImageGeneration,
 } from '@teable/openapi';
@@ -17,6 +24,10 @@ import type {
   IAiGenerateRo,
   IGatewayApiModel,
   IGetAIConfig,
+  IChatModelTierSlots,
+  IModelPricing,
+  IModelTierCreditRatio,
+  IModelTierId,
   GatewayModelTag,
   LLMProvider,
 } from '@teable/openapi';
@@ -31,11 +42,22 @@ import { SettingService } from '../setting/setting.service';
 import { AiGatewayModelsService } from './ai-gateway-models.service';
 import { getAdaptedProviderOptions, getTaskModelKey, modelProviders } from './util';
 
-// Fixed name for instance-level provider config in modelKey.
-// Admin AI setting providers are normalized to @teable, including both AI Gateway
-// and custom providers. Distinguish them by provider type, not by this suffix.
-// Space BYOK providers keep their custom provider name.
-export const INSTANCE_PROVIDER_NAME = 'teable';
+/** Rejects a provider list where a model's `type@model@name` key could name two providers. */
+export function assertUniqueProviderModels(llmProviders: LLMProvider[] | undefined): void {
+  const duplicate = findDuplicateProviderModel(llmProviders);
+  if (!duplicate) return;
+  const [first, second] = duplicate.providers;
+  throw new CustomHttpException(
+    `Model "${duplicate.model}" is listed by both "${first}" and "${second}"; a model may appear in only one provider of a type`,
+    HttpErrorCode.VALIDATION_ERROR,
+    {
+      localization: {
+        i18nKey: 'httpErrors.ai.providerModelDuplicated',
+        context: { model: duplicate.model, first, second },
+      },
+    }
+  );
+}
 
 export type ILanguageModelV2 = Exclude<LanguageModel, string>;
 
@@ -71,13 +93,6 @@ export class AiService {
     return type?.toLowerCase() === LLMProviderType.AI_GATEWAY.toLowerCase();
   }
 
-  private providerHasModel(provider: LLMProvider, model: string): boolean {
-    return provider.models
-      .split(',')
-      .map((item) => item.trim())
-      .includes(model);
-  }
-
   private modelConfigHasRates(provider: LLMProvider, model: string): boolean {
     const config = provider.modelConfigs?.[model];
     return Boolean(
@@ -90,17 +105,21 @@ export class AiService {
     );
   }
 
+  /**
+   * Whether the API key behind this model belongs to the platform rather than
+   * the customer: Cloud instance models. Self-hosted instance models run on
+   * the admin's own keys.
+   */
+  public isPlatformManagedModel(modelKey: string, llmProviders: LLMProvider[] = []): boolean {
+    return this.baseConfig.isCloud && this.isInstanceAIModelByConfig(modelKey, llmProviders);
+  }
+
   public isInstanceAIModelByConfig(modelKey: string, llmProviders: LLMProvider[] = []): boolean {
     const { type, model, name } = this.parseModelKey(modelKey);
     if (!type || !model || !name) return false;
     if (this.isGatewayModel(modelKey)) return true;
 
-    const provider = llmProviders.find(
-      (p) =>
-        p.type.toLowerCase() === type.toLowerCase() &&
-        p.name.toLowerCase() === name.toLowerCase() &&
-        this.providerHasModel(p, model)
-    );
+    const provider = findProviderForModelKey(llmProviders, modelKey);
     if (provider) return Boolean(provider.isInstance);
 
     return this.checkInstanceAIModel(modelKey);
@@ -133,12 +152,7 @@ export class AiService {
       );
     }
 
-    const provider = llmProviders.find(
-      (p) =>
-        p.type.toLowerCase() === type.toLowerCase() &&
-        p.name.toLowerCase() === name.toLowerCase() &&
-        this.providerHasModel(p, model)
-    );
+    const provider = findProviderForModelKey(llmProviders, modelKey);
     if (!provider?.isInstance) {
       throw new CustomHttpException(
         'AI model mapping target provider is not configured as an instance provider',
@@ -163,6 +177,17 @@ export class AiService {
     }
   }
 
+  /**
+   * The enabled mapping that reroutes a gateway model to an admin custom model. Mappings are
+   * routing config that never leaves the backend; clients only see their effect (the model
+   * served, the price billed).
+   */
+  private findModelMapping(modelKey: string, aiConfig: IAIConfig | null | undefined) {
+    return aiConfig?.modelMappings?.find(
+      (item) => item.enabled !== false && item.sourceModelKey === modelKey
+    );
+  }
+
   public resolveModelMapping(
     modelKey: string,
     llmProviders: LLMProvider[] = [],
@@ -172,9 +197,7 @@ export class AiService {
       return { requestedModelKey: modelKey, effectiveModelKey: modelKey, mapped: false };
     }
 
-    const mapping = aiConfig?.modelMappings?.find(
-      (item) => item.enabled !== false && item.sourceModelKey === modelKey
-    );
+    const mapping = this.findModelMapping(modelKey, aiConfig);
     if (!mapping) {
       return { requestedModelKey: modelKey, effectiveModelKey: modelKey, mapped: false };
     }
@@ -207,6 +230,35 @@ export class AiService {
   }
 
   /**
+   * Chat clients send either a full model key or a user-facing tier id. A tier
+   * resolves to the model the admin mapped it to at call time, so remapping a
+   * tier takes effect on every chat that picked it. An unset or hidden tier
+   * resolves to nothing and callers fall back to the default chat model.
+   */
+  resolveModelSelectionByConfig(
+    selection: string | undefined,
+    chatModel: IChatModelTierSlots | null | undefined
+  ): { modelKey?: string; modelTier?: IModelTierId } {
+    if (!selection) return {};
+    if (!isModelTierId(selection)) return { modelKey: selection };
+    const modelKey = getOfferedTierModelKey(chatModel, selection);
+    if (!modelKey) {
+      this.logger.warn(`[Model Tier] "${selection}" is not offered, using the default chat model`);
+      return {};
+    }
+    return { modelKey, modelTier: selection };
+  }
+
+  /** Tiers are instance-level admin config, so only a tier id needs the setting read. */
+  async resolveModelSelection(
+    selection: string | undefined
+  ): Promise<{ modelKey?: string; modelTier?: IModelTierId }> {
+    if (!isModelTierId(selection)) return this.resolveModelSelectionByConfig(selection, undefined);
+    const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
+    return this.resolveModelSelectionByConfig(selection, aiConfig?.chatModel);
+  }
+
+  /**
    * Parse owner/provider from gateway model ID
    * @param modelId Gateway model ID (e.g., "anthropic/claude-sonnet-4" -> "anthropic")
    */
@@ -218,7 +270,7 @@ export class AiService {
   // modelKey-> type@model@name
   async getModelConfig(modelKey: string, llmProviders: LLMProvider[] = []) {
     const { effectiveModelKey } = await this.resolveEffectiveModelKey(modelKey, llmProviders);
-    const { type, model, name } = this.parseModelKey(effectiveModelKey);
+    const { type, model } = this.parseModelKey(effectiveModelKey);
 
     // Special handling for AI Gateway models
     if (this.isGatewayModel(effectiveModelKey)) {
@@ -244,11 +296,8 @@ export class AiService {
       };
     }
 
-    // Standard provider lookup
-    const providerConfig = llmProviders.find(
-      (p) =>
-        p.name.toLowerCase() === name.toLowerCase() && p.type.toLowerCase() === type.toLowerCase()
-    );
+    // Standard provider lookup: the provider of that type and name that lists the model.
+    const providerConfig = findProviderForModelKey(llmProviders, effectiveModelKey);
 
     if (!providerConfig) {
       throw new CustomHttpException(
@@ -357,11 +406,17 @@ export class AiService {
       : modelProvider(effectiveModel);
   }
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity
+  /** Callers already holding a spaceId should use getAIConfigBySpaceId and skip this lookup. */
   async getAIConfig(baseId: string) {
     const { spaceId } = await this.prismaService.base.findUniqueOrThrow({
       where: { id: baseId },
+      select: { spaceId: true },
     });
+    return this.getAIConfigBySpaceId(spaceId);
+  }
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  async getAIConfigBySpaceId(spaceId: string) {
     const aiIntegration = await this.prismaService.integration.findFirst({
       where: { resourceId: spaceId, type: IntegrationType.AI, enable: true },
     });
@@ -392,45 +447,73 @@ export class AiService {
       const sm = aiConfig?.chatModel?.sm;
       const md = aiConfig?.chatModel?.md;
       const ability = aiConfig?.chatModel?.ability;
+      const { xl, hiddenTiers, defaultTier } = aiConfig?.chatModel ?? {};
 
       config = {
         ...aiConfig,
-        llmProviders: aiConfig?.llmProviders.map((provider) => ({
+        llmProviders: (aiConfig?.llmProviders ?? []).map((provider) => ({
           ...provider,
           isInstance: true,
         })),
         chatModel: {
+          xl,
           sm: sm || lg,
           md: md || lg,
           lg: lg,
           ability,
+          hiddenTiers,
+          defaultTier,
         },
       } as IAIConfig;
-    } else if (!aiConfig?.chatModel?.lg) {
-      config = aiIntegrationConfig as IAIConfig;
+    } else if (
+      !aiConfig?.chatModel?.lg ||
+      (!this.isGatewayModel(aiConfig.chatModel.lg) &&
+        !this.findModelInProviders(aiConfig.chatModel.lg, aiConfig.llmProviders ?? []))
+    ) {
+      const llmProviders = aiIntegrationConfig.llmProviders ?? [];
+      const modelKey = this.findFirstModelKey(llmProviders);
+      // Replace the whole default so deleted Admin tiers cannot block Space-only chat.
+      config = {
+        ...aiIntegrationConfig,
+        llmProviders,
+        chatModel: { lg: modelKey, md: modelKey, sm: modelKey },
+      };
     } else {
       const lg = aiConfig.chatModel.lg;
       const sm = aiConfig.chatModel.sm;
       const md = aiConfig.chatModel.md;
       const ability = aiConfig.chatModel.ability;
+      const { xl, hiddenTiers, defaultTier } = aiConfig.chatModel;
       config = {
         ...aiIntegrationConfig,
         // Include gateway models from admin config (space config doesn't have gateway models)
         gatewayModels: aiConfig.gatewayModels,
         llmProviders: [
-          ...aiIntegrationConfig.llmProviders,
-          ...aiConfig.llmProviders.map((provider) => ({
+          ...(aiIntegrationConfig.llmProviders ?? []),
+          ...(aiConfig.llmProviders ?? []).map((provider) => ({
             ...provider,
             isInstance: true,
           })),
         ],
         chatModel: {
+          xl,
           sm: sm || lg,
           md: md || lg,
           lg: lg,
           ability,
+          hiddenTiers,
+          defaultTier,
         },
       } as IAIConfig;
+    }
+
+    const tierCreditRatio = this.getChatTierCreditRatio(
+      config.chatModel,
+      config.llmProviders,
+      aiConfig
+    );
+    if (tierCreditRatio) {
+      config = { ...config, chatModel: { ...config.chatModel, tierCreditRatio } } as IAIConfig;
     }
 
     // Fetch tags for the lg chat model and include in response
@@ -454,6 +537,76 @@ export class AiService {
     }
 
     return config as IGetAIConfig;
+  }
+
+  /**
+   * What the platform bills a model key at: a mapped gateway model at its target's configured
+   * price, a space BYOK model at nothing. Read from the admin config alone; a gateway model
+   * without a saved price and a mapping target that fails validation are left unpriced
+   * rather than resolved here.
+   */
+  private getBilledModelPricing(
+    modelKey: string,
+    llmProviders: LLMProvider[],
+    aiConfig: IAIConfig | null | undefined
+  ): IModelPricing | undefined {
+    const mapping =
+      this.baseConfig.isCloud && this.isGatewayModel(modelKey)
+        ? this.findModelMapping(modelKey, aiConfig)
+        : undefined;
+    const effectiveModelKey = mapping?.targetModelKey ?? modelKey;
+    if (!this.isInstanceAIModelByConfig(effectiveModelKey, llmProviders)) return undefined;
+    const { model } = this.parseModelKey(effectiveModelKey);
+    if (!model) return undefined;
+    if (this.isGatewayModel(effectiveModelKey)) {
+      return normalizeGatewayPricing(
+        aiConfig?.gatewayModels?.find((gatewayModel) => gatewayModel.id === model)?.pricing
+      );
+    }
+    return findProviderForModelKey(llmProviders, effectiveModelKey)?.modelConfigs?.[model]?.pricing;
+  }
+
+  /**
+   * Credit ratio of each offered tier against the default tier, from what each tier bills,
+   * weighted 75% input + 25% output (the token mix a chat turn has). Tiers without a billed
+   * price are left out, and nothing is returned when the default tier has none or when
+   * the deployment is self-hosted, which has no credit billing.
+   */
+  getChatTierCreditRatio(
+    chatModel: IChatModelTierSlots | null | undefined,
+    llmProviders: LLMProvider[],
+    aiConfig: IAIConfig | null | undefined
+  ): IModelTierCreditRatio | undefined {
+    if (!this.baseConfig.isCloud) return undefined;
+    const costOf = (tier: IModelTierId): number | undefined => {
+      const modelKey = getOfferedTierModelKey(chatModel, tier);
+      const pricing = modelKey
+        ? this.getBilledModelPricing(modelKey, llmProviders, aiConfig)
+        : undefined;
+      if (!pricing?.input || !pricing?.output) return undefined;
+      const cost =
+        Number.parseFloat(pricing.input) * 0.75 + Number.parseFloat(pricing.output) * 0.25;
+      return Number.isFinite(cost) ? cost : undefined;
+    };
+    const baseline = costOf(getDefaultModelTier(chatModel));
+    if (!baseline) return undefined;
+    const ratios = MODEL_TIER_IDS.flatMap((tier) => {
+      const cost = costOf(tier);
+      return cost === undefined ? [] : [[tier, cost / baseline] as const];
+    });
+    return ratios.length ? Object.fromEntries(ratios) : undefined;
+  }
+
+  /** The admin config's own tiers; every provider there is an instance provider. */
+  getAdminChatTierCreditRatio(
+    aiConfig: IAIConfig | null | undefined
+  ): IModelTierCreditRatio | undefined {
+    if (!aiConfig) return undefined;
+    const llmProviders = (aiConfig.llmProviders ?? []).map((provider) => ({
+      ...provider,
+      isInstance: true,
+    }));
+    return this.getChatTierCreditRatio(aiConfig.chatModel, llmProviders, aiConfig);
   }
 
   async getAIDisableAIActions(baseId: string) {
@@ -559,15 +712,7 @@ export class AiService {
   }
 
   findModelInProviders(modelKey: string, llmProviders: LLMProvider[]): boolean {
-    const { type, model, name } = this.parseModelKey(modelKey);
-
-    const providerConfig = llmProviders.find(
-      (p) =>
-        p.name.toLowerCase() === name.toLowerCase() &&
-        p.type.toLowerCase() === type.toLowerCase() &&
-        this.providerHasModel(p, model)
-    );
-    return !!providerConfig;
+    return findProviderForModelKey(llmProviders, modelKey) !== undefined;
   }
 
   /**
@@ -580,8 +725,28 @@ export class AiService {
     return modelKey.endsWith(`@${INSTANCE_PROVIDER_NAME}`);
   }
 
+  private findFirstModelKey(llmProviders: LLMProvider[]): string | undefined {
+    for (const provider of llmProviders) {
+      const model = provider.models
+        .split(',')
+        .map((model) => model.trim())
+        .find(Boolean);
+      if (model) return `${provider.type}@${model}@${provider.name}`;
+    }
+  }
+
   async getChatModelInstance(baseId: string) {
-    const { chatModel, llmProviders } = await this.getAIConfig(baseId);
+    return this.chatModelInstanceOf(await this.getAIConfig(baseId));
+  }
+
+  async getChatModelInstanceBySpaceId(spaceId: string) {
+    return this.chatModelInstanceOf(await this.getAIConfigBySpaceId(spaceId));
+  }
+
+  private async chatModelInstanceOf({
+    chatModel,
+    llmProviders,
+  }: Awaited<ReturnType<AiService['getAIConfig']>>) {
     if (!chatModel?.lg) {
       throw new CustomHttpException('AI chat model lg is not set', HttpErrorCode.VALIDATION_ERROR, {
         localization: {
@@ -599,13 +764,7 @@ export class AiService {
       isInstance = true;
     } else {
       // Standard provider lookup
-      const { type, model, name } = this.parseModelKey(chatModel?.lg);
-      const lgProvider = llmProviders.find(
-        (p) =>
-          p.name.toLowerCase() === name.toLowerCase() &&
-          p.type.toLowerCase() === type.toLowerCase() &&
-          p.models.includes(model)
-      );
+      const lgProvider = findProviderForModelKey(llmProviders, chatModel?.lg ?? '');
       if (!lgProvider) {
         throw new CustomHttpException(
           'AI chat model lg provider is not set',
@@ -687,7 +846,7 @@ export class AiService {
    * @param llmProviders - List of configured LLM providers (required for custom providers)
    */
   async getModelTags(modelKey: string, llmProviders: LLMProvider[]): Promise<GatewayModelTag[]> {
-    const { type, model, name } = this.parseModelKey(modelKey);
+    const { type, model } = this.parseModelKey(modelKey);
 
     // AI Gateway models: get tags from gateway config
     if (type === LLMProviderType.AI_GATEWAY) {
@@ -703,7 +862,7 @@ export class AiService {
     }
 
     // Custom providers: get tags from modelConfigs
-    const provider = llmProviders.find((p) => p.type === type && p.name === name);
+    const provider = findProviderForModelKey(llmProviders, modelKey);
     const modelConfig = provider?.modelConfigs?.[model];
 
     // Priority 1: Use tags if available
@@ -759,7 +918,7 @@ export class AiService {
         );
         return apiModel.pricing;
       }
-    } catch (error) {
+    } catch {
       this.logger.warn(`[getGatewayModelPricing] Failed to fetch API pricing for ${modelId}`);
     }
 
@@ -770,13 +929,29 @@ export class AiService {
   }
 
   /**
+   * Gateway reference pricing straight from the Gateway API, bypassing any
+   * admin-configured local override (which may carry a markup). Returns
+   * undefined when the model has no gateway reference or the fetch fails,
+   * so callers can fall back to getGatewayModelPricing.
+   */
+  async getGatewayReferencePricing(modelId: string) {
+    try {
+      const apiModel = await this.getGatewayApiModel(modelId);
+      return apiModel?.pricing;
+    } catch {
+      this.logger.warn(`[getGatewayReferencePricing] Failed to fetch API pricing for ${modelId}`);
+      return undefined;
+    }
+  }
+
+  /**
    * Get a specific model from Gateway API
    */
   private async getGatewayApiModel(modelId: string): Promise<IGatewayApiModel | undefined> {
     const models = await this.aiGatewayModelsService.getGatewayModels();
     const normalize = (s: string) =>
       s.split('/').pop()!.replaceAll('.', '').replaceAll('-', '').toLowerCase();
-    const stripDateSuffix = (s: string) => s.replace(/\d{8,}$/, '');
+    const stripDateSuffix = (s: string) => s.replace(/(?<!\d)\d{8,}$/, '');
     return models.find((m) => {
       const a = normalize(modelId);
       const b = normalize(m.id);

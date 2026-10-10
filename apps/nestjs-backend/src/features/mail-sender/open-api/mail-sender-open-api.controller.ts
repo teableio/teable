@@ -15,7 +15,9 @@ import { MailSenderOpenApiService } from './mail-sender-open-api.service';
 export class MailSenderOpenApiController {
   constructor(private readonly mailSenderOpenApiService: MailSenderOpenApiService) {}
 
+  // Connects to the SMTP server given in the body, so only instance admins (the mail settings page) may call it.
   @Post('/test-transport-config')
+  @Permissions('instance|update')
   async testTransportConfig(
     @Body(new ZodValidationPipe(testMailTransportConfigRoSchema))
     testMailTransportConfigRo: ITestMailTransportConfigRo

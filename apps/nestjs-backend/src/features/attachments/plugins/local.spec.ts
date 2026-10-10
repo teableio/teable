@@ -13,6 +13,7 @@ import { baseConfig } from '../../../configs/base.config';
 import { storageConfig } from '../../../configs/storage';
 import { GlobalModule } from '../../../global/global.module';
 import { LocalStorage } from './local';
+import { LocalReadTokenCodec, type ILocalReadTokenPayload } from './local-read-token';
 import { StorageModule } from './storage.module';
 import type { ILocalFileUpload } from './types';
 
@@ -230,6 +231,32 @@ describe('LocalStorage', () => {
     });
   });
 
+  describe('downloadFile', () => {
+    it('should create read stream when file exists', async () => {
+      vi.spyOn(fs.promises, 'access').mockResolvedValueOnce(undefined as never);
+      vi.spyOn(fs, 'createReadStream').mockReturnValueOnce(undefined as any);
+
+      await storage.downloadFile('private', 'chat-file/token');
+
+      expect(fs.createReadStream).toHaveBeenCalledWith(
+        resolve(storage.storageDir, 'private', 'chat-file/token')
+      );
+    });
+
+    it('should reject with the fs error instead of returning an erroring stream when file is missing', async () => {
+      const missing = Object.assign(new Error('ENOENT: no such file or directory'), {
+        code: 'ENOENT',
+      });
+      vi.spyOn(fs.promises, 'access').mockRejectedValueOnce(missing);
+      const createReadStream = vi.spyOn(fs, 'createReadStream').mockClear();
+
+      await expect(storage.downloadFile('private', 'chat-file/token_lg')).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+      expect(createReadStream).not.toHaveBeenCalled();
+    });
+  });
+
   describe('getFileMate', () => {
     it('should get file metadata', async () => {
       const mockPath = '/mock/file/path';
@@ -332,12 +359,12 @@ describe('LocalStorage', () => {
   });
 
   describe('getPreviewUrl', () => {
-    it('should get preview URL', async () => {
-      const mockBucket = 'mock-bucket';
-      const mockPath = 'mock/file/path';
-      const mockExpiresIn = 3600;
+    const mockBucket = 'mock-bucket';
+    const mockPath = 'mock/file/path';
+    const mockExpiresIn = 3600;
 
-      vi.spyOn(storage.expireTokenEncryptor, 'encrypt').mockReturnValueOnce('mock-token');
+    it('should get preview URL', async () => {
+      vi.spyOn(storage.readTokenCodec, 'encode').mockReturnValueOnce('mock-token');
 
       const result = await storage.getPreviewUrl(
         mockBucket,
@@ -346,48 +373,115 @@ describe('LocalStorage', () => {
         mockRespHeaders
       );
 
-      expect(storage.expireTokenEncryptor.encrypt).toHaveBeenCalledWith({
+      expect(storage.readTokenCodec.encode).toHaveBeenCalledWith({
         expiresDate: Math.floor(Date.now() / 1000) + mockExpiresIn,
         respHeaders: mockRespHeaders,
+        path: 'mock-bucket/mock/file/path',
       });
       expect(result).toBe('/api/attachments/read/mock-bucket/mock/file/path?token=mock-token');
+    });
+
+    it('seals the object path into a fresh token per url', async () => {
+      const tokenOf = (url: string) => new URL(url, 'http://localhost').searchParams.get('token')!;
+      const first = tokenOf(await storage.getPreviewUrl(mockBucket, mockPath, mockExpiresIn));
+      const second = tokenOf(await storage.getPreviewUrl(mockBucket, mockPath, mockExpiresIn));
+
+      // same object, same expiry window — still no shared bytes to replay
+      expect(first).not.toBe(second);
+      expect(first).toMatch(/^[\w-]+$/);
+      for (const token of [first, second]) {
+        expect(storage.readTokenCodec.decode(token)).toMatchObject({
+          path: 'mock-bucket/mock/file/path',
+          expiresDate: Math.floor(Date.now() / 1000) + mockExpiresIn,
+        });
+      }
     });
   });
 
   describe('verifyReadToken', () => {
+    const objectPath = 'mock-bucket/mock/file/path';
     const expiresDate = Math.floor(Date.now() / 1000) + 100000;
-    it('should verify read token', () => {
-      vi.spyOn(storage.expireTokenEncryptor, 'decrypt').mockReturnValueOnce({
+    const mintToken = (overrides: Partial<ILocalReadTokenPayload> = {}) =>
+      storage.readTokenCodec.encode({
+        path: objectPath,
         expiresDate,
         respHeaders: mockRespHeaders,
+        ...overrides,
       });
 
-      const result = storage.verifyReadToken('mock-token');
-
-      expect(storage.expireTokenEncryptor.decrypt).toHaveBeenCalledWith('mock-token');
+    it('should verify read token for the object it was minted for', () => {
+      const result = storage.verifyReadToken(mintToken(), objectPath);
 
       expect(result).toEqual({
         respHeaders: mockRespHeaders,
       });
     });
 
-    it('should throw BadRequestException for expired token', async () => {
-      vi.spyOn(storage.expireTokenEncryptor, 'decrypt').mockReturnValueOnce({
-        expiresDate: 1,
+    it('accepts a never-expiring token', () => {
+      expect(storage.verifyReadToken(mintToken({ expiresDate: -1 }), objectPath)).toEqual({
+        respHeaders: mockRespHeaders,
       });
+    });
 
-      const error = await getError(() => storage.verifyReadToken('expired-token'));
+    it('accepts an equivalent spelling of the same object path', () => {
+      expect(storage.verifyReadToken(mintToken(), 'mock-bucket//mock/./file/path')).toBeDefined();
+    });
+
+    it('rejects the token on any other object path', async () => {
+      for (const other of [
+        'mock-bucket/mock/file/other',
+        'mock-bucket/mock/file/path_sm',
+        'other-bucket/mock/file/path',
+        'mock-bucket/record-history/v1/tbl/_stats.json',
+      ]) {
+        const error = await getError(() => storage.verifyReadToken(mintToken(), other));
+        expect(error?.message).toBe('Invalid token');
+        expect(error?.status).toBe(400);
+      }
+    });
+
+    it('rejects a legacy payload without the path claim', async () => {
+      vi.spyOn(storage.readTokenCodec, 'decode').mockReturnValueOnce({
+        expiresDate,
+        respHeaders: mockRespHeaders,
+      } as unknown as ILocalReadTokenPayload);
+
+      const error = await getError(() => storage.verifyReadToken('legacy-token', objectPath));
+      expect(error?.message).toBe('Invalid token');
+      expect(error?.status).toBe(400);
+    });
+
+    it('rejects a tampered token', async () => {
+      const token = mintToken();
+      const flipped = token[20] === 'A' ? 'B' : 'A';
+      const tampered = token.slice(0, 20) + flipped + token.slice(21);
+
+      const error = await getError(() => storage.verifyReadToken(tampered, objectPath));
+      expect(error?.message).toBe('Invalid token');
+      expect(error?.status).toBe(400);
+    });
+
+    it('rejects a token sealed under another key', async () => {
+      const foreign = new LocalReadTokenCodec([
+        { algorithm: 'aes-128-cbc', key: 'ffffffffffffffff', iv: 'eeeeeeeeeeeeeeee' },
+      ]).encode({ path: objectPath, expiresDate, respHeaders: mockRespHeaders });
+
+      const error = await getError(() => storage.verifyReadToken(foreign, objectPath));
+      expect(error?.message).toBe('Invalid token');
+      expect(error?.status).toBe(400);
+    });
+
+    it('should throw BadRequestException for expired token', async () => {
+      const error = await getError(() =>
+        storage.verifyReadToken(mintToken({ expiresDate: 1 }), objectPath)
+      );
       expect(error).toBeDefined();
       expect(error?.message).toBe('Token has expired');
       expect(error?.status).toBe(400);
     });
 
     it('should throw BadRequestException for invalid token', async () => {
-      vi.spyOn(storage.expireTokenEncryptor, 'decrypt').mockImplementationOnce(() => {
-        throw new Error();
-      });
-
-      const error = await getError(() => storage.verifyReadToken('invalid-token'));
+      const error = await getError(() => storage.verifyReadToken('invalid-token', objectPath));
       expect(error).toBeDefined();
       expect(error?.message).toBe('Invalid token');
       expect(error?.status).toBe(400);

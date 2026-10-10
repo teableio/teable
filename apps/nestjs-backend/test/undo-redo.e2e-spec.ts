@@ -15,6 +15,7 @@ import {
   FieldType,
   getRandomString,
   Relationship,
+  Role,
   SortFunc,
   ViewType,
 } from '@teable/core';
@@ -28,10 +29,18 @@ import {
   createField,
   createRecords,
   createView,
+  deleteBaseCollaborator,
   deleteField,
   deleteFields,
   deleteRecord,
   deleteRecords,
+  DELETE_RECORD_URL,
+  emailBaseInvitation,
+  OPERATION_UNDO,
+  PrincipalType,
+  updateBaseCollaborator,
+  urlBuilder,
+  USER_ME,
   deleteSelection,
   deleteSelectionStream,
   deleteView,
@@ -71,13 +80,16 @@ import {
   X_CANARY_HEADER,
   ensureUndoRedoWindowIdHeader,
 } from '@teable/openapi';
-import type { ITableFullVo } from '@teable/openapi';
+import type { ITableFullVo, IUndoVo, IUserMeVo } from '@teable/openapi';
+import type { AxiosInstance } from 'axios';
 import { onTestFinished } from 'vitest';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import { X_TEABLE_V2_HEADER } from '../src/features/canary/interceptors/v2-indicator.interceptor';
 import { X_TEABLE_UNDO_REDO_ENGINE_HEADER } from '../src/features/undo-redo/open-api/undo-redo.service';
+import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { createEventPromise } from './utils/event-promise';
+import { getError } from './utils/get-error';
 import { initApp, permanentDeleteTable, createTable, updateRecordByApi } from './utils/init-app';
 
 const isForceV2 = process.env.FORCE_V2_ALL === 'true';
@@ -2103,7 +2115,7 @@ describe('Undo Redo (e2e)', () => {
 
       const sourceField = (await createField(table1.id, sourceFieldRo)).data;
 
-      (await convertField(table1.id, sourceField.id, newFieldRo)).data;
+      await convertField(table1.id, sourceField.id, newFieldRo);
 
       await undo(table1.id);
 
@@ -2197,7 +2209,7 @@ describe('Undo Redo (e2e)', () => {
         },
       });
 
-      (await convertField(table1.id, sourceField.id, newFieldRo)).data;
+      await convertField(table1.id, sourceField.id, newFieldRo);
 
       await undo(table1.id);
       const fieldAfterUndo = (await getField(table1.id, sourceField.id)).data;
@@ -2249,6 +2261,76 @@ describe('Undo Redo (e2e)', () => {
       const { records } = (await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id })).data;
       expect(records[0].fields[symmetricField.id]).toMatchObject({ id: table1.records[0].id });
       expect(records[1].fields[symmetricField.id]).toMatchObject({ id: table1.records[0].id });
+    });
+  });
+
+  // GHSA-v4g3-8wc4-7m74: the undo/redo routes only need table|read, but a
+  // replay writes whatever the entry carries. A collaborator downgraded after
+  // the original write must not be able to re-apply it through their stack.
+  describe('permission gate', () => {
+    const editorEmail = 'undo-redo-editor@example.com';
+    const editorWindowId = 'win' + getRandomString(8);
+    let editorAxios: AxiosInstance;
+    let editorId: string;
+
+    const setEditorRole = (role: Role) =>
+      updateBaseCollaborator({
+        baseId,
+        updateBaseCollaborateRo: { principalId: editorId, principalType: PrincipalType.User, role },
+      });
+    const editorUndo = () =>
+      editorAxios.post<IUndoVo>(urlBuilder(OPERATION_UNDO, { tableId: table.id }), undefined, {
+        headers: { [windowIdHeader]: editorWindowId },
+      });
+    const hasRecord = async (recordId: string) => {
+      const { records } = (await getRecords(table.id, { fieldKeyType: FieldKeyType.Id })).data;
+      return records.some((record) => record.id === recordId);
+    };
+
+    beforeAll(async () => {
+      editorAxios = await createNewUserAxios({ email: editorEmail, password: '12345678' });
+      editorId = (await editorAxios.get<IUserMeVo>(USER_ME)).data.id;
+      // Tolerate a collaborator left behind by an aborted run; the role reset
+      // below puts them where this suite expects them anyway.
+      await getError(() =>
+        emailBaseInvitation({
+          baseId,
+          emailBaseInvitationRo: { emails: [editorEmail], role: Role.Editor },
+        })
+      );
+      await setEditorRole(Role.Editor);
+    });
+
+    afterAll(async () => {
+      await deleteBaseCollaborator({
+        baseId,
+        deleteBaseCollaboratorRo: { principalId: editorId, principalType: PrincipalType.User },
+      });
+    });
+
+    it('refuses to replay a delete after the caller became a viewer, without consuming the entry', async () => {
+      const recordId = table.records[0].id;
+      const deleteRes = await awaitWithEvent(() =>
+        editorAxios.delete(urlBuilder(DELETE_RECORD_URL, { tableId: table.id, recordId }), {
+          headers: { [windowIdHeader]: editorWindowId },
+        })
+      );
+      const expectedEngine = deleteRes.headers[X_TEABLE_V2_HEADER] === 'true' ? 'v2' : 'v1';
+      expect(await hasRecord(recordId)).toBe(false);
+
+      await setEditorRole(Role.Viewer);
+
+      const refused = await getError(editorUndo);
+      expect(refused?.status).toBe(403);
+      expect(await hasRecord(recordId)).toBe(false);
+
+      // Back to editor: the refused entry is still on top of the stack.
+      await setEditorRole(Role.Editor);
+
+      const undoRes = await editorUndo();
+      expect(undoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(expectedEngine);
+      expect(undoRes.data).toMatchObject({ status: 'fulfilled' });
+      expect(await hasRecord(recordId)).toBe(true);
     });
   });
 });

@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import type {
   IUnitOfWorkOptions,
   IExecutionContext,
@@ -241,7 +242,7 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
     return {
       ...transactionContext,
       transactions: {
-        ...(transactionContext.transactions ?? {}),
+        ...transactionContext.transactions,
         [scope]: transaction,
         [siblingScope]: transaction,
       },
@@ -287,7 +288,7 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
       ...context,
       transaction: siblingTransaction,
       transactions: {
-        ...(context.transactions ?? {}),
+        ...context.transactions,
         ...(siblingTransaction.scope ? { [siblingTransaction.scope]: siblingTransaction } : {}),
         [scope]: siblingTransaction,
       },
@@ -318,10 +319,11 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
   private async executeWithRetries<T>(
     context: IExecutionContext,
     work: UnitOfWorkOperation<T>,
-    scope: UnitOfWorkScope
+    scope: UnitOfWorkScope,
+    retry: boolean
   ): Promise<Result<T, DomainError>> {
     const db = scope === 'meta' ? this.metaDb : this.dataDb;
-    const maxRetries = 3;
+    const maxRetries = retry ? 3 : 0;
     let attempt = 0;
 
     // Retry only for top-level transactions, and only for retryable infra failures.
@@ -378,7 +380,7 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
       return work(sharedTransactionContext);
     }
 
-    return this.executeWithRetries(context, work, scope);
+    return this.executeWithRetries(context, work, scope, options?.retry !== false);
   }
 }
 
@@ -388,7 +390,7 @@ const sleep = async (ms: number): Promise<void> => {
 
 const backoffMs = (attempt: number): number => {
   const base = 5 * 2 ** attempt;
-  const jitter = Math.floor(Math.random() * 10);
+  const jitter = randomInt(10);
   return base + jitter;
 };
 

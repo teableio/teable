@@ -19,7 +19,7 @@ export function updateViewOptions(
   viewId: ViewId,
   patch: unknown
 ): Result<UpdateViewOptionsMethodResult, DomainError> {
-  const table = this;
+  const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   return safeTry<UpdateViewOptionsMethodResult, DomainError>(function* () {
     const view = yield* table.getView(viewId);
     const previousOptions = view.options();

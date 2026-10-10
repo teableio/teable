@@ -37,7 +37,7 @@ export function ProviderModelOption({
   modelDefinationMap,
   t,
   showPriceInfo = false,
-}: IProviderModelOptionProps) {
+}: Readonly<IProviderModelOptionProps>) {
   const { modelKey, label } = option;
   const { type, model } = parseModelKey(modelKey);
   const Icon = LLM_PROVIDER_ICONS[type as keyof typeof LLM_PROVIDER_ICONS];

@@ -1,9 +1,9 @@
 import { BullModule } from '@nestjs/bullmq';
-import type { NestWorkerOptions } from '@nestjs/bullmq/dist/interfaces/worker-options.interface';
 import type { DynamicModule } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { ConditionalModule } from '@nestjs/config';
 import { ConfigModule } from '../../configs/config.module';
+import type { NestWorkerOptions } from '../../utils/nest-worker-options';
 import { FallbackQueueModule } from './fallback/fallback-queue.module';
 
 const queueOptions: NestWorkerOptions = {

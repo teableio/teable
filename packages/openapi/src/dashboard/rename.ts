@@ -21,6 +21,7 @@ export type IRenameDashboardVo = z.infer<typeof renameDashboardVoSchema>;
 export const RenameDashboardRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: RENAME_DASHBOARD,
+  title: 'Patch project dashboard rename',
   description: 'Rename a dashboard by id',
   request: {
     params: z.object({

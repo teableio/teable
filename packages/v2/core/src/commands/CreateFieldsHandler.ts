@@ -76,7 +76,7 @@ export class CreateFieldsHandler
     context: ExecutionContextPort.IExecutionContext,
     command: CreateFieldsCommand
   ): Promise<Result<CreateFieldsResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<CreateFieldsResult, DomainError>(async function* () {
       const foreignTableReferences = yield* command.foreignTableReferences();
       const foreignTables = yield* await handler.foreignTableLoaderService.load(context, {

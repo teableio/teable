@@ -6,7 +6,7 @@
   "fieldKeyType": "字段 key 类型",
   "chooseSource": "选择数据源",
   "action": {
-    "selectBase": "选择一个数据库...",
+    "selectBase": "选择一个项目...",
     "selectTable": "选择一个表..."
   },
   "pickParams": "选择需要的参数进行配置",

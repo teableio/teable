@@ -4,6 +4,7 @@ import { notifyVoSchema } from '../attachment';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import { templateKindSchema } from './kind';
 
 export const UPDATE_TEMPLATE = '/template/{templateId}';
 
@@ -40,6 +41,7 @@ export const updateTemplateRoSchema = z.object({
   isSystem: z.boolean().optional(),
   baseId: z.string().optional(),
   markdownDescription: z.string().optional(),
+  kind: templateKindSchema.optional(),
 });
 
 export type IUpdateTemplateRo = z.infer<typeof updateTemplateRoSchema>;

@@ -115,7 +115,7 @@ export type ComputedUpdateOutboxConfig = {
   stageMaxEdges: number;
   /**
    * Small runs (estimated complexity at or below this threshold, no whole-table
-   * seeds) multiply the three stage budgets above by
+   * seeds) may explicitly opt into multiplying the stage budgets above by
    * stageSmallRunBudgetMultiplier, so trivial cascades do not pay per-task
    * pipeline overhead for a dozen tiny slices. Volume misestimates degrade
    * gracefully: the dirty budget still aborts an over-budget stage before any
@@ -171,6 +171,18 @@ export type ComputedUpdateOutboxConfig = {
    * pruned opportunistically after successful completions. 0 disables pruning.
    */
   runHistoryRetentionMs: number;
+  /**
+   * Reset the durable stage ledger's file while no scope holds state. An
+   * emptied ledger otherwise keeps the btree high-water mark of the largest
+   * churn wave forever: PostgreSQL recycles emptied pages only inside the
+   * existing index file, so the space of a finished peak is never returned.
+   */
+  stageLedgerCompactionEnabled: boolean;
+  /**
+   * Total stage-ledger size (heap plus indexes) in bytes at which an empty
+   * ledger may be reset. Below this the file is cheap enough to leave alone.
+   */
+  stageLedgerCompactionMinBytes: number;
 };
 
 export const defaultComputedUpdateOutboxConfig: ComputedUpdateOutboxConfig = {
@@ -189,7 +201,7 @@ export const defaultComputedUpdateOutboxConfig: ComputedUpdateOutboxConfig = {
   fanoutDirtyRecordsThreshold: 2000,
   fanoutSeedSplitMaxSeeds: 5,
   maxConcurrentProcessingPerBase: 2,
-  maxConcurrentProcessingPerSeedTable: 2,
+  maxConcurrentProcessingPerSeedTable: 1,
   taskStatementTimeoutMs: 60 * 1000,
   fieldBackfillBatchSize: 500,
   // Wide dependency graphs (hub tables with hundreds of computed fields) must not run
@@ -198,13 +210,20 @@ export const defaultComputedUpdateOutboxConfig: ComputedUpdateOutboxConfig = {
   stageMaxFields: 32,
   stageMaxEdges: 12,
   stageSmallRunComplexityThreshold: 512,
-  stageSmallRunBudgetMultiplier: 4,
+  // Seed/dirty estimates bound output volume, not the cost of a lookup scan.
+  // Keep transaction caps strict by default, including edge-free forced recomputes.
+  // Operators can opt into adaptivity once their workload is known to be cheap.
+  stageSmallRunBudgetMultiplier: 1,
   stageMaxDirtyRecords: 5000,
   stageMaxCollectedSeedIds: 25_000,
   stageSeedAllThreshold: 5000,
   continuationRelayClaimEnabled: true,
   runHistoryEnabled: true,
   runHistoryRetentionMs: 7 * 24 * 60 * 60 * 1000,
+  stageLedgerCompactionEnabled: true,
+  // A wave peak leaves hundreds of MB behind; anything below this is a cheap
+  // file that a later wave reuses anyway.
+  stageLedgerCompactionMinBytes: 32 * 1024 * 1024,
 };
 
 export const normalizeComputedUpdateOutboxConfig = (
@@ -250,6 +269,8 @@ export const normalizeComputedUpdateOutboxConfig = (
     continuationRelayClaimEnabled: config.continuationRelayClaimEnabled !== false,
     runHistoryEnabled: config.runHistoryEnabled !== false,
     runHistoryRetentionMs: Math.max(0, Math.trunc(config.runHistoryRetentionMs)),
+    stageLedgerCompactionEnabled: config.stageLedgerCompactionEnabled !== false,
+    stageLedgerCompactionMinBytes: Math.max(0, Math.trunc(config.stageLedgerCompactionMinBytes)),
   };
 };
 
@@ -365,11 +386,14 @@ export type MarkFailedOptions = {
   retryable?: boolean;
   directDeadLetter?: boolean;
   diagnostics?: ComputedTaskFailureDiagnostics;
+  /** Newly discovered work that could not be enqueued before terminal failure. */
+  remainingTargets?: ReadonlyArray<FieldComputeTarget>;
 };
 
 export type ComputedTaskFailureDiagnostics = {
   readonly version: 1;
   readonly failure: {
+    readonly code?: string;
     readonly kind?: string;
     readonly reason?: string;
     readonly retryable?: boolean;
@@ -474,8 +498,11 @@ export interface IComputedUpdateOutbox {
    */
   enqueueFieldBackfill(
     task: FieldBackfillOutboxTaskInput,
-    context?: IExecutionContext
-  ): Promise<Result<{ taskId: string; merged: boolean }, DomainError>>;
+    context?: IExecutionContext,
+    options?: Pick<EnqueueOrMergeOptions, 'relayClaim'>
+  ): Promise<
+    Result<{ taskId: string; merged: boolean; claimed?: AnyOutboxItem | null }, DomainError>
+  >;
 
   claimBatch(
     params: ClaimBatchParams,

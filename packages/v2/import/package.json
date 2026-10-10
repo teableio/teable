@@ -31,18 +31,23 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
+    "@teable/v2-adapter-csv-parser-papaparse": "workspace:*",
     "@teable/v2-core": "workspace:*",
     "@teable/v2-utils": "workspace:*",
     "@teable/v2-di": "workspace:*",
+    "htmlparser2": "10.0.0",
     "neverthrow": "8.2.0",
     "papaparse": "5.5.3",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+    "saxes": "6.0.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+    "yauzl": "3.2.0"
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",
     "@teable/v2-tsdown-config": "workspace:*",
-    "@types/node": "22.18.0",
+    "@types/node": "24.13.2",
     "@types/papaparse": "5.3.15",
+    "@types/yauzl": "3.4.0",
     "@vitest/coverage-v8": "4.0.17",
     "eslint": "8.57.0",
     "prettier": "3.2.5",

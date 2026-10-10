@@ -30,6 +30,18 @@ describe('formatNumberToString', () => {
       const formatting: INumberFormatting = { type: NumberFormattingType.Decimal, precision: 0 };
       expect(formatNumberToString(num, formatting)).toBe('1234');
     });
+
+    it('should print numbers beyond safe integers with the digits the API returns', () => {
+      const num = 22800101040067320000;
+      const integer: INumberFormatting = { type: NumberFormattingType.Decimal, precision: 0 };
+      expect(formatNumberToString(num, decimalFormatting)).toBe('22800101040067320000.00');
+      expect(formatNumberToString(num, integer)).toBe(String(num));
+      expect(formatNumberToString(-num, integer)).toBe(String(-num));
+      expect(Number(formatNumberToString(num, integer))).toBe(num);
+      expect(formatNumberToString(1e21, decimalFormatting)).toBe('1e+21');
+      expect(formatNumberToString(Number.MAX_SAFE_INTEGER, integer)).toBe('9007199254740991');
+      expect(formatNumberToString(num, { ...integer, precision: 0.5 })).toBe(String(num));
+    });
   });
 
   describe('Formatting Percent', () => {
@@ -46,6 +58,12 @@ describe('formatNumberToString', () => {
     it('should return an empty string when given a null input', () => {
       const num = null;
       expect(formatNumberToString(num as any, percentFormatting)).toBe('');
+    });
+
+    it('should print percentages beyond safe integers with the digits the API returns', () => {
+      expect(formatNumberToString(228001010400673200, percentFormatting)).toBe(
+        '22800101040067320000.00%'
+      );
     });
   });
 

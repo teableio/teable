@@ -42,6 +42,7 @@
  *   --upload-assets-list  Assets list for upload
  */
 
+import { randomInt } from 'node:crypto';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -112,7 +113,7 @@ const toArray = (input, commaSplit = false, newlineSplit = false) => {
   });
 };
 
-const toBoolean = (input) => Boolean(input);
+const toBoolean = Boolean;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Version
@@ -122,7 +123,10 @@ const env = $.env;
 let isCi = ['true', '1'].includes(env?.CI ?? '');
 
 function formatReleaseTimestamp(date) {
-  return date.toISOString().replace(/\.\d{3}Z$/, 'Z').replace(/:/g, '-');
+  return date
+    .toISOString()
+    .replace(/\.\d{3}Z$/, 'Z')
+    .replaceAll(':', '-');
 }
 
 function getReleaseBuildDate() {
@@ -133,7 +137,7 @@ function getReleaseBuildDate() {
 
   const parsedDate = new Date(releaseTimestamp);
   if (Number.isNaN(parsedDate.getTime())) {
-    throw new Error(`Invalid TEABLE_RELEASE_TIMESTAMP: ${releaseTimestamp}`);
+    throw new TypeError(`Invalid TEABLE_RELEASE_TIMESTAMP: ${releaseTimestamp}`);
   }
 
   return parsedDate;
@@ -199,7 +203,7 @@ async function withRetry(fn, { maxRetries = 3, delaySeconds = 5, onRetry }) {
       if (attempt <= maxRetries) {
         // Exponential backoff with jitter
         const backoff = delaySeconds * Math.pow(2, attempt - 1);
-        const jitter = Math.random(); // 0-1 second random jitter
+        const jitter = randomInt(1000) / 1000; // 0-1 second random jitter
         const waitTime = Math.round(backoff + jitter);
         if (onRetry) {
           onRetry({ attempt, maxRetries, waitTime, error: lastError });
@@ -290,8 +294,8 @@ async function executeDockerPush(groups, { retry, retryDelay }) {
   const startTime = Date.now();
 
   const registryResults = await pushGroupedByRegistry(groups, {
-    maxRetries: parseInt(retry, 10),
-    delaySeconds: parseInt(retryDelay, 10),
+    maxRetries: Number.parseInt(retry, 10),
+    delaySeconds: Number.parseInt(retryDelay, 10),
     tracker,
   });
 
@@ -374,7 +378,6 @@ function buildDockerCommand(options) {
     uploadAssetsList,
     releaseId,
     dockerReleaseId,
-    arch,
     useFullRegistryTags,
   } = options;
 

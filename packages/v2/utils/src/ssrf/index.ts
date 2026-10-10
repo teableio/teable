@@ -2,7 +2,12 @@
 // - agents.ts   → http.Agent stack (axios / node-fetch), via request-filtering-agent
 // - fetch.ts    → undici dispatcher (isomorphic global fetch) + shared predicates
 // - registry.ts → process-wide `safeFetch` used directly by URL-sourced adapters
-export { getSafeAxiosAgents, getSafeFetchAgent } from './agents';
+export {
+  getSafeAxiosAgents,
+  getSafeFetchAgent,
+  isCloudMetadataAddress,
+  type ISafeAgentOptions,
+} from './agents';
 export { safeFetch, setSafeFetch } from './registry';
 export {
   ATTACHMENT_READ_PATH,

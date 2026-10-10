@@ -1,5 +1,6 @@
 import { HttpErrorCode } from '@teable/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { OperationName } from '../../../cache/types';
 import { CustomHttpException } from '../../../custom.exception';
 import { UndoRedoService } from './undo-redo.service';
 
@@ -35,6 +36,9 @@ describe('UndoRedoService write freeze', () => {
   const migrationGuard = {
     assertTableWritable: vi.fn(),
   };
+  const permissionService = {
+    validPermissions: vi.fn(),
+  };
 
   const service = () =>
     new UndoRedoService(
@@ -46,6 +50,7 @@ describe('UndoRedoService write freeze', () => {
       undoRedoOperationService as never,
       { dataPrismaForTable: vi.fn() } as never,
       { markRestored: vi.fn() } as never,
+      permissionService as never,
       migrationGuard as never
     );
 
@@ -92,12 +97,13 @@ describe('UndoRedoService write freeze', () => {
 
   it('allows non-migrating undo to continue through the normal stack path', async () => {
     const push = vi.fn();
-    const operation = { id: 'opxxx' };
+    const operation = { id: 'opxxx', name: OperationName.UpdateRecords };
     const reverseOperation = { id: 'opreverse' };
 
     migrationGuard.assertTableWritable.mockResolvedValue(undefined);
-    cls.get.mockReturnValue('usrxxx');
+    cls.get.mockImplementation((key: string) => (key === 'user.id' ? 'usrxxx' : undefined));
     cacheService.get.mockResolvedValue('v1');
+    permissionService.validPermissions.mockResolvedValue(['record|update']);
     undoRedoStackService.popUndo.mockResolvedValue({
       operation,
       push,

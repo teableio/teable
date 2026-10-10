@@ -10,7 +10,6 @@ import { z } from 'zod';
 import type { IDomainEventDto } from '../shared/domainEvent';
 import { domainEventDtoSchema, mapDomainEventToDto } from '../shared/domainEvent';
 import {
-  apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
   type HttpErrorStatus,
   type IApiErrorResponseDto,
@@ -45,7 +44,7 @@ export const duplicateRecordOkResponseSchema = apiOkResponseDtoSchema(
   duplicateRecordResponseDataSchema
 );
 
-export const duplicateRecordErrorResponseSchema = apiErrorResponseDtoSchema;
+export { apiErrorResponseDtoSchema as duplicateRecordErrorResponseSchema } from '../shared/http';
 
 export const mapDuplicateRecordResultToDto = (
   result: DuplicateRecordResult

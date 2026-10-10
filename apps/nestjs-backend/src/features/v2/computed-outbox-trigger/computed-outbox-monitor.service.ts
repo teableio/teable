@@ -9,6 +9,7 @@ import {
   type IComputedOutboxTriggerConfig,
 } from '../../../configs/computed-outbox-trigger.config';
 import type {
+  IComputedOutboxLockConvoy,
   IComputedOutboxMaintenanceSnapshot,
   IComputedOutboxMaintenanceTarget,
 } from '../../../global/data-db-client-manager.service';
@@ -187,6 +188,10 @@ export type ComputedOutboxQueueJobScanResult = {
 // each process only re-checks after this long even though refresh runs more
 // often. Multiple replicas sweeping concurrently is harmless (ZREM idempotent).
 const ORPHANED_FAILED_SWEEP_MIN_INTERVAL_MS = 5 * 60_000;
+const BACKLOG_ALERT_REPEAT_MS = 5 * 60_000;
+const LOCK_CONVOY_ALERT_REPEAT_MS = 5 * 60_000;
+const LOCK_CONVOY_IDLE_MS = 90_000;
+const LOCK_CONVOY_MIN_WAITERS = 5;
 
 const emptyCounts = (): OutboxCounts => ({
   duePending: 0,
@@ -222,6 +227,9 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
   private lastSnapshot: ComputedOutboxMonitorSnapshot | undefined;
   private stopped = false;
   private lastOrphanSweepAt = 0;
+  private backlogAlertActive = false;
+  private lastBacklogAlertAt = 0;
+  private readonly lockConvoyAlertAt = new Map<string, number>();
 
   constructor(
     @ComputedOutboxTriggerConfig()
@@ -495,6 +503,7 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
           ? 'partial'
           : 'error'
     );
+    this.reportBacklogAlert(reasons, outbox);
 
     return {
       status,
@@ -788,6 +797,7 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
           target,
           defaultComputedUpdateOutboxConfig.processingLeaseMs
         );
+        await this.reportLockConvoy(target);
         return { target, snapshot };
       } catch (error) {
         this.logger.warn('computed:outbox:monitor_target_failed', {
@@ -796,6 +806,81 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
         });
         return { target };
       }
+    });
+  }
+
+  private reportBacklogAlert(
+    reasons: readonly HealthReason[],
+    outbox: ComputedOutboxMonitorSnapshot['outbox']
+  ): void {
+    const active = reasons.includes('overdue_pending') || reasons.includes('stale_processing');
+    const now = Date.now();
+    if (!active) {
+      if (!this.backlogAlertActive) return;
+      this.backlogAlertActive = false;
+      this.logger.log('computed:outbox:backlog_recovered', {
+        duePending: outbox.duePending,
+        staleProcessing: outbox.staleProcessing,
+        oldestDueAgeMs: outbox.oldestDueAgeMs,
+      });
+      return;
+    }
+    if (this.backlogAlertActive && now - this.lastBacklogAlertAt < BACKLOG_ALERT_REPEAT_MS) return;
+    this.backlogAlertActive = true;
+    this.lastBacklogAlertAt = now;
+    this.logger.warn('computed:outbox:backlog_aged', {
+      reasons: reasons.filter(
+        (reason) => reason === 'overdue_pending' || reason === 'stale_processing'
+      ),
+      duePending: outbox.duePending,
+      staleProcessing: outbox.staleProcessing,
+      oldestDueAgeMs: outbox.oldestDueAgeMs,
+      storage: outbox.storage.map((item) => ({
+        storage: item.storage,
+        duePending: item.duePending,
+        staleProcessing: item.staleProcessing,
+        oldestDueAgeMs: item.oldestDueAgeMs,
+      })),
+    });
+  }
+
+  private async reportLockConvoy(target: IComputedOutboxMaintenanceTarget): Promise<void> {
+    const probe = this.dataDbClientManager.inspectComputedOutboxLockConvoy;
+    if (typeof probe !== 'function') return;
+    let convoy: IComputedOutboxLockConvoy;
+    try {
+      convoy = await probe.call(this.dataDbClientManager, target, LOCK_CONVOY_IDLE_MS);
+    } catch (error) {
+      this.logger.debug('computed:outbox:lock_convoy_probe_failed', {
+        storage: target.storage,
+        cacheKey: target.cacheKey,
+        errorType: error instanceof Error ? error.name : 'UnknownError',
+      });
+      return;
+    }
+    const active = convoy.idleTransactions > 0 && convoy.lockWaiters >= LOCK_CONVOY_MIN_WAITERS;
+    const now = Date.now();
+    const last = this.lockConvoyAlertAt.get(target.cacheKey);
+    if (!active) {
+      if (last === undefined) return;
+      this.lockConvoyAlertAt.delete(target.cacheKey);
+      this.logger.log('computed:outbox:lock_convoy_cleared', {
+        storage: target.storage,
+        cacheKey: target.cacheKey,
+        lockWaiters: convoy.lockWaiters,
+        idleTransactions: convoy.idleTransactions,
+      });
+      return;
+    }
+    if (last !== undefined && now - last < LOCK_CONVOY_ALERT_REPEAT_MS) return;
+    this.lockConvoyAlertAt.set(target.cacheKey, now);
+    this.logger.warn('computed:outbox:lock_convoy', {
+      storage: target.storage,
+      cacheKey: target.cacheKey,
+      lockWaiters: convoy.lockWaiters,
+      idleTransactions: convoy.idleTransactions,
+      oldestIdleTransactionMs: convoy.oldestIdleTransactionMs,
+      sampleQuery: convoy.sampleQuery,
     });
   }
 

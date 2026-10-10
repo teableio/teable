@@ -312,7 +312,7 @@ export class IntegrityV2Service {
     }
 
     if (!baseResult.value) {
-      throw new HttpException('Base not found', HttpStatus.NOT_FOUND);
+      throw new HttpException('Project not found', HttpStatus.NOT_FOUND);
     }
 
     const db = container.resolve<ISchemaIntegrityDb>(v2DataDbTokens.db);

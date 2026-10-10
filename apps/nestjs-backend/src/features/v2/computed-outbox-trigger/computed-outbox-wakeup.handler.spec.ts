@@ -5,8 +5,14 @@ import {
 import { v2CoreTokens } from '@teable/v2-core';
 import { describe, expect, it, vi } from 'vitest';
 
-import { DataDbBindingNotReadyError } from '../../../global/data-db-client-manager.service';
+import {
+  DataDbBaseNotFoundError,
+  DataDbBindingNotReadyError,
+  DataDbClientManager,
+} from '../../../global/data-db-client-manager.service';
+import { DataDbRuntimeCacheService } from '../../../global/data-db-runtime-cache.service';
 
+import { BullMqComputedOutboxWakeupProcessor } from './bullmq-computed-outbox-wakeup.processor';
 import { createRoleAwareWakeupPublisher } from './computed-outbox-wakeup-producer.module';
 import { ComputedOutboxWakeupHandler } from './computed-outbox-wakeup.handler';
 
@@ -34,6 +40,7 @@ describe('ComputedOutboxWakeupHandler', () => {
   const createPublisher = (publish = vi.fn()) => ({
     publish,
     runAsConsumer: <T>(operation: () => Promise<T>) => operation(),
+    onDeliveryRecovered: vi.fn(() => vi.fn()),
   });
 
   const activePermit = { assertActive: vi.fn() };
@@ -77,6 +84,65 @@ describe('ComputedOutboxWakeupHandler', () => {
     );
     return { handler, publish };
   };
+
+  const createRoutingProcessor = (findUnique: () => Promise<null>) => {
+    const manager = new DataDbClientManager(
+      { base: { findUnique } } as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService(),
+      {} as never
+    );
+    const metrics = createMetrics();
+    const publish = vi.fn().mockResolvedValue({ status: 'accepted' });
+    const publisher = createPublisher(publish);
+    const handler = new ComputedOutboxWakeupHandler(
+      {
+        getContainerForBase: async (baseId: string) => {
+          await manager.getDataDatabaseForBase(baseId);
+          throw new Error('Unexpected container resolution');
+        },
+      } as never,
+      metrics as never,
+      publisher as never,
+      createActiveAdmission()
+    );
+    const processor = new BullMqComputedOutboxWakeupProcessor(handler, metrics as never, publisher);
+    return { processor, publish };
+  };
+
+  it('completes an orphan wakeup without re-arming it when base routing finds no base', async () => {
+    const { processor, publish } = createRoutingProcessor(vi.fn().mockResolvedValue(null));
+
+    await expect(
+      processor.process({ data: wakeup, attemptsMade: 2, opts: { attempts: 3 } } as never)
+    ).resolves.toEqual({ status: 'noop' });
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it('keeps routing query failures retryable even when their text resembles a missing base', async () => {
+    const queryError = new Error(`Base ${wakeup.baseId} not found`);
+    const { processor, publish } = createRoutingProcessor(vi.fn().mockRejectedValue(queryError));
+
+    await expect(
+      processor.process({ data: wakeup, attemptsMade: 2, opts: { attempts: 3 } } as never)
+    ).rejects.toBe(queryError);
+    expect(publish).toHaveBeenCalledWith(
+      expect.objectContaining({ taskId: wakeup.taskId, baseId: wakeup.baseId, cause: 'replay' })
+    );
+  });
+
+  it('does not acknowledge a missing-base error for a different base', async () => {
+    const routingError = new DataDbBaseNotFoundError('bse9876543210987654');
+    const { processor, publish } = createRoutingProcessor(vi.fn().mockRejectedValue(routingError));
+
+    await expect(
+      processor.process({ data: wakeup, attemptsMade: 2, opts: { attempts: 3 } } as never)
+    ).rejects.toBe(routingError);
+    expect(publish).toHaveBeenCalledWith(
+      expect.objectContaining({ taskId: wakeup.taskId, baseId: wakeup.baseId, cause: 'replay' })
+    );
+  });
 
   it('holds the cluster permit until processing and follow-up draining finish', async () => {
     const runTaskById = vi.fn().mockResolvedValue({ isErr: () => false, value: true });

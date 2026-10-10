@@ -20,6 +20,7 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
@@ -226,8 +227,7 @@ describe('ApplyRecordOrdersHandler', () => {
           total: 2,
         })
       ),
-      eventBus,
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus)
     );
 
     const result = await handler.handle(
@@ -255,8 +255,7 @@ describe('ApplyRecordOrdersHandler', () => {
       new TableQueryService(new FakeTableRepository([table])),
       tableRecordRepository,
       new FakeTableRecordQueryRepository(ok({ records: [], total: 0 })),
-      eventBus,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const result = await handler.handle(
@@ -290,8 +289,7 @@ describe('ApplyRecordOrdersHandler', () => {
           })
         )
       ),
-      eventBus,
-      unitOfWork
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
     );
 
     const result = await handler.handle(
@@ -314,8 +312,7 @@ describe('ApplyRecordOrdersHandler', () => {
       new TableQueryService(new FakeTableRepository([table])),
       new FakeTableRecordRepository(),
       new FakeTableRecordQueryRepository(ok({ records: [], total: 0 })),
-      new FakeEventBus(),
-      new FakeUnitOfWork()
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
 
     const result = await handler.handle(

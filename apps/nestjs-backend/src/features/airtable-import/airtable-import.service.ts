@@ -19,12 +19,20 @@ import type {
   IImportAirtableRo,
   IImportAirtableVo,
 } from '@teable/openapi';
-import { BaseNodeResourceType, CollaboratorType, PrincipalType, UploadType } from '@teable/openapi';
+import {
+  BaseNodeResourceType,
+  CollaboratorType,
+  CreateRecordAction,
+  PrincipalType,
+  UploadType,
+} from '@teable/openapi';
 import { mapWithConcurrency } from '../../utils/map-with-concurrency';
 import { AiService } from '../ai/ai.service';
 import { AttachmentsService } from '../attachments/attachments.service';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
+import { AuditScope } from '../audit/audit-scope';
+import { auditBaseCreated } from '../base/base-create-audit';
 import { BaseService } from '../base/base.service';
 import { BaseNodeService } from '../base-node/base-node.service';
 import { FieldOpenApiV2Service } from '../field/open-api/field-open-api-v2.service';
@@ -111,6 +119,8 @@ export class AirtableImportService {
     private readonly aiService: AiService,
     private readonly baseNodeService: BaseNodeService,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
+    // Explicit @Inject after a token-based one (SWC drops design:paramtypes in this position).
+    @Inject(AuditScope) private readonly audit: AuditScope,
     @Optional()
     @Inject(AIRTABLE_IMPORT_TOKEN_RESOLVER)
     private readonly tokenResolver?: IAirtableImportTokenResolver
@@ -197,8 +207,25 @@ export class AirtableImportService {
     };
   }
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity -- orchestrates the linear import pipeline
+  /**
+   * One audit operation per import, so the tables and records it creates carry `base.import` (a new
+   * base) or `table.import` (tables added to an existing base) as their rootAction.
+   */
   async importBase(
+    ro: IImportAirtableRo,
+    onProgress?: IAirtableImportProgressReporter
+  ): Promise<IImportAirtableVo> {
+    return this.audit.withOperation(
+      {
+        rootAction: ro.baseId ? CreateRecordAction.Import : CreateRecordAction.BaseImport,
+        resourceId: ro.baseId ?? ro.spaceId,
+      },
+      () => this.runImport(ro, onProgress)
+    );
+  }
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity -- orchestrates the linear import pipeline
+  private async runImport(
     ro: IImportAirtableRo,
     onProgress?: IAirtableImportProgressReporter
   ): Promise<IImportAirtableVo> {
@@ -241,7 +268,12 @@ export class AirtableImportService {
       progress({ phase: 'creating_base', detail: ro.baseName });
       base = await this.baseService.createBase({
         spaceId: ro.spaceId,
-        name: ro.baseName ?? 'Imported base',
+        name: ro.baseName ?? 'Imported project',
+      });
+      // The stream route has no controller BASE_CREATE event to record the new base.
+      await auditBaseCreated(this.audit, base, {
+        importSource: 'airtable',
+        airtableBaseId: ro.airtableBaseId,
       });
     }
     const aiModelKey = await this.resolveAiModelKey(base.id);

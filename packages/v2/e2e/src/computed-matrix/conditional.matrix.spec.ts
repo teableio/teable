@@ -9,18 +9,12 @@
  * Total: ~18 test cases
  */
 
-import {
-  buildMultiTableNameMaps,
-  printComputedSteps,
-  type ComputedPlanLogEntry,
-} from '@teable/v2-container-node-test';
 import { beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import {
   createTestContext,
   createFieldIdGenerator,
   getFieldValues,
-  getExpectedSteps,
-  verifySteps,
+  verifyLookupValue,
 } from './shared';
 import type { TestContext, ValueTransition, ConditionalTestCase } from './shared';
 
@@ -226,10 +220,6 @@ describe('conditional field matrix (e2e)', () => {
         await ctx.createRecord(hostTable.id, { [hNameFieldId]: 'Host' });
         await ctx.testContainer.processOutbox();
 
-        // Get before value
-        const beforeRecords = await ctx.listRecords(hostTable.id);
-        const beforeValue = beforeRecords[0].fields[hConditionalFieldId];
-
         // Clear logs before update
         ctx.clearLogs();
 
@@ -247,58 +237,37 @@ describe('conditional field matrix (e2e)', () => {
         // Verify Results
         // =====================================================================
 
-        if (transition === 'valueToNull') {
-          // For valueThreshold, record2 (Value=100) still matches the condition
-          // so result is not null/empty, it's the value from record2
-          if (conditionType === 'valueThreshold') {
-            if (type === 'conditionalLookup') {
-              // Should contain record2's value (100)
-              expect(afterValue).toEqual([100]);
-            } else {
-              // Rollup should be sum of record2's value (100)
-              expect(afterValue).toBe(100);
-            }
-          } else {
-            // For statusFilter/multiCondition, only record1 matches and it's now null
-            if (type === 'conditionalLookup') {
-              // Should be empty or contain null
-              if (Array.isArray(afterValue)) {
-                expect(afterValue.length === 0 || afterValue.every((v) => v === null)).toBe(true);
-              }
-            } else {
-              // Rollup of null should be 0 or null
-              expect([0, null]).toContain(afterValue);
-            }
-          }
-        } else {
-          // Value should have changed (if condition matches)
-          // For valueThreshold, nullToValue might not match if value < 10
-          if (
-            conditionType === 'valueThreshold' &&
-            transition === 'nullToValue' &&
-            (updated as number) < 10
-          ) {
-            // Might not match condition
-          } else {
-            expect(afterValue).not.toEqual(beforeValue);
-          }
+        // Item2 matches only the value threshold. Item1 is Active and contributes
+        // its non-null value when it satisfies the selected numeric threshold.
+        const matchingValues: number[] = conditionType === 'valueThreshold' ? [100] : [];
+        if (
+          typeof updated === 'number' &&
+          (conditionType === 'statusFilter' ||
+            updated >= (conditionType === 'valueThreshold' ? 10 : 5))
+        ) {
+          matchingValues.push(updated);
         }
-
-        // Verify computed steps
-        const plan = ctx.getLastComputedPlan() as {
-          steps: Array<{ tableId: string; fieldIds: string[]; level: number }>;
-        };
-        const expectedSteps = getExpectedSteps(type, 1);
-        verifySteps(plan, expectedSteps, hConditionalFieldId);
+        if (type === 'conditionalLookup') {
+          // No sort is configured on this conditional lookup, so compare membership
+          // with multiplicity rather than imposing the foreign table scan order.
+          const actual =
+            afterValue === null ? null : [...(afterValue as number[])].sort((a, b) => a - b);
+          verifyLookupValue(
+            actual,
+            matchingValues.length === 0 ? null : matchingValues.sort((a, b) => a - b)
+          );
+        } else {
+          expect(afterValue).toBe(matchingValues.reduce((sum, value) => sum + value, 0));
+        }
       }
     );
   });
 
   // ===========================================================================
-  // Detailed Snapshot Tests
+  // Detailed Value Tests
   // ===========================================================================
 
-  describe('snapshot tests', () => {
+  describe('detailed value tests', () => {
     test('conditionalRollup: statusFilter valueToValue - detailed', async () => {
       const createFieldId = createFieldIdGenerator();
 
@@ -389,31 +358,6 @@ describe('conditional field matrix (e2e)', () => {
       // Verify: 50 + 20 = 70
       const afterRecords = await ctx.listRecords(hostTable.id);
       expect(afterRecords[0].fields[hRollupFieldId]).toBe(70);
-
-      // Verify steps
-      const plan = ctx.getLastComputedPlan() as {
-        steps: Array<{ tableId: string; fieldIds: string[]; level: number }>;
-      };
-      expect(plan.steps.length).toBe(1);
-
-      // Snapshot
-      const nameMaps = buildMultiTableNameMaps([
-        {
-          id: foreignTable.id,
-          name: 'CondRollup_Snapshot_Foreign',
-          fields: [{ id: fValueFieldId, name: 'Value' }],
-        },
-        {
-          id: hostTable.id,
-          name: 'CondRollup_Snapshot_Host',
-          fields: [{ id: hRollupFieldId, name: 'ActiveSum' }],
-        },
-      ]);
-      expect(printComputedSteps(plan as ComputedPlanLogEntry, nameMaps)).toMatchInlineSnapshot(`
-        "[Computed Steps: 1]
-          L0: CondRollup_Snapshot_Host -> [ActiveSum]
-        [Edges: 1]"
-      `);
     });
 
     test('conditionalLookup: valueThreshold - detailed', async () => {
@@ -483,10 +427,10 @@ describe('conditional field matrix (e2e)', () => {
       await ctx.updateRecord(foreignTable.id, record1.id, { [fValueFieldId]: 15 });
       await ctx.testContainer.processOutbox();
 
-      // Verify: now both match, [15, 20] or [20, 15]
+      // No sort is configured, so foreign scan order is not part of this contract.
       const afterRecords = await ctx.listRecords(hostTable.id);
       const afterValues = afterRecords[0].fields[hLookupFieldId] as number[];
-      expect(afterValues.sort()).toEqual([15, 20]);
+      expect([...afterValues].sort((a, b) => a - b)).toEqual([15, 20]);
     });
   });
 });

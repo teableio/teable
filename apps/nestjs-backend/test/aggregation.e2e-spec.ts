@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, IFilter, IGroup, ILinkFieldOptions } from '@teable/core';
 import {
   Colors,
+  DateFormattingPreset,
   FieldKeyType,
   FieldType,
   Relationship,
@@ -14,6 +15,7 @@ import {
   isGreaterEqual,
   SortFunc,
   StatisticsFunc,
+  TimeFormatting,
   ViewType,
   NumberFormattingType,
 } from '@teable/core';
@@ -1593,9 +1595,9 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(Number(total?.value)).toBe(50);
       expect(group).toBeDefined();
       const values = Object.values(group ?? {})
-        .map((g) => g.value as number)
+        .map((g) => Number(g.value))
         .sort((a, b) => a - b);
-      expect(values).toEqual(['0', '20', '30']);
+      expect(values).toEqual([0, 20, 30]);
     });
   });
 
@@ -1774,7 +1776,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
       }
     });
 
-    it('forced v2 selection fallback stamps unsupported_feature attribution', async () => {
+    it('keeps selected-record aggregation on v2 and sums only selected records', async () => {
       const previousForceV2All = process.env.FORCE_V2_ALL;
       process.env.FORCE_V2_ALL = 'true';
       try {
@@ -1789,9 +1791,8 @@ describe('OpenAPI AggregationController (e2e)', () => {
           selectedRecordIds: [selectedRecordId],
         });
         expect(response.status).toBe(200);
-        expect(response.headers['x-teable-v2']).toBe('false');
-        expect(response.headers['x-teable-v2-reason']).toBe('unsupported_feature');
-        expect(response.headers['x-teable-v2-feature']).toBe('getAggregation');
+        expect(response.headers['x-teable-v2']).toBe('true');
+        expect(findAgg(response.data, numField.id, StatisticsFunc.Sum)).toBe(10);
       } finally {
         if (previousForceV2All == null) {
           delete process.env.FORCE_V2_ALL;
@@ -1874,5 +1875,536 @@ describe('OpenAPI AggregationController (e2e)', () => {
         expect(findAgg(data, qtyField.id, StatisticsFunc.Filled)).toBe(2);
       });
     });
+  });
+
+  describe('date group header statistics', () => {
+    const previousForceV2All = process.env.FORCE_V2_ALL;
+
+    beforeAll(() => {
+      process.env.FORCE_V2_ALL = 'true';
+    });
+
+    afterAll(() => {
+      if (previousForceV2All == null) {
+        delete process.env.FORCE_V2_ALL;
+      } else {
+        process.env.FORCE_V2_ALL = previousForceV2All;
+      }
+    });
+
+    it('sums every record that shares a date-only calendar day', async () => {
+      const table = await createTable(baseId, {
+        name: 'agg_date_day_groups',
+        fields: [
+          { name: 'title', type: FieldType.SingleLineText },
+          { name: 'amount', type: FieldType.Number },
+          {
+            name: 'day',
+            type: FieldType.Date,
+            options: {
+              formatting: {
+                date: DateFormattingPreset.ISO,
+                time: TimeFormatting.None,
+                timeZone: 'Asia/Shanghai',
+              },
+            },
+          },
+        ],
+        records: [
+          { fields: { title: 'morning', amount: 10, day: '2026-08-06T02:00:00.000Z' } },
+          { fields: { title: 'evening', amount: 20, day: '2026-08-06T10:00:00.000Z' } },
+          { fields: { title: 'next-day', amount: 5, day: '2026-08-07T02:00:00.000Z' } },
+        ],
+      });
+
+      try {
+        const amountField = table.fields.find((field) => field.name === 'amount')!;
+        const dayField = table.fields.find((field) => field.name === 'day')!;
+        const groupBy: IGroup = [{ fieldId: dayField.id, order: SortFunc.Asc }];
+
+        const grouped = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          groupBy,
+        });
+        const headers = (grouped.extra?.groupPoints ?? []).filter(
+          (point): point is IGroupHeaderPoint =>
+            point.type === GroupPointType.Header && point.depth === 0
+        );
+        expect(headers).toHaveLength(2);
+
+        const result = await getViewAggregations(
+          table.id,
+          table.views[0].id,
+          StatisticsFunc.Sum,
+          [amountField.id],
+          groupBy
+        );
+        const aggregation = result.aggregations?.find((item) => item.fieldId === amountField.id);
+        expect(aggregation?.total?.value).toBe(35);
+
+        const groupedSums = headers.map((header) => aggregation?.group?.[header.id]?.value);
+        expect(groupedSums.sort((left, right) => Number(left) - Number(right))).toEqual([5, 30]);
+      } finally {
+        await permanentDeleteTable(baseId, table.id);
+      }
+    });
+
+    it('sums every record that shares a YYYY-MM calendar month', async () => {
+      const table = await createTable(baseId, {
+        name: 'agg_date_month_groups',
+        fields: [
+          { name: 'title', type: FieldType.SingleLineText },
+          { name: 'amount', type: FieldType.Number },
+          {
+            name: 'month',
+            type: FieldType.Date,
+            options: {
+              formatting: {
+                date: DateFormattingPreset.YM,
+                time: TimeFormatting.None,
+                timeZone: 'Asia/Shanghai',
+              },
+            },
+          },
+        ],
+        records: [
+          { fields: { title: 'early', amount: 100, month: '2025-04-01T16:00:00.000Z' } },
+          { fields: { title: 'mid', amount: 100, month: '2025-04-15T16:00:00.000Z' } },
+          { fields: { title: 'next-month', amount: 50, month: '2025-05-01T16:00:00.000Z' } },
+        ],
+      });
+
+      try {
+        const amountField = table.fields.find((field) => field.name === 'amount')!;
+        const monthField = table.fields.find((field) => field.name === 'month')!;
+        const groupBy: IGroup = [{ fieldId: monthField.id, order: SortFunc.Asc }];
+
+        const grouped = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          groupBy,
+        });
+        const headers = (grouped.extra?.groupPoints ?? []).filter(
+          (point): point is IGroupHeaderPoint =>
+            point.type === GroupPointType.Header && point.depth === 0
+        );
+        expect(headers).toHaveLength(2);
+
+        const result = await getViewAggregations(
+          table.id,
+          table.views[0].id,
+          StatisticsFunc.Sum,
+          [amountField.id],
+          groupBy
+        );
+        const aggregation = result.aggregations?.find((item) => item.fieldId === amountField.id);
+        expect(aggregation?.total?.value).toBe(250);
+
+        const groupedSums = headers.map((header) => aggregation?.group?.[header.id]?.value);
+        expect(groupedSums.sort((left, right) => Number(left) - Number(right))).toEqual([50, 200]);
+      } finally {
+        await permanentDeleteTable(baseId, table.id);
+      }
+    });
+
+    it('attaches nested YYYY-MM date group statistics including empty second-level groups', async () => {
+      const table = await createTable(baseId, {
+        name: 'agg_nested_date_month_groups',
+        fields: [
+          { name: 'title', type: FieldType.SingleLineText },
+          { name: 'amount', type: FieldType.Number },
+          {
+            name: 'subject',
+            type: FieldType.SingleSelect,
+            options: { choices: [{ name: 'alpha', color: Colors.Blue }] },
+          },
+          {
+            name: 'month',
+            type: FieldType.Date,
+            options: {
+              formatting: {
+                date: DateFormattingPreset.YM,
+                time: TimeFormatting.None,
+                timeZone: 'Asia/Shanghai',
+              },
+            },
+          },
+        ],
+        records: [
+          { fields: { title: 'april-start', amount: 100, month: '2025-03-31T16:00:00.000Z' } },
+          { fields: { title: 'april-later', amount: 100, month: '2025-04-01T03:24:09.000Z' } },
+          {
+            fields: {
+              title: 'april-alpha',
+              amount: 40,
+              subject: 'alpha',
+              month: '2025-04-10T02:00:00.000Z',
+            },
+          },
+          { fields: { title: 'june-later', amount: 70, month: '2025-06-01T03:25:50.000Z' } },
+        ],
+      });
+
+      try {
+        const monthField = table.fields.find((field) => field.name === 'month')!;
+        const amountField = table.fields.find((field) => field.name === 'amount')!;
+        const subjectField = table.fields.find((field) => field.name === 'subject')!;
+        const groupBy: IGroup = [
+          { fieldId: monthField.id, order: SortFunc.Desc },
+          { fieldId: subjectField.id, order: SortFunc.Asc },
+        ];
+        const grouped = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          groupBy,
+          ignoreViewQuery: true,
+        });
+        const headers = (grouped.extra?.groupPoints ?? []).filter(
+          (point): point is IGroupHeaderPoint => point.type === GroupPointType.Header
+        );
+        const result = (
+          await getAggregation(table.id, {
+            viewId: table.views[0].id,
+            field: { [StatisticsFunc.Sum]: [amountField.id] },
+            groupBy,
+            ignoreViewQuery: true,
+          })
+        ).data;
+        const aggregation = result.aggregations?.find((item) => item.fieldId === amountField.id);
+        const sums = headers.map((header) => ({
+          depth: header.depth,
+          value: header.value ?? null,
+          sum: aggregation?.group?.[header.id]?.value ?? null,
+        }));
+        expect(aggregation?.total?.value).toBe(310);
+        expect(sums.filter((header) => header.depth === 0).map((header) => header.sum)).toEqual([
+          70, 240,
+        ]);
+        expect(
+          sums
+            .filter((header) => header.depth === 1 && header.value == null)
+            .map((header) => header.sum)
+        ).toEqual([70, 200]);
+        expect(
+          sums
+            .filter((header) => header.depth === 1 && header.value === 'alpha')
+            .map((header) => header.sum)
+        ).toEqual([40]);
+        expect(sums.every((header) => header.sum != null)).toBe(true);
+      } finally {
+        await permanentDeleteTable(baseId, table.id);
+      }
+    });
+
+    it('attaches nested YYYY-MM formula date group statistics to every header', async () => {
+      const table = await createTable(baseId, {
+        name: 'agg_nested_formula_date_groups',
+        fields: [
+          { name: 'title', type: FieldType.SingleLineText },
+          { name: 'amount', type: FieldType.Number },
+          {
+            name: 'subject',
+            type: FieldType.SingleSelect,
+            options: { choices: [{ name: 'alpha', color: Colors.Blue }] },
+          },
+          {
+            name: 'month',
+            type: FieldType.Date,
+            options: {
+              formatting: {
+                date: DateFormattingPreset.YM,
+                time: TimeFormatting.None,
+                timeZone: 'Asia/Shanghai',
+              },
+            },
+          },
+        ],
+        records: [
+          { fields: { title: 'april-start', amount: 100, month: '2025-03-31T16:00:00.000Z' } },
+          { fields: { title: 'april-later', amount: 100, month: '2025-04-01T03:24:09.000Z' } },
+          {
+            fields: {
+              title: 'april-alpha',
+              amount: 40,
+              subject: 'alpha',
+              month: '2025-04-10T02:00:00.000Z',
+            },
+          },
+          { fields: { title: 'june-later', amount: 70, month: '2025-06-01T03:25:50.000Z' } },
+        ],
+      });
+
+      try {
+        const monthField = table.fields.find((field) => field.name === 'month')!;
+        const amountField = table.fields.find((field) => field.name === 'amount')!;
+        const subjectField = table.fields.find((field) => field.name === 'subject')!;
+        const formulaField = await createField(table.id, {
+          name: 'monthCopy',
+          type: FieldType.Formula,
+          options: {
+            expression: `{${monthField.id}}`,
+            timeZone: 'Asia/Shanghai',
+            formatting: {
+              date: DateFormattingPreset.YM,
+              time: TimeFormatting.None,
+              timeZone: 'Asia/Shanghai',
+            },
+          },
+        });
+        const groupBy: IGroup = [
+          { fieldId: formulaField.id, order: SortFunc.Desc },
+          { fieldId: subjectField.id, order: SortFunc.Asc },
+        ];
+        const grouped = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          groupBy,
+          ignoreViewQuery: true,
+        });
+        const headers = (grouped.extra?.groupPoints ?? []).filter(
+          (point): point is IGroupHeaderPoint => point.type === GroupPointType.Header
+        );
+        const result = (
+          await getAggregation(table.id, {
+            viewId: table.views[0].id,
+            field: { [StatisticsFunc.Sum]: [amountField.id] },
+            groupBy,
+            ignoreViewQuery: true,
+          })
+        ).data;
+        const aggregation = result.aggregations?.find((item) => item.fieldId === amountField.id);
+        const sums = headers.map((header) => ({
+          depth: header.depth,
+          value: header.value ?? null,
+          sum: aggregation?.group?.[header.id]?.value ?? null,
+        }));
+        // Pre-fix, v2 list headers stay on raw timestamps while aggregation buckets
+        // the display month, so non-bucket-start headers have no group statistic
+        // while the footer total still loads.
+        expect(aggregation?.total?.value).toBe(310);
+        expect(sums.filter((header) => header.depth === 0).map((header) => header.sum)).toEqual([
+          70, 240,
+        ]);
+        expect(
+          sums
+            .filter((header) => header.depth === 1 && header.value == null)
+            .map((header) => header.sum)
+        ).toEqual([70, 200]);
+        expect(
+          sums
+            .filter((header) => header.depth === 1 && header.value === 'alpha')
+            .map((header) => header.sum)
+        ).toEqual([40]);
+        expect(sums.every((header) => header.sum != null)).toBe(true);
+      } finally {
+        await permanentDeleteTable(baseId, table.id);
+      }
+    });
+
+    it.each([
+      {
+        date: DateFormattingPreset.YM,
+        time: TimeFormatting.None,
+        timeZone: 'Asia/Shanghai',
+        start: '2025-03-31T16:00:00.000Z',
+        later: '2025-04-10T02:00:00.000Z',
+        next: '2025-04-30T16:00:00.000Z',
+      },
+      {
+        date: DateFormattingPreset.Y,
+        time: TimeFormatting.None,
+        timeZone: 'Asia/Shanghai',
+        start: '2024-12-31T16:00:00.000Z',
+        later: '2025-04-10T02:00:00.000Z',
+        next: '2025-12-31T16:00:00.000Z',
+      },
+      {
+        date: DateFormattingPreset.ISO,
+        time: TimeFormatting.Hour24,
+        timeZone: 'Asia/Shanghai',
+        start: '2025-04-10T02:00:00.000Z',
+        later: '2025-04-10T02:00:30.000Z',
+        next: '2025-04-10T02:01:00.000Z',
+      },
+      {
+        date: DateFormattingPreset.YM,
+        time: TimeFormatting.None,
+        timeZone: 'Europe/London',
+        start: '2025-03-01T00:00:00.000Z',
+        later: '2025-03-15T02:00:00.000Z',
+        next: '2025-03-31T23:00:00.000Z',
+      },
+    ])(
+      'excludes an entire collapsed $date $time $timeZone formula date bucket from selection statistics',
+      async ({ date, time, timeZone, start, later, next }) => {
+        const table = await createTable(baseId, {
+          name: 'agg_collapsed_formula_date_groups',
+          fields: [
+            { name: 'title', type: FieldType.SingleLineText },
+            { name: 'amount', type: FieldType.Number },
+            { name: 'sourceDate', type: FieldType.Date },
+          ],
+          records: [
+            { fields: { title: 'bucket-start', amount: 100, sourceDate: start } },
+            { fields: { title: 'bucket-later', amount: 200, sourceDate: later } },
+            { fields: { title: 'next-bucket', amount: 70, sourceDate: next } },
+            { fields: { title: 'empty-date', amount: 7 } },
+          ],
+        });
+
+        try {
+          const sourceField = table.fields.find((field) => field.name === 'sourceDate')!;
+          const amountField = table.fields.find((field) => field.name === 'amount')!;
+          const formulaField = await createField(table.id, {
+            name: 'groupDate',
+            type: FieldType.Formula,
+            options: {
+              expression: `{${sourceField.id}}`,
+              timeZone: 'UTC',
+              formatting: { date, time, timeZone },
+            },
+          });
+          const viewId = table.views[0].id;
+          const groupBy: IGroup = [{ fieldId: formulaField.id, order: SortFunc.Asc }];
+          const grouped = await getRecords(table.id, {
+            viewId,
+            fieldKeyType: FieldKeyType.Id,
+            groupBy,
+          });
+          const header = grouped.extra?.groupPoints?.find(
+            (point): point is IGroupHeaderPoint =>
+              point.type === GroupPointType.Header && point.value === start
+          );
+          expect(header).toBeDefined();
+
+          const { data } = await getSelectionAggregation(table.id, {
+            viewId,
+            groupBy,
+            collapsedGroupIds: [header!.id],
+            skip: 0,
+            take: table.records.length,
+            field: {
+              [StatisticsFunc.Sum]: [amountField.id],
+              [StatisticsFunc.Filled]: [amountField.id],
+            },
+          });
+          const totals = Object.fromEntries(
+            data.aggregations!.map((item) => [item.total!.aggFunc, item.total!.value])
+          );
+          expect(totals).toEqual({ sum: 77, filled: 2 });
+          const visible = await getRecords(table.id, {
+            viewId,
+            fieldKeyType: FieldKeyType.Name,
+            groupBy,
+            collapsedGroupIds: [header!.id],
+          });
+          expect(visible.records.map((record) => record.fields.title).sort()).toEqual([
+            'empty-date',
+            'next-bucket',
+          ]);
+        } finally {
+          await permanentDeleteTable(baseId, table.id);
+        }
+      }
+    );
+  });
+
+  describe('native user group statistics', () => {
+    const previousForceV2All = process.env.FORCE_V2_ALL;
+
+    beforeAll(() => {
+      process.env.FORCE_V2_ALL = 'true';
+    });
+
+    afterAll(() => {
+      if (previousForceV2All == null) delete process.env.FORCE_V2_ALL;
+      else process.env.FORCE_V2_ALL = previousForceV2All;
+    });
+
+    it.each([
+      { isMultiple: false, ignoreViewQuery: false },
+      { isMultiple: false, ignoreViewQuery: true },
+      { isMultiple: true, ignoreViewQuery: true },
+    ])(
+      'matches every three-level user header: $isMultiple / $ignoreViewQuery',
+      async ({ isMultiple, ignoreViewQuery }) => {
+        const owner = {
+          id: globalThis.testConfig.userId,
+          title: globalThis.testConfig.userName,
+          email: globalThis.testConfig.email,
+          avatarUrl: '/api/attachments/read/public/avatar/test',
+        };
+        const table = await createTable(baseId, {
+          name: 'nested_user_statistics',
+          fields: [
+            { name: 'title', type: FieldType.SingleLineText },
+            {
+              name: 'status',
+              type: FieldType.SingleSelect,
+              options: { choices: [{ name: 'open', color: Colors.Blue }] },
+            },
+            {
+              name: 'priority',
+              type: FieldType.SingleSelect,
+              options: { choices: [{ name: 'high', color: Colors.Red }] },
+            },
+            { name: 'owner', type: FieldType.User, options: { isMultiple } },
+            { name: 'amount', type: FieldType.Number },
+          ],
+          records: [
+            {
+              fields: {
+                title: 'assigned',
+                status: 'open',
+                priority: 'high',
+                owner: isMultiple ? [owner] : owner,
+                amount: 10,
+              },
+            },
+            { fields: { title: 'unassigned', status: 'open', priority: 'high', amount: 20 } },
+            { fields: { title: 'empty-parents', owner: isMultiple ? [owner] : owner, amount: 40 } },
+            { fields: { title: 'all-empty', amount: 80 } },
+          ],
+        });
+        try {
+          const amount = table.fields.find((field) => field.name === 'amount')!;
+          const groupBy: IGroup = ['status', 'priority', 'owner'].map((name) => ({
+            fieldId: table.fields.find((field) => field.name === name)!.id,
+            order: SortFunc.Asc,
+          }));
+          const query = { viewId: table.views[0].id, groupBy, ignoreViewQuery };
+          const records = await getRecords(table.id, { ...query, fieldKeyType: FieldKeyType.Id });
+          const headers = records.extra!.groupPoints!.filter(
+            (point): point is IGroupHeaderPoint => point.type === GroupPointType.Header
+          );
+          const response = await getAggregation(table.id, {
+            ...query,
+            field: { [StatisticsFunc.Sum]: [amount.id] },
+          });
+          expect(response.headers['x-teable-v2']).toBe('true');
+          const aggregation = response.data.aggregations!.find(
+            (item) => item.fieldId === amount.id
+          )!;
+          expect(aggregation.total?.value).toBe(150);
+          expect(
+            headers
+              .filter((header) => header.depth === 2)
+              .map((header) => aggregation.group?.[header.id]?.value)
+              .sort((a, b) => Number(a) - Number(b))
+          ).toEqual([10, 20, 40, 80]);
+          expect(
+            headers
+              .filter((header) => header.depth === 0)
+              .map((header) => aggregation.group?.[header.id]?.value)
+              .sort((a, b) => Number(a) - Number(b))
+          ).toEqual([30, 120]);
+          expect(
+            headers
+              .filter((header) => header.depth === 1)
+              .map((header) => aggregation.group?.[header.id]?.value)
+              .sort((a, b) => Number(a) - Number(b))
+          ).toEqual([30, 120]);
+        } finally {
+          await permanentDeleteTable(baseId, table.id);
+        }
+      }
+    );
   });
 });

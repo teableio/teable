@@ -9,19 +9,21 @@ import {
   ViewType,
   getPermissions,
   isAnonymous,
+  isRobot,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import {
-  getBaseCached,
-  getSpaceCached,
-  getTableMetaWithBaseCached,
-} from '../../utils/meta-ancestry-cache';
 import { CollaboratorType } from '@teable/openapi';
 import { intersection, union } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException, TemplateAppTokenNotAllowedException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
+import {
+  getBaseCached,
+  getSpaceCached,
+  getTableMetaWithBaseCached,
+} from '../../utils/meta-ancestry-cache';
+import { hashSharePassword } from '../../utils/share-password-hash';
 import { CollaboratorModel } from '../model/collaborator';
 import { TemplateModel } from '../model/template';
 import { TeableJwtService } from './jwt/teable-jwt.service';
@@ -32,6 +34,13 @@ interface IBaseNodeCacheItem {
   resourceType: string;
   resourceId: string | null;
 }
+
+/**
+ * How a resource was admitted to a base share: `direct` when it sits inside the
+ * shared scope, `linked` when it is only reachable because a table in scope has a
+ * link field pointing at it. Linked admission is read-only (see getBaseSharePermissions).
+ */
+type IBaseShareMatch = 'direct' | 'linked' | false;
 
 const notAllowedOperationI18nKey = 'httpErrors.permission.notAllowedOperation';
 
@@ -45,6 +54,9 @@ const shareExcludedPermissions = new Set<Action>([
   'base|invite_email',
   'user|email_read',
   'user|integrations',
+  'user|spaces_read',
+  'user|self_hosted_licenses_read',
+  'user|notifications_send',
 ]);
 const shareViewEditableTypes = new Set<ViewType>([
   ViewType.Grid,
@@ -70,14 +82,23 @@ export class PermissionService {
     return departments?.map((department) => department.id) || [];
   }
 
+  // Robot identities are shared by every app/automation token, so a collaborator
+  // row for them would grant every tenant at once and never counts here; their
+  // only authority is the tempAuthBaseId handled in getPermissionByBaseId.
   async getSpaceCollaborators(spaceId: string, principalId: string[]) {
     const collaborators = await this.collaboratorModel.getCollaboratorRawByResourceId(spaceId);
-    return collaborators.filter((collaborator) => principalId.includes(collaborator.principalId));
+    return collaborators.filter(
+      (collaborator) =>
+        principalId.includes(collaborator.principalId) && !isRobot(collaborator.principalId)
+    );
   }
 
   async getBaseCollaborators(baseId: string, principalId: string[]) {
     const collaborators = await this.collaboratorModel.getCollaboratorRawByResourceId(baseId);
-    return collaborators.filter((collaborator) => principalId.includes(collaborator.principalId));
+    return collaborators.filter(
+      (collaborator) =>
+        principalId.includes(collaborator.principalId) && !isRobot(collaborator.principalId)
+    );
   }
 
   async getRoleBySpaceId(spaceId: string, includeInactiveResource?: boolean) {
@@ -166,7 +187,7 @@ export class PermissionService {
       },
     });
     const scopes = JSON.parse(stringifyScopes) as Action[];
-    if (clientId && clientId.startsWith(IdPrefix.OAuthClient)) {
+    if (clientId?.startsWith(IdPrefix.OAuthClient)) {
       const { spaceIds: spaceIdsByOAuth, baseIds: baseIdsByOAuth } =
         await this.getOAuthAccessBy(userId);
       // Only expose base|read_all when the user actually consented to it.
@@ -219,7 +240,7 @@ export class PermissionService {
       cachedBase && (includeInactiveResource || !cachedBase.deletedTime) ? cachedBase : null;
     const spaceId = base?.spaceId;
     if (!spaceId) {
-      throw new CustomHttpException('Base not found', HttpErrorCode.NOT_FOUND, {
+      throw new CustomHttpException('Project not found', HttpErrorCode.NOT_FOUND, {
         localization: {
           i18nKey: 'httpErrors.base.notFound',
         },
@@ -302,7 +323,7 @@ export class PermissionService {
       ))
     ) {
       throw new CustomHttpException(
-        `You are not allowed to access base ${resourceId}`,
+        `You are not allowed to access project ${resourceId}`,
         HttpErrorCode.RESTRICTED_RESOURCE,
         {
           localization: {
@@ -376,7 +397,7 @@ export class PermissionService {
     );
     if (!role && !spaceRole) {
       throw new CustomHttpException(
-        `you have no permission to access this base`,
+        `you have no permission to access this project`,
         HttpErrorCode.RESTRICTED_RESOURCE,
         {
           localization: {
@@ -584,9 +605,7 @@ export class PermissionService {
 
   async validateBaseSharePasswordToken(shareId: string, token: string) {
     try {
-      const payload = await this.jwtService.verifyAsync<{ shareId: string; password: string }>(
-        token
-      );
+      const payload = await this.jwtService.verifyAsync<{ shareId: string; pwHash: string }>(token);
       if (payload.shareId !== shareId) {
         return false;
       }
@@ -597,7 +616,7 @@ export class PermissionService {
       if (!baseShare?.password) {
         return false;
       }
-      return payload.password === baseShare.password;
+      return payload.pwHash === hashSharePassword(shareId, baseShare.password);
     } catch {
       return false;
     }
@@ -607,7 +626,7 @@ export class PermissionService {
     const baseShare = await this.getBaseShareInfo(shareId);
     if (!baseShare) {
       throw new CustomHttpException(
-        `Base share ${shareId} is not found`,
+        `Project share ${shareId} is not found`,
         HttpErrorCode.RESTRICTED_RESOURCE
       );
     }
@@ -624,13 +643,9 @@ export class PermissionService {
     // in the base is reachable, but the base-membership check MUST still run —
     // otherwise a share created for one base could be replayed with another base's
     // id to gain cross-base read/write/export access.
-    const resourceBelongsToShare = await this.checkResourceBelongsToShare(
-      resourceId,
-      baseId,
-      nodeId
-    );
+    const resourceMatch = await this.checkResourceBelongsToShare(resourceId, baseId, nodeId);
 
-    if (!resourceBelongsToShare) {
+    if (!resourceMatch) {
       this.logger.warn(
         `[BaseShare] Resource ${resourceId} is not accessible via share ${shareId}, baseId: ${baseId}, nodeId: ${nodeId}`
       );
@@ -644,8 +659,10 @@ export class PermissionService {
     this.cls.set('baseShare', { baseId, nodeId });
 
     // When allowEdit is enabled and user is logged in, grant editor-level permissions
-    // excluding invite/share/privacy-sensitive actions
-    if (baseShare.allowEdit && !this.isAnonymous()) {
+    // excluding invite/share/privacy-sensitive actions. A table admitted only because a
+    // shared table links to it lies outside the shared node: it is exposed so link cells
+    // can be resolved and displayed, and stays read-only whatever allowEdit says.
+    if (resourceMatch === 'direct' && baseShare.allowEdit && !this.isAnonymous()) {
       return getPermissions(Role.Editor).filter((p) => !shareExcludedPermissions.has(p));
     }
 
@@ -669,20 +686,25 @@ export class PermissionService {
     resourceId: string,
     baseId: string,
     nodeId: string | null
-  ): Promise<boolean> {
+  ): Promise<IBaseShareMatch> {
     const prefix = resourceId.substring(0, 3);
+    const direct = (belongs: boolean): IBaseShareMatch => (belongs ? 'direct' : false);
 
     switch (prefix) {
       case IdPrefix.Base:
-        return resourceId === baseId;
+        return direct(resourceId === baseId);
       case IdPrefix.Table:
         return this.checkTableBelongsToShare(resourceId, baseId, nodeId);
       case IdPrefix.View:
         return this.checkViewBelongsToShare(resourceId, baseId, nodeId);
       case IdPrefix.Field:
         return this.checkFieldBelongsToShare(resourceId, baseId, nodeId);
+      case IdPrefix.Dashboard:
+        return direct(await this.checkDashboardBelongsToShare(resourceId, baseId, nodeId));
       case IdPrefix.App:
-        return this.checkAppBelongsToShare(resourceId, baseId, nodeId);
+        return direct(await this.checkAppBelongsToShare(resourceId, baseId, nodeId));
+      case IdPrefix.Routine:
+        return direct(await this.checkRoutineBelongsToShare(resourceId, baseId, nodeId));
       default:
         return false;
     }
@@ -695,7 +717,7 @@ export class PermissionService {
     tableId: string,
     baseId: string,
     nodeId: string | null
-  ): Promise<boolean> {
+  ): Promise<IBaseShareMatch> {
     const table = await this.prismaService.tableMeta.findUnique({
       where: { id: tableId, deletedTime: null },
       select: { baseId: true },
@@ -711,22 +733,23 @@ export class PermissionService {
 
     // Whole-base share: any table within the shared base is accessible.
     if (!nodeId) {
-      return true;
+      return 'direct';
     }
 
     const result = await this.isTableAllowedByNodeId(baseId, tableId, nodeId);
     if (result) {
       this.logger.debug(`[BaseShare] Table belongs check: nodeId=${nodeId}, result=${result}`);
-      return true;
+      return 'direct';
     }
 
     // Fallback: check if the table is a foreign table of a link field in a shared table.
-    // This allows link field targets to be accessible even when they are outside the shared node.
+    // This lets link field targets be read even when they are outside the shared node;
+    // the 'linked' match keeps that access read-only.
     const linkedResult = await this.isTableLinkedFromSharedNode(baseId, tableId, nodeId);
     this.logger.debug(
       `[BaseShare] Table linked from shared node check: tableId=${tableId}, result=${linkedResult}`
     );
-    return linkedResult;
+    return linkedResult ? 'linked' : false;
   }
 
   /**
@@ -789,7 +812,7 @@ export class PermissionService {
     viewId: string,
     baseId: string,
     nodeId: string | null
-  ): Promise<boolean> {
+  ): Promise<IBaseShareMatch> {
     const view = await this.prismaService.view.findUnique({
       where: { id: viewId, deletedTime: null },
       select: { tableId: true },
@@ -809,7 +832,7 @@ export class PermissionService {
     fieldId: string,
     baseId: string,
     nodeId: string | null
-  ): Promise<boolean> {
+  ): Promise<IBaseShareMatch> {
     const field = await this.prismaService.field.findUnique({
       where: { id: fieldId, deletedTime: null },
       select: { tableId: true },
@@ -852,6 +875,90 @@ export class PermissionService {
     const result = await this.isNodeAllowedByNodeId(baseId, appNode.id, nodeId);
     this.logger.debug(`[BaseShare] App belongs check: nodeId=${nodeId}, result=${result}`);
     return result;
+  }
+
+  private async checkRoutineBelongsToShare(
+    routineId: string,
+    baseId: string,
+    nodeId: string | null
+  ): Promise<boolean> {
+    const routineNode = await this.prismaService.baseNode.findFirst({
+      where: {
+        baseId,
+        resourceType: { equals: 'routine', mode: 'insensitive' },
+        resourceId: routineId,
+      },
+    });
+
+    if (!routineNode) {
+      return false;
+    }
+
+    // Whole-base share: any routine within the shared base is accessible.
+    if (!nodeId) {
+      return true;
+    }
+
+    return this.isNodeAllowedByNodeId(baseId, routineNode.id, nodeId);
+  }
+
+  /**
+   * Dashboards are base nodes: a node-scoped share exposes one only when its node
+   * sits inside the shared subtree.
+   */
+  private async checkDashboardBelongsToShare(
+    dashboardId: string,
+    baseId: string,
+    nodeId: string | null
+  ): Promise<boolean> {
+    const dashboardNode = await this.prismaService.baseNode.findFirst({
+      where: {
+        baseId,
+        resourceType: { equals: 'dashboard', mode: 'insensitive' },
+        resourceId: dashboardId,
+      },
+    });
+
+    if (!dashboardNode) {
+      return false;
+    }
+
+    // Whole-base share: any dashboard within the shared base is accessible.
+    if (!nodeId) {
+      return true;
+    }
+
+    return this.isNodeAllowedByNodeId(baseId, dashboardNode.id, nodeId);
+  }
+
+  /**
+   * Resource ids of one base-node type (table, dashboard, ...) that the current
+   * request's base share exposes, or null when the request is not a node-scoped
+   * share (no share, or a whole-base one) and nothing needs filtering. Routes
+   * mounted under /base/:baseId are authorized against the base id alone, so
+   * services listing node resources apply the node restriction with this.
+   */
+  async getBaseShareVisibleResourceIds(
+    baseId: string,
+    resourceType: string
+  ): Promise<Set<string> | null> {
+    const baseShare = this.cls.get('baseShare');
+    if (!baseShare?.nodeId) {
+      return null;
+    }
+    if (baseShare.baseId !== baseId) {
+      return new Set();
+    }
+    const allNodes = await this.getBaseNodesWithCache(baseId);
+    const allowedNodeIds = this.collectDescendantNodeIds(allNodes, baseShare.nodeId);
+    const type = resourceType.toLowerCase();
+    const resourceIds = allNodes
+      .filter(
+        (node) =>
+          allowedNodeIds.has(node.id) && node.resourceType.toLowerCase() === type && node.resourceId
+      )
+      .map((node) => node.resourceId as string);
+    return new Set(resourceIds);
   }
 
   /**
@@ -989,7 +1096,7 @@ export class PermissionService {
       return sharePermissions;
     }
     throw new CustomHttpException(
-      `Base share access denied, not allowed to operate ${permissions.join(', ')} on ${resourceId}`,
+      `Project share access denied, not allowed to operate ${permissions.join(', ')} on ${resourceId}`,
       HttpErrorCode.RESTRICTED_RESOURCE,
       {
         localization: {
@@ -1005,10 +1112,11 @@ export class PermissionService {
    *
    * Note: Password authentication is handled separately via JWT cookie:
    * - When a share has a password, the user authenticates via POST /share/:shareId/base/auth
-   * - A JWT cookie containing { shareId, password } is set for 7 days
+   * - A JWT cookie containing { shareId, pwHash } is set for 7 days (a hash bound to the
+   *   share, never the password itself — a JWT payload is readable by the browser)
    * - On subsequent requests, ensureBaseShareAuth validates the cookie by comparing the
-   *   password in the JWT with the current DB password (see validateBaseSharePasswordToken).
-   * - If the admin changes the password, the old JWT cookie's password won't match,
+   *   hash in the JWT with the current DB password (see validateBaseSharePasswordToken).
+   * - If the admin changes the password, the old JWT cookie's hash won't match,
    *   causing the user to be redirected to the auth page automatically.
    */
   getBaseShareIdByHeader(shareHeader: string): string | null {
@@ -1048,9 +1156,7 @@ export class PermissionService {
 
   async validateShareViewPasswordToken(shareId: string, token: string) {
     try {
-      const payload = await this.jwtService.verifyAsync<{ shareId: string; password: string }>(
-        token
-      );
+      const payload = await this.jwtService.verifyAsync<{ shareId: string; pwHash: string }>(token);
       if (payload.shareId !== shareId) {
         return false;
       }
@@ -1058,7 +1164,7 @@ export class PermissionService {
       if (!info?.shareMeta?.password) {
         return false;
       }
-      return payload.password === info.shareMeta.password;
+      return payload.pwHash === hashSharePassword(shareId, info.shareMeta.password);
     } catch {
       return false;
     }

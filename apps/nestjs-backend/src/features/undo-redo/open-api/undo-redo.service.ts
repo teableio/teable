@@ -1,32 +1,39 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import type { Action } from '@teable/core';
+import { HttpErrorCode } from '@teable/core';
 import type { DataPrismaService } from '@teable/db-data-prisma';
 import type { IRedoVo, IUndoRedoStreamEvent, IUndoVo } from '@teable/openapi';
-import {
-  RedoCommand,
-  TableId,
-  toUndoRedoStackReplayContext,
-  UndoCommand,
-  v2CoreTokens,
-} from '@teable/v2-core';
+import { domainError, TableId, toUndoRedoStackReplayContext, v2CoreTokens } from '@teable/v2-core';
 import type {
-  ICommandBus,
-  RedoResult,
+  DomainError,
+  UndoEntry,
   UndoRedoCommandData,
+  UndoRedoReplayMode,
+  UndoRedoReplayProgress,
   UndoRedoStackService as V2UndoRedoStackService,
-  UndoResult,
 } from '@teable/v2-core';
 import { ClsService } from 'nestjs-cls';
+import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
 import { CacheService } from '../../../cache/cache.service';
 import type { ICacheStore } from '../../../cache/types';
+import { CustomHttpException } from '../../../custom.exception';
 import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
 import type { IClsStore } from '../../../types/cls';
+import { PermissionService } from '../../auth/permission.service';
 import { RecordRemovalTombstoneService } from '../../record-removal-cold/record-removal-tombstone.service';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { UndoRedoOperationService } from '../stack/undo-redo-operation.service';
 import { UndoRedoStackService } from '../stack/undo-redo-stack.service';
+import {
+  getV1UndoRedoRequiredActions,
+  getV2UndoRedoRequiredActions,
+  IUndoRedoPermissionResolver,
+  UNDO_REDO_PERMISSION_RESOLVER,
+} from '../undo-redo-permission';
 import { buildUndoRedoEnginePreferenceKey } from './undo-redo-engine-preference';
 
 export const X_TEABLE_UNDO_REDO_ENGINE_HEADER = 'x-teable-undo-redo-engine';
@@ -46,6 +53,14 @@ const collectV2RestoredRecordIds = (command: UndoRedoCommandData): string[] => {
   return [...recordIds];
 };
 
+const describeV2Entry = (entry: UndoEntry, mode: UndoRedoReplayMode): string => {
+  const command = mode === 'undo' ? entry.undoCommand : entry.redoCommand;
+  const leaves = command.type === 'Batch' ? command.payload : [command];
+  return leaves.map((leaf) => leaf.type).join('+');
+};
+
+const notAllowedOperationI18nKey = 'httpErrors.permission.notAllowedOperation';
+
 export type IUndoRedoEngine = 'v1' | 'v2';
 
 type IUndoRedoResponse<T extends IUndoVo | IRedoVo> = {
@@ -54,6 +69,14 @@ type IUndoRedoResponse<T extends IUndoVo | IRedoVo> = {
 };
 
 type IUndoRedoMode = 'undo' | 'redo';
+
+type IV2Replay = {
+  result: Result<UndoEntry | null, DomainError>;
+  // The host exception raised by the permission gate, carried out of the
+  // Result-only engine so the caller can rethrow it (403) instead of
+  // reporting a `failed` replay.
+  gateError?: unknown;
+};
 
 class UndoRedoStreamQueue<T> implements AsyncIterable<T> {
   private readonly values: T[] = [];
@@ -116,8 +139,13 @@ export class UndoRedoService {
     private readonly undoRedoOperationService: UndoRedoOperationService,
     private readonly dataDbClientManager: DataDbClientManager,
     private readonly recordRemovalTombstoneService: RecordRemovalTombstoneService,
+    private readonly permissionService: PermissionService,
     @Optional()
-    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService,
+    // Enterprise-only: provided by the EE UndoRedoAuthorityModule (@Global).
+    @Optional()
+    @Inject(UNDO_REDO_PERMISSION_RESOLVER)
+    private readonly permissionResolver?: IUndoRedoPermissionResolver
   ) {}
 
   // Cold-copy suppression after a fulfilled v2 undo. The row deletion happens
@@ -286,6 +314,15 @@ export class UndoRedoService {
       };
     }
 
+    // popUndo only rewrites the cached stacks inside `push`, so refusing here
+    // leaves the entry in place — the same way a failed replay does below.
+    await this.assertReplayPermitted(
+      tableId,
+      'undo',
+      getV1UndoRedoRequiredActions(operation, 'undo'),
+      operation.name
+    );
+
     try {
       const newOperation = await this.undoRedoOperationService.undo(operation);
       await push(newOperation);
@@ -332,6 +369,13 @@ export class UndoRedoService {
       };
     }
 
+    await this.assertReplayPermitted(
+      tableId,
+      'redo',
+      getV1UndoRedoRequiredActions(operation, 'redo'),
+      operation.name
+    );
+
     try {
       const newOperation = await this.undoRedoOperationService.redo(operation);
       await push(newOperation);
@@ -372,54 +416,71 @@ export class UndoRedoService {
     };
   }
 
+  // Runs one v2 stack replay with the permission gate installed. The gate runs
+  // inside the engine's reservation (`beforeReplay`), so the entry that gets
+  // checked is exactly the one about to be replayed — group-composed and
+  // race-free — and a veto aborts the reservation without consuming it.
+  private async replayV2(
+    tableId: string,
+    windowId: string,
+    mode: IUndoRedoMode,
+    onProgress?: (progress: UndoRedoReplayProgress) => void
+  ): Promise<IV2Replay> {
+    const tableIdResult = TableId.create(tableId);
+    if (tableIdResult.isErr()) {
+      return { result: err(tableIdResult.error) };
+    }
+
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const stackService = container.resolve<V2UndoRedoStackService>(v2CoreTokens.undoRedoService);
+    const context = await this.v2ContextFactory.createContext(container);
+    context.windowId = windowId;
+
+    let gateError: unknown;
+    const beforeReplay = async (
+      entry: UndoEntry,
+      replayMode: UndoRedoReplayMode
+    ): Promise<Result<void, DomainError>> => {
+      try {
+        await this.assertReplayPermitted(
+          tableId,
+          replayMode,
+          getV2UndoRedoRequiredActions(entry, replayMode),
+          describeV2Entry(entry, replayMode)
+        );
+        return ok(undefined);
+      } catch (error: unknown) {
+        // The engine is Result-only: a thrown error would skip its abort and
+        // leave the reservation in flight until the lease expires.
+        gateError = error;
+        return err(
+          error instanceof CustomHttpException
+            ? domainError.forbidden({
+                code: 'undo_redo.permission_denied',
+                message: error.message,
+              })
+            : domainError.fromUnknown(error)
+        );
+      }
+    };
+
+    const replayContext = toUndoRedoStackReplayContext(context);
+    const options = { onProgress, beforeReplay };
+    const result =
+      mode === 'undo'
+        ? await stackService.applyUndo(replayContext, tableIdResult.value, windowId, options)
+        : await stackService.applyRedo(replayContext, tableIdResult.value, windowId, options);
+    return { result, gateError };
+  }
+
   private async executeV2UndoRedo(
     tableId: string,
     windowId: string,
-    mode: 'undo' | 'redo'
+    mode: IUndoRedoMode
   ): Promise<IUndoRedoResponse<IUndoVo | IRedoVo> | undefined> {
+    let replay: IV2Replay;
     try {
-      const container = await this.v2ContainerService.getContainerForTable(tableId);
-      const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-      const context = await this.v2ContextFactory.createContext(container);
-      context.windowId = windowId;
-
-      const commandResult =
-        mode === 'undo'
-          ? UndoCommand.create({ tableId, windowId })
-          : RedoCommand.create({ tableId, windowId });
-
-      if (commandResult.isErr()) {
-        return {
-          body: this.toV2FailedBody(commandResult.error),
-          engine: 'v2',
-        };
-      }
-
-      const executeResult = await commandBus.execute<
-        UndoCommand | RedoCommand,
-        UndoResult | RedoResult
-      >(context, commandResult.value);
-      if (executeResult.isErr()) {
-        return {
-          body: this.toV2FailedBody(executeResult.error),
-          engine: 'v2',
-        };
-      }
-
-      if (!executeResult.value.entry) {
-        return undefined;
-      }
-
-      if (mode === 'undo') {
-        await this.markV2RestoredTombstones(tableId, executeResult.value.entry.undoCommand);
-      }
-
-      return {
-        body: {
-          status: 'fulfilled',
-        },
-        engine: 'v2',
-      };
+      replay = await this.replayV2(tableId, windowId, mode);
     } catch (error: unknown) {
       if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
@@ -441,6 +502,33 @@ export class UndoRedoService {
         engine: 'v2',
       };
     }
+
+    // A vetoed replay is a 403, not a `failed` replay: nothing was consumed.
+    if (replay.gateError) {
+      throw replay.gateError;
+    }
+
+    if (replay.result.isErr()) {
+      return {
+        body: this.toV2FailedBody(replay.result.error),
+        engine: 'v2',
+      };
+    }
+
+    if (!replay.result.value) {
+      return undefined;
+    }
+
+    if (mode === 'undo') {
+      await this.markV2RestoredTombstones(tableId, replay.result.value.undoCommand);
+    }
+
+    return {
+      body: {
+        status: 'fulfilled',
+      },
+      engine: 'v2',
+    };
   }
 
   private executeV2UndoRedoStream(
@@ -452,46 +540,21 @@ export class UndoRedoService {
 
     void (async () => {
       try {
-        const tableIdResult = TableId.create(tableId);
-        if (tableIdResult.isErr()) {
-          queue.push({
-            id: 'error',
-            mode,
-            engine: 'v2',
-            message: tableIdResult.error.message,
-            code: tableIdResult.error.code,
-          });
-          return;
-        }
-
-        const container = await this.v2ContainerService.getContainerForTable(tableId);
-        const stackService = container.resolve<V2UndoRedoStackService>(
-          v2CoreTokens.undoRedoService
+        const { result: replayResult, gateError } = await this.replayV2(
+          tableId,
+          windowId,
+          mode,
+          (progress) =>
+            queue.push({
+              id: 'progress',
+              mode,
+              engine: 'v2',
+              ...progress,
+            })
         );
-        const context = await this.v2ContextFactory.createContext(container);
-        context.windowId = windowId;
-
-        const replayContext = toUndoRedoStackReplayContext(context);
-        const replayResult =
-          mode === 'undo'
-            ? await stackService.applyUndo(replayContext, tableIdResult.value, windowId, {
-                onProgress: (progress) =>
-                  queue.push({
-                    id: 'progress',
-                    mode,
-                    engine: 'v2',
-                    ...progress,
-                  }),
-              })
-            : await stackService.applyRedo(replayContext, tableIdResult.value, windowId, {
-                onProgress: (progress) =>
-                  queue.push({
-                    id: 'progress',
-                    mode,
-                    engine: 'v2',
-                    ...progress,
-                  }),
-              });
+        if (gateError) {
+          throw gateError;
+        }
 
         if (replayResult.isErr()) {
           queue.push({
@@ -526,6 +589,9 @@ export class UndoRedoService {
           mode,
           engine: 'v2',
           message,
+          // The stream already answered 200, so a refused replay travels as an
+          // error event carrying the http error code instead of a 403.
+          ...(error instanceof CustomHttpException ? { code: error.code } : {}),
         });
       } finally {
         queue.close();
@@ -533,6 +599,65 @@ export class UndoRedoService {
     })();
 
     return queue;
+  }
+
+  // Gate a replay by what it writes. Share-view, base-share and template
+  // principals never resolve through a base role, so for them the permission
+  // set the guard narrowed into cls is the only source of truth. Tables whose
+  // writes an edition-specific model governs (enterprise authority matrix)
+  // are checked against the set that model resolves — the route guard here
+  // only saw the base role, which for matrix members is not what decides their
+  // writes. Everybody else is re-resolved against their current base role and
+  // token scope, exactly as the route guard would for a direct write.
+  private async assertReplayPermitted(
+    tableId: string,
+    mode: IUndoRedoMode,
+    actions: Action[] | null,
+    entryDescription: string
+  ) {
+    if (!actions) {
+      this.logger.warn(
+        `${mode} on ${tableId} refused: no permission mapping for ${entryDescription}`
+      );
+      throw new CustomHttpException(
+        `not allowed to ${mode} ${entryDescription} on ${tableId}`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        { localization: { i18nKey: notAllowedOperationI18nKey } }
+      );
+    }
+    if (!actions.length) {
+      return;
+    }
+
+    if (this.isShareScopedRequest()) {
+      this.assertActionsOwned(tableId, actions, this.cls.get('permissions') ?? []);
+      return;
+    }
+
+    const resolved = await this.permissionResolver?.resolveTableActions(tableId);
+    if (resolved) {
+      this.assertActionsOwned(tableId, actions, resolved);
+      return;
+    }
+
+    await this.permissionService.validPermissions(tableId, actions, this.cls.get('accessTokenId'));
+  }
+
+  private assertActionsOwned(tableId: string, actions: Action[], owned: Action[]) {
+    const missing = actions.filter((action) => !owned.includes(action));
+    if (missing.length) {
+      throw new CustomHttpException(
+        `not allowed to operate ${missing.join(', ')} on ${tableId}`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        { localization: { i18nKey: notAllowedOperationI18nKey } }
+      );
+    }
+  }
+
+  private isShareScopedRequest() {
+    return Boolean(
+      this.cls.get('shareViewId') || this.cls.get('baseShare') || this.cls.get('template')
+    );
   }
 
   private toStreamTerminalEvent(

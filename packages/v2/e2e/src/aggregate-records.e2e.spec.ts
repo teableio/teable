@@ -1,14 +1,17 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { createV2HttpClient } from '@teable/v2-contract-http-client';
 import {
   ActorId,
   AggregateTableRecordsQuery,
+  RecordByIdsSpec,
+  RecordId,
   v2CoreTokens,
   type AggregateTableRecordsResult,
   type IAggregateTableRecordsQueryInput,
+  type IAggregateTableRecordsQueryOptions,
   type IQueryBus,
   type RecordFilter,
 } from '@teable/v2-core';
-import { createV2HttpClient } from '@teable/v2-contract-http-client';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
   getSharedTestContext,
@@ -42,9 +45,10 @@ describe('aggregate records via query bus (e2e, v1 parity)', () => {
   const actorId = ActorId.create(TEST_USER.id)._unsafeUnwrap();
 
   const aggregate = async (
-    input: IAggregateTableRecordsQueryInput
+    input: IAggregateTableRecordsQueryInput,
+    options?: IAggregateTableRecordsQueryOptions
   ): Promise<AggregateTableRecordsResult> => {
-    const query = AggregateTableRecordsQuery.create(input);
+    const query = AggregateTableRecordsQuery.create(input, options);
     if (query.isErr()) {
       throw new Error(`Invalid aggregate query input: ${query.error.message}`);
     }
@@ -530,6 +534,8 @@ describe('aggregate records via query bus (e2e, v1 parity)', () => {
       const ascending = await groupValues('asc');
       const descending = await groupValues('desc');
       expect(descending).toEqual([...ascending].reverse());
+      expect(ascending[0]).toBeNull();
+      expect(descending.at(-1)).toBeNull();
       expect(ascending.filter((value) => value !== null)).toEqual([
         'Alpha',
         'Beta',
@@ -862,6 +868,260 @@ describe('aggregate records via query bus (e2e, v1 parity)', () => {
       result.values.find(
         (value) => value.fieldId.toString() === fieldId && value.statisticFunc === statisticFunc
       )?.value;
+
+    it('intersects row, selection and collapsed scopes while aggregating masked values', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Scoped Aggregation ${Date.now()}`,
+        fields: [
+          { name: 'Category', type: 'singleLineText', isPrimary: true },
+          { name: 'Amount', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const category = table.fields[0].id;
+      const amount = table.fields[1].id;
+      const records = await ctx.createRecords(table.id, [
+        { fields: { [category]: 'A', [amount]: 10 } },
+        { fields: { [category]: 'Secret', [amount]: 20 } },
+        { fields: { [category]: 'B', [amount]: 100 } },
+        { fields: { [category]: 'B', [amount]: 200 } },
+      ]);
+      const visibleWhen = RecordByIdsSpec.create(
+        [records[0], records[3]].map((record) => RecordId.create(record.id)._unsafeUnwrap())
+      );
+      const queryScope = {
+        readableFieldIds: new Set([category]),
+        recordSpec: RecordByIdsSpec.create(
+          [records[0], records[1], records[3]].map((record) =>
+            RecordId.create(record.id)._unsafeUnwrap()
+          )
+        ),
+        fieldMasks: [
+          { fieldId: category, visibleWhen },
+          { fieldId: amount, visibleWhen },
+        ],
+      };
+      const input: IAggregateTableRecordsQueryInput = {
+        tableId: table.id,
+        fields: [
+          { fieldId: amount, statisticFunc: 'sum' },
+          { fieldId: amount, statisticFunc: 'empty' },
+          { fieldId: amount, statisticFunc: 'count' },
+        ],
+      };
+      const total = await aggregate(input, { queryScope });
+      expect(findAgg(total, amount, 'sum')).toBe(210);
+      expect(findAgg(total, amount, 'empty')).toBe(1);
+      expect(findAgg(total, amount, 'count')).toBe(3);
+
+      const grouped = await aggregate(
+        { ...input, groupBy: [{ fieldId: category, order: 'asc' }] },
+        { queryScope }
+      );
+      expect(
+        grouped.values
+          .filter((value) => value.groupValues && value.statisticFunc === 'sum')
+          .map((value) => [value.groupValues, value.value])
+      ).toEqual([
+        [[null], null],
+        [['A'], 10],
+        [['B'], 200],
+      ]);
+
+      const selected = await aggregate(
+        { ...input, selectedRecordIds: [records[1].id, records[2].id, records[3].id] },
+        { queryScope }
+      );
+      expect(findAgg(selected, amount, 'sum')).toBe(200);
+      expect(findAgg(selected, amount, 'count')).toBe(2);
+
+      const emptySelection = await aggregate({ ...input, selectedRecordIds: [] }, { queryScope });
+      expect(findAgg(emptySelection, amount, 'count')).toBe(0);
+      expect(findAgg(emptySelection, amount, 'sum')).toBeNull();
+
+      const collapsed = await aggregate(
+        {
+          ...input,
+          groupBy: [{ fieldId: category, order: 'asc' }],
+          collapsedGroupIds: [String(hashGroupFlag(`${category}_A`))],
+          selectedRecordIds: [records[0].id, records[2].id, records[3].id],
+          take: 10,
+        },
+        { queryScope }
+      );
+      expect(findAgg(collapsed, amount, 'sum')).toBe(200);
+      expect(findAgg(collapsed, amount, 'count')).toBe(1);
+
+      const collapsedMasked = await aggregate(
+        {
+          ...input,
+          groupBy: [{ fieldId: category, order: 'asc' }],
+          collapsedGroupIds: [String(hashGroupFlag(`${category}_`))],
+          take: 10,
+        },
+        { queryScope }
+      );
+      expect(findAgg(collapsedMasked, amount, 'sum')).toBe(210);
+      expect(findAgg(collapsedMasked, amount, 'count')).toBe(2);
+      const skipped = await aggregate(input, {
+        queryScope: { ...queryScope, skipRecordSpec: true },
+      });
+      expect(findAgg(skipped, amount, 'sum')).toBe(210);
+      expect(findAgg(skipped, amount, 'empty')).toBe(2);
+      expect(findAgg(skipped, amount, 'count')).toBe(4);
+
+      const searched = await aggregate(
+        { ...input, search: ['Secret', category, true] },
+        { queryScope }
+      );
+      expect(findAgg(searched, amount, 'count')).toBe(0);
+      const filtered = await aggregate(
+        { ...input, filter: { fieldId: amount, operator: 'isGreater', value: 15 } },
+        { queryScope }
+      );
+      expect(findAgg(filtered, amount, 'sum')).toBe(200);
+      expect(findAgg(filtered, amount, 'count')).toBe(1);
+      const sorted = await aggregate(
+        { ...input, orderBy: [{ fieldId: amount, order: 'asc' }], take: 1 },
+        { queryScope }
+      );
+      expect(findAgg(sorted, amount, 'sum')).toBeNull();
+      expect(findAgg(sorted, amount, 'empty')).toBe(1);
+    }, 30000);
+
+    it('omits unavailable view statistics and distinguishes absent views from ignored defaults', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Aggregation View Scope ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Amount', type: 'number' },
+          { name: 'Secret', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const name = table.fields[0].id;
+      const amount = table.fields[1].id;
+      const secret = table.fields[2].id;
+      await ctx.createRecords(table.id, [
+        { fields: { [name]: 'Visible', [amount]: 10, [secret]: 100 } },
+        { fields: { [name]: 'Other', [amount]: 20, [secret]: 200 } },
+      ]);
+      const client = createV2HttpClient({ baseUrl: ctx.baseUrl });
+      const created = await client.tables.createView({
+        tableId: table.id,
+        view: {
+          type: 'grid',
+          name: 'Filtered',
+          sourceFilter: {
+            conjunction: 'and',
+            filterSet: [
+              { fieldId: name, operator: 'is', value: 'Visible' },
+              { fieldId: secret, operator: 'is', value: 999 },
+            ],
+          },
+        },
+      });
+      if (!created.ok) throw new Error('Failed to create scoped view');
+      const viewId = created.data.viewId;
+      const patched = await client.tables.updateViewColumnMeta({
+        tableId: table.id,
+        viewId,
+        columnMeta: [
+          { fieldId: amount, columnMeta: { statisticFunc: 'sum' } },
+          { fieldId: secret, columnMeta: { statisticFunc: 'sum' } },
+        ],
+      });
+      expect(patched.ok).toBe(true);
+      const options = { queryScope: { readableFieldIds: new Set([name, amount]) } };
+      const defaults = await aggregate({ tableId: table.id, viewId }, options);
+      expect(defaults.values.map((value) => [value.fieldId.toString(), value.value])).toEqual([
+        [amount, 10],
+      ]);
+      const input = {
+        tableId: table.id,
+        fields: [{ fieldId: amount, statisticFunc: 'sum' }],
+      };
+      expect(findAgg(await aggregate(input, options), amount, 'sum')).toBe(30);
+      expect(
+        findAgg(
+          await aggregate({ ...input, viewId, ignoreViewQuery: true }, options),
+          amount,
+          'sum'
+        )
+      ).toBe(30);
+      expect((await aggregate({ tableId: table.id }, options)).values).toEqual([]);
+      expect((await aggregate({ tableId: table.id, viewId, fields: [] }, options)).values).toEqual(
+        []
+      );
+    }, 30000);
+
+    it('keeps incoming link order for selected slices and excludes attached or selected candidates', async () => {
+      const foreign = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Aggregate Link Targets ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Amount', type: 'number' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const amount = foreign.fields[1].id;
+      const records = await ctx.createRecords(
+        foreign.id,
+        [10, 20, 30, 40].map((value) => ({
+          fields: { [foreign.fields[0].id]: `Item ${value}`, [amount]: value },
+        }))
+      );
+      const host = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Aggregate Link Hosts ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: 'Items',
+            type: 'link',
+            options: {
+              relationship: 'oneMany',
+              foreignTableId: foreign.id,
+              lookupFieldId: foreign.fields[0].id,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const link = host.fields[1].id;
+      const hosts = await ctx.createRecords(host.id, [
+        { fields: { [link]: [{ id: records[1].id }, { id: records[0].id }] } },
+        { fields: { [link]: [{ id: records[2].id }] } },
+      ]);
+      await ctx.drainOutbox();
+      const input = {
+        tableId: foreign.id,
+        fields: [{ fieldId: amount, statisticFunc: 'sum' }],
+      };
+      const selected = await aggregate({
+        ...input,
+        filterLinkCellSelected: [link, hosts[0].id],
+        take: 1,
+        skip: 1,
+      });
+      expect(findAgg(selected, amount, 'sum')).toBe(10);
+      const candidates = await aggregate({
+        ...input,
+        filterLinkCellCandidate: [link, hosts[0].id],
+        selectedRecordIds: [records[0].id, records[1].id],
+      });
+      expect(findAgg(candidates, amount, 'sum')).toBe(40);
+      const allCandidates = await aggregate({
+        ...input,
+        filterLinkCellCandidate: [link, hosts[0].id],
+        selectedRecordIds: [],
+      });
+      expect(findAgg(allCandidates, amount, 'sum')).toBe(70);
+    }, 30000);
 
     it('aggregates sum/filled over a contiguous row range in view order', async () => {
       const table = await ctx.createTable({

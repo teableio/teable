@@ -15,11 +15,15 @@ import {
 import { SignatureRo, signatureRoSchema } from '@teable/openapi';
 import type { INotifyVo, SignatureVo } from '@teable/openapi';
 import { Response, Request } from 'express';
+import { joinWildcardParam } from '../../utils/wildcard-param';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Public } from '../auth/decorators/public.decorator';
+import { TokenAccess } from '../auth/decorators/token.decorator';
 import { AuthGuard } from '../auth/guard/auth.guard';
 import { AttachmentsService } from './attachments.service';
+import { ATTACHMENT_READ_CSP } from './constant';
 import { DynamicAuthGuardFactory } from './guard/auth.guard';
+import { forceAttachmentDisposition } from './utils';
 
 @Controller('api/attachments')
 @Public()
@@ -49,45 +53,53 @@ export class AttachmentsController {
     }
   }
 
-  @Get('/read/:path(*)')
+  @Get('/read/*path')
   async read(
     @Res({ passthrough: true }) res: Response,
     @Req() req: Request,
-    @Param('path') path: string,
+    @Param('path') rawPath: string | string[],
     @Query('token') token: string,
     @Query('response-content-disposition') responseContentDisposition?: string
   ) {
+    const path = joinWildcardParam(rawPath);
     const headers: Record<string, string> = {};
     headers['Cross-Origin-Resource-Policy'] = 'unsafe-none';
-    headers['Content-Security-Policy'] = '';
+    headers['Content-Security-Policy'] = ATTACHMENT_READ_CSP;
 
+    // Authorize before the filesystem is consulted: answering 304 or "not
+    // found" to an unauthorized caller would reveal whether a path exists.
+    const fileHeaders = await this.attachmentsService.authorizeLocalRead(path, token);
     const hasCache = this.attachmentsService.localFileConditionalCaching(path, req.headers, res);
     if (hasCache) {
       res.set(headers);
       res.status(304);
       return;
     }
-    const { fileStream, headers: fileHeaders } = await this.attachmentsService.readLocalFile(
-      path,
-      token
-    );
+    const fileStream = this.attachmentsService.openLocalFile(path);
     Object.assign(headers, fileHeaders);
     if (responseContentDisposition) {
       // RFC 5987: the filename*= value is already percent-encoded — decode it
       // before re-encoding, otherwise the file name gets double-encoded. The
       // plain filename= value is raw and only needs encoding.
-      const utf8Match = responseContentDisposition.match(/filename\*=UTF-8''([^;]+)/);
+      const utf8Match = /filename\*=UTF-8''([^;]+)/.exec(responseContentDisposition);
       const fileName = utf8Match
         ? this.safeDecodeURIComponent(utf8Match[1])
-        : responseContentDisposition.match(/filename="?([^"]+)"?/)?.[1];
+        : /filename="?([^"]+)"?/.exec(responseContentDisposition)?.[1];
       headers['Content-Disposition'] = fileName
         ? `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`
         : responseContentDisposition;
     }
+    // The query is caller input: it must not turn an html/svg upload back
+    // into an inline same-origin document.
+    forceAttachmentDisposition(headers);
     res.set(headers);
     return new StreamableFile(fileStream);
   }
 
+  // Class-level @Public() skips the global guards, but DynamicAuthGuardFactory
+  // still authenticates the caller: session or access token. Declare that for
+  // the OpenAPI document (see openapi-token-access.ts).
+  @TokenAccess()
   @UseGuards(AuthGuard, DynamicAuthGuardFactory)
   @Post('/signature')
   async signature(
@@ -96,6 +108,7 @@ export class AttachmentsController {
     return await this.attachmentsService.signature(body);
   }
 
+  @TokenAccess()
   @UseGuards(AuthGuard, DynamicAuthGuardFactory)
   @Post('/notify/:token')
   async notify(

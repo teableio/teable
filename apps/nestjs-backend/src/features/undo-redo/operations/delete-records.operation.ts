@@ -82,39 +82,40 @@ export class DeleteRecordsOperation {
       where: { id: operationId },
     });
 
-    if (operationId && Number(count) === 0) return operation;
-
-    await this.recordOpenApiService.multipleCreateRecords(params.tableId, {
-      fieldKeyType: FieldKeyType.Id,
-      records: result.records,
-    });
-
-    if (operationId) {
-      const recordIds = result.records.map((record) => record.id);
-
-      await this.dataPrismaTransactionForTable(params.tableId, async (prisma) => {
-        await prisma.tableTrash.delete({
-          where: { id: operationId },
-        });
-        await prisma.recordTrash.deleteMany({
-          where: {
-            tableId: params.tableId,
-            recordId: { in: recordIds },
-            reason: 'deleted',
-          },
-        });
+    // A trash entry that has already been purged cannot be restored any more.
+    const purged = Boolean(operationId) && Number(count) === 0;
+    if (!purged) {
+      await this.recordOpenApiService.multipleCreateRecords(params.tableId, {
+        fieldKeyType: FieldKeyType.Id,
+        records: result.records,
       });
 
-      // Cold-copy suppression: a trash row already uploaded to a cold part (flush
-      // overlap window) outlives the deleteMany above and would resurface in
-      // merged reads once the buffer drains.
-      await this.recordRemovalTombstoneService.markRestored(
-        await this.dataPrismaExecutorForTable(params.tableId),
-        params.tableId,
-        recordIds
-      );
-    }
+      if (operationId) {
+        const recordIds = result.records.map((record) => record.id);
 
+        await this.dataPrismaTransactionForTable(params.tableId, async (prisma) => {
+          await prisma.tableTrash.delete({
+            where: { id: operationId },
+          });
+          await prisma.recordTrash.deleteMany({
+            where: {
+              tableId: params.tableId,
+              recordId: { in: recordIds },
+              reason: 'deleted',
+            },
+          });
+        });
+
+        // Cold-copy suppression: a trash row already uploaded to a cold part (flush
+        // overlap window) outlives the deleteMany above and would resurface in
+        // merged reads once the buffer drains.
+        await this.recordRemovalTombstoneService.markRestored(
+          await this.dataPrismaExecutorForTable(params.tableId),
+          params.tableId,
+          recordIds
+        );
+      }
+    }
     return operation;
   }
 

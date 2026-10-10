@@ -644,7 +644,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
           if (sl !== scrollLeft) {
             const scrollBuffer =
               deltaLeft < 0 ? -cellScrollBuffer : deltaRight > 0 ? cellScrollBuffer : 0;
-            scrollTo(sl + scrollBuffer, undefined);
+            scrollTo(sl + scrollBuffer);
           }
         }
 

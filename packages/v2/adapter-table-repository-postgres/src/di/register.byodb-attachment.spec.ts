@@ -10,13 +10,14 @@ import { registerV2TableRepositoryPostgresAdapter } from './register';
  * "Attachment(<token>) not found" (HTTP 400).
  *
  * In a BYODB space the data database (customer-owned, `config.db`) is a different
- * connection from the meta database (platform Prisma DB, `config.metaDb`). The
- * attachment metadata tables (`attachments` / `attachments_table`) only exist in
- * the meta DB. The attachment lookup must therefore run against `metaDb`; if it
- * runs against the data db it finds nothing and every insertAttachment fails.
+ * connection from the meta database (platform Prisma DB, `config.metaDb`). File
+ * metadata (`attachments`) lives in the meta DB because the upload API writes
+ * there. Cell reference rows (`attachments_table`) are written with the record
+ * SQL on dataDb. Token lookup must therefore use metaDb; attachmentId lookup
+ * must read refs from dataDb and join metadata from metaDb.
  *
- * In non-BYODB spaces `metaDb === db`, which is why the bug is invisible outside
- * BYODB. These tests wire distinct data/meta dbs to reproduce the BYODB split.
+ * In non-BYODB spaces `metaDb === db`, which is why the split is invisible
+ * outside BYODB. These tests wire distinct data/meta dbs to reproduce it.
  */
 
 type DbSpy = {
@@ -39,10 +40,20 @@ const createDbSpy = (): DbSpy => {
   };
 };
 
-const registerWithSplitDbs = (
-  dataDb: DbSpy,
-  metaDb: DbSpy
-): DependencyContainer => {
+const createSelectDb = (rowsByTable: Record<string, unknown[]>): DbSpy => ({
+  selectFrom: vi.fn((table: string) => ({
+    select: () => ({
+      where: () => ({
+        execute: async () => rowsByTable[table] ?? [],
+      }),
+    }),
+  })),
+  insertInto: vi.fn(),
+  updateTable: vi.fn(),
+  deleteFrom: vi.fn(),
+});
+
+const registerWithSplitDbs = (dataDb: DbSpy, metaDb: DbSpy): DependencyContainer => {
   const c = container.createChildContainer();
   registerV2TableRepositoryPostgresAdapter(c, {
     db: dataDb as unknown as Kysely<never>,
@@ -65,16 +76,55 @@ describe('BYODB attachment lookup wiring (T5395)', () => {
     expect(dataDb.selectFrom).not.toHaveBeenCalled();
   });
 
-  it('resolves attachmentId lookups against the meta db, not the data db', async () => {
-    const dataDb = createDbSpy();
-    const metaDb = createDbSpy();
+  it('resolves attachmentId lookups from data-db refs and meta-db file metadata', async () => {
+    const dataDb = createSelectDb({
+      attachments_table: [
+        {
+          id: 'attt_1',
+          attachment_id: 'act_byodb',
+          token: 'tok_byodb',
+          name: 'file.txt',
+          table_id: 'tbl_1',
+          record_id: 'rec_1',
+          field_id: 'fld_1',
+        },
+      ],
+    });
+    const metaDb = createSelectDb({
+      attachments_table: [],
+      attachments: [
+        {
+          id: 9,
+          token: 'tok_byodb',
+          path: '/tmp/file.txt',
+          size: '12',
+          mimetype: 'text/plain',
+          thumbnailPath: null,
+        },
+      ],
+    });
     const c = registerWithSplitDbs(dataDb, metaDb);
 
     const service = c.resolve<IAttachmentLookupService>(v2CoreTokens.attachmentLookupService);
     const result = await service.listAttachmentsByAttachmentIds(['act_byodb']);
 
-    expect(result.isOk()).toBe(true);
-    expect(metaDb.selectFrom).toHaveBeenCalledWith('attachments_table as attachmentsTable');
-    expect(dataDb.selectFrom).not.toHaveBeenCalled();
+    expect(result._unsafeUnwrap()).toEqual([
+      {
+        id: 'act_byodb',
+        attachmentId: 'act_byodb',
+        name: 'file.txt',
+        token: 'tok_byodb',
+        path: '/tmp/file.txt',
+        size: 12,
+        mimetype: 'text/plain',
+        width: undefined,
+        height: undefined,
+        thumbnailPath: undefined,
+      },
+    ]);
+    expect(dataDb.selectFrom).toHaveBeenCalledWith('attachments_table');
+    expect(dataDb.selectFrom).not.toHaveBeenCalledWith('attachments');
+    expect(metaDb.selectFrom).toHaveBeenCalledWith('attachments_table');
+    expect(metaDb.selectFrom).toHaveBeenCalledWith('attachments');
   });
 });

@@ -1,10 +1,10 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IncomingHttpHeaders } from 'http';
-import { tmpdir } from 'os';
-import { join, resolve } from 'path';
-import { Readable } from 'stream';
-import { pipeline } from 'stream/promises';
+import type { IncomingHttpHeaders } from 'node:http';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { HttpErrorCode, type IAttachmentItem } from '@teable/core';
 import { generateAttachmentId } from '@teable/core';
@@ -16,6 +16,8 @@ import {
   type SignatureRo,
   type SignatureVo,
 } from '@teable/openapi';
+// eslint-disable-next-line no-restricted-imports -- Header utilities only; requests use the SSRF-safe shared client.
+import { AxiosHeaders, type RawAxiosHeaders } from 'axios';
 import type { Request, Response } from 'express';
 import fse from 'fs-extra';
 import mimeTypes from 'mime-types';
@@ -32,11 +34,16 @@ import { AttachmentsCropQueueProcessor } from './attachments-crop.processor';
 import { AttachmentsStorageService } from './attachments-storage.service';
 import StorageAdapter from './plugins/adapter';
 import type { LocalStorage } from './plugins/local';
-import { extractLocalFilePath, validateReadPath } from './plugins/local.helper';
+import {
+  extractLocalFilePath,
+  normalizeObjectPath,
+  validateReadPath,
+  type ILocalFileRef,
+} from './plugins/local.helper';
 import { InjectStorageAdapter } from './plugins/storage';
 import type { IPresignParams, IPresignRes } from './plugins/types';
 import { getSafeUploadContentType } from './plugins/utils';
-import { getExtensionPreview } from './utils';
+import { forceAttachmentDisposition, getExtensionPreview } from './utils';
 
 const BACKEND_ONLY_UPLOAD_TYPES: ReadonlySet<UploadType> = new Set([
   UploadType.RecordHistory,
@@ -46,9 +53,18 @@ const BACKEND_ONLY_UPLOAD_TYPES: ReadonlySet<UploadType> = new Set([
   UploadType.Artifact,
 ]);
 
+/**
+ * Private-bucket top-level dirs of the backend-only types. Nothing mints read
+ * tokens for them (cold archives are consumed server-side, artifacts through
+ * downloadFile), so the local read route refuses them outright.
+ */
+const BACKEND_ONLY_DIRS: ReadonlySet<string> = new Set(
+  [...BACKEND_ONLY_UPLOAD_TYPES].map((type) => StorageAdapter.getDir(type))
+);
+
 @Injectable()
 export class AttachmentsService {
-  private logger = new Logger(AttachmentsService.name);
+  private readonly logger = new Logger(AttachmentsService.name);
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -86,14 +102,22 @@ export class AttachmentsService {
     );
   }
 
-  async readLocalFile(path: string, token?: string) {
+  /**
+   * Authorizes a read of `path` (`bucket/...`, relative to the storage dir)
+   * and returns the headers the object must be served with. The decision is
+   * made on the bucket, never on whether a token happened to be supplied:
+   * public-bucket objects (avatars, logos, form covers) are linked without a
+   * token and need a live attachment row; private-bucket objects need a token
+   * sealed to exactly this path, and the backend-only prefixes are never
+   * served here at all.
+   */
+  async authorizeLocalRead(path: string, token?: string): Promise<Record<string, string>> {
     const localStorage = this.storageAdapter as LocalStorage;
     validateReadPath(path, localStorage.storageDir);
-    let respHeaders: Record<string, string> = {};
-    const { bucket, token: tokenInPath } = localStorage.parsePath(path);
-    if (token && !StorageAdapter.isPublicBucket(bucket)) {
-      respHeaders = localStorage.verifyReadToken(token).respHeaders ?? {};
-    } else {
+    const objectPath = normalizeObjectPath(path);
+    const { bucket, token: tokenInPath } = localStorage.parsePath(objectPath);
+    let respHeaders: Record<string, string>;
+    if (StorageAdapter.isPublicBucket(bucket)) {
       const attachment = await this.prismaService
         .txClient()
         .attachments.findUnique({ where: { token: tokenInPath, deletedTime: null } });
@@ -104,13 +128,37 @@ export class AttachmentsService {
           },
         });
       }
-      respHeaders['Content-Type'] = getExtensionPreview(attachment.mimetype);
+      respHeaders = { 'Content-Type': getExtensionPreview(attachment.mimetype) };
+    } else {
+      if (BACKEND_ONLY_DIRS.has(objectPath.split('/')[1] ?? '')) {
+        throw new CustomHttpException('Invalid path', HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'httpErrors.attachment.invalidPath',
+          },
+        });
+      }
+      if (!token) {
+        throw new CustomHttpException('Invalid token', HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'httpErrors.attachment.invalidToken',
+          },
+        });
+      }
+      respHeaders = { ...(localStorage.verifyReadToken(token, objectPath).respHeaders ?? {}) };
     }
+    return forceAttachmentDisposition(respHeaders);
+  }
 
-    const headers: Record<string, string> = respHeaders ?? {};
-    const fileStream = localStorage.read(path);
+  /** Streams an object already authorized through `authorizeLocalRead`. */
+  openLocalFile(path: string) {
+    const localStorage = this.storageAdapter as LocalStorage;
+    validateReadPath(path, localStorage.storageDir);
+    return localStorage.read(path);
+  }
 
-    return { headers, fileStream };
+  async readLocalFile(path: string, token?: string) {
+    const headers = await this.authorizeLocalRead(path, token);
+    return { headers, fileStream: this.openLocalFile(path) };
   }
 
   localFileConditionalCaching(path: string, reqHeaders: IncomingHttpHeaders, res: Response) {
@@ -381,7 +429,7 @@ export class AttachmentsService {
     );
   }
 
-  private extractLocalFilePath(fileUrl: string): string | null {
+  private extractLocalFilePath(fileUrl: string): ILocalFileRef | null {
     const localStorage = this.storageAdapter as LocalStorage;
     return extractLocalFilePath(fileUrl, this.storageConfig.provider, localStorage.storageDir);
   }
@@ -391,7 +439,8 @@ export class AttachmentsService {
    */
   private async getLocalFileInfo(
     relativePath: string,
-    maxFileSize: number
+    maxFileSize: number,
+    knownContentType?: string
   ): Promise<{ contentLength: number; contentType: string; tempFilePath: string }> {
     const localStorage = this.storageAdapter as LocalStorage;
     const resolvedPath = resolve(localStorage.storageDir, relativePath);
@@ -407,7 +456,9 @@ export class AttachmentsService {
 
     return {
       contentLength: stat.size,
-      contentType: mimeTypes.lookup(relativePath) || 'application/octet-stream',
+      // storage paths carry no extension; the type the read url was issued
+      // with is the one recorded at upload
+      contentType: knownContentType || mimeTypes.lookup(relativePath) || 'application/octet-stream',
       tempFilePath,
     };
   }
@@ -416,10 +467,20 @@ export class AttachmentsService {
     fileUrl: string,
     maxFileSize: number
   ): Promise<{ contentLength: number; contentType: string; tempFilePath: string | null }> {
-    // Local provider: read directly from filesystem, bypass HTTP entirely
-    const localRelativePath = this.extractLocalFilePath(fileUrl);
-    if (localRelativePath) {
-      return this.getLocalFileInfo(localRelativePath, maxFileSize);
+    // Local provider: read directly from filesystem, bypass HTTP entirely. The
+    // shortcut skips the read route, so it must apply the route's own
+    // authorization — the url's token is the caller's proof for that object,
+    // whatever their permissions on the record being written.
+    const localFile = this.extractLocalFilePath(fileUrl);
+    if (localFile) {
+      const headers = await this.authorizeLocalRead(localFile.path, localFile.token).catch(() => {
+        throw new CustomHttpException('Url reject', HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'httpErrors.attachment.urlReject',
+          },
+        });
+      });
+      return this.getLocalFileInfo(localFile.path, maxFileSize, headers['Content-Type']);
     }
 
     let contentLength: number | undefined;
@@ -428,11 +489,11 @@ export class AttachmentsService {
 
     try {
       const headResponse = await axios.head(fileUrl, getSafeAxiosAgents());
-      contentLength =
-        headResponse.headers['content-length'] && parseInt(headResponse.headers['content-length']);
+      const headers = AxiosHeaders.from(headResponse.headers as RawAxiosHeaders);
+      contentLength = Number(headers.getContentLength()) || undefined;
       contentType =
         mimeTypes.lookup(fileUrl) ||
-        headResponse.headers['content-type'] ||
+        headers.getContentType()?.toString() ||
         'application/octet-stream';
       this.logger.log(
         `HEAD request successful. Content-Length: ${contentLength}, Content-Type: ${contentType}`
@@ -533,7 +594,7 @@ export class AttachmentsService {
     filePath: string,
     maxSize: number
   ): Promise<{
-    contentType: string;
+    contentType: string | undefined;
   }> {
     let downloadedBytes = 0;
 
@@ -543,6 +604,9 @@ export class AttachmentsService {
       responseType: 'stream',
       ...getSafeAxiosAgents(),
     });
+    const contentType = AxiosHeaders.from(response.headers as RawAxiosHeaders)
+      .getContentType()
+      ?.toString();
 
     return new Promise((resolve, reject) => {
       const writer = fse.createWriteStream(filePath);
@@ -570,9 +634,7 @@ export class AttachmentsService {
         response.data.pipe(writer);
 
         writer.on('finish', () => {
-          resolve({
-            contentType: response?.headers?.['content-type'],
-          });
+          resolve({ contentType });
         });
         writer.on('error', (error: unknown) => {
           cleanup();

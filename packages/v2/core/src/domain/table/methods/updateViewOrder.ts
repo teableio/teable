@@ -52,7 +52,7 @@ export function updateViewOrder(
   anchorViewId: ViewId,
   position: ViewOrderPosition
 ): Result<UpdateViewOrderMethodResult, DomainError> {
-  const table = this;
+  const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   return safeTry<UpdateViewOrderMethodResult, DomainError>(function* () {
     const sourceViewResult = table.getView(sourceViewId);
     if (sourceViewResult.isErr()) {

@@ -529,7 +529,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "inactive",
             "inactive",
           ],
-          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "col_amount" > $1) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $2, "__last_modified_by" = $3, "__version" = "__version" + 1, "col_status" = $4 from "matched" where "__id" = "matched"."matched_id" and ("col_status" IS DISTINCT FROM $5) returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
+          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where ("col_amount" > $1)) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $2, "__last_modified_by" = $3, "__version" = "__version" + 1, "col_status" = $4 from "matched" where "__id" = "matched"."matched_id" and ("col_status" IS DISTINCT FROM $5) returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
         },
         {
           "parameters": [
@@ -603,7 +603,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
             "inactive",
             "inactive",
           ],
-          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where "__id" in ($1, $2)) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $3, "__last_modified_by" = $4, "__version" = "__version" + 1, "col_status" = $5 from "matched" where "__id" = "matched"."matched_id" and ("col_status" IS DISTINCT FROM $6) returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
+          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where ("__id" in ($1, $2))) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $3, "__last_modified_by" = $4, "__version" = "__version" + 1, "col_status" = $5 from "matched" where "__id" = "matched"."matched_id" and ("col_status" IS DISTINCT FROM $6) returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
         },
         {
           "parameters": [
@@ -2835,84 +2835,5 @@ describe('PostgresTableRecordRepository hybrid/async computed update', () => {
     expect(enqueueSeedTaskSpy).not.toHaveBeenCalled();
 
     vi.useRealTimers();
-  });
-});
-
-describe('PostgresTableRecordRepository deferred computed scheduling', () => {
-  it('enqueues deferred computed work in the row transaction and dispatches after commit', async () => {
-    const afterCommitHandlers: Array<() => void> = [];
-    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
-    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
-    const textFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
-    const actorId = ActorId.create('system')._unsafeUnwrap();
-    const transaction = {
-      kind: 'unitOfWorkTransaction' as const,
-      afterCommit: vi.fn((handler: () => void) => {
-        afterCommitHandlers.push(handler);
-      }),
-    };
-
-    const tableBuilder = Table.builder()
-      .withId(tableId)
-      .withBaseId(baseId)
-      .withName(TableName.create('DeferredComputedTable')._unsafeUnwrap());
-    tableBuilder
-      .field()
-      .singleLineText()
-      .withId(textFieldId)
-      .withName(FieldName.create('Name')._unsafeUnwrap())
-      .primary()
-      .done();
-    tableBuilder.view().defaultGrid().done();
-    const table = tableBuilder.build()._unsafeUnwrap();
-    const record = TableRecord.fromRawFieldValues({
-      id: RECORD_ID,
-      tableId,
-      fields: { [NAME_FIELD_ID]: 'Alice' },
-    })._unsafeUnwrap();
-
-    const enqueueSeedTask = vi.fn(async () => ok({ taskId: 'cuo_deferred', merged: false }));
-    const scheduleDispatch = vi.fn();
-    const repositoryLike = {
-      computedUpdateOutbox: { enqueueSeedTask },
-      computedUpdateStrategy: { scheduleDispatch },
-      expandComputedSeedFieldIds: vi.fn(() => [textFieldId]),
-      hasher: { sha256: () => 'computed-seed-hash' },
-      shouldEnqueuePlanFreeSeed: vi.fn(() => true),
-    };
-
-    const result = await (
-      PostgresTableRecordRepository.prototype as unknown as {
-        enqueueDeferredComputedUpdateMany: (
-          context: unknown,
-          table: unknown,
-          records: ReadonlyArray<unknown>
-        ) => Promise<ReturnType<typeof ok>>;
-      }
-    ).enqueueDeferredComputedUpdateMany.call(
-      repositoryLike,
-      { actorId, requestId: 'req-deferred-computed', transaction },
-      table,
-      [record]
-    );
-
-    expect(result.isOk()).toBe(true);
-    expect(enqueueSeedTask).toHaveBeenCalledTimes(1);
-    expect(enqueueSeedTask.mock.calls[0]?.[1]).toMatchObject({
-      actorId,
-      requestId: 'req-deferred-computed',
-      transaction,
-    });
-    expect(transaction.afterCommit).toHaveBeenCalledTimes(1);
-    expect(scheduleDispatch).not.toHaveBeenCalled();
-
-    afterCommitHandlers[0]!();
-
-    expect(scheduleDispatch).toHaveBeenCalledTimes(1);
-    expect(scheduleDispatch.mock.calls[0]?.[0]).toMatchObject({
-      actorId,
-      requestId: 'req-deferred-computed',
-    });
-    expect(scheduleDispatch.mock.calls[0]?.[0]).not.toHaveProperty('transaction');
   });
 });

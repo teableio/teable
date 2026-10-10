@@ -21,33 +21,6 @@ export function escapePostgresRegex(input: string): string {
 }
 
 /**
- * Escape regular expressions in PostgreSQL JSONB path expressions
- * Used for like_regex operator
- * @param input String to be escaped
- * @returns Escaped string
- */
-export function escapeJsonbRegex(input: string): string {
-  if (typeof input !== 'string') {
-    return String(input);
-  }
-
-  // For like_regex in JSONB path expressions, escape regex special characters
-  // Avoid double-escaping by handling all characters in one pass
-  return input.replace(/[.*+?^${}()|[\]\\"]/g, (match) => {
-    if (match === '\\') {
-      // Backslashes need to be double-escaped for JSONB path expressions
-      return '\\\\\\\\';
-    }
-    if (match === '"') {
-      // Double quotes must be escaped to stay within jsonpath string literals
-      return '\\"';
-    }
-    // Other regex special characters need to be escaped with double backslashes
-    return '\\\\' + match;
-  });
-}
-
-/**
  * Escape a value so it is safe inside a JSONB path *string literal* (the part
  * between the double quotes in `$[*] ? (@ == "...")`).
  *
@@ -58,7 +31,7 @@ export function escapeJsonbRegex(input: string): string {
  * the SQL string.
  */
 export function escapeJsonPathStringLiteral(input: string): string {
-  return String(input).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return String(input).replaceAll('\\', '\\\\').replaceAll('"', '\\"');
 }
 
 /**

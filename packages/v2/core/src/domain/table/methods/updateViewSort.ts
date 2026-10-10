@@ -51,7 +51,7 @@ export function updateViewSort(
   viewId: ViewId,
   rawSort: unknown
 ): Result<UpdateViewSortMethodResult, DomainError> {
-  const table = this;
+  const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   return safeTry<UpdateViewSortMethodResult, DomainError>(function* () {
     const view = yield* table.getView(viewId);
     const sort = yield* ViewSort.create(rawSort);

@@ -62,30 +62,6 @@ export class ViewShareMetaUpdatedRealtimeProjection implements IEventHandler<Vie
           const viewIndex = snapshot.views.findIndex((view) => view.id === event.viewId.toString());
           if (viewIndex === -1) return ok(undefined);
           const viewDto = snapshot.views[viewIndex]!;
-
-          const tableDocId = yield* RealtimeDocId.fromParts(
-            `tbl_${event.baseId.toString()}`,
-            event.tableId.toString()
-          ).safeUnwrap();
-          yield* (await realtimeEngine.ensure(context, tableDocId, snapshot)).safeUnwrap();
-          yield* (
-            await realtimeEngine.applyChange(
-              context,
-              tableDocId,
-              withPersistedViewAuditChanges(
-                viewDto,
-                [
-                  {
-                    type: 'set',
-                    path: ['views', viewIndex, 'shareMeta'],
-                    value: viewDto.shareMeta,
-                  },
-                ],
-                ['views', viewIndex]
-              )
-            )
-          ).safeUnwrap();
-
           const viewDocId = yield* RealtimeDocId.fromParts(
             `viw_${event.tableId.toString()}`,
             event.viewId.toString()
@@ -94,7 +70,8 @@ export class ViewShareMetaUpdatedRealtimeProjection implements IEventHandler<Vie
             await realtimeEngine.ensure(
               context,
               viewDocId,
-              toStandaloneViewRealtimeSnapshot(viewDto)
+              toStandaloneViewRealtimeSnapshot(viewDto),
+              { expectExisting: true }
             )
           ).safeUnwrap();
           return realtimeEngine.applyChange(

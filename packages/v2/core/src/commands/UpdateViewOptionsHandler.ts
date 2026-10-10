@@ -61,7 +61,7 @@ export class UpdateViewOptionsHandler
     context: ExecutionContextPort.IExecutionContext,
     command: UpdateViewOptionsCommand
   ): Promise<Result<UpdateViewOptionsResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<UpdateViewOptionsResult, DomainError>(async function* () {
       const tableSpec = yield* TableAggregate.specs().byId(command.tableId).build();
       const table = yield* await handler.tableRepository.findOne(context, tableSpec);

@@ -17,6 +17,9 @@ const getViewLinkRecordsInputSchema = z.object({
   fieldId: z.string(),
   requestType: z.enum(['candidate', 'selected']).optional(),
   includeHiddenFields: z.boolean().optional(),
+  // Share reads: constrain `selected` Link Records to host records the source
+  // View's filter shows. Authenticated reads keep the full linked set.
+  applySourceViewFilter: z.boolean().optional(),
   search: z.string().optional(),
   take: z.coerce.number().int().positive().max(1000).optional(),
   skip: z.coerce.number().int().nonnegative().optional(),
@@ -29,6 +32,7 @@ export class GetViewLinkRecordsQuery {
     readonly fieldId: FieldId,
     readonly requestType: ViewLinkRecordsRequestType | undefined,
     readonly includeHiddenFields: boolean,
+    readonly applySourceViewFilter: boolean,
     readonly search: string | undefined,
     readonly pagination: OffsetPagination
   ) {}
@@ -56,6 +60,7 @@ export class GetViewLinkRecordsQuery {
                   fieldId,
                   parsed.data.requestType,
                   parsed.data.includeHiddenFields ?? false,
+                  parsed.data.applySourceViewFilter ?? false,
                   parsed.data.search,
                   OffsetPagination.create(limit, offset)
                 )

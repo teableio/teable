@@ -24,6 +24,7 @@ import { TableId } from '../domain/table/TableId';
 import type { ITableFieldInput } from '../schemas/field';
 import { CreateFieldCommand } from './CreateFieldCommand';
 import { parseTableFieldSpec, resolveTableFieldInputName } from './TableFieldSpecs';
+import { UpdateFieldCommand } from './UpdateFieldCommand';
 
 const baseId = `bse${'a'.repeat(16)}`;
 const tableId = `tbl${'b'.repeat(16)}`;
@@ -47,6 +48,33 @@ describe('CreateFieldCommand', () => {
     expect(command.tableId.toString()).toBe(tableId);
     expect(command.field.name).toBe('Title');
     expect(command.field.type).toBe('singleLineText');
+  });
+
+  it('only accepts a caller-supplied dbFieldName that is a plain SQL identifier', () => {
+    const createWith = (dbFieldName: string) =>
+      CreateFieldCommand.create({
+        baseId,
+        tableId,
+        field: { type: 'singleLineText', name: 'Title', dbFieldName },
+      });
+    const updateWith = (dbFieldName: string) =>
+      UpdateFieldCommand.create({
+        tableId,
+        fieldId: `fld${'c'.repeat(16)}`,
+        field: { dbFieldName },
+      });
+
+    expect(createWith('col_1').isOk()).toBe(true);
+    expect(createWith('__fk_fldabc').isOk()).toBe(true);
+    expect(createWith('a'.repeat(63)).isOk()).toBe(true);
+    expect(updateWith('col_1').isOk()).toBe(true);
+
+    // The name is quoted straight into SQL by several query builders, so
+    // quotes, whitespace, dashes and over-long names are refused up front.
+    for (const hostile of ['col"; DROP TABLE x; --', 'col name', 'col-name', '', 'a'.repeat(64)]) {
+      expect(createWith(hostile).isErr()).toBe(true);
+      expect(updateWith(hostile).isErr()).toBe(true);
+    }
   });
 
   it('accepts link input without lookupFieldId and keeps foreign table reference', () => {
@@ -155,7 +183,7 @@ describe('CreateFieldCommand', () => {
       },
     });
 
-    commandResult._unsafeUnwrap();
+    expect(commandResult.isOk()).toBe(true);
   });
 
   it('generates a default name when input name is blank', () => {
@@ -178,7 +206,7 @@ describe('CreateFieldCommand', () => {
       },
     });
 
-    commandResult._unsafeUnwrapErr();
+    expect(commandResult.isErr()).toBe(true);
   });
 
   it('parses all field types with configured options', () => {

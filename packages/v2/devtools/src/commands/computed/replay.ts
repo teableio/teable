@@ -89,6 +89,6 @@ export const computedReplay = Command.make(
   handler
 ).pipe(
   Command.withDescription(
-    'Replay current computed backlog in queue order, optionally scoped to selected bases'
+    'Replay current computed backlog in queue order, optionally scoped to selected projects'
   )
 );

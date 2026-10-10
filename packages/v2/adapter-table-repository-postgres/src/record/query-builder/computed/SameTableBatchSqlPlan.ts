@@ -1,3 +1,5 @@
+import { FormulaCompileBudget } from '@teable/v2-formula-sql-pg';
+
 type FormulaFieldSqlFragmentParams = {
   fieldId: string;
   columnAlias: string;
@@ -12,6 +14,7 @@ type CteLevelSqlPlanParams = {
   previousCteName?: string;
   fragments: ReadonlyArray<FormulaFieldSqlFragment>;
   materialized: boolean;
+  formulaGroupJoins?: ReadonlyArray<string>;
 };
 
 const normalizeExpressionKey = (sqlText: string): string => sqlText.replace(/\s+/g, ' ').trim();
@@ -27,17 +30,21 @@ export class FormulaFieldSqlFragment {
   readonly normalizedKey: string;
   readonly cseEligible: boolean;
 
-  private constructor(params: FormulaFieldSqlFragmentParams) {
+  private constructor(params: FormulaFieldSqlFragmentParams, budget: FormulaCompileBudget) {
     this.fieldId = params.fieldId;
     this.columnAlias = params.columnAlias;
     this.expressionSql = params.expressionSql;
     this.errorConditionSql = params.errorConditionSql;
-    this.normalizedKey = normalizeExpressionKey(params.expressionSql);
+    if (params.cseEligible) budget.allocate(budget.bytes(params.expressionSql) * 2);
+    this.normalizedKey = params.cseEligible ? normalizeExpressionKey(params.expressionSql) : '';
     this.cseEligible = params.cseEligible;
   }
 
-  static create(params: FormulaFieldSqlFragmentParams): FormulaFieldSqlFragment {
-    return new FormulaFieldSqlFragment(params);
+  static create(
+    params: FormulaFieldSqlFragmentParams,
+    budget = new FormulaCompileBudget()
+  ): FormulaFieldSqlFragment {
+    return new FormulaFieldSqlFragment(params, budget);
   }
 }
 
@@ -49,8 +56,8 @@ export class FormulaCseBinding {
     readonly fieldIds: ReadonlyArray<string>
   ) {}
 
-  selectItemSql(): string {
-    return `(${this.expressionSql}) as ${quoteIdentifier(this.alias)}`;
+  selectItemSql(budget = new FormulaCompileBudget()): string {
+    return budget.sql`(${this.expressionSql}) as ${quoteIdentifier(this.alias)}`;
   }
 
   referenceSql(cseAlias = '__cse'): string {
@@ -64,6 +71,7 @@ export class CteLevelSqlPlan {
   readonly previousCteName?: string;
   readonly fragments: ReadonlyArray<FormulaFieldSqlFragment>;
   readonly materialized: boolean;
+  readonly formulaGroupJoins: ReadonlyArray<string>;
   readonly cseBindings: ReadonlyArray<FormulaCseBinding>;
   private readonly cseBindingsByKey: ReadonlyMap<string, FormulaCseBinding>;
 
@@ -76,6 +84,7 @@ export class CteLevelSqlPlan {
     this.previousCteName = params.previousCteName;
     this.fragments = params.fragments;
     this.materialized = params.materialized;
+    this.formulaGroupJoins = params.formulaGroupJoins ?? [];
     this.cseBindings = cseBindings;
     this.cseBindingsByKey = new Map(cseBindings.map((binding) => [binding.normalizedKey, binding]));
   }
@@ -114,34 +123,41 @@ export class CteLevelSqlPlan {
     return new CteLevelSqlPlan(params, bindings);
   }
 
-  buildSelectColumnsSql(): string {
-    return this.fragments
-      .flatMap((fragment) => {
+  buildSelectColumnsSql(budget = new FormulaCompileBudget()): string {
+    return budget.join(
+      this.fragments.flatMap((fragment) => {
         const binding = fragment.cseEligible
           ? this.cseBindingsByKey.get(fragment.normalizedKey)
           : undefined;
-        const valueSql = binding ? binding.referenceSql() : `(${fragment.expressionSql})`;
-        const columns = [`${valueSql} as ${quoteIdentifier(fragment.columnAlias)}`];
+        const valueSql = binding ? binding.referenceSql() : budget.sql`(${fragment.expressionSql})`;
+        const columns = [budget.sql`${valueSql} as ${quoteIdentifier(fragment.columnAlias)}`];
         if (fragment.errorConditionSql) {
           columns.push(
-            `(${fragment.errorConditionSql}) as ${quoteIdentifier(errorColumnAlias(fragment.columnAlias))}`
+            budget.sql`(${fragment.errorConditionSql}) as ${quoteIdentifier(errorColumnAlias(fragment.columnAlias))}`
           );
         }
         return columns;
-      })
-      .join(', ');
+      }),
+      ', '
+    );
   }
 
-  buildCseJoinSql(): string {
+  buildCseJoinSql(budget = new FormulaCompileBudget()): string {
     if (this.cseBindings.length === 0) return '';
-    const selectItems = this.cseBindings.map((binding) => binding.selectItemSql()).join(', ');
-    return ` CROSS JOIN LATERAL (SELECT ${selectItems}) AS "__cse"`;
+    const selectItems = budget.join(
+      this.cseBindings.map((binding) => binding.selectItemSql(budget)),
+      ', '
+    );
+    // The lateral alias alone is not a computation boundary: PostgreSQL pulls
+    // it up and copies expensive subplans into every referencing output column.
+    // OFFSET 0 preserves this per-row projection without materializing the batch.
+    return budget.sql` CROSS JOIN LATERAL (SELECT ${selectItems} OFFSET 0) AS "__cse"`;
   }
 
-  buildCteSql(fromClause: string): string {
-    const selectColumns = this.buildSelectColumnsSql();
-    const cseJoin = this.buildCseJoinSql();
+  buildCteSql(fromClause: string, budget = new FormulaCompileBudget()): string {
+    const selectColumns = this.buildSelectColumnsSql(budget);
+    const cseJoin = this.buildCseJoinSql(budget);
     const materialized = this.materialized ? ' MATERIALIZED' : '';
-    return `${quoteIdentifier(this.name)} AS${materialized} (SELECT ${quoteRef('t', '__id')}, ${selectColumns} ${fromClause}${cseJoin})`;
+    return budget.sql`${quoteIdentifier(this.name)} AS${materialized} (SELECT ${quoteRef('t', '__id')}, ${selectColumns} ${fromClause}${budget.join(this.formulaGroupJoins, '')}${cseJoin})`;
   }
 }

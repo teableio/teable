@@ -33,7 +33,10 @@ describe('v2 read paths while table provisioning is pending (e2e)', () => {
       method: 'GET',
       headers: { 'content-type': 'application/json' },
     });
-    const body = (await response.json()) as { ok: boolean; error?: { message?: string } };
+    const body = (await response.json()) as {
+      ok: boolean;
+      error?: { code?: string; message?: string };
+    };
     return { status: response.status, body };
   };
 
@@ -75,7 +78,7 @@ describe('v2 read paths while table provisioning is pending (e2e)', () => {
     }
   }, 60000);
 
-  it('keeps returning 404 for tables that stay pending past the wait budget', async () => {
+  it('returns a retryable 503 for tables that stay pending past the wait budget', async () => {
     const table = await ctx.createTable({
       baseId: ctx.baseId,
       name: 'Provision Stuck Table',
@@ -89,7 +92,9 @@ describe('v2 read paths while table provisioning is pending (e2e)', () => {
     try {
       const startedAt = Date.now();
       const result = await listRecordsRaw(table.id);
-      expect(result.status).toBe(404);
+      expect(result.status).toBe(503);
+      expect(result.body.error?.code).toBe('table.provision_pending');
+      expect(result.body.error?.message).not.toContain('Table not found');
       expect(result.body.ok).toBe(false);
       // Must wait (bounded) rather than fail instantly: a stuck table is
       // indistinguishable from a slow schema update until the budget expires.

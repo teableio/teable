@@ -54,7 +54,7 @@ export class UpdateRecordsHandler
     context: IExecutionContext,
     command: UpdateRecordsCommand
   ): Promise<Result<UpdateRecordsResult, DomainError>> {
-    const handler = this;
+    const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<UpdateRecordsResult, DomainError>(async function* () {
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);

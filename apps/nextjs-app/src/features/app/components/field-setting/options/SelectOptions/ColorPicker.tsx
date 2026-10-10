@@ -1,7 +1,7 @@
 import type { Colors } from '@teable/core';
 import { COLOR_PALETTE, ColorUtils } from '@teable/core';
-import { useTheme } from '@teable/next-themes';
 import { getSelectColorPairs } from '@teable/sdk';
+import { useTheme } from '@teable/ui-lib';
 import { Button, cn } from '@teable/ui-lib/shadcn';
 
 export const ColorPicker = ({

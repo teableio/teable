@@ -184,6 +184,7 @@ const rewriteDuplicatedDto = (
     id: context.duplicatedTableId,
     name: params.newName.toString(),
     dbTableName: undefined,
+    searchIndex: undefined,
     primaryFieldId: context.fieldIdMap.get(dto.primaryFieldId) ?? dto.primaryFieldId,
     fields: remapped.fields.map((field) =>
       field.type === 'link'
@@ -216,7 +217,9 @@ const ensureDuplicatedLinkDbConfigs = (table: Table): Result<void, DomainError> 
         symmetricFieldId != null;
 
       if (isInternalTwoWaySelfLink) {
-        const pairKey = [linkField.id().toString(), symmetricFieldId!.toString()].sort().join(':');
+        const pairKey = [linkField.id().toString(), symmetricFieldId!.toString()]
+          .sort((a, b) => Number(a > b) - Number(a < b))
+          .join(':');
         if (processedPairs.has(pairKey)) continue;
 
         const symmetricField = linkFieldById.get(symmetricFieldId!.toString());
@@ -263,7 +266,7 @@ export function duplicate(
   this: Table,
   params: DuplicateMethodParams
 ): Result<DuplicateMethodResult, DomainError> {
-  const sourceTable = this;
+  const sourceTable = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   return safeTry<DuplicateMethodResult, DomainError>(function* () {
     const duplicatedTableId = params.newId ?? (yield* TableId.generate());
     const dto = yield* params.mapper.toDTO(sourceTable);

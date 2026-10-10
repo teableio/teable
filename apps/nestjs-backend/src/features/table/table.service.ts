@@ -13,6 +13,7 @@ import {
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
 import type { ICreateTableRo, ITableVo } from '@teable/openapi';
+import { tableFullVoSchema } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
@@ -38,7 +39,7 @@ type IDataPrismaScopedClient = IDataPrismaExecutor & {
 
 @Injectable()
 export class TableService implements IReadonlyAdapterService {
-  private logger = new Logger(TableService.name);
+  private readonly logger = new Logger(TableService.name);
 
   constructor(
     private readonly cls: ClsService<IClsStore>,
@@ -101,7 +102,7 @@ export class TableService implements IReadonlyAdapterService {
     const uniqName = getUniqName(tableRo.name ?? 'New table', names);
     const order =
       tableRaws.reduce((acc, cur) => {
-        return acc > cur.order ? acc : cur.order;
+        return Math.max(acc, cur.order);
       }, 0) + 1;
 
     const validTableName = this.generateValidName(uniqName);
@@ -111,6 +112,14 @@ export class TableService implements IReadonlyAdapterService {
     );
 
     if (tableRo.dbTableName) {
+      // The name becomes a raw SQL identifier; enforce the create-route rule
+      // for callers that bypass the HTTP validation pipe (base import).
+      if (!tableFullVoSchema.shape.dbTableName.safeParse(tableRo.dbTableName).success) {
+        throw new CustomHttpException(
+          `Invalid dbTableName: ${tableRo.dbTableName}`,
+          HttpErrorCode.VALIDATION_ERROR
+        );
+      }
       const existTable = await this.prismaService.txClient().tableMeta.findFirst({
         where: { dbTableName, baseId },
         select: { id: true },
@@ -299,7 +308,7 @@ export class TableService implements IReadonlyAdapterService {
   ): Promise<ITableVo> {
     const tableVo = await this.createDBTable(baseId, snapshot, createTable);
     const { provisionState: _provisionState, ...tableData } = tableVo;
-    await this.batchService.saveRawOps(baseId, RawOpType.Create, IdPrefix.Table, [
+    this.batchService.saveRawOps(baseId, RawOpType.Create, IdPrefix.Table, [
       {
         docId: tableData.id,
         version: 0,
@@ -343,7 +352,7 @@ export class TableService implements IReadonlyAdapterService {
       },
     });
 
-    await this.batchService.saveRawOps(baseId, RawOpType.Del, IdPrefix.Table, [
+    this.batchService.saveRawOps(baseId, RawOpType.Del, IdPrefix.Table, [
       { docId: tableId, version },
     ]);
   }
@@ -375,7 +384,7 @@ export class TableService implements IReadonlyAdapterService {
       },
     });
 
-    await this.batchService.saveRawOps(baseId, RawOpType.Create, IdPrefix.Table, [
+    this.batchService.saveRawOps(baseId, RawOpType.Create, IdPrefix.Table, [
       { docId: tableId, version },
     ]);
   }
@@ -447,7 +456,7 @@ export class TableService implements IReadonlyAdapterService {
       data: updateInput,
     });
 
-    await this.batchService.saveRawOps(baseId, RawOpType.Edit, IdPrefix.Table, [
+    this.batchService.saveRawOps(baseId, RawOpType.Edit, IdPrefix.Table, [
       {
         docId: tableId,
         version: tableRaw.version,

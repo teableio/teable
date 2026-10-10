@@ -460,11 +460,8 @@ describe('v2 http createRecord link fields (e2e)', () => {
         }
       });
 
-      it('creates self-referential links and verifies', async () => {
-        if (!linkFieldId) {
-          // Skip if field creation failed
-          return;
-        }
+      it('creates self-referential links and verifies', async ({ skip }) => {
+        if (!linkFieldId) skip('field creation failed');
 
         // Create new record linking to existing records
         const newRecord = await ctx.createRecord(tableId, {
@@ -527,11 +524,8 @@ describe('v2 http createRecord link fields (e2e)', () => {
         }
       });
 
-      it('creates child record with parent link and verifies', async () => {
-        if (!linkFieldId) {
-          // Skip if field creation failed
-          return;
-        }
+      it('creates child record with parent link and verifies', async ({ skip }) => {
+        if (!linkFieldId) skip('field creation failed');
 
         // Create child record linking to parent
         const childRecord = await ctx.createRecord(tableId, {

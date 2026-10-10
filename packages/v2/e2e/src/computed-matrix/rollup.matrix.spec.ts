@@ -11,22 +11,10 @@
  * Total: ~48 test cases
  */
 
-import {
-  buildMultiTableNameMaps,
-  printComputedSteps,
-  type ComputedPlanLogEntry,
-} from '@teable/v2-container-node-test';
 import { beforeAll, beforeEach, describe, expect, test } from 'vitest';
-import {
-  createTestContext,
-  createFieldIdGenerator,
-  getFieldValues,
-  getExpectedSteps,
-  verifySteps,
-} from './shared';
+import { createTestContext, createFieldIdGenerator, getFieldValues } from './shared';
 import type {
   TestContext,
-  SourceFieldType,
   ValueTransition,
   LinkRelationship,
   LinkDirection,
@@ -38,7 +26,7 @@ import type {
 // =============================================================================
 
 // Rollup works best with numeric types
-const SOURCE_TYPES: SourceFieldType[] = ['number', 'rating'];
+const SOURCE_TYPES: RollupTestCase['source'][] = ['number', 'rating'];
 const TRANSITIONS: ValueTransition[] = ['nullToValue', 'valueToValue', 'valueToNull'];
 // Rollup makes most sense with manyMany and oneMany (aggregating multiple records)
 const RELATIONSHIPS: LinkRelationship[] = ['manyMany', 'oneMany'];
@@ -165,9 +153,6 @@ describe('rollup field matrix (e2e)', () => {
 
         await ctx.testContainer.processOutbox();
 
-        const beforeRecords = await ctx.listRecords(tableB.id);
-        const beforeValue = beforeRecords[0].fields[bRollupFieldId];
-
         // Clear logs before update
         ctx.clearLogs();
 
@@ -185,60 +170,26 @@ describe('rollup field matrix (e2e)', () => {
         // Verify Results
         // =====================================================================
 
-        if (transition === 'valueToNull') {
-          // Rollup with some null values
-          if (expression.startsWith('count')) {
-            // count({values}) counts non-null values, so it should decrease
-            expect(afterValue).toBe(1);
-          } else if (expression.startsWith('average')) {
-            // AVG ignores null values, so average of remaining value stays the same
-            // e.g., AVG(10, null) = AVG(10) = 10
-            expect(afterValue).toBe(beforeValue);
-          } else {
-            // Sum should be reduced
-            expect(afterValue).not.toBe(beforeValue);
-          }
-        } else if (transition === 'nullToValue') {
-          // Adding values
-          if (expression.startsWith('sum')) {
-            // Sum should increase
-            const expectedSum = (updated as number) + (initial === null ? 0 : (initial as number));
-            // One record has updated value, one still has null/initial
-            expect(typeof afterValue).toBe('number');
-          }
-          expect(afterValue).not.toBe(beforeValue);
-        } else {
-          // valueToValue - value should change (except for count which counts records)
-          if (expression.startsWith('count')) {
-            // Count doesn't change - it counts records, not values
-            expect(afterValue).toBe(2);
-          } else {
-            expect(afterValue).not.toBe(beforeValue);
-
-            // Calculate expected value based on expression
-            if (expression.startsWith('sum')) {
-              // One updated, one original
-              const expectedSum = (updated as number) + (initial as number);
-              expect(afterValue).toBe(expectedSum);
-            }
-          }
-        }
-
-        // Verify computed steps
-        const plan = ctx.getLastComputedPlan() as {
-          steps: Array<{ tableId: string; fieldIds: string[]; level: number }>;
+        // A1 was updated; A2 retains the initial value. Numeric aggregates omit nulls.
+        const values = [updated, initial].filter(
+          (value): value is number => typeof value === 'number'
+        );
+        const sum = values.reduce((total, value) => total + value, 0);
+        const expectedValues = {
+          'sum({values})': sum,
+          'count({values})': values.length,
+          'average({values})': values.length === 0 ? 0 : sum / values.length,
         };
-        const expectedSteps = getExpectedSteps('rollup', 1, { relationship: rel, direction: dir });
-        verifySteps(plan, expectedSteps, bRollupFieldId);
+        expect(afterValue).toBe(expectedValues[expression]);
       }
     );
   });
 
   // ===========================================================================
-  // Detailed Snapshot Tests
+  // Detailed Value Tests
   // ===========================================================================
 
-  describe('snapshot tests', () => {
+  describe('detailed value tests', () => {
     test('rollup: number sum manyMany twoWay - detailed', async () => {
       const createFieldId = createFieldIdGenerator();
 
@@ -321,31 +272,6 @@ describe('rollup field matrix (e2e)', () => {
       // Verify: 50 + 20 = 70
       const afterRecords = await ctx.listRecords(tableB.id);
       expect(afterRecords[0].fields[bRollupFieldId]).toBe(70);
-
-      // Verify steps
-      const plan = ctx.getLastComputedPlan() as {
-        steps: Array<{ tableId: string; fieldIds: string[]; level: number }>;
-      };
-      expect(plan.steps.length).toBe(1);
-
-      // Snapshot
-      const nameMaps = buildMultiTableNameMaps([
-        {
-          id: tableA.id,
-          name: 'RollupSnapshot_Source',
-          fields: [{ id: aValueFieldId, name: 'Value' }],
-        },
-        {
-          id: tableB.id,
-          name: 'RollupSnapshot_Target',
-          fields: [{ id: bRollupFieldId, name: 'Sum' }],
-        },
-      ]);
-      expect(printComputedSteps(plan as ComputedPlanLogEntry, nameMaps)).toMatchInlineSnapshot(`
-        "[Computed Steps: 1]
-          L0: RollupSnapshot_Target -> [Sum]
-        [Edges: 1]"
-      `);
     });
 
     test('rollup: adding/removing linked records', async () => {

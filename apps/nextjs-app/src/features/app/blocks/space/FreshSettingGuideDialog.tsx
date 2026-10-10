@@ -1,5 +1,5 @@
-import { useTheme } from '@teable/next-themes';
 import { useSession } from '@teable/sdk/hooks';
+import { useTheme } from '@teable/ui-lib';
 import { Button, Dialog, DialogContent } from '@teable/ui-lib/shadcn';
 import dayjs from 'dayjs';
 import Image from 'next/image';

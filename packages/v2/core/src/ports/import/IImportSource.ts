@@ -30,7 +30,7 @@ export interface IImportParseResult {
   readonly headers: ReadonlyArray<string>;
   /** Synchronous row iterator (for in-memory data) */
   readonly rows?: Iterable<ReadonlyArray<unknown>>;
-  /** Asynchronous row iterator (for streaming/URL sources) */
+  /** Async row iterator for incremental parsing; consumers close it when stopping early. */
   readonly rowsAsync?: AsyncIterable<ReadonlyArray<unknown>>;
   /** Available sheets (for Excel files) */
   readonly sheets?: ReadonlyArray<{ name: string; index: number }>;

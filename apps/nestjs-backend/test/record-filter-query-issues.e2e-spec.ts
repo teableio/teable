@@ -361,7 +361,9 @@ describe('OpenAPI Record-Filter-Query Issues (e2e)', () => {
         fieldKeyType: FieldKeyType.Id,
         filter: buildFilter(),
       });
-      const statuses = data.records.map((r) => r.fields[fieldId]).sort();
+      const statuses = data.records
+        .map((r) => r.fields[fieldId])
+        .sort((a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b)));
       expect(statuses).toEqual([1, 2]);
     });
 

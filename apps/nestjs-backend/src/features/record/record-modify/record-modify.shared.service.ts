@@ -26,12 +26,11 @@ import { formatChangesToOps, mergeDuplicateChange } from '../../calculation/util
 import { CollaboratorService } from '../../collaborator/collaborator.service';
 import { DataLoaderService } from '../../data-loader/data-loader.service';
 import { FieldConvertingService } from '../../field/field-calculate/field-converting.service';
-import { createFieldInstanceByRaw } from '../../field/model/factory';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { ViewService } from '../../view/view.service';
+import { CrossBaseLinkAccessService } from '../cross-base-link-access.service';
 import type { IRecordInnerRo } from '../record.service';
 import { RecordService } from '../record.service';
-import type { IFieldRaws } from '../type';
 import { TypeCastAndValidate } from '../typecast.validate';
 
 @Injectable()
@@ -45,7 +44,8 @@ export class RecordModifySharedService {
     private readonly attachmentsStorageService: AttachmentsStorageService,
     private readonly collaboratorService: CollaboratorService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly dataLoaderService: DataLoaderService
+    private readonly dataLoaderService: DataLoaderService,
+    private readonly crossBaseLinkAccess: CrossBaseLinkAccessService
   ) {}
 
   private buildMissingFieldsMessage(missedFields: string[]): string {
@@ -168,6 +168,7 @@ export class RecordModifySharedService {
           attachmentsStorageService: this.attachmentsStorageService,
           collaboratorService: this.collaboratorService,
           dataLoaderService: this.dataLoaderService,
+          crossBaseLinkAccess: this.crossBaseLinkAccess,
         },
         field,
         tableId: table.id,

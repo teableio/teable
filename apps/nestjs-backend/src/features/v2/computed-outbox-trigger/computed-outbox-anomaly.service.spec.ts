@@ -720,7 +720,7 @@ describe('ComputedOutboxAnomalyService', () => {
         errorSignature: 'statement timeout',
       })
     ).rejects.toMatchObject({
-      message: 'Computed outbox Base data database is not ready',
+      message: 'Computed outbox Project data database is not ready',
     });
     await expect(
       service.recoverDeadLetterBatch({

@@ -24,7 +24,7 @@ export function assertIncludes<T extends string[]>(
   const allowed = insensitive ? stringArray.map((v) => v.toUpperCase()) : stringArray;
   if (!val || !allowed.includes(val)) {
     const msg = [
-      `Value '${v ? v : typeof v}' is not in allowed values`,
+      `Value '${v || typeof v}' is not in allowed values`,
       `(${stringArray.join(',')}`,
       insensitive ? '(case insensitive).' : '(case sensitive).',
     ].join(',');

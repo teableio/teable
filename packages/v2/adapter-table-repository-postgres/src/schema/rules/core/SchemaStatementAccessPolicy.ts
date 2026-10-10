@@ -33,6 +33,8 @@ const dataRelations = [
   'computed_field_activity',
   'computed_table_activity',
   'computed_task_field_ref',
+  'computed_reliability_issue',
+  'computed_reliability_scope',
 ] as const;
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -41,8 +43,8 @@ const relationAccessPattern = (relation: string): RegExp => {
   const escaped = escapeRegExp(relation);
   return new RegExp(
     [
-      `\\b(?:from|join|update|into|table)\\s+(?:only\\s+)?(?:(?:"public"|public)\\s*\\.\\s*)?(?:"${escaped}"|${escaped})\\b`,
-      `\\bto_regclass\\(\\s*'(?:(?:"public"|public)\\.)?(?:"${escaped}"|${escaped})'\\s*\\)`,
+      String.raw`\b(?:from|join|update|into|table)\s+(?:only\s+)?(?:(?:"public"|public)\s*\.\s*)?(?:"${escaped}"|${escaped})\b`,
+      String.raw`\bto_regclass\(\s*'(?:(?:"public"|public)\.)?(?:"${escaped}"|${escaped})'\s*\)`,
     ].join('|'),
     'i'
   );

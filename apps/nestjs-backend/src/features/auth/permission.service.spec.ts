@@ -4,7 +4,7 @@ import { ForbiddenException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type { Action } from '@teable/core';
-import { Role, getPermissions } from '@teable/core';
+import { APP_ROBOT_ID, AUTOMATION_ROBOT_ID, Role, getPermissions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { noop } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -59,6 +59,17 @@ describe('PermissionService', () => {
       const res = await service['getRoleBySpaceId'](spaceId);
       expect(res).toBeNull();
     });
+
+    it('should ignore collaborator rows when the user is a robot identity', async () => {
+      clsServiceMock.get.mockImplementation(((key: string) =>
+        key === 'user.id' ? APP_ROBOT_ID : undefined) as any);
+      prismaServiceMock.collaborator.findMany.mockResolvedValue([
+        { roleName: Role.Owner, principalId: APP_ROBOT_ID } as any,
+      ]);
+      prismaServiceMock.space.findUnique.mockResolvedValue({ deletedTime: null } as any);
+      const res = await service['getRoleBySpaceId']('space-id');
+      expect(res).toBeNull();
+    });
   });
 
   describe('getRoleByBaseId', () => {
@@ -74,6 +85,16 @@ describe('PermissionService', () => {
       const baseId = 'base-id1';
       prismaServiceMock.collaborator.findMany.mockResolvedValue([]);
       const result = await service['getRoleByBaseId'](baseId);
+      expect(result).toBeNull();
+    });
+
+    it('should ignore collaborator rows when the user is a robot identity', async () => {
+      clsServiceMock.get.mockImplementation(((key: string) =>
+        key === 'user.id' ? AUTOMATION_ROBOT_ID : undefined) as any);
+      prismaServiceMock.collaborator.findMany.mockResolvedValue([
+        { roleName: Role.Owner, principalId: AUTOMATION_ROBOT_ID } as any,
+      ]);
+      const result = await service['getRoleByBaseId']('base-id');
       expect(result).toBeNull();
     });
   });
@@ -129,7 +150,7 @@ describe('PermissionService', () => {
       const error = await getError(async () => await service['getUpperIdByBaseId'](baseId));
       expect(error).toBeDefined();
       expect(error?.status).toBe(404);
-      expect(error?.message).toBe('Base not found');
+      expect(error?.message).toBe('Project not found');
     });
   });
 

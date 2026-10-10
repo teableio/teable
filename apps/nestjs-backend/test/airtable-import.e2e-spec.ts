@@ -102,7 +102,11 @@ describe.skipIf(!pat?.startsWith('pat') || !testBase)(
 
     it('creates the base in the target space with its three tables', () => {
       expect(result.base.spaceId).toBe(spaceId);
-      expect(tables.map((t) => t.name).sort()).toEqual(['All Fields', 'Linked', 'Self']);
+      expect(tables.map((t) => t.name).sort((a, b) => Number(a > b) - Number(a < b))).toEqual([
+        'All Fields',
+        'Linked',
+        'Self',
+      ]);
     });
 
     it('maps scalar field types (text/number/date/rating/checkbox/user/attachment)', () => {

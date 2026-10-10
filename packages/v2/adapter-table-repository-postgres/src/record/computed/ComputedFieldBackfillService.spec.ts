@@ -120,9 +120,7 @@ const createSymmetricOneOneLinkField = () => {
   };
 };
 
-const createService = (
-  config: FieldBackfillConfig = { mode: 'sync', hybridThreshold: 5000 }
-) =>
+const createService = (config: FieldBackfillConfig = { mode: 'sync', hybridThreshold: 5000 }) =>
   new ComputedFieldBackfillService(
     {
       findOne: vi.fn().mockResolvedValue(
@@ -397,6 +395,37 @@ describe('ComputedFieldBackfillService collectBackfillFields', () => {
       })
     );
     expect((service as any).outbox.enqueueFieldBackfill).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    'validation.limit.formula_sql_bytes_max',
+    'validation.formula_safety_version_unsupported',
+  ])('does not turn formula safety rejection %s into queued success', async (code) => {
+    const service = createService();
+    const failure = domainError.validation({ code, message: 'Formula safety rejected' });
+    vi.spyOn(service, 'executeSync').mockResolvedValueOnce(err(failure));
+    const result = await service.backfill({} as IExecutionContext, {
+      table: createTestTable(),
+      field: createComputedField(),
+    });
+    expect(result._unsafeUnwrapErr()).toBe(failure);
+    expect(service['outbox'].enqueueFieldBackfill).not.toHaveBeenCalled();
+  });
+
+  it('does not enqueue a batch whose formula compilation exceeded budget', async () => {
+    const service = createService();
+    const failure = domainError.validation({
+      code: 'validation.limit.formula_compile_depth_max',
+      message: 'Formula depth exceeded',
+      details: { metric: 'astDepth', attempted: 11, max: 10, policyVersion: 1 },
+    });
+    vi.spyOn(service, 'executeSyncMany').mockResolvedValueOnce(err(failure));
+    const result = await service.backfillMany({} as IExecutionContext, {
+      table: createTestTable(),
+      fields: [createComputedField()],
+    });
+    expect(result._unsafeUnwrapErr()).toBe(failure);
+    expect(service['outbox'].enqueueFieldBackfill).not.toHaveBeenCalled();
   });
 
   it('returns original sync failure when outbox fallback also fails', async () => {

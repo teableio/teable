@@ -1,7 +1,6 @@
 import { dehydrate, QueryClient } from '@tanstack/react-query';
 import { Role } from '@teable/core';
 import { ReactQueryKeys } from '@teable/sdk';
-import { uniq } from 'lodash';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { SpaceInnerPage } from '@/features/app/blocks/space';
@@ -92,10 +91,9 @@ export const getServerSideProps: GetServerSideProps = withEnv(
 
       return {
         props: {
-          ...(await getTranslationsProps(
-            context,
-            uniq([...spaceConfig.i18nNamespaces, ...settingConfig.i18nNamespaces])
-          )),
+          ...(await getTranslationsProps(context, [
+            ...new Set([...spaceConfig.i18nNamespaces, ...settingConfig.i18nNamespaces]),
+          ])),
           dehydratedState: dehydrate(queryClient),
         },
       };

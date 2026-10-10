@@ -102,7 +102,7 @@ export class FieldUpdateSideEffectService {
     context: ExecutionContextPort.IExecutionContext,
     input: FieldUpdateSideEffectInput
   ): Promise<Result<ReadonlyArray<IDomainEvent>, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return await safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
       const { table, updatedField, previousField, foreignTables } = input;
       if (!(updatedField instanceof LinkField) || previousField instanceof LinkField) {
@@ -143,7 +143,7 @@ export class FieldUpdateSideEffectService {
     context: ExecutionContextPort.IExecutionContext,
     input: FieldUpdateSideEffectInput
   ): Promise<Result<FieldUpdateSideEffectResult, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return await safeTry<FieldUpdateSideEffectResult, DomainError>(async function* () {
       const { table, updatedField, updateSpecs, foreignTables } = input;
 
@@ -608,7 +608,7 @@ export class FieldUpdateSideEffectService {
 
       for (const fieldId of convertedFieldIds) {
         const entry = nextDto[fieldId.toString()];
-        if (!entry || entry.statisticFunc == null) {
+        if (entry?.statisticFunc == null) {
           continue;
         }
 

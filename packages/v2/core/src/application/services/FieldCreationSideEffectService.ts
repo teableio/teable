@@ -48,7 +48,7 @@ export class FieldCreationSideEffectService {
     foreignTableState.set(input.table.id().toString(), input.table);
 
     if (input.fields.length === 0) {
-      return Promise.resolve(ok(foreignTableState));
+      return ok(foreignTableState);
     }
 
     const sideEffectsResult = FieldCreationSideEffectVisitor.collect(input.fields, {
@@ -57,26 +57,24 @@ export class FieldCreationSideEffectService {
       domainContext: input.domainContext,
     });
     if (sideEffectsResult.isErr()) {
-      return Promise.resolve(err(sideEffectsResult.error));
+      return err(sideEffectsResult.error);
     }
 
     for (const sideEffect of sideEffectsResult.value) {
       const foreignTable = foreignTableState.get(sideEffect.foreignTable.id().toString());
       if (!foreignTable) {
-        return Promise.resolve(
-          err(domainError.notFound({ message: 'Foreign table not found in state' }))
-        );
+        return err(domainError.notFound({ message: 'Foreign table not found in state' }));
       }
 
       const previewResult = sideEffect.mutateSpec.mutate(foreignTable);
       if (previewResult.isErr()) {
-        return Promise.resolve(err(previewResult.error));
+        return err(previewResult.error);
       }
 
       foreignTableState.set(previewResult.value.id().toString(), previewResult.value);
     }
 
-    return Promise.resolve(ok(foreignTableState));
+    return ok(foreignTableState);
   }
 
   @TraceSpan()
@@ -84,7 +82,7 @@ export class FieldCreationSideEffectService {
     context: ExecutionContextPort.IExecutionContext,
     input: FieldCreationSideEffectServiceInput
   ): Promise<Result<FieldCreationSideEffectServiceResult, DomainError>> {
-    const service = this;
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const result = await safeTry<FieldCreationSideEffectServiceResult, DomainError>(
       async function* () {
         const foreignTableState = input.tableState

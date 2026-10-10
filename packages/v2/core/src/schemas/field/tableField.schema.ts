@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { fieldColorSchema, fieldColorValues } from '../../domain/table/fields/types/FieldColor';
 import { optionalForeignBaseIdSchema } from '../../domain/base/optionalForeignBaseId';
+import { fieldColorSchema, fieldColorValues } from '../../domain/table/fields/types/FieldColor';
 import { timeZoneValueSchema } from '../../domain/table/fields/types/TimeZone';
 import {
   cellValueTypeSchema,
@@ -181,6 +181,7 @@ export const rollupConfigSchema = z
 
 export const lookupOptionsSchema = z
   .object({
+    isUnique: z.boolean().optional(),
     linkFieldId: z.string(),
     foreignTableId: z.string(),
     lookupFieldId: z.string(),
@@ -201,12 +202,7 @@ export const conditionalRollupConfigSchema = z
   .refine(
     (data) => {
       const filter = data.condition?.filter;
-      return (
-        filter !== null &&
-        filter !== undefined &&
-        filter.filterSet !== undefined &&
-        filter.filterSet.length > 0
-      );
+      return filter?.filterSet !== undefined && filter.filterSet.length > 0;
     },
     {
       message: 'ConditionalRollupConfig condition must have at least one filter item',
@@ -225,6 +221,7 @@ export const conditionalRollupOptionsSchema = z
 
 export const conditionalLookupOptionsSchema = z
   .object({
+    isUnique: z.boolean().optional(),
     baseId: optionalForeignBaseIdSchema,
     foreignTableId: z.string(),
     lookupFieldId: z.string(),
@@ -234,12 +231,7 @@ export const conditionalLookupOptionsSchema = z
   .refine(
     (data) => {
       const filter = data.condition?.filter;
-      return (
-        filter !== null &&
-        filter !== undefined &&
-        filter.filterSet !== undefined &&
-        filter.filterSet.length > 0
-      );
+      return filter?.filterSet !== undefined && filter.filterSet.length > 0;
     },
     {
       message: 'ConditionalLookupOptions condition must have at least one filter item',
@@ -247,10 +239,21 @@ export const conditionalLookupOptionsSchema = z
     }
   );
 
+/**
+ * Mirrors the v1 field contract (`fieldVoSchema.dbFieldName`): the name is
+ * quoted straight into SQL by several query builders, so a caller-supplied
+ * value must be a plain identifier of at most 63 characters (the Postgres
+ * limit). Persisted names are rehydrated through `DbFieldName` and are not
+ * re-validated here.
+ */
+export const dbFieldNameInputSchema = z.string().regex(/^\w{1,63}$/, {
+  message: 'dbFieldName must contain only letters, numbers and underscores (1-63 characters)',
+});
+
 const tableFieldCommonShape = {
   id: z.string().optional(),
   name: z.string().optional(),
-  dbFieldName: z.string().optional(),
+  dbFieldName: dbFieldNameInputSchema.optional(),
   description: z.string().nullable().optional(),
   aiConfig: z.unknown().nullable().optional(),
   isPrimary: z.boolean().optional(),

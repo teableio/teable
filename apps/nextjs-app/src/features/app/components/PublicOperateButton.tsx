@@ -1,5 +1,8 @@
-import { useTheme } from '@teable/next-themes';
+import { useQuery } from '@tanstack/react-query';
+import { getTemplateDetail } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { useIsAnonymous, useIsHydrated, useShareId, useTemplate } from '@teable/sdk/hooks';
+import { useTheme } from '@teable/ui-lib';
 import { Button } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
@@ -86,6 +89,18 @@ export const PublicOperateButton = () => {
   const isInIframe = useIsInIframe();
   const templateRef = useRef<ITemplateSelectSpaceDialogRef>(null);
   const isHydrated = useIsHydrated();
+  // The base only carries the template's id; the host decides how a template is
+  // used from its full detail (EE: a solution is set up, not copied with rows).
+  const templateId = template?.id;
+  const {
+    data: templateDetail,
+    isError: templateError,
+    refetch: refetchTemplate,
+  } = useQuery({
+    queryKey: ReactQueryKeys.templateDetail(templateId as string),
+    queryFn: () => getTemplateDetail(templateId as string).then((res) => res.data),
+    enabled: Boolean(templateId) && !isAnonymous,
+  });
 
   if (isInIframe || !isHydrated) {
     return null;
@@ -121,7 +136,13 @@ export const PublicOperateButton = () => {
         {isTemplate ? t('common:actions.useTemplate') : t('common:actions.login')}
       </Button>
       {isTemplate && !isAnonymous && (
-        <TemplateSelectSpaceDialog ref={templateRef} templateId={template.id} />
+        <TemplateSelectSpaceDialog
+          ref={templateRef}
+          templateId={template.id}
+          template={templateDetail}
+          templateError={templateError}
+          onRetryTemplate={() => refetchTemplate()}
+        />
       )}
     </>
   );

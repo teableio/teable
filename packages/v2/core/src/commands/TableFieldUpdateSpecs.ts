@@ -106,7 +106,6 @@ import {
   UpdateRatingIconSpec,
   UpdateRatingMaxSpec,
   UpdateRollupConfigSpec,
-  UpdateRollupExpressionSpec,
   UpdateRollupFormattingSpec,
   UpdateRollupShowAsSpec,
   UpdateRollupTimeZoneSpec,
@@ -130,7 +129,7 @@ import { TableUpdateFieldTypeSpec } from '../domain/table/specs/TableUpdateField
 import type { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import type { IExecutionContext } from '../ports/ExecutionContext';
-import { getDomainContext } from '../ports/ExecutionContext';
+import { getFormulaSourceBudget, getDomainContext } from '../ports/ExecutionContext';
 import { validateFieldAiConfig } from '../schemas/field';
 import type { IUpdateTableFieldSpec } from './IUpdateTableFieldSpec';
 
@@ -578,6 +577,7 @@ class UpdateNumberFieldSpec implements IUpdateTableFieldSpec {
     private readonly nameValue: FieldName | undefined,
     private readonly formattingValue: NumberFormatting | undefined,
     private readonly showAsValue: NumberShowAs | undefined,
+    private readonly shouldClearShowAs: boolean,
     private readonly defaultValueValue: NumberDefaultValue | undefined,
     private readonly shouldClearDefaultValue: boolean,
     private readonly notNullValue: FieldNotNull | undefined,
@@ -594,11 +594,12 @@ class UpdateNumberFieldSpec implements IUpdateTableFieldSpec {
     notNull?: unknown;
     unique?: unknown;
   }): Result<UpdateNumberFieldSpec, DomainError> {
+    const hasShowAs = input.options !== undefined && 'showAs' in input.options;
     const hasDefaultValue = input.options !== undefined && 'defaultValue' in input.options;
 
     return optional(input.name, FieldName.create).andThen((name) =>
       optional(input.options?.formatting, NumberFormatting.create).andThen((formatting) =>
-        optional(input.options?.showAs, NumberShowAs.create).andThen((showAs) =>
+        clearable(input.options?.showAs, hasShowAs, NumberShowAs.create).andThen((showAsResult) =>
           clearable(
             input.options?.defaultValue,
             hasDefaultValue,
@@ -610,7 +611,8 @@ class UpdateNumberFieldSpec implements IUpdateTableFieldSpec {
                   new UpdateNumberFieldSpec(
                     name,
                     formatting,
-                    showAs,
+                    showAsResult.value,
+                    showAsResult.shouldClear,
                     defaultValueResult.value,
                     defaultValueResult.shouldClear,
                     notNull,
@@ -658,6 +660,11 @@ class UpdateNumberFieldSpec implements IUpdateTableFieldSpec {
         specs.push(
           UpdateNumberShowAsSpec.create(currentField.id(), currentShowAs, this.showAsValue)
         );
+      }
+    } else if (this.shouldClearShowAs) {
+      const currentShowAs = currentField.showAs();
+      if (currentShowAs !== undefined) {
+        specs.push(UpdateNumberShowAsSpec.create(currentField.id(), currentShowAs, undefined));
       }
     }
 
@@ -1366,7 +1373,9 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
     private readonly innerOptionsValue: Record<string, unknown> | undefined,
     private readonly innerCellValueTypeValue: string | undefined,
     private readonly innerIsMultipleCellValueValue: boolean | undefined,
-    private readonly foreignTablesValue: ReadonlyArray<Table> | undefined
+    private readonly foreignTablesValue: ReadonlyArray<Table> | undefined,
+    private readonly isUniqueValue: boolean | undefined,
+    private readonly executionContextValue: IExecutionContext | undefined
   ) {}
 
   static create(
@@ -1378,12 +1387,17 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
     },
     context?: {
       foreignTables?: ReadonlyArray<Table>;
+      executionContext?: IExecutionContext;
     }
   ): Result<UpdateConditionalLookupFieldSpec, DomainError> {
     const optionsRaw =
       input.options && typeof input.options === 'object' && !Array.isArray(input.options)
         ? (input.options as Record<string, unknown>)
         : undefined;
+
+    if (optionsRaw?.isUnique !== undefined && typeof optionsRaw.isUnique !== 'boolean') {
+      return err(domainError.validation({ message: 'Lookup isUnique must be a boolean' }));
+    }
 
     const parseConditionalLookupOptions = (): Result<
       ConditionalLookupOptions | undefined,
@@ -1420,6 +1434,7 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
           : {}),
         foreignTableId: optionsRaw.foreignTableId,
         lookupFieldId: optionsRaw.lookupFieldId,
+        isUnique: optionsRaw.isUnique,
         condition: normalizedCondition,
       }).map((value) => value);
     };
@@ -1441,6 +1456,7 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
         'filter',
         'sort',
         'limit',
+        'isUnique',
         'innerType',
       ]);
       const entries = Object.entries(optionsRaw).filter(([key]) => !reservedKeys.has(key));
@@ -1460,7 +1476,9 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
             parseInnerOptions(),
             typeof input.cellValueType === 'string' ? input.cellValueType : undefined,
             typeof input.isMultipleCellValue === 'boolean' ? input.isMultipleCellValue : undefined,
-            context?.foreignTables
+            context?.foreignTables,
+            typeof optionsRaw?.isUnique === 'boolean' ? optionsRaw.isUnique : undefined,
+            context?.executionContext
           )
       )
     );
@@ -1476,9 +1494,16 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
     const specs: ISpecification<Table, ITableSpecVisitor>[] = [];
     const nextName = this.nameValue ?? currentField.name();
     const currentOptions = currentField.conditionalLookupOptions();
-    const nextOptions = this.optionsValue ?? currentOptions;
-    const conditionChanged =
-      this.optionsValue !== undefined && !this.optionsValue.equals(currentOptions);
+    const nextOptionsResult =
+      this.isUniqueValue === undefined
+        ? ok(this.optionsValue ?? currentOptions)
+        : ConditionalLookupOptions.create({
+            ...(this.optionsValue ?? currentOptions).toDto(),
+            isUnique: this.isUniqueValue,
+          });
+    if (nextOptionsResult.isErr()) return err(nextOptionsResult.error);
+    const nextOptions = nextOptionsResult.value;
+    const conditionChanged = !nextOptions.equals(currentOptions);
     const innerChanged = this.innerTypeValue !== undefined || this.innerOptionsValue !== undefined;
 
     if (this.nameValue && !this.nameValue.equals(currentField.name())) {
@@ -1573,7 +1598,7 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
 
     if (hasInnerOptionsUpdate) {
       return {
-        ...(currentPatch ?? {}),
+        ...currentPatch,
         ...this.innerOptionsValue,
       };
     }
@@ -1649,7 +1674,10 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
 
     const parseResult = parseTableFieldSpec(
       parseFieldInput as Parameters<typeof parseTableFieldSpec>[0],
-      { isPrimary: false }
+      {
+        isPrimary: false,
+        executionContext: this.executionContextValue,
+      }
     );
     if (parseResult.isErr()) {
       return err(parseResult.error);
@@ -1709,7 +1737,10 @@ class UpdateConditionalLookupFieldSpec implements IUpdateTableFieldSpec {
       return [{ id: field.id(), valueType: valueTypeResult.value }];
     });
 
-    return FormulaExpression.create(expressionRaw).andThen((expression) =>
+    return FormulaExpression.create(
+      expressionRaw,
+      getFormulaSourceBudget(this.executionContextValue)
+    ).andThen((expression) =>
       expression.getParsedValueType(fieldValueTypes).map((resultType) => ({
         cellValueType: resultType.cellValueType.toString(),
         isMultipleCellValue: resultType.isMultipleCellValue.toBoolean(),
@@ -2270,18 +2301,37 @@ class UpdateFormulaFieldSpec implements IUpdateTableFieldSpec {
     private readonly shouldClearShowAs: boolean
   ) {}
 
-  static create(input: {
-    name?: string;
-    options?: {
-      expression?: string;
-      timeZone?: string;
-      formatting?: unknown;
-      showAs?: unknown;
-    };
-  }): Result<UpdateFormulaFieldSpec, DomainError> {
+  static create(
+    input: {
+      name?: string;
+      options?: {
+        expression?: string;
+        timeZone?: string;
+        formatting?: unknown;
+        showAs?: unknown;
+      };
+    },
+    options?: { currentField: Field; executionContext?: IExecutionContext }
+  ): Result<UpdateFormulaFieldSpec, DomainError> {
+    const current =
+      options?.currentField instanceof FormulaField ? options.currentField : undefined;
+    const timeZoneChanged =
+      input.options?.timeZone !== undefined &&
+      input.options.timeZone !== (current?.timeZone()?.toString() ?? 'utc');
+    if (current && timeZoneChanged) {
+      const source = FormulaExpression.create(
+        input.options?.expression ?? current.expression().toString(),
+        getFormulaSourceBudget(options?.executionContext)
+      );
+      if (source.isErr()) return err(source.error);
+    }
     const hasShowAs = input.options !== undefined && 'showAs' in input.options;
     return optional(input.name, FieldName.create).andThen((name) =>
-      optional(input.options?.expression, FormulaExpression.create).andThen((expression) =>
+      optional(input.options?.expression, (raw) =>
+        current && !timeZoneChanged && raw === current.expression().toString()
+          ? ok(current.expression())
+          : FormulaExpression.create(raw, getFormulaSourceBudget(options?.executionContext))
+      ).andThen((expression) =>
         optional(input.options?.timeZone, TimeZone.create).andThen((timeZone) =>
           parseFormulaFormatting(input.options?.formatting).andThen((formatting) =>
             clearable(input.options?.showAs, hasShowAs, parseRequiredFormulaShowAs).map(
@@ -2341,18 +2391,6 @@ class UpdateFormulaFieldSpec implements IUpdateTableFieldSpec {
           UpdateFormulaTimeZoneSpec.create(currentField.id(), currentTimeZone, this.timeZoneValue)
         );
       }
-    } else {
-      const currentTimeZone = currentField.timeZone();
-      const touchedFormulaOptions =
-        this.expressionValue !== undefined ||
-        this.formattingValue !== undefined ||
-        this.showAsValue !== undefined ||
-        this.shouldClearShowAs;
-      if (!currentTimeZone && touchedFormulaOptions) {
-        specs.push(
-          UpdateFormulaTimeZoneSpec.create(currentField.id(), currentTimeZone, TimeZone.default())
-        );
-      }
     }
 
     if (this.formattingValue !== undefined) {
@@ -2404,19 +2442,23 @@ class UpdateRollupFieldSpec implements IUpdateTableFieldSpec {
     private readonly timeZoneValue: TimeZone | undefined,
     private readonly formattingValue: FormulaFormatting | undefined,
     private readonly showAsValue: FormulaShowAs | undefined,
-    private readonly shouldClearShowAs: boolean
+    private readonly shouldClearShowAs: boolean,
+    private readonly foreignTablesValue: ReadonlyArray<Table> | undefined
   ) {}
 
-  static create(input: {
-    name?: string;
-    config?: unknown;
-    options?: {
-      expression?: string;
-      timeZone?: string;
-      formatting?: unknown;
-      showAs?: unknown;
-    };
-  }): Result<UpdateRollupFieldSpec, DomainError> {
+  static create(
+    input: {
+      name?: string;
+      config?: unknown;
+      options?: {
+        expression?: string;
+        timeZone?: string;
+        formatting?: unknown;
+        showAs?: unknown;
+      };
+    },
+    options?: { foreignTables?: ReadonlyArray<Table> }
+  ): Result<UpdateRollupFieldSpec, DomainError> {
     const hasShowAs = input.options !== undefined && 'showAs' in input.options;
     return optional(input.name, FieldName.create).andThen((name) =>
       optional(input.config, RollupFieldConfig.create).andThen((config) =>
@@ -2432,7 +2474,8 @@ class UpdateRollupFieldSpec implements IUpdateTableFieldSpec {
                     timeZone,
                     formatting,
                     showAsResult.value,
-                    showAsResult.shouldClear
+                    showAsResult.shouldClear,
+                    options?.foreignTables
                   )
               )
             )
@@ -2457,26 +2500,60 @@ class UpdateRollupFieldSpec implements IUpdateTableFieldSpec {
       );
     }
 
-    if (this.configValue !== undefined) {
-      const currentConfig = currentField.config();
-      if (!this.configValue.equals(currentConfig)) {
-        specs.push(
-          UpdateRollupConfigSpec.create(currentField.id(), currentConfig, this.configValue)
-        );
+    const nextConfig = this.configValue ?? currentField.config();
+    const nextExpression = this.expressionValue ?? currentField.expression();
+    const configChanged = !nextConfig.equals(currentField.config());
+    const expressionChanged = !nextExpression.equals(currentField.expression());
+
+    if (expressionChanged) {
+      const foreignTable = this.foreignTablesValue?.find((table) =>
+        table.id().equals(nextConfig.foreignTableId())
+      );
+      if (!foreignTable) {
+        return err(domainError.invariant({ message: 'RollupField foreign table not loaded' }));
       }
+      const valuesField = ForeignTable.from(foreignTable).fieldById(nextConfig.lookupFieldId());
+      if (valuesField.isErr()) return err(valuesField.error);
+      const valuesType = valuesField.value.accept(new FieldValueTypeVisitor());
+      if (valuesType.isErr()) return err(valuesType.error);
+      const resultType = nextExpression.getParsedValueType(valuesType.value);
+      if (resultType.isErr()) return err(resultType.error);
+      const currentCellValueType = currentField.cellValueType();
+      const resultTypeChanged =
+        currentCellValueType.isErr() ||
+        !currentCellValueType.value.equals(resultType.value.cellValueType);
+      const nextFormatting =
+        this.formattingValue ??
+        (resultTypeChanged
+          ? RollupField.defaultFormatting(resultType.value.cellValueType)
+          : currentField.formatting());
+
+      // Validate the final expression and display options together, rather than
+      // validating new numeric formatting against the previous string result type.
+      const updatedFieldResult = RollupField.create({
+        id: currentField.id(),
+        name: this.nameValue ?? currentField.name(),
+        config: nextConfig,
+        expression: nextExpression,
+        valuesField: valuesField.value,
+        timeZone: this.timeZoneValue ?? currentField.timeZone(),
+        formatting: nextFormatting,
+        showAs: this.shouldClearShowAs ? undefined : this.showAsValue ?? currentField.showAs(),
+      });
+      if (updatedFieldResult.isErr()) return err(updatedFieldResult.error);
+      const updatedField = updatedFieldResult.value;
+      const descriptionResult = updatedField.setDescription(currentField.description());
+      if (descriptionResult.isErr()) return err(descriptionResult.error);
+      const aiConfigResult = updatedField.setAiConfig(currentField.aiConfig());
+      if (aiConfigResult.isErr()) return err(aiConfigResult.error);
+      specs.push(TableUpdateFieldTypeSpec.create(currentField, updatedField));
+      return ok(specs);
     }
 
-    if (this.expressionValue !== undefined) {
-      const currentExpression = currentField.expression();
-      if (!this.expressionValue.equals(currentExpression)) {
-        specs.push(
-          UpdateRollupExpressionSpec.create(
-            currentField.id(),
-            currentExpression,
-            this.expressionValue
-          )
-        );
-      }
+    if (configChanged) {
+      specs.push(
+        UpdateRollupConfigSpec.create(currentField.id(), currentField.config(), nextConfig)
+      );
     }
 
     if (this.timeZoneValue !== undefined) {
@@ -2566,7 +2643,7 @@ class UpdateLinkFieldSpec implements IUpdateTableFieldSpec {
       if (isFullUpdate) {
         const clearableKeys = ['filterByViewId', 'visibleFieldIds', 'filter'] as const;
         for (const key of clearableKeys) {
-          if (!Object.prototype.hasOwnProperty.call(input.options, key)) {
+          if (!Object.hasOwn(input.options, key)) {
             patch[key] = undefined;
           }
         }
@@ -2683,10 +2760,7 @@ class UpdateLinkFieldSpec implements IUpdateTableFieldSpec {
         mergedConfig[key] = value;
       }
 
-      const hasLookupFieldIdPatch = Object.prototype.hasOwnProperty.call(
-        this.configPatchValue,
-        'lookupFieldId'
-      );
+      const hasLookupFieldIdPatch = Object.hasOwn(this.configPatchValue, 'lookupFieldId');
       const requestedForeignTableId =
         typeof mergedConfig.foreignTableId === 'string' ? mergedConfig.foreignTableId : undefined;
       const isForeignTableChanging =
@@ -2866,6 +2940,7 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
           filter?: unknown;
           sort?: unknown;
           limit?: number;
+          isUnique?: boolean;
         }
       | undefined,
     private readonly notNullValue: FieldNotNull | undefined,
@@ -2886,6 +2961,7 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
         filter?: unknown;
         sort?: unknown;
         limit?: number;
+        isUnique?: boolean;
         showAs?: unknown;
       };
       innerOptions?: Readonly<Record<string, unknown>>;
@@ -2904,10 +2980,8 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
       !Array.isArray(input.innerOptions)
         ? (input.innerOptions as Readonly<Record<string, unknown>>)
         : undefined;
-    const hasOptionsShowAs =
-      input.options !== undefined && Object.prototype.hasOwnProperty.call(input.options, 'showAs');
-    const hasInnerShowAs =
-      innerOptions !== undefined && Object.prototype.hasOwnProperty.call(innerOptions, 'showAs');
+    const hasOptionsShowAs = input.options !== undefined && Object.hasOwn(input.options, 'showAs');
+    const hasInnerShowAs = innerOptions !== undefined && Object.hasOwn(innerOptions, 'showAs');
     const shouldClearShowAs =
       (hasOptionsShowAs && input.options?.showAs === null) ||
       (hasInnerShowAs && innerOptions?.showAs === null) ||
@@ -2915,22 +2989,25 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
     return optional(input.name, FieldName.create).andThen((name) => {
       const optionsPatch = input.options
         ? {
-            ...(Object.prototype.hasOwnProperty.call(input.options, 'linkFieldId')
+            ...(Object.hasOwn(input.options, 'linkFieldId')
               ? { linkFieldId: input.options.linkFieldId }
               : {}),
-            ...(Object.prototype.hasOwnProperty.call(input.options, 'foreignTableId')
+            ...(Object.hasOwn(input.options, 'foreignTableId')
               ? { foreignTableId: input.options.foreignTableId }
               : {}),
-            ...(Object.prototype.hasOwnProperty.call(input.options, 'lookupFieldId')
+            ...(Object.hasOwn(input.options, 'lookupFieldId')
               ? { lookupFieldId: input.options.lookupFieldId }
               : {}),
-            ...(Object.prototype.hasOwnProperty.call(input.options, 'filter') || isFullUpdate
+            ...(Object.hasOwn(input.options, 'isUnique') || isFullUpdate
+              ? { isUnique: input.options.isUnique }
+              : {}),
+            ...(Object.hasOwn(input.options, 'filter') || isFullUpdate
               ? { filter: input.options.filter }
               : {}),
-            ...(Object.prototype.hasOwnProperty.call(input.options, 'sort') || isFullUpdate
+            ...(Object.hasOwn(input.options, 'sort') || isFullUpdate
               ? { sort: input.options.sort }
               : {}),
-            ...(Object.prototype.hasOwnProperty.call(input.options, 'limit') || isFullUpdate
+            ...(Object.hasOwn(input.options, 'limit') || isFullUpdate
               ? { limit: input.options.limit }
               : {}),
           }
@@ -2977,10 +3054,7 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
         mergedOptionsDto[key] = value;
       }
 
-      const hasLookupFieldIdPatch = Object.prototype.hasOwnProperty.call(
-        this.lookupOptionsPatchValue,
-        'lookupFieldId'
-      );
+      const hasLookupFieldIdPatch = Object.hasOwn(this.lookupOptionsPatchValue, 'lookupFieldId');
       const requestedForeignTableId =
         typeof mergedOptionsDto.foreignTableId === 'string'
           ? mergedOptionsDto.foreignTableId
@@ -3055,11 +3129,11 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
       nextPatch = this.isFullUpdate
         ? { ...this.innerOptionsValue }
         : {
-            ...(currentPatch ?? {}),
+            ...currentPatch,
             ...this.innerOptionsValue,
           };
     } else if (this.shouldClearShowAs) {
-      nextPatch = { ...(currentPatch ?? {}) };
+      nextPatch = { ...currentPatch };
     } else {
       return undefined;
     }
@@ -3085,7 +3159,7 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
       options !== null &&
       typeof options === 'object' &&
       !Array.isArray(options) &&
-      Object.prototype.hasOwnProperty.call(options, 'showAs')
+      Object.hasOwn(options, 'showAs')
     );
   }
 
@@ -3270,12 +3344,12 @@ class UpdateButtonFieldSpec implements IUpdateTableFieldSpec {
     const workflowWasProvided =
       input.options != null &&
       typeof input.options === 'object' &&
-      Object.prototype.hasOwnProperty.call(input.options, 'workflow');
+      Object.hasOwn(input.options, 'workflow');
 
     const confirmWasProvided =
       input.options != null &&
       typeof input.options === 'object' &&
-      Object.prototype.hasOwnProperty.call(input.options, 'confirm');
+      Object.hasOwn(input.options, 'confirm');
 
     return optional(input.name, FieldName.create).andThen((name) =>
       optional(input.options?.label, ButtonLabel.create).andThen((label) =>
@@ -3517,10 +3591,15 @@ export const parseUpdateFieldSpec = (
       )
     )
     .with('formula', () =>
-      UpdateFormulaFieldSpec.create(input as Parameters<typeof UpdateFormulaFieldSpec.create>[0])
+      UpdateFormulaFieldSpec.create(input as Parameters<typeof UpdateFormulaFieldSpec.create>[0], {
+        currentField,
+        executionContext: options?.executionContext,
+      })
     )
     .with('rollup', () =>
-      UpdateRollupFieldSpec.create(input as Parameters<typeof UpdateRollupFieldSpec.create>[0])
+      UpdateRollupFieldSpec.create(input as Parameters<typeof UpdateRollupFieldSpec.create>[0], {
+        foreignTables: options?.foreignTables,
+      })
     )
     .with('link', () =>
       UpdateLinkFieldSpec.create(input as Parameters<typeof UpdateLinkFieldSpec.create>[0], {
@@ -3540,6 +3619,7 @@ export const parseUpdateFieldSpec = (
         input as Parameters<typeof UpdateConditionalLookupFieldSpec.create>[0],
         {
           foreignTables: options?.foreignTables,
+          executionContext: options?.executionContext,
         }
       )
     )
@@ -3633,7 +3713,7 @@ export const buildUpdateFieldSpecs = (
     }
   }
 
-  if (Object.prototype.hasOwnProperty.call(input, 'aiConfig')) {
+  if (Object.hasOwn(input, 'aiConfig')) {
     // v1 parity (T6520): aiConfig must match the (possibly converted) field type.
     const aiConfigFieldType = input.type ?? currentField.type().toString();
     const aiConfigValidation = validateFieldAiConfig(aiConfigFieldType, input.aiConfig);
@@ -3645,7 +3725,7 @@ export const buildUpdateFieldSpecs = (
     );
   }
 
-  if (Object.prototype.hasOwnProperty.call(input, 'description')) {
+  if (Object.hasOwn(input, 'description')) {
     const nextDescription = input.description ?? null;
     if (currentField.description() !== nextDescription) {
       specs.push(
@@ -3700,7 +3780,7 @@ const parseTypeConversion = (
     type: input.type,
     id: currentField.id().toString(),
     name: fieldName,
-    description: Object.prototype.hasOwnProperty.call(input, 'description')
+    description: Object.hasOwn(input, 'description')
       ? input.description ?? null
       : currentField.description(),
     options: input.options,
@@ -3718,7 +3798,7 @@ const parseTypeConversion = (
       ...(input.options as Record<string, unknown>),
     };
 
-    const hasLookupFieldIdPatch = Object.prototype.hasOwnProperty.call(
+    const hasLookupFieldIdPatch = Object.hasOwn(
       input.options as Record<string, unknown>,
       'lookupFieldId'
     );
@@ -3767,7 +3847,7 @@ const parseTypeConversion = (
 
     const mergedOptions = {
       ...(currentOptionsResult.value as Record<string, unknown>),
-      ...((input.options as Record<string, unknown> | undefined) ?? {}),
+      ...(input.options as Record<string, unknown> | undefined),
     };
 
     createFieldInput.options = normalizeSelectTypeConversionOptions(input.type, mergedOptions);

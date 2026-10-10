@@ -24,6 +24,7 @@ export type IDashboardInstallPluginVo = z.infer<typeof dashboardInstallPluginVoS
 export const DashboardInstallPluginRoute: RouteConfig = registerRoute({
   method: 'post',
   path: DASHBOARD_INSTALL_PLUGIN,
+  title: 'Post project dashboard plugin',
   description: 'Install a plugin to a dashboard',
   request: {
     params: z.object({

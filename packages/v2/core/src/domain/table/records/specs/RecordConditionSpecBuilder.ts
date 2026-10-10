@@ -28,7 +28,7 @@ export class RecordConditionSpecBuilder extends SpecBuilder<
     field: Field;
     operator: RecordConditionOperator;
     value?: RecordConditionValue;
-  }): RecordConditionSpecBuilder {
+  }): this {
     const specResult = params.field
       .spec()
       .create({ operator: params.operator, value: params.value });
@@ -39,14 +39,12 @@ export class RecordConditionSpecBuilder extends SpecBuilder<
     return this;
   }
 
-  addConditionSpec(
-    spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
-  ): RecordConditionSpecBuilder {
+  addConditionSpec(spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>): this {
     this.addSpec(spec);
     return this;
   }
 
-  recordId(recordId: RecordId): RecordConditionSpecBuilder {
+  recordId(recordId: RecordId): this {
     this.addSpec(RecordByIdSpec.create(recordId));
     return this;
   }

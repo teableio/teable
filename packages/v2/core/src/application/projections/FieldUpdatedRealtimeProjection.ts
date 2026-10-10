@@ -18,8 +18,7 @@ import { ProjectionHandler } from './Projection';
 
 const fieldCollectionPrefix = 'fld';
 
-const hasOwn = (value: object, key: string): boolean =>
-  Object.prototype.hasOwnProperty.call(value, key);
+const hasOwn = (value: object, key: string): boolean => Object.hasOwn(value, key);
 
 const getValueAtPath = (value: unknown, path: ReadonlyArray<string>): unknown => {
   let current = value;
@@ -64,6 +63,21 @@ const buildFieldRealtimeChanges = (
       value: nextValue,
       ...(oldValue === undefined ? {} : { oldValue }),
     });
+  }
+
+  // A user field's multiplicity is option-backed (options.isMultiple), but the
+  // field document also carries the derived root flag isMultipleCellValue that
+  // grids and editors read. The field DTO omits that root flag for user fields,
+  // so derive it from the options; publish both in one op so a client never
+  // holds a field whose two multiplicity flags disagree (T7257).
+  if (fieldDto.type === 'user' && event.updatedProperties.includes('isMultiple')) {
+    const path = ['isMultipleCellValue'];
+    const pathKey = JSON.stringify(path);
+    const isMultiple = fieldDto.options?.isMultiple;
+    if (typeof isMultiple === 'boolean' && !seenPaths.has(pathKey)) {
+      seenPaths.add(pathKey);
+      fieldChanges.push({ type: 'set', path, value: isMultiple });
+    }
   }
 
   fieldChanges.push(...buildFieldShapeRefreshChanges(fieldDto, event, seenPaths));

@@ -107,12 +107,15 @@ describe('buildComputedOutboxWakeupCandidatesQuery', () => {
 });
 
 describe('buildComputedOutboxRoutedFilter', () => {
-  it('excludes bases already routed to a ready BYODB binding on the default storage', () => {
+  it('excludes every BYODB-bound base from default storage, including disabled connections', () => {
     const filter = buildComputedOutboxRoutedFilter({ storage: 'default' });
 
     expect(filter.cte).toContain('routed_away as (');
-    expect(filter.cte).toContain("sdb.mode = 'byodb' and sdb.state = 'ready'");
-    expect(filter.cte).toContain("dc.status = 'ready'");
+    expect(filter.cte).toContain("sdb.mode = 'byodb'");
+    expect(filter.cte).not.toContain('data_db_connection');
+    expect(filter.cte).not.toContain("sdb.state = 'ready'");
+    expect(filter.cte).not.toContain("dc.status = 'ready'");
+    expect(filter.cte).not.toContain('deleted_time');
     expect(filter.condition('base_id')).toBe('base_id not in (select base_id from routed_away)');
     expect(filter.bindings).toEqual([]);
   });
@@ -177,6 +180,15 @@ describe('buildComputedOutboxAnomalyListQuery', () => {
       120_000,
       50,
     ]);
+  });
+
+  it('hides default-storage leftovers for any BYODB binding, including disabled connections', () => {
+    const query = buildComputedOutboxAnomalyListQuery({ storage: 'default' }, 120_000, 50);
+
+    expect(query.sql).toContain('base_id not in (select base_id from routed_away)');
+    expect(query.sql).toContain("sdb.mode = 'byodb'");
+    expect(query.sql).not.toContain('data_db_connection');
+    expect(query.sql).not.toContain("dc.status = 'ready'");
   });
 });
 

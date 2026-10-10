@@ -73,6 +73,16 @@ describe('TableQueryTraceAttributes', () => {
     expect(JSON.stringify(attrs)).not.toContain('订单');
   });
 
+  it.each([
+    'generated_text_probe_too_short',
+    'generated_text_coverage_mismatch',
+    'generated_text_unsupported_projection',
+    'generated_text_invalid_config',
+  ])('preserves the bounded fallback reason %s in metrics', (fallbackReason) => {
+    const attrs = createTableQueryMetricAttributes({ fallbackReason });
+    expect(attrs[TableQueryTraceAttributes.SEARCH_FALLBACK_REASON]).toBe(fallbackReason);
+  });
+
   it('bounds every dynamic metric label', () => {
     const uncontrolled = 'customer-controlled-value';
     const attrs = createTableQueryMetricAttributes({

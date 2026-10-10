@@ -17,7 +17,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
       value as IDateFilter
     );
     builderClient.whereRaw(
-      `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`
+      String.raw`${this.tableColumnRef}::jsonb @\? '$[*] \? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`
     );
     return builderClient;
   }
@@ -35,7 +35,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
       value as IDateFilter
     );
     builderClient.whereRaw(
-      `(NOT ${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")' OR ${this.tableColumnRef} IS NULL)`
+      String.raw`(NOT ${this.tableColumnRef}::jsonb @\? '$[*] \? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")' OR ${this.tableColumnRef} IS NULL)`
     );
 
     return builderClient;
@@ -54,7 +54,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
       value as IDateFilter
     );
     builderClient.whereRaw(
-      `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ > "${dateTimeRange[1]}")'`
+      String.raw`${this.tableColumnRef}::jsonb @\? '$[*] \? (@ > "${dateTimeRange[1]}")'`
     );
     return builderClient;
   }
@@ -72,7 +72,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
       value as IDateFilter
     );
     builderClient.whereRaw(
-      `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}")'`
+      String.raw`${this.tableColumnRef}::jsonb @\? '$[*] \? (@ >= "${dateTimeRange[0]}")'`
     );
     return builderClient;
   }
@@ -90,7 +90,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
       value as IDateFilter
     );
     builderClient.whereRaw(
-      `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ < "${dateTimeRange[0]}")'`
+      String.raw`${this.tableColumnRef}::jsonb @\? '$[*] \? (@ < "${dateTimeRange[0]}")'`
     );
     return builderClient;
   }
@@ -108,7 +108,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
       value as IDateFilter
     );
     builderClient.whereRaw(
-      `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ <= "${dateTimeRange[1]}")'`
+      String.raw`${this.tableColumnRef}::jsonb @\? '$[*] \? (@ <= "${dateTimeRange[1]}")'`
     );
     return builderClient;
   }
@@ -126,7 +126,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
       value as IDateFilter
     );
     builderClient.whereRaw(
-      `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`
+      String.raw`${this.tableColumnRef}::jsonb @\? '$[*] \? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`
     );
     return builderClient;
   }

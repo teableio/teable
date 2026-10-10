@@ -48,7 +48,9 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const fields = useFields();
   const readableFields = useFields({ withHidden: true });
   const allFields = useFields({ withHidden: true, withDenied: true });
-  const visibleFieldIds = useDeepCompareMemoize(fields.map(({ id }) => id).sort()) as string[];
+  const visibleFieldIds = useDeepCompareMemoize(
+    fields.map(({ id }) => id).sort((a, b) => Number(a > b) - Number(a < b))
+  ) as string[];
   const { stackFieldId, coverFieldId, isCoverFit, isFieldNameHidden, isEmptyStackHidden } =
     view?.options ?? {};
   const fieldPermission = useFieldPermission();
@@ -79,7 +81,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
     // projection is a field-id set, not a sequence: keep it order-stable so
     // downstream cache keys don't churn when fields are reordered
     const ids = coverField ? new Set([...visibleFieldIds, coverField.id]) : visibleFieldIds;
-    return [...ids].sort();
+    return [...ids].sort((a, b) => Number(a > b) - Number(a < b));
   }, [coverField, visibleFieldIds]);
 
   const recordQuery = useMemo(() => {

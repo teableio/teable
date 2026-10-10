@@ -1,6 +1,6 @@
-import { mkdir, writeFile } from 'fs/promises';
-import path from 'path';
-import { setTimeout as delay } from 'timers/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { Injectable } from '@nestjs/common';
 import {
   assertPgDumpSupportsServer,
@@ -242,12 +242,12 @@ export class SpaceDataDbCopyService {
     if (strategy === 'pgcopydb') {
       if (input.snapshotId) {
         throw new Error(
-          'pgcopydb base schema copy does not support exported PostgreSQL snapshots; use pg_dump_stream_restore or pg_dump_restore'
+          'pgcopydb project schema copy does not support exported PostgreSQL snapshots; use pg_dump_stream_restore or pg_dump_restore'
         );
       }
       if (excludedForeignKeys.length) {
         throw new Error(
-          'pgcopydb base schema copy does not support filtering out-of-space foreign keys; use pg_dump_restore for this migration'
+          'pgcopydb project schema copy does not support filtering out-of-space foreign keys; use pg_dump_restore for this migration'
         );
       }
       const plan = buildBaseSchemaPgcopydbPlan(input);

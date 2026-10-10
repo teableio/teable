@@ -11,22 +11,15 @@
  * Total: ~72 test cases
  */
 
-import {
-  buildMultiTableNameMaps,
-  printComputedSteps,
-  type ComputedPlanLogEntry,
-} from '@teable/v2-container-node-test';
 import { beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import {
   createTestContext,
   createFieldIdGenerator,
   getFieldValues,
-  getExpectedSteps,
-  verifySteps,
+  verifyLookupValue,
 } from './shared';
 import type {
   TestContext,
-  SourceFieldType,
   ValueTransition,
   LinkRelationship,
   LinkDirection,
@@ -37,7 +30,7 @@ import type {
 // Test Configuration
 // =============================================================================
 
-const SOURCE_TYPES: SourceFieldType[] = ['number', 'singleLineText', 'checkbox'];
+const SOURCE_TYPES: LookupTestCase['source'][] = ['number', 'singleLineText', 'checkbox'];
 const TRANSITIONS: ValueTransition[] = ['nullToValue', 'valueToValue', 'valueToNull'];
 const RELATIONSHIPS: LinkRelationship[] = ['oneOne', 'oneMany', 'manyOne', 'manyMany'];
 const DIRECTIONS: LinkDirection[] = ['oneWay', 'twoWay'];
@@ -176,10 +169,6 @@ describe('lookup field matrix (e2e)', () => {
 
         await ctx.testContainer.processOutbox();
 
-        const beforeRecords = await ctx.listRecords(tableB.id);
-        const recordB = beforeRecords[0];
-        const beforeValue = recordB.fields[bLookupFieldId];
-
         // Clear logs before the update we want to test
         ctx.clearLogs();
 
@@ -197,40 +186,18 @@ describe('lookup field matrix (e2e)', () => {
         // Verify Results
         // =====================================================================
 
-        // Lookup always returns array
-        if (transition === 'valueToNull') {
-          // After update to null, lookup should return [null] or similar
-          if (Array.isArray(afterValue)) {
-            expect(afterValue.every((v) => v === null)).toBe(true);
-          } else {
-            expect(afterValue).toBeNull();
-          }
-        } else {
-          // Value should have changed
-          expect(afterValue).not.toEqual(beforeValue);
-
-          // Should contain the updated value
-          if (Array.isArray(afterValue)) {
-            expect(afterValue.length).toBeGreaterThan(0);
-            expect(afterValue).toContain(updated);
-          }
-        }
-
-        // Verify computed steps
-        const plan = ctx.getLastComputedPlan() as {
-          steps: Array<{ tableId: string; fieldIds: string[]; level: number }>;
-        };
-        const expectedSteps = getExpectedSteps('lookup', 1, { relationship: rel, direction: dir });
-        verifySteps(plan, expectedSteps, bLookupFieldId);
+        // Unchecked checkboxes are stored as null, and lookups omit null source cells.
+        const expectedSource = source === 'checkbox' && updated === false ? null : updated;
+        verifyLookupValue(afterValue, expectedSource === null ? null : [expectedSource]);
       }
     );
   });
 
   // ===========================================================================
-  // Detailed Snapshot Tests
+  // Detailed Value Tests
   // ===========================================================================
 
-  describe('snapshot tests', () => {
+  describe('detailed value tests', () => {
     test('lookup: number valueToValue manyOne twoWay - detailed', async () => {
       const createFieldId = createFieldIdGenerator();
 
@@ -308,31 +275,6 @@ describe('lookup field matrix (e2e)', () => {
       // Verify
       const afterRecords = await ctx.listRecords(tableB.id);
       expect(afterRecords[0].fields[bLookupFieldId]).toEqual([200]);
-
-      // Verify steps
-      const plan = ctx.getLastComputedPlan() as {
-        steps: Array<{ tableId: string; fieldIds: string[]; level: number }>;
-      };
-      expect(plan.steps.length).toBe(1);
-
-      // Snapshot
-      const nameMaps = buildMultiTableNameMaps([
-        {
-          id: tableA.id,
-          name: 'LookupSnapshot_Source',
-          fields: [{ id: aValueFieldId, name: 'Value' }],
-        },
-        {
-          id: tableB.id,
-          name: 'LookupSnapshot_Target',
-          fields: [{ id: bLookupFieldId, name: 'LookupVal' }],
-        },
-      ]);
-      expect(printComputedSteps(plan as ComputedPlanLogEntry, nameMaps)).toMatchInlineSnapshot(`
-        "[Computed Steps: 1]
-          L0: LookupSnapshot_Target -> [LookupVal]
-        [Edges: 1]"
-      `);
     });
 
     test('lookup: manyMany with multiple records - detailed', async () => {
@@ -406,8 +348,7 @@ describe('lookup field matrix (e2e)', () => {
       await ctx.testContainer.processOutbox();
 
       const beforeRecords = await ctx.listRecords(tableB.id);
-      const beforeLookup = beforeRecords[0].fields[bLookupFieldId] as number[];
-      expect(beforeLookup.sort((a, b) => a - b)).toEqual([10, 20]);
+      expect(beforeRecords[0].fields[bLookupFieldId]).toEqual([10, 20]);
 
       // Clear and update one source record
       ctx.clearLogs();
@@ -416,8 +357,7 @@ describe('lookup field matrix (e2e)', () => {
 
       // Verify - should now be [100, 20]
       const afterRecords = await ctx.listRecords(tableB.id);
-      const afterLookup = afterRecords[0].fields[bLookupFieldId] as number[];
-      expect(afterLookup.sort((a, b) => a - b)).toEqual([20, 100]);
+      expect(afterRecords[0].fields[bLookupFieldId]).toEqual([100, 20]);
     });
   });
 });

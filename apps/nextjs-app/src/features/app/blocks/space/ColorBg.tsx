@@ -3,7 +3,7 @@ import { getEmojiColor } from '@/lib/emoji-color';
 
 const colorCache: Record<string, string> = {};
 
-export function ColorBg({ emoji }: { emoji?: string }) {
+export function ColorBg({ emoji }: Readonly<{ emoji?: string }>) {
   const [color, setColor] = useState<string>('');
 
   useEffect(() => {

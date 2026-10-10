@@ -18,7 +18,6 @@ import { BaseNodeModule } from './features/base-node/base-node.module';
 import { BaseShareModule } from './features/base-share/base-share.module';
 import { BuiltinAssetsInitModule } from './features/builtin-assets-init';
 import { CanaryModule } from './features/canary';
-import { ChatModule } from './features/chat/chat.module';
 import { CollaboratorModule } from './features/collaborator/collaborator.module';
 import { CommentOpenApiModule } from './features/comment/comment-open-api.module';
 import { DashboardModule } from './features/dashboard/dashboard.module';
@@ -53,6 +52,7 @@ import { TrashModule } from './features/trash/trash.module';
 import { UndoRedoModule } from './features/undo-redo/open-api/undo-redo.module';
 import { UserModule } from './features/user/user.module';
 import { ComputedOutboxWakeupConsumerModule } from './features/v2/computed-outbox-trigger/computed-outbox-wakeup-consumer.module';
+import { DomainEventWakeupConsumerModule } from './features/v2/domain-event-outbox-trigger/domain-event-wakeup-consumer.module';
 import { V2Module } from './features/v2/v2.module';
 import { GlobalModule } from './global/global.module';
 import { InitBootstrapProvider } from './global/init-bootstrap.provider';
@@ -73,7 +73,6 @@ export const appModules = {
     BaseModule,
     BaseNodeModule,
     IntegrityModule,
-    ChatModule,
     AttachmentsModule,
     WsModule,
     SelectionModule,
@@ -116,6 +115,7 @@ export const appModules = {
     BuiltinAssetsInitModule,
     V2Module,
     ComputedOutboxWakeupConsumerModule.register(),
+    DomainEventWakeupConsumerModule,
   ],
   providers: [InitBootstrapProvider],
 };

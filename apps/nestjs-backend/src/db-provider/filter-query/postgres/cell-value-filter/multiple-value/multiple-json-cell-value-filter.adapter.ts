@@ -8,7 +8,10 @@ import type {
 import { FieldType, isFieldReferenceValue } from '@teable/core';
 import type { Knex } from 'knex';
 import { isUserOrLink } from '../../../../../utils/is-user-or-link';
-import { escapeJsonbRegex, escapePostgresRegex } from '../../../../../utils/postgres-regex-escape';
+import {
+  escapeJsonPathRegexLiteral,
+  escapePostgresRegex,
+} from '../../../../../utils/postgres-regex-escape';
 import type { IDbProvider } from '../../../../db.provider.interface';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
@@ -252,18 +255,11 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
     _operator: IFilterOperator,
     value: ILiteralValue
   ): Knex.QueryBuilder {
-    const { type } = this.field;
-    const escapedValue = escapeJsonbRegex(String(value));
-
-    if (type === FieldType.Link) {
-      builderClient.whereRaw(
-        `${this.tableColumnRef}::jsonb @\\? '$[*].title \\? (@ like_regex "${String(escapedValue)}" flag "i")'`
-      );
-    } else {
-      builderClient.whereRaw(
-        `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ like_regex "${String(escapedValue)}" flag "i")'`
-      );
-    }
+    // Bind the whole jsonpath as a parameter; the filter value must never be
+    // spliced into the SQL text (a single quote would close the literal and
+    // inject SQL).
+    const jsonPath = this.buildLikeRegexJsonPath(value);
+    builderClient.whereRaw(String.raw`${this.tableColumnRef}::jsonb @\? ?`, [jsonPath]);
     return builderClient;
   }
 
@@ -272,19 +268,22 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
     _operator: IFilterOperator,
     value: ILiteralValue
   ): Knex.QueryBuilder {
-    const { type } = this.field;
-    const escapedValue = escapeJsonbRegex(String(value));
-
-    if (type === FieldType.Link) {
-      builderClient.whereRaw(
-        `NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb @\\? '$[*].title \\? (@ like_regex "${String(escapedValue)}" flag "i")'`
-      );
-    } else {
-      builderClient.whereRaw(
-        `NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb @\\? '$[*] \\? (@ like_regex "${String(escapedValue)}" flag "i")'`
-      );
-    }
+    const jsonPath = this.buildLikeRegexJsonPath(value);
+    builderClient.whereRaw(String.raw`NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb @\? ?`, [
+      jsonPath,
+    ]);
     return builderClient;
+  }
+
+  /**
+   * Case-insensitive substring match over every link title (`$[*].title`) or
+   * over the elements of a JSON array. The value is escaped for the jsonpath
+   * string literal only; the caller binds the returned path as a parameter.
+   */
+  private buildLikeRegexJsonPath(value: ILiteralValue): string {
+    const pattern = escapeJsonPathRegexLiteral(String(value));
+    const selector = this.field.type === FieldType.Link ? '$[*].title' : '$[*]';
+    return `${selector} ? (@ like_regex "${pattern}" flag "i")`;
   }
 
   private buildReferenceJsonArray(value: IFieldReferenceValue): string {

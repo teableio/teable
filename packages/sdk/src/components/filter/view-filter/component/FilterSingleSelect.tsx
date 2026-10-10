@@ -1,5 +1,4 @@
-import { useTheme } from '@teable/next-themes';
-import { cn } from '@teable/ui-lib';
+import { useTheme, cn } from '@teable/ui-lib';
 import { useMemo } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import type { SingleSelectField } from '../../../../model';
@@ -18,7 +17,7 @@ interface ISingleSelect {
   modal?: boolean;
 }
 
-function FilterSingleSelect(props: ISingleSelect) {
+function FilterSingleSelect(props: Readonly<ISingleSelect>) {
   const { t } = useTranslation();
   const { onSelect, field, value, className, popoverClassName, modal } = props;
   const { resolvedTheme } = useTheme();

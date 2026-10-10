@@ -1,14 +1,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Airtable, Check, HelpCircle, Search } from '@teable/icons';
 import {
-  getUserIntegrationList,
   importAirtableAnalyze,
   importAirtableStream,
   UserIntegrationProvider,
   type IImportAirtableIssue,
   type IImportAirtableProgressEvent,
   type IImportAirtableVo,
-  type IUserIntegrationItemVo,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Spin } from '@teable/ui-lib/index';
@@ -34,7 +32,9 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
-import { useConnectIntegration } from '@/features/app/components/user-integration/useConnectIntegration';
+import { ConnectedAccountMenu } from '@/features/app/components/user-integration/ConnectedAccountMenu';
+import { ReauthorizeNotice } from '@/features/app/components/user-integration/ReauthorizeNotice';
+import { useConnectedAccounts } from '@/features/app/components/user-integration/useConnectedAccounts';
 import { spaceConfig } from '@/features/i18n/space.config';
 import {
   ImportLogPanel,
@@ -59,7 +59,7 @@ const BASE_TILE_COLORS = [
 const getBaseTileColor = (baseId: string) => {
   let hash = 0;
   for (let i = 0; i < baseId.length; i++) {
-    hash = (hash + baseId.charCodeAt(i)) % BASE_TILE_COLORS.length;
+    hash = (hash + baseId.charCodeAt(i)) % BASE_TILE_COLORS.length; // NOSONAR typescript:S7758 -- the hash is defined over UTF-16 code units; switching to code points would change persisted/compared values
   }
   return BASE_TILE_COLORS[hash];
 };
@@ -160,7 +160,7 @@ const ISSUE_I18N_MAP: Record<IImportAirtableIssue['code'], string> = {
 
 // Airtable's canonical share URL embeds the base (app) id, letting us flag a
 // mismatched link before the import runs; the server validates authoritatively.
-const parseShareLinkBaseId = (shareLink: string) => shareLink.match(/app[A-Za-z0-9]+/)?.[0];
+const parseShareLinkBaseId = (shareLink: string) => /app[A-Za-z0-9]+/.exec(shareLink)?.[0];
 
 const evaluateShareLink = (
   importViewConfig: boolean,
@@ -174,6 +174,35 @@ const evaluateShareLink = (
   return { mismatch, canImport };
 };
 
+/**
+ * What the pick step shows under its header: the account's grant needs consent again,
+ * there are no bases, or the list. Its own component so the dialog stays readable.
+ */
+const BasesBody = ({
+  needsReauth,
+  empty,
+  busy,
+  onReauthorize,
+  children,
+}: {
+  needsReauth: boolean;
+  empty: boolean;
+  busy: boolean;
+  onReauthorize: () => void;
+  children: React.ReactNode;
+}) => {
+  const { t } = useTranslation(spaceConfig.i18nNamespaces);
+  if (needsReauth) {
+    return <ReauthorizeNotice className="mt-2" busy={busy} onReauthorize={onReauthorize} />;
+  }
+  if (empty) {
+    return (
+      <p className="mt-2 text-sm text-muted-foreground">{t('space:airtableImport.noBases')}</p>
+    );
+  }
+  return <>{children}</>;
+};
+
 export const AirtableImportDialog = (props: IAirtableImportDialogProps) => {
   const { spaceId, baseId, folderId, open, onOpenChange } = props;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
@@ -184,7 +213,6 @@ export const AirtableImportDialog = (props: IAirtableImportDialogProps) => {
   const queryClient = useQueryClient();
 
   const [step, setStep] = React.useState<IStep>('detect');
-  const [integration, setIntegration] = React.useState<IUserIntegrationItemVo | null>(null);
   const [baseSearch, setBaseSearch] = React.useState('');
   const [selectedBaseId, setSelectedBaseId] = React.useState('');
   const [importRecords, setImportRecords] = React.useState(true);
@@ -198,9 +226,33 @@ export const AirtableImportDialog = (props: IAirtableImportDialogProps) => {
   >({});
   const [createdBase, setCreatedBase] = React.useState<IImportAirtableVo['base'] | null>(null);
 
+  // The user-integration endpoints are EE-only; when they are unavailable the
+  // dialog explains that the Airtable integration is not configured. Every Airtable
+  // account on file is read: which one's bases are listed is chosen in the pick step.
+  const account = useConnectedAccounts({
+    provider: UserIntegrationProvider.Airtable,
+    name: 'Airtable',
+    queryKey: 'airtable-import',
+    enabled: open,
+    // Another account's bases: the base chosen under the old one is dropped.
+    onSwitch: () => {
+      setSelectedBaseId('');
+      setBaseSearch('');
+    },
+    // Its bases list may have been fetched with the dead grant: read it again.
+    onConnected: (found) => {
+      void queryClient.invalidateQueries({ queryKey: ['airtable-import-bases', found.id] });
+      setStep('pick');
+    },
+  });
+  const { accounts, isDetecting: isDetectingFetch, staleId, setStaleId, isConnecting } = account;
+  const integrationUnavailable = Boolean(account.detectError);
+  const integration = account.chosen;
+  const needsReauth = Boolean(integration && staleId === integration.id);
+
   const resetState = React.useCallback(() => {
     setStep('detect');
-    setIntegration(null);
+    account.reset();
     setBaseSearch('');
     setSelectedBaseId('');
     setImportRecords(true);
@@ -211,42 +263,8 @@ export const AirtableImportDialog = (props: IAirtableImportDialogProps) => {
     setLogs([]);
     setTableProgresses({});
     setCreatedBase(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // The user-integration endpoints are EE-only; when they are unavailable the
-  // dialog explains that the Airtable integration is not configured.
-  const {
-    data: detectedIntegration,
-    isFetching: isDetectingFetch,
-    isError: integrationUnavailable,
-  } = useQuery({
-    // Key the detection under the canonical user-integrations namespace so that
-    // disconnecting an integration (which invalidates getUserIntegrations() by
-    // prefix) also marks this stale — otherwise the deleted integration lingers
-    // in cache and the dialog jumps straight to a base list that 404s.
-    queryKey: [...ReactQueryKeys.getUserIntegrations(), 'airtable-import'],
-    enabled: open,
-    retry: false,
-    queryFn: async () =>
-      (
-        await getUserIntegrationList({ provider: UserIntegrationProvider.Airtable })
-      ).data.integrations.find((item) => item.hasSecret) ?? null,
-  });
-
-  // OAuth connect with auto-close handled by the shared hook; on success we read
-  // back the freshly-connected integration and jump straight to the base picker.
-  const { connect, isConnecting } = useConnectIntegration({
-    onConnected: async () => {
-      const found =
-        (
-          await getUserIntegrationList({ provider: UserIntegrationProvider.Airtable })
-        ).data.integrations.find((item) => item.hasSecret) ?? null;
-      if (found) {
-        setIntegration(found);
-        setStep('pick');
-      }
-    },
-  });
 
   const handleOpenChange = (nextOpen: boolean) => {
     onOpenChange(nextOpen);
@@ -268,13 +286,14 @@ export const AirtableImportDialog = (props: IAirtableImportDialogProps) => {
     // it revalidates, and acting on that stale value reintroduces the deleted
     // integration we are trying to detect away.
     if (!open || isDetectingFetch || step !== 'detect') return;
-    if (detectedIntegration) {
-      setIntegration(detectedIntegration);
+    if (accounts?.length) {
+      account.switchAccount(accounts[0]);
       setStep('pick');
     } else {
       setStep('connect');
     }
-  }, [open, isDetectingFetch, detectedIntegration, step]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isDetectingFetch, accounts, step]);
 
   // The integration's access token is resolved server-side; it never reaches
   // the browser. react-query dedupes the call across re-renders.
@@ -296,11 +315,13 @@ export const AirtableImportDialog = (props: IAirtableImportDialogProps) => {
 
   React.useEffect(() => {
     if (!basesError) return;
+    // The grant behind this account is what failed; it is offered the consent screen
+    // again in place, while the other accounts on file stay one switch away.
     toast.error(
       basesError instanceof Error ? basesError.message : t('space:airtableImport.failed')
     );
-    setIntegration(null);
-    setStep('connect');
+    setStaleId(integration?.id ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [basesError, t]);
 
   // Preselect the first base once the list arrives.
@@ -456,10 +477,7 @@ export const AirtableImportDialog = (props: IAirtableImportDialogProps) => {
           ) : (
             <div className="flex flex-col items-center gap-4 py-8">
               <Airtable className="size-10" />
-              <Button
-                onClick={() => connect(UserIntegrationProvider.Airtable, { name: 'Airtable' })}
-                disabled={isConnecting}
-              >
+              <Button onClick={account.connectAnother} disabled={isConnecting}>
                 {isConnecting && <Spin className="me-1 size-4" />}
                 {isConnecting
                   ? t('space:airtableImport.waitingOAuth')
@@ -474,18 +492,22 @@ export const AirtableImportDialog = (props: IAirtableImportDialogProps) => {
               <div className="flex items-baseline justify-between">
                 <Label>{t('space:airtableImport.pickBase')}</Label>
                 {integration && (
-                  <span className="text-xs text-muted-foreground">
-                    {t('space:airtableImport.connectedAs', {
-                      account: integration.metadata?.userInfo?.email ?? integration.name,
-                    })}
-                  </span>
+                  <ConnectedAccountMenu
+                    accounts={accounts ?? []}
+                    current={integration}
+                    disabled={isLoadingBases || isConnecting}
+                    onChange={account.switchAccount}
+                    onConnectAnother={account.connectAnother}
+                    label={(account) => t('space:airtableImport.connectedAs', { account })}
+                  />
                 )}
               </div>
-              {bases.length === 0 && !isLoadingBases ? (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {t('space:airtableImport.noBases')}
-                </p>
-              ) : (
+              <BasesBody
+                needsReauth={needsReauth}
+                empty={bases.length === 0 && !isLoadingBases}
+                busy={isConnecting}
+                onReauthorize={() => account.reauthorize(integration)}
+              >
                 <>
                   {/* Search bar and grid stay mounted while loading so swapping
                       skeleton tiles for real ones never shifts the dialog height. */}
@@ -558,7 +580,7 @@ export const AirtableImportDialog = (props: IAirtableImportDialogProps) => {
                     </div>
                   )}
                 </>
-              )}
+              </BasesBody>
             </div>
             <div className="space-y-2">
               <Label className="flex cursor-pointer items-center gap-2 font-normal">

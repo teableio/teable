@@ -20,7 +20,7 @@ export function renameView(
   viewId: ViewId,
   nextName: ViewName
 ): Result<RenameViewMethodResult, DomainError> {
-  const table = this;
+  const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   return safeTry<RenameViewMethodResult, DomainError>(function* () {
     const previousView = yield* table.getView(viewId);
     const previousName = previousView.name();

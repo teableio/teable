@@ -499,7 +499,7 @@ export class ComputedOrchestratorService {
       }
       const projection = projectionByTable.get(tableId);
       const relatedTableIds = domain.getAllForeignTableIds(
-        projection && projection.size ? Array.from(projection) : undefined
+        projection?.size ? Array.from(projection) : undefined
       );
       for (const relatedTableId of relatedTableIds) {
         if (!projectionByTable.has(relatedTableId)) {

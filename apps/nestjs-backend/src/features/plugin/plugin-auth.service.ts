@@ -19,12 +19,13 @@ import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { second } from '../../utils/second';
 import { AccessTokenService } from '../access-token/access-token.service';
+import { AuditScope } from '../audit/audit-scope';
+import { Audit } from '../audit/audit.decorator';
 import { TeableJwtService } from '../auth/jwt/teable-jwt.service';
 import { validateSecret } from './utils';
 
 interface IRefreshTokenInput {
   pluginId: string;
-  secret: string;
   accessTokenId: string;
 }
 
@@ -44,7 +45,8 @@ export class PluginAuthService {
     private readonly cacheService: CacheService,
     private readonly accessTokenService: AccessTokenService,
     private readonly jwtService: TeableJwtService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly audit: AuditScope
   ) {}
 
   private generateAccessToken({
@@ -71,10 +73,11 @@ export class PluginAuthService {
     });
   }
 
-  private async generateRefreshToken({ pluginId, secret, accessTokenId }: IRefreshTokenInput) {
+  // The plugin secret is presented (and bcrypt-checked) on every refresh, so
+  // it has no place in the token: a JWT payload is readable by its holder.
+  private async generateRefreshToken({ pluginId, accessTokenId }: IRefreshTokenInput) {
     return this.jwtService.signAsync(
       {
-        secret,
         accessTokenId,
         pluginId,
         authorizationVersion,
@@ -245,8 +248,17 @@ export class PluginAuthService {
 
     const refreshToken = await this.generateRefreshToken({
       pluginId,
-      secret,
       accessTokenId: accessToken.id,
+    });
+
+    // The code exchange is where the plugin obtains base access, and where it picks its scopes.
+    // Public endpoint: the plugin authenticates with its secret and acts as its bot user.
+    // Refreshes are not recorded — they re-mint the same grant every 10 minutes.
+    await this.audit.emitAtomic({
+      action: 'plugin.token.issue',
+      resourceId: pluginId,
+      userId: plugin.pluginUser,
+      params: { baseId, scopes },
     });
 
     return {
@@ -271,7 +283,6 @@ export class PluginAuthService {
 
     if (
       payload.pluginId !== pluginId ||
-      payload.secret !== secret ||
       payload.accessTokenId === undefined ||
       payload.authorizationVersion !== authorizationVersion
     ) {
@@ -324,7 +335,6 @@ export class PluginAuthService {
 
       const refreshToken = await this.generateRefreshToken({
         pluginId,
-        secret,
         accessTokenId: accessToken.id,
       });
       return {
@@ -337,6 +347,14 @@ export class PluginAuthService {
     });
   }
 
+  // A signed-in user hands the plugin a one-time code for this base; the plugin redeems it
+  // for a token (plugin.token.issue).
+  @Audit({
+    action: 'plugin.authorize',
+    resourceId: (pluginId: string) => pluginId,
+    params: (_pluginId: string, baseId: string) => ({ baseId }),
+    emit: true,
+  })
   async authCode(pluginId: string, baseId: string) {
     await this.assertPluginInstalled(this.prismaService.txClient(), pluginId, baseId);
     const authCode = getRandomString(16);

@@ -1,6 +1,7 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { Logger } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import type { ClsService } from 'nestjs-cls';
+import { ClsService } from 'nestjs-cls';
 import { describe, expect, it, vi } from 'vitest';
 import type { IClsStore } from '../types/cls';
 import { RequestInfoMiddleware } from './request-info.middleware';
@@ -14,6 +15,30 @@ const createRequest = (overrides: Partial<Request> = {}): Request =>
   }) as Request;
 
 describe('RequestInfoMiddleware', () => {
+  it('classifies an automation request without lending it the robot identity', () => {
+    const clsValues = new Map<string, unknown>();
+    const cls = {
+      get: vi.fn(),
+      set: vi.fn((key: string, value: unknown) => {
+        clsValues.set(key, value);
+      }),
+    } as unknown as ClsService<IClsStore>;
+    const res = {
+      once: vi.fn(),
+      writableEnded: false,
+      destroyed: false,
+    } as unknown as Response;
+    const middleware = new RequestInfoMiddleware(cls);
+
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    middleware.use(createRequest({ headers: { 'x-automation-internal': 'true' } }), res, vi.fn());
+
+    expect((clsValues.get('origin') as IClsStore['origin']).via).toBe('automation');
+    // The header is client-controlled: identity must only ever come from authentication.
+    expect(clsValues.has('user.id')).toBe(false);
+    expect(clsValues.has('user')).toBe(false);
+  });
+
   it('persists only IP-shaped req.ip into origin, falling back to the socket address', () => {
     const clsValues = new Map<string, unknown>();
     const cls = {
@@ -270,46 +295,36 @@ describe('RequestInfoMiddleware', () => {
     }
   });
 
-  it('runs v2 background tasks with the CLS store captured when scheduled', async () => {
+  it('finishes scheduled work with its audit context after the request is cancelled', async () => {
     vi.useFakeTimers();
     try {
-      const clsValues = new Map<string, unknown>();
-      const scheduledStore = {
-        audit: {
-          rootAction: 'table.duplicate',
-          operationId: 'op_1',
-        },
-      } as IClsStore;
-      const cls = {
-        get: vi.fn(() => scheduledStore),
-        runWith: vi.fn((_store: IClsStore, callback: () => void) => callback()),
-        set: vi.fn((key: string, value: unknown) => {
-          clsValues.set(key, value);
-        }),
-      } as unknown as ClsService<IClsStore>;
+      const cls = new ClsService<IClsStore>(new AsyncLocalStorage<IClsStore>());
+      const controller = new AbortController();
       const listeners = new Map<string, () => void>();
       const res = {
-        once: vi.fn((event: string, listener: () => void) => {
+        once: (event: string, listener: () => void) => {
           listeners.set(event, listener);
           return res;
-        }),
+        },
         writableEnded: false,
         destroyed: false,
       } as unknown as Response;
-      const middleware = new RequestInfoMiddleware(cls);
-
-      middleware.use(createRequest(), res, vi.fn());
-      const schedule = clsValues.get('scheduleV2BackgroundTask') as NonNullable<
-        IClsStore['scheduleV2BackgroundTask']
-      >;
-      const task = vi.fn();
-
-      schedule(task);
-      listeners.get('finish')?.();
-      await vi.runAllTimersAsync();
-
-      expect(cls.runWith).toHaveBeenCalledWith(scheduledStore, expect.any(Function));
-      expect(task).toHaveBeenCalledTimes(1);
+      const completed: Array<string | undefined> = [];
+      await cls.run(async () => {
+        new RequestInfoMiddleware(cls).use(createRequest(), res, vi.fn());
+        cls.set('audit', { rootAction: 'table.duplicate', operationId: 'op_1' });
+        cls.set('interactiveQueryAbort', controller.signal);
+        cls.get('scheduleV2BackgroundTask')!(async () => {
+          cls.get('interactiveQueryAbort')?.throwIfAborted();
+          await Promise.resolve();
+          completed.push(cls.get('audit')?.operationId);
+        });
+        controller.abort();
+        listeners.get('close')!();
+        await vi.runAllTimersAsync();
+        expect(completed).toEqual(['op_1']);
+        expect(cls.get('interactiveQueryAbort')).toBe(controller.signal);
+      });
     } finally {
       vi.useRealTimers();
     }

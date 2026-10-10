@@ -149,7 +149,7 @@ export class ComputedOutboxBaseAdmissionService {
           this.eval(RENEW_SCRIPT, [key], [owner, LEASE_MS]),
           new Promise<never>((_, reject) => {
             timeout = setTimeout(
-              () => reject(new Error('Computed outbox base admission renewal timed out')),
+              () => reject(new Error('Computed outbox project admission renewal timed out')),
               RENEW_TIMEOUT_MS
             );
             timeout.unref();

@@ -78,22 +78,22 @@ export const importGoogleSheetRoSchema = z
       .optional()
       .meta({
         description:
-          'Target space for the new base. Required only when baseId is omitted; when importing ' +
-          "into an existing base the base's own space is used and spaceId is ignored.",
+          'Target space for the new project. Required only when baseId is omitted; when importing ' +
+          "into an existing project the project's own space is used and spaceId is ignored.",
       }),
     baseId: z
       .string()
       .optional()
       .meta({
         description:
-          'Import into this existing base (add its tables) instead of creating a new one. ' +
-          'When omitted, a new base named baseName is created in spaceId.',
+          'Import into this existing project (add its tables) instead of creating a new one. ' +
+          'When omitted, a new project named baseName is created in spaceId.',
       }),
     ...googleSheetCredentialsShape,
     spreadsheetId: z.string().min(1),
     baseName: z.string().min(1).optional().meta({
       description:
-        'Name for the created base (normally the spreadsheet title). Required unless baseId is set.',
+        'Name for the created project (normally the spreadsheet title). Required unless baseId is set.',
     }),
     sheetIds: z
       .array(z.number())
@@ -199,6 +199,7 @@ export class ImportGoogleSheetStreamError extends Error {
 export const ImportGoogleSheetAnalyzeRoute: RouteConfig = registerRoute({
   method: 'post',
   path: IMPORT_GOOGLE_SHEET_ANALYZE,
+  title: 'Analyze Google Sheets import source',
   description: 'List the tabs (worksheets) of a picked Google spreadsheet before import',
   summary: 'analyze a Google Sheets import source',
   request: {
@@ -226,6 +227,7 @@ export const ImportGoogleSheetAnalyzeRoute: RouteConfig = registerRoute({
 export const ImportGoogleSheetStreamRoute: RouteConfig = registerRoute({
   method: 'post',
   path: IMPORT_GOOGLE_SHEET_STREAM,
+  title: 'Import Google spreadsheet with progress',
   description: 'import a Google spreadsheet with SSE progress stream',
   summary: 'import a Google spreadsheet with SSE progress events',
   request: {
@@ -248,6 +250,7 @@ export const ImportGoogleSheetStreamRoute: RouteConfig = registerRoute({
 export const GoogleSheetPickerConfigRoute: RouteConfig = registerRoute({
   method: 'get',
   path: IMPORT_GOOGLE_SHEET_PICKER_CONFIG,
+  title: 'Get Google Picker configuration',
   description:
     'Public client config for opening the Google Picker (API key and Cloud project number)',
   summary: 'get Google Picker client config',

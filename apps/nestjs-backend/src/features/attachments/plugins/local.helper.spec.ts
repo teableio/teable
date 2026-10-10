@@ -3,9 +3,28 @@
 import { resolve } from 'path';
 import { READ_PATH } from '@teable/openapi';
 import { describe, it, expect } from 'vitest';
-import { assertPathWithinStorage, extractLocalFilePath, validateReadPath } from './local.helper';
+import {
+  assertPathWithinStorage,
+  extractLocalFilePath,
+  normalizeObjectPath,
+  validateReadPath,
+} from './local.helper';
 
 const STORAGE_DIR = resolve('/data/storage');
+
+describe('normalizeObjectPath', () => {
+  it('collapses redundant separators and dot segments', () => {
+    expect(normalizeObjectPath('private//table/./abc')).toBe('private/table/abc');
+  });
+
+  it('drops leading slashes', () => {
+    expect(normalizeObjectPath('/private/table/abc')).toBe('private/table/abc');
+  });
+
+  it('leaves a canonical path untouched', () => {
+    expect(normalizeObjectPath('private/table/abc')).toBe('private/table/abc');
+  });
+});
 
 describe('assertPathWithinStorage', () => {
   it('should return resolved path for a valid relative path', () => {
@@ -53,12 +72,37 @@ describe('validateReadPath', () => {
 describe('extractLocalFilePath', () => {
   it('should extract relative path from a full local file URL', () => {
     const url = `http://localhost:3000${READ_PATH}/public/test-file.png`;
-    expect(extractLocalFilePath(url, 'local', STORAGE_DIR)).toBe('public/test-file.png');
+    expect(extractLocalFilePath(url, 'local', STORAGE_DIR)).toEqual({
+      path: 'public/test-file.png',
+    });
   });
 
   it('should extract relative path from pathname-only input', () => {
     const url = `${READ_PATH}/uploads/image.jpg`;
-    expect(extractLocalFilePath(url, 'local', STORAGE_DIR)).toBe('uploads/image.jpg');
+    expect(extractLocalFilePath(url, 'local', STORAGE_DIR)).toEqual({ path: 'uploads/image.jpg' });
+  });
+
+  // --- read token ---
+
+  it('should return the read token carried by a full URL', () => {
+    const url = `http://localhost:3000${READ_PATH}/private/table/abc?token=tok_123-A&response-content-disposition=attachment`;
+    expect(extractLocalFilePath(url, 'local', STORAGE_DIR)).toEqual({
+      path: 'private/table/abc',
+      token: 'tok_123-A',
+    });
+  });
+
+  it('should return the read token carried by a pathname-only URL', () => {
+    const url = `${READ_PATH}/private/table/abc?token=tok`;
+    expect(extractLocalFilePath(url, 'local', STORAGE_DIR)).toEqual({
+      path: 'private/table/abc',
+      token: 'tok',
+    });
+  });
+
+  it('should leave the token undefined when the URL carries none', () => {
+    const url = `${READ_PATH}/private/table/abc?response-content-disposition=attachment`;
+    expect(extractLocalFilePath(url, 'local', STORAGE_DIR)?.token).toBeUndefined();
   });
 
   it('should return null for non-local provider', () => {
@@ -109,16 +153,16 @@ describe('extractLocalFilePath', () => {
 
   it('should handle URL-encoded filenames with spaces', () => {
     const url = `http://localhost:3000${READ_PATH}/uploads/my%20file%20(1).png`;
-    expect(extractLocalFilePath(url, 'local', STORAGE_DIR)).toBe('uploads/my file (1).png');
+    expect(extractLocalFilePath(url, 'local', STORAGE_DIR)?.path).toBe('uploads/my file (1).png');
   });
 
   it('should handle deeply nested paths', () => {
     const url = `${READ_PATH}/a/b/c/d/file.txt`;
-    expect(extractLocalFilePath(url, 'local', STORAGE_DIR)).toBe('a/b/c/d/file.txt');
+    expect(extractLocalFilePath(url, 'local', STORAGE_DIR)?.path).toBe('a/b/c/d/file.txt');
   });
 
   it('should handle filenames with special characters', () => {
     const url = `${READ_PATH}/uploads/%E4%B8%AD%E6%96%87%E6%96%87%E4%BB%B6.png`;
-    expect(extractLocalFilePath(url, 'local', STORAGE_DIR)).toBe('uploads/中文文件.png');
+    expect(extractLocalFilePath(url, 'local', STORAGE_DIR)?.path).toBe('uploads/中文文件.png');
   });
 });

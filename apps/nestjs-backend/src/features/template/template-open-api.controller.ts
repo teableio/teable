@@ -131,13 +131,14 @@ export class TemplateOpenApiController {
   }
 
   @Get('/by-base/:baseId')
+  @Permissions('base|read')
   async getTemplateByBaseId(@Param('baseId') baseId: string) {
     return this.templateOpenApiService.getTemplateByBaseId(baseId);
   }
 
   @Delete('/unpublish/:templateId')
   async unpublishTemplate(@Param('templateId') templateId: string) {
-    return this.templateOpenApiService.deleteTemplate(templateId);
+    return this.templateOpenApiService.unpublishTemplate(templateId);
   }
 
   @Public()

@@ -979,12 +979,24 @@ describe('OpenAPI Rollup field (e2e)', () => {
 
           if (Array.isArray(expected)) {
             expect(Array.isArray(value)).toBe(true);
-            const sortedExpected = [...expected].sort();
-            const sortedValue = [...(value as unknown[])].sort();
+            const sortedExpected = [...expected].sort(
+              (a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b))
+            );
+            const sortedValue = [...(value as unknown[])].sort(
+              (a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b))
+            );
             expect(sortedValue).toEqual(sortedExpected);
           } else if (typeof expected === 'string') {
             if (expected.includes(', ')) {
-              expect((value as string).split(', ').sort()).toEqual(expected.split(', ').sort());
+              expect(
+                (value as string)
+                  .split(', ')
+                  .sort((a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b)))
+              ).toEqual(
+                expected
+                  .split(', ')
+                  .sort((a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b)))
+              );
             } else {
               expect(value).toEqual(expected);
             }
@@ -1023,9 +1035,17 @@ describe('OpenAPI Rollup field (e2e)', () => {
     const arrayUniqueRollup = await rollupFrom(table1, textField.id, 'array_unique({values})');
 
     let record = await getRecord(table1.id, table1.records[1].id);
-    const joinedValues = (record.fields[arrayJoinRollup.id] as string).split(', ').sort();
-    expect(joinedValues).toEqual(['Alpha', 'Alpha', 'Beta'].sort());
-    const uniqueValues = [...(record.fields[arrayUniqueRollup.id] as string[])].sort();
+    const joinedValues = (record.fields[arrayJoinRollup.id] as string)
+      .split(', ')
+      .sort((a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b)));
+    expect(joinedValues).toEqual(
+      ['Alpha', 'Alpha', 'Beta'].sort(
+        (a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b))
+      )
+    );
+    const uniqueValues = [...(record.fields[arrayUniqueRollup.id] as string[])].sort(
+      (a, b) => Number(String(a) > String(b)) - Number(String(a) < String(b))
+    );
     expect(uniqueValues).toEqual(['Alpha', 'Beta']);
 
     // Update values to include blanks and verify compact removes empty entries
@@ -1317,7 +1337,9 @@ describe('OpenAPI Rollup field (e2e)', () => {
             const normalized = part.trim();
             const withBracket = normalized.endsWith(']') ? normalized : `${normalized}]`;
             const parsed = tryParse(withBracket);
-            return parsed ?? [normalized.replace(/^\[|"|'|\]$/g, '')];
+            return (
+              parsed ?? [normalized.replace(/^\[/, '').replace(/\]$/, '').replace(/["']/g, '')]
+            );
           });
           return parts.flat();
         }

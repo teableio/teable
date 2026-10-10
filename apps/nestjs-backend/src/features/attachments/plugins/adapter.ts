@@ -1,5 +1,5 @@
+import { resolve } from 'node:path';
 import type { Readable as ReadableStream } from 'node:stream';
-import { resolve } from 'path';
 import { HttpErrorCode } from '@teable/core';
 import { UploadType } from '@teable/openapi';
 import { storageConfig } from '../../../configs/storage';
@@ -29,6 +29,7 @@ export default abstract class StorageAdapter {
       case UploadType.Artifact:
       case UploadType.WorkflowRunCold:
       case UploadType.AuditLogCold:
+      case UploadType.UserDataExport:
         return storageConfig().privateBucket;
       case UploadType.Avatar:
       case UploadType.OAuth:
@@ -90,6 +91,8 @@ export default abstract class StorageAdapter {
         return 'audit-log';
       case UploadType.Artifact:
         return 'artifact';
+      case UploadType.UserDataExport:
+        return 'user-data-export';
       default:
         throw new CustomHttpException('Invalid upload type', HttpErrorCode.VALIDATION_ERROR, {
           localization: {

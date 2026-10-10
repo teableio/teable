@@ -123,7 +123,7 @@ const StepSection = ({
   );
 };
 
-export const TeableSkillContent = () => {
+export const TeableSkillContent = ({ showTitle = true }: { showTitle?: boolean } = {}) => {
   const { t } = useTranslation('common');
   const origin = useOrigin();
   const copy = {
@@ -159,10 +159,12 @@ export const TeableSkillContent = () => {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 py-6">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
-          <h1 className="text-lg font-semibold leading-7 text-foreground">{copy.title}</h1>
+          {showTitle && (
+            <h1 className="text-lg font-semibold leading-7 text-foreground">{copy.title}</h1>
+          )}
           <p className="max-w-4xl text-sm leading-6 text-muted-foreground">{copy.intro}</p>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted px-4 py-2 text-sm text-muted-foreground dark:bg-surface">

@@ -9,6 +9,7 @@ import { AppLayout } from '@/features/app/layouts';
 import { Sidebar } from '../components/sidebar/Sidebar';
 import { SidebarContent } from '../components/sidebar/SidebarContent';
 import { SidebarHeaderLeft } from '../components/sidebar/SidebarHeaderLeft';
+import { useEmbedMode } from '../hooks/useEmbedMode';
 import { useSdkLocale } from '../hooks/useSdkLocale';
 import { useSettingRoute } from './useSettingRoute';
 
@@ -24,6 +25,8 @@ export const SettingLayout: React.FC<{
   const { t } = useTranslation(['setting', 'common']);
 
   const routes = useSettingRoute();
+  // The native mobile app opens one settings page at a time from its own settings screen.
+  const isEmbed = useEmbedMode();
 
   const onBack = () => {
     router.push('/');
@@ -34,11 +37,15 @@ export const SettingLayout: React.FC<{
       <AppProvider lang={i18n.language} locale={sdkLocale} dehydratedState={dehydratedState}>
         <SessionProvider user={user}>
           <div id="portal" className="relative flex h-screen w-full items-start">
-            <Sidebar
-              headerLeft={<SidebarHeaderLeft title={t('common:settings.title')} onBack={onBack} />}
-            >
-              <SidebarContent routes={routes} />
-            </Sidebar>
+            {!isEmbed && (
+              <Sidebar
+                headerLeft={
+                  <SidebarHeaderLeft title={t('common:settings.title')} onBack={onBack} />
+                }
+              >
+                <SidebarContent routes={routes} />
+              </Sidebar>
+            )}
             {children}
           </div>
         </SessionProvider>

@@ -411,7 +411,7 @@ const fieldSchemaDoc = {
             baseId: {
               type: 'string',
               optional: true,
-              description: 'Base ID if linking to a different base',
+              description: 'Project ID if linking to a different project',
             },
             isOneWay: {
               type: 'boolean',

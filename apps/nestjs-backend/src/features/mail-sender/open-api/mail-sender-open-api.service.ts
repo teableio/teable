@@ -7,7 +7,9 @@ import { IMailConfig, MailConfig } from '../../../configs/mail.config';
 import { type ISendMailOptions } from '../mail-helpers';
 import { MailSenderService } from '../mail-sender.service';
 
-const markdownIt = MarkdownIt({ html: true, breaks: true });
+// Raw HTML stays enabled on purpose: the API caller can already submit an `html` body, so markdown
+// passthrough adds no capability, and the result only goes to the mail transport.
+const markdownIt = MarkdownIt({ html: true, breaks: true }); // NOSONAR typescript:S5247 caller-controlled email body
 
 type ISendEmailExtras = {
   footerHtml?: string;
@@ -24,7 +26,7 @@ export class MailSenderOpenApiService {
 
   async testTransportConfig(testMailTransportConfigRo: ITestMailTransportConfigRo): Promise<void> {
     const { transportConfig, to, message } = testMailTransportConfigRo;
-    const transport = createTransport(transportConfig);
+    const transport = createTransport(transportConfig); // NOSONAR typescript:S5332 -- admin-only endpoint (instance|update); STARTTLS/TLS comes from the SMTP config the admin is testing
     await transport.verify();
 
     const option = await this.mailSenderService.sendTestEmailOptions({ message });

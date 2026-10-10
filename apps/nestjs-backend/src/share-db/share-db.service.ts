@@ -14,8 +14,9 @@ import { Timing } from '../utils/timing';
 import { authMiddleware } from './auth.middleware';
 import type { IRawOpMap } from './interface';
 import { RealtimeMetricsService } from './metrics/realtime-metrics.service';
+import { registerQueryCancellation } from './query-cancellation';
 import { RepairAttachmentOpService } from './repair-attachment-op/repair-attachment-op.service';
-import { ShareDbAdapter, type ComputedActivitySnapshotLoader } from './share-db.adapter';
+import { ShareDbAdapter } from './share-db.adapter';
 import { RedisPubSub } from './sharedb-redis.pubsub';
 
 const v2ProjectionOpSourcePrefix = '@@v2-projection:';
@@ -41,7 +42,7 @@ const hasClientStream = (
 
 @Injectable()
 export class ShareDbService extends ShareDBClass {
-  private logger = new Logger(ShareDbService.name);
+  private readonly logger = new Logger(ShareDbService.name);
 
   constructor(
     readonly shareDbAdapter: ShareDbAdapter,
@@ -72,6 +73,7 @@ export class ShareDbService extends ShareDBClass {
       this.pubsub = redisPubsub;
     }
 
+    registerQueryCancellation(this);
     authMiddleware(this, this.sessionHandleService);
     this.use('submit', this.onSubmit);
 
@@ -113,10 +115,6 @@ export class ShareDbService extends ShareDBClass {
 
   getConnection() {
     return this.connect();
-  }
-
-  setComputedActivitySnapshotLoader(loader: ComputedActivitySnapshotLoader): void {
-    this.shareDbAdapter.setComputedActivitySnapshotLoader(loader);
   }
 
   @Timing()
@@ -202,7 +200,7 @@ export class ShareDbService extends ShareDBClass {
     this.pubsub.publish([`${IdPrefix.Record}_${tableId}`], rawOp, noop);
   }
 
-  private onSubmit = (
+  private readonly onSubmit = (
     context: ShareDBClass.middleware.SubmitContext,
     next: (err?: unknown) => void
   ) => {

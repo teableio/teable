@@ -19,7 +19,7 @@ export function updateViewDescription(
   viewId: ViewId,
   nextDescription: string
 ): Result<UpdateViewDescriptionMethodResult, DomainError> {
-  const table = this;
+  const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   return safeTry<UpdateViewDescriptionMethodResult, DomainError>(function* () {
     const previousView = yield* table.getView(viewId);
     const previousDescription = previousView.description();

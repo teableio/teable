@@ -278,7 +278,6 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
           sourceTable: currentTable,
           foreignTable: resolvedForeignTable,
           foreignTableMetaId: resolvedForeignTableMetaId,
-          withIndexes: relationship === 'manyMany', // Only ManyMany gets indexes
         };
 
         // Use the static factory method to create all junction table rules

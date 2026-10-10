@@ -8,6 +8,7 @@ import {
 } from '@teable/v2-core';
 import type {
   ExecutablePhase1RemediationKind,
+  ReconcileTableSearchVectorInput,
   TableQueryRemediationExecutor,
   TableQueryRemediationTask,
   TableSearchVectorReconciler,
@@ -48,6 +49,10 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
     }
   ): Promise<Result<unknown, DomainError>> {
     const task = input.task.snapshot();
+    const adminPayload = readAdminSearchPayload(task.payload);
+    if (adminPayload) {
+      return this.executeAdminSearchReconciliation(context, task.tableId, adminPayload);
+    }
     if (task.kind === 'manual_investigation') {
       return ok({ skipped: true, reason: 'manual investigation task' });
     }
@@ -63,7 +68,15 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
     if (task.kind === 'drop_search_access_path') {
       return this.executeSearchAccessPathDrop(context, task);
     }
-    if (!input.allowManualIndexExecution) {
+    if (
+      !input.allowManualIndexExecution &&
+      !(
+        typeof task.payload === 'object' &&
+        task.payload !== null &&
+        'trigger' in task.payload &&
+        task.payload.trigger === 'admin_index'
+      )
+    ) {
       return err(
         domainError.forbidden({
           code: 'table_query_ops.index_execution_disabled',
@@ -87,6 +100,34 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
       }
     }
     return this.executeGenericIndexTask(task);
+  }
+
+  private async executeAdminSearchReconciliation(
+    context: IExecutionContext,
+    rawTableId: string,
+    adminPayload: Omit<ReconcileTableSearchVectorInput, 'table'>
+  ): Promise<Result<unknown, DomainError>> {
+    if (!this.tableRepository || !this.searchVectorReconciler)
+      return err(
+        domainError.infrastructure({
+          message: 'Search reconciliation dependencies are not registered',
+        })
+      );
+    const tableId = TableId.create(rawTableId);
+    if (tableId.isErr()) return err(tableId.error);
+    const table = await this.tableRepository.findOne(context, TableByIdSpec.create(tableId.value));
+    if (table.isErr()) return err(table.error);
+    const result = await this.searchVectorReconciler.reconcile(context, {
+      table: table.value,
+      ...adminPayload,
+    });
+    if (result.isOk() && result.value.status !== 'ready' && result.value.action !== 'dropped')
+      return err(
+        domainError.validation({
+          message: `Search reconciliation did not produce a ready index: ${JSON.stringify(result.value)}`,
+        })
+      );
+    return result;
   }
 
   private async executeGenericIndexTask(
@@ -137,6 +178,17 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
           )} USING ${using} (${fieldSql})`
         )
         .execute(this.dataDb);
+      const physicalIndex = await sql<{
+        valid: boolean;
+      }>`SELECT i.indisvalid AND i.indisready AS valid
+        FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = ${physical.schema} AND c.relname = ${indexName}`.execute(this.dataDb);
+      if (!physicalIndex.rows[0]?.valid)
+        return err(
+          domainError.infrastructure({
+            message: `Index ${indexName} is missing or invalid after execution`,
+          })
+        );
       return ok({
         createdOrVerified: true,
         indexName,
@@ -211,6 +263,45 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
     return result.rows[0];
   }
 }
+
+const readAdminSearchPayload = (
+  payload: unknown
+): Omit<ReconcileTableSearchVectorInput, 'table'> | undefined => {
+  if (
+    !payload ||
+    typeof payload !== 'object' ||
+    !('trigger' in payload) ||
+    payload.trigger !== 'admin_search_access_path'
+  )
+    return undefined;
+  const value = payload as Record<string, unknown>;
+  if (!['create', 'rebuild', 'drop'].includes(String(value.mode)))
+    throw new Error('Invalid queued search operation');
+  if (
+    value.mode !== 'drop' &&
+    (typeof value.expectedDefinitionKey !== 'string' ||
+      !['pg_bigm', 'pg_trgm'].includes(String(value.provider)) ||
+      typeof value.searchProbe !== 'string' ||
+      !value.searchProbe.trim() ||
+      value.validationMode !== 'real_ddl')
+  )
+    throw new Error('Invalid queued search validation payload');
+  if (
+    value.fieldIds !== undefined &&
+    (!Array.isArray(value.fieldIds) || !value.fieldIds.every((id) => typeof id === 'string'))
+  )
+    throw new Error('Invalid queued search field IDs');
+  return {
+    mode: value.mode as 'create' | 'rebuild' | 'drop',
+    expectedDefinitionKey: value.expectedDefinitionKey as string | undefined,
+    provider: value.provider as 'pg_bigm' | 'pg_trgm' | undefined,
+    fieldIds: value.fieldIds as string[] | undefined,
+    searchProbe: value.searchProbe as string | undefined,
+    validationMode: 'real_ddl',
+    requirePlanImprovement: false,
+    allowLargeTableRewrite: value.allowLargeTableRewrite === true,
+  };
+};
 
 const isSchemaMaintenancePayload = (payload: unknown): boolean =>
   typeof payload === 'object' &&

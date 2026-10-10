@@ -13,6 +13,7 @@ import {
 import { Table } from '../../domain/table/Table';
 import { getDomainContext, type IExecutionContext } from '../../ports/ExecutionContext';
 import type {
+  ITableOperationImportCsvContext,
   ITableOperationPlugin,
   TableOperationPluginContext,
 } from '../../ports/TableOperationPlugin';
@@ -154,11 +155,35 @@ export class TableDataSafetyLimitTableOperationPlugin
     }
   }
 
+  guardImportRecordCount(
+    _context: ITableOperationImportCsvContext,
+    recordCount: number,
+    preparedState: PreparedTableDataSafetyOperationLimitState | undefined
+  ): Result<void, DomainError> {
+    return this.ensureCreateRecordCountLimit(
+      recordCount,
+      preparedState?.limits ?? resolveTableDataSafetyLimits()
+    );
+  }
+
+  private ensureCreateRecordCountLimit(
+    recordCount: number | undefined,
+    limits: ResolvedTableDataSafetyLimitConfig
+  ): Result<void, DomainError> {
+    if (recordCount === undefined) return ok(undefined);
+    return ensureWithinTableDataSafetyLimit(
+      tableDataSafetyLimitErrors.createTableRecordsMax,
+      recordCount,
+      limits.tableSchema.maxCreateTableRecords,
+      { target: 'table.records' }
+    );
+  }
+
   private ensureCreatePayloadLimits(
     payload: {
       readonly fieldCount: number;
       readonly viewCount: number;
-      readonly recordCount: number;
+      readonly recordCount: number | undefined;
       readonly viewNames: ReadonlyArray<string>;
       readonly table?: Table;
     },
@@ -192,12 +217,7 @@ export class TableDataSafetyLimitTableOperationPlugin
     );
     if (viewsPerTableResult.isErr()) return viewsPerTableResult;
 
-    const recordsResult = ensureWithinTableDataSafetyLimit(
-      tableDataSafetyLimitErrors.createTableRecordsMax,
-      payload.recordCount,
-      limits.tableSchema.maxCreateTableRecords,
-      { target: 'table.records' }
-    );
+    const recordsResult = this.ensureCreateRecordCountLimit(payload.recordCount, limits);
     if (recordsResult.isErr()) return recordsResult;
 
     for (const [index, viewName] of payload.viewNames.entries()) {
@@ -276,7 +296,7 @@ export class TableDataSafetyLimitTableOperationPlugin
     payload: {
       readonly fieldCount: number;
       readonly viewCount: number;
-      readonly recordCount: number;
+      readonly recordCount: number | undefined;
       readonly table?: Table;
     },
     limits: ResolvedTableDataSafetyLimitConfig,

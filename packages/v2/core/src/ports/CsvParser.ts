@@ -27,8 +27,8 @@ export interface CsvParseResult {
   readonly rows: Iterable<Record<string, string>>;
 
   /**
-   * 异步数据行迭代器（用于流式处理大文件和 URL）
-   * 当使用 stream 或 url 类型源时，使用此迭代器
+   * 异步数据行迭代器；异步解析所有源类型时使用。
+   * 消费者提前结束时必须关闭迭代器，以释放源读取资源。
    */
   readonly rowsAsync?: AsyncIterable<Record<string, string>>;
 
@@ -75,12 +75,12 @@ export interface ICsvParser {
   parse(source: CsvSource, options?: CsvParseOptions): Result<CsvParseResult, DomainError>;
 
   /**
-   * 异步解析 CSV 数据（支持 stream 和 url 类型）
+   * 异步解析 CSV 数据（支持所有源类型，不预先收集全部数据行）
    *
    * 流式解析特点：
    * - 返回 rowsAsync 而不是 rows
    * - 内存占用低，适合大文件
-   * - headers 在解析第一行后立即可用
+   * - 自动分隔符检测可能预读到 EOF；歧义前缀保存在适配器临时存储而不是堆中
    *
    * @param source CSV 数据源
    * @param options 解析选项

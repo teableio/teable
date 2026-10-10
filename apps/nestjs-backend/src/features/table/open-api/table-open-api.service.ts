@@ -43,12 +43,12 @@ import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
-import { Events } from '../../../event-emitter/events';
 import type { IDataDbRoutingOptions } from '../../../global/data-db-client-manager.service';
 import { handleBestEffortDataDbDropError } from '../../../global/data-db-runtime-error';
 import { DatabaseRouter } from '../../../global/database-router.service';
 import { RawOpType } from '../../../share-db/interface';
 import type { IClsStore } from '../../../types/cls';
+import { getMaxLevelRole } from '../../../utils/get-max-level-role';
 import { updateOrder } from '../../../utils/update-order';
 import { AuditScope } from '../../audit/audit-scope';
 import { Audit } from '../../audit/audit.decorator';
@@ -66,11 +66,12 @@ import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migr
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { TableDuplicateService } from '../table-duplicate.service';
 import { TableService } from '../table.service';
+import { TABLE_PERMANENT_DELETE_ACTION } from './table-audit.constants';
 import { TableMutationCacheInvalidator } from './table-mutation-cache-invalidator';
 
 @Injectable()
 export class TableOpenApiService {
-  private logger = new Logger(TableOpenApiService.name);
+  private readonly logger = new Logger(TableOpenApiService.name);
   constructor(
     private readonly prismaService: PrismaService,
     private readonly databaseRouter: DatabaseRouter,
@@ -308,7 +309,7 @@ export class TableOpenApiService {
         // (template/import/AI) that don't go through the prepareCreateTableRo pipe.
         if (
           tableRo.fields.length &&
-          !tableRo.fields.find((field) => (field as IFieldVo).isPrimary)
+          !tableRo.fields.some((field) => (field as IFieldVo).isPrimary)
         ) {
           (tableRo.fields[0] as IFieldVo).isPrimary = true;
         }
@@ -326,7 +327,7 @@ export class TableOpenApiService {
 
         // Maintain original field order from input to ensure consistent API response
         const fieldIdOrder = new Map(preparedFields.map((f, i) => [f.id, i]));
-        const fieldVos = allFieldVos.sort((a, b) => {
+        const fieldVos = [...allFieldVos].sort((a, b) => {
           const orderA = fieldIdOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER;
           const orderB = fieldIdOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER;
           return orderA - orderB;
@@ -530,8 +531,35 @@ export class TableOpenApiService {
     }
   }
 
+  /**
+   * A permanent delete writes one `table.permanent-delete` row per table after the purge commits —
+   * the only row for a table already in the trash, whose drop emits no op. A live table's drop still
+   * emits its Del op (a `table.delete` row); both run inside a `table.permanent-delete` operation,
+   * so that row carries it as rootAction and shares the operation id.
+   */
   async permanentDeleteTables(baseId: string, tableIds: string[]) {
     await this.assertBaseWritable(baseId);
+    const tables = await this.prismaService.tableMeta.findMany({
+      where: { id: { in: tableIds } },
+      select: { id: true, name: true },
+    });
+    return this.audit.withOperation(
+      { rootAction: TABLE_PERMANENT_DELETE_ACTION, resourceId: baseId },
+      async () => {
+        const result = await this.purgeTables(baseId, tableIds);
+        for (const table of tables) {
+          await this.audit.emitAtomic({
+            action: TABLE_PERMANENT_DELETE_ACTION,
+            resourceId: table.id,
+            params: { baseId, tableId: table.id, name: table.name },
+          });
+        }
+        return result;
+      }
+    );
+  }
+
+  private async purgeTables(baseId: string, tableIds: string[]) {
     // If the table has already been deleted, exceptions may occur
     // If the table hasn't been deleted and permanent deletion is executed directly,
     // we need to handle the deletion of associated data
@@ -581,7 +609,7 @@ export class TableOpenApiService {
     });
     for (const table of tables) {
       if (!table.deletedTime) {
-        await this.batchService.saveRawOps(table.baseId, RawOpType.Del, IdPrefix.Table, [
+        this.batchService.saveRawOps(table.baseId, RawOpType.Del, IdPrefix.Table, [
           { docId: table.id, version: table.version },
         ]);
       }
@@ -646,8 +674,12 @@ export class TableOpenApiService {
   }
 
   async cleanReferenceFieldIds(tableIds: string[]) {
+    // Every dependency edge that touches a dropped table dangles once its field rows go,
+    // so the endpoint list must not be pre-filtered by type: a lookup field keeps only its
+    // inner type, which hid a number-typed lookup and its plain source from a
+    // Link/Formula filter and left the edge behind after a permanent wipe (T7365).
     const fields = await this.prismaService.txClient().field.findMany({
-      where: { tableId: { in: tableIds }, type: { in: [FieldType.Link, FieldType.Formula] } },
+      where: { tableId: { in: tableIds } },
       select: { id: true },
     });
     const fieldIds = fields.map((field) => field.id);
@@ -659,7 +691,8 @@ export class TableOpenApiService {
   async cleanTablesRelatedData(
     baseId: string,
     tableIds: string[],
-    routingOptions?: IDataDbRoutingOptions
+    routingOptions?: IDataDbRoutingOptions,
+    options?: { skipExternalDataDbCleanup?: boolean }
   ) {
     const metaPrisma = this.prismaService.txClient();
 
@@ -670,6 +703,14 @@ export class TableOpenApiService {
 
     // delete view for table
     await metaPrisma.view.deleteMany({
+      where: { tableId: { in: tableIds } },
+    });
+
+    // comments live on the meta DB keyed by table id, with no cascade from tableMeta
+    await metaPrisma.comment.deleteMany({
+      where: { tableId: { in: tableIds } },
+    });
+    await metaPrisma.commentSubscription.deleteMany({
       where: { tableId: { in: tableIds } },
     });
 
@@ -692,40 +733,48 @@ export class TableOpenApiService {
       where: { id: { in: tableIds } },
     });
 
-    // record history and trash snapshots live with the physical record tables on the data DB.
-    // Nested so one swallowed purge (a relation the bound database never had) cannot skip the
-    // others and orphan their rows, while a gone database still skips all three.
-    const bestEffort = async (target: string, purge: () => Promise<unknown>) => {
-      try {
-        await purge();
-      } catch (error) {
-        handleBestEffortDataDbDropError({
-          error,
-          isMetaFallback: await this.databaseRouter.isMetaFallbackForBase(baseId, routingOptions),
-          logger: this.logger,
-          target,
-        });
-      }
-    };
-    const tables = tableIds.join(', ');
-    await bestEffort(`data database for base ${baseId}`, async () => {
-      const routedDataPrisma = await this.databaseRouter.dataPrismaForBase(baseId, routingOptions);
-      const dataPrisma =
-        'txClient' in routedDataPrisma && typeof routedDataPrisma.txClient === 'function'
-          ? routedDataPrisma.txClient()
-          : routedDataPrisma;
-      const where = { tableId: { in: tableIds } };
+    // A validated forced BYODB space removal leaves all external physical data behind,
+    // including history/trash. Never resolve that client: resolution may migrate/connect.
+    if (!options?.skipExternalDataDbCleanup) {
+      // Nested so a missing bound relation does not prevent purging the others.
+      const bestEffort = async (target: string, purge: () => Promise<unknown>) => {
+        try {
+          await purge();
+        } catch (error) {
+          handleBestEffortDataDbDropError({
+            error,
+            isMetaFallback: await this.databaseRouter.isMetaFallbackForBase(baseId, routingOptions),
+            logger: this.logger,
+            target,
+          });
+        }
+      };
+      const tables = tableIds.join(', ');
+      await bestEffort(`data database for base ${baseId}`, async () => {
+        const routedDataPrisma = await this.databaseRouter.dataPrismaForBase(
+          baseId,
+          routingOptions
+        );
+        const dataPrisma =
+          'txClient' in routedDataPrisma && typeof routedDataPrisma.txClient === 'function'
+            ? routedDataPrisma.txClient()
+            : routedDataPrisma;
+        const where = { tableId: { in: tableIds } };
 
-      await bestEffort(`record history for tables ${tables}`, () =>
-        dataPrisma.recordHistory.deleteMany({ where })
-      );
-      await bestEffort(`table trash for tables ${tables}`, () =>
-        dataPrisma.tableTrash.deleteMany({ where })
-      );
-      await bestEffort(`record trash for tables ${tables}`, () =>
-        dataPrisma.recordTrash.deleteMany({ where })
-      );
-    });
+        await bestEffort(`attachment refs for tables ${tables}`, () =>
+          dataPrisma.attachmentsTable.deleteMany({ where })
+        );
+        await bestEffort(`record history for tables ${tables}`, () =>
+          dataPrisma.recordHistory.deleteMany({ where })
+        );
+        await bestEffort(`table trash for tables ${tables}`, () =>
+          dataPrisma.tableTrash.deleteMany({ where })
+        );
+        await bestEffort(`record trash for tables ${tables}`, () =>
+          dataPrisma.recordTrash.deleteMany({ where })
+        );
+      });
+    }
 
     // clean trash for table
     await metaPrisma.trash.deleteMany({
@@ -1077,11 +1126,17 @@ export class TableOpenApiService {
       }
       return this.getPermissionByPermissionMap(permissionMap);
     }
-    let role: IRole | null = await this.permissionService.getRoleByBaseId(baseId);
-    if (!role) {
-      const { spaceId } = await this.permissionService.getUpperIdByBaseId(baseId);
-      role = await this.permissionService.getRoleBySpaceId(spaceId);
-    }
+    // A user can hold a role on the base (personally or through a department)
+    // and a higher one on the space at the same time. Request authorization
+    // (PermissionService.getPermissionByBaseId) grants the union of both, so
+    // the table permission map must derive from the highest role as well,
+    // otherwise the UI renders a department's viewer grant as read-only while
+    // the space owner is actually allowed to write.
+    const { spaceId } = await this.permissionService.getUpperIdByBaseId(baseId);
+    const baseRole = await this.permissionService.getRoleByBaseId(baseId);
+    const spaceRole = await this.permissionService.getRoleBySpaceId(spaceId);
+    const roles = [baseRole, spaceRole].filter((r): r is IRole => Boolean(r));
+    const role = roles.length ? getMaxLevelRole(roles.map((roleName) => ({ roleName }))) : null;
     if (!role) {
       throw new CustomHttpException(`Role not found`, HttpErrorCode.NOT_FOUND, {
         localization: {

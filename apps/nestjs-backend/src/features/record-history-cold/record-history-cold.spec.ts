@@ -2,8 +2,9 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { Readable } from 'node:stream';
 import { ServiceUnavailableException } from '@nestjs/common';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type StorageAdapter from '../attachments/plugins/adapter';
+import { FakePendingRedis } from '../cold-archive/compaction-pending.spec-fixtures';
 import { BucketMergeFeeder } from './bucket-merge-feeder';
 import { ExternalRowSorter, SortMemoryBudget } from './external-sort';
 import type { IColdHistoryRow } from './part-codec';
@@ -26,7 +27,9 @@ import {
   RecordHistoryColdReadService,
 } from './record-history-cold-read.service';
 import { RecordHistoryColdStorageService } from './record-history-cold-storage.service';
+import { RECORD_HISTORY_COMPACT_PENDING_KEY } from './record-history-cold.config';
 import { RecordHistoryColdProcessor } from './record-history-cold.processor';
+import type { ICompactMonthResult } from './record-history-compactor.service';
 import { RecordHistoryCompactorService } from './record-history-compactor.service';
 import { nextReadBatchLimit, RecordHistoryFlusherService } from './record-history-flusher.service';
 import type { IColdFlushRunResult, ITableFlushResult } from './record-history-flusher.service';
@@ -979,7 +982,8 @@ describe('record-history cold storage', () => {
         metaFallbackDataPrismaService as any,
         {} as any,
         {} as any,
-        {} as any
+        {} as any,
+        new FakePendingRedis() as any
       );
       return { service, executed };
     };
@@ -1073,7 +1077,8 @@ describe('record-history cold storage', () => {
         metaFallbackDataPrismaService as any,
         dataDbClientManager as any,
         {} as any,
-        {} as any
+        {} as any,
+        new FakePendingRedis() as any
       );
       return { service, queries };
     };
@@ -1227,6 +1232,41 @@ describe('record-history cold storage', () => {
       const rerun = await compactor.compactMonth(tableId, '202605');
       expect(rerun.skippedReason).toBe('no-day-parts');
     });
+
+    it('lists the whole table once and groups its parts by month, stats file excluded', async () => {
+      const tableId = 'tblOnce';
+      await seedParts(storage, tableId, { yyyymm: '202604', kind: 'month' }, [
+        makeRow({ id: 'rhm1', createdTime: '2026-04-10T00:00:00.000Z' }),
+      ]);
+      await seedParts(storage, tableId, { yyyymm: '202605', kind: 'day', dd: '01' }, [
+        makeRow({ id: 'rhd1', createdTime: '2026-05-01T00:00:00.000Z' }),
+      ]);
+      await seedParts(storage, tableId, { yyyymm: '202605', kind: 'day', dd: '02' }, [
+        makeRow({ id: 'rhd2', createdTime: '2026-05-02T00:00:00.000Z' }),
+      ]);
+      await storage.writeStats(tableId, { version: 1, tableId, parts: {} });
+
+      const byMonth = await storage.listTableParts(tableId);
+      expect([...byMonth.keys()]).toEqual(['202605', '202604']);
+      expect(byMonth.get('202605')?.map((part) => part.kind)).toEqual(['day', 'day']);
+      expect(byMonth.get('202604')?.map((part) => part.kind)).toEqual(['month']);
+
+      const listCalls: string[] = [];
+      const listObjects = fake.listObjects.bind(fake);
+      fake.listObjects = async (bucket, prefix, options) => {
+        listCalls.push(prefix);
+        return listObjects(bucket, prefix, options);
+      };
+      const results = await new RecordHistoryCompactorService(storage).compactTable(tableId);
+      expect(listCalls).toEqual([`record-history/v1/${tableId}/`]);
+      expect(results.map((result) => [result.yyyymm, result.skippedReason ?? 'merged'])).toEqual([
+        ['202605', 'merged'],
+        ['202604', 'no-day-parts'],
+      ]);
+      expect((await storage.listMonthParts(tableId, '202605')).map((part) => part.kind)).toEqual([
+        'month',
+      ]);
+    });
   });
 
   describe('flush byte budget', () => {
@@ -1328,7 +1368,12 @@ describe('record-history cold storage', () => {
 
     const makeProcessor = (
       queue: FakeColdQueue,
-      flushResult: Partial<IColdFlushRunResult> = {}
+      flushResult: Partial<IColdFlushRunResult> = {},
+      compaction: {
+        tables?: string[];
+        redis?: FakePendingRedis;
+        compactTable?: (tableId: string) => Promise<ICompactMonthResult[]>;
+      } = {}
     ) => {
       const flusher = {
         runFlush: async (): Promise<IColdFlushRunResult> => ({
@@ -1350,14 +1395,72 @@ describe('record-history cold storage', () => {
       };
       return new RecordHistoryColdProcessor(
         flusher as never,
-        {} as never,
-        {} as never,
-        queue as never
+        { compactTable: compaction.compactTable } as never,
+        { listTables: async () => compaction.tables ?? [] } as never,
+        queue as never,
+        (compaction.redis ?? new FakePendingRedis()) as never
       );
     };
 
     beforeEach(() => {
       delete process.env.BACKEND_STORAGE_COLD_ARCHIVE_DISABLED;
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('compacts only the pending tables once the set is bootstrapped and puts a failed one back', async () => {
+      const redis = new FakePendingRedis();
+      await redis.setex(
+        `${RECORD_HISTORY_COMPACT_PENDING_KEY}:bootstrapped`,
+        1,
+        '2026-09-01T00:00:00.000Z'
+      );
+      await redis.sadd(RECORD_HISTORY_COMPACT_PENDING_KEY, 'tblB', 'tblC');
+      const compacted: string[] = [];
+      const processor = makeProcessor(
+        new FakeColdQueue(),
+        {},
+        {
+          tables: ['tblA', 'tblB', 'tblC'],
+          redis,
+          compactTable: async (tableId) => {
+            compacted.push(tableId);
+            if (tableId === 'tblC') throw new Error('merge died');
+            return [];
+          },
+        }
+      );
+
+      await processor.process({ name: 'record-history-cold:compact', data: {} } as any);
+
+      expect(compacted).toEqual(['tblB', 'tblC']);
+      expect(redis.members(RECORD_HISTORY_COMPACT_PENDING_KEY)).toEqual(['tblC']);
+    });
+
+    it('walks every cold table until the set is bootstrapped, then marks it', async () => {
+      const redis = new FakePendingRedis();
+      await redis.sadd(RECORD_HISTORY_COMPACT_PENDING_KEY, 'tblB');
+      const compacted: string[] = [];
+      const processor = makeProcessor(
+        new FakeColdQueue(),
+        {},
+        {
+          tables: ['tblA', 'tblB'],
+          redis,
+          compactTable: async (tableId) => {
+            compacted.push(tableId);
+            return [];
+          },
+        }
+      );
+
+      await processor.process({ name: 'record-history-cold:compact', data: {} } as any);
+
+      expect(compacted).toEqual(['tblA', 'tblB']);
+      expect(redis.members(RECORD_HISTORY_COMPACT_PENDING_KEY)).toEqual([]);
+      expect(redis.strings.has(`${RECORD_HISTORY_COMPACT_PENDING_KEY}:bootstrapped`)).toBe(true);
     });
 
     it('chains a catch-up job with a colon-free id when the budget is exhausted', async () => {

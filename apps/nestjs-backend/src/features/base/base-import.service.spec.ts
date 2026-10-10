@@ -186,6 +186,65 @@ describe('BaseImportService', () => {
       );
     });
 
+    it('rejects a hand-edited dbTableName before any structure is created', async () => {
+      const service = Object.create(BaseImportService.prototype) as IProcessStructureService;
+      const structure = {
+        id: 'bseSource',
+        name: 'Source base',
+        tables: [
+          {
+            id: 'tblSource',
+            name: 'Table',
+            dbTableName: 'tbl"; DROP TABLE x; --',
+            fields: [],
+            views: [],
+          },
+        ],
+        plugins: {},
+        folders: [],
+        nodes: [],
+      } as unknown as IBaseJson;
+      service.createBaseStructure = vi.fn();
+
+      await expect(
+        service.processStructure(createZipStream(structure), { spaceId: 'spcImport' })
+      ).rejects.toMatchObject({ code: HttpErrorCode.VALIDATION_ERROR });
+      expect(service.createBaseStructure).not.toHaveBeenCalled();
+    });
+
+    it('rejects a hand-edited dbFieldName before any structure is created', async () => {
+      const service = Object.create(BaseImportService.prototype) as IProcessStructureService;
+      const structure = {
+        id: 'bseSource',
+        name: 'Source base',
+        tables: [
+          {
+            id: 'tblSource',
+            name: 'Table',
+            dbTableName: 'tbl_source',
+            fields: [
+              {
+                id: 'fldSource',
+                name: 'Title',
+                type: FieldType.SingleLineText,
+                dbFieldName: 'title"; DROP TABLE x; --',
+              },
+            ],
+            views: [],
+          },
+        ],
+        plugins: {},
+        folders: [],
+        nodes: [],
+      } as unknown as IBaseJson;
+      service.createBaseStructure = vi.fn();
+
+      await expect(
+        service.processStructure(createZipStream(structure), { spaceId: 'spcImport' })
+      ).rejects.toMatchObject({ code: HttpErrorCode.VALIDATION_ERROR });
+      expect(service.createBaseStructure).not.toHaveBeenCalled();
+    });
+
     it('creates imported base schemas through the space routed data client', async () => {
       const createdBase = {
         id: 'bseImported',
@@ -348,6 +407,57 @@ describe('BaseImportService', () => {
       expect(commandBus.execute).toHaveBeenCalledTimes(1);
       expect(service.importTableDataV2).toHaveBeenCalledTimes(1);
       expect(service.importTableLinkFieldsV2).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects a hand-edited dbFieldName before touching the data database', async () => {
+      const structure = {
+        id: 'bseSource',
+        name: 'Source base',
+        tables: [
+          {
+            id: 'tblSource',
+            name: 'Table',
+            dbTableName: 'tbl_source',
+            fields: [
+              {
+                id: 'fldSource',
+                name: 'Title',
+                type: FieldType.SingleLineText,
+                dbFieldName: 'title"; DROP TABLE x; --',
+              },
+            ],
+            views: [],
+          },
+        ],
+        plugins: {},
+        folders: [],
+        nodes: [],
+      } as unknown as IBaseJson;
+      const getContainerForSpace = vi.fn();
+      const service = Object.create(BaseImportService.prototype) as IImportBaseV2Service;
+
+      service.storageAdapter = {
+        downloadFile: vi.fn().mockReturnValue({}),
+      };
+      service.readDotTeaStructure = vi.fn().mockResolvedValue(structure);
+      service.v2ContainerService = { getContainerForSpace };
+      service.createBaseV2 = vi.fn();
+      service.audit = {
+        withOperation: vi.fn((_resolved, run: () => Promise<unknown>) => run()),
+      };
+      service.cls = {
+        get: vi.fn().mockReturnValue('usrImport'),
+      };
+
+      await expect(
+        service.importBaseV2({
+          spaceId: 'spcImport',
+          notify: { path: 'import.tea' } as ImportBaseRo['notify'],
+        })
+      ).rejects.toMatchObject({ code: HttpErrorCode.VALIDATION_ERROR });
+
+      expect(getContainerForSpace).not.toHaveBeenCalled();
+      expect(service.createBaseV2).not.toHaveBeenCalled();
     });
   });
 
